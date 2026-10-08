@@ -3,6 +3,7 @@ import json
 import random
 import asyncio
 import logging
+from dataclasses import dataclass
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import Dict, Any, Optional, Tuple, List
@@ -328,6 +329,28 @@ def format_telegram_message(
     return f"ℹ️ *AURUM DESK — THÔNG BÁO ({item_type} — PAPER)*\n\n⏱ _{event_time_vn}_"
 
 
+def normalize_hh_mm(val: Optional[str], default: str = "00:00") -> str:
+    """Normalize time string to canonical HH:MM (00:00 - 23:59). Handles legacy 24:00 by normalizing to 00:00."""
+    if not val:
+        return default
+    val = val.strip()
+    if val in ("24:00", "24:0"):
+        logger.warning("Normalizing legacy 24:00 quiet hours time to 00:00")
+        return "00:00"
+    parts = val.split(":")
+    if len(parts) == 2:
+        try:
+            h, m = int(parts[0]), int(parts[1])
+            if h == 24 and m == 0:
+                logger.warning("Normalizing legacy 24:00 quiet hours time to 00:00")
+                return "00:00"
+            if 0 <= h <= 23 and 0 <= m <= 59:
+                return f"{h:02d}:{m:02d}"
+        except ValueError:
+            pass
+    return default
+
+
 def is_within_quiet_hours(config: models.TelegramConfig) -> bool:
     """Check if current time is within configured quiet hours."""
     if not config.quiet_hours_enabled:
@@ -338,8 +361,8 @@ def is_within_quiet_hours(config: models.TelegramConfig) -> bool:
         now_dt = datetime.now(tz)
         current_time_str = now_dt.strftime("%H:%M")
 
-        start = config.quiet_hours_start or "23:00"
-        end = config.quiet_hours_end or "06:00"
+        start = normalize_hh_mm(config.quiet_hours_start, "23:00")
+        end = normalize_hh_mm(config.quiet_hours_end, "06:00")
 
         if start <= end:
             return start <= current_time_str <= end
@@ -350,19 +373,44 @@ def is_within_quiet_hours(config: models.TelegramConfig) -> bool:
         return False
 
 
+@dataclass
+class TelegramSendResult:
+    success: bool
+    provider_message_id: Optional[str] = None
+    error_code: Optional[str] = None
+    error_message: Optional[str] = None
+    retry_after_sec: Optional[int] = None
+    http_status: Optional[int] = None
+
+    # Unpack support: works with 4-tuple unpack (success, provider_message_id, error_message, retry_after_sec)
+    def __iter__(self):
+        return iter((self.success, self.provider_message_id, self.error_message, self.retry_after_sec))
+
+    def __getitem__(self, index):
+        items = (self.success, self.provider_message_id, self.error_message, self.retry_after_sec)
+        return items[index]
+
+    def __len__(self):
+        return 4
+
+
 async def send_telegram_direct(
     bot_token: str,
     chat_id: str,
     text: str,
     timeout: float = 10.0
-) -> Tuple[bool, Optional[str], Optional[str], Optional[int]]:
+) -> TelegramSendResult:
     """
     Send message via Telegram API directly.
-    Returns (success, provider_message_id, error_message, retry_after_sec).
+    Returns typed TelegramSendResult (supports 4-tuple unpack for backwards compatibility).
     Never logs or exposes the raw bot token.
     """
     if not bot_token or not chat_id:
-        return False, None, "Thiếu Bot Token hoặc Chat ID.", None
+        return TelegramSendResult(
+            success=False,
+            error_code="MISSING_CREDENTIALS",
+            error_message="Thiếu Bot Token hoặc Chat ID."
+        )
 
     url = TELEGRAM_API_URL.format(token=bot_token)
     payload = {
@@ -377,14 +425,24 @@ async def send_telegram_direct(
             if resp.status_code == 200:
                 resp_json = resp.json()
                 msg_id = str(resp_json.get("result", {}).get("message_id", ""))
-                return True, msg_id, None, None
+                return TelegramSendResult(
+                    success=True,
+                    provider_message_id=msg_id,
+                    http_status=200
+                )
             elif resp.status_code == 429:
                 retry_header = resp.headers.get("Retry-After", "10")
                 try:
                     retry_sec = int(retry_header)
                 except ValueError:
                     retry_sec = 10
-                return False, None, f"Telegram API 429: Quá giới hạn tần suất gửi tin, retry sau {retry_sec}s", retry_sec
+                return TelegramSendResult(
+                    success=False,
+                    error_code="RATE_LIMIT",
+                    error_message=f"Telegram API 429: Quá giới hạn tần suất gửi tin, retry sau {retry_sec}s",
+                    retry_after_sec=retry_sec,
+                    http_status=429
+                )
             else:
                 try:
                     resp_json = resp.json()
@@ -393,21 +451,57 @@ async def send_telegram_direct(
                     desc = resp.text[:120]
 
                 if resp.status_code == 401:
-                    return False, None, "Telegram API 401 (Unauthorized): Bot Token không hợp lệ.", None
+                    return TelegramSendResult(
+                        success=False,
+                        error_code="UNAUTHORIZED",
+                        error_message="Telegram API 401 (Unauthorized): Bot Token không hợp lệ.",
+                        http_status=401
+                    )
                 elif resp.status_code == 403:
-                    return False, None, f"Telegram API 403 (Forbidden): Bot bị chặn hoặc không có quyền gửi tin nhắn cho Chat ID {chat_id}.", None
+                    return TelegramSendResult(
+                        success=False,
+                        error_code="FORBIDDEN",
+                        error_message=f"Telegram API 403 (Forbidden): Bot bị chặn hoặc không có quyền gửi tin nhắn cho Chat ID {chat_id}.",
+                        http_status=403
+                    )
                 elif resp.status_code == 400 and ("chat not found" in desc.lower() or "chat_id" in desc.lower()):
-                    return False, None, f"Telegram API 400 (Bad Request): Chưa mở chat với bot cho Chat ID {chat_id}.", None
+                    return TelegramSendResult(
+                        success=False,
+                        error_code="CHAT_NOT_FOUND",
+                        error_message=f"Telegram API 400 (Bad Request): Chưa mở chat với bot cho Chat ID {chat_id}.",
+                        http_status=400
+                    )
                 else:
-                    return False, None, f"Telegram API [{resp.status_code}]: {desc}", None
+                    return TelegramSendResult(
+                        success=False,
+                        error_code=f"HTTP_{resp.status_code}",
+                        error_message=f"Telegram API [{resp.status_code}]: {desc}",
+                        http_status=resp.status_code
+                    )
     except httpx.TimeoutException:
-        return False, None, "Lỗi kết nối Timeout: Quá thời gian chờ (10s) khi gọi tới api.telegram.org.", None
+        return TelegramSendResult(
+            success=False,
+            error_code="TIMEOUT",
+            error_message="Lỗi kết nối Timeout: Quá thời gian chờ (10s) khi gọi tới api.telegram.org."
+        )
     except httpx.ConnectError:
-        return False, None, "Lỗi kết nối mạng: Không thể kết nối tới api.telegram.org.", None
+        return TelegramSendResult(
+            success=False,
+            error_code="CONNECT_ERROR",
+            error_message="Lỗi kết nối mạng: Không thể kết nối tới api.telegram.org."
+        )
     except httpx.RequestError as e:
-        return False, None, f"Lỗi yêu cầu mạng HTTP: {type(e).__name__}", None
+        return TelegramSendResult(
+            success=False,
+            error_code="REQUEST_ERROR",
+            error_message=f"Lỗi yêu cầu mạng HTTP: {type(e).__name__}"
+        )
     except Exception as e:
-        return False, None, f"Lỗi nội bộ khi gửi tin Telegram: {type(e).__name__}", None
+        return TelegramSendResult(
+            success=False,
+            error_code="INTERNAL_ERROR",
+            error_message=f"Lỗi nội bộ khi gửi tin Telegram: {type(e).__name__}"
+        )
 
 
 async def process_notification_outbox():

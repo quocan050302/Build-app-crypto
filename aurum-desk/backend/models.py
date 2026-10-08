@@ -110,6 +110,17 @@ class EconomicNews(Base):
     revised = Column(String(50), nullable=True)
     raw_json = Column(Text, nullable=True)
 
+    # V5.1 URL & Research Enrichment Fields
+    source_url = Column(String(500), nullable=True)
+    event_type_id = Column(String(100), nullable=True, index=True)
+    source_timezone = Column(String(50), default="America/New_York")
+    source_time_raw = Column(String(100), nullable=True)
+    schedule_kind = Column(String(20), default="EXACT")  # EXACT, ALL_DAY, TENTATIVE, TBA
+    gold_relevance = Column(String(20), default="LOW")  # HIGH, MEDIUM, LOW
+    research_status = Column(String(30), default="NOT_FETCHED")  # NOT_FETCHED, QUEUED, FETCHING, SUCCEEDED, PARTIAL, BLOCKED, FAILED
+    research_assessment = Column(Text, nullable=True)  # JSON formatted research assessment
+    research_fetched_at = Column(BigInteger, nullable=True)
+
 
 class NewsReaction(Base):
     __tablename__ = "news_reactions"

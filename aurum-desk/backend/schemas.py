@@ -259,6 +259,72 @@ class EconomicNewsItem(BaseModel):
     previous: Optional[str] = None
     actual: Optional[str] = None
     revised: Optional[str] = None
+    source_url: Optional[str] = None
+    event_type_id: Optional[str] = None
+    source_timezone: Optional[str] = "America/New_York"
+    source_time_raw: Optional[str] = None
+    schedule_kind: Optional[str] = "EXACT"
+    gold_relevance: Optional[str] = "LOW"
+    research_status: Optional[str] = "NOT_FETCHED"
+    research_assessment: Optional[str] = None
+    research_fetched_at: Optional[int] = None
+
+class NewsImportRowPreview(BaseModel):
+    row_index: int
+    title: str
+    country: str
+    impact: str
+    source_time_str: str
+    scheduled_at_utc_ms: int
+    time_vn_str: str
+    forecast: Optional[str] = None
+    previous: Optional[str] = None
+    actual: Optional[str] = None
+    url: Optional[str] = None
+    gold_relevance: str = "LOW"
+    is_valid: bool = True
+    error_message: Optional[str] = None
+
+class NewsImportPreviewRequest(BaseModel):
+    csv_content: str
+    source_timezone: str = "America/New_York"
+
+class NewsImportPreviewResponse(BaseModel):
+    total_rows: int
+    valid_count: int
+    invalid_count: int
+    source_timezone: str
+    preview_rows: List[NewsImportRowPreview]
+    errors: List[str] = []
+
+class NewsImportCommitRequest(BaseModel):
+    csv_content: str
+    source_timezone: str = "America/New_York"
+
+class NewsImportCommitResponse(BaseModel):
+    status: str
+    imported_count: int
+    skipped_duplicates_count: int
+    error_count: int
+    message: str
+
+class NewsResearchResponse(BaseModel):
+    news_id: int
+    title: str
+    country: str
+    impact: str
+    scheduled_at: int
+    source_url: Optional[str] = None
+    gold_relevance: str
+    research_status: str
+    meaning_vn: str
+    transmission_channels: Dict[str, str] = {}
+    pre_release_scenarios: List[str] = []
+    post_release_assessment: Optional[str] = None
+    citations: List[str] = []
+    historical_releases: List[Dict[str, Any]] = []
+    limitations: str
+    fetched_at: Optional[int] = None
 
 class NewsBlackoutStatus(BaseModel):
     is_blackout: bool

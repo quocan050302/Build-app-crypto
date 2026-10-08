@@ -86,8 +86,25 @@ class StrategyService:
 
             direction = sig.get("direction", "LONG" if analysis.get("trend") == "BULLISH" else "SHORT") if sig else ("LONG" if analysis.get("trend") == "BULLISH" else "SHORT")
             provisional_entry = sig.get("planned_entry", current_p) if sig else current_p
-            provisional_sl = sig.get("stop_loss", round(current_p - 2 * atr, 2)) if sig else round(current_p - 2 * atr, 2)
-            provisional_tp = sig.get("targets", [{}])[0].get("price", round(current_p + 4 * atr, 2)) if sig and sig.get("targets") else round(current_p + 4 * atr, 2)
+
+            # Direction-aware provisional fallback levels (V5.1 Geometry Fix)
+            if direction == "LONG":
+                fallback_sl = round(current_p - 2 * atr, 2)
+                fallback_tp = round(current_p + 4 * atr, 2)
+            else:
+                fallback_sl = round(current_p + 2 * atr, 2)
+                fallback_tp = round(current_p - 4 * atr, 2)
+
+            provisional_sl = sig.get("stop_loss", fallback_sl) if sig else fallback_sl
+            provisional_tp = sig.get("targets", [{}])[0].get("price", fallback_tp) if sig and sig.get("targets") else fallback_tp
+
+            # Validate price geometry strictly (LONG: sl < entry < tp, SHORT: tp < entry < sl)
+            from domain_calculator import validate_price_geometry
+            is_geom_valid, geom_err = validate_price_geometry(direction, provisional_entry, provisional_sl, provisional_tp)
+            if not is_geom_valid:
+                # If geometry fails, do not allow setup to be READY
+                if setup_stage == "READY":
+                    setup_stage = "INVALID_GEOMETRY"
 
             invalidation_price = provisional_sl
             inval_reason = "Giá phá vỡ mức Stop Loss hoặc vi phạm cấu trúc đối diện"
@@ -232,7 +249,18 @@ class StrategyService:
         if armed_order:
             return
 
-        # 2. Check Day Audit limits
+        # 2. Check price geometry strictly
+        from domain_calculator import validate_price_geometry
+        is_geom_valid, _ = validate_price_geometry(
+            watch_setup.direction,
+            watch_setup.provisional_entry,
+            watch_setup.provisional_sl,
+            watch_setup.provisional_tp
+        )
+        if not is_geom_valid:
+            return
+
+        # 3. Check Day Audit limits
         audit = crud.get_or_create_today_audit(db)
         if audit.is_blocked or audit.fills_count >= 3 or audit.consecutive_losses >= 2:
             return

@@ -82,6 +82,19 @@ class ExecutionCoordinator:
                 db.commit()
                 continue
 
+            # V5.1 Authoritative Geometry Guard on armed order
+            from domain_calculator import validate_price_geometry
+            is_geom_valid, geom_err = validate_price_geometry(order.direction, order.planned_entry, order.stop_loss, order.take_profit)
+            if not is_geom_valid:
+                TradeLifecycleService.execute_reject(
+                    db=db,
+                    order=order,
+                    reason=f"INVALID_PRICE_GEOMETRY: {geom_err}",
+                    now_ms=current_time,
+                    clock=c
+                )
+                continue
+
             # Evaluate entry trigger
             triggered = False
             fill_price = 0.0

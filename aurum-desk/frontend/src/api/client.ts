@@ -159,6 +159,64 @@ export interface StressTestResponse {
   created_at: number;
 }
 
+export interface NewsImportRowPreview {
+  row_index: number;
+  title: string;
+  country: string;
+  impact: string;
+  source_time_str: string;
+  scheduled_at_utc_ms: number;
+  time_vn_str: string;
+  forecast?: string;
+  previous?: string;
+  url?: string;
+  gold_relevance: string;
+  is_valid: boolean;
+  error_message?: string;
+}
+
+export interface NewsImportPreviewResponse {
+  total_rows: number;
+  valid_count: number;
+  invalid_count: number;
+  source_timezone: string;
+  preview_rows: NewsImportRowPreview[];
+  errors: string[];
+}
+
+export interface NewsImportCommitResponse {
+  status: string;
+  imported_count: number;
+  skipped_duplicates_count: number;
+  error_count: number;
+  message: string;
+}
+
+export interface NewsResearchResponse {
+  news_id: number;
+  title: string;
+  country: string;
+  impact: string;
+  scheduled_at: number;
+  source_url?: string;
+  gold_relevance: string;
+  research_status: string;
+  meaning_vn: string;
+  transmission_channels: Record<string, string>;
+  pre_release_scenarios: string[];
+  post_release_assessment?: string;
+  citations: string[];
+  historical_releases: Array<{
+    date: string;
+    time: string;
+    actual: string;
+    forecast: string;
+    previous: string;
+  }>;
+  limitations: string;
+  fetched_at?: number;
+}
+
 // Request generation tracker to prevent stale responses
 let currentRequestGeneration = 0;
 export function getNextRequestGeneration(): number {
@@ -378,6 +436,26 @@ export const api = {
 
   retryOutboxItem: async (itemId: number) => {
     const res = await apiClient.post(`/api/v1/telegram/outbox/retry/${itemId}`);
+    return res.data;
+  },
+
+  previewNewsImport: async (csvContent: string, sourceTimezone: string = 'America/New_York'): Promise<NewsImportPreviewResponse> => {
+    const res = await apiClient.post('/api/v1/news/import/preview', { csv_content: csvContent, source_timezone: sourceTimezone });
+    return res.data;
+  },
+
+  commitNewsImport: async (csvContent: string, sourceTimezone: string = 'America/New_York'): Promise<NewsImportCommitResponse> => {
+    const res = await apiClient.post('/api/v1/news/import/commit', { csv_content: csvContent, source_timezone: sourceTimezone });
+    return res.data;
+  },
+
+  getNewsResearch: async (newsId: number): Promise<NewsResearchResponse> => {
+    const res = await apiClient.get(`/api/v1/news/${newsId}/research`);
+    return res.data;
+  },
+
+  triggerNewsResearch: async (newsId: number): Promise<NewsResearchResponse> => {
+    const res = await apiClient.post(`/api/v1/news/${newsId}/research`);
     return res.data;
   },
 };

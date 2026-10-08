@@ -491,9 +491,63 @@ def run_migration():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, initial_lessons)
 
+    # ==================== V5.1 SCHEMA ADDITIONS & DATA REMEDIATION ====================
+    # 1. EconomicNews URL & research fields
+    cur.execute("PRAGMA table_info(economic_news);")
+    existing_news_cols = [c[1] for c in cur.fetchall()]
+    new_news_cols = [
+        ("source_url", "VARCHAR(500)"),
+        ("event_type_id", "VARCHAR(100)"),
+        ("source_timezone", "VARCHAR(50) DEFAULT 'America/New_York'"),
+        ("source_time_raw", "VARCHAR(100)"),
+        ("schedule_kind", "VARCHAR(20) DEFAULT 'EXACT'"),
+        ("gold_relevance", "VARCHAR(20) DEFAULT 'LOW'"),
+        ("research_status", "VARCHAR(30) DEFAULT 'NOT_FETCHED'"),
+        ("research_assessment", "TEXT"),
+        ("research_fetched_at", "BIGINT"),
+    ]
+    for col_name, col_type in new_news_cols:
+        if col_name not in existing_news_cols:
+            print(f"[*] Adding column {col_name} to economic_news...")
+            cur.execute(f"ALTER TABLE economic_news ADD COLUMN {col_name} {col_type};")
+
+    # 2. Normalize legacy 24:00 in telegram_configs
+    cur.execute("SELECT id, quiet_hours_start, quiet_hours_end FROM telegram_configs;")
+    for row in cur.fetchall():
+        cfg_id, q_start, q_end = row
+        changed = False
+        new_start = q_start
+        new_end = q_end
+        if q_start in ("24:00", "24:0"):
+            new_start = "00:00"
+            changed = True
+        if q_end in ("24:00", "24:0"):
+            new_end = "00:00"
+            changed = True
+        if changed:
+            print(f"[*] Normalizing legacy 24:00 in telegram_config id={cfg_id} to 00:00...")
+            cur.execute("UPDATE telegram_configs SET quiet_hours_start = ?, quiet_hours_end = ? WHERE id = ?", (new_start, new_end, cfg_id))
+
+    # 3. Remediate legacy armed orders with invalid geometry
+    cur.execute("SELECT id, direction, planned_entry, stop_loss, take_profit FROM paper_orders WHERE state = 'armed';")
+    for row in cur.fetchall():
+        ord_id, direction, entry, sl, tp = row
+        is_invalid = False
+        if direction == "LONG" and not (sl < entry < tp):
+            is_invalid = True
+        elif direction == "SHORT" and not (tp < entry < sl):
+            is_invalid = True
+        if is_invalid:
+            print(f"[!] Remediating legacy armed order #{ord_id} with invalid {direction} geometry (entry={entry}, sl={sl}, tp={tp}) -> REJECTED")
+            cur.execute("""
+                UPDATE paper_orders
+                SET state = 'rejected', exit_cause = 'INVALID_PRICE_GEOMETRY', closed_at = ?
+                WHERE id = ?;
+            """, (now_ms, ord_id))
+
     conn.commit()
     conn.close()
-    print("[+] V4 migration completed successfully with full historical preservation!")
+    print("[+] V5.1 migration completed successfully with full historical preservation!")
 
 if __name__ == "__main__":
     run_migration()

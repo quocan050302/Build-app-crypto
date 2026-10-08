@@ -28,7 +28,9 @@ import {
   Copy,
   ListOrdered,
   Compass,
-  FlaskConical
+  FlaskConical,
+  Sparkles,
+  X
 } from 'lucide-react';
 
 export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION';
@@ -591,8 +593,8 @@ export function App() {
       quantity: setup.quantity || 0.05,
       initialRiskUsdt: setup.risk_usdt || 2.5,
       riskPct: 0.25,
-      grossRR: setup.gross_rr || 2.0,
-      estimatedNetRR: setup.net_rr || 2.0,
+      grossRR: setup.gross_rr || 0.0,
+      estimatedNetRR: setup.net_rr || 0.0,
       leverage: setup.leverage || leverage,
       marginMode: setup.margin_mode || marginMode,
       estimatedLiquidation: setup.estimated_liquidation,
@@ -612,8 +614,8 @@ export function App() {
       orderType: setup.state === 'READY' ? 'MARKET' : 'LIMIT',
       quantity: setup.quantity || 0.05,
       initialRiskUsdt: setup.risk_usdt || 2.5,
-      grossRR: setup.gross_rr || 2.0,
-      estimatedNetRR: setup.net_rr || 2.0,
+      grossRR: setup.gross_rr || 0.0,
+      estimatedNetRR: setup.net_rr || 0.0,
       leverage: setup.leverage || leverage,
       marginMode: setup.margin_mode || marginMode,
       estimatedLiquidation: setup.estimated_liquidation,
@@ -700,9 +702,13 @@ export function App() {
         bot_token: telegramConfig.bot_token || undefined,
         chat_id: telegramConfig.chat_id,
       });
+      let successMsg = `Thành công: Đã gửi tin nhắn test tới Chat ID ${telegramConfig.chat_id} (Message ID: ${res.message_id || 'OK'}). Hãy kiểm tra ứng dụng Telegram!`;
+      if (!telegramConfig.enabled) {
+        successMsg += ' ℹ️ Lưu ý: Thông báo tự động hiện đang TẮT. Hãy tick chọn "Bật thông báo Telegram" và bấm "Lưu Cấu Hình" để nhận các cảnh báo lệnh realtime.';
+      }
       setTelegramTestStatus({
         loading: false,
-        msg: `Thành công: Đã gửi tin nhắn test tới Chat ID ${telegramConfig.chat_id} (Message ID: ${res.message_id || 'OK'}). Hãy kiểm tra ứng dụng Telegram!`,
+        msg: successMsg,
         ok: true,
       });
     } catch (err: any) {
@@ -710,8 +716,13 @@ export function App() {
       let errMsg = '';
       if (typeof respData === 'string') {
         errMsg = respData;
-      } else if (respData?.detail) {
-        errMsg = typeof respData.detail === 'string' ? respData.detail : JSON.stringify(respData.detail);
+      } else if (typeof respData?.detail === 'object' && respData.detail?.message) {
+        errMsg = respData.detail.message;
+        if (respData.detail.retry_after) {
+          errMsg += ` (Vui lòng thử lại sau ${respData.detail.retry_after} giây)`;
+        }
+      } else if (typeof respData?.detail === 'string') {
+        errMsg = respData.detail;
       } else if (respData?.message) {
         errMsg = respData.message;
       } else if (err.message) {
@@ -764,16 +775,101 @@ export function App() {
     setActiveOverlay(overlay);
   };
 
+  // News CSV Import & Research Modal states
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importCsvText, setImportCsvText] = useState('');
+  const [importFileName, setImportFileName] = useState('');
+  const [importTimezone, setImportTimezone] = useState('America/New_York');
+  const [importPreview, setImportPreview] = useState<any>(null);
+  const [isImportLoading, setIsImportLoading] = useState(false);
+  const [researchModalOpen, setResearchModalOpen] = useState(false);
+  const [activeResearch, setActiveResearch] = useState<any>(null);
+  const [researchLoadingId, setResearchLoadingId] = useState<number | null>(null);
+
+  const handleOpenNewsResearch = async (newsId: number) => {
+    setResearchLoadingId(newsId);
+    try {
+      const res = await api.getNewsResearch(newsId);
+      setActiveResearch(res);
+      setResearchModalOpen(true);
+    } catch (err: any) {
+      alert(`Lỗi khi tải nghiên cứu tin: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setResearchLoadingId(null);
+    }
+  };
+
+  const handleRefreshNewsResearch = async (newsId: number) => {
+    setResearchLoadingId(newsId);
+    try {
+      const res = await api.triggerNewsResearch(newsId);
+      setActiveResearch(res);
+      showToast('Đã Cập Nhật Nghiên Cứu', 'Đã tải và cập nhật số liệu mới từ nguồn URL', 'success');
+      api.getNews().then(setNewsData);
+    } catch (err: any) {
+      alert(`Lỗi khi cập nhật nghiên cứu: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setResearchLoadingId(null);
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setImportStatus('Đang nhập dữ liệu...');
+    if (file.name.endsWith('.csv')) {
+      const text = await file.text();
+      setImportCsvText(text);
+      setImportFileName(file.name);
+      setIsImportLoading(true);
+      try {
+        const preview = await api.previewNewsImport(text, importTimezone);
+        setImportPreview(preview);
+        setImportModalOpen(true);
+      } catch (err: any) {
+        alert(`Lỗi khi xem trước file: ${err.response?.data?.detail || err.message}`);
+      } finally {
+        setIsImportLoading(false);
+      }
+    } else {
+      setImportStatus('Đang nhập dữ liệu...');
+      try {
+        const res = await api.importNews(file);
+        setImportStatus(`Đã nhập thành công ${res.imported_count} sự kiện từ ${res.filename}`);
+        api.getNews().then(setNewsData);
+      } catch (err: any) {
+        setImportStatus(`Lỗi nhập file: ${err.response?.data?.detail || err.message}`);
+      }
+    }
+  };
+
+  const handleRecheckPreviewWithTimezone = async (tz: string) => {
+    setImportTimezone(tz);
+    if (!importCsvText) return;
+    setIsImportLoading(true);
     try {
-      const res = await api.importNews(file);
-      setImportStatus(`Đã nhập thành công ${res.imported_count} sự kiện từ ${res.filename}`);
-      api.getNews().then(setNewsData);
+      const preview = await api.previewNewsImport(importCsvText, tz);
+      setImportPreview(preview);
     } catch (err: any) {
-      setImportStatus(`Lỗi nhập file: ${err.response?.data?.detail || err.message}`);
+      alert(`Lỗi: ${err.message}`);
+    } finally {
+      setIsImportLoading(false);
+    }
+  };
+
+  const handleConfirmCommitImport = async () => {
+    if (!importCsvText) return;
+    setIsImportLoading(true);
+    try {
+      const res = await api.commitNewsImport(importCsvText, importTimezone);
+      showToast('Nhập Lịch Thành Công', res.message, 'success');
+      setImportModalOpen(false);
+      setImportCsvText('');
+      setImportPreview(null);
+      await api.getNews().then(setNewsData);
+    } catch (err: any) {
+      alert(`Lỗi khi lưu lịch vào database: ${err.response?.data?.detail || err.message}`);
+    } finally {
+      setIsImportLoading(false);
     }
   };
 
@@ -1633,16 +1729,23 @@ export function App() {
           {/* TAB: TIN TỨC & BLACKOUT */}
           {activeTab === 'news' && (
             <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-4 overflow-y-auto max-h-[750px]">
-              <div className="flex justify-between items-center border-b border-charcoal-750 pb-3">
+              <div className="flex flex-wrap justify-between items-center border-b border-charcoal-750 pb-3 gap-3">
                 <div>
-                  <h2 className="text-base font-bold text-aurum-400">Lịch Tin Tức Vĩ Mô & Vùng Blackout</h2>
-                  <p className="text-xs text-gray-400">Hỗ trợ nhập lịch Forex Factory (.json) hoặc CSV miễn phí</p>
+                  <h2 className="text-base font-bold text-aurum-400 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-aurum-400" />
+                    Lịch Tin Tức Vĩ Mô & Nghiên Cứu URL
+                  </h2>
+                  <p className="text-xs text-gray-400">
+                    Phân tích kênh tác động tới Vàng (XAUUSDT), đọc nguồn Forex Factory và xác thực múi giờ
+                  </p>
                 </div>
-                <label className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-semibold cursor-pointer transition">
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>Nhập Lịch (JSON / CSV)</span>
-                  <input type="file" accept=".json,.csv" onChange={handleFileUpload} className="hidden" />
-                </label>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-semibold cursor-pointer transition shadow-sm">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Nhập Lịch (CSV / JSON)</span>
+                    <input type="file" accept=".json,.csv" onChange={handleFileUpload} className="hidden" />
+                  </label>
+                </div>
               </div>
 
               {importStatus && (
@@ -1677,42 +1780,351 @@ export function App() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-charcoal-700 text-gray-400">
-                      <th className="py-2">Thời gian (UTC)</th>
+                      <th className="py-2">Thời gian (VN UTC+7)</th>
+                      <th>Giờ Nguồn</th>
                       <th>Sự kiện</th>
                       <th>Quốc gia</th>
                       <th>Tác động</th>
-                      <th>Dự báo</th>
-                      <th>Trước đó</th>
+                      <th>Liên quan Vàng</th>
+                      <th>Dự báo / Kỳ trước</th>
                       <th>Thực tế</th>
+                      <th className="text-right pr-2">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-charcoal-800">
-                    {newsData?.events?.map((ev: any) => (
-                      <tr key={ev.id} className="hover:bg-charcoal-850">
-                        <td className="py-2 text-gray-400">{new Date(ev.scheduled_at).toLocaleTimeString('vi-VN')}</td>
-                        <td className="font-medium text-gray-200">{ev.title}</td>
-                        <td className="text-gray-400">{ev.country}</td>
-                        <td>
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                              ev.impact === 'High'
-                                ? 'bg-rose-900/60 text-rose-300'
-                                : ev.impact === 'Medium'
-                                ? 'bg-amber-900/60 text-amber-300'
-                                : 'bg-gray-800 text-gray-400'
-                            }`}
-                          >
-                            {ev.impact}
-                          </span>
-                        </td>
-                        <td className="text-gray-400">{ev.forecast || '-'}</td>
-                        <td className="text-gray-400">{ev.previous || '-'}</td>
-                        <td className="font-bold text-aurum-400">{ev.actual || '-'}</td>
-                      </tr>
-                    ))}
+                    {newsData?.events?.map((ev: any) => {
+                      const goldRel = ev.gold_relevance || (ev.country === 'USD' && ev.impact === 'High' ? 'HIGH' : 'LOW');
+                      return (
+                        <tr key={ev.id} className="hover:bg-charcoal-850 transition">
+                          <td className="py-2.5 text-gray-300 font-mono">
+                            {new Date(ev.scheduled_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}{' '}
+                            <span className="text-[10px] text-gray-500">{new Date(ev.scheduled_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}</span>
+                          </td>
+                          <td className="text-gray-400 font-mono text-[11px]">
+                            {ev.source_time_raw || '-'}
+                          </td>
+                          <td>
+                            <div className="font-medium text-gray-200 flex items-center gap-1.5">
+                              <span>{ev.title}</span>
+                              {ev.source_url && (
+                                <a
+                                  href={ev.source_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-gray-500 hover:text-aurum-400 transition"
+                                  title="Mở nguồn bài viết"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                            </div>
+                          </td>
+                          <td className="text-gray-400 font-semibold">{ev.country}</td>
+                          <td>
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                ev.impact === 'High'
+                                  ? 'bg-rose-900/60 text-rose-300 border border-rose-800/50'
+                                  : ev.impact === 'Medium'
+                                  ? 'bg-amber-900/60 text-amber-300 border border-amber-800/50'
+                                  : 'bg-gray-800 text-gray-400'
+                              }`}
+                            >
+                              {ev.impact}
+                            </span>
+                          </td>
+                          <td>
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                goldRel === 'HIGH'
+                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                                  : goldRel === 'MEDIUM'
+                                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                  : 'bg-charcoal-800 text-gray-400'
+                              }`}
+                            >
+                              {goldRel === 'HIGH' ? '⚡ RẤT CAO' : goldRel === 'MEDIUM' ? 'TRUNG BÌNH' : 'THẤP'}
+                            </span>
+                          </td>
+                          <td className="text-gray-400 font-mono">
+                            {ev.forecast || '-'} / <span className="text-gray-500">{ev.previous || '-'}</span>
+                          </td>
+                          <td className="font-bold text-aurum-400 font-mono">{ev.actual || '-'}</td>
+                          <td className="text-right pr-2">
+                            <button
+                              onClick={() => handleOpenNewsResearch(ev.id)}
+                              disabled={researchLoadingId === ev.id}
+                              className="px-2.5 py-1 bg-charcoal-750 hover:bg-charcoal-700 text-aurum-400 hover:text-aurum-300 rounded font-semibold text-[11px] inline-flex items-center gap-1 border border-charcoal-650 transition disabled:opacity-50"
+                            >
+                              <Sparkles className="w-3 h-3" />
+                              <span>{researchLoadingId === ev.id ? 'Đang đọc...' : 'Nghiên Cứu'}</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
+
+              {/* MODAL: PREVIEW IMPORT CSV WITH TIMEZONE SELECTOR */}
+              {importModalOpen && importPreview && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                  <div className="bg-charcoal-900 border border-charcoal-700 rounded-xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl">
+                    <div className="p-4 border-b border-charcoal-750 flex justify-between items-center">
+                      <div>
+                        <h3 className="font-bold text-sm text-aurum-400">Xem Trước Lịch Forex Factory ({importFileName})</h3>
+                        <p className="text-xs text-gray-400">Xác thực múi giờ và chuyển đổi chính xác sang giờ Việt Nam (UTC+7)</p>
+                      </div>
+                      <button onClick={() => setImportModalOpen(false)} className="text-gray-400 hover:text-white">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="p-4 flex-1 overflow-y-auto space-y-4 text-xs">
+                      {/* Timezone Selector */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 bg-charcoal-850 p-3 rounded border border-charcoal-750">
+                        <div>
+                          <span className="font-semibold text-gray-300 block">Múi Giờ Của File Nguồn:</span>
+                          <span className="text-[11px] text-gray-500">Forex Factory xuất mặc định theo giờ New York (EDT/EST)</span>
+                        </div>
+                        <select
+                          value={importTimezone}
+                          onChange={(e) => handleRecheckPreviewWithTimezone(e.target.value)}
+                          className="bg-charcoal-900 border border-charcoal-700 text-gray-200 px-3 py-1.5 rounded text-xs focus:outline-none focus:border-aurum-500"
+                        >
+                          <option value="America/New_York">America/New_York (Forex Factory Tiêu Chuẩn)</option>
+                          <option value="Asia/Ho_Chi_Minh">Asia/Ho_Chi_Minh (UTC+7 Việt Nam)</option>
+                          <option value="UTC">UTC (Giờ Quốc Tế Phối Hợp)</option>
+                          <option value="Europe/London">Europe/London (GMT/BST)</option>
+                        </select>
+                      </div>
+
+                      {/* Stats */}
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="p-2.5 rounded bg-charcoal-850 border border-charcoal-750 text-center">
+                          <span className="text-gray-400 text-[11px] block">Tổng số dòng</span>
+                          <span className="font-bold text-sm text-gray-200">{importPreview.total_rows}</span>
+                        </div>
+                        <div className="p-2.5 rounded bg-emerald-950/40 border border-emerald-800/60 text-center">
+                          <span className="text-emerald-300 text-[11px] block">Hợp lệ chuyển đổi</span>
+                          <span className="font-bold text-sm text-emerald-400">{importPreview.valid_count}</span>
+                        </div>
+                        <div className="p-2.5 rounded bg-rose-950/40 border border-rose-800/60 text-center">
+                          <span className="text-rose-300 text-[11px] block">Lỗi / Thiếu giờ</span>
+                          <span className="font-bold text-sm text-rose-400">{importPreview.invalid_count}</span>
+                        </div>
+                      </div>
+
+                      {/* Error rows if any */}
+                      {importPreview.errors?.length > 0 && (
+                        <div className="p-3 bg-rose-950/60 border border-rose-800 rounded">
+                          <span className="font-bold text-rose-300 block mb-1">Các dòng bị lỗi định dạng (sẽ được bỏ qua):</span>
+                          <div className="max-h-24 overflow-y-auto space-y-0.5 text-[11px] text-rose-400">
+                            {importPreview.errors.map((e: string, i: number) => (
+                              <p key={i}>• {e}</p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Sample Rows Table */}
+                      <div className="overflow-x-auto border border-charcoal-750 rounded">
+                        <table className="w-full text-left">
+                          <thead className="bg-charcoal-850 text-gray-400 text-[11px]">
+                            <tr>
+                              <th className="p-2">#</th>
+                              <th>Sự kiện</th>
+                              <th>Giờ Gốc ({importTimezone})</th>
+                              <th>Giờ Quy Đổi (VN UTC+7)</th>
+                              <th>Tác động</th>
+                              <th>Vàng</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-charcoal-800 text-[11px]">
+                            {importPreview.preview_rows?.slice(0, 10).map((r: any) => (
+                              <tr key={r.row_index} className={r.is_valid ? 'hover:bg-charcoal-850' : 'bg-rose-950/20'}>
+                                <td className="p-2 text-gray-500">{r.row_index}</td>
+                                <td className="font-medium text-gray-200">{r.title}</td>
+                                <td className="text-gray-400 font-mono">{r.source_time_str}</td>
+                                <td className="text-aurum-400 font-mono font-semibold">{r.time_vn_str}</td>
+                                <td>{r.impact}</td>
+                                <td>{r.gold_relevance}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-[10px] text-gray-500 italic text-center">Hiển thị mẫu 10 dòng đầu tiên trong tổng số {importPreview.total_rows} dòng.</p>
+                    </div>
+
+                    <div className="p-4 border-t border-charcoal-750 flex justify-end gap-2 bg-charcoal-850/50">
+                      <button
+                        onClick={() => setImportModalOpen(false)}
+                        className="px-3 py-1.5 rounded border border-charcoal-700 text-gray-300 hover:bg-charcoal-800 text-xs"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        onClick={handleConfirmCommitImport}
+                        disabled={isImportLoading || importPreview.valid_count === 0}
+                        className="px-4 py-1.5 rounded bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold text-xs transition disabled:opacity-50"
+                      >
+                        {isImportLoading ? 'Đang lưu vào DB...' : `Xác Nhận Nhập ${importPreview.valid_count} Sự Kiện`}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* MODAL: RESEARCH ASSESSMENT FOR XAUUSDT */}
+              {researchModalOpen && activeResearch && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                  <div className="bg-charcoal-900 border border-charcoal-700 rounded-xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl">
+                    <div className="p-4 border-b border-charcoal-750 flex justify-between items-center">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-base text-gray-100">{activeResearch.title}</span>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              activeResearch.gold_relevance === 'HIGH'
+                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                                : activeResearch.gold_relevance === 'MEDIUM'
+                                ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                : 'bg-charcoal-800 text-gray-400'
+                            }`}
+                          >
+                            Tác Động Vàng: {activeResearch.gold_relevance === 'HIGH' ? 'RẤT CAO' : activeResearch.gold_relevance === 'MEDIUM' ? 'TRUNG BÌNH' : 'THẤP'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400">
+                          {activeResearch.country} · Tác động: {activeResearch.impact} · Thời gian:{' '}
+                          {new Date(activeResearch.scheduled_at).toLocaleTimeString('vi-VN')} {new Date(activeResearch.scheduled_at).toLocaleDateString('vi-VN')} (UTC+7)
+                        </p>
+                      </div>
+                      <button onClick={() => setResearchModalOpen(false)} className="text-gray-400 hover:text-white">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="p-4 flex-1 overflow-y-auto space-y-4 text-xs leading-relaxed text-gray-300">
+                      {/* Section 1: Meaning in Vietnamese */}
+                      <div className="bg-charcoal-850 p-3 rounded border border-charcoal-750">
+                        <span className="font-bold text-aurum-400 block mb-1 text-xs flex items-center gap-1.5">
+                          <Info className="w-3.5 h-3.5" /> Ý Nghĩa Chỉ Số Kinh Tế
+                        </span>
+                        <p className="text-gray-300 text-[11px]">{activeResearch.meaning_vn}</p>
+                      </div>
+
+                      {/* Section 2: Transmission channels */}
+                      {activeResearch.transmission_channels && Object.keys(activeResearch.transmission_channels).length > 0 && (
+                        <div className="bg-charcoal-850 p-3 rounded border border-charcoal-750">
+                          <span className="font-bold text-aurum-400 block mb-1.5 text-xs flex items-center gap-1.5">
+                            <TrendingUp className="w-3.5 h-3.5" /> Kênh Tác Động Tới Vàng (XAUUSDT)
+                          </span>
+                          <div className="space-y-1.5">
+                            {Object.entries(activeResearch.transmission_channels).map(([channel, desc]: any) => (
+                              <div key={channel} className="text-[11px]">
+                                <span className="font-semibold text-gray-200">{channel}:</span>{' '}
+                                <span className="text-gray-400">{desc}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Section 3: Pre-release Scenarios */}
+                      {activeResearch.pre_release_scenarios?.length > 0 && (
+                        <div className="bg-charcoal-850 p-3 rounded border border-charcoal-750">
+                          <span className="font-bold text-aurum-400 block mb-1.5 text-xs flex items-center gap-1.5">
+                            <Compass className="w-3.5 h-3.5" /> Kịch Bản Dự Báo Trước Tin
+                          </span>
+                          <div className="space-y-1 text-[11px] text-gray-300">
+                            {activeResearch.pre_release_scenarios.map((sc: string, idx: number) => (
+                              <p key={idx}>• {sc}</p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Section 4: Post-Release Surprise */}
+                      {activeResearch.post_release_assessment && (
+                        <div className="bg-emerald-950/40 p-3 rounded border border-emerald-800/60">
+                          <span className="font-bold text-emerald-300 block mb-1 text-xs">
+                            Đánh Giá Sau Công Bố (Surprise Analysis)
+                          </span>
+                          <p className="text-emerald-200 text-[11px]">{activeResearch.post_release_assessment}</p>
+                        </div>
+                      )}
+
+                      {/* Section 5: Historical releases */}
+                      {activeResearch.historical_releases?.length > 0 && (
+                        <div className="bg-charcoal-850 p-3 rounded border border-charcoal-750">
+                          <span className="font-bold text-aurum-400 block mb-1 text-xs flex items-center gap-1.5">
+                            <History className="w-3.5 h-3.5" /> Lịch Sử Công Bố Gần Đây
+                          </span>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-[11px]">
+                              <thead className="text-gray-400 border-b border-charcoal-700">
+                                <tr>
+                                  <th className="py-1">Ngày</th>
+                                  <th>Thực tế</th>
+                                  <th>Dự báo</th>
+                                  <th>Trước đó</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-charcoal-800 font-mono">
+                                {activeResearch.historical_releases.slice(0, 5).map((h: any, i: number) => (
+                                  <tr key={i}>
+                                    <td className="py-1 text-gray-300">{h.date}</td>
+                                    <td className="font-bold text-aurum-400">{h.actual || '-'}</td>
+                                    <td className="text-gray-400">{h.forecast || '-'}</td>
+                                    <td className="text-gray-400">{h.previous || '-'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Limitations Disclaimer */}
+                      <p className="text-[10px] text-gray-500 italic">
+                        {activeResearch.limitations}
+                      </p>
+                    </div>
+
+                    <div className="p-4 border-t border-charcoal-750 flex flex-wrap justify-between items-center gap-2 bg-charcoal-850/50">
+                      <div className="flex gap-2">
+                        {activeResearch.source_url && (
+                          <a
+                            href={activeResearch.source_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 bg-charcoal-750 hover:bg-charcoal-700 text-gray-200 rounded text-xs inline-flex items-center gap-1.5 border border-charcoal-650 transition"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Mở Nguồn Forex Factory</span>
+                          </a>
+                        )}
+                        <button
+                          onClick={() => handleRefreshNewsResearch(activeResearch.news_id)}
+                          className="px-3 py-1.5 bg-charcoal-750 hover:bg-charcoal-700 text-aurum-400 rounded text-xs inline-flex items-center gap-1.5 border border-charcoal-650 transition"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Cập Nhật Lại Số Liệu</span>
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => setResearchModalOpen(false)}
+                        className="px-4 py-1.5 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition"
+                      >
+                        Đóng
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2344,62 +2756,104 @@ export function App() {
                 </div>
               </div>
 
-              {selectedIntent ? (
-                <div className="space-y-2 text-xs">
-                  <div className="p-2.5 rounded bg-charcoal-850 border border-charcoal-700">
-                    <div className="flex justify-between font-bold text-sm mb-1">
-                      <span className={selectedIntent.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}>
-                        {selectedIntent.direction} XAUUSDT
-                      </span>
-                      <span className="text-aurum-400">R:R 1:{selectedIntent.grossRR}</span>
-                    </div>
-                    <div className="text-[11px] text-gray-400 space-y-0.5">
-                      <p>Kế hoạch Entry: ${selectedIntent.plannedEntry}</p>
-                      <p>Stop Loss: ${selectedIntent.stopLoss}</p>
-                      <p>
-                        Take Profit:{' '}
-                        {selectedIntent.takeProfit && selectedIntent.takeProfit !== selectedIntent.stopLoss
-                          ? `$${selectedIntent.takeProfit}`
-                          : 'Chưa có TP (Không đủ điều kiện)'}
-                      </p>
-                      <p>
-                        Khối lượng: {selectedIntent.quantity} oz | Ký quỹ: ${(selectedIntent.initialRiskUsdt * 2).toFixed(2)} USDT ({leverage}x)
-                      </p>
-                      {selectedIntent.status && (
-                        <p className="text-[10px] text-gray-400 font-mono">
-                          Trạng thái: <span className="text-aurum-400">{selectedIntent.status}</span>
-                        </p>
-                      )}
-                    </div>
-                  </div>
+              {selectedIntent ? (() => {
+                const tp = selectedIntent.takeProfit;
+                const isGeometryValid = tp != null && (selectedIntent.direction === 'LONG'
+                  ? selectedIntent.stopLoss < selectedIntent.plannedEntry && selectedIntent.plannedEntry < tp
+                  : tp < selectedIntent.plannedEntry && selectedIntent.plannedEntry < selectedIntent.stopLoss);
 
-                  {selectedIntent.source === 'WATCH_SETUP' ? (
-                    <button
-                      onClick={() =>
-                        handleArmWatchSetup(
-                          selectedIntent.setup_id!,
-                          selectedIntent.direction,
-                          selectedIntent.setup_instance_id,
-                          selectedIntent.revision
-                        )
-                      }
-                      className="w-full py-2 bg-gradient-to-r from-aurum-500 to-aurum-600 hover:from-aurum-400 hover:to-aurum-500 text-charcoal-950 font-bold rounded text-xs transition shadow-sm"
-                    >
-                      Arm {selectedIntent.direction} — PAPER
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleOpenPaperTrade}
-                      disabled={!selectedIntent.takeProfit || selectedIntent.takeProfit === selectedIntent.stopLoss}
-                      className="w-full py-2 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {!selectedIntent.takeProfit || selectedIntent.takeProfit === selectedIntent.stopLoss
-                        ? 'Thiếu TP (Chưa đủ điều kiện)'
-                        : `Mở ${selectedIntent.direction} ${selectedIntent.orderType} — PAPER`}
-                    </button>
-                  )}
-                </div>
-              ) : (
+                const calculatedMarginUsdt = ((selectedIntent.quantity * selectedIntent.plannedEntry) / (selectedIntent.leverage || leverage)).toFixed(2);
+                const rrLabel = selectedIntent.grossRR && selectedIntent.grossRR > 0 ? `R:R 1:${selectedIntent.grossRR}` : 'Chưa có R:R';
+
+                return (
+                  <div className="space-y-2 text-xs">
+                    <div className="p-2.5 rounded bg-charcoal-850 border border-charcoal-700">
+                      <div className="flex justify-between font-bold text-sm mb-1">
+                        <span className={selectedIntent.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}>
+                          {selectedIntent.direction} XAUUSDT
+                        </span>
+                        <span className="text-aurum-400">{rrLabel}</span>
+                      </div>
+
+                      {!isGeometryValid && (
+                        <div className="mb-2 p-1.5 rounded bg-rose-950/80 border border-rose-800 text-[10px] text-rose-300">
+                          ⚠️ Geometry không hợp lệ: {selectedIntent.direction === 'LONG' ? 'Yêu cầu SL < Entry < TP' : 'Yêu cầu TP < Entry < SL'}.
+                        </div>
+                      )}
+
+                      <div className="text-[11px] text-gray-400 space-y-0.5">
+                        <p>Kế hoạch Entry: ${selectedIntent.plannedEntry}</p>
+                        <p>Stop Loss: ${selectedIntent.stopLoss}</p>
+                        <p>
+                          Take Profit:{' '}
+                          {selectedIntent.takeProfit && selectedIntent.takeProfit !== selectedIntent.stopLoss
+                            ? `$${selectedIntent.takeProfit}`
+                            : 'Chưa có TP (Không đủ điều kiện)'}
+                        </p>
+                        <p>
+                          Khối lượng: {selectedIntent.quantity} oz | Ký quỹ: ${calculatedMarginUsdt} USDT ({selectedIntent.leverage || leverage}x)
+                        </p>
+                        {selectedIntent.status && (
+                          <p className="text-[10px] text-gray-400 font-mono">
+                            Trạng thái: <span className="text-aurum-400">{selectedIntent.status}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {selectedIntent.status === 'ARMED' ? (
+                      <div className="space-y-1.5">
+                        <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded text-center">
+                          <span className="text-amber-400 font-bold text-[11px] block">ĐÃ LÊN NÒNG (ARMED) — CHỜ KÍCH HOẠT</span>
+                          <span className="text-[10px] text-gray-400 block mt-0.5">Lệnh pending đang được theo dõi điều kiện khớp</span>
+                        </div>
+                        <button
+                          onClick={() => handleCancelWatchSetup(selectedIntent.setup_id!)}
+                          className="w-full py-1.5 bg-rose-600/80 hover:bg-rose-600 text-white font-bold rounded text-xs transition"
+                        >
+                          Hủy Lệnh Chờ
+                        </button>
+                      </div>
+                    ) : ['WAITING_MSS', 'WAITING_SWEEP', 'WATCHING'].includes(selectedIntent.status) ? (
+                      <button
+                        disabled
+                        className="w-full py-2 bg-charcoal-750 text-gray-400 font-medium rounded text-xs cursor-not-allowed border border-charcoal-700"
+                      >
+                        Theo Dõi Setup ({selectedIntent.status})
+                      </button>
+                    ) : selectedIntent.source === 'WATCH_SETUP' ? (
+                      <button
+                        onClick={() =>
+                          handleArmWatchSetup(
+                            selectedIntent.setup_id!,
+                            selectedIntent.direction,
+                            selectedIntent.setup_instance_id,
+                            selectedIntent.revision
+                          )
+                        }
+                        disabled={!isGeometryValid || !selectedIntent.takeProfit}
+                        className="w-full py-2 bg-gradient-to-r from-aurum-500 to-aurum-600 hover:from-aurum-400 hover:to-aurum-500 text-charcoal-950 font-bold rounded text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {!isGeometryValid
+                          ? 'Geometry Không Hợp Lệ'
+                          : `Arm ${selectedIntent.direction} — PAPER`}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleOpenPaperTrade}
+                        disabled={!isGeometryValid || !selectedIntent.takeProfit || selectedIntent.takeProfit === selectedIntent.stopLoss}
+                        className="w-full py-2 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {!isGeometryValid
+                          ? 'Geometry Không Hợp Lệ'
+                          : !selectedIntent.takeProfit || selectedIntent.takeProfit === selectedIntent.stopLoss
+                          ? 'Thiếu TP (Chưa đủ điều kiện)'
+                          : `Mở ${selectedIntent.direction} ${selectedIntent.orderType} — PAPER`}
+                      </button>
+                    )}
+                  </div>
+                );
+              })() : (
                 <div className="p-3 text-center text-xs text-gray-400 italic bg-charcoal-850 rounded border border-charcoal-750">
                   {analysis?.missing_conditions?.length > 0 ? (
                     <div className="text-left space-y-1">

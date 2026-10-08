@@ -510,7 +510,59 @@ def manual_arm_setup(
     if watch_setup.state not in ("READY", "WAITING_PRICE", "WAITING_RETRACE"):
         raise HTTPException(
             status_code=400,
-            detail=f"Không thể Arm setup đang ở trạng thái {watch_setup.state}. Chỉ arm khi setup READY hoặc chờ khớp."
+            detail={
+                "code": "INVALID_STATE_FOR_ARM",
+                "message": f"Không thể Arm setup đang ở trạng thái {watch_setup.state}. Chỉ arm khi setup READY hoặc chờ khớp."
+            }
+        )
+
+    # V5.1 Authoritative Geometry Validation (LONG: sl < entry < tp, SHORT: tp < entry < sl)
+    from domain_calculator import validate_price_geometry, calculate_risk_reward
+    is_geom_valid, geom_err = validate_price_geometry(
+        watch_setup.direction,
+        watch_setup.provisional_entry,
+        watch_setup.provisional_sl,
+        watch_setup.provisional_tp
+    )
+    if not is_geom_valid:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "INVALID_PRICE_GEOMETRY",
+                "message": f"Geometry giá không hợp lệ: {geom_err}",
+                "direction": watch_setup.direction,
+                "entry": watch_setup.provisional_entry,
+                "sl": watch_setup.provisional_sl,
+                "tp": watch_setup.provisional_tp
+            }
+        )
+
+    # Authoritative calculation of risk, margin, and net R:R
+    calc_res = calculate_risk_reward(
+        direction=watch_setup.direction,
+        planned_entry=watch_setup.provisional_entry,
+        stop_loss=watch_setup.provisional_sl,
+        take_profit=watch_setup.provisional_tp,
+        capital_usdt=1000.0,
+        risk_pct=0.25,
+        leverage=watch_setup.leverage or 5,
+        margin_mode=watch_setup.margin_mode or "ISOLATED"
+    )
+    if not calc_res.is_valid:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "CALCULATOR_INVALID",
+                "message": f"Kế hoạch giao dịch không hợp lệ: {calc_res.invalid_reason}"
+            }
+        )
+    if not calc_res.meets_min_rr:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "INSUFFICIENT_RR",
+                "message": f"Tỷ lệ Net R:R ({calc_res.net_rr:.2f}) không đạt ngưỡng tối thiểu 2.0"
+            }
         )
 
     # Guard: check if an armed order or active position already exists
@@ -525,12 +577,14 @@ def manual_arm_setup(
     now_ms = int(time.time() * 1000)
     order_id = f"order-{uuid.uuid4().hex[:8]}"
 
-    # Distinguish order type properly (Requirement 4.4)
-    order_type = "MARKET"
-    if req_body and req_body.order_type:
-        order_type = req_body.order_type.upper()
-    elif watch_setup.state in ("WAITING_PRICE", "WAITING_RETRACE"):
+    # Distinguish order type properly (Requirement 4.4 & 5.3)
+    # WAITING_PRICE / WAITING_RETRACE requires LIMIT; client cannot force MARKET to bypass waiting price
+    if watch_setup.state in ("WAITING_PRICE", "WAITING_RETRACE"):
         order_type = "LIMIT"
+    elif req_body and req_body.order_type:
+        order_type = req_body.order_type.upper()
+    else:
+        order_type = "MARKET"
 
     new_order = models.PaperOrder(
         id=order_id,
@@ -546,14 +600,14 @@ def manual_arm_setup(
         planned_entry=watch_setup.provisional_entry,
         stop_loss=watch_setup.provisional_sl,
         take_profit=watch_setup.provisional_tp,
-        quantity=watch_setup.quantity,
-        initial_risk_usdt=watch_setup.risk_usdt,
+        quantity=calc_res.quantity if calc_res.quantity > 0 else (watch_setup.quantity or 0.05),
+        initial_risk_usdt=calc_res.net_risk_usdt if calc_res.net_risk_usdt > 0 else (watch_setup.risk_usdt or 2.5),
         risk_pct=0.25,
-        gross_rr=watch_setup.gross_rr,
-        estimated_net_rr=watch_setup.net_rr,
-        leverage=watch_setup.leverage,
-        margin_mode=watch_setup.margin_mode,
-        estimated_liquidation=watch_setup.estimated_liquidation,
+        gross_rr=calc_res.gross_rr,
+        estimated_net_rr=calc_res.net_rr,
+        leverage=calc_res.leverage,
+        margin_mode=calc_res.margin_mode,
+        estimated_liquidation=calc_res.estimated_liquidation,
         created_at=now_ms,
         armed_at=now_ms,
         expires_at=now_ms + (2 * 3600 * 1000)
@@ -963,37 +1017,59 @@ async def test_telegram_connection(req: schemas.TelegramTestRequest, db: Session
         now_vn = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).strftime("%H:%M:%S %d/%m/%Y")
         test_msg = (
             "🤖 *AURUM DESK — TEST KẾT NỐI TELEGRAM THÀNH CÔNG*\n\n"
-            "• Hệ thống cảnh báo tự động XAUUSDT đã kết nối thành công với bot của bạn.\n"
-            "• Bạn sẽ nhận được thông báo khi có setup READY, lệnh ARMED, hoặc lệnh FILLED.\n"
+            "• Kết nối mạng tới Bot Telegram của bạn hoạt động bình thường.\n"
+            "• Lưu ý: Hãy đảm bảo bạn đã BẬT thông báo tự động và LƯU cấu hình để nhận các cảnh báo lệnh realtime.\n"
             f"⏱ _{now_vn} (UTC+7)_"
         )
 
-        success, msg_id, err = await send_telegram_direct(bot_token, chat_id, test_msg)
-        if not success:
-            raise HTTPException(status_code=400, detail=err or "Không thể gửi tin nhắn qua Telegram")
+        res = await send_telegram_direct(bot_token, chat_id, test_msg)
+        if not res.success:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": res.error_code or "SEND_FAILED",
+                    "message": res.error_message or "Không thể gửi tin nhắn qua Telegram",
+                    "retry_after": res.retry_after_sec
+                }
+            )
 
         return {
             "status": "success",
-            "message": "Gửi tin nhắn thử nghiệm thành công! Vui lòng kiểm tra Telegram trên điện thoại của bạn.",
-            "message_id": msg_id
+            "message": "Gửi tin nhắn thử nghiệm thành công! Vui lòng kiểm tra Telegram của bạn.",
+            "message_id": res.provider_message_id,
+            "auto_alerts_enabled": bool(cfg and cfg.enabled)
         }
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi nội bộ máy chủ khi kiểm tra Telegram: {type(e).__name__}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Lỗi nội bộ khi kiểm tra kết nối Telegram: {type(e).__name__}: {str(e)}"
+        )
 
 
 # ==================== 9. ECONOMIC NEWS, REPORTS, JOURNAL, REPLAY ====================
 
 @app.get("/api/v1/news")
-def get_economic_news(db: Session = Depends(get_db)):
+def get_economic_news(
+    limit: int = 50,
+    impact: Optional[str] = None,
+    gold_relevance: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     now_ms = int(time.time() * 1000)
     is_blackout, reason, remaining_min = crud.check_news_blackout(db, now_ms)
+
+    query = db.query(models.EconomicNews)
+    if impact:
+        query = query.filter(models.EconomicNews.impact.ilike(f"%{impact}%"))
+    if gold_relevance:
+        query = query.filter(models.EconomicNews.gold_relevance.ilike(f"%{gold_relevance}%"))
+
     events = (
-        db.query(models.EconomicNews)
-        .filter(models.EconomicNews.scheduled_at >= now_ms - (3 * 3600 * 1000))
+        query
         .order_by(models.EconomicNews.scheduled_at.asc())
-        .limit(20)
+        .limit(limit)
         .all()
     )
     return {
@@ -1006,19 +1082,66 @@ def get_economic_news(db: Session = Depends(get_db)):
     }
 
 
+@app.post("/api/v1/news/import/preview", response_model=schemas.NewsImportPreviewResponse)
+def preview_news_import(req: schemas.NewsImportPreviewRequest):
+    """Preview parsed rows from Forex Factory CSV with timezone conversion and validation."""
+    return news_service.parse_csv_calendar_preview(req.csv_content, req.source_timezone)
+
+
+@app.post("/api/v1/news/import/commit", response_model=schemas.NewsImportCommitResponse)
+def commit_news_import(req: schemas.NewsImportCommitRequest, db: Session = Depends(get_db)):
+    """Commit validated CSV calendar rows into the database."""
+    imported, skipped, errors = news_service.commit_parsed_news(db, req.csv_content, req.source_timezone)
+    return schemas.NewsImportCommitResponse(
+        status="success",
+        imported_count=imported,
+        skipped_duplicates_count=skipped,
+        error_count=errors,
+        message=f"Đã nhập thành công {imported} sự kiện ({skipped} sự kiện đã tồn tại/cập nhật, {errors} dòng lỗi)."
+    )
+
+
+@app.post("/api/v1/news/{news_id}/research", response_model=schemas.NewsResearchResponse)
+async def trigger_news_research(news_id: int, db: Session = Depends(get_db)):
+    """Fetch source URL, extract content, and generate XAUUSDT research assessment."""
+    news_item = db.query(models.EconomicNews).filter(models.EconomicNews.id == news_id).first()
+    if not news_item:
+        raise HTTPException(status_code=404, detail="Không tìm thấy sự kiện kinh tế này")
+    from services.news_research_service import news_research_service
+    res = await news_research_service.execute_research_for_news_item(news_item, db)
+    return res
+
+
+@app.get("/api/v1/news/{news_id}/research", response_model=schemas.NewsResearchResponse)
+async def get_news_research(news_id: int, db: Session = Depends(get_db)):
+    """Get research assessment for a specific news item."""
+    news_item = db.query(models.EconomicNews).filter(models.EconomicNews.id == news_id).first()
+    if not news_item:
+        raise HTTPException(status_code=404, detail="Không tìm thấy sự kiện kinh tế này")
+    if news_item.research_assessment:
+        try:
+            data = json.loads(news_item.research_assessment)
+            return schemas.NewsResearchResponse(**data)
+        except Exception:
+            pass
+    from services.news_research_service import news_research_service
+    res = await news_research_service.execute_research_for_news_item(news_item, db)
+    return res
+
+
 @app.post("/api/v1/news/import")
 async def import_news_calendar(file: UploadFile = File(...), db: Session = Depends(get_db)):
     content = await file.read()
     content_str = content.decode("utf-8", errors="replace")
     if file.filename.endswith(".json"):
         parsed_items = news_service.parse_forex_factory_json(content_str)
+        imported_count = crud.bulk_upsert_news(db, parsed_items)
+        return {"status": "success", "filename": file.filename, "imported_count": imported_count}
     elif file.filename.endswith(".csv"):
-        parsed_items = news_service.parse_csv_calendar(content_str)
+        imported, skipped, errors = news_service.commit_parsed_news(db, content_str, "America/New_York")
+        return {"status": "success", "filename": file.filename, "imported_count": imported, "skipped_count": skipped, "error_count": errors}
     else:
         raise HTTPException(status_code=400, detail="Chỉ hỗ trợ file định dạng .json hoặc .csv")
-
-    imported_count = crud.bulk_upsert_news(db, parsed_items)
-    return {"status": "success", "filename": file.filename, "imported_count": imported_count}
 
 
 @app.get("/api/v1/reports")

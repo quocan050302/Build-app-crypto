@@ -173,9 +173,9 @@ def calculate_isolated_liquidation(
 
 def calculate_risk_reward(
     direction: str,
-    entry: float,
-    sl: float,
-    tp: float,
+    entry: Optional[float] = None,
+    sl: Optional[float] = None,
+    tp: Optional[float] = None,
     capital: float = 1000.0,
     risk_pct: float = 0.25,        # Default 0.25% equity (conservative paper default)
     min_net_rr: float = 2.0,       # Strict threshold, no rounding before check
@@ -184,12 +184,22 @@ def calculate_risk_reward(
     entry_has_slippage: bool = False, # Set True if entry is already actual_entry containing slippage
     leverage: int = 5,
     margin_mode: str = "ISOLATED",
-    min_sl_lp_buffer_usdt: float = 1.0 # Minimum buffer between SL and Liquidation price
+    min_sl_lp_buffer_usdt: float = 1.0, # Minimum buffer between SL and Liquidation price
+    planned_entry: Optional[float] = None,
+    stop_loss: Optional[float] = None,
+    take_profit: Optional[float] = None,
+    capital_usdt: Optional[float] = None,
 ) -> CalculationResult:
     """
     Authoritative domain calculation for Risk, Reward, Sizing, Fees, Leverage, Margin and Liquidation.
     Used identically across Preview, Strategy, Broker, and Journal.
     """
+    entry = entry if entry is not None else (planned_entry if planned_entry is not None else 0.0)
+    sl = sl if sl is not None else (stop_loss if stop_loss is not None else 0.0)
+    tp = tp if tp is not None else (take_profit if take_profit is not None else 0.0)
+    if capital_usdt is not None:
+        capital = capital_usdt
+
     if costs is None:
         costs = CostAssumptions()
 
