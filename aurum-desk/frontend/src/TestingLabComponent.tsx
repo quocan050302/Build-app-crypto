@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from './api/client';
+import { api, extractErrorMessage } from './api/client';
 import type {
   ScenarioRunResponse,
   ReplayRunResponse,
@@ -94,7 +94,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
         onNotify('Kịch Bản Hoàn Tất', `${res.name}: ${res.status}`, res.status === 'PASS' ? 'success' : 'warn');
       }
     } catch (err: any) {
-      alert(err.response?.data?.detail || err.message || 'Lỗi khi chạy kịch bản');
+      alert(extractErrorMessage(err, 'Lỗi khi chạy kịch bản'));
     } finally {
       setRunningScenarioId(null);
     }
@@ -118,7 +118,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
         );
       }
     } catch (err: any) {
-      alert(err.response?.data?.detail || err.message || 'Lỗi khi chạy toàn bộ kịch bản');
+      alert(extractErrorMessage(err, 'Lỗi khi chạy toàn bộ kịch bản'));
     } finally {
       setRunningAllScenarios(false);
     }
@@ -144,7 +144,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
         onNotify('Replay Hoàn Tất', `Tổng lệnh: ${res.total_trades} | Net PnL: $${res.total_net_pnl.toFixed(2)}`, res.total_net_pnl >= 0 ? 'success' : 'info');
       }
     } catch (err: any) {
-      alert(err.response?.data?.detail || err.message || 'Lỗi khi chạy historical replay');
+      alert(extractErrorMessage(err, 'Lỗi khi chạy historical replay'));
     } finally {
       setRunningReplay(false);
     }
@@ -166,7 +166,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
         onNotify('Stress Test Hoàn Tất', `Đã đánh giá ${res.stress_matrix.length} ma trận rủi ro chi phí`, 'success');
       }
     } catch (err: any) {
-      alert(err.response?.data?.detail || err.message || 'Lỗi khi chạy stress test');
+      alert(extractErrorMessage(err, 'Lỗi khi chạy stress test'));
     } finally {
       setRunningStress(false);
     }

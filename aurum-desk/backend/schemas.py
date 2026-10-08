@@ -68,6 +68,9 @@ class ArmSetupRequest(BaseModel):
     expected_direction: str  # "LONG" or "SHORT"
     idempotency_key: Optional[str] = None
     order_type: Optional[str] = None  # None/MARKET/LIMIT/STOP
+    planned_entry: Optional[float] = None
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
 
 class PaperOrderCreate(PaperOrderBase):
     checklist_snapshot: Optional[str] = None

@@ -11,6 +11,53 @@ export const apiClient: AxiosInstance = axios.create({
   },
 });
 
+/**
+ * Safely extracts a human-readable error message from an error object (Axios / FastAPI / Error).
+ * Never returns "[object Object]".
+ */
+export function extractErrorMessage(err: any, fallback: string = 'Đã xảy ra lỗi không xác định'): string {
+  if (!err) return fallback;
+
+  if (typeof err === 'string') return err;
+
+  const responseData = err.response?.data;
+  if (responseData) {
+    const detail = responseData.detail;
+    if (typeof detail === 'string') {
+      return detail;
+    }
+    if (Array.isArray(detail)) {
+      // FastAPI ValidationError: [{ loc: [...], msg: "...", type: "..." }]
+      const msgs = detail.map((d: any) => d.msg || (typeof d === 'object' ? JSON.stringify(d) : String(d))).filter(Boolean);
+      if (msgs.length > 0) return msgs.join('; ');
+    }
+    if (detail && typeof detail === 'object') {
+      if (detail.message) return String(detail.message);
+      if (detail.reason) return String(detail.reason);
+      if (detail.error) return String(detail.error);
+      try {
+        return JSON.stringify(detail);
+      } catch {
+        // fallback
+      }
+    }
+
+    if (typeof responseData.message === 'string') {
+      return responseData.message;
+    }
+    if (typeof responseData.error === 'string') {
+      return responseData.error;
+    }
+  }
+
+  if (typeof err.message === 'string' && err.message.trim().length > 0) {
+    return err.message;
+  }
+
+  return fallback;
+}
+
+
 // ==================== V5 TYPE DEFINITIONS ====================
 
 export interface ArmSetupRequest {
@@ -20,6 +67,9 @@ export interface ArmSetupRequest {
   expected_direction: 'LONG' | 'SHORT';
   idempotency_key?: string;
   order_type?: string;
+  planned_entry?: number;
+  stop_loss?: number;
+  take_profit?: number;
 }
 
 export interface ScenarioStepResult {

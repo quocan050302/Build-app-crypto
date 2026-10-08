@@ -561,13 +561,18 @@ def manual_arm_setup(
             }
         )
 
+    # Use client provided levels (e.g. from chart dragging) if available, otherwise provisional
+    entry = req_body.planned_entry if req_body and req_body.planned_entry is not None else watch_setup.provisional_entry
+    sl = req_body.stop_loss if req_body and req_body.stop_loss is not None else watch_setup.provisional_sl
+    tp = req_body.take_profit if req_body and req_body.take_profit is not None else watch_setup.provisional_tp
+
     # V5.1 Authoritative Geometry Validation (LONG: sl < entry < tp, SHORT: tp < entry < sl)
     from domain_calculator import validate_price_geometry, calculate_risk_reward
     is_geom_valid, geom_err = validate_price_geometry(
         watch_setup.direction,
-        watch_setup.provisional_entry,
-        watch_setup.provisional_sl,
-        watch_setup.provisional_tp
+        entry,
+        sl,
+        tp
     )
     if not is_geom_valid:
         raise HTTPException(
@@ -576,20 +581,22 @@ def manual_arm_setup(
                 "code": "INVALID_PRICE_GEOMETRY",
                 "message": f"Geometry giá không hợp lệ: {geom_err}",
                 "direction": watch_setup.direction,
-                "entry": watch_setup.provisional_entry,
-                "sl": watch_setup.provisional_sl,
-                "tp": watch_setup.provisional_tp
+                "entry": entry,
+                "sl": sl,
+                "tp": tp
             }
         )
 
-    # Authoritative calculation of risk, margin, and net R:R
+    acc_state = crud.get_account_status(db)
+    equity = acc_state.get("current_equity", 1000.0) if acc_state else 1000.0
+
     calc_res = calculate_risk_reward(
         direction=watch_setup.direction,
-        planned_entry=watch_setup.provisional_entry,
-        stop_loss=watch_setup.provisional_sl,
-        take_profit=watch_setup.provisional_tp,
-        capital_usdt=1000.0,
-        risk_pct=0.25,
+        planned_entry=entry,
+        stop_loss=sl,
+        take_profit=tp,
+        capital_usdt=equity,
+        risk_pct=watch_setup.risk_pct or 0.25,
         leverage=watch_setup.leverage or 5,
         margin_mode=watch_setup.margin_mode or "ISOLATED"
     )
@@ -606,7 +613,15 @@ def manual_arm_setup(
             status_code=400,
             detail={
                 "code": "INSUFFICIENT_RR",
-                "message": f"Tỷ lệ Net R:R ({calc_res.net_rr:.2f}) không đạt ngưỡng tối thiểu 2.0"
+                "message": f"Tỷ lệ Net R:R ({calc_res.net_rr:.2f}) không đạt ngưỡng tối thiểu 2.0. Hãy kéo giãn Take Profit trên biểu đồ để đạt Net R:R >= 2.0."
+            }
+        )
+    if not calc_res.can_execute:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "CANNOT_EXECUTE",
+                "message": calc_res.skip_reason or "Lệnh không đủ điều kiện thực thi an toàn."
             }
         )
 
@@ -642,9 +657,9 @@ def manual_arm_setup(
         state="armed",
         order_type=order_type,
         timeframe=watch_setup.timeframe,
-        planned_entry=watch_setup.provisional_entry,
-        stop_loss=watch_setup.provisional_sl,
-        take_profit=watch_setup.provisional_tp,
+        planned_entry=entry,
+        stop_loss=sl,
+        take_profit=tp,
         quantity=calc_res.quantity if calc_res.quantity > 0 else (watch_setup.quantity or 0.05),
         initial_risk_usdt=calc_res.net_risk_usdt if calc_res.net_risk_usdt > 0 else (watch_setup.risk_usdt or 2.5),
         risk_pct=0.25,
@@ -658,7 +673,15 @@ def manual_arm_setup(
         expires_at=now_ms + (2 * 3600 * 1000)
     )
     db.add(new_order)
+    watch_setup.confirmed_entry = entry
+    watch_setup.confirmed_sl = sl
+    watch_setup.confirmed_tp = tp
+    watch_setup.net_rr = calc_res.net_rr
+    watch_setup.gross_rr = calc_res.gross_rr
+    watch_setup.quantity = calc_res.quantity
+    watch_setup.risk_usdt = calc_res.net_risk_usdt
     watch_setup.state = "ARMED"
+    watch_setup.updated_at = now_ms
 
     event_bus.publish_event(
         event_type="order.armed",
@@ -668,10 +691,10 @@ def manual_arm_setup(
             "setup_id": watch_setup.id,
             "direction": watch_setup.direction,
             "order_type": order_type,
-            "planned_entry": watch_setup.provisional_entry,
-            "stop_loss": watch_setup.provisional_sl,
-            "take_profit": watch_setup.provisional_tp,
-            "net_rr": watch_setup.net_rr,
+            "planned_entry": entry,
+            "stop_loss": sl,
+            "take_profit": tp,
+            "net_rr": calc_res.net_rr,
             "distance_usdt": watch_setup.distance_to_entry_usdt
         },
         db=db,

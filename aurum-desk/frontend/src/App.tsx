@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChartComponent } from './ChartComponent';
-import { api } from './api/client';
+import { api, extractErrorMessage } from './api/client';
+import { calculateClientRiskReward } from './utils/calculator';
 import type { RiskRewardData } from './plugins/RiskRewardPrimitive';
 import { TestingLabComponent } from './TestingLabComponent';
 import {
@@ -597,11 +598,10 @@ export function App() {
       setActiveTab('chart');
     } catch (err: any) {
       if (err.response?.status === 409) {
-        const detail = err.response?.data?.detail;
-        const msg = typeof detail === 'object' ? detail.message : detail;
+        const msg = extractErrorMessage(err, 'Lệnh bị từ chối do xung đột trạng thái');
         alert(`Lệnh bị từ chối do xung đột (409): ${msg}`);
       } else {
-        alert(err.response?.data?.detail || err.message || 'Không thể mở lệnh paper trade');
+        alert(extractErrorMessage(err, 'Không thể mở lệnh paper trade'));
       }
     }
   };
@@ -614,18 +614,22 @@ export function App() {
       setActiveOverlay(null);
       showToast('Đã Đóng Vị Thế', `Vị thế ${orderId} đã được đóng tại giá thị trường`, 'info');
     } catch (err: any) {
-      alert(err.response?.data?.detail || err.message || 'Lỗi khi đóng vị thế');
+      alert(extractErrorMessage(err, 'Lỗi khi đóng vị thế'));
     }
   };
 
   const handleArmWatchSetup = async (setupId: string, direction?: string, instanceId?: string, revision?: number) => {
     const targetDirection = (direction || selectedIntent?.direction || 'LONG') as 'LONG' | 'SHORT';
     try {
+      const isMatchingSetup = selectedIntent && (selectedIntent.setup_id === setupId || selectedIntent.source === 'WATCH_SETUP');
       const res = await api.armSetup(setupId, {
         setup_id: setupId,
         setup_instance_id: instanceId || selectedIntent?.setup_instance_id,
         expected_revision: revision || selectedIntent?.revision,
         expected_direction: targetDirection,
+        planned_entry: isMatchingSetup ? selectedIntent?.plannedEntry : undefined,
+        stop_loss: isMatchingSetup ? selectedIntent?.stopLoss : undefined,
+        take_profit: isMatchingSetup ? selectedIntent?.takeProfit : undefined,
         idempotency_key: `arm-${setupId}-${Date.now()}`
       });
       showToast('Lệnh Đã Armed', res.message || 'Đã arm setup thành công', 'success');
@@ -633,11 +637,10 @@ export function App() {
       await refreshAccountAndHealth();
     } catch (err: any) {
       if (err.response?.status === 409) {
-        const detail = err.response?.data?.detail;
-        const msg = typeof detail === 'object' ? detail.message : detail;
-        alert(`Setup đã thay đổi (409): ${msg || 'Setup bạn chọn đã thay đổi trạng thái hoặc hướng; hãy xem lại.'}`);
+        const msg = extractErrorMessage(err, 'Setup bạn chọn đã thay đổi trạng thái hoặc hướng; hãy xem lại.');
+        alert(`Setup đã thay đổi (409): ${msg}`);
       } else {
-        alert(err.response?.data?.detail || err.message || 'Lỗi khi arm setup');
+        alert(extractErrorMessage(err, 'Lỗi khi arm setup'));
       }
     }
   };
@@ -650,25 +653,50 @@ export function App() {
       await refreshUpcoming();
       await refreshAccountAndHealth();
     } catch (err: any) {
-      alert(err.response?.data?.detail || err.message || 'Lỗi khi hủy setup');
+      alert(extractErrorMessage(err, 'Lỗi khi hủy setup'));
     }
   };
 
   const handleFocusSetupOnChart = (setup: any) => {
     setTimeframe(setup.timeframe || '15M');
     setActiveTab('chart');
+    const entry = setup.confirmed_entry || setup.provisional_entry;
+    const sl = setup.confirmed_sl || setup.provisional_sl;
+    const tp = setup.confirmed_tp || setup.provisional_tp;
+
+    let grossRR = setup.gross_rr || 0.0;
+    let netRR = setup.net_rr || 0.0;
+    if ((!grossRR || grossRR <= 0) && entry && sl && tp) {
+      const calc = calculateClientRiskReward(
+        setup.direction,
+        entry,
+        sl,
+        tp,
+        1000.0,
+        0.25,
+        2.0,
+        setup.quantity || 0.05,
+        setup.leverage || leverage,
+        'ISOLATED'
+      );
+      if (calc.isValid) {
+        grossRR = calc.grossRR;
+        netRR = calc.estimatedNetRR;
+      }
+    }
+
     const overlay: RiskRewardData = {
       id: setup.id,
       direction: setup.direction,
       state: setup.state === 'READY' || setup.state === 'ARMED' ? 'candidate' : 'draft',
-      plannedEntry: setup.confirmed_entry || setup.provisional_entry,
-      stopLoss: setup.confirmed_sl || setup.provisional_sl,
-      takeProfit: setup.confirmed_tp || setup.provisional_tp,
+      plannedEntry: entry,
+      stopLoss: sl,
+      takeProfit: tp,
       quantity: setup.quantity || 0.05,
       initialRiskUsdt: setup.risk_usdt || 2.5,
       riskPct: 0.25,
-      grossRR: setup.gross_rr || 0.0,
-      estimatedNetRR: setup.net_rr || 0.0,
+      grossRR: grossRR,
+      estimatedNetRR: netRR,
       leverage: setup.leverage || leverage,
       marginMode: setup.margin_mode || marginMode,
       estimatedLiquidation: setup.estimated_liquidation,
@@ -682,14 +710,14 @@ export function App() {
       symbol: 'XAUUSDT',
       timeframe: setup.timeframe || '15M',
       direction: setup.direction,
-      plannedEntry: setup.confirmed_entry || setup.provisional_entry,
-      stopLoss: setup.confirmed_sl || setup.provisional_sl,
-      takeProfit: setup.confirmed_tp || setup.provisional_tp,
+      plannedEntry: entry,
+      stopLoss: sl,
+      takeProfit: tp,
       orderType: setup.state === 'READY' ? 'MARKET' : 'LIMIT',
       quantity: setup.quantity || 0.05,
       initialRiskUsdt: setup.risk_usdt || 2.5,
-      grossRR: setup.gross_rr || 0.0,
-      estimatedNetRR: setup.net_rr || 0.0,
+      grossRR: grossRR,
+      estimatedNetRR: netRR,
       leverage: setup.leverage || leverage,
       marginMode: setup.margin_mode || marginMode,
       estimatedLiquidation: setup.estimated_liquidation,
@@ -846,7 +874,7 @@ export function App() {
       await api.updateTelegramConfig(telegramConfig);
       showToast('Telegram', 'Đã lưu cấu hình Telegram thành công', 'success');
     } catch (err: any) {
-      alert(err.response?.data?.detail || err.message || 'Lỗi khi lưu cấu hình Telegram');
+      alert(extractErrorMessage(err, 'Lỗi khi lưu cấu hình Telegram'));
     }
   };
 
@@ -867,28 +895,13 @@ export function App() {
         ok: true,
       });
     } catch (err: any) {
-      const respData = err.response?.data;
-      let errMsg = '';
-      if (typeof respData === 'string') {
-        errMsg = respData;
-      } else if (typeof respData?.detail === 'object' && respData.detail?.message) {
-        errMsg = respData.detail.message;
-        if (respData.detail.retry_after) {
-          errMsg += ` (Vui lòng thử lại sau ${respData.detail.retry_after} giây)`;
-        }
-      } else if (typeof respData?.detail === 'string') {
-        errMsg = respData.detail;
-      } else if (respData?.message) {
-        errMsg = respData.message;
-      } else if (err.message) {
-        errMsg = err.message;
-      } else {
-        errMsg = 'Lỗi kết nối không xác định tới Telegram API';
-      }
+      const errMsg = extractErrorMessage(err, 'Lỗi kết nối không xác định tới Telegram API');
+      const retryAfter = err.response?.data?.detail?.retry_after;
+      const fullMsg = retryAfter ? `${errMsg} (Vui lòng thử lại sau ${retryAfter} giây)` : errMsg;
 
       setTelegramTestStatus({
         loading: false,
-        msg: `Thất bại: ${errMsg}`,
+        msg: `Thất bại: ${fullMsg}`,
         ok: false,
       });
     }
@@ -901,7 +914,7 @@ export function App() {
       const updated = await api.getNotificationHistory();
       setOutboxHistory(updated);
     } catch (err: any) {
-      alert(err.response?.data?.detail || err.message || 'Lỗi khi thử lại tin nhắn');
+      alert(extractErrorMessage(err, 'Lỗi khi thử lại tin nhắn'));
     }
   };
 
@@ -948,7 +961,7 @@ export function App() {
       setActiveResearch(res);
       setResearchModalOpen(true);
     } catch (err: any) {
-      alert(`Lỗi khi tải nghiên cứu tin: ${err.response?.data?.detail || err.message}`);
+      alert(`Lỗi khi tải nghiên cứu tin: ${extractErrorMessage(err)}`);
     } finally {
       setResearchLoadingId(null);
     }
@@ -962,7 +975,7 @@ export function App() {
       showToast('Đã Cập Nhật Nghiên Cứu', 'Đã tải và cập nhật số liệu mới từ nguồn URL', 'success');
       api.getNews().then(setNewsData);
     } catch (err: any) {
-      alert(`Lỗi khi cập nhật nghiên cứu: ${err.response?.data?.detail || err.message}`);
+      alert(`Lỗi khi cập nhật nghiên cứu: ${extractErrorMessage(err)}`);
     } finally {
       setResearchLoadingId(null);
     }
@@ -981,7 +994,7 @@ export function App() {
         setImportPreview(preview);
         setImportModalOpen(true);
       } catch (err: any) {
-        alert(`Lỗi khi xem trước file: ${err.response?.data?.detail || err.message}`);
+        alert(`Lỗi khi xem trước file: ${extractErrorMessage(err)}`);
       } finally {
         setIsImportLoading(false);
       }
@@ -992,7 +1005,7 @@ export function App() {
         setImportStatus(`Đã nhập thành công ${res.imported_count} sự kiện từ ${res.filename}`);
         api.getNews().then(setNewsData);
       } catch (err: any) {
-        setImportStatus(`Lỗi nhập file: ${err.response?.data?.detail || err.message}`);
+        setImportStatus(`Lỗi nhập file: ${extractErrorMessage(err)}`);
       }
     }
   };
@@ -1005,7 +1018,7 @@ export function App() {
       const preview = await api.previewNewsImport(importCsvText, tz);
       setImportPreview(preview);
     } catch (err: any) {
-      alert(`Lỗi: ${err.message}`);
+      alert(`Lỗi: ${extractErrorMessage(err)}`);
     } finally {
       setIsImportLoading(false);
     }
@@ -1023,7 +1036,7 @@ export function App() {
       await api.getNews().then(setNewsData);
       await refreshAnalysis();
     } catch (err: any) {
-      alert(`Lỗi khi lưu lịch vào database: ${err.response?.data?.detail || err.message}`);
+      alert(`Lỗi khi lưu lịch vào database: ${extractErrorMessage(err)}`);
     } finally {
       setIsImportLoading(false);
     }
@@ -3062,7 +3075,32 @@ export function App() {
                   : tp < selectedIntent.plannedEntry && selectedIntent.plannedEntry < selectedIntent.stopLoss);
 
                 const calculatedMarginUsdt = ((selectedIntent.quantity * selectedIntent.plannedEntry) / (selectedIntent.leverage || leverage)).toFixed(2);
-                const rrLabel = selectedIntent.grossRR && selectedIntent.grossRR > 0 ? `R:R 1:${selectedIntent.grossRR}` : 'Chưa có R:R';
+                
+                // Authoritative calculation for dynamic R:R label
+                let grossRR = selectedIntent.grossRR;
+                let netRR = selectedIntent.estimatedNetRR;
+                if ((!grossRR || grossRR <= 0) && isGeometryValid && tp) {
+                  const calc = calculateClientRiskReward(
+                    selectedIntent.direction,
+                    selectedIntent.plannedEntry,
+                    selectedIntent.stopLoss,
+                    tp,
+                    1000.0,
+                    0.25,
+                    2.0,
+                    selectedIntent.quantity,
+                    selectedIntent.leverage || leverage,
+                    'ISOLATED'
+                  );
+                  if (calc.isValid) {
+                    grossRR = calc.grossRR;
+                    netRR = calc.estimatedNetRR;
+                  }
+                }
+                const rrLabel = grossRR && grossRR > 0
+                  ? `R:R 1:${grossRR.toFixed(2)} (Net 1:${(netRR || 0).toFixed(2)})`
+                  : 'Chưa có R:R';
+                const isCrossBlocked = marginMode === 'CROSS' || selectedIntent.marginMode === 'CROSS';
 
                 return (
                   <div className="space-y-2 text-xs">
@@ -3071,12 +3109,20 @@ export function App() {
                         <span className={selectedIntent.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}>
                           {selectedIntent.direction} XAUUSDT
                         </span>
-                        <span className="text-aurum-400">{rrLabel}</span>
+                        <span className={netRR && netRR >= 2.0 ? 'text-aurum-400' : 'text-rose-400 font-medium'}>
+                          {rrLabel}
+                        </span>
                       </div>
 
                       {!isGeometryValid && (
                         <div className="mb-2 p-1.5 rounded bg-rose-950/80 border border-rose-800 text-[10px] text-rose-300">
                           ⚠️ Geometry không hợp lệ: {selectedIntent.direction === 'LONG' ? 'Yêu cầu SL < Entry < TP' : 'Yêu cầu TP < Entry < SL'}.
+                        </div>
+                      )}
+
+                      {isCrossBlocked && (
+                        <div className="mb-2 p-1.5 rounded bg-amber-950/80 border border-amber-700/80 text-[10px] text-amber-300">
+                          ⚠️ Paper Trading chỉ thực thi trên Isolated Margin. Vui lòng chuyển sang ISOLATED ở thanh trên.
                         </div>
                       )}
 
@@ -3145,23 +3191,27 @@ export function App() {
                             selectedIntent.revision
                           )
                         }
-                        disabled={!isGeometryValid || !selectedIntent.takeProfit}
+                        disabled={!isGeometryValid || !selectedIntent.takeProfit || isCrossBlocked}
                         className="w-full py-2 bg-gradient-to-r from-aurum-500 to-aurum-600 hover:from-aurum-400 hover:to-aurum-500 text-charcoal-950 font-bold rounded text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {!isGeometryValid
                           ? 'Geometry Không Hợp Lệ'
+                          : isCrossBlocked
+                          ? 'Chặn Arm Khi Chọn Cross Margin (Cần Isolated)'
                           : `Arm ${selectedIntent.direction} — PAPER`}
                       </button>
                     ) : (
                       <button
                         onClick={handleOpenPaperTrade}
-                        disabled={!isGeometryValid || !selectedIntent.takeProfit || selectedIntent.takeProfit === selectedIntent.stopLoss}
+                        disabled={!isGeometryValid || !selectedIntent.takeProfit || selectedIntent.takeProfit === selectedIntent.stopLoss || isCrossBlocked}
                         className="w-full py-2 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {!isGeometryValid
                           ? 'Geometry Không Hợp Lệ'
                           : !selectedIntent.takeProfit || selectedIntent.takeProfit === selectedIntent.stopLoss
                           ? 'Thiếu TP (Chưa đủ điều kiện)'
+                          : isCrossBlocked
+                          ? 'Chặn Mở Khi Chọn Cross Margin (Cần Isolated)'
                           : `Mở ${selectedIntent.direction} ${selectedIntent.orderType} — PAPER`}
                       </button>
                     )}

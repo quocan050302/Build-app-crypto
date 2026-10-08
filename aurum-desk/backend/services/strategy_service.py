@@ -88,19 +88,49 @@ class StrategyService:
             direction = sig.get("direction", "LONG" if analysis.get("trend") == "BULLISH" else "SHORT") if sig else ("LONG" if analysis.get("trend") == "BULLISH" else "SHORT")
             provisional_entry = sig.get("planned_entry", current_p) if sig else current_p
 
-            # Direction-aware provisional fallback levels (V5.1 Geometry Fix)
+            # Direction-aware provisional fallback levels (V5.1 & V6 Geometry + Net RR Fix)
+            stop_dist = max(round(atr * 2.0, 2), 5.0)
+            target_dist = round(stop_dist * 2.6, 2)
             if direction == "LONG":
-                fallback_sl = round(current_p - 2 * atr, 2)
-                fallback_tp = round(current_p + 4 * atr, 2)
+                fallback_sl = round(current_p - stop_dist, 2)
+                fallback_tp = round(current_p + target_dist, 2)
             else:
-                fallback_sl = round(current_p + 2 * atr, 2)
-                fallback_tp = round(current_p - 4 * atr, 2)
+                fallback_sl = round(current_p + stop_dist, 2)
+                fallback_tp = round(current_p - target_dist, 2)
 
             provisional_sl = sig.get("stop_loss", fallback_sl) if sig else fallback_sl
             provisional_tp = sig.get("targets", [{}])[0].get("price", fallback_tp) if sig and sig.get("targets") else fallback_tp
 
+            # Calculate authoritative risk-reward for provisional setup
+            from domain_calculator import calculate_risk_reward, validate_price_geometry
+            calc_prov = calculate_risk_reward(
+                direction=direction,
+                planned_entry=provisional_entry,
+                stop_loss=provisional_sl,
+                take_profit=provisional_tp,
+                capital_usdt=1000.0,
+                risk_pct=risk_pct,
+                leverage=leverage,
+                margin_mode="ISOLATED"
+            )
+            if not calc_prov.meets_min_rr:
+                needed_target = round(abs(provisional_entry - provisional_sl) * 2.8, 2)
+                if direction == "LONG":
+                    provisional_tp = round(provisional_entry + needed_target, 2)
+                else:
+                    provisional_tp = round(provisional_entry - needed_target, 2)
+                calc_prov = calculate_risk_reward(
+                    direction=direction,
+                    planned_entry=provisional_entry,
+                    stop_loss=provisional_sl,
+                    take_profit=provisional_tp,
+                    capital_usdt=1000.0,
+                    risk_pct=risk_pct,
+                    leverage=leverage,
+                    margin_mode="ISOLATED"
+                )
+
             # Validate price geometry strictly (LONG: sl < entry < tp, SHORT: tp < entry < sl)
-            from domain_calculator import validate_price_geometry
             is_geom_valid, geom_err = validate_price_geometry(direction, provisional_entry, provisional_sl, provisional_tp)
             if not is_geom_valid:
                 # If geometry fails, do not allow setup to be READY
@@ -135,15 +165,15 @@ class StrategyService:
                     provisional_tp=provisional_tp,
                     invalidation_price=invalidation_price,
                     invalidation_reason=inval_reason,
-                    gross_rr=sig.get("gross_rr", 0.0) if sig else 0.0,
-                    net_rr=sig.get("estimated_net_rr", 0.0) if sig else 0.0,
-                    risk_usdt=sig.get("initial_risk_usdt", 0.0) if sig else 0.0,
-                    quantity=sig.get("quantity", 0.0) if sig else 0.0,
+                    gross_rr=sig.get("gross_rr", calc_prov.gross_rr) if sig else calc_prov.gross_rr,
+                    net_rr=sig.get("estimated_net_rr", calc_prov.net_rr) if sig else calc_prov.net_rr,
+                    risk_usdt=sig.get("initial_risk_usdt", calc_prov.net_risk_usdt) if sig else calc_prov.net_risk_usdt,
+                    quantity=sig.get("quantity", calc_prov.quantity) if sig else calc_prov.quantity,
                     leverage=leverage,
                     margin_mode=margin_mode,
                     risk_pct=risk_pct,
                     config_version=config_version,
-                    estimated_liquidation=sig.get("estimated_liquidation") if sig else None,
+                    estimated_liquidation=sig.get("estimated_liquidation", calc_prov.estimated_liquidation) if sig else calc_prov.estimated_liquidation,
                     conditions_met=json.dumps(analysis.get("conditions_met", [])),
                     conditions_remaining=json.dumps(analysis.get("missing_conditions", [])),
                     distance_to_entry_atr=dist_atr,
@@ -188,15 +218,15 @@ class StrategyService:
                     watch_setup.provisional_tp = provisional_tp
                     watch_setup.invalidation_price = invalidation_price
                     watch_setup.invalidation_reason = inval_reason
-                    watch_setup.gross_rr = sig.get("gross_rr", 0.0) if sig else 0.0
-                    watch_setup.net_rr = sig.get("estimated_net_rr", 0.0) if sig else 0.0
-                    watch_setup.risk_usdt = sig.get("initial_risk_usdt", 0.0) if sig else 0.0
-                    watch_setup.quantity = sig.get("quantity", 0.0) if sig else 0.0
+                    watch_setup.gross_rr = sig.get("gross_rr", calc_prov.gross_rr) if sig else calc_prov.gross_rr
+                    watch_setup.net_rr = sig.get("estimated_net_rr", calc_prov.net_rr) if sig else calc_prov.net_rr
+                    watch_setup.risk_usdt = sig.get("initial_risk_usdt", calc_prov.net_risk_usdt) if sig else calc_prov.net_risk_usdt
+                    watch_setup.quantity = sig.get("quantity", calc_prov.quantity) if sig else calc_prov.quantity
                     watch_setup.leverage = leverage
                     watch_setup.margin_mode = margin_mode
                     watch_setup.risk_pct = risk_pct
                     watch_setup.config_version = config_version
-                    watch_setup.estimated_liquidation = sig.get("estimated_liquidation") if sig else None
+                    watch_setup.estimated_liquidation = sig.get("estimated_liquidation", calc_prov.estimated_liquidation) if sig else calc_prov.estimated_liquidation
                     watch_setup.conditions_met = json.dumps(analysis.get("conditions_met", []))
                     watch_setup.conditions_remaining = json.dumps(analysis.get("missing_conditions", []))
                     watch_setup.distance_to_entry_atr = dist_atr
