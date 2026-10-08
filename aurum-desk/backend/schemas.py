@@ -40,7 +40,7 @@ class PaperOrderBase(BaseModel):
     signal_id: Optional[str] = None
     instrument: str = "XAUUSDT"
     direction: str  # LONG / SHORT
-    state: str = "candidate"  # draft, candidate, armed, paper_open, closed, expired, invalidated, cancelled
+    state: str = "candidate"  # draft, candidate, armed, paper_open, closed, expired, invalidated, cancelled, rejected
     order_type: str = "MARKET"
     timeframe: str = "15M"
     planned_entry: float
@@ -50,11 +50,15 @@ class PaperOrderBase(BaseModel):
     actual_exit: Optional[float] = None
     quantity: float
     initial_risk_usdt: float
-    risk_pct: float = 0.5
+    risk_pct: float = 0.25
     gross_rr: float = 2.0
     estimated_net_rr: float = 1.9
     fees_assumption: float = 0.10
     slippage_assumption: float = 0.10
+    leverage: int = 5
+    margin_mode: str = "ISOLATED"
+    estimated_liquidation: Optional[float] = None
+    initial_margin: Optional[float] = None
     strategy_version: str = "1.0.0"
 
 class PaperOrderCreate(PaperOrderBase):
@@ -96,6 +100,10 @@ class RiskRewardOverlayData(BaseModel):
     estimated_net_rr: float
     fees_assumption: float
     slippage_assumption: float
+    leverage: int = 5
+    margin_mode: str = "ISOLATED"
+    estimated_liquidation: Optional[float] = None
+    initial_margin: Optional[float] = None
     created_at: int
     armed_at: Optional[int] = None
     opened_at: Optional[int] = None
@@ -106,6 +114,42 @@ class RiskRewardOverlayData(BaseModel):
     realized_r: Optional[float] = None
     invalidation_reason: Optional[str] = None
     strategy_version: str = "1.0.0"
+
+# Watch Setups (Upcoming Plans & Setups)
+class WatchSetupItem(BaseModel):
+    id: str
+    version: int
+    strategy: str
+    direction: str
+    timeframe: str
+    state: str
+    htf_bias: str
+    h1_alignment: str
+    poi_zone: Optional[str] = None
+    trigger_mode: str
+    provisional_entry: float
+    provisional_sl: float
+    provisional_tp: float
+    confirmed_entry: Optional[float] = None
+    confirmed_sl: Optional[float] = None
+    confirmed_tp: Optional[float] = None
+    invalidation_price: float
+    invalidation_reason: Optional[str] = None
+    gross_rr: float
+    net_rr: float
+    risk_usdt: float
+    quantity: float
+    leverage: int
+    margin_mode: str
+    estimated_liquidation: Optional[float] = None
+    conditions_met: Optional[List[str]] = None
+    conditions_remaining: Optional[List[str]] = None
+    distance_to_entry_atr: Optional[float] = None
+    distance_to_entry_usdt: Optional[float] = None
+    created_at: int
+    updated_at: int
+    expires_at: Optional[int] = None
+    model_config = ConfigDict(from_attributes=True)
 
 # SMC Market Analysis Schemas
 class SwingPoint(BaseModel):
@@ -158,9 +202,11 @@ class SMCAnalysisResponse(BaseModel):
     checklist: List[ChecklistItem]
     active_signal: Optional[RiskRewardOverlayData] = None
     engine_state: str  # starting, collecting_data, analyzing, waiting_setup, candidate, armed, triggered, paper_open, blocked_news, blocked_risk, stale_data
+    setup_stage: str = "WATCHING"
     last_analyzed_at: int
     last_data_at: int
     missing_conditions: List[str] = []
+    conditions_met: List[str] = []
     swings: List[Dict[str, Any]] = []
     structure_events: List[Dict[str, Any]] = []
     reason_code: Optional[str] = None
@@ -183,7 +229,9 @@ class DayAuditResponse(BaseModel):
     cooldown_remaining_sec: int = 0
     is_blocked: bool
     block_reason: Optional[str] = None
-    auto_paper_active: bool = True
+    auto_paper_active: bool = False
+    leverage: int = 5
+    margin_mode: str = "ISOLATED"
 
 # Economic News Schemas
 class EconomicNewsItem(BaseModel):
@@ -246,3 +294,95 @@ class SystemHealthResponse(BaseModel):
     candle_count: int
     strategy_version: str
     paper_trading_mode: str = "SIMULATION"
+    last_success_time: Optional[int] = None
+    last_error: Optional[str] = None
+    degraded_reason: Optional[str] = None
+    d_4h_bias: Optional[str] = None
+    h1_alignment: Optional[str] = None
+
+# Telegram Settings Schemas
+class TelegramConfigSchema(BaseModel):
+    enabled: bool
+    bot_token_masked: str
+    chat_id: str
+    subscribed_events: List[str]
+    quiet_hours_enabled: bool
+    quiet_hours_start: str
+    quiet_hours_end: str
+    timezone: str
+    base_chart_url: Optional[str] = None
+
+class TelegramConfigUpdate(BaseModel):
+    enabled: bool
+    bot_token: Optional[str] = None  # None/empty means keep current secret
+    chat_id: str
+    subscribed_events: List[str]
+    quiet_hours_enabled: bool = False
+    quiet_hours_start: str = "23:00"
+    quiet_hours_end: str = "06:00"
+    timezone: str = "Asia/Ho_Chi_Minh"
+    base_chart_url: Optional[str] = None
+
+class TelegramTestRequest(BaseModel):
+    bot_token: Optional[str] = None
+    chat_id: str
+
+# Multi-Timeframe Matrix
+class MarketMatrixItem(BaseModel):
+    timeframe: str
+    trend: str
+    zone: str
+    current_price: float
+    atr: float
+    last_candle_time: int
+    is_stale: bool
+    freshness_sec: float
+
+class MarketMatrixResponse(BaseModel):
+    symbol: str
+    d_4h_bias: str
+    h1_alignment: str
+    server_time: int
+    matrix: List[MarketMatrixItem]
+
+# RVOL Response
+class RvolResponse(BaseModel):
+    symbol: str
+    timeframe: str
+    rvol: Optional[float]
+    status: str
+    volume: float
+    baseline_volume: float
+    classification: str
+    samples_used: int
+    unit: str
+
+# Replay Run Schemas
+class ReplayRunRequest(BaseModel):
+    run_name: str
+    symbol: str = "XAUUSDT"
+    start_ts: int
+    end_ts: int
+    initial_equity: float = 1000.0
+    risk_pct: float = 0.25
+    leverage: int = 5
+    margin_mode: str = "ISOLATED"
+
+class ReplayRunResponse(BaseModel):
+    id: str
+    run_name: str
+    symbol: str
+    start_ts: int
+    end_ts: int
+    initial_equity: float
+    final_equity: float
+    total_trades: int
+    net_wins: int
+    net_losses: int
+    breakevens: int
+    win_rate: float
+    profit_factor: float
+    max_drawdown: float
+    expectancy_r: float
+    created_at: int
+    model_config = ConfigDict(from_attributes=True)

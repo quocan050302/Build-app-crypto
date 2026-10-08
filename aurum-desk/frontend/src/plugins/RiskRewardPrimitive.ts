@@ -31,6 +31,13 @@ export interface RiskRewardData {
   realizedR?: number;
   invalidationReason?: string;
   strategyVersion?: string;
+
+  // Leverage & Margin
+  leverage?: number;
+  marginMode?: 'ISOLATED' | 'CROSS';
+  estimatedLiquidation?: number | null;
+  initialMargin?: number;
+  tier?: number;
 }
 
 export type DragTargetPart = 'entry' | 'sl' | 'tp' | 'body' | 'right_edge';
@@ -97,6 +104,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
   private _entryY: number | null = null;
   private _slY: number | null = null;
   private _tpY: number | null = null;
+  private _lpY: number | null = null;
   private _startX: number = 0;
   private _endX: number = 0;
   private _hoverPart: DragTargetPart | null = null;
@@ -106,6 +114,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
     entryY: number | null,
     slY: number | null,
     tpY: number | null,
+    lpY: number | null,
     startX: number,
     endX: number,
     hoverPart: DragTargetPart | null = null
@@ -114,6 +123,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
     this._entryY = entryY;
     this._slY = slY;
     this._tpY = tpY;
+    this._lpY = lpY;
     this._startX = startX;
     this._endX = endX;
     this._hoverPart = hoverPart;
@@ -134,6 +144,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       const entryY = this._entryY!;
       const slY = this._slY!;
       const tpY = this._tpY!;
+      const lpY = this._lpY;
 
       const isInvalid = d.isValid === false;
       const isMuted = d.state === 'closed' || d.state === 'invalidated';
@@ -216,6 +227,26 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       ctx.lineTo(endX, Math.max(slY, tpY));
       ctx.stroke();
 
+      // 4. Estimated Liquidation Price Line (Section 4 requirement)
+      if (lpY !== null && d.estimatedLiquidation) {
+        ctx.save();
+        ctx.strokeStyle = '#f43f5e'; // Rose / crimson line
+        ctx.lineWidth = 1.8;
+        ctx.setLineDash([5, 3]);
+        ctx.beginPath();
+        ctx.moveTo(startX, lpY);
+        ctx.lineTo(endX + 30, lpY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Label on chart for liquidation
+        ctx.font = '10px Inter, sans-serif';
+        ctx.fillStyle = '#f43f5e';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Ước tính LP: $${d.estimatedLiquidation.toFixed(2)} (${d.leverage || 5}x Isolated)`, startX + 8, lpY - 4);
+        ctx.restore();
+      }
+
       // Watermark for DRAFT state
       if (d.state === 'draft') {
         ctx.save();
@@ -228,7 +259,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
         ctx.restore();
       }
 
-      // 4. Central Badge Pill
+      // 5. Central Badge Pill
       const badgeY = entryY;
       const rrPassText = d.estimatedNetRR >= 2.0 ? '' : ' · [FAIL Net < 2.0]';
       const badgeText = `${d.direction} · R:R 1:${d.grossRR.toFixed(2)} (Net 1:${d.estimatedNetRR.toFixed(2)})${rrPassText} · ${d.state.toUpperCase()}`;
@@ -252,7 +283,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       ctx.textBaseline = 'middle';
       ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY);
 
-      // 5. Target Box Text (Reward info)
+      // 6. Target Box Text (Reward info)
       const tpTargetY = d.direction === 'LONG' ? profitTop + 14 : profitTop + profitHeight - 6;
       ctx.font = '10px Inter, sans-serif';
       ctx.fillStyle = '#2dd4bf';
@@ -261,13 +292,13 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       const rewardText = `TP: ${d.takeProfit.toFixed(2)} (+${Math.abs(d.takeProfit - effectiveEntry).toFixed(2)}) | Lời dự kiến: +$${plannedRewardUsdt.toFixed(2)}`;
       ctx.fillText(rewardText, startX + 8, tpTargetY);
 
-      // 6. Stop Box Text (Risk info)
+      // 7. Stop Box Text (Risk info)
       const slTargetY = d.direction === 'LONG' ? riskTop + riskHeight - 6 : riskTop + 14;
       ctx.fillStyle = '#f87171';
       const riskText = `SL: ${d.stopLoss.toFixed(2)} (-${Math.abs(effectiveEntry - d.stopLoss).toFixed(2)}) | Rủi ro: -$${d.initialRiskUsdt.toFixed(2)} | KL: ${d.quantity} oz`;
       ctx.fillText(riskText, startX + 8, slTargetY);
 
-      // 7. Draggable Handles for Draft Mode
+      // 8. Draggable Handles for Draft Mode
       if (d.state === 'draft') {
         const handleX = startX + 16;
         const radius = 6;
@@ -334,11 +365,12 @@ class RiskRewardPaneView implements IPrimitivePaneView {
     entryY: number | null,
     slY: number | null,
     tpY: number | null,
+    lpY: number | null,
     startX: number,
     endX: number,
     hoverPart: DragTargetPart | null = null
   ) {
-    this._renderer.update(data, entryY, slY, tpY, startX, endX, hoverPart);
+    this._renderer.update(data, entryY, slY, tpY, lpY, startX, endX, hoverPart);
   }
 
   renderer(): IPrimitivePaneRenderer {
@@ -360,13 +392,15 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
   private _entryAxisView = new PriceAxisView();
   private _slAxisView = new PriceAxisView();
   private _tpAxisView = new PriceAxisView();
+  private _lpAxisView = new PriceAxisView();
   private _currentGeometry: {
     entryY: number | null;
     slY: number | null;
     tpY: number | null;
+    lpY: number | null;
     startX: number;
     endX: number;
-  } = { entryY: null, slY: null, tpY: null, startX: 0, endX: 0 };
+  } = { entryY: null, slY: null, tpY: null, lpY: null, startX: 0, endX: 0 };
   private _hoverPart: DragTargetPart | null = null;
 
   constructor(data: RiskRewardData) {
@@ -419,6 +453,7 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
     const entryY = series.priceToCoordinate(entryPrice);
     const slY = series.priceToCoordinate(this._data.stopLoss);
     const tpY = series.priceToCoordinate(this._data.takeProfit);
+    const lpY = this._data.estimatedLiquidation ? series.priceToCoordinate(this._data.estimatedLiquidation) : null;
 
     // Calculate X span anchored to time or logical bars
     let startX = 60;
@@ -436,7 +471,6 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
     }
 
     const barCount = this._data.projectedBars || 25;
-    // Estimate width from logical bar spacing
     let endX = startX + 220;
     const visibleRange = timeScale.getVisibleLogicalRange();
     if (visibleRange) {
@@ -448,10 +482,10 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
       }
     }
 
-    this._currentGeometry = { entryY, slY, tpY, startX, endX };
+    this._currentGeometry = { entryY, slY, tpY, lpY, startX, endX };
 
     // Update Pane View
-    this._paneView.update(this._data, entryY, slY, tpY, startX, endX, this._hoverPart);
+    this._paneView.update(this._data, entryY, slY, tpY, lpY, startX, endX, this._hoverPart);
 
     // Update Price Axis Views
     if (entryY !== null) {
@@ -463,6 +497,9 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
     }
     if (tpY !== null) {
       this._tpAxisView.update(tpY, `${this._data.takeProfit.toFixed(2)} [TP]`, '#16a34a');
+    }
+    if (lpY !== null && this._data.estimatedLiquidation) {
+      this._lpAxisView.update(lpY, `${this._data.estimatedLiquidation.toFixed(2)} [LP]`, '#e11d48');
     }
   }
 
@@ -515,7 +552,11 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
   }
 
   priceAxisViews(): readonly ISeriesPrimitiveAxisView[] {
-    return [this._entryAxisView, this._slAxisView, this._tpAxisView];
+    const views = [this._entryAxisView, this._slAxisView, this._tpAxisView];
+    if (this._data.estimatedLiquidation && this._currentGeometry.lpY !== null) {
+      views.push(this._lpAxisView);
+    }
+    return views;
   }
 
   timeAxisViews(): readonly ISeriesPrimitiveAxisView[] {

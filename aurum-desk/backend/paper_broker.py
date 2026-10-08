@@ -9,15 +9,15 @@ from domain_calculator import calculate_risk_reward, CostAssumptions
 class PaperBroker:
     """
     Simulated Paper Broker for XAUUSDT with strict risk controls:
-    - 1,000 USDT capital base
+    - 1,000 USDT capital base (or real current equity)
     - Default 0.25% risk per trade (hard cap 0.5%)
     - Max 3 fills per day (UTC+7)
     - 1 active position at a time
     - 30-min cooldown after closing a trade
     - Stop new trading for the day after 2 consecutive losses
-    - Daily loss cap: 1.5% equity ($15.00)
+    - Daily loss cap: 1.5% starting equity
     - Conservative execution: Buy at Ask + slippage, Sell at Bid - slippage
-    - Authoritative backend recalculation of all geometry, quantity, risk, and Net RR
+    - Authoritative backend recalculation of all geometry, quantity, risk, Net RR, leverage, margin, and liquidation
     """
 
     @staticmethod
@@ -44,7 +44,7 @@ class PaperBroker:
             remaining_sec = int((audit.cooldown_until - now_ms) / 1000)
             return False, f"Đang trong thời gian cooldown sau lệnh trước: còn {remaining_sec}s"
 
-        # 3. Check daily loss cap (1.5% of starting equity = $15.00)
+        # 3. Check daily loss cap (1.5% of starting equity)
         daily_loss_budget = audit.initial_equity * 0.015
         current_realized_loss = max(0.0, -audit.realized_pnl_today)
         projected_worst_loss = current_realized_loss + risk_usdt
@@ -62,8 +62,9 @@ class PaperBroker:
         current_ask: float
     ) -> models.PaperOrder:
         """
-        Execute paper market entry with authoritative risk/reward and sizing verification.
+        Execute paper market entry with authoritative risk/reward, sizing, leverage, and liquidation verification.
         Client payload is treated as untrusted intent; backend is the authoritative decider.
+        Eliminates double-counted slippage by passing entry_has_slippage=True on actual_entry.
         """
         audit = crud.get_or_create_today_audit(db)
         slippage = 0.10  # 10 cents slippage on market execution
@@ -84,8 +85,11 @@ class PaperBroker:
         else:
             raise ValueError(f"Hướng giao dịch không hợp lệ: {order_create.direction}")
 
-        # 2. Authoritative Domain Calculation
+        # 2. Authoritative Domain Calculation with entry_has_slippage=True to prevent double-count
         risk_pct = min(0.5, order_create.risk_pct or 0.25)
+        leverage = getattr(order_create, 'leverage', 5) or 5
+        margin_mode = getattr(order_create, 'margin_mode', 'ISOLATED') or 'ISOLATED'
+
         calc_result = calculate_risk_reward(
             direction=order_create.direction,
             entry=actual_entry,
@@ -93,7 +97,11 @@ class PaperBroker:
             tp=order_create.take_profit,
             capital=audit.current_equity,
             risk_pct=risk_pct,
-            min_net_rr=2.0
+            min_net_rr=2.0,
+            quantity_override=getattr(order_create, 'quantity_override', None) if hasattr(order_create, 'quantity_override') else None,
+            entry_has_slippage=True,  # Slippage is already embedded in actual_entry!
+            leverage=leverage,
+            margin_mode=margin_mode
         )
 
         if not calc_result.is_valid:
@@ -118,6 +126,14 @@ class PaperBroker:
         order_create.state = "paper_open"
 
         db_order = crud.create_paper_order(db, order_create, order_id)
+        # Store leverage, margin, and liquidation details
+        db_order.leverage = calc_result.leverage
+        db_order.margin_mode = calc_result.margin_mode
+        db_order.estimated_liquidation = calc_result.estimated_liquidation
+        db_order.initial_margin = calc_result.initial_margin_usdt
+        db.commit()
+        db.refresh(db_order)
+
         crud.record_trade_fill_audit(db)
         return db_order
 
@@ -133,12 +149,14 @@ class PaperBroker:
         - Position must be open
         - Stop loss cannot be widened to increase risk
         - TP must remain on the valid side of Entry
+        - Stop loss cannot breach or approach estimated liquidation price
         """
         active_pos = crud.get_paper_order(db, order_id)
         if not active_pos or active_pos.state != "paper_open":
             raise ValueError("Không tìm thấy vị thế mở để điều chỉnh")
 
         entry = active_pos.actual_entry or active_pos.planned_entry
+        lp = active_pos.estimated_liquidation
 
         if new_sl is not None:
             if active_pos.direction == "LONG":
@@ -146,11 +164,15 @@ class PaperBroker:
                     raise ValueError(f"Không được nới rộng SL ({new_sl:.2f} < {active_pos.stop_loss:.2f}) làm tăng rủi ro")
                 if new_sl >= active_pos.take_profit:
                     raise ValueError(f"SL ({new_sl:.2f}) không được vượt qua TP ({active_pos.take_profit:.2f})")
+                if lp is not None and new_sl <= lp:
+                    raise ValueError(f"SL ({new_sl:.2f}) không được nằm dưới hoặc bằng giá thanh lý ước tính ({lp:.2f})")
             elif active_pos.direction == "SHORT":
                 if new_sl > active_pos.stop_loss:
                     raise ValueError(f"Không được nới rộng SL ({new_sl:.2f} > {active_pos.stop_loss:.2f}) làm tăng rủi ro")
                 if new_sl <= active_pos.take_profit:
                     raise ValueError(f"SL ({new_sl:.2f}) không được vượt qua TP ({active_pos.take_profit:.2f})")
+                if lp is not None and new_sl >= lp:
+                    raise ValueError(f"SL ({new_sl:.2f}) không được nằm trên hoặc bằng giá thanh lý ước tính ({lp:.2f})")
             active_pos.stop_loss = round(new_sl, 2)
 
         if new_tp is not None:
@@ -178,6 +200,7 @@ class PaperBroker:
         """
         Evaluate active paper position against latest price/candle tick:
         - Check TP and SL triggers
+        - Check Liquidation trigger (distinct LIQUIDATED cause)
         - Disallow using pre-entry candle extremes (no retroactive fills)
         - Handle conservative SL-first if ambiguous candle touches both TP and SL
         """
@@ -200,11 +223,18 @@ class PaperBroker:
         high_val = candle_high if candle_high is not None else max(current_bid, current_ask)
         low_val = candle_low if candle_low is not None else min(current_bid, current_ask)
 
+        lp = active_pos.estimated_liquidation
+
         if active_pos.direction == "LONG":
+            hit_liq = (lp is not None and low_val <= lp)
             hit_sl = (low_val <= active_pos.stop_loss)
             hit_tp = (high_val >= active_pos.take_profit)
 
-            if hit_sl and hit_tp:
+            if hit_liq:
+                exit_triggered = True
+                exit_price = lp
+                exit_cause = "LIQUIDATED"
+            elif hit_sl and hit_tp:
                 # Ambiguous bar: conservative rule assumes SL hit first!
                 exit_triggered = True
                 exit_price = active_pos.stop_loss
@@ -220,10 +250,15 @@ class PaperBroker:
                 exit_cause = "TP_HIT"
 
         elif active_pos.direction == "SHORT":
+            hit_liq = (lp is not None and high_val >= lp)
             hit_sl = (high_val >= active_pos.stop_loss)
             hit_tp = (low_val <= active_pos.take_profit)
 
-            if hit_sl and hit_tp:
+            if hit_liq:
+                exit_triggered = True
+                exit_price = lp
+                exit_cause = "LIQUIDATED"
+            elif hit_sl and hit_tp:
                 exit_triggered = True
                 exit_price = active_pos.stop_loss
                 exit_cause = "AMBIGUOUS_BAR_SL_FIRST"
@@ -275,7 +310,11 @@ class PaperBroker:
         pnl = order.realized_pnl_net or 0.0
         r_mult = order.realized_r or 0.0
 
-        if pnl >= 0:
+        if order.exit_cause == "LIQUIDATED":
+            title = f"THANH LÝ VỊ THẾ {order.direction} (-${abs(pnl):.2f}) tại {order.actual_exit:.2f}"
+            reflection = f"Vị thế {order.direction} bị thanh lý do giá chạm mức Liquidation Price ({order.actual_exit:.2f})."
+            action_rule = "Xem lại mức đòn bẩy và luôn duy trì khoảng đệm an toàn giữa SL và Liquidation Price."
+        elif pnl >= 0:
             title = f"Thắng {order.direction} +{r_mult}R (+${pnl:.2f}) theo cấu trúc SMC"
             reflection = f"Lệnh {order.direction} tuân thủ đúng quy tắc Sweep và FVG. TP tại {order.actual_exit:.2f} hoàn thành kỳ vọng."
             action_rule = "Tiếp tục duy trì tính kỷ luật chỉ mở lệnh khi có Liquidity Sweep rõ ràng."

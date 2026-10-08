@@ -44,16 +44,22 @@ class PaperOrder(Base):
     # Risk & Sizing
     quantity = Column(Float, nullable=False)  # oz or contract unit
     initial_risk_usdt = Column(Float, nullable=False)
-    risk_pct = Column(Float, default=0.5)
+    risk_pct = Column(Float, default=0.25)
     gross_rr = Column(Float, default=2.0)
     estimated_net_rr = Column(Float, default=1.9)
     fees_assumption = Column(Float, default=0.10)
     slippage_assumption = Column(Float, default=0.10)
 
+    # Leverage & Margin (Bitget USDT-M Classic Futures model)
+    leverage = Column(Integer, default=5)
+    margin_mode = Column(String(20), default="ISOLATED")
+    estimated_liquidation = Column(Float, nullable=True)
+    initial_margin = Column(Float, nullable=True)
+
     # Execution & PnL
     realized_pnl_net = Column(Float, nullable=True)
     realized_r = Column(Float, nullable=True)
-    exit_cause = Column(String(30), nullable=True)  # TP_HIT, SL_HIT, MANUAL_CLOSE, EXPIRED, INVALIDATED
+    exit_cause = Column(String(30), nullable=True)  # TP_HIT, SL_HIT, MANUAL_CLOSE, EXPIRED, INVALIDATED, LIQUIDATED, AMBIGUOUS_BAR_SL_FIRST
     invalidation_reason = Column(Text, nullable=True)
     strategy_version = Column(String(20), default="1.0.0")
 
@@ -144,3 +150,155 @@ class Lesson(Base):
     is_hard_filter = Column(Boolean, default=False)
     is_approved = Column(Boolean, default=True)
 
+
+class SystemConfig(Base):
+    __tablename__ = "system_configs"
+
+    key = Column(String(50), primary_key=True)
+    value = Column(Text, nullable=False)
+    updated_at = Column(BigInteger, nullable=False)
+
+
+class WatchSetup(Base):
+    __tablename__ = "watch_setups"
+
+    id = Column(String(50), primary_key=True)
+    version = Column(Integer, default=1)
+    strategy = Column(String(50), default="SMC_V1")
+    direction = Column(String(10), nullable=False)  # LONG / SHORT
+    timeframe = Column(String(10), default="15M")
+    state = Column(String(30), default="WATCHING", index=True)
+    # States: WATCHING, WAITING_PRICE, WAITING_SWEEP, WAITING_MSS, WAITING_RETRACE, READY, ARMED, TRIGGERED, PAPER_OPEN, CLOSED, INVALIDATED, EXPIRED, CANCELLED, REJECTED
+    htf_bias = Column(String(20), default="UNKNOWN")
+    h1_alignment = Column(String(20), default="UNKNOWN")
+    poi_zone = Column(Text, nullable=True)  # JSON {top, bottom, type, timeframe}
+    trigger_mode = Column(String(30), default="CONFIRMED_CLOSE")  # CONFIRMED_CLOSE / WICK_TOUCH
+
+    # Price levels
+    provisional_entry = Column(Float, nullable=False)
+    provisional_sl = Column(Float, nullable=False)
+    provisional_tp = Column(Float, nullable=False)
+    confirmed_entry = Column(Float, nullable=True)
+    confirmed_sl = Column(Float, nullable=True)
+    confirmed_tp = Column(Float, nullable=True)
+    invalidation_price = Column(Float, nullable=False)
+    invalidation_reason = Column(Text, nullable=True)
+
+    # Risk & Sizing metrics
+    gross_rr = Column(Float, default=0.0)
+    net_rr = Column(Float, default=0.0)
+    risk_usdt = Column(Float, default=0.0)
+    quantity = Column(Float, default=0.0)
+    leverage = Column(Integer, default=5)
+    margin_mode = Column(String(20), default="ISOLATED")
+    estimated_liquidation = Column(Float, nullable=True)
+
+    # Progression evidence
+    conditions_met = Column(Text, nullable=True)  # JSON list of completed checks
+    conditions_remaining = Column(Text, nullable=True)  # JSON list of pending checks
+    distance_to_entry_atr = Column(Float, nullable=True)
+    distance_to_entry_usdt = Column(Float, nullable=True)
+    news_window = Column(Text, nullable=True)  # JSON
+    evidence_timeline = Column(Text, nullable=True)  # JSON
+
+    # Timestamps
+    created_at = Column(BigInteger, nullable=False)
+    updated_at = Column(BigInteger, nullable=False)
+    expires_at = Column(BigInteger, nullable=True)
+
+
+class DomainEvent(BaseModel if False else Base):
+    __tablename__ = "domain_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    event_id = Column(String(36), nullable=False, unique=True, index=True)
+    sequence = Column(Integer, nullable=False, index=True)
+    schema_version = Column(String(20), default="1.0.0")
+    event_type = Column(String(50), nullable=False, index=True)
+    aggregate_id = Column(String(50), nullable=False, index=True)
+    aggregate_version = Column(Integer, default=1)
+    occurred_at = Column(BigInteger, nullable=False)
+    published_at = Column(BigInteger, nullable=False)
+    payload = Column(Text, nullable=False)  # JSON payload
+
+
+class NotificationOutbox(Base):
+    __tablename__ = "notification_outbox"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    event_id = Column(String(36), nullable=True)
+    channel = Column(String(20), default="TELEGRAM")
+    recipient = Column(String(100), nullable=True)
+    message_type = Column(String(50), nullable=False)
+    dedupe_key = Column(String(120), nullable=False, unique=True, index=True)
+    payload = Column(Text, nullable=False)  # JSON payload
+    status = Column(String(20), default="PENDING", index=True)  # PENDING, SENT, FAILED, RETRYING, AMBIGUOUS
+    attempts = Column(Integer, default=0)
+    last_attempt_at = Column(BigInteger, nullable=True)
+    provider_message_id = Column(String(100), nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(BigInteger, nullable=False)
+
+
+class TelegramConfig(Base):
+    __tablename__ = "telegram_configs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    enabled = Column(Boolean, default=False)
+    bot_token = Column(String(150), nullable=True)
+    chat_id = Column(String(100), nullable=True)
+    subscribed_events = Column(Text, nullable=True)  # JSON list
+    quiet_hours_enabled = Column(Boolean, default=False)
+    quiet_hours_start = Column(String(10), default="23:00")
+    quiet_hours_end = Column(String(10), default="06:00")
+    timezone = Column(String(50), default="Asia/Ho_Chi_Minh")
+    base_chart_url = Column(String(255), nullable=True)
+    updated_at = Column(BigInteger, nullable=False)
+
+
+class ReplayRun(Base):
+    __tablename__ = "replay_runs"
+
+    id = Column(String(36), primary_key=True)
+    run_name = Column(String(100), nullable=False)
+    symbol = Column(String(20), default="XAUUSDT")
+    start_ts = Column(BigInteger, nullable=False)
+    end_ts = Column(BigInteger, nullable=False)
+    initial_equity = Column(Float, default=1000.0)
+    final_equity = Column(Float, nullable=False)
+    total_trades = Column(Integer, default=0)
+    net_wins = Column(Integer, default=0)
+    net_losses = Column(Integer, default=0)
+    breakevens = Column(Integer, default=0)
+    win_rate = Column(Float, default=0.0)
+    profit_factor = Column(Float, default=0.0)
+    max_drawdown = Column(Float, default=0.0)
+    expectancy_r = Column(Float, default=0.0)
+    config_snapshot = Column(Text, nullable=False)
+    rvol_ablation_summary = Column(Text, nullable=True)
+    created_at = Column(BigInteger, nullable=False)
+
+    trades = relationship("ReplayTrade", back_populates="run", cascade="all, delete-orphan")
+
+
+class ReplayTrade(Base):
+    __tablename__ = "replay_trades"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    run_id = Column(String(36), ForeignKey("replay_runs.id"), nullable=False)
+    symbol = Column(String(20), default="XAUUSDT")
+    direction = Column(String(10), nullable=False)
+    entry_time = Column(BigInteger, nullable=False)
+    exit_time = Column(BigInteger, nullable=False)
+    entry_price = Column(Float, nullable=False)
+    exit_price = Column(Float, nullable=False)
+    stop_loss = Column(Float, nullable=False)
+    take_profit = Column(Float, nullable=False)
+    quantity = Column(Float, nullable=False)
+    gross_pnl = Column(Float, nullable=False)
+    net_pnl = Column(Float, nullable=False)
+    net_r = Column(Float, nullable=False)
+    exit_cause = Column(String(50), nullable=False)
+    rvol_at_entry = Column(Float, nullable=True)
+
+    run = relationship("ReplayRun", back_populates="trades")

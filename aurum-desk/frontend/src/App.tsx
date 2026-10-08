@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChartComponent } from './ChartComponent';
 import { api } from './api/client';
 import type { RiskRewardData } from './plugins/RiskRewardPrimitive';
@@ -17,13 +17,23 @@ import {
   XCircle,
   Clock,
   ExternalLink,
-  Info
+  Info,
+  Send,
+  Bell,
+  Sliders,
+  Eye,
+  RefreshCw,
+  Smartphone,
+  Copy,
+  ListOrdered,
+  Compass
 } from 'lucide-react';
-
 
 export function App() {
   // Navigation & Timeframe
-  const [activeTab, setActiveTab] = useState<'chart' | 'smc' | 'paper' | 'reports' | 'news' | 'journal' | 'education'>('chart');
+  const [activeTab, setActiveTab] = useState<
+    'chart' | 'upcoming' | 'smc' | 'paper' | 'reports' | 'news' | 'journal' | 'telegram' | 'education'
+  >('chart');
   const [timeframe, setTimeframe] = useState<string>('15M');
   const timeframes = [
     { id: '1M', label: '1M (1 Phút)' },
@@ -41,11 +51,41 @@ export function App() {
   // Market & SMC State
   const [analysis, setAnalysis] = useState<any>(null);
   const [activeOverlay, setActiveOverlay] = useState<RiskRewardData | null>(null);
+  const [marketMatrix, setMarketMatrix] = useState<any>(null);
+  const [rvolData, setRvolData] = useState<any>(null);
 
-  // Paper Trading & Account
+  // Paper Trading & Account Settings
   const [accountStatus, setAccountStatus] = useState<any>(null);
   const [activePosition, setActivePosition] = useState<any>(null);
   const [autoPaperActive, setAutoPaperActive] = useState<boolean>(true);
+  const [leverage, setLeverage] = useState<number>(5);
+  const [marginMode, setMarginMode] = useState<'ISOLATED' | 'CROSS'>('ISOLATED');
+  const [riskPct, setRiskPct] = useState<number>(0.25);
+  const [settingsSavedMsg, setSettingsSavedMsg] = useState<string | null>(null);
+
+  // Upcoming Setups & Scenarios
+  const [upcomingData, setUpcomingData] = useState<{
+    setups: any[];
+    scenarios: any;
+    server_time?: number;
+  }>({ setups: [], scenarios: null });
+  const [upcomingFilter, setUpcomingFilter] = useState<string>('ALL');
+
+  // Telegram Settings & Test
+  const [telegramConfig, setTelegramConfig] = useState<any>({
+    enabled: false,
+    bot_token: '',
+    chat_id: '',
+    quiet_hours_start: 23,
+    quiet_hours_end: 6,
+    subscribed_events: ['order.armed', 'trade.opened', 'trade.closed', 'trade.liquidated', 'setup.ready'],
+  });
+  const [showBotToken, setShowBotToken] = useState<boolean>(false);
+  const [telegramTestStatus, setTelegramTestStatus] = useState<{ loading: boolean; msg: string | null; ok: boolean | null }>({
+    loading: false,
+    msg: null,
+    ok: null,
+  });
 
   // Additional Panels Data
   const [reports, setReports] = useState<any[]>([]);
@@ -54,9 +94,19 @@ export function App() {
   const [lessons, setLessons] = useState<any[]>([]);
   const [educationList, setEducationList] = useState<any[]>([]);
   const [selectedEdu, setSelectedEdu] = useState<any>(null);
-
-  // Import file feedback
   const [importStatus, setImportStatus] = useState<string | null>(null);
+
+  // Live Toast Notification
+  const [liveToast, setLiveToast] = useState<{ title: string; message: string; type: 'info' | 'success' | 'warn' } | null>(null);
+  const toastTimeoutRef = useRef<any>(null);
+
+  const showToast = useCallback((title: string, message: string, type: 'info' | 'success' | 'warn' = 'info') => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setLiveToast({ title, message, type });
+    toastTimeoutRef.current = setTimeout(() => {
+      setLiveToast(null);
+    }, 6000);
+  }, []);
 
   // 1. Fetch System Health & Account Status
   const refreshAccountAndHealth = useCallback(async () => {
@@ -69,12 +119,14 @@ export function App() {
       ]);
       setHealth(healthData);
       setAccountStatus(accData);
+      if (accData?.leverage) setLeverage(accData.leverage);
+      if (accData?.margin_mode) setMarginMode(accData.margin_mode.toUpperCase());
+
       if (autoData && typeof autoData.auto_paper_enabled === 'boolean') {
         setAutoPaperActive(autoData.auto_paper_enabled);
       }
       if (posData?.has_active_position) {
         setActivePosition(posData);
-        // Set chart overlay to current open position
         const p = posData.position;
         const overlay: RiskRewardData = {
           id: p.id,
@@ -89,6 +141,9 @@ export function App() {
           riskPct: p.risk_pct,
           grossRR: p.gross_rr,
           estimatedNetRR: p.estimated_net_rr,
+          leverage: p.leverage,
+          marginMode: p.margin_mode,
+          estimatedLiquidation: p.estimated_liquidation,
         };
         setActiveOverlay(overlay);
       } else {
@@ -104,23 +159,34 @@ export function App() {
     try {
       const res = await api.setAutoState(nextState);
       setAutoPaperActive(Boolean(res.auto_paper_enabled));
+      showToast(
+        'Chế độ Auto Paper',
+        nextState ? 'Đã BẬT tự động vào lệnh khi setup đủ điều kiện' : 'Đã TẠM DỪNG tự động vào lệnh',
+        nextState ? 'success' : 'warn'
+      );
       await refreshAccountAndHealth();
     } catch (err) {
       console.error('Failed to toggle auto paper state:', err);
     }
   };
 
-  // 2. Fetch SMC Market Analysis
+  // 2. Fetch SMC Market Analysis, RVOL & Matrix
   const refreshAnalysis = useCallback(async () => {
     try {
-      const data = await api.getAnalysis('XAUUSDT', timeframe);
-      setAnalysis(data);
+      const [analysisData, rvolRes, matrixRes] = await Promise.all([
+        api.getAnalysis('XAUUSDT', timeframe),
+        api.getRvol('XAUUSDT', timeframe).catch(() => null),
+        api.getMarketMatrix('XAUUSDT').catch(() => null),
+      ]);
+      setAnalysis(analysisData);
+      if (rvolRes) setRvolData(rvolRes);
+      if (matrixRes) setMarketMatrix(matrixRes);
 
       // If no active open position, show candidate signal if available
-      if (!activePosition && data.active_signal) {
-        const sig = data.active_signal;
+      if (!activePosition && analysisData?.active_signal) {
+        const sig = analysisData.active_signal;
         const overlay: RiskRewardData = {
-          id: sig.id,
+          id: sig.id || sig.signal_id,
           direction: sig.direction,
           state: sig.state,
           plannedEntry: sig.planned_entry,
@@ -131,26 +197,114 @@ export function App() {
           riskPct: sig.risk_pct,
           grossRR: sig.gross_rr,
           estimatedNetRR: sig.estimated_net_rr,
+          leverage: leverage,
+          marginMode: marginMode,
+          estimatedLiquidation: sig.estimated_liquidation,
         };
         setActiveOverlay(overlay);
       }
     } catch (err) {
       console.warn('SMC analysis error:', err);
     }
-  }, [timeframe, activePosition]);
+  }, [timeframe, activePosition, leverage, marginMode]);
 
-  // Periodic polling for realtime updates
+  // 3. Fetch Upcoming Setups
+  const refreshUpcoming = useCallback(async () => {
+    try {
+      const data = await api.getUpcomingSetups();
+      setUpcomingData(data);
+    } catch (err) {
+      console.warn('Upcoming setups fetch error:', err);
+    }
+  }, []);
+
+  // 4. WebSocket Domain Events Connection
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let pingInterval: any = null;
+    let reconnectTimeout: any = null;
+
+    const connectWs = () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+      try {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          pingInterval = setInterval(() => {
+            if (ws?.readyState === WebSocket.OPEN) {
+              ws.send('ping');
+            }
+          }, 25000);
+        };
+
+        ws.onmessage = (event) => {
+          if (event.data === 'pong') return;
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'DOMAIN_EVENT') {
+              const evt = data.event;
+              const type = evt?.event_type;
+              const payload = evt?.payload || {};
+
+              if (type === 'trade.opened') {
+                showToast('Lệnh Đã Khớp (PAPER_OPEN)', `${payload.direction} XAUUSDT tại $${payload.entry_price || payload.actual_entry}`, 'success');
+              } else if (type === 'trade.closed') {
+                showToast('Vị Thế Đã Đóng', `PnL: $${payload.net_pnl} (${payload.exit_reason})`, payload.net_pnl >= 0 ? 'success' : 'warn');
+              } else if (type === 'trade.liquidated') {
+                showToast('THANH LÝ (LIQUIDATED)', `Vị thế đã bị thanh lý tại giá Mark $${payload.exit_price}`, 'warn');
+              } else if (type === 'order.armed') {
+                showToast('Lệnh Đã Armed', `Setup ${payload.setup_id} đã sẵn sàng chờ kích hoạt`, 'info');
+              } else if (type === 'setup.ready') {
+                showToast('Setup READY', `Setup ${payload.setup_id} đã hoàn tất điều kiện SMC`, 'info');
+              }
+
+              refreshAccountAndHealth();
+              refreshAnalysis();
+              refreshUpcoming();
+            }
+          } catch (e) {
+            // Non-JSON or pong
+          }
+        };
+
+        ws.onclose = () => {
+          clearInterval(pingInterval);
+          reconnectTimeout = setTimeout(connectWs, 5000);
+        };
+
+        ws.onerror = () => {
+          ws?.close();
+        };
+      } catch (err) {
+        reconnectTimeout = setTimeout(connectWs, 5000);
+      }
+    };
+
+    connectWs();
+
+    return () => {
+      clearInterval(pingInterval);
+      clearTimeout(reconnectTimeout);
+      if (ws) ws.close();
+    };
+  }, [refreshAccountAndHealth, refreshAnalysis, refreshUpcoming, showToast]);
+
+  // Periodic polling
   useEffect(() => {
     refreshAccountAndHealth();
     refreshAnalysis();
+    refreshUpcoming();
     const interval = setInterval(() => {
       refreshAccountAndHealth();
       refreshAnalysis();
+      refreshUpcoming();
     }, 10000);
     return () => clearInterval(interval);
-  }, [refreshAccountAndHealth, refreshAnalysis]);
+  }, [refreshAccountAndHealth, refreshAnalysis, refreshUpcoming]);
 
-  // 3. Tab-specific data loading
+  // Tab-specific data loading
   useEffect(() => {
     if (activeTab === 'reports') {
       api.getReports().then((res) => {
@@ -162,6 +316,8 @@ export function App() {
     } else if (activeTab === 'journal') {
       api.getJournal().then(setJournalTrades).catch(console.error);
       api.getLessons().then(setLessons).catch(console.error);
+    } else if (activeTab === 'telegram') {
+      api.getTelegramConfig().then(setTelegramConfig).catch(console.error);
     } else if (activeTab === 'education') {
       api.getEducation().then((list) => {
         setEducationList(list);
@@ -170,7 +326,7 @@ export function App() {
     }
   }, [activeTab, selectedEdu]);
 
-  // 4. Action Handlers
+  // Action Handlers
   const handleOpenPaperTrade = async () => {
     if (!analysis?.active_signal) return;
     const sig = analysis.active_signal;
@@ -192,8 +348,11 @@ export function App() {
         risk_pct: sig.risk_pct,
         gross_rr: sig.gross_rr,
         estimated_net_rr: sig.estimated_net_rr,
+        leverage: leverage,
+        margin_mode: marginMode,
       });
       await refreshAccountAndHealth();
+      showToast('Đã Mở Lệnh', `Khớp lệnh thị trường ${sig.direction} XAUUSDT thành công`, 'success');
       setActiveTab('chart');
     } catch (err: any) {
       alert(err.response?.data?.detail || err.message || 'Không thể mở lệnh paper trade');
@@ -206,8 +365,135 @@ export function App() {
       await api.closePaperOrder(orderId);
       await refreshAccountAndHealth();
       setActiveOverlay(null);
+      showToast('Đã Đóng Vị Thế', `Vị thế ${orderId} đã được đóng tại giá thị trường`, 'info');
     } catch (err: any) {
       alert(err.response?.data?.detail || err.message || 'Lỗi khi đóng vị thế');
+    }
+  };
+
+  const handleArmWatchSetup = async (setupId: string) => {
+    try {
+      const res = await api.armSetup(setupId);
+      showToast('Lệnh Đã Armed', res.message || 'Đã arm setup thành công', 'success');
+      await refreshUpcoming();
+      await refreshAccountAndHealth();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || err.message || 'Lỗi khi arm setup');
+    }
+  };
+
+  const handleCancelWatchSetup = async (setupId: string) => {
+    if (!confirm('Bạn có chắc chắn muốn hủy setup này?')) return;
+    try {
+      await api.cancelSetup(setupId);
+      showToast('Đã Hủy Setup', 'Setup đã được hủy an toàn', 'info');
+      await refreshUpcoming();
+      await refreshAccountAndHealth();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || err.message || 'Lỗi khi hủy setup');
+    }
+  };
+
+  const handleFocusSetupOnChart = (setup: any) => {
+    setTimeframe(setup.timeframe || '15M');
+    setActiveTab('chart');
+    const overlay: RiskRewardData = {
+      id: setup.id,
+      direction: setup.direction,
+      state: setup.state === 'READY' || setup.state === 'ARMED' ? 'candidate' : 'draft',
+      plannedEntry: setup.confirmed_entry || setup.provisional_entry,
+      stopLoss: setup.confirmed_sl || setup.provisional_sl,
+      takeProfit: setup.confirmed_tp || setup.provisional_tp,
+      quantity: setup.quantity || 0.05,
+      initialRiskUsdt: setup.risk_usdt || 2.5,
+      riskPct: 0.25,
+      grossRR: setup.gross_rr || 2.0,
+      estimatedNetRR: setup.net_rr || 2.0,
+      leverage: setup.leverage || leverage,
+      marginMode: setup.margin_mode || marginMode,
+      estimatedLiquidation: setup.estimated_liquidation,
+    };
+    setActiveOverlay(overlay);
+  };
+
+  const handleCopySetupToDraft = (setup: any) => {
+    setTimeframe(setup.timeframe || '15M');
+    setActiveTab('chart');
+    const overlay: RiskRewardData = {
+      id: `draft-${Date.now()}`,
+      direction: setup.direction,
+      state: 'draft',
+      plannedEntry: setup.confirmed_entry || setup.provisional_entry,
+      stopLoss: setup.confirmed_sl || setup.provisional_sl,
+      takeProfit: setup.confirmed_tp || setup.provisional_tp,
+      quantity: setup.quantity || 0.05,
+      initialRiskUsdt: setup.risk_usdt || 2.5,
+      riskPct: 0.25,
+      grossRR: setup.gross_rr || 2.0,
+      estimatedNetRR: setup.net_rr || 2.0,
+      leverage: setup.leverage || leverage,
+      marginMode: setup.margin_mode || marginMode,
+      estimatedLiquidation: setup.estimated_liquidation,
+    };
+    setActiveOverlay(overlay);
+    showToast('Bản Nháp (Draft)', 'Đã sao chép mức giá sang thước đo R:R trên chart. Bạn có thể kéo thả để điều chỉnh.', 'info');
+  };
+
+  const handleSaveRiskSettings = async () => {
+    try {
+      await api.updateAccountSettings({
+        leverage,
+        margin_mode: marginMode,
+      });
+      setSettingsSavedMsg('Đã lưu cấu hình đòn bẩy và ký quỹ thành công!');
+      setTimeout(() => setSettingsSavedMsg(null), 4000);
+      await refreshAccountAndHealth();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || err.message || 'Lỗi khi lưu cài đặt tài khoản');
+    }
+  };
+
+  const handleSaveTelegramConfig = async () => {
+    try {
+      await api.updateTelegramConfig(telegramConfig);
+      showToast('Telegram', 'Đã lưu cấu hình Telegram thành công', 'success');
+    } catch (err: any) {
+      alert(err.response?.data?.detail || err.message || 'Lỗi khi lưu cấu hình Telegram');
+    }
+  };
+
+  const handleTestTelegram = async () => {
+    setTelegramTestStatus({ loading: true, msg: 'Đang gửi tin nhắn thử nghiệm tới Telegram...', ok: null });
+    try {
+      const res = await api.testTelegram({
+        bot_token: telegramConfig.bot_token || undefined,
+        chat_id: telegramConfig.chat_id,
+      });
+      setTelegramTestStatus({
+        loading: false,
+        msg: `Thành công: Đã gửi tin nhắn test tới Chat ID ${telegramConfig.chat_id} (Message ID: ${res.message_id || 'OK'}). Hãy kiểm tra ứng dụng Telegram!`,
+        ok: true,
+      });
+    } catch (err: any) {
+      const respData = err.response?.data;
+      let errMsg = '';
+      if (typeof respData === 'string') {
+        errMsg = respData;
+      } else if (respData?.detail) {
+        errMsg = typeof respData.detail === 'string' ? respData.detail : JSON.stringify(respData.detail);
+      } else if (respData?.message) {
+        errMsg = respData.message;
+      } else if (err.message) {
+        errMsg = err.message;
+      } else {
+        errMsg = 'Lỗi kết nối không xác định tới Telegram API';
+      }
+
+      setTelegramTestStatus({
+        loading: false,
+        msg: `Thất bại: ${errMsg}`,
+        ok: false,
+      });
     }
   };
 
@@ -229,6 +515,9 @@ export function App() {
       estimatedNetRR: trade.estimated_net_rr,
       realizedPnlNet: trade.realized_pnl_net,
       realizedR: trade.realized_r,
+      leverage: trade.leverage || leverage,
+      marginMode: trade.margin_mode || marginMode,
+      estimatedLiquidation: trade.estimated_liquidation,
     };
     setActiveOverlay(overlay);
   };
@@ -246,18 +535,47 @@ export function App() {
     }
   };
 
+  // Filtered upcoming setups
+  const filteredSetups = upcomingData.setups.filter((s) => {
+    if (upcomingFilter === 'ALL') return true;
+    if (upcomingFilter === 'READY') return s.state === 'READY';
+    if (upcomingFilter === 'ARMED') return s.state === 'ARMED';
+    if (upcomingFilter === 'WAITING') return s.state.startsWith('WAITING');
+    if (upcomingFilter === 'TERMINAL') return ['CANCELLED', 'INVALIDATED', 'EXPIRED', 'CLOSED'].includes(s.state);
+    return true;
+  });
+
   return (
     <div className="min-h-screen bg-charcoal-950 text-gray-200 flex flex-col font-sans select-none">
+      {/* Toast Notification Banner */}
+      {liveToast && (
+        <div
+          className={`fixed top-4 right-4 z-50 p-3.5 rounded-lg border shadow-xl flex items-start gap-2.5 max-w-sm transition-all duration-300 ${
+            liveToast.type === 'success'
+              ? 'bg-emerald-950/90 border-emerald-500 text-emerald-200'
+              : liveToast.type === 'warn'
+              ? 'bg-rose-950/90 border-rose-500 text-rose-200'
+              : 'bg-charcoal-900/95 border-aurum-500 text-aurum-200'
+          }`}
+        >
+          <Bell className="w-4 h-4 shrink-0 mt-0.5 text-aurum-400" />
+          <div className="text-xs">
+            <span className="font-bold block">{liveToast.title}</span>
+            <span className="text-gray-300">{liveToast.message}</span>
+          </div>
+        </div>
+      )}
+
       {/* 1. Global Header Bar */}
       <header className="bg-charcoal-900 border-b border-charcoal-750 px-4 py-2.5 flex flex-wrap justify-between items-center gap-3">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-aurum-500 animate-pulse" />
             <h1 className="text-lg font-bold text-aurum-400 tracking-wider">
-              AURUM DESK
+              AURUM DESK <span className="text-xs font-mono text-gray-400">v4.0</span>
             </h1>
             <span className="text-[10px] uppercase font-semibold tracking-wider bg-charcoal-800 text-gray-400 px-2 py-0.5 rounded border border-charcoal-700">
-              PAPER TRADING · VỐN GIẢ LẬP $1,000
+              BITGET XAUUSDT PERPETUAL · PAPER TRADING
             </span>
           </div>
 
@@ -297,20 +615,24 @@ export function App() {
 
           <div className="flex items-center gap-1.5 bg-charcoal-850 px-2.5 py-1 rounded border border-charcoal-700">
             <Activity className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-gray-400">Feed Bitget:</span>
+            <span className="text-gray-400">Feed:</span>
             <span className={health?.feed_connected ? 'text-emerald-400 font-medium' : 'text-rose-400'}>
               {health?.feed_connected ? `Live (${health.data_freshness_sec}s)` : 'Mất kết nối'}
             </span>
           </div>
 
           <div className="flex items-center gap-1.5 bg-charcoal-850 px-2.5 py-1 rounded border border-charcoal-700">
-            <span className="text-gray-400">Trạng thái:</span>
-            <span className={`font-semibold capitalize ${
-              analysis?.engine_state === 'paper_open' ? 'text-emerald-400' :
-              analysis?.engine_state === 'candidate' ? 'text-aurum-400' :
-              analysis?.engine_state === 'blocked_news' ? 'text-rose-400' : 'text-blue-400'
-            }`}>
-              {analysis?.engine_state || 'Analyzing...'}
+            <span className="text-gray-400">HTF D/4H:</span>
+            <span
+              className={`font-bold uppercase ${
+                health?.d_4h_bias === 'BULLISH'
+                  ? 'text-emerald-400'
+                  : health?.d_4h_bias === 'BEARISH'
+                  ? 'text-rose-400'
+                  : 'text-amber-400'
+              }`}
+            >
+              {health?.d_4h_bias || 'WAITING'}
             </span>
           </div>
 
@@ -325,11 +647,13 @@ export function App() {
       <nav className="bg-charcoal-900 border-b border-charcoal-750 px-4 flex gap-1 text-xs overflow-x-auto">
         {[
           { id: 'chart', label: 'Chart & Vị Thế R:R', icon: TrendingUp },
-          { id: 'smc', label: 'Phân Tích SMC/ICT', icon: Layers },
-          { id: 'paper', label: 'Quản Trị Vốn (0.5% Risk)', icon: ShieldAlert },
+          { id: 'upcoming', label: 'Kế Hoạch & Lệnh Dự Kiến', icon: ListOrdered },
+          { id: 'smc', label: 'Phân Tích SMC & Ma Trận', icon: Layers },
+          { id: 'paper', label: 'Quản Trị Vốn & Ký Quỹ', icon: ShieldAlert },
           { id: 'reports', label: 'Nghiên Cứu Phiên & Ngày', icon: Calendar },
           { id: 'news', label: 'Tin Tức & Blackout', icon: Clock },
           { id: 'journal', label: 'Nhật Ký & Bài Học', icon: History },
+          { id: 'telegram', label: 'Cài Đặt Telegram', icon: Smartphone },
           { id: 'education', label: 'Thư Viện Kiến Thức', icon: BookOpen },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -338,14 +662,19 @@ export function App() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-1.5 px-3.5 py-2.5 font-medium border-b-2 transition ${
+              className={`flex items-center gap-1.5 px-3 py-2.5 font-medium border-b-2 transition whitespace-nowrap ${
                 isActive
-                  ? 'border-aurum-500 text-aurum-400 bg-charcoal-850/60'
+                  ? 'border-aurum-500 text-aurum-400 bg-charcoal-850/60 font-semibold'
                   : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-charcoal-850/30'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
               <span>{tab.label}</span>
+              {tab.id === 'upcoming' && upcomingData.setups.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-charcoal-800 text-aurum-400 border border-aurum-500/30">
+                  {upcomingData.setups.length}
+                </span>
+              )}
             </button>
           );
         })}
@@ -360,6 +689,11 @@ export function App() {
               <ChartComponent
                 symbol="XAUUSDT"
                 timeframe={timeframe}
+                accountEquity={accountStatus?.current_equity ?? 1000}
+                riskPct={riskPct}
+                leverage={leverage}
+                marginMode={marginMode}
+                rvolData={rvolData}
                 activeOverlay={activeOverlay}
                 onOverlayChange={(updated) => setActiveOverlay(updated)}
                 smcLevels={{
@@ -375,23 +709,395 @@ export function App() {
             </div>
           )}
 
+          {/* TAB: KẾ HOẠCH & LỆNH DỰ KIẾN (UPCOMING SETUPS & DAILY SCENARIOS) */}
+          {activeTab === 'upcoming' && (
+            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-5 overflow-y-auto max-h-[750px]">
+              <div className="flex flex-wrap justify-between items-center border-b border-charcoal-750 pb-3 gap-3">
+                <div>
+                  <h2 className="text-base font-bold text-aurum-400 flex items-center gap-2">
+                    <Compass className="w-4 h-4 text-aurum-400" />
+                    Kế Hoạch Phiên & Danh Sách Lệnh Dự Kiến
+                  </h2>
+                  <p className="text-xs text-gray-400">
+                    Biết trước điều kiện cần chờ trước khi vào lệnh. Setup chỉ chuyển sang READY và ARMED khi đủ chuỗi SMC xác nhận.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={refreshUpcoming}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-charcoal-800 hover:bg-charcoal-750 text-gray-300 rounded text-xs border border-charcoal-700"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Làm mới</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 3 Daily Scenarios Cards */}
+              <div>
+                <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                  Kịch Bản Giao Dịch Trong Ngày (Daily Scenarios)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  {/* Bullish Scenario */}
+                  <div className="bg-charcoal-850 p-3.5 rounded-lg border border-emerald-900/50 flex flex-col gap-2">
+                    <div className="flex items-center justify-between border-b border-charcoal-750 pb-1.5">
+                      <span className="font-bold text-emerald-400">Kịch Bản Mua (Bullish)</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono">
+                        LONG
+                      </span>
+                    </div>
+                    <p className="text-gray-300 text-[11px] leading-relaxed">
+                      {upcomingData.scenarios?.bullish?.condition || 'HTF duy trì Bullish, giá hồi về Discount và sweep đáy + MSS tăng.'}
+                    </p>
+                    <div className="text-[10px] text-gray-400 mt-auto pt-2 border-t border-charcoal-750 space-y-1">
+                      <p><span className="text-gray-300 font-medium">Mục tiêu (TP):</span> {upcomingData.scenarios?.bullish?.target || 'PDH / Swing High'}</p>
+                      <p className="text-rose-400/90"><span className="text-gray-300 font-medium">Vô hiệu:</span> {upcomingData.scenarios?.bullish?.invalidation || 'Đóng dưới Swing Low'}</p>
+                    </div>
+                  </div>
+
+                  {/* Bearish Scenario */}
+                  <div className="bg-charcoal-850 p-3.5 rounded-lg border border-rose-900/50 flex flex-col gap-2">
+                    <div className="flex items-center justify-between border-b border-charcoal-750 pb-1.5">
+                      <span className="font-bold text-rose-400">Kịch Bản Bán (Bearish)</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800 font-mono">
+                        SHORT
+                      </span>
+                    </div>
+                    <p className="text-gray-300 text-[11px] leading-relaxed">
+                      {upcomingData.scenarios?.bearish?.condition || 'HTF duy trì Bearish, giá hồi về Premium và sweep đỉnh + MSS giảm.'}
+                    </p>
+                    <div className="text-[10px] text-gray-400 mt-auto pt-2 border-t border-charcoal-750 space-y-1">
+                      <p><span className="text-gray-300 font-medium">Mục tiêu (TP):</span> {upcomingData.scenarios?.bearish?.target || 'PDL / Swing Low'}</p>
+                      <p className="text-rose-400/90"><span className="text-gray-300 font-medium">Vô hiệu:</span> {upcomingData.scenarios?.bearish?.invalidation || 'Đóng trên Swing High'}</p>
+                    </div>
+                  </div>
+
+                  {/* No-Trade Scenario */}
+                  <div className="bg-charcoal-850 p-3.5 rounded-lg border border-amber-900/50 flex flex-col gap-2">
+                    <div className="flex items-center justify-between border-b border-charcoal-750 pb-1.5">
+                      <span className="font-bold text-amber-400">Kịch Bản Đứng Ngoài (No-Trade)</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-mono">
+                        DEFENSE
+                      </span>
+                    </div>
+                    <p className="text-gray-300 text-[11px] leading-relaxed">
+                      {upcomingData.scenarios?.no_trade?.condition || 'Cửa sổ Blackout tin tức USD High Impact, thị trường chop hoặc Net R:R < 2.0.'}
+                    </p>
+                    <div className="text-[10px] text-gray-400 mt-auto pt-2 border-t border-charcoal-750 space-y-1">
+                      <p className="text-amber-300/90"><span className="text-gray-300 font-medium">Hành động:</span> {upcomingData.scenarios?.no_trade?.action || 'Không mở lệnh. Giữ nguyên vốn và quota 3 lệnh.'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Setups Watchlist & Filter */}
+              <div className="space-y-3">
+                <div className="flex flex-wrap justify-between items-center gap-2">
+                  <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <ListOrdered className="w-3.5 h-3.5 text-aurum-400" />
+                    Danh Sách Setups Đang Theo Dõi ({filteredSetups.length} Setups)
+                  </h3>
+                  <div className="flex gap-1 bg-charcoal-850 p-1 rounded border border-charcoal-700 text-[11px]">
+                    {['ALL', 'READY', 'ARMED', 'WAITING', 'TERMINAL'].map((flt) => (
+                      <button
+                        key={flt}
+                        onClick={() => setUpcomingFilter(flt)}
+                        className={`px-2.5 py-0.5 rounded font-medium transition ${
+                          upcomingFilter === flt
+                            ? 'bg-aurum-500 text-charcoal-950 font-bold'
+                            : 'text-gray-400 hover:text-gray-200'
+                        }`}
+                      >
+                        {flt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {filteredSetups.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-gray-400 italic bg-charcoal-850 rounded-lg border border-charcoal-750">
+                    Chưa có setup nào phù hợp bộ lọc hiện tại. Hệ thống đang quét chu kỳ nến để tìm kiếm POI và Sweep.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredSetups.map((s) => (
+                      <div
+                        key={s.id}
+                        className={`p-4 rounded-lg border text-xs flex flex-col gap-3 transition ${
+                          s.state === 'READY'
+                            ? 'bg-emerald-950/20 border-emerald-500/50 shadow-emerald-950/30'
+                            : s.state === 'ARMED'
+                            ? 'bg-amber-950/20 border-amber-500/50'
+                            : 'bg-charcoal-850 border-charcoal-700'
+                        }`}
+                      >
+                        {/* Top row: Strategy, Direction, State badge */}
+                        <div className="flex flex-wrap justify-between items-center gap-2 border-b border-charcoal-750 pb-2">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-2 py-0.5 rounded font-bold text-xs ${
+                                s.direction === 'LONG'
+                                  ? 'bg-emerald-900/60 text-emerald-300'
+                                  : 'bg-rose-900/60 text-rose-300'
+                              }`}
+                            >
+                              {s.direction} XAUUSDT
+                            </span>
+                            <span className="font-semibold text-gray-200">{s.strategy}</span>
+                            <span className="text-gray-400 font-mono text-[11px]">({s.timeframe})</span>
+                            <span className="text-[10px] text-gray-400 font-mono">ID: {s.id}</span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-2.5 py-0.5 rounded font-bold text-[11px] font-mono tracking-wider ${
+                                s.state === 'READY'
+                                  ? 'bg-emerald-500 text-charcoal-950 animate-pulse'
+                                  : s.state === 'ARMED'
+                                  ? 'bg-amber-500 text-charcoal-950'
+                                  : s.state.startsWith('WAITING')
+                                  ? 'bg-blue-900/60 text-blue-300 border border-blue-700'
+                                  : 'bg-charcoal-800 text-gray-400 border border-charcoal-700'
+                              }`}
+                            >
+                              {s.state}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Mid row: Planned Levels, R:R, Distance */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-charcoal-900/60 p-2.5 rounded border border-charcoal-750">
+                          <div>
+                            <span className="text-gray-400 text-[10px] block">Entry (Dự kiến):</span>
+                            <span className="font-bold text-gray-200 text-sm">
+                              ${s.confirmed_entry || s.provisional_entry || 'Chưa xác định'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 text-[10px] block">Stop Loss (SL):</span>
+                            <span className="font-bold text-rose-400 text-sm">
+                              ${s.confirmed_sl || s.provisional_sl || 'Chưa xác định'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 text-[10px] block">Take Profit (TP):</span>
+                            <span className="font-bold text-emerald-400 text-sm">
+                              ${s.confirmed_tp || s.provisional_tp || 'Chưa xác định'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 text-[10px] block">Net R:R & Kích thước:</span>
+                            <span
+                              className={`font-bold text-sm ${
+                                s.net_rr >= 2.0 ? 'text-emerald-400' : 'text-amber-400'
+                              }`}
+                            >
+                              1:{s.net_rr?.toFixed(2) || '2.00'} Net
+                            </span>
+                            <span className="text-gray-400 text-[10px] block">
+                              {s.quantity || 0.05} oz (${s.risk_usdt || 2.5} Risk)
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Distance to zone & Estimated Liquidation */}
+                        <div className="flex flex-wrap justify-between items-center gap-3 text-[11px] text-gray-400">
+                          <div className="flex items-center gap-3">
+                            <span>
+                              Khoảng cách tới Entry:{' '}
+                              <strong className="text-gray-200">
+                                ${s.distance_to_entry_usdt?.toFixed(2) || '0.00'} USDT
+                              </strong>{' '}
+                              ({s.distance_to_entry_atr?.toFixed(2) || '0.0'} ATR)
+                            </span>
+                            <span>·</span>
+                            <span>
+                              Đòn bẩy:{' '}
+                              <strong className="text-aurum-400 font-mono">
+                                {s.leverage || leverage}x {s.margin_mode || marginMode}
+                              </strong>
+                            </span>
+                            <span>·</span>
+                            <span>
+                              Thanh lý ước tính:{' '}
+                              <strong className="text-rose-400 font-mono">
+                                ${s.estimated_liquidation?.toFixed(2) || '---'}
+                              </strong>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Conditions Checklist: Met vs Remaining */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] pt-1">
+                          <div className="bg-charcoal-900/50 p-2 rounded border border-charcoal-750">
+                            <span className="text-emerald-400 font-semibold block mb-1 flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Điều kiện đã thỏa ({s.conditions_met?.length || 0}):
+                            </span>
+                            {s.conditions_met?.length > 0 ? (
+                              <ul className="space-y-0.5 text-gray-300">
+                                {s.conditions_met.map((c: string, idx: number) => (
+                                  <li key={idx} className="flex items-center gap-1 text-[10px]">
+                                    <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                                    <span>{c}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <span className="text-gray-500 italic text-[10px]">Đang theo dõi bước đầu tiên</span>
+                            )}
+                          </div>
+
+                          <div className="bg-charcoal-900/50 p-2 rounded border border-charcoal-750">
+                            <span className="text-amber-400 font-semibold block mb-1 flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5" />
+                              Điều kiện đang chờ ({s.conditions_remaining?.length || 0}):
+                            </span>
+                            {s.conditions_remaining?.length > 0 ? (
+                              <ul className="space-y-0.5 text-amber-300/90">
+                                {s.conditions_remaining.map((c: string, idx: number) => (
+                                  <li key={idx} className="flex items-center gap-1 text-[10px]">
+                                    <span className="w-1 h-1 rounded-full bg-amber-400" />
+                                    <span>{c}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <span className="text-emerald-400 font-semibold text-[10px]">
+                                Đủ toàn bộ điều kiện! Sẵn sàng Arm.
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Actions bar */}
+                        <div className="flex flex-wrap justify-between items-center gap-2 pt-2 border-t border-charcoal-750">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleFocusSetupOnChart(s)}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-charcoal-800 hover:bg-charcoal-750 text-gray-200 rounded text-xs border border-charcoal-700 transition"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-indigo-400" />
+                              <span>Xem Trên Chart</span>
+                            </button>
+                            <button
+                              onClick={() => handleCopySetupToDraft(s)}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-charcoal-800 hover:bg-charcoal-750 text-gray-200 rounded text-xs border border-charcoal-700 transition"
+                            >
+                              <Copy className="w-3.5 h-3.5 text-aurum-400" />
+                              <span>Chép sang Bản Nháp (Draft)</span>
+                            </button>
+                          </div>
+
+                          <div className="flex gap-2">
+                            {['READY', 'WAITING_PRICE', 'WAITING_RETRACE'].includes(s.state) && (
+                              <button
+                                onClick={() => handleArmWatchSetup(s.id)}
+                                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-xs transition shadow-sm"
+                              >
+                                <PlayCircle className="w-3.5 h-3.5" />
+                                <span>Arm Lệnh Paper Thủ Công</span>
+                              </button>
+                            )}
+
+                            {!['CANCELLED', 'INVALIDATED', 'EXPIRED', 'CLOSED'].includes(s.state) && (
+                              <button
+                                onClick={() => handleCancelWatchSetup(s.id)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-charcoal-800 hover:bg-rose-950 text-rose-300 rounded text-xs border border-rose-900/50 transition"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span>Hủy Setup</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: PHÂN TÍCH SMC/ICT & MA TRẬN ĐA KHUNG */}
           {activeTab === 'smc' && (
             <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-4 overflow-y-auto max-h-[750px]">
               <div className="flex justify-between items-center border-b border-charcoal-750 pb-3">
-                <h2 className="text-base font-bold text-aurum-400">Chi Tiết Cấu Trúc Thị Trường SMC/ICT</h2>
-                <span className="text-xs text-gray-400">Khung: {timeframe} · Cập nhật nến đóng</span>
+                <div>
+                  <h2 className="text-base font-bold text-aurum-400">Phân Tích Cấu Trúc SMC/ICT & Ma Trận Đa Khung</h2>
+                  <p className="text-xs text-gray-400">Đánh giá causal tuần tự không lookahead: D/4H định hướng, H1 liên kết, 15M POI, 5M trigger</p>
+                </div>
+                <span className="text-xs text-gray-400">Khung đang xem: {timeframe}</span>
               </div>
 
+              {/* Multi-Timeframe Matrix */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-300 mb-2 uppercase tracking-wider">
+                  Ma Trận Xu Hướng Đa Khung Thời Gian (Multi-Timeframe Matrix)
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
+                  {marketMatrix?.matrix?.map((m: any) => (
+                    <div
+                      key={m.timeframe}
+                      className={`p-3 rounded-lg border flex flex-col gap-1 ${
+                        m.timeframe === timeframe
+                          ? 'bg-charcoal-800 border-aurum-500'
+                          : 'bg-charcoal-850 border-charcoal-700'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-gray-200">{m.timeframe}</span>
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            m.is_stale ? 'bg-amber-400' : 'bg-emerald-400'
+                          }`}
+                        />
+                      </div>
+                      <span
+                        className={`font-bold ${
+                          m.trend === 'BULLISH'
+                            ? 'text-emerald-400'
+                            : m.trend === 'BEARISH'
+                            ? 'text-rose-400'
+                            : 'text-amber-400'
+                        }`}
+                      >
+                        {m.trend}
+                      </span>
+                      <span className="text-[10px] text-gray-400">{m.zone}</span>
+                      <span className="text-[10px] text-indigo-300 font-mono">ATR: ${m.atr?.toFixed(2)}</span>
+                    </div>
+                  )) || (
+                    <div className="col-span-6 text-xs text-gray-400 italic">Đang tải ma trận đa khung...</div>
+                  )}
+                </div>
+              </div>
+
+              {/* SMC Metrics in selected timeframe */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                 <div className="bg-charcoal-850 p-3 rounded border border-charcoal-700">
-                  <span className="text-gray-400 block mb-1">Xu Hướng Cấu Trúc (Trend)</span>
-                  <span className={`text-base font-bold ${analysis?.trend === 'BULLISH' ? 'text-emerald-400' : analysis?.trend === 'BEARISH' ? 'text-rose-400' : 'text-amber-400'}`}>
+                  <span className="text-gray-400 block mb-1">Xu Hướng Cấu Trúc ({timeframe})</span>
+                  <span
+                    className={`text-base font-bold ${
+                      analysis?.trend === 'BULLISH'
+                        ? 'text-emerald-400'
+                        : analysis?.trend === 'BEARISH'
+                        ? 'text-rose-400'
+                        : 'text-amber-400'
+                    }`}
+                  >
                     {analysis?.trend || 'RANGING'}
                   </span>
                 </div>
                 <div className="bg-charcoal-850 p-3 rounded border border-charcoal-700">
                   <span className="text-gray-400 block mb-1">Vị Trí Dealing Range</span>
-                  <span className={`text-base font-bold ${analysis?.zone === 'DISCOUNT' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  <span
+                    className={`text-base font-bold ${
+                      analysis?.zone === 'DISCOUNT' ? 'text-emerald-400' : 'text-rose-400'
+                    }`}
+                  >
                     {analysis?.zone || 'EQUILIBRIUM'} (${analysis?.equilibrium?.toFixed(2)})
                   </span>
                 </div>
@@ -410,9 +1116,16 @@ export function App() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                   {analysis?.active_fvgs?.map((fvg: any, idx: number) => (
-                    <div key={idx} className="bg-charcoal-850 p-2.5 rounded border border-charcoal-700 flex justify-between items-center">
+                    <div
+                      key={idx}
+                      className="bg-charcoal-850 p-2.5 rounded border border-charcoal-700 flex justify-between items-center"
+                    >
                       <div>
-                        <span className={`font-semibold ${fvg.type === 'BULLISH_FVG' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        <span
+                          className={`font-semibold ${
+                            fvg.type === 'BULLISH_FVG' ? 'text-emerald-400' : 'text-rose-400'
+                          }`}
+                        >
                           {fvg.type === 'BULLISH_FVG' ? 'Bullish FVG' : 'Bearish FVG'}
                         </span>
                         <span className="text-gray-400 block text-[11px]">
@@ -432,15 +1145,16 @@ export function App() {
             </div>
           )}
 
+          {/* TAB: QUẢN TRỊ VỐN & KÝ QUỸ (RISK & MARGIN) */}
           {activeTab === 'paper' && (
-            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-4 overflow-y-auto max-h-[750px]">
+            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-5 overflow-y-auto max-h-[750px]">
               <div className="flex justify-between items-center border-b border-charcoal-750 pb-3">
                 <div>
-                  <h2 className="text-base font-bold text-aurum-400">Quản Trị Rủi Ro & Auto Paper Trading</h2>
-                  <p className="text-xs text-gray-400">Giả lập môi trường Bitget USDT-Futures không rủi ro tiền thật</p>
+                  <h2 className="text-base font-bold text-aurum-400">Quản Trị Rủi Ro & Ký Quỹ Bitget Isolated</h2>
+                  <p className="text-xs text-gray-400">Giả lập paper trading theo quy tắc ký quỹ chính thức của Bitget Classic USDT-Perpetual</p>
                 </div>
                 <button
-                  onClick={() => setAutoPaperActive(!autoPaperActive)}
+                  onClick={handleToggleAutoPaper}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition ${
                     autoPaperActive
                       ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
@@ -455,27 +1169,150 @@ export function App() {
               {/* Risk Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                 <div className="bg-charcoal-850 p-3 rounded border border-charcoal-700">
-                  <span className="text-gray-400 block">Vốn Hiện Tại</span>
-                  <span className="text-lg font-bold text-emerald-400">${accountStatus?.current_equity?.toFixed(2) || '1,000.00'}</span>
+                  <span className="text-gray-400 block">Vốn Hiện Tại (Equity)</span>
+                  <span className="text-lg font-bold text-emerald-400">
+                    ${accountStatus?.current_equity?.toFixed(2) || '1,000.00'}
+                  </span>
                 </div>
                 <div className="bg-charcoal-850 p-3 rounded border border-charcoal-700">
                   <span className="text-gray-400 block">Số Lệnh Hôm Nay</span>
-                  <span className="text-lg font-bold text-aurum-400">{accountStatus?.fills_count || 0} / 3 Lệnh</span>
+                  <span className="text-lg font-bold text-aurum-400">
+                    {accountStatus?.today_fills_count ?? accountStatus?.fills_count ?? 0} / 3 Lệnh
+                  </span>
                 </div>
                 <div className="bg-charcoal-850 p-3 rounded border border-charcoal-700">
                   <span className="text-gray-400 block">PnL Realized Hôm Nay</span>
-                  <span className={`text-lg font-bold ${accountStatus?.realized_pnl_today >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  <span
+                    className={`text-lg font-bold ${
+                      accountStatus?.realized_pnl_today >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                    }`}
+                  >
                     ${accountStatus?.realized_pnl_today?.toFixed(2) || '0.00'}
                   </span>
                 </div>
                 <div className="bg-charcoal-850 p-3 rounded border border-charcoal-700">
                   <span className="text-gray-400 block">Giới Hạn Lỗ Ngày (1.5%)</span>
-                  <span className="text-lg font-bold text-rose-400">${accountStatus?.daily_loss_limit_usdt?.toFixed(2) || '15.00'}</span>
+                  <span className="text-lg font-bold text-rose-400">
+                    ${accountStatus?.daily_loss_limit_usdt?.toFixed(2) || '15.00'}
+                  </span>
                 </div>
+              </div>
+
+              {/* Leverage & Margin Controls */}
+              <div className="bg-charcoal-850 p-4 rounded-lg border border-charcoal-700 flex flex-col gap-4 text-xs">
+                <h3 className="font-bold text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5 text-aurum-400" />
+                  Cấu Hình Đòn Bẩy (Leverage) & Chế Độ Ký Quỹ
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Leverage slider */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-300">Đòn bẩy mặc định:</span>
+                      <span className="text-sm font-bold text-aurum-400 font-mono">{leverage}x</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={50}
+                      value={leverage}
+                      onChange={(e) => setLeverage(Number(e.target.value))}
+                      className="w-full accent-aurum-500 cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] text-gray-400">
+                      <span>1x (Spot-like)</span>
+                      <span>5x (Default)</span>
+                      <span>20x</span>
+                      <span>50x (Max Cap)</span>
+                    </div>
+                    <p className="text-[10px] text-gray-400">
+                      * Thay đổi đòn bẩy KHÔNG thay đổi rủi ro tính bằng USD ($2.50) hay kích thước vị thế, mà chỉ thay đổi số tiền ký quỹ ban đầu yêu cầu và khoảng cách giá thanh lý (Liquidation Price).
+                    </p>
+                  </div>
+
+                  {/* Margin Mode & Risk Pct */}
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-gray-300 block mb-1">Chế độ ký quỹ:</span>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setMarginMode('ISOLATED')}
+                          className={`flex-1 py-1.5 rounded font-semibold text-xs border transition ${
+                            marginMode === 'ISOLATED'
+                              ? 'bg-aurum-500 text-charcoal-950 border-aurum-400 font-bold'
+                              : 'bg-charcoal-900 text-gray-400 border-charcoal-700'
+                          }`}
+                        >
+                          ISOLATED (Cô lập)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMarginMode('CROSS')}
+                          className={`flex-1 py-1.5 rounded font-semibold text-xs border transition ${
+                            marginMode === 'CROSS'
+                              ? 'bg-aurum-500 text-charcoal-950 border-aurum-400 font-bold'
+                              : 'bg-charcoal-900 text-gray-400 border-charcoal-700'
+                          }`}
+                        >
+                          CROSS (Toàn tài khoản)
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-gray-300 block mb-1">Rủi ro mỗi lệnh:</span>
+                      <div className="flex gap-2">
+                        {[0.25, 0.5].map((pct) => (
+                          <button
+                            key={pct}
+                            type="button"
+                            onClick={() => setRiskPct(pct)}
+                            className={`flex-1 py-1.5 rounded font-semibold text-xs border transition ${
+                              riskPct === pct
+                                ? 'bg-aurum-500 text-charcoal-950 border-aurum-400 font-bold'
+                                : 'bg-charcoal-900 text-gray-400 border-charcoal-700'
+                            }`}
+                          >
+                            {pct}% Vốn (${((accountStatus?.current_equity ?? 1000) * pct / 100).toFixed(2)})
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {settingsSavedMsg && (
+                  <div className="p-2.5 rounded bg-emerald-950/80 border border-emerald-700 text-emerald-300 text-xs">
+                    {settingsSavedMsg}
+                  </div>
+                )}
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleSaveRiskSettings}
+                    className="px-4 py-2 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition"
+                  >
+                    Lưu Cài Đặt Đòn Bẩy & Ký Quỹ
+                  </button>
+                </div>
+              </div>
+
+              {/* Liquidation safety rules */}
+              <div className="p-3.5 bg-charcoal-850 rounded-lg border border-charcoal-700 text-xs space-y-2">
+                <span className="font-bold text-gray-200 block flex items-center gap-1.5">
+                  <ShieldAlert className="w-4 h-4 text-emerald-400" />
+                  Quy Tắc Bảo Vệ Giá Thanh Lý (Liquidation Invariants)
+                </span>
+                <p className="text-gray-300 leading-relaxed text-[11px]">
+                  Hệ thống kiểm tra nghiêm ngặt: với lệnh Long, giá thanh lý bắt buộc phải thấp hơn Stop Loss kèm khoảng đệm an toàn (<code className="text-aurum-300">LP &lt; SL &lt; Entry</code>); với lệnh Short, giá thanh lý phải cao hơn Stop Loss (<code className="text-aurum-300">Entry &lt; SL &lt; LP</code>). Nếu đòn bẩy quá cao dẫn tới giá thanh lý nằm trước hoặc quá gần Stop Loss, hệ thống sẽ tự động chặn vào lệnh (<code>LIQUIDATION_BEFORE_SL</code>).
+                </p>
               </div>
             </div>
           )}
 
+          {/* TAB: BÁO CÁO PHIÊN & NGÀY */}
           {activeTab === 'reports' && (
             <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-4 overflow-y-auto max-h-[750px]">
               <div className="flex justify-between items-center border-b border-charcoal-750 pb-3">
@@ -504,6 +1341,7 @@ export function App() {
             </div>
           )}
 
+          {/* TAB: TIN TỨC & BLACKOUT */}
           {activeTab === 'news' && (
             <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-4 overflow-y-auto max-h-[750px]">
               <div className="flex justify-between items-center border-b border-charcoal-750 pb-3">
@@ -525,11 +1363,13 @@ export function App() {
               )}
 
               {/* Blackout status banner */}
-              <div className={`p-3 rounded-lg border flex items-center justify-between text-xs ${
-                newsData?.blackout_status?.is_blackout
-                  ? 'bg-rose-950/80 border-rose-800 text-rose-200'
-                  : 'bg-emerald-950/60 border-emerald-800 text-emerald-200'
-              }`}>
+              <div
+                className={`p-3 rounded-lg border flex items-center justify-between text-xs ${
+                  newsData?.blackout_status?.is_blackout
+                    ? 'bg-rose-950/80 border-rose-800 text-rose-200'
+                    : 'bg-emerald-950/60 border-emerald-800 text-emerald-200'
+                }`}
+              >
                 <div className="flex items-center gap-2">
                   <ShieldAlert className="w-4 h-4" />
                   <span>
@@ -564,10 +1404,15 @@ export function App() {
                         <td className="font-medium text-gray-200">{ev.title}</td>
                         <td className="text-gray-400">{ev.country}</td>
                         <td>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                            ev.impact === 'High' ? 'bg-rose-900/60 text-rose-300' :
-                            ev.impact === 'Medium' ? 'bg-amber-900/60 text-amber-300' : 'bg-gray-800 text-gray-400'
-                          }`}>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              ev.impact === 'High'
+                                ? 'bg-rose-900/60 text-rose-300'
+                                : ev.impact === 'Medium'
+                                ? 'bg-amber-900/60 text-amber-300'
+                                : 'bg-gray-800 text-gray-400'
+                            }`}
+                          >
                             {ev.impact}
                           </span>
                         </td>
@@ -582,6 +1427,7 @@ export function App() {
             </div>
           )}
 
+          {/* TAB: NHẬT KÝ & BÀI HỌC */}
           {activeTab === 'journal' && (
             <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-4 overflow-y-auto max-h-[750px]">
               <div className="flex justify-between items-center border-b border-charcoal-750 pb-3">
@@ -593,10 +1439,19 @@ export function App() {
 
               <div className="space-y-3">
                 {journalTrades.map((t) => (
-                  <div key={t.id} className="bg-charcoal-850 p-3.5 rounded-lg border border-charcoal-700 flex flex-wrap justify-between items-center gap-3 text-xs">
+                  <div
+                    key={t.id}
+                    className="bg-charcoal-850 p-3.5 rounded-lg border border-charcoal-700 flex flex-wrap justify-between items-center gap-3 text-xs"
+                  >
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`px-2 py-0.5 rounded font-bold ${t.direction === 'LONG' ? 'bg-emerald-900/60 text-emerald-300' : 'bg-rose-900/60 text-rose-300'}`}>
+                        <span
+                          className={`px-2 py-0.5 rounded font-bold ${
+                            t.direction === 'LONG'
+                              ? 'bg-emerald-900/60 text-emerald-300'
+                              : 'bg-rose-900/60 text-rose-300'
+                          }`}
+                        >
                           {t.direction}
                         </span>
                         <span className="font-semibold text-gray-200">XAUUSDT ({t.timeframe})</span>
@@ -612,11 +1467,17 @@ export function App() {
 
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <span className={`text-sm font-bold block ${t.realized_pnl_net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        <span
+                          className={`text-sm font-bold block ${
+                            t.realized_pnl_net >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                          }`}
+                        >
                           {t.realized_pnl_net !== null ? `${t.realized_pnl_net > 0 ? '+' : ''}$${t.realized_pnl_net}` : 'Đang chạy'}
                         </span>
                         {t.realized_r !== null && (
-                          <span className="text-[11px] text-gray-400">({t.realized_r > 0 ? '+' : ''}{t.realized_r}R)</span>
+                          <span className="text-[11px] text-gray-400">
+                            ({t.realized_r > 0 ? '+' : ''}{t.realized_r}R)
+                          </span>
                         )}
                       </div>
 
@@ -649,8 +1510,12 @@ export function App() {
                           {ls.category}
                         </span>
                       </div>
-                      <p className="text-gray-400 text-[11px] mb-1"><span className="text-gray-300 font-medium">Nhận xét:</span> {ls.reflection}</p>
-                      <p className="text-aurum-400 text-[11px]"><span className="text-gray-300 font-medium">Hành động khắc phục:</span> {ls.action_rule}</p>
+                      <p className="text-gray-400 text-[11px] mb-1">
+                        <span className="text-gray-300 font-medium">Nhận xét:</span> {ls.reflection}
+                      </p>
+                      <p className="text-aurum-400 text-[11px]">
+                        <span className="text-gray-300 font-medium">Hành động khắc phục:</span> {ls.action_rule}
+                      </p>
                     </div>
                   ))}
                   {lessons.length === 0 && (
@@ -661,7 +1526,171 @@ export function App() {
             </div>
           )}
 
+          {/* TAB: CÀI ĐẶT TELEGRAM */}
+          {activeTab === 'telegram' && (
+            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-5 overflow-y-auto max-h-[750px]">
+              <div className="flex justify-between items-center border-b border-charcoal-750 pb-3">
+                <div>
+                  <h2 className="text-base font-bold text-aurum-400 flex items-center gap-2">
+                    <Smartphone className="w-4 h-4 text-aurum-400" />
+                    Cấu Hình Thông Báo Điện Thoại Qua Telegram
+                  </h2>
+                  <p className="text-xs text-gray-400">
+                    Nhận cảnh báo trực tiếp về điện thoại khi có setup READY, lệnh ARMED, hoặc lệnh khớp/đóng mà không cần mở trình duyệt
+                  </p>
+                </div>
+              </div>
 
+              {/* Bot Token & Chat ID Configuration Card */}
+              <div className="bg-charcoal-850 p-4 rounded-lg border border-charcoal-750 flex flex-col gap-4 text-xs">
+                {/* Enable toggle */}
+                <div className="flex justify-between items-center border-b border-charcoal-700 pb-3">
+                  <div>
+                    <span className="font-bold text-gray-200 block text-sm">Bật Thông Báo Telegram</span>
+                    <span className="text-[11px] text-gray-400">
+                      Gửi tin qua Outbox nền với cơ chế retry và hàng đợi bền vững
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTelegramConfig({ ...telegramConfig, enabled: !telegramConfig.enabled })}
+                    className={`px-4 py-1.5 rounded-full font-bold text-xs transition ${
+                      telegramConfig.enabled
+                        ? 'bg-emerald-500 text-charcoal-950'
+                        : 'bg-charcoal-800 text-gray-400 border border-charcoal-700'
+                    }`}
+                  >
+                    {telegramConfig.enabled ? 'ĐÃ BẬT' : 'ĐANG TẮT'}
+                  </button>
+                </div>
+
+                {/* Bot Token Input */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="font-semibold text-gray-300">Bot Token (Từ @BotFather):</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowBotToken(!showBotToken)}
+                      className="text-[11px] text-indigo-400 hover:text-indigo-300"
+                    >
+                      {showBotToken ? 'Ẩn Token' : 'Hiện Token'}
+                    </button>
+                  </div>
+                  <input
+                    type={showBotToken ? 'text' : 'password'}
+                    value={telegramConfig.bot_token || ''}
+                    onChange={(e) => setTelegramConfig({ ...telegramConfig, bot_token: e.target.value })}
+                    placeholder="VD: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz..."
+                    className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-aurum-500"
+                  />
+                  <p className="text-[10px] text-gray-500">
+                    * Token được lưu trữ an toàn ở database máy local, không bao giờ được log hoặc nhúng vào bundle frontend.
+                  </p>
+                </div>
+
+                {/* Chat ID Input */}
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-gray-300">Chat ID Của Bạn:</label>
+                  <input
+                    type="text"
+                    value={telegramConfig.chat_id || ''}
+                    onChange={(e) => setTelegramConfig({ ...telegramConfig, chat_id: e.target.value })}
+                    placeholder="VD: 987654321"
+                    className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-aurum-500"
+                  />
+                </div>
+
+                {/* Quiet Hours */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-semibold text-gray-300 block mb-1">Giờ Bắt Đầu Yên Lặng (Giờ VN UTC+7):</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={23}
+                      value={telegramConfig.quiet_hours_start ?? 23}
+                      onChange={(e) => setTelegramConfig({ ...telegramConfig, quiet_hours_start: Number(e.target.value) })}
+                      className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-3 py-1.5 text-xs text-gray-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-semibold text-gray-300 block mb-1">Giờ Kết Thúc Yên Lặng (Giờ VN UTC+7):</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={23}
+                      value={telegramConfig.quiet_hours_end ?? 6}
+                      onChange={(e) => setTelegramConfig({ ...telegramConfig, quiet_hours_end: Number(e.target.value) })}
+                      className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-3 py-1.5 text-xs text-gray-200"
+                    />
+                  </div>
+                </div>
+
+                {/* Buttons: Test and Save */}
+                <div className="flex flex-wrap justify-between items-center gap-3 pt-2 border-t border-charcoal-750">
+                  <button
+                    type="button"
+                    onClick={handleTestTelegram}
+                    disabled={telegramTestStatus.loading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-charcoal-700 text-white font-semibold rounded text-xs transition"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{telegramTestStatus.loading ? 'Đang gửi test...' : 'Gửi Tin Nhắn Thử Nghiệm'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveTelegramConfig}
+                    className="px-4 py-1.5 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition"
+                  >
+                    Lưu Cấu Hình Telegram
+                  </button>
+                </div>
+
+                {/* Test Feedback banner */}
+                {telegramTestStatus.msg && (
+                  <div
+                    className={`p-3 rounded border text-xs ${
+                      telegramTestStatus.ok
+                        ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300'
+                        : 'bg-rose-950/80 border-rose-700 text-rose-300'
+                    }`}
+                  >
+                    {telegramTestStatus.msg}
+                  </div>
+                )}
+              </div>
+
+              {/* Instructions Guide */}
+              <div className="bg-charcoal-850 p-4 rounded-lg border border-charcoal-750 text-xs space-y-2">
+                <h3 className="font-bold text-aurum-400 uppercase tracking-wider">
+                  Hướng Dẫn Thiết Lập Telegram Bot Nhanh (Miễn Phí):
+                </h3>
+                <ol className="list-decimal pl-5 space-y-1.5 text-gray-300 text-[11px] leading-relaxed">
+                  <li>
+                    Mở Telegram, tìm kiếm <strong>@BotFather</strong> và gõ lệnh <code>/newbot</code>.
+                  </li>
+                  <li>
+                    Đặt tên cho Bot và username kết thúc bằng <code>bot</code> (VD: <code>MyAurumAlerts_bot</code>).
+                  </li>
+                  <li>
+                    Copy mã <strong>HTTP API Token</strong> do BotFather cấp và dán vào ô <strong>Bot Token</strong> ở trên.
+                  </li>
+                  <li>
+                    Mở bot vừa tạo và bấm <strong>Start</strong> (hoặc gõ <code>/start</code>) để bot được phép gửi tin cho bạn.
+                  </li>
+                  <li>
+                    Tìm bot <strong>@userinfobot</strong> trên Telegram và bấm Start để lấy số <strong>Id</strong> của bạn, sau đó dán vào ô <strong>Chat ID</strong>.
+                  </li>
+                  <li>
+                    Bấm <strong>Gửi Tin Nhắn Thử Nghiệm</strong>. Nếu điện thoại của bạn rung nhận được tin, bấm <strong>Lưu Cấu Hình Telegram</strong>.
+                  </li>
+                </ol>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: THƯ VIỆN KIẾN THỨC */}
           {activeTab === 'education' && (
             <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col md:flex-row gap-5 overflow-y-auto max-h-[750px]">
               {/* Sidebar Modules */}
@@ -687,7 +1716,9 @@ export function App() {
               <div className="flex-1 flex flex-col">
                 {selectedEdu ? (
                   <div>
-                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">{selectedEdu.category}</span>
+                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">
+                      {selectedEdu.category}
+                    </span>
                     <h2 className="text-base font-bold text-gray-100 mb-3">{selectedEdu.title}</h2>
                     <div className="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed bg-charcoal-850 p-4 rounded-lg border border-charcoal-700">
                       {selectedEdu.content}
@@ -719,7 +1750,9 @@ export function App() {
               <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between">
                   <span className="text-gray-400">Entry Thực Tế:</span>
-                  <span className="font-semibold text-gray-200">${activePosition.position.actual_entry || activePosition.position.planned_entry}</span>
+                  <span className="font-semibold text-gray-200">
+                    ${activePosition.position.actual_entry || activePosition.position.planned_entry}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Cắt Lỗ (SL):</span>
@@ -733,9 +1766,25 @@ export function App() {
                   <span className="text-gray-400">R:R Kỳ Vọng:</span>
                   <span className="text-aurum-400 font-bold">1:{activePosition.position.gross_rr}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Đòn bẩy & Ký quỹ:</span>
+                  <span className="font-mono text-gray-300">
+                    {activePosition.position.leverage || leverage}x ({activePosition.position.margin_mode || marginMode})
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Thanh lý ước tính:</span>
+                  <span className="text-rose-400 font-mono font-semibold">
+                    ${activePosition.position.estimated_liquidation?.toFixed(2) || '---'}
+                  </span>
+                </div>
                 <div className="flex justify-between pt-1 border-t border-charcoal-750">
                   <span className="text-gray-400 font-medium">PnL Tạm Tính:</span>
-                  <span className={`font-bold text-sm ${activePosition.unrealized_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  <span
+                    className={`font-bold text-sm ${
+                      activePosition.unrealized_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                    }`}
+                  >
                     {activePosition.unrealized_pnl >= 0 ? '+' : ''}${activePosition.unrealized_pnl}
                   </span>
                 </div>
@@ -769,6 +1818,9 @@ export function App() {
                       <p>Kế hoạch Entry: ${analysis.active_signal.planned_entry}</p>
                       <p>Stop Loss: ${analysis.active_signal.stop_loss}</p>
                       <p>Take Profit: ${analysis.active_signal.targets?.[0]?.price}</p>
+                      <p>
+                        Ký quỹ ước tính: ${(analysis.active_signal.initial_margin || 0).toFixed(2)} USDT ({leverage}x)
+                      </p>
                     </div>
                   </div>
 
@@ -776,7 +1828,7 @@ export function App() {
                     onClick={handleOpenPaperTrade}
                     className="w-full py-2 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition shadow-sm"
                   >
-                    Vào Lệnh Giả Lập (0.5% Risk)
+                    Vào Lệnh Giả Lập ({riskPct}% Risk)
                   </button>
                 </div>
               ) : (
@@ -793,6 +1845,56 @@ export function App() {
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Upcoming Setups Quick Preview in Sidebar */}
+          {upcomingData.setups.length > 0 && (
+            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-3.5 shadow-lg flex flex-col gap-2">
+              <div className="flex justify-between items-center border-b border-charcoal-750 pb-1.5">
+                <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
+                  <ListOrdered className="w-3.5 h-3.5 text-aurum-400" />
+                  LỆNH DỰ KIẾN ({upcomingData.setups.length})
+                </span>
+                <button
+                  onClick={() => setActiveTab('upcoming')}
+                  className="text-[10px] text-aurum-400 hover:text-aurum-300 font-medium"
+                >
+                  Xem tất cả →
+                </button>
+              </div>
+
+              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                {upcomingData.setups.slice(0, 3).map((st) => (
+                  <div
+                    key={st.id}
+                    onClick={() => handleFocusSetupOnChart(st)}
+                    className="p-2 rounded bg-charcoal-850 border border-charcoal-700 hover:border-aurum-500/50 cursor-pointer text-[11px] flex justify-between items-center transition"
+                  >
+                    <div>
+                      <span
+                        className={`font-bold mr-1.5 ${
+                          st.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
+                      >
+                        {st.direction}
+                      </span>
+                      <span className="text-gray-300">${st.confirmed_entry || st.provisional_entry}</span>
+                    </div>
+                    <span
+                      className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold ${
+                        st.state === 'READY'
+                          ? 'bg-emerald-500 text-charcoal-950'
+                          : st.state === 'ARMED'
+                          ? 'bg-amber-500 text-charcoal-950'
+                          : 'bg-charcoal-800 text-gray-400'
+                      }`}
+                    >
+                      {st.state}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -891,9 +1993,15 @@ export function App() {
               <span className="font-mono">$1,000.00</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Vốn Khả Dụng:</span>
+              <span className="text-gray-400">Vốn Khả Dụng (Equity):</span>
               <span className="font-mono text-emerald-400 font-bold">
                 ${accountStatus?.current_equity?.toFixed(2) || '1,000.00'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Đòn bẩy / Ký quỹ:</span>
+              <span className="font-mono text-gray-200">
+                {leverage}x · {marginMode}
               </span>
             </div>
             <div className="flex justify-between">
@@ -902,11 +2010,13 @@ export function App() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Lệnh đã vào hôm nay:</span>
-              <span className="font-mono">{accountStatus?.today_fills_count ?? accountStatus?.fills_count ?? 0} / 3 Lệnh</span>
+              <span className="font-mono">
+                {accountStatus?.today_fills_count ?? accountStatus?.fills_count ?? 0} / 3 Lệnh
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Lệnh chờ (Armed):</span>
-              <span className="font-mono">{accountStatus?.armed_orders_count ?? 0} Lệnh</span>
+              <span className="font-mono text-amber-400">{accountStatus?.armed_orders_count ?? 0} Lệnh</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Lỗ Liên Tiếp:</span>

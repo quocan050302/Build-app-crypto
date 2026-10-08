@@ -9,54 +9,50 @@ def run_migration():
     db_path = base_dir / "aurum_desk.db"
     backup_path = base_dir / f"aurum_desk.db.bak.{int(time.time())}"
 
-    print(f"[*] Starting migration for {db_path}...")
+    print(f"[*] Starting idempotent V4 migration for {db_path}...")
     if db_path.exists():
         shutil.copy2(db_path, backup_path)
-        print(f"[+] Created backup at {backup_path}")
+        print(f"[+] Created consistent backup at {backup_path}")
 
     conn = sqlite3.connect(str(db_path))
     cur = conn.cursor()
 
-    # Enable WAL
+    # Enable WAL & busy timeout
     cur.execute("PRAGMA journal_mode=WAL;")
+    cur.execute("PRAGMA busy_timeout=5000;")
 
-    # 1. Deduplicate candles table
-    # Check if candles table exists
+    # 1. Candles table & unique constraint
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='candles';")
     if cur.fetchone():
-        print("[*] Deduplicating existing candles...")
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS candles_deduped (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                symbol VARCHAR(20) NOT NULL,
-                timeframe VARCHAR(10) NOT NULL,
-                timestamp BIGINT NOT NULL,
-                open FLOAT NOT NULL,
-                high FLOAT NOT NULL,
-                low FLOAT NOT NULL,
-                close FLOAT NOT NULL,
-                volume FLOAT DEFAULT 0.0,
-                is_closed BOOLEAN DEFAULT 1,
-                CONSTRAINT uq_candle_symbol_tf_ts UNIQUE (symbol, timeframe, timestamp)
-            );
-        """)
-
-        # Insert latest entry for each (symbol, timeframe, timestamp)
-        cur.execute("""
-            INSERT OR REPLACE INTO candles_deduped (symbol, timeframe, timestamp, open, high, low, close, volume, is_closed)
-            SELECT symbol, timeframe, timestamp, open, high, low, close, volume, is_closed
-            FROM candles
-            ORDER BY id ASC;
-        """)
-
-        cur.execute("DROP TABLE candles;")
-        cur.execute("ALTER TABLE candles_deduped RENAME TO candles;")
-        cur.execute("CREATE INDEX IF NOT EXISTS ix_candles_symbol ON candles(symbol);")
-        cur.execute("CREATE INDEX IF NOT EXISTS ix_candles_timeframe ON candles(timeframe);")
-        cur.execute("CREATE INDEX IF NOT EXISTS ix_candles_timestamp ON candles(timestamp);")
-        print("[+] Candles table deduplicated with unique constraint successfully.")
+        # Check if table already has unique constraint by testing index
+        cur.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='candles';")
+        candles_sql = cur.fetchone()[0]
+        if "uq_candle_symbol_tf_ts" not in candles_sql:
+            print("[*] Upgrading candles table with unique constraint...")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS candles_deduped (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    symbol VARCHAR(20) NOT NULL,
+                    timeframe VARCHAR(10) NOT NULL,
+                    timestamp BIGINT NOT NULL,
+                    open FLOAT NOT NULL,
+                    high FLOAT NOT NULL,
+                    low FLOAT NOT NULL,
+                    close FLOAT NOT NULL,
+                    volume FLOAT DEFAULT 0.0,
+                    is_closed BOOLEAN DEFAULT 1,
+                    CONSTRAINT uq_candle_symbol_tf_ts UNIQUE (symbol, timeframe, timestamp)
+                );
+            """)
+            cur.execute("""
+                INSERT OR REPLACE INTO candles_deduped (symbol, timeframe, timestamp, open, high, low, close, volume, is_closed)
+                SELECT symbol, timeframe, timestamp, open, high, low, close, volume, is_closed
+                FROM candles
+                ORDER BY id ASC;
+            """)
+            cur.execute("DROP TABLE candles;")
+            cur.execute("ALTER TABLE candles_deduped RENAME TO candles;")
     else:
-        # Create fresh candles table
         cur.execute("""
             CREATE TABLE candles (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,50 +68,72 @@ def run_migration():
                 CONSTRAINT uq_candle_symbol_tf_ts UNIQUE (symbol, timeframe, timestamp)
             );
         """)
-        cur.execute("CREATE INDEX IF NOT EXISTS ix_candles_symbol ON candles(symbol);")
-        cur.execute("CREATE INDEX IF NOT EXISTS ix_candles_timeframe ON candles(timeframe);")
-        cur.execute("CREATE INDEX IF NOT EXISTS ix_candles_timestamp ON candles(timestamp);")
 
-    # 2. Create paper_orders table
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS paper_orders (
-            id VARCHAR(36) PRIMARY KEY,
-            setup_id VARCHAR(50),
-            signal_id VARCHAR(50),
-            instrument VARCHAR(20) DEFAULT 'XAUUSDT',
-            direction VARCHAR(10) NOT NULL,
-            state VARCHAR(20) DEFAULT 'candidate',
-            order_type VARCHAR(10) DEFAULT 'MARKET',
-            timeframe VARCHAR(10) DEFAULT '15M',
-            planned_entry FLOAT NOT NULL,
-            actual_entry FLOAT,
-            stop_loss FLOAT NOT NULL,
-            take_profit FLOAT NOT NULL,
-            actual_exit FLOAT,
-            quantity FLOAT NOT NULL,
-            initial_risk_usdt FLOAT NOT NULL,
-            risk_pct FLOAT DEFAULT 0.5,
-            gross_rr FLOAT DEFAULT 2.0,
-            estimated_net_rr FLOAT DEFAULT 1.9,
-            fees_assumption FLOAT DEFAULT 0.10,
-            slippage_assumption FLOAT DEFAULT 0.10,
-            realized_pnl_net FLOAT,
-            realized_r FLOAT,
-            exit_cause VARCHAR(30),
-            invalidation_reason TEXT,
-            strategy_version VARCHAR(20) DEFAULT '1.0.0',
-            created_at BIGINT NOT NULL,
-            armed_at BIGINT,
-            opened_at BIGINT,
-            closed_at BIGINT,
-            expires_at BIGINT,
-            checklist_snapshot TEXT,
-            lessons_retrieved TEXT
-        );
-    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_candles_symbol ON candles(symbol);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_candles_timeframe ON candles(timeframe);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_candles_timestamp ON candles(timestamp);")
+
+    # 2. Paper Orders table & column extensions
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='paper_orders';")
+    if not cur.fetchone():
+        cur.execute("""
+            CREATE TABLE paper_orders (
+                id VARCHAR(36) PRIMARY KEY,
+                setup_id VARCHAR(50),
+                signal_id VARCHAR(50),
+                instrument VARCHAR(20) DEFAULT 'XAUUSDT',
+                direction VARCHAR(10) NOT NULL,
+                state VARCHAR(20) DEFAULT 'candidate',
+                order_type VARCHAR(10) DEFAULT 'MARKET',
+                timeframe VARCHAR(10) DEFAULT '15M',
+                planned_entry FLOAT NOT NULL,
+                actual_entry FLOAT,
+                stop_loss FLOAT NOT NULL,
+                take_profit FLOAT NOT NULL,
+                actual_exit FLOAT,
+                quantity FLOAT NOT NULL,
+                initial_risk_usdt FLOAT NOT NULL,
+                risk_pct FLOAT DEFAULT 0.25,
+                gross_rr FLOAT DEFAULT 2.0,
+                estimated_net_rr FLOAT DEFAULT 1.9,
+                fees_assumption FLOAT DEFAULT 0.10,
+                slippage_assumption FLOAT DEFAULT 0.10,
+                leverage INTEGER DEFAULT 5,
+                margin_mode VARCHAR(20) DEFAULT 'ISOLATED',
+                estimated_liquidation FLOAT,
+                initial_margin FLOAT,
+                realized_pnl_net FLOAT,
+                realized_r FLOAT,
+                exit_cause VARCHAR(30),
+                invalidation_reason TEXT,
+                strategy_version VARCHAR(20) DEFAULT '1.0.0',
+                created_at BIGINT NOT NULL,
+                armed_at BIGINT,
+                opened_at BIGINT,
+                closed_at BIGINT,
+                expires_at BIGINT,
+                checklist_snapshot TEXT,
+                lessons_retrieved TEXT
+            );
+        """)
+    else:
+        # Check and add new V4 columns if missing
+        cur.execute("PRAGMA table_info(paper_orders);")
+        existing_cols = {row[1] for row in cur.fetchall()}
+        new_cols = [
+            ("leverage", "INTEGER DEFAULT 5"),
+            ("margin_mode", "VARCHAR(20) DEFAULT 'ISOLATED'"),
+            ("estimated_liquidation", "FLOAT"),
+            ("initial_margin", "FLOAT")
+        ]
+        for col_name, col_def in new_cols:
+            if col_name not in existing_cols:
+                cur.execute(f"ALTER TABLE paper_orders ADD COLUMN {col_name} {col_def};")
+                print(f"[+] Added column {col_name} to paper_orders")
+
     cur.execute("CREATE INDEX IF NOT EXISTS ix_paper_orders_state ON paper_orders(state);")
 
-    # 3. Create day_audits table
+    # 3. Day Audits table
     cur.execute("""
         CREATE TABLE IF NOT EXISTS day_audits (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -132,7 +150,7 @@ def run_migration():
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS ix_day_audits_date_str ON day_audits(date_str);")
 
-    # 4. Create economic_news table
+    # 4. Economic News & Reactions
     cur.execute("""
         CREATE TABLE IF NOT EXISTS economic_news (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -152,7 +170,6 @@ def run_migration():
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS ix_economic_news_scheduled ON economic_news(scheduled_at);")
 
-    # 5. Create news_reactions table
     cur.execute("""
         CREATE TABLE IF NOT EXISTS news_reactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -165,7 +182,7 @@ def run_migration():
         );
     """)
 
-    # 6. Create research_reports table
+    # 5. Research Reports
     cur.execute("""
         CREATE TABLE IF NOT EXISTS research_reports (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -182,7 +199,7 @@ def run_migration():
         );
     """)
 
-    # 7. Create lessons table
+    # 6. Lessons
     cur.execute("""
         CREATE TABLE IF NOT EXISTS lessons (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -199,10 +216,188 @@ def run_migration():
         );
     """)
 
+    # 7. System Configs (KV settings)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS system_configs (
+            "key" VARCHAR(50) NOT NULL PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at BIGINT NOT NULL
+        );
+    """)
+
+    # 8. Watch Setups (Upcoming Plans & Setups state machine)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS watch_setups (
+            id VARCHAR(50) NOT NULL PRIMARY KEY,
+            version INTEGER DEFAULT 1,
+            strategy VARCHAR(50) DEFAULT 'SMC_V1',
+            direction VARCHAR(10) NOT NULL,
+            timeframe VARCHAR(10) DEFAULT '15M',
+            state VARCHAR(30) DEFAULT 'WATCHING',
+            htf_bias VARCHAR(20) DEFAULT 'UNKNOWN',
+            h1_alignment VARCHAR(20) DEFAULT 'UNKNOWN',
+            poi_zone TEXT,
+            trigger_mode VARCHAR(30) DEFAULT 'CONFIRMED_CLOSE',
+            provisional_entry FLOAT NOT NULL,
+            provisional_sl FLOAT NOT NULL,
+            provisional_tp FLOAT NOT NULL,
+            confirmed_entry FLOAT,
+            confirmed_sl FLOAT,
+            confirmed_tp FLOAT,
+            invalidation_price FLOAT NOT NULL,
+            invalidation_reason TEXT,
+            gross_rr FLOAT DEFAULT 0.0,
+            net_rr FLOAT DEFAULT 0.0,
+            risk_usdt FLOAT DEFAULT 0.0,
+            quantity FLOAT DEFAULT 0.0,
+            leverage INTEGER DEFAULT 5,
+            margin_mode VARCHAR(20) DEFAULT 'ISOLATED',
+            estimated_liquidation FLOAT,
+            conditions_met TEXT,
+            conditions_remaining TEXT,
+            distance_to_entry_atr FLOAT,
+            distance_to_entry_usdt FLOAT,
+            news_window TEXT,
+            evidence_timeline TEXT,
+            created_at BIGINT NOT NULL,
+            updated_at BIGINT NOT NULL,
+            expires_at BIGINT
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_watch_setups_state ON watch_setups(state);")
+
+    # 9. Domain Events (Event sourcing stream for WebSockets & audit)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS domain_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id VARCHAR(36) NOT NULL UNIQUE,
+            sequence INTEGER NOT NULL,
+            schema_version VARCHAR(20) DEFAULT '1.0.0',
+            event_type VARCHAR(50) NOT NULL,
+            aggregate_id VARCHAR(50) NOT NULL,
+            aggregate_version INTEGER DEFAULT 1,
+            occurred_at BIGINT NOT NULL,
+            published_at BIGINT NOT NULL,
+            payload TEXT NOT NULL
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_domain_events_type ON domain_events(event_type);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_domain_events_agg ON domain_events(aggregate_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_domain_events_seq ON domain_events(sequence);")
+
+    # 10. Notification Outbox (Reliable delivery & retry queue)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS notification_outbox (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id VARCHAR(36),
+            channel VARCHAR(20) DEFAULT 'TELEGRAM',
+            recipient VARCHAR(100),
+            message_type VARCHAR(50) NOT NULL,
+            dedupe_key VARCHAR(120) NOT NULL UNIQUE,
+            payload TEXT NOT NULL,
+            status VARCHAR(20) DEFAULT 'PENDING',
+            attempts INTEGER DEFAULT 0,
+            last_attempt_at BIGINT,
+            provider_message_id VARCHAR(100),
+            error_message TEXT,
+            created_at BIGINT NOT NULL
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_notification_outbox_status ON notification_outbox(status);")
+
+    # 11. Telegram Configs
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS telegram_configs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            enabled BOOLEAN DEFAULT 0,
+            bot_token VARCHAR(150),
+            chat_id VARCHAR(100),
+            subscribed_events TEXT,
+            quiet_hours_enabled BOOLEAN DEFAULT 0,
+            quiet_hours_start VARCHAR(10) DEFAULT '23:00',
+            quiet_hours_end VARCHAR(10) DEFAULT '06:00',
+            timezone VARCHAR(50) DEFAULT 'Asia/Ho_Chi_Minh',
+            base_chart_url VARCHAR(255),
+            updated_at BIGINT NOT NULL
+        );
+    """)
+
+    # 12. Replay Runs & Replay Trades
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS replay_runs (
+            id VARCHAR(36) PRIMARY KEY,
+            run_name VARCHAR(100) NOT NULL,
+            symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+            start_ts BIGINT NOT NULL,
+            end_ts BIGINT NOT NULL,
+            initial_equity FLOAT DEFAULT 1000.0,
+            final_equity FLOAT NOT NULL,
+            total_trades INTEGER DEFAULT 0,
+            net_wins INTEGER DEFAULT 0,
+            net_losses INTEGER DEFAULT 0,
+            breakevens INTEGER DEFAULT 0,
+            win_rate FLOAT DEFAULT 0.0,
+            profit_factor FLOAT DEFAULT 0.0,
+            max_drawdown FLOAT DEFAULT 0.0,
+            expectancy_r FLOAT DEFAULT 0.0,
+            config_snapshot TEXT NOT NULL,
+            rvol_ablation_summary TEXT,
+            created_at BIGINT NOT NULL
+        );
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS replay_trades (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id VARCHAR(36) NOT NULL,
+            symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+            direction VARCHAR(10) NOT NULL,
+            entry_time BIGINT NOT NULL,
+            exit_time BIGINT NOT NULL,
+            entry_price FLOAT NOT NULL,
+            exit_price FLOAT NOT NULL,
+            stop_loss FLOAT NOT NULL,
+            take_profit FLOAT NOT NULL,
+            quantity FLOAT NOT NULL,
+            gross_pnl FLOAT NOT NULL,
+            net_pnl FLOAT NOT NULL,
+            net_r FLOAT NOT NULL,
+            exit_cause VARCHAR(50) NOT NULL,
+            rvol_at_entry FLOAT,
+            FOREIGN KEY (run_id) REFERENCES replay_runs (id) ON DELETE CASCADE
+        );
+    """)
+
+    # Seed default system configs if missing
+    now_ms = int(time.time() * 1000)
+    defaults = [
+        ("schema_version", "4.0.0"),
+        ("auto_paper_trading", "false"), # Default false as per prompt section 8
+        ("default_leverage", "5"),
+        ("default_margin_mode", "ISOLATED"),
+        ("active_strategy_version", "1.0.0"),
+    ]
+    for key, val in defaults:
+        cur.execute("SELECT 1 FROM system_configs WHERE key = ?", (key,))
+        if not cur.fetchone():
+            cur.execute("INSERT INTO system_configs (key, value, updated_at) VALUES (?, ?, ?)", (key, val, now_ms))
+
+    # Seed Telegram config if missing
+    cur.execute("SELECT count(*) FROM telegram_configs;")
+    if cur.fetchone()[0] == 0:
+        import json
+        cur.execute("""
+            INSERT INTO telegram_configs (enabled, bot_token, chat_id, subscribed_events, quiet_hours_enabled, quiet_hours_start, quiet_hours_end, timezone, base_chart_url, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            0, "", "",
+            json.dumps(["READY", "ARMED_NEAR_ENTRY", "FILLED", "INVALIDATED", "CLOSED", "FEED_DOWN"]),
+            0, "23:00", "06:00", "Asia/Ho_Chi_Minh", "", now_ms
+        ))
+
     # Seed initial rules/lessons if empty
     cur.execute("SELECT count(*) FROM lessons;")
     if cur.fetchone()[0] == 0:
-        now_ms = int(time.time() * 1000)
         initial_lessons = [
             (now_ms, "Không giao dịch trong vùng tin tức USD High Impact (Blackout)", "RISK", None, "ALL", "ALL",
              "Biến động tin tức quét hai đầu wick mạnh (slippage cao), không phản ánh cấu trúc thanh khoản thông thường.",
@@ -221,11 +416,10 @@ def run_migration():
             INSERT INTO lessons (created_at, title, category, related_trade_id, setup_type, session, reflection, action_rule, is_hard_filter, is_approved)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, initial_lessons)
-        print("[+] Seeded foundational lessons & hard filter rules.")
 
     conn.commit()
     conn.close()
-    print("[+] Migration completed successfully!")
+    print("[+] V4 migration completed successfully with full historical preservation!")
 
 if __name__ == "__main__":
     run_migration()

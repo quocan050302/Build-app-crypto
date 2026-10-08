@@ -6,7 +6,7 @@ import { RiskRewardPrimitive } from './plugins/RiskRewardPrimitive';
 import type { RiskRewardData, DragTargetPart } from './plugins/RiskRewardPrimitive';
 import { SMCStructurePrimitive } from './plugins/SMCStructurePrimitive';
 import { calculateClientRiskReward } from './utils/calculator';
-import { RefreshCw, AlertCircle, Eye, EyeOff, Crosshair, ArrowUpRight, ArrowDownRight, Layers } from 'lucide-react';
+import { RefreshCw, AlertCircle, Eye, EyeOff, Crosshair, ArrowUpRight, ArrowDownRight, Layers, BarChart2 } from 'lucide-react';
 
 export interface ChartComponentProps {
   symbol: string;
@@ -14,6 +14,11 @@ export interface ChartComponentProps {
   activeOverlay?: RiskRewardData | null;
   onOverlayChange?: (data: RiskRewardData) => void;
   onFocusTrade?: (trade: any) => void;
+  accountEquity?: number;
+  riskPct?: number;
+  leverage?: number;
+  marginMode?: 'ISOLATED' | 'CROSS';
+  rvolData?: any;
   smcLevels?: {
     swingHigh?: number;
     swingLow?: number;
@@ -38,6 +43,11 @@ export function ChartComponent({
   timeframe,
   activeOverlay,
   onOverlayChange,
+  accountEquity = 1000.0,
+  riskPct = 0.25,
+  leverage = 5,
+  marginMode = 'ISOLATED',
+  rvolData,
   smcLevels,
   smcStructure,
 }: ChartComponentProps) {
@@ -99,55 +109,49 @@ export function ChartComponent({
         borderColor: 'rgba(255, 255, 255, 0.1)',
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 15,
       },
-      width: chartContainerRef.current.clientWidth,
-      height: 560,
     });
 
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#10b981',
-      downColor: '#ef4444',
+      upColor: '#26a69a',
+      downColor: '#ef5350',
       borderVisible: false,
-      wickUpColor: '#10b981',
-      wickDownColor: '#ef4444',
+      wickUpColor: '#26a69a',
+      wickDownColor: '#ef5350',
     });
+
+    const smcPrimitive = new SMCStructurePrimitive();
+    candlestickSeries.attachPrimitive(smcPrimitive);
+    smcPrimitiveRef.current = smcPrimitive;
 
     chartRef.current = chart;
     seriesRef.current = candlestickSeries;
 
-    // Attach SMC Structure Primitive
-    const smcPrim = new SMCStructurePrimitive({
-      swings: [],
-      events: [],
-      showSwings: true,
-      showEvents: true,
-    });
-    candlestickSeries.attachPrimitive(smcPrim);
-    smcPrimitiveRef.current = smcPrim;
+    const handleResize = () => {
+      if (chartContainerRef.current) {
+        chart.applyOptions({
+          width: chartContainerRef.current.clientWidth,
+          height: chartContainerRef.current.clientHeight,
+        });
+      }
+    };
 
-    // ResizeObserver for dynamic container sizing
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (!entries || entries.length === 0 || !chartRef.current) return;
-      const { width, height } = entries[0].contentRect;
-      chartRef.current.applyOptions({ width: Math.max(100, width), height: Math.max(300, height) });
-    });
-
-    resizeObserver.observe(chartContainerRef.current);
+    window.addEventListener('resize', handleResize);
+    handleResize();
 
     return () => {
-      resizeObserver.disconnect();
-      if (smcPrimitiveRef.current && seriesRef.current) {
-        try {
-          seriesRef.current.detachPrimitive(smcPrimitiveRef.current);
-        } catch {}
-        smcPrimitiveRef.current = null;
-      }
+      window.removeEventListener('resize', handleResize);
       if (rrPrimitiveRef.current && seriesRef.current) {
         try {
           seriesRef.current.detachPrimitive(rrPrimitiveRef.current);
         } catch {}
         rrPrimitiveRef.current = null;
+      }
+      if (smcPrimitiveRef.current && seriesRef.current) {
+        try {
+          seriesRef.current.detachPrimitive(smcPrimitiveRef.current);
+        } catch {}
+        smcPrimitiveRef.current = null;
       }
       chart.remove();
       chartRef.current = null;
@@ -155,104 +159,78 @@ export function ChartComponent({
     };
   }, []);
 
-  // 2. Fetch Candle Data with generation check and AbortController
-  const loadCandles = useCallback(async (isBackgroundSync = false) => {
+  // 2. Load Candles with AbortController & generation counter
+  const loadCandles = useCallback(async () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    const reqGen = getNextRequestGeneration();
-    currentGenRef.current = reqGen;
+    const gen = getNextRequestGeneration();
+    currentGenRef.current = gen;
 
-    if (!isBackgroundSync) {
-      setLoading(true);
-      setErrorMessage(null);
-    }
+    setLoading(true);
+    setErrorMessage(null);
 
     try {
-      try {
-        await api.syncCandles(symbol, timeframe, 120);
-      } catch (syncErr: any) {
-        console.warn('Sync attempt warning:', syncErr?.message || syncErr);
-      }
+      const data = await api.getCandles(symbol, timeframe, 150, {
+        signal: controller.signal,
+      });
 
-      if (!isLatestGeneration(reqGen)) return;
+      if (!isLatestGeneration(gen)) return;
 
-      const res = await api.getCandles(symbol, timeframe, 150, { signal: controller.signal });
-      if (!isLatestGeneration(reqGen)) return;
-
-      if (res && Array.isArray(res.candles) && seriesRef.current) {
-        const seenTimes = new Set<number>();
-        const formatted: CandleData[] = [];
-
-        for (const c of res.candles) {
-          const sec = Math.floor(c.timestamp / 1000) as unknown as number;
-          if (!seenTimes.has(sec)) {
-            seenTimes.add(sec);
-            formatted.push({
-              time: sec as Time,
-              open: c.open,
-              high: c.high,
-              low: c.low,
-              close: c.close,
-            });
+      if (!data?.candles || data.candles.length === 0) {
+        setErrorMessage(`Chưa có dữ liệu nến cho ${symbol} (${timeframe}). Đang đồng bộ...`);
+        try {
+          const syncRes = await api.syncCandles(symbol, timeframe, 150);
+          if (syncRes?.synced_count > 0) {
+            const reData = await api.getCandles(symbol, timeframe, 150);
+            if (reData?.candles?.length > 0 && isLatestGeneration(gen)) {
+              renderCandles(reData);
+              return;
+            }
           }
-        }
-
-        formatted.sort((a, b) => (a.time as number) - (b.time as number));
-
-        if (formatted.length > 0) {
-          latestClosePriceRef.current = formatted[formatted.length - 1].close;
-
-          if (!isBackgroundSync) {
-            seriesRef.current.setData(formatted);
-          } else {
-            const latest = formatted[formatted.length - 1];
-            seriesRef.current.update(latest);
-          }
-
-          const latestDate = new Date(res.last_candle_time || Date.now());
-          setLastDataAt(latestDate.toLocaleTimeString('vi-VN'));
-          setDataIsStale(Boolean(res.is_stale));
-        } else {
-          setErrorMessage('Chưa có dữ liệu nến cho khung thời gian này.');
-        }
-      }
-    } catch (err: any) {
-      if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') {
+        } catch {}
+        setLoading(false);
         return;
       }
-      if (isLatestGeneration(reqGen)) {
-        setErrorMessage(
-          err.response?.data?.detail || err.message || 'Lỗi kết nối khi tải nến từ backend.'
-        );
-      }
-    } finally {
-      if (isLatestGeneration(reqGen)) {
-        setLoading(false);
-      }
+
+      renderCandles(data);
+    } catch (err: any) {
+      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
+      if (!isLatestGeneration(gen)) return;
+      setErrorMessage(`Lỗi tải biểu đồ: ${err.message || 'Lỗi mạng'}`);
+      setLoading(false);
     }
   }, [symbol, timeframe]);
 
-  // Trigger load on symbol/timeframe changes
+  const renderCandles = (data: any) => {
+    const formatted: CandleData[] = data.candles.map((c: any) => ({
+      time: Math.floor(c.timestamp / 1000) as Time,
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+    }));
+
+    seriesRef.current?.setData(formatted);
+
+    if (data.candles.length > 0) {
+      const last = data.candles[data.candles.length - 1];
+      latestClosePriceRef.current = last.close;
+      setLastDataAt(new Date(last.timestamp).toLocaleTimeString('vi-VN'));
+    }
+
+    setDataIsStale(Boolean(data.is_stale));
+    setLoading(false);
+  };
+
   useEffect(() => {
-    loadCandles(false);
+    loadCandles();
   }, [loadCandles]);
 
-  // Realtime Polling Fallback (every 8 seconds)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      // Do not clobber if user is dragging
-      if (!dragStateRef.current) {
-        loadCandles(true);
-      }
-    }, 8000);
-    return () => clearInterval(timer);
-  }, [loadCandles]);
-
-  // 3. Update SMC Structure Overlay
+  // 3. Update SMC Primitive when props change
   useEffect(() => {
     if (!smcPrimitiveRef.current) return;
     smcPrimitiveRef.current.setData({
@@ -263,7 +241,7 @@ export function ChartComponent({
     });
   }, [smcStructure, showSMCLevels]);
 
-  // 4. Attach / Update RiskRewardPrimitive Overlay (Without infinite render loop)
+  // 4. Attach / Update RiskRewardPrimitive Overlay using real equity and settings
   useEffect(() => {
     if (!seriesRef.current) return;
 
@@ -280,7 +258,18 @@ export function ChartComponent({
         ? (smcLevels?.swingHigh && smcLevels.swingHigh > entry ? smcLevels.swingHigh : Number((entry + 20.0).toFixed(2)))
         : (smcLevels?.swingLow && smcLevels.swingLow < entry ? smcLevels.swingLow : Number((entry - 20.0).toFixed(2)));
 
-      const calc = calculateClientRiskReward(draftDirection, entry, sl, tp, 1000.0, 0.25);
+      const calc = calculateClientRiskReward(
+        draftDirection,
+        entry,
+        sl,
+        tp,
+        accountEquity,
+        riskPct,
+        2.0,
+        undefined,
+        leverage,
+        marginMode
+      );
 
       targetOverlay = {
         id: 'draft-trade',
@@ -291,11 +280,16 @@ export function ChartComponent({
         takeProfit: tp,
         quantity: calc.quantity,
         initialRiskUsdt: calc.netRiskUsdt,
-        riskPct: 0.25,
+        riskPct: riskPct,
         grossRR: calc.grossRR,
         estimatedNetRR: calc.estimatedNetRR,
         isValid: calc.isValid,
         invalidReason: calc.invalidReason,
+        leverage: calc.leverage,
+        marginMode: calc.marginMode,
+        estimatedLiquidation: calc.estimatedLiquidation,
+        initialMargin: calc.initialMarginUsdt,
+        tier: calc.tier,
         projectedBars: 25,
       };
     } else if (activeOverlay) {
@@ -321,9 +315,9 @@ export function ChartComponent({
         rrPrimitiveRef.current = null;
       }
     }
-  }, [activeOverlay, showOverlay, draftMode, draftDirection, smcLevels]);
+  }, [activeOverlay, showOverlay, draftMode, draftDirection, smcLevels, accountEquity, riskPct, leverage, marginMode]);
 
-  // 5. Interactive Pointer Drag Handlers (Hit testing, Coordinate conversion, Zero loop)
+  // 5. Interactive Pointer Drag Handlers
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!chartContainerRef.current || !rrPrimitiveRef.current || !seriesRef.current || !chartRef.current) return;
 
@@ -334,7 +328,6 @@ export function ChartComponent({
     const hit = rrPrimitiveRef.current.hitTest(localX, localY);
     if (!hit) return;
 
-    // Freeze chart scrolling/scaling while dragging
     chartRef.current.applyOptions({
       handleScroll: false,
       handleScale: false,
@@ -370,7 +363,6 @@ export function ChartComponent({
 
     const drag = dragStateRef.current;
     if (!drag) {
-      // Hover feedback when not dragging
       const hit = rrPrimitiveRef.current.hitTest(localX, localY);
       rrPrimitiveRef.current.setHoverPart(hit?.part || null);
       if (hit) {
@@ -414,7 +406,18 @@ export function ChartComponent({
     }
 
     const direction = drag.initialData.direction;
-    const calc = calculateClientRiskReward(direction, newEntry, newSl, newTp, 1000.0, drag.initialData.riskPct || 0.25);
+    const calc = calculateClientRiskReward(
+      direction,
+      newEntry,
+      newSl,
+      newTp,
+      accountEquity,
+      drag.initialData.riskPct || riskPct,
+      2.0,
+      undefined,
+      leverage,
+      marginMode
+    );
 
     const updatedData: RiskRewardData = {
       ...drag.initialData,
@@ -427,6 +430,11 @@ export function ChartComponent({
       estimatedNetRR: calc.estimatedNetRR,
       isValid: calc.isValid,
       invalidReason: calc.invalidReason,
+      leverage: calc.leverage,
+      marginMode: calc.marginMode,
+      estimatedLiquidation: calc.estimatedLiquidation,
+      initialMargin: calc.initialMarginUsdt,
+      tier: calc.tier,
       projectedBars: newBars,
     };
 
@@ -438,14 +446,14 @@ export function ChartComponent({
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragStateRef.current || !chartRef.current) return;
 
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {}
-
     chartRef.current.applyOptions({
       handleScroll: true,
       handleScale: true,
     });
+
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
 
     if (rrPrimitiveRef.current) {
       const finalData = rrPrimitiveRef.current.getData();
@@ -457,134 +465,170 @@ export function ChartComponent({
     dragStateRef.current = null;
   };
 
-  // 6. Keyboard Escape to cancel dragging
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && dragStateRef.current && rrPrimitiveRef.current && chartRef.current) {
-        chartRef.current.applyOptions({ handleScroll: true, handleScale: true });
-        rrPrimitiveRef.current.setData(dragStateRef.current.initialData);
-        dragStateRef.current = null;
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
   return (
-    <div className="flex flex-col w-full h-full bg-charcoal-900 rounded-lg overflow-hidden border border-charcoal-700">
-      {/* Chart Toolbar Controls */}
-      <div className="flex items-center justify-between px-3 py-2 bg-charcoal-800 border-b border-charcoal-700 text-xs">
-        <div className="flex items-center gap-3">
-          <span className="font-semibold text-aurum-400">
-            {symbol} · Bitget {timeframe}
+    <div className="relative flex flex-col h-full bg-[#121214] select-none">
+      {/* Top Chart Header / Controls */}
+      <div className="flex items-center justify-between px-4 py-2 bg-[#18181b] border-b border-gray-800 text-xs z-10 flex-wrap gap-2">
+        <div className="flex items-center space-x-3">
+          <span className="font-bold text-amber-400 text-sm tracking-wide">
+            {symbol} Bitget Futures (USDT-M)
           </span>
-
-          {lastDataAt && (
-            <span className={`px-2 py-0.5 rounded text-[11px] ${dataIsStale ? 'bg-amber-950/60 text-amber-400 border border-amber-800' : 'bg-charcoal-900 text-gray-400'}`}>
-              Cập nhật: {lastDataAt} {dataIsStale ? '(Dữ liệu cũ)' : ''}
+          <span className="bg-gray-800 px-2 py-0.5 rounded text-gray-300 font-mono">
+            {timeframe}
+          </span>
+          {dataIsStale && (
+            <span className="flex items-center text-amber-500 font-medium bg-amber-950/40 px-2 py-0.5 rounded border border-amber-900/50">
+              <AlertCircle className="w-3.5 h-3.5 mr-1" />
+              Nến trễ ({lastDataAt})
             </span>
           )}
+
+          {/* RVOL Badge */}
+          {rvolData && rvolData.rvol !== null && (
+            <span
+              className={`flex items-center px-2 py-0.5 rounded font-mono font-medium border ${
+                rvolData.classification === 'HIGH' || rvolData.classification === 'ULTRA_HIGH'
+                  ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800'
+                  : 'bg-gray-800 text-gray-300 border-gray-700'
+              }`}
+            >
+              <BarChart2 className="w-3 h-3 mr-1" />
+              RVOL: {rvolData.rvol}x ({rvolData.classification})
+            </span>
+          )}
+
+          {/* Leverage & Margin indicator */}
+          <span className="bg-indigo-950/50 text-indigo-300 px-2 py-0.5 rounded border border-indigo-800/60 font-mono">
+            {leverage}x {marginMode}
+          </span>
         </div>
 
-        {/* Action Toggles */}
-        <div className="flex items-center gap-2">
-          {/* SMC Levels & Structure Toggle */}
-          <button
-            onClick={() => setShowSMCLevels(!showSMCLevels)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition ${showSMCLevels ? 'bg-amber-600/30 text-amber-300 border border-amber-500/40' : 'bg-charcoal-900 text-gray-400 hover:text-gray-200'}`}
-            title="Bật/Tắt Lớp Cấu Trúc SMC (Đỉnh/Đáy/BOS/CHoCH)"
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>SMC Cấu Trúc</span>
-          </button>
-
-          {/* Overlay Toggle */}
-          <button
-            onClick={() => setShowOverlay(!showOverlay)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition ${showOverlay ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40' : 'bg-charcoal-900 text-gray-400 hover:text-gray-200'}`}
-            title="Bật/Tắt Lớp Vị Thế R:R (TradingView Long/Short Position Tool)"
-          >
-            {showOverlay ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-            <span>Overlay R:R</span>
-          </button>
-
-          {/* Draft Tool Toggle */}
+        {/* View toggles & Draft Mode */}
+        <div className="flex items-center space-x-2">
+          {/* Toggle Draft Mode */}
           <button
             onClick={() => setDraftMode(!draftMode)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs transition ${draftMode ? 'bg-aurum-500 text-charcoal-950 font-medium' : 'bg-charcoal-900 text-gray-400 hover:text-gray-200'}`}
-            title="Bật công cụ thử nghiệm kéo thả mức Entry/SL/TP (TradingView Long/Short Tool)"
+            className={`flex items-center px-2.5 py-1 rounded font-medium transition-all ${
+              draftMode
+                ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20'
+                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+            }`}
           >
-            <Crosshair className="w-3.5 h-3.5" />
-            <span>Draft R:R Kéo Thả</span>
+            <Crosshair className="w-3.5 h-3.5 mr-1" />
+            {draftMode ? 'Đang bật Kéo Draft R:R' : 'Vẽ Thử Kế Hoạch (Draft)'}
           </button>
 
           {draftMode && (
-            <div className="flex items-center gap-1 bg-charcoal-900 p-0.5 rounded border border-charcoal-700">
+            <div className="flex items-center bg-gray-900 rounded p-0.5 border border-gray-700">
               <button
                 onClick={() => setDraftDirection('LONG')}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium ${draftDirection === 'LONG' ? 'bg-emerald-600 text-white' : 'text-gray-400'}`}
+                className={`flex items-center px-2 py-0.5 rounded ${
+                  draftDirection === 'LONG' ? 'bg-emerald-600 text-white' : 'text-gray-400'
+                }`}
               >
-                <ArrowUpRight className="w-3 h-3" /> Long
+                <ArrowUpRight className="w-3 h-3 mr-0.5" /> Mua
               </button>
               <button
                 onClick={() => setDraftDirection('SHORT')}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium ${draftDirection === 'SHORT' ? 'bg-rose-600 text-white' : 'text-gray-400'}`}
+                className={`flex items-center px-2 py-0.5 rounded ${
+                  draftDirection === 'SHORT' ? 'bg-rose-600 text-white' : 'text-gray-400'
+                }`}
               >
-                <ArrowDownRight className="w-3 h-3" /> Short
+                <ArrowDownRight className="w-3 h-3 mr-0.5" /> Bán
               </button>
             </div>
           )}
 
+          {/* Toggle SMC Structure Visuals */}
+          <button
+            onClick={() => setShowSMCLevels(!showSMCLevels)}
+            className={`p-1.5 rounded hover:bg-gray-800 ${
+              showSMCLevels ? 'text-indigo-400' : 'text-gray-500'
+            }`}
+            title="Bật/Tắt Cấu trúc SMC (Swings, Sweeps, BOS, CHoCH)"
+          >
+            <Layers className="w-4 h-4" />
+          </button>
+
+          {/* Toggle Risk/Reward Overlay */}
+          <button
+            onClick={() => setShowOverlay(!showOverlay)}
+            className={`p-1.5 rounded hover:bg-gray-800 ${
+              showOverlay ? 'text-emerald-400' : 'text-gray-500'
+            }`}
+            title="Bật/Tắt Hiển thị Hộp R:R"
+          >
+            {showOverlay ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+          </button>
+
           {/* Manual Refresh */}
           <button
-            onClick={() => loadCandles(false)}
+            onClick={loadCandles}
             disabled={loading}
-            className="p-1 hover:bg-charcoal-700 rounded text-gray-400 hover:text-aurum-400 transition"
-            title="Đồng bộ nến mới nhất"
+            className="p-1.5 rounded text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+            title="Làm mới nến"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-aurum-400' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Main Chart Canvas Area with Pointer Event Listeners */}
+      {/* Main Chart Area */}
       <div
-        className="relative flex-1 w-full min-h-[520px] touch-none"
+        ref={chartContainerRef}
+        className="flex-1 w-full relative touch-none"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
       >
-        {/* Loading Overlay */}
         {loading && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-charcoal-950/70 backdrop-blur-xs">
-            <RefreshCw className="w-7 h-7 text-aurum-400 animate-spin mb-2" />
-            <span className="text-xs text-aurum-300 font-medium tracking-wide">
-              Đang tải nến {symbol} {timeframe}...
-            </span>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-20 backdrop-blur-xs">
+            <RefreshCw className="w-6 h-6 text-amber-500 animate-spin" />
+            <span className="ml-2 text-sm text-gray-200">Đang tải nến sàn Bitget...</span>
           </div>
         )}
 
-        {/* Error Banner */}
         {errorMessage && (
-          <div className="absolute top-3 left-3 right-3 z-30 flex items-center justify-between p-3 bg-red-950/90 border border-red-800 text-red-200 rounded-lg shadow-xl text-xs">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-              <span>{errorMessage}</span>
-            </div>
+          <div className="absolute top-4 left-4 right-4 flex items-center justify-between p-3 bg-red-950/80 border border-red-800 rounded-md z-20 text-red-200 text-xs">
+            <span>{errorMessage}</span>
             <button
-              onClick={() => loadCandles(false)}
-              className="px-3 py-1 bg-red-800 hover:bg-red-700 text-white font-medium rounded transition"
+              onClick={loadCandles}
+              className="ml-3 px-2 py-1 bg-red-800 hover:bg-red-700 text-white rounded font-medium"
             >
               Thử lại
             </button>
           </div>
         )}
+      </div>
 
-        <div ref={chartContainerRef} className="w-full h-full" />
+      {/* Footer Info */}
+      <div className="px-4 py-1.5 bg-[#141416] border-t border-gray-800/80 flex items-center justify-between text-[11px] text-gray-400">
+        <div className="flex items-center space-x-4">
+          <span>
+            Giá hiện tại: <strong className="text-amber-400 font-mono">${latestClosePriceRef.current.toFixed(2)}</strong>
+          </span>
+          {smcLevels?.swingHigh && (
+            <span>
+              Swing High: <span className="text-emerald-400 font-mono">${smcLevels.swingHigh.toFixed(2)}</span>
+            </span>
+          )}
+          {smcLevels?.swingLow && (
+            <span>
+              Swing Low: <span className="text-rose-400 font-mono">${smcLevels.swingLow.toFixed(2)}</span>
+            </span>
+          )}
+          {smcLevels?.equilibrium && (
+            <span>
+              Equilibrium: <span className="text-indigo-400 font-mono">${smcLevels.equilibrium.toFixed(2)}</span>
+            </span>
+          )}
+        </div>
+        <div className="flex items-center space-x-3 text-gray-500">
+          <span>Vốn giả lập: ${accountEquity.toFixed(2)}</span>
+          <span>•</span>
+          <span>Múi giờ: Asia/Ho_Chi_Minh (UTC+7)</span>
+        </div>
       </div>
     </div>
   );
 }
-
-export default ChartComponent;

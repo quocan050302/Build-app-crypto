@@ -78,13 +78,48 @@ export const api = {
     return res.data;
   },
 
+  getMarketMatrix: async (symbol: string = 'XAUUSDT') => {
+    const res = await apiClient.get('/api/v1/market/matrix', { params: { symbol } });
+    return res.data;
+  },
+
+  getRvol: async (symbol: string = 'XAUUSDT', timeframe: string = '15M') => {
+    const res = await apiClient.get(`/api/v1/volume/rvol/${symbol}/${timeframe}`);
+    return res.data;
+  },
+
+  getUpcomingSetups: async () => {
+    const res = await apiClient.get('/api/v1/setups/upcoming');
+    return res.data;
+  },
+
+  armSetup: async (setupId: string) => {
+    const res = await apiClient.post(`/api/v1/setups/arm/${setupId}`);
+    return res.data;
+  },
+
+  cancelSetup: async (setupId: string) => {
+    const res = await apiClient.post(`/api/v1/setups/cancel/${setupId}`);
+    return res.data;
+  },
+
   getAccountStatus: async () => {
     const res = await apiClient.get('/api/v1/account/status');
     return res.data;
   },
 
+  updateAccountSettings: async (settings: { leverage: number; margin_mode: string }) => {
+    const res = await apiClient.post('/api/v1/account/settings', settings);
+    return res.data;
+  },
+
   getActivePosition: async () => {
     const res = await apiClient.get('/api/v1/positions/active');
+    return res.data;
+  },
+
+  previewOrder: async (data: any) => {
+    const res = await apiClient.post('/api/v1/orders/preview', data);
     return res.data;
   },
 
@@ -146,5 +181,19 @@ export const api = {
     const res = await apiClient.post('/api/v1/auto/state', { enabled });
     return res.data;
   },
-};
 
+  getTelegramConfig: async () => {
+    const res = await apiClient.get('/api/v1/telegram/config');
+    return res.data;
+  },
+
+  updateTelegramConfig: async (config: any) => {
+    const res = await apiClient.post('/api/v1/telegram/config', config);
+    return res.data;
+  },
+
+  testTelegram: async (testData: { bot_token?: string; chat_id: string }) => {
+    const res = await apiClient.post('/api/v1/telegram/test', testData);
+    return res.data;
+  },
+};

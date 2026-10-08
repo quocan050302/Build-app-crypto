@@ -178,8 +178,8 @@ export class SMCStructurePrimitive implements ISeriesPrimitive<Time> {
   private _param: SeriesAttachedParameter<Time> | null = null;
   private _paneView = new SMCStructurePaneView();
 
-  constructor(data: SMCStructureData) {
-    this._data = data;
+  constructor(data?: SMCStructureData) {
+    this._data = data || { swings: [], events: [], showSwings: true, showEvents: true };
   }
 
   setData(data: SMCStructureData) {
