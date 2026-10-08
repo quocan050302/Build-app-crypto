@@ -736,6 +736,14 @@ def get_account_settings(db: Session = Depends(get_db)):
     from services.risk_settings_service import risk_settings_service
     return risk_settings_service.get_settings(db)
 
+@app.get("/api/v1/instrument/metadata")
+async def get_instrument_metadata(symbol: str = "XAUUSDT"):
+    """Get dynamic instrument metadata from Bitget provider with fallback."""
+    from services.instrument_provider import instrument_provider
+    meta = await instrument_provider.fetch_metadata(symbol)
+    return meta
+
+
 
 # ==================== 7. ORDERS PREVIEW & EXECUTION ====================
 
@@ -803,7 +811,10 @@ def get_account_status(db: Session = Depends(get_db)):
         margin_mode=settings.margin_mode,
         risk_pct=settings.risk_pct,
         config_version=settings.config_version,
-        metadata_version=settings.metadata_version
+        metadata_version=settings.metadata_version,
+        min_leverage=settings.min_leverage,
+        max_leverage=settings.max_leverage,
+        cross_margin_supported=False
     )
 
 

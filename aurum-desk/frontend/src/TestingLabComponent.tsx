@@ -13,7 +13,10 @@ import {
   ShieldCheck,
   ChevronDown,
   ChevronRight,
-  History as HistoryIcon
+  History as HistoryIcon,
+  Copy,
+  Check,
+  AlertTriangle
 } from 'lucide-react';
 
 interface TestingLabComponentProps {
@@ -22,6 +25,25 @@ interface TestingLabComponentProps {
 
 export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNotify }) => {
   const [activeLabMode, setActiveLabMode] = useState<'scenarios' | 'replay' | 'stress'>('scenarios');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyReport = (result: ScenarioRunResponse) => {
+    // Deep copy and scrub sensitive tokens/secrets
+    const sanitized = JSON.parse(JSON.stringify(result), (key, value) => {
+      const lower = key.toLowerCase();
+      if (lower.includes('token') || lower.includes('secret') || lower.includes('password') || lower.includes('api_key') || lower.includes('auth')) {
+        return '[REDACTED]';
+      }
+      return value;
+    });
+    navigator.clipboard.writeText(JSON.stringify(sanitized, null, 2)).then(() => {
+      setCopiedId(result.scenario_id);
+      if (onNotify) {
+        onNotify('Sao Chép Báo Cáo', `Đã sao chép báo cáo kịch bản ${result.scenario_id} (đã làm sạch secret)`, 'info');
+      }
+      setTimeout(() => setCopiedId(null), 3000);
+    });
+  };
 
   // ==================== SCENARIOS STATE ====================
   const [scenariosList, setScenariosList] = useState<{ id: string; name: string; description: string }[]>([]);
@@ -297,12 +319,65 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
 
                   {/* Expanded Step Timeline */}
                   {isExpanded && result && (
-                    <div className="p-3 border-t border-charcoal-750 bg-charcoal-900/60 text-xs flex flex-col gap-2">
+                    <div className="p-3 border-t border-charcoal-750 bg-charcoal-900/60 text-xs flex flex-col gap-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-charcoal-750/70">
+                        <div className="flex items-center gap-2 text-gray-300 text-[11px]">
+                          <span className="font-semibold text-aurum-400">ID: {result.scenario_id}</span>
+                          <span className="text-charcoal-600">|</span>
+                          <span>Config: v{result.config_version ?? 1}</span>
+                          <span className="text-charcoal-600">|</span>
+                          <span>Meta: v{result.metadata_version ?? 1}</span>
+                          <span className="text-charcoal-600">|</span>
+                          <span>Thời gian: {result.duration_ms}ms</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyReport(result)}
+                          className="px-2.5 py-1 bg-charcoal-800 hover:bg-charcoal-750 text-gray-200 border border-charcoal-700 rounded text-[10px] font-medium flex items-center gap-1.5 transition"
+                          title="Sao chép báo cáo JSON đã làm sạch secret"
+                        >
+                          {copiedId === result.scenario_id ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              <span className="text-emerald-400">Đã chép JSON</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3 text-aurum-400" />
+                              <span>Sao Chép Báo Cáo JSON</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {result.status === 'FAIL' && (() => {
+                        const firstFail = result.steps.find((s) => s.status === 'FAIL');
+                        return (
+                          <div className="p-2.5 rounded bg-rose-950/40 border border-rose-500/40 text-rose-300 text-[11px] space-y-1">
+                            <div className="font-bold flex items-center gap-1.5 text-rose-400">
+                              <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                              Bước thất bại đầu tiên: Bước {firstFail?.step_index ?? '?'}: {firstFail?.name ?? 'Execution Error'}
+                            </div>
+                            <div className="text-gray-300">
+                              <span className="font-semibold text-gray-400">Kỳ vọng:</span> {firstFail?.expected || 'N/A'}
+                            </div>
+                            <div className="text-rose-200">
+                              <span className="font-semibold text-gray-400">Thực tế:</span> {firstFail?.actual || result.error || 'N/A'}
+                            </div>
+                            {result.error && (
+                              <div className="text-[10px] text-gray-400 font-mono mt-1 pt-1 border-t border-rose-900/60">
+                                Mã lỗi / Exception: {result.error}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
                       <div className="font-semibold text-gray-300 text-[11px] flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5 text-aurum-400" />
                         Timeline Sự Kiện (Quote → Decision → Transition → Event → Outbox):
                       </div>
-                      <div className="space-y-1.5 mt-1">
+                      <div className="space-y-1.5 mt-0.5">
                         {result.steps.map((st) => (
                           <div
                             key={st.step_index}
@@ -310,23 +385,32 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                           >
                             <div className="flex items-start gap-2">
                               <span
-                                className={`px-1.5 py-0.2 rounded font-bold text-[10px] ${
+                                className={`px-1.5 py-0.5 rounded font-bold text-[10px] whitespace-nowrap ${
                                   st.status === 'PASS'
-                                    ? 'bg-emerald-500/20 text-emerald-400'
-                                    : 'bg-rose-500/20 text-rose-400'
+                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                    : st.status === 'FAIL'
+                                    ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                                 }`}
                               >
                                 {st.status}
                               </span>
                               <div>
-                                <span className="font-semibold text-gray-200">{st.name}:</span>{' '}
+                                <span className="font-semibold text-gray-200">B{st.step_index}. {st.name}:</span>{' '}
                                 <span className="text-gray-300">{st.actual}</span>
                                 {st.detail && <div className="text-[10px] text-gray-400 mt-0.5">{st.detail}</div>}
                               </div>
                             </div>
-                            <span className="text-[10px] text-gray-400 whitespace-nowrap">
-                              Kỳ vọng: {st.expected}
-                            </span>
+                            <div className="text-right shrink-0">
+                              <span className="text-[10px] text-gray-400 block">
+                                Kỳ vọng: {st.expected}
+                              </span>
+                              {st.timestamp > 0 && (
+                                <span className="text-[9px] text-gray-500 font-mono">
+                                  {new Date(st.timestamp).toLocaleTimeString('vi-VN')}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>

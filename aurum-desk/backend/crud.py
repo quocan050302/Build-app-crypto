@@ -1,7 +1,7 @@
 import time
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import text, desc
 import models, schemas
@@ -247,6 +247,23 @@ def record_trade_close_audit(
     else:
         db.flush()
     return audit
+
+def get_account_status(db: Session, clock: Optional[IClock] = None) -> Dict[str, Any]:
+    """Retrieve account equity and active position state with clock injection."""
+    audit = get_or_create_today_audit(db, clock=clock)
+    active_pos = get_active_position(db)
+    return {
+        "current_equity": audit.current_equity,
+        "initial_equity": audit.initial_equity,
+        "realized_pnl_today": audit.realized_pnl_today,
+        "fills_count": audit.fills_count,
+        "consecutive_losses": audit.consecutive_losses,
+        "is_blocked": audit.is_blocked,
+        "block_reason": audit.block_reason,
+        "cooldown_until": audit.cooldown_until,
+        "has_active_position": active_pos is not None
+    }
+
 
 # ==================== ECONOMIC NEWS CRUD ====================
 

@@ -43,6 +43,8 @@ export interface ScenarioRunResponse {
   completed_at: number;
   duration_ms: number;
   error?: string;
+  config_version?: number;
+  metadata_version?: number;
 }
 
 export interface ReplayTradeItem {
@@ -332,6 +334,11 @@ export const api = {
 
   runLabStress: async (request: StressTestRequest): Promise<StressTestResponse> => {
     const res = await apiClient.post('/api/v1/lab/stress/run', request);
+    return res.data;
+  },
+
+  getInstrumentMetadata: async (symbol: string = 'XAUUSDT') => {
+    const res = await apiClient.get('/api/v1/instrument/metadata', { params: { symbol } });
     return res.data;
   },
 

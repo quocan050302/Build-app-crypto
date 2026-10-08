@@ -95,7 +95,7 @@ class ExecutionCoordinator:
 
             # Revalidate if config version changed
             if getattr(order, 'config_version', 1) != global_settings.config_version:
-                account_state = crud.get_account_status(db)
+                account_state = crud.get_account_status(db, clock=c)
                 equity = account_state["current_equity"] if account_state else 1000.0
 
                 calc_res = calculate_risk_reward(
@@ -130,6 +130,21 @@ class ExecutionCoordinator:
                 order.estimated_liquidation = calc_res.estimated_liquidation
                 order.initial_margin = calc_res.initial_margin_usdt
                 order.config_version = global_settings.config_version
+
+                if getattr(order, 'setup_instance_id', None):
+                    watch = db.query(models.WatchSetup).filter(models.WatchSetup.setup_instance_id == order.setup_instance_id).first()
+                    if watch:
+                        watch.quantity = calc_res.quantity
+                        watch.leverage = calc_res.leverage
+                        watch.margin_mode = calc_res.margin_mode
+                        watch.risk_pct = calc_res.effective_risk_pct
+                        watch.risk_usdt = calc_res.net_risk_usdt
+                        watch.gross_rr = calc_res.gross_rr
+                        watch.net_rr = calc_res.net_rr
+                        watch.estimated_liquidation = calc_res.estimated_liquidation
+                        watch.config_version = global_settings.config_version
+                        watch.updated_at = current_time
+
                 db.commit()
 
             # V5.1 Authoritative Geometry Guard on armed order
@@ -194,7 +209,7 @@ class ExecutionCoordinator:
 
             # Re-verify execution guards
             audit = crud.get_or_create_today_audit(db, clock=c)
-            can_open, block_reason = PaperBroker.can_open_position(db, order.initial_risk_usdt, now_ms=current_time)
+            can_open, block_reason = PaperBroker.can_open_position(db, order.initial_risk_usdt, now_ms=current_time, clock=c)
             if not can_open:
                 TradeLifecycleService.execute_reject(
                     db=db,

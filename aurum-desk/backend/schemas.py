@@ -226,11 +226,11 @@ class SMCAnalysisResponse(BaseModel):
     reason_code: Optional[str] = None
     reason_detail: Optional[str] = None
 
-# ==================== V5.3 RISK SETTINGS ====================
+# ==================== V5.3 / V6 RISK SETTINGS ====================
 class RiskSettingsUpdate(BaseModel):
-    leverage: int = 5
-    margin_mode: str = "ISOLATED"
-    risk_pct: float = 0.25
+    leverage: Optional[int] = None
+    margin_mode: Optional[str] = None
+    risk_pct: Optional[float] = None
     expected_config_version: Optional[int] = None
 
 class RiskSettingsResponse(BaseModel):
@@ -242,6 +242,11 @@ class RiskSettingsResponse(BaseModel):
     config_version: int
     updated_at: int
     metadata_version: int
+    min_leverage: int = 1
+    max_leverage: int = 100
+    cross_margin_supported: bool = False
+    source: str = "Bitget Classic Futures USDT-M"
+    status: str = "SUCCESS"
 
 # Day Audit & Risk
 class DayAuditResponse(BaseModel):
@@ -266,6 +271,9 @@ class DayAuditResponse(BaseModel):
     risk_pct: float = 0.25
     config_version: int = 1
     metadata_version: int = 1
+    min_leverage: int = 1
+    max_leverage: int = 100
+    cross_margin_supported: bool = False
 
 # Economic News Schemas
 class EconomicNewsItem(BaseModel):
@@ -505,6 +513,8 @@ class ScenarioRunResponse(BaseModel):
     completed_at: int
     duration_ms: int
     error: Optional[str] = None
+    config_version: Optional[int] = 1
+    metadata_version: Optional[int] = 1
 
 class ReplayTradeItem(BaseModel):
     id: str

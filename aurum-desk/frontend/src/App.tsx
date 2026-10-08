@@ -30,7 +30,10 @@ import {
   Compass,
   FlaskConical,
   Sparkles,
-  X
+  X,
+  AlertTriangle,
+  RotateCcw,
+  Check
 } from 'lucide-react';
 
 export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION';
@@ -84,17 +87,55 @@ export function App() {
   const [selectedIntent, setSelectedIntent] = useState<SelectedTradeIntent | null>(null);
   const [marketMatrix, setMarketMatrix] = useState<any>(null);
   const [rvolData, setRvolData] = useState<any>(null);
-
   // Paper Trading & Account Settings
   const [accountStatus, setAccountStatus] = useState<any>(null);
   const [activePosition, setActivePosition] = useState<any>(null);
   const [autoPaperActive, setAutoPaperActive] = useState<boolean>(true);
-  const [leverage, setLeverage] = useState<number>(5);
-  const [marginMode, setMarginMode] = useState<'ISOLATED' | 'CROSS'>('ISOLATED');
-  const [riskPct, setRiskPct] = useState<number>(0.25);
-  const [expectedConfigVersion, setExpectedConfigVersion] = useState<number>(1);
+
+  // Authoritative Saved Risk Settings (Used for active executions, position sizing, order creation)
+  const [savedRiskSettings, setSavedRiskSettings] = useState<{
+    leverage: number;
+    margin_mode: 'ISOLATED' | 'CROSS';
+    risk_pct: number;
+    config_version: number;
+  }>({
+    leverage: 5,
+    margin_mode: 'ISOLATED',
+    risk_pct: 0.25,
+    config_version: 1,
+  });
+
+  // Draft Risk Settings (Tweaked by slider/inputs, unsaved until user submits)
+  const [draftRiskSettings, setDraftRiskSettings] = useState<{
+    leverage: number;
+    margin_mode: 'ISOLATED' | 'CROSS';
+    risk_pct: number;
+    config_version: number;
+  }>({
+    leverage: 5,
+    margin_mode: 'ISOLATED',
+    risk_pct: 0.25,
+    config_version: 1,
+  });
+
   const [isSettingsDirty, setIsSettingsDirty] = useState<boolean>(false);
+  const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false);
   const [settingsSavedMsg, setSettingsSavedMsg] = useState<string | null>(null);
+  const [settingsSaveError, setSettingsSaveError] = useState<string | null>(null);
+  const [needsRefreshRetry, setNeedsRefreshRetry] = useState<boolean>(false);
+  const [instrumentMeta, setInstrumentMeta] = useState<any>(null);
+
+  // Async race protection refs
+  const isDirtyRef = useRef<boolean>(false);
+  const draftRevisionRef = useRef<number>(0);
+  const inFlightSaveRevisionRef = useRef<number>(0);
+  const pollSequenceRef = useRef<number>(0);
+  const savedSettingsRef = useRef(savedRiskSettings);
+
+  // Canonical shorthand getters for current active application state
+  const leverage = savedRiskSettings.leverage;
+  const marginMode = savedRiskSettings.margin_mode;
+  const riskPct = savedRiskSettings.risk_pct;
 
   // Upcoming Setups & Scenarios
   const [upcomingData, setUpcomingData] = useState<{
@@ -150,23 +191,47 @@ export function App() {
 
   // 1. Fetch System Health & Account Status
   const refreshAccountAndHealth = useCallback(async () => {
+    const seq = ++pollSequenceRef.current;
     try {
-      const [healthData, accData, posData, autoData] = await Promise.all([
+      const [healthData, accData, posData, autoData, metaData] = await Promise.all([
         api.getHealth('XAUUSDT', timeframe),
         api.getAccountStatus(),
         api.getActivePosition(),
         api.getAutoState(),
+        api.getInstrumentMetadata('XAUUSDT').catch(() => null),
       ]);
+
+      if (seq < pollSequenceRef.current) {
+        // Discard stale in-flight response
+        return;
+      }
+
       setHealth(healthData);
       setAccountStatus(accData);
+      if (metaData) {
+        setInstrumentMeta(metaData);
+      }
       if (accData) {
-        if (!isSettingsDirty) {
-          if (accData.leverage) setLeverage(accData.leverage);
-          if (accData.margin_mode) setMarginMode(accData.margin_mode.toUpperCase());
-          if (accData.risk_pct) setRiskPct(accData.risk_pct);
-          if (accData.config_version) setExpectedConfigVersion(accData.config_version);
+        const canonical: {
+          leverage: number;
+          margin_mode: 'ISOLATED' | 'CROSS';
+          risk_pct: number;
+          config_version: number;
+        } = {
+          leverage: accData.leverage ?? 5,
+          margin_mode: (accData.margin_mode?.toUpperCase() || 'ISOLATED') as 'ISOLATED' | 'CROSS',
+          risk_pct: accData.risk_pct ?? 0.25,
+          config_version: accData.config_version ?? 1,
+        };
+        setSavedRiskSettings(canonical);
+        savedSettingsRef.current = canonical;
+
+        // CRITICAL: Only update draft if user is NOT currently editing (checked via ref to prevent stale closures and late responses)
+        if (!isDirtyRef.current) {
+          setDraftRiskSettings(canonical);
         }
       }
+      setNeedsRefreshRetry(false);
 
       if (autoData && typeof autoData.auto_paper_enabled === 'boolean') {
         setAutoPaperActive(autoData.auto_paper_enabled);
@@ -683,27 +748,97 @@ export function App() {
   };
 
   const handleSaveRiskSettings = async () => {
+    if (isSavingSettings) return; // Prevent double submit
+    const currentRevision = draftRevisionRef.current;
+    inFlightSaveRevisionRef.current = currentRevision;
+    setIsSavingSettings(true);
+    setSettingsSaveError(null);
+    setNeedsRefreshRetry(false);
+
+    // Immutable payload captured at save moment
+    const payload = {
+      leverage: Number(draftRiskSettings.leverage),
+      margin_mode: draftRiskSettings.margin_mode,
+      risk_pct: Number(draftRiskSettings.risk_pct),
+      expected_config_version: savedRiskSettings.config_version,
+    };
+
     try {
-      await api.updateAccountSettings({
-        leverage,
-        margin_mode: marginMode,
-        risk_pct: riskPct,
-        expected_config_version: expectedConfigVersion
-      });
-      setSettingsSavedMsg('Đã lưu cấu hình đòn bẩy và ký quỹ thành công!');
-      setIsSettingsDirty(false);
+      const res = await api.updateAccountSettings(payload);
+      const canonical = {
+        leverage: res.requested_leverage ?? payload.leverage,
+        margin_mode: (res.margin_mode ?? payload.margin_mode).toUpperCase() as 'ISOLATED' | 'CROSS',
+        risk_pct: res.risk_pct ?? payload.risk_pct,
+        config_version: res.config_version ?? (savedRiskSettings.config_version + 1),
+      };
+
+      setSavedRiskSettings(canonical);
+      savedSettingsRef.current = canonical;
+
+      // Only clear dirty if user did not edit further during the request execution
+      if (draftRevisionRef.current === currentRevision) {
+        isDirtyRef.current = false;
+        setIsSettingsDirty(false);
+        setDraftRiskSettings(canonical);
+      } else {
+        setDraftRiskSettings((prev) => ({
+          ...prev,
+          config_version: canonical.config_version,
+        }));
+      }
+
+      setSettingsSavedMsg(`Đã lưu cấu hình (v${canonical.config_version}) thành công!`);
+      showToast('Cài Đặt Rủi Ro', `Đã lưu cấu hình v${canonical.config_version} thành công!`, 'success');
       setTimeout(() => setSettingsSavedMsg(null), 4000);
-      await refreshAccountAndHealth();
+
+      // Refresh application state
+      try {
+        await refreshAccountAndHealth();
+      } catch (refreshErr) {
+        console.error('Refresh after save failed:', refreshErr);
+        setNeedsRefreshRetry(true);
+        showToast('Cảnh báo', 'Đã lưu, đánh giá chưa cập nhật. Bấm nút Thử Lại để đồng bộ.', 'warn');
+      }
     } catch (err: any) {
-      alert(err.response?.data?.detail || err.message || 'Lỗi khi lưu cài đặt tài khoản');
+      if (err.response?.status === 409) {
+        const conflictMsg = err.response?.data?.detail || 'Xung đột phiên bản cấu hình (409 Conflict). Vui lòng tải lại cấu hình mới nhất.';
+        setSettingsSaveError(conflictMsg);
+        showToast('Xung đột cấu hình (409)', conflictMsg, 'warn');
+        try {
+          await refreshAccountAndHealth();
+        } catch (_) {}
+      } else {
+        const errMsg = err.response?.data?.detail || err.message || 'Lỗi khi lưu cài đặt tài khoản';
+        setSettingsSaveError(errMsg);
+        showToast('Lỗi lưu cài đặt', errMsg, 'warn');
+      }
+    } finally {
+      setIsSavingSettings(false);
     }
   };
 
-  const handleSettingsChange = (field: string, value: any) => {
+  const handleDraftChange = (field: 'leverage' | 'marginMode' | 'riskPct', value: any) => {
+    draftRevisionRef.current += 1;
+    isDirtyRef.current = true;
     setIsSettingsDirty(true);
-    if (field === 'leverage') setLeverage(value);
-    if (field === 'marginMode') setMarginMode(value);
-    if (field === 'riskPct') setRiskPct(value);
+    setSettingsSaveError(null);
+
+    setDraftRiskSettings((prev) => {
+      const updated = { ...prev };
+      if (field === 'leverage') updated.leverage = Number(value);
+      if (field === 'marginMode') updated.margin_mode = value;
+      if (field === 'riskPct') updated.risk_pct = Number(value);
+      return updated;
+    });
+  };
+
+  const handleCancelDraft = () => {
+    draftRevisionRef.current += 1;
+    isDirtyRef.current = false;
+    setIsSettingsDirty(false);
+    setSettingsSaveError(null);
+    setDraftRiskSettings(savedSettingsRef.current);
+    showToast('Đã Hủy Bản Nháp', 'Khôi phục cài đặt rủi ro đã lưu trên hệ thống', 'info');
   };
 
   const handleSaveTelegramConfig = async () => {
@@ -1600,105 +1735,248 @@ export function App() {
               </div>
 
               {/* Leverage & Margin Controls */}
-              <div className="bg-charcoal-850 p-4 rounded-lg border border-charcoal-700 flex flex-col gap-4 text-xs">
-                <h3 className="font-bold text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sliders className="w-3.5 h-3.5 text-aurum-400" />
-                  Cấu Hình Đòn Bẩy (Leverage) & Chế Độ Ký Quỹ
-                </h3>
+              {(() => {
+                const minLeverage = instrumentMeta?.min_leverage ?? accountStatus?.min_leverage ?? 1;
+                const maxLeverage = instrumentMeta?.max_leverage ?? accountStatus?.max_leverage ?? 100;
+                const currentEquity = accountStatus?.current_equity ?? 1000;
+                const draftRiskBudgetUsdt = ((currentEquity * draftRiskSettings.risk_pct) / 100).toFixed(2);
+                const isCrossSelected = draftRiskSettings.margin_mode === 'CROSS';
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Leverage slider */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-300">Đòn bẩy mặc định:</span>
-                      <span className="text-sm font-bold text-aurum-400 font-mono">{leverage}x</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={50}
-                      value={leverage}
-                      onChange={(e) => handleSettingsChange('leverage', Number(e.target.value))}
-                      className="w-full accent-aurum-500 cursor-pointer"
-                    />
-                    <div className="flex justify-between text-[10px] text-gray-400">
-                      <span>1x (Spot-like)</span>
-                      <span>5x (Default)</span>
-                      <span>20x</span>
-                      <span>50x (Max Cap)</span>
-                    </div>
-                    <p className="text-[10px] text-gray-400">
-                      * Thay đổi đòn bẩy KHÔNG thay đổi rủi ro tính bằng USD ($2.50) hay kích thước vị thế, mà chỉ thay đổi số tiền ký quỹ ban đầu yêu cầu và khoảng cách giá thanh lý (Liquidation Price).
-                    </p>
-                  </div>
-
-                  {/* Margin Mode & Risk Pct */}
-                  <div className="space-y-3">
-                    <div>
-                      <span className="text-gray-300 block mb-1">Chế độ ký quỹ:</span>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSettingsChange('marginMode', 'ISOLATED')}
-                          className={`flex-1 py-1.5 rounded font-semibold text-xs border transition ${
-                            marginMode === 'ISOLATED'
-                              ? 'bg-aurum-500 text-charcoal-950 border-aurum-400 font-bold'
-                              : 'bg-charcoal-900 text-gray-400 border-charcoal-700'
-                          }`}
-                        >
-                          ISOLATED (Cô lập)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSettingsChange('marginMode', 'CROSS')}
-                          className={`flex-1 py-1.5 rounded font-semibold text-xs border transition ${
-                            marginMode === 'CROSS'
-                              ? 'bg-aurum-500 text-charcoal-950 border-aurum-400 font-bold'
-                              : 'bg-charcoal-900 text-gray-400 border-charcoal-700'
-                          }`}
-                        >
-                          CROSS (Toàn tài khoản)
-                        </button>
+                return (
+                  <div className="bg-charcoal-850 p-4 rounded-lg border border-charcoal-700 flex flex-col gap-4 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-charcoal-750 pb-2.5">
+                      <h3 className="font-bold text-gray-200 uppercase tracking-wider flex items-center gap-1.5">
+                        <Sliders className="w-3.5 h-3.5 text-aurum-400" />
+                        Cấu Hình Đòn Bẩy (Leverage) & Chế Độ Ký Quỹ
+                      </h3>
+                      <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                        <span className="px-2 py-0.5 rounded bg-charcoal-800 border border-charcoal-700 text-gray-300">
+                          {instrumentMeta?.source || 'Bitget USDT-M Perpetual'}
+                        </span>
+                        <span>Giới hạn: <strong className="text-aurum-400 font-mono">{minLeverage}x - {maxLeverage}x</strong></span>
+                        <span className="text-charcoal-600">|</span>
+                        <span>Config: <strong className="text-gray-200 font-mono">v{savedRiskSettings.config_version}</strong></span>
                       </div>
                     </div>
 
-                    <div>
-                      <span className="text-gray-300 block mb-1">Rủi ro mỗi lệnh:</span>
-                      <div className="flex gap-2">
-                        {[0.25, 0.5].map((pct) => (
-                          <button
-                            key={pct}
-                            type="button"
-                            onClick={() => handleSettingsChange('riskPct', pct)}
-                            className={`flex-1 py-1.5 rounded font-semibold text-xs border transition ${
-                              riskPct === pct
-                                ? 'bg-aurum-500 text-charcoal-950 border-aurum-400 font-bold'
-                                : 'bg-charcoal-900 text-gray-400 border-charcoal-700'
-                            }`}
-                          >
-                            {pct}% Vốn (${((accountStatus?.current_equity ?? 1000) * pct / 100).toFixed(2)})
-                          </button>
-                        ))}
+                    {/* Unsaved Draft Banner */}
+                    {isSettingsDirty && (
+                      <div className="p-2.5 rounded bg-amber-950/40 border border-amber-500/50 text-amber-200 text-xs flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Info className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span>
+                            <strong>Bản Nháp Chưa Lưu (Draft v{savedRiskSettings.config_version} → v{savedRiskSettings.config_version + 1}):</strong> Đòn bẩy {draftRiskSettings.leverage}x · {draftRiskSettings.margin_mode} · {draftRiskSettings.risk_pct}%. Các giá trị này <em>chưa được áp dụng</em> vào chiến lược hay vị thế thực tế.
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleCancelDraft}
+                          className="px-2.5 py-1 bg-charcoal-800 hover:bg-charcoal-750 text-gray-300 border border-charcoal-700 rounded text-[11px] font-semibold flex items-center gap-1 shrink-0 transition"
+                        >
+                          <RotateCcw className="w-3 h-3 text-amber-400" />
+                          Hủy Thay Đổi
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Cross Margin Capability Warning */}
+                    {isCrossSelected && (
+                      <div className="p-3 rounded bg-rose-950/40 border border-rose-500/50 text-rose-200 text-xs flex items-start gap-2.5">
+                        <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <div className="font-bold text-rose-300">
+                            CẢNH BÁO NĂNG LỰC (CAPABILITY NOTICE): CHƯA HỖ TRỢ THỰC THI CROSS
+                          </div>
+                          <p className="text-[11px] text-gray-300 leading-relaxed">
+                            Môi trường Bitget PAPER trading hiện tại <strong>chưa hỗ trợ thực thi Cross Margin</strong>. Nếu lưu tùy chọn này, các lệnh mở mới sẽ bị chặn an toàn với mã lỗi <code className="text-rose-300 font-mono">CROSS_MARGIN_UNSUPPORTED</code>. Khuyến nghị: Chọn chế độ <strong>ISOLATED</strong> để lệnh được kích hoạt và bảo vệ rủi ro từng vị thế.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {/* Leverage slider & presets */}
+                      <div className="space-y-2.5">
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-300 font-medium">Đòn bẩy dự kiến (Draft):</span>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min={minLeverage}
+                              max={maxLeverage}
+                              value={draftRiskSettings.leverage}
+                              onChange={(e) => {
+                                const val = Math.max(minLeverage, Math.min(maxLeverage, Number(e.target.value) || minLeverage));
+                                handleDraftChange('leverage', val);
+                              }}
+                              className="w-14 bg-charcoal-900 border border-charcoal-700 rounded px-1.5 py-0.5 text-right font-bold text-aurum-400 font-mono text-sm focus:outline-none focus:border-aurum-400"
+                            />
+                            <span className="text-sm font-bold text-aurum-400 font-mono">x</span>
+                          </div>
+                        </div>
+
+                        <input
+                          type="range"
+                          min={minLeverage}
+                          max={maxLeverage}
+                          value={draftRiskSettings.leverage}
+                          onChange={(e) => handleDraftChange('leverage', Number(e.target.value))}
+                          className="w-full accent-aurum-500 cursor-pointer"
+                        />
+
+                        {/* Quick Presets */}
+                        <div className="flex gap-1.5 pt-1">
+                          {[1, 5, 20, 50, 100].map((preset) => {
+                            const isAllowed = preset <= maxLeverage && preset >= minLeverage;
+                            const isSelected = draftRiskSettings.leverage === preset;
+                            return (
+                              <button
+                                key={preset}
+                                type="button"
+                                disabled={!isAllowed}
+                                onClick={() => handleDraftChange('leverage', preset)}
+                                className={`flex-1 py-1 rounded text-[11px] font-semibold border transition ${
+                                  isSelected
+                                    ? 'bg-aurum-500 text-charcoal-950 border-aurum-400 font-bold'
+                                    : 'bg-charcoal-900 text-gray-300 hover:text-white border-charcoal-700 hover:bg-charcoal-800'
+                                } disabled:opacity-30 disabled:cursor-not-allowed`}
+                              >
+                                {preset}x {preset === 5 ? '(Mặc định)' : preset === maxLeverage ? '(Max)' : ''}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <p className="text-[10px] text-gray-400 leading-relaxed pt-1">
+                          * Thay đổi đòn bẩy <strong>KHÔNG</strong> thay đổi rủi ro tính bằng USD ({draftRiskSettings.risk_pct}% vốn = ${draftRiskBudgetUsdt}) hay kích thước vị thế, mà chỉ thay đổi số tiền ký quỹ ban đầu yêu cầu và khoảng cách giá thanh lý (Liquidation Price).
+                        </p>
+                      </div>
+
+                      {/* Margin Mode & Risk Pct */}
+                      <div className="space-y-3.5">
+                        <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-gray-300 font-medium">Chế độ ký quỹ:</span>
+                            {isCrossSelected && (
+                              <span className="text-[10px] text-rose-400 font-semibold px-1.5 py-0.5 rounded bg-rose-950/60 border border-rose-800">
+                                Chặn Execution
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleDraftChange('marginMode', 'ISOLATED')}
+                              className={`flex-1 py-2 rounded font-semibold text-xs border transition ${
+                                draftRiskSettings.margin_mode === 'ISOLATED'
+                                  ? 'bg-aurum-500 text-charcoal-950 border-aurum-400 font-bold shadow-sm'
+                                  : 'bg-charcoal-900 text-gray-400 hover:text-gray-200 border-charcoal-700'
+                              }`}
+                            >
+                              ISOLATED (Cô lập)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDraftChange('marginMode', 'CROSS')}
+                              className={`flex-1 py-2 rounded font-semibold text-xs border transition ${
+                                draftRiskSettings.margin_mode === 'CROSS'
+                                  ? 'bg-rose-500/20 text-rose-300 border-rose-500 font-bold shadow-sm'
+                                  : 'bg-charcoal-900 text-gray-400 hover:text-gray-200 border-charcoal-700'
+                              }`}
+                            >
+                              CROSS (Toàn tài khoản)
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="text-gray-300 font-medium block mb-1">Rủi ro mỗi lệnh (% Equity):</span>
+                          <div className="flex gap-2">
+                            {[0.25, 0.5, 1.0].map((pct) => (
+                              <button
+                                key={pct}
+                                type="button"
+                                onClick={() => handleDraftChange('riskPct', pct)}
+                                className={`flex-1 py-1.5 rounded font-semibold text-xs border transition ${
+                                  draftRiskSettings.risk_pct === pct
+                                    ? 'bg-aurum-500 text-charcoal-950 border-aurum-400 font-bold shadow-sm'
+                                    : 'bg-charcoal-900 text-gray-400 hover:text-gray-200 border-charcoal-700'
+                                }`}
+                              >
+                                {pct}% (${((currentEquity * pct) / 100).toFixed(2)})
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                {settingsSavedMsg && (
-                  <div className="p-2.5 rounded bg-emerald-950/80 border border-emerald-700 text-emerald-300 text-xs">
-                    {settingsSavedMsg}
-                  </div>
-                )}
+                    {/* Messages & Actions */}
+                    {settingsSavedMsg && (
+                      <div className="p-2.5 rounded bg-emerald-950/80 border border-emerald-700 text-emerald-300 text-xs flex items-center gap-2">
+                        <Check className="w-4 h-4 text-emerald-400" />
+                        <span>{settingsSavedMsg}</span>
+                      </div>
+                    )}
 
-                <div className="flex justify-end">
-                  <button
-                    onClick={handleSaveRiskSettings}
-                    className="px-4 py-2 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition"
-                  >
-                    {isSettingsDirty ? 'Lưu Cài Đặt (Draft)' : 'Cài Đặt Đã Đồng Bộ'}
-                  </button>
-                </div>
-              </div>
+                    {settingsSaveError && (
+                      <div className="p-2.5 rounded bg-rose-950/80 border border-rose-700 text-rose-300 text-xs flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                        <span>{settingsSaveError}</span>
+                      </div>
+                    )}
+
+                    {needsRefreshRetry && (
+                      <div className="p-2.5 rounded bg-amber-950/80 border border-amber-600 text-amber-200 text-xs flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span>Đã lưu, đánh giá chưa cập nhật. Bấm Thử Lại để làm mới trạng thái tài khoản.</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => refreshAccountAndHealth()}
+                          className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-charcoal-950 font-bold rounded text-xs transition"
+                        >
+                          Thử Lại
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end items-center gap-3 pt-2 border-t border-charcoal-750">
+                      {isSettingsDirty && (
+                        <button
+                          type="button"
+                          onClick={handleCancelDraft}
+                          className="px-3.5 py-2 bg-charcoal-800 hover:bg-charcoal-750 text-gray-300 font-semibold rounded text-xs transition border border-charcoal-700"
+                        >
+                          Hủy Bản Nháp
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleSaveRiskSettings}
+                        disabled={isSavingSettings || !isSettingsDirty}
+                        className={`px-4 py-2 font-bold rounded text-xs transition flex items-center gap-1.5 ${
+                          isSettingsDirty
+                            ? 'bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 cursor-pointer shadow-md'
+                            : 'bg-charcoal-800 text-gray-400 border border-charcoal-700 cursor-default'
+                        } disabled:opacity-50`}
+                      >
+                        {isSavingSettings ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            Đang Lưu...
+                          </>
+                        ) : isSettingsDirty ? (
+                          'Lưu Cài Đặt (Draft)'
+                        ) : (
+                          `Cài Đặt Đã Đồng Bộ (v${savedRiskSettings.config_version})`
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Liquidation safety rules */}
               <div className="p-3.5 bg-charcoal-850 rounded-lg border border-charcoal-700 text-xs space-y-2">

@@ -13,7 +13,7 @@ def get_tier_info(notional: float) -> MarginTier:
 
 class CostAssumptions(BaseModel):
     maker_fee_rate: float = 0.0002
-    taker_fee_rate: float = 0.0006
+    taker_fee_rate: float = 0.0004
     slippage_usd: float = 0.10
     multiplier: float = 1.0
     tp_is_maker: bool = False     # False = TP triggered as market order (taker fee assumption)
@@ -219,12 +219,13 @@ def calculate_risk_reward(
         raw_qty = budget_usdt / total_risk_per_unit if total_risk_per_unit > 0 else 0.0
 
     # Floor to quantity step (0.01)
-    step = INSTRUMENT_METADATA["qty_step"]
+    meta = instrument_provider.get_metadata_sync("XAUUSDT")
+    step = meta.qty_step
     qty = math.floor(raw_qty / step) * step
     qty = round(qty, 4)
 
     # Check minimum quantity constraint
-    min_qty = INSTRUMENT_METADATA["min_qty"]
+    min_qty = meta.min_qty
     if qty < min_qty:
         min_unit_risk = min_qty * total_risk_per_unit
         if min_unit_risk > budget_usdt:
@@ -235,7 +236,7 @@ def calculate_risk_reward(
             qty = min_qty
 
     notional = qty * mult * entry
-    min_notional = INSTRUMENT_METADATA["min_notional"]
+    min_notional = meta.min_notional_usdt
     if notional < min_notional:
         can_execute = False
         skip_reason = f"MIN_NOTIONAL_NOT_MET: Giá trị lệnh ${notional:.2f} nhỏ hơn mức tối thiểu ${min_notional:.2f}"

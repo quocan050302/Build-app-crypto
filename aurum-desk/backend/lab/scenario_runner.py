@@ -13,13 +13,14 @@ from services.execution_coordinator import ExecutionCoordinator
 from paper_broker import PaperBroker
 from domain_calculator import calculate_risk_reward
 from services.event_bus import event_bus
+from services.instrument_provider import instrument_provider
 
 class ScenarioRunner:
     """
-    Deterministic Scenario Testing Suite for Aurum Desk V5:
+    Deterministic Scenario Testing Suite for Aurum Desk V5 / V6:
     - Runs in isolated SQLite environments with ReplayClock.
     - Zero interference with live paper trades or live Telegram notifications.
-    - Covers the 13 required verification scenarios from Master Prompt V5.
+    - Covers the 13 required verification scenarios from Master Prompt.
     - Produces granular timelines (Quote -> Decision -> Transition -> Event -> Outbox).
     """
 
@@ -66,7 +67,7 @@ class ScenarioRunner:
             {
                 "id": "scenario_6_order_types_market_limit_stop",
                 "name": "6. Order Semantics (MARKET, LIMIT, STOP Trigger)",
-                "description": "Kiểm tra cơ chế kích hoạt chuẩn xác cho BUY/SELL LIMIT và BUY/SELL STOP, loại bỏ lệnh không hỗ trợ."
+                "description": "Kiểm tra cơ chế kích hoạt chuẩn xác cho MARKET, BUY/SELL LIMIT và BUY/SELL STOP, loại bỏ lệnh không hỗ trợ."
             },
             {
                 "id": "scenario_7_stale_malformed_quote_rejection",
@@ -80,8 +81,8 @@ class ScenarioRunner:
             },
             {
                 "id": "scenario_9_spread_spike_rr_rejection",
-                "name": "9. Spread Spike làm hỏng Net R:R (<1.5)",
-                "description": "Độ trượt giá hoặc spread giãn mạnh khiến Net R:R < 1.5 bị từ chối an toàn mà không tăng đếm lệnh."
+                "name": "9. Spread Spike làm hỏng Net R:R (<2.0)",
+                "description": "Độ trượt giá hoặc spread giãn mạnh khiến Net R:R < 2.0 bị từ chối an toàn mà không tăng đếm lệnh."
             },
             {
                 "id": "scenario_10_daily_guards_consecutive_losses",
@@ -96,7 +97,7 @@ class ScenarioRunner:
             {
                 "id": "scenario_12_concurrent_fills_max_one_pos",
                 "name": "12. Concurrency Safety (Chỉ duy nhất 1 vị thế mở)",
-                "description": "Hai yêu cầu khớp lệnh cạnh tranh song song đảm bảo chỉ có đúng 1 vị thế được mở."
+                "description": "Đảm bảo chỉ duy nhất 1 vị thế mở kể cả khi có 2 DB sessions khớp lệnh cạnh tranh song song."
             },
             {
                 "id": "scenario_13_outbox_persistence_isolated",
@@ -121,83 +122,106 @@ class ScenarioRunner:
         clock = ReplayClock(initial_ms=1791460000000)
         steps: List[schemas.ScenarioStepResult] = []
 
-        try:
-            handler = getattr(cls, f"_run_{scenario_id}", None)
-            if not handler:
+        all_defs = {s["id"]: s for s in cls.get_all_scenario_definitions()}
+        scen_def = all_defs.get(scenario_id, {"name": scenario_id, "description": "Kịch bản nghiên cứu rủi ro cô lập"})
+        scenario_name = scen_def["name"]
+        scenario_desc = scen_def["description"]
+
+        with instrument_provider.freeze():
+            try:
+                handler = getattr(cls, f"_run_{scenario_id}", None)
+                if not handler:
+                    return schemas.ScenarioRunResponse(
+                        scenario_id=scenario_id,
+                        name=scenario_name,
+                        description="Kịch bản không tồn tại",
+                        status="FAIL",
+                        steps=[
+                            schemas.ScenarioStepResult(
+                                step_index=1,
+                                name="Lookup Scenario",
+                                status="FAIL",
+                                expected="Scenario handler found",
+                                actual="Handler not found",
+                                detail=f"Handler _run_{scenario_id} not implemented",
+                                timestamp=clock.now_ms()
+                            )
+                        ],
+                        started_at=start_time,
+                        completed_at=int(time.time() * 1000),
+                        duration_ms=int(time.time() * 1000) - start_time,
+                        error=f"Unknown scenario {scenario_id}"
+                    )
+
+                import inspect
+                sig = inspect.signature(handler)
+                if len(sig.parameters) >= 3:
+                    ret = handler(db, clock, steps)
+                else:
+                    ret = handler(db, clock)
+
+                if ret is not None and isinstance(ret, tuple) and len(ret) == 3:
+                    scenario_name, scenario_desc, returned_steps = ret
+                    steps = returned_steps or steps
+
+                all_pass = all(s.status == "PASS" for s in steps)
+                end_time = int(time.time() * 1000)
+
                 return schemas.ScenarioRunResponse(
                     scenario_id=scenario_id,
-                    name=scenario_id,
-                    description="Kịch bản không tồn tại",
+                    name=scenario_name,
+                    description=scenario_desc,
+                    status="PASS" if all_pass else "FAIL",
+                    steps=steps,
+                    started_at=start_time,
+                    completed_at=end_time,
+                    duration_ms=end_time - start_time,
+                    error=None if all_pass else "Một hoặc nhiều bước kiểm tra không đạt kỳ vọng",
+                    config_version=1,
+                    metadata_version=1
+                )
+            except Exception as e:
+                end_time = int(time.time() * 1000)
+                sanitized_msg = str(e).replace("sqlite:///:memory:", "[ISOLATED_DB]")
+                return schemas.ScenarioRunResponse(
+                    scenario_id=scenario_id,
+                    name=scenario_name,
+                    description=scenario_desc,
                     status="FAIL",
-                    steps=[
+                    steps=steps + [
                         schemas.ScenarioStepResult(
-                            step_index=1,
-                            name="Lookup Scenario",
+                            step_index=len(steps) + 1,
+                            name="Execution Exception",
                             status="FAIL",
-                            expected="Scenario handler found",
-                            actual="Handler not found",
-                            detail=f"Handler _run_{scenario_id} not implemented",
+                            expected="Clean execution without unhandled exception",
+                            actual=f"Exception: {type(e).__name__}: {sanitized_msg}",
+                            detail=f"First failure / Exception: {sanitized_msg}",
                             timestamp=clock.now_ms()
                         )
                     ],
                     started_at=start_time,
-                    completed_at=int(time.time() * 1000),
-                    duration_ms=int(time.time() * 1000) - start_time,
-                    error=f"Unknown scenario {scenario_id}"
+                    completed_at=end_time,
+                    duration_ms=end_time - start_time,
+                    error=sanitized_msg,
+                    config_version=1,
+                    metadata_version=1
                 )
-
-            scenario_name, scenario_desc, steps = handler(db, clock)
-            all_pass = all(s.status == "PASS" for s in steps)
-            end_time = int(time.time() * 1000)
-
-            return schemas.ScenarioRunResponse(
-                scenario_id=scenario_id,
-                name=scenario_name,
-                description=scenario_desc,
-                status="PASS" if all_pass else "FAIL",
-                steps=steps,
-                started_at=start_time,
-                completed_at=end_time,
-                duration_ms=end_time - start_time,
-                error=None if all_pass else "Một hoặc nhiều bước kiểm tra không đạt kỳ vọng"
-            )
-        except Exception as e:
-            end_time = int(time.time() * 1000)
-            return schemas.ScenarioRunResponse(
-                scenario_id=scenario_id,
-                name=scenario_id,
-                description="Lỗi ngoại lệ khi thực thi kịch bản",
-                status="FAIL",
-                steps=steps + [
-                    schemas.ScenarioStepResult(
-                        step_index=len(steps) + 1,
-                        name="Execution Exception",
-                        status="FAIL",
-                        expected="Clean execution without unhandled exception",
-                        actual=f"Exception: {str(e)}",
-                        detail=str(e),
-                        timestamp=clock.now_ms()
-                    )
-                ],
-                started_at=start_time,
-                completed_at=end_time,
-                duration_ms=end_time - start_time,
-                error=str(e)
-            )
-        finally:
-            db.close()
+            finally:
+                db.close()
 
     # -------------------- INDIVIDUAL SCENARIO IMPLEMENTATIONS --------------------
 
     @classmethod
-    def _run_scenario_1_long_full_cycle(cls, db: Session, clock: ReplayClock):
+    def _run_scenario_1_long_full_cycle(cls, db: Session, clock: ReplayClock, steps: Optional[List[schemas.ScenarioStepResult]] = None):
         name = "1. LONG Full Cycle"
         desc = "LONG: Armed -> Market trigger tại Ask+Slippage -> TP hit tại Bid"
-        steps = []
+        if steps is None:
+            steps = []
         now = clock.now_ms()
 
-        # Step 1: Arm order with Net R:R >= 2.0
+        # Step 1: Arm order with Net R:R >= 2.0 sized with real calculator
         order_id = "test-ord-long-1"
+        calc = calculate_risk_reward("LONG", 2650.00, 2645.00, 2670.00, 1000.0, 0.25)
         order = models.PaperOrder(
             id=order_id,
             setup_id="watch-xau-15m",
@@ -207,10 +231,15 @@ class ScenarioRunner:
             order_type="MARKET",
             timeframe="15M",
             planned_entry=2650.00,
-            stop_loss=2646.00,
+            stop_loss=2645.00,
             take_profit=2670.00,
-            quantity=0.10,
-            initial_risk_usdt=5.0,
+            quantity=calc.quantity,
+            initial_risk_usdt=calc.net_risk_usdt,
+            gross_rr=calc.gross_rr,
+            estimated_net_rr=calc.net_rr,
+            leverage=5,
+            margin_mode="ISOLATED",
+            config_version=1,
             created_at=now,
             armed_at=now,
             expires_at=now + 3600000
@@ -223,7 +252,7 @@ class ScenarioRunner:
             name="Arm LONG Order",
             status="PASS",
             expected="Order state is 'armed'",
-            actual=f"Order {order.id} armed with planned_entry={order.planned_entry}",
+            actual=f"Order {order.id} armed with planned_entry={order.planned_entry}, qty={order.quantity} oz, net_rr={order.estimated_net_rr:.2f}",
             timestamp=clock.now_ms()
         ))
 
@@ -268,13 +297,15 @@ class ScenarioRunner:
         return name, desc, steps
 
     @classmethod
-    def _run_scenario_2_short_full_cycle(cls, db: Session, clock: ReplayClock):
+    def _run_scenario_2_short_full_cycle(cls, db: Session, clock: ReplayClock, steps: Optional[List[schemas.ScenarioStepResult]] = None):
         name = "2. SHORT Full Cycle"
         desc = "SHORT: Armed -> Limit trigger tại Bid >= Entry -> SL hit tại Ask"
-        steps = []
+        if steps is None:
+            steps = []
         now = clock.now_ms()
 
         order_id = "test-ord-short-1"
+        calc = calculate_risk_reward("SHORT", 2660.00, 2664.00, 2640.00, 1000.0, 0.25)
         order = models.PaperOrder(
             id=order_id,
             setup_id="watch-xau-short",
@@ -286,8 +317,13 @@ class ScenarioRunner:
             planned_entry=2660.00,
             stop_loss=2664.00,
             take_profit=2640.00,
-            quantity=0.10,
-            initial_risk_usdt=5.0,
+            quantity=calc.quantity,
+            initial_risk_usdt=calc.net_risk_usdt,
+            gross_rr=calc.gross_rr,
+            estimated_net_rr=calc.net_rr,
+            leverage=5,
+            margin_mode="ISOLATED",
+            config_version=1,
             created_at=now,
             armed_at=now,
             expires_at=now + 3600000
@@ -300,7 +336,7 @@ class ScenarioRunner:
             name="Arm SHORT LIMIT Order",
             status="PASS",
             expected="Order state 'armed' with LIMIT type",
-            actual=f"Order {order.id} armed at {order.planned_entry}",
+            actual=f"Order {order.id} armed at {order.planned_entry}, qty={order.quantity} oz, net_rr={order.estimated_net_rr:.2f}",
             timestamp=clock.now_ms()
         ))
 
@@ -550,64 +586,297 @@ class ScenarioRunner:
         return name, desc, steps
 
     @classmethod
-    def _run_scenario_6_order_types_market_limit_stop(cls, db: Session, clock: ReplayClock):
+    def _run_scenario_6_order_types_market_limit_stop(cls, db: Session, clock: ReplayClock, steps: Optional[List[schemas.ScenarioStepResult]] = None):
         name = "6. Order Semantics (MARKET, LIMIT, STOP Trigger)"
-        desc = "Test MARKET, LIMIT (unmet, met), STOP (unmet, met), and rejection of invalid type"
-        steps = []
+        desc = "Kiểm tra cơ chế kích hoạt chuẩn xác cho MARKET, BUY/SELL LIMIT và BUY/SELL STOP, loại bỏ lệnh không hỗ trợ."
+        if steps is None:
+            steps = []
         now = clock.now_ms()
         coordinator = ExecutionCoordinator()
 
-        # 1. LIMIT LONG: planned_entry = 2640.00. Ticker ask = 2642.00 -> Unmet!
+        # Step 1: MARKET order triggers immediately on tick
+        calc_mkt = calculate_risk_reward("LONG", 2650.00, 2645.00, 2670.00, 1000.0, 0.25)
+        ord_mkt = models.PaperOrder(
+            id="ord-mkt-test",
+            instrument="XAUUSDT",
+            direction="LONG",
+            state="armed",
+            order_type="MARKET",
+            planned_entry=2650.00,
+            stop_loss=2645.00,
+            take_profit=2670.00,
+            quantity=calc_mkt.quantity,
+            initial_risk_usdt=calc_mkt.net_risk_usdt,
+            gross_rr=calc_mkt.gross_rr,
+            estimated_net_rr=calc_mkt.net_rr,
+            leverage=5,
+            margin_mode="ISOLATED",
+            config_version=1,
+            created_at=now,
+            expires_at=now + 3600000
+        )
+        db.add(ord_mkt)
+        db.commit()
+
+        ticker_mkt = {"bid": 2650.00, "ask": 2650.20, "server_time": clock.now_ms()}
+        coordinator.evaluate_orders_sync(db, ticker_override=ticker_mkt, clock=clock, slippage=0.10)
+        db.refresh(ord_mkt)
+
+        step1_pass = (ord_mkt.state == "paper_open" and abs(ord_mkt.actual_entry - 2650.30) < 0.01)
+        steps.append(schemas.ScenarioStepResult(
+            step_index=len(steps) + 1,
+            name="MARKET Order Triggers Immediately at Ask + Slippage",
+            status="PASS" if step1_pass else "FAIL",
+            expected="ord_mkt.state == 'paper_open' and actual_entry == 2650.30",
+            actual=f"state == '{ord_mkt.state}', actual_entry == {ord_mkt.actual_entry}",
+            timestamp=clock.now_ms()
+        ))
+        TradeLifecycleService.execute_close(db, ord_mkt.id, exit_price=2655.0, exit_cause="MANUAL_CLOSE", clock=clock)
+        # Reset cooldown and fills count between sub-tests to isolate order type semantics
+        audit = crud.get_or_create_today_audit(db, clock=clock)
+        audit.cooldown_until = None
+        audit.fills_count = 0
+        db.commit()
+
+        # Step 2: BUY LIMIT (planned_entry = 2640.00)
+        calc_lim = calculate_risk_reward("LONG", 2640.00, 2635.00, 2660.00, 1000.0, 0.25)
         ord_limit = models.PaperOrder(
-            id="ord-lim-test",
+            id="ord-lim-buy-test",
             instrument="XAUUSDT",
             direction="LONG",
             state="armed",
             order_type="LIMIT",
             planned_entry=2640.00,
-            stop_loss=2636.00,
+            stop_loss=2635.00,
             take_profit=2660.00,
-            quantity=0.10,
-            initial_risk_usdt=5.0,
+            quantity=calc_lim.quantity,
+            initial_risk_usdt=calc_lim.net_risk_usdt,
+            gross_rr=calc_lim.gross_rr,
+            estimated_net_rr=calc_lim.net_rr,
+            leverage=5,
+            margin_mode="ISOLATED",
+            config_version=1,
             created_at=now,
             expires_at=now + 3600000
         )
         db.add(ord_limit)
         db.commit()
 
-        ticker1 = {"bid": 2641.80, "ask": 2642.00, "server_time": clock.now_ms()}
-        coordinator.evaluate_orders_sync(db, ticker_override=ticker1, clock=clock)
+        # 2a. Ask = 2642.00 > Limit 2640.00 -> Unmet!
+        ticker_high = {"bid": 2641.80, "ask": 2642.00, "server_time": clock.now_ms()}
+        coordinator.evaluate_orders_sync(db, ticker_override=ticker_high, clock=clock)
         db.refresh(ord_limit)
 
-        step1_pass = (ord_limit.state == "armed")
+        step2_pass = (ord_limit.state == "armed")
         steps.append(schemas.ScenarioStepResult(
-            step_index=1,
+            step_index=len(steps) + 1,
             name="BUY LIMIT Not Triggered When Ask > Limit",
-            status="PASS" if step1_pass else "FAIL",
+            status="PASS" if step2_pass else "FAIL",
             expected="Order remains 'armed'",
             actual=f"Order state == '{ord_limit.state}'",
             timestamp=clock.now_ms()
         ))
 
-        # 2. Ask drops to 2639.90 <= 2640.00 -> Triggered!
-        ticker2 = {"bid": 2639.70, "ask": 2639.90, "server_time": clock.now_ms()}
-        coordinator.evaluate_orders_sync(db, ticker_override=ticker2, clock=clock)
+        # 2b. Ask drops to 2639.90 <= 2640.00 -> Met & Triggered!
+        ticker_low = {"bid": 2639.70, "ask": 2639.90, "server_time": clock.now_ms()}
+        coordinator.evaluate_orders_sync(db, ticker_override=ticker_low, clock=clock)
         db.refresh(ord_limit)
 
-        step2_pass = (ord_limit.state == "paper_open")
+        step3_pass = (ord_limit.state == "paper_open" and abs(ord_limit.actual_entry - 2640.00) < 0.01)
         steps.append(schemas.ScenarioStepResult(
-            step_index=2,
+            step_index=len(steps) + 1,
             name="BUY LIMIT Triggered When Ask <= Limit",
-            status="PASS" if step2_pass else "FAIL",
-            expected="Order state == 'paper_open'",
-            actual=f"Order state == '{ord_limit.state}'",
+            status="PASS" if step3_pass else "FAIL",
+            expected="Order state == 'paper_open' at limit price 2640.00",
+            actual=f"Order state == '{ord_limit.state}', actual_entry == {ord_limit.actual_entry}",
+            timestamp=clock.now_ms()
+        ))
+        TradeLifecycleService.execute_close(db, ord_limit.id, exit_price=2645.0, exit_cause="MANUAL_CLOSE", clock=clock)
+        audit = crud.get_or_create_today_audit(db, clock=clock)
+        audit.cooldown_until = None
+        audit.fills_count = 0
+        db.commit()
+
+        # Step 3: SELL LIMIT (planned_entry = 2670.00)
+        calc_sell_lim = calculate_risk_reward("SHORT", 2670.00, 2675.00, 2650.00, 1000.0, 0.25)
+        ord_sell_lim = models.PaperOrder(
+            id="ord-lim-sell-test",
+            instrument="XAUUSDT",
+            direction="SHORT",
+            state="armed",
+            order_type="LIMIT",
+            planned_entry=2670.00,
+            stop_loss=2675.00,
+            take_profit=2650.00,
+            quantity=calc_sell_lim.quantity,
+            initial_risk_usdt=calc_sell_lim.net_risk_usdt,
+            gross_rr=calc_sell_lim.gross_rr,
+            estimated_net_rr=calc_sell_lim.net_rr,
+            leverage=5,
+            margin_mode="ISOLATED",
+            config_version=1,
+            created_at=now,
+            expires_at=now + 3600000
+        )
+        db.add(ord_sell_lim)
+        db.commit()
+
+        # 3a. Bid = 2668.00 < Limit 2670.00 -> Unmet!
+        ticker_sl_unmet = {"bid": 2668.00, "ask": 2668.20, "server_time": clock.now_ms()}
+        coordinator.evaluate_orders_sync(db, ticker_override=ticker_sl_unmet, clock=clock)
+        db.refresh(ord_sell_lim)
+
+        step4_pass = (ord_sell_lim.state == "armed")
+        steps.append(schemas.ScenarioStepResult(
+            step_index=len(steps) + 1,
+            name="SELL LIMIT Not Triggered When Bid < Limit",
+            status="PASS" if step4_pass else "FAIL",
+            expected="Order remains 'armed'",
+            actual=f"Order state == '{ord_sell_lim.state}'",
             timestamp=clock.now_ms()
         ))
 
-        # Close position
-        TradeLifecycleService.execute_close(db, ord_limit.id, exit_price=2645.0, exit_cause="MANUAL_CLOSE", clock=clock)
+        # 3b. Bid = 2670.50 >= Limit 2670.00 -> Met & Triggered!
+        ticker_sl_met = {"bid": 2670.50, "ask": 2670.70, "server_time": clock.now_ms()}
+        coordinator.evaluate_orders_sync(db, ticker_override=ticker_sl_met, clock=clock)
+        db.refresh(ord_sell_lim)
 
-        # 3. Invalid order type rejected cleanly
+        step5_pass = (ord_sell_lim.state == "paper_open" and abs(ord_sell_lim.actual_entry - 2670.00) < 0.01)
+        steps.append(schemas.ScenarioStepResult(
+            step_index=len(steps) + 1,
+            name="SELL LIMIT Triggered When Bid >= Limit",
+            status="PASS" if step5_pass else "FAIL",
+            expected="Order state == 'paper_open' at limit price 2670.00",
+            actual=f"Order state == '{ord_sell_lim.state}', actual_entry == {ord_sell_lim.actual_entry}",
+            timestamp=clock.now_ms()
+        ))
+        TradeLifecycleService.execute_close(db, ord_sell_lim.id, exit_price=2665.0, exit_cause="MANUAL_CLOSE", clock=clock)
+        audit = crud.get_or_create_today_audit(db, clock=clock)
+        audit.cooldown_until = None
+        audit.fills_count = 0
+        db.commit()
+
+        # Step 4: BUY STOP (planned_entry = 2680.00)
+        calc_stop_buy = calculate_risk_reward("LONG", 2680.00, 2675.00, 2700.00, 1000.0, 0.25)
+        ord_buy_stop = models.PaperOrder(
+            id="ord-stop-buy-test",
+            instrument="XAUUSDT",
+            direction="LONG",
+            state="armed",
+            order_type="STOP",
+            planned_entry=2680.00,
+            stop_loss=2675.00,
+            take_profit=2700.00,
+            quantity=calc_stop_buy.quantity,
+            initial_risk_usdt=calc_stop_buy.net_risk_usdt,
+            gross_rr=calc_stop_buy.gross_rr,
+            estimated_net_rr=calc_stop_buy.net_rr,
+            leverage=5,
+            margin_mode="ISOLATED",
+            config_version=1,
+            created_at=now,
+            expires_at=now + 3600000
+        )
+        db.add(ord_buy_stop)
+        db.commit()
+
+        # 4a. Ask = 2678.00 < Stop 2680.00 -> Unmet!
+        ticker_bs_unmet = {"bid": 2677.80, "ask": 2678.00, "server_time": clock.now_ms()}
+        coordinator.evaluate_orders_sync(db, ticker_override=ticker_bs_unmet, clock=clock)
+        db.refresh(ord_buy_stop)
+
+        step6_pass = (ord_buy_stop.state == "armed")
+        steps.append(schemas.ScenarioStepResult(
+            step_index=len(steps) + 1,
+            name="BUY STOP Not Triggered When Ask < Stop",
+            status="PASS" if step6_pass else "FAIL",
+            expected="Order remains 'armed'",
+            actual=f"Order state == '{ord_buy_stop.state}'",
+            timestamp=clock.now_ms()
+        ))
+
+        # 4b. Ask = 2680.10 >= Stop 2680.00 -> Met & Triggered!
+        ticker_bs_met = {"bid": 2679.90, "ask": 2680.10, "server_time": clock.now_ms()}
+        coordinator.evaluate_orders_sync(db, ticker_override=ticker_bs_met, clock=clock, slippage=0.10)
+        db.refresh(ord_buy_stop)
+
+        expected_bs_fill = round(2680.10 + 0.10, 2)
+        step7_pass = (ord_buy_stop.state == "paper_open" and abs(ord_buy_stop.actual_entry - expected_bs_fill) < 0.01)
+        steps.append(schemas.ScenarioStepResult(
+            step_index=len(steps) + 1,
+            name="BUY STOP Triggered When Ask >= Stop",
+            status="PASS" if step7_pass else "FAIL",
+            expected=f"Order state == 'paper_open' at {expected_bs_fill}",
+            actual=f"Order state == '{ord_buy_stop.state}', actual_entry == {ord_buy_stop.actual_entry}",
+            timestamp=clock.now_ms()
+        ))
+        TradeLifecycleService.execute_close(db, ord_buy_stop.id, exit_price=2685.0, exit_cause="MANUAL_CLOSE", clock=clock)
+        audit = crud.get_or_create_today_audit(db, clock=clock)
+        audit.cooldown_until = None
+        audit.fills_count = 0
+        db.commit()
+
+        # Step 5: SELL STOP (planned_entry = 2630.00)
+        calc_stop_sell = calculate_risk_reward("SHORT", 2630.00, 2635.00, 2610.00, 1000.0, 0.25)
+        ord_sell_stop = models.PaperOrder(
+            id="ord-stop-sell-test",
+            instrument="XAUUSDT",
+            direction="SHORT",
+            state="armed",
+            order_type="STOP",
+            planned_entry=2630.00,
+            stop_loss=2635.00,
+            take_profit=2610.00,
+            quantity=calc_stop_sell.quantity,
+            initial_risk_usdt=calc_stop_sell.net_risk_usdt,
+            gross_rr=calc_stop_sell.gross_rr,
+            estimated_net_rr=calc_stop_sell.net_rr,
+            leverage=5,
+            margin_mode="ISOLATED",
+            config_version=1,
+            created_at=now,
+            expires_at=now + 3600000
+        )
+        db.add(ord_sell_stop)
+        db.commit()
+
+        # 5a. Bid = 2632.00 > Stop 2630.00 -> Unmet!
+        ticker_ss_unmet = {"bid": 2632.00, "ask": 2632.20, "server_time": clock.now_ms()}
+        coordinator.evaluate_orders_sync(db, ticker_override=ticker_ss_unmet, clock=clock)
+        db.refresh(ord_sell_stop)
+
+        step8_pass = (ord_sell_stop.state == "armed")
+        steps.append(schemas.ScenarioStepResult(
+            step_index=len(steps) + 1,
+            name="SELL STOP Not Triggered When Bid > Stop",
+            status="PASS" if step8_pass else "FAIL",
+            expected="Order remains 'armed'",
+            actual=f"Order state == '{ord_sell_stop.state}'",
+            timestamp=clock.now_ms()
+        ))
+
+        # 5b. Bid = 2629.90 <= Stop 2630.00 -> Met & Triggered!
+        ticker_ss_met = {"bid": 2629.90, "ask": 2630.10, "server_time": clock.now_ms()}
+        coordinator.evaluate_orders_sync(db, ticker_override=ticker_ss_met, clock=clock, slippage=0.10)
+        db.refresh(ord_sell_stop)
+
+        expected_ss_fill = round(2629.90 - 0.10, 2)
+        step9_pass = (ord_sell_stop.state == "paper_open" and abs(ord_sell_stop.actual_entry - expected_ss_fill) < 0.01)
+        steps.append(schemas.ScenarioStepResult(
+            step_index=len(steps) + 1,
+            name="SELL STOP Triggered When Bid <= Stop",
+            status="PASS" if step9_pass else "FAIL",
+            expected=f"Order state == 'paper_open' at {expected_ss_fill}",
+            actual=f"Order state == '{ord_sell_stop.state}', actual_entry == {ord_sell_stop.actual_entry}",
+            timestamp=clock.now_ms()
+        ))
+        TradeLifecycleService.execute_close(db, ord_sell_stop.id, exit_price=2625.0, exit_cause="MANUAL_CLOSE", clock=clock)
+        audit = crud.get_or_create_today_audit(db, clock=clock)
+        audit.cooldown_until = None
+        audit.fills_count = 0
+        db.commit()
+
+        # Step 6: Unsupported order type rejected cleanly
         ord_invalid = models.PaperOrder(
             id="ord-invalid-type",
             instrument="XAUUSDT",
@@ -616,25 +885,28 @@ class ScenarioRunner:
             order_type="FOO_BAR",
             planned_entry=2640.00,
             stop_loss=2635.00,
-            take_profit=2650.00,
+            take_profit=2660.00,
             quantity=0.10,
-            initial_risk_usdt=5.0,
+            initial_risk_usdt=2.5,
+            leverage=5,
+            margin_mode="ISOLATED",
+            config_version=1,
             created_at=now,
             expires_at=now + 3600000
         )
         db.add(ord_invalid)
         db.commit()
 
-        coordinator.evaluate_orders_sync(db, ticker_override=ticker1, clock=clock)
+        coordinator.evaluate_orders_sync(db, ticker_override=ticker_high, clock=clock)
         db.refresh(ord_invalid)
 
-        step3_pass = (ord_invalid.state == "rejected")
+        step10_pass = (ord_invalid.state == "rejected" and "Loại lệnh không được hỗ trợ" in (ord_invalid.invalidation_reason or ""))
         steps.append(schemas.ScenarioStepResult(
-            step_index=3,
+            step_index=len(steps) + 1,
             name="Unsupported Order Type Rejected",
-            status="PASS" if step3_pass else "FAIL",
-            expected="Order state == 'rejected'",
-            actual=f"Order state == '{ord_invalid.state}'",
+            status="PASS" if step10_pass else "FAIL",
+            expected="Order state == 'rejected' with unsupported type message",
+            actual=f"Order state == '{ord_invalid.state}', reason == '{ord_invalid.invalidation_reason}'",
             timestamp=clock.now_ms()
         ))
 
@@ -743,43 +1015,83 @@ class ScenarioRunner:
         return name, desc, steps
 
     @classmethod
-    def _run_scenario_9_spread_spike_rr_rejection(cls, db: Session, clock: ReplayClock):
-        name = "9. Spread Spike làm hỏng Net R:R"
-        desc = "Spread hoặc slippage lớn làm Net R:R < 1.5 -> Lệnh bị từ chối an toàn"
-        steps = []
+    def _run_scenario_9_spread_spike_rr_rejection(cls, db: Session, clock: ReplayClock, steps: Optional[List[schemas.ScenarioStepResult]] = None):
+        name = "9. Spread Spike làm hỏng Net R:R (<2.0)"
+        desc = "Độ trượt giá hoặc spread giãn mạnh khiến Net R:R < 2.0 bị từ chối an toàn mà không tăng đếm lệnh."
+        if steps is None:
+            steps = []
         now = clock.now_ms()
 
-        # Order with tight TP (planned gross RR around 1.6)
+        # Step 1: Verify baseline order has valid Net R:R >= 2.0 under normal spread
+        calc_base = calculate_risk_reward(
+            direction="LONG",
+            entry=2650.00,
+            sl=2645.00,
+            tp=2670.00,
+            capital=1000.0,
+            risk_pct=0.25,
+            min_net_rr=2.0
+        )
+        step1_pass = (calc_base.meets_min_rr and calc_base.net_rr >= 2.0)
+        steps.append(schemas.ScenarioStepResult(
+            step_index=len(steps) + 1,
+            name="Verify Baseline Net R:R >= 2.0",
+            status="PASS" if step1_pass else "FAIL",
+            expected="Baseline calculation meets_min_rr == True and net_rr >= 2.0",
+            actual=f"meets_min_rr == {calc_base.meets_min_rr}, net_rr == {calc_base.net_rr:.4f}",
+            detail=f"Baseline order has Gross RR {calc_base.gross_rr:.2f} and Net RR {calc_base.net_rr:.2f}",
+            timestamp=clock.now_ms()
+        ))
+
         order = models.PaperOrder(
-            id="ord-tight-rr",
+            id="ord-shock-rr",
             instrument="XAUUSDT",
             direction="LONG",
             state="armed",
             order_type="MARKET",
             planned_entry=2650.00,
-            stop_loss=2647.00,  # 3 USDT risk
-            take_profit=2655.00,  # 5 USDT reward
-            quantity=0.10,
-            initial_risk_usdt=5.0,
+            stop_loss=2645.00,
+            take_profit=2670.00,
+            quantity=calc_base.quantity,
+            initial_risk_usdt=calc_base.net_risk_usdt,
+            gross_rr=calc_base.gross_rr,
+            estimated_net_rr=calc_base.net_rr,
+            leverage=5,
+            margin_mode="ISOLATED",
+            config_version=1,
             created_at=now,
             expires_at=now + 3600000
         )
         db.add(order)
         db.commit()
 
-        # Severe slippage of 2.0 USDT degrades entry to 2652.00, reducing reward to 3 USDT and expanding risk to 5 USDT (R:R < 1.0)
+        # Step 2: Severe slippage shock of 3.0 USDT degrades entry price to 2653.20
+        # This expands stop distance to 8.20 and shrinks target distance to 16.80, crashing Net R:R below 2.0
         coordinator = ExecutionCoordinator()
         ticker = {"bid": 2650.00, "ask": 2650.20, "server_time": now}
-        coordinator.evaluate_orders_sync(db, ticker_override=ticker, clock=clock, slippage=2.0)
+        coordinator.evaluate_orders_sync(db, ticker_override=ticker, clock=clock, slippage=3.0)
         db.refresh(order)
 
-        step1_pass = (order.state == "rejected" and "Calculation re-check failed" in (order.invalidation_reason or ""))
+        step2_pass = (order.state == "rejected" and "Calculation re-check failed" in (order.invalidation_reason or "") and "NET_RR_TOO_LOW" in (order.invalidation_reason or ""))
         steps.append(schemas.ScenarioStepResult(
-            step_index=1,
-            name="Reject Order when Net R:R Degrades Below Minimum",
-            status="PASS" if step1_pass else "FAIL",
-            expected="order.state == 'rejected'",
+            step_index=len(steps) + 1,
+            name="Reject Order when Spread/Slippage Degrades Net R:R Below 2.0",
+            status="PASS" if step2_pass else "FAIL",
+            expected="order.state == 'rejected' and reason contains NET_RR_TOO_LOW",
             actual=f"state == '{order.state}', reason == '{order.invalidation_reason}'",
+            timestamp=clock.now_ms()
+        ))
+
+        # Step 3: Verify daily fills count was NOT incremented and no position was opened
+        audit = crud.get_or_create_today_audit(db, clock=clock)
+        open_pos_count = db.query(models.PaperOrder).filter(models.PaperOrder.state == "paper_open").count()
+        step3_pass = (audit.fills_count == 0 and open_pos_count == 0)
+        steps.append(schemas.ScenarioStepResult(
+            step_index=len(steps) + 1,
+            name="Daily Fills Counter and Position Invariants Preserved",
+            status="PASS" if step3_pass else "FAIL",
+            expected="fills_count == 0 and open_pos_count == 0",
+            actual=f"fills_count == {audit.fills_count}, open_pos_count == {open_pos_count}",
             timestamp=clock.now_ms()
         ))
 
@@ -891,23 +1203,30 @@ class ScenarioRunner:
         return name, desc, steps
 
     @classmethod
-    def _run_scenario_12_concurrent_fills_max_one_pos(cls, db: Session, clock: ReplayClock):
+    def _run_scenario_12_concurrent_fills_max_one_pos(cls, db: Session, clock: ReplayClock, steps: Optional[List[schemas.ScenarioStepResult]] = None):
         name = "12. Concurrency Safety"
-        desc = "Enforce strictly max 1 open position across sessions"
-        steps = []
+        desc = "Đảm bảo chỉ duy nhất 1 vị thế mở kể cả khi có 2 DB sessions khớp lệnh cạnh tranh song song"
+        if steps is None:
+            steps = []
         now = clock.now_ms()
 
         # Step 1: Open first position
-        calc = calculate_risk_reward("LONG", 2650.0, 2645.0, 2660.0, 1000.0, 0.25)
+        calc = calculate_risk_reward("LONG", 2650.0, 2645.0, 2670.0, 1000.0, 0.25)
         ord1 = models.PaperOrder(
             id="ord-conc-1",
+            instrument="XAUUSDT",
             direction="LONG",
             state="armed",
             planned_entry=2650.0,
             stop_loss=2645.0,
-            take_profit=2660.0,
-            quantity=0.10,
-            initial_risk_usdt=5.0,
+            take_profit=2670.0,
+            quantity=calc.quantity,
+            initial_risk_usdt=calc.net_risk_usdt,
+            gross_rr=calc.gross_rr,
+            estimated_net_rr=calc.net_rr,
+            leverage=5,
+            margin_mode="ISOLATED",
+            config_version=1,
             created_at=now
         )
         db.add(ord1)
@@ -918,7 +1237,7 @@ class ScenarioRunner:
 
         step1_pass = (ord1.state == "paper_open")
         steps.append(schemas.ScenarioStepResult(
-            step_index=1,
+            step_index=len(steps) + 1,
             name="First Order Fills Successfully",
             status="PASS" if step1_pass else "FAIL",
             expected="ord1.state == 'paper_open'",
@@ -927,34 +1246,87 @@ class ScenarioRunner:
         ))
 
         # Step 2: Second concurrent fill attempt MUST be rejected
+        calc2 = calculate_risk_reward("SHORT", 2660.0, 2664.0, 2640.0, 1000.0, 0.25)
         ord2 = models.PaperOrder(
             id="ord-conc-2",
+            instrument="XAUUSDT",
             direction="SHORT",
             state="armed",
             planned_entry=2660.0,
-            stop_loss=2665.0,
-            take_profit=2650.0,
-            quantity=0.10,
-            initial_risk_usdt=5.0,
+            stop_loss=2664.0,
+            take_profit=2640.0,
+            quantity=calc2.quantity,
+            initial_risk_usdt=calc2.net_risk_usdt,
+            gross_rr=calc2.gross_rr,
+            estimated_net_rr=calc2.net_rr,
+            leverage=5,
+            margin_mode="ISOLATED",
+            config_version=1,
             created_at=now
         )
         db.add(ord2)
         db.commit()
 
-        calc2 = calculate_risk_reward("SHORT", 2660.0, 2665.0, 2650.0, 1000.0, 0.25)
         TradeLifecycleService.execute_fill(db, ord2, 2660.0, calc2, clock=clock)
         db.refresh(ord2)
 
         open_count = db.query(models.PaperOrder).filter(models.PaperOrder.state == "paper_open").count()
         step2_pass = (ord2.state == "rejected" and open_count == 1)
         steps.append(schemas.ScenarioStepResult(
-            step_index=2,
+            step_index=len(steps) + 1,
             name="Second Concurrent Fill Rejected to Maintain Max-1 Position",
             status="PASS" if step2_pass else "FAIL",
             expected="ord2.state == 'rejected' and open_count == 1",
             actual=f"ord2.state == '{ord2.state}', total_open_positions == {open_count}",
             timestamp=clock.now_ms()
         ))
+
+        # Step 3: True Two-Session Concurrency Race
+        TradeLifecycleService.execute_close(db, ord1.id, exit_price=2660.0, exit_cause="MANUAL_CLOSE", clock=clock)
+
+        engine = db.get_bind()
+        SessionFactory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        db1 = SessionFactory()
+        db2 = SessionFactory()
+
+        ord_race = models.PaperOrder(
+            id="ord-race-two-sessions",
+            instrument="XAUUSDT",
+            direction="LONG",
+            state="armed",
+            planned_entry=2650.0,
+            stop_loss=2645.0,
+            take_profit=2670.0,
+            quantity=0.1,
+            initial_risk_usdt=2.5,
+            created_at=clock.now_ms(),
+            armed_at=clock.now_ms()
+        )
+        db1.add(ord_race)
+        db1.commit()
+
+        calc_race = calculate_risk_reward("LONG", 2650.0, 2645.0, 2670.0, 1000.0, 0.25)
+        res1 = TradeLifecycleService.execute_fill(db1, ord_race, 2650.2, calc_race, clock=clock)
+
+        order_s2 = db2.query(models.PaperOrder).filter(models.PaperOrder.id == "ord-race-two-sessions").first()
+        res2 = None
+        if order_s2 and order_s2.state == "armed":
+            res2 = TradeLifecycleService.execute_fill(db2, order_s2, 2650.2, calc_race, clock=clock)
+
+        open_positions = db1.query(models.PaperOrder).filter(models.PaperOrder.state == "paper_open").count()
+        step3_pass = (res1 is not None and res1.state == "paper_open" and res2 is None and open_positions == 1)
+
+        steps.append(schemas.ScenarioStepResult(
+            step_index=len(steps) + 1,
+            name="Two Distinct Sessions Race Guarantee: Only 1 Winner",
+            status="PASS" if step3_pass else "FAIL",
+            expected="res1 is paper_open, res2 is None, total open_positions == 1",
+            actual=f"res1={getattr(res1, 'state', None)}, res2={res2}, open_positions={open_positions}",
+            timestamp=clock.now_ms()
+        ))
+
+        db1.close()
+        db2.close()
 
         return name, desc, steps
 

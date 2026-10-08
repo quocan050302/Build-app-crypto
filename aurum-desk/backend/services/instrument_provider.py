@@ -29,6 +29,11 @@ class InstrumentMetadata(BaseModel):
     metadata_version: int = 1
     status: str = "NOT_FETCHED"
 
+import contextvars
+import contextlib
+
+_frozen_metadata_context: contextvars.ContextVar[Optional[InstrumentMetadata]] = contextvars.ContextVar("frozen_metadata", default=None)
+
 class InstrumentProvider:
     def __init__(self):
         self._cache: Dict[str, InstrumentMetadata] = {}
@@ -49,8 +54,36 @@ class InstrumentProvider:
             MarginTier(tier=10, min_notional=100000000, max_notional=200000000, max_leverage=1, maintenance_margin_rate=0.6000),
         ]
 
+    @contextlib.contextmanager
+    def freeze(self, metadata: Optional[InstrumentMetadata] = None):
+        """Temporarily freeze metadata per run/thread without mutating global cache."""
+        meta = metadata or InstrumentMetadata(
+            symbol="XAUUSDT",
+            product_type="USDT-FUTURES",
+            max_leverage=100,
+            min_leverage=1,
+            maker_fee_rate=0.0002,
+            taker_fee_rate=0.0004,
+            qty_step=0.01,
+            min_qty=0.01,
+            min_notional_usdt=5.0,
+            tiers=self._get_default_tiers(),
+            fetched_at=1791460000000,
+            metadata_version=1,
+            status="FROZEN_LAB_FIXTURE"
+        )
+        token = _frozen_metadata_context.set(meta)
+        try:
+            yield meta
+        finally:
+            _frozen_metadata_context.reset(token)
+
     def get_metadata_sync(self, symbol: str = "XAUUSDT") -> InstrumentMetadata:
         """Get cached metadata synchronously (fallback to verified static data if not fetched)"""
+        frozen = _frozen_metadata_context.get()
+        if frozen:
+            return frozen
+
         if symbol in self._cache and self._cache[symbol].status in ("SUCCESS", "STALE"):
             return self._cache[symbol]
         
