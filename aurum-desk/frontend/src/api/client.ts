@@ -340,7 +340,7 @@ export const api = {
     return res.data;
   },
 
-  updateAccountSettings: async (settings: { leverage: number; margin_mode: string }) => {
+  updateAccountSettings: async (settings: { leverage: number; margin_mode: string; risk_pct?: number; expected_config_version?: number }) => {
     const res = await apiClient.post('/api/v1/account/settings', settings);
     return res.data;
   },

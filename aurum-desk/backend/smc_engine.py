@@ -436,7 +436,8 @@ def evaluate_smc_setup(
     htf_bias: Optional[str] = None,        # Real HTF bias from D/4H
     h1_alignment: Optional[str] = None,    # Real H1 context
     leverage: int = 5,
-    margin_mode: str = "ISOLATED"
+    margin_mode: str = "ISOLATED",
+    risk_pct: float = 0.25
 ) -> Dict[str, Any]:
     """
     SMC/ICT Strategy Engine V4:
@@ -639,8 +640,6 @@ def evaluate_smc_setup(
 
     # 5. Position Sizing & Domain Calculation
     capital = day_audit.current_equity if day_audit else 1000.0
-    risk_pct = 0.25
-
     calc_res: Optional[CalculationResult] = None
     if setup_direction:
         calc_res = calculate_risk_reward(

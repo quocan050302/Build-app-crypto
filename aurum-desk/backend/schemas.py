@@ -153,6 +153,8 @@ class WatchSetupItem(BaseModel):
     quantity: float
     leverage: int
     margin_mode: str
+    risk_pct: float = 0.25
+    config_version: int = 1
     estimated_liquidation: Optional[float] = None
     conditions_met: Optional[List[str]] = None
     conditions_remaining: Optional[List[str]] = None
@@ -224,6 +226,23 @@ class SMCAnalysisResponse(BaseModel):
     reason_code: Optional[str] = None
     reason_detail: Optional[str] = None
 
+# ==================== V5.3 RISK SETTINGS ====================
+class RiskSettingsUpdate(BaseModel):
+    leverage: int = 5
+    margin_mode: str = "ISOLATED"
+    risk_pct: float = 0.25
+    expected_config_version: Optional[int] = None
+
+class RiskSettingsResponse(BaseModel):
+    symbol: str = "XAUUSDT"
+    product_type: str = "USDT-FUTURES"
+    requested_leverage: int
+    margin_mode: str
+    risk_pct: float
+    config_version: int
+    updated_at: int
+    metadata_version: int
+
 # Day Audit & Risk
 class DayAuditResponse(BaseModel):
     date_str: str
@@ -244,6 +263,9 @@ class DayAuditResponse(BaseModel):
     auto_paper_active: bool = False
     leverage: int = 5
     margin_mode: str = "ISOLATED"
+    risk_pct: float = 0.25
+    config_version: int = 1
+    metadata_version: int = 1
 
 # Economic News Schemas
 class EconomicNewsItem(BaseModel):

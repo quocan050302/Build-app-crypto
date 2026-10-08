@@ -1,61 +1,19 @@
 import math
 from typing import Dict, Any, Optional, Tuple, List
 from pydantic import BaseModel, Field
+from services.instrument_provider import instrument_provider, MarginTier
 
-# Bitget XAUUSDT USDT-Margined Perpetual Contract Specifications
-INSTRUMENT_METADATA: Dict[str, Any] = {
-    "symbol": "XAUUSDT",
-    "base_asset": "XAU",
-    "quote_asset": "USDT",
-    "multiplier": 1.0,           # 1 contract = 1 troy ounce
-    "tick_size": 0.01,           # Price increment $0.01
-    "qty_step": 0.01,            # Quantity step 0.01 oz
-    "min_qty": 0.01,             # Minimum quantity 0.01 oz
-    "min_notional": 5.0,         # Minimum order notional 5.0 USDT
-    "maker_fee_rate": 0.0002,    # 0.02% maker fee
-    "taker_fee_rate": 0.0004,    # 0.04% taker fee
-    "default_slippage_usd": 0.10,# $0.10 slippage assumption on market order
-    "max_leverage": 50,          # Bitget tier 1 max leverage
-    "source": "Bitget Classic Futures USDT-M",
-    "version": "2026.1"
-}
-
-# Bitget Classic Contract Position Tiers for XAUUSDT
-BITGET_XAUUSDT_TIERS: List[Dict[str, Any]] = [
-    {
-        "tier": 1,
-        "max_notional": 50000.0,
-        "max_leverage": 50,
-        "mmr": 0.005,             # 0.5% Maintenance Margin Rate
-        "deduction": 0.0
-    },
-    {
-        "tier": 2,
-        "max_notional": 100000.0,
-        "max_leverage": 25,
-        "mmr": 0.010,             # 1.0% Maintenance Margin Rate
-        "deduction": 250.0
-    },
-    {
-        "tier": 3,
-        "max_notional": 200000.0,
-        "max_leverage": 15,
-        "mmr": 0.015,             # 1.5% Maintenance Margin Rate
-        "deduction": 750.0
-    }
-]
-
-def get_tier_info(notional: float) -> Dict[str, Any]:
+def get_tier_info(notional: float) -> MarginTier:
     """Retrieve Bitget tier parameters based on position notional value."""
-    for t in BITGET_XAUUSDT_TIERS:
-        if notional <= t["max_notional"]:
+    meta = instrument_provider.get_metadata_sync("XAUUSDT")
+    for t in meta.tiers:
+        if notional <= t.max_notional:
             return t
-    return BITGET_XAUUSDT_TIERS[-1]
-
+    return meta.tiers[-1] if meta.tiers else None
 
 class CostAssumptions(BaseModel):
     maker_fee_rate: float = 0.0002
-    taker_fee_rate: float = 0.0004
+    taker_fee_rate: float = 0.0006
     slippage_usd: float = 0.10
     multiplier: float = 1.0
     tp_is_maker: bool = False     # False = TP triggered as market order (taker fee assumption)
@@ -149,9 +107,9 @@ def calculate_isolated_liquidation(
     """
     notional = quantity * multiplier * entry
     tier_info = get_tier_info(notional)
-    mmr = tier_info["mmr"]
-    deduction = tier_info["deduction"]
-    max_tier_lev = tier_info["max_leverage"]
+    mmr = tier_info.maintenance_margin_rate if tier_info else 0.005
+    deduction = 0.0 # Bitget's public API query-position-lever doesn't currently return deduction, avoid inventing formula
+    max_tier_lev = tier_info.max_leverage if tier_info else 100
 
     eff_leverage = min(leverage, max_tier_lev)
     initial_margin = notional / eff_leverage if eff_leverage > 0 else notional
@@ -168,7 +126,7 @@ def calculate_isolated_liquidation(
         lp = numerator / denom_short if denom_short > 0 else entry * 2.0
 
     maint_margin = max(0.0, (notional * mmr) - deduction)
-    return round(lp, 2), round(initial_margin, 2), round(maint_margin, 2), tier_info["tier"], max_tier_lev
+    return round(lp, 2), round(initial_margin, 2), round(maint_margin, 2), tier_info.tier if tier_info else 1, max_tier_lev
 
 
 def calculate_risk_reward(

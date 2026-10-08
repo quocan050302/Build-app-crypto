@@ -54,12 +54,12 @@ class StrategyService:
             is_blackout, blackout_reason, _ = crud.check_news_blackout(db, now_ms)
             day_audit = crud.get_or_create_today_audit(db)
 
-            # Read system leverage & margin mode
-            lev_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "default_leverage").first()
-            leverage = int(lev_cfg.value) if lev_cfg else 5
-
-            margin_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "default_margin_mode").first()
-            margin_mode = margin_cfg.value if margin_cfg else "ISOLATED"
+            from services.risk_settings_service import risk_settings_service
+            global_settings = risk_settings_service.get_settings(db)
+            leverage = global_settings.requested_leverage
+            margin_mode = global_settings.margin_mode
+            risk_pct = global_settings.risk_pct
+            config_version = global_settings.config_version
 
             analysis = smc_engine.evaluate_smc_setup(
                 candles=candles,
@@ -72,7 +72,8 @@ class StrategyService:
                 htf_bias=collector_service.d_4h_bias,
                 h1_alignment=collector_service.h1_alignment,
                 leverage=leverage,
-                margin_mode=margin_mode
+                margin_mode=margin_mode,
+                risk_pct=risk_pct
             )
 
             setup_stage = analysis.get("setup_stage", "WATCHING")
@@ -140,6 +141,8 @@ class StrategyService:
                     quantity=sig.get("quantity", 0.0) if sig else 0.0,
                     leverage=leverage,
                     margin_mode=margin_mode,
+                    risk_pct=risk_pct,
+                    config_version=config_version,
                     estimated_liquidation=sig.get("estimated_liquidation") if sig else None,
                     conditions_met=json.dumps(analysis.get("conditions_met", [])),
                     conditions_remaining=json.dumps(analysis.get("missing_conditions", [])),
@@ -191,6 +194,8 @@ class StrategyService:
                     watch_setup.quantity = sig.get("quantity", 0.0) if sig else 0.0
                     watch_setup.leverage = leverage
                     watch_setup.margin_mode = margin_mode
+                    watch_setup.risk_pct = risk_pct
+                    watch_setup.config_version = config_version
                     watch_setup.estimated_liquidation = sig.get("estimated_liquidation") if sig else None
                     watch_setup.conditions_met = json.dumps(analysis.get("conditions_met", []))
                     watch_setup.conditions_remaining = json.dumps(analysis.get("missing_conditions", []))

@@ -55,6 +55,7 @@ class PaperOrder(Base):
     margin_mode = Column(String(20), default="ISOLATED")
     estimated_liquidation = Column(Float, nullable=True)
     initial_margin = Column(Float, nullable=True)
+    config_version = Column(Integer, default=1)
 
     # Execution & PnL
     realized_pnl_net = Column(Float, nullable=True)
@@ -205,6 +206,8 @@ class WatchSetup(Base):
     quantity = Column(Float, default=0.0)
     leverage = Column(Integer, default=5)
     margin_mode = Column(String(20), default="ISOLATED")
+    risk_pct = Column(Float, default=0.25)
+    config_version = Column(Integer, default=1)
     estimated_liquidation = Column(Float, nullable=True)
 
     # Progression evidence

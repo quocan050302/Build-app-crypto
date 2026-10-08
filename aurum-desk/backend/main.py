@@ -42,6 +42,17 @@ def reconcile_stuck_orders():
     """
     db = SessionLocal()
     try:
+        # V5.3 Schema Migrations
+        try:
+            from sqlalchemy import text
+            db.execute(text("ALTER TABLE watch_setups ADD COLUMN risk_pct FLOAT DEFAULT 0.25"))
+            db.execute(text("ALTER TABLE watch_setups ADD COLUMN config_version INTEGER DEFAULT 1"))
+            db.execute(text("ALTER TABLE paper_orders ADD COLUMN config_version INTEGER DEFAULT 1"))
+            db.commit()
+            print("V5.3 Schema migration applied.")
+        except Exception:
+            db.rollback() # Columns already exist
+
         stuck_setups = db.query(models.WatchSetup).filter(
             models.WatchSetup.state.in_(["ARMED", "PAPER_OPEN"])
         ).all()
@@ -708,29 +719,22 @@ def set_auto_state(body: dict, db: Session = Depends(get_db)):
     return {"status": "success", "auto_paper_enabled": res}
 
 
-@app.post("/api/v1/account/settings")
-def update_account_settings(body: dict, db: Session = Depends(get_db)):
-    """Update default leverage and margin mode settings."""
-    now_ms = int(time.time() * 1000)
-    lev = int(body.get("leverage", 5))
-    mm = str(body.get("margin_mode", "ISOLATED")).upper()
+@app.post("/api/v1/account/settings", response_model=schemas.RiskSettingsResponse)
+def update_account_settings(body: schemas.RiskSettingsUpdate, db: Session = Depends(get_db)):
+    """Update risk settings with version validation."""
+    from services.risk_settings_service import risk_settings_service
+    try:
+        return risk_settings_service.update_settings(db, body)
+    except ValueError as e:
+        if "STALE_EDIT" in str(e):
+            raise HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=422, detail=str(e))
 
-    lev_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "default_leverage").first()
-    if lev_cfg:
-        lev_cfg.value = str(lev)
-        lev_cfg.updated_at = now_ms
-    else:
-        db.add(models.SystemConfig(key="default_leverage", value=str(lev), updated_at=now_ms))
-
-    mm_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "default_margin_mode").first()
-    if mm_cfg:
-        mm_cfg.value = mm
-        mm_cfg.updated_at = now_ms
-    else:
-        db.add(models.SystemConfig(key="default_margin_mode", value=mm, updated_at=now_ms))
-
-    db.commit()
-    return {"status": "success", "leverage": lev, "margin_mode": mm}
+@app.get("/api/v1/account/settings", response_model=schemas.RiskSettingsResponse)
+def get_account_settings(db: Session = Depends(get_db)):
+    """Get current risk settings."""
+    from services.risk_settings_service import risk_settings_service
+    return risk_settings_service.get_settings(db)
 
 
 # ==================== 7. ORDERS PREVIEW & EXECUTION ====================
@@ -775,11 +779,8 @@ def get_account_status(db: Session = Depends(get_db)):
     now_ms = int(time.time() * 1000)
     cooldown_sec = max(0, int((audit.cooldown_until - now_ms) / 1000)) if audit.cooldown_until else 0
 
-    lev_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "default_leverage").first()
-    leverage = int(lev_cfg.value) if lev_cfg else 5
-
-    margin_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "default_margin_mode").first()
-    margin_mode = margin_cfg.value if margin_cfg else "ISOLATED"
+    from services.risk_settings_service import risk_settings_service
+    settings = risk_settings_service.get_settings(db)
 
     return schemas.DayAuditResponse(
         date_str=audit.date_str,
@@ -798,8 +799,11 @@ def get_account_status(db: Session = Depends(get_db)):
         is_blocked=audit.is_blocked,
         block_reason=audit.block_reason,
         auto_paper_active=auto_enabled,
-        leverage=leverage,
-        margin_mode=margin_mode
+        leverage=settings.requested_leverage,
+        margin_mode=settings.margin_mode,
+        risk_pct=settings.risk_pct,
+        config_version=settings.config_version,
+        metadata_version=settings.metadata_version
     )
 
 

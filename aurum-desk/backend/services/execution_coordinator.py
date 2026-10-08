@@ -66,6 +66,11 @@ class ExecutionCoordinator:
         if active_pos:
             return
 
+        from services.risk_settings_service import risk_settings_service
+        from domain_calculator import calculate_risk_reward, CostAssumptions
+
+        global_settings = risk_settings_service.get_settings(db)
+
         for order in armed_orders:
             # Check expiry
             if order.expires_at and current_time > order.expires_at:
@@ -87,6 +92,45 @@ class ExecutionCoordinator:
                         watch_setup.updated_at = current_time
                 db.commit()
                 continue
+
+            # Revalidate if config version changed
+            if getattr(order, 'config_version', 1) != global_settings.config_version:
+                account_state = crud.get_account_status(db)
+                equity = account_state["current_equity"] if account_state else 1000.0
+
+                calc_res = calculate_risk_reward(
+                    direction=order.direction,
+                    planned_entry=order.planned_entry,
+                    stop_loss=order.stop_loss,
+                    take_profit=order.take_profit,
+                    capital=equity,
+                    risk_pct=global_settings.risk_pct,
+                    leverage=global_settings.requested_leverage,
+                    margin_mode=global_settings.margin_mode
+                )
+
+                if not calc_res.can_execute:
+                    TradeLifecycleService.execute_reject(
+                        db=db,
+                        order=order,
+                        reason=f"RISK_SETTINGS_INVALIDATED: {calc_res.skip_reason or calc_res.invalid_reason}",
+                        now_ms=current_time,
+                        clock=c
+                    )
+                    continue
+
+                # Amend order
+                order.quantity = calc_res.quantity
+                order.leverage = calc_res.leverage
+                order.margin_mode = calc_res.margin_mode
+                order.risk_pct = calc_res.effective_risk_pct
+                order.initial_risk_usdt = calc_res.net_risk_usdt
+                order.gross_rr = calc_res.gross_rr
+                order.estimated_net_rr = calc_res.net_rr
+                order.estimated_liquidation = calc_res.estimated_liquidation
+                order.initial_margin = calc_res.initial_margin_usdt
+                order.config_version = global_settings.config_version
+                db.commit()
 
             # V5.1 Authoritative Geometry Guard on armed order
             from domain_calculator import validate_price_geometry

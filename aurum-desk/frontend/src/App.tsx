@@ -92,6 +92,8 @@ export function App() {
   const [leverage, setLeverage] = useState<number>(5);
   const [marginMode, setMarginMode] = useState<'ISOLATED' | 'CROSS'>('ISOLATED');
   const [riskPct, setRiskPct] = useState<number>(0.25);
+  const [expectedConfigVersion, setExpectedConfigVersion] = useState<number>(1);
+  const [isSettingsDirty, setIsSettingsDirty] = useState<boolean>(false);
   const [settingsSavedMsg, setSettingsSavedMsg] = useState<string | null>(null);
 
   // Upcoming Setups & Scenarios
@@ -157,8 +159,14 @@ export function App() {
       ]);
       setHealth(healthData);
       setAccountStatus(accData);
-      if (accData?.leverage) setLeverage(accData.leverage);
-      if (accData?.margin_mode) setMarginMode(accData.margin_mode.toUpperCase());
+      if (accData) {
+        if (!isSettingsDirty) {
+          if (accData.leverage) setLeverage(accData.leverage);
+          if (accData.margin_mode) setMarginMode(accData.margin_mode.toUpperCase());
+          if (accData.risk_pct) setRiskPct(accData.risk_pct);
+          if (accData.config_version) setExpectedConfigVersion(accData.config_version);
+        }
+      }
 
       if (autoData && typeof autoData.auto_paper_enabled === 'boolean') {
         setAutoPaperActive(autoData.auto_paper_enabled);
@@ -679,13 +687,23 @@ export function App() {
       await api.updateAccountSettings({
         leverage,
         margin_mode: marginMode,
+        risk_pct: riskPct,
+        expected_config_version: expectedConfigVersion
       });
       setSettingsSavedMsg('Đã lưu cấu hình đòn bẩy và ký quỹ thành công!');
+      setIsSettingsDirty(false);
       setTimeout(() => setSettingsSavedMsg(null), 4000);
       await refreshAccountAndHealth();
     } catch (err: any) {
       alert(err.response?.data?.detail || err.message || 'Lỗi khi lưu cài đặt tài khoản');
     }
+  };
+
+  const handleSettingsChange = (field: string, value: any) => {
+    setIsSettingsDirty(true);
+    if (field === 'leverage') setLeverage(value);
+    if (field === 'marginMode') setMarginMode(value);
+    if (field === 'riskPct') setRiskPct(value);
   };
 
   const handleSaveTelegramConfig = async () => {
@@ -1600,7 +1618,7 @@ export function App() {
                       min={1}
                       max={50}
                       value={leverage}
-                      onChange={(e) => setLeverage(Number(e.target.value))}
+                      onChange={(e) => handleSettingsChange('leverage', Number(e.target.value))}
                       className="w-full accent-aurum-500 cursor-pointer"
                     />
                     <div className="flex justify-between text-[10px] text-gray-400">
@@ -1621,7 +1639,7 @@ export function App() {
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() => setMarginMode('ISOLATED')}
+                          onClick={() => handleSettingsChange('marginMode', 'ISOLATED')}
                           className={`flex-1 py-1.5 rounded font-semibold text-xs border transition ${
                             marginMode === 'ISOLATED'
                               ? 'bg-aurum-500 text-charcoal-950 border-aurum-400 font-bold'
@@ -1632,7 +1650,7 @@ export function App() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setMarginMode('CROSS')}
+                          onClick={() => handleSettingsChange('marginMode', 'CROSS')}
                           className={`flex-1 py-1.5 rounded font-semibold text-xs border transition ${
                             marginMode === 'CROSS'
                               ? 'bg-aurum-500 text-charcoal-950 border-aurum-400 font-bold'
@@ -1651,7 +1669,7 @@ export function App() {
                           <button
                             key={pct}
                             type="button"
-                            onClick={() => setRiskPct(pct)}
+                            onClick={() => handleSettingsChange('riskPct', pct)}
                             className={`flex-1 py-1.5 rounded font-semibold text-xs border transition ${
                               riskPct === pct
                                 ? 'bg-aurum-500 text-charcoal-950 border-aurum-400 font-bold'
@@ -1677,7 +1695,7 @@ export function App() {
                     onClick={handleSaveRiskSettings}
                     className="px-4 py-2 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition"
                   >
-                    Lưu Cài Đặt Đòn Bẩy & Ký Quỹ
+                    {isSettingsDirty ? 'Lưu Cài Đặt (Draft)' : 'Cài Đặt Đã Đồng Bộ'}
                   </button>
                 </div>
               </div>
