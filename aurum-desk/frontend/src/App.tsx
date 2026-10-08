@@ -55,6 +55,7 @@ export interface SelectedTradeIntent {
   marginMode: string;
   estimatedLiquidation?: number | null;
   status: string;
+  invalidationReason?: string;
   snapshotAt: number;
 }
 
@@ -620,6 +621,7 @@ export function App() {
       marginMode: setup.margin_mode || marginMode,
       estimatedLiquidation: setup.estimated_liquidation,
       status: setup.state,
+      invalidationReason: setup.invalidation_reason,
       snapshotAt: Date.now(),
     });
     showToast(
@@ -866,6 +868,7 @@ export function App() {
       setImportCsvText('');
       setImportPreview(null);
       await api.getNews().then(setNewsData);
+      await refreshAnalysis();
     } catch (err: any) {
       alert(`Lỗi khi lưu lịch vào database: ${err.response?.data?.detail || err.message}`);
     } finally {
@@ -2821,6 +2824,21 @@ export function App() {
                       >
                         Theo Dõi Setup ({selectedIntent.status})
                       </button>
+                    ) : ['REJECTED', 'EXPIRED', 'CANCELLED', 'CLOSED', 'INVALIDATED'].includes(selectedIntent.status) ? (
+                      <div className="space-y-1.5">
+                        <div className="p-2 bg-charcoal-750 border border-charcoal-700 rounded text-center">
+                          <span className="text-gray-400 font-bold text-[11px] block">LỆNH ĐÃ ĐÓNG / HỦY ({selectedIntent.status})</span>
+                          {selectedIntent.invalidationReason && (
+                            <span className="text-[10px] text-rose-400 block mt-0.5">{selectedIntent.invalidationReason}</span>
+                          )}
+                        </div>
+                        <button
+                          disabled
+                          className="w-full py-1.5 bg-charcoal-750 text-gray-500 font-medium rounded text-xs cursor-not-allowed border border-charcoal-700"
+                        >
+                          Không Thể Tương Tác
+                        </button>
+                      </div>
                     ) : selectedIntent.source === 'WATCH_SETUP' ? (
                       <button
                         onClick={() =>

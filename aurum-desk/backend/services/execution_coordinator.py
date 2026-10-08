@@ -79,6 +79,12 @@ class ExecutionCoordinator:
                     db=db,
                     occurred_at=current_time
                 )
+                if order.setup_id:
+                    watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == order.setup_id).first()
+                    if watch_setup:
+                        watch_setup.state = "EXPIRED"
+                        watch_setup.invalidation_reason = "Order expired in armed state"
+                        watch_setup.updated_at = current_time
                 db.commit()
                 continue
 

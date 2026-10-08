@@ -153,6 +153,13 @@ class TradeLifecycleService:
             occurred_at=current_time
         )
 
+        if order.setup_id:
+            watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == order.setup_id).first()
+            if watch_setup:
+                watch_setup.state = "REJECTED"
+                watch_setup.invalidation_reason = reason
+                watch_setup.updated_at = current_time
+
         db.commit()
         db.refresh(order)
         return order

@@ -35,12 +35,46 @@ from lab.stress_tester import StressTester
 models.Base.metadata.create_all(bind=engine)
 
 @asynccontextmanager
+def reconcile_stuck_orders():
+    """
+    Reconciles legacy WatchSetup states that are stuck in 'ARMED' or 'PAPER_OPEN'
+    when their associated PaperOrder is already in a terminal state.
+    """
+    db = SessionLocal()
+    try:
+        stuck_setups = db.query(models.WatchSetup).filter(
+            models.WatchSetup.state.in_(["ARMED", "PAPER_OPEN"])
+        ).all()
+
+        count = 0
+        for setup in stuck_setups:
+            latest_order = db.query(models.PaperOrder).filter(
+                models.PaperOrder.setup_id == setup.id
+            ).order_by(models.PaperOrder.created_at.desc()).first()
+
+            if latest_order:
+                # If order is terminal but setup is not
+                if latest_order.state in ["rejected", "expired", "cancelled", "closed", "invalidated"]:
+                    setup.state = latest_order.state.upper()
+                    setup.invalidation_reason = latest_order.invalidation_reason or latest_order.exit_cause or "Reconciled from legacy stuck order"
+                    setup.updated_at = int(time.time() * 1000)
+                    count += 1
+        
+        if count > 0:
+            db.commit()
+            print(f"Reconciled {count} stuck setups.")
+    finally:
+        db.close()
+
 async def lifespan(app: FastAPI):
     """
     FastAPI Lifespan:
     Starts and manages background workers cleanly,
     cancels and awaits clean shutdown when stopped.
     """
+    # 0. Sync broken DB states before starting loops
+    reconcile_stuck_orders()
+
     tasks = [
         asyncio.create_task(collector_service.run_collector_loop()),
         asyncio.create_task(strategy_service.run_strategy_loop()),

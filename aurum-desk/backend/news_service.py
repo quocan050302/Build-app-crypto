@@ -193,6 +193,7 @@ def parse_csv_calendar_preview(
     row_index = 0
     valid_count = 0
     invalid_count = 0
+    last_date = ""
 
     for raw_row in reader:
         row_index += 1
@@ -201,8 +202,14 @@ def parse_csv_calendar_preview(
 
         title = row.get("title") or row.get("event") or "Economic Event"
         country = (row.get("country") or row.get("currency") or "USD").upper()
-        date_raw = row.get("date", "")
-        time_raw = row.get("time", "")
+        date_raw = row.get("date", "").strip()
+        
+        if date_raw:
+            last_date = date_raw
+        else:
+            date_raw = last_date
+            
+        time_raw = row.get("time", "").strip()
         impact_raw = row.get("impact", "Low").capitalize()
         forecast = row.get("forecast") or None
         previous = row.get("previous") or None
