@@ -42,18 +42,19 @@ class CollectorService:
         timeframe: str,
         limit: int = 100
     ) -> bool:
-        db: Session = SessionLocal()
         try:
             candles, server_time = await bitget_data.async_fetch_candles(client, symbol, timeframe, limit)
             if candles:
-                crud.bulk_upsert_candles(db, candles)
-                return True
+                db: Session = SessionLocal()
+                try:
+                    crud.bulk_upsert_candles(db, candles)
+                    return True
+                finally:
+                    db.close()
             return False
         except Exception as e:
             self.last_error = f"{timeframe} sync error: {str(e)}"
             return False
-        finally:
-            db.close()
 
     def update_htf_context(self, symbol: str = "XAUUSDT"):
         """Calculate authentic D/4H bias and 1H alignment from stored candles."""

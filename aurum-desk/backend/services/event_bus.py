@@ -73,15 +73,21 @@ class EventBus:
     """
     def __init__(self):
         self._active_connections: List[WebSocket] = []
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
+
+    @property
+    def lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
-        async with self._lock:
+        async with self.lock:
             self._active_connections.append(websocket)
 
     async def disconnect(self, websocket: WebSocket):
-        async with self._lock:
+        async with self.lock:
             if websocket in self._active_connections:
                 self._active_connections.remove(websocket)
 
@@ -240,16 +246,24 @@ class EventBus:
 
     async def _broadcast(self, event_dict: Dict[str, Any]):
         msg_str = json.dumps(event_dict)
+        async with self.lock:
+            conns = list(self._active_connections)
+
+        if not conns:
+            return
+
         dead_connections = []
-        async with self._lock:
-            for ws in self._active_connections:
-                try:
-                    await ws.send_text(msg_str)
-                except Exception:
-                    dead_connections.append(ws)
-            for ws in dead_connections:
-                if ws in self._active_connections:
-                    self._active_connections.remove(ws)
+        for ws in conns:
+            try:
+                await asyncio.wait_for(ws.send_text(msg_str), timeout=1.0)
+            except Exception:
+                dead_connections.append(ws)
+
+        if dead_connections:
+            async with self.lock:
+                for ws in dead_connections:
+                    if ws in self._active_connections:
+                        self._active_connections.remove(ws)
 
 
 # Global Singleton Event Bus

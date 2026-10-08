@@ -23,8 +23,14 @@ class ExecutionCoordinator:
     - On rejection: marks order rejected without incrementing daily counters, emits order.rejected and REJECTED outbox.
     """
     def __init__(self):
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
         self._running = False
+
+    @property
+    def lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     def evaluate_orders_sync(
         self,
@@ -257,7 +263,7 @@ class ExecutionCoordinator:
             break
 
     async def evaluate_armed_orders(self):
-        async with self._lock:
+        async with self.lock:
             db: Session = SessionLocal()
             try:
                 self.evaluate_orders_sync(db)

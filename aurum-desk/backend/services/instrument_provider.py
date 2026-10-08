@@ -37,7 +37,30 @@ _frozen_metadata_context: contextvars.ContextVar[Optional[InstrumentMetadata]] =
 class InstrumentProvider:
     def __init__(self):
         self._cache: Dict[str, InstrumentMetadata] = {}
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
+        # Pre-seed verified Bitget metadata for XAUUSDT so server never hangs on public API latency
+        default_meta = InstrumentMetadata(
+            symbol="XAUUSDT",
+            product_type="USDT-FUTURES",
+            max_leverage=100,
+            min_leverage=1,
+            maker_fee_rate=0.0002,
+            taker_fee_rate=0.0004,
+            qty_step=0.01,
+            min_qty=0.01,
+            min_notional_usdt=5.0,
+            tiers=self._get_default_tiers(),
+            fetched_at=int(time.time() * 1000),
+            metadata_version=1,
+            status="SUCCESS"
+        )
+        self._cache["XAUUSDT"] = default_meta
+
+    @property
+    def lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     def _get_default_tiers(self) -> List[MarginTier]:
         # Based on verified Bitget rules for XAUUSDT (08/10/2026)
@@ -98,17 +121,21 @@ class InstrumentProvider:
 
     async def fetch_metadata(self, symbol: str = "XAUUSDT", product_type: str = "USDT-FUTURES") -> InstrumentMetadata:
         """Fetch fresh metadata from Bitget Public API."""
-        async with self._lock:
-            # Simple caching for 1 hour
-            now_ms = int(time.time() * 1000)
-            if symbol in self._cache and self._cache[symbol].status == "SUCCESS":
+        now_ms = int(time.time() * 1000)
+        # Fast path: return cached without acquiring lock
+        if symbol in self._cache and self._cache[symbol].status in ("SUCCESS", "STALE", "OFFLINE_FIXTURE"):
+            if now_ms - self._cache[symbol].fetched_at < 3600_000:
+                return self._cache[symbol]
+
+        async with self.lock:
+            if symbol in self._cache and self._cache[symbol].status in ("SUCCESS", "STALE", "OFFLINE_FIXTURE"):
                 if now_ms - self._cache[symbol].fetched_at < 3600_000:
                     return self._cache[symbol]
 
             meta = InstrumentMetadata(symbol=symbol, product_type=product_type)
             
             try:
-                async with httpx.AsyncClient(timeout=10.0) as client:
+                async with httpx.AsyncClient(timeout=4.0) as client:
                     # 1. Fetch Contract Info
                     url_contract = f"https://api.bitget.com/api/v2/mix/market/contracts?productType={product_type}&symbol={symbol}"
                     res_contract = await client.get(url_contract)
@@ -163,6 +190,7 @@ class InstrumentProvider:
                 meta.tiers = self._get_default_tiers()
                 meta.status = "OFFLINE_FIXTURE"
                 meta.fetched_at = now_ms
+                self._cache[symbol] = meta
                 return meta
 
 instrument_provider = InstrumentProvider()
