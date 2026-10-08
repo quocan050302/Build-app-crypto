@@ -123,19 +123,22 @@ class PaperBroker:
         order_create.risk_pct = calc_result.effective_risk_pct
         order_create.gross_rr = calc_result.gross_rr
         order_create.estimated_net_rr = calc_result.net_rr
-        order_create.state = "paper_open"
+        order_create.state = "candidate"
 
-        db_order = crud.create_paper_order(db, order_create, order_id)
-        # Store leverage, margin, and liquidation details
+        db_order = crud.create_paper_order(db, order_create, order_id, commit=False)
         db_order.leverage = calc_result.leverage
         db_order.margin_mode = calc_result.margin_mode
         db_order.estimated_liquidation = calc_result.estimated_liquidation
         db_order.initial_margin = calc_result.initial_margin_usdt
-        db.commit()
-        db.refresh(db_order)
 
-        crud.record_trade_fill_audit(db)
-        return db_order
+        from services.trade_lifecycle_service import TradeLifecycleService
+        return TradeLifecycleService.execute_fill(
+            db=db,
+            order=db_order,
+            fill_price=actual_entry,
+            calc_result=calc_result,
+            source="MANUAL"
+        )
 
     @staticmethod
     def amend_open_position(
@@ -198,142 +201,22 @@ class PaperBroker:
         candle_timestamp: Optional[int] = None
     ) -> Optional[models.PaperOrder]:
         """
-        Evaluate active paper position against latest price/candle tick:
-        - Check TP and SL triggers
-        - Check Liquidation trigger (distinct LIQUIDATED cause)
-        - Disallow using pre-entry candle extremes (no retroactive fills)
-        - Handle conservative SL-first if ambiguous candle touches both TP and SL
+        Evaluate active paper position against latest price/candle tick via unified TradeLifecycleService.
         """
-        active_pos = crud.get_active_position(db)
-        if not active_pos:
-            return None
-
-        # Do not use candle high/low if the candle closed before or at position creation
-        if candle_timestamp is not None and active_pos.created_at:
-            if candle_timestamp < active_pos.created_at - 60000:
-                # Candle is from before order was placed; only check current live bid/ask
-                candle_high = None
-                candle_low = None
-
-        exit_triggered = False
-        exit_price = 0.0
-        exit_cause = ""
-
-        # High & Low of the current bar if provided
-        high_val = candle_high if candle_high is not None else max(current_bid, current_ask)
-        low_val = candle_low if candle_low is not None else min(current_bid, current_ask)
-
-        lp = active_pos.estimated_liquidation
-
-        if active_pos.direction == "LONG":
-            hit_liq = (lp is not None and low_val <= lp)
-            hit_sl = (low_val <= active_pos.stop_loss)
-            hit_tp = (high_val >= active_pos.take_profit)
-
-            if hit_liq:
-                exit_triggered = True
-                exit_price = lp
-                exit_cause = "LIQUIDATED"
-            elif hit_sl and hit_tp:
-                # Ambiguous bar: conservative rule assumes SL hit first!
-                exit_triggered = True
-                exit_price = active_pos.stop_loss
-                exit_cause = "AMBIGUOUS_BAR_SL_FIRST"
-            elif hit_sl:
-                exit_triggered = True
-                # Stop gap: exit at lowest observable price
-                exit_price = min(active_pos.stop_loss, low_val)
-                exit_cause = "SL_HIT"
-            elif hit_tp:
-                exit_triggered = True
-                exit_price = active_pos.take_profit
-                exit_cause = "TP_HIT"
-
-        elif active_pos.direction == "SHORT":
-            hit_liq = (lp is not None and high_val >= lp)
-            hit_sl = (high_val >= active_pos.stop_loss)
-            hit_tp = (low_val <= active_pos.take_profit)
-
-            if hit_liq:
-                exit_triggered = True
-                exit_price = lp
-                exit_cause = "LIQUIDATED"
-            elif hit_sl and hit_tp:
-                exit_triggered = True
-                exit_price = active_pos.stop_loss
-                exit_cause = "AMBIGUOUS_BAR_SL_FIRST"
-            elif hit_sl:
-                exit_triggered = True
-                exit_price = max(active_pos.stop_loss, high_val)
-                exit_cause = "SL_HIT"
-            elif hit_tp:
-                exit_triggered = True
-                exit_price = active_pos.take_profit
-                exit_cause = "TP_HIT"
-
-        if exit_triggered:
-            # Calculate Realized PnL Net and Realized R
-            entry_p = active_pos.actual_entry or active_pos.planned_entry
-            qty = active_pos.quantity
-            direction_mult = 1.0 if active_pos.direction == "LONG" else -1.0
-            gross_pnl = (exit_price - entry_p) * qty * direction_mult
-
-            # Deduct fees (round-trip 0.04% maker/taker)
-            fee_cost = (entry_p + exit_price) * qty * 0.0004
-            net_pnl = round(gross_pnl - fee_cost, 2)
-            realized_r = round(net_pnl / active_pos.initial_risk_usdt, 2) if active_pos.initial_risk_usdt > 0 else 0.0
-
-            # Update Order in DB
-            closed_order = crud.update_paper_order_state(
-                db,
-                order_id=active_pos.id,
-                new_state="closed",
-                actual_exit=round(exit_price, 2),
-                realized_pnl=net_pnl,
-                realized_r=realized_r,
-                exit_cause=exit_cause
-            )
-
-            # Update Daily Audit
-            crud.record_trade_close_audit(db, net_pnl)
-
-            # Automatically record structured Lesson learned for the journal
-            PaperBroker._create_post_trade_lesson(db, closed_order)
-            return closed_order
-
-        return None
+        from services.trade_lifecycle_service import TradeLifecycleService
+        return TradeLifecycleService.process_exit_tick(
+            db=db,
+            current_bid=current_bid,
+            current_ask=current_ask,
+            candle_high=candle_high,
+            candle_low=candle_low,
+            candle_timestamp=candle_timestamp
+        )
 
     @staticmethod
     def _create_post_trade_lesson(db: Session, order: models.PaperOrder):
         """Generate structured lesson and reflection after trade closure"""
+        from services.trade_lifecycle_service import TradeLifecycleService
         now_ms = int(time.time() * 1000)
-        pnl = order.realized_pnl_net or 0.0
-        r_mult = order.realized_r or 0.0
-
-        if order.exit_cause == "LIQUIDATED":
-            title = f"THANH LÝ VỊ THẾ {order.direction} (-${abs(pnl):.2f}) tại {order.actual_exit:.2f}"
-            reflection = f"Vị thế {order.direction} bị thanh lý do giá chạm mức Liquidation Price ({order.actual_exit:.2f})."
-            action_rule = "Xem lại mức đòn bẩy và luôn duy trì khoảng đệm an toàn giữa SL và Liquidation Price."
-        elif pnl >= 0:
-            title = f"Thắng {order.direction} +{r_mult}R (+${pnl:.2f}) theo cấu trúc SMC"
-            reflection = f"Lệnh {order.direction} tuân thủ đúng quy tắc Sweep và FVG. TP tại {order.actual_exit:.2f} hoàn thành kỳ vọng."
-            action_rule = "Tiếp tục duy trì tính kỷ luật chỉ mở lệnh khi có Liquidity Sweep rõ ràng."
-        else:
-            title = f"Dừng lỗ {order.direction} {r_mult}R (-${abs(pnl):.2f}) tại {order.actual_exit:.2f}"
-            reflection = f"Lệnh chạm SL do {order.exit_cause}. Thị trường biến động mạnh hơn dự kiến."
-            action_rule = "Kiểm tra lại biên độ buffer ATR và tránh vào lệnh gần vùng biến động mở phiên."
-
-        db_lesson = models.Lesson(
-            created_at=now_ms,
-            title=title,
-            category="EXECUTION",
-            related_trade_id=order.id,
-            setup_type=order.setup_id or "SMC_V1",
-            session="ALL",
-            reflection=reflection,
-            action_rule=action_rule,
-            is_hard_filter=False,
-            is_approved=True
-        )
-        db.add(db_lesson)
+        TradeLifecycleService._create_lesson(db, order, now_ms)
         db.commit()

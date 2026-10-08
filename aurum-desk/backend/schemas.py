@@ -309,6 +309,11 @@ class TelegramConfigSchema(BaseModel):
     quiet_hours_enabled: bool
     quiet_hours_start: str
     quiet_hours_end: str
+    bypass_critical_quiet_hours: bool = True
+    near_entry_mode: str = "ATR"
+    near_entry_atr_mult: float = 0.5
+    near_entry_price_dist: float = 2.0
+    near_entry_cooldown_min: int = 30
     timezone: str
     base_chart_url: Optional[str] = None
 
@@ -320,12 +325,33 @@ class TelegramConfigUpdate(BaseModel):
     quiet_hours_enabled: bool = False
     quiet_hours_start: str = "23:00"
     quiet_hours_end: str = "06:00"
+    bypass_critical_quiet_hours: bool = True
+    near_entry_mode: str = "ATR"
+    near_entry_atr_mult: float = 0.5
+    near_entry_price_dist: float = 2.0
+    near_entry_cooldown_min: int = 30
     timezone: str = "Asia/Ho_Chi_Minh"
     base_chart_url: Optional[str] = None
 
 class TelegramTestRequest(BaseModel):
     bot_token: Optional[str] = None
     chat_id: str
+
+class NotificationOutboxItem(BaseModel):
+    id: int
+    event_id: Optional[str] = None
+    channel: str = "TELEGRAM"
+    recipient: Optional[str] = None
+    message_type: str
+    dedupe_key: str
+    status: str
+    priority: str = "STANDARD"
+    attempts: int = 0
+    last_attempt_at: Optional[int] = None
+    next_attempt_at: Optional[int] = None
+    occurred_at: Optional[int] = None
+    error_message: Optional[str] = None
+    created_at: int
 
 # Multi-Timeframe Matrix
 class MarketMatrixItem(BaseModel):

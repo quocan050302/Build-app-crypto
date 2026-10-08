@@ -3,11 +3,17 @@ import asyncio
 from sqlalchemy.orm import Session
 from database import SessionLocal
 import models, crud
-from paper_broker import PaperBroker
 from services.collector_service import collector_service
-from services.event_bus import event_bus
+from services.trade_lifecycle_service import TradeLifecycleService
 
 class ExitMonitor:
+    """
+    Background Exit Monitor:
+    - Periodically checks the single active open paper position against latest live ticker.
+    - Evaluates TP, SL, and Liquidation.
+    - Delegates to TradeLifecycleService.process_exit_tick for atomic state transition,
+      audit recording, lesson creation, domain event emission, and outbox notification.
+    """
     def __init__(self):
         self._running = False
 
@@ -22,33 +28,11 @@ class ExitMonitor:
             if not ticker or not ticker.get("bid") or not ticker.get("ask"):
                 return
 
-            closed_order = PaperBroker.process_price_tick(
+            TradeLifecycleService.process_exit_tick(
                 db=db,
                 current_bid=ticker["bid"],
                 current_ask=ticker["ask"]
             )
-
-            if closed_order:
-                # Update watch setup state to CLOSED
-                if closed_order.setup_id:
-                    watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == closed_order.setup_id).first()
-                    if watch_setup:
-                        watch_setup.state = "CLOSED"
-                        db.commit()
-
-                event_type = "trade.liquidated" if closed_order.exit_cause == "LIQUIDATED" else "trade.closed"
-                event_bus.publish_event(
-                    event_type=event_type,
-                    aggregate_id=closed_order.id,
-                    payload={
-                        "trade_id": closed_order.id,
-                        "direction": closed_order.direction,
-                        "actual_exit": closed_order.actual_exit,
-                        "realized_pnl": closed_order.realized_pnl_net,
-                        "realized_r": closed_order.realized_r,
-                        "exit_cause": closed_order.exit_cause
-                    }
-                )
         finally:
             db.close()
 

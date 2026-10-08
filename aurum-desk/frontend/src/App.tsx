@@ -76,9 +76,15 @@ export function App() {
     enabled: false,
     bot_token: '',
     chat_id: '',
-    quiet_hours_start: 23,
-    quiet_hours_end: 6,
-    subscribed_events: ['order.armed', 'trade.opened', 'trade.closed', 'trade.liquidated', 'setup.ready'],
+    quiet_hours_enabled: false,
+    quiet_hours_start: '23:00',
+    quiet_hours_end: '06:00',
+    bypass_critical_quiet_hours: true,
+    near_entry_mode: 'ATR',
+    near_entry_atr_mult: 0.5,
+    near_entry_price_dist: 2.0,
+    near_entry_cooldown_min: 30,
+    subscribed_events: ['READY', 'NEAR_ENTRY', 'ARMED', 'FILLED', 'TP_HIT', 'SL_HIT', 'MANUAL_CLOSED', 'LIQUIDATED', 'REJECTED', 'INVALIDATED', 'FEED_DOWN'],
   });
   const [showBotToken, setShowBotToken] = useState<boolean>(false);
   const [telegramTestStatus, setTelegramTestStatus] = useState<{ loading: boolean; msg: string | null; ok: boolean | null }>({
@@ -86,6 +92,7 @@ export function App() {
     msg: null,
     ok: null,
   });
+  const [outboxHistory, setOutboxHistory] = useState<any[]>([]);
 
   // Additional Panels Data
   const [reports, setReports] = useState<any[]>([]);
@@ -318,6 +325,7 @@ export function App() {
       api.getLessons().then(setLessons).catch(console.error);
     } else if (activeTab === 'telegram') {
       api.getTelegramConfig().then(setTelegramConfig).catch(console.error);
+      api.getNotificationHistory().then(setOutboxHistory).catch(console.error);
     } else if (activeTab === 'education') {
       api.getEducation().then((list) => {
         setEducationList(list);
@@ -494,6 +502,17 @@ export function App() {
         msg: `Thất bại: ${errMsg}`,
         ok: false,
       });
+    }
+  };
+
+  const handleRetryOutboxItem = async (itemId: number) => {
+    try {
+      await api.retryOutboxItem(itemId);
+      showToast('Hàng Đợi', `Đã đặt lại tin nhắn #${itemId} về hàng đợi gửi`, 'success');
+      const updated = await api.getNotificationHistory();
+      setOutboxHistory(updated);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || err.message || 'Lỗi khi thử lại tin nhắn');
     }
   };
 
@@ -912,6 +931,21 @@ export function App() {
                               </strong>{' '}
                               ({s.distance_to_entry_atr?.toFixed(2) || '0.0'} ATR)
                             </span>
+                            <span>·</span>
+                            <span>
+                              Vùng Entry:{' '}
+                              <strong className="text-gray-200 font-mono">
+                                ${s.entry_zone_low?.toFixed(2) || s.provisional_entry?.toFixed(2)} — ${s.entry_zone_high?.toFixed(2) || s.provisional_entry?.toFixed(2)}
+                              </strong>
+                            </span>
+                            {s.near_entry_alerted_at && (
+                              <>
+                                <span>·</span>
+                                <span className="text-emerald-400 font-semibold">
+                                  🔔 Đã báo gần Entry lúc {new Date(s.near_entry_alerted_at).toLocaleTimeString('vi-VN')}
+                                </span>
+                              </>
+                            )}
                             <span>·</span>
                             <span>
                               Đòn bẩy:{' '}
@@ -1536,7 +1570,7 @@ export function App() {
                     Cấu Hình Thông Báo Điện Thoại Qua Telegram
                   </h2>
                   <p className="text-xs text-gray-400">
-                    Nhận cảnh báo trực tiếp về điện thoại khi có setup READY, lệnh ARMED, hoặc lệnh khớp/đóng mà không cần mở trình duyệt
+                    Nhận cảnh báo trực tiếp về điện thoại khi có setup NEAR_ENTRY, READY, lệnh ARMED, hoặc lệnh khớp/đóng mà không cần mở trình duyệt
                   </p>
                 </div>
               </div>
@@ -1595,39 +1629,172 @@ export function App() {
                     type="text"
                     value={telegramConfig.chat_id || ''}
                     onChange={(e) => setTelegramConfig({ ...telegramConfig, chat_id: e.target.value })}
-                    placeholder="VD: 987654321"
+                    placeholder="VD: 6919390280"
                     className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-3 py-2 text-xs font-mono text-gray-200 focus:outline-none focus:border-aurum-500"
                   />
                 </div>
 
-                {/* Quiet Hours */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-semibold text-gray-300 block mb-1">Giờ Bắt Đầu Yên Lặng (Giờ VN UTC+7):</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={23}
-                      value={telegramConfig.quiet_hours_start ?? 23}
-                      onChange={(e) => setTelegramConfig({ ...telegramConfig, quiet_hours_start: Number(e.target.value) })}
-                      className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-3 py-1.5 text-xs text-gray-200"
-                    />
+                {/* Subscribed Events Toggle Pills */}
+                <div className="space-y-2 pt-2 border-t border-charcoal-750">
+                  <label className="font-semibold text-gray-300 block">Đăng Ký Loại Sự Kiện Nhận Thông Báo:</label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { id: 'NEAR_ENTRY', label: 'Sắp Tiếp Cận Entry', desc: 'Cảnh báo khi giá tiệm cận vùng Entry' },
+                      { id: 'READY', label: 'Tín Hiệu Sẵn Sàng (READY)', desc: 'Setup đủ điều kiện SMC' },
+                      { id: 'ARMED', label: 'Đã Arm Lệnh Chờ', desc: 'Lệnh đã được kích hoạt chờ khớp' },
+                      { id: 'FILLED', label: 'Đã Khớp Lệnh (FILLED)', desc: 'Vị thế chính thức được mở' },
+                      { id: 'TP_HIT', label: 'Chốt Lời (TP)', desc: 'Vị thế đạt lợi nhuận mục tiêu' },
+                      { id: 'SL_HIT', label: 'Cắt Lỗ (SL)', desc: 'Vị thế chạm mức dừng lỗ' },
+                      { id: 'MANUAL_CLOSED', label: 'Đóng Thủ Công', desc: 'Người dùng chủ động đóng vị thế' },
+                      { id: 'LIQUIDATED', label: 'Thanh Lý Vị Thế', desc: 'Cảnh báo chạm giá thanh lý Isolated' },
+                      { id: 'REJECTED', label: 'Lệnh Bị Từ Chối', desc: 'Vi phạm Execution Guards' },
+                      { id: 'INVALIDATED', label: 'Hủy / Hết Hạn', desc: 'Cấu trúc setup bị phá vỡ' },
+                      { id: 'FEED_DOWN', label: 'Cảnh Báo Nguồn Nến', desc: 'Mất kết nối hoặc nến bị trễ' },
+                    ].map((item) => {
+                      const isSubscribed = (telegramConfig.subscribed_events || []).includes(item.id);
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            const current = telegramConfig.subscribed_events || [];
+                            const next = isSubscribed
+                              ? current.filter((x: string) => x !== item.id)
+                              : [...current, item.id];
+                            setTelegramConfig({ ...telegramConfig, subscribed_events: next });
+                          }}
+                          className={`px-2.5 py-1 rounded text-[11px] font-semibold transition border ${
+                            isSubscribed
+                              ? 'bg-aurum-500/20 border-aurum-400 text-aurum-300'
+                              : 'bg-charcoal-900 border-charcoal-700 text-gray-500 hover:text-gray-400'
+                          }`}
+                          title={item.desc}
+                        >
+                          {isSubscribed ? '✓ ' : '+ '}
+                          {item.label}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div>
-                    <label className="font-semibold text-gray-300 block mb-1">Giờ Kết Thúc Yên Lặng (Giờ VN UTC+7):</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={23}
-                      value={telegramConfig.quiet_hours_end ?? 6}
-                      onChange={(e) => setTelegramConfig({ ...telegramConfig, quiet_hours_end: Number(e.target.value) })}
-                      className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-3 py-1.5 text-xs text-gray-200"
-                    />
+                </div>
+
+                {/* Proximity Evaluator Settings */}
+                <div className="space-y-2 pt-2 border-t border-charcoal-750">
+                  <label className="font-semibold text-aurum-400 block">Cấu Hình Cảnh Báo Gần Vùng Entry (Proximity):</label>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div>
+                      <label className="text-[11px] text-gray-400 block mb-1">Chế Độ Đo:</label>
+                      <select
+                        value={telegramConfig.near_entry_mode || 'ATR'}
+                        onChange={(e) => setTelegramConfig({ ...telegramConfig, near_entry_mode: e.target.value })}
+                        className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-2.5 py-1.5 text-xs text-gray-200"
+                      >
+                        <option value="ATR">Theo Hệ Số ATR (Biến Động)</option>
+                        <option value="PRICE_DISTANCE">Khoảng Cách Giá Cố Định (USDT)</option>
+                      </select>
+                    </div>
+
+                    {telegramConfig.near_entry_mode === 'PRICE_DISTANCE' ? (
+                      <div>
+                        <label className="text-[11px] text-gray-400 block mb-1">Khoảng Cách Giá (USDT):</label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0.5"
+                          max="20"
+                          value={telegramConfig.near_entry_price_dist ?? 2.0}
+                          onChange={(e) => setTelegramConfig({ ...telegramConfig, near_entry_price_dist: Number(e.target.value) })}
+                          className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-2.5 py-1.5 text-xs text-gray-200"
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="text-[11px] text-gray-400 block mb-1">Hệ Số ATR (× ATR 15M):</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          max="3.0"
+                          value={telegramConfig.near_entry_atr_mult ?? 0.5}
+                          onChange={(e) => setTelegramConfig({ ...telegramConfig, near_entry_atr_mult: Number(e.target.value) })}
+                          className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-2.5 py-1.5 text-xs text-gray-200"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-[11px] text-gray-400 block mb-1">Cooldown Giữa 2 Lần Báo (Phút):</label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="180"
+                        value={telegramConfig.near_entry_cooldown_min ?? 30}
+                        onChange={(e) => setTelegramConfig({ ...telegramConfig, near_entry_cooldown_min: Number(e.target.value) })}
+                        className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-2.5 py-1.5 text-xs text-gray-200"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] text-gray-400 block mb-1">Nguyên Tắc Chống Spam:</label>
+                      <div className="text-[11px] text-gray-300 pt-1">
+                        Hysteresis 1.5x & 1 alert / instance
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quiet Hours & Critical Bypass */}
+                <div className="space-y-2 pt-2 border-t border-charcoal-750">
+                  <div className="flex justify-between items-center">
+                    <label className="font-semibold text-gray-300">Khung Giờ Yên Lặng (Quiet Hours):</label>
+                    <label className="flex items-center gap-1.5 text-[11px] text-gray-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={telegramConfig.quiet_hours_enabled || false}
+                        onChange={(e) => setTelegramConfig({ ...telegramConfig, quiet_hours_enabled: e.target.checked })}
+                        className="rounded border-charcoal-700 text-aurum-500 focus:ring-0"
+                      />
+                      <span>Kích hoạt Giờ Yên Lặng</span>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[11px] text-gray-400 block mb-1">Giờ Bắt Đầu (Giờ VN UTC+7):</label>
+                      <input
+                        type="text"
+                        value={telegramConfig.quiet_hours_start || '23:00'}
+                        onChange={(e) => setTelegramConfig({ ...telegramConfig, quiet_hours_start: e.target.value })}
+                        placeholder="23:00"
+                        className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-3 py-1.5 text-xs text-gray-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-gray-400 block mb-1">Giờ Kết Thúc (Giờ VN UTC+7):</label>
+                      <input
+                        type="text"
+                        value={telegramConfig.quiet_hours_end || '06:00'}
+                        onChange={(e) => setTelegramConfig({ ...telegramConfig, quiet_hours_end: e.target.value })}
+                        placeholder="06:00"
+                        className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-3 py-1.5 text-xs text-gray-200"
+                      />
+                    </div>
+                    <div className="flex items-center pt-4">
+                      <label className="flex items-center gap-2 text-[11px] text-emerald-300 font-semibold cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={telegramConfig.bypass_critical_quiet_hours !== false}
+                          onChange={(e) => setTelegramConfig({ ...telegramConfig, bypass_critical_quiet_hours: e.target.checked })}
+                          className="rounded border-charcoal-700 text-emerald-500 focus:ring-0"
+                        />
+                        <span>Vẫn gửi Khớp Lệnh / TP / SL / Thanh Lý khi yên lặng</span>
+                      </label>
+                    </div>
                   </div>
                 </div>
 
                 {/* Buttons: Test and Save */}
-                <div className="flex flex-wrap justify-between items-center gap-3 pt-2 border-t border-charcoal-750">
+                <div className="flex flex-wrap justify-between items-center gap-3 pt-3 border-t border-charcoal-750">
                   <button
                     type="button"
                     onClick={handleTestTelegram}
@@ -1657,6 +1824,105 @@ export function App() {
                     }`}
                   >
                     {telegramTestStatus.msg}
+                  </div>
+                )}
+              </div>
+
+              {/* Notification Outbox Queue & Delivery History */}
+              <div className="bg-charcoal-850 p-4 rounded-lg border border-charcoal-750 flex flex-col gap-3 text-xs">
+                <div className="flex justify-between items-center border-b border-charcoal-750 pb-2">
+                  <h3 className="font-bold text-gray-200 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-aurum-400" />
+                    Lịch Sử Hàng Đợi Gửi Tin Nhắn (Outbox Queue & Status)
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => api.getNotificationHistory().then(setOutboxHistory)}
+                    className="text-[11px] text-aurum-400 hover:text-aurum-300 font-semibold"
+                  >
+                    Làm mới
+                  </button>
+                </div>
+
+                {outboxHistory.length === 0 ? (
+                  <p className="text-[11px] text-gray-500 italic py-2">
+                    Chưa có tin nhắn nào trong hàng đợi outbox.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-charcoal-700 text-[10px] text-gray-400 uppercase tracking-wider">
+                          <th className="py-2 px-2">ID</th>
+                          <th className="py-2 px-2">Thời gian</th>
+                          <th className="py-2 px-2">Loại Tin</th>
+                          <th className="py-2 px-2">Ưu Tiên</th>
+                          <th className="py-2 px-2">Khóa / Đối Tượng</th>
+                          <th className="py-2 px-2">Trạng Thái</th>
+                          <th className="py-2 px-2">Số Thử</th>
+                          <th className="py-2 px-2">Lỗi / Ghi chú</th>
+                          <th className="py-2 px-2 text-right">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-charcoal-800 text-[11px]">
+                        {outboxHistory.slice(0, 15).map((item) => {
+                          const statusColor =
+                            item.status === 'SENT'
+                              ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                              : item.status === 'PENDING'
+                              ? 'bg-amber-950 text-amber-300 border-amber-700'
+                              : item.status === 'RETRYING'
+                              ? 'bg-orange-950 text-orange-300 border-orange-700'
+                              : item.status === 'SUPPRESSED'
+                              ? 'bg-charcoal-800 text-gray-400 border-charcoal-700'
+                              : 'bg-rose-950 text-rose-300 border-rose-700';
+
+                          return (
+                            <tr key={item.id} className="hover:bg-charcoal-800/40">
+                              <td className="py-2 px-2 font-mono text-gray-400">#{item.id}</td>
+                              <td className="py-2 px-2 text-gray-300">
+                                {new Date(item.created_at).toLocaleTimeString('vi-VN')}
+                              </td>
+                              <td className="py-2 px-2 font-semibold text-aurum-300">
+                                {item.message_type}
+                              </td>
+                              <td className="py-2 px-2">
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                  item.priority === 'CRITICAL' ? 'bg-rose-900/60 text-rose-300 border border-rose-700' : 'bg-charcoal-750 text-gray-400'
+                                }`}>
+                                  {item.priority || 'STANDARD'}
+                                </span>
+                              </td>
+                              <td className="py-2 px-2 font-mono text-gray-400 text-[10px] truncate max-w-[120px]" title={item.dedupe_key}>
+                                {item.dedupe_key}
+                              </td>
+                              <td className="py-2 px-2">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${statusColor}`}>
+                                  {item.status}
+                                </span>
+                              </td>
+                              <td className="py-2 px-2 text-center text-gray-300">
+                                {item.attempts}/5
+                              </td>
+                              <td className="py-2 px-2 text-gray-400 text-[10px] truncate max-w-[180px]" title={item.error_message || ''}>
+                                {item.error_message || '---'}
+                              </td>
+                              <td className="py-2 px-2 text-right">
+                                {item.status !== 'SENT' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRetryOutboxItem(item.id)}
+                                    className="px-2 py-0.5 rounded bg-indigo-600/70 hover:bg-indigo-600 text-white text-[10px] font-semibold transition"
+                                  >
+                                    Thử lại
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>

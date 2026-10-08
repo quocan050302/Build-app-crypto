@@ -196,4 +196,14 @@ export const api = {
     const res = await apiClient.post('/api/v1/telegram/test', testData);
     return res.data;
   },
+
+  getNotificationHistory: async (limit: number = 50) => {
+    const res = await apiClient.get('/api/v1/telegram/history', { params: { limit } });
+    return res.data;
+  },
+
+  retryOutboxItem: async (itemId: number) => {
+    const res = await apiClient.post(`/api/v1/telegram/outbox/retry/${itemId}`);
+    return res.data;
+  },
 };

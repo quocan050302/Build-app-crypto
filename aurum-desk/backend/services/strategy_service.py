@@ -92,12 +92,17 @@ class StrategyService:
             invalidation_price = provisional_sl
             inval_reason = "Giá phá vỡ mức Stop Loss hoặc vi phạm cấu trúc đối diện"
 
+            # Determine setup instance ID to avoid locking future setups
+            candle_ts = candles[-1].timestamp if candles else now_ms
+            setup_instance_id = sig.get("signal_id") if sig else f"setup-{symbol}-{timeframe}-{candle_ts}"
+
             dist_usdt = round(abs(current_p - provisional_entry), 2)
             dist_atr = round(dist_usdt / atr, 2) if atr > 0 else 0.0
 
             if not watch_setup:
                 watch_setup = models.WatchSetup(
                     id=setup_id,
+                    setup_instance_id=setup_instance_id,
                     version=1,
                     strategy="SMC_V1",
                     direction=direction,
@@ -132,6 +137,9 @@ class StrategyService:
             else:
                 # Update progression
                 watch_setup.version += 1
+                if setup_stage == "READY" and watch_setup.state != "READY":
+                    # New distinct setup instance reached READY
+                    watch_setup.setup_instance_id = setup_instance_id
                 watch_setup.direction = direction
                 watch_setup.state = setup_stage
                 watch_setup.htf_bias = analysis.get("htf_bias", "UNKNOWN")
@@ -155,13 +163,20 @@ class StrategyService:
                 watch_setup.updated_at = now_ms
                 db.commit()
 
-            # Broadcast setup updated
+            # Proximity evaluation
+            from services.proximity_service import proximity_service
+            tg_cfg = db.query(models.TelegramConfig).first()
+            proximity_service.evaluate_setup_proximity(db, watch_setup, ticker, atr, tg_cfg)
+
+            # Broadcast setup updated with setup_instance_id
+            active_inst_id = watch_setup.setup_instance_id or setup_instance_id
             event_bus.publish_event(
                 event_type="setup.updated" if setup_stage != "READY" else "setup.ready",
-                aggregate_id=watch_setup.id,
+                aggregate_id=active_inst_id,
                 aggregate_version=watch_setup.version,
                 payload={
                     "setup_id": watch_setup.id,
+                    "setup_instance_id": active_inst_id,
                     "direction": watch_setup.direction,
                     "state": watch_setup.state,
                     "planned_entry": watch_setup.provisional_entry,
@@ -233,8 +248,8 @@ class StrategyService:
         )
         db.add(new_order)
         watch_setup.state = "ARMED"
-        db.commit()
 
+        # Publish order.armed in the same unit of work
         event_bus.publish_event(
             event_type="order.armed",
             aggregate_id=order_id,
@@ -242,13 +257,17 @@ class StrategyService:
                 "order_id": order_id,
                 "setup_id": watch_setup.id,
                 "direction": watch_setup.direction,
+                "order_type": "MARKET",
                 "planned_entry": watch_setup.provisional_entry,
                 "stop_loss": watch_setup.provisional_sl,
                 "take_profit": watch_setup.provisional_tp,
                 "net_rr": watch_setup.net_rr,
                 "distance_usdt": watch_setup.distance_to_entry_usdt
-            }
+            },
+            db=db,
+            occurred_at=now_ms
         )
+        db.commit()
 
     async def run_strategy_loop(self):
         """Periodic background evaluation loop independent of browser activity."""

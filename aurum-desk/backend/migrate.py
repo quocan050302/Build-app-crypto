@@ -266,6 +266,23 @@ def run_migration():
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS ix_watch_setups_state ON watch_setups(state);")
 
+    # Helper for idempotent column addition
+    def add_column_if_missing(table: str, col_name: str, col_def: str):
+        cur.execute(f"PRAGMA table_info({table});")
+        cols = [r[1] for r in cur.fetchall()]
+        if col_name not in cols:
+            print(f"[*] Adding column {col_name} ({col_def}) to {table}...")
+            cur.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def};")
+
+    # Watch setups extensions
+    add_column_if_missing("watch_setups", "setup_instance_id", "VARCHAR(100)")
+    add_column_if_missing("watch_setups", "near_entry_alerted_at", "BIGINT")
+    add_column_if_missing("watch_setups", "near_entry_distance_price", "FLOAT")
+    add_column_if_missing("watch_setups", "near_entry_distance_atr", "FLOAT")
+    add_column_if_missing("watch_setups", "entry_zone_low", "FLOAT")
+    add_column_if_missing("watch_setups", "entry_zone_high", "FLOAT")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_watch_setups_instance ON watch_setups(setup_instance_id);")
+
     # 9. Domain Events (Event sourcing stream for WebSockets & audit)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS domain_events (
@@ -296,14 +313,24 @@ def run_migration():
             dedupe_key VARCHAR(120) NOT NULL UNIQUE,
             payload TEXT NOT NULL,
             status VARCHAR(20) DEFAULT 'PENDING',
+            priority VARCHAR(20) DEFAULT 'STANDARD',
             attempts INTEGER DEFAULT 0,
             last_attempt_at BIGINT,
+            next_attempt_at BIGINT,
+            occurred_at BIGINT,
             provider_message_id VARCHAR(100),
             error_message TEXT,
             created_at BIGINT NOT NULL
         );
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS ix_notification_outbox_status ON notification_outbox(status);")
+
+    # Notification outbox extensions
+    add_column_if_missing("notification_outbox", "priority", "VARCHAR(20) DEFAULT 'STANDARD'")
+    add_column_if_missing("notification_outbox", "next_attempt_at", "BIGINT")
+    add_column_if_missing("notification_outbox", "occurred_at", "BIGINT")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_notification_outbox_priority ON notification_outbox(priority);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_notification_outbox_next_attempt ON notification_outbox(next_attempt_at);")
 
     # 11. Telegram Configs
     cur.execute("""
@@ -316,11 +343,55 @@ def run_migration():
             quiet_hours_enabled BOOLEAN DEFAULT 0,
             quiet_hours_start VARCHAR(10) DEFAULT '23:00',
             quiet_hours_end VARCHAR(10) DEFAULT '06:00',
+            bypass_critical_quiet_hours BOOLEAN DEFAULT 1,
+            near_entry_mode VARCHAR(20) DEFAULT 'ATR',
+            near_entry_atr_mult FLOAT DEFAULT 0.5,
+            near_entry_price_dist FLOAT DEFAULT 2.0,
+            near_entry_cooldown_min INTEGER DEFAULT 30,
             timezone VARCHAR(50) DEFAULT 'Asia/Ho_Chi_Minh',
             base_chart_url VARCHAR(255),
             updated_at BIGINT NOT NULL
         );
     """)
+
+    # Telegram configs extensions
+    add_column_if_missing("telegram_configs", "bypass_critical_quiet_hours", "BOOLEAN DEFAULT 1")
+    add_column_if_missing("telegram_configs", "near_entry_mode", "VARCHAR(20) DEFAULT 'ATR'")
+    add_column_if_missing("telegram_configs", "near_entry_atr_mult", "FLOAT DEFAULT 0.5")
+    add_column_if_missing("telegram_configs", "near_entry_price_dist", "FLOAT DEFAULT 2.0")
+    add_column_if_missing("telegram_configs", "near_entry_cooldown_min", "INTEGER DEFAULT 30")
+
+    # Expand legacy subscriptions in telegram_configs
+    import json
+    cur.execute("SELECT id, subscribed_events FROM telegram_configs;")
+    for row in cur.fetchall():
+        cfg_id, sub_json = row[0], row[1]
+        if sub_json:
+            try:
+                subs = json.loads(sub_json)
+                updated = False
+                # If legacy ARMED_NEAR_ENTRY is present, expand to ARMED and NEAR_ENTRY
+                if "ARMED_NEAR_ENTRY" in subs:
+                    if "ARMED" not in subs:
+                        subs.append("ARMED")
+                        updated = True
+                    if "NEAR_ENTRY" not in subs:
+                        subs.append("NEAR_ENTRY")
+                        updated = True
+                # If legacy CLOSED is present, expand to TP_HIT, SL_HIT, MANUAL_CLOSED
+                if "CLOSED" in subs:
+                    for ev in ["TP_HIT", "SL_HIT", "MANUAL_CLOSED"]:
+                        if ev not in subs:
+                            subs.append(ev)
+                            updated = True
+                # Ensure REJECTED is included if subscribed to orders
+                if "ARMED" in subs and "REJECTED" not in subs:
+                    subs.append("REJECTED")
+                    updated = True
+                if updated:
+                    cur.execute("UPDATE telegram_configs SET subscribed_events = ? WHERE id = ?;", (json.dumps(subs), cfg_id))
+            except Exception:
+                pass
 
     # 12. Replay Runs & Replay Trades
     cur.execute("""

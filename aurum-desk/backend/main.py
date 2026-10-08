@@ -23,6 +23,8 @@ from services.execution_coordinator import execution_coordinator
 from services.exit_monitor import exit_monitor
 from services.telegram_service import process_notification_outbox, send_telegram_direct
 from services.volume_service import volume_analyzer
+from services.proximity_service import proximity_service
+from services.trade_lifecycle_service import TradeLifecycleService
 from domain_calculator import calculate_risk_reward
 
 # Ensure all tables exist
@@ -38,6 +40,7 @@ async def lifespan(app: FastAPI):
     tasks = [
         asyncio.create_task(collector_service.run_collector_loop()),
         asyncio.create_task(strategy_service.run_strategy_loop()),
+        asyncio.create_task(proximity_service.run_proximity_loop()),
         asyncio.create_task(execution_coordinator.run_coordinator_loop()),
         asyncio.create_task(exit_monitor.run_exit_monitor_loop()),
         asyncio.create_task(process_notification_outbox())
@@ -395,6 +398,12 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
             "conditions_remaining": cond_rem,
             "distance_to_entry_atr": s.distance_to_entry_atr,
             "distance_to_entry_usdt": s.distance_to_entry_usdt,
+            "setup_instance_id": s.setup_instance_id,
+            "near_entry_alerted_at": s.near_entry_alerted_at,
+            "near_entry_distance_price": s.near_entry_distance_price,
+            "near_entry_distance_atr": s.near_entry_distance_atr,
+            "entry_zone_low": s.entry_zone_low or s.provisional_entry,
+            "entry_zone_high": s.entry_zone_high or s.provisional_entry,
             "created_at": s.created_at,
             "updated_at": s.updated_at
         })
@@ -437,6 +446,15 @@ def manual_arm_setup(setup_id: str, db: Session = Depends(get_db)):
     if watch_setup.state not in ("READY", "WAITING_PRICE", "WAITING_RETRACE"):
         raise HTTPException(status_code=400, detail=f"Không thể Arm setup đang ở trạng thái {watch_setup.state}. Chỉ arm khi setup READY hoặc chờ khớp.")
 
+    # Guard: check if an armed order or active position already exists
+    active_pos = crud.get_active_position(db)
+    if active_pos:
+        raise HTTPException(status_code=400, detail="Đang có một vị thế mở, không thể Arm thêm lệnh mới (tối đa 1 vị thế)")
+
+    armed_existing = db.query(models.PaperOrder).filter(models.PaperOrder.state == "armed").first()
+    if armed_existing:
+        raise HTTPException(status_code=400, detail="Đã có một lệnh đang ở trạng thái armed, không thể arm thêm")
+
     now_ms = int(time.time() * 1000)
     order_id = f"order-{uuid.uuid4().hex[:8]}"
 
@@ -466,7 +484,6 @@ def manual_arm_setup(setup_id: str, db: Session = Depends(get_db)):
     )
     db.add(new_order)
     watch_setup.state = "ARMED"
-    db.commit()
 
     event_bus.publish_event(
         event_type="order.armed",
@@ -475,12 +492,17 @@ def manual_arm_setup(setup_id: str, db: Session = Depends(get_db)):
             "order_id": order_id,
             "setup_id": watch_setup.id,
             "direction": watch_setup.direction,
+            "order_type": "MARKET",
             "planned_entry": watch_setup.provisional_entry,
             "stop_loss": watch_setup.provisional_sl,
             "take_profit": watch_setup.provisional_tp,
-            "net_rr": watch_setup.net_rr
-        }
+            "net_rr": watch_setup.net_rr,
+            "distance_usdt": watch_setup.distance_to_entry_usdt
+        },
+        db=db,
+        occurred_at=now_ms
     )
+    db.commit()
 
     return {"status": "success", "message": f"Đã Arm lệnh cho setup {setup_id}", "order_id": order_id}
 
@@ -669,42 +691,18 @@ def close_paper_order(order_id: str, db: Session = Depends(get_db)):
     ticker = collector_service.latest_ticker or bitget_data.fetch_ticker(active.instrument)
     exit_price = ticker["bid"] if active.direction == "LONG" else ticker["ask"]
 
-    entry_p = active.actual_entry or active.planned_entry
-    qty = active.quantity
-    direction_mult = 1.0 if active.direction == "LONG" else -1.0
-    gross_pnl = (exit_price - entry_p) * qty * direction_mult
-    fee_cost = (entry_p + exit_price) * qty * 0.0004
-    net_pnl = round(gross_pnl - fee_cost, 2)
-    realized_r = round(net_pnl / active.initial_risk_usdt, 2) if active.initial_risk_usdt > 0 else 0.0
-
-    closed = crud.update_paper_order_state(
-        db,
+    closed = TradeLifecycleService.execute_close(
+        db=db,
         order_id=order_id,
-        new_state="closed",
-        actual_exit=exit_price,
-        realized_pnl=net_pnl,
-        realized_r=realized_r,
+        exit_price=exit_price,
         exit_cause="MANUAL_CLOSE"
     )
-    crud.record_trade_close_audit(db, net_pnl)
-    PaperBroker._create_post_trade_lesson(db, closed)
-
-    event_bus.publish_event(
-        event_type="trade.closed",
-        aggregate_id=order_id,
-        payload={
-            "trade_id": order_id,
-            "direction": closed.direction,
-            "actual_exit": exit_price,
-            "realized_pnl": net_pnl,
-            "realized_r": realized_r,
-            "exit_cause": "MANUAL_CLOSE"
-        }
-    )
+    if not closed:
+        raise HTTPException(status_code=400, detail="Không thể đóng vị thế (có thể đã được đóng bởi vòng giám sát)")
 
     return {
         "status": "success",
-        "message": f"Đã đóng vị thế {closed.direction} tại {exit_price}. PnL: ${net_pnl:+.2f} ({realized_r:+.2f}R)",
+        "message": f"Đã đóng vị thế {closed.direction} tại {exit_price}. PnL: ${closed.realized_pnl_net:+.2f} ({closed.realized_r:+.2f}R)",
         "order": schemas.PaperOrderResponse.model_validate(closed)
     }
 
@@ -739,10 +737,15 @@ def get_telegram_config(db: Session = Depends(get_db)):
             enabled=False,
             bot_token_masked="",
             chat_id="",
-            subscribed_events=["READY", "ARMED_NEAR_ENTRY", "FILLED", "INVALIDATED", "CLOSED", "FEED_DOWN"],
+            subscribed_events=["READY", "NEAR_ENTRY", "ARMED", "FILLED", "TP_HIT", "SL_HIT", "MANUAL_CLOSED", "LIQUIDATED", "REJECTED", "INVALIDATED", "FEED_DOWN"],
             quiet_hours_enabled=False,
             quiet_hours_start="23:00",
             quiet_hours_end="06:00",
+            bypass_critical_quiet_hours=True,
+            near_entry_mode="ATR",
+            near_entry_atr_mult=0.5,
+            near_entry_price_dist=2.0,
+            near_entry_cooldown_min=30,
             timezone="Asia/Ho_Chi_Minh",
             base_chart_url=None
         )
@@ -760,6 +763,11 @@ def get_telegram_config(db: Session = Depends(get_db)):
         quiet_hours_enabled=cfg.quiet_hours_enabled or False,
         quiet_hours_start=cfg.quiet_hours_start or "23:00",
         quiet_hours_end=cfg.quiet_hours_end or "06:00",
+        bypass_critical_quiet_hours=cfg.bypass_critical_quiet_hours if cfg.bypass_critical_quiet_hours is not None else True,
+        near_entry_mode=cfg.near_entry_mode or "ATR",
+        near_entry_atr_mult=cfg.near_entry_atr_mult if cfg.near_entry_atr_mult is not None else 0.5,
+        near_entry_price_dist=cfg.near_entry_price_dist if cfg.near_entry_price_dist is not None else 2.0,
+        near_entry_cooldown_min=cfg.near_entry_cooldown_min if cfg.near_entry_cooldown_min is not None else 30,
         timezone=cfg.timezone or "Asia/Ho_Chi_Minh",
         base_chart_url=cfg.base_chart_url
     )
@@ -775,19 +783,54 @@ def update_telegram_config(update: schemas.TelegramConfigUpdate, db: Session = D
         db.add(cfg)
 
     cfg.enabled = update.enabled
-    if update.bot_token and update.bot_token.strip():
+    if update.bot_token and update.bot_token.strip() and not update.bot_token.startswith("***") and not "..." in update.bot_token:
         cfg.bot_token = update.bot_token.strip()
     cfg.chat_id = update.chat_id.strip() if update.chat_id else ""
     cfg.subscribed_events = json.dumps(update.subscribed_events)
     cfg.quiet_hours_enabled = update.quiet_hours_enabled
     cfg.quiet_hours_start = update.quiet_hours_start
     cfg.quiet_hours_end = update.quiet_hours_end
+    cfg.bypass_critical_quiet_hours = update.bypass_critical_quiet_hours
+    cfg.near_entry_mode = update.near_entry_mode
+    cfg.near_entry_atr_mult = update.near_entry_atr_mult
+    cfg.near_entry_price_dist = update.near_entry_price_dist
+    cfg.near_entry_cooldown_min = update.near_entry_cooldown_min
     cfg.timezone = update.timezone
     cfg.base_chart_url = update.base_chart_url
     cfg.updated_at = now_ms
 
     db.commit()
     return {"status": "success", "message": "Đã lưu cấu hình thông báo Telegram"}
+
+
+@app.get("/api/v1/telegram/history", response_model=List[schemas.NotificationOutboxItem])
+def get_notification_history(limit: int = 50, db: Session = Depends(get_db)):
+    """Fetch persistent notification outbox history with sanitized status and delivery attempts."""
+    items = (
+        db.query(models.NotificationOutbox)
+        .order_by(models.NotificationOutbox.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return items
+
+
+@app.post("/api/v1/telegram/outbox/retry/{item_id}")
+def retry_outbox_item(item_id: int, db: Session = Depends(get_db)):
+    """Reset a FAILED or RETRYING outbox item back to PENDING for re-dispatch."""
+    item = db.query(models.NotificationOutbox).filter(models.NotificationOutbox.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Không tìm thấy mục outbox này")
+    if item.status == "SENT":
+        raise HTTPException(status_code=400, detail="Mục này đã gửi thành công tới Telegram, không gửi lại để tránh tin nhắn trùng")
+
+    now_ms = int(time.time() * 1000)
+    item.status = "PENDING"
+    item.attempts = 0
+    item.next_attempt_at = now_ms
+    item.error_message = None
+    db.commit()
+    return {"status": "success", "message": f"Đã đưa tin nhắn #{item_id} trở lại hàng đợi gửi"}
 
 
 @app.post("/api/v1/telegram/test")

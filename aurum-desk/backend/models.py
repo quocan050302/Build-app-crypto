@@ -206,6 +206,14 @@ class WatchSetup(Base):
     updated_at = Column(BigInteger, nullable=False)
     expires_at = Column(BigInteger, nullable=True)
 
+    # Proximity & Unique Setup Instance tracking
+    setup_instance_id = Column(String(100), nullable=True, index=True)
+    near_entry_alerted_at = Column(BigInteger, nullable=True)
+    near_entry_distance_price = Column(Float, nullable=True)
+    near_entry_distance_atr = Column(Float, nullable=True)
+    entry_zone_low = Column(Float, nullable=True)
+    entry_zone_high = Column(Float, nullable=True)
+
 
 class DomainEvent(BaseModel if False else Base):
     __tablename__ = "domain_events"
@@ -232,9 +240,12 @@ class NotificationOutbox(Base):
     message_type = Column(String(50), nullable=False)
     dedupe_key = Column(String(120), nullable=False, unique=True, index=True)
     payload = Column(Text, nullable=False)  # JSON payload
-    status = Column(String(20), default="PENDING", index=True)  # PENDING, SENT, FAILED, RETRYING, AMBIGUOUS
+    status = Column(String(20), default="PENDING", index=True)  # PENDING, SENT, FAILED, RETRYING, SUPPRESSED, AMBIGUOUS
+    priority = Column(String(20), default="STANDARD", index=True)  # CRITICAL, STANDARD
     attempts = Column(Integer, default=0)
     last_attempt_at = Column(BigInteger, nullable=True)
+    next_attempt_at = Column(BigInteger, nullable=True, index=True)
+    occurred_at = Column(BigInteger, nullable=True)
     provider_message_id = Column(String(100), nullable=True)
     error_message = Column(Text, nullable=True)
     created_at = Column(BigInteger, nullable=False)
@@ -251,6 +262,11 @@ class TelegramConfig(Base):
     quiet_hours_enabled = Column(Boolean, default=False)
     quiet_hours_start = Column(String(10), default="23:00")
     quiet_hours_end = Column(String(10), default="06:00")
+    bypass_critical_quiet_hours = Column(Boolean, default=True)
+    near_entry_mode = Column(String(20), default="ATR")  # ATR or PRICE_DISTANCE
+    near_entry_atr_mult = Column(Float, default=0.5)
+    near_entry_price_dist = Column(Float, default=2.0)
+    near_entry_cooldown_min = Column(Integer, default=30)
     timezone = Column(String(50), default="Asia/Ho_Chi_Minh")
     base_chart_url = Column(String(255), nullable=True)
     updated_at = Column(BigInteger, nullable=False)

@@ -55,7 +55,7 @@ def bulk_upsert_candles(db: Session, candles: List[schemas.CandleCreate]) -> int
 
 # ==================== PAPER ORDERS CRUD ====================
 
-def create_paper_order(db: Session, order: schemas.PaperOrderCreate, order_id: str) -> models.PaperOrder:
+def create_paper_order(db: Session, order: schemas.PaperOrderCreate, order_id: str, commit: bool = True) -> models.PaperOrder:
     now_ms = int(time.time() * 1000)
     db_order = models.PaperOrder(
         id=order_id,
@@ -85,8 +85,11 @@ def create_paper_order(db: Session, order: schemas.PaperOrderCreate, order_id: s
         lessons_retrieved=order.lessons_retrieved
     )
     db.add(db_order)
-    db.commit()
-    db.refresh(db_order)
+    if commit:
+        db.commit()
+        db.refresh(db_order)
+    else:
+        db.flush()
     return db_order
 
 def get_paper_order(db: Session, order_id: str) -> Optional[models.PaperOrder]:
@@ -121,7 +124,8 @@ def update_paper_order_state(
     realized_pnl: Optional[float] = None,
     realized_r: Optional[float] = None,
     exit_cause: Optional[str] = None,
-    invalidation_reason: Optional[str] = None
+    invalidation_reason: Optional[str] = None,
+    commit: bool = True
 ) -> Optional[models.PaperOrder]:
     order = get_paper_order(db, order_id)
     if not order:
@@ -144,13 +148,16 @@ def update_paper_order_state(
         if invalidation_reason:
             order.invalidation_reason = invalidation_reason
 
-    db.commit()
-    db.refresh(order)
+    if commit:
+        db.commit()
+        db.refresh(order)
+    else:
+        db.flush()
     return order
 
 # ==================== DAY AUDIT CRUD ====================
 
-def get_or_create_today_audit(db: Session) -> models.DayAudit:
+def get_or_create_today_audit(db: Session, commit: bool = True) -> models.DayAudit:
     date_str = get_today_str_vn()
     audit = db.query(models.DayAudit).filter(models.DayAudit.date_str == date_str).first()
     if not audit:
@@ -169,22 +176,28 @@ def get_or_create_today_audit(db: Session) -> models.DayAudit:
             block_reason=None
         )
         db.add(audit)
-        db.commit()
-        db.refresh(audit)
+        if commit:
+            db.commit()
+            db.refresh(audit)
+        else:
+            db.flush()
     return audit
 
-def record_trade_fill_audit(db: Session) -> models.DayAudit:
-    audit = get_or_create_today_audit(db)
+def record_trade_fill_audit(db: Session, commit: bool = True) -> models.DayAudit:
+    audit = get_or_create_today_audit(db, commit=commit)
     audit.fills_count += 1
     if audit.fills_count >= 3:
         audit.is_blocked = True
         audit.block_reason = "Đạt giới hạn tối đa 3 lệnh/ngày (UTC+7)"
-    db.commit()
-    db.refresh(audit)
+    if commit:
+        db.commit()
+        db.refresh(audit)
+    else:
+        db.flush()
     return audit
 
-def record_trade_close_audit(db: Session, pnl: float) -> models.DayAudit:
-    audit = get_or_create_today_audit(db)
+def record_trade_close_audit(db: Session, pnl: float, commit: bool = True) -> models.DayAudit:
+    audit = get_or_create_today_audit(db, commit=commit)
     audit.realized_pnl_today += pnl
     audit.current_equity += pnl
 
@@ -206,8 +219,11 @@ def record_trade_close_audit(db: Session, pnl: float) -> models.DayAudit:
         audit.is_blocked = True
         audit.block_reason = f"Đạt giới hạn lỗ tối đa 1.5% ngày (${max_loss_budget:.2f})"
 
-    db.commit()
-    db.refresh(audit)
+    if commit:
+        db.commit()
+        db.refresh(audit)
+    else:
+        db.flush()
     return audit
 
 # ==================== ECONOMIC NEWS CRUD ====================
