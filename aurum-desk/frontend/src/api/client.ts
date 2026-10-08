@@ -136,4 +136,15 @@ export const api = {
     const res = await apiClient.get('/api/v1/education');
     return res.data;
   },
+
+  getAutoState: async () => {
+    const res = await apiClient.get('/api/v1/auto/state');
+    return res.data;
+  },
+
+  setAutoState: async (enabled: boolean) => {
+    const res = await apiClient.post('/api/v1/auto/state', { enabled });
+    return res.data;
+  },
 };
+

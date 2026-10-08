@@ -61,13 +61,17 @@ export function App() {
   // 1. Fetch System Health & Account Status
   const refreshAccountAndHealth = useCallback(async () => {
     try {
-      const [healthData, accData, posData] = await Promise.all([
+      const [healthData, accData, posData, autoData] = await Promise.all([
         api.getHealth('XAUUSDT', timeframe),
         api.getAccountStatus(),
         api.getActivePosition(),
+        api.getAutoState(),
       ]);
       setHealth(healthData);
       setAccountStatus(accData);
+      if (autoData && typeof autoData.auto_paper_enabled === 'boolean') {
+        setAutoPaperActive(autoData.auto_paper_enabled);
+      }
       if (posData?.has_active_position) {
         setActivePosition(posData);
         // Set chart overlay to current open position
@@ -95,6 +99,17 @@ export function App() {
     }
   }, [timeframe]);
 
+  const handleToggleAutoPaper = async () => {
+    const nextState = !autoPaperActive;
+    try {
+      const res = await api.setAutoState(nextState);
+      setAutoPaperActive(Boolean(res.auto_paper_enabled));
+      await refreshAccountAndHealth();
+    } catch (err) {
+      console.error('Failed to toggle auto paper state:', err);
+    }
+  };
+
   // 2. Fetch SMC Market Analysis
   const refreshAnalysis = useCallback(async () => {
     try {
@@ -110,7 +125,7 @@ export function App() {
           state: sig.state,
           plannedEntry: sig.planned_entry,
           stopLoss: sig.stop_loss,
-          takeProfit: sig.targets?.[0]?.price || (sig.direction === 'LONG' ? sig.planned_entry + 15 : sig.planned_entry - 15),
+          takeProfit: sig.targets?.[0]?.price || sig.stop_loss,
           quantity: sig.quantity,
           initialRiskUsdt: sig.initial_risk_usdt,
           riskPct: sig.risk_pct,
@@ -159,6 +174,7 @@ export function App() {
   const handleOpenPaperTrade = async () => {
     if (!analysis?.active_signal) return;
     const sig = analysis.active_signal;
+    const targetPrice = sig.targets?.[0]?.price ?? sig.take_profit;
     try {
       await api.createPaperOrder({
         setup_id: sig.setup_id,
@@ -170,7 +186,7 @@ export function App() {
         timeframe: timeframe,
         planned_entry: sig.planned_entry,
         stop_loss: sig.stop_loss,
-        take_profit: sig.targets?.[0]?.price || (sig.direction === 'LONG' ? sig.planned_entry + 15 : sig.planned_entry - 15),
+        take_profit: targetPrice,
         quantity: sig.quantity,
         initial_risk_usdt: sig.initial_risk_usdt,
         risk_pct: sig.risk_pct,
@@ -265,6 +281,20 @@ export function App() {
 
         {/* Live System Health & Session Status */}
         <div className="flex items-center gap-3 text-xs">
+          {/* Real Backend Auto Paper Toggle */}
+          <button
+            onClick={handleToggleAutoPaper}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded border text-xs font-semibold transition ${
+              autoPaperActive
+                ? 'bg-emerald-600/30 text-emerald-300 border-emerald-500/50 hover:bg-emerald-600/40'
+                : 'bg-rose-950/60 text-rose-300 border-rose-800 hover:bg-rose-900/60'
+            }`}
+            title="Bật/Tắt chế độ tự động vào lệnh Paper Trading theo cấu trúc SMC đã xác nhận"
+          >
+            {autoPaperActive ? <PlayCircle className="w-3.5 h-3.5 text-emerald-400" /> : <PauseCircle className="w-3.5 h-3.5 text-rose-400" />}
+            <span>Auto Paper: {autoPaperActive ? 'BẬT' : 'TẠM DỪNG'}</span>
+          </button>
+
           <div className="flex items-center gap-1.5 bg-charcoal-850 px-2.5 py-1 rounded border border-charcoal-700">
             <Activity className="w-3.5 h-3.5 text-emerald-400" />
             <span className="text-gray-400">Feed Bitget:</span>
@@ -336,6 +366,10 @@ export function App() {
                   swingHigh: analysis?.swing_high,
                   swingLow: analysis?.swing_low,
                   equilibrium: analysis?.equilibrium,
+                }}
+                smcStructure={{
+                  swings: analysis?.swings || [],
+                  structureEvents: analysis?.structure_events || [],
                 }}
               />
             </div>
@@ -786,7 +820,68 @@ export function App() {
             </div>
           </div>
 
-          {/* Capital & Today's Limits */}
+          {/* Section 10: "Vì sao chưa vào lệnh?" Explanation Card */}
+          <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-4 shadow-lg text-xs space-y-2">
+            <span className="font-bold text-amber-400 block border-b border-charcoal-750 pb-2 flex items-center gap-1.5">
+              <Info className="w-4 h-4 text-amber-400" />
+              VÌ SAO CHƯA VÀO LỆNH?
+            </span>
+
+            {activeOverlay?.state === 'draft' ? (
+              <div className="space-y-1.5 text-gray-300">
+                <div className="p-2 rounded bg-amber-950/40 border border-amber-800/60 text-amber-300 font-semibold text-[11px]">
+                  MÃ: DRAFT_NOT_SUBMITTED
+                </div>
+                <p className="text-[11px] text-gray-400 leading-relaxed">
+                  Đây là <strong className="text-amber-300">BẢN NHÁP</strong>; setup hiện chưa đủ điều kiện (Net R:R và sweep). Giá chạm Entry của bản nháp sẽ không bao giờ tự động tạo lệnh hay tăng bộ đếm.
+                </p>
+                {activeOverlay.estimatedNetRR < 2.0 && (
+                  <p className="text-[11px] text-rose-400">
+                    • Net R:R hiện tại (1:{activeOverlay.estimatedNetRR.toFixed(2)}) chưa đạt ngưỡng 1:2.0 (<code>NET_RR_TOO_LOW</code>).
+                  </p>
+                )}
+                {analysis?.missing_conditions?.length > 0 && (
+                  <p className="text-[11px] text-amber-400/90">
+                    • Điều kiện chiến lược SMC: {analysis.missing_conditions.join('; ')}
+                  </p>
+                )}
+              </div>
+            ) : activePosition ? (
+              <div className="p-2 rounded bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 font-semibold text-[11px]">
+                Đang có 1 vị thế mở ({activePosition.position.direction} tại ${activePosition.position.actual_entry || activePosition.position.planned_entry}). Hệ thống chỉ duy trì tối đa 1 vị thế cùng lúc.
+              </div>
+            ) : analysis?.engine_state === 'blocked_news' ? (
+              <div className="p-2 rounded bg-rose-950/40 border border-rose-800/60 text-rose-300 font-semibold text-[11px]">
+                MÃ: NEWS_BLACKOUT — Đang trong khung giờ bảo vệ tin tức vĩ mô High Impact.
+              </div>
+            ) : analysis?.engine_state === 'blocked_risk' ? (
+              <div className="p-2 rounded bg-rose-950/40 border border-rose-800/60 text-rose-300 font-semibold text-[11px]">
+                MÃ: RISK_BUDGET_EXCEEDED — Đã chạm giới hạn quản trị rủi ro ngày (3 lệnh hoặc 2 lỗ liên tiếp).
+              </div>
+            ) : !autoPaperActive ? (
+              <div className="p-2 rounded bg-amber-950/40 border border-amber-800/60 text-amber-300 font-semibold text-[11px]">
+                MÃ: AUTO_PAUSED — Chế độ tự động vào lệnh đang tạm dừng.
+              </div>
+            ) : analysis?.missing_conditions?.length > 0 ? (
+              <div className="space-y-1 text-[11px]">
+                <div className="p-2 rounded bg-charcoal-850 border border-charcoal-700 text-amber-400 font-semibold">
+                  MÃ: {analysis.reason_code || 'WAITING_CONFIRMATION'}
+                </div>
+                <div className="text-gray-400 space-y-0.5">
+                  <span className="text-gray-300 font-medium">Chi tiết thiếu điều kiện:</span>
+                  {analysis.missing_conditions.map((mc: string, idx: number) => (
+                    <p key={idx} className="text-amber-400/90">• {mc}</p>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-400 italic text-[11px]">
+                Hệ thống đang sẵn sàng và theo dõi cấu trúc nến đóng để kích hoạt.
+              </p>
+            )}
+          </div>
+
+          {/* Capital & Today's Limits with Separated Counters */}
           <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-4 shadow-lg text-xs space-y-2">
             <span className="font-bold text-aurum-400 block border-b border-charcoal-750 pb-2">
               HẠN MỨC NGÀY (UTC+7)
@@ -802,8 +897,16 @@ export function App() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Số Lệnh Mở:</span>
-              <span className="font-mono">{accountStatus?.fills_count || 0} / 3 Lệnh</span>
+              <span className="text-gray-400">Vị thế đang mở:</span>
+              <span className="font-mono text-emerald-400 font-semibold">{activePosition ? '1 / 1' : '0 / 1'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Lệnh đã vào hôm nay:</span>
+              <span className="font-mono">{accountStatus?.today_fills_count ?? accountStatus?.fills_count ?? 0} / 3 Lệnh</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">Lệnh chờ (Armed):</span>
+              <span className="font-mono">{accountStatus?.armed_orders_count ?? 0} Lệnh</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Lỗ Liên Tiếp:</span>

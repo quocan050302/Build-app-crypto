@@ -161,6 +161,10 @@ class SMCAnalysisResponse(BaseModel):
     last_analyzed_at: int
     last_data_at: int
     missing_conditions: List[str] = []
+    swings: List[Dict[str, Any]] = []
+    structure_events: List[Dict[str, Any]] = []
+    reason_code: Optional[str] = None
+    reason_detail: Optional[str] = None
 
 # Day Audit & Risk
 class DayAuditResponse(BaseModel):
@@ -169,6 +173,9 @@ class DayAuditResponse(BaseModel):
     current_equity: float
     realized_pnl_today: float
     fills_count: int
+    today_fills_count: int = 0
+    active_positions_count: int = 0
+    armed_orders_count: int = 0
     max_daily_fills: int = 3
     consecutive_losses: int
     max_consecutive_losses: int = 2

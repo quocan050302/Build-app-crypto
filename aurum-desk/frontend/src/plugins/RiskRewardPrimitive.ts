@@ -4,6 +4,7 @@ import type {
   IPrimitivePaneView,
   IPrimitivePaneRenderer,
   ISeriesPrimitiveAxisView,
+  PrimitiveHoveredItem,
   Time,
   Logical,
 } from 'lightweight-charts';
@@ -14,6 +15,7 @@ export interface RiskRewardData {
   direction: 'LONG' | 'SHORT';
   state: 'draft' | 'candidate' | 'armed' | 'paper_open' | 'closed' | 'invalidated';
   entryTime?: number; // epoch seconds
+  projectedBars?: number; // width in bar count
   plannedEntry: number;
   actualEntry?: number;
   stopLoss: number;
@@ -23,10 +25,25 @@ export interface RiskRewardData {
   riskPct: number;
   grossRR: number;
   estimatedNetRR: number;
+  isValid?: boolean;
+  invalidReason?: string;
   realizedPnlNet?: number;
   realizedR?: number;
   invalidationReason?: string;
   strategyVersion?: string;
+}
+
+export type DragTargetPart = 'entry' | 'sl' | 'tp' | 'body' | 'right_edge';
+
+export interface DragHitResult extends PrimitiveHoveredItem {
+  externalId: string;
+  zOrder: 'normal';
+  part: DragTargetPart;
+  entryY: number;
+  slY: number;
+  tpY: number;
+  startX: number;
+  endX: number;
 }
 
 /**
@@ -73,7 +90,7 @@ class PriceAxisView implements ISeriesPrimitiveAxisView {
 }
 
 /**
- * Pane Renderer for drawing the Risk/Reward overlay boxes, lines, and badges
+ * Pane Renderer for drawing the Risk/Reward overlay boxes, lines, badges, and handles
  */
 class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
   private _data: RiskRewardData | null = null;
@@ -82,6 +99,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
   private _tpY: number | null = null;
   private _startX: number = 0;
   private _endX: number = 0;
+  private _hoverPart: DragTargetPart | null = null;
 
   update(
     data: RiskRewardData,
@@ -89,7 +107,8 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
     slY: number | null,
     tpY: number | null,
     startX: number,
-    endX: number
+    endX: number,
+    hoverPart: DragTargetPart | null = null
   ) {
     this._data = data;
     this._entryY = entryY;
@@ -97,6 +116,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
     this._tpY = tpY;
     this._startX = startX;
     this._endX = endX;
+    this._hoverPart = hoverPart;
   }
 
   draw(target: CanvasRenderingTarget2D) {
@@ -108,18 +128,40 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       const ctx = scope.context;
       const d = this._data!;
       const startX = Math.max(0, this._startX);
-      const width = Math.max(120, this._endX - startX);
+      const width = Math.max(80, this._endX - startX);
       const endX = startX + width;
 
       const entryY = this._entryY!;
       const slY = this._slY!;
       const tpY = this._tpY!;
 
-      ctx.save();
-
-      // State opacity
+      const isInvalid = d.isValid === false;
       const isMuted = d.state === 'closed' || d.state === 'invalidated';
       const isDashed = d.state === 'candidate' || d.state === 'armed' || d.state === 'draft';
+      const effectiveEntry = d.actualEntry ?? d.plannedEntry;
+
+      ctx.save();
+
+      if (isInvalid) {
+        // Draw red error boundary
+        const boxTop = Math.min(entryY, slY, tpY);
+        const boxHeight = Math.max(entryY, slY, tpY) - boxTop;
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.12)';
+        ctx.fillRect(startX, boxTop, width, boxHeight);
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(startX, boxTop, width, boxHeight);
+        ctx.setLineDash([]);
+
+        // Invalid badge
+        ctx.fillStyle = '#ef4444';
+        ctx.font = 'bold 12px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(d.invalidReason || 'SAI THỨ TỰ GIÁ (INVALID)', startX + width / 2, boxTop + boxHeight / 2);
+        ctx.restore();
+        return;
+      }
 
       // 1. Profit Box (Green Zone)
       const profitTop = Math.min(entryY, tpY);
@@ -129,7 +171,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
 
       // Profit Border
       ctx.strokeStyle = isMuted ? 'rgba(38, 166, 154, 0.4)' : '#26a69a';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = this._hoverPart === 'tp' ? 3 : 1.5;
       if (isDashed) ctx.setLineDash([4, 4]);
       else ctx.setLineDash([]);
       ctx.beginPath();
@@ -145,7 +187,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
 
       // Stop Loss Border
       ctx.strokeStyle = isMuted ? 'rgba(239, 83, 80, 0.4)' : '#ef5350';
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = this._hoverPart === 'sl' ? 3 : 1.5;
       if (isDashed) ctx.setLineDash([4, 4]);
       else ctx.setLineDash([]);
       ctx.beginPath();
@@ -155,7 +197,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
 
       // 3. Entry Line
       ctx.strokeStyle = isMuted ? '#6b7280' : (d.direction === 'LONG' ? '#3b82f6' : '#f59e0b');
-      ctx.lineWidth = 2;
+      ctx.lineWidth = this._hoverPart === 'entry' ? 3.5 : 2;
       if (isDashed) ctx.setLineDash([6, 3]);
       else ctx.setLineDash([]);
       ctx.beginPath();
@@ -165,8 +207,8 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       ctx.setLineDash([]);
 
       // Outer boundary vertical edges
-      ctx.strokeStyle = 'rgba(156, 163, 175, 0.25)';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = this._hoverPart === 'right_edge' ? '#6366f1' : 'rgba(156, 163, 175, 0.3)';
+      ctx.lineWidth = this._hoverPart === 'right_edge' ? 3 : 1.2;
       ctx.beginPath();
       ctx.moveTo(startX, Math.min(slY, tpY));
       ctx.lineTo(startX, Math.max(slY, tpY));
@@ -174,9 +216,22 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       ctx.lineTo(endX, Math.max(slY, tpY));
       ctx.stroke();
 
+      // Watermark for DRAFT state
+      if (d.state === 'draft') {
+        ctx.save();
+        ctx.font = '900 13px Inter, sans-serif';
+        ctx.fillStyle = 'rgba(245, 158, 11, 0.22)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const boxMidY = (profitTop + riskTop + profitHeight + riskHeight) / 2;
+        ctx.fillText('BẢN NHÁP — CHƯA ĐẶT LỆNH', startX + width / 2, boxMidY);
+        ctx.restore();
+      }
+
       // 4. Central Badge Pill
       const badgeY = entryY;
-      const badgeText = `${d.direction} · R:R 1:${d.grossRR.toFixed(2)} (Net 1:${d.estimatedNetRR.toFixed(2)}) · ${d.state.toUpperCase()}`;
+      const rrPassText = d.estimatedNetRR >= 2.0 ? '' : ' · [FAIL Net < 2.0]';
+      const badgeText = `${d.direction} · R:R 1:${d.grossRR.toFixed(2)} (Net 1:${d.estimatedNetRR.toFixed(2)})${rrPassText} · ${d.state.toUpperCase()}`;
       ctx.font = 'bold 11px Inter, sans-serif';
       const textMetrics = ctx.measureText(badgeText);
       const badgeWidth = textMetrics.width + 24;
@@ -185,14 +240,14 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
 
       // Badge background pill
       ctx.fillStyle = '#18181b';
-      ctx.strokeStyle = d.direction === 'LONG' ? '#26a69a' : '#ef5350';
+      ctx.strokeStyle = d.estimatedNetRR >= 2.0 ? (d.direction === 'LONG' ? '#26a69a' : '#ef5350') : '#eab308';
       ctx.lineWidth = 1.5;
       this._roundRect(ctx, badgeX, badgeY - badgeHeight / 2, badgeWidth, badgeHeight, 11);
       ctx.fill();
       ctx.stroke();
 
       // Badge text
-      ctx.fillStyle = '#f4f4f5';
+      ctx.fillStyle = d.estimatedNetRR >= 2.0 ? '#f4f4f5' : '#fef08a';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY);
@@ -202,34 +257,45 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       ctx.font = '10px Inter, sans-serif';
       ctx.fillStyle = '#2dd4bf';
       ctx.textAlign = 'left';
-      const rewardText = `TP: ${d.takeProfit.toFixed(2)} (+${Math.abs(d.takeProfit - d.plannedEntry).toFixed(2)}) | Lời: +$${(d.quantity * Math.abs(d.takeProfit - d.plannedEntry)).toFixed(2)}`;
+      const plannedRewardUsdt = (d.quantity * Math.abs(d.takeProfit - effectiveEntry));
+      const rewardText = `TP: ${d.takeProfit.toFixed(2)} (+${Math.abs(d.takeProfit - effectiveEntry).toFixed(2)}) | Lời dự kiến: +$${plannedRewardUsdt.toFixed(2)}`;
       ctx.fillText(rewardText, startX + 8, tpTargetY);
 
       // 6. Stop Box Text (Risk info)
       const slTargetY = d.direction === 'LONG' ? riskTop + riskHeight - 6 : riskTop + 14;
       ctx.fillStyle = '#f87171';
-      const riskText = `SL: ${d.stopLoss.toFixed(2)} (-${Math.abs(d.plannedEntry - d.stopLoss).toFixed(2)}) | Rủi ro: -$${d.initialRiskUsdt.toFixed(2)} | KL: ${d.quantity} oz`;
+      const riskText = `SL: ${d.stopLoss.toFixed(2)} (-${Math.abs(effectiveEntry - d.stopLoss).toFixed(2)}) | Rủi ro: -$${d.initialRiskUsdt.toFixed(2)} | KL: ${d.quantity} oz`;
       ctx.fillText(riskText, startX + 8, slTargetY);
 
-      // 7. Handles for interactive draft mode
+      // 7. Draggable Handles for Draft Mode
       if (d.state === 'draft') {
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = '#18181b';
-        ctx.lineWidth = 2;
+        const handleX = startX + 16;
+        const radius = 6;
+
+        const drawHandle = (y: number, color: string, isHovered: boolean) => {
+          ctx.beginPath();
+          ctx.arc(handleX, y, isHovered ? radius + 2 : radius, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        };
+
         // Entry handle
-        ctx.beginPath();
-        ctx.arc(startX + 12, entryY, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        drawHandle(entryY, d.direction === 'LONG' ? '#3b82f6' : '#f59e0b', this._hoverPart === 'entry');
         // TP handle
-        ctx.beginPath();
-        ctx.arc(startX + 12, tpY, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        drawHandle(tpY, '#10b981', this._hoverPart === 'tp');
         // SL handle
+        drawHandle(slY, '#ef4444', this._hoverPart === 'sl');
+
+        // Right edge drag handle
         ctx.beginPath();
-        ctx.arc(startX + 12, slY, 5, 0, Math.PI * 2);
+        ctx.arc(endX, entryY, this._hoverPart === 'right_edge' ? 7 : 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#6366f1';
         ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
         ctx.stroke();
       }
 
@@ -269,9 +335,10 @@ class RiskRewardPaneView implements IPrimitivePaneView {
     slY: number | null,
     tpY: number | null,
     startX: number,
-    endX: number
+    endX: number,
+    hoverPart: DragTargetPart | null = null
   ) {
-    this._renderer.update(data, entryY, slY, tpY, startX, endX);
+    this._renderer.update(data, entryY, slY, tpY, startX, endX, hoverPart);
   }
 
   renderer(): IPrimitivePaneRenderer {
@@ -293,26 +360,43 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
   private _entryAxisView = new PriceAxisView();
   private _slAxisView = new PriceAxisView();
   private _tpAxisView = new PriceAxisView();
-  private _onUpdateCallback?: (updatedData: RiskRewardData) => void;
+  private _currentGeometry: {
+    entryY: number | null;
+    slY: number | null;
+    tpY: number | null;
+    startX: number;
+    endX: number;
+  } = { entryY: null, slY: null, tpY: null, startX: 0, endX: 0 };
+  private _hoverPart: DragTargetPart | null = null;
 
-  constructor(data: RiskRewardData, onUpdate?: (updatedData: RiskRewardData) => void) {
+  constructor(data: RiskRewardData) {
     this._data = data;
-    this._onUpdateCallback = onUpdate;
   }
 
   setData(data: RiskRewardData) {
     this._data = data;
     this.updateAllViews();
-    if (this._onUpdateCallback) {
-      this._onUpdateCallback(this._data);
-    }
     if (this._param) {
       this._param.requestUpdate();
     }
   }
 
+  setHoverPart(part: DragTargetPart | null) {
+    if (this._hoverPart !== part) {
+      this._hoverPart = part;
+      this.updateAllViews();
+      if (this._param) {
+        this._param.requestUpdate();
+      }
+    }
+  }
+
   getData(): RiskRewardData {
     return this._data;
+  }
+
+  getGeometry() {
+    return this._currentGeometry;
   }
 
   attached(param: SeriesAttachedParameter<Time>): void {
@@ -331,32 +415,43 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
     const series = this._param.series;
     const timeScale = this._param.chart.timeScale();
 
-    const entryPrice = this._data.actualEntry || this._data.plannedEntry;
+    const entryPrice = this._data.actualEntry ?? this._data.plannedEntry;
     const entryY = series.priceToCoordinate(entryPrice);
     const slY = series.priceToCoordinate(this._data.stopLoss);
     const tpY = series.priceToCoordinate(this._data.takeProfit);
 
-    // Calculate X span
-    let startX = 50;
+    // Calculate X span anchored to time or logical bars
+    let startX = 60;
     if (this._data.entryTime) {
       const coord = timeScale.timeToCoordinate(this._data.entryTime as Time);
       if (coord !== null) {
         startX = coord;
       }
     } else {
-      // Default to right side of visible range
       const visibleRange = timeScale.getVisibleLogicalRange();
       if (visibleRange) {
-        const coord = timeScale.logicalToCoordinate((visibleRange.to - 15) as unknown as Logical);
+        const coord = timeScale.logicalToCoordinate((visibleRange.to - 20) as unknown as Logical);
         if (coord !== null) startX = Math.max(50, coord);
       }
     }
 
-    const endX = startX + 220; // 220px projected width
+    const barCount = this._data.projectedBars || 25;
+    // Estimate width from logical bar spacing
+    let endX = startX + 220;
+    const visibleRange = timeScale.getVisibleLogicalRange();
+    if (visibleRange) {
+      const c1 = timeScale.logicalToCoordinate(visibleRange.from as unknown as Logical);
+      const c2 = timeScale.logicalToCoordinate((visibleRange.from + 1) as unknown as Logical);
+      if (c1 !== null && c2 !== null) {
+        const barSpacing = Math.abs(c2 - c1);
+        endX = startX + Math.max(100, barSpacing * barCount);
+      }
+    }
 
+    this._currentGeometry = { entryY, slY, tpY, startX, endX };
 
     // Update Pane View
-    this._paneView.update(this._data, entryY, slY, tpY, startX, endX);
+    this._paneView.update(this._data, entryY, slY, tpY, startX, endX, this._hoverPart);
 
     // Update Price Axis Views
     if (entryY !== null) {
@@ -369,6 +464,50 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
     if (tpY !== null) {
       this._tpAxisView.update(tpY, `${this._data.takeProfit.toFixed(2)} [TP]`, '#16a34a');
     }
+  }
+
+  /**
+   * Hit test against handles, borders, right edge, and box body.
+   */
+  hitTest(x: number, y: number): DragHitResult | null {
+    const { entryY, slY, tpY, startX, endX } = this._currentGeometry;
+    if (entryY === null || slY === null || tpY === null) return null;
+
+    const handleX = startX + 16;
+    const handleRadius = 12; // 12px touch tolerance
+
+    const extId = `rr-${this._data.id}`;
+    // 1. Handles
+    if (Math.hypot(x - handleX, y - entryY) <= handleRadius) {
+      return { externalId: extId, zOrder: 'normal', part: 'entry', entryY, slY, tpY, startX, endX };
+    }
+    if (Math.hypot(x - handleX, y - slY) <= handleRadius) {
+      return { externalId: extId, zOrder: 'normal', part: 'sl', entryY, slY, tpY, startX, endX };
+    }
+    if (Math.hypot(x - handleX, y - tpY) <= handleRadius) {
+      return { externalId: extId, zOrder: 'normal', part: 'tp', entryY, slY, tpY, startX, endX };
+    }
+
+    // 2. Right Edge
+    if (Math.abs(x - endX) <= 10 && y >= Math.min(entryY, slY, tpY) - 5 && y <= Math.max(entryY, slY, tpY) + 5) {
+      return { externalId: extId, zOrder: 'normal', part: 'right_edge', entryY, slY, tpY, startX, endX };
+    }
+
+    // 3. Lines inside horizontal span
+    if (x >= startX - 5 && x <= endX + 5) {
+      if (Math.abs(y - entryY) <= 7) return { externalId: extId, zOrder: 'normal', part: 'entry', entryY, slY, tpY, startX, endX };
+      if (Math.abs(y - slY) <= 7) return { externalId: extId, zOrder: 'normal', part: 'sl', entryY, slY, tpY, startX, endX };
+      if (Math.abs(y - tpY) <= 7) return { externalId: extId, zOrder: 'normal', part: 'tp', entryY, slY, tpY, startX, endX };
+    }
+
+    // 4. Box Body
+    const minY = Math.min(entryY, slY, tpY);
+    const maxY = Math.max(entryY, slY, tpY);
+    if (x >= startX && x <= endX && y >= minY && y <= maxY) {
+      return { externalId: extId, zOrder: 'normal', part: 'body', entryY, slY, tpY, startX, endX };
+    }
+
+    return null;
   }
 
   paneViews(): readonly IPrimitivePaneView[] {

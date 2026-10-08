@@ -75,23 +75,23 @@ def test_ambiguous_bar_sl_first(test_db):
         direction="LONG",
         planned_entry=4000.0,
         stop_loss=3990.0,
-        take_profit=4020.0,
+        take_profit=4035.0,
         quantity=0.1,
         initial_risk_usdt=5.0,
         risk_pct=0.5,
-        gross_rr=2.0,
-        estimated_net_rr=1.9
+        gross_rr=3.4,
+        estimated_net_rr=2.2
     )
     # Execute paper entry
     order = PaperBroker.execute_market_order(test_db, order_create, current_bid=4000.0, current_ask=4000.2)
     assert order.state == "paper_open"
 
-    # Candle spikes up to 4025 (TP is 4020) and down to 3985 (SL is 3990)
+    # Candle spikes up to 4040 (TP is 4035) and down to 3985 (SL is 3990)
     closed = PaperBroker.process_price_tick(
         test_db,
         current_bid=4005.0,
         current_ask=4005.2,
-        candle_high=4025.0,
+        candle_high=4040.0,
         candle_low=3985.0
     )
     assert closed is not None

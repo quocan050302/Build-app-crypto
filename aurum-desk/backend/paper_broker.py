@@ -4,18 +4,20 @@ import uuid
 from typing import Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
 import models, schemas, crud
+from domain_calculator import calculate_risk_reward, CostAssumptions
 
 class PaperBroker:
     """
     Simulated Paper Broker for XAUUSDT with strict risk controls:
     - 1,000 USDT capital base
-    - 0.5% risk per trade (max 1.0%)
+    - Default 0.25% risk per trade (hard cap 0.5%)
     - Max 3 fills per day (UTC+7)
     - 1 active position at a time
     - 30-min cooldown after closing a trade
     - Stop new trading for the day after 2 consecutive losses
-    - Daily loss cap: 1.5% equity
+    - Daily loss cap: 1.5% equity ($15.00)
     - Conservative execution: Buy at Ask + slippage, Sell at Bid - slippage
+    - Authoritative backend recalculation of all geometry, quantity, risk, and Net RR
     """
 
     @staticmethod
@@ -42,11 +44,13 @@ class PaperBroker:
             remaining_sec = int((audit.cooldown_until - now_ms) / 1000)
             return False, f"Đang trong thời gian cooldown sau lệnh trước: còn {remaining_sec}s"
 
-        # 3. Check daily loss cap (1.5%)
+        # 3. Check daily loss cap (1.5% of starting equity = $15.00)
         daily_loss_budget = audit.initial_equity * 0.015
-        projected_worst_loss = abs(audit.realized_pnl_today) + risk_usdt
-        if audit.realized_pnl_today < 0 and projected_worst_loss > daily_loss_budget:
-            return False, f"Rủi ro lệnh mới (${risk_usdt:.2f}) cộng lỗ đã ghi nhận (${abs(audit.realized_pnl_today):.2f}) vượt quá ngân sách lỗ ngày 1.5% (${daily_loss_budget:.2f})"
+        current_realized_loss = max(0.0, -audit.realized_pnl_today)
+        projected_worst_loss = current_realized_loss + risk_usdt
+
+        if projected_worst_loss > daily_loss_budget:
+            return False, f"Rủi ro lệnh mới (${risk_usdt:.2f}) cộng lỗ đã ghi nhận (${current_realized_loss:.2f}) vượt quá ngân sách lỗ ngày 1.5% (${daily_loss_budget:.2f})"
 
         return True, "Hợp lệ"
 
@@ -58,36 +62,109 @@ class PaperBroker:
         current_ask: float
     ) -> models.PaperOrder:
         """
-        Execute paper market entry with realistic bid/ask and slippage.
-        Buy at Ask + slippage, Sell at Bid - slippage.
+        Execute paper market entry with authoritative risk/reward and sizing verification.
+        Client payload is treated as untrusted intent; backend is the authoritative decider.
         """
-        can_open, reason = PaperBroker.can_open_position(db, order_create.initial_risk_usdt)
+        audit = crud.get_or_create_today_audit(db)
+        slippage = 0.10  # 10 cents slippage on market execution
+
+        # 1. Calculate projected fill price
+        if order_create.direction == "LONG":
+            actual_entry = round(current_ask + slippage, 2)
+            if actual_entry <= order_create.stop_loss:
+                raise ValueError(f"Giá khớp thực tế ({actual_entry:.2f}) nằm dưới hoặc bằng SL ({order_create.stop_loss:.2f})")
+            if actual_entry >= order_create.take_profit:
+                raise ValueError(f"Giá khớp thực tế ({actual_entry:.2f}) nằm trên hoặc bằng TP ({order_create.take_profit:.2f})")
+        elif order_create.direction == "SHORT":
+            actual_entry = round(current_bid - slippage, 2)
+            if actual_entry >= order_create.stop_loss:
+                raise ValueError(f"Giá khớp thực tế ({actual_entry:.2f}) nằm trên hoặc bằng SL ({order_create.stop_loss:.2f})")
+            if actual_entry <= order_create.take_profit:
+                raise ValueError(f"Giá khớp thực tế ({actual_entry:.2f}) nằm dưới hoặc bằng TP ({order_create.take_profit:.2f})")
+        else:
+            raise ValueError(f"Hướng giao dịch không hợp lệ: {order_create.direction}")
+
+        # 2. Authoritative Domain Calculation
+        risk_pct = min(0.5, order_create.risk_pct or 0.25)
+        calc_result = calculate_risk_reward(
+            direction=order_create.direction,
+            entry=actual_entry,
+            sl=order_create.stop_loss,
+            tp=order_create.take_profit,
+            capital=audit.current_equity,
+            risk_pct=risk_pct,
+            min_net_rr=2.0
+        )
+
+        if not calc_result.is_valid:
+            raise ValueError(f"Lỗi cấu trúc giá: {calc_result.invalid_reason}")
+
+        if not calc_result.can_execute:
+            raise ValueError(f"Lệnh bị từ chối do không đủ điều kiện: {calc_result.skip_reason}")
+
+        # 3. Check account risk limits using authoritative net risk
+        can_open, reason = PaperBroker.can_open_position(db, calc_result.net_risk_usdt)
         if not can_open:
             raise ValueError(f"Không thể mở lệnh: {reason}")
 
-        slippage = 0.10  # 10 cents slippage on market execution
-        if order_create.direction == "LONG":
-            actual_entry = round(current_ask + slippage, 2)
-        else:
-            actual_entry = round(current_bid - slippage, 2)
-
+        # 4. Populate authoritative values
         order_id = f"trade-{uuid.uuid4().hex[:8]}"
         order_create.actual_entry = actual_entry
+        order_create.quantity = calc_result.quantity
+        order_create.initial_risk_usdt = calc_result.net_risk_usdt
+        order_create.risk_pct = calc_result.effective_risk_pct
+        order_create.gross_rr = calc_result.gross_rr
+        order_create.estimated_net_rr = calc_result.net_rr
         order_create.state = "paper_open"
-
-        # Re-verify stop loss & gross RR based on actual entry
-        if order_create.direction == "LONG":
-            actual_risk = abs(actual_entry - order_create.stop_loss)
-            actual_reward = abs(order_create.take_profit - actual_entry)
-        else:
-            actual_risk = abs(order_create.stop_loss - actual_entry)
-            actual_reward = abs(actual_entry - order_create.take_profit)
-
-        order_create.gross_rr = round(actual_reward / actual_risk, 2) if actual_risk > 0 else 2.0
 
         db_order = crud.create_paper_order(db, order_create, order_id)
         crud.record_trade_fill_audit(db)
         return db_order
+
+    @staticmethod
+    def amend_open_position(
+        db: Session,
+        order_id: str,
+        new_sl: Optional[float] = None,
+        new_tp: Optional[float] = None
+    ) -> models.PaperOrder:
+        """
+        Amend SL / TP of an open position with strict risk guards:
+        - Position must be open
+        - Stop loss cannot be widened to increase risk
+        - TP must remain on the valid side of Entry
+        """
+        active_pos = crud.get_paper_order(db, order_id)
+        if not active_pos or active_pos.state != "paper_open":
+            raise ValueError("Không tìm thấy vị thế mở để điều chỉnh")
+
+        entry = active_pos.actual_entry or active_pos.planned_entry
+
+        if new_sl is not None:
+            if active_pos.direction == "LONG":
+                if new_sl < active_pos.stop_loss:
+                    raise ValueError(f"Không được nới rộng SL ({new_sl:.2f} < {active_pos.stop_loss:.2f}) làm tăng rủi ro")
+                if new_sl >= active_pos.take_profit:
+                    raise ValueError(f"SL ({new_sl:.2f}) không được vượt qua TP ({active_pos.take_profit:.2f})")
+            elif active_pos.direction == "SHORT":
+                if new_sl > active_pos.stop_loss:
+                    raise ValueError(f"Không được nới rộng SL ({new_sl:.2f} > {active_pos.stop_loss:.2f}) làm tăng rủi ro")
+                if new_sl <= active_pos.take_profit:
+                    raise ValueError(f"SL ({new_sl:.2f}) không được vượt qua TP ({active_pos.take_profit:.2f})")
+            active_pos.stop_loss = round(new_sl, 2)
+
+        if new_tp is not None:
+            if active_pos.direction == "LONG":
+                if new_tp <= entry:
+                    raise ValueError(f"TP ({new_tp:.2f}) phải cao hơn Entry ({entry:.2f})")
+            elif active_pos.direction == "SHORT":
+                if new_tp >= entry:
+                    raise ValueError(f"TP ({new_tp:.2f}) phải thấp hơn Entry ({entry:.2f})")
+            active_pos.take_profit = round(new_tp, 2)
+
+        db.commit()
+        db.refresh(active_pos)
+        return active_pos
 
     @staticmethod
     def process_price_tick(
@@ -95,16 +172,25 @@ class PaperBroker:
         current_bid: float,
         current_ask: float,
         candle_high: Optional[float] = None,
-        candle_low: Optional[float] = None
+        candle_low: Optional[float] = None,
+        candle_timestamp: Optional[int] = None
     ) -> Optional[models.PaperOrder]:
         """
         Evaluate active paper position against latest price/candle tick:
         - Check TP and SL triggers
+        - Disallow using pre-entry candle extremes (no retroactive fills)
         - Handle conservative SL-first if ambiguous candle touches both TP and SL
         """
         active_pos = crud.get_active_position(db)
         if not active_pos:
             return None
+
+        # Do not use candle high/low if the candle closed before or at position creation
+        if candle_timestamp is not None and active_pos.created_at:
+            if candle_timestamp < active_pos.created_at - 60000:
+                # Candle is from before order was placed; only check current live bid/ask
+                candle_high = None
+                candle_low = None
 
         exit_triggered = False
         exit_price = 0.0

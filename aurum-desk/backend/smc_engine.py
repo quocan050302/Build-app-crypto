@@ -2,6 +2,40 @@ import time
 import math
 from typing import List, Dict, Any, Optional, Tuple
 import schemas
+from domain_calculator import calculate_risk_reward, CalculationResult, CostAssumptions
+
+def calculate_position_sizing(
+    capital: float,
+    risk_pct: float,
+    entry: float,
+    sl: float,
+    tp: float,
+    fees_pct: float = 0.04,
+    slippage_usd: float = 0.10,
+    min_net_rr: float = 2.0
+) -> Dict[str, Any]:
+    direction = "LONG" if sl < entry else "SHORT"
+    calc = calculate_risk_reward(
+        direction=direction,
+        entry=entry,
+        sl=sl,
+        tp=tp,
+        capital=capital,
+        risk_pct=risk_pct,
+        min_net_rr=min_net_rr
+    )
+    return {
+        "quantity": calc.quantity,
+        "initial_risk_usdt": calc.net_risk_usdt,
+        "gross_loss": calc.gross_loss_usdt,
+        "gross_reward": calc.gross_reward_usdt,
+        "gross_rr": calc.gross_rr,
+        "estimated_net_rr": calc.net_rr,
+        "meets_min_rr": calc.meets_min_rr,
+        "can_execute": calc.can_execute,
+        "skip_reason": calc.skip_reason,
+        "invalid_reason": calc.invalid_reason
+    }
 
 def compute_atr(candles: list, period: int = 14) -> float:
     """Compute Average True Range (ATR) over historical candles."""
@@ -24,7 +58,8 @@ def compute_atr(candles: list, period: int = 14) -> float:
 def identify_pivots(candles: list) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
     Detect confirmed Pivot Highs and Pivot Lows using 2 candles left + 2 candles right.
-    Crucial: candle at i is only confirmed at candle i+2.
+    CRITICAL (Issue 8): A pivot at candle i is confirmed ONLY when candle i+2 is closed (is_closed == True).
+    If candle i+2 is still forming/open, the pivot is NOT confirmed.
     """
     n = len(candles)
     swing_highs = []
@@ -33,37 +68,67 @@ def identify_pivots(candles: list) -> Tuple[List[Dict[str, Any]], List[Dict[str,
     # Requires 2 bars to the left and 2 closed bars to the right
     for i in range(2, n - 2):
         c = candles[i]
+        c_right2 = candles[i + 2]
+
+        # Candle i+2 MUST be closed for the pivot to be confirmed
+        if not getattr(c_right2, 'is_closed', True):
+            continue
+
         # Pivot High
         if (c.high > candles[i - 1].high and c.high > candles[i - 2].high and
-            c.high > candles[i + 1].high and c.high > candles[i + 2].high):
+            c.high > candles[i + 1].high and c.high > c_right2.high):
             swing_highs.append({
+                "id": f"sh-{c.timestamp}",
                 "index": i,
                 "timestamp": c.timestamp,
-                "confirmed_at": candles[i + 2].timestamp,
+                "pivot_at": c.timestamp,
+                "confirmed_at": c_right2.timestamp,
                 "price": round(c.high, 2),
-                "type": "HIGH"
+                "kind": "HIGH",
+                "is_confirmed": True
             })
 
         # Pivot Low
         if (c.low < candles[i - 1].low and c.low < candles[i - 2].low and
-            c.low < candles[i + 1].low and c.low < candles[i + 2].low):
+            c.low < candles[i + 1].low and c.low < c_right2.low):
             swing_lows.append({
+                "id": f"sl-{c.timestamp}",
                 "index": i,
                 "timestamp": c.timestamp,
-                "confirmed_at": candles[i + 2].timestamp,
+                "pivot_at": c.timestamp,
+                "confirmed_at": c_right2.timestamp,
                 "price": round(c.low, 2),
-                "type": "LOW"
+                "kind": "LOW",
+                "is_confirmed": True
             })
+
+    # Label swings: HH, HL, LH, LL
+    _label_swings(swing_highs, "HIGH")
+    _label_swings(swing_lows, "LOW")
 
     return swing_highs, swing_lows
 
 
+def _label_swings(swings: List[Dict[str, Any]], kind: str):
+    """Assign HH/LH or HL/LL labels sequentially based on previous confirmed swings."""
+    for i in range(len(swings)):
+        if i == 0:
+            swings[i]["label"] = "HIGH" if kind == "HIGH" else "LOW"
+        else:
+            prev_p = swings[i - 1]["price"]
+            curr_p = swings[i]["price"]
+            if kind == "HIGH":
+                swings[i]["label"] = "HH" if curr_p > prev_p else "LH"
+            else:
+                swings[i]["label"] = "HL" if curr_p > prev_p else "LL"
+
+
 def determine_trend(candles: list, swing_highs: list, swing_lows: list) -> str:
     """
-    Determine market structure trend based on swing sequence:
+    Determine market structure trend strictly based on swing sequence:
     - HH + HL => BULLISH
     - LH + LL => BEARISH
-    - Otherwise RANGING or fallback to price action
+    - Otherwise RANGING or UNKNOWN
     """
     if len(swing_highs) >= 2 and len(swing_lows) >= 2:
         sh1, sh2 = swing_highs[-2]["price"], swing_highs[-1]["price"]
@@ -80,8 +145,7 @@ def determine_trend(candles: list, swing_highs: list, swing_lows: list) -> str:
         else:
             return "RANGING"
 
-    # Fallback to 20-period simple price mean
-    if len(candles) >= 10:
+    if len(candles) >= 20:
         ma = sum(c.close for c in candles[-20:]) / min(20, len(candles))
         return "BULLISH" if candles[-1].close >= ma else "BEARISH"
     return "UNKNOWN"
@@ -90,7 +154,7 @@ def determine_trend(candles: list, swing_highs: list, swing_lows: list) -> str:
 def detect_fvgs(candles: list) -> List[Dict[str, Any]]:
     """
     Detect 3-candle Fair Value Gaps (FVG) and track their mitigation state:
-    - created -> confirmed -> partially_mitigated -> fully_mitigated
+    created -> confirmed -> partially_mitigated -> fully_mitigated
     """
     n = len(candles)
     fvgs = []
@@ -100,7 +164,6 @@ def detect_fvgs(candles: list) -> List[Dict[str, Any]]:
         if candles[i].low > candles[i - 2].high:
             top = candles[i].low
             bottom = candles[i - 2].high
-            # Check mitigation by subsequent candles
             subsequent_lows = [candles[j].low for j in range(i + 1, n)]
             if not subsequent_lows:
                 state = "confirmed"
@@ -116,6 +179,7 @@ def detect_fvgs(candles: list) -> List[Dict[str, Any]]:
                 mitigated = False
 
             fvgs.append({
+                "id": f"fvg-bull-{candles[i-1].timestamp}",
                 "type": "BULLISH_FVG",
                 "top": round(top, 2),
                 "bottom": round(bottom, 2),
@@ -143,6 +207,7 @@ def detect_fvgs(candles: list) -> List[Dict[str, Any]]:
                 mitigated = False
 
             fvgs.append({
+                "id": f"fvg-bear-{candles[i-1].timestamp}",
                 "type": "BEARISH_FVG",
                 "top": round(top, 2),
                 "bottom": round(bottom, 2),
@@ -159,112 +224,101 @@ def detect_sweeps_and_breaks(
     swing_highs: list,
     swing_lows: list,
     trend: str
-) -> Tuple[List[str], str, Optional[Dict[str, Any]]]:
+) -> Tuple[List[Dict[str, Any]], str, Optional[Dict[str, Any]]]:
     """
-    Detect liquidity sweeps and structural breaks (BOS/CHoCH).
-    Returns (events_list, last_event_summary, sweep_info)
+    Causal Sweep & Break detection (Issue 8):
+    At each bar t, only use swings that were ALREADY CONFIRMED at or before bar t's timestamp.
+    Does NOT use future swings or the last swing of the entire dataset.
+    Sweep requires closed bar (is_closed == True).
     """
     n = len(candles)
-    events = []
-    last_event = "Cấu trúc ổn định"
-    sweep_detected = None
+    structure_events: List[Dict[str, Any]] = []
+    last_event_summary = "Cấu trúc ổn định"
+    latest_sweep = None
 
-    if not swing_highs or not swing_lows or n < 5:
-        return events, last_event, sweep_detected
+    if n < 5:
+        return structure_events, last_event_summary, latest_sweep
 
-    last_sh = swing_highs[-1]["price"]
-    last_sl = swing_lows[-1]["price"]
-
-    # Examine recent bars for sweeps and breaks
-    lookback = min(20, n - 2)
-    for i in range(n - lookback, n):
+    # Process candles chronologically
+    for i in range(max(2, n - 30), n):
         c = candles[i]
+        c_time = c.timestamp
 
-        # Liquidity Sweep of High: Wick broke above swing high, but closed below it
-        if c.high > last_sh and c.close < last_sh:
-            desc = f"Liquidity Sweep đỉnh {last_sh:.2f}"
-            events.append(desc)
-            last_event = desc
-            sweep_detected = {
+        # Only swings confirmed BEFORE or AT this candle can be observed
+        available_sh = [s for s in swing_highs if s.get("confirmed_at", s.get("timestamp", 0)) <= c_time]
+        available_sl = [s for s in swing_lows if s.get("confirmed_at", s.get("timestamp", 0)) <= c_time]
+
+        if not available_sh and not available_sl:
+            continue
+
+        active_sh = available_sh[-1]["price"] if available_sh else None
+        active_sl = available_sl[-1]["price"] if available_sl else None
+
+        # Sweep of High: Wick pierced above confirmed swing high, but bar closed strictly below it
+        if active_sh and c.is_closed and c.high > active_sh and c.close < active_sh:
+            sweep_ev = {
+                "id": f"sweep-high-{c_time}",
+                "event_type": "SWEEP",
                 "type": "SWEEP_HIGH",
-                "level": last_sh,
-                "wick_high": c.high,
-                "timestamp": c.timestamp
+                "kind": "SWEEP_HIGH",
+                "level": active_sh,
+                "wick_extreme": c.high,
+                "timestamp": c_time,
+                "confirmed_at": c_time,
+                "detail": f"Sweep đỉnh {active_sh:.2f} (Râu {c.high:.2f}, Đóng {c.close:.2f})"
             }
+            structure_events.append(sweep_ev)
+            last_event_summary = sweep_ev["detail"]
+            latest_sweep = sweep_ev
 
-        # Liquidity Sweep of Low: Wick broke below swing low, but closed above it
-        if c.low < last_sl and c.close > last_sl:
-            desc = f"Liquidity Sweep đáy {last_sl:.2f}"
-            events.append(desc)
-            last_event = desc
-            sweep_detected = {
+        # Sweep of Low: Wick pierced below confirmed swing low, but bar closed strictly above it
+        if active_sl and c.is_closed and c.low < active_sl and c.close > active_sl:
+            sweep_ev = {
+                "id": f"sweep-low-{c_time}",
+                "event_type": "SWEEP",
                 "type": "SWEEP_LOW",
-                "level": last_sl,
-                "wick_low": c.low,
-                "timestamp": c.timestamp
+                "kind": "SWEEP_LOW",
+                "level": active_sl,
+                "wick_extreme": c.low,
+                "timestamp": c_time,
+                "confirmed_at": c_time,
+                "detail": f"Sweep đáy {active_sl:.2f} (Râu {c.low:.2f}, Đóng {c.close:.2f})"
             }
+            structure_events.append(sweep_ev)
+            last_event_summary = sweep_ev["detail"]
+            latest_sweep = sweep_ev
 
-        # BOS / CHoCH detection on closed candles
+        # BOS / CHoCH: Candle close beyond confirmed swing
         if c.is_closed:
-            if c.close > last_sh:
-                evt = "BOS Tăng (Bullish)" if trend == "BULLISH" else "CHoCH Đảo chiều Tăng"
-                events.append(f"{evt} tại {last_sh:.2f}")
-                last_event = f"{evt} ({last_sh:.2f})"
-            elif c.close < last_sl:
-                evt = "BOS Giảm (Bearish)" if trend == "BEARISH" else "CHoCH Đảo chiều Giảm"
-                events.append(f"{evt} tại {last_sl:.2f}")
-                last_event = f"{evt} ({last_sl:.2f})"
+            if active_sh and c.close > active_sh:
+                b_type = "BOS" if trend == "BULLISH" else "CHOCH"
+                desc = f"{b_type} Tăng tại {active_sh:.2f}"
+                structure_events.append({
+                    "id": f"{b_type.lower()}-bull-{c_time}",
+                    "event_type": b_type,
+                    "direction": "BULLISH",
+                    "level": active_sh,
+                    "timestamp": c_time,
+                    "confirmed_at": c_time,
+                    "detail": desc
+                })
+                last_event_summary = desc
 
-    return events, last_event, sweep_detected
+            elif active_sl and c.close < active_sl:
+                b_type = "BOS" if trend == "BEARISH" else "CHOCH"
+                desc = f"{b_type} Giảm tại {active_sl:.2f}"
+                structure_events.append({
+                    "id": f"{b_type.lower()}-bear-{c_time}",
+                    "event_type": b_type,
+                    "direction": "BEARISH",
+                    "level": active_sl,
+                    "timestamp": c_time,
+                    "confirmed_at": c_time,
+                    "detail": desc
+                })
+                last_event_summary = desc
 
-
-def calculate_position_sizing(
-    capital: float,
-    risk_pct: float,
-    entry: float,
-    sl: float,
-    tp: float,
-    fees_pct: float = 0.04,   # 0.04% maker/taker fee
-    slippage_usd: float = 0.10 # $0.10 slippage assumption
-) -> Dict[str, Any]:
-    """
-    Calculate position size, Gross R:R, and estimated Net R:R.
-    Bitget XAUUSDT perpetual futures contract unit: 1 contract = 1 oz of gold.
-    Minimum quantity step: 0.01 oz.
-    """
-    risk_amount = capital * (risk_pct / 100.0)
-    stop_distance = abs(entry - sl)
-    if stop_distance <= 0.01:
-        stop_distance = 1.0
-
-    # Total risk per unit including estimated slippage and round-trip fee
-    estimated_fee_per_unit = (entry + sl) * (fees_pct / 100.0)
-    total_risk_per_unit = stop_distance + slippage_usd + estimated_fee_per_unit
-
-    raw_quantity = risk_amount / total_risk_per_unit
-    # Floor to 2 decimal places (0.01 oz step)
-    quantity = math.floor(raw_quantity * 100) / 100.0
-    if quantity < 0.01:
-        quantity = 0.01
-
-    target_distance = abs(tp - entry)
-    gross_rr = round(target_distance / stop_distance, 2) if stop_distance > 0 else 0.0
-
-    # Net expected reward after fees
-    expected_gross_reward = quantity * target_distance
-    total_expected_fees = quantity * (entry + tp) * (fees_pct / 100.0)
-    net_reward = expected_gross_reward - total_expected_fees - (quantity * slippage_usd)
-    actual_risk_dollars = quantity * total_risk_per_unit
-    net_rr = round(net_reward / actual_risk_dollars, 2) if actual_risk_dollars > 0 else 0.0
-
-    return {
-        "quantity": quantity,
-        "initial_risk_usdt": round(actual_risk_dollars, 2),
-        "gross_rr": gross_rr,
-        "estimated_net_rr": net_rr,
-        "fees_assumption": round(total_expected_fees, 3),
-        "slippage_assumption": round(quantity * slippage_usd, 3)
-    }
+    return structure_events, last_event_summary, latest_sweep
 
 
 def evaluate_smc_setup(
@@ -274,15 +328,17 @@ def evaluate_smc_setup(
     ticker_data: Optional[Dict[str, Any]] = None,
     day_audit: Optional[Any] = None,
     is_news_blackout: bool = False,
-    news_blackout_reason: Optional[str] = None
+    news_blackout_reason: Optional[str] = None,
+    htf_bias: Optional[str] = None,        # Real HTF bias from D/4H
+    h1_alignment: Optional[str] = None    # Real H1 context
 ) -> Dict[str, Any]:
     """
-    Execute full SMC/ICT v1 rules:
-    1. Multi-timeframe trend & dealing range
-    2. Pivots, Sweeps, BOS/CHoCH
-    3. FVG validation in Premium/Discount
-    4. Hard filter evaluation (News, Data freshness, R:R >= 2.0, Risk limits)
-    5. State machine: waiting_setup, candidate, armed, paper_open, blocked_news, blocked_risk
+    SMC/ICT Strategy Engine v1.0.0 (Prompt V3 requirements):
+    - Real multi-timeframe bias (D/4H/1H)
+    - Anchored SL to actual sweep extreme / POI boundary + small buffer
+    - Target TP from authentic opposing confirmed liquidity (NO artificial 2.5x forcing!)
+    - Authoritative calculate_risk_reward domain call
+    - Specific reason codes
     """
     now_ms = int(time.time() * 1000)
 
@@ -295,13 +351,15 @@ def evaluate_smc_setup(
             "bid": ticker_data.get("bid", 0.0) if ticker_data else 0.0,
             "ask": ticker_data.get("ask", 0.0) if ticker_data else 0.0,
             "trend": "UNKNOWN",
-            "htf_bias": "NEUTRAL",
-            "h1_alignment": "WAITING",
+            "htf_bias": htf_bias or "NEUTRAL",
+            "h1_alignment": h1_alignment or "WAITING",
             "zone": "EQUILIBRIUM",
             "equilibrium": 0.0,
             "dealing_range": {"high": 0.0, "low": 0.0},
             "swing_high": 0.0,
             "swing_low": 0.0,
+            "swings": [],
+            "structure_events": [],
             "last_event": "Đang thu thập đủ nến lịch sử...",
             "atr": 2.0,
             "active_fvgs": [],
@@ -309,9 +367,10 @@ def evaluate_smc_setup(
             "checklist": [],
             "active_signal": None,
             "engine_state": "collecting_data",
+            "reason_code": "WAITING_DATA",
             "last_analyzed_at": now_ms,
             "last_data_at": candles[-1].timestamp if candles else now_ms,
-            "missing_conditions": ["Cần tối thiểu 20 nến để tính ATR và Swing Points"]
+            "missing_conditions": ["Cần tối thiểu 20 nến để phân tích"]
         }
 
     current_candle = candles[-1]
@@ -321,12 +380,14 @@ def evaluate_smc_setup(
     ask = ticker_data.get("ask", current_price) if ticker_data else current_price
     atr = compute_atr(candles, 14)
 
-    # 1. Swing Pivots
+    # 1. Swing Pivots (no lookahead, confirmed at i+2)
     swing_highs, swing_lows = identify_pivots(candles)
     recent_high = max(c.high for c in candles[-20:])
     recent_low = min(c.low for c in candles[-20:])
     last_sh = swing_highs[-1]["price"] if swing_highs else recent_high
     last_sl = swing_lows[-1]["price"] if swing_lows else recent_low
+
+    all_swings = sorted(swing_highs + swing_lows, key=lambda s: s["timestamp"])
 
     # 2. Trend & Dealing Range
     trend = determine_trend(candles, swing_highs, swing_lows)
@@ -339,12 +400,15 @@ def evaluate_smc_setup(
     eq = (dealing_high + dealing_low) / 2.0
     zone = "DISCOUNT" if current_price < eq else "PREMIUM"
 
-    # 3. FVGs & Sweeps
+    # Multi-timeframe synthesis
+    final_htf_bias = htf_bias or trend
+    final_h1_align = h1_alignment or ("CONSENSUS" if final_htf_bias == trend else "NEUTRAL")
+
+    # 3. FVGs & Causal Sweeps
     all_fvgs = detect_fvgs(candles)
     active_fvgs = [f for f in all_fvgs if not f["mitigated"]][-4:]
     events, last_event, sweep_info = detect_sweeps_and_breaks(candles, swing_highs, swing_lows, trend)
 
-    # Liquidity levels
     liquidity_levels = [
         {"price": last_sh, "type": "SWING_HIGH", "timestamp": swing_highs[-1]["timestamp"] if swing_highs else now_ms, "status": "active"},
         {"price": last_sl, "type": "SWING_LOW", "timestamp": swing_lows[-1]["timestamp"] if swing_lows else now_ms, "status": "active"},
@@ -352,39 +416,57 @@ def evaluate_smc_setup(
         {"price": dealing_low, "type": "DEALING_LOW", "timestamp": now_ms, "status": "active"}
     ]
 
-    # 4. Strategy Rules Setup Formulation (Long / Short)
+    # 4. Strategy Rules Formulation (Issue 5: NO artificial forcing!)
     setup_direction = None
-    planned_entry = current_price
     sl = current_price
     tp = current_price
-    invalidation_reason = ""
     missing_conditions = []
+    reason_code = "WAITING_SETUP"
 
-    # Long Setup: Trend Bullish OR (Sweep Low in Discount)
-    has_sweep_low = any("Sweep đáy" in e for e in events)
-    has_sweep_high = any("Sweep đỉnh" in e for e in events)
+    has_sweep_low = any(e.get("kind") == "SWEEP_LOW" for e in events)
+    has_sweep_high = any(e.get("kind") == "SWEEP_HIGH" for e in events)
 
-    if (trend == "BULLISH" and zone == "DISCOUNT") or (has_sweep_low and zone == "DISCOUNT"):
+    # Long Setup:
+    # 1. Trend Bullish AND in Discount AND Sweep of Low confirmed
+    if (trend == "BULLISH" and zone == "DISCOUNT" and has_sweep_low) or (final_htf_bias == "BULLISH" and zone == "DISCOUNT" and has_sweep_low):
         setup_direction = "LONG"
-        planned_entry = current_price
-        # SL below lowest recent swing low or sweep wick with 0.5 ATR buffer
-        sl = round(min(last_sl, current_price - 1.5 * atr), 2)
-        risk_dist = max(1.0, planned_entry - sl)
-        # TP at opposite swing high or 2.5x risk
-        tp = round(max(last_sh, planned_entry + 2.5 * risk_dist), 2)
-    elif (trend == "BEARISH" and zone == "PREMIUM") or (has_sweep_high and zone == "PREMIUM"):
-        setup_direction = "SHORT"
-        planned_entry = current_price
-        sl = round(max(last_sh, current_price + 1.5 * atr), 2)
-        risk_dist = max(1.0, sl - planned_entry)
-        tp = round(min(last_sl, planned_entry - 2.5 * risk_dist), 2)
-    else:
-        missing_conditions.append(f"Chưa có phân kỳ cấu trúc (Đang ở {zone} với xu hướng {trend})")
+        # SL anchored strictly to the lowest sweep wick extreme + 0.3 ATR buffer
+        sweep_extreme = sweep_info["wick_extreme"] if (sweep_info and sweep_info["kind"] == "SWEEP_LOW") else last_sl
+        sl = round(sweep_extreme - 0.3 * atr, 2)
+        # TP anchored strictly to authentic opposing confirmed liquidity (Swing High), NOT forced 2.5x!
+        tp = round(last_sh, 2)
 
-    # 5. Position Sizing & RR Calculation
+    # Short Setup:
+    elif (trend == "BEARISH" and zone == "PREMIUM" and has_sweep_high) or (final_htf_bias == "BEARISH" and zone == "PREMIUM" and has_sweep_high):
+        setup_direction = "SHORT"
+        sweep_extreme = sweep_info["wick_extreme"] if (sweep_info and sweep_info["kind"] == "SWEEP_HIGH") else last_sh
+        sl = round(sweep_extreme + 0.3 * atr, 2)
+        # TP anchored strictly to authentic opposing confirmed liquidity (Swing Low), NOT forced 2.5x!
+        tp = round(last_sl, 2)
+
+    else:
+        if not (has_sweep_low or has_sweep_high):
+            missing_conditions.append("Chưa có xác nhận Liquidity Sweep đỉnh/đáy của nến đã đóng")
+            reason_code = "SWEEP_NOT_CONFIRMED"
+        elif (trend == "BULLISH" and zone == "PREMIUM") or (trend == "BEARISH" and zone == "DISCOUNT"):
+            missing_conditions.append(f"Giá nằm sai vị trí Dealing Range (Xu hướng {trend} nhưng giá ở {zone})")
+            reason_code = "WRONG_DEALING_ZONE"
+
+    # 5. Position Sizing & Real Domain Calculation
     capital = day_audit.current_equity if day_audit else 1000.0
-    risk_pct = 0.5
-    sizing = calculate_position_sizing(capital, risk_pct, planned_entry, sl, tp)
+    risk_pct = 0.25 # Default 0.25% equity (conservative paper default)
+
+    calc_res: Optional[CalculationResult] = None
+    if setup_direction:
+        calc_res = calculate_risk_reward(
+            direction=setup_direction,
+            entry=current_price,
+            sl=sl,
+            tp=tp,
+            capital=capital,
+            risk_pct=risk_pct,
+            min_net_rr=2.0
+        )
 
     # 6. Hard Filters Checklist
     checklist: List[Dict[str, Any]] = []
@@ -393,7 +475,7 @@ def evaluate_smc_setup(
     news_pass = not is_news_blackout
     checklist.append({
         "id": "NEWS_BLACKOUT",
-        "label": "Bộ lọc Tin Tức Vĩ Mô (News Blackout)",
+        "label": "Bộ Lọc Tin Tức Vĩ Mô (News Blackout)",
         "status": "PASS" if news_pass else "FAIL",
         "detail": "Không có tin USD High Impact trong cửa sổ an toàn" if news_pass else f"Đang trong vùng Blackout: {news_blackout_reason}",
         "is_hard_filter": True
@@ -403,23 +485,28 @@ def evaluate_smc_setup(
     data_fresh_pass = (now_ms - last_data_at) < (30 * 60 * 1000)
     checklist.append({
         "id": "DATA_FRESHNESS",
-        "label": "Độ Tươi Của Dữ Liệu Nến (Data Freshness)",
+        "label": "Độ Tươi Của Dữ Liệu Nến (Candle Freshness)",
         "status": "PASS" if data_fresh_pass else "FAIL",
-        "detail": f"Dữ liệu nến mới nhất cách đây {int((now_ms - last_data_at)/1000)}s" if data_fresh_pass else "Dữ liệu bị trễ hoặc mất kết nối feed",
+        "detail": f"Dữ liệu nến mới nhất cách đây {int((now_ms - last_data_at)/1000)}s" if data_fresh_pass else "Dữ liệu nến bị trễ",
         "is_hard_filter": True
     })
 
-    # Filter 3: Net RR >= 2.0
-    rr_pass = (sizing["estimated_net_rr"] >= 2.0)
+    # Filter 3: Net RR >= 2.0 (Calculated via authoritative domain calculator)
+    rr_pass = calc_res.meets_min_rr if calc_res else False
+    rr_detail = f"Net R:R: 1:{calc_res.net_rr:.2f} (Gross: 1:{calc_res.gross_rr:.2f})" if calc_res else "Chưa có thiết lập R:R"
+    if calc_res and not rr_pass:
+        missing_conditions.append(f"Mức thanh khoản đối diện chỉ đạt Net R:R 1:{calc_res.net_rr:.2f} (Yêu cầu >= 2.0)")
+        reason_code = "NET_RR_TOO_LOW"
+
     checklist.append({
         "id": "MIN_NET_RR",
         "label": "Tỷ Lệ Net R:R Tối Thiểu 1:2.0",
         "status": "PASS" if rr_pass else "FAIL",
-        "detail": f"Net R:R ước tính: 1:{sizing['estimated_net_rr']} (Gross: 1:{sizing['gross_rr']})",
+        "detail": rr_detail,
         "is_hard_filter": True
     })
 
-    # Filter 4: Risk & Day Limits
+    # Filter 4: Risk Budget & Day Limits
     daily_fills = day_audit.fills_count if day_audit else 0
     consecutive_losses = day_audit.consecutive_losses if day_audit else 0
     is_blocked_day = day_audit.is_blocked if day_audit else False
@@ -430,12 +517,16 @@ def evaluate_smc_setup(
     risk_detail = "Hạn mức ngày hợp lệ"
     if daily_fills >= 3:
         risk_detail = "Đã đạt tối đa 3 lệnh/ngày"
+        reason_code = "MAX_DAILY_ENTRIES"
     elif consecutive_losses >= 2:
         risk_detail = "Đã dừng giao dịch sau 2 lệnh lỗ liên tiếp"
+        reason_code = "MAX_CONSECUTIVE_LOSSES"
     elif in_cooldown:
-        risk_detail = f"Đang trong thời gian nghỉ ngơi (cooldown) {int((cooldown_until - now_ms)/1000)}s"
+        risk_detail = f"Đang trong thời gian cooldown: còn {int((cooldown_until - now_ms)/1000)}s"
+        reason_code = "COOLDOWN_ACTIVE"
     elif is_blocked_day:
         risk_detail = f"Ngày bị khóa: {day_audit.block_reason}"
+        reason_code = "DAILY_LOSS_CAP_EXCEEDED"
 
     checklist.append({
         "id": "RISK_BUDGET",
@@ -445,39 +536,33 @@ def evaluate_smc_setup(
         "is_hard_filter": True
     })
 
-    # Filter 5: Liquidity Sweep / Confirmation
+    # Filter 5: Liquidity Sweep
     sweep_pass = (has_sweep_low if setup_direction == "LONG" else (has_sweep_high if setup_direction == "SHORT" else False))
     checklist.append({
         "id": "LIQUIDITY_SWEEP",
-        "label": "Xác Nhận Liquidity Sweep & POI",
+        "label": "Xác Nhận Liquidity Sweep (Nến Đóng)",
         "status": "PASS" if sweep_pass else ("WAITING" if setup_direction else "FAIL"),
-        "detail": "Đã quét thanh khoản đáy và rút chân" if (setup_direction == "LONG" and sweep_pass) else (
-            "Đã quét thanh khoản đỉnh và rút chân" if (setup_direction == "SHORT" and sweep_pass) else "Chưa xuất hiện nến quét thanh khoản rõ rệt"
-        ),
+        "detail": "Đã quét thanh khoản và đóng nến rút chân hợp lệ" if sweep_pass else "Chưa có nến đóng quét thanh khoản",
         "is_hard_filter": True
     })
 
-    # Determine Engine State
+    # State Machine Assignment
     engine_state = "waiting_setup"
     if not news_pass:
         engine_state = "blocked_news"
+        reason_code = "NEWS_BLACKOUT"
     elif not risk_pass:
         engine_state = "blocked_risk"
     elif not data_fresh_pass:
         engine_state = "stale_data"
-    elif setup_direction and rr_pass:
-        if sweep_pass:
-            engine_state = "candidate"
-        else:
-            engine_state = "waiting_setup"
-            missing_conditions.append("Cần xác nhận Liquidity Sweep trước khi kích hoạt lệnh")
-    else:
-        if setup_direction and not rr_pass:
-            missing_conditions.append(f"Tỷ lệ Net R:R 1:{sizing['estimated_net_rr']} chưa đạt ngưỡng tối thiểu 2.0")
+        reason_code = "STALE_QUOTE"
+    elif setup_direction and rr_pass and sweep_pass and calc_res and calc_res.can_execute:
+        engine_state = "candidate"
+        reason_code = "SETUP_READY"
 
-    # Build Signal Overlay if candidate or armed
+    # Build Authoritative Active Signal
     active_signal = None
-    if setup_direction and (engine_state in ("candidate", "armed", "paper_open")):
+    if calc_res and calc_res.is_valid and (engine_state in ("candidate", "armed", "paper_open")):
         active_signal = {
             "id": f"setup-{symbol}-{timeframe}-{current_candle.timestamp}",
             "setup_id": f"setup-{current_candle.timestamp}",
@@ -485,29 +570,29 @@ def evaluate_smc_setup(
             "trade_id": None,
             "instrument": symbol,
             "direction": setup_direction,
-            "state": engine_state,
-            "planned_entry": planned_entry,
+            "state": "candidate",
+            "planned_entry": calc_res.planned_entry,
             "actual_entry": None,
-            "stop_loss": sl,
+            "stop_loss": calc_res.stop_loss,
             "targets": [
                 {
-                    "price": tp,
+                    "price": calc_res.take_profit,
                     "close_fraction": 1.0,
-                    "gross_rr": sizing["gross_rr"]
+                    "gross_rr": calc_res.gross_rr
                 }
             ],
-            "quantity": sizing["quantity"],
-            "initial_risk_usdt": sizing["initial_risk_usdt"],
+            "quantity": calc_res.quantity,
+            "initial_risk_usdt": calc_res.net_risk_usdt,
             "risk_pct": risk_pct,
-            "gross_rr": sizing["gross_rr"],
-            "estimated_net_rr": sizing["estimated_net_rr"],
-            "fees_assumption": sizing["fees_assumption"],
-            "slippage_assumption": sizing["slippage_assumption"],
+            "gross_rr": calc_res.gross_rr,
+            "estimated_net_rr": calc_res.net_rr,
+            "fees_assumption": calc_res.fees_total_usdt,
+            "slippage_assumption": calc_res.slippage_total_usdt,
             "created_at": now_ms,
-            "armed_at": now_ms if engine_state in ("armed", "candidate") else None,
+            "armed_at": None,
             "opened_at": None,
             "closed_at": None,
-            "expires_at": now_ms + (2 * 60 * 60 * 1000), # 2 hour expiry
+            "expires_at": now_ms + (2 * 60 * 60 * 1000),
             "actual_exit": None,
             "realized_pnl_net": None,
             "realized_r": None,
@@ -523,8 +608,8 @@ def evaluate_smc_setup(
         "bid": round(bid, 2),
         "ask": round(ask, 2),
         "trend": trend,
-        "htf_bias": "BULLISH" if trend in ("BULLISH", "RANGING") else "BEARISH",
-        "h1_alignment": "CONSENSUS" if trend != "UNKNOWN" else "NEUTRAL",
+        "htf_bias": final_htf_bias,
+        "h1_alignment": final_h1_align,
         "zone": zone,
         "equilibrium": round(eq, 2),
         "dealing_range": {
@@ -533,6 +618,8 @@ def evaluate_smc_setup(
         },
         "swing_high": round(last_sh, 2),
         "swing_low": round(last_sl, 2),
+        "swings": all_swings,
+        "structure_events": events,
         "last_event": last_event,
         "atr": round(atr, 2),
         "active_fvgs": active_fvgs,
@@ -540,6 +627,7 @@ def evaluate_smc_setup(
         "checklist": checklist,
         "active_signal": active_signal,
         "engine_state": engine_state,
+        "reason_code": reason_code,
         "last_analyzed_at": now_ms,
         "last_data_at": last_data_at,
         "missing_conditions": missing_conditions

@@ -229,12 +229,109 @@ def get_market_analysis(
     return analysis_result
 
 
+# In-memory persisted Auto Paper State
+auto_paper_state = {"enabled": True}
+
+# Background worker for exit checks independent of frontend chart
+async def background_exit_monitor():
+    while True:
+        try:
+            await asyncio.sleep(2.5)
+            # Create a localized DB session
+            from database import SessionLocal
+            db = SessionLocal()
+            try:
+                active = crud.get_active_position(db)
+                if active and active.state == "paper_open":
+                    ticker = bitget_data.fetch_ticker(active.instrument)
+                    PaperBroker.process_price_tick(
+                        db,
+                        current_bid=ticker["bid"],
+                        current_ask=ticker["ask"]
+                    )
+            finally:
+                db.close()
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            pass
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(background_exit_monitor())
+
+
 # ==================== 4. PAPER TRADING & RISK ====================
+
+@app.get("/api/v1/auto/state")
+def get_auto_state():
+    """Retrieve persisted auto paper trading state."""
+    return {"auto_paper_enabled": auto_paper_state["enabled"]}
+
+
+@app.post("/api/v1/auto/state")
+def set_auto_state(body: dict):
+    """Toggle auto paper trading state."""
+    enabled = bool(body.get("enabled", True))
+    auto_paper_state["enabled"] = enabled
+    return {"status": "success", "auto_paper_enabled": auto_paper_state["enabled"]}
+
+
+@app.post("/api/v1/orders/preview")
+def preview_order_calc(payload: dict):
+    """
+    Authoritative domain calculation preview for frontend draft tool or manual order entry.
+    """
+    from domain_calculator import calculate_risk_reward
+    direction = payload.get("direction", "LONG")
+    entry = float(payload.get("entry", 0))
+    sl = float(payload.get("stop_loss", 0))
+    tp = float(payload.get("take_profit", 0))
+    capital = float(payload.get("capital", 1000.0))
+    risk_pct = float(payload.get("risk_pct", 0.25))
+    qty_override = payload.get("quantity_override")
+
+    result = calculate_risk_reward(
+        direction=direction,
+        entry=entry,
+        sl=sl,
+        tp=tp,
+        capital=capital,
+        risk_pct=risk_pct,
+        quantity_override=float(qty_override) if qty_override is not None else None
+    )
+    return result.model_dump()
+
+
+@app.post("/api/v1/orders/amend/{order_id}")
+def amend_order_endpoint(order_id: str, payload: dict, db: Session = Depends(get_db)):
+    """Amend Stop Loss or Take Profit of an active paper position."""
+    new_sl = payload.get("stop_loss")
+    new_tp = payload.get("take_profit")
+    try:
+        updated = PaperBroker.amend_open_position(
+            db=db,
+            order_id=order_id,
+            new_sl=float(new_sl) if new_sl is not None else None,
+            new_tp=float(new_tp) if new_tp is not None else None
+        )
+        return {
+            "status": "success",
+            "message": f"Đã cập nhật vị thế {updated.id}: SL={updated.stop_loss}, TP={updated.take_profit}",
+            "order": schemas.PaperOrderResponse.model_validate(updated)
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 @app.get("/api/v1/account/status", response_model=schemas.DayAuditResponse)
 def get_account_status(db: Session = Depends(get_db)):
-    """Retrieve today's simulated equity, fill count, and risk limits."""
+    """
+    Retrieve today's simulated equity, separate position & fills counters, and risk limits.
+    Separates 'Vị thế đang mở' (0/1) from 'Lệnh đã vào hôm nay' (0/3).
+    """
     audit = crud.get_or_create_today_audit(db)
+    active_pos = crud.get_active_position(db)
     now_ms = int(time.time() * 1000)
     cooldown_sec = max(0, int((audit.cooldown_until - now_ms) / 1000)) if audit.cooldown_until else 0
 
@@ -244,6 +341,9 @@ def get_account_status(db: Session = Depends(get_db)):
         current_equity=audit.current_equity,
         realized_pnl_today=audit.realized_pnl_today,
         fills_count=audit.fills_count,
+        today_fills_count=audit.fills_count,
+        active_positions_count=1 if active_pos else 0,
+        armed_orders_count=0,
         max_daily_fills=3,
         consecutive_losses=audit.consecutive_losses,
         max_consecutive_losses=2,
@@ -251,7 +351,7 @@ def get_account_status(db: Session = Depends(get_db)):
         cooldown_remaining_sec=cooldown_sec,
         is_blocked=audit.is_blocked,
         block_reason=audit.block_reason,
-        auto_paper_active=True
+        auto_paper_active=auto_paper_state["enabled"]
     )
 
 
