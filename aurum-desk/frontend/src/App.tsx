@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChartComponent } from './ChartComponent';
 import { api } from './api/client';
 import type { RiskRewardData } from './plugins/RiskRewardPrimitive';
+import { TestingLabComponent } from './TestingLabComponent';
 import {
   Activity,
   ShieldAlert,
@@ -26,13 +27,39 @@ import {
   Smartphone,
   Copy,
   ListOrdered,
-  Compass
+  Compass,
+  FlaskConical
 } from 'lucide-react';
+
+export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION';
+
+export interface SelectedTradeIntent {
+  source: SelectionSource;
+  setup_id?: string;
+  setup_instance_id?: string;
+  revision?: number;
+  symbol: string;
+  timeframe: string;
+  direction: 'LONG' | 'SHORT';
+  plannedEntry: number;
+  stopLoss: number;
+  takeProfit?: number;
+  orderType: 'MARKET' | 'LIMIT' | 'STOP';
+  quantity: number;
+  initialRiskUsdt: number;
+  grossRR: number;
+  estimatedNetRR: number;
+  leverage: number;
+  marginMode: string;
+  estimatedLiquidation?: number | null;
+  status: string;
+  snapshotAt: number;
+}
 
 export function App() {
   // Navigation & Timeframe
   const [activeTab, setActiveTab] = useState<
-    'chart' | 'upcoming' | 'smc' | 'paper' | 'reports' | 'news' | 'journal' | 'telegram' | 'education'
+    'chart' | 'upcoming' | 'smc' | 'paper' | 'lab' | 'reports' | 'news' | 'journal' | 'telegram' | 'education'
   >('chart');
   const [timeframe, setTimeframe] = useState<string>('15M');
   const timeframes = [
@@ -51,6 +78,7 @@ export function App() {
   // Market & SMC State
   const [analysis, setAnalysis] = useState<any>(null);
   const [activeOverlay, setActiveOverlay] = useState<RiskRewardData | null>(null);
+  const [selectedIntent, setSelectedIntent] = useState<SelectedTradeIntent | null>(null);
   const [marketMatrix, setMarketMatrix] = useState<any>(null);
   const [rvolData, setRvolData] = useState<any>(null);
 
@@ -153,8 +181,30 @@ export function App() {
           estimatedLiquidation: p.estimated_liquidation,
         };
         setActiveOverlay(overlay);
+        setSelectedIntent({
+          source: 'OPEN_POSITION',
+          setup_id: p.setup_id,
+          setup_instance_id: p.setup_instance_id,
+          symbol: p.instrument || 'XAUUSDT',
+          timeframe: p.timeframe || timeframe,
+          direction: p.direction,
+          plannedEntry: p.actual_entry || p.planned_entry,
+          stopLoss: p.stop_loss,
+          takeProfit: p.take_profit,
+          orderType: p.order_type || 'MARKET',
+          quantity: p.quantity,
+          initialRiskUsdt: p.initial_risk_usdt,
+          grossRR: p.gross_rr,
+          estimatedNetRR: p.estimated_net_rr,
+          leverage: p.leverage,
+          marginMode: p.margin_mode,
+          estimatedLiquidation: p.estimated_liquidation,
+          status: 'paper_open',
+          snapshotAt: Date.now(),
+        });
       } else {
         setActivePosition(null);
+        setSelectedIntent((prev) => (prev?.source === 'OPEN_POSITION' ? null : prev));
       }
     } catch (err) {
       console.warn('Health check error:', err);
@@ -189,26 +239,57 @@ export function App() {
       if (rvolRes) setRvolData(rvolRes);
       if (matrixRes) setMarketMatrix(matrixRes);
 
-      // If no active open position, show candidate signal if available
+      // Only update candidate overlay if there's no open position AND user hasn't selected a watch setup or draft!
       if (!activePosition && analysisData?.active_signal) {
-        const sig = analysisData.active_signal;
-        const overlay: RiskRewardData = {
-          id: sig.id || sig.signal_id,
-          direction: sig.direction,
-          state: sig.state,
-          plannedEntry: sig.planned_entry,
-          stopLoss: sig.stop_loss,
-          takeProfit: sig.targets?.[0]?.price || sig.stop_loss,
-          quantity: sig.quantity,
-          initialRiskUsdt: sig.initial_risk_usdt,
-          riskPct: sig.risk_pct,
-          grossRR: sig.gross_rr,
-          estimatedNetRR: sig.estimated_net_rr,
-          leverage: leverage,
-          marginMode: marginMode,
-          estimatedLiquidation: sig.estimated_liquidation,
-        };
-        setActiveOverlay(overlay);
+        setSelectedIntent((prev) => {
+          // If user actively selected a watch setup or draft, DO NOT OVERWRITE!
+          if (prev && (prev.source === 'WATCH_SETUP' || prev.source === 'DRAFT')) {
+            return prev;
+          }
+          const sig = analysisData.active_signal;
+          const targetPrice = sig.targets?.[0]?.price ?? sig.take_profit;
+          const validTP = (targetPrice && targetPrice !== sig.stop_loss) ? targetPrice : undefined;
+
+          const overlay: RiskRewardData = {
+            id: sig.id || sig.signal_id,
+            direction: sig.direction,
+            state: sig.state,
+            plannedEntry: sig.planned_entry,
+            stopLoss: sig.stop_loss,
+            takeProfit: validTP || sig.planned_entry,
+            quantity: sig.quantity,
+            initialRiskUsdt: sig.initial_risk_usdt,
+            riskPct: sig.risk_pct,
+            grossRR: sig.gross_rr,
+            estimatedNetRR: sig.estimated_net_rr,
+            leverage: leverage,
+            marginMode: marginMode,
+            estimatedLiquidation: sig.estimated_liquidation,
+          };
+          setActiveOverlay(overlay);
+          return {
+            source: 'LIVE_CANDIDATE',
+            setup_id: sig.setup_id,
+            setup_instance_id: sig.id || sig.signal_id,
+            revision: 1,
+            symbol: 'XAUUSDT',
+            timeframe: timeframe,
+            direction: sig.direction,
+            plannedEntry: sig.planned_entry,
+            stopLoss: sig.stop_loss,
+            takeProfit: validTP,
+            orderType: 'MARKET',
+            quantity: sig.quantity,
+            initialRiskUsdt: sig.initial_risk_usdt,
+            grossRR: sig.gross_rr,
+            estimatedNetRR: sig.estimated_net_rr,
+            leverage: leverage,
+            marginMode: marginMode,
+            estimatedLiquidation: sig.estimated_liquidation,
+            status: sig.state,
+            snapshotAt: Date.now(),
+          };
+        });
       }
     } catch (err) {
       console.warn('SMC analysis error:', err);
@@ -335,35 +416,117 @@ export function App() {
   }, [activeTab, selectedEdu]);
 
   // Action Handlers
+  const handleFollowLatestSignal = () => {
+    if (analysis?.active_signal) {
+      const sig = analysis.active_signal;
+      const targetPrice = sig.targets?.[0]?.price ?? sig.take_profit;
+      const validTP = (targetPrice && targetPrice !== sig.stop_loss) ? targetPrice : undefined;
+
+      const overlay: RiskRewardData = {
+        id: sig.id || sig.signal_id,
+        direction: sig.direction,
+        state: sig.state,
+        plannedEntry: sig.planned_entry,
+        stopLoss: sig.stop_loss,
+        takeProfit: validTP || sig.planned_entry,
+        quantity: sig.quantity,
+        initialRiskUsdt: sig.initial_risk_usdt,
+        riskPct: sig.risk_pct,
+        grossRR: sig.gross_rr,
+        estimatedNetRR: sig.estimated_net_rr,
+        leverage: leverage,
+        marginMode: marginMode,
+        estimatedLiquidation: sig.estimated_liquidation,
+      };
+      setActiveOverlay(overlay);
+      setSelectedIntent({
+        source: 'LIVE_CANDIDATE',
+        setup_id: sig.setup_id,
+        setup_instance_id: sig.id || sig.signal_id,
+        revision: 1,
+        symbol: 'XAUUSDT',
+        timeframe: timeframe,
+        direction: sig.direction,
+        plannedEntry: sig.planned_entry,
+        stopLoss: sig.stop_loss,
+        takeProfit: validTP,
+        orderType: 'MARKET',
+        quantity: sig.quantity,
+        initialRiskUsdt: sig.initial_risk_usdt,
+        grossRR: sig.gross_rr,
+        estimatedNetRR: sig.estimated_net_rr,
+        leverage: leverage,
+        marginMode: marginMode,
+        estimatedLiquidation: sig.estimated_liquidation,
+        status: sig.state,
+        snapshotAt: Date.now(),
+      });
+      showToast('Theo Tín Hiệu Mới Nhất', `Đã chuyển sang tín hiệu SMC ${sig.direction}`, 'info');
+    }
+  };
+
   const handleOpenPaperTrade = async () => {
-    if (!analysis?.active_signal) return;
-    const sig = analysis.active_signal;
-    const targetPrice = sig.targets?.[0]?.price ?? sig.take_profit;
+    const intent = selectedIntent || (analysis?.active_signal ? {
+      source: 'LIVE_CANDIDATE' as const,
+      setup_id: analysis.active_signal.setup_id,
+      setup_instance_id: analysis.active_signal.id || analysis.active_signal.signal_id,
+      direction: analysis.active_signal.direction,
+      timeframe: timeframe,
+      plannedEntry: analysis.active_signal.planned_entry,
+      stopLoss: analysis.active_signal.stop_loss,
+      takeProfit: analysis.active_signal.targets?.[0]?.price ?? analysis.active_signal.take_profit,
+      quantity: analysis.active_signal.quantity,
+      initialRiskUsdt: analysis.active_signal.initial_risk_usdt,
+      grossRR: analysis.active_signal.gross_rr,
+      estimatedNetRR: analysis.active_signal.estimated_net_rr,
+      orderType: 'MARKET' as const,
+      leverage: leverage,
+      marginMode: marginMode,
+      symbol: 'XAUUSDT',
+      status: analysis.active_signal.state,
+      snapshotAt: Date.now()
+    } : null);
+
+    if (!intent) return;
+    if (!intent.takeProfit || intent.takeProfit === intent.stopLoss) {
+      alert('Không thể mở lệnh: Thiếu mức Take Profit hợp lệ hoặc TP bằng SL.');
+      return;
+    }
+
     try {
       await api.createPaperOrder({
-        setup_id: sig.setup_id,
-        signal_id: sig.signal_id,
+        setup_id: intent.setup_id,
+        signal_id: intent.setup_instance_id || `sig-${Date.now()}`,
+        setup_instance_id: intent.setup_instance_id,
         instrument: 'XAUUSDT',
-        direction: sig.direction,
+        direction: intent.direction,
+        expected_direction: intent.direction,
+        idempotency_key: `order-${intent.setup_id || Date.now()}-${Date.now()}`,
         state: 'paper_open',
-        order_type: 'MARKET',
-        timeframe: timeframe,
-        planned_entry: sig.planned_entry,
-        stop_loss: sig.stop_loss,
-        take_profit: targetPrice,
-        quantity: sig.quantity,
-        initial_risk_usdt: sig.initial_risk_usdt,
-        risk_pct: sig.risk_pct,
-        gross_rr: sig.gross_rr,
-        estimated_net_rr: sig.estimated_net_rr,
-        leverage: leverage,
-        margin_mode: marginMode,
+        order_type: intent.orderType || 'MARKET',
+        timeframe: intent.timeframe || timeframe,
+        planned_entry: intent.plannedEntry,
+        stop_loss: intent.stopLoss,
+        take_profit: intent.takeProfit,
+        quantity: intent.quantity,
+        initial_risk_usdt: intent.initialRiskUsdt,
+        risk_pct: riskPct,
+        gross_rr: intent.grossRR,
+        estimated_net_rr: intent.estimatedNetRR,
+        leverage: intent.leverage || leverage,
+        margin_mode: intent.marginMode || marginMode,
       });
       await refreshAccountAndHealth();
-      showToast('Đã Mở Lệnh', `Khớp lệnh thị trường ${sig.direction} XAUUSDT thành công`, 'success');
+      showToast('Đã Mở Lệnh', `Khớp lệnh thị trường ${intent.direction} XAUUSDT thành công`, 'success');
       setActiveTab('chart');
     } catch (err: any) {
-      alert(err.response?.data?.detail || err.message || 'Không thể mở lệnh paper trade');
+      if (err.response?.status === 409) {
+        const detail = err.response?.data?.detail;
+        const msg = typeof detail === 'object' ? detail.message : detail;
+        alert(`Lệnh bị từ chối do xung đột (409): ${msg}`);
+      } else {
+        alert(err.response?.data?.detail || err.message || 'Không thể mở lệnh paper trade');
+      }
     }
   };
 
@@ -379,14 +542,27 @@ export function App() {
     }
   };
 
-  const handleArmWatchSetup = async (setupId: string) => {
+  const handleArmWatchSetup = async (setupId: string, direction?: string, instanceId?: string, revision?: number) => {
+    const targetDirection = (direction || selectedIntent?.direction || 'LONG') as 'LONG' | 'SHORT';
     try {
-      const res = await api.armSetup(setupId);
+      const res = await api.armSetup(setupId, {
+        setup_id: setupId,
+        setup_instance_id: instanceId || selectedIntent?.setup_instance_id,
+        expected_revision: revision || selectedIntent?.revision,
+        expected_direction: targetDirection,
+        idempotency_key: `arm-${setupId}-${Date.now()}`
+      });
       showToast('Lệnh Đã Armed', res.message || 'Đã arm setup thành công', 'success');
       await refreshUpcoming();
       await refreshAccountAndHealth();
     } catch (err: any) {
-      alert(err.response?.data?.detail || err.message || 'Lỗi khi arm setup');
+      if (err.response?.status === 409) {
+        const detail = err.response?.data?.detail;
+        const msg = typeof detail === 'object' ? detail.message : detail;
+        alert(`Setup đã thay đổi (409): ${msg || 'Setup bạn chọn đã thay đổi trạng thái hoặc hướng; hãy xem lại.'}`);
+      } else {
+        alert(err.response?.data?.detail || err.message || 'Lỗi khi arm setup');
+      }
     }
   };
 
@@ -422,6 +598,33 @@ export function App() {
       estimatedLiquidation: setup.estimated_liquidation,
     };
     setActiveOverlay(overlay);
+    setSelectedIntent({
+      source: 'WATCH_SETUP',
+      setup_id: setup.id,
+      setup_instance_id: setup.setup_instance_id,
+      revision: setup.version || 1,
+      symbol: 'XAUUSDT',
+      timeframe: setup.timeframe || '15M',
+      direction: setup.direction,
+      plannedEntry: setup.confirmed_entry || setup.provisional_entry,
+      stopLoss: setup.confirmed_sl || setup.provisional_sl,
+      takeProfit: setup.confirmed_tp || setup.provisional_tp,
+      orderType: setup.state === 'READY' ? 'MARKET' : 'LIMIT',
+      quantity: setup.quantity || 0.05,
+      initialRiskUsdt: setup.risk_usdt || 2.5,
+      grossRR: setup.gross_rr || 2.0,
+      estimatedNetRR: setup.net_rr || 2.0,
+      leverage: setup.leverage || leverage,
+      marginMode: setup.margin_mode || marginMode,
+      estimatedLiquidation: setup.estimated_liquidation,
+      status: setup.state,
+      snapshotAt: Date.now(),
+    });
+    showToast(
+      `Đã Chọn Setup ${setup.direction}`,
+      `Đã cố định setup ${setup.direction} trên chart và nút mở lệnh. Polling nền sẽ không ghi đè.`,
+      'info'
+    );
   };
 
   const handleCopySetupToDraft = (setup: any) => {
@@ -444,6 +647,26 @@ export function App() {
       estimatedLiquidation: setup.estimated_liquidation,
     };
     setActiveOverlay(overlay);
+    setSelectedIntent({
+      source: 'DRAFT',
+      setup_id: `draft-${Date.now()}`,
+      symbol: 'XAUUSDT',
+      timeframe: setup.timeframe || '15M',
+      direction: setup.direction,
+      plannedEntry: setup.confirmed_entry || setup.provisional_entry,
+      stopLoss: setup.confirmed_sl || setup.provisional_sl,
+      takeProfit: setup.confirmed_tp || setup.provisional_tp,
+      orderType: 'LIMIT',
+      quantity: setup.quantity || 0.05,
+      initialRiskUsdt: setup.risk_usdt || 2.5,
+      grossRR: setup.gross_rr || 2.0,
+      estimatedNetRR: setup.net_rr || 2.0,
+      leverage: setup.leverage || leverage,
+      marginMode: setup.margin_mode || marginMode,
+      estimatedLiquidation: setup.estimated_liquidation,
+      status: 'draft',
+      snapshotAt: Date.now(),
+    });
     showToast('Bản Nháp (Draft)', 'Đã sao chép mức giá sang thước đo R:R trên chart. Bạn có thể kéo thả để điều chỉnh.', 'info');
   };
 
@@ -669,6 +892,7 @@ export function App() {
           { id: 'upcoming', label: 'Kế Hoạch & Lệnh Dự Kiến', icon: ListOrdered },
           { id: 'smc', label: 'Phân Tích SMC & Ma Trận', icon: Layers },
           { id: 'paper', label: 'Quản Trị Vốn & Ký Quỹ', icon: ShieldAlert },
+          { id: 'lab', label: 'Phòng Kiểm Thử Rủi Ro', icon: FlaskConical },
           { id: 'reports', label: 'Nghiên Cứu Phiên & Ngày', icon: Calendar },
           { id: 'news', label: 'Tin Tức & Blackout', icon: Clock },
           { id: 'journal', label: 'Nhật Ký & Bài Học', icon: History },
@@ -714,7 +938,33 @@ export function App() {
                 marginMode={marginMode}
                 rvolData={rvolData}
                 activeOverlay={activeOverlay}
-                onOverlayChange={(updated) => setActiveOverlay(updated)}
+                onOverlayChange={(updated) => {
+                  setActiveOverlay(updated);
+                  if (updated) {
+                    setSelectedIntent((prev) => ({
+                      source: prev?.source === 'WATCH_SETUP' ? 'WATCH_SETUP' : 'DRAFT',
+                      setup_id: prev?.setup_id || updated.id,
+                      setup_instance_id: prev?.setup_instance_id,
+                      revision: prev?.revision || 1,
+                      symbol: 'XAUUSDT',
+                      timeframe: timeframe,
+                      direction: updated.direction,
+                      plannedEntry: updated.plannedEntry,
+                      stopLoss: updated.stopLoss,
+                      takeProfit: updated.takeProfit,
+                      orderType: 'LIMIT',
+                      quantity: updated.quantity,
+                      initialRiskUsdt: updated.initialRiskUsdt,
+                      grossRR: updated.grossRR,
+                      estimatedNetRR: updated.estimatedNetRR,
+                      leverage: updated.leverage || leverage,
+                      marginMode: updated.marginMode || marginMode,
+                      estimatedLiquidation: updated.estimatedLiquidation,
+                      status: updated.state,
+                      snapshotAt: Date.now(),
+                    }));
+                  }
+                }}
                 smcLevels={{
                   swingHigh: analysis?.swing_high,
                   swingLow: analysis?.swing_low,
@@ -1028,11 +1278,11 @@ export function App() {
                           <div className="flex gap-2">
                             {['READY', 'WAITING_PRICE', 'WAITING_RETRACE'].includes(s.state) && (
                               <button
-                                onClick={() => handleArmWatchSetup(s.id)}
+                                onClick={() => handleArmWatchSetup(s.id, s.direction, s.setup_instance_id, s.version)}
                                 className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-xs transition shadow-sm"
                               >
                                 <PlayCircle className="w-3.5 h-3.5" />
-                                <span>Arm Lệnh Paper Thủ Công</span>
+                                <span>Arm {s.direction} — PAPER</span>
                               </button>
                             )}
 
@@ -1344,6 +1594,11 @@ export function App() {
                 </p>
               </div>
             </div>
+          )}
+
+          {/* TAB: PHÒNG KIỂM THỬ RỦI RO (TESTING LAB) */}
+          {activeTab === 'lab' && (
+            <TestingLabComponent onNotify={showToast} />
           )}
 
           {/* TAB: BÁO CÁO PHIÊN & NGÀY */}
@@ -2064,38 +2319,85 @@ export function App() {
               </button>
             </div>
           ) : (
-            /* Candidate Signal Card */
+            /* Selected Trade Intent / Candidate Card */
             <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-4 shadow-lg flex flex-col gap-3">
               <div className="flex justify-between items-center border-b border-charcoal-750 pb-2">
-                <span className="text-xs font-bold text-aurum-400">TÍN HIỆU SMC TIẾP THEO</span>
-                <span className="text-[10px] text-gray-400">{timeframe}</span>
+                <span className="text-xs font-bold text-aurum-400">
+                  {selectedIntent?.source === 'WATCH_SETUP'
+                    ? 'SETUP ĐANG CHỌN (WATCHBOARD)'
+                    : selectedIntent?.source === 'DRAFT'
+                    ? 'BẢN NHÁP R:R (TRÊN CHART)'
+                    : 'TÍN HIỆU SMC TIẾP THEO'}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-gray-400">{selectedIntent?.timeframe || timeframe}</span>
+                  {selectedIntent && selectedIntent.source !== 'LIVE_CANDIDATE' && (
+                    <button
+                      onClick={handleFollowLatestSignal}
+                      title="Quay lại tín hiệu phân tích SMC mới nhất"
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-charcoal-800 hover:bg-charcoal-750 text-aurum-400 border border-aurum-500/30 flex items-center gap-1 transition"
+                    >
+                      <RefreshCw className="w-2.5 h-2.5" />
+                      Theo tín hiệu mới nhất
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {analysis?.active_signal ? (
+              {selectedIntent ? (
                 <div className="space-y-2 text-xs">
                   <div className="p-2.5 rounded bg-charcoal-850 border border-charcoal-700">
                     <div className="flex justify-between font-bold text-sm mb-1">
-                      <span className={analysis.active_signal.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}>
-                        {analysis.active_signal.direction} XAUUSDT
+                      <span className={selectedIntent.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}>
+                        {selectedIntent.direction} XAUUSDT
                       </span>
-                      <span className="text-aurum-400">R:R 1:{analysis.active_signal.gross_rr}</span>
+                      <span className="text-aurum-400">R:R 1:{selectedIntent.grossRR}</span>
                     </div>
                     <div className="text-[11px] text-gray-400 space-y-0.5">
-                      <p>Kế hoạch Entry: ${analysis.active_signal.planned_entry}</p>
-                      <p>Stop Loss: ${analysis.active_signal.stop_loss}</p>
-                      <p>Take Profit: ${analysis.active_signal.targets?.[0]?.price}</p>
+                      <p>Kế hoạch Entry: ${selectedIntent.plannedEntry}</p>
+                      <p>Stop Loss: ${selectedIntent.stopLoss}</p>
                       <p>
-                        Ký quỹ ước tính: ${(analysis.active_signal.initial_margin || 0).toFixed(2)} USDT ({leverage}x)
+                        Take Profit:{' '}
+                        {selectedIntent.takeProfit && selectedIntent.takeProfit !== selectedIntent.stopLoss
+                          ? `$${selectedIntent.takeProfit}`
+                          : 'Chưa có TP (Không đủ điều kiện)'}
                       </p>
+                      <p>
+                        Khối lượng: {selectedIntent.quantity} oz | Ký quỹ: ${(selectedIntent.initialRiskUsdt * 2).toFixed(2)} USDT ({leverage}x)
+                      </p>
+                      {selectedIntent.status && (
+                        <p className="text-[10px] text-gray-400 font-mono">
+                          Trạng thái: <span className="text-aurum-400">{selectedIntent.status}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  <button
-                    onClick={handleOpenPaperTrade}
-                    className="w-full py-2 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition shadow-sm"
-                  >
-                    Vào Lệnh Giả Lập ({riskPct}% Risk)
-                  </button>
+                  {selectedIntent.source === 'WATCH_SETUP' ? (
+                    <button
+                      onClick={() =>
+                        handleArmWatchSetup(
+                          selectedIntent.setup_id!,
+                          selectedIntent.direction,
+                          selectedIntent.setup_instance_id,
+                          selectedIntent.revision
+                        )
+                      }
+                      className="w-full py-2 bg-gradient-to-r from-aurum-500 to-aurum-600 hover:from-aurum-400 hover:to-aurum-500 text-charcoal-950 font-bold rounded text-xs transition shadow-sm"
+                    >
+                      Arm {selectedIntent.direction} — PAPER
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleOpenPaperTrade}
+                      disabled={!selectedIntent.takeProfit || selectedIntent.takeProfit === selectedIntent.stopLoss}
+                      className="w-full py-2 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {!selectedIntent.takeProfit || selectedIntent.takeProfit === selectedIntent.stopLoss
+                        ? 'Thiếu TP (Chưa đủ điều kiện)'
+                        : `Mở ${selectedIntent.direction} ${selectedIntent.orderType} — PAPER`}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="p-3 text-center text-xs text-gray-400 italic bg-charcoal-850 rounded border border-charcoal-750">

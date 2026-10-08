@@ -124,7 +124,9 @@ def run_migration():
             ("leverage", "INTEGER DEFAULT 5"),
             ("margin_mode", "VARCHAR(20) DEFAULT 'ISOLATED'"),
             ("estimated_liquidation", "FLOAT"),
-            ("initial_margin", "FLOAT")
+            ("initial_margin", "FLOAT"),
+            ("idempotency_key", "VARCHAR(100)"),
+            ("setup_instance_id", "VARCHAR(100)")
         ]
         for col_name, col_def in new_cols:
             if col_name not in existing_cols:
@@ -132,6 +134,7 @@ def run_migration():
                 print(f"[+] Added column {col_name} to paper_orders")
 
     cur.execute("CREATE INDEX IF NOT EXISTS ix_paper_orders_state ON paper_orders(state);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_paper_orders_idempotency ON paper_orders(idempotency_key);")
 
     # 3. Day Audits table
     cur.execute("""

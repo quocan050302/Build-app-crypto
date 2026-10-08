@@ -70,9 +70,12 @@ class PaperOrder(Base):
     closed_at = Column(BigInteger, nullable=True)
     expires_at = Column(BigInteger, nullable=True)
 
-    # Context snapshot
     checklist_snapshot = Column(Text, nullable=True)  # JSON
     lessons_retrieved = Column(Text, nullable=True)   # JSON
+
+    # V5 Idempotency and Instance tracking
+    idempotency_key = Column(String(100), nullable=True, index=True)
+    setup_instance_id = Column(String(100), nullable=True, index=True)
 
 
 class DayAudit(Base):

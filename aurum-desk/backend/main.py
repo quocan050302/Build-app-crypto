@@ -26,6 +26,10 @@ from services.volume_service import volume_analyzer
 from services.proximity_service import proximity_service
 from services.trade_lifecycle_service import TradeLifecycleService
 from domain_calculator import calculate_risk_reward
+from services.quote_validator import QuoteValidator
+from lab.scenario_runner import ScenarioRunner
+from lab.replay_engine import ReplayEngine
+from lab.stress_tester import StressTester
 
 # Ensure all tables exist
 models.Base.metadata.create_all(bind=engine)
@@ -437,14 +441,77 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
 
 
 @app.post("/api/v1/setups/arm/{setup_id}")
-def manual_arm_setup(setup_id: str, db: Session = Depends(get_db)):
-    """Manually arm a READY watch setup into a pending paper order."""
-    watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == setup_id).first()
+@app.post("/api/v1/setups/arm")
+def manual_arm_setup(
+    setup_id: Optional[str] = None,
+    req_body: Optional[schemas.ArmSetupRequest] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually arm a READY/WAITING watch setup into a pending paper order.
+    V5 Guards:
+    - Atomically validates authoritative direction vs requested expected_direction.
+    - If direction changed or revision mismatch -> returns 409 SETUP_CHANGED with sanitized error.
+    - Idempotency guard: duplicate submit with same idempotency_key returns original order.
+    - Correct order type: supports MARKET/LIMIT/STOP (WAITING_PRICE/RETRACE defaults to LIMIT).
+    """
+    target_id = req_body.setup_id if req_body and req_body.setup_id else setup_id
+    if not target_id:
+        raise HTTPException(status_code=400, detail="Thiếu setup_id")
+
+    # 1. Idempotency Check
+    if req_body and req_body.idempotency_key:
+        existing = db.query(models.PaperOrder).filter(models.PaperOrder.idempotency_key == req_body.idempotency_key).first()
+        if existing:
+            return {
+                "status": "success",
+                "message": f"Lệnh đã được Arm trước đó (Idempotent: {existing.id})",
+                "order_id": existing.id
+            }
+
+    watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == target_id).first()
     if not watch_setup:
         raise HTTPException(status_code=404, detail="Không tìm thấy setup với ID này")
 
+    # 2. Setup Direction and Instance Verification (Atomic Snapshot Check)
+    if req_body:
+        if req_body.expected_direction and watch_setup.direction != req_body.expected_direction:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "SETUP_CHANGED",
+                    "message": f"Setup {req_body.expected_direction} bạn chọn đã thay đổi thành {watch_setup.direction}; hãy xem lại.",
+                    "current_direction": watch_setup.direction,
+                    "expected_direction": req_body.expected_direction,
+                    "setup_id": watch_setup.id
+                }
+            )
+        if req_body.setup_instance_id and watch_setup.setup_instance_id and watch_setup.setup_instance_id != req_body.setup_instance_id:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "SETUP_CHANGED",
+                    "message": "Phiên bản setup instance đã thay đổi, vui lòng làm mới.",
+                    "current_instance_id": watch_setup.setup_instance_id,
+                    "expected_instance_id": req_body.setup_instance_id
+                }
+            )
+        if req_body.expected_revision is not None and watch_setup.version != req_body.expected_revision:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "SETUP_CHANGED",
+                    "message": f"Revision setup đã đổi từ v{req_body.expected_revision} sang v{watch_setup.version}.",
+                    "current_revision": watch_setup.version,
+                    "expected_revision": req_body.expected_revision
+                }
+            )
+
     if watch_setup.state not in ("READY", "WAITING_PRICE", "WAITING_RETRACE"):
-        raise HTTPException(status_code=400, detail=f"Không thể Arm setup đang ở trạng thái {watch_setup.state}. Chỉ arm khi setup READY hoặc chờ khớp.")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Không thể Arm setup đang ở trạng thái {watch_setup.state}. Chỉ arm khi setup READY hoặc chờ khớp."
+        )
 
     # Guard: check if an armed order or active position already exists
     active_pos = crud.get_active_position(db)
@@ -458,14 +525,23 @@ def manual_arm_setup(setup_id: str, db: Session = Depends(get_db)):
     now_ms = int(time.time() * 1000)
     order_id = f"order-{uuid.uuid4().hex[:8]}"
 
+    # Distinguish order type properly (Requirement 4.4)
+    order_type = "MARKET"
+    if req_body and req_body.order_type:
+        order_type = req_body.order_type.upper()
+    elif watch_setup.state in ("WAITING_PRICE", "WAITING_RETRACE"):
+        order_type = "LIMIT"
+
     new_order = models.PaperOrder(
         id=order_id,
         setup_id=watch_setup.id,
+        setup_instance_id=watch_setup.setup_instance_id or (req_body.setup_instance_id if req_body else None),
+        idempotency_key=req_body.idempotency_key if req_body else None,
         signal_id=f"sig-{now_ms}",
         instrument="XAUUSDT",
         direction=watch_setup.direction,
         state="armed",
-        order_type="MARKET",
+        order_type=order_type,
         timeframe=watch_setup.timeframe,
         planned_entry=watch_setup.provisional_entry,
         stop_loss=watch_setup.provisional_sl,
@@ -492,7 +568,7 @@ def manual_arm_setup(setup_id: str, db: Session = Depends(get_db)):
             "order_id": order_id,
             "setup_id": watch_setup.id,
             "direction": watch_setup.direction,
-            "order_type": "MARKET",
+            "order_type": order_type,
             "planned_entry": watch_setup.provisional_entry,
             "stop_loss": watch_setup.provisional_sl,
             "take_profit": watch_setup.provisional_tp,
@@ -504,7 +580,7 @@ def manual_arm_setup(setup_id: str, db: Session = Depends(get_db)):
     )
     db.commit()
 
-    return {"status": "success", "message": f"Đã Arm lệnh cho setup {setup_id}", "order_id": order_id}
+    return {"status": "success", "message": f"Đã Arm lệnh {order_type} cho setup {target_id}", "order_id": order_id}
 
 
 @app.post("/api/v1/setups/cancel/{setup_id}")
@@ -665,7 +741,44 @@ def get_active_paper_position(db: Session = Depends(get_db)):
 
 @app.post("/api/v1/orders/paper")
 def create_paper_order(order: schemas.PaperOrderCreate, db: Session = Depends(get_db)):
+    """
+    Execute a paper market order with V5 execution guards:
+    - Idempotency guard: duplicate submit with same idempotency_key returns original order.
+    - Direction verification: fails with 409 if expected_direction mismatches order direction.
+    - Authoritative quote freshness validation via QuoteValidator.
+    """
+    # 1. Idempotency check
+    if order.idempotency_key:
+        existing = db.query(models.PaperOrder).filter(models.PaperOrder.idempotency_key == order.idempotency_key).first()
+        if existing:
+            return {
+                "status": "success",
+                "message": f"Lệnh đã tồn tại (Idempotent: {existing.id})",
+                "order": schemas.PaperOrderResponse.model_validate(existing)
+            }
+
+    # 2. Expected direction check
+    if order.expected_direction and order.expected_direction != order.direction:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "SETUP_CHANGED",
+                "message": f"Direction conflict: expected {order.expected_direction} but order was {order.direction}",
+                "expected": order.expected_direction,
+                "actual": order.direction
+            }
+        )
+
+    # 3. Quote freshness check
     ticker = collector_service.latest_ticker or bitget_data.fetch_ticker(order.instrument)
+    now_ms = int(time.time() * 1000)
+    validation = QuoteValidator.validate_ticker(ticker, now_ms=now_ms)
+    if not validation.is_valid:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Báo giá không hợp lệ hoặc bị stale ({validation.reason}). Không thể mở lệnh thị trường."
+        )
+
     try:
         created_order = PaperBroker.execute_market_order(
             db=db,
@@ -984,3 +1097,38 @@ Nguyên tắc quản trị rủi ro nghiêm ngặt của Aurum Desk:
             """
         }
     ]
+
+
+# ==================== 11. TESTING LAB & VERIFICATION ====================
+
+@app.get("/api/v1/lab/scenarios")
+def get_lab_scenarios():
+    """Retrieve list of all deterministic scenarios."""
+    return {"scenarios": ScenarioRunner.list_scenarios()}
+
+@app.post("/api/v1/lab/scenarios/run/{scenario_id}", response_model=schemas.ScenarioRunResponse)
+def run_lab_scenario(scenario_id: str):
+    """Run a specific deterministic scenario against the real implementation."""
+    return ScenarioRunner.run_scenario(scenario_id)
+
+@app.post("/api/v1/lab/scenarios/run-all")
+def run_all_lab_scenarios():
+    """Run all 13 deterministic scenarios in isolated lab databases."""
+    results = ScenarioRunner.run_all()
+    all_passed = all(r.status == "PASS" for r in results)
+    return {
+        "status": "PASS" if all_passed else "FAIL",
+        "passed_count": sum(1 for r in results if r.status == "PASS"),
+        "total_count": len(results),
+        "results": results
+    }
+
+@app.post("/api/v1/lab/replay/run", response_model=schemas.ReplayRunResponse)
+def run_lab_replay(request: schemas.ReplayRunRequest):
+    """Run isolated historical backtest/replay with zero-lookahead and full cost modeling."""
+    return ReplayEngine.run_replay(request)
+
+@app.post("/api/v1/lab/stress/run", response_model=schemas.StressTestResponse)
+def run_lab_stress(request: schemas.StressTestRequest):
+    """Run parametric stress test matrix varying spread, slippage, fees, and latency."""
+    return StressTester.run_stress_test(request)

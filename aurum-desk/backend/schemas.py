@@ -61,9 +61,21 @@ class PaperOrderBase(BaseModel):
     initial_margin: Optional[float] = None
     strategy_version: str = "1.0.0"
 
+class ArmSetupRequest(BaseModel):
+    setup_id: str
+    setup_instance_id: Optional[str] = None
+    expected_revision: Optional[int] = None
+    expected_direction: str  # "LONG" or "SHORT"
+    idempotency_key: Optional[str] = None
+    order_type: Optional[str] = None  # None/MARKET/LIMIT/STOP
+
 class PaperOrderCreate(PaperOrderBase):
     checklist_snapshot: Optional[str] = None
     lessons_retrieved: Optional[str] = None
+    expected_direction: Optional[str] = None
+    expected_revision: Optional[int] = None
+    setup_instance_id: Optional[str] = None
+    idempotency_key: Optional[str] = None
 
 class PaperOrderResponse(PaperOrderBase):
     id: str
@@ -383,16 +395,75 @@ class RvolResponse(BaseModel):
     samples_used: int
     unit: str
 
-# Replay Run Schemas
+# ==================== LAB & TESTING SCHEMAS ====================
+
+class ScenarioStepResult(BaseModel):
+    step_index: int
+    name: str
+    status: str  # PASS / FAIL / SKIPPED
+    expected: str
+    actual: str
+    detail: Optional[str] = None
+    timestamp: int
+    payload: Optional[Dict[str, Any]] = None
+
+class ScenarioRunResponse(BaseModel):
+    scenario_id: str
+    name: str
+    description: str
+    status: str  # PASS / FAIL
+    steps: List[ScenarioStepResult]
+    started_at: int
+    completed_at: int
+    duration_ms: int
+    error: Optional[str] = None
+
+class ReplayTradeItem(BaseModel):
+    id: str
+    setup_id: Optional[str] = None
+    direction: str  # LONG / SHORT
+    order_type: str
+    entry_time: int
+    entry_price: float
+    exit_time: Optional[int] = None
+    exit_price: Optional[float] = None
+    exit_cause: Optional[str] = None
+    stop_loss: float
+    take_profit: float
+    quantity: float
+    initial_risk_usdt: float
+    gross_pnl: float
+    fees: float
+    slippage: float
+    net_pnl: float
+    realized_r: float
+    session: str  # TOKYO / LONDON / NEW_YORK / OVERLAP
+    is_ambiguous: bool = False
+    status: str  # CLOSED / OPEN
+
+class EquityPoint(BaseModel):
+    timestamp: int
+    equity: float
+    drawdown_usdt: float
+    drawdown_pct: float
+    daily_date: str
+
 class ReplayRunRequest(BaseModel):
-    run_name: str
+    run_name: str = "Backtest XAUUSDT"
     symbol: str = "XAUUSDT"
-    start_ts: int
-    end_ts: int
+    start_ts: Optional[int] = None
+    end_ts: Optional[int] = None
+    timeframe: str = "15M"
     initial_equity: float = 1000.0
     risk_pct: float = 0.25
     leverage: int = 5
     margin_mode: str = "ISOLATED"
+    spread_multiplier: float = 1.0
+    slippage_multiplier: float = 1.0
+    fee_rate: float = 0.0004
+    speed_ms: int = 10
+    seed: int = 42
+    custom_candles_json: Optional[str] = None
 
 class ReplayRunResponse(BaseModel):
     id: str
@@ -403,12 +474,55 @@ class ReplayRunResponse(BaseModel):
     initial_equity: float
     final_equity: float
     total_trades: int
-    net_wins: int
-    net_losses: int
+    wins: int
+    losses: int
     breakevens: int
-    win_rate: float
+    win_rate_pct: float
     profit_factor: float
-    max_drawdown: float
+    max_drawdown_usdt: float
+    max_drawdown_pct: float
     expectancy_r: float
+    total_net_pnl: float
+    total_fees: float
+    total_slippage: float
+    worst_day_pnl: float
+    max_consecutive_losses: int
+    loss_budget_breaches: int
+    signals_count: int
+    rejected_count: int
+    trades: List[ReplayTradeItem]
+    equity_curve: List[EquityPoint]
+    session_breakdown: Dict[str, Any]
+    rejection_reasons: Dict[str, int]
+    warnings: List[str]
     created_at: int
     model_config = ConfigDict(from_attributes=True)
+
+class StressTestRequest(BaseModel):
+    run_name: str = "Stress Test Matrix"
+    symbol: str = "XAUUSDT"
+    spread_multipliers: List[float] = [1.0, 2.0, 3.0]
+    slippage_multipliers: List[float] = [1.0, 2.0, 3.0]
+    fee_multipliers: List[float] = [1.0, 2.0]
+    latency_ms_list: List[int] = [0, 500, 2000]
+
+class StressTestResultRow(BaseModel):
+    spread_mult: float
+    slippage_mult: float
+    fee_mult: float
+    latency_ms: int
+    trades_count: int
+    net_pnl: float
+    win_rate_pct: float
+    profit_factor: float
+    max_drawdown_pct: float
+    expectancy_r: float
+
+class StressTestResponse(BaseModel):
+    id: str
+    run_name: str
+    symbol: str
+    baseline: StressTestResultRow
+    stress_matrix: List[StressTestResultRow]
+    created_at: int
+

@@ -30,12 +30,15 @@ class ProximityService:
         watch_setup: models.WatchSetup,
         ticker: Dict[str, Any],
         atr: float,
-        tg_cfg: Optional[models.TelegramConfig] = None
+        tg_cfg: Optional[models.TelegramConfig] = None,
+        now_ms: Optional[int] = None,
+        clock: Optional[Any] = None
     ) -> Optional[models.DomainEvent]:
         """
         Evaluate single watch setup against ticker and return DomainEvent if NEAR_ENTRY threshold entered.
         """
-        now_ms = int(time.time() * 1000)
+        current_time = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
+        now_ms = current_time
 
         # 1. State eligibility: Only active un-filled, un-closed, un-expired setups
         if watch_setup.state in ("PAPER_OPEN", "CLOSED", "INVALIDATED", "EXPIRED", "CANCELLED", "REJECTED"):

@@ -11,6 +11,154 @@ export const apiClient: AxiosInstance = axios.create({
   },
 });
 
+// ==================== V5 TYPE DEFINITIONS ====================
+
+export interface ArmSetupRequest {
+  setup_id: string;
+  setup_instance_id?: string;
+  expected_revision?: number;
+  expected_direction: 'LONG' | 'SHORT';
+  idempotency_key?: string;
+  order_type?: string;
+}
+
+export interface ScenarioStepResult {
+  step_index: number;
+  name: string;
+  status: 'PASS' | 'FAIL' | 'SKIPPED';
+  expected: string;
+  actual: string;
+  detail?: string;
+  timestamp: number;
+  payload?: any;
+}
+
+export interface ScenarioRunResponse {
+  scenario_id: string;
+  name: string;
+  description: string;
+  status: 'PASS' | 'FAIL';
+  steps: ScenarioStepResult[];
+  started_at: number;
+  completed_at: number;
+  duration_ms: number;
+  error?: string;
+}
+
+export interface ReplayTradeItem {
+  id: string;
+  setup_id?: string;
+  direction: 'LONG' | 'SHORT';
+  order_type: string;
+  entry_time: number;
+  entry_price: number;
+  exit_time?: number;
+  exit_price?: number;
+  exit_cause?: string;
+  stop_loss: number;
+  take_profit: number;
+  quantity: number;
+  initial_risk_usdt: number;
+  gross_pnl: number;
+  fees: number;
+  slippage: number;
+  net_pnl: number;
+  realized_r: number;
+  session: string;
+  is_ambiguous: boolean;
+  status: string;
+}
+
+export interface EquityPoint {
+  timestamp: number;
+  equity: number;
+  drawdown_usdt: number;
+  drawdown_pct: number;
+  daily_date: string;
+}
+
+export interface ReplayRunRequest {
+  run_name?: string;
+  symbol?: string;
+  start_ts?: number;
+  end_ts?: number;
+  timeframe?: string;
+  initial_equity?: number;
+  risk_pct?: number;
+  leverage?: number;
+  margin_mode?: string;
+  spread_multiplier?: number;
+  slippage_multiplier?: number;
+  fee_rate?: number;
+  speed_ms?: number;
+  seed?: number;
+  custom_candles_json?: string;
+}
+
+export interface ReplayRunResponse {
+  id: string;
+  run_name: string;
+  symbol: string;
+  start_ts: number;
+  end_ts: number;
+  initial_equity: number;
+  final_equity: number;
+  total_trades: number;
+  wins: number;
+  losses: number;
+  breakevens: number;
+  win_rate_pct: number;
+  profit_factor: number;
+  max_drawdown_usdt: number;
+  max_drawdown_pct: number;
+  expectancy_r: number;
+  total_net_pnl: number;
+  total_fees: number;
+  total_slippage: number;
+  worst_day_pnl: number;
+  max_consecutive_losses: number;
+  loss_budget_breaches: number;
+  signals_count: number;
+  rejected_count: number;
+  trades: ReplayTradeItem[];
+  equity_curve: EquityPoint[];
+  session_breakdown: Record<string, number>;
+  rejection_reasons: Record<string, number>;
+  warnings: string[];
+  created_at: number;
+}
+
+export interface StressTestRequest {
+  run_name?: string;
+  symbol?: string;
+  spread_multipliers?: number[];
+  slippage_multipliers?: number[];
+  fee_multipliers?: number[];
+  latency_ms_list?: number[];
+}
+
+export interface StressTestResultRow {
+  spread_mult: number;
+  slippage_mult: number;
+  fee_mult: number;
+  latency_ms: number;
+  trades_count: number;
+  net_pnl: number;
+  win_rate_pct: number;
+  profit_factor: number;
+  max_drawdown_pct: number;
+  expectancy_r: number;
+}
+
+export interface StressTestResponse {
+  id: string;
+  run_name: string;
+  symbol: string;
+  baseline: StressTestResultRow;
+  stress_matrix: StressTestResultRow[];
+  created_at: number;
+}
+
 // Request generation tracker to prevent stale responses
 let currentRequestGeneration = 0;
 export function getNextRequestGeneration(): number {
@@ -93,13 +241,39 @@ export const api = {
     return res.data;
   },
 
-  armSetup: async (setupId: string) => {
-    const res = await apiClient.post(`/api/v1/setups/arm/${setupId}`);
+  armSetup: async (setupId: string, payload?: ArmSetupRequest) => {
+    const res = await apiClient.post(`/api/v1/setups/arm/${setupId}`, payload);
     return res.data;
   },
 
   cancelSetup: async (setupId: string) => {
     const res = await apiClient.post(`/api/v1/setups/cancel/${setupId}`);
+    return res.data;
+  },
+
+  // ==================== LAB & TESTING API ====================
+  getLabScenarios: async () => {
+    const res = await apiClient.get('/api/v1/lab/scenarios');
+    return res.data;
+  },
+
+  runLabScenario: async (scenarioId: string): Promise<ScenarioRunResponse> => {
+    const res = await apiClient.post(`/api/v1/lab/scenarios/run/${scenarioId}`);
+    return res.data;
+  },
+
+  runAllLabScenarios: async (): Promise<{ status: string; passed_count: number; total_count: number; results: ScenarioRunResponse[] }> => {
+    const res = await apiClient.post('/api/v1/lab/scenarios/run-all');
+    return res.data;
+  },
+
+  runLabReplay: async (request: ReplayRunRequest): Promise<ReplayRunResponse> => {
+    const res = await apiClient.post('/api/v1/lab/replay/run', request);
+    return res.data;
+  },
+
+  runLabStress: async (request: StressTestRequest): Promise<StressTestResponse> => {
+    const res = await apiClient.post('/api/v1/lab/stress/run', request);
     return res.data;
   },
 

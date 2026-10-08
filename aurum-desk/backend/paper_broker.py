@@ -21,15 +21,20 @@ class PaperBroker:
     """
 
     @staticmethod
-    def can_open_position(db: Session, risk_usdt: float) -> Tuple[bool, str]:
+    def can_open_position(
+        db: Session,
+        risk_usdt: float,
+        now_ms: Optional[int] = None,
+        clock: Optional[Any] = None
+    ) -> Tuple[bool, str]:
         # 1. Check if there is already an open position
         active_pos = crud.get_active_position(db)
         if active_pos:
             return False, f"Đang có vị thế mở ({active_pos.direction} tại {active_pos.actual_entry:.2f}). Mặc định chỉ duy trì 1 vị thế."
 
         # 2. Check today's audit limits
-        audit = crud.get_or_create_today_audit(db)
-        now_ms = int(time.time() * 1000)
+        audit = crud.get_or_create_today_audit(db, clock=clock)
+        current_time = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
 
         if audit.is_blocked:
             return False, f"Tạm khóa giao dịch ngày: {audit.block_reason}"
@@ -40,8 +45,8 @@ class PaperBroker:
         if audit.consecutive_losses >= 2:
             return False, "Đã chạm ngưỡng dừng sau 2 lệnh lỗ liên tiếp trong ngày"
 
-        if audit.cooldown_until and now_ms < audit.cooldown_until:
-            remaining_sec = int((audit.cooldown_until - now_ms) / 1000)
+        if audit.cooldown_until and current_time < audit.cooldown_until:
+            remaining_sec = int((audit.cooldown_until - current_time) / 1000)
             return False, f"Đang trong thời gian cooldown sau lệnh trước: còn {remaining_sec}s"
 
         # 3. Check daily loss cap (1.5% of starting equity)

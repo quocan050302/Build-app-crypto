@@ -135,33 +135,52 @@ class StrategyService:
                 db.add(watch_setup)
                 db.commit()
             else:
-                # Update progression
-                watch_setup.version += 1
-                if setup_stage == "READY" and watch_setup.state != "READY":
-                    # New distinct setup instance reached READY
-                    watch_setup.setup_instance_id = setup_instance_id
-                watch_setup.direction = direction
-                watch_setup.state = setup_stage
-                watch_setup.htf_bias = analysis.get("htf_bias", "UNKNOWN")
-                watch_setup.h1_alignment = analysis.get("h1_alignment", "UNKNOWN")
-                watch_setup.provisional_entry = provisional_entry
-                watch_setup.provisional_sl = provisional_sl
-                watch_setup.provisional_tp = provisional_tp
-                watch_setup.invalidation_price = invalidation_price
-                watch_setup.invalidation_reason = inval_reason
-                watch_setup.gross_rr = sig.get("gross_rr", 0.0) if sig else 0.0
-                watch_setup.net_rr = sig.get("estimated_net_rr", 0.0) if sig else 0.0
-                watch_setup.risk_usdt = sig.get("initial_risk_usdt", 0.0) if sig else 0.0
-                watch_setup.quantity = sig.get("quantity", 0.0) if sig else 0.0
-                watch_setup.leverage = leverage
-                watch_setup.margin_mode = margin_mode
-                watch_setup.estimated_liquidation = sig.get("estimated_liquidation") if sig else None
-                watch_setup.conditions_met = json.dumps(analysis.get("conditions_met", []))
-                watch_setup.conditions_remaining = json.dumps(analysis.get("missing_conditions", []))
-                watch_setup.distance_to_entry_atr = dist_atr
-                watch_setup.distance_to_entry_usdt = dist_usdt
-                watch_setup.updated_at = now_ms
-                db.commit()
+                # Do NOT overwrite an active ARMED or PAPER_OPEN order's watch setup!
+                if watch_setup.state in ("ARMED", "PAPER_OPEN"):
+                    # Setup is active in order execution, update only distance/telemetry
+                    watch_setup.distance_to_entry_atr = dist_atr
+                    watch_setup.distance_to_entry_usdt = dist_usdt
+                    watch_setup.updated_at = now_ms
+                    db.commit()
+                else:
+                    # Business revision guard: only increment on significant structural change
+                    direction_changed = (watch_setup.direction != direction)
+                    state_changed = (watch_setup.state != setup_stage)
+                    entry_diff = abs(watch_setup.provisional_entry - provisional_entry)
+                    levels_changed = entry_diff > (atr * 0.1)
+
+                    if direction_changed:
+                        # New setup instance when direction changes
+                        watch_setup.setup_instance_id = setup_instance_id
+                        watch_setup.version += 1
+                        watch_setup.direction = direction
+                    elif state_changed or levels_changed:
+                        watch_setup.version += 1
+
+                    if setup_stage == "READY" and watch_setup.state != "READY":
+                        watch_setup.setup_instance_id = setup_instance_id
+
+                    watch_setup.state = setup_stage
+                    watch_setup.htf_bias = analysis.get("htf_bias", "UNKNOWN")
+                    watch_setup.h1_alignment = analysis.get("h1_alignment", "UNKNOWN")
+                    watch_setup.provisional_entry = provisional_entry
+                    watch_setup.provisional_sl = provisional_sl
+                    watch_setup.provisional_tp = provisional_tp
+                    watch_setup.invalidation_price = invalidation_price
+                    watch_setup.invalidation_reason = inval_reason
+                    watch_setup.gross_rr = sig.get("gross_rr", 0.0) if sig else 0.0
+                    watch_setup.net_rr = sig.get("estimated_net_rr", 0.0) if sig else 0.0
+                    watch_setup.risk_usdt = sig.get("initial_risk_usdt", 0.0) if sig else 0.0
+                    watch_setup.quantity = sig.get("quantity", 0.0) if sig else 0.0
+                    watch_setup.leverage = leverage
+                    watch_setup.margin_mode = margin_mode
+                    watch_setup.estimated_liquidation = sig.get("estimated_liquidation") if sig else None
+                    watch_setup.conditions_met = json.dumps(analysis.get("conditions_met", []))
+                    watch_setup.conditions_remaining = json.dumps(analysis.get("missing_conditions", []))
+                    watch_setup.distance_to_entry_atr = dist_atr
+                    watch_setup.distance_to_entry_usdt = dist_usdt
+                    watch_setup.updated_at = now_ms
+                    db.commit()
 
             # Proximity evaluation
             from services.proximity_service import proximity_service

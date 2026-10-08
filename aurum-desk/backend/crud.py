@@ -6,11 +6,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text, desc
 import models, schemas
 
+from services.clock import live_clock, IClock
+
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
-def get_today_str_vn() -> str:
+def get_today_str_vn(clock: Optional[IClock] = None) -> str:
     """Returns today's date string in Asia/Ho_Chi_Minh (UTC+7) timezone: YYYY-MM-DD"""
-    return datetime.now(VN_TZ).strftime("%Y-%m-%d")
+    c = clock or live_clock
+    return c.get_today_str_vn()
 
 # ==================== CANDLES CRUD ====================
 
@@ -82,7 +85,9 @@ def create_paper_order(db: Session, order: schemas.PaperOrderCreate, order_id: s
         armed_at=now_ms if order.state in ("armed", "paper_open") else None,
         opened_at=now_ms if order.state == "paper_open" else None,
         checklist_snapshot=order.checklist_snapshot,
-        lessons_retrieved=order.lessons_retrieved
+        lessons_retrieved=order.lessons_retrieved,
+        idempotency_key=getattr(order, "idempotency_key", None),
+        setup_instance_id=getattr(order, "setup_instance_id", None)
     )
     db.add(db_order)
     if commit:
@@ -157,15 +162,20 @@ def update_paper_order_state(
 
 # ==================== DAY AUDIT CRUD ====================
 
-def get_or_create_today_audit(db: Session, commit: bool = True) -> models.DayAudit:
-    date_str = get_today_str_vn()
-    audit = db.query(models.DayAudit).filter(models.DayAudit.date_str == date_str).first()
+def get_or_create_today_audit(
+    db: Session,
+    commit: bool = True,
+    date_str: Optional[str] = None,
+    clock: Optional[IClock] = None
+) -> models.DayAudit:
+    ds = date_str or get_today_str_vn(clock)
+    audit = db.query(models.DayAudit).filter(models.DayAudit.date_str == ds).first()
     if not audit:
         # Check yesterday's current equity to roll over balance
         yesterday_audit = db.query(models.DayAudit).order_by(models.DayAudit.id.desc()).first()
         start_equity = yesterday_audit.current_equity if yesterday_audit else 1000.0
         audit = models.DayAudit(
-            date_str=date_str,
+            date_str=ds,
             initial_equity=start_equity,
             current_equity=start_equity,
             realized_pnl_today=0.0,
@@ -183,8 +193,13 @@ def get_or_create_today_audit(db: Session, commit: bool = True) -> models.DayAud
             db.flush()
     return audit
 
-def record_trade_fill_audit(db: Session, commit: bool = True) -> models.DayAudit:
-    audit = get_or_create_today_audit(db, commit=commit)
+def record_trade_fill_audit(
+    db: Session,
+    commit: bool = True,
+    date_str: Optional[str] = None,
+    clock: Optional[IClock] = None
+) -> models.DayAudit:
+    audit = get_or_create_today_audit(db, commit=commit, date_str=date_str, clock=clock)
     audit.fills_count += 1
     if audit.fills_count >= 3:
         audit.is_blocked = True
@@ -196,14 +211,21 @@ def record_trade_fill_audit(db: Session, commit: bool = True) -> models.DayAudit
         db.flush()
     return audit
 
-def record_trade_close_audit(db: Session, pnl: float, commit: bool = True) -> models.DayAudit:
-    audit = get_or_create_today_audit(db, commit=commit)
+def record_trade_close_audit(
+    db: Session,
+    pnl: float,
+    commit: bool = True,
+    date_str: Optional[str] = None,
+    clock: Optional[IClock] = None,
+    now_ms: Optional[int] = None
+) -> models.DayAudit:
+    audit = get_or_create_today_audit(db, commit=commit, date_str=date_str, clock=clock)
     audit.realized_pnl_today += pnl
     audit.current_equity += pnl
 
-    now_ms = int(time.time() * 1000)
+    c_now = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
     # Set 30-minute cooldown
-    audit.cooldown_until = now_ms + (30 * 60 * 1000)
+    audit.cooldown_until = c_now + (30 * 60 * 1000)
 
     if pnl < 0:
         audit.consecutive_losses += 1

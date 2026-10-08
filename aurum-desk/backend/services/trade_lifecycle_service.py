@@ -7,6 +7,7 @@ from database import SessionLocal
 import models, crud
 from domain_calculator import CalculationResult, calculate_risk_reward
 from services.event_bus import event_bus
+from services.clock import live_clock, IClock
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,8 @@ class TradeLifecycleService:
     - Guarantees single-transaction atomic units of work for trade transitions.
     - Prevents split-commit crashes (order state + audit + lesson + domain event + outbox commit together).
     - Unifies exit processing across ExitMonitor, candles/sync, and manual order close.
-    - Employs DB state guards against race conditions.
+    - Employs DB state guards against race conditions and preserves max 1 position invariant.
+    - Supports clock injection for reproducible historical replay and deterministic scenarios.
     """
 
     @staticmethod
@@ -25,22 +27,46 @@ class TradeLifecycleService:
         order: models.PaperOrder,
         fill_price: float,
         calc_result: CalculationResult,
-        source: str = "AUTO"
+        source: str = "AUTO",
+        now_ms: Optional[int] = None,
+        clock: Optional[IClock] = None,
+        date_str: Optional[str] = None
     ) -> models.PaperOrder:
         """
         Atomic Unit of Work: Fill Armed or Market Order.
-        Commits order state 'paper_open', DayAudit increment, watch setup state,
-        DomainEvent 'trade.opened', and NotificationOutbox 'FILLED' in a single transaction.
+        Guards:
+        - Order must be in 'armed' or 'candidate' state.
+        - Enforces strictly max 1 open position across sessions.
+        - Commits order state 'paper_open', DayAudit increment, watch setup state,
+          DomainEvent 'trade.opened', and NotificationOutbox 'FILLED' in a single transaction.
         """
-        now_ms = int(time.time() * 1000)
+        current_time = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
 
-        # 1. State transition guard
+        # 1. State transition guards
         if order.state == "paper_open":
             return order  # Already opened, idempotent return
 
+        if order.state not in ("armed", "candidate"):
+            logger.warning(f"Cannot fill order {order.id} in state {order.state}")
+            return order
+
+        # 2. Invariant: Max 1 active position enforced atomically
+        existing_open = db.query(models.PaperOrder).filter(
+            models.PaperOrder.state == "paper_open",
+            models.PaperOrder.id != order.id
+        ).first()
+
+        if existing_open:
+            order.state = "rejected"
+            order.invalidation_reason = "Đã có vị thế đang mở (giới hạn tối đa 1 vị thế)"
+            order.closed_at = current_time
+            db.commit()
+            return order
+
+        # 3. Transition order to paper_open
         order.state = "paper_open"
         order.actual_entry = fill_price
-        order.opened_at = now_ms
+        order.opened_at = current_time
         order.quantity = calc_result.quantity
         order.initial_risk_usdt = calc_result.net_risk_usdt
         order.gross_rr = calc_result.gross_rr
@@ -50,18 +76,18 @@ class TradeLifecycleService:
         order.leverage = calc_result.leverage
         order.margin_mode = calc_result.margin_mode
 
-        # 2. Record trade fill audit (flush without separate commit)
-        crud.record_trade_fill_audit(db, commit=False)
+        # 4. Record trade fill audit (flush without separate commit)
+        crud.record_trade_fill_audit(db, commit=False, date_str=date_str, clock=clock)
 
-        # 3. Update associated watch setup
+        # 5. Update associated watch setup
         if order.setup_id:
             watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == order.setup_id).first()
             if watch_setup:
                 watch_setup.state = "PAPER_OPEN"
                 watch_setup.confirmed_entry = fill_price
-                watch_setup.updated_at = now_ms
+                watch_setup.updated_at = current_time
 
-        # 4. Create Domain Event & Notification Outbox in the same transaction
+        # 6. Create Domain Event & Notification Outbox in the same transaction
         event_payload = {
             "trade_id": order.id,
             "order_id": order.id,
@@ -77,7 +103,7 @@ class TradeLifecycleService:
             "leverage": order.leverage,
             "margin_mode": order.margin_mode,
             "initial_margin": order.initial_margin,
-            "opened_at": now_ms
+            "opened_at": current_time
         }
 
         event_bus.publish_event(
@@ -85,10 +111,10 @@ class TradeLifecycleService:
             aggregate_id=order.id,
             payload=event_payload,
             db=db,
-            occurred_at=now_ms
+            occurred_at=current_time
         )
 
-        # 5. Commit atomically at boundary
+        # 7. Commit atomically at boundary
         db.commit()
         db.refresh(order)
         return order
@@ -97,24 +123,26 @@ class TradeLifecycleService:
     def execute_reject(
         db: Session,
         order: models.PaperOrder,
-        reason: str
+        reason: str,
+        now_ms: Optional[int] = None,
+        clock: Optional[IClock] = None
     ) -> models.PaperOrder:
         """
         Atomic Unit of Work: Order Rejected by Execution Guards.
         Marks state 'rejected' without incrementing daily counters.
         Emits 'order.rejected' DomainEvent and 'REJECTED' NotificationOutbox.
         """
-        now_ms = int(time.time() * 1000)
+        current_time = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
         order.state = "rejected"
         order.invalidation_reason = reason
-        order.closed_at = now_ms
+        order.closed_at = current_time
 
         event_payload = {
             "order_id": order.id,
             "direction": order.direction,
             "planned_entry": order.planned_entry,
             "reason": reason,
-            "rejected_at": now_ms
+            "rejected_at": current_time
         }
 
         event_bus.publish_event(
@@ -122,7 +150,7 @@ class TradeLifecycleService:
             aggregate_id=order.id,
             payload=event_payload,
             db=db,
-            occurred_at=now_ms
+            occurred_at=current_time
         )
 
         db.commit()
@@ -135,7 +163,10 @@ class TradeLifecycleService:
         order_id: str,
         exit_price: float,
         exit_cause: str,
-        occurred_at: Optional[int] = None
+        occurred_at: Optional[int] = None,
+        clock: Optional[IClock] = None,
+        date_str: Optional[str] = None,
+        session_tag: str = "LIVE_PAPER"
     ) -> Optional[models.PaperOrder]:
         """
         Atomic Unit of Work: Close Open Position.
@@ -146,7 +177,7 @@ class TradeLifecycleService:
         - Creates DomainEvent and NotificationOutbox (TP_HIT, SL_HIT, MANUAL_CLOSED, LIQUIDATED).
         - Commits in ONE single atomic transaction.
         """
-        now_ms = occurred_at or int(time.time() * 1000)
+        current_time = occurred_at or (clock.now_ms() if clock else int(time.time() * 1000))
 
         # Conditional update check: only close if currently paper_open
         order = db.query(models.PaperOrder).filter(
@@ -174,20 +205,20 @@ class TradeLifecycleService:
         order.realized_pnl_net = net_pnl
         order.realized_r = realized_r
         order.exit_cause = exit_cause
-        order.closed_at = now_ms
+        order.closed_at = current_time
 
         # Update DayAudit in same transaction
-        crud.record_trade_close_audit(db, net_pnl, commit=False)
+        crud.record_trade_close_audit(db, net_pnl, commit=False, date_str=date_str, clock=clock, now_ms=current_time)
 
         # Update associated WatchSetup if present
         if order.setup_id:
             watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == order.setup_id).first()
             if watch_setup:
                 watch_setup.state = "CLOSED"
-                watch_setup.updated_at = now_ms
+                watch_setup.updated_at = current_time
 
-        # Create structured Lesson
-        TradeLifecycleService._create_lesson(db, order, now_ms)
+        # Create structured Lesson (with proper session tag)
+        TradeLifecycleService._create_lesson(db, order, current_time, session_tag=session_tag)
 
         # Create Domain Event & Notification Outbox in same transaction
         event_type = "trade.liquidated" if exit_cause == "LIQUIDATED" else "trade.closed"
@@ -201,7 +232,7 @@ class TradeLifecycleService:
             "realized_r": realized_r,
             "exit_cause": exit_cause,
             "opened_at": order.opened_at,
-            "closed_at": now_ms
+            "closed_at": current_time
         }
 
         event_bus.publish_event(
@@ -209,7 +240,7 @@ class TradeLifecycleService:
             aggregate_id=order.id,
             payload=event_payload,
             db=db,
-            occurred_at=now_ms
+            occurred_at=current_time
         )
 
         db.commit()
@@ -223,76 +254,130 @@ class TradeLifecycleService:
         current_ask: float,
         candle_high: Optional[float] = None,
         candle_low: Optional[float] = None,
-        candle_timestamp: Optional[int] = None
+        candle_timestamp: Optional[int] = None,
+        bar_duration_ms: int = 15 * 60 * 1000,
+        now_ms: Optional[int] = None,
+        clock: Optional[IClock] = None,
+        session_tag: str = "LIVE_PAPER"
     ) -> Optional[models.PaperOrder]:
         """
         Unified exit evaluator for both ExitMonitor and candles/sync:
-        - Prevents using pre-entry candle extremes (no retroactive fills).
-        - Evaluates TP, SL, Liquidation, and AMBIGUOUS_BAR_SL_FIRST.
+        - Strict executable side: LONG exits at Bid; SHORT exits at Ask.
+        - Prevents using pre-entry candle extremes (no retroactive fills or exits).
+        - Correctly prioritizes SL vs Liquidation on continuous price streams.
+        - Flags AMBIGUOUS_BAR_SL_FIRST when single bar touches both TP and SL.
         - Calls execute_close atomically when triggered.
         """
         active_pos = crud.get_active_position(db)
         if not active_pos or active_pos.state != "paper_open":
             return None
 
-        # Disallow using candle high/low if candle closed before position was opened
-        if candle_timestamp is not None and active_pos.opened_at:
-            if candle_timestamp < active_pos.opened_at - 60000:
-                candle_high = None
-                candle_low = None
+        opened_at = active_pos.opened_at or 0
 
-        high_val = candle_high if candle_high is not None else max(current_bid, current_ask)
-        low_val = candle_low if candle_low is not None else min(current_bid, current_ask)
+        # Guard: Check candle timing relative to opened_at
+        is_candle_eval = candle_high is not None and candle_low is not None
+        if is_candle_eval and candle_timestamp is not None:
+            bar_start = candle_timestamp
+            bar_end = bar_start + bar_duration_ms
+
+            # 1. Bar is strictly in the past before position opened -> ignore
+            if opened_at >= bar_end:
+                return None
+
+            # 2. Bar is the entry bar -> opened_at is within this bar!
+            # Full high/low cannot be assumed to have occurred after opened_at
+            if bar_start <= opened_at < bar_end:
+                # Disallow full bar extremes for entry bar, fallback to live tick
+                is_candle_eval = False
 
         exit_triggered = False
         exit_price = 0.0
         exit_cause = ""
         lp = active_pos.estimated_liquidation
 
-        if active_pos.direction == "LONG":
-            hit_liq = (lp is not None and low_val <= lp)
-            hit_sl = (low_val <= active_pos.stop_loss)
-            hit_tp = (high_val >= active_pos.take_profit)
+        if not is_candle_eval:
+            # ==================== TICK-ONLY EVALUATION ====================
+            # LONG exits by selling at current_bid
+            if active_pos.direction == "LONG":
+                # Liquidation check
+                if lp is not None and current_bid <= lp:
+                    exit_triggered = True
+                    exit_price = current_bid
+                    exit_cause = "LIQUIDATED"
+                elif current_bid <= active_pos.stop_loss:
+                    exit_triggered = True
+                    exit_price = current_bid
+                    exit_cause = "SL_HIT"
+                elif current_bid >= active_pos.take_profit:
+                    exit_triggered = True
+                    exit_price = active_pos.take_profit
+                    exit_cause = "TP_HIT"
 
-            if hit_liq:
-                exit_triggered = True
-                exit_price = lp
-                exit_cause = "LIQUIDATED"
-            elif hit_sl and hit_tp:
-                # Ambiguous bar: conservative rule assumes SL hit first!
-                exit_triggered = True
-                exit_price = active_pos.stop_loss
-                exit_cause = "AMBIGUOUS_BAR_SL_FIRST"
-            elif hit_sl:
-                exit_triggered = True
-                exit_price = min(active_pos.stop_loss, low_val)
-                exit_cause = "SL_HIT"
-            elif hit_tp:
-                exit_triggered = True
-                exit_price = active_pos.take_profit
-                exit_cause = "TP_HIT"
+            # SHORT exits by buying at current_ask
+            elif active_pos.direction == "SHORT":
+                if lp is not None and current_ask >= lp:
+                    exit_triggered = True
+                    exit_price = current_ask
+                    exit_cause = "LIQUIDATED"
+                elif current_ask >= active_pos.stop_loss:
+                    exit_triggered = True
+                    exit_price = current_ask
+                    exit_cause = "SL_HIT"
+                elif current_ask <= active_pos.take_profit:
+                    exit_triggered = True
+                    exit_price = active_pos.take_profit
+                    exit_cause = "TP_HIT"
 
-        elif active_pos.direction == "SHORT":
-            hit_liq = (lp is not None and high_val >= lp)
-            hit_sl = (high_val >= active_pos.stop_loss)
-            hit_tp = (low_val <= active_pos.take_profit)
+        else:
+            # ==================== ELIGIBLE CLOSED BAR EVALUATION ====================
+            high_val = candle_high
+            low_val = candle_low
 
-            if hit_liq:
-                exit_triggered = True
-                exit_price = lp
-                exit_cause = "LIQUIDATED"
-            elif hit_sl and hit_tp:
-                exit_triggered = True
-                exit_price = active_pos.stop_loss
-                exit_cause = "AMBIGUOUS_BAR_SL_FIRST"
-            elif hit_sl:
-                exit_triggered = True
-                exit_price = max(active_pos.stop_loss, high_val)
-                exit_cause = "SL_HIT"
-            elif hit_tp:
-                exit_triggered = True
-                exit_price = active_pos.take_profit
-                exit_cause = "TP_HIT"
+            if active_pos.direction == "LONG":
+                hit_sl = low_val <= active_pos.stop_loss
+                hit_tp = high_val >= active_pos.take_profit
+                hit_liq = (lp is not None and low_val <= lp)
+
+                if hit_sl and hit_tp:
+                    # Ambiguous bar: both touched in same bar -> conservative rule SL first
+                    exit_triggered = True
+                    exit_price = active_pos.stop_loss
+                    exit_cause = "AMBIGUOUS_BAR_SL_FIRST"
+                elif hit_liq and not hit_tp:
+                    # In continuous price, SL is hit before LP unless a major gap occurred
+                    exit_triggered = True
+                    exit_price = lp
+                    exit_cause = "LIQUIDATED"
+                elif hit_sl:
+                    exit_triggered = True
+                    exit_price = min(active_pos.stop_loss, low_val)
+                    exit_cause = "SL_HIT"
+                elif hit_tp:
+                    exit_triggered = True
+                    exit_price = active_pos.take_profit
+                    exit_cause = "TP_HIT"
+
+            elif active_pos.direction == "SHORT":
+                hit_sl = high_val >= active_pos.stop_loss
+                hit_tp = low_val <= active_pos.take_profit
+                hit_liq = (lp is not None and high_val >= lp)
+
+                if hit_sl and hit_tp:
+                    exit_triggered = True
+                    exit_price = active_pos.stop_loss
+                    exit_cause = "AMBIGUOUS_BAR_SL_FIRST"
+                elif hit_liq and not hit_tp:
+                    exit_triggered = True
+                    exit_price = lp
+                    exit_cause = "LIQUIDATED"
+                elif hit_sl:
+                    exit_triggered = True
+                    exit_price = max(active_pos.stop_loss, high_val)
+                    exit_cause = "SL_HIT"
+                elif hit_tp:
+                    exit_triggered = True
+                    exit_price = active_pos.take_profit
+                    exit_cause = "TP_HIT"
 
         if exit_triggered:
             return TradeLifecycleService.execute_close(
@@ -300,13 +385,20 @@ class TradeLifecycleService:
                 order_id=active_pos.id,
                 exit_price=exit_price,
                 exit_cause=exit_cause,
-                occurred_at=candle_timestamp
+                occurred_at=candle_timestamp or now_ms,
+                clock=clock,
+                session_tag=session_tag
             )
 
         return None
 
     @staticmethod
-    def _create_lesson(db: Session, order: models.PaperOrder, now_ms: int):
+    def _create_lesson(
+        db: Session,
+        order: models.PaperOrder,
+        now_ms: int,
+        session_tag: str = "LIVE_PAPER"
+    ):
         pnl = order.realized_pnl_net or 0.0
         r_mult = order.realized_r or 0.0
 
@@ -327,16 +419,18 @@ class TradeLifecycleService:
             reflection = f"Lệnh chạm SL do {order.exit_cause}. Thị trường biến động mạnh hơn dự kiến."
             action_rule = "Kiểm tra lại biên độ buffer ATR và tránh vào lệnh gần vùng biến động mở phiên."
 
+        is_approved = (session_tag == "LIVE_PAPER")
+
         db_lesson = models.Lesson(
             created_at=now_ms,
             title=title,
             category="EXECUTION",
             related_trade_id=order.id,
             setup_type="SMC_ORDER",
-            session="LIVE_PAPER",
+            session=session_tag,
             reflection=reflection,
             action_rule=action_rule,
             is_hard_filter=False,
-            is_approved=True
+            is_approved=is_approved
         )
         db.add(db_lesson)
