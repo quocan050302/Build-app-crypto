@@ -93,6 +93,14 @@ class PaperOrderResponse(PaperOrderBase):
     expires_at: Optional[int] = None
     checklist_snapshot: Optional[str] = None
     lessons_retrieved: Optional[str] = None
+    last_processed_market_timestamp: Optional[int] = None
+    recovery_status: Optional[str] = None
+    recovery_run_id: Optional[str] = None
+    last_recovery_attempt: Optional[int] = None
+    resolved_through: Optional[str] = None
+    recovery_confidence: Optional[str] = None
+    discovered_at: Optional[int] = None
+    occurred_at: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
 
 # Risk/Reward Position Overlay schema for Chart

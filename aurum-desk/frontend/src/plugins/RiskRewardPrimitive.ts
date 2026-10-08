@@ -228,7 +228,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       ctx.stroke();
 
       // 4. Estimated Liquidation Price Line (Section 4 requirement)
-      if (lpY !== null && d.estimatedLiquidation) {
+      if (lpY !== null && d.estimatedLiquidation && d.estimatedLiquidation > 0) {
         ctx.save();
         ctx.strokeStyle = '#f43f5e'; // Rose / crimson line
         ctx.lineWidth = 1.8;
@@ -453,7 +453,9 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
     const entryY = series.priceToCoordinate(entryPrice);
     const slY = series.priceToCoordinate(this._data.stopLoss);
     const tpY = series.priceToCoordinate(this._data.takeProfit);
-    const lpY = this._data.estimatedLiquidation ? series.priceToCoordinate(this._data.estimatedLiquidation) : null;
+    const lpY = (this._data.estimatedLiquidation && this._data.estimatedLiquidation > 0)
+      ? series.priceToCoordinate(this._data.estimatedLiquidation)
+      : null;
 
     // Calculate X span anchored to time or logical bars
     let startX = 60;
@@ -498,7 +500,7 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
     if (tpY !== null) {
       this._tpAxisView.update(tpY, `${this._data.takeProfit.toFixed(2)} [TP]`, '#16a34a');
     }
-    if (lpY !== null && this._data.estimatedLiquidation) {
+    if (lpY !== null && this._data.estimatedLiquidation && this._data.estimatedLiquidation > 0) {
       this._lpAxisView.update(lpY, `${this._data.estimatedLiquidation.toFixed(2)} [LP]`, '#e11d48');
     }
   }
@@ -553,7 +555,7 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
 
   priceAxisViews(): readonly ISeriesPrimitiveAxisView[] {
     const views = [this._entryAxisView, this._slAxisView, this._tpAxisView];
-    if (this._data.estimatedLiquidation && this._currentGeometry.lpY !== null) {
+    if (this._data.estimatedLiquidation && this._data.estimatedLiquidation > 0 && this._currentGeometry.lpY !== null) {
       views.push(this._lpAxisView);
     }
     return views;

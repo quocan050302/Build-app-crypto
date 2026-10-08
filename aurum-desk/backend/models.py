@@ -78,6 +78,16 @@ class PaperOrder(Base):
     idempotency_key = Column(String(100), nullable=True, index=True)
     setup_instance_id = Column(String(100), nullable=True, index=True)
 
+    # V6.1 Offline Position Recovery & Checkpoint Fields
+    last_processed_market_timestamp = Column(BigInteger, nullable=True)
+    recovery_status = Column(String(30), default="NONE")  # NONE, RECOVERING, RECOVERED, UP_TO_DATE, UNRESOLVED_GAP
+    recovery_run_id = Column(String(36), nullable=True)
+    last_recovery_attempt = Column(BigInteger, nullable=True)
+    resolved_through = Column(BigInteger, nullable=True)
+    recovery_confidence = Column(String(30), nullable=True)  # CONFIRMED, ASSUMED_CONSERVATIVE, UNRESOLVED
+    discovered_at = Column(BigInteger, nullable=True)
+    occurred_at = Column(BigInteger, nullable=True)
+
 
 class DayAudit(Base):
     __tablename__ = "day_audits"

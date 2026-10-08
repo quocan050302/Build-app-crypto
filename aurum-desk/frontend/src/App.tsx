@@ -34,7 +34,8 @@ import {
   X,
   AlertTriangle,
   RotateCcw,
-  Check
+  Check,
+  ShieldCheck
 } from 'lucide-react';
 
 export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION';
@@ -145,6 +146,7 @@ export function App() {
     server_time?: number;
   }>({ setups: [], scenarios: null });
   const [upcomingFilter, setUpcomingFilter] = useState<string>('ALL');
+  const hasArmedOrder = upcomingData?.setups?.some((s: any) => s.state === 'ARMED') ?? false;
 
   // Telegram Settings & Test
   const [telegramConfig, setTelegramConfig] = useState<any>({
@@ -621,16 +623,17 @@ export function App() {
   const handleArmWatchSetup = async (setupId: string, direction?: string, instanceId?: string, revision?: number) => {
     const targetDirection = (direction || selectedIntent?.direction || 'LONG') as 'LONG' | 'SHORT';
     try {
-      const isMatchingSetup = selectedIntent && (selectedIntent.setup_id === setupId || selectedIntent.source === 'WATCH_SETUP');
+      // V6.1 Strict Identity Guard: Only pass custom chart levels if selectedIntent.setup_id exactly matches setupId!
+      const isMatchingSetup = Boolean(selectedIntent && selectedIntent.setup_id === setupId);
       const res = await api.armSetup(setupId, {
         setup_id: setupId,
-        setup_instance_id: instanceId || selectedIntent?.setup_instance_id,
-        expected_revision: revision || selectedIntent?.revision,
+        setup_instance_id: instanceId || (isMatchingSetup ? selectedIntent?.setup_instance_id : undefined),
+        expected_revision: revision || (isMatchingSetup ? selectedIntent?.revision : undefined),
         expected_direction: targetDirection,
         planned_entry: isMatchingSetup ? selectedIntent?.plannedEntry : undefined,
         stop_loss: isMatchingSetup ? selectedIntent?.stopLoss : undefined,
         take_profit: isMatchingSetup ? selectedIntent?.takeProfit : undefined,
-        idempotency_key: `arm-${setupId}-${Date.now()}`
+        idempotency_key: `arm-${setupId}-v${revision || (isMatchingSetup ? selectedIntent?.revision : 1) || 1}`
       });
       showToast('Lệnh Đã Armed', res.message || 'Đã arm setup thành công', 'success');
       await refreshUpcoming();
@@ -1472,7 +1475,9 @@ export function App() {
                             <span>
                               Thanh lý ước tính:{' '}
                               <strong className="text-rose-400 font-mono">
-                                ${s.estimated_liquidation?.toFixed(2) || '---'}
+                                {typeof s.estimated_liquidation === 'number' && s.estimated_liquidation > 0
+                                  ? `$${s.estimated_liquidation.toFixed(2)}`
+                                  : 'Chưa có ước tính hợp lệ'}
                               </strong>
                             </span>
                           </div>
@@ -1513,9 +1518,13 @@ export function App() {
                                   </li>
                                 ))}
                               </ul>
-                            ) : (
+                            ) : s.conditions_met?.length > 0 ? (
                               <span className="text-emerald-400 font-semibold text-[10px]">
                                 Đủ toàn bộ điều kiện! Sẵn sàng Arm.
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 italic text-[10px]">
+                                Chưa có dữ liệu đánh giá điều kiện
                               </span>
                             )}
                           </div>
@@ -1541,15 +1550,41 @@ export function App() {
                           </div>
 
                           <div className="flex gap-2">
-                            {['READY', 'WAITING_PRICE', 'WAITING_RETRACE'].includes(s.state) && (
-                              <button
-                                onClick={() => handleArmWatchSetup(s.id, s.direction, s.setup_instance_id, s.version)}
-                                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-xs transition shadow-sm"
-                              >
-                                <PlayCircle className="w-3.5 h-3.5" />
-                                <span>Arm {s.direction} — PAPER</span>
-                              </button>
-                            )}
+                            {(() => {
+                              const isCross = (s.margin_mode || marginMode) === 'CROSS';
+                              const isBlockedByActive = !!activePosition?.has_active_position;
+                              const isBlockedByArmed = hasArmedOrder;
+                              const eligibilityBlocked = s.eligibility && !s.eligibility.can_arm;
+                              const cannotArm = isCross || isBlockedByActive || isBlockedByArmed || eligibilityBlocked;
+                              const armBlockReason = isCross
+                                ? 'Chặn Arm: Cross margin chưa hỗ trợ (Cần Isolated)'
+                                : isBlockedByActive
+                                ? 'Không thể Arm: Đang có 1 vị thế mở'
+                                : isBlockedByArmed
+                                ? 'Không thể Arm: Đang có lệnh ARMED chờ khớp'
+                                : (s.eligibility?.block_reasons?.[0] || 'Chưa đủ điều kiện Arm');
+
+                              return ['READY', 'WAITING_PRICE', 'WAITING_RETRACE'].includes(s.state) && (
+                                cannotArm ? (
+                                  <button
+                                    disabled
+                                    title={armBlockReason}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-charcoal-750 text-gray-400 font-bold rounded text-xs cursor-not-allowed border border-charcoal-700 shadow-sm"
+                                  >
+                                    <PlayCircle className="w-3.5 h-3.5 text-gray-500" />
+                                    <span>{armBlockReason}</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleArmWatchSetup(s.id, s.direction, s.setup_instance_id, s.version)}
+                                    className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-xs transition shadow-sm"
+                                  >
+                                    <PlayCircle className="w-3.5 h-3.5" />
+                                    <span>Arm {s.direction} — PAPER</span>
+                                  </button>
+                                )
+                              );
+                            })()}
 
                             {!['CANCELLED', 'INVALIDATED', 'EXPIRED', 'CLOSED'].includes(s.state) && (
                               <button
@@ -2469,13 +2504,25 @@ export function App() {
                         </span>
                         <span className="font-semibold text-gray-200">XAUUSDT ({t.timeframe})</span>
                         <span className="text-gray-400">· {new Date(t.created_at).toLocaleDateString('vi-VN')}</span>
+                        {t.recovery_status && t.recovery_status !== 'NONE' && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-purple-950/80 text-purple-300 border border-purple-800">
+                            ĐỐI SOÁT OFFLINE: {t.recovery_status} ({t.recovery_confidence || 'CONFIRMED'})
+                          </span>
+                        )}
                       </div>
                       <div className="text-gray-400 text-[11px] flex gap-3">
                         <span>Entry: ${t.actual_entry || t.planned_entry}</span>
                         <span>SL: ${t.stop_loss}</span>
                         <span>TP: ${t.take_profit}</span>
-                        <span>Gross R:R: 1:{t.gross_rr}</span>
+                        <span>Gross R:R: 1:{t.gross_rr} (Net 1:{t.estimated_net_rr?.toFixed(2) || '---'})</span>
                       </div>
+                      {t.occurred_at && (
+                        <div className="text-[10px] text-purple-400 mt-1 flex gap-2">
+                          <span>Nến khớp: {new Date(t.occurred_at).toLocaleTimeString('vi-VN')}</span>
+                          <span>·</span>
+                          <span>Phát hiện: {new Date(t.discovered_at || t.closed_at).toLocaleTimeString('vi-VN')}</span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -3008,8 +3055,10 @@ export function App() {
                   <span className="text-emerald-400 font-semibold">${activePosition.position.take_profit}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">R:R Kỳ Vọng:</span>
-                  <span className="text-aurum-400 font-bold">1:{activePosition.position.gross_rr}</span>
+                  <span className="text-gray-400">R:R Khớp Lệnh (Gross / Net):</span>
+                  <span className="text-aurum-400 font-bold">
+                    1:{activePosition.position.gross_rr?.toFixed(2) || '---'} (Net 1:{activePosition.position.estimated_net_rr?.toFixed(2) || '---'})
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Đòn bẩy & Ký quỹ:</span>
@@ -3020,7 +3069,9 @@ export function App() {
                 <div className="flex justify-between">
                   <span className="text-gray-400">Thanh lý ước tính:</span>
                   <span className="text-rose-400 font-mono font-semibold">
-                    ${activePosition.position.estimated_liquidation?.toFixed(2) || '---'}
+                    {typeof activePosition.position.estimated_liquidation === 'number' && activePosition.position.estimated_liquidation > 0
+                      ? `$${activePosition.position.estimated_liquidation.toFixed(2)} (Ước tính Isolated)`
+                      : 'Chưa có ước tính hợp lệ'}
                   </span>
                 </div>
                 <div className="flex justify-between pt-1 border-t border-charcoal-750">
@@ -3182,38 +3233,64 @@ export function App() {
                         </button>
                       </div>
                     ) : selectedIntent.source === 'WATCH_SETUP' ? (
-                      <button
-                        onClick={() =>
-                          handleArmWatchSetup(
-                            selectedIntent.setup_id!,
-                            selectedIntent.direction,
-                            selectedIntent.setup_instance_id,
-                            selectedIntent.revision
-                          )
-                        }
-                        disabled={!isGeometryValid || !selectedIntent.takeProfit || isCrossBlocked}
-                        className="w-full py-2 bg-gradient-to-r from-aurum-500 to-aurum-600 hover:from-aurum-400 hover:to-aurum-500 text-charcoal-950 font-bold rounded text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {!isGeometryValid
+                      (() => {
+                        const isBlockedByActive = !!activePosition?.has_active_position;
+                        const isBlockedByArmed = hasArmedOrder;
+                        const cannotArm = !isGeometryValid || !selectedIntent.takeProfit || isCrossBlocked || isBlockedByActive || isBlockedByArmed;
+                        const armReason = !isGeometryValid
                           ? 'Geometry Không Hợp Lệ'
                           : isCrossBlocked
                           ? 'Chặn Arm Khi Chọn Cross Margin (Cần Isolated)'
-                          : `Arm ${selectedIntent.direction} — PAPER`}
-                      </button>
+                          : isBlockedByActive
+                          ? 'Không Thể Arm: Đang Có 1 Vị Thế Mở'
+                          : isBlockedByArmed
+                          ? 'Không Thể Arm: Đang Có Lệnh ARMED'
+                          : `Arm ${selectedIntent.direction} — PAPER`;
+
+                        return (
+                          <button
+                            onClick={() =>
+                              handleArmWatchSetup(
+                                selectedIntent.setup_id!,
+                                selectedIntent.direction,
+                                selectedIntent.setup_instance_id,
+                                selectedIntent.revision
+                              )
+                            }
+                            disabled={cannotArm}
+                            className="w-full py-2 bg-gradient-to-r from-aurum-500 to-aurum-600 hover:from-aurum-400 hover:to-aurum-500 text-charcoal-950 font-bold rounded text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {armReason}
+                          </button>
+                        );
+                      })()
                     ) : (
-                      <button
-                        onClick={handleOpenPaperTrade}
-                        disabled={!isGeometryValid || !selectedIntent.takeProfit || selectedIntent.takeProfit === selectedIntent.stopLoss || isCrossBlocked}
-                        className="w-full py-2 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {!isGeometryValid
+                      (() => {
+                        const isBlockedByActive = !!activePosition?.has_active_position;
+                        const isBlockedByArmed = hasArmedOrder;
+                        const cannotOpen = !isGeometryValid || !selectedIntent.takeProfit || selectedIntent.takeProfit === selectedIntent.stopLoss || isCrossBlocked || isBlockedByActive || isBlockedByArmed;
+                        const openReason = !isGeometryValid
                           ? 'Geometry Không Hợp Lệ'
                           : !selectedIntent.takeProfit || selectedIntent.takeProfit === selectedIntent.stopLoss
                           ? 'Thiếu TP (Chưa đủ điều kiện)'
                           : isCrossBlocked
                           ? 'Chặn Mở Khi Chọn Cross Margin (Cần Isolated)'
-                          : `Mở ${selectedIntent.direction} ${selectedIntent.orderType} — PAPER`}
-                      </button>
+                          : isBlockedByActive
+                          ? 'Không Thể Mở: Đang Có 1 Vị Thế Mở'
+                          : isBlockedByArmed
+                          ? 'Không Thể Mở: Đang Có Lệnh ARMED'
+                          : `Mở ${selectedIntent.direction} ${selectedIntent.orderType} — PAPER`;
+
+                        return (
+                          <button
+                            onClick={handleOpenPaperTrade}
+                            disabled={cannotOpen}
+                            className="w-full py-2 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {openReason}
+                          </button>
+                        );
+                      })()
                     )}
                   </div>
                 );
@@ -3284,11 +3361,55 @@ export function App() {
             </div>
           )}
 
+          {/* Active Position Risk Monitoring Card */}
+          {activePosition?.has_active_position && (
+            <div className="bg-charcoal-900 border border-emerald-500/50 rounded-lg p-3.5 shadow-lg flex flex-col gap-2">
+              <div className="flex justify-between items-center border-b border-charcoal-750 pb-2">
+                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  GIÁM SÁT RỦI RO VỊ THẾ HIỆN TẠI
+                </span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
+                  {activePosition.position.direction}
+                </span>
+              </div>
+              <div className="space-y-1.5 text-[11px]">
+                <div className="p-2 rounded bg-charcoal-850 border border-charcoal-700 space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Net R:R Khớp Lệnh:</span>
+                    <span className="text-emerald-400 font-bold">
+                      1:{activePosition.position.estimated_net_rr?.toFixed(2) || '---'} (Gross 1:{activePosition.position.gross_rr?.toFixed(2) || '---'})
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-emerald-300/80 block">
+                    ✓ Đạt ngưỡng tối thiểu Net R:R 1:2.0 tại thời điểm khớp lệnh.
+                  </span>
+                </div>
+                <div className="p-2 rounded bg-charcoal-850 border border-charcoal-700 space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Giám sát TP / SL:</span>
+                    <span className="text-gray-200 font-mono font-semibold">
+                      TP ${activePosition.position.take_profit} / SL ${activePosition.position.stop_loss}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-gray-400 block">
+                    ExitMonitor đang theo dõi realtime; không bị ảnh hưởng bởi bộ lọc tín hiệu mới.
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Hard Filters Live Checklist */}
           <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-4 shadow-lg flex flex-col gap-2">
-            <span className="text-xs font-bold text-gray-300 border-b border-charcoal-750 pb-2">
-              BỘ LỌC ĐIỀU KIỆN (CHECKLIST)
-            </span>
+            <div className="border-b border-charcoal-750 pb-2">
+              <span className="text-xs font-bold text-gray-300 block">
+                BỘ LỌC TÍN HIỆU MỚI (SMC {analysis?.timeframe || '15M'})
+              </span>
+              <span className="text-[10px] text-gray-400 block mt-0.5">
+                Đánh giá điều kiện cho cơ hội mới (Độc lập với vị thế đang chạy)
+              </span>
+            </div>
             <div className="space-y-2 text-xs">
               {analysis?.checklist?.map((chk: any) => (
                 <div key={chk.id} className="p-2 rounded bg-charcoal-850 border border-charcoal-700 flex items-start gap-2">
@@ -3301,7 +3422,11 @@ export function App() {
                   )}
                   <div>
                     <span className="font-semibold text-gray-200 block text-[11px]">{chk.label}</span>
-                    <span className="text-[10px] text-gray-400">{chk.detail}</span>
+                    <span className="text-[10px] text-gray-400">
+                      {chk.id === 'MIN_NET_RR' && !analysis?.active_signal
+                        ? 'Chưa có setup mới hình thành trên nến hiện tại'
+                        : chk.detail}
+                    </span>
                   </div>
                 </div>
               ))}

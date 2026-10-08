@@ -27,6 +27,7 @@ from services.proximity_service import proximity_service
 from services.trade_lifecycle_service import TradeLifecycleService
 from domain_calculator import calculate_risk_reward
 from services.quote_validator import QuoteValidator
+from services.eligibility_service import evaluate_setup_eligibility
 from lab.scenario_runner import ScenarioRunner
 from lab.replay_engine import ReplayEngine
 from lab.stress_tester import StressTester
@@ -85,6 +86,16 @@ async def lifespan(app: FastAPI):
     """
     # 0. Sync broken DB states before starting loops
     reconcile_stuck_orders()
+
+    # V6.1 Offline Position Recovery: check if any open position needs historical reconciliation
+    db_rec = SessionLocal()
+    try:
+        from services.position_recovery_service import position_recovery_service
+        position_recovery_service.check_and_recover_offline_positions(db_rec)
+    except Exception as e:
+        print(f"Position recovery error at startup: {e}")
+    finally:
+        db_rec.close()
 
     tasks = [
         asyncio.create_task(collector_service.run_collector_loop()),
@@ -418,6 +429,7 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
     for s in setups:
         cond_met = json.loads(s.conditions_met) if s.conditions_met else []
         cond_rem = json.loads(s.conditions_remaining) if s.conditions_remaining else []
+        eligibility = evaluate_setup_eligibility(db, s)
         setup_items.append({
             "id": s.id,
             "version": s.version,
@@ -454,7 +466,8 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
             "entry_zone_low": s.entry_zone_low or s.provisional_entry,
             "entry_zone_high": s.entry_zone_high or s.provisional_entry,
             "created_at": s.created_at,
-            "updated_at": s.updated_at
+            "updated_at": s.updated_at,
+            "eligibility": eligibility
         })
 
     # Generate Daily Scenarios
@@ -483,6 +496,15 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
         "scenarios": scenarios,
         "server_time": int(time.time() * 1000)
     }
+
+
+@app.get("/api/v1/setups/eligibility/{setup_id}")
+def get_setup_eligibility(setup_id: str, db: Session = Depends(get_db)):
+    """Authoritative read-only eligibility inspection for a specific setup."""
+    watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == setup_id).first()
+    if not watch_setup:
+        raise HTTPException(status_code=404, detail="Không tìm thấy setup với ID này")
+    return evaluate_setup_eligibility(db, watch_setup)
 
 
 @app.post("/api/v1/setups/arm/{setup_id}")
@@ -552,38 +574,29 @@ def manual_arm_setup(
                 }
             )
 
-    if watch_setup.state not in ("READY", "WAITING_PRICE", "WAITING_RETRACE"):
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "code": "INVALID_STATE_FOR_ARM",
-                "message": f"Không thể Arm setup đang ở trạng thái {watch_setup.state}. Chỉ arm khi setup READY hoặc chờ khớp."
-            }
-        )
+    # Extract levels (authoritative levels or valid draft levels)
+    entry = req_body.planned_entry if req_body and req_body.planned_entry is not None else (watch_setup.confirmed_entry or watch_setup.provisional_entry)
+    sl = req_body.stop_loss if req_body and req_body.stop_loss is not None else (watch_setup.confirmed_sl or watch_setup.provisional_sl)
+    tp = req_body.take_profit if req_body and req_body.take_profit is not None else (watch_setup.confirmed_tp or watch_setup.provisional_tp)
 
-    # Use client provided levels (e.g. from chart dragging) if available, otherwise provisional
-    entry = req_body.planned_entry if req_body and req_body.planned_entry is not None else watch_setup.provisional_entry
-    sl = req_body.stop_loss if req_body and req_body.stop_loss is not None else watch_setup.provisional_sl
-    tp = req_body.take_profit if req_body and req_body.take_profit is not None else watch_setup.provisional_tp
-
-    # V5.1 Authoritative Geometry Validation (LONG: sl < entry < tp, SHORT: tp < entry < sl)
-    from domain_calculator import validate_price_geometry, calculate_risk_reward
-    is_geom_valid, geom_err = validate_price_geometry(
-        watch_setup.direction,
-        entry,
-        sl,
-        tp
+    # V6.1 Authoritative Shared Eligibility Check
+    elig = evaluate_setup_eligibility(
+        db=db,
+        setup=watch_setup,
+        custom_entry=entry,
+        custom_sl=sl,
+        custom_tp=tp,
+        custom_margin_mode=watch_setup.margin_mode
     )
-    if not is_geom_valid:
+    if not elig["can_arm"]:
+        code = elig["reason_codes"][0] if elig["reason_codes"] else "CANNOT_ARM"
         raise HTTPException(
             status_code=400,
             detail={
-                "code": "INVALID_PRICE_GEOMETRY",
-                "message": f"Geometry giá không hợp lệ: {geom_err}",
+                "code": code,
+                "message": elig["block_reason"] or "Lệnh không đủ điều kiện thực thi an toàn.",
                 "direction": watch_setup.direction,
-                "entry": entry,
-                "sl": sl,
-                "tp": tp
+                "eligibility": elig
             }
         )
 
@@ -600,30 +613,6 @@ def manual_arm_setup(
         leverage=watch_setup.leverage or 5,
         margin_mode=watch_setup.margin_mode or "ISOLATED"
     )
-    if not calc_res.is_valid:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "code": "CALCULATOR_INVALID",
-                "message": f"Kế hoạch giao dịch không hợp lệ: {calc_res.invalid_reason}"
-            }
-        )
-    if not calc_res.meets_min_rr:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "code": "INSUFFICIENT_RR",
-                "message": f"Tỷ lệ Net R:R ({calc_res.net_rr:.2f}) không đạt ngưỡng tối thiểu 2.0. Hãy kéo giãn Take Profit trên biểu đồ để đạt Net R:R >= 2.0."
-            }
-        )
-    if not calc_res.can_execute:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "code": "CANNOT_EXECUTE",
-                "message": calc_res.skip_reason or "Lệnh không đủ điều kiện thực thi an toàn."
-            }
-        )
 
     # Guard: check if an armed order or active position already exists
     active_pos = crud.get_active_position(db)
@@ -857,9 +846,28 @@ def get_active_paper_position(db: Session = Depends(get_db)):
     except Exception:
         pass
 
+    pos_response = schemas.PaperOrderResponse.model_validate(active)
+    if (pos_response.estimated_liquidation is None or pos_response.estimated_liquidation <= 0) and (active.margin_mode or "ISOLATED").upper() == "ISOLATED":
+        try:
+            entry_val = active.actual_entry or active.planned_entry
+            if entry_val and active.quantity and active.leverage:
+                from domain_calculator import calculate_isolated_liquidation
+                calc_lp, _, _, _, _ = calculate_isolated_liquidation(
+                    direction=active.direction,
+                    entry=entry_val,
+                    quantity=active.quantity,
+                    leverage=active.leverage,
+                    multiplier=1.0,
+                    taker_fee_rate=0.0006
+                )
+                if calc_lp and calc_lp > 0:
+                    pos_response.estimated_liquidation = calc_lp
+        except Exception:
+            pass
+
     return {
         "has_active_position": True,
-        "position": schemas.PaperOrderResponse.model_validate(active),
+        "position": pos_response,
         "current_price": curr_price,
         "unrealized_pnl": unrealized_pnl
     }
@@ -1327,3 +1335,26 @@ def run_lab_replay(request: schemas.ReplayRunRequest):
 def run_lab_stress(request: schemas.StressTestRequest):
     """Run parametric stress test matrix varying spread, slippage, fees, and latency."""
     return StressTester.run_stress_test(request)
+
+
+# ==================== 10. MAINTENANCE & OFFLINE RECOVERY ENDPOINTS ====================
+
+@app.get("/api/v1/maintenance/fixtures/audit")
+def audit_fixtures_endpoint(dry_run: bool = True, db: Session = Depends(get_db)):
+    """Audits test fixture contamination in database without mutating data."""
+    from services.maintenance_service import audit_and_reconcile_fixtures
+    return audit_and_reconcile_fixtures(db, dry_run=dry_run)
+
+
+@app.post("/api/v1/maintenance/fixtures/quarantine")
+def quarantine_fixtures_endpoint(db: Session = Depends(get_db)):
+    """Quarantines confirmed test fixtures (like watch-cross-15M) into INVALIDATED."""
+    from services.maintenance_service import audit_and_reconcile_fixtures
+    return audit_and_reconcile_fixtures(db, dry_run=False)
+
+
+@app.post("/api/v1/recovery/offline/reconcile")
+def reconcile_offline_positions_endpoint(db: Session = Depends(get_db)):
+    """Manually triggers offline gap reconciliation for active positions."""
+    from services.position_recovery_service import position_recovery_service
+    return position_recovery_service.check_and_recover_offline_positions(db)

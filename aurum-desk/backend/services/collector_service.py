@@ -104,6 +104,13 @@ class CollectorService:
                                 aggregate_id=symbol,
                                 payload={"symbol": symbol, "status": "connected"}
                             )
+                            try:
+                                db_rec = SessionLocal()
+                                from services.position_recovery_service import position_recovery_service
+                                position_recovery_service.check_and_recover_offline_positions(db_rec)
+                                db_rec.close()
+                            except Exception:
+                                pass
                     except Exception as e:
                         self.feed_connected = False
                         self.last_error = f"Ticker fetch failed: {str(e)}"

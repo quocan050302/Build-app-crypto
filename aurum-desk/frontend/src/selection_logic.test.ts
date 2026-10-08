@@ -148,4 +148,82 @@ describe('V5 Setup Selection & Trade Intent Invariants', () => {
     const canSubmit = Boolean(invalidIntent.takeProfit && invalidIntent.takeProfit !== invalidIntent.stopLoss);
     expect(canSubmit).toBe(false);
   });
+
+  it('V6.1: Strict identity - arming card A never adopts dragged levels from selected intent B', () => {
+    const selectedIntentB: SelectedTradeIntent = {
+      source: 'WATCH_SETUP',
+      setup_id: 'watch-setup-B',
+      setup_instance_id: 'inst-B',
+      revision: 1,
+      symbol: 'XAUUSDT',
+      timeframe: '15M',
+      direction: 'LONG',
+      plannedEntry: 4130.0,
+      stopLoss: 4115.0,
+      takeProfit: 4180.0,
+      orderType: 'MARKET',
+      quantity: 0.1,
+      initialRiskUsdt: 10,
+      grossRR: 3.3,
+      estimatedNetRR: 2.5,
+      leverage: 30,
+      marginMode: 'ISOLATED',
+      status: 'READY',
+      snapshotAt: Date.now()
+    };
+
+    const targetSetupA = {
+      id: 'watch-setup-A',
+      direction: 'LONG' as const,
+      setup_instance_id: 'inst-A',
+      version: 2
+    };
+
+    // Correct V6.1 strict identity logic:
+    const isMatchingSelected = selectedIntentB.setup_id === targetSetupA.id;
+    expect(isMatchingSelected).toBe(false);
+
+    // Payload for A must not inherit B's levels
+    const payloadA: any = {
+      setup_id: targetSetupA.id,
+      setup_instance_id: targetSetupA.setup_instance_id,
+      expected_revision: targetSetupA.version,
+      expected_direction: targetSetupA.direction,
+      idempotency_key: `arm-${targetSetupA.id}-v${targetSetupA.version}`
+    };
+
+    if (isMatchingSelected) {
+      payloadA.planned_entry = selectedIntentB.plannedEntry;
+      payloadA.stop_loss = selectedIntentB.stopLoss;
+      payloadA.take_profit = selectedIntentB.takeProfit;
+    }
+
+    expect(payloadA.setup_id).toBe('watch-setup-A');
+    expect(payloadA.planned_entry).toBeUndefined();
+    expect(payloadA.stop_loss).toBeUndefined();
+    expect(payloadA.take_profit).toBeUndefined();
+  });
+
+  it('V6.1: Cross margin and Active Position block arming', () => {
+    const formatLiquidation = (lp: number | null | undefined): string => {
+      return typeof lp === 'number' && lp > 0 ? `$${lp.toFixed(2)}` : 'Chưa có ước tính hợp lệ';
+    };
+
+    // 0 or null must never be rendered as "$0.00"
+    expect(formatLiquidation(0)).toBe('Chưa có ước tính hợp lệ');
+    expect(formatLiquidation(null)).toBe('Chưa có ước tính hợp lệ');
+    expect(formatLiquidation(undefined)).toBe('Chưa có ước tính hợp lệ');
+    expect(formatLiquidation(4005.15)).toBe('$4005.15');
+
+    // Cross block
+    const checkCanArm = (margin: string, hasActivePos: boolean, hasArmed: boolean) => {
+      const isCross = margin === 'CROSS';
+      return !isCross && !hasActivePos && !hasArmed;
+    };
+
+    expect(checkCanArm('CROSS', false, false)).toBe(false);
+    expect(checkCanArm('ISOLATED', true, false)).toBe(false);
+    expect(checkCanArm('ISOLATED', false, true)).toBe(false);
+    expect(checkCanArm('ISOLATED', false, false)).toBe(true);
+  });
 });

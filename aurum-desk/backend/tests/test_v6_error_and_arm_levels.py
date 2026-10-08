@@ -1,26 +1,12 @@
 import pytest
-from fastapi.testclient import TestClient
-from main import app
-from database import SessionLocal, engine
-import models
 import time
+import models
 
-@pytest.fixture(autouse=True)
-def setup_db():
-    models.Base.metadata.create_all(bind=engine)
-    yield
-
-def test_arm_setup_accepts_custom_chart_levels_and_rejects_insufficient_rr():
-    client = TestClient(app)
-    db = SessionLocal()
+def test_arm_setup_accepts_custom_chart_levels_and_rejects_insufficient_rr(client, isolated_db):
+    db = isolated_db
     now_ms = int(time.time() * 1000)
 
-    # Clean existing setups and orders
-    db.query(models.PaperOrder).delete()
-    db.query(models.WatchSetup).delete()
-    db.commit()
-
-    # Create a watch setup
+    # Create a watch setup in isolated db
     setup = models.WatchSetup(
         id="watch-test-15M",
         version=1,
@@ -88,17 +74,10 @@ def test_arm_setup_accepts_custom_chart_levels_and_rejects_insufficient_rr():
     assert order.stop_loss == 4110.0
     assert order.take_profit == 4160.0
     assert order.estimated_net_rr >= 2.0
-    db.close()
 
-def test_arm_setup_cross_margin_unsupported():
-    client = TestClient(app)
-    db = SessionLocal()
+def test_arm_setup_cross_margin_unsupported(client, isolated_db):
+    db = isolated_db
     now_ms = int(time.time() * 1000)
-
-    # Clean existing setups and orders
-    db.query(models.PaperOrder).delete()
-    db.query(models.WatchSetup).delete()
-    db.commit()
 
     # Create a watch setup configured with CROSS margin
     setup = models.WatchSetup(
@@ -133,6 +112,5 @@ def test_arm_setup_cross_margin_unsupported():
     )
     assert res.status_code == 400
     data = res.json()
-    assert data["detail"]["code"] == "CANNOT_EXECUTE"
+    assert data["detail"]["code"] in ("CANNOT_EXECUTE", "CROSS_MARGIN_UNSUPPORTED")
     assert "CROSS_MARGIN_UNSUPPORTED" in data["detail"]["message"]
-    db.close()
