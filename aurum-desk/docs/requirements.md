@@ -168,9 +168,10 @@ Nguồn tham khảo:
 - FMP, EODHD.
 
 Import phải có:
-- File picker/drag-drop JSON hoặc CSV; preview mapping, timezone, date range; xác nhận trước commit.
-- Auto-detect Forex Factory format và canonical format.
-- ...
+- File picker/drag-drop JSON hoặc CSV; tự động nhận diện Forex Factory JSON hoặc định dạng CSV chuẩn; chuẩn hóa thời gian UTC epoch milliseconds.
+- Tự động kiểm tra trùng lặp và lưu trữ điểm tin kinh tế vào bảng `economic_news`.
+- Khung giờ Blackout tự động: Khóa mở lệnh 30 phút trước và 15 phút sau tin USD High Impact (FOMC: 60 phút trước / 30 phút sau).
+- Khi trong vùng Blackout, trạng thái hệ thống hiển thị rõ lý do và số phút còn lại.
 
 ## 10. Nghiên cứu tác động tin lên XAUUSDT
 
@@ -182,22 +183,34 @@ Nhóm ưu tiên nghiên cứu ban đầu: CPI/Core CPI, PCE/Core PCE, NFP, unemp
 
 ## 11. Nhật ký, bài học và khả năng học
 
-Trước lệnh lưu snapshot bất biến.
-Sau lệnh lưu Entry/exit/fills, P&L.
-Trước mỗi candidate/trade, bắt buộc truy xuất lesson memory.
+- **Trước lệnh:** Lưu snapshot bất biến gồm cấu trúc thị trường, giá closed candle bằng chứng, checklist các điều kiện, vùng POI và thiết lập rủi ro.
+- **Sau lệnh:** Ghi nhận điểm fill thực tế, chi phí phí/trượt giá, PnL ròng, R thực tế đạt được, lý do đóng lệnh (TP_HIT, SL_HIT, MANUAL_CLOSE, AMBIGUOUS_BAR_SL_FIRST).
+- **Truy xuất bài học:** Trước mỗi candidate/trade, bắt buộc truy xuất lesson memory từ bảng `lessons` để kiểm tra các sai lầm trong quá khứ hoặc các quy tắc đã được phê duyệt.
+- Tự động tạo bài học rút kinh nghiệm sau mỗi lệnh đóng để người dùng theo dõi và kỷ luật.
 
 ## 12. Thư viện kiến thức cho người hiểu căn bản
-...
+- Tích hợp sẵn mô-đun kiến thức tiếng Việt ngay trong ứng dụng:
+  1. Hợp đồng tương lai vĩnh cửu XAUUSDT trên Bitget: quy cách hợp đồng 1 oz, tick size, bước giá, tính chất phái sinh tham chiếu vàng.
+  2. Phương pháp SMC/ICT: Swings 2-bar pivot, Liquidity Sweeps, CHoCH vs BOS, FVGs và Premium/Discount.
+  3. Quản trị vốn và Paper Trading: Ngân sách 0.5% rủi ro, giới hạn 3 lệnh/ngày, daily loss cap 1.5%, quy tắc dừng 2 lệnh thua liên tiếp.
 
 ## 13. Persistence, vận hành và API local
-Schema có migrations cho: candles, instrument_configs, quotes...
-API đủ cho dashboard, chart data, daily/session reports...
+- SQLite cơ sở dữ liệu bền vững đặt tại đường dẫn tuyệt đối `backend/aurum_desk.db`, kích hoạt chế độ WAL (Write-Ahead Logging).
+- Unique constraint `(symbol, timeframe, timestamp)` chống trùng lặp dữ liệu nến.
+- API FastAPI đầy đủ: `/health`, `/api/v1/candles/...`, `/api/v1/ticker/...`, `/api/v1/analysis/...`, `/api/v1/positions/...`, `/api/v1/orders/...`, `/api/v1/news/...`, `/api/v1/reports/...`, `/api/v1/journal`, `/api/v1/lessons`, `/api/v1/education`.
+- WebSocket `/ws` phục vụ đẩy dữ liệu thời gian thực.
 
 ## 14. Backtest/replay và kiểm thử bắt buộc
-Implement replay tối thiểu dùng cùng strategy/risk engines.
-Kiểm thử có ý nghĩa.
+- Bộ unit test tự động bằng pytest kiểm tra:
+  - Xác nhận pivot không lookahead (nến i xác nhận tại i+2).
+  - Vòng đời FVG (created, confirmed, partially_mitigated, fully_mitigated).
+  - Phát hiện Liquidity Sweep đỉnh/đáy.
+  - Các ca tính toán R:R số học cụ thể (Long 4000/3990/4020 -> 2R, Short 4000/4010/3980 -> 2R).
+  - Quản trị rủi ro: chặn mở lệnh thứ 4 trong ngày, khóa sau 2 lệnh lỗ liên tiếp, khóa khi vượt 1.5% daily loss cap, nến ambiguous ưu tiên SL.
+  - Phân tích và nhập file tin tức JSON/CSV.
 
 ## 15. Cách thực hiện và bàn giao
-1. Kiểm tra workspace/runtime và tài liệu API/library hiện hành; ghi kế hoạch ngắn và bắt đầu.
-2. Làm một vertical slice chạy được: chart live XAUUSDT + storage + health. Sau đó thêm analysis/report, news import, signals/risk, auto paper, journal/lessons, research/replay và knowledge.
-...
+1. Mã nguồn hoàn thiện, không lỗi cú pháp, kiểm tra TypeScript build và Pytest đầy đủ.
+2. Script khởi chạy tiện lợi `run.ps1` kiểm tra môi trường, migration và khởi động server.
+3. Tài liệu kiến trúc và hướng dẫn vận hành chi tiết bằng tiếng Việt.
+

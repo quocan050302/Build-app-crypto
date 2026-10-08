@@ -1,0 +1,21 @@
+# Python
+backend/venv/
+backend/__pycache__/
+__pycache__/
+*.py[cod]
+*$py.class
+*.db.bak*
+*.db-shm
+*.db-wal
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+*.local
+
+# Environment
+.env
+
+# Logs
+*.log
