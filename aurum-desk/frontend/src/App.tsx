@@ -79,6 +79,18 @@ export interface SelectedTradeIntent {
   conditions_remaining?: string[];
   distance_to_entry_usdt?: number;
   distance_to_entry_atr?: number;
+
+  // Canonical breakdown & amounts (V10.4)
+  grossRewardUsdt?: number;
+  grossLossUsdt?: number;
+  netRewardUsdt?: number;
+  multiplier?: number;
+  entryFeeUsdt?: number;
+  slExitFeeUsdt?: number;
+  tpExitFeeUsdt?: number;
+  entrySlippageUsdt?: number;
+  slExitSlippageUsdt?: number;
+  tpExitSlippageUsdt?: number;
 }
 
 
@@ -838,10 +850,25 @@ function AppContent() {
     const sl = setup.confirmed_sl || setup.provisional_sl;
     const tp = setup.confirmed_tp || setup.provisional_tp;
 
-    let grossRR = setup.gross_rr || 0.0;
-    let netRR = setup.net_rr || 0.0;
+    const currentCapital = accountStatus?.current_equity ?? 1000.0;
+    const effectiveRiskPct = riskPct ?? 0.25;
+
+    let grossRR = 0.0;
+    let netRR = 0.0;
     let isValid = true;
     let invalidReason: string | undefined = undefined;
+    let initialRiskUsdt = setup.risk_usdt || 2.5;
+    let grossRewardUsdt: number | undefined = undefined;
+    let grossLossUsdt: number | undefined = undefined;
+    let netRewardUsdt: number | undefined = undefined;
+    let calcQty = setup.quantity || 0.05;
+    let entryFeeUsdt = 0;
+    let slExitFeeUsdt = 0;
+    let tpExitFeeUsdt = 0;
+    let entrySlippageUsdt = 0;
+    let slExitSlippageUsdt = 0;
+    let tpExitSlippageUsdt = 0;
+    let multiplier = 1.0;
 
     if (entry && sl && tp) {
       const calc = calculateClientRiskReward(
@@ -849,8 +876,8 @@ function AppContent() {
         entry,
         sl,
         tp,
-        1000.0,
-        0.25,
+        currentCapital,
+        effectiveRiskPct,
         2.0,
         setup.quantity || 0.05,
         setup.leverage || leverage,
@@ -859,8 +886,20 @@ function AppContent() {
       isValid = calc.isValid;
       invalidReason = calc.invalidReason;
       if (calc.isValid) {
-        grossRR = setup.gross_rr || calc.grossRR;
-        netRR = setup.net_rr || calc.estimatedNetRR;
+        grossRR = calc.grossRR;
+        netRR = calc.estimatedNetRR;
+        initialRiskUsdt = calc.netRiskUsdt;
+        grossRewardUsdt = calc.grossRewardUsdt;
+        grossLossUsdt = calc.grossLossUsdt;
+        netRewardUsdt = calc.netRewardUsdt;
+        calcQty = calc.quantity;
+        entryFeeUsdt = calc.entryFeeUsdt;
+        slExitFeeUsdt = calc.slExitFeeUsdt;
+        tpExitFeeUsdt = calc.tpExitFeeUsdt;
+        entrySlippageUsdt = calc.entrySlippageUsdt;
+        slExitSlippageUsdt = calc.slExitSlippageUsdt;
+        tpExitSlippageUsdt = calc.tpExitSlippageUsdt;
+        multiplier = calc.multiplier;
       } else {
         grossRR = 0;
         netRR = 0;
@@ -874,9 +913,13 @@ function AppContent() {
       plannedEntry: entry,
       stopLoss: sl,
       takeProfit: tp,
-      quantity: setup.quantity || 0.05,
-      initialRiskUsdt: setup.risk_usdt || 2.5,
-      riskPct: 0.25,
+      quantity: calcQty,
+      initialRiskUsdt: initialRiskUsdt,
+      grossRewardUsdt: grossRewardUsdt,
+      grossLossUsdt: grossLossUsdt,
+      netRewardUsdt: netRewardUsdt,
+      multiplier: multiplier,
+      riskPct: effectiveRiskPct,
       grossRR: grossRR,
       estimatedNetRR: netRR,
       isValid: isValid,
@@ -898,8 +941,18 @@ function AppContent() {
       stopLoss: sl,
       takeProfit: tp,
       orderType: setup.state === 'READY' ? 'MARKET' : 'LIMIT',
-      quantity: setup.quantity || 0.05,
-      initialRiskUsdt: setup.risk_usdt || 2.5,
+      quantity: calcQty,
+      initialRiskUsdt: initialRiskUsdt,
+      grossRewardUsdt: grossRewardUsdt,
+      grossLossUsdt: grossLossUsdt,
+      netRewardUsdt: netRewardUsdt,
+      multiplier: multiplier,
+      entryFeeUsdt: entryFeeUsdt,
+      slExitFeeUsdt: slExitFeeUsdt,
+      tpExitFeeUsdt: tpExitFeeUsdt,
+      entrySlippageUsdt: entrySlippageUsdt,
+      slExitSlippageUsdt: slExitSlippageUsdt,
+      tpExitSlippageUsdt: tpExitSlippageUsdt,
       grossRR: grossRR,
       estimatedNetRR: netRR,
       leverage: setup.leverage || leverage,
@@ -928,13 +981,16 @@ function AppContent() {
     const sl = setup.confirmed_sl || setup.provisional_sl;
     const tp = setup.confirmed_tp || setup.provisional_tp;
     const draftId = `draft-${Date.now()}`;
+    const currentCapital = accountStatus?.current_equity ?? 1000.0;
+    const effectiveRiskPct = riskPct ?? 0.25;
+
     const calc = calculateClientRiskReward(
       setup.direction,
       entry,
       sl,
       tp,
-      1000.0,
-      0.25,
+      currentCapital,
+      effectiveRiskPct,
       2.0,
       setup.quantity || 0.05,
       setup.leverage || leverage,
@@ -948,16 +1004,20 @@ function AppContent() {
       plannedEntry: entry,
       stopLoss: sl,
       takeProfit: tp,
-      quantity: setup.quantity || 0.05,
-      initialRiskUsdt: setup.risk_usdt || 2.5,
-      riskPct: 0.25,
+      quantity: calc.isValid ? calc.quantity : (setup.quantity || 0.05),
+      initialRiskUsdt: calc.isValid ? calc.netRiskUsdt : (setup.risk_usdt || 2.5),
+      grossRewardUsdt: calc.isValid ? calc.grossRewardUsdt : undefined,
+      grossLossUsdt: calc.isValid ? calc.grossLossUsdt : undefined,
+      netRewardUsdt: calc.isValid ? calc.netRewardUsdt : undefined,
+      multiplier: calc.multiplier,
+      riskPct: effectiveRiskPct,
       grossRR: calc.isValid ? calc.grossRR : 0,
       estimatedNetRR: calc.isValid ? calc.estimatedNetRR : 0,
       isValid: calc.isValid,
       invalidReason: calc.invalidReason,
       leverage: setup.leverage || leverage,
       marginMode: setup.margin_mode || marginMode,
-      estimatedLiquidation: setup.estimated_liquidation,
+      estimatedLiquidation: calc.isValid ? calc.estimatedLiquidation : setup.estimated_liquidation,
     };
     setActiveOverlay(overlay);
     setSelectedIntent({
@@ -970,13 +1030,23 @@ function AppContent() {
       stopLoss: sl,
       takeProfit: tp,
       orderType: 'LIMIT',
-      quantity: setup.quantity || 0.05,
-      initialRiskUsdt: setup.risk_usdt || 2.5,
+      quantity: calc.isValid ? calc.quantity : (setup.quantity || 0.05),
+      initialRiskUsdt: calc.isValid ? calc.netRiskUsdt : (setup.risk_usdt || 2.5),
+      grossRewardUsdt: calc.isValid ? calc.grossRewardUsdt : undefined,
+      grossLossUsdt: calc.isValid ? calc.grossLossUsdt : undefined,
+      netRewardUsdt: calc.isValid ? calc.netRewardUsdt : undefined,
+      multiplier: calc.multiplier,
+      entryFeeUsdt: calc.entryFeeUsdt,
+      slExitFeeUsdt: calc.slExitFeeUsdt,
+      tpExitFeeUsdt: calc.tpExitFeeUsdt,
+      entrySlippageUsdt: calc.entrySlippageUsdt,
+      slExitSlippageUsdt: calc.slExitSlippageUsdt,
+      tpExitSlippageUsdt: calc.tpExitSlippageUsdt,
       grossRR: calc.isValid ? calc.grossRR : 0,
       estimatedNetRR: calc.isValid ? calc.estimatedNetRR : 0,
       leverage: setup.leverage || leverage,
       marginMode: setup.margin_mode || marginMode,
-      estimatedLiquidation: setup.estimated_liquidation,
+      estimatedLiquidation: calc.isValid ? calc.estimatedLiquidation : setup.estimated_liquidation,
       status: 'draft',
       snapshotAt: Date.now(),
     });

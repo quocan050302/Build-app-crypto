@@ -1,7 +1,10 @@
 import math
+import time
 from typing import Dict, Any, Optional, Tuple, List
 from pydantic import BaseModel, Field
 from services.instrument_provider import instrument_provider, MarginTier
+
+BITGET_TIERS = instrument_provider.get_metadata_sync("XAUUSDT").tiers
 
 def get_tier_info(notional: float) -> MarginTier:
     """Retrieve Bitget tier parameters based on position notional value."""
@@ -17,6 +20,7 @@ class CostAssumptions(BaseModel):
     slippage_usd: float = 0.10
     multiplier: float = 1.0
     tp_is_maker: bool = False     # False = TP triggered as market order (taker fee assumption)
+    tp_slippage_usd: float = 0.0  # Adverse slippage on TP market order (0.0 for legacy F1 regression, 0.10 for explicit TP slippage model)
 
 
 class CalculationResult(BaseModel):
@@ -44,6 +48,35 @@ class CalculationResult(BaseModel):
     can_execute: bool
     skip_reason: Optional[str] = None
 
+    # Canonical snapshot contract fields (V10.4)
+    phase: str = "PLAN_PREVIEW"   # PLAN_PREVIEW / ARMED_ESTIMATE / FILLED_ESTIMATE / REALIZED
+    symbol: str = "XAUUSDT"
+    setup_id: Optional[str] = None
+    setup_instance_id: Optional[str] = None
+    revision: int = 1
+    entry_reference: float = 0.0
+    entry_basis: str = "PLANNED"  # "PLANNED" or "ACTUAL"
+    quantity_mode: str = "RISK_BUDGET"  # "RISK_BUDGET" or "FIXED_QUANTITY"
+    multiplier: float = 1.0
+    qty_step: float = 0.01
+    price_tick: float = 0.01
+    min_net_rr: float = 2.0
+    calculated_at: int = 0
+    cost_source: str = "BITGET_PAPER_MODEL_V10_4"
+    estimated: bool = True
+    exclusions: List[str] = Field(default_factory=lambda: ["FUNDING_UNMODELED"])
+    blocker_list: List[str] = Field(default_factory=list)
+
+    # Branch breakdown (separate SL and TP legs)
+    entry_fee_usdt: float = 0.0
+    sl_exit_fee_usdt: float = 0.0
+    tp_exit_fee_usdt: float = 0.0
+    entry_slippage_usdt: float = 0.0
+    sl_exit_slippage_usdt: float = 0.0
+    tp_exit_slippage_usdt: float = 0.0
+    maker_fee_rate: float = 0.0002
+    taker_fee_rate: float = 0.0004
+
     # Leverage, Margin & Liquidation
     leverage: int = 5
     margin_mode: str = "ISOLATED"
@@ -53,6 +86,9 @@ class CalculationResult(BaseModel):
     sl_lp_buffer_usdt: Optional[float] = None
     tier: int = 1
     max_tier_leverage: int = 50
+
+    def to_snapshot(self) -> Dict[str, Any]:
+        return self.model_dump()
 
 
 def validate_price_geometry(direction: str, entry: float, sl: float, tp: float) -> Tuple[bool, Optional[str]]:
@@ -148,6 +184,12 @@ def calculate_risk_reward(
     take_profit: Optional[float] = None,
     capital_usdt: Optional[float] = None,
     quantity: Optional[float] = None,
+    phase: str = "PLAN_PREVIEW",
+    setup_id: Optional[str] = None,
+    setup_instance_id: Optional[str] = None,
+    revision: int = 1,
+    symbol: str = "XAUUSDT",
+    now_ms: Optional[int] = None,
 ) -> CalculationResult:
     """
     Authoritative domain calculation for Risk, Reward, Sizing, Fees, Leverage, Margin and Liquidation.
@@ -164,7 +206,51 @@ def calculate_risk_reward(
     if costs is None:
         costs = CostAssumptions()
 
-    # 1. Geometry Validation
+    mult = costs.multiplier if costs.multiplier > 0 else 1.0
+    calculated_at = now_ms if now_ms is not None else int(time.time() * 1000)
+
+    # 1. Direction and Geometry Validation
+    if direction not in ("LONG", "SHORT"):
+        invalid_err = f"UNKNOWN_DIRECTION: {direction}"
+        return CalculationResult(
+            is_valid=False,
+            invalid_reason=invalid_err,
+            direction=direction,
+            planned_entry=entry,
+            stop_loss=sl,
+            take_profit=tp,
+            stop_distance=0.0,
+            target_distance=0.0,
+            quantity=0.0,
+            budget_usdt=0.0,
+            gross_loss_usdt=0.0,
+            gross_reward_usdt=0.0,
+            net_risk_usdt=0.0,
+            net_reward_usdt=0.0,
+            gross_rr=0.0,
+            net_rr=0.0,
+            meets_min_rr=False,
+            effective_risk_pct=0.0,
+            notional_usdt=0.0,
+            fees_total_usdt=0.0,
+            slippage_total_usdt=0.0,
+            can_execute=False,
+            skip_reason=invalid_err,
+            phase=phase,
+            symbol=symbol,
+            setup_id=setup_id,
+            setup_instance_id=setup_instance_id,
+            revision=revision,
+            entry_reference=entry,
+            entry_basis="ACTUAL" if entry_has_slippage else "PLANNED",
+            multiplier=mult,
+            min_net_rr=min_net_rr,
+            calculated_at=calculated_at,
+            blocker_list=[invalid_err],
+            leverage=leverage,
+            margin_mode=margin_mode
+        )
+
     is_valid, invalid_reason = validate_price_geometry(direction, entry, sl, tp)
     if not is_valid:
         return CalculationResult(
@@ -191,11 +277,64 @@ def calculate_risk_reward(
             slippage_total_usdt=0.0,
             can_execute=False,
             skip_reason=invalid_reason,
+            phase=phase,
+            symbol=symbol,
+            setup_id=setup_id,
+            setup_instance_id=setup_instance_id,
+            revision=revision,
+            entry_reference=entry,
+            entry_basis="ACTUAL" if entry_has_slippage else "PLANNED",
+            multiplier=mult,
+            min_net_rr=min_net_rr,
+            calculated_at=calculated_at,
+            blocker_list=[invalid_reason] if invalid_reason else [],
             leverage=leverage,
             margin_mode=margin_mode
         )
 
-    mult = costs.multiplier
+    # 1.5 Validate quantity_override if provided
+    if quantity_override is not None:
+        if not math.isfinite(quantity_override) or quantity_override <= 0:
+            qty_err = "INVALID_QUANTITY: Khối lượng chỉ định phải là số dương hữu hạn"
+            return CalculationResult(
+                is_valid=False,
+                invalid_reason=qty_err,
+                direction=direction,
+                planned_entry=entry,
+                stop_loss=sl,
+                take_profit=tp,
+                stop_distance=0.0,
+                target_distance=0.0,
+                quantity=0.0,
+                budget_usdt=0.0,
+                gross_loss_usdt=0.0,
+                gross_reward_usdt=0.0,
+                net_risk_usdt=0.0,
+                net_reward_usdt=0.0,
+                gross_rr=0.0,
+                net_rr=0.0,
+                meets_min_rr=False,
+                effective_risk_pct=0.0,
+                notional_usdt=0.0,
+                fees_total_usdt=0.0,
+                slippage_total_usdt=0.0,
+                can_execute=False,
+                skip_reason=qty_err,
+                phase=phase,
+                symbol=symbol,
+                setup_id=setup_id,
+                setup_instance_id=setup_instance_id,
+                revision=revision,
+                entry_reference=entry,
+                entry_basis="ACTUAL" if entry_has_slippage else "PLANNED",
+                multiplier=mult,
+                min_net_rr=min_net_rr,
+                calculated_at=calculated_at,
+                blocker_list=[qty_err],
+                leverage=leverage,
+                margin_mode=margin_mode
+            )
+
     stop_distance = (entry - sl) if direction == "LONG" else (sl - entry)
     target_distance = (tp - entry) if direction == "LONG" else (entry - tp)
 
@@ -215,34 +354,51 @@ def calculate_risk_reward(
     # 3. Quantity Sizing
     can_execute = True
     skip_reason = None
+    blockers: List[str] = []
 
     if quantity_override is not None and quantity_override > 0:
         raw_qty = quantity_override
+        quantity_mode = "FIXED_QUANTITY"
     else:
         raw_qty = budget_usdt / total_risk_per_unit if total_risk_per_unit > 0 else 0.0
+        quantity_mode = "RISK_BUDGET"
 
-    # Floor to quantity step (0.01)
-    meta = instrument_provider.get_metadata_sync("XAUUSDT")
-    step = meta.qty_step
-    qty = math.floor(raw_qty / step) * step
+    # Floor to quantity step (using exact decimal logic to avoid float representation anomalies like 0.3 -> 0.29)
+    meta = instrument_provider.get_metadata_sync(symbol)
+    step = meta.qty_step or 0.01
+    import decimal
+    try:
+        d_raw = decimal.Decimal(str(raw_qty))
+        d_step = decimal.Decimal(str(step))
+        d_floored = (d_raw // d_step) * d_step
+        qty = float(d_floored)
+    except Exception:
+        qty = math.floor(raw_qty / step) * step
     qty = round(qty, 4)
 
     # Check minimum quantity constraint
-    min_qty = meta.min_qty
+    min_qty = meta.min_qty or 0.01
     if qty < min_qty:
-        min_unit_risk = min_qty * total_risk_per_unit
-        if min_unit_risk > budget_usdt:
+        if quantity_mode == "FIXED_QUANTITY":
             can_execute = False
-            skip_reason = f"MIN_QTY_EXCEEDS_BUDGET: Khối lượng tối thiểu {min_qty} oz có rủi ro ${min_unit_risk:.2f} vượt ngân sách rủi ro ${budget_usdt:.2f}"
-            qty = min_qty
+            skip_reason = f"MIN_QTY_NOT_MET: Khối lượng chỉ định {qty} nhỏ hơn tối thiểu {min_qty}"
+            blockers.append("MIN_QTY_NOT_MET")
         else:
-            qty = min_qty
+            min_unit_risk = min_qty * total_risk_per_unit
+            if min_unit_risk > budget_usdt:
+                can_execute = False
+                skip_reason = f"MIN_QTY_EXCEEDS_BUDGET: Khối lượng tối thiểu {min_qty} oz có rủi ro ${min_unit_risk:.2f} vượt ngân sách rủi ro ${budget_usdt:.2f}"
+                blockers.append("MIN_QTY_EXCEEDS_BUDGET")
+                qty = min_qty
+            else:
+                qty = min_qty
 
     notional = qty * mult * entry
-    min_notional = meta.min_notional_usdt
+    min_notional = meta.min_notional_usdt or 5.0
     if notional < min_notional:
         can_execute = False
         skip_reason = f"MIN_NOTIONAL_NOT_MET: Giá trị lệnh ${notional:.2f} nhỏ hơn mức tối thiểu ${min_notional:.2f}"
+        blockers.append("MIN_NOTIONAL_NOT_MET")
 
     # 4. Gross & Net Risk / Reward Calculations
     gross_loss = qty * mult * stop_distance
@@ -254,26 +410,36 @@ def calculate_risk_reward(
     tp_fee_rate = costs.maker_fee_rate if costs.tp_is_maker else costs.taker_fee_rate
     tp_exit_fee_total = qty * mult * tp * tp_fee_rate
 
-    # If entry already included slippage in price, do not double-count entry slippage in net_risk
+    # Slippages
     entry_slippage_total = 0.0 if entry_has_slippage else (qty * costs.slippage_usd * mult)
     sl_slippage_total = qty * costs.slippage_usd * mult
+    tp_slippage_total = 0.0 if costs.tp_is_maker else (qty * costs.tp_slippage_usd * mult)
 
     net_risk = gross_loss + entry_fee_total + sl_exit_fee_total + entry_slippage_total + sl_slippage_total
-    net_reward = gross_reward - entry_fee_total - tp_exit_fee_total - entry_slippage_total
+    net_reward = gross_reward - entry_fee_total - tp_exit_fee_total - entry_slippage_total - tp_slippage_total
 
     # Guard: if quantity_override was provided, verify it does not exceed budget
     if quantity_override is not None and net_risk > (budget_usdt * 1.001):
         can_execute = False
         skip_reason = f"QTY_OVERRIDE_EXCEEDS_BUDGET: Khối lượng chỉ định {qty} oz có rủi ro ${net_risk:.2f} vượt ngân sách rủi ro ${budget_usdt:.2f}"
+        blockers.append("QTY_OVERRIDE_EXCEEDS_BUDGET")
 
     gross_rr = gross_reward / gross_loss if gross_loss > 0 else 0.0
     net_rr = net_reward / net_risk if net_risk > 0 else 0.0
 
-    # Policy Check: Net RR >= 2.0 without premature rounding up
-    meets_min_rr = (net_rr >= min_net_rr)
+    # Guard: non-positive net reward (no false claims of profit)
+    if net_reward <= 0:
+        blockers.append("NET_REWARD_NON_POSITIVE")
+
+    # Policy Check: Net RR >= min_net_rr without premature rounding up
+    meets_min_rr = (net_rr >= min_net_rr and net_reward > 0)
     if not meets_min_rr and can_execute:
         can_execute = False
-        skip_reason = f"NET_RR_TOO_LOW: Net R:R 1:{net_rr:.4f} chưa đạt ngưỡng tối thiểu 1:{min_net_rr:.1f}"
+        if net_reward <= 0:
+            skip_reason = f"NET_RR_TOO_LOW: Net R:R 1:{net_rr:.4f} chưa đạt ngưỡng tối thiểu 1:{min_net_rr:.1f} (NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến ${net_reward:.2f} <= 0 sau chi phí)"
+        else:
+            skip_reason = f"NET_RR_TOO_LOW: Net R:R 1:{net_rr:.4f} chưa đạt ngưỡng tối thiểu 1:{min_net_rr:.1f}"
+        blockers.append("NET_RR_TOO_LOW")
 
     effective_risk_pct = (net_risk / capital) * 100.0 if capital > 0 else 0.0
 
@@ -291,10 +457,9 @@ def calculate_risk_reward(
     if init_margin > capital and can_execute:
         can_execute = False
         skip_reason = f"INSUFFICIENT_MARGIN: Ký quỹ yêu cầu ${init_margin:.2f} vượt quá vốn khả dụng ${capital:.2f}"
+        blockers.append("INSUFFICIENT_MARGIN")
 
     # Check Liquidation buffer relative to SL
-    # Long: LP < SL < Entry. Liquidation buffer = SL - LP
-    # Short: Entry < SL < LP. Liquidation buffer = LP - SL
     sl_lp_buffer = (sl - lp) if direction == "LONG" else (lp - sl)
 
     if direction == "LONG":
@@ -302,24 +467,29 @@ def calculate_risk_reward(
             if can_execute:
                 can_execute = False
                 skip_reason = f"LIQUIDATION_BEFORE_SL: Giá thanh lý ước tính ({lp:.2f}) nằm TRÊN hoặc BẰNG Stop Loss ({sl:.2f})"
+                blockers.append("LIQUIDATION_BEFORE_SL")
         elif sl_lp_buffer < min_sl_lp_buffer_usdt:
             if can_execute:
                 can_execute = False
                 skip_reason = f"LIQUIDATION_BUFFER_TOO_TIGHT: Khoảng đệm SL-Thanh lý (${sl_lp_buffer:.2f}) nhỏ hơn tối thiểu ${min_sl_lp_buffer_usdt:.2f}"
+                blockers.append("LIQUIDATION_BUFFER_TOO_TIGHT")
     elif direction == "SHORT":
         if lp <= sl:
             if can_execute:
                 can_execute = False
                 skip_reason = f"LIQUIDATION_BEFORE_SL: Giá thanh lý ước tính ({lp:.2f}) nằm DƯỚI hoặc BẰNG Stop Loss ({sl:.2f})"
+                blockers.append("LIQUIDATION_BEFORE_SL")
         elif sl_lp_buffer < min_sl_lp_buffer_usdt:
             if can_execute:
                 can_execute = False
                 skip_reason = f"LIQUIDATION_BUFFER_TOO_TIGHT: Khoảng đệm SL-Thanh lý (${sl_lp_buffer:.2f}) nhỏ hơn tối thiểu ${min_sl_lp_buffer_usdt:.2f}"
+                blockers.append("LIQUIDATION_BUFFER_TOO_TIGHT")
 
     # Cross margin policy: only isolated execution is modeled in V4 paper broker
     if margin_mode.upper() == "CROSS" and can_execute:
         can_execute = False
         skip_reason = "CROSS_MARGIN_UNSUPPORTED: Chế độ Cross margin chưa được hỗ trợ thực thi trên tài khoản paper"
+        blockers.append("CROSS_MARGIN_UNSUPPORTED")
 
     return CalculationResult(
         is_valid=True,
@@ -345,6 +515,31 @@ def calculate_risk_reward(
         slippage_total_usdt=round(entry_slippage_total + sl_slippage_total, 3),
         can_execute=can_execute,
         skip_reason=skip_reason,
+        phase=phase,
+        symbol=symbol,
+        setup_id=setup_id,
+        setup_instance_id=setup_instance_id,
+        revision=revision,
+        entry_reference=round(entry, 2),
+        entry_basis="ACTUAL" if entry_has_slippage else "PLANNED",
+        quantity_mode=quantity_mode,
+        multiplier=mult,
+        qty_step=step,
+        price_tick=0.01,
+        min_net_rr=min_net_rr,
+        calculated_at=calculated_at,
+        cost_source="BITGET_PAPER_MODEL_V10_4",
+        estimated=True,
+        exclusions=["FUNDING_UNMODELED"],
+        blocker_list=blockers,
+        entry_fee_usdt=round(entry_fee_total, 4),
+        sl_exit_fee_usdt=round(sl_exit_fee_total, 4),
+        tp_exit_fee_usdt=round(tp_exit_fee_total, 4),
+        entry_slippage_usdt=round(entry_slippage_total, 4),
+        sl_exit_slippage_usdt=round(sl_slippage_total, 4),
+        tp_exit_slippage_usdt=round(tp_slippage_total, 4),
+        maker_fee_rate=costs.maker_fee_rate,
+        taker_fee_rate=costs.taker_fee_rate,
         leverage=leverage,
         margin_mode=margin_mode,
         initial_margin_usdt=init_margin,
@@ -354,3 +549,4 @@ def calculate_risk_reward(
         tier=tier,
         max_tier_leverage=max_tier_lev
     )
+

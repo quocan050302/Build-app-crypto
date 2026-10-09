@@ -120,6 +120,15 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
       });
     }
 
+    const currentNetRR = selectedIntent.estimatedNetRR || currentSetup?.net_rr || 0;
+    if (currentNetRR > 0 && currentNetRR < 2.0) {
+      blockers.push({
+        code: 'NET_RR_TOO_LOW',
+        title: `Net R:R 1:${currentNetRR.toFixed(2)} chưa đạt yêu cầu 1:2.00`,
+        summary: `Tỷ lệ Lợi nhuận/Rủi ro ròng 1:${currentNetRR.toFixed(2)} thấp hơn yêu cầu tối thiểu 1:2.00.`,
+      });
+    }
+
     if (isCrossBlocked) {
       const tmpl = getCatalogTemplate('CROSS_MARGIN_UNSUPPORTED');
       blockers.push({
@@ -416,16 +425,42 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
               {/* Sizing & R:R details */}
               <div className="space-y-1 text-[11px] text-gray-400 border-t border-charcoal-750 pt-1.5">
                 <div className="flex items-center justify-between">
-                  <span>Rủi ro dự kiến:</span>
+                  <span>R:R theo giá (Gross):</span>
                   <span className="text-gray-200 font-mono font-medium">
-                    ${selectedIntent.initialRiskUsdt?.toFixed(2) || '2.50'} USDT •{' '}
-                    <strong className={netRR >= 2.0 ? 'text-aurum-400' : 'text-rose-400'}>
-                      Net 1:{netRR > 0 ? netRR.toFixed(2) : '--'}
-                    </strong>
-                    <span className="text-gray-500 text-[10px] ml-1">(Gross 1:{grossRR > 0 ? grossRR.toFixed(2) : '--'})</span>
+                    1:{grossRR > 0 ? grossRR.toFixed(2) : '--'}
                   </span>
                 </div>
-
+                <div className="flex items-center justify-between">
+                  <span>R:R sau chi phí (Net):</span>
+                  <span className="font-mono font-bold">
+                    <span className={netRR >= 2.0 ? 'text-aurum-400' : 'text-rose-400'}>
+                      1:{netRR > 0 ? netRR.toFixed(2) : '--'}
+                    </span>
+                    {netRR > 0 && netRR < 2.0 && (
+                      <span className="text-[10px] text-rose-400 font-normal ml-1">(chưa đạt 1:2.0)</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>SL (Lỗ ròng / Lỗ giá):</span>
+                  <span className="text-gray-200 font-mono">
+                    <span className="text-rose-400 font-bold">${selectedIntent.initialRiskUsdt?.toFixed(2) || '2.50'}</span>
+                    {selectedIntent.grossLossUsdt !== undefined && (
+                      <span className="text-gray-400 text-[10px] ml-1">/ ${selectedIntent.grossLossUsdt.toFixed(2)}</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>TP (Lãi ròng / Lãi giá):</span>
+                  <span className="text-gray-200 font-mono">
+                    <span className={selectedIntent.netRewardUsdt !== undefined && selectedIntent.netRewardUsdt < 0 ? 'text-rose-400' : 'text-emerald-400 font-bold'}>
+                      ${selectedIntent.netRewardUsdt !== undefined ? selectedIntent.netRewardUsdt.toFixed(2) : (netRR > 0 ? (selectedIntent.initialRiskUsdt * netRR).toFixed(2) : '--')}
+                    </span>
+                    {selectedIntent.grossRewardUsdt !== undefined && (
+                      <span className="text-gray-400 text-[10px] ml-1">/ ${selectedIntent.grossRewardUsdt.toFixed(2)}</span>
+                    )}
+                  </span>
+                </div>
                 <div className="flex items-center justify-between">
                   <span>Khối lượng & Ký quỹ:</span>
                   <span className="text-gray-200 font-mono">

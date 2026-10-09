@@ -30,7 +30,7 @@ export const INSTRUMENT_METADATA: InstrumentMetadata = {
   makerFeeRate: 0.0002,
   takerFeeRate: 0.0004,
   defaultSlippageUsd: 0.10,
-  maxLeverage: 50,
+  maxLeverage: 100,
 };
 
 export interface BitgetTier {
@@ -42,9 +42,16 @@ export interface BitgetTier {
 }
 
 export const BITGET_XAUUSDT_TIERS: BitgetTier[] = [
-  { tier: 1, maxNotional: 50000.0, maxLeverage: 50, mmr: 0.005, deduction: 0.0 },
-  { tier: 2, maxNotional: 100000.0, maxLeverage: 25, mmr: 0.010, deduction: 250.0 },
-  { tier: 3, maxNotional: 200000.0, maxLeverage: 15, mmr: 0.015, deduction: 750.0 },
+  { tier: 1, maxNotional: 20000.0, maxLeverage: 100, mmr: 0.005, deduction: 0.0 },
+  { tier: 2, maxNotional: 200000.0, maxLeverage: 75, mmr: 0.010, deduction: 0.0 },
+  { tier: 3, maxNotional: 500000.0, maxLeverage: 50, mmr: 0.015, deduction: 0.0 },
+  { tier: 4, maxNotional: 2000000.0, maxLeverage: 25, mmr: 0.020, deduction: 0.0 },
+  { tier: 5, maxNotional: 5000000.0, maxLeverage: 20, mmr: 0.025, deduction: 0.0 },
+  { tier: 6, maxNotional: 20000000.0, maxLeverage: 10, mmr: 0.050, deduction: 0.0 },
+  { tier: 7, maxNotional: 40000000.0, maxLeverage: 5, mmr: 0.100, deduction: 0.0 },
+  { tier: 8, maxNotional: 60000000.0, maxLeverage: 4, mmr: 0.125, deduction: 0.0 },
+  { tier: 9, maxNotional: 100000000.0, maxLeverage: 2, mmr: 0.300, deduction: 0.0 },
+  { tier: 10, maxNotional: 200000000.0, maxLeverage: 1, mmr: 0.600, deduction: 0.0 },
 ];
 
 export function getTierInfo(notional: number): BitgetTier {
@@ -57,7 +64,7 @@ export function getTierInfo(notional: number): BitgetTier {
 export interface ClientCalcResult {
   isValid: boolean;
   invalidReason?: string;
-  direction: 'LONG' | 'SHORT';
+  direction: 'LONG' | 'SHORT' | string;
   plannedEntry: number;
   stopLoss: number;
   takeProfit: number;
@@ -79,6 +86,16 @@ export interface ClientCalcResult {
   canExecute: boolean;
   skipReason?: string;
 
+  // Breakdown fields
+  entryFeeUsdt: number;
+  slExitFeeUsdt: number;
+  tpExitFeeUsdt: number;
+  entrySlippageUsdt: number;
+  slExitSlippageUsdt: number;
+  tpExitSlippageUsdt: number;
+  multiplier: number;
+  blockerList: string[];
+
   // Leverage & Margin
   leverage: number;
   marginMode: 'ISOLATED' | 'CROSS';
@@ -91,43 +108,48 @@ export interface ClientCalcResult {
 }
 
 export function validatePriceGeometry(
-  direction: 'LONG' | 'SHORT',
+  direction: 'LONG' | 'SHORT' | string,
   entry: number,
   sl: number,
   tp: number
 ): { isValid: boolean; invalidReason?: string } {
   if (!Number.isFinite(entry) || !Number.isFinite(sl) || !Number.isFinite(tp)) {
-    return { isValid: false, invalidReason: 'Mức giá phải là số thực hợp lệ (không chấp nhận NaN hoặc Infinity)' };
+    return { isValid: false, invalidReason: 'PRICES_NOT_FINITE: Mức giá phải là số thực hợp lệ (không chấp nhận NaN hoặc Infinity)' };
   }
   if (entry <= 0 || sl <= 0 || tp <= 0) {
-    return { isValid: false, invalidReason: 'Mọi mức giá phải lớn hơn 0' };
+    return { isValid: false, invalidReason: 'PRICES_MUST_BE_POSITIVE: Mọi mức giá phải lớn hơn 0' };
   }
 
   if (direction === 'LONG') {
     if (!(sl < entry && entry < tp)) {
       return {
         isValid: false,
-        invalidReason: `Sai thứ tự giá LONG: Yêu cầu SL (${sl.toFixed(2)}) < Entry (${entry.toFixed(2)}) < TP (${tp.toFixed(2)})`,
+        invalidReason: `INVALID_LONG_GEOMETRY: Yêu cầu SL (${sl.toFixed(2)}) < Entry (${entry.toFixed(2)}) < TP (${tp.toFixed(2)})`,
       };
     }
   } else if (direction === 'SHORT') {
     if (!(tp < entry && entry < sl)) {
       return {
         isValid: false,
-        invalidReason: `Sai thứ tự giá SHORT: Yêu cầu TP (${tp.toFixed(2)}) < Entry (${entry.toFixed(2)}) < SL (${sl.toFixed(2)})`,
+        invalidReason: `INVALID_SHORT_GEOMETRY: Yêu cầu TP (${tp.toFixed(2)}) < Entry (${entry.toFixed(2)}) < SL (${sl.toFixed(2)})`,
       };
     }
+  } else {
+    return {
+      isValid: false,
+      invalidReason: `UNKNOWN_DIRECTION: ${direction}`,
+    };
   }
 
   if (Math.abs(entry - sl) < 0.01) {
-    return { isValid: false, invalidReason: 'Khoảng cách dừng lỗ bằng 0 hoặc dưới 1 tick (0.01)' };
+    return { isValid: false, invalidReason: 'STOP_DISTANCE_ZERO_OR_TOO_TIGHT: Khoảng cách dừng lỗ bằng 0 hoặc dưới 1 tick (0.01)' };
   }
 
   return { isValid: true };
 }
 
 export function calculateIsolatedLiquidation(
-  direction: 'LONG' | 'SHORT',
+  direction: 'LONG' | 'SHORT' | string,
   entry: number,
   quantity: number,
   leverage: number,
@@ -162,8 +184,17 @@ export function calculateIsolatedLiquidation(
   };
 }
 
+export interface ClientCostOverrides {
+  makerFeeRate?: number;
+  takerFeeRate?: number;
+  defaultSlippageUsd?: number;
+  tpSlippageUsd?: number;
+  multiplier?: number;
+  tpIsMaker?: boolean;
+}
+
 export function calculateClientRiskReward(
-  direction: 'LONG' | 'SHORT',
+  direction: 'LONG' | 'SHORT' | string,
   entry: number,
   sl: number,
   tp: number,
@@ -174,8 +205,16 @@ export function calculateClientRiskReward(
   leverage: number = 5,
   marginMode: 'ISOLATED' | 'CROSS' = 'ISOLATED',
   entryHasSlippage: boolean = false,
-  minSlLpBufferUsdt: number = 1.0
+  minSlLpBufferUsdt: number = 1.0,
+  costs?: ClientCostOverrides
 ): ClientCalcResult {
+  const mult = costs?.multiplier && costs.multiplier > 0 ? costs.multiplier : INSTRUMENT_METADATA.multiplier;
+  const makerRate = costs?.makerFeeRate ?? INSTRUMENT_METADATA.makerFeeRate;
+  const takerRate = costs?.takerFeeRate ?? INSTRUMENT_METADATA.takerFeeRate;
+  const slipUsd = costs?.defaultSlippageUsd ?? INSTRUMENT_METADATA.defaultSlippageUsd;
+  const tpSlipUsd = costs?.tpSlippageUsd ?? 0.0;
+  const tpIsMaker = costs?.tpIsMaker ?? false;
+
   const geo = validatePriceGeometry(direction, entry, sl, tp);
   if (!geo.isValid) {
     return {
@@ -202,6 +241,14 @@ export function calculateClientRiskReward(
       slippageTotalUsdt: 0,
       canExecute: false,
       skipReason: geo.invalidReason,
+      entryFeeUsdt: 0,
+      slExitFeeUsdt: 0,
+      tpExitFeeUsdt: 0,
+      entrySlippageUsdt: 0,
+      slExitSlippageUsdt: 0,
+      tpExitSlippageUsdt: 0,
+      multiplier: mult,
+      blockerList: geo.invalidReason ? [geo.invalidReason] : [],
       leverage,
       marginMode,
       initialMarginUsdt: 0,
@@ -213,17 +260,62 @@ export function calculateClientRiskReward(
     };
   }
 
-  const mult = INSTRUMENT_METADATA.multiplier;
+  // Check quantityOverride validity
+  if (quantityOverride !== undefined && (!Number.isFinite(quantityOverride) || quantityOverride <= 0)) {
+    const invalidQtyErr = 'INVALID_QUANTITY: Khối lượng chỉ định phải là số dương hữu hạn';
+    return {
+      isValid: false,
+      invalidReason: invalidQtyErr,
+      direction,
+      plannedEntry: entry,
+      stopLoss: sl,
+      takeProfit: tp,
+      stopDistance: 0,
+      targetDistance: 0,
+      quantity: 0,
+      budgetUsdt: 0,
+      grossLossUsdt: 0,
+      grossRewardUsdt: 0,
+      netRiskUsdt: 0,
+      netRewardUsdt: 0,
+      grossRR: 0,
+      estimatedNetRR: 0,
+      meetsMinRR: false,
+      effectiveRiskPct: 0,
+      notionalUsdt: 0,
+      feesTotalUsdt: 0,
+      slippageTotalUsdt: 0,
+      canExecute: false,
+      skipReason: invalidQtyErr,
+      entryFeeUsdt: 0,
+      slExitFeeUsdt: 0,
+      tpExitFeeUsdt: 0,
+      entrySlippageUsdt: 0,
+      slExitSlippageUsdt: 0,
+      tpExitSlippageUsdt: 0,
+      multiplier: mult,
+      blockerList: [invalidQtyErr],
+      leverage,
+      marginMode,
+      initialMarginUsdt: 0,
+      maintenanceMarginUsdt: 0,
+      estimatedLiquidation: null,
+      slLpBufferUsdt: null,
+      tier: 1,
+      maxTierLeverage: 50,
+    };
+  }
+
   const stopDistance = direction === 'LONG' ? entry - sl : sl - entry;
   const targetDistance = direction === 'LONG' ? tp - entry : entry - tp;
 
   const budgetUsdt = capital * (riskPct / 100.0);
 
   // Risk per unit
-  const entryFeePerUnit = entry * INSTRUMENT_METADATA.takerFeeRate * mult;
-  const slExitFeePerUnit = sl * INSTRUMENT_METADATA.takerFeeRate * mult;
-  const slSlippagePerUnit = INSTRUMENT_METADATA.defaultSlippageUsd * mult;
-  const entrySlippagePerUnit = entryHasSlippage ? 0 : INSTRUMENT_METADATA.defaultSlippageUsd * mult;
+  const entryFeePerUnit = entry * takerRate * mult;
+  const slExitFeePerUnit = sl * takerRate * mult;
+  const slSlippagePerUnit = slipUsd * mult;
+  const entrySlippagePerUnit = entryHasSlippage ? 0 : slipUsd * mult;
 
   const totalRiskPerUnit =
     stopDistance * mult +
@@ -234,6 +326,7 @@ export function calculateClientRiskReward(
 
   let canExecute = true;
   let skipReason: string | undefined = undefined;
+  const blockers: string[] = [];
 
   const rawQty =
     quantityOverride !== undefined && quantityOverride > 0
@@ -243,18 +336,26 @@ export function calculateClientRiskReward(
       : 0;
 
   const step = INSTRUMENT_METADATA.qtyStep;
-  let qty = Math.floor(rawQty / step) * step;
+  // Exact step floor rounding
+  let qty = Math.floor(Math.round((rawQty / step) * 1e8) / 1e8) * step;
   qty = Number(qty.toFixed(4));
 
   const minQty = INSTRUMENT_METADATA.minQty;
   if (qty < minQty) {
-    const minUnitRisk = minQty * totalRiskPerUnit;
-    if (minUnitRisk > budgetUsdt) {
+    if (quantityOverride !== undefined) {
       canExecute = false;
-      skipReason = `MIN_QTY_EXCEEDS_BUDGET: Khối lượng tối thiểu ${minQty} oz có rủi ro $${minUnitRisk.toFixed(2)} vượt ngân sách rủi ro $${budgetUsdt.toFixed(2)}`;
-      qty = minQty;
+      skipReason = `MIN_QTY_NOT_MET: Khối lượng chỉ định ${qty} nhỏ hơn tối thiểu ${minQty}`;
+      blockers.push('MIN_QTY_NOT_MET');
     } else {
-      qty = minQty;
+      const minUnitRisk = minQty * totalRiskPerUnit;
+      if (minUnitRisk > budgetUsdt) {
+        canExecute = false;
+        skipReason = `MIN_QTY_EXCEEDS_BUDGET: Khối lượng tối thiểu ${minQty} oz có rủi ro $${minUnitRisk.toFixed(2)} vượt ngân sách rủi ro $${budgetUsdt.toFixed(2)}`;
+        blockers.push('MIN_QTY_EXCEEDS_BUDGET');
+        qty = minQty;
+      } else {
+        qty = minQty;
+      }
     }
   }
 
@@ -262,37 +363,48 @@ export function calculateClientRiskReward(
   if (notional < INSTRUMENT_METADATA.minNotional) {
     canExecute = false;
     skipReason = `MIN_NOTIONAL_NOT_MET: Giá trị lệnh $${notional.toFixed(2)} nhỏ hơn mức tối thiểu $${INSTRUMENT_METADATA.minNotional.toFixed(2)}`;
+    blockers.push('MIN_NOTIONAL_NOT_MET');
   }
 
   const grossLoss = qty * mult * stopDistance;
   const grossReward = qty * mult * targetDistance;
 
-  const entryFeeTotal = qty * mult * entry * INSTRUMENT_METADATA.takerFeeRate;
-  const slExitFeeTotal = qty * mult * sl * INSTRUMENT_METADATA.takerFeeRate;
-  // Assume taker fee for market triggered TP
-  const tpExitFeeTotal = qty * mult * tp * INSTRUMENT_METADATA.takerFeeRate;
+  const entryFeeTotal = qty * mult * entry * takerRate;
+  const slExitFeeTotal = qty * mult * sl * takerRate;
+  const tpFeeRate = tpIsMaker ? makerRate : takerRate;
+  const tpExitFeeTotal = qty * mult * tp * tpFeeRate;
 
-  // No double count if entryHasSlippage
-  const entrySlippageTotal = entryHasSlippage ? 0 : qty * INSTRUMENT_METADATA.defaultSlippageUsd * mult;
-  const slSlippageTotal = qty * INSTRUMENT_METADATA.defaultSlippageUsd * mult;
+  // Slippage
+  const entrySlippageTotal = entryHasSlippage ? 0 : qty * slipUsd * mult;
+  const slSlippageTotal = qty * slipUsd * mult;
+  const tpSlippageTotal = tpIsMaker ? 0 : qty * tpSlipUsd * mult;
 
   const netRisk = grossLoss + entryFeeTotal + slExitFeeTotal + entrySlippageTotal + slSlippageTotal;
-  const netReward = grossReward - entryFeeTotal - tpExitFeeTotal - entrySlippageTotal;
+  const netReward = grossReward - entryFeeTotal - tpExitFeeTotal - entrySlippageTotal - tpSlippageTotal;
 
   // Quantity override budget check
   if (quantityOverride !== undefined && netRisk > budgetUsdt * 1.001) {
     canExecute = false;
     skipReason = `QTY_OVERRIDE_EXCEEDS_BUDGET: Khối lượng chỉ định ${qty} oz có rủi ro $${netRisk.toFixed(2)} vượt ngân sách rủi ro $${budgetUsdt.toFixed(2)}`;
+    blockers.push('QTY_OVERRIDE_EXCEEDS_BUDGET');
   }
 
   const grossRR = grossLoss > 0 ? grossReward / grossLoss : 0;
   const netRR = netRisk > 0 ? netReward / netRisk : 0;
 
-  // Strict threshold check, no rounding before check
+  // Guard: non-positive net reward
+  if (netReward <= 0 && canExecute) {
+    canExecute = false;
+    skipReason = `NET_REWARD_NON_POSITIVE: Lợi nhuận ròng dự kiến ($${netReward.toFixed(2)}) nhỏ hơn hoặc bằng 0 sau chi phí`;
+    blockers.push('NET_REWARD_NON_POSITIVE');
+  }
+
+  // Strict unrounded threshold check
   const meetsMinRR = netRR >= minNetRR;
   if (!meetsMinRR && canExecute) {
     canExecute = false;
     skipReason = `NET_RR_TOO_LOW: Net R:R 1:${netRR.toFixed(4)} chưa đạt ngưỡng tối thiểu 1:${minNetRR.toFixed(1)}`;
+    blockers.push('NET_RR_TOO_LOW');
   }
 
   const effectiveRiskPct = capital > 0 ? (netRisk / capital) * 100.0 : 0;
@@ -304,12 +416,13 @@ export function calculateClientRiskReward(
     qty,
     leverage,
     mult,
-    INSTRUMENT_METADATA.takerFeeRate
+    takerRate
   );
 
   if (initialMargin > capital && canExecute) {
     canExecute = false;
     skipReason = `INSUFFICIENT_MARGIN: Ký quỹ yêu cầu $${initialMargin.toFixed(2)} vượt quá vốn khả dụng $${capital.toFixed(2)}`;
+    blockers.push('INSUFFICIENT_MARGIN');
   }
 
   const slLpBuffer = direction === 'LONG' ? sl - lp : lp - sl;
@@ -318,11 +431,13 @@ export function calculateClientRiskReward(
       if (canExecute) {
         canExecute = false;
         skipReason = `LIQUIDATION_BEFORE_SL: Giá thanh lý ước tính (${lp.toFixed(2)}) nằm TRÊN hoặc BẰNG Stop Loss (${sl.toFixed(2)})`;
+        blockers.push('LIQUIDATION_BEFORE_SL');
       }
     } else if (slLpBuffer < minSlLpBufferUsdt) {
       if (canExecute) {
         canExecute = false;
         skipReason = `LIQUIDATION_BUFFER_TOO_TIGHT: Khoảng đệm SL-Thanh lý ($${slLpBuffer.toFixed(2)}) nhỏ hơn tối thiểu $${minSlLpBufferUsdt.toFixed(2)}`;
+        blockers.push('LIQUIDATION_BUFFER_TOO_TIGHT');
       }
     }
   } else {
@@ -330,11 +445,13 @@ export function calculateClientRiskReward(
       if (canExecute) {
         canExecute = false;
         skipReason = `LIQUIDATION_BEFORE_SL: Giá thanh lý ước tính (${lp.toFixed(2)}) nằm DƯỚI hoặc BẰNG Stop Loss (${sl.toFixed(2)})`;
+        blockers.push('LIQUIDATION_BEFORE_SL');
       }
     } else if (slLpBuffer < minSlLpBufferUsdt) {
       if (canExecute) {
         canExecute = false;
         skipReason = `LIQUIDATION_BUFFER_TOO_TIGHT: Khoảng đệm SL-Thanh lý ($${slLpBuffer.toFixed(2)}) nhỏ hơn tối thiểu $${minSlLpBufferUsdt.toFixed(2)}`;
+        blockers.push('LIQUIDATION_BUFFER_TOO_TIGHT');
       }
     }
   }
@@ -342,6 +459,7 @@ export function calculateClientRiskReward(
   if (marginMode === 'CROSS' && canExecute) {
     canExecute = false;
     skipReason = 'CROSS_MARGIN_UNSUPPORTED: Chế độ Cross margin chưa được hỗ trợ thực thi trên tài khoản paper';
+    blockers.push('CROSS_MARGIN_UNSUPPORTED');
   }
 
   return {
@@ -367,6 +485,14 @@ export function calculateClientRiskReward(
     slippageTotalUsdt: Number((entrySlippageTotal + slSlippageTotal).toFixed(3)),
     canExecute,
     skipReason,
+    entryFeeUsdt: Number(entryFeeTotal.toFixed(4)),
+    slExitFeeUsdt: Number(slExitFeeTotal.toFixed(4)),
+    tpExitFeeUsdt: Number(tpExitFeeTotal.toFixed(4)),
+    entrySlippageUsdt: Number(entrySlippageTotal.toFixed(4)),
+    slExitSlippageUsdt: Number(slSlippageTotal.toFixed(4)),
+    tpExitSlippageUsdt: Number(tpSlippageTotal.toFixed(4)),
+    multiplier: mult,
+    blockerList: blockers,
     leverage,
     marginMode,
     initialMarginUsdt: initialMargin,
@@ -377,3 +503,75 @@ export function calculateClientRiskReward(
     maxTierLeverage,
   };
 }
+
+export interface CalculateRiskRewardOptions {
+  direction: 'LONG' | 'SHORT' | string;
+  entry: number;
+  sl: number;
+  tp: number;
+  capital?: number;
+  riskPct?: number;
+  minNetRR?: number;
+  quantityOverride?: number;
+  leverage?: number;
+  marginMode?: 'ISOLATED' | 'CROSS';
+  entryHasSlippage?: boolean;
+  minSlLpBufferUsdt?: number;
+  multiplier?: number;
+  costs?: ClientCostOverrides;
+}
+
+export function calculateRiskReward(
+  optionsOrDirection: CalculateRiskRewardOptions | ('LONG' | 'SHORT' | string),
+  entry?: number,
+  sl?: number,
+  tp?: number,
+  capital?: number,
+  riskPct?: number,
+  minNetRR?: number,
+  quantityOverride?: number,
+  leverage?: number,
+  marginMode?: 'ISOLATED' | 'CROSS',
+  entryHasSlippage?: boolean,
+  minSlLpBufferUsdt?: number,
+  costs?: ClientCostOverrides
+): ClientCalcResult {
+  if (typeof optionsOrDirection === 'object' && optionsOrDirection !== null) {
+    const opts = optionsOrDirection as CalculateRiskRewardOptions;
+    const mergedCosts: ClientCostOverrides = {
+      ...(opts.costs || {}),
+      ...(opts.multiplier !== undefined ? { multiplier: opts.multiplier } : {})
+    };
+    return calculateClientRiskReward(
+      opts.direction,
+      opts.entry,
+      opts.sl,
+      opts.tp,
+      opts.capital ?? 1000.0,
+      opts.riskPct ?? 0.25,
+      opts.minNetRR ?? 2.0,
+      opts.quantityOverride,
+      opts.leverage ?? 5,
+      opts.marginMode ?? 'ISOLATED',
+      opts.entryHasSlippage ?? false,
+      opts.minSlLpBufferUsdt ?? 1.0,
+      mergedCosts
+    );
+  }
+  return calculateClientRiskReward(
+    optionsOrDirection,
+    entry!,
+    sl!,
+    tp!,
+    capital ?? 1000.0,
+    riskPct ?? 0.25,
+    minNetRR ?? 2.0,
+    quantityOverride,
+    leverage ?? 5,
+    marginMode ?? 'ISOLATED',
+    entryHasSlippage ?? false,
+    minSlLpBufferUsdt ?? 1.0,
+    costs
+  );
+}
+

@@ -520,6 +520,16 @@ export function ChartComponent({
       const dx = localX - drag.startX;
       const barDelta = Math.round(dx / 12);
       newBars = Math.max(10, Math.min(100, drag.startBars + barDelta));
+
+      const updatedData: RiskRewardData = {
+        ...drag.initialData,
+        projectedBars: newBars,
+      };
+
+      requestAnimationFrame(() => {
+        rrPrimitiveRef.current?.setData(updatedData);
+      });
+      return;
     }
 
     const direction = drag.initialData.direction;
@@ -531,7 +541,7 @@ export function ChartComponent({
       accountEquity,
       drag.initialData.riskPct || riskPct,
       2.0,
-      undefined,
+      drag.initialData.quantity,
       leverage,
       marginMode
     );
@@ -543,6 +553,10 @@ export function ChartComponent({
       takeProfit: newTp,
       quantity: calc.quantity,
       initialRiskUsdt: calc.netRiskUsdt,
+      grossRewardUsdt: calc.grossRewardUsdt,
+      grossLossUsdt: calc.grossLossUsdt,
+      netRewardUsdt: calc.netRewardUsdt,
+      multiplier: calc.multiplier,
       grossRR: calc.grossRR,
       estimatedNetRR: calc.estimatedNetRR,
       isValid: calc.isValid,

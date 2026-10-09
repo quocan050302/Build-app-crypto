@@ -38,6 +38,12 @@ export interface RiskRewardData {
   estimatedLiquidation?: number | null;
   initialMargin?: number;
   tier?: number;
+
+  // Canonical amounts & multiplier (V10.4)
+  grossRewardUsdt?: number;
+  grossLossUsdt?: number;
+  netRewardUsdt?: number;
+  multiplier?: number;
 }
 
 export type DragTargetPart = 'entry' | 'sl' | 'tp' | 'body' | 'right_edge';
@@ -277,7 +283,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       // 5. Central Badge Pill
       const badgeY = entryY;
       const rrPassText = d.estimatedNetRR >= 2.0 ? '' : ' · [FAIL Net < 2.0]';
-      const badgeText = `${d.direction} · R:R 1:${d.grossRR.toFixed(2)} (Net 1:${d.estimatedNetRR.toFixed(2)})${rrPassText} · ${d.state.toUpperCase()}`;
+      const badgeText = `${d.direction} · R:R Gross 1:${d.grossRR.toFixed(2)} (Net 1:${d.estimatedNetRR.toFixed(2)})${rrPassText} · ${d.state.toUpperCase()}`;
       ctx.font = 'bold 11px Inter, sans-serif';
       const textMetrics = ctx.measureText(badgeText);
       const badgeWidth = textMetrics.width + 24;
@@ -298,19 +304,26 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       ctx.textBaseline = 'middle';
       ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY);
 
-      // 6. Target Box Text (Reward info)
+      // 6. Target Box Text (Reward info: explicit Gross vs Net)
       const tpTargetY = d.direction === 'LONG' ? profitTop + 14 : profitTop + profitHeight - 6;
       ctx.font = '10px Inter, sans-serif';
       ctx.fillStyle = '#2dd4bf';
       ctx.textAlign = 'left';
-      const plannedRewardUsdt = (d.quantity * Math.abs(d.takeProfit - effectiveEntry));
-      const rewardText = `TP: ${d.takeProfit.toFixed(2)} (+${Math.abs(d.takeProfit - effectiveEntry).toFixed(2)}) | Lời dự kiến: +$${plannedRewardUsdt.toFixed(2)}`;
+      const mult = d.multiplier || 1.0;
+      const targetDist = Math.abs(d.takeProfit - effectiveEntry);
+      const grossReward = d.grossRewardUsdt !== undefined ? d.grossRewardUsdt : (d.quantity * mult * targetDist);
+      const netReward = d.netRewardUsdt !== undefined ? d.netRewardUsdt : (d.estimatedNetRR > 0 ? d.initialRiskUsdt * d.estimatedNetRR : grossReward);
+      const netRewardSign = netReward >= 0 ? '+' : '-';
+      const rewardText = `TP: ${d.takeProfit.toFixed(2)} | Lãi theo giá: +$${grossReward.toFixed(2)} | Lãi ròng dự kiến: ${netRewardSign}$${Math.abs(netReward).toFixed(2)}`;
       ctx.fillText(rewardText, startX + 8, tpTargetY);
 
-      // 7. Stop Box Text (Risk info)
+      // 7. Stop Box Text (Risk info: explicit Gross vs Net)
       const slTargetY = d.direction === 'LONG' ? riskTop + riskHeight - 6 : riskTop + 14;
       ctx.fillStyle = '#f87171';
-      const riskText = `SL: ${d.stopLoss.toFixed(2)} (-${Math.abs(effectiveEntry - d.stopLoss).toFixed(2)}) | Rủi ro: -$${d.initialRiskUsdt.toFixed(2)} | KL: ${d.quantity} oz`;
+      const stopDist = Math.abs(effectiveEntry - d.stopLoss);
+      const grossLoss = d.grossLossUsdt !== undefined ? d.grossLossUsdt : (d.quantity * mult * stopDist);
+      const netRisk = d.initialRiskUsdt;
+      const riskText = `SL: ${d.stopLoss.toFixed(2)} | Lỗ theo giá: -$${grossLoss.toFixed(2)} | Lỗ ròng dự kiến: -$${netRisk.toFixed(2)} | KL: ${d.quantity} oz`;
       ctx.fillText(riskText, startX + 8, slTargetY);
 
       // 8. Draggable Handles for Draft Mode

@@ -78,12 +78,21 @@ class TradeLifecycleService:
 
         # 2. Invariant: Max 1 active position enforced atomically at DB level
         cost_snap = json.dumps({
-            "maker_fee_rate": 0.0004,
-            "taker_fee_rate": 0.0004,
+            "phase": "FILLED_ESTIMATE",
+            "maker_fee_rate": getattr(calc_result, "maker_fee_rate", 0.0002),
+            "taker_fee_rate": getattr(calc_result, "taker_fee_rate", 0.0004),
             "slippage_usd": 0.10,
+            "tp_slippage_usd": getattr(calc_result, "tp_exit_slippage_usdt", 0.0) / (calc_result.quantity * getattr(calc_result, "multiplier", 1.0)) if (calc_result.quantity > 0 and getattr(calc_result, "multiplier", 1.0) > 0) else 0.0,
+            "multiplier": getattr(calc_result, "multiplier", 1.0),
+            "entry_fee_usdt": getattr(calc_result, "entry_fee_usdt", 0.0),
+            "sl_exit_fee_usdt": getattr(calc_result, "sl_exit_fee_usdt", 0.0),
+            "tp_exit_fee_usdt": getattr(calc_result, "tp_exit_fee_usdt", 0.0),
+            "entry_slippage_usdt": getattr(calc_result, "entry_slippage_usdt", 0.0),
+            "sl_exit_slippage_usdt": getattr(calc_result, "sl_exit_slippage_usdt", 0.0),
+            "tp_exit_slippage_usdt": getattr(calc_result, "tp_exit_slippage_usdt", 0.0),
             "fees_total_usdt": calc_result.fees_total_usdt,
             "slippage_total_usdt": calc_result.slippage_total_usdt,
-            "source": "BITGET_PAPER_MODEL_V7"
+            "source": "BITGET_PAPER_MODEL_V10_4"
         })
 
         stmt = text("""
@@ -302,18 +311,31 @@ class TradeLifecycleService:
         entry_p = order.actual_entry or order.planned_entry
         qty = order.quantity
         direction_mult = 1.0 if order.direction == "LONG" else -1.0
-        gross_pnl = (exit_price - entry_p) * qty * direction_mult
 
-        # Fees: read from cost_snapshot if present, else fallback with legacy note
-        fee_rate = 0.0004
+        # Multiplier and fee rates from cost_snapshot
+        mult = 1.0
+        maker_fee_rate = 0.0002
+        taker_fee_rate = 0.0004
+        tp_is_maker = False
         if getattr(order, 'cost_snapshot', None):
             try:
                 snap = json.loads(order.cost_snapshot)
-                fee_rate = snap.get("taker_fee_rate", 0.0004)
+                mult = float(snap.get("multiplier", 1.0))
+                maker_fee_rate = float(snap.get("maker_fee_rate", 0.0002))
+                taker_fee_rate = float(snap.get("taker_fee_rate", 0.0004))
+                tp_is_maker = bool(snap.get("tp_is_maker", False))
             except Exception:
-                fee_rate = 0.0004
+                mult = 1.0
+                maker_fee_rate = 0.0002
+                taker_fee_rate = 0.0004
 
-        fee_cost = (entry_p + exit_price) * qty * fee_rate
+        gross_pnl = (exit_price - entry_p) * qty * mult * direction_mult
+
+        entry_fee = entry_p * qty * mult * taker_fee_rate
+        exit_fee_rate = maker_fee_rate if (exit_cause == "TP_HIT" and tp_is_maker) else taker_fee_rate
+        exit_fee = exit_price * qty * mult * exit_fee_rate
+        fee_cost = entry_fee + exit_fee
+
         net_pnl = round(gross_pnl - fee_cost, 2)
         realized_r = round(net_pnl / order.initial_risk_usdt, 2) if (order.initial_risk_usdt and order.initial_risk_usdt > 0) else 0.0
 
@@ -443,7 +465,14 @@ class TradeLifecycleService:
                     exit_cause = "SL_HIT"
                 elif current_bid >= active_pos.take_profit:
                     exit_triggered = True
-                    exit_price = active_pos.take_profit
+                    tp_slip = 0.0
+                    if getattr(active_pos, 'cost_snapshot', None):
+                        try:
+                            snap = json.loads(active_pos.cost_snapshot)
+                            tp_slip = float(snap.get("tp_slippage_usd", 0.0))
+                        except Exception:
+                            tp_slip = 0.0
+                    exit_price = round(active_pos.take_profit - tp_slip, 2)
                     exit_cause = "TP_HIT"
 
             elif active_pos.direction == "SHORT":
@@ -457,7 +486,14 @@ class TradeLifecycleService:
                     exit_cause = "SL_HIT"
                 elif current_ask <= active_pos.take_profit:
                     exit_triggered = True
-                    exit_price = active_pos.take_profit
+                    tp_slip = 0.0
+                    if getattr(active_pos, 'cost_snapshot', None):
+                        try:
+                            snap = json.loads(active_pos.cost_snapshot)
+                            tp_slip = float(snap.get("tp_slippage_usd", 0.0))
+                        except Exception:
+                            tp_slip = 0.0
+                    exit_price = round(active_pos.take_profit + tp_slip, 2)
                     exit_cause = "TP_HIT"
 
         else:
@@ -484,7 +520,14 @@ class TradeLifecycleService:
                     exit_cause = "SL_HIT"
                 elif hit_tp:
                     exit_triggered = True
-                    exit_price = active_pos.take_profit
+                    tp_slip = 0.0
+                    if getattr(active_pos, 'cost_snapshot', None):
+                        try:
+                            snap = json.loads(active_pos.cost_snapshot)
+                            tp_slip = float(snap.get("tp_slippage_usd", 0.0))
+                        except Exception:
+                            tp_slip = 0.0
+                    exit_price = round(active_pos.take_profit - tp_slip, 2)
                     exit_cause = "TP_HIT"
 
             elif active_pos.direction == "SHORT":
@@ -506,7 +549,14 @@ class TradeLifecycleService:
                     exit_cause = "SL_HIT"
                 elif hit_tp:
                     exit_triggered = True
-                    exit_price = active_pos.take_profit
+                    tp_slip = 0.0
+                    if getattr(active_pos, 'cost_snapshot', None):
+                        try:
+                            snap = json.loads(active_pos.cost_snapshot)
+                            tp_slip = float(snap.get("tp_slippage_usd", 0.0))
+                        except Exception:
+                            tp_slip = 0.0
+                    exit_price = round(active_pos.take_profit + tp_slip, 2)
                     exit_cause = "TP_HIT"
 
         if exit_triggered:

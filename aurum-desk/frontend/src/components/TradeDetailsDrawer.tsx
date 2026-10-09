@@ -453,17 +453,29 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                   <span className="text-gray-400">Ký quỹ ban đầu (Margin):</span>
                   <span className="font-mono text-gray-200">${marginReq} USDT ({lev}x {marginMode})</span>
                 </div>
+                <div className="flex justify-between border-t border-charcoal-750 pt-2">
+                  <span className="text-gray-400">Lỗ theo giá tại SL (Gross Loss):</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.grossLossUsdt !== undefined ? selectedIntent.grossLossUsdt.toFixed(2) : '--'} USDT</span>
+                </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Rủi ro ban đầu tại SL:</span>
+                  <span className="text-gray-400">Rủi ro ròng tại SL (Net Risk):</span>
                   <span className="font-mono text-rose-400 font-bold">${selectedIntent?.initialRiskUsdt?.toFixed(2) || '2.50'} USDT</span>
                 </div>
                 <div className="flex justify-between border-t border-charcoal-750 pt-2">
-                  <span className="text-gray-400">Tỷ lệ Lợi nhuận/Rủi ro ròng (Net R:R):</span>
-                  <span className="font-mono text-aurum-400 font-bold">1:{selectedIntent?.estimatedNetRR?.toFixed(2) || '2.00'}</span>
+                  <span className="text-gray-400">Lãi theo giá tại TP (Gross Reward):</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.grossRewardUsdt !== undefined ? selectedIntent.grossRewardUsdt.toFixed(2) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Tỷ lệ Lợi nhuận/Rủi ro gộp (Gross R:R):</span>
-                  <span className="font-mono text-gray-300">1:{selectedIntent?.grossRR?.toFixed(2) || '2.20'}</span>
+                  <span className="text-gray-400">Lợi nhuận ròng tại TP (Net Reward):</span>
+                  <span className="font-mono text-emerald-400 font-bold">${selectedIntent?.netRewardUsdt !== undefined ? selectedIntent.netRewardUsdt.toFixed(2) : '--'} USDT</span>
+                </div>
+                <div className="flex justify-between border-t border-charcoal-750 pt-2">
+                  <span className="text-gray-400">R:R theo giá (Gross R:R):</span>
+                  <span className="font-mono text-gray-300">1:{selectedIntent?.grossRR?.toFixed(2) || '--'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">R:R sau chi phí (Net R:R):</span>
+                  <span className="font-mono text-aurum-400 font-bold">1:{selectedIntent?.estimatedNetRR?.toFixed(2) || '--'}</span>
                 </div>
                 {liqEst && (
                   <div className="flex justify-between border-t border-charcoal-750 pt-2">
@@ -471,6 +483,47 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                     <span className="font-mono text-amber-400 font-bold">${Number(liqEst).toFixed(2)}</span>
                   </div>
                 )}
+              </div>
+
+              {/* Chi tiết chi phí từng leg (Cost Breakdown) */}
+              <div className="p-3 rounded-lg bg-charcoal-850 border border-charcoal-750 space-y-2 text-xs">
+                <span className="font-bold text-gray-200 block text-[11px] uppercase tracking-wider text-aurum-400">
+                  Bảng Phân Tách Chi Phí & Giả Định (Cost Breakdown)
+                </span>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Phí mở lệnh (Entry Taker 0.04%):</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.entryFeeUsdt !== undefined ? selectedIntent.entryFeeUsdt.toFixed(4) : '--'} USDT</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Phí đóng lệnh SL (SL Taker 0.04%):</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.slExitFeeUsdt !== undefined ? selectedIntent.slExitFeeUsdt.toFixed(4) : '--'} USDT</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Phí đóng lệnh TP (TP Exit):</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.tpExitFeeUsdt !== undefined ? selectedIntent.tpExitFeeUsdt.toFixed(4) : '--'} USDT</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Trượt giá Entry ($0.10/đơn vị):</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.entrySlippageUsdt !== undefined ? selectedIntent.entrySlippageUsdt.toFixed(4) : '--'} USDT</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Trượt giá SL ($0.10/đơn vị):</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.slExitSlippageUsdt !== undefined ? selectedIntent.slExitSlippageUsdt.toFixed(4) : '--'} USDT</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Trượt giá TP (thị trường):</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.tpExitSlippageUsdt !== undefined ? selectedIntent.tpExitSlippageUsdt.toFixed(4) : '$0.0000'} USDT</span>
+                </div>
+                <div className="border-t border-charcoal-750 pt-1.5 space-y-1 text-[10px] text-gray-400">
+                  <div className="flex justify-between">
+                    <span>Mô hình chi phí:</span>
+                    <span className="text-gray-300 font-mono">Bitget Paper Model (assumed maker 0.02%, taker 0.04%, slip $0.10)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Loại trừ (Exclusions):</span>
+                    <span className="text-amber-400/90 font-mono">Funding cashflows chưa mô hình hóa</span>
+                  </div>
+                </div>
               </div>
 
               {activePosition?.has_active_position && (
