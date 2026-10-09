@@ -318,7 +318,9 @@ export const TelegramTab: React.FC<TelegramTabProps> = ({ showToast }) => {
   // Handle Retry Outbox Item
   const handleRetryItem = async (item: NotificationHistoryItem) => {
     if (item.status === 'SENT') {
-      alert('Tin nhắn này đã gửi thành công trước đó (SENT). Không thể gửi lại để tránh spam.');
+      if (showToast) {
+        showToast('Telegram', 'Tin nhắn này đã gửi thành công trước đó (SENT). Không thể gửi lại để tránh spam.', 'info');
+      }
       return;
     }
 
@@ -339,7 +341,9 @@ export const TelegramTab: React.FC<TelegramTabProps> = ({ showToast }) => {
       }
       loadHistory();
     } catch (err: any) {
-      alert(extractErrorMessage(err, 'Lỗi khi gửi lại tin nhắn'));
+      if (showToast) {
+        showToast('Telegram', extractErrorMessage(err, 'Lỗi khi gửi lại tin nhắn'), 'warn');
+      }
     } finally {
       setRetryingId(null);
     }

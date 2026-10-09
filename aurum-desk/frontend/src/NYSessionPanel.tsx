@@ -9,6 +9,7 @@ import {
   Flame,
   Sparkles
 } from 'lucide-react';
+import { getCatalogTemplate } from './utils/userMessageCatalog';
 
 interface NYSessionPanelProps {
   nySession: NYSessionStatus | null;
@@ -85,10 +86,17 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
         return 'TÌM LỆNH FALLBACK (10:30+)';
       case 'ARMED_PENDING_FILL':
         return 'ĐÃ LÊN NÒNG — CHỜ KHỚP';
-      case 'BLOCKED':
-        return `BỊ CHẶN (${reason_code || 'SAFETY_GUARD'})`;
+      case 'BLOCKED': {
+        if (reason_code) {
+          const tmpl = getCatalogTemplate(reason_code);
+          if (tmpl && tmpl.code !== 'UNKNOWN') {
+            return `TẠM DỪNG: ${tmpl.title.toUpperCase()}`;
+          }
+        }
+        return 'BỊ CHẶN BỞI BẢO VỆ AN TOÀN';
+      }
       case 'MISSED':
-        return `LỠ PHIÊN (${reason_code || 'NO_FILL'})`;
+        return 'KẾT THÚC CỬA SỔ PHIÊN MỸ';
       case 'NOT_STARTED':
         return 'CHƯA TỚI CỬA SỔ';
       default:

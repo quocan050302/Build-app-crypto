@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { SelectedTradeIntent } from './App';
 import {
   CheckCircle2,
@@ -6,8 +6,11 @@ import {
   ShieldAlert,
   PlayCircle,
   XCircle,
-  HelpCircle
+  HelpCircle,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
+import { getCatalogTemplate } from './utils/userMessageCatalog';
 
 interface ExpectedEntryPanelProps {
   selectedIntent: SelectedTradeIntent;
@@ -47,35 +50,84 @@ export const ExpectedEntryPanel: React.FC<ExpectedEntryPanelProps> = ({
   const isCrossBlocked = marginMode === 'CROSS' || selectedIntent.marginMode === 'CROSS';
   const isBlockedByActive = !!activePosition?.has_active_position;
   const isBlockedByArmed = hasArmedOrder && selectedIntent.status !== 'ARMED';
+  const isEligibilityBlocked = Boolean(eligibility && eligibility.eligible === false);
 
-  // Eligibility block from backend policy/engine
-  const isEligibilityBlocked = eligibility && !eligibility.can_arm;
+  const [showAllBlockers, setShowAllBlockers] = useState(false);
 
-  const cannotArm =
-    !isGeometryValid ||
-    !selectedIntent.takeProfit ||
-    isCrossBlocked ||
-    isBlockedByActive ||
-    isBlockedByArmed ||
-    Boolean(isEligibilityBlocked);
+  // Assemble all blocker conditions with beginner-friendly explanations
+  const blockers: Array<{ code: string; title: string; summary: string; explanation?: string }> = [];
 
-  // Format human-friendly Vietnamese reason
-  const getArmBlockReason = (): string => {
-    if (!isGeometryValid) return 'Geometry Không Hợp Lệ (Yêu cầu SL < Entry < TP)';
-    if (isCrossBlocked) return 'Chặn Arm Khi Chọn Cross Margin (Cần Isolated)';
-    if (isBlockedByActive) return 'Không Thể Arm: Đang Có 1 Vị Thế Mở';
-    if (isBlockedByArmed) return 'Không Thể Arm: Đang Có Lệnh ARMED Chờ Khớp';
-    if (isEligibilityBlocked) {
-      if (eligibility.block_reasons && eligibility.block_reasons.length > 0) {
-        return eligibility.block_reasons[0];
+  if (!selectedIntent.takeProfit) {
+    blockers.push({
+      code: 'MISSING_TP',
+      title: 'Chưa có giá Chốt Lời (Take Profit)',
+      summary: 'Lệnh cần có mục tiêu Take Profit để tính toán tỷ lệ R:R và bảo vệ lợi nhuận tự động.',
+      explanation: 'Take Profit giúp tự động khóa lợi nhuận khi giá chạm mục tiêu dự kiến mà không cần bạn phải canh màn hình liên tục.'
+    });
+  } else if (!isGeometryValid) {
+    const tmpl = getCatalogTemplate('INVALID_PRICE_GEOMETRY');
+    blockers.push({
+      code: 'INVALID_PRICE_GEOMETRY',
+      title: tmpl.title,
+      summary: typeof tmpl.summary === 'function' ? tmpl.summary(selectedIntent) : tmpl.summary,
+      explanation: tmpl.explanation
+    });
+  }
+
+  if (isCrossBlocked) {
+    const tmpl = getCatalogTemplate('CROSS_MARGIN_UNSUPPORTED');
+    blockers.push({
+      code: 'CROSS_MARGIN_UNSUPPORTED',
+      title: tmpl.title,
+      summary: typeof tmpl.summary === 'function' ? tmpl.summary({}) : tmpl.summary,
+      explanation: tmpl.explanation
+    });
+  }
+
+  if (isBlockedByActive) {
+    const tmpl = getCatalogTemplate('ACTIVE_POSITION_EXISTS');
+    blockers.push({
+      code: 'ACTIVE_POSITION_EXISTS',
+      title: tmpl.title,
+      summary: typeof tmpl.summary === 'function' ? tmpl.summary({}) : tmpl.summary,
+      explanation: tmpl.explanation
+    });
+  }
+
+  if (isBlockedByArmed) {
+    const tmpl = getCatalogTemplate('ARMED_ORDER_EXISTS');
+    blockers.push({
+      code: 'ARMED_ORDER_EXISTS',
+      title: tmpl.title,
+      summary: typeof tmpl.summary === 'function' ? tmpl.summary({}) : tmpl.summary,
+      explanation: tmpl.explanation
+    });
+  }
+
+  if (isEligibilityBlocked) {
+    const rCodes = eligibility.reason_codes || [];
+    for (const code of rCodes) {
+      if (!blockers.some((b) => b.code === code)) {
+        const tmpl = getCatalogTemplate(code);
+        blockers.push({
+          code,
+          title: tmpl.title,
+          summary: typeof tmpl.summary === 'function' ? tmpl.summary(eligibility) : tmpl.summary,
+          explanation: tmpl.explanation
+        });
       }
-      if (eligibility.reason_codes && eligibility.reason_codes.length > 0) {
-        return `Chặn: ${eligibility.reason_codes[0]}`;
-      }
-      return 'Chưa Đủ Điều Kiện Arm';
     }
-    return `Arm ${selectedIntent.direction} — PAPER`;
-  };
+    if (blockers.length === 0 && eligibility.block_reasons?.length > 0) {
+      blockers.push({
+        code: 'POLICY_GATE',
+        title: 'Chưa đủ điều kiện kích hoạt lệnh',
+        summary: eligibility.block_reasons[0]
+      });
+    }
+  }
+
+  const cannotArm = blockers.length > 0;
+  const primaryBlocker = blockers[0];
 
   const calculatedMarginUsdt = (
     (selectedIntent.quantity * selectedIntent.plannedEntry) /
@@ -136,21 +188,38 @@ export const ExpectedEntryPanel: React.FC<ExpectedEntryPanelProps> = ({
           </span>
         </div>
 
-        {/* Safety Warnings */}
-        {!isGeometryValid && (
-          <div className="mb-2 p-1.5 rounded bg-rose-950/80 border border-rose-800 text-[10px] text-rose-300 flex items-center gap-1.5">
-            <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-            <span>
-              Geometry không hợp lệ:{' '}
-              {selectedIntent.direction === 'LONG' ? 'Yêu cầu SL < Entry < TP' : 'Yêu cầu TP < Entry < SL'}.
-            </span>
-          </div>
-        )}
-
-        {isCrossBlocked && (
-          <div className="mb-2 p-1.5 rounded bg-amber-950/80 border border-amber-700 text-[10px] text-amber-300 flex items-center gap-1.5">
-            <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-            <span>Paper Trading chỉ thực thi trên Isolated Margin. Vui lòng chuyển sang ISOLATED.</span>
+        {/* Unified Blocker Alert Banner for Beginners */}
+        {cannotArm && primaryBlocker && (
+          <div className="mb-2.5 p-2 rounded-lg bg-amber-950/70 border border-amber-700/80 text-[11px] text-amber-200 space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-amber-300">
+              <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+              <span>{primaryBlocker.title}</span>
+            </div>
+            <p className="text-[10px] text-gray-300 leading-snug pl-5">
+              {primaryBlocker.summary}
+            </p>
+            {blockers.length > 1 && (
+              <div className="pt-1 border-t border-amber-800/40">
+                <button
+                  type="button"
+                  onClick={() => setShowAllBlockers(!showAllBlockers)}
+                  className="flex items-center gap-1 text-[10px] font-medium text-amber-400 hover:text-amber-200 transition"
+                >
+                  <span>Còn {blockers.length - 1} điều kiện an toàn cần kiểm tra</span>
+                  {showAllBlockers ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+                {showAllBlockers && (
+                  <div className="mt-1.5 space-y-1.5 pl-2 border-l border-amber-700/50">
+                    {blockers.slice(1).map((b, idx) => (
+                      <div key={idx} className="text-[10px]">
+                        <span className="font-semibold text-amber-300 block">• {b.title}</span>
+                        <span className="text-gray-300 pl-2 block">{b.summary}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -270,11 +339,11 @@ export const ExpectedEntryPanel: React.FC<ExpectedEntryPanelProps> = ({
             )
           }
           disabled={cannotArm}
-          title={cannotArm ? getArmBlockReason() : undefined}
+          title={cannotArm && primaryBlocker ? `${primaryBlocker.title}: ${primaryBlocker.summary}` : undefined}
           className="w-full py-2 bg-gradient-to-r from-aurum-500 to-aurum-600 hover:from-aurum-400 hover:to-aurum-500 text-charcoal-950 font-bold rounded text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
         >
           <PlayCircle className="w-3.5 h-3.5" />
-          <span>{cannotArm ? getArmBlockReason() : `Arm ${selectedIntent.direction} — PAPER`}</span>
+          <span>{cannotArm && primaryBlocker ? primaryBlocker.title : `Arm ${selectedIntent.direction} — PAPER`}</span>
         </button>
       ) : (
         <button

@@ -42,6 +42,12 @@ import { ExpectedEntryPanel } from './ExpectedEntryPanel';
 import { TelegramTab } from './TelegramTab';
 import { JournalTab } from './JournalTab';
 import type { TradingPolicy, NYSessionStatus } from './api/client';
+import { NotificationProvider, useNotification } from './context/NotificationContext';
+import { NotificationToastContainer } from './components/NotificationToastContainer';
+import { NotificationCenterDrawer } from './components/NotificationCenterDrawer';
+import { UserMessageDetailsModal } from './components/UserMessageDetailsModal';
+import { buildTradeEventMessage } from './utils/normalizeAppError';
+import type { SemanticActionType } from './types/userMessage';
 
 export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION';
 
@@ -75,7 +81,7 @@ export interface SelectedTradeIntent {
 }
 
 
-export function App() {
+function AppContent() {
   // Navigation & Timeframe
   const [activeTab, setActiveTab] = useState<
     'chart' | 'upcoming' | 'smc' | 'paper' | 'lab' | 'reports' | 'news' | 'journal' | 'telegram' | 'education'
@@ -170,17 +176,21 @@ export function App() {
   const [selectedEdu, setSelectedEdu] = useState<any>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
 
-  // Live Toast Notification
-  const [liveToast, setLiveToast] = useState<{ title: string; message: string; type: 'info' | 'success' | 'warn' } | null>(null);
-  const toastTimeoutRef = useRef<any>(null);
+  // User Notification System (V9.1)
+  const {
+    notify,
+    notifyError,
+    toggleCenter,
+    unreadCount,
+    setOnActionHandler,
+  } = useNotification();
 
   const showToast = useCallback((title: string, message: string, type: 'info' | 'success' | 'warn' = 'info') => {
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setLiveToast({ title, message, type });
-    toastTimeoutRef.current = setTimeout(() => {
-      setLiveToast(null);
-    }, 6000);
-  }, []);
+    notify(message, {
+      title,
+      severity: type === 'warn' ? 'warning' : type,
+    });
+  }, [notify]);
 
   // 1. Fetch System Health & Account Status
   const refreshAccountAndHealth = useCallback(async () => {
@@ -400,6 +410,42 @@ export function App() {
     }, 300);
   }, [refreshUpcoming]);
 
+  // Register semantic actions handler from notifications
+  useEffect(() => {
+    setOnActionHandler((action: SemanticActionType) => {
+      switch (action) {
+        case 'OPEN_POSITION':
+        case 'VIEW_TRADE':
+          setActiveTab('chart');
+          break;
+        case 'VIEW_PENDING_ORDER':
+          setActiveTab('upcoming');
+          setUpcomingFilter('ARMED');
+          break;
+        case 'REFRESH_SETUP':
+          refreshUpcoming();
+          refreshAnalysis();
+          break;
+        case 'OPEN_NEWS':
+          setActiveTab('news');
+          break;
+        case 'OPEN_SETTINGS':
+          setActiveTab('paper');
+          break;
+        case 'OPEN_TELEGRAM_HISTORY':
+          setActiveTab('telegram');
+          break;
+        case 'RECONCILE_STATUS':
+          refreshAccountAndHealth();
+          refreshUpcoming();
+          refreshAnalysis();
+          break;
+        default:
+          break;
+      }
+    });
+  }, [setOnActionHandler, refreshUpcoming, refreshAnalysis, refreshAccountAndHealth]);
+
   // 4. WebSocket Domain Events Connection (V7.2: Consolidated Shared WebSocket)
   useEffect(() => {
     const unsubscribe = wsClient.subscribe((data: any) => {
@@ -408,30 +454,34 @@ export function App() {
         const type = evt?.event_type;
         const payload = evt?.payload || {};
 
-        if (type === 'trade.opened') {
-          const entry = payload.entry_price ?? payload.actual_entry ?? payload.planned_entry ?? '';
-          showToast('Lệnh Đã Khớp (PAPER_OPEN)', `${payload.direction} XAUUSDT tại $${entry}`, 'success');
-          debouncedRefreshAccount();
-        } else if (type === 'trade.closed') {
-          const pnl = payload.realized_pnl_net ?? payload.realized_pnl ?? payload.net_pnl ?? 0;
-          const cause = payload.exit_cause ?? payload.exit_reason ?? 'CLOSED';
-          showToast('Vị Thế Đã Đóng', `PnL: $${pnl} (${cause})`, pnl >= 0 ? 'success' : 'warn');
-          debouncedRefreshAccount();
-        } else if (type === 'trade.liquidated') {
-          showToast('THANH LÝ (LIQUIDATED)', `Vị thế đã bị thanh lý tại giá Mark $${payload.exit_price ?? ''}`, 'warn');
-          debouncedRefreshAccount();
-        } else if (type === 'order.armed') {
-          showToast('Lệnh Đã Armed', `Setup ${payload.setup_id} đã sẵn sàng chờ kích hoạt`, 'info');
-          debouncedRefreshAccount();
-        } else if (type === 'setup.ready') {
-          showToast('Setup READY', `Setup ${payload.setup_id} đã hoàn tất điều kiện SMC`, 'info');
-          debouncedRefreshUpcoming();
+        if (type === 'trade.opened' || type === 'trade.closed' || type === 'trade.liquidated' || type === 'order.armed' || type === 'setup.ready') {
+          const userMsg = buildTradeEventMessage(type, payload);
+          if (userMsg) {
+            notify(userMsg);
+          }
+          if (type === 'trade.opened' || type === 'trade.closed' || type === 'trade.liquidated' || type === 'order.armed') {
+            debouncedRefreshAccount();
+          }
+          if (type === 'setup.ready') {
+            debouncedRefreshUpcoming();
+          }
         } else if (type === 'setup.invalidated') {
           debouncedRefreshUpcoming();
         } else if (type === 'feed.degraded') {
-          setHealth((prev: any) => prev ? { ...prev, status: 'degraded', feed_connected: false } : prev);
+          setHealth((prev: any) => (prev ? { ...prev, status: 'degraded', feed_connected: false } : prev));
+          notify('Dữ liệu giá thị trường đang bị gián đoạn. App tạm thời khóa lệnh để bảo vệ an toàn.', {
+            code: 'EXECUTION_FEED_DEGRADED',
+            severity: 'error',
+            title: 'Dữ liệu giá bị gián đoạn',
+            action: 'RECONCILE_STATUS',
+          });
         } else if (type === 'feed.recovered') {
-          setHealth((prev: any) => prev ? { ...prev, status: 'ok', feed_connected: true } : prev);
+          setHealth((prev: any) => (prev ? { ...prev, status: 'ok', feed_connected: true } : prev));
+          notify('Kết nối dữ liệu thị trường đã phục hồi bình thường.', {
+            code: 'FEED_RECOVERED',
+            severity: 'success',
+            title: 'Dữ liệu đã phục hồi',
+          });
         }
       }
     });
@@ -441,7 +491,7 @@ export function App() {
       if (refreshAccountTimeoutRef.current) clearTimeout(refreshAccountTimeoutRef.current);
       if (refreshUpcomingTimeoutRef.current) clearTimeout(refreshUpcomingTimeoutRef.current);
     };
-  }, [debouncedRefreshAccount, debouncedRefreshUpcoming, showToast]);
+  }, [debouncedRefreshAccount, debouncedRefreshUpcoming, notify]);
 
   // Periodic polling with visibility check and 45s cycle
   useEffect(() => {
@@ -548,7 +598,18 @@ export function App() {
 
     if (!intent) return;
     if (!intent.takeProfit || intent.takeProfit === intent.stopLoss) {
-      alert('Không thể mở lệnh: Thiếu mức Take Profit hợp lệ hoặc TP bằng SL.');
+      notify({
+        id: `err_geom_${Date.now()}`,
+        code: 'INVALID_PRICE_GEOMETRY',
+        severity: 'error',
+        title: 'Giá chốt lời chưa hợp lệ',
+        summary: 'Không thể mở lệnh: Thiếu mức Take Profit hợp lệ hoặc TP bằng SL.',
+        explanation: 'Kế hoạch giao dịch bắt buộc phải có mức Take Profit khác và hợp lý so với Stop Loss.',
+        impact: 'Lệnh không thể gửi lên sàn mô phỏng để bảo vệ vốn của bạn.',
+        next_steps: 'Vui lòng kiểm tra lại thước đo R:R trên biểu đồ và kéo mức Take Profit đến vùng giá mong muốn.',
+        outcome_certainty: 'confirmed',
+        technical_details: { operation: 'create_paper_order' },
+      });
       return;
     }
 
@@ -576,15 +637,26 @@ export function App() {
         margin_mode: intent.marginMode || marginMode,
       });
       await refreshAccountAndHealth();
-      showToast('Đã Mở Lệnh', `Khớp lệnh thị trường ${intent.direction} XAUUSDT thành công`, 'success');
+      notify({
+        code: 'TRADE_OPENED',
+        severity: 'success',
+        title: `Lệnh ${intent.direction === 'LONG' ? 'Mua' : 'Bán'} Đã Khớp`,
+        summary: `Vị thế PAPER ${intent.direction} XAUUSDT đã được mở thành công.`,
+        explanation: `Hệ thống mô phỏng PAPER đã khớp lệnh theo giá thị trường với đòn bẩy ${intent.leverage || leverage}×.`,
+        impact: 'Vốn ký quỹ đã được phong tỏa cho vị thế này.',
+        next_steps: 'Theo dõi biến động giá và các mức SL/TP trên tab Chart hoặc Quản Trị Vốn.',
+        action: 'OPEN_POSITION',
+        outcome_certainty: 'confirmed',
+        technical_details: { operation: 'create_paper_order', setup_id: intent.setup_id, direction: intent.direction },
+      });
       setActiveTab('chart');
     } catch (err: any) {
-      if (err.response?.status === 409) {
-        const msg = extractErrorMessage(err, 'Lệnh bị từ chối do xung đột trạng thái');
-        alert(`Lệnh bị từ chối do xung đột (409): ${msg}`);
-      } else {
-        alert(extractErrorMessage(err, 'Không thể mở lệnh paper trade'));
-      }
+      notifyError(err, {
+        operation: 'create_paper_order',
+        entityId: intent.setup_id,
+        fallbackTitle: 'Không thể mở lệnh giao dịch',
+        fallbackSummary: 'Lệnh giao dịch mô phỏng chưa thể thực thi do điều kiện an toàn hoặc lỗi kết nối.',
+      });
     }
   };
 
@@ -594,9 +666,25 @@ export function App() {
       await api.closePaperOrder(orderId);
       await refreshAccountAndHealth();
       setActiveOverlay(null);
-      showToast('Đã Đóng Vị Thế', `Vị thế ${orderId} đã được đóng tại giá thị trường`, 'info');
+      notify({
+        code: 'TRADE_CLOSED_MANUAL',
+        severity: 'info',
+        title: 'Đã đóng vị thế thủ công',
+        summary: `Vị thế ${orderId} đã được đóng chủ động tại giá thị trường.`,
+        explanation: 'Thao tác đóng lệnh đã được gửi lên hệ thống và chốt toàn bộ lãi/lỗ tại thời điểm khớp.',
+        impact: 'Ký quỹ đã được hoàn trả về số dư khả dụng.',
+        next_steps: 'Xem chi tiết kết quả và rút kinh nghiệm trong tab Nhật Ký & Bài Học.',
+        action: 'VIEW_TRADE',
+        outcome_certainty: 'confirmed',
+        technical_details: { operation: 'close_paper_order', order_id: orderId },
+      });
     } catch (err: any) {
-      alert(extractErrorMessage(err, 'Lỗi khi đóng vị thế'));
+      notifyError(err, {
+        operation: 'close_paper_order',
+        entityId: orderId,
+        fallbackTitle: 'Lỗi khi đóng vị thế',
+        fallbackSummary: 'Không thể đóng vị thế tại thời điểm này. Vui lòng kiểm tra kết nối mạng và thử lại.',
+      });
     }
   };
 
@@ -605,7 +693,7 @@ export function App() {
     try {
       // V6.1 Strict Identity Guard: Only pass custom chart levels if selectedIntent.setup_id exactly matches setupId!
       const isMatchingSetup = Boolean(selectedIntent && selectedIntent.setup_id === setupId);
-      const res = await api.armSetup(setupId, {
+      await api.armSetup(setupId, {
         setup_id: setupId,
         setup_instance_id: instanceId || (isMatchingSetup ? selectedIntent?.setup_instance_id : undefined),
         expected_revision: revision || (isMatchingSetup ? selectedIntent?.revision : undefined),
@@ -613,18 +701,29 @@ export function App() {
         planned_entry: isMatchingSetup ? selectedIntent?.plannedEntry : undefined,
         stop_loss: isMatchingSetup ? selectedIntent?.stopLoss : undefined,
         take_profit: isMatchingSetup ? selectedIntent?.takeProfit : undefined,
-        idempotency_key: `arm-${setupId}-v${revision || (isMatchingSetup ? selectedIntent?.revision : 1) || 1}`
+        idempotency_key: `arm-${setupId}-v${revision || (isMatchingSetup ? selectedIntent?.revision : 1) || 1}`,
       });
-      showToast('Lệnh Đã Armed', res.message || 'Đã arm setup thành công', 'success');
+      notify({
+        code: 'ORDER_ARMED',
+        severity: 'success',
+        title: 'Đã đặt lệnh chờ khớp',
+        summary: `Lệnh ${targetDirection === 'LONG' ? 'Mua (LONG)' : 'Bán (SHORT)'} đang chờ điều kiện giá để khớp.`,
+        explanation: 'Lệnh đã được đưa vào trạng thái Armed. Khi giá chạm vùng kích hoạt (Ask/Bid hợp lệ), hệ thống sẽ tự động mở vị thế.',
+        impact: 'Bạn chưa có vị thế mở từ lệnh này. Vốn chưa bị trừ cho đến khi lệnh thực sự khớp.',
+        next_steps: 'Theo dõi trạng thái lệnh trong danh sách Kế Hoạch hoặc hủy lệnh nếu bạn muốn đổi chiến lược.',
+        action: 'VIEW_PENDING_ORDER',
+        outcome_certainty: 'confirmed',
+        technical_details: { operation: 'arm_setup', setup_id: setupId, direction: targetDirection },
+      });
       await refreshUpcoming();
       await refreshAccountAndHealth();
     } catch (err: any) {
-      if (err.response?.status === 409) {
-        const msg = extractErrorMessage(err, 'Setup bạn chọn đã thay đổi trạng thái hoặc hướng; hãy xem lại.');
-        alert(`Setup đã thay đổi (409): ${msg}`);
-      } else {
-        alert(extractErrorMessage(err, 'Lỗi khi arm setup'));
-      }
+      notifyError(err, {
+        operation: 'arm_setup',
+        entityId: setupId,
+        fallbackTitle: 'Không thể arm setup',
+        fallbackSummary: 'Kế hoạch giao dịch chưa thể đưa vào trạng thái chờ khớp.',
+      });
     }
   };
 
@@ -632,11 +731,27 @@ export function App() {
     if (!confirm('Bạn có chắc chắn muốn hủy setup này?')) return;
     try {
       await api.cancelSetup(setupId);
-      showToast('Đã Hủy Setup', 'Setup đã được hủy an toàn', 'info');
+      notify({
+        code: 'SETUP_TERMINAL',
+        severity: 'info',
+        title: 'Đã hủy kế hoạch giao dịch',
+        summary: `Kế hoạch ${setupId} đã được hủy an toàn.`,
+        explanation: 'Lệnh chờ đã bị hủy khỏi hàng đợi thực thi, không còn theo dõi kích hoạt giá nữa.',
+        impact: 'Hạn mức lệnh chờ (Armed) đã được giải phóng.',
+        next_steps: 'Bạn có thể xem các kế hoạch SMC khác trong danh sách.',
+        action: 'REFRESH_SETUP',
+        outcome_certainty: 'confirmed',
+        technical_details: { operation: 'cancel_setup', setup_id: setupId },
+      });
       await refreshUpcoming();
       await refreshAccountAndHealth();
     } catch (err: any) {
-      alert(extractErrorMessage(err, 'Lỗi khi hủy setup'));
+      notifyError(err, {
+        operation: 'cancel_setup',
+        entityId: setupId,
+        fallbackTitle: 'Lỗi khi hủy setup',
+        fallbackSummary: 'Không thể hủy setup lúc này. Hãy kiểm tra lại kết nối.',
+      });
     }
   };
 
@@ -804,7 +919,18 @@ export function App() {
       }
 
       setSettingsSavedMsg(`Đã lưu cấu hình (v${canonical.config_version}) thành công!`);
-      showToast('Cài Đặt Rủi Ro', `Đã lưu cấu hình v${canonical.config_version} thành công!`, 'success');
+      notify({
+        code: 'SETTINGS_SAVED',
+        severity: 'success',
+        title: 'Đã lưu cấu hình rủi ro',
+        summary: `Đã lưu đòn bẩy ${canonical.leverage}× (${canonical.margin_mode}) và rủi ro ${(canonical.risk_pct * 100).toFixed(1)}%. App đã cập nhật tính toán cho các kế hoạch chưa khớp theo cấu hình mới.`,
+        explanation: 'Cấu hình quản trị vốn authoritative đã được đồng bộ lên máy chủ.',
+        impact: 'Các kế hoạch SMC chưa khớp sẽ áp dụng đòn bẩy và khối lượng mới. Vị thế đang mở (nếu có) vẫn bảo lưu snapshot ban đầu.',
+        next_steps: 'Quay lại biểu đồ để xem thông số khối lượng và net R:R đã tính lại.',
+        action: 'REFRESH_SETUP',
+        outcome_certainty: 'confirmed',
+        technical_details: { operation: 'save_risk_settings', config_version: canonical.config_version },
+      });
       setTimeout(() => setSettingsSavedMsg(null), 4000);
 
       // Refresh application state
@@ -813,13 +939,28 @@ export function App() {
       } catch (refreshErr) {
         console.error('Refresh after save failed:', refreshErr);
         setNeedsRefreshRetry(true);
-        showToast('Cảnh báo', 'Đã lưu, đánh giá chưa cập nhật. Bấm nút Thử Lại để đồng bộ.', 'warn');
+        notify({
+          code: 'SETTINGS_SAVED_REFRESH_FAILED',
+          severity: 'warning',
+          title: 'Cài đặt đã lưu; phần đánh giá đang chờ đồng bộ',
+          summary: 'Đã lưu cài đặt rủi ro mới lên máy chủ, tuy nhiên quá trình cập nhật đánh giá các kế hoạch gặp gián đoạn tạm thời.',
+          explanation: 'Dữ liệu đánh giá điều kiện vào lệnh có thể mất thêm vài giây để đồng bộ lại hoàn toàn.',
+          impact: 'Giao diện tạm thời có thể hiển thị kết quả đánh giá cũ cho tới khi đồng bộ xong.',
+          next_steps: 'Bấm nút "Thử Lại" hoặc nhấn RECONCILE để hoàn tất việc đồng bộ.',
+          action: 'RECONCILE_STATUS',
+          outcome_certainty: 'confirmed',
+          technical_details: { operation: 'refresh_after_save_failed' },
+        });
       }
     } catch (err: any) {
       if (err.response?.status === 409) {
         const conflictMsg = err.response?.data?.detail || 'Xung đột phiên bản cấu hình (409 Conflict). Vui lòng tải lại cấu hình mới nhất.';
         setSettingsSaveError(conflictMsg);
-        showToast('Xung đột cấu hình (409)', conflictMsg, 'warn');
+        notifyError(err, {
+          operation: 'save_risk_settings',
+          fallbackTitle: 'Xung đột cấu hình rủi ro (409)',
+          fallbackSummary: 'Phiên bản cấu hình trên máy chủ đã thay đổi từ lúc bạn mở màn hình. Vui lòng tải lại cấu hình mới nhất.',
+        });
         try {
           await refreshAccountAndHealth();
         } catch {
@@ -828,7 +969,11 @@ export function App() {
       } else {
         const errMsg = err.response?.data?.detail || err.message || 'Lỗi khi lưu cài đặt tài khoản';
         setSettingsSaveError(errMsg);
-        showToast('Lỗi lưu cài đặt', errMsg, 'warn');
+        notifyError(err, {
+          operation: 'save_risk_settings',
+          fallbackTitle: 'Lỗi lưu cài đặt rủi ro',
+          fallbackSummary: errMsg,
+        });
       }
     } finally {
       setIsSavingSettings(false);
@@ -902,7 +1047,12 @@ export function App() {
       setActiveResearch(res);
       setResearchModalOpen(true);
     } catch (err: any) {
-      alert(`Lỗi khi tải nghiên cứu tin: ${extractErrorMessage(err)}`);
+      notifyError(err, {
+        operation: 'get_news_research',
+        entityId: String(newsId),
+        fallbackTitle: 'Lỗi tải nghiên cứu tin tức',
+        fallbackSummary: 'Không thể tải dữ liệu nghiên cứu tác động của sự kiện tin tức này.',
+      });
     } finally {
       setResearchLoadingId(null);
     }
@@ -913,10 +1063,21 @@ export function App() {
     try {
       const res = await api.triggerNewsResearch(newsId);
       setActiveResearch(res);
-      showToast('Đã Cập Nhật Nghiên Cứu', 'Đã tải và cập nhật số liệu mới từ nguồn URL', 'success');
+      notify({
+        code: 'RESEARCH_UPDATED',
+        severity: 'success',
+        title: 'Đã cập nhật nghiên cứu tin',
+        summary: 'Đã tải và cập nhật số liệu mới từ nguồn URL nghiên cứu.',
+        outcome_certainty: 'confirmed',
+      });
       api.getNews().then(setNewsData);
     } catch (err: any) {
-      alert(`Lỗi khi cập nhật nghiên cứu: ${extractErrorMessage(err)}`);
+      notifyError(err, {
+        operation: 'trigger_news_research',
+        entityId: String(newsId),
+        fallbackTitle: 'Lỗi cập nhật nghiên cứu tin',
+        fallbackSummary: 'Không thể làm mới số liệu nghiên cứu tin tức lúc này.',
+      });
     } finally {
       setResearchLoadingId(null);
     }
@@ -935,7 +1096,11 @@ export function App() {
         setImportPreview(preview);
         setImportModalOpen(true);
       } catch (err: any) {
-        alert(`Lỗi khi xem trước file: ${extractErrorMessage(err)}`);
+        notifyError(err, {
+          operation: 'preview_news_import',
+          fallbackTitle: 'Lỗi xem trước file CSV lịch tin',
+          fallbackSummary: 'Định dạng file CSV không hợp lệ hoặc thiếu các cột cần thiết.',
+        });
       } finally {
         setIsImportLoading(false);
       }
@@ -944,9 +1109,21 @@ export function App() {
       try {
         const res = await api.importNews(file);
         setImportStatus(`Đã nhập thành công ${res.imported_count} sự kiện từ ${res.filename}`);
+        notify({
+          code: 'NEWS_IMPORTED',
+          severity: 'success',
+          title: 'Nhập file tin tức thành công',
+          summary: `Đã nhập thành công ${res.imported_count} sự kiện từ ${res.filename}.`,
+          outcome_certainty: 'confirmed',
+        });
         api.getNews().then(setNewsData);
       } catch (err: any) {
         setImportStatus(`Lỗi nhập file: ${extractErrorMessage(err)}`);
+        notifyError(err, {
+          operation: 'import_news_file',
+          fallbackTitle: 'Lỗi nhập file tin tức',
+          fallbackSummary: 'Không thể nhập dữ liệu từ file được chọn.',
+        });
       }
     }
   };
@@ -959,7 +1136,11 @@ export function App() {
       const preview = await api.previewNewsImport(importCsvText, tz);
       setImportPreview(preview);
     } catch (err: any) {
-      alert(`Lỗi: ${extractErrorMessage(err)}`);
+      notifyError(err, {
+        operation: 'preview_news_import_tz',
+        fallbackTitle: 'Lỗi chuyển đổi múi giờ',
+        fallbackSummary: 'Không thể phân tích dữ liệu lịch theo múi giờ đã chọn.',
+      });
     } finally {
       setIsImportLoading(false);
     }
@@ -970,14 +1151,24 @@ export function App() {
     setIsImportLoading(true);
     try {
       const res = await api.commitNewsImport(importCsvText, importTimezone);
-      showToast('Nhập Lịch Thành Công', res.message, 'success');
+      notify({
+        code: 'NEWS_COMMITTED',
+        severity: 'success',
+        title: 'Nhập lịch tin thành công',
+        summary: res.message || 'Lịch sự kiện tin tức kinh tế đã được lưu vào hệ thống.',
+        outcome_certainty: 'confirmed',
+      });
       setImportModalOpen(false);
       setImportCsvText('');
       setImportPreview(null);
       await api.getNews().then(setNewsData);
       await refreshAnalysis();
     } catch (err: any) {
-      alert(`Lỗi khi lưu lịch vào database: ${extractErrorMessage(err)}`);
+      notifyError(err, {
+        operation: 'commit_news_import',
+        fallbackTitle: 'Lỗi lưu lịch vào cơ sở dữ liệu',
+        fallbackSummary: 'Không thể lưu danh sách sự kiện tin tức vào database.',
+      });
     } finally {
       setIsImportLoading(false);
     }
@@ -995,24 +1186,10 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-charcoal-950 text-gray-200 flex flex-col font-sans select-none">
-      {/* Toast Notification Banner */}
-      {liveToast && (
-        <div
-          className={`fixed top-4 right-4 z-50 p-3.5 rounded-lg border shadow-xl flex items-start gap-2.5 max-w-sm transition-all duration-300 ${
-            liveToast.type === 'success'
-              ? 'bg-emerald-950/90 border-emerald-500 text-emerald-200'
-              : liveToast.type === 'warn'
-              ? 'bg-rose-950/90 border-rose-500 text-rose-200'
-              : 'bg-charcoal-900/95 border-aurum-500 text-aurum-200'
-          }`}
-        >
-          <Bell className="w-4 h-4 shrink-0 mt-0.5 text-aurum-400" />
-          <div className="text-xs">
-            <span className="font-bold block">{liveToast.title}</span>
-            <span className="text-gray-300">{liveToast.message}</span>
-          </div>
-        </div>
-      )}
+      {/* V9.1 Notification System: Toast Container, Center Drawer & Detail Modal */}
+      <NotificationToastContainer />
+      <NotificationCenterDrawer />
+      <UserMessageDetailsModal />
 
       {/* 1. Global Header Bar */}
       <header className="bg-charcoal-900 border-b border-charcoal-750 px-4 py-2.5 flex flex-wrap justify-between items-center gap-3">
@@ -1088,6 +1265,22 @@ export function App() {
             <Clock className="w-3.5 h-3.5 text-indigo-400" />
             <span>Phiên: {sessionInfo?.active_sessions?.join(', ') || 'Á - Âu - Mỹ'}</span>
           </div>
+
+          {/* Notification Center Trigger */}
+          <button
+            onClick={toggleCenter}
+            className="relative flex items-center gap-1.5 bg-charcoal-850 hover:bg-charcoal-800 text-gray-300 hover:text-white px-2.5 py-1 rounded border border-charcoal-700 transition"
+            title="Trung tâm thông báo & hướng dẫn"
+            aria-label="Mở trung tâm thông báo"
+          >
+            <Bell className="w-3.5 h-3.5 text-aurum-400" />
+            <span className="hidden sm:inline">Thông báo</span>
+            {unreadCount > 0 && (
+              <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-rose-500 text-white animate-pulse">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
         </div>
       </header>
 
@@ -2829,6 +3022,14 @@ export function App() {
         </div>
       </main>
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <NotificationProvider>
+      <AppContent />
+    </NotificationProvider>
   );
 }
 

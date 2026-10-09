@@ -249,11 +249,13 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
     try {
       await api.approveLesson(lessonId);
       if (showToast) {
-        showToast('Bài Học', 'Đã duyệt bài học và nạp vào bộ nhớ chiến lược thành công!', 'success');
+        showToast('Bài Học', 'Đã duyệt bài học. Bài học đủ điều kiện được chiến lược tham khảo khi phù hợp.', 'success');
       }
       loadLessons();
     } catch (err) {
-      alert(extractErrorMessage(err, 'Lỗi khi duyệt bài học'));
+      if (showToast) {
+        showToast('Bài Học', extractErrorMessage(err, 'Lỗi khi duyệt bài học'), 'warn');
+      }
     } finally {
       setIsUpdatingLesson(false);
     }
@@ -268,7 +270,9 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
       }
       loadLessons();
     } catch (err) {
-      alert(extractErrorMessage(err, 'Lỗi khi từ chối bài học'));
+      if (showToast) {
+        showToast('Bài Học', extractErrorMessage(err, 'Lỗi khi từ chối bài học'), 'warn');
+      }
     } finally {
       setIsUpdatingLesson(false);
     }
@@ -283,7 +287,9 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
       }
       loadLessons();
     } catch (err) {
-      alert(extractErrorMessage(err, 'Lỗi khi lưu trữ bài học'));
+      if (showToast) {
+        showToast('Bài Học', extractErrorMessage(err, 'Lỗi khi lưu trữ bài học'), 'warn');
+      }
     } finally {
       setIsUpdatingLesson(false);
     }
@@ -297,7 +303,9 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
       setEditingLessonId(null);
       loadLessons();
     } catch (err) {
-      alert(extractErrorMessage(err, 'Lỗi khi cập nhật quy tắc'));
+      if (showToast) {
+        showToast('Bài Học', extractErrorMessage(err, 'Lỗi khi cập nhật quy tắc'), 'warn');
+      }
     } finally {
       setIsUpdatingLesson(false);
     }

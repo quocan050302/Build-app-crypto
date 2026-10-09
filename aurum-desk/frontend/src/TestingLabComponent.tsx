@@ -94,7 +94,9 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
         onNotify('Kịch Bản Hoàn Tất', `${res.name}: ${res.status}`, res.status === 'PASS' ? 'success' : 'warn');
       }
     } catch (err: any) {
-      alert(extractErrorMessage(err, 'Lỗi khi chạy kịch bản'));
+      if (onNotify) {
+        onNotify('Lỗi Kịch Bản', extractErrorMessage(err, 'Lỗi khi chạy kịch bản'), 'warn');
+      }
     } finally {
       setRunningScenarioId(null);
     }
@@ -118,7 +120,9 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
         );
       }
     } catch (err: any) {
-      alert(extractErrorMessage(err, 'Lỗi khi chạy toàn bộ kịch bản'));
+      if (onNotify) {
+        onNotify('Lỗi Toàn Bộ Kịch Bản', extractErrorMessage(err, 'Lỗi khi chạy toàn bộ kịch bản'), 'warn');
+      }
     } finally {
       setRunningAllScenarios(false);
     }
@@ -144,7 +148,9 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
         onNotify('Replay Hoàn Tất', `Tổng lệnh: ${res.total_trades} | Net PnL: $${res.total_net_pnl.toFixed(2)}`, res.total_net_pnl >= 0 ? 'success' : 'info');
       }
     } catch (err: any) {
-      alert(extractErrorMessage(err, 'Lỗi khi chạy historical replay'));
+      if (onNotify) {
+        onNotify('Lỗi Replay', extractErrorMessage(err, 'Lỗi khi chạy historical replay'), 'warn');
+      }
     } finally {
       setRunningReplay(false);
     }
@@ -166,7 +172,9 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
         onNotify('Stress Test Hoàn Tất', `Đã đánh giá ${res.stress_matrix.length} ma trận rủi ro chi phí`, 'success');
       }
     } catch (err: any) {
-      alert(extractErrorMessage(err, 'Lỗi khi chạy stress test'));
+      if (onNotify) {
+        onNotify('Lỗi Stress Test', extractErrorMessage(err, 'Lỗi khi chạy stress test'), 'warn');
+      }
     } finally {
       setRunningStress(false);
     }
