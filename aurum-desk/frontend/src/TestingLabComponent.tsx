@@ -163,9 +163,9 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
       const res = await api.runLabStress({
         run_name: 'Adverse Cost Matrix XAUUSDT',
         spread_multipliers: [1.0, 2.0, 3.0],
-        slippage_multipliers: [1.0, 2.0, 3.0],
+        slippage_multipliers: [1.0, 2.0],
         fee_multipliers: [1.0, 2.0],
-        latency_ms_list: [0, 500]
+        latency_ms_list: [0]
       });
       setStressResult(res);
       if (onNotify) {
@@ -663,7 +663,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                 Đánh Giá Độ Nhạy Ma Trận Rủi Ro Chi Phí (Cost Degradation Matrix)
               </h3>
               <p className="text-[11px] text-gray-400 mt-0.5">
-                Chạy kiểm thử tham số tự động: Spread (1x, 2x, 3x), Slippage (1x, 2x, 3x), Phí (1x, 2x) và Độ trễ mạng (0ms, 500ms).
+                Chạy kiểm thử tham số tự động: Spread (1x, 2x, 3x), Slippage (1x, 2x) và Phí (1x, 2x).
               </p>
             </div>
             <button
