@@ -437,7 +437,8 @@ def evaluate_smc_setup(
     h1_alignment: Optional[str] = None,    # Real H1 context
     leverage: int = 5,
     margin_mode: str = "ISOLATED",
-    risk_pct: float = 0.25
+    risk_pct: float = 0.25,
+    now_ms: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     SMC/ICT Strategy Engine V4:
@@ -447,7 +448,7 @@ def evaluate_smc_setup(
         HTF Context -> 15M POI -> closed liquidity sweep -> displacement + MSS/CHoCH -> FVG -> retrace -> confirmation
     - Authoritative risk/reward, leverage, margin, and liquidation calculation
     """
-    now_ms = int(time.time() * 1000)
+    now_ms = now_ms if now_ms is not None else int(time.time() * 1000)
 
     if len(candles) < 20:
         return {
@@ -615,7 +616,8 @@ def evaluate_smc_setup(
                             matched_fvg = target_fvg
                             sweep_extreme = last_sweep_ev["wick_extreme"]
                             sl = round(sweep_extreme - 0.3 * atr, 2)
-                            tp = round(last_sh, 2)
+                            valid_tps = [s["price"] for s in swing_highs if s["price"] > current_price]
+                            tp = round(valid_tps[-1] if valid_tps else dealing_high, 2)
                         else:
                             missing_conditions.append(f"Chờ giá retrace hồi về vùng FVG [{target_fvg['bottom']:.2f} - {target_fvg['top']:.2f}]")
                             reason_code = "WAITING_RETRACE"
@@ -678,7 +680,8 @@ def evaluate_smc_setup(
                             matched_fvg = target_fvg
                             sweep_extreme = last_sweep_ev["wick_extreme"]
                             sl = round(sweep_extreme + 0.3 * atr, 2)
-                            tp = round(last_sl, 2)
+                            valid_tps = [s["price"] for s in swing_lows if s["price"] < current_price]
+                            tp = round(valid_tps[-1] if valid_tps else dealing_low, 2)
                         else:
                             missing_conditions.append(f"Chờ giá retrace hồi về vùng FVG [{target_fvg['bottom']:.2f} - {target_fvg['top']:.2f}]")
                             reason_code = "WAITING_RETRACE"

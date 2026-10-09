@@ -246,6 +246,42 @@ class ExecutionCoordinator:
 
             # Authoritative execution re-check with actual fill price
             # Must preserve the armed quantity (no silent size increase) and validate against budget/netRR
+            calc_budget = calculate_risk_reward(
+                direction=order.direction,
+                entry=fill_price,
+                sl=order.stop_loss,
+                tp=order.take_profit,
+                capital=audit.current_equity,
+                risk_pct=order.risk_pct or 0.25,
+                entry_has_slippage=True,
+                leverage=order.leverage or 5,
+                margin_mode=order.margin_mode or "ISOLATED",
+                phase="FILLED_ESTIMATE",
+                setup_id=order.setup_id,
+                setup_instance_id=getattr(order, "setup_instance_id", None),
+                revision=getattr(order, "config_version", 1) or 1,
+                now_ms=current_time
+            )
+
+            if not calc_budget.can_execute:
+                TradeLifecycleService.execute_reject(
+                    db=db,
+                    order=order,
+                    reason=f"Calculation re-check failed: {calc_budget.skip_reason}",
+                    now_ms=current_time,
+                    clock=c
+                )
+                continue
+
+            resize_policy = getattr(order, "resize_policy", None) or "PRESERVE_OR_DOWNSIZE"
+            if order.quantity is not None and order.quantity > 0:
+                if resize_policy == "STRICT_FIXED":
+                    qty_to_use = order.quantity
+                else:
+                    qty_to_use = min(order.quantity, calc_budget.quantity)
+            else:
+                qty_to_use = calc_budget.quantity
+
             calc = calculate_risk_reward(
                 direction=order.direction,
                 entry=fill_price,
@@ -253,6 +289,7 @@ class ExecutionCoordinator:
                 tp=order.take_profit,
                 capital=audit.current_equity,
                 risk_pct=order.risk_pct or 0.25,
+                quantity_override=qty_to_use,
                 entry_has_slippage=True,
                 leverage=order.leverage or 5,
                 margin_mode=order.margin_mode or "ISOLATED",

@@ -547,7 +547,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                 <div className="bg-charcoal-850 p-3 rounded-lg border border-charcoal-750">
                   <span className="text-[11px] text-gray-400">Profit Factor / Expectancy</span>
                   <div className="text-lg font-bold text-aurum-400">
-                    {replayResult.profit_factor.toFixed(2)} / {replayResult.expectancy_r.toFixed(2)}R
+                    {replayResult.profit_factor != null ? replayResult.profit_factor.toFixed(2) : "N/A"} / {replayResult.expectancy_r.toFixed(2)}R
                   </div>
                   <div className="text-[10px] text-gray-400 mt-1">
                     Lỗ liên tiếp max: {replayResult.max_consecutive_losses}
@@ -716,7 +716,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                           ${row.net_pnl.toFixed(2)}
                         </td>
                         <td className="p-2.5 text-right">{row.win_rate_pct}%</td>
-                        <td className="p-2.5 text-right">{row.profit_factor.toFixed(2)}</td>
+                        <td className="p-2.5 text-right">{row.profit_factor != null ? row.profit_factor.toFixed(2) : "N/A"}</td>
                         <td className="p-2.5 text-right text-rose-400">{row.max_drawdown_pct.toFixed(2)}%</td>
                         <td className="p-2.5 text-right">{row.expectancy_r.toFixed(2)}R</td>
                       </tr>

@@ -21,3 +21,7 @@ frontend/dist-ssr/
 
 # Logs
 *.log
+
+# Lab historical data & artifacts
+backend/lab/data/
+backend/lab/artifacts/

@@ -212,6 +212,7 @@ export interface ReplayRunRequest {
   speed_ms?: number;
   seed?: number;
   custom_candles_json?: string;
+  mode?: string; // 'HISTORICAL_MARKET' | 'SYNTHETIC_QA' | 'RECORDED_TICK'
 }
 
 export interface ReplayRunResponse {
@@ -227,7 +228,7 @@ export interface ReplayRunResponse {
   losses: number;
   breakevens: number;
   win_rate_pct: number;
-  profit_factor: number;
+  profit_factor: number | null;
   max_drawdown_usdt: number;
   max_drawdown_pct: number;
   expectancy_r: number;
@@ -442,17 +443,17 @@ export const api = {
   },
 
   runAllLabScenarios: async (): Promise<{ status: string; passed_count: number; total_count: number; results: ScenarioRunResponse[] }> => {
-    const res = await apiClient.post('/api/v1/lab/scenarios/run-all');
+    const res = await apiClient.post('/api/v1/lab/scenarios/run-all', {}, { timeout: 180000 });
     return res.data;
   },
 
   runLabReplay: async (request: ReplayRunRequest): Promise<ReplayRunResponse> => {
-    const res = await apiClient.post('/api/v1/lab/replay/run', request);
+    const res = await apiClient.post('/api/v1/lab/replay/run', request, { timeout: 180000 });
     return res.data;
   },
 
   runLabStress: async (request: StressTestRequest): Promise<StressTestResponse> => {
-    const res = await apiClient.post('/api/v1/lab/stress/run', request);
+    const res = await apiClient.post('/api/v1/lab/stress/run', request, { timeout: 180000 });
     return res.data;
   },
 

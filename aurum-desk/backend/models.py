@@ -103,6 +103,8 @@ class PaperOrder(Base):
     execution_mode = Column(String(20), default="AUTO")  # MANUAL, AUTO
     arm_decision_snapshot = Column(Text, nullable=True)  # JSON
     fill_decision_snapshot = Column(Text, nullable=True)  # JSON
+    # V11 Lab/Replay transient sizing policy override (not mapped to DB column to preserve zero-migration DB integrity)
+    resize_policy = None
 
 
 

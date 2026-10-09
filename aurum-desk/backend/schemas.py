@@ -705,6 +705,8 @@ class EquityPoint(BaseModel):
     drawdown_usdt: float
     drawdown_pct: float
     daily_date: str
+    cash_balance: Optional[float] = None
+    open_mtm: Optional[float] = None
 
 class ReplayRunRequest(BaseModel):
     run_name: str = "Backtest XAUUSDT"
@@ -714,7 +716,7 @@ class ReplayRunRequest(BaseModel):
     timeframe: str = "15M"
     initial_equity: float = 1000.0
     risk_pct: float = 0.25
-    leverage: int = 5
+    leverage: int = 30
     margin_mode: str = "ISOLATED"
     spread_multiplier: float = 1.0
     slippage_multiplier: float = 1.0
@@ -722,6 +724,10 @@ class ReplayRunRequest(BaseModel):
     speed_ms: int = 10
     seed: int = 42
     custom_candles_json: Optional[str] = None
+    mode: str = "HISTORICAL_MARKET"  # "HISTORICAL_MARKET", "SYNTHETIC_QA", "RECORDED_TICK"
+    warmup_days: int = 15
+    export_artifacts: bool = True
+    resize_policy: str = "PRESERVE_OR_DOWNSIZE"
 
 class ReplayRunResponse(BaseModel):
     id: str
@@ -736,7 +742,7 @@ class ReplayRunResponse(BaseModel):
     losses: int
     breakevens: int
     win_rate_pct: float
-    profit_factor: float
+    profit_factor: Optional[float] = None
     max_drawdown_usdt: float
     max_drawdown_pct: float
     expectancy_r: float
@@ -754,6 +760,12 @@ class ReplayRunResponse(BaseModel):
     rejection_reasons: Dict[str, int]
     warnings: List[str]
     created_at: int
+    cash_balance: float = 1000.0
+    open_mtm: float = 0.0
+    dataset_hash: Optional[str] = None
+    artifacts_dir: Optional[str] = None
+    dataset_type: str = "HISTORICAL_MARKET"
+    execution_fidelity: str = "ESTIMATED_EXECUTION"
     model_config = ConfigDict(from_attributes=True)
 
 class StressTestRequest(BaseModel):
