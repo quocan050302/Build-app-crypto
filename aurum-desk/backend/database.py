@@ -99,13 +99,54 @@ def run_schema_migrations(target_engine=None):
                     ("compliance_snapshot", "TEXT"),
                     ("mfe_mae_snapshot", "TEXT"),
                     ("action_candidate", "TEXT"),
+                    ("status", "VARCHAR(30) DEFAULT 'PENDING_REVIEW'"),
+                    ("reviewed_at", "BIGINT"),
+                    ("hypothesis", "TEXT"),
+                    ("author", "VARCHAR(50) DEFAULT 'SYSTEM'"),
+                    ("audit_trail", "TEXT"),
                 ]
                 for col_name, col_type in v7_ls_cols:
                     if col_name not in ls_cols:
                         conn.execute(text(f"ALTER TABLE lessons ADD COLUMN {col_name} {col_type}"))
                 conn.commit()
 
-            # 4. Create V7 tables if not exist
+            # 4. notification_outbox V8 lease fields
+            no_res = conn.execute(text("PRAGMA table_info(notification_outbox)"))
+            no_cols = {row[1] for row in no_res.fetchall()}
+            if no_cols:
+                v8_no_cols = [
+                    ("lease_expires_at", "BIGINT"),
+                    ("worker_id", "VARCHAR(50)"),
+                ]
+                for col_name, col_type in v8_no_cols:
+                    if col_name not in no_cols:
+                        conn.execute(text(f"ALTER TABLE notification_outbox ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+
+            # 5. Create V7 & V8 tables if not exist
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS trade_reviews (
+                    id VARCHAR(36) PRIMARY KEY,
+                    trade_id VARCHAR(36) UNIQUE NOT NULL,
+                    execution_mode VARCHAR(20) DEFAULT 'AUTO',
+                    user_notes TEXT,
+                    self_reported_entry_reason TEXT,
+                    psychology_before VARCHAR(100),
+                    psychology_during VARCHAR(100),
+                    psychology_after VARCHAR(100),
+                    emotions TEXT,
+                    confidence_score INTEGER,
+                    discipline_score INTEGER,
+                    user_loss_reason TEXT,
+                    mistakes TEXT,
+                    what_went_well TEXT,
+                    improvement_plan TEXT,
+                    revision INTEGER DEFAULT 1,
+                    created_at BIGINT NOT NULL,
+                    updated_at BIGINT NOT NULL,
+                    reviewed_at BIGINT
+                );
+            """))
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS trading_policies (
                     id VARCHAR(50) PRIMARY KEY,

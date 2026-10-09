@@ -351,15 +351,20 @@ def normalize_hh_mm(val: Optional[str], default: str = "00:00") -> str:
     return default
 
 
-def is_within_quiet_hours(config: models.TelegramConfig) -> bool:
+def is_within_quiet_hours(config: models.TelegramConfig, now_dt: Optional[datetime] = None) -> bool:
     """Check if current time is within configured quiet hours."""
     if not config.quiet_hours_enabled:
         return False
 
     try:
         tz = ZoneInfo(config.timezone or "Asia/Ho_Chi_Minh")
-        now_dt = datetime.now(tz)
-        current_time_str = now_dt.strftime("%H:%M")
+        if now_dt is None:
+            current_dt = datetime.now(tz)
+        elif now_dt.tzinfo is None:
+            current_dt = now_dt.replace(tzinfo=tz)
+        else:
+            current_dt = now_dt.astimezone(tz)
+        current_time_str = current_dt.strftime("%H:%M")
 
         start = normalize_hh_mm(config.quiet_hours_start, "23:00")
         end = normalize_hh_mm(config.quiet_hours_end, "06:00")
@@ -372,6 +377,29 @@ def is_within_quiet_hours(config: models.TelegramConfig) -> bool:
     except Exception:
         return False
 
+
+def mask_token(token: Optional[str]) -> str:
+    """Safely masks a bot token for display, showing only first 4 and last 4 characters."""
+    if not token:
+        return ""
+    token_str = str(token)
+    if len(token_str) > 8:
+        return f"{token_str[:4]}...{token_str[-4:]}"
+    return "***"
+
+
+class TelegramErrorCode:
+    RATE_LIMIT = "RATE_LIMIT"
+    CHAT_NOT_FOUND = "CHAT_NOT_FOUND"
+    INVALID_RESPONSE = "INVALID_RESPONSE"
+    MALFORMED_RESPONSE = "INVALID_RESPONSE"
+    UNAUTHORIZED = "UNAUTHORIZED"
+    FORBIDDEN = "FORBIDDEN"
+    PARSE_ERROR = "PARSE_ERROR"
+    TIMEOUT = "TIMEOUT"
+    CONNECT_ERROR = "CONNECT_ERROR"
+    SERVER_ERROR = "SERVER_ERROR"
+    MISSING_CREDENTIALS = "MISSING_CREDENTIALS"
 
 @dataclass
 class TelegramSendResult:
@@ -398,12 +426,16 @@ async def send_telegram_direct(
     bot_token: str,
     chat_id: str,
     text: str,
-    timeout: float = 10.0
+    timeout: float = 10.0,
+    parse_mode: Optional[str] = "Markdown"
 ) -> TelegramSendResult:
     """
     Send message via Telegram API directly.
-    Returns typed TelegramSendResult (supports 4-tuple unpack for backwards compatibility).
-    Never logs or exposes the raw bot token.
+    - Requires HTTP 200 AND JSON ok=True AND valid result.message_id.
+    - Parses JSON parameters.retry_after before falling back to header on HTTP 429.
+    - Automatically retries in plain text if Markdown/HTML entity parsing fails.
+    - Sanitizes logs and errors: never exposes raw bot token.
+    - Returns typed TelegramSendResult (supports 4-tuple unpack for backwards compatibility).
     """
     if not bot_token or not chat_id:
         return TelegramSendResult(
@@ -412,30 +444,57 @@ async def send_telegram_direct(
             error_message="Thiếu Bot Token hoặc Chat ID."
         )
 
+    safe_chat_id = str(chat_id).strip()
     url = TELEGRAM_API_URL.format(token=bot_token)
-    payload = {
-        "chat_id": chat_id,
+    payload: Dict[str, Any] = {
+        "chat_id": safe_chat_id,
         "text": text,
-        "parse_mode": "Markdown"
     }
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+
+    # Use certifi SSL context on macOS/Unix if available
+    try:
+        import ssl, certifi
+        ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        ssl_ctx = None
 
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with httpx.AsyncClient(timeout=timeout, verify=ssl_ctx if ssl_ctx else True) as client:
             resp = await client.post(url, json=payload)
-            if resp.status_code == 200:
+            try:
                 resp_json = resp.json()
-                msg_id = str(resp_json.get("result", {}).get("message_id", ""))
-                return TelegramSendResult(
-                    success=True,
-                    provider_message_id=msg_id,
-                    http_status=200
-                )
-            elif resp.status_code == 429:
-                retry_header = resp.headers.get("Retry-After", "10")
-                try:
-                    retry_sec = int(retry_header)
-                except ValueError:
+            except Exception:
+                resp_json = {}
+
+            is_ok = bool(resp_json.get("ok")) if isinstance(resp_json, dict) else False
+            desc = resp_json.get("description", resp.text[:140]) if isinstance(resp_json, dict) else resp.text[:140]
+
+            # Redact token from any error description
+            if bot_token and bot_token in desc:
+                desc = desc.replace(bot_token, "<REDACTED_TOKEN>")
+
+            # 1. HTTP 429 or JSON error_code == 429 Rate Limit
+            if resp.status_code == 429 or (isinstance(resp_json, dict) and resp_json.get("error_code") == 429):
+                retry_sec = None
+                if isinstance(resp_json, dict):
+                    params = resp_json.get("parameters") or {}
+                    if isinstance(params, dict) and "retry_after" in params:
+                        try:
+                            retry_sec = int(params["retry_after"])
+                        except (ValueError, TypeError):
+                            pass
+                if retry_sec is None:
+                    retry_header = resp.headers.get("Retry-After")
+                    if retry_header:
+                        try:
+                            retry_sec = int(retry_header)
+                        except (ValueError, TypeError):
+                            pass
+                if retry_sec is None or retry_sec <= 0:
                     retry_sec = 10
+
                 return TelegramSendResult(
                     success=False,
                     error_code="RATE_LIMIT",
@@ -443,41 +502,98 @@ async def send_telegram_direct(
                     retry_after_sec=retry_sec,
                     http_status=429
                 )
-            else:
-                try:
-                    resp_json = resp.json()
-                    desc = resp_json.get("description", resp.text[:120])
-                except Exception:
-                    desc = resp.text[:120]
 
-                if resp.status_code == 401:
+            # 2. HTTP 200: MUST check ok=True and valid message_id
+            if resp.status_code == 200:
+                if is_ok:
+                    res_dict = resp_json.get("result") or {}
+                    msg_id = res_dict.get("message_id") if isinstance(res_dict, dict) else None
+                    if msg_id is not None and str(msg_id).strip():
+                        return TelegramSendResult(
+                            success=True,
+                            provider_message_id=str(msg_id),
+                            http_status=200
+                        )
+                    else:
+                        return TelegramSendResult(
+                            success=False,
+                            error_code="INVALID_RESPONSE",
+                            error_message="Telegram API 200 nhưng thiếu result.message_id hợp lệ",
+                            http_status=200
+                        )
+                else:
+                    # HTTP 200 with ok: false!
+                    err_code = resp_json.get("error_code", 400) if isinstance(resp_json, dict) else 400
+                    code_str = "CHAT_NOT_FOUND" if ("chat not found" in desc.lower() or "chat_id" in desc.lower()) else "BAD_REQUEST"
                     return TelegramSendResult(
                         success=False,
-                        error_code="UNAUTHORIZED",
-                        error_message="Telegram API 401 (Unauthorized): Bot Token không hợp lệ.",
-                        http_status=401
+                        error_code=code_str,
+                        error_message=f"Telegram API [{err_code}]: {desc}",
+                        http_status=200
                     )
-                elif resp.status_code == 403:
+
+            # 3. HTTP 400, 401, 403, 5xx
+            if resp.status_code == 401:
+                return TelegramSendResult(
+                    success=False,
+                    error_code="UNAUTHORIZED",
+                    error_message="Telegram API 401 (Unauthorized): Bot Token không hợp lệ.",
+                    http_status=401
+                )
+            elif resp.status_code == 403:
+                return TelegramSendResult(
+                    success=False,
+                    error_code="FORBIDDEN",
+                    error_message=f"Telegram API 403 (Forbidden): Bot bị chặn hoặc không có quyền gửi tin nhắn cho Chat ID {safe_chat_id}.",
+                    http_status=403
+                )
+            elif resp.status_code == 400:
+                desc_lower = desc.lower()
+                if "can't parse entities" in desc_lower or "parse entities" in desc_lower or "entity" in desc_lower:
+                    # If parse error occurred with formatted text, retry once in pure plain text
+                    if parse_mode is not None:
+                        logger.warning(f"Telegram entity parse error ({desc}), retrying in plain text...")
+                        return await send_telegram_direct(
+                            bot_token=bot_token,
+                            chat_id=chat_id,
+                            text=text,
+                            timeout=timeout,
+                            parse_mode=None
+                        )
                     return TelegramSendResult(
                         success=False,
-                        error_code="FORBIDDEN",
-                        error_message=f"Telegram API 403 (Forbidden): Bot bị chặn hoặc không có quyền gửi tin nhắn cho Chat ID {chat_id}.",
-                        http_status=403
+                        error_code="PARSE_ERROR",
+                        error_message=f"Telegram API 400 (Bad Request): Lỗi cú pháp parse entities ({desc}).",
+                        http_status=400
                     )
-                elif resp.status_code == 400 and ("chat not found" in desc.lower() or "chat_id" in desc.lower()):
+                elif "chat not found" in desc_lower or "chat_id" in desc_lower:
                     return TelegramSendResult(
                         success=False,
                         error_code="CHAT_NOT_FOUND",
-                        error_message=f"Telegram API 400 (Bad Request): Chưa mở chat với bot cho Chat ID {chat_id}.",
+                        error_message=f"Telegram API 400 (Bad Request): Chưa mở chat với bot cho Chat ID {safe_chat_id}.",
                         http_status=400
                     )
                 else:
                     return TelegramSendResult(
                         success=False,
-                        error_code=f"HTTP_{resp.status_code}",
-                        error_message=f"Telegram API [{resp.status_code}]: {desc}",
-                        http_status=resp.status_code
+                        error_code="BAD_REQUEST",
+                        error_message=f"Telegram API 400 (Bad Request): {desc}",
+                        http_status=400
                     )
+            elif resp.status_code >= 500:
+                return TelegramSendResult(
+                    success=False,
+                    error_code="SERVER_ERROR",
+                    error_message=f"Telegram API {resp.status_code}: Máy chủ Telegram tạm thời gián đoạn.",
+                    http_status=resp.status_code
+                )
+            else:
+                return TelegramSendResult(
+                    success=False,
+                    error_code=f"HTTP_{resp.status_code}",
+                    error_message=f"Telegram API [{resp.status_code}]: {desc}",
+                    http_status=resp.status_code
+                )
     except httpx.TimeoutException:
         return TelegramSendResult(
             success=False,
@@ -504,31 +620,58 @@ async def send_telegram_direct(
         )
 
 
-async def process_notification_outbox():
+async def process_notification_outbox(run_once: bool = False):
     """
-    Background Outbox Worker:
-    - Queries PENDING and RETRYING notifications from SQLite.
+    Background Outbox Worker (V8):
+    - Lease-based concurrency: claims item using short SQLite write transaction,
+      executes HTTP network dispatch completely outside DB transaction,
+      and finalizes status in second short transaction.
+    - Prevents holding open SQLite write transactions during network await.
     - Honors Priority (CRITICAL processed ahead of STANDARD).
     - Respects quiet hours: Critical alerts (FILLED, TP, SL, LIQUIDATED) bypass quiet hours by default.
     - Suppresses stale/expired NEAR_ENTRY or READY setups before dispatch.
-    - Sends message with exponential backoff + jitter and 429 Retry-After handling.
-    - Updates notification status in DB.
+    - Classifies permanent errors using error_code enums, not string matching.
+    - Handles ambiguous timeouts gracefully without marking SENT or retrying blindly.
     """
+    import uuid
+    worker_uuid = f"worker-{uuid.uuid4().hex[:8]}"
+
     while True:
         try:
-            await asyncio.sleep(2.5)
+            if not run_once:
+                await asyncio.sleep(2.0)
+            now_ms = int(time.time() * 1000)
+
+            # --- STEP 1: Short transaction to claim one candidate item ---
+            claim_item = None
+            tg_cfg_dict = None
             db: Session = SessionLocal()
             try:
+                # 1.1 Recover stale leased items whose lease expired (> 30s)
+                try:
+                    db.query(models.NotificationOutbox).filter(
+                        models.NotificationOutbox.status == "SENDING",
+                        models.NotificationOutbox.lease_expires_at != None,
+                        models.NotificationOutbox.lease_expires_at < now_ms
+                    ).update({
+                        "status": "RETRYING",
+                        "lease_expires_at": None,
+                        "worker_id": None
+                    }, synchronize_session=False)
+                    db.commit()
+                except Exception:
+                    db.rollback()
+
                 tg_cfg = db.query(models.TelegramConfig).first()
                 if not tg_cfg or not tg_cfg.enabled or not tg_cfg.bot_token or not tg_cfg.chat_id:
+                    if run_once:
+                        break
                     continue
 
                 in_quiet_hours = is_within_quiet_hours(tg_cfg)
                 bypass_critical = getattr(tg_cfg, "bypass_critical_quiet_hours", True)
 
-                now_ms = int(time.time() * 1000)
-
-                # Base query for actionable outbox items
+                # Query candidate items
                 query = (
                     db.query(models.NotificationOutbox)
                     .filter(models.NotificationOutbox.status.in_(["PENDING", "RETRYING"]))
@@ -538,101 +681,154 @@ async def process_notification_outbox():
 
                 if in_quiet_hours:
                     if bypass_critical:
-                        # Only allow CRITICAL items to be sent during quiet hours
                         query = query.filter(models.NotificationOutbox.priority == "CRITICAL")
                     else:
-                        # Full quiet hours pause
                         continue
 
-                # Order: CRITICAL priority first, then oldest created_at first
-                pending_items = (
+                candidate = (
                     query.order_by(
                         case((models.NotificationOutbox.priority == "CRITICAL", 0), else_=1),
                         models.NotificationOutbox.created_at.asc()
                     )
-                    .limit(5)
-                    .all()
+                    .first()
                 )
 
-                for item in pending_items:
-                    # Parse payload
-                    try:
-                        p_data = json.loads(item.payload)
-                        notif_type = p_data.get("notif_type", item.message_type)
-                        data_body = p_data.get("data", {})
-                        occurred_at = p_data.get("occurred_at", item.occurred_at or item.created_at)
-                    except Exception:
-                        notif_type = item.message_type
-                        data_body = {}
-                        occurred_at = item.occurred_at or item.created_at
+                if candidate:
+                    candidate.status = "SENDING"
+                    candidate.lease_expires_at = now_ms + 30000  # 30-second lease
+                    candidate.worker_id = worker_uuid
+                    candidate.attempts += 1
+                    candidate.last_attempt_at = now_ms
 
-                    # Check for Stale / Invalidated / Expired suppression for actionable opportunity alerts
-                    if notif_type in ("NEAR_ENTRY", "READY"):
-                        setup_id = data_body.get("setup_id")
-                        if setup_id:
-                            watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == setup_id).first()
-                            if watch_setup:
-                                is_expired = watch_setup.expires_at and now_ms > watch_setup.expires_at
-                                if is_expired or watch_setup.state in ("PAPER_OPEN", "CLOSED", "INVALIDATED", "EXPIRED", "CANCELLED"):
-                                    item.status = "SUPPRESSED"
-                                    item.error_message = f"Setup đã {watch_setup.state.lower()} trước khi gửi tin"
-                                    db.commit()
-                                    continue
-
-                    # Format message text
-                    msg_text = format_telegram_message(
-                        item_type=notif_type,
-                        data=data_body,
-                        occurred_at=occurred_at,
-                        timezone_str=tg_cfg.timezone or "Asia/Ho_Chi_Minh",
-                        base_chart_url=tg_cfg.base_chart_url
-                    )
-
-                    # Append late notice if event occurred more than 2 minutes ago (for filled/closed)
-                    if occurred_at and (now_ms - occurred_at) > 120000 and notif_type in ("FILLED", "TP_HIT", "SL_HIT", "MANUAL_CLOSED", "LIQUIDATED"):
-                        occurred_vn = get_formatted_time(occurred_at, tg_cfg.timezone)
-                        msg_text += f"\n\n⏱ _(Thông báo gửi trễ do hàng đợi: sự kiện diễn ra lúc {occurred_vn})_"
-
-                    item.attempts += 1
-                    item.last_attempt_at = now_ms
-
-                    recipient = item.recipient or tg_cfg.chat_id
-
-                    success, msg_id, err_msg, retry_after = await send_telegram_direct(
-                        bot_token=tg_cfg.bot_token,
-                        chat_id=recipient,
-                        text=msg_text
-                    )
-
-                    if success:
-                        item.status = "SENT"
-                        item.provider_message_id = msg_id
-                        item.error_message = None
-                    else:
-                        item.error_message = err_msg
-                        is_permanent = any(code in (err_msg or "") for code in ["401", "403", "Bad Request", "Chưa mở chat"])
-                        if is_permanent:
-                            # Permanent error, do not retry
-                            item.status = "FAILED"
-                        elif retry_after:
-                            # 429 Rate limit: schedule specific next attempt
-                            item.status = "RETRYING"
-                            item.next_attempt_at = now_ms + (retry_after * 1000)
-                        elif item.attempts >= 5:
-                            item.status = "FAILED"
-                        else:
-                            item.status = "RETRYING"
-                            # Bounded exponential backoff with jitter (5s, 10s, 20s, 40s + jitter)
-                            backoff_sec = min(120, (5 * (2 ** (item.attempts - 1)))) + random.randint(1, 4)
-                            item.next_attempt_at = now_ms + (backoff_sec * 1000)
-
+                    claim_item = {
+                        "id": candidate.id,
+                        "payload": candidate.payload,
+                        "message_type": candidate.message_type,
+                        "occurred_at": candidate.occurred_at,
+                        "created_at": candidate.created_at,
+                        "recipient": candidate.recipient or tg_cfg.chat_id,
+                        "attempts": candidate.attempts
+                    }
+                    tg_cfg_dict = {
+                        "bot_token": tg_cfg.bot_token,
+                        "chat_id": tg_cfg.chat_id,
+                        "timezone": tg_cfg.timezone or "Asia/Ho_Chi_Minh",
+                        "base_chart_url": tg_cfg.base_chart_url
+                    }
                     db.commit()
-
             finally:
                 db.close()
+
+            if not claim_item or not tg_cfg_dict:
+                if run_once:
+                    break
+                continue
+
+            # --- STEP 2: Process & format outside DB write transaction ---
+            try:
+                p_data = json.loads(claim_item["payload"])
+                notif_type = p_data.get("notif_type", claim_item["message_type"])
+                data_body = p_data.get("data", {})
+                occurred_at = p_data.get("occurred_at", claim_item["occurred_at"] or claim_item["created_at"])
+            except Exception:
+                notif_type = claim_item["message_type"]
+                data_body = {}
+                occurred_at = claim_item["occurred_at"] or claim_item["created_at"]
+
+            # Suppression check for actionable opportunity alerts
+            suppressed_reason = None
+            if notif_type in ("NEAR_ENTRY", "READY"):
+                setup_id = data_body.get("setup_id")
+                if setup_id:
+                    db_check = SessionLocal()
+                    try:
+                        watch_setup = db_check.query(models.WatchSetup).filter(models.WatchSetup.id == setup_id).first()
+                        if watch_setup:
+                            is_expired = watch_setup.expires_at and now_ms > watch_setup.expires_at
+                            if is_expired or watch_setup.state in ("PAPER_OPEN", "CLOSED", "INVALIDATED", "EXPIRED", "CANCELLED"):
+                                suppressed_reason = f"Setup đã {watch_setup.state.lower()} trước khi gửi tin"
+                    finally:
+                        db_check.close()
+
+            if suppressed_reason:
+                db_sup = SessionLocal()
+                try:
+                    item_sup = db_sup.query(models.NotificationOutbox).filter(models.NotificationOutbox.id == claim_item["id"]).first()
+                    if item_sup:
+                        item_sup.status = "SUPPRESSED"
+                        item_sup.error_message = suppressed_reason
+                        item_sup.lease_expires_at = None
+                        item_sup.worker_id = None
+                        db_sup.commit()
+                finally:
+                    db_sup.close()
+                continue
+
+            # Format message text
+            msg_text = format_telegram_message(
+                item_type=notif_type,
+                data=data_body,
+                occurred_at=occurred_at,
+                timezone_str=tg_cfg_dict["timezone"],
+                base_chart_url=tg_cfg_dict["base_chart_url"]
+            )
+
+            # Append late notice if event occurred more than 2 minutes ago
+            if occurred_at and (now_ms - occurred_at) > 120000 and notif_type in ("FILLED", "TP_HIT", "SL_HIT", "MANUAL_CLOSED", "LIQUIDATED"):
+                occurred_vn = get_formatted_time(occurred_at, tg_cfg_dict["timezone"])
+                msg_text += f"\n\n⏱ _(Thông báo gửi trễ do hàng đợi: sự kiện diễn ra lúc {occurred_vn})_"
+
+            # --- STEP 3: HTTP dispatch outside SQLite transaction ---
+            res = await send_telegram_direct(
+                bot_token=tg_cfg_dict["bot_token"],
+                chat_id=claim_item["recipient"],
+                text=msg_text
+            )
+
+            # --- STEP 4: Finalize in short transaction ---
+            db_fin = SessionLocal()
+            try:
+                item_fin = db_fin.query(models.NotificationOutbox).filter(
+                    models.NotificationOutbox.id == claim_item["id"],
+                    models.NotificationOutbox.status == "SENDING"
+                ).first()
+                if item_fin:
+                    item_fin.lease_expires_at = None
+                    item_fin.worker_id = None
+
+                    if res.success:
+                        item_fin.status = "SENT"
+                        item_fin.provider_message_id = res.provider_message_id
+                        item_fin.error_message = None
+                    else:
+                        item_fin.error_message = res.error_message
+                        # Permanent error check via typed error_code
+                        if res.error_code in ("UNAUTHORIZED", "FORBIDDEN", "CHAT_NOT_FOUND", "MISSING_CREDENTIALS"):
+                            item_fin.status = "FAILED"
+                        elif res.error_code == "RATE_LIMIT":
+                            item_fin.status = "RETRYING"
+                            retry_sec = res.retry_after_sec or 10
+                            item_fin.next_attempt_at = int(time.time() * 1000) + (retry_sec * 1000)
+                        elif res.error_code == "TIMEOUT":
+                            # Ambiguous delivery: timeout occurred, message may or may not have been delivered
+                            item_fin.status = "AMBIGUOUS"
+                        elif item_fin.attempts >= 5:
+                            item_fin.status = "FAILED"
+                        else:
+                            item_fin.status = "RETRYING"
+                            backoff_sec = min(120, (5 * (2 ** (item_fin.attempts - 1)))) + random.randint(1, 4)
+                            item_fin.next_attempt_at = int(time.time() * 1000) + (backoff_sec * 1000)
+
+                    db_fin.commit()
+            finally:
+                db_fin.close()
+
+            if run_once:
+                break
 
         except asyncio.CancelledError:
             break
         except Exception as e:
             logger.error(f"Error in process_notification_outbox loop: {e}")
             await asyncio.sleep(2.0)
+

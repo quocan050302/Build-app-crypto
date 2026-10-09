@@ -398,6 +398,89 @@ class LessonItem(BaseModel):
     action_rule: str
     is_hard_filter: bool
     is_approved: bool
+    status: Optional[str] = "PENDING_REVIEW"
+    reviewed_at: Optional[int] = None
+    hypothesis: Optional[str] = None
+    author: Optional[str] = "SYSTEM"
+    audit_trail: Optional[str] = None
+    strategy_family: Optional[str] = "STANDARD_SMC"
+    facts_snapshot: Optional[str] = None
+    compliance_snapshot: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class LessonUpdate(BaseModel):
+    title: Optional[str] = None
+    category: Optional[str] = None
+    reflection: Optional[str] = None
+    action_rule: Optional[str] = None
+    hypothesis: Optional[str] = None
+    status: Optional[str] = None
+
+# Trade Review & Psychology Schemas
+class TradeReviewSchema(BaseModel):
+    id: str
+    trade_id: str
+    execution_mode: str = "AUTO"
+    user_notes: Optional[str] = None
+    self_reported_entry_reason: Optional[str] = None
+    psychology_before: Optional[str] = None
+    psychology_during: Optional[str] = None
+    psychology_after: Optional[str] = None
+    emotions: List[str] = []
+    confidence_score: Optional[int] = None
+    discipline_score: Optional[int] = None
+    user_loss_reason: Optional[str] = None
+    mistakes: Optional[str] = None
+    what_went_well: Optional[str] = None
+    improvement_plan: Optional[str] = None
+    revision: int = 1
+    created_at: int
+    updated_at: int
+    reviewed_at: Optional[int] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class TradeReviewCreateOrUpdate(BaseModel):
+    execution_mode: Optional[str] = "AUTO"
+    user_notes: Optional[str] = None
+    self_reported_entry_reason: Optional[str] = None
+    psychology_before: Optional[str] = None
+    psychology_during: Optional[str] = None
+    psychology_after: Optional[str] = None
+    emotions: Optional[List[str]] = []
+    confidence_score: Optional[int] = None
+    discipline_score: Optional[int] = None
+    user_loss_reason: Optional[str] = None
+    mistakes: Optional[str] = None
+    what_went_well: Optional[str] = None
+    improvement_plan: Optional[str] = None
+    revision: Optional[int] = None
+    expected_revision: Optional[int] = None
+
+# Journal Pagination & Summaries
+class JournalSummary(BaseModel):
+    completed_count: int
+    open_count: int
+    armed_count: int
+    cancelled_count: int
+    net_pnl: float
+    win_count: int
+    loss_count: int
+    breakeven_count: int
+    winrate_pct: float
+    avg_realized_r: float
+    # Backward compatibility / alias fields
+    wins: Optional[int] = None
+    losses: Optional[int] = None
+    breakevens: Optional[int] = None
+    average_realized_r: Optional[float] = None
+
+class PaginatedJournalResponse(BaseModel):
+    items: List[PaperOrderResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+    summary: JournalSummary
 
 # Health Status
 class SystemHealthResponse(BaseModel):
@@ -444,22 +527,25 @@ class TelegramConfigSchema(BaseModel):
     near_entry_cooldown_min: int = 30
     timezone: str
     base_chart_url: Optional[str] = None
+    has_token: bool = False
+    token_configured: bool = False
 
 class TelegramConfigUpdate(BaseModel):
-    enabled: bool
+    enabled: Optional[bool] = None
     bot_token: Optional[str] = None  # None/empty means keep current secret
-    chat_id: str
-    subscribed_events: List[str]
-    quiet_hours_enabled: bool = False
-    quiet_hours_start: str = "23:00"
-    quiet_hours_end: str = "06:00"
-    bypass_critical_quiet_hours: bool = True
-    near_entry_mode: str = "ATR"
-    near_entry_atr_mult: float = 0.5
-    near_entry_price_dist: float = 2.0
-    near_entry_cooldown_min: int = 30
-    timezone: str = "Asia/Ho_Chi_Minh"
+    chat_id: Optional[str] = None
+    subscribed_events: Optional[List[str]] = None
+    quiet_hours_enabled: Optional[bool] = None
+    quiet_hours_start: Optional[str] = None
+    quiet_hours_end: Optional[str] = None
+    bypass_critical_quiet_hours: Optional[bool] = None
+    near_entry_mode: Optional[str] = None
+    near_entry_atr_mult: Optional[float] = None
+    near_entry_price_dist: Optional[float] = None
+    near_entry_cooldown_min: Optional[int] = None
+    timezone: Optional[str] = None
     base_chart_url: Optional[str] = None
+    clear_token: Optional[bool] = False
 
 class TelegramTestRequest(BaseModel):
     bot_token: Optional[str] = None
@@ -472,14 +558,26 @@ class NotificationOutboxItem(BaseModel):
     recipient: Optional[str] = None
     message_type: str
     dedupe_key: str
+    payload: Optional[str] = None
     status: str
     priority: str = "STANDARD"
     attempts: int = 0
     last_attempt_at: Optional[int] = None
     next_attempt_at: Optional[int] = None
     occurred_at: Optional[int] = None
+    provider_message_id: Optional[str] = None
     error_message: Optional[str] = None
+    lease_expires_at: Optional[int] = None
+    worker_id: Optional[str] = None
     created_at: int
+    model_config = ConfigDict(from_attributes=True)
+
+class PaginatedOutboxResponse(BaseModel):
+    items: List[NotificationOutboxItem]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
 
 # Multi-Timeframe Matrix
 class MarketMatrixItem(BaseModel):

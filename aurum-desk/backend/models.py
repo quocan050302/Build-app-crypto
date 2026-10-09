@@ -192,6 +192,36 @@ class Lesson(Base):
     compliance_snapshot = Column(Text, nullable=True)  # JSON evaluated rules compliance
     mfe_mae_snapshot = Column(Text, nullable=True)     # JSON MFE/MAE/hold time
     action_candidate = Column(Text, nullable=True)     # JSON structured proposed rule candidate
+    # V8 Review & Governance Fields
+    status = Column(String(30), default="PENDING_REVIEW")  # PENDING_REVIEW, APPROVED, REJECTED, ARCHIVED
+    reviewed_at = Column(BigInteger, nullable=True)
+    hypothesis = Column(Text, nullable=True)
+    author = Column(String(50), default="SYSTEM")
+    audit_trail = Column(Text, nullable=True)
+
+
+class TradeReview(Base):
+    __tablename__ = "trade_reviews"
+
+    id = Column(String(36), primary_key=True)
+    trade_id = Column(String(36), ForeignKey("paper_orders.id"), unique=True, index=True, nullable=False)
+    execution_mode = Column(String(20), default="AUTO")  # AUTO, MANUAL
+    user_notes = Column(Text, nullable=True)
+    self_reported_entry_reason = Column(Text, nullable=True)
+    psychology_before = Column(String(100), nullable=True)
+    psychology_during = Column(String(100), nullable=True)
+    psychology_after = Column(String(100), nullable=True)
+    emotions = Column(Text, nullable=True)  # JSON list of string tags
+    confidence_score = Column(Integer, nullable=True)  # 1-10
+    discipline_score = Column(Integer, nullable=True)  # 1-10
+    user_loss_reason = Column(Text, nullable=True)
+    mistakes = Column(Text, nullable=True)
+    what_went_well = Column(Text, nullable=True)
+    improvement_plan = Column(Text, nullable=True)
+    revision = Column(Integer, default=1)
+    created_at = Column(BigInteger, nullable=False)
+    updated_at = Column(BigInteger, nullable=False)
+    reviewed_at = Column(BigInteger, nullable=True)
 
 
 class SystemConfig(Base):
@@ -303,6 +333,8 @@ class NotificationOutbox(Base):
     occurred_at = Column(BigInteger, nullable=True)
     provider_message_id = Column(String(100), nullable=True)
     error_message = Column(Text, nullable=True)
+    lease_expires_at = Column(BigInteger, nullable=True)
+    worker_id = Column(String(50), nullable=True)
     created_at = Column(BigInteger, nullable=False)
 
 

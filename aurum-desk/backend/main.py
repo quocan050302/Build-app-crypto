@@ -1031,7 +1031,9 @@ def get_telegram_config(db: Session = Depends(get_db)):
             near_entry_price_dist=2.0,
             near_entry_cooldown_min=30,
             timezone="Asia/Ho_Chi_Minh",
-            base_chart_url=None
+            base_chart_url=None,
+            has_token=False,
+            token_configured=False
         )
 
     # Mask token
@@ -1053,7 +1055,9 @@ def get_telegram_config(db: Session = Depends(get_db)):
         near_entry_price_dist=cfg.near_entry_price_dist if cfg.near_entry_price_dist is not None else 2.0,
         near_entry_cooldown_min=cfg.near_entry_cooldown_min if cfg.near_entry_cooldown_min is not None else 30,
         timezone=cfg.timezone or "Asia/Ho_Chi_Minh",
-        base_chart_url=cfg.base_chart_url
+        base_chart_url=cfg.base_chart_url,
+        has_token=bool(token),
+        token_configured=bool(token)
     )
 
 
@@ -1066,42 +1070,131 @@ def update_telegram_config(update: schemas.TelegramConfigUpdate, db: Session = D
         cfg = models.TelegramConfig(updated_at=now_ms)
         db.add(cfg)
 
-    cfg.enabled = update.enabled
-    if update.bot_token and update.bot_token.strip() and not update.bot_token.startswith("***") and not "..." in update.bot_token:
+    # 1. Handle token updates:
+    if update.clear_token:
+        cfg.bot_token = None
+    elif update.bot_token and update.bot_token.strip() and not update.bot_token.startswith("***") and not "..." in update.bot_token:
         cfg.bot_token = update.bot_token.strip()
-    cfg.chat_id = update.chat_id.strip() if update.chat_id else ""
-    cfg.subscribed_events = json.dumps(update.subscribed_events)
-    cfg.quiet_hours_enabled = update.quiet_hours_enabled
-    cfg.quiet_hours_start = update.quiet_hours_start
-    cfg.quiet_hours_end = update.quiet_hours_end
-    cfg.bypass_critical_quiet_hours = update.bypass_critical_quiet_hours
-    cfg.near_entry_mode = update.near_entry_mode
-    cfg.near_entry_atr_mult = update.near_entry_atr_mult
-    cfg.near_entry_price_dist = update.near_entry_price_dist
-    cfg.near_entry_cooldown_min = update.near_entry_cooldown_min
-    cfg.timezone = update.timezone
-    cfg.base_chart_url = update.base_chart_url
+
+    # 2. Chat ID update
+    if update.chat_id is not None:
+        cfg.chat_id = update.chat_id.strip()
+
+    # 3. Enabled validation: Cannot enable without credentials
+    if update.enabled:
+        effective_token = cfg.bot_token
+        effective_chat = (cfg.chat_id or "").strip()
+        if not effective_token or not effective_chat:
+            raise HTTPException(
+                status_code=400,
+                detail="Không thể bật thông báo tự động khi chưa có Bot Token hoặc Chat ID hợp lệ."
+            )
+
+    if update.enabled is not None:
+        cfg.enabled = update.enabled
+    if update.subscribed_events is not None:
+        cfg.subscribed_events = json.dumps(update.subscribed_events)
+    if update.quiet_hours_enabled is not None:
+        cfg.quiet_hours_enabled = update.quiet_hours_enabled
+    if update.quiet_hours_start is not None:
+        cfg.quiet_hours_start = update.quiet_hours_start
+    if update.quiet_hours_end is not None:
+        cfg.quiet_hours_end = update.quiet_hours_end
+    if update.bypass_critical_quiet_hours is not None:
+        cfg.bypass_critical_quiet_hours = update.bypass_critical_quiet_hours
+    if update.near_entry_mode is not None:
+        cfg.near_entry_mode = update.near_entry_mode
+    if update.near_entry_atr_mult is not None:
+        cfg.near_entry_atr_mult = update.near_entry_atr_mult
+    if update.near_entry_price_dist is not None:
+        cfg.near_entry_price_dist = update.near_entry_price_dist
+    if update.near_entry_cooldown_min is not None:
+        cfg.near_entry_cooldown_min = update.near_entry_cooldown_min
+    if update.timezone is not None:
+        cfg.timezone = update.timezone
+    if update.base_chart_url is not None:
+        cfg.base_chart_url = update.base_chart_url
     cfg.updated_at = now_ms
 
     db.commit()
-    return {"status": "success", "message": "Đã lưu cấu hình thông báo Telegram"}
+    db.refresh(cfg)
 
+    token = cfg.bot_token or ""
+    masked = f"{token[:4]}...{token[-4:]}" if len(token) > 8 else ("***" if token else "")
+    sub_events = json.loads(cfg.subscribed_events) if cfg.subscribed_events else []
 
-@app.get("/api/v1/telegram/history", response_model=List[schemas.NotificationOutboxItem])
-def get_notification_history(limit: int = 50, db: Session = Depends(get_db)):
-    """Fetch persistent notification outbox history with sanitized status and delivery attempts."""
-    items = (
-        db.query(models.NotificationOutbox)
-        .order_by(models.NotificationOutbox.created_at.desc())
-        .limit(limit)
-        .all()
+    authoritative_config = schemas.TelegramConfigSchema(
+        enabled=cfg.enabled or False,
+        bot_token_masked=masked,
+        chat_id=cfg.chat_id or "",
+        subscribed_events=sub_events,
+        quiet_hours_enabled=cfg.quiet_hours_enabled or False,
+        quiet_hours_start=cfg.quiet_hours_start or "23:00",
+        quiet_hours_end=cfg.quiet_hours_end or "06:00",
+        bypass_critical_quiet_hours=cfg.bypass_critical_quiet_hours if cfg.bypass_critical_quiet_hours is not None else True,
+        near_entry_mode=cfg.near_entry_mode or "ATR",
+        near_entry_atr_mult=cfg.near_entry_atr_mult if cfg.near_entry_atr_mult is not None else 0.5,
+        near_entry_price_dist=cfg.near_entry_price_dist if cfg.near_entry_price_dist is not None else 2.0,
+        near_entry_cooldown_min=cfg.near_entry_cooldown_min if cfg.near_entry_cooldown_min is not None else 30,
+        timezone=cfg.timezone or "Asia/Ho_Chi_Minh",
+        base_chart_url=cfg.base_chart_url,
+        has_token=bool(token),
+        token_configured=bool(token)
     )
-    return items
+
+    return {
+        "status": "success",
+        "message": "Đã lưu cấu hình thông báo Telegram",
+        "config": authoritative_config
+    }
+
+
+@app.get("/api/v1/telegram/history")
+def get_notification_history(
+    limit: int = 50,
+    status: Optional[str] = None,
+    message_type: Optional[str] = None,
+    date_from: Optional[int] = None,
+    date_to: Optional[int] = None,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """Fetch persistent notification outbox history with filtering, pagination and sanitized error messages."""
+    query = db.query(models.NotificationOutbox)
+
+    if status and status != "ALL":
+        query = query.filter(models.NotificationOutbox.status == status.upper())
+    if message_type and message_type != "ALL":
+        query = query.filter(models.NotificationOutbox.message_type == message_type)
+    if date_from:
+        query = query.filter(models.NotificationOutbox.created_at >= date_from)
+    if date_to:
+        query = query.filter(models.NotificationOutbox.created_at <= date_to)
+
+    query = query.order_by(models.NotificationOutbox.created_at.desc())
+
+    if page is not None and page_size is not None:
+        total = query.count()
+        page = max(1, page)
+        page_size = max(1, min(100, page_size))
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        items = query.offset((page - 1) * page_size).limit(page_size).all()
+        return {
+            "items": [schemas.NotificationOutboxItem.model_validate(it) for it in items],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages
+        }
+
+    items = query.limit(limit).all()
+    return [schemas.NotificationOutboxItem.model_validate(it) for it in items]
 
 
 @app.post("/api/v1/telegram/outbox/retry/{item_id}")
 def retry_outbox_item(item_id: int, db: Session = Depends(get_db)):
-    """Reset a FAILED or RETRYING outbox item back to PENDING for re-dispatch."""
+    """Reset a FAILED, RETRYING, or AMBIGUOUS outbox item back to PENDING for re-dispatch."""
     item = db.query(models.NotificationOutbox).filter(models.NotificationOutbox.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Không tìm thấy mục outbox này")
@@ -1112,6 +1205,8 @@ def retry_outbox_item(item_id: int, db: Session = Depends(get_db)):
     item.status = "PENDING"
     item.attempts = 0
     item.next_attempt_at = now_ms
+    item.lease_expires_at = None
+    item.worker_id = None
     item.error_message = None
     db.commit()
     return {"status": "success", "message": f"Đã đưa tin nhắn #{item_id} trở lại hàng đợi gửi"}
@@ -1285,9 +1380,224 @@ def get_journal(limit: int = 50, db: Session = Depends(get_db)):
     return [schemas.PaperOrderResponse.model_validate(o) for o in orders]
 
 
-@app.get("/api/v1/lessons")
-def get_lessons(setup_type: Optional[str] = None, db: Session = Depends(get_db)):
-    return crud.get_lessons(db, setup_type)
+@app.get("/api/v1/journal/paginated", response_model=schemas.PaginatedJournalResponse)
+def get_journal_paginated(
+    state: Optional[str] = None,
+    direction: Optional[str] = None,
+    outcome: Optional[str] = None,
+    strategy_family: Optional[str] = None,
+    date_from_ms: Optional[int] = None,
+    date_to_ms: Optional[int] = None,
+    has_review: Optional[bool] = None,
+    search: Optional[str] = None,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
+    page: int = 1,
+    page_size: int = 20,
+    db: Session = Depends(get_db)
+):
+    """Server-side filtered and paginated journal orders with aggregate summary."""
+    res = crud.get_journal_paginated(
+        db=db,
+        state=state,
+        direction=direction,
+        outcome=outcome,
+        strategy_family=strategy_family,
+        date_from_ms=date_from_ms,
+        date_to_ms=date_to_ms,
+        has_review=has_review,
+        search=search,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        page=page,
+        page_size=page_size
+    )
+    return schemas.PaginatedJournalResponse(
+        items=[schemas.PaperOrderResponse.model_validate(o) for o in res["items"]],
+        total=res["total"],
+        page=res["page"],
+        page_size=res["page_size"],
+        total_pages=res["total_pages"],
+        summary=schemas.JournalSummary(**res["summary"])
+    )
+
+
+@app.get("/api/v1/journal/review/{trade_id}", response_model=schemas.TradeReviewSchema)
+def get_trade_review(trade_id: str, db: Session = Depends(get_db)):
+    review = crud.get_trade_review(db, trade_id)
+    if not review:
+        now_ms = int(time.time() * 1000)
+        return schemas.TradeReviewSchema(
+            id=f"rev-{trade_id}",
+            trade_id=trade_id,
+            execution_mode="AUTO",
+            user_notes=None,
+            self_reported_entry_reason=None,
+            psychology_before=None,
+            psychology_during=None,
+            psychology_after=None,
+            emotions=[],
+            confidence_score=None,
+            discipline_score=None,
+            user_loss_reason=None,
+            mistakes=None,
+            what_went_well=None,
+            improvement_plan=None,
+            revision=1,
+            created_at=now_ms,
+            updated_at=now_ms,
+            reviewed_at=None
+        )
+
+    emotions_list = []
+    if review.emotions:
+        try:
+            emotions_list = json.loads(review.emotions)
+        except Exception:
+            emotions_list = []
+
+    return schemas.TradeReviewSchema(
+        id=review.id,
+        trade_id=review.trade_id,
+        execution_mode=review.execution_mode or "AUTO",
+        user_notes=review.user_notes,
+        self_reported_entry_reason=review.self_reported_entry_reason,
+        psychology_before=review.psychology_before,
+        psychology_during=review.psychology_during,
+        psychology_after=review.psychology_after,
+        emotions=emotions_list,
+        confidence_score=review.confidence_score,
+        discipline_score=review.discipline_score,
+        user_loss_reason=review.user_loss_reason,
+        mistakes=review.mistakes,
+        what_went_well=review.what_went_well,
+        improvement_plan=review.improvement_plan,
+        revision=review.revision or 1,
+        created_at=review.created_at,
+        updated_at=review.updated_at,
+        reviewed_at=review.reviewed_at
+    )
+
+
+@app.post("/api/v1/journal/review/{trade_id}", response_model=schemas.TradeReviewSchema)
+def save_trade_review(
+    trade_id: str,
+    data: schemas.TradeReviewCreateOrUpdate,
+    db: Session = Depends(get_db)
+):
+    try:
+        review = crud.save_trade_review(db, trade_id, data)
+    except ValueError as e:
+        if "CONFLICT" in str(e):
+            raise HTTPException(
+                status_code=409,
+                detail="Xung đột dữ liệu (Conflict): Đánh giá này đã được cập nhật bởi phiên khác. Vui lòng làm mới trang trước khi lưu."
+            )
+        raise HTTPException(status_code=400, detail=str(e))
+
+    emotions_list = []
+    if review.emotions:
+        try:
+            emotions_list = json.loads(review.emotions)
+        except Exception:
+            emotions_list = []
+
+    return schemas.TradeReviewSchema(
+        id=review.id,
+        trade_id=review.trade_id,
+        execution_mode=review.execution_mode or "AUTO",
+        user_notes=review.user_notes,
+        self_reported_entry_reason=review.self_reported_entry_reason,
+        psychology_before=review.psychology_before,
+        psychology_during=review.psychology_during,
+        psychology_after=review.psychology_after,
+        emotions=emotions_list,
+        confidence_score=review.confidence_score,
+        discipline_score=review.discipline_score,
+        user_loss_reason=review.user_loss_reason,
+        mistakes=review.mistakes,
+        what_went_well=review.what_went_well,
+        improvement_plan=review.improvement_plan,
+        revision=review.revision or 1,
+        created_at=review.created_at,
+        updated_at=review.updated_at,
+        reviewed_at=review.reviewed_at
+    )
+
+
+@app.get("/api/v1/lessons", response_model=List[schemas.LessonItem])
+def get_lessons(
+    setup_type: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    lessons = crud.get_lessons(db, setup_type=setup_type, status=status)
+    return [schemas.LessonItem.model_validate(l) for l in lessons]
+
+
+@app.post("/api/v1/lessons/{lesson_id}/approve", response_model=schemas.LessonItem)
+def approve_lesson(lesson_id: int, db: Session = Depends(get_db)):
+    lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bài học này")
+    now_ms = int(time.time() * 1000)
+    lesson.is_approved = True
+    lesson.status = "APPROVED"
+    lesson.reviewed_at = now_ms
+    db.commit()
+    db.refresh(lesson)
+    return schemas.LessonItem.model_validate(lesson)
+
+
+@app.post("/api/v1/lessons/{lesson_id}/reject", response_model=schemas.LessonItem)
+def reject_lesson(lesson_id: int, db: Session = Depends(get_db)):
+    lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bài học này")
+    now_ms = int(time.time() * 1000)
+    lesson.is_approved = False
+    lesson.status = "REJECTED"
+    lesson.reviewed_at = now_ms
+    db.commit()
+    db.refresh(lesson)
+    return schemas.LessonItem.model_validate(lesson)
+
+
+@app.post("/api/v1/lessons/{lesson_id}/archive", response_model=schemas.LessonItem)
+def archive_lesson(lesson_id: int, db: Session = Depends(get_db)):
+    lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bài học này")
+    lesson.status = "ARCHIVED"
+    db.commit()
+    db.refresh(lesson)
+    return schemas.LessonItem.model_validate(lesson)
+
+
+@app.put("/api/v1/lessons/{lesson_id}", response_model=schemas.LessonItem)
+def update_lesson(lesson_id: int, update: schemas.LessonUpdate, db: Session = Depends(get_db)):
+    lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bài học này")
+    if update.title is not None:
+        lesson.title = update.title
+    if update.category is not None:
+        lesson.category = update.category
+    if update.reflection is not None:
+        lesson.reflection = update.reflection
+    if update.action_rule is not None:
+        lesson.action_rule = update.action_rule
+    if update.hypothesis is not None:
+        lesson.hypothesis = update.hypothesis
+    if update.status is not None:
+        lesson.status = update.status
+        if update.status == "APPROVED":
+            lesson.is_approved = True
+        elif update.status in ("REJECTED", "PENDING_REVIEW"):
+            lesson.is_approved = False
+    db.commit()
+    db.refresh(lesson)
+    return schemas.LessonItem.model_validate(lesson)
 
 
 @app.get("/api/v1/education")

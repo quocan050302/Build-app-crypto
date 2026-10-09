@@ -455,6 +455,11 @@ class TradeLifecycleService:
         A win does not prove rules were followed; a loss does not prove rules were wrong.
         Does NOT fake Sweep/FVG when unverified.
         """
+        # Check idempotency: do not create duplicate lessons for the same trade
+        existing_lesson = db.query(models.Lesson).filter(models.Lesson.related_trade_id == order.id).first()
+        if existing_lesson:
+            return existing_lesson
+
         pnl = order.realized_pnl_net or 0.0
         r_mult = order.realized_r or 0.0
         family = getattr(order, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC"
@@ -488,22 +493,43 @@ class TradeLifecycleService:
             compliance_detail = "Thiếu bằng chứng chuỗi SMC đầy đủ tại thời điểm vào lệnh."
             invalidation_basis = f"Stop Loss tại {order.stop_loss:.2f}"
 
-        if order.exit_cause == "LIQUIDATED":
-            title = f"THANH LÝ VỊ THẾ {family} {order.direction} (-${abs(pnl):.2f}) tại {order.actual_exit:.2f}"
-            reflection = f"Vị thế {order.direction} bị thanh lý do giá chạm Liquidation Price ({order.actual_exit:.2f})."
+        cause = str(order.exit_cause or "").upper()
+        exit_p = order.actual_exit or 0.0
+
+        if cause == "LIQUIDATED":
+            title = f"THANH LÝ VỊ THẾ {family} {order.direction} (-${abs(pnl):.2f}) tại {exit_p:.2f}"
+            reflection = f"Vị thế {order.direction} bị thanh lý do giá chạm Liquidation Price ({exit_p:.2f})."
             action_rule = "Xem lại mức đòn bẩy và luôn duy trì khoảng đệm an toàn giữa SL và Liquidation Price."
-        elif order.exit_cause in ("AMBIGUOUS_BAR_SL_FIRST", "AMBIGUOUS_BAR_CONSERVATIVE_SL"):
-            title = f"Dừng lỗ nến mơ hồ {family} {order.direction} (-${abs(pnl):.2f}) tại {order.actual_exit:.2f}"
+        elif cause in ("AMBIGUOUS_BAR_SL_FIRST", "AMBIGUOUS_BAR_CONSERVATIVE_SL"):
+            title = f"Dừng lỗ nến mơ hồ {family} {order.direction} (-${abs(pnl):.2f}) tại {exit_p:.2f}"
             reflection = "Nến biến động mạnh chạm cả TP và SL trong cùng một bar. Giả định thận trọng SL khớp trước."
             action_rule = "Tránh giữ lệnh qua các thời điểm công bố tin tức có độ biến động hai đầu lớn."
-        elif pnl >= 0:
-            title = f"Thắng {family} {order.direction} +{r_mult}R (+${pnl:.2f}) tại {order.actual_exit:.2f}"
-            reflection = f"Lệnh {order.direction} ({family}) đạt Take Profit. {compliance_detail}"
-            action_rule = "Tiếp tục thu thập dữ liệu; không nới lỏng quy tắc dựa trên kết quả đơn lẻ."
-        else:
-            title = f"Dừng lỗ {family} {order.direction} {r_mult}R (-${abs(pnl):.2f}) tại {order.actual_exit:.2f}"
+        elif cause in ("MANUAL_CLOSE", "USER_EXIT", "MANUAL_CLOSED"):
+            if pnl >= 0:
+                title = f"Đóng chủ động (Có lãi) {family} {order.direction} +{r_mult:.2f}R (+${pnl:.2f}) tại {exit_p:.2f}"
+                reflection = f"Lệnh {order.direction} ({family}) được đóng chủ động từ Dashboard khi đang có lãi (+${pnl:.2f}). {compliance_detail}"
+            else:
+                title = f"Đóng chủ động (Cắt lỗ) {family} {order.direction} {r_mult:.2f}R (-${abs(pnl):.2f}) tại {exit_p:.2f}"
+                reflection = f"Lệnh {order.direction} ({family}) được đóng chủ động từ Dashboard khi đang bị lỗ (-${abs(pnl):.2f}). {compliance_detail}"
+            action_rule = "Ghi nhận lý do đóng lệnh trước kế hoạch vào phần Đánh giá tâm lý để rà soát kỷ luật."
+        elif cause == "TP_HIT":
+            if pnl >= 0:
+                title = f"Thắng {family} {order.direction} +{r_mult:.2f}R (+${pnl:.2f}) tại {exit_p:.2f}"
+                reflection = f"Lệnh {order.direction} ({family}) đạt Take Profit. {compliance_detail}"
+                action_rule = "Tiếp tục thu thập dữ liệu; không nới lỏng quy tắc dựa trên kết quả đơn lẻ."
+            else:
+                title = f"Đạt TP nhưng lỗ ròng {family} {order.direction} {r_mult:.2f}R (${pnl:.2f}) tại {exit_p:.2f}"
+                reflection = f"Lệnh {order.direction} chạm giá Take Profit nhưng PnL ròng âm sau khi trừ chi phí. {compliance_detail}"
+                action_rule = "Kiểm tra lại biên độ lợi nhuận tối thiểu so với chi phí spread và phí sàn."
+        elif cause == "SL_HIT":
+            title = f"Dừng lỗ {family} {order.direction} {r_mult:.2f}R (-${abs(pnl):.2f}) tại {exit_p:.2f}"
             reflection = f"Lệnh {order.direction} chạm SL ({order.exit_cause}). {compliance_detail}"
             action_rule = "Kiểm tra lại biên độ buffer ATR và cấu trúc bảo vệ; ghi nhận số liệu mẫu để nghiên cứu."
+        else:
+            sign = "+" if pnl >= 0 else "-"
+            title = f"Đóng vị thế ({cause or 'CLOSED'}) {family} {order.direction} {sign}${abs(pnl):.2f} tại {exit_p:.2f}"
+            reflection = f"Lệnh {order.direction} ({family}) kết thúc với nguyên nhân {cause or 'CLOSED'}. {compliance_detail}"
+            action_rule = "Ghi nhận dữ liệu thực tế vào Journal để phân tích thêm."
 
         db_lesson = models.Lesson(
             created_at=now_ms,
@@ -536,3 +562,5 @@ class TradeLifecycleService:
             })
         )
         db.add(db_lesson)
+        db.flush()
+        return db_lesson

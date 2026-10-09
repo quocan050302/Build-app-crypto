@@ -514,8 +514,48 @@ export const api = {
     return res.data;
   },
 
-  getLessons: async () => {
-    const res = await apiClient.get('/api/v1/lessons');
+  getJournalPaginated: async (params?: JournalQueryParams): Promise<PaginatedJournalResponse> => {
+    const res = await apiClient.get('/api/v1/journal/paginated', { params });
+    return res.data;
+  },
+
+  getTradeReview: async (tradeId: string): Promise<TradeReviewData | null> => {
+    try {
+      const res = await apiClient.get(`/api/v1/journal/review/${tradeId}`);
+      return res.data;
+    } catch (err: any) {
+      if (err.response?.status === 404) return null;
+      throw err;
+    }
+  },
+
+  saveTradeReview: async (tradeId: string, payload: TradeReviewPayload): Promise<TradeReviewData> => {
+    const res = await apiClient.post(`/api/v1/journal/review/${tradeId}`, payload);
+    return res.data;
+  },
+
+  getLessons: async (setupType?: string, status?: string): Promise<LessonItem[]> => {
+    const res = await apiClient.get('/api/v1/lessons', { params: { setup_type: setupType, status } });
+    return res.data;
+  },
+
+  approveLesson: async (lessonId: number): Promise<LessonItem> => {
+    const res = await apiClient.post(`/api/v1/lessons/${lessonId}/approve`);
+    return res.data;
+  },
+
+  rejectLesson: async (lessonId: number): Promise<LessonItem> => {
+    const res = await apiClient.post(`/api/v1/lessons/${lessonId}/reject`);
+    return res.data;
+  },
+
+  archiveLesson: async (lessonId: number): Promise<LessonItem> => {
+    const res = await apiClient.post(`/api/v1/lessons/${lessonId}/archive`);
+    return res.data;
+  },
+
+  updateLesson: async (lessonId: number, update: Partial<LessonItem>): Promise<LessonItem> => {
+    const res = await apiClient.put(`/api/v1/lessons/${lessonId}`, update);
     return res.data;
   },
 
@@ -534,14 +574,14 @@ export const api = {
     return res.data;
   },
 
-  getTelegramConfig: async () => {
+  getTelegramConfig: async (): Promise<TelegramConfig> => {
     const res = await apiClient.get('/api/v1/telegram/config');
     return res.data;
   },
 
-  updateTelegramConfig: async (config: any) => {
+  updateTelegramConfig: async (config: any): Promise<TelegramConfig> => {
     const res = await apiClient.post('/api/v1/telegram/config', config);
-    return res.data;
+    return res.data?.config || res.data;
   },
 
   testTelegram: async (testData: { bot_token?: string; chat_id: string }) => {
@@ -549,8 +589,21 @@ export const api = {
     return res.data;
   },
 
-  getNotificationHistory: async (limit: number = 50) => {
+  getNotificationHistory: async (limit: number = 50): Promise<NotificationHistoryItem[]> => {
     const res = await apiClient.get('/api/v1/telegram/history', { params: { limit } });
+    return res.data;
+  },
+
+  getNotificationHistoryPaginated: async (params?: NotificationHistoryParams): Promise<PaginatedNotificationHistoryResponse> => {
+    const res = await apiClient.get('/api/v1/telegram/history', { params });
+    if (Array.isArray(res.data)) {
+      return {
+        items: res.data,
+        total: res.data.length,
+        page: 1,
+        page_size: res.data.length,
+      };
+    }
     return res.data;
   },
 
@@ -594,4 +647,157 @@ export const api = {
     return res.data;
   },
 };
+
+// ==================== V8 TYPE DEFINITIONS ====================
+
+export interface TradeReviewData {
+  id?: number;
+  trade_id: string;
+  user_notes?: string;
+  self_reported_entry_reason?: string;
+  psychology_before?: string;
+  psychology_during?: string;
+  psychology_after?: string;
+  emotions?: string[];
+  confidence_score?: number | null;
+  discipline_score?: number | null;
+  user_loss_reason?: string;
+  mistakes?: string;
+  what_went_well?: string;
+  improvement_plan?: string;
+  execution_mode?: string;
+  reviewed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  revision: number;
+}
+
+export interface TradeReviewPayload {
+  user_notes?: string;
+  self_reported_entry_reason?: string;
+  psychology_before?: string;
+  psychology_during?: string;
+  psychology_after?: string;
+  emotions?: string[];
+  confidence_score?: number | null;
+  discipline_score?: number | null;
+  user_loss_reason?: string;
+  mistakes?: string;
+  what_went_well?: string;
+  improvement_plan?: string;
+  execution_mode?: string;
+  expected_revision?: number;
+}
+
+export interface LessonItem {
+  id: number;
+  setup_type: string;
+  outcome: string;
+  title: string;
+  description?: string;
+  reflection?: string;
+  category?: string;
+  evidence_snapshot?: Record<string, any> | null;
+  hypothesis?: string | null;
+  author?: string;
+  action_rule: string;
+  is_approved: boolean;
+  status: 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'ARCHIVED';
+  related_trade_id?: string | null;
+  reviewed_at?: string | null;
+  created_at: string;
+  audit_trail?: any[];
+}
+
+export interface JournalSummary {
+  total_filtered: number;
+  completed_count: number;
+  open_count: number;
+  pending_count: number;
+  wins: number;
+  losses: number;
+  breakevens: number;
+  winrate_pct: number;
+  net_pnl: number;
+  average_realized_r: number;
+}
+
+export interface PaginatedJournalResponse {
+  items: any[];
+  total: number;
+  page: number;
+  page_size: number;
+  summary: JournalSummary;
+}
+
+export interface JournalQueryParams {
+  page?: number;
+  page_size?: number;
+  state?: string;
+  direction?: string;
+  outcome?: string;
+  strategy_family?: string;
+  start_date?: string;
+  end_date?: string;
+  has_review?: boolean;
+  search?: string;
+  sort_by?: string;
+  sort_dir?: 'asc' | 'desc';
+}
+
+export interface TelegramConfig {
+  enabled: boolean;
+  bot_token?: string;
+  bot_token_masked?: string;
+  has_token: boolean;
+  token_configured: boolean;
+  chat_id: string;
+  subscribed_events: string[];
+  near_entry_mode?: string;
+  near_entry_price_dist?: number;
+  near_entry_atr_mult?: number;
+  near_entry_cooldown_min?: number;
+  quiet_hours_enabled?: boolean;
+  quiet_hours_start?: string;
+  quiet_hours_end?: string;
+  quiet_hours_timezone?: string;
+  bypass_critical_quiet_hours?: boolean;
+  base_chart_url?: string;
+}
+
+export interface NotificationHistoryItem {
+  id: number;
+  message_type: string;
+  priority?: string;
+  status: 'PENDING' | 'SENDING' | 'SENT' | 'RETRYING' | 'FAILED' | 'AMBIGUOUS' | 'SUPPRESSED';
+  created_at: string;
+  sent_at?: string | null;
+  next_attempt_at?: string | null;
+  attempts: number;
+  max_retries?: number;
+  error_code?: string | null;
+  error_message?: string | null;
+  provider_message_id?: string | null;
+  dedupe_key?: string | null;
+  message_preview?: string | null;
+}
+
+export interface NotificationHistoryParams {
+  page?: number;
+  page_size?: number;
+  status?: string;
+  message_type?: string;
+  start_date?: string;
+  end_date?: string;
+  entity_id?: string;
+  limit?: number;
+}
+
+export interface PaginatedNotificationHistoryResponse {
+  items: NotificationHistoryItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 

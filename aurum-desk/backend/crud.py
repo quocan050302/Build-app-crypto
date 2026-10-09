@@ -1,4 +1,5 @@
 import time
+import json
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from typing import List, Optional, Tuple, Dict, Any
@@ -366,8 +367,259 @@ def save_research_report(db: Session, report_data: dict) -> models.ResearchRepor
     db.refresh(report)
     return report
 
-def get_lessons(db: Session, setup_type: Optional[str] = None) -> List[models.Lesson]:
+def get_lessons(
+    db: Session,
+    setup_type: Optional[str] = None,
+    status: Optional[str] = None
+) -> List[models.Lesson]:
+    """
+    Retrieve lessons for UI review.
+    Supports filtering by status (ALL, PENDING_REVIEW, APPROVED, REJECTED, ARCHIVED).
+    When status is None or 'ALL', returns all lessons so newly generated drafts are visible to the user.
+    """
+    query = db.query(models.Lesson)
+
+    if status == "APPROVED":
+        query = query.filter(models.Lesson.is_approved == True)
+    elif status == "PENDING_REVIEW":
+        query = query.filter((models.Lesson.is_approved == False) | (models.Lesson.status == "PENDING_REVIEW"))
+    elif status == "REJECTED":
+        query = query.filter(models.Lesson.status == "REJECTED")
+    elif status == "ARCHIVED":
+        query = query.filter(models.Lesson.status == "ARCHIVED")
+    # 'ALL' or None -> return all lessons for UI overview
+
+    if setup_type and setup_type != "ALL":
+        query = query.filter(models.Lesson.setup_type.in_([setup_type, "ALL"]))
+
+    return query.order_by(models.Lesson.created_at.desc()).all()
+
+
+def get_approved_lessons_for_strategy(db: Session, setup_type: Optional[str] = None) -> List[models.Lesson]:
+    """Strictly retrieves ONLY approved lessons for strategy memory injection."""
     query = db.query(models.Lesson).filter(models.Lesson.is_approved == True)
     if setup_type and setup_type != "ALL":
         query = query.filter(models.Lesson.setup_type.in_([setup_type, "ALL"]))
     return query.order_by(models.Lesson.created_at.desc()).all()
+
+
+def get_telegram_config(db: Session) -> Optional[models.TelegramConfig]:
+    return db.query(models.TelegramConfig).first()
+
+
+# ==================== V8 TRADE REVIEW & PSYCHOLOGY CRUD ====================
+
+def get_trade_review(db: Session, trade_id: str) -> Optional[models.TradeReview]:
+    return db.query(models.TradeReview).filter(models.TradeReview.trade_id == trade_id).first()
+
+
+def save_trade_review(
+    db: Session,
+    trade_id: str,
+    data: schemas.TradeReviewCreateOrUpdate
+) -> models.TradeReview:
+    import uuid
+    now_ms = int(time.time() * 1000)
+    existing = get_trade_review(db, trade_id)
+
+    emotions_json = json.dumps(data.emotions or []) if data.emotions is not None else "[]"
+
+    if existing:
+        # Check optimistic concurrency
+        rev_check = data.expected_revision if data.expected_revision is not None else data.revision
+        if rev_check is not None and rev_check != existing.revision:
+            raise ValueError(f"CONFLICT: Review has been modified by another operation (expected rev {existing.revision}, got {rev_check})")
+
+        existing.execution_mode = data.execution_mode or existing.execution_mode
+        existing.user_notes = data.user_notes
+        existing.self_reported_entry_reason = data.self_reported_entry_reason
+        existing.psychology_before = data.psychology_before
+        existing.psychology_during = data.psychology_during
+        existing.psychology_after = data.psychology_after
+        existing.emotions = emotions_json
+        existing.confidence_score = data.confidence_score
+        existing.discipline_score = data.discipline_score
+        existing.user_loss_reason = data.user_loss_reason
+        existing.mistakes = data.mistakes
+        existing.what_went_well = data.what_went_well
+        existing.improvement_plan = data.improvement_plan
+        existing.revision += 1
+        existing.updated_at = now_ms
+        existing.reviewed_at = now_ms
+        db.commit()
+        db.refresh(existing)
+        return existing
+    else:
+        new_review = models.TradeReview(
+            id=str(uuid.uuid4()),
+            trade_id=trade_id,
+            execution_mode=data.execution_mode or "AUTO",
+            user_notes=data.user_notes,
+            self_reported_entry_reason=data.self_reported_entry_reason,
+            psychology_before=data.psychology_before,
+            psychology_during=data.psychology_during,
+            psychology_after=data.psychology_after,
+            emotions=emotions_json,
+            confidence_score=data.confidence_score,
+            discipline_score=data.discipline_score,
+            user_loss_reason=data.user_loss_reason,
+            mistakes=data.mistakes,
+            what_went_well=data.what_went_well,
+            improvement_plan=data.improvement_plan,
+            revision=1,
+            created_at=now_ms,
+            updated_at=now_ms,
+            reviewed_at=now_ms
+        )
+        db.add(new_review)
+        db.commit()
+        db.refresh(new_review)
+        return new_review
+
+
+# ==================== V8 ENHANCED JOURNAL PAGINATION & SUMMARY ====================
+
+def get_journal_paginated(
+    db: Session,
+    state: Optional[str] = None,
+    direction: Optional[str] = None,
+    outcome: Optional[str] = None,
+    strategy_family: Optional[str] = None,
+    date_from_ms: Optional[int] = None,
+    date_to_ms: Optional[int] = None,
+    has_review: Optional[bool] = None,
+    search: Optional[str] = None,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
+    page: int = 1,
+    page_size: int = 20
+) -> Dict[str, Any]:
+    """
+    Server-side filtering, summary calculation, and pagination for trade journal.
+    Summary is computed over the entire filtered query.
+    """
+    from sqlalchemy import func
+
+    query = db.query(models.PaperOrder)
+
+    # 1. State filter
+    if state and state != "ALL":
+        s_upper = state.upper()
+        if s_upper == "OPEN":
+            query = query.filter(models.PaperOrder.state == "paper_open")
+        elif s_upper == "CLOSED":
+            query = query.filter(models.PaperOrder.state == "closed")
+        elif s_upper == "ARMED":
+            query = query.filter(models.PaperOrder.state == "armed")
+        elif s_upper == "CANCELLED":
+            query = query.filter(models.PaperOrder.state.in_(["cancelled", "expired", "invalidated", "rejected"]))
+        else:
+            query = query.filter(models.PaperOrder.state == state.lower())
+
+    # 2. Direction filter
+    if direction and direction != "ALL":
+        query = query.filter(models.PaperOrder.direction == direction.upper())
+
+    # 3. Strategy Family filter
+    if strategy_family and strategy_family != "ALL":
+        query = query.filter(models.PaperOrder.strategy_family == strategy_family)
+
+    # 4. Date range filter
+    if date_from_ms:
+        query = query.filter(models.PaperOrder.created_at >= date_from_ms)
+    if date_to_ms:
+        query = query.filter(models.PaperOrder.created_at <= date_to_ms)
+
+    # 5. Outcome filter
+    if outcome and outcome != "ALL":
+        o_upper = outcome.upper()
+        if o_upper == "WIN":
+            query = query.filter(models.PaperOrder.state == "closed", models.PaperOrder.realized_pnl_net > 0)
+        elif o_upper == "LOSS":
+            query = query.filter(models.PaperOrder.state == "closed", models.PaperOrder.realized_pnl_net < 0)
+        elif o_upper == "BREAKEVEN":
+            query = query.filter(models.PaperOrder.state == "closed", models.PaperOrder.realized_pnl_net == 0)
+
+    # 6. Search filter (search by ID or setup_id)
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            (models.PaperOrder.id.ilike(term)) |
+            (models.PaperOrder.setup_id.ilike(term))
+        )
+
+    # 7. Has review filter
+    if has_review is not None:
+        reviewed_trade_ids = db.query(models.TradeReview.trade_id).subquery()
+        if has_review:
+            query = query.filter(models.PaperOrder.id.in_(reviewed_trade_ids))
+        else:
+            query = query.filter(~models.PaperOrder.id.in_(reviewed_trade_ids))
+
+    # Calculate summary over entire filtered set
+    all_filtered = query.all()
+    total_count = len(all_filtered)
+
+    completed = [o for o in all_filtered if o.state == "closed"]
+    open_orders = [o for o in all_filtered if o.state == "paper_open"]
+    armed_orders = [o for o in all_filtered if o.state == "armed"]
+    cancelled_orders = [o for o in all_filtered if o.state in ("cancelled", "expired", "invalidated", "rejected")]
+
+    completed_count = len(completed)
+    open_count = len(open_orders)
+    armed_count = len(armed_orders)
+    cancelled_count = len(cancelled_orders)
+
+    wins = [o for o in completed if (o.realized_pnl_net or 0.0) > 0]
+    losses = [o for o in completed if (o.realized_pnl_net or 0.0) < 0]
+    breakevens = [o for o in completed if (o.realized_pnl_net or 0.0) == 0]
+
+    win_count = len(wins)
+    loss_count = len(losses)
+    breakeven_count = len(breakevens)
+
+    net_pnl = round(sum((o.realized_pnl_net or 0.0) for o in completed), 2)
+    winrate_pct = round((win_count / completed_count * 100), 2) if completed_count > 0 else 0.0
+
+    realized_r_vals = [o.realized_r for o in completed if o.realized_r is not None]
+    avg_realized_r = round(sum(realized_r_vals) / len(realized_r_vals), 2) if realized_r_vals else 0.0
+
+    summary = {
+        "completed_count": completed_count,
+        "open_count": open_count,
+        "armed_count": armed_count,
+        "cancelled_count": cancelled_count,
+        "net_pnl": net_pnl,
+        "win_count": win_count,
+        "loss_count": loss_count,
+        "breakeven_count": breakeven_count,
+        "winrate_pct": winrate_pct,
+        "avg_realized_r": avg_realized_r,
+        "wins": win_count,
+        "losses": loss_count,
+        "breakevens": breakeven_count,
+        "average_realized_r": avg_realized_r
+    }
+
+    # Sorting
+    sort_column = getattr(models.PaperOrder, sort_by, models.PaperOrder.created_at)
+    if sort_dir.lower() == "asc":
+        query = query.order_by(sort_column.asc(), models.PaperOrder.id.asc())
+    else:
+        query = query.order_by(sort_column.desc(), models.PaperOrder.id.desc())
+
+    # Pagination
+    page = max(1, page)
+    page_size = max(1, min(100, page_size))
+    total_pages = max(1, (total_count + page_size - 1) // page_size)
+
+    items = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    return {
+        "items": items,
+        "total": total_count,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+        "summary": summary
+    }
