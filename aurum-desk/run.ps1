@@ -36,11 +36,11 @@ Start-Process powershell -WorkingDirectory $BackendDir -ArgumentList "-NoExit", 
 # Cho 2 giay de backend khoi dong
 Start-Sleep -Seconds 2
 
-# 4. Khoi chay Frontend Dev Server (Port 5173)
-Write-Host "[+] Khoi chay Frontend Vite tai http://localhost:5173..." -ForegroundColor Green
+# 4. Khoi chay Frontend Dev Server (Port 5174)
+Write-Host "[+] Khoi chay Frontend Vite tai http://localhost:5174..." -ForegroundColor Green
 Start-Process powershell -WorkingDirectory $FrontendDir -ArgumentList "-NoExit", "-Command", "npm run dev"
 
 Write-Host "=====================================================" -ForegroundColor DarkYellow
 Write-Host "   AURUM DESK da san sang! Vui long mo trinh duyet   " -ForegroundColor Yellow
-Write-Host "   Dia chi: http://localhost:5173                    " -ForegroundColor White
+Write-Host "   Dia chi: http://localhost:5174                    " -ForegroundColor White
 Write-Host "=====================================================" -ForegroundColor DarkYellow

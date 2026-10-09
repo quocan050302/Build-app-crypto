@@ -33,7 +33,7 @@ Script sẽ tự động:
 3. Chạy kiểm tra và migrate cơ sở dữ liệu SQLite (`backend/migrate.py`).
 4. Kiểm tra và cài đặt `node_modules` cho Frontend nếu chưa có.
 5. Khởi động Backend FastAPI tại `http://127.0.0.1:8000`.
-6. Khởi động Frontend Vite tại `http://localhost:5173`.
+6. Khởi động Frontend Vite tại `http://localhost:5174`.
 
 ### Cách 2: Khởi chạy thủ công từng phần
 
@@ -54,7 +54,7 @@ npm install
 npm run dev
 ```
 
-Truy cập giao diện tại: `http://localhost:5173`.
+Truy cập giao diện tại: `http://localhost:5174`.
 
 ---
 

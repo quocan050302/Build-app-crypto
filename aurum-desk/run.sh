@@ -7,7 +7,7 @@ export PYTHONPATH="$ROOT_DIR/backend"
 "$ROOT_DIR/backend/venv/bin/python" -m uvicorn main:app --reload --port 8000 &
 BACKEND_PID=$!
 
-echo "🚀 Starting Aurum Desk Frontend (Vite on port 5173)..."
+echo "🚀 Starting Aurum Desk Frontend (Vite on port 5174)..."
 cd "$ROOT_DIR/frontend"
 npm run dev &
 FRONTEND_PID=$!
