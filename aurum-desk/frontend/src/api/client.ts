@@ -136,6 +136,19 @@ export interface ReplayTradeItem {
   notes?: string;
   is_win: boolean;
   cost_snapshot?: any;
+  entry_session?: string;
+  exit_session?: string;
+  entry_fee?: number;
+  exit_fee?: number;
+  entry_slippage?: number;
+  exit_slippage?: number;
+  net_rr_planned?: number;
+  net_rr_fill?: number;
+  gross_rr?: number;
+  strategy_family?: string;
+  entry_type?: string;
+  ny_session_id?: string;
+  margin_usdt?: number;
 }
 
 // ==================== V7 TRADING POLICY & NY SESSION ====================
@@ -213,6 +226,12 @@ export interface ReplayRunRequest {
   seed?: number;
   custom_candles_json?: string;
   mode?: string; // 'HISTORICAL_MARKET' | 'SYNTHETIC_QA' | 'RECORDED_TICK'
+  strategy_variant?: string; // 'CURRENT_BASELINE' | 'NY_ADAPTIVE' | 'NY_DAILY_PAPER_RESEARCH'
+  ny_quota_target?: number;
+  ny_deadline_hour?: number;
+  ny_deadline_minute?: number;
+  quota_risk_pct?: number;
+  quality_risk_pct?: number;
 }
 
 export interface ReplayRunResponse {
@@ -246,6 +265,13 @@ export interface ReplayRunResponse {
   rejection_reasons: Record<string, number>;
   warnings: string[];
   created_at: number;
+  strategy_variant?: string;
+  quality_trades_count?: number;
+  quota_trades_count?: number;
+  quality_net_pnl?: number;
+  quota_net_pnl?: number;
+  ny_fill_coverage_pct?: number;
+  artifacts_dir?: string;
 }
 
 export interface StressTestRequest {

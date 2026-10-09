@@ -54,16 +54,17 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
 
   // ==================== REPLAY STATE ====================
   const [replayParams, setReplayParams] = useState({
-    run_name: 'Backtest XAUUSDT SMC V5',
+    run_name: 'Backtest XAUUSDT SMC V12.1',
     initial_equity: 1000,
     risk_pct: 0.25,
-    leverage: 5,
+    leverage: 30,
     spread_multiplier: 1.0,
     slippage_multiplier: 1.0,
-    fee_rate: 0.0004,
+    fee_rate: 0.0006,
     seed: 42,
     custom_dataset: false,
-    custom_json: ''
+    custom_json: '',
+    strategy_variant: 'CURRENT_BASELINE' as 'CURRENT_BASELINE' | 'NY_ADAPTIVE' | 'NY_DAILY_PAPER_RESEARCH'
   });
   const [replayResult, setReplayResult] = useState<ReplayRunResponse | null>(null);
   const [runningReplay, setRunningReplay] = useState<boolean>(false);
@@ -141,6 +142,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
         slippage_multiplier: Number(replayParams.slippage_multiplier),
         fee_rate: Number(replayParams.fee_rate),
         seed: Number(replayParams.seed),
+        strategy_variant: replayParams.strategy_variant,
         custom_candles_json: replayParams.custom_dataset && replayParams.custom_json ? replayParams.custom_json : undefined
       });
       setReplayResult(res);
@@ -436,6 +438,18 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
         <div className="flex flex-col gap-4">
           {/* Controls & Inputs */}
           <div className="bg-charcoal-850 p-4 rounded-xl border border-charcoal-750 grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+            <div className="md:col-span-2">
+              <label className="text-gray-400 block mb-1">Phương Án Chiến Lược (Strategy Variant)</label>
+              <select
+                value={replayParams.strategy_variant}
+                onChange={(e) => setReplayParams({ ...replayParams, strategy_variant: e.target.value as any })}
+                className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-2.5 py-1.5 text-gray-100 font-semibold"
+              >
+                <option value="CURRENT_BASELINE">A. CURRENT_BASELINE (Chuẩn kiểm toán hiện tại - Frozen SMC)</option>
+                <option value="NY_ADAPTIVE">B. NY_ADAPTIVE (SMC + 2 Setup Phiên Mỹ B1 & B2)</option>
+                <option value="NY_DAILY_PAPER_RESEARCH">C. NY_DAILY_PAPER_RESEARCH (Ép lệnh Lab 14:30)</option>
+              </select>
+            </div>
             <div>
               <label className="text-gray-400 block mb-1">Vốn Ban Đầu (USDT)</label>
               <input
@@ -452,6 +466,37 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                 step="0.05"
                 value={replayParams.risk_pct}
                 onChange={(e) => setReplayParams({ ...replayParams, risk_pct: Number(e.target.value) })}
+                className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-2.5 py-1.5 text-gray-100"
+              />
+            </div>
+
+            {replayParams.strategy_variant !== 'CURRENT_BASELINE' && (
+              <div className="md:col-span-4 p-2.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  <strong>CHẾ ĐỘ NGHIÊN CỨU PHÒNG LAB (RESEARCH-ONLY):</strong> Phương án{' '}
+                  <span className="font-bold underline">{replayParams.strategy_variant}</span> chỉ chạy trong sandbox
+                  kiểm nghiệm. Các tính năng này bị vô hiệu hóa mặc định trên live runtime và paper trading thông thường.
+                </span>
+              </div>
+            )}
+
+            <div>
+              <label className="text-gray-400 block mb-1">Đòn Bẩy (Leverage)</label>
+              <input
+                type="number"
+                value={replayParams.leverage}
+                onChange={(e) => setReplayParams({ ...replayParams, leverage: Number(e.target.value) })}
+                className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-2.5 py-1.5 text-gray-100"
+              />
+            </div>
+            <div>
+              <label className="text-gray-400 block mb-1">Phí Giao Dịch (Fee Rate)</label>
+              <input
+                type="number"
+                step="0.0001"
+                value={replayParams.fee_rate}
+                onChange={(e) => setReplayParams({ ...replayParams, fee_rate: Number(e.target.value) })}
                 className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-2.5 py-1.5 text-gray-100"
               />
             </div>
@@ -518,6 +563,32 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
           {/* Replay Results Dashboard */}
           {replayResult && (
             <div className="flex flex-col gap-4">
+              {/* Variant & NY Quota Banner */}
+              <div className="bg-charcoal-850 p-3 rounded-lg border border-charcoal-750 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400">Phương án:</span>
+                  <span className="px-2 py-0.5 rounded font-bold bg-aurum-500/20 text-aurum-400 border border-aurum-500/30">
+                    {replayResult.strategy_variant || 'CURRENT_BASELINE'}
+                  </span>
+                  {replayResult.strategy_variant !== 'CURRENT_BASELINE' && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 font-semibold">
+                      RESEARCH-ONLY
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-4 text-gray-300">
+                  <span>
+                    Quality Fills: <strong className="text-gray-100">{replayResult.quality_trades_count ?? replayResult.total_trades}</strong> (${(replayResult.quality_net_pnl ?? replayResult.total_net_pnl).toFixed(2)})
+                  </span>
+                  <span>
+                    Quota Fills: <strong className="text-gray-100">{replayResult.quota_trades_count ?? 0}</strong> (${(replayResult.quota_net_pnl ?? 0).toFixed(2)})
+                  </span>
+                  <span>
+                    Độ phủ NY: <strong className="text-aurum-400">{(replayResult.ny_fill_coverage_pct ?? 0).toFixed(1)}%</strong>
+                  </span>
+                </div>
+              </div>
+
               {/* Metrics Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="bg-charcoal-850 p-3 rounded-lg border border-charcoal-750">

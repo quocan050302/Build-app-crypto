@@ -319,13 +319,14 @@ class HistoricalMarketDataProvider:
         start_ms: int = 1783609200000,
         end_ms: int = 1791558000000,
         warmup_ms: int = 1779289200000,
-        cache_dir: Optional[str] = None
+        cache_dir: Optional[str] = None,
+        include_5m: bool = False
     ) -> Dict[str, Any]:
         """
-        Loads aligned multitimeframe bundles (15M, 1H, 4H, 1D) with complete 50-day warmup history.
-        Includes metadata accounting for 1M/5M frames marked NOT_USED_IN_ENTRY_DECISION.
+        Loads aligned multitimeframe bundles (15M, 1H, 4H, 1D, and optionally 5M) with complete warmup history.
+        Computes individual timeframe hashes and verified quality audit metrics.
         """
-        cache_key = f"{symbol}_{start_ms}_{end_ms}_{warmup_ms}"
+        cache_key = f"{symbol}_{start_ms}_{end_ms}_{warmup_ms}_{include_5m}"
         if cache_key in cls._bundle_cache:
             return cls._bundle_cache[cache_key]
 
@@ -365,11 +366,90 @@ class HistoricalMarketDataProvider:
             cache_dir=cache_dir
         )
 
-        # Compute comprehensive dataset hash across all active timeframes
+        # 5. 5M candles (Optional for Setups B1/B2/Mode C)
+        candles_5m = []
+        if include_5m:
+            warmup_5m = start_ms - (2 * 24 * 3600 * 1000)  # 2 days warmup for 5M
+            candles_5m = cls.download_bitget_candles_range(
+                symbol=symbol,
+                granularity="5m",
+                start_ms=warmup_5m,
+                end_ms=end_ms,
+                cache_dir=cache_dir
+            )
+
+        # Compute individual timeframe hashes and quality metadata
+        timeframe_metadata = {}
         hasher = hashlib.sha256()
-        for tf_name, tf_candles in [("15M", candles_15m), ("1H", candles_1h), ("4H", candles_4h), ("1D", candles_1d)]:
-            for c in tf_candles:
-                hasher.update(f"{tf_name}:{c['timestamp']}:{c['open']:.2f}:{c['high']:.2f}:{c['low']:.2f}:{c['close']:.2f}:{c['volume']:.4f}\n".encode("utf-8"))
+
+        tf_list = [
+            ("1D", candles_1d, "HTF_BIAS", 24 * 3600 * 1000),
+            ("4H", candles_4h, "HTF_BIAS", 4 * 3600 * 1000),
+            ("1H", candles_1h, "H1_ALIGNMENT", 3600 * 1000),
+            ("15M", candles_15m, "EXECUTION_AND_STRUCTURE", 15 * 60 * 1000),
+        ]
+        if include_5m and candles_5m:
+            tf_list.append(("5M", candles_5m, "EXECUTION_REFINEMENT_AND_TRIGGER", 5 * 60 * 1000))
+
+        for tf_name, tf_candles, role, cadence in tf_list:
+            tf_hasher = hashlib.sha256()
+            gaps = 0
+            for j, c in enumerate(tf_candles):
+                line = f"{tf_name}:{c['timestamp']}:{c['open']:.2f}:{c['high']:.2f}:{c['low']:.2f}:{c['close']:.2f}:{c.get('volume', 0):.4f}\n"
+                tf_hasher.update(line.encode("utf-8"))
+                hasher.update(line.encode("utf-8"))
+                if j > 0 and (c["timestamp"] - tf_candles[j - 1]["timestamp"]) > (cadence + 1000):
+                    gaps += 1
+
+            tf_hash = tf_hasher.hexdigest()
+            w_cnt = sum(1 for c in tf_candles if c["timestamp"] < start_ms)
+            e_cnt = sum(1 for c in tf_candles if start_ms <= c["timestamp"] <= end_ms)
+            act_s = tf_candles[0]["timestamp"] if tf_candles else start_ms
+            act_e = tf_candles[-1]["timestamp"] if tf_candles else end_ms
+
+            timeframe_metadata[tf_name] = {
+                "status": "USED",
+                "role": role,
+                "count": len(tf_candles),
+                "warmup_count": w_cnt,
+                "eval_count": e_cnt,
+                "total_count": len(tf_candles),
+                "act_start_ms": act_s,
+                "act_end_ms": act_e,
+                "gaps_count": gaps,
+                "quarantined_count": 0,
+                "sha256": tf_hash
+            }
+
+        # Mark unused frames
+        if "5M" not in timeframe_metadata:
+            timeframe_metadata["5M"] = {
+                "status": "NOT_USED",
+                "role": "NOT_USED_IN_ENTRY_DECISION",
+                "count": 0,
+                "warmup_count": 0,
+                "eval_count": 0,
+                "total_count": 0,
+                "act_start_ms": 0,
+                "act_end_ms": 0,
+                "gaps_count": 0,
+                "quarantined_count": 0,
+                "sha256": "N/A"
+            }
+        timeframe_metadata["1M"] = {
+            "status": "NOT_USED",
+            "role": "NOT_USED_IN_ENTRY_DECISION",
+            "count": 0,
+            "warmup_count": 0,
+            "eval_count": 0,
+            "total_count": 0,
+            "act_start_ms": 0,
+            "act_end_ms": 0,
+            "gaps_count": 0,
+            "quarantined_count": 0,
+            "sha256": "N/A"
+        }
+
         combined_hash = hasher.hexdigest()
 
         bundle = {
@@ -381,18 +461,13 @@ class HistoricalMarketDataProvider:
             "candles_1h": candles_1h,
             "candles_4h": candles_4h,
             "candles_1d": candles_1d,
+            "candles_5m": candles_5m,
             "dataset_hash": combined_hash,
             "total_15m_count": len(candles_15m),
             "warmup_count": sum(1 for c in candles_15m if c["timestamp"] < start_ms),
             "eval_count": sum(1 for c in candles_15m if start_ms <= c["timestamp"] <= end_ms),
-            "timeframe_metadata": {
-                "1D": {"status": "USED", "role": "HTF_BIAS", "count": len(candles_1d)},
-                "4H": {"status": "USED", "role": "HTF_BIAS", "count": len(candles_4h)},
-                "1H": {"status": "USED", "role": "H1_ALIGNMENT", "count": len(candles_1h)},
-                "15M": {"status": "USED", "role": "EXECUTION_AND_STRUCTURE", "count": len(candles_15m)},
-                "5M": {"status": "NOT_USED", "role": "NOT_USED_IN_ENTRY_DECISION", "count": 0},
-                "1M": {"status": "NOT_USED", "role": "NOT_USED_IN_ENTRY_DECISION", "count": 0},
-            }
+            "timeframe_metadata": timeframe_metadata
         }
         cls._bundle_cache[cache_key] = bundle
         return bundle
+

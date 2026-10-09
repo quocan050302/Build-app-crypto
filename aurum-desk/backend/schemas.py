@@ -698,6 +698,21 @@ class ReplayTradeItem(BaseModel):
     session: str  # TOKYO / LONDON / NEW_YORK / OVERLAP
     is_ambiguous: bool = False
     status: str  # CLOSED / OPEN
+    entry_session: Optional[str] = None
+    exit_session: Optional[str] = None
+    entry_fee: Optional[float] = 0.0
+    exit_fee: Optional[float] = 0.0
+    entry_slippage: Optional[float] = 0.0
+    exit_slippage: Optional[float] = 0.0
+    net_rr_planned: Optional[float] = None
+    net_rr_fill: Optional[float] = None
+    gross_rr: Optional[float] = None
+    net_risk_usdt: Optional[float] = None
+    net_reward_usdt: Optional[float] = None
+    strategy_family: Optional[str] = "SMC_MOMENTUM"
+    entry_type: Optional[str] = "QUALITY_ENTRY"  # QUALITY_ENTRY vs QUOTA_ENTRY
+    ny_session_id: Optional[str] = None
+    margin_usdt: Optional[float] = None
 
 class EquityPoint(BaseModel):
     timestamp: int
@@ -729,6 +744,12 @@ class ReplayRunRequest(BaseModel):
     warmup_days: int = 15
     export_artifacts: bool = True
     resize_policy: str = "PRESERVE_OR_DOWNSIZE"
+    strategy_variant: str = "CURRENT_BASELINE"  # "CURRENT_BASELINE" (A), "NY_ADAPTIVE" (B), "NY_DAILY_PAPER_RESEARCH" (C)
+    ny_quota_target: int = 1
+    ny_deadline_hour: int = 14
+    ny_deadline_minute: int = 30
+    quota_risk_pct: float = 0.10
+    quality_risk_pct: float = 0.25
 
 class ReplayRunResponse(BaseModel):
     id: str
@@ -767,6 +788,14 @@ class ReplayRunResponse(BaseModel):
     artifacts_dir: Optional[str] = None
     dataset_type: str = "HISTORICAL_MARKET"
     execution_fidelity: str = "ESTIMATED_EXECUTION"
+    strategy_variant: str = "CURRENT_BASELINE"
+    ny_quota_stats: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None
+    funnel_stats: Optional[Union[List[Dict[str, Any]], Dict[str, Any]]] = None
+    quality_trades_count: int = 0
+    quota_trades_count: int = 0
+    quality_net_pnl: float = 0.0
+    quota_net_pnl: float = 0.0
+    ny_fill_coverage_pct: float = 0.0
     model_config = ConfigDict(from_attributes=True)
 
 class StressTestRequest(BaseModel):

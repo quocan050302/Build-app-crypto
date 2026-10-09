@@ -67,7 +67,7 @@ def auto_fit_columns(ws, min_width: int = 12, max_width: int = 50):
 
 
 class V12ExcelExporter:
-    """Exports authoritative 10-sheet Excel workbook for V12 Replay."""
+    """Exports authoritative 12-sheet Excel workbook for V12_1 Replay and Multi-mode comparison."""
 
     @classmethod
     def export_workbook(
@@ -85,7 +85,9 @@ class V12ExcelExporter:
         factors: List[Dict[str, Any]],
         blocked_signals: List[Dict[str, Any]],
         quality_metadata: List[Dict[str, Any]],
-        test_matrix: Optional[List[Dict[str, Any]]] = None
+        test_matrix: Optional[List[Dict[str, Any]]] = None,
+        ny_quota_rows: Optional[List[Dict[str, Any]]] = None,
+        funnel_stats: Optional[List[Dict[str, Any]]] = None
     ) -> str:
         wb = openpyxl.Workbook()
         # Remove default sheet
@@ -121,6 +123,12 @@ class V12ExcelExporter:
         # 10. 10_Cau_hinh_va_test
         cls._create_sheet_cau_hinh_va_test(wb, manifest, test_matrix or [])
 
+        # 11. 11_NY_Quota (Added in V12_1)
+        cls._create_sheet_ny_quota(wb, ny_quota_rows or [])
+
+        # 12. 12_Funnel (Added in V12_1)
+        cls._create_sheet_funnel(wb, funnel_stats or [])
+
         # Ensure directory exists and save
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         wb.save(filepath)
@@ -130,7 +138,7 @@ class V12ExcelExporter:
         sheet_names = verify_wb.sheetnames
         verify_wb.close()
 
-        assert len(sheet_names) == 10, f"Expected 10 sheets, found {len(sheet_names)}: {sheet_names}"
+        assert len(sheet_names) in (10, 12), f"Expected 10 or 12 sheets, found {len(sheet_names)}: {sheet_names}"
         return filepath
 
     @classmethod
@@ -307,12 +315,13 @@ class V12ExcelExporter:
         ws.views.sheetView[0].showGridLines = True
 
         headers = [
-            "Mã lệnh (Trade ID)", "Mã Setup", "Vào lệnh (VN)", "Entry UTC ms",
-            "Đóng lệnh (VN)", "Exit UTC ms", "Hướng", "Phiên vào", "Phiên thoát",
-            "Giá vào (Entry)", "Stop Loss", "Take Profit", "Khối lượng (oz)",
-            "Đòn bẩy", "Ký quỹ ($)", "Rủi ro kế hoạch ($)", "Net RR kế hoạch", "Net RR khớp",
-            "Lãi gộp ($)", "Phí vào ($)", "Phí ra ($)", "Trượt giá ($)",
-            "Lãi ròng ($)", "Realized R", "Trạng thái", "Nguyên nhân đóng", "Mơ hồ (Ambiguous)"
+            "Mã lệnh (Trade ID)", "Mã Setup", "Chiến lược", "Loại lệnh", "Mã phiên NY",
+            "Vào lệnh (VN)", "Entry UTC ms", "Đóng lệnh (VN)", "Exit UTC ms", "Hướng",
+            "Phiên vào", "Phiên thoát", "Giá vào (Entry)", "Stop Loss", "Take Profit",
+            "Khối lượng (oz)", "Đòn bẩy", "Ký quỹ ($)", "Rủi ro kế hoạch ($)",
+            "Net RR kế hoạch", "Net RR khớp", "Gross RR", "Lãi gộp ($)",
+            "Phí vào ($)", "Phí ra ($)", "Trượt giá ($)", "Lãi ròng ($)",
+            "Realized R", "Trạng thái", "Nguyên nhân đóng", "Mơ hồ (Ambiguous)"
         ]
 
         ws.row_dimensions[1].height = 26
@@ -325,9 +334,17 @@ class V12ExcelExporter:
 
         for row_idx, t in enumerate(trades, start=2):
             ws.row_dimensions[row_idx].height = 20
+            # Net RR unrounded snapshot
+            net_rr_p = t.get("net_rr_planned") if t.get("net_rr_planned") is not None else t.get("net_rr_fill", 0.0)
+            net_rr_f = t.get("net_rr_fill", 0.0)
+            gross_rr_val = t.get("gross_rr", 0.0)
+
             vals = [
                 sanitize_cell_value(t.get("id", "")),
                 sanitize_cell_value(t.get("setup_id", "")),
+                sanitize_cell_value(t.get("strategy_family", "SMC_MOMENTUM")),
+                sanitize_cell_value(t.get("entry_type", "QUALITY_ENTRY")),
+                sanitize_cell_value(t.get("ny_session_id", "-")),
                 t.get("entry_time_vn", ""),
                 t.get("entry_time_ms", 0),
                 t.get("exit_time_vn", "-"),
@@ -342,8 +359,9 @@ class V12ExcelExporter:
                 t.get("leverage", 30),
                 t.get("margin_usdt", 0.0),
                 t.get("initial_risk_usdt", 0.0),
-                t.get("net_rr_planned", 2.0),
-                t.get("net_rr_fill", 2.0),
+                net_rr_p,
+                net_rr_f,
+                gross_rr_val,
                 t.get("gross_pnl", 0.0),
                 t.get("entry_fee", 0.0),
                 t.get("exit_fee", 0.0),
@@ -361,19 +379,23 @@ class V12ExcelExporter:
                 cell.border = CELL_BORDER
 
                 # Formatting
-                if col_idx in (10, 11, 12, 15, 16, 19, 20, 21, 22, 23):
+                if col_idx in (13, 14, 15, 18, 19, 23, 24, 25, 26, 27):
                     cell.number_format = FORMAT_CURRENCY
-                    if col_idx == 23 and isinstance(val, (int, float)):
+                    if col_idx == 27 and isinstance(val, (int, float)):
                         cell.font = GREEN_FONT if val > 0 else (RED_FONT if val < 0 else REGULAR_FONT)
-                elif col_idx in (17, 18, 24):
+                elif col_idx in (20, 21, 22, 28):
                     cell.number_format = FORMAT_RR
-                elif col_idx in (13,):
+                elif col_idx in (16,):
                     cell.number_format = "0.00"
-                elif col_idx in (7, 8, 9, 25, 27):
+                elif col_idx in (17,):
+                    cell.number_format = FORMAT_INTEGER
+                    cell.alignment = Alignment(horizontal="center")
+                elif col_idx in (3, 4, 5, 10, 11, 12, 29, 31):
                     cell.alignment = Alignment(horizontal="center")
 
         auto_fit_columns(ws)
         ws.freeze_panes = "A2"
+
 
     @classmethod
     def _create_sheet_yeu_to_vao_lenh(cls, wb, factors: List[Dict[str, Any]]):
@@ -802,3 +824,411 @@ class V12ExcelExporter:
 
         auto_fit_columns(ws)
         ws.freeze_panes = "A5"
+
+    @classmethod
+    def _create_sheet_ny_quota(cls, wb, ny_quota_rows: List[Dict[str, Any]]):
+        ws = wb.create_sheet(title="11_NY_Quota")
+        ws.views.sheetView[0].showGridLines = True
+
+        ws["A1"] = "BẢNG KIỂM TOÁN HẠN NGẠCH PHIÊN NEW YORK (11_NY_Quota)"
+        ws["A1"].font = TITLE_FONT
+        ws["A2"] = "Mục tiêu: Đạt tối thiểu 1 fill/phiên NY đủ điều kiện, daily cap <= 3 tổng lệnh, bảo toàn hard risk guards"
+        ws["A2"].font = REGULAR_FONT
+
+        headers = [
+            "Mã phiên NY", "Ngày NY", "Đủ điều kiện", "Lý do không đủ điều kiện",
+            "Ứng viên đánh giá", "Tín hiệu READY", "Lệnh ARMED", "Lệnh khớp (Fills)",
+            "Mục tiêu 1 lệnh/ngày", "Lý do chưa đạt", "Lệnh Quality", "Lệnh Quota", "Ghi chú chi tiết"
+        ]
+
+        ws.row_dimensions[4].height = 26
+        for col_idx, h in enumerate(headers, start=1):
+            cell = ws.cell(row=4, column=col_idx, value=h)
+            cell.font = HEADER_FONT
+            cell.fill = HEADER_FILL
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.border = CELL_BORDER
+
+        for row_idx, r in enumerate(ny_quota_rows, start=5):
+            ws.row_dimensions[row_idx].height = 20
+            is_elig = r.get("is_eligible", False)
+            target_met = r.get("target_met", False)
+            vals = [
+                sanitize_cell_value(r.get("session_ny_id", "")),
+                r.get("date_ny", ""),
+                "ĐỦ ĐIỀU KIỆN" if is_elig else "KHÔNG ĐỦ",
+                sanitize_cell_value(r.get("ineligible_reason", "-")),
+                r.get("attempts_count", 0),
+                r.get("ready_count", 0),
+                r.get("armed_count", 0),
+                r.get("filled_count", 0),
+                "ĐẠT" if target_met else "CHƯA_ĐẠT",
+                sanitize_cell_value(r.get("unmet_reason", "-")),
+                r.get("quality_fills", 0),
+                r.get("quota_fills", 0),
+                sanitize_cell_value(r.get("notes", ""))
+            ]
+
+            for col_idx, val in enumerate(vals, start=1):
+                cell = ws.cell(row=row_idx, column=col_idx, value=val)
+                cell.font = REGULAR_FONT
+                cell.border = CELL_BORDER
+
+                if col_idx in (5, 6, 7, 8, 11, 12):
+                    cell.number_format = FORMAT_INTEGER
+                    cell.alignment = Alignment(horizontal="center")
+                elif col_idx in (1, 2, 3, 9):
+                    cell.alignment = Alignment(horizontal="center")
+                    if col_idx == 3:
+                        cell.font = GREEN_FONT if is_elig else Font(name=FONT_FAMILY, size=10, color="64748B")
+                    elif col_idx == 9:
+                        cell.font = GREEN_FONT if target_met else RED_FONT
+
+        auto_fit_columns(ws)
+        ws.freeze_panes = "A5"
+
+    @classmethod
+    def _create_sheet_funnel(cls, wb, funnel_stats: List[Dict[str, Any]]):
+        ws = wb.create_sheet(title="12_Funnel")
+        ws.views.sheetView[0].showGridLines = True
+
+        ws["A1"] = "BẢNG PHỄU TÍN HIỆU & PHÂN TÍCH TỪ CHỐI (12_Funnel)"
+        ws["A1"].font = TITLE_FONT
+        ws["A2"] = "Theo dõi chuyển đổi từ nến quan sát, qua bối cảnh HTF, các chặng SMC/Retest đến lệnh khớp và đóng"
+        ws["A2"].font = REGULAR_FONT
+
+        headers = [
+            "Giai đoạn (Stage)", "Mô tả giai đoạn", "Số lần quan sát (Occurrences)",
+            "Số lượng duy nhất (Unique Setups)", "Tỷ lệ chuyển tiếp (%)", "Blocker chính tại giai đoạn", "Bằng chứng kỹ thuật"
+        ]
+
+        ws.row_dimensions[4].height = 26
+        for col_idx, h in enumerate(headers, start=1):
+            cell = ws.cell(row=4, column=col_idx, value=h)
+            cell.font = HEADER_FONT
+            cell.fill = HEADER_FILL
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.border = CELL_BORDER
+
+        for row_idx, f in enumerate(funnel_stats, start=5):
+            ws.row_dimensions[row_idx].height = 20
+            conv_pct = f.get("conversion_pct", 0.0) / 100.0 if "conversion_pct" in f else 0.0
+            vals = [
+                sanitize_cell_value(f.get("stage", "")),
+                sanitize_cell_value(f.get("description", "")),
+                f.get("occurrences", 0),
+                f.get("unique_count", 0),
+                conv_pct,
+                sanitize_cell_value(f.get("primary_blocker", "-")),
+                sanitize_cell_value(f.get("evidence", ""))
+            ]
+
+            for col_idx, val in enumerate(vals, start=1):
+                cell = ws.cell(row=row_idx, column=col_idx, value=val)
+                cell.font = REGULAR_FONT
+                cell.border = CELL_BORDER
+
+                if col_idx in (3, 4):
+                    cell.number_format = FORMAT_INTEGER
+                    cell.alignment = Alignment(horizontal="center")
+                elif col_idx == 5:
+                    cell.number_format = FORMAT_PERCENT
+                    cell.alignment = Alignment(horizontal="center")
+                elif col_idx == 1:
+                    cell.font = BOLD_FONT
+
+        auto_fit_columns(ws)
+        ws.freeze_panes = "A5"
+
+    @classmethod
+    def export_comparison_workbook(
+        cls,
+        filepath: str,
+        mode_summaries: Dict[str, Dict[str, Any]],
+        ny_session_comparison: List[Dict[str, Any]],
+        cost_stress_data: List[Dict[str, Any]],
+        holdout_data: List[Dict[str, Any]],
+        blockers_data: List[Dict[str, Any]]
+    ) -> str:
+        """
+        Exports comprehensive multi-mode comparison workbook: V12_1_COMPARE_A_B_C.xlsx
+        Contains 5 dedicated sheets:
+        1. 01_So_sanh_3_Phuong_an
+        2. 02_Do_phu_phien_My
+        3. 03_Stress_chi_phi
+        4. 04_Tap_mau_Holdout
+        5. 05_Blockers_phan_tich
+        """
+        wb = openpyxl.Workbook()
+        wb.remove(wb.active)
+
+        # 1. 01_So_sanh_3_Phuong_an
+        ws1 = wb.create_sheet(title="01_So_sanh_3_Phuong_an")
+        ws1.views.sheetView[0].showGridLines = True
+        ws1["A1"] = "BẢNG ĐỐI CHIẾU 3 PHƯƠNG ÁN CHIẾN LƯỢC — AURUM DESK V12_1"
+        ws1["A1"].font = TITLE_FONT
+        ws1["A2"] = "Dữ liệu chuẩn 3 tháng: XAUUSDT 09/07/2026 22:00 -> 09/10/2026 22:00 UTC+7 | Vốn: 1000 USDT | Leverage 30x ISOLATED"
+        ws1["A2"].font = REGULAR_FONT
+
+        headers1 = [
+            "Chỉ số đánh giá",
+            "A. CURRENT_BASELINE (Chuẩn kiểm toán)",
+            "B. NY_ADAPTIVE (Ứng viên tăng tần suất)",
+            "C. NY_DAILY_PAPER_RESEARCH (Ép lệnh Lab)",
+            "Ghi chú / Tiêu chuẩn nghiệm thu"
+        ]
+        ws1.row_dimensions[4].height = 26
+        for c_idx, h in enumerate(headers1, start=1):
+            cell = ws1.cell(row=4, column=c_idx, value=h)
+            cell.font = HEADER_FONT
+            cell.fill = HEADER_FILL
+            cell.border = CELL_BORDER
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        mA = mode_summaries.get("CURRENT_BASELINE", {})
+        mB = mode_summaries.get("NY_ADAPTIVE", {})
+        mC = mode_summaries.get("NY_DAILY_PAPER_RESEARCH", {})
+
+        metrics_rows = [
+            ("Mã kiểm thử (Run ID)", mA.get("run_id", "-"), mB.get("run_id", "-"), mC.get("run_id", "-"), "Mã định danh artifact"),
+            ("Vốn khởi điểm (Initial Equity)", 1000.0, 1000.0, 1000.0, "$ Chuẩn tài khoản"),
+            ("Vốn ròng cuối kỳ (Final Equity)", mA.get("final_equity", 1000.0), mB.get("final_equity", 1000.0), mC.get("final_equity", 1000.0), "$ (Cash + Open MTM)"),
+            ("Tổng lợi nhuận ròng (Net PnL)", mA.get("realized_net_pnl", 0.0), mB.get("realized_net_pnl", 0.0), mC.get("realized_net_pnl", 0.0), "$ Sau chi phí"),
+            ("Tỷ suất sinh lời (ROI %)", mA.get("roi_pct", 0.0) / 100.0, mB.get("roi_pct", 0.0) / 100.0, mC.get("roi_pct", 0.0) / 100.0, "% trên vốn ban đầu"),
+            ("Tổng số lệnh khớp (Total Fills)", mA.get("total_trades", 0), mB.get("total_trades", 0), mC.get("total_trades", 0), "Số lệnh"),
+            ("Số lệnh Quality (Quality Fills)", mA.get("quality_trades_count", mA.get("total_trades", 0)), mB.get("quality_trades_count", 0), mC.get("quality_trades_count", 0), "Risk 0.25% equity"),
+            ("Số lệnh Quota (Quota Fills)", 0, 0, mC.get("quota_trades_count", 0), "Risk 0.10% equity"),
+            ("PnL lệnh Quality", mA.get("quality_net_pnl", mA.get("realized_net_pnl", 0.0)), mB.get("quality_net_pnl", mB.get("realized_net_pnl", 0.0)), mC.get("quality_net_pnl", 0.0), "$"),
+            ("PnL lệnh Quota", 0.0, 0.0, mC.get("quota_net_pnl", 0.0), "$ Đo tác động ép tần suất"),
+            ("Số lệnh Thắng / Thua / Hòa", f"{mA.get('wins', 0)}/{mA.get('losses', 0)}/{mA.get('breakevens', 0)}", f"{mB.get('wins', 0)}/{mB.get('losses', 0)}/{mB.get('breakevens', 0)}", f"{mC.get('wins', 0)}/{mC.get('losses', 0)}/{mC.get('breakevens', 0)}", "Lệnh"),
+            ("Tỷ lệ thắng (Win Rate %)", mA.get("win_rate_pct", 0.0) / 100.0, mB.get("win_rate_pct", 0.0) / 100.0, mC.get("win_rate_pct", 0.0) / 100.0, "% kèm sample count"),
+            ("Profit Factor", mA.get("profit_factor", "N/A"), mB.get("profit_factor", "N/A"), mC.get("profit_factor", "N/A"), "Gross Profit / Gross Loss"),
+            ("Kỳ vọng bình quân (Expectancy R)", mA.get("expectancy_r", 0.0), mB.get("expectancy_r", 0.0), mC.get("expectancy_r", 0.0), "R bình quân"),
+            ("Max Drawdown ($)", mA.get("max_drawdown_usdt", 0.0), mB.get("max_drawdown_usdt", 0.0), mC.get("max_drawdown_usdt", 0.0), "$ MTM close bar"),
+            ("Max Drawdown (%)", mA.get("max_drawdown_pct", 0.0) / 100.0, mB.get("max_drawdown_pct", 0.0) / 100.0, mC.get("max_drawdown_pct", 0.0) / 100.0, "%"),
+            ("Tổng số phiên NY đủ điều kiện", mA.get("eligible_ny_sessions", 66), mB.get("eligible_ny_sessions", 66), mC.get("eligible_ny_sessions", 66), "Phiên (loại trừ cuối tuần)"),
+            ("Số phiên NY có >= 1 lệnh", mA.get("ny_covered_sessions", 0), mB.get("ny_covered_sessions", 0), mC.get("ny_covered_sessions", 0), "Phiên"),
+            ("Độ phủ phiên NY (% Eligible)", mA.get("ny_fill_coverage_pct", 0.0) / 100.0, mB.get("ny_fill_coverage_pct", 0.0) / 100.0, mC.get("ny_fill_coverage_pct", 0.0) / 100.0, "% trên phiên đủ điều kiện"),
+            ("Độ phủ trên tổng ngày lịch (% All 93D)", (mA.get("ny_covered_sessions", 0) / 93.0), (mB.get("ny_covered_sessions", 0) / 93.0), (mC.get("ny_covered_sessions", 0) / 93.0), "% trên 93 ngày lịch"),
+            ("Kết luận mục tiêu 1 lệnh NY/ngày", mA.get("target_conclusion", "CHƯA_ĐẠT"), mB.get("target_conclusion", "CHƯA_ĐẠT"), mC.get("target_conclusion", "CHƯA_ĐẠT"), "Đánh giá trung thực")
+        ]
+
+        for r_idx, (m_name, vA, vB, vC, note) in enumerate(metrics_rows, start=5):
+            ws1.row_dimensions[r_idx].height = 20
+            c1 = ws1.cell(row=r_idx, column=1, value=m_name)
+            c2 = ws1.cell(row=r_idx, column=2, value=vA)
+            c3 = ws1.cell(row=r_idx, column=3, value=vB)
+            c4 = ws1.cell(row=r_idx, column=4, value=vC)
+            c5 = ws1.cell(row=r_idx, column=5, value=note)
+
+            c1.font = BOLD_FONT
+            c2.font = REGULAR_FONT
+            c3.font = REGULAR_FONT
+            c4.font = REGULAR_FONT
+            c5.font = REGULAR_FONT
+
+            for cell in (c1, c2, c3, c4, c5):
+                cell.border = CELL_BORDER
+
+            if "$" in note and isinstance(vA, (int, float)):
+                c2.number_format = FORMAT_CURRENCY
+                c3.number_format = FORMAT_CURRENCY
+                c4.number_format = FORMAT_CURRENCY
+            elif "%" in note and isinstance(vA, float):
+                c2.number_format = FORMAT_PERCENT
+                c3.number_format = FORMAT_PERCENT
+                c4.number_format = FORMAT_PERCENT
+            elif "R" in note and isinstance(vA, (int, float)):
+                c2.number_format = FORMAT_RR
+                c3.number_format = FORMAT_RR
+                c4.number_format = FORMAT_RR
+
+        auto_fit_columns(ws1)
+        ws1.freeze_panes = "A5"
+
+        # 2. 02_Do_phu_phien_My
+        ws2 = wb.create_sheet(title="02_Do_phu_phien_My")
+        ws2.views.sheetView[0].showGridLines = True
+        ws2["A1"] = "CHI TIẾT ĐỘ PHỦ TỪNG PHIÊN NEW YORK (02_Do_phu_phien_My)"
+        ws2["A1"].font = TITLE_FONT
+
+        headers2 = [
+            "Mã phiên NY", "Ngày NY", "Đủ điều kiện", "Lý do không đủ",
+            "Mode A (Fills)", "Mode B (Fills)", "Mode C (Fills)",
+            "Mode C Quality Fills", "Mode C Quota Fills", "Blocker chính nếu chưa đạt", "Ghi chú"
+        ]
+        ws2.row_dimensions[3].height = 24
+        for c_idx, h in enumerate(headers2, start=1):
+            cell = ws2.cell(row=3, column=c_idx, value=h)
+            cell.font = HEADER_FONT
+            cell.fill = HEADER_FILL
+            cell.border = CELL_BORDER
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        for r_idx, row in enumerate(ny_session_comparison, start=4):
+            ws2.row_dimensions[r_idx].height = 20
+            vals = [
+                sanitize_cell_value(row.get("session_ny_id", "")),
+                row.get("date_ny", ""),
+                "ĐỦ" if row.get("is_eligible", False) else "KHÔNG ĐỦ",
+                sanitize_cell_value(row.get("ineligible_reason", "-")),
+                row.get("fills_A", 0),
+                row.get("fills_B", 0),
+                row.get("fills_C", 0),
+                row.get("quality_fills_C", 0),
+                row.get("quota_fills_C", 0),
+                sanitize_cell_value(row.get("unmet_reason", "-")),
+                sanitize_cell_value(row.get("notes", ""))
+            ]
+            for col_idx, val in enumerate(vals, start=1):
+                cell = ws2.cell(row=r_idx, column=col_idx, value=val)
+                cell.font = REGULAR_FONT
+                cell.border = CELL_BORDER
+                if col_idx in (5, 6, 7, 8, 9):
+                    cell.number_format = FORMAT_INTEGER
+                    cell.alignment = Alignment(horizontal="center")
+                elif col_idx in (1, 2, 3):
+                    cell.alignment = Alignment(horizontal="center")
+
+        auto_fit_columns(ws2)
+        ws2.freeze_panes = "A4"
+
+        # 3. 03_Stress_chi_phi
+        ws3 = wb.create_sheet(title="03_Stress_chi_phi")
+        ws3.views.sheetView[0].showGridLines = True
+        ws3["A1"] = "ĐÁNH GIÁ ĐỘ NHẠY CHI PHÍ GIAO DỊCH & TRƯỢT GIÁ (03_Stress_chi_phi)"
+        ws3["A1"].font = TITLE_FONT
+
+        headers3 = [
+            "Kịch bản chi phí", "Mô tả", "Phí Taker Entry/Exit", "Phí Maker TP",
+            "Trượt giá ($/oz)", "Spread ($)", "PnL Mode A ($)", "PnL Mode B ($)", "PnL Mode C ($)", "Tác động PnL"
+        ]
+        ws3.row_dimensions[3].height = 24
+        for c_idx, h in enumerate(headers3, start=1):
+            cell = ws3.cell(row=3, column=c_idx, value=h)
+            cell.font = HEADER_FONT
+            cell.fill = HEADER_FILL
+            cell.border = CELL_BORDER
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        for r_idx, row in enumerate(cost_stress_data, start=4):
+            ws3.row_dimensions[r_idx].height = 20
+            vals = [
+                sanitize_cell_value(row.get("scenario", "")),
+                sanitize_cell_value(row.get("description", "")),
+                row.get("taker_fee", 0.0006),
+                row.get("maker_fee", 0.0002),
+                row.get("slippage", 0.10),
+                row.get("spread", 0.20),
+                row.get("pnl_A", 0.0),
+                row.get("pnl_B", 0.0),
+                row.get("pnl_C", 0.0),
+                sanitize_cell_value(row.get("impact", ""))
+            ]
+            for col_idx, val in enumerate(vals, start=1):
+                cell = ws3.cell(row=r_idx, column=col_idx, value=val)
+                cell.font = REGULAR_FONT
+                cell.border = CELL_BORDER
+                if col_idx in (7, 8, 9):
+                    cell.number_format = FORMAT_CURRENCY
+                    if isinstance(val, (int, float)):
+                        cell.font = GREEN_FONT if val > 0 else (RED_FONT if val < 0 else REGULAR_FONT)
+
+        auto_fit_columns(ws3)
+        ws3.freeze_panes = "A4"
+
+        # 4. 04_Tap_mau_Holdout
+        ws4 = wb.create_sheet(title="04_Tap_mau_Holdout")
+        ws4.views.sheetView[0].showGridLines = True
+        ws4["A1"] = "PHÂN TÁCH GIAI ĐOẠN KIỂM ĐỊNH CHIẾN LƯỢC (04_Tap_mau_Holdout)"
+        ws4["A1"].font = TITLE_FONT
+
+        headers4 = [
+            "Giai đoạn", "Khoảng thời gian", "Số ngày", "Vai trò kiểm định",
+            "Fills Mode A", "Net PnL A ($)", "Fills Mode B", "Net PnL B ($)", "Fills Mode C", "Net PnL C ($)", "Ghi chú kiểm toán"
+        ]
+        ws4.row_dimensions[3].height = 24
+        for c_idx, h in enumerate(headers4, start=1):
+            cell = ws4.cell(row=3, column=c_idx, value=h)
+            cell.font = HEADER_FONT
+            cell.fill = HEADER_FILL
+            cell.border = CELL_BORDER
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        for r_idx, row in enumerate(holdout_data, start=4):
+            ws4.row_dimensions[r_idx].height = 20
+            vals = [
+                sanitize_cell_value(row.get("period_name", "")),
+                sanitize_cell_value(row.get("date_range", "")),
+                row.get("days_count", 0),
+                sanitize_cell_value(row.get("role", "")),
+                row.get("fills_A", 0),
+                row.get("pnl_A", 0.0),
+                row.get("fills_B", 0),
+                row.get("pnl_B", 0.0),
+                row.get("fills_C", 0),
+                row.get("pnl_C", 0.0),
+                sanitize_cell_value(row.get("notes", ""))
+            ]
+            for col_idx, val in enumerate(vals, start=1):
+                cell = ws4.cell(row=r_idx, column=col_idx, value=val)
+                cell.font = REGULAR_FONT
+                cell.border = CELL_BORDER
+                if col_idx in (6, 8, 10):
+                    cell.number_format = FORMAT_CURRENCY
+                elif col_idx in (3, 5, 7, 9):
+                    cell.number_format = FORMAT_INTEGER
+                    cell.alignment = Alignment(horizontal="center")
+
+        auto_fit_columns(ws4)
+        ws4.freeze_panes = "A4"
+
+        # 5. 05_Blockers_phan_tich
+        ws5 = wb.create_sheet(title="05_Blockers_phan_tich")
+        ws5.views.sheetView[0].showGridLines = True
+        ws5["A1"] = "BẢNG PHÂN TÍCH RÀO CẢN VÀ LÝ DO CHƯA VÀO LỆNH (05_Blockers_phan_tich)"
+        ws5["A1"].font = TITLE_FONT
+
+        headers5 = [
+            "Nhóm rào cản", "Mã lý do (Reason Code)", "Giải thích kỹ thuật",
+            "Tác động Mode A", "Tác động Mode B", "Tác động Mode C", "Hard Guard hay Soft Filter"
+        ]
+        ws5.row_dimensions[3].height = 24
+        for c_idx, h in enumerate(headers5, start=1):
+            cell = ws5.cell(row=3, column=c_idx, value=h)
+            cell.font = HEADER_FONT
+            cell.fill = HEADER_FILL
+            cell.border = CELL_BORDER
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        for r_idx, row in enumerate(blockers_data, start=4):
+            ws5.row_dimensions[r_idx].height = 20
+            vals = [
+                sanitize_cell_value(row.get("category", "")),
+                sanitize_cell_value(row.get("reason_code", "")),
+                sanitize_cell_value(row.get("description", "")),
+                row.get("count_A", 0),
+                row.get("count_B", 0),
+                row.get("count_C", 0),
+                sanitize_cell_value(row.get("guard_type", "HARD_GUARD"))
+            ]
+            for col_idx, val in enumerate(vals, start=1):
+                cell = ws5.cell(row=r_idx, column=col_idx, value=val)
+                cell.font = REGULAR_FONT
+                cell.border = CELL_BORDER
+                if col_idx in (4, 5, 6):
+                    cell.number_format = FORMAT_INTEGER
+                    cell.alignment = Alignment(horizontal="center")
+
+        auto_fit_columns(ws5)
+        ws5.freeze_panes = "A4"
+
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        wb.save(filepath)
+
+        verify_wb = openpyxl.load_workbook(filepath, read_only=True)
+        sheet_names = verify_wb.sheetnames
+        verify_wb.close()
+        assert len(sheet_names) == 5, f"Expected 5 sheets in compare workbook, found {len(sheet_names)}: {sheet_names}"
+        return filepath
+
