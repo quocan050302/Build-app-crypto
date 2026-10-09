@@ -27,9 +27,11 @@ class StressTester:
             spread_multiplier=1.0,
             slippage_multiplier=1.0,
             fee_rate=0.0004,
+            latency_ms=0,
             initial_equity=1000.0,
             risk_pct=0.25,
-            leverage=5
+            leverage=30,
+            export_artifacts=False
         )
         base_res = ReplayEngine.run_replay(base_req)
         baseline_row = schemas.StressTestResultRow(
@@ -45,36 +47,48 @@ class StressTester:
             expectancy_r=base_res.expectancy_r
         )
 
-        matrix: List[schemas.StressTestResultRow] = []
+        import concurrent.futures
 
-        # Iterate over parameter grids
-        for sm in request.spread_multipliers:
-            for slm in request.slippage_multipliers:
-                for fm in request.fee_multipliers:
-                    for lat in request.latency_ms_list:
-                        stress_req = schemas.ReplayRunRequest(
-                            run_name=f"Stress S{sm} SL{slm} F{fm} L{lat}",
-                            symbol=request.symbol,
-                            spread_multiplier=sm,
-                            slippage_multiplier=slm,
-                            fee_rate=0.0004 * fm,
-                            initial_equity=1000.0,
-                            risk_pct=0.25,
-                            leverage=5
-                        )
-                        res = ReplayEngine.run_replay(stress_req)
-                        matrix.append(schemas.StressTestResultRow(
-                            spread_mult=sm,
-                            slippage_mult=slm,
-                            fee_mult=fm,
-                            latency_ms=lat,
-                            trades_count=res.total_trades,
-                            net_pnl=res.total_net_pnl,
-                            win_rate_pct=res.win_rate_pct,
-                            profit_factor=res.profit_factor,
-                            max_drawdown_pct=res.max_drawdown_pct,
-                            expectancy_r=res.expectancy_r
-                        ))
+        # Build parameter grid
+        grid_params = [
+            (sm, slm, fm, lat)
+            for sm in request.spread_multipliers
+            for slm in request.slippage_multipliers
+            for fm in request.fee_multipliers
+            for lat in request.latency_ms_list
+        ]
+
+        def _eval_cell(params):
+            sm, slm, fm, lat = params
+            stress_req = schemas.ReplayRunRequest(
+                run_name=f"Stress S{sm} SL{slm} F{fm} L{lat}",
+                symbol=request.symbol,
+                spread_multiplier=sm,
+                slippage_multiplier=slm,
+                fee_rate=0.0004 * fm,
+                latency_ms=lat,
+                initial_equity=1000.0,
+                risk_pct=0.25,
+                leverage=30,
+                export_artifacts=False
+            )
+            res = ReplayEngine.run_replay(stress_req)
+            return schemas.StressTestResultRow(
+                spread_mult=sm,
+                slippage_mult=slm,
+                fee_mult=fm,
+                latency_ms=lat,
+                trades_count=res.total_trades,
+                net_pnl=res.total_net_pnl,
+                win_rate_pct=res.win_rate_pct,
+                profit_factor=res.profit_factor,
+                max_drawdown_pct=res.max_drawdown_pct,
+                expectancy_r=res.expectancy_r
+            )
+
+        max_workers = min(len(grid_params), 6) if grid_params else 1
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            matrix = list(executor.map(_eval_cell, grid_params))
 
         return schemas.StressTestResponse(
             id=run_id,

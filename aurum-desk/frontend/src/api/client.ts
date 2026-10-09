@@ -265,7 +265,7 @@ export interface StressTestResultRow {
   trades_count: number;
   net_pnl: number;
   win_rate_pct: number;
-  profit_factor: number;
+  profit_factor: number | null;
   max_drawdown_pct: number;
   expectancy_r: number;
 }

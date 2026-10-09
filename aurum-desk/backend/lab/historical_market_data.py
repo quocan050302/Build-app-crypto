@@ -275,6 +275,8 @@ class HistoricalMarketDataProvider:
 
         return valid_candles, warnings
 
+    _bundle_cache: Dict[str, Any] = {}
+
     @classmethod
     def load_multitimeframe_bundle(
         cls,
@@ -287,6 +289,10 @@ class HistoricalMarketDataProvider:
         """
         Loads aligned multitimeframe bundles (15M, 1H, 4H, 1D) with complete warmup history.
         """
+        cache_key = f"{symbol}_{start_ms}_{end_ms}_{warmup_ms}"
+        if cache_key in cls._bundle_cache:
+            return cls._bundle_cache[cache_key]
+
         # 1. 15M candles (Primary execution timeframe)
         candles_15m = cls.download_bitget_candles_range(
             symbol=symbol,
@@ -325,7 +331,7 @@ class HistoricalMarketDataProvider:
 
         hash_15m = compute_dataset_hash(candles_15m)
 
-        return {
+        bundle = {
             "symbol": symbol,
             "start_ms": start_ms,
             "end_ms": end_ms,
@@ -339,3 +345,5 @@ class HistoricalMarketDataProvider:
             "warmup_count": sum(1 for c in candles_15m if c["timestamp"] < start_ms),
             "eval_count": sum(1 for c in candles_15m if start_ms <= c["timestamp"] <= end_ms),
         }
+        cls._bundle_cache[cache_key] = bundle
+        return bundle

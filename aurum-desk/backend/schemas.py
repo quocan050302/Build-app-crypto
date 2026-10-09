@@ -721,6 +721,7 @@ class ReplayRunRequest(BaseModel):
     spread_multiplier: float = 1.0
     slippage_multiplier: float = 1.0
     fee_rate: float = 0.0004
+    latency_ms: int = 0
     speed_ms: int = 10
     seed: int = 42
     custom_candles_json: Optional[str] = None
@@ -784,7 +785,7 @@ class StressTestResultRow(BaseModel):
     trades_count: int
     net_pnl: float
     win_rate_pct: float
-    profit_factor: float
+    profit_factor: Optional[float] = None
     max_drawdown_pct: float
     expectancy_r: float
 
