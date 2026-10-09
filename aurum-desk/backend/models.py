@@ -98,6 +98,12 @@ class PaperOrder(Base):
     risk_profile = Column(String(30), default="STANDARD")  # STANDARD, QUOTA_FALLBACK
     cost_snapshot = Column(Text, nullable=True)  # JSON
 
+    # V10.1 Unified Entry Decision & Stage Snapshots
+    origin = Column(String(30), default="UNKNOWN")  # MANUAL_WEB, AUTO_STRATEGY, NY_FALLBACK, UNKNOWN
+    execution_mode = Column(String(20), default="AUTO")  # MANUAL, AUTO
+    arm_decision_snapshot = Column(Text, nullable=True)  # JSON
+    fill_decision_snapshot = Column(Text, nullable=True)  # JSON
+
 
 
 class DayAudit(Base):

@@ -20,10 +20,25 @@ export function extractErrorMessage(err: any, fallback: string = 'Đã xảy ra 
 
   if (typeof err === 'string') return err;
 
+  const status = err.response?.status;
   const responseData = err.response?.data;
+
+  // U05 & U06: Differentiate 404 Route vs 404 Entity
+  if (status === 404) {
+    if (responseData?.detail === 'Not Found' || !responseData?.detail) {
+      return 'API route không tồn tại trên backend (404 Not Found). Vui lòng kiểm tra phiên bản backend đang chạy hoặc cấu hình proxy.';
+    }
+    if (responseData?.detail?.code === 'LESSON_NOT_FOUND') {
+      return responseData.detail.message || 'Không tìm thấy bài học này (ID không tồn tại trên hệ thống).';
+    }
+  }
+
   if (responseData) {
     const detail = responseData.detail;
     if (typeof detail === 'string') {
+      if (detail === 'Not Found') {
+        return 'API route không tồn tại trên backend (404 Not Found). Vui lòng kiểm tra phiên bản backend đang chạy hoặc cấu hình proxy.';
+      }
       return detail;
     }
     if (Array.isArray(detail)) {
@@ -561,6 +576,29 @@ export const api = {
 
   toggleLessonEnable: async (lessonId: number): Promise<LessonItem> => {
     const res = await apiClient.post(`/api/v1/lessons/${lessonId}/toggle-enable`);
+    return res.data;
+  },
+
+  setLessonEnable: async (lessonId: number, enabled: boolean, expectedRevision?: number): Promise<LessonItem> => {
+    const res = await apiClient.post(`/api/v1/lessons/${lessonId}/set-enable`, {
+      enabled,
+      expected_revision: expectedRevision,
+    });
+    return res.data;
+  },
+
+  getLessonPolicy: async (): Promise<any> => {
+    const res = await apiClient.get('/api/v1/lessons/policy');
+    return res.data;
+  },
+
+  updateLessonPolicy: async (update: any): Promise<any> => {
+    const res = await apiClient.put('/api/v1/lessons/policy', update);
+    return res.data;
+  },
+
+  getSystemCapabilities: async (): Promise<any> => {
+    const res = await apiClient.get('/api/v1/system/capabilities');
     return res.data;
   },
 

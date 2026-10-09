@@ -697,6 +697,9 @@ def manual_arm_setup(
         created_at=now_ms,
         armed_at=now_ms,
         expires_at=now_ms + (2 * 3600 * 1000),
+        origin="MANUAL_WEB",
+        execution_mode="MANUAL",
+        arm_decision_snapshot=json.dumps(elig.get("lesson_evaluations", [])),
         lessons_retrieved=json.dumps(elig.get("lessons_retrieved_snapshot", []))
     )
     db.add(new_order)
@@ -1590,19 +1593,19 @@ def validate_lesson_predicate(req: schemas.RuleValidationRequest):
 def approve_lesson(lesson_id: int, db: Session = Depends(get_db)):
     lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
     if not lesson:
-        raise HTTPException(status_code=404, detail="Không tìm thấy bài học này")
+        raise HTTPException(status_code=404, detail={"code": "LESSON_NOT_FOUND", "message": f"Không tìm thấy bài học #{lesson_id}"})
     now_ms = int(time.time() * 1000)
     lesson.is_approved = True
     lesson.status = "APPROVED"
     lesson.reviewed_at = now_ms
 
     from services.lesson_rule_service import LessonRuleService
-    is_valid, msg, report = LessonRuleService.validate_predicate(
-        predicate_input=lesson.predicate,
-        severity=lesson.severity or "INFO",
-        effect=lesson.effect or "ANNOTATE"
-    )
-    lesson.validation_status = "VALID" if is_valid else "INVALID"
+    is_valid, msg, report = LessonRuleService.validate_rule_behavior(lesson)
+    # Does not auto-enable on approve (U01)
+    if not is_valid:
+        lesson.validation_status = report.get("status", "INVALID")
+    else:
+        lesson.validation_status = "VALID"
     lesson.validated_at = now_ms
     lesson.validation_report = json.dumps(report)
 
@@ -1625,7 +1628,7 @@ def approve_lesson(lesson_id: int, db: Session = Depends(get_db)):
 def reject_lesson(lesson_id: int, db: Session = Depends(get_db)):
     lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
     if not lesson:
-        raise HTTPException(status_code=404, detail="Không tìm thấy bài học này")
+        raise HTTPException(status_code=404, detail={"code": "LESSON_NOT_FOUND", "message": f"Không tìm thấy bài học #{lesson_id}"})
     now_ms = int(time.time() * 1000)
     lesson.is_approved = False
     lesson.status = "REJECTED"
@@ -1652,7 +1655,7 @@ def reject_lesson(lesson_id: int, db: Session = Depends(get_db)):
 def archive_lesson(lesson_id: int, db: Session = Depends(get_db)):
     lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
     if not lesson:
-        raise HTTPException(status_code=404, detail="Không tìm thấy bài học này")
+        raise HTTPException(status_code=404, detail={"code": "LESSON_NOT_FOUND", "message": f"Không tìm thấy bài học #{lesson_id}"})
     now_ms = int(time.time() * 1000)
     lesson.status = "ARCHIVED"
     lesson.is_approved = False
@@ -1678,7 +1681,7 @@ def archive_lesson(lesson_id: int, db: Session = Depends(get_db)):
 def toggle_lesson_enable(lesson_id: int, db: Session = Depends(get_db)):
     lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
     if not lesson:
-        raise HTTPException(status_code=404, detail="Không tìm thấy bài học này")
+        raise HTTPException(status_code=404, detail={"code": "LESSON_NOT_FOUND", "message": f"Không tìm thấy bài học #{lesson_id}"})
     now_ms = int(time.time() * 1000)
     current_enabled = bool(lesson.enabled) if lesson.enabled is not None else True
     lesson.enabled = not current_enabled
@@ -1699,11 +1702,81 @@ def toggle_lesson_enable(lesson_id: int, db: Session = Depends(get_db)):
     return schemas.LessonItem.model_validate(lesson)
 
 
+@app.post("/api/v1/lessons/{lesson_id}/set-enable", response_model=schemas.LessonItem)
+def set_lesson_enable(lesson_id: int, req: schemas.LessonEnableRequest, db: Session = Depends(get_db)):
+    lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail={"code": "LESSON_NOT_FOUND", "message": f"Không tìm thấy bài học #{lesson_id}"})
+
+    if req.expected_revision is not None and getattr(lesson, 'revision', None) is not None:
+        if req.expected_revision != lesson.revision:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "STALE_EDIT",
+                    "message": f"Dữ liệu bài học đã thay đổi (revision hiện tại {lesson.revision}, bạn gửi {req.expected_revision}).",
+                    "current_revision": lesson.revision,
+                    "expected_revision": req.expected_revision
+                }
+            )
+
+    # Idempotent guard: if already in desired state, return directly (U03)
+    if bool(lesson.enabled) == req.enabled:
+        return schemas.LessonItem.model_validate(lesson)
+
+    now_ms = int(time.time() * 1000)
+    lesson.enabled = req.enabled
+    if hasattr(lesson, 'revision') and lesson.revision is not None:
+        lesson.revision += 1
+
+    trail = []
+    if lesson.audit_trail:
+        try:
+            trail = json.loads(lesson.audit_trail)
+        except Exception:
+            trail = [lesson.audit_trail]
+    trail.append({"action": "SET_ENABLED", "enabled": lesson.enabled, "timestamp": now_ms, "actor": "USER"})
+    lesson.audit_trail = json.dumps(trail)
+
+    db.commit()
+    db.refresh(lesson)
+    from services.lesson_rule_service import LessonRuleService
+    LessonRuleService.invalidate_cache()
+    return schemas.LessonItem.model_validate(lesson)
+
+
+@app.get("/api/v1/lessons/policy", response_model=schemas.LessonPolicyConfig)
+def get_lesson_policy(db: Session = Depends(get_db)):
+    from services.lesson_policy_service import LessonPolicyService
+    cfg = LessonPolicyService.get_policy(db)
+    return schemas.LessonPolicyConfig.model_validate(cfg)
+
+
+@app.put("/api/v1/lessons/policy", response_model=schemas.LessonPolicyConfig)
+def update_lesson_policy(update: schemas.LessonPolicyUpdate, db: Session = Depends(get_db)):
+    from services.lesson_policy_service import LessonPolicyService
+    try:
+        updated = LessonPolicyService.update_policy(
+            db,
+            updates=update.model_dump(exclude_unset=True),
+            expected_version=update.expected_version
+        )
+        return schemas.LessonPolicyConfig.model_validate(updated)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail={"code": "POLICY_CONFLICT", "message": str(e)})
+
+
+@app.get("/api/v1/system/capabilities")
+def get_system_capabilities():
+    from services.lesson_policy_service import LessonPolicyService
+    return LessonPolicyService.get_runtime_capabilities()
+
+
 @app.put("/api/v1/lessons/{lesson_id}", response_model=schemas.LessonItem)
 def update_lesson(lesson_id: int, update: schemas.LessonUpdate, db: Session = Depends(get_db)):
     lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
     if not lesson:
-        raise HTTPException(status_code=404, detail="Không tìm thấy bài học này")
+        raise HTTPException(status_code=404, detail={"code": "LESSON_NOT_FOUND", "message": f"Không tìm thấy bài học #{lesson_id}"})
 
     # Optimistic concurrency locking (L08)
     if update.revision is not None and getattr(lesson, 'revision', None) is not None:

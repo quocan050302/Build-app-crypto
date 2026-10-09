@@ -72,11 +72,18 @@ def evaluate_setup_eligibility(
         p_code = policy_eval["reason_code"]
         if p_code not in reason_codes:
             reason_codes.append(p_code)
+            if p_code == "MAX_DAILY_ENTRIES":
+                reason_codes.append("DAILY_FILL_CAP")
             block_reasons.append(f"{p_code}: {policy_eval['reason_message']}")
 
     # 6. Day Audit additional checks (consecutive losses, daily loss cap, cooldown)
     day_audit = crud.get_or_create_today_audit(db)
     if day_audit:
+        if day_audit.fills_count >= 3 and "DAILY_FILL_CAP" not in reason_codes:
+            reason_codes.append("DAILY_FILL_CAP")
+            if "MAX_DAILY_ENTRIES" not in reason_codes:
+                reason_codes.append("MAX_DAILY_ENTRIES")
+            block_reasons.append("DAILY_FILL_CAP: Đã đạt giới hạn tối đa 3 lệnh khớp/ngày")
         if day_audit.consecutive_losses >= 2 and "MAX_CONSECUTIVE_LOSSES" not in reason_codes:
             reason_codes.append("MAX_CONSECUTIVE_LOSSES")
             block_reasons.append("MAX_CONSECUTIVE_LOSSES: Đã dừng giao dịch sau 2 lệnh lỗ liên tiếp")
@@ -142,68 +149,66 @@ def evaluate_setup_eligibility(
         reason_codes.append("CANNOT_EXECUTE")
         block_reasons.append(calc_res.skip_reason or "Không đủ điều kiện thực thi")
 
-    # 9. V10 Governed Lesson Rules Evaluation (BEFORE_ARM)
-    lesson_eval = {
-        "can_proceed": True,
-        "blocking_reasons": [],
-        "warning_messages": [],
-        "advisory_notes": [],
-        "matched_rules": [],
-        "evaluations": [],
-        "lessons_retrieved_snapshot": []
-    }
-    try:
-        from services.lesson_rule_service import LessonRuleService
-        lesson_context: Dict[str, Any] = {
-            "symbol": symbol,
-            "strategy_family": getattr(setup, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC",
-            "direction": setup.direction,
-            "planned_entry": entry,
-            "stop_loss": sl,
-            "take_profit": tp,
-            "net_rr": calc_res.net_rr,
-            "gross_rr": calc_res.gross_rr,
-            "session": policy_eval.get("session_instance_id") or "NY",
-            "stage": "BEFORE_ARM",
-            "execution_mode": "MANUAL",
-            "now_ms": current_time,
-            "distance_to_entry_atr": getattr(setup, "distance_to_entry_atr", None)
-        }
-        # Attempt to get live spread
+    # 9. V10.1 Governed Lesson Rules Evaluation (BEFORE_ARM)
+    from services.entry_decision_service import EntryDecisionService
+    ev_dict = {}
+    if getattr(setup, "evidence_snapshot_id", None):
         try:
-            from services.collector_service import collector_service
-            ticker = collector_service.latest_ticker
-            if ticker and "ask" in ticker and "bid" in ticker:
-                lesson_context["ask"] = float(ticker["ask"])
-                lesson_context["bid"] = float(ticker["bid"])
-                lesson_context["spread"] = round(float(ticker["ask"]) - float(ticker["bid"]), 2)
+            ev_row = db.query(models.StrategyEvidence).filter(models.StrategyEvidence.id == setup.evidence_snapshot_id).first()
+            if ev_row:
+                ev_dict = {
+                    "sweep_detected": bool(ev_row.sweep_evidence),
+                    "fvg_found": bool(ev_row.fvg_evidence),
+                    "structure_confirmed": (ev_row.h1_alignment == "ALIGNED")
+                }
         except Exception:
             pass
 
-        # Attempt to get strategy evidence
-        if getattr(setup, "evidence_snapshot_id", None):
-            try:
-                ev_row = db.query(models.StrategyEvidence).filter(models.StrategyEvidence.id == setup.evidence_snapshot_id).first()
-                if ev_row:
-                    lesson_context["evidence"] = {
-                        "sweep_detected": bool(ev_row.sweep_evidence),
-                        "fvg_found": bool(ev_row.fvg_evidence),
-                        "structure_confirmed": (ev_row.h1_alignment == "ALIGNED")
-                    }
-            except Exception:
-                pass
+    cur_ask, cur_bid = None, None
+    try:
+        from services.collector_service import collector_service
+        ticker = collector_service.latest_ticker
+        if ticker and "ask" in ticker and "bid" in ticker:
+            cur_ask = float(ticker["ask"])
+            cur_bid = float(ticker["bid"])
+    except Exception:
+        pass
 
-        active_rules = LessonRuleService.retrieve_active_rules(db, lesson_context, decision_time=current_time)
-        lesson_eval = LessonRuleService.evaluate_rules(lesson_context, active_rules)
+    lesson_context = EntryDecisionService.build_context(
+        stage="BEFORE_ARM",
+        symbol=symbol,
+        direction=setup.direction,
+        strategy_family=getattr(setup, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC",
+        timeframe=getattr(setup, "timeframe", "15M"),
+        execution_mode="MANUAL",
+        origin="MANUAL_WEB",
+        planned_entry=entry,
+        stop_loss=sl,
+        take_profit=tp,
+        net_rr=calc_res.net_rr,
+        gross_rr=calc_res.gross_rr,
+        bid=cur_bid,
+        ask=cur_ask,
+        now_ms=current_time,
+        session_instance_id=policy_eval.get("session_instance_id"),
+        evidence=ev_dict,
+        distance_to_entry_atr=getattr(setup, "distance_to_entry_atr", None),
+        setup_id=setup.id
+    )
 
-        if not lesson_eval["can_proceed"]:
-            for b_msg in lesson_eval["blocking_reasons"]:
-                code = "LESSON_RULE_DATA_UNAVAILABLE" if "LESSON_RULE_DATA_UNAVAILABLE" in b_msg else "LESSON_RULE_BLOCKED"
-                if code not in reason_codes:
-                    reason_codes.append(code)
-                block_reasons.append(b_msg)
-    except Exception as e:
-        logger.warning(f"Error evaluating lesson rules in eligibility_service: {e}")
+    lesson_eval = EntryDecisionService.evaluate_entry_rules(db, lesson_context)
+    if not lesson_eval["can_proceed"]:
+        for b_msg in lesson_eval["blocking_reasons"]:
+            if "LESSON_RULE_DATA_UNAVAILABLE" in b_msg:
+                code = "LESSON_RULE_DATA_UNAVAILABLE"
+            elif "LESSON_EVALUATION_FAILED" in b_msg:
+                code = "LESSON_EVALUATION_FAILED"
+            else:
+                code = "LESSON_RULE_BLOCKED"
+
+            if code not in reason_codes:
+                reason_codes.append(code)
+            block_reasons.append(b_msg)
 
     can_arm = len(reason_codes) == 0
     can_execute_now = can_arm and (setup.state == "READY") and calc_res.can_execute

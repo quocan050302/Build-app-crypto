@@ -569,6 +569,11 @@ def run_migration():
     add_column_if_missing("paper_orders", "effective_risk_pct", "FLOAT DEFAULT 0.25")
     add_column_if_missing("paper_orders", "risk_profile", "VARCHAR(30) DEFAULT 'STANDARD'")
     add_column_if_missing("paper_orders", "cost_snapshot", "TEXT")
+    # V10.1 Unified Entry Decision & Stage Snapshots
+    add_column_if_missing("paper_orders", "origin", "VARCHAR(30) DEFAULT 'UNKNOWN'")
+    add_column_if_missing("paper_orders", "execution_mode", "VARCHAR(20) DEFAULT 'AUTO'")
+    add_column_if_missing("paper_orders", "arm_decision_snapshot", "TEXT")
+    add_column_if_missing("paper_orders", "fill_decision_snapshot", "TEXT")
 
     add_column_if_missing("watch_setups", "strategy_family", "VARCHAR(30) DEFAULT 'STANDARD_SMC'")
     add_column_if_missing("watch_setups", "policy_config_version", "INTEGER DEFAULT 1")

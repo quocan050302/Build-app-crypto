@@ -66,7 +66,13 @@ def run_schema_migrations(target_engine=None):
                     ("risk_profile", "VARCHAR(30) DEFAULT 'STANDARD'"),
                     ("cost_snapshot", "TEXT"),
                 ]
-                for col_name, col_type in (v6_cols + v7_cols):
+                v10_1_cols = [
+                    ("origin", "VARCHAR(30) DEFAULT 'UNKNOWN'"),
+                    ("execution_mode", "VARCHAR(20) DEFAULT 'AUTO'"),
+                    ("arm_decision_snapshot", "TEXT"),
+                    ("fill_decision_snapshot", "TEXT"),
+                ]
+                for col_name, col_type in (v6_cols + v7_cols + v10_1_cols):
                     if col_name not in cols:
                         conn.execute(text(f"ALTER TABLE paper_orders ADD COLUMN {col_name} {col_type}"))
                 conn.commit()

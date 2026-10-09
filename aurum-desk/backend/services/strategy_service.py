@@ -347,7 +347,7 @@ class StrategyService:
             return
 
         # 2. Check Trading Policy (Max 3 fills/day, NY window, reservation)
-        symbol = watch_setup.instrument or "XAUUSDT"
+        symbol = getattr(watch_setup, "instrument", None) or "XAUUSDT"
         policy_eval = TradingPolicyService.evaluate_entry_policy(db, symbol, now_dt)
         if not policy_eval["allowed"]:
             logger.info(f"Auto-arm blocked by trading policy: {policy_eval['reason_code']}")
@@ -379,33 +379,31 @@ class StrategyService:
             eff_risk_pct = min(eff_risk_pct, 0.10)
             risk_profile = "QUOTA"
 
-        # 5.5 V10 Lesson Rules Evaluation (BEFORE_ARM for AUTO)
-        lesson_snapshot = []
-        try:
-            from services.lesson_rule_service import LessonRuleService
-            lesson_context = {
-                "symbol": symbol,
-                "strategy_family": family,
-                "direction": watch_setup.direction,
-                "planned_entry": watch_setup.provisional_entry,
-                "stop_loss": watch_setup.provisional_sl,
-                "take_profit": watch_setup.provisional_tp,
-                "net_rr": watch_setup.net_rr,
-                "session": policy_eval.get("session_instance_id") or "NY",
-                "stage": "BEFORE_ARM",
-                "execution_mode": "AUTO",
-                "now_ms": now_ms
-            }
-            active_rules = LessonRuleService.retrieve_active_rules(db, lesson_context, decision_time=now_ms)
-            lesson_eval = LessonRuleService.evaluate_rules(lesson_context, active_rules)
-            if not lesson_eval["can_proceed"]:
-                logger.info(f"Auto-arm blocked by lesson rule: {lesson_eval['blocking_reasons']}")
-                return
-            if lesson_eval["warning_messages"]:
-                logger.info(f"Auto-arm lesson warnings (non-blocking): {lesson_eval['warning_messages']}")
-            lesson_snapshot = lesson_eval.get("lessons_retrieved_snapshot", [])
-        except Exception as e:
-            logger.warning(f"Error evaluating lesson rules in auto-arm: {e}")
+        # 5.5 V10.1 Lesson Rules Evaluation (BEFORE_ARM for AUTO)
+        from services.entry_decision_service import EntryDecisionService
+        lesson_context = EntryDecisionService.build_context(
+            stage="BEFORE_ARM",
+            symbol=symbol,
+            direction=watch_setup.direction,
+            strategy_family=family,
+            timeframe=watch_setup.timeframe,
+            execution_mode="AUTO",
+            origin="AUTO_STRATEGY",
+            planned_entry=watch_setup.provisional_entry,
+            stop_loss=watch_setup.provisional_sl,
+            take_profit=watch_setup.provisional_tp,
+            net_rr=watch_setup.net_rr,
+            now_ms=now_ms,
+            session_instance_id=policy_eval.get("session_instance_id"),
+            distance_to_entry_atr=getattr(watch_setup, "distance_to_entry_atr", None),
+            setup_id=watch_setup.id
+        )
+        lesson_eval = EntryDecisionService.evaluate_entry_rules(db, lesson_context)
+        if not lesson_eval["can_proceed"]:
+            logger.info(f"Auto-arm blocked by lesson rule: {lesson_eval['blocking_reasons']}")
+            return
+        if lesson_eval["warning_messages"]:
+            logger.info(f"Auto-arm lesson warnings (non-blocking): {lesson_eval['warning_messages']}")
 
         # 6. Create armed paper order with complete V7 metadata
         order_id = f"order-{uuid.uuid4().hex[:8]}"
@@ -439,8 +437,12 @@ class StrategyService:
             created_at=now_ms,
             armed_at=now_ms,
             expires_at=now_ms + (2 * 3600 * 1000),
-            lessons_retrieved=json.dumps(lesson_snapshot)
+            origin="AUTO_STRATEGY",
+            execution_mode="AUTO",
+            arm_decision_snapshot=json.dumps(lesson_eval),
+            lessons_retrieved=json.dumps(lesson_eval.get("lessons_retrieved_snapshot", []))
         )
+        EntryDecisionService.record_stage_decision(new_order, "BEFORE_ARM", lesson_eval, now_ms=now_ms)
         db.add(new_order)
         watch_setup.state = "ARMED"
 

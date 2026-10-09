@@ -53,6 +53,29 @@ class TradeLifecycleService:
             logger.warning(f"Cannot fill order {order.id} in state {order.state}")
             return order
 
+        # 1.5. V10.1 Shared Final Guard: Ensure BEFORE_FILL rules are verified before position is opened
+        from services.entry_decision_service import EntryDecisionService
+        if not getattr(order, "fill_decision_snapshot", None):
+            fill_context = EntryDecisionService.build_context_from_order(
+                order=order,
+                stage="BEFORE_FILL",
+                fill_price=fill_price,
+                calc_result=calc_result,
+                now_ms=current_time
+            )
+            decision = EntryDecisionService.evaluate_entry_rules(db, fill_context)
+            EntryDecisionService.record_stage_decision(order, "BEFORE_FILL", decision, now_ms=current_time)
+            if not decision.get("can_proceed", True):
+                block_reasons = decision.get("blocking_reasons", [])
+                reason_str = block_reasons[0] if block_reasons else "Quy tắc bài học chặn khớp lệnh"
+                if order.state == "candidate":
+                    raise ValueError(f"LESSON_RULE_BLOCKED: {reason_str}")
+                order.state = "rejected"
+                order.invalidation_reason = f"LESSON_RULE_BLOCKED: {reason_str}"
+                order.closed_at = current_time
+                db.commit()
+                return order
+
         # 2. Invariant: Max 1 active position enforced atomically at DB level
         cost_snap = json.dumps({
             "maker_fee_rate": 0.0004,
@@ -76,7 +99,12 @@ class TradeLifecycleService:
                 initial_margin = :initial_margin,
                 leverage = :leverage,
                 margin_mode = :margin_mode,
-                cost_snapshot = :cost_snapshot
+                cost_snapshot = :cost_snapshot,
+                fill_decision_snapshot = :fill_decision_snapshot,
+                arm_decision_snapshot = :arm_decision_snapshot,
+                execution_mode = :execution_mode,
+                origin = :origin,
+                lessons_retrieved = :lessons_retrieved
             WHERE id = :order_id
               AND state IN ('armed', 'candidate')
               AND NOT EXISTS (
@@ -95,6 +123,11 @@ class TradeLifecycleService:
             "leverage": calc_result.leverage,
             "margin_mode": calc_result.margin_mode,
             "cost_snapshot": cost_snap,
+            "fill_decision_snapshot": getattr(order, "fill_decision_snapshot", None),
+            "arm_decision_snapshot": getattr(order, "arm_decision_snapshot", None),
+            "execution_mode": getattr(order, "execution_mode", "AUTO") or "AUTO",
+            "origin": getattr(order, "origin", "UNKNOWN") or "UNKNOWN",
+            "lessons_retrieved": getattr(order, "lessons_retrieved", None),
             "order_id": order.id
         })
 
@@ -152,11 +185,12 @@ class TradeLifecycleService:
                 watch_setup.confirmed_entry = fill_price
                 watch_setup.updated_at = current_time
 
-        # 6. Create Domain Event & Notification Outbox in the same transaction
         event_payload = {
             "trade_id": order.id,
             "order_id": order.id,
-            "source": source,
+            "source": getattr(order, "execution_mode", source) or source,
+            "execution_mode": getattr(order, "execution_mode", "AUTO"),
+            "origin": getattr(order, "origin", "UNKNOWN"),
             "direction": order.direction,
             "strategy_family": getattr(order, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC",
             "actual_entry": fill_price,
@@ -165,6 +199,8 @@ class TradeLifecycleService:
             "stop_loss": order.stop_loss,
             "take_profit": order.take_profit,
             "initial_risk_usdt": order.initial_risk_usdt,
+            "arm_decision_snapshot": getattr(order, "arm_decision_snapshot", None),
+            "fill_decision_snapshot": getattr(order, "fill_decision_snapshot", None),
             "estimated_net_rr": order.estimated_net_rr,
             "leverage": order.leverage,
             "margin_mode": order.margin_mode,
@@ -238,6 +274,7 @@ class TradeLifecycleService:
         exit_price: float,
         exit_cause: str,
         occurred_at: Optional[int] = None,
+        now_ms: Optional[int] = None,
         clock: Optional[IClock] = None,
         date_str: Optional[str] = None,
         session_tag: str = "LIVE_PAPER",
@@ -252,7 +289,7 @@ class TradeLifecycleService:
         - Creates DomainEvent and NotificationOutbox (TP_HIT, SL_HIT, MANUAL_CLOSED, LIQUIDATED).
         - Commits in ONE single atomic transaction.
         """
-        current_time = occurred_at or (clock.now_ms() if clock else int(time.time() * 1000))
+        current_time = occurred_at or now_ms or (clock.now_ms() if clock else int(time.time() * 1000))
 
         order = db.query(models.PaperOrder).filter(
             models.PaperOrder.id == order_id,

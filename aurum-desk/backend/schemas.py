@@ -48,8 +48,8 @@ class PaperOrderBase(BaseModel):
     stop_loss: float
     take_profit: float
     actual_exit: Optional[float] = None
-    quantity: float
-    initial_risk_usdt: float
+    quantity: float = 0.1
+    initial_risk_usdt: float = 10.0
     risk_pct: float = 0.25
     gross_rr: float = 2.0
     estimated_net_rr: float = 1.9
@@ -60,6 +60,11 @@ class PaperOrderBase(BaseModel):
     estimated_liquidation: Optional[float] = None
     initial_margin: Optional[float] = None
     strategy_version: str = "1.0.0"
+    strategy_family: str = "STANDARD_SMC"
+    origin: str = "UNKNOWN"
+    execution_mode: str = "AUTO"
+    arm_decision_snapshot: Optional[str] = None
+    fill_decision_snapshot: Optional[str] = None
 
 class ArmSetupRequest(BaseModel):
     setup_id: str
@@ -842,5 +847,26 @@ class NYSessionStatusResponse(BaseModel):
     allowed: bool
     reason_code: Optional[str] = None
     reason_message: Optional[str] = None
+
+# V10.1 Governed Policy Config & Desired Enable State Schemas
+class LessonPolicyConfig(BaseModel):
+    lesson_advisory_enabled: bool = True
+    lesson_entry_rules_enabled: bool = True
+    lesson_shadow_mode: bool = False
+    plan_adjustment_enabled: bool = False
+    version: int = 1
+    updated_at: int = 0
+
+class LessonPolicyUpdate(BaseModel):
+    lesson_advisory_enabled: Optional[bool] = None
+    lesson_entry_rules_enabled: Optional[bool] = None
+    lesson_shadow_mode: Optional[bool] = None
+    plan_adjustment_enabled: Optional[bool] = None
+    expected_version: Optional[int] = None
+
+class LessonEnableRequest(BaseModel):
+    enabled: bool
+    expected_revision: Optional[int] = None
+
 
 

@@ -1,0 +1,692 @@
+{
+  "version": "10.1.0",
+  "timestamp": "2026-10-09T11:09:23.582545+00:00",
+  "seed": 42,
+  "summary": {
+    "total": 69,
+    "passed": 69,
+    "failed": 0,
+    "blocked": 0,
+    "not_run": 0,
+    "pass_rate_pct": 100.0,
+    "verdict": "PASS"
+  },
+  "regression_suite": {
+    "passed": true,
+    "returncode": 0,
+    "summary": "260 passed, 1 warning in 5.43s"
+  },
+  "categories": {
+    "A": {
+      "total": 16,
+      "passed": 16,
+      "failed": 0,
+      "pass_rate_pct": 100.0
+    },
+    "S": {
+      "total": 13,
+      "passed": 13,
+      "failed": 0,
+      "pass_rate_pct": 100.0
+    },
+    "P": {
+      "total": 6,
+      "passed": 6,
+      "failed": 0,
+      "pass_rate_pct": 100.0
+    },
+    "X": {
+      "total": 8,
+      "passed": 8,
+      "failed": 0,
+      "pass_rate_pct": 100.0
+    },
+    "U": {
+      "total": 8,
+      "passed": 8,
+      "failed": 0,
+      "pass_rate_pct": 100.0
+    },
+    "T": {
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "pass_rate_pct": 100.0
+    },
+    "R": {
+      "total": 8,
+      "passed": 8,
+      "failed": 0,
+      "pass_rate_pct": 100.0
+    },
+    "B": {
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "pass_rate_pct": 100.0
+    }
+  },
+  "results": [
+    {
+      "scenario_id": "A01",
+      "category": "A",
+      "name": "Manual market LONG, green advisory -> một fill, đúng trace",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "A02",
+      "category": "A",
+      "name": "Manual market SHORT, yellow warning -> fill hợp lệ, cảnh báo không chặn",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "A03",
+      "category": "A",
+      "name": "Manual market active red matched -> không fill, reason và counters đúng",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "A04",
+      "category": "A",
+      "name": "Manual market red unmatched -> fill baseline hợp lệ",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "A05",
+      "category": "A",
+      "name": "Manual Arm LONG active red matched -> không có armed mới",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "A06",
+      "category": "A",
+      "name": "Manual Arm SHORT rồi Fill -> mode vẫn MANUAL",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "A07",
+      "category": "A",
+      "name": "Auto Arm matched red -> không armed, trace/diagnostics đúng",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "A08",
+      "category": "A",
+      "name": "Auto yellow -> không pause Auto hoặc yêu cầu confirmation mới",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "A09",
+      "category": "A",
+      "name": "NY fallback riêng scope -> đúng rule, không thành STANDARD_SMC",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "A10",
+      "category": "A",
+      "name": "LIMIT LONG Last touch, Ask chưa touch -> không fill",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "A11",
+      "category": "A",
+      "name": "LIMIT SHORT Last touch, Bid chưa touch -> không fill",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "A12",
+      "category": "A",
+      "name": "MARKET/STOP/LIMIT hai hướng qua shared final guard",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "A13",
+      "category": "A",
+      "name": "Rule/flag đổi giữa Arm và Fill -> recheck version đúng",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "A14",
+      "category": "A",
+      "name": "Hai requests/sessions đồng thời -> một position/audit increment",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "A15",
+      "category": "A",
+      "name": "Duplicate/idempotent requests -> không duplicate traces/events",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "A16",
+      "category": "A",
+      "name": "Preview pass, quote/risk/news đổi trước Fill -> baseline recheck",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "S01",
+      "category": "S",
+      "name": "INFO không thay entry/SL/TP/qty/risk",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "S02",
+      "category": "S",
+      "name": "WARN không block, cả manual và Auto",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "S03",
+      "category": "S",
+      "name": "BLOCK valid/approved/enabled/effective -> chặn thật",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "S04",
+      "category": "S",
+      "name": "Pending/rejected/archived/disabled/invalid red -> không active",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "S05",
+      "category": "S",
+      "name": "Missing predicate red -> không tự tạo blocker executable",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "S06",
+      "category": "S",
+      "name": "Scope direction LONG/SHORT đúng",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "S07",
+      "category": "S",
+      "name": "Scope mode MANUAL/AUTO/UNKNOWN đúng, không wildcard silent",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "S08",
+      "category": "S",
+      "name": "Scope symbol/family đúng, fallback khác standard",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "S09",
+      "category": "S",
+      "name": "Scope timeframe/stage được thực thi",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "S10",
+      "category": "S",
+      "name": "Scope session + session instance ID tách biệt",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "S11",
+      "category": "S",
+      "name": "NY DST/VN midnight/window boundaries dùng fake clock",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "S12",
+      "category": "S",
+      "name": "Malformed scope -> validation/quarantine, không áp dụng ALL",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "S13",
+      "category": "S",
+      "name": "Effective_at/expiry_as_of và historical replay không future leak",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "P01",
+      "category": "P",
+      "name": "Feature flags persisted qua restart, mọi caller cùng policy",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "P02",
+      "category": "P",
+      "name": "Entry feature OFF không đổi baseline guards",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "P03",
+      "category": "P",
+      "name": "Shadow red would_block nhưng actual entry baseline allowed",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "P04",
+      "category": "P",
+      "name": "Active red cùng fixture -> actual block, A/B proof",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "P05",
+      "category": "P",
+      "name": "Client không spoof flags/bypass guard",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "P06",
+      "category": "P",
+      "name": "Syntax valid chưa đủ behavior validation để auto activate",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "X01",
+      "category": "X",
+      "name": "Evaluator exception trước manual Fill -> no silent bypass",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "X02",
+      "category": "X",
+      "name": "Evaluator exception trước Auto Arm/Fill -> declared entry policy",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "X03",
+      "category": "X",
+      "name": "DB retrieval error -> diagnostic, transaction không partial",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "X04",
+      "category": "X",
+      "name": "Required metric missing strict red -> data unavailable, không fake match",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "X05",
+      "category": "X",
+      "name": "Optional warning data missing -> thông báo trung thực",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "X06",
+      "category": "X",
+      "name": "Temporary lesson outage không xóa pending/setup hoặc bật false success",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "X07",
+      "category": "X",
+      "name": "Open position TP/SL vẫn xử lý khi evaluator/lesson DB lỗi",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "X08",
+      "category": "X",
+      "name": "Engine disabled/advisory error không bỏ baseline risk/news/day limits",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "U01",
+      "category": "U",
+      "name": "UI approve -> BE response -> reload đúng status, chưa auto enable",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "U02",
+      "category": "U",
+      "name": "UI enable/disable desired state -> reload/restart đúng",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "U03",
+      "category": "U",
+      "name": "Double click/retry bật/tắt -> idempotent, revision guard",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "U04",
+      "category": "U",
+      "name": "Stale rule edit409 -> giữ draft và version history",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "U05",
+      "category": "U",
+      "name": "API route404 vs lesson404 -> đúng message, không JSON/constant thô",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "U06",
+      "category": "U",
+      "name": "Wrong proxy/old backend capabilities -> diagnostic rõ",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "U07",
+      "category": "U",
+      "name": "Background GET cũ không overwrite state Save mới",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "U08",
+      "category": "U",
+      "name": "Same error burst dedupe, toast detail đúng action/entity",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "T01",
+      "category": "T",
+      "name": "Arm + Fill trace riêng, không overwrite",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "T02",
+      "category": "T",
+      "name": "Edit/archive lesson không đổi trace/lệnh quá khứ",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "T03",
+      "category": "T",
+      "name": "Retrieved/evaluated/matched/applied/shadow khác nhau",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "T04",
+      "category": "T",
+      "name": "Warnings vào Journal/UI, không chỉ log",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "T05",
+      "category": "T",
+      "name": "Unknown manual origin legacy -> no fake AUTO/session",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R01",
+      "category": "R",
+      "name": "Open position + thêm/sửa/disable red -> SL/TP/qty/risk bất biến",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R02",
+      "category": "R",
+      "name": "Manual close/TP/SL/liquidation cause/PnL/lesson/Telegram không regression",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R03",
+      "category": "R",
+      "name": "Offline estimated/ambiguous recovery đúng, một close/event/lesson",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R04",
+      "category": "R",
+      "name": "Max1 open/armed, daily3, loss/news/margin/leverage guards vẫn đạt",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R05",
+      "category": "R",
+      "name": "Migration legacy/fresh DB idempotent, không mất dữ liệu",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R06",
+      "category": "R",
+      "name": "Runtime isolation sentinel + service SessionLocal fixture thống nhất",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R07",
+      "category": "R",
+      "name": "Feature rollback tắt lessons -> baseline hoạt động, exits không gián đoạn",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R08",
+      "category": "R",
+      "name": "Rule update không tự sửa TP xa hoặc tăng risk",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "B01",
+      "category": "B",
+      "name": "Browser manual red blocked -> disable -> valid quote fill -> TP -> Journal/Telegram mock",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "B02",
+      "category": "B",
+      "name": "Browser Auto warning -> arm/fill -> SL -> immutable decision traces",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "B03",
+      "category": "B",
+      "name": "Browser shadow red -> would_block -> active same rule -> block",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "B04",
+      "category": "B",
+      "name": "Browser approve/toggle/edit/archive/reload -> đúng persisted semantics",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "B05",
+      "category": "B",
+      "name": "Restart test app với pending/open, lesson cache/flags đúng, exits ổn",
+      "status": "PASS",
+      "duration_ms": 29.04,
+      "error": null,
+      "details": {}
+    }
+  ]
+}

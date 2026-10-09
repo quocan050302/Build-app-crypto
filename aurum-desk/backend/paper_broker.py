@@ -135,6 +135,35 @@ class PaperBroker:
         db_order.margin_mode = calc_result.margin_mode
         db_order.estimated_liquidation = calc_result.estimated_liquidation
         db_order.initial_margin = calc_result.initial_margin_usdt
+        db_order.origin = "MANUAL_WEB"
+        db_order.execution_mode = "MANUAL"
+
+        # V10.1 Governed Lesson Rules Evaluation (BEFORE_FILL for Manual Market Entry)
+        from services.entry_decision_service import EntryDecisionService
+        fill_context = EntryDecisionService.build_context(
+            stage="BEFORE_FILL",
+            symbol=order_create.instrument or "XAUUSDT",
+            direction=order_create.direction,
+            strategy_family="STANDARD_SMC",
+            timeframe="15M",
+            execution_mode="MANUAL",
+            origin="MANUAL_WEB",
+            order_type="MARKET",
+            planned_entry=actual_entry,
+            stop_loss=order_create.stop_loss,
+            take_profit=order_create.take_profit,
+            net_rr=calc_result.net_rr,
+            gross_rr=calc_result.gross_rr,
+            bid=current_bid,
+            ask=current_ask,
+            order_id=order_id
+        )
+        decision = EntryDecisionService.evaluate_entry_rules(db, fill_context)
+        EntryDecisionService.record_stage_decision(db_order, "BEFORE_FILL", decision)
+
+        if not decision["can_proceed"]:
+            block_msg = decision["blocking_reasons"][0] if decision["blocking_reasons"] else "Quy tắc bài học chặn vào lệnh thị trường"
+            raise ValueError(f"LESSON_RULE_BLOCKED: {block_msg}")
 
         from services.trade_lifecycle_service import TradeLifecycleService
         return TradeLifecycleService.execute_fill(

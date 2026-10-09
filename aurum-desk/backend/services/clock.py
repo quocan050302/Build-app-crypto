@@ -50,3 +50,4 @@ class ReplayClock(IClock):
 
 # Default system singleton clock
 live_clock = LiveClock()
+FakeClock = ReplayClock
