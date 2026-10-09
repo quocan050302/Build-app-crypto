@@ -144,18 +144,19 @@ def generate_research_report(
 
     report = models.ResearchReport(
         created_at=now_ms,
-        title=f"Phân Tích XAUUSDT {session_info['vn_time']}",
         report_type=report_type,
-        session=session_name,
-        htf_bias=htf_bias,
+        session_name=session_name,
+        d_4h_bias=htf_bias,
         h1_alignment=h1_align,
-        current_price=curr_p,
-        atr=atr,
-        swing_high=sh,
-        swing_low=sl,
-        equilibrium=smc_res["equilibrium"],
+        m15_pois=json.dumps(smc_res.get("active_fvgs", [])),
+        liquidity_levels=json.dumps({
+            "swing_high": sh,
+            "swing_low": sl,
+            "equilibrium": smc_res["equilibrium"]
+        }),
+        scenarios=json.dumps(scenarios),
         content_markdown=markdown_content,
-        scenarios_json=json.dumps(scenarios)
+        strategy_version="1.0.0"
     )
     db.add(report)
     db.commit()

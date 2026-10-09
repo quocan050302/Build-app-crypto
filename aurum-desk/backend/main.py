@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from typing import List, Optional, Dict, Any
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query, Body, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -1429,6 +1429,7 @@ async def import_news_calendar(file: UploadFile = File(...), db: Session = Depen
 
 
 @app.get("/api/v1/reports")
+@app.get("/api/reports")
 def get_reports(limit: int = 5, db: Session = Depends(get_db)):
     reports = crud.get_latest_reports(db, limit)
     session_info = get_current_session_info()
@@ -1436,8 +1437,21 @@ def get_reports(limit: int = 5, db: Session = Depends(get_db)):
 
 
 @app.post("/api/v1/reports/generate")
-def create_report(report_type: str = "SESSION_REPORT", db: Session = Depends(get_db)):
-    report = generate_research_report(db, report_type)
+@app.post("/api/v1/reports/generate/")
+@app.post("/api/v1/reports")
+@app.post("/api/v1/reports/")
+@app.post("/api/v1/reports/create")
+@app.post("/api/v1/reports/new")
+@app.post("/api/reports/generate")
+@app.post("/api/reports")
+@app.get("/api/v1/reports/generate")
+def create_report(
+    report_type: Optional[str] = Query(None),
+    payload: Optional[schemas.ReportGeneratePayload] = Body(None),
+    db: Session = Depends(get_db)
+):
+    effective_type = (payload.report_type if payload and payload.report_type else None) or report_type or "SESSION_REPORT"
+    report = generate_research_report(db, effective_type)
     return {
         "status": "success",
         "report_id": report.id,

@@ -379,6 +379,10 @@ class NewsBlackoutStatus(BaseModel):
     remaining_minutes: int = 0
 
 # Research Reports
+class ReportGeneratePayload(BaseModel):
+    report_type: Optional[str] = "SESSION_REPORT"
+
+
 class ResearchReportResponse(BaseModel):
     id: int
     report_type: str
