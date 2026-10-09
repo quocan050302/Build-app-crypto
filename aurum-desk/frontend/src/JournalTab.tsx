@@ -13,6 +13,10 @@ import {
   Brain,
   Sliders,
   Sparkles,
+  ShieldAlert,
+  AlertTriangle,
+  Info,
+  Power,
 } from 'lucide-react';
 import {
   api,
@@ -78,6 +82,19 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
   const [editingLessonId, setEditingLessonId] = useState<number | null>(null);
   const [editActionRule, setEditActionRule] = useState<string>('');
   const [isUpdatingLesson, setIsUpdatingLesson] = useState(false);
+
+  // V10 Structured Rule Editor Modal State
+  const [structuredModalLesson, setStructuredModalLesson] = useState<LessonItem | null>(null);
+  const [ruleSeverity, setRuleSeverity] = useState<'INFO' | 'WARNING' | 'CRITICAL'>('INFO');
+  const [ruleEffect, setRuleEffect] = useState<'ANNOTATE' | 'WARN_ENTRY' | 'BLOCK_ENTRY' | 'PROPOSE_PLAN_ADJUSTMENT'>('ANNOTATE');
+  const [ruleMetric, setRuleMetric] = useState<string>('spread');
+  const [ruleOperator, setRuleOperator] = useState<string>('>=');
+  const [ruleThreshold, setRuleThreshold] = useState<string>('0.40');
+  const [ruleActionRule, setRuleActionRule] = useState<string>('');
+  const [ruleValidationResult, setRuleValidationResult] = useState<{ is_valid: boolean; status: string; message: string; report: any } | null>(null);
+  const [isValidatingPredicate, setIsValidatingPredicate] = useState(false);
+  const [isSavingRule, setIsSavingRule] = useState(false);
+  const [ruleSaveError, setRuleSaveError] = useState<string | null>(null);
 
   // Load Journal paginated
   const loadJournal = useCallback(async () => {
@@ -308,6 +325,123 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
       }
     } finally {
       setIsUpdatingLesson(false);
+    }
+  };
+
+  // V10: Toggle Enable Lesson Rule
+  const handleToggleEnable = async (lessonId: number) => {
+    setIsUpdatingLesson(true);
+    try {
+      const updated = await api.toggleLessonEnable(lessonId);
+      if (showToast) {
+        showToast('Quy Tắc Bài Học', `Đã ${updated.enabled ? 'bật' : 'tắt'} áp dụng quy tắc #${lessonId}.`, 'info');
+      }
+      loadLessons();
+    } catch (err) {
+      if (showToast) {
+        showToast('Lỗi', extractErrorMessage(err, 'Lỗi khi bật/tắt quy tắc'), 'warn');
+      }
+    } finally {
+      setIsUpdatingLesson(false);
+    }
+  };
+
+  // V10: Open Structured Rule Editor
+  const handleOpenRuleEditor = (ls: LessonItem) => {
+    setStructuredModalLesson(ls);
+    setRuleSeverity(ls.severity || 'INFO');
+    setRuleEffect(ls.effect || 'ANNOTATE');
+    setRuleActionRule(ls.action_rule || '');
+    setRuleValidationResult(null);
+    setRuleSaveError(null);
+
+    if (ls.predicate) {
+      try {
+        const pred = typeof ls.predicate === 'string' ? JSON.parse(ls.predicate) : ls.predicate;
+        if (pred?.metric) setRuleMetric(pred.metric);
+        if (pred?.operator) setRuleOperator(pred.operator);
+        if (pred?.threshold !== undefined) setRuleThreshold(String(pred.threshold));
+        else if (pred?.values) setRuleThreshold(pred.values.join(', '));
+      } catch (e) {
+        setRuleMetric('spread');
+        setRuleOperator('>=');
+        setRuleThreshold('0.40');
+      }
+    } else {
+      setRuleMetric('spread');
+      setRuleOperator('>=');
+      setRuleThreshold('0.40');
+    }
+  };
+
+  // V10: Live Validate Predicate
+  const handleValidatePredicate = async () => {
+    setIsValidatingPredicate(true);
+    setRuleValidationResult(null);
+    setRuleSaveError(null);
+    try {
+      let predObj: any = null;
+      if (ruleSeverity !== 'INFO') {
+        const val = parseFloat(ruleThreshold);
+        predObj = {
+          metric: ruleMetric,
+          operator: ruleOperator,
+          threshold: isNaN(val) ? 0.40 : val
+        };
+      }
+      const res = await api.validatePredicate({
+        predicate: predObj,
+        severity: ruleSeverity,
+        effect: ruleEffect
+      });
+      setRuleValidationResult(res);
+    } catch (err: any) {
+      setRuleValidationResult({
+        is_valid: false,
+        status: 'INVALID',
+        message: extractErrorMessage(err, 'Lỗi kiểm tra điều kiện'),
+        report: {}
+      });
+    } finally {
+      setIsValidatingPredicate(false);
+    }
+  };
+
+  // V10: Save Structured Rule with Optimistic Locking
+  const handleSaveStructuredRule = async () => {
+    if (!structuredModalLesson) return;
+    setIsSavingRule(true);
+    setRuleSaveError(null);
+    try {
+      let predObj: any = null;
+      if (ruleSeverity !== 'INFO') {
+        const val = parseFloat(ruleThreshold);
+        predObj = {
+          metric: ruleMetric,
+          operator: ruleOperator,
+          threshold: isNaN(val) ? 0.40 : val
+        };
+      }
+      await api.updateLesson(structuredModalLesson.id, {
+        severity: ruleSeverity,
+        effect: ruleEffect,
+        predicate: predObj ? JSON.stringify(predObj) : null,
+        action_rule: ruleActionRule.trim() || structuredModalLesson.action_rule,
+        revision: structuredModalLesson.revision
+      });
+      if (showToast) {
+        showToast('Quy Tắc Bài Học', `Đã cập nhật quy tắc #${structuredModalLesson.id}. Phiên bản mới đã được lưu.`, 'success');
+      }
+      setStructuredModalLesson(null);
+      loadLessons();
+    } catch (err: any) {
+      if (err.response?.status === 409) {
+        setRuleSaveError('Xung đột phiên bản (409 Conflict): Quy tắc đã được chỉnh sửa ở phiên khác. Vui lòng đóng và mở lại.');
+      } else {
+        setRuleSaveError(extractErrorMessage(err, 'Lỗi khi lưu quy tắc bài học'));
+      }
+    } finally {
+      setIsSavingRule(false);
     }
   };
 
@@ -748,10 +882,12 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
           <div>
             <h3 className="font-bold text-aurum-400 flex items-center gap-2">
               <Brain className="w-4 h-4 text-aurum-400" />
-              Bộ Nhớ Bài Học & Quy Tắc Quản Trị Chiến Lược (Lesson Governance)
+              Bộ Nhớ Bài Học & Quy Tắc Quản Trị Chiến Lược (V10 Lesson Governance)
             </h3>
             <p className="text-[11px] text-gray-400">
-              Chỉ những bài học được bạn bấm <strong>Duyệt (Approve)</strong> mới được nạp vào memory chiến lược để lọc tín hiệu.
+              Phân loại 3 màu: <span className="text-emerald-400 font-semibold">Xanh (Tham khảo)</span> ·{' '}
+              <span className="text-amber-400 font-semibold">Vàng (Cảnh báo trước Entry)</span> ·{' '}
+              <span className="text-rose-400 font-semibold">Đỏ (Chặn Entry có cấu trúc)</span>. Bài học cần được duyệt và bật mới có hiệu lực.
             </p>
           </div>
 
@@ -761,6 +897,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
               { id: 'PENDING_REVIEW', label: 'Chờ Duyệt' },
               { id: 'APPROVED', label: 'Đã Duyệt' },
               { id: 'REJECTED', label: 'Từ Chối' },
+              { id: 'ARCHIVED', label: 'Lưu Trữ' },
               { id: 'ALL', label: 'Tất Cả' },
             ].map((tab) => (
               <button
@@ -786,137 +923,268 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
           </p>
         ) : (
           <div className="space-y-3">
-            {lessons.map((ls) => (
-              <div
-                key={ls.id}
-                className="bg-charcoal-900 p-3.5 rounded-lg border border-charcoal-750 flex flex-col gap-2"
-              >
-                <div className="flex flex-wrap justify-between items-start gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-gray-200 text-xs">{ls.title}</span>
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                        ls.status === 'APPROVED'
-                          ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
-                          : ls.status === 'PENDING_REVIEW'
-                          ? 'bg-amber-950 text-amber-300 border-amber-700'
-                          : 'bg-charcoal-800 text-gray-400 border-charcoal-700'
-                      }`}
-                    >
-                      {ls.status === 'APPROVED'
-                        ? 'ĐÃ DUYỆT (ACTIVE MEMORY)'
-                        : ls.status === 'PENDING_REVIEW'
-                        ? 'CHỜ BẠN DUYỆT'
-                        : 'TỪ CHỐI'}
-                    </span>
-                    {ls.category && (
-                      <span className="px-1.5 py-0.5 rounded bg-charcoal-800 text-indigo-300 text-[10px] font-mono">
-                        {ls.category}
-                      </span>
-                    )}
-                  </div>
-                  {ls.related_trade_id && (
-                    <span className="text-[10px] text-gray-500 font-mono">
-                      Liên kết Trade: #{ls.related_trade_id}
-                    </span>
-                  )}
-                </div>
+            {lessons.map((ls) => {
+              const isCritical = ls.severity === 'CRITICAL';
+              const isWarning = ls.severity === 'WARNING';
+              const isApproved = ls.status === 'APPROVED';
+              const isValid = ls.validation_status === 'VALID';
 
-                {ls.hypothesis && (
-                  <p className="text-[11px] text-gray-400">
-                    <strong className="text-gray-300">Giả thuyết phân tích:</strong> {ls.hypothesis}
-                  </p>
-                )}
+              return (
+                <div
+                  key={ls.id}
+                  className="bg-charcoal-900 p-3.5 rounded-lg border border-charcoal-750 flex flex-col gap-2.5"
+                >
+                  <div className="flex flex-wrap justify-between items-start gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-gray-200 text-xs">{ls.title}</span>
 
-                {/* Action rule */}
-                <div className="bg-charcoal-850 p-2.5 rounded border border-charcoal-700 text-[11px]">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="font-bold text-aurum-400 flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5 text-aurum-400" />
-                      Quy Tắc Hành Động (Action Rule):
-                    </span>
-                    {editingLessonId !== ls.id && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingLessonId(ls.id);
-                          setEditActionRule(ls.action_rule);
-                        }}
-                        className="text-[10px] text-indigo-400 hover:text-indigo-300 underline"
+                      {/* 3-Color Badge */}
+                      {isCritical ? (
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 ${
+                            isApproved && ls.enabled && isValid
+                              ? 'bg-rose-950 text-rose-300 border-rose-700'
+                              : isApproved && ls.enabled && !isValid
+                              ? 'bg-amber-950 text-amber-300 border-amber-800'
+                              : isApproved && !ls.enabled
+                              ? 'bg-charcoal-800 text-rose-300/60 border-charcoal-700'
+                              : 'bg-rose-950/50 text-rose-300 border-rose-900'
+                          }`}
+                        >
+                          <ShieldAlert className="w-3 h-3 text-rose-400" />
+                          <span>
+                            {isApproved && ls.enabled && isValid
+                              ? 'ĐỎ: ĐANG CHẶN ENTRY'
+                              : isApproved && ls.enabled && !isValid
+                              ? 'ĐỎ: CHƯA THỂ ÁP DỤNG'
+                              : isApproved && !ls.enabled
+                              ? 'ĐỎ: ĐÃ TẮT CHẶN'
+                              : 'ĐỎ: QUY TẮC HẠN CHẾ'}
+                          </span>
+                        </span>
+                      ) : isWarning ? (
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 ${
+                            isApproved && ls.enabled
+                              ? 'bg-amber-950 text-amber-300 border-amber-700'
+                              : isApproved && !ls.enabled
+                              ? 'bg-charcoal-800 text-amber-300/60 border-charcoal-700'
+                              : 'bg-amber-950/50 text-amber-300 border-amber-900'
+                          }`}
+                        >
+                          <AlertTriangle className="w-3 h-3 text-amber-400" />
+                          <span>
+                            {isApproved && ls.enabled
+                              ? 'VÀNG: ĐANG CẢNH BÁO'
+                              : isApproved && !ls.enabled
+                              ? 'VÀNG: ĐÃ TẮT CẢNH BÁO'
+                              : 'VÀNG: CẢNH BÁO ENTRY'}
+                          </span>
+                        </span>
+                      ) : (
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 ${
+                            isApproved
+                              ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                              : 'bg-charcoal-800 text-emerald-400/70 border-charcoal-700'
+                          }`}
+                        >
+                          <Info className="w-3 h-3 text-emerald-400" />
+                          <span>{isApproved ? 'XANH: CHỈ THAM KHẢO' : 'XANH: THAM KHẢO'}</span>
+                        </span>
+                      )}
+
+                      {/* Approval Status Badge */}
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                          ls.status === 'APPROVED'
+                            ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
+                            : ls.status === 'PENDING_REVIEW'
+                            ? 'bg-amber-950/60 text-amber-300 border-amber-800'
+                            : ls.status === 'ARCHIVED'
+                            ? 'bg-charcoal-800 text-gray-400 border-charcoal-700'
+                            : 'bg-rose-950/60 text-rose-300 border-rose-800'
+                        }`}
                       >
-                        Sửa quy tắc
-                      </button>
+                        {ls.status === 'APPROVED'
+                          ? 'ĐÃ DUYỆT'
+                          : ls.status === 'PENDING_REVIEW'
+                          ? 'CHỜ DUYỆT'
+                          : ls.status === 'ARCHIVED'
+                          ? 'LƯU TRỮ'
+                          : 'TỪ CHỐI'}
+                      </span>
+
+                      {ls.category && (
+                        <span className="px-1.5 py-0.5 rounded bg-charcoal-800 text-indigo-300 text-[10px] font-mono">
+                          {ls.category}
+                        </span>
+                      )}
+
+                      <span className="text-[10px] text-gray-500 font-mono">
+                        v{ls.version || 1} (rev #{ls.revision || 0})
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {isApproved && (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleEnable(ls.id)}
+                          disabled={isUpdatingLesson}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold border transition ${
+                            ls.enabled
+                              ? 'bg-aurum-500/20 text-aurum-300 border-aurum-600 hover:bg-aurum-500/30'
+                              : 'bg-charcoal-800 text-gray-400 border-charcoal-700 hover:text-gray-200'
+                          }`}
+                          title={ls.enabled ? 'Nhấn để tắt quy tắc' : 'Nhấn để bật quy tắc'}
+                        >
+                          <Power className={`w-3 h-3 ${ls.enabled ? 'text-aurum-400' : 'text-gray-500'}`} />
+                          <span>{ls.enabled ? '● Đang Bật' : '○ Đã Tắt'}</span>
+                        </button>
+                      )}
+
+                      {ls.related_trade_id && (
+                        <span className="text-[10px] text-gray-500 font-mono">
+                          Lệnh #{ls.related_trade_id}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {ls.hypothesis && (
+                    <p className="text-[11px] text-gray-400">
+                      <strong className="text-gray-300">Giả thuyết phân tích:</strong> {ls.hypothesis}
+                    </p>
+                  )}
+
+                  {/* Predicate & Scope preview if configured */}
+                  {ls.predicate && (
+                    <div className="bg-charcoal-850 p-2 rounded border border-charcoal-750 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400">Điều kiện kỹ thuật:</span>
+                        <code className="text-aurum-300 font-mono bg-charcoal-900 px-1.5 py-0.5 rounded border border-charcoal-700">
+                          {typeof ls.predicate === 'string' ? ls.predicate : JSON.stringify(ls.predicate)}
+                        </code>
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                            isValid
+                              ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                              : 'bg-rose-950 text-rose-300 border-rose-800'
+                          }`}
+                        >
+                          {isValid ? 'HỢP LỆ' : 'CHƯA ĐỦ ĐIỀU KIỆN'}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-gray-500">
+                        Stage: {ls.stage || 'BEFORE_ARM'} · Scope: {typeof ls.scope === 'object' ? JSON.stringify(ls.scope) : ls.scope || 'ALL'}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Action rule text */}
+                  <div className="bg-charcoal-850 p-2.5 rounded border border-charcoal-700 text-[11px]">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-bold text-aurum-400 flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-aurum-400" />
+                        Nội Dung Quy Tắc (Action Rule):
+                      </span>
+                      {editingLessonId !== ls.id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingLessonId(ls.id);
+                            setEditActionRule(ls.action_rule);
+                          }}
+                          className="text-[10px] text-indigo-400 hover:text-indigo-300 underline"
+                        >
+                          Sửa ghi chú
+                        </button>
+                      )}
+                    </div>
+
+                    {editingLessonId === ls.id ? (
+                      <div className="space-y-2 mt-1">
+                        <textarea
+                          value={editActionRule}
+                          onChange={(e) => setEditActionRule(e.target.value)}
+                          rows={2}
+                          className="w-full bg-charcoal-900 border border-charcoal-700 rounded p-2 text-xs text-gray-200 focus:outline-none focus:border-aurum-500"
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setEditingLessonId(null)}
+                            className="px-2 py-0.5 bg-charcoal-800 text-gray-400 rounded text-[10px]"
+                          >
+                            Hủy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEditActionRule(ls.id)}
+                            disabled={isUpdatingLesson}
+                            className="px-2.5 py-0.5 bg-aurum-500 text-charcoal-950 font-bold rounded text-[10px]"
+                          >
+                            Lưu Ghi Chú
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-gray-200 font-medium italic">{ls.action_rule}</p>
                     )}
                   </div>
 
-                  {editingLessonId === ls.id ? (
-                    <div className="space-y-2 mt-1">
-                      <textarea
-                        value={editActionRule}
-                        onChange={(e) => setEditActionRule(e.target.value)}
-                        rows={2}
-                        className="w-full bg-charcoal-900 border border-charcoal-700 rounded p-2 text-xs text-gray-200 focus:outline-none focus:border-aurum-500"
-                      />
-                      <div className="flex gap-2 justify-end">
-                        <button
-                          type="button"
-                          onClick={() => setEditingLessonId(null)}
-                          className="px-2 py-0.5 bg-charcoal-800 text-gray-400 rounded text-[10px]"
-                        >
-                          Hủy
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSaveEditActionRule(ls.id)}
-                          disabled={isUpdatingLesson}
-                          className="px-2.5 py-0.5 bg-aurum-500 text-charcoal-950 font-bold rounded text-[10px]"
-                        >
-                          Lưu
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-gray-200 font-medium italic">{ls.action_rule}</p>
-                  )}
-                </div>
+                  {/* Governance buttons */}
+                  <div className="flex flex-wrap justify-between items-center gap-2 pt-1 border-t border-charcoal-800">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenRuleEditor(ls)}
+                      className="flex items-center gap-1 px-3 py-1 bg-charcoal-800 hover:bg-charcoal-700 text-aurum-300 border border-charcoal-700 rounded text-[11px] font-semibold transition"
+                    >
+                      <Sliders className="w-3.5 h-3.5 text-aurum-400" />
+                      <span>Cấu Hình Quy Tắc (V10)</span>
+                    </button>
 
-                {/* Governance buttons */}
-                <div className="flex justify-end gap-2 pt-1">
-                  {ls.status !== 'APPROVED' && (
-                    <button
-                      type="button"
-                      onClick={() => handleApproveLesson(ls.id)}
-                      disabled={isUpdatingLesson}
-                      className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-semibold transition"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Duyệt Bài Học (Nạp Memory)</span>
-                    </button>
-                  )}
-                  {ls.status !== 'REJECTED' && (
-                    <button
-                      type="button"
-                      onClick={() => handleRejectLesson(ls.id)}
-                      disabled={isUpdatingLesson}
-                      className="flex items-center gap-1 px-3 py-1 bg-charcoal-800 hover:bg-rose-900/60 text-gray-300 hover:text-rose-300 rounded text-[11px] font-semibold transition"
-                    >
-                      <XCircle className="w-3.5 h-3.5" />
-                      <span>Từ Chối</span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleArchiveLesson(ls.id)}
-                    disabled={isUpdatingLesson}
-                    className="flex items-center gap-1 px-2.5 py-1 bg-charcoal-800 hover:bg-charcoal-700 text-gray-400 rounded text-[11px] transition"
-                    title="Lưu trữ bài học"
-                  >
-                    <Archive className="w-3.5 h-3.5" />
-                    <span>Lưu Trữ</span>
-                  </button>
+                    <div className="flex gap-2">
+                      {ls.status !== 'APPROVED' && (
+                        <button
+                          type="button"
+                          onClick={() => handleApproveLesson(ls.id)}
+                          disabled={isUpdatingLesson}
+                          className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-semibold transition"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Duyệt Bài Học</span>
+                        </button>
+                      )}
+                      {ls.status !== 'REJECTED' && (
+                        <button
+                          type="button"
+                          onClick={() => handleRejectLesson(ls.id)}
+                          disabled={isUpdatingLesson}
+                          className="flex items-center gap-1 px-3 py-1 bg-charcoal-800 hover:bg-rose-900/60 text-gray-300 hover:text-rose-300 rounded text-[11px] font-semibold transition"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Từ Chối</span>
+                        </button>
+                      )}
+                      {ls.status !== 'ARCHIVED' && (
+                        <button
+                          type="button"
+                          onClick={() => handleArchiveLesson(ls.id)}
+                          disabled={isUpdatingLesson}
+                          className="flex items-center gap-1 px-2.5 py-1 bg-charcoal-800 hover:bg-charcoal-700 text-gray-400 rounded text-[11px] transition"
+                          title="Lưu trữ bài học"
+                        >
+                          <Archive className="w-3.5 h-3.5" />
+                          <span>Lưu Trữ</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -1069,6 +1337,85 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                         <span className="text-gray-300 font-medium">Đóng lệnh lúc:</span>{' '}
                         {new Date(selectedTrade.closed_at).toLocaleString('vi-VN')}
                       </div>
+                    )}
+                  </div>
+
+                  {/* V10: Lesson Rules Snapshot Linked to Trade */}
+                  <div className="bg-charcoal-850 p-3 rounded border border-charcoal-750 space-y-2 text-[11px]">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-aurum-400 flex items-center gap-1.5">
+                        <Brain className="w-3.5 h-3.5 text-aurum-400" />
+                        Bài Học & Quy Tắc Quản Trị Tại Thời Điểm Vào Lệnh (Snapshot Trace):
+                      </span>
+                      <span className="text-[10px] text-gray-500">Bất biến lịch sử</span>
+                    </div>
+
+                    {selectedTrade.lessons_retrieved ? (
+                      (() => {
+                        let parsed: any[] = [];
+                        try {
+                          parsed = typeof selectedTrade.lessons_retrieved === 'string'
+                            ? JSON.parse(selectedTrade.lessons_retrieved)
+                            : selectedTrade.lessons_retrieved;
+                        } catch (e) {
+                          parsed = [];
+                        }
+
+                        if (!Array.isArray(parsed) || parsed.length === 0) {
+                          return (
+                            <p className="text-gray-400 italic">
+                              Không có bài học nào được truy xuất tại thời điểm lệnh được tạo.
+                            </p>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-1.5 mt-1">
+                            {parsed.map((item: any, idx: number) => (
+                              <div
+                                key={idx}
+                                className="p-2 rounded bg-charcoal-900 border border-charcoal-700 flex flex-wrap justify-between items-center gap-2"
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <span
+                                    className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                      item.severity === 'CRITICAL'
+                                        ? 'bg-rose-950 text-rose-300 border border-rose-800'
+                                        : item.severity === 'WARNING'
+                                        ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                                        : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                    }`}
+                                  >
+                                    {item.severity || 'INFO'}
+                                  </span>
+                                  <span className="font-mono text-gray-200">
+                                    Quy tắc #{item.lesson_id} (v{item.version || 1})
+                                  </span>
+                                  <span className="text-gray-400">· Tác động: {item.effect}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px]">
+                                  <span
+                                    className={`font-semibold ${
+                                      item.matched ? 'text-amber-400' : 'text-gray-500'
+                                    }`}
+                                  >
+                                    {item.matched ? 'Kích hoạt khớp' : 'Không vi phạm'}
+                                  </span>
+                                  {item.reason_code && (
+                                    <code className="text-gray-400 bg-charcoal-800 px-1 py-0.5 rounded">
+                                      {item.reason_code}
+                                    </code>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <p className="text-gray-500 italic">
+                        Lệnh legacy (trước V10) không có snapshot quy tắc bài học tại thời điểm vào lệnh.
+                      </p>
                     )}
                   </div>
                 </div>
@@ -1304,6 +1651,248 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
           </div>
         </div>
       )}
+
+      {/* V10: Structured Rule Editor Modal */}
+      {structuredModalLesson && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-charcoal-900 border border-charcoal-700 w-full max-w-xl rounded-xl shadow-2xl overflow-hidden flex flex-col text-xs">
+            {/* Modal Header */}
+            <div className="p-4 bg-charcoal-850 border-b border-charcoal-750 flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-gray-100 text-sm flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-aurum-400" />
+                  Cấu Hình Quy Tắc Bài Học #{structuredModalLesson.id}
+                </h3>
+                <p className="text-[11px] text-gray-400 mt-0.5 truncate max-w-md">
+                  {structuredModalLesson.title}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStructuredModalLesson(null)}
+                className="p-1 rounded hover:bg-charcoal-750 text-gray-400 hover:text-gray-200 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* 1. Phân Loại Màu Sắc (Severity & Effect) */}
+              <div className="space-y-2">
+                <label className="font-semibold text-gray-300 block">
+                  1. Mức Độ Tác Động & Phân Loại Màu (V10):
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRuleSeverity('INFO');
+                      setRuleEffect('ANNOTATE');
+                    }}
+                    className={`p-2.5 rounded-lg border text-left transition flex flex-col gap-1 ${
+                      ruleSeverity === 'INFO'
+                        ? 'bg-emerald-950/80 border-emerald-500 text-emerald-200'
+                        : 'bg-charcoal-850 border-charcoal-750 text-gray-400 hover:border-charcoal-650'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                      <Info className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>XANH (Tham Khảo)</span>
+                    </div>
+                    <span className="text-[10px] leading-tight opacity-80">
+                      Ghi chú hiển thị trong kế hoạch, không bao giờ chặn hoặc sửa lệnh.
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRuleSeverity('WARNING');
+                      setRuleEffect('WARN_ENTRY');
+                    }}
+                    className={`p-2.5 rounded-lg border text-left transition flex flex-col gap-1 ${
+                      ruleSeverity === 'WARNING'
+                        ? 'bg-amber-950/80 border-amber-500 text-amber-200'
+                        : 'bg-charcoal-850 border-charcoal-750 text-gray-400 hover:border-charcoal-650'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                      <span>VÀNG (Cảnh Báo)</span>
+                    </div>
+                    <span className="text-[10px] leading-tight opacity-80">
+                      Cảnh báo số liệu thật trước entry, ghi trace nhưng không chặn Auto.
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRuleSeverity('CRITICAL');
+                      setRuleEffect('BLOCK_ENTRY');
+                    }}
+                    className={`p-2.5 rounded-lg border text-left transition flex flex-col gap-1 ${
+                      ruleSeverity === 'CRITICAL'
+                        ? 'bg-rose-950/80 border-rose-500 text-rose-200'
+                        : 'bg-charcoal-850 border-charcoal-750 text-gray-400 hover:border-charcoal-650'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                      <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                      <span>ĐỎ (Chặn Entry)</span>
+                    </div>
+                    <span className="text-[10px] leading-tight opacity-80">
+                      Chặn Arm hoặc Fill mới khi điều kiện cấu trúc vi phạm.
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. Structured Predicate (Only for WARNING and CRITICAL) */}
+              {ruleSeverity !== 'INFO' ? (
+                <div className="bg-charcoal-850 p-3 rounded-lg border border-charcoal-750 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="font-semibold text-gray-300">
+                      2. Điều Kiện Kỹ Thuật Có Cấu Trúc (Predicate Whitelist):
+                    </label>
+                    <span className="text-[10px] text-gray-400">Không hỗ trợ nhập văn bản tự do</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[10px] text-gray-400 block mb-1">Chỉ Số Đánh Giá (Metric):</label>
+                      <select
+                        value={ruleMetric}
+                        onChange={(e) => setRuleMetric(e.target.value)}
+                        className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-2 py-1.5 text-xs text-gray-200"
+                      >
+                        <option value="spread">Spread vàng (pts)</option>
+                        <option value="net_rr">Net R:R tối thiểu (&gt;= 2.0)</option>
+                        <option value="distance_to_entry_atr">Khoảng cách Entry (ATR)</option>
+                        <option value="quote_age_ms">Độ trễ báo giá (ms)</option>
+                        <option value="evidence.sweep_detected">Sweep thanh khoản (Boolean)</option>
+                        <option value="evidence.fvg_found">FVG hợp lệ (Boolean)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-gray-400 block mb-1">Toán Tử (Operator):</label>
+                      <select
+                        value={ruleOperator}
+                        onChange={(e) => setRuleOperator(e.target.value)}
+                        className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-2 py-1.5 text-xs text-gray-200"
+                      >
+                        <option value=">=">&gt;= (Lớn hơn hoặc bằng)</option>
+                        <option value="<=">&lt;= (Nhỏ hơn hoặc bằng)</option>
+                        <option value="==">== (Bằng)</option>
+                        <option value="!=">!= (Khác)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] text-gray-400 block mb-1">Ngưỡng (Threshold):</label>
+                      <input
+                        type="text"
+                        value={ruleThreshold}
+                        onChange={(e) => setRuleThreshold(e.target.value)}
+                        placeholder="vd: 0.40 hoặc 2.0"
+                        className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-2 py-1.5 text-xs text-gray-200 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Live Validation Button */}
+                  <div className="pt-2 flex justify-between items-center border-t border-charcoal-750">
+                    <span className="text-[10px] text-gray-400">
+                      Kiểm định tính hợp lệ và an toàn trước khi lưu
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleValidatePredicate}
+                      disabled={isValidatingPredicate}
+                      className="px-3 py-1 bg-charcoal-800 hover:bg-charcoal-700 text-gray-200 rounded text-[11px] font-medium border border-charcoal-700 transition"
+                    >
+                      {isValidatingPredicate ? 'Đang kiểm tra...' : 'Kiểm Định Quy Tắc'}
+                    </button>
+                  </div>
+
+                  {/* Validation Result Banner */}
+                  {ruleValidationResult && (
+                    <div
+                      className={`p-2.5 rounded text-[11px] border ${
+                        ruleValidationResult.is_valid
+                          ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300'
+                          : 'bg-rose-950/80 border-rose-700 text-rose-300'
+                      }`}
+                    >
+                      <div className="font-bold mb-0.5">
+                        {ruleValidationResult.is_valid ? '✓ Quy tắc hợp lệ' : '✗ Quy tắc không hợp lệ'}
+                      </div>
+                      <p>{ruleValidationResult.message}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-charcoal-850 p-3 rounded-lg border border-charcoal-750 text-[11px] text-gray-400">
+                  <span className="text-emerald-400 font-semibold">Quy tắc Xanh:</span> Không cần cấu hình điều kiện kỹ thuật. Quy tắc này đóng vai trò lưu ý bối cảnh và hiển thị tham khảo trong bảng kế hoạch lệnh.
+                </div>
+              )}
+
+              {/* 3. Action Rule / Notes */}
+              <div className="space-y-1.5">
+                <label className="font-semibold text-gray-300 block">
+                  3. Diễn Giải Quy Tắc (Action Rule Text):
+                </label>
+                <textarea
+                  value={ruleActionRule}
+                  onChange={(e) => setRuleActionRule(e.target.value)}
+                  rows={2}
+                  className="w-full bg-charcoal-850 border border-charcoal-700 rounded p-2 text-xs text-gray-200 focus:outline-none focus:border-aurum-500"
+                  placeholder="Ghi chú giải thích cho nhà giao dịch khi quy tắc được kích hoạt..."
+                />
+              </div>
+
+              {/* Error Message */}
+              {ruleSaveError && (
+                <div className="p-2.5 rounded bg-rose-950 border border-rose-700 text-rose-300 text-xs">
+                  {ruleSaveError}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3 bg-charcoal-850 border-t border-charcoal-750 flex justify-between items-center">
+              <span className="text-[10px] text-gray-500 font-mono">
+                Revision #{structuredModalLesson.revision || 0}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStructuredModalLesson(null)}
+                  className="px-3 py-1.5 bg-charcoal-800 text-gray-400 rounded text-xs hover:text-gray-200"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveStructuredRule}
+                  disabled={isSavingRule}
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition"
+                >
+                  {isSavingRule ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  )}
+                  <span>{isSavingRule ? 'Đang lưu...' : 'Lưu Quy Tắc'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

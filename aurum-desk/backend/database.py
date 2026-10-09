@@ -104,6 +104,20 @@ def run_schema_migrations(target_engine=None):
                     ("hypothesis", "TEXT"),
                     ("author", "VARCHAR(50) DEFAULT 'SYSTEM'"),
                     ("audit_trail", "TEXT"),
+                    # V10 columns
+                    ("severity", "VARCHAR(20) DEFAULT 'INFO'"),
+                    ("effect", "VARCHAR(30) DEFAULT 'ANNOTATE'"),
+                    ("enabled", "BOOLEAN DEFAULT 1"),
+                    ("validation_status", "VARCHAR(20) DEFAULT 'UNVALIDATED'"),
+                    ("validated_at", "BIGINT"),
+                    ("validation_report", "TEXT"),
+                    ("scope", "TEXT"),
+                    ("predicate", "TEXT"),
+                    ("stage", "VARCHAR(30) DEFAULT 'BEFORE_ARM'"),
+                    ("version", "INTEGER DEFAULT 1"),
+                    ("revision", "INTEGER DEFAULT 1"),
+                    ("effective_at", "BIGINT"),
+                    ("expiry_at", "BIGINT"),
                 ]
                 for col_name, col_type in v7_ls_cols:
                     if col_name not in ls_cols:

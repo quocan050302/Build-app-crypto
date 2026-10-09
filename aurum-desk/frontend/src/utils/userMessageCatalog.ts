@@ -112,6 +112,38 @@ export const USER_MESSAGE_CATALOG: Record<string, CatalogTemplate> = {
     defaultAction: { type: 'OPEN_NEWS', label: 'Xem Lịch Tin Tức' },
   },
 
+  LESSON_RULE_BLOCKED: {
+    code: 'LESSON_RULE_BLOCKED',
+    title: 'Kế hoạch bị chặn bởi quy tắc bài học đã kích hoạt',
+    summary: (p) =>
+      p?.message ||
+      'Một quy tắc hạn chế vào lệnh (màu đỏ) do bạn kích hoạt trong Nhật ký giao dịch đang áp dụng để bảo vệ tài khoản.',
+    explanation:
+      'Quy tắc bài học là rào chắn kỷ luật được thiết lập từ các bài học kinh nghiệm trước đây (ví dụ: hạn chế vào lệnh khi spread giãn, R:R không đủ chặt, hoặc ngoài phiên tối ưu). Khi thị trường thỏa mãn điều kiện vi phạm của quy tắc đỏ, hệ thống sẽ chủ động chặn lệnh mới.',
+    impact: 'Lệnh mới không được đặt để tuân thủ kỷ luật giao dịch.',
+    next_steps:
+      'Xem chi tiết quy tắc trong tab Nhật ký giao dịch (Journal) hoặc tắt quy tắc nếu thị trường đã có sự thay đổi phù hợp.',
+    defaultSeverity: 'warning',
+    defaultCertainty: 'confirmed',
+    defaultAction: { type: 'OPEN_SETTINGS', label: 'Xem Trong Nhật Ký' },
+  },
+
+  LESSON_RULE_DATA_UNAVAILABLE: {
+    code: 'LESSON_RULE_DATA_UNAVAILABLE',
+    title: 'Thiếu dữ liệu để kiểm tra quy tắc bài học',
+    summary: (p) =>
+      p?.message ||
+      'Không đủ dữ liệu thị trường bắt buộc để đánh giá quy tắc hạn chế entry đã kích hoạt.',
+    explanation:
+      'Quy tắc bài học yêu cầu dữ liệu đầu vào bắt buộc để kiểm tra an toàn. Vì thiếu dữ liệu, hệ thống chọn phương án phòng thủ từ chối vào lệnh thay vì mạo hiểm mở vị thế mù quáng.',
+    impact: 'Lệnh tạm thời không được arm hoặc fill.',
+    next_steps:
+      'Kiểm tra lại kết nối mạng hoặc xem lại cấu hình quy tắc trong tab Nhật ký giao dịch.',
+    defaultSeverity: 'warning',
+    defaultCertainty: 'confirmed',
+    defaultAction: { type: 'RECONCILE_STATUS', label: 'Kiểm Tra Dữ Liệu' },
+  },
+
   INSUFFICIENT_RR: {
     code: 'INSUFFICIENT_RR',
     title: 'Lợi nhuận dự kiến chưa đủ so với rủi ro',

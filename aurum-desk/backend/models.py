@@ -199,6 +199,21 @@ class Lesson(Base):
     author = Column(String(50), default="SYSTEM")
     audit_trail = Column(Text, nullable=True)
 
+    # V10 Governed Rule & Three-Color Classification Fields
+    severity = Column(String(20), default="INFO")  # INFO (Xanh - Tham khảo), WARNING (Vàng - Cảnh báo), CRITICAL (Đỏ - Hạn chế entry)
+    effect = Column(String(30), default="ANNOTATE")  # ANNOTATE, WARN_ENTRY, BLOCK_ENTRY, PROPOSE_PLAN_ADJUSTMENT
+    enabled = Column(Boolean, default=True)  # Independent operational toggle
+    validation_status = Column(String(20), default="UNVALIDATED")  # VALID, INVALID, UNVALIDATED
+    validated_at = Column(BigInteger, nullable=True)
+    validation_report = Column(Text, nullable=True)  # JSON validation result & evidence report
+    scope = Column(Text, nullable=True)  # JSON: { "symbol": "XAUUSDT", "strategy_family": "ALL", "direction": "ALL", "execution_mode": "ALL", "session": "ALL" }
+    predicate = Column(Text, nullable=True)  # JSON: typed deterministic condition { "metric": ..., "operator": ..., "threshold": ... }
+    stage = Column(String(30), default="BEFORE_ARM")  # BEFORE_ARM, BEFORE_FILL, POSITION_REVIEW
+    version = Column(Integer, default=1)  # Rule version
+    revision = Column(Integer, default=1)  # Optimistic concurrency locking
+    effective_at = Column(BigInteger, nullable=True)  # Activation epoch ms
+    expiry_at = Column(BigInteger, nullable=True)  # Optional expiry epoch ms
+
 
 class TradeReview(Base):
     __tablename__ = "trade_reviews"

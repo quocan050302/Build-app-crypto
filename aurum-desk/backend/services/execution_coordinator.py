@@ -267,6 +267,46 @@ class ExecutionCoordinator:
                 )
                 continue
 
+            # V10 Governed Lesson Rules Evaluation (BEFORE_FILL)
+            try:
+                from services.lesson_rule_service import LessonRuleService
+                import json
+                fill_context = {
+                    "symbol": order.instrument or "XAUUSDT",
+                    "strategy_family": order.strategy_family or "STANDARD_SMC",
+                    "direction": order.direction,
+                    "planned_entry": order.planned_entry,
+                    "fill_price": fill_price,
+                    "stop_loss": order.stop_loss,
+                    "take_profit": order.take_profit,
+                    "net_rr": calc.net_rr,
+                    "gross_rr": calc.gross_rr,
+                    "bid": current_bid,
+                    "ask": current_ask,
+                    "spread": round(current_ask - current_bid, 2),
+                    "stage": "BEFORE_FILL",
+                    "execution_mode": "AUTO",
+                    "now_ms": current_time
+                }
+                active_rules = LessonRuleService.retrieve_active_rules(db, fill_context, decision_time=current_time)
+                fill_lesson_eval = LessonRuleService.evaluate_rules(fill_context, active_rules)
+
+                if not fill_lesson_eval["can_proceed"]:
+                    block_msg = fill_lesson_eval["blocking_reasons"][0] if fill_lesson_eval["blocking_reasons"] else "Quy tắc bài học chặn khớp lệnh"
+                    TradeLifecycleService.execute_reject(
+                        db=db,
+                        order=order,
+                        reason=f"LESSON_RULE_BLOCKED: {block_msg}",
+                        now_ms=current_time,
+                        clock=c
+                    )
+                    continue
+
+                if fill_lesson_eval.get("lessons_retrieved_snapshot"):
+                    order.lessons_retrieved = json.dumps(fill_lesson_eval["lessons_retrieved_snapshot"])
+            except Exception:
+                pass
+
             # ATOMIC COMMIT: Open Position via unified lifecycle service
             TradeLifecycleService.execute_fill(
                 db=db,

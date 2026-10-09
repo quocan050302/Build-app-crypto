@@ -8,7 +8,10 @@ import {
   XCircle,
   HelpCircle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Brain,
+  AlertTriangle,
+  Info
 } from 'lucide-react';
 import { getCatalogTemplate } from './utils/userMessageCatalog';
 
@@ -122,6 +125,21 @@ export const ExpectedEntryPanel: React.FC<ExpectedEntryPanelProps> = ({
         code: 'POLICY_GATE',
         title: 'Chưa đủ điều kiện kích hoạt lệnh',
         summary: eligibility.block_reasons[0]
+      });
+    }
+  }
+
+  const lessonAdvisories = eligibility?.lesson_advisories || [];
+  const lessonWarnings = eligibility?.lesson_warnings || [];
+  const lessonBlockers = eligibility?.lesson_blockers || [];
+
+  for (const lb of lessonBlockers) {
+    if (!blockers.some((b) => b.code === `LESSON_RULE_${lb.lesson_id}` || b.code === 'LESSON_RULE_BLOCKED')) {
+      blockers.push({
+        code: `LESSON_RULE_${lb.lesson_id}`,
+        title: `Chưa thể đặt lệnh: Quy tắc #${lb.lesson_id} đang hạn chế entry`,
+        summary: lb.human_message || `Quy tắc #${lb.lesson_id} phát hiện điều kiện không an toàn.`,
+        explanation: 'Quy tắc bài học mức ĐỎ (CRITICAL) đã được bạn duyệt và kích hoạt để hạn chế entry có cấu trúc.'
       });
     }
   }
@@ -307,6 +325,75 @@ export const ExpectedEntryPanel: React.FC<ExpectedEntryPanelProps> = ({
           </div>
           <p className="leading-relaxed">{getNextConcreteCondition()}</p>
         </div>
+      </div>
+
+      {/* 2.5 Lesson Rules & Strategic Memory Section (V10) */}
+      <div className="p-3 rounded-lg bg-charcoal-850 border border-charcoal-750 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+            <Brain className="w-3.5 h-3.5 text-aurum-400" />
+            <span>Quy Tắc & Bộ Nhớ Bài Học (V10)</span>
+          </span>
+          <span className="text-[10px] font-mono text-gray-400">
+            {lessonAdvisories.length + lessonWarnings.length + lessonBlockers.length} Phù Hợp
+          </span>
+        </div>
+
+        {lessonBlockers.length > 0 && (
+          <div className="space-y-1.5">
+            {lessonBlockers.map((b: any, idx: number) => (
+              <div
+                key={idx}
+                className="p-2 rounded bg-rose-950/80 border border-rose-700/80 text-[10px] text-rose-200 space-y-0.5"
+              >
+                <div className="flex items-center gap-1.5 font-bold text-rose-300">
+                  <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                  <span>Chưa thể đặt lệnh: Quy tắc #{b.lesson_id} đang hạn chế entry</span>
+                </div>
+                <p className="text-gray-300 pl-5 leading-snug">
+                  {b.human_message || `Điều kiện kỹ thuật của quy tắc #${b.lesson_id} bị vi phạm.`}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {lessonWarnings.length > 0 && (
+          <div className="space-y-1.5">
+            {lessonWarnings.map((w: any, idx: number) => (
+              <div
+                key={idx}
+                className="p-2 rounded bg-amber-950/70 border border-amber-700/80 text-[10px] text-amber-200 space-y-0.5"
+              >
+                <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+                  <span>Cảnh báo: {w.human_message || `Quy tắc #${w.lesson_id}`}</span>
+                </div>
+                <p className="text-gray-300 pl-5 text-[9px] leading-snug">
+                  Cảnh báo có dữ liệu hỗ trợ, không tự động chặn vào lệnh.
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {lessonAdvisories.length > 0 && (
+          <div className="p-2 rounded bg-emerald-950/50 border border-emerald-800/60 text-[10px] text-emerald-200">
+            <div className="flex items-center gap-1.5 font-semibold text-emerald-300 mb-0.5">
+              <Info className="w-3 h-3 text-emerald-400 shrink-0" />
+              <span>Bài học đã tham khảo: {lessonAdvisories.length} bài học</span>
+            </div>
+            <p className="text-gray-300 pl-4.5 text-[9px] leading-snug">
+              {lessonAdvisories.map((a: any) => a.human_message || a.action_rule || `#${a.lesson_id}`).join(' · ')}
+            </p>
+          </div>
+        )}
+
+        {lessonBlockers.length === 0 && lessonWarnings.length === 0 && lessonAdvisories.length === 0 && (
+          <div className="p-2 rounded bg-charcoal-900 border border-charcoal-750 text-[10px] text-gray-400 italic text-center">
+            Không có bài học phù hợp cho thiết lập này.
+          </div>
+        )}
       </div>
 
       {/* 3. Action Button (Arm / Cancel / Status) */}

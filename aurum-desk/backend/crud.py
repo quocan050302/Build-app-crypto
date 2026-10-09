@@ -380,9 +380,9 @@ def get_lessons(
     query = db.query(models.Lesson)
 
     if status == "APPROVED":
-        query = query.filter(models.Lesson.is_approved == True)
+        query = query.filter(models.Lesson.status == "APPROVED", models.Lesson.is_approved == True)
     elif status == "PENDING_REVIEW":
-        query = query.filter((models.Lesson.is_approved == False) | (models.Lesson.status == "PENDING_REVIEW"))
+        query = query.filter(models.Lesson.status == "PENDING_REVIEW")
     elif status == "REJECTED":
         query = query.filter(models.Lesson.status == "REJECTED")
     elif status == "ARCHIVED":
@@ -396,8 +396,13 @@ def get_lessons(
 
 
 def get_approved_lessons_for_strategy(db: Session, setup_type: Optional[str] = None) -> List[models.Lesson]:
-    """Strictly retrieves ONLY approved lessons for strategy memory injection."""
-    query = db.query(models.Lesson).filter(models.Lesson.is_approved == True)
+    """Strictly retrieves ONLY active approved lessons for strategy memory injection, excluding ARCHIVED and REJECTED."""
+    query = db.query(models.Lesson).filter(
+        models.Lesson.status == "APPROVED",
+        models.Lesson.is_approved == True,
+        models.Lesson.status != "ARCHIVED",
+        models.Lesson.status != "REJECTED"
+    )
     if setup_type and setup_type != "ALL":
         query = query.filter(models.Lesson.setup_type.in_([setup_type, "ALL"]))
     return query.order_by(models.Lesson.created_at.desc()).all()

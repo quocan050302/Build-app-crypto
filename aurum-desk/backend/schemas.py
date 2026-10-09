@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 
 # Candle Schemas
 class CandleBase(BaseModel):
@@ -406,6 +406,20 @@ class LessonItem(BaseModel):
     strategy_family: Optional[str] = "STANDARD_SMC"
     facts_snapshot: Optional[str] = None
     compliance_snapshot: Optional[str] = None
+    # V10 Fields
+    severity: Optional[str] = "INFO"
+    effect: Optional[str] = "ANNOTATE"
+    enabled: Optional[bool] = True
+    validation_status: Optional[str] = "UNVALIDATED"
+    validated_at: Optional[int] = None
+    validation_report: Optional[str] = None
+    scope: Optional[str] = None
+    predicate: Optional[str] = None
+    stage: Optional[str] = "BEFORE_ARM"
+    version: Optional[int] = 1
+    revision: Optional[int] = 1
+    effective_at: Optional[int] = None
+    expiry_at: Optional[int] = None
     model_config = ConfigDict(from_attributes=True)
 
 class LessonUpdate(BaseModel):
@@ -415,6 +429,25 @@ class LessonUpdate(BaseModel):
     action_rule: Optional[str] = None
     hypothesis: Optional[str] = None
     status: Optional[str] = None
+    severity: Optional[str] = None
+    effect: Optional[str] = None
+    enabled: Optional[bool] = None
+    predicate: Optional[str] = None
+    scope: Optional[str] = None
+    stage: Optional[str] = None
+    revision: Optional[int] = None
+
+class RuleValidationRequest(BaseModel):
+    predicate: Optional[Union[Dict[str, Any], str]] = None
+    severity: str = "INFO"
+    effect: str = "ANNOTATE"
+    scope: Optional[Union[Dict[str, Any], str]] = None
+
+class RuleValidationResponse(BaseModel):
+    is_valid: bool
+    status: str
+    message: str
+    report: Dict[str, Any]
 
 # Trade Review & Psychology Schemas
 class TradeReviewSchema(BaseModel):

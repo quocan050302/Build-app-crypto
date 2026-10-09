@@ -1,6 +1,9 @@
 import time
+import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session
 import models, crud
 from domain_calculator import validate_price_geometry, calculate_risk_reward
@@ -139,6 +142,69 @@ def evaluate_setup_eligibility(
         reason_codes.append("CANNOT_EXECUTE")
         block_reasons.append(calc_res.skip_reason or "Không đủ điều kiện thực thi")
 
+    # 9. V10 Governed Lesson Rules Evaluation (BEFORE_ARM)
+    lesson_eval = {
+        "can_proceed": True,
+        "blocking_reasons": [],
+        "warning_messages": [],
+        "advisory_notes": [],
+        "matched_rules": [],
+        "evaluations": [],
+        "lessons_retrieved_snapshot": []
+    }
+    try:
+        from services.lesson_rule_service import LessonRuleService
+        lesson_context: Dict[str, Any] = {
+            "symbol": symbol,
+            "strategy_family": getattr(setup, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC",
+            "direction": setup.direction,
+            "planned_entry": entry,
+            "stop_loss": sl,
+            "take_profit": tp,
+            "net_rr": calc_res.net_rr,
+            "gross_rr": calc_res.gross_rr,
+            "session": policy_eval.get("session_instance_id") or "NY",
+            "stage": "BEFORE_ARM",
+            "execution_mode": "MANUAL",
+            "now_ms": current_time,
+            "distance_to_entry_atr": getattr(setup, "distance_to_entry_atr", None)
+        }
+        # Attempt to get live spread
+        try:
+            from services.collector_service import collector_service
+            ticker = collector_service.latest_ticker
+            if ticker and "ask" in ticker and "bid" in ticker:
+                lesson_context["ask"] = float(ticker["ask"])
+                lesson_context["bid"] = float(ticker["bid"])
+                lesson_context["spread"] = round(float(ticker["ask"]) - float(ticker["bid"]), 2)
+        except Exception:
+            pass
+
+        # Attempt to get strategy evidence
+        if getattr(setup, "evidence_snapshot_id", None):
+            try:
+                ev_row = db.query(models.StrategyEvidence).filter(models.StrategyEvidence.id == setup.evidence_snapshot_id).first()
+                if ev_row:
+                    lesson_context["evidence"] = {
+                        "sweep_detected": bool(ev_row.sweep_evidence),
+                        "fvg_found": bool(ev_row.fvg_evidence),
+                        "structure_confirmed": (ev_row.h1_alignment == "ALIGNED")
+                    }
+            except Exception:
+                pass
+
+        active_rules = LessonRuleService.retrieve_active_rules(db, lesson_context, decision_time=current_time)
+        lesson_eval = LessonRuleService.evaluate_rules(lesson_context, active_rules)
+
+        if not lesson_eval["can_proceed"]:
+            for b_msg in lesson_eval["blocking_reasons"]:
+                code = "LESSON_RULE_DATA_UNAVAILABLE" if "LESSON_RULE_DATA_UNAVAILABLE" in b_msg else "LESSON_RULE_BLOCKED"
+                if code not in reason_codes:
+                    reason_codes.append(code)
+                block_reasons.append(b_msg)
+    except Exception as e:
+        logger.warning(f"Error evaluating lesson rules in eligibility_service: {e}")
+
     can_arm = len(reason_codes) == 0
     can_execute_now = can_arm and (setup.state == "READY") and calc_res.can_execute
 
@@ -183,5 +249,11 @@ def evaluate_setup_eligibility(
             "margin_mode": calc_res.margin_mode
         },
         "evidence_snapshot_id": getattr(setup, "evidence_snapshot_id", None),
-        "evaluated_at": current_time
+        "evaluated_at": current_time,
+        # V10 Lesson Rules Details
+        "lesson_advisories": lesson_eval["advisory_notes"],
+        "lesson_warnings": lesson_eval["warning_messages"],
+        "lesson_blockers": lesson_eval["blocking_reasons"],
+        "lesson_evaluations": lesson_eval["evaluations"],
+        "lessons_retrieved_snapshot": lesson_eval["lessons_retrieved_snapshot"]
     }

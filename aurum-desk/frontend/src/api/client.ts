@@ -559,6 +559,20 @@ export const api = {
     return res.data;
   },
 
+  toggleLessonEnable: async (lessonId: number): Promise<LessonItem> => {
+    const res = await apiClient.post(`/api/v1/lessons/${lessonId}/toggle-enable`);
+    return res.data;
+  },
+
+  validatePredicate: async (data: {
+    predicate: any;
+    severity?: string;
+    effect?: string;
+  }): Promise<{ is_valid: boolean; status: string; message: string; report: any }> => {
+    const res = await apiClient.post('/api/v1/lessons/validate-predicate', data);
+    return res.data;
+  },
+
   getEducation: async () => {
     const res = await apiClient.get('/api/v1/education');
     return res.data;
@@ -707,6 +721,20 @@ export interface LessonItem {
   reviewed_at?: string | null;
   created_at: string;
   audit_trail?: any[];
+  // V10 Governed Rule & Three-Color Fields
+  severity?: 'INFO' | 'WARNING' | 'CRITICAL';
+  effect?: 'ANNOTATE' | 'WARN_ENTRY' | 'BLOCK_ENTRY' | 'PROPOSE_PLAN_ADJUSTMENT';
+  enabled?: boolean;
+  validation_status?: 'VALID' | 'INVALID' | 'UNVALIDATED';
+  validated_at?: number | null;
+  validation_report?: string | null;
+  scope?: string | null;
+  predicate?: string | null;
+  stage?: string;
+  version?: number;
+  revision?: number;
+  effective_at?: number | null;
+  expiry_at?: number | null;
 }
 
 export interface JournalSummary {

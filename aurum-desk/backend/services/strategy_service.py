@@ -379,6 +379,34 @@ class StrategyService:
             eff_risk_pct = min(eff_risk_pct, 0.10)
             risk_profile = "QUOTA"
 
+        # 5.5 V10 Lesson Rules Evaluation (BEFORE_ARM for AUTO)
+        lesson_snapshot = []
+        try:
+            from services.lesson_rule_service import LessonRuleService
+            lesson_context = {
+                "symbol": symbol,
+                "strategy_family": family,
+                "direction": watch_setup.direction,
+                "planned_entry": watch_setup.provisional_entry,
+                "stop_loss": watch_setup.provisional_sl,
+                "take_profit": watch_setup.provisional_tp,
+                "net_rr": watch_setup.net_rr,
+                "session": policy_eval.get("session_instance_id") or "NY",
+                "stage": "BEFORE_ARM",
+                "execution_mode": "AUTO",
+                "now_ms": now_ms
+            }
+            active_rules = LessonRuleService.retrieve_active_rules(db, lesson_context, decision_time=now_ms)
+            lesson_eval = LessonRuleService.evaluate_rules(lesson_context, active_rules)
+            if not lesson_eval["can_proceed"]:
+                logger.info(f"Auto-arm blocked by lesson rule: {lesson_eval['blocking_reasons']}")
+                return
+            if lesson_eval["warning_messages"]:
+                logger.info(f"Auto-arm lesson warnings (non-blocking): {lesson_eval['warning_messages']}")
+            lesson_snapshot = lesson_eval.get("lessons_retrieved_snapshot", [])
+        except Exception as e:
+            logger.warning(f"Error evaluating lesson rules in auto-arm: {e}")
+
         # 6. Create armed paper order with complete V7 metadata
         order_id = f"order-{uuid.uuid4().hex[:8]}"
         new_order = models.PaperOrder(
@@ -410,7 +438,8 @@ class StrategyService:
             estimated_liquidation=watch_setup.estimated_liquidation,
             created_at=now_ms,
             armed_at=now_ms,
-            expires_at=now_ms + (2 * 3600 * 1000)
+            expires_at=now_ms + (2 * 3600 * 1000),
+            lessons_retrieved=json.dumps(lesson_snapshot)
         )
         db.add(new_order)
         watch_setup.state = "ARMED"

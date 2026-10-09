@@ -696,7 +696,8 @@ def manual_arm_setup(
         estimated_liquidation=calc_res.estimated_liquidation,
         created_at=now_ms,
         armed_at=now_ms,
-        expires_at=now_ms + (2 * 3600 * 1000)
+        expires_at=now_ms + (2 * 3600 * 1000),
+        lessons_retrieved=json.dumps(elig.get("lessons_retrieved_snapshot", []))
     )
     db.add(new_order)
     watch_setup.confirmed_entry = entry
@@ -1568,6 +1569,23 @@ def get_lessons(
     return [schemas.LessonItem.model_validate(l) for l in lessons]
 
 
+@app.post("/api/v1/lessons/validate-predicate", response_model=schemas.RuleValidationResponse)
+def validate_lesson_predicate(req: schemas.RuleValidationRequest):
+    from services.lesson_rule_service import LessonRuleService
+    is_valid, msg, report = LessonRuleService.validate_predicate(
+        predicate_input=req.predicate,
+        severity=req.severity,
+        effect=req.effect
+    )
+    status_str = "VALID" if is_valid else "INVALID"
+    return schemas.RuleValidationResponse(
+        is_valid=is_valid,
+        status=status_str,
+        message=msg,
+        report=report
+    )
+
+
 @app.post("/api/v1/lessons/{lesson_id}/approve", response_model=schemas.LessonItem)
 def approve_lesson(lesson_id: int, db: Session = Depends(get_db)):
     lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
@@ -1577,8 +1595,29 @@ def approve_lesson(lesson_id: int, db: Session = Depends(get_db)):
     lesson.is_approved = True
     lesson.status = "APPROVED"
     lesson.reviewed_at = now_ms
+
+    from services.lesson_rule_service import LessonRuleService
+    is_valid, msg, report = LessonRuleService.validate_predicate(
+        predicate_input=lesson.predicate,
+        severity=lesson.severity or "INFO",
+        effect=lesson.effect or "ANNOTATE"
+    )
+    lesson.validation_status = "VALID" if is_valid else "INVALID"
+    lesson.validated_at = now_ms
+    lesson.validation_report = json.dumps(report)
+
+    trail = []
+    if lesson.audit_trail:
+        try:
+            trail = json.loads(lesson.audit_trail)
+        except Exception:
+            trail = [lesson.audit_trail]
+    trail.append({"action": "APPROVED", "timestamp": now_ms, "actor": "USER", "validation": lesson.validation_status})
+    lesson.audit_trail = json.dumps(trail)
+
     db.commit()
     db.refresh(lesson)
+    LessonRuleService.invalidate_cache()
     return schemas.LessonItem.model_validate(lesson)
 
 
@@ -1590,9 +1629,22 @@ def reject_lesson(lesson_id: int, db: Session = Depends(get_db)):
     now_ms = int(time.time() * 1000)
     lesson.is_approved = False
     lesson.status = "REJECTED"
+    lesson.enabled = False
     lesson.reviewed_at = now_ms
+
+    from services.lesson_rule_service import LessonRuleService
+    trail = []
+    if lesson.audit_trail:
+        try:
+            trail = json.loads(lesson.audit_trail)
+        except Exception:
+            trail = [lesson.audit_trail]
+    trail.append({"action": "REJECTED", "timestamp": now_ms, "actor": "USER"})
+    lesson.audit_trail = json.dumps(trail)
+
     db.commit()
     db.refresh(lesson)
+    LessonRuleService.invalidate_cache()
     return schemas.LessonItem.model_validate(lesson)
 
 
@@ -1601,9 +1653,49 @@ def archive_lesson(lesson_id: int, db: Session = Depends(get_db)):
     lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
     if not lesson:
         raise HTTPException(status_code=404, detail="Không tìm thấy bài học này")
+    now_ms = int(time.time() * 1000)
     lesson.status = "ARCHIVED"
+    lesson.is_approved = False
+    lesson.enabled = False
+
+    from services.lesson_rule_service import LessonRuleService
+    trail = []
+    if lesson.audit_trail:
+        try:
+            trail = json.loads(lesson.audit_trail)
+        except Exception:
+            trail = [lesson.audit_trail]
+    trail.append({"action": "ARCHIVED", "timestamp": now_ms, "actor": "USER"})
+    lesson.audit_trail = json.dumps(trail)
+
     db.commit()
     db.refresh(lesson)
+    LessonRuleService.invalidate_cache()
+    return schemas.LessonItem.model_validate(lesson)
+
+
+@app.post("/api/v1/lessons/{lesson_id}/toggle-enable", response_model=schemas.LessonItem)
+def toggle_lesson_enable(lesson_id: int, db: Session = Depends(get_db)):
+    lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Không tìm thấy bài học này")
+    now_ms = int(time.time() * 1000)
+    current_enabled = bool(lesson.enabled) if lesson.enabled is not None else True
+    lesson.enabled = not current_enabled
+
+    from services.lesson_rule_service import LessonRuleService
+    trail = []
+    if lesson.audit_trail:
+        try:
+            trail = json.loads(lesson.audit_trail)
+        except Exception:
+            trail = [lesson.audit_trail]
+    trail.append({"action": "TOGGLE_ENABLED", "enabled": lesson.enabled, "timestamp": now_ms, "actor": "USER"})
+    lesson.audit_trail = json.dumps(trail)
+
+    db.commit()
+    db.refresh(lesson)
+    LessonRuleService.invalidate_cache()
     return schemas.LessonItem.model_validate(lesson)
 
 
@@ -1612,6 +1704,23 @@ def update_lesson(lesson_id: int, update: schemas.LessonUpdate, db: Session = De
     lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
     if not lesson:
         raise HTTPException(status_code=404, detail="Không tìm thấy bài học này")
+
+    # Optimistic concurrency locking (L08)
+    if update.revision is not None and getattr(lesson, 'revision', None) is not None:
+        if update.revision != lesson.revision:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "STALE_EDIT",
+                    "message": f"Dữ liệu bài học đã thay đổi (revision hiện tại {lesson.revision}, bạn gửi {update.revision}). Vui lòng tải lại trước khi lưu.",
+                    "current_revision": lesson.revision,
+                    "expected_revision": update.revision
+                }
+            )
+
+    now_ms = int(time.time() * 1000)
+    rule_changed = False
+
     if update.title is not None:
         lesson.title = update.title
     if update.category is not None:
@@ -1622,14 +1731,56 @@ def update_lesson(lesson_id: int, update: schemas.LessonUpdate, db: Session = De
         lesson.action_rule = update.action_rule
     if update.hypothesis is not None:
         lesson.hypothesis = update.hypothesis
+    if update.severity is not None and update.severity != lesson.severity:
+        lesson.severity = update.severity
+        rule_changed = True
+    if update.effect is not None and update.effect != lesson.effect:
+        lesson.effect = update.effect
+        rule_changed = True
+    if update.enabled is not None:
+        lesson.enabled = update.enabled
+    if update.predicate is not None and update.predicate != lesson.predicate:
+        lesson.predicate = update.predicate
+        rule_changed = True
+    if update.scope is not None and update.scope != lesson.scope:
+        lesson.scope = update.scope
+        rule_changed = True
+    if update.stage is not None and update.stage != lesson.stage:
+        lesson.stage = update.stage
+        rule_changed = True
     if update.status is not None:
         lesson.status = update.status
         if update.status == "APPROVED":
             lesson.is_approved = True
-        elif update.status in ("REJECTED", "PENDING_REVIEW"):
+        elif update.status in ("REJECTED", "PENDING_REVIEW", "ARCHIVED"):
             lesson.is_approved = False
+
+    from services.lesson_rule_service import LessonRuleService
+    if rule_changed:
+        lesson.version = (lesson.version or 1) + 1
+        is_valid, msg, report = LessonRuleService.validate_predicate(
+            predicate_input=lesson.predicate,
+            severity=lesson.severity or "INFO",
+            effect=lesson.effect or "ANNOTATE"
+        )
+        lesson.validation_status = "VALID" if is_valid else "INVALID"
+        lesson.validated_at = now_ms
+        lesson.validation_report = json.dumps(report)
+
+    lesson.revision = (lesson.revision or 1) + 1
+
+    trail = []
+    if lesson.audit_trail:
+        try:
+            trail = json.loads(lesson.audit_trail)
+        except Exception:
+            trail = [lesson.audit_trail]
+    trail.append({"action": "UPDATE", "timestamp": now_ms, "actor": "USER", "version": lesson.version, "revision": lesson.revision})
+    lesson.audit_trail = json.dumps(trail)
+
     db.commit()
     db.refresh(lesson)
+    LessonRuleService.invalidate_cache()
     return schemas.LessonItem.model_validate(lesson)
 
 

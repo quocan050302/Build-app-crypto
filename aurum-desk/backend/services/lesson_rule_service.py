@@ -1,0 +1,525 @@
+import time
+import json
+import logging
+from typing import Dict, Any, List, Optional, Tuple, Union
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+from sqlalchemy.orm import Session
+import models
+
+logger = logging.getLogger(__name__)
+
+# Canonical Whitelist of Supported Metrics and Operators
+WHITELIST_METRICS = {
+    "spread": {"type": "float", "allowed_ops": ["<=", "<", ">=", ">"]},
+    "net_rr": {"type": "float", "allowed_ops": [">=", ">"], "min_bound": 2.0},  # Cannot loosen below baseline RR
+    "session": {"type": "list_str", "allowed_ops": ["in", "not_in"]},
+    "entry_window": {"type": "window", "allowed_ops": ["between", "outside"]},
+    "distance_to_entry_atr": {"type": "float", "allowed_ops": ["<=", "<", ">=", ">"]},
+    "quote_age_ms": {"type": "int", "allowed_ops": ["<=", "<"]},
+    "evidence.sweep_detected": {"type": "bool", "allowed_ops": ["=="]},
+    "evidence.fvg_found": {"type": "bool", "allowed_ops": ["=="]},
+    "evidence.structure_confirmed": {"type": "bool", "allowed_ops": ["=="]},
+}
+
+class LessonRuleService:
+    """
+    Deterministic, offline, unit-testable rule engine for V10 Governed Lesson Rules.
+    - Three-color classification:
+        * INFO (Xanh): Advisory / informational notes, never blocks or tightens guards.
+        * WARNING (Vàng): Warning with supporting metrics, logged into decision trace, no blocking.
+        * CRITICAL (Đỏ): Entry-restricting rule; requires VALID status, approved, enabled, and matches scope.
+    - Whitelist typed predicates only; NO dynamic eval/exec or LLM-generated expressions.
+    - Supports shadow evaluation mode for zero-impact dry runs.
+    """
+    _cache_version: int = 0
+    _cached_rules: Optional[List[Dict[str, Any]]] = None
+
+    @classmethod
+    def invalidate_cache(cls):
+        """Invalidates in-memory rules cache when lessons or rules are created/modified."""
+        cls._cache_version += 1
+        cls._cached_rules = None
+
+    @classmethod
+    def validate_predicate(
+        cls,
+        predicate_input: Any,
+        severity: str = "INFO",
+        effect: str = "ANNOTATE"
+    ) -> Tuple[bool, str, Dict[str, Any]]:
+        """
+        Validates a candidate predicate against the canonical whitelist contract.
+        Returns: (is_valid, message, report_dict)
+        """
+        if not predicate_input:
+            if severity == "CRITICAL" or effect == "BLOCK_ENTRY":
+                return False, "Quy tắc Đỏ (hạn chế entry) bắt buộc phải có điều kiện có cấu trúc (predicate).", {
+                    "valid": False, "error": "MISSING_PREDICATE", "field": "predicate"
+                }
+            # For INFO or WARNING without predicate, it acts as unconditional advisory/warning
+            return True, "Hợp lệ (không có điều kiện cấu trúc)", {"valid": True, "type": "NONE"}
+
+        if isinstance(predicate_input, str):
+            try:
+                predicate = json.loads(predicate_input)
+            except Exception as e:
+                return False, f"Predicate không phải JSON hợp lệ: {str(e)}", {
+                    "valid": False, "error": "INVALID_JSON", "detail": str(e)
+                }
+        elif isinstance(predicate_input, dict):
+            predicate = predicate_input
+        else:
+            return False, "Predicate phải là object JSON hoặc dict", {"valid": False, "error": "INVALID_TYPE"}
+
+        metric = predicate.get("metric")
+        operator = predicate.get("operator")
+
+        if not metric or metric not in WHITELIST_METRICS:
+            allowed = list(WHITELIST_METRICS.keys())
+            return False, f"Metric '{metric}' không thuộc danh sách cho phép ({', '.join(allowed)})", {
+                "valid": False, "error": "UNSUPPORTED_METRIC", "metric": metric, "allowed": allowed
+            }
+
+        cfg = WHITELIST_METRICS[metric]
+        if operator not in cfg["allowed_ops"]:
+            return False, f"Toán tử '{operator}' không hợp lệ cho metric '{metric}'. Hợp lệ: {cfg['allowed_ops']}", {
+                "valid": False, "error": "UNSUPPORTED_OPERATOR", "operator": operator, "allowed": cfg["allowed_ops"]
+            }
+
+        # Value / threshold checks
+        if cfg["type"] == "float":
+            val = predicate.get("threshold")
+            if val is None or not isinstance(val, (int, float)):
+                return False, f"Metric '{metric}' yêu cầu 'threshold' là số", {
+                    "valid": False, "error": "INVALID_THRESHOLD"
+                }
+            if "min_bound" in cfg and float(val) < cfg["min_bound"]:
+                return False, f"Ngưỡng '{metric}' không được nới lỏng dưới mức chuẩn {cfg['min_bound']}", {
+                    "valid": False, "error": "BOUND_VIOLATION", "min_bound": cfg["min_bound"]
+                }
+
+        elif cfg["type"] == "int":
+            val = predicate.get("threshold")
+            if val is None or not isinstance(val, int) or val < 0:
+                return False, f"Metric '{metric}' yêu cầu 'threshold' là số nguyên không âm", {
+                    "valid": False, "error": "INVALID_THRESHOLD"
+                }
+
+        elif cfg["type"] == "list_str":
+            values = predicate.get("values")
+            if not values or not isinstance(values, list) or not all(isinstance(v, str) for v in values):
+                return False, f"Metric '{metric}' yêu cầu 'values' là danh sách chuỗi", {
+                    "valid": False, "error": "INVALID_VALUES"
+                }
+
+        elif cfg["type"] == "window":
+            start = predicate.get("start")
+            end = predicate.get("end")
+            if not start or not end:
+                return False, "Cửa sổ thời gian yêu cầu 'start' và 'end' theo định dạng 'HH:MM'", {
+                    "valid": False, "error": "INVALID_WINDOW"
+                }
+            try:
+                datetime.strptime(start, "%H:%M")
+                datetime.strptime(end, "%H:%M")
+            except ValueError:
+                return False, "Định dạng thời gian phải là 'HH:MM' (ví dụ: '09:30')", {
+                    "valid": False, "error": "INVALID_TIME_FORMAT"
+                }
+
+        elif cfg["type"] == "bool":
+            val = predicate.get("value")
+            if val is None or not isinstance(val, bool):
+                return False, f"Metric '{metric}' yêu cầu 'value' là boolean (true/false)", {
+                    "valid": False, "error": "INVALID_BOOL"
+                }
+
+        report = {
+            "valid": True,
+            "metric": metric,
+            "operator": operator,
+            "config": predicate,
+            "severity": severity,
+            "effect": effect,
+            "validated_at": int(time.time() * 1000)
+        }
+        return True, "Quy tắc kiểm tra cấu trúc hợp lệ", report
+
+    @classmethod
+    def retrieve_active_rules(
+        cls,
+        db: Session,
+        context: Dict[str, Any],
+        decision_time: Optional[int] = None
+    ) -> List[models.Lesson]:
+        """
+        Retrieves ONLY active, approved, enabled lesson rules matching context scope and timeframe.
+        Strictly excludes ARCHIVED and REJECTED lessons.
+        """
+        now_ms = decision_time if decision_time is not None else int(time.time() * 1000)
+
+        # Base query: APPROVED, is_approved==True, enabled==True, status not in (ARCHIVED, REJECTED)
+        query = db.query(models.Lesson).filter(
+            models.Lesson.status == "APPROVED",
+            models.Lesson.is_approved == True,
+            models.Lesson.enabled == True
+        )
+
+        all_rules = query.order_by(models.Lesson.created_at.desc()).all()
+
+        symbol = context.get("symbol") or "XAUUSDT"
+        family = context.get("strategy_family") or "STANDARD_SMC"
+        direction = context.get("direction")
+        execution_mode = context.get("execution_mode") or "ALL"
+        session_tag = context.get("session")
+
+        matched_rules: List[models.Lesson] = []
+
+        for rule in all_rules:
+            # Explicit guard against archived/rejected
+            if rule.status in ("ARCHIVED", "REJECTED") or not rule.is_approved:
+                continue
+
+            # Effective time check
+            if rule.effective_at and now_ms < rule.effective_at:
+                continue
+            if rule.expiry_at and now_ms >= rule.expiry_at:
+                continue
+
+            # Scope check
+            if rule.scope:
+                try:
+                    scope = json.loads(rule.scope) if isinstance(rule.scope, str) else rule.scope
+                    if isinstance(scope, dict):
+                        # Symbol scope
+                        rule_sym = scope.get("symbol", "ALL")
+                        if rule_sym and rule_sym != "ALL" and rule_sym != symbol:
+                            continue
+
+                        # Strategy Family scope
+                        rule_fam = scope.get("strategy_family", "ALL")
+                        if rule_fam and rule_fam != "ALL" and rule_fam != family:
+                            continue
+
+                        # Direction scope
+                        rule_dir = scope.get("direction", "ALL")
+                        if rule_dir and rule_dir != "ALL" and direction and rule_dir != direction:
+                            continue
+
+                        # Execution Mode scope (MANUAL, AUTO, ALL)
+                        rule_mode = scope.get("execution_mode", "ALL")
+                        if rule_mode and rule_mode != "ALL" and execution_mode != "ALL" and rule_mode != execution_mode:
+                            continue
+
+                        # Session scope
+                        rule_sess = scope.get("session", "ALL")
+                        if rule_sess and rule_sess != "ALL" and session_tag and rule_sess != session_tag:
+                            continue
+                except Exception as e:
+                    logger.warning(f"Error parsing scope for lesson #{rule.id}: {e}")
+
+            matched_rules.append(rule)
+
+        return matched_rules
+
+    @classmethod
+    def evaluate_rules(
+        cls,
+        context: Dict[str, Any],
+        rules: List[models.Lesson],
+        feature_flags: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Evaluates active rules against verified execution context.
+        Returns:
+            can_proceed: bool (False if any active valid BLOCK_ENTRY rule matches, unless in shadow mode)
+            blocking_reasons: List[str]
+            warning_messages: List[str]
+            advisory_notes: List[str]
+            matched_rules: List[Dict[str, Any]]
+            evaluations: List[Dict[str, Any]]
+            lessons_retrieved_snapshot: List[Dict[str, Any]]
+        """
+        flags = feature_flags or {}
+        advisory_enabled = flags.get("lesson_advisory_enabled", True)
+        entry_rules_enabled = flags.get("lesson_entry_rules_enabled", True)
+        shadow_mode = flags.get("lesson_shadow_mode", False)
+
+        now_ms = context.get("now_ms") or int(time.time() * 1000)
+
+        can_proceed = True
+        blocking_reasons: List[str] = []
+        warning_messages: List[str] = []
+        advisory_notes: List[str] = []
+        matched_rules: List[Dict[str, Any]] = []
+        evaluations: List[Dict[str, Any]] = []
+        snapshot_items: List[Dict[str, Any]] = []
+
+        for rule in rules:
+            severity = (rule.severity or "INFO").upper()
+            effect = (rule.effect or "ANNOTATE").upper()
+            rule_id = rule.id
+            title = rule.title
+            version = getattr(rule, "version", 1) or 1
+
+            eval_item: Dict[str, Any] = {
+                "rule_id": rule_id,
+                "version": version,
+                "severity": severity,
+                "effect": effect,
+                "title": title,
+                "matched": False,
+                "evaluated": False,
+                "data_unavailable": False,
+                "would_block": False,
+                "reason_code": None,
+                "message": None,
+                "next_step": None,
+                "metric_value": None,
+                "evaluated_at": now_ms
+            }
+
+            # 1. INFO / ANNOTATE (Xanh - Tham khảo)
+            if severity == "INFO" or effect == "ANNOTATE":
+                if advisory_enabled:
+                    eval_item["matched"] = True
+                    eval_item["evaluated"] = True
+                    eval_item["reason_code"] = f"LESSON_INFO_{rule_id}"
+                    eval_item["message"] = f"Tham khảo #{rule_id}: {title}. {rule.action_rule or ''}".strip()
+                    eval_item["next_step"] = "Ghi nhận bài học kinh nghiệm khi theo dõi lệnh."
+                    advisory_notes.append(eval_item["message"])
+                    matched_rules.append(eval_item)
+                evaluations.append(eval_item)
+                snapshot_items.append({
+                    "lesson_id": rule_id,
+                    "version": version,
+                    "severity": "INFO",
+                    "effect": "ANNOTATE",
+                    "matched": True,
+                    "title": title
+                })
+                continue
+
+            # 2. PROPOSE_PLAN_ADJUSTMENT (Disabled/Preview only in V10)
+            if effect == "PROPOSE_PLAN_ADJUSTMENT":
+                eval_item["evaluated"] = True
+                eval_item["matched"] = False
+                eval_item["message"] = f"Đề xuất kế hoạch #{rule_id} ({title}) ở chế độ chỉ xem trước (chưa tự động áp dụng trong V10)."
+                evaluations.append(eval_item)
+                snapshot_items.append({
+                    "lesson_id": rule_id,
+                    "version": version,
+                    "severity": severity,
+                    "effect": "PROPOSE_PLAN_ADJUSTMENT",
+                    "matched": False,
+                    "title": title
+                })
+                continue
+
+            # 3. Predicate Evaluation for WARNING (Vàng) or CRITICAL (Đỏ)
+            predicate = None
+            if rule.predicate:
+                try:
+                    predicate = json.loads(rule.predicate) if isinstance(rule.predicate, str) else rule.predicate
+                except Exception:
+                    predicate = None
+
+            if not predicate or not isinstance(predicate, dict):
+                # Unstructured warning/critical
+                if severity == "WARNING" or effect == "WARN_ENTRY":
+                    eval_item["matched"] = True
+                    eval_item["evaluated"] = True
+                    eval_item["reason_code"] = f"LESSON_WARN_{rule_id}"
+                    eval_item["message"] = f"Cảnh báo #{rule_id}: {title} (quy tắc tổng quát)."
+                    warning_messages.append(eval_item["message"])
+                    matched_rules.append(eval_item)
+                elif severity == "CRITICAL" or effect == "BLOCK_ENTRY":
+                    # Critical without valid structured predicate CANNOT block!
+                    eval_item["evaluated"] = False
+                    eval_item["message"] = f"Quy tắc #{rule_id} thiếu điều kiện cấu trúc hợp lệ; không áp dụng chặn entry."
+                evaluations.append(eval_item)
+                snapshot_items.append({
+                    "lesson_id": rule_id,
+                    "version": version,
+                    "severity": severity,
+                    "effect": effect,
+                    "matched": eval_item["matched"],
+                    "title": title
+                })
+                continue
+
+            metric = predicate.get("metric")
+            operator = predicate.get("operator")
+            threshold = predicate.get("threshold")
+            values = predicate.get("values")
+
+            matched = False
+            data_missing = False
+            metric_val = None
+
+            # Extract metric from context
+            if metric == "spread":
+                metric_val = context.get("spread")
+                if metric_val is None and context.get("ask") is not None and context.get("bid") is not None:
+                    metric_val = round(context["ask"] - context["bid"], 2)
+                if metric_val is not None:
+                    if operator == ">=" and metric_val >= threshold:
+                        matched = True
+                    elif operator == ">" and metric_val > threshold:
+                        matched = True
+                    elif operator == "<=" and metric_val <= threshold:
+                        matched = True
+                    elif operator == "<" and metric_val < threshold:
+                        matched = True
+                else:
+                    data_missing = True
+
+            elif metric == "net_rr":
+                metric_val = context.get("net_rr")
+                if metric_val is not None:
+                    # Note: rule threshold enforces stricter R:R (e.g. net_rr < threshold triggers warning/block)
+                    if operator == ">=" and metric_val < threshold:
+                        matched = True  # Violates required min net_rr
+                    elif operator == ">" and metric_val <= threshold:
+                        matched = True
+                else:
+                    data_missing = True
+
+            elif metric == "session":
+                metric_val = context.get("session")
+                if metric_val:
+                    if operator == "in" and metric_val in values:
+                        matched = True
+                    elif operator == "not_in" and metric_val not in values:
+                        matched = True
+                else:
+                    data_missing = True
+
+            elif metric == "entry_window":
+                tz_name = predicate.get("timezone", "America/New_York")
+                try:
+                    tz = ZoneInfo(tz_name)
+                    dt = datetime.fromtimestamp(now_ms / 1000.0, tz=tz)
+                    cur_hm = dt.strftime("%H:%M")
+                    metric_val = cur_hm
+                    start = predicate.get("start")
+                    end = predicate.get("end")
+                    in_win = (start <= cur_hm <= end)
+                    if operator == "outside" and not in_win:
+                        matched = True
+                    elif operator == "between" and in_win:
+                        matched = True
+                except Exception as e:
+                    logger.warning(f"Error evaluating entry_window: {e}")
+                    data_missing = True
+
+            elif metric == "distance_to_entry_atr":
+                metric_val = context.get("distance_to_entry_atr")
+                if metric_val is not None:
+                    if operator == ">=" and metric_val >= threshold:
+                        matched = True
+                    elif operator == ">" and metric_val > threshold:
+                        matched = True
+                    elif operator == "<=" and metric_val <= threshold:
+                        matched = True
+                    elif operator == "<" and metric_val < threshold:
+                        matched = True
+                else:
+                    data_missing = True
+
+            elif metric == "quote_age_ms":
+                metric_val = context.get("quote_age_ms")
+                if metric_val is not None:
+                    if operator == ">=" and metric_val >= threshold:
+                        matched = True
+                    elif operator == ">" and metric_val > threshold:
+                        matched = True
+                else:
+                    data_missing = True
+
+            elif metric and metric.startswith("evidence."):
+                ev_key = metric.split("evidence.", 1)[1]
+                evidence_dict = context.get("evidence") or {}
+                if isinstance(evidence_dict, str):
+                    try:
+                        evidence_dict = json.loads(evidence_dict)
+                    except Exception:
+                        evidence_dict = {}
+                metric_val = evidence_dict.get(ev_key)
+                req_val = predicate.get("value")
+                if metric_val is not None:
+                    if operator == "==" and metric_val != req_val:
+                        matched = True  # Required evidence was not satisfied
+                else:
+                    data_missing = True
+
+            eval_item["metric_value"] = metric_val
+            eval_item["evaluated"] = not data_missing
+
+            if data_missing:
+                eval_item["data_unavailable"] = True
+                if (severity == "CRITICAL" or effect == "BLOCK_ENTRY") and predicate.get("strict_data"):
+                    # Mandatory input missing -> block entry specifically
+                    eval_item["reason_code"] = "LESSON_RULE_DATA_UNAVAILABLE"
+                    eval_item["message"] = f"Thiếu dữ liệu bắt buộc để kiểm tra quy tắc #{rule_id} ({title})."
+                    eval_item["next_step"] = "Kiểm tra kết nối dữ liệu hoặc cấu hình quy tắc trong Nhật ký."
+                    if entry_rules_enabled and not shadow_mode and rule.validation_status == "VALID":
+                        can_proceed = False
+                        blocking_reasons.append(f"LESSON_RULE_DATA_UNAVAILABLE: {eval_item['message']}")
+                    matched_rules.append(eval_item)
+                else:
+                    eval_item["message"] = f"Chưa đủ dữ liệu để đánh giá điều kiện cho quy tắc #{rule_id} ({title})."
+            elif matched:
+                eval_item["matched"] = True
+                if severity == "WARNING" or effect == "WARN_ENTRY":
+                    eval_item["reason_code"] = f"LESSON_WARN_{rule_id}"
+                    eval_item["message"] = f"Cảnh báo quy tắc #{rule_id} ({title}): {metric} = {metric_val} (ngưỡng {operator} {threshold or values})."
+                    eval_item["next_step"] = "Cân nhắc rủi ro hoặc xem lại kế hoạch trước khi đặt lệnh."
+                    warning_messages.append(eval_item["message"])
+                    matched_rules.append(eval_item)
+
+                elif severity == "CRITICAL" or effect == "BLOCK_ENTRY":
+                    # Only block if rule is explicitly marked VALID
+                    is_valid_rule = (rule.validation_status == "VALID")
+                    if is_valid_rule:
+                        eval_item["would_block"] = True
+                        eval_item["reason_code"] = "LESSON_RULE_BLOCKED"
+                        eval_item["message"] = f"Quy tắc #{rule_id} ({title}) đang hạn chế entry: {metric} = {metric_val} (ngưỡng {operator} {threshold or values})."
+                        eval_item["next_step"] = "Chờ thị trường thoát khỏi vùng hạn chế hoặc điều chỉnh quy tắc trong Nhật ký."
+
+                        if shadow_mode:
+                            eval_item["message"] += " [SHADOW MODE - Không chặn lệnh thực tế]"
+                            warning_messages.append(eval_item["message"])
+                        elif entry_rules_enabled:
+                            can_proceed = False
+                            blocking_reasons.append(f"LESSON_RULE_BLOCKED: {eval_item['message']}")
+
+                        matched_rules.append(eval_item)
+                    else:
+                        eval_item["message"] = f"Quy tắc #{rule_id} ({title}) chưa được xác thực (UNVALIDATED); không áp dụng chặn."
+
+            evaluations.append(eval_item)
+            snapshot_items.append({
+                "lesson_id": rule_id,
+                "version": version,
+                "severity": severity,
+                "effect": effect,
+                "matched": eval_item["matched"],
+                "metric_value": metric_val,
+                "would_block": eval_item["would_block"],
+                "reason_code": eval_item.get("reason_code"),
+                "title": title
+            })
+
+        return {
+            "can_proceed": can_proceed,
+            "blocking_reasons": blocking_reasons,
+            "warning_messages": warning_messages,
+            "advisory_notes": advisory_notes,
+            "matched_rules": matched_rules,
+            "evaluations": evaluations,
+            "lessons_retrieved_snapshot": snapshot_items
+        }
+
+lesson_rule_service = LessonRuleService()

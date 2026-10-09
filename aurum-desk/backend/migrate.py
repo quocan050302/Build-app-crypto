@@ -583,6 +583,20 @@ def run_migration():
     add_column_if_missing("lessons", "compliance_snapshot", "TEXT")
     add_column_if_missing("lessons", "mfe_mae_snapshot", "TEXT")
     add_column_if_missing("lessons", "action_candidate", "TEXT")
+    # V10 Governed Rule columns
+    add_column_if_missing("lessons", "severity", "VARCHAR(20) DEFAULT 'INFO'")
+    add_column_if_missing("lessons", "effect", "VARCHAR(30) DEFAULT 'ANNOTATE'")
+    add_column_if_missing("lessons", "enabled", "BOOLEAN DEFAULT 1")
+    add_column_if_missing("lessons", "validation_status", "VARCHAR(20) DEFAULT 'UNVALIDATED'")
+    add_column_if_missing("lessons", "validated_at", "BIGINT")
+    add_column_if_missing("lessons", "validation_report", "TEXT")
+    add_column_if_missing("lessons", "scope", "TEXT")
+    add_column_if_missing("lessons", "predicate", "TEXT")
+    add_column_if_missing("lessons", "stage", "VARCHAR(30) DEFAULT 'BEFORE_ARM'")
+    add_column_if_missing("lessons", "version", "INTEGER DEFAULT 1")
+    add_column_if_missing("lessons", "revision", "INTEGER DEFAULT 1")
+    add_column_if_missing("lessons", "effective_at", "BIGINT")
+    add_column_if_missing("lessons", "expiry_at", "BIGINT")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS trading_policies (
