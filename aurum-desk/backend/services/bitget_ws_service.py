@@ -3,6 +3,8 @@ import time
 import asyncio
 import random
 import logging
+import ssl
+import certifi
 from typing import Optional, Dict, Any, List
 import httpx
 import websockets
@@ -246,8 +248,10 @@ class BitgetWSService:
             heartbeat_task: Optional[asyncio.Task] = None
             try:
                 logger.info(f"Connecting to Bitget WebSocket ({self.ws_url}), epoch {epoch}...")
+                ssl_ctx = ssl.create_default_context(cafile=certifi.where())
                 async with websockets.connect(
                     self.ws_url,
+                    ssl=ssl_ctx,
                     ping_interval=None,  # We manage Bitget's application-level text ping
                     close_timeout=5.0
                 ) as ws:

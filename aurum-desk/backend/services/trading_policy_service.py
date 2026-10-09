@@ -297,7 +297,7 @@ class TradingPolicyService:
 
     @staticmethod
     def get_active_policy(db: Session, symbol: str = "XAUUSDT") -> models.TradingPolicy:
-        return TradingPolicyService.get_policy(db)
+        return TradingPolicyService.get_or_create_policy(db)
 
     @staticmethod
     def evaluate_entry_policy(
