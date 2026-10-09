@@ -17,6 +17,9 @@ export type SemanticActionType =
   | 'OPEN_TELEGRAM_HISTORY'
   | 'VIEW_TRADE'
   | 'RECONCILE_STATUS'
+  | 'STOP_TRADING'
+  | 'VIEW_BLOCKERS'
+  | 'ACKNOWLEDGE'
   | 'DISMISS';
 
 export interface SemanticAction {
@@ -52,6 +55,7 @@ export interface UserMessage {
   operation?: string;
   entity_id?: string;
   event_id?: string;
+  dedupe_key?: string;
   occurred_at: number;
   retryable?: boolean;
   outcome_certainty: OutcomeCertainty;

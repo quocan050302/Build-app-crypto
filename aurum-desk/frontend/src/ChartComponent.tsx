@@ -130,20 +130,45 @@ export function ChartComponent({
     chartRef.current = chart;
     seriesRef.current = candlestickSeries;
 
+    let animationFrameId: number | null = null;
+
     const handleResize = () => {
-      if (chartContainerRef.current) {
-        chart.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-          height: chartContainerRef.current.clientHeight,
-        });
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
       }
+      animationFrameId = requestAnimationFrame(() => {
+        if (chartContainerRef.current && chartRef.current) {
+          const width = chartContainerRef.current.clientWidth;
+          const height = chartContainerRef.current.clientHeight;
+          if (width > 0 && height > 0) {
+            chartRef.current.applyOptions({
+              width,
+              height,
+            });
+          }
+        }
+      });
     };
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && chartContainerRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        handleResize();
+      });
+      resizeObserver.observe(chartContainerRef.current);
+    }
 
     window.addEventListener('resize', handleResize);
     handleResize();
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
       if (rrPrimitiveRef.current && seriesRef.current) {
         try {
           seriesRef.current.detachPrimitive(rrPrimitiveRef.current);

@@ -246,12 +246,13 @@ describe('V9.1 User Message Catalog & Normalizer Suite', () => {
         leverage: 5,
       });
 
-      expect(event.code).toBe('TRADE_OPENED');
-      expect(event.severity).toBe('success');
-      expect(event.title).toBe('Lệnh mua (LONG) đã khớp');
-      expect(event.summary).toContain('Vị thế PAPER LONG đã mở tại 2.740,50 USDT');
-      expect(event.explanation).toContain('mô phỏng (PAPER TRADING)');
-      expect(event.outcome_certainty).toBe('confirmed');
+      expect(event).not.toBeNull();
+      expect(event!.code).toBe('TRADE_OPENED');
+      expect(event!.severity).toBe('success');
+      expect(event!.title).toBe('Lệnh mua (LONG) đã khớp');
+      expect(event!.summary).toContain('Vị thế PAPER LONG đã mở tại 2.740,50 USDT');
+      expect(event!.explanation).toContain('mô phỏng (PAPER TRADING)');
+      expect(event!.outcome_certainty).toBe('confirmed');
     });
 
     it('builds trade.closed event correctly distinguishes TP, SL and MANUAL exit causes', () => {
@@ -263,10 +264,11 @@ describe('V9.1 User Message Catalog & Normalizer Suite', () => {
         realized_r: 2.1,
         fee_usdt: 0.15,
       });
-      expect(tpEvent.code).toBe('TRADE_CLOSED_TP');
-      expect(tpEvent.title).toBe('Vị thế đã đóng: Đạt mục tiêu chốt lời (TP)');
-      expect(tpEvent.summary).toContain('+5,25 USDT');
-      expect(tpEvent.summary).toContain('+2.10R');
+      expect(tpEvent).not.toBeNull();
+      expect(tpEvent!.code).toBe('TRADE_CLOSED_TP');
+      expect(tpEvent!.title).toBe('Vị thế đã đóng: Đạt mục tiêu chốt lời (TP)');
+      expect(tpEvent!.summary).toContain('+5,25 USDT');
+      expect(tpEvent!.summary).toContain('+2.10R');
 
       // 2. Stop Loss Exit
       const slEvent = buildTradeEventMessage('trade.closed', {
@@ -276,9 +278,10 @@ describe('V9.1 User Message Catalog & Normalizer Suite', () => {
         realized_r: -1.0,
         fee_usdt: 0.15,
       });
-      expect(slEvent.code).toBe('TRADE_CLOSED_SL');
-      expect(slEvent.title).toBe('Vị thế đã đóng: Chạm giá cắt lỗ (SL)');
-      expect(slEvent.summary).toContain('-2,50 USDT');
+      expect(slEvent).not.toBeNull();
+      expect(slEvent!.code).toBe('TRADE_CLOSED_SL');
+      expect(slEvent!.title).toBe('Vị thế đã đóng: Chạm giá cắt lỗ (SL)');
+      expect(slEvent!.summary).toContain('-2,50 USDT');
 
       // 3. Manual Close with loss (NOT classified as SL!)
       const manualLossEvent = buildTradeEventMessage('trade.closed', {
@@ -287,9 +290,10 @@ describe('V9.1 User Message Catalog & Normalizer Suite', () => {
         realized_pnl_net: -1.2,
         realized_r: -0.48,
       });
-      expect(manualLossEvent.code).toBe('TRADE_CLOSED_MANUAL');
-      expect(manualLossEvent.title).toBe('Vị thế đã đóng: Đóng lệnh thủ công');
-      expect(manualLossEvent.summary).toContain('-1,20 USDT');
+      expect(manualLossEvent).not.toBeNull();
+      expect(manualLossEvent!.code).toBe('TRADE_CLOSED_MANUAL');
+      expect(manualLossEvent!.title).toBe('Vị thế đã đóng: Đóng lệnh thủ công');
+      expect(manualLossEvent!.summary).toContain('-1,20 USDT');
 
       // 4. Offline reconciliation (Estimated outcome)
       const offlineEvent = buildTradeEventMessage('trade.closed', {
@@ -297,8 +301,9 @@ describe('V9.1 User Message Catalog & Normalizer Suite', () => {
         exit_cause: 'RECONCILED_OFFLINE',
         realized_pnl_net: 0,
       });
-      expect(offlineEvent.outcome_certainty).toBe('estimated');
-      expect(offlineEvent.summary).toContain('đối soát');
+      expect(offlineEvent).not.toBeNull();
+      expect(offlineEvent!.outcome_certainty).toBe('estimated');
+      expect(offlineEvent!.summary).toContain('đối soát');
     });
 
     it('builds order.armed event stating no open position has been created yet', () => {
@@ -309,10 +314,11 @@ describe('V9.1 User Message Catalog & Normalizer Suite', () => {
         order_type: 'LIMIT',
       });
 
-      expect(armedEvent.code).toBe('ORDER_ARMED');
-      expect(armedEvent.title).toBe('Đã đặt lệnh chờ khớp');
-      expect(armedEvent.summary).toContain('Bạn chưa có vị thế mở từ lệnh này');
-      expect(armedEvent.explanation).toContain('(Bid/Ask)');
+      expect(armedEvent).not.toBeNull();
+      expect(armedEvent!.code).toBe('ORDER_ARMED');
+      expect(armedEvent!.title).toBe('Đã đặt lệnh chờ khớp');
+      expect(armedEvent!.summary).toContain('Bạn chưa có vị thế mở từ lệnh này');
+      expect(armedEvent!.explanation).toContain('(Bid/Ask)');
     });
 
     it('builds setup.ready event stating conditions met without claiming trade is executed', () => {
@@ -322,9 +328,10 @@ describe('V9.1 User Message Catalog & Normalizer Suite', () => {
         is_blocked: false,
       });
 
-      expect(readyEvent.code).toBe('SETUP_READY');
-      expect(readyEvent.title).toBe('Có kế hoạch giao dịch đủ điều kiện');
-      expect(readyEvent.summary).toContain('Bạn chưa có vị thế mới');
+      expect(readyEvent).not.toBeNull();
+      expect(readyEvent!.code).toBe('SETUP_READY');
+      expect(readyEvent!.title).toBe('Có kế hoạch giao dịch đủ điều kiện');
+      expect(readyEvent!.summary).toContain('Bạn chưa có vị thế mới');
     });
   });
 });

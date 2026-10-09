@@ -7,7 +7,9 @@ import {
   Zap,
   CheckCircle2,
   Flame,
-  Sparkles
+  Sparkles,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { getCatalogTemplate } from './utils/userMessageCatalog';
 
@@ -16,13 +18,17 @@ interface NYSessionPanelProps {
   policy: TradingPolicy | null;
   autoPaperActive: boolean;
   onRefresh?: () => void;
+  onOpenSessionDrawer?: () => void;
 }
 
 export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
   nySession,
   policy,
-  autoPaperActive: _autoPaperActive,
+  autoPaperActive,
+  onOpenSessionDrawer,
 }) => {
+  const [isCollapsed, setIsCollapsed] = React.useState(false);
+
   if (!nySession) {
     return (
       <div className="bg-charcoal-900 border-b border-charcoal-750 px-4 py-2 text-xs text-gray-400 flex items-center justify-between">
@@ -126,8 +132,57 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
     return 'Ngoài cửa sổ vào lệnh phiên Mỹ (Hệ thống vẫn thu thập dữ liệu, phân tích đa khung và theo dõi thoát lệnh).';
   };
 
+  if (isCollapsed) {
+    return (
+      <div className="bg-charcoal-900 border-b border-charcoal-750 px-3 py-1.5 transition-all select-none">
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <span className={`w-2 h-2 rounded-full ${is_in_ny_window ? 'bg-emerald-400 animate-ping' : 'bg-gray-500'}`} />
+            <span className="font-bold text-xs text-aurum-400 flex items-center gap-1">
+              <Flame className="w-3 h-3 text-amber-400" />
+              Phiên Mỹ
+            </span>
+            <span className="text-gray-500">•</span>
+            <span className="font-mono text-gray-300">NY {local_ny_time || '--:--'}</span>
+            <span className="text-gray-500">•</span>
+            <span className="font-mono text-gray-300">{daily_fills}/{max_daily_fills} hôm nay</span>
+            <span className="text-gray-500">•</span>
+            <span className="font-mono text-gray-300">Mỹ {ny_fills}/{ny_min_fills}</span>
+            <span className="text-gray-500">•</span>
+            <span className={autoPaperActive ? 'text-emerald-400 font-semibold' : 'text-gray-400'}>
+              Auto {autoPaperActive ? 'bật' : 'tắt'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <div className={`px-2 py-0.5 rounded border text-[10px] ${getBadgeStyle()}`}>
+              <span>{getStatusLabel()}</span>
+            </div>
+            {onOpenSessionDrawer && (
+              <button
+                type="button"
+                onClick={onOpenSessionDrawer}
+                className="text-[11px] text-aurum-400 hover:text-aurum-300 font-medium px-2 py-0.5 rounded bg-charcoal-800 hover:bg-charcoal-750 border border-charcoal-700 transition"
+              >
+                Phiên & Chính sách →
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsCollapsed(false)}
+              className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-charcoal-800 transition"
+              title="Mở rộng chi tiết phiên Mỹ"
+            >
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-charcoal-900 border-b border-charcoal-750 px-4 py-2.5 transition-all select-none">
+    <div className="bg-charcoal-900 border-b border-charcoal-750 px-4 py-2 transition-all select-none">
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Left: Clock, Window, Policy Info */}
         <div className="flex flex-wrap items-center gap-3">
@@ -194,6 +249,27 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
           {/* Quota State Badge */}
           <div className={`px-2.5 py-1 rounded border text-[11px] flex items-center gap-1.5 ${getBadgeStyle()}`}>
             <span>{getStatusLabel()}</span>
+          </div>
+
+          {/* Action to open drawer & Collapse button */}
+          <div className="flex items-center gap-1 pl-1">
+            {onOpenSessionDrawer && (
+              <button
+                type="button"
+                onClick={onOpenSessionDrawer}
+                className="text-[11px] text-aurum-400 hover:text-aurum-300 font-medium px-2 py-1 rounded bg-charcoal-800 hover:bg-charcoal-750 border border-charcoal-700 transition"
+              >
+                Phiên & Chính sách →
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setIsCollapsed(true)}
+              className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-charcoal-800 transition"
+              title="Thu gọn thành 1 dòng"
+            >
+              <ChevronUp className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </div>

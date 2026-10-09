@@ -34,9 +34,21 @@ const getActionLabel = (action: any): string => {
 };
 
 export const NotificationToastContainer: React.FC = () => {
-  const { activeToasts, dismissToast, openDetails, onActionClick } = useNotification();
+  const { activeToasts, dismissToast, openDetails, onActionClick, toggleCenter } = useNotification();
 
   if (activeToasts.length === 0) return null;
+
+  // Priority sorting: orders/trades critical > errors > warnings > info
+  const priorityWeight = (t: any): number => {
+    if (t.code?.startsWith('TRADE_') || t.code?.startsWith('ORDER_')) return 4;
+    if (t.severity === 'error') return 3;
+    if (t.severity === 'warning') return 2;
+    return 1;
+  };
+
+  const sortedToasts = [...activeToasts].sort((a, b) => priorityWeight(b) - priorityWeight(a));
+  const primaryToast = sortedToasts[0];
+  const pendingCount = activeToasts.length - 1;
 
   const getSeverityStyle = (severity: string) => {
     switch (severity) {
@@ -68,79 +80,86 @@ export const NotificationToastContainer: React.FC = () => {
     }
   };
 
+  const style = getSeverityStyle(primaryToast.severity);
+  const hasDetails = Boolean(primaryToast.explanation || primaryToast.next_steps || primaryToast.impact || primaryToast.technical_details);
+
   return (
     <aside
       aria-label="Thông báo hệ thống"
       aria-live="polite"
-      className="fixed top-4 right-4 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none"
+      className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"
     >
-      {activeToasts.map((toast) => {
-        const style = getSeverityStyle(toast.severity);
-        const hasDetails = Boolean(toast.explanation || toast.next_steps || toast.impact || toast.technical_details);
-
-        return (
-          <div
-            key={toast.id}
-            role="status"
-            className={`pointer-events-auto p-3 rounded-lg border shadow-2xl backdrop-blur-md transition-all duration-300 transform translate-y-0 ${style.bg}`}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-start gap-2.5 min-w-0">
-                {style.icon}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-bold text-xs tracking-wide">{toast.title}</span>
-                    {toast.outcome_certainty === 'unknown' && (
-                      <span className="text-[9px] px-1.5 py-0.2 rounded border bg-amber-900/40 text-amber-300 border-amber-700">
-                        Chưa rõ kết quả
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-gray-300 mt-0.5 leading-relaxed line-clamp-3">
-                    {toast.summary}
-                  </p>
-                </div>
+      <div
+        key={primaryToast.id}
+        role="status"
+        className={`pointer-events-auto p-3 rounded-lg border shadow-2xl backdrop-blur-md transition-all duration-200 ${style.bg}`}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-2.5 min-w-0">
+            {style.icon}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-bold text-xs tracking-wide">{primaryToast.title}</span>
+                {primaryToast.outcome_certainty === 'unknown' && (
+                  <span className="text-[9px] px-1.5 py-0.2 rounded border bg-amber-900/40 text-amber-300 border-amber-700">
+                    Chưa rõ kết quả
+                  </span>
+                )}
               </div>
-
-              {/* Close Button */}
-              <button
-                onClick={() => dismissToast(toast.id)}
-                className="text-gray-400 hover:text-white p-1 rounded transition hover:bg-white/10 shrink-0"
-                title="Đóng thông báo"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Actions / View Details footer */}
-            <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between gap-2 text-[10px]">
-              {hasDetails ? (
-                <button
-                  onClick={() => openDetails(toast)}
-                  className="flex items-center gap-1 text-aurum-300 hover:text-aurum-200 font-medium transition underline-offset-2 hover:underline"
-                >
-                  <span>Xem chi tiết & hướng dẫn</span>
-                  <ChevronRight className="w-3 h-3" />
-                </button>
-              ) : (
-                <span className="text-gray-400 text-[10px]">
-                  {new Date(toast.occurred_at).toLocaleTimeString('vi-VN')}
-                </span>
-              )}
-
-              {toast.action && onActionClick && (
-                <button
-                  onClick={() => onActionClick(toast.action!)}
-                  className="px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded font-medium text-white transition flex items-center gap-1"
-                >
-                  <span>{getActionLabel(toast.action)}</span>
-                  <ExternalLink className="w-2.5 h-2.5" />
-                </button>
-              )}
+              <p className="text-[11px] text-gray-300 mt-0.5 leading-relaxed line-clamp-2">
+                {primaryToast.summary}
+              </p>
             </div>
           </div>
-        );
-      })}
+
+          {/* Close Button */}
+          <button
+            onClick={() => dismissToast(primaryToast.id)}
+            className="text-gray-400 hover:text-white p-1 rounded transition hover:bg-white/10 shrink-0"
+            title="Đóng thông báo"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Actions / View Details footer */}
+        <div className="mt-2 pt-1.5 border-t border-white/10 flex items-center justify-between gap-2 text-[10px]">
+          {hasDetails ? (
+            <button
+              onClick={() => openDetails(primaryToast)}
+              className="flex items-center gap-1 text-aurum-300 hover:text-aurum-200 font-medium transition underline-offset-2 hover:underline"
+            >
+              <span>Chi tiết & hướng dẫn</span>
+              <ChevronRight className="w-3 h-3" />
+            </button>
+          ) : (
+            <span className="text-gray-400 text-[10px]">
+              {new Date(primaryToast.occurred_at).toLocaleTimeString('vi-VN')}
+            </span>
+          )}
+
+          {primaryToast.action && onActionClick && (
+            <button
+              onClick={() => onActionClick(primaryToast.action!)}
+              className="px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded font-medium text-white transition flex items-center gap-1"
+            >
+              <span>{getActionLabel(primaryToast.action)}</span>
+              <ExternalLink className="w-2.5 h-2.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {pendingCount > 0 && (
+        <button
+          type="button"
+          onClick={toggleCenter}
+          className="pointer-events-auto flex items-center justify-between px-3 py-1.5 rounded-lg bg-charcoal-850/95 border border-charcoal-700 hover:border-aurum-500/50 text-gray-300 hover:text-white text-[11px] shadow-lg backdrop-blur-sm transition"
+        >
+          <span>+{pendingCount} thông báo khác trong hàng đợi</span>
+          <span className="text-aurum-400 font-medium hover:underline">Mở Trung Tâm →</span>
+        </button>
+      )}
     </aside>
   );
 };

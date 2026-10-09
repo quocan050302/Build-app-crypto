@@ -270,6 +270,19 @@ export const USER_MESSAGE_CATALOG: Record<string, CatalogTemplate> = {
     defaultAction: { type: 'VIEW_TRADE', label: 'Xem Nhật Ký' },
   },
 
+  RISK_BUDGET_EXCEEDED: {
+    code: 'RISK_BUDGET_EXCEEDED',
+    title: 'Đã chạm hạn mức rủi ro ngày',
+    summary: 'Đã chạm giới hạn quản trị rủi ro ngày (3 lệnh hoặc 2 lỗ liên tiếp).',
+    explanation:
+      'Quy tắc kỷ luật giao dịch ngắt toàn bộ quyền vào lệnh mới để bảo vệ vốn khi đã chạm hạn mức lỗ hoặc số lệnh cho phép.',
+    impact: 'Tài khoản không mở thêm vị thế.',
+    next_steps: 'Dừng giao dịch hôm nay và quay lại vào phiên giao dịch tiếp theo.',
+    defaultSeverity: 'error',
+    defaultCertainty: 'confirmed',
+    defaultAction: { type: 'STOP_TRADING', label: 'Dừng Giao Dịch' },
+  },
+
   COOLDOWN_ACTIVE: {
     code: 'COOLDOWN_ACTIVE',
     title: 'Đang trong thời gian nghỉ giãn cách',
@@ -651,12 +664,56 @@ export const USER_MESSAGE_CATALOG: Record<string, CatalogTemplate> = {
     title: 'Chưa hoàn tất được thao tác này',
     summary: (p) => p?.message || 'Hệ thống ghi nhận phản hồi chưa mong đợi trong quá trình xử lý.',
     explanation:
-      'Một thao tác vừa thực hiện gặp gián đoạn tạm thời. Hệ thống đã lưu lại mã lỗi kỹ thuật để kiểm tra.',
-    impact: 'Trạng thái dữ liệu hiện tại được bảo toàn an toàn.',
-    next_steps: 'Vui lòng bấm Làm Mới để đối soát trạng thái trước khi thử lại.',
+      'Thao tác vừa thực hiện chưa được máy chủ xác nhận chắc chắn hoặc gặp gián đoạn kết nối. Hệ thống đã ghi nhận mã lỗi kỹ thuật.',
+    impact: 'Trạng thái thao tác chưa được xác nhận chắc chắn. Vui lòng đối soát lại trạng thái lệnh trước khi thực hiện tiếp.',
+    next_steps: 'Kiểm tra danh sách vị thế hoặc bấm Đối Soát Trạng Thái để làm mới dữ liệu từ máy chủ.',
     defaultSeverity: 'error',
     defaultCertainty: 'unknown',
     defaultAction: { type: 'RECONCILE_STATUS', label: 'Đối Soát Trạng Thái' },
+  },
+
+  GENERIC_INFO: {
+    code: 'GENERIC_INFO',
+    title: 'Thông báo',
+    summary: (p) => p?.message || 'Thông tin từ hệ thống.',
+    explanation: 'Thông báo thông tin hoạt động thường lệ của hệ thống.',
+    impact: 'Không ảnh hưởng tới trạng thái tài khoản hay lệnh giao dịch.',
+    next_steps: 'Tiếp tục theo dõi phiên giao dịch.',
+    defaultSeverity: 'info',
+    defaultCertainty: 'confirmed',
+  },
+
+  GENERIC_SUCCESS: {
+    code: 'GENERIC_SUCCESS',
+    title: 'Thành công',
+    summary: (p) => p?.message || 'Thao tác đã được thực hiện thành công.',
+    explanation: 'Yêu cầu thao tác của bạn đã được hệ thống xử lý hoàn tất.',
+    impact: 'Dữ liệu hoặc trạng thái đã được cập nhật chính xác.',
+    next_steps: 'Bạn có thể tiếp tục thao tác.',
+    defaultSeverity: 'success',
+    defaultCertainty: 'confirmed',
+  },
+
+  GENERIC_WARNING: {
+    code: 'GENERIC_WARNING',
+    title: 'Cảnh báo',
+    summary: (p) => p?.message || 'Lưu ý từ hệ thống bảo vệ an toàn.',
+    explanation: 'Hệ thống phát hiện điều kiện cần bạn lưu ý hoặc điều chỉnh.',
+    impact: 'Cần kiểm tra kỹ các thông số trước khi thực hiện tiếp.',
+    next_steps: 'Xem xét kỹ cảnh báo và đưa ra quyết định an toàn.',
+    defaultSeverity: 'warning',
+    defaultCertainty: 'confirmed',
+  },
+
+  SETUP_UPDATED: {
+    code: 'SETUP_UPDATED',
+    title: 'Kế hoạch đã cập nhật',
+    summary: (p) => p?.message || 'Kế hoạch giao dịch đã được đồng bộ phiên bản mới nhất từ chiến lược SMC.',
+    explanation: 'Cấu trúc thị trường hoặc mức giá retest vừa có sự dịch chuyển vượt ngưỡng theo dõi.',
+    impact: 'Snapshot kế hoạch hiển thị đã được cập nhật.',
+    next_steps: 'Kiểm tra lại các mức giá entry/SL/TP trước khi quyết định arm.',
+    defaultSeverity: 'info',
+    defaultCertainty: 'confirmed',
   },
 
   TRADE_OPENED: {

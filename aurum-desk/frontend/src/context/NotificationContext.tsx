@@ -42,6 +42,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Storage for active timers
   const toastTimersRef = useRef<Map<string, any>>(new Map());
 
+  // Storage for notified ready setups (instance + revision) to prevent duplicate toasts on refresh
+  const notifiedReadySetupsRef = useRef<Set<string>>(new Set());
+
+  // Incident tracking for repeated background errors: incidentKey -> state
+  const incidentsRef = useRef<Map<string, { first_seen: number; last_seen: number; count: number; status: 'active' | 'dismissed' | 'resolved' }>>(new Map());
+
   // Custom action handler
   const actionHandlerRef = useRef<((action: SemanticActionType) => void) | null>(null);
 
@@ -50,7 +56,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   const dismissToast = useCallback((id: string) => {
-    setActiveToasts((prev) => prev.filter((t) => t.id !== id));
+    setActiveToasts((prev) => {
+      const target = prev.find((t) => t.id === id);
+      if (target) {
+        const incidentKey = `${target.code}:${target.operation || 'default'}:${target.entity_id || ''}`;
+        const existingIncident = incidentsRef.current.get(incidentKey);
+        if (existingIncident) {
+          existingIncident.status = 'dismissed';
+        }
+      }
+      return prev.filter((t) => t.id !== id);
+    });
     if (toastTimersRef.current.has(id)) {
       clearTimeout(toastTimersRef.current.get(id));
       toastTimersRef.current.delete(id);
@@ -65,7 +81,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return;
       }
 
-      const durationMs = msg.severity === 'success' ? 7000 : 10000;
+      const durationMs = msg.severity === 'success' ? 5000 : 7000;
       if (toastTimersRef.current.has(msg.id)) {
         clearTimeout(toastTimersRef.current.get(msg.id));
       }
@@ -84,8 +100,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     (msg: UserMessage) => {
       const now = Date.now();
 
-      // Deduplication check: key = code + (operation or entity_id or title)
-      const dedupeKey = `${msg.code}:${msg.operation || msg.entity_id || msg.event_id || msg.title}`;
+      // Deduplication check: prefer real event_id or composite identity
+      const dedupeKey = msg.event_id
+        ? `evt:${msg.event_id}`
+        : `${msg.code}:${msg.entity_id || ''}:${msg.operation || ''}:${msg.title}`;
+
       const lastTime = recentDispatchesRef.current.get(dedupeKey);
       if (lastTime && now - lastTime < DEDUPE_WINDOW_MS) {
         // Skip duplicate burst
@@ -93,10 +112,53 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
       recentDispatchesRef.current.set(dedupeKey, now);
 
+      // Handle setup.ready specific deduplication per instance + revision
+      if (msg.code === 'SETUP_READY') {
+        const readyKey = `${msg.entity_id || ''}:${msg.params?.setup_instance_id || ''}:${msg.params?.revision || ''}`;
+        if (notifiedReadySetupsRef.current.has(readyKey)) {
+          return;
+        }
+        notifiedReadySetupsRef.current.add(readyKey);
+      }
+
+      // Handle repeated incidents for background polling/stream errors
+      const isBackgroundError =
+        (msg.severity === 'error' || msg.severity === 'warning') &&
+        (!msg.operation || msg.operation.startsWith('poll') || msg.operation.startsWith('background') || msg.operation === 'get_health');
+
+      const incidentKey = `${msg.code}:${msg.operation || 'default'}:${msg.entity_id || ''}`;
+      if (isBackgroundError) {
+        const existing = incidentsRef.current.get(incidentKey);
+        if (existing) {
+          existing.count += 1;
+          existing.last_seen = now;
+          if (existing.status === 'dismissed' || existing.status === 'active') {
+            // Do not pop up a new toast repeatedly for dismissed or active background incidents
+            return;
+          }
+        } else {
+          incidentsRef.current.set(incidentKey, {
+            first_seen: now,
+            last_seen: now,
+            count: 1,
+            status: 'active',
+          });
+        }
+      }
+
+      // If recovery event, resolve corresponding degraded incident
+      if (msg.code === 'FEED_RECOVERED') {
+        for (const [k, inc] of incidentsRef.current.entries()) {
+          if (k.startsWith('FEED_DOWN') || k.startsWith('EXECUTION_FEED_DEGRADED')) {
+            inc.status = 'resolved';
+          }
+        }
+      }
+
       // Clean up old entries in recentDispatchesRef
-      if (recentDispatchesRef.current.size > 100) {
+      if (recentDispatchesRef.current.size > 200) {
         for (const [k, ts] of recentDispatchesRef.current.entries()) {
-          if (now - ts > DEDUPE_WINDOW_MS * 2) {
+          if (now - ts > DEDUPE_WINDOW_MS * 4) {
             recentDispatchesRef.current.delete(k);
           }
         }
@@ -120,18 +182,27 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const notify = useCallback(
     (message: NotifyPayload, options?: Partial<UserMessage>) => {
       if (typeof message === 'string') {
-        const template = getCatalogTemplate(options?.code || 'UNKNOWN');
+        const fallbackCode =
+          options?.code ||
+          (options?.severity === 'success'
+            ? 'GENERIC_SUCCESS'
+            : options?.severity === 'warning'
+            ? 'GENERIC_WARNING'
+            : options?.severity === 'info'
+            ? 'GENERIC_INFO'
+            : 'UNKNOWN');
+        const template = getCatalogTemplate(fallbackCode);
         const userMsg: UserMessage = {
           id: options?.id || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           code: options?.code || template.code,
           severity: options?.severity || template.defaultSeverity,
           title: options?.title || template.title,
           summary: message,
-          explanation: options?.explanation || template.explanation,
-          impact: options?.impact || template.impact,
-          next_steps: options?.next_steps || template.next_steps,
+          explanation: options?.explanation || (template.code !== 'UNKNOWN' ? template.explanation : ''),
+          impact: options?.impact || (template.code !== 'UNKNOWN' ? template.impact : ''),
+          next_steps: options?.next_steps || (template.code !== 'UNKNOWN' ? template.next_steps : ''),
           params: options?.params || {},
-          action: options?.action || template.defaultAction,
+          action: options?.action || (template.code !== 'UNKNOWN' ? template.defaultAction : undefined),
           operation: options?.operation,
           entity_id: options?.entity_id,
           event_id: options?.event_id,
@@ -142,7 +213,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         };
         pushMessage(userMsg);
       } else {
-        const template = getCatalogTemplate(message.code || options?.code || 'UNKNOWN');
+        const fallbackCode =
+          message.code ||
+          options?.code ||
+          (message.severity === 'success' || options?.severity === 'success'
+            ? 'GENERIC_SUCCESS'
+            : message.severity === 'warning' || options?.severity === 'warning'
+            ? 'GENERIC_WARNING'
+            : message.severity === 'info' || options?.severity === 'info'
+            ? 'GENERIC_INFO'
+            : 'UNKNOWN');
+        const template = getCatalogTemplate(fallbackCode);
         const userMsg: UserMessage = {
           id: message.id || options?.id || `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           code: message.code || options?.code || template.code,
@@ -151,11 +232,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           summary:
             message.summary ||
             (typeof template.summary === 'function' ? template.summary(message.params || {}) : template.summary),
-          explanation: message.explanation || options?.explanation || template.explanation,
-          impact: message.impact || options?.impact || template.impact,
-          next_steps: message.next_steps || options?.next_steps || template.next_steps,
+          explanation: message.explanation || options?.explanation || (template.code !== 'UNKNOWN' ? template.explanation : ''),
+          impact: message.impact || options?.impact || (template.code !== 'UNKNOWN' ? template.impact : ''),
+          next_steps: message.next_steps || options?.next_steps || (template.code !== 'UNKNOWN' ? template.next_steps : ''),
           params: { ...message.params, ...options?.params },
-          action: message.action || options?.action || template.defaultAction,
+          action: message.action || options?.action || (template.code !== 'UNKNOWN' ? template.defaultAction : undefined),
           operation: message.operation || options?.operation,
           entity_id: message.entity_id || options?.entity_id,
           event_id: message.event_id || options?.event_id,

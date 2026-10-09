@@ -35,11 +35,11 @@ import {
   X,
   AlertTriangle,
   RotateCcw,
-  Check,
-  ShieldCheck
+  Check
 } from 'lucide-react';
 import { NYSessionPanel } from './NYSessionPanel';
-import { ExpectedEntryPanel } from './ExpectedEntryPanel';
+import { QuickDecisionSidebar, type DrawerSectionType } from './components/QuickDecisionSidebar';
+import { TradeDetailsDrawer } from './components/TradeDetailsDrawer';
 import { TelegramTab } from './TelegramTab';
 import { JournalTab } from './JournalTab';
 import type { TradingPolicy, NYSessionStatus } from './api/client';
@@ -185,6 +185,19 @@ function AppContent() {
   const [educationList, setEducationList] = useState<any[]>([]);
   const [selectedEdu, setSelectedEdu] = useState<any>(null);
   const [importStatus, setImportStatus] = useState<string | null>(null);
+
+  // V10.3 Trade Details Drawer State
+  const [isDetailsDrawerOpen, setIsDetailsDrawerOpen] = useState(false);
+  const [drawerSection, setDrawerSection] = useState<DrawerSectionType>('conditions');
+
+  const handleOpenDrawer = useCallback((section: DrawerSectionType = 'conditions') => {
+    setDrawerSection(section);
+    setIsDetailsDrawerOpen(true);
+  }, []);
+
+  const handleCloseDrawer = useCallback(() => {
+    setIsDetailsDrawerOpen(false);
+  }, []);
 
   // User Notification System (V9.1)
   const {
@@ -1277,11 +1290,27 @@ function AppContent() {
   });
 
   return (
-    <div className="min-h-screen bg-charcoal-950 text-gray-200 flex flex-col font-sans select-none">
-      {/* V9.1 Notification System: Toast Container, Center Drawer & Detail Modal */}
+    <div className="h-screen h-[100dvh] max-h-[100dvh] bg-charcoal-950 text-gray-200 flex flex-col font-sans select-none overflow-hidden">
+      {/* V9.1 & V10.3 Notification System: Toast Container, Center Drawer, Detail Modal & Details Drawer */}
       <NotificationToastContainer />
       <NotificationCenterDrawer />
       <UserMessageDetailsModal />
+      <TradeDetailsDrawer
+        isOpen={isDetailsDrawerOpen}
+        activeSection={drawerSection}
+        onSectionChange={setDrawerSection}
+        onClose={handleCloseDrawer}
+        selectedIntent={selectedIntent}
+        activePosition={activePosition}
+        upcomingSetups={upcomingData.setups}
+        onFocusSetupOnChart={handleFocusSetupOnChart}
+        onRefreshUpcoming={refreshUpcoming}
+        nySession={nySession}
+        policy={tradingPolicy}
+        leverage={leverage}
+        marginMode={marginMode}
+        analysis={analysis}
+      />
 
       {/* 1. Global Header Bar */}
       <header className="bg-charcoal-900 border-b border-charcoal-750 px-4 py-2.5 flex flex-wrap justify-between items-center gap-3">
@@ -1420,14 +1449,15 @@ function AppContent() {
         policy={tradingPolicy}
         autoPaperActive={autoPaperActive}
         onRefresh={refreshAccountAndHealth}
+        onOpenSessionDrawer={() => handleOpenDrawer('session')}
       />
 
       {/* 3. Main Workspace Content */}
-      <main className="flex-1 p-3 grid grid-cols-1 lg:grid-cols-4 gap-3 overflow-hidden">
-        {/* Left Area (Col 1-3): Interactive Chart or Full Tab Pages */}
-        <div className="lg:col-span-3 flex flex-col gap-3 h-full">
+      <main className="flex-1 min-h-0 p-3 flex flex-col lg:flex-row gap-3 overflow-hidden">
+        {/* Left Area: Interactive Chart or Full Tab Pages */}
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col h-full overflow-hidden">
           {activeTab === 'chart' && (
-            <div className="flex-1 flex flex-col min-h-[560px]">
+            <div className="flex-1 min-h-0 flex flex-col h-full">
               <ChartComponent
                 symbol="XAUUSDT"
                 timeframe={timeframe}
@@ -1479,7 +1509,7 @@ function AppContent() {
 
           {/* TAB: KẾ HOẠCH & LỆNH DỰ KIẾN (UPCOMING SETUPS & DAILY SCENARIOS) */}
           {activeTab === 'upcoming' && (
-            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-5 overflow-y-auto max-h-[750px]">
+            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-5 flex-1 min-h-0 overflow-y-auto">
               <div className="flex flex-wrap justify-between items-center border-b border-charcoal-750 pb-3 gap-3">
                 <div>
                   <h2 className="text-base font-bold text-aurum-400 flex items-center gap-2">
@@ -1838,7 +1868,7 @@ function AppContent() {
 
           {/* TAB: PHÂN TÍCH SMC/ICT & MA TRẬN ĐA KHUNG */}
           {activeTab === 'smc' && (
-            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-4 overflow-y-auto max-h-[750px]">
+            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
               <div className="flex justify-between items-center border-b border-charcoal-750 pb-3">
                 <div>
                   <h2 className="text-base font-bold text-aurum-400">Phân Tích Cấu Trúc SMC/ICT & Ma Trận Đa Khung</h2>
@@ -1962,7 +1992,7 @@ function AppContent() {
 
           {/* TAB: QUẢN TRỊ VỐN & KÝ QUỸ (RISK & MARGIN) */}
           {activeTab === 'paper' && (
-            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-5 overflow-y-auto max-h-[750px]">
+            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-5 flex-1 min-h-0 overflow-y-auto">
               <div className="flex justify-between items-center border-b border-charcoal-750 pb-3">
                 <div>
                   <h2 className="text-base font-bold text-aurum-400">Quản Trị Rủi Ro & Ký Quỹ Bitget Isolated</h2>
@@ -2277,7 +2307,7 @@ function AppContent() {
 
           {/* TAB: BÁO CÁO PHIÊN & NGÀY */}
           {activeTab === 'reports' && (
-            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-4 overflow-y-auto max-h-[750px]">
+            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
               <div className="flex justify-between items-center border-b border-charcoal-750 pb-3">
                 <h2 className="text-base font-bold text-aurum-400">Báo Cáo Nghiên Cứu Phiên Á – Âu – Mỹ & Premarket</h2>
                 <button
@@ -2306,7 +2336,7 @@ function AppContent() {
 
           {/* TAB: TIN TỨC & BLACKOUT */}
           {activeTab === 'news' && (
-            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-4 overflow-y-auto max-h-[750px]">
+            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
               <div className="flex flex-wrap justify-between items-center border-b border-charcoal-750 pb-3 gap-3">
                 <div>
                   <h2 className="text-base font-bold text-aurum-400 flex items-center gap-2">
@@ -2723,7 +2753,7 @@ function AppContent() {
 
           {/* TAB: THƯ VIỆN KIẾN THỨC */}
           {activeTab === 'education' && (
-            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col md:flex-row gap-5 overflow-y-auto max-h-[750px]">
+            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col md:flex-row gap-5 flex-1 min-h-0 overflow-y-auto">
               {/* Sidebar Modules */}
               <div className="w-full md:w-1/3 flex flex-col gap-2 border-r border-charcoal-750 pr-4">
                 <h3 className="text-xs font-bold text-aurum-400 uppercase tracking-wider mb-2">Chủ Đề Kiến Thức</h3>
@@ -2763,377 +2793,33 @@ function AppContent() {
           )}
         </div>
 
-        {/* Right Side Panel: Live Trading & Risk Sidebar (Col 4) */}
-        <div className="flex flex-col gap-3">
-          {/* Active Open Position Card */}
-          {activePosition ? (
-            <div className="bg-charcoal-900 border-2 border-emerald-500/60 rounded-lg p-4 shadow-lg flex flex-col gap-3">
-              <div className="flex justify-between items-center border-b border-charcoal-750 pb-2">
-                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                  VỊ THẾ ĐANG MỞ (PAPER)
-                </span>
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
-                  {activePosition.position.direction}
-                </span>
-              </div>
-
-              <div className="space-y-1.5 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Entry Thực Tế:</span>
-                  <span className="font-semibold text-gray-200">
-                    ${activePosition.position.actual_entry || activePosition.position.planned_entry}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Cắt Lỗ (SL):</span>
-                  <span className="text-rose-400 font-semibold">${activePosition.position.stop_loss}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Chốt Lời (TP):</span>
-                  <span className="text-emerald-400 font-semibold">${activePosition.position.take_profit}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">R:R Khớp Lệnh (Gross / Net):</span>
-                  <span className="text-aurum-400 font-bold">
-                    1:{activePosition.position.gross_rr?.toFixed(2) || '---'} (Net 1:{activePosition.position.estimated_net_rr?.toFixed(2) || '---'})
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Đòn bẩy & Ký quỹ:</span>
-                  <span className="font-mono text-gray-300">
-                    {activePosition.position.leverage || leverage}x ({activePosition.position.margin_mode || marginMode})
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Thanh lý ước tính:</span>
-                  <span className="text-rose-400 font-mono font-semibold">
-                    {typeof activePosition.position.estimated_liquidation === 'number' && activePosition.position.estimated_liquidation > 0
-                      ? `$${activePosition.position.estimated_liquidation.toFixed(2)} (Ước tính Isolated)`
-                      : 'Chưa có ước tính hợp lệ'}
-                  </span>
-                </div>
-                <div className="flex justify-between pt-1 border-t border-charcoal-750">
-                  <span className="text-gray-400 font-medium">PnL Tạm Tính:</span>
-                  <span
-                    className={`font-bold text-sm ${
-                      activePosition.unrealized_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                    }`}
-                  >
-                    {activePosition.unrealized_pnl >= 0 ? '+' : ''}${activePosition.unrealized_pnl}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                onClick={() => handleClosePosition(activePosition.position.id)}
-                className="w-full py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded font-bold text-xs transition"
-              >
-                Đóng Vị Thế Ngay (Thị Trường)
-              </button>
-            </div>
-          ) : (
-            /* Selected Trade Intent / Candidate Card */
-            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-4 shadow-lg flex flex-col gap-3">
-              <div className="flex justify-between items-center border-b border-charcoal-750 pb-2">
-                <span className="text-xs font-bold text-aurum-400">
-                  {selectedIntent?.source === 'WATCH_SETUP'
-                    ? 'SETUP ĐANG CHỌN (WATCHBOARD)'
-                    : selectedIntent?.source === 'DRAFT'
-                    ? 'BẢN NHÁP R:R (TRÊN CHART)'
-                    : 'TÍN HIỆU SMC TIẾP THEO'}
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-gray-400">{selectedIntent?.timeframe || timeframe}</span>
-                  {selectedIntent && selectedIntent.source !== 'LIVE_CANDIDATE' && (
-                    <button
-                      onClick={handleFollowLatestSignal}
-                      title="Quay lại tín hiệu phân tích SMC mới nhất"
-                      className="text-[10px] px-1.5 py-0.5 rounded bg-charcoal-800 hover:bg-charcoal-750 text-aurum-400 border border-aurum-500/30 flex items-center gap-1 transition"
-                    >
-                      <RefreshCw className="w-2.5 h-2.5" />
-                      Theo tín hiệu mới nhất
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {stalePlanNotice && (
-                <div className="bg-amber-950/60 border border-amber-500/50 rounded-lg p-3 text-xs text-amber-200 flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-amber-300">Kế hoạch này đã có cập nhật mới</span>
-                    <button
-                      onClick={() => {
-                        const updated = upcomingData.setups.find((s: any) => s.id === stalePlanNotice.setupId);
-                        if (updated) {
-                          handleFocusSetupOnChart(updated);
-                        }
-                        setStalePlanNotice(null);
-                      }}
-                      className="px-2 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white font-medium text-[11px] transition shadow"
-                    >
-                      Xem bản mới
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-amber-200/90 leading-relaxed">
-                    Phiên bản backend ({stalePlanNotice.newDirection} rev.{stalePlanNotice.newRevision}) khác với snapshot đang chọn (rev.{stalePlanNotice.oldRevision}). Bản đang chọn vẫn được giữ cố định để bảo vệ an toàn.
-                  </p>
-                </div>
-              )}
-
-              {selectedIntent ? (
-                <ExpectedEntryPanel
-                  selectedIntent={selectedIntent}
-                  setups={upcomingData.setups}
-                  activePosition={activePosition}
-                  hasArmedOrder={hasArmedOrder}
-                  leverage={leverage}
-                  marginMode={marginMode}
-                  onArmSetup={handleArmWatchSetup}
-                  onCancelSetup={handleCancelWatchSetup}
-                  onOpenMarket={handleOpenPaperTrade}
-                />
-              ) : (
-                <div className="p-3 text-center text-xs text-gray-400 italic bg-charcoal-850 rounded border border-charcoal-750">
-                  {analysis?.missing_conditions?.length > 0 ? (
-                    <div className="text-left space-y-1">
-                      <span className="text-gray-300 font-medium block not-italic">Đang Chờ Đủ Điều Kiện:</span>
-                      {analysis.missing_conditions.map((mc: string, idx: number) => (
-                        <p key={idx} className="text-[11px] text-amber-400/90">• {mc}</p>
-                      ))}
-                    </div>
-                  ) : (
-                    'Đang theo dõi phản ứng giá...'
-                  )}
-                </div>
-              )}
-
-            </div>
-          )}
-
-          {/* Upcoming Setups Quick Preview in Sidebar */}
-          {upcomingData.setups.length > 0 && (
-            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-3.5 shadow-lg flex flex-col gap-2">
-              <div className="flex justify-between items-center border-b border-charcoal-750 pb-1.5">
-                <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
-                  <ListOrdered className="w-3.5 h-3.5 text-aurum-400" />
-                  LỆNH DỰ KIẾN ({upcomingData.setups.length})
-                </span>
-                <button
-                  onClick={() => setActiveTab('upcoming')}
-                  className="text-[10px] text-aurum-400 hover:text-aurum-300 font-medium"
-                >
-                  Xem tất cả →
-                </button>
-              </div>
-
-              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                {upcomingData.setups.slice(0, 3).map((st) => (
-                  <div
-                    key={st.id}
-                    onClick={() => handleFocusSetupOnChart(st)}
-                    className="p-2 rounded bg-charcoal-850 border border-charcoal-700 hover:border-aurum-500/50 cursor-pointer text-[11px] flex justify-between items-center transition"
-                  >
-                    <div>
-                      <span
-                        className={`font-bold mr-1.5 ${
-                          st.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'
-                        }`}
-                      >
-                        {st.direction}
-                      </span>
-                      <span className="text-gray-300">${st.confirmed_entry || st.provisional_entry}</span>
-                    </div>
-                    <span
-                      className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold ${
-                        st.state === 'READY'
-                          ? 'bg-emerald-500 text-charcoal-950'
-                          : st.state === 'ARMED'
-                          ? 'bg-amber-500 text-charcoal-950'
-                          : 'bg-charcoal-800 text-gray-400'
-                      }`}
-                    >
-                      {st.state}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Active Position Risk Monitoring Card */}
-          {activePosition?.has_active_position && (
-            <div className="bg-charcoal-900 border border-emerald-500/50 rounded-lg p-3.5 shadow-lg flex flex-col gap-2">
-              <div className="flex justify-between items-center border-b border-charcoal-750 pb-2">
-                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  GIÁM SÁT RỦI RO VỊ THẾ HIỆN TẠI
-                </span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
-                  {activePosition.position.direction}
-                </span>
-              </div>
-              <div className="space-y-1.5 text-[11px]">
-                <div className="p-2 rounded bg-charcoal-850 border border-charcoal-700 space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Net R:R Khớp Lệnh:</span>
-                    <span className="text-emerald-400 font-bold">
-                      1:{activePosition.position.estimated_net_rr?.toFixed(2) || '---'} (Gross 1:{activePosition.position.gross_rr?.toFixed(2) || '---'})
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-emerald-300/80 block">
-                    ✓ Đạt ngưỡng tối thiểu Net R:R 1:2.0 tại thời điểm khớp lệnh.
-                  </span>
-                </div>
-                <div className="p-2 rounded bg-charcoal-850 border border-charcoal-700 space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Giám sát TP / SL:</span>
-                    <span className="text-gray-200 font-mono font-semibold">
-                      TP ${activePosition.position.take_profit} / SL ${activePosition.position.stop_loss}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-gray-400 block">
-                    ExitMonitor đang theo dõi realtime; không bị ảnh hưởng bởi bộ lọc tín hiệu mới.
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Hard Filters Live Checklist */}
-          <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-4 shadow-lg flex flex-col gap-2">
-            <div className="border-b border-charcoal-750 pb-2">
-              <span className="text-xs font-bold text-gray-300 block">
-                BỘ LỌC TÍN HIỆU MỚI (SMC {analysis?.timeframe || '15M'})
-              </span>
-              <span className="text-[10px] text-gray-400 block mt-0.5">
-                Đánh giá điều kiện cho cơ hội mới (Độc lập với vị thế đang chạy)
-              </span>
-            </div>
-            <div className="space-y-2 text-xs">
-              {analysis?.checklist?.map((chk: any) => (
-                <div key={chk.id} className="p-2 rounded bg-charcoal-850 border border-charcoal-700 flex items-start gap-2">
-                  {chk.status === 'PASS' ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  ) : chk.status === 'FAIL' ? (
-                    <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                  ) : (
-                    <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                  )}
-                  <div>
-                    <span className="font-semibold text-gray-200 block text-[11px]">{chk.label}</span>
-                    <span className="text-[10px] text-gray-400">
-                      {chk.id === 'MIN_NET_RR' && !analysis?.active_signal
-                        ? 'Chưa có setup mới hình thành trên nến hiện tại'
-                        : chk.detail}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Section 10: "Vì sao chưa vào lệnh?" Explanation Card */}
-          <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-4 shadow-lg text-xs space-y-2">
-            <span className="font-bold text-amber-400 block border-b border-charcoal-750 pb-2 flex items-center gap-1.5">
-              <Info className="w-4 h-4 text-amber-400" />
-              VÌ SAO CHƯA VÀO LỆNH?
-            </span>
-
-            {activeOverlay?.state === 'draft' ? (
-              <div className="space-y-1.5 text-gray-300">
-                <div className="p-2 rounded bg-amber-950/40 border border-amber-800/60 text-amber-300 font-semibold text-[11px]">
-                  MÃ: DRAFT_NOT_SUBMITTED
-                </div>
-                <p className="text-[11px] text-gray-400 leading-relaxed">
-                  Đây là <strong className="text-amber-300">BẢN NHÁP</strong>; setup hiện chưa đủ điều kiện (Net R:R và sweep). Giá chạm Entry của bản nháp sẽ không bao giờ tự động tạo lệnh hay tăng bộ đếm.
-                </p>
-                {activeOverlay.estimatedNetRR < 2.0 && (
-                  <p className="text-[11px] text-rose-400">
-                    • Net R:R hiện tại (1:{activeOverlay.estimatedNetRR.toFixed(2)}) chưa đạt ngưỡng 1:2.0 (<code>NET_RR_TOO_LOW</code>).
-                  </p>
-                )}
-                {analysis?.missing_conditions?.length > 0 && (
-                  <p className="text-[11px] text-amber-400/90">
-                    • Điều kiện chiến lược SMC: {analysis.missing_conditions.join('; ')}
-                  </p>
-                )}
-              </div>
-            ) : activePosition ? (
-              <div className="p-2 rounded bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 font-semibold text-[11px]">
-                Đang có 1 vị thế mở ({activePosition.position.direction} tại ${activePosition.position.actual_entry || activePosition.position.planned_entry}). Hệ thống chỉ duy trì tối đa 1 vị thế cùng lúc.
-              </div>
-            ) : analysis?.engine_state === 'blocked_news' ? (
-              <div className="p-2 rounded bg-rose-950/40 border border-rose-800/60 text-rose-300 font-semibold text-[11px]">
-                MÃ: NEWS_BLACKOUT — Đang trong khung giờ bảo vệ tin tức vĩ mô High Impact.
-              </div>
-            ) : analysis?.engine_state === 'blocked_risk' ? (
-              <div className="p-2 rounded bg-rose-950/40 border border-rose-800/60 text-rose-300 font-semibold text-[11px]">
-                MÃ: RISK_BUDGET_EXCEEDED — Đã chạm giới hạn quản trị rủi ro ngày (3 lệnh hoặc 2 lỗ liên tiếp).
-              </div>
-            ) : !autoPaperActive ? (
-              <div className="p-2 rounded bg-amber-950/40 border border-amber-800/60 text-amber-300 font-semibold text-[11px]">
-                MÃ: AUTO_PAUSED — Chế độ tự động vào lệnh đang tạm dừng.
-              </div>
-            ) : analysis?.missing_conditions?.length > 0 ? (
-              <div className="space-y-1 text-[11px]">
-                <div className="p-2 rounded bg-charcoal-850 border border-charcoal-700 text-amber-400 font-semibold">
-                  MÃ: {analysis.reason_code || 'WAITING_CONFIRMATION'}
-                </div>
-                <div className="text-gray-400 space-y-0.5">
-                  <span className="text-gray-300 font-medium">Chi tiết thiếu điều kiện:</span>
-                  {analysis.missing_conditions.map((mc: string, idx: number) => (
-                    <p key={idx} className="text-amber-400/90">• {mc}</p>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="text-gray-400 italic text-[11px]">
-                Hệ thống đang sẵn sàng và theo dõi cấu trúc nến đóng để kích hoạt.
-              </p>
+        {/* Right Side Panel: V10.3 Quick Decision Sidebar (Compact, Viewport-Fitted) */}
+        <div className="w-full lg:w-[360px] xl:w-[380px] shrink-0 h-full flex flex-col min-h-0">
+          <QuickDecisionSidebar
+            selectedIntent={selectedIntent}
+            activePosition={activePosition}
+            hasArmedOrder={Boolean(
+              (accountStatus && (accountStatus.armed_orders_count ?? 0) > 0) ||
+              (upcomingData?.setups && upcomingData.setups.some((s: any) => s.state === 'ARMED'))
             )}
-          </div>
-
-          {/* Capital & Today's Limits with Separated Counters */}
-          <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-4 shadow-lg text-xs space-y-2">
-            <span className="font-bold text-aurum-400 block border-b border-charcoal-750 pb-2">
-              HẠN MỨC NGÀY (UTC+7)
-            </span>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Vốn Ban Đầu:</span>
-              <span className="font-mono">$1,000.00</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Vốn Khả Dụng (Equity):</span>
-              <span className="font-mono text-emerald-400 font-bold">
-                ${accountStatus?.current_equity?.toFixed(2) || '1,000.00'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Đòn bẩy / Ký quỹ:</span>
-              <span className="font-mono text-gray-200">
-                {leverage}x · {marginMode}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Vị thế đang mở:</span>
-              <span className="font-mono text-emerald-400 font-semibold">{activePosition ? '1 / 1' : '0 / 1'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Lệnh đã vào hôm nay:</span>
-              <span className="font-mono">
-                {accountStatus?.today_fills_count ?? accountStatus?.fills_count ?? 0} / 3 Lệnh
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Lệnh chờ (Armed):</span>
-              <span className="font-mono text-amber-400">{accountStatus?.armed_orders_count ?? 0} Lệnh</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Lỗ Liên Tiếp:</span>
-              <span className="font-mono">{accountStatus?.consecutive_losses || 0} / 2 (Dừng)</span>
-            </div>
-          </div>
+            upcomingSetups={upcomingData?.setups || []}
+            stalePlanNotice={stalePlanNotice}
+            onClearStalePlanNotice={() => setStalePlanNotice(null)}
+            onFocusSetupOnChart={handleFocusSetupOnChart}
+            onArmSetup={handleArmWatchSetup}
+            onCancelSetup={handleCancelWatchSetup}
+            onClosePosition={() => {
+              if (activePosition?.position?.id) {
+                handleClosePosition(activePosition.position.id);
+              }
+            }}
+            onOpenDetailsDrawer={handleOpenDrawer}
+            onOpenMarket={handleOpenPaperTrade}
+            onFollowLatestSignal={handleFollowLatestSignal}
+            analysis={analysis}
+            leverage={leverage}
+            marginMode={marginMode}
+          />
         </div>
       </main>
     </div>

@@ -161,6 +161,10 @@ export function normalizeAppError(
       httpStatus = response.status;
       const data = response.data;
 
+      if (data?.code) {
+        code = String(data.code);
+      }
+
       // Check detail property
       if (data?.detail) {
         const detail = data.detail;
@@ -298,13 +302,28 @@ export function normalizeAppError(
 }
 
 /**
- * Builds a friendly UserMessage for trading domain events.
+ * Deterministically generates composite event ID for domain event deduplication.
  */
-export function buildTradeEventMessage(eventType: string, payload: any): UserMessage {
-  const now = Date.now();
-  const id = `evt_${now}_${Math.random().toString(36).substring(2, 7)}`;
+export function generateCompositeEventId(eventType: string, payload: any): string {
+  const rawEventId = payload?.event_id || payload?.id;
+  if (rawEventId) return String(rawEventId);
+  const entityId = payload?.order_id || payload?.trade_id || payload?.setup_id || 'entity';
+  const instanceOrRev = payload?.setup_instance_id || payload?.instance_id || payload?.revision || Date.now();
+  return `${eventType}:${entityId}:${instanceOrRev}`;
+}
 
-  let code = 'TRADE_EVENT';
+/**
+ * Builds a friendly UserMessage for trading domain events.
+ * Returns null if the event does not require user notification (e.g. setup.updated, unknown/malformed).
+ */
+export function buildTradeEventMessage(eventType: string, payload: any): UserMessage | null {
+  // 1. Explicitly ignore background sync events from creating notifications
+  if (eventType === 'setup.updated') {
+    return null;
+  }
+
+  const now = Date.now();
+  let code: string | null = null;
   let customTitle: string | undefined = undefined;
   let customSummary: string | undefined = undefined;
   let certaintyOverride: 'confirmed' | 'pending' | 'unknown' | 'estimated' | undefined = undefined;
@@ -357,9 +376,19 @@ export function buildTradeEventMessage(eventType: string, payload: any): UserMes
     code = 'FEED_RECOVERED';
   }
 
+  // If the event does not map to any recognized notification code, return null (do NOT treat as user error)
+  if (!code) {
+    return null;
+  }
+
   const template = getCatalogTemplate(code);
   const summary =
     customSummary || (typeof template.summary === 'function' ? template.summary(payload || {}) : template.summary);
+
+  const rawEventId = payload?.event_id || payload?.id;
+  const entityId = payload?.order_id || payload?.trade_id || payload?.setup_id;
+  const compositeEventId = generateCompositeEventId(eventType, payload);
+  const id = rawEventId ? `evt_${rawEventId}` : `evt_${now}_${Math.random().toString(36).substring(2, 7)}`;
 
   return {
     id,
@@ -372,8 +401,9 @@ export function buildTradeEventMessage(eventType: string, payload: any): UserMes
     next_steps: template.next_steps,
     params: payload || {},
     action: template.defaultAction,
-    event_id: payload?.event_id || eventType,
-    entity_id: payload?.order_id || payload?.trade_id || payload?.setup_id,
+    event_id: compositeEventId,
+    dedupe_key: compositeEventId,
+    entity_id: entityId,
     occurred_at: now,
     outcome_certainty: certaintyOverride || template.defaultCertainty,
     technical_details: {
