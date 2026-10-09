@@ -21,6 +21,7 @@ import {
   type TelegramConfig,
   type NotificationHistoryItem,
 } from './api/client';
+import { wsClient } from './services/wsClient';
 
 interface TelegramTabProps {
   showToast?: (title: string, message: string, type?: 'info' | 'success' | 'warn') => void;
@@ -36,8 +37,11 @@ const EVENT_OPTIONS = [
   { id: 'MANUAL_CLOSED', label: 'Đóng Thủ Công', desc: 'Người dùng chủ động đóng vị thế (có lãi hoặc cắt lỗ)' },
   { id: 'LIQUIDATED', label: 'Thanh Lý Vị thế', desc: 'Cảnh báo chạm giá thanh lý Isolated' },
   { id: 'REJECTED', label: 'Lệnh Bị Từ Chối', desc: 'Vi phạm Execution Guards / Risk Checks' },
-  { id: 'INVALIDATED', label: 'Hủy / Hết Hạn', desc: 'Cấu trúc setup bị phá vỡ hoặc hết hạn nến' },
+  { id: 'CANCELLED', label: 'Hủy Setup / Lệnh', desc: 'Người dùng chủ động hủy setup hoặc lệnh chờ' },
+  { id: 'EXPIRED', label: 'Hết Hạn Thời Gian', desc: 'Setup hoặc lệnh chờ vượt quá thời hạn hiệu lực' },
+  { id: 'INVALIDATED', label: 'Hủy Cấu Trúc', desc: 'Cấu trúc setup bị phá vỡ' },
   { id: 'FEED_DOWN', label: 'Cảnh Báo Nguồn Nến', desc: 'Mất kết nối hoặc nến trễ quá ngưỡng quy định' },
+  { id: 'RECOVERED', label: 'Nguồn Nến Phục Hồi', desc: 'Nguồn cấp dữ liệu đã kết nối và ổn định trở lại' },
 ];
 
 export const TelegramTab: React.FC<TelegramTabProps> = ({ showToast }) => {
@@ -126,6 +130,22 @@ export const TelegramTab: React.FC<TelegramTabProps> = ({ showToast }) => {
 
   useEffect(() => {
     loadHistory();
+    const unsub = wsClient.subscribe((msg: any) => {
+      if (
+        msg.type === 'OUTBOX_UPDATED' ||
+        (msg.type === 'DOMAIN_EVENT' && (
+          msg.event?.event_type?.startsWith('notification.') ||
+          msg.event?.event_type === 'trade.opened' ||
+          msg.event?.event_type === 'trade.closed' ||
+          msg.event?.event_type === 'order.armed' ||
+          msg.event?.event_type === 'order.cancelled' ||
+          msg.event?.event_type === 'setup.cancelled'
+        ))
+      ) {
+        loadHistory();
+      }
+    });
+    return () => unsub();
   }, [loadHistory]);
 
   // Check if draft has unsaved changes

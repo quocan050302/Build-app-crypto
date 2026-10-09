@@ -279,13 +279,14 @@ def format_telegram_message(
             f"⏱ _{event_time_vn} (UTC+7)_"
         )
 
-    elif item_type in ("INVALIDATED", "EXPIRED"):
-        setup_id = escape_markdown(data.get("setup_id", "N/A"))
-        reason = escape_markdown(data.get("reason", "Cấu trúc bị phá vỡ hoặc hết hạn thời gian"))
+    elif item_type in ("INVALIDATED", "EXPIRED", "CANCELLED"):
+        setup_id = escape_markdown(str(data.get("setup_id") or data.get("order_id") or "N/A"))
+        reason = escape_markdown(str(data.get("reason") or "Cấu trúc bị phá vỡ, hết hạn thời gian hoặc người dùng hủy"))
+        label = "ĐÃ HỦY THEO DÕI" if item_type == "CANCELLED" else f"HỦY THIẾT LẬP ({item_type})"
 
         return (
-            f"❌ *AURUM DESK — HỦY THIẾT LẬP ({item_type} — PAPER)*\n\n"
-            f"• *Setup ID:* `{setup_id}`\n"
+            f"❌ *AURUM DESK — {label} (PAPER)*\n\n"
+            f"• *ID:* `{setup_id}`\n"
             f"• *Lý do:* {reason}\n"
             f"• *Trạng thái:* Chuyển về danh sách theo dõi tiếp.\n\n"
             f"⏱ _{event_time_vn} (UTC+7)_"
@@ -468,7 +469,7 @@ async def send_telegram_direct(
             except Exception:
                 resp_json = {}
 
-            is_ok = bool(resp_json.get("ok")) if isinstance(resp_json, dict) else False
+            is_ok = (resp_json.get("ok") is True) if isinstance(resp_json, dict) else False
             desc = resp_json.get("description", resp.text[:140]) if isinstance(resp_json, dict) else resp.text[:140]
 
             # Redact token from any error description
@@ -503,26 +504,38 @@ async def send_telegram_direct(
                     http_status=429
                 )
 
-            # 2. HTTP 200: MUST check ok=True and valid message_id
+            # 2. HTTP 200: MUST check ok=True and valid numeric message_id
             if resp.status_code == 200:
                 if is_ok:
-                    res_dict = resp_json.get("result") or {}
+                    res_dict = resp_json.get("result") if isinstance(resp_json, dict) else None
                     msg_id = res_dict.get("message_id") if isinstance(res_dict, dict) else None
-                    if msg_id is not None and str(msg_id).strip():
+                    
+                    # Validate numeric integer message_id (Telegram message_id is positive int, not bool, not string text)
+                    valid_msg_id = False
+                    parsed_msg_id_str = None
+                    if msg_id is not None and not isinstance(msg_id, bool):
+                        if isinstance(msg_id, int) and msg_id > 0:
+                            valid_msg_id = True
+                            parsed_msg_id_str = str(msg_id)
+                        elif isinstance(msg_id, str) and msg_id.strip().isdigit() and int(msg_id.strip()) > 0:
+                            valid_msg_id = True
+                            parsed_msg_id_str = str(int(msg_id.strip()))
+
+                    if valid_msg_id and parsed_msg_id_str:
                         return TelegramSendResult(
                             success=True,
-                            provider_message_id=str(msg_id),
+                            provider_message_id=parsed_msg_id_str,
                             http_status=200
                         )
                     else:
                         return TelegramSendResult(
                             success=False,
                             error_code="INVALID_RESPONSE",
-                            error_message="Telegram API 200 nhưng thiếu result.message_id hợp lệ",
+                            error_message="Telegram API 200 nhưng thiếu result.message_id hợp lệ (phải là số nguyên dương)",
                             http_status=200
                         )
                 else:
-                    # HTTP 200 with ok: false!
+                    # HTTP 200 with ok: false or non-boolean ok
                     err_code = resp_json.get("error_code", 400) if isinstance(resp_json, dict) else 400
                     code_str = "CHAT_NOT_FOUND" if ("chat not found" in desc.lower() or "chat_id" in desc.lower()) else "BAD_REQUEST"
                     return TelegramSendResult(
@@ -694,28 +707,44 @@ async def process_notification_outbox(run_once: bool = False):
                 )
 
                 if candidate:
-                    candidate.status = "SENDING"
-                    candidate.lease_expires_at = now_ms + 30000  # 30-second lease
-                    candidate.worker_id = worker_uuid
-                    candidate.attempts += 1
-                    candidate.last_attempt_at = now_ms
+                    cand_id = candidate.id
+                    cand_payload = candidate.payload
+                    cand_msg_type = candidate.message_type
+                    cand_occurred_at = candidate.occurred_at
+                    cand_created_at = candidate.created_at
+                    cand_recipient = candidate.recipient or tg_cfg.chat_id
 
-                    claim_item = {
-                        "id": candidate.id,
-                        "payload": candidate.payload,
-                        "message_type": candidate.message_type,
-                        "occurred_at": candidate.occurred_at,
-                        "created_at": candidate.created_at,
-                        "recipient": candidate.recipient or tg_cfg.chat_id,
-                        "attempts": candidate.attempts
-                    }
-                    tg_cfg_dict = {
-                        "bot_token": tg_cfg.bot_token,
-                        "chat_id": tg_cfg.chat_id,
-                        "timezone": tg_cfg.timezone or "Asia/Ho_Chi_Minh",
-                        "base_chart_url": tg_cfg.base_chart_url
-                    }
+                    # Atomic conditional update (CAS) to prevent race condition between concurrent workers
+                    rows_updated = db.query(models.NotificationOutbox).filter(
+                        models.NotificationOutbox.id == cand_id,
+                        models.NotificationOutbox.status.in_(["PENDING", "RETRYING"])
+                    ).update({
+                        "status": "SENDING",
+                        "lease_expires_at": now_ms + 30000,
+                        "worker_id": worker_uuid,
+                        "attempts": models.NotificationOutbox.attempts + 1,
+                        "last_attempt_at": now_ms
+                    }, synchronize_session=False)
                     db.commit()
+
+                    if rows_updated == 1:
+                        claim_item = {
+                            "id": cand_id,
+                            "payload": cand_payload,
+                            "message_type": cand_msg_type,
+                            "occurred_at": cand_occurred_at,
+                            "created_at": cand_created_at,
+                            "recipient": cand_recipient,
+                            "worker_id": worker_uuid
+                        }
+                        tg_cfg_dict = {
+                            "bot_token": tg_cfg.bot_token,
+                            "chat_id": tg_cfg.chat_id,
+                            "timezone": tg_cfg.timezone or "Asia/Ho_Chi_Minh",
+                            "base_chart_url": tg_cfg.base_chart_url
+                        }
+                    else:
+                        claim_item = None
             finally:
                 db.close()
 
@@ -790,7 +819,8 @@ async def process_notification_outbox(run_once: bool = False):
             try:
                 item_fin = db_fin.query(models.NotificationOutbox).filter(
                     models.NotificationOutbox.id == claim_item["id"],
-                    models.NotificationOutbox.status == "SENDING"
+                    models.NotificationOutbox.status == "SENDING",
+                    models.NotificationOutbox.worker_id == worker_uuid
                 ).first()
                 if item_fin:
                     item_fin.lease_expires_at = None
@@ -820,6 +850,10 @@ async def process_notification_outbox(run_once: bool = False):
                             item_fin.next_attempt_at = int(time.time() * 1000) + (backoff_sec * 1000)
 
                     db_fin.commit()
+                else:
+                    logger.warning(
+                        f"Worker {worker_uuid} lease expired or claimed by another worker for outbox item #{claim_item['id']}, aborting finalize."
+                    )
             finally:
                 db_fin.close()
 

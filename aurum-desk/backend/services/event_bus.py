@@ -38,9 +38,11 @@ def resolve_notification_type(event_type: str, payload: Dict[str, Any]) -> Optio
         elif cause == "LIQUIDATED":
             return "LIQUIDATED"
         return "CLOSED"
+    elif event_type in ("setup.cancelled", "order.cancelled"):
+        return "CANCELLED"
     elif event_type == "setup.invalidated":
         return "INVALIDATED"
-    elif event_type == "setup.expired":
+    elif event_type in ("setup.expired", "order.expired"):
         return "EXPIRED"
     elif event_type == "feed.degraded":
         return "FEED_DOWN"
@@ -58,6 +60,9 @@ def is_notification_subscribed(notif_type: str, subscribed_list: List[str]) -> b
         return True
     # Legacy ARMED_NEAR_ENTRY covers ARMED and NEAR_ENTRY
     if notif_type in ("ARMED", "NEAR_ENTRY") and "ARMED_NEAR_ENTRY" in subscribed_list:
+        return True
+    # Legacy INVALIDATED covers EXPIRED and CANCELLED
+    if notif_type in ("EXPIRED", "CANCELLED") and "INVALIDATED" in subscribed_list:
         return True
     return False
 

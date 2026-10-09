@@ -737,16 +737,41 @@ def cancel_setup(setup_id: str, db: Session = Depends(get_db)):
     if not watch_setup:
         raise HTTPException(status_code=404, detail="Không tìm thấy setup")
 
+    now_ms = int(time.time() * 1000)
     watch_setup.state = "CANCELLED"
-    db.commit()
+    watch_setup.updated_at = now_ms
+
+    event_bus.publish_event(
+        event_type="setup.cancelled",
+        aggregate_id=setup_id,
+        payload={
+            "setup_id": setup_id,
+            "direction": watch_setup.direction,
+            "reason": "Người dùng chủ động hủy theo dõi setup"
+        },
+        db=db,
+        occurred_at=now_ms
+    )
 
     # If there was an armed order, cancel it too
     armed = db.query(models.PaperOrder).filter(models.PaperOrder.setup_id == setup_id, models.PaperOrder.state == "armed").first()
     if armed:
         armed.state = "cancelled"
-        armed.closed_at = int(time.time() * 1000)
-        db.commit()
+        armed.closed_at = now_ms
+        event_bus.publish_event(
+            event_type="order.cancelled",
+            aggregate_id=armed.id,
+            payload={
+                "order_id": armed.id,
+                "setup_id": setup_id,
+                "direction": armed.direction,
+                "reason": "Hủy lệnh theo setup"
+            },
+            db=db,
+            occurred_at=now_ms
+        )
 
+    db.commit()
     return {"status": "success", "message": f"Đã hủy theo dõi setup {setup_id}"}
 
 
@@ -1196,10 +1221,18 @@ def get_notification_history(
 def retry_outbox_item(item_id: int, db: Session = Depends(get_db)):
     """Reset a FAILED, RETRYING, or AMBIGUOUS outbox item back to PENDING for re-dispatch."""
     item = db.query(models.NotificationOutbox).filter(models.NotificationOutbox.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Không tìm thấy mục outbox này")
-    if item.status == "SENT":
-        raise HTTPException(status_code=400, detail="Mục này đã gửi thành công tới Telegram, không gửi lại để tránh tin nhắn trùng")
+    ALLOWED_RETRY_STATUSES = {"FAILED", "AMBIGUOUS", "RETRYING"}
+    if item.status not in ALLOWED_RETRY_STATUSES:
+        if item.status == "SENT":
+            raise HTTPException(status_code=400, detail="Mục này đã gửi thành công tới Telegram, không gửi lại để tránh tin nhắn trùng")
+        elif item.status == "SENDING":
+            raise HTTPException(status_code=400, detail="Tin nhắn đang được gửi đi bởi hệ thống, không thể đặt lại trong lúc đang gửi")
+        elif item.status == "PENDING":
+            raise HTTPException(status_code=400, detail="Tin nhắn đã nằm trong hàng đợi chờ gửi")
+        elif item.status == "SUPPRESSED":
+            raise HTTPException(status_code=400, detail="Cơ hội đã hết hạn hoặc bị loại bỏ, không thể gửi lại")
+        else:
+            raise HTTPException(status_code=400, detail=f"Không thể thử lại tin nhắn ở trạng thái '{item.status}'")
 
     now_ms = int(time.time() * 1000)
     item.status = "PENDING"

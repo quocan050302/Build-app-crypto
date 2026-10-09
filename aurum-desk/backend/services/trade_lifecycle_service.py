@@ -3,6 +3,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, Tuple
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from database import SessionLocal
 import models, crud
@@ -52,34 +53,8 @@ class TradeLifecycleService:
             logger.warning(f"Cannot fill order {order.id} in state {order.state}")
             return order
 
-        # 2. Invariant: Max 1 active position enforced atomically
-        existing_open = db.query(models.PaperOrder).filter(
-            models.PaperOrder.state == "paper_open",
-            models.PaperOrder.id != order.id
-        ).first()
-
-        if existing_open:
-            order.state = "rejected"
-            order.invalidation_reason = "Đã có vị thế đang mở (giới hạn tối đa 1 vị thế)"
-            order.closed_at = current_time
-            db.commit()
-            return order
-
-        # 3. Transition order to paper_open
-        order.state = "paper_open"
-        order.actual_entry = fill_price
-        order.opened_at = current_time
-        order.quantity = calc_result.quantity
-        order.initial_risk_usdt = calc_result.net_risk_usdt
-        order.gross_rr = calc_result.gross_rr
-        order.estimated_net_rr = calc_result.net_rr
-        order.estimated_liquidation = calc_result.estimated_liquidation
-        order.initial_margin = calc_result.initial_margin_usdt
-        order.leverage = calc_result.leverage
-        order.margin_mode = calc_result.margin_mode
-
-        # Cost snapshot
-        order.cost_snapshot = json.dumps({
+        # 2. Invariant: Max 1 active position enforced atomically at DB level
+        cost_snap = json.dumps({
             "maker_fee_rate": 0.0004,
             "taker_fee_rate": 0.0004,
             "slippage_usd": 0.10,
@@ -87,6 +62,58 @@ class TradeLifecycleService:
             "slippage_total_usdt": calc_result.slippage_total_usdt,
             "source": "BITGET_PAPER_MODEL_V7"
         })
+
+        stmt = text("""
+            UPDATE paper_orders
+            SET state = 'paper_open',
+                actual_entry = :fill_price,
+                opened_at = :opened_at,
+                quantity = :quantity,
+                initial_risk_usdt = :initial_risk_usdt,
+                gross_rr = :gross_rr,
+                estimated_net_rr = :estimated_net_rr,
+                estimated_liquidation = :estimated_liquidation,
+                initial_margin = :initial_margin,
+                leverage = :leverage,
+                margin_mode = :margin_mode,
+                cost_snapshot = :cost_snapshot
+            WHERE id = :order_id
+              AND state IN ('armed', 'candidate')
+              AND NOT EXISTS (
+                  SELECT 1 FROM paper_orders WHERE state = 'paper_open' AND id != :order_id
+              )
+        """)
+        res = db.execute(stmt, {
+            "fill_price": fill_price,
+            "opened_at": current_time,
+            "quantity": calc_result.quantity,
+            "initial_risk_usdt": calc_result.net_risk_usdt,
+            "gross_rr": calc_result.gross_rr,
+            "estimated_net_rr": calc_result.net_rr,
+            "estimated_liquidation": calc_result.estimated_liquidation,
+            "initial_margin": calc_result.initial_margin_usdt,
+            "leverage": calc_result.leverage,
+            "margin_mode": calc_result.margin_mode,
+            "cost_snapshot": cost_snap,
+            "order_id": order.id
+        })
+
+        if res.rowcount == 0:
+            existing_open = db.query(models.PaperOrder).filter(
+                models.PaperOrder.state == "paper_open",
+                models.PaperOrder.id != order.id
+            ).first()
+            if existing_open:
+                order.state = "rejected"
+                order.invalidation_reason = "Đã có vị thế đang mở (giới hạn tối đa 1 vị thế)"
+                order.closed_at = current_time
+                db.commit()
+                return order
+            else:
+                db.refresh(order)
+                return order
+
+        db.refresh(order)
 
         # 4. Record trade fill audit (flush without separate commit)
         crud.record_trade_fill_audit(db, commit=False, date_str=date_str, clock=clock)
@@ -253,13 +280,29 @@ class TradeLifecycleService:
         net_pnl = round(gross_pnl - fee_cost, 2)
         realized_r = round(net_pnl / order.initial_risk_usdt, 2) if (order.initial_risk_usdt and order.initial_risk_usdt > 0) else 0.0
 
-        # Update order fields
-        order.state = "closed"
-        order.actual_exit = round(exit_price, 2)
-        order.realized_pnl_net = net_pnl
-        order.realized_r = realized_r
-        order.exit_cause = exit_cause
-        order.closed_at = current_time
+        # Atomic CAS transition: only close if state is currently 'paper_open'
+        stmt = text("""
+            UPDATE paper_orders
+            SET state = 'closed',
+                actual_exit = :actual_exit,
+                realized_pnl_net = :net_pnl,
+                realized_r = :realized_r,
+                exit_cause = :exit_cause,
+                closed_at = :closed_at
+            WHERE id = :order_id AND state = 'paper_open'
+        """)
+        res = db.execute(stmt, {
+            "actual_exit": round(exit_price, 2),
+            "net_pnl": net_pnl,
+            "realized_r": realized_r,
+            "exit_cause": exit_cause,
+            "closed_at": current_time,
+            "order_id": order.id
+        })
+        if res.rowcount == 0:
+            # Another session or watchdog already closed this position
+            return None
+        db.refresh(order)
 
         # Update recovery fields if provided
         if recovery_metadata:

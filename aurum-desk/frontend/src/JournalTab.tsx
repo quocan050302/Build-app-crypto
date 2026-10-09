@@ -23,6 +23,7 @@ import {
   type LessonItem,
   type JournalQueryParams,
 } from './api/client';
+import { wsClient } from './services/wsClient';
 
 interface JournalTabProps {
   onFocusChart?: (trade: any) => void;
@@ -141,6 +142,27 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
   useEffect(() => {
     loadLessons();
   }, [loadLessons]);
+
+  useEffect(() => {
+    const unsub = wsClient.subscribe((msg: any) => {
+      if (msg.type === 'DOMAIN_EVENT') {
+        const evType = msg.event?.event_type;
+        if (
+          evType === 'trade.opened' ||
+          evType === 'trade.closed' ||
+          evType === 'order.armed' ||
+          evType === 'order.cancelled' ||
+          evType === 'order.rejected' ||
+          evType === 'setup.cancelled' ||
+          evType === 'setup.invalidated'
+        ) {
+          loadJournal();
+          loadLessons();
+        }
+      }
+    });
+    return () => unsub();
+  }, [loadJournal, loadLessons]);
 
   // Open Drawer for Trade
   const handleOpenDrawer = async (trade: any) => {

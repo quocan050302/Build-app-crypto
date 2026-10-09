@@ -1,0 +1,436 @@
+{
+  "suite": "V9_FULL_SYSTEM_VERIFICATION",
+  "timestamp": "2026-10-09T13:55:38.132428+07:00",
+  "summary": {
+    "total": 42,
+    "passed": 41,
+    "failed": 0,
+    "blocked": 1,
+    "not_run": 0,
+    "pass_rate_pct": 97.6
+  },
+  "scenarios": [
+    {
+      "scenario_id": "E01",
+      "matrix": "lifecycle",
+      "name": "LONG LIMIT full flow to TP",
+      "status": "PASS",
+      "duration_ms": 58,
+      "assertions": 11,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E02",
+      "matrix": "lifecycle",
+      "name": "SHORT LIMIT full flow to TP",
+      "status": "PASS",
+      "duration_ms": 25,
+      "assertions": 3,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E03",
+      "matrix": "lifecycle",
+      "name": "LONG LIMIT to SL",
+      "status": "PASS",
+      "duration_ms": 27,
+      "assertions": 4,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E04",
+      "matrix": "lifecycle",
+      "name": "SHORT LIMIT to SL",
+      "status": "PASS",
+      "duration_ms": 23,
+      "assertions": 2,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E05",
+      "matrix": "lifecycle",
+      "name": "LONG MARKET manual",
+      "status": "PASS",
+      "duration_ms": 20,
+      "assertions": 2,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E06",
+      "matrix": "lifecycle",
+      "name": "SHORT MARKET manual",
+      "status": "PASS",
+      "duration_ms": 22,
+      "assertions": 2,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E07",
+      "matrix": "lifecycle",
+      "name": "LONG STOP trigger semantics",
+      "status": "PASS",
+      "duration_ms": 23,
+      "assertions": 2,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E08",
+      "matrix": "lifecycle",
+      "name": "SHORT STOP trigger semantics",
+      "status": "PASS",
+      "duration_ms": 20,
+      "assertions": 2,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E09_E10",
+      "matrix": "lifecycle",
+      "name": "Last vs Executable Quote Side",
+      "status": "PASS",
+      "duration_ms": 21,
+      "assertions": 2,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E11",
+      "matrix": "lifecycle",
+      "name": "Block entry when position open",
+      "status": "PASS",
+      "duration_ms": 11,
+      "assertions": 2,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E13",
+      "matrix": "lifecycle",
+      "name": "Setup selection conflict 409",
+      "status": "PASS",
+      "duration_ms": 4,
+      "assertions": 1,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E14_E15",
+      "matrix": "lifecycle",
+      "name": "True multi-session concurrent fills",
+      "status": "PASS",
+      "duration_ms": 28,
+      "assertions": 3,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E19_E20",
+      "matrix": "lifecycle",
+      "name": "Manual close in profit and loss",
+      "status": "PASS",
+      "duration_ms": 18,
+      "assertions": 5,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E21_E22",
+      "matrix": "lifecycle",
+      "name": "Order cancel and expiry isolation",
+      "status": "PASS",
+      "duration_ms": 12,
+      "assertions": 2,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E24",
+      "matrix": "lifecycle",
+      "name": "Geometry sanity rejection",
+      "status": "PASS",
+      "duration_ms": 0,
+      "assertions": 3,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E25",
+      "matrix": "lifecycle",
+      "name": "Gap execution pricing",
+      "status": "PASS",
+      "duration_ms": 13,
+      "assertions": 3,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E26",
+      "matrix": "lifecycle",
+      "name": "Isolated liquidation exit",
+      "status": "PASS",
+      "duration_ms": 12,
+      "assertions": 2,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E29",
+      "matrix": "lifecycle",
+      "name": "Immutable open position snapshots",
+      "status": "PASS",
+      "duration_ms": 8,
+      "assertions": 3,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E30",
+      "matrix": "lifecycle",
+      "name": "Daily guards & consecutive loss caps",
+      "status": "PASS",
+      "duration_ms": 8,
+      "assertions": 2,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E32",
+      "matrix": "lifecycle",
+      "name": "Exit cause independent of PnL",
+      "status": "PASS",
+      "duration_ms": 4,
+      "assertions": 1,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "F01_F02",
+      "matrix": "feed",
+      "name": "Feed sanity and freshness guards",
+      "status": "PASS",
+      "duration_ms": 0,
+      "assertions": 4,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "F03_F04",
+      "matrix": "feed",
+      "name": "REST fallback & epoch provenance",
+      "status": "PASS",
+      "duration_ms": 0,
+      "assertions": 3,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "F08",
+      "matrix": "feed",
+      "name": "High-impact USD news blackout",
+      "status": "PASS",
+      "duration_ms": 7,
+      "assertions": 1,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "F09_F10",
+      "matrix": "feed",
+      "name": "NY session window & DST dynamic mapping",
+      "status": "PASS",
+      "duration_ms": 5,
+      "assertions": 3,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "F11_F12_F15",
+      "matrix": "feed",
+      "name": "Offline recovery & idempotent rerun",
+      "status": "PASS",
+      "duration_ms": 47,
+      "assertions": 3,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "T01_T02",
+      "matrix": "telegram",
+      "name": "Token masking and preservation",
+      "status": "PASS",
+      "duration_ms": 5,
+      "assertions": 4,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "T05_T08",
+      "matrix": "telegram",
+      "name": "All notification message formatters",
+      "status": "PASS",
+      "duration_ms": 0,
+      "assertions": 28,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "T12",
+      "matrix": "telegram",
+      "name": "Quiet hours & timezone evaluation",
+      "status": "PASS",
+      "duration_ms": 0,
+      "assertions": 2,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "T15_T16",
+      "matrix": "telegram",
+      "name": "Strict HTTP response schema validation",
+      "status": "PASS",
+      "duration_ms": 81,
+      "assertions": 5,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "T17",
+      "matrix": "telegram",
+      "name": "429 parameters.retry_after parsing",
+      "status": "PASS",
+      "duration_ms": 12,
+      "assertions": 3,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "T23_T24",
+      "matrix": "telegram",
+      "name": "Worker CAS atomic claim & lease guard",
+      "status": "PASS",
+      "duration_ms": 10,
+      "assertions": 2,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "T26_T27",
+      "matrix": "telegram",
+      "name": "Outbox retry state transition whitelist",
+      "status": "PASS",
+      "duration_ms": 0,
+      "assertions": 7,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "T32",
+      "matrix": "telegram",
+      "name": "Live Telegram smoke test",
+      "status": "BLOCKED",
+      "duration_ms": 0,
+      "assertions": 0,
+      "error": null,
+      "details": {
+        "reason": "Opt-in flag --telegram-live not enabled"
+      }
+    },
+    {
+      "scenario_id": "J03_J04",
+      "matrix": "journal",
+      "name": "Journal summary & query aggregation",
+      "status": "PASS",
+      "duration_ms": 5,
+      "assertions": 5,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "J05",
+      "matrix": "journal",
+      "name": "Review revision optimistic locking 409",
+      "status": "PASS",
+      "duration_ms": 3,
+      "assertions": 1,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "J06",
+      "matrix": "journal",
+      "name": "Lesson approval lifecycle & strategy memory",
+      "status": "PASS",
+      "duration_ms": 5,
+      "assertions": 2,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "J07",
+      "matrix": "journal",
+      "name": "Idempotent close lesson guarantee",
+      "status": "PASS",
+      "duration_ms": 6,
+      "assertions": 1,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "B01",
+      "matrix": "e2e",
+      "name": "LONG manual LIMIT full flow E2E",
+      "status": "PASS",
+      "duration_ms": 36,
+      "assertions": 8,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "B02",
+      "matrix": "e2e",
+      "name": "SHORT Auto flow E2E",
+      "status": "PASS",
+      "duration_ms": 35,
+      "assertions": 3,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "B05",
+      "matrix": "e2e",
+      "name": "Active trade snapshot with global changes",
+      "status": "PASS",
+      "duration_ms": 18,
+      "assertions": 2,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "B08",
+      "matrix": "e2e",
+      "name": "Multi-session concurrency barrier E2E",
+      "status": "PASS",
+      "duration_ms": 28,
+      "assertions": 3,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "B10",
+      "matrix": "e2e",
+      "name": "NY quota reserve and daily cap E2E",
+      "status": "PASS",
+      "duration_ms": 14,
+      "assertions": 2,
+      "error": null,
+      "details": {}
+    }
+  ]
+}
