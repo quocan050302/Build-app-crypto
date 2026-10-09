@@ -88,12 +88,21 @@ class AnalysisCacheService:
         margin_mode = global_settings.margin_mode
         risk_pct = global_settings.risk_pct
 
-        # Ticker representation
+        # Ticker representation: if live quote missing, mark quote_source=CANDLE_REFERENCE and executable=False
         if latest_quote and latest_quote.is_valid:
             ticker_data = latest_quote.to_dict()
+            ticker_data["quote_source"] = "LIVE"
+            ticker_data["executable"] = True
         else:
-            c_last = candles[-1].close
-            ticker_data = {"bid": c_last, "ask": c_last, "last": c_last, "server_time": now_ms}
+            c_last = candles[-1].close if candles else 0.0
+            ticker_data = {
+                "bid": c_last,
+                "ask": c_last,
+                "last": c_last,
+                "server_time": now_ms,
+                "quote_source": "CANDLE_REFERENCE",
+                "executable": False
+            }
 
         from services.collector_service import collector_service
         analysis = smc_engine.evaluate_smc_setup(
@@ -112,9 +121,23 @@ class AnalysisCacheService:
         )
 
         analysis["as_of_ms"] = now_ms
+        analysis["quote_source"] = ticker_data.get("quote_source", "LIVE")
+        analysis["executable"] = ticker_data.get("executable", True)
         self._cache[(symbol, timeframe)] = analysis
         self._last_as_of[(symbol, timeframe)] = now_ms
         return analysis
+
+    def _compute_in_worker_sync(
+        self,
+        symbol: str,
+        timeframe: str,
+        latest_quote: Optional[CanonicalQuote]
+    ) -> Dict[str, Any]:
+        db = SessionLocal()
+        try:
+            return self.compute_analysis_sync(db, symbol, timeframe, latest_quote)
+        finally:
+            db.close()
 
     async def get_or_compute_analysis(
         self,
@@ -136,11 +159,8 @@ class AnalysisCacheService:
             if key in self._cache and (now_ms - self._last_as_of.get(key, 0) < self.ttl_sec * 1000):
                 return self._cache[key]
 
-            db = SessionLocal()
-            try:
-                res = self.compute_analysis_sync(db, symbol, timeframe, latest_quote)
-                return res
-            finally:
-                db.close()
+            # Offload heavy SMC calculation to threadpool
+            res = await asyncio.to_thread(self._compute_in_worker_sync, symbol, timeframe, latest_quote)
+            return res
 
 analysis_cache_service = AnalysisCacheService()

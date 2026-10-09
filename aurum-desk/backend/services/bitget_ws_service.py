@@ -3,7 +3,7 @@ import time
 import asyncio
 import random
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import httpx
 import websockets
 from services.quote_validator import CanonicalQuote, QuoteValidator
@@ -15,15 +15,33 @@ logger = logging.getLogger(__name__)
 BITGET_WS_URL = "wss://ws.bitget.com/v2/ws/public"
 BITGET_REST_TICKER_URL = "https://api.bitget.com/api/v2/mix/market/ticker"
 
+# Case-sensitive Bitget Classic channel mappings:
+# 1M -> candle1m (candle1M is monthly), 5M -> candle5m, 15M -> candle15m, 1H -> candle1H, 4H -> candle4H, D -> candle1D
+CANDLE_CHANNELS: Dict[str, str] = {
+    "candle1m": "1M",
+    "candle5m": "5M",
+    "candle15m": "15M",
+    "candle1H": "1H",
+    "candle4H": "4H",
+    "candle1D": "D"
+}
+
+ALL_SUBSCRIBE_CHANNELS: List[str] = ["ticker"] + list(CANDLE_CHANNELS.keys())
+
+
 class BitgetWSService:
     """
-    Bitget Public WebSocket Adapter (V7.1):
+    Bitget Public WebSocket Adapter (V7.2):
     - Canonical Market Feed Owner for XAUUSDT (USDT-FUTURES).
-    - Subscribes to Classic v2 ticker channel.
-    - Handles text ping/pong heartbeats every 25s.
-    - Exponential backoff with jitter and cap for robust auto-reconnection.
-    - Controlled, single-flight REST fallback when WebSocket is degraded.
-    - Directly pipes canonical quotes to the ordered execution consumer and candle cache.
+    - Subscribes to Classic v2 ticker channel + 6 multi-timeframe candle channels:
+      (candle1m, candle5m, candle15m, candle1H, candle4H, candle1D).
+    - Tracks per-channel subscription registry (PENDING / ACKED / FAILED).
+    - Supports Bitget Classic ack format (success with code=None or code=0/"0").
+    - Handles text ping/pong heartbeats every 25s with 10s pong timeout.
+    - Decoupled heartbeat starts immediately upon socket opening.
+    - Dispatches real multi-row OHLCV candle streams to candle_cache_service.
+    - Controlled, single-flight REST fallback using item.ts (not requestTime) for quote age.
+    - Exponential backoff with jitter and 30s cap for auto-reconnection.
     """
     def __init__(self, ws_url: str = BITGET_WS_URL, symbol: str = "XAUUSDT"):
         self.ws_url = ws_url
@@ -35,7 +53,12 @@ class BitgetWSService:
         self.latest_quote: Optional[CanonicalQuote] = None
         self.last_success_time = 0
         self.last_heartbeat_time = 0
+        self.last_ping_time = 0.0
+        self.last_pong_time = 0.0
         self.last_error: Optional[str] = None
+
+        # Per-channel subscription registry: channel -> "PENDING" | "ACKED" | "FAILED"
+        self.channel_registry: Dict[str, str] = {ch: "PENDING" for ch in ALL_SUBSCRIBE_CHANNELS}
 
         self._running = False
         self._reconnect_task: Optional[asyncio.Task] = None
@@ -45,6 +68,52 @@ class BitgetWSService:
 
     def register_broadcaster(self, callback):
         self._broadcaster_callback = callback
+
+    def is_channel_acked(self, channel: str) -> bool:
+        return self.channel_registry.get(channel) == "ACKED"
+
+    def all_channels_acked(self) -> bool:
+        return all(status == "ACKED" for status in self.channel_registry.values())
+
+    def _reset_registry(self):
+        for ch in ALL_SUBSCRIBE_CHANNELS:
+            self.channel_registry[ch] = "PENDING"
+
+    def handle_ack(self, payload: Dict[str, Any]) -> bool:
+        """
+        Validates Bitget subscription ack payload:
+        Format: {"event": "subscribe", "arg": {"instType": "USDT-FUTURES", "channel": "ticker", "instId": "XAUUSDT"}}
+        Classic v2 subscribe success does not require 'code' field, or code is 0 / "0".
+        """
+        event = payload.get("event")
+        arg = payload.get("arg", {})
+        ch = arg.get("channel")
+        inst = arg.get("instId")
+        code = payload.get("code")
+
+        if event == "subscribe":
+            if ch in self.channel_registry and (inst == self.symbol or inst is None):
+                # Valid ack: code is None or 0 or "0"
+                if code is None or code == 0 or str(code) == "0":
+                    self.channel_registry[ch] = "ACKED"
+                    logger.info(f"Bitget subscription acked for channel {ch} ({inst or self.symbol})")
+                    if self.channel_registry.get("ticker") == "ACKED":
+                        self.transport_state = "CONNECTED"
+                        self.feed_source = "WS"
+                    return True
+                else:
+                    self.channel_registry[ch] = "FAILED"
+                    self.last_error = f"Subscription failed for {ch}: code={code}"
+                    logger.error(self.last_error)
+                    return False
+        elif event == "error":
+            if ch in self.channel_registry:
+                self.channel_registry[ch] = "FAILED"
+            self.last_error = f"Bitget error: {payload.get('msg', payload)}"
+            logger.error(self.last_error)
+            return False
+
+        return False
 
     def _parse_ticker_payload(self, data_list: list, epoch: int) -> Optional[CanonicalQuote]:
         if not data_list:
@@ -76,7 +145,7 @@ class BitgetWSService:
         # 1. Non-coalesced Ordered Execution Consumer (Exits & Entries)
         execution_consumer.enqueue_quote(quote)
 
-        # 2. Candle Cache (Live bar update)
+        # 2. Candle Cache (Pure display check; does not synthesize synthetic bars)
         candle_cache_service.process_quote(quote)
 
         # 3. Market Broadcaster for UI (Throttled deltas)
@@ -99,13 +168,15 @@ class BitgetWSService:
                         if data.get("code") == "00000" and data.get("data"):
                             item = data["data"][0]
                             now_ms = int(time.time() * 1000)
+                            # Authoritative quote timestamp from item.ts
+                            ex_ts = int(item.get("ts")) if item.get("ts") is not None else None
                             raw = {
                                 "symbol": self.symbol,
                                 "bid": item.get("bidPr"),
                                 "ask": item.get("askPr"),
                                 "last": item.get("lastPr"),
                                 "mark_price": item.get("markPrice"),
-                                "exchange_ts_ms": data.get("requestTime"),
+                                "exchange_ts_ms": ex_ts,
                                 "received_at_ms": now_ms
                             }
                             quote = QuoteValidator.validate_canonical(
@@ -122,17 +193,43 @@ class BitgetWSService:
                 await asyncio.sleep(2.5)
         logger.info("REST fallback loop exited.")
 
-    async def _heartbeat_loop(self, ws):
-        """Bitget public WS heartbeat: sends text 'ping' every 25s."""
-        while self.transport_state == "CONNECTED" and self._running:
+    async def _heartbeat_loop(self, ws, ping_interval: float = 25.0, pong_timeout: float = 10.0):
+        """
+        Bitget public WS heartbeat: sends text 'ping' every ping_interval.
+        Expects text 'pong' within pong_timeout.
+        Runs for the lifetime of the socket connection (starts immediately).
+        """
+        logger.debug("Bitget WS heartbeat loop started.")
+        while self._running:
             try:
-                await asyncio.sleep(25.0)
+                await asyncio.sleep(ping_interval)
+                if not self._running:
+                    break
+
+                self.last_ping_time = time.time()
                 await ws.send("ping")
-            except Exception:
+
+                # Allow pong_timeout for pong response
+                await asyncio.sleep(pong_timeout)
+                if not self._running:
+                    break
+
+                # If no pong received since ping was sent
+                if self.last_pong_time < self.last_ping_time:
+                    logger.warning(
+                        f"Bitget WS pong timeout: no pong received within {pong_timeout}s. Closing socket to reconnect."
+                    )
+                    self.last_error = "PONG_TIMEOUT"
+                    await ws.close()
+                    break
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.debug(f"Heartbeat loop exception: {e}")
                 break
 
     async def run_ws_loop(self):
-        """Main WebSocket loop with backoff and fallback."""
+        """Main WebSocket loop with multi-channel subscriptions, backoff, and fallback."""
         self._running = True
         attempt = 0
 
@@ -140,11 +237,13 @@ class BitgetWSService:
             self.connection_epoch += 1
             epoch = self.connection_epoch
             self.transport_state = "CONNECTING"
+            self._reset_registry()
 
             # Start REST fallback if not running
             if not self._rest_fallback_task or self._rest_fallback_task.done():
                 self._rest_fallback_task = asyncio.create_task(self._run_rest_fallback())
 
+            heartbeat_task: Optional[asyncio.Task] = None
             try:
                 logger.info(f"Connecting to Bitget WebSocket ({self.ws_url}), epoch {epoch}...")
                 async with websockets.connect(
@@ -153,16 +252,19 @@ class BitgetWSService:
                     close_timeout=5.0
                 ) as ws:
                     self._ws_client = ws
-                    # Subscribe to ticker
+
+                    # 1. Send subscription for ticker + 6 multi-timeframe candle channels
+                    sub_args = [
+                        {"instType": "USDT-FUTURES", "channel": ch, "instId": self.symbol}
+                        for ch in ALL_SUBSCRIBE_CHANNELS
+                    ]
                     sub_msg = {
                         "op": "subscribe",
-                        "args": [
-                            {"instType": "USDT-FUTURES", "channel": "ticker", "instId": self.symbol}
-                        ]
+                        "args": sub_args
                     }
                     await ws.send(json.dumps(sub_msg))
 
-                    # Start application ping loop
+                    # 2. Start application text ping heartbeat immediately
                     heartbeat_task = asyncio.create_task(self._heartbeat_loop(ws))
 
                     try:
@@ -171,6 +273,7 @@ class BitgetWSService:
                                 break
 
                             if msg == "pong":
+                                self.last_pong_time = time.time()
                                 self.last_heartbeat_time = int(time.time() * 1000)
                                 continue
 
@@ -179,36 +282,44 @@ class BitgetWSService:
                             except Exception:
                                 continue
 
-                            # Handle subscription ack
-                            if payload.get("event") == "subscribe":
-                                if payload.get("code") == 0:
-                                    logger.info(f"Subscribed successfully to Bitget {self.symbol} ticker.")
-                                    self.transport_state = "CONNECTED"
-                                    self.feed_source = "WS"
-                                    attempt = 0  # Reset backoff
-                                    continue
-                                else:
-                                    self.last_error = f"Subscription failed: {payload}"
-                                    logger.error(self.last_error)
-                                    break
+                            # 3. Handle subscription ack or error events
+                            if "event" in payload:
+                                self.handle_ack(payload)
+                                continue
 
-                            if payload.get("event") == "error":
-                                self.last_error = f"Bitget WS error: {payload}"
-                                logger.error(self.last_error)
-                                break
-
-                            # Handle ticker data update / snapshot
+                            # 4. Handle stream data payloads
                             arg = payload.get("arg", {})
-                            if arg.get("channel") == "ticker" and "data" in payload:
-                                quote = self._parse_ticker_payload(payload["data"], epoch)
+                            ch = arg.get("channel")
+                            action = payload.get("action", "update")
+                            data = payload.get("data")
+
+                            if ch == "ticker" and data:
+                                quote = self._parse_ticker_payload(data, epoch)
                                 if quote and quote.is_valid:
                                     self.transport_state = "CONNECTED"
                                     self.feed_source = "WS"
                                     attempt = 0
                                     self._dispatch_quote(quote)
 
+                            elif ch in CANDLE_CHANNELS and data:
+                                tf = CANDLE_CHANNELS[ch]
+                                candle_cache_service.process_candle_payload(
+                                    symbol=self.symbol,
+                                    timeframe=tf,
+                                    data_rows=data,
+                                    action=action
+                                )
+                                self.transport_state = "CONNECTED"
+                                self.feed_source = "WS"
+                                attempt = 0
+
                     finally:
-                        heartbeat_task.cancel()
+                        if heartbeat_task and not heartbeat_task.done():
+                            heartbeat_task.cancel()
+                            try:
+                                await heartbeat_task
+                            except (asyncio.CancelledError, Exception):
+                                pass
 
             except Exception as e:
                 self.last_error = str(e)
@@ -230,7 +341,7 @@ class BitgetWSService:
         self._running = False
         if self._ws_client:
             asyncio.create_task(self._ws_client.close())
-        if self._rest_fallback_task:
+        if self._rest_fallback_task and not self._rest_fallback_task.done():
             self._rest_fallback_task.cancel()
 
 bitget_ws_service = BitgetWSService()

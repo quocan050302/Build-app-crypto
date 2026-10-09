@@ -74,6 +74,10 @@ class EventBus:
     def __init__(self):
         self._active_connections: List[WebSocket] = []
         self._lock: Optional[asyncio.Lock] = None
+        self._main_loop: Optional[asyncio.AbstractEventLoop] = None
+
+    def set_main_loop(self, loop: asyncio.AbstractEventLoop):
+        self._main_loop = loop
 
     @property
     def lock(self) -> asyncio.Lock:
@@ -82,14 +86,10 @@ class EventBus:
         return self._lock
 
     async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        async with self.lock:
-            self._active_connections.append(websocket)
+        pass
 
     async def disconnect(self, websocket: WebSocket):
-        async with self.lock:
-            if websocket in self._active_connections:
-                self._active_connections.remove(websocket)
+        pass
 
     def publish_event(
         self,
@@ -245,48 +245,23 @@ class EventBus:
         db.add(outbox_entry)
 
     def dispatch_websocket_broadcast(self, event_dict: Dict[str, Any]):
-        """Schedule non-blocking broadcast to all active WebSocket connections."""
+        """Schedule non-blocking broadcast through market_broadcaster, thread-safe."""
+        from services.market_broadcaster import market_broadcaster
+
         try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(self._broadcast(event_dict))
+            current_loop = asyncio.get_running_loop()
+            if current_loop == self._main_loop or self._main_loop is None:
+                current_loop.create_task(market_broadcaster.broadcast_domain_event(event_dict))
+            else:
+                asyncio.run_coroutine_threadsafe(market_broadcaster.broadcast_domain_event(event_dict), self._main_loop)
         except RuntimeError:
-            pass
-
-    async def _broadcast(self, event_dict: Dict[str, Any]):
-        envelope = {
-            "protocol_version": "7.1.0",
-            "type": "DOMAIN_EVENT",
-            "event": event_dict,
-            **event_dict
-        }
-        msg_str = json.dumps(envelope)
-
-        # Also forward to market_broadcaster
-        try:
-            from services.market_broadcaster import market_broadcaster
-            asyncio.create_task(market_broadcaster.broadcast_domain_event(event_dict))
-        except Exception:
-            pass
-
-        async with self.lock:
-            conns = list(self._active_connections)
-
-        if not conns:
-            return
-
-        dead_connections = []
-        for ws in conns:
-            try:
-                await asyncio.wait_for(ws.send_text(msg_str), timeout=1.0)
-            except Exception:
-                dead_connections.append(ws)
-
-        if dead_connections:
-            async with self.lock:
-                for ws in dead_connections:
-                    if ws in self._active_connections:
-                        self._active_connections.remove(ws)
+            # Called from a worker thread or synchronous test without running loop
+            if self._main_loop and not self._main_loop.is_closed():
+                asyncio.run_coroutine_threadsafe(market_broadcaster.broadcast_domain_event(event_dict), self._main_loop)
+            else:
+                logger.debug("Cannot dispatch domain event: event loop not running or closed.")
 
 
 # Global Singleton Event Bus
 event_bus = EventBus()
+

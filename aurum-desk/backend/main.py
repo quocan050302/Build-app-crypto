@@ -101,6 +101,9 @@ async def lifespan(app: FastAPI):
     from services.candle_cache_service import candle_cache_service
     from services.market_broadcaster import market_broadcaster
 
+    # Capture main running loop for thread-safe event bus bridge
+    event_bus.set_main_loop(asyncio.get_running_loop())
+
     # Wire WS quote broadcaster to market_broadcaster
     bitget_ws_service.register_broadcaster(market_broadcaster.broadcast_quote)
 
@@ -125,7 +128,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Aurum Desk API",
     description="Backend API cho Aurum Desk: XAUUSDT Research, SMC/ICT Engine và Auto Paper Trading",
-    version="7.1.0",
+    version="7.2.0",
     lifespan=lifespan
 )
 
@@ -142,7 +145,7 @@ app.add_middleware(
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     from services.market_broadcaster import market_broadcaster
-    await event_bus.connect(websocket)
+    await websocket.accept()
     await market_broadcaster.connect(websocket)
     try:
         # Send initial state snapshot on connection
@@ -158,7 +161,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 .all()
             )
             snapshot = {
-                "protocol_version": "7.1.0",
+                "protocol_version": "7.2.0",
                 "type": "SNAPSHOT",
                 "timestamp": int(time.time() * 1000),
                 "feed_connected": collector_service.feed_connected,
@@ -189,10 +192,8 @@ async def websocket_endpoint(websocket: WebSocket):
             if data == "ping":
                 await websocket.send_text("pong")
     except WebSocketDisconnect:
-        await event_bus.disconnect(websocket)
         await market_broadcaster.disconnect(websocket)
     except Exception:
-        await event_bus.disconnect(websocket)
         await market_broadcaster.disconnect(websocket)
 
 

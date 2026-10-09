@@ -201,40 +201,47 @@ def test_execution_consumer_short_exit_uses_ask(isolated_db):
     assert res_hit["exit_cause"] == "TP_HIT"
 
 def test_candle_cache_boundary_rollover():
-    """Verify CandleCacheService advances open bar and finalizes closed bar at timeframe boundary."""
+    """Verify CandleCacheService advances open bar and finalizes closed bar at timeframe boundary via real candle payloads."""
     cache = CandleCacheService(max_bars=50)
 
-    # 1. First quote at t0
-    t0 = 1728447000000  # Exactly on a boundary
-    q1 = CanonicalQuote(symbol="XAUUSDT", last=2650.0, bid=2649.9, ask=2650.1, exchange_ts_ms=t0, status="VALID")
-    closed1 = cache.process_quote(q1)
+    # 1. First candle update at t0
+    t0 = 1728447000000
+    rows1 = [[str(t0), "2650.0", "2650.0", "2650.0", "2650.0", "10.5", "27825.0", "27825.0"]]
+    closed1 = cache.process_candle_payload("XAUUSDT", "1M", rows1)
     assert len(closed1) == 0
 
     candles_1m = cache.get_candles("XAUUSDT", "1M")
     assert len(candles_1m) == 1
     assert candles_1m[-1].open == 2650.0
     assert candles_1m[-1].close == 2650.0
+    assert candles_1m[-1].volume == 10.5
 
-    # 2. Second quote inside same 1M window
-    q2 = CanonicalQuote(symbol="XAUUSDT", last=2655.0, bid=2654.9, ask=2655.1, exchange_ts_ms=t0 + 30000, status="VALID")
-    closed2 = cache.process_quote(q2)
+    # 2. Second update inside same 1M window: cumulative volume replaces, high/low/close updated
+    rows2 = [[str(t0), "2650.0", "2655.0", "2649.5", "2654.0", "15.2", "40340.0", "40340.0"]]
+    closed2 = cache.process_candle_payload("XAUUSDT", "1M", rows2)
     assert len(closed2) == 0
     assert candles_1m[-1].high == 2655.0
-    assert candles_1m[-1].close == 2655.0
+    assert candles_1m[-1].low == 2649.5
+    assert candles_1m[-1].close == 2654.0
+    assert candles_1m[-1].volume == 15.2
 
-    # 3. Third quote rolls over 1M boundary (t0 + 60_000)
-    q3 = CanonicalQuote(symbol="XAUUSDT", last=2653.0, bid=2652.9, ask=2653.1, exchange_ts_ms=t0 + 60000, status="VALID")
-    closed3 = cache.process_quote(q3)
-    assert len(closed3) >= 1  # 1M closed bar finalized!
-    closed_1m_bar = [b for b in closed3 if b.timeframe == "1M"][0]
-    assert closed_1m_bar.is_closed is True
-    assert closed_1m_bar.high == 2655.0
-    assert closed_1m_bar.close == 2655.0
+    # 3. Third update crosses 1M boundary (t0 + 60_000)
+    t1 = t0 + 60000
+    rows3 = [[str(t1), "2654.0", "2658.0", "2653.0", "2656.0", "8.0", "21248.0", "21248.0"]]
+    closed3 = cache.process_candle_payload("XAUUSDT", "1M", rows3)
+    assert len(closed3) == 1
+    closed_bar = closed3[0]
+    assert closed_bar.is_closed is True
+    assert closed_bar.timestamp == t0
+    assert closed_bar.high == 2655.0
+    assert closed_bar.close == 2654.0
+    assert closed_bar.volume == 15.2
 
-    # Now cache should have 2 bars for 1M
+    # Now cache should have 2 bars
     updated_1m = cache.get_candles("XAUUSDT", "1M")
     assert len(updated_1m) == 2
-    assert updated_1m[-1].open == 2653.0
+    assert updated_1m[-1].timestamp == t1
+    assert updated_1m[-1].open == 2654.0
     assert updated_1m[-1].is_closed is False
 
 def test_analysis_cache_single_flight():

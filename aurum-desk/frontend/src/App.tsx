@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChartComponent } from './ChartComponent';
 import { api, extractErrorMessage } from './api/client';
+import { wsClient } from './services/wsClient';
 import { calculateClientRiskReward } from './utils/calculator';
 import type { RiskRewardData } from './plugins/RiskRewardPrimitive';
 import { TestingLabComponent } from './TestingLabComponent';
@@ -423,103 +424,46 @@ export function App() {
     }, 300);
   }, [refreshUpcoming]);
 
-  // 4. WebSocket Domain Events Connection (V7.1: Selective Routing & No Request Storm)
+  // 4. WebSocket Domain Events Connection (V7.2: Consolidated Shared WebSocket)
   useEffect(() => {
-    let ws: WebSocket | null = null;
-    let pingInterval: any = null;
-    let reconnectTimeout: any = null;
-    let disposed = false;
+    const unsubscribe = wsClient.subscribe((data: any) => {
+      if (data?.type === 'DOMAIN_EVENT') {
+        const evt = data.event || data;
+        const type = evt?.event_type;
+        const payload = evt?.payload || {};
 
-    const connectWs = () => {
-      if (disposed) return;
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
-
-      try {
-        ws = new WebSocket(wsUrl);
-
-        ws.onopen = () => {
-          if (disposed) {
-            ws?.close();
-            return;
-          }
-          pingInterval = setInterval(() => {
-            if (ws?.readyState === WebSocket.OPEN) {
-              ws.send('ping');
-            }
-          }, 25000);
-        };
-
-        ws.onmessage = (event) => {
-          if (disposed || event.data === 'pong') return;
-          try {
-            const data = JSON.parse(event.data);
-            if (data.type === 'DOMAIN_EVENT') {
-              const evt = data.event || data;
-              const type = evt?.event_type;
-              const payload = evt?.payload || {};
-
-              if (type === 'trade.opened') {
-                const entry = payload.entry_price ?? payload.actual_entry ?? payload.planned_entry ?? '';
-                showToast('Lệnh Đã Khớp (PAPER_OPEN)', `${payload.direction} XAUUSDT tại $${entry}`, 'success');
-                debouncedRefreshAccount();
-              } else if (type === 'trade.closed') {
-                const pnl = payload.realized_pnl_net ?? payload.realized_pnl ?? payload.net_pnl ?? 0;
-                const cause = payload.exit_cause ?? payload.exit_reason ?? 'CLOSED';
-                showToast('Vị Thế Đã Đóng', `PnL: $${pnl} (${cause})`, pnl >= 0 ? 'success' : 'warn');
-                debouncedRefreshAccount();
-              } else if (type === 'trade.liquidated') {
-                showToast('THANH LÝ (LIQUIDATED)', `Vị thế đã bị thanh lý tại giá Mark $${payload.exit_price ?? ''}`, 'warn');
-                debouncedRefreshAccount();
-              } else if (type === 'order.armed') {
-                showToast('Lệnh Đã Armed', `Setup ${payload.setup_id} đã sẵn sàng chờ kích hoạt`, 'info');
-                debouncedRefreshAccount();
-              } else if (type === 'setup.ready') {
-                showToast('Setup READY', `Setup ${payload.setup_id} đã hoàn tất điều kiện SMC`, 'info');
-                debouncedRefreshUpcoming();
-              } else if (type === 'setup.invalidated') {
-                debouncedRefreshUpcoming();
-              } else if (type === 'feed.degraded') {
-                setHealth((prev: any) => prev ? { ...prev, status: 'degraded', feed_connected: false } : prev);
-              } else if (type === 'feed.recovered') {
-                setHealth((prev: any) => prev ? { ...prev, status: 'ok', feed_connected: true } : prev);
-              }
-            }
-          } catch {
-            // Non-JSON or pong
-          }
-        };
-
-        ws.onclose = () => {
-          clearInterval(pingInterval);
-          if (!disposed) {
-            reconnectTimeout = setTimeout(connectWs, 5000);
-          }
-        };
-
-        ws.onerror = () => {
-          ws?.close();
-        };
-      } catch {
-        if (!disposed) {
-          reconnectTimeout = setTimeout(connectWs, 5000);
+        if (type === 'trade.opened') {
+          const entry = payload.entry_price ?? payload.actual_entry ?? payload.planned_entry ?? '';
+          showToast('Lệnh Đã Khớp (PAPER_OPEN)', `${payload.direction} XAUUSDT tại $${entry}`, 'success');
+          debouncedRefreshAccount();
+        } else if (type === 'trade.closed') {
+          const pnl = payload.realized_pnl_net ?? payload.realized_pnl ?? payload.net_pnl ?? 0;
+          const cause = payload.exit_cause ?? payload.exit_reason ?? 'CLOSED';
+          showToast('Vị Thế Đã Đóng', `PnL: $${pnl} (${cause})`, pnl >= 0 ? 'success' : 'warn');
+          debouncedRefreshAccount();
+        } else if (type === 'trade.liquidated') {
+          showToast('THANH LÝ (LIQUIDATED)', `Vị thế đã bị thanh lý tại giá Mark $${payload.exit_price ?? ''}`, 'warn');
+          debouncedRefreshAccount();
+        } else if (type === 'order.armed') {
+          showToast('Lệnh Đã Armed', `Setup ${payload.setup_id} đã sẵn sàng chờ kích hoạt`, 'info');
+          debouncedRefreshAccount();
+        } else if (type === 'setup.ready') {
+          showToast('Setup READY', `Setup ${payload.setup_id} đã hoàn tất điều kiện SMC`, 'info');
+          debouncedRefreshUpcoming();
+        } else if (type === 'setup.invalidated') {
+          debouncedRefreshUpcoming();
+        } else if (type === 'feed.degraded') {
+          setHealth((prev: any) => prev ? { ...prev, status: 'degraded', feed_connected: false } : prev);
+        } else if (type === 'feed.recovered') {
+          setHealth((prev: any) => prev ? { ...prev, status: 'ok', feed_connected: true } : prev);
         }
       }
-    };
-
-    connectWs();
+    });
 
     return () => {
-      disposed = true;
-      clearInterval(pingInterval);
-      clearTimeout(reconnectTimeout);
+      unsubscribe();
       if (refreshAccountTimeoutRef.current) clearTimeout(refreshAccountTimeoutRef.current);
       if (refreshUpcomingTimeoutRef.current) clearTimeout(refreshUpcomingTimeoutRef.current);
-      if (ws) {
-        ws.onclose = null;
-        ws.onerror = null;
-        ws.close();
-      }
     };
   }, [debouncedRefreshAccount, debouncedRefreshUpcoming, showToast]);
 

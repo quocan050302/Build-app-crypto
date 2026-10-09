@@ -91,6 +91,15 @@ def evaluate_setup_eligibility(
         reason_codes.append("NEWS_BLACKOUT")
         block_reasons.append(f"NEWS_BLACKOUT: {blackout_reason}")
 
+    # 7.5. Execution Feed & Overload Gap check
+    try:
+        from services.execution_consumer import execution_consumer
+        if execution_consumer.has_execution_gap or execution_consumer.is_lagging:
+            reason_codes.append("EXECUTION_FEED_DEGRADED")
+            block_reasons.append("EXECUTION_FEED_DEGRADED: Hàng đợi thực thi thị trường đang bị quá tải hoặc thiếu dữ liệu, tạm dừng Arm/vào lệnh mới.")
+    except Exception:
+        pass
+
     # 8. Price Geometry & Financial snapshot validation
     entry = custom_entry if custom_entry is not None else (setup.confirmed_entry or setup.provisional_entry)
     sl = custom_sl if custom_sl is not None else (setup.confirmed_sl or setup.provisional_sl)

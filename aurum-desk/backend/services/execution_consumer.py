@@ -32,17 +32,28 @@ class ExecutionConsumer:
         self.dropped_count = 0
         self.last_processed_quote_ts = 0
         self.last_eval_duration_ms = 0.0
+        self.last_queue_wait_ms = 0.0
         self.is_lagging = False
+        self.has_execution_gap = False
+        self.gap_start_ms: Optional[int] = None
+        self.gap_end_ms: Optional[int] = None
         self.last_lag_warn_ts = 0
 
     @property
     def queue_depth(self) -> int:
         return self.queue.qsize()
 
+    def reset_execution_gap(self):
+        """Clears execution gap flag after audit / historical reconciliation."""
+        self.has_execution_gap = False
+        self.gap_start_ms = None
+        self.gap_end_ms = None
+        self.is_lagging = False
+
     def enqueue_quote(self, quote: CanonicalQuote) -> bool:
         """
         Enqueues a canonical quote into the ordered execution stream.
-        If queue is near capacity, drops non-executable quote or enters DEGRADED state.
+        If queue is full, enters DEGRADED state and marks execution gap.
         """
         if not quote.is_valid:
             return False
@@ -53,10 +64,18 @@ class ExecutionConsumer:
         except asyncio.QueueFull:
             self.dropped_count += 1
             self.is_lagging = True
+            self.has_execution_gap = True
+            now_ms = quote.received_at_ms or int(time.time() * 1000)
+            if self.gap_start_ms is None:
+                self.gap_start_ms = now_ms
+            self.gap_end_ms = now_ms
+
             now = time.time()
             if now - self.last_lag_warn_ts > 5.0:
                 self.last_lag_warn_ts = now
-                logger.warning(f"Execution consumer queue is full ({self.queue.qsize()}), quote dropped!")
+                logger.warning(
+                    f"Execution consumer queue full ({self.queue.qsize()}), quote dropped! Marked EXECUTION_GAP ({self.dropped_count} dropped)."
+                )
             return False
 
     def evaluate_quote_sync(
@@ -68,20 +87,30 @@ class ExecutionConsumer:
     ) -> Dict[str, Any]:
         """
         Synchronous evaluation of active position exits and pending armed orders for a single quote.
-        Can be called directly from test harnesses or scenario runner.
+        Re-validates quote freshness according to actual processing time (proc_now_ms),
+        preventing stale backlog quotes from filling new entry orders.
         """
         c = clock or live_clock
-        current_time = now_ms if now_ms is not None else (quote.received_at_ms or c.now_ms())
-        result = {"exit_processed": False, "entry_processed": False}
+        proc_now_ms = now_ms if now_ms is not None else c.now_ms()
+        result = {"exit_processed": False, "entry_processed": False, "is_stale": False}
 
-        # 1. Active open position takes precedence
+        # Track queue wait time and quote age relative to processing clock
+        quote_ts = quote.exchange_ts_ms or quote.received_at_ms or proc_now_ms
+        quote_age_ms = max(0, proc_now_ms - quote_ts)
+        wait_in_queue_ms = max(0, proc_now_ms - quote.received_at_ms) if quote.received_at_ms else 0
+        self.last_queue_wait_ms = round(wait_in_queue_ms, 2)
+
+        # A quote in backlog that is older than 15s relative to processing time cannot open new orders
+        is_quote_fresh_for_entry = (quote_age_ms <= 15000)
+
+        # 1. Active open position takes absolute precedence (evaluated even during backlog)
         active_pos = crud.get_active_position(db)
         if active_pos and active_pos.state == "paper_open":
             closed_order = TradeLifecycleService.process_exit_tick(
                 db=db,
                 current_bid=quote.bid,
                 current_ask=quote.ask,
-                now_ms=current_time,
+                now_ms=proc_now_ms,
                 clock=c
             )
             if closed_order:
@@ -90,16 +119,22 @@ class ExecutionConsumer:
                 result["exit_cause"] = closed_order.exit_cause
             return result
 
-        # 2. Evaluate armed orders if no active position exists and not severely lagging
-        if not self.is_lagging:
+        # 2. Evaluate armed orders if no active position exists, not lagging, no gap, and quote is fresh
+        if not self.is_lagging and not self.has_execution_gap and is_quote_fresh_for_entry:
             from services.execution_coordinator import execution_coordinator
             execution_coordinator.evaluate_orders_sync(
                 db=db,
                 ticker_override=quote.to_dict(),
                 clock=c,
-                now_ms=current_time
+                now_ms=proc_now_ms
             )
             result["entry_processed"] = True
+        else:
+            if not is_quote_fresh_for_entry:
+                result["is_stale"] = True
+                result["rejection_reason"] = f"BACKLOG_QUOTE_STALE ({quote_age_ms}ms > 15000ms)"
+            elif self.has_execution_gap or self.is_lagging:
+                result["rejection_reason"] = "EXECUTION_GAP_ACTIVE"
 
         return result
 
@@ -127,7 +162,7 @@ class ExecutionConsumer:
 
                 t_diff = (time.perf_counter() - t0) * 1000.0
                 self.last_eval_duration_ms = round(t_diff, 2)
-                self.last_processed_quote_ts = quote.received_at_ms
+                self.last_processed_quote_ts = int(time.time() * 1000)
                 self.processed_count += 1
 
                 # Update lag status

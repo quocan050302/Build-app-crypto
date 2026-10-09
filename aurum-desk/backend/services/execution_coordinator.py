@@ -290,9 +290,16 @@ class ExecutionCoordinator:
 
     async def run_coordinator_loop(self):
         self._running = True
-        while True:
+        while self._running:
             try:
                 await asyncio.sleep(1.5)
+                # Single execution owner: if execution_consumer is actively processing stream quotes,
+                # yield to consumer so coordinator acts as watchdog / fallback only.
+                from services.execution_consumer import execution_consumer
+                now_ms = int(time.time() * 1000)
+                if execution_consumer._running and (now_ms - execution_consumer.last_processed_quote_ts < 5000):
+                    continue
+
                 await self.evaluate_armed_orders()
             except asyncio.CancelledError:
                 self._running = False

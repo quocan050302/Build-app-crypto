@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
 import type { IChartApi, ISeriesApi, Time } from 'lightweight-charts';
 import { api, getNextRequestGeneration, isLatestGeneration } from './api/client';
+import { wsClient } from './services/wsClient';
 import { RiskRewardPrimitive } from './plugins/RiskRewardPrimitive';
 import type { RiskRewardData, DragTargetPart } from './plugins/RiskRewardPrimitive';
 import { SMCStructurePrimitive } from './plugins/SMCStructurePrimitive';
@@ -252,69 +253,62 @@ export function ChartComponent({
     loadCandles();
   }, [loadCandles]);
 
-  // Real-time incremental candle delta listener via WebSocket
+  // Real-time incremental candle delta listener via Shared wsClient (V7.2)
   useEffect(() => {
-    let ws: WebSocket | null = null;
     let disposed = false;
     let pendingRaf: number | null = null;
-    let pendingBar: CandleData | null = null;
+    const pendingBarsQueue: CandleData[] = [];
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const unsubscribe = wsClient.subscribe((msg: any) => {
+      if (disposed) return;
+      try {
+        if (msg.type === 'CANDLE_UPDATE' || msg.type === 'CANDLE_CLOSED') {
+          if (msg.symbol === symbol && msg.timeframe === timeframe && msg.payload) {
+            const p = msg.payload;
+            const bar: CandleData = {
+              time: p.time as Time,
+              open: p.open,
+              high: p.high,
+              low: p.low,
+              close: p.close,
+            };
 
-    try {
-      ws = new WebSocket(wsUrl);
+            latestClosePriceRef.current = p.close;
+            setCurrentPriceDisplay(p.close);
+            setDataIsStale(false);
+            setStaleNotice(null);
 
-      ws.onmessage = (event) => {
-        if (disposed || event.data === 'pong') return;
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.type === 'CANDLE_UPDATE' || msg.type === 'CANDLE_CLOSED') {
-            if (msg.symbol === symbol && msg.timeframe === timeframe && msg.payload) {
-              const p = msg.payload;
-              const bar: CandleData = {
-                time: p.time as Time,
-                open: p.open,
-                high: p.high,
-                low: p.low,
-                close: p.close,
-              };
+            // Queue bar so boundary transition (closed bar -> new open bar) is never lost
+            pendingBarsQueue.push(bar);
 
-              latestClosePriceRef.current = p.close;
-              setCurrentPriceDisplay(p.close);
-              setDataIsStale(false);
-              setStaleNotice(null);
-
-              pendingBar = bar;
-              if (pendingRaf === null) {
-                pendingRaf = requestAnimationFrame(() => {
-                  if (pendingBar && seriesRef.current && !disposed) {
-                    seriesRef.current.update(pendingBar);
+            if (pendingRaf === null) {
+              pendingRaf = requestAnimationFrame(() => {
+                if (seriesRef.current && !disposed && pendingBarsQueue.length > 0) {
+                  while (pendingBarsQueue.length > 0) {
+                    const nextBar = pendingBarsQueue.shift();
+                    if (nextBar) {
+                      seriesRef.current.update(nextBar);
+                    }
                   }
-                  pendingRaf = null;
-                  pendingBar = null;
-                });
-              }
-            }
-          } else if (msg.type === 'QUOTE_UPDATE' && msg.payload?.last) {
-            if (msg.symbol === symbol) {
-              const lastPrice = msg.payload.last;
-              latestClosePriceRef.current = lastPrice;
-              setCurrentPriceDisplay(lastPrice);
+                }
+                pendingRaf = null;
+              });
             }
           }
-        } catch {}
-      };
-    } catch {}
+        } else if (msg.type === 'QUOTE_UPDATE' && msg.payload?.last) {
+          if (msg.symbol === symbol) {
+            const lastPrice = msg.payload.last;
+            latestClosePriceRef.current = lastPrice;
+            setCurrentPriceDisplay(lastPrice);
+          }
+        }
+      } catch {}
+    });
 
     return () => {
       disposed = true;
       if (pendingRaf !== null) cancelAnimationFrame(pendingRaf);
-      if (ws) {
-        ws.onclose = null;
-        ws.onerror = null;
-        ws.close();
-      }
+      unsubscribe();
     };
   }, [symbol, timeframe]);
 

@@ -38,9 +38,16 @@ class ExitMonitor:
 
     async def run_exit_monitor_loop(self):
         self._running = True
-        while True:
+        while self._running:
             try:
                 await asyncio.sleep(1.5)
+                # Single execution owner: if execution_consumer is actively monitoring exits on quotes,
+                # yield to consumer so exit_monitor acts as watchdog / fallback only.
+                from services.execution_consumer import execution_consumer
+                now_ms = int(time.time() * 1000)
+                if execution_consumer._running and (now_ms - execution_consumer.last_processed_quote_ts < 5000):
+                    continue
+
                 await self.check_active_position()
             except asyncio.CancelledError:
                 self._running = False
