@@ -406,13 +406,32 @@ export function App() {
     }
   }, []);
 
-  // 4. WebSocket Domain Events Connection
+  const refreshAccountTimeoutRef = useRef<any>(null);
+  const refreshUpcomingTimeoutRef = useRef<any>(null);
+
+  const debouncedRefreshAccount = useCallback(() => {
+    if (refreshAccountTimeoutRef.current) clearTimeout(refreshAccountTimeoutRef.current);
+    refreshAccountTimeoutRef.current = setTimeout(() => {
+      refreshAccountAndHealth();
+    }, 300);
+  }, [refreshAccountAndHealth]);
+
+  const debouncedRefreshUpcoming = useCallback(() => {
+    if (refreshUpcomingTimeoutRef.current) clearTimeout(refreshUpcomingTimeoutRef.current);
+    refreshUpcomingTimeoutRef.current = setTimeout(() => {
+      refreshUpcoming();
+    }, 300);
+  }, [refreshUpcoming]);
+
+  // 4. WebSocket Domain Events Connection (V7.1: Selective Routing & No Request Storm)
   useEffect(() => {
     let ws: WebSocket | null = null;
     let pingInterval: any = null;
     let reconnectTimeout: any = null;
+    let disposed = false;
 
     const connectWs = () => {
+      if (disposed) return;
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/ws`;
 
@@ -420,6 +439,10 @@ export function App() {
         ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
+          if (disposed) {
+            ws?.close();
+            return;
+          }
           pingInterval = setInterval(() => {
             if (ws?.readyState === WebSocket.OPEN) {
               ws.send('ping');
@@ -428,67 +451,89 @@ export function App() {
         };
 
         ws.onmessage = (event) => {
-          if (event.data === 'pong') return;
+          if (disposed || event.data === 'pong') return;
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'DOMAIN_EVENT') {
-              const evt = data.event;
+              const evt = data.event || data;
               const type = evt?.event_type;
               const payload = evt?.payload || {};
 
               if (type === 'trade.opened') {
-                showToast('Lệnh Đã Khớp (PAPER_OPEN)', `${payload.direction} XAUUSDT tại $${payload.entry_price || payload.actual_entry}`, 'success');
+                const entry = payload.entry_price ?? payload.actual_entry ?? payload.planned_entry ?? '';
+                showToast('Lệnh Đã Khớp (PAPER_OPEN)', `${payload.direction} XAUUSDT tại $${entry}`, 'success');
+                debouncedRefreshAccount();
               } else if (type === 'trade.closed') {
-                showToast('Vị Thế Đã Đóng', `PnL: $${payload.net_pnl} (${payload.exit_reason})`, payload.net_pnl >= 0 ? 'success' : 'warn');
+                const pnl = payload.realized_pnl_net ?? payload.realized_pnl ?? payload.net_pnl ?? 0;
+                const cause = payload.exit_cause ?? payload.exit_reason ?? 'CLOSED';
+                showToast('Vị Thế Đã Đóng', `PnL: $${pnl} (${cause})`, pnl >= 0 ? 'success' : 'warn');
+                debouncedRefreshAccount();
               } else if (type === 'trade.liquidated') {
-                showToast('THANH LÝ (LIQUIDATED)', `Vị thế đã bị thanh lý tại giá Mark $${payload.exit_price}`, 'warn');
+                showToast('THANH LÝ (LIQUIDATED)', `Vị thế đã bị thanh lý tại giá Mark $${payload.exit_price ?? ''}`, 'warn');
+                debouncedRefreshAccount();
               } else if (type === 'order.armed') {
                 showToast('Lệnh Đã Armed', `Setup ${payload.setup_id} đã sẵn sàng chờ kích hoạt`, 'info');
+                debouncedRefreshAccount();
               } else if (type === 'setup.ready') {
                 showToast('Setup READY', `Setup ${payload.setup_id} đã hoàn tất điều kiện SMC`, 'info');
+                debouncedRefreshUpcoming();
+              } else if (type === 'setup.invalidated') {
+                debouncedRefreshUpcoming();
+              } else if (type === 'feed.degraded') {
+                setHealth((prev: any) => prev ? { ...prev, status: 'degraded', feed_connected: false } : prev);
+              } else if (type === 'feed.recovered') {
+                setHealth((prev: any) => prev ? { ...prev, status: 'ok', feed_connected: true } : prev);
               }
-
-              refreshAccountAndHealth();
-              refreshAnalysis();
-              refreshUpcoming();
             }
-          } catch (e) {
+          } catch {
             // Non-JSON or pong
           }
         };
 
         ws.onclose = () => {
           clearInterval(pingInterval);
-          reconnectTimeout = setTimeout(connectWs, 5000);
+          if (!disposed) {
+            reconnectTimeout = setTimeout(connectWs, 5000);
+          }
         };
 
         ws.onerror = () => {
           ws?.close();
         };
-      } catch (err) {
-        reconnectTimeout = setTimeout(connectWs, 5000);
+      } catch {
+        if (!disposed) {
+          reconnectTimeout = setTimeout(connectWs, 5000);
+        }
       }
     };
 
     connectWs();
 
     return () => {
+      disposed = true;
       clearInterval(pingInterval);
       clearTimeout(reconnectTimeout);
-      if (ws) ws.close();
+      if (refreshAccountTimeoutRef.current) clearTimeout(refreshAccountTimeoutRef.current);
+      if (refreshUpcomingTimeoutRef.current) clearTimeout(refreshUpcomingTimeoutRef.current);
+      if (ws) {
+        ws.onclose = null;
+        ws.onerror = null;
+        ws.close();
+      }
     };
-  }, [refreshAccountAndHealth, refreshAnalysis, refreshUpcoming, showToast]);
+  }, [debouncedRefreshAccount, debouncedRefreshUpcoming, showToast]);
 
-  // Periodic polling
+  // Periodic polling with visibility check and 45s cycle
   useEffect(() => {
     refreshAccountAndHealth();
     refreshAnalysis();
     refreshUpcoming();
     const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       refreshAccountAndHealth();
       refreshAnalysis();
       refreshUpcoming();
-    }, 10000);
+    }, 45000);
     return () => clearInterval(interval);
   }, [refreshAccountAndHealth, refreshAnalysis, refreshUpcoming]);
 
@@ -863,7 +908,9 @@ export function App() {
         showToast('Xung đột cấu hình (409)', conflictMsg, 'warn');
         try {
           await refreshAccountAndHealth();
-        } catch (_) {}
+        } catch {
+          // ignore
+        }
       } else {
         const errMsg = err.response?.data?.detail || err.message || 'Lỗi khi lưu cài đặt tài khoản';
         setSettingsSaveError(errMsg);

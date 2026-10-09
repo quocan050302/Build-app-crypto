@@ -5,7 +5,7 @@ const BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: BASE_URL,
-  timeout: 8000,
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -321,15 +321,17 @@ export interface NewsResearchResponse {
   fetched_at?: number;
 }
 
-// Request generation tracker to prevent stale responses
-let currentRequestGeneration = 0;
-export function getNextRequestGeneration(): number {
-  currentRequestGeneration += 1;
-  return currentRequestGeneration;
+// Request generation tracker scoped per resource to prevent cross-component invalidation
+const resourceGenerations = new Map<string, number>();
+
+export function getNextRequestGeneration(resource: string = 'default'): number {
+  const next = (resourceGenerations.get(resource) || 0) + 1;
+  resourceGenerations.set(resource, next);
+  return next;
 }
 
-export function isLatestGeneration(gen: number): boolean {
-  return gen === currentRequestGeneration;
+export function isLatestGeneration(gen: number, resource: string = 'default'): boolean {
+  return gen === (resourceGenerations.get(resource) || 0);
 }
 
 /**
@@ -440,7 +442,16 @@ export const api = {
   },
 
   getInstrumentMetadata: async (symbol: string = 'XAUUSDT') => {
+    const now = Date.now();
+    const cached = resourceGenerations.has(`meta_${symbol}`) ? (window as any)[`__meta_cache_${symbol}`] : null;
+    const cacheTime = (window as any)[`__meta_time_${symbol}`] || 0;
+    if (cached && (now - cacheTime < 300000)) {
+      return cached;
+    }
     const res = await apiClient.get('/api/v1/instrument/metadata', { params: { symbol } });
+    (window as any)[`__meta_cache_${symbol}`] = res.data;
+    (window as any)[`__meta_time_${symbol}`] = now;
+    resourceGenerations.set(`meta_${symbol}`, 1);
     return res.data;
   },
 

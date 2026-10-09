@@ -1,11 +1,15 @@
 import time
 import asyncio
+import logging
 from typing import Dict, Any, Optional, Tuple, List
 import httpx
 from sqlalchemy.orm import Session
 from database import SessionLocal
 import models, crud, bitget_data, smc_engine
 from services.event_bus import event_bus
+from services.candle_cache_service import candle_cache_service
+
+logger = logging.getLogger(__name__)
 
 FRESHNESS_THRESHOLDS_SEC = {
     "1M": 3 * 60,
@@ -19,17 +23,51 @@ FRESHNESS_THRESHOLDS_SEC = {
 class CollectorService:
     def __init__(self):
         self.collector_alive = False
-        self.feed_connected = False
-        self.last_success_time = 0
+        self._feed_connected = False
+        self._last_success_time = 0
         self.last_error: Optional[str] = None
         self.d_bias = "UNKNOWN"
         self.h4_bias = "UNKNOWN"
         self.d_4h_bias = "UNKNOWN"
         self.h1_alignment = "UNKNOWN"
-        self.latest_ticker: Optional[Dict[str, Any]] = None
+        self._latest_ticker: Optional[Dict[str, Any]] = None
         self._was_degraded = False
         self._last_d_sync = 0
         self._last_1m_sync = 0
+        self._last_htf_update = 0
+
+    @property
+    def latest_ticker(self) -> Optional[Dict[str, Any]]:
+        from services.bitget_ws_service import bitget_ws_service
+        if bitget_ws_service.latest_quote and bitget_ws_service.latest_quote.is_valid:
+            return bitget_ws_service.latest_quote.to_dict()
+        return self._latest_ticker
+
+    @latest_ticker.setter
+    def latest_ticker(self, val: Optional[Dict[str, Any]]):
+        self._latest_ticker = val
+
+    @property
+    def feed_connected(self) -> bool:
+        from services.bitget_ws_service import bitget_ws_service
+        if bitget_ws_service.transport_state in ("CONNECTED", "DEGRADED"):
+            return True
+        return self._feed_connected
+
+    @feed_connected.setter
+    def feed_connected(self, val: bool):
+        self._feed_connected = val
+
+    @property
+    def last_success_time(self) -> int:
+        from services.bitget_ws_service import bitget_ws_service
+        if bitget_ws_service.last_success_time > 0:
+            return bitget_ws_service.last_success_time
+        return self._last_success_time
+
+    @last_success_time.setter
+    def last_success_time(self, val: int):
+        self._last_success_time = val
 
     def is_stale(self, timeframe: str, last_candle_ts: Optional[int]) -> Tuple[bool, float]:
         if not last_candle_ts:
@@ -49,12 +87,18 @@ class CollectorService:
         try:
             candles, server_time = await bitget_data.async_fetch_candles(client, symbol, timeframe, limit)
             if candles:
-                db: Session = SessionLocal()
-                try:
-                    crud.bulk_upsert_candles(db, candles)
-                    return True
-                finally:
-                    db.close()
+                # Update in-memory candle cache
+                candle_cache_service.update_from_rest_sync(symbol, timeframe, candles)
+
+                # Persist to database in thread pool to prevent blocking event loop
+                def _save_db():
+                    db: Session = SessionLocal()
+                    try:
+                        crud.bulk_upsert_candles(db, candles)
+                    finally:
+                        db.close()
+                await asyncio.to_thread(_save_db)
+                return True
             return False
         except Exception as e:
             self.last_error = f"{timeframe} sync error: {str(e)}"
@@ -116,73 +160,69 @@ class CollectorService:
             db.close()
 
     async def run_collector_loop(self):
-        """Main non-blocking background collector loop with multi-timeframe synchronization."""
+        """
+        Background collector loop with multi-timeframe synchronization (V7.1):
+        - Offloads ticker streaming to BitgetWSService.
+        - Synchronizes candle history periodically in background tasks.
+        - Calculates HTF bias in separate thread to protect event loop.
+        """
         self.collector_alive = True
         symbol = "XAUUSDT"
 
+        # Bootstrap local cache from DB
+        db = SessionLocal()
+        try:
+            candle_cache_service.bootstrap_from_db(db, symbol)
+            await asyncio.to_thread(self.update_htf_context, symbol)
+        finally:
+            db.close()
+
         async with httpx.AsyncClient(timeout=10.0) as client:
+            # Initial fast sync of 15M, 5M, 1H
+            try:
+                await asyncio.gather(
+                    self.sync_timeframe(client, symbol, "15M", limit=120),
+                    self.sync_timeframe(client, symbol, "5M", limit=100),
+                    self.sync_timeframe(client, symbol, "1H", limit=60),
+                    return_exceptions=True
+                )
+            except Exception as e:
+                logger.debug(f"Initial sync exception: {e}")
+
             while True:
                 try:
                     now = time.time()
-                    # 1. Fetch live ticker
-                    try:
-                        self.latest_ticker = await bitget_data.async_fetch_ticker(client, symbol)
-                        self.feed_connected = True
-                        self.last_success_time = int(now * 1000)
 
-                        if self._was_degraded:
-                            self._was_degraded = False
-                            event_bus.publish_event(
-                                event_type="feed.recovered",
-                                aggregate_id=symbol,
-                                payload={"symbol": symbol, "status": "connected"}
-                            )
-                            try:
-                                db_rec = SessionLocal()
-                                from services.position_recovery_service import position_recovery_service
-                                position_recovery_service.check_and_recover_offline_positions(db_rec)
-                                db_rec.close()
-                            except Exception:
-                                pass
-                    except Exception as e:
-                        self.feed_connected = False
-                        self.last_error = f"Ticker fetch failed: {str(e)}"
-                        if not self._was_degraded:
-                            self._was_degraded = True
-                            event_bus.publish_event(
-                                event_type="feed.degraded",
-                                aggregate_id=symbol,
-                                payload={"symbol": symbol, "reason": self.last_error}
-                            )
+                    # 1. Background sync for active timeframes
+                    await self.sync_timeframe(client, symbol, "15M", limit=60)
+                    await self.sync_timeframe(client, symbol, "5M", limit=60)
 
-                    # 2. Cycle timeframe syncs: 15M and 5M every loop (5s)
-                    await self.sync_timeframe(client, symbol, "15M", limit=120)
-                    await self.sync_timeframe(client, symbol, "5M", limit=100)
-
-                    # 3. 1M sync every 15s
-                    if now - self._last_1m_sync > 15:
+                    # 2. 1M sync every 30s
+                    if now - self._last_1m_sync > 30:
                         await self.sync_timeframe(client, symbol, "1M", limit=60)
                         self._last_1m_sync = now
 
-                    # 4. Sync 1H and 4H periodically
-                    await self.sync_timeframe(client, symbol, "1H", limit=60)
-                    await self.sync_timeframe(client, symbol, "4H", limit=60)
+                    # 3. 1H & 4H sync periodically
+                    await self.sync_timeframe(client, symbol, "1H", limit=40)
+                    await self.sync_timeframe(client, symbol, "4H", limit=40)
 
-                    # 5. D sync every 5 minutes
+                    # 4. D sync every 5 minutes
                     if now - self._last_d_sync > 300:
                         await self.sync_timeframe(client, symbol, "D", limit=30)
                         self._last_d_sync = now
 
-                    # 6. Update HTF bias
-                    self.update_htf_context(symbol)
+                    # 5. Update HTF bias in thread pool
+                    if now - self._last_htf_update > 30:
+                        await asyncio.to_thread(self.update_htf_context, symbol)
+                        self._last_htf_update = now
 
-                    await asyncio.sleep(5.0)
+                    await asyncio.sleep(10.0)
 
                 except asyncio.CancelledError:
                     self.collector_alive = False
                     break
                 except Exception as e:
                     self.last_error = str(e)
-                    await asyncio.sleep(4.0)
+                    await asyncio.sleep(5.0)
 
 collector_service = CollectorService()

@@ -155,7 +155,15 @@ class EventBus:
                 "payload": payload
             }
 
-            self.dispatch_websocket_broadcast(event_dict)
+            if owns_session:
+                self.dispatch_websocket_broadcast(event_dict)
+            else:
+                # Post-commit dispatch: guarantee event is ONLY broadcast after successful commit!
+                from sqlalchemy import event as sa_event
+                def on_after_commit(session):
+                    self.dispatch_websocket_broadcast(event_dict)
+                sa_event.listen(db, "after_commit", on_after_commit, once=True)
+
             return domain_ev
 
         except Exception as e:
@@ -245,7 +253,21 @@ class EventBus:
             pass
 
     async def _broadcast(self, event_dict: Dict[str, Any]):
-        msg_str = json.dumps(event_dict)
+        envelope = {
+            "protocol_version": "7.1.0",
+            "type": "DOMAIN_EVENT",
+            "event": event_dict,
+            **event_dict
+        }
+        msg_str = json.dumps(envelope)
+
+        # Also forward to market_broadcaster
+        try:
+            from services.market_broadcaster import market_broadcaster
+            asyncio.create_task(market_broadcaster.broadcast_domain_event(event_dict))
+        except Exception:
+            pass
+
         async with self.lock:
             conns = list(self._active_connections)
 

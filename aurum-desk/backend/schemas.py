@@ -418,6 +418,15 @@ class SystemHealthResponse(BaseModel):
     degraded_reason: Optional[str] = None
     d_4h_bias: Optional[str] = None
     h1_alignment: Optional[str] = None
+    # V7.1 Telemetry
+    transport_state: Optional[str] = "CONNECTED"
+    feed_source: Optional[str] = "WS"
+    quote_exchange_age_ms: Optional[float] = None
+    quote_local_age_ms: Optional[float] = None
+    execution_queue_depth: Optional[int] = 0
+    execution_lag_ms: Optional[float] = 0.0
+    analysis_as_of: Optional[int] = None
+    reconnect_count: Optional[int] = 0
 
 # Telegram Settings Schemas
 class TelegramConfigSchema(BaseModel):
@@ -657,25 +666,26 @@ class TradingPolicyUpdate(BaseModel):
     max_armed_orders: Optional[int] = 1
 
 class TradingPolicyResponse(BaseModel):
-    id: int
-    symbol: str
-    version: int
-    is_active: bool
-    max_daily_fills: int
-    daily_timezone: str
-    entry_session_policy: str
-    ny_timezone: str
-    ny_entry_start: str
-    ny_entry_end: str
-    ny_min_fills: int
-    reserve_ny_slot: bool
-    ny_fallback_enabled: bool
-    ny_fallback_start: str
-    ny_fallback_risk_pct_cap: float
-    min_net_rr: float
-    max_open_positions: int
-    max_armed_orders: int
-    created_at: int
+    id: str = "default"
+    symbol: str = "XAUUSDT"
+    version: int = 1
+    mode: str = "PAPER"
+    is_active: bool = True
+    max_daily_fills: int = 3
+    daily_timezone: str = "Asia/Ho_Chi_Minh"
+    entry_session_policy: str = "NY_ONLY"
+    ny_timezone: str = "America/New_York"
+    ny_entry_start: str = "08:00"
+    ny_entry_end: str = "11:00"
+    ny_min_fills: int = 1
+    reserve_ny_slot: bool = True
+    ny_fallback_enabled: bool = True
+    ny_fallback_start: str = "10:30"
+    ny_fallback_risk_pct_cap: float = 0.10
+    min_net_rr: float = 2.0
+    max_open_positions: int = 1
+    max_armed_orders: int = 1
+    created_at: Optional[int] = None
     updated_at: int
     model_config = ConfigDict(from_attributes=True)
 

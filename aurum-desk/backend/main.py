@@ -96,7 +96,18 @@ async def lifespan(app: FastAPI):
     finally:
         db_rec.close()
 
+    from services.bitget_ws_service import bitget_ws_service
+    from services.execution_consumer import execution_consumer
+    from services.candle_cache_service import candle_cache_service
+    from services.market_broadcaster import market_broadcaster
+
+    # Wire WS quote broadcaster to market_broadcaster
+    bitget_ws_service.register_broadcaster(market_broadcaster.broadcast_quote)
+
     tasks = [
+        asyncio.create_task(bitget_ws_service.run_ws_loop()),
+        asyncio.create_task(execution_consumer.run_consumer_loop()),
+        asyncio.create_task(candle_cache_service.run_persistence_worker()),
         asyncio.create_task(collector_service.run_collector_loop()),
         asyncio.create_task(strategy_service.run_strategy_loop()),
         asyncio.create_task(proximity_service.run_proximity_loop()),
@@ -106,6 +117,7 @@ async def lifespan(app: FastAPI):
     ]
     yield
     # Graceful shutdown
+    bitget_ws_service.stop()
     for t in tasks:
         t.cancel()
     await asyncio.gather(*tasks, return_exceptions=True)
@@ -113,7 +125,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Aurum Desk API",
     description="Backend API cho Aurum Desk: XAUUSDT Research, SMC/ICT Engine và Auto Paper Trading",
-    version="4.0.0",
+    version="7.1.0",
     lifespan=lifespan
 )
 
@@ -129,7 +141,9 @@ app.add_middleware(
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    from services.market_broadcaster import market_broadcaster
     await event_bus.connect(websocket)
+    await market_broadcaster.connect(websocket)
     try:
         # Send initial state snapshot on connection
         db = SessionLocal()
@@ -144,6 +158,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 .all()
             )
             snapshot = {
+                "protocol_version": "7.1.0",
                 "type": "SNAPSHOT",
                 "timestamp": int(time.time() * 1000),
                 "feed_connected": collector_service.feed_connected,
@@ -175,8 +190,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_text("pong")
     except WebSocketDisconnect:
         await event_bus.disconnect(websocket)
+        await market_broadcaster.disconnect(websocket)
     except Exception:
         await event_bus.disconnect(websocket)
+        await market_broadcaster.disconnect(websocket)
 
 
 # ==================== 1. SYSTEM HEALTH ====================
@@ -184,16 +201,24 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.get("/health", response_model=schemas.SystemHealthResponse)
 def health_check(symbol: str = "XAUUSDT", timeframe: str = "15M", db: Session = Depends(get_db)):
     """Comprehensive system health reporting real live status without fake fallbacks."""
+    from services.bitget_ws_service import bitget_ws_service
+    from services.execution_consumer import execution_consumer
+    from services.candle_cache_service import candle_cache_service
+
     now_ms = int(time.time() * 1000)
     feed_connected = collector_service.feed_connected
     collector_alive = collector_service.collector_alive
 
-    candles = crud.get_candles(db, symbol, timeframe, limit=1)
+    candles = candle_cache_service.get_candles(symbol, timeframe, limit=1)
     last_candle_time = candles[0].timestamp if candles else 0
     is_stale, freshness_sec = collector_service.is_stale(timeframe, last_candle_time)
 
     status = "ok" if (feed_connected and not is_stale) else ("degraded" if feed_connected else "disconnected")
     degraded_reason = collector_service.last_error if not feed_connected else ("Dữ liệu nến bị trễ so với chu kỳ" if is_stale else None)
+
+    q = bitget_ws_service.latest_quote
+    quote_ex_age = round(now_ms - q.exchange_ts_ms, 1) if (q and q.exchange_ts_ms) else None
+    quote_loc_age = round(now_ms - q.received_at_ms, 1) if (q and q.received_at_ms) else None
 
     return schemas.SystemHealthResponse(
         status=status,
@@ -206,13 +231,20 @@ def health_check(symbol: str = "XAUUSDT", timeframe: str = "15M", db: Session = 
         engine_state="active" if feed_connected else "disconnected",
         active_timeframe=timeframe,
         candle_count=len(candles),
-        strategy_version="4.0.0",
+        strategy_version="7.1.0",
         paper_trading_mode="SIMULATION",
         last_success_time=collector_service.last_success_time,
         last_error=collector_service.last_error,
         degraded_reason=degraded_reason,
         d_4h_bias=collector_service.d_4h_bias,
-        h1_alignment=collector_service.h1_alignment
+        h1_alignment=collector_service.h1_alignment,
+        transport_state=bitget_ws_service.transport_state,
+        feed_source=bitget_ws_service.feed_source,
+        quote_exchange_age_ms=quote_ex_age,
+        quote_local_age_ms=quote_loc_age,
+        execution_queue_depth=execution_consumer.queue_depth,
+        execution_lag_ms=execution_consumer.last_eval_duration_ms,
+        reconnect_count=bitget_ws_service.reconnect_count
     )
 
 
@@ -235,12 +267,32 @@ def get_candles_endpoint(
     limit: int = Query(150, ge=10, le=300),
     db: Session = Depends(get_db)
 ):
+    from services.candle_cache_service import candle_cache_service
     now_ms = int(time.time() * 1000)
-    candles = crud.get_candles(db, symbol, timeframe, limit=limit, ascending=True)
-    last_time = candles[-1].timestamp if candles else None
+    cached_candles = candle_cache_service.get_candles(symbol, timeframe, limit=limit)
+    if not cached_candles:
+        candles = crud.get_candles(db, symbol, timeframe, limit=limit, ascending=True)
+        candle_models = [schemas.Candle.model_validate(c) for c in candles]
+    else:
+        candle_models = [
+            schemas.Candle(
+                id=i + 1,
+                symbol=c.symbol,
+                timeframe=c.timeframe,
+                timestamp=c.timestamp,
+                open=c.open,
+                high=c.high,
+                low=c.low,
+                close=c.close,
+                volume=c.volume,
+                is_closed=c.is_closed
+            )
+            for i, c in enumerate(cached_candles)
+        ]
+
+    last_time = candle_models[-1].timestamp if candle_models else None
     is_stale, freshness_sec = collector_service.is_stale(timeframe, last_time)
 
-    candle_models = [schemas.Candle.model_validate(c) for c in candles]
     return schemas.CandleListResponse(
         symbol=symbol,
         timeframe=timeframe,
@@ -263,6 +315,8 @@ def sync_candles(
     try:
         new_candles, server_time = bitget_data.fetch_candles(symbol, timeframe, limit)
         if new_candles:
+            from services.candle_cache_service import candle_cache_service
+            candle_cache_service.update_from_rest_sync(symbol, timeframe, new_candles)
             synced_count = crud.bulk_upsert_candles(db, new_candles)
             latency_ms = round((time.time() - t0) * 1000, 1)
 
@@ -366,56 +420,19 @@ def get_rvol(symbol: str = "XAUUSDT", timeframe: str = "15M", db: Session = Depe
 # ==================== 4. SMC/ICT ANALYSIS ====================
 
 @app.get("/api/v1/analysis/{symbol}/{timeframe}")
-def get_market_analysis(
+async def get_market_analysis(
     symbol: str = "XAUUSDT",
     timeframe: str = "15M",
     db: Session = Depends(get_db)
 ):
-    """Run full causal SMC setup evaluation with real D/4H bias and real H1 context."""
-    candles = crud.get_candles(db, symbol, timeframe, limit=150, ascending=True)
-
-    if len(candles) < 20:
-        try:
-            new_candles, _ = bitget_data.fetch_candles(symbol, timeframe, limit=150)
-            if new_candles:
-                crud.bulk_upsert_candles(db, new_candles)
-                candles = crud.get_candles(db, symbol, timeframe, limit=150, ascending=True)
-        except Exception:
-            pass
-
-    ticker = collector_service.latest_ticker
-    if not ticker:
-        try:
-            ticker = bitget_data.fetch_ticker(symbol)
-        except Exception:
-            if candles:
-                ticker = {"bid": candles[-1].close, "ask": candles[-1].close, "last": candles[-1].close}
-
-    now_ms = int(time.time() * 1000)
-    is_blackout, blackout_reason, _ = crud.check_news_blackout(db, now_ms)
-    day_audit = crud.get_or_create_today_audit(db)
-
-    lev_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "default_leverage").first()
-    leverage = int(lev_cfg.value) if lev_cfg else 5
-
-    margin_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "default_margin_mode").first()
-    margin_mode = margin_cfg.value if margin_cfg else "ISOLATED"
-
-    analysis_result = smc_engine.evaluate_smc_setup(
-        candles=candles,
+    """Retrieve cached SMC analysis snapshot without blocking event loop or network latency."""
+    from services.analysis_cache_service import analysis_cache_service
+    from services.bitget_ws_service import bitget_ws_service
+    return await analysis_cache_service.get_or_compute_analysis(
         symbol=symbol,
         timeframe=timeframe,
-        ticker_data=ticker,
-        day_audit=day_audit,
-        is_news_blackout=is_blackout,
-        news_blackout_reason=blackout_reason,
-        htf_bias=collector_service.d_4h_bias,
-        h1_alignment=collector_service.h1_alignment,
-        leverage=leverage,
-        margin_mode=margin_mode
+        latest_quote=bitget_ws_service.latest_quote
     )
-
-    return analysis_result
 
 
 # ==================== 5. UPCOMING PLANS & SETUPS (TAB KẾ HOẠCH & LỆNH DỰ KIẾN) ====================

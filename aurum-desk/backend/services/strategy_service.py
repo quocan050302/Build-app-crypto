@@ -185,73 +185,75 @@ class StrategyService:
                     watch_setup.distance_to_entry_atr = dist_atr
                     watch_setup.distance_to_entry_usdt = dist_usdt
                     watch_setup.updated_at = now_ms
-                    db.commit()
+                    # No setup.updated event needed while armed/open
                 else:
                     direction_changed = (watch_setup.direction != direction)
                     state_changed = (watch_setup.state != setup_stage)
                     entry_diff = abs(watch_setup.provisional_entry - provisional_entry)
                     levels_changed = entry_diff > (atr * 0.1)
+                    has_material_change = direction_changed or state_changed or levels_changed
 
-                    if direction_changed:
-                        watch_setup.setup_instance_id = setup_instance_id
-                        watch_setup.version += 1
-                        watch_setup.direction = direction
-                    elif state_changed or levels_changed:
-                        watch_setup.version += 1
+                    if has_material_change:
+                        if direction_changed:
+                            watch_setup.setup_instance_id = setup_instance_id
+                            watch_setup.version += 1
+                            watch_setup.direction = direction
+                        elif state_changed or levels_changed:
+                            watch_setup.version += 1
 
-                    if setup_stage == "READY" and watch_setup.state != "READY":
-                        watch_setup.setup_instance_id = setup_instance_id
+                        if setup_stage == "READY" and watch_setup.state != "READY":
+                            watch_setup.setup_instance_id = setup_instance_id
 
-                    watch_setup.state = setup_stage
-                    watch_setup.strategy_family = "STANDARD_SMC"
-                    watch_setup.htf_bias = analysis.get("htf_bias", "UNKNOWN")
-                    watch_setup.h1_alignment = analysis.get("h1_alignment", "UNKNOWN")
-                    watch_setup.provisional_entry = provisional_entry
-                    watch_setup.provisional_sl = provisional_sl
-                    watch_setup.provisional_tp = provisional_tp
-                    watch_setup.invalidation_price = invalidation_price
-                    watch_setup.invalidation_reason = inval_reason
-                    watch_setup.gross_rr = sig.get("gross_rr", calc_prov.gross_rr) if sig else calc_prov.gross_rr
-                    watch_setup.net_rr = sig.get("estimated_net_rr", calc_prov.net_rr) if sig else calc_prov.net_rr
-                    watch_setup.risk_usdt = sig.get("initial_risk_usdt", calc_prov.net_risk_usdt) if sig else calc_prov.net_risk_usdt
-                    watch_setup.quantity = sig.get("quantity", calc_prov.quantity) if sig else calc_prov.quantity
-                    watch_setup.leverage = leverage
-                    watch_setup.margin_mode = margin_mode
-                    watch_setup.risk_pct = risk_pct
-                    watch_setup.config_version = config_version
-                    watch_setup.estimated_liquidation = sig.get("estimated_liquidation", calc_prov.estimated_liquidation) if sig else calc_prov.estimated_liquidation
-                    watch_setup.conditions_met = json.dumps(analysis.get("conditions_met", []))
-                    watch_setup.conditions_remaining = json.dumps(analysis.get("missing_conditions", []))
-                    watch_setup.distance_to_entry_atr = dist_atr
-                    watch_setup.distance_to_entry_usdt = dist_usdt
-                    watch_setup.updated_at = now_ms
-                    db.commit()
+                        watch_setup.state = setup_stage
+                        watch_setup.strategy_family = "STANDARD_SMC"
+                        watch_setup.htf_bias = analysis.get("htf_bias", "UNKNOWN")
+                        watch_setup.h1_alignment = analysis.get("h1_alignment", "UNKNOWN")
+                        watch_setup.provisional_entry = provisional_entry
+                        watch_setup.provisional_sl = provisional_sl
+                        watch_setup.provisional_tp = provisional_tp
+                        watch_setup.invalidation_price = invalidation_price
+                        watch_setup.invalidation_reason = inval_reason
+                        watch_setup.gross_rr = sig.get("gross_rr", calc_prov.gross_rr) if sig else calc_prov.gross_rr
+                        watch_setup.net_rr = sig.get("estimated_net_rr", calc_prov.net_rr) if sig else calc_prov.net_rr
+                        watch_setup.risk_usdt = sig.get("initial_risk_usdt", calc_prov.net_risk_usdt) if sig else calc_prov.net_risk_usdt
+                        watch_setup.quantity = sig.get("quantity", calc_prov.quantity) if sig else calc_prov.quantity
+                        watch_setup.leverage = leverage
+                        watch_setup.margin_mode = margin_mode
+                        watch_setup.risk_pct = risk_pct
+                        watch_setup.config_version = config_version
+                        watch_setup.estimated_liquidation = sig.get("estimated_liquidation", calc_prov.estimated_liquidation) if sig else calc_prov.estimated_liquidation
+                        watch_setup.conditions_met = json.dumps(analysis.get("conditions_met", []))
+                        watch_setup.conditions_remaining = json.dumps(analysis.get("missing_conditions", []))
+                        watch_setup.distance_to_entry_atr = dist_atr
+                        watch_setup.distance_to_entry_usdt = dist_usdt
+                        watch_setup.updated_at = now_ms
+                        db.commit()
+
+                        # Broadcast only on material change
+                        active_inst_id = watch_setup.setup_instance_id or setup_instance_id
+                        event_bus.publish_event(
+                            event_type="setup.ready" if setup_stage == "READY" else "setup.updated",
+                            aggregate_id=active_inst_id,
+                            aggregate_version=watch_setup.version,
+                            payload={
+                                "setup_id": watch_setup.id,
+                                "setup_instance_id": active_inst_id,
+                                "direction": watch_setup.direction,
+                                "state": watch_setup.state,
+                                "planned_entry": watch_setup.provisional_entry,
+                                "stop_loss": watch_setup.provisional_sl,
+                                "take_profit": watch_setup.provisional_tp,
+                                "net_rr": watch_setup.net_rr,
+                                "risk_usdt": watch_setup.risk_usdt,
+                                "conditions_met": analysis.get("conditions_met", []),
+                                "missing_conditions": analysis.get("missing_conditions", [])
+                            }
+                        )
 
             # Proximity evaluation
             from services.proximity_service import proximity_service
             tg_cfg = db.query(models.TelegramConfig).first()
             proximity_service.evaluate_setup_proximity(db, watch_setup, ticker, atr, tg_cfg)
-
-            # Broadcast setup updated
-            active_inst_id = watch_setup.setup_instance_id or setup_instance_id
-            event_bus.publish_event(
-                event_type="setup.updated" if setup_stage != "READY" else "setup.ready",
-                aggregate_id=active_inst_id,
-                aggregate_version=watch_setup.version,
-                payload={
-                    "setup_id": watch_setup.id,
-                    "setup_instance_id": active_inst_id,
-                    "direction": watch_setup.direction,
-                    "state": watch_setup.state,
-                    "planned_entry": watch_setup.provisional_entry,
-                    "stop_loss": watch_setup.provisional_sl,
-                    "take_profit": watch_setup.provisional_tp,
-                    "net_rr": watch_setup.net_rr,
-                    "risk_usdt": watch_setup.risk_usdt,
-                    "conditions_met": analysis.get("conditions_met", []),
-                    "missing_conditions": analysis.get("missing_conditions", [])
-                }
-            )
 
             # Auto Arming if enabled and setup is READY
             if setup_stage == "READY" and self.get_auto_state(db):
@@ -438,13 +440,13 @@ class StrategyService:
         self._running = True
         while True:
             try:
-                await asyncio.sleep(4.0)
-                self.evaluate_upcoming_setups("XAUUSDT", "15M")
+                await asyncio.sleep(6.0)
+                await asyncio.to_thread(self.evaluate_upcoming_setups, "XAUUSDT", "15M")
             except asyncio.CancelledError:
                 self._running = False
                 break
             except Exception as e:
                 logger.error(f"Strategy loop unexpected error: {e}", exc_info=True)
-                await asyncio.sleep(3.0)
+                await asyncio.sleep(4.0)
 
 strategy_service = StrategyService()

@@ -159,53 +159,11 @@ export function ChartComponent({
     };
   }, []);
 
-  // 2. Load Candles with AbortController & generation counter
-  const loadCandles = useCallback(async () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
+  const [currentPriceDisplay, setCurrentPriceDisplay] = useState<number>(4000.0);
+  const [staleNotice, setStaleNotice] = useState<string | null>(null);
 
-    const gen = getNextRequestGeneration();
-    currentGenRef.current = gen;
-
-    setLoading(true);
-    setErrorMessage(null);
-
-    try {
-      const data = await api.getCandles(symbol, timeframe, 150, {
-        signal: controller.signal,
-      });
-
-      if (!isLatestGeneration(gen)) return;
-
-      if (!data?.candles || data.candles.length === 0) {
-        setErrorMessage(`Chưa có dữ liệu nến cho ${symbol} (${timeframe}). Đang đồng bộ...`);
-        try {
-          const syncRes = await api.syncCandles(symbol, timeframe, 150);
-          if (syncRes?.synced_count > 0) {
-            const reData = await api.getCandles(symbol, timeframe, 150);
-            if (reData?.candles?.length > 0 && isLatestGeneration(gen)) {
-              renderCandles(reData);
-              return;
-            }
-          }
-        } catch {}
-        setLoading(false);
-        return;
-      }
-
-      renderCandles(data);
-    } catch (err: any) {
-      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
-      if (!isLatestGeneration(gen)) return;
-      setErrorMessage(`Lỗi tải biểu đồ: ${err.message || 'Lỗi mạng'}`);
-      setLoading(false);
-    }
-  }, [symbol, timeframe]);
-
-  const renderCandles = (data: any) => {
+  // Define renderCandles before loadCandles for clean closure semantics
+  const renderCandles = useCallback((data: any) => {
     const formatted: CandleData[] = data.candles.map((c: any) => ({
       time: Math.floor(c.timestamp / 1000) as Time,
       open: c.open,
@@ -219,16 +177,146 @@ export function ChartComponent({
     if (data.candles.length > 0) {
       const last = data.candles[data.candles.length - 1];
       latestClosePriceRef.current = last.close;
+      setCurrentPriceDisplay(last.close);
       setLastDataAt(new Date(last.timestamp).toLocaleTimeString('vi-VN'));
     }
 
     setDataIsStale(Boolean(data.is_stale));
+    setStaleNotice(data.is_stale ? 'Dữ liệu cũ' : null);
     setLoading(false);
-  };
+  }, []);
+
+  // 2. Load Candles with AbortController & generation counter scoped per resource
+  const loadCandles = useCallback(async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    const resourceKey = `chart_${symbol}_${timeframe}`;
+    const gen = getNextRequestGeneration(resourceKey);
+    currentGenRef.current = gen;
+
+    setLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const data = await api.getCandles(symbol, timeframe, 150, {
+        signal: controller.signal,
+      });
+
+      if (!isLatestGeneration(gen, resourceKey)) return;
+
+      if (!data?.candles || data.candles.length === 0) {
+        // If series already has data, don't show full error banner
+        if (seriesRef.current && latestClosePriceRef.current > 0) {
+          setDataIsStale(true);
+          setStaleNotice('Chưa có nến mới');
+          setLoading(false);
+          return;
+        }
+
+        setErrorMessage(`Chưa có dữ liệu nến cho ${symbol} (${timeframe}). Đang đồng bộ...`);
+        try {
+          const syncRes = await api.syncCandles(symbol, timeframe, 150);
+          if (syncRes?.synced_count > 0) {
+            const reData = await api.getCandles(symbol, timeframe, 150);
+            if (reData?.candles?.length > 0 && isLatestGeneration(gen, resourceKey)) {
+              renderCandles(reData);
+              return;
+            }
+          }
+        } catch {}
+        setLoading(false);
+        return;
+      }
+
+      renderCandles(data);
+    } catch (err: any) {
+      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
+      if (!isLatestGeneration(gen, resourceKey)) return;
+
+      // CRITICAL V7.1: If series already has candles, DO NOT wipe chart!
+      if (seriesRef.current && latestClosePriceRef.current > 0) {
+        setDataIsStale(true);
+        setStaleNotice('Dữ liệu cũ / Đang kết nối lại...');
+      } else {
+        setErrorMessage(`Lỗi tải biểu đồ: ${err.message || 'Lỗi mạng'}`);
+      }
+      setLoading(false);
+    }
+  }, [symbol, timeframe, renderCandles]);
 
   useEffect(() => {
     loadCandles();
   }, [loadCandles]);
+
+  // Real-time incremental candle delta listener via WebSocket
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let disposed = false;
+    let pendingRaf: number | null = null;
+    let pendingBar: CandleData | null = null;
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+    try {
+      ws = new WebSocket(wsUrl);
+
+      ws.onmessage = (event) => {
+        if (disposed || event.data === 'pong') return;
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'CANDLE_UPDATE' || msg.type === 'CANDLE_CLOSED') {
+            if (msg.symbol === symbol && msg.timeframe === timeframe && msg.payload) {
+              const p = msg.payload;
+              const bar: CandleData = {
+                time: p.time as Time,
+                open: p.open,
+                high: p.high,
+                low: p.low,
+                close: p.close,
+              };
+
+              latestClosePriceRef.current = p.close;
+              setCurrentPriceDisplay(p.close);
+              setDataIsStale(false);
+              setStaleNotice(null);
+
+              pendingBar = bar;
+              if (pendingRaf === null) {
+                pendingRaf = requestAnimationFrame(() => {
+                  if (pendingBar && seriesRef.current && !disposed) {
+                    seriesRef.current.update(pendingBar);
+                  }
+                  pendingRaf = null;
+                  pendingBar = null;
+                });
+              }
+            }
+          } else if (msg.type === 'QUOTE_UPDATE' && msg.payload?.last) {
+            if (msg.symbol === symbol) {
+              const lastPrice = msg.payload.last;
+              latestClosePriceRef.current = lastPrice;
+              setCurrentPriceDisplay(lastPrice);
+            }
+          }
+        } catch {}
+      };
+    } catch {}
+
+    return () => {
+      disposed = true;
+      if (pendingRaf !== null) cancelAnimationFrame(pendingRaf);
+      if (ws) {
+        ws.onclose = null;
+        ws.onerror = null;
+        ws.close();
+      }
+    };
+  }, [symbol, timeframe]);
 
   // 3. Update SMC Primitive when props change
   useEffect(() => {
@@ -588,6 +676,13 @@ export function ChartComponent({
           </div>
         )}
 
+        {staleNotice && !errorMessage && (
+          <div className="absolute top-4 right-4 flex items-center space-x-1.5 px-2.5 py-1 bg-amber-950/80 border border-amber-800/80 rounded-md z-20 text-amber-200 text-xs shadow-md">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            <span>{staleNotice}</span>
+          </div>
+        )}
+
         {errorMessage && (
           <div className="absolute top-4 left-4 right-4 flex items-center justify-between p-3 bg-red-950/80 border border-red-800 rounded-md z-20 text-red-200 text-xs">
             <span>{errorMessage}</span>
@@ -605,7 +700,7 @@ export function ChartComponent({
       <div className="px-4 py-1.5 bg-[#141416] border-t border-gray-800/80 flex items-center justify-between text-[11px] text-gray-400">
         <div className="flex items-center space-x-4">
           <span>
-            Giá hiện tại: <strong className="text-amber-400 font-mono">${latestClosePriceRef.current.toFixed(2)}</strong>
+            Giá hiện tại: <strong className="text-amber-400 font-mono">${currentPriceDisplay.toFixed(2)}</strong>
           </span>
           {smcLevels?.swingHigh && (
             <span>
