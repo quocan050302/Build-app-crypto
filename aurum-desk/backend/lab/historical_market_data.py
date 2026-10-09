@@ -75,6 +75,22 @@ def compute_dataset_hash(candles: List[Dict[str, Any]]) -> str:
     return hasher.hexdigest()
 
 
+def subtract_calendar_months(dt: datetime, months: int) -> datetime:
+    """
+    Exact calendar month subtraction preserving local day and time.
+    Clamps to target month's maximum days if needed (e.g. Oct 31 -> Jul 31).
+    """
+    import calendar
+    year = dt.year
+    month = dt.month - months
+    while month <= 0:
+        month += 12
+        year -= 1
+    max_day = calendar.monthrange(year, month)[1]
+    day = min(dt.day, max_day)
+    return dt.replace(year=year, month=month, day=day)
+
+
 class HistoricalMarketDataProvider:
     """
     Authoritative historical data provider for Bitget Classic Contract USDT-Futures.
@@ -96,6 +112,7 @@ class HistoricalMarketDataProvider:
         Downloads closed historical candles between start_ms and end_ms with pagination.
         Granularity: '1m', '5m', '15m', '1H', '4H', '1D'.
         """
+        cadence = TIMEFRAME_CADENCE_MS.get(granularity, 15 * 60 * 1000)
         cache_path = None
         if cache_dir:
             os.makedirs(cache_dir, exist_ok=True)
@@ -105,12 +122,18 @@ class HistoricalMarketDataProvider:
                     with open(cache_path, "r", encoding="utf-8") as f:
                         cached_data = json.load(f)
                     if isinstance(cached_data, list) and len(cached_data) > 0:
-                        logger.info(f"Loaded {len(cached_data)} candles from disk cache: {cache_path}")
-                        return cached_data
+                        first_ts = cached_data[0].get("timestamp", 0)
+                        last_ts = cached_data[-1].get("timestamp", 0)
+                        if first_ts <= start_ms + cadence and last_ts >= (end_ms - 2 * cadence):
+                            logger.info(f"Loaded {len(cached_data)} candles from disk cache: {cache_path}")
+                            return cached_data
+                        else:
+                            logger.warning(
+                                f"Cache {cache_path} coverage insufficient: [{first_ts}, {last_ts}] vs requested [{start_ms}, {end_ms}]. Re-downloading."
+                            )
                 except Exception as e:
                     logger.warning(f"Failed to read disk cache {cache_path}: {e}")
 
-        cadence = TIMEFRAME_CADENCE_MS.get(granularity, 15 * 60 * 1000)
         all_raw_rows: List[List[Any]] = []
         seen_timestamps = set()
         current_end = end_ms
@@ -149,17 +172,16 @@ class HistoricalMarketDataProvider:
                     logger.info(f"No more data returned from Bitget at page {pages}, endTime={current_end}")
                     break
 
-                batch_new = 0
                 for row in data:
                     ts = int(row[0])
                     if ts not in seen_timestamps:
                         seen_timestamps.add(ts)
                         all_raw_rows.append(row)
-                        batch_new += 1
 
-                earliest_ts_in_batch = int(data[0][0])
+                # Monotonic backward pagination using MIN batch timestamp
+                earliest_ts_in_batch = min(int(r[0]) for r in data)
                 if earliest_ts_in_batch >= current_end:
-                    # Stalled or no progress
+                    # Stalled cursor progress
                     break
                 current_end = earliest_ts_in_batch - 1
 
@@ -171,6 +193,13 @@ class HistoricalMarketDataProvider:
 
         if not all_raw_rows:
             raise HistoricalDataMissingException(f"Không thể tải dữ liệu lịch sử từ Bitget API cho {symbol} {granularity}")
+
+        # Check coverage
+        min_ts_retrieved = min(int(r[0]) for r in all_raw_rows)
+        if min_ts_retrieved > start_ms + (cadence * 2):
+            raise HistoricalDataMissingException(
+                f"INCOMPLETE: Dữ liệu Bitget tải về chỉ đến {min_ts_retrieved}, không phủ đủ điểm bắt đầu {start_ms} cho {symbol} {granularity}"
+            )
 
         # Parse & Validate
         candles, warnings = cls.validate_and_normalize_raw_candles(all_raw_rows, granularity=granularity)
@@ -200,10 +229,11 @@ class HistoricalMarketDataProvider:
         """
         Validates raw candle rows strictly:
         - Non-finite or non-positive prices rejected (quarantined).
+        - Non-finite or negative volume quarantined.
         - Geometric invariants: high >= max(open, close), low <= min(open, close), high >= low.
-        - Volume non-negative.
         - Duplicate timestamps removed.
         - Sorted strictly ascending.
+        - Precise gap detection: diff > cadence + 1000.
         """
         warnings = []
         valid_candles = []
@@ -245,6 +275,11 @@ class HistoricalMarketDataProvider:
                 warnings.append(f"Row {idx} ({ts}): Non-positive price detected, quarantined")
                 continue
 
+            # Validate volume non-negative and finite
+            if not math.isfinite(v) or v < 0:
+                warnings.append(f"Row {idx} ({ts}): Invalid volume {v}, quarantined")
+                continue
+
             # Geometric invariant check
             if h < max(o, c) or l > min(o, c) or h < l:
                 warnings.append(f"Row {idx} ({ts}): Invalid OHLC geometry O={o}, H={h}, L={l}, C={c}, quarantined")
@@ -256,18 +291,18 @@ class HistoricalMarketDataProvider:
                 "high": round(h, 2),
                 "low": round(l, 2),
                 "close": round(c, 2),
-                "volume": max(0.0, round(v, 4)),
+                "volume": round(v, 4),
                 "close_time": ts + cadence,
                 "is_closed": True
             })
 
         valid_candles.sort(key=lambda x: x["timestamp"])
 
-        # Gap detection
+        # Strict gap detection: detects even a single missing candle (diff > cadence + 1000)
         if len(valid_candles) > 1:
             for j in range(1, len(valid_candles)):
                 diff = valid_candles[j]["timestamp"] - valid_candles[j - 1]["timestamp"]
-                if diff > cadence * 2:
+                if diff > cadence + 1000:
                     warnings.append(
                         f"Data Gap: {diff // 60000} minutes missing between "
                         f"{valid_candles[j - 1]['timestamp']} and {valid_candles[j]['timestamp']}"
@@ -281,13 +316,14 @@ class HistoricalMarketDataProvider:
     def load_multitimeframe_bundle(
         cls,
         symbol: str = "XAUUSDT",
-        start_ms: int = 1788962400000,
-        end_ms: int = 1791554400000,
-        warmup_ms: int = 1787590800000,
+        start_ms: int = 1783609200000,
+        end_ms: int = 1791558000000,
+        warmup_ms: int = 1779289200000,
         cache_dir: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Loads aligned multitimeframe bundles (15M, 1H, 4H, 1D) with complete warmup history.
+        Loads aligned multitimeframe bundles (15M, 1H, 4H, 1D) with complete 50-day warmup history.
+        Includes metadata accounting for 1M/5M frames marked NOT_USED_IN_ENTRY_DECISION.
         """
         cache_key = f"{symbol}_{start_ms}_{end_ms}_{warmup_ms}"
         if cache_key in cls._bundle_cache:
@@ -329,7 +365,12 @@ class HistoricalMarketDataProvider:
             cache_dir=cache_dir
         )
 
-        hash_15m = compute_dataset_hash(candles_15m)
+        # Compute comprehensive dataset hash across all active timeframes
+        hasher = hashlib.sha256()
+        for tf_name, tf_candles in [("15M", candles_15m), ("1H", candles_1h), ("4H", candles_4h), ("1D", candles_1d)]:
+            for c in tf_candles:
+                hasher.update(f"{tf_name}:{c['timestamp']}:{c['open']:.2f}:{c['high']:.2f}:{c['low']:.2f}:{c['close']:.2f}:{c['volume']:.4f}\n".encode("utf-8"))
+        combined_hash = hasher.hexdigest()
 
         bundle = {
             "symbol": symbol,
@@ -340,10 +381,18 @@ class HistoricalMarketDataProvider:
             "candles_1h": candles_1h,
             "candles_4h": candles_4h,
             "candles_1d": candles_1d,
-            "dataset_hash": hash_15m,
+            "dataset_hash": combined_hash,
             "total_15m_count": len(candles_15m),
             "warmup_count": sum(1 for c in candles_15m if c["timestamp"] < start_ms),
             "eval_count": sum(1 for c in candles_15m if start_ms <= c["timestamp"] <= end_ms),
+            "timeframe_metadata": {
+                "1D": {"status": "USED", "role": "HTF_BIAS", "count": len(candles_1d)},
+                "4H": {"status": "USED", "role": "HTF_BIAS", "count": len(candles_4h)},
+                "1H": {"status": "USED", "role": "H1_ALIGNMENT", "count": len(candles_1h)},
+                "15M": {"status": "USED", "role": "EXECUTION_AND_STRUCTURE", "count": len(candles_15m)},
+                "5M": {"status": "NOT_USED", "role": "NOT_USED_IN_ENTRY_DECISION", "count": 0},
+                "1M": {"status": "NOT_USED", "role": "NOT_USED_IN_ENTRY_DECISION", "count": 0},
+            }
         }
         cls._bundle_cache[cache_key] = bundle
         return bundle
