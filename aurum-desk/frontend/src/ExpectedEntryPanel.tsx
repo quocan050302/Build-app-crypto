@@ -14,6 +14,8 @@ import {
   Info
 } from 'lucide-react';
 import { getCatalogTemplate } from './utils/userMessageCatalog';
+import { normalizeLessonItem, type NormalizedLessonItem } from './types/lesson';
+import { quoteStore } from './services/quoteStore';
 
 interface ExpectedEntryPanelProps {
   selectedIntent: SelectedTradeIntent;
@@ -68,12 +70,14 @@ export const ExpectedEntryPanel: React.FC<ExpectedEntryPanelProps> = ({
       explanation: 'Take Profit giúp tự động khóa lợi nhuận khi giá chạm mục tiêu dự kiến mà không cần bạn phải canh màn hình liên tục.'
     });
   } else if (!isGeometryValid) {
-    const tmpl = getCatalogTemplate('INVALID_PRICE_GEOMETRY');
+    const geoTitle = selectedIntent.direction === 'SHORT'
+      ? 'SHORT chưa hợp lệ: TP phải dưới Entry, SL phải trên Entry'
+      : 'LONG chưa hợp lệ: SL phải dưới Entry, TP phải trên Entry';
     blockers.push({
       code: 'INVALID_PRICE_GEOMETRY',
-      title: tmpl.title,
-      summary: typeof tmpl.summary === 'function' ? tmpl.summary(selectedIntent) : tmpl.summary,
-      explanation: tmpl.explanation
+      title: geoTitle,
+      summary: `Mức giá hiện tại (Entry $${selectedIntent.plannedEntry}, SL $${selectedIntent.stopLoss}, TP $${selectedIntent.takeProfit}) vi phạm hình học của vị thế ${selectedIntent.direction}.`,
+      explanation: 'Không thể đặt lệnh khi mức giá dừng lỗ hoặc chốt lời đặt sai phía đối với hướng vào lệnh.'
     });
   }
 
@@ -129,16 +133,21 @@ export const ExpectedEntryPanel: React.FC<ExpectedEntryPanelProps> = ({
     }
   }
 
-  const lessonAdvisories = eligibility?.lesson_advisories || [];
-  const lessonWarnings = eligibility?.lesson_warnings || [];
-  const lessonBlockers = eligibility?.lesson_blockers || [];
+  // Normalized Lesson DTO Rules (V10.2 Contract: L01-L04)
+  const normalizedBlockers = (eligibility?.lesson_blockers || []).map(normalizeLessonItem);
+  const normalizedWarnings = (eligibility?.lesson_warnings || []).map(normalizeLessonItem);
+  const normalizedAdvisories = (eligibility?.lesson_advisories || []).map(normalizeLessonItem);
 
-  for (const lb of lessonBlockers) {
-    if (!blockers.some((b) => b.code === `LESSON_RULE_${lb.lesson_id}` || b.code === 'LESSON_RULE_BLOCKED')) {
+  for (const lb of normalizedBlockers) {
+    const code = lb.reason_code || (lb.rule_id ? `LESSON_RULE_${lb.rule_id}` : 'LESSON_RULE_BLOCKED');
+    if (!blockers.some((b) => b.code === code || b.code === 'LESSON_RULE_BLOCKED')) {
+      const displayTitle = lb.rule_id
+        ? `Chưa thể đặt lệnh: Quy tắc #${lb.rule_id} đang hạn chế entry`
+        : `Chưa thể đặt lệnh: ${lb.title}`;
       blockers.push({
-        code: `LESSON_RULE_${lb.lesson_id}`,
-        title: `Chưa thể đặt lệnh: Quy tắc #${lb.lesson_id} đang hạn chế entry`,
-        summary: lb.human_message || `Quy tắc #${lb.lesson_id} phát hiện điều kiện không an toàn.`,
+        code,
+        title: displayTitle,
+        summary: lb.message,
         explanation: 'Quy tắc bài học mức ĐỎ (CRITICAL) đã được bạn duyệt và kích hoạt để hạn chế entry có cấu trúc.'
       });
     }
@@ -159,6 +168,16 @@ export const ExpectedEntryPanel: React.FC<ExpectedEntryPanelProps> = ({
   const conditionsRemaining =
     selectedIntent.conditions_remaining || currentSetup?.conditions_remaining || [];
 
+  // Realtime distance to entry using canonical quote store (R01, R02)
+  const currentQuote = quoteStore.getQuote(selectedIntent.symbol || 'XAUUSDT');
+  let distanceDisplay = '-- / chưa có dữ liệu';
+  if (currentQuote && Number.isFinite(currentQuote.last) && currentQuote.last > 0 && selectedIntent.plannedEntry > 0) {
+    const dist = Math.abs(currentQuote.last - selectedIntent.plannedEntry);
+    distanceDisplay = `${dist.toFixed(2)} USDT`;
+  } else if (currentSetup?.distance_to_entry_usdt !== undefined && currentSetup?.distance_to_entry_usdt !== null && currentSetup.distance_to_entry_usdt > 0) {
+    distanceDisplay = `${currentSetup.distance_to_entry_usdt.toFixed(2)} USDT`;
+  }
+
   // Generate next concrete trigger requirement
   const getNextConcreteCondition = (): string => {
     if (selectedIntent.status === 'ARMED') {
@@ -168,9 +187,8 @@ export const ExpectedEntryPanel: React.FC<ExpectedEntryPanelProps> = ({
       return 'Tất cả điều kiện SMC đã thỏa mãn. Sẵn sàng Arm để đưa vào hàng đợi khớp tự động.';
     }
     if (conditionsRemaining.length > 0) {
-      return `Chờ điều kiện tiếp theo: ${conditionsRemaining[0]} (Giá cách Entry $${(
-        currentSetup?.distance_to_entry_usdt ?? 0
-      ).toFixed(2)} USDT / ${(currentSetup?.distance_to_entry_atr ?? 0).toFixed(1)} ATR)`;
+      const atrDist = currentSetup?.distance_to_entry_atr ? ` / ${currentSetup.distance_to_entry_atr.toFixed(1)} ATR` : '';
+      return `Chờ điều kiện tiếp theo: ${conditionsRemaining[0]} (Giá cách Entry: ${distanceDisplay}${atrDist})`;
     }
     return 'Chờ giá retest vùng POI/FVG và xác nhận nến đóng.';
   };
@@ -199,10 +217,16 @@ export const ExpectedEntryPanel: React.FC<ExpectedEntryPanelProps> = ({
 
           <span
             className={`font-mono text-xs ${
-              netRR >= 2.0 ? 'text-aurum-400 font-bold' : 'text-rose-400 font-medium'
+              !isGeometryValid
+                ? 'text-rose-400 font-bold'
+                : netRR >= 2.0
+                ? 'text-aurum-400 font-bold'
+                : 'text-rose-400 font-medium'
             }`}
           >
-            R:R 1:{grossRR > 0 ? grossRR.toFixed(2) : '--'} (Net 1:{netRR > 0 ? netRR.toFixed(2) : '--'})
+            {!isGeometryValid
+              ? 'R:R: Không hợp lệ'
+              : `R:R 1:${grossRR > 0 ? grossRR.toFixed(2) : '--'} (Net 1:${netRR > 0 ? netRR.toFixed(2) : '--'})`}
           </span>
         </div>
 
@@ -335,61 +359,82 @@ export const ExpectedEntryPanel: React.FC<ExpectedEntryPanelProps> = ({
             <span>Quy Tắc & Bộ Nhớ Bài Học (V10)</span>
           </span>
           <span className="text-[10px] font-mono text-gray-400">
-            {lessonAdvisories.length + lessonWarnings.length + lessonBlockers.length} Phù Hợp
+            {normalizedAdvisories.length + normalizedWarnings.length + normalizedBlockers.length} Phù Hợp
           </span>
         </div>
 
-        {lessonBlockers.length > 0 && (
+        {normalizedBlockers.length > 0 && (
           <div className="space-y-1.5">
-            {lessonBlockers.map((b: any, idx: number) => (
-              <div
-                key={idx}
-                className="p-2 rounded bg-rose-950/80 border border-rose-700/80 text-[10px] text-rose-200 space-y-0.5"
-              >
-                <div className="flex items-center gap-1.5 font-bold text-rose-300">
-                  <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-rose-400" />
-                  <span>Chưa thể đặt lệnh: Quy tắc #{b.lesson_id} đang hạn chế entry</span>
+            {normalizedBlockers.map((b: NormalizedLessonItem, idx: number) => {
+              const ruleLabel = b.rule_id ? `Quy tắc #${b.rule_id}` : 'Quy tắc bài học';
+              return (
+                <div
+                  key={idx}
+                  className="p-2 rounded bg-rose-950/80 border border-rose-700/80 text-[10px] text-rose-200 space-y-0.5"
+                >
+                  <div className="flex items-center gap-1.5 font-bold text-rose-300">
+                    <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                    <span>Chưa thể đặt lệnh: {ruleLabel} đang hạn chế entry</span>
+                  </div>
+                  <p className="text-gray-300 pl-5 leading-snug">
+                    {b.message}
+                  </p>
+                  {b.next_step && (
+                    <p className="text-gray-400 pl-5 text-[9px] italic">
+                      Bước tiếp theo: {b.next_step}
+                    </p>
+                  )}
                 </div>
-                <p className="text-gray-300 pl-5 leading-snug">
-                  {b.human_message || `Điều kiện kỹ thuật của quy tắc #${b.lesson_id} bị vi phạm.`}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        {lessonWarnings.length > 0 && (
+        {normalizedWarnings.length > 0 && (
           <div className="space-y-1.5">
-            {lessonWarnings.map((w: any, idx: number) => (
-              <div
-                key={idx}
-                className="p-2 rounded bg-amber-950/70 border border-amber-700/80 text-[10px] text-amber-200 space-y-0.5"
-              >
-                <div className="flex items-center gap-1.5 font-bold text-amber-300">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-                  <span>Cảnh báo: {w.human_message || `Quy tắc #${w.lesson_id}`}</span>
+            {normalizedWarnings.map((w: NormalizedLessonItem, idx: number) => {
+              const ruleLabel = w.rule_id ? `Quy tắc #${w.rule_id}` : 'Cảnh báo';
+              return (
+                <div
+                  key={idx}
+                  className="p-2 rounded bg-amber-950/70 border border-amber-700/80 text-[10px] text-amber-200 space-y-0.5"
+                >
+                  <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+                    <span>{ruleLabel}: {w.title}</span>
+                  </div>
+                  <p className="text-gray-300 pl-5 text-[9px] leading-snug">
+                    {w.message}
+                  </p>
+                  {w.next_step && (
+                    <p className="text-amber-400/80 pl-5 text-[9px] italic">
+                      Gợi ý: {w.next_step}
+                    </p>
+                  )}
                 </div>
-                <p className="text-gray-300 pl-5 text-[9px] leading-snug">
-                  Cảnh báo có dữ liệu hỗ trợ, không tự động chặn vào lệnh.
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        {lessonAdvisories.length > 0 && (
+        {normalizedAdvisories.length > 0 && (
           <div className="p-2 rounded bg-emerald-950/50 border border-emerald-800/60 text-[10px] text-emerald-200">
             <div className="flex items-center gap-1.5 font-semibold text-emerald-300 mb-0.5">
               <Info className="w-3 h-3 text-emerald-400 shrink-0" />
-              <span>Bài học đã tham khảo: {lessonAdvisories.length} bài học</span>
+              <span>Bài học đã tham khảo: {normalizedAdvisories.length} bài học</span>
             </div>
-            <p className="text-gray-300 pl-4.5 text-[9px] leading-snug">
-              {lessonAdvisories.map((a: any) => a.human_message || a.action_rule || `#${a.lesson_id}`).join(' · ')}
-            </p>
+            <div className="space-y-1 pl-4.5 pt-1">
+              {normalizedAdvisories.map((a: NormalizedLessonItem, idx: number) => (
+                <div key={idx} className="text-gray-300 text-[9px] leading-snug">
+                  • <span className="font-semibold text-emerald-400">{a.rule_id ? `Quy tắc #${a.rule_id}: ` : ''}</span>
+                  {a.message || a.title}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {lessonBlockers.length === 0 && lessonWarnings.length === 0 && lessonAdvisories.length === 0 && (
+        {normalizedBlockers.length === 0 && normalizedWarnings.length === 0 && normalizedAdvisories.length === 0 && (
           <div className="p-2 rounded bg-charcoal-900 border border-charcoal-750 text-[10px] text-gray-400 italic text-center">
             Không có bài học phù hợp cho thiết lập này.
           </div>

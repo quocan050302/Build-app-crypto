@@ -21,6 +21,37 @@ WHITELIST_METRICS = {
     "evidence.fvg_found": {"type": "bool", "allowed_ops": ["=="]},
     "evidence.structure_confirmed": {"type": "bool", "allowed_ops": ["=="]},
 }
+class LessonDecisionDict(dict):
+    """
+    Structured dictionary implementing LessonDecisionItem contract with
+    backward-compatible string matching (`in item`), 'text' property, and attribute access.
+    """
+    def __getitem__(self, key):
+        if key == "text" and not super().__contains__("text"):
+            return self.get("message") or self.get("title") or ""
+        return super().__getitem__(key)
+
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError:
+            return None
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+    def __contains__(self, item):
+        if super().__contains__(item):
+            return True
+        if item in ("text", "human_message", "action_rule", "rule_text"):
+            return True
+        msg = str(self.get("message") or "")
+        title = str(self.get("title") or "")
+        next_step = str(self.get("next_step") or "")
+        return (str(item) in msg) or (str(item) in title) or (str(item) in next_step)
+
+    def __str__(self):
+        return self.get("message") or self.get("title") or ""
 
 class LessonRuleService:
     """
@@ -428,7 +459,16 @@ class LessonRuleService:
         """
         Evaluates active rules against verified execution context.
         Uses server-authoritative LessonPolicyService defaults if feature_flags is not passed.
+        Supports both evaluate_rules(context, rules) and evaluate_rules(db, context).
         """
+        if hasattr(context, "query"):
+            db_session = context
+            context = rules if isinstance(rules, dict) else {}
+            import crud
+            rules = crud.get_lessons(db_session)
+        elif rules is None:
+            rules = []
+
         if feature_flags is None:
             try:
                 from services.lesson_policy_service import LessonPolicyService
@@ -451,17 +491,30 @@ class LessonRuleService:
         matched_rules: List[Dict[str, Any]] = []
         evaluations: List[Dict[str, Any]] = []
         snapshot_items: List[Dict[str, Any]] = []
+        lesson_items: List[LessonDecisionDict] = []
+        lesson_advisories: List[LessonDecisionDict] = []
+        lesson_warnings: List[LessonDecisionDict] = []
+        lesson_blockers: List[LessonDecisionDict] = []
 
         for rule in rules:
-            severity = (rule.severity or "INFO").upper()
+            raw_sev = (rule.severity or "INFO").upper()
+            severity = "WARN" if raw_sev == "WARNING" else raw_sev
             effect = (rule.effect or "ANNOTATE").upper()
             rule_id = rule.id
             title = rule.title
             version = getattr(rule, "version", 1) or 1
+            rule_lesson_id = getattr(rule, "lesson_id", getattr(rule, "related_trade_id", rule.id))
+            scope_dict = None
+            if rule.scope:
+                try:
+                    scope_dict = json.loads(rule.scope) if isinstance(rule.scope, str) else rule.scope
+                except Exception:
+                    scope_dict = None
 
-            eval_item: Dict[str, Any] = {
+            eval_item = LessonDecisionDict({
                 "rule_id": rule_id,
-                "version": version,
+                "rule_version": version,
+                "lesson_id": rule_lesson_id,
                 "severity": severity,
                 "effect": effect,
                 "title": title,
@@ -469,12 +522,19 @@ class LessonRuleService:
                 "evaluated": False,
                 "data_unavailable": False,
                 "would_block": False,
+                "effective_block": False,
                 "reason_code": None,
                 "message": None,
                 "next_step": None,
                 "metric_value": None,
-                "evaluated_at": now_ms
-            }
+                "evaluated_at": now_ms,
+                "scope": scope_dict,
+                "symbol": context.get("symbol"),
+                "direction": context.get("direction"),
+                "timeframe": context.get("timeframe"),
+                "setup_instance_id": context.get("setup_instance_id"),
+                "revision": context.get("revision")
+            })
 
             # 1. INFO / ANNOTATE (Xanh - Tham khảo)
             if severity == "INFO" or effect == "ANNOTATE":
@@ -486,7 +546,9 @@ class LessonRuleService:
                     eval_item["next_step"] = "Ghi nhận bài học kinh nghiệm khi theo dõi lệnh."
                     advisory_notes.append(eval_item["message"])
                     matched_rules.append(eval_item)
+                    lesson_advisories.append(eval_item)
                 evaluations.append(eval_item)
+                lesson_items.append(eval_item)
                 snapshot_items.append({
                     "lesson_id": rule_id,
                     "version": version,
@@ -502,7 +564,9 @@ class LessonRuleService:
                 eval_item["evaluated"] = True
                 eval_item["matched"] = False
                 eval_item["message"] = f"Đề xuất kế hoạch #{rule_id} ({title}) ở chế độ chỉ xem trước (chưa tự động áp dụng trong V10)."
+                eval_item["next_step"] = "Xem trước kế hoạch đề xuất."
                 evaluations.append(eval_item)
+                lesson_items.append(eval_item)
                 snapshot_items.append({
                     "lesson_id": rule_id,
                     "version": version,
@@ -523,18 +587,22 @@ class LessonRuleService:
 
             if not predicate or not isinstance(predicate, dict):
                 # Unstructured warning/critical
-                if severity == "WARNING" or effect == "WARN_ENTRY":
+                if severity == "WARN" or effect == "WARN_ENTRY":
                     eval_item["matched"] = True
                     eval_item["evaluated"] = True
                     eval_item["reason_code"] = f"LESSON_WARN_{rule_id}"
                     eval_item["message"] = f"Cảnh báo #{rule_id}: {title} (quy tắc tổng quát)."
+                    eval_item["next_step"] = "Cân nhắc rủi ro hoặc xem lại kế hoạch trước khi đặt lệnh."
                     warning_messages.append(eval_item["message"])
                     matched_rules.append(eval_item)
+                    lesson_warnings.append(eval_item)
                 elif severity == "CRITICAL" or effect == "BLOCK_ENTRY":
                     # Critical without valid structured predicate CANNOT block!
                     eval_item["evaluated"] = False
                     eval_item["message"] = f"Quy tắc #{rule_id} thiếu điều kiện cấu trúc hợp lệ; không áp dụng chặn entry."
+                    eval_item["next_step"] = "Cấu hình điều kiện có cấu trúc cho bài học trong Nhật ký."
                 evaluations.append(eval_item)
+                lesson_items.append(eval_item)
                 snapshot_items.append({
                     "lesson_id": rule_id,
                     "version": version,
@@ -548,6 +616,13 @@ class LessonRuleService:
             metric = predicate.get("metric")
             operator = predicate.get("operator")
             threshold = predicate.get("threshold")
+            if threshold is None:
+                threshold = predicate.get("value")
+            if threshold is not None:
+                try:
+                    threshold = float(threshold)
+                except (ValueError, TypeError):
+                    pass
             values = predicate.get("values")
 
             matched = False
@@ -559,7 +634,7 @@ class LessonRuleService:
                 metric_val = context.get("spread")
                 if metric_val is None and context.get("ask") is not None and context.get("bid") is not None:
                     metric_val = round(context["ask"] - context["bid"], 2)
-                if metric_val is not None:
+                if metric_val is not None and threshold is not None:
                     if operator == ">=" and metric_val >= threshold:
                         matched = True
                     elif operator == ">" and metric_val > threshold:
@@ -574,7 +649,6 @@ class LessonRuleService:
             elif metric == "net_rr":
                 metric_val = context.get("net_rr")
                 if metric_val is not None:
-                    # Note: rule threshold enforces stricter R:R (e.g. net_rr < threshold triggers warning/block)
                     if operator == ">=" and metric_val < threshold:
                         matched = True  # Violates required min net_rr
                     elif operator == ">" and metric_val <= threshold:
@@ -658,24 +732,30 @@ class LessonRuleService:
                 eval_item["reason_code"] = "LESSON_RULE_DATA_UNAVAILABLE"
                 if (severity == "CRITICAL" or effect == "BLOCK_ENTRY") and predicate.get("strict_data", True):
                     # Mandatory input missing -> block entry specifically (X04)
+                    eval_item["would_block"] = True
                     eval_item["message"] = f"Thiếu dữ liệu bắt buộc ({metric}) để kiểm tra quy tắc #{rule_id} ({title})."
                     eval_item["next_step"] = "Kiểm tra kết nối dữ liệu hoặc cấu hình quy tắc trong Nhật ký."
                     if entry_rules_enabled and not shadow_mode and rule.validation_status == "VALID":
                         can_proceed = False
+                        eval_item["effective_block"] = True
                         blocking_reasons.append(f"LESSON_RULE_DATA_UNAVAILABLE: {eval_item['message']}")
+                        lesson_blockers.append(eval_item)
                     matched_rules.append(eval_item)
                 else:
                     # Optional warning data missing -> honest message without fake match (X05)
                     eval_item["message"] = f"Chưa đủ dữ liệu để đánh giá điều kiện cho quy tắc #{rule_id} ({title})."
+                    eval_item["next_step"] = "Bổ sung dữ liệu quan sát thị trường."
                     advisory_notes.append(eval_item["message"])
+                    lesson_advisories.append(eval_item)
             elif matched:
                 eval_item["matched"] = True
-                if severity == "WARNING" or effect == "WARN_ENTRY":
+                if severity == "WARN" or effect == "WARN_ENTRY":
                     eval_item["reason_code"] = f"LESSON_WARN_{rule_id}"
                     eval_item["message"] = f"Cảnh báo quy tắc #{rule_id} ({title}): {metric} = {metric_val} (ngưỡng {operator} {threshold or values})."
                     eval_item["next_step"] = "Cân nhắc rủi ro hoặc xem lại kế hoạch trước khi đặt lệnh."
                     warning_messages.append(eval_item["message"])
                     matched_rules.append(eval_item)
+                    lesson_warnings.append(eval_item)
 
                 elif severity == "CRITICAL" or effect == "BLOCK_ENTRY":
                     # Only block if rule is explicitly marked VALID
@@ -689,15 +769,20 @@ class LessonRuleService:
                         if shadow_mode:
                             eval_item["message"] += " [SHADOW MODE - Không chặn lệnh thực tế]"
                             warning_messages.append(eval_item["message"])
+                            lesson_warnings.append(eval_item)
                         elif entry_rules_enabled:
                             can_proceed = False
+                            eval_item["effective_block"] = True
                             blocking_reasons.append(f"LESSON_RULE_BLOCKED: {eval_item['message']}")
+                            lesson_blockers.append(eval_item)
 
                         matched_rules.append(eval_item)
                     else:
                         eval_item["message"] = f"Quy tắc #{rule_id} ({title}) chưa được xác thực (UNVALIDATED); không áp dụng chặn."
+                        eval_item["next_step"] = "Xác thực quy tắc trong Nhật ký để kích hoạt hạn chế entry."
 
             evaluations.append(eval_item)
+            lesson_items.append(eval_item)
             snapshot_items.append({
                 "lesson_id": rule_id,
                 "version": version,
@@ -712,12 +797,19 @@ class LessonRuleService:
 
         return {
             "can_proceed": can_proceed,
+            "can_enter": can_proceed,
             "blocking_reasons": blocking_reasons,
+            "blocker_notes": blocking_reasons,
             "warning_messages": warning_messages,
+            "warning_notes": warning_messages,
             "advisory_notes": advisory_notes,
             "matched_rules": matched_rules,
             "evaluations": evaluations,
-            "lessons_retrieved_snapshot": snapshot_items
+            "lessons_retrieved_snapshot": snapshot_items,
+            "lesson_items": lesson_items,
+            "lesson_advisories": lesson_advisories,
+            "lesson_warnings": lesson_warnings,
+            "lesson_blockers": lesson_blockers,
         }
 
 lesson_rule_service = LessonRuleService()

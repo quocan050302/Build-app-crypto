@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ChartComponent } from './ChartComponent';
 import { api, extractErrorMessage } from './api/client';
 import { wsClient } from './services/wsClient';
+import { quoteStore } from './services/quoteStore';
 import { calculateClientRiskReward } from './utils/calculator';
 import type { RiskRewardData } from './plugins/RiskRewardPrimitive';
 import { TestingLabComponent } from './TestingLabComponent';
@@ -104,6 +105,15 @@ function AppContent() {
   const [analysis, setAnalysis] = useState<any>(null);
   const [activeOverlay, setActiveOverlay] = useState<RiskRewardData | null>(null);
   const [selectedIntent, setSelectedIntent] = useState<SelectedTradeIntent | null>(null);
+  const selectedIntentRef = useRef<SelectedTradeIntent | null>(null);
+  selectedIntentRef.current = selectedIntent;
+  const [stalePlanNotice, setStalePlanNotice] = useState<{
+    setupId: string;
+    oldRevision: number;
+    newRevision: number;
+    newDirection: string;
+    newInstanceId: string;
+  } | null>(null);
   const [marketMatrix, setMarketMatrix] = useState<any>(null);
   const [rvolData, setRvolData] = useState<any>(null);
   // Paper Trading & Account Settings
@@ -449,12 +459,22 @@ function AppContent() {
   // 4. WebSocket Domain Events Connection (V7.2: Consolidated Shared WebSocket)
   useEffect(() => {
     const unsubscribe = wsClient.subscribe((data: any) => {
+      if (data?.type === 'QUOTE_UPDATE') {
+        quoteStore.updateFromQuoteEnvelope(data);
+      }
       if (data?.type === 'DOMAIN_EVENT') {
         const evt = data.event || data;
         const type = evt?.event_type;
         const payload = evt?.payload || {};
 
-        if (type === 'trade.opened' || type === 'trade.closed' || type === 'trade.liquidated' || type === 'order.armed' || type === 'setup.ready') {
+        if (
+          type === 'trade.opened' ||
+          type === 'trade.closed' ||
+          type === 'trade.liquidated' ||
+          type === 'order.armed' ||
+          type === 'setup.ready' ||
+          type === 'setup.updated'
+        ) {
           const userMsg = buildTradeEventMessage(type, payload);
           if (userMsg) {
             notify(userMsg);
@@ -462,11 +482,39 @@ function AppContent() {
           if (type === 'trade.opened' || type === 'trade.closed' || type === 'trade.liquidated' || type === 'order.armed') {
             debouncedRefreshAccount();
           }
-          if (type === 'setup.ready') {
+          if (type === 'setup.ready' || type === 'setup.updated') {
             debouncedRefreshUpcoming();
+            const curIntent = selectedIntentRef.current;
+            if (
+              curIntent &&
+              curIntent.setup_id === payload.setup_id &&
+              (
+                (payload.revision && curIntent.revision && payload.revision > curIntent.revision) ||
+                (payload.direction && payload.direction !== curIntent.direction) ||
+                (payload.setup_instance_id && curIntent.setup_instance_id && payload.setup_instance_id !== curIntent.setup_instance_id)
+              )
+            ) {
+              setStalePlanNotice({
+                setupId: payload.setup_id,
+                oldRevision: curIntent.revision || 1,
+                newRevision: payload.revision || 1,
+                newDirection: payload.direction || curIntent.direction,
+                newInstanceId: payload.setup_instance_id || '',
+              });
+            }
           }
         } else if (type === 'setup.invalidated') {
           debouncedRefreshUpcoming();
+          const curIntent = selectedIntentRef.current;
+          if (curIntent && curIntent.setup_id === payload.setup_id) {
+            setStalePlanNotice({
+              setupId: payload.setup_id,
+              oldRevision: curIntent.revision || 1,
+              newRevision: payload.revision || 1,
+              newDirection: 'INVALIDATED',
+              newInstanceId: payload.setup_instance_id || '',
+            });
+          }
         } else if (type === 'feed.degraded') {
           setHealth((prev: any) => (prev ? { ...prev, status: 'degraded', feed_connected: false } : prev));
           notify('Dữ liệu giá thị trường đang bị gián đoạn. App tạm thời khóa lệnh để bảo vệ an toàn.', {
@@ -570,6 +618,7 @@ function AppContent() {
         status: sig.state,
         snapshotAt: Date.now(),
       });
+      setStalePlanNotice(null);
       showToast('Theo Tín Hiệu Mới Nhất', `Đã chuyển sang tín hiệu SMC ${sig.direction}`, 'info');
     }
   };
@@ -689,19 +738,33 @@ function AppContent() {
   };
 
   const handleArmWatchSetup = async (setupId: string, direction?: string, instanceId?: string, revision?: number) => {
-    const targetDirection = (direction || selectedIntent?.direction || 'LONG') as 'LONG' | 'SHORT';
+    const rawDirection = direction || (selectedIntent?.setup_id === setupId ? selectedIntent?.direction : undefined);
+    if (!rawDirection || (rawDirection !== 'LONG' && rawDirection !== 'SHORT')) {
+      notify({
+        code: 'DIRECTION_REQUIRED',
+        severity: 'error',
+        title: 'Thiếu hướng lệnh hợp lệ',
+        summary: 'Kế hoạch không có hướng lệnh LONG hoặc SHORT hợp lệ. Không thể arm.',
+        explanation: 'Hướng lệnh bắt buộc phải là LONG hoặc SHORT xác định rõ ràng, không được tự động mặc định.',
+      });
+      return;
+    }
+    const targetDirection = rawDirection as 'LONG' | 'SHORT';
     try {
       // V6.1 Strict Identity Guard: Only pass custom chart levels if selectedIntent.setup_id exactly matches setupId!
       const isMatchingSetup = Boolean(selectedIntent && selectedIntent.setup_id === setupId);
+      const targetInstance = instanceId || (isMatchingSetup ? selectedIntent?.setup_instance_id : undefined);
+      const targetRevision = revision || (isMatchingSetup ? selectedIntent?.revision : undefined);
+
       await api.armSetup(setupId, {
         setup_id: setupId,
-        setup_instance_id: instanceId || (isMatchingSetup ? selectedIntent?.setup_instance_id : undefined),
-        expected_revision: revision || (isMatchingSetup ? selectedIntent?.revision : undefined),
+        setup_instance_id: targetInstance,
+        expected_revision: targetRevision,
         expected_direction: targetDirection,
         planned_entry: isMatchingSetup ? selectedIntent?.plannedEntry : undefined,
         stop_loss: isMatchingSetup ? selectedIntent?.stopLoss : undefined,
         take_profit: isMatchingSetup ? selectedIntent?.takeProfit : undefined,
-        idempotency_key: `arm-${setupId}-v${revision || (isMatchingSetup ? selectedIntent?.revision : 1) || 1}`,
+        idempotency_key: `arm-${setupId}-${targetInstance || 'inst'}-v${targetRevision || 1}`,
       });
       notify({
         code: 'ORDER_ARMED',
@@ -764,7 +827,10 @@ function AppContent() {
 
     let grossRR = setup.gross_rr || 0.0;
     let netRR = setup.net_rr || 0.0;
-    if ((!grossRR || grossRR <= 0) && entry && sl && tp) {
+    let isValid = true;
+    let invalidReason: string | undefined = undefined;
+
+    if (entry && sl && tp) {
       const calc = calculateClientRiskReward(
         setup.direction,
         entry,
@@ -775,11 +841,16 @@ function AppContent() {
         2.0,
         setup.quantity || 0.05,
         setup.leverage || leverage,
-        'ISOLATED'
+        setup.margin_mode || marginMode
       );
+      isValid = calc.isValid;
+      invalidReason = calc.invalidReason;
       if (calc.isValid) {
-        grossRR = calc.grossRR;
-        netRR = calc.estimatedNetRR;
+        grossRR = setup.gross_rr || calc.grossRR;
+        netRR = setup.net_rr || calc.estimatedNetRR;
+      } else {
+        grossRR = 0;
+        netRR = 0;
       }
     }
 
@@ -795,6 +866,8 @@ function AppContent() {
       riskPct: 0.25,
       grossRR: grossRR,
       estimatedNetRR: netRR,
+      isValid: isValid,
+      invalidReason: invalidReason,
       leverage: setup.leverage || leverage,
       marginMode: setup.margin_mode || marginMode,
       estimatedLiquidation: setup.estimated_liquidation,
@@ -838,18 +911,37 @@ function AppContent() {
   const handleCopySetupToDraft = (setup: any) => {
     setTimeframe(setup.timeframe || '15M');
     setActiveTab('chart');
+    const entry = setup.confirmed_entry || setup.provisional_entry;
+    const sl = setup.confirmed_sl || setup.provisional_sl;
+    const tp = setup.confirmed_tp || setup.provisional_tp;
+    const draftId = `draft-${Date.now()}`;
+    const calc = calculateClientRiskReward(
+      setup.direction,
+      entry,
+      sl,
+      tp,
+      1000.0,
+      0.25,
+      2.0,
+      setup.quantity || 0.05,
+      setup.leverage || leverage,
+      setup.margin_mode || marginMode
+    );
+
     const overlay: RiskRewardData = {
-      id: `draft-${Date.now()}`,
+      id: draftId,
       direction: setup.direction,
       state: 'draft',
-      plannedEntry: setup.confirmed_entry || setup.provisional_entry,
-      stopLoss: setup.confirmed_sl || setup.provisional_sl,
-      takeProfit: setup.confirmed_tp || setup.provisional_tp,
+      plannedEntry: entry,
+      stopLoss: sl,
+      takeProfit: tp,
       quantity: setup.quantity || 0.05,
       initialRiskUsdt: setup.risk_usdt || 2.5,
       riskPct: 0.25,
-      grossRR: setup.gross_rr || 2.0,
-      estimatedNetRR: setup.net_rr || 2.0,
+      grossRR: calc.isValid ? calc.grossRR : 0,
+      estimatedNetRR: calc.isValid ? calc.estimatedNetRR : 0,
+      isValid: calc.isValid,
+      invalidReason: calc.invalidReason,
       leverage: setup.leverage || leverage,
       marginMode: setup.margin_mode || marginMode,
       estimatedLiquidation: setup.estimated_liquidation,
@@ -857,18 +949,18 @@ function AppContent() {
     setActiveOverlay(overlay);
     setSelectedIntent({
       source: 'DRAFT',
-      setup_id: `draft-${Date.now()}`,
+      setup_id: draftId,
       symbol: 'XAUUSDT',
       timeframe: setup.timeframe || '15M',
       direction: setup.direction,
-      plannedEntry: setup.confirmed_entry || setup.provisional_entry,
-      stopLoss: setup.confirmed_sl || setup.provisional_sl,
-      takeProfit: setup.confirmed_tp || setup.provisional_tp,
+      plannedEntry: entry,
+      stopLoss: sl,
+      takeProfit: tp,
       orderType: 'LIMIT',
       quantity: setup.quantity || 0.05,
       initialRiskUsdt: setup.risk_usdt || 2.5,
-      grossRR: setup.gross_rr || 2.0,
-      estimatedNetRR: setup.net_rr || 2.0,
+      grossRR: calc.isValid ? calc.grossRR : 0,
+      estimatedNetRR: calc.isValid ? calc.estimatedNetRR : 0,
       leverage: setup.leverage || leverage,
       marginMode: setup.margin_mode || marginMode,
       estimatedLiquidation: setup.estimated_liquidation,
@@ -2765,6 +2857,29 @@ function AppContent() {
                   )}
                 </div>
               </div>
+
+              {stalePlanNotice && (
+                <div className="bg-amber-950/60 border border-amber-500/50 rounded-lg p-3 text-xs text-amber-200 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-amber-300">Kế hoạch này đã có cập nhật mới</span>
+                    <button
+                      onClick={() => {
+                        const updated = upcomingData.setups.find((s: any) => s.id === stalePlanNotice.setupId);
+                        if (updated) {
+                          handleFocusSetupOnChart(updated);
+                        }
+                        setStalePlanNotice(null);
+                      }}
+                      className="px-2 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white font-medium text-[11px] transition shadow"
+                    >
+                      Xem bản mới
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                    Phiên bản backend ({stalePlanNotice.newDirection} rev.{stalePlanNotice.newRevision}) khác với snapshot đang chọn (rev.{stalePlanNotice.oldRevision}). Bản đang chọn vẫn được giữ cố định để bảo vệ an toàn.
+                  </p>
+                </div>
+              )}
 
               {selectedIntent ? (
                 <ExpectedEntryPanel

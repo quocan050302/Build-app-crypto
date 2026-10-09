@@ -1,0 +1,568 @@
+{
+  "version": "10.2.0",
+  "timestamp": "2026-10-09T12:04:57.667019+00:00",
+  "seed": 42,
+  "summary": {
+    "total": 56,
+    "passed": 56,
+    "failed": 0,
+    "blocked": 0,
+    "not_run": 0,
+    "pass_rate_pct": 100.0,
+    "verdict": "PASS"
+  },
+  "regression_suite": {
+    "passed": true,
+    "returncode": 0,
+    "summary": "260 passed, 56 deselected, 1 warning in 8.18s"
+  },
+  "frontend_suite": {
+    "passed": true,
+    "returncode": 0,
+    "summary": "   Duration  392ms (transform 46%, import 36%, tests 14%, worker 4%)"
+  },
+  "categories": {
+    "L": {
+      "total": 10,
+      "passed": 10,
+      "failed": 0,
+      "pass_rate_pct": 100.0
+    },
+    "D": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "pass_rate_pct": 100.0
+    },
+    "G": {
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "pass_rate_pct": 100.0
+    },
+    "R": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "pass_rate_pct": 100.0
+    },
+    "E": {
+      "total": 10,
+      "passed": 10,
+      "failed": 0,
+      "pass_rate_pct": 100.0
+    },
+    "N": {
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "pass_rate_pct": 100.0
+    }
+  },
+  "results": [
+    {
+      "scenario_id": "L01",
+      "category": "L",
+      "name": "evaluate_rules returns typed LessonDecisionItem objects in lesson_items, lesson_advisories, lesson_warnings, lesson_blockers",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "L02",
+      "category": "L",
+      "name": "LessonDecisionDict supports both dict-like access (item['text'], item.get(...)) and object attribute access",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "L03",
+      "category": "L",
+      "name": "Backward-compatibility: 'text' in item evaluates to True, preventing TypeError in legacy callers",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "L04",
+      "category": "L",
+      "name": "Legacy string responses in advisory_notes, warning_notes, blocker_notes preserved as list[str]",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "L05",
+      "category": "L",
+      "name": "Empty lesson list returns empty typed lists without raising exceptions",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "L06",
+      "category": "L",
+      "name": "Malformed lesson data safely converts without #undefined or null pointer",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "L07",
+      "category": "L",
+      "name": "Lesson rule severity matching (GREEN -> advisory, YELLOW -> warning, RED -> blocker)",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "L08",
+      "category": "L",
+      "name": "Serialization to JSON and Pydantic validation of LessonDecisionItem DTO",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "L09",
+      "category": "L",
+      "name": "Frontend normalizer converts legacy string to valid NormalizedLessonItem with generated ID and clean text",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "L10",
+      "category": "L",
+      "name": "Frontend normalizer handles null/undefined/empty objects gracefully returning fallback NormalizedLessonItem without #undefined",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "D01",
+      "category": "D",
+      "name": "resolve_plan_levels validates LONG geometry: Entry > SL and TP > Entry",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "D02",
+      "category": "D",
+      "name": "resolve_plan_levels validates SHORT geometry: Entry < SL and TP < Entry (Fixture F1)",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "D03",
+      "category": "D",
+      "name": "resolve_plan_levels rejects inverted SHORT geometry with INVALID_GEOMETRY (Fixture F2)",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "D04",
+      "category": "D",
+      "name": "resolve_plan_levels rejects invalid/missing direction with UNKNOWN_DIRECTION (Fixture F3)",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "D05",
+      "category": "D",
+      "name": "resolve_plan_levels rejects incomplete confirmed levels without mixing provisional (CONFIRMED_LEVELS_INCOMPLETE)",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "D06",
+      "category": "D",
+      "name": "resolve_plan_levels uses confirmed levels when all 3 are present and geometrically valid",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "D07",
+      "category": "D",
+      "name": "resolve_plan_levels falls back to provisional levels when confirmed levels are all None",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "D08",
+      "category": "D",
+      "name": "resolve_plan_levels resets stale confirmed levels when direction does not match or geometry fails",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "D09",
+      "category": "D",
+      "name": "StrategyService clears confirmed levels when watch setup flips direction from LONG to SHORT (Fixture F4)",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "D10",
+      "category": "D",
+      "name": "StrategyService clears confirmed levels when setup instance ID changes",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "D11",
+      "category": "D",
+      "name": "Material change detection detects SL/TP shift exceeding ATR threshold, emitting setup.updated",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "D12",
+      "category": "D",
+      "name": "Manual arm rejects direction mismatch, missing direction, or instance ID conflict",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "G01",
+      "category": "G",
+      "name": "validatePriceGeometry accepts valid LONG (SL < Entry < TP)",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "G02",
+      "category": "G",
+      "name": "validatePriceGeometry accepts valid SHORT (TP < Entry < SL)",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "G03",
+      "category": "G",
+      "name": "validatePriceGeometry rejects SHORT with SL < Entry with explicit Vietnamese error message",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "G04",
+      "category": "G",
+      "name": "validatePriceGeometry rejects SHORT with TP > Entry with explicit Vietnamese error message",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "G05",
+      "category": "G",
+      "name": "calculateClientRiskReward returns isValid: false and grossRR: 0, estimatedNetRR: 0 for invalid geometry",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "G06",
+      "category": "G",
+      "name": "RiskRewardPrimitive does not render profit box when isValid is false; renders warning outline",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "G07",
+      "category": "G",
+      "name": "ExpectedEntryPanel displays geometry warning banner and 'R:R: Không hợp lệ' when geometry is invalid",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R01",
+      "category": "R",
+      "name": "QuoteStore initializes with empty quote state",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R02",
+      "category": "R",
+      "name": "QuoteStore updates quote monotonically with newer timestamp",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R03",
+      "category": "R",
+      "name": "QuoteStore rejects or ignores quote update with older timestamp",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R04",
+      "category": "R",
+      "name": "QuoteStore updates from candle close without regressing fresh real-time quote",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R05",
+      "category": "R",
+      "name": "QuoteStore computes accurate distance |last - plannedEntry| in USDT",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R06",
+      "category": "R",
+      "name": "QuoteStore formats distance to 2 decimal places when within threshold",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R07",
+      "category": "R",
+      "name": "QuoteStore returns '-- / chưa có dữ liệu' when quote is unavailable",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R08",
+      "category": "R",
+      "name": "QuoteStore returns accurate distance for SHORT setup (Fixture F5)",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R09",
+      "category": "R",
+      "name": "WebSocket envelope QUOTE_UPDATE passes bid, ask, last, timestamp to QuoteStore",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R10",
+      "category": "R",
+      "name": "WebSocket setup.updated triggers debounced upcoming refresh",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R11",
+      "category": "R",
+      "name": "Setup update detection raises stale plan notice when selectedIntent differs from update",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "R12",
+      "category": "R",
+      "name": "Stale plan notice is cleared when user clicks follow latest signal or selects updated plan",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E01",
+      "category": "E",
+      "name": "E2E SHORT setup generation -> eligibility check -> resolved levels match SHORT",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E02",
+      "category": "E",
+      "name": "E2E Setup direction flip: LONG armed -> market flip to SHORT -> confirmed reset -> armed with SHORT",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E03",
+      "category": "E",
+      "name": "E2E Manual arm with explicit LONG succeeds; arm with invalid direction is rejected",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E04",
+      "category": "E",
+      "name": "E2E Manual arm with explicit SHORT succeeds; arm with inverted levels is rejected",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E05",
+      "category": "E",
+      "name": "E2E Copy setup to draft produces matching draftId on overlay and selectedIntent",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E06",
+      "category": "E",
+      "name": "E2E Copy setup to draft with invalid levels produces invalid draft overlay with grossRR: 0",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E07",
+      "category": "E",
+      "name": "E2E ExpectedEntryPanel renders lesson items without '#undefined'",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E08",
+      "category": "E",
+      "name": "E2E ExpectedEntryPanel renders live quote distance from quoteStore",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E09",
+      "category": "E",
+      "name": "E2E Stale plan notice banner displays when selected intent is superseded by backend update",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "E10",
+      "category": "E",
+      "name": "E2E Cancel setup releases armed state and cleans up execution queue",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "N01",
+      "category": "N",
+      "name": "Paper trading isolation: no live orders dispatched to Bitget API",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "N02",
+      "category": "N",
+      "name": "Database safety: user runtime DB (aurum_desk.db) and open positions untouched during tests",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "N03",
+      "category": "N",
+      "name": "Environment isolation: tests use separate sqlite :memory: or test DB files",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "N04",
+      "category": "N",
+      "name": "Legacy client API contract preserved: advisory_notes, warning_notes, blocker_notes strings match",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    },
+    {
+      "scenario_id": "N05",
+      "category": "N",
+      "name": "All existing test suites pass without regression",
+      "status": "PASS",
+      "duration_ms": 73.32,
+      "error": null,
+      "details": {}
+    }
+  ]
+}

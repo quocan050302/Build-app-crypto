@@ -7,6 +7,7 @@ import { RiskRewardPrimitive } from './plugins/RiskRewardPrimitive';
 import type { RiskRewardData, DragTargetPart } from './plugins/RiskRewardPrimitive';
 import { SMCStructurePrimitive } from './plugins/SMCStructurePrimitive';
 import { calculateClientRiskReward } from './utils/calculator';
+import { quoteStore } from './services/quoteStore';
 import { RefreshCw, AlertCircle, Eye, EyeOff, Crosshair, ArrowUpRight, ArrowDownRight, Layers, BarChart2 } from 'lucide-react';
 
 export interface ChartComponentProps {
@@ -57,6 +58,7 @@ export function ChartComponent({
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const rrPrimitiveRef = useRef<RiskRewardPrimitive | null>(null);
   const smcPrimitiveRef = useRef<SMCStructurePrimitive | null>(null);
+  const latestQuoteTsRef = useRef<number | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -273,8 +275,14 @@ export function ChartComponent({
               close: p.close,
             };
 
-            latestClosePriceRef.current = p.close;
-            setCurrentPriceDisplay(p.close);
+            const candleTs = typeof p.time === 'number' ? p.time * 1000 : undefined;
+            quoteStore.updateFromCandle(symbol, p.close, candleTs);
+
+            // R03: Do not overwrite ticker price with candle close if ticker is newer
+            if (!latestQuoteTsRef.current || !candleTs || candleTs >= latestQuoteTsRef.current) {
+              latestClosePriceRef.current = p.close;
+              setCurrentPriceDisplay(p.close);
+            }
             setDataIsStale(false);
             setStaleNotice(null);
 
@@ -296,9 +304,11 @@ export function ChartComponent({
             }
           }
         } else if (msg.type === 'QUOTE_UPDATE' && msg.payload?.last) {
+          quoteStore.updateFromQuoteEnvelope(msg);
           if (msg.symbol === symbol) {
-            const lastPrice = msg.payload.last;
+            const lastPrice = typeof msg.payload.last === 'number' ? msg.payload.last : parseFloat(msg.payload.last);
             latestClosePriceRef.current = lastPrice;
+            latestQuoteTsRef.current = msg.exchange_ts_ms || msg.server_received_at_ms || Date.now();
             setCurrentPriceDisplay(lastPrice);
           }
         }

@@ -110,13 +110,27 @@ def evaluate_setup_eligibility(
     except Exception:
         pass
 
-    # 8. Price Geometry & Financial snapshot validation
-    entry = custom_entry if custom_entry is not None else (setup.confirmed_entry or setup.provisional_entry)
-    sl = custom_sl if custom_sl is not None else (setup.confirmed_sl or setup.provisional_sl)
-    tp = custom_tp if custom_tp is not None else (setup.confirmed_tp or setup.provisional_tp)
+    # 8. Authoritative Price Geometry & Financial snapshot validation (V10.2 Plan Resolver)
+    from services.plan_resolver import resolve_plan_levels, PlanResolutionError
+    try:
+        resolved_plan = resolve_plan_levels(setup, custom_entry, custom_sl, custom_tp)
+        entry = resolved_plan["entry"]
+        sl = resolved_plan["stop_loss"]
+        tp = resolved_plan["take_profit"]
+        level_source = resolved_plan["level_source"]
+        is_geom_valid = resolved_plan["is_geometry_valid"]
+        geom_err = resolved_plan["geometry_error"]
+    except PlanResolutionError as pe:
+        reason_codes.append(pe.code)
+        block_reasons.append(f"{pe.code}: {pe.message}")
+        entry = custom_entry or getattr(setup, "provisional_entry", 0.0) or 0.0
+        sl = custom_sl or getattr(setup, "provisional_sl", 0.0) or 0.0
+        tp = custom_tp or getattr(setup, "provisional_tp", 0.0) or 0.0
+        level_source = "INVALID"
+        is_geom_valid = False
+        geom_err = pe.message
 
-    is_geom_valid, geom_err = validate_price_geometry(setup.direction, entry, sl, tp)
-    if not is_geom_valid:
+    if not is_geom_valid and "INVALID_PRICE_GEOMETRY" not in reason_codes:
         reason_codes.append("INVALID_PRICE_GEOMETRY")
         block_reasons.append(f"INVALID_PRICE_GEOMETRY: {geom_err}")
 
@@ -224,6 +238,10 @@ def evaluate_setup_eligibility(
         "strategy_state": setup.state,
         "strategy_family": getattr(setup, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC",
         "margin_mode": effective_margin_mode,
+        "eligible": can_arm,
+        "resolved_entry": round(entry, 2) if entry is not None else None,
+        "resolved_sl": round(sl, 2) if sl is not None else None,
+        "resolved_tp": round(tp, 2) if tp is not None else None,
         "can_arm": can_arm,
         "can_execute": can_execute_now,  # Backward compatibility
         "can_execute_now": can_execute_now,
@@ -241,24 +259,30 @@ def evaluate_setup_eligibility(
         "ny_quota_status": policy_eval.get("quota_state", "NOT_STARTED"),
         "reserved_slots": policy_eval.get("reserved_slots", 0),
         "effective_financial_snapshot": {
-            "entry": round(entry, 2),
-            "sl": round(sl, 2),
-            "tp": round(tp, 2),
-            "gross_rr": round(calc_res.gross_rr, 2),
-            "net_rr": round(calc_res.net_rr, 2),
+            "entry": round(entry, 2) if entry is not None else None,
+            "sl": round(sl, 2) if sl is not None else None,
+            "tp": round(tp, 2) if tp is not None else None,
+            "gross_rr": round(calc_res.gross_rr, 2) if calc_res and calc_res.gross_rr is not None else 0.0,
+            "net_rr": round(calc_res.net_rr, 2) if calc_res and calc_res.net_rr is not None else 0.0,
             "quantity": calc_res.quantity,
             "risk_pct": effective_risk_pct,
             "initial_margin": calc_res.initial_margin_usdt,
             "estimated_liquidation": calc_res.estimated_liquidation,
             "leverage": calc_res.leverage,
-            "margin_mode": calc_res.margin_mode
+            "margin_mode": calc_res.margin_mode,
+            "level_source": level_source
         },
+        "level_source": level_source,
         "evidence_snapshot_id": getattr(setup, "evidence_snapshot_id", None),
         "evaluated_at": current_time,
-        # V10 Lesson Rules Details
-        "lesson_advisories": lesson_eval["advisory_notes"],
-        "lesson_warnings": lesson_eval["warning_messages"],
-        "lesson_blockers": lesson_eval["blocking_reasons"],
+        # V10/V10.2 Lesson Rules Details (DTOs and backward-compatible strings)
+        "lesson_advisories": lesson_eval.get("lesson_advisories", lesson_eval["advisory_notes"]),
+        "lesson_warnings": lesson_eval.get("lesson_warnings", lesson_eval["warning_messages"]),
+        "lesson_blockers": lesson_eval.get("lesson_blockers", lesson_eval["blocking_reasons"]),
+        "lesson_items": lesson_eval.get("lesson_items", []),
+        "legacy_advisories": lesson_eval["advisory_notes"],
+        "legacy_warnings": lesson_eval["warning_messages"],
+        "legacy_blockers": lesson_eval["blocking_reasons"],
         "lesson_evaluations": lesson_eval["evaluations"],
         "lessons_retrieved_snapshot": lesson_eval["lessons_retrieved_snapshot"]
     }

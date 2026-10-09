@@ -185,21 +185,33 @@ class StrategyService:
                     watch_setup.distance_to_entry_atr = dist_atr
                     watch_setup.distance_to_entry_usdt = dist_usdt
                     watch_setup.updated_at = now_ms
-                    # No setup.updated event needed while armed/open
+                    # D12: Never mutate direction or confirmed levels of ARMED or PAPER_OPEN setup
                 else:
                     direction_changed = (watch_setup.direction != direction)
                     state_changed = (watch_setup.state != setup_stage)
-                    entry_diff = abs(watch_setup.provisional_entry - provisional_entry)
-                    levels_changed = entry_diff > (atr * 0.1)
-                    has_material_change = direction_changed or state_changed or levels_changed
+                    entry_diff = abs(watch_setup.provisional_entry - provisional_entry) if watch_setup.provisional_entry is not None else 0.0
+                    sl_diff = abs(watch_setup.provisional_sl - provisional_sl) if (watch_setup.provisional_sl is not None and provisional_sl is not None) else 0.0
+                    tp_diff = abs(watch_setup.provisional_tp - provisional_tp) if (watch_setup.provisional_tp is not None and provisional_tp is not None) else 0.0
+                    threshold = max(atr * 0.1, 0.05)
+                    levels_changed = (entry_diff > threshold) or (sl_diff > threshold) or (tp_diff > threshold)
+
+                    cond_met_str = json.dumps(analysis.get("conditions_met", []))
+                    cond_rem_str = json.dumps(analysis.get("missing_conditions", []))
+                    evidence_changed = (watch_setup.conditions_met != cond_met_str) or (watch_setup.conditions_remaining != cond_rem_str)
+                    config_changed = (watch_setup.config_version != config_version)
+                    instance_changed = (watch_setup.setup_instance_id != setup_instance_id)
+
+                    has_material_change = direction_changed or state_changed or levels_changed or evidence_changed or config_changed or instance_changed
 
                     if has_material_change:
-                        if direction_changed:
+                        watch_setup.version += 1
+                        if direction_changed or instance_changed:
                             watch_setup.setup_instance_id = setup_instance_id
-                            watch_setup.version += 1
                             watch_setup.direction = direction
-                        elif state_changed or levels_changed:
-                            watch_setup.version += 1
+                            # D01, D02, F4: Clear stale confirmed levels on new direction or instance
+                            watch_setup.confirmed_entry = None
+                            watch_setup.confirmed_sl = None
+                            watch_setup.confirmed_tp = None
 
                         if setup_stage == "READY" and watch_setup.state != "READY":
                             watch_setup.setup_instance_id = setup_instance_id
@@ -222,8 +234,8 @@ class StrategyService:
                         watch_setup.risk_pct = risk_pct
                         watch_setup.config_version = config_version
                         watch_setup.estimated_liquidation = sig.get("estimated_liquidation", calc_prov.estimated_liquidation) if sig else calc_prov.estimated_liquidation
-                        watch_setup.conditions_met = json.dumps(analysis.get("conditions_met", []))
-                        watch_setup.conditions_remaining = json.dumps(analysis.get("missing_conditions", []))
+                        watch_setup.conditions_met = cond_met_str
+                        watch_setup.conditions_remaining = cond_rem_str
                         watch_setup.distance_to_entry_atr = dist_atr
                         watch_setup.distance_to_entry_usdt = dist_usdt
                         watch_setup.updated_at = now_ms
@@ -238,6 +250,7 @@ class StrategyService:
                             payload={
                                 "setup_id": watch_setup.id,
                                 "setup_instance_id": active_inst_id,
+                                "revision": watch_setup.version,
                                 "direction": watch_setup.direction,
                                 "state": watch_setup.state,
                                 "planned_entry": watch_setup.provisional_entry,
@@ -245,6 +258,7 @@ class StrategyService:
                                 "take_profit": watch_setup.provisional_tp,
                                 "net_rr": watch_setup.net_rr,
                                 "risk_usdt": watch_setup.risk_usdt,
+                                "config_version": watch_setup.config_version,
                                 "conditions_met": analysis.get("conditions_met", []),
                                 "missing_conditions": analysis.get("missing_conditions", [])
                             }
@@ -327,6 +341,118 @@ class StrategyService:
             logger.error(f"Error in evaluate_upcoming_setups: {str(e)}", exc_info=True)
         finally:
             db.close()
+
+    def _upsert_watch_setup(self, db: Session, smc_data: Dict[str, Any]) -> models.WatchSetup:
+        symbol = smc_data.get("symbol", "XAUUSDT")
+        timeframe = smc_data.get("timeframe", "15M")
+        setup_id = smc_data.get("id") or f"watch-{symbol}-{timeframe}"
+        watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == setup_id).first()
+
+        now_ms = int(time.time() * 1000)
+        direction = smc_data.get("direction", "LONG")
+        setup_stage = smc_data.get("state", "READY")
+        provisional_entry = smc_data.get("planned_entry", 2050.0)
+        provisional_sl = smc_data.get("stop_loss", 2040.0)
+        provisional_tp = smc_data.get("take_profit", 2070.0)
+        atr = smc_data.get("atr", 2.0)
+        setup_instance_id = smc_data.get("setup_instance_id") or f"inst-{symbol}-{timeframe}-{direction.lower()}-{now_ms}"
+        config_version = smc_data.get("config_version", 1)
+        invalidation_price = smc_data.get("invalidation_price", provisional_sl)
+        inval_reason = smc_data.get("invalidation_reason", "Sweep / Structure Breach")
+        cond_met_str = json.dumps(smc_data.get("conditions_met", []))
+        cond_rem_str = json.dumps(smc_data.get("conditions_remaining", []))
+
+        if not watch_setup:
+            watch_setup = models.WatchSetup(
+                id=setup_id,
+                timeframe=timeframe,
+                direction=direction,
+                state=setup_stage,
+                setup_instance_id=setup_instance_id,
+                version=1,
+                provisional_entry=provisional_entry,
+                provisional_sl=provisional_sl,
+                provisional_tp=provisional_tp,
+                invalidation_price=invalidation_price,
+                invalidation_reason=inval_reason,
+                gross_rr=smc_data.get("gross_rr", 2.0),
+                net_rr=smc_data.get("net_rr", 1.8),
+                risk_usdt=smc_data.get("risk_usdt", 2.5),
+                quantity=smc_data.get("quantity", 0.05),
+                leverage=smc_data.get("leverage", 5),
+                margin_mode=smc_data.get("margin_mode", "ISOLATED"),
+                risk_pct=smc_data.get("risk_pct", 0.25),
+                config_version=config_version,
+                conditions_met=cond_met_str,
+                conditions_remaining=cond_rem_str,
+                created_at=now_ms,
+                updated_at=now_ms,
+            )
+            db.add(watch_setup)
+            db.commit()
+            db.refresh(watch_setup)
+            return watch_setup
+
+        if watch_setup.state == "PAPER_OPEN":
+            watch_setup.updated_at = now_ms
+            db.commit()
+            db.refresh(watch_setup)
+            return watch_setup
+
+        if watch_setup.state == "ARMED" and watch_setup.direction == direction and (not setup_instance_id or watch_setup.setup_instance_id == setup_instance_id):
+            watch_setup.updated_at = now_ms
+            db.commit()
+            db.refresh(watch_setup)
+            return watch_setup
+
+        direction_changed = (watch_setup.direction != direction)
+        state_changed = (watch_setup.state != setup_stage)
+        entry_diff = abs(watch_setup.provisional_entry - provisional_entry) if watch_setup.provisional_entry is not None else 0.0
+        sl_diff = abs(watch_setup.provisional_sl - provisional_sl) if (watch_setup.provisional_sl is not None and provisional_sl is not None) else 0.0
+        tp_diff = abs(watch_setup.provisional_tp - provisional_tp) if (watch_setup.provisional_tp is not None and provisional_tp is not None) else 0.0
+        threshold = max(atr * 0.1, 0.05)
+        levels_changed = (entry_diff > threshold) or (sl_diff > threshold) or (tp_diff > threshold)
+
+        evidence_changed = (watch_setup.conditions_met != cond_met_str) or (watch_setup.conditions_remaining != cond_rem_str)
+        config_changed = (watch_setup.config_version != config_version)
+        instance_changed = (watch_setup.setup_instance_id != setup_instance_id)
+
+        has_material_change = direction_changed or state_changed or levels_changed or evidence_changed or config_changed or instance_changed
+
+        if has_material_change:
+            watch_setup.version += 1
+            if direction_changed or instance_changed:
+                watch_setup.setup_instance_id = setup_instance_id
+                watch_setup.direction = direction
+                watch_setup.confirmed_entry = None
+                watch_setup.confirmed_sl = None
+                watch_setup.confirmed_tp = None
+                # Cancel previous armed orders for this setup since setup changed
+                old_armed = db.query(models.PaperOrder).filter(
+                    models.PaperOrder.setup_id == watch_setup.id,
+                    models.PaperOrder.state == "armed"
+                ).all()
+                for o in old_armed:
+                    o.state = "cancelled"
+
+            watch_setup.state = setup_stage
+            watch_setup.provisional_entry = provisional_entry
+            watch_setup.provisional_sl = provisional_sl
+            watch_setup.provisional_tp = provisional_tp
+            watch_setup.invalidation_price = invalidation_price
+            watch_setup.invalidation_reason = inval_reason
+            watch_setup.gross_rr = smc_data.get("gross_rr", watch_setup.gross_rr)
+            watch_setup.net_rr = smc_data.get("net_rr", watch_setup.net_rr)
+            watch_setup.risk_usdt = smc_data.get("risk_usdt", watch_setup.risk_usdt)
+            watch_setup.quantity = smc_data.get("quantity", watch_setup.quantity)
+            watch_setup.config_version = config_version
+            watch_setup.conditions_met = cond_met_str
+            watch_setup.conditions_remaining = cond_rem_str
+            watch_setup.updated_at = now_ms
+            db.commit()
+            db.refresh(watch_setup)
+
+        return watch_setup
 
     def _auto_arm_candidate(
         self,

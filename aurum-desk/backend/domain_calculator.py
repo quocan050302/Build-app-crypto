@@ -147,6 +147,7 @@ def calculate_risk_reward(
     stop_loss: Optional[float] = None,
     take_profit: Optional[float] = None,
     capital_usdt: Optional[float] = None,
+    quantity: Optional[float] = None,
 ) -> CalculationResult:
     """
     Authoritative domain calculation for Risk, Reward, Sizing, Fees, Leverage, Margin and Liquidation.
@@ -157,6 +158,8 @@ def calculate_risk_reward(
     tp = tp if tp is not None else (take_profit if take_profit is not None else 0.0)
     if capital_usdt is not None:
         capital = capital_usdt
+    if quantity is not None and quantity_override is None:
+        quantity_override = quantity
 
     if costs is None:
         costs = CostAssumptions()

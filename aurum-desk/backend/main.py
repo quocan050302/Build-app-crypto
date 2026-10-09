@@ -200,6 +200,7 @@ async def websocket_endpoint(websocket: WebSocket):
 # ==================== 1. SYSTEM HEALTH ====================
 
 @app.get("/health", response_model=schemas.SystemHealthResponse)
+@app.get("/api/v1/health", response_model=schemas.SystemHealthResponse)
 def health_check(symbol: str = "XAUUSDT", timeframe: str = "15M", db: Session = Depends(get_db)):
     """Comprehensive system health reporting real live status without fake fallbacks."""
     from services.bitget_ws_service import bitget_ws_service
@@ -559,17 +560,26 @@ def manual_arm_setup(
 
     # 2. Setup Direction and Instance Verification (Atomic Snapshot Check)
     if req_body:
-        if req_body.expected_direction and watch_setup.direction != req_body.expected_direction:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "code": "SETUP_CHANGED",
-                    "message": f"Setup {req_body.expected_direction} bạn chọn đã thay đổi thành {watch_setup.direction}; hãy xem lại.",
-                    "current_direction": watch_setup.direction,
-                    "expected_direction": req_body.expected_direction,
-                    "setup_id": watch_setup.id
-                }
-            )
+        if req_body.expected_direction:
+            if req_body.expected_direction not in ("LONG", "SHORT"):
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "code": "INVALID_DIRECTION",
+                        "message": f"Hướng lệnh không hợp lệ: '{req_body.expected_direction}'. Bắt buộc là LONG hoặc SHORT."
+                    }
+                )
+            if watch_setup.direction != req_body.expected_direction:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "code": "SETUP_CHANGED",
+                        "message": f"Xung đột hướng lệnh: Setup {req_body.expected_direction} bạn chọn đã thay đổi thành {watch_setup.direction}; hãy xem lại.",
+                        "current_direction": watch_setup.direction,
+                        "expected_direction": req_body.expected_direction,
+                        "setup_id": watch_setup.id
+                    }
+                )
         if req_body.setup_instance_id and watch_setup.setup_instance_id and watch_setup.setup_instance_id != req_body.setup_instance_id:
             raise HTTPException(
                 status_code=409,
@@ -591,10 +601,27 @@ def manual_arm_setup(
                 }
             )
 
-    # Extract levels (authoritative levels or valid draft levels)
-    entry = req_body.planned_entry if req_body and req_body.planned_entry is not None else (watch_setup.confirmed_entry or watch_setup.provisional_entry)
-    sl = req_body.stop_loss if req_body and req_body.stop_loss is not None else (watch_setup.confirmed_sl or watch_setup.provisional_sl)
-    tp = req_body.take_profit if req_body and req_body.take_profit is not None else (watch_setup.confirmed_tp or watch_setup.provisional_tp)
+    # 3. Authoritative Plan Resolver (V10.2 Plan Snapshot)
+    from services.plan_resolver import resolve_plan_levels, PlanResolutionError
+    try:
+        resolved_plan = resolve_plan_levels(
+            watch_setup,
+            custom_entry=req_body.planned_entry if req_body else None,
+            custom_sl=req_body.stop_loss if req_body else None,
+            custom_tp=req_body.take_profit if req_body else None
+        )
+        entry = resolved_plan["entry"]
+        sl = resolved_plan["stop_loss"]
+        tp = resolved_plan["take_profit"]
+    except PlanResolutionError as pe:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": pe.code,
+                "message": pe.message,
+                "direction": watch_setup.direction
+            }
+        )
 
     # V6.1 Authoritative Shared Eligibility Check
     elig = evaluate_setup_eligibility(
@@ -777,6 +804,14 @@ def cancel_setup(setup_id: str, db: Session = Depends(get_db)):
 
     db.commit()
     return {"status": "success", "message": f"Đã hủy theo dõi setup {setup_id}"}
+
+
+@app.post("/api/v1/setups/cancel")
+def cancel_setup_body(body: Dict[str, Any], db: Session = Depends(get_db)):
+    setup_id = body.get("setup_id")
+    if not setup_id:
+        raise HTTPException(status_code=400, detail="Thiếu setup_id")
+    return cancel_setup(setup_id=setup_id, db=db)
 
 
 # ==================== 6. AUTO PAPER TRADING & SETTINGS ====================

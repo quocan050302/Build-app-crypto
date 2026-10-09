@@ -868,5 +868,29 @@ class LessonEnableRequest(BaseModel):
     enabled: bool
     expected_revision: Optional[int] = None
 
+class LessonDecisionItem(BaseModel):
+    rule_id: Union[int, str]
+    rule_version: int = 1
+    lesson_id: Optional[Union[int, str]] = None
+    severity: str = "INFO"  # "INFO" | "WARN" | "CRITICAL"
+    effect: str = "ANNOTATE"  # "ANNOTATE" | "WARN_ENTRY" | "BLOCK_ENTRY" | "PROPOSE_PLAN_ADJUSTMENT"
+    title: str = ""
+    message: str = ""
+    next_step: Optional[str] = None
+    matched: bool = False
+    evaluated: bool = False
+    data_unavailable: bool = False
+    would_block: bool = False
+    effective_block: bool = False
+    reason_code: Optional[str] = None
+    evaluated_at: int = 0
+    metric_value: Optional[Any] = None
+    scope: Optional[Dict[str, Any]] = None
+    symbol: Optional[str] = None
+    direction: Optional[str] = None
+    timeframe: Optional[str] = None
+    setup_instance_id: Optional[str] = None
+    revision: Optional[int] = None
+
 
 

@@ -146,17 +146,24 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       const tpY = this._tpY!;
       const lpY = this._lpY;
 
-      const isInvalid = d.isValid === false;
+      const effectiveEntry = d.actualEntry ?? d.plannedEntry;
+      const isFiniteNumbers = Number.isFinite(effectiveEntry) && Number.isFinite(d.stopLoss) && Number.isFinite(d.takeProfit) &&
+        effectiveEntry > 0 && d.stopLoss > 0 && d.takeProfit > 0;
+      const isGeomValid = isFiniteNumbers && (
+        d.direction === 'LONG'
+          ? (d.stopLoss < effectiveEntry && effectiveEntry < d.takeProfit)
+          : (d.takeProfit < effectiveEntry && effectiveEntry < d.stopLoss)
+      );
+      const isInvalid = (d.isValid === false) || !isGeomValid;
       const isMuted = d.state === 'closed' || d.state === 'invalidated';
       const isDashed = d.state === 'candidate' || d.state === 'armed' || d.state === 'draft';
-      const effectiveEntry = d.actualEntry ?? d.plannedEntry;
 
       ctx.save();
 
       if (isInvalid) {
-        // Draw red error boundary
+        // Draw red/amber warning error boundary without fake profit box
         const boxTop = Math.min(entryY, slY, tpY);
-        const boxHeight = Math.max(entryY, slY, tpY) - boxTop;
+        const boxHeight = Math.max(24, Math.max(entryY, slY, tpY) - boxTop);
         ctx.fillStyle = 'rgba(239, 68, 68, 0.12)';
         ctx.fillRect(startX, boxTop, width, boxHeight);
         ctx.strokeStyle = '#ef4444';
@@ -165,11 +172,19 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
         ctx.strokeRect(startX, boxTop, width, boxHeight);
         ctx.setLineDash([]);
 
-        // Invalid badge
+        // Invalid badge with clear message
         ctx.fillStyle = '#ef4444';
         ctx.font = 'bold 12px Inter, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(d.invalidReason || 'SAI THỨ TỰ GIÁ (INVALID)', startX + width / 2, boxTop + boxHeight / 2);
+        let invalidMsg = d.invalidReason;
+        if (!invalidMsg) {
+          if (d.direction === 'SHORT') {
+            invalidMsg = 'SHORT chưa hợp lệ: TP phải dưới Entry, SL phải trên Entry';
+          } else {
+            invalidMsg = 'LONG chưa hợp lệ: SL phải dưới Entry, TP phải trên Entry';
+          }
+        }
+        ctx.fillText(invalidMsg, startX + width / 2, boxTop + boxHeight / 2 + 4);
         ctx.restore();
         return;
       }
