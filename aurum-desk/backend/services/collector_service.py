@@ -22,10 +22,14 @@ class CollectorService:
         self.feed_connected = False
         self.last_success_time = 0
         self.last_error: Optional[str] = None
+        self.d_bias = "UNKNOWN"
+        self.h4_bias = "UNKNOWN"
         self.d_4h_bias = "UNKNOWN"
         self.h1_alignment = "UNKNOWN"
         self.latest_ticker: Optional[Dict[str, Any]] = None
         self._was_degraded = False
+        self._last_d_sync = 0
+        self._last_1m_sync = 0
 
     def is_stale(self, timeframe: str, last_candle_ts: Optional[int]) -> Tuple[bool, float]:
         if not last_candle_ts:
@@ -57,45 +61,74 @@ class CollectorService:
             return False
 
     def update_htf_context(self, symbol: str = "XAUUSDT"):
-        """Calculate authentic D/4H bias and 1H alignment from stored candles."""
+        """
+        Calculate authentic, independent D & 4H bias and 1H alignment.
+        No synthetic consensus or fake fallback.
+        """
         db: Session = SessionLocal()
         try:
-            # 1. 4H / D bias
+            # 1. Independent Daily Context (D)
             d_candles = crud.get_candles(db, symbol, "D", limit=50, ascending=True)
-            h4_candles = crud.get_candles(db, symbol, "4H", limit=80, ascending=True)
+            if len(d_candles) >= 15:
+                sh_d, sl_d = smc_engine.identify_pivots(d_candles, "D")
+                self.d_bias = smc_engine.determine_trend(d_candles, sh_d, sl_d)
+            else:
+                self.d_bias = "UNKNOWN"
 
-            ref_candles = h4_candles if len(h4_candles) >= 20 else d_candles
-            if len(ref_candles) >= 15:
-                sh, sl = smc_engine.identify_pivots(ref_candles, "4H" if len(h4_candles) >= 20 else "D")
-                trend = smc_engine.determine_trend(ref_candles, sh, sl)
-                self.d_4h_bias = trend
+            # 2. Independent 4H Bias (4H)
+            h4_candles = crud.get_candles(db, symbol, "4H", limit=80, ascending=True)
+            if len(h4_candles) >= 15:
+                sh_h4, sl_h4 = smc_engine.identify_pivots(h4_candles, "4H")
+                self.h4_bias = smc_engine.determine_trend(h4_candles, sh_h4, sl_h4)
+            else:
+                self.h4_bias = "UNKNOWN"
+
+            # 3. Synthesized HTF Context (Conflict aware)
+            if self.d_bias in ("BULLISH", "BEARISH") and self.h4_bias in ("BULLISH", "BEARISH"):
+                if self.d_bias == self.h4_bias:
+                    self.d_4h_bias = self.d_bias
+                else:
+                    self.d_4h_bias = "CONFLICT"
+            elif self.h4_bias in ("BULLISH", "BEARISH"):
+                self.d_4h_bias = self.h4_bias
+            elif self.d_bias in ("BULLISH", "BEARISH"):
+                self.d_4h_bias = self.d_bias
             else:
                 self.d_4h_bias = "UNKNOWN"
 
-            # 2. 1H alignment
+            # 4. Independent 1H Alignment
             h1_candles = crud.get_candles(db, symbol, "1H", limit=80, ascending=True)
             if len(h1_candles) >= 15:
                 sh1, sl1 = smc_engine.identify_pivots(h1_candles, "1H")
                 h1_trend = smc_engine.determine_trend(h1_candles, sh1, sl1)
-                self.h1_alignment = "ALIGNED" if h1_trend == self.d_4h_bias else ("OPPOSING" if h1_trend in ("BULLISH", "BEARISH") else "NEUTRAL")
+                if self.d_4h_bias in ("BULLISH", "BEARISH"):
+                    if h1_trend == self.d_4h_bias:
+                        self.h1_alignment = "ALIGNED"
+                    elif h1_trend in ("BULLISH", "BEARISH"):
+                        self.h1_alignment = "OPPOSING"
+                    else:
+                        self.h1_alignment = "NEUTRAL"
+                else:
+                    self.h1_alignment = "NEUTRAL" if h1_trend != "UNKNOWN" else "UNKNOWN"
             else:
                 self.h1_alignment = "UNKNOWN"
         finally:
             db.close()
 
     async def run_collector_loop(self):
-        """Main non-blocking background collector loop."""
+        """Main non-blocking background collector loop with multi-timeframe synchronization."""
         self.collector_alive = True
         symbol = "XAUUSDT"
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             while True:
                 try:
+                    now = time.time()
                     # 1. Fetch live ticker
                     try:
                         self.latest_ticker = await bitget_data.async_fetch_ticker(client, symbol)
                         self.feed_connected = True
-                        self.last_success_time = int(time.time() * 1000)
+                        self.last_success_time = int(now * 1000)
 
                         if self._was_degraded:
                             self._was_degraded = False
@@ -122,17 +155,26 @@ class CollectorService:
                                 payload={"symbol": symbol, "reason": self.last_error}
                             )
 
-                    # 2. Cycle timeframe syncs
-                    # 15M and 5M every 10 seconds
+                    # 2. Cycle timeframe syncs: 15M and 5M every loop (5s)
                     await self.sync_timeframe(client, symbol, "15M", limit=120)
                     await self.sync_timeframe(client, symbol, "5M", limit=100)
 
-                    # 3. Update HTF bias every 30 seconds
-                    self.update_htf_context(symbol)
+                    # 3. 1M sync every 15s
+                    if now - self._last_1m_sync > 15:
+                        await self.sync_timeframe(client, symbol, "1M", limit=60)
+                        self._last_1m_sync = now
 
                     # 4. Sync 1H and 4H periodically
                     await self.sync_timeframe(client, symbol, "1H", limit=60)
                     await self.sync_timeframe(client, symbol, "4H", limit=60)
+
+                    # 5. D sync every 5 minutes
+                    if now - self._last_d_sync > 300:
+                        await self.sync_timeframe(client, symbol, "D", limit=30)
+                        self._last_d_sync = now
+
+                    # 6. Update HTF bias
+                    self.update_htf_context(symbol)
 
                     await asyncio.sleep(5.0)
 

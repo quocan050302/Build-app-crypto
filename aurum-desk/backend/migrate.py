@@ -284,7 +284,21 @@ def run_migration():
     add_column_if_missing("watch_setups", "near_entry_distance_atr", "FLOAT")
     add_column_if_missing("watch_setups", "entry_zone_low", "FLOAT")
     add_column_if_missing("watch_setups", "entry_zone_high", "FLOAT")
+    add_column_if_missing("watch_setups", "risk_pct", "FLOAT DEFAULT 0.25")
+    add_column_if_missing("watch_setups", "config_version", "INTEGER DEFAULT 1")
     cur.execute("CREATE INDEX IF NOT EXISTS ix_watch_setups_instance ON watch_setups(setup_instance_id);")
+
+    # Paper orders recovery & config extensions
+    add_column_if_missing("paper_orders", "last_processed_market_timestamp", "BIGINT")
+    add_column_if_missing("paper_orders", "recovery_status", "VARCHAR(30) DEFAULT 'NONE'")
+    add_column_if_missing("paper_orders", "recovery_run_id", "VARCHAR(36)")
+    add_column_if_missing("paper_orders", "last_recovery_attempt", "BIGINT")
+    add_column_if_missing("paper_orders", "resolved_through", "BIGINT")
+    add_column_if_missing("paper_orders", "recovery_confidence", "VARCHAR(30)")
+    add_column_if_missing("paper_orders", "discovered_at", "BIGINT")
+    add_column_if_missing("paper_orders", "occurred_at", "BIGINT")
+    add_column_if_missing("paper_orders", "risk_pct", "FLOAT DEFAULT 0.25")
+    add_column_if_missing("paper_orders", "config_version", "INTEGER DEFAULT 1")
 
     # 9. Domain Events (Event sourcing stream for WebSockets & audit)
     cur.execute("""
@@ -545,9 +559,122 @@ def run_migration():
                 WHERE id = ?;
             """, (now_ms, ord_id))
 
+    # 4. V7 Schema Migrations (Trading Policy, Quotas, Strategy Evidences, and Order Metadata)
+    print("[*] Applying V7 schema migrations (Trading Policy, Session Quotas, Strategy Evidences)...")
+    add_column_if_missing("paper_orders", "strategy_family", "VARCHAR(30) DEFAULT 'STANDARD_SMC'")
+    add_column_if_missing("paper_orders", "session_instance_id", "VARCHAR(60)")
+    add_column_if_missing("paper_orders", "policy_config_version", "INTEGER DEFAULT 1")
+    add_column_if_missing("paper_orders", "evidence_snapshot_id", "VARCHAR(60)")
+    add_column_if_missing("paper_orders", "requested_risk_pct", "FLOAT DEFAULT 0.25")
+    add_column_if_missing("paper_orders", "effective_risk_pct", "FLOAT DEFAULT 0.25")
+    add_column_if_missing("paper_orders", "risk_profile", "VARCHAR(30) DEFAULT 'STANDARD'")
+    add_column_if_missing("paper_orders", "cost_snapshot", "TEXT")
+
+    add_column_if_missing("watch_setups", "strategy_family", "VARCHAR(30) DEFAULT 'STANDARD_SMC'")
+    add_column_if_missing("watch_setups", "policy_config_version", "INTEGER DEFAULT 1")
+    add_column_if_missing("watch_setups", "evidence_snapshot_id", "VARCHAR(60)")
+    add_column_if_missing("watch_setups", "requested_risk_pct", "FLOAT DEFAULT 0.25")
+    add_column_if_missing("watch_setups", "effective_risk_pct", "FLOAT DEFAULT 0.25")
+    add_column_if_missing("watch_setups", "risk_profile", "VARCHAR(30) DEFAULT 'STANDARD'")
+    add_column_if_missing("watch_setups", "cost_snapshot", "TEXT")
+
+    add_column_if_missing("lessons", "strategy_family", "VARCHAR(30) DEFAULT 'STANDARD_SMC'")
+    add_column_if_missing("lessons", "facts_snapshot", "TEXT")
+    add_column_if_missing("lessons", "compliance_snapshot", "TEXT")
+    add_column_if_missing("lessons", "mfe_mae_snapshot", "TEXT")
+    add_column_if_missing("lessons", "action_candidate", "TEXT")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS trading_policies (
+            id VARCHAR(50) PRIMARY KEY,
+            version INTEGER DEFAULT 1,
+            mode VARCHAR(20) DEFAULT 'PAPER',
+            symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+            max_daily_fills INTEGER DEFAULT 3,
+            daily_timezone VARCHAR(50) DEFAULT 'Asia/Ho_Chi_Minh',
+            entry_session_policy VARCHAR(40) DEFAULT 'NY_ONLY',
+            ny_timezone VARCHAR(50) DEFAULT 'America/New_York',
+            ny_entry_start VARCHAR(10) DEFAULT '08:00',
+            ny_entry_end VARCHAR(10) DEFAULT '11:00',
+            ny_min_fills INTEGER DEFAULT 1,
+            reserve_ny_slot BOOLEAN DEFAULT 1,
+            ny_fallback_enabled BOOLEAN DEFAULT 1,
+            ny_fallback_start VARCHAR(10) DEFAULT '10:30',
+            ny_fallback_risk_pct_cap FLOAT DEFAULT 0.10,
+            min_net_rr FLOAT DEFAULT 2.0,
+            max_open_positions INTEGER DEFAULT 1,
+            max_armed_orders INTEGER DEFAULT 1,
+            updated_at BIGINT NOT NULL
+        );
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS session_quotas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_namespace VARCHAR(50) DEFAULT 'default',
+            symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+            session_instance_id VARCHAR(60) UNIQUE NOT NULL,
+            session_date_utc VARCHAR(10) NOT NULL,
+            session_date_vn VARCHAR(10) NOT NULL,
+            session_date_ny VARCHAR(10) NOT NULL,
+            window_start_ms BIGINT NOT NULL,
+            window_end_ms BIGINT NOT NULL,
+            fallback_start_ms BIGINT NOT NULL,
+            target_fills INTEGER DEFAULT 1,
+            standard_fills INTEGER DEFAULT 0,
+            fallback_fills INTEGER DEFAULT 0,
+            total_fills INTEGER DEFAULT 0,
+            quota_status VARCHAR(30) DEFAULT 'NOT_STARTED',
+            last_status_reason VARCHAR(255),
+            last_evaluated_at BIGINT,
+            created_at BIGINT NOT NULL,
+            updated_at BIGINT NOT NULL
+        );
+    """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS strategy_evidences (
+            id VARCHAR(60) PRIMARY KEY,
+            strategy_family VARCHAR(30) DEFAULT 'STANDARD_SMC',
+            strategy_version VARCHAR(20) DEFAULT '7.0.0',
+            setup_id VARCHAR(60),
+            setup_instance_id VARCHAR(100),
+            direction VARCHAR(10) NOT NULL,
+            htf_context TEXT,
+            h1_alignment VARCHAR(20) DEFAULT 'UNKNOWN',
+            sweep_evidence TEXT,
+            displacement_evidence TEXT,
+            fvg_evidence TEXT,
+            retest_evidence TEXT,
+            missing_evidence TEXT,
+            cost_snapshot TEXT,
+            risk_snapshot TEXT,
+            created_at BIGINT NOT NULL
+        );
+    """)
+
+    # Seed default TradingPolicy if absent
+    cur.execute("SELECT id FROM trading_policies WHERE id = 'default';")
+    if not cur.fetchone():
+        cur.execute("""
+            INSERT INTO trading_policies (
+                id, version, mode, symbol, max_daily_fills, daily_timezone,
+                entry_session_policy, ny_timezone, ny_entry_start, ny_entry_end,
+                ny_min_fills, reserve_ny_slot, ny_fallback_enabled, ny_fallback_start,
+                ny_fallback_risk_pct_cap, min_net_rr, max_open_positions, max_armed_orders,
+                updated_at
+            ) VALUES (
+                'default', 1, 'PAPER', 'XAUUSDT', 3, 'Asia/Ho_Chi_Minh',
+                'NY_ONLY', 'America/New_York', '08:00', '11:00',
+                1, 1, 1, '10:30',
+                0.10, 2.0, 1, 1,
+                ?
+            );
+        """, (now_ms,))
+
     conn.commit()
     conn.close()
-    print("[+] V5.1 migration completed successfully with full historical preservation!")
+    print("[+] V7 migration completed successfully with full historical preservation!")
 
 if __name__ == "__main__":
     run_migration()

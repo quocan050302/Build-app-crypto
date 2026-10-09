@@ -1,6 +1,7 @@
 import time
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, Tuple
 from sqlalchemy.orm import Session
 from database import SessionLocal
@@ -15,7 +16,7 @@ class TradeLifecycleService:
     """
     Unified Trade Lifecycle Service:
     - Guarantees single-transaction atomic units of work for trade transitions.
-    - Prevents split-commit crashes (order state + audit + lesson + domain event + outbox commit together).
+    - Prevents split-commit crashes (order state + audit + session quota + lesson + domain event + outbox commit together).
     - Unifies exit processing across ExitMonitor, candles/sync, and manual order close.
     - Employs DB state guards against race conditions and preserves max 1 position invariant.
     - Supports clock injection for reproducible historical replay and deterministic scenarios.
@@ -37,10 +38,11 @@ class TradeLifecycleService:
         Guards:
         - Order must be in 'armed' or 'candidate' state.
         - Enforces strictly max 1 open position across sessions.
-        - Commits order state 'paper_open', DayAudit increment, watch setup state,
+        - Commits order state 'paper_open', DayAudit increment, SessionQuota update, watch setup state,
           DomainEvent 'trade.opened', and NotificationOutbox 'FILLED' in a single transaction.
         """
         current_time = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
+        current_dt = datetime.fromtimestamp(current_time / 1000.0, tz=timezone.utc)
 
         # 1. State transition guards
         if order.state == "paper_open":
@@ -76,8 +78,44 @@ class TradeLifecycleService:
         order.leverage = calc_result.leverage
         order.margin_mode = calc_result.margin_mode
 
+        # Cost snapshot
+        order.cost_snapshot = json.dumps({
+            "maker_fee_rate": 0.0004,
+            "taker_fee_rate": 0.0004,
+            "slippage_usd": 0.10,
+            "fees_total_usdt": calc_result.fees_total_usdt,
+            "slippage_total_usdt": calc_result.slippage_total_usdt,
+            "source": "BITGET_PAPER_MODEL_V7"
+        })
+
         # 4. Record trade fill audit (flush without separate commit)
         crud.record_trade_fill_audit(db, commit=False, date_str=date_str, clock=clock)
+
+        # 4b. Record Trading Policy & NY Session Quota fill atomically
+        from services.trading_policy_service import TradingPolicyService
+        symbol = order.instrument or "XAUUSDT"
+        is_fallback = (getattr(order, "strategy_family", "STANDARD_SMC") == "NY_QUOTA_PAPER")
+        quota_update = TradingPolicyService.record_fill(
+            db=db,
+            symbol=symbol,
+            fill_time=current_dt,
+            order_id=order.id,
+            is_ny_quota_candidate=True
+        )
+
+        order.session_instance_id = quota_update.get("session_instance_id")
+
+        # 4c. If standard or manual trade opened during NY, cancel any other pending fallback orders for this session
+        if quota_update.get("session_instance_id") and not is_fallback:
+            pending_fallbacks = db.query(models.PaperOrder).filter(
+                models.PaperOrder.state == "armed",
+                models.PaperOrder.strategy_family == "NY_QUOTA_PAPER",
+                models.PaperOrder.session_instance_id == quota_update["session_instance_id"]
+            ).all()
+            for fb in pending_fallbacks:
+                fb.state = "cancelled"
+                fb.invalidation_reason = "Standard trade filled; NY quota fulfilled"
+                fb.closed_at = current_time
 
         # 5. Update associated watch setup
         if order.setup_id:
@@ -93,6 +131,7 @@ class TradeLifecycleService:
             "order_id": order.id,
             "source": source,
             "direction": order.direction,
+            "strategy_family": getattr(order, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC",
             "actual_entry": fill_price,
             "planned_entry": order.planned_entry,
             "quantity": order.quantity,
@@ -103,6 +142,7 @@ class TradeLifecycleService:
             "leverage": order.leverage,
             "margin_mode": order.margin_mode,
             "initial_margin": order.initial_margin,
+            "session_instance_id": order.session_instance_id,
             "opened_at": current_time
         }
 
@@ -173,27 +213,26 @@ class TradeLifecycleService:
         occurred_at: Optional[int] = None,
         clock: Optional[IClock] = None,
         date_str: Optional[str] = None,
-        session_tag: str = "LIVE_PAPER"
+        session_tag: str = "LIVE_PAPER",
+        recovery_metadata: Optional[Dict[str, Any]] = None
     ) -> Optional[models.PaperOrder]:
         """
         Atomic Unit of Work: Close Open Position.
         - Guarded conditional state check (must be 'paper_open').
-        - Computes Net PnL and Realized R after round-trip fees.
+        - Computes Net PnL and Realized R after round-trip fees using cost snapshot.
         - Updates DayAudit (consecutive losses, cooldown, 1.5% loss cap).
-        - Generates structured Lesson.
+        - Generates structured, evidence-based Lesson (never fakes Sweep/FVG).
         - Creates DomainEvent and NotificationOutbox (TP_HIT, SL_HIT, MANUAL_CLOSED, LIQUIDATED).
         - Commits in ONE single atomic transaction.
         """
         current_time = occurred_at or (clock.now_ms() if clock else int(time.time() * 1000))
 
-        # Conditional update check: only close if currently paper_open
         order = db.query(models.PaperOrder).filter(
             models.PaperOrder.id == order_id,
             models.PaperOrder.state == "paper_open"
         ).first()
 
         if not order:
-            # Position not open or already closed by concurrent caller
             return None
 
         entry_p = order.actual_entry or order.planned_entry
@@ -201,8 +240,16 @@ class TradeLifecycleService:
         direction_mult = 1.0 if order.direction == "LONG" else -1.0
         gross_pnl = (exit_price - entry_p) * qty * direction_mult
 
-        # Fees: round-trip 0.04% maker/taker
-        fee_cost = (entry_p + exit_price) * qty * 0.0004
+        # Fees: read from cost_snapshot if present, else fallback with legacy note
+        fee_rate = 0.0004
+        if getattr(order, 'cost_snapshot', None):
+            try:
+                snap = json.loads(order.cost_snapshot)
+                fee_rate = snap.get("taker_fee_rate", 0.0004)
+            except Exception:
+                fee_rate = 0.0004
+
+        fee_cost = (entry_p + exit_price) * qty * fee_rate
         net_pnl = round(gross_pnl - fee_cost, 2)
         realized_r = round(net_pnl / order.initial_risk_usdt, 2) if (order.initial_risk_usdt and order.initial_risk_usdt > 0) else 0.0
 
@@ -214,6 +261,14 @@ class TradeLifecycleService:
         order.exit_cause = exit_cause
         order.closed_at = current_time
 
+        # Update recovery fields if provided
+        if recovery_metadata:
+            order.recovery_status = recovery_metadata.get("recovery_status", "RECOVERED")
+            order.recovery_confidence = recovery_metadata.get("confidence", "CONFIRMED")
+            order.discovered_at = recovery_metadata.get("discovered_at", current_time)
+            order.occurred_at = occurred_at
+            order.resolved_through = recovery_metadata.get("resolved_through")
+
         # Update DayAudit in same transaction
         crud.record_trade_close_audit(db, net_pnl, commit=False, date_str=date_str, clock=clock, now_ms=current_time)
 
@@ -224,7 +279,7 @@ class TradeLifecycleService:
                 watch_setup.state = "CLOSED"
                 watch_setup.updated_at = current_time
 
-        # Create structured Lesson (with proper session tag)
+        # Create structured Lesson
         TradeLifecycleService._create_lesson(db, order, current_time, session_tag=session_tag)
 
         # Create Domain Event & Notification Outbox in same transaction
@@ -233,13 +288,15 @@ class TradeLifecycleService:
             "trade_id": order.id,
             "order_id": order.id,
             "direction": order.direction,
+            "strategy_family": getattr(order, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC",
             "actual_entry": entry_p,
             "actual_exit": round(exit_price, 2),
             "realized_pnl": net_pnl,
             "realized_r": realized_r,
             "exit_cause": exit_cause,
             "opened_at": order.opened_at,
-            "closed_at": current_time
+            "closed_at": current_time,
+            "recovery_status": getattr(order, "recovery_status", None)
         }
 
         event_bus.publish_event(
@@ -268,12 +325,7 @@ class TradeLifecycleService:
         session_tag: str = "LIVE_PAPER"
     ) -> Optional[models.PaperOrder]:
         """
-        Unified exit evaluator for both ExitMonitor and candles/sync:
-        - Strict executable side: LONG exits at Bid; SHORT exits at Ask.
-        - Prevents using pre-entry candle extremes (no retroactive fills or exits).
-        - Correctly prioritizes SL vs Liquidation on continuous price streams.
-        - Flags AMBIGUOUS_BAR_SL_FIRST when single bar touches both TP and SL.
-        - Calls execute_close atomically when triggered.
+        Unified exit evaluator for both ExitMonitor and candles/sync.
         """
         active_pos = crud.get_active_position(db)
         if not active_pos or active_pos.state != "paper_open":
@@ -287,14 +339,10 @@ class TradeLifecycleService:
             bar_start = candle_timestamp
             bar_end = bar_start + bar_duration_ms
 
-            # 1. Bar is strictly in the past before position opened -> ignore
             if opened_at >= bar_end:
                 return None
 
-            # 2. Bar is the entry bar -> opened_at is within this bar!
-            # Full high/low cannot be assumed to have occurred after opened_at
             if bar_start <= opened_at < bar_end:
-                # Disallow full bar extremes for entry bar, fallback to live tick
                 is_candle_eval = False
 
         exit_triggered = False
@@ -303,10 +351,8 @@ class TradeLifecycleService:
         lp = active_pos.estimated_liquidation
 
         if not is_candle_eval:
-            # ==================== TICK-ONLY EVALUATION ====================
-            # LONG exits by selling at current_bid
+            # TICK-ONLY EVALUATION
             if active_pos.direction == "LONG":
-                # Liquidation check
                 if lp is not None and current_bid <= lp:
                     exit_triggered = True
                     exit_price = current_bid
@@ -320,7 +366,6 @@ class TradeLifecycleService:
                     exit_price = active_pos.take_profit
                     exit_cause = "TP_HIT"
 
-            # SHORT exits by buying at current_ask
             elif active_pos.direction == "SHORT":
                 if lp is not None and current_ask >= lp:
                     exit_triggered = True
@@ -336,7 +381,7 @@ class TradeLifecycleService:
                     exit_cause = "TP_HIT"
 
         else:
-            # ==================== ELIGIBLE CLOSED BAR EVALUATION ====================
+            # CANDLE OHLC EVALUATION
             high_val = candle_high
             low_val = candle_low
 
@@ -346,12 +391,10 @@ class TradeLifecycleService:
                 hit_liq = (lp is not None and low_val <= lp)
 
                 if hit_sl and hit_tp:
-                    # Ambiguous bar: both touched in same bar -> conservative rule SL first
                     exit_triggered = True
                     exit_price = active_pos.stop_loss
                     exit_cause = "AMBIGUOUS_BAR_SL_FIRST"
                 elif hit_liq and not hit_tp:
-                    # In continuous price, SL is hit before LP unless a major gap occurred
                     exit_triggered = True
                     exit_price = lp
                     exit_cause = "LIQUIDATED"
@@ -406,38 +449,90 @@ class TradeLifecycleService:
         now_ms: int,
         session_tag: str = "LIVE_PAPER"
     ):
+        """
+        Create factual, evidence-based Lesson.
+        Separates trading outcome from execution quality:
+        A win does not prove rules were followed; a loss does not prove rules were wrong.
+        Does NOT fake Sweep/FVG when unverified.
+        """
         pnl = order.realized_pnl_net or 0.0
         r_mult = order.realized_r or 0.0
+        family = getattr(order, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC"
+        opened_at = order.opened_at or now_ms
+        hold_time_ms = max(0, now_ms - opened_at)
+
+        # Retrieve evidence
+        evidence = {}
+        if getattr(order, "evidence_snapshot_id", None):
+            ev_row = db.query(models.StrategyEvidence).filter(models.StrategyEvidence.id == order.evidence_snapshot_id).first()
+            if ev_row and ev_row.evidence_json:
+                try:
+                    evidence = json.loads(ev_row.evidence_json)
+                except Exception:
+                    evidence = {}
+
+        has_sweep = bool(evidence.get("sweep_id") or evidence.get("sweep_level"))
+        has_fvg = bool(evidence.get("fvg_id") or evidence.get("fvg_zone"))
+        has_displacement = bool(evidence.get("is_displacement"))
+
+        if family == "NY_QUOTA_PAPER":
+            compliance_status = "PARTIAL_FALLBACK"
+            compliance_detail = "Lệnh NY Quota Fallback: Khung 5M retest POI, không yêu cầu Liquidity Sweep đầy đủ."
+            invalidation_basis = f"Thủng vùng POI tại SL {order.stop_loss:.2f}"
+        elif has_sweep and has_fvg and has_displacement:
+            compliance_status = "FULL_COMPLIANCE"
+            compliance_detail = "Chuỗi SMC đầy đủ: Sweep + Displacement + MSS + FVG Retest có bằng chứng."
+            invalidation_basis = f"Invalidation cấu trúc tại SL {order.stop_loss:.2f}"
+        else:
+            compliance_status = "INCOMPLETE_EVIDENCE"
+            compliance_detail = "Thiếu bằng chứng chuỗi SMC đầy đủ tại thời điểm vào lệnh."
+            invalidation_basis = f"Stop Loss tại {order.stop_loss:.2f}"
 
         if order.exit_cause == "LIQUIDATED":
-            title = f"THANH LÝ VỊ THẾ {order.direction} (-${abs(pnl):.2f}) tại {order.actual_exit:.2f}"
-            reflection = f"Vị thế {order.direction} bị thanh lý do giá chạm mức Liquidation Price ({order.actual_exit:.2f})."
+            title = f"THANH LÝ VỊ THẾ {family} {order.direction} (-${abs(pnl):.2f}) tại {order.actual_exit:.2f}"
+            reflection = f"Vị thế {order.direction} bị thanh lý do giá chạm Liquidation Price ({order.actual_exit:.2f})."
             action_rule = "Xem lại mức đòn bẩy và luôn duy trì khoảng đệm an toàn giữa SL và Liquidation Price."
-        elif order.exit_cause == "AMBIGUOUS_BAR_SL_FIRST":
-            title = f"Dừng lỗ nến mơ hồ {order.direction} (-${abs(pnl):.2f}) tại {order.actual_exit:.2f}"
+        elif order.exit_cause in ("AMBIGUOUS_BAR_SL_FIRST", "AMBIGUOUS_BAR_CONSERVATIVE_SL"):
+            title = f"Dừng lỗ nến mơ hồ {family} {order.direction} (-${abs(pnl):.2f}) tại {order.actual_exit:.2f}"
             reflection = "Nến biến động mạnh chạm cả TP và SL trong cùng một bar. Giả định thận trọng SL khớp trước."
             action_rule = "Tránh giữ lệnh qua các thời điểm công bố tin tức có độ biến động hai đầu lớn."
         elif pnl >= 0:
-            title = f"Thắng {order.direction} +{r_mult}R (+${pnl:.2f}) theo cấu trúc SMC"
-            reflection = f"Lệnh {order.direction} tuân thủ đúng quy tắc Sweep và FVG. TP tại {order.actual_exit:.2f} hoàn thành kỳ vọng."
-            action_rule = "Tiếp tục duy trì tính kỷ luật chỉ mở lệnh khi có Liquidity Sweep rõ ràng."
+            title = f"Thắng {family} {order.direction} +{r_mult}R (+${pnl:.2f}) tại {order.actual_exit:.2f}"
+            reflection = f"Lệnh {order.direction} ({family}) đạt Take Profit. {compliance_detail}"
+            action_rule = "Tiếp tục thu thập dữ liệu; không nới lỏng quy tắc dựa trên kết quả đơn lẻ."
         else:
-            title = f"Dừng lỗ {order.direction} {r_mult}R (-${abs(pnl):.2f}) tại {order.actual_exit:.2f}"
-            reflection = f"Lệnh chạm SL do {order.exit_cause}. Thị trường biến động mạnh hơn dự kiến."
-            action_rule = "Kiểm tra lại biên độ buffer ATR và tránh vào lệnh gần vùng biến động mở phiên."
-
-        is_approved = (session_tag == "LIVE_PAPER")
+            title = f"Dừng lỗ {family} {order.direction} {r_mult}R (-${abs(pnl):.2f}) tại {order.actual_exit:.2f}"
+            reflection = f"Lệnh {order.direction} chạm SL ({order.exit_cause}). {compliance_detail}"
+            action_rule = "Kiểm tra lại biên độ buffer ATR và cấu trúc bảo vệ; ghi nhận số liệu mẫu để nghiên cứu."
 
         db_lesson = models.Lesson(
             created_at=now_ms,
             title=title,
             category="EXECUTION",
             related_trade_id=order.id,
-            setup_type="SMC_ORDER",
+            setup_type=family,
             session=session_tag,
             reflection=reflection,
             action_rule=action_rule,
             is_hard_filter=False,
-            is_approved=is_approved
+            is_approved=False,  # Lessons require human review/validation, never auto-approved
+            strategy_family=family,
+            facts_snapshot=json.dumps({
+                "family": family,
+                "direction": order.direction,
+                "actual_entry": order.actual_entry,
+                "actual_exit": order.actual_exit,
+                "pnl": pnl,
+                "realized_r": r_mult,
+                "exit_cause": order.exit_cause
+            }),
+            compliance_snapshot=json.dumps({
+                "compliance_status": compliance_status,
+                "compliance_detail": compliance_detail,
+                "invalidation_basis": invalidation_basis
+            }),
+            mfe_mae_snapshot=json.dumps({
+                "hold_time_ms": hold_time_ms
+            })
         )
         db.add(db_lesson)

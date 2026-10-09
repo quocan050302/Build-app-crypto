@@ -4,6 +4,7 @@ backend/__pycache__/
 __pycache__/
 *.py[cod]
 *$py.class
+*.db
 *.db.bak*
 *.backup*
 *.db-shm

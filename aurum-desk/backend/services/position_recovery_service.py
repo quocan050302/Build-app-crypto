@@ -1,9 +1,9 @@
 import time
+import json
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
-import httpx
 
 import models, crud
 from services.trade_lifecycle_service import TradeLifecycleService
@@ -21,13 +21,12 @@ def get_vn_date_str(epoch_ms: int) -> str:
 
 class PositionRecoveryService:
     """
-    V6.1 Offline Position Recovery & Reconciler Service.
+    V6.1 & V7 Offline Position Recovery & Reconciler Service.
     - Scans for active PAPER_OPEN positions after machine sleep, process restart, or network reconnect.
-    - Identifies data gaps between position checkpoint (last_processed_market_timestamp or opened_at) and now.
-    - Chronologically evaluates historical closed candles in the gap to determine first valid exit.
+    - Evaluates closed candles strictly (is_closed == True) in the gap.
     - Resolves ambiguity (TP and SL in same bar) conservatively with ASSUMED_CONSERVATIVE.
     - Records exit atomically with historical occurred_at, discovery time, and correct VN date DayAudit.
-    - Creates idempotent Telegram outbox notification without duplicates on restart.
+    - Creates valid JSON Telegram outbox notification without duplicates.
     """
 
     @staticmethod
@@ -62,31 +61,31 @@ class PositionRecoveryService:
             order.last_recovery_attempt = current_time
             db.commit()
 
-            # Retrieve closed candles for evaluation
+            # Retrieve closed candles for evaluation (strictly closed bars)
             candles: List[models.Candle] = []
             if candles_override is not None:
-                candles = candles_override
+                candles = [c for c in candles_override if getattr(c, 'is_closed', True)]
             else:
-                # Query local DB for 15M or 5M or 1M candles in the window
+                # Query local DB for closed candles in the window
                 db_candles = db.query(models.Candle).filter(
                     models.Candle.symbol == order.instrument,
                     models.Candle.timestamp > lower_bound,
-                    models.Candle.timestamp <= current_time
+                    models.Candle.timestamp <= current_time,
+                    models.Candle.is_closed == True
                 ).order_by(models.Candle.timestamp.asc()).all()
                 candles = db_candles
 
             if not candles:
-                logger.warning(f"[OFFLINE_RECOVERY] No candles available in range {lower_bound} - {current_time} for {order.id}")
+                logger.warning(f"[OFFLINE_RECOVERY] No closed candles available in range {lower_bound} - {current_time} for {order.id}")
                 order.recovery_status = "RECOVERY_INCOMPLETE"
                 db.commit()
                 results.append({
                     "order_id": order.id,
                     "status": "RECOVERY_INCOMPLETE",
-                    "reason": "MISSING_CANDLE_DATA"
+                    "reason": "MISSING_CLOSED_CANDLE_DATA"
                 })
                 continue
 
-            # Sort ascending by timestamp
             sorted_candles = sorted(candles, key=lambda c: c.timestamp)
 
             exit_found = False
@@ -99,7 +98,6 @@ class PositionRecoveryService:
             for c in sorted_candles:
                 resolved_through_ts = c.timestamp
                 bar_start = c.timestamp
-                # Assume 15M (900000ms) or 5M (300000ms) or 1M (60000ms) based on candle timeframe
                 tf_ms = 15 * 60 * 1000 if c.timeframe == "15M" else (5 * 60 * 1000 if c.timeframe == "5M" else 60 * 1000)
                 bar_end = bar_start + tf_ms
 
@@ -171,6 +169,13 @@ class PositionRecoveryService:
                 hist_date_str = get_vn_date_str(occurred_at)
                 logger.info(f"[OFFLINE_RECOVERY] Reconciled historical exit for {order.id}: {exit_cause} at {exit_price} (occurred_at={occurred_at}, date={hist_date_str})")
 
+                recovery_meta = {
+                    "recovery_status": "RECOVERED",
+                    "confidence": confidence,
+                    "discovered_at": current_time,
+                    "resolved_through": resolved_through_ts
+                }
+
                 # Atomically execute close via TradeLifecycleService
                 closed_order = TradeLifecycleService.execute_close(
                     db=db,
@@ -180,17 +185,12 @@ class PositionRecoveryService:
                     occurred_at=occurred_at,
                     clock=clock,
                     date_str=hist_date_str,
-                    session_tag="OFFLINE_RECOVERY"
+                    session_tag="OFFLINE_RECOVERY",
+                    recovery_metadata=recovery_meta
                 )
 
                 if closed_order:
-                    closed_order.recovery_status = "RECOVERED"
-                    closed_order.recovery_confidence = confidence
-                    closed_order.discovered_at = current_time
-                    closed_order.occurred_at = occurred_at
-                    closed_order.resolved_through = resolved_through_ts
-
-                    # Create dedicated Outbox notification with offline recovery badge
+                    # Create dedicated Outbox notification with valid JSON
                     dedupe_key = f"offline-recovery-{order.id}-{occurred_at}"
                     existing_outbox = db.query(models.NotificationOutbox).filter(
                         models.NotificationOutbox.dedupe_key == dedupe_key
@@ -200,31 +200,32 @@ class PositionRecoveryService:
                         dt_occurred = datetime.fromtimestamp(occurred_at / 1000.0, tz=VN_TZ).strftime("%H:%M:%S %d/%m/%Y")
                         dt_disc = datetime.fromtimestamp(current_time / 1000.0, tz=VN_TZ).strftime("%H:%M:%S %d/%m/%Y")
                         
+                        outbox_payload = {
+                            "badge": "KẾT QUẢ PAPER ĐƯỢC ĐỐI SOÁT SAU OFFLINE",
+                            "order_id": order.id,
+                            "direction": order.direction,
+                            "exit_cause": exit_cause,
+                            "confidence": confidence,
+                            "exit_price": exit_price,
+                            "net_pnl": closed_order.realized_pnl_net,
+                            "occurred_at_str": dt_occurred,
+                            "discovered_at_str": dt_disc,
+                            "note": "Kết quả được khôi phục chính xác theo thứ tự thời gian từ nến lịch sử sàn Bitget."
+                        }
+
                         outbox_item = models.NotificationOutbox(
                             event_id=f"evt-rec-{order.id}",
                             channel="TELEGRAM",
                             recipient="ALL",
                             message_type="OFFLINE_RECOVERY_EXIT",
                             dedupe_key=dedupe_key,
-                            payload=str({
-                                "badge": "KẾT QUẢ PAPER ĐƯỢC ĐỐI SOÁT SAU OFFLINE",
-                                "order_id": order.id,
-                                "direction": order.direction,
-                                "exit_cause": exit_cause,
-                                "confidence": confidence,
-                                "exit_price": exit_price,
-                                "net_pnl": closed_order.realized_pnl_net,
-                                "occurred_at_str": dt_occurred,
-                                "discovered_at_str": dt_disc,
-                                "note": "Kết quả được khôi phục chính xác theo thứ tự thời gian từ nến lịch sử sàn Bitget."
-                            }),
+                            payload=json.dumps(outbox_payload, ensure_ascii=False),
                             status="PENDING",
                             priority="CRITICAL",
                             created_at=current_time
                         )
                         db.add(outbox_item)
-
-                    db.commit()
+                        db.commit()
 
                     results.append({
                         "order_id": order.id,
@@ -238,7 +239,7 @@ class PositionRecoveryService:
                     })
 
             else:
-                # Position survived the offline period! Remains paper_open
+                # Position survived the offline period
                 order.last_processed_market_timestamp = resolved_through_ts
                 order.recovery_status = "UP_TO_DATE"
                 order.resolved_through = resolved_through_ts

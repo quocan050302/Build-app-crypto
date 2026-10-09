@@ -88,6 +88,17 @@ class PaperOrder(Base):
     discovered_at = Column(BigInteger, nullable=True)
     occurred_at = Column(BigInteger, nullable=True)
 
+    # V7 Trading Policy & Quota Fields
+    strategy_family = Column(String(30), default="STANDARD_SMC")  # STANDARD_SMC, NY_QUOTA_PAPER, MANUAL
+    session_instance_id = Column(String(60), nullable=True, index=True)
+    policy_config_version = Column(Integer, default=1)
+    evidence_snapshot_id = Column(String(60), nullable=True)
+    requested_risk_pct = Column(Float, default=0.25)
+    effective_risk_pct = Column(Float, default=0.25)
+    risk_profile = Column(String(30), default="STANDARD")  # STANDARD, QUOTA_FALLBACK
+    cost_snapshot = Column(Text, nullable=True)  # JSON
+
+
 
 class DayAudit(Base):
     __tablename__ = "day_audits"
@@ -175,6 +186,13 @@ class Lesson(Base):
     is_hard_filter = Column(Boolean, default=False)
     is_approved = Column(Boolean, default=True)
 
+    # V7 Evidence-based Lesson Fields
+    strategy_family = Column(String(30), default="STANDARD_SMC")
+    facts_snapshot = Column(Text, nullable=True)       # JSON facts (entry/exit/pnl/cause/confidence)
+    compliance_snapshot = Column(Text, nullable=True)  # JSON evaluated rules compliance
+    mfe_mae_snapshot = Column(Text, nullable=True)     # JSON MFE/MAE/hold time
+    action_candidate = Column(Text, nullable=True)     # JSON structured proposed rule candidate
+
 
 class SystemConfig(Base):
     __tablename__ = "system_configs"
@@ -240,6 +258,16 @@ class WatchSetup(Base):
     near_entry_distance_atr = Column(Float, nullable=True)
     entry_zone_low = Column(Float, nullable=True)
     entry_zone_high = Column(Float, nullable=True)
+
+    # V7 Trading Policy & Quota Fields
+    strategy_family = Column(String(30), default="STANDARD_SMC")
+    policy_config_version = Column(Integer, default=1)
+    evidence_snapshot_id = Column(String(60), nullable=True)
+    requested_risk_pct = Column(Float, default=0.25)
+    effective_risk_pct = Column(Float, default=0.25)
+    risk_profile = Column(String(30), default="STANDARD")
+    cost_snapshot = Column(Text, nullable=True)
+
 
 
 class DomainEvent(BaseModel if False else Base):
@@ -345,3 +373,76 @@ class ReplayTrade(Base):
     rvol_at_entry = Column(Float, nullable=True)
 
     run = relationship("ReplayRun", back_populates="trades")
+
+
+# ==================== V7 TRADING POLICY & QUOTA MODELS ====================
+
+class TradingPolicy(Base):
+    __tablename__ = "trading_policies"
+
+    id = Column(String(50), primary_key=True, default="default")
+    version = Column(Integer, default=1)
+    mode = Column(String(20), default="PAPER")
+    symbol = Column(String(20), default="XAUUSDT")
+    max_daily_fills = Column(Integer, default=3)
+    daily_timezone = Column(String(50), default="Asia/Ho_Chi_Minh")
+    entry_session_policy = Column(String(40), default="NY_ONLY")  # NY_ONLY or ALL_SESSIONS_WITH_NY_RESERVE
+    ny_timezone = Column(String(50), default="America/New_York")
+    ny_entry_start = Column(String(10), default="08:00")
+    ny_entry_end = Column(String(10), default="11:00")
+    ny_min_fills = Column(Integer, default=1)
+    reserve_ny_slot = Column(Boolean, default=True)
+    ny_fallback_enabled = Column(Boolean, default=True)
+    ny_fallback_start = Column(String(10), default="10:30")
+    ny_fallback_risk_pct_cap = Column(Float, default=0.10)
+    min_net_rr = Column(Float, default=2.0)
+    max_open_positions = Column(Integer, default=1)
+    max_armed_orders = Column(Integer, default=1)
+    updated_at = Column(BigInteger, nullable=False)
+
+
+class SessionQuota(Base):
+    __tablename__ = "session_quotas"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    account_namespace = Column(String(50), default="default", index=True)
+    symbol = Column(String(20), default="XAUUSDT", index=True)
+    session_instance_id = Column(String(60), unique=True, index=True, nullable=False)  # e.g., NY-2026-10-09
+    session_date_utc = Column(String(10), nullable=False)
+    session_date_vn = Column(String(10), nullable=False)
+    session_date_ny = Column(String(10), nullable=False)
+    window_start_ms = Column(BigInteger, nullable=False)
+    window_end_ms = Column(BigInteger, nullable=False)
+    fallback_start_ms = Column(BigInteger, nullable=False)
+    target_fills = Column(Integer, default=1)
+    standard_fills = Column(Integer, default=0)
+    fallback_fills = Column(Integer, default=0)
+    total_fills = Column(Integer, default=0)
+    quota_status = Column(String(30), default="NOT_STARTED", index=True)
+    # NOT_STARTED, SEEKING_STANDARD, SEEKING_FALLBACK, ARMED_PENDING_FILL, FULFILLED, BLOCKED, MISSED, DISABLED, NOT_APPLICABLE
+    last_status_reason = Column(String(255), nullable=True)
+    last_evaluated_at = Column(BigInteger, nullable=True)
+    created_at = Column(BigInteger, nullable=False)
+    updated_at = Column(BigInteger, nullable=False)
+
+
+class StrategyEvidence(Base):
+    __tablename__ = "strategy_evidences"
+
+    id = Column(String(60), primary_key=True)
+    strategy_family = Column(String(30), default="STANDARD_SMC")
+    strategy_version = Column(String(20), default="7.0.0")
+    setup_id = Column(String(60), nullable=True)
+    setup_instance_id = Column(String(100), nullable=True)
+    direction = Column(String(10), nullable=False)
+    htf_context = Column(Text, nullable=True)  # JSON
+    h1_alignment = Column(String(20), default="UNKNOWN")
+    sweep_evidence = Column(Text, nullable=True)  # JSON
+    displacement_evidence = Column(Text, nullable=True)  # JSON
+    fvg_evidence = Column(Text, nullable=True)  # JSON
+    retest_evidence = Column(Text, nullable=True)  # JSON
+    missing_evidence = Column(Text, nullable=True)  # JSON
+    cost_snapshot = Column(Text, nullable=True)  # JSON
+    risk_snapshot = Column(Text, nullable=True)  # JSON
+    created_at = Column(BigInteger, nullable=False)
+

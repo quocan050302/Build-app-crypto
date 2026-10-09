@@ -535,56 +535,96 @@ def evaluate_smc_setup(
     missing_conditions = []
     conditions_met = []
     reason_code = "WAITING_SETUP"
+    matched_sweep = None
+    matched_break = None
+    matched_fvg = None
 
     # Identify latest confirmed sweep
     recent_sweeps = [e for e in events if e.get("event_type") == "SWEEP"]
     last_sweep_ev = recent_sweeps[-1] if recent_sweeps else None
 
-    # Identify breaks occurring AFTER that sweep
+    # Identify breaks occurring STRICTLY AFTER that sweep with verified displacement
     breaks_after_sweep = []
+    same_bar_breaks = []
     if last_sweep_ev:
         breaks_after_sweep = [
             e for e in events
-            if e.get("event_type") in ("CHOCH", "BOS") and e["timestamp"] >= last_sweep_ev["timestamp"]
+            if e.get("event_type") in ("CHOCH", "BOS")
+            and e["timestamp"] > last_sweep_ev["timestamp"]
+            and e.get("is_displacement") is True
+        ]
+        same_bar_breaks = [
+            e for e in events
+            if e.get("event_type") in ("CHOCH", "BOS")
+            and e["timestamp"] == last_sweep_ev["timestamp"]
         ]
 
+    # H1 Alignment check
+    h1_aligned_for_long = final_h1_align not in ("OPPOSING", "BEARISH")
+    h1_aligned_for_short = final_h1_align not in ("OPPOSING", "BULLISH")
+
     # Long Setup Verification:
-    # 1. HTF Context = BULLISH
-    # 2. Zone = DISCOUNT
-    # 3. Last sweep = SWEEP_LOW on closed candle
-    # 4. Displacement / MSS occurring at or after sweep
-    # 5. FVG available in entry zone
-    # 6. Retrace into FVG / POI
+    # 1. HTF Context = BULLISH (or 15M trend if UNKNOWN, clearly documented)
+    # 2. H1 Alignment != OPPOSING
+    # 3. Zone = DISCOUNT
+    # 4. Last sweep = SWEEP_LOW on closed candle
+    # 5. Displacement + MSS occurring strictly after sweep
+    # 6. FVG created at/after sweep in entry zone (no synthetic bypass)
+    # 7. Actual retrace into FVG / POI
     if final_htf_bias == "BULLISH" or (final_htf_bias == "UNKNOWN" and trend == "BULLISH"):
-        conditions_met.append("Xu hướng HTF/Khung đang theo dõi ủng hộ Mua (BULLISH)")
+        if final_htf_bias == "BULLISH":
+            conditions_met.append("Xu hướng HTF (D/4H) ủng hộ Mua (BULLISH)")
+        else:
+            conditions_met.append("Xu hướng khung theo dõi (15M) ủng hộ Mua (BULLISH) - Lưu ý: HTF D/4H chưa xác nhận, không phải đồng thuận D/4H")
         setup_stage = "WAITING_PRICE"
 
-        if zone == "DISCOUNT":
+        if not h1_aligned_for_long:
+            missing_conditions.append(f"Khung H1 đi ngược hướng setup ({final_h1_align}), không đủ điều kiện đồng thuận")
+            reason_code = "H1_ALIGNMENT_OPPOSING"
+        elif zone == "DISCOUNT":
             conditions_met.append(f"Giá nằm trong vùng Discount ({current_price:.2f} < Eq {eq:.2f})")
             setup_stage = "WAITING_SWEEP"
 
             if last_sweep_ev and last_sweep_ev.get("kind") == "SWEEP_LOW":
                 conditions_met.append(f"Đã xác nhận Liquidity Sweep đáy {last_sweep_ev['level']:.2f}")
+                matched_sweep = last_sweep_ev
                 setup_stage = "WAITING_MSS"
 
-                # Check for MSS / CHOCH / BOS after sweep
+                # Check for MSS / CHOCH / BOS after sweep with verified displacement
                 bull_breaks = [b for b in breaks_after_sweep if b.get("direction") == "BULLISH"]
                 if bull_breaks:
-                    conditions_met.append("Đã xuất hiện MSS / Phá vỡ cấu trúc tăng sau Sweep")
+                    matched_break = bull_breaks[-1]
+                    conditions_met.append("Đã xuất hiện MSS / Phá vỡ cấu trúc tăng sau Sweep với Displacement đạt chuẩn")
                     setup_stage = "WAITING_RETRACE"
 
-                    # Check for Bullish FVG
-                    recent_bull_fvgs = [f for f in active_fvgs if f["type"] == "BULLISH_FVG"]
-                    if recent_bull_fvgs or current_price <= eq:
-                        conditions_met.append("Giá đang retrace trong vùng FVG/POI hợp lệ")
-                        setup_stage = "READY"
-                        setup_direction = "LONG"
-                        sweep_extreme = last_sweep_ev["wick_extreme"]
-                        sl = round(sweep_extreme - 0.3 * atr, 2)
-                        tp = round(last_sh, 2)
+                    # Check for Bullish FVG created at or after the sweep
+                    recent_bull_fvgs = [
+                        f for f in active_fvgs
+                        if f["type"] == "BULLISH_FVG"
+                        and not f.get("mitigated", False)
+                        and f.get("timestamp", 0) >= last_sweep_ev["timestamp"]
+                    ]
+                    if recent_bull_fvgs:
+                        target_fvg = recent_bull_fvgs[-1]
+                        in_fvg_zone = target_fvg["bottom"] <= current_price <= target_fvg["top"]
+                        has_retested = in_fvg_zone or (current_candle.low <= target_fvg["top"] and current_price >= target_fvg["bottom"])
+                        if has_retested:
+                            conditions_met.append(f"Giá đang retrace trong vùng FVG [{target_fvg['bottom']:.2f} - {target_fvg['top']:.2f}]")
+                            setup_stage = "READY"
+                            setup_direction = "LONG"
+                            matched_fvg = target_fvg
+                            sweep_extreme = last_sweep_ev["wick_extreme"]
+                            sl = round(sweep_extreme - 0.3 * atr, 2)
+                            tp = round(last_sh, 2)
+                        else:
+                            missing_conditions.append(f"Chờ giá retrace hồi về vùng FVG [{target_fvg['bottom']:.2f} - {target_fvg['top']:.2f}]")
+                            reason_code = "WAITING_RETRACE"
                     else:
-                        missing_conditions.append("Chờ giá retrace hồi về FVG/POI trước khi vào lệnh")
-                        reason_code = "WAITING_RETRACE"
+                        missing_conditions.append("Chờ hình thành FVG tăng hợp lệ sau Displacement (không dùng bypass)")
+                        reason_code = "WAITING_FVG"
+                elif same_bar_breaks:
+                    missing_conditions.append("Sweep và Break cùng một nến chưa chứng minh thứ tự nội nến, chờ xác nhận")
+                    reason_code = "SAME_BAR_AMBIGUOUS"
                 else:
                     missing_conditions.append("Chờ tín hiệu Displacement và MSS phá vỡ cấu trúc tăng sau Sweep")
                     reason_code = "WAITING_MSS"
@@ -597,33 +637,57 @@ def evaluate_smc_setup(
 
     # Short Setup Verification:
     elif final_htf_bias == "BEARISH" or (final_htf_bias == "UNKNOWN" and trend == "BEARISH"):
-        conditions_met.append("Xu hướng HTF/Khung đang theo dõi ủng hộ Bán (BEARISH)")
+        if final_htf_bias == "BEARISH":
+            conditions_met.append("Xu hướng HTF (D/4H) ủng hộ Bán (BEARISH)")
+        else:
+            conditions_met.append("Xu hướng khung theo dõi (15M) ủng hộ Bán (BEARISH) - Lưu ý: HTF D/4H chưa xác nhận, không phải đồng thuận D/4H")
         setup_stage = "WAITING_PRICE"
 
-        if zone == "PREMIUM":
+        if not h1_aligned_for_short:
+            missing_conditions.append(f"Khung H1 đi ngược hướng setup ({final_h1_align}), không đủ điều kiện đồng thuận")
+            reason_code = "H1_ALIGNMENT_OPPOSING"
+        elif zone == "PREMIUM":
             conditions_met.append(f"Giá nằm trong vùng Premium ({current_price:.2f} > Eq {eq:.2f})")
             setup_stage = "WAITING_SWEEP"
 
             if last_sweep_ev and last_sweep_ev.get("kind") == "SWEEP_HIGH":
                 conditions_met.append(f"Đã xác nhận Liquidity Sweep đỉnh {last_sweep_ev['level']:.2f}")
+                matched_sweep = last_sweep_ev
                 setup_stage = "WAITING_MSS"
 
                 bear_breaks = [b for b in breaks_after_sweep if b.get("direction") == "BEARISH"]
                 if bear_breaks:
-                    conditions_met.append("Đã xuất hiện MSS / Phá vỡ cấu trúc giảm sau Sweep")
+                    matched_break = bear_breaks[-1]
+                    conditions_met.append("Đã xuất hiện MSS / Phá vỡ cấu trúc giảm sau Sweep với Displacement đạt chuẩn")
                     setup_stage = "WAITING_RETRACE"
 
-                    recent_bear_fvgs = [f for f in active_fvgs if f["type"] == "BEARISH_FVG"]
-                    if recent_bear_fvgs or current_price >= eq:
-                        conditions_met.append("Giá đang retrace trong vùng FVG/POI hợp lệ")
-                        setup_stage = "READY"
-                        setup_direction = "SHORT"
-                        sweep_extreme = last_sweep_ev["wick_extreme"]
-                        sl = round(sweep_extreme + 0.3 * atr, 2)
-                        tp = round(last_sl, 2)
+                    recent_bear_fvgs = [
+                        f for f in active_fvgs
+                        if f["type"] == "BEARISH_FVG"
+                        and not f.get("mitigated", False)
+                        and f.get("timestamp", 0) >= last_sweep_ev["timestamp"]
+                    ]
+                    if recent_bear_fvgs:
+                        target_fvg = recent_bear_fvgs[-1]
+                        in_fvg_zone = target_fvg["bottom"] <= current_price <= target_fvg["top"]
+                        has_retested = in_fvg_zone or (current_candle.high >= target_fvg["bottom"] and current_price <= target_fvg["top"])
+                        if has_retested:
+                            conditions_met.append(f"Giá đang retrace trong vùng FVG [{target_fvg['bottom']:.2f} - {target_fvg['top']:.2f}]")
+                            setup_stage = "READY"
+                            setup_direction = "SHORT"
+                            matched_fvg = target_fvg
+                            sweep_extreme = last_sweep_ev["wick_extreme"]
+                            sl = round(sweep_extreme + 0.3 * atr, 2)
+                            tp = round(last_sl, 2)
+                        else:
+                            missing_conditions.append(f"Chờ giá retrace hồi về vùng FVG [{target_fvg['bottom']:.2f} - {target_fvg['top']:.2f}]")
+                            reason_code = "WAITING_RETRACE"
                     else:
-                        missing_conditions.append("Chờ giá retrace hồi về FVG/POI trước khi vào lệnh")
-                        reason_code = "WAITING_RETRACE"
+                        missing_conditions.append("Chờ hình thành FVG giảm hợp lệ sau Displacement (không dùng bypass)")
+                        reason_code = "WAITING_FVG"
+                elif same_bar_breaks:
+                    missing_conditions.append("Sweep và Break cùng một nến chưa chứng minh thứ tự nội nến, chờ xác nhận")
+                    reason_code = "SAME_BAR_AMBIGUOUS"
                 else:
                     missing_conditions.append("Chờ tín hiệu Displacement và MSS phá vỡ cấu trúc giảm sau Sweep")
                     reason_code = "WAITING_MSS"
@@ -749,6 +813,16 @@ def evaluate_smc_setup(
         "is_hard_filter": True
     })
 
+    # Filter 7: H1 Alignment
+    h1_pass = (setup_direction == "LONG" and h1_aligned_for_long) or (setup_direction == "SHORT" and h1_aligned_for_short) if setup_direction else (final_h1_align not in ("OPPOSING",))
+    checklist.append({
+        "id": "H1_ALIGNMENT",
+        "label": "Đồng Thuận Khung H1 (H1 Alignment)",
+        "status": "PASS" if h1_pass else "FAIL",
+        "detail": f"H1 Alignment: {final_h1_align}" if h1_pass else f"H1 ngược hướng setup ({final_h1_align})",
+        "is_hard_filter": True
+    })
+
     # State Machine Assignment
     engine_state = "waiting_setup"
     if not news_pass:
@@ -759,7 +833,10 @@ def evaluate_smc_setup(
     elif not data_fresh_pass:
         engine_state = "stale_data"
         reason_code = "STALE_QUOTE"
-    elif setup_direction and rr_pass and sweep_pass and liq_pass and calc_res and calc_res.can_execute:
+    elif not h1_pass:
+        engine_state = "blocked_alignment"
+        reason_code = "H1_ALIGNMENT_OPPOSING"
+    elif setup_direction and rr_pass and sweep_pass and liq_pass and h1_pass and calc_res and calc_res.can_execute:
         engine_state = "candidate"
         setup_stage = "READY"
         reason_code = "SETUP_READY"
@@ -775,6 +852,17 @@ def evaluate_smc_setup(
             "instrument": symbol,
             "direction": setup_direction,
             "state": "candidate",
+            "strategy_family": "STANDARD_SMC",
+            "strategy_version": "7.0.0",
+            "evidence": {
+                "sweep_id": matched_sweep.get("id") if matched_sweep else None,
+                "sweep_level": matched_sweep.get("level") if matched_sweep else None,
+                "break_id": matched_break.get("id") if matched_break else None,
+                "break_type": matched_break.get("event_type") if matched_break else None,
+                "is_displacement": matched_break.get("is_displacement") if matched_break else False,
+                "fvg_id": matched_fvg.get("id") if matched_fvg else None,
+                "fvg_zone": [matched_fvg.get("bottom"), matched_fvg.get("top")] if matched_fvg else None,
+            },
             "planned_entry": calc_res.planned_entry,
             "actual_entry": None,
             "stop_loss": calc_res.stop_loss,

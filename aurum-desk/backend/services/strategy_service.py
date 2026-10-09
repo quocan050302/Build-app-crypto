@@ -2,12 +2,18 @@ import time
 import json
 import uuid
 import asyncio
+import logging
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
 from database import SessionLocal
 import models, crud, smc_engine
 from services.collector_service import collector_service
 from services.event_bus import event_bus
+from services.trading_policy_service import TradingPolicyService
+from services.ny_fallback_service import NYFallbackService
+
+logger = logging.getLogger(__name__)
 
 class StrategyService:
     def __init__(self):
@@ -50,6 +56,7 @@ class StrategyService:
                 return
 
             now_ms = int(time.time() * 1000)
+            now_dt = datetime.fromtimestamp(now_ms / 1000.0, tz=timezone.utc)
             ticker = collector_service.latest_ticker or {"bid": candles[-1].close, "ask": candles[-1].close, "last": candles[-1].close}
             is_blackout, blackout_reason, _ = crud.check_news_blackout(db, now_ms)
             day_audit = crud.get_or_create_today_audit(db)
@@ -60,6 +67,7 @@ class StrategyService:
             margin_mode = global_settings.margin_mode
             risk_pct = global_settings.risk_pct
             config_version = global_settings.config_version
+            capital = day_audit.current_equity if day_audit else 1000.0
 
             analysis = smc_engine.evaluate_smc_setup(
                 candles=candles,
@@ -88,59 +96,43 @@ class StrategyService:
             direction = sig.get("direction", "LONG" if analysis.get("trend") == "BULLISH" else "SHORT") if sig else ("LONG" if analysis.get("trend") == "BULLISH" else "SHORT")
             provisional_entry = sig.get("planned_entry", current_p) if sig else current_p
 
-            # Direction-aware provisional fallback levels (V5.1 & V6 Geometry + Net RR Fix)
-            stop_dist = max(round(atr * 2.0, 2), 5.0)
-            target_dist = round(stop_dist * 2.6, 2)
-            if direction == "LONG":
-                fallback_sl = round(current_p - stop_dist, 2)
-                fallback_tp = round(current_p + target_dist, 2)
-            else:
-                fallback_sl = round(current_p + stop_dist, 2)
-                fallback_tp = round(current_p - target_dist, 2)
+            # Real liquidity target levels
+            sh = analysis.get("swing_high", current_p + 10.0)
+            sl_val = analysis.get("swing_low", current_p - 10.0)
+            fallback_sl = round(current_p - max(atr * 2.0, 5.0), 2) if direction == "LONG" else round(current_p + max(atr * 2.0, 5.0), 2)
+            fallback_tp = round(sh, 2) if direction == "LONG" else round(sl_val, 2)
 
             provisional_sl = sig.get("stop_loss", fallback_sl) if sig else fallback_sl
             provisional_tp = sig.get("targets", [{}])[0].get("price", fallback_tp) if sig and sig.get("targets") else fallback_tp
 
-            # Calculate authoritative risk-reward for provisional setup
+            # Calculate authoritative risk-reward for provisional setup using real equity
             from domain_calculator import calculate_risk_reward, validate_price_geometry
             calc_prov = calculate_risk_reward(
                 direction=direction,
                 planned_entry=provisional_entry,
                 stop_loss=provisional_sl,
                 take_profit=provisional_tp,
-                capital_usdt=1000.0,
+                capital_usdt=capital,
                 risk_pct=risk_pct,
                 leverage=leverage,
-                margin_mode="ISOLATED"
+                margin_mode=margin_mode
             )
+
+            # Do NOT artificially inflate target by 2.8x. If Net RR is insufficient, report NET_RR_TOO_LOW
             if not calc_prov.meets_min_rr:
-                needed_target = round(abs(provisional_entry - provisional_sl) * 2.8, 2)
-                if direction == "LONG":
-                    provisional_tp = round(provisional_entry + needed_target, 2)
-                else:
-                    provisional_tp = round(provisional_entry - needed_target, 2)
-                calc_prov = calculate_risk_reward(
-                    direction=direction,
-                    planned_entry=provisional_entry,
-                    stop_loss=provisional_sl,
-                    take_profit=provisional_tp,
-                    capital_usdt=1000.0,
-                    risk_pct=risk_pct,
-                    leverage=leverage,
-                    margin_mode="ISOLATED"
-                )
+                if setup_stage == "READY":
+                    setup_stage = "WATCHING"
+                    analysis["reason_code"] = "NET_RR_TOO_LOW"
 
             # Validate price geometry strictly (LONG: sl < entry < tp, SHORT: tp < entry < sl)
             is_geom_valid, geom_err = validate_price_geometry(direction, provisional_entry, provisional_sl, provisional_tp)
             if not is_geom_valid:
-                # If geometry fails, do not allow setup to be READY
                 if setup_stage == "READY":
                     setup_stage = "INVALID_GEOMETRY"
 
             invalidation_price = provisional_sl
             inval_reason = "Giá phá vỡ mức Stop Loss hoặc vi phạm cấu trúc đối diện"
 
-            # Determine setup instance ID to avoid locking future setups
             candle_ts = candles[-1].timestamp if candles else now_ms
             setup_instance_id = sig.get("signal_id") if sig else f"setup-{symbol}-{timeframe}-{candle_ts}"
 
@@ -153,6 +145,7 @@ class StrategyService:
                     setup_instance_id=setup_instance_id,
                     version=1,
                     strategy="SMC_V1",
+                    strategy_family="STANDARD_SMC",
                     direction=direction,
                     timeframe=timeframe,
                     state=setup_stage,
@@ -172,6 +165,9 @@ class StrategyService:
                     leverage=leverage,
                     margin_mode=margin_mode,
                     risk_pct=risk_pct,
+                    requested_risk_pct=risk_pct,
+                    effective_risk_pct=risk_pct,
+                    risk_profile="STANDARD",
                     config_version=config_version,
                     estimated_liquidation=sig.get("estimated_liquidation", calc_prov.estimated_liquidation) if sig else calc_prov.estimated_liquidation,
                     conditions_met=json.dumps(analysis.get("conditions_met", [])),
@@ -185,22 +181,18 @@ class StrategyService:
                 db.add(watch_setup)
                 db.commit()
             else:
-                # Do NOT overwrite an active ARMED or PAPER_OPEN order's watch setup!
                 if watch_setup.state in ("ARMED", "PAPER_OPEN"):
-                    # Setup is active in order execution, update only distance/telemetry
                     watch_setup.distance_to_entry_atr = dist_atr
                     watch_setup.distance_to_entry_usdt = dist_usdt
                     watch_setup.updated_at = now_ms
                     db.commit()
                 else:
-                    # Business revision guard: only increment on significant structural change
                     direction_changed = (watch_setup.direction != direction)
                     state_changed = (watch_setup.state != setup_stage)
                     entry_diff = abs(watch_setup.provisional_entry - provisional_entry)
                     levels_changed = entry_diff > (atr * 0.1)
 
                     if direction_changed:
-                        # New setup instance when direction changes
                         watch_setup.setup_instance_id = setup_instance_id
                         watch_setup.version += 1
                         watch_setup.direction = direction
@@ -211,6 +203,7 @@ class StrategyService:
                         watch_setup.setup_instance_id = setup_instance_id
 
                     watch_setup.state = setup_stage
+                    watch_setup.strategy_family = "STANDARD_SMC"
                     watch_setup.htf_bias = analysis.get("htf_bias", "UNKNOWN")
                     watch_setup.h1_alignment = analysis.get("h1_alignment", "UNKNOWN")
                     watch_setup.provisional_entry = provisional_entry
@@ -239,7 +232,7 @@ class StrategyService:
             tg_cfg = db.query(models.TelegramConfig).first()
             proximity_service.evaluate_setup_proximity(db, watch_setup, ticker, atr, tg_cfg)
 
-            # Broadcast setup updated with setup_instance_id
+            # Broadcast setup updated
             active_inst_id = watch_setup.setup_instance_id or setup_instance_id
             event_bus.publish_event(
                 event_type="setup.updated" if setup_stage != "READY" else "setup.ready",
@@ -262,8 +255,74 @@ class StrategyService:
 
             # Auto Arming if enabled and setup is READY
             if setup_stage == "READY" and self.get_auto_state(db):
-                self._auto_arm_candidate(db, watch_setup, sig, now_ms)
+                self._auto_arm_candidate(db, watch_setup, sig, now_ms, now_dt)
 
+            # ========================================================
+            # V7 New York Session Fallback Evaluation
+            # ========================================================
+            policy = TradingPolicyService.get_active_policy(db, symbol)
+            policy_eval = TradingPolicyService.evaluate_entry_policy(db, symbol, now_dt)
+            if policy_eval.get("quota_state") == "SEEKING_FALLBACK" and policy_eval.get("ny_fills", 0) == 0:
+                candles_5m = crud.get_candles(db, symbol, "5M", limit=60, ascending=True)
+                if len(candles_5m) >= 15:
+                    rem_budget = 15.0 # Max remaining risk budget
+                    fb_res = NYFallbackService.evaluate_fallback_setup(
+                        symbol=symbol,
+                        candles_5m=candles_5m,
+                        current_price=current_p,
+                        htf_bias=collector_service.d_4h_bias,
+                        h1_alignment=collector_service.h1_alignment,
+                        policy=policy,
+                        account_equity=capital,
+                        remaining_risk_allowance_usdt=rem_budget,
+                        leverage=leverage,
+                        margin_mode=margin_mode,
+                        ticker_data=ticker
+                    )
+                    if fb_res.get("is_eligible") and fb_res.get("candidate"):
+                        fb_cand = fb_res["candidate"]
+                        # Store fallback setup in watch setup or auto arm
+                        fb_setup_id = f"watch-{symbol}-5M-fallback"
+                        fb_watch = db.query(models.WatchSetup).filter(models.WatchSetup.id == fb_setup_id).first()
+                        if not fb_watch:
+                            fb_watch = models.WatchSetup(
+                                id=fb_setup_id,
+                                setup_instance_id=fb_cand["signal_id"],
+                                version=1,
+                                strategy="NY_FALLBACK_V1",
+                                strategy_family="NY_QUOTA_PAPER",
+                                direction=fb_cand["direction"],
+                                timeframe="5M",
+                                state="READY",
+                                htf_bias=collector_service.d_4h_bias,
+                                h1_alignment=collector_service.h1_alignment,
+                                provisional_entry=fb_cand["planned_entry"],
+                                provisional_sl=fb_cand["stop_loss"],
+                                provisional_tp=fb_cand["targets"][0]["price"],
+                                gross_rr=fb_cand["gross_rr"],
+                                net_rr=fb_cand["estimated_net_rr"],
+                                risk_usdt=fb_cand["initial_risk_usdt"],
+                                quantity=fb_cand["quantity"],
+                                leverage=fb_cand["leverage"],
+                                margin_mode=fb_cand["margin_mode"],
+                                risk_pct=fb_cand["effective_risk_pct"],
+                                requested_risk_pct=fb_cand["requested_risk_pct"],
+                                effective_risk_pct=fb_cand["effective_risk_pct"],
+                                risk_profile="QUOTA",
+                                config_version=config_version,
+                                estimated_liquidation=fb_cand["estimated_liquidation"],
+                                created_at=now_ms,
+                                updated_at=now_ms,
+                                expires_at=fb_cand["expires_at"]
+                            )
+                            db.add(fb_watch)
+                            db.commit()
+
+                        if self.get_auto_state(db):
+                            self._auto_arm_candidate(db, fb_watch, fb_cand, now_ms, now_dt)
+
+        except Exception as e:
+            logger.error(f"Error in evaluate_upcoming_setups: {str(e)}", exc_info=True)
         finally:
             db.close()
 
@@ -272,9 +331,10 @@ class StrategyService:
         db: Session,
         watch_setup: models.WatchSetup,
         sig: Dict[str, Any],
-        now_ms: int
+        now_ms: int,
+        now_dt: datetime
     ):
-        """Auto arm READY setup if all execution guards pass."""
+        """Auto arm READY setup if all execution & policy guards pass."""
         # 1. Check if there is already an active position or armed order
         active_pos = crud.get_active_position(db)
         if active_pos:
@@ -284,7 +344,14 @@ class StrategyService:
         if armed_order:
             return
 
-        # 2. Check price geometry strictly
+        # 2. Check Trading Policy (Max 3 fills/day, NY window, reservation)
+        symbol = watch_setup.instrument or "XAUUSDT"
+        policy_eval = TradingPolicyService.evaluate_entry_policy(db, symbol, now_dt)
+        if not policy_eval["allowed"]:
+            logger.info(f"Auto-arm blocked by trading policy: {policy_eval['reason_code']}")
+            return
+
+        # 3. Check price geometry strictly
         from domain_calculator import validate_price_geometry
         is_geom_valid, _ = validate_price_geometry(
             watch_setup.direction,
@@ -295,30 +362,45 @@ class StrategyService:
         if not is_geom_valid:
             return
 
-        # 3. Check Day Audit limits
+        # 4. Check Day Audit limits
         audit = crud.get_or_create_today_audit(db)
         if audit.is_blocked or audit.fills_count >= 3 or audit.consecutive_losses >= 2:
             return
         if audit.cooldown_until and now_ms < audit.cooldown_until:
             return
 
-        # 3. Create armed paper order
+        # 5. Effective risk determination (preserve 0.10% cap for fallback)
+        family = getattr(watch_setup, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC"
+        eff_risk_pct = watch_setup.risk_pct or 0.25
+        risk_profile = "STANDARD"
+        if family == "NY_QUOTA_PAPER":
+            eff_risk_pct = min(eff_risk_pct, 0.10)
+            risk_profile = "QUOTA"
+
+        # 6. Create armed paper order with complete V7 metadata
         order_id = f"order-{uuid.uuid4().hex[:8]}"
         new_order = models.PaperOrder(
             id=order_id,
             setup_id=watch_setup.id,
             signal_id=sig.get("signal_id", f"sig-{now_ms}"),
-            instrument="XAUUSDT",
+            instrument=symbol,
             direction=watch_setup.direction,
             state="armed",
             order_type="MARKET",
             timeframe=watch_setup.timeframe,
+            strategy_family=family,
+            strategy_version="7.0.0",
+            session_instance_id=policy_eval.get("session_instance_id"),
+            policy_config_version=getattr(policy_eval.get("policy"), "version", 1) if policy_eval.get("policy") else 1,
+            requested_risk_pct=watch_setup.risk_pct,
+            effective_risk_pct=eff_risk_pct,
+            risk_profile=risk_profile,
             planned_entry=watch_setup.provisional_entry,
             stop_loss=watch_setup.provisional_sl,
             take_profit=watch_setup.provisional_tp,
             quantity=watch_setup.quantity,
             initial_risk_usdt=watch_setup.risk_usdt,
-            risk_pct=0.25,
+            risk_pct=eff_risk_pct,
             gross_rr=watch_setup.gross_rr,
             estimated_net_rr=watch_setup.net_rr,
             leverage=watch_setup.leverage,
@@ -331,7 +413,6 @@ class StrategyService:
         db.add(new_order)
         watch_setup.state = "ARMED"
 
-        # Publish order.armed in the same unit of work
         event_bus.publish_event(
             event_type="order.armed",
             aggregate_id=order_id,
@@ -339,6 +420,7 @@ class StrategyService:
                 "order_id": order_id,
                 "setup_id": watch_setup.id,
                 "direction": watch_setup.direction,
+                "strategy_family": family,
                 "order_type": "MARKET",
                 "planned_entry": watch_setup.provisional_entry,
                 "stop_loss": watch_setup.provisional_sl,
@@ -362,6 +444,7 @@ class StrategyService:
                 self._running = False
                 break
             except Exception as e:
+                logger.error(f"Strategy loop unexpected error: {e}", exc_info=True)
                 await asyncio.sleep(3.0)
 
 strategy_service = StrategyService()

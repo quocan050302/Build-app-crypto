@@ -37,6 +37,9 @@ import {
   Check,
   ShieldCheck
 } from 'lucide-react';
+import { NYSessionPanel } from './NYSessionPanel';
+import { ExpectedEntryPanel } from './ExpectedEntryPanel';
+import type { TradingPolicy, NYSessionStatus } from './api/client';
 
 export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION';
 
@@ -62,7 +65,13 @@ export interface SelectedTradeIntent {
   status: string;
   invalidationReason?: string;
   snapshotAt: number;
+  eligibility?: any;
+  conditions_met?: string[];
+  conditions_remaining?: string[];
+  distance_to_entry_usdt?: number;
+  distance_to_entry_atr?: number;
 }
+
 
 export function App() {
   // Navigation & Timeframe
@@ -93,6 +102,10 @@ export function App() {
   const [accountStatus, setAccountStatus] = useState<any>(null);
   const [activePosition, setActivePosition] = useState<any>(null);
   const [autoPaperActive, setAutoPaperActive] = useState<boolean>(true);
+
+  // V7 Trading Policy & NY Session
+  const [tradingPolicy, setTradingPolicy] = useState<TradingPolicy | null>(null);
+  const [nySession, setNySession] = useState<NYSessionStatus | null>(null);
 
   // Authoritative Saved Risk Settings (Used for active executions, position sizing, order creation)
   const [savedRiskSettings, setSavedRiskSettings] = useState<{
@@ -196,12 +209,14 @@ export function App() {
   const refreshAccountAndHealth = useCallback(async () => {
     const seq = ++pollSequenceRef.current;
     try {
-      const [healthData, accData, posData, autoData, metaData] = await Promise.all([
+      const [healthData, accData, posData, autoData, metaData, nyData, policyData] = await Promise.all([
         api.getHealth('XAUUSDT', timeframe),
         api.getAccountStatus(),
         api.getActivePosition(),
         api.getAutoState(),
         api.getInstrumentMetadata('XAUUSDT').catch(() => null),
+        api.getNYSessionStatus('XAUUSDT').catch(() => null),
+        api.getTradingPolicy('XAUUSDT').catch(() => null),
       ]);
 
       if (seq < pollSequenceRef.current) {
@@ -213,6 +228,12 @@ export function App() {
       setAccountStatus(accData);
       if (metaData) {
         setInstrumentMeta(metaData);
+      }
+      if (nyData) {
+        setNySession(nyData);
+      }
+      if (policyData) {
+        setTradingPolicy(policyData);
       }
       if (accData) {
         const canonical: {
@@ -726,6 +747,11 @@ export function App() {
       estimatedLiquidation: setup.estimated_liquidation,
       status: setup.state,
       invalidationReason: setup.invalidation_reason,
+      eligibility: setup.eligibility,
+      conditions_met: setup.conditions_met,
+      conditions_remaining: setup.conditions_remaining,
+      distance_to_entry_usdt: setup.distance_to_entry_usdt,
+      distance_to_entry_atr: setup.distance_to_entry_atr,
       snapshotAt: Date.now(),
     });
     showToast(
@@ -1190,6 +1216,14 @@ export function App() {
           );
         })}
       </nav>
+
+      {/* V7 BẢNG PHIÊN MỸ & MỤC TIÊU PAPER */}
+      <NYSessionPanel
+        nySession={nySession}
+        policy={tradingPolicy}
+        autoPaperActive={autoPaperActive}
+        onRefresh={refreshAccountAndHealth}
+      />
 
       {/* 3. Main Workspace Content */}
       <main className="flex-1 p-3 grid grid-cols-1 lg:grid-cols-4 gap-3 overflow-hidden">
@@ -3119,182 +3153,19 @@ export function App() {
                 </div>
               </div>
 
-              {selectedIntent ? (() => {
-                const tp = selectedIntent.takeProfit;
-                const isGeometryValid = tp != null && (selectedIntent.direction === 'LONG'
-                  ? selectedIntent.stopLoss < selectedIntent.plannedEntry && selectedIntent.plannedEntry < tp
-                  : tp < selectedIntent.plannedEntry && selectedIntent.plannedEntry < selectedIntent.stopLoss);
-
-                const calculatedMarginUsdt = ((selectedIntent.quantity * selectedIntent.plannedEntry) / (selectedIntent.leverage || leverage)).toFixed(2);
-                
-                // Authoritative calculation for dynamic R:R label
-                let grossRR = selectedIntent.grossRR;
-                let netRR = selectedIntent.estimatedNetRR;
-                if ((!grossRR || grossRR <= 0) && isGeometryValid && tp) {
-                  const calc = calculateClientRiskReward(
-                    selectedIntent.direction,
-                    selectedIntent.plannedEntry,
-                    selectedIntent.stopLoss,
-                    tp,
-                    1000.0,
-                    0.25,
-                    2.0,
-                    selectedIntent.quantity,
-                    selectedIntent.leverage || leverage,
-                    'ISOLATED'
-                  );
-                  if (calc.isValid) {
-                    grossRR = calc.grossRR;
-                    netRR = calc.estimatedNetRR;
-                  }
-                }
-                const rrLabel = grossRR && grossRR > 0
-                  ? `R:R 1:${grossRR.toFixed(2)} (Net 1:${(netRR || 0).toFixed(2)})`
-                  : 'Chưa có R:R';
-                const isCrossBlocked = marginMode === 'CROSS' || selectedIntent.marginMode === 'CROSS';
-
-                return (
-                  <div className="space-y-2 text-xs">
-                    <div className="p-2.5 rounded bg-charcoal-850 border border-charcoal-700">
-                      <div className="flex justify-between font-bold text-sm mb-1">
-                        <span className={selectedIntent.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}>
-                          {selectedIntent.direction} XAUUSDT
-                        </span>
-                        <span className={netRR && netRR >= 2.0 ? 'text-aurum-400' : 'text-rose-400 font-medium'}>
-                          {rrLabel}
-                        </span>
-                      </div>
-
-                      {!isGeometryValid && (
-                        <div className="mb-2 p-1.5 rounded bg-rose-950/80 border border-rose-800 text-[10px] text-rose-300">
-                          ⚠️ Geometry không hợp lệ: {selectedIntent.direction === 'LONG' ? 'Yêu cầu SL < Entry < TP' : 'Yêu cầu TP < Entry < SL'}.
-                        </div>
-                      )}
-
-                      {isCrossBlocked && (
-                        <div className="mb-2 p-1.5 rounded bg-amber-950/80 border border-amber-700/80 text-[10px] text-amber-300">
-                          ⚠️ Paper Trading chỉ thực thi trên Isolated Margin. Vui lòng chuyển sang ISOLATED ở thanh trên.
-                        </div>
-                      )}
-
-                      <div className="text-[11px] text-gray-400 space-y-0.5">
-                        <p>Kế hoạch Entry: ${selectedIntent.plannedEntry}</p>
-                        <p>Stop Loss: ${selectedIntent.stopLoss}</p>
-                        <p>
-                          Take Profit:{' '}
-                          {selectedIntent.takeProfit && selectedIntent.takeProfit !== selectedIntent.stopLoss
-                            ? `$${selectedIntent.takeProfit}`
-                            : 'Chưa có TP (Không đủ điều kiện)'}
-                        </p>
-                        <p>
-                          Khối lượng: {selectedIntent.quantity} oz | Ký quỹ: ${calculatedMarginUsdt} USDT ({selectedIntent.leverage || leverage}x)
-                        </p>
-                        {selectedIntent.status && (
-                          <p className="text-[10px] text-gray-400 font-mono">
-                            Trạng thái: <span className="text-aurum-400">{selectedIntent.status}</span>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {selectedIntent.status === 'ARMED' ? (
-                      <div className="space-y-1.5">
-                        <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded text-center">
-                          <span className="text-amber-400 font-bold text-[11px] block">ĐÃ LÊN NÒNG (ARMED) — CHỜ KÍCH HOẠT</span>
-                          <span className="text-[10px] text-gray-400 block mt-0.5">Lệnh pending đang được theo dõi điều kiện khớp</span>
-                        </div>
-                        <button
-                          onClick={() => handleCancelWatchSetup(selectedIntent.setup_id!)}
-                          className="w-full py-1.5 bg-rose-600/80 hover:bg-rose-600 text-white font-bold rounded text-xs transition"
-                        >
-                          Hủy Lệnh Chờ
-                        </button>
-                      </div>
-                    ) : ['WAITING_MSS', 'WAITING_SWEEP', 'WATCHING'].includes(selectedIntent.status) ? (
-                      <button
-                        disabled
-                        className="w-full py-2 bg-charcoal-750 text-gray-400 font-medium rounded text-xs cursor-not-allowed border border-charcoal-700"
-                      >
-                        Theo Dõi Setup ({selectedIntent.status})
-                      </button>
-                    ) : ['REJECTED', 'EXPIRED', 'CANCELLED', 'CLOSED', 'INVALIDATED'].includes(selectedIntent.status) ? (
-                      <div className="space-y-1.5">
-                        <div className="p-2 bg-charcoal-750 border border-charcoal-700 rounded text-center">
-                          <span className="text-gray-400 font-bold text-[11px] block">LỆNH ĐÃ ĐÓNG / HỦY ({selectedIntent.status})</span>
-                          {selectedIntent.invalidationReason && (
-                            <span className="text-[10px] text-rose-400 block mt-0.5">{selectedIntent.invalidationReason}</span>
-                          )}
-                        </div>
-                        <button
-                          disabled
-                          className="w-full py-1.5 bg-charcoal-750 text-gray-500 font-medium rounded text-xs cursor-not-allowed border border-charcoal-700"
-                        >
-                          Không Thể Tương Tác
-                        </button>
-                      </div>
-                    ) : selectedIntent.source === 'WATCH_SETUP' ? (
-                      (() => {
-                        const isBlockedByActive = !!activePosition?.has_active_position;
-                        const isBlockedByArmed = hasArmedOrder;
-                        const cannotArm = !isGeometryValid || !selectedIntent.takeProfit || isCrossBlocked || isBlockedByActive || isBlockedByArmed;
-                        const armReason = !isGeometryValid
-                          ? 'Geometry Không Hợp Lệ'
-                          : isCrossBlocked
-                          ? 'Chặn Arm Khi Chọn Cross Margin (Cần Isolated)'
-                          : isBlockedByActive
-                          ? 'Không Thể Arm: Đang Có 1 Vị Thế Mở'
-                          : isBlockedByArmed
-                          ? 'Không Thể Arm: Đang Có Lệnh ARMED'
-                          : `Arm ${selectedIntent.direction} — PAPER`;
-
-                        return (
-                          <button
-                            onClick={() =>
-                              handleArmWatchSetup(
-                                selectedIntent.setup_id!,
-                                selectedIntent.direction,
-                                selectedIntent.setup_instance_id,
-                                selectedIntent.revision
-                              )
-                            }
-                            disabled={cannotArm}
-                            className="w-full py-2 bg-gradient-to-r from-aurum-500 to-aurum-600 hover:from-aurum-400 hover:to-aurum-500 text-charcoal-950 font-bold rounded text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {armReason}
-                          </button>
-                        );
-                      })()
-                    ) : (
-                      (() => {
-                        const isBlockedByActive = !!activePosition?.has_active_position;
-                        const isBlockedByArmed = hasArmedOrder;
-                        const cannotOpen = !isGeometryValid || !selectedIntent.takeProfit || selectedIntent.takeProfit === selectedIntent.stopLoss || isCrossBlocked || isBlockedByActive || isBlockedByArmed;
-                        const openReason = !isGeometryValid
-                          ? 'Geometry Không Hợp Lệ'
-                          : !selectedIntent.takeProfit || selectedIntent.takeProfit === selectedIntent.stopLoss
-                          ? 'Thiếu TP (Chưa đủ điều kiện)'
-                          : isCrossBlocked
-                          ? 'Chặn Mở Khi Chọn Cross Margin (Cần Isolated)'
-                          : isBlockedByActive
-                          ? 'Không Thể Mở: Đang Có 1 Vị Thế Mở'
-                          : isBlockedByArmed
-                          ? 'Không Thể Mở: Đang Có Lệnh ARMED'
-                          : `Mở ${selectedIntent.direction} ${selectedIntent.orderType} — PAPER`;
-
-                        return (
-                          <button
-                            onClick={handleOpenPaperTrade}
-                            disabled={cannotOpen}
-                            className="w-full py-2 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {openReason}
-                          </button>
-                        );
-                      })()
-                    )}
-                  </div>
-                );
-              })() : (
+              {selectedIntent ? (
+                <ExpectedEntryPanel
+                  selectedIntent={selectedIntent}
+                  setups={upcomingData.setups}
+                  activePosition={activePosition}
+                  hasArmedOrder={hasArmedOrder}
+                  leverage={leverage}
+                  marginMode={marginMode}
+                  onArmSetup={handleArmWatchSetup}
+                  onCancelSetup={handleCancelWatchSetup}
+                  onOpenMarket={handleOpenPaperTrade}
+                />
+              ) : (
                 <div className="p-3 text-center text-xs text-gray-400 italic bg-charcoal-850 rounded border border-charcoal-750">
                   {analysis?.missing_conditions?.length > 0 ? (
                     <div className="text-left space-y-1">
@@ -3308,6 +3179,7 @@ export function App() {
                   )}
                 </div>
               )}
+
             </div>
           )}
 

@@ -635,3 +635,71 @@ class StressTestResponse(BaseModel):
     stress_matrix: List[StressTestResultRow]
     created_at: int
 
+
+# ========================================================
+# V7 Trading Policy & NY Session Schemas
+# ========================================================
+class TradingPolicyUpdate(BaseModel):
+    symbol: Optional[str] = "XAUUSDT"
+    max_daily_fills: Optional[int] = 3
+    daily_timezone: Optional[str] = "Asia/Ho_Chi_Minh"
+    entry_session_policy: Optional[str] = "NY_ONLY"  # NY_ONLY, ALL_SESSIONS_WITH_NY_RESERVE
+    ny_timezone: Optional[str] = "America/New_York"
+    ny_entry_start: Optional[str] = "08:00"
+    ny_entry_end: Optional[str] = "11:00"
+    ny_min_fills: Optional[int] = 1
+    reserve_ny_slot: Optional[bool] = True
+    ny_fallback_enabled: Optional[bool] = True
+    ny_fallback_start: Optional[str] = "10:30"
+    ny_fallback_risk_pct_cap: Optional[float] = 0.10
+    min_net_rr: Optional[float] = 2.0
+    max_open_positions: Optional[int] = 1
+    max_armed_orders: Optional[int] = 1
+
+class TradingPolicyResponse(BaseModel):
+    id: int
+    symbol: str
+    version: int
+    is_active: bool
+    max_daily_fills: int
+    daily_timezone: str
+    entry_session_policy: str
+    ny_timezone: str
+    ny_entry_start: str
+    ny_entry_end: str
+    ny_min_fills: int
+    reserve_ny_slot: bool
+    ny_fallback_enabled: bool
+    ny_fallback_start: str
+    ny_fallback_risk_pct_cap: float
+    min_net_rr: float
+    max_open_positions: int
+    max_armed_orders: int
+    created_at: int
+    updated_at: int
+    model_config = ConfigDict(from_attributes=True)
+
+class NYSessionStatusResponse(BaseModel):
+    session_instance_id: str
+    symbol: str
+    is_in_ny_window: bool
+    is_fallback_active: bool
+    quota_state: str
+    daily_fills: int
+    max_daily_fills: int
+    remaining_daily_slots: int
+    ny_fills: int
+    ny_min_fills: int
+    reserved_slots: int
+    local_ny_time: str
+    local_vn_time: str
+    ny_window_display: str
+    vn_window_display: str
+    minutes_to_window_start: Optional[int] = None
+    minutes_to_fallback: Optional[int] = None
+    minutes_to_window_end: Optional[int] = None
+    allowed: bool
+    reason_code: Optional[str] = None
+    reason_message: Optional[str] = None
+
+

@@ -118,8 +118,60 @@ export interface ReplayTradeItem {
   realized_r: number;
   session: string;
   is_ambiguous: boolean;
-  status: string;
+  notes?: string;
+  is_win: boolean;
+  cost_snapshot?: any;
 }
+
+// ==================== V7 TRADING POLICY & NY SESSION ====================
+
+export interface TradingPolicy {
+  id?: number;
+  symbol: string;
+  version?: number;
+  is_active?: boolean;
+  max_daily_fills: number;
+  daily_timezone: string;
+  entry_session_policy: string;
+  ny_timezone: string;
+  ny_entry_start: string;
+  ny_entry_end: string;
+  ny_min_fills: number;
+  reserve_ny_slot: boolean;
+  ny_fallback_enabled: boolean;
+  ny_fallback_start: string;
+  ny_fallback_risk_pct_cap: number;
+  min_net_rr: number;
+  max_open_positions: number;
+  max_armed_orders: number;
+  created_at?: number;
+  updated_at?: number;
+}
+
+export interface NYSessionStatus {
+  session_instance_id: string;
+  symbol: string;
+  is_in_ny_window: boolean;
+  is_fallback_active: boolean;
+  quota_state: string;
+  daily_fills: number;
+  max_daily_fills: number;
+  remaining_daily_slots: number;
+  ny_fills: number;
+  ny_min_fills: number;
+  reserved_slots: number;
+  local_ny_time: string;
+  local_vn_time: string;
+  ny_window_display: string;
+  vn_window_display: string;
+  minutes_to_window_start?: number | null;
+  minutes_to_fallback?: number | null;
+  minutes_to_window_end?: number | null;
+  allowed: boolean;
+  reason_code?: string | null;
+  reason_message?: string | null;
+}
+
 
 export interface EquityPoint {
   timestamp: number;
@@ -515,4 +567,20 @@ export const api = {
     const res = await apiClient.post(`/api/v1/news/${newsId}/research`);
     return res.data;
   },
+
+  getTradingPolicy: async (symbol: string = 'XAUUSDT'): Promise<TradingPolicy> => {
+    const res = await apiClient.get('/api/v1/policy/trading', { params: { symbol } });
+    return res.data;
+  },
+
+  updateTradingPolicy: async (policy: Partial<TradingPolicy>): Promise<TradingPolicy> => {
+    const res = await apiClient.post('/api/v1/policy/trading', policy);
+    return res.data;
+  },
+
+  getNYSessionStatus: async (symbol: string = 'XAUUSDT'): Promise<NYSessionStatus> => {
+    const res = await apiClient.get('/api/v1/policy/ny-session', { params: { symbol } });
+    return res.data;
+  },
 };
+

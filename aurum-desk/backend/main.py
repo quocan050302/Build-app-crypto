@@ -35,7 +35,6 @@ from lab.stress_tester import StressTester
 # Ensure all tables exist
 models.Base.metadata.create_all(bind=engine)
 
-@asynccontextmanager
 def reconcile_stuck_orders():
     """
     Reconciles legacy WatchSetup states that are stuck in 'ARMED' or 'PAPER_OPEN'
@@ -635,6 +634,19 @@ def manual_arm_setup(
     else:
         order_type = "MARKET"
 
+    if not calc_res.can_execute or calc_res.quantity <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "CALCULATOR_REJECTED",
+                "message": calc_res.skip_reason or calc_res.invalid_reason or "Khối lượng tính toán không hợp lệ"
+            }
+        )
+
+    is_quota = getattr(watch_setup, 'strategy_family', 'STANDARD_SMC') == 'NY_QUOTA_PAPER'
+    eff_risk_pct = min(watch_setup.risk_pct or 0.25, 0.10) if is_quota else (watch_setup.risk_pct or 0.25)
+    risk_profile = "QUOTA" if is_quota else "STANDARD"
+
     new_order = models.PaperOrder(
         id=order_id,
         setup_id=watch_setup.id,
@@ -646,12 +658,19 @@ def manual_arm_setup(
         state="armed",
         order_type=order_type,
         timeframe=watch_setup.timeframe,
+        strategy_family=getattr(watch_setup, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC",
+        strategy_version="7.0.0",
+        session_instance_id=elig.get("session_instance_id"),
+        policy_config_version=elig.get("policy_config_version", 1),
+        requested_risk_pct=watch_setup.risk_pct or 0.25,
+        effective_risk_pct=eff_risk_pct,
+        risk_profile=risk_profile,
         planned_entry=entry,
         stop_loss=sl,
         take_profit=tp,
-        quantity=calc_res.quantity if calc_res.quantity > 0 else (watch_setup.quantity or 0.05),
-        initial_risk_usdt=calc_res.net_risk_usdt if calc_res.net_risk_usdt > 0 else (watch_setup.risk_usdt or 2.5),
-        risk_pct=0.25,
+        quantity=calc_res.quantity,
+        initial_risk_usdt=calc_res.net_risk_usdt,
+        risk_pct=eff_risk_pct,
         gross_rr=calc_res.gross_rr,
         estimated_net_rr=calc_res.net_rr,
         leverage=calc_res.leverage,
@@ -1358,3 +1377,100 @@ def reconcile_offline_positions_endpoint(db: Session = Depends(get_db)):
     """Manually triggers offline gap reconciliation for active positions."""
     from services.position_recovery_service import position_recovery_service
     return position_recovery_service.check_and_recover_offline_positions(db)
+
+
+# ==================== 12. V7 TRADING POLICY & NY SESSION ENDPOINTS ====================
+
+@app.get("/api/v1/policy/trading", response_model=schemas.TradingPolicyResponse)
+def get_trading_policy_endpoint(symbol: str = "XAUUSDT", db: Session = Depends(get_db)):
+    """Retrieve active Trading Policy."""
+    from services.trading_policy_service import TradingPolicyService
+    return TradingPolicyService.get_active_policy(db, symbol)
+
+
+@app.post("/api/v1/policy/trading", response_model=schemas.TradingPolicyResponse)
+def update_trading_policy_endpoint(
+    req: schemas.TradingPolicyUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Update or customize Trading Policy.
+    Strict validation:
+    - max_daily_fills >= 1
+    - min_net_rr >= 1.5
+    - Cross-midnight window validation: start must be earlier than end.
+    """
+    from services.trading_policy_service import TradingPolicyService
+    symbol = req.symbol or "XAUUSDT"
+    policy = TradingPolicyService.get_active_policy(db, symbol)
+
+    # Validation
+    if req.max_daily_fills is not None and req.max_daily_fills < 1:
+        raise HTTPException(status_code=400, detail="max_daily_fills phải lớn hơn hoặc bằng 1")
+    if req.min_net_rr is not None and req.min_net_rr < 1.0:
+        raise HTTPException(status_code=400, detail="min_net_rr phải lớn hơn hoặc bằng 1.0")
+
+    # Time validation
+    start_str = req.ny_entry_start or policy.ny_entry_start
+    end_str = req.ny_entry_end or policy.ny_entry_end
+    try:
+        sh, sm = map(int, start_str.split(":"))
+        eh, em = map(int, end_str.split(":"))
+        if (sh * 60 + sm) >= (eh * 60 + em):
+            raise HTTPException(
+                status_code=400,
+                detail="Cửa sổ phiên giao dịch qua nửa đêm (start >= end) chưa được hỗ trợ, vui lòng cấu hình start < end."
+            )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Định dạng giờ không hợp lệ, yêu cầu HH:MM")
+
+    now_ms = int(time.time() * 1000)
+    for field, val in req.model_dump(exclude_unset=True).items():
+        if hasattr(policy, field):
+            setattr(policy, field, val)
+
+    policy.version = (policy.version or 1) + 1
+    policy.updated_at = now_ms
+    db.commit()
+    db.refresh(policy)
+    return policy
+
+
+@app.get("/api/v1/policy/ny-session", response_model=schemas.NYSessionStatusResponse)
+def get_ny_session_status_endpoint(
+    symbol: str = "XAUUSDT",
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve real-time status of New York Entry Window, Quota fulfillment,
+    local times in NY & VN, countdown, and slot reservation.
+    """
+    from services.trading_policy_service import TradingPolicyService
+    from datetime import datetime, timezone
+    now_dt = datetime.now(timezone.utc)
+    eval_res = TradingPolicyService.evaluate_entry_policy(db, symbol, now_dt)
+
+    return schemas.NYSessionStatusResponse(
+        session_instance_id=eval_res.get("session_instance_id", "NY-PENDING"),
+        symbol=symbol,
+        is_in_ny_window=eval_res.get("is_in_ny_window", False),
+        is_fallback_active=eval_res.get("is_fallback_active", False),
+        quota_state=eval_res.get("quota_state", "NOT_STARTED"),
+        daily_fills=eval_res.get("daily_fills", 0),
+        max_daily_fills=eval_res.get("max_daily_fills", 3),
+        remaining_daily_slots=eval_res.get("remaining_daily_slots", 3),
+        ny_fills=eval_res.get("ny_fills", 0),
+        ny_min_fills=eval_res.get("ny_min_fills", 1),
+        reserved_slots=eval_res.get("reserved_slots", 0),
+        local_ny_time=eval_res.get("local_ny_time", ""),
+        local_vn_time=eval_res.get("local_vn_time", ""),
+        ny_window_display=eval_res.get("ny_window_display", "08:00 - 11:00 NY"),
+        vn_window_display=eval_res.get("vn_window_display", ""),
+        minutes_to_window_start=eval_res.get("minutes_to_window_start"),
+        minutes_to_fallback=eval_res.get("minutes_to_fallback"),
+        minutes_to_window_end=eval_res.get("minutes_to_window_end"),
+        allowed=eval_res.get("allowed", False),
+        reason_code=eval_res.get("reason_code"),
+        reason_message=eval_res.get("reason_message")
+    )
+

@@ -104,13 +104,16 @@ class ExecutionCoordinator:
                 account_state = crud.get_account_status(db, clock=c)
                 equity = account_state["current_equity"] if account_state else 1000.0
 
+                is_quota_order = (getattr(order, 'strategy_family', 'STANDARD_SMC') == "NY_QUOTA_PAPER") or (getattr(order, 'risk_profile', 'STANDARD') == "QUOTA")
+                eff_risk_pct = min(global_settings.risk_pct, 0.10) if is_quota_order else global_settings.risk_pct
+
                 calc_res = calculate_risk_reward(
                     direction=order.direction,
                     planned_entry=order.planned_entry,
                     stop_loss=order.stop_loss,
                     take_profit=order.take_profit,
                     capital=equity,
-                    risk_pct=global_settings.risk_pct,
+                    risk_pct=eff_risk_pct,
                     leverage=global_settings.requested_leverage,
                     margin_mode=global_settings.margin_mode
                 )
@@ -211,6 +214,21 @@ class ExecutionCoordinator:
                 continue
 
             if not triggered:
+                continue
+
+            # Re-verify trading policy (daily max 3 fills, NY window, slot reservation)
+            from services.trading_policy_service import TradingPolicyService
+            from datetime import datetime, timezone
+            current_dt = datetime.fromtimestamp(current_time / 1000.0, tz=timezone.utc)
+            policy_eval = TradingPolicyService.evaluate_entry_policy(db, order.instrument or "XAUUSDT", current_dt)
+            if not policy_eval["allowed"]:
+                TradeLifecycleService.execute_reject(
+                    db=db,
+                    order=order,
+                    reason=f"POLICY_GATE: {policy_eval['reason_code']} - {policy_eval['reason_message']}",
+                    now_ms=current_time,
+                    clock=c
+                )
                 continue
 
             # Re-verify execution guards
