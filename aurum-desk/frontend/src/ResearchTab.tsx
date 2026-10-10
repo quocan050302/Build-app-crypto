@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api, extractErrorMessage, type ResearchReportItem } from './api/client';
 import {
   Calendar,
@@ -16,14 +16,55 @@ import {
   Filter
 } from 'lucide-react';
 
+
+const getTodayStr = () => new Date().toISOString().slice(0, 10);
+
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+export class ResearchErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('ResearchTab ErrorBoundary caught error:', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="bg-charcoal-850 p-6 rounded-xl border border-rose-500/40 text-center flex flex-col items-center gap-3 m-4">
+          <p className="text-sm font-bold text-rose-400">Đã xảy ra lỗi khi hiển thị Tab Nghiên Cứu Phiên & Ngày</p>
+          <p className="text-xs text-gray-400 font-mono">{this.state.error?.message}</p>
+          <button
+            onClick={() => this.setState({ hasError: false, error: null })}
+            className="px-4 py-2 bg-charcoal-750 hover:bg-charcoal-700 text-gray-200 text-xs rounded-lg border border-charcoal-600 transition"
+          >
+            Thử tải lại tab
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export interface ResearchTabProps {
   onNotify?: (title: string, msg: string, type: 'info' | 'warn' | 'success') => void;
   onSessionInfoChange?: (info: any) => void;
 }
 
-export const ResearchTab: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoChange }) => {
+const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoChange }) => {
   // Filter States
-  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const todayStr = useMemo(() => getTodayStr(), []);
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [timeOfDay, setTimeOfDay] = useState<string>('08:30');
   const [selectedSession, setSelectedSession] = useState<string>('NEW_YORK');
   const [dateBasis, setDateBasis] = useState<'VN_DATE' | 'NY_SESSION_DATE'>('VN_DATE');
@@ -129,7 +170,18 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({ onNotify, onSessionInf
   };
 
   const isHistorical = selectedDate < todayStr;
-  const scenarios = selectedReport?.structured_scenarios || selectedReport?.scenarios || {};
+  const scenarios = useMemo(() => {
+    const raw = selectedReport?.structured_scenarios || selectedReport?.scenarios;
+    if (!raw) return {};
+    if (typeof raw === 'string') {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return {};
+      }
+    }
+    return raw;
+  }, [selectedReport]);
   const bullish = scenarios?.bullish;
   const bearish = scenarios?.bearish;
   const noTrade = scenarios?.no_trade;
@@ -534,3 +586,10 @@ export const ResearchTab: React.FC<ResearchTabProps> = ({ onNotify, onSessionInf
     </div>
   );
 };
+
+
+export const ResearchTab: React.FC<ResearchTabProps> = (props) => (
+  <ResearchErrorBoundary>
+    <ResearchTabInner {...props} />
+  </ResearchErrorBoundary>
+);
