@@ -568,11 +568,13 @@ class ReplayEngine:
 
         elif mode == "HISTORICAL_MARKET":
             cache_dir = os.path.join(os.path.dirname(__file__), "data")
-            cutoff_ms = request.end_ts or 1791558000000  # 2026-10-09 22:00:00 UTC+7
-            # Start is strictly cutoff minus 3 calendar months (exact calendar subtraction, NOT 90 days!)
-            cutoff_dt = datetime.fromtimestamp(cutoff_ms / 1000.0, tz=VN_TZ)
-            calculated_start_dt = subtract_calendar_months(cutoff_dt, 3)
-            start_ms = request.start_ts or int(calculated_start_dt.timestamp() * 1000)
+            if request.start_date or request.end_date or request.start_ts or request.end_ts:
+                start_ms, cutoff_ms, _ = drs.resolve_research_range(request, now_ms=int(datetime.now(tz=VN_TZ).timestamp() * 1000))
+            else:
+                cutoff_ms = 1791558000000  # 2026-10-09 22:00:00 UTC+7
+                cutoff_dt = datetime.fromtimestamp(cutoff_ms / 1000.0, tz=VN_TZ)
+                calculated_start_dt = subtract_calendar_months(cutoff_dt, 3)
+                start_ms = int(calculated_start_dt.timestamp() * 1000)
 
             # Warmup is 50 days lookback for 50 Daily / 80 H4 candles
             warmup_days = getattr(request, "warmup_days", 50) or 50
@@ -790,12 +792,20 @@ class ReplayEngine:
             sess_id = f"NY-{ny_d_str}"
             is_weekend = cur_ny_d.weekday() in (5, 6)
 
+            sess_interval = drs.build_session_interval(ny_d_str, request)
+            m_open, d_comp, w_comp, d_reasons = drs.assess_session_data(
+                sess_interval,
+                candles_15m,
+                bundle_metadata,
+                warmup_cutoff_ts
+            )
+
             elig = drs.evaluate_session_eligibility(
                 session_id=sess_id,
                 ny_date=ny_d_str,
-                has_data=True,
-                warmup_complete=True,
-                is_weekend=is_weekend,
+                has_data=d_comp,
+                warmup_complete=w_comp,
+                is_weekend=(not m_open),
                 now_ms=start_eval_ts
             )
             eligibility_map[sess_id] = elig
@@ -2245,7 +2255,7 @@ class ReplayEngine:
                 outcome = drs.finalize_session_outcome(s_st, el)
                 per_session_outcomes.append(outcome)
 
-        cadence_summary = drs.summarize_cadence(per_session_outcomes)
+        cadence_summary = drs.summarize_cadence(per_session_outcomes, calendar_days=len(all_calendar_dates))
 
         trade_type_breakdown = {
             "SMC_CONFIRMED": sum(1 for t in closed_trades if getattr(t, "entry_type", "") in ("SMC_CONFIRMED", "QUALITY_ENTRY")),
@@ -2253,9 +2263,73 @@ class ReplayEngine:
         }
 
         total_fills_count = sum(d.get("total_fills", 0) for d in daily_stats_map.values())
-        closed_trades_count = len(closed_trades)
-        open_positions_count = 1 if active_trade else 0
+        closed_trades_count = closed_count
+        open_positions_count = len(open_trades)
         ambiguous_trades_count = sum(1 for t in closed_trades if getattr(t, "is_ambiguous", False))
+
+        start_date_vn = datetime.fromtimestamp(start_eval_ts / 1000.0, tz=VN_TZ).strftime("%Y-%m-%d")
+        end_date_vn = datetime.fromtimestamp(end_eval_ts / 1000.0, tz=VN_TZ).strftime("%Y-%m-%d")
+
+        # Compute distinct run_config_hash
+        config_hash_payload = {
+            "initial_equity": request.initial_equity,
+            "risk_pct": request.risk_pct,
+            "quality_risk_pct": getattr(request, "quality_risk_pct", None) or request.risk_pct,
+            "quota_risk_pct": getattr(request, "quota_risk_pct", None) or 0.10,
+            "leverage": request.leverage,
+            "margin_mode": request.margin_mode,
+            "strategy_variant": strategy_variant,
+            "entry_cadence": getattr(request, "entry_cadence", "CONFIRMED_ONLY"),
+            "daily_min_fills_target": getattr(request, "daily_min_fills_target", 1),
+            "ny_max_fills": ny_max_fills,
+            "ny_deadline_hour": ny_deadline_hour,
+            "ny_deadline_minute": ny_deadline_minute,
+            "date_basis": getattr(request, "date_basis", "VN_DATE"),
+            "fee_rate": request.fee_rate,
+            "slippage_usd": base_slip,
+            "spread_usd": base_spread,
+            "start_date": start_date_vn,
+            "end_date": end_date_vn
+        }
+        run_config_hash = hashlib.sha256(json.dumps(config_hash_payload, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+
+        # Build empirical integrity summary from actual checks
+        initial_cash = request.initial_equity
+        total_cash_postings = sum(p.get("amount", 0.0) for p in replay_ctx.ledger_postings)
+        cash_reconciled = abs(cash_balance - (initial_cash + total_cash_postings)) < 0.10
+
+        causal_checks_passed = True
+        for tr_item in closed_trades:
+            dec_t = getattr(tr_item, "decision_time", None)
+            ent_t = getattr(tr_item, "entry_time", None)
+            ex_t = getattr(tr_item, "exit_time", None)
+            if dec_t and ent_t and ent_t < dec_t:
+                causal_checks_passed = False
+                break
+            if ent_t and ex_t and ex_t < ent_t:
+                causal_checks_passed = False
+                break
+
+        guards_verified = all(d.get("total_fills", 0) <= 3 for d in daily_stats_map.values())
+        trade_count_consistent = (closed_count == len(realized_trades)) and (wins + losses + breakevens == closed_count)
+
+        integrity_summary = {
+            "status": "PASS" if (cash_reconciled and causal_checks_passed and guards_verified and trade_count_consistent) else "FAIL",
+            "dataset_hash": dataset_hash,
+            "run_config_hash": run_config_hash,
+            "causal_data_ok": causal_checks_passed,
+            "guards_active": guards_verified,
+            "ledger_reconciled": cash_reconciled,
+            "trade_count_consistent": trade_count_consistent,
+            "checks": [
+                {"id": "dataset_hash_verified", "status": "PASS" if dataset_hash else "FAIL", "observed": dataset_hash},
+                {"id": "run_config_hash_verified", "status": "PASS" if run_config_hash else "FAIL", "observed": run_config_hash},
+                {"id": "cash_ledger_reconciled", "status": "PASS" if cash_reconciled else "FAIL"},
+                {"id": "causal_data_order_ok", "status": "PASS" if causal_checks_passed else "FAIL"},
+                {"id": "hard_guards_verified", "status": "PASS" if guards_verified else "FAIL"},
+                {"id": "trade_count_partitioned", "status": "PASS" if trade_count_consistent else "FAIL"},
+            ]
+        }
 
         # 9 Funnel Stages
         funnel_rows = [
@@ -2518,7 +2592,7 @@ class ReplayEngine:
             end_ts=end_eval_ts,
             initial_equity=request.initial_equity,
             final_equity=final_equity,
-            total_trades=len(closed_trades),
+            total_trades=closed_count,
             wins=wins,
             losses=losses,
             breakevens=breakevens,
@@ -2566,14 +2640,14 @@ class ReplayEngine:
             end_date=end_date_vn,
             effective_config=effective_config,
             fills_count=total_fills_count,
-            closed_count=closed_trades_count,
+            closed_count=closed_count,
             open_positions_count=open_positions_count,
             ambiguous_count=ambiguous_trades_count,
             cadence_summary=cadence_summary,
             per_session_outcomes=per_session_outcomes,
             trade_type_breakdown=trade_type_breakdown,
-            integrity_summary={"dataset_hash": dataset_hash, "causal_data_ok": True, "guards_active": True},
-            run_config_hash=dataset_hash
+            integrity_summary=integrity_summary,
+            run_config_hash=run_config_hash
         )
 
     @classmethod

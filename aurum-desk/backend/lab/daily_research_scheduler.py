@@ -1,6 +1,6 @@
 """
 backend/lab/daily_research_scheduler.py
-V13.3 Causal Daily NY Session Paper Research Scheduler
+V13.4 Causal Daily NY Session Paper Research Scheduler
 
 Orchestrates daily NY session research entry targets:
 - Evaluates session eligibility (market open, historical data completeness, warmup).
@@ -9,6 +9,7 @@ Orchestrates daily NY session research entry targets:
   schedules a paper entry (SMC_CONTEXT_SCHEDULED_PAPER) using HTF alignment and 15M structure.
 - Explicitly tags missing confirmations and heuristic confidence kind.
 - Enforces hard guards (max 3 fills/session, 2 consecutive SL stop, daily loss budget -1.5%, cooldown).
+- Collects causal structural targets without artificial loop multiplier expansions.
 - Reconciles session outcomes and produces transparent cadence summaries.
 """
 
@@ -75,10 +76,10 @@ class ScheduledDecision:
     missing_confirmations: List[str]
     confidence_kind: str = "HEURISTIC"
     reason: str = ""
-    config_version: str = "v13.3"
+    config_version: str = "v13.4"
 
 
-def make_session_id(symbol: str, ny_date: str, policy_version: str = "v13.3") -> str:
+def make_session_id(symbol: str, ny_date: str, policy_version: str = "v13.4") -> str:
     return f"NY-{ny_date}"
 
 
@@ -87,11 +88,14 @@ def resolve_research_range(
     now_ms: Optional[int] = None
 ) -> Tuple[int, int, Dict[str, Any]]:
     """
-    PHẦN 13: Helper resolve range mới.
+    PHẦN 11, 12, 13: Helper resolve range mới.
     Canonical start_ts and end_ts (end-exclusive).
     Display metadata with dates in VN_TZ and NY_TZ.
     """
     now_ts = now_ms if now_ms is not None else int(datetime.now(tz=VN_TZ).timestamp() * 1000)
+
+    date_basis = getattr(request, "date_basis", "VN_DATE")
+    tz = NY_TZ if date_basis == "NY_DATE" else VN_TZ
 
     start_date_str = getattr(request, "start_date", None)
     end_date_str = getattr(request, "end_date", None)
@@ -102,18 +106,20 @@ def resolve_research_range(
     if req_start_ts is not None:
         start_ts = int(req_start_ts)
     elif start_date_str:
-        dt_start = datetime.strptime(start_date_str, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=VN_TZ)
+        dt_start = datetime.strptime(start_date_str, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=tz)
         start_ts = int(dt_start.timestamp() * 1000)
     else:
         # Default to 90 days before now
-        dt_start = datetime.now(tz=VN_TZ).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=90)
+        dt_start = datetime.now(tz=tz).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=90)
         start_ts = int(dt_start.timestamp() * 1000)
 
-    # Resolve end (end-exclusive: end_date inclusive -> start of next day in VN_TZ)
+    # Resolve end (end-exclusive: end_date inclusive -> start of next day in target tz)
     if req_end_ts is not None:
         end_ts = int(req_end_ts)
+        if end_ts % 1000 == 999:
+            end_ts += 1
     elif end_date_str:
-        dt_end = datetime.strptime(end_date_str, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=VN_TZ) + timedelta(days=1)
+        dt_end = datetime.strptime(end_date_str, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=tz) + timedelta(days=1)
         end_ts = int(dt_end.timestamp() * 1000)
     else:
         end_ts = now_ts
@@ -142,41 +148,110 @@ def resolve_research_range(
     return start_ts, end_ts, metadata
 
 
+def build_session_interval(ny_date: str, policy: Any = None) -> Dict[str, Any]:
+    """
+    PHẦN 16: Timezone-aware NY session interval and deadline in epoch ms.
+    """
+    parts = [int(p) for p in ny_date.split("-")]
+    y, m, d = parts[0], parts[1], parts[2]
+
+    dt_start = datetime(y, m, d, 8, 30, 0, tzinfo=NY_TZ)
+    dt_end = datetime(y, m, d, 15, 30, 0, tzinfo=NY_TZ)
+
+    val_h = getattr(policy, "scheduled_deadline_hour", None)
+    if val_h is None:
+        val_h = getattr(policy, "ny_deadline_hour", 14)
+    deadline_h = val_h if val_h is not None else 14
+
+    val_m = getattr(policy, "scheduled_deadline_minute", None)
+    if val_m is None:
+        val_m = getattr(policy, "ny_deadline_minute", 30)
+    deadline_m = val_m if val_m is not None else 30
+
+    dt_deadline = datetime(y, m, d, deadline_h, deadline_m, 0, tzinfo=NY_TZ)
+
+    return {
+        "session_id": f"NY-{ny_date}",
+        "ny_date": ny_date,
+        "start_ms": int(dt_start.timestamp() * 1000),
+        "end_ms": int(dt_end.timestamp() * 1000),
+        "deadline_ms": int(dt_deadline.timestamp() * 1000),
+        "deadline_hour": deadline_h,
+        "deadline_minute": deadline_m
+    }
+
+
+def assess_session_data(
+    session_interval: Dict[str, Any],
+    candles_15m: List[Any],
+    bundle_metadata: Optional[Dict[str, Any]] = None,
+    warmup_cutoff_ts: int = 0
+) -> Tuple[bool, bool, bool, List[str]]:
+    """
+    PHẦN 18: Assesses actual data completeness and warmup for a session.
+    Returns (market_open, data_complete, warmup_complete, reasons).
+    """
+    start_ms = session_interval["start_ms"]
+    end_ms = session_interval["end_ms"]
+    ny_date = session_interval["ny_date"]
+
+    dt_ny = datetime.strptime(ny_date, "%Y-%m-%d")
+    is_weekend = dt_ny.weekday() >= 5  # Sat, Sun
+    if is_weekend:
+        return False, False, True, ["WEEKEND_MARKET_CLOSED"]
+
+    session_bars = [c for c in candles_15m if start_ms <= c["timestamp"] <= end_ms]
+    observed_count = len(session_bars)
+
+    # In 7 hours NY window (08:30-15:30), at least 10 15m bars expected
+    if observed_count < 10:
+        return True, False, True, [f"INSUFFICIENT_BARS_IN_SESSION: observed {observed_count} < 10"]
+
+    if warmup_cutoff_ts > 0 and start_ms < warmup_cutoff_ts:
+        return True, True, False, ["SESSION_PRECEDES_WARMUP_CUTOFF"]
+
+    prior_bars = [c for c in candles_15m if c["timestamp"] < start_ms]
+    if len(prior_bars) < 20:
+        return True, True, False, [f"INSUFFICIENT_WARMUP_LOOKBACK: prior bars {len(prior_bars)} < 20"]
+
+    return True, True, True, []
+
+
 def evaluate_session_eligibility(
     session_id: str,
     ny_date: str,
     has_data: bool = True,
     warmup_complete: bool = True,
     is_weekend: bool = False,
+    execution_valid: bool = True,
     now_ms: int = 0
 ) -> SessionEligibility:
     """
-    PHẦN 24: Helper session eligibility mới.
-    Assesses market open, data completeness, and warmup completeness.
-    Execution blockers (risk stops, rules) are dynamic and recorded separately.
+    PHẦN 24: Evaluates baseline preliminary eligibility for a NY session.
     """
     reasons = []
     market_open = not is_weekend
     if is_weekend:
         reasons.append("WEEKEND_MARKET_CLOSED")
 
-    data_complete = has_data
     if not has_data:
         reasons.append("DATA_MISSING")
 
     if not warmup_complete:
-        reasons.append("WARMUP_INCOMPLETE")
+        reasons.append("WARMUP_LOOKBACK_INCOMPLETE")
 
-    execution_data_valid = data_complete and warmup_complete
-    eligible = market_open and data_complete and warmup_complete
+    if not execution_valid:
+        reasons.append("EXECUTION_DATA_INVALID")
+
+    eligible = market_open and has_data and warmup_complete and execution_valid
 
     return SessionEligibility(
         session_id=session_id,
         ny_date=ny_date,
         market_open=market_open,
-        data_complete=data_complete,
+        data_complete=has_data,
         warmup_complete=warmup_complete,
-        execution_data_valid=execution_data_valid,
+        execution_data_valid=execution_valid,
         eligible=eligible,
         reasons=reasons,
         assessed_at_ms=now_ms
@@ -190,10 +265,11 @@ def should_schedule_daily_entry(
     eligibility: SessionEligibility
 ) -> Tuple[bool, str]:
     """
-    PHẦN 41: should_schedule_daily_entry.
+    PHẦN 22, 41: should_schedule_daily_entry.
     Returns (True, reason) if daily scheduled paper entry is due at deadline.
     Condition: DAILY_PAPER cadence, in session window, deadline reached, 0 fills so far,
     session eligible, not in cooldown, and no active/terminal state.
+    Preserves deadline_minute=0 properly.
     """
     cadence = getattr(config, "entry_cadence", "CONFIRMED_ONLY")
     variant = getattr(config, "strategy_variant", "CURRENT_BASELINE")
@@ -215,8 +291,15 @@ def should_schedule_daily_entry(
     if not is_ny_session_window(dt_ny):
         return False, "OUTSIDE_NY_SESSION_WINDOW"
 
-    deadline_h = getattr(config, "scheduled_deadline_hour", None) or getattr(config, "ny_deadline_hour", 14)
-    deadline_m = getattr(config, "scheduled_deadline_minute", None) or getattr(config, "ny_deadline_minute", 30)
+    val_h = getattr(config, "scheduled_deadline_hour", None)
+    if val_h is None:
+        val_h = getattr(config, "ny_deadline_hour", 14)
+    deadline_h = val_h if val_h is not None else 14
+
+    val_m = getattr(config, "scheduled_deadline_minute", None)
+    if val_m is None:
+        val_m = getattr(config, "ny_deadline_minute", 30)
+    deadline_m = val_m if val_m is not None else 30
 
     if not is_ny_deadline_reached(dt_ny, deadline_hour=deadline_h, deadline_min=deadline_m):
         return False, "DEADLINE_NOT_YET_REACHED"
@@ -232,18 +315,17 @@ def choose_scheduled_direction(
     config: Any
 ) -> Tuple[Optional[str], str, Dict[str, Any], List[str]]:
     """
-    PHẦN 42: choose_scheduled_direction.
+    PHẦN 26, 42: choose_scheduled_direction.
     Selects scheduled direction deterministically:
     1. H1/H4 confirmed alignment.
-    2. Conflict resolved via 15M structure / swing flow.
-    3. Fallback to session momentum (relative to session open / pre-NY midpoint).
+    2. Conflict resolved via 15M structure / moving average.
+    3. Fallback to session momentum.
     Deterministic tie-break without random coin flips or future bias.
     """
     h1_trend = context.get("h1_trend", "UNKNOWN")
     h4_bias = context.get("h4_bias", "UNKNOWN")
     d_bias = context.get("d_bias", "UNKNOWN")
     recent_bars_15m = context.get("recent_bars_15m", [])
-    recent_bars_5m = context.get("recent_bars_5m", [])
 
     missing_confirmations = ["NO_CONFIRMED_CHOCH", "NO_5M_DISPLACEMENT", "SCHEDULED_ENTRY_AT_DEADLINE"]
     structural_refs = {
@@ -284,7 +366,6 @@ def choose_scheduled_direction(
     elif d_bias == "BEARISH":
         return "SHORT", "DAILY_BIAS_FALLBACK", structural_refs, missing_confirmations
 
-    # Deterministic tie-break based on last bar close vs open
     if recent_bars_15m:
         last_b = recent_bars_15m[-1]
         if last_b["close"] >= last_b["open"]:
@@ -295,6 +376,155 @@ def choose_scheduled_direction(
     return None, "NO_DIRECTIONAL_BIAS", structural_refs, missing_confirmations
 
 
+def collect_causal_target_candidates(
+    direction: str,
+    context: Dict[str, Any],
+    entry_price: float,
+    decision_ms: int
+) -> List[Dict[str, Any]]:
+    """
+    PHẦN 29: Collects confirmed, causal target candidates.
+    Sources:
+    - 5M confirmed swings (known_at <= decision_ms)
+    - 15M confirmed swings (known_at <= decision_ms)
+    - Pre-NY range high/low (if available and frozen)
+    Sorted by distance (nearest first).
+    """
+    candidates = []
+    seen_prices = set()
+
+    # 1. 5M Swings
+    recent_bars_5m = context.get("recent_bars_5m", [])
+    if len(recent_bars_5m) >= 15:
+        proxies_5m = ensure_proxies(recent_bars_5m)
+        sh_5m, sl_5m = smc_engine.identify_pivots(proxies_5m, "5M")
+        if direction == "LONG":
+            for sh in reversed(sh_5m):
+                p = round(sh["price"], 2)
+                known_at = sh.get("confirmed_at", 0)
+                if known_at <= decision_ms and p > entry_price and p not in seen_prices:
+                    seen_prices.add(p)
+                    candidates.append({
+                        "price": p,
+                        "source": "5M_SWING_HIGH",
+                        "source_time": sh.get("pivot_at", 0),
+                        "known_at": known_at,
+                        "timeframe": "5M",
+                        "structural_id": sh.get("id", f"sh-5m-{p}"),
+                        "target_model": "STRUCTURAL_5M_SWING_HIGH"
+                    })
+        else:  # SHORT
+            for sl in reversed(sl_5m):
+                p = round(sl["price"], 2)
+                known_at = sl.get("confirmed_at", 0)
+                if known_at <= decision_ms and p < entry_price and p not in seen_prices:
+                    seen_prices.add(p)
+                    candidates.append({
+                        "price": p,
+                        "source": "5M_SWING_LOW",
+                        "source_time": sl.get("pivot_at", 0),
+                        "known_at": known_at,
+                        "timeframe": "5M",
+                        "structural_id": sl.get("id", f"sl-5m-{p}"),
+                        "target_model": "STRUCTURAL_5M_SWING_LOW"
+                    })
+
+    # 2. 15M Swings
+    recent_bars_15m = context.get("recent_bars_15m", [])
+    if len(recent_bars_15m) >= 15:
+        proxies_15m = ensure_proxies(recent_bars_15m)
+        sh_15m, sl_15m = smc_engine.identify_pivots(proxies_15m, "15M")
+        if direction == "LONG":
+            for sh in reversed(sh_15m):
+                p = round(sh["price"], 2)
+                known_at = sh.get("confirmed_at", 0)
+                if known_at <= decision_ms and p > entry_price and p not in seen_prices:
+                    seen_prices.add(p)
+                    candidates.append({
+                        "price": p,
+                        "source": "15M_SWING_HIGH",
+                        "source_time": sh.get("pivot_at", 0),
+                        "known_at": known_at,
+                        "timeframe": "15M",
+                        "structural_id": sh.get("id", f"sh-15m-{p}"),
+                        "target_model": "STRUCTURAL_15M_SWING_HIGH"
+                    })
+        else:  # SHORT
+            for sl in reversed(sl_15m):
+                p = round(sl["price"], 2)
+                known_at = sl.get("confirmed_at", 0)
+                if known_at <= decision_ms and p < entry_price and p not in seen_prices:
+                    seen_prices.add(p)
+                    candidates.append({
+                        "price": p,
+                        "source": "15M_SWING_LOW",
+                        "source_time": sl.get("pivot_at", 0),
+                        "known_at": known_at,
+                        "timeframe": "15M",
+                        "structural_id": sl.get("id", f"sl-15m-{p}"),
+                        "target_model": "STRUCTURAL_15M_SWING_LOW"
+                    })
+
+    # 3. Pre-NY Range Levels
+    pre_ny_range = context.get("pre_ny_range")
+    if pre_ny_range and pre_ny_range.get("valid"):
+        high_p = round(pre_ny_range.get("high", 0.0), 2)
+        low_p = round(pre_ny_range.get("low", 0.0), 2)
+        if direction == "LONG" and high_p > entry_price and high_p not in seen_prices:
+            seen_prices.add(high_p)
+            candidates.append({
+                "price": high_p,
+                "source": "PRE_NY_RANGE_HIGH",
+                "source_time": pre_ny_range.get("cutoff_ts", 0),
+                "known_at": pre_ny_range.get("cutoff_ts", 0),
+                "timeframe": "15M",
+                "structural_id": "pre-ny-high",
+                "target_model": "STRUCTURAL_PRE_NY_HIGH"
+            })
+        elif direction == "SHORT" and low_p < entry_price and low_p not in seen_prices:
+            seen_prices.add(low_p)
+            candidates.append({
+                "price": low_p,
+                "source": "PRE_NY_RANGE_LOW",
+                "source_time": pre_ny_range.get("cutoff_ts", 0),
+                "known_at": pre_ny_range.get("cutoff_ts", 0),
+                "timeframe": "15M",
+                "structural_id": "pre-ny-low",
+                "target_model": "STRUCTURAL_PRE_NY_LOW"
+            })
+
+    # Sort by distance from entry (nearest first)
+    candidates.sort(key=lambda t: abs(t["price"] - entry_price))
+    return candidates
+
+
+def build_measured_move_target(
+    direction: str,
+    entry_price: float,
+    sl_dist: float,
+    fixed_multiplier: float = 3.0
+) -> Dict[str, Any]:
+    """
+    PHẦN 30: Builds a deterministic measured move target under research policy.
+    Fixed multiplier is FROZEN before replay, never looped or optimized ex-post!
+    """
+    if direction == "LONG":
+        target_price = round(entry_price + (sl_dist * fixed_multiplier), 2)
+    else:
+        target_price = round(entry_price - (sl_dist * fixed_multiplier), 2)
+
+    return {
+        "price": target_price,
+        "source": "MEASURED_MOVE_RESEARCH",
+        "source_time": 0,
+        "known_at": 0,
+        "timeframe": "5M",
+        "structural_id": f"mm-{fixed_multiplier}R",
+        "target_model": "MEASURED_RANGE_EXTENSION_RESEARCH",
+        "fixed_multiplier": fixed_multiplier
+    }
+
+
 def build_scheduled_price_plan(
     direction: str,
     context: Dict[str, Any],
@@ -302,9 +532,10 @@ def build_scheduled_price_plan(
     config: Any
 ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     """
-    PHẦN 43: build_scheduled_price_plan.
+    PHẦN 28, 29, 30, 31, 32, 43: build_scheduled_price_plan.
     Builds price geometry (entry, structural SL, structural/extension TP) and calculates Net R:R.
     Requires Net R:R >= 2.0R under realistic costs.
+    ELIMINATES artificial loop multiplier expansions! Preserves structural labels.
     """
     recent_bars_5m = context.get("recent_bars_5m", [])
     recent_bars_15m = context.get("recent_bars_15m", [])
@@ -329,77 +560,69 @@ def build_scheduled_price_plan(
     raw_atr = compute_atr_bars(atr_source, 14) if atr_source else 3.0
     atr = max(raw_atr, 2.0)
 
-    # Swing levels for invalidation & liquidity targets
+    # 1. Structural Stop Loss Selection
     sh_5m, sl_5m = smc_engine.identify_pivots(ensure_proxies(recent_bars_5m[-30:]), "5M") if len(recent_bars_5m) >= 15 else ([], [])
 
     if direction == "LONG":
-        if sl_5m:
+        if sl_5m and sl_5m[-1].get("confirmed_at", 0) <= sim_time:
             sl_cand = round(sl_5m[-1]["price"] - max(0.2 * atr, 0.50), 2)
             stop_model = "STRUCTURAL_5M_SWING_LOW"
         else:
             sl_cand = round(fill_entry - max(1.2 * atr, 3.0), 2)
-            stop_model = "ATR_VOLATILITY_STOP"
+            stop_model = "VOLATILITY_ATR_RESEARCH"
 
-        # Ensure valid SL distance
         sl_dist = fill_entry - sl_cand
         if sl_dist < 1.5:
             sl_cand = round(fill_entry - max(1.0 * atr, 2.5), 2)
             sl_dist = fill_entry - sl_cand
-            stop_model = "ATR_CLAMPED_STOP"
+            stop_model = "ATR_CLAMPED_RESEARCH_STOP"
         elif sl_dist > 4.0 * atr:
             sl_cand = round(fill_entry - 2.5 * atr, 2)
             sl_dist = fill_entry - sl_cand
-            stop_model = "ATR_CEILING_STOP"
-
-        # Target: External Liquidity / Measured Move Extension
-        target_model = "MEASURED_RANGE_EXTENSION_2R"
-        if sh_5m and sh_5m[-1]["price"] > fill_entry + (2.0 * sl_dist):
-            tp_cand = round(sh_5m[-1]["price"], 2)
-            target_model = "STRUCTURAL_5M_SWING_HIGH"
-        else:
-            tp_cand = round(fill_entry + (sl_dist * 2.5), 2)
+            stop_model = "ATR_CEILING_RESEARCH_STOP"
 
     else:  # SHORT
-        if sh_5m:
+        if sh_5m and sh_5m[-1].get("confirmed_at", 0) <= sim_time:
             sl_cand = round(sh_5m[-1]["price"] + max(0.2 * atr, 0.50), 2)
             stop_model = "STRUCTURAL_5M_SWING_HIGH"
         else:
             sl_cand = round(fill_entry + max(1.2 * atr, 3.0), 2)
-            stop_model = "ATR_VOLATILITY_STOP"
+            stop_model = "VOLATILITY_ATR_RESEARCH"
 
         sl_dist = sl_cand - fill_entry
         if sl_dist < 1.5:
             sl_cand = round(fill_entry + max(1.0 * atr, 2.5), 2)
             sl_dist = sl_cand - fill_entry
-            stop_model = "ATR_CLAMPED_STOP"
+            stop_model = "ATR_CLAMPED_RESEARCH_STOP"
         elif sl_dist > 4.0 * atr:
             sl_cand = round(fill_entry + 2.5 * atr, 2)
             sl_dist = sl_cand - fill_entry
-            stop_model = "ATR_CEILING_STOP"
+            stop_model = "ATR_CEILING_RESEARCH_STOP"
 
-        target_model = "MEASURED_RANGE_EXTENSION_2R"
-        if sl_5m and sl_5m[-1]["price"] < fill_entry - (2.0 * sl_dist):
-            tp_cand = round(sl_5m[-1]["price"], 2)
-            target_model = "STRUCTURAL_5M_SWING_LOW"
-        else:
-            tp_cand = round(fill_entry - (sl_dist * 2.5), 2)
+    # 2. Collect Causal Structural Target Candidates
+    target_candidates = collect_causal_target_candidates(direction, context, fill_entry, sim_time)
 
-    is_geom_valid, geom_err = validate_price_geometry(direction, fill_entry, sl_cand, tp_cand)
-    if not is_geom_valid:
-        return None, f"INVALID_GEOMETRY: {geom_err}"
+    # 3. Add Fixed Measured Move Candidates (standard structural extensions 3.0x, 3.5x, 4.0x SL distance)
+    for mm_mult in [3.0, 3.5, 4.0]:
+        measured_target = build_measured_move_target(direction, fill_entry, sl_dist, fixed_multiplier=mm_mult)
+        target_candidates.append(measured_target)
 
-    # Solve target price that satisfies Net RR >= 2.0R under realistic costs
-    valid_plan_found = False
-    final_calc = None
-    final_tp = tp_cand
+    # 4. Evaluate candidates deterministically without multiplier expansion loops
+    valid_plan = None
+    last_rejection_reason = "NO_CANDIDATE_TARGETS"
 
-    for mult in [2.2, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 6.0]:
-        test_tp = round(fill_entry + (sl_dist * mult) if direction == "LONG" else fill_entry - (sl_dist * mult), 2)
-        test_calc = calculate_risk_reward(
+    for target_cand in target_candidates:
+        cand_tp = target_cand["price"]
+        is_geom_valid, geom_err = validate_price_geometry(direction, fill_entry, sl_cand, cand_tp)
+        if not is_geom_valid:
+            last_rejection_reason = f"INVALID_GEOMETRY: {geom_err}"
+            continue
+
+        calc = calculate_risk_reward(
             direction=direction,
             entry=fill_entry,
             sl=sl_cand,
-            tp=test_tp,
+            tp=cand_tp,
             capital=capital,
             risk_pct=quota_risk_pct,
             costs=costs,
@@ -408,30 +631,28 @@ def build_scheduled_price_plan(
             margin_mode=margin_mode,
             min_net_rr=2.0
         )
-        if test_calc.can_execute and test_calc.net_rr >= 2.0:
-            final_tp = test_tp
-            final_calc = test_calc
-            valid_plan_found = True
+
+        if calc.can_execute and calc.net_rr >= 2.0:
+            valid_plan = {
+                "direction": direction,
+                "entry_price": fill_entry,
+                "stop_loss": sl_cand,
+                "take_profit": cand_tp,
+                "calc": calc,
+                "stop_model": stop_model,
+                "target_model": target_cand["target_model"],
+                "target_source": target_cand.get("source", "UNKNOWN"),
+                "atr": round(atr, 2)
+            }
             break
+        else:
+            skip_r = getattr(calc, 'skip_reason', None) or getattr(calc, 'invalid_reason', None) or f"NET_RR_{calc.net_rr:.2f}_BELOW_2.0"
+            last_rejection_reason = f"TARGET_{cand_tp}_FAILED: {skip_r}"
 
-    if not valid_plan_found or final_calc is None:
-        reason = getattr(test_calc, 'skip_reason', None) or getattr(test_calc, 'invalid_reason', None) or 'NET_RR_TOO_LOW'
-        return None, f"NET_RR_TOO_LOW: {reason}"
+    if valid_plan is None:
+        return None, f"NO_VALID_STRUCTURAL_TARGET_OR_RR_BELOW_2: {last_rejection_reason}"
 
-    calc = final_calc
-    tp_cand = final_tp
-
-    plan = {
-        "direction": direction,
-        "entry_price": fill_entry,
-        "stop_loss": sl_cand,
-        "take_profit": tp_cand,
-        "calc": calc,
-        "stop_model": stop_model,
-        "target_model": target_model,
-        "atr": round(atr, 2)
-    }
-    return plan, None
+    return valid_plan, None
 
 
 def evaluate_scheduled_entry(
@@ -480,33 +701,41 @@ def evaluate_scheduled_entry(
     return candidate, rejections
 
 
-def summarize_cadence(session_outcomes: List[Dict[str, Any]]) -> Dict[str, Any]:
+def summarize_cadence(session_outcomes: List[Dict[str, Any]], calendar_days: Optional[int] = None) -> Dict[str, Any]:
     """
-    PHẦN 61: summarize_cadence.
+    PHẦN 54, 61: summarize_cadence.
     Aggregates session cadence statistics across the entire evaluation horizon.
+    Guarantees coverage_pct in [0, 100] by strictly using eligible completed sessions as denominator.
     """
-    calendar_days = len(session_outcomes)
-    ny_sessions_total = calendar_days
+    total_outcomes = len(session_outcomes)
+    cal_days = calendar_days if calendar_days is not None else total_outcomes
+    ny_sessions_total = total_outcomes
+
     market_open_sessions = sum(1 for s in session_outcomes if s.get("market_open", False))
     data_complete_sessions = sum(1 for s in session_outcomes if s.get("data_complete", False))
     executable_sessions = sum(1 for s in session_outcomes if s.get("eligible", False))
 
-    sessions_with_fills = sum(1 for s in session_outcomes if s.get("fills_count", 0) >= 1)
+    # Numerator is strictly eligible sessions with fills (never exceeding executable_sessions)
+    sessions_with_fills = sum(1 for s in session_outcomes if s.get("eligible", False) and s.get("fills_count", 0) >= 1)
+    all_sessions_with_fills = sum(1 for s in session_outcomes if s.get("fills_count", 0) >= 1)
+
     confirmed_fill_sessions = sum(1 for s in session_outcomes if s.get("confirmed_fills", 0) >= 1)
     scheduled_fill_sessions = sum(1 for s in session_outcomes if s.get("scheduled_fills", 0) >= 1)
 
-    blocked_sessions = sum(1 for s in session_outcomes if s.get("outcome_category") in ("RISK_STOP", "POLICY_BLOCKED"))
+    blocked_sessions = sum(1 for s in session_outcomes if s.get("outcome_category") in ("RISK_STOP", "POLICY_BLOCKED", "POLICY_DAILY_CAP_3"))
     unmet_sessions = sum(1 for s in session_outcomes if s.get("outcome_category") in ("UNFULFILLED", "NO_VALID_PRICE_PLAN"))
 
-    coverage_pct = round((sessions_with_fills / executable_sessions * 100.0), 1) if executable_sessions > 0 else 0.0
+    raw_coverage = (sessions_with_fills / executable_sessions * 100.0) if executable_sessions > 0 else 0.0
+    coverage_pct = round(min(100.0, max(0.0, raw_coverage)), 1)
 
     return {
-        "calendar_days": calendar_days,
+        "calendar_days": cal_days,
         "ny_sessions_total": ny_sessions_total,
         "market_open_sessions": market_open_sessions,
         "data_complete_sessions": data_complete_sessions,
         "executable_sessions": executable_sessions,
         "sessions_with_fills": sessions_with_fills,
+        "all_sessions_with_fills": all_sessions_with_fills,
         "confirmed_fill_sessions": confirmed_fill_sessions,
         "scheduled_fill_sessions": scheduled_fill_sessions,
         "blocked_sessions": blocked_sessions,
@@ -522,7 +751,7 @@ def finalize_session_outcome(
     boundary: str = "SESSION_END"
 ) -> Dict[str, Any]:
     """
-    PHẦN 63: finalize_session_outcome.
+    PHẦN 55, 63: finalize_session_outcome.
     Finalizes single session outcome for reporting and audit tables.
     """
     if not eligibility.market_open:
@@ -537,14 +766,22 @@ def finalize_session_outcome(
     elif state.fills >= 1:
         outcome_cat = "TARGET_ACHIEVED"
         primary_reason = f"FILLED_{state.fills}_TRADES"
-    elif state.block_reason and "LOSS" in state.block_reason:
-        outcome_cat = "RISK_STOP"
-        primary_reason = state.block_reason
-    elif state.block_reason and ("POLICY" in state.block_reason or "RULE" in state.block_reason or "NEWS" in state.block_reason):
-        outcome_cat = "POLICY_BLOCKED"
-        primary_reason = state.block_reason
+    elif state.block_reason:
+        br = state.block_reason
+        if "CAP_3" in br or "MAX_FILLS" in br:
+            outcome_cat = "POLICY_DAILY_CAP_3"
+            primary_reason = br
+        elif "CONSECUTIVE_SL" in br or "LOSS_BUDGET" in br or "LOSS" in br:
+            outcome_cat = "RISK_STOP"
+            primary_reason = br
+        elif "NEWS" in br or "BLACKOUT" in br:
+            outcome_cat = "POLICY_BLOCKED"
+            primary_reason = br
+        else:
+            outcome_cat = "POLICY_BLOCKED"
+            primary_reason = br
     elif state.unmet_reason:
-        outcome_cat = "NO_VALID_PRICE_PLAN" if "RR" in state.unmet_reason or "GEOMETRY" in state.unmet_reason else "UNFULFILLED"
+        outcome_cat = "NO_VALID_PRICE_PLAN" if ("RR" in state.unmet_reason or "TARGET" in state.unmet_reason or "GEOMETRY" in state.unmet_reason) else "UNFULFILLED"
         primary_reason = state.unmet_reason
     else:
         outcome_cat = "UNFULFILLED"

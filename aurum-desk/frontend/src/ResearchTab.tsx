@@ -3,6 +3,7 @@ import { api, extractErrorMessage, type ResearchReportItem, type ReplayRunRespon
 import { buildResearchReplayRequest } from './utils/researchReplayRequest';
 import { deriveResearchVerdict } from './utils/deriveResearchVerdict';
 import { getComparisonRows } from './utils/comparisonRows';
+import { getResearchReasonText } from './utils/researchReasonText';
 import { LabJobManager } from './utils/labJobManager';
 import {
   Calendar,
@@ -184,6 +185,7 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
   const [evalResult, setEvalResult] = useState<ReplayRunResponse | null>(null);
   const [tradesDrawerOpen, setTradesDrawerOpen] = useState<boolean>(false);
   const [evalDetailsOpen, setEvalDetailsOpen] = useState<boolean>(false);
+  const [unmetSessionsDrawerOpen, setUnmetSessionsDrawerOpen] = useState<boolean>(false);
   const [noTradeDaysDrawerOpen, setNoTradeDaysDrawerOpen] = useState<boolean>(false);
   const [comparisonDrawerOpen, setComparisonDrawerOpen] = useState<boolean>(false);
 
@@ -1288,11 +1290,19 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                 </button>
 
                 <button
+                  onClick={() => setUnmetSessionsDrawerOpen(!unmetSessionsDrawerOpen)}
+                  className="px-3 py-2 bg-charcoal-850 hover:bg-charcoal-800 text-gray-200 rounded-lg border border-charcoal-700 text-xs font-semibold flex items-center gap-1.5 transition"
+                >
+                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  Phiên Chưa Đạt Mục Tiêu ({evalResult.cadence_summary?.unmet_sessions ?? 0})
+                </button>
+
+                <button
                   onClick={() => setNoTradeDaysDrawerOpen(!noTradeDaysDrawerOpen)}
                   className="px-3 py-2 bg-charcoal-850 hover:bg-charcoal-800 text-gray-200 rounded-lg border border-charcoal-700 text-xs font-semibold flex items-center gap-1.5 transition"
                 >
                   <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                  Ngày Không Có Lệnh ({evalResult.session_breakdown?.days_no_trades ?? (92 - (evalResult.session_breakdown?.days_with_trades ?? 0))})
+                  Ngày VN Không Có Lệnh ({evalResult.session_breakdown?.days_no_trades ?? (evalResult.session_breakdown?.daily_stats_list ? evalResult.session_breakdown.daily_stats_list.filter((d: any) => d.fills === 0).length : 0)})
                 </button>
 
                 <button
@@ -1359,10 +1369,65 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                             <td className={tr.net_pnl >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
                               {tr.net_pnl >= 0 ? '+' : ''}${tr.net_pnl?.toFixed(2)}
                             </td>
-                            <td>{tr.r_multiple ? `${tr.r_multiple.toFixed(2)}R` : '-'}</td>
+                            <td>
+                              {tr.realized_r != null && Number.isFinite(tr.realized_r)
+                                ? `${tr.realized_r >= 0 ? '+' : ''}${tr.realized_r.toFixed(2)}R`
+                                : (tr.status === 'OPEN' ? 'Đang mở' : 'Chưa đủ dữ liệu')}
+                            </td>
                             <td className="text-gray-500">{new Date(tr.entry_time).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</td>
                           </tr>
                         ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Unmet Sessions Drawer */}
+              {unmetSessionsDrawerOpen && (
+                <div className="bg-charcoal-850 p-4 rounded-xl border border-charcoal-700 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between border-b border-charcoal-750 pb-2">
+                    <span className="font-bold text-xs text-gray-200">
+                      Danh Sách Phiên Mỹ Chưa Đạt Mục Tiêu Khớp Lệnh ({evalResult.cadence_summary?.unmet_sessions ?? 0} phiên)
+                    </span>
+                    <button onClick={() => setUnmetSessionsDrawerOpen(false)} className="text-gray-400 hover:text-white">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-gray-400">
+                    Các phiên giao dịch dưới đây thuộc khung giờ phiên Mỹ nhưng không thể khớp lệnh do không xây dựng được kế hoạch giá đạt chuẩn R:R &gt;= 2.0 hoặc bị chặn bởi các quy tắc an toàn.
+                  </p>
+                  <div className="max-h-72 overflow-y-auto">
+                    <table className="w-full text-left text-[11px]">
+                      <thead className="text-gray-500 border-b border-charcoal-750 font-mono">
+                        <tr>
+                          <th className="py-1">Phiên (Ngày NY)</th>
+                          <th>Phân Loại</th>
+                          <th>Lý Do Chi Tiết</th>
+                          <th>Số Lần Thử</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-charcoal-800 font-mono">
+                        {evalResult.per_session_outcomes && evalResult.per_session_outcomes.filter((s: any) => s.outcome_category !== 'TARGET_ACHIEVED' && s.outcome_category !== 'MARKET_CLOSED').length > 0 ? (
+                          evalResult.per_session_outcomes.filter((s: any) => s.outcome_category !== 'TARGET_ACHIEVED' && s.outcome_category !== 'MARKET_CLOSED').map((s: any, idx: number) => (
+                            <tr key={idx} className="hover:bg-charcoal-800/40">
+                              <td className="py-1 text-gray-300 font-semibold">{s.date_ny}</td>
+                              <td>
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                                  {s.outcome_category}
+                                </span>
+                              </td>
+                              <td className="text-gray-300 font-sans text-xs">{getResearchReasonText(s.primary_reason)}</td>
+                              <td className="text-gray-500 font-mono">{s.attempts_count ?? 0}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={4} className="py-2 text-center text-gray-500">
+                              Không có phiên Mỹ đã kết thúc nào chưa đạt mục tiêu.
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
