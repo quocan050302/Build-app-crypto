@@ -1,3 +1,4 @@
+import copy
 import os
 import uuid
 import time
@@ -10,6 +11,11 @@ from pathlib import Path
 
 import schemas
 from lab.replay_engine import ReplayEngine, ReplayCancelledException
+
+class ReplayQueueFullException(RuntimeError):
+    """Raised when the replay background worker queue capacity is reached (mapped to HTTP 429)."""
+    pass
+
 
 class ReplayJobManager:
     """
@@ -42,10 +48,10 @@ class ReplayJobManager:
             # Check bounded queue limit
             active_jobs = [
                 j for j in self.jobs.values()
-                if j["status"] in ("QUEUED", "RUNNING", "VALIDATING", "CANCEL_REQUESTED")
+                if isinstance(j, dict) and j.get("status") in ("QUEUED", "RUNNING", "VALIDATING", "CANCEL_REQUESTED")
             ]
             if len(active_jobs) >= self.MAX_ACTIVE_JOBS:
-                raise RuntimeError(
+                raise ReplayQueueFullException(
                     f"Hàng đợi Replay đã đầy (tối đa {self.MAX_ACTIVE_JOBS} tác vụ đồng thời). Vui lòng đợi tác vụ hiện tại hoàn tất."
                 )
 
@@ -100,7 +106,7 @@ class ReplayJobManager:
                 "cancel_event": threading.Event(),
                 "result": None,
                 "artifacts_dir": None,
-                "request": request
+                "request": copy.deepcopy(request)
             }
 
             self.jobs[job_id] = job_info

@@ -306,6 +306,10 @@ export interface ReplayRunResponse {
   execution_fidelity?: string;
   cash_balance?: number;
   open_mtm?: number;
+  news_coverage_status?: string;
+  rules_coverage_status?: string;
+  cost_model_version?: string;
+  schema_version?: string;
 }
 
 export interface StressTestRequest {

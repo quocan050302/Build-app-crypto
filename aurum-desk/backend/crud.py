@@ -342,6 +342,14 @@ def check_news_blackout(db: Session, now_ms: Optional[int] = None) -> Tuple[bool
     )
 
     for ev in events:
+        # Causal filtering: event must be known/received at or before now_ms
+        rec_at = getattr(ev, "received_at", None)
+        if rec_at is not None and now_ms < rec_at:
+            continue
+        k_at = getattr(ev, "known_at", None)
+        if k_at is not None and now_ms < k_at:
+            continue
+
         is_fomc = "FOMC" in ev.title.upper() or "FED" in ev.title.upper() or "RATE DECISION" in ev.title.upper()
         before_ms = (60 if is_fomc else 30) * 60 * 1000
         after_ms = (30 if is_fomc else 15) * 60 * 1000

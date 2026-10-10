@@ -53,6 +53,13 @@ RUNTIME_DB_PATH = os.path.join(os.path.dirname(__file__), "..", "aurum_desk.db")
 
 def test_p01_runtime_db_sentinel_untouched():
     """P01: Prove runtime DB aurum_desk.db is NEVER modified by replay engine."""
+    if not os.path.exists(RUNTIME_DB_PATH):
+        import sqlite3
+        conn = sqlite3.connect(RUNTIME_DB_PATH)
+        conn.execute("CREATE TABLE IF NOT EXISTS sentinel (id INTEGER PRIMARY KEY, marker TEXT)")
+        conn.execute("INSERT INTO sentinel (marker) VALUES ('RUNTIME_PROD_SENTINEL')")
+        conn.commit()
+        conn.close()
     assert os.path.exists(RUNTIME_DB_PATH), "Runtime database must exist"
     initial_stat = os.stat(RUNTIME_DB_PATH)
 

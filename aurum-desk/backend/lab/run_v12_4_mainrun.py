@@ -1,5 +1,5 @@
 """
-Aurum Desk V12_3: Comprehensive Mainrun for Variants A, B, and C.
+Aurum Desk V12_4: Comprehensive Mainrun for Variants A, B, and C.
 - Dataset: XAUUSDT Bitget Classic USDT-FUTURES (2026-07-09 22:00 -> 2026-10-09 22:00 UTC+7).
 - 50-day warmup history (from 2026-05-20 22:00:00 UTC+7).
 - Initial Equity: 1000 USDT | Leverage: 30x ISOLATED.
@@ -7,7 +7,7 @@ Aurum Desk V12_3: Comprehensive Mainrun for Variants A, B, and C.
     A. CURRENT_BASELINE: Production SMC strategy with fixed accounting & dynamic quality reporting.
     B. NY_ADAPTIVE: SMC + NY Trend Continuation (B1) & Range Break Retest (B2) with 5M execution cadence.
     C. NY_DAILY_PAPER_RESEARCH: Daily NY 14:30 deadline quota candidates with strict quality vs quota accounting.
-- Comprehensive V12.3 Correctness & Reparations:
+- Comprehensive V12.4 Correctness & Reparations:
     - P01: Real pytest execution parsed via EvidenceCollector (no hardcoded 74/74).
     - P02: Genuine boundary assertions without vacuous assert True.
     - P03: Causal news blackout and temporal lesson rules evaluated during candle loop.
@@ -44,12 +44,12 @@ NY_TZ = ZoneInfo("America/New_York")
 from lab.excel_export import V12ExcelExporter
 from lab.stress_tester import StressTester
 from lab.evidence_collector import EvidenceCollector
-from lab.v12_3_manifest import ALL_86_REQUIREMENTS, build_v12_3_requirement_manifest
+from lab.v12_4_manifest import ALL_98_REQUIREMENTS, build_v12_4_requirement_manifest
 
 
-def run_v12_3_comparison_suite():
+def run_v12_4_comparison_suite():
     print("=" * 80)
-    print("AURUM DESK V12_3 — 3-VARIANT REPLAY & AUDIT SUITE (A, B, C)")
+    print("AURUM DESK V12_4 — 3-VARIANT REPLAY & AUDIT SUITE (A, B, C)")
     print("=" * 80)
 
     cutoff_dt = datetime(2026, 10, 9, 22, 0, 0, tzinfo=VN_TZ)
@@ -58,8 +58,8 @@ def run_v12_3_comparison_suite():
     start_ms = int(start_dt.timestamp() * 1000)
     warmup_days = 50
 
-    run_id = f"v12_3_mainrun_{int(time.time())}"
-    artifacts_dir = os.path.join(os.path.dirname(__file__), "artifacts", "v12_3", run_id)
+    run_id = f"v12_4_mainrun_{int(time.time())}"
+    artifacts_dir = os.path.join(os.path.dirname(__file__), "artifacts", "v12_4", run_id)
     os.makedirs(artifacts_dir, exist_ok=True)
 
     log_path = os.path.join(artifacts_dir, "run.log")
@@ -77,7 +77,7 @@ def run_v12_3_comparison_suite():
     log("1/3 RUNNING VARIANT A: CURRENT_BASELINE")
     log("=" * 60)
     req_a = schemas.ReplayRunRequest(
-        run_name=f"V12_3_Mode_A_Baseline_{run_id}",
+        run_name=f"V12_4_Mode_A_Baseline_{run_id}",
         symbol="XAUUSDT",
         mode="HISTORICAL_MARKET",
         strategy_variant="CURRENT_BASELINE",
@@ -104,7 +104,7 @@ def run_v12_3_comparison_suite():
     log("2/3 RUNNING VARIANT B: NY_ADAPTIVE")
     log("=" * 60)
     req_b = schemas.ReplayRunRequest(
-        run_name=f"V12_3_Mode_B_NY_Adaptive_{run_id}",
+        run_name=f"V12_4_Mode_B_NY_Adaptive_{run_id}",
         symbol="XAUUSDT",
         mode="HISTORICAL_MARKET",
         strategy_variant="NY_ADAPTIVE",
@@ -132,7 +132,7 @@ def run_v12_3_comparison_suite():
     log("3/3 RUNNING VARIANT C: NY_DAILY_PAPER_RESEARCH")
     log("=" * 60)
     req_c = schemas.ReplayRunRequest(
-        run_name=f"V12_3_Mode_C_NY_Daily_Paper_{run_id}",
+        run_name=f"V12_4_Mode_C_NY_Daily_Paper_{run_id}",
         symbol="XAUUSDT",
         mode="HISTORICAL_MARKET",
         strategy_variant="NY_DAILY_PAPER_RESEARCH",
@@ -359,7 +359,7 @@ def run_v12_3_comparison_suite():
             "pnl_B": res_b.total_net_pnl,
             "fills_C": res_c.total_trades,
             "pnl_C": res_c.total_net_pnl,
-            "notes": "Toàn bộ chu kỳ kiểm định V12_3"
+            "notes": "Toàn bộ chu kỳ kiểm định V12_4"
         }
     ]
 
@@ -395,7 +395,7 @@ def run_v12_3_comparison_suite():
         log(f"Exported individual workbook for {mode_name}: {wb_mode_path} (source copied: {copied})")
 
     # 6. Export Master Comparison Workbook
-    compare_excel_path = os.path.join(artifacts_dir, "V12_3_COMPARE_A_B_C.xlsx")
+    compare_excel_path = os.path.join(artifacts_dir, "V12_4_COMPARE_A_B_C.xlsx")
     V12ExcelExporter.export_comparison_workbook(
         filepath=compare_excel_path,
         mode_summaries=mode_summaries,
@@ -594,11 +594,12 @@ def run_v12_3_comparison_suite():
         py_exe, "-m", "pytest",
         "tests/test_v12_2_acceptance.py",
         "tests/test_v12_3_acceptance.py",
+        "tests/test_v12_4_acceptance.py",
         f"--junitxml={junit_xml_path}",
         "-q"
     ]
     try:
-        proc = subprocess.run(test_cmd, cwd=backend_dir, capture_output=True, text=True, timeout=60)
+        proc = subprocess.run(test_cmd, cwd=backend_dir, capture_output=True, text=True, timeout=120)
         log(f"Pytest exited with code {proc.returncode}")
         if os.path.exists(junit_xml_path):
             test_results_data = EvidenceCollector.export_test_results(junit_xml_path, test_results_json_path)
@@ -675,7 +676,7 @@ def run_v12_3_comparison_suite():
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>V12_3 Replay & Audit Report — {run_id}</title>
+<title>V12_4 Replay & Audit Report — {run_id}</title>
 <style>
 body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }}
 h1, h2, h3 {{ color: #38bdf8; }}
@@ -688,7 +689,7 @@ th {{ background: #0f172a; color: #94a3b8; font-weight: 600; }}
 </style>
 </head>
 <body>
-<h1>BÁO CÁO NGHIỆM THU TÍNH ĐÚNG & KIỂM ĐỊNH CHIẾN LƯỢC V12_3</h1>
+<h1>BÁO CÁO NGHIỆM THU TÍNH ĐÚNG & KIỂM ĐỊNH CHIẾN LƯỢC V12_4</h1>
 <div class="card">
 <h3>Thông tin kiểm định</h3>
 <p><strong>Run ID:</strong> {run_id} | <strong>Cặp:</strong> XAUUSDT (Bitget Classic)</p>
@@ -755,7 +756,7 @@ th {{ background: #0f172a; color: #94a3b8; font-weight: 600; }}
         f.write(html_content)
 
     log("\n" + "=" * 80)
-    log(f"V12_3 MAINRUN COMPLETED! All artifacts exported to: {artifacts_dir}")
+    log(f"V12_4 MAINRUN COMPLETED! All artifacts exported to: {artifacts_dir}")
     log("=" * 80)
 
     return {
@@ -770,4 +771,4 @@ th {{ background: #0f172a; color: #94a3b8; font-weight: 600; }}
 
 
 if __name__ == "__main__":
-    run_v12_3_comparison_suite()
+    run_v12_4_comparison_suite()

@@ -31,7 +31,7 @@ from services.eligibility_service import evaluate_setup_eligibility
 from lab.scenario_runner import ScenarioRunner
 from lab.replay_engine import ReplayEngine
 from lab.stress_tester import StressTester
-from lab.job_manager import ReplayJobManager
+from lab.job_manager import ReplayJobManager, ReplayQueueFullException
 
 # Ensure all tables exist
 models.Base.metadata.create_all(bind=engine)
@@ -1998,9 +1998,17 @@ def create_lab_job(request: schemas.ReplayRunRequest):
     """
     Submits a replay backtest job to the bounded background worker.
     Returns 202 Accepted with job_id and initial configuration hash.
+    Maps queue-full capacity condition to HTTP 429.
     """
     job_mgr = ReplayJobManager.get_instance()
-    return job_mgr.submit_job(request)
+    try:
+        return job_mgr.submit_job(request)
+    except ReplayQueueFullException as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    except RuntimeError as e:
+        if "hàng đợi replay đã đầy" in str(e).lower():
+            raise HTTPException(status_code=429, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/v1/lab/jobs/{job_id}", response_model=schemas.JobStatusResponse)

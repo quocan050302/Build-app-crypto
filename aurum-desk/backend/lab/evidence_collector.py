@@ -14,6 +14,7 @@ from typing import Dict, Any, List, Optional
 from pathlib import Path
 
 from lab.v12_2_manifest import ALL_74_REQUIREMENTS
+from lab.v12_4_manifest import ALL_98_REQUIREMENTS
 
 # V12.3 Defect & Correctness Verification Requirements
 DEFECT_REQUIREMENTS_V12_3: List[Dict[str, Any]] = [
@@ -32,6 +33,7 @@ DEFECT_REQUIREMENTS_V12_3: List[Dict[str, Any]] = [
 ]
 
 ALL_V12_3_REQUIREMENTS = ALL_74_REQUIREMENTS + DEFECT_REQUIREMENTS_V12_3
+ALL_V12_4_REQUIREMENTS = ALL_98_REQUIREMENTS
 
 
 class EvidenceCollector:
@@ -124,24 +126,36 @@ class EvidenceCollector:
         blocked_reqs = 0
         not_run_reqs = 0
 
-        for req in ALL_V12_3_REQUIREMENTS:
+        requirements_pool = ALL_V12_4_REQUIREMENTS if "ALL_V12_4_REQUIREMENTS" in globals() else ALL_V12_3_REQUIREMENTS
+        for req in requirements_pool:
             req_id = req["id"]
             mapped_test = req["mapped_test"]
             test_func = mapped_test.split("::")[-1] if "::" in mapped_test else mapped_test
 
-            # Match by exact node_id, then by function name
+            # Exact node_id matching without ambiguous fuzzy false positives (V124-06)
             status = "NOT_RUN"
-            matched_tc = None
             if mapped_test in outcomes_by_node:
                 status = outcomes_by_node[mapped_test]
-            elif test_func in outcomes_by_name:
-                status = outcomes_by_name[test_func]
+            elif f"tests/{mapped_test}" in outcomes_by_node:
+                status = outcomes_by_node[f"tests/{mapped_test}"]
+            elif mapped_test.startswith("tests/") and mapped_test[6:] in outcomes_by_node:
+                status = outcomes_by_node[mapped_test[6:]]
             else:
-                # Fuzzy match on filename or suffix
-                for node, st in outcomes_by_node.items():
-                    if test_func in node:
-                        status = st
-                        break
+                # Match exact test function node boundary (::test_name or ::test_name[param])
+                exact_matches = [
+                    (node, st) for node, st in outcomes_by_node.items()
+                    if node.endswith(f"::{test_func}") or f"::{test_func}[" in node
+                ]
+                if exact_matches:
+                    # If any parameterized run failed, status is FAIL
+                    if any(st in ("FAIL", "ERROR") for _, st in exact_matches):
+                        status = "FAIL"
+                    elif all(st == "PASS" for _, st in exact_matches):
+                        status = "PASS"
+                    elif any(st == "SKIP" for _, st in exact_matches):
+                        status = "SKIP"
+                    else:
+                        status = exact_matches[0][1]
 
             if status == "PASS":
                 passed_reqs += 1
@@ -160,7 +174,7 @@ class EvidenceCollector:
                 "status": status
             })
 
-        total_reqs = len(ALL_V12_3_REQUIREMENTS)
+        total_reqs = len(requirements_pool)
         any_failed = (failed_reqs > 0 or any(tc["status"] in ("FAIL", "ERROR") for tc in parsed["test_cases"]))
         overall_status = "PASS_WITH_EVIDENCE" if (passed_reqs == total_reqs and not any_failed) else (
             "FAIL_WITH_EVIDENCE" if any_failed else "PARTIAL_OR_BLOCKED"

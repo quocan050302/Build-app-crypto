@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api, extractErrorMessage } from './api/client';
 import type {
   ScenarioRunResponse,
@@ -18,8 +18,11 @@ import {
   Copy,
   Check,
   AlertTriangle,
-  Square
+  Square,
+  RotateCcw,
+  X
 } from 'lucide-react';
+import { LabJobManager } from './utils/labJobManager';
 
 interface TestingLabComponentProps {
   onNotify?: (title: string, msg: string, type: 'info' | 'warn' | 'success') => void;
@@ -59,7 +62,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
 
   // ==================== REPLAY STATE ====================
   const [replayParams, setReplayParams] = useState({
-    run_name: 'Backtest XAUUSDT SMC V12.2',
+    run_name: 'Backtest XAUUSDT SMC V12.4',
     initial_equity: 1000,
     risk_pct: 0.25,
     quality_risk_pct: 0.25,
@@ -79,6 +82,38 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
   const [jobProgressMsg, setJobProgressMsg] = useState<string | null>(null);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [cancellingJob, setCancellingJob] = useState<boolean>(false);
+  const unmountedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    unmountedRef.current = false;
+    const savedJobId = LabJobManager.getPersistedJobId();
+    if (savedJobId) {
+      setCurrentJobId(savedJobId);
+      api.getLabJobStatus(savedJobId).then(status => {
+        if (status.status === 'SUCCEEDED') {
+          api.getLabJobResult(savedJobId).then(res => setReplayResult(res));
+          LabJobManager.clearPersistedJobId();
+          setCurrentJobId(null);
+        } else if (status.status === 'FAILED' || status.status === 'CANCELLED') {
+          LabJobManager.clearPersistedJobId();
+          setCurrentJobId(null);
+        } else {
+          setJobProgressMsg(`Tác vụ nền đang hoạt động (${status.current_phase}, ${status.progress_pct.toFixed(0)}%)`);
+        }
+      }).catch((err) => {
+        if (err?.response?.status === 404 || err?.status === 404) {
+          LabJobManager.clearPersistedJobId();
+          setCurrentJobId(null);
+          if (onNotify) {
+            onNotify('Tác vụ Replay Hết Hạn', 'Tác vụ trước đây không còn tồn tại trên máy chủ (máy chủ có thể đã khởi động lại).', 'info');
+          }
+        }
+      });
+    }
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
 
   // ==================== STRESS TEST STATE ====================
   const [stressResult, setStressResult] = useState<StressTestResponse | null>(null);
@@ -159,11 +194,88 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
     }
   };
 
+  const handleDismissJobTracker = () => {
+    LabJobManager.clearPersistedJobId();
+    setCurrentJobId(null);
+    setJobProgressMsg(null);
+  };
+
+  // Safe polling with V124-07 invariants (unmount cleanup, retain reference, no fake terminal)
+  const pollJobStatus = async (jobId: string) => {
+    setRunningReplay(true);
+    setCurrentJobId(jobId);
+    LabJobManager.persistJobId(jobId);
+
+    let completed = false;
+    let consecutiveErrors = 0;
+    let attempts = 0;
+    const MAX_POLLS = 300;
+
+    while (!completed && attempts < MAX_POLLS) {
+      if (unmountedRef.current) break;
+      await new Promise((r) => setTimeout(r, 1000));
+      if (unmountedRef.current) break;
+      attempts++;
+      try {
+        const status = await api.getLabJobStatus(jobId);
+        consecutiveErrors = 0;
+        setJobProgressMsg(`Giai đoạn: ${status.current_phase} (${status.progress_pct.toFixed(0)}%)`);
+
+        if (status.status === 'SUCCEEDED') {
+          completed = true;
+          LabJobManager.clearPersistedJobId();
+          setCurrentJobId(null);
+          const res = await api.getLabJobResult(jobId);
+          setReplayResult(res);
+          if (onNotify) {
+            onNotify('Replay Hoàn Tất', `Tổng lệnh: ${res.total_trades} | Net PnL: ${fmtCur(res.total_net_pnl)}`, (res.total_net_pnl ?? 0) >= 0 ? 'success' : 'info');
+          }
+        } else if (status.status === 'CANCELLED') {
+          completed = true;
+          LabJobManager.clearPersistedJobId();
+          setCurrentJobId(null);
+          if (onNotify) {
+            onNotify('Tác Vụ Đã Dừng', status.error_message || 'Tác vụ replay đã dừng theo yêu cầu', 'info');
+          }
+        } else if (status.status === 'FAILED') {
+          completed = true;
+          LabJobManager.clearPersistedJobId();
+          setCurrentJobId(null);
+          if (onNotify) {
+            onNotify('Tác Vụ Thất Bại', status.error_message || 'Lỗi xử lý replay trên máy chủ', 'warn');
+          }
+        }
+      } catch (_pollErr: any) {
+        consecutiveErrors++;
+        if (consecutiveErrors > 5) {
+          setJobProgressMsg('Mất kết nối tạm thời tới máy chủ. Bấm "Theo dõi lại" để tiếp tục kiểm tra.');
+          if (onNotify) {
+            onNotify('Mất Kết Nối Poll', 'Không thể kết nối tới máy chủ sau 5 lần thử. Tác vụ vẫn được giữ lại để theo dõi.', 'warn');
+          }
+          break;
+        }
+        setJobProgressMsg(`Mất kết nối tạm thời (${consecutiveErrors}/5), đang thử lại...`);
+      }
+    }
+
+    if (!completed && attempts >= MAX_POLLS && !unmountedRef.current) {
+      setJobProgressMsg(`Tác vụ ${jobId} vẫn đang chạy trên máy chủ (đã dừng poll UI tự động). Bấm "Theo dõi lại" để tiếp tục cập nhật.`);
+      if (onNotify) {
+        onNotify('Tác Vụ Đang Chạy', `Tác vụ ${jobId} vẫn đang chạy trên máy chủ. Bạn có thể tiếp tục theo dõi trạng thái.`, 'info');
+      }
+    }
+
+    setRunningReplay(false);
+    if (completed) {
+      setJobProgressMsg(null);
+    }
+  };
+
   // Run historical replay with Job API support and safe error handling (P05 fix)
   const handleRunReplay = async () => {
+    if (runningReplay) return;
     setRunningReplay(true);
     setReplayResult(null);
-    setCurrentJobId(null);
     setJobProgressMsg('Đang khởi tạo tác vụ...');
     try {
       const payload: ReplayRunRequest = {
@@ -189,7 +301,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
         const job = await api.createLabJob(payload);
         jobId = job.job_id;
         setCurrentJobId(jobId);
-        setJobProgressMsg(`Đang xử lý trong hàng đợi (${job.job_id})...`);
+        setJobProgressMsg(`Đang xếp hàng chờ xử lý (${job.job_id})...`);
       } catch (submitErr: any) {
         // Fallback to synchronous replay endpoint ONLY if job API route is 404 (not supported on legacy server)
         if (submitErr?.response?.status === 404 || submitErr?.status === 404) {
@@ -206,69 +318,22 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
         if (onNotify) {
           onNotify('Replay Hoàn Tất', `Tổng lệnh: ${res.total_trades} | Net PnL: ${fmtCur(res.total_net_pnl)}`, (res.total_net_pnl ?? 0) >= 0 ? 'success' : 'info');
         }
+        setRunningReplay(false);
+        setJobProgressMsg(null);
         return;
       }
 
-      if (!jobId) return;
-
-      // Poll job status safely without fallback to runLabReplay!
-      let completed = false;
-      let consecutiveErrors = 0;
-      let attempts = 0;
-      const MAX_POLLS = 300; // Allow 5 minutes polling
-
-      while (!completed && attempts < MAX_POLLS) {
-        await new Promise((r) => setTimeout(r, 1000));
-        attempts++;
-        try {
-          const status = await api.getLabJobStatus(jobId);
-          consecutiveErrors = 0;
-          setJobProgressMsg(`Giai đoạn: ${status.current_phase} (${status.progress_pct.toFixed(0)}%)`);
-
-          if (status.status === 'SUCCEEDED') {
-            completed = true;
-            const res = await api.getLabJobResult(jobId);
-            setReplayResult(res);
-            if (onNotify) {
-              onNotify('Replay Hoàn Tất', `Tổng lệnh: ${res.total_trades} | Net PnL: ${fmtCur(res.total_net_pnl)}`, (res.total_net_pnl ?? 0) >= 0 ? 'success' : 'info');
-            }
-          } else if (status.status === 'CANCELLED') {
-            completed = true;
-            if (onNotify) {
-              onNotify('Tác Vụ Đã Dừng', status.error_message || 'Tác vụ replay đã dừng theo yêu cầu', 'info');
-            }
-          } else if (status.status === 'FAILED') {
-            completed = true;
-            if (onNotify) {
-              onNotify('Tác Vụ Thất Bại', status.error_message || 'Lỗi xử lý replay trên máy chủ', 'warn');
-            }
-          }
-        } catch (_pollErr: any) {
-          consecutiveErrors++;
-          // Allow transient network hiccups up to 5 consecutive times without aborting job
-          if (consecutiveErrors > 5) {
-            throw new Error('Mất kết nối kiểm tra tiến độ tác vụ replay sau nhiều lần thử lại');
-          }
-          setJobProgressMsg(`Mất kết nối tạm thời (${consecutiveErrors}/5), đang thử lại...`);
-        }
-      }
-
-      if (!completed && attempts >= MAX_POLLS) {
-        if (onNotify) {
-          onNotify('Tác Vụ Đang Chạy', `Tác vụ ${jobId} vẫn đang chạy trên máy chủ. Bạn có thể tiếp tục theo dõi trạng thái.`, 'info');
-        }
+      if (jobId) {
+        await pollJobStatus(jobId);
       }
     } catch (err: any) {
       if (onNotify) {
         onNotify('Lỗi Replay', extractErrorMessage(err, 'Lỗi khi chạy historical replay'), 'warn');
       }
-    } finally {
       setRunningReplay(false);
       setJobProgressMsg(null);
-      setCurrentJobId(null);
     }
   };
-
   // Run stress test
   const handleRunStress = async () => {
     setRunningStress(true);
@@ -680,11 +745,40 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                   <span>Tự nạp Dataset JSON/CSV</span>
                 </label>
                 <span className="text-gray-400 text-[11px]">
-                  Mặc định: 350 nến XAUUSDT 15M tổng hợp đa phiên (Á, Âu, Mỹ) với biến động thực tế.
+                  {replayParams.custom_dataset ? 'Chế độ: CUSTOM_DATASET (tự cung cấp mảng nến JSON)' : 'Chế độ: HISTORICAL_MARKET (Dữ liệu thị trường 3 tháng có kiểm định tính hợp lệ)'}
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
+                {currentJobId && !runningReplay && (
+                  <div className="flex items-center gap-1.5 bg-charcoal-900 border border-aurum-500/30 px-2.5 py-1.5 rounded-lg text-xs">
+                    <span className="text-gray-300">Tác vụ lưu vết: <code className="text-aurum-400 font-mono">{currentJobId.slice(0, 10)}...</code></span>
+                    <button
+                      onClick={() => pollJobStatus(currentJobId)}
+                      className="px-2 py-1 bg-aurum-500/20 hover:bg-aurum-500/30 text-aurum-300 font-medium rounded flex items-center gap-1 transition"
+                      title="Theo dõi lại tiến độ tác vụ"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Theo dõi lại
+                    </button>
+                    <button
+                      onClick={handleCancelReplay}
+                      disabled={cancellingJob}
+                      className="px-2 py-1 bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 font-medium rounded flex items-center gap-1 transition"
+                      title="Yêu cầu dừng tác vụ trên server"
+                    >
+                      <Square className="w-3 h-3 fill-current" />
+                      Dừng
+                    </button>
+                    <button
+                      onClick={handleDismissJobTracker}
+                      className="p-1 hover:bg-charcoal-800 text-gray-400 hover:text-gray-200 rounded"
+                      title="Đóng theo dõi tác vụ này"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
                 {runningReplay && currentJobId && (
                   <button
                     onClick={handleCancelReplay}

@@ -757,6 +757,8 @@ class ReplayRunRequest(BaseModel):
     ny_deadline_minute: int = 30
     quota_risk_pct: Optional[float] = None
     quality_risk_pct: Optional[float] = None
+    news_snapshot: Optional[List[Dict[str, Any]]] = None
+    rules_snapshot: Optional[List[Dict[str, Any]]] = None
 
     @model_validator(mode="after")
     def validate_and_normalize(self) -> "ReplayRunRequest":
@@ -846,6 +848,8 @@ class ReplayRunResponse(BaseModel):
     ledger_postings: Optional[List[Dict[str, Any]]] = None
     decision_events: Optional[List[Dict[str, Any]]] = None
     execution_events: Optional[List[Dict[str, Any]]] = None
+    news_coverage_status: str = "NEWS_HISTORY_NOT_SEEDED"
+    rules_coverage_status: str = "RULES_HISTORY_NOT_SEEDED"
     model_config = ConfigDict(from_attributes=True)
 
 # Lab Job API Types
