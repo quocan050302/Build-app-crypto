@@ -144,11 +144,14 @@ def aggregate_replay_metrics(
 
         fee = getattr(t, "total_fees", None)
         if fee is None and isinstance(t, dict):
-            fee = t.get("total_fees", 0.0)
+            fee = t.get("total_fees", None)
         if fee is None:
-            f_en = getattr(t, "fee_entry", 0.0) or 0.0
-            f_ex = getattr(t, "fee_exit", 0.0) or 0.0
-            fee = f_en + f_ex
+            f_en = getattr(t, "entry_fee", None) if getattr(t, "entry_fee", None) is not None else (t.get("entry_fee") if isinstance(t, dict) else None)
+            f_ex = getattr(t, "exit_fee", None) if getattr(t, "exit_fee", None) is not None else (t.get("exit_fee") if isinstance(t, dict) else None)
+            if f_en is not None or f_ex is not None:
+                fee = round(float(f_en or 0.0) + float(f_ex or 0.0), 4)
+        if fee is None:
+            fee = getattr(t, "fees", None) if getattr(t, "fees", None) is not None else (t.get("fees", 0.0) if isinstance(t, dict) else 0.0)
         total_fees += float(fee or 0.0)
 
         if pnl > 0.001:

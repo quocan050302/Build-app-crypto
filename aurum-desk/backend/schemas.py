@@ -743,6 +743,12 @@ class ReplayTradeItem(BaseModel):
     execution_time: Optional[int] = None
     reason: Optional[str] = None
 
+    @property
+    def total_fees(self) -> float:
+        if self.entry_fee is not None or self.exit_fee is not None:
+            return round(float(self.entry_fee or 0.0) + float(self.exit_fee or 0.0), 4)
+        return float(self.fees or 0.0)
+
 class EquityPoint(BaseModel):
     timestamp: int
     equity: float

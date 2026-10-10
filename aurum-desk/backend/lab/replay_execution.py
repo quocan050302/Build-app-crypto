@@ -14,45 +14,63 @@ from domain_calculator import calculate_risk_reward, validate_price_geometry, Co
 
 
 def submit_replay_order(
-    candidate_plan: Dict[str, Any],
-    session_id: str,
-    decision_ms: int,
-    earliest_execution_ms: int,
-    expiry_ms: int,
-    entry_type: str = "SMC_CONTEXT_SCHEDULED_PAPER"
+    candidate_plan: Optional[Dict[str, Any]] = None,
+    session_id: str = "",
+    decision_ms: int = 0,
+    earliest_execution_ms: int = 0,
+    expiry_ms: int = 0,
+    entry_type: str = "SMC_CONTEXT_SCHEDULED_PAPER",
+    candidate: Optional[Dict[str, Any]] = None,
+    leverage: int = 30,
+    margin_mode: str = "ISOLATED",
+    **kwargs
 ) -> ReplayPendingOrder:
     """
-    PHẦN 35: Creates an immutable pending order from a candidate plan.
+    PHẦN 35, 117: Creates an immutable pending order from a candidate plan.
     Does NOT modify cash ledger, equity, or session fills count!
+    Accepts both candidate_plan and candidate parameter aliases.
     """
+    plan = candidate if candidate is not None else (candidate_plan or {})
     order_id = f"ord-{uuid.uuid4().hex[:8]}"
-    setup_id = candidate_plan.get("setup_id", f"setup-{decision_ms}")
-    calc = candidate_plan.get("calc")
+    setup_id = plan.get("setup_id", f"setup-{decision_ms}")
+    calc = plan.get("calc")
 
-    qty = getattr(calc, "position_size", 0.0) if calc else candidate_plan.get("quantity", 0.0)
-    net_rr = getattr(calc, "net_rr", 0.0) if calc else candidate_plan.get("planned_net_rr", 0.0)
+    calc_qty = getattr(calc, "quantity", None) or getattr(calc, "position_size", None)
+    qty = float(calc_qty if calc_qty is not None else plan.get("quantity", 0.0))
+    net_rr = float(getattr(calc, "net_rr", plan.get("planned_net_rr", 0.0)))
+
+    planned_entry = float(plan.get("planned_entry") if plan.get("planned_entry") is not None else plan.get("entry_price", 0.0))
+    planned_sl = float(plan.get("planned_sl") if plan.get("planned_sl") is not None else plan.get("stop_loss", 0.0))
+    planned_tp = float(plan.get("planned_tp") if plan.get("planned_tp") is not None else plan.get("take_profit", 0.0))
+
+    lev = kwargs.get("leverage", leverage or plan.get("leverage", 30))
+    mm = kwargs.get("margin_mode", margin_mode or plan.get("margin_mode", "ISOLATED"))
 
     return ReplayPendingOrder(
         order_id=order_id,
         setup_id=setup_id,
         session_id=session_id,
         entry_type=entry_type,
-        direction=candidate_plan["direction"],
+        direction=plan["direction"],
         decision_ms=decision_ms,
         earliest_execution_ms=earliest_execution_ms,
         expiry_ms=expiry_ms,
-        planned_entry=candidate_plan["entry_price"],
-        planned_sl=candidate_plan["stop_loss"],
-        planned_tp=candidate_plan["take_profit"],
+        planned_entry=planned_entry,
+        planned_sl=planned_sl,
+        planned_tp=planned_tp,
         planned_net_rr=net_rr,
         quantity=qty,
-        leverage=candidate_plan.get("leverage", 30),
-        margin_mode=candidate_plan.get("margin_mode", "ISOLATED"),
-        stop_model=candidate_plan.get("stop_model", "STRUCTURAL"),
-        target_model=candidate_plan.get("target_model", "STRUCTURAL"),
-        target_source=candidate_plan.get("target_source", "UNKNOWN"),
+        leverage=lev,
+        margin_mode=mm,
+        stop_model=plan.get("stop_model", "STRUCTURAL"),
+        target_model=plan.get("target_model", "STRUCTURAL"),
+        target_source=plan.get("target_source", "UNKNOWN"),
         status="SUBMITTED",
-        created_at_ms=decision_ms
+        created_at_ms=decision_ms,
+        missing_confirmations=plan.get("missing_confirmations"),
+        confidence_kind=plan.get("confidence_kind"),
+        entry_model=plan.get("entry_model"),
+        reason=plan.get("reason")
     )
 
 
@@ -146,7 +164,19 @@ def try_fill_pending_order(
         stop_model=order.stop_model,
         target_model=order.target_model,
         target_source=order.target_source,
-        status="OPEN"
+        status="OPEN",
+        decision_time=order.decision_ms,
+        execution_time=event.timestamp,
+        entry_slippage=round(qty * costs.slippage_usd, 4),
+        net_rr_fill=calc.net_rr,
+        gross_rr=calc.gross_rr,
+        net_risk_usdt=calc.net_risk_usdt,
+        net_reward_usdt=calc.net_reward_usdt,
+        ny_session_id=order.session_id,
+        missing_confirmations=order.missing_confirmations,
+        confidence_kind=order.confidence_kind,
+        entry_model=order.entry_model,
+        reason=order.reason
     )
 
     entry_posting = {
