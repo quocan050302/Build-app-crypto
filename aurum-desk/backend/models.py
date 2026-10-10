@@ -178,6 +178,19 @@ class ResearchReport(Base):
     content_markdown = Column(Text, nullable=False)
     strategy_version = Column(String(20), default="1.0.0")
 
+    # V13 Causal Daily Research Additive Fields
+    research_date = Column(String(10), nullable=True, index=True)
+    date_basis = Column(String(20), nullable=True, default="VN_DATE")
+    mode = Column(String(30), nullable=True, default="CURRENT_ASOF")
+    as_of_ms = Column(BigInteger, nullable=True, index=True)
+    market_regime = Column(String(50), nullable=True)
+    timeframe_matrix = Column(Text, nullable=True)
+    structured_scenarios = Column(Text, nullable=True)
+    data_coverage_status = Column(String(50), nullable=True, default="PROVIDED_VALIDATED")
+    quality_score = Column(Float, nullable=True, default=0.8)
+    provenance_metadata = Column(Text, nullable=True)
+    review_reference = Column(Text, nullable=True)
+
 
 class Lesson(Base):
     __tablename__ = "lessons"

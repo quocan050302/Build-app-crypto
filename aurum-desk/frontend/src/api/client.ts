@@ -1,3 +1,41 @@
+export interface ReportGeneratePayload {
+  report_type?: string;
+  selected_date?: string;
+  time_of_day?: string;
+  date_basis?: string;
+  session?: string;
+  mode?: string;
+  as_of_ms?: number;
+  custom_candles_15m?: any[];
+}
+
+export interface ResearchReportItem {
+  id: number;
+  report_type: string;
+  session_name: string;
+  created_at: number;
+  d_4h_bias: string;
+  h1_alignment: string;
+  content_markdown: string;
+  strategy_version?: string;
+  research_date?: string | null;
+  date_basis?: string;
+  mode?: string;
+  as_of_ms?: number;
+  market_regime?: string;
+  data_coverage_status?: string;
+  quality_score?: number;
+  scenarios?: any;
+  structured_scenarios?: {
+    bullish?: any;
+    bearish?: any;
+    no_trade?: any;
+  } | null;
+  timeframe_matrix?: any;
+  provenance_metadata?: any;
+  review_reference?: any;
+}
+
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 
@@ -585,13 +623,38 @@ export const api = {
     return res.data;
   },
 
-  getReports: async () => {
-    const res = await apiClient.get('/api/v1/reports');
+  getReports: async (params?: {
+    research_date?: string;
+    date_basis?: string;
+    session?: string;
+    mode?: string;
+    limit?: number;
+    cursor?: number;
+  }): Promise<{ session_info: any; reports: ResearchReportItem[]; filter_context?: any }> => {
+    const res = await apiClient.get('/api/v1/reports', { params });
     return res.data;
   },
 
-  generateReport: async (reportType: string = 'SESSION_REPORT') => {
-    const res = await apiClient.post(`/api/v1/reports/generate?report_type=${reportType}`);
+  generateReport: async (payloadOrType?: string | ReportGeneratePayload): Promise<any> => {
+    let body: ReportGeneratePayload;
+    if (typeof payloadOrType === 'string') {
+      body = { report_type: payloadOrType };
+    } else if (payloadOrType) {
+      body = payloadOrType;
+    } else {
+      body = { report_type: 'SESSION_REPORT' };
+    }
+    const res = await apiClient.post('/api/v1/reports/generate', body);
+    return res.data;
+  },
+
+  getReportDetail: async (reportId: number): Promise<ResearchReportItem> => {
+    const res = await apiClient.get(`/api/v1/reports/${reportId}`);
+    return res.data;
+  },
+
+  getReportReview: async (reportId: number): Promise<any> => {
+    const res = await apiClient.get(`/api/v1/reports/${reportId}/review`);
     return res.data;
   },
 

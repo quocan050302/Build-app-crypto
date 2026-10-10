@@ -308,7 +308,7 @@ export function generateCompositeEventId(eventType: string, payload: any): strin
   const rawEventId = payload?.event_id || payload?.id;
   if (rawEventId) return String(rawEventId);
   const entityId = payload?.order_id || payload?.trade_id || payload?.setup_id || 'entity';
-  const instanceOrRev = payload?.setup_instance_id || payload?.instance_id || payload?.revision || Date.now();
+  const instanceOrRev = payload?.setup_instance_id || payload?.instance_id || payload?.revision || payload?.timestamp || payload?.created_at || "v1";
   return `${eventType}:${entityId}:${instanceOrRev}`;
 }
 

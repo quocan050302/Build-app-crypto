@@ -365,8 +365,30 @@ def check_news_blackout(db: Session, now_ms: Optional[int] = None) -> Tuple[bool
 
 # ==================== RESEARCH REPORTS & LESSONS ====================
 
-def get_latest_reports(db: Session, limit: int = 5) -> List[models.ResearchReport]:
-    return db.query(models.ResearchReport).order_by(models.ResearchReport.created_at.desc()).limit(limit).all()
+def get_latest_reports(
+    db: Session,
+    limit: int = 20,
+    research_date: Optional[str] = None,
+    date_basis: Optional[str] = None,
+    session: Optional[str] = None,
+    mode: Optional[str] = None,
+    cursor: Optional[int] = None
+) -> List[models.ResearchReport]:
+    query = db.query(models.ResearchReport)
+    if research_date:
+        query = query.filter(models.ResearchReport.research_date == research_date)
+    if date_basis:
+        query = query.filter(models.ResearchReport.date_basis == date_basis)
+    if session and session != "ALL":
+        query = query.filter(models.ResearchReport.session_name.ilike(f"%{session}%"))
+    if mode:
+        query = query.filter(models.ResearchReport.mode == mode)
+    if cursor:
+        query = query.filter(models.ResearchReport.id < cursor)
+    return query.order_by(models.ResearchReport.created_at.desc()).limit(limit).all()
+
+def get_report_by_id(db: Session, report_id: int) -> Optional[models.ResearchReport]:
+    return db.query(models.ResearchReport).filter(models.ResearchReport.id == report_id).first()
 
 def save_research_report(db: Session, report_data: dict) -> models.ResearchReport:
     report = models.ResearchReport(**report_data)

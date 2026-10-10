@@ -382,6 +382,13 @@ class NewsBlackoutStatus(BaseModel):
 # Research Reports
 class ReportGeneratePayload(BaseModel):
     report_type: Optional[str] = "SESSION_REPORT"
+    selected_date: Optional[str] = None
+    time_of_day: Optional[str] = None
+    date_basis: Optional[str] = "VN_DATE"
+    session: Optional[str] = "NEW_YORK"
+    mode: Optional[str] = "CURRENT_ASOF"
+    as_of_ms: Optional[int] = None
+    custom_candles_15m: Optional[List[Dict[str, Any]]] = None
 
 
 class ResearchReportResponse(BaseModel):
@@ -394,6 +401,18 @@ class ResearchReportResponse(BaseModel):
     content_markdown: str
     scenarios: Optional[Dict[str, Any]] = None
     strategy_version: str
+
+    research_date: Optional[str] = None
+    date_basis: Optional[str] = "VN_DATE"
+    mode: Optional[str] = "CURRENT_ASOF"
+    as_of_ms: Optional[int] = None
+    market_regime: Optional[str] = None
+    timeframe_matrix: Optional[Any] = None
+    structured_scenarios: Optional[Any] = None
+    data_coverage_status: Optional[str] = "PROVIDED_VALIDATED"
+    quality_score: Optional[float] = 0.8
+    provenance_metadata: Optional[Any] = None
+    review_reference: Optional[Any] = None
 
 # Lessons
 class LessonItem(BaseModel):

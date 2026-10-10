@@ -143,6 +143,28 @@ def run_schema_migrations(target_engine=None):
                         conn.execute(text(f"ALTER TABLE notification_outbox ADD COLUMN {col_name} {col_type}"))
                 conn.commit()
 
+            # 6. research_reports V13 additive columns
+            rr_res = conn.execute(text("PRAGMA table_info(research_reports)"))
+            rr_cols = {row[1] for row in rr_res.fetchall()}
+            if rr_cols:
+                v13_rr_cols = [
+                    ("research_date", "VARCHAR(10)"),
+                    ("date_basis", "VARCHAR(20) DEFAULT 'VN_DATE'"),
+                    ("mode", "VARCHAR(30) DEFAULT 'CURRENT_ASOF'"),
+                    ("as_of_ms", "BIGINT"),
+                    ("market_regime", "VARCHAR(50)"),
+                    ("timeframe_matrix", "TEXT"),
+                    ("structured_scenarios", "TEXT"),
+                    ("data_coverage_status", "VARCHAR(50) DEFAULT 'PROVIDED_VALIDATED'"),
+                    ("quality_score", "FLOAT DEFAULT 0.8"),
+                    ("provenance_metadata", "TEXT"),
+                    ("review_reference", "TEXT"),
+                ]
+                for col_name, col_type in v13_rr_cols:
+                    if col_name not in rr_cols:
+                        conn.execute(text(f"ALTER TABLE research_reports ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+
             # 5. Create V7 & V8 tables if not exist
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS trade_reviews (

@@ -71,7 +71,7 @@ def reconcile_stuck_orders():
                     setup.invalidation_reason = latest_order.invalidation_reason or latest_order.exit_cause or "Reconciled from legacy stuck order"
                     setup.updated_at = int(time.time() * 1000)
                     count += 1
-        
+
         if count > 0:
             db.commit()
             print(f"Reconciled {count} stuck setups.")
@@ -1431,10 +1431,124 @@ async def import_news_calendar(file: UploadFile = File(...), db: Session = Depen
 
 @app.get("/api/v1/reports")
 @app.get("/api/reports")
-def get_reports(limit: int = 5, db: Session = Depends(get_db)):
-    reports = crud.get_latest_reports(db, limit)
+def get_reports(
+    research_date: Optional[str] = Query(None),
+    date_basis: Optional[str] = Query("VN_DATE"),
+    session: Optional[str] = Query(None),
+    mode: Optional[str] = Query(None),
+    limit: int = Query(20),
+    cursor: Optional[int] = Query(None),
+    db: Session = Depends(get_db)
+):
+    reports = crud.get_latest_reports(
+        db=db,
+        limit=limit,
+        research_date=research_date,
+        date_basis=date_basis,
+        session=session,
+        mode=mode,
+        cursor=cursor
+    )
     session_info = get_current_session_info()
-    return {"session_info": session_info, "reports": reports}
+
+    # Enrich report objects with parsed JSON fields
+    enriched = []
+    for r in reports:
+        rep_dict = {
+            "id": r.id,
+            "report_type": r.report_type,
+            "created_at": r.created_at,
+            "session_name": r.session_name,
+            "d_4h_bias": r.d_4h_bias,
+            "h1_alignment": r.h1_alignment,
+            "content_markdown": r.content_markdown,
+            "strategy_version": r.strategy_version,
+            "research_date": getattr(r, "research_date", None),
+            "date_basis": getattr(r, "date_basis", "VN_DATE"),
+            "mode": getattr(r, "mode", "CURRENT_ASOF"),
+            "as_of_ms": getattr(r, "as_of_ms", r.created_at),
+            "market_regime": getattr(r, "market_regime", "UNKNOWN"),
+            "data_coverage_status": getattr(r, "data_coverage_status", "PROVIDED_VALIDATED"),
+            "quality_score": getattr(r, "quality_score", 0.8),
+            "scenarios": json.loads(r.scenarios) if r.scenarios else None,
+            "structured_scenarios": json.loads(r.structured_scenarios) if getattr(r, "structured_scenarios", None) else (json.loads(r.scenarios) if r.scenarios else None),
+            "timeframe_matrix": json.loads(r.timeframe_matrix) if getattr(r, "timeframe_matrix", None) else None,
+            "provenance_metadata": json.loads(r.provenance_metadata) if getattr(r, "provenance_metadata", None) else None,
+            "review_reference": json.loads(r.review_reference) if getattr(r, "review_reference", None) else None,
+        }
+        enriched.append(rep_dict)
+
+    return {
+        "session_info": session_info,
+        "reports": enriched,
+        "filter_context": {
+            "research_date": research_date,
+            "date_basis": date_basis,
+            "session": session,
+            "mode": mode
+        }
+    }
+
+
+@app.get("/api/v1/reports/{report_id}")
+def get_report_detail(report_id: int, db: Session = Depends(get_db)):
+    report = crud.get_report_by_id(db, report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Không tìm thấy báo cáo nghiên cứu này.")
+
+    return {
+        "id": report.id,
+        "report_type": report.report_type,
+        "created_at": report.created_at,
+        "session_name": report.session_name,
+        "d_4h_bias": report.d_4h_bias,
+        "h1_alignment": report.h1_alignment,
+        "content_markdown": report.content_markdown,
+        "strategy_version": report.strategy_version,
+        "research_date": getattr(report, "research_date", None),
+        "date_basis": getattr(report, "date_basis", "VN_DATE"),
+        "mode": getattr(report, "mode", "CURRENT_ASOF"),
+        "as_of_ms": getattr(report, "as_of_ms", report.created_at),
+        "market_regime": getattr(report, "market_regime", "UNKNOWN"),
+        "data_coverage_status": getattr(report, "data_coverage_status", "PROVIDED_VALIDATED"),
+        "quality_score": getattr(report, "quality_score", 0.8),
+        "scenarios": json.loads(report.scenarios) if report.scenarios else None,
+        "structured_scenarios": json.loads(report.structured_scenarios) if getattr(report, "structured_scenarios", None) else (json.loads(report.scenarios) if report.scenarios else None),
+        "timeframe_matrix": json.loads(report.timeframe_matrix) if getattr(report, "timeframe_matrix", None) else None,
+        "provenance_metadata": json.loads(report.provenance_metadata) if getattr(report, "provenance_metadata", None) else None,
+        "review_reference": json.loads(report.review_reference) if getattr(report, "review_reference", None) else None,
+    }
+
+
+@app.get("/api/v1/reports/{report_id}/review")
+def get_report_post_session_review(report_id: int, db: Session = Depends(get_db)):
+    report = crud.get_report_by_id(db, report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="Không tìm thấy báo cáo để đánh giá kết quả.")
+
+    from research_review import evaluate_scenario_outcome_and_mfe_mae
+    scenarios = json.loads(report.structured_scenarios or report.scenarios or "{}")
+    as_of = getattr(report, "as_of_ms", report.created_at)
+
+    # Get candles after as_of up to +12 hours
+    subsequent_candles = crud.get_candles(db, "XAUUSDT", "15M", limit=150)
+    after_candles = [
+        {"timestamp": c.timestamp, "open": c.open, "high": c.high, "low": c.low, "close": c.close}
+        for c in subsequent_candles
+        if hasattr(c, "timestamp") and c.timestamp > as_of
+    ]
+
+    bullish_eval = evaluate_scenario_outcome_and_mfe_mae(scenarios.get("bullish", {}), after_candles)
+    bearish_eval = evaluate_scenario_outcome_and_mfe_mae(scenarios.get("bearish", {}), after_candles)
+
+    return {
+        "report_id": report_id,
+        "as_of_ms": as_of,
+        "eval_candles_count": len(after_candles),
+        "bullish_review": bullish_eval,
+        "bearish_review": bearish_eval,
+        "evaluated_at": int(time.time() * 1000)
+    }
 
 
 @app.post("/api/v1/reports/generate")
@@ -1452,12 +1566,36 @@ def create_report(
     db: Session = Depends(get_db)
 ):
     effective_type = (payload.report_type if payload and payload.report_type else None) or report_type or "SESSION_REPORT"
-    report = generate_research_report(db, effective_type)
+    selected_date = payload.selected_date if payload else None
+    time_of_day = payload.time_of_day if payload else None
+    session = payload.session if payload else None
+    date_basis = payload.date_basis if payload else None
+    mode = payload.mode if payload else None
+    as_of_ms = payload.as_of_ms if payload else None
+    custom_candles = payload.custom_candles_15m if payload else None
+
+    report = generate_research_report(
+        db=db,
+        report_type=effective_type,
+        candles_15m=custom_candles,
+        selected_date=selected_date,
+        time_of_day=time_of_day,
+        session=session,
+        date_basis=date_basis,
+        mode=mode,
+        as_of_ms=as_of_ms
+    )
     return {
         "status": "success",
         "report_id": report.id,
         "session_name": report.session_name,
-        "content_markdown": report.content_markdown
+        "content_markdown": report.content_markdown,
+        "research_date": getattr(report, "research_date", None),
+        "as_of_ms": getattr(report, "as_of_ms", report.created_at),
+        "market_regime": getattr(report, "market_regime", "UNKNOWN"),
+        "structured_scenarios": json.loads(report.structured_scenarios) if getattr(report, "structured_scenarios", None) else None,
+        "timeframe_matrix": json.loads(report.timeframe_matrix) if getattr(report, "timeframe_matrix", None) else None,
+        "data_coverage_status": getattr(report, "data_coverage_status", "PROVIDED_VALIDATED")
     }
 
 

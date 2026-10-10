@@ -6,6 +6,7 @@ import { quoteStore } from './services/quoteStore';
 import { calculateClientRiskReward } from './utils/calculator';
 import type { RiskRewardData } from './plugins/RiskRewardPrimitive';
 import { TestingLabComponent } from './TestingLabComponent';
+import { ResearchTab } from './ResearchTab';
 import {
   Activity,
   ShieldAlert,
@@ -192,7 +193,6 @@ function AppContent() {
   const hasArmedOrder = upcomingData?.setups?.some((s: any) => s.state === 'ARMED') ?? false;
 
   // Additional Panels Data
-  const [reports, setReports] = useState<any[]>([]);
   const [newsData, setNewsData] = useState<any>(null);
   const [educationList, setEducationList] = useState<any[]>([]);
   const [selectedEdu, setSelectedEdu] = useState<any>(null);
@@ -582,12 +582,7 @@ function AppContent() {
 
   // Tab-specific data loading
   useEffect(() => {
-    if (activeTab === 'reports') {
-      api.getReports().then((res) => {
-        setReports(res.reports || []);
-        setSessionInfo(res.session_info);
-      }).catch(console.error);
-    } else if (activeTab === 'news') {
+    if (activeTab === 'news') {
       api.getNews().then(setNewsData).catch(console.error);
     } else if (activeTab === 'education') {
       api.getEducation().then((list) => {
@@ -2375,33 +2370,9 @@ function AppContent() {
             <TestingLabComponent onNotify={showToast} />
           )}
 
-          {/* TAB: BÁO CÁO PHIÊN & NGÀY */}
+          {/* TAB: BÁO CÁO PHIÊN & NGÀY (V13 DAILY RESEARCH & DECISION REPLAY) */}
           {activeTab === 'reports' && (
-            <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
-              <div className="flex justify-between items-center border-b border-charcoal-750 pb-3">
-                <h2 className="text-base font-bold text-aurum-400">Báo Cáo Nghiên Cứu Phiên Á – Âu – Mỹ & Premarket</h2>
-                <button
-                  onClick={() => api.generateReport('SESSION_REPORT').then(() => api.getReports().then((r) => setReports(r.reports)))}
-                  className="px-3 py-1 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded text-xs transition"
-                >
-                  Tạo Báo Cáo Mới
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {reports.map((rep) => (
-                  <div key={rep.id} className="bg-charcoal-850 p-4 rounded-lg border border-charcoal-700">
-                    <div className="flex justify-between text-xs text-gray-400 mb-2 border-b border-charcoal-750 pb-1">
-                      <span className="font-semibold text-aurum-400">{rep.report_type} · {rep.session_name}</span>
-                      <span>{new Date(rep.created_at).toLocaleString('vi-VN')}</span>
-                    </div>
-                    <div className="text-xs text-gray-300 whitespace-pre-wrap font-mono leading-relaxed">
-                      {rep.content_markdown}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <ResearchTab onNotify={showToast} onSessionInfoChange={setSessionInfo} />
           )}
 
           {/* TAB: TIN TỨC & BLACKOUT */}
