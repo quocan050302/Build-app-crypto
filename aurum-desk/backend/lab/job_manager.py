@@ -85,7 +85,14 @@ class ReplayJobManager:
                 "start_ts": request.start_ts,
                 "end_ts": request.end_ts,
                 "warmup_days": request.warmup_days,
-                "mode": request.mode
+                "mode": request.mode,
+                "entry_cadence": getattr(request, "entry_cadence", "CONFIRMED_ONLY"),
+                "daily_min_fills_target": getattr(request, "daily_min_fills_target", 1),
+                "ny_max_fills": getattr(request, "ny_max_fills", 3),
+                "ny_deadline_hour": getattr(request, "ny_deadline_hour", 14),
+                "ny_deadline_minute": getattr(request, "ny_deadline_minute", 30),
+                "scheduler_policy_version": getattr(request, "scheduler_policy_version", "v13.3"),
+                "date_basis": getattr(request, "date_basis", "VN_DATE")
             }
             config_str = json.dumps(effective_config, sort_keys=True)
             config_hash = hashlib.sha256(config_str.encode("utf-8")).hexdigest()[:16]

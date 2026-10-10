@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { api, extractErrorMessage, type ResearchReportItem, type ReplayRunResponse, type ReplayRunRequest } from './api/client';
+import { api, extractErrorMessage, type ResearchReportItem, type ReplayRunResponse, type ReplayTradeItem } from './api/client';
+import { buildResearchReplayRequest } from './utils/researchReplayRequest';
+import { deriveResearchVerdict } from './utils/deriveResearchVerdict';
+import { getComparisonRows } from './utils/comparisonRows';
 import { LabJobManager } from './utils/labJobManager';
 import {
   Calendar,
@@ -170,6 +173,9 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
   const [evalMaxRiskPct, setEvalMaxRiskPct] = useState<number>(0.5);
   const [evalLeverage, setEvalLeverage] = useState<number>(30);
   const [evalStrategyVariant, setEvalStrategyVariant] = useState<'NY_ADAPTIVE' | 'CURRENT_BASELINE'>('NY_ADAPTIVE');
+  const [evalEntryCadence, setEvalEntryCadence] = useState<'CONFIRMED_ONLY' | 'DAILY_PAPER'>('DAILY_PAPER');
+  const [baselineResult, setBaselineResult] = useState<ReplayRunResponse | null>(null);
+  const [selectedTrade, setSelectedTrade] = useState<ReplayTradeItem | null>(null);
   const [configPopoverOpen, setConfigPopoverOpen] = useState<boolean>(false);
 
   const [currentJobId, setCurrentJobId] = useState<string | null>(() => LabJobManager.getPersistedJobId(LabJobManager.RESEARCH_METHOD_JOB_STORAGE_KEY));
@@ -294,21 +300,17 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
     setRunningEval(true);
     setJobProgressMsg('Đang khởi tạo tác vụ đánh giá...');
     try {
-      const payload: ReplayRunRequest = {
-        run_name: `eval_${evalStrategyVariant.toLowerCase()}_${methodStartDate}_${methodEndDate}`,
-        symbol: 'XAUUSDT',
-        start_date: methodStartDate,
-        end_date: methodEndDate,
-        initial_equity: evalInitialCapital,
+      const payload = buildResearchReplayRequest({
+        startDate: methodStartDate,
+        endDate: methodEndDate,
+        strategyVariant: evalStrategyVariant,
+        entryCadence: evalEntryCadence,
+        initialCapital: evalInitialCapital,
         leverage: evalLeverage,
-        risk_pct: evalMaxRiskPct,
-        max_risk_pct: evalMaxRiskPct,
-        selected_session: 'NEW_YORK',
-        strategy_variant: evalStrategyVariant,
-        ny_max_fills: 3,
-        include_5m: true,
-        use_5m_driver: true
-      };
+        maxRiskPct: evalMaxRiskPct,
+        nyMaxFills: 3,
+        dailyMinFillsTarget: 1
+      });
 
       const job = await api.createLabJob(payload);
       const jobId = job.job_id;
@@ -330,6 +332,9 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
             setCurrentJobId(null);
             const res = await api.getLabJobResult(jobId);
             setEvalResult(res);
+            if (res.strategy_variant === 'CURRENT_BASELINE' || res.effective_config?.strategy_variant === 'CURRENT_BASELINE') {
+              setBaselineResult(res);
+            }
             if (onNotify) {
               onNotify('Đánh Giá Hoàn Tất', `Đã kiểm tra ${res.total_trades} lệnh | Net PnL: $${res.total_net_pnl.toFixed(2)}`, res.total_net_pnl >= 0 ? 'success' : 'info');
             }
@@ -417,133 +422,18 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
       (cfg.start_date && cfg.start_date !== methodStartDate) ||
       (cfg.end_date && cfg.end_date !== methodEndDate) ||
       (cfg.strategy_variant && cfg.strategy_variant !== evalStrategyVariant) ||
+      (cfg.entry_cadence && cfg.entry_cadence !== evalEntryCadence) ||
       (cfg.initial_equity && cfg.initial_equity !== evalInitialCapital) ||
       (cfg.risk_pct && cfg.risk_pct !== evalMaxRiskPct) ||
       (cfg.leverage && cfg.leverage !== evalLeverage)
     );
-  }, [evalResult, methodStartDate, methodEndDate, evalStrategyVariant, evalInitialCapital, evalMaxRiskPct, evalLeverage]);
+  }, [evalResult, methodStartDate, methodEndDate, evalStrategyVariant, evalEntryCadence, evalInitialCapital, evalMaxRiskPct, evalLeverage]);
 
-  // Method Evaluation Conclusion Computation (Prioritized Verdict + Empirical Blockers)
+  // Method Evaluation Conclusion Computation via V13.3 deriveResearchVerdict
   const methodConclusion = useMemo(() => {
     if (!evalResult) return null;
-    const { total_trades, total_net_pnl, win_rate_pct, max_drawdown_pct, rejection_reasons, warnings } = evalResult;
-
-    // Priority 1: Data / Calculation Incomplete
-    const hasDataMissing = warnings?.some(w => w.includes('INCOMPLETE') || w.includes('UNAVAILABLE')) ||
-      Boolean(rejection_reasons?.['HISTORICAL_DATA_UNAVAILABLE']) ||
-      Boolean(rejection_reasons?.['INSUFFICIENT_DATA']);
-
-    if (hasDataMissing) {
-      return {
-        badge: 'CHƯA THỂ ĐÁNH GIÁ (THIẾU DỮ LIỆU)',
-        color: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
-        summary: 'Dữ liệu nến lịch sử chưa đầy đủ hoặc bị gián đoạn trong giai đoạn đã chọn. Cần bổ sung dữ liệu trước khi nghiệm thu.',
-        improvements: [
-          {
-            issue: 'Thiếu dữ liệu nến lịch sử',
-            evidence: warnings?.join('; ') || 'Nến lịch sử không đầy đủ trong cache',
-            suggestion: 'Tải bổ sung nến từ sàn hoặc chọn giai đoạn đã có nến hoàn chỉnh.'
-          }
-        ]
-      };
-    }
-
-    // Priority 2: Sample Too Small (< 5 trades)
-    const isThreeMonths = (new Date(methodEndDate).getTime() - new Date(methodStartDate).getTime()) / 86400000 >= 60;
-    if (total_trades < 5) {
-      return {
-        badge: 'CHƯA ĐỦ SỐ LỆNH (MẪU QUÁ NHỎ)',
-        color: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-        summary: `Chỉ ghi nhận ${total_trades} lệnh trong giai đoạn chọn. Mẫu quá nhỏ để đưa ra kết luận thống kê tin cậy.`,
-        improvements: [
-          {
-            issue: 'Số lượng cơ hội khớp lệnh thấp',
-            evidence: `Chỉ có ${total_trades} lệnh khớp qua ${isThreeMonths ? 'khoảng 3 tháng (90 ngày)' : 'khoảng thời gian đã chọn'}.`,
-            suggestion: isThreeMonths
-              ? 'Bộ lọc baseline hiện tại quá khắt khe (chỉ có 1 setup reversal D+H4+H1 đồng thuận). Hãy chuyển sang biến thể SMC Phiên Mỹ (NY_ADAPTIVE) để quét thêm mẫu hình tiếp diễn B1 và breakout B2.'
-              : 'Mở rộng khung thời gian kiểm tra (ví dụ 3 tháng) để có thêm mẫu quan sát.'
-          }
-        ]
-      };
-    }
-
-    // Priority 3: Economic Evaluation (>= 5 trades)
-    const isProfitable = total_net_pnl > 0;
-    const isDdControlled = (max_drawdown_pct ?? 0) <= 12;
-    const isExpectancyPositive = (evalResult.expectancy_r ?? 0) > 0;
-
-    // Build real empirical blockers for improvements
-    const blockerMeta: Record<string, { issue: string; suggestion: string }> = {
-      COOLDOWN_ACTIVE: {
-        issue: 'Giãn cách 30 phút giữa các lệnh (Cooldown)',
-        suggestion: 'Đã bảo vệ tài khoản khỏi rủi ro vào lệnh liên tiếp theo cảm xúc (revenge trading) sau khi đóng lệnh trước.'
-      },
-      CONSECUTIVE_LOSS_LIMIT_2: {
-        issue: 'Dừng phiên sau 2 lệnh lỗ liên tiếp',
-        suggestion: 'Quy tắc quản trị rủi ro đã tự động khóa phiên để bảo toàn vốn khi gặp 2 lệnh dừng lỗ liên tiếp.'
-      },
-      B1_NET_RR_TOO_LOW: {
-        issue: 'Tỷ lệ Net R:R sau phí dưới 2.0R',
-        suggestion: 'Loại bỏ các cơ hội có khoảng cách target quá gần, không đủ bù đắp trượt giá và phí sàn.'
-      },
-      HTF_CONFLICT: {
-        issue: 'Xung đột xu hướng đa khung thời gian',
-        suggestion: 'Bộ lọc khung lớn D/H4 đã chặn các tín hiệu ngược pha với dòng chảy thanh khoản thị trường.'
-      },
-      NO_VALID_SETUP: {
-        issue: 'Không có cấu trúc thanh khoản hoặc FVG đạt chuẩn',
-        suggestion: 'Thị trường phiên Mỹ tích lũy biên độ hẹp hoặc thiếu xung lực bứt phá (displacement).'
-      },
-      DAILY_LOSS_BUDGET: {
-        issue: 'Chạm ngưỡng giới hạn lỗ ngày (-1.5%)',
-        suggestion: 'Hard guard đã ngắt quyền vào lệnh để bảo vệ vốn tài khoản trong ngày biến động bất lợi.'
-      }
-    };
-
-    const topBlockers = Object.entries(rejection_reasons || {})
-      .filter(([k]) => k !== 'WARMUP_INCOMPLETE' && k !== 'DAILY_QUOTA_REACHED')
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3);
-
-    const empiricalImprovements = topBlockers.map(([code, count]) => {
-      const meta = blockerMeta[code] || {
-        issue: `Rào cản: ${code}`,
-        suggestion: 'Kiểm tra điều kiện cấu trúc hoặc quy tắc quản trị rủi ro tương ứng.'
-      };
-      return {
-        issue: meta.issue,
-        evidence: `Ghi nhận ${count} lần kiểm tra bị chặn bởi rào cản này.`,
-        suggestion: meta.suggestion
-      };
-    });
-
-    if (isProfitable && isDdControlled && isExpectancyPositive) {
-      return {
-        badge: 'ĐẠT TIÊU CHÍ KIỂM TRA',
-        color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-        summary: `Phương pháp duy trì lợi nhuận sau toàn bộ phí (Net PnL: +$${total_net_pnl.toFixed(2)}) và kiểm soát mức giảm vốn (MaxDD: ${max_drawdown_pct.toFixed(1)}%) trong ngưỡng an toàn.`,
-        improvements: empiricalImprovements.length > 0 ? empiricalImprovements : [
-          {
-            issue: 'Chi phí trượt giá & phí sàn',
-            evidence: `Tổng phí và trượt giá chiếm ${(evalResult.total_fees + evalResult.total_slippage).toFixed(2)} USD.`,
-            suggestion: 'Ưu tiên các cơ hội có tỷ lệ Net R:R >= 2.0R để đảm bảo biên an toàn chi phí.'
-          }
-        ]
-      };
-    }
-
-    return {
-      badge: 'CẦN CẢI THIỆN',
-      color: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-      summary: 'Phương pháp chưa đạt hiệu quả tối ưu sau khi khấu trừ toàn bộ chi phí thực tế hoặc mức sụt giảm vốn vượt ngưỡng khuyến nghị.',
-      improvements: empiricalImprovements.length > 0 ? empiricalImprovements : [
-        {
-          issue: total_net_pnl <= 0 ? 'Lợi nhuận ròng chưa dương sau phí' : 'Mức sụt giảm vốn vượt ngưỡng khuyến nghị',
-          evidence: `Net PnL: ${total_net_pnl > 0 ? '+' : ''}$${total_net_pnl.toFixed(2)} | Drawdown: -${max_drawdown_pct.toFixed(1)}% | Win Rate: ${win_rate_pct.toFixed(1)}%`,
-          suggestion: 'Kiểm tra các rào cản từ chối chính hoặc tinh chỉnh vùng FVG / POI phiên Mỹ.'
-        }
-      ]
-    };
+    const days = Math.round((new Date(methodEndDate).getTime() - new Date(methodStartDate).getTime()) / 86400000);
+    return deriveResearchVerdict(evalResult, days > 0 ? days : 90);
   }, [evalResult, methodStartDate, methodEndDate]);
 
   return (
@@ -1095,6 +985,23 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                   </option>
                 </select>
               </div>
+
+              {/* Entry Cadence Selector */}
+              <div className="flex items-center gap-1 bg-charcoal-900 px-2 py-1 rounded-lg border border-charcoal-750">
+                <span className="text-gray-400 text-[10px]">Cơ chế:</span>
+                <select
+                  value={evalEntryCadence}
+                  onChange={(e) => setEvalEntryCadence(e.target.value as any)}
+                  className="bg-transparent text-gray-200 text-xs font-semibold focus:outline-none cursor-pointer"
+                >
+                  <option value="DAILY_PAPER" className="bg-charcoal-900 text-gray-200">
+                    Nghiên Cứu Phiên Mỗi Ngày (DAILY_PAPER)
+                  </option>
+                  <option value="CONFIRMED_ONLY" className="bg-charcoal-900 text-gray-200">
+                    Chỉ Tín Hiệu Xác Nhận (CONFIRMED_ONLY)
+                  </option>
+                </select>
+              </div>
             </div>
 
             {/* Actions */}
@@ -1262,6 +1169,8 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                   <span className="text-emerald-400">Tối đa {evalResult.effective_config?.ny_max_fills || 3} lệnh/ngày</span>
                   <span className="text-gray-500">·</span>
                   <span className="text-gray-200 font-bold">{evalResult.effective_config?.strategy_variant || 'NY_ADAPTIVE'}</span>
+                  <span className="text-gray-500">·</span>
+                  <span className="text-aurum-300 font-bold">{evalResult.effective_config?.entry_cadence || evalEntryCadence}</span>
                 </div>
               </div>
 
@@ -1319,22 +1228,35 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
               </div>
 
               {/* CARD B2: PHÂN BỔ NGÀY & FILLS */}
-              <div className="bg-charcoal-850 px-4 py-3 rounded-xl border border-charcoal-700 shadow-sm text-xs text-gray-300 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-aurum-400 shrink-0" />
-                  <span>
-                    <strong>{evalResult.session_breakdown?.days_total ?? 92}</strong> ngày đủ dữ liệu ·{' '}
-                    <strong className="text-emerald-400">{evalResult.session_breakdown?.days_with_trades ?? (evalResult.total_trades > 0 ? 18 : 0)}</strong> ngày có lệnh
-                    {evalResult.session_breakdown?.fills_1 !== undefined && (
-                      <span className="text-gray-400 text-[11px]"> ({evalResult.session_breakdown.fills_1} ngày 1 lệnh, {evalResult.session_breakdown.fills_2} ngày 2 lệnh{evalResult.session_breakdown.fills_3 > 0 ? `, ${evalResult.session_breakdown.fills_3} ngày 3 lệnh` : ''})</span>
-                    )} ·{' '}
-                    <strong className="text-gray-400">{evalResult.session_breakdown?.days_no_trades ?? (92 - (evalResult.session_breakdown?.days_with_trades ?? 0))}</strong> ngày không có lệnh ·{' '}
-                    <span>Trung bình <strong>{(evalResult.total_trades / Math.max(1, (evalResult.session_breakdown?.days_with_trades || (evalResult.total_trades > 0 ? 1 : 1)))).toFixed(1)}</strong> lệnh/ngày có trade</span>
-                  </span>
+              <div className="bg-charcoal-850 px-4 py-3 rounded-xl border border-charcoal-700 shadow-sm text-xs text-gray-300 flex flex-col gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-aurum-400 shrink-0" />
+                    <span>
+                      <strong>{evalResult.session_breakdown?.days_total ?? 90}</strong> ngày trong kỳ ·{' '}
+                      <strong className="text-emerald-400">{evalResult.session_breakdown?.days_with_trades ?? 0}</strong> ngày có lệnh
+                      {evalResult.session_breakdown?.fills_1 !== undefined && (
+                        <span className="text-gray-400 text-[11px]"> ({evalResult.session_breakdown.fills_1} ngày 1 lệnh, {evalResult.session_breakdown.fills_2} ngày 2 lệnh{evalResult.session_breakdown.fills_3 > 0 ? `, ${evalResult.session_breakdown.fills_3} ngày 3 lệnh` : ''})</span>
+                      )} ·{' '}
+                      <strong className="text-gray-400">{evalResult.session_breakdown?.days_no_trades ?? ((evalResult.session_breakdown?.days_total ?? 90) - (evalResult.session_breakdown?.days_with_trades ?? 0))}</strong> ngày không có lệnh
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-gray-400 font-mono bg-charcoal-900 px-2 py-1 rounded border border-charcoal-750">
+                    Tổng fills: {evalResult.fills_count ?? evalResult.total_trades} · Đã đóng: {evalResult.closed_count ?? evalResult.total_trades} · Còn mở: {evalResult.open_positions_count ?? ((evalResult.open_mtm ?? 0) !== 0 ? 1 : 0)}
+                  </div>
                 </div>
-                <div className="text-[11px] text-gray-400 font-mono bg-charcoal-900 px-2 py-1 rounded border border-charcoal-750">
-                  Tổng fills: {evalResult.total_trades} · Đã đóng: {evalResult.total_trades} · Còn mở: {(evalResult.open_mtm ?? 0) !== 0 ? `1 ($${(evalResult.open_mtm ?? 0).toFixed(2)})` : '0'}
-                </div>
+
+                {evalResult.cadence_summary && (
+                  <div className="text-[11px] text-aurum-300 font-mono border-t border-charcoal-750 pt-2 flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      Độ phủ phiên NY: <strong>{evalResult.cadence_summary.sessions_with_fills}/{evalResult.cadence_summary.executable_sessions}</strong> phiên có lệnh ({evalResult.cadence_summary.coverage_pct}%)
+                      {evalResult.cadence_summary.unmet_sessions > 0 && <span className="text-amber-400 ml-1">({evalResult.cadence_summary.unmet_sessions} phiên chưa đạt)</span>}
+                    </span>
+                    <span>
+                      Xác nhận: <strong className="text-emerald-400">{evalResult.trade_type_breakdown?.['SMC_CONFIRMED'] ?? 0}</strong> · Lập lịch: <strong className="text-amber-400">{evalResult.trade_type_breakdown?.['SMC_CONTEXT_SCHEDULED_PAPER'] ?? 0}</strong>
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* CARD C: ĐIỂM CẦN CẢI THIỆN / RÀO CẢN ĐỊNH LƯỢNG */}
@@ -1429,7 +1351,7 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                       </thead>
                       <tbody className="divide-y divide-charcoal-800 font-mono">
                         {evalResult.trades.map((tr: any, idx: number) => (
-                          <tr key={idx} className="hover:bg-charcoal-800/40">
+                          <tr key={idx} onClick={() => setSelectedTrade(tr)} className="hover:bg-charcoal-800/60 cursor-pointer">
                             <td className="py-1 text-gray-400">{tr.setup_id || tr.id || `#${idx + 1}`}</td>
                             <td className={`font-bold ${tr.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}`}>{tr.direction}</td>
                             <td>${tr.entry_price?.toFixed(2)}</td>
@@ -1452,7 +1374,7 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                 <div className="bg-charcoal-850 p-4 rounded-xl border border-charcoal-700 shadow-sm space-y-3">
                   <div className="flex items-center justify-between border-b border-charcoal-750 pb-2">
                     <span className="font-bold text-xs text-gray-200">
-                      Danh Sách Ngày Không Có Lệnh ({evalResult.session_breakdown?.daily_stats_list ? evalResult.session_breakdown.daily_stats_list.filter((d: any) => d.fills === 0).length : '74'} ngày)
+                      Danh Sách Phiên Không Có Lệnh ({evalResult.cadence_summary?.unmet_sessions ?? (evalResult.session_breakdown?.daily_stats_list ? evalResult.session_breakdown.daily_stats_list.filter((d: any) => d.fills === 0).length : 0)} phiên)
                     </span>
                     <button onClick={() => setNoTradeDaysDrawerOpen(false)} className="text-gray-400 hover:text-white">
                       <X className="w-4 h-4" />
@@ -1497,68 +1419,45 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                 <div className="bg-charcoal-850 p-4 rounded-xl border border-charcoal-700 shadow-sm space-y-3">
                   <div className="flex items-center justify-between border-b border-charcoal-750 pb-2">
                     <span className="font-bold text-xs text-gray-200">
-                      So Sánh Đối Chứng: Baseline Hiện Tại vs Candidate SMC Phiên Mỹ (3 Tháng)
+                      So Sánh Đối Chứng: Baseline Hiện Tại vs Candidate SMC Phiên Mỹ
                     </span>
                     <button onClick={() => setComparisonDrawerOpen(false)} className="text-gray-400 hover:text-white">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-[11px]">
-                      <thead className="text-gray-400 border-b border-charcoal-750 font-mono bg-charcoal-900/60">
-                        <tr>
-                          <th className="py-2 px-2">Chỉ Số Đánh Giá</th>
-                          <th className="px-2">Baseline (CURRENT_BASELINE)</th>
-                          <th className="px-2 text-aurum-300">Candidate (NY_ADAPTIVE)</th>
-                          <th className="px-2">Nhận Định & Bằng Chứng</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-charcoal-800 font-mono text-gray-300">
-                        <tr className="hover:bg-charcoal-800/40">
-                          <td className="py-1.5 px-2 font-semibold">Tập mẫu / Setup bật</td>
-                          <td className="px-2 text-gray-400">Chỉ Reversal đa khung (D+H4+H1)</td>
-                          <td className="px-2 text-aurum-400 font-bold">B1 Tiếp diễn + B2 Breakout-Retest</td>
-                          <td className="px-2 text-gray-400 font-sans text-[10px]">Mở rộng thêm 2 họ setup SMC tiêu chuẩn phiên Mỹ</td>
-                        </tr>
-                        <tr className="hover:bg-charcoal-800/40">
-                          <td className="py-1.5 px-2 font-semibold">Tổng lệnh khớp (3 tháng)</td>
-                          <td className="px-2 text-rose-400 font-bold">1 lệnh (0W / 1L)</td>
-                          <td className="px-2 text-emerald-400 font-bold">20 lệnh (7W / 13L)</td>
-                          <td className="px-2 text-gray-400 font-sans text-[10px]">Candidate có mẫu quan sát đầy đủ hơn 20 lần</td>
-                        </tr>
-                        <tr className="hover:bg-charcoal-800/40">
-                          <td className="py-1.5 px-2 font-semibold">Tỷ lệ thắng (Win Rate)</td>
-                          <td className="px-2">0.0%</td>
-                          <td className="px-2 text-aurum-400 font-bold">35.0%</td>
-                          <td className="px-2 text-gray-400 font-sans text-[10px]">Với Net R:R &gt;= 2.0R, tỷ lệ thắng 35% có lợi nhuận dương</td>
-                        </tr>
-                        <tr className="hover:bg-charcoal-800/40">
-                          <td className="py-1.5 px-2 font-semibold">Net PnL sau toàn bộ phí</td>
-                          <td className="px-2 text-rose-400">-$2.42 USD</td>
-                          <td className="px-2 text-emerald-400 font-bold">+$40.77 USD</td>
-                          <td className="px-2 text-gray-400 font-sans text-[10px]">Đã trừ phí Taker 0.06% và trượt giá $0.10/lệnh</td>
-                        </tr>
-                        <tr className="hover:bg-charcoal-800/40">
-                          <td className="py-1.5 px-2 font-semibold">Mức giảm vốn lớn nhất (MaxDD)</td>
-                          <td className="px-2 text-gray-400">-0.24%</td>
-                          <td className="px-2 text-amber-400">-3.39% (-$33.90 USD)</td>
-                          <td className="px-2 text-gray-400 font-sans text-[10px]">MaxDD duy trì ở mức an toàn dưới ngưỡng 12%</td>
-                        </tr>
-                        <tr className="hover:bg-charcoal-800/40">
-                          <td className="py-1.5 px-2 font-semibold">Số ngày có lệnh / 92 ngày</td>
-                          <td className="px-2">1 ngày (1.1%)</td>
-                          <td className="px-2 text-emerald-400 font-bold">18 ngày (19.6%)</td>
-                          <td className="px-2 text-gray-400 font-sans text-[10px]">16 ngày có 1 lệnh, 2 ngày có 2 lệnh (không quá 3 lệnh/ngày)</td>
-                        </tr>
-                        <tr className="hover:bg-charcoal-800/40">
-                          <td className="py-1.5 px-2 font-semibold">Quản trị rủi ro & Guards</td>
-                          <td className="px-2 text-gray-400">Loss budget -1.5%</td>
-                          <td className="px-2 text-emerald-400">Loss budget -1.5%, Stop sau 2 SL, Cooldown 30p</td>
-                          <td className="px-2 text-gray-400 font-sans text-[10px]">Hard guards hoạt động liên tục, không bypass</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
+                  {(() => {
+                    const comp = getComparisonRows(baselineResult, evalResult);
+                    return (
+                      <div className="overflow-x-auto">
+                        {comp.warning && !comp.rows.length ? (
+                          <div className="p-3 text-xs text-gray-400 bg-charcoal-900 rounded border border-charcoal-750">
+                            {comp.warning}
+                          </div>
+                        ) : (
+                          <table className="w-full text-left text-[11px]">
+                            <thead className="text-gray-400 border-b border-charcoal-750 font-mono bg-charcoal-900/60">
+                              <tr>
+                                <th className="py-2 px-2">Chỉ Số Đánh Giá</th>
+                                <th className="px-2">Baseline</th>
+                                <th className="px-2 text-aurum-300">Candidate</th>
+                                <th className="px-2">Nhận Định & Bằng Chứng</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-charcoal-800 font-mono text-gray-300">
+                              {comp.rows.map((row, idx) => (
+                                <tr key={idx} className="hover:bg-charcoal-800/40">
+                                  <td className="py-1.5 px-2 font-semibold">{row.label}</td>
+                                  <td className={`px-2 ${row.baselineHighlight || 'text-gray-400'}`}>{row.baselineVal}</td>
+                                  <td className={`px-2 ${row.candidateHighlight || 'text-aurum-400 font-bold'}`}>{row.candidateVal}</td>
+                                  <td className="px-2 text-gray-400 font-sans text-[10px]">{row.evidence}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -1625,6 +1524,91 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
           )}
         </div>
       )}
+
+              {/* Trade Details Modal Drawer */}
+              {selectedTrade && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                  <div className="bg-charcoal-900 border border-charcoal-700 rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+                    <div className="flex items-center justify-between border-b border-charcoal-750 pb-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                          selectedTrade.direction === 'LONG' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                        }`}>
+                          {selectedTrade.direction}
+                        </span>
+                        <span className="font-mono text-sm font-bold text-gray-200">{selectedTrade.id}</span>
+                      </div>
+                      <button onClick={() => setSelectedTrade(null)} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-charcoal-800">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="bg-charcoal-850 p-2.5 rounded-lg border border-charcoal-750">
+                        <span className="text-gray-400 text-[10px] block">Loại Lệnh</span>
+                        <span className={`font-semibold ${selectedTrade.entry_type === 'SMC_CONTEXT_SCHEDULED_PAPER' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                          {selectedTrade.entry_type || 'SMC_CONFIRMED'}
+                        </span>
+                      </div>
+                      <div className="bg-charcoal-850 p-2.5 rounded-lg border border-charcoal-750">
+                        <span className="text-gray-400 text-[10px] block">Mô Hình / Cơ Chế</span>
+                        <span className="font-semibold text-gray-200">
+                          {selectedTrade.entry_model || selectedTrade.strategy_family || 'SMC'}
+                        </span>
+                      </div>
+                      <div className="bg-charcoal-850 p-2.5 rounded-lg border border-charcoal-750">
+                        <span className="text-gray-400 text-[10px] block">Giá Vào (Entry)</span>
+                        <span className="font-mono font-bold text-gray-100">${selectedTrade.entry_price?.toFixed(2)}</span>
+                      </div>
+                      <div className="bg-charcoal-850 p-2.5 rounded-lg border border-charcoal-750">
+                        <span className="text-gray-400 text-[10px] block">Giá Thoát (Exit)</span>
+                        <span className="font-mono font-bold text-gray-100">${selectedTrade.exit_price ? selectedTrade.exit_price.toFixed(2) : '-'}</span>
+                      </div>
+                      <div className="bg-charcoal-850 p-2.5 rounded-lg border border-charcoal-750">
+                        <span className="text-gray-400 text-[10px] block">Stop Loss / Take Profit</span>
+                        <span className="font-mono text-gray-300">${selectedTrade.stop_loss?.toFixed(2)} / ${selectedTrade.take_profit?.toFixed(2)}</span>
+                      </div>
+                      <div className="bg-charcoal-850 p-2.5 rounded-lg border border-charcoal-750">
+                        <span className="text-gray-400 text-[10px] block">Net R:R / Realized R</span>
+                        <span className="font-mono text-gray-300">{selectedTrade.net_rr_planned ? `${selectedTrade.net_rr_planned.toFixed(2)}R` : '-'} / {selectedTrade.realized_r !== undefined ? `${selectedTrade.realized_r.toFixed(2)}R` : '-'}</span>
+                      </div>
+                      <div className="bg-charcoal-850 p-2.5 rounded-lg border border-charcoal-750">
+                        <span className="text-gray-400 text-[10px] block">Khối Lượng / Ký Quỹ</span>
+                        <span className="font-mono text-gray-300">{selectedTrade.quantity} oz / ${selectedTrade.margin_usdt ? selectedTrade.margin_usdt.toFixed(2) : '-'}</span>
+                      </div>
+                      <div className="bg-charcoal-850 p-2.5 rounded-lg border border-charcoal-750">
+                        <span className="text-gray-400 text-[10px] block">Lãi Ròng (Net PnL)</span>
+                        <span className={`font-mono font-bold ${selectedTrade.net_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {selectedTrade.net_pnl >= 0 ? '+' : ''}${selectedTrade.net_pnl?.toFixed(2)} USD
+                        </span>
+                      </div>
+                    </div>
+
+                    {selectedTrade.missing_confirmations && selectedTrade.missing_confirmations.length > 0 && (
+                      <div className="bg-amber-500/5 p-3 rounded-lg border border-amber-500/20 text-xs space-y-1">
+                        <span className="font-bold text-amber-400 text-[11px] block">Yếu Tố Chưa Đạt Trigger Chuẩn (Missing Confirmations):</span>
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {selectedTrade.missing_confirmations.map((m, idx) => (
+                            <span key={idx} className="px-2 py-0.5 bg-amber-500/10 text-amber-300 rounded font-mono text-[10px] border border-amber-500/20">
+                              {m}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="text-[11px] text-gray-400 font-mono space-y-1 bg-charcoal-850 p-3 rounded-lg border border-charcoal-750">
+                      <div>Thời gian vào: {new Date(selectedTrade.entry_time).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })} (VN)</div>
+                      {selectedTrade.exit_time && (
+                        <div>Thời gian đóng: {new Date(selectedTrade.exit_time).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })} (VN) · Lý do: {selectedTrade.exit_cause || '-'}</div>
+                      )}
+                      {selectedTrade.reason && (
+                        <div className="text-gray-300 font-sans text-xs pt-1">Ghi chú: {selectedTrade.reason}</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
     </div>
   );
 };

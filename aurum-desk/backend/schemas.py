@@ -734,6 +734,14 @@ class ReplayTradeItem(BaseModel):
     ny_session_id: Optional[str] = None
     margin_usdt: Optional[float] = None
     tp_is_maker: Optional[bool] = False
+    missing_confirmations: Optional[List[str]] = None
+    confidence_kind: Optional[str] = None
+    entry_model: Optional[str] = None
+    trade_day_vn: Optional[str] = None
+    ny_session_date: Optional[str] = None
+    decision_time: Optional[int] = None
+    execution_time: Optional[int] = None
+    reason: Optional[str] = None
 
 class EquityPoint(BaseModel):
     timestamp: int
@@ -783,13 +791,31 @@ class ReplayRunRequest(BaseModel):
     max_risk_pct: Optional[float] = None
     selected_session: Optional[str] = None
     ny_max_fills: int = 3
+    entry_cadence: Literal["CONFIRMED_ONLY", "DAILY_PAPER"] = "CONFIRMED_ONLY"
+    daily_min_fills_target: int = 1
+    scheduled_deadline_hour: Optional[int] = None
+    scheduled_deadline_minute: Optional[int] = None
+    date_basis: str = "VN_DATE"
+    scheduler_policy_version: str = "v13.3"
 
     @model_validator(mode="after")
     def validate_and_normalize(self) -> "ReplayRunRequest":
         # Resolve max_risk_pct into risk_pct if provided
         if self.max_risk_pct is not None:
-            if math.isfinite(self.max_risk_pct) and 0 < self.max_risk_pct <= 100.0:
-                self.risk_pct = self.max_risk_pct
+            if not math.isfinite(self.max_risk_pct) or self.max_risk_pct <= 0 or self.max_risk_pct > 100.0:
+                raise ValueError(f"Tỷ lệ rủi ro tối đa (max_risk_pct) không hợp lệ: {self.max_risk_pct}")
+            self.risk_pct = self.max_risk_pct
+
+        # Alias scheduled_deadline_hour / ny_deadline_hour
+        if self.scheduled_deadline_hour is not None:
+            self.ny_deadline_hour = self.scheduled_deadline_hour
+        else:
+            self.scheduled_deadline_hour = self.ny_deadline_hour
+
+        if self.scheduled_deadline_minute is not None:
+            self.ny_deadline_minute = self.scheduled_deadline_minute
+        else:
+            self.scheduled_deadline_minute = self.ny_deadline_minute
 
         # Resolve start_date and end_date into start_ts and end_ts in VN_TZ if not given
         if self.start_date and self.start_ts is None:
@@ -800,7 +826,7 @@ class ReplayRunRequest(BaseModel):
                 dt = datetime.strptime(self.start_date, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=vn_tz)
                 self.start_ts = int(dt.timestamp() * 1000)
             except Exception:
-                pass
+                raise ValueError(f"Định dạng ngày bắt đầu không hợp lệ (cần YYYY-MM-DD): {self.start_date}")
 
         if self.end_date and self.end_ts is None:
             try:
@@ -810,7 +836,7 @@ class ReplayRunRequest(BaseModel):
                 dt = datetime.strptime(self.end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59, microsecond=999000, tzinfo=vn_tz)
                 self.end_ts = int(dt.timestamp() * 1000)
             except Exception:
-                pass
+                raise ValueError(f"Định dạng ngày kết thúc không hợp lệ (cần YYYY-MM-DD): {self.end_date}")
 
         if not math.isfinite(self.risk_pct) or self.risk_pct <= 0 or self.risk_pct > 100.0:
             raise ValueError(f"Tỷ lệ rủi ro (risk_pct) phải là số dương hữu hạn <= 100, nhận: {self.risk_pct}")
@@ -835,6 +861,12 @@ class ReplayRunRequest(BaseModel):
 
         if self.ny_quota_target < 1:
             raise ValueError(f"Mục tiêu NY quota target phải >= 1, nhận: {self.ny_quota_target}")
+
+        if self.ny_max_fills < 1 or self.ny_max_fills > 3:
+            raise ValueError(f"Giới hạn số lệnh NY (ny_max_fills) phải trong khoảng [1, 3], nhận: {self.ny_max_fills}")
+
+        if self.daily_min_fills_target < 1 or self.daily_min_fills_target > self.ny_max_fills:
+            raise ValueError(f"Mục tiêu số lệnh tối thiểu/ngày (daily_min_fills_target) phải từ 1 đến {self.ny_max_fills}, nhận: {self.daily_min_fills_target}")
 
         if not (0 <= self.ny_deadline_hour <= 23):
             raise ValueError(f"Giờ deadline NY (ny_deadline_hour) phải từ 0 đến 23, nhận: {self.ny_deadline_hour}")
@@ -900,6 +932,15 @@ class ReplayRunResponse(BaseModel):
     execution_events: Optional[List[Dict[str, Any]]] = None
     news_coverage_status: str = "NEWS_HISTORY_NOT_SEEDED"
     rules_coverage_status: str = "RULES_HISTORY_NOT_SEEDED"
+    fills_count: int = 0
+    closed_count: int = 0
+    open_positions_count: int = 0
+    ambiguous_count: int = 0
+    cadence_summary: Optional[Dict[str, Any]] = None
+    per_session_outcomes: Optional[List[Dict[str, Any]]] = None
+    trade_type_breakdown: Optional[Dict[str, Any]] = None
+    integrity_summary: Optional[Dict[str, Any]] = None
+    run_config_hash: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 # Lab Job API Types

@@ -187,6 +187,14 @@ export interface ReplayTradeItem {
   entry_type?: string;
   ny_session_id?: string;
   margin_usdt?: number;
+  missing_confirmations?: string[];
+  confidence_kind?: string;
+  entry_model?: string;
+  trade_day_vn?: string;
+  ny_session_date?: string;
+  decision_time?: number;
+  execution_time?: number;
+  reason?: string;
 }
 
 // ==================== V7 TRADING POLICY & NY SESSION ====================
@@ -278,6 +286,12 @@ export interface ReplayRunRequest {
   ny_max_fills?: number;
   include_5m?: boolean;
   use_5m_driver?: boolean;
+  entry_cadence?: 'CONFIRMED_ONLY' | 'DAILY_PAPER';
+  daily_min_fills_target?: number;
+  scheduled_deadline_hour?: number;
+  scheduled_deadline_minute?: number;
+  date_basis?: string;
+  scheduler_policy_version?: string;
 }
 
 export interface JobCreateResponse {
@@ -359,6 +373,15 @@ export interface ReplayRunResponse {
   start_date?: string;
   end_date?: string;
   effective_config?: Record<string, any>;
+  fills_count?: number;
+  closed_count?: number;
+  open_positions_count?: number;
+  ambiguous_count?: number;
+  cadence_summary?: Record<string, any>;
+  per_session_outcomes?: Array<Record<string, any>>;
+  trade_type_breakdown?: Record<string, any>;
+  integrity_summary?: Record<string, any>;
+  run_config_hash?: string;
 }
 
 export interface StressTestRequest {

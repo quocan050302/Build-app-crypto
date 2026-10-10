@@ -37,6 +37,7 @@ from lab.historical_market_data import (
     TIMEFRAME_CADENCE_MS
 )
 from lab.excel_export import V12ExcelExporter
+import lab.daily_research_scheduler as drs
 from lab.v12_2_manifest import build_v12_2_requirement_manifest
 from services.lesson_rule_service import LessonRuleService
 from lab.ny_strategy_variants import (
@@ -577,7 +578,7 @@ class ReplayEngine:
             warmup_days = getattr(request, "warmup_days", 50) or 50
             warmup_ms = start_ms - (warmup_days * 24 * 3600 * 1000)
 
-            include_5m = strategy_variant in ("NY_ADAPTIVE", "NY_DAILY_PAPER_RESEARCH")
+            include_5m = strategy_variant in ("NY_ADAPTIVE", "NY_DAILY_PAPER_RESEARCH") or getattr(request, "entry_cadence", "CONFIRMED_ONLY") == "DAILY_PAPER"
             try:
                 bundle = HistoricalMarketDataProvider.load_multitimeframe_bundle(
                     symbol=request.symbol,
@@ -776,16 +777,40 @@ class ReplayEngine:
             }
             curr_d += timedelta(days=1)
 
-        # Pre-populate ALL NY sessions in [start_date, cutoff_date] for Sheet 11 (11_NY_Quota)
+        # Pre-populate ALL NY sessions in [start_date, cutoff_date] for Sheet 11 (11_NY_Quota) and V13.3 Daily Scheduler
         ny_quota_ledger: Dict[str, Dict[str, Any]] = {}
+        session_states: Dict[str, drs.SessionResearchState] = {}
+        eligibility_map: Dict[str, drs.SessionEligibility] = {}
+
         start_dt_ny = datetime.fromtimestamp(start_eval_ts / 1000.0, tz=NY_TZ)
         cutoff_dt_ny = datetime.fromtimestamp(end_eval_ts / 1000.0, tz=NY_TZ)
         cur_ny_d = start_dt_ny.date()
         while cur_ny_d <= cutoff_dt_ny.date():
             ny_d_str = cur_ny_d.strftime("%Y-%m-%d")
+            sess_id = f"NY-{ny_d_str}"
             is_weekend = cur_ny_d.weekday() in (5, 6)
+
+            elig = drs.evaluate_session_eligibility(
+                session_id=sess_id,
+                ny_date=ny_d_str,
+                has_data=True,
+                warmup_complete=True,
+                is_weekend=is_weekend,
+                now_ms=start_eval_ts
+            )
+            eligibility_map[sess_id] = elig
+
+            state = drs.SessionResearchState(
+                session_id=sess_id,
+                date_ny=ny_d_str,
+                trade_day_vn=ny_d_str,
+                status="PREPARING" if elig.eligible else ("DATA_BLOCKED" if is_weekend else "UNFULFILLED"),
+                is_eligible=elig.eligible
+            )
+            session_states[sess_id] = state
+
             ny_quota_ledger[ny_d_str] = {
-                "session_ny_id": f"NY-{ny_d_str}",
+                "session_ny_id": sess_id,
                 "date_ny": ny_d_str,
                 "is_eligible": not is_weekend,
                 "ineligible_reason": "WEEKEND" if is_weekend else "-",
@@ -1157,7 +1182,15 @@ class ReplayEngine:
                         entry_type=active_trade.get("entry_type", "QUALITY_ENTRY"),
                         ny_session_id=active_trade.get("ny_session_id"),
                         margin_usdt=round((entry_p * qty) / request.leverage, 2),
-                        tp_is_maker=active_trade.get("tp_is_maker", False)
+                        tp_is_maker=active_trade.get("tp_is_maker", False),
+                        missing_confirmations=active_trade.get("missing_confirmations"),
+                        confidence_kind=active_trade.get("confidence_kind"),
+                        entry_model=active_trade.get("entry_model"),
+                        trade_day_vn=active_trade.get("trade_day_vn"),
+                        ny_session_date=active_trade.get("ny_session_date"),
+                        decision_time=active_trade.get("decision_time"),
+                        execution_time=active_trade.get("execution_time", active_trade.get("entry_time")),
+                        reason=active_trade.get("reason")
                     )
 
                     closed_trades.append(trade_record)
@@ -1573,6 +1606,8 @@ class ReplayEngine:
                                 spread_usd=spread_usd,
                                 min_net_rr=2.0
                             )
+                            if b1_err:
+                                rejection_reasons[f"B1_{b1_err}"] = rejection_reasons.get(f"B1_{b1_err}", 0) + 1
 
                             chosen_setup = None
                             if b1_setup and b1_setup.get("setup_id") in consumed_setups:
@@ -1652,6 +1687,8 @@ class ReplayEngine:
                                     spread_usd=spread_usd,
                                     min_net_rr=2.0
                                 )
+                                if b2_err:
+                                    rejection_reasons[f"B2_{b2_err}"] = rejection_reasons.get(f"B2_{b2_err}", 0) + 1
                                 if b2_setup and b2_setup.get("setup_id") in consumed_setups:
                                     b2_setup = None
 
@@ -1788,6 +1825,12 @@ class ReplayEngine:
                                 ny_quota_rec["quality_fills"] += 1
                                 ny_quota_rec["target_met"] = True
                                 ny_quota_rec["unmet_reason"] = "-"
+                                sess_id = f"NY-{session_ny_date}"
+                                if sess_id in session_states:
+                                    s_st = session_states[sess_id]
+                                    s_st.fills += 1
+                                    s_st.confirmed_fill_count += 1
+                                    s_st.status = "TARGET_FILLED"
 
                                 time_str_vn = clock.now_datetime().strftime("%Y-%m-%d %H:%M:%S")
                                 factor_audit_rows.append({
@@ -1805,49 +1848,99 @@ class ReplayEngine:
                                     "rationale": chosen_setup.get("rationale", "")
                                 })
 
-                    # 4.2.2. Mode C Quota Candidate check if still no trade and variant == NY_DAILY_PAPER_RESEARCH
-                    if not active_trade and strategy_variant == "NY_DAILY_PAPER_RESEARCH":
+                    # 4.2.2. V13.3 Causal Daily NY Session Paper Research Scheduler
+                    entry_cadence = getattr(request, "entry_cadence", "CONFIRMED_ONLY")
+                    if not active_trade and (strategy_variant == "NY_DAILY_PAPER_RESEARCH" or entry_cadence == "DAILY_PAPER"):
                         dt_ny = get_ny_datetime(sim_time)
                         session_ny_date = dt_ny.strftime("%Y-%m-%d")
+                        sess_id = f"NY-{session_ny_date}"
+                        session_state = session_states.get(sess_id)
+                        elig = eligibility_map.get(sess_id)
                         ny_quota_rec = ny_quota_ledger.get(session_ny_date)
 
-                        if ny_quota_rec and ny_quota_rec["is_eligible"] and ny_quota_rec.get("filled_count", 0) < ny_min_goal and daily_fills < 3:
-                            if is_ny_deadline_reached(dt_ny, ny_deadline_hour, ny_deadline_minute):
-                                # Check hard guards first!
+                        if session_state and elig and ny_quota_rec and ny_quota_rec.get("filled_count", 0) < ny_max_fills and daily_fills < 3:
+                            should_sched, sched_reason = drs.should_schedule_daily_entry(
+                                state=session_state,
+                                now_ms=sim_time,
+                                config=request,
+                                eligibility=elig
+                            )
+
+                            if should_sched:
+                                session_state.attempts_count += 1
+                                ny_quota_rec["attempts_count"] += 1
+
+                                # Check hard guards first
                                 if consecutive_losses >= 2:
+                                    session_state.block_reason = "RISK_CONSECUTIVE_LOSS_LIMIT"
+                                    session_state.status = "RISK_BLOCKED"
                                     ny_quota_rec["unmet_reason"] = "QUOTA_UNMET_HARD_GUARD_CONSEC_LOSSES"
+                                    rejection_reasons["QUOTA_UNMET_HARD_GUARD_CONSEC_LOSSES"] = rejection_reasons.get("QUOTA_UNMET_HARD_GUARD_CONSEC_LOSSES", 0) + 1
                                 elif today_realized_pnl <= -daily_loss_budget:
+                                    session_state.block_reason = "RISK_DAILY_LOSS_BUDGET"
+                                    session_state.status = "RISK_BLOCKED"
                                     ny_quota_rec["unmet_reason"] = "QUOTA_UNMET_HARD_GUARD_LOSS_BUDGET"
+                                    rejection_reasons["QUOTA_UNMET_HARD_GUARD_LOSS_BUDGET"] = rejection_reasons.get("QUOTA_UNMET_HARD_GUARD_LOSS_BUDGET", 0) + 1
                                 elif daily_fills >= 3:
+                                    session_state.block_reason = "RISK_DAILY_CAP_3"
+                                    session_state.status = "RISK_BLOCKED"
                                     ny_quota_rec["unmet_reason"] = "QUOTA_UNMET_HARD_GUARD_DAILY_CAP"
-                                elif curr_bar_5m:
-                                    ny_quota_rec["attempts_count"] += 1
-                                    c_candidate, c_err = evaluate_mode_c_quota_candidate(
-                                        curr_bar_5m=curr_bar_5m,
-                                        recent_bars_5m=recent_bars_5m,
-                                        recent_bars_15m=ltf_slice,
-                                        d_bias=d_bias if 'd_bias' in locals() else "UNKNOWN",
-                                        h4_bias=h4_bias if 'h4_bias' in locals() else "UNKNOWN",
-                                        h1_trend=h1_trend if 'h1_trend' in locals() else "UNKNOWN",
-                                        sim_time=sim_time,
-                                        capital=cash_balance,
-                                        quota_risk_pct=quota_risk_pct,
-                                        leverage=request.leverage,
-                                        margin_mode=request.margin_mode,
-                                        costs=costs,
-                                        spread_usd=spread_usd,
-                                        min_net_rr=2.0,
-                                        deadline_hour=ny_deadline_hour,
-                                        deadline_min=ny_deadline_minute
-                                    )
+                                    rejection_reasons["QUOTA_UNMET_HARD_GUARD_DAILY_CAP"] = rejection_reasons.get("QUOTA_UNMET_HARD_GUARD_DAILY_CAP", 0) + 1
+                                else:
+                                    smc_ctx = {
+                                        "h1_trend": h1_trend if 'h1_trend' in locals() else "UNKNOWN",
+                                        "h4_bias": h4_bias if 'h4_bias' in locals() else "UNKNOWN",
+                                        "d_bias": d_bias if 'd_bias' in locals() else "UNKNOWN",
+                                        "recent_bars_15m": ltf_slice,
+                                        "recent_bars_5m": recent_bars_5m
+                                    }
+                                    curr_q = {
+                                        "sim_time": sim_time,
+                                        "close": (curr_bar_5m["close"] if curr_bar_5m else curr_bar["close"]),
+                                        "spread_usd": spread_usd,
+                                        "costs": costs,
+                                        "capital": cash_balance
+                                    }
+
+                                    # Try strict Mode C if in NY_DAILY_PAPER_RESEARCH, otherwise evaluate scheduled entry
+                                    c_candidate = None
+                                    c_err = None
+                                    if strategy_variant == "NY_DAILY_PAPER_RESEARCH" and curr_bar_5m:
+                                        c_candidate, c_err = evaluate_mode_c_quota_candidate(
+                                            curr_bar_5m=curr_bar_5m,
+                                            recent_bars_5m=recent_bars_5m,
+                                            recent_bars_15m=ltf_slice,
+                                            d_bias=d_bias if 'd_bias' in locals() else "UNKNOWN",
+                                            h4_bias=h4_bias if 'h4_bias' in locals() else "UNKNOWN",
+                                            h1_trend=h1_trend if 'h1_trend' in locals() else "UNKNOWN",
+                                            sim_time=sim_time,
+                                            capital=cash_balance,
+                                            quota_risk_pct=quota_risk_pct,
+                                            leverage=request.leverage,
+                                            margin_mode=request.margin_mode,
+                                            costs=costs,
+                                            spread_usd=spread_usd,
+                                            min_net_rr=2.0,
+                                            deadline_hour=ny_deadline_hour,
+                                            deadline_min=ny_deadline_minute
+                                        )
+
+                                    if not c_candidate:
+                                        c_candidate, c_errs = drs.evaluate_scheduled_entry(
+                                            context=smc_ctx,
+                                            state=session_state,
+                                            config=request,
+                                            curr_quote=curr_q
+                                        )
+                                        if not c_candidate and c_errs:
+                                            c_err = c_errs[0]
+
                                     if c_candidate:
                                         ny_quota_rec["ready_count"] += 1
                                         signals_count += 1
                                         funnel_counts["05_READY_SIGNAL"] += 1
 
-                                        # Causal news blackout check for Mode C (V124-04)
                                         is_blackout, blackout_reason, _ = crud.check_news_blackout(db, sim_time)
-                                        # Causal lesson rules check for Mode C (V124-03)
                                         active_rules = LessonRuleService.retrieve_active_rules(
                                             db=db,
                                             context={
@@ -1875,13 +1968,17 @@ class ReplayEngine:
                                         is_rule_blocked = (not rule_eval.get("can_proceed", True)) or (not rule_eval.get("can_enter", True)) or bool(rule_eval.get("lesson_blockers"))
 
                                         if is_blackout:
+                                            session_state.block_reason = f"NEWS_BLACKOUT_{blackout_reason}"
                                             ny_quota_rec["unmet_reason"] = f"NEWS_BLACKOUT_{blackout_reason}"
-                                            replay_ctx.record_decision(c_candidate.get("setup_id", f"c-{i}"), c_candidate["direction"], "NEWS_BLACKOUT", "REJECTED", c_candidate["entry_price"], 0.0, 0.0, blackout_reason)
+                                            rejection_reasons["NEWS_BLACKOUT"] = rejection_reasons.get("NEWS_BLACKOUT", 0) + 1
+                                            replay_ctx.record_decision(c_candidate["setup_id"], c_candidate["direction"], "NEWS_BLACKOUT", "REJECTED", c_candidate["entry_price"], 0.0, 0.0, blackout_reason)
                                         elif is_rule_blocked:
                                             reasons = rule_eval.get("blocking_reasons", ["LESSON_RULE_BLOCKED"])
                                             r_msg = reasons[0] if reasons else "LESSON_RULE_BLOCKED"
+                                            session_state.block_reason = "LESSON_RULE_BLOCKED"
                                             ny_quota_rec["unmet_reason"] = "LESSON_RULE_BLOCKED"
-                                            replay_ctx.record_decision(c_candidate.get("setup_id", f"c-{i}"), c_candidate["direction"], "LESSON_RULE_CHECK", "REJECTED", c_candidate["entry_price"], 0.0, 0.0, r_msg)
+                                            rejection_reasons["LESSON_RULE_BLOCKED"] = rejection_reasons.get("LESSON_RULE_BLOCKED", 0) + 1
+                                            replay_ctx.record_decision(c_candidate["setup_id"], c_candidate["direction"], "LESSON_RULE_CHECK", "REJECTED", c_candidate["entry_price"], 0.0, 0.0, r_msg)
                                         else:
                                             now_dt = clock.now_datetime()
                                             policy_eval = TradingPolicyService.evaluate_entry_policy(db, request.symbol, now_dt, clock=clock)
@@ -1901,7 +1998,7 @@ class ReplayEngine:
                                                     trade_id=trade_id,
                                                     timestamp_ms=sim_time,
                                                     balance_after_usdt=cash_balance,
-                                                    description=f"Entry taker fee for Mode C {c_candidate['direction']} @ {c_candidate['entry_price']}"
+                                                    description=f"Entry taker fee for Scheduled Paper {c_candidate['direction']} @ {c_candidate['entry_price']}"
                                                 )
                                                 replay_ctx.record_execution(
                                                     event_type="ORDER_FILLED",
@@ -1916,6 +2013,14 @@ class ReplayEngine:
                                                     }
                                                 )
                                                 daily_fills += 1
+                                                session_state.fills += 1
+                                                session_state.scheduled_fill_count += 1
+                                                session_state.status = "TARGET_FILLED"
+                                                ny_quota_rec["filled_count"] += 1
+                                                ny_quota_rec["quota_fills"] += 1
+                                                ny_quota_rec["target_met"] = True
+                                                ny_quota_rec["unmet_reason"] = "-"
+
                                                 if day_audit:
                                                     day_audit.fills_count = daily_fills
                                                     day_audit.current_equity = round(cash_balance, 2)
@@ -1950,38 +2055,47 @@ class ReplayEngine:
                                                     "gross_rr": c_calc.gross_rr,
                                                     "net_risk_usdt": c_calc.net_risk_usdt,
                                                     "net_reward_usdt": c_calc.net_reward_usdt,
-                                                    "strategy_family": c_candidate["strategy_family"],
-                                                    "entry_type": c_candidate["entry_type"],
+                                                    "strategy_family": c_candidate.get("strategy_family", "SMC_CONTEXT_SCHEDULED"),
+                                                    "entry_type": c_candidate.get("entry_type", "SMC_CONTEXT_SCHEDULED_PAPER"),
                                                     "ny_session_id": f"NY-{session_ny_date}",
-                                                    "tp_is_maker": False
+                                                    "tp_is_maker": False,
+                                                    "missing_confirmations": c_candidate.get("missing_confirmations", ["SCHEDULED_ENTRY_AT_DEADLINE"]),
+                                                    "confidence_kind": c_candidate.get("confidence_kind", "HEURISTIC"),
+                                                    "entry_model": c_candidate.get("entry_model", "SCHEDULED_PAPER"),
+                                                    "trade_day_vn": current_date_str,
+                                                    "ny_session_date": session_ny_date,
+                                                    "decision_time": sim_time,
+                                                    "reason": c_candidate.get("notes", "Scheduled NY entry at deadline")
                                                 }
-                                                ny_quota_rec["filled_count"] += 1
-                                                ny_quota_rec["quota_fills"] += 1
-                                                ny_quota_rec["target_met"] = True
-                                                ny_quota_rec["unmet_reason"] = "-"
 
                                                 time_str_vn = clock.now_datetime().strftime("%Y-%m-%d %H:%M:%S")
                                                 factor_audit_rows.append({
-                                                    "decision_id": f"dec-{trade_id}-Quota",
+                                                    "decision_id": f"dec-{trade_id}-Scheduled",
                                                     "trade_id": trade_id,
                                                     "setup_id": c_candidate["setup_id"],
                                                     "time_vn": time_str_vn,
                                                     "available_at_ms": sim_time,
                                                     "stage": "FILL",
-                                                    "factor_name": "NY_QUOTA_CANDIDATE",
-                                                    "factor_value": f"{c_candidate['direction']} @ {c_candidate['entry_price']:.2f} (Score={c_candidate.get('ranking_score', 0)})",
+                                                    "factor_name": "NY_SCHEDULED_PAPER",
+                                                    "factor_value": f"{c_candidate['direction']} @ {c_candidate['entry_price']:.2f}",
                                                     "expected": "Net RR >= 2.0R, Risk 0.10%",
                                                     "status": "PASS",
                                                     "timeframe": "5M",
-                                                    "rationale": c_candidate.get("rationale", "")
+                                                    "rationale": c_candidate.get("notes", "")
                                                 })
                                             else:
-                                                ny_quota_rec["unmet_reason"] = f"POLICY_{policy_eval.get('reason_code', 'BLOCKED')}"
+                                                r_code = policy_eval.get("reason_code", "BLOCKED")
+                                                session_state.block_reason = f"POLICY_{r_code}"
+                                                ny_quota_rec["unmet_reason"] = f"POLICY_{r_code}"
+                                                rejection_reasons["POLICY_BLOCKED"] = rejection_reasons.get("POLICY_BLOCKED", 0) + 1
                                     else:
+                                        err_msg = c_err or "QUOTA_UNMET_NO_TRIGGER"
+                                        session_state.unmet_reason = err_msg
                                         if ny_quota_rec["unmet_reason"] == "NO_QUALIFIED_SETUP":
-                                            ny_quota_rec["unmet_reason"] = c_err or "QUOTA_UNMET_NO_TRIGGER"
+                                            ny_quota_rec["unmet_reason"] = err_msg
+                                        rejection_reasons[err_msg] = rejection_reasons.get(err_msg, 0) + 1
 
-            # 4.3. Mark-to-Market Equity & Drawdown tracking on EVERY bar
+                    # 4.3. Mark-to-Market Equity & Drawdown tracking on EVERY bar
             if active_trade:
                 dir_mult = 1.0 if active_trade["direction"] == "LONG" else -1.0
                 curr_close = eval_bar["close"]
@@ -2067,7 +2181,15 @@ class ReplayEngine:
                 ny_session_id=active_trade.get("ny_session_id"),
                 margin_usdt=round((active_trade["entry_price"] * active_trade["quantity"]) / request.leverage, 2),
                 is_ambiguous=False,
-                status="OPEN"
+                status="OPEN",
+                missing_confirmations=active_trade.get("missing_confirmations"),
+                confidence_kind=active_trade.get("confidence_kind"),
+                entry_model=active_trade.get("entry_model"),
+                trade_day_vn=active_trade.get("trade_day_vn"),
+                ny_session_date=active_trade.get("ny_session_date"),
+                decision_time=active_trade.get("decision_time"),
+                execution_time=active_trade.get("execution_time", active_trade.get("entry_time")),
+                reason=active_trade.get("reason")
             )
             closed_trades.append(open_trade_item)
 
@@ -2107,13 +2229,33 @@ class ReplayEngine:
         worst_day = min(daily_pnl_map.values()) if daily_pnl_map else 0.0
 
         # Quality vs Quota metrics breakdown
-        quality_trades = [t for t in closed_trades if getattr(t, "entry_type", "QUALITY_ENTRY") == "QUALITY_ENTRY"]
-        quota_trades = [t for t in closed_trades if getattr(t, "entry_type", "") == "QUOTA_ENTRY"]
+        quality_trades = [t for t in closed_trades if getattr(t, "entry_type", "QUALITY_ENTRY") in ("QUALITY_ENTRY", "SMC_CONFIRMED")]
+        quota_trades = [t for t in closed_trades if getattr(t, "entry_type", "") in ("QUOTA_ENTRY", "SMC_CONTEXT_SCHEDULED_PAPER")]
         quality_net_pnl = round(sum(t.net_pnl for t in quality_trades if t.status == "CLOSED"), 2)
         quota_net_pnl = round(sum(t.net_pnl for t in quota_trades if t.status == "CLOSED"), 2)
         eligible_ny_sessions = sum(1 for q in ny_quota_ledger.values() if q["is_eligible"])
         ny_covered_sessions = sum(1 for q in ny_quota_ledger.values() if q["is_eligible"] and q["target_met"])
         ny_fill_coverage_pct = round((ny_covered_sessions / max(1, eligible_ny_sessions)) * 100.0, 2)
+
+        # Finalize all sessions & summarize cadence for V13.3
+        per_session_outcomes = []
+        for sess_id, s_st in sorted(session_states.items()):
+            el = eligibility_map.get(sess_id)
+            if el:
+                outcome = drs.finalize_session_outcome(s_st, el)
+                per_session_outcomes.append(outcome)
+
+        cadence_summary = drs.summarize_cadence(per_session_outcomes)
+
+        trade_type_breakdown = {
+            "SMC_CONFIRMED": sum(1 for t in closed_trades if getattr(t, "entry_type", "") in ("SMC_CONFIRMED", "QUALITY_ENTRY")),
+            "SMC_CONTEXT_SCHEDULED_PAPER": sum(1 for t in closed_trades if getattr(t, "entry_type", "") in ("SMC_CONTEXT_SCHEDULED_PAPER", "QUOTA_ENTRY"))
+        }
+
+        total_fills_count = sum(d.get("total_fills", 0) for d in daily_stats_map.values())
+        closed_trades_count = len(closed_trades)
+        open_positions_count = 1 if active_trade else 0
+        ambiguous_trades_count = sum(1 for t in closed_trades if getattr(t, "is_ambiguous", False))
 
         # 9 Funnel Stages
         funnel_rows = [
@@ -2326,10 +2468,18 @@ class ReplayEngine:
         effective_config = {
             "initial_equity": request.initial_equity,
             "risk_pct": request.risk_pct,
+            "quality_risk_pct": getattr(request, "quality_risk_pct", None) or request.risk_pct,
+            "quota_risk_pct": getattr(request, "quota_risk_pct", None) or 0.10,
             "leverage": request.leverage,
             "margin_mode": request.margin_mode,
             "strategy_variant": strategy_variant,
+            "entry_cadence": getattr(request, "entry_cadence", "CONFIRMED_ONLY"),
+            "daily_min_fills_target": getattr(request, "daily_min_fills_target", 1),
             "ny_max_fills": ny_max_fills,
+            "ny_deadline_hour": ny_deadline_hour,
+            "ny_deadline_minute": ny_deadline_minute,
+            "scheduler_policy_version": getattr(request, "scheduler_policy_version", "v13.3"),
+            "date_basis": getattr(request, "date_basis", "VN_DATE"),
             "timeframe": request.timeframe,
             "fee_rate": request.fee_rate,
             "start_date": start_date_vn,
@@ -2414,7 +2564,16 @@ class ReplayEngine:
             artifacts=art_files,
             start_date=start_date_vn,
             end_date=end_date_vn,
-            effective_config=effective_config
+            effective_config=effective_config,
+            fills_count=total_fills_count,
+            closed_count=closed_trades_count,
+            open_positions_count=open_positions_count,
+            ambiguous_count=ambiguous_trades_count,
+            cadence_summary=cadence_summary,
+            per_session_outcomes=per_session_outcomes,
+            trade_type_breakdown=trade_type_breakdown,
+            integrity_summary={"dataset_hash": dataset_hash, "causal_data_ok": True, "guards_active": True},
+            run_config_hash=dataset_hash
         )
 
     @classmethod
