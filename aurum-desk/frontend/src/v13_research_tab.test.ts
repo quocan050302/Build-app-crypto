@@ -89,7 +89,6 @@ describe('V13 Frontend Research Tab Invariants & Logic', () => {
       const [hours, minutes] = tStr.split(":").map(Number);
       const testIso = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
       const nyTz = "America/New_York";
-      const vnTz = "Asia/Ho_Chi_Minh";
 
       const nyFormat = new Intl.DateTimeFormat("en-US", { timeZone: nyTz, timeZoneName: "short" });
       const parts = nyFormat.formatToParts(testIso);

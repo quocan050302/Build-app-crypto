@@ -23,6 +23,7 @@ export type LabJobState =
   | 'DETACHED_RUNNING';
 
 export const LAB_JOB_STORAGE_KEY = 'aurum_active_lab_job_id';
+export const RESEARCH_METHOD_JOB_STORAGE_KEY = 'aurum_research_eval_job_id';
 
 let memStorage: Record<string, string> = {};
 
@@ -52,28 +53,30 @@ function getStorage() {
 }
 
 export class LabJobManager {
-  static getPersistedJobId(): string | null {
+  static readonly RESEARCH_METHOD_JOB_STORAGE_KEY = RESEARCH_METHOD_JOB_STORAGE_KEY;
+  static readonly LAB_JOB_STORAGE_KEY = LAB_JOB_STORAGE_KEY;
+  static getPersistedJobId(key: string = LAB_JOB_STORAGE_KEY): string | null {
     try {
       const storage = getStorage();
-      return storage.getItem(LAB_JOB_STORAGE_KEY);
+      return storage.getItem(key);
     } catch {
       return null;
     }
   }
 
-  static persistJobId(jobId: string): void {
+  static persistJobId(jobId: string, key: string = LAB_JOB_STORAGE_KEY): void {
     try {
       const storage = getStorage();
-      storage.setItem(LAB_JOB_STORAGE_KEY, jobId);
+      storage.setItem(key, jobId);
     } catch {
       // Ignore
     }
   }
 
-  static clearPersistedJobId(): void {
+  static clearPersistedJobId(key: string = LAB_JOB_STORAGE_KEY): void {
     try {
       const storage = getStorage();
-      storage.removeItem(LAB_JOB_STORAGE_KEY);
+      storage.removeItem(key);
     } catch {
       // Ignore
     }

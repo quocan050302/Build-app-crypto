@@ -33,7 +33,7 @@ QUOTA_DEADLINE = dtime(14, 30)
 
 class BarProxy:
     """Provides dual dict-indexing and attribute access for candle structures."""
-    def __init__(self, d: Any):
+    def __init__(self, d: Any, cadence_ms: Optional[int] = None):
         if isinstance(d, dict):
             self._d = d
             self.timestamp = int(d.get("timestamp", 0))
@@ -43,7 +43,9 @@ class BarProxy:
             self.close = float(d.get("close", 0.0))
             self.volume = float(d.get("volume", 0.0))
             self.is_closed = bool(d.get("is_closed", True))
-            self.close_time = int(d.get("close_time", self.timestamp + 15 * 60 * 1000))
+            tf_s = str(d.get("timeframe", d.get("granularity", ""))).lower()
+            def_cadence = cadence_ms if cadence_ms is not None else (5 * 60 * 1000 if tf_s == "5m" else 15 * 60 * 1000)
+            self.close_time = int(d.get("close_time", self.timestamp + def_cadence))
         else:
             self._d = getattr(d, "_d", {})
             self.timestamp = int(getattr(d, "timestamp", 0))
@@ -53,7 +55,9 @@ class BarProxy:
             self.close = float(getattr(d, "close", 0.0))
             self.volume = float(getattr(d, "volume", 0.0))
             self.is_closed = bool(getattr(d, "is_closed", True))
-            self.close_time = int(getattr(d, "close_time", self.timestamp + 15 * 60 * 1000))
+            tf_s = str(getattr(d, "timeframe", getattr(d, "granularity", ""))).lower()
+            def_cadence = cadence_ms if cadence_ms is not None else (5 * 60 * 1000 if tf_s == "5m" else 15 * 60 * 1000)
+            self.close_time = int(getattr(d, "close_time", self.timestamp + def_cadence))
 
     def __getitem__(self, item):
         if self._d and item in self._d:
@@ -66,8 +70,8 @@ class BarProxy:
         return getattr(self, item, default)
 
 
-def ensure_proxies(bars: List[Any]) -> List[BarProxy]:
-    return [b if isinstance(b, BarProxy) else BarProxy(b) for b in bars]
+def ensure_proxies(bars: List[Any], cadence_ms: Optional[int] = None) -> List[BarProxy]:
+    return [b if isinstance(b, BarProxy) else BarProxy(b, cadence_ms=cadence_ms) for b in bars]
 
 
 def compute_atr_bars(bars: List[Any], period: int = 14) -> float:
@@ -271,15 +275,49 @@ def evaluate_setup_b1_trend_continuation(
         pullback_low = min(b["low"] for b in recent_bars_15m[-8:])
         invalidation_level = round(pullback_low - max(0.2 * atr_15m, 0.50), 2)
 
-        # Target: nearest pre-existing swing high
-        valid_targets = [s["price"] for s in sh_15m if s["price"] > curr_close + 1.0]
-        if not valid_targets:
-            # Fallback to recent highest
-            target_level = round(recent_highest, 2)
-        else:
-            target_level = round(valid_targets[-1], 2)
-
         fill_entry = round(curr_close + (0.5 * spread_usd) + costs.slippage_usd, 2)
+        # Target: nearest pre-existing swing high meeting Net RR >= min_net_rr (sorted ascending by distance)
+        candidate_highs = sorted([s["price"] for s in sh_15m if s["price"] > curr_close + 0.5])
+        target_level = None
+        for cand_tp in candidate_highs:
+            t_tp = round(cand_tp, 2)
+            c_test = calculate_risk_reward(
+                direction="LONG",
+                entry=fill_entry,
+                sl=invalidation_level,
+                tp=t_tp,
+                capital=capital,
+                risk_pct=risk_pct,
+                costs=costs,
+                entry_has_slippage=True,
+                leverage=leverage,
+                margin_mode=margin_mode,
+                min_net_rr=min_net_rr
+            )
+            if c_test.can_execute and c_test.net_rr >= min_net_rr:
+                target_level = t_tp
+                break
+
+        if not target_level and recent_highest > fill_entry:
+            t_rh = round(recent_highest, 2)
+            c_test = calculate_risk_reward(
+                direction="LONG",
+                entry=fill_entry,
+                sl=invalidation_level,
+                tp=t_rh,
+                capital=capital,
+                risk_pct=risk_pct,
+                costs=costs,
+                entry_has_slippage=True,
+                leverage=leverage,
+                margin_mode=margin_mode,
+                min_net_rr=min_net_rr
+            )
+            if c_test.can_execute and c_test.net_rr >= min_net_rr:
+                target_level = t_rh
+
+        if not target_level:
+            return None, "B1_NET_RR_TOO_LOW" 
 
     else:  # SHORT
         recent_lowest = min(b["low"] for b in recent_bars_15m[-12:])
@@ -304,13 +342,49 @@ def evaluate_setup_b1_trend_continuation(
         pullback_high = max(b["high"] for b in recent_bars_15m[-8:])
         invalidation_level = round(pullback_high + max(0.2 * atr_15m, 0.50), 2)
 
-        valid_targets = [s["price"] for s in sl_15m if s["price"] < curr_close - 1.0]
-        if not valid_targets:
-            target_level = round(recent_lowest, 2)
-        else:
-            target_level = round(valid_targets[-1], 2)
-
         fill_entry = round(curr_close - (0.5 * spread_usd) - costs.slippage_usd, 2)
+        # Target: nearest pre-existing swing low meeting Net RR >= min_net_rr (sorted descending by price = closest first)
+        candidate_lows = sorted([s["price"] for s in sl_15m if s["price"] < curr_close - 0.5], reverse=True)
+        target_level = None
+        for cand_tp in candidate_lows:
+            t_tp = round(cand_tp, 2)
+            c_test = calculate_risk_reward(
+                direction="SHORT",
+                entry=fill_entry,
+                sl=invalidation_level,
+                tp=t_tp,
+                capital=capital,
+                risk_pct=risk_pct,
+                costs=costs,
+                entry_has_slippage=True,
+                leverage=leverage,
+                margin_mode=margin_mode,
+                min_net_rr=min_net_rr
+            )
+            if c_test.can_execute and c_test.net_rr >= min_net_rr:
+                target_level = t_tp
+                break
+
+        if not target_level and recent_lowest < fill_entry:
+            t_rl = round(recent_lowest, 2)
+            c_test = calculate_risk_reward(
+                direction="SHORT",
+                entry=fill_entry,
+                sl=invalidation_level,
+                tp=t_rl,
+                capital=capital,
+                risk_pct=risk_pct,
+                costs=costs,
+                entry_has_slippage=True,
+                leverage=leverage,
+                margin_mode=margin_mode,
+                min_net_rr=min_net_rr
+            )
+            if c_test.can_execute and c_test.net_rr >= min_net_rr:
+                target_level = t_rl
+
+        if not target_level:
+            return None, "B1_NET_RR_TOO_LOW" 
 
     # 4. Price Geometry & Net RR check
     is_geom_valid, geom_err = validate_price_geometry(direction, fill_entry, invalidation_level, target_level)
@@ -335,7 +409,7 @@ def evaluate_setup_b1_trend_continuation(
         return None, f"NET_RR_TOO_LOW: {calc.net_rr:.2f}R < {min_net_rr:.1f}R"
 
     setup = {
-        "setup_id": f"b1-{sim_time}",
+        "setup_id": f"b1_{direction}_{dt_ny.strftime("%Y%m%d")}_{curr_bar_15m["timestamp"]}",
         "strategy_family": "NY_TREND_CONTINUATION",
         "target_model": "TARGET_MODEL_SWING_LIQUIDITY",
         "direction": direction,
@@ -443,6 +517,12 @@ def evaluate_setup_b2_range_break_retest(
 
         retest_at = retest_bar.close_time
 
+        # Freshness: Retest within 60m of breakout, and trigger within 25m of retest
+        if (retest_bar["timestamp"] - breakout_bar_ts) > (12 * 5 * 60 * 1000):
+            return None, "B2_RETEST_EXPIRED"
+        if (curr_bar_5m["timestamp"] - retest_bar["timestamp"]) > (5 * 5 * 60 * 1000):
+            return None, "B2_TRIGGER_EXPIRED"
+
         # Trigger confirmation on current bar: holds boundary with bullish close
         holds_level = (curr_close >= range_high - (0.2 * atr)) and (curr_bar_5m["close"] > curr_bar_5m["open"])
         if not holds_level:
@@ -483,6 +563,12 @@ def evaluate_setup_b2_range_break_retest(
 
         retest_at = retest_bar.close_time
 
+        # Freshness: Retest within 60m of breakout, and trigger within 25m of retest
+        if (retest_bar["timestamp"] - breakout_bar_ts) > (12 * 5 * 60 * 1000):
+            return None, "B2_RETEST_EXPIRED"
+        if (curr_bar_5m["timestamp"] - retest_bar["timestamp"]) > (5 * 5 * 60 * 1000):
+            return None, "B2_TRIGGER_EXPIRED"
+
         holds_level = (curr_close <= range_low + (0.2 * atr)) and (curr_bar_5m["close"] < curr_bar_5m["open"])
         if not holds_level:
             return None, "B2_NO_CONFIRMED_HOLD_TRIGGER"
@@ -516,7 +602,7 @@ def evaluate_setup_b2_range_break_retest(
         return None, f"NET_RR_TOO_LOW: {calc.net_rr:.2f}R < {min_net_rr:.1f}R"
 
     setup = {
-        "setup_id": f"b2-{sim_time}",
+        "setup_id": f"b2_{direction}_{dt_ny.strftime("%Y%m%d")}_{breakout_bar_ts}_{retest_bar["timestamp"]}",
         "strategy_family": "NY_RANGE_BREAK_RETEST",
         "target_model": "TARGET_MODEL_RANGE_EXTENSION",
         "direction": direction,

@@ -250,11 +250,14 @@ export interface EquityPoint {
 export interface ReplayRunRequest {
   run_name?: string;
   symbol?: string;
+  start_date?: string;
+  end_date?: string;
   start_ts?: number;
   end_ts?: number;
   timeframe?: string;
   initial_equity?: number;
   risk_pct?: number;
+  max_risk_pct?: number;
   leverage?: number;
   margin_mode?: string;
   spread_multiplier?: number;
@@ -271,6 +274,10 @@ export interface ReplayRunRequest {
   quota_risk_pct?: number;
   quality_risk_pct?: number;
   warmup_days?: number;
+  selected_session?: string;
+  ny_max_fills?: number;
+  include_5m?: boolean;
+  use_5m_driver?: boolean;
 }
 
 export interface JobCreateResponse {
@@ -328,7 +335,7 @@ export interface ReplayRunResponse {
   rejected_count: number;
   trades: ReplayTradeItem[];
   equity_curve: EquityPoint[];
-  session_breakdown: Record<string, number>;
+  session_breakdown: Record<string, any>;
   rejection_reasons: Record<string, number>;
   warnings: string[];
   created_at: number;
@@ -348,6 +355,10 @@ export interface ReplayRunResponse {
   rules_coverage_status?: string;
   cost_model_version?: string;
   schema_version?: string;
+  artifacts?: string[];
+  start_date?: string;
+  end_date?: string;
+  effective_config?: Record<string, any>;
 }
 
 export interface StressTestRequest {
@@ -572,6 +583,10 @@ export const api = {
   getLabJobResult: async (jobId: string): Promise<ReplayRunResponse> => {
     const res = await apiClient.get(`/api/v1/lab/jobs/${jobId}/result`);
     return res.data;
+  },
+
+  getLabJobArtifactUrl: (jobId: string, artifactId: string): string => {
+    return `/api/v1/lab/jobs/${jobId}/artifacts/${encodeURIComponent(artifactId)}`;
   },
 
   runLabStress: async (request: StressTestRequest): Promise<StressTestResponse> => {

@@ -134,6 +134,29 @@ class HistoricalMarketDataProvider:
                 except Exception as e:
                     logger.warning(f"Failed to read disk cache {cache_path}: {e}")
 
+            # Secondary check: search for any broader cache file in cache_dir that covers [start_ms, end_ms]
+            try:
+                for fname in sorted(os.listdir(cache_dir)):
+                    if fname.startswith(f"{symbol}_{granularity}_") and fname.endswith(".json") and fname != os.path.basename(cache_path):
+                        fpath = os.path.join(cache_dir, fname)
+                        with open(fpath, "r", encoding="utf-8") as f:
+                            c_data = json.load(f)
+                        if isinstance(c_data, list) and len(c_data) > 0:
+                            first_ts = c_data[0].get("timestamp", 0)
+                            last_ts = c_data[-1].get("timestamp", 0)
+                            if first_ts <= start_ms + (2 * cadence) and last_ts >= (end_ms - 2 * cadence):
+                                sliced = [c for c in c_data if start_ms <= c.get("timestamp", 0) <= end_ms]
+                                if sliced:
+                                    logger.info(f"Loaded {len(sliced)} candles by slicing broader disk cache: {fpath}")
+                                    try:
+                                        with open(cache_path, "w", encoding="utf-8") as fw:
+                                            json.dump(sliced, fw)
+                                    except Exception:
+                                        pass
+                                    return sliced
+            except Exception as e:
+                logger.warning(f"Error checking broader disk cache in {cache_dir}: {e}")
+
         all_raw_rows: List[List[Any]] = []
         seen_timestamps = set()
         current_end = end_ms

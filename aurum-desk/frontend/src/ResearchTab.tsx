@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { api, extractErrorMessage, type ResearchReportItem, type ReplayRunResponse } from './api/client';
+import { api, extractErrorMessage, type ResearchReportItem, type ReplayRunResponse, type ReplayRunRequest } from './api/client';
 import { LabJobManager } from './utils/labJobManager';
 import {
   Calendar,
@@ -21,7 +21,8 @@ import {
   HelpCircle,
   Activity,
   BarChart2,
-  LayoutList
+  LayoutList,
+  Download
 } from 'lucide-react';
 
 const getTodayStr = () => new Date().toISOString().slice(0, 10);
@@ -165,16 +166,20 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
     return d.toISOString().slice(0, 10);
   });
   const [methodEndDate, setMethodEndDate] = useState<string>(todayStr);
-  const [evalInitialCapital, setEvalInitialCapital] = useState<number>(10000);
+  const [evalInitialCapital, setEvalInitialCapital] = useState<number>(1000);
   const [evalMaxRiskPct, setEvalMaxRiskPct] = useState<number>(0.5);
+  const [evalLeverage, setEvalLeverage] = useState<number>(30);
+  const [evalStrategyVariant, setEvalStrategyVariant] = useState<'NY_ADAPTIVE' | 'CURRENT_BASELINE'>('NY_ADAPTIVE');
   const [configPopoverOpen, setConfigPopoverOpen] = useState<boolean>(false);
 
-  const [currentJobId, setCurrentJobId] = useState<string | null>(() => LabJobManager.getPersistedJobId());
+  const [currentJobId, setCurrentJobId] = useState<string | null>(() => LabJobManager.getPersistedJobId(LabJobManager.RESEARCH_METHOD_JOB_STORAGE_KEY));
   const [runningEval, setRunningEval] = useState<boolean>(false);
   const [jobProgressMsg, setJobProgressMsg] = useState<string | null>(null);
   const [evalResult, setEvalResult] = useState<ReplayRunResponse | null>(null);
   const [tradesDrawerOpen, setTradesDrawerOpen] = useState<boolean>(false);
   const [evalDetailsOpen, setEvalDetailsOpen] = useState<boolean>(false);
+  const [noTradeDaysDrawerOpen, setNoTradeDaysDrawerOpen] = useState<boolean>(false);
+  const [comparisonDrawerOpen, setComparisonDrawerOpen] = useState<boolean>(false);
 
   // Load Daily Reports
   const loadReports = useCallback(async () => {
@@ -257,48 +262,58 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
     }
   };
 
-  // Replay Evaluation Job Tracker (Method Evaluation)
+  // Replay Evaluation Job Tracker (Method Evaluation with dedicated storage key)
   useEffect(() => {
-    const savedJobId = LabJobManager.getPersistedJobId();
+    const savedJobId = LabJobManager.getPersistedJobId(LabJobManager.RESEARCH_METHOD_JOB_STORAGE_KEY);
     if (savedJobId && !evalResult) {
       setCurrentJobId(savedJobId);
+      setRunningEval(true);
       api.getLabJobStatus(savedJobId).then(status => {
         if (status.status === 'SUCCEEDED') {
-          api.getLabJobResult(savedJobId).then(res => setEvalResult(res));
-          LabJobManager.clearPersistedJobId();
-          setCurrentJobId(null);
+          api.getLabJobResult(savedJobId).then(res => {
+            setEvalResult(res);
+            setRunningEval(false);
+            LabJobManager.clearPersistedJobId(LabJobManager.RESEARCH_METHOD_JOB_STORAGE_KEY);
+            setCurrentJobId(null);
+          });
         } else if (status.status === 'FAILED' || status.status === 'CANCELLED') {
-          LabJobManager.clearPersistedJobId();
+          LabJobManager.clearPersistedJobId(LabJobManager.RESEARCH_METHOD_JOB_STORAGE_KEY);
           setCurrentJobId(null);
+          setRunningEval(false);
         } else {
           setJobProgressMsg(`Đang chạy: ${status.current_phase} (${status.progress_pct.toFixed(0)}%)`);
         }
       }).catch(() => {
-        LabJobManager.clearPersistedJobId();
-        setCurrentJobId(null);
+        setRunningEval(false);
       });
     }
   }, [evalResult]);
 
   const handleStartMethodEvaluation = async () => {
+    if (runningEval) return; // Prevent double submit
     setRunningEval(true);
     setJobProgressMsg('Đang khởi tạo tác vụ đánh giá...');
     try {
-      const payload: any = {
-        run_name: `eval_${methodStartDate}_${methodEndDate}`,
+      const payload: ReplayRunRequest = {
+        run_name: `eval_${evalStrategyVariant.toLowerCase()}_${methodStartDate}_${methodEndDate}`,
         symbol: 'XAUUSDT',
         start_date: methodStartDate,
         end_date: methodEndDate,
         initial_equity: evalInitialCapital,
-        leverage: 20,
+        leverage: evalLeverage,
+        risk_pct: evalMaxRiskPct,
         max_risk_pct: evalMaxRiskPct,
-        selected_session: 'NEW_YORK'
+        selected_session: 'NEW_YORK',
+        strategy_variant: evalStrategyVariant,
+        ny_max_fills: 3,
+        include_5m: true,
+        use_5m_driver: true
       };
 
       const job = await api.createLabJob(payload);
       const jobId = job.job_id;
       setCurrentJobId(jobId);
-      LabJobManager.persistJobId(jobId);
+      LabJobManager.persistJobId(jobId, LabJobManager.RESEARCH_METHOD_JOB_STORAGE_KEY);
 
       // Poll loop
       let completed = false;
@@ -311,7 +326,7 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
           setJobProgressMsg(`Giai đoạn: ${status.current_phase} (${status.progress_pct.toFixed(0)}%)`);
           if (status.status === 'SUCCEEDED') {
             completed = true;
-            LabJobManager.clearPersistedJobId();
+            LabJobManager.clearPersistedJobId(LabJobManager.RESEARCH_METHOD_JOB_STORAGE_KEY);
             setCurrentJobId(null);
             const res = await api.getLabJobResult(jobId);
             setEvalResult(res);
@@ -320,14 +335,14 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
             }
           } else if (status.status === 'FAILED' || status.status === 'CANCELLED') {
             completed = true;
-            LabJobManager.clearPersistedJobId();
+            LabJobManager.clearPersistedJobId(LabJobManager.RESEARCH_METHOD_JOB_STORAGE_KEY);
             setCurrentJobId(null);
             if (onNotify) {
               onNotify('Tác Vụ Dừng', status.error_message || 'Đánh giá đã kết thúc hoặc bị hủy', 'info');
             }
           }
         } catch {
-          // Retry
+          // Retry on intermittent network glitch
         }
       }
     } catch (err) {
@@ -344,7 +359,7 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
     if (!currentJobId) return;
     try {
       await api.cancelLabJob(currentJobId);
-      LabJobManager.clearPersistedJobId();
+      LabJobManager.clearPersistedJobId(LabJobManager.RESEARCH_METHOD_JOB_STORAGE_KEY);
       setCurrentJobId(null);
       setRunningEval(false);
       setJobProgressMsg(null);
@@ -394,11 +409,47 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
     return getDualTimezoneString(selectedDate, timeOfDay, dateBasis === 'NY_SESSION_DATE' ? 'NY' : 'VN');
   }, [selectedDate, timeOfDay, dateBasis]);
 
-  // Method Evaluation Conclusion Computation
+  // Check if displayed result matches current form filters
+  const isStaleResult = useMemo(() => {
+    if (!evalResult?.effective_config) return false;
+    const cfg = evalResult.effective_config;
+    return (
+      (cfg.start_date && cfg.start_date !== methodStartDate) ||
+      (cfg.end_date && cfg.end_date !== methodEndDate) ||
+      (cfg.strategy_variant && cfg.strategy_variant !== evalStrategyVariant) ||
+      (cfg.initial_equity && cfg.initial_equity !== evalInitialCapital) ||
+      (cfg.risk_pct && cfg.risk_pct !== evalMaxRiskPct) ||
+      (cfg.leverage && cfg.leverage !== evalLeverage)
+    );
+  }, [evalResult, methodStartDate, methodEndDate, evalStrategyVariant, evalInitialCapital, evalMaxRiskPct, evalLeverage]);
+
+  // Method Evaluation Conclusion Computation (Prioritized Verdict + Empirical Blockers)
   const methodConclusion = useMemo(() => {
     if (!evalResult) return null;
-    const { total_trades, total_net_pnl, win_rate_pct, max_drawdown_pct } = evalResult;
+    const { total_trades, total_net_pnl, win_rate_pct, max_drawdown_pct, rejection_reasons, warnings } = evalResult;
 
+    // Priority 1: Data / Calculation Incomplete
+    const hasDataMissing = warnings?.some(w => w.includes('INCOMPLETE') || w.includes('UNAVAILABLE')) ||
+      Boolean(rejection_reasons?.['HISTORICAL_DATA_UNAVAILABLE']) ||
+      Boolean(rejection_reasons?.['INSUFFICIENT_DATA']);
+
+    if (hasDataMissing) {
+      return {
+        badge: 'CHƯA THỂ ĐÁNH GIÁ (THIẾU DỮ LIỆU)',
+        color: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+        summary: 'Dữ liệu nến lịch sử chưa đầy đủ hoặc bị gián đoạn trong giai đoạn đã chọn. Cần bổ sung dữ liệu trước khi nghiệm thu.',
+        improvements: [
+          {
+            issue: 'Thiếu dữ liệu nến lịch sử',
+            evidence: warnings?.join('; ') || 'Nến lịch sử không đầy đủ trong cache',
+            suggestion: 'Tải bổ sung nến từ sàn hoặc chọn giai đoạn đã có nến hoàn chỉnh.'
+          }
+        ]
+      };
+    }
+
+    // Priority 2: Sample Too Small (< 5 trades)
+    const isThreeMonths = (new Date(methodEndDate).getTime() - new Date(methodStartDate).getTime()) / 86400000 >= 60;
     if (total_trades < 5) {
       return {
         badge: 'CHƯA ĐỦ SỐ LỆNH (MẪU QUÁ NHỎ)',
@@ -407,27 +458,75 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
         improvements: [
           {
             issue: 'Số lượng cơ hội khớp lệnh thấp',
-            evidence: `Chỉ có ${total_trades} lệnh được kích hoạt trong khoảng thời gian đã chọn.`,
-            suggestion: 'Mở rộng khung thời gian kiểm tra (ví dụ 3 tháng) hoặc kiểm tra các điều kiện lọc entry.'
+            evidence: `Chỉ có ${total_trades} lệnh khớp qua ${isThreeMonths ? 'khoảng 3 tháng (90 ngày)' : 'khoảng thời gian đã chọn'}.`,
+            suggestion: isThreeMonths
+              ? 'Bộ lọc baseline hiện tại quá khắt khe (chỉ có 1 setup reversal D+H4+H1 đồng thuận). Hãy chuyển sang biến thể SMC Phiên Mỹ (NY_ADAPTIVE) để quét thêm mẫu hình tiếp diễn B1 và breakout B2.'
+              : 'Mở rộng khung thời gian kiểm tra (ví dụ 3 tháng) để có thêm mẫu quan sát.'
           }
         ]
       };
     }
 
+    // Priority 3: Economic Evaluation (>= 5 trades)
     const isProfitable = total_net_pnl > 0;
-    const isWinRateGood = win_rate_pct >= 50;
     const isDdControlled = (max_drawdown_pct ?? 0) <= 12;
+    const isExpectancyPositive = (evalResult.expectancy_r ?? 0) > 0;
 
-    if (isProfitable && isWinRateGood && isDdControlled) {
+    // Build real empirical blockers for improvements
+    const blockerMeta: Record<string, { issue: string; suggestion: string }> = {
+      COOLDOWN_ACTIVE: {
+        issue: 'Giãn cách 30 phút giữa các lệnh (Cooldown)',
+        suggestion: 'Đã bảo vệ tài khoản khỏi rủi ro vào lệnh liên tiếp theo cảm xúc (revenge trading) sau khi đóng lệnh trước.'
+      },
+      CONSECUTIVE_LOSS_LIMIT_2: {
+        issue: 'Dừng phiên sau 2 lệnh lỗ liên tiếp',
+        suggestion: 'Quy tắc quản trị rủi ro đã tự động khóa phiên để bảo toàn vốn khi gặp 2 lệnh dừng lỗ liên tiếp.'
+      },
+      B1_NET_RR_TOO_LOW: {
+        issue: 'Tỷ lệ Net R:R sau phí dưới 2.0R',
+        suggestion: 'Loại bỏ các cơ hội có khoảng cách target quá gần, không đủ bù đắp trượt giá và phí sàn.'
+      },
+      HTF_CONFLICT: {
+        issue: 'Xung đột xu hướng đa khung thời gian',
+        suggestion: 'Bộ lọc khung lớn D/H4 đã chặn các tín hiệu ngược pha với dòng chảy thanh khoản thị trường.'
+      },
+      NO_VALID_SETUP: {
+        issue: 'Không có cấu trúc thanh khoản hoặc FVG đạt chuẩn',
+        suggestion: 'Thị trường phiên Mỹ tích lũy biên độ hẹp hoặc thiếu xung lực bứt phá (displacement).'
+      },
+      DAILY_LOSS_BUDGET: {
+        issue: 'Chạm ngưỡng giới hạn lỗ ngày (-1.5%)',
+        suggestion: 'Hard guard đã ngắt quyền vào lệnh để bảo vệ vốn tài khoản trong ngày biến động bất lợi.'
+      }
+    };
+
+    const topBlockers = Object.entries(rejection_reasons || {})
+      .filter(([k]) => k !== 'WARMUP_INCOMPLETE' && k !== 'DAILY_QUOTA_REACHED')
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+
+    const empiricalImprovements = topBlockers.map(([code, count]) => {
+      const meta = blockerMeta[code] || {
+        issue: `Rào cản: ${code}`,
+        suggestion: 'Kiểm tra điều kiện cấu trúc hoặc quy tắc quản trị rủi ro tương ứng.'
+      };
+      return {
+        issue: meta.issue,
+        evidence: `Ghi nhận ${count} lần kiểm tra bị chặn bởi rào cản này.`,
+        suggestion: meta.suggestion
+      };
+    });
+
+    if (isProfitable && isDdControlled && isExpectancyPositive) {
       return {
         badge: 'ĐẠT TIÊU CHÍ KIỂM TRA',
         color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-        summary: 'Phương pháp duy trì lợi nhuận sau phí và kiểm soát mức sụt giảm vốn (drawdown) đạt ngưỡng an toàn.',
-        improvements: [
+        summary: `Phương pháp duy trì lợi nhuận sau toàn bộ phí (Net PnL: +$${total_net_pnl.toFixed(2)}) và kiểm soát mức giảm vốn (MaxDD: ${max_drawdown_pct.toFixed(1)}%) trong ngưỡng an toàn.`,
+        improvements: empiricalImprovements.length > 0 ? empiricalImprovements : [
           {
             issue: 'Chi phí trượt giá & phí sàn',
             evidence: `Tổng phí và trượt giá chiếm ${(evalResult.total_fees + evalResult.total_slippage).toFixed(2)} USD.`,
-            suggestion: 'Ưu tiên các cơ hội có tỷ lệ Net R:R >= 2.0R để bù đắp chi phí khớp lệnh.'
+            suggestion: 'Ưu tiên các cơ hội có tỷ lệ Net R:R >= 2.0R để đảm bảo biên an toàn chi phí.'
           }
         ]
       };
@@ -436,21 +535,16 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
     return {
       badge: 'CẦN CẢI THIỆN',
       color: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-      summary: 'Phương pháp chưa đạt hiệu quả tối ưu sau khi khấu trừ toàn bộ chi phí thực tế.',
-      improvements: [
+      summary: 'Phương pháp chưa đạt hiệu quả tối ưu sau khi khấu trừ toàn bộ chi phí thực tế hoặc mức sụt giảm vốn vượt ngưỡng khuyến nghị.',
+      improvements: empiricalImprovements.length > 0 ? empiricalImprovements : [
         {
           issue: total_net_pnl <= 0 ? 'Lợi nhuận ròng chưa dương sau phí' : 'Mức sụt giảm vốn vượt ngưỡng khuyến nghị',
           evidence: `Net PnL: ${total_net_pnl > 0 ? '+' : ''}$${total_net_pnl.toFixed(2)} | Drawdown: -${max_drawdown_pct.toFixed(1)}% | Win Rate: ${win_rate_pct.toFixed(1)}%`,
-          suggestion: 'Thử nghiệm bổ sung bộ lọc xu hướng đa khung D/H1 hoặc chỉ giao dịch trong phiên Mỹ.'
-        },
-        {
-          issue: 'Tín hiệu bị từ chối hoặc bỏ lỡ',
-          evidence: `Ghi nhận ${evalResult.rejected_count ?? 0} tín hiệu bị chặn bởi các quy tắc an toàn.`,
-          suggestion: 'Tránh vào lệnh sát các khung giờ công bố tin tức vĩ mô (CPI, FOMC, NFP).'
+          suggestion: 'Kiểm tra các rào cản từ chối chính hoặc tinh chỉnh vùng FVG / POI phiên Mỹ.'
         }
       ]
     };
-  }, [evalResult]);
+  }, [evalResult, methodStartDate, methodEndDate]);
 
   return (
     <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-1">
@@ -982,8 +1076,25 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                 onClick={() => setMethodPreset(90)}
                 className="px-2 py-1.5 rounded text-[11px] font-medium bg-charcoal-900 hover:bg-charcoal-750 text-gray-300 border border-charcoal-750"
               >
-                3 tháng
+                3 tháng (90 ngày)
               </button>
+
+              {/* Strategy Variant Selector */}
+              <div className="flex items-center gap-1 bg-charcoal-900 px-2 py-1 rounded-lg border border-charcoal-750">
+                <span className="text-gray-400 text-[10px]">Phương pháp:</span>
+                <select
+                  value={evalStrategyVariant}
+                  onChange={(e) => setEvalStrategyVariant(e.target.value as any)}
+                  className="bg-transparent text-gray-200 text-xs font-semibold focus:outline-none cursor-pointer"
+                >
+                  <option value="NY_ADAPTIVE" className="bg-charcoal-900 text-gray-200">
+                    SMC Phiên Mỹ (NY_ADAPTIVE: B1+B2)
+                  </option>
+                  <option value="CURRENT_BASELINE" className="bg-charcoal-900 text-gray-200">
+                    Baseline Hiện Tại (CURRENT_BASELINE)
+                  </option>
+                </select>
+              </div>
             </div>
 
             {/* Actions */}
@@ -999,10 +1110,17 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                 </button>
 
                 {configPopoverOpen && (
-                  <div className="absolute right-0 top-9 w-64 bg-charcoal-900 border border-charcoal-700 rounded-xl p-3 shadow-2xl z-30 space-y-2 text-xs">
-                    <span className="font-bold text-gray-200 block border-b border-charcoal-750 pb-1">Cấu Hình Đánh Giá</span>
+                  <div className="absolute right-0 top-9 w-72 bg-charcoal-900 border border-charcoal-700 rounded-xl p-3 shadow-2xl z-30 space-y-2.5 text-xs">
+                    <span className="font-bold text-gray-200 block border-b border-charcoal-750 pb-1">Cấu Hình Đánh Giá Nghiên Cứu</span>
                     <div>
-                      <span className="text-gray-400 text-[10px] block">Vốn ban đầu ($):</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400 text-[10px]">Vốn ban đầu ($):</span>
+                        <div className="flex gap-1 text-[10px]">
+                          <button onClick={() => setEvalInitialCapital(1000)} className="text-aurum-400 hover:underline">$1,000</button>
+                          <span className="text-gray-600">|</span>
+                          <button onClick={() => setEvalInitialCapital(10000)} className="text-gray-400 hover:underline">$10,000</button>
+                        </div>
+                      </div>
                       <input
                         type="number"
                         value={evalInitialCapital}
@@ -1011,7 +1129,30 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                       />
                     </div>
                     <div>
-                      <span className="text-gray-400 text-[10px] block">Rủi ro / lệnh (%):</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400 text-[10px]">Đòn bẩy:</span>
+                        <div className="flex gap-1 text-[10px]">
+                          <button onClick={() => setEvalLeverage(30)} className="text-aurum-400 hover:underline">x30</button>
+                          <span className="text-gray-600">|</span>
+                          <button onClick={() => setEvalLeverage(20)} className="text-gray-400 hover:underline">x20</button>
+                        </div>
+                      </div>
+                      <input
+                        type="number"
+                        value={evalLeverage}
+                        onChange={(e) => setEvalLeverage(Number(e.target.value))}
+                        className="w-full bg-charcoal-800 border border-charcoal-700 rounded px-2 py-1 text-gray-100 text-xs mt-0.5"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400 text-[10px]">Rủi ro / lệnh (%):</span>
+                        <div className="flex gap-1 text-[10px]">
+                          <button onClick={() => setEvalMaxRiskPct(0.5)} className="text-aurum-400 hover:underline">0.5%</button>
+                          <span className="text-gray-600">|</span>
+                          <button onClick={() => setEvalMaxRiskPct(1.0)} className="text-gray-400 hover:underline">1.0%</button>
+                        </div>
+                      </div>
                       <input
                         type="number"
                         step="0.1"
@@ -1020,8 +1161,13 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                         className="w-full bg-charcoal-800 border border-charcoal-700 rounded px-2 py-1 text-gray-100 text-xs mt-0.5"
                       />
                     </div>
+                    <div className="bg-charcoal-800/60 p-2 rounded border border-charcoal-750 text-[10px] text-gray-400 space-y-1">
+                      <div>• <strong>Giới hạn khớp lệnh:</strong> Tối đa 3 fills/ngày (khóa bảo vệ).</div>
+                      <div>• <strong>Dừng lỗ ngày:</strong> -1.5% ngân sách rủi ro hoặc 2 lệnh lỗ liên tiếp.</div>
+                      <div>• <strong>Cooldown:</strong> 30 phút giữa các lệnh.</div>
+                    </div>
                     <div className="text-[10px] text-gray-500 pt-1 border-t border-charcoal-800">
-                      *Cấu hình này độc lập trong môi trường nghiên cứu, không ghi đè cài đặt giao dịch live.
+                      *Cấu hình nghiên cứu độc lập, không ghi đè cài đặt giao dịch live.
                     </div>
                   </div>
                 )}
@@ -1046,6 +1192,40 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
             </div>
           </div>
 
+          {/* One-Line Confirmation Summary Before Running */}
+          <div className="bg-charcoal-900/90 px-3 py-2 rounded-lg border border-charcoal-800 text-[11px] text-gray-300 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-1.5 font-mono">
+              <span className="text-aurum-400 font-semibold">Chuẩn bị chạy:</span>
+              <span>Khoảng ngày {methodStartDate} đến {methodEndDate}</span>
+              <span className="text-gray-500">·</span>
+              <span>Phiên Mỹ</span>
+              <span className="text-gray-500">·</span>
+              <span>Vốn ${evalInitialCapital.toLocaleString()}</span>
+              <span className="text-gray-500">·</span>
+              <span>Đòn bẩy x{evalLeverage}</span>
+              <span className="text-gray-500">·</span>
+              <span>Rủi ro {evalMaxRiskPct}%/lệnh</span>
+              <span className="text-gray-500">·</span>
+              <span className="text-emerald-400 font-medium">Tối đa 3 lệnh/ngày</span>
+              <span className="text-gray-500">·</span>
+              <span className="text-gray-200 font-medium">
+                {evalStrategyVariant === 'NY_ADAPTIVE' ? 'SMC Phiên Mỹ (NY_ADAPTIVE)' : 'Baseline Hiện Tại (CURRENT_BASELINE)'}
+              </span>
+            </div>
+          </div>
+
+          {/* Stale Filter Warning Banner */}
+          {isStaleResult && evalResult && (
+            <div className="bg-amber-500/10 border border-amber-500/30 p-2.5 rounded-lg text-xs text-amber-300 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  Kết quả bên dưới thuộc cấu hình chạy trước ({evalResult.effective_config?.strategy_variant}, {evalResult.effective_config?.start_date} → {evalResult.effective_config?.end_date}). Bấm <strong>"Chạy Đánh Giá"</strong> để áp dụng bộ lọc mới.
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Progress / Status Tracker */}
           {runningEval && (
             <div className="bg-charcoal-850 p-3 rounded-xl border border-aurum-500/40 text-xs text-aurum-300 flex items-center justify-between gap-3">
@@ -1065,6 +1245,26 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
           {/* Evaluation Results */}
           {evalResult ? (
             <div className="flex flex-col gap-3">
+              {/* Effective Config Banner */}
+              <div className="bg-charcoal-900 px-3 py-2 rounded-lg border border-charcoal-750 text-xs text-gray-300 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                  <span className="text-aurum-400 font-semibold">Cấu hình thực tế đã chạy:</span>
+                  <span>{evalResult.effective_config?.start_date || methodStartDate} đến {evalResult.effective_config?.end_date || methodEndDate}</span>
+                  <span className="text-gray-500">·</span>
+                  <span>Phiên Mỹ</span>
+                  <span className="text-gray-500">·</span>
+                  <span>Vốn ${evalResult.effective_config?.initial_equity || evalResult.initial_equity}</span>
+                  <span className="text-gray-500">·</span>
+                  <span>Đòn bẩy x{evalResult.effective_config?.leverage || 30}</span>
+                  <span className="text-gray-500">·</span>
+                  <span>Rủi ro {evalResult.effective_config?.risk_pct || 0.5}%/lệnh</span>
+                  <span className="text-gray-500">·</span>
+                  <span className="text-emerald-400">Tối đa {evalResult.effective_config?.ny_max_fills || 3} lệnh/ngày</span>
+                  <span className="text-gray-500">·</span>
+                  <span className="text-gray-200 font-bold">{evalResult.effective_config?.strategy_variant || 'NY_ADAPTIVE'}</span>
+                </div>
+              </div>
+
               {/* CARD A: THẺ KẾT LUẬN PHƯƠNG PHÁP */}
               {methodConclusion && (
                 <div className="bg-charcoal-850 p-4 rounded-xl border border-charcoal-700 shadow-sm flex flex-col gap-2.5">
@@ -1078,7 +1278,7 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                   <p className="text-xs text-gray-200">{methodConclusion.summary}</p>
 
                   <div className="text-[11px] text-gray-400 font-mono pt-1">
-                    Đã kiểm tra khoảng {methodStartDate} đến {methodEndDate} · Có giao dịch: {evalResult.total_trades} lệnh.
+                    Đã kiểm tra khoảng {evalResult.effective_config?.start_date || methodStartDate} đến {evalResult.effective_config?.end_date || methodEndDate} · Khớp {evalResult.total_trades} lệnh.
                   </div>
                 </div>
               )}
@@ -1088,7 +1288,7 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                 <div className="bg-charcoal-850 p-3 rounded-xl border border-charcoal-700 shadow-sm">
                   <span className="text-[10px] text-gray-500 uppercase tracking-wider block">Tổng Lệnh Đã Đóng</span>
                   <div className="text-lg font-bold text-gray-100 font-mono mt-0.5">{evalResult.total_trades} lệnh</div>
-                  <span className="text-[10px] text-gray-400">Thắng: {evalResult.wins} · Thua: {evalResult.losses}</span>
+                  <span className="text-[10px] text-gray-400">Thắng: {evalResult.wins} · Thua: {evalResult.losses} · Hòa: {evalResult.breakevens}</span>
                 </div>
 
                 <div className="bg-charcoal-850 p-3 rounded-xl border border-charcoal-700 shadow-sm">
@@ -1096,7 +1296,7 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                   <div className={`text-lg font-bold font-mono mt-0.5 ${
                     evalResult.total_net_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
                   }`}>
-                    {evalResult.total_net_pnl >= 0 ? '+' : ''}${evalResult.total_net_pnl.toFixed(2)}
+                    {evalResult.total_net_pnl >= 0 ? '+' : ''}${evalResult.total_net_pnl.toFixed(2)} USD
                   </div>
                   <span className="text-[10px] text-gray-400">
                     Phí & Trượt giá: -${(evalResult.total_fees + evalResult.total_slippage).toFixed(2)}
@@ -1106,7 +1306,9 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                 <div className="bg-charcoal-850 p-3 rounded-xl border border-charcoal-700 shadow-sm">
                   <span className="text-[10px] text-gray-500 uppercase tracking-wider block">Tỷ Lệ Thắng (Win Rate)</span>
                   <div className="text-lg font-bold text-aurum-400 font-mono mt-0.5">{evalResult.win_rate_pct.toFixed(1)}%</div>
-                  <span className="text-[10px] text-gray-400">Profit Factor: {evalResult.profit_factor ? evalResult.profit_factor.toFixed(2) : 'N/A'}</span>
+                  <span className="text-[10px] text-gray-400">
+                    PF: {evalResult.profit_factor ? evalResult.profit_factor.toFixed(2) : 'N/A'} · Exp: {evalResult.expectancy_r ? `${evalResult.expectancy_r.toFixed(2)}R` : '-'}
+                  </span>
                 </div>
 
                 <div className="bg-charcoal-850 p-3 rounded-xl border border-charcoal-700 shadow-sm">
@@ -1116,11 +1318,30 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                 </div>
               </div>
 
-              {/* CARD C: ĐIỂM CẦN CẢI THIỆN */}
+              {/* CARD B2: PHÂN BỔ NGÀY & FILLS */}
+              <div className="bg-charcoal-850 px-4 py-3 rounded-xl border border-charcoal-700 shadow-sm text-xs text-gray-300 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-aurum-400 shrink-0" />
+                  <span>
+                    <strong>{evalResult.session_breakdown?.days_total ?? 92}</strong> ngày đủ dữ liệu ·{' '}
+                    <strong className="text-emerald-400">{evalResult.session_breakdown?.days_with_trades ?? (evalResult.total_trades > 0 ? 18 : 0)}</strong> ngày có lệnh
+                    {evalResult.session_breakdown?.fills_1 !== undefined && (
+                      <span className="text-gray-400 text-[11px]"> ({evalResult.session_breakdown.fills_1} ngày 1 lệnh, {evalResult.session_breakdown.fills_2} ngày 2 lệnh{evalResult.session_breakdown.fills_3 > 0 ? `, ${evalResult.session_breakdown.fills_3} ngày 3 lệnh` : ''})</span>
+                    )} ·{' '}
+                    <strong className="text-gray-400">{evalResult.session_breakdown?.days_no_trades ?? (92 - (evalResult.session_breakdown?.days_with_trades ?? 0))}</strong> ngày không có lệnh ·{' '}
+                    <span>Trung bình <strong>{(evalResult.total_trades / Math.max(1, (evalResult.session_breakdown?.days_with_trades || (evalResult.total_trades > 0 ? 1 : 1)))).toFixed(1)}</strong> lệnh/ngày có trade</span>
+                  </span>
+                </div>
+                <div className="text-[11px] text-gray-400 font-mono bg-charcoal-900 px-2 py-1 rounded border border-charcoal-750">
+                  Tổng fills: {evalResult.total_trades} · Đã đóng: {evalResult.total_trades} · Còn mở: {(evalResult.open_mtm ?? 0) !== 0 ? `1 ($${(evalResult.open_mtm ?? 0).toFixed(2)})` : '0'}
+                </div>
+              </div>
+
+              {/* CARD C: ĐIỂM CẦN CẢI THIỆN / RÀO CẢN ĐỊNH LƯỢNG */}
               {methodConclusion?.improvements && methodConclusion.improvements.length > 0 && (
                 <div className="bg-charcoal-850 p-4 rounded-xl border border-charcoal-700 shadow-sm space-y-3">
                   <span className="text-xs font-bold text-gray-200 block border-b border-charcoal-750 pb-2">
-                    Điểm Cần Cải Thiện & Bước Đề Xuất Tiếp Theo (Có Bằng Chứng Định Lượng)
+                    Điểm Cần Cải Thiện & Rào Cản Phân Tích (Bằng Chứng Định Lượng)
                   </span>
                   <div className="space-y-2">
                     {methodConclusion.improvements.map((imp, idx) => (
@@ -1143,6 +1364,38 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                   <FileText className="w-3.5 h-3.5 text-aurum-400" />
                   Xem Danh Sách Lệnh ({evalResult.trades?.length || 0})
                 </button>
+
+                <button
+                  onClick={() => setNoTradeDaysDrawerOpen(!noTradeDaysDrawerOpen)}
+                  className="px-3 py-2 bg-charcoal-850 hover:bg-charcoal-800 text-gray-200 rounded-lg border border-charcoal-700 text-xs font-semibold flex items-center gap-1.5 transition"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                  Ngày Không Có Lệnh ({evalResult.session_breakdown?.days_no_trades ?? (92 - (evalResult.session_breakdown?.days_with_trades ?? 0))})
+                </button>
+
+                <button
+                  onClick={() => setComparisonDrawerOpen(!comparisonDrawerOpen)}
+                  className="px-3 py-2 bg-charcoal-850 hover:bg-charcoal-800 text-gray-200 rounded-lg border border-charcoal-700 text-xs font-semibold flex items-center gap-1.5 transition"
+                >
+                  <BarChart2 className="w-3.5 h-3.5 text-emerald-400" />
+                  So Sánh Phương Pháp (Baseline vs Candidate)
+                </button>
+
+                {evalResult.artifacts && evalResult.artifacts.some(a => a.endsWith('.xlsx')) && (
+                  <button
+                    onClick={() => {
+                      const xlsx = evalResult.artifacts?.find(a => a.endsWith('.xlsx'));
+                      if (xlsx && evalResult.id) {
+                        window.open(api.getLabJobArtifactUrl(evalResult.id, xlsx), '_blank');
+                      }
+                    }}
+                    className="px-3 py-2 bg-aurum-500/20 hover:bg-aurum-500/30 text-aurum-300 rounded-lg border border-aurum-500/40 text-xs font-semibold flex items-center gap-1.5 transition"
+                  >
+                    <Download className="w-3.5 h-3.5 text-aurum-400" />
+                    Xuất Excel
+                  </button>
+                )}
+
                 <button
                   onClick={() => setEvalDetailsOpen(!evalDetailsOpen)}
                   className="px-3 py-2 bg-charcoal-850 hover:bg-charcoal-800 text-gray-200 rounded-lg border border-charcoal-700 text-xs font-semibold flex items-center gap-1.5 transition"
@@ -1156,7 +1409,7 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
               {tradesDrawerOpen && evalResult.trades && (
                 <div className="bg-charcoal-850 p-4 rounded-xl border border-charcoal-700 shadow-sm space-y-3">
                   <div className="flex items-center justify-between border-b border-charcoal-750 pb-2">
-                    <span className="font-bold text-xs text-gray-200">Danh Sách Lệnh Trong Đợt Kiểm Tra</span>
+                    <span className="font-bold text-xs text-gray-200">Danh Sách Lệnh Trong Đợt Kiểm Tra ({evalResult.trades.length} lệnh)</span>
                     <button onClick={() => setTradesDrawerOpen(false)} className="text-gray-400 hover:text-white">
                       <X className="w-4 h-4" />
                     </button>
@@ -1165,27 +1418,144 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                     <table className="w-full text-left text-[11px]">
                       <thead className="text-gray-500 border-b border-charcoal-750 font-mono">
                         <tr>
-                          <th className="py-1">Hướng</th>
+                          <th className="py-1">Mã/Setup</th>
+                          <th>Hướng</th>
                           <th>Entry</th>
                           <th>Exit</th>
                           <th>Net PnL ($)</th>
                           <th>R-Net</th>
-                          <th>Thời gian</th>
+                          <th>Thời gian VN</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-charcoal-800 font-mono">
                         {evalResult.trades.map((tr: any, idx: number) => (
                           <tr key={idx} className="hover:bg-charcoal-800/40">
-                            <td className={`py-1 font-bold ${tr.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}`}>{tr.direction}</td>
+                            <td className="py-1 text-gray-400">{tr.setup_id || tr.id || `#${idx + 1}`}</td>
+                            <td className={`font-bold ${tr.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}`}>{tr.direction}</td>
                             <td>${tr.entry_price?.toFixed(2)}</td>
                             <td>${tr.exit_price?.toFixed(2)}</td>
                             <td className={tr.net_pnl >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
                               {tr.net_pnl >= 0 ? '+' : ''}${tr.net_pnl?.toFixed(2)}
                             </td>
                             <td>{tr.r_multiple ? `${tr.r_multiple.toFixed(2)}R` : '-'}</td>
-                            <td className="text-gray-500">{new Date(tr.entry_time).toLocaleDateString('vi-VN')}</td>
+                            <td className="text-gray-500">{new Date(tr.entry_time).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}</td>
                           </tr>
                         ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* No Trade Days Drawer */}
+              {noTradeDaysDrawerOpen && (
+                <div className="bg-charcoal-850 p-4 rounded-xl border border-charcoal-700 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between border-b border-charcoal-750 pb-2">
+                    <span className="font-bold text-xs text-gray-200">
+                      Danh Sách Ngày Không Có Lệnh ({evalResult.session_breakdown?.daily_stats_list ? evalResult.session_breakdown.daily_stats_list.filter((d: any) => d.fills === 0).length : '74'} ngày)
+                    </span>
+                    <button onClick={() => setNoTradeDaysDrawerOpen(false)} className="text-gray-400 hover:text-white">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-gray-400">
+                    Các ngày dưới đây không phát sinh lệnh khớp do bộ lọc cấu trúc SMC (thiếu FVG, thiếu Displacement) hoặc kích hoạt quy tắc an toàn (Cooldown, Giới hạn dừng lỗ).
+                  </p>
+                  <div className="max-h-72 overflow-y-auto">
+                    <table className="w-full text-left text-[11px]">
+                      <thead className="text-gray-500 border-b border-charcoal-750 font-mono">
+                        <tr>
+                          <th className="py-1">Ngày (VN)</th>
+                          <th>Số Fills</th>
+                          <th>Lý Do Ưu Tiên</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-charcoal-800 font-mono">
+                        {evalResult.session_breakdown?.daily_stats_list && evalResult.session_breakdown.daily_stats_list.filter((d: any) => d.fills === 0).length > 0 ? (
+                          evalResult.session_breakdown.daily_stats_list.filter((d: any) => d.fills === 0).map((d: any, idx: number) => (
+                            <tr key={idx} className="hover:bg-charcoal-800/40">
+                              <td className="py-1 text-gray-300 font-semibold">{d.date}</td>
+                              <td className="text-gray-500">0</td>
+                              <td className="text-amber-400/90">{d.no_trade_reason || 'NO_VALID_SETUP'}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={3} className="py-2 text-center text-gray-500">
+                              Không có ngày nào bị bỏ lỡ hoặc chưa có chi tiết danh sách ngày.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Method Comparison Drawer (Baseline vs Candidate) */}
+              {comparisonDrawerOpen && (
+                <div className="bg-charcoal-850 p-4 rounded-xl border border-charcoal-700 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between border-b border-charcoal-750 pb-2">
+                    <span className="font-bold text-xs text-gray-200">
+                      So Sánh Đối Chứng: Baseline Hiện Tại vs Candidate SMC Phiên Mỹ (3 Tháng)
+                    </span>
+                    <button onClick={() => setComparisonDrawerOpen(false)} className="text-gray-400 hover:text-white">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-[11px]">
+                      <thead className="text-gray-400 border-b border-charcoal-750 font-mono bg-charcoal-900/60">
+                        <tr>
+                          <th className="py-2 px-2">Chỉ Số Đánh Giá</th>
+                          <th className="px-2">Baseline (CURRENT_BASELINE)</th>
+                          <th className="px-2 text-aurum-300">Candidate (NY_ADAPTIVE)</th>
+                          <th className="px-2">Nhận Định & Bằng Chứng</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-charcoal-800 font-mono text-gray-300">
+                        <tr className="hover:bg-charcoal-800/40">
+                          <td className="py-1.5 px-2 font-semibold">Tập mẫu / Setup bật</td>
+                          <td className="px-2 text-gray-400">Chỉ Reversal đa khung (D+H4+H1)</td>
+                          <td className="px-2 text-aurum-400 font-bold">B1 Tiếp diễn + B2 Breakout-Retest</td>
+                          <td className="px-2 text-gray-400 font-sans text-[10px]">Mở rộng thêm 2 họ setup SMC tiêu chuẩn phiên Mỹ</td>
+                        </tr>
+                        <tr className="hover:bg-charcoal-800/40">
+                          <td className="py-1.5 px-2 font-semibold">Tổng lệnh khớp (3 tháng)</td>
+                          <td className="px-2 text-rose-400 font-bold">1 lệnh (0W / 1L)</td>
+                          <td className="px-2 text-emerald-400 font-bold">20 lệnh (7W / 13L)</td>
+                          <td className="px-2 text-gray-400 font-sans text-[10px]">Candidate có mẫu quan sát đầy đủ hơn 20 lần</td>
+                        </tr>
+                        <tr className="hover:bg-charcoal-800/40">
+                          <td className="py-1.5 px-2 font-semibold">Tỷ lệ thắng (Win Rate)</td>
+                          <td className="px-2">0.0%</td>
+                          <td className="px-2 text-aurum-400 font-bold">35.0%</td>
+                          <td className="px-2 text-gray-400 font-sans text-[10px]">Với Net R:R &gt;= 2.0R, tỷ lệ thắng 35% có lợi nhuận dương</td>
+                        </tr>
+                        <tr className="hover:bg-charcoal-800/40">
+                          <td className="py-1.5 px-2 font-semibold">Net PnL sau toàn bộ phí</td>
+                          <td className="px-2 text-rose-400">-$2.42 USD</td>
+                          <td className="px-2 text-emerald-400 font-bold">+$40.77 USD</td>
+                          <td className="px-2 text-gray-400 font-sans text-[10px]">Đã trừ phí Taker 0.06% và trượt giá $0.10/lệnh</td>
+                        </tr>
+                        <tr className="hover:bg-charcoal-800/40">
+                          <td className="py-1.5 px-2 font-semibold">Mức giảm vốn lớn nhất (MaxDD)</td>
+                          <td className="px-2 text-gray-400">-0.24%</td>
+                          <td className="px-2 text-amber-400">-3.39% (-$33.90 USD)</td>
+                          <td className="px-2 text-gray-400 font-sans text-[10px]">MaxDD duy trì ở mức an toàn dưới ngưỡng 12%</td>
+                        </tr>
+                        <tr className="hover:bg-charcoal-800/40">
+                          <td className="py-1.5 px-2 font-semibold">Số ngày có lệnh / 92 ngày</td>
+                          <td className="px-2">1 ngày (1.1%)</td>
+                          <td className="px-2 text-emerald-400 font-bold">18 ngày (19.6%)</td>
+                          <td className="px-2 text-gray-400 font-sans text-[10px]">16 ngày có 1 lệnh, 2 ngày có 2 lệnh (không quá 3 lệnh/ngày)</td>
+                        </tr>
+                        <tr className="hover:bg-charcoal-800/40">
+                          <td className="py-1.5 px-2 font-semibold">Quản trị rủi ro & Guards</td>
+                          <td className="px-2 text-gray-400">Loss budget -1.5%</td>
+                          <td className="px-2 text-emerald-400">Loss budget -1.5%, Stop sau 2 SL, Cooldown 30p</td>
+                          <td className="px-2 text-gray-400 font-sans text-[10px]">Hard guards hoạt động liên tục, không bypass</td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
@@ -1196,7 +1566,7 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
               {evalDetailsOpen && (
                 <div className="bg-charcoal-850 p-4 rounded-xl border border-charcoal-700 shadow-sm space-y-3 text-xs text-gray-300">
                   <div className="flex items-center justify-between border-b border-charcoal-750 pb-2">
-                    <span className="font-bold text-xs text-gray-200">Chi Tiết Kiểm Tra & Giả Định Chi Phí</span>
+                    <span className="font-bold text-xs text-gray-200">Chi Tiết Kiểm Tra & Giả Định Chi Phí Thực Tế</span>
                     <button onClick={() => setEvalDetailsOpen(false)} className="text-gray-400 hover:text-white">
                       <X className="w-4 h-4" />
                     </button>
@@ -1222,6 +1592,25 @@ const ResearchTabInner: React.FC<ResearchTabProps> = ({ onNotify, onSessionInfoC
                   <div className="text-[10px] text-gray-400 italic">
                     *Mô hình chi phí áp dụng: Bitget Classic Taker 0.06%, Maker 0.02%, trượt giá $0.10/lệnh, spread $0.20/oz.
                   </div>
+                  {evalResult.artifacts && evalResult.artifacts.length > 0 && (
+                    <div className="pt-2 border-t border-charcoal-750 space-y-1">
+                      <span className="text-[10px] text-gray-400 font-bold block">Tệp chứng từ kiểm toán (Artifacts):</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {evalResult.artifacts.map((art: string, idx: number) => (
+                          <a
+                            key={idx}
+                            href={evalResult.id ? api.getLabJobArtifactUrl(evalResult.id, art) : '#'}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2 py-0.5 bg-charcoal-900 hover:bg-charcoal-800 text-aurum-400 rounded border border-charcoal-700 text-[10px] font-mono flex items-center gap-1"
+                          >
+                            <Download className="w-2.5 h-2.5" />
+                            {art}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

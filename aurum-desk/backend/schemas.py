@@ -778,9 +778,40 @@ class ReplayRunRequest(BaseModel):
     quality_risk_pct: Optional[float] = None
     news_snapshot: Optional[List[Dict[str, Any]]] = None
     rules_snapshot: Optional[List[Dict[str, Any]]] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    max_risk_pct: Optional[float] = None
+    selected_session: Optional[str] = None
+    ny_max_fills: int = 3
 
     @model_validator(mode="after")
     def validate_and_normalize(self) -> "ReplayRunRequest":
+        # Resolve max_risk_pct into risk_pct if provided
+        if self.max_risk_pct is not None:
+            if math.isfinite(self.max_risk_pct) and 0 < self.max_risk_pct <= 100.0:
+                self.risk_pct = self.max_risk_pct
+
+        # Resolve start_date and end_date into start_ts and end_ts in VN_TZ if not given
+        if self.start_date and self.start_ts is None:
+            try:
+                from zoneinfo import ZoneInfo
+                from datetime import datetime
+                vn_tz = ZoneInfo("Asia/Ho_Chi_Minh")
+                dt = datetime.strptime(self.start_date, "%Y-%m-%d").replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=vn_tz)
+                self.start_ts = int(dt.timestamp() * 1000)
+            except Exception:
+                pass
+
+        if self.end_date and self.end_ts is None:
+            try:
+                from zoneinfo import ZoneInfo
+                from datetime import datetime
+                vn_tz = ZoneInfo("Asia/Ho_Chi_Minh")
+                dt = datetime.strptime(self.end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59, microsecond=999000, tzinfo=vn_tz)
+                self.end_ts = int(dt.timestamp() * 1000)
+            except Exception:
+                pass
+
         if not math.isfinite(self.risk_pct) or self.risk_pct <= 0 or self.risk_pct > 100.0:
             raise ValueError(f"Tỷ lệ rủi ro (risk_pct) phải là số dương hữu hạn <= 100, nhận: {self.risk_pct}")
         if self.quality_risk_pct is None:

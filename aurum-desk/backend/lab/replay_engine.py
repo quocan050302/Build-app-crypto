@@ -861,6 +861,7 @@ class ReplayEngine:
         ptr_5m = 0
         d_4h_bias = "UNKNOWN"
         h1_align = "UNKNOWN"
+        consumed_setups: Set[str] = set()
 
         if use_5m_driver:
             driver_candles = candles_5m
@@ -1574,6 +1575,9 @@ class ReplayEngine:
                             )
 
                             chosen_setup = None
+                            if b1_setup and b1_setup.get("setup_id") in consumed_setups:
+                                b1_setup = None
+
                             if b1_setup:
                                 ny_quota_rec["ready_count"] += 1
                                 signals_count += 1
@@ -1648,6 +1652,9 @@ class ReplayEngine:
                                     spread_usd=spread_usd,
                                     min_net_rr=2.0
                                 )
+                                if b2_setup and b2_setup.get("setup_id") in consumed_setups:
+                                    b2_setup = None
+
                                 if b2_setup:
                                     ny_quota_rec["ready_count"] += 1
                                     signals_count += 1
@@ -1749,6 +1756,9 @@ class ReplayEngine:
                                     else:
                                         ds["short_fills"] += 1
                                     ds["ny_fills"] += 1
+
+                                if chosen_setup.get("setup_id"):
+                                    consumed_setups.add(chosen_setup["setup_id"])
 
                                 active_trade = {
                                     "id": trade_id,
@@ -2306,6 +2316,50 @@ class ReplayEngine:
                 execution_events=replay_ctx.execution_events
             )
 
+        art_files = []
+        if artifacts_dir and os.path.exists(artifacts_dir):
+            art_files = sorted(os.listdir(artifacts_dir))
+
+        start_date_vn = datetime.fromtimestamp(start_eval_ts / 1000.0, tz=VN_TZ).strftime("%Y-%m-%d")
+        end_date_vn = datetime.fromtimestamp(end_eval_ts / 1000.0, tz=VN_TZ).strftime("%Y-%m-%d")
+
+        effective_config = {
+            "initial_equity": request.initial_equity,
+            "risk_pct": request.risk_pct,
+            "leverage": request.leverage,
+            "margin_mode": request.margin_mode,
+            "strategy_variant": strategy_variant,
+            "ny_max_fills": ny_max_fills,
+            "timeframe": request.timeframe,
+            "fee_rate": request.fee_rate,
+            "start_date": start_date_vn,
+            "end_date": end_date_vn,
+            "start_ts": start_eval_ts,
+            "end_ts": end_eval_ts
+        }
+
+        session_breakdown_full = {
+            **session_counts,
+            "session_stats": session_stats_map,
+            "days_total": len(daily_stats_map),
+            "days_with_trades": sum(1 for d in daily_stats_map.values() if d.get("total_fills", 0) > 0),
+            "days_no_trades": sum(1 for d in daily_stats_map.values() if d.get("total_fills", 0) == 0),
+            "fills_1": sum(1 for d in daily_stats_map.values() if d.get("total_fills", 0) == 1),
+            "fills_2": sum(1 for d in daily_stats_map.values() if d.get("total_fills", 0) == 2),
+            "fills_3": sum(1 for d in daily_stats_map.values() if d.get("total_fills", 0) >= 3),
+            "daily_stats_list": [
+                {
+                    "date": d_str,
+                    "fills": d.get("total_fills", 0),
+                    "wins": d.get("closed_wins", 0),
+                    "losses": d.get("closed_losses", 0),
+                    "net_pnl": round(d.get("realized_pnl", 0.0), 2),
+                    "no_trade_reason": d.get("no_trade_reason", "NO_VALID_SETUP") if d.get("total_fills", 0) == 0 else ""
+                }
+                for d_str, d in sorted(daily_stats_map.items())
+            ]
+        }
+
         return schemas.ReplayRunResponse(
             id=run_id,
             run_name=request.run_name,
@@ -2333,7 +2387,7 @@ class ReplayEngine:
             rejected_count=rejected_count,
             trades=closed_trades,
             equity_curve=equity_curve,
-            session_breakdown=session_counts,
+            session_breakdown=session_breakdown_full,
             rejection_reasons=rejection_reasons,
             warnings=warnings,
             created_at=start_exec_time,
@@ -2356,7 +2410,11 @@ class ReplayEngine:
             decision_events=replay_ctx.decision_events,
             execution_events=replay_ctx.execution_events,
             news_coverage_status=news_coverage_status,
-            rules_coverage_status=rules_coverage_status
+            rules_coverage_status=rules_coverage_status,
+            artifacts=art_files,
+            start_date=start_date_vn,
+            end_date=end_date_vn,
+            effective_config=effective_config
         )
 
     @classmethod
