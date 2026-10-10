@@ -1,0 +1,99 @@
+{
+  "version": "v13.5",
+  "timestamp": 1791648714891,
+  "stage1_backend_tests_passed": true,
+  "stage2_frontend_tests_and_build_passed": true,
+  "stage3_integrity_passed": true,
+  "stage3_artifacts_verified": true,
+  "technical_status": "PASS",
+  "cadence_status": "UNMET",
+  "economic_status": "LOSING",
+  "empirical_metrics": {
+    "run_id": "v12-replay-89bb86d9",
+    "run_name": "v13_5_acceptance_empirical_3m",
+    "total_trades": 83,
+    "closed_count": 83,
+    "open_positions_count": 0,
+    "fills_count": 83,
+    "wins": 12,
+    "losses": 71,
+    "breakevens": 0,
+    "win_rate_pct": 14.46,
+    "profit_factor": 0.81,
+    "total_net_pnl": -21.06,
+    "total_fees": 57.4,
+    "max_drawdown_usdt": 58.35,
+    "max_drawdown_pct": 5.81,
+    "expectancy_r": -0.44,
+    "trade_type_breakdown": {
+      "SMC_CONFIRMED": 17,
+      "SMC_CONTEXT_SCHEDULED_PAPER": 66
+    },
+    "cadence_summary": {
+      "calendar_days": 93,
+      "ny_sessions_total": 93,
+      "market_open_sessions": 93,
+      "data_complete_sessions": 92,
+      "executable_sessions": 92,
+      "sessions_with_fills": 81,
+      "all_sessions_with_fills": 81,
+      "confirmed_fill_sessions": 15,
+      "scheduled_fill_sessions": 66,
+      "blocked_sessions": 0,
+      "unmet_sessions": 11,
+      "coverage_pct": 88.0
+    },
+    "run_config_hash": "c1aaa05326ae2fc1",
+    "dataset_hash": "1dd754e8f038db496dee577d11c1d834517a5c8c483386efb4454297f011e63f",
+    "integrity_summary": {
+      "status": "PASS",
+      "dataset_hash": "1dd754e8f038db496dee577d11c1d834517a5c8c483386efb4454297f011e63f",
+      "run_config_hash": "c1aaa05326ae2fc1",
+      "causal_data_ok": true,
+      "guards_active": true,
+      "ledger_reconciled": true,
+      "trade_count_consistent": true,
+      "checks": [
+        {
+          "id": "dataset_hash_verified",
+          "status": "PASS",
+          "observed": "1dd754e8f038db496dee577d11c1d834517a5c8c483386efb4454297f011e63f"
+        },
+        {
+          "id": "run_config_hash_verified",
+          "status": "PASS",
+          "observed": "c1aaa05326ae2fc1"
+        },
+        {
+          "id": "cash_ledger_reconciled",
+          "status": "PASS",
+          "observed": "diff=0.0004, expected=978.98, reported=978.98"
+        },
+        {
+          "id": "causal_data_order_ok",
+          "status": "PASS",
+          "observed": "TIMESTAMPS_STRICTLY_CAUSAL"
+        },
+        {
+          "id": "hard_guards_verified",
+          "status": "PASS",
+          "observed": "DAILY_CAP_AND_STOPS_HONORED"
+        },
+        {
+          "id": "trade_count_partitioned",
+          "status": "PASS",
+          "observed": "closed=83, sum=83"
+        },
+        {
+          "id": "pricing_geometry_verified",
+          "status": "PASS",
+          "observed": "GEOMETRY_COMPLIANT"
+        }
+      ]
+    },
+    "artifacts_dir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/lab/artifacts/v12_2/v12-replay-89bb86d9",
+    "artifacts_verified": true,
+    "artifacts_errors": []
+  },
+  "elapsed_seconds": 54.43
+}

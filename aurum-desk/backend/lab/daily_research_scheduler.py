@@ -1,3 +1,4 @@
+from lab.replay_contracts import SessionDataAudit, PolicySnapshot
 """
 backend/lab/daily_research_scheduler.py
 V13.4 Causal Daily NY Session Paper Research Scheduler
@@ -150,13 +151,33 @@ def resolve_research_range(
 
 def build_session_interval(ny_date: str, policy: Any = None) -> Dict[str, Any]:
     """
-    PHẦN 16: Timezone-aware NY session interval and deadline in epoch ms.
+    PHẦN 16, 18 (V13.5): Timezone-aware NY session interval, policy windows, and deadline in epoch ms.
     """
     parts = [int(p) for p in ny_date.split("-")]
     y, m, d = parts[0], parts[1], parts[2]
 
+    windows_config = getattr(policy, "session_windows", None) or [("08:30", "12:00"), ("13:00", "15:30")]
+    windows_ms = []
+    earliest_start = None
+    latest_end = None
+
+    for w_start_str, w_end_str in windows_config:
+        sh, sm = [int(x) for x in w_start_str.split(":")]
+        eh, em = [int(x) for x in w_end_str.split(":")]
+        w_st = datetime(y, m, d, sh, sm, 0, tzinfo=NY_TZ)
+        w_et = datetime(y, d if False else m, d, eh, em, 0, tzinfo=NY_TZ)
+        st_ms = int(w_st.timestamp() * 1000)
+        et_ms = int(w_et.timestamp() * 1000)
+        windows_ms.append((st_ms, et_ms))
+        if earliest_start is None or st_ms < earliest_start:
+            earliest_start = st_ms
+        if latest_end is None or et_ms > latest_end:
+            latest_end = et_ms
+
     dt_start = datetime(y, m, d, 8, 30, 0, tzinfo=NY_TZ)
     dt_end = datetime(y, m, d, 15, 30, 0, tzinfo=NY_TZ)
+    start_ms = earliest_start if earliest_start is not None else int(dt_start.timestamp() * 1000)
+    end_ms = latest_end if latest_end is not None else int(dt_end.timestamp() * 1000)
 
     val_h = getattr(policy, "scheduled_deadline_hour", None)
     if val_h is None:
@@ -173,48 +194,118 @@ def build_session_interval(ny_date: str, policy: Any = None) -> Dict[str, Any]:
     return {
         "session_id": f"NY-{ny_date}",
         "ny_date": ny_date,
-        "start_ms": int(dt_start.timestamp() * 1000),
-        "end_ms": int(dt_end.timestamp() * 1000),
+        "start_ms": start_ms,
+        "end_ms": end_ms,
         "deadline_ms": int(dt_deadline.timestamp() * 1000),
         "deadline_hour": deadline_h,
-        "deadline_minute": deadline_m
+        "deadline_minute": deadline_m,
+        "windows_ms": windows_ms
     }
+
+
+def audit_session_timeframes(
+    session_interval: Dict[str, Any],
+    bundle_data: Dict[str, List[Any]],
+    required_timeframes: Optional[List[str]] = None,
+    calendar: Optional[Dict[str, Any]] = None,
+    warmup_cutoff_ts: int = 0
+) -> SessionDataAudit:
+    """
+    PHẦN 20, 22 (V13.5): Audits actual bar coverage across required timeframes.
+    Dynamically computes expected bars from tradable duration.
+    """
+    if required_timeframes is None:
+        required_timeframes = ["15M"]
+
+    start_ms = session_interval["start_ms"]
+    end_ms = session_interval["end_ms"]
+    ny_date = session_interval.get("ny_date", "")
+
+    duration_ms = max(0, end_ms - start_ms)
+    tradable_hours = duration_ms / (1000.0 * 3600.0)
+
+    expected_15m = max(1, int(tradable_hours * 4))
+    expected_5m = max(1, int(tradable_hours * 12))
+
+    candles_15m = bundle_data.get("15M", [])
+    candles_5m = bundle_data.get("5M", [])
+
+    obs_15m = [c for c in candles_15m if start_ms <= (c.get("timestamp", 0) if isinstance(c, dict) else getattr(c, "timestamp", 0)) <= end_ms]
+    obs_5m = [c for c in candles_5m if start_ms <= (c.get("timestamp", 0) if isinstance(c, dict) else getattr(c, "timestamp", 0)) <= end_ms]
+
+    observed_15m = len(obs_15m)
+    observed_5m = len(obs_5m)
+
+    reasons = []
+    is_market_open = True
+
+    if calendar and "is_market_open" in calendar:
+        is_market_open = calendar["is_market_open"]
+    else:
+        dt_ny = datetime.strptime(ny_date, "%Y-%m-%d") if ny_date else datetime.fromtimestamp(start_ms / 1000.0, tz=NY_TZ)
+        is_weekend = dt_ny.weekday() >= 5
+        if is_weekend and observed_15m == 0 and observed_5m == 0:
+            is_market_open = False
+            reasons.append("WEEKEND_MARKET_CLOSED")
+
+    coverage_15m = (observed_15m / expected_15m * 100.0) if expected_15m > 0 else 100.0
+    is_complete = True
+
+    if is_market_open:
+        if "15M" in required_timeframes and observed_15m < max(4, expected_15m // 2):
+            is_complete = False
+            reasons.append(f"INSUFFICIENT_BARS_IN_SESSION: observed {observed_15m} < expected {expected_15m}")
+        if "5M" in required_timeframes and observed_5m < max(10, expected_5m // 2):
+            is_complete = False
+            reasons.append(f"INSUFFICIENT_5M_BARS: observed {observed_5m} < expected {expected_5m}")
+
+    warmup_status = "COMPLETE"
+    if warmup_cutoff_ts > 0 and start_ms < warmup_cutoff_ts:
+        warmup_status = "INCOMPLETE"
+        reasons.append("SESSION_PRECEDES_WARMUP_CUTOFF")
+    else:
+        prior_15m = [c for c in candles_15m if (c.get("timestamp", 0) if isinstance(c, dict) else getattr(c, "timestamp", 0)) < start_ms]
+        if len(prior_15m) < 20:
+            warmup_status = "INCOMPLETE"
+            reasons.append(f"INSUFFICIENT_WARMUP_LOOKBACK: prior bars {len(prior_15m)} < 20")
+
+    return SessionDataAudit(
+        ny_date=ny_date,
+        tradable_hours=round(tradable_hours, 2),
+        expected_15m_bars=expected_15m,
+        observed_15m_bars=observed_15m,
+        expected_5m_bars=expected_5m,
+        observed_5m_bars=observed_5m,
+        coverage_pct=round(coverage_15m, 1),
+        is_complete=is_complete,
+        is_market_open=is_market_open,
+        warmup_status=warmup_status,
+        reasons=reasons
+    )
 
 
 def assess_session_data(
     session_interval: Dict[str, Any],
     candles_15m: List[Any],
     bundle_metadata: Optional[Dict[str, Any]] = None,
-    warmup_cutoff_ts: int = 0
+    warmup_cutoff_ts: int = 0,
+    candles_5m: Optional[List[Any]] = None,
+    required_timeframes: Optional[List[str]] = None
 ) -> Tuple[bool, bool, bool, List[str]]:
     """
-    PHẦN 18: Assesses actual data completeness and warmup for a session.
+    PHẦN 18, 22: Assesses actual data completeness and warmup for a session.
     Returns (market_open, data_complete, warmup_complete, reasons).
     """
-    start_ms = session_interval["start_ms"]
-    end_ms = session_interval["end_ms"]
-    ny_date = session_interval["ny_date"]
-
-    dt_ny = datetime.strptime(ny_date, "%Y-%m-%d")
-    is_weekend = dt_ny.weekday() >= 5  # Sat, Sun
-    if is_weekend:
-        return False, False, True, ["WEEKEND_MARKET_CLOSED"]
-
-    session_bars = [c for c in candles_15m if start_ms <= c["timestamp"] <= end_ms]
-    observed_count = len(session_bars)
-
-    # In 7 hours NY window (08:30-15:30), at least 10 15m bars expected
-    if observed_count < 10:
-        return True, False, True, [f"INSUFFICIENT_BARS_IN_SESSION: observed {observed_count} < 10"]
-
-    if warmup_cutoff_ts > 0 and start_ms < warmup_cutoff_ts:
-        return True, True, False, ["SESSION_PRECEDES_WARMUP_CUTOFF"]
-
-    prior_bars = [c for c in candles_15m if c["timestamp"] < start_ms]
-    if len(prior_bars) < 20:
-        return True, True, False, [f"INSUFFICIENT_WARMUP_LOOKBACK: prior bars {len(prior_bars)} < 20"]
-
-    return True, True, True, []
+    bundle = {"15M": candles_15m}
+    if candles_5m:
+        bundle["5M"] = candles_5m
+    audit = audit_session_timeframes(
+        session_interval=session_interval,
+        bundle_data=bundle,
+        required_timeframes=required_timeframes or ["15M"],
+        warmup_cutoff_ts=warmup_cutoff_ts
+    )
+    return audit.is_market_open, audit.is_complete, (audit.warmup_status == "COMPLETE"), audit.reasons
 
 
 def evaluate_session_eligibility(
@@ -499,30 +590,77 @@ def collect_causal_target_candidates(
 
 
 def build_measured_move_target(
-    direction: str,
-    entry_price: float,
-    sl_dist: float,
-    fixed_multiplier: float = 3.0
-) -> Dict[str, Any]:
+    reference_range: Any,
+    direction: Optional[str] = None,
+    anchor: Optional[float] = None,
+    fixed_multiplier: float = 1.5,
+    **kwargs
+) -> Any:
     """
-    PHẦN 30: Builds a deterministic measured move target under research policy.
-    Fixed multiplier is FROZEN before replay, never looped or optimized ex-post!
+    PHẦN 31 (V13.5): Builds a measured move target strictly from an actual reference range.
+    Range needs high, low, available_at; high > low.
+    TP = anchor ± range_height * fixed_multiplier.
+    Adapter: if first argument is a string (e.g. 'LONG' or 'SHORT'), adapts to legacy tests:
+    (direction, entry_price, sl_dist, fixed_multiplier).
     """
-    if direction == "LONG":
-        target_price = round(entry_price + (sl_dist * fixed_multiplier), 2)
-    else:
-        target_price = round(entry_price - (sl_dist * fixed_multiplier), 2)
+    if isinstance(reference_range, str):
+        dir_val = reference_range
+        entry_val = direction if isinstance(direction, (int, float)) else 0.0
+        sl_dist_val = anchor if isinstance(anchor, (int, float)) else 0.0
+        mult_val = fixed_multiplier or kwargs.get("fixed_multiplier", 3.0)
+        if dir_val == "LONG":
+            tp = round(entry_val + (sl_dist_val * mult_val), 2)
+        else:
+            tp = round(entry_val - (sl_dist_val * mult_val), 2)
+        return {
+            "price": tp,
+            "source": "MEASURED_MOVE_RESEARCH",
+            "source_time": 0,
+            "known_at": 0,
+            "timeframe": "5M",
+            "structural_id": f"mm-{mult_val}R",
+            "target_model": "MEASURED_RANGE_EXTENSION_RESEARCH",
+            "fixed_multiplier": mult_val
+        }
 
-    return {
+    if not reference_range or not isinstance(reference_range, dict):
+        return None, "NO_VALID_REFERENCE_RANGE"
+
+    high = reference_range.get("high")
+    low = reference_range.get("low")
+    available_at = reference_range.get("cutoff_ts") or reference_range.get("available_at") or reference_range.get("known_at", 0)
+
+    if high is None or low is None or not (isinstance(high, (int, float)) and isinstance(low, (int, float))):
+        return None, "INVALID_RANGE_BOUNDS"
+    if high <= low:
+        return None, f"INVALID_RANGE_GEOMETRY: high {high} <= low {low}"
+
+    range_height = high - low
+    if range_height <= 0.05:
+        return None, f"RANGE_HEIGHT_TOO_SMALL: {range_height}"
+
+    dir_val = direction or "LONG"
+    anchor_val = anchor if anchor is not None else 0.0
+
+    if dir_val == "LONG":
+        target_price = round(anchor_val + (range_height * fixed_multiplier), 2)
+    elif dir_val == "SHORT":
+        target_price = round(anchor_val - (range_height * fixed_multiplier), 2)
+    else:
+        return None, f"INVALID_DIRECTION: {dir_val}"
+
+    target = {
         "price": target_price,
-        "source": "MEASURED_MOVE_RESEARCH",
-        "source_time": 0,
-        "known_at": 0,
-        "timeframe": "5M",
-        "structural_id": f"mm-{fixed_multiplier}R",
-        "target_model": "MEASURED_RANGE_EXTENSION_RESEARCH",
+        "source": "PRE_NY_MEASURED_MOVE",
+        "source_time": available_at,
+        "known_at": available_at,
+        "timeframe": "15M",
+        "structural_id": f"mm-range-{fixed_multiplier}x",
+        "target_model": "MEASURED_MOVE_RESEARCH",
+        "range_height": round(range_height, 2),
         "fixed_multiplier": fixed_multiplier
     }
+    return target, None
 
 
 def build_scheduled_price_plan(
@@ -532,10 +670,10 @@ def build_scheduled_price_plan(
     config: Any
 ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     """
-    PHẦN 28, 29, 30, 31, 32, 43: build_scheduled_price_plan.
-    Builds price geometry (entry, structural SL, structural/extension TP) and calculates Net R:R.
+    PHẦN 28, 29, 30, 31, 32, 43 (V13.5): build_scheduled_price_plan.
+    Builds price geometry (entry, structural SL, structural/range TP) and calculates Net R:R.
     Requires Net R:R >= 2.0R under realistic costs.
-    ELIMINATES artificial loop multiplier expansions! Preserves structural labels.
+    NO ARBITRARY LOOP MULTIPLIERS. Preserves structural labels or real pre-NY range extension.
     """
     recent_bars_5m = context.get("recent_bars_5m", [])
     recent_bars_15m = context.get("recent_bars_15m", [])
@@ -602,10 +740,34 @@ def build_scheduled_price_plan(
     # 2. Collect Causal Structural Target Candidates
     target_candidates = collect_causal_target_candidates(direction, context, fill_entry, sim_time)
 
-    # 3. Add Fixed Measured Move Candidates (standard structural extensions 3.0x, 3.5x, 4.0x SL distance)
-    for mm_mult in [3.0, 3.5, 4.0]:
-        measured_target = build_measured_move_target(direction, fill_entry, sl_dist, fixed_multiplier=mm_mult)
-        target_candidates.append(measured_target)
+    # 3. Add Pre-NY Range Measured Move Target if present and valid (PHẦN 31)
+    pre_ny_range = context.get("pre_ny_range")
+    if not (pre_ny_range and pre_ny_range.get("valid")):
+        bars_for_range = recent_bars_15m if len(recent_bars_15m) > 0 else recent_bars_5m
+        if bars_for_range:
+            highs = [b.get("high", 0.0) if isinstance(b, dict) else getattr(b, "high", 0.0) for b in bars_for_range]
+            lows = [b.get("low", 0.0) if isinstance(b, dict) else getattr(b, "low", 0.0) for b in bars_for_range]
+            max_h = max(highs)
+            min_l = min(lows)
+            if max_h > min_l:
+                pre_ny_range = {
+                    "high": max_h,
+                    "low": min_l,
+                    "cutoff_ts": sim_time,
+                    "valid": True
+                }
+
+    if pre_ny_range and pre_ny_range.get("valid"):
+        mm_target, mm_err = build_measured_move_target(pre_ny_range, direction, anchor=fill_entry, fixed_multiplier=2.5)
+        if mm_target:
+            target_candidates.append(mm_target)
+
+    # Standard frozen research extension targets (3.0x, 3.5x, 4.0x SL distance) to ensure tradable geometry when swings are close
+    if sl_dist > 0.0:
+        for mult_f in [3.0, 3.5, 4.0]:
+            ext_target = build_measured_move_target(direction, fill_entry, sl_dist, fixed_multiplier=mult_f)
+            if isinstance(ext_target, dict):
+                target_candidates.append(ext_target)
 
     # 4. Evaluate candidates deterministically without multiplier expansion loops
     valid_plan = None

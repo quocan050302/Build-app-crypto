@@ -1,3 +1,4 @@
+from lab.replay_integrity import run_replay_integrity_checks, verify_exported_artifacts
 """
 Authoritative Historical Replay & Backtest Engine for Aurum Desk V12:
 - Zero Lookahead: Evaluates bar-by-bar strictly up to closed bar event time.
@@ -1897,12 +1898,14 @@ class ReplayEngine:
                                     ny_quota_rec["unmet_reason"] = "QUOTA_UNMET_HARD_GUARD_DAILY_CAP"
                                     rejection_reasons["QUOTA_UNMET_HARD_GUARD_DAILY_CAP"] = rejection_reasons.get("QUOTA_UNMET_HARD_GUARD_DAILY_CAP", 0) + 1
                                 else:
+                                    pre_range = compute_pre_ny_range(candles_15m[:idx_15m+1], session_ny_date, frozen_cache=frozen_pre_ny_ranges, sim_time=sim_time)
                                     smc_ctx = {
                                         "h1_trend": h1_trend if 'h1_trend' in locals() else "UNKNOWN",
                                         "h4_bias": h4_bias if 'h4_bias' in locals() else "UNKNOWN",
                                         "d_bias": d_bias if 'd_bias' in locals() else "UNKNOWN",
                                         "recent_bars_15m": ltf_slice,
-                                        "recent_bars_5m": recent_bars_5m
+                                        "recent_bars_5m": recent_bars_5m,
+                                        "pre_ny_range": pre_range
                                     }
                                     curr_q = {
                                         "sim_time": sim_time,
@@ -2293,43 +2296,22 @@ class ReplayEngine:
         }
         run_config_hash = hashlib.sha256(json.dumps(config_hash_payload, sort_keys=True).encode("utf-8")).hexdigest()[:16]
 
-        # Build empirical integrity summary from actual checks
-        initial_cash = request.initial_equity
-        total_cash_postings = sum(p.get("amount", 0.0) for p in replay_ctx.ledger_postings)
-        cash_reconciled = abs(cash_balance - (initial_cash + total_cash_postings)) < 0.10
-
-        causal_checks_passed = True
-        for tr_item in closed_trades:
-            dec_t = getattr(tr_item, "decision_time", None)
-            ent_t = getattr(tr_item, "entry_time", None)
-            ex_t = getattr(tr_item, "exit_time", None)
-            if dec_t and ent_t and ent_t < dec_t:
-                causal_checks_passed = False
-                break
-            if ent_t and ex_t and ex_t < ent_t:
-                causal_checks_passed = False
-                break
-
-        guards_verified = all(d.get("total_fills", 0) <= 3 for d in daily_stats_map.values())
-        trade_count_consistent = (closed_count == len(realized_trades)) and (wins + losses + breakevens == closed_count)
-
-        integrity_summary = {
-            "status": "PASS" if (cash_reconciled and causal_checks_passed and guards_verified and trade_count_consistent) else "FAIL",
-            "dataset_hash": dataset_hash,
-            "run_config_hash": run_config_hash,
-            "causal_data_ok": causal_checks_passed,
-            "guards_active": guards_verified,
-            "ledger_reconciled": cash_reconciled,
-            "trade_count_consistent": trade_count_consistent,
-            "checks": [
-                {"id": "dataset_hash_verified", "status": "PASS" if dataset_hash else "FAIL", "observed": dataset_hash},
-                {"id": "run_config_hash_verified", "status": "PASS" if run_config_hash else "FAIL", "observed": run_config_hash},
-                {"id": "cash_ledger_reconciled", "status": "PASS" if cash_reconciled else "FAIL"},
-                {"id": "causal_data_order_ok", "status": "PASS" if causal_checks_passed else "FAIL"},
-                {"id": "hard_guards_verified", "status": "PASS" if guards_verified else "FAIL"},
-                {"id": "trade_count_partitioned", "status": "PASS" if trade_count_consistent else "FAIL"},
-            ]
-        }
+        # Build empirical integrity summary from actual checks (V13.5)
+        integrity_summary = run_replay_integrity_checks(
+            result_dict={
+                "closed_count": closed_count,
+                "wins": wins,
+                "losses": losses,
+                "breakevens": breakevens
+            },
+            closed_trades=realized_trades,
+            ledger_postings=replay_ctx.ledger_postings,
+            daily_stats=daily_stats_map,
+            initial_equity=request.initial_equity,
+            reported_cash=cash_balance,
+            dataset_hash=dataset_hash,
+            run_config_hash=run_config_hash
+        )
 
         # 9 Funnel Stages
         funnel_rows = [
@@ -2535,6 +2517,16 @@ class ReplayEngine:
         art_files = []
         if artifacts_dir and os.path.exists(artifacts_dir):
             art_files = sorted(os.listdir(artifacts_dir))
+            is_valid_export, export_errs = verify_exported_artifacts(
+                result={
+                    "total_net_pnl": total_net_pnl,
+                    "closed_count": len(realized_trades),
+                    "fills_count": len(realized_trades) + len(open_trades)
+                },
+                artifacts_dir=artifacts_dir
+            )
+            if not is_valid_export:
+                warnings.extend([f"EXPORT_VERIFICATION_NOTE: {e}" for e in export_errs])
 
         start_date_vn = datetime.fromtimestamp(start_eval_ts / 1000.0, tz=VN_TZ).strftime("%Y-%m-%d")
         end_date_vn = datetime.fromtimestamp(end_eval_ts / 1000.0, tz=VN_TZ).strftime("%Y-%m-%d")

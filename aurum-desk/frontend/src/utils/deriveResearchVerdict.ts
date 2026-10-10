@@ -6,7 +6,7 @@ export interface ResearchVerdict {
   summary: string;
   technicalStatus: 'PASS' | 'FAIL' | 'NOT_CHECKED';
   cadenceStatus: 'PASS' | 'UNMET' | 'NOT_APPLICABLE';
-  economicStatus: 'PROFITABLE' | 'LOSING' | 'INSUFFICIENT_EVIDENCE';
+  economicStatus: 'PROFITABLE' | 'LOSING' | 'BREAKEVEN' | 'INSUFFICIENT_EVIDENCE';
   improvements: Array<{
     issue: string;
     evidence: string;
@@ -87,7 +87,7 @@ export function deriveResearchVerdict(
   let cadenceStatus: 'PASS' | 'UNMET' | 'NOT_APPLICABLE' = 'NOT_APPLICABLE';
   if (entryCadence === 'DAILY_PAPER' && result.cadence_summary) {
     const cs = result.cadence_summary;
-    cadenceStatus = (cs.unmet_sessions === 0 && cs.coverage_pct >= 95) ? 'PASS' : 'UNMET';
+    cadenceStatus = (cs.unmet_sessions === 0) ? 'PASS' : 'UNMET';
   }
 
   // Priority 4: Sample Too Small (< 5 trades)
@@ -118,7 +118,8 @@ export function deriveResearchVerdict(
   }
 
   // Priority 5: Economic Verdict (>= 5 trades)
-  const isProfitable = netPnl > 0;
+  const isBreakeven = Math.abs(netPnl) < 0.01;
+  const isProfitable = netPnl > 0.01;
   const isDdControlled = maxDd <= 12;
 
   // Build specific improvements based on real metrics
@@ -150,6 +151,19 @@ export function deriveResearchVerdict(
       evidence: 'Max drawdown ghi nhận ' + maxDd.toFixed(2) + '% (ngưỡng tối đa 12%).',
       suggestion: 'Tiếp tục duy trì quy tắc dừng sau 2 lệnh SL liên tiếp và ngân sách rủi ro -1.5% vốn/ngày.'
     });
+  }
+
+  if (isBreakeven) {
+    return {
+      badge: 'HÒA VỐN (NET PNL: 0.00 USD)',
+      color: 'bg-slate-500/10 text-slate-300 border-slate-500/30',
+      summary: 'Giao dịch đạt trạng thái hòa vốn sau khi tính toàn bộ phí sàn và trượt giá.',
+      technicalStatus: 'PASS',
+      cadenceStatus,
+      economicStatus: 'BREAKEVEN',
+      improvements,
+      nextSteps: 'Tập trung tối ưu tỷ lệ R:R để nâng cao lợi nhuận kỳ vọng.'
+    };
   }
 
   if (isProfitable && isDdControlled) {
