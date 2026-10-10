@@ -79,8 +79,8 @@ class StressTester:
                             custom_dataset_dir=request.custom_dataset_dir,
                             spread_multiplier=sm,
                             slippage_multiplier=slm,
-                            spread_usd=round(request.base_spread_usd * sm, 4),
-                            slippage_usd=round(request.base_slippage_usd * slm, 4),
+                            spread_usd=request.base_spread_usd,
+                            slippage_usd=request.base_slippage_usd,
                             fee_rate=round(request.base_fee_rate * fm, 6),
                             maker_fee_rate=round(request.base_maker_fee_rate * fm, 6),
                             latency_ms=lat,
@@ -125,35 +125,49 @@ class StressTester:
         stressed_fee_rate: float,
         stressed_maker_rate: float,
         stressed_slippage_usd: float,
-        stressed_spread_usd: Optional[float] = None
+        stressed_spread_usd: Optional[float] = None,
+        base_spread_usd: Optional[float] = 0.35
     ) -> Dict[str, Any]:
         """
         D11/E08: Fixed trade-book cost repricing.
         Clearly labeled FIXED_BOOK_COST_REPRICING.
-        Does NOT double deduct base entry slippage: only subtracts delta slippage.
+        Does NOT double deduct base entry slippage: applies delta adjustments relative to baseline t.net_pnl.
+        Guarantees zero-delta scenario returns exact baseline Net PnL cent-for-cent.
         """
         total_pnl = 0.0
         delta_slip_per_unit = max(0.0, stressed_slippage_usd - base_slippage_usd)
+        base_spread = base_spread_usd if base_spread_usd is not None else 0.35
         
         for t in trades:
             if t.status != "CLOSED":
                 continue
-            gross = t.gross_pnl
-            # Recalculate fees at stressed rates
-            ent_fee = t.entry_price * t.quantity * stressed_fee_rate
-            ex_rate = stressed_maker_rate if (t.exit_cause == "TP_HIT" and getattr(t, "tp_is_maker", False)) else stressed_fee_rate
-            ex_fee = t.exit_price * t.quantity * ex_rate
             
-            # Delta slippage applied only for excess above base
-            ent_delta_slip = t.quantity * delta_slip_per_unit
-            ex_delta_slip = t.quantity * delta_slip_per_unit if t.exit_cause != "TP_HIT" else 0.0
+            # Baseline entry and exit fees
+            t_ent_fee = getattr(t, "entry_fee", None)
+            if t_ent_fee is None:
+                t_ent_fee = t.entry_price * t.quantity * base_fee_rate
             
-            # Additional spread impact if spread was stressed and simulated
-            spread_delta = 0.0
-            if stressed_spread_usd and stressed_spread_usd > 0.35:
-                spread_delta = t.quantity * (stressed_spread_usd - 0.35) * 0.5
-            
-            trade_net = gross - (ent_fee + ex_fee) - (ent_delta_slip + ex_delta_slip) - spread_delta
+            t_is_maker = getattr(t, "tp_is_maker", False) and t.exit_cause == "TP_HIT"
+            base_ex_rate = base_maker_rate if t_is_maker else base_fee_rate
+            t_ex_fee = getattr(t, "exit_fee", None)
+            if t_ex_fee is None:
+                t_ex_fee = (t.exit_price or t.entry_price) * t.quantity * base_ex_rate
+
+            # Stressed entry and exit fees
+            stressed_ent_fee = t.entry_price * t.quantity * stressed_fee_rate
+            stressed_ex_rate = stressed_maker_rate if t_is_maker else stressed_fee_rate
+            stressed_ex_fee = (t.exit_price or t.entry_price) * t.quantity * stressed_ex_rate
+            delta_fees = (stressed_ent_fee - t_ent_fee) + (stressed_ex_fee - t_ex_fee)
+
+            # Delta slippage applied only for excess above base (only taker exits hit slip)
+            delta_slip = t.quantity * delta_slip_per_unit if t.exit_cause != "TP_HIT" else 0.0
+
+            # Delta spread impact
+            delta_spread = 0.0
+            if stressed_spread_usd is not None and stressed_spread_usd > base_spread:
+                delta_spread = t.quantity * (stressed_spread_usd - base_spread) * 0.5
+
+            trade_net = t.net_pnl - delta_fees - delta_slip - delta_spread
             total_pnl += trade_net
             
         return {

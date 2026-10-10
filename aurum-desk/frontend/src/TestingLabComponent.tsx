@@ -17,7 +17,8 @@ import {
   History as HistoryIcon,
   Copy,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  Square
 } from 'lucide-react';
 
 interface TestingLabComponentProps {
@@ -76,6 +77,8 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
   const [replayResult, setReplayResult] = useState<ReplayRunResponse | null>(null);
   const [runningReplay, setRunningReplay] = useState<boolean>(false);
   const [jobProgressMsg, setJobProgressMsg] = useState<string | null>(null);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [cancellingJob, setCancellingJob] = useState<boolean>(false);
 
   // ==================== STRESS TEST STATE ====================
   const [stressResult, setStressResult] = useState<StressTestResponse | null>(null);
@@ -137,10 +140,30 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
     }
   };
 
-  // Run historical replay with Job API support and fallback
+  // Cancel running historical replay
+  const handleCancelReplay = async () => {
+    if (!currentJobId) return;
+    setCancellingJob(true);
+    setJobProgressMsg('Đang gửi yêu cầu dừng tác vụ...');
+    try {
+      const res = await api.cancelLabJob(currentJobId);
+      if (onNotify) {
+        onNotify('Yêu Cầu Dừng', res.message || 'Đã gửi yêu cầu dừng replay', 'info');
+      }
+    } catch (err: any) {
+      if (onNotify) {
+        onNotify('Lỗi Hủy Tác Vụ', extractErrorMessage(err, 'Không thể gửi lệnh hủy'), 'warn');
+      }
+    } finally {
+      setCancellingJob(false);
+    }
+  };
+
+  // Run historical replay with Job API support and safe error handling (P05 fix)
   const handleRunReplay = async () => {
     setRunningReplay(true);
     setReplayResult(null);
+    setCurrentJobId(null);
     setJobProgressMsg('Đang khởi tạo tác vụ...');
     try {
       const payload: ReplayRunRequest = {
@@ -159,34 +182,80 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
         custom_candles_json: replayParams.custom_dataset && replayParams.custom_json ? replayParams.custom_json : undefined
       };
 
+      let jobId: string | null = null;
+      let shouldFallbackSync = false;
+
       try {
         const job = await api.createLabJob(payload);
+        jobId = job.job_id;
+        setCurrentJobId(jobId);
         setJobProgressMsg(`Đang xử lý trong hàng đợi (${job.job_id})...`);
-        let completed = false;
-        let attempts = 0;
-        while (!completed && attempts < 120) {
-          await new Promise((r) => setTimeout(r, 1000));
-          attempts++;
-          const status = await api.getLabJobStatus(job.job_id);
-          setJobProgressMsg(`Giai đoạn: ${status.current_phase} (${status.progress_pct.toFixed(0)}%)`);
-          if (status.status === 'SUCCEEDED') {
-            completed = true;
-            const res = await api.getLabJobResult(job.job_id);
-            setReplayResult(res);
-            if (onNotify) {
-              onNotify('Replay Hoàn Tất', `Tổng lệnh: ${res.total_trades} | Net PnL: ${fmtCur(res.total_net_pnl)}`, (res.total_net_pnl ?? 0) >= 0 ? 'success' : 'info');
-            }
-          } else if (status.status === 'FAILED' || status.status === 'CANCELLED') {
-            throw new Error(status.error_message || `Tác vụ kết thúc với trạng thái ${status.status}`);
-          }
+      } catch (submitErr: any) {
+        // Fallback to synchronous replay endpoint ONLY if job API route is 404 (not supported on legacy server)
+        if (submitErr?.response?.status === 404 || submitErr?.status === 404) {
+          shouldFallbackSync = true;
+        } else {
+          throw submitErr;
         }
-      } catch (jobErr) {
-        // Fallback to synchronous replay endpoint if job API fails
-        setJobProgressMsg('Đang chạy chế độ trực tiếp...');
+      }
+
+      if (shouldFallbackSync) {
+        setJobProgressMsg('Đang chạy chế độ trực tiếp (fallback legacy)...');
         const res = await api.runLabReplay(payload);
         setReplayResult(res);
         if (onNotify) {
           onNotify('Replay Hoàn Tất', `Tổng lệnh: ${res.total_trades} | Net PnL: ${fmtCur(res.total_net_pnl)}`, (res.total_net_pnl ?? 0) >= 0 ? 'success' : 'info');
+        }
+        return;
+      }
+
+      if (!jobId) return;
+
+      // Poll job status safely without fallback to runLabReplay!
+      let completed = false;
+      let consecutiveErrors = 0;
+      let attempts = 0;
+      const MAX_POLLS = 300; // Allow 5 minutes polling
+
+      while (!completed && attempts < MAX_POLLS) {
+        await new Promise((r) => setTimeout(r, 1000));
+        attempts++;
+        try {
+          const status = await api.getLabJobStatus(jobId);
+          consecutiveErrors = 0;
+          setJobProgressMsg(`Giai đoạn: ${status.current_phase} (${status.progress_pct.toFixed(0)}%)`);
+
+          if (status.status === 'SUCCEEDED') {
+            completed = true;
+            const res = await api.getLabJobResult(jobId);
+            setReplayResult(res);
+            if (onNotify) {
+              onNotify('Replay Hoàn Tất', `Tổng lệnh: ${res.total_trades} | Net PnL: ${fmtCur(res.total_net_pnl)}`, (res.total_net_pnl ?? 0) >= 0 ? 'success' : 'info');
+            }
+          } else if (status.status === 'CANCELLED') {
+            completed = true;
+            if (onNotify) {
+              onNotify('Tác Vụ Đã Dừng', status.error_message || 'Tác vụ replay đã dừng theo yêu cầu', 'info');
+            }
+          } else if (status.status === 'FAILED') {
+            completed = true;
+            if (onNotify) {
+              onNotify('Tác Vụ Thất Bại', status.error_message || 'Lỗi xử lý replay trên máy chủ', 'warn');
+            }
+          }
+        } catch (_pollErr: any) {
+          consecutiveErrors++;
+          // Allow transient network hiccups up to 5 consecutive times without aborting job
+          if (consecutiveErrors > 5) {
+            throw new Error('Mất kết nối kiểm tra tiến độ tác vụ replay sau nhiều lần thử lại');
+          }
+          setJobProgressMsg(`Mất kết nối tạm thời (${consecutiveErrors}/5), đang thử lại...`);
+        }
+      }
+
+      if (!completed && attempts >= MAX_POLLS) {
+        if (onNotify) {
+          onNotify('Tác Vụ Đang Chạy', `Tác vụ ${jobId} vẫn đang chạy trên máy chủ. Bạn có thể tiếp tục theo dõi trạng thái.`, 'info');
         }
       }
     } catch (err: any) {
@@ -196,6 +265,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
     } finally {
       setRunningReplay(false);
       setJobProgressMsg(null);
+      setCurrentJobId(null);
     }
   };
 
@@ -614,14 +684,26 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                 </span>
               </div>
 
-              <button
-                onClick={handleRunReplay}
-                disabled={runningReplay}
-                className="px-5 py-2 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded-lg shadow flex items-center gap-2 transition disabled:opacity-50"
-              >
-                <Play className="w-3.5 h-3.5 fill-current" />
-                {runningReplay ? 'Đang chạy backtest...' : 'Bắt Đầu Historical Backtest'}
-              </button>
+              <div className="flex items-center gap-2">
+                {runningReplay && currentJobId && (
+                  <button
+                    onClick={handleCancelReplay}
+                    disabled={cancellingJob}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg shadow flex items-center gap-1.5 transition disabled:opacity-50"
+                  >
+                    <Square className="w-3.5 h-3.5 fill-current" />
+                    {cancellingJob ? 'Đang yêu cầu dừng...' : 'Hủy Replay'}
+                  </button>
+                )}
+                <button
+                  onClick={handleRunReplay}
+                  disabled={runningReplay}
+                  className="px-5 py-2 bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 font-bold rounded-lg shadow flex items-center gap-2 transition disabled:opacity-50"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  {runningReplay ? 'Đang chạy backtest...' : 'Bắt Đầu Historical Backtest'}
+                </button>
+              </div>
             </div>
 
             {replayParams.custom_dataset && (

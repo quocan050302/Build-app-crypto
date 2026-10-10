@@ -17,7 +17,7 @@ import json
 import uuid
 import hashlib
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional, Tuple, Callable, Union
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy import create_engine
@@ -56,28 +56,37 @@ logger = logging.getLogger(__name__)
 ARTIFACTS_BASE_DIR = os.path.join(os.path.dirname(__file__), "artifacts", "v12_2")
 
 
+class ReplayCancelledException(Exception):
+    """Raised when an active replay run is cancelled via token/callback."""
+    pass
+
+
 class ReplayContext:
     """Encapsulates runtime state, clock, DB, brokers, and settings for isolated simulation."""
     def __init__(
         self,
-        run_id: str,
-        strategy_variant: str,
-        clock: ReplayClock,
-        db: Any,
-        request: schemas.ReplayRunRequest,
-        costs: CostAssumptions,
-        spread_usd: float,
-        dataset_hash: Optional[str]
+        run_id: str = "test-run",
+        strategy_variant: str = "CURRENT_BASELINE",
+        clock: Optional[ReplayClock] = None,
+        db: Any = None,
+        request: Optional[schemas.ReplayRunRequest] = None,
+        costs: Optional[CostAssumptions] = None,
+        spread_usd: float = 0.35,
+        dataset_hash: Optional[str] = None
     ):
         self.run_id = run_id
         self.strategy_variant = strategy_variant
-        self.clock = clock
+        self.clock = clock or ReplayClock(1000)
         self.db = db
         self.request = request
-        self.costs = costs
+        self.costs = costs or CostAssumptions(taker_fee_rate=0.0006)
         self.spread_usd = spread_usd
         self.dataset_hash = dataset_hash
         self.events_log: List[Dict[str, Any]] = []
+        self.ledger_postings: List[Dict[str, Any]] = []
+        self.decision_events: List[Dict[str, Any]] = []
+        self.execution_events: List[Dict[str, Any]] = []
+        self.current_cash: float = 1000.0
 
     def record_event(self, event_type: str, payload: Dict[str, Any]):
         self.events_log.append({
@@ -85,6 +94,48 @@ class ReplayContext:
             "event_type": event_type,
             "payload": payload
         })
+
+    def record_posting(self, entry_type: str, amount: float, trade_id: str, sim_time: int = 0, description: str = "", balance_after: Optional[float] = None):
+        self.current_cash += amount
+        bal = balance_after if balance_after is not None else self.current_cash
+        pid = f"POST-{self.run_id}-{len(self.ledger_postings) + 1}"
+        self.ledger_postings.append({
+            "posting_id": pid,
+            "run_id": self.run_id,
+            "mode": self.strategy_variant,
+            "sim_time": sim_time or self.clock.now_ms(),
+            "trade_id": trade_id,
+            "entry_type": entry_type,
+            "amount": round(amount, 4),
+            "currency": "USDT",
+            "balance_after": round(bal, 4),
+            "description": description
+        })
+
+    def record_decision(self, trade_id: str, direction: str, stage: str, status: str, entry_price: float, sl: float, tp: float, reason: Optional[str] = None):
+        self.decision_events.append({
+            "event_type": "STRATEGY_DECISION",
+            "mode": self.strategy_variant,
+            "trade_id": trade_id,
+            "direction": direction,
+            "stage": stage,
+            "timestamp": self.clock.now_ms(),
+            "entry_price": round(entry_price, 2),
+            "stop_loss": round(sl, 2),
+            "take_profit": round(tp, 2),
+            "status": status,
+            "reason": reason
+        })
+
+    def record_execution(self, event_type: str, trade_id: str, sim_time: int = 0, details: Optional[Dict[str, Any]] = None):
+        rec = {
+            "event_type": event_type,
+            "mode": self.strategy_variant,
+            "trade_id": trade_id,
+            "timestamp": sim_time or self.clock.now_ms(),
+            **(details or {})
+        }
+        self.execution_events.append(rec)
 
 
 def build_v12_1_test_matrix() -> List[Dict[str, Any]]:
@@ -325,7 +376,11 @@ class ReplayEngine:
         return db, engine
 
     @classmethod
-    def run_replay(cls, request: schemas.ReplayRunRequest) -> schemas.ReplayRunResponse:
+    def run_replay(
+        cls,
+        request: schemas.ReplayRunRequest,
+        cancel_check: Optional[Callable[[], bool]] = None
+    ) -> schemas.ReplayRunResponse:
         start_exec_time = int(time.time() * 1000)
         run_id = f"v12-replay-{uuid.uuid4().hex[:8]}"
         warnings = []
@@ -614,6 +669,17 @@ class ReplayEngine:
         )
         spread_usd = round(base_spread * request.spread_multiplier, 4)
 
+        replay_ctx = ReplayContext(
+            run_id=run_id,
+            strategy_variant=strategy_variant,
+            clock=ReplayClock(start_eval_ts),
+            db=db,
+            request=request,
+            costs=costs,
+            spread_usd=spread_usd,
+            dataset_hash=dataset_hash
+        )
+
         # Record starting equity
         equity_curve.append(schemas.EquityPoint(
             timestamp=candles_15m[0]["timestamp"],
@@ -666,11 +732,15 @@ class ReplayEngine:
             if bar_close_ts > end_eval_ts:
                 break
 
+            if cancel_check and cancel_check():
+                raise ReplayCancelledException(f"Replay {run_id} cancelled at candle index {i}")
+
             funnel_counts["01_CANDLES_OBSERVED"] += 1
 
             # Causal simulated clock: at bar close, data is now fully observable
             sim_time = bar_close_ts
             clock = ReplayClock(sim_time)
+            replay_ctx.clock = clock
             dt = clock.now_datetime()
             bar_date_str = clock.get_today_str_vn()
             dt_ny = get_ny_datetime(sim_time)
@@ -802,7 +872,8 @@ class ReplayEngine:
 
                     # Cash ledger update (note: entry fee was already cash-posted on open!)
                     # So cash_balance adds (gross_pnl - exit_fee - exit_slip)
-                    cash_balance = round(cash_balance + gross_pnl - exit_fee - exit_slip, 2)
+                    # Maintain full precision to avoid intermediate 2-decimal rounding drift across trades (P07)
+                    cash_balance = cash_balance + gross_pnl - exit_fee - exit_slip
                     today_realized_pnl = round(today_realized_pnl + net_pnl, 2)
                     daily_pnl_map[current_date_str] = round(daily_pnl_map.get(current_date_str, 0.0) + net_pnl, 2)
                     cooldown_until = sim_time + (30 * 60 * 1000)
@@ -844,6 +915,23 @@ class ReplayEngine:
 
                     funnel_counts["09_TRADE_CLOSED"] += 1
 
+                    # Live ledger postings and execution event (P06)
+                    replay_ctx.record_posting("REALIZED_GROSS_PNL", gross_pnl, active_trade["id"], cash_balance - (gross_pnl - exit_fee - exit_slip) + gross_pnl)
+                    replay_ctx.record_posting("EXIT_FEE", -exit_fee, active_trade["id"], cash_balance + exit_slip)
+                    if exit_slip > 0:
+                        replay_ctx.record_posting("SLIPPAGE_ADJUSTMENT", -exit_slip, active_trade["id"], cash_balance)
+
+                    replay_ctx.record_execution("POSITION_CLOSED", active_trade["id"], {
+                        "exit_time": sim_time,
+                        "exit_price": round(exit_price, 2),
+                        "exit_cause": exit_cause,
+                        "gross_pnl": round(gross_pnl, 2),
+                        "exit_fee": round(exit_fee, 4),
+                        "exit_slippage": round(exit_slip, 4),
+                        "net_pnl": net_pnl,
+                        "realized_r": realized_r
+                    })
+
                     trade_record = schemas.ReplayTradeItem(
                         id=active_trade["id"],
                         setup_id=active_trade.get("setup_id"),
@@ -880,7 +968,8 @@ class ReplayEngine:
                         strategy_family=active_trade.get("strategy_family", "SMC_MOMENTUM"),
                         entry_type=active_trade.get("entry_type", "QUALITY_ENTRY"),
                         ny_session_id=active_trade.get("ny_session_id"),
-                        margin_usdt=round((entry_p * qty) / request.leverage, 2)
+                        margin_usdt=round((entry_p * qty) / request.leverage, 2),
+                        tp_is_maker=active_trade.get("tp_is_maker", False)
                     )
 
                     closed_trades.append(trade_record)
@@ -987,6 +1076,9 @@ class ReplayEngine:
                         funnel_counts["03_H1_ALIGNMENT_CHECKED"] += 1
 
                     # 4.2.0. Baseline SMC execution (Only evaluated on 15M close boundaries)
+                    # Causal news blackout check (P03)
+                    is_blackout, blackout_reason, _ = crud.check_news_blackout(db, sim_time)
+
                     setup_stage = "WATCHING"
                     sig = None
                     if strategy_variant == "CURRENT_BASELINE" and is_15m_close:
@@ -996,7 +1088,8 @@ class ReplayEngine:
                             timeframe=request.timeframe,
                             ticker_data={"bid": curr_bar["close"], "ask": curr_bar["close"], "last": curr_bar["close"]},
                             day_audit=day_audit,
-                            is_news_blackout=False,
+                            is_news_blackout=is_blackout,
+                            news_blackout_reason=blackout_reason,
                             htf_bias=d_4h_bias,
                             h1_alignment=h1_align,
                             leverage=request.leverage,
@@ -1011,66 +1104,48 @@ class ReplayEngine:
                             funnel_counts["04_SMC_PATTERN_WATCHING"] += 1
 
                     if setup_stage == "READY" and sig:
-                        signals_count += 1
-                        now_dt = clock.now_datetime()
-
-                        # Evaluate Trading Policy with DayAudit in DB
-                        policy_eval = TradingPolicyService.evaluate_entry_policy(db, request.symbol, now_dt, clock=clock)
-
-                        if not policy_eval.get("allowed", False):
-                            reason_code = f"POLICY_{policy_eval.get('reason_code', 'BLOCKED')}"
-                            rejection_reasons[reason_code] = rejection_reasons.get(reason_code, 0) + 1
-                            rejected_count += 1
-
-                            # Record in blocked signals table
-                            setup_key = sig.get("setup_id", f"smc-{i}")
-                            time_str_vn = clock.now_datetime().strftime("%Y-%m-%d %H:%M:%S")
-                            if setup_key not in blocked_signals_agg:
-                                blocked_signals_agg[setup_key] = {
-                                    "setup_id": setup_key,
-                                    "first_seen_vn": time_str_vn,
-                                    "last_seen_vn": time_str_vn,
+                        # Causal lesson rules check (P03)
+                        active_rules = LessonRuleService.retrieve_active_rules(
+                            db=db,
+                            context={"symbol": request.symbol, "timeframe": request.timeframe, "direction": sig.get("direction", "")},
+                            decision_time=sim_time
+                        )
+                        lesson_blocked = False
+                        lesson_block_reason = None
+                        if active_rules:
+                            rule_eval = LessonRuleService.evaluate_rules(
+                                context={
+                                    "symbol": request.symbol,
                                     "direction": sig.get("direction", ""),
-                                    "stage": "POLICY_CHECK",
-                                    "primary_blocker": reason_code,
-                                    "all_blockers": reason_code,
-                                    "count": 1,
-                                    "sample_time_ms": sim_time
-                                }
-                            else:
-                                blocked_signals_agg[setup_key]["last_seen_vn"] = time_str_vn
-                                blocked_signals_agg[setup_key]["count"] += 1
-                        else:
-                            dir_s = sig["direction"]
-                            planned_p = sig["planned_entry"]
-                            sl_p = sig["stop_loss"]
-                            tp_p = sig["targets"][0]["price"] if sig.get("targets") else curr_bar["close"]
-
-                            # Execution Fill price at bar closure with directional slippage
-                            if dir_s == "LONG":
-                                fill_p = round(curr_bar["close"] + (0.5 * spread_usd) + costs.slippage_usd, 2)
-                            else:
-                                fill_p = round(curr_bar["close"] - (0.5 * spread_usd) - costs.slippage_usd, 2)
-
-                            # Authoritative risk-reward calculation at actual fill price
-                            calc = calculate_risk_reward(
-                                direction=dir_s,
-                                entry=fill_p,
-                                sl=sl_p,
-                                tp=tp_p,
-                                capital=cash_balance,
-                                risk_pct=request.risk_pct,
-                                costs=costs,
-                                entry_has_slippage=True,
-                                leverage=request.leverage,
-                                margin_mode=request.margin_mode
+                                    "timeframe": request.timeframe,
+                                    "net_rr": 2.0,
+                                    "spread": spread_usd,
+                                    "session": session_name
+                                },
+                                rules=active_rules
                             )
+                            if rule_eval.get("blocked", False) or rule_eval.get("action") == "BLOCK_ENTRY":
+                                lesson_blocked = True
+                                lesson_block_reason = f"LESSON_RULE_BLOCK_{rule_eval.get('rule_id', 'CRITICAL')}"
 
-                            if not calc.can_execute or calc.net_rr < 2.0:
+                        if lesson_blocked:
+                            rejection_reasons[lesson_block_reason] = rejection_reasons.get(lesson_block_reason, 0) + 1
+                            rejected_count += 1
+                            replay_ctx.record_decision(sig.get("setup_id", f"smc-{i}"), sig.get("direction", ""), "LESSON_RULE_CHECK", "REJECTED", curr_bar["close"], 0.0, 0.0, lesson_block_reason)
+                        else:
+                            signals_count += 1
+                            now_dt = clock.now_datetime()
+
+                            # Evaluate Trading Policy with DayAudit in DB
+                            policy_eval = TradingPolicyService.evaluate_entry_policy(db, request.symbol, now_dt, clock=clock)
+
+                            if not policy_eval.get("allowed", False):
+                                reason_code = f"POLICY_{policy_eval.get('reason_code', 'BLOCKED')}"
+                                rejection_reasons[reason_code] = rejection_reasons.get(reason_code, 0) + 1
                                 rejected_count += 1
-                                reason_key = calc.skip_reason.split(":")[0] if calc.skip_reason else "NET_RR_BELOW_2"
-                                rejection_reasons[reason_key] = rejection_reasons.get(reason_key, 0) + 1
+                                replay_ctx.record_decision(sig.get("setup_id", f"smc-{i}"), sig.get("direction", ""), "POLICY_CHECK", "REJECTED", curr_bar["close"], 0.0, 0.0, reason_code)
 
+                                # Record in blocked signals table
                                 setup_key = sig.get("setup_id", f"smc-{i}")
                                 time_str_vn = clock.now_datetime().strftime("%Y-%m-%d %H:%M:%S")
                                 if setup_key not in blocked_signals_agg:
@@ -1078,10 +1153,10 @@ class ReplayEngine:
                                         "setup_id": setup_key,
                                         "first_seen_vn": time_str_vn,
                                         "last_seen_vn": time_str_vn,
-                                        "direction": dir_s,
-                                        "stage": "RISK_REWARD_PREFILL",
-                                        "primary_blocker": reason_key,
-                                        "all_blockers": reason_key,
+                                        "direction": sig.get("direction", ""),
+                                        "stage": "POLICY_CHECK",
+                                        "primary_blocker": reason_code,
+                                        "all_blockers": reason_code,
                                         "count": 1,
                                         "sample_time_ms": sim_time
                                     }
@@ -1089,56 +1164,117 @@ class ReplayEngine:
                                     blocked_signals_agg[setup_key]["last_seen_vn"] = time_str_vn
                                     blocked_signals_agg[setup_key]["count"] += 1
                             else:
-                                # OPEN POSITION!
-                                trade_id = f"trade-{run_id}-{i}"
-                                entry_fee = round(fill_p * calc.quantity * costs.taker_fee_rate, 4)
-                                # Deduct entry fee from cash ledger on open
-                                cash_balance = round(cash_balance - entry_fee, 2)
+                                dir_s = sig["direction"]
+                                planned_p = sig["planned_entry"]
+                                sl_p = sig["stop_loss"]
+                                tp_p = sig["targets"][0]["price"] if sig.get("targets") else curr_bar["close"]
 
-                                funnel_counts["06_POLICY_PASSED"] += 1
-                                funnel_counts["07_RR_CHECK_PASSED"] += 1
-                                funnel_counts["08_ORDER_FILLED"] += 1
+                                # Execution Fill price at bar closure with directional slippage
+                                if dir_s == "LONG":
+                                    fill_p = round(curr_bar["close"] + (0.5 * spread_usd) + costs.slippage_usd, 2)
+                                else:
+                                    fill_p = round(curr_bar["close"] - (0.5 * spread_usd) - costs.slippage_usd, 2)
 
-                                daily_fills += 1
-                                if day_audit:
-                                    day_audit.fills_count = daily_fills
-                                    day_audit.current_equity = cash_balance
-                                    db.commit()
+                                # Authoritative risk-reward calculation at actual fill price
+                                calc = calculate_risk_reward(
+                                    direction=dir_s,
+                                    entry=fill_p,
+                                    sl=sl_p,
+                                    tp=tp_p,
+                                    capital=cash_balance,
+                                    risk_pct=request.risk_pct,
+                                    costs=costs,
+                                    entry_has_slippage=True,
+                                    leverage=request.leverage,
+                                    margin_mode=request.margin_mode
+                                )
 
-                                if current_date_str in daily_stats_map:
-                                    ds = daily_stats_map[current_date_str]
-                                    ds["total_fills"] += 1
-                                    ds["fees"] = round(ds["fees"] + entry_fee, 2)
-                                    if dir_s == "LONG":
-                                        ds["long_fills"] += 1
+                                if not calc.can_execute or calc.net_rr < 2.0:
+                                    rejected_count += 1
+                                    reason_key = calc.skip_reason.split(":")[0] if calc.skip_reason else "NET_RR_BELOW_2"
+                                    rejection_reasons[reason_key] = rejection_reasons.get(reason_key, 0) + 1
+                                    replay_ctx.record_decision(sig.get("setup_id", f"smc-{i}"), dir_s, "RISK_REWARD_PREFILL", "REJECTED", fill_p, sl_p, tp_p, reason_key)
+
+                                    setup_key = sig.get("setup_id", f"smc-{i}")
+                                    time_str_vn = clock.now_datetime().strftime("%Y-%m-%d %H:%M:%S")
+                                    if setup_key not in blocked_signals_agg:
+                                        blocked_signals_agg[setup_key] = {
+                                            "setup_id": setup_key,
+                                            "first_seen_vn": time_str_vn,
+                                            "last_seen_vn": time_str_vn,
+                                            "direction": dir_s,
+                                            "stage": "RISK_REWARD_PREFILL",
+                                            "primary_blocker": reason_key,
+                                            "all_blockers": reason_key,
+                                            "count": 1,
+                                            "sample_time_ms": sim_time
+                                        }
                                     else:
-                                        ds["short_fills"] += 1
-                                    if session_name == "NEW_YORK":
-                                        ds["ny_fills"] += 1
+                                        blocked_signals_agg[setup_key]["last_seen_vn"] = time_str_vn
+                                        blocked_signals_agg[setup_key]["count"] += 1
+                                else:
+                                    # OPEN POSITION!
+                                    trade_id = f"trade-{run_id}-{i}"
+                                    entry_fee = round(fill_p * calc.quantity * costs.taker_fee_rate, 4)
+                                    # Deduct entry fee from cash ledger on open (unrounded)
+                                    cash_balance -= entry_fee
 
-                                active_trade = {
-                                    "id": trade_id,
-                                    "setup_id": sig.get("setup_id", f"smc-{i}"),
-                                    "direction": dir_s,
-                                    "order_type": "MARKET",
-                                    "entry_time": sim_time,
-                                    "entry_price": fill_p,
-                                    "stop_loss": sl_p,
-                                    "take_profit": tp_p,
-                                    "quantity": calc.quantity,
-                                    "initial_risk_usdt": calc.net_risk_usdt,
-                                    "entry_session": session_name,
-                                    "entry_fee": entry_fee,
-                                    "entry_slippage": round(calc.quantity * costs.slippage_usd, 4),
-                                    "net_rr_planned": calc.net_rr,
-                                    "net_rr_fill": calc.net_rr,
-                                    "gross_rr": calc.gross_rr,
-                                    "net_risk_usdt": calc.net_risk_usdt,
-                                    "net_reward_usdt": calc.net_reward_usdt,
-                                    "strategy_family": "SMC_MOMENTUM",
-                                    "entry_type": "QUALITY_ENTRY",
-                                    "ny_session_id": f"NY-{session_ny_date}" if (session_name == "NEW_YORK" or is_ny_session_window(dt_ny)) else None
-                                }
+                                    replay_ctx.record_posting("ENTRY_FEE", -entry_fee, trade_id, cash_balance)
+                                    replay_ctx.record_decision(trade_id, dir_s, "FILL", "APPROVED", fill_p, sl_p, tp_p)
+                                    replay_ctx.record_execution("ORDER_FILLED", trade_id, {
+                                        "fill_time": sim_time,
+                                        "fill_price": fill_p,
+                                        "quantity": calc.quantity,
+                                        "entry_fee": entry_fee,
+                                        "entry_slippage": round(calc.quantity * costs.slippage_usd, 4),
+                                        "net_rr_planned": calc.net_rr
+                                    })
+
+                                    funnel_counts["06_POLICY_PASSED"] += 1
+                                    funnel_counts["07_RR_CHECK_PASSED"] += 1
+                                    funnel_counts["08_ORDER_FILLED"] += 1
+
+                                    daily_fills += 1
+                                    if day_audit:
+                                        day_audit.fills_count = daily_fills
+                                        day_audit.current_equity = cash_balance
+                                        db.commit()
+
+                                    if current_date_str in daily_stats_map:
+                                        ds = daily_stats_map[current_date_str]
+                                        ds["total_fills"] += 1
+                                        ds["fees"] = round(ds["fees"] + entry_fee, 2)
+                                        if dir_s == "LONG":
+                                            ds["long_fills"] += 1
+                                        else:
+                                            ds["short_fills"] += 1
+                                        if session_name == "NEW_YORK":
+                                            ds["ny_fills"] += 1
+
+                                    active_trade = {
+                                        "id": trade_id,
+                                        "setup_id": sig.get("setup_id", f"smc-{i}"),
+                                        "direction": dir_s,
+                                        "order_type": "MARKET",
+                                        "entry_time": sim_time,
+                                        "entry_price": fill_p,
+                                        "stop_loss": sl_p,
+                                        "take_profit": tp_p,
+                                        "quantity": calc.quantity,
+                                        "initial_risk_usdt": calc.net_risk_usdt,
+                                        "entry_session": session_name,
+                                        "entry_fee": entry_fee,
+                                        "entry_slippage": round(calc.quantity * costs.slippage_usd, 4),
+                                        "net_rr_planned": calc.net_rr,
+                                        "net_rr_fill": calc.net_rr,
+                                        "gross_rr": calc.gross_rr,
+                                        "net_risk_usdt": calc.net_risk_usdt,
+                                        "net_reward_usdt": calc.net_reward_usdt,
+                                        "strategy_family": "SMC_MOMENTUM",
+                                        "entry_type": "QUALITY_ENTRY",
+                                        "ny_session_id": f"NY-{session_ny_date}" if (session_name == "NEW_YORK" or is_ny_session_window(dt_ny)) else None,
+                                        "tp_is_maker": costs.tp_is_maker
+                                    }
 
                                 if is_ny_session_window(dt_ny) and session_ny_date in ny_quota_ledger:
                                     ny_entry_rec = ny_quota_ledger[session_ny_date]
@@ -1259,11 +1395,30 @@ class ReplayEngine:
 
                                 trade_id = f"trade-{run_id}-{i}"
                                 entry_fee = round(chosen_setup["entry_price"] * c_calc.quantity * costs.taker_fee_rate, 4)
-                                cash_balance = round(cash_balance - entry_fee, 2)
+                                cash_balance = cash_balance - entry_fee
+                                replay_ctx.record_posting(
+                                    entry_type="ENTRY_FEE",
+                                    amount=-entry_fee,
+                                    trade_id=trade_id,
+                                    sim_time=sim_time,
+                                    description=f"Entry taker fee for Mode B {chosen_setup['direction']} @ {chosen_setup['entry_price']}"
+                                )
+                                replay_ctx.record_execution(
+                                    event_type="ORDER_FILLED",
+                                    trade_id=trade_id,
+                                    sim_time=sim_time,
+                                    details={
+                                        "direction": chosen_setup["direction"],
+                                        "price": chosen_setup["entry_price"],
+                                        "quantity": c_calc.quantity,
+                                        "order_type": "MARKET",
+                                        "entry_fee": entry_fee
+                                    }
+                                )
                                 daily_fills += 1
                                 if day_audit:
                                     day_audit.fills_count = daily_fills
-                                    day_audit.current_equity = cash_balance
+                                    day_audit.current_equity = round(cash_balance, 2)
                                     db.commit()
 
                                 if current_date_str in daily_stats_map:
@@ -1297,7 +1452,8 @@ class ReplayEngine:
                                     "net_reward_usdt": c_calc.net_reward_usdt,
                                     "strategy_family": chosen_setup["strategy_family"],
                                     "entry_type": chosen_setup["entry_type"],
-                                    "ny_session_id": f"NY-{session_ny_date}"
+                                    "ny_session_id": f"NY-{session_ny_date}",
+                                    "tp_is_maker": False
                                 }
                                 ny_quota_rec["filled_count"] += 1
                                 ny_quota_rec["quality_fills"] += 1
@@ -1370,11 +1526,30 @@ class ReplayEngine:
 
                                             trade_id = f"trade-{run_id}-{i}"
                                             entry_fee = round(c_candidate["entry_price"] * c_calc.quantity * costs.taker_fee_rate, 4)
-                                            cash_balance = round(cash_balance - entry_fee, 2)
+                                            cash_balance = cash_balance - entry_fee
+                                            replay_ctx.record_posting(
+                                                entry_type="ENTRY_FEE",
+                                                amount=-entry_fee,
+                                                trade_id=trade_id,
+                                                sim_time=sim_time,
+                                                description=f"Entry taker fee for Mode C {c_candidate['direction']} @ {c_candidate['entry_price']}"
+                                            )
+                                            replay_ctx.record_execution(
+                                                event_type="ORDER_FILLED",
+                                                trade_id=trade_id,
+                                                sim_time=sim_time,
+                                                details={
+                                                    "direction": c_candidate["direction"],
+                                                    "price": c_candidate["entry_price"],
+                                                    "quantity": c_calc.quantity,
+                                                    "order_type": "MARKET",
+                                                    "entry_fee": entry_fee
+                                                }
+                                            )
                                             daily_fills += 1
                                             if day_audit:
                                                 day_audit.fills_count = daily_fills
-                                                day_audit.current_equity = cash_balance
+                                                day_audit.current_equity = round(cash_balance, 2)
                                                 db.commit()
 
                                             if current_date_str in daily_stats_map:
@@ -1408,7 +1583,8 @@ class ReplayEngine:
                                                 "net_reward_usdt": c_calc.net_reward_usdt,
                                                 "strategy_family": c_candidate["strategy_family"],
                                                 "entry_type": c_candidate["entry_type"],
-                                                "ny_session_id": f"NY-{session_ny_date}"
+                                                "ny_session_id": f"NY-{session_ny_date}",
+                                                "tp_is_maker": False
                                             }
                                             ny_quota_rec["filled_count"] += 1
                                             ny_quota_rec["quota_fills"] += 1
@@ -1526,6 +1702,8 @@ class ReplayEngine:
             )
             closed_trades.append(open_trade_item)
 
+        # Round final cash balance only at the presentation/reporting boundary
+        cash_balance = round(cash_balance, 2)
         final_equity = round(cash_balance + open_mtm_final, 2)
 
         # Update final closing day stats
@@ -1763,7 +1941,10 @@ class ReplayEngine:
                     "rejected_count": rejected_count
                 },
                 ny_quota_rows=list(ny_quota_ledger.values()),
-                funnel_stats=funnel_rows
+                funnel_stats=funnel_rows,
+                ledger_postings=replay_ctx.ledger_postings,
+                decision_events=replay_ctx.decision_events,
+                execution_events=replay_ctx.execution_events
             )
 
         return schemas.ReplayRunResponse(
@@ -1802,7 +1983,7 @@ class ReplayEngine:
             dataset_hash=dataset_hash,
             artifacts_dir=artifacts_dir,
             dataset_type=mode,
-            execution_fidelity="ESTIMATED_EXECUTION_WITH_LATENCY" if getattr(request, "latency_ms", 0) > 0 else "ESTIMATED_EXECUTION",
+            execution_fidelity="ESTIMATED_EXECUTION_WITH_LATENCY_APPROXIMATION" if getattr(request, "latency_ms", 0) > 0 else "ESTIMATED_EXECUTION",
             strategy_variant=strategy_variant,
             ny_quota_stats=list(ny_quota_ledger.values()),
             funnel_stats=funnel_rows,
@@ -1811,7 +1992,10 @@ class ReplayEngine:
             quality_net_pnl=quality_net_pnl,
             quota_net_pnl=quota_net_pnl,
             ny_fill_coverage_pct=ny_fill_coverage_pct,
-            timeframe_metadata=bundle_metadata
+            timeframe_metadata=bundle_metadata,
+            ledger_postings=replay_ctx.ledger_postings,
+            decision_events=replay_ctx.decision_events,
+            execution_events=replay_ctx.execution_events
         )
 
     @classmethod
@@ -1838,7 +2022,10 @@ class ReplayEngine:
         bundle_metadata: Dict[str, Any],
         summary: Dict[str, Any],
         ny_quota_rows: Optional[List[Dict[str, Any]]] = None,
-        funnel_stats: Optional[List[Dict[str, Any]]] = None
+        funnel_stats: Optional[List[Dict[str, Any]]] = None,
+        ledger_postings: Optional[List[Dict[str, Any]]] = None,
+        decision_events: Optional[List[Dict[str, Any]]] = None,
+        execution_events: Optional[List[Dict[str, Any]]] = None
     ):
         """Exports all mandatory CSV, JSON, HTML, and 12-sheet .xlsx artifacts into run_id directory."""
         # Dynamically fetch git commit
@@ -2202,3 +2389,33 @@ class ReplayEngine:
 """
         with open(os.path.join(artifacts_dir, "report.html"), "w", encoding="utf-8") as f:
             f.write(html_content)
+
+        # 12. ledger.csv (True Live Postings from Engine)
+        ledger_file = os.path.join(artifacts_dir, "ledger.csv")
+        with open(ledger_file, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["posting_id", "sim_time", "time_vn", "trade_id", "entry_type", "amount", "balance_after", "description"])
+            for post in (ledger_postings or []):
+                t_vn = datetime.fromtimestamp(post["sim_time"] / 1000.0, tz=VN_TZ).strftime("%Y-%m-%d %H:%M:%S")
+                writer.writerow([
+                    post.get("posting_id", ""),
+                    post.get("sim_time", 0),
+                    t_vn,
+                    post.get("trade_id", ""),
+                    post.get("entry_type", ""),
+                    post.get("amount", 0.0),
+                    post.get("balance_after", 0.0),
+                    post.get("description", "")
+                ])
+
+        # 13. decision_events.jsonl
+        dec_file = os.path.join(artifacts_dir, "decision_events.jsonl")
+        with open(dec_file, "w", encoding="utf-8") as f:
+            for d_ev in (decision_events or []):
+                f.write(json.dumps(d_ev) + "\n")
+
+        # 14. execution_events.jsonl
+        exec_file = os.path.join(artifacts_dir, "execution_events.jsonl")
+        with open(exec_file, "w", encoding="utf-8") as f:
+            for x_ev in (execution_events or []):
+                f.write(json.dumps(x_ev) + "\n")

@@ -714,6 +714,7 @@ class ReplayTradeItem(BaseModel):
     entry_type: Optional[str] = "QUALITY_ENTRY"  # QUALITY_ENTRY vs QUOTA_ENTRY
     ny_session_id: Optional[str] = None
     margin_usdt: Optional[float] = None
+    tp_is_maker: Optional[bool] = False
 
 class EquityPoint(BaseModel):
     timestamp: int
@@ -738,6 +739,9 @@ class ReplayRunRequest(BaseModel):
     margin_mode: str = "ISOLATED"
     spread_multiplier: float = 1.0
     slippage_multiplier: float = 1.0
+    spread_usd: Optional[float] = None
+    slippage_usd: Optional[float] = None
+    maker_fee_rate: Optional[float] = None
     fee_rate: float = 0.0004
     latency_ms: int = 0
     speed_ms: int = 10
@@ -839,12 +843,15 @@ class ReplayRunResponse(BaseModel):
     effective_config: Optional[Dict[str, Any]] = None
     config_hash: Optional[str] = None
     timeframe_metadata: Optional[Dict[str, Any]] = None
+    ledger_postings: Optional[List[Dict[str, Any]]] = None
+    decision_events: Optional[List[Dict[str, Any]]] = None
+    execution_events: Optional[List[Dict[str, Any]]] = None
     model_config = ConfigDict(from_attributes=True)
 
 # Lab Job API Types
 JobStatus = Literal[
     "QUEUED", "RUNNING", "VALIDATING", "EXPORTING",
-    "SUCCEEDED", "INCOMPLETE", "FAILED", "CANCELLING", "CANCELLED"
+    "SUCCEEDED", "INCOMPLETE", "FAILED", "CANCELLING", "CANCEL_REQUESTED", "CANCELLED"
 ]
 
 class JobCreateResponse(BaseModel):

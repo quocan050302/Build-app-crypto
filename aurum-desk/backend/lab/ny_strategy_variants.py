@@ -337,6 +337,7 @@ def evaluate_setup_b1_trend_continuation(
     setup = {
         "setup_id": f"b1-{sim_time}",
         "strategy_family": "NY_TREND_CONTINUATION",
+        "target_model": "TARGET_MODEL_SWING_LIQUIDITY",
         "direction": direction,
         "entry_price": fill_entry,
         "stop_loss": invalidation_level,
