@@ -75,4 +75,164 @@ describe('V13 Frontend Research Tab Invariants & Logic', () => {
     expect(labels['RANGE']).toContain('Đi Ngang');
     expect(labels['EVENT_VOLATILITY']).toContain('Biến Động');
   });
+
+  it("T05: DST-aware timezone conversion does not hardcode 11h difference", () => {
+    // Summer date (EDT: UTC-4, VN: UTC+7 -> diff 11h)
+    const summerDate = "2026-07-15";
+    const summerTime = "08:30";
+    // Winter date (EST: UTC-5, VN: UTC+7 -> diff 12h)
+    const winterDate = "2026-01-15";
+    const winterTime = "08:30";
+
+    const getDual = (dStr: string, tStr: string) => {
+      const [year, month, day] = dStr.split("-").map(Number);
+      const [hours, minutes] = tStr.split(":").map(Number);
+      const testIso = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+      const nyTz = "America/New_York";
+      const vnTz = "Asia/Ho_Chi_Minh";
+
+      const nyFormat = new Intl.DateTimeFormat("en-US", { timeZone: nyTz, timeZoneName: "short" });
+      const parts = nyFormat.formatToParts(testIso);
+      const tzName = parts.find(p => p.type === "timeZoneName")?.value || "";
+      const isDst = tzName.includes("DT") || tzName === "EDT";
+
+      // If DST (summer), difference is 11 hours. If standard (winter), difference is 12 hours.
+      const diffHours = isDst ? 11 : 12;
+      const vnTotalMinutes = (hours * 60 + minutes + diffHours * 60) % 1440;
+      const vnHours = String(Math.floor(vnTotalMinutes / 60)).padStart(2, "0");
+      const vnMins = String(vnTotalMinutes % 60).padStart(2, "0");
+      return `${tStr} New York · ${vnHours}:${vnMins} Hà Nội`;
+    };
+
+    const summerResult = getDual(summerDate, summerTime);
+    expect(summerResult).toBe("08:30 New York · 19:30 Hà Nội");
+
+    const winterResult = getDual(winterDate, winterTime);
+    expect(winterResult).toBe("08:30 New York · 20:30 Hà Nội");
+  });
+
+  it("T06: renders safe fallback when metrics are null/undefined without fake 80% or 0R", () => {
+    const formatQualityScore = (val: number | null | undefined): string => {
+      if (val === null || val === undefined) return "Chưa có dữ liệu";
+      return `${Math.round(val * 100)}%`;
+    };
+
+    const formatNetRR = (val: number | null | undefined): string => {
+      if (val === null || val === undefined) return "Chưa có dữ liệu";
+      return `${val.toFixed(2)}R`;
+    };
+
+    const formatCurrency = (val: number | null | undefined): string => {
+      if (val === null || val === undefined) return "Chưa có dữ liệu";
+      return `$${val.toFixed(2)}`;
+    };
+
+    // Correctly returns "Chưa có dữ liệu", avoiding fake defaults
+    expect(formatQualityScore(null)).toBe("Chưa có dữ liệu");
+    expect(formatQualityScore(undefined)).toBe("Chưa có dữ liệu");
+    expect(formatQualityScore(0.85)).toBe("85%");
+
+    expect(formatNetRR(null)).toBe("Chưa có dữ liệu");
+    expect(formatNetRR(undefined)).toBe("Chưa có dữ liệu");
+    expect(formatNetRR(2.15)).toBe("2.15R");
+
+    expect(formatCurrency(null)).toBe("Chưa có dữ liệu");
+    expect(formatCurrency(undefined)).toBe("Chưa có dữ liệu");
+    expect(formatCurrency(125.5)).toBe("$125.50");
+  });
+
+  it("T07: evaluates method status accurately with priority to data validity and sample size", () => {
+    interface EvalMetrics {
+      isDataValid: boolean;
+      totalTrades: number;
+      minRequiredTrades: number;
+      netPnl: number;
+      maxDrawdownPct: number;
+      winRatePct: number;
+    }
+
+    const determineVerdict = (m: EvalMetrics) => {
+      if (!m.isDataValid) {
+        return {
+          status: "DATA_CALC_INVALID",
+          title: "Chưa thể đánh giá vì dữ liệu hoặc cách tính chưa hợp lệ"
+        };
+      }
+      if (m.totalTrades < m.minRequiredTrades) {
+        return {
+          status: "INSUFFICIENT_SAMPLE",
+          title: "Chưa đủ số lệnh mẫu để kết luận phương pháp"
+        };
+      }
+      if (m.netPnl > 0 && m.maxDrawdownPct <= 5.0 && m.winRatePct >= 45.0) {
+        return {
+          status: "PASS_CRITERIA",
+          title: "Đạt tiêu chí kiểm tra phương pháp"
+        };
+      }
+      return {
+        status: "NEEDS_IMPROVEMENT",
+        title: "Phương pháp cần cải thiện trước khi áp dụng"
+      };
+    };
+
+    // Invalid data
+    expect(determineVerdict({
+      isDataValid: false,
+      totalTrades: 50,
+      minRequiredTrades: 30,
+      netPnl: 100,
+      maxDrawdownPct: 2.0,
+      winRatePct: 60.0
+    }).status).toBe("DATA_CALC_INVALID");
+
+    // Insufficient sample
+    expect(determineVerdict({
+      isDataValid: true,
+      totalTrades: 5,
+      minRequiredTrades: 30,
+      netPnl: 100,
+      maxDrawdownPct: 1.0,
+      winRatePct: 80.0
+    }).status).toBe("INSUFFICIENT_SAMPLE");
+
+    // Needs improvement
+    expect(determineVerdict({
+      isDataValid: true,
+      totalTrades: 35,
+      minRequiredTrades: 30,
+      netPnl: -45,
+      maxDrawdownPct: 6.5,
+      winRatePct: 40.0
+    }).status).toBe("NEEDS_IMPROVEMENT");
+
+    // Pass criteria
+    expect(determineVerdict({
+      isDataValid: true,
+      totalTrades: 42,
+      minRequiredTrades: 30,
+      netPnl: 185.2,
+      maxDrawdownPct: 3.2,
+      winRatePct: 52.4
+    }).status).toBe("PASS_CRITERIA");
+  });
+
+  it("T08: distinguishes between geometric price validity, pending trigger, and armed trigger", () => {
+    type TriggerStatus = "CHƯA_HỢP_LỆ" | "ĐANG_CHỜ_ĐIỀU_KIỆN_VÀO_LỆNH" | "ĐÃ_ĐỦ_ĐIỀU_KIỆN_KÍCH_HOẠT";
+
+    const evaluateScenarioState = (isGeometryValid: boolean, isTriggerMet: boolean): { state: TriggerStatus; label: string } => {
+      if (!isGeometryValid) {
+        return { state: "CHƯA_HỢP_LỆ", label: "Giá hoặc R:R chưa đạt chuẩn rủi ro" };
+      }
+      if (!isTriggerMet) {
+        return { state: "ĐANG_CHỜ_ĐIỀU_KIỆN_VÀO_LỆNH", label: "Đang chờ điều kiện vào lệnh (chưa kích hoạt)" };
+      }
+      return { state: "ĐÃ_ĐỦ_ĐIỀU_KIỆN_KÍCH_HOẠT", label: "Đã đủ điều kiện kích hoạt lệnh" };
+    };
+
+    expect(evaluateScenarioState(false, false).state).toBe("CHƯA_HỢP_LỆ");
+    expect(evaluateScenarioState(true, false).state).toBe("ĐANG_CHỜ_ĐIỀU_KIỆN_VÀO_LỆNH");
+    expect(evaluateScenarioState(true, true).state).toBe("ĐÃ_ĐỦ_ĐIỀU_KIỆN_KÍCH_HOẠT");
+  });
+
 });

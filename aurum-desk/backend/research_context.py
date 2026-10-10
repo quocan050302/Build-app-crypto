@@ -1,9 +1,10 @@
 """
-Aurum Desk V13 — Immutable Research Context & Time Engine.
+Aurum Desk V13.1 — Immutable Research Context & Time Engine.
 Guarantees strict causal information availability:
 - No leakage from future candles
 - No leakage from live collector_service singleton
 - Explicit timezones: Asia/Ho_Chi_Minh (VN_DATE), America/New_York (NY_SESSION_DATE)
+- Respects explicit time_of_day selection for today (does not force now_ms)
 """
 
 from dataclasses import dataclass, field
@@ -51,7 +52,7 @@ class ResearchContext:
     dataset_hash: Optional[str] = None
     news_hash: Optional[str] = None
     rules_hash: Optional[str] = None
-    cost_model_version: str = "v13.0"
+    cost_model_version: str = "v13.1"
     limitations: List[str] = field(default_factory=list)
 
     def is_historical(self) -> bool:
@@ -98,6 +99,7 @@ def build_research_context(
 ) -> ResearchContext:
     """
     Factory function to construct validated, immutable ResearchContext.
+    Respects explicit time_of_day even on today.
     """
     if now_ms is None:
         import time
@@ -109,61 +111,66 @@ def build_research_context(
     resolved_date_basis = date_basis or DateBasis.VN_DATE
     resolved_session = session or SessionType.NEW_YORK
 
-    # Determine mode
-    if selected_date:
-        today_vn_str = now_vn.strftime("%Y-%m-%d")
-        if selected_date < today_vn_str:
-            resolved_mode = mode or ResearchMode.HISTORICAL_ASOF
-        elif selected_date == today_vn_str:
-            resolved_mode = mode or ResearchMode.CURRENT_ASOF
-        else:
-            resolved_mode = ResearchMode.HISTORICAL_ASOF
-    else:
-        resolved_date = now_vn.strftime("%Y-%m-%d")
-        resolved_mode = mode or ResearchMode.CURRENT_ASOF
-        selected_date = resolved_date
+    today_vn_str = now_vn.strftime("%Y-%m-%d")
+    resolved_date = selected_date or today_vn_str
 
-    # Resolve as_of_ms
     limitations = []
-    if resolved_mode == ResearchMode.CURRENT_ASOF:
-        as_of_ms = now_ms
-    else:
-        # For historical date, resolve based on date and time_of_day or session default
-        try:
-            date_parts = [int(p) for p in selected_date.split("-")]
-            if time_of_day:
-                hour_str, min_str = time_of_day.split(":")
-                hour = int(hour_str)
-                minute = int(min_str)
-            else:
-                # Default session premarket / active entry time
-                if resolved_session == SessionType.NEW_YORK:
-                    # 08:00 NY time
-                    hour, minute = 8, 0
-                elif resolved_session == SessionType.LONDON:
-                    hour, minute = 8, 0
-                elif resolved_session == SessionType.TOKYO:
-                    hour, minute = 9, 0
-                else:
-                    hour, minute = 14, 0
 
-            if resolved_date_basis == DateBasis.NY_SESSION_DATE or (time_of_day is None and resolved_session == SessionType.NEW_YORK):
+    # Parse target date and time
+    if time_of_day:
+        try:
+            hour_str, min_str = time_of_day.split(":")
+            hour = int(hour_str)
+            minute = int(min_str)
+            date_parts = [int(p) for p in resolved_date.split("-")]
+
+            if resolved_date_basis == DateBasis.NY_SESSION_DATE:
                 target_dt = datetime(date_parts[0], date_parts[1], date_parts[2], hour, minute, 0, tzinfo=NY_TZ)
             else:
                 target_dt = datetime(date_parts[0], date_parts[1], date_parts[2], hour, minute, 0, tzinfo=VN_TZ)
 
             as_of_ms = int(target_dt.astimezone(timezone.utc).timestamp() * 1000)
             if as_of_ms > now_ms:
-                limitations.append("THỜI_ĐIỂM_TƯƠNG_LAI: Thời điểm chọn chưa diễn ra. Đã tự động điều chỉnh về hiện tại.")
+                limitations.append("THỜI_ĐIỂM_TƯƠNG_LAI: Thời điểm chọn chưa diễn ra. Không thể phân tích tương lai.")
                 as_of_ms = now_ms
         except Exception:
             as_of_ms = now_ms
-            limitations.append("LỖI_ĐỊNH_DẠNG_NGÀY: Không thể phân tích ngày. Sử dụng thời điểm hiện tại.")
+            limitations.append("LỖI_ĐỊNH_DẠNG_GIỜ: Không thể phân tích thời điểm. Sử dụng thời điểm hiện tại.")
+    else:
+        # No explicit time_of_day
+        if resolved_date < today_vn_str:
+            # For historical date without explicit time, default to session open
+            try:
+                date_parts = [int(p) for p in resolved_date.split("-")]
+                if resolved_session == SessionType.NEW_YORK:
+                    hour, minute = 8, 0
+                    target_dt = datetime(date_parts[0], date_parts[1], date_parts[2], hour, minute, 0, tzinfo=NY_TZ)
+                elif resolved_session == SessionType.LONDON:
+                    hour, minute = 8, 0
+                    target_dt = datetime(date_parts[0], date_parts[1], date_parts[2], hour, minute, 0, tzinfo=LONDON_TZ)
+                elif resolved_session == SessionType.TOKYO:
+                    hour, minute = 9, 0
+                    target_dt = datetime(date_parts[0], date_parts[1], date_parts[2], hour, minute, 0, tzinfo=TOKYO_TZ)
+                else:
+                    hour, minute = 19, 30
+                    target_dt = datetime(date_parts[0], date_parts[1], date_parts[2], hour, minute, 0, tzinfo=VN_TZ)
+
+                as_of_ms = int(target_dt.astimezone(timezone.utc).timestamp() * 1000)
+            except Exception:
+                as_of_ms = now_ms
+        else:
+            as_of_ms = now_ms
+
+    # Determine mode based on resolved as_of_ms vs now_ms
+    if as_of_ms < now_ms - (60 * 1000):  # More than 1 min in past
+        resolved_mode = mode or ResearchMode.HISTORICAL_ASOF
+    else:
+        resolved_mode = mode or ResearchMode.CURRENT_ASOF
 
     return ResearchContext(
         symbol="XAUUSDT",
         mode=resolved_mode,
-        selected_date=selected_date,
+        selected_date=resolved_date,
         date_basis=resolved_date_basis,
         selected_session=resolved_session,
         as_of_ms=as_of_ms,

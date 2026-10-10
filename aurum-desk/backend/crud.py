@@ -18,18 +18,48 @@ def get_today_str_vn(clock: Optional[IClock] = None) -> str:
 
 # ==================== CANDLES CRUD ====================
 
-def get_candles(db: Session, symbol: str, timeframe: str, limit: int = 200, ascending: bool = True) -> List[models.Candle]:
-    """Retrieve candles from SQLite ordered chronologically if ascending=True"""
-    order = models.Candle.timestamp.asc() if ascending else models.Candle.timestamp.desc()
+def get_candles(
+    db: Session,
+    symbol: str,
+    timeframe: str,
+    limit: int = 200,
+    ascending: bool = True,
+    cutoff_ms: Optional[int] = None,
+    start_ms: Optional[int] = None
+) -> List[models.Candle]:
+    """Retrieve candles from SQLite with optional cutoff_ms/start_ms, ordered chronologically if ascending=True"""
+    query = db.query(models.Candle).filter(models.Candle.symbol == symbol, models.Candle.timeframe == timeframe)
+    if cutoff_ms is not None:
+        query = query.filter(models.Candle.timestamp <= cutoff_ms)
+    if start_ms is not None:
+        query = query.filter(models.Candle.timestamp >= start_ms)
+    candles = query.order_by(models.Candle.timestamp.desc()).limit(limit).all()
+    if ascending:
+        candles.reverse()
+    return candles
+
+
+def get_candles_in_range(
+    db: Session,
+    symbol: str,
+    timeframe: str,
+    start_ms: int,
+    end_ms: int,
+    limit: int = 500
+) -> List[models.Candle]:
+    """Retrieve closed candles strictly within [start_ms, end_ms] sorted ascending chronologically"""
     candles = (
         db.query(models.Candle)
-        .filter(models.Candle.symbol == symbol, models.Candle.timeframe == timeframe)
-        .order_by(models.Candle.timestamp.desc())
+        .filter(
+            models.Candle.symbol == symbol,
+            models.Candle.timeframe == timeframe,
+            models.Candle.timestamp >= start_ms,
+            models.Candle.timestamp <= end_ms
+        )
+        .order_by(models.Candle.timestamp.asc())
         .limit(limit)
         .all()
     )
-    if ascending:
-        candles.reverse()
     return candles
 
 def bulk_upsert_candles(db: Session, candles: List[schemas.CandleCreate]) -> int:

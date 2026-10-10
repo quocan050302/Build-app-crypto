@@ -1,15 +1,16 @@
 """
-Aurum Desk V13 — Causal Daily Research & Decision Replay Engine.
-Provides complete time-aware session analysis:
-- Historical as-of strictly excludes future information and live collector state
-- Calculates multi-timeframe biases purely from closed candles up to as_of
-- Evaluates market regime (Trend Up / Down, Range, Transition, Volatility, Unknown)
-- Builds validated scenarios (LONG, SHORT, NO_TRADE) with exact Net R:R & geometry check
-- Generates beginner-friendly Vietnamese explanations
+Aurum Desk V13.1 — Time-Aware Causal Research Engine for XAUUSDT.
+Solves Section 7, 8, 9, 10 requirements:
+- Strictly respects as_of_ms boundary (close_time <= as_of_ms)
+- Never accesses live collector_service when analyzing historical data
+- Multi-timeframe derivation aggregates genuine 1H/4H/D completed bars
+- Rejects fake candles or slicing current data for past dates
+- Produces authentic, validated LONG/SHORT/NO-TRADE scenarios with net RR
+- Beginner-friendly explanations without raw constant codes
 """
 
-import time
 import json
+import time
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from typing import Dict, Any, List, Optional
@@ -17,35 +18,39 @@ from sqlalchemy.orm import Session
 
 import models
 import crud
+import schemas
 import smc_engine
 from research_context import (
     ResearchContext,
     ResearchMode,
     DateBasis,
     SessionType,
-    build_research_context,
-    VN_TZ,
-    NY_TZ,
-    LONDON_TZ,
-    TOKYO_TZ,
-    UTC_TZ
+    build_research_context
 )
-from market_regime import evaluate_market_regime, get_vietnamese_regime_label
+from market_regime import evaluate_market_regime
 from scenario_builder import build_validated_scenarios
 
-class CandleObj:
-    def __init__(self, timestamp: int, open: float, high: float, low: float, close: float, volume: float = 100.0):
-        self.timestamp = int(timestamp)
-        self.open = float(open)
-        self.high = float(high)
-        self.low = float(low)
-        self.close = float(close)
-        self.volume = float(volume)
+VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+NY_TZ = ZoneInfo("America/New_York")
+LONDON_TZ = ZoneInfo("Europe/London")
+TOKYO_TZ = ZoneInfo("Asia/Tokyo")
+UTC_TZ = ZoneInfo("UTC")
 
-    def __getitem__(self, item):
+
+class CandleObj:
+    """Universal candle wrapper supporting both attr and dict access."""
+    def __init__(self, timestamp: int, open: float, high: float, low: float, close: float, volume: float = 100.0):
+        self.timestamp = timestamp
+        self.open = open
+        self.high = high
+        self.low = low
+        self.close = close
+        self.volume = volume
+
+    def __getitem__(self, item: str):
         return getattr(self, item)
 
-    def get(self, item, default=None):
+    def get(self, item: str, default=None):
         return getattr(self, item, default)
 
     def to_dict(self):
@@ -57,7 +62,6 @@ class CandleObj:
             "close": self.close,
             "volume": self.volume
         }
-
 
 
 def get_current_session_info(as_of_dt: Optional[datetime] = None) -> Dict[str, Any]:
@@ -102,44 +106,82 @@ def get_current_session_info(as_of_dt: Optional[datetime] = None) -> Dict[str, A
     }
 
 
-def _derive_causal_multi_timeframe_bias(candles_15m: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _aggregate_15m_candles(candles_15m: List[Any], duration_min: int) -> List[Dict[str, Any]]:
     """
-    Pure causal calculation of D, 4H, 1H, 15M biases from 15M candles closed up to as_of.
-    Does NOT use collector_service live singleton.
+    Aggregates 15M candles into completed bars of duration_min (e.g. 60 min for 1H, 240 min for 4H).
+    Only includes bars where all constituent 15M candles are present and closed.
     """
-    if not candles_15m or len(candles_15m) < 16:
+    interval_ms = duration_min * 60 * 1000
+    expected_count = duration_min // 15
+    groups = {}
+    for c in candles_15m:
+        t = c.timestamp if hasattr(c, "timestamp") else c["timestamp"]
+        bar_start = (t // interval_ms) * interval_ms
+        if bar_start not in groups:
+            groups[bar_start] = []
+        groups[bar_start].append(c)
+
+    aggregated = []
+    for bar_start in sorted(groups.keys()):
+        grp = groups[bar_start]
+        if len(grp) >= expected_count:
+            opens = grp[0].open if hasattr(grp[0], "open") else grp[0]["open"]
+            highs = max(c.high if hasattr(c, "high") else c["high"] for c in grp)
+            lows = min(c.low if hasattr(c, "low") else c["low"] for c in grp)
+            closes = grp[-1].close if hasattr(grp[-1], "close") else grp[-1]["close"]
+            vols = sum(c.volume if hasattr(c, "volume") else c.get("volume", 0) for c in grp)
+            aggregated.append({
+                "timestamp": bar_start,
+                "open": opens,
+                "high": highs,
+                "low": lows,
+                "close": closes,
+                "volume": vols
+            })
+    return aggregated
+
+
+def _derive_causal_multi_timeframe_bias(candles_15m: List[Any]) -> Dict[str, Any]:
+    """
+    Pure causal calculation of D, 4H, 1H, 15M biases from authentic aggregated bars.
+    Does NOT use array stride approximations (closes[::4]) or live collector_service.
+    """
+    if not candles_15m or len(candles_15m) < 15:
         return {
             "d_bias": "UNKNOWN",
             "h4_bias": "UNKNOWN",
-            "d_4h_bias": "UNKNOWN",
+            "d_4h_bias": "CHƯA_ĐỦ_DỮ_LIỆU",
             "h1_alignment": "UNKNOWN"
         }
 
-    closes = [c["close"] for c in candles_15m]
-
-    # 1. 1H approximation (using 4-bar chunks of 15M)
-    h1_closes = closes[::4] if len(closes) >= 4 else closes
-    if len(h1_closes) >= 8:
-        h1_ema = sum(h1_closes[-6:]) / 6.0
+    # 1. 1H aggregated completed bars
+    h1_bars = _aggregate_15m_candles(candles_15m, 60)
+    if len(h1_bars) >= 4:
+        h1_closes = [b["close"] for b in h1_bars]
+        period = min(6, len(h1_closes))
+        h1_ema = sum(h1_closes[-period:]) / float(period)
         h1_align = "BULLISH" if h1_closes[-1] > h1_ema else "BEARISH"
     else:
-        h1_align = "NEUTRAL"
+        h1_align = "UNKNOWN"
 
-    # 2. 4H approximation (using 16-bar chunks)
-    h4_closes = closes[::16] if len(closes) >= 16 else closes
-    if len(h4_closes) >= 4:
-        h4_bias = "BULLISH" if h4_closes[-1] >= h4_closes[0] else "BEARISH"
+    # 2. 4H aggregated completed bars
+    h4_bars = _aggregate_15m_candles(candles_15m, 240)
+    if len(h4_bars) >= 2:
+        h4_bias = "BULLISH" if h4_bars[-1]["close"] >= h4_bars[0]["close"] else "BEARISH"
     else:
-        h4_bias = "NEUTRAL"
+        h4_bias = "UNKNOWN"
 
-    # 3. Daily trend approximation
-    d_closes = closes[::96] if len(closes) >= 96 else closes
-    if len(d_closes) >= 2:
-        d_bias = "BULLISH" if d_closes[-1] >= d_closes[0] else "BEARISH"
+    # 3. Daily aggregated completed bars (1440 min)
+    d_bars = _aggregate_15m_candles(candles_15m, 1440)
+    if len(d_bars) >= 2:
+        d_bias = "BULLISH" if d_bars[-1]["close"] >= d_bars[0]["close"] else "BEARISH"
     else:
-        d_bias = h4_bias
+        d_bias = "UNKNOWN"
 
-    if d_bias == h4_bias:
+    # Composite HTF
+    if d_bias == "UNKNOWN" or h4_bias == "UNKNOWN":
+        d_4h_bias = "CHƯA_ĐỦ_DỮ_LIỆU"
+    elif d_bias == h4_bias:
         d_4h_bias = d_bias
     elif d_bias == "NEUTRAL":
         d_4h_bias = h4_bias
@@ -180,7 +222,6 @@ def generate_research_report(
     # 1. Resolve ResearchContext
     if context is None:
         if as_of_ms:
-            # Explicit as_of timestamp
             context = build_research_context(
                 selected_date=selected_date,
                 time_of_day=time_of_day,
@@ -199,16 +240,24 @@ def generate_research_report(
                 now_ms=now_ts
             )
 
-    # 2. Get session info as-of target time
     as_of_dt = context.as_of_dt_utc()
     session_info = get_current_session_info(as_of_dt)
     session_name = " & ".join(session_info["active_sessions"])
 
-    # 3. Source candles strictly up to as_of_ms
+    # 2. Source candles strictly up to as_of_ms
     limitations = list(context.limitations)
     if not candles_15m:
-        raw_candles = crud.get_candles(db, "XAUUSDT", "15M", limit=200)
-        # Convert ORM to dict if necessary
+        # Query database with explicit cutoff
+        # To guarantee closed candles: timestamp + 15m <= as_of_ms -> timestamp <= as_of_ms - 15m
+        candle_cutoff = context.as_of_ms - (15 * 60 * 1000)
+        raw_candles = crud.get_candles(
+            db,
+            symbol="XAUUSDT",
+            timeframe="15M",
+            limit=200,
+            ascending=True,
+            cutoff_ms=candle_cutoff
+        )
         clean_candles = []
         for c in raw_candles:
             if hasattr(c, "timestamp"):
@@ -230,33 +279,57 @@ def generate_research_report(
                     volume=c.get("volume", 100)
                 ))
 
-        # Causal filter: candle close_time must be <= as_of_ms
         filtered = [
             c for c in clean_candles
             if c.timestamp + (15 * 60 * 1000) <= context.as_of_ms
         ]
-
-        if not filtered and clean_candles:
-            filtered = clean_candles[-50:]
-            limitations.append("DỮ_LIỆU_MẪU: Không có nến trước thời điểm as_of, sử dụng lát cắt nến khả dụng.")
-
         candles_15m = filtered
 
+    # Handle insufficient data authentically without creating fake candles
     if not candles_15m or len(candles_15m) < 15:
-        # Create minimal synthetic buffer if DB empty to guarantee valid report structure
-        base_p = 2650.0
-        candles_15m = []
-        for i in range(25):
-            t = context.as_of_ms - (25 - i) * 15 * 60 * 1000
-            candles_15m.append(CandleObj(
-                timestamp=t,
-                open=base_p + i * 0.2,
-                high=base_p + i * 0.2 + 2.0,
-                low=base_p + i * 0.2 - 1.5,
-                close=base_p + i * 0.2 + 1.0,
-                volume=150
-            ))
-        limitations.append("KHÔNG_CÓ_NẾN_DB: Sinh chuỗi nến giả định để duy trì cấu trúc báo cáo.")
+        limitations.append("KHÔNG_ĐỦ_NẾN: Chưa có đủ dữ liệu nến 15M đã đóng trước thời điểm phân tích.")
+        as_of_str_vn = session_info["vn_time"]
+        no_trade_scenarios = {
+            "no_trade": {
+                "title": "Chờ Đợi / Không Giao Dịch (Thiếu Dữ Liệu)",
+                "is_active": True,
+                "reasons": ["Không có đủ dữ liệu nến trước thời điểm as_of đã chọn để xác định cấu trúc Swing."],
+                "capital_preservation_message": "Bảo vệ vốn là ưu tiên số một. Chỉ giao dịch khi có đủ dữ liệu nến thực tế.",
+                "quota_compliance": "Đứng ngoài thị trường cho tới khi nạp đủ dữ liệu nến lịch sử."
+            }
+        }
+        empty_report = models.ResearchReport(
+            report_type=report_type,
+            created_at=now_ts,
+            session_name=session_name,
+            d_4h_bias="CHƯA_ĐỦ_DỮ_LIỆU",
+            h1_alignment="CHƯA_ĐỦ_DỮ_LIỆU",
+            m15_pois=json.dumps([]),
+            liquidity_levels=json.dumps({}),
+            scenarios=json.dumps(no_trade_scenarios),
+            structured_scenarios=json.dumps(no_trade_scenarios),
+            content_markdown=f"""# BÁO CÁO PHÂN TÍCH XAUUSDT — {session_name}
+
+**Thời điểm phân tích (As-Of):** {as_of_str_vn} (Giờ VN)
+
+**Trạng thái:** Chưa có đủ dữ liệu nến 15M đã đóng trước thời điểm này trong cơ sở dữ liệu để tiến hành lập kịch bản.
+
+*Khuyến nghị: Chọn thời điểm khác hoặc tải bổ sung nến lịch sử.*""",
+            strategy_version="1.0.0",
+            research_date=context.selected_date,
+            date_basis=context.date_basis,
+            mode=context.mode,
+            as_of_ms=context.as_of_ms,
+            market_regime="CHƯA_RÕ",
+            timeframe_matrix=json.dumps({}),
+            data_coverage_status="DATA_UNAVAILABLE",
+            quality_score=None,
+            provenance_metadata=json.dumps({"limitations": limitations})
+        )
+        db.add(empty_report)
+        db.commit()
+        db.refresh(empty_report)
+        return empty_report
 
     # Ensure all candles in candles_15m are CandleObj
     candles_15m = [
@@ -271,16 +344,14 @@ def generate_research_report(
         for c in candles_15m
     ]
 
-    # 4. Multi-timeframe Biases (Strict Causal Derivation)
+    # 3. Multi-timeframe Biases (Strict Causal Derivation)
     if context.is_historical():
-        # NEVER touch live collector_service!
         tf_biases = _derive_causal_multi_timeframe_bias(candles_15m)
         d_bias = tf_biases["d_bias"]
         h4_bias = tf_biases["h4_bias"]
         htf_bias = tf_biases["d_4h_bias"]
         h1_align = tf_biases["h1_alignment"]
     else:
-        # Live mode: can consult collector_service or fallback to candle derivation
         try:
             from services.collector_service import collector_service
             d_bias = collector_service.d_bias
@@ -294,7 +365,7 @@ def generate_research_report(
             htf_bias = tf_biases["d_4h_bias"]
             h1_align = tf_biases["h1_alignment"]
 
-    # 5. SMC Setup & Structure Evaluation
+    # 4. SMC Setup & Structure Evaluation
     smc_res = smc_engine.evaluate_smc_setup(
         candles=candles_15m,
         symbol="XAUUSDT",
@@ -311,12 +382,12 @@ def generate_research_report(
     zone = smc_res["zone"]
     eq = smc_res["equilibrium"]
 
-    # 6. Evaluate Market Regime
+    # 5. Evaluate Market Regime
     regime_res = evaluate_market_regime(candles_15m=candles_15m, atr_val=atr)
     market_regime = regime_res["regime"]
     regime_label = regime_res["label_vi"]
 
-    # 7. Build Validated Scenarios
+    # 6. Build Validated Scenarios
     scenarios_dict = build_validated_scenarios(
         current_price=curr_p,
         atr_val=atr,
@@ -326,7 +397,7 @@ def generate_research_report(
         regime=market_regime
     )
 
-    # 8. Timeframe Matrix DTO
+    # 7. Timeframe Matrix DTO
     tf_matrix = {
         "daily": {"bias": d_bias, "description": f"Khung Ngày: {d_bias}"},
         "h4": {"bias": h4_bias, "description": f"Khung 4 Giờ: {h4_bias}"},
@@ -341,9 +412,14 @@ def generate_research_report(
         }
     }
 
-    # 9. Rich Beginner-Friendly Markdown
+    # 8. Rich Beginner-Friendly Markdown
     as_of_str_vn = session_info["vn_time"]
-    coverage_status = "PROVIDED_VALIDATED" if len(candles_15m) >= 20 and not limitations else "PARTIAL"
+    coverage_status = "ĐÃ_XÁC_THỰC" if len(candles_15m) >= 20 and not limitations else "MỘT_PHẦN"
+
+    bull_tp = scenarios_dict['bullish'].get('take_profit')
+    bull_tp_str = f"${bull_tp:.2f}" if bull_tp is not None else "Chưa có mục tiêu cấu trúc"
+    bear_tp = scenarios_dict['bearish'].get('take_profit')
+    bear_tp_str = f"${bear_tp:.2f}" if bear_tp is not None else "Chưa có mục tiêu cấu trúc"
 
     markdown_content = f"""# BÁO CÁO PHÂN TÍCH XAUUSDT — {report_type}
 **Thời điểm phân tích (As-Of):** {as_of_str_vn} (Giờ VN) | Mode: `{context.mode}`
@@ -358,39 +434,46 @@ def generate_research_report(
 - **Khuyến nghị hành động:** {regime_res['setup_eligibility']['recommended_stance']}
 - **Khung Ngày (D) & 4H:** D ({d_bias}) · 4H ({h4_bias}) -> Xu hướng lớn: **{htf_bias}**
 - **Đồng thuận 1H & 15M:** 1H ({h1_align}) · 15M ({trend_15m})
-- **Vị thế Dealing Range:** Đang ở vùng **{zone}** (Vùng cân bằng Equilibrium: ${eq:.2f})
-- **Kháng cự Swing High:** ${sh:.2f} | **Hỗ trợ Swing Low:** ${sl:.2f}
 
-### 2. Vùng Thanh Khoản & Mức Giá Trọng Yếu (POI)
-- **Số lượng FVG còn hiệu lực (Fair Value Gaps):** {len(smc_res.get('active_fvgs', []))} vùng
-- **Vùng giá mất cân bằng gần nhất:** {f"Từ ${smc_res['active_fvgs'][0]['bottom']:.2f} đến ${smc_res['active_fvgs'][0]['top']:.2f}" if smc_res.get('active_fvgs') else "Không có FVG lớn chưa kiểm tra"}
-- **Trạng thái Setup SMC:** {smc_res['setup_stage']} ({smc_res['reason_code']})
+---
 
-### 3. Kịch Bản Giao Dịch & Quản Trị Rủi Ro (Chi tiết cho Người Mới)
-- **Kịch Bản Tăng (LONG):**
-  - Vùng chờ vào lệnh: {scenarios_dict['bullish']['entry_zone']}
-  - Điều kiện kích hoạt: {scenarios_dict['bullish']['trigger_condition']}
-  - Cắt lỗ (SL): ${scenarios_dict['bullish']['stop_loss']:.2f} | Chốt lời (TP): ${scenarios_dict['bullish']['take_profit']:.2f}
-  - Tỷ lệ Net R:R sau chi phí: **{scenarios_dict['bullish']['net_rr']:.2f}R** ({'HỢP LỆ' if scenarios_dict['bullish']['is_valid'] else 'CHƯA ĐỦ ĐIỀU KIỆN'})
+### 2. Bản Đồ Thanh Khoản & Vùng Giá Cần Quan Sát
+- **Đỉnh Swing High gần nhất:** ${sh:.2f}
+- **Đáy Swing Low gần nhất:** ${sl:.2f}
+- **Điểm cân bằng Dealing Range (Equilibrium):** ${eq:.2f}
+- **Vị trí giá hiện tại:** Vùng **{zone}**
 
-- **Kịch Bản Giảm (SHORT):**
-  - Vùng chờ vào lệnh: {scenarios_dict['bearish']['entry_zone']}
-  - Điều kiện kích hoạt: {scenarios_dict['bearish']['trigger_condition']}
-  - Cắt lỗ (SL): ${scenarios_dict['bearish']['stop_loss']:.2f} | Chốt lời (TP): ${scenarios_dict['bearish']['take_profit']:.2f}
-  - Tỷ lệ Net R:R sau chi phí: **{scenarios_dict['bearish']['net_rr']:.2f}R** ({'HỢP LỆ' if scenarios_dict['bearish']['is_valid'] else 'CHƯA ĐỦ ĐIỀU KIỆN'})
+---
 
-- **Kịch Bản Chờ Đợi (NO-TRADE):**
-  - Lý do: {'; '.join(scenarios_dict['no_trade']['reasons'])}
-  - Nguyên tắc vàng: {scenarios_dict['no_trade']['capital_preservation_message']}
+### 3. Kịch Bản Giao Dịch Hợp Lệ (Có Khấu Trừ Chi Phí)
+
+#### Kịch Bản Mua (LONG):
+- **Trạng thái:** {scenarios_dict['bullish']['setup_state_text']}
+- **Vùng vào lệnh dự kiến:** {scenarios_dict['bullish']['entry_zone']}
+- **Cắt lỗ (SL):** ${scenarios_dict['bullish']['stop_loss']:.2f}
+- **Chốt lời (TP):** {bull_tp_str}
+- **Tỷ lệ Net R:R sau chi phí:** {scenarios_dict['bullish']['net_rr']}R (Gross: {scenarios_dict['bullish']['gross_rr']}R)
+- **Điều kiện còn thiếu:** {scenarios_dict['bullish']['missing_condition']}
+
+#### Kịch Bản Bán (SHORT):
+- **Trạng thái:** {scenarios_dict['bearish']['setup_state_text']}
+- **Vùng vào lệnh dự kiến:** {scenarios_dict['bearish']['entry_zone']}
+- **Cắt lỗ (SL):** ${scenarios_dict['bearish']['stop_loss']:.2f}
+- **Chốt lời (TP):** {bear_tp_str}
+- **Tỷ lệ Net R:R sau chi phí:** {scenarios_dict['bearish']['net_rr']}R (Gross: {scenarios_dict['bearish']['gross_rr']}R)
+- **Điều kiện còn thiếu:** {scenarios_dict['bearish']['missing_condition']}
+
+#### Lời Khuyên Quản Trị Rủi Ro:
+{scenarios_dict['no_trade']['capital_preservation_message']}
 """
 
     report = models.ResearchReport(
-        created_at=now_ts,
         report_type=report_type,
+        created_at=now_ts,
         session_name=session_name,
         d_4h_bias=htf_bias,
         h1_alignment=h1_align,
-        m15_pois=json.dumps(smc_res.get("active_fvgs", [])),
+        m15_pois=json.dumps(smc_res.get("fvg_zones", [])),
         liquidity_levels=json.dumps({
             "swing_high": sh,
             "swing_low": sl,
@@ -398,8 +481,7 @@ def generate_research_report(
         }),
         scenarios=json.dumps(scenarios_dict),
         content_markdown=markdown_content,
-        strategy_version="13.0.0",
-        # V13 Additive Fields
+        strategy_version="1.0.0",
         research_date=context.selected_date,
         date_basis=context.date_basis,
         mode=context.mode,
@@ -408,12 +490,15 @@ def generate_research_report(
         timeframe_matrix=json.dumps(tf_matrix),
         structured_scenarios=json.dumps(scenarios_dict),
         data_coverage_status=coverage_status,
-        quality_score=regime_res.get("confidence_score", 0.8),
-        provenance_metadata=json.dumps(context.to_dict()),
-        review_reference=None
+        quality_score=round(regime_res.get("heuristic_score", 0.8), 2),
+        provenance_metadata=json.dumps({
+            "context": context.to_dict(),
+            "limitations": limitations
+        })
     )
 
     db.add(report)
     db.commit()
     db.refresh(report)
+
     return report

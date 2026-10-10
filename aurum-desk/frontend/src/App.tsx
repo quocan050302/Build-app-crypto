@@ -200,6 +200,8 @@ function AppContent() {
 
   // V10.3 Trade Details Drawer State
   const [isDetailsDrawerOpen, setIsDetailsDrawerOpen] = useState(false);
+  // V13.1 Research Tab Plan Drawer State (collapses sidebar on research tab)
+  const [isResearchPlanDrawerOpen, setIsResearchPlanDrawerOpen] = useState(false);
   const [drawerSection, setDrawerSection] = useState<DrawerSectionType>('conditions');
 
   const handleOpenDrawer = useCallback((section: DrawerSectionType = 'conditions') => {
@@ -2372,7 +2374,16 @@ function AppContent() {
 
           {/* TAB: BÁO CÁO PHIÊN & NGÀY (V13 DAILY RESEARCH & DECISION REPLAY) */}
           {activeTab === 'reports' && (
-            <ResearchTab onNotify={showToast} onSessionInfoChange={setSessionInfo} />
+            <ResearchTab
+              onNotify={showToast}
+              onSessionInfoChange={setSessionInfo}
+              onOpenPlanDrawer={() => setIsResearchPlanDrawerOpen(true)}
+              armedPlansCount={
+                (accountStatus && (accountStatus.armed_orders_count ?? 0) > 0)
+                  ? accountStatus.armed_orders_count
+                  : (upcomingData?.setups?.filter((s: any) => s.state === 'ARMED').length || 0)
+              }
+            />
           )}
 
           {/* TAB: TIN TỨC & BLACKOUT */}
@@ -2834,34 +2845,82 @@ function AppContent() {
           )}
         </div>
 
-        {/* Right Side Panel: V10.3 Quick Decision Sidebar (Compact, Viewport-Fitted) */}
-        <div className="w-full lg:w-[360px] xl:w-[380px] shrink-0 h-full flex flex-col min-h-0">
-          <QuickDecisionSidebar
-            selectedIntent={selectedIntent}
-            activePosition={activePosition}
-            hasArmedOrder={Boolean(
-              (accountStatus && (accountStatus.armed_orders_count ?? 0) > 0) ||
-              (upcomingData?.setups && upcomingData.setups.some((s: any) => s.state === 'ARMED'))
-            )}
-            upcomingSetups={upcomingData?.setups || []}
-            stalePlanNotice={stalePlanNotice}
-            onClearStalePlanNotice={() => setStalePlanNotice(null)}
-            onFocusSetupOnChart={handleFocusSetupOnChart}
-            onArmSetup={handleArmWatchSetup}
-            onCancelSetup={handleCancelWatchSetup}
-            onClosePosition={() => {
-              if (activePosition?.position?.id) {
-                handleClosePosition(activePosition.position.id);
-              }
-            }}
-            onOpenDetailsDrawer={handleOpenDrawer}
-            onOpenMarket={handleOpenPaperTrade}
-            onFollowLatestSignal={handleFollowLatestSignal}
-            analysis={analysis}
-            leverage={leverage}
-            marginMode={marginMode}
-          />
-        </div>
+        {/* Right Side Panel: V10.3 Quick Decision Sidebar (Compact, Viewport-Fitted). On Research Tab, it collapses into a drawer */}
+        {activeTab === 'reports' ? (
+          isResearchPlanDrawerOpen && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex justify-end animate-fadeIn">
+              <div className="w-full max-w-[400px] h-full bg-charcoal-900 border-l border-charcoal-750 flex flex-col shadow-2xl relative">
+                <div className="flex items-center justify-between p-3 border-b border-charcoal-750 bg-charcoal-850">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-gray-200">Kế hoạch & Quyết định lệnh</span>
+                  </div>
+                  <button
+                    onClick={() => setIsResearchPlanDrawerOpen(false)}
+                    className="p-1 rounded text-gray-400 hover:text-gray-200 hover:bg-charcoal-750 transition cursor-pointer"
+                    title="Đóng kế hoạch"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  <QuickDecisionSidebar
+                    selectedIntent={selectedIntent}
+                    activePosition={activePosition}
+                    hasArmedOrder={Boolean(
+                      (accountStatus && (accountStatus.armed_orders_count ?? 0) > 0) ||
+                      (upcomingData?.setups && upcomingData.setups.some((s: any) => s.state === 'ARMED'))
+                    )}
+                    upcomingSetups={upcomingData?.setups || []}
+                    stalePlanNotice={stalePlanNotice}
+                    onClearStalePlanNotice={() => setStalePlanNotice(null)}
+                    onFocusSetupOnChart={handleFocusSetupOnChart}
+                    onArmSetup={handleArmWatchSetup}
+                    onCancelSetup={handleCancelWatchSetup}
+                    onClosePosition={() => {
+                      if (activePosition?.position?.id) {
+                        handleClosePosition(activePosition.position.id);
+                      }
+                    }}
+                    onOpenDetailsDrawer={handleOpenDrawer}
+                    onOpenMarket={handleOpenPaperTrade}
+                    onFollowLatestSignal={handleFollowLatestSignal}
+                    analysis={analysis}
+                    leverage={leverage}
+                    marginMode={marginMode}
+                  />
+                </div>
+              </div>
+            </div>
+          )
+        ) : (
+          <div className="w-full lg:w-[360px] xl:w-[380px] shrink-0 h-full flex flex-col min-h-0">
+            <QuickDecisionSidebar
+              selectedIntent={selectedIntent}
+              activePosition={activePosition}
+              hasArmedOrder={Boolean(
+                (accountStatus && (accountStatus.armed_orders_count ?? 0) > 0) ||
+                (upcomingData?.setups && upcomingData.setups.some((s: any) => s.state === 'ARMED'))
+              )}
+              upcomingSetups={upcomingData?.setups || []}
+              stalePlanNotice={stalePlanNotice}
+              onClearStalePlanNotice={() => setStalePlanNotice(null)}
+              onFocusSetupOnChart={handleFocusSetupOnChart}
+              onArmSetup={handleArmWatchSetup}
+              onCancelSetup={handleCancelWatchSetup}
+              onClosePosition={() => {
+                if (activePosition?.position?.id) {
+                  handleClosePosition(activePosition.position.id);
+                }
+              }}
+              onOpenDetailsDrawer={handleOpenDrawer}
+              onOpenMarket={handleOpenPaperTrade}
+              onFollowLatestSignal={handleFollowLatestSignal}
+              analysis={analysis}
+              leverage={leverage}
+              marginMode={marginMode}
+            />
+          </div>
+        )}
       </main>
     </div>
   );

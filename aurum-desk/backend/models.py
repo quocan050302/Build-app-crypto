@@ -186,8 +186,8 @@ class ResearchReport(Base):
     market_regime = Column(String(50), nullable=True)
     timeframe_matrix = Column(Text, nullable=True)
     structured_scenarios = Column(Text, nullable=True)
-    data_coverage_status = Column(String(50), nullable=True, default="PROVIDED_VALIDATED")
-    quality_score = Column(Float, nullable=True, default=0.8)
+    data_coverage_status = Column(String(50), nullable=True)
+    quality_score = Column(Float, nullable=True)
     provenance_metadata = Column(Text, nullable=True)
     review_reference = Column(Text, nullable=True)
 

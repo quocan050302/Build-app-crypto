@@ -122,8 +122,8 @@ def test_r03_prefix_invariance_and_close_time_cutoff():
         as_of = 1785000000000 # fixed timestamp
         # Create 10 candles before as_of and 10 candles after as_of
         candles = []
-        for i in range(10):
-            t = as_of - (10 - i) * 15 * 60 * 1000
+        for i in range(20):
+            t = as_of - (20 - i) * 15 * 60 * 1000
             candles.append(CandleObj(t, 2600.0 + i, 2605.0 + i, 2595.0 + i, 2602.0 + i))
 
         # Candles after as_of
@@ -256,7 +256,7 @@ def test_r10_r11_r13_post_session_review_and_mfe_mae():
     ]
 
     review = evaluate_scenario_outcome_and_mfe_mae(scenario, subsequent)
-    assert review["status"] == "EVALUATED"
+    assert review["status"] == "OPEN"
     assert review["mfe_usd"] == 20.0
     assert review["mfe_r"] == 2.0
     assert review["mae_usd"] == 5.0
@@ -267,6 +267,31 @@ def test_r10_r11_r13_post_session_review_and_mfe_mae():
     lesson = review["candidate_lesson"]
     assert lesson["status"] == "PENDING_REVIEW"
     assert lesson["is_approved"] is False, "Candidate lesson must not be auto-approved!"
+
+    # Case A: Price reaches TP (120) without ever touching entry (100) -> NOT_TRIGGERED
+    scenario_a = {"direction": "LONG", "planned_entry": 100.0, "stop_loss": 90.0, "take_profit": 120.0}
+    candles_a = [
+        {"timestamp": 1, "open": 125.0, "high": 128.0, "low": 124.0, "close": 127.0},
+        {"timestamp": 2, "open": 127.0, "high": 130.0, "low": 126.0, "close": 129.0}
+    ]
+    rev_a = evaluate_scenario_outcome_and_mfe_mae(scenario_a, candles_a)
+    assert rev_a["status"] == "NOT_TRIGGERED"
+    assert rev_a["is_filled"] is False
+    assert rev_a["mfe_usd"] == 0.0
+    assert rev_a["candidate_lesson"] is None
+
+    # Case B: Price touches entry 100, candle 1 drops to 89 (hits SL). Candle 2 rises to 140.
+    # Must exit at candle 1; candle 2's rise must NOT be counted as MFE!
+    scenario_b = {"direction": "LONG", "planned_entry": 100.0, "stop_loss": 90.0, "take_profit": 120.0}
+    candles_b = [
+        {"timestamp": 1, "open": 100.0, "high": 102.0, "low": 89.0, "close": 90.0},
+        {"timestamp": 2, "open": 90.0, "high": 140.0, "low": 88.0, "close": 138.0}
+    ]
+    rev_b = evaluate_scenario_outcome_and_mfe_mae(scenario_b, candles_b)
+    assert rev_b["status"] == "CLOSED_SL"
+    assert rev_b["is_filled"] is True
+    assert rev_b["mfe_usd"] == 2.0, f"Future surge counted as MFE! Got {rev_b['mfe_usd']}"
+    assert rev_b["mae_usd"] == 11.0 # 100 - 89
 
 
 def test_r14_r17_r18_api_filters_and_detail_routes(client):

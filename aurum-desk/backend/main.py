@@ -1467,9 +1467,9 @@ def get_reports(
             "date_basis": getattr(r, "date_basis", "VN_DATE"),
             "mode": getattr(r, "mode", "CURRENT_ASOF"),
             "as_of_ms": getattr(r, "as_of_ms", r.created_at),
-            "market_regime": getattr(r, "market_regime", "UNKNOWN"),
-            "data_coverage_status": getattr(r, "data_coverage_status", "PROVIDED_VALIDATED"),
-            "quality_score": getattr(r, "quality_score", 0.8),
+            "market_regime": getattr(r, "market_regime", None) or "CHƯA_XÁC_ĐỊNH",
+            "data_coverage_status": getattr(r, "data_coverage_status", None) or "CHƯA_KIỂM_ĐỊNH",
+            "quality_score": getattr(r, "quality_score", None),
             "scenarios": json.loads(r.scenarios) if r.scenarios else None,
             "structured_scenarios": json.loads(r.structured_scenarios) if getattr(r, "structured_scenarios", None) else (json.loads(r.scenarios) if r.scenarios else None),
             "timeframe_matrix": json.loads(r.timeframe_matrix) if getattr(r, "timeframe_matrix", None) else None,
@@ -1509,9 +1509,9 @@ def get_report_detail(report_id: int, db: Session = Depends(get_db)):
         "date_basis": getattr(report, "date_basis", "VN_DATE"),
         "mode": getattr(report, "mode", "CURRENT_ASOF"),
         "as_of_ms": getattr(report, "as_of_ms", report.created_at),
-        "market_regime": getattr(report, "market_regime", "UNKNOWN"),
-        "data_coverage_status": getattr(report, "data_coverage_status", "PROVIDED_VALIDATED"),
-        "quality_score": getattr(report, "quality_score", 0.8),
+        "market_regime": getattr(report, "market_regime", None) or "CHƯA_XÁC_ĐỊNH",
+        "data_coverage_status": getattr(report, "data_coverage_status", None) or "CHƯA_KIỂM_ĐỊNH",
+        "quality_score": getattr(report, "quality_score", None),
         "scenarios": json.loads(report.scenarios) if report.scenarios else None,
         "structured_scenarios": json.loads(report.structured_scenarios) if getattr(report, "structured_scenarios", None) else (json.loads(report.scenarios) if report.scenarios else None),
         "timeframe_matrix": json.loads(report.timeframe_matrix) if getattr(report, "timeframe_matrix", None) else None,
@@ -1530,12 +1530,20 @@ def get_report_post_session_review(report_id: int, db: Session = Depends(get_db)
     scenarios = json.loads(report.structured_scenarios or report.scenarios or "{}")
     as_of = getattr(report, "as_of_ms", report.created_at)
 
-    # Get candles after as_of up to +12 hours
-    subsequent_candles = crud.get_candles(db, "XAUUSDT", "15M", limit=150)
+    # Get candles after as_of up to +12 hours using strict range
+    horizon_ms = 12 * 3600 * 1000
+    subsequent_candles = crud.get_candles_in_range(
+        db,
+        symbol="XAUUSDT",
+        timeframe="15M",
+        start_ms=as_of + 1,
+        end_ms=as_of + horizon_ms,
+        limit=100
+    )
     after_candles = [
         {"timestamp": c.timestamp, "open": c.open, "high": c.high, "low": c.low, "close": c.close}
         for c in subsequent_candles
-        if hasattr(c, "timestamp") and c.timestamp > as_of
+        if hasattr(c, "timestamp")
     ]
 
     bullish_eval = evaluate_scenario_outcome_and_mfe_mae(scenarios.get("bullish", {}), after_candles)
