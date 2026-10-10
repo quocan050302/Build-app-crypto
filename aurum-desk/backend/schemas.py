@@ -1,5 +1,6 @@
-from pydantic import BaseModel, ConfigDict, Field
-from typing import List, Optional, Dict, Any, Union
+import math
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from typing import List, Optional, Dict, Any, Union, Literal
 
 # Candle Schemas
 class CandleBase(BaseModel):
@@ -723,6 +724,8 @@ class EquityPoint(BaseModel):
     cash_balance: Optional[float] = None
     open_mtm: Optional[float] = None
 
+StrategyVariantType = Literal["CURRENT_BASELINE", "NY_ADAPTIVE", "NY_DAILY_PAPER_RESEARCH"]
+
 class ReplayRunRequest(BaseModel):
     run_name: str = "Backtest XAUUSDT"
     symbol: str = "XAUUSDT"
@@ -740,16 +743,53 @@ class ReplayRunRequest(BaseModel):
     speed_ms: int = 10
     seed: int = 42
     custom_candles_json: Optional[str] = None
-    mode: str = "HISTORICAL_MARKET"  # "HISTORICAL_MARKET", "SYNTHETIC_QA", "RECORDED_TICK"
-    warmup_days: int = 15
+    mode: Literal["HISTORICAL_MARKET", "SYNTHETIC_QA", "CUSTOM_DATASET", "RECORDED_TICK"] = "HISTORICAL_MARKET"
+    warmup_days: int = 50
     export_artifacts: bool = True
     resize_policy: str = "PRESERVE_OR_DOWNSIZE"
-    strategy_variant: str = "CURRENT_BASELINE"  # "CURRENT_BASELINE" (A), "NY_ADAPTIVE" (B), "NY_DAILY_PAPER_RESEARCH" (C)
+    strategy_variant: StrategyVariantType = "CURRENT_BASELINE"
     ny_quota_target: int = 1
     ny_deadline_hour: int = 14
     ny_deadline_minute: int = 30
-    quota_risk_pct: float = 0.10
-    quality_risk_pct: float = 0.25
+    quota_risk_pct: Optional[float] = None
+    quality_risk_pct: Optional[float] = None
+
+    @model_validator(mode="after")
+    def validate_and_normalize(self) -> "ReplayRunRequest":
+        if not math.isfinite(self.risk_pct) or self.risk_pct <= 0 or self.risk_pct > 100.0:
+            raise ValueError(f"Tỷ lệ rủi ro (risk_pct) phải là số dương hữu hạn <= 100, nhận: {self.risk_pct}")
+        if self.quality_risk_pct is None:
+            self.quality_risk_pct = self.risk_pct
+        elif not math.isfinite(self.quality_risk_pct) or self.quality_risk_pct <= 0 or self.quality_risk_pct > 100.0:
+            raise ValueError(f"Tỷ lệ rủi ro quality_risk_pct phải là số dương hữu hạn <= 100, nhận: {self.quality_risk_pct}")
+        
+        if self.quota_risk_pct is None:
+            self.quota_risk_pct = 0.10
+        elif not math.isfinite(self.quota_risk_pct) or self.quota_risk_pct <= 0 or self.quota_risk_pct > 100.0:
+            raise ValueError(f"Tỷ lệ rủi ro quota_risk_pct phải là số dương hữu hạn <= 100, nhận: {self.quota_risk_pct}")
+
+        if not math.isfinite(self.fee_rate) or self.fee_rate < 0 or self.fee_rate >= 1.0:
+            raise ValueError(f"Tỷ lệ phí (fee_rate) phải nằm trong khoảng [0, 1), nhận: {self.fee_rate}")
+
+        if self.leverage < 1 or self.leverage > 125:
+            raise ValueError(f"Đòn bẩy (leverage) phải nằm trong khoảng [1, 125], nhận: {self.leverage}")
+
+        if self.latency_ms < 0:
+            raise ValueError(f"Độ trễ (latency_ms) không được âm, nhận: {self.latency_ms}")
+
+        if self.ny_quota_target < 1:
+            raise ValueError(f"Mục tiêu NY quota target phải >= 1, nhận: {self.ny_quota_target}")
+
+        if not (0 <= self.ny_deadline_hour <= 23):
+            raise ValueError(f"Giờ deadline NY (ny_deadline_hour) phải từ 0 đến 23, nhận: {self.ny_deadline_hour}")
+
+        if not (0 <= self.ny_deadline_minute <= 59):
+            raise ValueError(f"Phút deadline NY (ny_deadline_minute) phải từ 0 đến 59, nhận: {self.ny_deadline_minute}")
+
+        if self.start_ts is not None and self.end_ts is not None and self.start_ts >= self.end_ts:
+            raise ValueError(f"Thời gian bắt đầu (start_ts={self.start_ts}) phải nhỏ hơn thời gian kết thúc (end_ts={self.end_ts})")
+
+        return self
 
 class ReplayRunResponse(BaseModel):
     id: str
@@ -796,11 +836,60 @@ class ReplayRunResponse(BaseModel):
     quality_net_pnl: float = 0.0
     quota_net_pnl: float = 0.0
     ny_fill_coverage_pct: float = 0.0
+    effective_config: Optional[Dict[str, Any]] = None
+    config_hash: Optional[str] = None
+    timeframe_metadata: Optional[Dict[str, Any]] = None
     model_config = ConfigDict(from_attributes=True)
+
+# Lab Job API Types
+JobStatus = Literal[
+    "QUEUED", "RUNNING", "VALIDATING", "EXPORTING",
+    "SUCCEEDED", "INCOMPLETE", "FAILED", "CANCELLING", "CANCELLED"
+]
+
+class JobCreateResponse(BaseModel):
+    job_id: str
+    status: JobStatus = "QUEUED"
+    message: str = "Tác vụ chạy Replay đã được đưa vào hàng đợi xử lý"
+    created_at: int
+    config_hash: str
+
+class JobStatusResponse(BaseModel):
+    job_id: str
+    status: JobStatus
+    progress_pct: float = 0.0
+    current_phase: str = "INITIALIZING"
+    completed_events: int = 0
+    total_events: int = 0
+    effective_config: Dict[str, Any] = Field(default_factory=dict)
+    quality_summary: Optional[Dict[str, Any]] = None
+    error_message: Optional[str] = None
+    created_at: int
+    updated_at: int
+
+class JobCancelResponse(BaseModel):
+    job_id: str
+    status: JobStatus
+    message: str
 
 class StressTestRequest(BaseModel):
     run_name: str = "Stress Test Matrix"
     symbol: str = "XAUUSDT"
+    strategy_variant: Optional[StrategyVariantType] = "CURRENT_BASELINE"
+    mode: Literal["HISTORICAL_MARKET", "SYNTHETIC_QA", "CUSTOM_DATASET", "RECORDED_TICK"] = "HISTORICAL_MARKET"
+    start_ts: Optional[int] = None
+    end_ts: Optional[int] = None
+    custom_dataset_dir: Optional[str] = None
+    initial_equity: float = Field(default=1000.0, gt=0.0)
+    risk_pct: float = Field(default=0.25, gt=0.0, le=5.0)
+    quality_risk_pct: Optional[float] = Field(default=None, gt=0.0, le=5.0)
+    quota_risk_pct: Optional[float] = Field(default=None, gt=0.0, le=5.0)
+    base_fee_rate: float = Field(default=0.0006, ge=0.0, lt=0.05)
+    base_maker_fee_rate: float = Field(default=0.0002, ge=0.0, lt=0.05)
+    base_spread_usd: float = Field(default=0.35, ge=0.0)
+    base_slippage_usd: float = Field(default=0.10, ge=0.0)
+    leverage: int = Field(default=30, ge=1, le=125)
+    warmup_days: int = Field(default=50, ge=1, le=180)
     spread_multipliers: List[float] = [1.0, 2.0, 3.0]
     slippage_multipliers: List[float] = [1.0, 2.0, 3.0]
     fee_multipliers: List[float] = [1.0, 2.0]

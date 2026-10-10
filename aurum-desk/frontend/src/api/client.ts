@@ -232,6 +232,35 @@ export interface ReplayRunRequest {
   ny_deadline_minute?: number;
   quota_risk_pct?: number;
   quality_risk_pct?: number;
+  warmup_days?: number;
+}
+
+export interface JobCreateResponse {
+  job_id: string;
+  status: string;
+  message: string;
+  created_at: number;
+  config_hash: string;
+}
+
+export interface JobStatusResponse {
+  job_id: string;
+  status: string;
+  progress_pct: number;
+  current_phase: string;
+  completed_events: number;
+  total_events: number;
+  effective_config: Record<string, any>;
+  quality_summary?: Record<string, any>;
+  error_message?: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface JobCancelResponse {
+  job_id: string;
+  status: string;
+  message: string;
 }
 
 export interface ReplayRunResponse {
@@ -272,6 +301,11 @@ export interface ReplayRunResponse {
   quota_net_pnl?: number;
   ny_fill_coverage_pct?: number;
   artifacts_dir?: string;
+  dataset_hash?: string;
+  dataset_type?: string;
+  execution_fidelity?: string;
+  cash_balance?: number;
+  open_mtm?: number;
 }
 
 export interface StressTestRequest {
@@ -475,6 +509,26 @@ export const api = {
 
   runLabReplay: async (request: ReplayRunRequest): Promise<ReplayRunResponse> => {
     const res = await apiClient.post('/api/v1/lab/replay/run', request, { timeout: 180000 });
+    return res.data;
+  },
+
+  createLabJob: async (request: ReplayRunRequest): Promise<JobCreateResponse> => {
+    const res = await apiClient.post('/api/v1/lab/jobs', request);
+    return res.data;
+  },
+
+  getLabJobStatus: async (jobId: string): Promise<JobStatusResponse> => {
+    const res = await apiClient.get(`/api/v1/lab/jobs/${jobId}`);
+    return res.data;
+  },
+
+  cancelLabJob: async (jobId: string): Promise<JobCancelResponse> => {
+    const res = await apiClient.post(`/api/v1/lab/jobs/${jobId}/cancel`);
+    return res.data;
+  },
+
+  getLabJobResult: async (jobId: string): Promise<ReplayRunResponse> => {
+    const res = await apiClient.get(`/api/v1/lab/jobs/${jobId}/result`);
     return res.data;
   },
 

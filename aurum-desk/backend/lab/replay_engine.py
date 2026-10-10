@@ -37,6 +37,8 @@ from lab.historical_market_data import (
     TIMEFRAME_CADENCE_MS
 )
 from lab.excel_export import V12ExcelExporter
+from lab.v12_2_manifest import build_v12_2_requirement_manifest
+from services.lesson_rule_service import LessonRuleService
 from lab.ny_strategy_variants import (
     NY_TZ,
     get_ny_datetime,
@@ -51,7 +53,7 @@ from lab.ny_strategy_variants import (
 
 logger = logging.getLogger(__name__)
 
-ARTIFACTS_BASE_DIR = os.path.join(os.path.dirname(__file__), "artifacts", "v12_1")
+ARTIFACTS_BASE_DIR = os.path.join(os.path.dirname(__file__), "artifacts", "v12_2")
 
 
 class ReplayContext:
@@ -333,11 +335,16 @@ class ReplayEngine:
         bundle_metadata = {}
 
         strategy_variant = getattr(request, "strategy_variant", "CURRENT_BASELINE") or "CURRENT_BASELINE"
-        ny_quota_target = getattr(request, "ny_quota_target", 1) or 1
+        ny_min_goal = getattr(request, "ny_min_goal", getattr(request, "ny_quota_target", 1)) or 1
+        ny_max_fills = getattr(request, "ny_max_fills", 3) or 3
+        ny_quota_target = ny_min_goal
         ny_deadline_hour = getattr(request, "ny_deadline_hour", 14) or 14
         ny_deadline_minute = getattr(request, "ny_deadline_minute", 30) or 30
         quota_risk_pct = getattr(request, "quota_risk_pct", 0.10) or 0.10
-        quality_risk_pct = getattr(request, "quality_risk_pct", request.risk_pct) or request.risk_pct
+        quality_risk_pct = getattr(request, "quality_risk_pct", None)
+        if quality_risk_pct is None:
+            quality_risk_pct = request.risk_pct
+        latency_ms = getattr(request, "latency_ms", 0) or 0
 
         candles_5m = []
 
@@ -479,8 +486,11 @@ class ReplayEngine:
         cash_balance = float(request.initial_equity)
         curr_equity = cash_balance
         peak_equity = cash_balance
+        daily_peak_equity = cash_balance
         max_drawdown_usdt = 0.0
         max_drawdown_pct = 0.0
+        frozen_pre_ny_ranges: Dict[str, Any] = {}
+        last_processed_bar: Optional[Dict[str, Any]] = None
 
         daily_fills = 0
         consecutive_losses = 0
@@ -592,11 +602,17 @@ class ReplayEngine:
             "09_TRADE_CLOSED": 0
         }
 
+        base_slip = getattr(request, "slippage_usd", 0.10) if getattr(request, "slippage_usd", None) is not None else 0.10
+        base_spread = getattr(request, "spread_usd", 0.35) if getattr(request, "spread_usd", None) is not None else 0.35
+        base_maker = getattr(request, "maker_fee_rate", 0.0002) if getattr(request, "maker_fee_rate", None) is not None else 0.0002
+        latency_drift = round((request.latency_ms / 1000.0) * 0.05, 4) if getattr(request, "latency_ms", 0) > 0 else 0.0
+
         costs = CostAssumptions(
             taker_fee_rate=request.fee_rate,
-            slippage_usd=0.10 * request.slippage_multiplier
+            maker_fee_rate=base_maker,
+            slippage_usd=(base_slip * request.slippage_multiplier) + latency_drift
         )
-        spread_usd = 0.20 * request.spread_multiplier
+        spread_usd = round(base_spread * request.spread_multiplier, 4)
 
         # Record starting equity
         equity_curve.append(schemas.EquityPoint(
@@ -610,12 +626,7 @@ class ReplayEngine:
         ))
 
         # 4. Bar-by-bar progression (Zero Lookahead)
-        start_idx = 25
-        for idx, c in enumerate(candles_15m):
-            if c["timestamp"] >= start_eval_ts and idx >= 25:
-                start_idx = idx
-                break
-
+        use_5m_driver = bool(candles_5m) and strategy_variant in ("NY_ADAPTIVE", "NY_DAILY_PAPER_RESEARCH")
         all_proxies = [CandleProxy(c, "15M") for c in candles_15m]
         proxies_1h = [CandleProxy(c, "1H") for c in candles_1h]
         proxies_4h = [CandleProxy(c, "4H") for c in candles_4h]
@@ -623,15 +634,33 @@ class ReplayEngine:
         ptr_1d = 0
         ptr_4h = 0
         ptr_1h = 0
+        ptr_15m = 0
         ptr_5m = 0
         d_4h_bias = "UNKNOWN"
         h1_align = "UNKNOWN"
 
+        if use_5m_driver:
+            driver_candles = candles_5m
+            driver_cadence_ms = 5 * 60 * 1000
+            start_idx = 0
+            for idx, c in enumerate(candles_5m):
+                if c["timestamp"] >= start_eval_ts and idx >= 50:
+                    start_idx = idx
+                    break
+        else:
+            driver_candles = candles_15m
+            driver_cadence_ms = 15 * 60 * 1000
+            start_idx = 25
+            for idx, c in enumerate(candles_15m):
+                if c["timestamp"] >= start_eval_ts and idx >= 25:
+                    start_idx = idx
+                    break
+
         # Process each bar from start_idx up to end_eval_ts
-        for i in range(start_idx, len(candles_15m)):
-            curr_bar = candles_15m[i]
-            bar_open_ts = curr_bar["timestamp"]
-            bar_close_ts = curr_bar.get("close_time", bar_open_ts + (15 * 60 * 1000))
+        for i in range(start_idx, len(driver_candles)):
+            curr_driver_bar = driver_candles[i]
+            bar_open_ts = curr_driver_bar["timestamp"]
+            bar_close_ts = curr_driver_bar.get("close_time", bar_open_ts + driver_cadence_ms)
 
             # Strictly no processing candles that close after cutoff (Zero Lookahead)
             if bar_close_ts > end_eval_ts:
@@ -647,11 +676,24 @@ class ReplayEngine:
             dt_ny = get_ny_datetime(sim_time)
             session_ny_date = dt_ny.strftime("%Y-%m-%d")
 
-            # Advance 5M pointer causally
-            while ptr_5m < len(candles_5m) and (candles_5m[ptr_5m]["timestamp"] + (5 * 60 * 1000)) <= sim_time:
-                ptr_5m += 1
-            recent_bars_5m = candles_5m[max(0, ptr_5m - 60): ptr_5m] if candles_5m else []
-            curr_bar_5m = candles_5m[ptr_5m - 1] if (ptr_5m > 0 and candles_5m) else None
+            if use_5m_driver:
+                curr_bar_5m = curr_driver_bar
+                recent_bars_5m = candles_5m[max(0, i - 59): i + 1]
+                while ptr_15m < len(candles_15m) and candles_15m[ptr_15m].get("close_time", candles_15m[ptr_15m]["timestamp"] + 15 * 60 * 1000) <= sim_time:
+                    ptr_15m += 1
+                curr_bar = candles_15m[ptr_15m - 1] if ptr_15m > 0 else candles_15m[0]
+                idx_15m = max(0, ptr_15m - 1)
+                is_15m_close = (ptr_15m > 0 and candles_15m[ptr_15m - 1].get("close_time", candles_15m[ptr_15m - 1]["timestamp"] + 15 * 60 * 1000) == sim_time)
+                eval_bar = curr_bar_5m
+            else:
+                curr_bar = curr_driver_bar
+                idx_15m = i
+                is_15m_close = True
+                eval_bar = curr_bar
+                while ptr_5m < len(candles_5m) and (candles_5m[ptr_5m]["timestamp"] + (5 * 60 * 1000)) <= sim_time:
+                    ptr_5m += 1
+                recent_bars_5m = candles_5m[max(0, ptr_5m - 60): ptr_5m] if candles_5m else []
+                curr_bar_5m = candles_5m[ptr_5m - 1] if (ptr_5m > 0 and candles_5m) else None
 
             # Session attribution
             h = dt.hour
@@ -676,6 +718,7 @@ class ReplayEngine:
                 consecutive_losses = 0  # Mirrors live policy daily reset!
                 today_realized_pnl = 0.0
                 daily_loss_budget = cash_balance * 0.015
+                daily_peak_equity = curr_equity
 
                 # Sync isolated DB DayAudit directly
                 day_audit = crud.get_or_create_today_audit(db, date_str=bar_date_str, clock=clock)
@@ -689,15 +732,15 @@ class ReplayEngine:
 
                 if current_date_str in daily_stats_map:
                     daily_stats_map[current_date_str]["opening_cash"] = cash_balance
-                    daily_stats_map[current_date_str]["opening_equity"] = cash_balance
+                    daily_stats_map[current_date_str]["opening_equity"] = curr_equity
             else:
                 day_audit = crud.get_or_create_today_audit(db, date_str=bar_date_str, clock=clock)
 
-            # 4.1. Evaluate Active Position Exit against current bar
+            # 4.1. Evaluate Active Position Exit against eval_bar
             if active_trade:
-                high_p = curr_bar["high"]
-                low_p = curr_bar["low"]
-                open_p = curr_bar["open"]
+                high_p = eval_bar["high"]
+                low_p = eval_bar["low"]
+                open_p = eval_bar["open"]
                 dir_t = active_trade["direction"]
                 sl = active_trade["stop_loss"]
                 tp = active_trade["take_profit"]
@@ -749,9 +792,8 @@ class ReplayEngine:
                     mult = 1.0 if dir_t == "LONG" else -1.0
                     gross_pnl = (exit_price - entry_p) * qty * mult
 
-                    entry_fee = active_trade.get("entry_fee", entry_p * qty * request.fee_rate)
-                    # Maker fee for TP limit if hit cleanly, taker fee for SL / ambiguous
-                    exit_fee_rate = 0.0002 if (exit_cause == "TP_HIT" and not is_ambiguous) else request.fee_rate
+                    entry_fee = active_trade.get("entry_fee", entry_p * qty * costs.taker_fee_rate)
+                    exit_fee_rate = costs.maker_fee_rate if (costs.tp_is_maker and exit_cause == "TP_HIT" and not is_ambiguous) else costs.taker_fee_rate
                     exit_fee = exit_price * qty * exit_fee_rate
                     exit_slip = qty * costs.slippage_usd if exit_cause != "TP_HIT" else 0.0
 
@@ -889,7 +931,7 @@ class ReplayEngine:
                         daily_stats_map[current_date_str]["rejection_count"] += 1
                 else:
                     # Multi-timeframe synthesis with zero lookahead:
-                    ltf_slice = all_proxies[max(0, i - 149): i + 1]
+                    ltf_slice = all_proxies[max(0, idx_15m - 149): idx_15m + 1]
 
                     # Real HTF bias from closed 4H/1D candles using pointer
                     htf_changed = False
@@ -939,24 +981,34 @@ class ReplayEngine:
                         else:
                             h1_align = "NEUTRAL" if h1_trend != "UNKNOWN" else "UNKNOWN"
 
-                    # Evaluate real SMC engine setup with DayAudit passed
-                    analysis = smc_engine.evaluate_smc_setup(
-                        candles=ltf_slice,
-                        symbol=request.symbol,
-                        timeframe=request.timeframe,
-                        ticker_data={"bid": curr_bar["close"], "ask": curr_bar["close"], "last": curr_bar["close"]},
-                        day_audit=day_audit,
-                        is_news_blackout=False,
-                        htf_bias=d_4h_bias,
-                        h1_alignment=h1_align,
-                        leverage=request.leverage,
-                        margin_mode=request.margin_mode,
-                        risk_pct=request.risk_pct,
-                        now_ms=sim_time
-                    )
+                    if d_4h_bias in ("BULLISH", "BEARISH"):
+                        funnel_counts["02_HTF_CONTEXT_CONFIRMED"] += 1
+                    if h1_align in ("ALIGNED", "NEUTRAL", "OPPOSING"):
+                        funnel_counts["03_H1_ALIGNMENT_CHECKED"] += 1
 
-                    setup_stage = analysis.get("setup_stage", "WATCHING")
-                    sig = analysis.get("active_signal")
+                    # 4.2.0. Baseline SMC execution (Only evaluated on 15M close boundaries)
+                    setup_stage = "WATCHING"
+                    sig = None
+                    if strategy_variant == "CURRENT_BASELINE" and is_15m_close:
+                        analysis = smc_engine.evaluate_smc_setup(
+                            candles=ltf_slice,
+                            symbol=request.symbol,
+                            timeframe=request.timeframe,
+                            ticker_data={"bid": curr_bar["close"], "ask": curr_bar["close"], "last": curr_bar["close"]},
+                            day_audit=day_audit,
+                            is_news_blackout=False,
+                            htf_bias=d_4h_bias,
+                            h1_alignment=h1_align,
+                            leverage=request.leverage,
+                            margin_mode=request.margin_mode,
+                            risk_pct=request.risk_pct,
+                            now_ms=sim_time
+                        )
+
+                        setup_stage = analysis.get("setup_stage", "WATCHING")
+                        sig = analysis.get("active_signal")
+                        if setup_stage in ("WATCHING", "READY"):
+                            funnel_counts["04_SMC_PATTERN_WATCHING"] += 1
 
                     if setup_stage == "READY" and sig:
                         signals_count += 1
@@ -1039,7 +1091,7 @@ class ReplayEngine:
                             else:
                                 # OPEN POSITION!
                                 trade_id = f"trade-{run_id}-{i}"
-                                entry_fee = round(fill_p * calc.quantity * request.fee_rate, 4)
+                                entry_fee = round(fill_p * calc.quantity * costs.taker_fee_rate, 4)
                                 # Deduct entry fee from cash ledger on open
                                 cash_balance = round(cash_balance - entry_fee, 2)
 
@@ -1132,7 +1184,7 @@ class ReplayEngine:
                         ny_quota_rec = ny_quota_ledger.get(session_ny_date)
                         in_ny_window = is_ny_session_window(dt_ny)
 
-                        if in_ny_window and ny_quota_rec and ny_quota_rec.get("filled_count", 0) < ny_quota_target and daily_fills < 3:
+                        if in_ny_window and ny_quota_rec and ny_quota_rec.get("filled_count", 0) < ny_max_fills and daily_fills < 3:
                             ny_quota_rec["attempts_count"] += 1
 
                             # Setup B1: NY_TREND_CONTINUATION
@@ -1170,7 +1222,7 @@ class ReplayEngine:
 
                             # Setup B2: NY_RANGE_BREAK_RETEST (if B1 did not trigger)
                             if not chosen_setup and curr_bar_5m:
-                                pre_range = compute_pre_ny_range(candles_15m[:i+1], session_ny_date)
+                                pre_range = compute_pre_ny_range(candles_15m[:idx_15m+1], session_ny_date, frozen_cache=frozen_pre_ny_ranges, sim_time=sim_time)
                                 b2_setup, b2_err = evaluate_setup_b2_range_break_retest(
                                     curr_bar_5m=curr_bar_5m,
                                     recent_bars_5m=recent_bars_5m,
@@ -1206,7 +1258,7 @@ class ReplayEngine:
                                 funnel_counts["08_ORDER_FILLED"] += 1
 
                                 trade_id = f"trade-{run_id}-{i}"
-                                entry_fee = round(chosen_setup["entry_price"] * c_calc.quantity * request.fee_rate, 4)
+                                entry_fee = round(chosen_setup["entry_price"] * c_calc.quantity * costs.taker_fee_rate, 4)
                                 cash_balance = round(cash_balance - entry_fee, 2)
                                 daily_fills += 1
                                 if day_audit:
@@ -1274,7 +1326,7 @@ class ReplayEngine:
                         session_ny_date = dt_ny.strftime("%Y-%m-%d")
                         ny_quota_rec = ny_quota_ledger.get(session_ny_date)
 
-                        if ny_quota_rec and ny_quota_rec["is_eligible"] and ny_quota_rec.get("filled_count", 0) == 0:
+                        if ny_quota_rec and ny_quota_rec["is_eligible"] and ny_quota_rec.get("filled_count", 0) < ny_min_goal and daily_fills < 3:
                             if is_ny_deadline_reached(dt_ny, ny_deadline_hour, ny_deadline_minute):
                                 # Check hard guards first!
                                 if consecutive_losses >= 2:
@@ -1299,7 +1351,9 @@ class ReplayEngine:
                                         margin_mode=request.margin_mode,
                                         costs=costs,
                                         spread_usd=spread_usd,
-                                        min_net_rr=2.0
+                                        min_net_rr=2.0,
+                                        deadline_hour=ny_deadline_hour,
+                                        deadline_min=ny_deadline_minute
                                     )
                                     if c_candidate:
                                         ny_quota_rec["ready_count"] += 1
@@ -1315,7 +1369,7 @@ class ReplayEngine:
                                             funnel_counts["08_ORDER_FILLED"] += 1
 
                                             trade_id = f"trade-{run_id}-{i}"
-                                            entry_fee = round(c_candidate["entry_price"] * c_calc.quantity * request.fee_rate, 4)
+                                            entry_fee = round(c_candidate["entry_price"] * c_calc.quantity * costs.taker_fee_rate, 4)
                                             cash_balance = round(cash_balance - entry_fee, 2)
                                             daily_fills += 1
                                             if day_audit:
@@ -1385,14 +1439,20 @@ class ReplayEngine:
             # 4.3. Mark-to-Market Equity & Drawdown tracking on EVERY bar
             if active_trade:
                 dir_mult = 1.0 if active_trade["direction"] == "LONG" else -1.0
-                curr_close = curr_bar["close"]
+                curr_close = eval_bar["close"]
                 gross_mtm = (curr_close - active_trade["entry_price"]) * active_trade["quantity"] * dir_mult
-                est_exit_fee = curr_close * active_trade["quantity"] * request.fee_rate
+                est_exit_fee = curr_close * active_trade["quantity"] * costs.taker_fee_rate
                 open_mtm = round(gross_mtm - est_exit_fee, 2)
                 curr_equity = round(cash_balance + open_mtm, 2)
             else:
                 open_mtm = 0.0
                 curr_equity = cash_balance
+
+            daily_peak_equity = max(daily_peak_equity, curr_equity)
+            daily_dd_usdt = round(daily_peak_equity - curr_equity, 2)
+            if current_date_str in daily_stats_map:
+                if daily_dd_usdt > daily_stats_map[current_date_str]["max_intraday_dd"]:
+                    daily_stats_map[current_date_str]["max_intraday_dd"] = daily_dd_usdt
 
             if curr_equity > peak_equity:
                 peak_equity = curr_equity
@@ -1402,10 +1462,6 @@ class ReplayEngine:
                 max_drawdown_usdt = dd_usdt
             if dd_pct > max_drawdown_pct:
                 max_drawdown_pct = dd_pct
-
-            if current_date_str in daily_stats_map:
-                if dd_usdt > daily_stats_map[current_date_str]["max_intraday_dd"]:
-                    daily_stats_map[current_date_str]["max_intraday_dd"] = dd_usdt
 
             equity_curve.append(schemas.EquityPoint(
                 timestamp=sim_time,
@@ -1417,15 +1473,17 @@ class ReplayEngine:
                 open_mtm=open_mtm
             ))
 
+            last_processed_bar = eval_bar
+
         # 5. Handle remaining open trade at end of replay (Mark-to-Market, never fake close!)
         open_mtm_final = 0.0
         if active_trade:
-            last_bar = candles_15m[-1]
-            last_p = last_bar["close"]
+            last_bar = last_processed_bar if last_processed_bar else (candles_15m[-1] if candles_15m else None)
+            last_p = last_bar["close"] if last_bar else 0.0
             dir_t = active_trade["direction"]
             mult = 1.0 if dir_t == "LONG" else -1.0
             gross_open = (last_p - active_trade["entry_price"]) * active_trade["quantity"] * mult
-            est_exit_fee = last_p * active_trade["quantity"] * request.fee_rate
+            est_exit_fee = last_p * active_trade["quantity"] * costs.taker_fee_rate
             open_mtm_final = round(gross_open - est_exit_fee, 2)
 
             open_trade_item = schemas.ReplayTradeItem(
@@ -1744,7 +1802,7 @@ class ReplayEngine:
             dataset_hash=dataset_hash,
             artifacts_dir=artifacts_dir,
             dataset_type=mode,
-            execution_fidelity="ESTIMATED_EXECUTION",
+            execution_fidelity="ESTIMATED_EXECUTION_WITH_LATENCY" if getattr(request, "latency_ms", 0) > 0 else "ESTIMATED_EXECUTION",
             strategy_variant=strategy_variant,
             ny_quota_stats=list(ny_quota_ledger.values()),
             funnel_stats=funnel_rows,
@@ -1752,7 +1810,8 @@ class ReplayEngine:
             quota_trades_count=len(quota_trades),
             quality_net_pnl=quality_net_pnl,
             quota_net_pnl=quota_net_pnl,
-            ny_fill_coverage_pct=ny_fill_coverage_pct
+            ny_fill_coverage_pct=ny_fill_coverage_pct,
+            timeframe_metadata=bundle_metadata
         )
 
     @classmethod
@@ -1895,7 +1954,7 @@ class ReplayEngine:
                 writer.writerow([rk, cnt])
 
         # 7. Quality metadata formatting (Strictly dynamic from bundle_metadata)
-        tf_meta = bundle_metadata.get("timeframe_metadata", {})
+        tf_meta = bundle_metadata.get("timeframe_metadata", bundle_metadata) if isinstance(bundle_metadata.get("timeframe_metadata"), dict) else bundle_metadata
         quality_rows = []
         for tf_name in ["1D", "4H", "1H", "15M", "5M", "1M"]:
             meta = tf_meta.get(tf_name, {})
@@ -1913,7 +1972,25 @@ class ReplayEngine:
             req_s_vn = manifest["warmup_str_vn"] if tf_name in ["1D", "4H", "1H"] else manifest["start_str_vn"]
             req_e_vn = manifest["cutoff_str_vn"]
 
-            if status == "NOT_USED":
+            if status == "MISSING":
+                quality_rows.append({
+                    "timeframe": tf_name,
+                    "role": role,
+                    "req_start": req_s_vn,
+                    "req_end": req_e_vn,
+                    "act_start": "MISSING",
+                    "act_end": "MISSING",
+                    "warmup_count": 0,
+                    "eval_count": 0,
+                    "total_count": 0,
+                    "gaps_count": 0,
+                    "quarantined_count": 0,
+                    "source_api": "Bitget Classic USDT-FUTURES",
+                    "sha256": "N/A",
+                    "status": "MISSING",
+                    "notes": f"Required timeframe {tf_name} missing from bundle"
+                })
+            elif status == "NOT_USED":
                 quality_rows.append({
                     "timeframe": tf_name,
                     "role": role,
@@ -2026,7 +2103,7 @@ class ReplayEngine:
             factors=factors,
             blocked_signals=blocked_signals,
             quality_metadata=quality_rows,
-            test_matrix=build_v12_1_test_matrix(),
+            test_matrix=build_v12_2_requirement_manifest(),
             ny_quota_rows=ny_quota_rows or [],
             funnel_stats=funnel_stats or []
         )

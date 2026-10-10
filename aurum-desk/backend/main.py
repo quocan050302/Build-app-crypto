@@ -31,6 +31,7 @@ from services.eligibility_service import evaluate_setup_eligibility
 from lab.scenario_runner import ScenarioRunner
 from lab.replay_engine import ReplayEngine
 from lab.stress_tester import StressTester
+from lab.job_manager import ReplayJobManager
 
 # Ensure all tables exist
 models.Base.metadata.create_all(bind=engine)
@@ -1988,6 +1989,75 @@ def run_lab_replay(request: schemas.ReplayRunRequest):
 def run_lab_stress(request: schemas.StressTestRequest):
     """Run parametric stress test matrix varying spread, slippage, fees, and latency."""
     return StressTester.run_stress_test(request)
+
+
+# ==================== V12.2 LAB ASYNC JOB ENDPOINTS ====================
+
+@app.post("/api/v1/lab/jobs", response_model=schemas.JobCreateResponse, status_code=202)
+def create_lab_job(request: schemas.ReplayRunRequest):
+    """
+    Submits a replay backtest job to the bounded background worker.
+    Returns 202 Accepted with job_id and initial configuration hash.
+    """
+    job_mgr = ReplayJobManager.get_instance()
+    return job_mgr.submit_job(request)
+
+
+@app.get("/api/v1/lab/jobs/{job_id}", response_model=schemas.JobStatusResponse)
+def get_lab_job_status(job_id: str):
+    """
+    Polls the current status, progress, and effective config of a submitted replay job.
+    """
+    job_mgr = ReplayJobManager.get_instance()
+    status = job_mgr.get_job_status(job_id)
+    if not status:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy tác vụ với job_id: {job_id}")
+    return status
+
+
+@app.post("/api/v1/lab/jobs/{job_id}/cancel", response_model=schemas.JobCancelResponse)
+def cancel_lab_job(job_id: str):
+    """
+    Cancels an active or queued replay job.
+    """
+    job_mgr = ReplayJobManager.get_instance()
+    res = job_mgr.cancel_job(job_id)
+    if not res:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy tác vụ với job_id: {job_id}")
+    return res
+
+
+@app.get("/api/v1/lab/jobs/{job_id}/result", response_model=schemas.ReplayRunResponse)
+def get_lab_job_result(job_id: str):
+    """
+    Retrieves the final ReplayRunResponse for a completed job.
+    """
+    job_mgr = ReplayJobManager.get_instance()
+    status = job_mgr.get_job_status(job_id)
+    if not status:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy tác vụ với job_id: {job_id}")
+    if status.status != "SUCCEEDED":
+        raise HTTPException(status_code=400, detail=f"Tác vụ chưa hoàn tất thành công (trạng thái hiện tại: {status.status})")
+    res = job_mgr.get_job_result(job_id)
+    if not res:
+        raise HTTPException(status_code=404, detail="Kết quả tác vụ không khả dụng")
+    return res
+
+
+@app.get("/api/v1/lab/jobs/{job_id}/artifacts/{artifact_id}")
+def download_lab_job_artifact(job_id: str, artifact_id: str):
+    """
+    Securely downloads an export artifact from a completed replay job with path traversal protection.
+    """
+    from fastapi.responses import FileResponse
+    job_mgr = ReplayJobManager.get_instance()
+    try:
+        file_path = job_mgr.resolve_artifact_path(job_id, artifact_id)
+        return FileResponse(path=file_path, filename=artifact_id)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except (PermissionError, ValueError) as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
 
 # ==================== 10. MAINTENANCE & OFFLINE RECOVERY ENDPOINTS ====================

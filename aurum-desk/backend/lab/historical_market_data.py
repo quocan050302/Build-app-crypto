@@ -402,10 +402,13 @@ class HistoricalMarketDataProvider:
                     gaps += 1
 
             tf_hash = tf_hasher.hexdigest()
-            w_cnt = sum(1 for c in tf_candles if c["timestamp"] < start_ms)
-            e_cnt = sum(1 for c in tf_candles if start_ms <= c["timestamp"] <= end_ms)
+            w_cnt = sum(1 for c in tf_candles if c.get("close_time", c["timestamp"] + cadence) <= start_ms)
+            e_cnt = sum(1 for c in tf_candles if start_ms < c.get("close_time", c["timestamp"] + cadence) <= end_ms)
             act_s = tf_candles[0]["timestamp"] if tf_candles else start_ms
-            act_e = tf_candles[-1]["timestamp"] if tf_candles else end_ms
+            act_e = tf_candles[-1].get("close_time", tf_candles[-1]["timestamp"] + cadence) if tf_candles else end_ms
+
+            coverage = "COMPLETE" if (tf_candles and act_s <= start_ms + (2 * cadence) and act_e >= end_ms - (2 * cadence)) else ("PARTIAL" if tf_candles else "MISSING")
+            validation_outcome = "VALIDATED" if tf_candles else "FAILED"
 
             timeframe_metadata[tf_name] = {
                 "status": "USED",
@@ -418,14 +421,17 @@ class HistoricalMarketDataProvider:
                 "act_end_ms": act_e,
                 "gaps_count": gaps,
                 "quarantined_count": 0,
+                "validation_outcome": validation_outcome,
+                "coverage": coverage,
                 "sha256": tf_hash
             }
 
-        # Mark unused frames
+        # Mark unused or missing frames
         if "5M" not in timeframe_metadata:
+            is_req = bool(include_5m)
             timeframe_metadata["5M"] = {
-                "status": "NOT_USED",
-                "role": "NOT_USED_IN_ENTRY_DECISION",
+                "status": "MISSING" if is_req else "NOT_USED",
+                "role": "EXECUTION_REFINEMENT_AND_TRIGGER" if is_req else "NOT_USED_IN_ENTRY_DECISION",
                 "count": 0,
                 "warmup_count": 0,
                 "eval_count": 0,
@@ -434,6 +440,8 @@ class HistoricalMarketDataProvider:
                 "act_end_ms": 0,
                 "gaps_count": 0,
                 "quarantined_count": 0,
+                "validation_outcome": "FAILED" if is_req else "SKIPPED",
+                "coverage": "MISSING" if is_req else "NOT_REQUESTED",
                 "sha256": "N/A"
             }
         timeframe_metadata["1M"] = {
@@ -447,6 +455,8 @@ class HistoricalMarketDataProvider:
             "act_end_ms": 0,
             "gaps_count": 0,
             "quarantined_count": 0,
+            "validation_outcome": "SKIPPED",
+            "coverage": "NOT_REQUESTED",
             "sha256": "N/A"
         }
 

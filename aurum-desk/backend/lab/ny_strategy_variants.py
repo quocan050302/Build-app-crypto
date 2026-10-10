@@ -114,33 +114,65 @@ def is_ny_deadline_reached(dt_ny: datetime, deadline_hour: int = 14, deadline_mi
     return (deadline <= t <= NY_AFTERNOON_END)
 
 
-def compute_pre_ny_range(candles_15m: List[Dict[str, Any]], session_ny_date: str) -> Optional[Dict[str, Any]]:
+def compute_pre_ny_range(
+    candles_15m: List[Dict[str, Any]],
+    session_ny_date: str,
+    frozen_cache: Optional[Dict[str, Any]] = None,
+    sim_time: Optional[int] = None
+) -> Optional[Dict[str, Any]]:
     """
-    Computes pre-NY high/low range using only closed 15M candles strictly within 00:00 to 08:25 NY time.
+    Computes pre-NY high/low range using only closed candles strictly within 00:00 to 08:25 NY time.
+    Strictly excludes any candle closing after 08:25 NY time (e.g. 08:15 15M bar closing at 08:30 is excluded).
+    Freezes the computed range once 08:25 passes so it never drifts from rolling window truncation.
     """
+    if frozen_cache is not None and session_ny_date in frozen_cache:
+        return frozen_cache[session_ny_date]
+
     range_candles = []
-    search_slice = candles_15m[-60:] if len(candles_15m) > 60 else candles_15m
-    for c in search_slice:
-        c_dt = get_ny_datetime(c["timestamp"])
-        if c_dt.strftime("%Y-%m-%d") == session_ny_date and is_pre_ny_window(c_dt):
+    for c in candles_15m:
+        ts = int(c["timestamp"])
+        close_ts = int(c.get("close_time", ts + 15 * 60 * 1000))
+        open_dt = get_ny_datetime(ts)
+        close_dt = get_ny_datetime(close_ts)
+
+        # Candle must belong to session_ny_date, open >= 00:00, and close <= 08:25:00 NY time
+        if (
+            open_dt.strftime("%Y-%m-%d") == session_ny_date
+            and open_dt.time() >= PRE_NY_START
+            and close_dt.time() <= PRE_NY_END
+        ):
             range_candles.append(c)
 
-    if len(range_candles) < 8:  # At least 2 hours of data
+    if len(range_candles) < 2:  # At least 30 minutes of data
         return None
 
-    range_high = max(c["high"] for c in range_candles)
-    range_low = min(c["low"] for c in range_candles)
+    range_high = max(float(c["high"]) for c in range_candles)
+    range_low = min(float(c["low"]) for c in range_candles)
     range_size = round(range_high - range_low, 2)
+    start_ms = int(range_candles[0]["timestamp"])
+    last_c = range_candles[-1]
+    end_ms = int(last_c.get("close_time", int(last_c["timestamp"]) + 15 * 60 * 1000))
 
-    return {
+    result = {
         "session_ny_date": session_ny_date,
         "range_high": range_high,
         "range_low": range_low,
         "range_size": range_size,
-        "start_ms": range_candles[0]["timestamp"],
-        "end_ms": range_candles[-1]["timestamp"] + (15 * 60 * 1000),
-        "candle_count": len(range_candles)
+        "start_ms": start_ms,
+        "end_ms": end_ms,
+        "actual_end_time_ny": get_ny_datetime(end_ms).strftime("%H:%M:%S"),
+        "candle_count": len(range_candles),
+        "is_frozen": True
     }
+
+    if frozen_cache is not None:
+        if sim_time is not None:
+            if get_ny_datetime(sim_time).time() >= PRE_NY_END:
+                frozen_cache[session_ny_date] = result
+        else:
+            frozen_cache[session_ny_date] = result
+
+    return result
 
 
 def evaluate_setup_b1_trend_continuation(
@@ -330,13 +362,17 @@ def evaluate_setup_b2_range_break_retest(
     margin_mode: str,
     costs: CostAssumptions,
     spread_usd: float,
-    min_net_rr: float = 2.0
+    min_net_rr: float = 2.0,
+    state_tracker: Optional[Dict[str, Any]] = None
 ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     """
     Setup B2: NY_RANGE_BREAK_RETEST
     - Pre-NY range (00:00 - 08:25 NY).
     - Bar closes breaking range in direction supported by H1 trend.
-    - Confirmed retest at broken boundary holding structure.
+    - Confirmed retest at broken boundary holding structure strictly AFTER breakout bar.
+    - Chronology: breakout_at < retest_at <= trigger_at.
+    - Disallows breakout and retest from the same bar.
+    - Target model: explicit TARGET_MODEL_RANGE_EXTENSION.
     - Net RR >= 2.0.
     """
     dt_ny = get_ny_datetime(sim_time)
@@ -349,9 +385,9 @@ def evaluate_setup_b2_range_break_retest(
     if not pre_ny_range:
         return None, "NO_PRE_NY_RANGE"
 
-    range_high = pre_ny_range["range_high"]
-    range_low = pre_ny_range["range_low"]
-    range_size = pre_ny_range["range_size"]
+    range_high = pre_ny_range.get("range_high", pre_ny_range.get("high"))
+    range_low = pre_ny_range.get("range_low", pre_ny_range.get("low"))
+    range_size = pre_ny_range.get("range_size", round(range_high - range_low, 2) if (range_high and range_low) else 0.0)
 
     if range_size < 3.0 or range_size > 35.0:
         return None, f"PRE_NY_RANGE_SIZE_INVALID: {range_size:.2f} USD"
@@ -376,35 +412,82 @@ def evaluate_setup_b2_range_break_retest(
 
     atr = compute_atr_bars(recent_bars_5m, 14)
 
+    # State Machine chronology:
     if direction == "LONG":
-        # 1. Breakout: at least one bar closed above range_high
-        breakout_bars = [b for b in ny_bars if b["close"] > range_high]
-        if not breakout_bars:
+        breakout_bar = None
+        for b in ny_bars:
+            if b["close"] > range_high:
+                breakout_bar = b
+                break
+
+        if not breakout_bar:
             return None, "B2_NO_BREAKOUT_ABOVE_RANGE_HIGH"
 
-        # 2. Retest: current or previous bar low touched near range_high (+- 0.6 ATR)
-        # and current close holds above range_high - 0.2 ATR
-        tested_level = any(abs(b["low"] - range_high) <= (0.6 * atr) for b in ny_bars[-4:])
-        holds_level = (curr_close >= range_high - (0.2 * atr)) and (curr_bar_5m["close"] > curr_bar_5m["open"])
+        breakout_bar_ts = breakout_bar["timestamp"]
+        breakout_at = breakout_bar.close_time
 
-        if not (tested_level and holds_level):
-            return None, "B2_NO_CONFIRMED_RETEST_HOLD"
+        # Retest bars must be strictly AFTER breakout bar (same bar cannot be both breakout and retest)
+        subsequent_bars = [b for b in ny_bars if b["timestamp"] > breakout_bar_ts]
+        if not subsequent_bars:
+            return None, "B2_WAITING_FOR_RETEST"
+
+        retest_bar = None
+        for b in subsequent_bars:
+            if abs(b["low"] - range_high) <= (0.6 * atr) and b["close"] >= range_high - (0.2 * atr):
+                retest_bar = b
+                break
+
+        if not retest_bar:
+            return None, "B2_NO_CONFIRMED_RETEST"
+
+        retest_at = retest_bar.close_time
+
+        # Trigger confirmation on current bar: holds boundary with bullish close
+        holds_level = (curr_close >= range_high - (0.2 * atr)) and (curr_bar_5m["close"] > curr_bar_5m["open"])
+        if not holds_level:
+            return None, "B2_NO_CONFIRMED_HOLD_TRIGGER"
+
+        if not (breakout_bar_ts < retest_bar["timestamp"]):
+            return None, "B2_INVALID_CHRONOLOGY"
 
         invalidation_level = round(range_high - max(0.5 * atr, 1.0), 2)
-        # Target: range_high + range_size (1.0 extension)
         target_level = round(range_high + max(range_size, 1.5 * atr), 2)
         fill_entry = round(curr_close + (0.5 * spread_usd) + costs.slippage_usd, 2)
 
     else:  # SHORT
-        breakout_bars = [b for b in ny_bars if b["close"] < range_low]
-        if not breakout_bars:
+        breakout_bar = None
+        for b in ny_bars:
+            if b["close"] < range_low:
+                breakout_bar = b
+                break
+
+        if not breakout_bar:
             return None, "B2_NO_BREAKOUT_BELOW_RANGE_LOW"
 
-        tested_level = any(abs(b["high"] - range_low) <= (0.6 * atr) for b in ny_bars[-4:])
-        holds_level = (curr_close <= range_low + (0.2 * atr)) and (curr_bar_5m["close"] < curr_bar_5m["open"])
+        breakout_bar_ts = breakout_bar["timestamp"]
+        breakout_at = breakout_bar.close_time
 
-        if not (tested_level and holds_level):
-            return None, "B2_NO_CONFIRMED_RETEST_HOLD"
+        subsequent_bars = [b for b in ny_bars if b["timestamp"] > breakout_bar_ts]
+        if not subsequent_bars:
+            return None, "B2_WAITING_FOR_RETEST"
+
+        retest_bar = None
+        for b in subsequent_bars:
+            if abs(b["high"] - range_low) <= (0.6 * atr) and b["close"] <= range_low + (0.2 * atr):
+                retest_bar = b
+                break
+
+        if not retest_bar:
+            return None, "B2_NO_CONFIRMED_RETEST"
+
+        retest_at = retest_bar.close_time
+
+        holds_level = (curr_close <= range_low + (0.2 * atr)) and (curr_bar_5m["close"] < curr_bar_5m["open"])
+        if not holds_level:
+            return None, "B2_NO_CONFIRMED_HOLD_TRIGGER"
+
+        if not (breakout_bar_ts < retest_bar["timestamp"]):
+            return None, "B2_INVALID_CHRONOLOGY"
 
         invalidation_level = round(range_low + max(0.5 * atr, 1.0), 2)
         target_level = round(range_low - max(range_size, 1.5 * atr), 2)
@@ -434,15 +517,19 @@ def evaluate_setup_b2_range_break_retest(
     setup = {
         "setup_id": f"b2-{sim_time}",
         "strategy_family": "NY_RANGE_BREAK_RETEST",
+        "target_model": "TARGET_MODEL_RANGE_EXTENSION",
         "direction": direction,
         "entry_price": fill_entry,
         "stop_loss": invalidation_level,
         "take_profit": target_level,
+        "breakout_at": breakout_at,
+        "retest_at": retest_at,
+        "trigger_at": sim_time,
         "calc": calc,
         "sim_time": sim_time,
         "dt_ny": dt_ny,
         "entry_type": "QUALITY_ENTRY",
-        "rationale": f"NY Break-Retest: Range [{range_low:.2f} - {range_high:.2f}], H1={h1_trend}, Retest held, Net RR={calc.net_rr:.2f}R"
+        "rationale": f"NY Break-Retest: Range [{range_low:.2f} - {range_high:.2f}], H1={h1_trend}, Breakout@{breakout_at}, Retest@{retest_at}, Net RR={calc.net_rr:.2f}R"
     }
     return setup, None
 
@@ -461,37 +548,36 @@ def evaluate_mode_c_quota_candidate(
     margin_mode: str,
     costs: CostAssumptions,
     spread_usd: float,
-    min_net_rr: float = 2.0
+    min_net_rr: float = 2.0,
+    deadline_hour: int = 14,
+    deadline_min: int = 30
 ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
     """
     Mode C Quota Candidate:
-    - Activated at 14:30 NY deadline if 0 NY fills today.
-    - Uses confirmed H1/H4 directional trend.
-    - Selects best 5M structural trigger candidate.
+    - Activated at NY deadline if 0 NY fills today.
+    - Uses confirmed aligned H1/H4 directional trend (blocks on trend conflict!).
+    - Selects best 5M structural trigger candidate with existing swing target (no artificial TP expansion!).
     - Sizing: quota entry risk = 0.10% equity (strict).
     - Enforces ALL hard guards (Net RR >= 2.0, geometry valid, stop/target evidence).
     - Returns candidate labeled 'QUOTA_ENTRY'.
     """
     dt_ny = get_ny_datetime(sim_time)
-    if not is_ny_deadline_reached(dt_ny):
+    if not is_ny_deadline_reached(dt_ny, deadline_hour=deadline_hour, deadline_min=deadline_min):
         return None, "NOT_AT_NY_DEADLINE"
 
     curr_bar_5m = BarProxy(curr_bar_5m)
     recent_bars_5m = ensure_proxies(recent_bars_5m)
     recent_bars_15m = ensure_proxies(recent_bars_15m)
 
-    # Confirmed trend direction
+    # Confirmed trend direction: H1 and H4 must NOT conflict!
     direction = None
     if h1_trend == "BULLISH" and h4_bias in ("BULLISH", "UNKNOWN"):
         direction = "LONG"
     elif h1_trend == "BEARISH" and h4_bias in ("BEARISH", "UNKNOWN"):
         direction = "SHORT"
-    elif h4_bias == "BULLISH":
-        direction = "LONG"
-    elif h4_bias == "BEARISH":
-        direction = "SHORT"
-
-    if not direction:
+    elif h1_trend in ("BULLISH", "BEARISH") and h4_bias in ("BULLISH", "BEARISH") and h1_trend != h4_bias:
+        return None, "H1_H4_TREND_CONFLICT"
+    else:
         return None, "TREND_UNKNOWN_CONFLICT"
 
     if len(recent_bars_5m) < 15:
@@ -511,14 +597,15 @@ def evaluate_mode_c_quota_candidate(
         sl_cand = round(sl_5m[-1]["price"] - max(0.2 * atr, 0.50), 2)
         # Target at recent 5M swing high
         tp_cand = round(sh_5m[-1]["price"], 2)
-        if tp_cand <= fill_entry + 1.0:
-            tp_cand = round(fill_entry + max(2.5 * (fill_entry - sl_cand), 3.0 * atr), 2)
+        # Strictly require valid existing target (never artificially stretch TP to force RR!)
+        if tp_cand <= fill_entry + 0.5:
+            return None, "NO_VALID_SWING_TARGET"
     else:
         fill_entry = round(curr_close - (0.5 * spread_usd) - costs.slippage_usd, 2)
         sl_cand = round(sh_5m[-1]["price"] + max(0.2 * atr, 0.50), 2)
         tp_cand = round(sl_5m[-1]["price"], 2)
-        if tp_cand >= fill_entry - 1.0:
-            tp_cand = round(fill_entry - max(2.5 * (sl_cand - fill_entry), 3.0 * atr), 2)
+        if tp_cand >= fill_entry - 0.5:
+            return None, "NO_VALID_SWING_TARGET"
 
     is_geom_valid, geom_err = validate_price_geometry(direction, fill_entry, sl_cand, tp_cand)
     if not is_geom_valid:
@@ -552,6 +639,7 @@ def evaluate_mode_c_quota_candidate(
     candidate = {
         "setup_id": f"quota-{sim_time}",
         "strategy_family": "NY_QUOTA_CANDIDATE",
+        "target_model": "TARGET_MODEL_SWING_LIQUIDITY",
         "direction": direction,
         "entry_price": fill_entry,
         "stop_loss": sl_cand,
@@ -561,6 +649,6 @@ def evaluate_mode_c_quota_candidate(
         "dt_ny": dt_ny,
         "entry_type": "QUOTA_ENTRY",
         "ranking_score": round(score, 1),
-        "rationale": f"NY Quota Candidate @ 14:30 deadline: Score={score:.1f}, Risk=0.10%, Net RR={calc.net_rr:.2f}R, H1={h1_trend}"
+        "rationale": f"NY Quota Candidate @ {dt_ny.strftime('%H:%M')} deadline: Score={score:.1f}, Risk={quota_risk_pct:.2f}%, Net RR={calc.net_rr:.2f}R, H1={h1_trend}"
     }
     return candidate, None

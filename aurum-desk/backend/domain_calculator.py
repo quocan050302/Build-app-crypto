@@ -14,13 +14,31 @@ def get_tier_info(notional: float) -> MarginTier:
             return t
     return meta.tiers[-1] if meta.tiers else None
 
+import warnings
+from pydantic import BaseModel, Field, model_validator, ConfigDict
+
 class CostAssumptions(BaseModel):
-    maker_fee_rate: float = 0.0002
-    taker_fee_rate: float = 0.0004
-    slippage_usd: float = 0.10
+    model_config = ConfigDict(extra="ignore")
+    maker_fee_rate: float = Field(default=0.0002, ge=0.0, lt=0.05)
+    taker_fee_rate: float = Field(default=0.0004, ge=0.0, lt=0.05)
+    slippage_usd: float = Field(default=0.10, ge=0.0)
     multiplier: float = 1.0
     tp_is_maker: bool = False     # False = TP triggered as market order (taker fee assumption)
-    tp_slippage_usd: float = 0.0  # Adverse slippage on TP market order (0.0 for legacy F1 regression, 0.10 for explicit TP slippage model)
+    tp_slippage_usd: float = Field(default=0.0, ge=0.0)  # Adverse slippage on TP market order (0.0 for legacy F1 regression, 0.10 for explicit TP slippage model)
+
+    @model_validator(mode="before")
+    @classmethod
+    def handle_legacy_fee_rate(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "fee_rate" in data and "taker_fee_rate" not in data:
+                warnings.warn(
+                    "Parameter 'fee_rate' is deprecated in CostAssumptions; mapped to 'taker_fee_rate'.",
+                    DeprecationWarning,
+                    stacklevel=2
+                )
+                data = dict(data)
+                data["taker_fee_rate"] = data.pop("fee_rate")
+        return data
 
 
 class CalculationResult(BaseModel):
@@ -202,6 +220,10 @@ def calculate_risk_reward(
         capital = capital_usdt
     if quantity is not None and quantity_override is None:
         quantity_override = quantity
+
+    if isinstance(min_net_rr, CostAssumptions):
+        costs = min_net_rr
+        min_net_rr = 2.0
 
     if costs is None:
         costs = CostAssumptions()

@@ -3,6 +3,7 @@ import { api, extractErrorMessage } from './api/client';
 import type {
   ScenarioRunResponse,
   ReplayRunResponse,
+  ReplayRunRequest,
   StressTestResponse
 } from './api/client';
 import {
@@ -22,6 +23,9 @@ import {
 interface TestingLabComponentProps {
   onNotify?: (title: string, msg: string, type: 'info' | 'warn' | 'success') => void;
 }
+
+const fmt = (val: number | null | undefined, dec = 2): string => (val != null && !isNaN(val) ? val.toFixed(dec) : 'N/A');
+const fmtCur = (val: number | null | undefined, dec = 2): string => (val != null && !isNaN(val) ? `$${val.toFixed(dec)}` : 'N/A');
 
 export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNotify }) => {
   const [activeLabMode, setActiveLabMode] = useState<'scenarios' | 'replay' | 'stress'>('scenarios');
@@ -54,9 +58,12 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
 
   // ==================== REPLAY STATE ====================
   const [replayParams, setReplayParams] = useState({
-    run_name: 'Backtest XAUUSDT SMC V12.1',
+    run_name: 'Backtest XAUUSDT SMC V12.2',
     initial_equity: 1000,
     risk_pct: 0.25,
+    quality_risk_pct: 0.25,
+    quota_risk_pct: 0.10,
+    warmup_days: 50,
     leverage: 30,
     spread_multiplier: 1.0,
     slippage_multiplier: 1.0,
@@ -68,6 +75,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
   });
   const [replayResult, setReplayResult] = useState<ReplayRunResponse | null>(null);
   const [runningReplay, setRunningReplay] = useState<boolean>(false);
+  const [jobProgressMsg, setJobProgressMsg] = useState<string | null>(null);
 
   // ==================== STRESS TEST STATE ====================
   const [stressResult, setStressResult] = useState<StressTestResponse | null>(null);
@@ -129,14 +137,19 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
     }
   };
 
-  // Run historical replay
+  // Run historical replay with Job API support and fallback
   const handleRunReplay = async () => {
     setRunningReplay(true);
+    setReplayResult(null);
+    setJobProgressMsg('Đang khởi tạo tác vụ...');
     try {
-      const res = await api.runLabReplay({
+      const payload: ReplayRunRequest = {
         run_name: replayParams.run_name,
         initial_equity: Number(replayParams.initial_equity),
         risk_pct: Number(replayParams.risk_pct),
+        quality_risk_pct: Number(replayParams.quality_risk_pct),
+        quota_risk_pct: Number(replayParams.quota_risk_pct),
+        warmup_days: Number(replayParams.warmup_days),
         leverage: Number(replayParams.leverage),
         spread_multiplier: Number(replayParams.spread_multiplier),
         slippage_multiplier: Number(replayParams.slippage_multiplier),
@@ -144,10 +157,37 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
         seed: Number(replayParams.seed),
         strategy_variant: replayParams.strategy_variant,
         custom_candles_json: replayParams.custom_dataset && replayParams.custom_json ? replayParams.custom_json : undefined
-      });
-      setReplayResult(res);
-      if (onNotify) {
-        onNotify('Replay Hoàn Tất', `Tổng lệnh: ${res.total_trades} | Net PnL: $${res.total_net_pnl.toFixed(2)}`, res.total_net_pnl >= 0 ? 'success' : 'info');
+      };
+
+      try {
+        const job = await api.createLabJob(payload);
+        setJobProgressMsg(`Đang xử lý trong hàng đợi (${job.job_id})...`);
+        let completed = false;
+        let attempts = 0;
+        while (!completed && attempts < 120) {
+          await new Promise((r) => setTimeout(r, 1000));
+          attempts++;
+          const status = await api.getLabJobStatus(job.job_id);
+          setJobProgressMsg(`Giai đoạn: ${status.current_phase} (${status.progress_pct.toFixed(0)}%)`);
+          if (status.status === 'SUCCEEDED') {
+            completed = true;
+            const res = await api.getLabJobResult(job.job_id);
+            setReplayResult(res);
+            if (onNotify) {
+              onNotify('Replay Hoàn Tất', `Tổng lệnh: ${res.total_trades} | Net PnL: ${fmtCur(res.total_net_pnl)}`, (res.total_net_pnl ?? 0) >= 0 ? 'success' : 'info');
+            }
+          } else if (status.status === 'FAILED' || status.status === 'CANCELLED') {
+            throw new Error(status.error_message || `Tác vụ kết thúc với trạng thái ${status.status}`);
+          }
+        }
+      } catch (jobErr) {
+        // Fallback to synchronous replay endpoint if job API fails
+        setJobProgressMsg('Đang chạy chế độ trực tiếp...');
+        const res = await api.runLabReplay(payload);
+        setReplayResult(res);
+        if (onNotify) {
+          onNotify('Replay Hoàn Tất', `Tổng lệnh: ${res.total_trades} | Net PnL: ${fmtCur(res.total_net_pnl)}`, (res.total_net_pnl ?? 0) >= 0 ? 'success' : 'info');
+        }
       }
     } catch (err: any) {
       if (onNotify) {
@@ -155,6 +195,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
       }
     } finally {
       setRunningReplay(false);
+      setJobProgressMsg(null);
     }
   };
 
@@ -469,6 +510,35 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                 className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-2.5 py-1.5 text-gray-100"
               />
             </div>
+            <div>
+              <label className="text-gray-400 block mb-1">Quality Risk (%)</label>
+              <input
+                type="number"
+                step="0.05"
+                value={replayParams.quality_risk_pct}
+                onChange={(e) => setReplayParams({ ...replayParams, quality_risk_pct: Number(e.target.value) })}
+                className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-2.5 py-1.5 text-gray-100"
+              />
+            </div>
+            <div>
+              <label className="text-gray-400 block mb-1">Quota Risk (%)</label>
+              <input
+                type="number"
+                step="0.05"
+                value={replayParams.quota_risk_pct}
+                onChange={(e) => setReplayParams({ ...replayParams, quota_risk_pct: Number(e.target.value) })}
+                className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-2.5 py-1.5 text-gray-100"
+              />
+            </div>
+            <div>
+              <label className="text-gray-400 block mb-1">Warmup Days (ngày)</label>
+              <input
+                type="number"
+                value={replayParams.warmup_days}
+                onChange={(e) => setReplayParams({ ...replayParams, warmup_days: Number(e.target.value) })}
+                className="w-full bg-charcoal-900 border border-charcoal-700 rounded px-2.5 py-1.5 text-gray-100"
+              />
+            </div>
 
             {replayParams.strategy_variant !== 'CURRENT_BASELINE' && (
               <div className="md:col-span-4 p-2.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2">
@@ -478,6 +548,13 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                   <span className="font-bold underline">{replayParams.strategy_variant}</span> chỉ chạy trong sandbox
                   kiểm nghiệm. Các tính năng này bị vô hiệu hóa mặc định trên live runtime và paper trading thông thường.
                 </span>
+              </div>
+            )}
+
+            {jobProgressMsg && (
+              <div className="md:col-span-4 p-2.5 rounded bg-aurum-500/10 border border-aurum-500/30 text-aurum-300 text-xs flex items-center gap-2 animate-pulse">
+                <Clock className="w-4 h-4 text-aurum-400 shrink-0" />
+                <span><strong>Tiến độ:</strong> {jobProgressMsg}</span>
               </div>
             )}
 
@@ -575,16 +652,21 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                       RESEARCH-ONLY
                     </span>
                   )}
+                  {replayResult.dataset_hash && (
+                    <span className="text-[10px] text-gray-400 font-mono">
+                      Data Hash: {replayResult.dataset_hash.slice(0, 8)}
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-4 text-gray-300">
                   <span>
-                    Quality Fills: <strong className="text-gray-100">{replayResult.quality_trades_count ?? replayResult.total_trades}</strong> (${(replayResult.quality_net_pnl ?? replayResult.total_net_pnl).toFixed(2)})
+                    Quality Fills: <strong className="text-gray-100">{replayResult.quality_trades_count ?? replayResult.total_trades}</strong> ({fmtCur(replayResult.quality_net_pnl ?? replayResult.total_net_pnl)})
                   </span>
                   <span>
-                    Quota Fills: <strong className="text-gray-100">{replayResult.quota_trades_count ?? 0}</strong> (${(replayResult.quota_net_pnl ?? 0).toFixed(2)})
+                    Quota Fills: <strong className="text-gray-100">{replayResult.quota_trades_count ?? 0}</strong> ({fmtCur(replayResult.quota_net_pnl ?? 0)})
                   </span>
                   <span>
-                    Độ phủ NY: <strong className="text-aurum-400">{(replayResult.ny_fill_coverage_pct ?? 0).toFixed(1)}%</strong>
+                    Độ phủ NY: <strong className="text-aurum-400">{fmt(replayResult.ny_fill_coverage_pct, 1)}%</strong>
                   </span>
                 </div>
               </div>
@@ -595,20 +677,20 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                   <span className="text-[11px] text-gray-400">Net Realized PnL</span>
                   <div
                     className={`text-lg font-bold ${
-                      replayResult.total_net_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                      (replayResult.total_net_pnl ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
                     }`}
                   >
-                    ${replayResult.total_net_pnl.toFixed(2)}
+                    {fmtCur(replayResult.total_net_pnl)}
                   </div>
                   <div className="text-[10px] text-gray-400 mt-1">
-                    Vốn cuối: ${replayResult.final_equity.toFixed(2)}
+                    Vốn cuối: {fmtCur(replayResult.final_equity)}
                   </div>
                 </div>
 
                 <div className="bg-charcoal-850 p-3 rounded-lg border border-charcoal-750">
                   <span className="text-[11px] text-gray-400">Win Rate / Tổng Lệnh</span>
                   <div className="text-lg font-bold text-gray-100">
-                    {replayResult.win_rate_pct}% ({replayResult.wins}W / {replayResult.losses}L)
+                    {fmt(replayResult.win_rate_pct)}% ({replayResult.wins}W / {replayResult.losses}L)
                   </div>
                   <div className="text-[10px] text-gray-400 mt-1">
                     Tổng giao dịch: {replayResult.total_trades}
@@ -618,7 +700,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                 <div className="bg-charcoal-850 p-3 rounded-lg border border-charcoal-750">
                   <span className="text-[11px] text-gray-400">Profit Factor / Expectancy</span>
                   <div className="text-lg font-bold text-aurum-400">
-                    {replayResult.profit_factor != null ? replayResult.profit_factor.toFixed(2) : "N/A"} / {replayResult.expectancy_r.toFixed(2)}R
+                    {fmt(replayResult.profit_factor)} / {fmt(replayResult.expectancy_r)}R
                   </div>
                   <div className="text-[10px] text-gray-400 mt-1">
                     Lỗ liên tiếp max: {replayResult.max_consecutive_losses}
@@ -628,7 +710,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                 <div className="bg-charcoal-850 p-3 rounded-lg border border-charcoal-750">
                   <span className="text-[11px] text-gray-400">Max Drawdown</span>
                   <div className="text-lg font-bold text-rose-400">
-                    {replayResult.max_drawdown_pct.toFixed(2)}% (${replayResult.max_drawdown_usdt.toFixed(2)})
+                    {fmt(replayResult.max_drawdown_pct)}% ({fmtCur(replayResult.max_drawdown_usdt)})
                   </div>
                   <div className="text-[10px] text-gray-400 mt-1">
                     Vi phạm hạn mức ngày: {replayResult.loss_budget_breaches}
@@ -653,7 +735,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                 <div className="p-3 border-b border-charcoal-750 font-bold text-xs text-gray-200 flex items-center justify-between">
                   <span>Nhật Ký Lệnh Replay ({replayResult.trades.length} lệnh đã thực thi)</span>
                   <span className="text-[11px] text-gray-400 font-normal">
-                    Phí Taker: ${(replayResult.total_fees || 0).toFixed(2)} | Trượt giá: ${(replayResult.total_slippage || 0).toFixed(2)}
+                    Phí Taker: {fmtCur(replayResult.total_fees)} | Trượt giá: {fmtCur(replayResult.total_slippage)}
                   </span>
                 </div>
                 <div className="overflow-x-auto max-h-80">
@@ -665,6 +747,7 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                         <th className="p-2.5">Entry</th>
                         <th className="p-2.5">Exit</th>
                         <th className="p-2.5">SL / TP</th>
+                        <th className="p-2.5">Net RR</th>
                         <th className="p-2.5">Nguyên Nhân Đóng</th>
                         <th className="p-2.5">Phiên</th>
                         <th className="p-2.5 text-right">Net PnL</th>
@@ -686,10 +769,13 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                             </span>
                           </td>
                           <td className="p-2.5">{t.order_type}</td>
-                          <td className="p-2.5">${t.entry_price.toFixed(2)}</td>
-                          <td className="p-2.5">{t.exit_price ? `$${t.exit_price.toFixed(2)}` : '—'}</td>
+                          <td className="p-2.5">{fmtCur(t.entry_price)}</td>
+                          <td className="p-2.5">{t.exit_price ? fmtCur(t.exit_price) : '—'}</td>
                           <td className="p-2.5 text-gray-400">
-                            ${t.stop_loss.toFixed(1)} / ${t.take_profit.toFixed(1)}
+                            {fmt(t.stop_loss, 1)} / {fmt(t.take_profit, 1)}
+                          </td>
+                          <td className="p-2.5 font-semibold text-aurum-400">
+                            {fmt(t.net_rr_fill ?? t.net_rr_planned)}
                           </td>
                           <td className="p-2.5">
                             <span className="text-[11px] text-gray-300 font-mono">{t.exit_cause || 'OPEN'}</span>
@@ -702,17 +788,17 @@ export const TestingLabComponent: React.FC<TestingLabComponentProps> = ({ onNoti
                           <td className="p-2.5 text-gray-400">{t.session}</td>
                           <td
                             className={`p-2.5 text-right font-bold ${
-                              t.net_pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                              (t.net_pnl ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
                             }`}
                           >
-                            ${t.net_pnl.toFixed(2)}
+                            {fmtCur(t.net_pnl)}
                           </td>
                           <td
                             className={`p-2.5 text-right font-bold ${
-                              t.realized_r >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                              (t.realized_r ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
                             }`}
                           >
-                            {t.realized_r >= 0 ? `+${t.realized_r.toFixed(2)}R` : `${t.realized_r.toFixed(2)}R`}
+                            {(t.realized_r ?? 0) >= 0 ? `+${fmt(t.realized_r)}R` : `${fmt(t.realized_r)}R`}
                           </td>
                         </tr>
                       ))}
