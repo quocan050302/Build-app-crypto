@@ -5,6 +5,7 @@ from typing import Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
 import models, schemas, crud
 from domain_calculator import calculate_risk_reward, CostAssumptions
+from services.entry_guard_service import serialize_entry_mutation
 
 class PaperBroker:
     """
@@ -21,50 +22,71 @@ class PaperBroker:
     """
 
     @staticmethod
+    def evaluate_account_guard(
+        db: Session,
+        risk_usdt: float,
+        now_ms: Optional[int] = None,
+        clock: Optional[Any] = None
+    ) -> Optional[Tuple[str, str]]:
+        """
+        V14.2 structured account guard (single source for account-level entry limits).
+        Returns None when the account may take a new entry, else (reason_code, message_vi).
+        Note: get_or_create_today_audit may create/commit today's audit row (existing behaviour).
+        """
+        active_pos = crud.get_active_position(db)
+        if active_pos:
+            return "ACTIVE_POSITION_EXISTS", f"Đang có vị thế mở ({active_pos.direction} tại {active_pos.actual_entry:.2f}). Mặc định chỉ duy trì 1 vị thế."
+
+        audit = crud.get_or_create_today_audit(db, clock=clock)
+        current_time = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
+
+        if audit.is_blocked:
+            return "DAY_BLOCKED", f"Tạm khóa giao dịch ngày: {audit.block_reason}"
+
+        if audit.fills_count >= 3:
+            return "DAILY_FILL_CAP", "Đã đạt giới hạn tối đa 3 lệnh/ngày (UTC+7)"
+
+        if audit.consecutive_losses >= 2:
+            return "MAX_CONSECUTIVE_LOSSES", "Đã chạm ngưỡng dừng sau 2 lệnh lỗ liên tiếp trong ngày"
+
+        if audit.cooldown_until and current_time < audit.cooldown_until:
+            remaining_sec = int((audit.cooldown_until - current_time) / 1000)
+            return "COOLDOWN_ACTIVE", f"Đang trong thời gian cooldown sau lệnh trước: còn {remaining_sec}s"
+
+        # Daily loss cap (1.5% of starting equity), measured on authoritative NET risk.
+        daily_loss_budget = audit.initial_equity * 0.015
+        current_realized_loss = max(0.0, -audit.realized_pnl_today)
+        projected_worst_loss = current_realized_loss + risk_usdt
+
+        if projected_worst_loss > daily_loss_budget:
+            return "DAILY_LOSS_BUDGET_EXCEEDED", f"Rủi ro lệnh mới (${risk_usdt:.2f}) cộng lỗ đã ghi nhận (${current_realized_loss:.2f}) vượt quá ngân sách lỗ ngày 1.5% (${daily_loss_budget:.2f})"
+
+        return None
+
+    @staticmethod
     def can_open_position(
         db: Session,
         risk_usdt: float,
         now_ms: Optional[int] = None,
         clock: Optional[Any] = None
     ) -> Tuple[bool, str]:
-        # 1. Check if there is already an open position
-        active_pos = crud.get_active_position(db)
-        if active_pos:
-            return False, f"Đang có vị thế mở ({active_pos.direction} tại {active_pos.actual_entry:.2f}). Mặc định chỉ duy trì 1 vị thế."
-
-        # 2. Check today's audit limits
-        audit = crud.get_or_create_today_audit(db, clock=clock)
-        current_time = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
-
-        if audit.is_blocked:
-            return False, f"Tạm khóa giao dịch ngày: {audit.block_reason}"
-
-        if audit.fills_count >= 3:
-            return False, "Đã đạt giới hạn tối đa 3 lệnh/ngày (UTC+7)"
-
-        if audit.consecutive_losses >= 2:
-            return False, "Đã chạm ngưỡng dừng sau 2 lệnh lỗ liên tiếp trong ngày"
-
-        if audit.cooldown_until and current_time < audit.cooldown_until:
-            remaining_sec = int((audit.cooldown_until - current_time) / 1000)
-            return False, f"Đang trong thời gian cooldown sau lệnh trước: còn {remaining_sec}s"
-
-        # 3. Check daily loss cap (1.5% of starting equity)
-        daily_loss_budget = audit.initial_equity * 0.015
-        current_realized_loss = max(0.0, -audit.realized_pnl_today)
-        projected_worst_loss = current_realized_loss + risk_usdt
-
-        if projected_worst_loss > daily_loss_budget:
-            return False, f"Rủi ro lệnh mới (${risk_usdt:.2f}) cộng lỗ đã ghi nhận (${current_realized_loss:.2f}) vượt quá ngân sách lỗ ngày 1.5% (${daily_loss_budget:.2f})"
-
+        blocked = PaperBroker.evaluate_account_guard(db, risk_usdt, now_ms=now_ms, clock=clock)
+        if blocked:
+            return False, blocked[1]
         return True, "Hợp lệ"
 
     @staticmethod
+    @serialize_entry_mutation
     def execute_market_order(
         db: Session,
         order_create: schemas.PaperOrderCreate,
         current_bid: float,
-        current_ask: float
+        current_ask: float,
+        *,
+        validated_quote: Optional[Any] = None,
+        now_ms: Optional[int] = None,
+        clock: Optional[Any] = None,
+        feed_health: Optional[Dict[str, Any]] = None,
     ) -> models.PaperOrder:
         """
         Execute paper market entry with authoritative risk/reward, sizing, leverage, and liquidation verification.
@@ -95,6 +117,11 @@ class PaperBroker:
         leverage = getattr(order_create, 'leverage', 5) or 5
         margin_mode = getattr(order_create, 'margin_mode', 'ISOLATED') or 'ISOLATED'
 
+        # Same min net R:R as the arm/fill adapters (trading policy), 2.0 only as the legacy default.
+        from services.trading_policy_service import TradingPolicyService
+        policy_for_rr = TradingPolicyService.get_policy(db)
+        min_rr = getattr(policy_for_rr, "min_net_rr", None) or 2.0
+
         calc_result = calculate_risk_reward(
             direction=order_create.direction,
             entry=actual_entry,
@@ -102,7 +129,7 @@ class PaperBroker:
             tp=order_create.take_profit,
             capital=audit.current_equity,
             risk_pct=risk_pct,
-            min_net_rr=2.0,
+            min_net_rr=min_rr,
             quantity_override=getattr(order_create, 'quantity_override', None) if hasattr(order_create, 'quantity_override') else None,
             entry_has_slippage=True,  # Slippage is already embedded in actual_entry!
             leverage=leverage,
@@ -116,12 +143,55 @@ class PaperBroker:
             raise ValueError(f"Lệnh bị từ chối do không đủ điều kiện: {calc_result.skip_reason}")
 
         # 3. Check account risk limits using authoritative net risk
-        can_open, reason = PaperBroker.can_open_position(db, calc_result.net_risk_usdt)
+        can_open, reason = PaperBroker.can_open_position(db, calc_result.net_risk_usdt, now_ms=now_ms, clock=clock)
         if not can_open:
             raise ValueError(f"Không thể mở lệnh: {reason}")
 
-        # 4. Populate authoritative values
+        # 3.5 V14.2 Common Entry Guard (stage FILL, direct MARKET). Runs BEFORE any DB write so a
+        # blocked rule cannot leave an orphan candidate. Protects internal callers, not only HTTP.
+        from services.entry_guard_service import EntryGuardRequest, evaluate_entry_guard
+        from services.entry_decision_service import EntryDecisionService
+        from services.quote_validator import QuoteValidator
+
+        guard_now = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
+        quote_for_guard = validated_quote
+        if quote_for_guard is None:
+            quote_for_guard = QuoteValidator.validate_ticker(
+                {"bid": current_bid, "ask": current_ask, "last": current_bid}, now_ms=guard_now
+            )
         order_id = f"trade-{uuid.uuid4().hex[:8]}"
+        guard = evaluate_entry_guard(db, EntryGuardRequest(
+            stage="FILL",
+            now_ms=guard_now,
+            symbol=order_create.instrument or "XAUUSDT",
+            direction=order_create.direction,
+            execution_mode="MANUAL",
+            origin="MANUAL_WEB",
+            planned_entry=actual_entry,
+            stop_loss=order_create.stop_loss,
+            take_profit=order_create.take_profit,
+            calc_result=calc_result,
+            validated_quote=quote_for_guard,
+            strategy_family="STANDARD_SMC",
+            order_type="MARKET",
+            timeframe="15M",
+            plan_kind="DRAFT",
+            order_id=order_id,
+            order_state="DIRECT_MARKET",
+            trigger_hit=True,
+            min_net_rr=min_rr,
+            feed_health=feed_health,
+            clock=clock,
+        ))
+        if not guard.allowed:
+            first = guard.blockers[0]
+            if first["code"].startswith("LESSON"):
+                raise ValueError(f"LESSON_RULE_BLOCKED: {first['message_vi']}")
+            if first["code"] == "NEWS_BLACKOUT":
+                raise ValueError(f"NEWS_BLACKOUT: {first['message_vi']}")
+            raise ValueError(f"ENTRY_GUARD_BLOCKED: {first['code']} - {first['message_vi']}")
+
+        # 4. Populate authoritative values
         order_create.actual_entry = actual_entry
         order_create.quantity = calc_result.quantity
         order_create.initial_risk_usdt = calc_result.net_risk_usdt
@@ -138,32 +208,9 @@ class PaperBroker:
         db_order.origin = "MANUAL_WEB"
         db_order.execution_mode = "MANUAL"
 
-        # V10.1 Governed Lesson Rules Evaluation (BEFORE_FILL for Manual Market Entry)
-        from services.entry_decision_service import EntryDecisionService
-        fill_context = EntryDecisionService.build_context(
-            stage="BEFORE_FILL",
-            symbol=order_create.instrument or "XAUUSDT",
-            direction=order_create.direction,
-            strategy_family="STANDARD_SMC",
-            timeframe="15M",
-            execution_mode="MANUAL",
-            origin="MANUAL_WEB",
-            order_type="MARKET",
-            planned_entry=actual_entry,
-            stop_loss=order_create.stop_loss,
-            take_profit=order_create.take_profit,
-            net_rr=calc_result.net_rr,
-            gross_rr=calc_result.gross_rr,
-            bid=current_bid,
-            ask=current_ask,
-            order_id=order_id
-        )
-        decision = EntryDecisionService.evaluate_entry_rules(db, fill_context)
-        EntryDecisionService.record_stage_decision(db_order, "BEFORE_FILL", decision)
-
-        if not decision["can_proceed"]:
-            block_msg = decision["blocking_reasons"][0] if decision["blocking_reasons"] else "Quy tắc bài học chặn vào lệnh thị trường"
-            raise ValueError(f"LESSON_RULE_BLOCKED: {block_msg}")
+        fill_trace = dict(guard.lesson_result or {"can_proceed": True})
+        fill_trace["entry_gate"] = guard.summary()
+        EntryDecisionService.record_stage_decision(db_order, "BEFORE_FILL", fill_trace, now_ms=guard_now)
 
         from services.trade_lifecycle_service import TradeLifecycleService
         return TradeLifecycleService.execute_fill(

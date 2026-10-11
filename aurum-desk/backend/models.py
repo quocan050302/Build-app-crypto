@@ -334,6 +334,11 @@ class WatchSetup(Base):
     risk_profile = Column(String(30), default="STANDARD")
     cost_snapshot = Column(Text, nullable=True)
 
+    # V14.2 additive plan provenance (NOT a state enum): PROVISIONAL (observation only) vs CONFIRMED
+    # (strategy produced an active signal). direction_source: SIGNAL | TREND | UNCONFIRMED.
+    plan_kind = Column(String(20), nullable=True)
+    direction_source = Column(String(20), nullable=True)
+
 
 
 class DomainEvent(BaseModel if False else Base):

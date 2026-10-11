@@ -89,6 +89,9 @@ def run_schema_migrations(target_engine=None):
                     ("effective_risk_pct", "FLOAT DEFAULT 0.25"),
                     ("risk_profile", "VARCHAR(30) DEFAULT 'STANDARD'"),
                     ("cost_snapshot", "TEXT"),
+                    # V14.2 additive plan provenance
+                    ("plan_kind", "VARCHAR(20)"),
+                    ("direction_source", "VARCHAR(20)"),
                 ]
                 for col_name, col_type in v7_ws_cols:
                     if col_name not in ws_cols:

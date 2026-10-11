@@ -2,7 +2,7 @@ import pytest
 import time
 import models
 
-def test_arm_setup_accepts_custom_chart_levels_and_rejects_insufficient_rr(client, isolated_db):
+def test_arm_setup_accepts_custom_chart_levels_and_rejects_insufficient_rr(client, isolated_db, fresh_ticker):
     db = isolated_db
     now_ms = int(time.time() * 1000)
 

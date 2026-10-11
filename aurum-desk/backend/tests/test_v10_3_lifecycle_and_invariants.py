@@ -28,7 +28,7 @@ from services.telegram_service import format_telegram_message, escape_markdown
 
 
 class TestV10_3_FlowInvariants:
-    def test_f01_short_setup_lifecycle(self, isolated_db: Session, client: TestClient):
+    def test_f01_short_setup_lifecycle(self, isolated_db: Session, client: TestClient, fresh_ticker):
         """F01: SHORT setup -> select -> arm -> fill -> TP and SL: side/identity/prices accurate."""
         now_ms = int(time.time() * 1000)
         setup = models.WatchSetup(

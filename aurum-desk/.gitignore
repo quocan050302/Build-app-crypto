@@ -25,3 +25,7 @@ frontend/dist-ssr/
 # Lab historical data & artifacts
 backend/lab/data/
 backend/lab/artifacts/
+
+# Playwright artifacts
+frontend/test-results/
+frontend/playwright-report/

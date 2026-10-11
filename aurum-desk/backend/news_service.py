@@ -7,6 +7,18 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from typing import List, Dict, Any, Tuple, Optional
 import schemas, models, crud
+from services.news_blackout_service import normalize_impact
+
+
+def _import_impact(raw) -> str:
+    """Normalize impact at the import boundary (High/high/red/đỏ -> High).
+
+    Unknown labels (e.g. Holiday) keep their capitalised raw value."""
+    text = str(raw or "").strip()
+    norm = normalize_impact(text)
+    if norm != "Unknown":
+        return norm
+    return text.capitalize() if text else "Low"
 
 DATE_FORMATS = [
     "%m-%d-%Y",
@@ -201,7 +213,7 @@ def parse_csv_calendar_preview(
         row = {str(k).strip().lower(): str(v).strip() if v is not None else "" for k, v in raw_row.items() if k}
 
         title = row.get("title") or row.get("event") or "Economic Event"
-        country = (row.get("country") or row.get("currency") or "USD").upper()
+        country = (row.get("country") or row.get("currency") or "").strip().upper()  # unknown stays unknown, never guessed as USD
         date_raw = row.get("date", "").strip()
         
         if date_raw:
@@ -210,7 +222,7 @@ def parse_csv_calendar_preview(
             date_raw = last_date
             
         time_raw = row.get("time", "").strip()
-        impact_raw = row.get("impact", "Low").capitalize()
+        impact_raw = _import_impact(row.get("impact") or "Low")
         forecast = row.get("forecast") or None
         previous = row.get("previous") or None
         actual = row.get("actual") or None
@@ -373,8 +385,8 @@ def parse_forex_factory_json(json_content: str) -> List[schemas.EconomicNewsItem
 
     for item in raw_data:
         title = item.get("title") or item.get("name") or "Economic Event"
-        country = item.get("country") or item.get("currency") or "USD"
-        impact = item.get("impact") or "Low"
+        country = str(item.get("country") or item.get("currency") or "").strip()
+        impact = _import_impact(item.get("impact") or "Low")
         date_str = item.get("date") or item.get("datetime") or ""
         url = item.get("url")
         event_id = extract_event_type_id(url, title)
@@ -393,7 +405,7 @@ def parse_forex_factory_json(json_content: str) -> List[schemas.EconomicNewsItem
                 title=title,
                 country=country,
                 currency=country,
-                impact=impact.capitalize(),
+                impact=impact,
                 scheduled_at=scheduled_at,
                 received_at=now_ms,
                 forecast=forecast or None,

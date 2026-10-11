@@ -100,6 +100,11 @@ export interface SelectedTradeIntent {
   quality_status?: string;
   quality_snapshot_id?: string;
   quality_summary?: any;
+
+  // V14.2 binding & plan provenance (additive)
+  plan_kind?: 'PROVISIONAL' | 'CONFIRMED' | 'DRAFT' | 'ORDER';
+  plan_fingerprint?: string | null;
+  risk_config_version?: number | null;
 }
 
 
@@ -997,6 +1002,9 @@ function AppContent() {
       status: setup.state,
       invalidationReason: setup.invalidation_reason,
       eligibility: setup.eligibility,
+      plan_kind: setup.eligibility?.plan_kind,
+      plan_fingerprint: setup.eligibility?.plan_fingerprint ?? null,
+      risk_config_version: setup.eligibility?.risk_config_version ?? null,
       conditions_met: setup.conditions_met,
       conditions_remaining: setup.conditions_remaining,
       distance_to_entry_usdt: setup.distance_to_entry_usdt,
@@ -1860,6 +1868,7 @@ function AppContent() {
                     {filteredSetups.map((s) => (
                       <div
                         key={s.id}
+                        data-setup-id={s.id}
                         className={`p-4 rounded-lg border text-xs flex flex-col gap-3 transition ${
                           s.state === 'READY'
                             ? 'bg-emerald-950/20 border-emerald-500/50 shadow-emerald-950/30'

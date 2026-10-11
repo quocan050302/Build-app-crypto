@@ -1,10 +1,13 @@
 import time
+import logging
 from datetime import datetime, time as dtime
 from zoneinfo import ZoneInfo
 from typing import Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
 import models, crud
 from services.clock import live_clock, IClock
+
+logger = logging.getLogger(__name__)
 
 class TradingPolicyService:
     """
@@ -300,6 +303,33 @@ class TradingPolicyService:
         return TradingPolicyService.get_or_create_policy(db)
 
     @staticmethod
+    def _news_gate(db: Session, now_ms: int) -> Dict[str, Any]:
+        """
+        V14.2: structured news gate that applies even when the session policy is inactive.
+        Fail closed: if the calendar cannot be read the entry is not allowed.
+        Returns {"blocked": bool, "reason_code": str|None, "message": str|None, "view": dict|None}.
+        """
+        try:
+            from services.news_blackout_service import evaluate_news_blackout
+            view = evaluate_news_blackout(db, now_ms)
+        except Exception as e:  # noqa: BLE001 - fail closed, never allow on error
+            logger.error(f"News gate unavailable: {e}", exc_info=True)
+            return {
+                "blocked": True,
+                "reason_code": "ENTRY_GUARD_DATA_UNAVAILABLE",
+                "message": "ENTRY_GUARD_DATA_UNAVAILABLE: Chưa đọc được lịch tin tức, tạm dừng vào lệnh mới.",
+                "view": None,
+            }
+        if view.is_blackout:
+            return {
+                "blocked": True,
+                "reason_code": "NEWS_BLACKOUT",
+                "message": f"NEWS_BLACKOUT: {view.reason_text()} - còn khoảng {view.remaining_minutes} phút",
+                "view": view.to_dict(),
+            }
+        return {"blocked": False, "reason_code": None, "message": None, "view": view.to_dict()}
+
+    @staticmethod
     def evaluate_entry_policy(
         db: Session,
         order_type_or_symbol: str = "MARKET",
@@ -325,14 +355,18 @@ class TradingPolicyService:
             current_time = c.now_ms()
 
         policy = TradingPolicyService.get_policy(db)
+        news_gate = TradingPolicyService._news_gate(db, current_time)
         if not policy or not getattr(policy, "is_active", True):
+            # Session policy inactive: safety news gate still applies.
+            _inactive_blocked = news_gate["blocked"]
             return {
-                "can_enter": True,
-                "allowed": True,
-                "reason_codes": [],
-                "reason_code": None,
-                "block_reasons": [],
-                "reason_message": None,
+                "can_enter": not _inactive_blocked,
+                "allowed": not _inactive_blocked,
+                "reason_codes": [news_gate["reason_code"]] if _inactive_blocked else [],
+                "reason_code": news_gate["reason_code"] if _inactive_blocked else None,
+                "block_reasons": [news_gate["message"]] if _inactive_blocked else [],
+                "reason_message": news_gate["message"] if _inactive_blocked else None,
+                "news_view": news_gate["view"],
                 "session_instance_id": "DEFAULT",
                 "policy_config_version": 1,
                 "policy": policy,
@@ -400,6 +434,12 @@ class TradingPolicyService:
                         "Slot thứ 3 bắt buộc được dự trữ cho mục tiêu 1 lệnh phiên Mỹ."
                     )
 
+        # 4. News blackout (V14.2): actual allowed=False, independent of quota_status.
+        if news_gate["blocked"]:
+            can_enter = False
+            reason_codes.append(news_gate["reason_code"])
+            block_reasons.append(news_gate["message"])
+
         remaining_daily_slots = max(0, policy.max_daily_fills - day_audit.fills_count)
         reserved_slots = 1 if (policy.reserve_ny_slot and quota.total_fills == 0 and remaining_daily_slots > 0) else 0
 
@@ -421,6 +461,7 @@ class TradingPolicyService:
             "reason_code": reason_codes[0] if reason_codes else None,
             "block_reasons": block_reasons,
             "reason_message": block_reasons[0] if block_reasons else None,
+            "news_view": news_gate["view"],
             "session_instance_id": window["session_instance_id"],
             "policy_config_version": policy.version,
             "policy": policy,

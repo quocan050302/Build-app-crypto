@@ -11,6 +11,7 @@ from services.collector_service import collector_service
 from services.trade_lifecycle_service import TradeLifecycleService
 from services.quote_validator import QuoteValidator
 from services.clock import live_clock, IClock
+from services.entry_guard_service import serialize_entry_mutation
 
 class ExecutionCoordinator:
     """
@@ -32,6 +33,7 @@ class ExecutionCoordinator:
             self._lock = asyncio.Lock()
         return self._lock
 
+    @serialize_entry_mutation
     def evaluate_orders_sync(
         self,
         db: Session,
@@ -310,33 +312,90 @@ class ExecutionCoordinator:
                 )
                 continue
 
-            # V10.1 Governed Lesson Rules Evaluation (BEFORE_FILL)
-            from services.entry_decision_service import EntryDecisionService
-            quote_age = getattr(quote, "age_ms", 0) or 0
-
-            fill_context = EntryDecisionService.build_context_from_order(
-                order=order,
-                stage="BEFORE_FILL",
-                fill_price=fill_price,
-                calc_result=calc,
-                now_ms=current_time,
-                current_bid=current_bid,
-                current_ask=current_ask,
-                quote_age_ms=quote_age
+            # V14.2 Common Entry Guard (stage FILL): re-checks news blackout, governed lessons
+            # (BEFORE_FILL), session policy, account, quote and feed with the CURRENT state, using the
+            # frozen order levels and the actual fill price. The order itself is excluded from
+            # armed-order checks (current_order_id) and the WatchSetup is NOT required to be READY.
+            from services.entry_guard_service import (
+                EntryGuardRequest, evaluate_entry_guard, DATA_UNAVAILABLE,
             )
-            fill_decision = EntryDecisionService.evaluate_entry_rules(db, fill_context)
-            EntryDecisionService.record_stage_decision(order, "BEFORE_FILL", fill_decision, now_ms=current_time)
+            from services.entry_decision_service import EntryDecisionService
+            from services.setup_quality_service import build_plan_fingerprint
 
-            if not fill_decision["can_proceed"]:
-                block_msg = fill_decision["blocking_reasons"][0] if fill_decision["blocking_reasons"] else "Quy tắc bài học chặn khớp lệnh"
+            try:
+                plan_fp = build_plan_fingerprint({
+                    "direction": order.direction, "planned_entry": order.planned_entry,
+                    "stop_loss": order.stop_loss, "take_profit": order.take_profit,
+                })
+            except Exception:
+                plan_fp = None
+
+            guard = evaluate_entry_guard(db, EntryGuardRequest(
+                stage="FILL",
+                now_ms=current_time,
+                symbol=order.instrument or "XAUUSDT",
+                direction=order.direction,
+                execution_mode=getattr(order, "execution_mode", None) or "AUTO",
+                origin=getattr(order, "origin", None) or "UNKNOWN",
+                planned_entry=fill_price,
+                stop_loss=order.stop_loss,
+                take_profit=order.take_profit,
+                calc_result=calc,
+                validated_quote=quote,
+                strategy_family=getattr(order, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC",
+                order_type=order_type,
+                timeframe=getattr(order, "timeframe", "15M"),
+                plan_kind="ORDER",
+                setup_id=order.setup_id,
+                setup_instance_id=getattr(order, "setup_instance_id", None),
+                plan_fingerprint=plan_fp,
+                risk_config_version=getattr(order, "config_version", None),
+                order_id=order.id,
+                current_order_id=order.id,
+                order_state=order.state,
+                order_expires_at_ms=order.expires_at,
+                trigger_hit=True,
+                session_instance_id=order.session_instance_id,
+                clock=c,
+            ))
+
+            if not guard.allowed:
+                transient_codes = {
+                    "QUOTE_STALE", "QUOTE_INVALID", "QUOTE_UNAVAILABLE",
+                    "EXECUTION_FEED_DEGRADED", "TRIGGER_NOT_HIT", DATA_UNAVAILABLE,
+                }
+                permanent = [
+                    b for b in guard.blockers if b["code"] not in transient_codes
+                ]
+                if not permanent:
+                    # Quote/feed/data not usable right now: do NOT fill, keep the order pending
+                    # (no event, no reject, no write) until the next valid tick or expiry.
+                    continue
+                first = permanent[0]
+                if first["code"].startswith("LESSON"):
+                    reject_reason = f"LESSON_RULE_BLOCKED: {first['message_vi']}"
+                elif first["code"] == "NEWS_BLACKOUT":
+                    reject_reason = f"NEWS_BLACKOUT: {first['message_vi']}"
+                else:
+                    reject_reason = f"ENTRY_GUARD_BLOCKED: {first['code']} - {first['message_vi']}"
+                gate_trace = dict(guard.lesson_result or {
+                    "can_proceed": False, "blocking_reasons": [first["message_vi"]],
+                    "warning_messages": [], "advisory_notes": [], "lessons_retrieved_snapshot": [],
+                })
+                gate_trace["entry_gate"] = guard.summary()
+                EntryDecisionService.record_stage_decision(order, "BEFORE_FILL", gate_trace, now_ms=current_time)
                 TradeLifecycleService.execute_reject(
                     db=db,
                     order=order,
-                    reason=f"LESSON_RULE_BLOCKED: {block_msg}",
+                    reason=reject_reason,
                     now_ms=current_time,
                     clock=c
                 )
                 continue
+
+            fill_trace = dict(guard.lesson_result or {"can_proceed": True})
+            fill_trace["entry_gate"] = guard.summary()
+            EntryDecisionService.record_stage_decision(order, "BEFORE_FILL", fill_trace, now_ms=current_time)
 
             # ATOMIC COMMIT: Open Position via unified lifecycle service (preserving original execution mode)
             effective_source = getattr(order, "execution_mode", "AUTO") or "AUTO"

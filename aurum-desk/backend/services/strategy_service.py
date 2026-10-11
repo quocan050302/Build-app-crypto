@@ -12,6 +12,7 @@ from services.collector_service import collector_service
 from services.event_bus import event_bus
 from services.trading_policy_service import TradingPolicyService
 from services.ny_fallback_service import NYFallbackService
+from services.entry_guard_service import serialize_entry_mutation
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,16 @@ class StrategyService:
             watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == setup_id).first()
 
             direction = sig.get("direction", "LONG" if analysis.get("trend") == "BULLISH" else "SHORT") if sig else ("LONG" if analysis.get("trend") == "BULLISH" else "SHORT")
+            # V14.2: provenance of the plan. Without an active signal the plan is only an observation
+            # (entry = current price). A trend that is neither BULLISH nor BEARISH defaults the DISPLAY
+            # direction to SHORT, which is NOT a confirmed SELL signal -> direction_source UNCONFIRMED.
+            plan_kind = "CONFIRMED" if sig else "PROVISIONAL"
+            if sig:
+                direction_source = "SIGNAL"
+            elif analysis.get("trend") in ("BULLISH", "BEARISH"):
+                direction_source = "TREND"
+            else:
+                direction_source = "UNCONFIRMED"
             provisional_entry = sig.get("planned_entry", current_p) if sig else current_p
 
             # Real liquidity target levels
@@ -146,6 +157,8 @@ class StrategyService:
                     version=1,
                     strategy="SMC_V1",
                     strategy_family="STANDARD_SMC",
+                    plan_kind=plan_kind,
+                    direction_source=direction_source,
                     direction=direction,
                     timeframe=timeframe,
                     state=setup_stage,
@@ -218,6 +231,8 @@ class StrategyService:
 
                         watch_setup.state = setup_stage
                         watch_setup.strategy_family = "STANDARD_SMC"
+                        watch_setup.plan_kind = plan_kind
+                        watch_setup.direction_source = direction_source
                         watch_setup.htf_bias = analysis.get("htf_bias", "UNKNOWN")
                         watch_setup.h1_alignment = analysis.get("h1_alignment", "UNKNOWN")
                         watch_setup.provisional_entry = provisional_entry
@@ -466,6 +481,7 @@ class StrategyService:
 
         return watch_setup
 
+    @serialize_entry_mutation
     def _auto_arm_candidate(
         self,
         db: Session,
@@ -489,6 +505,10 @@ class StrategyService:
         policy_eval = TradingPolicyService.evaluate_entry_policy(db, symbol, now_dt)
         if not policy_eval["allowed"]:
             logger.info(f"Auto-arm blocked by trading policy: {policy_eval['reason_code']}")
+            self._log_auto_arm_block(
+                watch_setup, [str(policy_eval.get("reason_code") or "POLICY_BLOCKED")],
+                policy_eval.get("message") or policy_eval.get("reason"),
+            )
             return
 
         # 3. Check price geometry strictly
@@ -517,31 +537,81 @@ class StrategyService:
             eff_risk_pct = min(eff_risk_pct, 0.10)
             risk_profile = "QUOTA"
 
-        # 5.5 V10.1 Lesson Rules Evaluation (BEFORE_ARM for AUTO)
+        # 5.5 V14.2 Common Entry Guard (stage ARM, mode AUTO / origin AUTO_STRATEGY).
+        # Same orchestrator as manual arm / manual market / pending fill: structure state, atomic plan,
+        # real calculator result, account, session policy, news blackout, governed lessons, quote, feed.
         from services.entry_decision_service import EntryDecisionService
-        lesson_context = EntryDecisionService.build_context(
-            stage="BEFORE_ARM",
+        from services.entry_guard_service import EntryGuardRequest, evaluate_entry_guard
+        from services.plan_resolver import resolve_plan_levels
+        from services.quote_validator import QuoteValidator
+        from services.setup_quality_service import build_plan_fingerprint
+        from domain_calculator import calculate_risk_reward
+
+        plan = resolve_plan_levels(watch_setup)
+        if not plan.get("is_valid"):
+            self._log_auto_arm_block(watch_setup, ["INVALID_PRICE_GEOMETRY"], plan.get("error_message"))
+            return
+        plan_entry, plan_sl, plan_tp = plan["entry"], plan["stop_loss"], plan["take_profit"]
+
+        policy_obj = policy_eval.get("policy")
+        min_rr = getattr(policy_obj, "min_net_rr", None) or 2.0
+        calc_res = calculate_risk_reward(
+            direction=watch_setup.direction,
+            planned_entry=plan_entry,
+            stop_loss=plan_sl,
+            take_profit=plan_tp,
+            capital_usdt=audit.current_equity,
+            risk_pct=eff_risk_pct,
+            min_net_rr=min_rr,
+            leverage=watch_setup.leverage or 5,
+            margin_mode=watch_setup.margin_mode or "ISOLATED",
+        )
+
+        raw_ticker = collector_service.latest_ticker
+        auto_quote = QuoteValidator.validate_ticker(raw_ticker, now_ms=now_ms) if raw_ticker else None
+
+        guard = evaluate_entry_guard(db, EntryGuardRequest(
+            stage="ARM",
+            now_ms=now_ms,
             symbol=symbol,
             direction=watch_setup.direction,
-            strategy_family=family,
-            timeframe=watch_setup.timeframe,
             execution_mode="AUTO",
             origin="AUTO_STRATEGY",
-            planned_entry=watch_setup.provisional_entry,
-            stop_loss=watch_setup.provisional_sl,
-            take_profit=watch_setup.provisional_tp,
-            net_rr=watch_setup.net_rr,
-            now_ms=now_ms,
-            session_instance_id=policy_eval.get("session_instance_id"),
+            planned_entry=plan_entry,
+            stop_loss=plan_sl,
+            take_profit=plan_tp,
+            calc_result=calc_res,
+            validated_quote=auto_quote,
+            strategy_family=family,
+            order_type="MARKET",
+            timeframe=watch_setup.timeframe,
+            plan_kind=getattr(watch_setup, "plan_kind", None) or "CONFIRMED",
+            direction_source=getattr(watch_setup, "direction_source", None),
+            setup_id=watch_setup.id,
+            setup_instance_id=watch_setup.setup_instance_id,
+            setup_version=watch_setup.version,
+            setup_state=watch_setup.state,
+            plan_fingerprint=build_plan_fingerprint({
+                "direction": watch_setup.direction, "planned_entry": plan_entry,
+                "stop_loss": plan_sl, "take_profit": plan_tp,
+            }),
+            risk_config_version=watch_setup.config_version,
+            min_net_rr=min_rr,
             distance_to_entry_atr=getattr(watch_setup, "distance_to_entry_atr", None),
-            setup_id=watch_setup.id
-        )
-        lesson_eval = EntryDecisionService.evaluate_entry_rules(db, lesson_context)
-        if not lesson_eval["can_proceed"]:
-            logger.info(f"Auto-arm blocked by lesson rule: {lesson_eval['blocking_reasons']}")
+            session_instance_id=policy_eval.get("session_instance_id"),
+            structure_chain_verified=True if watch_setup.state == "READY" else None,
+        ))
+        if not guard.allowed:
+            self._log_auto_arm_block(watch_setup, guard.reason_codes, (guard.primary_reason or {}).get("message_vi"))
             return
-        if lesson_eval["warning_messages"]:
+        self._last_auto_block = None
+        lesson_eval = dict(guard.lesson_result or {
+            "can_proceed": True, "blocking_reasons": [], "warning_messages": [],
+            "advisory_notes": [], "lessons_retrieved_snapshot": [],
+        })
+        if lesson_eval.get("warning_messages"):
             logger.info(f"Auto-arm lesson warnings (non-blocking): {lesson_eval['warning_messages']}")
+        lesson_eval["entry_gate"] = guard.summary()
 
         # 6. Create armed paper order with complete V7 metadata
         order_id = f"order-{uuid.uuid4().hex[:8]}"
@@ -561,9 +631,9 @@ class StrategyService:
             requested_risk_pct=watch_setup.risk_pct,
             effective_risk_pct=eff_risk_pct,
             risk_profile=risk_profile,
-            planned_entry=watch_setup.provisional_entry,
-            stop_loss=watch_setup.provisional_sl,
-            take_profit=watch_setup.provisional_tp,
+            planned_entry=plan_entry,
+            stop_loss=plan_sl,
+            take_profit=plan_tp,
             quantity=watch_setup.quantity,
             initial_risk_usdt=watch_setup.risk_usdt,
             risk_pct=eff_risk_pct,
@@ -593,9 +663,9 @@ class StrategyService:
                 "direction": watch_setup.direction,
                 "strategy_family": family,
                 "order_type": "MARKET",
-                "planned_entry": watch_setup.provisional_entry,
-                "stop_loss": watch_setup.provisional_sl,
-                "take_profit": watch_setup.provisional_tp,
+                "planned_entry": plan_entry,
+                "stop_loss": plan_sl,
+                "take_profit": plan_tp,
                 "net_rr": watch_setup.net_rr,
                 "distance_usdt": watch_setup.distance_to_entry_usdt
             },
@@ -603,6 +673,14 @@ class StrategyService:
             occurred_at=now_ms
         )
         db.commit()
+
+    def _log_auto_arm_block(self, watch_setup, codes, message=None):
+        """Log an auto-arm block once per (setup, version, reasons); the 6s loop must not spam."""
+        signature = (watch_setup.id, watch_setup.version, tuple(codes))
+        if getattr(self, "_last_auto_block", None) == signature:
+            return
+        self._last_auto_block = signature
+        logger.info(f"Auto-arm blocked by entry guard: {list(codes)} {message or ''}".strip())
 
     async def run_strategy_loop(self):
         """Periodic background evaluation loop independent of browser activity."""

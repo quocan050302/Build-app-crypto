@@ -68,3 +68,29 @@ def client(isolated_db):
         yield test_client
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture
+def fresh_ticker():
+    """
+    V14.2: entry guards require a valid, fresh quote (stale/missing quotes block entry).
+    Provides a fresh XAUUSDT ticker on the collector singleton and restores the previous value.
+    Tests that arm/fill orders must use this (or inject a validated quote explicitly).
+    """
+    import time as _time
+    from services.collector_service import collector_service
+
+    previous = collector_service.latest_ticker
+
+    def _set(bid=2650.0, ask=2650.2, now_ms=None):
+        ts = now_ms if now_ms is not None else int(_time.time() * 1000)
+        collector_service.latest_ticker = {
+            "symbol": "XAUUSDT", "bid": bid, "ask": ask, "last": bid, "timestamp": ts, "observed_at": ts,
+        }
+        return collector_service.latest_ticker
+
+    _set()
+    try:
+        yield _set
+    finally:
+        collector_service.latest_ticker = previous

@@ -27,6 +27,7 @@ from services.proximity_service import proximity_service
 from services.trade_lifecycle_service import TradeLifecycleService
 from domain_calculator import calculate_risk_reward
 from services.quote_validator import QuoteValidator
+from services.entry_guard_service import serialize_entry_mutation
 from services.eligibility_service import evaluate_setup_eligibility
 from lab.scenario_runner import ScenarioRunner
 from lab.replay_engine import ReplayEngine
@@ -532,6 +533,7 @@ def get_setup_eligibility(setup_id: str, db: Session = Depends(get_db)):
 
 @app.post("/api/v1/setups/arm/{setup_id}")
 @app.post("/api/v1/setups/arm")
+@serialize_entry_mutation
 def manual_arm_setup(
     setup_id: Optional[str] = None,
     req_body: Optional[schemas.ArmSetupRequest] = None,
@@ -1020,11 +1022,14 @@ def create_paper_order(order: schemas.PaperOrderCreate, db: Session = Depends(ge
         )
 
     try:
+        # Use the canonical (validated, finite, normalised) bid/ask, never the raw ticker strings.
         created_order = PaperBroker.execute_market_order(
             db=db,
             order_create=order,
-            current_bid=ticker["bid"],
-            current_ask=ticker["ask"]
+            current_bid=validation.bid,
+            current_ask=validation.ask,
+            validated_quote=validation,
+            now_ms=now_ms,
         )
         return {
             "status": "success",

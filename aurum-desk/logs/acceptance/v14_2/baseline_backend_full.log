@@ -1,0 +1,77 @@
+........................................................................ [ 11%]
+........................................................................ [ 22%]
+..............................................................s......... [ 33%]
+.......s..s.s........................................................... [ 44%]
+..................................F..................................... [ 55%]
+...............................F........................................ [ 66%]
+........................................................................ [ 77%]
+........................................................................ [ 88%]
+........................................................................ [ 99%]
+....                                                                     [100%]
+=================================== FAILURES ===================================
+_______________ test_v124_01_canonical_ledger_schema_and_export ________________
+
+    def test_v124_01_canonical_ledger_schema_and_export():
+        """V124-01: Canonical ledger schema synchronized between producer and exporters; no blank columns."""
+        req = schemas.ReplayRunRequest(
+            run_name="V124-01-Test",
+            symbol="XAUUSDT",
+            initial_equity=1000.0,
+            export_artifacts=True
+        )
+        res = ReplayEngine.run_replay(req)
+        assert res.ledger_postings is not None
+        assert len(res.ledger_postings) > 0
+    
+        # 1. Verify canonical fields on every posting object
+        for p in res.ledger_postings:
+>           assert "posting_id" in p and p["posting_id"].startswith("POST-")
+E           AssertionError: assert ('posting_id' in {'posting_id': 'post-167213ac', 'schema_version': 'v12.4', 'run_id': 'v12-replay-6dba864b', 'strategy_variant': 'CURRENT_BASELINE', ...} and False)
+E            +  where False = <built-in method startswith of str object at 0x112f2ed70>('POST-')
+E            +    where <built-in method startswith of str object at 0x112f2ed70> = 'post-167213ac'.startswith
+
+backend/tests/test_v12_4_acceptance.py:80: AssertionError
+____________________ test_01_integrity_pass_on_valid_inputs ____________________
+
+    def test_01_integrity_pass_on_valid_inputs():
+        closed_trades = [
+            {"decision_time": 1000, "entry_time": 1050, "exit_time": 2000, "direction": "LONG", "entry_price": 2650.0, "stop_loss": 2645.0, "take_profit": 2665.0}
+        ]
+        postings = [{"amount": 5.0, "posting_type": "REALIZED_GROSS_PNL"}]
+        daily_stats = {"2026-07-20": {"total_fills": 1}}
+    
+        summary = run_replay_integrity_checks(
+            result_dict={"closed_count": 1, "wins": 1, "losses": 0, "breakevens": 0},
+            closed_trades=closed_trades,
+            ledger_postings=postings,
+            daily_stats=daily_stats,
+            initial_equity=1000.0,
+            reported_cash=1005.0,
+            dataset_hash="hash-dataset-12345",
+            run_config_hash="hash-config-67890"
+        )
+>       assert summary["status"] == "PASS"
+E       AssertionError: assert 'FAIL' == 'PASS'
+E         
+E         - PASS
+E         + FAIL
+
+backend/tests/test_v13_5_integrity_acceptance.py:32: AssertionError
+=============================== warnings summary ===============================
+../../Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v12_1_acceptance.py::test_t01_short_trade_accounting_oracle
+backend/tests/test_v12_1_acceptance.py::test_t02_long_trade_accounting_oracle
+backend/tests/test_v12_1_acceptance.py::test_t14_setups_b1_b2_enforce_net_rr
+backend/tests/test_v12_2_repro_defects.py::test_repro_d03_cost_assumptions_ignores_fee_rate
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/pydantic/main.py:263: DeprecationWarning: Parameter 'fee_rate' is deprecated in CostAssumptions; mapped to 'taker_fee_rate'.
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_v12_4_acceptance.py::test_v124_01_canonical_ledger_schema_and_export
+FAILED backend/tests/test_v13_5_integrity_acceptance.py::test_01_integrity_pass_on_valid_inputs
+2 failed, 646 passed, 4 skipped, 5 warnings in 238.82s (0:03:58)
+rc=1

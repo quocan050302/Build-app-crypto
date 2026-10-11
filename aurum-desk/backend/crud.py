@@ -353,44 +353,17 @@ def check_news_blackout(db: Session, now_ms: Optional[int] = None) -> Tuple[bool
     - High impact USD news: 30 minutes before, 15 minutes after
     - FOMC rate decision / press conference: 60 minutes before, 30 minutes after
     Returns (is_blackout, event_title, remaining_minutes)
+
+    V14.2: legacy tuple contract preserved; the decision is computed by
+    services.news_blackout_service (single window formula, USD/Fed scope, causal filter).
     """
     if now_ms is None:
         now_ms = int(time.time() * 1000)
 
-    # Search window: events within +- 2 hours
-    window_start = now_ms - (90 * 60 * 1000)
-    window_end = now_ms + (90 * 60 * 1000)
-
-    events = (
-        db.query(models.EconomicNews)
-        .filter(
-            models.EconomicNews.scheduled_at >= window_start,
-            models.EconomicNews.scheduled_at <= window_end,
-            models.EconomicNews.impact.in_(["High", "high", "HIGH"])
-        )
-        .all()
-    )
-
-    for ev in events:
-        # Causal filtering: event must be known/received at or before now_ms
-        rec_at = getattr(ev, "received_at", None)
-        if rec_at is not None and now_ms < rec_at:
-            continue
-        k_at = getattr(ev, "known_at", None)
-        if k_at is not None and now_ms < k_at:
-            continue
-
-        is_fomc = "FOMC" in ev.title.upper() or "FED" in ev.title.upper() or "RATE DECISION" in ev.title.upper()
-        before_ms = (60 if is_fomc else 30) * 60 * 1000
-        after_ms = (30 if is_fomc else 15) * 60 * 1000
-
-        blackout_start = ev.scheduled_at - before_ms
-        blackout_end = ev.scheduled_at + after_ms
-
-        if blackout_start <= now_ms <= blackout_end:
-            remaining_min = max(1, int((blackout_end - now_ms) / (60 * 1000)))
-            return True, f"Tin High Impact: {ev.title} (Blackout -{before_ms//60000}m/+{after_ms//60000}m)", remaining_min
-
+    from services.news_blackout_service import evaluate_news_blackout
+    view = evaluate_news_blackout(db, now_ms)
+    if view.is_blackout:
+        return True, view.reason_text(), max(1, view.remaining_minutes)
     return False, None, 0
 
 # ==================== RESEARCH REPORTS & LESSONS ====================

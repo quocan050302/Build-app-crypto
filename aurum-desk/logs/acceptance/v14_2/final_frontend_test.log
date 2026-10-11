@@ -1,0 +1,35 @@
+
+> frontend@0.0.0 test
+> vitest run
+
+
+ RUN  v5.0.3 /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend
+
+ ✓ src/v13_4_research_ui.test.ts (3 tests) 3ms
+ ✓ src/v10_4_cost_and_rr.test.ts (12 tests) 9ms
+ ✓ src/v10_2_acceptance.test.ts (16 tests) 5ms
+ ✓ src/v9_1_user_messages.test.ts (19 tests) 40ms
+ ✓ src/v10_3_ui_and_notifications.test.ts (23 tests) 27ms
+ ✓ src/v7_2_realtime.test.ts (2 tests) 32ms
+ ✓ src/v13_research_tab.test.ts (8 tests) 96ms
+ ✓ src/v5_1_geometry_and_news.test.ts (4 tests) 6ms
+ ✓ src/v14_1_rr_flow.test.ts (7 tests) 7ms
+ ✓ src/v14_2_entry_gate.test.ts (22 tests) 10ms
+ ✓ src/v14_chart_evidence.test.ts (6 tests) 6ms
+ ✓ src/v13_3_research_utils.test.ts (3 tests) 5ms
+ ✓ src/selection_logic.test.ts (5 tests) 3ms
+ ✓ src/v13_5_research_acceptance.test.ts (4 tests) 4ms
+ ✓ src/v12_4_lab_job.test.ts (5 tests) 3ms
+ ✓ src/extract_error.test.ts (7 tests) 4ms
+ ✓ src/v8_tabs.test.ts (5 tests) 6ms
+ ✓ src/v7_1_realtime.test.ts (1 test) 2ms
+
+ Test Files  18 passed (18)
+      Tests  152 passed (152)
+   Start at  19:22:05
+   Duration  1.10s (transform 52%, import 31%, tests 12%, worker 4%)
+
+    Isolate  18 workers spawned · ~162ms startup each (spawn + environment, per file)
+             at least ~254ms faster with isolate: false — reuses workers across files instead of one per file
+
+rc=0

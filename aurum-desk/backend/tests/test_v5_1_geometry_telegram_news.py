@@ -277,7 +277,7 @@ def test_arm_endpoint_rejects_screenshot_fixture(client, test_db):
     assert len(orders) == 0
 
 
-def test_arm_endpoint_accepts_valid_short(client, test_db):
+def test_arm_endpoint_accepts_valid_short(client, test_db, fresh_ticker):
     """Valid SHORT setup (TP < Entry < SL) with >= 1:2.0 Net R:R is accepted and armed."""
     valid_setup = models.WatchSetup(
         id="valid-short-1",

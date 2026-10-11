@@ -124,7 +124,7 @@ def test_shared_eligibility_active_position_blocked(isolated_db):
     assert any("1 vị thế" in r for r in eligibility["block_reasons"])
 
 
-def test_shared_eligibility_valid_setup(isolated_db):
+def test_shared_eligibility_valid_setup(isolated_db, fresh_ticker):
     """Shared Eligibility: Verifies that a valid isolated setup with no active position can Arm."""
     setup = models.WatchSetup(
         id="watch-valid-ready",

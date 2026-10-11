@@ -14,6 +14,12 @@ import {
 import { quoteStore } from '../services/quoteStore';
 import { getCatalogTemplate } from '../utils/userMessageCatalog';
 import { normalizeLessonItem } from '../types/lesson';
+import {
+  deriveEntryDecisionView,
+  getEntryDistanceLabel,
+  isEligibilityBoundToIntent,
+} from '../utils/entryGate';
+import type { EntryEligibility, PlanKind } from '../utils/entryGate';
 
 export interface StalePlanNoticeData {
   setupId: string;
@@ -75,11 +81,21 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
   // Realtime quote subscriber for live distance & freshness
   const [currentQuote, setCurrentQuote] = useState(() => quoteStore.getQuote('XAUUSDT'));
 
+  // Coarse clock used only for quote freshness labels (no extra WS connection, no refetch).
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
   useEffect(() => {
     const unsub = quoteStore.subscribe('XAUUSDT', (q) => {
-      if (q) setCurrentQuote(q);
+      if (q) {
+        setCurrentQuote(q);
+        setNowMs(Date.now());
+      }
     });
-    return unsub;
+    const timer = setInterval(() => setNowMs(Date.now()), 5000);
+    return () => {
+      unsub();
+      clearInterval(timer);
+    };
   }, []);
 
   const hasActivePos = Boolean(activePosition?.has_active_position && activePosition?.position);
@@ -90,7 +106,20 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
     ? upcomingSetups.find((s: any) => s.id === selectedIntent.setup_id)
     : null;
 
-  const eligibility = selectedIntent?.eligibility || currentSetup?.eligibility;
+  // V14.2: cached eligibility is only valid for the exact plan it was computed for.
+  // A newer server setup (other version/direction/prices) or a dragged draft is NOT bound -> stale.
+  const intentEligibility = selectedIntent?.eligibility as EntryEligibility | undefined;
+  const serverEligibility = currentSetup?.eligibility as EntryEligibility | undefined;
+  const eligibility: EntryEligibility | undefined = isEligibilityBoundToIntent(intentEligibility, selectedIntent)
+    ? intentEligibility
+    : isEligibilityBoundToIntent(serverEligibility, selectedIntent)
+    ? serverEligibility
+    : undefined;
+  const isEligibilityStale = Boolean(
+    selectedIntent && selectedIntent.source === 'WATCH_SETUP' && selectedIntent.status !== 'ARMED' && !eligibility,
+  );
+  const planKind: PlanKind = (selectedIntent?.plan_kind as PlanKind | undefined) ?? 'CONFIRMED';
+  const isQuoteFresh = Boolean(currentQuote && nowMs - (currentQuote.updatedAt || 0) <= 15000);
 
   // Geometry Validation
   const tp = selectedIntent?.takeProfit;
@@ -105,7 +134,7 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
   const isCrossBlocked = marginMode === 'CROSS' || selectedIntent?.marginMode === 'CROSS';
   const isBlockedByActive = hasActivePos;
   const isBlockedByArmed = hasArmedOrder && selectedIntent?.status !== 'ARMED';
-  const isEligibilityBlocked = Boolean(eligibility && eligibility.eligible === false);
+  const isEligibilityBlocked = Boolean(eligibility && (eligibility.can_arm === false || eligibility.eligible === false));
 
   const blockers: Array<{ code: string; title: string; summary: string }> = [];
 
@@ -128,12 +157,40 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
       });
     }
 
-    const currentNetRR = selectedIntent.estimatedNetRR ?? currentSetup?.net_rr ?? 0;
-    if (currentNetRR > 0 && currentNetRR < 2.0) {
+    // Signed R:R: zero and negative values are real results (never hidden by `||`/`> 0`).
+    const currentNetRRRaw = selectedIntent.estimatedNetRR ?? currentSetup?.net_rr;
+    const currentNetRR = typeof currentNetRRRaw === 'number' && Number.isFinite(currentNetRRRaw) ? currentNetRRRaw : null;
+    const netRewardUsdt = selectedIntent.netRewardUsdt;
+    if (typeof netRewardUsdt === 'number' && Number.isFinite(netRewardUsdt) && netRewardUsdt <= 0) {
+      const tmpl = getCatalogTemplate('NET_REWARD_NON_POSITIVE');
+      blockers.push({
+        code: 'NET_REWARD_NON_POSITIVE',
+        title: tmpl.title,
+        summary: typeof tmpl.summary === 'function' ? tmpl.summary({ net_reward_usdt: netRewardUsdt }) : tmpl.summary,
+      });
+    } else if (currentNetRR !== null && currentNetRR < 2.0) {
       blockers.push({
         code: 'NET_RR_TOO_LOW',
         title: `Net R:R 1:${currentNetRR.toFixed(2)} chưa đạt yêu cầu 1:2.00`,
         summary: `Tỷ lệ Lợi nhuận/Rủi ro ròng 1:${currentNetRR.toFixed(2)} thấp hơn yêu cầu tối thiểu 1:2.00.`,
+      });
+    }
+
+    if (planKind === 'PROVISIONAL') {
+      const tmpl = getCatalogTemplate('UNCONFIRMED_ENTRY');
+      blockers.push({
+        code: 'UNCONFIRMED_ENTRY',
+        title: tmpl.title,
+        summary: typeof tmpl.summary === 'function' ? tmpl.summary({}) : tmpl.summary,
+      });
+    }
+
+    if (isEligibilityStale) {
+      const tmpl = getCatalogTemplate('STALE_ELIGIBILITY');
+      blockers.push({
+        code: 'STALE_ELIGIBILITY',
+        title: tmpl.title,
+        summary: typeof tmpl.summary === 'function' ? tmpl.summary({}) : tmpl.summary,
       });
     }
 
@@ -164,29 +221,34 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
       });
     }
 
-    if (isEligibilityBlocked) {
-      const rCodes = eligibility.reason_codes || [];
+    if (isEligibilityBlocked && eligibility) {
+      const el: EntryEligibility = eligibility;
+      const rCodes = el.reason_codes || [];
       for (const code of rCodes) {
         if (!blockers.some((b) => b.code === code)) {
           const tmpl = getCatalogTemplate(code);
+          const nv = el.news_view;
+          const params: Record<string, unknown> = code === 'NEWS_BLACKOUT' && nv
+            ? { ...el, event_title: nv.title, impact: nv.impact }
+            : { ...el };
           blockers.push({
             code,
             title: tmpl.title,
-            summary: typeof tmpl.summary === 'function' ? tmpl.summary(eligibility) : tmpl.summary,
+            summary: typeof tmpl.summary === 'function' ? tmpl.summary(params) : tmpl.summary,
           });
         }
       }
-      if (blockers.length === 0 && eligibility.block_reasons?.length > 0) {
+      if (blockers.length === 0 && (el.block_reasons?.length ?? 0) > 0) {
         blockers.push({
           code: 'POLICY_GATE',
           title: 'Chưa đủ điều kiện kích hoạt lệnh',
-          summary: eligibility.block_reasons[0],
+          summary: el.block_reasons?.[0] ?? 'Chưa đủ điều kiện kích hoạt lệnh',
         });
       }
     }
 
     // Normalized lesson rules (V10.2)
-    const normalizedBlockers = (eligibility?.lesson_blockers || []).map(normalizeLessonItem);
+    const normalizedBlockers = (eligibility?.lesson_blockers || []).map((raw) => normalizeLessonItem(raw));
     for (const lb of normalizedBlockers) {
       const code = lb.reason_code || (lb.rule_id ? `LESSON_RULE_${lb.rule_id}` : 'LESSON_RULE_BLOCKED');
       if (!blockers.some((b) => b.code === code || b.code === 'LESSON_RULE_BLOCKED')) {
@@ -243,13 +305,32 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
   const totalConditions = conditionsMet.length + conditionsRemaining.length;
 
   // Distance to entry
+  // Provisional/unconfirmed entry never shows a fake "0.00 to Entry"; stale feed shows a wait label.
   let distanceDisplay = '-- / chưa có dữ liệu';
-  if (selectedIntent && currentQuote && Number.isFinite(currentQuote.last) && currentQuote.last > 0 && selectedIntent.plannedEntry > 0) {
-    const dist = Math.abs(currentQuote.last - selectedIntent.plannedEntry);
-    distanceDisplay = `${dist.toFixed(2)} USDT`;
-  } else if (currentSetup?.distance_to_entry_usdt != null && currentSetup.distance_to_entry_usdt > 0) {
-    distanceDisplay = `${Number(currentSetup.distance_to_entry_usdt).toFixed(2)} USDT`;
+  if (selectedIntent) {
+    distanceDisplay = getEntryDistanceLabel({
+      planKind,
+      isQuoteFresh,
+      last: currentQuote?.last,
+      entry: selectedIntent.plannedEntry,
+    });
+    if (distanceDisplay === 'Chưa có dữ liệu khoảng cách' && currentSetup?.distance_to_entry_usdt != null && currentSetup.distance_to_entry_usdt > 0 && planKind !== 'PROVISIONAL') {
+      distanceDisplay = `${Number(currentSetup.distance_to_entry_usdt).toFixed(2)} USDT`;
+    }
   }
+
+  // Concise decision view derived from the bound backend decision (never from quality score).
+  const decisionView = deriveEntryDecisionView({
+    hasOpenPosition: hasActivePos,
+    hasArmedOrderForIntent: selectedIntent?.status === 'ARMED',
+    hasIntent: Boolean(selectedIntent),
+    planKind,
+    strategyState: selectedIntent?.status,
+    isQuoteFresh,
+    eligibility,
+    intent: selectedIntent,
+  });
+  const newsView = eligibility?.news_view;
 
   // Margin calculation
   const calculatedMarginUsdt = selectedIntent
@@ -558,6 +639,53 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
               </div>
             </div>
 
+            {/* V14.2 concise decision row: structural status + effective decision (never merged into one boolean) */}
+            <div className="flex items-center gap-1.5 flex-wrap text-[10px]" id="entry-decision-row">
+              <span
+                id="entry-decision-status"
+                className={`px-1.5 py-0.5 rounded font-bold border ${
+                  decisionView.status === 'CAN_ARM'
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    : decisionView.status === 'BLOCKED'
+                    ? 'bg-rose-500/15 text-rose-300 border-rose-500/40'
+                    : decisionView.status === 'WAITING'
+                    ? 'bg-charcoal-800 text-gray-300 border-charcoal-700'
+                    : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                }`}
+              >
+                {decisionView.label}
+              </span>
+              {newsView?.is_blackout ? (
+                <button
+                  type="button"
+                  id="entry-news-chip"
+                  onClick={() => onOpenDetailsDrawer('upcoming')}
+                  className="px-1.5 py-0.5 rounded bg-amber-950/70 border border-amber-700/70 text-amber-300 hover:text-amber-200"
+                >
+                  Tạm dừng vào lệnh{newsView.remaining_minutes ? ` · còn ~${newsView.remaining_minutes}p` : ''}
+                </button>
+              ) : newsView?.upcoming_title ? (
+                <button
+                  type="button"
+                  id="entry-news-chip"
+                  onClick={() => onOpenDetailsDrawer('upcoming')}
+                  className="px-1.5 py-0.5 rounded bg-charcoal-800 border border-charcoal-700 text-gray-300 hover:text-white"
+                >
+                  Sắp có tin
+                </button>
+              ) : null}
+              {redCount > 0 && (
+                <button
+                  type="button"
+                  id="entry-lesson-chip"
+                  onClick={() => onOpenDetailsDrawer('lessons')}
+                  className="px-1.5 py-0.5 rounded bg-rose-950/70 border border-rose-700/70 text-rose-300 hover:text-rose-200"
+                >
+                  Bài học đỏ: {redCount}
+                </button>
+              )}
+            </div>
+
             {/* Primary Blocker Banner if cannot arm */}
             {cannotArm && primaryBlocker && (
               <div className="p-2.5 rounded-lg bg-amber-950/70 border border-amber-700/80 text-[11px] text-amber-200 space-y-1">
@@ -691,8 +819,10 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                 selectedIntent.revision
               )
             }
-            disabled={cannotArm || isActionLoading}
-            aria-label={cannotArm && primaryBlocker ? `Không thể arm: ${primaryBlocker.title}` : `Arm ${selectedIntent.direction} PAPER`}
+            id="entry-submit-cta"
+            data-can-submit={String(!cannotArm && decisionView.canSubmit)}
+            disabled={cannotArm || !decisionView.canSubmit || isActionLoading}
+            aria-label={cannotArm && primaryBlocker ? `Không thể arm: ${primaryBlocker.title}` : !decisionView.canSubmit ? `Chưa thể đặt lệnh: ${decisionView.primaryReason ?? ''}` : `Arm ${selectedIntent.direction} PAPER`}
             className="w-full py-2.5 bg-gradient-to-r from-aurum-500 to-aurum-600 hover:from-aurum-400 hover:to-aurum-500 text-charcoal-950 font-bold rounded text-xs transition shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
           >
             <PlayCircle className="w-4 h-4" />
@@ -701,6 +831,10 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                 ? 'Đang xử lý...'
                 : cannotArm && primaryBlocker
                 ? primaryBlocker.title
+                : !decisionView.canSubmit
+                ? decisionView.primaryReason ?? 'Đang kiểm tra điều kiện'
+                : decisionView.ctaKind === 'ARM_PENDING'
+                ? `Đặt lệnh chờ ${selectedIntent.direction} — PAPER`
                 : `Arm ${selectedIntent.direction} — PAPER`}
             </span>
           </button>

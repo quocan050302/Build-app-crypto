@@ -112,6 +112,69 @@ export const USER_MESSAGE_CATALOG: Record<string, CatalogTemplate> = {
     defaultAction: { type: 'OPEN_NEWS', label: 'Xem Lịch Tin Tức' },
   },
 
+  // V14.2 entry guard messages (clear title + next step; diagnostic code stays in details/log)
+  NET_REWARD_NON_POSITIVE: {
+    code: 'NET_REWARD_NON_POSITIVE',
+    title: 'Lợi nhuận ròng kỳ vọng không dương',
+    summary: (p) =>
+      p?.net_reward_usdt != null
+        ? `Sau phí và trượt giá, lệnh chốt lời chỉ còn ${Number(p.net_reward_usdt).toFixed(2)} USDT. Mục tiêu hiện tại quá gần điểm vào.`
+        : 'Sau phí và trượt giá, lệnh chốt lời không còn lợi nhuận. Mục tiêu hiện tại quá gần điểm vào.',
+    explanation:
+      'Hướng lệnh và thứ tự giá vẫn đúng; vấn đề là khoảng cách tới mục tiêu quá nhỏ so với chi phí giao dịch. Hệ thống không tự kéo TP hay tăng khối lượng để làm tỷ lệ đẹp hơn.',
+    impact: 'Lệnh chưa được đặt.',
+    next_steps: 'Chờ điểm vào tốt hơn hoặc mục tiêu cấu trúc mới đủ xa.',
+    defaultSeverity: 'warning',
+    defaultCertainty: 'confirmed',
+  },
+
+  ENTRY_GUARD_DATA_UNAVAILABLE: {
+    code: 'ENTRY_GUARD_DATA_UNAVAILABLE',
+    title: 'Chưa kiểm tra đủ điều kiện vào lệnh',
+    summary: 'Một điều kiện an toàn (tin tức, bài học, báo giá hoặc tài khoản) chưa đọc được nên lệnh được giữ lại.',
+    explanation:
+      'Khi thiếu dữ liệu để kiểm tra, hệ thống chọn an toàn: không đặt hoặc khớp lệnh mới. Vị thế đang mở vẫn được bảo vệ bình thường.',
+    impact: 'Lệnh mới chưa được đặt hoặc khớp.',
+    next_steps: 'Chờ vài giây rồi thử lại. Nếu còn lặp lại, xem mã chẩn đoán trong chi tiết.',
+    defaultSeverity: 'warning',
+    defaultCertainty: 'confirmed',
+  },
+
+  UNCONFIRMED_ENTRY: {
+    code: 'UNCONFIRMED_ENTRY',
+    title: 'Điểm vào chưa xác nhận',
+    summary: 'Đây là kế hoạch tạm để quan sát, chưa phải tín hiệu vào lệnh đã xác nhận.',
+    explanation:
+      'Giá Entry/SL/TP hiển thị theo giá hiện tại và cấu trúc gần nhất. Hướng này chưa có đủ cơ sở xác nhận nên không được xem là lệnh BUY/SELL.',
+    impact: 'Chưa có lệnh nào được đặt.',
+    next_steps: 'Chờ hệ thống xác nhận phá vỡ cấu trúc.',
+    defaultSeverity: 'info',
+    defaultCertainty: 'confirmed',
+  },
+
+  STALE_ELIGIBILITY: {
+    code: 'STALE_ELIGIBILITY',
+    title: 'Kế hoạch đã đổi, đang kiểm tra lại',
+    summary: 'Kết quả kiểm tra điều kiện cũ không còn khớp với bộ giá hoặc phiên bản setup bạn đang chọn.',
+    explanation:
+      'Khi bạn kéo giá hoặc setup được cập nhật, kết quả kiểm tra trước đó không được dùng lại để cho phép đặt lệnh.',
+    impact: 'Nút đặt lệnh tạm khóa cho tới khi có kết quả kiểm tra mới.',
+    next_steps: 'Chọn lại setup mới nhất (Theo dõi bản mới) hoặc chờ kết quả kiểm tra.',
+    defaultSeverity: 'info',
+    defaultCertainty: 'confirmed',
+  },
+
+  QUOTE_STALE: {
+    code: 'QUOTE_STALE',
+    title: 'Chờ báo giá mới',
+    summary: 'Báo giá đã cũ hoặc chưa hợp lệ nên chưa thể đặt hoặc khớp lệnh.',
+    explanation: 'Hệ thống chỉ dùng báo giá còn mới (tối đa 15 giây) để tính điểm khớp và rủi ro.',
+    impact: 'Lệnh chưa được đặt hoặc khớp.',
+    next_steps: 'Chờ nguồn giá cập nhật lại.',
+    defaultSeverity: 'warning',
+    defaultCertainty: 'confirmed',
+  },
+
   LESSON_RULE_BLOCKED: {
     code: 'LESSON_RULE_BLOCKED',
     title: 'Kế hoạch bị chặn bởi quy tắc bài học đã kích hoạt',
