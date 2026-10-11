@@ -761,10 +761,12 @@ def build_scheduled_price_plan(
                 }
 
     if pre_ny_range and pre_ny_range.get("valid"):
-        for mm_mult in [2.0, 2.5, 3.0, 3.5]:
-            mm_target, mm_err = build_measured_move_target(pre_ny_range, direction, anchor=fill_entry, fixed_multiplier=mm_mult)
-            if mm_target:
-                target_candidates.append(mm_target)
+        # PHẦN 07, 51, 134: Single frozen measured move multiplier from policy (no multiplier search loop)
+        pol_mult = getattr(config, "measured_move_multiplier", None)
+        mm_mult = float(pol_mult) if pol_mult is not None else 3.5
+        mm_target, mm_err = build_measured_move_target(pre_ny_range, direction, anchor=fill_entry, fixed_multiplier=mm_mult)
+        if mm_target:
+            target_candidates.append(mm_target)
 
 # Removed legacy SL-distance extension loop (Phần 07, 31, 51)
 

@@ -10,6 +10,8 @@ import json
 import csv
 from typing import Dict, Any, List, Optional, Tuple
 import openpyxl
+import math
+import re
 
 
 def run_replay_integrity_checks(
@@ -28,16 +30,18 @@ def run_replay_integrity_checks(
     """
     checks = []
 
-    # 1. Dataset Hash Check (PHẦN 08, 62: reject FAKEHASH and ensure genuine hash length >= 16)
-    ds_ok = bool(dataset_hash and len(dataset_hash) >= 16 and not str(dataset_hash).upper().startswith("FAKE"))
+    # 1. Dataset Hash Check (PHẦN 08, 65, 136: strictly genuine hex digest length >= 16, reject FAKE)
+    ds_hex = bool(dataset_hash and re.match(r'^[a-fA-F0-9]{16,64}$', str(dataset_hash)))
+    ds_ok = bool(ds_hex and not str(dataset_hash).upper().startswith("FAKE"))
     checks.append({
         "id": "dataset_hash_verified",
         "status": "PASS" if ds_ok else "FAIL",
         "observed": dataset_hash or "MISSING"
     })
 
-    # 2. Run Config Hash Check (Must be distinct from dataset hash and not FAKE)
-    cfg_ok = bool(run_config_hash and len(run_config_hash) >= 16 and not str(run_config_hash).upper().startswith("FAKE") and run_config_hash != dataset_hash)
+    # 2. Run Config Hash Check (Must be genuine hex digest distinct from dataset hash)
+    cfg_hex = bool(run_config_hash and re.match(r'^[a-fA-F0-9]{16,64}$', str(run_config_hash)))
+    cfg_ok = bool(cfg_hex and not str(run_config_hash).upper().startswith("FAKE") and run_config_hash != dataset_hash)
     checks.append({
         "id": "run_config_hash_verified",
         "status": "PASS" if cfg_ok else "FAIL",
@@ -251,12 +255,18 @@ def verify_exported_artifacts(result: Any, artifacts_dir: str) -> Tuple[bool, Li
                 if dir_val not in ("LONG", "SHORT"):
                     errors.append(f"TRADES_CSV_TRADE_{tr_id}_INVALID_DIRECTION: {dir_val}")
 
-                pnl_str = row.get("net_pnl") or row.get("Lãi ròng ($)") or row.get("Net PnL") or "0.0"
-                try:
-                    pnl_f = float(pnl_str)
-                    csv_net_sum += pnl_f
-                except ValueError:
+                pnl_str = row.get("net_pnl") or row.get("Lãi ròng ($)") or row.get("Net PnL")
+                if pnl_str is None or str(pnl_str).strip() == "" or str(pnl_str).lower() == "nan":
                     errors.append(f"TRADES_CSV_TRADE_{tr_id}_INVALID_PNL: {pnl_str}")
+                else:
+                    try:
+                        pnl_f = float(pnl_str)
+                        if not math.isfinite(pnl_f):
+                            errors.append(f"TRADES_CSV_TRADE_{tr_id}_NON_FINITE_PNL: {pnl_str}")
+                        else:
+                            csv_net_sum += pnl_f
+                    except (ValueError, TypeError):
+                        errors.append(f"TRADES_CSV_TRADE_{tr_id}_INVALID_PNL: {pnl_str}")
 
                 if tr_id in exp_by_id:
                     exp_t = exp_by_id[tr_id]
@@ -264,24 +274,32 @@ def verify_exported_artifacts(result: Any, artifacts_dir: str) -> Tuple[bool, Li
                     if dir_val != exp_dir:
                         errors.append(f"TRADES_CSV_TRADE_{tr_id}_DIR_MISMATCH: expected {exp_dir}, found {dir_val}")
 
-                    # Check entry, SL, TP, exit exact values
+                    # Check entry, SL, TP, exit exact values strictly (PHẦN 08, 75, 139)
                     for field_name in ("entry_price", "stop_loss", "take_profit", "exit_price"):
                         exp_val = getattr(exp_t, field_name, None)
                         if exp_val is None and isinstance(exp_t, dict):
                             exp_val = exp_t.get(field_name)
                         act_val = row.get(field_name)
-                        if exp_val is not None and act_val is not None:
+                        if exp_val is not None:
+                            if act_val is None or str(act_val).strip() == "" or str(act_val).lower() == "nan":
+                                errors.append(f"TRADES_CSV_TRADE_{tr_id}_{field_name.upper()}_MISSING_OR_NAN: {act_val}")
+                                continue
                             try:
-                                if abs(float(exp_val) - float(act_val)) > 0.02:
+                                exp_f = float(exp_val)
+                                act_f = float(act_val)
+                                if not math.isfinite(exp_f) or not math.isfinite(act_f):
+                                    errors.append(f"TRADES_CSV_TRADE_{tr_id}_{field_name.upper()}_NON_FINITE: {act_val}")
+                                elif abs(exp_f - act_f) > 0.02:
                                     errors.append(f"TRADES_CSV_TRADE_{tr_id}_{field_name.upper()}_MISMATCH: expected {exp_val}, found {act_val}")
                             except (ValueError, TypeError):
                                 errors.append(f"TRADES_CSV_TRADE_{tr_id}_{field_name.upper()}_NON_NUMERIC: {act_val}")
 
                     exp_net = getattr(exp_t, "net_pnl", None) or (exp_t.get("net_pnl") if isinstance(exp_t, dict) else 0.0)
                     try:
-                        if abs(float(pnl_str) - float(exp_net)) > 0.05:
+                        pnl_val_f = float(pnl_str)
+                        if abs(pnl_val_f - float(exp_net)) > 0.05:
                             errors.append(f"TRADES_CSV_TRADE_{tr_id}_PNL_MISMATCH: expected {exp_net}, found {pnl_str}")
-                    except ValueError:
+                    except (ValueError, TypeError):
                         pass
 
             if expected_closed > 0 and abs(csv_net_sum - float(expected_pnl)) > 0.10:
@@ -334,8 +352,20 @@ def verify_exported_artifacts(result: Any, artifacts_dir: str) -> Tuple[bool, Li
                 if xlsx_trades_count != expected_closed:
                     errors.append(f"XLSX_TRADES_COUNT_MISMATCH: expected {expected_closed}, found {xlsx_trades_count}")
 
+                xlsx_ids = []
                 for r_idx in range(2, max_r + 1):
-                    cell_id = str(ws.cell(row=r_idx, column=1).value or "")
+                    c_id = str(ws.cell(row=r_idx, column=1).value or "").strip()
+                    if c_id:
+                        xlsx_ids.append(c_id)
+
+                if exp_by_id:
+                    diff_missing = sorted(list(set(exp_by_id.keys()) - set(xlsx_ids)))
+                    diff_extra = sorted(list(set(xlsx_ids) - set(exp_by_id.keys())))
+                    if diff_missing or diff_extra:
+                        errors.append(f"XLSX_ID_SET_MISMATCH: missing={diff_missing}, extra={diff_extra}")
+
+                for r_idx in range(2, max_r + 1):
+                    cell_id = str(ws.cell(row=r_idx, column=1).value or "").strip()
                     cell_dir = ws.cell(row=r_idx, column=10).value
                     cell_entry = ws.cell(row=r_idx, column=13).value
                     cell_sl = ws.cell(row=r_idx, column=14).value
@@ -345,40 +375,39 @@ def verify_exported_artifacts(result: Any, artifacts_dir: str) -> Tuple[bool, Li
                     if cell_dir not in ("LONG", "SHORT"):
                         errors.append(f"XLSX_ROW_{r_idx}_INVALID_DIR: {cell_dir}")
 
-                    if cell_id in exp_by_id:
-                        exp_t = exp_by_id[cell_id]
-                        exp_dir = getattr(exp_t, "direction", None) or (exp_t.get("direction") if isinstance(exp_t, dict) else "")
-                        exp_entry = getattr(exp_t, "entry_price", None) or (exp_t.get("entry_price") if isinstance(exp_t, dict) else None)
-                        exp_sl = getattr(exp_t, "stop_loss", None) or (exp_t.get("stop_loss") if isinstance(exp_t, dict) else None)
-                        exp_tp = getattr(exp_t, "take_profit", None) or (exp_t.get("take_profit") if isinstance(exp_t, dict) else None)
-                        exp_net = getattr(exp_t, "net_pnl", None) or (exp_t.get("net_pnl") if isinstance(exp_t, dict) else 0.0)
+                    if cell_id not in exp_by_id:
+                        errors.append(f"XLSX_UNKNOWN_TRADE_ID: {cell_id}")
+                        continue
 
-                        if cell_dir and exp_dir and cell_dir != exp_dir:
-                            errors.append(f"XLSX_ROW_{r_idx}_DIR_MISMATCH: expected {exp_dir}, found {cell_dir}")
-                        if cell_entry is not None and exp_entry is not None:
+                    exp_t = exp_by_id[cell_id]
+                    exp_dir = getattr(exp_t, "direction", None) or (exp_t.get("direction") if isinstance(exp_t, dict) else "")
+                    exp_entry = getattr(exp_t, "entry_price", None) or (exp_t.get("entry_price") if isinstance(exp_t, dict) else None)
+                    exp_sl = getattr(exp_t, "stop_loss", None) or (exp_t.get("stop_loss") if isinstance(exp_t, dict) else None)
+                    exp_tp = getattr(exp_t, "take_profit", None) or (exp_t.get("take_profit") if isinstance(exp_t, dict) else None)
+                    exp_net = getattr(exp_t, "net_pnl", None) or (exp_t.get("net_pnl") if isinstance(exp_t, dict) else 0.0)
+
+                    if cell_dir and exp_dir and cell_dir != exp_dir:
+                        errors.append(f"XLSX_ROW_{r_idx}_DIR_MISMATCH: expected {exp_dir}, found {cell_dir}")
+
+                    for col_name, cell_v, exp_v, tol in [
+                        ("ENTRY", cell_entry, exp_entry, 0.02),
+                        ("SL", cell_sl, exp_sl, 0.02),
+                        ("TP", cell_tp, exp_tp, 0.02),
+                        ("PNL", cell_pnl, exp_net, 0.05),
+                    ]:
+                        if exp_v is not None:
+                            if cell_v is None or str(cell_v).strip() == "" or str(cell_v).lower() == "nan":
+                                errors.append(f"XLSX_TRADE_{cell_id}_{col_name}_MISSING_OR_NAN: {cell_v}")
+                                continue
                             try:
-                                if abs(float(cell_entry) - float(exp_entry)) > 0.02:
-                                    errors.append(f"XLSX_TRADE_{cell_id}_ENTRY_MISMATCH: expected {exp_entry}, found {cell_entry}")
+                                c_f = float(cell_v)
+                                e_f = float(exp_v)
+                                if not math.isfinite(c_f) or not math.isfinite(e_f):
+                                    errors.append(f"XLSX_TRADE_{cell_id}_{col_name}_NON_FINITE: {cell_v}")
+                                elif abs(c_f - e_f) > tol:
+                                    errors.append(f"XLSX_TRADE_{cell_id}_{col_name}_MISMATCH: expected {e_f}, found {c_f}")
                             except (ValueError, TypeError):
-                                pass
-                        if cell_sl is not None and exp_sl is not None:
-                            try:
-                                if abs(float(cell_sl) - float(exp_sl)) > 0.02:
-                                    errors.append(f"XLSX_TRADE_{cell_id}_SL_MISMATCH: expected {exp_sl}, found {cell_sl}")
-                            except (ValueError, TypeError):
-                                pass
-                        if cell_tp is not None and exp_tp is not None:
-                            try:
-                                if abs(float(cell_tp) - float(exp_tp)) > 0.02:
-                                    errors.append(f"XLSX_TRADE_{cell_id}_TP_MISMATCH: expected {exp_tp}, found {cell_tp}")
-                            except (ValueError, TypeError):
-                                pass
-                        if cell_pnl is not None:
-                            try:
-                                if abs(float(cell_pnl) - float(exp_net)) > 0.05:
-                                    errors.append(f"XLSX_TRADE_{cell_id}_PNL_MISMATCH: expected {exp_net}, found {cell_pnl}")
-                            except (ValueError, TypeError):
-                                errors.append(f"XLSX_TRADE_{cell_id}_NON_NUMERIC_PNL: {cell_pnl}")
+                                errors.append(f"XLSX_TRADE_{cell_id}_{col_name}_NON_NUMERIC: {cell_v}")
 
             wb.close()
         except Exception as e:

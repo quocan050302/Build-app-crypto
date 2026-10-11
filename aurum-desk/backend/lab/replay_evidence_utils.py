@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from enum import Enum
-from typing import Any, List, Dict, Optional
+from typing import Any, List, Dict, Optional, Tuple
 import hashlib
 import json
 import math
@@ -153,3 +153,52 @@ def apply_posting_once(
     ledger.postings.append(canonical)
     ledger.cash = cash_after
     return True
+
+
+def assert_exact_id_set(expected_rows: List[Any], actual_rows: List[Any], id_field: str = "id") -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """
+    PHẦN 74, 139: Strictly verifies that the set of actual row IDs exactly matches the expected row IDs.
+    Fails on any missing, extra, empty, or duplicate ID.
+    """
+    def _index(rows):
+        out = {}
+        for row in rows:
+            key = str(read_required(row, id_field)).strip()
+            if not key:
+                raise ValueError("ARTIFACT_MISSING_TRADE_ID")
+            if key in out:
+                raise ValueError(f"ARTIFACT_DUPLICATE_TRADE_ID:{key}")
+            out[key] = row
+        return out
+
+    exp = _index(expected_rows)
+    act = _index(actual_rows)
+    if set(exp.keys()) != set(act.keys()):
+        diff_missing = sorted(list(set(exp.keys()) - set(act.keys())))
+        diff_extra = sorted(list(set(act.keys()) - set(exp.keys())))
+        raise ValueError(
+            f"ARTIFACT_ID_SET_MISMATCH:missing={diff_missing}:extra={diff_extra}"
+        )
+    return exp, act
+
+
+def assert_finite_equal(expected: Any, actual: Any, tolerance: float, path: str):
+    """
+    PHẦN 76, 139: Compares numeric values strictly ensuring both are finite numbers.
+    Rejects None, bool, NaN, and Inf immediately.
+    """
+    for val in (expected, actual, tolerance):
+        if val is None or isinstance(val, bool):
+            raise ValueError(f"ARTIFACT_INVALID_NUMBER:{path}")
+        try:
+            parsed = float(val)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError(f"ARTIFACT_INVALID_NUMBER:{path}") from exc
+        if not math.isfinite(parsed):
+            raise ValueError(f"ARTIFACT_NONFINITE_NUMBER:{path}")
+
+    e, a, tol = float(expected), float(actual), float(tolerance)
+    if tol < 0:
+        raise ValueError(f"ARTIFACT_INVALID_TOLERANCE:{path}")
+    if abs(e - a) > tol:
+        raise ValueError(f"ARTIFACT_VALUE_MISMATCH:{path}:expected={e}:actual={a}")

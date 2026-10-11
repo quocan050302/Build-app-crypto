@@ -22,6 +22,7 @@ import json
 import uuid
 import hashlib
 import logging
+from copy import deepcopy
 from typing import List, Dict, Any, Optional, Tuple, Callable, Union
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
@@ -153,26 +154,32 @@ class ReplayContext:
             raise ValueError(f"Invalid or missing posting_type: {p_type}")
 
         if amt is None or isinstance(amt, bool) or not isinstance(amt, (int, float)):
-            raise TypeError(f"amount_usdt must be a signed numeric float/int, got {type(amt)}: {amt}")
+            raise ValueError(f"amount_usdt must be a signed numeric float/int, got {type(amt)}: {amt}")
         amt = float(amt)
+        if not math.isfinite(amt):
+            raise ValueError(f"amount_usdt must be finite, got: {amt}")
         if ts is None:
             ts = self.clock.now_ms()
         if isinstance(ts, (dict, list, bool, float)) or not isinstance(ts, int):
             raise TypeError(f"timestamp_ms must be an integer epoch timestamp in ms, got {type(ts)}: {ts}")
 
-        # Update cash tracking
-        self.current_cash += amt
-        bal = balance_after_usdt if balance_after_usdt is not None else (balance_after if balance_after is not None else self.current_cash)
-
         p_in_id = (entry_type.get("posting_id") if isinstance(entry_type, dict) else kwargs.get("posting_id"))
         pid = p_in_id or f"POST-{self.run_id}-{len(self.ledger_postings) + 1}"
-        if pid in self.posting_index:
-            existing = self.posting_index[pid]
-            if abs(float(existing["amount_usdt"]) - round(amt, 4)) > 1e-5 or existing["posting_type"] != p_type:
-                raise ValueError(f"POSTING_ID_PAYLOAD_CONFLICT: {pid}")
-            return existing
         ev_id = event_id or f"EV-{self.run_id}-{len(self.ledger_postings) + 1}"
         cm_ver = cost_model_version or self.cost_model_version
+
+        # PHẦN 32, 124, 127: Check idempotency and payload conflict BEFORE mutating cash!
+        if pid in self.posting_index:
+            existing = self.posting_index[pid]
+            if (abs(float(existing["amount_usdt"]) - round(amt, 4)) > 1e-5
+                or existing["posting_type"] != p_type
+                or (t_id and existing.get("trade_id") and existing["trade_id"] != t_id)):
+                raise ValueError(f"POSTING_ID_PAYLOAD_CONFLICT: {pid}")
+            return deepcopy(existing)
+
+        # Mutate cash only after validation and conflict checking succeed
+        self.current_cash = round(self.current_cash + amt, 4)
+        bal = balance_after_usdt if balance_after_usdt is not None else (balance_after if balance_after is not None else self.current_cash)
 
         posting_record = {
             # Canonical V12.4 schema
@@ -200,7 +207,7 @@ class ReplayContext:
         }
         self.posting_index[pid] = posting_record
         self.ledger_postings.append(posting_record)
-        return posting_record
+        return deepcopy(posting_record)
 
     def record_decision(self, trade_id: str, direction: str, stage: str, status: str, entry_price: float, sl: float, tp: float, reason: Optional[str] = None):
         self.decision_events.append({
@@ -1067,7 +1074,8 @@ class ReplayEngine:
                     if order_status == "FILLED" and pos and entry_posting:
                         active_trade = pos
                         replay_ctx.record_posting(entry_posting)
-                        cash_balance = cash_balance - pos.entry_fee
+                        # PHẦN 125: Authoritative cash owner is replay_ctx
+                        cash_balance = float(replay_ctx.current_cash)
                         daily_fills += 1
                         if current_date_str in daily_stats_map:
                             ds = daily_stats_map[current_date_str]
@@ -1228,6 +1236,8 @@ class ReplayEngine:
                         balance_after_usdt=cash_after_fee,
                         description=f"Exit fee ({exit_fee_rate*100:.2f}%) for trade {active_trade['id']}"
                     )
+                    # PHẦN 125: Sync local cash from authoritative context ledger
+                    cash_balance = float(replay_ctx.current_cash)
 
                     replay_ctx.record_execution(
                         event_type="POSITION_CLOSED",

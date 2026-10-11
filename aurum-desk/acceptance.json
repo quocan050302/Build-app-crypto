@@ -1,34 +1,156 @@
 {
-  "schema_version": "v13.7",
-  "timestamp": 1791684812650,
+  "schema_version": "v13.8",
+  "timestamp": 1791686842281,
   "git_info": {
-    "head_commit": "41b9017342591f8acb324d82066baa6e354c661e",
-    "diff_hash": "d1a336ed1e345f4f",
+    "head_commit": "e821f343db2e52bdd48d11cf7b4103394aeae880",
+    "diff_hash": "d223529c6411a2d0",
     "has_uncommitted_changes": true
   },
-  "stage1_backend_tests": {
-    "passed": true,
-    "duration_seconds": 80.4,
-    "test_files_count": 26,
-    "stdout_snippet": "=========== warnings summary ===============================\nbackend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1\n  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=================== 87 passed, 1 warning in 79.39s (0:01:19) ===================\n",
-    "stderr_snippet": ""
+  "stages": {
+    "stage1_backend_tests": {
+      "status": "PASS",
+      "mandatory": true,
+      "passed": true,
+      "duration_seconds": 14.6,
+      "test_files_count": 10,
+      "total_tests": 42,
+      "passed_tests": 42,
+      "failed_tests": 0,
+      "junit_xml": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/lab/artifacts/v13_8_tests/junit.xml",
+      "stdout_snippet": "macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n- generated xml file: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/lab/artifacts/v13_8_tests/junit.xml -\n======================== 42 passed, 1 warning in 13.61s ========================\n",
+      "stderr_snippet": ""
+    },
+    "stage2_frontend": {
+      "status": "PASS",
+      "mandatory": true,
+      "passed": true,
+      "vitest_passed": true,
+      "build_passed": true,
+      "duration_seconds": 5.39,
+      "build_snippet": " production...\ntransforming...\n\u2713 1983 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.45 kB \u2502 gzip:   0.29 kB\ndist/assets/index-CfNa7FFd.css   38.45 kB \u2502 gzip:   7.51 kB\ndist/assets/index-Cl9FbnzQ.js   893.69 kB \u2502 gzip: 247.28 kB\n\n\u2713 built in 703ms\n"
+    },
+    "stage3_empirical_replay": {
+      "status": "PASS",
+      "mandatory": true,
+      "passed": true,
+      "run_id": "v12-replay-beffbc19",
+      "run_name": "v13_8_acceptance_empirical_3m",
+      "duration_seconds": 12.49,
+      "total_trades": 80,
+      "closed_count": 80,
+      "open_positions_count": 0,
+      "fills_count": 80,
+      "wins": 10,
+      "losses": 70,
+      "breakevens": 0,
+      "win_rate_pct": 12.5,
+      "profit_factor": 0.55,
+      "total_net_pnl": -45.33,
+      "total_fees": 44.0,
+      "max_drawdown_usdt": 58.62,
+      "max_drawdown_pct": 5.84,
+      "expectancy_r": -0.54,
+      "trade_type_breakdown": {
+        "SMC_CONFIRMED": 12,
+        "SMC_CONTEXT_SCHEDULED_PAPER": 68
+      },
+      "cadence_summary": {
+        "calendar_days": 93,
+        "ny_sessions_total": 93,
+        "market_open_sessions": 93,
+        "data_complete_sessions": 92,
+        "executable_sessions": 92,
+        "sessions_with_fills": 80,
+        "all_sessions_with_fills": 80,
+        "confirmed_fill_sessions": 12,
+        "scheduled_fill_sessions": 68,
+        "blocked_sessions": 0,
+        "unmet_sessions": 12,
+        "in_progress_sessions": 0,
+        "coverage_pct": 87.0,
+        "cadence_status": "UNMET"
+      },
+      "run_config_hash": "c1aaa05326ae2fc1",
+      "dataset_hash": "1dd754e8f038db496dee577d11c1d834517a5c8c483386efb4454297f011e63f",
+      "integrity_summary": {
+        "status": "PASS",
+        "dataset_hash": "1dd754e8f038db496dee577d11c1d834517a5c8c483386efb4454297f011e63f",
+        "run_config_hash": "c1aaa05326ae2fc1",
+        "causal_data_ok": true,
+        "guards_active": true,
+        "ledger_reconciled": true,
+        "trade_count_consistent": true,
+        "checks": [
+          {
+            "id": "dataset_hash_verified",
+            "status": "PASS",
+            "observed": "1dd754e8f038db496dee577d11c1d834517a5c8c483386efb4454297f011e63f"
+          },
+          {
+            "id": "run_config_hash_verified",
+            "status": "PASS",
+            "observed": "c1aaa05326ae2fc1"
+          },
+          {
+            "id": "cash_ledger_reconciled",
+            "status": "PASS",
+            "observed": "diff=0.0000, expected=954.67, reported=954.67"
+          },
+          {
+            "id": "causal_data_order_ok",
+            "status": "PASS",
+            "observed": "TIMESTAMPS_STRICTLY_CAUSAL"
+          },
+          {
+            "id": "hard_guards_verified",
+            "status": "PASS",
+            "observed": "DAILY_CAP_AND_STOPS_HONORED"
+          },
+          {
+            "id": "trade_count_partitioned",
+            "status": "PASS",
+            "observed": "closed=80, sum=80"
+          },
+          {
+            "id": "pricing_geometry_verified",
+            "status": "PASS",
+            "observed": "GEOMETRY_COMPLIANT"
+          }
+        ]
+      },
+      "artifacts_dir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/lab/artifacts/v12_2/v12-replay-beffbc19",
+      "artifacts_verified": true,
+      "artifacts_errors": []
+    },
+    "stage4_artifacts_and_integrity": {
+      "status": "PASS",
+      "mandatory": true,
+      "passed": true,
+      "integrity_passed": true,
+      "artifacts_verified": true,
+      "artifacts_errors": []
+    },
+    "stage5_determinism": {
+      "status": "PASS",
+      "mandatory": true,
+      "passed": true,
+      "duration_seconds": 13.19,
+      "run_a_id": "v12-replay-beffbc19",
+      "run_b_id": "v12-replay-e140c817",
+      "mismatches": [],
+      "verified_deterministic": true
+    }
   },
-  "stage2_frontend": {
-    "passed": true,
-    "vitest_passed": true,
-    "build_passed": true,
-    "duration_seconds": 7.16,
-    "build_snippet": " production...\ntransforming...\n\u2713 1983 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.45 kB \u2502 gzip:   0.29 kB\ndist/assets/index-CfNa7FFd.css   38.45 kB \u2502 gzip:   7.51 kB\ndist/assets/index-Cl9FbnzQ.js   893.69 kB \u2502 gzip: 247.28 kB\n\n\u2713 built in 993ms\n"
-  },
-  "stage3_integrity_passed": true,
-  "stage3_artifacts_verified": true,
   "technical_status": "PASS",
   "cadence_status": "UNMET",
   "economic_status": "LOSING",
   "empirical_metrics": {
-    "run_id": "v12-replay-83e3f901",
-    "run_name": "v13_7_acceptance_empirical_3m",
-    "duration_seconds": 14.8,
+    "status": "PASS",
+    "mandatory": true,
+    "passed": true,
+    "run_id": "v12-replay-beffbc19",
+    "run_name": "v13_8_acceptance_empirical_3m",
+    "duration_seconds": 12.49,
     "total_trades": 80,
     "closed_count": 80,
     "open_positions_count": 0,
@@ -111,9 +233,9 @@
         }
       ]
     },
-    "artifacts_dir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/lab/artifacts/v12_2/v12-replay-83e3f901",
+    "artifacts_dir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/lab/artifacts/v12_2/v12-replay-beffbc19",
     "artifacts_verified": true,
     "artifacts_errors": []
   },
-  "elapsed_seconds": 103.78
+  "elapsed_seconds": 46.85
 }
