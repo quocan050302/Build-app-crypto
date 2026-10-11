@@ -169,10 +169,43 @@ class QuoteValidator:
 
         # Timestamps
         exchange_time = ticker.get("server_time") or ticker.get("timestamp")
-        observed_at = ticker.get("observed_at") or now
+        actual_observed = ticker.get("observed_at") or ticker.get("received_at_ms")
 
-        # Use exchange_time if valid and reasonable, otherwise fallback to observed_at
-        ref_time = exchange_time if (exchange_time and exchange_time > 0) else observed_at
+        # If neither exchange_time nor actual receipt provenance is provided, do NOT fabricate now as fresh quote
+        if not exchange_time and not actual_observed:
+            return ValidatedQuote(
+                is_valid=False,
+                bid=bid,
+                ask=ask,
+                last=last,
+                spread=round(ask - bid, 4),
+                exchange_time=None,
+                observed_at=now,
+                freshness_sec=9999.0,
+                is_stale=True,
+                rejection_code="TIME_UNAVAILABLE",
+                rejection_detail="Thiếu timestamp nguồn và thời điểm nhận thực tế"
+            )
+
+        ref_time = exchange_time if (exchange_time and exchange_time > 0) else actual_observed
+        observed_at = actual_observed or now
+
+        # Future timestamp check (tolerance 5.0 seconds = 5000 ms)
+        if ref_time > (now + 5000):
+            return ValidatedQuote(
+                is_valid=False,
+                bid=bid,
+                ask=ask,
+                last=last,
+                spread=round(ask - bid, 4),
+                exchange_time=exchange_time,
+                observed_at=observed_at,
+                freshness_sec=9999.0,
+                is_stale=True,
+                rejection_code="FUTURE_TIMESTAMP",
+                rejection_detail=f"Timestamp quote ở tương lai vượt ngưỡng dung sai ({ref_time} > {now})"
+            )
+
         freshness_sec = max(0.0, (now - ref_time) / 1000.0)
         is_stale = freshness_sec > threshold_sec
 
@@ -309,9 +342,48 @@ class QuoteValidator:
 
         exchange_time_raw = raw_quote.get("exchange_ts_ms") or raw_quote.get("server_time") or raw_quote.get("ts") or raw_quote.get("timestamp")
         exchange_time = int(exchange_time_raw) if exchange_time_raw else None
-        received_at = int(raw_quote.get("received_at_ms") or raw_quote.get("observed_at") or now)
+        actual_received = raw_quote.get("received_at_ms") or raw_quote.get("observed_at")
+        received_at = int(actual_received) if actual_received else None
+
+        if not exchange_time and not received_at:
+            return CanonicalQuote(
+                symbol=symbol,
+                last=round(last, 2),
+                bid=round(bid, 2),
+                ask=round(ask, 2),
+                mark_price=round(mark, 2),
+                exchange_ts_ms=None,
+                received_at_ms=now,
+                source=source,
+                connection_epoch=connection_epoch,
+                status="TIME_UNAVAILABLE",
+                spread=round(ask - bid, 4),
+                freshness_sec=9999.0,
+                rejection_code="TIME_UNAVAILABLE",
+                rejection_detail="Thiếu timestamp nguồn và thời điểm nhận thực tế"
+            )
 
         ref_time = exchange_time if (exchange_time and exchange_time > 0) else received_at
+        received_at = received_at or now
+
+        if ref_time > (now + 5000):
+            return CanonicalQuote(
+                symbol=symbol,
+                last=round(last, 2),
+                bid=round(bid, 2),
+                ask=round(ask, 2),
+                mark_price=round(mark, 2),
+                exchange_ts_ms=exchange_time,
+                received_at_ms=received_at,
+                source=source,
+                connection_epoch=connection_epoch,
+                status="FUTURE_TIMESTAMP",
+                spread=round(ask - bid, 4),
+                freshness_sec=9999.0,
+                rejection_code="FUTURE_TIMESTAMP",
+                rejection_detail=f"Timestamp quote ở tương lai vượt ngưỡng ({ref_time} > {now})"
+            )
+
         freshness_sec = max(0.0, (now - ref_time) / 1000.0)
         is_stale = freshness_sec > threshold_sec
 

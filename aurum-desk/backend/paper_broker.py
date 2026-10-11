@@ -157,7 +157,7 @@ class PaperBroker:
         quote_for_guard = validated_quote
         if quote_for_guard is None:
             quote_for_guard = QuoteValidator.validate_ticker(
-                {"bid": current_bid, "ask": current_ask, "last": current_bid}, now_ms=guard_now
+                {"bid": current_bid, "ask": current_ask, "last": current_bid, "observed_at": guard_now}, now_ms=guard_now
             )
         order_id = f"trade-{uuid.uuid4().hex[:8]}"
         guard = evaluate_entry_guard(db, EntryGuardRequest(

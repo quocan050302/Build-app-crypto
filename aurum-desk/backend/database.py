@@ -72,7 +72,11 @@ def run_schema_migrations(target_engine=None):
                     ("arm_decision_snapshot", "TEXT"),
                     ("fill_decision_snapshot", "TEXT"),
                 ]
-                for col_name, col_type in (v6_cols + v7_cols + v10_1_cols):
+                v14_4_po_cols = [
+                    ("scenario_snapshot_id", "VARCHAR(80)"),
+                    ("quality_snapshot_id", "VARCHAR(80)"),
+                ]
+                for col_name, col_type in (v6_cols + v7_cols + v10_1_cols + v14_4_po_cols):
                     if col_name not in cols:
                         conn.execute(text(f"ALTER TABLE paper_orders ADD COLUMN {col_name} {col_type}"))
                 conn.commit()
@@ -94,6 +98,7 @@ def run_schema_migrations(target_engine=None):
                     ("direction_source", "VARCHAR(20)"),
                     # V14.3 additive: NY session id (NULL on legacy rows)
                     ("session_instance_id", "VARCHAR(60)"),
+                    ("scenario_snapshot_id", "VARCHAR(80)"),
                 ]
                 for col_name, col_type in v7_ws_cols:
                     if col_name not in ws_cols:
@@ -260,6 +265,49 @@ def run_schema_migrations(target_engine=None):
                     created_at BIGINT NOT NULL
                 );
             """))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS smc_scenarios (
+                    scenario_id VARCHAR(80) PRIMARY KEY,
+                    instance_id VARCHAR(100) NOT NULL,
+                    revision INTEGER DEFAULT 1,
+                    symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+                    timeframe VARCHAR(10) DEFAULT '5M',
+                    strategy_family VARCHAR(30) DEFAULT 'STANDARD_SMC',
+                    direction VARCHAR(10),
+                    state VARCHAR(30) DEFAULT 'OBSERVING',
+                    as_of_ms BIGINT NOT NULL,
+                    anchor_level_id VARCHAR(80),
+                    target_level_id VARCHAR(80),
+                    summary_vi TEXT,
+                    current_snapshot_id VARCHAR(80),
+                    payload TEXT NOT NULL,
+                    created_at BIGINT NOT NULL,
+                    updated_at BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS smc_scenario_snapshots (
+                    snapshot_id VARCHAR(80) PRIMARY KEY,
+                    scenario_id VARCHAR(80) NOT NULL,
+                    instance_id VARCHAR(100) NOT NULL,
+                    revision INTEGER DEFAULT 1,
+                    symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+                    timeframe VARCHAR(10) DEFAULT '5M',
+                    direction VARCHAR(10),
+                    state VARCHAR(30) NOT NULL,
+                    as_of_ms BIGINT NOT NULL,
+                    evidence_cutoff_ms BIGINT NOT NULL,
+                    evidence_digest VARCHAR(64) NOT NULL,
+                    plan_fingerprint VARCHAR(32),
+                    payload TEXT NOT NULL,
+                    created_at BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenarios_instance_id ON smc_scenarios (instance_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenarios_state ON smc_scenarios (state);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenario_snapshots_scenario_id ON smc_scenario_snapshots (scenario_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenario_snapshots_instance_id ON smc_scenario_snapshots (instance_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenario_snapshots_as_of_ms ON smc_scenario_snapshots (as_of_ms);"))
             conn.commit()
     except Exception:
         pass

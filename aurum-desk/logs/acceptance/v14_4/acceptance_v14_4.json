@@ -1,0 +1,32 @@
+{
+  "backend_pytest": {
+    "status": "PASS",
+    "duration_s": 10.909771125006955,
+    "output_summary": [
+      "",
+      "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+      "======================== 301 passed, 1 warning in 8.89s ========================"
+    ]
+  },
+  "frontend_vitest": {
+    "status": "PASS",
+    "duration_s": 1.3611490830080584,
+    "output_summary": [
+      " Test Files  21 passed (21)",
+      "      Tests  167 passed (167)",
+      "   Start at  23:25:03",
+      "   Duration  620ms (transform 55%, import 31%, tests 10%, worker 4%)",
+      ""
+    ]
+  },
+  "frontend_build": {
+    "status": "PASS",
+    "duration_s": 4.2070672499830835
+  },
+  "benchmark": {
+    "status": "PASS",
+    "duration_s": 0.45763791602803394
+  },
+  "overall_acceptance": "PASS",
+  "timestamp": "2026-10-11 23:25:08"
+}

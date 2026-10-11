@@ -261,6 +261,24 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                     </div>
                   </div>
 
+                  {/* V14.4 Realtime SMC Scenario Explanation */}
+                  {(selectedQualitySnapshot.summary_vi || selectedQualitySnapshot.payload?.summary_vi) && (
+                    <div className="p-3 rounded-lg bg-indigo-950/40 border border-indigo-700/60 space-y-2 text-xs">
+                      <div className="font-bold text-indigo-300 text-xs flex items-center gap-1.5 uppercase">
+                        <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                        Kịch Bản SMC Realtime (V14.4):
+                      </div>
+                      <div className="text-[11px] text-gray-200 whitespace-pre-line leading-relaxed font-sans">
+                        {selectedQualitySnapshot.summary_vi || selectedQualitySnapshot.payload?.summary_vi}
+                      </div>
+                      {(selectedQualitySnapshot.invalidation || selectedQualitySnapshot.payload?.invalidation) && (
+                        <div className="text-[11px] text-rose-300 bg-rose-950/50 p-2 rounded border border-rose-800/60">
+                          <strong>Điều kiện hủy:</strong> {(selectedQualitySnapshot.invalidation || selectedQualitySnapshot.payload?.invalidation).rule_description_vi || `Thủng mức ${(selectedQualitySnapshot.invalidation || selectedQualitySnapshot.payload?.invalidation).price}`}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Fact Summary */}
                   {selectedQualitySnapshot.assessment?.summary && (
                     <div className="p-3 rounded-lg bg-charcoal-850/80 border border-charcoal-750 space-y-1.5 text-xs">

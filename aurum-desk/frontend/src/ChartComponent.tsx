@@ -7,9 +7,16 @@ import { RiskRewardPrimitive } from './plugins/RiskRewardPrimitive';
 import type { RiskRewardData, DragTargetPart } from './plugins/RiskRewardPrimitive';
 import { SMCStructurePrimitive } from './plugins/SMCStructurePrimitive';
 import type { ChartEvidenceBundle } from './utils/chartEvidence';
+import { ChartLayerMenu, defaultLayerSettings } from './components/ChartLayerMenu';
+import type { ChartLayerSettings } from './components/ChartLayerMenu';
+import { SelectedChartHeader } from './components/SelectedChartHeader';
+import { ChartEvidenceTooltip } from './components/ChartEvidenceTooltip';
+import type { SMCHitItem } from './plugins/SMCStructurePrimitive';
+import type { ChartBinding } from './types/smcScenario';
+
 import { calculateClientRiskReward } from './utils/calculator';
 import { quoteStore } from './services/quoteStore';
-import { RefreshCw, AlertCircle, Eye, EyeOff, Crosshair, ArrowUpRight, ArrowDownRight, Layers, BarChart2 } from 'lucide-react';
+import { RefreshCw, AlertCircle, Eye, EyeOff, Crosshair, ArrowUpRight, ArrowDownRight, BarChart2 } from 'lucide-react';
 
 export interface ChartComponentProps {
   symbol: string;
@@ -33,8 +40,20 @@ export interface ChartComponentProps {
   };
   selectedEvidence?: ChartEvidenceBundle | null;
   evidenceMode?: 'SELECTED' | 'ALL' | 'NONE';
-  focusRequest?: { nonce: number; minPrice?: number; maxPrice?: number } | null;
+  focusRequest?: {
+    nonce: number;
+    minPrice?: number;
+    maxPrice?: number;
+    targetTime?: number;
+    startAnchorMs?: number;
+    endAnchorMs?: number;
+    mode?: 'LIVE' | 'SELECTION';
+  } | null;
   onEvidenceModeChange?: (mode: 'SELECTED' | 'ALL' | 'NONE') => void;
+  selectedBinding?: ChartBinding | null;
+  selectedSummaryVi?: string;
+  onClearSelection?: () => void;
+  onOpenSelectionDetails?: () => void;
 }
 
 interface CandleData {
@@ -61,6 +80,10 @@ export function ChartComponent({
   evidenceMode = 'SELECTED',
   focusRequest,
   onEvidenceModeChange: _onEvidenceModeChange,
+  selectedBinding,
+  selectedSummaryVi,
+  onClearSelection,
+  onOpenSelectionDetails,
 }: ChartComponentProps) {
   const lastFocusNonceRef = useRef<number>(0);
   const draftBaseOverlayRef = useRef<RiskRewardData | null | undefined>(activeOverlay);
@@ -76,8 +99,10 @@ export function ChartComponent({
   const [lastDataAt, setLastDataAt] = useState<string | null>(null);
   const [dataIsStale, setDataIsStale] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
-  const [showSMCLevels, setShowSMCLevels] = useState(true);
+  const [showSMCLevels] = useState(true);
   const [draftMode, setDraftMode] = useState(false);
+  const [layerSettings, setLayerSettings] = useState<ChartLayerSettings>(defaultLayerSettings);
+  const [hoveredHitItem, setHoveredHitItem] = useState<SMCHitItem | null>(null);
   const [draftDirection, setDraftDirection] = useState<'LONG' | 'SHORT'>('LONG');
 
   const latestClosePriceRef = useRef<number>(4000.0);
@@ -366,48 +391,119 @@ export function ChartComponent({
         swings: [],
         events: [],
         zones: [],
+        liquidityLevels: [],
+        displacements: [],
+        retests: [],
         showSwings: false,
         showEvents: false,
         showZones: false,
+        showLiquidity: false,
+        showDisplacements: false,
+        showRetests: false,
+        showScenarioPath: false,
       });
       return;
     }
 
-    if (evidenceMode === 'SELECTED' && selectedEvidence) {
-      smcPrimitiveRef.current.setData({
-        swings: selectedEvidence.swings || [],
-        events: selectedEvidence.structureEvents || [],
-        zones: (selectedEvidence.poiZones || []).map((z, idx) => ({
-          id: `poi-${idx}`,
-          kind: 'POI' as const,
-          top: z.top,
-          bottom: z.bottom,
-          start_at: Date.now() - 3600000,
-          end_at: Date.now() + 3600000,
-          label: z.label,
-        })),
-        showSwings: true,
-        showEvents: true,
-        showZones: true,
-      });
-    } else {
+    if (evidenceMode === 'SELECTED') {
+      if (selectedEvidence) {
+        const rawZones = selectedEvidence.poiZones || (selectedEvidence as any).zones || [];
+        const mappedZones = rawZones.map((z: any, idx: number) => {
+          const startAt = z.startAtMs || z.start_at || z.timestamp || ((selectedEvidence as any).asOfMs ? (selectedEvidence as any).asOfMs - 1800000 : Date.now() - 1800000);
+          const endAt = z.endAtMs || z.end_at || ((selectedEvidence as any).asOfMs ? (selectedEvidence as any).asOfMs + 1800000 : startAt + 3600000);
+          return {
+            id: z.id || `zone-${idx}`,
+            kind: z.kind || 'FVG',
+            top: z.top,
+            bottom: z.bottom,
+            start_at: startAt,
+            end_at: endAt,
+            direction: z.direction,
+            state: z.state || 'ACTIVE',
+            label: z.label,
+            source_ids: z.sourceIds || z.source_ids,
+          };
+        });
+
+        smcPrimitiveRef.current.setData({
+          swings: selectedEvidence.swings || [],
+          events: selectedEvidence.structureEvents || [],
+          zones: mappedZones,
+          liquidityLevels: (selectedEvidence as any).liquidityLevels || [],
+          displacements: (selectedEvidence as any).displacements || [],
+          retests: (selectedEvidence as any).retests || [],
+          scenarioPath: (selectedEvidence as any).scenarioPath,
+          showSwings: layerSettings.showSwings,
+          showEvents: layerSettings.showBreaks,
+          showZones: layerSettings.showFvg,
+          showLiquidity: layerSettings.showLiquidity,
+          showDisplacements: layerSettings.showStructure,
+          showRetests: layerSettings.showStructure,
+          showScenarioPath: layerSettings.showScenarioPath,
+        });
+      } else {
+        // Crucial fix: Never fall back to global structure when in SELECTED mode!
+        smcPrimitiveRef.current.setData({
+          swings: [],
+          events: [],
+          zones: [],
+          liquidityLevels: [],
+          displacements: [],
+          retests: [],
+          showSwings: false,
+          showEvents: false,
+          showZones: false,
+          showLiquidity: false,
+          showDisplacements: false,
+          showRetests: false,
+          showScenarioPath: false,
+        });
+      }
+      return;
+    }
+
+    // ALL mode - Global market structure
+    if (evidenceMode === 'ALL') {
       smcPrimitiveRef.current.setData({
         swings: smcStructure?.swings || [],
         events: smcStructure?.structureEvents || [],
         zones: [],
-        showSwings: true,
-        showEvents: true,
+        liquidityLevels: [],
+        displacements: [],
+        retests: [],
+        showSwings: layerSettings.showSwings,
+        showEvents: layerSettings.showBreaks,
         showZones: false,
+        showLiquidity: layerSettings.showLiquidity,
+        showDisplacements: false,
+        showRetests: false,
+        showScenarioPath: false,
       });
     }
-  }, [smcStructure, showSMCLevels, evidenceMode, selectedEvidence]);
+  }, [smcStructure, showSMCLevels, evidenceMode, selectedEvidence, layerSettings]);
 
-  // Focus request handling
+  // Focus request handling (Supports historical trade and live autoScale)
   useEffect(() => {
     if (!focusRequest || focusRequest.nonce === lastFocusNonceRef.current) return;
     lastFocusNonceRef.current = focusRequest.nonce;
-    if (chartRef.current) {
-      chartRef.current.priceScale('right').applyOptions({ autoScale: true });
+    if (!chartRef.current) return;
+
+    chartRef.current.priceScale('right').applyOptions({ autoScale: true });
+
+    const targetTimeMs = focusRequest.targetTime || focusRequest.startAnchorMs;
+    if (targetTimeMs && Number.isSafeInteger(targetTimeMs) && targetTimeMs > 0) {
+      const targetSec = Math.floor(targetTimeMs / 1000);
+      try {
+        const fromSec = targetSec - 3600 * 2;
+        const toSec = targetSec + 3600 * 4;
+        chartRef.current.timeScale().setVisibleRange({
+          from: fromSec as unknown as Time,
+          to: toSec as unknown as Time,
+        });
+      } catch {
+        chartRef.current.timeScale().scrollToPosition(5, false);
+      }
+    } else {
       chartRef.current.timeScale().scrollToPosition(3, false);
     }
   }, [focusRequest]);
@@ -737,16 +833,13 @@ export function ChartComponent({
             </div>
           )}
 
-          {/* Toggle SMC Structure Visuals */}
-          <button
-            onClick={() => setShowSMCLevels(!showSMCLevels)}
-            className={`p-1.5 rounded hover:bg-gray-800 ${
-              showSMCLevels ? 'text-indigo-400' : 'text-gray-500'
-            }`}
-            title="Bật/Tắt Cấu trúc SMC (Swings, Sweeps, BOS, CHoCH)"
-          >
-            <Layers className="w-4 h-4" />
-          </button>
+          {/* Layer Menu & Toggle */}
+          <ChartLayerMenu
+            settings={layerSettings}
+            onChange={setLayerSettings}
+            evidenceMode={evidenceMode}
+            onEvidenceModeChange={_onEvidenceModeChange}
+          />
 
           {/* Toggle Risk/Reward Overlay */}
           <button
@@ -771,6 +864,16 @@ export function ChartComponent({
         </div>
       </div>
 
+      {/* Selected Chart Header */}
+      {selectedBinding && (
+        <SelectedChartHeader
+          binding={selectedBinding}
+          summaryVi={selectedSummaryVi}
+          onClear={onClearSelection}
+          onOpenDetails={onOpenSelectionDetails}
+        />
+      )}
+
       {/* Main Chart Area */}
       <div
         ref={chartContainerRef}
@@ -779,6 +882,19 @@ export function ChartComponent({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
+        {hoveredHitItem && (
+          <ChartEvidenceTooltip
+            data={{
+              kind: hoveredHitItem.title,
+              price: hoveredHitItem.price,
+              occurredAtMs: hoveredHitItem.timeMs,
+              detail: hoveredHitItem.detail,
+              x: hoveredHitItem.x,
+              y: hoveredHitItem.y,
+            }}
+            onClose={() => setHoveredHitItem(null)}
+          />
+        )}
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-20 backdrop-blur-xs">
             <RefreshCw className="w-6 h-6 text-amber-500 animate-spin" />

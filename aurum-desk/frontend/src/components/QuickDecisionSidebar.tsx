@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { SelectedTradeIntent } from '../App';
+import { SMCScenarioCard } from './SMCScenarioCard';
+import type { SMCScenarioView } from '../types/smcScenario';
 import {
   ShieldAlert,
   PlayCircle,
@@ -53,6 +55,8 @@ export interface QuickDecisionSidebarProps {
   selectedQualityLoading?: boolean;
   selectedQualityError?: string | null;
   onFocusOnChart?: () => void;
+  scenarios?: SMCScenarioView[];
+  onSelectScenario?: (scenario: SMCScenarioView) => void;
 }
 
 export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
@@ -77,6 +81,8 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
   selectedQualityLoading = false,
   selectedQualityError: _selectedQualityError,
   onFocusOnChart,
+  scenarios,
+  onSelectScenario,
 }) => {
   // Realtime quote subscriber for live distance & freshness
   const [currentQuote, setCurrentQuote] = useState(() => quoteStore.getQuote('XAUUSDT'));
@@ -476,6 +482,27 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
             <p className="text-[10px] text-gray-300 leading-snug">
               Bản đang xem rev.{stalePlanNotice.oldRevision} • Backend đã cập nhật {stalePlanNotice.newDirection} rev.{stalePlanNotice.newRevision}.
             </p>
+          </div>
+        )}
+
+        {/* REALTIME SMC SCENARIOS V14.4 */}
+        {scenarios && scenarios.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs px-1">
+              <span className="font-semibold text-gray-300 flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                Kịch Bản SMC Realtime ({scenarios.length})
+              </span>
+              <span className="text-[10px] text-gray-500 font-mono">Phiên hiện tại</span>
+            </div>
+            {scenarios.map((sc, idx) => (
+              <SMCScenarioCard
+                key={sc.scenario_id}
+                scenario={sc}
+                isPrimary={idx === 0}
+                onSelect={onSelectScenario}
+              />
+            ))}
           </div>
         )}
 

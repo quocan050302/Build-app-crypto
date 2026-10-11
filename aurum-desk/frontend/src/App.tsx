@@ -51,10 +51,13 @@ import { NotificationCenterDrawer } from './components/NotificationCenterDrawer'
 import { UserMessageDetailsModal } from './components/UserMessageDetailsModal';
 import { buildTradeEventMessage } from './utils/normalizeAppError';
 import type { QualitySnapshot } from './types/setupQuality';
-import { buildChartEvidenceBundle } from './utils/chartEvidence';
+import { buildChartEvidenceBundle, makeSelectionKey } from './utils/chartEvidence';
+import type { ChartBinding } from './types/smcScenario';
+import { useSMCScenarios } from './hooks/useSMCScenarios';
+import type { SMCScenarioView } from './types/smcScenario';
 import type { SemanticActionType } from './types/userMessage';
 
-export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION';
+export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION' | 'SCENARIO';
 
 export interface SelectedTradeIntent {
   source: SelectionSource;
@@ -139,7 +142,15 @@ function AppContent() {
   const [selectedQualityLoading, setSelectedQualityLoading] = useState<boolean>(false);
   const [selectedQualityError, setSelectedQualityError] = useState<string | null>(null);
   const [evidenceMode, setEvidenceMode] = useState<'SELECTED' | 'ALL' | 'NONE'>('SELECTED');
-  const [focusRequest, setFocusRequest] = useState<{ nonce: number } | null>(null);
+  const [focusRequest, setFocusRequest] = useState<{
+    nonce: number;
+    minPrice?: number;
+    maxPrice?: number;
+    targetTime?: number;
+    startAnchorMs?: number;
+    endAnchorMs?: number;
+    mode?: 'LIVE' | 'SELECTION';
+  } | null>(null);
   const qualityGenRef = useRef<number>(0);
   const qualityAbortControllerRef = useRef<AbortController | null>(null);
   useEffect(() => () => {
@@ -147,10 +158,37 @@ function AppContent() {
     qualityAbortControllerRef.current?.abort();
   }, []);
 
+  // Realtime SMC Scenarios V14.4
+  const { scenarios: smcScenarios, summaryVi: smcScenarioSummaryVi } = useSMCScenarios('XAUUSDT');
+
   const chartEvidenceBundle = useMemo(() => {
     if (!selectedQualitySnapshot) return null;
-    return buildChartEvidenceBundle(selectedQualitySnapshot, timeframe);
-  }, [selectedQualitySnapshot, timeframe]);
+    const key = makeSelectionKey({
+      source: selectedIntent?.source || 'SETUP',
+      id: selectedIntent?.setup_id || selectedQualitySnapshot.setup_id || 'unknown',
+      instanceId: selectedIntent?.setup_instance_id || selectedQualitySnapshot.setup_instance_id,
+      revision: selectedIntent?.revision || (selectedQualitySnapshot as any).revision || (selectedQualitySnapshot as any).expected_revision,
+      symbol: selectedQualitySnapshot.symbol || 'XAUUSDT',
+      direction: selectedIntent?.direction || (selectedQualitySnapshot.direction as any),
+      planFingerprint: selectedIntent?.plan_fingerprint || selectedQualitySnapshot.plan_fingerprint,
+      snapshotId: (selectedQualitySnapshot as any).id || (selectedQualitySnapshot as any).snapshot_id || null,
+    });
+    return buildChartEvidenceBundle(selectedQualitySnapshot, key);
+  }, [selectedQualitySnapshot, selectedIntent]);
+
+  const selectedBinding: ChartBinding | null = useMemo(() => {
+    if (!selectedIntent) return null;
+    return {
+      source: selectedIntent.source as any,
+      id: selectedIntent.setup_id || '',
+      instanceId: selectedIntent.setup_instance_id || null,
+      revision: selectedIntent.revision ?? null,
+      symbol: selectedIntent.symbol || 'XAUUSDT',
+      direction: selectedIntent.direction || null,
+      planFingerprint: selectedIntent.plan_fingerprint || null,
+      snapshotId: (selectedQualitySnapshot as any)?.id || (selectedQualitySnapshot as any)?.snapshot_id || null,
+    };
+  }, [selectedIntent, selectedQualitySnapshot]);
   const [stalePlanNotice, setStalePlanNotice] = useState<{
     setupId: string;
     oldRevision: number;
@@ -876,6 +914,77 @@ function AppContent() {
     }
   };
 
+  const handleSelectScenarioOnChart = (sc: SMCScenarioView) => {
+    setActiveTab('chart');
+    setEvidenceMode('SELECTED');
+    ++qualityGenRef.current;
+    qualityAbortControllerRef.current?.abort();
+    setSelectedQualitySnapshot(null);
+    setSelectedQualityLoading(false);
+    setSelectedQualityError(null);
+
+    const plan = sc.payload?.plan;
+    const hasPlan = plan && plan.entry > 0 && plan.stop_loss > 0 && plan.take_profit > 0;
+
+    setSelectedIntent({
+      source: 'SCENARIO',
+      setup_id: sc.scenario_id,
+      setup_instance_id: sc.instance_id,
+      revision: sc.revision,
+      symbol: sc.symbol,
+      timeframe: sc.timeframe,
+      direction: sc.direction || 'LONG',
+      plannedEntry: hasPlan ? plan.entry : 0,
+      stopLoss: hasPlan ? plan.stop_loss : 0,
+      takeProfit: hasPlan ? plan.take_profit : undefined,
+      orderType: 'LIMIT',
+      quantity: hasPlan ? plan.quantity : undefined,
+      initialRiskUsdt: hasPlan ? plan.risk_usdt : undefined,
+      grossRR: hasPlan ? plan.gross_rr : 0,
+      estimatedNetRR: hasPlan ? plan.net_rr : 0,
+      leverage: leverage,
+      marginMode: marginMode,
+      status: sc.state,
+      snapshotAt: sc.as_of_ms,
+      quality_status: sc.state === 'STRUCTURE_CONFIRMED' ? 'SATISFIED' : 'PARTIAL',
+    });
+
+    if (hasPlan) {
+      setActiveOverlay({
+        id: sc.scenario_id,
+        direction: sc.direction || 'LONG',
+        state: 'draft',
+        readOnly: true,
+        plannedEntry: plan.entry,
+        stopLoss: plan.stop_loss,
+        takeProfit: plan.take_profit,
+        quantity: plan.quantity,
+        initialRiskUsdt: plan.risk_usdt,
+        riskPct: plan.risk_pct || riskPct || 0.25,
+        grossRR: plan.gross_rr,
+        estimatedNetRR: plan.net_rr,
+        entryTime: Math.floor(sc.as_of_ms / 1000),
+      });
+    } else {
+      setActiveOverlay(null);
+    }
+
+    if (sc.current_snapshot_id) {
+      const gen = ++qualityGenRef.current;
+      setSelectedQualityLoading(true);
+      api.getScenarioSnapshot(sc.scenario_id, sc.current_snapshot_id).then((snap: any) => {
+        if (gen !== qualityGenRef.current) return;
+        setSelectedQualityLoading(false);
+        if (snap) setSelectedQualitySnapshot(snap);
+      }).catch(() => {
+        if (gen !== qualityGenRef.current) return;
+        setSelectedQualityLoading(false);
+      });
+    }
+
+    setFocusRequest({ nonce: Date.now(), targetTime: sc.as_of_ms, mode: 'SELECTION' });
+  };
+
   const handleFocusSetupOnChart = (setup: any) => {
     const resolution = resolveSetupPriceLevels(setup);
     if (!resolution.isValid) {
@@ -1044,7 +1153,7 @@ function AppContent() {
       setSelectedQualityError(err?.message || 'Chưa thể tải đánh giá chất lượng');
     });
 
-    setFocusRequest({ nonce: Date.now() });
+    setFocusRequest({ nonce: Date.now(), targetTime: setup.signal_time || setup.created_at, mode: 'SELECTION' });
 
     showToast(
       `Đã Chọn Setup ${setup.direction}`,
@@ -1272,6 +1381,7 @@ function AppContent() {
     setSelectedQualityLoading(false);
     setTimeframe(trade.timeframe || '15M');
     setActiveTab('chart');
+    const tradeEntryTime = trade.opened_at ? Math.floor(trade.opened_at / 1000) : (trade.armed_at ? Math.floor(trade.armed_at / 1000) : (trade.created_at ? Math.floor(trade.created_at / 1000) : undefined));
     const overlay: RiskRewardData = {
       id: trade.id,
       direction: trade.direction,
@@ -1291,6 +1401,7 @@ function AppContent() {
       leverage: trade.leverage || leverage,
       marginMode: trade.margin_mode || marginMode,
       estimatedLiquidation: trade.estimated_liquidation,
+      entryTime: tradeEntryTime,
     };
     setActiveOverlay(overlay);
     setSelectedIntent({
@@ -1317,20 +1428,38 @@ function AppContent() {
 
     setSelectedQualitySnapshot(null);
     setSelectedQualityError(null);
-    if (trade.quality_snapshot_id) {
+    if (trade.id) {
       const gen = ++qualityGenRef.current;
       setSelectedQualityLoading(true);
-      api.getQualitySnapshot(trade.quality_snapshot_id).then((snap: any) => {
+      api.getOrderChartEvidence(trade.id).then((res: any) => {
         if (gen !== qualityGenRef.current) return;
         setSelectedQualityLoading(false);
-        setSelectedQualitySnapshot(snap);
+        if (res && res.evidence) {
+          setSelectedQualitySnapshot(res.evidence);
+        } else if (trade.quality_snapshot_id) {
+          api.getQualitySnapshot(trade.quality_snapshot_id).then((snap: any) => {
+            if (gen !== qualityGenRef.current) return;
+            setSelectedQualitySnapshot(snap);
+          }).catch(() => {});
+        }
       }).catch(() => {
-        if (gen !== qualityGenRef.current) return;
-        setSelectedQualityLoading(false);
+        if (trade.quality_snapshot_id) {
+          api.getQualitySnapshot(trade.quality_snapshot_id).then((snap: any) => {
+            if (gen !== qualityGenRef.current) return;
+            setSelectedQualityLoading(false);
+            setSelectedQualitySnapshot(snap);
+          }).catch(() => {
+            if (gen !== qualityGenRef.current) return;
+            setSelectedQualityLoading(false);
+          });
+        } else {
+          if (gen !== qualityGenRef.current) return;
+          setSelectedQualityLoading(false);
+        }
       });
     }
 
-    setFocusRequest({ nonce: Date.now() });
+    setFocusRequest({ nonce: Date.now(), targetTime: trade.opened_at || trade.created_at, mode: 'SELECTION' });
   };
 
   // News CSV Import & Research Modal states
@@ -1748,6 +1877,14 @@ function AppContent() {
                 evidenceMode={evidenceMode}
                 focusRequest={focusRequest}
                 onEvidenceModeChange={setEvidenceMode}
+                selectedBinding={selectedBinding}
+                selectedSummaryVi={(selectedQualitySnapshot as any)?.summary_vi || smcScenarioSummaryVi}
+                onClearSelection={() => {
+                  setSelectedIntent(null);
+                  setActiveOverlay(null);
+                  setSelectedQualitySnapshot(null);
+                }}
+                onOpenSelectionDetails={() => handleOpenDrawer('quality')}
               />
             </div>
           )}
@@ -3070,6 +3207,8 @@ function AppContent() {
                     selectedQualityLoading={selectedQualityLoading}
                     selectedQualityError={selectedQualityError}
                     onFocusOnChart={() => setFocusRequest({ nonce: Date.now() })}
+                    scenarios={smcScenarios}
+                    onSelectScenario={handleSelectScenarioOnChart}
                   />
                 </div>
               </div>
@@ -3101,6 +3240,8 @@ function AppContent() {
               analysis={analysis}
               leverage={leverage}
               marginMode={marginMode}
+              scenarios={smcScenarios}
+              onSelectScenario={handleSelectScenarioOnChart}
             />
           </div>
         )}

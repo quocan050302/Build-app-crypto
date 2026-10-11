@@ -2564,3 +2564,223 @@ async def preview_setup_quality(
             "is_valid": calc.is_valid,
         }
     }
+
+
+# ==================== V14.4 SMC SCENARIO & EVIDENCE ENDPOINTS ====================
+
+@app.get("/api/v1/smc/scenarios", response_model=List[schemas.ScenarioDTO])
+def get_smc_scenarios(
+    symbol: str = "XAUUSDT",
+    limit: int = 5,
+    db: Session = Depends(get_db)
+):
+    """
+    PHẦN 059: Read-only endpoint returning current primary and alternative scenarios.
+    """
+    from services.smc_scenario_repository import get_active_scenarios
+    import json
+    rows = get_active_scenarios(db, symbol=symbol, limit=limit)
+    results = []
+    for r in rows:
+        payload_dict = None
+        if r.payload:
+            try:
+                payload_dict = json.loads(r.payload)
+            except Exception:
+                payload_dict = None
+        results.append(schemas.ScenarioDTO(
+            scenario_id=r.scenario_id,
+            instance_id=r.instance_id,
+            revision=r.revision,
+            symbol=r.symbol,
+            timeframe=r.timeframe,
+            strategy_family=r.strategy_family,
+            direction=r.direction,
+            state=r.state,
+            as_of_ms=r.as_of_ms,
+            summary_vi=r.summary_vi,
+            current_snapshot_id=r.current_snapshot_id,
+            anchor_level_id=r.anchor_level_id,
+            target_level_id=r.target_level_id,
+            payload=payload_dict,
+        ))
+    return results
+
+
+@app.get("/api/v1/smc/scenarios/{scenario_id}/snapshots/{snapshot_id}")
+def get_scenario_snapshot(
+    scenario_id: str,
+    snapshot_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    PHẦN 060: Retrieve exact immutable scenario snapshot by snapshot_id and scenario_id.
+    """
+    from services.smc_scenario_repository import get_scenario_snapshot as repo_get_snapshot
+    import json
+    row = repo_get_snapshot(db, snapshot_id)
+    if not row or row.scenario_id != scenario_id:
+        raise HTTPException(status_code=404, detail="SCENARIO_SNAPSHOT_NOT_FOUND")
+    try:
+        return json.loads(row.payload)
+    except Exception:
+        raise HTTPException(status_code=500, detail="SNAPSHOT_PAYLOAD_CORRUPT")
+
+
+@app.get("/api/v1/setups/{setup_id}/chart-evidence", response_model=schemas.ChartEvidenceDTO)
+def get_setup_chart_evidence(
+    setup_id: str,
+    setup_instance_id: Optional[str] = None,
+    expected_revision: Optional[int] = None,
+    plan_fingerprint: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    PHẦN 061: Retrieve exact chart evidence bundle for a selected setup.
+    """
+    watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == setup_id).first()
+    if not watch_setup:
+        raise HTTPException(status_code=404, detail="SETUP_NOT_FOUND")
+
+    if expected_revision is not None and watch_setup.version != expected_revision:
+        raise HTTPException(
+            status_code=409,
+            detail=f"SETUP_REVISION_MISMATCH: expected {expected_revision}, current {watch_setup.version}"
+        )
+
+    from services.chart_evidence_service import build_selected_chart_bundle_from_dict, adapt_legacy_quality_snapshot
+    from services.smc_scenario_repository import get_scenario_snapshot as repo_get_snapshot
+    from services.plan_resolver import resolve_plan_levels
+    import json
+
+    # 1. Try scenario_snapshot_id if present
+    if getattr(watch_setup, "scenario_snapshot_id", None):
+        snap_row = repo_get_snapshot(db, watch_setup.scenario_snapshot_id)
+        if snap_row:
+            try:
+                payload = json.loads(snap_row.payload)
+                bundle = build_selected_chart_bundle_from_dict(payload, source_type="SETUP", binding_id=setup_id)
+                return schemas.ChartEvidenceDTO(**bundle)
+            except Exception:
+                pass
+
+    # 2. Try legacy quality snapshot adapter
+    from services.setup_quality_repository import setup_quality_repository
+    legacy_snap = setup_quality_repository.get_latest_snapshot_for_setup(db, setup_id, setup_instance_id)
+    if legacy_snap:
+        plan_resolved = resolve_plan_levels(watch_setup)
+        adapted = adapt_legacy_quality_snapshot(legacy_snap, plan_data=plan_resolved)
+        return schemas.ChartEvidenceDTO(**adapted)
+
+    # 3. Empty fallback
+    plan_resolved = resolve_plan_levels(watch_setup)
+    binding = {
+        "source": "SETUP",
+        "id": setup_id,
+        "instance_id": watch_setup.setup_instance_id,
+        "revision": watch_setup.version,
+        "symbol": "XAUUSDT",
+        "direction": watch_setup.direction,
+        "plan_fingerprint": plan_fingerprint,
+        "snapshot_id": None,
+    }
+    return schemas.ChartEvidenceDTO(
+        binding=binding,
+        as_of_ms=watch_setup.updated_at or watch_setup.created_at,
+        evidence_cutoff_ms=watch_setup.updated_at or watch_setup.created_at,
+        strategy_family=watch_setup.strategy_family or "STANDARD_SMC",
+        state=watch_setup.state or "WATCHING",
+        summary_vi="Chưa có bằng chứng cấu trúc đã xác nhận cho setup này.",
+        structure_events=[],
+        poi_zones=[],
+        liquidity_levels=[],
+        displacement_annotation=None,
+        scenario_path=[],
+        risk_reward_plan=plan_resolved if plan_resolved.get("is_valid") else None,
+        invalidation_price=watch_setup.invalidation_price,
+        warnings=["NO_EVIDENCE_FOR_SETUP"],
+        is_empty=True,
+    )
+
+
+@app.get("/api/v1/orders/{order_id}/chart-evidence", response_model=schemas.ChartEvidenceDTO)
+def get_order_chart_evidence(
+    order_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    PHẦN 062: Retrieve exact chart evidence bundle for a selected order.
+    Uses frozen snapshot from arm time, never latest market structure.
+    """
+    order = db.query(models.PaperOrder).filter(models.PaperOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="ORDER_NOT_FOUND")
+
+    from services.chart_evidence_service import build_selected_chart_bundle_from_dict, adapt_legacy_quality_snapshot
+    from services.smc_scenario_repository import get_scenario_snapshot as repo_get_snapshot
+    import json
+
+    order_plan = {
+        "is_valid": True,
+        "direction": order.direction,
+        "planned_entry": order.planned_entry,
+        "actual_entry": order.actual_entry,
+        "stop_loss": order.stop_loss,
+        "take_profit": order.take_profit,
+        "invalidation_price": order.stop_loss,
+        "gross_rr": order.gross_rr,
+        "net_rr": order.estimated_net_rr,
+        "quantity": order.quantity,
+        "net_risk_usdt": order.initial_risk_usdt,
+        "net_reward_usdt": 0.0,
+        "entry_time": (order.opened_at or order.armed_at or order.created_at) // 1000 if (order.opened_at or order.armed_at or order.created_at) else None,
+    }
+
+    # 1. Try scenario_snapshot_id if present
+    if getattr(order, "scenario_snapshot_id", None):
+        snap_row = repo_get_snapshot(db, order.scenario_snapshot_id)
+        if snap_row:
+            try:
+                payload = json.loads(snap_row.payload)
+                bundle = build_selected_chart_bundle_from_dict(payload, source_type="ORDER", binding_id=order_id, order_data=order_plan)
+                return schemas.ChartEvidenceDTO(**bundle)
+            except Exception:
+                pass
+
+    # 2. Try legacy quality snapshot
+    snap_id = getattr(order, "quality_snapshot_id", None) or getattr(order, "evidence_snapshot_id", None)
+    if snap_id:
+        from services.setup_quality_repository import setup_quality_repository
+        legacy_snap = setup_quality_repository.get_snapshot_by_id(db, snap_id)
+        if legacy_snap:
+            adapted = adapt_legacy_quality_snapshot(legacy_snap, order_data=order_plan)
+            return schemas.ChartEvidenceDTO(**adapted)
+
+    # 3. Fallback: Order geometry only (read-only RR, no synthetic sweep)
+    binding = {
+        "source": "ORDER",
+        "id": order_id,
+        "instance_id": order.setup_instance_id,
+        "revision": 1,
+        "symbol": order.instrument or "XAUUSDT",
+        "direction": order.direction,
+        "plan_fingerprint": None,
+        "snapshot_id": None,
+    }
+    return schemas.ChartEvidenceDTO(
+        binding=binding,
+        as_of_ms=order.closed_at or order.opened_at or order.armed_at or order.created_at,
+        evidence_cutoff_ms=order.armed_at or order.created_at,
+        strategy_family=order.strategy_family or "STANDARD_SMC",
+        state=order.state.upper() if order.state else "CLOSED",
+        summary_vi=f"Lệnh {order.direction} ({order.state}). Bằng chứng chi tiết không khả dụng.",
+        structure_events=[],
+        poi_zones=[],
+        liquidity_levels=[],
+        displacement_annotation=None,
+        scenario_path=[],
+        risk_reward_plan=order_plan,
+        invalidation_price=order.stop_loss,
+        warnings=["LEGACY_ORDER_NO_EVIDENCE"],
+        is_empty=False,
+    )

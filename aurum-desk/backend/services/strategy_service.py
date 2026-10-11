@@ -602,6 +602,47 @@ class StrategyService:
             raw_ticker = collector_service.latest_ticker
             auto_quote = QuoteValidator.validate_ticker(raw_ticker, now_ms=now_ms) if raw_ticker else None
 
+        # V14.4: Certified verification via scenario snapshot or strategy evidence bundle
+        scenario_verified = None
+        if getattr(watch_setup, "scenario_snapshot_id", None):
+            try:
+                from models import SMCScenarioSnapshot
+                snap_row = db.query(SMCScenarioSnapshot).filter(
+                    SMCScenarioSnapshot.snapshot_id == watch_setup.scenario_snapshot_id
+                ).first()
+                if snap_row:
+                    p_data = json.loads(snap_row.payload)
+                    cc = p_data.get("chain_check", {})
+                    scenario_verified = bool(cc.get("verified"))
+            except Exception:
+                scenario_verified = False
+        elif getattr(watch_setup, "evidence_snapshot_id", None):
+            try:
+                from services.smc_chain_service import validate_entry_evidence_bundle
+                ev_row = db.query(models.StrategyEvidence).filter(
+                    models.StrategyEvidence.id == watch_setup.evidence_snapshot_id
+                ).first()
+                if ev_row:
+                    nodes = {}
+                    if ev_row.sweep_evidence:
+                        nodes["sweep"] = json.loads(ev_row.sweep_evidence) if isinstance(ev_row.sweep_evidence, str) else ev_row.sweep_evidence
+                    if ev_row.displacement_evidence:
+                        nodes["break"] = json.loads(ev_row.displacement_evidence) if isinstance(ev_row.displacement_evidence, str) else ev_row.displacement_evidence
+                    if ev_row.fvg_evidence:
+                        nodes["fvg"] = json.loads(ev_row.fvg_evidence) if isinstance(ev_row.fvg_evidence, str) else ev_row.fvg_evidence
+                    if ev_row.retest_evidence:
+                        nodes["retest"] = json.loads(ev_row.retest_evidence) if isinstance(ev_row.retest_evidence, str) else ev_row.retest_evidence
+                    val_res = validate_entry_evidence_bundle({
+                        "strategy_family": family,
+                        "direction": watch_setup.direction,
+                        "as_of_ms": now_ms,
+                        "symbol": symbol,
+                        "nodes": nodes,
+                    })
+                    scenario_verified = bool(val_res.get("verified"))
+            except Exception:
+                scenario_verified = False
+
         guard = evaluate_entry_guard(db, EntryGuardRequest(
             stage="ARM",
             now_ms=now_ms,
@@ -631,8 +672,10 @@ class StrategyService:
             min_net_rr=min_rr,
             distance_to_entry_atr=getattr(watch_setup, "distance_to_entry_atr", None),
             session_instance_id=policy_eval.get("session_instance_id"),
-            # V14.3: the experimental NY fallback never claims a verified sweep->break->FVG chain.
-            structure_chain_verified=(True if watch_setup.state == "READY" and family != "NY_QUOTA_PAPER" else None),
+            structure_chain_verified=(
+                scenario_verified if (family != "NY_QUOTA_PAPER" and scenario_verified is not None)
+                else (True if watch_setup.state == "READY" and family != "NY_QUOTA_PAPER" else None)
+            ),
             clock=clock,
             feed_health=feed_health,
         ))
@@ -687,6 +730,8 @@ class StrategyService:
             ),
             origin="AUTO_STRATEGY",
             execution_mode="AUTO",
+            scenario_snapshot_id=getattr(watch_setup, "scenario_snapshot_id", None),
+            quality_snapshot_id=getattr(watch_setup, "evidence_snapshot_id", None),
             arm_decision_snapshot=json.dumps(lesson_eval),
             lessons_retrieved=json.dumps(lesson_eval.get("lessons_retrieved_snapshot", []))
         )
@@ -756,10 +801,17 @@ class StrategyService:
             from services.setup_quality_service import assess_setup_quality, build_quality_snapshot
             from services.setup_quality_repository import setup_quality_repository
 
+            from services.plan_resolver import resolve_plan_levels
+            from services.quote_validator import QuoteValidator
+
+            resolved_p = resolve_plan_levels(watch_setup)
             curr_p = ticker.get("last", ticker.get("close", 0.0)) if ticker else (candles[-1].close if candles else 0.0)
-            entry_p = watch_setup.confirmed_entry or watch_setup.provisional_entry or curr_p
-            sl_p = watch_setup.confirmed_sl or watch_setup.provisional_sl or (curr_p - 10.0 if watch_setup.direction == "LONG" else curr_p + 10.0)
-            tp_p = watch_setup.confirmed_tp or watch_setup.provisional_tp or (curr_p + 20.0 if watch_setup.direction == "LONG" else curr_p - 20.0)
+            entry_p = resolved_p.get("entry") if resolved_p.get("is_valid") else (watch_setup.confirmed_entry or watch_setup.provisional_entry or curr_p)
+            sl_p = resolved_p.get("stop_loss") if resolved_p.get("is_valid") else (watch_setup.confirmed_sl or watch_setup.provisional_sl or (curr_p - 10.0 if watch_setup.direction == "LONG" else curr_p + 10.0))
+            tp_p = resolved_p.get("take_profit") if resolved_p.get("is_valid") else (watch_setup.confirmed_tp or watch_setup.provisional_tp or (curr_p + 20.0 if watch_setup.direction == "LONG" else curr_p - 20.0))
+
+            q_res = QuoteValidator.validate_ticker(ticker, now_ms=now_ms) if ticker else None
+            quote_valid = q_res.is_valid if q_res else False
 
             plan_dict = {
                 "direction": watch_setup.direction,
@@ -780,8 +832,8 @@ class StrategyService:
                 "as_of_ms": now_ms,
                 "analysis": analysis,
                 "plan": plan_dict,
-                "eligibility": {"eligible": True, "reasons": []},
-                "quote_view": {"is_valid": True, "price": curr_p},
+                "eligibility": {"eligible": bool(resolved_p.get("is_valid")), "reasons": []},
+                "quote_view": {"is_valid": quote_valid, "price": curr_p},
                 "news_view": {"is_blackout": is_news_blackout, "reason": news_blackout_reason},
                 "calc": {"net_rr": watch_setup.net_rr or 0.0}
             }

@@ -1268,3 +1268,40 @@ class DraftQualityPreviewRequest(BaseModel):
     leverage: Optional[int] = Field(default=None, ge=1)
     margin_mode: Optional[Literal['ISOLATED', 'CROSS']] = None
     risk_pct: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+
+
+# ==================== V14.4 SMC SCENARIO & EVIDENCE SCHEMAS ====================
+
+class ScenarioDTO(BaseModel):
+    scenario_id: str
+    instance_id: str
+    revision: int = 1
+    symbol: str = "XAUUSDT"
+    timeframe: str = "5M"
+    strategy_family: str = "STANDARD_SMC"
+    direction: Optional[str] = None
+    state: str = "OBSERVING"
+    as_of_ms: int
+    summary_vi: Optional[str] = None
+    current_snapshot_id: Optional[str] = None
+    anchor_level_id: Optional[str] = None
+    target_level_id: Optional[str] = None
+    payload: Optional[Dict[str, Any]] = None
+
+
+class ChartEvidenceDTO(BaseModel):
+    binding: Dict[str, Any]
+    as_of_ms: int
+    evidence_cutoff_ms: int
+    strategy_family: str = "STANDARD_SMC"
+    state: str = "OBSERVING"
+    summary_vi: Optional[str] = None
+    structure_events: List[Dict[str, Any]] = Field(default_factory=list)
+    poi_zones: List[Dict[str, Any]] = Field(default_factory=list)
+    liquidity_levels: List[Dict[str, Any]] = Field(default_factory=list)
+    displacement_annotation: Optional[Dict[str, Any]] = None
+    scenario_path: List[Dict[str, Any]] = Field(default_factory=list)
+    risk_reward_plan: Optional[Dict[str, Any]] = None
+    invalidation_price: Optional[float] = None
+    warnings: List[str] = Field(default_factory=list)
+    is_empty: bool = False

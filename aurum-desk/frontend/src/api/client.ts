@@ -607,6 +607,49 @@ export const api = {
     return res.data;
   },
 
+  // SMC Scenario & Chart Evidence API (V14.4)
+  getScenarios: async (symbol: string = 'XAUUSDT', limit: number = 5, signal?: AbortSignal) => {
+    const res = await apiClient.get('/api/v1/smc/scenarios', {
+      params: { symbol, limit },
+      signal,
+    });
+    return res.data;
+  },
+
+  getScenarioSnapshot: async (scenarioId: string, snapshotId: string, signal?: AbortSignal) => {
+    const res = await apiClient.get(`/api/v1/smc/scenarios/${encodeURIComponent(scenarioId)}/snapshots/${encodeURIComponent(snapshotId)}`, {
+      signal,
+    });
+    return res.data;
+  },
+
+  getSetupChartEvidence: async (
+    setupId: string,
+    options?: {
+      setup_instance_id?: string;
+      expected_revision?: number;
+      plan_fingerprint?: string;
+      signal?: AbortSignal;
+    }
+  ) => {
+    const params: Record<string, any> = {};
+    if (options?.setup_instance_id) params.setup_instance_id = options.setup_instance_id;
+    if (options?.expected_revision != null) params.expected_revision = options.expected_revision;
+    if (options?.plan_fingerprint) params.plan_fingerprint = options.plan_fingerprint;
+    const res = await apiClient.get(`/api/v1/setups/${encodeURIComponent(setupId)}/chart-evidence`, {
+      params,
+      signal: options?.signal,
+    });
+    return res.data;
+  },
+
+  getOrderChartEvidence: async (orderId: string, signal?: AbortSignal) => {
+    const res = await apiClient.get(`/api/v1/orders/${encodeURIComponent(orderId)}/chart-evidence`, {
+      signal,
+    });
+    return res.data;
+  },
+
   // Setup Quality & Evidence API (V14)
   getSetupQuality: async (
     setupId: string,

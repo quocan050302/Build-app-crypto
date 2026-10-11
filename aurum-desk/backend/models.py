@@ -91,6 +91,7 @@ class PaperOrder(Base):
     # V7 Trading Policy & Quota Fields
     strategy_family = Column(String(30), default="STANDARD_SMC")  # STANDARD_SMC, NY_QUOTA_PAPER, MANUAL
     session_instance_id = Column(String(60), nullable=True, index=True)
+    scenario_snapshot_id = Column(String(80), nullable=True, index=True)
     policy_config_version = Column(Integer, default=1)
     evidence_snapshot_id = Column(String(60), nullable=True)
     requested_risk_pct = Column(Float, default=0.25)
@@ -103,6 +104,8 @@ class PaperOrder(Base):
     execution_mode = Column(String(20), default="AUTO")  # MANUAL, AUTO
     arm_decision_snapshot = Column(Text, nullable=True)  # JSON
     fill_decision_snapshot = Column(Text, nullable=True)  # JSON
+    scenario_snapshot_id = Column(String(80), nullable=True, index=True)
+    quality_snapshot_id = Column(String(80), nullable=True, index=True)
     # V11 Lab/Replay transient sizing policy override (not mapped to DB column to preserve zero-migration DB integrity)
     resize_policy = None
 
@@ -610,3 +613,46 @@ class NYSessionAudit(Base):
     first_scan_at = Column(BigInteger, nullable=True)
     last_scan_at = Column(BigInteger, nullable=True)
     updated_at = Column(BigInteger, nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# V14.4 SMC Scenarios and Immutable Decision Snapshots (Additive)
+# ---------------------------------------------------------------------------
+class SMCScenario(Base):
+    __tablename__ = "smc_scenarios"
+
+    scenario_id = Column(String(80), primary_key=True)
+    instance_id = Column(String(100), nullable=False, index=True)
+    revision = Column(Integer, default=1)
+    symbol = Column(String(20), default="XAUUSDT", index=True)
+    timeframe = Column(String(10), default="5M")
+    strategy_family = Column(String(30), default="STANDARD_SMC")
+    direction = Column(String(10), nullable=True)
+    state = Column(String(30), default="OBSERVING", index=True)
+    as_of_ms = Column(BigInteger, nullable=False)
+    anchor_level_id = Column(String(80), nullable=True)
+    target_level_id = Column(String(80), nullable=True)
+    summary_vi = Column(Text, nullable=True)
+    current_snapshot_id = Column(String(80), nullable=True, index=True)
+    payload = Column(Text, nullable=False)
+    created_at = Column(BigInteger, nullable=False)
+    updated_at = Column(BigInteger, nullable=False)
+
+
+class SMCScenarioSnapshot(Base):
+    __tablename__ = "smc_scenario_snapshots"
+
+    snapshot_id = Column(String(80), primary_key=True)
+    scenario_id = Column(String(80), index=True, nullable=False)
+    instance_id = Column(String(100), index=True, nullable=False)
+    revision = Column(Integer, default=1)
+    symbol = Column(String(20), default="XAUUSDT")
+    timeframe = Column(String(10), default="5M")
+    direction = Column(String(10), nullable=True)
+    state = Column(String(30), nullable=False)
+    as_of_ms = Column(BigInteger, nullable=False, index=True)
+    evidence_cutoff_ms = Column(BigInteger, nullable=False)
+    evidence_digest = Column(String(64), nullable=False)
+    plan_fingerprint = Column(String(32), nullable=True)
+    payload = Column(Text, nullable=False)
+    created_at = Column(BigInteger, nullable=False)

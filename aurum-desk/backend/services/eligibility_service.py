@@ -160,7 +160,24 @@ def evaluate_setup_eligibility(
 
     ev_dict: Dict[str, Any] = {}
     chain_verified: Optional[bool] = None
-    if getattr(setup, "evidence_snapshot_id", None):
+    if getattr(setup, "scenario_snapshot_id", None):
+        try:
+            from models import SMCScenarioSnapshot
+            snap_row = db.query(SMCScenarioSnapshot).filter(SMCScenarioSnapshot.snapshot_id == setup.scenario_snapshot_id).first()
+            if snap_row:
+                import json
+                p_data = json.loads(snap_row.payload)
+                cc = p_data.get("chain_check", {})
+                chain_verified = bool(cc.get("verified"))
+                ev_dict = {
+                    "sweep_detected": True,
+                    "fvg_found": True,
+                    "structure_confirmed": chain_verified,
+                }
+        except Exception:
+            pass
+
+    if chain_verified is None and getattr(setup, "evidence_snapshot_id", None):
         try:
             ev_row = db.query(models.StrategyEvidence).filter(models.StrategyEvidence.id == setup.evidence_snapshot_id).first()
             if ev_row:
@@ -171,7 +188,6 @@ def evaluate_setup_eligibility(
                 ev_dict = {
                     "sweep_detected": sweep,
                     "fvg_found": fvg,
-                    # Real sweep -> break (displacement) -> FVG chain; H1 alignment is NOT a substitute for MSS.
                     "structure_confirmed": chain_verified,
                 }
         except Exception:
