@@ -444,6 +444,8 @@ async def get_market_analysis(
 def get_upcoming_setups(db: Session = Depends(get_db)):
     """Retrieve all watch setups, daily scenarios, and execution candidates."""
     setups = db.query(models.WatchSetup).order_by(models.WatchSetup.updated_at.desc()).all()
+    from services.setup_quality_repository import setup_quality_repository
+    quality_map = setup_quality_repository.get_snapshots_batch(db, [s.id for s in setups])
     setup_items = []
     for s in setups:
         cond_met = json.loads(s.conditions_met) if s.conditions_met else []
@@ -486,7 +488,9 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
             "entry_zone_high": s.entry_zone_high or s.provisional_entry,
             "created_at": s.created_at,
             "updated_at": s.updated_at,
-            "eligibility": eligibility
+            "eligibility": eligibility,
+            "quality_summary": quality_map.get(s.id, {}).get("assessment", {}).get("summary"),
+            "quality_snapshot_id": quality_map.get(s.id, {}).get("snapshot_id")
         })
 
     # Generate Daily Scenarios
@@ -2332,3 +2336,151 @@ def get_ny_session_status_endpoint(
         reason_message=eval_res.get("reason_message")
     )
 
+
+
+# ==================== V14 SETUP QUALITY ENDPOINTS ====================
+
+@app.get("/api/v1/setups/{setup_id}/quality")
+def get_setup_quality(
+    setup_id: str,
+    setup_instance_id: Optional[str] = None,
+    expected_revision: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    PHẦN 60: Retrieve latest quality snapshot and detailed checklist for a setup.
+    Read-only endpoint with revision consistency validation.
+    """
+    watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == setup_id).first()
+    if not watch_setup:
+        raise HTTPException(status_code=404, detail="SETUP_NOT_FOUND")
+
+    if expected_revision is not None and watch_setup.version != expected_revision:
+        raise HTTPException(
+            status_code=409,
+            detail=f"SETUP_REVISION_MISMATCH: expected {expected_revision}, current {watch_setup.version}"
+        )
+
+    from services.setup_quality_repository import setup_quality_repository
+    snapshot = setup_quality_repository.get_latest_snapshot_for_setup(db, setup_id, setup_instance_id)
+
+    if not snapshot:
+        return {
+            "setup_id": setup_id,
+            "setup_instance_id": watch_setup.setup_instance_id,
+            "setup_revision": watch_setup.version,
+            "status": "NOT_ASSESSED",
+            "assessment": {
+                "status": "NOT_ASSESSED",
+                "checks": [],
+                "summary": {
+                    "status": "NOT_ASSESSED",
+                    "required_met": 0,
+                    "required_total": 0,
+                    "score_pct": 0.0,
+                    "headline_vi": "Chưa có đánh giá chất lượng tại thời điểm này",
+                    "next_condition_vi": "Đang chờ chu kỳ phân tích tiếp theo",
+                    "caution_vi": None
+                },
+                "related_evidence_ids": [],
+                "missing_evidence_ids": [],
+                "cautions": [],
+                "mode": "EXPLAIN_ONLY"
+            },
+            "evidence": []
+        }
+
+    return snapshot
+
+
+@app.get("/api/v1/quality/snapshots/{snapshot_id}")
+def get_quality_snapshot(snapshot_id: str, db: Session = Depends(get_db)):
+    """
+    PHẦN 61: Retrieve exact immutable quality snapshot by snapshot_id.
+    """
+    from services.setup_quality_repository import setup_quality_repository
+    snapshot = setup_quality_repository.get_snapshot_by_id(db, snapshot_id)
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="SNAPSHOT_NOT_FOUND")
+    return snapshot
+
+
+@app.post("/api/v1/quality/preview")
+async def preview_setup_quality(
+    req: schemas.DraftQualityPreviewRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    PHẦN 62: Pure on-the-fly quality calculation for custom or edited draft levels.
+    Does NOT write to database, does NOT mutate orders or historical snapshots.
+    """
+    from services.analysis_cache_service import analysis_cache_service
+    from services.bitget_ws_service import bitget_ws_service
+    from services.setup_quality_service import assess_setup_quality, build_plan_fingerprint
+    from domain_calculator import calculate_risk_reward, CostAssumptions
+
+    curr_quote = bitget_ws_service.latest_quote
+    analysis = await analysis_cache_service.get_or_compute_analysis(
+        symbol=req.symbol,
+        timeframe=req.timeframe,
+        latest_quote=curr_quote
+    )
+
+    now_ms = int(time.time() * 1000)
+    costs = CostAssumptions()
+    calc = calculate_risk_reward(
+        direction=req.direction,
+        entry=req.entry_price,
+        sl=req.stop_loss,
+        tp=req.take_profit,
+        capital=1000.0,
+        risk_pct=req.risk_pct or 0.25,
+        costs=costs,
+        leverage=req.leverage or 5,
+        margin_mode=req.margin_mode or "ISOLATED",
+        min_net_rr=2.0
+    )
+
+    plan_dict = {
+        "direction": req.direction,
+        "entry_price": req.entry_price,
+        "stop_loss": req.stop_loss,
+        "take_profit": req.take_profit,
+        "quantity": req.quantity or 0.05,
+        "leverage": req.leverage or 5,
+        "margin_mode": req.margin_mode or "ISOLATED",
+        "net_rr": calc.net_rr,
+        "risk_usdt": calc.net_risk_usdt,
+    }
+
+    q_context = {
+        "symbol": req.symbol,
+        "timeframe": req.timeframe,
+        "direction": req.direction,
+        "as_of_ms": now_ms,
+        "analysis": analysis,
+        "plan": plan_dict,
+        "eligibility": {"eligible": True, "reasons": []},
+        "quote_view": {"is_valid": True, "price": req.entry_price},
+        "news_view": {"is_blackout": False},
+        "calc": {"net_rr": calc.net_rr}
+    }
+
+    assessment, related_ev = assess_setup_quality(q_context)
+    plan_fp = build_plan_fingerprint(plan_dict)
+
+    return {
+        "preview_type": "DRAFT_PREVIEW",
+        "plan_fingerprint": plan_fp,
+        "assessment": assessment.to_dict(),
+        "evidence": [e.to_dict() for e in related_ev],
+        "calc": {
+            "gross_rr": calc.gross_rr,
+            "net_rr": calc.net_rr,
+            "net_risk_usdt": calc.net_risk_usdt,
+            "net_reward_usdt": calc.net_reward_usdt,
+            "can_execute": calc.can_execute,
+            "meets_min_rr": calc.meets_min_rr,
+            "is_valid": calc.is_valid,
+        }
+    }

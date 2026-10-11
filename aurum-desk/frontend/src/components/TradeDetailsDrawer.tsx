@@ -32,6 +32,9 @@ export interface TradeDetailsDrawerProps {
   leverage: number;
   marginMode: string;
   analysis: any;
+  selectedQualitySnapshot?: any;
+  selectedQualityLoading?: boolean;
+  selectedQualityError?: string | null;
 }
 
 export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
@@ -49,6 +52,9 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
   leverage,
   marginMode,
   analysis,
+  selectedQualitySnapshot,
+  selectedQualityLoading = false,
+  selectedQualityError,
 }) => {
   const drawerRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
@@ -100,7 +106,9 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
   // Est liquidation buffer
   const liqEst = selectedIntent?.estimatedLiquidation || currentSetup?.estimated_liquidation;
 
+  const qualityChecks = selectedQualitySnapshot?.assessment?.checks || [];
   const sections: Array<{ id: DrawerSectionType; label: string; icon: any; count?: number }> = [
+    { id: 'quality', label: 'Chất Lượng SMC', icon: Layers, count: qualityChecks.length },
     { id: 'conditions', label: 'Điều Kiện', icon: CheckCircle2, count: conditionsRemaining.length },
     { id: 'lessons', label: 'Bài Học', icon: BookOpen, count: normalizedBlockers.length + normalizedWarnings.length },
     { id: 'upcoming', label: 'Lệnh Dự Kiến', icon: ListOrdered, count: upcomingSetups.length },
@@ -175,6 +183,186 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
 
         {/* 3. Section Content Body (flex-1 min-h-0 overflow-y-auto) */}
         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 text-xs text-gray-300">
+          {/* SECTION: CHẤT LƯỢNG SMC (V14) */}
+          {activeSection === 'quality' && (
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-bold text-white text-xs uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-aurum-400" />
+                  Đánh Giá Chất Lượng SMC & Bằng Chứng
+                </h4>
+                <p className="text-[11px] text-gray-400">
+                  Bằng chứng cấu trúc chuỗi nến đóng, kiểm tra theo checklist định tính (Chế độ giải thích EXPLAIN_ONLY).
+                </p>
+              </div>
+
+              {selectedQualityLoading && (
+                <div className="p-4 rounded-lg bg-charcoal-850 border border-charcoal-750 text-center text-xs text-gray-400">
+                  Đang phân tích cấu trúc SMC theo snapshot lệnh...
+                </div>
+              )}
+
+              {selectedQualityError && (
+                <div className="p-3 rounded-lg bg-rose-950/40 border border-rose-800 text-xs text-rose-300">
+                  {selectedQualityError}
+                </div>
+              )}
+
+              {!selectedQualityLoading && !selectedQualitySnapshot && (
+                <div className="p-4 rounded-lg bg-charcoal-850 border border-charcoal-750 text-xs text-gray-400 space-y-2">
+                  <p className="font-semibold text-gray-300">Chưa có đánh giá tại thời điểm vào lệnh</p>
+                  <p className="text-[11px]">
+                    Lệnh này thuộc dữ liệu lịch sử hoặc chưa được gắn snapshot bằng chứng. Chọn một lệnh dự kiến trong danh sách để xem đầy đủ checklist.
+                  </p>
+                </div>
+              )}
+
+              {selectedQualitySnapshot && (
+                <div className="space-y-3.5">
+                  {/* Status Banner */}
+                  <div className="p-3 rounded-lg bg-charcoal-850 border border-charcoal-750 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Trạng thái chất lượng:</span>
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                        selectedQualitySnapshot.assessment?.status === 'SATISFIED'
+                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                          : selectedQualitySnapshot.assessment?.status === 'PARTIAL'
+                          ? 'bg-amber-950 text-amber-300 border border-amber-700'
+                          : 'bg-charcoal-800 text-gray-300 border border-charcoal-700'
+                      }`}>
+                        {selectedQualitySnapshot.assessment?.status === 'SATISFIED' ? 'Đủ checklist' :
+                         selectedQualitySnapshot.assessment?.status === 'PARTIAL' ? 'Đang chờ xác nhận' :
+                         selectedQualitySnapshot.assessment?.status === 'INSUFFICIENT_DATA' ? 'Thiếu dữ liệu' :
+                         selectedQualitySnapshot.assessment?.status === 'BLOCKED_EXISTING' ? 'Đang bị chặn' :
+                         selectedQualitySnapshot.assessment?.status || 'Chưa có đánh giá'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Tiêu chí bắt buộc đạt:</span>
+                      <span className="font-mono text-gray-200 font-bold">
+                        {selectedQualitySnapshot.assessment?.required_met_count || 0} / {selectedQualitySnapshot.assessment?.required_total_count || 0}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Chiến lược / Family:</span>
+                      <span className="font-mono text-aurum-300 font-bold">
+                        {selectedQualitySnapshot.strategy_family || 'STANDARD_SMC'} ({selectedQualitySnapshot.direction})
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Mốc thời gian As-Of:</span>
+                      <span className="font-mono text-gray-400 text-[10px]">
+                        {new Date(selectedQualitySnapshot.as_of_ms).toLocaleString('vi-VN')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Fact Summary */}
+                  {selectedQualitySnapshot.assessment?.summary && (
+                    <div className="p-3 rounded-lg bg-charcoal-850/80 border border-charcoal-750 space-y-1.5 text-xs">
+                      <div className="text-gray-200 font-semibold text-[11px] uppercase tracking-wider text-aurum-400">
+                        Tóm Tắt Bằng Chứng:
+                      </div>
+                      <div className="text-[11px] text-gray-300">
+                        <strong className="text-gray-400">Căn cứ:</strong> {selectedQualitySnapshot.assessment.summary.primary_reason_vi}
+                      </div>
+                      {selectedQualitySnapshot.assessment.summary.next_condition_vi && (
+                        <div className="text-[11px] text-amber-300">
+                          <strong className="text-gray-400">Cần chờ:</strong> {selectedQualitySnapshot.assessment.summary.next_condition_vi}
+                        </div>
+                      )}
+                      {selectedQualitySnapshot.assessment.summary.caution_vi && (
+                        <div className="text-[11px] text-gray-400">
+                          <strong className="text-gray-400">Lưu ý:</strong> {selectedQualitySnapshot.assessment.summary.caution_vi}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Checklist Table */}
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold text-gray-300 uppercase tracking-wider block">
+                      Danh Sách Tiêu Chí ({selectedQualitySnapshot.assessment?.checks?.length || 0}):
+                    </span>
+                    <div className="space-y-1.5">
+                      {(selectedQualitySnapshot.assessment?.checks || []).map((chk: any, idx: number) => {
+                        const isMet = chk.status === 'MET';
+                        const isRequired = chk.importance === 'REQUIRED';
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-2 rounded border text-xs space-y-1 ${
+                              isMet
+                                ? 'bg-emerald-950/20 border-emerald-800/40 text-gray-300'
+                                : chk.status === 'UNKNOWN'
+                                ? 'bg-blue-950/20 border-blue-800/40 text-gray-300'
+                                : 'bg-charcoal-850 border-charcoal-750 text-gray-400'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono font-bold text-[10px] text-gray-200">
+                                {chk.code}
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                                  isRequired ? 'bg-indigo-950 text-indigo-300 border border-indigo-700/60' : 'bg-charcoal-800 text-gray-400'
+                                }`}>
+                                  {isRequired ? 'BẮT BUỘC' : 'BỔ TRỢ'}
+                                </span>
+                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                                  isMet
+                                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                                    : chk.status === 'UNKNOWN'
+                                    ? 'bg-blue-950 text-blue-300 border border-blue-700'
+                                    : 'bg-rose-950 text-rose-300 border border-rose-700'
+                                }`}>
+                                  {chk.status}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-[11px] text-gray-300 leading-snug">
+                              {chk.explanation_vi}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Structural Evidence Items */}
+                  {selectedQualitySnapshot.evidence?.length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-charcoal-750">
+                      <span className="text-xs font-bold text-gray-300 uppercase tracking-wider block">
+                        Các Điểm Cấu Trúc Đã Khóa ({selectedQualitySnapshot.evidence.length}):
+                      </span>
+                      <div className="grid grid-cols-1 gap-1.5 font-mono text-[11px]">
+                        {selectedQualitySnapshot.evidence.map((ev: any, idx: number) => (
+                          <div key={idx} className="p-2 rounded bg-charcoal-850 border border-charcoal-750 flex items-center justify-between">
+                            <span className="font-bold text-aurum-400">{ev.kind}</span>
+                            <span className="text-gray-300">
+                              {ev.price ? `$${ev.price}` : (ev.zone_bottom && ev.zone_top ? `$${ev.zone_bottom} - $${ev.zone_top}` : '')}
+                            </span>
+                            <span className="text-[10px] text-gray-500">
+                              {new Date(ev.known_at_ms).toLocaleTimeString('vi-VN')}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Disclaimer notice */}
+                  <div className="p-2.5 rounded bg-charcoal-950 border border-charcoal-800 text-[10px] text-gray-400 leading-normal">
+                    Lưu ý: Đánh giá chất lượng phục vụ mục đích giải thích và nghiên cứu (EXPLAIN_ONLY). Không khẳng định chắc chắn tăng winrate hoặc đưa ra xác suất thắng chưa được kiểm chứng thực nghiệm.
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* SECTION: CONDITIONS */}
           {activeSection === 'conditions' && (
             <div className="space-y-3.5">

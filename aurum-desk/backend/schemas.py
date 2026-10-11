@@ -177,6 +177,8 @@ class WatchSetupItem(BaseModel):
     conditions_remaining: Optional[List[str]] = None
     distance_to_entry_atr: Optional[float] = None
     distance_to_entry_usdt: Optional[float] = None
+    quality_summary: Optional[Dict[str, Any]] = None
+    quality_snapshot_id: Optional[str] = None
     created_at: int
     updated_at: int
     expires_at: Optional[int] = None
@@ -1137,3 +1139,92 @@ class LessonDecisionItem(BaseModel):
 
 
 
+
+
+# ==================== V14 SETUP QUALITY SCHEMAS ====================
+
+class QualityCheckSchema(BaseModel):
+    code: str
+    status: str
+    importance: str
+    explanation_vi: str
+    observed: Optional[str] = None
+    expected: Optional[str] = None
+    evidence_ids: List[str] = Field(default_factory=list)
+    not_applicable_reason: Optional[str] = None
+    measured_at_ms: Optional[int] = None
+
+
+class EvidenceRefSchema(BaseModel):
+    id: str
+    kind: str
+    symbol: str
+    timeframe: str
+    known_at_ms: int
+    level: Optional[float] = None
+    direction: Optional[str] = None
+    source_ids: List[str] = Field(default_factory=list)
+    detail: Optional[str] = None
+
+
+class QualitySummarySchema(BaseModel):
+    status: str
+    required_met: int
+    required_total: int
+    score_pct: float
+    headline_vi: str
+    next_condition_vi: str
+    caution_vi: Optional[str] = None
+
+
+class QualityAssessmentSchema(BaseModel):
+    status: str
+    checks: List[QualityCheckSchema]
+    summary: QualitySummarySchema
+    related_evidence_ids: List[str] = Field(default_factory=list)
+    missing_evidence_ids: List[str] = Field(default_factory=list)
+    cautions: List[str] = Field(default_factory=list)
+    mode: str = "EXPLAIN_ONLY"
+
+
+class QualitySnapshotSchema(BaseModel):
+    schema_version: str = "v14.0"
+    snapshot_id: str
+    setup_id: Optional[str] = None
+    setup_instance_id: Optional[str] = None
+    setup_revision: int = 1
+    quality_revision: int = 1
+    symbol: str = "XAUUSDT"
+    timeframe: str = "15M"
+    direction: str
+    strategy_family: str = "STANDARD_SMC"
+    as_of_ms: int
+    config_version: int = 1
+    detector_version: str = "v14.0"
+    plan_fingerprint: str
+    plan_snapshot: Dict[str, Any]
+    assessment: QualityAssessmentSchema
+    evidence: List[EvidenceRefSchema] = Field(default_factory=list)
+    evidence_digest: Optional[str] = None
+
+
+class DraftQualityPreviewRequest(BaseModel):
+    symbol: str = "XAUUSDT"
+    timeframe: str = "15M"
+    direction: str
+    entry_price: Optional[float] = None
+    entry: Optional[float] = None
+    stop_loss: float
+    take_profit: float
+
+    @model_validator(mode='after')
+    def validate_entry(self):
+        if self.entry_price is None and self.entry is not None:
+            self.entry_price = self.entry
+        if self.entry_price is None:
+            raise ValueError("Either entry or entry_price is required")
+        return self
+    quantity: Optional[float] = 0.05
+    leverage: Optional[int] = 5
+    margin_mode: Optional[str] = "ISOLATED"
+    risk_pct: Optional[float] = 0.25

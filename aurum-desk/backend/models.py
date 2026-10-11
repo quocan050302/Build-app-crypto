@@ -514,3 +514,26 @@ class StrategyEvidence(Base):
     risk_snapshot = Column(Text, nullable=True)  # JSON
     created_at = Column(BigInteger, nullable=False)
 
+
+
+class SetupQualitySnapshot(Base):
+    __tablename__ = "setup_quality_snapshots"
+
+    snapshot_id = Column(String(80), primary_key=True)
+    setup_id = Column(String(60), index=True, nullable=True)
+    setup_instance_id = Column(String(100), index=True, nullable=True)
+    setup_revision = Column(Integer, default=1)
+    quality_revision = Column(Integer, default=1)
+    symbol = Column(String(20), default="XAUUSDT")
+    timeframe = Column(String(10), default="15M")
+    direction = Column(String(10), nullable=False)
+    strategy_family = Column(String(30), default="STANDARD_SMC")
+    as_of_ms = Column(BigInteger, nullable=False, index=True)
+    status = Column(String(30), nullable=False)
+    score_pct = Column(Float, nullable=True)
+    required_met = Column(Integer, default=0)
+    required_total = Column(Integer, default=0)
+    summary_vi = Column(String(255), nullable=True)
+    payload_json = Column(Text, nullable=False)
+    evidence_digest = Column(String(64), nullable=True)
+    created_at = Column(BigInteger, nullable=False)

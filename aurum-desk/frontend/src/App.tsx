@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ChartComponent } from './ChartComponent';
 import { api, extractErrorMessage } from './api/client';
 import { wsClient } from './services/wsClient';
@@ -49,6 +49,8 @@ import { NotificationToastContainer } from './components/NotificationToastContai
 import { NotificationCenterDrawer } from './components/NotificationCenterDrawer';
 import { UserMessageDetailsModal } from './components/UserMessageDetailsModal';
 import { buildTradeEventMessage } from './utils/normalizeAppError';
+import type { QualitySnapshot } from './types/setupQuality';
+import { buildChartEvidenceBundle } from './utils/chartEvidence';
 import type { SemanticActionType } from './types/userMessage';
 
 export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION';
@@ -92,6 +94,11 @@ export interface SelectedTradeIntent {
   entrySlippageUsdt?: number;
   slExitSlippageUsdt?: number;
   tpExitSlippageUsdt?: number;
+
+  // Quality & Evidence Snapshot (V14)
+  quality_status?: string;
+  quality_snapshot_id?: string;
+  quality_summary?: any;
 }
 
 
@@ -120,6 +127,20 @@ function AppContent() {
   const [selectedIntent, setSelectedIntent] = useState<SelectedTradeIntent | null>(null);
   const selectedIntentRef = useRef<SelectedTradeIntent | null>(null);
   selectedIntentRef.current = selectedIntent;
+
+  // Setup Quality & Evidence State (V14)
+  const [selectedQualitySnapshot, setSelectedQualitySnapshot] = useState<QualitySnapshot | null>(null);
+  const [selectedQualityLoading, setSelectedQualityLoading] = useState<boolean>(false);
+  const [selectedQualityError, setSelectedQualityError] = useState<string | null>(null);
+  const [evidenceMode, setEvidenceMode] = useState<'SELECTED' | 'ALL' | 'NONE'>('SELECTED');
+  const [focusRequest, setFocusRequest] = useState<{ nonce: number } | null>(null);
+  const qualityGenRef = useRef<number>(0);
+  const qualityAbortControllerRef = useRef<AbortController | null>(null);
+
+  const chartEvidenceBundle = useMemo(() => {
+    if (!selectedQualitySnapshot) return null;
+    return buildChartEvidenceBundle(selectedQualitySnapshot, timeframe);
+  }, [selectedQualitySnapshot, timeframe]);
   const [stalePlanNotice, setStalePlanNotice] = useState<{
     setupId: string;
     oldRevision: number;
@@ -963,7 +984,42 @@ function AppContent() {
       distance_to_entry_usdt: setup.distance_to_entry_usdt,
       distance_to_entry_atr: setup.distance_to_entry_atr,
       snapshotAt: Date.now(),
+      quality_status: setup.quality_summary?.quality_status || (setup.quality_snapshot_id ? undefined : 'NOT_ASSESSED'),
+      quality_snapshot_id: setup.quality_snapshot_id,
+      quality_summary: setup.quality_summary,
     });
+
+    // V14 Generation-scoped Quality Snapshot Fetch (Prevents Race Conditions)
+    const gen = ++qualityGenRef.current;
+    if (qualityAbortControllerRef.current) {
+      qualityAbortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    qualityAbortControllerRef.current = controller;
+    setSelectedQualityLoading(true);
+    setSelectedQualityError(null);
+    setSelectedQualitySnapshot(null);
+
+    api.getSetupQuality(setup.id, {
+      setup_instance_id: setup.setup_instance_id,
+      expected_revision: setup.version,
+      signal: controller.signal,
+    }).then((res: any) => {
+      if (gen !== qualityGenRef.current) return;
+      setSelectedQualityLoading(false);
+      if (res && res.snapshot) {
+        setSelectedQualitySnapshot(res.snapshot);
+      } else if (res && res.snapshot_id) {
+        setSelectedQualitySnapshot(res as QualitySnapshot);
+      }
+    }).catch((err: any) => {
+      if (gen !== qualityGenRef.current || controller.signal.aborted) return;
+      setSelectedQualityLoading(false);
+      setSelectedQualityError(err?.message || 'Chưa thể tải đánh giá chất lượng');
+    });
+
+    setFocusRequest({ nonce: Date.now() });
+
     showToast(
       `Đã Chọn Setup ${setup.direction}`,
       `Đã cố định setup ${setup.direction} trên chart và nút mở lệnh. Polling nền sẽ không ghi đè.`,
@@ -1199,6 +1255,44 @@ function AppContent() {
       estimatedLiquidation: trade.estimated_liquidation,
     };
     setActiveOverlay(overlay);
+    setSelectedIntent({
+      source: 'OPEN_POSITION',
+      setup_id: trade.id,
+      symbol: 'XAUUSDT',
+      timeframe: trade.timeframe || '15M',
+      direction: trade.direction,
+      plannedEntry: trade.actual_entry || trade.planned_entry,
+      stopLoss: trade.stop_loss,
+      takeProfit: trade.take_profit,
+      orderType: 'MARKET',
+      quantity: trade.quantity,
+      initialRiskUsdt: trade.initial_risk_usdt,
+      grossRR: trade.gross_rr || 0,
+      estimatedNetRR: trade.estimated_net_rr || 0,
+      leverage: trade.leverage || leverage,
+      marginMode: trade.margin_mode || marginMode,
+      estimatedLiquidation: trade.estimated_liquidation,
+      status: trade.state,
+      snapshotAt: Date.now(),
+      quality_status: trade.quality_snapshot_id ? undefined : 'NOT_ASSESSED',
+    });
+
+    setSelectedQualitySnapshot(null);
+    setSelectedQualityError(null);
+    if (trade.quality_snapshot_id) {
+      const gen = ++qualityGenRef.current;
+      setSelectedQualityLoading(true);
+      api.getQualitySnapshot(trade.quality_snapshot_id).then((snap: any) => {
+        if (gen !== qualityGenRef.current) return;
+        setSelectedQualityLoading(false);
+        setSelectedQualitySnapshot(snap);
+      }).catch(() => {
+        if (gen !== qualityGenRef.current) return;
+        setSelectedQualityLoading(false);
+      });
+    }
+
+    setFocusRequest({ nonce: Date.now() });
   };
 
   // News CSV Import & Research Modal states
@@ -1377,6 +1471,9 @@ function AppContent() {
         leverage={leverage}
         marginMode={marginMode}
         analysis={analysis}
+        selectedQualitySnapshot={selectedQualitySnapshot}
+        selectedQualityLoading={selectedQualityLoading}
+        selectedQualityError={selectedQualityError}
       />
 
       {/* 1. Global Header Bar */}
@@ -1537,11 +1634,14 @@ function AppContent() {
                 onOverlayChange={(updated) => {
                   setActiveOverlay(updated);
                   if (updated) {
+                    const isReadOnly = selectedIntentRef.current?.source === 'OPEN_POSITION';
+                    if (isReadOnly) return;
+
                     setSelectedIntent((prev) => ({
-                      source: prev?.source === 'WATCH_SETUP' ? 'WATCH_SETUP' : 'DRAFT',
-                      setup_id: prev?.setup_id || updated.id,
-                      setup_instance_id: prev?.setup_instance_id,
-                      revision: prev?.revision || 1,
+                      source: 'DRAFT',
+                      setup_id: prev?.source === 'WATCH_SETUP' ? `draft-${Date.now()}` : (prev?.setup_id || updated.id),
+                      setup_instance_id: undefined,
+                      revision: 1,
                       symbol: 'XAUUSDT',
                       timeframe: timeframe,
                       direction: updated.direction,
@@ -1556,9 +1656,28 @@ function AppContent() {
                       leverage: updated.leverage || leverage,
                       marginMode: updated.marginMode || marginMode,
                       estimatedLiquidation: updated.estimatedLiquidation,
-                      status: updated.state,
+                      status: 'draft',
                       snapshotAt: Date.now(),
+                      quality_status: 'PARTIAL',
                     }));
+
+                    if (updated.plannedEntry > 0 && updated.stopLoss > 0 && updated.takeProfit && updated.takeProfit > 0) {
+                      api.previewSetupQuality({
+                        symbol: 'XAUUSDT',
+                        timeframe: timeframe,
+                        direction: updated.direction,
+                        entry: updated.plannedEntry,
+                        stop_loss: updated.stopLoss,
+                        take_profit: updated.takeProfit,
+                        quantity: updated.quantity,
+                        leverage: updated.leverage || leverage,
+                        margin_mode: updated.marginMode || marginMode,
+                      }).then((res: any) => {
+                        if (res && res.snapshot) {
+                          setSelectedQualitySnapshot(res.snapshot);
+                        }
+                      }).catch(() => {});
+                    }
                   }
                 }}
                 smcLevels={{
@@ -1570,6 +1689,10 @@ function AppContent() {
                   swings: analysis?.swings || [],
                   structureEvents: analysis?.structure_events || [],
                 }}
+                selectedEvidence={chartEvidenceBundle}
+                evidenceMode={evidenceMode}
+                focusRequest={focusRequest}
+                onEvidenceModeChange={setEvidenceMode}
               />
             </div>
           )}
@@ -2887,6 +3010,10 @@ function AppContent() {
                     analysis={analysis}
                     leverage={leverage}
                     marginMode={marginMode}
+                    selectedQualitySnapshot={selectedQualitySnapshot}
+                    selectedQualityLoading={selectedQualityLoading}
+                    selectedQualityError={selectedQualityError}
+                    onFocusOnChart={() => setFocusRequest({ nonce: Date.now() })}
                   />
                 </div>
               </div>

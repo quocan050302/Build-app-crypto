@@ -23,7 +23,7 @@ export interface StalePlanNoticeData {
   newInstanceId: string;
 }
 
-export type DrawerSectionType = 'conditions' | 'lessons' | 'upcoming' | 'risk' | 'session';
+export type DrawerSectionType = 'conditions' | 'lessons' | 'upcoming' | 'risk' | 'session' | 'quality';
 
 export interface QuickDecisionSidebarProps {
   selectedIntent: SelectedTradeIntent | null;
@@ -43,6 +43,10 @@ export interface QuickDecisionSidebarProps {
   leverage: number;
   marginMode: string;
   isActionLoading?: boolean;
+  selectedQualitySnapshot?: any;
+  selectedQualityLoading?: boolean;
+  selectedQualityError?: string | null;
+  onFocusOnChart?: () => void;
 }
 
 export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
@@ -63,6 +67,10 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
   leverage,
   marginMode,
   isActionLoading = false,
+  selectedQualitySnapshot,
+  selectedQualityLoading = false,
+  selectedQualityError: _selectedQualityError,
+  onFocusOnChart,
 }) => {
   // Realtime quote subscriber for live distance & freshness
   const [currentQuote, setCurrentQuote] = useState(() => quoteStore.getQuote('XAUUSDT'));
@@ -193,6 +201,36 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
 
   const cannotArm = blockers.length > 0;
   const primaryBlocker = blockers[0];
+
+  // V14 Quality Status Derivation
+  const qualityStatus: string = selectedQualitySnapshot?.assessment?.status || selectedIntent?.quality_status || (selectedIntent ? 'NOT_ASSESSED' : 'NOT_ASSESSED');
+  const requiredMetCount: number = selectedQualitySnapshot?.assessment?.required_met_count ?? selectedIntent?.quality_summary?.required_met_count ?? 0;
+  const requiredTotalCount: number = selectedQualitySnapshot?.assessment?.required_total_count ?? selectedIntent?.quality_summary?.required_total_count ?? 0;
+  const primaryReason: string = selectedQualitySnapshot?.assessment?.summary?.primary_reason_vi || selectedIntent?.quality_summary?.primary_reason_vi || 'Đang quan sát cấu trúc SMC phiên Mỹ';
+  const cautionOrNext: string = selectedQualitySnapshot?.assessment?.summary?.next_condition_vi || selectedQualitySnapshot?.assessment?.summary?.caution_vi || 'Chờ cấu trúc xác nhận (EXPLAIN_ONLY)';
+
+  const getQualityBadgeLabel = (status: string) => {
+    switch (status) {
+      case 'SATISFIED': return 'Đủ checklist';
+      case 'PARTIAL': return 'Đang chờ xác nhận';
+      case 'INSUFFICIENT_DATA': return 'Thiếu dữ liệu';
+      case 'BLOCKED_EXISTING': return 'Đang bị chặn';
+      case 'ERROR': return 'Chưa đánh giá được';
+      case 'NOT_ASSESSED':
+      default: return 'Chưa có đánh giá';
+    }
+  };
+
+  const getQualityBadgeStyle = (status: string) => {
+    switch (status) {
+      case 'SATISFIED': return 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80';
+      case 'PARTIAL': return 'bg-amber-950/80 text-amber-300 border-amber-700/80';
+      case 'INSUFFICIENT_DATA': return 'bg-blue-950/80 text-blue-300 border-blue-700/80';
+      case 'BLOCKED_EXISTING':
+      case 'ERROR': return 'bg-rose-950/80 text-rose-300 border-rose-700/80';
+      default: return 'bg-charcoal-800 text-gray-400 border-charcoal-700';
+    }
+  };
 
   // Lesson counts
   const redCount = (eligibility?.lesson_blockers || []).length;
@@ -419,6 +457,56 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                   <span className="text-emerald-400 font-bold text-xs sm:text-sm">
                     {selectedIntent.takeProfit ? `$${selectedIntent.takeProfit}` : '—'}
                   </span>
+                </div>
+              </div>
+
+              {/* V14 COMPACT SETUP QUALITY CARD (Max 4 lines, explanatory) */}
+              <div className="p-2 rounded bg-charcoal-900/90 border border-charcoal-750 space-y-1 text-xs">
+                {/* Line 1: Status badge & Counts */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] uppercase font-bold text-gray-400">Chất lượng SMC:</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getQualityBadgeStyle(qualityStatus)}`}>
+                      {getQualityBadgeLabel(qualityStatus)}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono text-gray-400">
+                    {selectedQualityLoading ? 'Đang tính...' : `${requiredMetCount}/${requiredTotalCount} chuẩn`}
+                  </span>
+                </div>
+
+                {/* Line 2: Primary reason */}
+                <div className="text-[11px] text-gray-300 truncate" title={primaryReason}>
+                  <span className="text-gray-500 mr-1">Căn cứ:</span>
+                  {primaryReason}
+                </div>
+
+                {/* Line 3: Caution or next condition */}
+                <div className="text-[11px] text-gray-400 truncate" title={cautionOrNext}>
+                  <span className="text-amber-500/80 mr-1">Lưu ý:</span>
+                  {cautionOrNext}
+                </div>
+
+                {/* Line 4: Action buttons */}
+                <div className="flex items-center justify-between pt-1 border-t border-charcoal-750 text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => onOpenDetailsDrawer('quality')}
+                    className="text-aurum-400 hover:text-aurum-300 font-semibold flex items-center gap-1 transition"
+                  >
+                    <span>Chi tiết chất lượng</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+                  {onFocusOnChart && (
+                    <button
+                      type="button"
+                      onClick={onFocusOnChart}
+                      className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition"
+                      title="Định vị setup và bằng chứng trên biểu đồ"
+                    >
+                      <span>Định vị trên Chart</span>
+                    </button>
+                  )}
                 </div>
               </div>
 

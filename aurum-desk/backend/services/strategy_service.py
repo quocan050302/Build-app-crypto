@@ -269,6 +269,18 @@ class StrategyService:
             tg_cfg = db.query(models.TelegramConfig).first()
             proximity_service.evaluate_setup_proximity(db, watch_setup, ticker, atr, tg_cfg)
 
+            # V14 Setup Quality Assessment
+            self._assess_and_save_quality(
+                db=db,
+                watch_setup=watch_setup,
+                analysis=analysis,
+                candles=candles,
+                ticker=ticker,
+                is_news_blackout=is_blackout,
+                news_blackout_reason=blackout_reason,
+                now_ms=now_ms
+            )
+
             # Auto Arming if enabled and setup is READY
             if setup_stage == "READY" and self.get_auto_state(db):
                 self._auto_arm_candidate(db, watch_setup, sig, now_ms, now_dt)
@@ -605,5 +617,76 @@ class StrategyService:
             except Exception as e:
                 logger.error(f"Strategy loop unexpected error: {e}", exc_info=True)
                 await asyncio.sleep(4.0)
+
+
+    def _assess_and_save_quality(
+        self,
+        db: Session,
+        watch_setup: models.WatchSetup,
+        analysis: Dict[str, Any],
+        candles: list,
+        ticker: Optional[Dict[str, Any]],
+        is_news_blackout: bool = False,
+        news_blackout_reason: Optional[str] = None,
+        now_ms: Optional[int] = None
+    ) -> Optional[Dict[str, Any]]:
+        if not watch_setup:
+            return None
+        now_ms = now_ms or int(time.time() * 1000)
+        try:
+            from services.setup_quality_service import assess_setup_quality, build_quality_snapshot
+            from services.setup_quality_repository import setup_quality_repository
+
+            curr_p = ticker.get("last", ticker.get("close", 0.0)) if ticker else (candles[-1].close if candles else 0.0)
+            entry_p = watch_setup.confirmed_entry or watch_setup.provisional_entry or curr_p
+            sl_p = watch_setup.confirmed_sl or watch_setup.provisional_sl or (curr_p - 10.0 if watch_setup.direction == "LONG" else curr_p + 10.0)
+            tp_p = watch_setup.confirmed_tp or watch_setup.provisional_tp or (curr_p + 20.0 if watch_setup.direction == "LONG" else curr_p - 20.0)
+
+            plan_dict = {
+                "direction": watch_setup.direction,
+                "entry_price": entry_p,
+                "stop_loss": sl_p,
+                "take_profit": tp_p,
+                "quantity": watch_setup.quantity or 0.05,
+                "leverage": watch_setup.leverage or 5,
+                "margin_mode": watch_setup.margin_mode or "ISOLATED",
+                "net_rr": watch_setup.net_rr or 0.0,
+                "risk_usdt": watch_setup.risk_usdt or 2.5,
+            }
+
+            q_context = {
+                "symbol": "XAUUSDT",
+                "timeframe": watch_setup.timeframe or "15M",
+                "direction": watch_setup.direction,
+                "as_of_ms": now_ms,
+                "analysis": analysis,
+                "plan": plan_dict,
+                "eligibility": {"eligible": True, "reasons": []},
+                "quote_view": {"is_valid": True, "price": curr_p},
+                "news_view": {"is_blackout": is_news_blackout, "reason": news_blackout_reason},
+                "calc": {"net_rr": watch_setup.net_rr or 0.0}
+            }
+
+            assessment, rel_ev = assess_setup_quality(q_context)
+            snapshot = build_quality_snapshot(
+                setup_id=watch_setup.id,
+                setup_instance_id=watch_setup.setup_instance_id or f"inst-{watch_setup.id}-{now_ms}",
+                setup_revision=watch_setup.version or 1,
+                quality_revision=1,
+                symbol="XAUUSDT",
+                timeframe=watch_setup.timeframe or "15M",
+                direction=watch_setup.direction,
+                strategy_family=watch_setup.strategy_family or "STANDARD_SMC",
+                as_of_ms=now_ms,
+                plan_snapshot=plan_dict,
+                assessment=assessment,
+                evidence_items=rel_ev
+            )
+
+            setup_quality_repository.save_quality_snapshot(db, snapshot)
+            return snapshot
+        except Exception as e:
+            logger.warning(f"Error computing setup quality for {watch_setup.id}: {e}")
+            return None
 
 strategy_service = StrategyService()

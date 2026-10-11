@@ -6,6 +6,7 @@ import { wsClient } from './services/wsClient';
 import { RiskRewardPrimitive } from './plugins/RiskRewardPrimitive';
 import type { RiskRewardData, DragTargetPart } from './plugins/RiskRewardPrimitive';
 import { SMCStructurePrimitive } from './plugins/SMCStructurePrimitive';
+import type { ChartEvidenceBundle } from './utils/chartEvidence';
 import { calculateClientRiskReward } from './utils/calculator';
 import { quoteStore } from './services/quoteStore';
 import { RefreshCw, AlertCircle, Eye, EyeOff, Crosshair, ArrowUpRight, ArrowDownRight, Layers, BarChart2 } from 'lucide-react';
@@ -30,6 +31,10 @@ export interface ChartComponentProps {
     swings?: any[];
     structureEvents?: any[];
   };
+  selectedEvidence?: ChartEvidenceBundle | null;
+  evidenceMode?: 'SELECTED' | 'ALL' | 'NONE';
+  focusRequest?: { nonce: number; minPrice?: number; maxPrice?: number } | null;
+  onEvidenceModeChange?: (mode: 'SELECTED' | 'ALL' | 'NONE') => void;
 }
 
 interface CandleData {
@@ -52,7 +57,12 @@ export function ChartComponent({
   rvolData,
   smcLevels,
   smcStructure,
+  selectedEvidence,
+  evidenceMode = 'SELECTED',
+  focusRequest,
+  onEvidenceModeChange: _onEvidenceModeChange,
 }: ChartComponentProps) {
+  const lastFocusNonceRef = useRef<number>(0);
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -347,16 +357,58 @@ export function ChartComponent({
     };
   }, [symbol, timeframe]);
 
-  // 3. Update SMC Primitive when props change
+  // 3. Update SMC Primitive when props change (Supports focused selectedEvidence & global mode)
   useEffect(() => {
     if (!smcPrimitiveRef.current) return;
-    smcPrimitiveRef.current.setData({
-      swings: smcStructure?.swings || [],
-      events: smcStructure?.structureEvents || [],
-      showSwings: showSMCLevels,
-      showEvents: showSMCLevels,
-    });
-  }, [smcStructure, showSMCLevels]);
+    if (!showSMCLevels || evidenceMode === 'NONE') {
+      smcPrimitiveRef.current.setData({
+        swings: [],
+        events: [],
+        zones: [],
+        showSwings: false,
+        showEvents: false,
+        showZones: false,
+      });
+      return;
+    }
+
+    if (evidenceMode === 'SELECTED' && selectedEvidence) {
+      smcPrimitiveRef.current.setData({
+        swings: selectedEvidence.swings || [],
+        events: selectedEvidence.structureEvents || [],
+        zones: (selectedEvidence.poiZones || []).map((z, idx) => ({
+          id: `poi-${idx}`,
+          kind: 'POI' as const,
+          top: z.top,
+          bottom: z.bottom,
+          start_at: Date.now() - 3600000,
+          end_at: Date.now() + 3600000,
+          label: z.label,
+        })),
+        showSwings: true,
+        showEvents: true,
+        showZones: true,
+      });
+    } else {
+      smcPrimitiveRef.current.setData({
+        swings: smcStructure?.swings || [],
+        events: smcStructure?.structureEvents || [],
+        zones: [],
+        showSwings: true,
+        showEvents: true,
+        showZones: false,
+      });
+    }
+  }, [smcStructure, showSMCLevels, evidenceMode, selectedEvidence]);
+
+  // Focus request handling
+  useEffect(() => {
+    if (!focusRequest || focusRequest.nonce === lastFocusNonceRef.current) return;
+    lastFocusNonceRef.current = focusRequest.nonce;
+    if (chartRef.current) {
+      chartRef.current.timeScale().scrollToPosition(3, false);
+    }
+  }, [focusRequest]);
 
   // 4. Attach / Update RiskRewardPrimitive Overlay using real equity and settings
   useEffect(() => {

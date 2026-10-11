@@ -567,6 +567,55 @@ export const api = {
     return res.data;
   },
 
+  // Setup Quality & Evidence API (V14)
+  getSetupQuality: async (
+    setupId: string,
+    options?: {
+      setup_instance_id?: string;
+      expected_revision?: number;
+      signal?: AbortSignal;
+    }
+  ) => {
+    const params: Record<string, any> = {};
+    if (options?.setup_instance_id) params.setup_instance_id = options.setup_instance_id;
+    if (options?.expected_revision != null) params.expected_revision = options.expected_revision;
+    const res = await apiClient.get(`/api/v1/setups/${setupId}/quality`, {
+      params,
+      signal: options?.signal,
+    });
+    return res.data;
+  },
+
+  getQualitySnapshot: async (
+    snapshotId: string,
+    options?: { signal?: AbortSignal }
+  ) => {
+    const res = await apiClient.get(`/api/v1/quality/snapshots/${snapshotId}`, {
+      signal: options?.signal,
+    });
+    return res.data;
+  },
+
+  previewSetupQuality: async (
+    payload: {
+      symbol: string;
+      timeframe: string;
+      direction: 'LONG' | 'SHORT';
+      entry: number;
+      stop_loss: number;
+      take_profit: number;
+      quantity?: number;
+      leverage?: number;
+      margin_mode?: string;
+    },
+    options?: { signal?: AbortSignal }
+  ) => {
+    const res = await apiClient.post('/api/v1/quality/preview', payload, {
+      signal: options?.signal,
+    });
+    return res.data;
+  },
+
   // ==================== LAB & TESTING API ====================
   getLabScenarios: async () => {
     const res = await apiClient.get('/api/v1/lab/scenarios');
