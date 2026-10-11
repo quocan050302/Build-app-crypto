@@ -9,7 +9,8 @@ Strictly simulates:
 
 import uuid
 from typing import Dict, Any, Optional, Tuple, List
-from lab.replay_contracts import ReplayPendingOrder, ReplayMarketEvent, ReplayPosition
+from lab.replay_contracts import ReplayPendingOrder, ReplayMarketEvent, ReplayPosition, validate_direction
+from lab.replay_evidence_utils import TERMINAL_ORDER_STATUSES, ACTIVE_ORDER_STATUSES, normalize_order_status, stable_id
 from domain_calculator import calculate_risk_reward, validate_price_geometry, CostAssumptions
 
 
@@ -32,7 +33,9 @@ def submit_replay_order(
     """
     plan = candidate if candidate is not None else (candidate_plan or {})
     order_id = f"ord-{uuid.uuid4().hex[:8]}"
-    setup_id = plan.get("setup_id", f"setup-{decision_ms}")
+    decision_ts = decision_ms if decision_ms > 0 else int(kwargs.get("sim_time", kwargs.get("decision_time", plan.get("decision_ms", 0))))
+    earliest_ms = max(earliest_execution_ms, decision_ts)
+    setup_id = plan.get("setup_id", f"setup-{decision_ts}")
     calc = plan.get("calc")
 
     calc_qty = getattr(calc, "quantity", None) or getattr(calc, "position_size", None)
@@ -52,8 +55,8 @@ def submit_replay_order(
         session_id=session_id,
         entry_type=entry_type,
         direction=plan["direction"],
-        decision_ms=decision_ms,
-        earliest_execution_ms=earliest_execution_ms,
+        decision_ms=decision_ts,
+        earliest_execution_ms=earliest_ms,
         expiry_ms=expiry_ms,
         planned_entry=planned_entry,
         planned_sl=planned_sl,
@@ -74,6 +77,22 @@ def submit_replay_order(
     )
 
 
+def reject_order(order: ReplayPendingOrder, reason_code: str) -> Tuple[None, None, str]:
+    status = normalize_order_status(order.status)
+    if status in TERMINAL_ORDER_STATUSES:
+        return None, None, f"TERMINAL_ORDER:{status}"
+    order.status = "REJECTED"
+    order.rejection_reason = reason_code
+    return None, None, reason_code
+
+
+def resolve_exit_fee_rate(exit_cause: str, costs: CostAssumptions, is_ambiguous: bool = False) -> float:
+    maker_tp = (exit_cause == "TAKE_PROFIT"
+                and bool(getattr(costs, "tp_is_maker", False))
+                and not is_ambiguous)
+    return costs.maker_fee_rate if maker_tp else costs.taker_fee_rate
+
+
 def try_fill_pending_order(
     order: ReplayPendingOrder,
     event: ReplayMarketEvent,
@@ -88,10 +107,22 @@ def try_fill_pending_order(
     Revalidates geometry and Net R:R after adverse spread and slippage.
     Returns (position, entry_fee_posting, status_reason).
     """
-    if event.timestamp < order.earliest_execution_ms:
+    status = normalize_order_status(order.status)
+    if status in TERMINAL_ORDER_STATUSES:
+        return None, None, f"TERMINAL_ORDER:{status}"
+    if status not in ACTIVE_ORDER_STATUSES:
+        raise ValueError(f"INVALID_FILL_ORDER_STATUS:{status}")
+    if event.kind != "OPEN":
+        return None, None, "WAITING_EXECUTION_EVENT"
+
+    validate_direction(order.direction)
+
+    # PHẦN 26, 47, 102: Must not execute before decision_ms or earliest_execution_ms
+    min_exec_ts = max(order.earliest_execution_ms, order.decision_ms)
+    if event.timestamp < min_exec_ts:
         return None, None, "WAITING_EARLIEST_EXECUTION"
 
-    if order.expiry_ms > 0 and event.timestamp > order.expiry_ms:
+    if order.expiry_ms > 0 and event.timestamp >= order.expiry_ms:
         order.status = "EXPIRED"
         order.rejection_reason = "EXPIRED_BEFORE_EXECUTION"
         return None, None, "EXPIRED"
@@ -105,9 +136,7 @@ def try_fill_pending_order(
     # Re-validate geometry with actual fill price
     is_geom_valid, geom_err = validate_price_geometry(order.direction, fill_price, order.planned_sl, order.planned_tp)
     if not is_geom_valid:
-        order.status = "REJECTED"
-        order.rejection_reason = f"POST_FILL_GEOMETRY_INVALID: {geom_err}"
-        return None, None, order.rejection_reason
+        return reject_order(order, f"POST_FILL_GEOMETRY_INVALID: {geom_err}")
 
     # Re-calculate Net R:R with actual fill price
     calc = calculate_risk_reward(
@@ -125,9 +154,7 @@ def try_fill_pending_order(
     )
 
     if not calc.can_execute or calc.net_rr < min_net_rr:
-        order.status = "REJECTED"
-        order.rejection_reason = f"POST_FILL_NET_RR_{calc.net_rr:.2f}_BELOW_{min_net_rr}"
-        return None, None, order.rejection_reason
+        return reject_order(order, f"POST_FILL_NET_RR_{calc.net_rr:.2f}_BELOW_{min_net_rr}")
 
     # Initial risk in USDT frozen at fill time
     risk_val = getattr(calc, "net_risk_usdt", None) or getattr(calc, "budget_usdt", 0.0)
@@ -203,6 +230,10 @@ def evaluate_position_exit(
     PHẦN 40, 42, 43, 44: Evaluates position exit against a new market bar.
     Conservative resolution: if both SL and TP touched in same candle, resolves to STOP_LOSS.
     """
+    if position.status != "OPEN":
+        return None, f"POSITION_ALREADY_{position.status}"
+    if position.direction not in ("LONG", "SHORT"):
+        return None, "INVALID_DIRECTION"
     if event.timestamp < position.entry_time:
         return None, "PRE_ENTRY_EVENT"
 
@@ -226,16 +257,9 @@ def evaluate_position_exit(
         return None, "STILL_OPEN"
 
     is_ambiguous = hit_tp and hit_sl
-    if is_ambiguous:
-        # Conservative policy: resolve to SL when both hit
+    if is_ambiguous or hit_sl:
         exit_cause = "STOP_LOSS"
-        if position.direction == "LONG":
-            exit_fill = position.stop_loss
-        else:
-            exit_fill = position.stop_loss
-    elif hit_sl:
-        exit_cause = "STOP_LOSS"
-        # Gap adverse fill
+        # Preserve adverse gap execution even under ambiguous same-candle hits (PHẦN 36)
         if position.direction == "LONG":
             exit_fill = min(position.stop_loss, event.open_price) if event.open_price < position.stop_loss else position.stop_loss
         else:
@@ -244,12 +268,19 @@ def evaluate_position_exit(
         exit_cause = "TAKE_PROFIT"
         exit_fill = position.take_profit
 
-    # Adverse slippage on exit
+    # Adverse slippage on exit (PHẦN 37)
     if exit_cause == "STOP_LOSS":
         if position.direction == "LONG":
             exit_fill = round(exit_fill - costs.slippage_usd, 2)
         else:
             exit_fill = round(exit_fill + costs.slippage_usd, 2)
+    else:  # TAKE_PROFIT
+        if not getattr(costs, "tp_is_maker", False):
+            tp_slip = getattr(costs, "tp_slippage_usd", costs.slippage_usd)
+            if position.direction == "LONG":
+                exit_fill = round(exit_fill - tp_slip, 2)
+            else:
+                exit_fill = round(exit_fill + tp_slip, 2)
 
     accounting = compute_closed_trade_accounting(
         position=position,
@@ -282,7 +313,8 @@ def compute_closed_trade_accounting(
     """
     sign = 1.0 if position.direction == "LONG" else -1.0
     gross_pnl = round(sign * (exit_price - position.entry_price) * position.quantity * multiplier, 4)
-    exit_fee = round(exit_price * position.quantity * costs.taker_fee_rate * multiplier, 4)
+    fee_rate = resolve_exit_fee_rate(exit_cause, costs, is_ambiguous)
+    exit_fee = round(exit_price * position.quantity * fee_rate * multiplier, 4)
     net_pnl = round(gross_pnl - position.entry_fee - exit_fee, 4)
 
     initial_risk = position.initial_risk_usdt

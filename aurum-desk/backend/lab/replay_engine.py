@@ -1,5 +1,6 @@
 from lab.replay_contracts import ReplayPendingOrder, ReplayPosition, ReplayMarketEvent, PolicySnapshot
 from lab.replay_execution import submit_replay_order, try_fill_pending_order, evaluate_position_exit, compute_closed_trade_accounting
+from lab.replay_evidence_utils import TERMINAL_ORDER_STATUSES, ACTIVE_ORDER_STATUSES, normalize_order_status, stable_id
 from lab.replay_metrics import partition_trade_records, aggregate_replay_metrics, compute_equity_metrics, reconcile_cash_equity
 from lab.replay_integrity import run_replay_integrity_checks, verify_exported_artifacts
 """
@@ -91,6 +92,8 @@ class ReplayContext:
         self.ledger_postings: List[Dict[str, Any]] = []
         self.decision_events: List[Dict[str, Any]] = []
         self.execution_events: List[Dict[str, Any]] = []
+        self.all_orders: List[Any] = []
+        self.posting_index: Dict[str, Dict[str, Any]] = {}
 
         # V124-02: Initial cash set strictly from request.initial_equity
         initial_cash = 1000.0
@@ -123,6 +126,7 @@ class ReplayContext:
         balance_after_usdt: Optional[float] = None,
         event_id: Optional[str] = None,
         cost_model_version: Optional[str] = None,
+        **kwargs
     ) -> Dict[str, Any]:
         """
         V124-01 & V124-02: Authoritative canonical ledger posting emission.
@@ -160,7 +164,13 @@ class ReplayContext:
         self.current_cash += amt
         bal = balance_after_usdt if balance_after_usdt is not None else (balance_after if balance_after is not None else self.current_cash)
 
-        pid = f"POST-{self.run_id}-{len(self.ledger_postings) + 1}"
+        p_in_id = (entry_type.get("posting_id") if isinstance(entry_type, dict) else kwargs.get("posting_id"))
+        pid = p_in_id or f"POST-{self.run_id}-{len(self.ledger_postings) + 1}"
+        if pid in self.posting_index:
+            existing = self.posting_index[pid]
+            if abs(float(existing["amount_usdt"]) - round(amt, 4)) > 1e-5 or existing["posting_type"] != p_type:
+                raise ValueError(f"POSTING_ID_PAYLOAD_CONFLICT: {pid}")
+            return existing
         ev_id = event_id or f"EV-{self.run_id}-{len(self.ledger_postings) + 1}"
         cm_ver = cost_model_version or self.cost_model_version
 
@@ -188,6 +198,7 @@ class ReplayContext:
             "balance_after": round(bal, 4),
             "mode": self.strategy_variant
         }
+        self.posting_index[pid] = posting_record
         self.ledger_postings.append(posting_record)
         return posting_record
 
@@ -1052,8 +1063,8 @@ class ReplayEngine:
                         risk_pct=p_risk_pct,
                         min_net_rr=min_net_rr
                     )
-                    if fill_status == "FILLED" and pos and entry_posting:
-                        pending_orders.remove(p_order)
+                    order_status = normalize_order_status(p_order.status)
+                    if order_status == "FILLED" and pos and entry_posting:
                         active_trade = pos
                         replay_ctx.record_posting(entry_posting)
                         cash_balance = cash_balance - pos.entry_fee
@@ -1087,8 +1098,10 @@ class ReplayEngine:
                                 s_st.scheduled_fill_count += 1
                             s_st.status = "TARGET_FILLED"
                         break
-                    elif fill_status in ("REJECTED", "EXPIRED", "CANCELLED"):
-                        pending_orders.remove(p_order)
+                    elif order_status in TERMINAL_ORDER_STATUSES:
+                        continue
+
+                pending_orders = [o for o in pending_orders if normalize_order_status(o.status) in ACTIVE_ORDER_STATUSES]
 
             # 4.1. Evaluate Active Position Exit against eval_bar
             if active_trade:
@@ -1819,6 +1832,7 @@ class ReplayEngine:
                                     margin_mode=request.margin_mode
                                 )
                                 pending_orders.append(p_order)
+                                replay_ctx.all_orders.append(p_order)
                                 trade_id = p_order.order_id
 
                                 time_str_vn = clock.now_datetime().strftime("%Y-%m-%d %H:%M:%S")
@@ -1988,9 +2002,9 @@ class ReplayEngine:
                                                     "planned_net_rr": c_calc.net_rr,
                                                     "quantity": c_calc.quantity,
                                                     "initial_risk_usdt": c_calc.net_risk_usdt,
-                                                    "stop_model": "STRUCTURAL",
-                                                    "target_model": "MEASURED_MOVE_RESEARCH",
-                                                    "target_source": "PRE_NY_RANGE",
+                                                    "stop_model": c_candidate.get("stop_model", "STRUCTURAL"),
+                                                    "target_model": c_candidate.get("target_model", "MEASURED_MOVE_RESEARCH"),
+                                                    "target_source": c_candidate.get("target_source", "SWING_EXTREMA"),
                                                     "strategy_family": c_candidate.get("strategy_family", "SMC_CONTEXT_SCHEDULED"),
                                                     "entry_type": c_candidate.get("entry_type", "SMC_CONTEXT_SCHEDULED_PAPER"),
                                                     "missing_confirmations": c_candidate.get("missing_confirmations", ["SCHEDULED_ENTRY_AT_DEADLINE"]),

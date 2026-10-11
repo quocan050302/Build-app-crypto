@@ -1,49 +1,51 @@
 {
-  "schema_version": "v13.6",
-  "timestamp": 1791652042149,
+  "schema_version": "v13.7",
+  "timestamp": 1791684812650,
   "git_info": {
-    "head_commit": "5dc43e8744da2de857aea4c94472733c25018ace",
-    "diff_hash": "67b7319eaf317ee0",
+    "head_commit": "41b9017342591f8acb324d82066baa6e354c661e",
+    "diff_hash": "d1a336ed1e345f4f",
     "has_uncommitted_changes": true
   },
   "stage1_backend_tests": {
     "passed": true,
-    "duration_seconds": 49.84,
-    "test_files_count": 16,
-    "stdout_snippet": "ions/3.13/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 51 passed, 1 warning in 48.82s ========================\n",
-    "return_code": 0
+    "duration_seconds": 80.4,
+    "test_files_count": 26,
+    "stdout_snippet": "=========== warnings summary ===============================\nbackend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1\n  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=================== 87 passed, 1 warning in 79.39s (0:01:19) ===================\n",
+    "stderr_snippet": ""
   },
   "stage2_frontend": {
     "passed": true,
-    "duration_seconds": 4.77,
-    "stdout_snippet": " production...\ntransforming...\n\u2713 1983 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.45 kB \u2502 gzip:   0.29 kB\ndist/assets/index-CfNa7FFd.css   38.45 kB \u2502 gzip:   7.51 kB\ndist/assets/index-Cl9FbnzQ.js   893.69 kB \u2502 gzip: 247.28 kB\n\n\u2713 built in 682ms\n"
+    "vitest_passed": true,
+    "build_passed": true,
+    "duration_seconds": 7.16,
+    "build_snippet": " production...\ntransforming...\n\u2713 1983 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/index.html                   0.45 kB \u2502 gzip:   0.29 kB\ndist/assets/index-CfNa7FFd.css   38.45 kB \u2502 gzip:   7.51 kB\ndist/assets/index-Cl9FbnzQ.js   893.69 kB \u2502 gzip: 247.28 kB\n\n\u2713 built in 993ms\n"
   },
   "stage3_integrity_passed": true,
   "stage3_artifacts_verified": true,
   "technical_status": "PASS",
-  "cadence_status": "PASS",
+  "cadence_status": "UNMET",
   "economic_status": "LOSING",
   "empirical_metrics": {
-    "run_id": "v12-replay-afd1f42b",
-    "run_name": "v13_6_acceptance_empirical_3m",
-    "duration_seconds": 11.96,
-    "total_trades": 82,
-    "closed_count": 82,
+    "run_id": "v12-replay-83e3f901",
+    "run_name": "v13_7_acceptance_empirical_3m",
+    "duration_seconds": 14.8,
+    "total_trades": 80,
+    "closed_count": 80,
     "open_positions_count": 0,
-    "fills_count": 82,
+    "fills_count": 80,
     "wins": 10,
-    "losses": 72,
+    "losses": 70,
     "breakevens": 0,
-    "win_rate_pct": 12.2,
-    "profit_factor": 0.43,
-    "total_net_pnl": -65.96,
-    "total_fees": 53.31,
-    "max_drawdown_usdt": 75.24,
-    "max_drawdown_pct": 7.5,
-    "expectancy_r": -0.56,
+    "win_rate_pct": 12.5,
+    "profit_factor": 0.55,
+    "total_net_pnl": -45.33,
+    "total_fees": 44.0,
+    "max_drawdown_usdt": 58.62,
+    "max_drawdown_pct": 5.84,
+    "expectancy_r": -0.54,
     "trade_type_breakdown": {
-      "SMC_CONFIRMED": 16,
-      "SMC_CONTEXT_SCHEDULED_PAPER": 66
+      "SMC_CONFIRMED": 12,
+      "SMC_CONTEXT_SCHEDULED_PAPER": 68
     },
     "cadence_summary": {
       "calendar_days": 93,
@@ -53,11 +55,13 @@
       "executable_sessions": 92,
       "sessions_with_fills": 80,
       "all_sessions_with_fills": 80,
-      "confirmed_fill_sessions": 14,
-      "scheduled_fill_sessions": 66,
+      "confirmed_fill_sessions": 12,
+      "scheduled_fill_sessions": 68,
       "blocked_sessions": 0,
       "unmet_sessions": 12,
-      "coverage_pct": 87.0
+      "in_progress_sessions": 0,
+      "coverage_pct": 87.0,
+      "cadence_status": "UNMET"
     },
     "run_config_hash": "c1aaa05326ae2fc1",
     "dataset_hash": "1dd754e8f038db496dee577d11c1d834517a5c8c483386efb4454297f011e63f",
@@ -83,7 +87,7 @@
         {
           "id": "cash_ledger_reconciled",
           "status": "PASS",
-          "observed": "diff=0.0034, expected=934.04, reported=934.04"
+          "observed": "diff=0.0000, expected=954.67, reported=954.67"
         },
         {
           "id": "causal_data_order_ok",
@@ -98,7 +102,7 @@
         {
           "id": "trade_count_partitioned",
           "status": "PASS",
-          "observed": "closed=82, sum=82"
+          "observed": "closed=80, sum=80"
         },
         {
           "id": "pricing_geometry_verified",
@@ -107,9 +111,9 @@
         }
       ]
     },
-    "artifacts_dir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/lab/artifacts/v12_2/v12-replay-afd1f42b",
+    "artifacts_dir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/lab/artifacts/v12_2/v12-replay-83e3f901",
     "artifacts_verified": true,
     "artifacts_errors": []
   },
-  "elapsed_seconds": 67.65
+  "elapsed_seconds": 103.78
 }

@@ -252,10 +252,13 @@ def audit_session_timeframes(
     is_complete = True
 
     if is_market_open:
-        if "15M" in required_timeframes and observed_15m < max(4, expected_15m // 2):
+        # PHẦN 61, 62: Require observed bars >= expected tradable bars (with tolerance up to 3 bars for boundary breaks)
+        min_15m = max(1, expected_15m - 4)
+        if "15M" in required_timeframes and observed_15m < min_15m:
             is_complete = False
             reasons.append(f"INSUFFICIENT_BARS_IN_SESSION: observed {observed_15m} < expected {expected_15m}")
-        if "5M" in required_timeframes and observed_5m < max(10, expected_5m // 2):
+        min_5m = max(1, expected_5m - 12)
+        if "5M" in required_timeframes and observed_5m < min_5m:
             is_complete = False
             reasons.append(f"INSUFFICIENT_5M_BARS: observed {observed_5m} < expected {expected_5m}")
 
@@ -758,16 +761,12 @@ def build_scheduled_price_plan(
                 }
 
     if pre_ny_range and pre_ny_range.get("valid"):
-        mm_target, mm_err = build_measured_move_target(pre_ny_range, direction, anchor=fill_entry, fixed_multiplier=2.5)
-        if mm_target:
-            target_candidates.append(mm_target)
+        for mm_mult in [2.0, 2.5, 3.0, 3.5]:
+            mm_target, mm_err = build_measured_move_target(pre_ny_range, direction, anchor=fill_entry, fixed_multiplier=mm_mult)
+            if mm_target:
+                target_candidates.append(mm_target)
 
-    # Standard frozen research extension targets (3.0x, 3.5x, 4.0x SL distance) to ensure tradable geometry when swings are close
-    if sl_dist > 0.0:
-        for mult_f in [3.0, 3.5, 4.0]:
-            ext_target = build_measured_move_target(direction, fill_entry, sl_dist, fixed_multiplier=mult_f)
-            if isinstance(ext_target, dict):
-                target_candidates.append(ext_target)
+# Removed legacy SL-distance extension loop (Phần 07, 31, 51)
 
     # 4. Evaluate candidates deterministically without multiplier expansion loops
     valid_plan = None
@@ -856,11 +855,30 @@ def evaluate_scheduled_entry(
         "entry_model": dir_model,
         "stop_model": plan["stop_model"],
         "target_model": plan["target_model"],
+        "target_source": plan.get("target_source", "SWING_EXTREMA"),
         "decision_ms": sim_time,
         "structural_references": structural_refs,
         "notes": f"Scheduled NY paper entry at deadline ({dir_model})"
     }
     return candidate, rejections
+
+
+def derive_cadence_status(summary: Dict[str, Any]) -> str:
+    """
+    PHẦN 04, 55, 104: Authoritative Cadence Status derivation.
+    Requires 100% of executable past sessions to have fills or valid blocked exceptions.
+    Does not allow downgrading criteria to 80% to claim PASS.
+    """
+    executable = summary.get("executable_sessions", 0)
+    unmet = summary.get("unmet_sessions", 0)
+    pending = summary.get("in_progress_sessions", 0)
+    if executable == 0:
+        return "NOT_APPLICABLE"
+    if unmet > 0:
+        return "UNMET"
+    if pending > 0:
+        return "IN_PROGRESS"
+    return "PASS"
 
 
 def summarize_cadence(session_outcomes: List[Dict[str, Any]], calendar_days: Optional[int] = None) -> Dict[str, Any]:
@@ -887,10 +905,12 @@ def summarize_cadence(session_outcomes: List[Dict[str, Any]], calendar_days: Opt
     blocked_sessions = sum(1 for s in session_outcomes if s.get("outcome_category") in ("RISK_STOP", "POLICY_BLOCKED", "POLICY_DAILY_CAP_3"))
     unmet_sessions = sum(1 for s in session_outcomes if s.get("outcome_category") in ("UNFULFILLED", "NO_VALID_PRICE_PLAN"))
 
+    in_progress_sessions = sum(1 for s in session_outcomes if s.get("status") == "IN_PROGRESS" or s.get("outcome_category") == "IN_PROGRESS")
+
     raw_coverage = (sessions_with_fills / executable_sessions * 100.0) if executable_sessions > 0 else 0.0
     coverage_pct = round(min(100.0, max(0.0, raw_coverage)), 1)
 
-    return {
+    res_summary = {
         "calendar_days": cal_days,
         "ny_sessions_total": ny_sessions_total,
         "market_open_sessions": market_open_sessions,
@@ -902,8 +922,11 @@ def summarize_cadence(session_outcomes: List[Dict[str, Any]], calendar_days: Opt
         "scheduled_fill_sessions": scheduled_fill_sessions,
         "blocked_sessions": blocked_sessions,
         "unmet_sessions": unmet_sessions,
+        "in_progress_sessions": in_progress_sessions,
         "coverage_pct": coverage_pct
     }
+    res_summary["cadence_status"] = derive_cadence_status(res_summary)
+    return res_summary
 
 
 def finalize_session_outcome(
