@@ -5,10 +5,12 @@ import type {
   IPrimitivePaneRenderer,
   ISeriesPrimitiveAxisView,
   PrimitiveHoveredItem,
+  AutoscaleInfo,
   Time,
   Logical,
 } from 'lightweight-charts';
 import type { CanvasRenderingTarget2D } from 'fancy-canvas';
+import { formatRR } from '../utils/planLevels';
 
 export interface RiskRewardData {
   id: string;
@@ -27,6 +29,10 @@ export interface RiskRewardData {
   estimatedNetRR: number;
   isValid?: boolean;
   invalidReason?: string;
+  readOnly?: boolean;
+  minNetRR?: number;
+  canExecute?: boolean;
+  executionReason?: string;
   realizedPnlNet?: number;
   realizedR?: number;
   invalidationReason?: string;
@@ -195,14 +201,18 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
         return;
       }
 
-      // 1. Profit Box (Green Zone)
+      // Price-target geometry stays unchanged; a net loss at TP is an amber warning.
+      const netTargetReward = d.netRewardUsdt ?? (d.initialRiskUsdt * d.estimatedNetRR);
+      const nonPositiveReward = Number.isFinite(netTargetReward) && netTargetReward <= 0;
+      const targetColor = nonPositiveReward ? '#eab308' : '#26a69a';
+      // 1. Price Target Box
       const profitTop = Math.min(entryY, tpY);
       const profitHeight = Math.abs(tpY - entryY);
-      ctx.fillStyle = isMuted ? 'rgba(38, 166, 154, 0.08)' : 'rgba(38, 166, 154, 0.22)';
+      ctx.fillStyle = nonPositiveReward ? 'rgba(234, 179, 8, 0.16)' : (isMuted ? 'rgba(38, 166, 154, 0.08)' : 'rgba(38, 166, 154, 0.22)');
       ctx.fillRect(startX, profitTop, width, profitHeight);
 
       // Profit Border
-      ctx.strokeStyle = isMuted ? 'rgba(38, 166, 154, 0.4)' : '#26a69a';
+      ctx.strokeStyle = isMuted ? 'rgba(38, 166, 154, 0.4)' : targetColor;
       ctx.lineWidth = this._hoverPart === 'tp' ? 3 : 1.5;
       if (isDashed) ctx.setLineDash([4, 4]);
       else ctx.setLineDash([]);
@@ -269,7 +279,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       }
 
       // Watermark for DRAFT state
-      if (d.state === 'draft') {
+      if (!d.readOnly && (d.state === 'draft' || d.state === 'candidate')) {
         ctx.save();
         ctx.font = '900 13px Inter, sans-serif';
         ctx.fillStyle = 'rgba(245, 158, 11, 0.22)';
@@ -282,8 +292,8 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
 
       // 5. Central Badge Pill
       const badgeY = entryY;
-      const rrPassText = d.estimatedNetRR >= 2.0 ? '' : ' · [FAIL Net < 2.0]';
-      const badgeText = `${d.direction} · R:R Gross 1:${d.grossRR.toFixed(2)} (Net 1:${d.estimatedNetRR.toFixed(2)})${rrPassText} · ${d.state.toUpperCase()}`;
+      const rrPassText = nonPositiveReward ? ' · TP không bù chi phí' : (d.estimatedNetRR >= (d.minNetRR ?? 2.0) ? '' : ' · Chưa đạt R:R');
+      const badgeText = `${d.direction} · Gross ${formatRR(d.grossRR)} · Net ${formatRR(d.estimatedNetRR)}${rrPassText} · ${d.state.toUpperCase()}`;
       ctx.font = 'bold 11px Inter, sans-serif';
       const textMetrics = ctx.measureText(badgeText);
       const badgeWidth = textMetrics.width + 24;
@@ -307,12 +317,12 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       // 6. Target Box Text (Reward info: explicit Gross vs Net)
       const tpTargetY = d.direction === 'LONG' ? profitTop + 14 : profitTop + profitHeight - 6;
       ctx.font = '10px Inter, sans-serif';
-      ctx.fillStyle = '#2dd4bf';
+      ctx.fillStyle = nonPositiveReward ? '#facc15' : '#2dd4bf';
       ctx.textAlign = 'left';
       const mult = d.multiplier || 1.0;
       const targetDist = Math.abs(d.takeProfit - effectiveEntry);
       const grossReward = d.grossRewardUsdt !== undefined ? d.grossRewardUsdt : (d.quantity * mult * targetDist);
-      const netReward = d.netRewardUsdt !== undefined ? d.netRewardUsdt : (d.estimatedNetRR > 0 ? d.initialRiskUsdt * d.estimatedNetRR : grossReward);
+      const netReward = netTargetReward;
       const netRewardSign = netReward >= 0 ? '+' : '-';
       const rewardText = `TP: ${d.takeProfit.toFixed(2)} | Lãi theo giá: +$${grossReward.toFixed(2)} | Lãi ròng dự kiến: ${netRewardSign}$${Math.abs(netReward).toFixed(2)}`;
       ctx.fillText(rewardText, startX + 8, tpTargetY);
@@ -461,6 +471,16 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
     return this._currentGeometry;
   }
 
+  autoscaleInfo(): AutoscaleInfo | null {
+    // Only the attached R:R contributes. Liquidation is deliberately excluded.
+    const prices = [this._data.actualEntry ?? this._data.plannedEntry, this._data.stopLoss, this._data.takeProfit];
+    if (prices.some(price => !Number.isFinite(price) || price <= 0)) return null;
+    const low = Math.min(...prices);
+    const high = Math.max(...prices);
+    const padding = Math.max((high - low) * 0.08, 0.02);
+    return { priceRange: { minValue: low - padding, maxValue: high + padding } };
+  }
+
   attached(param: SeriesAttachedParameter<Time>): void {
     this._param = param;
     this.updateAllViews();
@@ -537,6 +557,7 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
    * Hit test against handles, borders, right edge, and box body.
    */
   hitTest(x: number, y: number): DragHitResult | null {
+    if (this._data.readOnly || ['armed', 'paper_open', 'closed', 'invalidated'].includes(this._data.state)) return null;
     const { entryY, slY, tpY, startX, endX } = this._currentGeometry;
     if (entryY === null || slY === null || tpY === null) return null;
 

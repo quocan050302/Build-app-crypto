@@ -2428,16 +2428,25 @@ async def preview_setup_quality(
 
     now_ms = int(time.time() * 1000)
     costs = CostAssumptions()
+    from services.risk_settings_service import risk_settings_service
+    settings = risk_settings_service.get_settings(db)
+    # Read the latest account balance without creating an audit row on preview.
+    latest_audit = db.query(models.DayAudit).order_by(models.DayAudit.id.desc()).first()
+    capital = latest_audit.current_equity if latest_audit else 1000.0
+    effective_leverage = req.leverage if req.leverage is not None else settings.requested_leverage
+    effective_margin = req.margin_mode if req.margin_mode is not None else settings.margin_mode
+    effective_risk = req.risk_pct if req.risk_pct is not None else settings.risk_pct
     calc = calculate_risk_reward(
         direction=req.direction,
         entry=req.entry_price,
         sl=req.stop_loss,
         tp=req.take_profit,
-        capital=1000.0,
-        risk_pct=req.risk_pct or 0.25,
+        capital=capital,
+        risk_pct=effective_risk,
+        quantity_override=req.quantity,
         costs=costs,
-        leverage=req.leverage or 5,
-        margin_mode=req.margin_mode or "ISOLATED",
+        leverage=effective_leverage,
+        margin_mode=effective_margin,
         min_net_rr=2.0
     )
 
@@ -2446,9 +2455,9 @@ async def preview_setup_quality(
         "entry_price": req.entry_price,
         "stop_loss": req.stop_loss,
         "take_profit": req.take_profit,
-        "quantity": req.quantity or 0.05,
-        "leverage": req.leverage or 5,
-        "margin_mode": req.margin_mode or "ISOLATED",
+        "quantity": calc.quantity,
+        "leverage": effective_leverage,
+        "margin_mode": effective_margin,
         "net_rr": calc.net_rr,
         "risk_usdt": calc.net_risk_usdt,
     }
@@ -2475,6 +2484,7 @@ async def preview_setup_quality(
         "assessment": assessment.to_dict(),
         "evidence": [e.to_dict() for e in related_ev],
         "calc": {
+            **calc.model_dump(),
             "gross_rr": calc.gross_rr,
             "net_rr": calc.net_rr,
             "net_risk_usdt": calc.net_risk_usdt,

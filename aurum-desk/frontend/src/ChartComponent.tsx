@@ -63,6 +63,7 @@ export function ChartComponent({
   onEvidenceModeChange: _onEvidenceModeChange,
 }: ChartComponentProps) {
   const lastFocusNonceRef = useRef<number>(0);
+  const draftBaseOverlayRef = useRef<RiskRewardData | null | undefined>(activeOverlay);
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -406,17 +407,22 @@ export function ChartComponent({
     if (!focusRequest || focusRequest.nonce === lastFocusNonceRef.current) return;
     lastFocusNonceRef.current = focusRequest.nonce;
     if (chartRef.current) {
+      chartRef.current.priceScale('right').applyOptions({ autoScale: true });
       chartRef.current.timeScale().scrollToPosition(3, false);
     }
   }, [focusRequest]);
 
   // 4. Attach / Update RiskRewardPrimitive Overlay using real equity and settings
   useEffect(() => {
+    if (activeOverlay !== draftBaseOverlayRef.current) setDraftMode(false);
+  }, [activeOverlay]);
+
+  useEffect(() => {
     if (!seriesRef.current) return;
 
     let targetOverlay: RiskRewardData | null = null;
 
-    if (draftMode) {
+    if (draftMode && activeOverlay === draftBaseOverlayRef.current) {
       // Build draft overlay initialized with authentic calculation from current close
       const currP = latestClosePriceRef.current;
       const entry = currP;
@@ -449,6 +455,12 @@ export function ChartComponent({
         takeProfit: tp,
         quantity: calc.quantity,
         initialRiskUsdt: calc.netRiskUsdt,
+        grossLossUsdt: calc.grossLossUsdt,
+        grossRewardUsdt: calc.grossRewardUsdt,
+        netRewardUsdt: calc.netRewardUsdt,
+        multiplier: calc.multiplier,
+        canExecute: calc.canExecute,
+        executionReason: calc.skipReason,
         riskPct: riskPct,
         grossRR: calc.grossRR,
         estimatedNetRR: calc.estimatedNetRR,
@@ -690,7 +702,10 @@ export function ChartComponent({
         <div className="flex items-center space-x-2">
           {/* Toggle Draft Mode */}
           <button
-            onClick={() => setDraftMode(!draftMode)}
+            onClick={() => {
+              draftBaseOverlayRef.current = activeOverlay;
+              setDraftMode(!draftMode);
+            }}
             className={`flex items-center px-2.5 py-1 rounded font-medium transition-all ${
               draftMode
                 ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20'

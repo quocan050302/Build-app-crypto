@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><title>R:R fixture chart</title></head>
+<body style="margin:0;background:#121214;color:white">
+<div id="chart" style="width:1100px;height:650px"></div>
+<script type="module">
+import { createChart, CandlestickSeries } from 'lightweight-charts';
+import { RiskRewardPrimitive } from '../src/plugins/RiskRewardPrimitive.ts';
+const chart=createChart(document.querySelector('#chart'),{width:1100,height:650,
+  layout:{background:{color:'#121214'},textColor:'#9ca3af'},rightPriceScale:{autoScale:true}});
+const series=chart.addSeries(CandlestickSeries);
+series.setData(Array.from({length:80},(_,i)=>({time:1791690000+i*900,
+  open:4196+i*.04,high:4197+i*.04,low:4195+i*.04,close:4196.2+i*.04})));
+chart.timeScale().fitContent();
+const base={id:'fixture',direction:'SHORT',state:'candidate',plannedEntry:4199.79,stopLoss:4204.79,
+  takeProfit:4198,quantity:.29,initialRiskUsdt:2.48,riskPct:.25,grossRR:.358,estimatedNetRR:-.194,
+  grossLossUsdt:1.45,grossRewardUsdt:.52,netRewardUsdt:-.48,entryTime:1791744000,projectedBars:10};
+const rr=new RiskRewardPrimitive(base);series.attachPrimitive(rr);
+window.rrFixture={select:(direction)=>rr.setData(direction==='SHORT'?base:{...base,direction:'LONG',
+  stopLoss:4194.79,takeProfit:4208.79,netRewardUsdt:1.5,estimatedNetRR:.6}),
+  geometry:()=>rr.getGeometry(),size:()=>({width:1100,height:650}),
+  readonly:()=>{rr.setData({...base,state:'paper_open',readOnly:true});const g=rr.getGeometry();
+    return rr.hitTest(g.startX+16,g.entryY)===null;},
+  pixel:(x,y)=>{const layers=[...document.querySelectorAll('canvas')].filter(c=>c.width>0);
+    return layers.map(c=>[...c.getContext('2d').getImageData(Math.floor(x*devicePixelRatio),Math.floor(y*devicePixelRatio),1,1).data]);}};
+</script></body></html>

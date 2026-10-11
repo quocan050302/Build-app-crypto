@@ -4,6 +4,7 @@ import { api, extractErrorMessage } from './api/client';
 import { wsClient } from './services/wsClient';
 import { quoteStore } from './services/quoteStore';
 import { calculateClientRiskReward } from './utils/calculator';
+import { resolveSetupPriceLevels } from './utils/planLevels';
 import type { RiskRewardData } from './plugins/RiskRewardPrimitive';
 import { TestingLabComponent } from './TestingLabComponent';
 import { ResearchTab } from './ResearchTab';
@@ -136,6 +137,10 @@ function AppContent() {
   const [focusRequest, setFocusRequest] = useState<{ nonce: number } | null>(null);
   const qualityGenRef = useRef<number>(0);
   const qualityAbortControllerRef = useRef<AbortController | null>(null);
+  useEffect(() => () => {
+    ++qualityGenRef.current;
+    qualityAbortControllerRef.current?.abort();
+  }, []);
 
   const chartEvidenceBundle = useMemo(() => {
     if (!selectedQualitySnapshot) return null;
@@ -617,6 +622,11 @@ function AppContent() {
 
   // Action Handlers
   const handleFollowLatestSignal = () => {
+    ++qualityGenRef.current;
+    qualityAbortControllerRef.current?.abort();
+    setSelectedQualitySnapshot(null);
+    setSelectedQualityLoading(false);
+    setSelectedQualityError(null);
     if (analysis?.active_signal) {
       const sig = analysis.active_signal;
       const targetPrice = sig.targets?.[0]?.price ?? sig.take_profit;
@@ -862,11 +872,19 @@ function AppContent() {
   };
 
   const handleFocusSetupOnChart = (setup: any) => {
+    const resolution = resolveSetupPriceLevels(setup);
+    if (!resolution.isValid) {
+      showToast('Không thể hiển thị kế hoạch', resolution.reason, 'warn');
+      return;
+    }
     setTimeframe(setup.timeframe || '15M');
     setActiveTab('chart');
-    const entry = setup.confirmed_entry || setup.provisional_entry;
-    const sl = setup.confirmed_sl || setup.provisional_sl;
-    const tp = setup.confirmed_tp || setup.provisional_tp;
+    const { entry, stopLoss: sl, takeProfit: tp } = resolution.plan;
+    ++qualityGenRef.current;
+    qualityAbortControllerRef.current?.abort();
+    setSelectedQualitySnapshot(null);
+    setSelectedQualityLoading(false);
+    setSelectedQualityError(null);
 
     const currentCapital = accountStatus?.current_equity ?? 1000.0;
     const effectiveRiskPct = riskPct ?? 0.25;
@@ -927,7 +945,7 @@ function AppContent() {
     const overlay: RiskRewardData = {
       id: setup.id,
       direction: setup.direction,
-      state: setup.state === 'READY' || setup.state === 'ARMED' ? 'candidate' : 'draft',
+      state: setup.state === 'ARMED' ? 'armed' : 'candidate',
       plannedEntry: entry,
       stopLoss: sl,
       takeProfit: tp,
@@ -984,7 +1002,7 @@ function AppContent() {
       distance_to_entry_usdt: setup.distance_to_entry_usdt,
       distance_to_entry_atr: setup.distance_to_entry_atr,
       snapshotAt: Date.now(),
-      quality_status: setup.quality_summary?.quality_status || (setup.quality_snapshot_id ? undefined : 'NOT_ASSESSED'),
+      quality_status: setup.quality_summary?.status || (setup.quality_snapshot_id ? undefined : 'NOT_ASSESSED'),
       quality_snapshot_id: setup.quality_snapshot_id,
       quality_summary: setup.quality_summary,
     });
@@ -1028,11 +1046,19 @@ function AppContent() {
   };
 
   const handleCopySetupToDraft = (setup: any) => {
+    const resolution = resolveSetupPriceLevels(setup);
+    if (!resolution.isValid) {
+      showToast('Không thể hiển thị kế hoạch', resolution.reason, 'warn');
+      return;
+    }
     setTimeframe(setup.timeframe || '15M');
     setActiveTab('chart');
-    const entry = setup.confirmed_entry || setup.provisional_entry;
-    const sl = setup.confirmed_sl || setup.provisional_sl;
-    const tp = setup.confirmed_tp || setup.provisional_tp;
+    const { entry, stopLoss: sl, takeProfit: tp } = resolution.plan;
+    ++qualityGenRef.current;
+    qualityAbortControllerRef.current?.abort();
+    setSelectedQualitySnapshot(null);
+    setSelectedQualityLoading(false);
+    setSelectedQualityError(null);
     const draftId = `draft-${Date.now()}`;
     const currentCapital = accountStatus?.current_equity ?? 1000.0;
     const effectiveRiskPct = riskPct ?? 0.25;
@@ -1233,12 +1259,16 @@ function AppContent() {
   };
 
   const handleFocusTradeOnChart = (trade: any) => {
+    ++qualityGenRef.current;
+    qualityAbortControllerRef.current?.abort();
+    setSelectedQualityLoading(false);
     setTimeframe(trade.timeframe || '15M');
     setActiveTab('chart');
     const overlay: RiskRewardData = {
       id: trade.id,
       direction: trade.direction,
-      state: trade.state,
+      state: ['closed', 'CLOSED'].includes(trade.state) ? 'closed' : 'paper_open',
+      readOnly: true,
       plannedEntry: trade.planned_entry,
       actualEntry: trade.actual_entry,
       stopLoss: trade.stop_loss,
@@ -1632,10 +1662,14 @@ function AppContent() {
                 rvolData={rvolData}
                 activeOverlay={activeOverlay}
                 onOverlayChange={(updated) => {
-                  setActiveOverlay(updated);
                   if (updated) {
-                    const isReadOnly = selectedIntentRef.current?.source === 'OPEN_POSITION';
-                    if (isReadOnly) return;
+                    if (selectedIntentRef.current?.source === 'OPEN_POSITION' || updated.readOnly) return;
+                    ++qualityGenRef.current;
+                    qualityAbortControllerRef.current?.abort();
+                    setSelectedQualitySnapshot(null);
+                    setSelectedQualityLoading(false);
+                    setSelectedQualityError(null);
+                    setActiveOverlay({ ...updated, state: 'draft' });
 
                     setSelectedIntent((prev) => ({
                       source: 'DRAFT',
@@ -1651,6 +1685,10 @@ function AppContent() {
                       orderType: 'LIMIT',
                       quantity: updated.quantity,
                       initialRiskUsdt: updated.initialRiskUsdt,
+                      grossLossUsdt: updated.grossLossUsdt,
+                      grossRewardUsdt: updated.grossRewardUsdt,
+                      netRewardUsdt: updated.netRewardUsdt,
+                      multiplier: updated.multiplier,
                       grossRR: updated.grossRR,
                       estimatedNetRR: updated.estimatedNetRR,
                       leverage: updated.leverage || leverage,
@@ -1658,10 +1696,13 @@ function AppContent() {
                       estimatedLiquidation: updated.estimatedLiquidation,
                       status: 'draft',
                       snapshotAt: Date.now(),
-                      quality_status: 'PARTIAL',
+                      quality_status: 'NOT_ASSESSED',
                     }));
 
                     if (updated.plannedEntry > 0 && updated.stopLoss > 0 && updated.takeProfit && updated.takeProfit > 0) {
+                      const previewGeneration = qualityGenRef.current;
+                      const previewController = new AbortController();
+                      qualityAbortControllerRef.current = previewController;
                       api.previewSetupQuality({
                         symbol: 'XAUUSDT',
                         timeframe: timeframe,
@@ -1672,9 +1713,15 @@ function AppContent() {
                         quantity: updated.quantity,
                         leverage: updated.leverage || leverage,
                         margin_mode: updated.marginMode || marginMode,
-                      }).then((res: any) => {
-                        if (res && res.snapshot) {
-                          setSelectedQualitySnapshot(res.snapshot);
+                      }, { signal: previewController.signal }).then((res: any) => {
+                        if (previewController.signal.aborted || previewGeneration !== qualityGenRef.current) return;
+                        // Preview has no immutable snapshot. Never reuse server evidence for edited prices.
+                        if (res?.assessment && selectedIntentRef.current?.source === 'DRAFT') {
+                          setSelectedIntent(prev => prev?.source === 'DRAFT' ? {
+                            ...prev, quality_status: 'NOT_ASSESSED',
+                            quality_summary: { status: 'NOT_ASSESSED', required_met: 0, required_total: 0,
+                              headline_vi: 'Bản nháp đã đổi giá; bằng chứng SMC cần được đánh giá lại' },
+                          } : prev);
                         }
                       }).catch(() => {});
                     }

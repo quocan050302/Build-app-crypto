@@ -128,7 +128,7 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
       });
     }
 
-    const currentNetRR = selectedIntent.estimatedNetRR || currentSetup?.net_rr || 0;
+    const currentNetRR = selectedIntent.estimatedNetRR ?? currentSetup?.net_rr ?? 0;
     if (currentNetRR > 0 && currentNetRR < 2.0) {
       blockers.push({
         code: 'NET_RR_TOO_LOW',
@@ -204,9 +204,9 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
 
   // V14 Quality Status Derivation
   const qualityStatus: string = selectedQualitySnapshot?.assessment?.status || selectedIntent?.quality_status || (selectedIntent ? 'NOT_ASSESSED' : 'NOT_ASSESSED');
-  const requiredMetCount: number = selectedQualitySnapshot?.assessment?.required_met_count ?? selectedIntent?.quality_summary?.required_met_count ?? 0;
-  const requiredTotalCount: number = selectedQualitySnapshot?.assessment?.required_total_count ?? selectedIntent?.quality_summary?.required_total_count ?? 0;
-  const primaryReason: string = selectedQualitySnapshot?.assessment?.summary?.primary_reason_vi || selectedIntent?.quality_summary?.primary_reason_vi || 'Đang quan sát cấu trúc SMC phiên Mỹ';
+  const requiredMetCount: number = selectedQualitySnapshot?.assessment?.summary?.required_met ?? selectedIntent?.quality_summary?.required_met ?? 0;
+  const requiredTotalCount: number = selectedQualitySnapshot?.assessment?.summary?.required_total ?? selectedIntent?.quality_summary?.required_total ?? 0;
+  const primaryReason: string = selectedQualitySnapshot?.assessment?.summary?.headline_vi || selectedIntent?.quality_summary?.headline_vi || 'Đang quan sát cấu trúc SMC phiên Mỹ';
   const cautionOrNext: string = selectedQualitySnapshot?.assessment?.summary?.next_condition_vi || selectedQualitySnapshot?.assessment?.summary?.caution_vi || 'Chờ cấu trúc xác nhận (EXPLAIN_ONLY)';
 
   const getQualityBadgeLabel = (status: string) => {
@@ -259,8 +259,8 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
       ).toFixed(2)
     : '0.00';
 
-  const grossRR = selectedIntent?.grossRR || currentSetup?.gross_rr || 0;
-  const netRR = selectedIntent?.estimatedNetRR || currentSetup?.net_rr || 0;
+  const grossRR = selectedIntent?.grossRR ?? currentSetup?.gross_rr ?? 0;
+  const netRR = selectedIntent?.estimatedNetRR ?? currentSetup?.net_rr ?? 0;
 
   // Vietnamese status label
   const getVietnameseStatus = (status?: string): string => {
@@ -522,7 +522,7 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                   <span>R:R sau chi phí (Net):</span>
                   <span className="font-mono font-bold">
                     <span className={netRR >= 2.0 ? 'text-aurum-400' : 'text-rose-400'}>
-                      1:{netRR > 0 ? netRR.toFixed(2) : '--'}
+                      {Number.isFinite(netRR) ? `1:${netRR.toFixed(2)}` : '—'}
                     </span>
                     {netRR > 0 && netRR < 2.0 && (
                       <span className="text-[10px] text-rose-400 font-normal ml-1">(chưa đạt 1:2.0)</span>

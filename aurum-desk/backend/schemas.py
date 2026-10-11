@@ -1211,11 +1211,11 @@ class QualitySnapshotSchema(BaseModel):
 class DraftQualityPreviewRequest(BaseModel):
     symbol: str = "XAUUSDT"
     timeframe: str = "15M"
-    direction: str
-    entry_price: Optional[float] = None
-    entry: Optional[float] = None
-    stop_loss: float
-    take_profit: float
+    direction: Literal['LONG', 'SHORT']
+    entry_price: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    entry: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    stop_loss: float = Field(gt=0, allow_inf_nan=False)
+    take_profit: float = Field(gt=0, allow_inf_nan=False)
 
     @model_validator(mode='after')
     def validate_entry(self):
@@ -1224,7 +1224,7 @@ class DraftQualityPreviewRequest(BaseModel):
         if self.entry_price is None:
             raise ValueError("Either entry or entry_price is required")
         return self
-    quantity: Optional[float] = 0.05
-    leverage: Optional[int] = 5
-    margin_mode: Optional[str] = "ISOLATED"
-    risk_pct: Optional[float] = 0.25
+    quantity: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    leverage: Optional[int] = Field(default=None, ge=1)
+    margin_mode: Optional[Literal['ISOLATED', 'CROSS']] = None
+    risk_pct: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
