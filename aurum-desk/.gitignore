@@ -1,0 +1,27 @@
+# Python
+backend/venv/
+backend/__pycache__/
+__pycache__/
+*.py[cod]
+*$py.class
+*.db
+*.db.bak*
+*.backup*
+*.db-shm
+*.db-wal
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+*.local
+
+# Environment
+.env
+
+# Logs
+*.log
+
+# Lab historical data & artifacts
+backend/lab/data/
+backend/lab/artifacts/
