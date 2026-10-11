@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import type { SelectedTradeIntent } from '../App';
 import type { DrawerSectionType } from './QuickDecisionSidebar';
 import type { NYSessionStatus, TradingPolicy } from '../api/client';
+import { NYQuotaDiagnosticsCard } from './NYQuotaDiagnosticsCard';
 import {
   X,
   CheckCircle2,
@@ -779,6 +780,7 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                   </div>
                 </div>
               )}
+              <NYQuotaDiagnosticsCard />
             </div>
           )}
         </div>

@@ -339,6 +339,10 @@ class WatchSetup(Base):
     plan_kind = Column(String(20), nullable=True)
     direction_source = Column(String(20), nullable=True)
 
+    # V14.3 additive: NY session this fallback/standard watch belongs to (NULL on legacy rows).
+    # Links WatchSetup -> PaperOrder.session_instance_id / SessionQuota by id, not by display name.
+    session_instance_id = Column(String(60), nullable=True, index=True)
+
 
 
 class DomainEvent(BaseModel if False else Base):
@@ -542,3 +546,67 @@ class SetupQualitySnapshot(Base):
     payload_json = Column(Text, nullable=False)
     evidence_digest = Column(String(64), nullable=True)
     created_at = Column(BigInteger, nullable=False)
+
+
+
+# ---------------------------------------------------------------------------
+# V14.3 NY opportunity audit (additive tables; no secrets, no orders)
+# ---------------------------------------------------------------------------
+class NYOpportunityAudit(Base):
+    """One row per UNIQUE opportunity: session + family + candidate/evidence identity.
+
+    Scanning 100 times the same candidate updates `seen_count`/`last_seen_at`; it never inserts a new
+    row. A material change is traced in `revisions_json` (bounded) without becoming a new opportunity.
+    """
+    __tablename__ = "ny_opportunity_audits"
+    __table_args__ = (
+        UniqueConstraint("session_instance_id", "strategy_family", "candidate_key", name="uq_ny_opportunity_identity"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_instance_id = Column(String(60), nullable=False, index=True)
+    session_date_ny = Column(String(10), nullable=True, index=True)
+    symbol = Column(String(20), default="XAUUSDT")
+    strategy_family = Column(String(30), default="NY_QUOTA_PAPER")
+    candidate_key = Column(String(100), nullable=False)
+    direction = Column(String(10), nullable=True)
+    stage = Column(String(24), default="STRATEGY_CANDIDATE")  # STRATEGY_CANDIDATE|FINANCIAL_ELIGIBLE|ARMED|FILLED
+    outcome = Column(String(30), nullable=True)
+    primary_reason_code = Column(String(60), nullable=True)
+    reason_category = Column(String(12), nullable=True)  # DATA|STRATEGY|SAFETY|EXECUTION|SYSTEM
+    reasons_json = Column(Text, nullable=True)            # ALL blockers (typed), primary is stable
+    evidence_json = Column(Text, nullable=True)
+    fingerprint = Column(String(64), nullable=True)
+    revision = Column(Integer, default=1)
+    revisions_json = Column(Text, nullable=True)
+    is_financially_eligible = Column(Boolean, default=False)
+    was_armed = Column(Boolean, default=False)
+    was_filled = Column(Boolean, default=False)
+    watch_setup_id = Column(String(50), nullable=True)
+    order_id = Column(String(36), nullable=True)
+    seen_count = Column(Integer, default=1)
+    first_seen_at = Column(BigInteger, nullable=False)
+    last_seen_at = Column(BigInteger, nullable=False)
+
+
+class NYSessionAudit(Base):
+    """One row per NY session: scan coverage, blockers by stage, primary missed reason, one summary."""
+    __tablename__ = "ny_session_audits"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_instance_id = Column(String(60), unique=True, nullable=False, index=True)
+    session_date_ny = Column(String(10), nullable=True, index=True)
+    symbol = Column(String(20), default="XAUUSDT")
+    scan_count = Column(Integer, default=0)
+    fallback_search_scans = Column(Integer, default=0)
+    data_issue_scans = Column(Integer, default=0)
+    last_quota_state = Column(String(30), nullable=True)
+    blockers_json = Column(Text, nullable=True)           # {"stage:code": count}
+    last_system_error = Column(Text, nullable=True)
+    primary_missed_reason = Column(String(60), nullable=True)
+    missed_category = Column(String(12), nullable=True)
+    summary_json = Column(Text, nullable=True)
+    summary_written_at = Column(BigInteger, nullable=True)  # set once; restart never rewrites
+    first_scan_at = Column(BigInteger, nullable=True)
+    last_scan_at = Column(BigInteger, nullable=True)
+    updated_at = Column(BigInteger, nullable=False)

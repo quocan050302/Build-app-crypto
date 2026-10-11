@@ -2313,8 +2313,10 @@ def get_ny_session_status_endpoint(
     local times in NY & VN, countdown, and slot reservation.
     """
     from services.trading_policy_service import TradingPolicyService
+    from services.clock import live_clock
     from datetime import datetime, timezone
-    now_dt = datetime.now(timezone.utc)
+    # V14.3: one injectable clock source (live_clock) instead of a direct wall-clock read.
+    now_dt = datetime.fromtimestamp(live_clock.now_ms() / 1000.0, tz=timezone.utc)
     eval_res = TradingPolicyService.evaluate_entry_policy(db, symbol, now_dt)
 
     return schemas.NYSessionStatusResponse(
@@ -2338,8 +2340,71 @@ def get_ny_session_status_endpoint(
         minutes_to_window_end=eval_res.get("minutes_to_window_end"),
         allowed=eval_res.get("allowed", False),
         reason_code=eval_res.get("reason_code"),
-        reason_message=eval_res.get("reason_message")
+        reason_message=eval_res.get("reason_message"),
+        fallback_enabled=(bool(getattr(eval_res.get("policy"), "ny_fallback_enabled", False))
+                          if eval_res.get("policy") is not None else None),
+        fallback_start_ny=(getattr(eval_res.get("policy"), "ny_fallback_start", None)
+                           if eval_res.get("policy") is not None else None),
+        window_end_ny=(getattr(eval_res.get("policy"), "ny_entry_end", None)
+                       if eval_res.get("policy") is not None else None),
+        quota_reason=eval_res.get("quota_reason"),
+        target_fills=eval_res.get("ny_target_fills"),
     )
+
+
+@app.get("/api/v1/ny-quota/diagnostics", response_model=schemas.NYQuotaDiagnosticsResponse)
+def get_ny_quota_diagnostics_endpoint(
+    symbol: str = "XAUUSDT",
+    date: Optional[str] = Query(None, description="NY session date YYYY-MM-DD (default: current NY session)"),
+    db: Session = Depends(get_db)
+):
+    """
+    V14.3 read model: why a NY session did / did not produce PAPER fills (scan coverage, unique candidates,
+    funnel, typed blockers, one missed summary). GET only: never creates orders, quota rows or notifications.
+    Sessions without an audit return availability=UNAVAILABLE and null counts (never fake zeros).
+    """
+    from datetime import datetime as _dt
+    from services.trading_policy_service import TradingPolicyService
+    from services.ny_opportunity_audit_service import NYOpportunityAuditService
+    from services.ny_quota_helpers import classify_reason
+    from services.clock import live_clock
+    ny_tz = ZoneInfo("America/New_York")
+    now_ms = live_clock.now_ms()
+    policy = TradingPolicyService.get_policy(db) or TradingPolicyService.get_default_policy()
+    today_ny = _dt.fromtimestamp(now_ms / 1000.0, tz=ny_tz).strftime("%Y-%m-%d")
+    if date is None:
+        date = today_ny
+    try:
+        day = _dt.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=422, detail="date phải có dạng YYYY-MM-DD (ngày phiên New York)")
+    # window of THAT NY date (pure computation, no DB write)
+    probe_ms = int(_dt(day.year, day.month, day.day, 12, 0, tzinfo=ny_tz).timestamp() * 1000)
+    window = TradingPolicyService.get_ny_session_window(policy, now_ms=probe_ms)
+    is_today = date == today_ny
+    window_view = {
+        "ny_window": window["ny_window_str"], "vn_window": window["vn_window_str"],
+        "window_start_ms": window["window_start_ms"], "window_end_ms": window["window_end_ms"],
+        "fallback_start_ms": window["fallback_start_ms"],
+        "fallback_enabled": bool(getattr(policy, "ny_fallback_enabled", False)),
+        "phase": TradingPolicyService.get_ny_session_window(policy, now_ms=now_ms)["phase"] if is_today else None,
+    }
+    base = dict(session_instance_id=window["session_instance_id"], session_date_ny=window["session_date_ny"],
+                session_date_vn=window["session_date_vn"], symbol=symbol, is_today=is_today,
+                window=window_view, generated_at=now_ms)
+    if date > today_ny:
+        return schemas.NYQuotaDiagnosticsResponse(availability="NOT_STARTED", **base)
+    diag = NYOpportunityAuditService.build_diagnostics(
+        db, session_instance_id=window["session_instance_id"], session_date_ny=window["session_date_ny"])
+    msg = classify_reason(diag["primary_missed_reason"])[1] if diag.get("primary_missed_reason") else None
+    return schemas.NYQuotaDiagnosticsResponse(
+        **base, availability=diag["availability"], quota=diag["quota"], scans=diag["scans"],
+        unique_candidates=diag["unique_candidates"], financially_eligible=diag["financially_eligible"],
+        armed=diag["armed"], filled=diag["filled"], top_blockers=diag["top_blockers"],
+        primary_missed_reason=diag["primary_missed_reason"], primary_missed_message_vi=msg,
+        missed_category=diag["missed_category"], last_system_error=diag["last_system_error"],
+        summary_written=diag["summary_written"], coverage=diag["coverage"], freshness=diag["freshness"],
+        candidates=diag["candidates"])
 
 
 

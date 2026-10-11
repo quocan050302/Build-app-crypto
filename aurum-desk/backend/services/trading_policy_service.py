@@ -4,10 +4,28 @@ from datetime import datetime, time as dtime
 from zoneinfo import ZoneInfo
 from typing import Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 import models, crud
 from services.clock import live_clock, IClock
 
 logger = logging.getLogger(__name__)
+
+def _fallback_search_allowed(policy, window, quota, now_ms: int) -> bool:
+    """Single official 'may we SEARCH for a fallback?' condition (V14.3). Not an arm/fill permission."""
+    from services.ny_quota_helpers import should_search_ny_fallback
+    return should_search_ny_fallback(
+        policy_active=bool(getattr(policy, "is_active", True)),
+        mode=getattr(policy, "mode", "PAPER"),
+        fallback_enabled=bool(getattr(policy, "ny_fallback_enabled", False)),
+        now_ms=now_ms,
+        window_start_ms=window["window_start_ms"],
+        fallback_start_ms=window["fallback_start_ms"],
+        window_end_ms=window["window_end_ms"],
+        target_fills=int(quota.target_fills or 0),
+        total_fills=int(quota.total_fills or 0),
+    )
+
+
 
 class TradingPolicyService:
     """
@@ -202,7 +220,7 @@ class TradingPolicyService:
                 window_start_ms=window["window_start_ms"],
                 window_end_ms=window["window_end_ms"],
                 fallback_start_ms=window["fallback_start_ms"],
-                target_fills=policy.ny_min_fills or 1,
+                target_fills=p.ny_min_fills or 1,
                 standard_fills=0,
                 fallback_fills=0,
                 total_fills=0,
@@ -213,9 +231,39 @@ class TradingPolicyService:
                 updated_at=current_time
             )
             db.add(quota)
-            db.commit()
+            try:
+                db.commit()
+            except IntegrityError:
+                # V14.3: the UI poll (ny-session GET) and the strategy loop can create the same session
+                # row concurrently; losing that race is not an error - read the winner's row.
+                db.rollback()
+                quota = db.query(models.SessionQuota).filter(
+                    models.SessionQuota.session_instance_id == instance_id).first()
+                if quota is None:
+                    raise
+                return quota
             db.refresh(quota)
         return quota
+
+    @staticmethod
+    def _missed_reason_text(db: Session, quota: models.SessionQuota) -> str:
+        """Generic closing sentence + the MEASURED primary cause when this session has an audit (V14.3)."""
+        base = "Hết cửa sổ phiên Mỹ nhưng không có lệnh PAPER nào được khớp"
+        try:
+            from services.ny_opportunity_audit_service import NYOpportunityAuditService
+            from services.ny_quota_helpers import classify_reason
+            diag = NYOpportunityAuditService.build_diagnostics(db, session_instance_id=quota.session_instance_id)
+            if diag["availability"] != "MEASURED":
+                return (base + " (phiên này chưa có dữ liệu quét để giải thích nguyên nhân)")[:255]
+            code = diag.get("primary_missed_reason")
+            if not code:
+                return base
+            cat = diag.get("missed_category")
+            label = {"DATA_UNAVAILABLE": "dữ liệu không đủ để kết luận", "NO_SIGNAL": "không có tín hiệu",
+                     "SIGNAL_BLOCKED": "có tín hiệu nhưng bị chặn", "ARMED_NOT_FILLED": "đã đặt lệnh nhưng chưa khớp"}.get(cat, cat or "")
+            return f"{base} — {label}: {classify_reason(code)[1]}"[:255]
+        except Exception:  # noqa: BLE001 - never let a diagnostic text break the quota state machine
+            return base
 
     @staticmethod
     def update_quota_lifecycle_state(
@@ -230,7 +278,7 @@ class TradingPolicyService:
         """
         c = clock or live_clock
         current_time = now_ms if now_ms is not None else c.now_ms()
-        p = policy or TradingPolicyService.get_policy(db)
+        p = policy or TradingPolicyService.get_policy(db) or TradingPolicyService.get_default_policy()
         quota = TradingPolicyService.get_or_create_session_quota(db, p, now_ms=current_time, clock=c)
         window = TradingPolicyService.get_ny_session_window(p, now_ms=current_time, clock=c)
 
@@ -256,7 +304,7 @@ class TradingPolicyService:
         if window["phase"] == "AFTER_WINDOW":
             if quota.total_fills == 0:
                 quota.quota_status = "MISSED"
-                quota.last_status_reason = "Hết cửa sổ phiên Mỹ nhưng không có lệnh PAPER nào được khớp"
+                quota.last_status_reason = TradingPolicyService._missed_reason_text(db, quota)
             quota.last_evaluated_at = current_time
             quota.updated_at = current_time
             db.commit()
@@ -286,9 +334,13 @@ class TradingPolicyService:
         elif armed_order:
             quota.quota_status = "ARMED_PENDING_FILL"
             quota.last_status_reason = f"Đang có lệnh chờ khớp ({armed_order.direction} tại {armed_order.planned_entry:.2f})"
-        elif window["phase"] == "IN_FALLBACK_WINDOW":
+        elif window["phase"] == "IN_FALLBACK_WINDOW" and _fallback_search_allowed(p, window, quota, current_time):
+            # V14.3: same official condition as the strategy (flag/mode/target/window all considered).
             quota.quota_status = "SEEKING_FALLBACK"
-            quota.last_status_reason = "Đang kích hoạt tìm cơ hội Fallback nghiên cứu (sau 10:30 NY)"
+            quota.last_status_reason = "Đang tìm cơ hội Fallback nghiên cứu (sau giờ fallback)"
+        elif window["phase"] == "IN_FALLBACK_WINDOW" and not getattr(p, "ny_fallback_enabled", False):
+            quota.quota_status = "SEEKING_STANDARD"
+            quota.last_status_reason = "Fallback đang tắt — chỉ quét cơ hội SMC chuẩn"
         else:
             quota.quota_status = "SEEKING_STANDARD"
             quota.last_status_reason = "Đang quét cơ hội SMC chuẩn trong phiên Mỹ"
@@ -434,6 +486,17 @@ class TradingPolicyService:
                         "Slot thứ 3 bắt buộc được dự trữ cho mục tiêu 1 lệnh phiên Mỹ."
                     )
 
+        # 3b. V14.3: a NY quota fallback entry exists only inside the NY entry window, whatever the
+        # session policy (ALL_SESSIONS_WITH_NY_RESERVE would otherwise let it fill at/after window end).
+        if strategy_family == "NY_QUOTA_PAPER" and not window["is_in_window"] \
+                and "OUTSIDE_ENTRY_WINDOW" not in reason_codes:
+            can_enter = False
+            reason_codes.append("OUTSIDE_ENTRY_WINDOW")
+            block_reasons.append(
+                f"OUTSIDE_ENTRY_WINDOW: Lệnh fallback phiên Mỹ chỉ được mở trong cửa sổ {window['ny_window_str']} "
+                f"({window['vn_window_str']}); cửa sổ đã đóng."
+            )
+
         # 4. News blackout (V14.2): actual allowed=False, independent of quota_status.
         if news_gate["blocked"]:
             can_enter = False
@@ -467,6 +530,7 @@ class TradingPolicyService:
             "policy": policy,
             "quota_state": quota.quota_status,
             "quota_status": quota.quota_status,
+            "quota_reason": quota.last_status_reason,
             "ny_fills": quota.total_fills,
             "ny_fill_count": quota.total_fills,
             "ny_min_fills": quota.target_fills,
@@ -477,7 +541,7 @@ class TradingPolicyService:
             "remaining_daily_slots": remaining_daily_slots,
             "reserved_slots": reserved_slots,
             "is_in_ny_window": window["is_in_window"],
-            "is_fallback_active": window["phase"] == "IN_FALLBACK_WINDOW",
+            "is_fallback_active": bool(window["is_fallback_active"]),
             "local_ny_time": window["local_ny_time"],
             "local_vn_time": window["local_vn_time"],
             "ny_window_display": window["ny_window_str"],

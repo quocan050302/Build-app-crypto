@@ -1,0 +1,209 @@
+
+> frontend@0.0.0 lint
+> oxlint
+
+
+  ! react(only-export-components): Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+     ,-[src/context/NotificationContext.tsx:347:14]
+ 346 | 
+ 347 | export const useNotification = (): NotificationContextType => {
+     :              ^^^^^^^^^^^^^^^
+ 348 |   const ctx = useContext(NotificationContext);
+     `----
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+     ,-[src/ChartComponent.tsx:291:5]
+ 289 | 
+ 290 |   useEffect(() => {
+     :   ^^^^|^^^^
+     :       `-- This is the containing effect
+ 291 |     loadCandles();
+     :     ^^^^^|^^^^^
+     :          `-- Avoid calling setState() directly within an effect
+ 292 |   }, [loadCandles]);
+     `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+     ,-[src/TelegramTab.tsx:128:5]
+ 126 | 
+ 127 |   useEffect(() => {
+     :   ^^^^|^^^^
+     :       `-- This is the containing effect
+ 128 |     loadConfig();
+     :     ^^^^^|^^^^
+     :          `-- Avoid calling setState() directly within an effect
+ 129 |   }, [loadConfig]);
+     `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+     ,-[src/TelegramTab.tsx:132:5]
+ 130 | 
+ 131 |   useEffect(() => {
+     :   ^^^^|^^^^
+     :       `-- This is the containing effect
+ 132 |     loadHistory();
+     :     ^^^^^|^^^^^
+     :          `-- Avoid calling setState() directly within an effect
+ 133 |     const unsub = wsClient.subscribe((msg: any) => {
+     `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+  ! eslint(no-unused-vars): Catch parameter '_pollErr' is caught but never used.
+     ,-[src/TestingLabComponent.tsx:248:16]
+ 247 |         }
+ 248 |       } catch (_pollErr: any) {
+     :                ^^^^|^^^
+     :                    `-- '_pollErr' is declared here
+ 249 |         consecutiveErrors++;
+     `----
+  help: Consider handling this error.
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+    ,-[src/TestingLabComponent.tsx:91:7]
+ 86 | 
+ 87 |   useEffect(() => {
+    :   ^^^^|^^^^
+    :       `-- This is the containing effect
+ 88 |     unmountedRef.current = false;
+ 89 |     const savedJobId = LabJobManager.getPersistedJobId();
+ 90 |     if (savedJobId) {
+ 91 |       setCurrentJobId(savedJobId);
+    :       ^^^^^^^|^^^^^^^
+    :              `-- Avoid calling setState() directly within an effect
+ 92 |       api.getLabJobStatus(savedJobId).then(status => {
+    `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+  ! react-hooks(exhaustive-deps): React Hook useEffect has a missing dependency: 'onNotify'
+     ,-[src/TestingLabComponent.tsx:116:6]
+ 106 |           setCurrentJobId(null);
+ 107 |           if (onNotify) {
+     :               ^^^^|^^^
+     :                   `-- useEffect uses `onNotify` here
+ 108 |             onNotify('Tác vụ Replay Hết Hạn', 'Tác vụ trước đây không còn tồn tại trên máy chủ (máy chủ có thể đã khởi động lại).', 'info');
+ 109 |           }
+ 110 |         }
+ 111 |       });
+ 112 |     }
+ 113 |     return () => {
+ 114 |       unmountedRef.current = true;
+ 115 |     };
+ 116 |   }, []);
+     :      ^^
+ 117 | 
+     `----
+  help: Either include it or remove the dependency array.
+
+  ! eslint(no-unused-vars): Catch parameter 'e' is caught but never used.
+     ,-[src/JournalTab.tsx:365:16]
+ 364 |         else if (pred?.values) setRuleThreshold(pred.values.join(', '));
+ 365 |       } catch (e) {
+     :                |
+     :                `-- 'e' is declared here
+ 366 |         setRuleMetric('spread');
+     `----
+  help: Consider handling this error.
+
+  ! eslint(no-unused-vars): Catch parameter 'e' is caught but never used.
+      ,-[src/JournalTab.tsx:1360:34]
+ 1359 |                             : selectedTrade.lessons_retrieved;
+ 1360 |                         } catch (e) {
+      :                                  |
+      :                                  `-- 'e' is declared here
+ 1361 |                           parsed = [];
+      `----
+  help: Consider handling this error.
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+     ,-[src/JournalTab.tsx:156:5]
+ 154 | 
+ 155 |   useEffect(() => {
+     :   ^^^^|^^^^
+     :       `-- This is the containing effect
+ 156 |     loadJournal();
+     :     ^^^^^|^^^^^
+     :          `-- Avoid calling setState() directly within an effect
+ 157 |   }, [loadJournal]);
+     `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+     ,-[src/JournalTab.tsx:160:5]
+ 158 | 
+ 159 |   useEffect(() => {
+     :   ^^^^|^^^^
+     :       `-- This is the containing effect
+ 160 |     loadLessons();
+     :     ^^^^^|^^^^^
+     :          `-- Avoid calling setState() directly within an effect
+ 161 |   }, [loadLessons]);
+     `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+     ,-[src/ResearchTab.tsx:222:5]
+ 220 | 
+ 221 |   useEffect(() => {
+     :   ^^^^|^^^^
+     :       `-- This is the containing effect
+ 222 |     loadReports();
+     :     ^^^^^|^^^^^
+     :          `-- Avoid calling setState() directly within an effect
+ 223 |   }, [loadReports]);
+     `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+     ,-[src/ResearchTab.tsx:277:7]
+ 273 |   // Replay Evaluation Job Tracker (Method Evaluation with dedicated storage key)
+ 274 |   useEffect(() => {
+     :   ^^^^|^^^^
+     :       `-- This is the containing effect
+ 275 |     const savedJobId = LabJobManager.getPersistedJobId(LabJobManager.RESEARCH_METHOD_JOB_STORAGE_KEY);
+ 276 |     if (savedJobId && !evalResult) {
+ 277 |       setCurrentJobId(savedJobId);
+     :       ^^^^^^^|^^^^^^^
+     :              `-- Avoid calling setState() directly within an effect
+ 278 |       setRunningEval(true);
+     `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+  ! react(refs): Cannot access refs during render
+     ,-[src/App.tsx:135:20]
+ 134 |   const selectedIntentRef = useRef<SelectedTradeIntent | null>(null);
+ 135 |   selectedIntentRef.current = selectedIntent;
+     :   ^^^^^^^^|^^^^^^^^^^^^|^^^
+     :           |            `-- Cannot update ref value during render
+     :           `-- This value is a ref
+ 136 | 
+     `----
+  help: React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/refs
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+     ,-[src/App.tsx:604:5]
+ 602 |   // Periodic polling with visibility check and 45s cycle
+ 603 |   useEffect(() => {
+     :   ^^^^|^^^^
+     :       `-- This is the containing effect
+ 604 |     refreshAccountAndHealth();
+     :     ^^^^^^^^^^^|^^^^^^^^^^^
+     :                `-- Avoid calling setState() directly within an effect
+ 605 |     refreshAnalysis();
+     `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+Found 15 warnings and 0 errors.
+Finished in 130ms on 61 files with 116 rules using 8 threads.
+rc=0

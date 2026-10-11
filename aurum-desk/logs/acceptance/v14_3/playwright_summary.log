@@ -1,0 +1,21 @@
+
+Running 15 tests using 1 worker
+
+  ✓   1 tests/e2e/v14_2_entry_guard.e2e.ts:60:1 › focus LONG then SHORT switches direction/decision without any trading mutation (1.6s)
+  ✓   2 tests/e2e/v14_2_entry_guard.e2e.ts:78:1 › provisional tight-target SHORT is shown as unconfirmed/blocked with signed negative R:R and no CTA (1.0s)
+  ✓   3 tests/e2e/v14_2_entry_guard.e2e.ts:95:1 › red news blackout disables the CTA and shows the pause chip (1.5s)
+  ✓   4 tests/e2e/v14_2_entry_guard.e2e.ts:105:1 › news outside the window (or non-USD) does not disable a valid plan (2.0s)
+  ✓   5 tests/e2e/v14_2_entry_guard.e2e.ts:113:1 › copy to draft does not arm or create anything (1.8s)
+  ✓   6 tests/e2e/v14_2_entry_guard.e2e.ts:122:1 › a slow quality preview never lets a stale reply override the newly focused setup (3.3s)
+  ✓   7 tests/e2e/v14_2_entry_guard.e2e.ts:134:1 › sidebar stays usable after resizing to a low laptop viewport (1.3s)
+  ✓   8 tests/e2e/v14_2_entry_guard.e2e.ts:142:1 › arm from the UI then fill through the real coordinator opens exactly one position (2.1s)
+  ✓   9 tests/e2e/v14_2_entry_guard.e2e.ts:155:1 › news published after arming rejects the pending order once, before any fill (1.5s)
+  ✓  10 tests/e2e/v14_3_ny_quota.e2e.ts:47:3 › LONG: standard waiting 0/1 -> fallback seeking -> ARMED 0/1 -> fill 1/1 (2.5s)
+  ✓  11 tests/e2e/v14_3_ny_quota.e2e.ts:47:3 › SHORT: standard waiting 0/1 -> fallback seeking -> ARMED 0/1 -> fill 1/1 (3.1s)
+  ✓  12 tests/e2e/v14_3_ny_quota.e2e.ts:89:1 › blocked by red news: counter stays 0/1, no order, drawer explains the safety reason (1.9s)
+  ✓  13 tests/e2e/v14_3_ny_quota.e2e.ts:111:1 › fallback disabled is never shown as active and creates no order (1.5s)
+  ✓  14 tests/e2e/v14_3_ny_quota.e2e.ts:123:1 › MISSED window creates no order and the drawer reports why (1.4s)
+  ✓  15 tests/e2e/v14_3_ny_quota.e2e.ts:138:1 › 1280x640: bar fits, drawer closed by default, opening it and changing date only issue GETs (1.6s)
+
+  15 passed (32.9s)
+rc=0

@@ -465,7 +465,10 @@ _POLICY_SKIP_CODES = ("NEWS_BLACKOUT", DATA_UNAVAILABLE)
 def _check_session(db, req: EntryGuardRequest, ctx: Dict[str, Any]) -> Sequence[EntryCheck]:
     from services.trading_policy_service import TradingPolicyService
     now_dt = datetime.fromtimestamp(req.now_ms / 1000.0, tz=timezone.utc)
-    pe = TradingPolicyService.evaluate_entry_policy(db, req.symbol, now_dt, clock=req.clock, now_ms=req.now_ms)
+    pe = TradingPolicyService.evaluate_entry_policy(
+        db, req.symbol, now_dt, clock=req.clock, now_ms=req.now_ms,
+        strategy_family=req.strategy_family or "STANDARD_SMC",
+    )
     policy = pe.get("policy")
     ctx["policy_summary"] = {
         "session_instance_id": pe.get("session_instance_id"),

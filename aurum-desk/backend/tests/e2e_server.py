@@ -18,10 +18,12 @@ import tempfile
 import threading
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND_DIR))
+sys.path.insert(0, str(Path(__file__).resolve().parent))   # tests dir: shared NY fixtures
 
 _tmp = tempfile.mkdtemp(prefix="aurum_e2e_")
 os.environ["AURUM_DB_PATH"] = os.path.join(_tmp, "e2e_aurum.db")
@@ -34,9 +36,17 @@ import crud  # noqa: E402
 import models  # noqa: E402
 from database import SessionLocal  # noqa: E402
 from main import app  # noqa: E402
-from services.clock import FakeClock  # noqa: E402
+from services.clock import FakeClock, VN_TZ, live_clock  # noqa: E402
 from services.collector_service import collector_service  # noqa: E402
 from services.execution_coordinator import execution_coordinator  # noqa: E402
+
+# ---- V14.3: injectable launcher clock (TEST LAUNCHER ONLY - production main.py has no such backdoor) ----
+# `None` = real time (V14.2 scenarios). The NY scenarios pin the process clock to a NY wall time so the
+# window / quota / audit logic is deterministic; every service already reads time through `live_clock`.
+_CLOCK = {"ms": None}
+_real_now_ms = live_clock.now_ms
+live_clock.now_ms = lambda: _CLOCK["ms"] if _CLOCK["ms"] is not None else _real_now_ms()
+live_clock.now_datetime = lambda: datetime.fromtimestamp(live_clock.now_ms() / 1000.0, tz=VN_TZ)
 
 BID, ASK = 2650.0, 2650.2
 PLANS = {
@@ -125,6 +135,7 @@ def _upsert_setup(db, sid, direction, state, entry, sl, tp, plan_kind="CONFIRMED
 
 
 def _reset(db):
+    _CLOCK["ms"] = None
     for model in (models.NotificationOutbox, models.DomainEvent, models.PaperOrder, models.EconomicNews,
                   models.WatchSetup):
         db.query(model).delete()
@@ -206,6 +217,141 @@ def e2e_tick(body: dict = Body(default={})):
     try:
         execution_coordinator.evaluate_orders_sync(db, ticker_override=ticker, clock=FakeClock(now), now_ms=now)
         return _state(db)
+    finally:
+        db.close()
+
+
+# =====================================================================================================
+# V14.3 NY quota scenarios: real NY cycle -> generator -> upsert -> guarded auto-arm -> coordinator fill.
+# Only the clock, the candles and the quote are injected here; calculator / guard / lifecycle are real.
+# =====================================================================================================
+NY_DAY = (2026, 10, 9)          # a Friday inside EDT; window 08:00-11:00 NY, fallback 10:30
+
+
+def _ny_now(hhmm: str) -> int:
+    from ny_quota_fixtures import ny_ms
+    hh, mm = (int(x) for x in hhmm.split(":"))
+    return ny_ms(*NY_DAY, hh, mm)
+
+
+def _ny_state(db):
+    from services.trading_policy_service import TradingPolicyService
+    now = live_clock.now_ms()
+    q = TradingPolicyService.update_quota_lifecycle_state(db, now_ms=now, clock=FakeClock(now))
+    st = _state(db)
+    st.update(
+        quota_status=q.quota_status, total_fills=q.total_fills, fallback_fills=q.fallback_fills,
+        armed=db.query(models.PaperOrder).filter(models.PaperOrder.state == "armed").count(),
+        open_positions=db.query(models.PaperOrder).filter(models.PaperOrder.state == "paper_open").count(),
+        now_ms=now,
+    )
+    return st
+
+
+@app.post("/__e2e/ny/reset")
+def e2e_ny_reset(body: dict = Body(default={})):
+    from ny_quota_fixtures import set_policy, set_saved_risk
+    from services.lesson_policy_service import LessonPolicyService
+    from services.lesson_rule_service import LessonRuleService
+    db = SessionLocal()
+    try:
+        _CLOCK["ms"] = _ny_now(body.get("time", "09:00"))
+        for model in (models.NotificationOutbox, models.DomainEvent, models.PaperOrder, models.EconomicNews,
+                      models.WatchSetup, models.SessionQuota, models.NYOpportunityAudit, models.NYSessionAudit,
+                      models.DayAudit):
+            db.query(model).delete()
+        db.query(models.Candle).filter(models.Candle.timeframe == "5M").delete()
+        db.commit()
+        LessonPolicyService.reset_to_defaults(db)
+        LessonRuleService.invalidate_cache()
+        set_saved_risk(db)
+        set_policy(db, ny_fallback_enabled=bool(body.get("fallback_enabled", True)), entry_session_policy="NY_ONLY")
+        crud.get_or_create_today_audit(db)
+        return _ny_state(db)
+    finally:
+        db.close()
+
+
+@app.post("/__e2e/ny/clock")
+def e2e_ny_clock(body: dict = Body(default={})):
+    db = SessionLocal()
+    try:
+        _CLOCK["ms"] = _ny_now(body["time"])
+        return _ny_state(db)
+    finally:
+        db.close()
+
+
+@app.post("/__e2e/ny/policy")
+def e2e_ny_policy(body: dict = Body(default={})):
+    from ny_quota_fixtures import set_policy
+    db = SessionLocal()
+    try:
+        set_policy(db, ny_fallback_enabled=bool(body["fallback_enabled"]))
+        return _ny_state(db)
+    finally:
+        db.close()
+
+
+@app.post("/__e2e/ny/news")
+def e2e_ny_news(body: dict = Body(default={})):
+    from ny_quota_fixtures import make_news
+    db = SessionLocal()
+    try:
+        make_news(db, live_clock.now_ms(), title=body.get("title", "Core CPI m/m"), offset_min=int(body.get("offset_min", 0)))
+        return _ny_state(db)
+    finally:
+        db.close()
+
+
+@app.post("/__e2e/ny/cycle")
+def e2e_ny_cycle(body: dict = Body(default={})):
+    """One real strategy cycle at the pinned clock. `story` seeds the M5 FVG-retest story (LONG|SHORT|FLAT)."""
+    from ny_quota_fixtures import BIAS, FIVE, seed_candles, ticker as ny_ticker
+    from services.strategy_service import strategy_service
+    direction = body.get("direction", "LONG")
+    story = body.get("story", direction)
+    db = SessionLocal()
+    try:
+        now = live_clock.now_ms()
+        db.query(models.Candle).filter(models.Candle.timeframe == "5M").delete()
+        db.commit()
+        if story == "FLAT":
+            flat = [(2672.0, 2672.5, 2671.5, 2672.0)] * 30
+            seed_candles(db, "LONG", now, bars=flat)
+        else:
+            seed_candles(db, story, now)
+        strategy_service.evaluate_upcoming_setups(
+            "XAUUSDT", "15M", db=db, clock=FakeClock(now),
+            ticker=ny_ticker(direction, now, int(body.get("quote_age_ms", 500))),
+            htf_bias=BIAS[direction], h1_alignment="ALIGNED",
+            feed_health={"has_execution_gap": False, "is_lagging": False},
+            auto_enabled=bool(body.get("auto", True)))
+        return _ny_state(db)
+    finally:
+        db.close()
+
+
+@app.post("/__e2e/ny/fill")
+def e2e_ny_fill(body: dict = Body(default={})):
+    from ny_quota_fixtures import ticker as ny_ticker
+    direction = body.get("direction", "LONG")
+    db = SessionLocal()
+    try:
+        now = live_clock.now_ms() + 1000
+        _CLOCK["ms"] = now
+        execution_coordinator.evaluate_orders_sync(
+            db, ticker_override=ny_ticker(direction, now, 200), clock=FakeClock(now), now_ms=now)
+        return _ny_state(db)
+    finally:
+        db.close()
+
+
+@app.get("/__e2e/ny/state")
+def e2e_ny_state():
+    db = SessionLocal()
+    try:
+        return _ny_state(db)
     finally:
         db.close()
 

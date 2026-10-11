@@ -243,35 +243,33 @@ def test_fallback_activation_at_10_30_ny(isolated_db):
     quota = TradingPolicyService.update_quota_lifecycle_state(isolated_db, policy, clock=clock_1035)
     assert quota.quota_status == "SEEKING_FALLBACK"
 
-    # Build 20 candles with a Bullish FVG
-    candles = [
-        DummyCandle(2640.0 + i * 0.5, 2642.0 + i * 0.5, 2639.0 + i * 0.5, 2641.0 + i * 0.5, timestamp=1000 + i * 300000)
-        for i in range(16)
-    ]
-    # Candle 16: high 2650
-    candles.append(DummyCandle(2648.0, 2650.0, 2647.0, 2649.0, timestamp=1000 + 16 * 300000))
-    # Candle 17: big bullish displacement body up to 2658, low 2651
-    candles.append(DummyCandle(2650.0, 2658.0, 2651.0, 2657.0, timestamp=1000 + 17 * 300000))
-    # Candle 18: low 2654, high 2660 -> FVG gap between candle 16 high (2650) and candle 18 low (2654)
-    candles.append(DummyCandle(2657.0, 2660.0, 2654.0, 2659.0, timestamp=1000 + 18 * 300000))
-    # Candle 19: price retesting into 2652 (inside 2650-2654)
-    candles.append(DummyCandle(2659.0, 2659.0, 2652.0, 2653.0, timestamp=1000 + 19 * 300000))
-
+    # V14.3: positive fixture with REAL closed 5M structure (bullish FVG retest + confirmed target pivot).
+    # The assertion is unconditional: a fixture that yields no candidate must FAIL, not silently pass.
+    from ny_quota_fixtures import candle_objects, ticker
+    from services.quote_validator import QuoteValidator
+    now_ms = clock_1035.now_ms()
+    quote = QuoteValidator.validate_ticker(ticker("LONG", now_ms), now_ms=now_ms)
     fallback_eval = NYFallbackService.evaluate_fallback_setup(
         symbol="XAUUSDT",
-        candles_5m=candles,
-        current_price=2653.0,
+        candles_5m=candle_objects("LONG", now_ms),
+        current_price=quote.last,
         htf_bias="BULLISH",
         h1_alignment="ALIGNED",
         policy=policy,
         account_equity=1000.0,
-        remaining_risk_allowance_usdt=15.0
+        remaining_risk_allowance_usdt=15.0,
+        leverage=30,
+        now_ms=now_ms,
+        window=w_1035,
+        quote=quote,
     )
     assert fallback_eval["strategy_family"] == "NY_QUOTA_PAPER"
-    if fallback_eval["is_eligible"]:
-        cand = fallback_eval["candidate"]
-        assert cand["risk_pct"] <= 0.10
-        assert cand["strategy_family"] == "NY_QUOTA_PAPER"
+    assert fallback_eval["is_eligible"] is True, fallback_eval
+    cand = fallback_eval["candidate"]
+    assert cand is not None
+    assert cand["risk_pct"] <= 0.10
+    assert cand["strategy_family"] == "NY_QUOTA_PAPER"
+    assert cand["estimated_net_rr"] >= policy.min_net_rr
 
 
 def test_deadline_missed_quota(isolated_db):

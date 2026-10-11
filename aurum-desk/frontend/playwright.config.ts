@@ -22,7 +22,7 @@ export default defineConfig({
   retries: 0,
   timeout: 60_000,
   expect: { timeout: 10_000 },
-  reporter: [['list'], ['json', { outputFile: '../logs/acceptance/v14_2/playwright_report.json' }]],
+  reporter: [['list'], ['json', { outputFile: process.env.AURUM_E2E_REPORT ?? '../logs/acceptance/v14_3/playwright_report.json' }]],
   use: {
     baseURL: `http://127.0.0.1:${WEB_PORT}`,
     viewport: { width: 1512, height: 857 },

@@ -244,6 +244,46 @@ export interface NYSessionStatus {
   allowed: boolean;
   reason_code?: string | null;
   reason_message?: string | null;
+  // V14.3 additive (same flag/start/end the generator uses)
+  fallback_enabled?: boolean | null;
+  fallback_start_ny?: string | null;
+  window_end_ny?: string | null;
+  quota_reason?: string | null;
+  target_fills?: number | null;
+}
+
+export interface NYBlockerItem {
+  code: string;
+  category: 'DATA' | 'STRATEGY' | 'SAFETY' | 'EXECUTION' | 'SYSTEM' | string;
+  message_vi: string;
+  count?: number | null;
+}
+
+/** V14.3 read model: null counts = not measured (never fake zeros). */
+export interface NYQuotaDiagnostics {
+  session_instance_id: string;
+  session_date_ny: string;
+  session_date_vn?: string | null;
+  symbol: string;
+  availability: 'MEASURED' | 'UNAVAILABLE' | 'NOT_STARTED';
+  is_today: boolean;
+  window: Record<string, unknown>;
+  quota?: { status?: string; target?: number; total_fills?: number; standard_fills?: number; fallback_fills?: number; reason?: string | null } | null;
+  scans?: number | null;
+  unique_candidates?: number | null;
+  financially_eligible?: number | null;
+  armed?: number | null;
+  filled?: number | null;
+  top_blockers: NYBlockerItem[];
+  primary_missed_reason?: string | null;
+  primary_missed_message_vi?: string | null;
+  missed_category?: string | null;
+  last_system_error?: string | null;
+  summary_written: boolean;
+  coverage?: Record<string, unknown> | null;
+  freshness?: Record<string, unknown> | null;
+  candidates: Array<Record<string, unknown>>;
+  generated_at: number;
 }
 
 
@@ -931,6 +971,12 @@ export const api = {
 
   getNYSessionStatus: async (symbol: string = 'XAUUSDT'): Promise<NYSessionStatus> => {
     const res = await apiClient.get('/api/v1/policy/ny-session', { params: { symbol } });
+    return res.data;
+  },
+
+  /** V14.3 read-only diagnostics (GET): never creates orders / quota rows / notifications. */
+  getNYQuotaDiagnostics: async (symbol: string = 'XAUUSDT', date?: string): Promise<NYQuotaDiagnostics> => {
+    const res = await apiClient.get('/api/v1/ny-quota/diagnostics', { params: date ? { symbol, date } : { symbol } });
     return res.data;
   },
 };

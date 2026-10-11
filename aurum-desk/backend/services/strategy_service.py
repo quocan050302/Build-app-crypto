@@ -45,22 +45,68 @@ class StrategyService:
         )
         return enabled
 
-    def evaluate_upcoming_setups(self, symbol: str = "XAUUSDT", timeframe: str = "15M"):
+    def evaluate_ny_quota_cycle(self, db: Session, symbol: str, context) -> Dict[str, Any]:
+        """V14.3 NY quota orchestration (fallback search -> dedicated upsert -> guarded auto-arm).
+
+        Only orchestrates; the standard SMC flow is untouched. `context` is a
+        `services.ny_quota_service.NYCycleContext` (injected clock/quote/data). The caller's DB session is
+        used as-is (no SessionLocal reopened). Search is NOT permission: arm re-runs the V14.2 entry guard.
+        """
+        from services.ny_quota_service import run_ny_quota_cycle
+        if context.auto_enabled is None:
+            context.auto_enabled = self.get_auto_state(db)
+        return run_ny_quota_cycle(db, symbol, context, arm_fn=self._auto_arm_candidate)
+
+    def evaluate_upcoming_setups(
+        self,
+        symbol: str = "XAUUSDT",
+        timeframe: str = "15M",
+        *,
+        db: Optional[Session] = None,
+        clock: Any = None,
+        ticker: Optional[Dict[str, Any]] = None,
+        quote: Any = None,
+        htf_bias: Optional[str] = None,
+        h1_alignment: Optional[str] = None,
+        feed_health: Optional[Dict[str, Any]] = None,
+        candles_5m: Optional[list] = None,
+        auto_enabled: Optional[bool] = None,
+    ):
         """
         Evaluate market conditions and maintain watch_setups progression:
         WATCHING -> WAITING_PRICE -> WAITING_SWEEP -> WAITING_MSS -> WAITING_RETRACE -> READY -> ARMED.
+
+        V14.3: keyword-only injection (db/clock/ticker/quote/bias/feed/candles/auto) makes the whole flow
+        deterministic for tests and the frequency audit. Live callers pass nothing and behave as before.
+        The NY quota cycle always runs (even when the 15M data is too short for the standard flow).
         """
-        db: Session = SessionLocal()
+        owns_db = db is None
+        if owns_db:
+            db = SessionLocal()
+        ny_ctx = None
+        ny_done = False
         try:
-            candles = crud.get_candles(db, symbol, timeframe, limit=150, ascending=True)
+            now_ms = clock.now_ms() if clock is not None else int(time.time() * 1000)
+            now_dt = datetime.fromtimestamp(now_ms / 1000.0, tz=timezone.utc)
+            raw_ticker = ticker if ticker is not None else collector_service.latest_ticker
+            from services.ny_quota_service import NYCycleContext
+            ny_ctx = NYCycleContext(
+                now_ms=now_ms, clock=clock, quote=quote, ticker=raw_ticker,
+                htf_bias=htf_bias if htf_bias is not None else collector_service.d_4h_bias,
+                h1_alignment=h1_alignment if h1_alignment is not None else collector_service.h1_alignment,
+                candles_5m=candles_5m, feed_health=feed_health, auto_enabled=auto_enabled,
+            )
+            candles = crud.get_candles(db, symbol, timeframe, limit=150, ascending=True, cutoff_ms=now_ms)
             if len(candles) < 20:
+                # V14.3: do not return silently - the NY cycle still audits/searches with its own 5M data.
+                ny_ctx.standard_status = "STANDARD_DATA_MISSING"
+                self.evaluate_ny_quota_cycle(db, symbol, ny_ctx)
+                ny_done = True
                 return
 
-            now_ms = int(time.time() * 1000)
-            now_dt = datetime.fromtimestamp(now_ms / 1000.0, tz=timezone.utc)
-            ticker = collector_service.latest_ticker or {"bid": candles[-1].close, "ask": candles[-1].close, "last": candles[-1].close}
+            ticker = raw_ticker or {"bid": candles[-1].close, "ask": candles[-1].close, "last": candles[-1].close}
             is_blackout, blackout_reason, _ = crud.check_news_blackout(db, now_ms)
-            day_audit = crud.get_or_create_today_audit(db)
+            day_audit = crud.get_or_create_today_audit(db, clock=clock)
 
             from services.risk_settings_service import risk_settings_service
             global_settings = risk_settings_service.get_settings(db)
@@ -78,8 +124,8 @@ class StrategyService:
                 day_audit=day_audit,
                 is_news_blackout=is_blackout,
                 news_blackout_reason=blackout_reason,
-                htf_bias=collector_service.d_4h_bias,
-                h1_alignment=collector_service.h1_alignment,
+                htf_bias=ny_ctx.htf_bias,
+                h1_alignment=ny_ctx.h1_alignment,
                 leverage=leverage,
                 margin_mode=margin_mode,
                 risk_pct=risk_pct
@@ -297,77 +343,31 @@ class StrategyService:
             )
 
             # Auto Arming if enabled and setup is READY
-            if setup_stage == "READY" and self.get_auto_state(db):
-                self._auto_arm_candidate(db, watch_setup, sig, now_ms, now_dt)
+            if auto_enabled is None:
+                ny_ctx.auto_enabled = self.get_auto_state(db)
+            if setup_stage == "READY" and ny_ctx.auto_enabled:
+                self._auto_arm_candidate(db, watch_setup, sig, now_ms, now_dt,
+                                         clock=clock, quote=quote, feed_health=feed_health)
 
             # ========================================================
-            # V7 New York Session Fallback Evaluation
+            # V7/V14.3 New York Session quota cycle (fallback search/upsert/arm + audit)
             # ========================================================
-            policy = TradingPolicyService.get_active_policy(db, symbol)
-            policy_eval = TradingPolicyService.evaluate_entry_policy(db, symbol, now_dt)
-            if policy_eval.get("quota_state") == "SEEKING_FALLBACK" and policy_eval.get("ny_fills", 0) == 0:
-                candles_5m = crud.get_candles(db, symbol, "5M", limit=60, ascending=True)
-                if len(candles_5m) >= 15:
-                    rem_budget = 15.0 # Max remaining risk budget
-                    fb_res = NYFallbackService.evaluate_fallback_setup(
-                        symbol=symbol,
-                        candles_5m=candles_5m,
-                        current_price=current_p,
-                        htf_bias=collector_service.d_4h_bias,
-                        h1_alignment=collector_service.h1_alignment,
-                        policy=policy,
-                        account_equity=capital,
-                        remaining_risk_allowance_usdt=rem_budget,
-                        leverage=leverage,
-                        margin_mode=margin_mode,
-                        ticker_data=ticker
-                    )
-                    if fb_res.get("is_eligible") and fb_res.get("candidate"):
-                        fb_cand = fb_res["candidate"]
-                        # Store fallback setup in watch setup or auto arm
-                        fb_setup_id = f"watch-{symbol}-5M-fallback"
-                        fb_watch = db.query(models.WatchSetup).filter(models.WatchSetup.id == fb_setup_id).first()
-                        if not fb_watch:
-                            fb_watch = models.WatchSetup(
-                                id=fb_setup_id,
-                                setup_instance_id=fb_cand["signal_id"],
-                                version=1,
-                                strategy="NY_FALLBACK_V1",
-                                strategy_family="NY_QUOTA_PAPER",
-                                direction=fb_cand["direction"],
-                                timeframe="5M",
-                                state="READY",
-                                htf_bias=collector_service.d_4h_bias,
-                                h1_alignment=collector_service.h1_alignment,
-                                provisional_entry=fb_cand["planned_entry"],
-                                provisional_sl=fb_cand["stop_loss"],
-                                provisional_tp=fb_cand["targets"][0]["price"],
-                                gross_rr=fb_cand["gross_rr"],
-                                net_rr=fb_cand["estimated_net_rr"],
-                                risk_usdt=fb_cand["initial_risk_usdt"],
-                                quantity=fb_cand["quantity"],
-                                leverage=fb_cand["leverage"],
-                                margin_mode=fb_cand["margin_mode"],
-                                risk_pct=fb_cand["effective_risk_pct"],
-                                requested_risk_pct=fb_cand["requested_risk_pct"],
-                                effective_risk_pct=fb_cand["effective_risk_pct"],
-                                risk_profile="QUOTA",
-                                config_version=config_version,
-                                estimated_liquidation=fb_cand["estimated_liquidation"],
-                                created_at=now_ms,
-                                updated_at=now_ms,
-                                expires_at=fb_cand["expires_at"]
-                            )
-                            db.add(fb_watch)
-                            db.commit()
-
-                        if self.get_auto_state(db):
-                            self._auto_arm_candidate(db, fb_watch, fb_cand, now_ms, now_dt)
+            self.evaluate_ny_quota_cycle(db, symbol, ny_ctx)
+            ny_done = True
 
         except Exception as e:
             logger.error(f"Error in evaluate_upcoming_setups: {str(e)}", exc_info=True)
+            if ny_ctx is not None and not ny_done:
+                # A standard-flow failure must not silence the NY quota diagnostics/search.
+                try:
+                    db.rollback()
+                    ny_ctx.standard_status = "STANDARD_SYSTEM_ERROR"
+                    self.evaluate_ny_quota_cycle(db, symbol, ny_ctx)
+                except Exception as e2:  # noqa: BLE001
+                    logger.error(f"NY quota cycle after standard failure also failed: {e2}", exc_info=True)
         finally:
-            db.close()
+            if owns_db:
+                db.close()
 
     def _upsert_watch_setup(self, db: Session, smc_data: Dict[str, Any]) -> models.WatchSetup:
         symbol = smc_data.get("symbol", "XAUUSDT")
@@ -488,28 +488,44 @@ class StrategyService:
         watch_setup: models.WatchSetup,
         sig: Dict[str, Any],
         now_ms: int,
-        now_dt: datetime
-    ):
-        """Auto arm READY setup if all execution & policy guards pass."""
+        now_dt: datetime,
+        *,
+        clock: Any = None,
+        quote: Any = None,
+        feed_health: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Auto arm READY setup if all execution & policy guards pass.
+
+        V14.3: returns {"armed": bool, "codes": [...], "order_id": str|None, "message": str|None} so the NY
+        cycle can audit WHY an arm did not happen. `clock`/`quote`/`feed_health` are injected by the NY
+        cycle (historical determinism); live callers leave them None and keep the previous behaviour.
+        """
+        def _no(codes, message=None):
+            return {"armed": False, "codes": list(codes), "order_id": None, "message": message}
+
         # 1. Check if there is already an active position or armed order
         active_pos = crud.get_active_position(db)
         if active_pos:
-            return
+            return _no(["ACTIVE_POSITION_EXISTS"])
 
         armed_order = db.query(models.PaperOrder).filter(models.PaperOrder.state == "armed").first()
         if armed_order:
-            return
+            return _no(["ARMED_ORDER_EXISTS"])
 
         # 2. Check Trading Policy (Max 3 fills/day, NY window, reservation)
         symbol = getattr(watch_setup, "instrument", None) or "XAUUSDT"
-        policy_eval = TradingPolicyService.evaluate_entry_policy(db, symbol, now_dt)
+        policy_eval = TradingPolicyService.evaluate_entry_policy(
+            db, symbol, now_dt, clock=clock, now_ms=now_ms,
+            strategy_family=getattr(watch_setup, "strategy_family", None) or "STANDARD_SMC",
+        )
         if not policy_eval["allowed"]:
             logger.info(f"Auto-arm blocked by trading policy: {policy_eval['reason_code']}")
             self._log_auto_arm_block(
                 watch_setup, [str(policy_eval.get("reason_code") or "POLICY_BLOCKED")],
                 policy_eval.get("message") or policy_eval.get("reason"),
             )
-            return
+            return _no(policy_eval.get("reason_codes") or [str(policy_eval.get("reason_code") or "POLICY_BLOCKED")],
+                       policy_eval.get("reason_message"))
 
         # 3. Check price geometry strictly
         from domain_calculator import validate_price_geometry
@@ -520,14 +536,18 @@ class StrategyService:
             watch_setup.provisional_tp
         )
         if not is_geom_valid:
-            return
+            return _no(["INVALID_GEOMETRY"])
 
         # 4. Check Day Audit limits
-        audit = crud.get_or_create_today_audit(db)
-        if audit.is_blocked or audit.fills_count >= 3 or audit.consecutive_losses >= 2:
-            return
+        audit = crud.get_or_create_today_audit(db, clock=clock)
+        if audit.is_blocked:
+            return _no(["DAY_BLOCKED"])
+        if audit.fills_count >= 3:
+            return _no(["DAILY_FILL_CAP"])
+        if audit.consecutive_losses >= 2:
+            return _no(["MAX_CONSECUTIVE_LOSSES"])
         if audit.cooldown_until and now_ms < audit.cooldown_until:
-            return
+            return _no(["COOLDOWN_ACTIVE"])
 
         # 5. Effective risk determination (preserve 0.10% cap for fallback)
         family = getattr(watch_setup, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC"
@@ -547,10 +567,18 @@ class StrategyService:
         from services.setup_quality_service import build_plan_fingerprint
         from domain_calculator import calculate_risk_reward
 
+        # V14.3: a NY fallback candidate (same instance) is armed at most once. A rejected/expired/closed
+        # order of the same candidate identity is never retried "until it happens to fill".
+        if family == "NY_QUOTA_PAPER" and getattr(watch_setup, "setup_instance_id", None):
+            used = db.query(models.PaperOrder.id).filter(
+                models.PaperOrder.setup_instance_id == watch_setup.setup_instance_id).first()
+            if used is not None:
+                return _no(["CANDIDATE_ALREADY_USED"], "Ứng viên fallback này đã được dùng để đặt lệnh")
+
         plan = resolve_plan_levels(watch_setup)
         if not plan.get("is_valid"):
             self._log_auto_arm_block(watch_setup, ["INVALID_PRICE_GEOMETRY"], plan.get("error_message"))
-            return
+            return _no(["INVALID_PRICE_GEOMETRY"], plan.get("error_message"))
         plan_entry, plan_sl, plan_tp = plan["entry"], plan["stop_loss"], plan["take_profit"]
 
         policy_obj = policy_eval.get("policy")
@@ -565,10 +593,14 @@ class StrategyService:
             min_net_rr=min_rr,
             leverage=watch_setup.leverage or 5,
             margin_mode=watch_setup.margin_mode or "ISOLATED",
+            now_ms=now_ms,
         )
 
-        raw_ticker = collector_service.latest_ticker
-        auto_quote = QuoteValidator.validate_ticker(raw_ticker, now_ms=now_ms) if raw_ticker else None
+        if quote is not None:
+            auto_quote = quote
+        else:
+            raw_ticker = collector_service.latest_ticker
+            auto_quote = QuoteValidator.validate_ticker(raw_ticker, now_ms=now_ms) if raw_ticker else None
 
         guard = evaluate_entry_guard(db, EntryGuardRequest(
             stage="ARM",
@@ -599,11 +631,14 @@ class StrategyService:
             min_net_rr=min_rr,
             distance_to_entry_atr=getattr(watch_setup, "distance_to_entry_atr", None),
             session_instance_id=policy_eval.get("session_instance_id"),
-            structure_chain_verified=True if watch_setup.state == "READY" else None,
+            # V14.3: the experimental NY fallback never claims a verified sweep->break->FVG chain.
+            structure_chain_verified=(True if watch_setup.state == "READY" and family != "NY_QUOTA_PAPER" else None),
+            clock=clock,
+            feed_health=feed_health,
         ))
         if not guard.allowed:
             self._log_auto_arm_block(watch_setup, guard.reason_codes, (guard.primary_reason or {}).get("message_vi"))
-            return
+            return _no(guard.reason_codes, (guard.primary_reason or {}).get("message_vi"))
         self._last_auto_block = None
         lesson_eval = dict(guard.lesson_result or {
             "can_proceed": True, "blocking_reasons": [], "warning_messages": [],
@@ -619,6 +654,7 @@ class StrategyService:
             id=order_id,
             setup_id=watch_setup.id,
             signal_id=sig.get("signal_id", f"sig-{now_ms}"),
+            setup_instance_id=getattr(watch_setup, "setup_instance_id", None),
             instrument=symbol,
             direction=watch_setup.direction,
             state="armed",
@@ -644,7 +680,11 @@ class StrategyService:
             estimated_liquidation=watch_setup.estimated_liquidation,
             created_at=now_ms,
             armed_at=now_ms,
-            expires_at=now_ms + (2 * 3600 * 1000),
+            expires_at=(
+                min(now_ms + (2 * 3600 * 1000), watch_setup.expires_at)
+                if family == "NY_QUOTA_PAPER" and watch_setup.expires_at
+                else now_ms + (2 * 3600 * 1000)
+            ),
             origin="AUTO_STRATEGY",
             execution_mode="AUTO",
             arm_decision_snapshot=json.dumps(lesson_eval),
@@ -673,6 +713,7 @@ class StrategyService:
             occurred_at=now_ms
         )
         db.commit()
+        return {"armed": True, "codes": [], "order_id": order_id, "message": None}
 
     def _log_auto_arm_block(self, watch_setup, codes, message=None):
         """Log an auto-arm block once per (setup, version, reasons); the 6s loop must not spam."""

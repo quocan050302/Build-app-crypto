@@ -1092,6 +1092,46 @@ class NYSessionStatusResponse(BaseModel):
     allowed: bool
     reason_code: Optional[str] = None
     reason_message: Optional[str] = None
+    # V14.3 additive: same flag/start/end the generator uses, and the real quota reason in Vietnamese.
+    fallback_enabled: Optional[bool] = None
+    fallback_start_ny: Optional[str] = None
+    window_end_ny: Optional[str] = None
+    quota_reason: Optional[str] = None
+    target_fills: Optional[int] = None
+
+
+class NYBlockerItem(BaseModel):
+    code: str
+    category: str                 # DATA | STRATEGY | SAFETY | EXECUTION | SYSTEM
+    message_vi: str
+    count: Optional[int] = None
+
+
+class NYQuotaDiagnosticsResponse(BaseModel):
+    """V14.3 read model. `availability` MEASURED means an audit exists; UNAVAILABLE keeps counts null (never 0)."""
+    session_instance_id: str
+    session_date_ny: str
+    session_date_vn: Optional[str] = None
+    symbol: str
+    availability: Literal["MEASURED", "UNAVAILABLE", "NOT_STARTED"]
+    is_today: bool = False
+    window: Dict[str, Any] = Field(default_factory=dict)
+    quota: Optional[Dict[str, Any]] = None
+    scans: Optional[int] = None
+    unique_candidates: Optional[int] = None
+    financially_eligible: Optional[int] = None
+    armed: Optional[int] = None
+    filled: Optional[int] = None
+    top_blockers: List[NYBlockerItem] = Field(default_factory=list)
+    primary_missed_reason: Optional[str] = None
+    primary_missed_message_vi: Optional[str] = None
+    missed_category: Optional[str] = None
+    last_system_error: Optional[str] = None
+    summary_written: bool = False
+    coverage: Optional[Dict[str, Any]] = None
+    freshness: Optional[Dict[str, Any]] = None
+    candidates: List[Dict[str, Any]] = Field(default_factory=list)
+    generated_at: int
 
 # V10.1 Governed Policy Config & Desired Enable State Schemas
 class LessonPolicyConfig(BaseModel):
