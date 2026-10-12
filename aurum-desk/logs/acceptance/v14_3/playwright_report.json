@@ -3,7 +3,8 @@
     "argv": [
       "/Users/macbook/.nvm/versions/node/v22.22.3/bin/node",
       "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/node_modules/.bin/playwright",
-      "test"
+      "test",
+      "tests/e2e/v14_4_2_selection_source.e2e.ts"
     ],
     "configFile": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/playwright.config.ts",
     "rootDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
@@ -96,537 +97,300 @@
   },
   "suites": [
     {
-      "title": "v14_2_entry_guard.e2e.ts",
-      "file": "v14_2_entry_guard.e2e.ts",
+      "title": "v14_4_2_selection_source.e2e.ts",
+      "file": "v14_4_2_selection_source.e2e.ts",
       "column": 0,
       "line": 0,
-      "specs": [
+      "specs": [],
+      "suites": [
         {
-          "title": "focus LONG then SHORT switches direction/decision without any trading mutation",
-          "ok": true,
-          "tags": [],
-          "tests": [
+          "title": "V14.4.2 Selection Source & Draft Isolation (T09–T16)",
+          "file": "v14_4_2_selection_source.e2e.ts",
+          "line": 8,
+          "column": 6,
+          "specs": [
             {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
+              "title": "T09: manual SHORT draft exact calculator values and uncertified label",
+              "ok": true,
+              "tags": [],
+              "tests": [
                 {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1580,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-11T14:55:38.149Z",
+                  "timeout": 60000,
                   "annotations": [],
-                  "attachments": []
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1271,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-12T13:35:49.665Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "status": "expected"
-            }
-          ],
-          "id": "ff465ccb3e5b72ccfa14-090d5c9cf6021663fea4",
-          "file": "v14_2_entry_guard.e2e.ts",
-          "line": 60,
-          "column": 1
-        },
-        {
-          "title": "provisional tight-target SHORT is shown as unconfirmed/blocked with signed negative R:R and no CTA",
-          "ok": true,
-          "tags": [],
-          "tests": [
+              "id": "73da7cc99d3fa4148882-c178ac17d98d9a7b4166",
+              "file": "v14_4_2_selection_source.e2e.ts",
+              "line": 9,
+              "column": 3
+            },
             {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
+              "title": "T10: clicking WAITING_BREAK scenario without plan displays header SCENARIO without R:R box",
+              "ok": true,
+              "tags": [],
+              "tests": [
                 {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1009,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-11T14:55:40.511Z",
+                  "timeout": 60000,
                   "annotations": [],
-                  "attachments": []
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1053,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-12T13:35:51.435Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "status": "expected"
-            }
-          ],
-          "id": "ff465ccb3e5b72ccfa14-805e80330952c03042f6",
-          "file": "v14_2_entry_guard.e2e.ts",
-          "line": 78,
-          "column": 1
-        },
-        {
-          "title": "red news blackout disables the CTA and shows the pause chip",
-          "ok": true,
-          "tags": [],
-          "tests": [
+              "id": "73da7cc99d3fa4148882-d14279693e257a05f860",
+              "file": "v14_4_2_selection_source.e2e.ts",
+              "line": 34,
+              "column": 3
+            },
             {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
+              "title": "T11: HTTP 500 error on chart-evidence renders clear error without stale R:R",
+              "ok": true,
+              "tags": [],
+              "tests": [
                 {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1519,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-11T14:55:41.534Z",
+                  "timeout": 60000,
                   "annotations": [],
-                  "attachments": []
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1083,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-12T13:35:52.497Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "status": "expected"
-            }
-          ],
-          "id": "ff465ccb3e5b72ccfa14-99b5f6ace9742c926774",
-          "file": "v14_2_entry_guard.e2e.ts",
-          "line": 95,
-          "column": 1
-        },
-        {
-          "title": "news outside the window (or non-USD) does not disable a valid plan",
-          "ok": true,
-          "tags": [],
-          "tests": [
+              "id": "73da7cc99d3fa4148882-138d8cf1b4aa2043eda7",
+              "file": "v14_4_2_selection_source.e2e.ts",
+              "line": 96,
+              "column": 3
+            },
             {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
+              "title": "T12: switching from valid setup A to waiting scenario B clears R:R overlay",
+              "ok": true,
+              "tags": [],
+              "tests": [
                 {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1969,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-11T14:55:43.067Z",
+                  "timeout": 60000,
                   "annotations": [],
-                  "attachments": []
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1156,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-12T13:35:53.591Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "status": "expected"
-            }
-          ],
-          "id": "ff465ccb3e5b72ccfa14-c02b694f5d5a7bf7eed7",
-          "file": "v14_2_entry_guard.e2e.ts",
-          "line": 105,
-          "column": 1
-        },
-        {
-          "title": "copy to draft does not arm or create anything",
-          "ok": true,
-          "tags": [],
-          "tests": [
+              "id": "73da7cc99d3fa4148882-24c7365ebcea8b887f05",
+              "file": "v14_4_2_selection_source.e2e.ts",
+              "line": 129,
+              "column": 3
+            },
             {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
+              "title": "T13: copy valid setup to draft creates independent draft with same levels",
+              "ok": true,
+              "tags": [],
+              "tests": [
                 {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1787,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-11T14:55:45.046Z",
+                  "timeout": 60000,
                   "annotations": [],
-                  "attachments": []
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1229,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-12T13:35:54.756Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "status": "expected"
-            }
-          ],
-          "id": "ff465ccb3e5b72ccfa14-d2514211e53598aa2a19",
-          "file": "v14_2_entry_guard.e2e.ts",
-          "line": 113,
-          "column": 1
-        },
-        {
-          "title": "a slow quality preview never lets a stale reply override the newly focused setup",
-          "ok": true,
-          "tags": [],
-          "tests": [
+              "id": "73da7cc99d3fa4148882-3000578fbe6d2190f9fa",
+              "file": "v14_4_2_selection_source.e2e.ts",
+              "line": 196,
+              "column": 3
+            },
             {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
+              "title": "T14: scenario with valid certified plan renders readonly R:R overlay",
+              "ok": true,
+              "tags": [],
+              "tests": [
                 {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 3341,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-11T14:55:46.844Z",
+                  "timeout": 60000,
                   "annotations": [],
-                  "attachments": []
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1018,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-12T13:35:55.993Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "status": "expected"
-            }
-          ],
-          "id": "ff465ccb3e5b72ccfa14-8989205105e9054d7074",
-          "file": "v14_2_entry_guard.e2e.ts",
-          "line": 122,
-          "column": 1
-        },
-        {
-          "title": "sidebar stays usable after resizing to a low laptop viewport",
-          "ok": true,
-          "tags": [],
-          "tests": [
+              "id": "73da7cc99d3fa4148882-3819b9d14f797dec28d3",
+              "file": "v14_4_2_selection_source.e2e.ts",
+              "line": 222,
+              "column": 3
+            },
             {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
+              "title": "T15: race condition in fast A -> B selection shows only B bundle",
+              "ok": true,
+              "tags": [],
+              "tests": [
                 {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1255,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-11T14:55:50.198Z",
+                  "timeout": 60000,
                   "annotations": [],
-                  "attachments": []
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1243,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-12T13:35:57.024Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "status": "expected"
-            }
-          ],
-          "id": "ff465ccb3e5b72ccfa14-5676a53dd94738842a75",
-          "file": "v14_2_entry_guard.e2e.ts",
-          "line": 134,
-          "column": 1
-        },
-        {
-          "title": "arm from the UI then fill through the real coordinator opens exactly one position",
-          "ok": true,
-          "tags": [],
-          "tests": [
+              "id": "73da7cc99d3fa4148882-9b38dcb91087d3a7b5dc",
+              "file": "v14_4_2_selection_source.e2e.ts",
+              "line": 236,
+              "column": 3
+            },
             {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
+              "title": "T16: draft toggle Mua / Bán updates direction and remains editable in draft mode",
+              "ok": true,
+              "tags": [],
+              "tests": [
                 {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 2149,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-11T14:55:51.465Z",
+                  "timeout": 60000,
                   "annotations": [],
-                  "attachments": []
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1210,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-12T13:35:58.276Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
-              "status": "expected"
+              "id": "73da7cc99d3fa4148882-67c5338b4534480c975e",
+              "file": "v14_4_2_selection_source.e2e.ts",
+              "line": 267,
+              "column": 3
             }
-          ],
-          "id": "ff465ccb3e5b72ccfa14-960c11861983a27125b2",
-          "file": "v14_2_entry_guard.e2e.ts",
-          "line": 142,
-          "column": 1
-        },
-        {
-          "title": "news published after arming rejects the pending order once, before any fill",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1483,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-11T14:55:53.626Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "ff465ccb3e5b72ccfa14-d75557f3aa412b7fe056",
-          "file": "v14_2_entry_guard.e2e.ts",
-          "line": 155,
-          "column": 1
-        }
-      ]
-    },
-    {
-      "title": "v14_3_ny_quota.e2e.ts",
-      "file": "v14_3_ny_quota.e2e.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [
-        {
-          "title": "LONG: standard waiting 0/1 -> fallback seeking -> ARMED 0/1 -> fill 1/1",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 2536,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-11T14:55:55.132Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "a411cea90ae0c964dcea-1c631895baea7c63e96a",
-          "file": "v14_3_ny_quota.e2e.ts",
-          "line": 47,
-          "column": 3
-        },
-        {
-          "title": "SHORT: standard waiting 0/1 -> fallback seeking -> ARMED 0/1 -> fill 1/1",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 3126,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-11T14:55:57.680Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "a411cea90ae0c964dcea-4c0e406fea5e5751ec12",
-          "file": "v14_3_ny_quota.e2e.ts",
-          "line": 47,
-          "column": 3
-        },
-        {
-          "title": "blocked by red news: counter stays 0/1, no order, drawer explains the safety reason",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1873,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-11T14:56:00.820Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "a411cea90ae0c964dcea-9e36f19e4ec8cb776eec",
-          "file": "v14_3_ny_quota.e2e.ts",
-          "line": 89,
-          "column": 1
-        },
-        {
-          "title": "fallback disabled is never shown as active and creates no order",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1465,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-11T14:56:02.703Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "a411cea90ae0c964dcea-d98485098c048769078b",
-          "file": "v14_3_ny_quota.e2e.ts",
-          "line": 111,
-          "column": 1
-        },
-        {
-          "title": "MISSED window creates no order and the drawer reports why",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1424,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-11T14:56:04.178Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "a411cea90ae0c964dcea-cc86ce521089c7924624",
-          "file": "v14_3_ny_quota.e2e.ts",
-          "line": 123,
-          "column": 1
-        },
-        {
-          "title": "1280x640: bar fits, drawer closed by default, opening it and changing date only issue GETs",
-          "ok": true,
-          "tags": [],
-          "tests": [
-            {
-              "timeout": 60000,
-              "annotations": [],
-              "expectedStatus": "passed",
-              "projectId": "",
-              "projectName": "",
-              "results": [
-                {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
-                  "status": "passed",
-                  "duration": 1564,
-                  "errors": [],
-                  "stdout": [],
-                  "stderr": [],
-                  "retry": 0,
-                  "startTime": "2026-10-11T14:56:05.612Z",
-                  "annotations": [],
-                  "attachments": []
-                }
-              ],
-              "status": "expected"
-            }
-          ],
-          "id": "a411cea90ae0c964dcea-2d80c76e6c257cea4078",
-          "file": "v14_3_ny_quota.e2e.ts",
-          "line": 138,
-          "column": 1
+          ]
         }
       ]
     }
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-11T14:55:34.978Z",
-    "duration": 32887.523,
-    "expected": 15,
+    "startTime": "2026-10-12T13:35:47.598Z",
+    "duration": 12163.068000000001,
+    "expected": 8,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

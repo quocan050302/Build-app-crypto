@@ -51,6 +51,12 @@ export interface RiskRewardData {
   grossLossUsdt?: number;
   netRewardUsdt?: number;
   multiplier?: number;
+  entryFeeUsdt?: number;
+  slExitFeeUsdt?: number;
+  tpExitFeeUsdt?: number;
+  entrySlippageUsdt?: number;
+  slExitSlippageUsdt?: number;
+  tpExitSlippageUsdt?: number;
 }
 
 export type DragTargetPart = 'entry' | 'sl' | 'tp' | 'body' | 'right_edge';
@@ -322,7 +328,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       ctx.textAlign = 'left';
       const mult = d.multiplier || 1.0;
       const targetDist = Math.abs(d.takeProfit - effectiveEntry);
-      const grossReward = d.grossRewardUsdt !== undefined ? d.grossRewardUsdt : (d.quantity * mult * targetDist);
+      const grossReward = d.grossRewardUsdt != null && Number.isFinite(d.grossRewardUsdt) ? d.grossRewardUsdt : (d.quantity * mult * targetDist);
       const netReward = netTargetReward;
       const netRewardSign = netReward >= 0 ? '+' : '-';
       const rewardText = `TP: ${d.takeProfit.toFixed(2)} | Lãi theo giá: +$${grossReward.toFixed(2)} | Lãi ròng dự kiến: ${netRewardSign}$${Math.abs(netReward).toFixed(2)}`;
@@ -332,7 +338,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       const slTargetY = d.direction === 'LONG' ? riskTop + riskHeight - 6 : riskTop + 14;
       ctx.fillStyle = '#f87171';
       const stopDist = Math.abs(effectiveEntry - d.stopLoss);
-      const grossLoss = d.grossLossUsdt !== undefined ? d.grossLossUsdt : (d.quantity * mult * stopDist);
+      const grossLoss = d.grossLossUsdt != null && Number.isFinite(d.grossLossUsdt) ? d.grossLossUsdt : (d.quantity * mult * stopDist);
       const netRisk = d.initialRiskUsdt;
       const riskText = `SL: ${d.stopLoss.toFixed(2)} | Lỗ theo giá: -$${grossLoss.toFixed(2)} | Lỗ ròng dự kiến: -$${netRisk.toFixed(2)} | KL: ${d.quantity} oz`;
       ctx.fillText(riskText, startX + 8, slTargetY);

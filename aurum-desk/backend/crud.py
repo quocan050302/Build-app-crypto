@@ -201,6 +201,7 @@ def get_or_create_today_audit(
 ) -> models.DayAudit:
     ds = date_str or get_today_str_vn(clock)
     audit = db.query(models.DayAudit).filter(models.DayAudit.date_str == ds).first()
+    now_ms = clock.now_ms() if clock and hasattr(clock, "now_ms") else int(time.time() * 1000)
     if not audit:
         # Check yesterday's current equity to roll over balance
         yesterday_audit = db.query(models.DayAudit).order_by(models.DayAudit.id.desc()).first()
@@ -213,6 +214,7 @@ def get_or_create_today_audit(
             fills_count=0,
             consecutive_losses=0,
             cooldown_until=None,
+            updated_at_ms=now_ms,
             is_blocked=False,
             block_reason=None
         )
@@ -255,6 +257,7 @@ def record_trade_close_audit(
     audit.current_equity += pnl
 
     c_now = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
+    audit.updated_at_ms = c_now
     # Set 30-minute cooldown
     audit.cooldown_until = c_now + (30 * 60 * 1000)
 

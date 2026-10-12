@@ -95,11 +95,39 @@ REQUIRED_CASES = {
     "T18": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "screenshot 1 zero financial estimate"},
     "T19": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "signed R:R does not abs negative reward into profit"},
     "T20": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "consistent cost snapshot for long and short"},
-    # Financial Context & Pricing Correctness (4)
+    # Financial Context & Pricing Correctness (5)
     "FIN01": {"suite": "backend", "file": "backend/tests/test_v14_4_2_financial_context_regression.py", "desc": "DayAudit equity 2000 sizing"},
     "FIN02": {"suite": "backend", "file": "backend/tests/test_v14_4_2_financial_context_regression.py", "desc": "None financial fields no TypeError"},
     "FIN03": {"suite": "backend", "file": "backend/tests/test_v14_4_2_financial_context_regression.py", "desc": "Upcoming API preserves degraded and valid rows"},
     "FIN04": {"suite": "backend", "file": "backend/tests/test_v14_4_2_financial_context_regression.py", "desc": "Capital variants and long mirror"},
+    "FIN05": {"suite": "backend", "file": "backend/tests/test_v14_4_2_financial_context_regression.py", "desc": "version changes affect preview not frozen"},
+    # 15M Liquidity & Causal Targets (3)
+    "LIQ01": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "engine 15m real output adapter candidate acceptance"},
+    "LIQ02": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "raw kind mapping and dealing range unconfirmed"},
+    "LIQ03": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "timeframe durations and unsupported rejection"},
+    # Realtime Quote Ordering & Execution Worker (9)
+    "RT01": {"suite": "backend", "file": "backend/tests/test_realtime_source_ordering.py", "desc": "quote monotonic watermark rejects older timestamp"},
+    "RT02": {"suite": "backend", "file": "backend/tests/test_realtime_source_ordering.py", "desc": "equal timestamp duplicate vs distinct payload"},
+    "RT03": {"suite": "backend", "file": "backend/tests/test_realtime_source_ordering.py", "desc": "reconnect epoch and rest fallback monotonic"},
+    "RT04": {"suite": "backend", "file": "backend/tests/test_realtime_source_ordering.py", "desc": "late tick before open cannot TP/SL new order"},
+    "RT05": {"suite": "backend", "file": "backend/tests/test_realtime_source_ordering.py", "desc": "late tick for open order reconciliation"},
+    "RT06": {"suite": "backend", "file": "backend/tests/test_realtime_execution_worker.py", "desc": "worker thread executes without blocking event loop"},
+    "RT07": {"suite": "backend", "file": "backend/tests/test_realtime_execution_worker.py", "desc": "queue overflow sets execution gap and blocks entries"},
+    "RT08": {"suite": "backend", "file": "backend/tests/test_realtime_execution_worker.py", "desc": "candle persist retry overflow marks data gap"},
+    "RT09": {"suite": "backend", "file": "backend/tests/test_realtime_execution_worker.py", "desc": "worker exception rollback and graceful shutdown"},
+    # Persistent Forecast & Forward Causal Outcomes (12)
+    "FC01": {"suite": "backend", "file": "backend/tests/test_forecast_forward_observation.py", "desc": "snapshot created prior to future outcome"},
+    "FC02": {"suite": "backend", "file": "backend/tests/test_forecast_forward_observation.py", "desc": "identical dedupe returns existing record"},
+    "FC03": {"suite": "backend", "file": "backend/tests/test_forecast_forward_observation.py", "desc": "material revision increments and preserves snapshot"},
+    "FC04": {"suite": "backend", "file": "backend/tests/test_forecast_forward_observation.py", "desc": "causal lookback rejection of past observations"},
+    "FC05": {"suite": "backend", "file": "backend/tests/test_forecast_forward_observation.py", "desc": "horizon expiry yields EXPIRED outcome"},
+    "FC06": {"suite": "backend", "file": "backend/tests/test_forecast_forward_observation.py", "desc": "target touched before confirmation is watched liquidity"},
+    "FC07": {"suite": "backend", "file": "backend/tests/test_forecast_forward_observation.py", "desc": "valid confirmed target hit before invalidation"},
+    "FC08": {"suite": "backend", "file": "backend/tests/test_forecast_forward_observation.py", "desc": "invalidation hit first yields INVALIDATED"},
+    "FC09": {"suite": "backend", "file": "backend/tests/test_forecast_forward_observation.py", "desc": "ambiguous same bar target and invalidation"},
+    "FC10": {"suite": "backend", "file": "backend/tests/test_forecast_forward_observation.py", "desc": "feed gap during observation window"},
+    "FC11": {"suite": "backend", "file": "backend/tests/test_forecast_forward_observation.py", "desc": "unknown probability status without OOS model"},
+    "FC12": {"suite": "backend", "file": "backend/tests/test_forecast_forward_observation.py", "desc": "SQL savepoint fault isolation"},
 }
 
 BASELINE_FAILURES = {
@@ -154,8 +182,8 @@ def parse_junit_xml(xml_path: str) -> dict[str, str]:
             key = f"{classname}::{name}" if classname else name
             results[key] = status
             results[name] = status
-            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01
-            for m in re.finditer(r"(?i)(?:^|[\W_])(RT\d{2}|FIN\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
+            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01
+            for m in re.finditer(r"(?i)(?:^|[\W_])(RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
                 results[m.group(1).upper()] = status
     except Exception as e:
         print(f"Error parsing JUnit XML {xml_path}: {e}", file=sys.stderr)
@@ -325,6 +353,9 @@ def main(argv=None) -> int:
         "tests/test_v14_4_1_contracts.py",
         "tests/test_v14_3_ny_quota.py",
         "tests/test_v14_3_frequency_audit.py",
+        "tests/test_realtime_source_ordering.py",
+        "tests/test_realtime_execution_worker.py",
+        "tests/test_forecast_forward_observation.py",
     ]
     s = run_step(
         "backend_targeted",

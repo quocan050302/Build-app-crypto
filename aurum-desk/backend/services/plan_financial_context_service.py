@@ -76,10 +76,11 @@ def load_plan_financial_context(
         if now_ms is not None
         else (clock.now_ms() if clock and hasattr(clock, "now_ms") else int(time.time() * 1000))
     )
-    audit = crud.get_or_create_today_audit(db)
+    audit = crud.get_or_create_today_audit(db, clock=clock)
     equity = float(audit.current_equity) if audit and audit.current_equity is not None else 1000.0
     equity_basis = "DAY_AUDIT_BALANCE"
-    equity_as_of = int(audit.cooldown_until) if (audit and audit.cooldown_until) else current_ms
+    audit_as_of = getattr(audit, "updated_at_ms", None)
+    equity_as_of = int(audit_as_of) if (audit_as_of is not None and audit_as_of > 0) else current_ms
 
     settings = risk_settings_service.get_settings(db)
     risk_pct = float(settings.risk_pct) if settings.risk_pct else 0.25

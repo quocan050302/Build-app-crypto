@@ -84,6 +84,15 @@ export interface ResolvedDisplayPlan {
     margin_mode: string;
     estimated_liquidation: number | null;
     meets_min_rr: boolean;
+    gross_loss_usdt?: number | null;
+    gross_reward_usdt?: number | null;
+    net_reward_usdt?: number | null;
+    entry_fee_usdt?: number | null;
+    sl_exit_fee_usdt?: number | null;
+    tp_exit_fee_usdt?: number | null;
+    entry_slippage_usdt?: number | null;
+    sl_exit_slippage_usdt?: number | null;
+    tp_exit_slippage_usdt?: number | null;
   } | null;
   diagnostic_prices?: Record<string, number | null>;
 }
@@ -171,6 +180,12 @@ export function planToOverlay(
     grossLossUsdt: fin?.gross_loss_usdt,
     netRewardUsdt: fin?.net_reward_usdt,
     multiplier: 1.0,
+    entryFeeUsdt: fin?.entry_fee_usdt ?? undefined,
+    slExitFeeUsdt: fin?.sl_exit_fee_usdt ?? undefined,
+    tpExitFeeUsdt: fin?.tp_exit_fee_usdt ?? undefined,
+    entrySlippageUsdt: fin?.entry_slippage_usdt ?? undefined,
+    slExitSlippageUsdt: fin?.sl_exit_slippage_usdt ?? undefined,
+    tpExitSlippageUsdt: fin?.tp_exit_slippage_usdt ?? undefined,
     riskPct: setup?.risk_pct ?? 0.25,
     grossRR: fin?.gross_rr ?? (setup?.gross_rr || 0),
     estimatedNetRR: fin?.net_rr ?? (setup?.net_rr || 0),

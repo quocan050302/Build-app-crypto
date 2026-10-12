@@ -89,6 +89,9 @@ class CandleCacheService:
         self._running = False
         self._bootstrapped = False
         self.persistence_drops = 0
+        self.has_candle_gap = False
+        self.candle_gap_telemetry: Dict[Tuple[str, str], int] = {}
+        self.retry_buffer: List[schemas.CandleCreate] = []
 
     def is_bootstrapped(self, symbol: str = "XAUUSDT", timeframe: str = "15M") -> bool:
         candles = self._cache.get((symbol, timeframe), [])
@@ -337,14 +340,13 @@ class CandleCacheService:
         """Background worker that flushes closed candles in batches to SQLite with retry buffer."""
         self._running = True
         logger.info("Candle persistence worker started.")
-        retry_buffer: List[schemas.CandleCreate] = []
 
         while self._running:
             try:
                 batch: List[schemas.CandleCreate] = []
-                if retry_buffer:
-                    batch.extend(retry_buffer[:50])
-                    retry_buffer = retry_buffer[50:]
+                if self.retry_buffer:
+                    batch.extend(self.retry_buffer[:50])
+                    self.retry_buffer = self.retry_buffer[50:]
 
                 if len(batch) < 50:
                     try:
@@ -362,25 +364,43 @@ class CandleCacheService:
                 if not batch:
                     continue
 
-                db = SessionLocal()
-                success = False
-                try:
-                    crud.bulk_upsert_candles(db, batch)
-                    success = True
-                except Exception as e:
-                    logger.error(f"Error persisting candle batch to DB: {e}")
+                def _persist_batch_sync(b: List[schemas.CandleCreate]) -> bool:
+                    db = SessionLocal()
+                    try:
+                        crud.bulk_upsert_candles(db, b)
+                        return True
+                    except Exception as e:
+                        db.rollback()
+                        logger.error(f"Error persisting candle batch to DB: {e}")
+                        return False
+                    finally:
+                        db.close()
+
+                success = await asyncio.to_thread(_persist_batch_sync, batch)
+                if not success:
                     # Retain failed batch in retry buffer to prevent silent drops
-                    retry_buffer.extend(batch)
-                    if len(retry_buffer) > 500:
-                        retry_buffer = retry_buffer[-500:]
-                finally:
-                    db.close()
-                    if success:
-                        for _ in batch:
-                            try:
-                                self._persist_queue.task_done()
-                            except ValueError:
-                                pass
+                    self.retry_buffer.extend(batch)
+                    if len(self.retry_buffer) > 500:
+                        dropped = self.retry_buffer[:-500]
+                        self.has_candle_gap = True
+                        for d in dropped:
+                            gap_key = (d.symbol, d.timeframe)
+                            self.candle_gap_telemetry[gap_key] = max(
+                                self.candle_gap_telemetry.get(gap_key, 0),
+                                d.timestamp
+                            )
+                        logger.warning(
+                            f"Candle persistence retry buffer overflow ({len(self.retry_buffer)} > 500), "
+                            f"dropped {len(dropped)} older items. Marked CLOSED_CONTEXT_INCOMPLETE / candle gap."
+                        )
+                        self.retry_buffer = self.retry_buffer[-500:]
+                    await asyncio.sleep(0.02)
+                else:
+                    for _ in batch:
+                        try:
+                            self._persist_queue.task_done()
+                        except ValueError:
+                            pass
 
             except asyncio.CancelledError:
                 self._running = False

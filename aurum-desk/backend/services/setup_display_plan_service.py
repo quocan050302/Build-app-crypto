@@ -122,29 +122,112 @@ def build_setup_display_plan(
     is_frozen_order = str(state).upper() in ("ARMED", "PAPER_OPEN", "CLOSED")
 
     if is_frozen_order:
-        # Keep frozen financial figures from order lifecycle without recalculating from today's equity
-        gross_rr = float(gross_rr) if financial_value_is_known(gross_rr) else 0.0
-        net_rr = float(net_rr) if financial_value_is_known(net_rr) else 0.0
-        risk_usdt = float(risk_usdt) if financial_value_is_known(risk_usdt) else 0.0
-        quantity = float(quantity) if financial_value_is_known(quantity) else 0.0
-        meets_min_rr = net_rr >= (financial_context.min_net_rr if financial_context else 2.0)
-        status = "FROZEN_ORDER"
-        reason_code = "ORDER_FROZEN"
-        reason_msg = "Lệnh đã kích hoạt; thông số tài chính được bảo toàn"
-        financial_dto: Optional[Dict[str, Any]] = {
-            "gross_rr": round(gross_rr, 4),
-            "net_rr": round(net_rr, 4),
-            "net_risk_usdt": round(risk_usdt, 2),
-            "quantity": round(quantity, 4),
-            "leverage": int(leverage) if leverage else 5,
-            "margin_mode": str(margin_mode or "ISOLATED"),
-            "estimated_liquidation": round(float(est_liq), 2) if financial_value_is_known(est_liq) else None,
-            "meets_min_rr": meets_min_rr,
-            "equity_usdt": financial_context.equity_usdt if financial_context else None,
-            "cost_version": financial_context.cost_version if financial_context else "frozen_snapshot",
-            "instrument_version": financial_context.instrument_version if financial_context else "frozen_snapshot",
-            "risk_config_version": financial_context.risk_config_version if financial_context else 1,
-        }
+        # Check if an explicit frozen snapshot was passed
+        if frozen_snapshot is not None and isinstance(frozen_snapshot, dict):
+            stored_gross_rr = frozen_snapshot.get("gross_rr")
+            stored_net_rr = frozen_snapshot.get("net_rr")
+            stored_risk = frozen_snapshot.get("net_risk_usdt", frozen_snapshot.get("risk_usdt"))
+            stored_qty = frozen_snapshot.get("quantity")
+            stored_lev = frozen_snapshot.get("leverage")
+            stored_mm = frozen_snapshot.get("margin_mode")
+            stored_liq = frozen_snapshot.get("estimated_liquidation")
+            stored_eq = frozen_snapshot.get("equity_usdt")
+            stored_cv = frozen_snapshot.get("cost_version")
+            stored_iv = frozen_snapshot.get("instrument_version")
+            stored_rv = frozen_snapshot.get("risk_config_version")
+        else:
+            stored_gross_rr = _get("gross_rr")
+            stored_net_rr = _get("net_rr")
+            stored_risk = _get("risk_usdt")
+            stored_qty = _get("quantity")
+            stored_lev = _get("leverage")
+            stored_mm = _get("margin_mode")
+            stored_liq = _get("estimated_liquidation")
+            stored_eq = _get("initial_equity") or _get("equity_usdt")
+            stored_cv = _get("cost_version")
+            stored_iv = _get("instrument_version")
+            stored_rv = _get("risk_config_version") or _get("config_version")
+
+        has_complete_metrics = (
+            financial_value_is_known(stored_net_rr)
+            and financial_value_is_known(stored_qty)
+            and float(stored_qty) > 0
+        )
+
+        if has_complete_metrics:
+            status = "FROZEN_ORDER"
+            reason_code = "ORDER_FROZEN"
+            reason_msg = "Lệnh đã kích hoạt; thông số tài chính được bảo toàn"
+            meets_min_rr = float(stored_net_rr) >= 2.0
+            financial_dto = {
+                "gross_rr": round(float(stored_gross_rr), 4) if financial_value_is_known(stored_gross_rr) else None,
+                "net_rr": round(float(stored_net_rr), 4),
+                "gross_loss_usdt": None,
+                "gross_reward_usdt": None,
+                "net_risk_usdt": round(float(stored_risk), 2) if financial_value_is_known(stored_risk) else None,
+                "net_reward_usdt": None,
+                "quantity": round(float(stored_qty), 4),
+                "multiplier": 1.0,
+                "leverage": int(stored_lev) if stored_lev else 5,
+                "margin_mode": str(stored_mm or "ISOLATED"),
+                "risk_pct": None,
+                "effective_risk_pct": None,
+                "entry_fee_usdt": None,
+                "sl_exit_fee_usdt": None,
+                "tp_exit_fee_usdt": None,
+                "entry_slippage_usdt": None,
+                "sl_exit_slippage_usdt": None,
+                "tp_exit_slippage_usdt": None,
+                "estimated_liquidation": round(float(stored_liq), 2) if financial_value_is_known(stored_liq) else None,
+                "meets_min_rr": meets_min_rr,
+                "equity_usdt": float(stored_eq) if financial_value_is_known(stored_eq) else None,
+                "equity_basis": "FROZEN_SNAPSHOT",
+                "equity_as_of_ms": updated_at,
+                "cost_source": "FROZEN_ORDER_SNAPSHOT",
+                "cost_version": str(stored_cv) if stored_cv else "frozen_snapshot",
+                "instrument_version": str(stored_iv) if stored_iv else "frozen_snapshot",
+                "risk_config_version": int(stored_rv) if stored_rv else 1,
+                "calculator_version": "v10.4_canonical_calculator",
+                "pricing_mode": "FROZEN_ORDER",
+                "financial_status": "FROZEN",
+            }
+        else:
+            status = "FINANCIAL_UNAVAILABLE"
+            reason_code = "ORDER_FINANCIAL_UNAVAILABLE"
+            reason_msg = "Lệnh lịch sử chưa đầy đủ thông số tài chính"
+            financial_dto = {
+                "gross_rr": round(float(stored_gross_rr), 4) if financial_value_is_known(stored_gross_rr) else None,
+                "net_rr": round(float(stored_net_rr), 4) if financial_value_is_known(stored_net_rr) else None,
+                "gross_loss_usdt": None,
+                "gross_reward_usdt": None,
+                "net_risk_usdt": round(float(stored_risk), 2) if financial_value_is_known(stored_risk) else None,
+                "net_reward_usdt": None,
+                "quantity": round(float(stored_qty), 4) if financial_value_is_known(stored_qty) else None,
+                "multiplier": 1.0,
+                "leverage": int(stored_lev) if stored_lev else 5,
+                "margin_mode": str(stored_mm or "ISOLATED"),
+                "risk_pct": None,
+                "effective_risk_pct": None,
+                "entry_fee_usdt": None,
+                "sl_exit_fee_usdt": None,
+                "tp_exit_fee_usdt": None,
+                "entry_slippage_usdt": None,
+                "sl_exit_slippage_usdt": None,
+                "tp_exit_slippage_usdt": None,
+                "estimated_liquidation": None,
+                "meets_min_rr": False,
+                "equity_usdt": None,
+                "equity_basis": "UNKNOWN",
+                "equity_as_of_ms": updated_at,
+                "cost_source": "FROZEN_ORDER_UNAVAILABLE",
+                "cost_version": None,
+                "instrument_version": None,
+                "risk_config_version": None,
+                "calculator_version": "v10.4_canonical_calculator",
+                "pricing_mode": "FROZEN_ORDER",
+                "financial_status": "FINANCIAL_UNAVAILABLE",
+            }
+
     elif financial_context is not None:
         # Canonical dynamic recalculation using explicit shared financial context
         calc = calculate_display_financial(
@@ -170,16 +253,34 @@ def build_setup_display_plan(
             financial_dto = {
                 "gross_rr": round(float(gross_rr), 4),
                 "net_rr": round(float(net_rr), 4),
+                "gross_loss_usdt": round(float(calc.gross_loss_usdt), 2) if hasattr(calc, "gross_loss_usdt") else None,
+                "gross_reward_usdt": round(float(calc.gross_reward_usdt), 2) if hasattr(calc, "gross_reward_usdt") else None,
                 "net_risk_usdt": round(float(risk_usdt), 2),
+                "net_reward_usdt": round(float(calc.net_reward_usdt), 2) if hasattr(calc, "net_reward_usdt") else None,
                 "quantity": round(float(quantity), 4),
-                "leverage": int(leverage) if leverage else 5,
-                "margin_mode": str(margin_mode or "ISOLATED"),
+                "multiplier": float(getattr(calc, "multiplier", 1.0)),
+                "leverage": int(financial_context.leverage),
+                "margin_mode": str(financial_context.margin_mode or "ISOLATED"),
+                "risk_pct": float(financial_context.risk_pct),
+                "effective_risk_pct": round(float(getattr(calc, "effective_risk_pct", financial_context.risk_pct)), 4),
+                "entry_fee_usdt": round(float(getattr(calc, "entry_fee_usdt", 0.0)), 4),
+                "sl_exit_fee_usdt": round(float(getattr(calc, "sl_exit_fee_usdt", 0.0)), 4),
+                "tp_exit_fee_usdt": round(float(getattr(calc, "tp_exit_fee_usdt", 0.0)), 4),
+                "entry_slippage_usdt": round(float(getattr(calc, "entry_slippage_usdt", 0.0)), 4),
+                "sl_exit_slippage_usdt": round(float(getattr(calc, "sl_exit_slippage_usdt", 0.0)), 4),
+                "tp_exit_slippage_usdt": round(float(getattr(calc, "tp_exit_slippage_usdt", 0.0)), 4),
                 "estimated_liquidation": round(float(est_liq), 2) if financial_value_is_known(est_liq) else None,
                 "meets_min_rr": meets_min_rr,
                 "equity_usdt": financial_context.equity_usdt,
+                "equity_basis": financial_context.equity_basis,
+                "equity_as_of_ms": financial_context.equity_as_of_ms,
+                "cost_source": getattr(calc, "cost_source", "BITGET_PAPER_MODEL_V10_4"),
                 "cost_version": financial_context.cost_version,
                 "instrument_version": financial_context.instrument_version,
                 "risk_config_version": financial_context.risk_config_version,
+                "calculator_version": "v10.4_canonical_calculator",
+                "pricing_mode": pricing_mode,
+                "financial_status": "AVAILABLE" if meets_min_rr else "AVAILABLE_BLOCKED",
             }
         else:
             status = "AVAILABLE_BLOCKED"
@@ -188,36 +289,60 @@ def build_setup_display_plan(
             financial_dto = None
     else:
         # No financial context provided: do NOT guess 1000.0
-        # If stored metrics already exist as valid numbers, display them with explicit provenance
-        if financial_value_is_known(net_rr) and financial_value_is_known(quantity) and quantity > 0 and net_rr > 0:
-            meets_min_rr = net_rr >= 2.0
+        stored_net_rr = _get("net_rr")
+        stored_gross_rr = _get("gross_rr")
+        stored_risk = _get("risk_usdt")
+        stored_qty = _get("quantity")
+        stored_lev = _get("leverage")
+        stored_mm = _get("margin_mode")
+        stored_liq = _get("estimated_liquidation")
+
+        if financial_value_is_known(stored_net_rr) and financial_value_is_known(stored_qty) and stored_qty > 0 and stored_net_rr > 0:
+            meets_min_rr = stored_net_rr >= 2.0
             status = "AVAILABLE" if meets_min_rr else "AVAILABLE_BLOCKED"
             if level_source == "confirmed":
                 status = "CONFIRMED"
             reason_code = "PLAN_VALID" if meets_min_rr else "NET_RR_TOO_LOW"
-            reason_msg = "Kế hoạch giá hợp lệ" if meets_min_rr else f"Tỷ lệ Net R:R 1:{net_rr:.2f} chưa đạt ngưỡng tối thiểu 1:2.0"
+            reason_msg = "Kế hoạch giá hợp lệ" if meets_min_rr else f"Tỷ lệ Net R:R 1:{stored_net_rr:.2f} chưa đạt ngưỡng tối thiểu 1:2.0"
             financial_dto = {
-                "gross_rr": round(float(gross_rr), 4) if financial_value_is_known(gross_rr) else 0.0,
-                "net_rr": round(float(net_rr), 4),
-                "net_risk_usdt": round(float(risk_usdt), 2) if financial_value_is_known(risk_usdt) else 0.0,
-                "quantity": round(float(quantity), 4),
-                "leverage": int(leverage) if leverage else 5,
-                "margin_mode": str(margin_mode or "ISOLATED"),
-                "estimated_liquidation": round(float(est_liq), 2) if financial_value_is_known(est_liq) else None,
+                "gross_rr": round(float(stored_gross_rr), 4) if financial_value_is_known(stored_gross_rr) else None,
+                "net_rr": round(float(stored_net_rr), 4),
+                "gross_loss_usdt": None,
+                "gross_reward_usdt": None,
+                "net_risk_usdt": round(float(stored_risk), 2) if financial_value_is_known(stored_risk) else None,
+                "net_reward_usdt": None,
+                "quantity": round(float(stored_qty), 4),
+                "multiplier": 1.0,
+                "leverage": int(stored_lev) if stored_lev else 5,
+                "margin_mode": str(stored_mm or "ISOLATED"),
+                "risk_pct": None,
+                "effective_risk_pct": None,
+                "entry_fee_usdt": None,
+                "sl_exit_fee_usdt": None,
+                "tp_exit_fee_usdt": None,
+                "entry_slippage_usdt": None,
+                "sl_exit_slippage_usdt": None,
+                "tp_exit_slippage_usdt": None,
+                "estimated_liquidation": round(float(stored_liq), 2) if financial_value_is_known(stored_liq) else None,
                 "meets_min_rr": meets_min_rr,
                 "equity_usdt": None,
+                "equity_basis": "STORED_LEGACY",
+                "equity_as_of_ms": updated_at,
+                "cost_source": "STORED_LEGACY",
                 "cost_version": None,
                 "instrument_version": None,
                 "risk_config_version": None,
+                "calculator_version": "v10.4_canonical_calculator",
+                "pricing_mode": "STORED_PREVIEW",
+                "financial_status": "AVAILABLE" if meets_min_rr else "AVAILABLE_BLOCKED",
             }
         else:
-            # Uncomputed and no context available: return None for financial without crashing
             status = "CONTEXT_UNAVAILABLE"
             reason_code = "FINANCIAL_CONTEXT_MISSING"
             reason_msg = "Chưa có ngữ cảnh tài chính để tính toán kế hoạch"
             financial_dto = None
 
-    return {
+    plan_dto = {
         "identity": {
             "setup_id": setup_id,
             "instance_id": instance_id,
@@ -240,3 +365,37 @@ def build_setup_display_plan(
         "financial": financial_dto,
         "diagnostic_prices": diagnostic_prices,
     }
+    plan_dto["fingerprint"] = compute_plan_fingerprint(plan_dto)
+    return plan_dto
+
+
+def compute_plan_fingerprint(plan: Dict[str, Any]) -> str:
+    """
+    Computes a canonical deterministic hash (fingerprint) of a plan snapshot
+    excluding volatile render timestamps and localized display labels.
+    """
+    import hashlib
+    import json
+
+    ident = plan.get("identity") or {}
+    fin = plan.get("financial") or {}
+
+    core = {
+        "schema_version": "v14.4.2",
+        "setup_id": ident.get("setup_id"),
+        "instance_id": ident.get("instance_id"),
+        "direction": plan.get("direction"),
+        "entry": round(float(plan["entry"]), 4) if plan.get("entry") is not None else None,
+        "stop_loss": round(float(plan["stop_loss"]), 4) if plan.get("stop_loss") is not None else None,
+        "take_profit": round(float(plan["take_profit"]), 4) if plan.get("take_profit") is not None else None,
+        "quantity": round(float(fin["quantity"]), 4) if fin.get("quantity") is not None else None,
+        "net_risk_usdt": round(float(fin["net_risk_usdt"]), 4) if fin.get("net_risk_usdt") is not None else None,
+        "net_rr": round(float(fin["net_rr"]), 4) if fin.get("net_rr") is not None else None,
+        "leverage": fin.get("leverage"),
+        "margin_mode": fin.get("margin_mode"),
+        "cost_version": fin.get("cost_version"),
+        "risk_config_version": fin.get("risk_config_version"),
+        "pricing_mode": fin.get("pricing_mode"),
+    }
+    dumped = json.dumps(core, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(dumped.encode("utf-8")).hexdigest()[:16]

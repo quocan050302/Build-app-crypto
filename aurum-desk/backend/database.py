@@ -322,6 +322,32 @@ def run_schema_migrations(target_engine=None):
                 );
             """))
             conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_paper_observation_key ON paper_observations (namespace, event_kind, snapshot_id, order_id);"))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS forecast_observations (
+                    id VARCHAR(80) PRIMARY KEY,
+                    forecast_id VARCHAR(80) NOT NULL,
+                    revision INTEGER DEFAULT 1,
+                    symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+                    session VARCHAR(20) NOT NULL,
+                    session_id VARCHAR(80) NOT NULL,
+                    as_of_ms BIGINT NOT NULL,
+                    context_cutoff_ms BIGINT NOT NULL,
+                    content_digest VARCHAR(64) NOT NULL,
+                    hypothesis_type VARCHAR(50) NOT NULL,
+                    direction VARCHAR(10),
+                    target_price FLOAT,
+                    invalidation_price FLOAT,
+                    outcome_status VARCHAR(50) DEFAULT 'PENDING',
+                    outcome_at_ms BIGINT,
+                    outcome_details TEXT,
+                    payload_json TEXT NOT NULL,
+                    created_at BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_forecast_session_digest ON forecast_observations (session_id, content_digest);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_forecast_observations_forecast_id ON forecast_observations (forecast_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_forecast_observations_session_id ON forecast_observations (session_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_forecast_observations_as_of_ms ON forecast_observations (as_of_ms);"))
             conn.commit()
     except Exception:
         pass

@@ -431,7 +431,8 @@ class TradeLifecycleService:
         bar_duration_ms: int = 15 * 60 * 1000,
         now_ms: Optional[int] = None,
         clock: Optional[IClock] = None,
-        session_tag: str = "LIVE_PAPER"
+        session_tag: str = "LIVE_PAPER",
+        tick_timestamp: Optional[int] = None,
     ) -> Optional[models.PaperOrder]:
         """
         Unified exit evaluator for both ExitMonitor and candles/sync.
@@ -441,6 +442,10 @@ class TradeLifecycleService:
             return None
 
         opened_at = active_pos.opened_at or 0
+
+        # Guard: Check tick timing relative to opened_at (late tick cannot retroactively exit)
+        if tick_timestamp is not None and opened_at > 0 and tick_timestamp < opened_at:
+            return None
 
         # Guard: Check candle timing relative to opened_at
         is_candle_eval = candle_high is not None and candle_low is not None

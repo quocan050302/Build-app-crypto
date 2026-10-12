@@ -437,7 +437,7 @@ class StrategyService:
     session_forecasts_cache: Dict[str, Dict[str, Any]] = {}
 
     def _cache_session_forecasts(self, symbol: str, candles_by_tf: Dict[str, list], now_ms: int, cfg: Any,
-                                 primary: Any, issues: Any) -> None:
+                                 primary: Any, issues: Any, db: Optional[Session] = None) -> None:
         try:
             from services.smc_scenario_service import load_closed_context
             from services.smc_session_forecast_service import evaluate_session_forecasts
@@ -452,6 +452,29 @@ class StrategyService:
                              for k, v in fc.items()},
                 "data_issues": [getattr(i, "code", str(i)) for i in (issues or [])],
             }
+            # Persist immutable forecast snapshots prior to future outcome
+            try:
+                from services.smc_forecast_observation_service import create_forecast_snapshot
+                target_db = db
+                should_close = False
+                if target_db is None:
+                    from database import SessionLocal
+                    target_db = SessionLocal()
+                    should_close = True
+                try:
+                    for f_item in fc.values():
+                        create_forecast_snapshot(target_db, f_item, now_ms=now_ms)
+                    if should_close:
+                        target_db.commit()
+                except Exception as snap_e:
+                    if should_close:
+                        target_db.rollback()
+                    logger.warning(f"Error persisting forecast snapshots: {snap_e}")
+                finally:
+                    if should_close:
+                        target_db.close()
+            except Exception as persist_err:
+                logger.warning(f"Failed to initialize session for forecast snapshot: {persist_err}")
         except Exception as exc:  # noqa: BLE001 - forecast is observation only
             logger.error(f"SYSTEM_ERROR in session forecast: {exc}", exc_info=True)
             self.session_forecasts_cache[symbol] = {
@@ -509,7 +532,7 @@ class StrategyService:
 
             result = evaluate_scenario_cycle(
                 db, symbol, candles_by_tf, q, now_ms, config=cfg, settings=settings, entry_window=entry_window)
-            self._cache_session_forecasts(symbol, candles_by_tf, now_ms, cfg, result.primary, result.issues)
+            self._cache_session_forecasts(symbol, candles_by_tf, now_ms, cfg, result.primary, result.issues, db=db)
 
             from services.smc_observation_service import record_observation_snapshot
             for s in result.changed:

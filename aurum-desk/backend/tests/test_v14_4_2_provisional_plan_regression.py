@@ -260,3 +260,114 @@ def test_t20_cost_snapshot_consistency():
     assert calc_long.multiplier == 1.0
     assert calc_short.net_risk_usdt > 0
     assert calc_long.net_risk_usdt > 0
+
+
+def test_liq01_engine15m_real_output_adapter_accepted():
+    """LIQ01 / TC-LIQ-PRODUCTION: Real evaluate_smc_setup output generates liquidity_levels
+    with confirmed_at and pivot metadata, which adapt_legacy_liquidity_candidates accepts.
+    """
+    import smc_engine
+    import schemas
+
+    # Generate 30 candles with a clear swing low pivot at index 10 and swing high at index 18
+    candles = []
+    base_ts = 1728000000000
+    for i in range(30):
+        # Create a dip around i=10 (low = 4150.0) and high around i=18 (high = 4190.0)
+        c_low = 4150.0 if i == 10 else 4160.0 + (i * 0.5)
+        c_high = 4190.0 if i == 18 else c_low + 5.0
+        c_open = c_low + 1.0
+        c_close = c_high - 1.0
+        c = schemas.CandleCreate(
+            symbol="XAUUSDT",
+            timeframe="15M",
+            timestamp=base_ts + i * 900_000,
+            open=c_open,
+            high=c_high,
+            low=c_low,
+            close=c_close,
+            volume=10.0,
+            is_closed=True
+        )
+        candles.append(c)
+
+    analysis = smc_engine.evaluate_smc_setup(
+        candles=candles,
+        symbol="XAUUSDT",
+        timeframe="15M"
+    )
+
+    liq_levels = analysis.get("liquidity_levels", [])
+    assert len(liq_levels) > 0
+
+    # Ensure confirmed candidates have confirmed_at
+    confirmed = [l for l in liq_levels if l.get("is_confirmed")]
+    assert len(confirmed) > 0
+    for c in confirmed:
+        assert c.get("confirmed_at") is not None
+        assert c.get("id") is not None
+        assert c.get("kind") in ("HIGH", "LOW")
+
+    # Adapt into typed candidates
+    adapted = adapt_legacy_liquidity_candidates(liq_levels, symbol="XAUUSDT", timeframe="15M", as_of_ms=base_ts + 30 * 900_000)
+    assert len(adapted) > 0
+
+
+def test_liq02_raw_kind_mapping_and_dealing_range():
+    """LIQ02 / TC-LIQ-MAPPING: Maps raw kind HIGH/LOW to BUY_SIDE/SELL_SIDE,
+    excludes dealing range from confirmed pivots, and rejects missing confirmed_at.
+    """
+    levels = [
+        # Raw HIGH with confirmed_at
+        {"price": 4195.0, "kind": "HIGH", "timestamp": 1000, "confirmed_at": 1050},
+        # Raw LOW with confirmed_at
+        {"price": 4155.0, "kind": "LOW", "timestamp": 1000, "confirmed_at": 1050},
+        # Dealing range boundary -> must NOT be treated as a confirmed pivot
+        {"price": 4200.0, "kind": "DEALING_HIGH", "type": "DEALING_HIGH", "timestamp": 1000, "is_confirmed": False},
+        # Missing confirmed_at -> must be rejected
+        {"price": 4140.0, "kind": "LOW", "timestamp": 1000},
+    ]
+
+    adapted = adapt_legacy_liquidity_candidates(levels, symbol="XAUUSDT", timeframe="15M", as_of_ms=2000)
+    assert len(adapted) == 2
+    high_level = next(l for l in adapted if l.price == 4195.0)
+    low_level = next(l for l in adapted if l.price == 4155.0)
+
+    assert high_level.side == "BUY_SIDE"
+    assert high_level.source_kind in ("HIGH", "SWING_HIGH")
+    assert low_level.side == "SELL_SIDE"
+    assert low_level.source_kind in ("LOW", "SWING_LOW")
+
+
+def test_liq03_timeframe_durations_and_unsupported_rejection():
+    """LIQ03 / TC-LIQ-TIMEFRAME: Strict timeframe duration normalization (D/1D)
+    and explicit rejection of unknown timeframe without silent fallback.
+    """
+    levels = [
+        {"price": 4150.0, "kind": "LOW", "timestamp": 1000, "confirmed_at": 1050, "state": "UNTOUCHED"}
+    ]
+
+    # Test "D" normalizes to 1D
+    res_d = build_provisional_plan(
+        direction="SHORT",
+        entry=4170.0,
+        stop_loss=4180.0,
+        levels=levels,
+        timeframe="D",
+        as_of_ms=2000
+    )
+    assert res_d.status in ("AVAILABLE", "AVAILABLE_BLOCKED")
+    assert res_d.take_profit == 4150.0
+
+    # Test unknown timeframe fails explicitly
+    res_unknown = build_provisional_plan(
+        direction="SHORT",
+        entry=4170.0,
+        stop_loss=4180.0,
+        levels=levels,
+        timeframe="99M",
+        as_of_ms=2000
+    )
+    assert res_unknown.status == "INVALID_TIMEFRAME"
+    assert "UNSUPPORTED_TIMEFRAME_99M" in str(res_unknown.reason_code)
+    assert res_unknown.take_profit is None

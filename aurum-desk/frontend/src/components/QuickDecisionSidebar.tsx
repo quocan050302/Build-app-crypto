@@ -648,7 +648,7 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                   <span>SL (Lỗ ròng / Lỗ giá):</span>
                   <span className="text-gray-200 font-mono">
                     <span className="text-rose-400 font-bold">${selectedIntent.initialRiskUsdt?.toFixed(2) || '2.50'}</span>
-                    {selectedIntent.grossLossUsdt !== undefined && (
+                    {selectedIntent.grossLossUsdt != null && Number.isFinite(selectedIntent.grossLossUsdt) && (
                       <span className="text-gray-400 text-[10px] ml-1">/ ${selectedIntent.grossLossUsdt.toFixed(2)}</span>
                     )}
                   </span>
@@ -656,10 +656,10 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                 <div className="flex items-center justify-between">
                   <span>TP (Lãi ròng / Lãi giá):</span>
                   <span className="text-gray-200 font-mono">
-                    <span className={selectedIntent.netRewardUsdt !== undefined && selectedIntent.netRewardUsdt < 0 ? 'text-rose-400' : 'text-emerald-400 font-bold'}>
-                      ${selectedIntent.netRewardUsdt !== undefined ? selectedIntent.netRewardUsdt.toFixed(2) : (netRR > 0 ? (selectedIntent.initialRiskUsdt * netRR).toFixed(2) : '--')}
+                    <span className={selectedIntent.netRewardUsdt != null && Number.isFinite(selectedIntent.netRewardUsdt) && selectedIntent.netRewardUsdt < 0 ? 'text-rose-400' : 'text-emerald-400 font-bold'}>
+                      ${selectedIntent.netRewardUsdt != null && Number.isFinite(selectedIntent.netRewardUsdt) ? selectedIntent.netRewardUsdt.toFixed(2) : (netRR > 0 ? (selectedIntent.initialRiskUsdt * netRR).toFixed(2) : '--')}
                     </span>
-                    {selectedIntent.grossRewardUsdt !== undefined && (
+                    {selectedIntent.grossRewardUsdt != null && Number.isFinite(selectedIntent.grossRewardUsdt) && (
                       <span className="text-gray-400 text-[10px] ml-1">/ ${selectedIntent.grossRewardUsdt.toFixed(2)}</span>
                     )}
                   </span>

@@ -141,6 +141,23 @@ class BitgetWSService:
         if not quote.is_valid:
             return
 
+        from services.quote_ordering_service import quote_ordering_service, QuoteDisposition
+
+        disposition, reason = quote_ordering_service.classify_quote(quote)
+
+        if disposition == QuoteDisposition.REJECT_INVALID:
+            return
+
+        if disposition == QuoteDisposition.DUPLICATE:
+            # Discard identical duplicate to prevent double executions
+            return
+
+        if disposition == QuoteDisposition.LATE_EVIDENCE:
+            # Late quote out-of-order: does NOT roll back latest_quote!
+            logger.info(f"Late quote out-of-order for {quote.symbol}: {reason}")
+            return
+
+        # ACCEPT_CURRENT
         self.latest_quote = quote
         self.last_success_time = quote.received_at_ms
 

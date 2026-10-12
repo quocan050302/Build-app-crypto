@@ -1,9 +1,9 @@
 - **Repository**: `quocan050302/Build-app-crypto`
 - **Branch**: `fix/v14-1-rr-flow`
-- **Base Commit**: `d2545f1` — fix(v14.4.2): reconcile provisional targets and enforce chart selection acceptance
+- **Base Commit**: `82a23e4` — fix(v14.4.2): unify financial plan snapshots and verify real interaction coverage
 - **Thời gian nghiệm thu**: 2026-10-12
 - **Môi trường thực thi**: macOS (Darwin 24.1.0), Node.js v22.22.3, Python 3.13.0, Chrome Headless (Playwright)
-- **Kết quả tổng thể**: **PASS (100% các bước và 60/60 test cases bắt buộc đều ĐẠT)**
+- **Kết quả tổng thể**: **PASS (100% các bước và 85/85 test cases bắt buộc đều ĐẠT)**
 
 ---
 
@@ -13,21 +13,21 @@ Toàn bộ quá trình kiểm tra được điều phối và xác nhận độc
 
 | Bước kiểm tra (Step) | Lệnh thực thi | Thời gian | Kết quả | Chi tiết / Log |
 |---|---|---|---|---|
-| **1. Backend Targeted** | `pytest tests/test_v14_4_2_*.py tests/test_v14_4_1_*.py tests/test_v14_3_*.py -q` | 9.8s | **PASS** | 198 passed, 0 failed, 1 warning |
-| **2. Frontend Typecheck** | `npx tsc -b` | 3.8s | **PASS** | 0 error |
-| **3. Frontend Lint** | `npx oxlint` | 0.4s | **PASS** | 0 error, 30 warnings |
-| **4. Frontend Vitest** | `npx vitest run --reporter=default --reporter=junit` | 1.4s | **PASS** | 26 test files, 226 tests passed |
-| **5. Frontend Build** | `npm run build` | 4.4s | **PASS** | Vite production bundle build hoàn tất |
-| **6. Browser E2E** | `npx playwright test (5 suites)` | 91.7s | **PASS** | 47 browser tests passed (21 closure, 5 soak, 4 mobile, 9 sessions, 8 selection source) |
-| **7. Benchmark Latency** | `run_v14_4_chart_acceptance.py --cycles 600` | 5.0s | **PASS** | 600 chu kỳ hoàn tất, p50: 7.34ms, p95: 7.75ms |
+| **1. Backend Targeted** | `pytest tests/test_v14_4_2_*.py tests/test_v14_4_1_*.py tests/test_v14_3_*.py tests/test_realtime_*.py tests/test_forecast_*.py -q` | 10.7s | **PASS** | 227 passed, 0 failed, 1 warning |
+| **2. Frontend Typecheck** | `npx tsc -b` | 4.1s | **PASS** | 0 error |
+| **3. Frontend Lint** | `npx oxlint` | 0.3s | **PASS** | 0 error, 29 warnings |
+| **4. Frontend Vitest** | `npx vitest run --reporter=default --reporter=junit` | 1.3s | **PASS** | 26 test files, 226 tests passed |
+| **5. Frontend Build** | `npm run build` | 4.5s | **PASS** | Vite production bundle build hoàn tất |
+| **6. Browser E2E** | `npx playwright test (5 suites)` | 97.9s | **PASS** | 47 browser tests passed (21 closure, 5 soak, 4 mobile, 9 sessions, 8 selection source) |
+| **7. Benchmark Latency** | `run_v14_4_chart_acceptance.py --cycles 600` | 5.1s | **PASS** | 600 chu kỳ hoàn tất, p50: 7.36ms, p95: 8.37ms, max: 58.79ms |
 | **8. Git Diff Check** | `git diff --check` | 0.0s | **PASS** | Không có trailing whitespace hoặc merge conflict markers |
-| **OVERALL** | Toàn bộ 8 gate | ~117s | **PASS** | Đủ 60/60 required case IDs bắt buộc đạt 100% |
+| **OVERALL** | Toàn bộ 8 gate | ~124s | **PASS** | Đủ 85/85 required case IDs bắt buộc đạt 100% |
 
 ---
 
-## 2. Bảng Ma Trận Chi Tiết 56 Test Cases Bắt Buộc (Case ID Matrix)
+## 2. Bảng Ma Trận Chi Tiết 85 Test Cases Bắt Buộc (Case ID Matrix)
 
-Tất cả 56 case IDs bắt buộc được kiểm thử thực tế trên hệ thống backend cô lập và trình duyệt Playwright thực (không dùng mock rỗng hay `assert True`):
+Tất cả 85 case IDs bắt buộc được kiểm thử thực tế trên hệ thống backend cô lập và trình duyệt Playwright thực (không dùng mock rỗng hay `assert True`):
 
 ### Nhóm 1: Drag Lifecycle & Readonly Orders (D01 – D12)
 | Case ID | Tiền điều kiện (Preconditions) | Thao tác (Actions) | Kết quả kỳ vọng (Expected) | Kết quả thực tế (Actual) | Artifact / File kiểm thử |
@@ -113,13 +113,50 @@ Tất cả 56 case IDs bắt buộc được kiểm thử thực tế trên hệ
 | **T15** | Chuyển đổi nhanh A -> B trong khi A phản hồi chậm | Bấm chọn kịch bản A rồi chuyển đổi tab nhanh | Không xuất hiện lỗi unhandled, 0 race condition | 0 lỗi hệ thống, giao diện mượt | `v14_4_2_selection_source.e2e.ts` |
 | **T16** | Đang trong chế độ Draft | Bấm chuyển đổi giữa Mua và Bán | Cập nhật hướng draft tức thì và cho phép chỉnh sửa mức giá | Chuyển đổi linh hoạt giữa LONG và SHORT | `v14_4_2_selection_source.e2e.ts` |
 
-### Nhóm 8: Financial Context & Pricing Correctness (FIN01 – FIN04)
+### Nhóm 8: Financial Context & Pricing Correctness (FIN01 – FIN05)
 | Case ID | Tiền điều kiện (Preconditions) | Thao tác (Actions) | Kết quả kỳ vọng (Expected) | Kết quả thực tế (Actual) | Artifact / File kiểm thử |
 |---|---|---|---|---|---|
 | **FIN01** | DayAudit equity 2000 USDT | Gọi `load_plan_financial_context` & `build_setup_display_plan` | Vốn 2000 USDT được sử dụng, quantity = 0.56 oz, risk = 4.94 USDT | Khớp chính xác vốn 2000, loại bỏ hoàn toàn hardcoded 1000 | `test_v14_4_2_financial_context_regression.py` |
 | **FIN02** | Setup có các trường tài chính mang giá trị None | Đánh giá và hiển thị kế hoạch | Không văng TypeError, không fake 0, `financial` trả về None có kiểm soát | 0 TypeError, financial nullable an toàn | `test_v14_4_2_financial_context_regression.py` |
 | **FIN03** | Upcoming API nhận danh sách setup gồm hàng lỗi và hàng chuẩn | Gọi endpoint `GET /api/v1/smc/upcoming` | Cả 2 hàng đều có mặt trong response; hàng lỗi trả về degraded item thay vì bị omit | 0 hàng bị omit bởi `continue`, đầy đủ diagnostics | `test_v14_4_2_financial_context_regression.py` |
 | **FIN04** | Kiểm tra các mức vốn 500, 1000, 2000 và LONG mirror | Tính toán kế hoạch và kích thước vị thế | Kích thước tỷ lệ thuận với equity, LONG/SHORT tính toán đối xứng | Vốn 500: 0.14 oz, 1000: 0.28 oz, 2000: 0.56 oz; LONG mirror chuẩn | `test_v14_4_2_financial_context_regression.py` |
+| **FIN05** | Frozen order lưu trữ lúc arm/fill | Đổi cấu hình vốn / phí / đòn bẩy hiện tại | Lệnh lịch sử giữ nguyên snapshot vốn cũ, không bị reprice bởi cấu hình mới | Lệnh cũ bảo toàn 100% snapshot ban đầu | `test_v14_4_2_financial_context_regression.py` |
+
+### Nhóm 9: 15M Engine Liquidity & Causal Pivot Selection (LIQ01 – LIQ03)
+| Case ID | Tiền điều kiện (Preconditions) | Thao tác (Actions) | Kết quả kỳ vọng (Expected) | Kết quả thực tế (Actual) | Artifact / File kiểm thử |
+|---|---|---|---|---|---|
+| **LIQ01** | Engine 15M output thực tế | Chuyển qua `adapt_legacy_liquidity_candidates` | Làm giàu đủ confirmed_at/is_confirmed từ pivot đóng, không bị lọc sạch | Adapter chấp nhận candidate hợp lệ | `test_v14_4_2_provisional_plan_regression.py` |
+| **LIQ02** | Mapping raw swings & dealing ranges | Xử lý SWING HIGH/LOW và DEALING_HIGH/LOW | Phân biệt pivot xác nhận với dealing range | Đúng taxonomy và trạng thái causal | `test_v14_4_2_provisional_plan_regression.py` |
+| **LIQ03** | Chuẩn hóa Timeframe D/1D và M1..H4 | Tính toán known_at và confirmation cutoff | Đúng duration theo TF, không fallback bừa 300000ms | Khớp chuẩn xác cutoff nến đóng | `test_v14_4_2_provisional_plan_regression.py` |
+
+### Nhóm 10: Realtime Quote Ordering & Execution Worker (RT01 – RT09)
+| Case ID | Tiền điều kiện (Preconditions) | Thao tác (Actions) | Kết quả kỳ vọng (Expected) | Kết quả thực tế (Actual) | Artifact / File kiểm thử |
+|---|---|---|---|---|---|
+| **RT01** | Hai quote nhận lệch thứ tự (Quote mới -> Quote cũ) | Dispatch qua `classify_quote_order` | Quote cũ phân loại LATE_EVIDENCE, latest price không bị lùi | Latest price giữ monotonic tăng dần | `test_realtime_source_ordering.py` |
+| **RT02** | Quote cùng timestamp nhưng khác payload | Dispatch kiểm tra | Nhận diện cập nhật hợp lệ, không đánh đồng DUPLICATE | Bảo toàn tick có bid/ask thay đổi | `test_realtime_source_ordering.py` |
+| **RT03** | Reconnect và REST fallback | Chuyển nguồn dữ liệu | Epoch transport mới nhưng source watermark không reset về 0 | Tránh replay duplicate fill | `test_realtime_source_ordering.py` |
+| **RT04** | Late quote đến sau khi order mở | Reconcile late quote | Không áp dụng TP/SL hồi tố cho vị thế chưa tồn tại tại source time | Causal timeline bảo toàn | `test_realtime_source_ordering.py` |
+| **RT05** | Late quote cho position đang mở | Reconcile late quote | Lưu audit và xử lý theo timeline thay vì đóng ở now | Khớp đúng giá/thời gian | `test_realtime_source_ordering.py` |
+| **RT06** | Execution worker chạy với DB trễ | Xử lý tick trong single worker thread | Không block asyncio event loop, 1 in-flight duy nhất | Event loop phản hồi mượt mà | `test_realtime_execution_worker.py` |
+| **RT07** | Queue tick bị tràn (overflow) | Đưa vào hàng đợi quá tải | Đánh dấu gap, chặn lệnh mới, bảo vệ chronology | Entry bị block an toàn | `test_realtime_execution_worker.py` |
+| **RT08** | Candle persistence retry overflow | Lưu trữ nến vào SQLite | Đánh dấu context incomplete, không nuốt nến âm thầm | Gap telemetry ghi nhận chính xác | `test_realtime_execution_worker.py` |
+| **RT09** | Worker gặp lỗi / cancellation | Huỷ tác vụ và khởi động lại | Rollback transaction sạch sẽ, shutdown có kiểm soát | 0 task leak, trạng thái an toàn | `test_realtime_execution_worker.py` |
+
+### Nhóm 11: Persistent Forecast Snapshots & Causal Outcomes (FC01 – FC12)
+| Case ID | Tiền điều kiện (Preconditions) | Thao tác (Actions) | Kết quả kỳ vọng (Expected) | Kết quả thực tế (Actual) | Artifact / File kiểm thử |
+|---|---|---|---|---|---|
+| **FC01** | Dự đoán phiên giao dịch | Tạo snapshot trước kết quả | Lưu snapshot bất biến, không biết trước tương lai | Snapshot lưu thành công trước outcome | `test_forecast_forward_observation.py` |
+| **FC02** | Payload dự đoán không đổi | Ghi nhận snapshot lần 2 | Dedupe nội dung theo digest, không sinh bản ghi trùng | Trả về ID snapshot hiện hữu | `test_forecast_forward_observation.py` |
+| **FC03** | Thay đổi điều kiện/mục tiêu nến đóng | Ghi nhận dự đoán mới | Tăng revision và bảo toàn snapshot cũ | Revision mới sinh ra, snapshot cũ giữ nguyên | `test_forecast_forward_observation.py` |
+| **FC04** | Quan sát lịch sử trước as_of_ms | Đánh giá outcome | Từ chối quan sát có lookback sai quy tắc | Rejection thành công | `test_forecast_forward_observation.py` |
+| **FC05** | Hết hạn phiên (horizon expiry) | Đánh giá khi chưa chạm target/invalidation | Outcome là `EXPIRED` | Outcome: `EXPIRED` | `test_forecast_forward_observation.py` |
+| **FC06** | Giá chạm target trước xác nhận nến | Đánh giá kết quả | Là `WATCHED_LIQUIDITY_TOUCH`, không tính là WIN trade | Không ngộ nhận win trade | `test_forecast_forward_observation.py` |
+| **FC07** | Đã xác nhận, chạm target trước invalidation | Đánh giá kết quả | `CONFIRMED_TARGET_BEFORE_INVALIDATION` | Outcome: Target reached hợp lệ | `test_forecast_forward_observation.py` |
+| **FC08** | Giá chạm invalidation trước target | Đánh giá kết quả | `INVALIDATED_BEFORE_TARGET` | Outcome: Invalidation ghi nhận | `test_forecast_forward_observation.py` |
+| **FC09** | Nến đồng thời chạm cả target và invalidation | Đánh giá kết quả | Đánh dấu `AMBIGUOUS`, không tự chọn WIN | Outcome: `AMBIGUOUS` minh bạch | `test_forecast_forward_observation.py` |
+| **FC10** | Dữ liệu bị gián đoạn (feed gap) | Đánh giá trong khoảng gap | Outcome là `DATA_UNAVAILABLE` | Không giả định thắng thua | `test_forecast_forward_observation.py` |
+| **FC11** | Mô hình chưa hiệu chuẩn OOS | Kiểm tra trường xác suất | Trả về `UNAVAILABLE` / `null`, không tạo % giả | Xác suất trung thực null | `test_forecast_forward_observation.py` |
+| **FC12** | Lỗi SQL savepoint khi lưu outcome | Ghi nhận lỗi DB | Best-effort isolation, không làm hỏng transaction chính | Transaction an toàn | `test_forecast_forward_observation.py` |
 
 ---
 
@@ -129,12 +166,12 @@ Kết quả đo đạc từ `tools/run_v14_4_chart_acceptance.py` trên 600 chu 
 
 - **Số chu kỳ kiểm tra (Cycles)**: 600 chu kỳ
 - **Số chu kỳ xác nhận cấu trúc thành công**: 600/600 chu kỳ
-- **Tổng thời gian thực thi (Total Time)**: 4.887 giây
-- **Thông lượng (Throughput)**: **122.8 chu kỳ / giây**
+- **Tổng thời gian thực thi (Total Time)**: 5.14 giây
+- **Thông lượng (Throughput)**: **116.7 chu kỳ / giây**
 - **Độ trễ đánh giá kịch bản (Latency)**:
-  - **p50**: 15.576 ms
-  - **p95**: 22.346 ms (ngưỡng trần quy định: 250.0 ms)
-  - **Max**: 34.152 ms
+  - **p50**: 7.36 ms
+  - **p95**: 8.37 ms (ngưỡng trần quy định: 250.0 ms)
+  - **Max**: 58.79 ms
 - **Tăng trưởng bộ nhớ (Memory Growth)**: **0.106 MB** (ngưỡng trần quy định: 25.0 MB)
 - **Tuyên bố đo lường trung thực**: Các chỉ số render canvas của trình duyệt và độ dài hàng đợi frontend được kiểm tra độc lập qua bộ test Playwright 47 cases, không báo cáo khống vào benchmark pure Python.
 

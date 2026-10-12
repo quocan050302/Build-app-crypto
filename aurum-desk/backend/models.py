@@ -121,6 +121,7 @@ class DayAudit(Base):
     fills_count = Column(Integer, default=0)  # Max 3
     consecutive_losses = Column(Integer, default=0)  # Max 2
     cooldown_until = Column(BigInteger, nullable=True)  # epoch ms
+    updated_at_ms = Column(BigInteger, nullable=True)  # epoch ms when equity/audit was recorded
     is_blocked = Column(Boolean, default=False)
     block_reason = Column(String(255), nullable=True)
 
@@ -676,4 +677,31 @@ class PaperObservation(Base):
     __table_args__ = (
         UniqueConstraint('namespace', 'event_kind', 'snapshot_id', 'order_id',
                          name='uq_paper_observation_key'),
+    )
+
+
+class ForecastObservation(Base):
+    __tablename__ = "forecast_observations"
+
+    id = Column(String(80), primary_key=True)
+    forecast_id = Column(String(80), nullable=False, index=True)
+    revision = Column(Integer, default=1)
+    symbol = Column(String(20), default="XAUUSDT")
+    session = Column(String(20), nullable=False)
+    session_id = Column(String(80), nullable=False, index=True)
+    as_of_ms = Column(BigInteger, nullable=False, index=True)
+    context_cutoff_ms = Column(BigInteger, nullable=False)
+    content_digest = Column(String(64), nullable=False)
+    hypothesis_type = Column(String(50), nullable=False)
+    direction = Column(String(10), nullable=True)
+    target_price = Column(Float, nullable=True)
+    invalidation_price = Column(Float, nullable=True)
+    outcome_status = Column(String(50), default="PENDING")
+    outcome_at_ms = Column(BigInteger, nullable=True)
+    outcome_details = Column(Text, nullable=True)
+    payload_json = Column(Text, nullable=False)
+    created_at = Column(BigInteger, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('session_id', 'content_digest', name='uq_forecast_session_digest'),
     )

@@ -521,12 +521,68 @@ def evaluate_smc_setup(
     all_fvgs = detect_fvgs(candles, timeframe)
     active_fvgs = [f for f in all_fvgs if not f["mitigated"]][-4:]
 
-    liquidity_levels = [
-        {"price": last_sh, "type": "SWING_HIGH", "timestamp": swing_highs[-1]["timestamp"] if swing_highs else now_ms, "status": "active"},
-        {"price": last_sl, "type": "SWING_LOW", "timestamp": swing_lows[-1]["timestamp"] if swing_lows else now_ms, "status": "active"},
-        {"price": dealing_high, "type": "DEALING_HIGH", "timestamp": now_ms, "status": "active"},
-        {"price": dealing_low, "type": "DEALING_LOW", "timestamp": now_ms, "status": "active"}
-    ]
+    # Enrich liquidity levels from confirmed pivots with full causal metadata
+    liquidity_levels = []
+    for sh in swing_highs:
+        liquidity_levels.append({
+            "id": sh["id"],
+            "price": sh["price"],
+            "type": "SWING_HIGH",
+            "kind": "HIGH",
+            "side": "BUY_SIDE",
+            "timestamp": sh["timestamp"],
+            "pivot_at": sh.get("pivot_at", sh["timestamp"]),
+            "confirmed_at": sh.get("confirmed_at"),
+            "known_at_ms": sh.get("confirmed_at"),
+            "is_confirmed": sh.get("is_confirmed", True),
+            "consumed": sh.get("consumed", False),
+            "state": "CONSUMED" if sh.get("consumed") else "UNTOUCHED",
+            "status": "consumed" if sh.get("consumed") else "active",
+            "source_timeframe": timeframe,
+        })
+    for sl in swing_lows:
+        liquidity_levels.append({
+            "id": sl["id"],
+            "price": sl["price"],
+            "type": "SWING_LOW",
+            "kind": "LOW",
+            "side": "SELL_SIDE",
+            "timestamp": sl["timestamp"],
+            "pivot_at": sl.get("pivot_at", sl["timestamp"]),
+            "confirmed_at": sl.get("confirmed_at"),
+            "known_at_ms": sl.get("confirmed_at"),
+            "is_confirmed": sl.get("is_confirmed", True),
+            "consumed": sl.get("consumed", False),
+            "state": "CONSUMED" if sl.get("consumed") else "UNTOUCHED",
+            "status": "consumed" if sl.get("consumed") else "active",
+            "source_timeframe": timeframe,
+        })
+
+    # Dealing range boundaries (unconfirmed bounds, without fake confirmation)
+    if dealing_high > 0:
+        liquidity_levels.append({
+            "id": f"dh-{timeframe}-{now_ms}",
+            "price": dealing_high,
+            "type": "DEALING_HIGH",
+            "kind": "DEALING_HIGH",
+            "side": "BUY_SIDE",
+            "timestamp": now_ms,
+            "is_confirmed": False,
+            "status": "active",
+            "source_timeframe": timeframe,
+        })
+    if dealing_low > 0:
+        liquidity_levels.append({
+            "id": f"dl-{timeframe}-{now_ms}",
+            "price": dealing_low,
+            "type": "DEALING_LOW",
+            "kind": "DEALING_LOW",
+            "side": "SELL_SIDE",
+            "timestamp": now_ms,
+            "is_confirmed": False,
+            "status": "active",
+            "source_timeframe": timeframe,
+        })
 
     # 4. Strict Setup v1 Sequential Verification
     setup_direction = None

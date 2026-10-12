@@ -759,7 +759,7 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                 </div>
                 <div className="flex justify-between border-t border-charcoal-750 pt-2">
                   <span className="text-gray-400">Lỗ theo giá tại SL (Gross Loss):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.grossLossUsdt !== undefined ? selectedIntent.grossLossUsdt.toFixed(2) : '--'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.grossLossUsdt != null && Number.isFinite(selectedIntent.grossLossUsdt) ? selectedIntent.grossLossUsdt.toFixed(2) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Rủi ro ròng tại SL (Net Risk):</span>
@@ -767,11 +767,11 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                 </div>
                 <div className="flex justify-between border-t border-charcoal-750 pt-2">
                   <span className="text-gray-400">Lãi theo giá tại TP (Gross Reward):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.grossRewardUsdt !== undefined ? selectedIntent.grossRewardUsdt.toFixed(2) : '--'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.grossRewardUsdt != null && Number.isFinite(selectedIntent.grossRewardUsdt) ? selectedIntent.grossRewardUsdt.toFixed(2) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Lợi nhuận ròng tại TP (Net Reward):</span>
-                  <span className="font-mono text-emerald-400 font-bold">${selectedIntent?.netRewardUsdt !== undefined ? selectedIntent.netRewardUsdt.toFixed(2) : '--'} USDT</span>
+                  <span className="font-mono text-emerald-400 font-bold">${selectedIntent?.netRewardUsdt != null && Number.isFinite(selectedIntent.netRewardUsdt) ? selectedIntent.netRewardUsdt.toFixed(2) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between border-t border-charcoal-750 pt-2">
                   <span className="text-gray-400">R:R theo giá (Gross R:R):</span>
@@ -796,27 +796,27 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                 </span>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Phí mở lệnh (Entry Taker 0.04%):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.entryFeeUsdt !== undefined ? selectedIntent.entryFeeUsdt.toFixed(4) : '--'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.entryFeeUsdt != null && Number.isFinite(selectedIntent.entryFeeUsdt) ? selectedIntent.entryFeeUsdt.toFixed(4) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Phí đóng lệnh SL (SL Taker 0.04%):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.slExitFeeUsdt !== undefined ? selectedIntent.slExitFeeUsdt.toFixed(4) : '--'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.slExitFeeUsdt != null && Number.isFinite(selectedIntent.slExitFeeUsdt) ? selectedIntent.slExitFeeUsdt.toFixed(4) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Phí đóng lệnh TP (TP Exit):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.tpExitFeeUsdt !== undefined ? selectedIntent.tpExitFeeUsdt.toFixed(4) : '--'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.tpExitFeeUsdt != null && Number.isFinite(selectedIntent.tpExitFeeUsdt) ? selectedIntent.tpExitFeeUsdt.toFixed(4) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Trượt giá Entry ($0.10/đơn vị):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.entrySlippageUsdt !== undefined ? selectedIntent.entrySlippageUsdt.toFixed(4) : '--'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.entrySlippageUsdt != null && Number.isFinite(selectedIntent.entrySlippageUsdt) ? selectedIntent.entrySlippageUsdt.toFixed(4) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Trượt giá SL ($0.10/đơn vị):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.slExitSlippageUsdt !== undefined ? selectedIntent.slExitSlippageUsdt.toFixed(4) : '--'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.slExitSlippageUsdt != null && Number.isFinite(selectedIntent.slExitSlippageUsdt) ? selectedIntent.slExitSlippageUsdt.toFixed(4) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Trượt giá TP (thị trường):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.tpExitSlippageUsdt !== undefined ? selectedIntent.tpExitSlippageUsdt.toFixed(4) : '$0.0000'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.tpExitSlippageUsdt != null && Number.isFinite(selectedIntent.tpExitSlippageUsdt) ? selectedIntent.tpExitSlippageUsdt.toFixed(4) : '$0.0000'} USDT</span>
                 </div>
                 <div className="border-t border-charcoal-750 pt-1.5 space-y-1 text-[10px] text-gray-400">
                   <div className="flex justify-between">

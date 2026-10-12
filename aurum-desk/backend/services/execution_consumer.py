@@ -28,11 +28,17 @@ class ExecutionConsumer:
     def __init__(self, max_queue_size: int = 500):
         self.queue: asyncio.Queue[CanonicalQuote] = asyncio.Queue(maxsize=max_queue_size)
         self._running = False
+        self._stopping = False
+        self._inflight = False
         self.processed_count = 0
         self.dropped_count = 0
         self.last_processed_quote_ts = 0
         self.last_eval_duration_ms = 0.0
         self.last_queue_wait_ms = 0.0
+        self.db_work_ms = 0.0
+        self.accepted_source_watermark: Optional[int] = None
+        self.last_processed_source_at: Optional[int] = None
+        self.last_completed_processing_at: Optional[int] = None
         self.is_lagging = False
         self.has_execution_gap = False
         self.gap_start_ms: Optional[int] = None
@@ -49,6 +55,27 @@ class ExecutionConsumer:
         self.gap_start_ms = None
         self.gap_end_ms = None
         self.is_lagging = False
+
+    def get_health_metrics(self) -> Dict[str, Any]:
+        """Provides monotonic duration and source watermark health telemetry."""
+        return {
+            "queue_depth": self.queue.qsize(),
+            "queue_wait_ms": self.last_queue_wait_ms,
+            "db_work_ms": self.db_work_ms,
+            "eval_duration_ms": self.last_eval_duration_ms,
+            "processed_count": self.processed_count,
+            "dropped_count": self.dropped_count,
+            "is_lagging": self.is_lagging,
+            "has_execution_gap": self.has_execution_gap,
+            "gap_start_ms": self.gap_start_ms,
+            "gap_end_ms": self.gap_end_ms,
+            "accepted_source_watermark": self.accepted_source_watermark,
+            "last_processed_source_at": self.last_processed_source_at,
+            "last_completed_processing_at": self.last_completed_processing_at,
+            "is_running": self._running,
+            "is_stopping": self._stopping,
+            "is_inflight": self._inflight,
+        }
 
     def enqueue_quote(self, quote: CanonicalQuote) -> bool:
         """
@@ -111,7 +138,8 @@ class ExecutionConsumer:
                 current_bid=quote.bid,
                 current_ask=quote.ask,
                 now_ms=proc_now_ms,
-                clock=c
+                clock=c,
+                tick_timestamp=quote.exchange_ts_ms,
             )
             if closed_order:
                 result["exit_processed"] = True
@@ -138,38 +166,78 @@ class ExecutionConsumer:
 
         return result
 
+    def _process_quote_worker(self, quote: CanonicalQuote, clock: Optional[IClock] = None) -> Dict[str, Any]:
+        """
+        Executes inside a dedicated worker thread via asyncio.to_thread.
+        Manages thread-local SessionLocal() cleanly and measures monotonic db_work_ms.
+        """
+        t0 = time.perf_counter()
+        db: Session = SessionLocal()
+        try:
+            res = self.evaluate_quote_sync(db, quote, clock=clock)
+            return res
+        except Exception as e:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+            self.db_work_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+
+    async def stop(self, timeout: float = 3.0):
+        """
+        Gracefully terminates consumer loop, awaiting completion of any in-flight worker execution.
+        """
+        self._stopping = True
+        self._running = False
+        start = time.perf_counter()
+        while self._inflight and (time.perf_counter() - start < timeout):
+            await asyncio.sleep(0.02)
+        logger.info("ExecutionConsumer stopped gracefully.")
+
     async def run_consumer_loop(self):
         """
-        Main execution loop. Processes quotes sequentially with dedicated database sessions.
+        Main execution loop. Processes quotes sequentially in dedicated worker thread.
+        Never blocks the asyncio event loop with synchronous SQLite queries.
         """
         self._running = True
+        self._stopping = False
         logger.info("ExecutionConsumer loop started.")
 
         while self._running:
             try:
                 quote = await self.queue.get()
-                t0 = time.perf_counter()
+                if not self._running or self._stopping:
+                    self.queue.task_done()
+                    break
 
-                # Process quote
-                db: Session = SessionLocal()
+                self._inflight = True
+                t0 = time.perf_counter()
                 try:
-                    self.evaluate_quote_sync(db, quote)
+                    await asyncio.to_thread(self._process_quote_worker, quote)
                 except Exception as e:
-                    logger.error(f"Error evaluating quote {quote.symbol}: {e}", exc_info=True)
+                    logger.error(f"Error evaluating quote in worker {quote.symbol}: {e}", exc_info=True)
+                    self.has_execution_gap = True
+                    self.is_lagging = True
                 finally:
-                    db.close()
+                    self._inflight = False
                     self.queue.task_done()
 
                 t_diff = (time.perf_counter() - t0) * 1000.0
                 self.last_eval_duration_ms = round(t_diff, 2)
-                self.last_processed_quote_ts = int(time.time() * 1000)
+                now_epoch = int(time.time() * 1000)
+                self.last_processed_quote_ts = now_epoch
+                self.last_completed_processing_at = now_epoch
+                if quote.exchange_ts_ms:
+                    self.last_processed_source_at = quote.exchange_ts_ms
+                    if self.accepted_source_watermark is None or quote.exchange_ts_ms > self.accepted_source_watermark:
+                        self.accepted_source_watermark = quote.exchange_ts_ms
                 self.processed_count += 1
 
                 # Update lag status
                 q_size = self.queue.qsize()
                 if q_size > 350:
                     self.is_lagging = True
-                elif q_size < 50:
+                elif q_size < 50 and not self.has_execution_gap:
                     self.is_lagging = False
 
             except asyncio.CancelledError:

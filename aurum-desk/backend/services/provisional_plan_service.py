@@ -74,13 +74,18 @@ def adapt_legacy_liquidity_candidates(
         price = float(price)
 
         raw_type = str(item.get("type", item.get("source_kind", ""))).upper()
+        raw_kind = str(item.get("kind", "")).upper()
         raw_side = str(item.get("side", "")).upper()
+
+        # Dealing range boundaries are not confirmed swing pivots
+        if "DEALING" in raw_type or "DEALING" in raw_kind:
+            continue
 
         if raw_side in ("BUY_SIDE", "SELL_SIDE"):
             side = raw_side
-        elif "HIGH" in raw_type:
+        elif "HIGH" in raw_type or raw_kind == "HIGH":
             side = "BUY_SIDE"
-        elif "LOW" in raw_type:
+        elif "LOW" in raw_type or raw_kind == "LOW":
             side = "SELL_SIDE"
         else:
             continue
@@ -188,7 +193,13 @@ def build_provisional_plan(
     entry = float(entry)
     stop_loss = float(stop_loss)
 
-    # Timeframe duration mapping
+    # Timeframe duration mapping with explicit normalization
+    tf_str = str(timeframe).upper().strip()
+    if tf_str == "D":
+        tf_str = "1D"
+    elif tf_str == "W":
+        tf_str = "1W"
+
     tf_durations = {
         "1M": 60_000,
         "5M": 300_000,
@@ -196,8 +207,22 @@ def build_provisional_plan(
         "1H": 3_600_000,
         "4H": 14_400_000,
         "1D": 86_400_000,
+        "1W": 604_800_000,
     }
-    candle_dur_ms = tf_durations.get(str(timeframe).upper(), 900_000 if "15" in str(timeframe) else 300_000)
+    if tf_str not in tf_durations:
+        return ProvisionalPlanResult(
+            status="INVALID_TIMEFRAME",
+            reason_code=f"UNSUPPORTED_TIMEFRAME_{tf_str}",
+            direction=direction,
+            entry=entry,
+            stop_loss=stop_loss,
+            take_profit=None,
+            target_id=None,
+            target_known_at_ms=None,
+            as_of_ms=now_ms,
+            calculation=None,
+        )
+    candle_dur_ms = tf_durations[tf_str]
 
     # Adapt candidates if needed
     typed_levels = adapt_legacy_liquidity_candidates(levels, symbol=symbol, timeframe=timeframe, as_of_ms=now_ms)
