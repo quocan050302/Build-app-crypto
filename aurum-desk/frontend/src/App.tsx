@@ -1023,7 +1023,7 @@ function AppContent() {
         currentCapital,
         effectiveRiskPct,
         2.0,
-        setup.quantity || 0.05,
+        setup.quantity && setup.quantity > 0 ? setup.quantity : undefined,
         setup.leverage || leverage,
         setup.margin_mode || marginMode
       );
@@ -1187,7 +1187,7 @@ function AppContent() {
       currentCapital,
       effectiveRiskPct,
       2.0,
-      setup.quantity || 0.05,
+      setup.quantity && setup.quantity > 0 ? setup.quantity : undefined,
       setup.leverage || leverage,
       setup.margin_mode || marginMode
     );
@@ -1199,8 +1199,8 @@ function AppContent() {
       plannedEntry: entry,
       stopLoss: sl,
       takeProfit: tp,
-      quantity: calc.isValid ? calc.quantity : (setup.quantity || 0.05),
-      initialRiskUsdt: calc.isValid ? calc.netRiskUsdt : (setup.risk_usdt || 2.5),
+      quantity: calc.isValid ? calc.quantity : 0,
+      initialRiskUsdt: calc.isValid ? calc.netRiskUsdt : 0,
       grossRewardUsdt: calc.isValid ? calc.grossRewardUsdt : undefined,
       grossLossUsdt: calc.isValid ? calc.grossLossUsdt : undefined,
       netRewardUsdt: calc.isValid ? calc.netRewardUsdt : undefined,
@@ -1226,8 +1226,8 @@ function AppContent() {
       stopLoss: sl,
       takeProfit: tp,
       orderType: 'LIMIT',
-      quantity: calc.isValid ? calc.quantity : (setup.quantity || 0.05),
-      initialRiskUsdt: calc.isValid ? calc.netRiskUsdt : (setup.risk_usdt || 2.5),
+      quantity: calc.isValid ? calc.quantity : 0,
+      initialRiskUsdt: calc.isValid ? calc.netRiskUsdt : 0,
       grossRewardUsdt: calc.isValid ? calc.grossRewardUsdt : undefined,
       grossLossUsdt: calc.isValid ? calc.grossLossUsdt : undefined,
       netRewardUsdt: calc.isValid ? calc.netRewardUsdt : undefined,
@@ -2049,39 +2049,101 @@ function AppContent() {
                         </div>
 
                         {/* Mid row: Planned Levels, R:R, Distance */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-charcoal-900/60 p-2.5 rounded border border-charcoal-750">
-                          <div>
-                            <span className="text-gray-400 text-[10px] block">Entry (Dự kiến):</span>
-                            <span className="font-bold text-gray-200 text-sm">
-                              ${s.confirmed_entry || s.provisional_entry || 'Chưa xác định'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400 text-[10px] block">Stop Loss (SL):</span>
-                            <span className="font-bold text-rose-400 text-sm">
-                              ${s.confirmed_sl || s.provisional_sl || 'Chưa xác định'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400 text-[10px] block">Take Profit (TP):</span>
-                            <span className="font-bold text-emerald-400 text-sm">
-                              ${s.confirmed_tp || s.provisional_tp || 'Chưa xác định'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400 text-[10px] block">Net R:R & Kích thước:</span>
-                            <span
-                              className={`font-bold text-sm ${
-                                s.net_rr >= 2.0 ? 'text-emerald-400' : 'text-amber-400'
-                              }`}
-                            >
-                              1:{s.net_rr?.toFixed(2) || '2.00'} Net
-                            </span>
-                            <span className="text-gray-400 text-[10px] block">
-                              {s.quantity || 0.05} oz (${s.risk_usdt || 2.5} Risk)
-                            </span>
-                          </div>
-                        </div>
+                        {(() => {
+                          const displayPlan = s.resolved_display_plan ?? (() => {
+                            const res = resolveSetupPriceLevels(s);
+                            if (res.isValid) {
+                              return {
+                                status: s.state,
+                                is_valid: true,
+                                reason_code: 'PLAN_VALID',
+                                reason_message: '',
+                                direction: res.plan.direction,
+                                level_source: res.plan.levelSource,
+                                entry: res.plan.entry,
+                                stop_loss: res.plan.stopLoss,
+                                take_profit: res.plan.takeProfit,
+                                financial: (s.net_rr != null && s.net_rr > 0 && s.quantity != null && s.quantity > 0)
+                                  ? {
+                                      net_rr: s.net_rr,
+                                      quantity: s.quantity,
+                                      net_risk_usdt: s.risk_usdt ?? 0,
+                                      meets_min_rr: s.net_rr >= 2.0
+                                    }
+                                  : null
+                              };
+                            }
+                            return {
+                              status: 'INVALID_GEOMETRY',
+                              is_valid: false,
+                              reason_code: 'INVALID_GEOMETRY',
+                              reason_message: res.reason,
+                              direction: s.direction,
+                              level_source: 'invalid',
+                              entry: s.confirmed_entry ?? s.provisional_entry ?? null,
+                              stop_loss: s.confirmed_sl ?? s.provisional_sl ?? null,
+                              take_profit: null,
+                              financial: null
+                            };
+                          })();
+
+                          return (
+                            <>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-charcoal-900/60 p-2.5 rounded border border-charcoal-750">
+                                <div>
+                                  <span className="text-gray-400 text-[10px] block">Entry (Dự kiến):</span>
+                                  <span className="font-bold text-gray-200 text-sm">
+                                    {displayPlan.entry != null ? `$${displayPlan.entry.toFixed(2)}` : 'Chưa xác định'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-400 text-[10px] block">Stop Loss (SL):</span>
+                                  <span className="font-bold text-rose-400 text-sm">
+                                    {displayPlan.stop_loss != null ? `$${displayPlan.stop_loss.toFixed(2)}` : 'Chưa xác định'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-400 text-[10px] block">Take Profit (TP):</span>
+                                  <span
+                                    className={`font-bold text-sm ${
+                                      displayPlan.take_profit != null ? 'text-emerald-400' : 'text-amber-400'
+                                    }`}
+                                  >
+                                    {displayPlan.take_profit != null
+                                      ? `$${displayPlan.take_profit.toFixed(2)}`
+                                      : (displayPlan.is_valid ? 'Chưa xác định' : 'Chưa có kế hoạch hợp lệ')}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-400 text-[10px] block">Net R:R & Kích thước:</span>
+                                  {displayPlan.financial ? (
+                                    <>
+                                      <span
+                                        className={`font-bold text-sm ${
+                                          displayPlan.financial.net_rr >= 2.0 ? 'text-emerald-400' : 'text-amber-400'
+                                        }`}
+                                      >
+                                        1:{displayPlan.financial.net_rr.toFixed(2)} Net
+                                      </span>
+                                      <span className="text-gray-400 text-[10px] block">
+                                        {displayPlan.financial.quantity.toFixed(2)} oz (${displayPlan.financial.net_risk_usdt.toFixed(2)} Risk)
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="text-amber-400 text-xs block font-semibold mt-1">
+                                      Chưa có kế hoạch hợp lệ
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {!displayPlan.is_valid && (
+                                <div className="text-[11px] text-amber-400 mt-1 font-mono">
+                                  ⚠️ {displayPlan.reason_message || 'TP chưa hợp lệ; chưa thể thực thi'}
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
 
                         {/* Distance to zone & Estimated Liquidation */}
                         <div className="flex flex-wrap justify-between items-center gap-3 text-[11px] text-gray-400">

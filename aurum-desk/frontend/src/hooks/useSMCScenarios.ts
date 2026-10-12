@@ -15,15 +15,17 @@ const RESYNC_DEBOUNCE_MS = 400;
 export interface ScenarioState {
   scenarios: SMCScenarioView[];
   seenDigests: SeenDigests;
+  eventEpoch: number;
   resyncNonce: number;
   dataSynced: boolean;
   committedGeneration: number;
 }
 
 export type ScenarioAction =
-  | { type: 'SET_SCENARIOS'; scenarios: SMCScenarioView[]; generation: number }
+  | { type: 'SET_SCENARIOS'; scenarios: SMCScenarioView[]; generation: number; epochAtStart?: number }
   | { type: 'APPLY_UPDATE'; payload: ScenarioEventPayload }
-  | { type: 'SET_UNSYNCED' };
+  | { type: 'SET_UNSYNCED' }
+  | { type: 'RESET_STATE' };
 
 export function scenarioReducer(state: ScenarioState, action: ScenarioAction): ScenarioState {
   switch (action.type) {
@@ -31,6 +33,14 @@ export function scenarioReducer(state: ScenarioState, action: ScenarioAction): S
       // Discard superseded responses from earlier generations
       if (action.generation < state.committedGeneration) {
         return state;
+      }
+      // If an event arrived while this GET was in-flight, do not regress or claim synced!
+      if (action.epochAtStart !== undefined && action.epochAtStart !== state.eventEpoch) {
+        return {
+          ...state,
+          dataSynced: false,
+          resyncNonce: state.resyncNonce + 1,
+        };
       }
       return {
         ...state,
@@ -46,14 +56,24 @@ export function scenarioReducer(state: ScenarioState, action: ScenarioAction): S
         scenarios: result.ignored ? state.scenarios : result.scenarios,
         seenDigests: result.nextSeenDigests,
         resyncNonce: state.resyncNonce + (result.resync ? 1 : 0),
-        // If an update requires resync, data is temporarily not fully synced until GET commits
         dataSynced: result.resync ? false : state.dataSynced,
+        eventEpoch: result.ignored ? state.eventEpoch : state.eventEpoch + 1,
       };
     }
     case 'SET_UNSYNCED': {
       return {
         ...state,
         dataSynced: false,
+      };
+    }
+    case 'RESET_STATE': {
+      return {
+        scenarios: [],
+        seenDigests: new Map(),
+        eventEpoch: 0,
+        resyncNonce: 0,
+        dataSynced: false,
+        committedGeneration: 0,
       };
     }
     default:
@@ -65,6 +85,7 @@ export function useSMCScenarios(symbol: string = 'XAUUSDT') {
   const [state, dispatch] = useReducer(scenarioReducer, {
     scenarios: [],
     seenDigests: new Map(),
+    eventEpoch: 0,
     resyncNonce: 0,
     dataSynced: false,
     committedGeneration: 0,
@@ -76,6 +97,8 @@ export function useSMCScenarios(symbol: string = 'XAUUSDT') {
   const isMountedRef = useRef(true);
   const abortRef = useRef<AbortController | null>(null);
   const requestGenRef = useRef(0);
+  const stateEpochRef = useRef(0);
+  stateEpochRef.current = state.eventEpoch;
   const activeDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchScenarios = useCallback(async () => {
@@ -83,12 +106,13 @@ export function useSMCScenarios(symbol: string = 'XAUUSDT') {
     const controller = new AbortController();
     abortRef.current = controller;
     const generation = ++requestGenRef.current;
+    const epochAtStart = stateEpochRef.current;
 
     try {
       setIsLoading(true);
       const data = await api.getScenarios(symbol, 5, controller.signal);
       if (isMountedRef.current && !controller.signal.aborted && Array.isArray(data)) {
-        dispatch({ type: 'SET_SCENARIOS', scenarios: data, generation });
+        dispatch({ type: 'SET_SCENARIOS', scenarios: data, generation, epochAtStart });
         setLastUpdated(Date.now());
       }
     } catch (err: any) {

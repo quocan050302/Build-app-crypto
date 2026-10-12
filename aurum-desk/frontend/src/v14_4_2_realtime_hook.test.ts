@@ -22,6 +22,7 @@ describe('RT09-RT14: Realtime Hook & Reducer Integration Tests', () => {
   const createInitialState = (overrides?: Partial<ScenarioState>): ScenarioState => ({
     scenarios: initialScenarios,
     seenDigests: new Map(),
+    eventEpoch: 0,
     resyncNonce: 0,
     dataSynced: true,
     committedGeneration: 1,

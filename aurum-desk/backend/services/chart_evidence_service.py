@@ -41,13 +41,13 @@ def read_snapshot_provenance(snapshot_dict: dict, current_config: ScenarioConfig
 
     current_reqs = describe_model_requirements(current_config)
 
-    # Missing legacy metadata -> unknown provenance
-    if snap_config_version is None and detector_version is None:
+    # Missing legacy metadata -> unknown provenance if ANY required field is missing
+    if snap_config_version is None or detector_version is None or req_profile is None:
         return {
             'is_current': None,
-            'snapshot_detector_version': None,
+            'snapshot_detector_version': detector_version,
             'current_detector_version': curr_detector_v,
-            'snapshot_config_version': None,
+            'snapshot_config_version': snap_config_version,
             'current_config_version': curr_config_v,
             'snapshot_requirement_profile': req_profile,
             'current_requirement_profile': curr_profile,
@@ -56,7 +56,7 @@ def read_snapshot_provenance(snapshot_dict: dict, current_config: ScenarioConfig
             'version_label': "Chưa đủ thông tin phiên bản",
             'warning': "Chưa đủ thông tin phiên bản lúc vào lệnh",
             # Aliases
-            'detector_version': None,
+            'detector_version': detector_version,
             'requirement_profile': req_profile or 'DEFAULT',
             'is_outdated_version': False,
             'is_custom_profile': False,
@@ -116,7 +116,13 @@ def _finite(v: Any) -> bool:
 
 
 def _node_dict(n: Any) -> Dict[str, Any]:
-    return n.to_dict() if isinstance(n, EvidenceNode) else dict(n)
+    if isinstance(n, EvidenceNode):
+        return n.to_dict()
+    if isinstance(n, dict):
+        return dict(n)
+    if isinstance(n, str):
+        return {'id': n, 'kind': 'UNKNOWN'}
+    return {}
 
 
 def build_displacement_annotation(break_node: Any, m5_candles: Optional[List[Any]] = None) -> Optional[Dict[str, Any]]:

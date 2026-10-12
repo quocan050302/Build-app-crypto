@@ -779,8 +779,29 @@ export function ChartComponent({
   };
 
   // 4. Attach / Update RiskRewardPrimitive Overlay using real equity and settings
+  const selectionKey = selectedBinding
+    ? `${selectedBinding.source}:${(selectedBinding as any).scenario_id || (selectedBinding as any).setup_id || (selectedBinding as any).order_id || selectedBinding.id}:${(selectedBinding as any).snapshotId || (selectedBinding as any).snapshot_id || ''}`
+    : 'NONE';
+
+  const prevSelectionKeyRef = useRef(selectionKey);
+
   useEffect(() => {
-    if (activeOverlay !== draftBaseOverlayRef.current) setDraftMode(false);
+    if (selectionKey !== prevSelectionKeyRef.current) {
+      prevSelectionKeyRef.current = selectionKey;
+      setDraftMode(false);
+      draftBaseOverlayRef.current = null;
+      if (dragRafRef.current !== null) {
+        cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
+    }
+  }, [selectionKey]);
+
+  useEffect(() => {
+    if (activeOverlay !== draftBaseOverlayRef.current) {
+      setDraftMode(false);
+      draftBaseOverlayRef.current = activeOverlay;
+    }
   }, [activeOverlay]);
 
   useEffect(() => {
@@ -1113,6 +1134,9 @@ export function ChartComponent({
           {/* Toggle Draft Mode */}
           <button
             onClick={() => {
+              if (!draftMode && selectedBinding) {
+                onClearSelection?.();
+              }
               draftBaseOverlayRef.current = activeOverlay;
               setDraftMode(!draftMode);
             }}

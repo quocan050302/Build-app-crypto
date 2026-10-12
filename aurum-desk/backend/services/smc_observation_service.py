@@ -64,26 +64,24 @@ def persist_paper_observation(
     serialized = json.dumps(payload, sort_keys=True, separators=(',', ':'), ensure_ascii=False, allow_nan=False)
 
     try:
-        savepoint = db.begin_nested()
-        # ON CONFLICT DO NOTHING is idempotent, NOT permission to overwrite a historical fact.
-        stmt = insert(models.PaperObservation).values(
-            id=record_id,
-            namespace=namespace,
-            event_kind=event_kind,
-            snapshot_id=snapshot_id,
-            scenario_id=scenario_id,
-            order_id=order_id,
-            as_of_ms=as_of_ms,
-            payload_json=serialized,
-        ).on_conflict_do_nothing(index_elements=['id'])
-        db.execute(stmt)
-        db.flush()
+        with db.begin_nested():
+            # ON CONFLICT DO NOTHING is idempotent, NOT permission to overwrite a historical fact.
+            stmt = insert(models.PaperObservation).values(
+                id=record_id,
+                namespace=namespace,
+                event_kind=event_kind,
+                snapshot_id=snapshot_id,
+                scenario_id=scenario_id,
+                order_id=order_id,
+                as_of_ms=as_of_ms,
+                payload_json=serialized,
+            ).on_conflict_do_nothing(index_elements=['id'])
+            db.execute(stmt)
+            db.flush()
 
-        row = db.get(models.PaperObservation, record_id)
-        if row is None or row.payload_json != serialized or row.as_of_ms != as_of_ms:
-            savepoint.rollback()
-            raise ValueError('OBSERVATION_IMMUTABILITY_CONFLICT')
-        savepoint.commit()
+            row = db.get(models.PaperObservation, record_id)
+            if row is None or row.payload_json != serialized or row.as_of_ms != as_of_ms:
+                raise ValueError('OBSERVATION_IMMUTABILITY_CONFLICT')
     except Exception:
         raise
 

@@ -467,3 +467,61 @@ def test_o11_savepoint_fault_does_not_corrupt_transaction(db):
     reloaded = db.query(models.PaperOrder).filter(models.PaperOrder.id == "ord-o11-tx").first()
     assert reloaded is not None
     assert reloaded.note == "committed_after_observation_fault"
+
+
+def test_o12_sqlite_trigger_fault_rollback_savepoint(db):
+    """O12 / TC-OBS-SQL-FAULT: SQLite trigger fault in observation savepoint rolls back nested transaction."""
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+    order = models.PaperOrder(
+        id="ord-o12-tx",
+        instrument="XAUUSDT",
+        direction="LONG",
+        state="closed",
+        planned_entry=2650.0,
+        actual_entry=2650.0,
+        stop_loss=2640.0,
+        take_profit=2685.0,
+        actual_exit=2685.0,
+        quantity=1.0,
+        initial_risk_usdt=10.0,
+        realized_pnl_net=35.0,
+        realized_r=3.5,
+        exit_cause="TP_HIT",
+        scenario_snapshot_id="snap-o12",
+        created_at=F.NOW_MS,
+        opened_at=F.NOW_MS,
+        closed_at=F.NOW_MS + 80_000
+    )
+    db.add(order)
+    db.flush()
+
+    db.execute(text("""
+        CREATE TRIGGER IF NOT EXISTS test_reject_obs BEFORE INSERT ON paper_observations
+        BEGIN
+            SELECT RAISE(ABORT, 'injected SQL trigger failure');
+        END;
+    """))
+
+    try:
+        with pytest.raises(IntegrityError):
+            persist_paper_observation(
+                db,
+                namespace="paper",
+                event_kind="ORDER_CLOSED",
+                snapshot_id="snap-o12",
+                scenario_id=None,
+                order_id="ord-o12-tx",
+                as_of_ms=F.NOW_MS + 80_000,
+                payload={"realized_pnl_net": 35.0}
+            )
+        assert not db.in_nested_transaction()
+        order.note = "parent_healthy_after_sql_fault"
+        db.commit()
+    finally:
+        db.execute(text("DROP TRIGGER IF EXISTS test_reject_obs;"))
+        db.commit()
+
+    reloaded = db.query(models.PaperOrder).filter(models.PaperOrder.id == "ord-o12-tx").first()
+    assert reloaded is not None
+    assert reloaded.note == "parent_healthy_after_sql_fault"

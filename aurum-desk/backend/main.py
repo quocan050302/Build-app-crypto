@@ -460,13 +460,18 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
     """Retrieve all watch setups, daily scenarios, and execution candidates."""
     setups = db.query(models.WatchSetup).order_by(models.WatchSetup.updated_at.desc()).all()
     from services.setup_quality_repository import setup_quality_repository
+    from services.setup_display_plan_service import build_setup_display_plan
     quality_map = setup_quality_repository.get_snapshots_batch(db, [s.id for s in setups])
     setup_items = []
     for s in setups:
-        cond_met = json.loads(s.conditions_met) if s.conditions_met else []
-        cond_rem = json.loads(s.conditions_remaining) if s.conditions_remaining else []
-        eligibility = evaluate_setup_eligibility(db, s)
-        setup_items.append({
+        try:
+            cond_met = json.loads(s.conditions_met) if s.conditions_met else []
+            cond_rem = json.loads(s.conditions_remaining) if s.conditions_remaining else []
+            eligibility = evaluate_setup_eligibility(db, s)
+            quality_sum = quality_map.get(s.id, {}).get("assessment", {}).get("summary")
+            quality_snap_id = quality_map.get(s.id, {}).get("snapshot_id")
+            resolved_plan = build_setup_display_plan(s, quality_sum)
+            setup_items.append({
             "id": s.id,
             "version": s.version,
             "strategy": s.strategy,
@@ -504,9 +509,13 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
             "created_at": s.created_at,
             "updated_at": s.updated_at,
             "eligibility": eligibility,
-            "quality_summary": quality_map.get(s.id, {}).get("assessment", {}).get("summary"),
-            "quality_snapshot_id": quality_map.get(s.id, {}).get("snapshot_id")
+            "quality_summary": quality_sum,
+            "quality_snapshot_id": quality_snap_id,
+            "resolved_display_plan": resolved_plan
         })
+        except Exception as exc:
+            logger.warning(f"Skipping concurrently modified setup: {exc}")
+            continue
 
     # Generate Daily Scenarios
     scenarios = {
@@ -2693,9 +2702,16 @@ def get_scenario_chart_evidence(
         raise HTTPException(status_code=409, detail="SCENARIO_SNAPSHOT_MISMATCH")
     try:
         snap = snapshot_from_row(row)
-    except ValueError:
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as e:
+        logger.warning(f"Scenario snapshot parse error for {scenario_id} snapshot {wanted}: {e}")
         raise HTTPException(status_code=409, detail="LEGACY_SNAPSHOT_SCHEMA")
-    return schemas.ChartEvidenceDTO(**build_selected_chart_bundle(snap, source_type="SCENARIO", binding_id=scenario_id))
+    try:
+        bundle = build_selected_chart_bundle(snap, source_type="SCENARIO", binding_id=scenario_id)
+        return schemas.ChartEvidenceDTO(**bundle)
+    except Exception as exc:
+        req_id = f"req-{int(time.time()*1000)}"
+        logger.exception(f"[{req_id}] Unexpected error building scenario chart evidence for {scenario_id}: {exc}")
+        raise HTTPException(status_code=500, detail=f"INTERNAL_EVIDENCE_ERROR:{req_id}")
 
 
 def _empty_chart_bundle(*, source: str, obj_id: str, instance_id, revision, symbol, direction, state, as_of_ms,

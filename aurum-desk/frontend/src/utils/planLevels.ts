@@ -9,6 +9,7 @@ export interface SetupPriceLevels {
   provisional_entry?: number | null;
   provisional_sl?: number | null;
   provisional_tp?: number | null;
+  resolved_display_plan?: ResolvedDisplayPlan;
 }
 
 export type AtomicPlan = {
@@ -52,4 +53,43 @@ export function resolveSetupPriceLevels(setup: SetupPriceLevels): PlanResolution
 
 export function formatRR(value: number | null | undefined): string {
   return typeof value === 'number' && Number.isFinite(value) ? `1:${value.toFixed(2)}` : '—';
+}
+
+export interface ResolvedDisplayPlan {
+  identity: {
+    setup_id?: string;
+    instance_id?: string;
+    revision?: number;
+    timeframe?: string;
+  };
+  status: string;
+  is_valid: boolean;
+  reason_code: string;
+  reason_message: string;
+  direction: 'LONG' | 'SHORT';
+  level_source: string;
+  entry: number | null;
+  stop_loss: number | null;
+  take_profit: number | null;
+  as_of_ms?: number;
+  price_basis?: string;
+  target_source_id?: string;
+  target_cutoff_ms?: number;
+  financial: {
+    gross_rr: number;
+    net_rr: number;
+    net_risk_usdt: number;
+    quantity: number;
+    leverage: number;
+    margin_mode: string;
+    estimated_liquidation: number | null;
+    meets_min_rr: boolean;
+  } | null;
+  diagnostic_prices?: Record<string, number | null>;
+}
+
+export function formatKnownNumber(value: unknown, decimals: number): string {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value.toFixed(decimals)
+    : 'Chưa xác định';
 }

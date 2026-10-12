@@ -107,12 +107,27 @@ export function applyScenarioUpdate(
   }
 
   const cur = prev[idx];
+
+  // 1. Instance check BEFORE revision check: new instance can have revision 1 after old revision 10
+  if (cur.instance_id && upd.instance_id !== cur.instance_id) {
+    const nextSeen = pruneSeenDigests(seenDigests, key, upd.digest);
+    return {
+      scenarios: [...prev],
+      nextSeenDigests: nextSeen,
+      resync: true,
+      ignored: false,
+      reason: 'INSTANCE_CHANGED',
+    };
+  }
+
+  // 2. Same instance: compare revisions
   if (upd.revision < cur.revision) {
     return { scenarios: [...prev], nextSeenDigests: seenDigests, resync: false, ignored: true, reason: 'OLD_REVISION' };
   }
 
   if (upd.revision === cur.revision) {
-    if (upd.digest && seenDigests.has(key) && seenDigests.get(key) !== upd.digest) {
+    const prevDigest = seenDigests.get(key) ?? (cur as any).digest ?? null;
+    if (upd.digest && prevDigest && upd.digest !== prevDigest) {
       const nextSeen = pruneSeenDigests(seenDigests, key, upd.digest);
       return { scenarios: [...prev], nextSeenDigests: nextSeen, resync: true, ignored: false, reason: 'DIGEST_MISMATCH_SAME_REVISION' };
     }

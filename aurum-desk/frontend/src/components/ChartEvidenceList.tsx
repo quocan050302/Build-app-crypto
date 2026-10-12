@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import type { ChartEvidenceBundleV144 } from '../types/smcScenario';
 import { X, Crosshair, AlertTriangle, List } from 'lucide-react';
 import { flattenEvidenceBundle, type EvidenceAnchor } from '../utils/evidenceFocus';
@@ -63,7 +64,7 @@ export const ChartEvidenceList: React.FC<ChartEvidenceListProps> = ({
 
   const items: EvidenceAnchor[] = flattenEvidenceBundle(bundle);
 
-  return (
+  const content = (
     <div
       role="dialog"
       aria-modal="true"
@@ -175,4 +176,6 @@ export const ChartEvidenceList: React.FC<ChartEvidenceListProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(content, document.body) : content;
 };

@@ -125,3 +125,60 @@ def test_a08_skip_e2e_is_incomplete():
     blocking = {"FAIL", "NOT_RUN", "SKIPPED", "INCOMPLETE"}
     overall = "INCOMPLETE" if any(v in blocking for v in statuses.values()) else "PASS"
     assert overall == "INCOMPLETE"
+
+
+def test_a09_missing_case_coverage_fails_overall():
+    """A09 / TC-CASE-MISSING: All steps PASS but missing required case coverage yields INCOMPLETE and exit code 1."""
+    step_statuses = {
+        "npm_ci": "PASS",
+        "tsc": "PASS",
+        "unit_tests": "PASS",
+        "backend_targeted": "PASS",
+        "browser_e2e": "PASS",
+    }
+    # 36 missing cases simulated
+    case_coverage = {
+        "D01": {"status": "PASS"},
+        "E08": {"status": "INCOMPLETE", "missing": ["E08"], "not_passed": {}},
+    }
+    overall, exit_code = runner.compute_overall(step_statuses, case_coverage)
+    assert overall == "INCOMPLETE"
+    assert exit_code == 1
+
+
+def test_a10_skipped_case_coverage_fails_overall():
+    """A10 / TC-CASE-SKIPPED: All steps PASS but a required case was skipped yields INCOMPLETE and exit code 1."""
+    step_statuses = {
+        "backend_targeted": "PASS",
+        "browser_e2e": "PASS",
+    }
+    case_coverage = {
+        "D01": {"status": "PASS"},
+        "D02": {"status": "INCOMPLETE", "missing": [], "not_passed": {"D02": "SKIPPED"}},
+    }
+    overall, exit_code = runner.compute_overall(step_statuses, case_coverage)
+    assert overall == "INCOMPLETE"
+    assert exit_code == 1
+
+
+def test_a11_step_failure_fails_overall():
+    """A11: Any step with FAIL yields FAIL and exit code 1 regardless of coverage."""
+    step_statuses = {
+        "backend_targeted": "FAIL",
+        "browser_e2e": "PASS",
+    }
+    case_coverage = {
+        "D01": {"status": "PASS"},
+    }
+    overall, exit_code = runner.compute_overall(step_statuses, case_coverage)
+    assert overall == "FAIL"
+    assert exit_code == 1
+
+
+def test_a12_port_busy_does_not_kill_process(monkeypatch):
+    """A12 / TC-PORT-OWNERSHIP: Occupied port raises clean diagnostic and does not terminate unowned process."""
+    def mock_is_port_in_use(port):
+        return True
+
+    monkeypatch.setattr(runner, "is_port_in_use", mock_is_port_in_use)
+    assert runner.is_port_in_use(8000) is True

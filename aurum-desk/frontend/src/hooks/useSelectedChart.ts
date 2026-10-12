@@ -179,12 +179,20 @@ export function useSelectedChart() {
         return;
       }
       const status = err?.response?.status;
+      let errorMsg = 'Chưa tải được bằng chứng kịch bản. Thử tải lại.';
+      if (status === 409) {
+        errorMsg = 'Phiên bản setup/kịch bản đã thay đổi — tải lại để xem bằng chứng mới';
+      } else if (status === 404) {
+        errorMsg = 'Không tìm thấy dữ liệu bằng chứng kịch bản';
+      } else if (err?.response?.data?.detail) {
+        errorMsg = 'Chưa tải được bằng chứng kịch bản. Thử tải lại. (' + String(err.response.data.detail) + ')';
+      } else if (err?.message) {
+        errorMsg = 'Chưa tải được bằng chứng kịch bản. Thử tải lại. (' + String(err.message) + ')';
+      }
       dispatch({
         type: 'LOAD_EVIDENCE_ERROR',
         generation: currentGen,
-        error: status === 409
-          ? 'Phiên bản setup/kịch bản đã thay đổi — tải lại để xem bằng chứng mới'
-          : err?.message || 'Lỗi khi tải bằng chứng biểu đồ',
+        error: errorMsg,
       });
     }
   }, []);

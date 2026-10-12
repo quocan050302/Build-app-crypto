@@ -74,6 +74,27 @@ REQUIRED_CASES = {
     "S04": {"suite": "backend", "file": "backend/tests/test_v14_4_2_forecast_requirements.py", "desc": "no_model"},
     "S05": {"suite": "backend", "file": "backend/tests/test_v14_4_2_entry_regression.py", "desc": "news_lessons_account_quote_feed"},
     "S06": {"suite": "backend", "file": "backend/tests/test_v14_4_2_entry_regression.py", "desc": "close_and_new_signal"},
+    # Provisional Plan Regression & Screenshot Verification (T01–T08, T17–T20)
+    "T01": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "screenshot 1 inverted SHORT TP rejected"},
+    "T02": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "causal untouched target below entry selected"},
+    "T03": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "consumed and future levels rejected"},
+    "T04": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "LONG mirror inverted TP rejected"},
+    "T05": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "confirmed partial atomic triple does not mix"},
+    "T06": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "ARMED and PAPER_OPEN levels frozen"},
+    "T07": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "upcoming API returns resolved_display_plan"},
+    "T08": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "UI display plan DTO has nulls, no fake defaults"},
+    "T09": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_selection_source.e2e.ts", "desc": "manual draft SHORT exact T02 calculator values"},
+    "T10": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_selection_source.e2e.ts", "desc": "selection WAITING_BREAK scenario has no plan/RR"},
+    "T11": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_selection_source.e2e.ts", "desc": "API 500 error display, no stale RR/evidence"},
+    "T12": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_selection_source.e2e.ts", "desc": "switching from valid setup to waiting scenario clears RR"},
+    "T13": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_selection_source.e2e.ts", "desc": "copy valid SHORT to draft preserves levels, uncertified"},
+    "T14": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_selection_source.e2e.ts", "desc": "scenario with certified plan has readonly RR"},
+    "T15": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_selection_source.e2e.ts", "desc": "fast selection transition cancels stale response"},
+    "T16": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_selection_source.e2e.ts", "desc": "draft toggle Mua/Ban and drag preserves readonly compat"},
+    "T17": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "screenshot 2 exact numeric calculations"},
+    "T18": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "screenshot 1 zero financial estimate"},
+    "T19": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "signed R:R does not abs negative reward into profit"},
+    "T20": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "consistent cost snapshot for long and short"},
 }
 
 BASELINE_FAILURES = {
@@ -129,7 +150,7 @@ def parse_junit_xml(xml_path: str) -> dict[str, str]:
             results[key] = status
             results[name] = status
             # Extract case tokens like S01, O06, P01, A01
-            for m in re.finditer(r"(?i)(?:^|[\W_])([SOPFLRA]\d{2})(?:[\W_]|$)", name):
+            for m in re.finditer(r"(?i)(?:^|[\W_])(RT\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
                 results[m.group(1).upper()] = status
     except Exception as e:
         print(f"Error parsing JUnit XML {xml_path}: {e}", file=sys.stderr)
@@ -165,7 +186,7 @@ def parse_playwright_json(report_path: str, run_start_time: float) -> dict[str, 
                             elif r_status == "skipped" and status != "FAIL":
                                 status = "SKIPPED"
                     results[title] = status
-                    match = re.match(r"^([A-Z]\d+):", title)
+                    match = re.match(r"^([A-Z]+\d+):", title)
                     if match:
                         results[match.group(1)] = status
                 walk_suites(s.get("suites", []))
@@ -235,6 +256,27 @@ def validate_manifest_files() -> bool:
     return all_ok
 
 
+def compute_overall(step_statuses: dict, case_coverage: dict) -> tuple[str, int]:
+    """
+    Enforces fail-closed evaluation per Appendix H:
+    - Any step status FAIL -> ('FAIL', 1)
+    - Any step status not in {'PASS', 'PASS_SCOPED'} -> ('INCOMPLETE', 1)
+    - Any case_coverage item not PASS -> ('INCOMPLETE', 1)
+    - Any PASS_SCOPED step -> ('PASS_SCOPED', 0)
+    - All passed -> ('PASS', 0)
+    """
+    allowed_steps = {'PASS', 'PASS_SCOPED'}
+    if any(status == 'FAIL' for status in step_statuses.values()):
+        return 'FAIL', 1
+    if not step_statuses or any(status not in allowed_steps for status in step_statuses.values()):
+        return 'INCOMPLETE', 1
+    if not case_coverage or any(case.get('status') != 'PASS' for case in case_coverage.values()):
+        return 'INCOMPLETE', 1
+    if any(status == 'PASS_SCOPED' for status in step_statuses.values()):
+        return 'PASS_SCOPED', 0
+    return 'PASS', 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-e2e", action="store_true")
@@ -268,6 +310,7 @@ def main(argv=None) -> int:
 
     env_backend = {"PYTHONPATH": os.pathsep.join([BACKEND, os.path.join(BACKEND, "tests"), "."])}
     targeted_files = [
+        "tests/test_v14_4_2_provisional_plan_regression.py",
         "tests/test_v14_4_2_requirements.py",
         "tests/test_v14_4_2_forecast_requirements.py",
         "tests/test_v14_4_2_entry_regression.py",
@@ -295,8 +338,12 @@ def main(argv=None) -> int:
     record("frontend_lint", s, simple(s, {"warnings": int(warn.group(1)) if warn else None,
                                           "errors": int(warn.group(2)) if warn else None}))
 
-    s = run_step("frontend_vitest", [npx, "vitest", "run"], FRONTEND)
+    vitest_xml = os.path.join(LOG_DIR, "vitest_junit.xml")
+    if os.path.exists(vitest_xml):
+        os.remove(vitest_xml)
+    s = run_step("frontend_vitest", [npx, "vitest", "run", "--reporter=default", "--reporter=junit", f"--outputFile.junit={vitest_xml}"], FRONTEND)
     record("frontend_vitest", s, simple(s))
+    actual_test_outcomes.update(parse_junit_xml(vitest_xml))
 
     s = run_step("frontend_build", [npm, "run", "build"], FRONTEND)
     record("frontend_build", s, simple(s))
@@ -327,6 +374,7 @@ def main(argv=None) -> int:
             "tests/e2e/v14_4_2_realtime_soak.e2e.ts",
             "tests/e2e/v14_4_2_mobile.e2e.ts",
             "tests/e2e/v14_4_1_sessions_chart.e2e.ts",
+            "tests/e2e/v14_4_2_selection_source.e2e.ts",
         ]
         t_start_e2e = time.time()
         s = run_step("browser_e2e", [npx, "playwright", "test", *e2e_files], FRONTEND, env_extra=env_e2e)
@@ -364,14 +412,8 @@ def main(argv=None) -> int:
     required_manifest = {case_id: [case_id] for case_id in REQUIRED_CASES}
     case_coverage = validate_required_results(required_manifest, actual_test_outcomes)
 
-    blocking = {"FAIL", "NOT_RUN", "SKIPPED", "INCOMPLETE"}
     statuses = {k: v["status"] for k, v in results.items()}
-    if any(v in blocking for v in statuses.values()):
-        overall = "FAIL" if "FAIL" in statuses.values() else "INCOMPLETE"
-    elif any(v == "PASS_SCOPED" for v in statuses.values()):
-        overall = "PASS_SCOPED"
-    else:
-        overall = "PASS"
+    overall, exit_code = compute_overall(statuses, case_coverage)
 
     summary = {
         "overall": overall,
@@ -393,7 +435,7 @@ def main(argv=None) -> int:
     for k, v in statuses.items():
         print(f"  {k:22s} {v}")
     print(f"  OVERALL                {overall}\n  Report JSON: {out_json}")
-    return 0 if overall in {"PASS", "PASS_SCOPED"} else 1
+    return exit_code
 
 
 if __name__ == "__main__":

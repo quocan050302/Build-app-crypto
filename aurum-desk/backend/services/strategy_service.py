@@ -157,29 +157,80 @@ class StrategyService:
                 direction_source = "TREND"
             else:
                 direction_source = "UNCONFIRMED"
-            provisional_entry = sig.get("planned_entry", current_p) if sig else current_p
+            from domain_calculator import CalculationResult, calculate_risk_reward, validate_price_geometry
+            from services.provisional_plan_service import build_provisional_plan
 
-            # Real liquidity target levels
-            sh = analysis.get("swing_high", current_p + 10.0)
-            sl_val = analysis.get("swing_low", current_p - 10.0)
             fallback_sl = round(current_p - max(atr * 2.0, 5.0), 2) if direction == "LONG" else round(current_p + max(atr * 2.0, 5.0), 2)
-            fallback_tp = round(sh, 2) if direction == "LONG" else round(sl_val, 2)
 
-            provisional_sl = sig.get("stop_loss", fallback_sl) if sig else fallback_sl
-            provisional_tp = sig.get("targets", [{}])[0].get("price", fallback_tp) if sig and sig.get("targets") else fallback_tp
-
-            # Calculate authoritative risk-reward for provisional setup using real equity
-            from domain_calculator import calculate_risk_reward, validate_price_geometry
-            calc_prov = calculate_risk_reward(
-                direction=direction,
-                planned_entry=provisional_entry,
-                stop_loss=provisional_sl,
-                take_profit=provisional_tp,
-                capital_usdt=capital,
-                risk_pct=risk_pct,
-                leverage=leverage,
-                margin_mode=margin_mode
-            )
+            if sig:
+                provisional_entry = sig.get("planned_entry", current_p)
+                provisional_sl = sig.get("stop_loss", fallback_sl)
+                sig_targets = sig.get("targets") or []
+                sig_tp = sig_targets[0].get("price") if sig_targets else None
+                if sig_tp is not None:
+                    provisional_tp = float(sig_tp)
+                    calc_prov = calculate_risk_reward(
+                        direction=direction,
+                        planned_entry=provisional_entry,
+                        stop_loss=provisional_sl,
+                        take_profit=provisional_tp,
+                        capital_usdt=capital,
+                        risk_pct=risk_pct,
+                        leverage=leverage,
+                        margin_mode=margin_mode
+                    )
+                else:
+                    provisional_tp = 0.0
+                    calc_prov = calculate_risk_reward(
+                        direction=direction,
+                        planned_entry=provisional_entry,
+                        stop_loss=provisional_sl,
+                        take_profit=0.0,
+                        capital_usdt=capital,
+                        risk_pct=risk_pct,
+                        leverage=leverage,
+                        margin_mode=margin_mode
+                    )
+            else:
+                provisional_entry = current_p
+                provisional_sl = fallback_sl
+                prov_plan = build_provisional_plan(
+                    direction=direction,
+                    entry=provisional_entry,
+                    stop_loss=provisional_sl,
+                    levels=analysis.get("liquidity_levels") or analysis.get("swings") or [],
+                    as_of_ms=now_ms,
+                    settings={
+                        "capital_usdt": capital,
+                        "risk_pct": risk_pct,
+                        "leverage": leverage,
+                        "margin_mode": margin_mode,
+                        "min_net_rr": 2.0
+                    },
+                    causal_candles=candles
+                )
+                if prov_plan.take_profit is not None and prov_plan.calculation is not None:
+                    provisional_tp = prov_plan.take_profit
+                    calc_prov = prov_plan.calculation
+                else:
+                    provisional_tp = 0.0
+                    calc_prov = calculate_risk_reward(
+                        direction=direction,
+                        planned_entry=provisional_entry,
+                        stop_loss=provisional_sl,
+                        take_profit=0.0,
+                        capital_usdt=capital,
+                        risk_pct=risk_pct,
+                        leverage=leverage,
+                        margin_mode=margin_mode
+                    )
+                    if prov_plan.status == "NO_TARGET":
+                        analysis["reason_code"] = "NO_VALID_TARGET"
+                        if setup_stage == "READY":
+                            setup_stage = "WATCHING"
+                    elif prov_plan.status == "INVALID_GEOMETRY":
+                        setup_stage = "INVALID_GEOMETRY"
+                        analysis["reason_code"] = prov_plan.reason_code or "INVALID_GEOMETRY"
 
             # Do NOT artificially inflate target by 2.8x. If Net RR is insufficient, report NET_RR_TOO_LOW
             if not calc_prov.meets_min_rr:
@@ -188,10 +239,14 @@ class StrategyService:
                     analysis["reason_code"] = "NET_RR_TOO_LOW"
 
             # Validate price geometry strictly (LONG: sl < entry < tp, SHORT: tp < entry < sl)
-            is_geom_valid, geom_err = validate_price_geometry(direction, provisional_entry, provisional_sl, provisional_tp)
-            if not is_geom_valid:
-                if setup_stage == "READY":
+            if provisional_tp > 0:
+                is_geom_valid, geom_err = validate_price_geometry(direction, provisional_entry, provisional_sl, provisional_tp)
+                if not is_geom_valid:
                     setup_stage = "INVALID_GEOMETRY"
+                    analysis["reason_code"] = geom_err
+            else:
+                if setup_stage == "READY":
+                    setup_stage = "WATCHING"
 
             invalidation_price = provisional_sl
             inval_reason = "Giá phá vỡ mức Stop Loss hoặc vi phạm cấu trúc đối diện"
