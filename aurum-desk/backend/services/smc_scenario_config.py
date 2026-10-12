@@ -73,3 +73,37 @@ def get_scenario_config(**overrides: Any) -> ScenarioConfig:
     base_dict = active_scenario_config.__dict__.copy()
     base_dict.update(overrides)
     return ScenarioConfig(**base_dict)
+
+
+def describe_model_requirements(config: ScenarioConfig) -> dict[str, Any]:
+    """
+    Returns a pure descriptor of the current causal SMC requirements.
+    This reflects the exact constraints enforced by the pipeline, not just cosmetic UI labels.
+    """
+    return {
+        "sweep": {"importance": "REQUIRED", "description": "Liquidity sweep must occur at the anchor extreme."},
+        "break": {"importance": "REQUIRED", "description": "Market structure must break (BOS/CHoCH) past a valid pivot."},
+        "displacement": {
+            "importance": "REQUIRED",
+            "description": f"Break candle body must exceed {config.displacement_body_atr_min}x of {config.displacement_atr_period}-period ATR."
+        },
+        "fvg": {
+            "importance": "REQUIRED",
+            "description": f"A Fair Value Gap of at least {config.fvg_min_size_atr}x ATR must form along the displacement leg."
+        },
+        "retest": {
+            "importance": "REQUIRED",
+            "description": f"Price must retest the FVG within {config.retest_validity_bars} bars with a {config.retest_buffer_atr}x ATR buffer."
+        },
+        "target": {"importance": "REQUIRED", "description": "A valid unconsumed liquidity target must exist."},
+        "m15_poi": {
+            "importance": "REQUIRED" if config.require_m15_poi else "SUPPORTING",
+            "description": "M15 Point of Interest alignment."
+        },
+        "htf_h1_semantics": {
+            "description": "Counter-trend setups are permitted if the structural chain is exceptionally strong, but H4/H1 alignment adds confluence."
+        },
+        "config_version": config.config_version,
+        "detector_version": config.detector_version,
+        "family": config.family
+    }

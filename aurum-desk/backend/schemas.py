@@ -1334,3 +1334,4 @@ class ChartEvidenceDTO(BaseModel):
     blockers: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
     is_empty: bool = False
+    provenance: Optional[Dict[str, Any]] = None

@@ -31,7 +31,7 @@ if (-not (Test-Path "$FrontendDir\node_modules")) {
 
 # 3. Khoi chay Backend Server (Port 8000)
 Write-Host "[+] Khoi chay Backend FastAPI tai http://127.0.0.1:8000..." -ForegroundColor Green
-Start-Process powershell -WorkingDirectory $BackendDir -ArgumentList "-NoExit", "-Command", "`$env:PYTHONPATH='.'; .\venv\Scripts\python.exe -m uvicorn main:app --reload --host 127.0.0.1 --port 8000"
+Start-Process powershell -WorkingDirectory $BackendDir -ArgumentList "-NoExit", "-Command", "`$env:PYTHONPATH='.'; & `"$VenvPython`" -m uvicorn main:app --reload --host 127.0.0.1 --port 8000"
 
 # Cho 2 giay de backend khoi dong
 Start-Sleep -Seconds 2

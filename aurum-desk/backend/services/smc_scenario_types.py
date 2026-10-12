@@ -183,6 +183,7 @@ class ScenarioSnapshot:
     evidence: List[Dict[str, Any]] = field(default_factory=list)
     probability: Dict[str, Any] = field(default_factory=default_probability)
     context: Dict[str, Any] = field(default_factory=dict)
+    requirement_profile: str = "DEFAULT"
 
     @property
     def snapshot_id(self) -> str:
@@ -262,6 +263,7 @@ class ScenarioSnapshot:
             evidence=list(d.get("evidence") or []),
             probability=d.get("probability") or default_probability(),
             context=d.get("context") or {},
+            requirement_profile=d.get("requirement_profile", "DEFAULT"),
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -296,6 +298,7 @@ class ScenarioSnapshot:
             "plan_fingerprint": self.plan_fingerprint,
             "blockers": list(self.blockers),
             "context": self.context,
+            "requirement_profile": self.requirement_profile,
         }
 
 

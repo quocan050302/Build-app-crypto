@@ -14,6 +14,7 @@ import logging
 import math
 from typing import Any, Dict, List, Optional
 
+from services.smc_scenario_config import ScenarioConfig, describe_model_requirements
 from services.smc_scenario_types import EvidenceNode, ScenarioSnapshot
 
 logger = logging.getLogger('chart_evidence_service')
@@ -22,6 +23,32 @@ BREAK_KINDS = ('MSS', 'CHOCH', 'BOS', 'BREAK_UNCLASSIFIED')
 SWEEP_KINDS = ('SWEEP_HIGH', 'SWEEP_LOW')
 SWING_KINDS = ('SWING_HIGH', 'SWING_LOW')
 BUNDLE_VERSION = 'v14.4.1'
+
+
+def read_snapshot_provenance(snapshot_dict: dict, current_config: ScenarioConfig) -> dict:
+    """
+    Extracts provenance information and compares the snapshot's config version
+    with the current active config version to identify any rule differences.
+    """
+    snap_config_version = snapshot_dict.get('config_version', 0)
+    detector_version = snapshot_dict.get('detector_version', 'UNKNOWN')
+    req_profile = snapshot_dict.get('requirement_profile', 'DEFAULT')
+    
+    version_diff = snap_config_version != current_config.config_version
+    profile_diff = req_profile != "DEFAULT"
+    
+    current_reqs = describe_model_requirements(current_config)
+    
+    return {
+        'snapshot_config_version': snap_config_version,
+        'current_config_version': current_config.config_version,
+        'detector_version': detector_version,
+        'requirement_profile': req_profile,
+        'is_outdated_version': version_diff,
+        'is_custom_profile': profile_diff,
+        'current_requirements': current_reqs,
+        'warning': "Luật SMC đã thay đổi từ lúc ghi nhận snapshot" if version_diff else None
+    }
 
 
 def _finite(v: Any) -> bool:

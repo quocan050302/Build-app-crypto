@@ -161,3 +161,41 @@ def build_scenario_summary_vi(
         lines.append('Hủy khi: vi phạm đáy/đỉnh cấu trúc quét hoặc hết phiên NY.')
 
     return "\n".join(lines)
+
+
+def build_entry_explanation(snapshot: ScenarioSnapshot, plan: Optional[Dict[str, Any]], guards: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
+    """
+    Returns a structured context including context, tracked levels, sweep, break, FVG, target, and guard audit.
+    """
+    ctx = snapshot.context or {}
+    h4 = ctx.get('h4_bias', 'UNKNOWN')
+    h1 = ctx.get('h1_alignment', 'UNKNOWN')
+    
+    evidence_by_kind = {}
+    for n in snapshot.evidence:
+        kind = n.get('kind')
+        if kind:
+            evidence_by_kind[kind] = n
+
+    sweep = evidence_by_kind.get('SWEEP_HIGH') or evidence_by_kind.get('SWEEP_LOW')
+    break_node = next((n for n in snapshot.evidence if n.get('kind') in ('MSS', 'CHOCH', 'BOS')), None)
+    fvg = evidence_by_kind.get('FVG')
+    retest = evidence_by_kind.get('RETEST')
+    
+    return {
+        "context": {
+            "h4_bias": h4,
+            "h1_alignment": h1,
+            "regime": ctx.get('regime', 'UNKNOWN')
+        },
+        "tracked_levels": snapshot.liquidity_map,
+        "evidence_summary": {
+            "sweep": sweep.get('extra', {}).get('detail', 'Có') if sweep else 'Không',
+            "break": break_node.get('extra', {}).get('detail', 'Có') if break_node else 'Không',
+            "fvg": fvg.get('extra', {}).get('detail', 'Có') if fvg else 'Không',
+            "retest": retest.get('extra', {}).get('detail', 'Có') if retest else 'Không'
+        },
+        "target": snapshot.target,
+        "plan": plan,
+        "guard_audit": guards or []
+    }

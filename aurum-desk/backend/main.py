@@ -2811,8 +2811,13 @@ def get_order_chart_evidence(
             raise HTTPException(status_code=409, detail="ORDER_SNAPSHOT_MISMATCH")
         if snap.direction != order.direction:
             raise HTTPException(status_code=409, detail="ORDER_SNAPSHOT_DIRECTION_MISMATCH")
+        
+        from services.smc_scenario_config import active_scenario_config
+        from services.chart_evidence_service import read_snapshot_provenance
+        
         bundle = build_selected_chart_bundle(snap, source_type="ORDER", binding_id=order_id, order_data=order_plan)
         bundle["binding"]["order_state"] = order.state
+        bundle["provenance"] = read_snapshot_provenance(snap.to_dict(), active_scenario_config)
         return schemas.ChartEvidenceDTO(**bundle)
 
     qid = getattr(order, "quality_snapshot_id", None)

@@ -61,6 +61,7 @@ class SessionForecast:
         "note": "Chưa có mô hình xác suất được kiểm định cho sự kiện phiên."})
     entry_eligible: bool = False
     entry_note_vi: str = ENTRY_NOTE_VI
+    relation_status: Optional[str] = None
     convention_version: str = SESSION_CONVENTION_VERSION
     schema_version: str = FORECAST_SCHEMA_VERSION
 
@@ -75,6 +76,7 @@ class SessionForecast:
             "features": self.features, "session_range": self.session_range, "summary_vi": self.summary_vi,
             "scenario_refs": list(self.scenario_refs), "probability": self.probability,
             "entry_eligible": self.entry_eligible, "entry_note_vi": self.entry_note_vi,
+            "relation_status": self.relation_status,
             "convention_version": self.convention_version,
         }
 
@@ -288,9 +290,16 @@ def build_ny_forecast(*, session_id, now_ms, asia: SessionRange, lon: SessionRan
         alt = None
     tgt = _target_for(levels, p["direction"], price, now_ms)
     refs = []
+    relation_status = "UNCERTAIN"
     if primary_scenario is not None:
         refs.append({"scenario_id": primary_scenario.scenario_id, "snapshot_id": primary_scenario.snapshot_id,
-                     "state": primary_scenario.state.value, "direction": primary_scenario.direction})
+                     "state": primary_scenario.state.value if hasattr(primary_scenario.state, "value") else str(primary_scenario.state), "direction": primary_scenario.direction})
+        if p.get("direction") and primary_scenario.direction:
+            if p.get("direction") == primary_scenario.direction:
+                relation_status = "SUPPORTS"
+            else:
+                relation_status = "CONFLICTS"
+
     return SessionForecast(
         session="NY", session_id=session_id, as_of_ms=now_ms,
         data_status="PARTIAL" if ny.is_partial else "OK", is_partial=ny.is_partial, hypothesis_type=hyp,
@@ -298,6 +307,7 @@ def build_ny_forecast(*, session_id, now_ms, asia: SessionRange, lon: SessionRan
         confirmation=p["conditions_vi"], invalidation=[p["invalidation_vi"]] if p.get("invalidation_vi") else [],
         session_range=ny.to_dict(), scenario_refs=refs,
         features={"x_e": london.features.get("X_E")},
+        relation_status=relation_status,
         summary_vi=f"Phiên Mỹ ({'đang chạy' if ny.is_partial else 'đã xong'}): {p['thesis_vi']}")
 
 

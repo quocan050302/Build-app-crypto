@@ -797,7 +797,7 @@ export function ChartComponent({
 
   // 5. Interactive Pointer Drag Handlers (DRAFT only; armed/open/closed/observation are read-only)
   const isReadOnlyOverlay = (d: RiskRewardData) =>
-    d.readOnly === true || d.state === 'armed' || d.state === 'paper_open' || d.state === 'closed';
+    d.readOnly === true || d.state === 'armed' || d.state === 'paper_open' || d.state === 'closed' || d.state === 'invalidated';
 
   const restoreChartInteraction = () => {
     chartRef.current?.applyOptions({ handleScroll: true, handleScale: true });

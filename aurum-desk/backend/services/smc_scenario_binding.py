@@ -100,6 +100,10 @@ def verify_scenario_binding(
         reasons.append("SNAPSHOT_DIGEST_MISMATCH")
     if snap.detector_version != cfg.detector_version:
         reasons.append("DETECTOR_VERSION_MISMATCH")
+    if snap.config_version != cfg.config_version:
+        reasons.append("CONFIG_VERSION_MISMATCH")
+    if getattr(snap, "requirement_profile", "DEFAULT") != "DEFAULT":
+        reasons.append("REQUIREMENT_PROFILE_MISMATCH")
     if snap.evidence_cutoff_ms > now_ms:
         reasons.append("SNAPSHOT_FROM_FUTURE")
     if not (snap.trigger_chain or {}).get("verified"):
