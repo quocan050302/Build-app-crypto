@@ -288,6 +288,9 @@ def run_migration():
     add_column_if_missing("watch_setups", "config_version", "INTEGER DEFAULT 1")
     cur.execute("CREATE INDEX IF NOT EXISTS ix_watch_setups_instance ON watch_setups(setup_instance_id);")
 
+    # Day audits extensions
+    add_column_if_missing("day_audits", "updated_at_ms", "BIGINT")
+
     # Paper orders recovery & config extensions
     add_column_if_missing("paper_orders", "last_processed_market_timestamp", "BIGINT")
     add_column_if_missing("paper_orders", "recovery_status", "VARCHAR(30) DEFAULT 'NONE'")
@@ -671,6 +674,33 @@ def run_migration():
             created_at BIGINT NOT NULL
         );
     """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS forecast_observations (
+            id VARCHAR(80) PRIMARY KEY,
+            forecast_id VARCHAR(80) NOT NULL,
+            revision INTEGER DEFAULT 1,
+            symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+            session VARCHAR(20) NOT NULL,
+            session_id VARCHAR(80) NOT NULL,
+            as_of_ms BIGINT NOT NULL,
+            context_cutoff_ms BIGINT NOT NULL,
+            content_digest VARCHAR(64) NOT NULL,
+            hypothesis_type VARCHAR(50) NOT NULL,
+            direction VARCHAR(10),
+            target_price FLOAT,
+            invalidation_price FLOAT,
+            outcome_status VARCHAR(50) DEFAULT 'PENDING',
+            outcome_at_ms BIGINT,
+            outcome_details TEXT,
+            payload_json TEXT NOT NULL,
+            created_at BIGINT NOT NULL,
+            CONSTRAINT uq_forecast_session_digest UNIQUE (session_id, content_digest)
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_forecast_observations_forecast_id ON forecast_observations(forecast_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_forecast_observations_session_id ON forecast_observations(session_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_forecast_observations_as_of_ms ON forecast_observations(as_of_ms);")
 
     # Seed default TradingPolicy if absent
     cur.execute("SELECT id FROM trading_policies WHERE id = 'default';")
