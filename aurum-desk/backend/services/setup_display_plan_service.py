@@ -122,6 +122,21 @@ def build_setup_display_plan(
     is_frozen_order = str(state).upper() in ("ARMED", "PAPER_OPEN", "CLOSED")
 
     if is_frozen_order:
+        stored_gross_loss = None
+        stored_gross_reward = None
+        stored_net_reward = None
+        stored_multiplier = 1.0
+        stored_risk_pct = None
+        stored_eff_risk_pct = None
+        stored_entry_fee = None
+        stored_sl_exit_fee = None
+        stored_tp_exit_fee = None
+        stored_entry_slip = None
+        stored_sl_exit_slip = None
+        stored_tp_exit_slip = None
+        stored_cost_source = "FROZEN_ORDER_SNAPSHOT"
+        stored_equity_as_of = updated_at
+
         # Check if an explicit frozen snapshot was passed
         if frozen_snapshot is not None and isinstance(frozen_snapshot, dict):
             stored_gross_rr = frozen_snapshot.get("gross_rr")
@@ -135,6 +150,20 @@ def build_setup_display_plan(
             stored_cv = frozen_snapshot.get("cost_version")
             stored_iv = frozen_snapshot.get("instrument_version")
             stored_rv = frozen_snapshot.get("risk_config_version")
+            stored_gross_loss = frozen_snapshot.get("gross_loss_usdt")
+            stored_gross_reward = frozen_snapshot.get("gross_reward_usdt")
+            stored_net_reward = frozen_snapshot.get("net_reward_usdt")
+            stored_multiplier = frozen_snapshot.get("multiplier", 1.0)
+            stored_risk_pct = frozen_snapshot.get("risk_pct")
+            stored_eff_risk_pct = frozen_snapshot.get("effective_risk_pct", stored_risk_pct)
+            stored_entry_fee = frozen_snapshot.get("entry_fee_usdt")
+            stored_sl_exit_fee = frozen_snapshot.get("sl_exit_fee_usdt")
+            stored_tp_exit_fee = frozen_snapshot.get("tp_exit_fee_usdt")
+            stored_entry_slip = frozen_snapshot.get("entry_slippage_usdt")
+            stored_sl_exit_slip = frozen_snapshot.get("sl_exit_slippage_usdt")
+            stored_tp_exit_slip = frozen_snapshot.get("tp_exit_slippage_usdt")
+            stored_cost_source = frozen_snapshot.get("cost_source", "FROZEN_ORDER_SNAPSHOT")
+            stored_equity_as_of = frozen_snapshot.get("equity_as_of_ms", updated_at)
         else:
             stored_gross_rr = _get("gross_rr")
             stored_net_rr = _get("net_rr")
@@ -147,6 +176,29 @@ def build_setup_display_plan(
             stored_cv = _get("cost_version")
             stored_iv = _get("instrument_version")
             stored_rv = _get("risk_config_version") or _get("config_version")
+            raw_cs = _get("cost_snapshot")
+            if raw_cs is not None:
+                if isinstance(raw_cs, str):
+                    import json
+                    try:
+                        raw_cs = json.loads(raw_cs)
+                    except Exception:
+                        raw_cs = {}
+                if isinstance(raw_cs, dict):
+                    stored_gross_loss = raw_cs.get("gross_loss_usdt")
+                    stored_gross_reward = raw_cs.get("gross_reward_usdt")
+                    stored_net_reward = raw_cs.get("net_reward_usdt")
+                    stored_multiplier = raw_cs.get("multiplier", 1.0)
+                    stored_risk_pct = raw_cs.get("risk_pct")
+                    stored_eff_risk_pct = raw_cs.get("effective_risk_pct", stored_risk_pct)
+                    stored_entry_fee = raw_cs.get("entry_fee_usdt")
+                    stored_sl_exit_fee = raw_cs.get("sl_exit_fee_usdt")
+                    stored_tp_exit_fee = raw_cs.get("tp_exit_fee_usdt")
+                    stored_entry_slip = raw_cs.get("entry_slippage_usdt")
+                    stored_sl_exit_slip = raw_cs.get("sl_exit_slippage_usdt")
+                    stored_tp_exit_slip = raw_cs.get("tp_exit_slippage_usdt")
+                    stored_cost_source = raw_cs.get("cost_source", "FROZEN_ORDER_SNAPSHOT")
+                    stored_equity_as_of = raw_cs.get("equity_as_of_ms", updated_at)
 
         has_complete_metrics = (
             financial_value_is_known(stored_net_rr)
@@ -162,28 +214,28 @@ def build_setup_display_plan(
             financial_dto = {
                 "gross_rr": round(float(stored_gross_rr), 4) if financial_value_is_known(stored_gross_rr) else None,
                 "net_rr": round(float(stored_net_rr), 4),
-                "gross_loss_usdt": None,
-                "gross_reward_usdt": None,
+                "gross_loss_usdt": round(float(stored_gross_loss), 2) if financial_value_is_known(stored_gross_loss) else None,
+                "gross_reward_usdt": round(float(stored_gross_reward), 2) if financial_value_is_known(stored_gross_reward) else None,
                 "net_risk_usdt": round(float(stored_risk), 2) if financial_value_is_known(stored_risk) else None,
-                "net_reward_usdt": None,
+                "net_reward_usdt": round(float(stored_net_reward), 2) if financial_value_is_known(stored_net_reward) else None,
                 "quantity": round(float(stored_qty), 4),
-                "multiplier": 1.0,
+                "multiplier": float(stored_multiplier) if financial_value_is_known(stored_multiplier) else 1.0,
                 "leverage": int(stored_lev) if stored_lev else 5,
                 "margin_mode": str(stored_mm or "ISOLATED"),
-                "risk_pct": None,
-                "effective_risk_pct": None,
-                "entry_fee_usdt": None,
-                "sl_exit_fee_usdt": None,
-                "tp_exit_fee_usdt": None,
-                "entry_slippage_usdt": None,
-                "sl_exit_slippage_usdt": None,
-                "tp_exit_slippage_usdt": None,
+                "risk_pct": float(stored_risk_pct) if financial_value_is_known(stored_risk_pct) else None,
+                "effective_risk_pct": float(stored_eff_risk_pct) if financial_value_is_known(stored_eff_risk_pct) else None,
+                "entry_fee_usdt": round(float(stored_entry_fee), 4) if financial_value_is_known(stored_entry_fee) else None,
+                "sl_exit_fee_usdt": round(float(stored_sl_exit_fee), 4) if financial_value_is_known(stored_sl_exit_fee) else None,
+                "tp_exit_fee_usdt": round(float(stored_tp_exit_fee), 4) if financial_value_is_known(stored_tp_exit_fee) else None,
+                "entry_slippage_usdt": round(float(stored_entry_slip), 4) if financial_value_is_known(stored_entry_slip) else None,
+                "sl_exit_slippage_usdt": round(float(stored_sl_exit_slip), 4) if financial_value_is_known(stored_sl_exit_slip) else None,
+                "tp_exit_slippage_usdt": round(float(stored_tp_exit_slip), 4) if financial_value_is_known(stored_tp_exit_slip) else None,
                 "estimated_liquidation": round(float(stored_liq), 2) if financial_value_is_known(stored_liq) else None,
                 "meets_min_rr": meets_min_rr,
                 "equity_usdt": float(stored_eq) if financial_value_is_known(stored_eq) else None,
                 "equity_basis": "FROZEN_SNAPSHOT",
-                "equity_as_of_ms": updated_at,
-                "cost_source": "FROZEN_ORDER_SNAPSHOT",
+                "equity_as_of_ms": stored_equity_as_of,
+                "cost_source": str(stored_cost_source) if stored_cost_source else "FROZEN_ORDER_SNAPSHOT",
                 "cost_version": str(stored_cv) if stored_cv else "frozen_snapshot",
                 "instrument_version": str(stored_iv) if stored_iv else "frozen_snapshot",
                 "risk_config_version": int(stored_rv) if stored_rv else 1,

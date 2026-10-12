@@ -1,25 +1,74 @@
 import os
 import shutil
 import sqlite3
+import sys
 import time
 from pathlib import Path
 
-def run_migration():
-    base_dir = Path(__file__).resolve().parent
-    db_path = base_dir / "aurum_desk.db"
-    backup_path = base_dir / f"aurum_desk.db.bak.{int(time.time())}"
+def resolve_migration_db_path(
+    explicit_path=None,
+    env_path=None,
+    runtime_default=None,
+    testing_flag=None
+) -> Path:
+    """Resolves database path for migration with strict isolation rules:
+    1. Explicit path always wins.
+    2. Env path (e.g. AURUM_DB_PATH) wins next.
+    3. If testing (TESTING=1 or pytest) and no explicit/env path, NEVER touch live database; use temp DB.
+    4. Otherwise fallback to runtime_default or backend/aurum_desk.db.
+    """
+    if explicit_path is not None:
+        return Path(explicit_path).resolve()
 
-    print(f"[*] Starting idempotent V4 migration for {db_path}...")
-    if db_path.exists():
-        shutil.copy2(db_path, backup_path)
-        print(f"[+] Created consistent backup at {backup_path}")
+    env_val = env_path if env_path is not None else os.environ.get("AURUM_DB_PATH")
+    if env_val:
+        return Path(env_val).resolve()
 
-    conn = sqlite3.connect(str(db_path))
+    is_test = testing_flag if testing_flag is not None else (
+        os.environ.get("TESTING") == "1" or "pytest" in sys.modules or os.environ.get("PYTEST_CURRENT_TEST") is not None
+    )
+    if is_test:
+        import tempfile
+        return Path(tempfile.gettempdir()) / f"aurum_mig_isolated_{os.getpid()}.db"
+
+    if runtime_default is not None:
+        return Path(runtime_default).resolve()
+
+    return (Path(__file__).resolve().parent / "aurum_desk.db").resolve()
+
+
+def backup_sqlite_database(source_conn: sqlite3.Connection, backup_path: Path) -> None:
+    """Performs an atomic SQLite online backup that flushes WAL pages consistently."""
+    backup_path.parent.mkdir(parents=True, exist_ok=True)
+    bck_conn = sqlite3.connect(str(backup_path))
+    try:
+        source_conn.backup(bck_conn)
+    finally:
+        bck_conn.close()
+
+
+def run_migration(db_path=None, *, backup_dir=None):
+    target_path = resolve_migration_db_path(explicit_path=db_path)
+    base_dir = target_path.parent
+    bck_dir = Path(backup_dir).resolve() if backup_dir else base_dir
+    backup_path = bck_dir / f"{target_path.name}.bak.{int(time.time())}"
+
+    print(f"[*] Starting idempotent V4 migration for {target_path}...")
+    conn = sqlite3.connect(str(target_path))
     cur = conn.cursor()
 
     # Enable WAL & busy timeout
     cur.execute("PRAGMA journal_mode=WAL;")
     cur.execute("PRAGMA busy_timeout=5000;")
+
+    # Perform atomic online backup using SQLite backup API if target exists and has data
+    if target_path.exists() and target_path.stat().st_size > 0:
+        try:
+            backup_sqlite_database(conn, backup_path)
+            print(f"[+] Created consistent SQLite backup at {backup_path}")
+        except Exception as bck_err:
+            print(f"[!] Warning: online backup skipped/failed: {bck_err}")
+
 
     # 1. Candles table & unique constraint
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='candles';")

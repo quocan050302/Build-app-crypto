@@ -104,9 +104,10 @@ def test_s06_close_and_new_signal(db):
     assert len(armed) == 1
     order = armed[0]
 
-    # Fill the order
+    # Fill the order (LIMIT triggers when Ask <= planned_entry for LONG)
+    fill_tk = {"symbol": "XAUUSDT", "bid": round(order.planned_entry - 0.2, 2), "ask": order.planned_entry, "last": order.planned_entry, "timestamp": F.NOW_MS - 200, "observed_at": F.NOW_MS - 200}
     execution_coordinator.evaluate_orders_sync(
-        db, ticker_override=tick("LONG", F.NOW_MS, 200), clock=FakeClock(F.NOW_MS), now_ms=F.NOW_MS
+        db, ticker_override=fill_tk, clock=FakeClock(F.NOW_MS), now_ms=F.NOW_MS
     )
     db.refresh(order)
     assert order.state == "paper_open"

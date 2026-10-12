@@ -1,6 +1,7 @@
 - **Repository**: `quocan050302/Build-app-crypto`
 - **Branch**: `fix/v14-1-rr-flow`
-- **Base Commit**: `82a23e4` — fix(v14.4.2): unify financial plan snapshots and verify real interaction coverage
+- **Base Commit**: `7b92773` — fix(v14.4.2): add day_audits.updated_at_ms and forecast_observations to migrate.py
+- **Runtime Baseline**: `6fe7a70` — fix(v14.4.2): reconcile financial provenance and causal realtime execution
 - **Thời gian nghiệm thu**: 2026-10-12
 - **Môi trường thực thi**: macOS (Darwin 24.1.0), Node.js v22.22.3, Python 3.13.0, Chrome Headless (Playwright)
 - **Kết quả tổng thể**: **PASS (100% các bước và 85/85 test cases bắt buộc đều ĐẠT)**
@@ -13,15 +14,15 @@ Toàn bộ quá trình kiểm tra được điều phối và xác nhận độc
 
 | Bước kiểm tra (Step) | Lệnh thực thi | Thời gian | Kết quả | Chi tiết / Log |
 |---|---|---|---|---|
-| **1. Backend Targeted** | `pytest tests/test_v14_4_2_*.py tests/test_v14_4_1_*.py tests/test_v14_3_*.py tests/test_realtime_*.py tests/test_forecast_*.py -q` | 10.7s | **PASS** | 227 passed, 0 failed, 1 warning |
-| **2. Frontend Typecheck** | `npx tsc -b` | 4.1s | **PASS** | 0 error |
-| **3. Frontend Lint** | `npx oxlint` | 0.3s | **PASS** | 0 error, 29 warnings |
-| **4. Frontend Vitest** | `npx vitest run --reporter=default --reporter=junit` | 1.3s | **PASS** | 26 test files, 226 tests passed |
-| **5. Frontend Build** | `npm run build` | 4.5s | **PASS** | Vite production bundle build hoàn tất |
-| **6. Browser E2E** | `npx playwright test (5 suites)` | 97.9s | **PASS** | 47 browser tests passed (21 closure, 5 soak, 4 mobile, 9 sessions, 8 selection source) |
-| **7. Benchmark Latency** | `run_v14_4_chart_acceptance.py --cycles 600` | 5.1s | **PASS** | 600 chu kỳ hoàn tất, p50: 7.36ms, p95: 8.37ms, max: 58.79ms |
+| **1. Backend Targeted** | `pytest tests/test_v14_4_2_*.py tests/test_v14_4_1_*.py tests/test_v14_3_*.py tests/test_realtime_*.py tests/test_forecast_*.py tests/test_migration_*.py -q` | 11.4s | **PASS** | 233 passed, 0 failed, 1 warning |
+| **2. Frontend Typecheck** | `npx tsc -b` | 4.0s | **PASS** | 0 error |
+| **3. Frontend Lint** | `npx oxlint` | 0.4s | **PASS** | 0 error, 29 warnings |
+| **4. Frontend Vitest** | `npx vitest run --reporter=default --reporter=junit` | 1.6s | **PASS** | 26 test files, 226 tests passed |
+| **5. Frontend Build** | `npm run build` | 4.4s | **PASS** | Vite production bundle build hoàn tất |
+| **6. Browser E2E** | `npx playwright test (5 suites)` | 95.6s | **PASS** | 47 browser tests passed (21 closure, 5 soak, 4 mobile, 9 sessions, 8 selection source) |
+| **7. Benchmark Latency** | `run_v14_4_chart_acceptance.py --cycles 600` | 4.9s | **PASS** | 600 chu kỳ hoàn tất, p50: 7.36ms, p95: 8.37ms, max: 58.79ms |
 | **8. Git Diff Check** | `git diff --check` | 0.0s | **PASS** | Không có trailing whitespace hoặc merge conflict markers |
-| **OVERALL** | Toàn bộ 8 gate | ~124s | **PASS** | Đủ 85/85 required case IDs bắt buộc đạt 100% |
+| **OVERALL** | Toàn bộ 8 gate | ~122s | **PASS** | Đủ 85/85 required case IDs bắt buộc đạt 100% |
 
 ---
 

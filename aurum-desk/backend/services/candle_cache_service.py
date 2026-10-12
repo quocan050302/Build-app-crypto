@@ -409,6 +409,14 @@ class CandleCacheService:
                 logger.error(f"Candle persistence worker error: {e}", exc_info=True)
                 await asyncio.sleep(1.0)
 
+    async def stop_persistence_worker(self, timeout: float = 3.0):
+        """Stops candle persistence worker, draining queue and flushing remaining items."""
+        self._running = False
+        start = time.perf_counter()
+        while not self._persist_queue.empty() and (time.perf_counter() - start < timeout):
+            await asyncio.sleep(0.05)
+        logger.info("CandleCacheService persistence worker stopped.")
+
 
 candle_cache_service = CandleCacheService()
 

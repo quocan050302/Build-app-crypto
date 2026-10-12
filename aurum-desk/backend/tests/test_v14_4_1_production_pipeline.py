@@ -110,9 +110,18 @@ def test_full_cycle_fill_counts_quota_and_second_cycle_is_idempotent(db, directi
     run_cycle(db, direction)
     assert db.query(models.SMCScenarioSnapshot).count() == snaps_before
 
-    execution_coordinator.evaluate_orders_sync(
-        db, ticker_override=tick(direction, F.NOW_MS, 200), clock=FakeClock(F.NOW_MS), now_ms=F.NOW_MS)
     order = db.query(models.PaperOrder).one()
+    fill_tk = {
+        "symbol": "XAUUSDT",
+        "bid": round(order.planned_entry - 0.2, 2) if direction == "LONG" else order.planned_entry,
+        "ask": order.planned_entry if direction == "LONG" else round(order.planned_entry + 0.2, 2),
+        "last": order.planned_entry,
+        "timestamp": F.NOW_MS - 200,
+        "observed_at": F.NOW_MS - 200
+    }
+    execution_coordinator.evaluate_orders_sync(
+        db, ticker_override=fill_tk, clock=FakeClock(F.NOW_MS), now_ms=F.NOW_MS)
+    db.refresh(order)
     assert order.state == "paper_open", order.state
     audit = db.query(models.DayAudit).first()
     assert audit.fills_count == 1

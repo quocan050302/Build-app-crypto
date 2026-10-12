@@ -101,62 +101,24 @@ class ExecutionCoordinator:
                 db.commit()
                 continue
 
-            # Revalidate if config version changed
+            # V14.4.2: Invalidate pending armed order if config version changed (no silent repricing)
             if getattr(order, 'config_version', 1) != global_settings.config_version:
-                account_state = crud.get_account_status(db, clock=c)
-                equity = account_state["current_equity"] if account_state else 1000.0
-
-                is_quota_order = (getattr(order, 'strategy_family', 'STANDARD_SMC') == "NY_QUOTA_PAPER") or (getattr(order, 'risk_profile', 'STANDARD') == "QUOTA")
-                eff_risk_pct = min(global_settings.risk_pct, 0.10) if is_quota_order else global_settings.risk_pct
-
-                calc_res = calculate_risk_reward(
-                    direction=order.direction,
-                    planned_entry=order.planned_entry,
-                    stop_loss=order.stop_loss,
-                    take_profit=order.take_profit,
-                    capital=equity,
-                    risk_pct=eff_risk_pct,
-                    leverage=global_settings.requested_leverage,
-                    margin_mode=global_settings.margin_mode
+                curr_cfg = getattr(order, 'config_version', 1)
+                TradeLifecycleService.execute_reject(
+                    db=db,
+                    order=order,
+                    reason=f"CONFIG_VERSION_CHANGED: Cấu hình rủi ro đã thay đổi (v{curr_cfg} -> v{global_settings.config_version}). Lệnh chờ đã bị hủy để bảo đảm snapshot.",
+                    now_ms=current_time,
+                    clock=c
                 )
-
-                if not calc_res.can_execute:
-                    TradeLifecycleService.execute_reject(
-                        db=db,
-                        order=order,
-                        reason=f"RISK_SETTINGS_INVALIDATED: {calc_res.skip_reason or calc_res.invalid_reason}",
-                        now_ms=current_time,
-                        clock=c
-                    )
-                    continue
-
-                # Amend order
-                order.quantity = calc_res.quantity
-                order.leverage = calc_res.leverage
-                order.margin_mode = calc_res.margin_mode
-                order.risk_pct = calc_res.effective_risk_pct
-                order.initial_risk_usdt = calc_res.net_risk_usdt
-                order.gross_rr = calc_res.gross_rr
-                order.estimated_net_rr = calc_res.net_rr
-                order.estimated_liquidation = calc_res.estimated_liquidation
-                order.initial_margin = calc_res.initial_margin_usdt
-                order.config_version = global_settings.config_version
-
-                if getattr(order, 'setup_instance_id', None):
-                    watch = db.query(models.WatchSetup).filter(models.WatchSetup.setup_instance_id == order.setup_instance_id).first()
-                    if watch:
-                        watch.quantity = calc_res.quantity
-                        watch.leverage = calc_res.leverage
-                        watch.margin_mode = calc_res.margin_mode
-                        watch.risk_pct = calc_res.effective_risk_pct
-                        watch.risk_usdt = calc_res.net_risk_usdt
-                        watch.gross_rr = calc_res.gross_rr
-                        watch.net_rr = calc_res.net_rr
-                        watch.estimated_liquidation = calc_res.estimated_liquidation
-                        watch.config_version = global_settings.config_version
-                        watch.updated_at = current_time
-
+                if order.setup_id:
+                    watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == order.setup_id).first()
+                    if watch_setup:
+                        watch_setup.state = "CANCELLED"
+                        watch_setup.invalidation_reason = "CONFIG_VERSION_CHANGED"
+                        watch_setup.updated_at = current_time
                 db.commit()
+                continue
 
             # V5.1 Authoritative Geometry Guard on armed order
             from domain_calculator import validate_price_geometry

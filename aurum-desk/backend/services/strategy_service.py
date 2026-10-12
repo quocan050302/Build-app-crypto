@@ -462,8 +462,10 @@ class StrategyService:
                     target_db = SessionLocal()
                     should_close = True
                 try:
+                    from services.smc_forecast_observation_service import create_forecast_snapshot, process_pending_forecasts
                     for f_item in fc.values():
                         create_forecast_snapshot(target_db, f_item, now_ms=now_ms)
+                    process_pending_forecasts(target_db, symbol=symbol, as_of_ms=now_ms)
                     if should_close:
                         target_db.commit()
                 except Exception as snap_e:
@@ -835,6 +837,28 @@ class StrategyService:
             logger.error(f"Structure verification failed for {watch_setup.id}: {exc}", exc_info=True)
             scenario_verified = False
 
+        # V14.4.2: Resolve execution intent (RETEST_LIMIT vs CONFIRMATION_MARKET vs LEGACY_POLICY)
+        has_scenario_snapshot = bool(getattr(watch_setup, "scenario_snapshot_id", None))
+        if has_scenario_snapshot:
+            exec_mode = "RETEST_LIMIT" if family == "STANDARD_SMC" else "CONFIRMATION_MARKET"
+        else:
+            exec_mode = "LEGACY_POLICY"
+
+        from services.entry_execution_intent_service import resolve_entry_execution_intent
+        intent = resolve_entry_execution_intent(
+            watch_setup,
+            model_descriptor={
+                "execution_mode": exec_mode,
+                "model_id": "SMC_CERTIFIED_RETEST" if has_scenario_snapshot else "LEGACY_POLICY",
+            },
+            quote=auto_quote,
+            now_ms=now_ms,
+        )
+        if not intent.allowed:
+            self._log_auto_arm_block(watch_setup, [intent.reason_code], intent.message_vi)
+            return _no([intent.reason_code], intent.message_vi)
+        resolved_order_type = intent.order_type or "LIMIT"
+
         guard = evaluate_entry_guard(db, EntryGuardRequest(
             stage="ARM",
             now_ms=now_ms,
@@ -848,7 +872,7 @@ class StrategyService:
             calc_result=calc_res,
             validated_quote=auto_quote,
             strategy_family=family,
-            order_type="MARKET",
+            order_type=resolved_order_type,
             timeframe=watch_setup.timeframe,
             plan_kind=getattr(watch_setup, "plan_kind", None) or "CONFIRMED",
             direction_source=getattr(watch_setup, "direction_source", None),
@@ -890,7 +914,7 @@ class StrategyService:
             instrument=symbol,
             direction=watch_setup.direction,
             state="armed",
-            order_type="MARKET",
+            order_type=resolved_order_type,
             timeframe=watch_setup.timeframe,
             strategy_family=family,
             strategy_version="7.0.0",
@@ -910,6 +934,7 @@ class StrategyService:
             leverage=watch_setup.leverage,
             margin_mode=watch_setup.margin_mode,
             estimated_liquidation=watch_setup.estimated_liquidation,
+            config_version=watch_setup.config_version or 1,
             created_at=now_ms,
             armed_at=now_ms,
             expires_at=(
@@ -937,7 +962,7 @@ class StrategyService:
                 "setup_id": watch_setup.id,
                 "direction": watch_setup.direction,
                 "strategy_family": family,
-                "order_type": "MARKET",
+                "order_type": resolved_order_type,
                 "planned_entry": plan_entry,
                 "stop_loss": plan_sl,
                 "take_profit": plan_tp,

@@ -356,6 +356,7 @@ def main(argv=None) -> int:
         "tests/test_realtime_source_ordering.py",
         "tests/test_realtime_execution_worker.py",
         "tests/test_forecast_forward_observation.py",
+        "tests/test_migration_runtime_upgrade.py",
     ]
     s = run_step(
         "backend_targeted",

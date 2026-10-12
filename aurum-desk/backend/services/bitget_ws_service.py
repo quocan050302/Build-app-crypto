@@ -102,6 +102,11 @@ class BitgetWSService:
                     if self.channel_registry.get("ticker") == "ACKED":
                         self.transport_state = "CONNECTED"
                         self.feed_source = "WS"
+                        try:
+                            from services.quote_ordering_service import quote_ordering_service
+                            quote_ordering_service.on_reconnect_or_source_switch(self.symbol, self.connection_epoch, "WS")
+                        except Exception as switch_e:
+                            logger.warning(f"Error notifying quote_ordering_service of source switch: {switch_e}")
                     return True
                 else:
                     self.channel_registry[ch] = "FAILED"

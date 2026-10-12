@@ -258,13 +258,114 @@ def evaluate_forecast_outcome(
     }
 
 
-def summarize_forecast_observations(db: Session, session: Optional[str] = None) -> Dict[str, Any]:
+def process_pending_forecasts(
+    db: Session,
+    symbol: str = "XAUUSDT",
+    as_of_ms: Optional[int] = None
+) -> Dict[str, Any]:
+    """Causal observer: evaluates pending forecast snapshots against closed candle observations.
+    Updates terminal outcomes idempotently using nested transactions.
+    """
+    if as_of_ms is None:
+        import time
+        as_of_ms = int(time.time() * 1000)
+
+    pending_records = (
+        db.query(models.ForecastObservation)
+        .filter(
+            models.ForecastObservation.symbol == symbol,
+            models.ForecastObservation.outcome_status == ForecastOutcomeDefinition.PENDING.value
+        )
+        .order_by(models.ForecastObservation.as_of_ms.asc())
+        .limit(50)
+        .all()
+    )
+
+    if not pending_records:
+        return {"processed": 0, "updated": 0}
+
+    updated_count = 0
+    for snapshot in pending_records:
+        cutoff = snapshot.context_cutoff_ms or snapshot.as_of_ms
+        candles = (
+            db.query(models.Candle)
+            .filter(
+                models.Candle.symbol == symbol,
+                models.Candle.timeframe == "5M",
+                models.Candle.timestamp >= cutoff,
+                models.Candle.timestamp <= as_of_ms,
+                models.Candle.is_closed == True
+            )
+            .order_by(models.Candle.timestamp.asc())
+            .all()
+        )
+
+        obs_list = [
+            {
+                "source_timestamp": c.timestamp,
+                "known_at_ms": c.timestamp + 300_000,
+                "price": c.close,
+                "high": c.high,
+                "low": c.low,
+                "open": c.open,
+                "close": c.close,
+            }
+            for c in candles
+        ]
+
+        expiry_ms = None
+        if snapshot.payload_json:
+            try:
+                p_dict = json.loads(snapshot.payload_json)
+                rng = p_dict.get("session_range") or {}
+                expiry_ms = rng.get("end_ms")
+            except Exception:
+                expiry_ms = None
+
+        res = evaluate_forecast_outcome(
+            snapshot=snapshot,
+            observations=obs_list,
+            as_of_ms=as_of_ms,
+            feed_gap=False,
+            expiry_ms=expiry_ms
+        )
+
+        if res.get("outcome") and res["outcome"] != ForecastOutcomeDefinition.PENDING.value:
+            try:
+                with db.begin_nested():
+                    snapshot.outcome_status = res["outcome"]
+                    snapshot.outcome_at_ms = res.get("outcome_at_ms") or as_of_ms
+                    details = res.get("details") or {}
+                    if res.get("reason"):
+                        details["reason"] = res["reason"]
+                    snapshot.outcome_details = json.dumps(details, ensure_ascii=False)
+                    db.flush()
+                updated_count += 1
+            except Exception as e:
+                logger.error(f"Error updating outcome for snapshot {snapshot.id}: {e}")
+
+    return {"processed": len(pending_records), "updated": updated_count}
+
+
+def summarize_forecast_observations(
+    db: Session,
+    session: Optional[str] = None,
+    symbol: Optional[str] = None,
+    from_ms: Optional[int] = None,
+    to_ms: Optional[int] = None
+) -> Dict[str, Any]:
     """Produces objective forward forecast summary statistics.
     Explicitly distinguishes forecast target touch rate from order win rate.
     """
     query = db.query(models.ForecastObservation)
     if session:
         query = query.filter_by(session=session)
+    if symbol:
+        query = query.filter_by(symbol=symbol)
+    if from_ms is not None:
+        query = query.filter(models.ForecastObservation.as_of_ms >= from_ms)
+    if to_ms is not None:
+        query = query.filter(models.ForecastObservation.as_of_ms <= to_ms)
 
     records = query.all()
     n_total = len(records)

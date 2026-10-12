@@ -16,6 +16,11 @@ from services.candle_cache_service import CandleCacheService
 import schemas
 
 
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
+
+
 def _make_quote(bid: float = 4180.0, ask: float = 4180.5, last: float = 4180.2, exchange_ts: int = 10000) -> CanonicalQuote:
     return CanonicalQuote(
         symbol="XAUUSDT",

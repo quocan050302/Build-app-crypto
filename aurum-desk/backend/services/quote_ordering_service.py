@@ -40,6 +40,7 @@ class SymbolOrderState:
     total_duplicates: int = 0
     total_late: int = 0
     total_invalid: int = 0
+    late_evidence_queue: list = field(default_factory=list)
 
 
 class QuoteOrderingService:
@@ -59,6 +60,10 @@ class QuoteOrderingService:
         """Testing hook only."""
         if symbol in self._states:
             del self._states[symbol]
+
+    def get_late_evidence(self, symbol: str) -> list:
+        """Returns recent bounded late evidence items for audit / reconciliation."""
+        return list(self.get_state(symbol).late_evidence_queue)
 
     @staticmethod
     def compute_quote_digest(quote: CanonicalQuote) -> str:
@@ -115,6 +120,21 @@ class QuoteOrderingService:
 
         # Older exchange timestamp: source arrived out-of-order
         state.total_late += 1
+        record = {
+            "symbol": quote.symbol,
+            "source_timestamp": src_ts,
+            "watermark_at_arrival": state.watermark_ms,
+            "bid": quote.bid,
+            "ask": quote.ask,
+            "last": quote.last,
+            "digest": digest,
+            "received_at_ms": quote.received_at_ms,
+            "reason": f"LATE_TICK_{src_ts}_LESS_THAN_WATERMARK_{state.watermark_ms}",
+        }
+        state.late_evidence_queue.append(record)
+        if len(state.late_evidence_queue) > 50:
+            state.late_evidence_queue.pop(0)
+
         return QuoteDisposition.LATE_EVIDENCE, f"LATE_TICK_{src_ts}_LESS_THAN_WATERMARK_{state.watermark_ms}"
 
     def on_reconnect_or_source_switch(self, symbol: str, new_epoch: int, source: str):

@@ -437,8 +437,21 @@ def e2e_smc_reset(body: dict = Body(default={})):
             htf_bias=SMC_BIAS[direction], h1_alignment="ALIGNED", feed_health=SMC_OK_FEED,
             auto_enabled=bool(body.get("auto", True)))
         if body.get("fill"):
-            execution_coordinator.evaluate_orders_sync(
-                db, ticker_override=_smc_tick(direction, now, 200), clock=FakeClock(now), now_ms=now)
+            order = db.query(models.PaperOrder).filter(models.PaperOrder.state == "armed").first()
+            if order:
+                fill_tk = {
+                    "symbol": "XAUUSDT",
+                    "bid": round(order.planned_entry - 0.2, 2) if direction == "LONG" else order.planned_entry,
+                    "ask": order.planned_entry if direction == "LONG" else round(order.planned_entry + 0.2, 2),
+                    "last": order.planned_entry,
+                    "timestamp": now - 200,
+                    "observed_at": now - 200
+                }
+                execution_coordinator.evaluate_orders_sync(
+                    db, ticker_override=fill_tk, clock=FakeClock(now), now_ms=now)
+            else:
+                execution_coordinator.evaluate_orders_sync(
+                    db, ticker_override=_smc_tick(direction, now, 200), clock=FakeClock(now), now_ms=now)
         if body.get("close"):
             for o in db.query(models.PaperOrder).filter(models.PaperOrder.state == "paper_open").all():
                 sign = 1.0 if o.direction == "LONG" else -1.0

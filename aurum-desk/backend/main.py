@@ -121,8 +121,16 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(process_notification_outbox())
     ]
     yield
-    # Graceful shutdown
+    # Graceful shutdown: orderly stop of worker loops before cancelling
     bitget_ws_service.stop()
+    try:
+        await execution_consumer.stop(timeout=2.0)
+    except Exception as ce:
+        print(f"Error stopping execution consumer: {ce}")
+    try:
+        await candle_cache_service.stop_persistence_worker(timeout=2.0)
+    except Exception as cwe:
+        print(f"Error stopping candle persistence worker: {cwe}")
     for t in tasks:
         t.cancel()
     await asyncio.gather(*tasks, return_exceptions=True)
@@ -2670,6 +2678,31 @@ def get_session_forecasts(symbol: str = "XAUUSDT", day: Optional[str] = None):
         symbol=symbol, status="ERROR" if cached.get("error") else "OK", day=cached.get("day"),
         as_of_ms=cached.get("as_of_ms"), forecasts=cached.get("forecasts") or {}, coverage=cached.get("coverage") or {},
         data_issues=cached.get("data_issues") or [])
+
+
+@app.get("/api/v1/smc/forecast-observations/summary")
+def get_forecast_observations_summary(
+    symbol: str = "XAUUSDT",
+    session: Optional[str] = None,
+    from_ms: Optional[int] = None,
+    to_ms: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    V14.4.2: Readonly summary of causal forward forecast outcomes. Does not trigger background jobs or DB writes.
+    """
+    import re
+    if not re.fullmatch(r"[A-Z0-9]{3,20}", symbol or ""):
+        raise HTTPException(status_code=422, detail="INVALID_SYMBOL")
+    from services.smc_forecast_observation_service import summarize_forecast_observations
+    return summarize_forecast_observations(
+        db=db,
+        session=session,
+        symbol=symbol,
+        from_ms=from_ms,
+        to_ms=to_ms
+    )
+
 
 
 @app.get("/api/v1/smc/scenarios", response_model=List[schemas.ScenarioDTO])

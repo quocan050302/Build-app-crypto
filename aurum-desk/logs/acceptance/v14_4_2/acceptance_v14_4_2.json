@@ -441,11 +441,11 @@
   "steps": {
     "backend_targeted": {
       "status": "PASS",
-      "summary": "227 passed, 1 warning in 8.98s",
+      "summary": "233 passed, 1 warning in 9.66s",
       "failed": [],
       "unexpected_failures": [],
       "exit_code": 0,
-      "duration_s": 10.73,
+      "duration_s": 11.45,
       "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/backend_targeted.log",
       "argv": [
         "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
@@ -464,6 +464,7 @@
         "tests/test_realtime_source_ordering.py",
         "tests/test_realtime_execution_worker.py",
         "tests/test_forecast_forward_observation.py",
+        "tests/test_migration_runtime_upgrade.py",
         "-q",
         "-p",
         "no:cacheprovider",
@@ -473,7 +474,7 @@
     "frontend_typecheck": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 4.11,
+      "duration_s": 3.96,
       "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_typecheck.log",
       "argv": [
         "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npx",
@@ -486,7 +487,7 @@
       "warnings": 29,
       "errors": 0,
       "exit_code": 0,
-      "duration_s": 0.35,
+      "duration_s": 0.42,
       "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_lint.log",
       "argv": [
         "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npx",
@@ -496,7 +497,7 @@
     "frontend_vitest": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 1.35,
+      "duration_s": 1.57,
       "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_vitest.log",
       "argv": [
         "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npx",
@@ -510,7 +511,7 @@
     "frontend_build": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 4.53,
+      "duration_s": 4.39,
       "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_build.log",
       "argv": [
         "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npm",
@@ -521,8 +522,8 @@
     "browser_e2e": {
       "status": "PASS",
       "playwright_stats": {
-        "startTime": "2026-10-12T13:38:02.113Z",
-        "duration": 97286.681,
+        "startTime": "2026-10-12T14:48:25.544Z",
+        "duration": 95045.355,
         "expected": 47,
         "skipped": 0,
         "unexpected": 0,
@@ -530,7 +531,7 @@
       },
       "executed_tests": 47,
       "exit_code": 0,
-      "duration_s": 97.85,
+      "duration_s": 95.6,
       "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/browser_e2e.log",
       "argv": [
         "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npx",
@@ -546,9 +547,9 @@
     "benchmark": {
       "status": "PASS",
       "latency_ms": {
-        "p50": 7.359,
-        "p95": 8.373,
-        "max": 58.79
+        "p50": 7.2,
+        "p95": 7.714,
+        "max": 9.679
       },
       "not_measured": [
         "browser render latency",
@@ -558,7 +559,7 @@
         "10,000-tick/60s browser stream"
       ],
       "exit_code": 0,
-      "duration_s": 5.14,
+      "duration_s": 4.9,
       "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/benchmark.log",
       "argv": [
         "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
@@ -587,5 +588,5 @@
     "tests/test_v13_5_integrity_acceptance.py::test_01_integrity_pass_on_valid_inputs"
   ],
   "probability_research": "NOT_VERIFIED (no real out-of-sample dataset; metrics are null, not 0)",
-  "timestamp": "2026-10-12 20:39:44"
+  "timestamp": "2026-10-12 21:50:05"
 }

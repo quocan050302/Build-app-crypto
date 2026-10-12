@@ -29,3 +29,4 @@ backend/lab/artifacts/
 # Playwright artifacts
 frontend/test-results/
 frontend/playwright-report/
+logs/v14_4_1/
