@@ -409,7 +409,7 @@ def evaluate_setup_b1_trend_continuation(
         return None, f"NET_RR_TOO_LOW: {calc.net_rr:.2f}R < {min_net_rr:.1f}R"
 
     setup = {
-        "setup_id": f"b1_{direction}_{dt_ny.strftime("%Y%m%d")}_{curr_bar_15m["timestamp"]}",
+        "setup_id": f"b1_{direction}_{dt_ny.strftime('%Y%m%d')}_{curr_bar_15m['timestamp']}",
         "strategy_family": "NY_TREND_CONTINUATION",
         "target_model": "TARGET_MODEL_SWING_LIQUIDITY",
         "direction": direction,
@@ -602,7 +602,7 @@ def evaluate_setup_b2_range_break_retest(
         return None, f"NET_RR_TOO_LOW: {calc.net_rr:.2f}R < {min_net_rr:.1f}R"
 
     setup = {
-        "setup_id": f"b2_{direction}_{dt_ny.strftime("%Y%m%d")}_{breakout_bar_ts}_{retest_bar["timestamp"]}",
+        "setup_id": f"b2_{direction}_{dt_ny.strftime('%Y%m%d')}_{breakout_bar_ts}_{retest_bar['timestamp']}",
         "strategy_family": "NY_RANGE_BREAK_RETEST",
         "target_model": "TARGET_MODEL_RANGE_EXTENSION",
         "direction": direction,
