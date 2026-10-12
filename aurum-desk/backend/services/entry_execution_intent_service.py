@@ -75,8 +75,11 @@ def resolve_entry_execution_intent(
         )
 
     planned_entry = plan["entry"]
-    direction = getattr(setup, "direction", None) or "LONG"
-    family = getattr(setup, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC"
+    if isinstance(setup, dict):
+        direction = setup.get("direction") or plan.get("direction") or "LONG"
+    else:
+        direction = getattr(setup, "direction", None) or plan.get("direction") or "LONG"
+    family = getattr(setup, "strategy_family", "STANDARD_SMC") if not isinstance(setup, dict) else setup.get("strategy_family", "STANDARD_SMC")
 
     # Check model descriptor
     # Standard SMC certified retest setups use RETEST_LIMIT by default
@@ -108,31 +111,44 @@ def resolve_entry_execution_intent(
             model_id=model_id,
         )
 
-    # For RETEST_LIMIT: check placement validity if quote is available
-    if quote is not None:
-        bid = getattr(quote, "bid", None)
-        ask = getattr(quote, "ask", None)
-        if bid is not None and ask is not None:
-            can_place, code, msg = decide_retest_limit_placement(direction, planned_entry, bid, ask)
-            if not can_place:
-                return EntryIntentDecision(
-                    allowed=False,
-                    order_type="LIMIT",
-                    entry_mode="RETEST_LIMIT",
-                    planned_entry=planned_entry,
-                    reason_code=code,
-                    message_vi=msg,
-                    policy_version=policy_version,
-                    model_id=model_id,
-                )
+    if model_mode == "RETEST_LIMIT":
+        # For RETEST_LIMIT: check placement validity if quote is available
+        if quote is not None:
+            bid = getattr(quote, "bid", None) if not isinstance(quote, dict) else quote.get("bid")
+            ask = getattr(quote, "ask", None) if not isinstance(quote, dict) else quote.get("ask")
+            if bid is not None and ask is not None:
+                can_place, code, msg = decide_retest_limit_placement(direction, planned_entry, bid, ask)
+                if not can_place:
+                    return EntryIntentDecision(
+                        allowed=False,
+                        order_type="LIMIT",
+                        entry_mode="RETEST_LIMIT",
+                        planned_entry=planned_entry,
+                        reason_code=code,
+                        message_vi=msg,
+                        policy_version=policy_version,
+                        model_id=model_id,
+                    )
 
+        return EntryIntentDecision(
+            allowed=True,
+            order_type="LIMIT",
+            entry_mode="RETEST_LIMIT",
+            planned_entry=planned_entry,
+            reason_code="RETEST_LIMIT_ALLOWED",
+            message_vi="Lệnh chờ LIMIT tại vùng retest SMC",
+            policy_version=policy_version,
+            model_id=model_id,
+        )
+
+    # Any unrecognized or unsupported execution mode MUST fail closed
     return EntryIntentDecision(
-        allowed=True,
-        order_type="LIMIT",
-        entry_mode="RETEST_LIMIT",
+        allowed=False,
+        order_type=None,
+        entry_mode="ENTRY_MODE_UNAVAILABLE",
         planned_entry=planned_entry,
-        reason_code="RETEST_LIMIT_ALLOWED",
-        message_vi="Lệnh chờ LIMIT tại vùng retest SMC",
+        reason_code="ENTRY_MODE_UNAVAILABLE",
+        message_vi=f"Chế độ thực thi '{model_mode}' không được hỗ trợ",
         policy_version=policy_version,
         model_id=model_id,
     )

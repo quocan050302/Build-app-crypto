@@ -183,16 +183,35 @@ class ExecutionConsumer:
             db.close()
             self.db_work_ms = round((time.perf_counter() - t0) * 1000.0, 2)
 
-    async def stop(self, timeout: float = 3.0):
+    async def stop(self, timeout: float = 3.0) -> Dict[str, Any]:
         """
         Gracefully terminates consumer loop, awaiting completion of any in-flight worker execution.
+        Returns StopResult: {"status": "COMPLETE" | "TIMED_OUT", "unprocessed_count": int, "has_gap": bool}.
         """
         self._stopping = True
-        self._running = False
         start = time.perf_counter()
-        while self._inflight and (time.perf_counter() - start < timeout):
+        while (self._inflight or not self.queue.empty()) and (time.perf_counter() - start < timeout):
             await asyncio.sleep(0.02)
+
+        self._running = False
+        timed_out = self._inflight or not self.queue.empty()
+        unprocessed = self.queue.qsize()
+
+        # Unblock worker waiting on queue.get() if queue is empty
+        try:
+            self.queue.put_nowait(None)
+        except (asyncio.QueueFull, AttributeError):
+            pass
+
+        if timed_out and unprocessed > 0:
+            self.has_execution_gap = True
+            logger.warning(
+                f"ExecutionConsumer stop timed out with {unprocessed} unprocessed quotes. Marked execution gap."
+            )
+            return {"status": "TIMED_OUT", "unprocessed_count": unprocessed, "has_gap": True}
+
         logger.info("ExecutionConsumer stopped gracefully.")
+        return {"status": "COMPLETE", "unprocessed_count": 0, "has_gap": self.has_execution_gap}
 
     async def run_consumer_loop(self):
         """
@@ -206,7 +225,7 @@ class ExecutionConsumer:
         while self._running:
             try:
                 quote = await self.queue.get()
-                if not self._running or self._stopping:
+                if quote is None or not self._running or self._stopping:
                     self.queue.task_done()
                     break
 

@@ -339,9 +339,10 @@ class CandleCacheService:
     async def run_persistence_worker(self):
         """Background worker that flushes closed candles in batches to SQLite with retry buffer."""
         self._running = True
+        self._stopping = False
         logger.info("Candle persistence worker started.")
 
-        while self._running:
+        while self._running or (self._stopping and (not self._persist_queue.empty() or self.retry_buffer)):
             try:
                 batch: List[schemas.CandleCreate] = []
                 if self.retry_buffer:
@@ -350,7 +351,8 @@ class CandleCacheService:
 
                 if len(batch) < 50:
                     try:
-                        bar = await asyncio.wait_for(self._persist_queue.get(), timeout=1.0)
+                        timeout_val = 0.2 if self._stopping else 1.0
+                        bar = await asyncio.wait_for(self._persist_queue.get(), timeout=timeout_val)
                         batch.append(bar)
                         while not self._persist_queue.empty() and len(batch) < 50:
                             try:
@@ -359,9 +361,13 @@ class CandleCacheService:
                                 break
                     except asyncio.TimeoutError:
                         if not batch:
+                            if self._stopping:
+                                break
                             continue
 
                 if not batch:
+                    if self._stopping:
+                        break
                     continue
 
                 def _persist_batch_sync(b: List[schemas.CandleCreate]) -> bool:
@@ -409,13 +415,24 @@ class CandleCacheService:
                 logger.error(f"Candle persistence worker error: {e}", exc_info=True)
                 await asyncio.sleep(1.0)
 
-    async def stop_persistence_worker(self, timeout: float = 3.0):
+    async def stop_persistence_worker(self, timeout: float = 3.0) -> Dict[str, Any]:
         """Stops candle persistence worker, draining queue and flushing remaining items."""
-        self._running = False
+        self._stopping = True
         start = time.perf_counter()
-        while not self._persist_queue.empty() and (time.perf_counter() - start < timeout):
+        while (not self._persist_queue.empty() or self.retry_buffer) and (time.perf_counter() - start < timeout):
             await asyncio.sleep(0.05)
+
+        self._running = False
+        remaining = self._persist_queue.qsize() + len(self.retry_buffer)
+        if remaining > 0:
+            self.has_candle_gap = True
+            logger.warning(
+                f"Candle persistence stop timed out with {remaining} remaining items. Marked candle gap."
+            )
+            return {"status": "TIMED_OUT", "remaining_count": remaining, "has_gap": True}
+
         logger.info("CandleCacheService persistence worker stopped.")
+        return {"status": "COMPLETE", "remaining_count": 0, "has_gap": self.has_candle_gap}
 
 
 candle_cache_service = CandleCacheService()

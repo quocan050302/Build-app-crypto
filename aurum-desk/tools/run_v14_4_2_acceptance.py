@@ -128,6 +128,26 @@ REQUIRED_CASES = {
     "FC10": {"suite": "backend", "file": "backend/tests/test_forecast_forward_observation.py", "desc": "feed gap during observation window"},
     "FC11": {"suite": "backend", "file": "backend/tests/test_forecast_forward_observation.py", "desc": "unknown probability status without OOS model"},
     "FC12": {"suite": "backend", "file": "backend/tests/test_forecast_forward_observation.py", "desc": "SQL savepoint fault isolation"},
+    # Closure Manifest (PHẦN 161 - 197)
+    "REPRO01": {"suite": "backend", "file": "backend/tests/test_forecast_causal_closure.py", "desc": "pre-forecast bar cannot count as target"},
+    "REPRO02": {"suite": "backend", "file": "backend/tests/test_forecast_causal_closure.py", "desc": "target after expiry is not success"},
+    "REPRO03": {"suite": "backend", "file": "backend/tests/test_forecast_causal_closure.py", "desc": "unknown direction touch requires range containment"},
+    "REPRO04": {"suite": "backend", "file": "backend/tests/test_forecast_causal_closure.py", "desc": "missing timestamp and invalid price are unverified"},
+    "REPRO05": {"suite": "backend", "file": "backend/tests/test_entry_intent_closure.py", "desc": "unknown mode blocks"},
+    "FCT01": {"suite": "backend", "file": "backend/tests/test_forecast_causal_closure.py", "desc": "builder produces numeric invalidation price"},
+    "FCT02": {"suite": "backend", "file": "backend/tests/test_forecast_causal_closure.py", "desc": "summary counts and separation"},
+    "OBS01": {"suite": "backend", "file": "backend/tests/test_forecast_causal_closure.py", "desc": "cycle persist and observer updates outcome"},
+    "INT01": {"suite": "backend", "file": "backend/tests/test_entry_intent_closure.py", "desc": "dict short preserves short quote side"},
+    "ORDARM01": {"suite": "backend", "file": "backend/tests/test_order_snapshot_closure.py", "desc": "arm stores frozen snapshot and intent"},
+    "ORDFILL01": {"suite": "backend", "file": "backend/tests/test_order_snapshot_closure.py", "desc": "fill records actual entry and preserves snapshot"},
+    "ORDCHAIN01": {"suite": "backend", "file": "backend/tests/test_order_snapshot_closure.py", "desc": "upcoming setups loads bound order frozen snapshot"},
+    "ORDCHAIN02": {"suite": "backend", "file": "backend/tests/test_order_snapshot_closure.py", "desc": "order chart evidence populates net reward and fees"},
+    "FREEZE01": {"suite": "backend", "file": "backend/tests/test_order_snapshot_closure.py", "desc": "changing settings does not reprice armed order"},
+    "LATBUF01": {"suite": "backend", "file": "backend/tests/test_realtime_closure.py", "desc": "late evidence overflow records gap"},
+    "LATBUF02": {"suite": "backend", "file": "backend/tests/test_realtime_closure.py", "desc": "claim and ack late evidence"},
+    "STLEASE01": {"suite": "backend", "file": "backend/tests/test_realtime_closure.py", "desc": "execution consumer stop returns stop result"},
+    "STQUEUE01": {"suite": "backend", "file": "backend/tests/test_realtime_closure.py", "desc": "execution consumer timeout sets execution gap"},
+    "STCANDLE01": {"suite": "backend", "file": "backend/tests/test_realtime_closure.py", "desc": "candle worker stop returns stop result"},
 }
 
 BASELINE_FAILURES = {
@@ -182,8 +202,8 @@ def parse_junit_xml(xml_path: str) -> dict[str, str]:
             key = f"{classname}::{name}" if classname else name
             results[key] = status
             results[name] = status
-            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01
-            for m in re.finditer(r"(?i)(?:^|[\W_])(RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
+            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, etc.
+            for m in re.finditer(r"(?i)(?:^|[\W_])(REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
                 results[m.group(1).upper()] = status
     except Exception as e:
         print(f"Error parsing JUnit XML {xml_path}: {e}", file=sys.stderr)
@@ -357,6 +377,10 @@ def main(argv=None) -> int:
         "tests/test_realtime_execution_worker.py",
         "tests/test_forecast_forward_observation.py",
         "tests/test_migration_runtime_upgrade.py",
+        "tests/test_forecast_causal_closure.py",
+        "tests/test_entry_intent_closure.py",
+        "tests/test_order_snapshot_closure.py",
+        "tests/test_realtime_closure.py",
     ]
     s = run_step(
         "backend_targeted",

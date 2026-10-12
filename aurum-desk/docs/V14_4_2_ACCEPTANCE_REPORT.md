@@ -1,10 +1,9 @@
 - **Repository**: `quocan050302/Build-app-crypto`
 - **Branch**: `fix/v14-1-rr-flow`
-- **Base Commit**: `7b92773` — fix(v14.4.2): add day_audits.updated_at_ms and forecast_observations to migrate.py
-- **Runtime Baseline**: `6fe7a70` — fix(v14.4.2): reconcile financial provenance and causal realtime execution
+- **Base Commit**: `0301698` — fix(v14.4.2): complete entry intent and causal forecast reconciliation
 - **Thời gian nghiệm thu**: 2026-10-12
 - **Môi trường thực thi**: macOS (Darwin 24.1.0), Node.js v22.22.3, Python 3.13.0, Chrome Headless (Playwright)
-- **Kết quả tổng thể**: **PASS (100% các bước và 85/85 test cases bắt buộc đều ĐẠT)**
+- **Kết quả tổng thể**: **PASS (100% các bước và 104/104 test cases bắt buộc đều ĐẠT)**
 
 ---
 
@@ -14,19 +13,19 @@ Toàn bộ quá trình kiểm tra được điều phối và xác nhận độc
 
 | Bước kiểm tra (Step) | Lệnh thực thi | Thời gian | Kết quả | Chi tiết / Log |
 |---|---|---|---|---|
-| **1. Backend Targeted** | `pytest tests/test_v14_4_2_*.py tests/test_v14_4_1_*.py tests/test_v14_3_*.py tests/test_realtime_*.py tests/test_forecast_*.py tests/test_migration_*.py -q` | 11.4s | **PASS** | 233 passed, 0 failed, 1 warning |
-| **2. Frontend Typecheck** | `npx tsc -b` | 4.0s | **PASS** | 0 error |
+| **1. Backend Targeted** | `pytest tests/test_v14_4_2_*.py tests/test_v14_4_1_*.py tests/test_v14_3_*.py tests/test_realtime_*.py tests/test_forecast_*.py tests/test_migration_*.py tests/test_entry_intent_closure.py tests/test_order_snapshot_closure.py -q` | 13.3s | **PASS** | 252 passed, 0 failed, 1 warning |
+| **2. Frontend Typecheck** | `npx tsc -b` | 4.5s | **PASS** | 0 error |
 | **3. Frontend Lint** | `npx oxlint` | 0.4s | **PASS** | 0 error, 29 warnings |
-| **4. Frontend Vitest** | `npx vitest run --reporter=default --reporter=junit` | 1.6s | **PASS** | 26 test files, 226 tests passed |
-| **5. Frontend Build** | `npm run build` | 4.4s | **PASS** | Vite production bundle build hoàn tất |
-| **6. Browser E2E** | `npx playwright test (5 suites)` | 95.6s | **PASS** | 47 browser tests passed (21 closure, 5 soak, 4 mobile, 9 sessions, 8 selection source) |
-| **7. Benchmark Latency** | `run_v14_4_chart_acceptance.py --cycles 600` | 4.9s | **PASS** | 600 chu kỳ hoàn tất, p50: 7.36ms, p95: 8.37ms, max: 58.79ms |
-| **8. Git Diff Check** | `git diff --check` | 0.0s | **PASS** | Không có trailing whitespace hoặc merge conflict markers |
-| **OVERALL** | Toàn bộ 8 gate | ~122s | **PASS** | Đủ 85/85 required case IDs bắt buộc đạt 100% |
+| **4. Frontend Vitest** | `npx vitest run --reporter=default --reporter=junit` | 1.5s | **PASS** | 26 test files, 226 tests passed |
+| **5. Frontend Build** | `npm run build` | 4.7s | **PASS** | Vite production bundle build hoàn tất |
+| **6. Browser E2E** | `npx playwright test (5 suites)` | 100.5s | **PASS** | 47 browser tests passed (21 closure, 5 soak, 4 mobile, 9 sessions, 8 selection source) |
+| **7. Benchmark Latency** | `run_v14_4_chart_acceptance.py --cycles 600` | 5.0s | **PASS** | 600 chu kỳ hoàn tất, p50: 7.28ms, p95: 8.01ms, max: 15.35ms |
+| **8. Git Diff Check** | `git diff --check` | 0.1s | **PASS** | Không có trailing whitespace hoặc merge conflict markers |
+| **OVERALL** | Toàn bộ 8 gate | ~130s | **PASS** | Đủ 104/104 required case IDs bắt buộc đạt 100% |
 
 ---
 
-## 2. Bảng Ma Trận Chi Tiết 85 Test Cases Bắt Buộc (Case ID Matrix)
+## 2. Bảng Ma Trận Chi Tiết 104 Test Cases Bắt Buộc (Case ID Matrix)
 
 Tất cả 85 case IDs bắt buộc được kiểm thử thực tế trên hệ thống backend cô lập và trình duyệt Playwright thực (không dùng mock rỗng hay `assert True`):
 
@@ -158,6 +157,29 @@ Tất cả 85 case IDs bắt buộc được kiểm thử thực tế trên hệ
 | **FC10** | Dữ liệu bị gián đoạn (feed gap) | Đánh giá trong khoảng gap | Outcome là `DATA_UNAVAILABLE` | Không giả định thắng thua | `test_forecast_forward_observation.py` |
 | **FC11** | Mô hình chưa hiệu chuẩn OOS | Kiểm tra trường xác suất | Trả về `UNAVAILABLE` / `null`, không tạo % giả | Xác suất trung thực null | `test_forecast_forward_observation.py` |
 | **FC12** | Lỗi SQL savepoint khi lưu outcome | Ghi nhận lỗi DB | Best-effort isolation, không làm hỏng transaction chính | Transaction an toàn | `test_forecast_forward_observation.py` |
+
+### Nhóm 8: Closure Manifest (REPRO01–REPRO05, FCT01–FCT02, OBS01, INT01, ORDARM01, ORDFILL01, ORDCHAIN01–02, FREEZE01, LATBUF01–02, STLEASE01, STQUEUE01, STCANDLE01)
+| Case ID | Tiền điều kiện (Preconditions) | Thao tác (Actions) | Kết quả kỳ vọng (Expected) | Kết quả thực tế (Actual) | Artifact / File kiểm thử |
+|---|---|---|---|---|---|
+| **REPRO01** | Snapshot as_of_ms = 1000, context_cutoff_ms = 800 | Nến quá khứ (900–950ms) có giá chạm target | Nến trước lúc dự đoán bị loại trừ khỏi window đánh giá; không tính target hit | `eligible_count == 0`, kết quả PENDING | `test_forecast_causal_closure.py` |
+| **REPRO02** | Snapshot expires_at = 1100ms | Nến sau thời hạn (1200–1300ms) chạm target | Target hit ngoài horizon không được tính thành công; đánh dấu EXPIRED | Kết quả `EXPIRED`, không `CONFIRMED_TARGET` | `test_forecast_causal_closure.py` |
+| **REPRO03** | `direction=None`, target = 4200.0 | Nến 4000.0–4010.0 không bao hàm 4200.0 | Phải dùng so sánh range containment `low <= target <= high`, không dùng OR | `watched_liquidity_touch == False` | `test_forecast_causal_closure.py` |
+| **REPRO04** | Dữ liệu quan sát thiếu timestamp hoặc giá <= 0 | Chạy evaluate_forecast_outcome | Không mặc định timestamp/giá = 0 để tự nhận touch; trả về UNVERIFIED | Trả về `DATA_UNAVAILABLE` / `UNVERIFIED` | `test_forecast_causal_closure.py` |
+| **REPRO05** | Setup với `execution_mode="UNRECOGNIZED_MODEL"` | Gọi `resolve_entry_execution_intent` | Chế độ không hỗ trợ phải fail-closed với `allowed=False`, `entry_mode="ENTRY_MODE_UNAVAILABLE"` | `allowed == False`, `ENTRY_MODE_UNAVAILABLE` | `test_entry_intent_closure.py` |
+| **FCT01** | Tạo forecast phiên Á/Âu/Mỹ từ builder thực | Kiểm tra `SessionForecast.invalidation_price` | Sinh ra mức invalidation price bằng số thực từ facts nến/liquidity; snapshot DB lưu numeric | `invalidation_price` là float có thật, không None | `test_forecast_causal_closure.py` |
+| **FCT02** | Đọc summary quan sát forecast | Kiểm tra phân tách V2 verified và V1 legacy | Mẫu số rõ ràng (`confirmed + invalidated + expired`), xác suất `UNAVAILABLE` | Tách biệt rành mạch, không tính gộp mẫu sai | `test_forecast_causal_closure.py` |
+| **OBS01** | Chu kỳ strategy cycle tạo forecast | Observer quét các nến mới đóng tiếp theo | Snapshot lưu trước, observer cập nhật outcome vào DB theo đúng causality | Outcome được ghi nhận chính xác theo thời gian | `test_forecast_causal_closure.py` |
+| **INT01** | Setup SHORT truyền dưới dạng dict | Gọi `resolve_entry_execution_intent` | Bảo toàn hướng SHORT, kiểm tra bid quote cho limit placement | Giữ nguyên SHORT, không lật thành LONG | `test_entry_intent_closure.py` |
+| **ORDARM01** | Lệnh được Arm (auto hoặc manual) | Kiểm tra bản ghi `PaperOrder` | Lưu trữ toàn bộ frozen snapshot tài chính và intent LIMIT | `order_type == "LIMIT"`, `cost_snapshot` đủ thông số | `test_order_snapshot_closure.py` |
+| **ORDFILL01** | Lệnh được Fill | Kiểm tra `actual_entry` và snapshot | Lưu `actual_entry`, bảo toàn cost snapshot và net reward | `actual_entry` ghi nhận, `net_reward` chính xác | `test_order_snapshot_closure.py` |
+| **ORDCHAIN01** | Gọi `/api/v1/setups/upcoming` | Batch-load các bound orders | Truyền frozen snapshot vào `build_setup_display_plan`, `pricing_mode="FROZEN_ORDER"` | Card hiển thị tiền từ snapshot, không reprice | `test_order_snapshot_closure.py` |
+| **ORDCHAIN02** | Gọi `/api/v1/orders/{id}/chart-evidence` | Đọc bằng chứng chart của lệnh | Trích xuất đầy đủ `net_reward_usdt` và chi tiết các loại phí từ `cost_snapshot` | Phí và net reward hiển thị khớp nhau | `test_order_snapshot_closure.py` |
+| **FREEZE01** | Đổi cấu hình vốn/rủi ro toàn cục | Đọc display plan của setup đã Arm | Display plan của lệnh đã Arm bất biến với cấu hình mới | Không thay đổi số tiền của lệnh đã Arm | `test_order_snapshot_closure.py` |
+| **LATBUF01** | Nhận liên tục 55 late quotes | Kiểm tra buffer 50 của quote ordering | 50 quotes được lưu; quote thứ 51 gây overflow tạo khoảng gap có kiểm toán | `overflow_count == 5`, khoảng gap được ghi nhận | `test_realtime_closure.py` |
+| **LATBUF02** | Claim batch late quotes | Gọi `claim_late_evidence_batch` và `ack` | Quá trình đối soát nhận diện đúng bản ghi và xóa khỏi hàng đợi sau ack | Claim đủ 2 quotes, sau ack queue trống | `test_realtime_closure.py` |
+| **STLEASE01** | Dừng worker `ExecutionConsumer.stop()` | Kiểm tra kết quả dừng | Trả về `StopResult` với `status="COMPLETE"` và `unprocessed_count=0` | Trả về `COMPLETE`, 0 rò rỉ worker thread | `test_realtime_closure.py` |
+| **STQUEUE01** | Dừng `ExecutionConsumer` khi còn hàng đợi dở dang | Đặt timeout ngắn | Trả về `TIMED_OUT`, tự động bật cờ `has_execution_gap=True` | `TIMED_OUT`, `has_execution_gap == True` | `test_realtime_closure.py` |
+| **STCANDLE01** | Dừng `CandleCacheService.stop_persistence_worker()` | Dừng khi worker rảnh | Trả về `StopResult` với `status="COMPLETE"` | `status == "COMPLETE"`, `has_candle_gap == False` | `test_realtime_closure.py` |
 
 ---
 

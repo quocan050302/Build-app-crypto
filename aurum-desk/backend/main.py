@@ -2,10 +2,13 @@ import time
 import json
 import uuid
 import asyncio
+import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import List, Optional, Dict, Any
 from contextlib import asynccontextmanager
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query, Body, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -124,13 +127,17 @@ async def lifespan(app: FastAPI):
     # Graceful shutdown: orderly stop of worker loops before cancelling
     bitget_ws_service.stop()
     try:
-        await execution_consumer.stop(timeout=2.0)
+        res_ec = await execution_consumer.stop(timeout=2.0)
+        if res_ec and res_ec.get("status") == "TIMED_OUT":
+            logger.warning(f"Execution consumer stop timed out: {res_ec}")
     except Exception as ce:
-        print(f"Error stopping execution consumer: {ce}")
+        logger.error(f"Error stopping execution consumer: {ce}")
     try:
-        await candle_cache_service.stop_persistence_worker(timeout=2.0)
+        res_cw = await candle_cache_service.stop_persistence_worker(timeout=2.0)
+        if res_cw and res_cw.get("status") == "TIMED_OUT":
+            logger.warning(f"Candle persistence worker stop timed out: {res_cw}")
     except Exception as cwe:
-        print(f"Error stopping candle persistence worker: {cwe}")
+        logger.error(f"Error stopping candle persistence worker: {cwe}")
     for t in tasks:
         t.cancel()
     await asyncio.gather(*tasks, return_exceptions=True)
@@ -478,6 +485,23 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
         logger.warning(f"Could not load plan financial context: {exc}")
 
     quality_map = setup_quality_repository.get_snapshots_batch(db, [s.id for s in setups])
+
+    # Batch load bound orders to wire frozen order financial snapshots
+    setup_ids = [s.id for s in setups]
+    bound_orders = (
+        db.query(models.PaperOrder)
+        .filter(models.PaperOrder.setup_id.in_(setup_ids))
+        .order_by(models.PaperOrder.created_at.desc())
+        .all()
+    ) if setup_ids else []
+
+    order_map = {}
+    for o in bound_orders:
+        if o.setup_id not in order_map:
+            order_map[o.setup_id] = o
+        elif o.state in ("armed", "paper_open") and order_map[o.setup_id].state not in ("armed", "paper_open"):
+            order_map[o.setup_id] = o
+
     setup_items = []
     for s in setups:
         try:
@@ -486,7 +510,55 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
             eligibility = evaluate_setup_eligibility(db, s)
             quality_sum = quality_map.get(s.id, {}).get("assessment", {}).get("summary")
             quality_snap_id = quality_map.get(s.id, {}).get("snapshot_id")
-            resolved_plan = build_setup_display_plan(s, quality_sum, financial_context=fin_context)
+
+            bound_order = order_map.get(s.id)
+            frozen_snap = None
+            pricing_mode = "CURRENT_PREVIEW"
+            is_frozen = str(s.state).upper() in ("ARMED", "PAPER_OPEN", "CLOSED") or (bound_order and bound_order.state in ("armed", "paper_open"))
+            if bound_order and is_frozen:
+                cost_dict = {}
+                if bound_order.cost_snapshot:
+                    try:
+                        cost_dict = json.loads(bound_order.cost_snapshot) if isinstance(bound_order.cost_snapshot, str) else dict(bound_order.cost_snapshot)
+                    except Exception:
+                        cost_dict = {}
+                frozen_snap = {
+                    "order_id": bound_order.id,
+                    "direction": bound_order.direction,
+                    "gross_rr": bound_order.gross_rr,
+                    "net_rr": bound_order.estimated_net_rr,
+                    "risk_usdt": bound_order.initial_risk_usdt,
+                    "net_risk_usdt": bound_order.initial_risk_usdt,
+                    "quantity": bound_order.quantity,
+                    "leverage": bound_order.leverage,
+                    "margin_mode": bound_order.margin_mode,
+                    "estimated_liquidation": bound_order.estimated_liquidation,
+                    "gross_loss_usdt": cost_dict.get("gross_loss_usdt"),
+                    "gross_reward_usdt": cost_dict.get("gross_reward_usdt"),
+                    "net_reward_usdt": cost_dict.get("net_reward_usdt"),
+                    "multiplier": cost_dict.get("multiplier", 1.0),
+                    "risk_pct": bound_order.risk_pct or cost_dict.get("risk_pct"),
+                    "effective_risk_pct": bound_order.effective_risk_pct or cost_dict.get("effective_risk_pct"),
+                    "entry_fee_usdt": cost_dict.get("entry_fee_usdt"),
+                    "sl_exit_fee_usdt": cost_dict.get("sl_exit_fee_usdt"),
+                    "tp_exit_fee_usdt": cost_dict.get("tp_exit_fee_usdt"),
+                    "entry_slippage_usdt": cost_dict.get("entry_slippage_usdt"),
+                    "sl_exit_slippage_usdt": cost_dict.get("sl_exit_slippage_usdt"),
+                    "tp_exit_slippage_usdt": cost_dict.get("tp_exit_slippage_usdt"),
+                    "cost_source": cost_dict.get("cost_source", "FROZEN_ORDER_SNAPSHOT"),
+                    "equity_as_of_ms": bound_order.opened_at or bound_order.armed_at or bound_order.created_at,
+                    "cost_version": bound_order.policy_config_version or bound_order.config_version,
+                    "risk_config_version": bound_order.config_version,
+                }
+                pricing_mode = "FROZEN_ORDER"
+
+            resolved_plan = build_setup_display_plan(
+                s,
+                quality_sum,
+                financial_context=fin_context,
+                pricing_mode=pricing_mode,
+                frozen_snapshot=frozen_snap
+            )
             setup_items.append({
                 "id": s.id,
                 "version": s.version,
@@ -2887,17 +2959,34 @@ def get_order_chart_evidence(
     from services.smc_scenario_repository import get_scenario_snapshot as repo_get_snapshot, snapshot_from_row
 
     stamp = order.opened_at or order.armed_at or order.created_at
+    net_reward = None
+    cost_dict = {}
+    if order.cost_snapshot:
+        try:
+            cost_dict = json.loads(order.cost_snapshot) if isinstance(order.cost_snapshot, str) else dict(order.cost_snapshot)
+            net_reward = cost_dict.get("net_reward_usdt")
+        except Exception:
+            cost_dict = {}
+
     order_plan = {
         "is_valid": True, "id": order.id, "direction": order.direction, "state": order.state,
         "planned_entry": order.planned_entry, "actual_entry": order.actual_entry, "actual_exit": order.actual_exit,
         "stop_loss": order.stop_loss, "take_profit": order.take_profit, "invalidation_price": order.stop_loss,
         "gross_rr": order.gross_rr, "net_rr": order.estimated_net_rr, "quantity": order.quantity,
         "net_risk_usdt": order.initial_risk_usdt,
-        "net_reward_usdt": None,                       # unknown unless a cost snapshot priced it: never a fake 0
+        "net_reward_usdt": net_reward,
         "realized_pnl_net": order.realized_pnl_net, "realized_r": order.realized_r,
         "opened_at": order.opened_at, "closed_at": order.closed_at,
         "entry_time": (stamp // 1000) if stamp else None, "entry_time_ms": stamp,
         "exit_time_ms": order.closed_at,
+        "fees": {
+            "entry_fee_usdt": cost_dict.get("entry_fee_usdt"),
+            "sl_exit_fee_usdt": cost_dict.get("sl_exit_fee_usdt"),
+            "tp_exit_fee_usdt": cost_dict.get("tp_exit_fee_usdt"),
+            "entry_slippage_usdt": cost_dict.get("entry_slippage_usdt"),
+            "sl_exit_slippage_usdt": cost_dict.get("sl_exit_slippage_usdt"),
+            "tp_exit_slippage_usdt": cost_dict.get("tp_exit_slippage_usdt"),
+        } if cost_dict else None,
     }
 
     if getattr(order, "scenario_snapshot_id", None):

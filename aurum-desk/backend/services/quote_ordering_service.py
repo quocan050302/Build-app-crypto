@@ -41,6 +41,9 @@ class SymbolOrderState:
     total_late: int = 0
     total_invalid: int = 0
     late_evidence_queue: list = field(default_factory=list)
+    overflow_count: int = 0
+    overflow_gap_start_ms: Optional[int] = None
+    overflow_gap_end_ms: Optional[int] = None
 
 
 class QuoteOrderingService:
@@ -64,6 +67,27 @@ class QuoteOrderingService:
     def get_late_evidence(self, symbol: str) -> list:
         """Returns recent bounded late evidence items for audit / reconciliation."""
         return list(self.get_state(symbol).late_evidence_queue)
+
+    def claim_late_evidence_batch(self, symbol: str, limit: int = 50) -> list:
+        """Claims a batch of late evidence for reconciliation."""
+        st = self.get_state(symbol)
+        return list(st.late_evidence_queue[:limit])
+
+    def acknowledge_late_evidence(self, symbol: str, processed_count: int) -> None:
+        """Acknowledges processed late evidence records from the queue."""
+        st = self.get_state(symbol)
+        st.late_evidence_queue = st.late_evidence_queue[processed_count:]
+
+    def get_overflow_gap(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """Returns overflow gap interval if queue overflowed."""
+        st = self.get_state(symbol)
+        if st.overflow_count > 0:
+            return {
+                "overflow_count": st.overflow_count,
+                "gap_start_ms": st.overflow_gap_start_ms,
+                "gap_end_ms": st.overflow_gap_end_ms,
+            }
+        return None
 
     @staticmethod
     def compute_quote_digest(quote: CanonicalQuote) -> str:
@@ -133,7 +157,14 @@ class QuoteOrderingService:
         }
         state.late_evidence_queue.append(record)
         if len(state.late_evidence_queue) > 50:
-            state.late_evidence_queue.pop(0)
+            dropped = state.late_evidence_queue.pop(0)
+            state.overflow_count += 1
+            d_ts = dropped.get("source_timestamp")
+            if d_ts is not None:
+                if state.overflow_gap_start_ms is None or d_ts < state.overflow_gap_start_ms:
+                    state.overflow_gap_start_ms = d_ts
+                if state.overflow_gap_end_ms is None or d_ts > state.overflow_gap_end_ms:
+                    state.overflow_gap_end_ms = d_ts
 
         return QuoteDisposition.LATE_EVIDENCE, f"LATE_TICK_{src_ts}_LESS_THAN_WATERMARK_{state.watermark_ms}"
 

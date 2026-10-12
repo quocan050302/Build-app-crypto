@@ -18,6 +18,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
+import re
 from enum import Enum
 from typing import Any, Dict, List, Optional, Sequence
 from sqlalchemy import func
@@ -56,6 +58,7 @@ def forecast_content_digest(forecast: Any) -> str:
         "primary_thesis": primary.get("thesis_vi"),
         "primary_inval": primary.get("invalidation_vi"),
         "target_price": target.get("price"),
+        "invalidation_price": f_dict.get("invalidation_price") or primary.get("invalidation_price"),
         "invalidation": f_dict.get("invalidation", []),
         "confirmation": f_dict.get("confirmation", []),
         "watched_liquidity": [
@@ -110,9 +113,17 @@ def create_forecast_snapshot(
             target_price = target.get("price")
 
             # Extract invalidation price if numeric
-            invalidation_price = None
+            invalidation_price = f_dict.get("invalidation_price") or primary.get("invalidation_price")
             inval_str = primary.get("invalidation_vi") or ""
-            # parse numeric from text if present or keep None
+            if invalidation_price is None and inval_str:
+                m = re.search(r"(\d{3,6}(?:\.\d+)?)", inval_str)
+                if m:
+                    try:
+                        parsed = float(m.group(1))
+                        if math.isfinite(parsed) and parsed > 0:
+                            invalidation_price = parsed
+                    except Exception:
+                        pass
 
             cutoff_ms = f_dict.get("as_of_ms", as_of)
             if f_dict.get("session_range"):
@@ -154,9 +165,13 @@ def evaluate_forecast_outcome(
     expiry_ms: Optional[int] = None
 ) -> Dict[str, Any]:
     """Evaluates causal forward outcome against closed observations.
-    Enforces that observations must have:
-      source_timestamp >= snapshot.context_cutoff_ms
-      known_at_ms <= as_of_ms
+    Enforces causal window invariants:
+      1. source_timestamp >= max(snapshot.as_of_ms, snapshot.context_cutoff_ms)
+      2. known_at_ms <= as_of_ms (no future data)
+      3. source_timestamp <= expiry_ms (if expiry_ms set; observations beyond expiry are post-horizon)
+      4. Valid numeric timestamps and prices (no 0, NaN, Inf, high < low)
+      5. Direction None target touch requires range containment: low <= target_price <= high
+      6. If expiry_ms has elapsed and no terminal outcome, returns EXPIRED.
     """
     if feed_gap:
         return {
@@ -166,43 +181,86 @@ def evaluate_forecast_outcome(
             "details": {"feed_gap": True}
         }
 
-    cutoff_ms = getattr(snapshot, "context_cutoff_ms", 0)
+    # Window start: strictly forward from forecast creation
+    snap_as_of = getattr(snapshot, "as_of_ms", None)
+    cutoff_ms = getattr(snapshot, "context_cutoff_ms", None)
+    valid_window_starts = [
+        v for v in (snap_as_of, cutoff_ms)
+        if isinstance(v, int) and not isinstance(v, bool) and v > 0
+    ]
+    window_start = max(valid_window_starts) if valid_window_starts else 0
+
     target_price = getattr(snapshot, "target_price", None)
     invalidation_price = getattr(snapshot, "invalidation_price", None)
     direction = getattr(snapshot, "direction", None)
 
-    # Filter causal observations strictly forward in time
-    valid_obs = [
-        o for o in observations
-        if o.get("source_timestamp", 0) >= cutoff_ms and o.get("known_at_ms", 0) <= as_of_ms
-    ]
+    # Filter causal observations strictly forward in time and within horizon
+    valid_obs = []
+    has_post_expiry_obs = False
+
+    for o in observations:
+        s_ts = o.get("source_timestamp")
+        k_ts = o.get("known_at_ms")
+
+        # Must have valid positive int timestamps
+        if not isinstance(s_ts, int) or isinstance(s_ts, bool) or s_ts <= 0:
+            continue
+        if not isinstance(k_ts, int) or isinstance(k_ts, bool) or k_ts <= 0:
+            continue
+
+        # Must be within known evaluation horizon
+        if k_ts > as_of_ms:
+            continue
+
+        # Must be strictly forward from forecast creation
+        if s_ts < window_start:
+            continue
+
+        # Check if beyond expiry
+        if expiry_ms is not None and s_ts > expiry_ms:
+            has_post_expiry_obs = True
+            continue
+
+        # Price sanity check
+        high = o.get("high", o.get("price"))
+        low = o.get("low", o.get("price"))
+        if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0 for v in (high, low)):
+            continue
+        if high < low:
+            continue
+
+        valid_obs.append(o)
+
     valid_obs.sort(key=lambda x: x.get("source_timestamp", 0))
 
     confirmed = False
     for o in valid_obs:
+        confirmed_before = confirmed
         # Check confirmation event
         if o.get("is_confirmation"):
             confirmed = True
 
-        high = o.get("high", o.get("price", 0.0))
-        low = o.get("low", o.get("price", 0.0))
+        high = float(o.get("high", o.get("price", 0.0)))
+        low = float(o.get("low", o.get("price", 0.0)))
         bar_ts = o.get("source_timestamp", as_of_ms)
 
         target_hit = False
         inval_hit = False
 
-        if target_price is not None:
+        if target_price is not None and math.isfinite(target_price):
             if direction == "LONG" and high >= target_price:
                 target_hit = True
             elif direction == "SHORT" and low <= target_price:
                 target_hit = True
-            elif direction is None and (high >= target_price or low <= target_price):
+            elif direction is None and (low <= target_price <= high):
                 target_hit = True
 
-        if invalidation_price is not None:
+        if invalidation_price is not None and math.isfinite(invalidation_price):
             if direction == "LONG" and low <= invalidation_price:
                 inval_hit = True
             elif direction == "SHORT" and high >= invalidation_price:
+                inval_hit = True
+            elif direction is None and (low <= invalidation_price <= high):
                 inval_hit = True
 
         # Check Ambiguous: both hit on the same candle
@@ -215,13 +273,31 @@ def evaluate_forecast_outcome(
             }
 
         # Check Target Hit BEFORE confirmation -> WATCHED_LIQUIDITY_TOUCH (NOT a WIN trade)
-        if target_hit and not confirmed:
-            return {
-                "outcome": ForecastOutcomeDefinition.WATCHED_LIQUIDITY_TOUCH.value,
-                "reason": "TARGET_TOUCHED_BEFORE_CONFIRMATION",
-                "outcome_at_ms": bar_ts,
-                "details": {"bar_timestamp": bar_ts, "target": target_price, "confirmed": False}
-            }
+        if target_hit and not confirmed_before:
+            if not confirmed:
+                return {
+                    "outcome": ForecastOutcomeDefinition.WATCHED_LIQUIDITY_TOUCH.value,
+                    "reason": "TARGET_TOUCHED_BEFORE_CONFIRMATION",
+                    "outcome_at_ms": bar_ts,
+                    "details": {"bar_timestamp": bar_ts, "target": target_price, "confirmed": False}
+                }
+            elif o.get("is_confirmation"):
+                # Same-bar confirmation and target touch:
+                # If explicitly validated that confirmation preceded target touch within bar
+                if o.get("confirmation_precedes_target"):
+                    return {
+                        "outcome": ForecastOutcomeDefinition.CONFIRMED_TARGET_BEFORE_INVALIDATION.value,
+                        "reason": "CONFIRMED_TARGET_HIT",
+                        "outcome_at_ms": bar_ts,
+                        "details": {"bar_timestamp": bar_ts, "target": target_price, "confirmed": True}
+                    }
+                else:
+                    return {
+                        "outcome": ForecastOutcomeDefinition.WATCHED_LIQUIDITY_TOUCH.value,
+                        "reason": "SAME_BAR_CONFIRMATION_AND_TARGET_ORDER_UNVERIFIED",
+                        "outcome_at_ms": bar_ts,
+                        "details": {"bar_timestamp": bar_ts, "target": target_price, "confirmed": True, "ambiguous_order": True}
+                    }
 
         # Check Invalidation first
         if inval_hit:
@@ -233,7 +309,7 @@ def evaluate_forecast_outcome(
             }
 
         # Check Confirmed Target Hit
-        if target_hit and confirmed:
+        if target_hit and confirmed_before:
             return {
                 "outcome": ForecastOutcomeDefinition.CONFIRMED_TARGET_BEFORE_INVALIDATION.value,
                 "reason": "CONFIRMED_TARGET_HIT",
@@ -242,7 +318,7 @@ def evaluate_forecast_outcome(
             }
 
     # Check Expiry
-    if expiry_ms is not None and as_of_ms >= expiry_ms:
+    if expiry_ms is not None and (as_of_ms >= expiry_ms or has_post_expiry_obs):
         return {
             "outcome": ForecastOutcomeDefinition.EXPIRED.value,
             "reason": "HORIZON_EXPIRED",
@@ -356,6 +432,7 @@ def summarize_forecast_observations(
 ) -> Dict[str, Any]:
     """Produces objective forward forecast summary statistics.
     Explicitly distinguishes forecast target touch rate from order win rate.
+    Separates verified events from legacy/unverified outcomes.
     """
     query = db.query(models.ForecastObservation)
     if session:
@@ -372,6 +449,7 @@ def summarize_forecast_observations(
     if n_total == 0:
         return {
             "n_forecasts": 0,
+            "n_pending": 0,
             "n_terminal": 0,
             "n_confirmed_target": 0,
             "n_watched_liquidity_touch": 0,
@@ -379,7 +457,10 @@ def summarize_forecast_observations(
             "n_ambiguous": 0,
             "n_data_unavailable": 0,
             "n_expired": 0,
+            "n_resolved_valid": 0,
+            "n_legacy_unverified": 0,
             "target_touch_fraction": None,
+            "conditional_reach_rate": None,
             "probability_status": "UNAVAILABLE",
             "note_vi": "Chưa có đủ mẫu dự đoán phiên để thống kê."
         }
@@ -391,12 +472,22 @@ def summarize_forecast_observations(
     n_ambiguous = outcomes.count(ForecastOutcomeDefinition.AMBIGUOUS.value)
     n_data_unavail = outcomes.count(ForecastOutcomeDefinition.DATA_UNAVAILABLE.value)
     n_expired = outcomes.count(ForecastOutcomeDefinition.EXPIRED.value)
-    n_terminal = n_total - outcomes.count(ForecastOutcomeDefinition.PENDING.value)
+    n_pending = outcomes.count(ForecastOutcomeDefinition.PENDING.value)
+    n_terminal = n_total - n_pending
 
-    target_touch_frac = round(n_confirmed_target / n_terminal, 4) if n_terminal > 0 else None
+    # Distinguish legacy/unverified (records created without numeric invalidation)
+    n_legacy_unverified = sum(
+        1 for r in records
+        if r.invalidation_price is None and r.outcome_status != ForecastOutcomeDefinition.PENDING.value
+    )
+
+    # Valid resolved events denominator: only eligible defined decisive outcomes
+    n_resolved_valid = n_confirmed_target + n_inval + n_expired
+    target_touch_frac = round(n_confirmed_target / n_resolved_valid, 4) if n_resolved_valid > 0 else None
 
     return {
         "n_forecasts": n_total,
+        "n_pending": n_pending,
         "n_terminal": n_terminal,
         "n_confirmed_target": n_confirmed_target,
         "n_watched_liquidity_touch": n_touch,
@@ -404,7 +495,10 @@ def summarize_forecast_observations(
         "n_ambiguous": n_ambiguous,
         "n_data_unavailable": n_data_unavail,
         "n_expired": n_expired,
+        "n_resolved_valid": n_resolved_valid,
+        "n_legacy_unverified": n_legacy_unverified,
         "target_touch_fraction": target_touch_frac,
+        "conditional_reach_rate": target_touch_frac,
         "probability_status": "UNAVAILABLE",
         "note_vi": "Dự đoán phiên là bối cảnh có điều kiện, tỷ lệ chạm mục tiêu không đồng nghĩa lợi nhuận giao dịch (chưa trừ trượt giá, phí, và điều kiện bảo vệ vào lệnh)."
     }

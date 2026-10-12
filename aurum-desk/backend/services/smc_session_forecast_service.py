@@ -62,6 +62,7 @@ class SessionForecast:
     entry_eligible: bool = False
     entry_note_vi: str = ENTRY_NOTE_VI
     relation_status: Optional[str] = None
+    invalidation_price: Optional[float] = None
     convention_version: str = SESSION_CONVENTION_VERSION
     schema_version: str = FORECAST_SCHEMA_VERSION
 
@@ -73,6 +74,7 @@ class SessionForecast:
             "hypothesis_type": self.hypothesis_type, "facts": list(self.facts), "primary": self.primary,
             "alternative": self.alternative, "watched_liquidity": list(self.watched_liquidity),
             "target": self.target, "confirmation": list(self.confirmation), "invalidation": list(self.invalidation),
+            "invalidation_price": self.invalidation_price,
             "features": self.features, "session_range": self.session_range, "summary_vi": self.summary_vi,
             "scenario_refs": list(self.scenario_refs), "probability": self.probability,
             "entry_eligible": self.entry_eligible, "entry_note_vi": self.entry_note_vi,
@@ -81,8 +83,11 @@ class SessionForecast:
         }
 
 
-def _hyp(direction: Optional[str], thesis: str, conditions: Sequence[str], inval: Optional[str] = None) -> Dict[str, Any]:
-    return {"direction": direction, "thesis_vi": thesis, "conditions_vi": list(conditions), "invalidation_vi": inval}
+def _hyp(direction: Optional[str], thesis: str, conditions: Sequence[str], inval: Optional[str] = None, inval_price: Optional[float] = None) -> Dict[str, Any]:
+    res = {"direction": direction, "thesis_vi": thesis, "conditions_vi": list(conditions), "invalidation_vi": inval}
+    if inval_price is not None:
+        res["invalidation_price"] = inval_price
+    return res
 
 
 def _lvl_brief(l: Any) -> Dict[str, Any]:
@@ -145,17 +150,20 @@ def build_asia_forecast(*, session_id, now_ms, rng: SessionRange, htf_text: str,
             direction, f"Nếu giá tiếp tục đóng nến dưới {s['level']:.2f} (đã quét {s['level_label']} rồi đóng trở lại) "
             f"thì theo dõi đảo chiều {'giảm' if up else 'tăng'}; chưa phải xác nhận.",
             ["Cần phá cấu trúc có dịch chuyển (displacement) cùng hướng sau cú quét."],
-            f"Giá đóng {'trên' if up else 'dưới'} cực trị bấc {s['wick_extreme']:.2f}."), \
+            f"Giá đóng {'trên' if up else 'dưới'} cực trị bấc {s['wick_extreme']:.2f}.",
+            inval_price=round(float(s["wick_extreme"]), 2)), \
             _hyp(None, "Nếu giá đóng ngoài mức vừa quét thì cú quét là phá vỡ thật: chuyển sang theo dõi tiếp diễn.", [])
     elif clv is not None and clv >= 0.6 and htf_text.startswith("Tăng"):
         hyp, p, alt = "TREND_EXTENSION", _hyp(
             "LONG", "Nếu giá giữ phía trên nửa biên Á và HTF còn tăng thì theo dõi tiếp diễn lên đỉnh Á.",
-            ["Giữ trên giữa biên Á", "Không có cú quét đỉnh Á đóng ngược lại"], f"Đóng dưới đáy Á {rng.low:.2f}"), \
+            ["Giữ trên giữa biên Á", "Không có cú quét đỉnh Á đóng ngược lại"], f"Đóng dưới đáy Á {rng.low:.2f}",
+            inval_price=round(float(rng.low), 2)), \
             _hyp(None, "Nếu giá quay xuống dưới giữa biên thì trở lại quan sát trong biên.", [])
     elif clv is not None and clv <= -0.6 and htf_text.startswith("Giảm"):
         hyp, p, alt = "TREND_EXTENSION", _hyp(
             "SHORT", "Nếu giá giữ phía dưới nửa biên Á và HTF còn giảm thì theo dõi tiếp diễn xuống đáy Á.",
-            ["Giữ dưới giữa biên Á", "Không có cú quét đáy Á đóng ngược lại"], f"Đóng trên đỉnh Á {rng.high:.2f}"), \
+            ["Giữ dưới giữa biên Á", "Không có cú quét đáy Á đóng ngược lại"], f"Đóng trên đỉnh Á {rng.high:.2f}",
+            inval_price=round(float(rng.high), 2)), \
             _hyp(None, "Nếu giá quay lên trên giữa biên thì trở lại quan sát trong biên.", [])
     else:
         hyp, p, alt = "RANGE_OBSERVATION", _hyp(
@@ -167,6 +175,7 @@ def build_asia_forecast(*, session_id, now_ms, rng: SessionRange, htf_text: str,
         session="ASIA", session_id=session_id, as_of_ms=now_ms, data_status=status, is_partial=partial,
         hypothesis_type=hyp, facts=facts, primary=p, alternative=alt, watched_liquidity=watched, target=tgt,
         confirmation=p["conditions_vi"], invalidation=[p["invalidation_vi"]] if p.get("invalidation_vi") else [],
+        invalidation_price=p.get("invalidation_price"),
         features=feats, session_range=rng.to_dict(),
         summary_vi=f"Phiên Á ({'đang chạy' if partial else 'đã xong'}): {p['thesis_vi']}")
 
@@ -206,24 +215,28 @@ def build_london_forecast(*, session_id, now_ms, asia: SessionRange, lon: Sessio
     if closes_above and last.close > asia.high:
         hyp = "BREAKOUT_HOLD_PENDING"
         p = _hyp("LONG", "Nếu nến M5 tiếp tục đóng trên đỉnh Á thì theo dõi tiếp diễn tăng; cần retest giữ vùng.",
-                 ["Đóng giữ trên đỉnh Á", "Retest FVG/đỉnh Á không đóng xuyên xuống"], f"Đóng lại dưới đỉnh Á {asia.high:.2f}")
+                 ["Đóng giữ trên đỉnh Á", "Retest FVG/đỉnh Á không đóng xuyên xuống"], f"Đóng lại dưới đỉnh Á {asia.high:.2f}",
+                 inval_price=round(float(asia.high), 2))
         alt = _hyp("SHORT", "Nếu giá đóng ngược vào trong biên Á thì cú phá là quét thanh khoản: theo dõi đảo chiều giảm.",
                    ["Đóng ngược vào biên", "Phá cấu trúc giảm có displacement"])
     elif closes_below and last.close < asia.low:
         hyp = "BREAKOUT_HOLD_PENDING"
         p = _hyp("SHORT", "Nếu nến M5 tiếp tục đóng dưới đáy Á thì theo dõi tiếp diễn giảm; cần retest giữ vùng.",
-                 ["Đóng giữ dưới đáy Á", "Retest FVG/đáy Á không đóng xuyên lên"], f"Đóng lại trên đáy Á {asia.low:.2f}")
+                 ["Đóng giữ dưới đáy Á", "Retest FVG/đáy Á không đóng xuyên lên"], f"Đóng lại trên đáy Á {asia.low:.2f}",
+                 inval_price=round(float(asia.low), 2))
         alt = _hyp("LONG", "Nếu giá đóng ngược vào trong biên Á thì cú phá là quét thanh khoản: theo dõi đảo chiều tăng.",
                    ["Đóng ngược vào biên", "Phá cấu trúc tăng có displacement"])
     elif first_up is not None and last.close <= asia.high and not closes_above:
         hyp = "FALSE_BREAKOUT_PENDING"
         p = _hyp("SHORT", "Nếu giá giữ trong biên sau khi quét đỉnh Á thì theo dõi đảo chiều giảm; chưa xác nhận.",
-                 ["Phá cấu trúc giảm có displacement sau cú quét"], f"Đóng trên cực trị bấc {first_up.high:.2f}")
+                 ["Phá cấu trúc giảm có displacement sau cú quét"], f"Đóng trên cực trị bấc {first_up.high:.2f}",
+                 inval_price=round(float(first_up.high), 2))
         alt = _hyp(None, "Nếu nến đóng trên đỉnh Á thì đây là phá vỡ thật, không còn là quét.", [])
     elif first_dn is not None and last.close >= asia.low and not closes_below:
         hyp = "FALSE_BREAKOUT_PENDING"
         p = _hyp("LONG", "Nếu giá giữ trong biên sau khi quét đáy Á thì theo dõi đảo chiều tăng; chưa xác nhận.",
-                 ["Phá cấu trúc tăng có displacement sau cú quét"], f"Đóng dưới cực trị bấc {first_dn.low:.2f}")
+                 ["Phá cấu trúc tăng có displacement sau cú quét"], f"Đóng dưới cực trị bấc {first_dn.low:.2f}",
+                 inval_price=round(float(first_dn.low), 2))
         alt = _hyp(None, "Nếu nến đóng dưới đáy Á thì đây là phá vỡ thật, không còn là quét.", [])
     else:
         hyp = "RANGE_OBSERVATION"
@@ -234,7 +247,9 @@ def build_london_forecast(*, session_id, now_ms, asia: SessionRange, lon: Sessio
         session="LONDON", session_id=session_id, as_of_ms=now_ms, data_status="PARTIAL" if partial else "OK",
         is_partial=partial, hypothesis_type=hyp, facts=facts, primary=p, alternative=alt, watched_liquidity=watched,
         target=tgt, confirmation=p["conditions_vi"],
-        invalidation=[p["invalidation_vi"]] if p.get("invalidation_vi") else [], features=feats,
+        invalidation=[p["invalidation_vi"]] if p.get("invalidation_vi") else [],
+        invalidation_price=p.get("invalidation_price"),
+        features=feats,
         session_range=lon.to_dict(), summary_vi=f"Phiên Âu ({'đang chạy' if partial else 'đã xong'}): {p['thesis_vi']}")
 
 
@@ -263,6 +278,7 @@ def build_ny_forecast(*, session_id, now_ms, asia: SessionRange, lon: SessionRan
     elif htf_text.startswith("Giảm"):
         h_align = "SHORT"
     watched = list(london.watched_liquidity)
+    inval_numeric = getattr(london, "invalidation_price", None) or primary.get("invalidation_price")
     if regime == "SHOCK":
         hyp = "OBSERVATION_SHOCK"
         p = _hyp(None, "Biến động bất thường (SHOCK): chỉ quan sát, không dùng luận điểm tiếp diễn/đảo chiều.", [])
@@ -273,7 +289,8 @@ def build_ny_forecast(*, session_id, now_ms, asia: SessionRange, lon: SessionRan
         p = _hyp(d, f"Nếu Âu giữ ngoài biên Á và retest giữ vùng thì theo dõi tiếp diễn {'tăng' if d == 'LONG' else 'giảm'} "
                     f"trong phiên Mỹ ({htf_note}).",
                  ["Retest FVG/biên Á không đóng xuyên", "Phá cấu trúc cùng hướng có displacement"],
-                 primary.get("invalidation_vi"))
+                 primary.get("invalidation_vi"),
+                 inval_price=inval_numeric)
         alt = london.alternative
     elif lone in ("FALSE_BREAKOUT_PENDING", "BREAKOUT_HOLD_PENDING") and d:
         hyp = "REVERSAL_WATCH" if lone == "FALSE_BREAKOUT_PENDING" else "OBSERVATION_CONFLICT"
@@ -281,7 +298,9 @@ def build_ny_forecast(*, session_id, now_ms, asia: SessionRange, lon: SessionRan
                  ("Nếu giá reclaim biên Á và có MSS có displacement thì theo dõi đảo chiều."
                   if lone == "FALSE_BREAKOUT_PENDING" else
                   "Âu phá biên nhưng ngược HTF: xung đột, chỉ quan sát tới khi một bên được xác nhận."),
-                 ["Sweep → reclaim → MSS có displacement → FVG → retest"], primary.get("invalidation_vi"))
+                 ["Sweep → reclaim → MSS có displacement → FVG → retest"],
+                 primary.get("invalidation_vi"),
+                 inval_price=inval_numeric)
         alt = london.alternative
     else:
         hyp = "RANGE_OBSERVATION"
@@ -305,6 +324,7 @@ def build_ny_forecast(*, session_id, now_ms, asia: SessionRange, lon: SessionRan
         data_status="PARTIAL" if ny.is_partial else "OK", is_partial=ny.is_partial, hypothesis_type=hyp,
         facts=facts, primary=p, alternative=alt, watched_liquidity=watched, target=tgt,
         confirmation=p["conditions_vi"], invalidation=[p["invalidation_vi"]] if p.get("invalidation_vi") else [],
+        invalidation_price=p.get("invalidation_price"),
         session_range=ny.to_dict(), scenario_refs=refs,
         features={"x_e": london.features.get("X_E")},
         relation_status=relation_status,
