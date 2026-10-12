@@ -355,7 +355,127 @@ def e2e_ny_state():
     finally:
         db.close()
 
+# =====================================================================================================
+# V14.4.1 SMC chart scenarios: REAL market-reading cycle (detector -> scenario -> persist -> watch -> guard ->
+# arm -> coordinator fill). Only the persisted candles (smc_fixtures chain), the clock and the quote are injected.
+# =====================================================================================================
+SMC_OK_FEED = {"has_execution_gap": False, "is_lagging": False}
+SMC_BIAS = {"LONG": "BULLISH", "SHORT": "BEARISH"}
 
+
+def _smc_tick(direction, now_ms, age_ms=500):
+    last = 2648.6 if direction == "LONG" else 2651.4
+    ts = now_ms - age_ms
+    return {"symbol": "XAUUSDT", "bid": last - 0.1, "ask": last + 0.1, "last": last - 0.1,
+            "timestamp": ts, "observed_at": ts}
+
+
+def _smc_state(db):
+    import json as _json
+    scen = [{"scenario_id": s.scenario_id, "snapshot_id": s.snapshot_id, "state": s.state,
+             "direction": s.direction, "revision": s.revision, "instance_id": s.instance_id}
+            for s in db.query(models.SMCScenarioSnapshot).order_by(models.SMCScenarioSnapshot.as_of_ms.asc(), models.SMCScenarioSnapshot.revision.asc()).all()]
+    orders = [{"id": o.id, "state": o.state, "direction": o.direction, "planned_entry": o.planned_entry,
+               "stop_loss": o.stop_loss, "take_profit": o.take_profit, "opened_at": o.opened_at,
+               "closed_at": o.closed_at, "scenario_snapshot_id": o.scenario_snapshot_id,
+               "quality_snapshot_id": o.quality_snapshot_id}
+              for o in db.query(models.PaperOrder).order_by(models.PaperOrder.created_at.asc()).all()]
+    watches = [{"id": w.id, "state": w.state, "direction": w.direction, "revision": w.version,
+                "instance_id": w.setup_instance_id, "scenario_snapshot_id": w.scenario_snapshot_id}
+               for w in db.query(models.WatchSetup).all()]
+    return {"now_ms": live_clock.now_ms(), "scenarios": scen, "orders": orders, "watches": watches,
+            "mutations_log": _json.dumps([])}
+
+
+@app.post("/__e2e/smc/reset")
+def e2e_smc_reset(body: dict = Body(default={})):
+    """Seed one real confirmed SMC story and run the production cycle.
+
+    body: direction LONG|SHORT, auto (arm), fill (coordinator fill), close (mark closed for history view).
+    """
+    import smc_fixtures as F
+    from ny_quota_fixtures import set_policy, set_saved_risk
+    from services.lesson_policy_service import LessonPolicyService
+    from services.lesson_rule_service import LessonRuleService
+    from services.strategy_service import strategy_service
+    direction = body.get("direction", "LONG")
+    db = SessionLocal()
+    try:
+        now = int(body.get("now_ms") or F.NOW_MS)
+        _CLOCK["ms"] = now
+        for model in (models.NotificationOutbox, models.DomainEvent, models.PaperOrder, models.EconomicNews,
+                      models.WatchSetup, models.SessionQuota, models.NYOpportunityAudit, models.NYSessionAudit,
+                      models.SMCScenarioSnapshot, models.SMCScenario, models.SetupQualitySnapshot):
+            db.query(model).delete()
+        db.query(models.Candle).delete()
+        db.commit()
+        LessonPolicyService.reset_to_defaults(db)
+        LessonRuleService.invalidate_cache()
+        set_saved_risk(db)
+        set_policy(db, ny_fallback_enabled=False, entry_session_policy="NY_ONLY")
+        for tf, candles in F.make_candles_by_tf(direction, now).items():
+            for c in candles:
+                db.add(models.Candle(symbol="XAUUSDT", timeframe=tf, timestamp=c.timestamp, open=c.open,
+                                     high=c.high, low=c.low, close=c.close, volume=c.volume, is_closed=True))
+        db.commit()
+        # the live candle cache lazily snapshots the DB on first read and never refreshes: drop it so the
+        # chart under test reads the candles this reset just seeded (test launcher only).
+        from services.candle_cache_service import candle_cache_service
+        candle_cache_service._cache.clear()
+        candle_cache_service._watermarks.clear()
+        # never DELETE the audit row: the open page polls /account/status concurrently and would race to
+        # re-insert it (UNIQUE date_str). Reset the counters in place instead.
+        audit = crud.get_or_create_today_audit(db)
+        audit.fills_count = 0
+        audit.consecutive_losses = 0
+        audit.is_blocked = False
+        audit.cooldown_until = None
+        db.commit()
+        strategy_service.evaluate_upcoming_setups(
+            "XAUUSDT", "15M", db=db, clock=FakeClock(now), ticker=_smc_tick(direction, now),
+            htf_bias=SMC_BIAS[direction], h1_alignment="ALIGNED", feed_health=SMC_OK_FEED,
+            auto_enabled=bool(body.get("auto", True)))
+        if body.get("fill"):
+            execution_coordinator.evaluate_orders_sync(
+                db, ticker_override=_smc_tick(direction, now, 200), clock=FakeClock(now), now_ms=now)
+        if body.get("close"):
+            for o in db.query(models.PaperOrder).filter(models.PaperOrder.state == "paper_open").all():
+                sign = 1.0 if o.direction == "LONG" else -1.0
+                entry = o.actual_entry or o.planned_entry
+                o.state = "closed"
+                o.actual_exit = o.take_profit
+                o.exit_cause = "TP_HIT"
+                o.closed_at = (o.opened_at or now) + 20 * 60_000
+                o.realized_pnl_net = round(sign * (o.take_profit - entry) * o.quantity, 4)
+                o.realized_r = round(o.realized_pnl_net / o.initial_risk_usdt, 4) if o.initial_risk_usdt else None
+            db.commit()
+        pad_days = int(body.get("after_days", 0))
+        if pad_days > 0:
+            # Flat, structure-free bars AFTER the story so that the story is older than the chart's
+            # default window (the history-focus test must fetch a bounded historical window).
+            for tf, step in (("5M", 300_000), ("15M", 900_000), ("1H", 3_600_000), ("4H", 14_400_000)):
+                last = (db.query(models.Candle).filter_by(symbol="XAUUSDT", timeframe=tf)
+                        .order_by(models.Candle.timestamp.desc()).first())
+                price = float(last.close)
+                for i in range(1, pad_days * 86_400_000 // step + 1):
+                    db.add(models.Candle(symbol="XAUUSDT", timeframe=tf, timestamp=last.timestamp + i * step,
+                                         open=price, high=price + 0.2, low=price - 0.2, close=price,
+                                         volume=1.0, is_closed=True))
+            db.commit()
+            candle_cache_service._cache.clear()
+            candle_cache_service._watermarks.clear()
+        return _smc_state(db)
+    finally:
+        db.close()
+
+
+@app.get("/__e2e/smc/state")
+def e2e_smc_state():
+    db = SessionLocal()
+    try:
+        return _smc_state(db)
+    finally:
+        db.close()
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8765)

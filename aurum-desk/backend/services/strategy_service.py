@@ -96,6 +96,12 @@ class StrategyService:
                 h1_alignment=h1_alignment if h1_alignment is not None else collector_service.h1_alignment,
                 candles_5m=candles_5m, feed_health=feed_health, auto_enabled=auto_enabled,
             )
+            # V14.4.1: market-reading cycle (scenarios -> certified setup -> guarded auto-arm). It is isolated:
+            # any failure is logged as SYSTEM_ERROR and never blocks the legacy flow, NY fallback or exits.
+            self.evaluate_market_reading_cycle(
+                db, symbol, now_ms=now_ms, now_dt=now_dt, clock=clock, quote=quote,
+                feed_health=feed_health, auto_enabled=auto_enabled, ticker=raw_ticker,
+            )
             candles = crud.get_candles(db, symbol, timeframe, limit=150, ascending=True, cutoff_ms=now_ms)
             if len(candles) < 20:
                 # V14.3: do not return silently - the NY cycle still audits/searches with its own 5M data.
@@ -369,6 +375,135 @@ class StrategyService:
             if owns_db:
                 db.close()
 
+
+    # ------------------------------------------------------------------ V14.4.1 market reading
+    last_market_reading: Dict[str, Any] = {}
+    # V14.4.1: cached three-session forecasts per symbol, filled ONLY by the cycle (GET never runs the engine).
+    session_forecasts_cache: Dict[str, Dict[str, Any]] = {}
+
+    def _cache_session_forecasts(self, symbol: str, candles_by_tf: Dict[str, list], now_ms: int, cfg: Any,
+                                 primary: Any, issues: Any) -> None:
+        try:
+            from services.smc_scenario_service import load_closed_context
+            from services.smc_session_forecast_service import evaluate_session_forecasts
+            ctx = load_closed_context(candles_by_tf, now_ms, cfg)
+            fc = evaluate_session_forecasts(symbol, ctx, now_ms, cfg, primary_scenario=primary)
+            self.session_forecasts_cache[symbol] = {
+                "symbol": symbol, "as_of_ms": now_ms, "day": next(iter(fc.values())).session_id.split(":")[-1],
+                "forecasts": {k: v.to_dict() for k, v in fc.items()},
+                "coverage": {k: {"data_status": v.data_status, "is_partial": v.is_partial,
+                                 **{f: (v.session_range or {}).get(f) for f in
+                                    ("coverage_status", "coverage_ratio", "bars_count", "expected_bars", "gap_bars")}}
+                             for k, v in fc.items()},
+                "data_issues": [getattr(i, "code", str(i)) for i in (issues or [])],
+            }
+        except Exception as exc:  # noqa: BLE001 - forecast is observation only
+            logger.error(f"SYSTEM_ERROR in session forecast: {exc}", exc_info=True)
+            self.session_forecasts_cache[symbol] = {
+                "symbol": symbol, "as_of_ms": now_ms, "day": None, "forecasts": {}, "coverage": {},
+                "data_issues": ["SYSTEM_ERROR"], "error": str(exc)}
+
+    def _load_scenario_candles(self, db: Session, symbol: str, now_ms: int) -> Dict[str, list]:
+        """Bounded window: M5/M15 from the previous NY day's Asia open to now; closed D/4H/1H history."""
+        from services.smc_session_context import scenario_history_start_ms
+        start = scenario_history_start_ms(now_ms)
+        return {
+            "5M": crud.get_candles(db, symbol, "5M", limit=900, ascending=True, cutoff_ms=now_ms, start_ms=start),
+            "15M": crud.get_candles(db, symbol, "15M", limit=300, ascending=True, cutoff_ms=now_ms, start_ms=start),
+            "1H": crud.get_candles(db, symbol, "1H", limit=80, ascending=True, cutoff_ms=now_ms),
+            "4H": crud.get_candles(db, symbol, "4H", limit=80, ascending=True, cutoff_ms=now_ms),
+            "D": crud.get_candles(db, symbol, "D", limit=12, ascending=True, cutoff_ms=now_ms),
+        }
+
+    def evaluate_market_reading_cycle(
+        self, db: Session, symbol: str, *, now_ms: int, now_dt: datetime, clock: Any = None, quote: Any = None,
+        feed_health: Optional[Dict[str, Any]] = None, auto_enabled: Optional[bool] = None,
+        ticker: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Scenario cycle: persist material revisions (commit), publish events AFTER the commit, promote at most
+        ONE confirmed scenario with a valid atomic plan to the WatchSetup table, then (auto only) hand it to
+        `_auto_arm_candidate` - the same guarded arm used by every other family. Never raises."""
+        from services.smc_scenario_config import active_scenario_config as cfg
+        if not cfg.scenario_explain_enabled:
+            self.last_market_reading = {"status": "DISABLED_BY_FLAG", "as_of_ms": now_ms}
+            return self.last_market_reading
+        try:
+            from domain_calculator import CostAssumptions
+            from services.quote_validator import QuoteValidator
+            from services.risk_settings_service import risk_settings_service
+            from services.smc_scenario_binding import promote_confirmed_scenario
+            from services.smc_scenario_plan import FinancialSettings
+            from services.smc_scenario_service import evaluate_scenario_cycle, select_primary_scenario
+            from services.smc_scenario_types import ScenarioState
+
+            candles_by_tf = self._load_scenario_candles(db, symbol, now_ms)
+            g = risk_settings_service.get_settings(db)
+            audit = crud.get_or_create_today_audit(db, clock=clock)
+            settings = FinancialSettings(
+                capital_usdt=float(audit.current_equity), risk_pct=float(g.risk_pct),
+                leverage=int(g.requested_leverage), margin_mode=str(g.margin_mode), costs=CostAssumptions(),
+                instrument_version=str(getattr(g, "metadata_version", None) or "unknown"),
+            )
+            win = TradingPolicyService.get_ny_session_window(now_ms=now_ms, clock=clock)
+            entry_window = (win["window_start_ms"], win["window_end_ms"])
+            if quote is not None:
+                q = quote
+            else:
+                raw = ticker if ticker is not None else collector_service.latest_ticker
+                q = QuoteValidator.validate_ticker(raw, now_ms=now_ms) if raw else None
+
+            result = evaluate_scenario_cycle(
+                db, symbol, candles_by_tf, q, now_ms, config=cfg, settings=settings, entry_window=entry_window)
+            self._cache_session_forecasts(symbol, candles_by_tf, now_ms, cfg, result.primary, result.issues)
+
+            promotable = [s for s in result.snapshots if s.state == ScenarioState.STRUCTURE_CONFIRMED
+                          and not s.blockers and (s.plan or {}).get("is_valid")]
+            winner = select_primary_scenario(promotable) if promotable else None
+            ws = None
+            if winner is not None:
+                ws = promote_confirmed_scenario(
+                    db, winner, now_ms=now_ms, risk_config_version=int(g.config_version),
+                    leverage=settings.leverage, margin_mode=settings.margin_mode, risk_pct=settings.risk_pct,
+                    expires_at_ms=min(now_ms + cfg.scenario_ttl_ms, entry_window[1]) if entry_window[1] > now_ms
+                    else now_ms)
+                if ws is not None and ws.state == "READY":
+                    self._assess_and_save_quality(
+                        db=db, watch_setup=ws,
+                        analysis={"htf_bias": ws.htf_bias, "h1_alignment": ws.h1_alignment, "setup_stage": "READY",
+                                  "conditions_met": json.loads(ws.conditions_met or "[]"), "missing_conditions": []},
+                        candles=candles_by_tf.get("5M") or [], ticker=ticker, now_ms=now_ms)
+            db.commit()   # persist FIRST ...
+
+            for s in result.changed + result.superseded:   # ... then publish (join + second commit)
+                event_bus.publish_event(
+                    event_type="scenario.updated", aggregate_id=s.instance_id, aggregate_version=s.revision,
+                    db=db, occurred_at=now_ms,
+                    payload={"scenario_id": s.scenario_id, "instance_id": s.instance_id, "snapshot_id": s.snapshot_id,
+                             "revision": s.revision, "symbol": s.symbol, "session_id": s.session_id,
+                             "state": s.state.value, "direction": s.direction, "digest": s.digest})
+            if result.changed or result.superseded:
+                db.commit()
+
+            armed = None
+            if ws is not None and ws.state == "READY":
+                auto = auto_enabled if auto_enabled is not None else self.get_auto_state(db)
+                if auto:
+                    armed = self._auto_arm_candidate(
+                        db, ws, {"signal_id": winner.instance_id}, now_ms, now_dt,
+                        clock=clock, quote=q, feed_health=feed_health)
+            self.last_market_reading = {
+                "status": "OK", "as_of_ms": now_ms, "scenarios": len(result.snapshots),
+                "changed": len(result.changed), "promoted": ws.id if ws is not None else None,
+                "armed": armed, "issues": [i.code for i in result.issues]}
+        except Exception as exc:  # noqa: BLE001 - observation must never stop exits / NY cycle
+            logger.error(f"SYSTEM_ERROR in market-reading cycle: {exc}", exc_info=True)
+            try:
+                db.rollback()
+            except Exception:  # noqa: BLE001
+                pass
+            self.last_market_reading = {"status": "SYSTEM_ERROR", "as_of_ms": now_ms, "error": str(exc)}
+        return self.last_market_reading
+
     def _upsert_watch_setup(self, db: Session, smc_data: Dict[str, Any]) -> models.WatchSetup:
         symbol = smc_data.get("symbol", "XAUUSDT")
         timeframe = smc_data.get("timeframe", "15M")
@@ -602,46 +737,18 @@ class StrategyService:
             raw_ticker = collector_service.latest_ticker
             auto_quote = QuoteValidator.validate_ticker(raw_ticker, now_ms=now_ms) if raw_ticker else None
 
-        # V14.4: Certified verification via scenario snapshot or strategy evidence bundle
-        scenario_verified = None
-        if getattr(watch_setup, "scenario_snapshot_id", None):
-            try:
-                from models import SMCScenarioSnapshot
-                snap_row = db.query(SMCScenarioSnapshot).filter(
-                    SMCScenarioSnapshot.snapshot_id == watch_setup.scenario_snapshot_id
-                ).first()
-                if snap_row:
-                    p_data = json.loads(snap_row.payload)
-                    cc = p_data.get("chain_check", {})
-                    scenario_verified = bool(cc.get("verified"))
-            except Exception:
-                scenario_verified = False
-        elif getattr(watch_setup, "evidence_snapshot_id", None):
-            try:
-                from services.smc_chain_service import validate_entry_evidence_bundle
-                ev_row = db.query(models.StrategyEvidence).filter(
-                    models.StrategyEvidence.id == watch_setup.evidence_snapshot_id
-                ).first()
-                if ev_row:
-                    nodes = {}
-                    if ev_row.sweep_evidence:
-                        nodes["sweep"] = json.loads(ev_row.sweep_evidence) if isinstance(ev_row.sweep_evidence, str) else ev_row.sweep_evidence
-                    if ev_row.displacement_evidence:
-                        nodes["break"] = json.loads(ev_row.displacement_evidence) if isinstance(ev_row.displacement_evidence, str) else ev_row.displacement_evidence
-                    if ev_row.fvg_evidence:
-                        nodes["fvg"] = json.loads(ev_row.fvg_evidence) if isinstance(ev_row.fvg_evidence, str) else ev_row.fvg_evidence
-                    if ev_row.retest_evidence:
-                        nodes["retest"] = json.loads(ev_row.retest_evidence) if isinstance(ev_row.retest_evidence, str) else ev_row.retest_evidence
-                    val_res = validate_entry_evidence_bundle({
-                        "strategy_family": family,
-                        "direction": watch_setup.direction,
-                        "as_of_ms": now_ms,
-                        "symbol": symbol,
-                        "nodes": nodes,
-                    })
-                    scenario_verified = bool(val_res.get("verified"))
-            except Exception:
-                scenario_verified = False
+        # V14.4.1: certified verification = the SAME validator as manual arm. READY is never evidence:
+        # scenario ref -> exact snapshot binding; legacy StrategyEvidence -> measured validator; neither -> None
+        # (unknown), which the certified guard blocks. NY_QUOTA_PAPER keeps its own adapter (None here).
+        try:
+            from services.smc_scenario_binding import verify_setup_structure
+            scenario_verified, _ev_dict, _binding = verify_setup_structure(
+                db, watch_setup, symbol=symbol, now_ms=now_ms,
+                plan_levels={"entry": plan_entry, "stop_loss": plan_sl, "take_profit": plan_tp},
+            )
+        except Exception as exc:  # noqa: BLE001 - a verifier failure must block, never pass
+            logger.error(f"Structure verification failed for {watch_setup.id}: {exc}", exc_info=True)
+            scenario_verified = False
 
         guard = evaluate_entry_guard(db, EntryGuardRequest(
             stage="ARM",
@@ -672,10 +779,7 @@ class StrategyService:
             min_net_rr=min_rr,
             distance_to_entry_atr=getattr(watch_setup, "distance_to_entry_atr", None),
             session_instance_id=policy_eval.get("session_instance_id"),
-            structure_chain_verified=(
-                scenario_verified if (family != "NY_QUOTA_PAPER" and scenario_verified is not None)
-                else (True if watch_setup.state == "READY" and family != "NY_QUOTA_PAPER" else None)
-            ),
+            structure_chain_verified=(scenario_verified if family != "NY_QUOTA_PAPER" else None),
             clock=clock,
             feed_health=feed_health,
         ))
@@ -731,7 +835,8 @@ class StrategyService:
             origin="AUTO_STRATEGY",
             execution_mode="AUTO",
             scenario_snapshot_id=getattr(watch_setup, "scenario_snapshot_id", None),
-            quality_snapshot_id=getattr(watch_setup, "evidence_snapshot_id", None),
+            quality_snapshot_id=getattr(watch_setup, "quality_snapshot_id", None),
+            evidence_snapshot_id=getattr(watch_setup, "evidence_snapshot_id", None),
             arm_decision_snapshot=json.dumps(lesson_eval),
             lessons_retrieved=json.dumps(lesson_eval.get("lessons_retrieved_snapshot", []))
         )
@@ -807,8 +912,9 @@ class StrategyService:
             resolved_p = resolve_plan_levels(watch_setup)
             curr_p = ticker.get("last", ticker.get("close", 0.0)) if ticker else (candles[-1].close if candles else 0.0)
             entry_p = resolved_p.get("entry") if resolved_p.get("is_valid") else (watch_setup.confirmed_entry or watch_setup.provisional_entry or curr_p)
-            sl_p = resolved_p.get("stop_loss") if resolved_p.get("is_valid") else (watch_setup.confirmed_sl or watch_setup.provisional_sl or (curr_p - 10.0 if watch_setup.direction == "LONG" else curr_p + 10.0))
-            tp_p = resolved_p.get("take_profit") if resolved_p.get("is_valid") else (watch_setup.confirmed_tp or watch_setup.provisional_tp or (curr_p + 20.0 if watch_setup.direction == "LONG" else curr_p - 20.0))
+            # V14.4.1: an invalid plan is NOT repaired with SL/TP offsets or default size; unknown stays None.
+            sl_p = resolved_p.get("stop_loss") if resolved_p.get("is_valid") else (watch_setup.confirmed_sl or watch_setup.provisional_sl)
+            tp_p = resolved_p.get("take_profit") if resolved_p.get("is_valid") else (watch_setup.confirmed_tp or watch_setup.provisional_tp)
 
             q_res = QuoteValidator.validate_ticker(ticker, now_ms=now_ms) if ticker else None
             quote_valid = q_res.is_valid if q_res else False
@@ -818,11 +924,11 @@ class StrategyService:
                 "entry_price": entry_p,
                 "stop_loss": sl_p,
                 "take_profit": tp_p,
-                "quantity": watch_setup.quantity or 0.05,
-                "leverage": watch_setup.leverage or 5,
-                "margin_mode": watch_setup.margin_mode or "ISOLATED",
-                "net_rr": watch_setup.net_rr or 0.0,
-                "risk_usdt": watch_setup.risk_usdt or 2.5,
+                "quantity": watch_setup.quantity,
+                "leverage": watch_setup.leverage,
+                "margin_mode": watch_setup.margin_mode,
+                "net_rr": watch_setup.net_rr,
+                "risk_usdt": watch_setup.risk_usdt,
             }
 
             q_context = {
@@ -854,7 +960,9 @@ class StrategyService:
                 evidence_items=rel_ev
             )
 
-            setup_quality_repository.save_quality_snapshot(db, snapshot)
+            saved_id = setup_quality_repository.save_quality_snapshot(db, snapshot)
+            # V14.4.1: exact ref of THIS assessment (SetupQualitySnapshot table), not StrategyEvidence.
+            watch_setup.quality_snapshot_id = saved_id
             return snapshot
         except Exception as e:
             logger.warning(f"Error computing setup quality for {watch_setup.id}: {e}")

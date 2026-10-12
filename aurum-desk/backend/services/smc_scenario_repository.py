@@ -1,133 +1,108 @@
+"""
+backend/services/smc_scenario_repository.py
+V14.4.1 — Persistence of scenarios and IMMUTABLE decision snapshots (canonical ScenarioSnapshot shape).
+
+No function here commits: the transaction boundary belongs to the caller (strategy cycle), which publishes
+events only after a successful commit.
+"""
+
 import json
 import logging
-from typing import Optional, List, Tuple
+from typing import List, Optional, Tuple
+
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
+
 from models import SMCScenario, SMCScenarioSnapshot
-from services.smc_scenario_types import ScenarioSnapshot
+from services.smc_scenario_types import ScenarioSnapshot, TERMINAL_STATES
 
 logger = logging.getLogger('smc_scenario_repository')
 
-def save_immutable_scenario_snapshot(
-    db: Session,
-    snapshot: ScenarioSnapshot,
-) -> SMCScenarioSnapshot:
-    """
-    Saves an immutable scenario snapshot.
-    If a snapshot with the same snapshot_id exists, checks digest.
-    If same digest, returns existing; if different digest, raises ValueError (immutability conflict).
-    Does NOT commit the transaction: transaction boundary is owned by caller.
-    """
-    existing = db.query(SMCScenarioSnapshot).filter(
-        SMCScenarioSnapshot.snapshot_id == snapshot.snapshot_id
-    ).first()
 
+def _state_str(snapshot: ScenarioSnapshot) -> str:
+    return snapshot.state.value if hasattr(snapshot.state, 'value') else str(snapshot.state)
+
+
+def save_immutable_scenario_snapshot(db: Session, snapshot: ScenarioSnapshot) -> SMCScenarioSnapshot:
+    """Same snapshot_id + same digest -> returns the existing row (idempotent). Same id with a DIFFERENT
+    digest is an immutability conflict (ValueError). Does NOT commit."""
+    existing = db.query(SMCScenarioSnapshot).filter(SMCScenarioSnapshot.snapshot_id == snapshot.snapshot_id).first()
     if existing is not None:
         if existing.evidence_digest != snapshot.evidence_digest:
             raise ValueError(
                 f'SNAPSHOT_IMMUTABILITY_CONFLICT: snapshot {snapshot.snapshot_id} exists with different digest '
-                f'({existing.evidence_digest} vs {snapshot.evidence_digest})'
-            )
+                f'({existing.evidence_digest} vs {snapshot.evidence_digest})')
         return existing
 
-    payload_str = json.dumps(snapshot.to_dict(), ensure_ascii=False)
-
+    payload = snapshot.to_dict()
+    plan_fp = (snapshot.plan or {}).get('plan_fingerprint') if isinstance(snapshot.plan, dict) else None
     row = SMCScenarioSnapshot(
-        snapshot_id=snapshot.snapshot_id,
-        scenario_id=snapshot.scenario_id,
-        instance_id=snapshot.instance_id,
-        revision=snapshot.revision,
-        symbol=snapshot.symbol,
-        timeframe=snapshot.setup_timeframe,
-        direction=snapshot.direction,
-        state=snapshot.state.value if hasattr(snapshot.state, 'value') else str(snapshot.state),
-        as_of_ms=snapshot.as_of_ms,
-        evidence_cutoff_ms=snapshot.evidence_cutoff_ms,
-        evidence_digest=snapshot.evidence_digest,
-        plan_fingerprint=snapshot.plan.plan_fingerprint if snapshot.plan else None,
-        payload=payload_str,
-        created_at=snapshot.as_of_ms,
+        snapshot_id=snapshot.snapshot_id, scenario_id=snapshot.scenario_id, instance_id=snapshot.instance_id,
+        revision=snapshot.revision, symbol=snapshot.symbol, timeframe=snapshot.setup_timeframe,
+        direction=snapshot.direction, state=_state_str(snapshot), as_of_ms=snapshot.as_of_ms,
+        evidence_cutoff_ms=snapshot.evidence_cutoff_ms, evidence_digest=snapshot.evidence_digest,
+        plan_fingerprint=plan_fp, payload=json.dumps(payload, ensure_ascii=False), created_at=snapshot.as_of_ms,
     )
     db.add(row)
     db.flush()
     return row
 
-def upsert_scenario_revision(
-    db: Session,
-    snapshot: ScenarioSnapshot,
-    is_material_change: bool = True,
-) -> Tuple[SMCScenario, Optional[SMCScenarioSnapshot], bool]:
-    """
-    Upserts the current scenario pointer and, if material, saves an immutable snapshot.
-    Returns (scenario_row, snapshot_row_or_none, created_new_snapshot).
-    Transaction is NOT committed here.
-    """
-    state_str = snapshot.state.value if hasattr(snapshot.state, 'value') else str(snapshot.state)
+
+def upsert_scenario_revision(db: Session, snapshot: ScenarioSnapshot, is_material_change: bool = True
+                             ) -> Tuple[SMCScenario, Optional[SMCScenarioSnapshot], bool]:
+    """Upserts the current-scenario pointer; if material also stores the immutable snapshot. Returns
+    (scenario_row, snapshot_row_or_none, created_new_snapshot). Does NOT commit."""
     payload_str = json.dumps(snapshot.to_dict(), ensure_ascii=False)
+    scenario_row = db.query(SMCScenario).filter(SMCScenario.scenario_id == snapshot.scenario_id).first()
 
-    scenario_row = db.query(SMCScenario).filter(
-        SMCScenario.scenario_id == snapshot.scenario_id
-    ).first()
-
-    created_snapshot = False
-    snapshot_row = None
-
-    if is_material_change:
-        snapshot_row = save_immutable_scenario_snapshot(db, snapshot)
-        created_snapshot = True
-
+    snapshot_row = save_immutable_scenario_snapshot(db, snapshot) if is_material_change else None
     current_snapshot_id = snapshot_row.snapshot_id if snapshot_row else (
-        scenario_row.current_snapshot_id if scenario_row else snapshot.snapshot_id
-    )
+        scenario_row.current_snapshot_id if scenario_row else snapshot.snapshot_id)
 
+    fields = dict(
+        instance_id=snapshot.instance_id, revision=snapshot.revision, direction=snapshot.direction,
+        state=_state_str(snapshot), as_of_ms=snapshot.as_of_ms, anchor_level_id=snapshot.anchor_level_id,
+        target_level_id=snapshot.target_level_id, summary_vi=snapshot.summary_vi,
+        current_snapshot_id=current_snapshot_id, payload=payload_str, updated_at=snapshot.as_of_ms,
+    )
     if scenario_row is None:
         scenario_row = SMCScenario(
-            scenario_id=snapshot.scenario_id,
-            instance_id=snapshot.instance_id,
-            revision=snapshot.revision,
-            symbol=snapshot.symbol,
-            timeframe=snapshot.setup_timeframe,
-            strategy_family=snapshot.strategy_family,
-            direction=snapshot.direction,
-            state=state_str,
-            as_of_ms=snapshot.as_of_ms,
-            anchor_level_id=snapshot.liquidity_anchor.level_id if snapshot.liquidity_anchor else None,
-            target_level_id=snapshot.target_anchor.level_id if snapshot.target_anchor else None,
-            summary_vi=snapshot.summary_vi,
-            current_snapshot_id=current_snapshot_id,
-            payload=payload_str,
-            created_at=snapshot.as_of_ms,
-            updated_at=snapshot.as_of_ms,
-        )
+            scenario_id=snapshot.scenario_id, symbol=snapshot.symbol, timeframe=snapshot.setup_timeframe,
+            strategy_family=snapshot.family, created_at=snapshot.as_of_ms, **fields)
         db.add(scenario_row)
     else:
-        scenario_row.instance_id = snapshot.instance_id
-        scenario_row.revision = snapshot.revision
-        scenario_row.direction = snapshot.direction
-        scenario_row.state = state_str
-        scenario_row.as_of_ms = snapshot.as_of_ms
-        scenario_row.anchor_level_id = snapshot.liquidity_anchor.level_id if snapshot.liquidity_anchor else None
-        scenario_row.target_level_id = snapshot.target_anchor.level_id if snapshot.target_anchor else None
-        scenario_row.summary_vi = snapshot.summary_vi
-        scenario_row.current_snapshot_id = current_snapshot_id
-        scenario_row.payload = payload_str
-        scenario_row.updated_at = snapshot.as_of_ms
-
+        for k, v in fields.items():
+            setattr(scenario_row, k, v)
     db.flush()
-    return scenario_row, snapshot_row, created_snapshot
+    return scenario_row, snapshot_row, snapshot_row is not None
+
 
 def get_scenario(db: Session, scenario_id: str) -> Optional[SMCScenario]:
     return db.query(SMCScenario).filter(SMCScenario.scenario_id == scenario_id).first()
 
+
 def get_scenario_snapshot(db: Session, snapshot_id: str) -> Optional[SMCScenarioSnapshot]:
     return db.query(SMCScenarioSnapshot).filter(SMCScenarioSnapshot.snapshot_id == snapshot_id).first()
 
-def get_active_scenarios(
-    db: Session,
-    symbol: str = 'XAUUSDT',
-    limit: int = 5,
-) -> List[SMCScenario]:
+
+def get_active_scenarios(db: Session, symbol: str = 'XAUUSDT', limit: int = 5) -> List[SMCScenario]:
     return db.query(SMCScenario).filter(
-        SMCScenario.symbol == symbol,
-        SMCScenario.state.notin_(['EXPIRED', 'SUPERSEDED'])
+        SMCScenario.symbol == symbol, SMCScenario.state.notin_(['EXPIRED', 'SUPERSEDED'])
     ).order_by(SMCScenario.updated_at.desc()).limit(limit).all()
+
+
+def snapshot_from_row(row: SMCScenarioSnapshot) -> ScenarioSnapshot:
+    """Strict reader; payloads of an older schema raise ValueError('LEGACY_SNAPSHOT_SCHEMA')."""
+    return ScenarioSnapshot.from_dict(json.loads(row.payload))
+
+
+def get_previous_scenarios(db: Session, symbol: str, limit: int = 40) -> List[ScenarioSnapshot]:
+    """Latest persisted revision of each scenario of `symbol` (current pointer rows), as canonical snapshots.
+    Rows of a legacy schema are skipped (they can neither be resurrected nor continued)."""
+    out: List[ScenarioSnapshot] = []
+    rows = db.query(SMCScenario).filter(SMCScenario.symbol == symbol).order_by(SMCScenario.updated_at.desc()).limit(limit).all()
+    for r in rows:
+        try:
+            out.append(ScenarioSnapshot.from_dict(json.loads(r.payload)))
+        except (ValueError, KeyError, TypeError):
+            logger.info('Skipping legacy/malformed scenario row %s', r.scenario_id)
+    return out

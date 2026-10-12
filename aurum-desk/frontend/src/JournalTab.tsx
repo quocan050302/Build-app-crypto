@@ -744,7 +744,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                 {trades.map((t) => {
                   const hasReview = Boolean(t.has_review || t.user_notes);
                   return (
-                    <tr key={t.id} className="hover:bg-charcoal-800/40 transition">
+                    <tr key={t.id} data-order-id={t.id} className="hover:bg-charcoal-800/40 transition">
                       <td className="py-2.5 px-2 font-mono text-gray-300">
                         <span className="font-semibold block">{t.id}</span>
                         {t.order_type && (
@@ -830,6 +830,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                           {onFocusChart && (
                             <button
                               type="button"
+                              data-testid="journal-focus-chart"
                               onClick={() => onFocusChart(t)}
                               className="px-2 py-1 rounded bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 text-[10px] font-bold transition flex items-center gap-1"
                               title="Xem snapshot trên chart"

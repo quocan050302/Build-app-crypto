@@ -120,33 +120,33 @@ def build_liquidity_map(
     eq_lows = cluster_equal_levels(swing_lows, "SELL_SIDE", tol, timeframe, symbol)
     levels.extend(eq_lows)
 
-    # 4. Session Levels (Asia, London)
+    # 4. Session levels (Asia / London / NY). Only sessions with trusted coverage become levels; a session
+    #    still running contributes an AS-OF extreme flagged partial (never presented as the final high/low).
     if session_ranges:
         for s_name, s_range in session_ranges.items():
-            if s_range.high is not None and s_range.start_ms <= now_ms:
-                levels.append(
-                    LiquidityLevel(
-                        id=f"liq-{s_name.lower()}-high-{s_range.high}",
-                        price=s_range.high,
-                        side="BUY_SIDE",
-                        source_kind=f"SESSION_{s_name.upper()}",
-                        occurred_at_ms=s_range.high_time_ms or s_range.start_ms,
-                        known_at_ms=s_range.end_ms if s_range.is_complete else now_ms,
-                        label_vi=f"Đỉnh phiên {s_name} {s_range.high:.2f}",
-                    )
-                )
-            if s_range.low is not None and s_range.start_ms <= now_ms:
-                levels.append(
-                    LiquidityLevel(
-                        id=f"liq-{s_name.lower()}-low-{s_range.low}",
-                        price=s_range.low,
-                        side="SELL_SIDE",
-                        source_kind=f"SESSION_{s_name.upper()}",
-                        occurred_at_ms=s_range.low_time_ms or s_range.start_ms,
-                        known_at_ms=s_range.end_ms if s_range.is_complete else now_ms,
-                        label_vi=f"Đáy phiên {s_name} {s_range.low:.2f}",
-                    )
-                )
+            if getattr(s_range, "coverage_status", "UNKNOWN") != "VALID" or s_range.start_ms > now_ms:
+                continue
+            known = (s_range.end_ms if s_range.is_complete else (s_range.cutoff_ms or now_ms))
+            if known > now_ms:
+                continue
+            partial = not s_range.is_complete
+            suffix = " (đang hình thành)" if partial else ""
+            cov = {"ratio": round(s_range.coverage_ratio, 4), "bars": s_range.bars_count,
+                   "expected": s_range.expected_bars, "date": s_range.session_date_ny}
+            if s_range.high is not None:
+                levels.append(LiquidityLevel(
+                    id=f"liq-{s_name.lower()}-{s_range.session_date_ny}-high",
+                    price=s_range.high, side="BUY_SIDE", source_kind=f"SESSION_{s_name.upper()}",
+                    occurred_at_ms=s_range.high_time_ms or s_range.start_ms, known_at_ms=known,
+                    label_vi=f"Đỉnh phiên {s_name} {s_range.high:.2f}{suffix}",
+                    is_partial=partial, coverage=cov))
+            if s_range.low is not None:
+                levels.append(LiquidityLevel(
+                    id=f"liq-{s_name.lower()}-{s_range.session_date_ny}-low",
+                    price=s_range.low, side="SELL_SIDE", source_kind=f"SESSION_{s_name.upper()}",
+                    occurred_at_ms=s_range.low_time_ms or s_range.start_ms, known_at_ms=known,
+                    label_vi=f"Đáy phiên {s_name} {s_range.low:.2f}{suffix}",
+                    is_partial=partial, coverage=cov))
 
     # 5. Previous Day Levels (PDH, PDL)
     if previous_day and getattr(previous_day, "is_valid", False):
@@ -246,38 +246,43 @@ def select_observation_anchor(
     return None
 
 
+def update_liquidity_states(
+    levels: Sequence[LiquidityLevel],
+    causal_candles: Sequence[Any],
+    now_ms: int,
+    candle_duration_ms: int = 300_000,
+) -> None:
+    """Applies update_liquidity_state to every level (mutates level.state). Must run BEFORE anchor/target
+    selection so that a level already taken by price is never offered as an untouched target again."""
+    for lv in levels:
+        update_liquidity_state(lv, causal_candles, now_ms, candle_duration_ms)
+
+
 def select_unconsumed_target(
     levels: Sequence[LiquidityLevel],
     direction: str,
     entry_price: float,
+    as_of_ms: Optional[int] = None,
 ) -> Optional[LiquidityLevel]:
-    """Selects valid unconsumed target liquidity level on the correct side of entry.
-    - For LONG: BUY_SIDE liquidity with price > entry_price.
-    - For SHORT: SELL_SIDE liquidity with price < entry_price.
-    - Target must NOT be BROKEN or CONSUMED.
+    """Selects a valid unconsumed target liquidity level on the correct side of entry.
+    - LONG: BUY_SIDE liquidity with price > entry_price.
+    - SHORT: SELL_SIDE liquidity with price < entry_price.
+    - Target must be UNTOUCHED/APPROACHED (not SWEPT/BROKEN/CONSUMED) and, when `as_of_ms` is given, known
+      at or before that instant (a level learned later is not a target at decision time).
     """
-    if not levels or entry_price <= 0:
+    if not levels or entry_price is None or entry_price <= 0:
         return None
 
+    def _live(l: LiquidityLevel) -> bool:
+        return l.state in ("UNTOUCHED", "APPROACHED") and (as_of_ms is None or l.known_at_ms <= as_of_ms)
+
     if direction == "LONG":
-        candidates = [
-            l for l in levels
-            if l.side == "BUY_SIDE"
-            and l.price > entry_price
-            and l.state in ("UNTOUCHED", "APPROACHED")
-        ]
+        candidates = [l for l in levels if l.side == "BUY_SIDE" and l.price > entry_price and _live(l)]
         if candidates:
-            # Closest target above entry (nearest structural objective)
             return min(candidates, key=lambda l: l.price)
     elif direction == "SHORT":
-        candidates = [
-            l for l in levels
-            if l.side == "SELL_SIDE"
-            and l.price < entry_price
-            and l.state in ("UNTOUCHED", "APPROACHED")
-        ]
+        candidates = [l for l in levels if l.side == "SELL_SIDE" and l.price < entry_price and _live(l)]
         if candidates:
-            # Closest target below entry
             return max(candidates, key=lambda l: l.price)
 
     return None

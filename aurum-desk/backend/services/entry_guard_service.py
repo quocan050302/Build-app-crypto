@@ -336,10 +336,26 @@ def _check_strategy(req: EntryGuardRequest) -> EntryCheck:
                           "Điểm vào chưa xác nhận: đây chỉ là kế hoạch tạm để quan sát, hướng chưa đủ cơ sở xác nhận.",
                           "Chờ hệ thống xác nhận phá vỡ cấu trúc.")
     if state == "READY":
-        if req.strategy_family == "STANDARD_SMC" and req.structure_chain_verified is False:
-            return EntryCheck("UNCONFIRMED_STRUCTURE_CHAIN", "BLOCK",
-                              "Chuỗi cấu trúc SMC chưa được xác nhận đầy đủ (thiếu sweep, break MSS hoặc FVG).",
-                              "Chờ cấu trúc hoàn thành các bước xác nhận.")
+        if req.strategy_family == "STANDARD_SMC":
+            from services.smc_scenario_config import active_scenario_config
+            if active_scenario_config.certified_smc_entry_enabled:
+                # V14.4.1: READY is a label, not evidence. Only an explicit True bound to the exact
+                # scenario snapshot passes; None (unknown) and False both block.
+                if req.structure_chain_verified is not True:
+                    unknown = req.structure_chain_verified is None
+                    return EntryCheck(
+                        "UNCONFIRMED_STRUCTURE_CHAIN", "BLOCK",
+                        ("Chưa có bằng chứng chuỗi cấu trúc SMC được xác minh cho setup này."
+                         if unknown else
+                         "Chuỗi cấu trúc SMC chưa được xác nhận đầy đủ (thiếu sweep, break MSS hoặc FVG)."),
+                        "Chờ cấu trúc hoàn thành các bước xác nhận.")
+                return _ok("strategy")
+            # Flag OFF: legacy READY path, explicitly NOT certified.
+            if req.structure_chain_verified is False:
+                return EntryCheck("UNCONFIRMED_STRUCTURE_CHAIN", "BLOCK",
+                                  "Chuỗi cấu trúc SMC chưa được xác nhận đầy đủ (thiếu sweep, break MSS hoặc FVG).",
+                                  "Chờ cấu trúc hoàn thành các bước xác nhận.")
+            return _ok("strategy", "LEGACY_UNCERTIFIED: chế độ cũ, chưa xác minh chuỗi SMC.")
         return _ok("strategy")
     if state == "WAITING_RETRACE":
         if req.structure_chain_verified is True:

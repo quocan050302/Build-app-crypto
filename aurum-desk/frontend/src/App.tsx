@@ -51,7 +51,8 @@ import { NotificationCenterDrawer } from './components/NotificationCenterDrawer'
 import { UserMessageDetailsModal } from './components/UserMessageDetailsModal';
 import { buildTradeEventMessage } from './utils/normalizeAppError';
 import type { QualitySnapshot } from './types/setupQuality';
-import { buildChartEvidenceBundle, makeSelectionKey } from './utils/chartEvidence';
+import { createOrderSelection, createScenarioSelection, createSetupSelection } from './utils/selectedChartContext';
+import { useSelectedChart } from './hooks/useSelectedChart';
 import type { ChartBinding } from './types/smcScenario';
 import { useSMCScenarios } from './hooks/useSMCScenarios';
 import type { SMCScenarioView } from './types/smcScenario';
@@ -161,34 +162,30 @@ function AppContent() {
   // Realtime SMC Scenarios V14.4
   const { scenarios: smcScenarios, summaryVi: smcScenarioSummaryVi } = useSMCScenarios('XAUUSDT');
 
-  const chartEvidenceBundle = useMemo(() => {
-    if (!selectedQualitySnapshot) return null;
-    const key = makeSelectionKey({
-      source: selectedIntent?.source || 'SETUP',
-      id: selectedIntent?.setup_id || selectedQualitySnapshot.setup_id || 'unknown',
-      instanceId: selectedIntent?.setup_instance_id || selectedQualitySnapshot.setup_instance_id,
-      revision: selectedIntent?.revision || (selectedQualitySnapshot as any).revision || (selectedQualitySnapshot as any).expected_revision,
-      symbol: selectedQualitySnapshot.symbol || 'XAUUSDT',
-      direction: selectedIntent?.direction || (selectedQualitySnapshot.direction as any),
-      planFingerprint: selectedIntent?.plan_fingerprint || selectedQualitySnapshot.plan_fingerprint,
-      snapshotId: (selectedQualitySnapshot as any).id || (selectedQualitySnapshot as any).snapshot_id || null,
-    });
-    return buildChartEvidenceBundle(selectedQualitySnapshot, key);
-  }, [selectedQualitySnapshot, selectedIntent]);
+  // One selection owner for chart evidence (scenario / setup / order): bundle validated against the request.
+  const selectedChart = useSelectedChart();
+  const chartEvidenceBundle = selectedChart.bundle;
 
   const selectedBinding: ChartBinding | null = useMemo(() => {
-    if (!selectedIntent) return null;
+    if (!selectedIntent) return selectedChart.binding;
+    const source: ChartBinding['source'] =
+      selectedIntent.source === 'SCENARIO' ? 'SCENARIO'
+        : selectedIntent.source === 'OPEN_POSITION' ? 'ORDER'
+        : selectedIntent.source === 'DRAFT' ? 'DRAFT'
+        : 'SETUP';
+    const returned = selectedChart.returnedBinding;
     return {
-      source: selectedIntent.source as any,
+      source,
       id: selectedIntent.setup_id || '',
       instanceId: selectedIntent.setup_instance_id || null,
       revision: selectedIntent.revision ?? null,
       symbol: selectedIntent.symbol || 'XAUUSDT',
       direction: selectedIntent.direction || null,
-      planFingerprint: selectedIntent.plan_fingerprint || null,
-      snapshotId: (selectedQualitySnapshot as any)?.id || (selectedQualitySnapshot as any)?.snapshot_id || null,
+      // Bound from what the SERVER verified, never from the client's own request.
+      planFingerprint: returned?.plan_fingerprint ?? null,
+      snapshotId: returned?.snapshot_id ?? null,
     };
-  }, [selectedIntent, selectedQualitySnapshot]);
+  }, [selectedIntent, selectedChart.binding, selectedChart.returnedBinding]);
   const [stalePlanNotice, setStalePlanNotice] = useState<{
     setupId: string;
     oldRevision: number;
@@ -923,23 +920,28 @@ function AppContent() {
     setSelectedQualityLoading(false);
     setSelectedQualityError(null);
 
+    // Canonical ScenarioPlan keys (planned_entry / net_risk_usdt ...). A plan that is not valid is not drawn.
     const plan = sc.payload?.plan;
-    const hasPlan = plan && plan.entry > 0 && plan.stop_loss > 0 && plan.take_profit > 0;
+    const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
+    const hasPlan = Boolean(plan && plan.is_valid !== false && finite(plan.planned_entry) && finite(plan.stop_loss) && finite(plan.take_profit));
+    const direction: 'LONG' | 'SHORT' | null = sc.direction === 'LONG' || sc.direction === 'SHORT' ? sc.direction : null;
 
-    setSelectedIntent({
+    // An observation without a direction has no trade intent (nothing to arm); its binding comes from the
+    // chart-evidence owner so the header can still show it as QUAN SÁT.
+    setSelectedIntent(direction === null ? null : {
       source: 'SCENARIO',
       setup_id: sc.scenario_id,
       setup_instance_id: sc.instance_id,
       revision: sc.revision,
       symbol: sc.symbol,
       timeframe: sc.timeframe,
-      direction: sc.direction || 'LONG',
-      plannedEntry: hasPlan ? plan.entry : 0,
+      direction: direction as 'LONG' | 'SHORT',
+      plannedEntry: hasPlan ? plan.planned_entry : 0,
       stopLoss: hasPlan ? plan.stop_loss : 0,
       takeProfit: hasPlan ? plan.take_profit : undefined,
       orderType: 'LIMIT',
       quantity: hasPlan ? plan.quantity : undefined,
-      initialRiskUsdt: hasPlan ? plan.risk_usdt : undefined,
+      initialRiskUsdt: hasPlan ? plan.net_risk_usdt : undefined,
       grossRR: hasPlan ? plan.gross_rr : 0,
       estimatedNetRR: hasPlan ? plan.net_rr : 0,
       leverage: leverage,
@@ -949,38 +951,29 @@ function AppContent() {
       quality_status: sc.state === 'STRUCTURE_CONFIRMED' ? 'SATISFIED' : 'PARTIAL',
     });
 
-    if (hasPlan) {
+    if (hasPlan && direction) {
       setActiveOverlay({
         id: sc.scenario_id,
-        direction: sc.direction || 'LONG',
-        state: 'draft',
+        direction,
+        state: 'candidate', // an observation is NOT a draft: read-only until the user copies it into a DRAFT
         readOnly: true,
-        plannedEntry: plan.entry,
+        plannedEntry: plan.planned_entry,
         stopLoss: plan.stop_loss,
         takeProfit: plan.take_profit,
         quantity: plan.quantity,
-        initialRiskUsdt: plan.risk_usdt,
-        riskPct: plan.risk_pct || riskPct || 0.25,
+        initialRiskUsdt: plan.net_risk_usdt,
+        riskPct: riskPct,
         grossRR: plan.gross_rr,
         estimatedNetRR: plan.net_rr,
-        entryTime: Math.floor(sc.as_of_ms / 1000),
       });
     } else {
       setActiveOverlay(null);
     }
 
-    if (sc.current_snapshot_id) {
-      const gen = ++qualityGenRef.current;
-      setSelectedQualityLoading(true);
-      api.getScenarioSnapshot(sc.scenario_id, sc.current_snapshot_id).then((snap: any) => {
-        if (gen !== qualityGenRef.current) return;
-        setSelectedQualityLoading(false);
-        if (snap) setSelectedQualitySnapshot(snap);
-      }).catch(() => {
-        if (gen !== qualityGenRef.current) return;
-        setSelectedQualityLoading(false);
-      });
-    }
+    // Show the scenario on its own model timeframe so the evidence lines up with real bars.
+    if (typeof sc.timeframe === 'string' && sc.timeframe) setTimeframe(sc.timeframe);
+    // Typed chart adapter of exactly this scenario snapshot (not the raw snapshot payload).
+    selectedChart.selectContext(createScenarioSelection({ ...sc, payload: sc.payload }));
 
     setFocusRequest({ nonce: Date.now(), targetTime: sc.as_of_ms, mode: 'SELECTION' });
   };
@@ -993,6 +986,7 @@ function AppContent() {
     }
     setTimeframe(setup.timeframe || '15M');
     setActiveTab('chart');
+    setEvidenceMode('SELECTED');
     const { entry, stopLoss: sl, takeProfit: tp } = resolution.plan;
     ++qualityGenRef.current;
     qualityAbortControllerRef.current?.abort();
@@ -1153,6 +1147,9 @@ function AppContent() {
       setSelectedQualityError(err?.message || 'Chưa thể tải đánh giá chất lượng');
     });
 
+    // Chart evidence: exact identity (id + instance + revision), verified server-side. The guard's eligibility
+    // fingerprint is a different hash and is intentionally not part of this request.
+    selectedChart.selectContext(createSetupSelection(setup, null));
     setFocusRequest({ nonce: Date.now(), targetTime: setup.signal_time || setup.created_at, mode: 'SELECTION' });
 
     showToast(
@@ -1171,6 +1168,7 @@ function AppContent() {
     setTimeframe(setup.timeframe || '15M');
     setActiveTab('chart');
     const { entry, stopLoss: sl, takeProfit: tp } = resolution.plan;
+    selectedChart.clearSelection(); // a draft copy never inherits certified evidence
     ++qualityGenRef.current;
     qualityAbortControllerRef.current?.abort();
     setSelectedQualitySnapshot(null);
@@ -1381,6 +1379,7 @@ function AppContent() {
     setSelectedQualityLoading(false);
     setTimeframe(trade.timeframe || '15M');
     setActiveTab('chart');
+    setEvidenceMode('SELECTED');
     const tradeEntryTime = trade.opened_at ? Math.floor(trade.opened_at / 1000) : (trade.armed_at ? Math.floor(trade.armed_at / 1000) : (trade.created_at ? Math.floor(trade.created_at / 1000) : undefined));
     const overlay: RiskRewardData = {
       id: trade.id,
@@ -1428,34 +1427,22 @@ function AppContent() {
 
     setSelectedQualitySnapshot(null);
     setSelectedQualityError(null);
-    if (trade.id) {
+
+    // Chart evidence: the endpoint returns the whole bundle at the top level, frozen at arm time.
+    // One selection owner (useSelectedChart) validates it against this order before anything is drawn.
+    if (trade.id) selectedChart.selectContext(createOrderSelection(trade));
+
+    // The quality panel (drawer) reads its own table by its own id; it never feeds the chart.
+    if (trade.quality_snapshot_id) {
       const gen = ++qualityGenRef.current;
       setSelectedQualityLoading(true);
-      api.getOrderChartEvidence(trade.id).then((res: any) => {
+      api.getQualitySnapshot(trade.quality_snapshot_id).then((snap: any) => {
         if (gen !== qualityGenRef.current) return;
         setSelectedQualityLoading(false);
-        if (res && res.evidence) {
-          setSelectedQualitySnapshot(res.evidence);
-        } else if (trade.quality_snapshot_id) {
-          api.getQualitySnapshot(trade.quality_snapshot_id).then((snap: any) => {
-            if (gen !== qualityGenRef.current) return;
-            setSelectedQualitySnapshot(snap);
-          }).catch(() => {});
-        }
+        setSelectedQualitySnapshot(snap);
       }).catch(() => {
-        if (trade.quality_snapshot_id) {
-          api.getQualitySnapshot(trade.quality_snapshot_id).then((snap: any) => {
-            if (gen !== qualityGenRef.current) return;
-            setSelectedQualityLoading(false);
-            setSelectedQualitySnapshot(snap);
-          }).catch(() => {
-            if (gen !== qualityGenRef.current) return;
-            setSelectedQualityLoading(false);
-          });
-        } else {
-          if (gen !== qualityGenRef.current) return;
-          setSelectedQualityLoading(false);
-        }
+        if (gen !== qualityGenRef.current) return;
+        setSelectedQualityLoading(false);
       });
     }
 
@@ -1755,6 +1742,7 @@ function AppContent() {
           return (
             <button
               key={tab.id}
+              data-tab-id={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-1.5 px-3 py-2.5 font-medium border-b-2 transition whitespace-nowrap ${
                 isActive
@@ -1784,9 +1772,9 @@ function AppContent() {
       />
 
       {/* 3. Main Workspace Content */}
-      <main className="flex-1 min-h-0 p-3 flex flex-col lg:flex-row gap-3 overflow-hidden">
+      <main className="flex-1 min-h-0 p-3 flex flex-col lg:flex-row gap-3 overflow-y-auto lg:overflow-hidden">
         {/* Left Area: Interactive Chart or Full Tab Pages */}
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col h-full overflow-hidden">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col h-[80dvh] min-h-[480px] shrink-0 lg:shrink lg:h-full lg:min-h-0 overflow-hidden">
           {activeTab === 'chart' && (
             <div className="flex-1 min-h-0 flex flex-col h-full">
               <ChartComponent
@@ -1801,6 +1789,7 @@ function AppContent() {
                 onOverlayChange={(updated) => {
                   if (updated) {
                     if (selectedIntentRef.current?.source === 'OPEN_POSITION' || updated.readOnly) return;
+                    selectedChart.clearSelection(); // an edited DRAFT never inherits certified evidence
                     ++qualityGenRef.current;
                     qualityAbortControllerRef.current?.abort();
                     setSelectedQualitySnapshot(null);
@@ -1874,12 +1863,15 @@ function AppContent() {
                   structureEvents: analysis?.structure_events || [],
                 }}
                 selectedEvidence={chartEvidenceBundle}
+                selectedLoading={selectedChart.isLoading}
+                selectedError={selectedChart.error}
                 evidenceMode={evidenceMode}
                 focusRequest={focusRequest}
                 onEvidenceModeChange={setEvidenceMode}
                 selectedBinding={selectedBinding}
-                selectedSummaryVi={(selectedQualitySnapshot as any)?.summary_vi || smcScenarioSummaryVi}
+                selectedSummaryVi={chartEvidenceBundle?.summaryVi || (selectedQualitySnapshot as any)?.summary_vi || smcScenarioSummaryVi}
                 onClearSelection={() => {
+                  selectedChart.clearSelection();
                   setSelectedIntent(null);
                   setActiveOverlay(null);
                   setSelectedQualitySnapshot(null);
@@ -3215,7 +3207,7 @@ function AppContent() {
             </div>
           )
         ) : (
-          <div className="w-full lg:w-[360px] xl:w-[380px] shrink-0 h-full flex flex-col min-h-0">
+          <div className="w-full lg:w-[360px] xl:w-[380px] shrink-0 lg:h-full min-h-[480px] lg:min-h-0 flex flex-col">
             <QuickDecisionSidebar
               selectedIntent={selectedIntent}
               activePosition={activePosition}

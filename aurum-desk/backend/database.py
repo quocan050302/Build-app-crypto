@@ -99,6 +99,7 @@ def run_schema_migrations(target_engine=None):
                     # V14.3 additive: NY session id (NULL on legacy rows)
                     ("session_instance_id", "VARCHAR(60)"),
                     ("scenario_snapshot_id", "VARCHAR(80)"),
+                    ("quality_snapshot_id", "VARCHAR(80)"),
                 ]
                 for col_name, col_type in v7_ws_cols:
                     if col_name not in ws_cols:

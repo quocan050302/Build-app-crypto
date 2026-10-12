@@ -147,7 +147,26 @@ describe('V14.4 SMC Chart Evidence Contract & Selection Tests', () => {
     expect(state.bundle?.direction).toBe('SHORT');
   });
 
-  it('rejects mismatched bundles when validating selected bundle against binding', () => {
+  const serverBundle = (overrides: Record<string, unknown> = {}, bindingOverrides: Record<string, unknown> = {}) => ({
+    binding: {
+      source: 'SETUP',
+      id: 'setup-42',
+      instance_id: 'inst-42',
+      revision: 1,
+      symbol: 'XAUUSDT',
+      direction: 'LONG',
+      plan_fingerprint: 'fp-scenario-1',
+      snapshot_id: 'snap-42',
+      ...bindingOverrides,
+    },
+    as_of_ms: 1710000000000,
+    evidence_cutoff_ms: 1710000000000,
+    structure_events: [],
+    poi_zones: [],
+    ...overrides,
+  });
+
+  it('validates a server bundle against the requested binding field by field', () => {
     const binding: ChartBinding = {
       source: 'SETUP',
       id: 'setup-42',
@@ -155,24 +174,36 @@ describe('V14.4 SMC Chart Evidence Contract & Selection Tests', () => {
       revision: 1,
       symbol: 'XAUUSDT',
       direction: 'LONG',
-      planFingerprint: 'LONG:2650.00:2640.00:2670.00',
-      snapshotId: 'snap-42',
+      planFingerprint: null, // not yet known by the client: not compared
+      snapshotId: null,      // not yet known: bound afterwards from the returned ref
     };
 
-    const matchingBundle = {
-      binding,
-      structure_events: [],
-      poi_zones: [],
-    };
-
-    const wrongDirectionBundle = {
-      binding: { ...binding, direction: 'SHORT' },
-      structure_events: [],
-      poi_zones: [],
-    };
-
-    expect(validateSelectedBundle(matchingBundle, binding).is_valid).toBe(true);
-    expect(validateSelectedBundle(wrongDirectionBundle, binding).is_valid).toBe(false);
+    expect(validateSelectedBundle(serverBundle(), binding).is_valid).toBe(true);
     expect(validateSelectedBundle(null, binding).is_valid).toBe(false);
+    expect(validateSelectedBundle({ as_of_ms: 1 }, binding).reason).toBe('BINDING_MISSING');
+    expect(validateSelectedBundle(serverBundle({}, { direction: 'SHORT' }), binding).reason).toBe('DIRECTION_MISMATCH');
+    expect(validateSelectedBundle(serverBundle({}, { id: 'setup-43' }), binding).reason).toBe('ID_MISMATCH');
+    expect(validateSelectedBundle(serverBundle({}, { instance_id: 'inst-99' }), binding).reason).toBe('INSTANCE_MISMATCH');
+    expect(validateSelectedBundle(serverBundle({}, { revision: 2 }), binding).reason).toBe('REVISION_MISMATCH');
+    expect(validateSelectedBundle(serverBundle({}, { symbol: 'BTCUSDT' }), binding).reason).toBe('SYMBOL_MISMATCH');
+    expect(validateSelectedBundle(serverBundle({}, { source: 'ORDER' }), binding).reason).toBe('SOURCE_MISMATCH');
+  });
+
+  it('compares a non-null requested snapshot / fingerprint and rejects evidence after the cutoff', () => {
+    const binding: ChartBinding = {
+      source: 'SCENARIO', id: 'setup-42', instanceId: null, revision: null, symbol: 'XAUUSDT', direction: null,
+      planFingerprint: 'fp-other', snapshotId: 'snap-other',
+    };
+    expect(validateSelectedBundle(serverBundle({}, { source: 'SCENARIO' }), binding).reason).toBe('PLAN_FINGERPRINT_MISMATCH');
+    expect(validateSelectedBundle(serverBundle({}, { source: 'SCENARIO', plan_fingerprint: 'fp-other' }), binding).reason).toBe('SNAPSHOT_MISMATCH');
+
+    const open: ChartBinding = { ...binding, planFingerprint: null, snapshotId: null };
+    const future = serverBundle(
+      { structure_events: [{ id: 'e1', known_at_ms: 1710000000001 }] },
+      { source: 'SCENARIO' }
+    );
+    expect(validateSelectedBundle(future, open).reason).toBe('EVIDENCE_AFTER_CUTOFF');
+    expect(validateSelectedBundle(serverBundle({ evidence_cutoff_ms: 1710000000001 }, { source: 'SCENARIO' }), open).reason).toBe('CUTOFF_INVALID');
+    expect(validateSelectedBundle(serverBundle({ as_of_ms: 0 }, { source: 'SCENARIO' }), open).reason).toBe('AS_OF_INVALID');
   });
 });

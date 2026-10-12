@@ -6,6 +6,10 @@ import type {
   Time,
 } from 'lightweight-charts';
 import type { CanvasRenderingTarget2D } from 'fancy-canvas';
+import { clipSpanX, projectMsToBar } from '../utils/chartTimeProjection';
+import type { TimeProjection } from '../utils/chartTimeProjection';
+import { layoutAnnotationLabels } from '../utils/chartAnnotationLayout';
+import type { LabelCandidate } from '../utils/chartAnnotationLayout';
 
 export interface SMCSwing {
   index: number;
@@ -28,6 +32,8 @@ export interface SMCStructureEvent {
   confirmed_at?: number;
   direction?: 'BULLISH' | 'BEARISH';
   detail?: string;
+  wick_extreme?: number;
+  close_back?: number;
 }
 
 export interface SMCZone {
@@ -46,12 +52,15 @@ export interface SMCZone {
 export interface SMCDisplacement {
   id: string;
   candle_time: number;
-  high: number;
-  low: number;
-  direction: 'BULLISH' | 'BEARISH';
+  /** Candle extremes are filled from the LOADED candle at candle_time; absent => marker at `level`. */
+  high?: number;
+  low?: number;
+  level?: number;
+  direction?: 'BULLISH' | 'BEARISH';
   body_size?: number;
   atr?: number;
   ratio?: number;
+  is_qualified?: boolean;
   label?: string;
   source_ids?: string[];
 }
@@ -71,16 +80,20 @@ export interface SMCLiquidityLevel {
   price: number;
   label: string;
   side: 'BUY_SIDE' | 'SELL_SIDE';
-  start_at: number;
+  /** Source anchor time; undefined => time of the source level is unknown (drawn from the window edge). */
+  start_at?: number;
   end_at?: number;
-  state: 'UNTOUCHED' | 'APPROACHED' | 'SWEPT' | 'BROKEN' | 'CONSUMED';
+  state: 'UNTOUCHED' | 'APPROACHED' | 'SWEPT' | 'BROKEN' | 'CONSUMED' | string;
   is_target?: boolean;
+  is_partial?: boolean;
 }
 
 export interface SMCConditionalPathPoint {
   xTime?: number;
   price: number;
   label?: string;
+  /** Logical display projection (no timestamp): never claims a future time. */
+  isProjection?: boolean;
 }
 
 export interface SMCConditionalPath {
@@ -104,6 +117,12 @@ export interface SMCHitItem {
   radius: number;
 }
 
+/** Start times (ms) of the loaded candles + bar length: used to snap event times onto real bars. */
+export interface SMCTimeAxis {
+  startsMs: number[];
+  durationMs: number;
+}
+
 export interface SMCStructureData {
   swings: SMCSwing[];
   events: SMCStructureEvent[];
@@ -112,6 +131,7 @@ export interface SMCStructureData {
   displacements?: SMCDisplacement[];
   retests?: SMCRetest[];
   scenarioPath?: SMCConditionalPath;
+  timeAxis?: SMCTimeAxis;
   showSwings: boolean;
   showEvents: boolean;
   showZones?: boolean;
@@ -119,6 +139,13 @@ export interface SMCStructureData {
   showDisplacements?: boolean;
   showRetests?: boolean;
   showScenarioPath?: boolean;
+}
+
+const MAX_HIT_ITEMS = 400;
+const FONT_SMALL = 'bold 10px Inter, sans-serif';
+
+function fmtTime(ms: number | undefined): string {
+  return ms ? new Date(ms).toLocaleString('vi-VN', { hour12: false }) : 'n/a';
 }
 
 class SMCStructurePaneRenderer implements IPrimitivePaneRenderer {
@@ -131,6 +158,11 @@ class SMCStructurePaneRenderer implements IPrimitivePaneRenderer {
     this._param = param;
   }
 
+  clear() {
+    this._hitRegistry = [];
+    this._data = null;
+  }
+
   getHitItems(): readonly SMCHitItem[] {
     return this._hitRegistry;
   }
@@ -138,7 +170,6 @@ class SMCStructurePaneRenderer implements IPrimitivePaneRenderer {
   hitTest(px: number, py: number): SMCHitItem | null {
     let closest: SMCHitItem | null = null;
     let minDistance = Infinity;
-
     for (const item of this._hitRegistry) {
       const dx = item.x - px;
       const dy = item.y - py;
@@ -151,83 +182,87 @@ class SMCStructurePaneRenderer implements IPrimitivePaneRenderer {
     return closest;
   }
 
+  private _register(item: SMCHitItem) {
+    if (this._hitRegistry.length < MAX_HIT_ITEMS) this._hitRegistry.push(item);
+  }
+
   draw(target: CanvasRenderingTarget2D) {
     this._hitRegistry = [];
     if (!this._data || !this._param) return;
+    const data = this._data;
     const series = this._param.series;
     const chart = this._param.chart;
     if (!series || !chart) return;
     const timeScale = chart.timeScale();
     if (!timeScale) return;
 
+    const axis = data.timeAxis;
+    const project = (ms: number | undefined): { proj: TimeProjection | null; x: number | null } => {
+      if (ms === undefined || !Number.isSafeInteger(ms) || ms <= 0) return { proj: null, x: null };
+      if (axis && axis.startsMs.length) {
+        const proj = projectMsToBar(axis.startsMs, axis.durationMs, ms);
+        if (!proj || proj.kind !== 'IN') return { proj, x: null };
+        const raw = timeScale.timeToCoordinate((proj.barStartMs / 1000) as unknown as Time);
+        return { proj, x: raw === null ? null : Number(raw) };
+      }
+      // No loaded-bar axis supplied: only an exact bar time can be located.
+      const raw = timeScale.timeToCoordinate(Math.floor(ms / 1000) as unknown as Time);
+      return raw === null ? { proj: null, x: null } : { proj: { kind: 'IN', barIndex: -1, barStartMs: ms }, x: Number(raw) };
+    };
+    const barSpacing = Math.max(2, timeScale.options().barSpacing || 6);
+
     target.useMediaCoordinateSpace((scope) => {
       const ctx = scope.context;
       ctx.save();
       const viewportWidth = scope.mediaSize.width;
 
-      // 1. Draw Zones (FVG / POI)
-      if (this._data?.showZones !== false && Array.isArray(this._data?.zones)) {
-        for (const zone of this._data.zones) {
+      // 1. Zones (FVG / POI): real source times, clipped to the loaded window, drawn under the candles' labels.
+      if (data.showZones !== false && Array.isArray(data.zones)) {
+        for (const zone of data.zones) {
           const topY = series.priceToCoordinate(zone.top);
           const bottomY = series.priceToCoordinate(zone.bottom);
           if (topY === null || bottomY === null) continue;
-
-          const startTime = Math.floor(zone.start_at / 1000);
-          const endTime = Math.floor(zone.end_at / 1000);
-          const rawX1 = timeScale.timeToCoordinate(startTime as unknown as Time);
-          const rawX2 = timeScale.timeToCoordinate(endTime as unknown as Time);
-
-          if (rawX1 === null && rawX2 === null) continue;
-          const x1 = rawX1 !== null ? Math.max(0, Number(rawX1)) : 0;
-          const x2 = rawX2 !== null ? Math.min(viewportWidth, Number(rawX2)) : viewportWidth;
-          if (x2 <= x1) continue;
-
+          const a = project(zone.start_at);
+          const b = project(zone.end_at);
+          const span = clipSpanX(a.proj, a.x, b.proj, b.x, viewportWidth);
+          if (!span) continue;
+          const { x1, x2 } = span;
           const y = Math.min(Number(topY), Number(bottomY));
           const h = Math.abs(Number(bottomY) - Number(topY));
 
           const isBull = zone.direction === 'BULLISH';
+          const isNeutral = zone.direction === undefined;
           const isMitigated = zone.state === 'MITIGATED' || zone.state === 'INVALIDATED';
-          const fillAlpha = isMitigated ? 0.05 : 0.10;
+          const fillAlpha = isMitigated ? 0.05 : 0.1;
           const strokeAlpha = isMitigated ? 0.25 : 0.45;
+          const rgb = isNeutral ? '148, 163, 184' : isBull ? '16, 185, 129' : '244, 63, 94';
+          const strokeColor = `rgba(${rgb}, ${strokeAlpha})`;
 
-          const fillColor = isBull
-            ? `rgba(16, 185, 129, ${fillAlpha})`
-            : `rgba(244, 63, 94, ${fillAlpha})`;
-          const strokeColor = isBull
-            ? `rgba(16, 185, 129, ${strokeAlpha})`
-            : `rgba(244, 63, 94, ${strokeAlpha})`;
-
-          ctx.fillStyle = fillColor;
+          ctx.fillStyle = `rgba(${rgb}, ${fillAlpha})`;
           ctx.strokeStyle = strokeColor;
           ctx.lineWidth = 1;
-          if (isMitigated) {
-            ctx.setLineDash([2, 2]);
-          } else {
-            ctx.setLineDash([]);
-          }
-          ctx.fillRect(x1, y, Math.max(10, x2 - x1), Math.max(2, h));
-          ctx.strokeRect(x1, y, Math.max(10, x2 - x1), Math.max(2, h));
+          ctx.setLineDash(isMitigated ? [2, 2] : []);
+          ctx.fillRect(x1, y, x2 - x1, Math.max(2, h));
+          ctx.strokeRect(x1, y, x2 - x1, Math.max(2, h));
           ctx.setLineDash([]);
 
-          // Zone label
-          const label = zone.label || (isMitigated ? `${zone.kind} (Đã retest)` : zone.kind);
-          ctx.font = 'bold 9px Inter, sans-serif';
+          const label = zone.label || zone.kind;
+          ctx.font = FONT_SMALL;
           ctx.fillStyle = strokeColor;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'top';
-          ctx.fillText(label, x1 + 4, y + 2);
+          ctx.fillText(isMitigated ? `${label} (đã dùng)` : label, x1 + 4, y + 2);
 
-          // Register hit
-          this._hitRegistry.push({
+          this._register({
             cursorStyle: 'pointer',
             externalId: zone.id,
-            zOrder: 'normal' as const,
+            zOrder: 'normal',
             id: zone.id,
-            title: `Vùng ${zone.kind} (${zone.direction || 'Cấu trúc'})`,
+            title: `Vùng ${zone.kind} (${zone.direction || 'chưa rõ hướng'})`,
             category: 'ZONE',
             price: (zone.top + zone.bottom) / 2,
             timeMs: zone.start_at,
-            detail: `Biên: [${zone.bottom.toFixed(2)} - ${zone.top.toFixed(2)}] · Trạng thái: ${zone.state || 'ACTIVE'}`,
+            detail: `Biên: [${zone.bottom.toFixed(2)} - ${zone.top.toFixed(2)}] · Trạng thái: ${zone.state || 'ACTIVE'} · Từ ${fmtTime(zone.start_at)}`,
             x: (x1 + x2) / 2,
             y: y + h / 2,
             radius: Math.max(12, h / 2),
@@ -235,384 +270,342 @@ class SMCStructurePaneRenderer implements IPrimitivePaneRenderer {
         }
       }
 
-      // 2. Draw Liquidity Levels (Asian / European / PDH / PDL / Targets)
-      if (this._data?.showLiquidity !== false && Array.isArray(this._data?.liquidityLevels)) {
-        for (const liq of this._data.liquidityLevels) {
+      // 2. Liquidity levels: from the source anchor (or window edge when unknown) to the right edge.
+      if (data.showLiquidity !== false && Array.isArray(data.liquidityLevels)) {
+        const badges: Array<LabelCandidate & { liqId: string; color: string; price: number; side: string; state: string }> = [];
+        for (const liq of data.liquidityLevels) {
           const coordY = series.priceToCoordinate(liq.price);
           if (coordY === null) continue;
           const y = Number(coordY);
-
-          const startTime = Math.floor(liq.start_at / 1000);
-          const rawX1 = timeScale.timeToCoordinate(startTime as unknown as Time);
-          const x1 = rawX1 !== null ? Math.max(0, Number(rawX1)) : 0;
-          const x2 = viewportWidth;
-
-          const isTarget = liq.is_target;
+          const a = project(liq.start_at);
+          if (a.proj && a.proj.kind === 'AFTER') continue;
+          const x1 = a.proj && a.proj.kind === 'IN' && a.x !== null ? Math.max(0, a.x) : 0;
+          const isTarget = liq.is_target === true;
           const isConsumed = liq.state === 'SWEPT' || liq.state === 'BROKEN' || liq.state === 'CONSUMED';
-
           const color = isTarget
-            ? '#06b6d4' // Cyan for target
+            ? '#06b6d4'
             : isConsumed
-            ? 'rgba(156, 163, 175, 0.4)' // Muted gray
+            ? 'rgba(156, 163, 175, 0.55)'
             : liq.side === 'BUY_SIDE'
-            ? '#f59e0b' // Amber
-            : '#38bdf8'; // Sky blue
+            ? '#f59e0b'
+            : '#38bdf8';
 
           ctx.strokeStyle = color;
           ctx.lineWidth = isTarget ? 1.5 : 1;
-          ctx.setLineDash(isTarget ? [4, 2] : [2, 2]);
+          ctx.setLineDash(isTarget ? [5, 3] : [2, 3]);
           ctx.beginPath();
           ctx.moveTo(x1, y);
-          ctx.lineTo(x2, y);
+          ctx.lineTo(viewportWidth, y);
           ctx.stroke();
           ctx.setLineDash([]);
 
-          // Badge on right edge
-          const label = isTarget ? `Target: ${liq.label}` : liq.label;
-          ctx.font = 'bold 9px Inter, sans-serif';
-          const textMetrics = ctx.measureText(label);
-          const badgeW = textMetrics.width + 8;
-          const badgeH = 14;
-          const badgeX = Math.max(x1 + 10, x2 - badgeW - 6);
-          const badgeY = y - badgeH / 2;
-
-          ctx.fillStyle = 'rgba(24, 24, 27, 0.85)';
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 1;
-          ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
-          ctx.strokeRect(badgeX, badgeY, badgeW, badgeH);
-
-          ctx.fillStyle = color;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(label, badgeX + badgeW / 2, y);
-
-          this._hitRegistry.push({
-            cursorStyle: 'pointer',
-            externalId: liq.id,
-            zOrder: 'normal' as const,
-            id: liq.id,
-            title: `Thanh khoản: ${liq.label}`,
-            category: 'LIQUIDITY',
-            price: liq.price,
-            timeMs: liq.start_at,
-            detail: `Mức giá: ${liq.price.toFixed(2)} · Phe: ${liq.side} · Trạng thái: ${liq.state}`,
-            x: badgeX + badgeW / 2,
-            y: y,
-            radius: 12,
+          const text = `${isTarget ? 'Mục tiêu · ' : ''}${liq.label} ${liq.price.toFixed(2)}${isConsumed ? ' · đã lấy' : ''}${liq.is_partial ? ' · một phần' : ''}`;
+          ctx.font = FONT_SMALL;
+          const w = ctx.measureText(text).width + 10;
+          badges.push({
+            id: liq.id, liqId: liq.id, x: viewportWidth - w - 6, y: y - 7, width: w, height: 15,
+            priority: isTarget ? 90 : isConsumed ? 20 : 50, text, color, price: liq.price, side: liq.side, state: liq.state,
+          });
+        }
+        const placed = layoutAnnotationLabels(badges, { x: 0, y: 0, width: viewportWidth, height: scope.mediaSize.height });
+        for (const p of placed) {
+          const src = badges.find((b) => b.id === p.id)!;
+          // Labels that cannot be placed stay reachable through the hit registry (tooltip) without overlapping.
+          if (p.visible) {
+            ctx.fillStyle = 'rgba(24, 24, 27, 0.88)';
+            ctx.strokeStyle = src.color;
+            ctx.lineWidth = 1;
+            ctx.fillRect(p.box.x, p.box.y, p.box.width, p.box.height);
+            ctx.strokeRect(p.box.x, p.box.y, p.box.width, p.box.height);
+            ctx.fillStyle = src.color;
+            ctx.font = FONT_SMALL;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(src.text || '', p.box.x + 5, p.box.y + p.box.height / 2);
+          }
+          this._register({
+            cursorStyle: 'pointer', externalId: src.liqId, zOrder: 'normal', id: src.liqId,
+            title: `Thanh khoản: ${src.text}`, category: 'LIQUIDITY', price: src.price, timeMs: 0,
+            detail: `Mức giá ${src.price.toFixed(2)} · ${src.side} · ${src.state}`,
+            x: p.box.x + p.box.width / 2, y: p.box.y + p.box.height / 2, radius: 12,
           });
         }
       }
 
-      // 3. Draw Swings (SH, SL, HH, HL, LH, LL)
-      if (this._data?.showSwings && Array.isArray(this._data.swings)) {
-        for (const swing of this._data.swings) {
-          const coordX = timeScale.timeToCoordinate(Math.floor(swing.timestamp / 1000) as unknown as Time);
+      // 3. Swings: dot at the pivot candle and pivot price.
+      if (data.showSwings && Array.isArray(data.swings)) {
+        for (const swing of data.swings) {
+          const a = project(swing.timestamp);
           const coordY = series.priceToCoordinate(swing.price);
-
-          if (coordX === null || coordY === null) continue;
-          const x = Number(coordX);
+          if (a.x === null || coordY === null) continue;
+          const x = a.x;
           const y = Number(coordY);
-
           const isHigh = swing.type === 'HIGH';
           const label = swing.label || (isHigh ? 'SH' : 'SL');
           const color = isHigh ? '#f43f5e' : '#10b981';
 
-          // Dot at pivot
           ctx.beginPath();
           ctx.arc(x, y, 3.5, 0, Math.PI * 2);
           ctx.fillStyle = color;
           ctx.fill();
 
-          // Label pill
-          ctx.font = 'bold 10px Inter, sans-serif';
-          const textMetrics = ctx.measureText(label);
-          const pillW = textMetrics.width + 6;
-          const pillH = 14;
+          ctx.font = FONT_SMALL;
+          const pillW = ctx.measureText(label).width + 8;
+          const pillH = 15;
           const pillX = x - pillW / 2;
-          const pillY = isHigh ? y - 18 : y + 6;
-
+          const pillY = isHigh ? y - 20 : y + 6;
           ctx.fillStyle = 'rgba(24, 24, 27, 0.88)';
           ctx.strokeStyle = color;
           ctx.lineWidth = 1;
           ctx.fillRect(pillX, pillY, pillW, pillH);
           ctx.strokeRect(pillX, pillY, pillW, pillH);
-
           ctx.fillStyle = color;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(label, x, pillY + pillH / 2);
 
-          this._hitRegistry.push({
+          this._register({
             cursorStyle: 'pointer',
             externalId: swing.id || `swing-${swing.timestamp}`,
-            zOrder: 'normal' as const,
+            zOrder: 'normal',
             id: swing.id || `swing-${swing.timestamp}`,
-            title: `Đỉnh/Đáy Swing: ${label}`,
+            title: `Swing ${label}`,
             category: 'SWING',
             price: swing.price,
             timeMs: swing.timestamp,
-            detail: `Giá pivot: ${swing.price.toFixed(2)}${swing.confirmed_at ? ` · Xác nhận lúc ${new Date(swing.confirmed_at).toLocaleTimeString('vi-VN')}` : ''}`,
-            x: x,
-            y: y,
-            radius: 12,
+            detail: `Pivot ${swing.price.toFixed(2)} lúc ${fmtTime(swing.timestamp)}${swing.confirmed_at ? ` · biết lúc ${fmtTime(swing.confirmed_at)}` : ''}`,
+            x, y, radius: 12,
           });
         }
       }
 
-      // 4. Draw Structure Events (BOS, CHOCH, SWEEP, MSS)
-      if (this._data?.showEvents && Array.isArray(this._data.events)) {
-        for (const ev of this._data.events) {
+      // 4. Structure events (SWEEP, BOS, CHoCH, MSS).
+      if (data.showEvents && Array.isArray(data.events)) {
+        for (const ev of data.events) {
           const kind = ev.event_type;
           const coordY = series.priceToCoordinate(ev.level);
           if (coordY === null) continue;
           const y = Number(coordY);
+          const at = project(ev.timestamp);
+          if (at.x === null) continue; // the break/sweep candle is not on screen: nothing is pulled to an edge
 
-          const eventTimeSec = Math.floor(ev.timestamp / 1000);
-          const rawEventX = timeScale.timeToCoordinate(eventTimeSec as unknown as Time);
-
-          // Handle SWEEP
           if (kind === 'SWEEP') {
-            if (rawEventX === null) continue;
-            const sx = Number(rawEventX);
-            const isBullSweep = ev.direction === 'BULLISH' || ev.kind?.includes('LOW');
-            const sweepColor = '#eab308'; // Amber
-
+            const sx = at.x;
+            const sweepColor = '#eab308';
+            const half = barSpacing * 1.5;
             ctx.strokeStyle = sweepColor;
             ctx.lineWidth = 1.5;
             ctx.setLineDash([2, 2]);
             ctx.beginPath();
-            ctx.moveTo(sx - 15, y);
-            ctx.lineTo(sx + 15, y);
+            ctx.moveTo(sx - half, y);
+            ctx.lineTo(sx + half, y);
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Marker glyph
+            // wick extreme: where the sweep really reached; the dotted connector exists only with real coordinates
+            let wickY: number | null = null;
+            if (ev.wick_extreme !== undefined) {
+              const wy = series.priceToCoordinate(ev.wick_extreme);
+              if (wy !== null) wickY = Number(wy);
+            }
+            if (wickY !== null) {
+              ctx.setLineDash([1, 2]);
+              ctx.beginPath();
+              ctx.moveTo(sx, y);
+              ctx.lineTo(sx, wickY);
+              ctx.stroke();
+              ctx.setLineDash([]);
+              ctx.fillStyle = sweepColor;
+              ctx.beginPath();
+              ctx.arc(sx, wickY, 3, 0, Math.PI * 2);
+              ctx.fill();
+            }
             ctx.fillStyle = sweepColor;
             ctx.beginPath();
-            if (isBullSweep) {
-              ctx.moveTo(sx, y + 2);
-              ctx.lineTo(sx - 4, y + 8);
-              ctx.lineTo(sx + 4, y + 8);
-            } else {
-              ctx.moveTo(sx, y - 2);
-              ctx.lineTo(sx - 4, y - 8);
-              ctx.lineTo(sx + 4, y - 8);
-            }
+            ctx.moveTo(sx, y - 4);
+            ctx.lineTo(sx + 4, y);
+            ctx.lineTo(sx, y + 4);
+            ctx.lineTo(sx - 4, y);
             ctx.closePath();
             ctx.fill();
 
-            const labelText = ev.detail || 'SWEEP';
-            ctx.font = 'bold 9px Inter, sans-serif';
-            const textMetrics = ctx.measureText(labelText);
-            const badgeW = Math.max(44, textMetrics.width + 8);
-            const badgeH = 14;
-            const badgeX = sx - badgeW / 2;
-            const badgeY = isBullSweep ? y + 10 : y - 24;
-
+            const labelText = ev.detail || 'Quét thanh khoản';
+            ctx.font = FONT_SMALL;
+            const badgeW = Math.max(44, ctx.measureText(labelText).width + 10);
+            const badgeH = 15;
+            const above = wickY === null || wickY <= y;
+            const badgeX = Math.min(Math.max(2, sx - badgeW / 2), viewportWidth - badgeW - 2);
+            const badgeY = above ? y - 26 : y + 10;
             ctx.fillStyle = 'rgba(24, 24, 27, 0.9)';
             ctx.strokeStyle = sweepColor;
             ctx.lineWidth = 1;
             ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
             ctx.strokeRect(badgeX, badgeY, badgeW, badgeH);
-
             ctx.fillStyle = sweepColor;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(labelText, sx, badgeY + badgeH / 2);
+            ctx.fillText(labelText, badgeX + badgeW / 2, badgeY + badgeH / 2);
 
-            this._hitRegistry.push({
-              cursorStyle: 'pointer',
-              externalId: ev.id,
-              zOrder: 'normal',
-              id: ev.id,
-              title: `Quét thanh khoản (Sweep)`,
-              category: 'EVENT',
-              price: ev.level,
-              timeMs: ev.timestamp,
-              detail: `Mức quét: ${ev.level.toFixed(2)} · Hướng: ${ev.direction || 'N/A'}${ev.detail ? ` (${ev.detail})` : ''}`,
-              x: sx,
-              y: y,
-              radius: 14,
+            this._register({
+              cursorStyle: 'pointer', externalId: ev.id, zOrder: 'normal', id: ev.id,
+              title: 'Quét thanh khoản (Sweep)', category: 'EVENT', price: ev.level, timeMs: ev.timestamp,
+              detail: `Mức bị quét ${ev.level.toFixed(2)}${ev.wick_extreme !== undefined ? ` · wick tới ${ev.wick_extreme.toFixed(2)}` : ''}${ev.close_back !== undefined ? ` · đóng lại ${ev.close_back.toFixed(2)}` : ''} · nến ${fmtTime(ev.timestamp)}`,
+              x: sx, y, radius: 14,
             });
             continue;
           }
 
-          // Handle BOS, CHOCH, MSS, BREAK_UNCLASSIFIED
+          // BOS / CHoCH / MSS / unclassified break
           const isChoch = kind === 'CHOCH' || kind === 'CHoCH';
           const isMss = kind === 'MSS';
           const isBos = kind === 'BOS';
-
-          const startTime = ev.start_at ? Math.floor(ev.start_at / 1000) : eventTimeSec;
-          const endTime = ev.break_at ? Math.floor(ev.break_at / 1000) : eventTimeSec;
-
-          const rawX1 = timeScale.timeToCoordinate(startTime as unknown as Time);
-          const rawX2 = timeScale.timeToCoordinate(endTime as unknown as Time);
-
-          if (rawX1 === null && rawX2 === null) continue;
-          const x1 = rawX1 !== null ? Number(rawX1) : (rawX2 !== null ? Math.max(0, Number(rawX2) - 40) : 0);
-          const x2 = rawX2 !== null ? Number(rawX2) : (rawX1 !== null ? Number(rawX1) + 40 : viewportWidth);
-
-          const isBull = ev.direction === 'BULLISH' || ev.kind?.includes('HIGH');
-          const color = isMss ? '#8b5cf6' : isChoch ? '#a855f7' : (isBull ? '#06b6d4' : '#f97316');
+          const isBull = ev.direction === 'BULLISH';
+          const isBear = ev.direction === 'BEARISH';
+          const color = isMss ? '#8b5cf6' : isChoch ? '#a855f7' : isBull ? '#06b6d4' : isBear ? '#f97316' : '#94a3b8';
           const label = isMss ? 'MSS' : isChoch ? 'CHoCH' : isBos ? 'BOS' : 'BREAK';
+          const x2 = at.x;
 
-          // Horizontal break line from anchor to confirmation
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 1.5;
-          ctx.setLineDash([3, 3]);
-          ctx.beginPath();
-          ctx.moveTo(x1, y);
-          ctx.lineTo(x2, y);
-          ctx.stroke();
-          ctx.setLineDash([]);
+          // The line starts at the broken swing. Without a real anchor only a marker is drawn (no invented length).
+          const start = ev.start_at !== undefined ? project(ev.start_at) : { proj: null, x: null };
+          let x1: number | null = null;
+          if (start.proj && start.proj.kind === 'IN' && start.x !== null) x1 = start.x;
+          else if (start.proj && start.proj.kind === 'BEFORE') x1 = 0;
+          if (x1 !== null && x1 < x2) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(x1, y);
+            ctx.lineTo(x2, y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
 
-          ctx.font = 'bold 10px Inter, sans-serif';
-          const textMetrics = ctx.measureText(label);
-          const badgeW = textMetrics.width + 8;
-          const badgeH = 14;
+          ctx.font = FONT_SMALL;
+          const badgeW = ctx.measureText(label).width + 10;
+          const badgeH = 15;
           const badgeX = x2 - badgeW / 2;
           const badgeY = y - badgeH / 2;
-
           ctx.fillStyle = '#18181b';
           ctx.strokeStyle = color;
           ctx.lineWidth = 1;
           ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
           ctx.strokeRect(badgeX, badgeY, badgeW, badgeH);
-
           ctx.fillStyle = color;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(label, badgeX + badgeW / 2, y);
+          ctx.fillText(label, x2, y);
 
-          this._hitRegistry.push({
-            cursorStyle: 'pointer',
-            externalId: ev.id,
-            zOrder: 'normal' as const,
-            id: ev.id,
-            title: `Phá vỡ cấu trúc: ${label}`,
-            category: 'EVENT',
-            price: ev.level,
-            timeMs: ev.timestamp,
-            detail: `Mức phá: ${ev.level.toFixed(2)} · Hướng: ${ev.direction || 'N/A'}`,
-            x: x2,
-            y: y,
-            radius: 14,
+          this._register({
+            cursorStyle: 'pointer', externalId: ev.id, zOrder: 'normal', id: ev.id,
+            title: `Phá vỡ cấu trúc: ${label}`, category: 'EVENT', price: ev.level, timeMs: ev.timestamp,
+            detail: `Mức phá ${ev.level.toFixed(2)} · ${ev.direction || 'chưa rõ hướng'}${x1 === null ? ' · thiếu neo swing bị phá' : ''} · nến ${fmtTime(ev.timestamp)}${ev.confirmed_at ? ` · xác nhận ${fmtTime(ev.confirmed_at)}` : ''}`,
+            x: x2, y, radius: 14,
           });
         }
       }
 
-      // 5. Draw Displacements
-      if (this._data?.showDisplacements !== false && Array.isArray(this._data?.displacements)) {
-        for (const disp of this._data.displacements) {
-          const rawX = timeScale.timeToCoordinate(Math.floor(disp.candle_time / 1000) as unknown as Time);
-          const rawHighY = series.priceToCoordinate(disp.high);
-          const rawLowY = series.priceToCoordinate(disp.low);
-          if (rawX === null || rawHighY === null || rawLowY === null) continue;
-
-          const x = Number(rawX);
-          const topY = Math.min(Number(rawHighY), Number(rawLowY));
-          const height = Math.abs(Number(rawLowY) - Number(rawHighY));
-
-          const isBull = disp.direction === 'BULLISH';
-          const color = isBull ? '#34d399' : '#f87171';
-
+      // 5. Displacement: outline of the measured candle (real high/low) or a level marker.
+      if (data.showDisplacements !== false && Array.isArray(data.displacements)) {
+        for (const disp of data.displacements) {
+          const a = project(disp.candle_time);
+          if (a.x === null) continue;
+          const x = a.x;
+          const qualified = disp.is_qualified !== false;
+          const color = disp.direction === 'BEARISH' ? '#f87171' : disp.direction === 'BULLISH' ? '#34d399' : '#94a3b8';
+          let yTop: number;
+          let yBottom: number;
+          if (disp.high !== undefined && disp.low !== undefined) {
+            const hy = series.priceToCoordinate(disp.high);
+            const ly = series.priceToCoordinate(disp.low);
+            if (hy === null || ly === null) continue;
+            yTop = Math.min(Number(hy), Number(ly));
+            yBottom = Math.max(Number(hy), Number(ly));
+          } else if (disp.level !== undefined) {
+            const ly = series.priceToCoordinate(disp.level);
+            if (ly === null) continue;
+            yTop = Number(ly) - 6;
+            yBottom = Number(ly) + 6;
+          } else {
+            continue;
+          }
+          const halfW = Math.max(4, Math.min(barSpacing * 0.6, 12));
           ctx.strokeStyle = color;
           ctx.lineWidth = 1.5;
-          ctx.strokeRect(x - 6, topY, 12, Math.max(4, height));
-
-          // Label 'D'
-          ctx.font = 'bold 9px Inter, sans-serif';
+          ctx.setLineDash(qualified ? [] : [3, 2]);
+          ctx.strokeRect(x - halfW, yTop, halfW * 2, Math.max(4, yBottom - yTop));
+          ctx.setLineDash([]);
+          ctx.font = FONT_SMALL;
           ctx.fillStyle = color;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
-          ctx.fillText('D', x, topY - 2);
+          ctx.fillText(disp.label || (qualified ? 'D' : 'D?'), x, yTop - 2);
 
-          this._hitRegistry.push({
-            cursorStyle: 'pointer',
-            externalId: disp.id,
-            zOrder: 'normal' as const,
-            id: disp.id,
-            title: `Nến Displacement (${disp.direction})`,
-            category: 'DISPLACEMENT',
-            price: (disp.high + disp.low) / 2,
+          this._register({
+            cursorStyle: 'pointer', externalId: disp.id, zOrder: 'normal', id: disp.id,
+            title: qualified ? 'Nến displacement (đạt ngưỡng)' : 'Nến phá vỡ — chưa đạt ngưỡng displacement',
+            category: 'DISPLACEMENT', price: disp.level ?? (disp.high !== undefined && disp.low !== undefined ? (disp.high + disp.low) / 2 : 0),
             timeMs: disp.candle_time,
-            detail: `Biên độ nến: ${(disp.body_size || 0).toFixed(2)}${disp.ratio ? ` (${(disp.ratio * 100).toFixed(0)}% ATR)` : ''}`,
-            x: x,
-            y: topY + height / 2,
-            radius: 12,
+            detail: disp.ratio !== undefined ? `Thân/ATR = ${disp.ratio.toFixed(2)}` : 'Chưa đo được thân/ATR',
+            x, y: (yTop + yBottom) / 2, radius: 12,
           });
         }
       }
 
-      // 6. Draw Retests
-      if (this._data?.showRetests !== false && Array.isArray(this._data?.retests)) {
-        for (const ret of this._data.retests) {
-          const rawX = timeScale.timeToCoordinate(Math.floor(ret.timestamp / 1000) as unknown as Time);
+      // 6. Retests
+      if (data.showRetests !== false && Array.isArray(data.retests)) {
+        for (const ret of data.retests) {
+          const a = project(ret.timestamp);
           const rawY = series.priceToCoordinate(ret.price);
-          if (rawX === null || rawY === null) continue;
-
-          const x = Number(rawX);
+          if (a.x === null || rawY === null) continue;
+          const x = a.x;
           const y = Number(rawY);
           const color = ret.confirmed ? '#10b981' : '#f59e0b';
-
           ctx.strokeStyle = color;
           ctx.lineWidth = 1.5;
+          ctx.setLineDash(ret.confirmed ? [] : [2, 2]);
           ctx.beginPath();
-          ctx.arc(x, y, 4, 0, Math.PI * 2);
+          ctx.arc(x, y, 4.5, 0, Math.PI * 2);
           ctx.stroke();
-
-          ctx.font = 'bold 9px Inter, sans-serif';
+          ctx.setLineDash([]);
+          ctx.font = FONT_SMALL;
           ctx.fillStyle = color;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
-          ctx.fillText('R', x + 6, y);
+          ctx.fillText('R', x + 8, y);
 
-          this._hitRegistry.push({
-            cursorStyle: 'pointer',
-            externalId: ret.id,
-            zOrder: 'normal' as const,
-            id: ret.id,
-            title: `Điểm Retest ${ret.confirmed ? 'Đã xác nhận' : 'Đang chạm'}`,
-            category: 'RETEST',
-            price: ret.price,
-            timeMs: ret.timestamp,
-            detail: `Giá chạm: ${ret.price.toFixed(2)}`,
-            x: x,
-            y: y,
-            radius: 10,
+          this._register({
+            cursorStyle: 'pointer', externalId: ret.id, zOrder: 'normal', id: ret.id,
+            title: `Retest ${ret.confirmed ? 'đã xác nhận' : 'đang chạm'}`, category: 'RETEST', price: ret.price, timeMs: ret.timestamp,
+            detail: `Giá chạm ${ret.price.toFixed(2)} · ${fmtTime(ret.timestamp)}`,
+            x, y, radius: 10,
           });
         }
       }
 
-      // 7. Draw Conditional Scenario Path
-      if (this._data?.showScenarioPath !== false && this._data?.scenarioPath?.points?.length) {
-        const path = this._data.scenarioPath;
+      // 7. Conditional path: real anchors by time; the projection is a logical offset in bars, never a timestamp.
+      if (data.showScenarioPath !== false && data.scenarioPath?.points?.length) {
+        const path = data.scenarioPath;
         const color = path.isConfirmed ? '#60a5fa' : '#94a3b8';
-
         ctx.strokeStyle = color;
         ctx.lineWidth = 1.5;
-        ctx.setLineDash([3, 3]);
+        ctx.setLineDash([4, 3]);
         ctx.beginPath();
-
         let started = false;
         let lastX = 0;
         let lastY = 0;
-
         for (const pt of path.points) {
-          let x: number | null = null;
-          if (pt.xTime) {
-            const rawX = timeScale.timeToCoordinate(Math.floor(pt.xTime / 1000) as unknown as Time);
-            if (rawX !== null) x = Number(rawX);
-          }
           const rawY = series.priceToCoordinate(pt.price);
           if (rawY === null) continue;
-          const y = Number(rawY);
-
-          if (x === null) {
-            x = started ? lastX + 35 : viewportWidth - 60;
+          let x: number | null = null;
+          if (pt.isProjection || pt.xTime === undefined) {
+            if (!started) continue; // a projection needs a real starting point
+            x = Math.min(viewportWidth - 4, lastX + barSpacing * 6);
+          } else {
+            x = project(pt.xTime).x;
           }
-
+          if (x === null) continue;
+          const y = Number(rawY);
           if (!started) {
             ctx.moveTo(x, y);
             started = true;
@@ -622,18 +615,16 @@ class SMCStructurePaneRenderer implements IPrimitivePaneRenderer {
           lastX = x;
           lastY = y;
         }
-
         if (started) {
           ctx.stroke();
           ctx.setLineDash([]);
-
-          // Path label
-          const label = path.label || 'Kịch bản';
-          ctx.font = 'bold 9px Inter, sans-serif';
+          ctx.font = FONT_SMALL;
           ctx.fillStyle = color;
           ctx.textAlign = 'left';
           ctx.textBaseline = 'middle';
-          ctx.fillText(label, lastX + 4, lastY);
+          ctx.fillText(path.label || 'Kịch bản', Math.min(viewportWidth - 90, lastX + 5), lastY - 8);
+        } else {
+          ctx.setLineDash([]);
         }
       }
 
@@ -647,6 +638,10 @@ class SMCStructurePaneView implements IPrimitivePaneView {
 
   update(data: SMCStructureData, param: SeriesAttachedParameter<Time> | null) {
     this._renderer.update(data, param);
+  }
+
+  clear() {
+    this._renderer.clear();
   }
 
   renderer(): IPrimitivePaneRenderer {
@@ -666,27 +661,29 @@ class SMCStructurePaneView implements IPrimitivePaneView {
   }
 }
 
+const EMPTY_DATA: SMCStructureData = {
+  swings: [],
+  events: [],
+  zones: [],
+  liquidityLevels: [],
+  displacements: [],
+  retests: [],
+  showSwings: true,
+  showEvents: true,
+  showZones: true,
+  showLiquidity: true,
+  showDisplacements: true,
+  showRetests: true,
+  showScenarioPath: true,
+};
+
 export class SMCStructurePrimitive implements ISeriesPrimitive<Time> {
   private _data: SMCStructureData;
   private _param: SeriesAttachedParameter<Time> | null = null;
   private _paneView = new SMCStructurePaneView();
 
   constructor(data?: SMCStructureData) {
-    this._data = data || {
-      swings: [],
-      events: [],
-      zones: [],
-      liquidityLevels: [],
-      displacements: [],
-      retests: [],
-      showSwings: true,
-      showEvents: true,
-      showZones: true,
-      showLiquidity: true,
-      showDisplacements: true,
-      showRetests: true,
-      showScenarioPath: true,
-    };
+    this._data = data || EMPTY_DATA;
   }
 
   setData(data: SMCStructureData) {
@@ -705,6 +702,8 @@ export class SMCStructurePrimitive implements ISeriesPrimitive<Time> {
 
   detached(): void {
     this._param = null;
+    this._paneView.update(EMPTY_DATA, null);
+    this._paneView.clear(); // no hover target of a previous selection may survive a detach
   }
 
   updateAllViews(): void {

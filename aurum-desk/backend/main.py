@@ -269,10 +269,24 @@ def get_candles_endpoint(
     symbol: str = "XAUUSDT",
     timeframe: str = "15M",
     limit: int = Query(150, ge=10, le=300),
+    start_ms: Optional[int] = Query(None, gt=0),
+    end_ms: Optional[int] = Query(None, gt=0),
     db: Session = Depends(get_db)
 ):
     from services.candle_cache_service import candle_cache_service
     now_ms = int(time.time() * 1000)
+    if (start_ms is None) != (end_ms is None):
+        raise HTTPException(status_code=422, detail="START_AND_END_REQUIRED_TOGETHER")
+    if start_ms is not None and end_ms is not None:
+        # Historical selection window: bounded DB read, independent from the live cache.
+        if end_ms < start_ms or end_ms > now_ms + 86_400_000:
+            raise HTTPException(status_code=422, detail="INVALID_WINDOW")
+        window_rows = crud.get_candles_in_range(db, symbol, timeframe, start_ms, end_ms, limit=500)
+        window_models = [schemas.Candle.model_validate(c) for c in window_rows]
+        window_last = window_models[-1].timestamp if window_models else None
+        return schemas.CandleListResponse(
+            symbol=symbol, timeframe=timeframe, candles=window_models, count=len(window_models),
+            is_stale=False, last_candle_time=window_last, server_time=now_ms)
     cached_candles = candle_cache_service.get_candles(symbol, timeframe, limit=limit)
     if not cached_candles:
         candles = crud.get_candles(db, symbol, timeframe, limit=limit, ascending=True)
@@ -2568,6 +2582,35 @@ async def preview_setup_quality(
 
 # ==================== V14.4 SMC SCENARIO & EVIDENCE ENDPOINTS ====================
 
+@app.get("/api/v1/smc/session-forecasts", response_model=schemas.SessionForecastsDTO)
+def get_session_forecasts(symbol: str = "XAUUSDT", day: Optional[str] = None):
+    """
+    V14.4.1: cached Asia/Europe/NY conditional forecasts as-of the last market-reading cycle.
+    Read-only: this GET never runs the scenario engine, creates an order or trains a model. A `day` that is not
+    the cached NY session date returns NOT_CACHED (never a recomputation, never a future as-of).
+    """
+    import re
+    from datetime import datetime as _dt
+    if not re.fullmatch(r"[A-Z0-9]{3,20}", symbol or ""):
+        raise HTTPException(status_code=422, detail="INVALID_SYMBOL")
+    if day is not None:
+        try:
+            _dt.strptime(day, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=422, detail="INVALID_DAY")
+    cached = strategy_service.session_forecasts_cache.get(symbol)
+    if not cached:
+        return schemas.SessionForecastsDTO(symbol=symbol, status="NOT_READY", day=day, forecasts={}, coverage={},
+                                          data_issues=[])
+    if day is not None and cached.get("day") != day:
+        return schemas.SessionForecastsDTO(symbol=symbol, status="NOT_CACHED", day=day, as_of_ms=cached.get("as_of_ms"),
+                                          forecasts={}, coverage={}, data_issues=[])
+    return schemas.SessionForecastsDTO(
+        symbol=symbol, status="ERROR" if cached.get("error") else "OK", day=cached.get("day"),
+        as_of_ms=cached.get("as_of_ms"), forecasts=cached.get("forecasts") or {}, coverage=cached.get("coverage") or {},
+        data_issues=cached.get("data_issues") or [])
+
+
 @app.get("/api/v1/smc/scenarios", response_model=List[schemas.ScenarioDTO])
 def get_smc_scenarios(
     symbol: str = "XAUUSDT",
@@ -2627,6 +2670,44 @@ def get_scenario_snapshot(
         raise HTTPException(status_code=500, detail="SNAPSHOT_PAYLOAD_CORRUPT")
 
 
+@app.get("/api/v1/smc/scenarios/{scenario_id}/chart-evidence", response_model=schemas.ChartEvidenceDTO)
+def get_scenario_chart_evidence(
+    scenario_id: str,
+    snapshot_id: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    V14.4.1: typed chart bundle of ONE scenario (exact snapshot when `snapshot_id` is given, otherwise the
+    scenario's current snapshot). The raw snapshot endpoint above is not a chart payload.
+    """
+    from services.chart_evidence_service import build_selected_chart_bundle
+    from services.smc_scenario_repository import get_scenario, get_scenario_snapshot as repo_get_snapshot, snapshot_from_row
+    scenario = get_scenario(db, scenario_id)
+    if scenario is None:
+        raise HTTPException(status_code=404, detail="SCENARIO_NOT_FOUND")
+    wanted = snapshot_id or scenario.current_snapshot_id
+    row = repo_get_snapshot(db, wanted) if wanted else None
+    if row is None:
+        raise HTTPException(status_code=404, detail="SCENARIO_SNAPSHOT_NOT_FOUND")
+    if row.scenario_id != scenario_id:
+        raise HTTPException(status_code=409, detail="SCENARIO_SNAPSHOT_MISMATCH")
+    try:
+        snap = snapshot_from_row(row)
+    except ValueError:
+        raise HTTPException(status_code=409, detail="LEGACY_SNAPSHOT_SCHEMA")
+    return schemas.ChartEvidenceDTO(**build_selected_chart_bundle(snap, source_type="SCENARIO", binding_id=scenario_id))
+
+
+def _empty_chart_bundle(*, source: str, obj_id: str, instance_id, revision, symbol, direction, state, as_of_ms,
+                        family, summary, plan, invalidation_price, warnings):
+    return schemas.ChartEvidenceDTO(
+        binding={"source": source, "id": obj_id, "instance_id": instance_id, "revision": revision, "symbol": symbol,
+                 "direction": direction, "plan_fingerprint": None, "snapshot_id": None},
+        as_of_ms=as_of_ms, evidence_cutoff_ms=as_of_ms, strategy_family=family or "STANDARD_SMC", state=state,
+        summary_vi=summary, risk_reward_plan=plan, invalidation_price=invalidation_price, warnings=warnings,
+        is_empty=True, chain={"verified": False, "reasons": warnings, "advisories": []})
+
+
 @app.get("/api/v1/setups/{setup_id}/chart-evidence", response_model=schemas.ChartEvidenceDTO)
 def get_setup_chart_evidence(
     setup_id: str,
@@ -2636,71 +2717,56 @@ def get_setup_chart_evidence(
     db: Session = Depends(get_db)
 ):
     """
-    PHẦN 061: Retrieve exact chart evidence bundle for a selected setup.
+    V14.4.1: exact chart evidence of a selected setup. The requested identity (instance/revision/fingerprint)
+    is compared with what the server loaded; any mismatch is a 409 - never a "latest" fallback, and the
+    requested fingerprint is never echoed back as if the server had verified it.
     """
     watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == setup_id).first()
     if not watch_setup:
         raise HTTPException(status_code=404, detail="SETUP_NOT_FOUND")
-
     if expected_revision is not None and watch_setup.version != expected_revision:
-        raise HTTPException(
-            status_code=409,
-            detail=f"SETUP_REVISION_MISMATCH: expected {expected_revision}, current {watch_setup.version}"
-        )
+        raise HTTPException(status_code=409,
+                            detail=f"SETUP_REVISION_MISMATCH: expected {expected_revision}, current {watch_setup.version}")
+    if setup_instance_id is not None and watch_setup.setup_instance_id != setup_instance_id:
+        raise HTTPException(status_code=409, detail="SETUP_INSTANCE_MISMATCH")
 
-    from services.chart_evidence_service import build_selected_chart_bundle_from_dict, adapt_legacy_quality_snapshot
-    from services.smc_scenario_repository import get_scenario_snapshot as repo_get_snapshot
+    from services.chart_evidence_service import build_selected_chart_bundle, adapt_legacy_quality_snapshot
+    from services.smc_scenario_repository import get_scenario_snapshot as repo_get_snapshot, snapshot_from_row
     from services.plan_resolver import resolve_plan_levels
-    import json
+    plan_resolved = resolve_plan_levels(watch_setup)
 
-    # 1. Try scenario_snapshot_id if present
     if getattr(watch_setup, "scenario_snapshot_id", None):
         snap_row = repo_get_snapshot(db, watch_setup.scenario_snapshot_id)
-        if snap_row:
-            try:
-                payload = json.loads(snap_row.payload)
-                bundle = build_selected_chart_bundle_from_dict(payload, source_type="SETUP", binding_id=setup_id)
-                return schemas.ChartEvidenceDTO(**bundle)
-            except Exception:
-                pass
+        if snap_row is None:
+            raise HTTPException(status_code=409, detail="SETUP_SNAPSHOT_MISSING")
+        try:
+            snap = snapshot_from_row(snap_row)
+        except ValueError:
+            raise HTTPException(status_code=409, detail="LEGACY_SNAPSHOT_SCHEMA")
+        if (snap.instance_id != watch_setup.setup_instance_id or snap.direction != watch_setup.direction
+                or snap.symbol != (getattr(watch_setup, "instrument", None) or "XAUUSDT")):
+            raise HTTPException(status_code=409, detail="SETUP_SNAPSHOT_MISMATCH")
+        if plan_fingerprint is not None and plan_fingerprint != snap.plan_fingerprint:
+            raise HTTPException(status_code=409, detail="SETUP_PLAN_FINGERPRINT_MISMATCH")
+        bundle = build_selected_chart_bundle(snap, source_type="SETUP", binding_id=setup_id)
+        bundle["binding"]["revision"] = watch_setup.version
+        return schemas.ChartEvidenceDTO(**bundle)
 
-    # 2. Try legacy quality snapshot adapter
-    from services.setup_quality_repository import setup_quality_repository
-    legacy_snap = setup_quality_repository.get_latest_snapshot_for_setup(db, setup_id, setup_instance_id)
-    if legacy_snap:
-        plan_resolved = resolve_plan_levels(watch_setup)
-        adapted = adapt_legacy_quality_snapshot(legacy_snap, plan_data=plan_resolved)
-        return schemas.ChartEvidenceDTO(**adapted)
+    # Legacy: exact quality snapshot ref (never "latest for setup"), uncertified label.
+    qid = getattr(watch_setup, "quality_snapshot_id", None)
+    if qid:
+        from services.setup_quality_repository import setup_quality_repository
+        legacy_snap = setup_quality_repository.get_snapshot_by_id(db, qid)
+        if legacy_snap:
+            return schemas.ChartEvidenceDTO(**adapt_legacy_quality_snapshot(legacy_snap, plan_data=plan_resolved))
 
-    # 3. Empty fallback
-    plan_resolved = resolve_plan_levels(watch_setup)
-    binding = {
-        "source": "SETUP",
-        "id": setup_id,
-        "instance_id": watch_setup.setup_instance_id,
-        "revision": watch_setup.version,
-        "symbol": "XAUUSDT",
-        "direction": watch_setup.direction,
-        "plan_fingerprint": plan_fingerprint,
-        "snapshot_id": None,
-    }
-    return schemas.ChartEvidenceDTO(
-        binding=binding,
-        as_of_ms=watch_setup.updated_at or watch_setup.created_at,
-        evidence_cutoff_ms=watch_setup.updated_at or watch_setup.created_at,
-        strategy_family=watch_setup.strategy_family or "STANDARD_SMC",
-        state=watch_setup.state or "WATCHING",
-        summary_vi="Chưa có bằng chứng cấu trúc đã xác nhận cho setup này.",
-        structure_events=[],
-        poi_zones=[],
-        liquidity_levels=[],
-        displacement_annotation=None,
-        scenario_path=[],
-        risk_reward_plan=plan_resolved if plan_resolved.get("is_valid") else None,
-        invalidation_price=watch_setup.invalidation_price,
-        warnings=["NO_EVIDENCE_FOR_SETUP"],
-        is_empty=True,
-    )
+    return _empty_chart_bundle(
+        source="SETUP", obj_id=setup_id, instance_id=watch_setup.setup_instance_id, revision=watch_setup.version,
+        symbol="XAUUSDT", direction=watch_setup.direction, state=watch_setup.state or "WATCHING",
+        as_of_ms=watch_setup.updated_at or watch_setup.created_at, family=watch_setup.strategy_family,
+        summary="Chưa có bằng chứng cấu trúc đã xác nhận cho setup này (chưa được đánh giá).",
+        plan=plan_resolved if plan_resolved.get("is_valid") else None,
+        invalidation_price=watch_setup.invalidation_price, warnings=["NO_EVIDENCE_FOR_SETUP"])
 
 
 @app.get("/api/v1/orders/{order_id}/chart-evidence", response_model=schemas.ChartEvidenceDTO)
@@ -2709,78 +2775,58 @@ def get_order_chart_evidence(
     db: Session = Depends(get_db)
 ):
     """
-    PHẦN 062: Retrieve exact chart evidence bundle for a selected order.
-    Uses frozen snapshot from arm time, never latest market structure.
+    V14.4.1: ACTUAL order geometry + the evidence frozen at arm time (exact refs on the order row).
+    The scenario plan never overrides the order's own entry/SL/TP, and "latest" structure is never used.
     """
     order = db.query(models.PaperOrder).filter(models.PaperOrder.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="ORDER_NOT_FOUND")
 
-    from services.chart_evidence_service import build_selected_chart_bundle_from_dict, adapt_legacy_quality_snapshot
-    from services.smc_scenario_repository import get_scenario_snapshot as repo_get_snapshot
-    import json
+    from services.chart_evidence_service import build_selected_chart_bundle, adapt_legacy_quality_snapshot
+    from services.smc_scenario_repository import get_scenario_snapshot as repo_get_snapshot, snapshot_from_row
 
+    stamp = order.opened_at or order.armed_at or order.created_at
     order_plan = {
-        "is_valid": True,
-        "direction": order.direction,
-        "planned_entry": order.planned_entry,
-        "actual_entry": order.actual_entry,
-        "stop_loss": order.stop_loss,
-        "take_profit": order.take_profit,
-        "invalidation_price": order.stop_loss,
-        "gross_rr": order.gross_rr,
-        "net_rr": order.estimated_net_rr,
-        "quantity": order.quantity,
+        "is_valid": True, "id": order.id, "direction": order.direction, "state": order.state,
+        "planned_entry": order.planned_entry, "actual_entry": order.actual_entry, "actual_exit": order.actual_exit,
+        "stop_loss": order.stop_loss, "take_profit": order.take_profit, "invalidation_price": order.stop_loss,
+        "gross_rr": order.gross_rr, "net_rr": order.estimated_net_rr, "quantity": order.quantity,
         "net_risk_usdt": order.initial_risk_usdt,
-        "net_reward_usdt": 0.0,
-        "entry_time": (order.opened_at or order.armed_at or order.created_at) // 1000 if (order.opened_at or order.armed_at or order.created_at) else None,
+        "net_reward_usdt": None,                       # unknown unless a cost snapshot priced it: never a fake 0
+        "realized_pnl_net": order.realized_pnl_net, "realized_r": order.realized_r,
+        "opened_at": order.opened_at, "closed_at": order.closed_at,
+        "entry_time": (stamp // 1000) if stamp else None, "entry_time_ms": stamp,
+        "exit_time_ms": order.closed_at,
     }
 
-    # 1. Try scenario_snapshot_id if present
     if getattr(order, "scenario_snapshot_id", None):
         snap_row = repo_get_snapshot(db, order.scenario_snapshot_id)
-        if snap_row:
-            try:
-                payload = json.loads(snap_row.payload)
-                bundle = build_selected_chart_bundle_from_dict(payload, source_type="ORDER", binding_id=order_id, order_data=order_plan)
-                return schemas.ChartEvidenceDTO(**bundle)
-            except Exception:
-                pass
+        if snap_row is None:
+            raise HTTPException(status_code=409, detail="ORDER_SNAPSHOT_MISSING")
+        try:
+            snap = snapshot_from_row(snap_row)
+        except ValueError:
+            raise HTTPException(status_code=409, detail="LEGACY_SNAPSHOT_SCHEMA")
+        if order.setup_instance_id and snap.instance_id != order.setup_instance_id:
+            raise HTTPException(status_code=409, detail="ORDER_SNAPSHOT_MISMATCH")
+        if snap.direction != order.direction:
+            raise HTTPException(status_code=409, detail="ORDER_SNAPSHOT_DIRECTION_MISMATCH")
+        bundle = build_selected_chart_bundle(snap, source_type="ORDER", binding_id=order_id, order_data=order_plan)
+        bundle["binding"]["order_state"] = order.state
+        return schemas.ChartEvidenceDTO(**bundle)
 
-    # 2. Try legacy quality snapshot
-    snap_id = getattr(order, "quality_snapshot_id", None) or getattr(order, "evidence_snapshot_id", None)
-    if snap_id:
+    qid = getattr(order, "quality_snapshot_id", None)
+    if qid:
         from services.setup_quality_repository import setup_quality_repository
-        legacy_snap = setup_quality_repository.get_snapshot_by_id(db, snap_id)
+        legacy_snap = setup_quality_repository.get_snapshot_by_id(db, qid)
         if legacy_snap:
-            adapted = adapt_legacy_quality_snapshot(legacy_snap, order_data=order_plan)
-            return schemas.ChartEvidenceDTO(**adapted)
+            return schemas.ChartEvidenceDTO(**adapt_legacy_quality_snapshot(legacy_snap, order_data=order_plan))
 
-    # 3. Fallback: Order geometry only (read-only RR, no synthetic sweep)
-    binding = {
-        "source": "ORDER",
-        "id": order_id,
-        "instance_id": order.setup_instance_id,
-        "revision": 1,
-        "symbol": order.instrument or "XAUUSDT",
-        "direction": order.direction,
-        "plan_fingerprint": None,
-        "snapshot_id": None,
-    }
-    return schemas.ChartEvidenceDTO(
-        binding=binding,
-        as_of_ms=order.closed_at or order.opened_at or order.armed_at or order.created_at,
-        evidence_cutoff_ms=order.armed_at or order.created_at,
-        strategy_family=order.strategy_family or "STANDARD_SMC",
+    return _empty_chart_bundle(
+        source="ORDER", obj_id=order_id, instance_id=order.setup_instance_id, revision=1,
+        symbol=order.instrument or "XAUUSDT", direction=order.direction,
         state=order.state.upper() if order.state else "CLOSED",
-        summary_vi=f"Lệnh {order.direction} ({order.state}). Bằng chứng chi tiết không khả dụng.",
-        structure_events=[],
-        poi_zones=[],
-        liquidity_levels=[],
-        displacement_annotation=None,
-        scenario_path=[],
-        risk_reward_plan=order_plan,
-        invalidation_price=order.stop_loss,
-        warnings=["LEGACY_ORDER_NO_EVIDENCE"],
-        is_empty=False,
-    )
+        as_of_ms=order.closed_at or order.opened_at or order.armed_at or order.created_at,
+        family=order.strategy_family,
+        summary=f"Lệnh {order.direction} ({order.state}). Không có bằng chứng được lưu lúc đặt lệnh (lệnh cũ).",
+        plan=order_plan, invalidation_price=order.stop_loss, warnings=["LEGACY_ORDER_NO_EVIDENCE"])

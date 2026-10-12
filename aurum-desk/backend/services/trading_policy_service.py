@@ -186,11 +186,11 @@ class TradingPolicyService:
             "vn_time_str": now_vn.strftime("%H:%M:%S"),
             "local_ny_time": now_ny.strftime("%H:%M:%S"),
             "local_vn_time": now_vn.strftime("%H:%M:%S"),
-            "ny_window_str": f"{policy.ny_entry_start} - {policy.ny_entry_end} NY",
+            "ny_window_str": f"{p.ny_entry_start} - {p.ny_entry_end} NY",
             "vn_window_str": f"{dt_start_vn.strftime('%H:%M')} - {dt_end_vn.strftime('%H:%M')} VN",
             "phase": phase,
             "is_in_window": is_in_window,
-            "is_fallback_active": (fb_ms <= current_time < end_ms) and policy.ny_fallback_enabled
+            "is_fallback_active": (fb_ms <= current_time < end_ms) and bool(p.ny_fallback_enabled)
         }
 
     @staticmethod

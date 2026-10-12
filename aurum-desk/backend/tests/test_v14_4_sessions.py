@@ -25,7 +25,7 @@ def test_partial_session_range():
     now_ms = base_ms + 2 * 3600000 # In session, not complete yet
     rng = build_session_range(
         session_name='LONDON',
-        ny_date_str='2026-10-12',
+        ny_date_str_='2026-10-12',
         closed_candles=candles,
         now_ms=now_ms
     )

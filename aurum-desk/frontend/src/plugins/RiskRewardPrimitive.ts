@@ -511,6 +511,20 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
       const coord = timeScale.timeToCoordinate(this._data.entryTime as Time);
       if (coord !== null) {
         startX = coord;
+      } else {
+        // Entry happened inside the still-forming bar (after the last loaded closed bar): project it onto the
+        // logical axis by bar count instead of falling back to a fake left-edge start.
+        const bars = series.data();
+        const n = bars.length;
+        if (n >= 2) {
+          const last = bars[n - 1].time as number;
+          const step = last - (bars[n - 2].time as number);
+          const t = this._data.entryTime as number;
+          if (step > 0 && t > last) {
+            const projected = timeScale.logicalToCoordinate((n - 1 + (t - last) / step) as unknown as Logical);
+            if (projected !== null) startX = projected;
+          }
+        }
       }
     } else {
       const visibleRange = timeScale.getVisibleLogicalRange();
@@ -538,19 +552,15 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
     this._paneView.update(this._data, entryY, slY, tpY, lpY, startX, endX, this._hoverPart);
 
     // Update Price Axis Views
-    if (entryY !== null) {
-      const entryColor = this._data.direction === 'LONG' ? '#2563eb' : '#d97706';
-      this._entryAxisView.update(entryY, `${entryPrice.toFixed(2)} [Entry]`, entryColor);
-    }
-    if (slY !== null) {
-      this._slAxisView.update(slY, `${this._data.stopLoss.toFixed(2)} [SL]`, '#dc2626');
-    }
-    if (tpY !== null) {
-      this._tpAxisView.update(tpY, `${this._data.takeProfit.toFixed(2)} [TP]`, '#16a34a');
-    }
-    if (lpY !== null && this._data.estimatedLiquidation && this._data.estimatedLiquidation > 0) {
-      this._lpAxisView.update(lpY, `${this._data.estimatedLiquidation.toFixed(2)} [LP]`, '#e11d48');
-    }
+    // Axis badges: a null coordinate (price outside the scale) or invalid data hides the badge instead of
+    // keeping the previous order's label alive.
+    const finiteData = [entryPrice, this._data.stopLoss, this._data.takeProfit].every((v) => Number.isFinite(v) && v > 0);
+    const entryColor = this._data.direction === 'LONG' ? '#2563eb' : '#d97706';
+    this._entryAxisView.update(entryY ?? -9999, `${entryPrice.toFixed(2)} [Entry]`, entryColor, '#ffffff', finiteData && entryY !== null);
+    this._slAxisView.update(slY ?? -9999, `${this._data.stopLoss.toFixed(2)} [SL]`, '#dc2626', '#ffffff', finiteData && slY !== null);
+    this._tpAxisView.update(tpY ?? -9999, `${this._data.takeProfit.toFixed(2)} [TP]`, '#16a34a', '#ffffff', finiteData && tpY !== null);
+    const hasLp = !!(this._data.estimatedLiquidation && this._data.estimatedLiquidation > 0);
+    this._lpAxisView.update(lpY ?? -9999, `${(this._data.estimatedLiquidation ?? 0).toFixed(2)} [LP]`, '#e11d48', '#ffffff', hasLp && lpY !== null);
   }
 
   /**

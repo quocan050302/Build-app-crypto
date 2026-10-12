@@ -6,6 +6,8 @@ import { wsClient } from './services/wsClient';
 import { RiskRewardPrimitive } from './plugins/RiskRewardPrimitive';
 import type { RiskRewardData, DragTargetPart } from './plugins/RiskRewardPrimitive';
 import { SMCStructurePrimitive } from './plugins/SMCStructurePrimitive';
+import type { SMCTimeAxis, SMCZone } from './plugins/SMCStructurePrimitive';
+import { projectMsToBar } from './utils/chartTimeProjection';
 import type { ChartEvidenceBundle } from './utils/chartEvidence';
 import { ChartLayerMenu, defaultLayerSettings } from './components/ChartLayerMenu';
 import type { ChartLayerSettings } from './components/ChartLayerMenu';
@@ -54,6 +56,8 @@ export interface ChartComponentProps {
   selectedSummaryVi?: string;
   onClearSelection?: () => void;
   onOpenSelectionDetails?: () => void;
+  selectedLoading?: boolean;
+  selectedError?: string | null;
 }
 
 interface CandleData {
@@ -64,6 +68,35 @@ interface CandleData {
   close: number;
 }
 
+const TF_MS: Record<string, number> = {
+  '1M': 60_000,
+  '5M': 300_000,
+  '15M': 900_000,
+  '1H': 3_600_000,
+  '4H': 14_400_000,
+  D: 86_400_000,
+};
+
+/** Closed/open candles from the API -> strictly ascending, de-duplicated, finite OHLC only. */
+function toCandleList(raw: any): CandleData[] {
+  if (!Array.isArray(raw)) return [];
+  const byTime = new Map<number, CandleData>();
+  for (const c of raw) {
+    const ts = Math.floor(Number(c?.timestamp) / 1000);
+    const vals = [c?.open, c?.high, c?.low, c?.close];
+    if (!Number.isSafeInteger(ts) || ts <= 0 || !vals.every((v) => typeof v === 'number' && Number.isFinite(v))) continue;
+    byTime.set(ts, { time: ts as Time, open: c.open, high: c.high, low: c.low, close: c.close });
+  }
+  return [...byTime.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+}
+
+/** History window is merged under the live window; on a time collision the NEWER (live) bar wins. */
+function mergeCandles(current: CandleData[], incoming: CandleData[]): CandleData[] {
+  const byTime = new Map<number, CandleData>();
+  for (const c of incoming) byTime.set(c.time as number, c);
+  for (const c of current) byTime.set(c.time as number, c);
+  return [...byTime.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+}
 export function ChartComponent({
   symbol,
   timeframe,
@@ -84,6 +117,8 @@ export function ChartComponent({
   selectedSummaryVi,
   onClearSelection,
   onOpenSelectionDetails,
+  selectedLoading,
+  selectedError,
 }: ChartComponentProps) {
   const lastFocusNonceRef = useRef<number>(0);
   const draftBaseOverlayRef = useRef<RiskRewardData | null | undefined>(activeOverlay);
@@ -108,7 +143,22 @@ export function ChartComponent({
   const latestClosePriceRef = useRef<number>(4000.0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentGenRef = useRef<number>(0);
-
+  const candlesRef = useRef<CandleData[]>([]);
+  const timeAxisRef = useRef<SMCTimeAxis>({ startsMs: [], durationMs: 0 });
+  const focusGenRef = useRef<number>(0);
+  const focusAbortRef = useRef<AbortController | null>(null);
+  const pendingFocusRef = useRef<ChartComponentProps['focusRequest']>(null);
+  const liveReadyKeyRef = useRef<string>('');
+  const runFocusRef = useRef<((req: NonNullable<ChartComponentProps['focusRequest']>) => Promise<void>) | null>(null);
+  const loadCandlesRef = useRef<(() => Promise<void>) | null>(null);
+  const dragRafRef = useRef<number | null>(null);
+  const latestDragDataRef = useRef<RiskRewardData | null>(null);
+  const issueCountRef = useRef<number>(0);
+  const [candlesVersion, setCandlesVersion] = useState(0);
+  const [historyNotice, setHistoryNotice] = useState<string | null>(null);
+  const [, setHistoryMode] = useState(false);
+  const [awayFromLive, setAwayFromLive] = useState(false);
+  const [chartIssue, setChartIssue] = useState<{ code: string; count: number } | null>(null);
   // Drag interaction state
   const dragStateRef = useRef<{
     pointerId: number;
@@ -166,6 +216,25 @@ export function ChartComponent({
     chartRef.current = chart;
     seriesRef.current = candlestickSeries;
 
+    // Test-only read accessor. `import.meta.env.DEV` is false in production builds, so this block (and the
+    // global) is removed by the bundler: nothing here is reachable in a shipped app.
+    if (import.meta.env.DEV) {
+      (window as unknown as { __AURUM_CHART_TEST__?: unknown }).__AURUM_CHART_TEST__ = {
+        smcHits: () =>
+          (smcPrimitiveRef.current?.getHitItems() ?? []).map((h) => ({
+            id: h.id, category: h.category, title: h.title, price: h.price, timeMs: h.timeMs, x: h.x, y: h.y,
+          })),
+        rr: () => {
+          const p = rrPrimitiveRef.current;
+          return p ? { data: p.getData(), geometry: p.getGeometry() } : null;
+        },
+        visibleRange: () => chartRef.current?.timeScale().getVisibleRange() ?? null,
+        candleCount: () => candlesRef.current.length,
+        firstCandleMs: () => candlesRef.current[0]?.time ?? null,
+        lastCandleMs: () => candlesRef.current[candlesRef.current.length - 1]?.time ?? null,
+      };
+    }
+
     let animationFrameId: number | null = null;
 
     const handleResize = () => {
@@ -217,6 +286,9 @@ export function ChartComponent({
         } catch {}
         smcPrimitiveRef.current = null;
       }
+      if (import.meta.env.DEV) {
+        delete (window as unknown as { __AURUM_CHART_TEST__?: unknown }).__AURUM_CHART_TEST__;
+      }
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -226,29 +298,43 @@ export function ChartComponent({
   const [currentPriceDisplay, setCurrentPriceDisplay] = useState<number>(4000.0);
   const [staleNotice, setStaleNotice] = useState<string | null>(null);
 
+  const applyCandleList = useCallback((list: CandleData[]) => {
+    candlesRef.current = list;
+    timeAxisRef.current.startsMs = list.map((c) => (c.time as number) * 1000);
+    timeAxisRef.current.durationMs = TF_MS[timeframe] ?? 0;
+  }, [timeframe]);
+
+  // Bounded diagnostics: the badge shows a count, never an unbounded log.
+  const reportChartDataIssue = useCallback((code: string) => {
+    issueCountRef.current = Math.min(issueCountRef.current + 1, 999);
+    setChartIssue({ code, count: issueCountRef.current });
+  }, []);
+
   // Define renderCandles before loadCandles for clean closure semantics
   const renderCandles = useCallback((data: any) => {
-    const formatted: CandleData[] = data.candles.map((c: any) => ({
-      time: Math.floor(c.timestamp / 1000) as Time,
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close,
-    }));
-
+    const formatted = toCandleList(data.candles);
+    applyCandleList(formatted);
     seriesRef.current?.setData(formatted);
 
-    if (data.candles.length > 0) {
-      const last = data.candles[data.candles.length - 1];
+    if (formatted.length > 0) {
+      const last = formatted[formatted.length - 1];
       latestClosePriceRef.current = last.close;
       setCurrentPriceDisplay(last.close);
-      setLastDataAt(new Date(last.timestamp).toLocaleTimeString('vi-VN'));
+      setLastDataAt(new Date((last.time as number) * 1000).toLocaleTimeString('vi-VN'));
     }
 
     setDataIsStale(Boolean(data.is_stale));
     setStaleNotice(data.is_stale ? 'Dữ liệu cũ' : null);
     setLoading(false);
-  }, []);
+    setHistoryMode(false);
+    setCandlesVersion((v) => v + 1);
+    liveReadyKeyRef.current = `${symbol}_${timeframe}`;
+    const pending = pendingFocusRef.current;
+    if (pending) {
+      pendingFocusRef.current = null;
+      void runFocusRef.current?.(pending);
+    }
+  }, [symbol, timeframe, applyCandleList]);
 
   // 2. Load Candles with AbortController & generation counter scoped per resource
   const loadCandles = useCallback(async () => {
@@ -312,6 +398,7 @@ export function ChartComponent({
     }
   }, [symbol, timeframe, renderCandles]);
 
+  loadCandlesRef.current = loadCandles;
   useEffect(() => {
     loadCandles();
   }, [loadCandles]);
@@ -320,7 +407,48 @@ export function ChartComponent({
   useEffect(() => {
     let disposed = false;
     let pendingRaf: number | null = null;
+    let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
     const pendingBarsQueue: CandleData[] = [];
+    const MAX_QUEUE = 100;
+
+    // Gap / ordering problems are repaired from the API (debounced), never silently ignored.
+    const scheduleRecovery = () => {
+      if (recoveryTimer !== null || disposed) return;
+      recoveryTimer = setTimeout(() => {
+        recoveryTimer = null;
+        if (!disposed) void loadCandlesRef.current?.();
+      }, 2000);
+    };
+
+    const flushQueue = () => {
+      pendingRaf = null;
+      if (disposed || !seriesRef.current) return;
+      while (pendingBarsQueue.length > 0) {
+        const nextBar = pendingBarsQueue.shift();
+        if (!nextBar) continue;
+        const list = candlesRef.current;
+        const last = list[list.length - 1];
+        const t = nextBar.time as number;
+        if (last && t < (last.time as number)) {
+          reportChartDataIssue('OUT_OF_ORDER_BAR');
+          scheduleRecovery();
+          continue;
+        }
+        try {
+          seriesRef.current.update(nextBar);
+        } catch {
+          reportChartDataIssue('SERIES_UPDATE_REJECTED');
+          scheduleRecovery();
+          continue;
+        }
+        if (last && t === (last.time as number)) {
+          list[list.length - 1] = nextBar;
+        } else {
+          list.push(nextBar);
+          timeAxisRef.current.startsMs.push(t * 1000);
+        }
+      }
+    };
 
     const unsubscribe = wsClient.subscribe((msg: any) => {
       if (disposed) return;
@@ -328,6 +456,11 @@ export function ChartComponent({
         if (msg.type === 'CANDLE_UPDATE' || msg.type === 'CANDLE_CLOSED') {
           if (msg.symbol === symbol && msg.timeframe === timeframe && msg.payload) {
             const p = msg.payload;
+            const finite = [p.open, p.high, p.low, p.close].every((v: unknown) => typeof v === 'number' && Number.isFinite(v));
+            if (!Number.isSafeInteger(p.time) || p.time <= 0 || !finite || p.high < p.low) {
+              reportChartDataIssue('MALFORMED_CANDLE');
+              return;
+            }
             const bar: CandleData = {
               time: p.time as Time,
               open: p.open,
@@ -336,103 +469,125 @@ export function ChartComponent({
               close: p.close,
             };
 
-            const candleTs = typeof p.time === 'number' ? p.time * 1000 : undefined;
+            const candleTs = p.time * 1000;
             quoteStore.updateFromCandle(symbol, p.close, candleTs);
 
             // R03: Do not overwrite ticker price with candle close if ticker is newer
-            if (!latestQuoteTsRef.current || !candleTs || candleTs >= latestQuoteTsRef.current) {
+            if (!latestQuoteTsRef.current || candleTs >= latestQuoteTsRef.current) {
               latestClosePriceRef.current = p.close;
               setCurrentPriceDisplay(p.close);
             }
             setDataIsStale(false);
             setStaleNotice(null);
 
-            // Queue bar so boundary transition (closed bar -> new open bar) is never lost
-            pendingBarsQueue.push(bar);
+            // Same-open updates coalesce; a closed bar followed by a NEW open bar keeps both (boundary preserved).
+            const tail = pendingBarsQueue[pendingBarsQueue.length - 1];
+            if (tail && (tail.time as number) === p.time) {
+              pendingBarsQueue[pendingBarsQueue.length - 1] = bar;
+            } else {
+              pendingBarsQueue.push(bar);
+            }
+            if (pendingBarsQueue.length > MAX_QUEUE) {
+              pendingBarsQueue.splice(0, pendingBarsQueue.length - MAX_QUEUE);
+              reportChartDataIssue('QUEUE_OVERFLOW');
+              scheduleRecovery();
+            }
 
             if (pendingRaf === null) {
-              pendingRaf = requestAnimationFrame(() => {
-                if (seriesRef.current && !disposed && pendingBarsQueue.length > 0) {
-                  while (pendingBarsQueue.length > 0) {
-                    const nextBar = pendingBarsQueue.shift();
-                    if (nextBar) {
-                      seriesRef.current.update(nextBar);
-                    }
-                  }
-                }
-                pendingRaf = null;
-              });
+              pendingRaf = requestAnimationFrame(flushQueue);
             }
           }
         } else if (msg.type === 'QUOTE_UPDATE' && msg.payload?.last) {
+          // Quotes are telemetry only: no setData, no scenario analysis in the browser.
           quoteStore.updateFromQuoteEnvelope(msg);
           if (msg.symbol === symbol) {
             const lastPrice = typeof msg.payload.last === 'number' ? msg.payload.last : parseFloat(msg.payload.last);
-            latestClosePriceRef.current = lastPrice;
-            latestQuoteTsRef.current = msg.exchange_ts_ms || msg.server_received_at_ms || Date.now();
-            setCurrentPriceDisplay(lastPrice);
+            if (Number.isFinite(lastPrice)) {
+              latestClosePriceRef.current = lastPrice;
+              latestQuoteTsRef.current = msg.exchange_ts_ms || msg.server_received_at_ms || Date.now();
+              setCurrentPriceDisplay(lastPrice);
+            }
           }
         }
-      } catch {}
+      } catch {
+        // A handler failure must be visible (bounded indicator), never swallowed silently.
+        reportChartDataIssue('WS_HANDLER_ERROR');
+      }
     });
 
     return () => {
       disposed = true;
       if (pendingRaf !== null) cancelAnimationFrame(pendingRaf);
+      if (recoveryTimer !== null) clearTimeout(recoveryTimer);
       unsubscribe();
     };
-  }, [symbol, timeframe]);
+  }, [symbol, timeframe, reportChartDataIssue]);
 
   // 3. Update SMC Primitive when props change (Supports focused selectedEvidence & global mode)
   useEffect(() => {
     if (!smcPrimitiveRef.current) return;
+    const emptyData = {
+      swings: [],
+      events: [],
+      zones: [],
+      liquidityLevels: [],
+      displacements: [],
+      retests: [],
+      timeAxis: timeAxisRef.current,
+      showSwings: false,
+      showEvents: false,
+      showZones: false,
+      showLiquidity: false,
+      showDisplacements: false,
+      showRetests: false,
+      showScenarioPath: false,
+    };
     if (!showSMCLevels || evidenceMode === 'NONE') {
-      smcPrimitiveRef.current.setData({
-        swings: [],
-        events: [],
-        zones: [],
-        liquidityLevels: [],
-        displacements: [],
-        retests: [],
-        showSwings: false,
-        showEvents: false,
-        showZones: false,
-        showLiquidity: false,
-        showDisplacements: false,
-        showRetests: false,
-        showScenarioPath: false,
-      });
+      smcPrimitiveRef.current.setData(emptyData);
       return;
     }
 
     if (evidenceMode === 'SELECTED') {
       if (selectedEvidence) {
-        const rawZones = selectedEvidence.poiZones || (selectedEvidence as any).zones || [];
-        const mappedZones = rawZones.map((z: any, idx: number) => {
-          const startAt = z.startAtMs || z.start_at || z.timestamp || ((selectedEvidence as any).asOfMs ? (selectedEvidence as any).asOfMs - 1800000 : Date.now() - 1800000);
-          const endAt = z.endAtMs || z.end_at || ((selectedEvidence as any).asOfMs ? (selectedEvidence as any).asOfMs + 1800000 : startAt + 3600000);
-          return {
-            id: z.id || `zone-${idx}`,
-            kind: z.kind || 'FVG',
+        // Zones use the real FVG source times; a zone without them is UNANCHORED and is not drawn at all.
+        const mappedZones: SMCZone[] = [];
+        for (const z of selectedEvidence.poiZones || []) {
+          const startAt = z.startAtMs;
+          const endAt = z.endAtMs ?? selectedEvidence.asOfMs;
+          if (typeof startAt !== 'number' || typeof endAt !== 'number') continue;
+          mappedZones.push({
+            id: z.id || `zone-${mappedZones.length}`,
+            kind: (z.kind as SMCZone['kind']) || 'FVG',
             top: z.top,
             bottom: z.bottom,
             start_at: startAt,
             end_at: endAt,
-            direction: z.direction,
-            state: z.state || 'ACTIVE',
+            direction: z.direction === 'LONG' ? 'BULLISH' : z.direction === 'SHORT' ? 'BEARISH' : undefined,
+            state: (z.state as SMCZone['state']) || 'ACTIVE',
             label: z.label,
-            source_ids: z.sourceIds || z.source_ids,
-          };
+          });
+        }
+
+        // Displacement candle extremes come from the LOADED candle at the measured time (real data only).
+        const dur = TF_MS[timeframe] ?? 0;
+        const displacements = (selectedEvidence.displacements || []).map((d) => {
+          const p = projectMsToBar(timeAxisRef.current.startsMs, dur, d.candle_time);
+          if (p && p.kind === 'IN') {
+            const bar = candlesRef.current[p.barIndex];
+            if (bar) return { ...d, high: bar.high, low: bar.low };
+          }
+          return d;
         });
 
         smcPrimitiveRef.current.setData({
           swings: selectedEvidence.swings || [],
           events: selectedEvidence.structureEvents || [],
           zones: mappedZones,
-          liquidityLevels: (selectedEvidence as any).liquidityLevels || [],
-          displacements: (selectedEvidence as any).displacements || [],
-          retests: (selectedEvidence as any).retests || [],
-          scenarioPath: (selectedEvidence as any).scenarioPath,
+          liquidityLevels: selectedEvidence.liquidityLevels || [],
+          displacements,
+          retests: selectedEvidence.retests || [],
+          scenarioPath: selectedEvidence.scenarioPath,
+          timeAxis: timeAxisRef.current,
           showSwings: layerSettings.showSwings,
           showEvents: layerSettings.showBreaks,
           showZones: layerSettings.showFvg,
@@ -442,71 +597,117 @@ export function ChartComponent({
           showScenarioPath: layerSettings.showScenarioPath,
         });
       } else {
-        // Crucial fix: Never fall back to global structure when in SELECTED mode!
-        smcPrimitiveRef.current.setData({
-          swings: [],
-          events: [],
-          zones: [],
-          liquidityLevels: [],
-          displacements: [],
-          retests: [],
-          showSwings: false,
-          showEvents: false,
-          showZones: false,
-          showLiquidity: false,
-          showDisplacements: false,
-          showRetests: false,
-          showScenarioPath: false,
-        });
+        // Crucial fix: Never fall back to global structure when in SELECTED mode (loading/error included)!
+        smcPrimitiveRef.current.setData(emptyData);
       }
       return;
     }
 
-    // ALL mode - Global market structure
+    // ALL mode - explicit global market structure overview
     if (evidenceMode === 'ALL') {
       smcPrimitiveRef.current.setData({
+        ...emptyData,
         swings: smcStructure?.swings || [],
         events: smcStructure?.structureEvents || [],
-        zones: [],
-        liquidityLevels: [],
-        displacements: [],
-        retests: [],
         showSwings: layerSettings.showSwings,
         showEvents: layerSettings.showBreaks,
-        showZones: false,
         showLiquidity: layerSettings.showLiquidity,
-        showDisplacements: false,
-        showRetests: false,
-        showScenarioPath: false,
       });
     }
-  }, [smcStructure, showSMCLevels, evidenceMode, selectedEvidence, layerSettings]);
+  }, [smcStructure, showSMCLevels, evidenceMode, selectedEvidence, layerSettings, candlesVersion, timeframe]);
 
-  // Focus request handling (Supports historical trade and live autoScale)
+  // Focus request handling: runs ONLY on an explicit click/focus (new nonce), never on quote ticks. The selected
+  // anchors may be far in the past, so a bounded window of real candles is loaded first (<=480 bars, generation-guarded).
+  const runFocus = async (req: NonNullable<ChartComponentProps['focusRequest']>) => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    focusAbortRef.current?.abort();
+    const controller = new AbortController();
+    focusAbortRef.current = controller;
+    const gen = ++focusGenRef.current;
+    const isValidMs = (v?: number): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v > 0;
+    const anchorStart = isValidMs(req.startAnchorMs) ? req.startAnchorMs : req.targetTime;
+    const anchorEnd = isValidMs(req.endAnchorMs) ? req.endAnchorMs : anchorStart;
+    if (!isValidMs(anchorStart) || !isValidMs(anchorEnd)) {
+      chart.priceScale('right').applyOptions({ autoScale: true });
+      chart.timeScale().scrollToPosition(3, false);
+      return;
+    }
+    const dur = TF_MS[timeframe] ?? 300_000;
+    const lastAnchor = Math.max(anchorStart, anchorEnd);
+    const padBefore = Math.max(30 * 60_000, 40 * dur);
+    const padAfter = Math.max(60 * 60_000, 40 * dur);
+    const startMs = anchorStart - padBefore;
+    const endMs = lastAnchor + padAfter;
+
+    const list = candlesRef.current;
+    const firstMs = list.length ? (list[0].time as number) * 1000 : Infinity;
+    const lastMs = list.length ? (list[list.length - 1].time as number) * 1000 + dur : -Infinity;
+    const covered = firstMs <= startMs && lastMs >= lastAnchor;
+    if (!covered) {
+      const maxSpan = 480 * dur;
+      const wEnd = Math.min(endMs, startMs + maxSpan);
+      try {
+        const data = await api.getCandles(symbol, timeframe, 300, { signal: controller.signal }, { startMs, endMs: wEnd });
+        if (gen !== focusGenRef.current) return;
+        const incoming = toCandleList(data?.candles);
+        if (!incoming.length) {
+          setHistoryNotice('Thiếu nến lịch sử quanh mục đã chọn — giá Entry/SL/TP vẫn đúng theo lệnh.');
+        } else {
+          const merged = mergeCandles(candlesRef.current, incoming);
+          applyCandleList(merged);
+          seriesRef.current?.setData(merged);
+          setHistoryNotice(null);
+          setCandlesVersion((v) => v + 1);
+        }
+        setHistoryMode(true);
+      } catch (err: any) {
+        if (controller.signal.aborted || err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
+        setHistoryNotice('Không tải được nến lịch sử quanh mục đã chọn.');
+      }
+    }
+    if (gen !== focusGenRef.current) return;
+    try {
+      chart.timeScale().setVisibleRange({
+        from: Math.floor(startMs / 1000) as unknown as Time,
+        to: Math.floor(endMs / 1000) as unknown as Time,
+      });
+    } catch {
+      try { chart.timeScale().scrollToPosition(3, false); } catch {}
+    }
+    chart.priceScale('right').applyOptions({ autoScale: true });
+    setAwayFromLive(true);
+  };
+  runFocusRef.current = runFocus;
+
   useEffect(() => {
     if (!focusRequest || focusRequest.nonce === lastFocusNonceRef.current) return;
     lastFocusNonceRef.current = focusRequest.nonce;
-    if (!chartRef.current) return;
-
-    chartRef.current.priceScale('right').applyOptions({ autoScale: true });
-
-    const targetTimeMs = focusRequest.targetTime || focusRequest.startAnchorMs;
-    if (targetTimeMs && Number.isSafeInteger(targetTimeMs) && targetTimeMs > 0) {
-      const targetSec = Math.floor(targetTimeMs / 1000);
-      try {
-        const fromSec = targetSec - 3600 * 2;
-        const toSec = targetSec + 3600 * 4;
-        chartRef.current.timeScale().setVisibleRange({
-          from: fromSec as unknown as Time,
-          to: toSec as unknown as Time,
-        });
-      } catch {
-        chartRef.current.timeScale().scrollToPosition(5, false);
-      }
-    } else {
-      chartRef.current.timeScale().scrollToPosition(3, false);
+    // A timeframe switch triggers a live reload that would overwrite the window: wait for it, then focus.
+    if (liveReadyKeyRef.current !== `${symbol}_${timeframe}`) {
+      pendingFocusRef.current = focusRequest;
+      return;
     }
-  }, [focusRequest]);
+    void runFocusRef.current?.(focusRequest);
+  }, [focusRequest, symbol, timeframe]);
+
+  useEffect(() => () => {
+    focusGenRef.current += 1;
+    focusAbortRef.current?.abort();
+    if (dragRafRef.current !== null) cancelAnimationFrame(dragRafRef.current);
+  }, []);
+
+  const goLive = () => {
+    focusGenRef.current += 1;
+    focusAbortRef.current?.abort();
+    pendingFocusRef.current = null;
+    setHistoryNotice(null);
+    setAwayFromLive(false);
+    void loadCandles().then(() => {
+      chartRef.current?.priceScale('right').applyOptions({ autoScale: true });
+      chartRef.current?.timeScale().scrollToRealTime();
+    });
+  };
 
   // 4. Attach / Update RiskRewardPrimitive Overlay using real equity and settings
   useEffect(() => {
@@ -594,7 +795,31 @@ export function ChartComponent({
     }
   }, [activeOverlay, showOverlay, draftMode, draftDirection, smcLevels, accountEquity, riskPct, leverage, marginMode]);
 
-  // 5. Interactive Pointer Drag Handlers
+  // 5. Interactive Pointer Drag Handlers (DRAFT only; armed/open/closed/observation are read-only)
+  const isReadOnlyOverlay = (d: RiskRewardData) =>
+    d.readOnly === true || d.state === 'armed' || d.state === 'paper_open' || d.state === 'closed';
+
+  const restoreChartInteraction = () => {
+    chartRef.current?.applyOptions({ handleScroll: true, handleScale: true });
+  };
+
+  const cancelDragRaf = () => {
+    if (dragRafRef.current !== null) {
+      cancelAnimationFrame(dragRafRef.current);
+      dragRafRef.current = null;
+    }
+  };
+
+  // One pending RAF at most; it always paints the LATEST computed frame.
+  const scheduleDragPaint = (data: RiskRewardData) => {
+    latestDragDataRef.current = data;
+    if (dragRafRef.current !== null) return;
+    dragRafRef.current = requestAnimationFrame(() => {
+      dragRafRef.current = null;
+      if (latestDragDataRef.current) rrPrimitiveRef.current?.setData(latestDragDataRef.current);
+    });
+  };
+
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!chartContainerRef.current || !rrPrimitiveRef.current || !seriesRef.current || !chartRef.current) return;
 
@@ -605,6 +830,10 @@ export function ChartComponent({
     const hit = rrPrimitiveRef.current.hitTest(localX, localY);
     if (!hit) return;
 
+    // Confirmed setups / orders / observations never mutate through the chart.
+    const currentData = rrPrimitiveRef.current.getData();
+    if (isReadOnlyOverlay(currentData)) return;
+
     chartRef.current.applyOptions({
       handleScroll: false,
       handleScale: false,
@@ -614,9 +843,9 @@ export function ChartComponent({
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {}
 
-    const currentData = rrPrimitiveRef.current.getData();
     const priceAtClick = seriesRef.current.coordinateToPrice(localY) ?? (currentData.actualEntry ?? currentData.plannedEntry);
 
+    latestDragDataRef.current = null;
     dragStateRef.current = {
       pointerId: e.pointerId,
       part: hit.part,
@@ -643,6 +872,8 @@ export function ChartComponent({
       const hit = rrPrimitiveRef.current.hitTest(localX, localY);
       rrPrimitiveRef.current.setHoverPart(hit?.part || null);
       if (hit) {
+        // R:R handles have priority over SMC annotations; hovering never creates or cancels anything.
+        setHoveredHitItem(null);
         if (hit.part === 'entry' || hit.part === 'sl' || hit.part === 'tp') {
           chartContainerRef.current.style.cursor = 'ns-resize';
         } else if (hit.part === 'right_edge') {
@@ -651,7 +882,9 @@ export function ChartComponent({
           chartContainerRef.current.style.cursor = 'move';
         }
       } else {
-        chartContainerRef.current.style.cursor = 'default';
+        const smcHit = smcPrimitiveRef.current?.hitTest(localX, localY) ?? null;
+        setHoveredHitItem((prev) => (prev?.id === smcHit?.id ? prev : smcHit));
+        chartContainerRef.current.style.cursor = smcHit ? 'pointer' : 'default';
       }
       return;
     }
@@ -680,18 +913,12 @@ export function ChartComponent({
       const dx = localX - drag.startX;
       const barDelta = Math.round(dx / 12);
       newBars = Math.max(10, Math.min(100, drag.startBars + barDelta));
-
-      const updatedData: RiskRewardData = {
-        ...drag.initialData,
-        projectedBars: newBars,
-      };
-
-      requestAnimationFrame(() => {
-        rrPrimitiveRef.current?.setData(updatedData);
-      });
+      scheduleDragPaint({ ...drag.initialData, projectedBars: newBars });
       return;
     }
 
+    // Direction is fixed by the draft: dragging a SHORT stop below entry yields an invalid-geometry warning,
+    // it never flips the trade or silently re-sorts the levels.
     const direction = drag.initialData.direction;
     const calc = calculateClientRiskReward(
       direction,
@@ -702,11 +929,11 @@ export function ChartComponent({
       drag.initialData.riskPct || riskPct,
       2.0,
       drag.initialData.quantity,
-      leverage,
-      marginMode
+      drag.initialData.leverage || leverage,
+      drag.initialData.marginMode || marginMode
     );
 
-    const updatedData: RiskRewardData = {
+    scheduleDragPaint({
       ...drag.initialData,
       plannedEntry: newEntry,
       stopLoss: newSl,
@@ -727,32 +954,46 @@ export function ChartComponent({
       initialMargin: calc.initialMarginUsdt,
       tier: calc.tier,
       projectedBars: newBars,
-    };
-
-    requestAnimationFrame(() => {
-      rrPrimitiveRef.current?.setData(updatedData);
     });
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragStateRef.current || !chartRef.current) return;
 
-    chartRef.current.applyOptions({
-      handleScroll: true,
-      handleScale: true,
-    });
+    // Flush: the committed value is the last computed frame, never a stale painted one.
+    cancelDragRaf();
+    if (latestDragDataRef.current && rrPrimitiveRef.current) {
+      rrPrimitiveRef.current.setData(latestDragDataRef.current);
+    }
+
+    restoreChartInteraction();
 
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {}
 
-    if (rrPrimitiveRef.current) {
+    if (rrPrimitiveRef.current && latestDragDataRef.current) {
       const finalData = rrPrimitiveRef.current.getData();
       if (onOverlayChange) {
         onOverlayChange(finalData);
       }
     }
 
+    latestDragDataRef.current = null;
+    dragStateRef.current = null;
+  };
+
+  // PointerCancel / lost capture: roll back to the pre-drag geometry and restore pan/zoom.
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragStateRef.current;
+    if (!drag) return;
+    cancelDragRaf();
+    latestDragDataRef.current = null;
+    rrPrimitiveRef.current?.setData(drag.initialData);
+    restoreChartInteraction();
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
     dragStateRef.current = null;
   };
 
@@ -868,6 +1109,8 @@ export function ChartComponent({
       {selectedBinding && (
         <SelectedChartHeader
           binding={selectedBinding}
+          state={selectedEvidence?.state}
+          plan={selectedEvidence?.riskRewardPlan}
           summaryVi={selectedSummaryVi}
           onClear={onClearSelection}
           onOpenDetails={onOpenSelectionDetails}
@@ -881,6 +1124,9 @@ export function ChartComponent({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onLostPointerCapture={handlePointerCancel}
+        onPointerLeave={() => setHoveredHitItem(null)}
       >
         {hoveredHitItem && (
           <ChartEvidenceTooltip
@@ -894,6 +1140,49 @@ export function ChartComponent({
             }}
             onClose={() => setHoveredHitItem(null)}
           />
+        )}
+        {selectedBinding && selectedLoading && (
+          <div
+            data-testid="selection-loading"
+            className="absolute top-3 left-3 z-20 px-2.5 py-1 bg-gray-900/90 border border-cyan-800/70 rounded-md text-xs text-cyan-200"
+          >
+            Đang tải bằng chứng của mục đã chọn…
+          </div>
+        )}
+        {selectedBinding && selectedError && !selectedLoading && (
+          <div
+            data-testid="selection-error"
+            className="absolute top-3 left-3 z-20 px-2.5 py-1 bg-rose-950/80 border border-rose-800 rounded-md text-xs text-rose-200 max-w-[70%]"
+          >
+            {selectedError}
+          </div>
+        )}
+        {historyNotice && (
+          <div
+            data-testid="history-notice"
+            className="absolute bottom-3 left-3 z-20 px-2.5 py-1 bg-amber-950/80 border border-amber-800/80 rounded-md text-xs text-amber-200"
+          >
+            {historyNotice}
+          </div>
+        )}
+        {awayFromLive && (
+          <button
+            type="button"
+            data-testid="back-to-live"
+            onClick={goLive}
+            className="absolute bottom-3 right-16 z-20 px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-medium rounded-md shadow-lg"
+          >
+            Về hiện tại
+          </button>
+        )}
+        {chartIssue && (
+          <div
+            data-testid="chart-data-issue"
+            title={`Mã lỗi: ${chartIssue.code}`}
+            className="absolute top-3 right-3 z-20 px-2 py-1 bg-amber-950/80 border border-amber-800/80 rounded-md text-[11px] text-amber-200"
+          >
+            Dữ liệu nến bất thường ({chartIssue.count})
+          </div>
         )}
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-20 backdrop-blur-xs">

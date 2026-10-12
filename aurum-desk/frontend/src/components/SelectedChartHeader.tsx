@@ -40,7 +40,7 @@ export const SelectedChartHeader: React.FC<Props> = ({
     <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 bg-gray-900/90 border-b border-gray-800 text-xs backdrop-blur-sm z-10">
       <div className="flex items-center space-x-2">
         <span className={`px-2 py-0.5 rounded font-semibold border ${dirColor}`}>
-          {binding.direction || 'CHƯA RÕ HƯỚNG'}
+          {binding.direction || 'QUAN SÁT'}
         </span>
         <span className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700 font-medium">
           {sourceLabels[binding.source] || binding.source}

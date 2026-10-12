@@ -556,10 +556,16 @@ export const api = {
     symbol: string,
     timeframe: string,
     limit: number = 150,
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
+    window?: { startMs: number; endMs: number }
   ) => {
+    const params: Record<string, number> = { limit };
+    if (window) {
+      params.start_ms = window.startMs;
+      params.end_ms = window.endMs;
+    }
     const res = await apiClient.get(`/api/v1/candles/${symbol}/${timeframe}`, {
-      params: { limit },
+      params,
       ...config,
     });
     return res.data;
@@ -618,6 +624,24 @@ export const api = {
 
   getScenarioSnapshot: async (scenarioId: string, snapshotId: string, signal?: AbortSignal) => {
     const res = await apiClient.get(`/api/v1/smc/scenarios/${encodeURIComponent(scenarioId)}/snapshots/${encodeURIComponent(snapshotId)}`, {
+      signal,
+    });
+    return res.data;
+  },
+
+  /** V14.4.1: typed chart bundle of ONE scenario (exact snapshot when snapshotId is given). */
+  getScenarioChartEvidence: async (scenarioId: string, snapshotId?: string | null, signal?: AbortSignal) => {
+    const res = await apiClient.get(`/api/v1/smc/scenarios/${encodeURIComponent(scenarioId)}/chart-evidence`, {
+      params: snapshotId ? { snapshot_id: snapshotId } : {},
+      signal,
+    });
+    return res.data;
+  },
+
+  /** V14.4.1: cached Asia/Europe/NY forecasts (read-only; the GET never runs the engine). */
+  getSessionForecasts: async (symbol: string = 'XAUUSDT', day?: string, signal?: AbortSignal) => {
+    const res = await apiClient.get('/api/v1/smc/session-forecasts', {
+      params: day ? { symbol, day } : { symbol },
       signal,
     });
     return res.data;

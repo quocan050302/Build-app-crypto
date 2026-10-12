@@ -160,39 +160,11 @@ def evaluate_setup_eligibility(
 
     ev_dict: Dict[str, Any] = {}
     chain_verified: Optional[bool] = None
-    if getattr(setup, "scenario_snapshot_id", None):
-        try:
-            from models import SMCScenarioSnapshot
-            snap_row = db.query(SMCScenarioSnapshot).filter(SMCScenarioSnapshot.snapshot_id == setup.scenario_snapshot_id).first()
-            if snap_row:
-                import json
-                p_data = json.loads(snap_row.payload)
-                cc = p_data.get("chain_check", {})
-                chain_verified = bool(cc.get("verified"))
-                ev_dict = {
-                    "sweep_detected": True,
-                    "fvg_found": True,
-                    "structure_confirmed": chain_verified,
-                }
-        except Exception:
-            pass
-
-    if chain_verified is None and getattr(setup, "evidence_snapshot_id", None):
-        try:
-            ev_row = db.query(models.StrategyEvidence).filter(models.StrategyEvidence.id == setup.evidence_snapshot_id).first()
-            if ev_row:
-                sweep = _has_evidence(ev_row.sweep_evidence)
-                brk = _has_evidence(ev_row.displacement_evidence)
-                fvg = _has_evidence(ev_row.fvg_evidence)
-                chain_verified = bool(sweep and brk and fvg)
-                ev_dict = {
-                    "sweep_detected": sweep,
-                    "fvg_found": fvg,
-                    "structure_confirmed": chain_verified,
-                }
-        except Exception:
-            ev_dict = {}
-            chain_verified = None
+    from services.smc_scenario_binding import verify_setup_structure
+    chain_verified, ev_dict, _binding = verify_setup_structure(
+        db, setup, symbol=symbol, now_ms=current_time,
+        plan_levels={"entry": entry, "stop_loss": sl, "take_profit": tp} if level_source != "INVALID" else None,
+    )
 
     if validated_quote is None:
         try:

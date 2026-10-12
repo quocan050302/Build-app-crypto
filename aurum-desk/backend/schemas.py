@@ -107,6 +107,11 @@ class PaperOrderResponse(PaperOrderBase):
     recovery_confidence: Optional[str] = None
     discovered_at: Optional[int] = None
     occurred_at: Optional[int] = None
+    # V14.4.1 exact frozen refs (each into ITS OWN table). Null on legacy rows: never back-filled from "latest".
+    scenario_snapshot_id: Optional[str] = None
+    quality_snapshot_id: Optional[str] = None
+    evidence_snapshot_id: Optional[str] = None
+    setup_instance_id: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 # Risk/Reward Position Overlay schema for Chart
@@ -179,6 +184,9 @@ class WatchSetupItem(BaseModel):
     distance_to_entry_usdt: Optional[float] = None
     quality_summary: Optional[Dict[str, Any]] = None
     quality_snapshot_id: Optional[str] = None
+    scenario_snapshot_id: Optional[str] = None
+    setup_instance_id: Optional[str] = None
+    strategy_family: Optional[str] = None
     created_at: int
     updated_at: int
     expires_at: Optional[int] = None
@@ -1289,19 +1297,40 @@ class ScenarioDTO(BaseModel):
     payload: Optional[Dict[str, Any]] = None
 
 
+class SessionForecastsDTO(BaseModel):
+    """V14.4.1 cached three-session conditional forecasts. Not an order, not a probability."""
+    symbol: str
+    status: str                              # OK | NOT_READY | NOT_CACHED | ERROR
+    day: Optional[str] = None
+    as_of_ms: Optional[int] = None
+    forecasts: Dict[str, Dict[str, Any]] = Field(default_factory=dict)   # ASIA / LONDON / NY
+    coverage: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    data_issues: List[str] = Field(default_factory=list)
+    schema_version: str = "v14.4.1-forecast"
+
+
 class ChartEvidenceDTO(BaseModel):
+    bundle_version: str = "v14.4.1"
     binding: Dict[str, Any]
     as_of_ms: int
     evidence_cutoff_ms: int
     strategy_family: str = "STANDARD_SMC"
     state: str = "OBSERVING"
     summary_vi: Optional[str] = None
+    swings: List[Dict[str, Any]] = Field(default_factory=list)
     structure_events: List[Dict[str, Any]] = Field(default_factory=list)
     poi_zones: List[Dict[str, Any]] = Field(default_factory=list)
     liquidity_levels: List[Dict[str, Any]] = Field(default_factory=list)
+    displacements: List[Dict[str, Any]] = Field(default_factory=list)
+    retests: List[Dict[str, Any]] = Field(default_factory=list)
     displacement_annotation: Optional[Dict[str, Any]] = None
     scenario_path: List[Dict[str, Any]] = Field(default_factory=list)
     risk_reward_plan: Optional[Dict[str, Any]] = None
+    target: Optional[Dict[str, Any]] = None
+    invalidation: Optional[Dict[str, Any]] = None
     invalidation_price: Optional[float] = None
+    chain: Optional[Dict[str, Any]] = None
+    probability: Optional[Dict[str, Any]] = None
+    blockers: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
     is_empty: bool = False

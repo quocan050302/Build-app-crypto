@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { SelectedTradeIntent } from '../App';
 import { SMCScenarioCard } from './SMCScenarioCard';
+import { SMCSessionForecastCard } from './SMCSessionForecastCard';
 import type { SMCScenarioView } from '../types/smcScenario';
 import {
   ShieldAlert,
@@ -484,6 +485,12 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
             </p>
           </div>
         )}
+
+        {/* THREE-SESSION CONDITIONAL FORECAST V14.4.1 (read-only, cached) */}
+        <SMCSessionForecastCard
+          symbol="XAUUSDT"
+          refreshKey={(scenarios || []).reduce((acc, s) => acc + (s.revision || 0), 0)}
+        />
 
         {/* REALTIME SMC SCENARIOS V14.4 */}
         {scenarios && scenarios.length > 0 && (

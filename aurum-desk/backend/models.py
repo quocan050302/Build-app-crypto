@@ -104,7 +104,6 @@ class PaperOrder(Base):
     execution_mode = Column(String(20), default="AUTO")  # MANUAL, AUTO
     arm_decision_snapshot = Column(Text, nullable=True)  # JSON
     fill_decision_snapshot = Column(Text, nullable=True)  # JSON
-    scenario_snapshot_id = Column(String(80), nullable=True, index=True)
     quality_snapshot_id = Column(String(80), nullable=True, index=True)
     # V11 Lab/Replay transient sizing policy override (not mapped to DB column to preserve zero-migration DB integrity)
     resize_policy = None
@@ -346,6 +345,10 @@ class WatchSetup(Base):
     # Links WatchSetup -> PaperOrder.session_instance_id / SessionQuota by id, not by display name.
     session_instance_id = Column(String(60), nullable=True, index=True)
 
+    # V14.4.1 additive: exact immutable refs of the decision that produced this watch revision.
+    # scenario_snapshot_id -> smc_scenario_snapshots.snapshot_id; quality_snapshot_id -> setup_quality_snapshots.snapshot_id.
+    scenario_snapshot_id = Column(String(80), nullable=True, index=True)
+    quality_snapshot_id = Column(String(80), nullable=True, index=True)
 
 
 class DomainEvent(BaseModel if False else Base):

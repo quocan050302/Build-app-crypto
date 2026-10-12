@@ -38,6 +38,37 @@ def guard_runtime_database():
         # Ensure inode / canonical file was not replaced or wiped
         assert current_stat.st_ino == baseline_stat.st_ino, "CRITICAL: Runtime DB file replaced!"
 
+@pytest.fixture(autouse=True)
+def entry_certification_mode(request):
+    """V14.4.1: certified STANDARD_SMC entry is ON by default and blocks READY without a verified chain.
+
+    Suites written before V14.4.1 (news/RR/lesson/fill/telegram behaviour) seed chain-less READY setups.
+    They run in the explicit LEGACY_UNCERTIFIED mode (flag OFF) so that they keep testing what they were
+    written for. Suites named test_v14_4* always run certified (flag ON) and must prove a real chain;
+    a test may force either mode with @pytest.mark.certified_entry / @pytest.mark.legacy_entry.
+    """
+    import dataclasses
+    import services.smc_scenario_config as scfg
+    name = request.module.__name__.split(".")[-1]
+    if request.node.get_closest_marker("certified_entry"):
+        certified = True
+    elif request.node.get_closest_marker("legacy_entry"):
+        certified = False
+    else:
+        certified = name.startswith("test_v14_4")
+    previous = scfg.active_scenario_config
+    scfg.active_scenario_config = dataclasses.replace(previous, certified_smc_entry_enabled=certified)
+    try:
+        yield
+    finally:
+        scfg.active_scenario_config = previous
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "certified_entry: force certified STANDARD_SMC entry (V14.4.1)")
+    config.addinivalue_line("markers", "legacy_entry: force LEGACY_UNCERTIFIED entry mode")
+
+
 @pytest.fixture
 def isolated_db():
     """Provides a fresh isolated in-memory or temp SQLite session for each test function."""

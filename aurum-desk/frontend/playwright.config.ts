@@ -34,7 +34,8 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `${PYTHON} ../backend/tests/e2e_server.py --port ${API_PORT}`,
+      // quoted: an absolute interpreter path may contain spaces (e.g. "D:\build app-crypto\...")
+      command: `"${PYTHON}" ../backend/tests/e2e_server.py --port ${API_PORT}`,
       url: `http://127.0.0.1:${API_PORT}/__e2e/state`,
       reuseExistingServer: false,
       timeout: 60_000,

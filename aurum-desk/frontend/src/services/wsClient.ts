@@ -11,6 +11,7 @@ type MessageHandler = (data: any) => void;
 class SharedWSClient {
   private ws: WebSocket | null = null;
   private subscribers: Set<MessageHandler> = new Set();
+  private statusSubscribers: Set<(open: boolean) => void> = new Set();
   private pingInterval: any = null;
   private reconnectTimeout: any = null;
   private attempt: number = 0;
@@ -45,6 +46,7 @@ class SharedWSClient {
       this.ws.onopen = () => {
         this.isConnecting = false;
         this.attempt = 0;
+        this.notifyStatus(true);
 
         // Clear existing ping interval
         if (this.pingInterval) clearInterval(this.pingInterval);
@@ -75,6 +77,7 @@ class SharedWSClient {
       this.ws.onclose = () => {
         this.isConnecting = false;
         this.cleanupHeartbeat();
+        this.notifyStatus(false);
         this.scheduleReconnect();
       };
 
@@ -87,6 +90,29 @@ class SharedWSClient {
       this.isConnecting = false;
       this.scheduleReconnect();
     }
+  }
+
+  private notifyStatus(open: boolean): void {
+    for (const cb of this.statusSubscribers) {
+      try {
+        cb(open);
+      } catch (err) {
+        console.error('WS status handler error:', err);
+      }
+    }
+  }
+
+  /** True only while the socket is OPEN (used to decide whether polling fallback is needed). */
+  public isOpen(): boolean {
+    return typeof WebSocket !== 'undefined' && !!this.ws && this.ws.readyState === WebSocket.OPEN;
+  }
+
+  /** Connection open/close notifications; the callback receives `true` on every (re)connect. */
+  public subscribeStatus(cb: (open: boolean) => void): () => void {
+    this.statusSubscribers.add(cb);
+    return () => {
+      this.statusSubscribers.delete(cb);
+    };
   }
 
   private cleanupHeartbeat(): void {

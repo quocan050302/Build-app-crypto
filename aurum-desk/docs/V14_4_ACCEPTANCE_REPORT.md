@@ -64,3 +64,20 @@
 | Drag draft | **PASS** | Kéo thả draft chỉ áp dụng cho DRAFT; lệnh armed/open/closed giữ nguyên `readOnly: true`. |
 | Layer toggle | **PASS** | `ChartLayerMenu` cho phép bật/tắt từng lớp trực quan độc lập. |
 | Migration twice | **PASS** | `test_migration_twice`: Schema migration chạy 2 lần không làm thay đổi trạng thái, số dòng hay giá trị lệnh cũ. |
+
+---
+
+## ERRATA (added in V14.4.1 — the text above is kept unchanged as the historical record)
+
+The V14.4 report above described helper-level results as "fully fixed / full pipeline PASS". A review of
+`b444d76` reproduced runtime failures that those tests did not exercise. The claims map to their real scope as follows:
+
+| V14.4 claim | Real scope at `b444d76` | V14.4.1 status |
+|---|---|---|
+| "301/301 backend PASS" | Ran `test_v14*` + `test_v7*` only (not the whole backend); none of them called `evaluate_scenarios` with D/4H/1H/15M/5M | Full backend now run; 3 known baseline failures reported as PASS_SCOPED |
+| "Benchmark PASS, P95 0.001 ms" | Wrong context keys (`m5`/`m15`) made `evaluate_scenarios` return early; `PASS` was hard-coded | Benchmark rewritten: wrong keys must be rejected, real progression asserted, thresholds -> exit code |
+| "Lỗi 1–10 đã sửa triệt để" | Fixes existed in helpers/mappers; production never called `evaluate_scenario_cycle`; `ConfigError: displacement_atr_period`, `TypeError: swings_high`, FVG midpoint ±0.5, target ±20, `READY + None` passing the strategy step were all still reproducible | Wired and covered by real-pipeline tests (see V14_4_1_ACCEPTANCE_REPORT) |
+| "Full pipeline PASS" | Validator + plan helper tests, not setup -> arm -> fill -> quota | `test_v14_4_1_production_pipeline.py` drives `StrategyService.evaluate_upcoming_setups` end to end |
+| Chart evidence PASS | Build/vitest only; the browser was never opened; order endpoint returned a top-level bundle while the UI read `res.evidence` | Real-Chrome Playwright suite added |
+
+`run_v14_4_acceptance.py` is superseded by `tools/run_v14_4_1_acceptance.py` (it used a POSIX venv path and shell wildcards).

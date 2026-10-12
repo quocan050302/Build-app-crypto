@@ -29,6 +29,10 @@ export const SMCScenarioCard: React.FC<Props> = ({
 
   return (
     <div
+      data-testid="scenario-card"
+      data-scenario-id={scenario.scenario_id}
+      data-scenario-state={scenario.state}
+      data-direction={scenario.direction ?? 'NONE'}
       onClick={() => onSelect && onSelect(scenario)}
       className={`p-3 rounded-lg border transition-all cursor-pointer select-none ${
         isSelected

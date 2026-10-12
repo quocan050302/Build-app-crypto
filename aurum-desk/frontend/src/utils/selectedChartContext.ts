@@ -9,7 +9,7 @@ export function createSetupSelection(setup: any, planFingerprint?: string | null
     symbol: setup.symbol || 'XAUUSDT',
     direction: (setup.direction as Direction) || null,
     planFingerprint: planFingerprint || null,
-    snapshotId: setup.scenario_snapshot_id || setup.evidence_snapshot_id || null,
+    snapshotId: setup.scenario_snapshot_id || null,
   };
 }
 
@@ -22,7 +22,7 @@ export function createOrderSelection(order: any): ChartBinding {
     symbol: order.instrument || 'XAUUSDT',
     direction: (order.direction as Direction) || null,
     planFingerprint: null,
-    snapshotId: order.scenario_snapshot_id || order.quality_snapshot_id || order.evidence_snapshot_id || null,
+    snapshotId: order.scenario_snapshot_id || null,
   };
 }
 

@@ -35,11 +35,14 @@ export const ChartLayerMenu: React.FC<Props> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape' && isOpen) {
         setIsOpen(false);
+        // restore focus to the trigger so keyboard users never lose their place (no focus trap)
+        triggerRef.current?.focus();
       }
     }
     function handleClickOutside(e: MouseEvent) {
@@ -66,6 +69,9 @@ export const ChartLayerMenu: React.FC<Props> = ({
     <div className="relative inline-block text-left" ref={containerRef}>
       <button
         type="button"
+        ref={triggerRef}
+        data-testid="layer-menu-button"
+        aria-haspopup="dialog"
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Cài đặt các lớp hiển thị trên biểu đồ"
         aria-expanded={isOpen}

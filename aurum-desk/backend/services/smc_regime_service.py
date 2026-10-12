@@ -6,7 +6,7 @@ V14.4 — Market regime classification and causal dealing range analysis.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence
 
 
 @dataclass
@@ -87,6 +87,65 @@ def classify_regime(
         return "RANGE"
 
     return "UNKNOWN"
+
+
+@dataclass
+class HTFContext:
+    """Higher-timeframe bias derived ONLY from that timeframe's own closed candles (never from M5)."""
+    timeframe: str
+    bias: str                                # BULLISH | BEARISH | RANGE | UNKNOWN
+    bars: int = 0
+    last_closed_ms: Optional[int] = None
+    provenance: str = "NO_DATA"              # CLOSED_CANDLES_SWING_STRUCTURE | NO_DATA | INSUFFICIENT_BARS
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"timeframe": self.timeframe, "bias": self.bias, "bars": self.bars,
+                "last_closed_ms": self.last_closed_ms, "provenance": self.provenance}
+
+
+def build_htf_context(closed_candles: Sequence[Any], timeframe: str, *, min_bars: int = 12) -> HTFContext:
+    """Adapter closed candles -> HTFContext. Missing/short history returns UNKNOWN with provenance."""
+    if not closed_candles:
+        return HTFContext(timeframe=timeframe, bias="UNKNOWN", provenance="NO_DATA")
+    if len(closed_candles) < min_bars:
+        return HTFContext(timeframe=timeframe, bias="UNKNOWN", bars=len(closed_candles),
+                          last_closed_ms=closed_candles[-1].timestamp, provenance="INSUFFICIENT_BARS")
+    import smc_engine
+    sh, sl = smc_engine.identify_pivots(list(closed_candles), timeframe=timeframe)
+    trend = smc_engine.determine_causal_trend_at(
+        list(closed_candles), len(closed_candles) - 1, sh, sl,
+        closed_candles[-1].timestamp + smc_engine.TIMEFRAME_MS.get(timeframe, 0),
+    ) if (sh and sl) else "UNKNOWN"
+    bias = {"BULLISH": "BULLISH", "BEARISH": "BEARISH", "RANGING": "RANGE"}.get(trend, "UNKNOWN")
+    return HTFContext(timeframe=timeframe, bias=bias, bars=len(closed_candles),
+                      last_closed_ms=closed_candles[-1].timestamp,
+                      provenance="CLOSED_CANDLES_SWING_STRUCTURE" if bias != "UNKNOWN" else "NO_STRUCTURE")
+
+
+def h1_alignment_from(h4: HTFContext, h1: HTFContext) -> str:
+    if h4.bias in ("UNKNOWN",) or h1.bias in ("UNKNOWN",):
+        return "UNKNOWN"
+    if h4.bias == "RANGE" or h1.bias == "RANGE":
+        return "DIVERGENT"
+    return "ALIGNED" if h4.bias == h1.bias else "DIVERGENT"
+
+
+def atr_relative(closed_candles: Sequence[Any], short: int = 3, long: int = 20) -> Optional[float]:
+    """Mean true range of the last `short` bars divided by the mean over the `long` bars before them."""
+    n = len(closed_candles)
+    if n < short + long + 1:
+        return None
+
+    def tr(i: int) -> float:
+        c, p = closed_candles[i], closed_candles[i - 1]
+        return max(c.high - c.low, abs(c.high - p.close), abs(c.low - p.close))
+
+    recent = [tr(i) for i in range(n - short, n)]
+    base = [tr(i) for i in range(n - short - long, n - short)]
+    base_mean = sum(base) / len(base)
+    if base_mean <= 0:
+        return None
+    return round((sum(recent) / len(recent)) / base_mean, 3)
 
 
 def get_research_context(symbol: str = "XAUUSDT") -> Dict[str, Any]:
