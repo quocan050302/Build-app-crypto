@@ -2,12 +2,13 @@
 """
 V14.4.2 acceptance runner.
 
-Runs every mandatory check and asserts presence and execution of all 34 required case IDs:
-  - D01–D12 (Drag lifecycle & readonly)
+Runs every mandatory check and asserts presence and execution of all required case IDs:
+  - D01–D12 (Drag lifecycle & readonly across all 4 states)
   - R01–R05 (Realtime WS & soak)
   - M01–M04 (Mobile reachability)
-  - E01–E07 (Evidence closure)
+  - E01–E09 (Evidence closure & focus)
   - S01–S06 (Backend requirements & guards)
+  - Unit groups: RT (realtime), O (observation), P (provenance), F (focus), L (layout), A (acceptance runner)
 
 Usage:
   python tools/run_v14_4_2_acceptance.py [--python PATH] [--skip-e2e]
@@ -19,16 +20,18 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import time
+import xml.etree.ElementTree as ET
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BACKEND = os.path.join(ROOT, "backend")
 FRONTEND = os.path.join(ROOT, "frontend")
 LOG_DIR = os.path.join(ROOT, "logs", "acceptance", "v14_4_2")
 
-# 34 Mandatory Case Manifest
+# Mandatory Case Manifest (D01-D12, R01-R05, M01-M04, E01-E09, S01-S06)
 REQUIRED_CASES = {
     # Drag Lifecycle (12)
     "D01": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_chart_closure.e2e.ts", "desc": "copy SHORT setup to draft"},
@@ -54,7 +57,7 @@ REQUIRED_CASES = {
     "M02": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_mobile.e2e.ts", "desc": "mobile note drawer opens and closes cleanly without mutating state"},
     "M03": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_mobile.e2e.ts", "desc": "mobile touch layer menu and annotation controls remain within viewport"},
     "M04": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_mobile.e2e.ts", "desc": "responsive layout maintains usable bounds across viewport sizes"},
-    # Evidence Closure (7)
+    # Evidence Closure & Focus (9)
     "E01": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_chart_closure.e2e.ts", "desc": "selected bundle renders structure events, zones, and liquidity"},
     "E02": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_chart_closure.e2e.ts", "desc": "causal coordinates preserve source time anchors"},
     "E03": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_chart_closure.e2e.ts", "desc": "dense labels remain bounded within chart pane"},
@@ -62,6 +65,8 @@ REQUIRED_CASES = {
     "E05": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_chart_closure.e2e.ts", "desc": "clear selection clears evidence without leaking global structure"},
     "E06": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_chart_closure.e2e.ts", "desc": "trade details drawer displays matching snapshot provenance and evidence accordion"},
     "E07": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_chart_closure.e2e.ts", "desc": "layer settings persist in localStorage and restore on reload"},
+    "E08": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_chart_closure.e2e.ts", "desc": "offscreen evidence focus navigation"},
+    "E09": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_chart_closure.e2e.ts", "desc": "focus request does not leak across selection changes"},
     # Backend Requirements & Guards (6)
     "S01": {"suite": "backend", "file": "backend/tests/test_v14_4_2_forecast_requirements.py", "desc": "asof_no_future"},
     "S02": {"suite": "backend", "file": "backend/tests/test_v14_4_2_forecast_requirements.py", "desc": "forecast_relationship"},
@@ -84,6 +89,96 @@ def _venv_python() -> str:
         if os.path.exists(cand):
             return cand
     return sys.executable
+
+
+def validate_required_results(required: dict[str, list[str]], actual: dict[str, str]) -> dict:
+    """Matches manifest requirements against actual parsed test outcomes."""
+    coverage = {}
+    for case_id, test_ids in required.items():
+        missing = [test_id for test_id in test_ids if test_id not in actual]
+        not_passed = {
+            test_id: actual[test_id]
+            for test_id in test_ids
+            if test_id in actual and actual[test_id] != 'PASS'
+        }
+        coverage[case_id] = {
+            'status': 'PASS' if test_ids and not missing and not not_passed else 'INCOMPLETE',
+            'missing': missing,
+            'not_passed': not_passed,
+        }
+    return coverage
+
+
+def parse_junit_xml(xml_path: str) -> dict[str, str]:
+    """Parses JUnit XML report produced by pytest --junitxml."""
+    results = {}
+    if not os.path.isfile(xml_path):
+        return results
+    try:
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+        for testcase in root.iter("testcase"):
+            name = testcase.get("name", "")
+            classname = testcase.get("classname", "")
+            status = "PASS"
+            if testcase.find("failure") is not None or testcase.find("error") is not None:
+                status = "FAIL"
+            elif testcase.find("skipped") is not None:
+                status = "SKIPPED"
+            key = f"{classname}::{name}" if classname else name
+            results[key] = status
+            results[name] = status
+            # Extract case tokens like S01, O06, P01, A01
+            for m in re.finditer(r"(?i)(?:^|[\W_])([SOPFLRA]\d{2})(?:[\W_]|$)", name):
+                results[m.group(1).upper()] = status
+    except Exception as e:
+        print(f"Error parsing JUnit XML {xml_path}: {e}", file=sys.stderr)
+    return results
+
+
+def parse_playwright_json(report_path: str, run_start_time: float) -> dict[str, str]:
+    """Parses Playwright JSON report, rejecting stale runs."""
+    results = {}
+    if not os.path.isfile(report_path):
+        return results
+    mtime = os.path.getmtime(report_path)
+    if mtime < run_start_time - 5:
+        # File is older than the start of this test run
+        return results
+    try:
+        with open(report_path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        suites = data.get("suites", [])
+
+        def walk_suites(s_list):
+            for s in s_list:
+                for spec in s.get("specs", []):
+                    title = spec.get("title", "")
+                    tests = spec.get("tests", [])
+                    status = "PASS"
+                    for t in tests:
+                        results_list = t.get("results", [])
+                        for r in results_list:
+                            r_status = r.get("status")
+                            if r_status in ("failed", "timedOut"):
+                                status = "FAIL"
+                            elif r_status == "skipped" and status != "FAIL":
+                                status = "SKIPPED"
+                    results[title] = status
+                    match = re.match(r"^([A-Z]\d+):", title)
+                    if match:
+                        results[match.group(1)] = status
+                walk_suites(s.get("suites", []))
+
+        walk_suites(suites)
+    except Exception as e:
+        print(f"Error parsing Playwright report {report_path}: {e}", file=sys.stderr)
+    return results
+
+
+def is_port_in_use(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(("127.0.0.1", port)) == 0
 
 
 def run_step(name: str, argv: list[str], cwd: str, env_extra: dict | None = None, timeout: int = 3600) -> dict:
@@ -151,10 +246,11 @@ def main(argv=None) -> int:
     npx = shutil.which("npx") or "npx"
     npm = shutil.which("npm") or "npm"
     results: dict[str, dict] = {}
+    actual_test_outcomes: dict[str, str] = {}
 
     print(f"=== V14.4.2 Acceptance Runner ===")
     print(f"Using Python: {py}")
-    print(f"Checking 34 mandatory case manifest...")
+    print(f"Checking {len(REQUIRED_CASES)} mandatory case manifest...")
 
     if not validate_manifest_files():
         print("FAIL: One or more mandatory test files are missing!")
@@ -165,19 +261,30 @@ def main(argv=None) -> int:
                         "argv": step["argv"]})
         results[key] = verdict
 
-    # 1. Backend Targeted Suites (including S01-S06, RQ01-RQ05, O01-O05)
+    # 1. Backend Targeted Suites (including S01-S06, O06-O11, P01-P07, A01-A08)
+    backend_xml = os.path.join(LOG_DIR, "backend_junit.xml")
+    if os.path.exists(backend_xml):
+        os.remove(backend_xml)
+
     env_backend = {"PYTHONPATH": os.pathsep.join([BACKEND, os.path.join(BACKEND, "tests"), "."])}
     targeted_files = [
         "tests/test_v14_4_2_requirements.py",
         "tests/test_v14_4_2_forecast_requirements.py",
         "tests/test_v14_4_2_entry_regression.py",
+        "tests/test_v14_4_2_acceptance_runner.py",
         "tests/test_v14_4_1_production_pipeline.py",
         "tests/test_v14_4_1_contracts.py",
         "tests/test_v14_3_ny_quota.py",
         "tests/test_v14_3_frequency_audit.py",
     ]
-    s = run_step("backend_targeted", [py, "-m", "pytest", *targeted_files, "-q", "-p", "no:cacheprovider"], BACKEND, env_extra=env_backend)
+    s = run_step(
+        "backend_targeted",
+        [py, "-m", "pytest", *targeted_files, "-q", "-p", "no:cacheprovider", f"--junitxml={backend_xml}"],
+        BACKEND,
+        env_extra=env_backend,
+    )
     record("backend_targeted", s, classify_pytest(s))
+    actual_test_outcomes.update(parse_junit_xml(backend_xml))
 
     # 2. Frontend Typecheck, Lint, Vitest, and Build
     s = run_step("frontend_typecheck", [npx, "tsc", "-b"], FRONTEND)
@@ -194,46 +301,48 @@ def main(argv=None) -> int:
     s = run_step("frontend_build", [npm, "run", "build"], FRONTEND)
     record("frontend_build", s, simple(s))
 
-    # 3. Browser E2E Tests (D01-D12, R01-R05, M01-M04, E01-E07)
+    # 3. Browser E2E Tests (D01-D12, R01-R05, M01-M04, E01-E09)
     if args.skip_e2e:
-        results["browser_e2e"] = {"status": "NOT_RUN", "reason": "--skip-e2e specified"}
+        results["browser_e2e"] = {"status": "INCOMPLETE", "reason": "--skip-e2e specified; acceptance requires full browser run"}
     else:
         api_port = os.environ.get("AURUM_E2E_API_PORT", "8765")
         web_port = os.environ.get("AURUM_E2E_WEB_PORT", "5199")
+        report_path = os.path.join(LOG_DIR, "playwright_report.json")
+        if os.path.exists(report_path):
+            os.remove(report_path)
+
         env_e2e = {
             "AURUM_E2E_PYTHON": py,
             "AURUM_E2E_API_PORT": api_port,
             "AURUM_E2E_WEB_PORT": web_port,
-            "AURUM_E2E_REPORT": os.path.join(LOG_DIR, "playwright_report.json"),
+            "AURUM_E2E_REPORT": report_path,
         }
-        # Pre-cleanup port on Windows
-        if sys.platform == "win32":
-            subprocess.run(
-                ["powershell", "-NoProfile", "-Command",
-                 f"Get-NetTCPConnection -LocalPort {api_port} -ErrorAction SilentlyContinue | "
-                 f"ForEach-Object {{ Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }}"],
-                capture_output=True, text=True,
-            )
+
+        # Safe port verification: check if isolated port is occupied
+        if is_port_in_use(int(api_port)):
+            print(f"[acceptance] Port {api_port} is currently bound. Playwright test server will attach or use isolated instance.", flush=True)
+
         e2e_files = [
             "tests/e2e/v14_4_2_chart_closure.e2e.ts",
             "tests/e2e/v14_4_2_realtime_soak.e2e.ts",
             "tests/e2e/v14_4_2_mobile.e2e.ts",
             "tests/e2e/v14_4_1_sessions_chart.e2e.ts",
         ]
+        t_start_e2e = time.time()
         s = run_step("browser_e2e", [npx, "playwright", "test", *e2e_files], FRONTEND, env_extra=env_e2e)
         stats = {}
         try:
-            with open(env_e2e["AURUM_E2E_REPORT"], encoding="utf-8") as fh:
+            with open(report_path, encoding="utf-8") as fh:
                 stats = json.load(fh).get("stats", {})
         except (OSError, ValueError):
             pass
         executed = stats.get("expected", 0) + stats.get("unexpected", 0) + stats.get("flaky", 0)
         verdict = simple(s, {"playwright_stats": stats, "executed_tests": executed})
         if s["exit_code"] == 0 and executed < 25:
-            # All 4 files must run at least 25 browser cases
             verdict["status"] = "FAIL"
             verdict["reason"] = f"insufficient browser tests executed: {executed} < 25"
         record("browser_e2e", s, verdict)
+        actual_test_outcomes.update(parse_playwright_json(report_path, t_start_e2e))
 
     # 4. Benchmark & Latency Measurement
     bench_out = os.path.join(LOG_DIR, "benchmark.json")
@@ -251,7 +360,11 @@ def main(argv=None) -> int:
     s = run_step("git_diff_check", ["git", "diff", "--check"], ROOT)
     record("git_diff_check", s, simple(s))
 
-    blocking = {"FAIL", "NOT_RUN", "SKIPPED"}
+    # 6. Validate manifest case requirements
+    required_manifest = {case_id: [case_id] for case_id in REQUIRED_CASES}
+    case_coverage = validate_required_results(required_manifest, actual_test_outcomes)
+
+    blocking = {"FAIL", "NOT_RUN", "SKIPPED", "INCOMPLETE"}
     statuses = {k: v["status"] for k, v in results.items()}
     if any(v in blocking for v in statuses.values()):
         overall = "FAIL" if "FAIL" in statuses.values() else "INCOMPLETE"
@@ -263,6 +376,7 @@ def main(argv=None) -> int:
     summary = {
         "overall": overall,
         "required_cases_count": len(REQUIRED_CASES),
+        "case_coverage": case_coverage,
         "statuses": statuses,
         "steps": results,
         "baseline_failures_declared": sorted(BASELINE_FAILURES),

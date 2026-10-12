@@ -387,7 +387,7 @@ class TradeLifecycleService:
         # Record persistent paper observation for closed trade outcome
         try:
             from services.smc_observation_service import record_closed_outcome
-            record_closed_outcome(db, order)
+            record_closed_outcome(db, order, as_of_ms=current_time)
         except Exception as obs_err:
             logger.warning(f"Failed to record closed outcome observation for {order.id}: {obs_err}")
 

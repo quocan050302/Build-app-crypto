@@ -27,37 +27,87 @@ BUNDLE_VERSION = 'v14.4.1'
 
 def read_snapshot_provenance(snapshot_dict: dict, current_config: ScenarioConfig) -> dict:
     """
-    Extracts provenance information and compares the snapshot's config version
-    and detector version with the current active config to identify rule differences.
+    Extracts provenance information and compares the snapshot's config version,
+    detector version, and requirement profile with the current active config.
+    Returns canonical SnapshotProvenanceDTO fields with backwards-compatibility aliases.
     """
-    snap_config_version = snapshot_dict.get('config_version', 0)
+    snap_config_version = snapshot_dict.get('config_version')
     detector_version = snapshot_dict.get('detector_version')
-    req_profile = snapshot_dict.get('requirement_profile', 'DEFAULT')
+    req_profile = snapshot_dict.get('requirement_profile')
 
-    version_diff = snap_config_version != current_config.config_version
-    detector_diff = bool(detector_version and detector_version != current_config.detector_version)
-    profile_diff = req_profile != "DEFAULT"
+    curr_config_v = current_config.config_version
+    curr_detector_v = current_config.detector_version
+    curr_profile = getattr(current_config, 'requirement_profile', 'DEFAULT') or 'DEFAULT'
 
     current_reqs = describe_model_requirements(current_config)
+
+    # Missing legacy metadata -> unknown provenance
+    if snap_config_version is None and detector_version is None:
+        return {
+            'is_current': None,
+            'snapshot_detector_version': None,
+            'current_detector_version': curr_detector_v,
+            'snapshot_config_version': None,
+            'current_config_version': curr_config_v,
+            'snapshot_requirement_profile': req_profile,
+            'current_requirement_profile': curr_profile,
+            'historical_requirements': snapshot_dict.get('requirements'),
+            'current_requirements': current_reqs,
+            'version_label': "Chưa đủ thông tin phiên bản",
+            'warning': "Chưa đủ thông tin phiên bản lúc vào lệnh",
+            # Aliases
+            'detector_version': None,
+            'requirement_profile': req_profile or 'DEFAULT',
+            'is_outdated_version': False,
+            'is_custom_profile': False,
+        }
+
+    # Normalize profile aliases: DEFAULT and V14.4_SMC_BASELINE are equivalent baseline rules
+    def _normalize_profile(p: Optional[str]) -> str:
+        if p in ("DEFAULT", "V14.4_SMC_BASELINE", None):
+            return "DEFAULT"
+        return p
+
+    snap_norm = _normalize_profile(req_profile)
+    curr_norm = _normalize_profile(curr_profile)
+
+    version_diff = (snap_config_version != curr_config_v)
+    detector_diff = bool(detector_version and detector_version != curr_detector_v)
+    profile_diff = (snap_norm != curr_norm)
+
+    is_outdated = version_diff or detector_diff or profile_diff
+    is_current = not is_outdated
+
     historical_reqs = snapshot_dict.get('requirements') or {
         'config_version': snap_config_version,
         'detector_version': detector_version,
-        'requirement_profile': req_profile,
+        'requirement_profile': req_profile or 'DEFAULT',
     }
 
-    is_outdated = version_diff or detector_diff
+    if is_current:
+        version_label = "Phiên bản hiện tại"
+        warning = None
+    else:
+        version_label = "Phiên bản lúc vào lệnh"
+        warning = "Luật SMC đã thay đổi từ lúc ghi nhận snapshot"
 
     return {
+        'is_current': is_current,
+        'snapshot_detector_version': detector_version,
+        'current_detector_version': curr_detector_v,
         'snapshot_config_version': snap_config_version,
-        'current_config_version': current_config.config_version,
-        'detector_version': detector_version,
-        'current_detector_version': current_config.detector_version,
-        'requirement_profile': req_profile,
-        'is_outdated_version': is_outdated,
-        'is_custom_profile': profile_diff,
+        'current_config_version': curr_config_v,
+        'snapshot_requirement_profile': req_profile or 'DEFAULT',
+        'current_requirement_profile': curr_profile,
         'historical_requirements': historical_reqs,
         'current_requirements': current_reqs,
-        'warning': "Luật SMC đã thay đổi từ lúc ghi nhận snapshot" if is_outdated else None
+        'version_label': version_label,
+        'warning': warning,
+        # Aliases
+        'detector_version': detector_version,
+        'requirement_profile': req_profile or 'DEFAULT',
+        'is_outdated_version': is_outdated,
+        'is_custom_profile': (req_profile not in ("DEFAULT", "V14.4_SMC_BASELINE", None)),
     }
 
 

@@ -88,6 +88,7 @@ export const SelectedChartHeader: React.FC<Props> = ({
         {onClear && (
           <button
             type="button"
+            data-testid="clear-selection"
             onClick={onClear}
             className="px-2 py-0.5 rounded text-gray-400 hover:text-rose-400 hover:bg-gray-800 transition-colors"
             title="Trở về chế độ cấu trúc tổng quan"

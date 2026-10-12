@@ -27,7 +27,9 @@ def test_read_snapshot_provenance():
     }
     prov = read_snapshot_provenance(snap_dict, active_scenario_config)
     assert prov["is_outdated_version"] is False
-    assert prov["is_custom_profile"] is True
+    assert prov["is_custom_profile"] is False
+    assert prov["is_current"] is True
+    assert prov["version_label"] == "Phiên bản hiện tại"
 
 
 def test_build_entry_explanation():
@@ -182,3 +184,147 @@ def test_rq05_old_order_readable():
     assert prov["warning"] is not None
     assert "Luật SMC đã thay đổi" in prov["warning"]
     assert prov["historical_requirements"]["detector_version"] == "v14.2"
+
+
+def test_p01_same_config_detector_profile():
+    """P01 / TC-PROV-CURRENT: Identical config, detector, and baseline profile -> is_current=True."""
+    snap = {
+        "config_version": active_scenario_config.config_version,
+        "detector_version": active_scenario_config.detector_version,
+        "requirement_profile": "DEFAULT",
+    }
+    prov = read_snapshot_provenance(snap, active_scenario_config)
+    assert prov["is_current"] is True
+    assert prov["version_label"] == "Phiên bản hiện tại"
+    assert prov["warning"] is None
+    assert prov["is_outdated_version"] is False
+
+
+def test_p02_different_detector_version():
+    """P02: Outdated detector version -> is_current=False."""
+    snap = {
+        "config_version": active_scenario_config.config_version,
+        "detector_version": "v14.0-legacy",
+        "requirement_profile": "DEFAULT",
+    }
+    prov = read_snapshot_provenance(snap, active_scenario_config)
+    assert prov["is_current"] is False
+    assert prov["version_label"] == "Phiên bản lúc vào lệnh"
+    assert prov["warning"] is not None
+    assert prov["is_outdated_version"] is True
+
+
+def test_p03_different_config_version():
+    """P03: Outdated numeric config version -> is_current=False."""
+    snap = {
+        "config_version": 999,
+        "detector_version": active_scenario_config.detector_version,
+        "requirement_profile": "DEFAULT",
+    }
+    prov = read_snapshot_provenance(snap, active_scenario_config)
+    assert prov["is_current"] is False
+    assert prov["version_label"] == "Phiên bản lúc vào lệnh"
+
+
+def test_p04_custom_requirement_profile():
+    """P04 / TC-PROV-CUSTOM: Non-baseline custom profile -> is_current=False, is_custom_profile=True."""
+    snap = {
+        "config_version": active_scenario_config.config_version,
+        "detector_version": active_scenario_config.detector_version,
+        "requirement_profile": "CUSTOM_PRO_TREND",
+    }
+    prov = read_snapshot_provenance(snap, active_scenario_config)
+    assert prov["is_current"] is False
+    assert prov["is_custom_profile"] is True
+    assert prov["version_label"] == "Phiên bản lúc vào lệnh"
+
+
+def test_p05_missing_metadata_unknown():
+    """P05 / TC-PROV-UNKNOWN: Legacy row with missing version metadata -> is_current=None, label indicates incomplete info."""
+    snap = {
+        "scenario_id": "scen-legacy",
+    }
+    prov = read_snapshot_provenance(snap, active_scenario_config)
+    assert prov["is_current"] is None
+    assert prov["version_label"] == "Chưa đủ thông tin phiên bản"
+    assert prov["snapshot_config_version"] is None
+    assert prov["snapshot_detector_version"] is None
+
+
+def test_p06_canonical_dto_fields_complete():
+    """P06: All canonical SnapshotProvenanceDTO fields are present with correct types."""
+    snap = {
+        "config_version": 1,
+        "detector_version": "v14.4.1",
+        "requirement_profile": "DEFAULT",
+    }
+    prov = read_snapshot_provenance(snap, active_scenario_config)
+    canonical_keys = {
+        "is_current",
+        "snapshot_detector_version",
+        "current_detector_version",
+        "snapshot_config_version",
+        "current_config_version",
+        "snapshot_requirement_profile",
+        "current_requirement_profile",
+        "historical_requirements",
+        "current_requirements",
+        "version_label",
+        "warning",
+    }
+    for k in canonical_keys:
+        assert k in prov, f"Missing canonical key: {k}"
+    assert isinstance(prov["current_config_version"], int)
+    assert isinstance(prov["current_detector_version"], str)
+
+
+def test_p07_binding_custom_profile_guard():
+    """P07: Custom requirement profile is verified and not falsely whitelisted."""
+    custom_config = ScenarioConfig(
+        config_version=1,
+        detector_version="v14.4.1",
+        require_m15_poi=True,
+        requirement_profile="CUSTOM_STRICT",
+    )
+    snap = ScenarioSnapshot(
+        schema_version="v14.4.1",
+        scenario_id="scen-cust",
+        instance_id="inst-cust",
+        revision=1,
+        symbol="XAUUSDT",
+        setup_timeframe="5M",
+        context_timeframes=["H1"],
+        family="STANDARD_SMC",
+        direction="LONG",
+        state=ScenarioState.STRUCTURE_CONFIRMED,
+        as_of_ms=1000,
+        evidence_cutoff_ms=1000,
+        evidence_ids=[],
+        liquidity_map={},
+        trigger_chain={},
+        target={"price": 2700.0},
+        invalidation={"price": 2640.0},
+        summary_vi="Test",
+        config_version=1,
+        detector_version="v14.4.1",
+        requirement_profile="DEFAULT",  # Snapshot is DEFAULT, active is CUSTOM_STRICT
+    )
+    mock_db = None
+    mock_row = None
+    import pytest
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr("services.smc_scenario_binding.get_scenario_snapshot", lambda db, sid: snap)
+        mp.setattr("services.smc_scenario_binding.snapshot_from_row", lambda row: snap)
+
+        res = verify_scenario_binding(
+            mock_db,
+            snapshot_id="snap-cust",
+            direction="LONG",
+            symbol="XAUUSDT",
+            setup_instance_id="inst-cust",
+            plan_levels={"entry": 2650.0, "stop_loss": 2640.0, "take_profit": 2700.0},
+            now_ms=2000,
+            config=custom_config,
+        )
+        assert res.verified is False
+        assert "REQUIREMENT_PROFILE_MISMATCH" in res.reasons

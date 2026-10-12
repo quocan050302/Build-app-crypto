@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
 import type { IChartApi, ISeriesApi, Time } from 'lightweight-charts';
 import { api, getNextRequestGeneration, isLatestGeneration } from './api/client';
@@ -9,6 +9,7 @@ import { SMCStructurePrimitive } from './plugins/SMCStructurePrimitive';
 import type { SMCTimeAxis, SMCZone } from './plugins/SMCStructurePrimitive';
 import { projectMsToBar } from './utils/chartTimeProjection';
 import type { ChartEvidenceBundle } from './utils/chartEvidence';
+import { buildEvidenceAnchorIndex, computeEvidenceFocusRange, type EvidenceAnchor } from './utils/evidenceFocus';
 import { ChartLayerMenu } from './components/ChartLayerMenu';
 import { useChartLayers } from './hooks/useChartLayers';
 import { ChartEvidenceList } from './components/ChartEvidenceList';
@@ -145,19 +146,61 @@ export function ChartComponent({
   const [hoveredHitItem, setHoveredHitItem] = useState<SMCHitItem | null>(null);
   const [draftDirection, setDraftDirection] = useState<'LONG' | 'SHORT'>('LONG');
 
+  const anchorIndex = useMemo(() => buildEvidenceAnchorIndex(selectedRawBundle), [selectedRawBundle]);
+
   const focusEvidence = useCallback((evidenceId: string) => {
-    if (!smcPrimitiveRef.current) return;
-    const hits = smcPrimitiveRef.current.getHitItems();
-    const match = hits.find((h) => h.id === evidenceId || h.externalId === evidenceId);
-    if (match) {
-      setHoveredHitItem(match);
-      if (chartRef.current && match.timeMs) {
-        chartRef.current.timeScale().scrollToPosition(-5, false);
+    const anchor = anchorIndex.get(evidenceId);
+    if (!anchor) {
+      // Fallback: check if hit item exists in smcPrimitive
+      const hits = smcPrimitiveRef.current?.getHitItems() || [];
+      const match = hits.find((h) => h.id === evidenceId || h.externalId === evidenceId);
+      if (match && chartRef.current && match.timeMs) {
+        const stepMs = 5 * 60 * 1000;
+        const fakeAnchor: EvidenceAnchor = {
+          id: match.id,
+          kind: match.category,
+          occurredAtMs: match.timeMs,
+          knownAtMs: match.timeMs,
+          startAtMs: match.timeMs,
+          endAtMs: null,
+          price: match.price,
+          hasCoordinates: true,
+        };
+        const range = computeEvidenceFocusRange(fakeAnchor, stepMs, 16);
+        if (range && chartRef.current) {
+          chartRef.current.timeScale().setVisibleRange({
+            from: range.fromSec as unknown as Time,
+            to: range.toSec as unknown as Time,
+          });
+        }
+        smcPrimitiveRef.current?.setFocusedEvidenceId(evidenceId);
+        setHoveredHitItem(match);
+        setIsEvidenceListOpen(false);
+        return;
       }
-    } else {
-      console.warn(`Evidence ${evidenceId} anchor not found in visible hit items.`);
+      console.warn(`Evidence ${evidenceId} anchor not found in bundle index.`);
+      return;
     }
-  }, []);
+
+    if (!anchor.hasCoordinates) {
+      console.warn(`Evidence ${evidenceId} lacks coordinates: ${anchor.missingReason}`);
+      return;
+    }
+
+    const stepMs = 5 * 60 * 1000;
+    const range = computeEvidenceFocusRange(anchor, stepMs, 16);
+    if (range && chartRef.current) {
+      chartRef.current.timeScale().setVisibleRange({
+        from: range.fromSec as unknown as Time,
+        to: range.toSec as unknown as Time,
+      });
+    }
+
+    if (smcPrimitiveRef.current) {
+      smcPrimitiveRef.current.setFocusedEvidenceId(evidenceId);
+    }
+    setIsEvidenceListOpen(false);
+  }, [anchorIndex]);
 
   const latestClosePriceRef = useRef<number>(4000.0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -247,6 +290,9 @@ export function ChartComponent({
           const p = rrPrimitiveRef.current;
           return p ? { data: p.getData(), geometry: p.getGeometry() } : null;
         },
+        reservedRects: () => rrPrimitiveRef.current?.getReservedRects() ?? [],
+        labelRects: () => (smcPrimitiveRef.current?.getHitItems() ?? []),
+        focusedEvidenceId: () => smcPrimitiveRef.current?.getFocusedEvidenceId() ?? null,
         visibleRange: () => chartRef.current?.timeScale().getVisibleRange() ?? null,
         candleCount: () => candlesRef.current.length,
         firstCandleSec: () => (typeof candlesRef.current[0]?.time === 'number' ? (candlesRef.current[0]?.time as number) : null),
@@ -617,6 +663,7 @@ export function ChartComponent({
           showDisplacements: layerSettings.showStructure,
           showRetests: layerSettings.showStructure,
           showScenarioPath: layerSettings.showScenarioPath,
+          annotationExclusions: rrPrimitiveRef.current?.getReservedRects() || [],
         });
       } else {
         // Crucial fix: Never fall back to global structure when in SELECTED mode (loading/error included)!
@@ -838,7 +885,11 @@ export function ChartComponent({
     if (dragRafRef.current !== null) return;
     dragRafRef.current = requestAnimationFrame(() => {
       dragRafRef.current = null;
-      if (latestDragDataRef.current) rrPrimitiveRef.current?.setData(latestDragDataRef.current);
+      if (latestDragDataRef.current) {
+        rrPrimitiveRef.current?.setData(latestDragDataRef.current);
+        const exclusions = rrPrimitiveRef.current?.getReservedRects() || [];
+        smcPrimitiveRef.current?.setExclusions(exclusions);
+      }
     });
   };
 

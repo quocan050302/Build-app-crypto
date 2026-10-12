@@ -1151,6 +1151,7 @@ function AppContent() {
     // fingerprint is a different hash and is intentionally not part of this request.
     selectedChart.selectContext(createSetupSelection(setup, null));
     setFocusRequest({ nonce: Date.now(), targetTime: setup.signal_time || setup.created_at, mode: 'SELECTION' });
+    setActiveTab('chart');
 
     showToast(
       `Đã Chọn Setup ${setup.direction}`,

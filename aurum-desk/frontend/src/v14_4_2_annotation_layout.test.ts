@@ -105,4 +105,96 @@ describe('V14.4.2 Annotation Layout Unit Tests (Part 121)', () => {
     expect(results[0].visible).toBe(true);
     expect(results[0].box.x + results[0].box.width).toBeLessThanOrEqual(defaultViewport.width);
   });
+
+  describe('L01-L05: Layout Exclusions and Viewport Constraints (PHẦN 066)', () => {
+    it('L01: single RR label rect exclusion prevents any label overlap', () => {
+      const rrBadge: Rect = { x: 200, y: 150, width: 80, height: 25 };
+      const candidates: LabelCandidate[] = [
+        { id: 'c1', x: 210, y: 155, width: 60, height: 18, priority: 50 },
+      ];
+      const placed = layoutAnnotationLabels(candidates, defaultViewport, [rrBadge]);
+      expect(placed[0]).toBeDefined();
+      if (placed[0].visible) {
+        expect(contained(placed[0].box, defaultViewport)).toBe(true);
+        expect(overlaps(placed[0].box, rrBadge)).toBe(false);
+      }
+    });
+
+    it('L02: multiple dense RR exclusions (entry, sl, tp, right edge) are strictly avoided by all visible labels', () => {
+      const exclusions: Rect[] = [
+        { x: 150, y: 200, width: 28, height: 20 }, // entry handle
+        { x: 150, y: 260, width: 28, height: 20 }, // sl handle
+        { x: 150, y: 100, width: 28, height: 20 }, // tp handle
+        { x: 350, y: 100, width: 12, height: 180 }, // right edge
+      ];
+      const candidates: LabelCandidate[] = [
+        { id: 'sweep', x: 152, y: 202, width: 70, height: 16, priority: 90 },
+        { id: 'fvg', x: 152, y: 258, width: 80, height: 16, priority: 80 },
+        { id: 'bos', x: 152, y: 102, width: 65, height: 16, priority: 70 },
+        { id: 'liq', x: 348, y: 150, width: 60, height: 16, priority: 60 },
+      ];
+      const placed = layoutAnnotationLabels(candidates, defaultViewport, exclusions);
+      const visibleLabels = placed.filter((p) => p.visible);
+      expect(visibleLabels.length).toBeGreaterThan(0);
+
+      for (const p of visibleLabels) {
+        expect(contained(p.box, defaultViewport)).toBe(true);
+        for (const exc of exclusions) {
+          expect(overlaps(p.box, exc)).toBe(false);
+        }
+      }
+    });
+
+    it('L03: oversized text is clamped to pane media width without negative coords', () => {
+      const candidate: LabelCandidate = {
+        id: 'long-ann',
+        x: 50,
+        y: 50,
+        width: 2000,
+        height: 800,
+        priority: 10,
+      };
+      const placed = layoutAnnotationLabels([candidate], defaultViewport);
+      expect(placed[0].visible).toBe(true);
+      expect(placed[0].box.width).toBeLessThanOrEqual(defaultViewport.width);
+      expect(placed[0].box.height).toBeLessThanOrEqual(defaultViewport.height);
+      expect(contained(placed[0].box, defaultViewport)).toBe(true);
+    });
+
+    it('L04: non-zero viewport offset (e.g. padding / header) maintains containment', () => {
+      const offsetViewport: Box = { x: 50, y: 40, width: 500, height: 400 };
+      const candidate: LabelCandidate = {
+        id: 'offset-c',
+        x: 20, // outside left edge
+        y: 20, // outside top edge
+        width: 100,
+        height: 20,
+        priority: 20,
+      };
+      const placed = layoutAnnotationLabels([candidate], offsetViewport);
+      expect(placed[0].visible).toBe(true);
+      expect(contained(placed[0].box, offsetViewport)).toBe(true);
+      expect(placed[0].box.x).toBeGreaterThanOrEqual(50);
+      expect(placed[0].box.y).toBeGreaterThanOrEqual(40);
+    });
+
+    it('L05: RR hidden / empty exclusions list allows placing labels in previously blocked zone', () => {
+      const blockedZone: Rect = { x: 200, y: 200, width: 100, height: 50 };
+      const candidate: LabelCandidate = {
+        id: 'target',
+        x: 205,
+        y: 205,
+        width: 80,
+        height: 20,
+        priority: 80,
+      };
+
+      // When exclusions are empty (RR hidden / detached)
+      const placed = layoutAnnotationLabels([candidate], defaultViewport, []);
+      expect(placed[0].visible).toBe(true);
+      expect(contained(placed[0].box, defaultViewport)).toBe(true);
+      // In base lane it sits right inside the area that would have been blocked
+      expect(overlaps(placed[0].box, blockedZone)).toBe(true);
+    });
+  });
 });

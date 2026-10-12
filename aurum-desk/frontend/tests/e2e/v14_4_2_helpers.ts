@@ -74,6 +74,7 @@ export async function seedSmtFixture(
     auto?: boolean;
     fill?: boolean;
     close?: boolean;
+    invalidate?: boolean;
     after_days?: number;
     now_ms?: number;
   } = {}

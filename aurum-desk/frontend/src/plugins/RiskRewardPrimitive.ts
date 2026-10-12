@@ -11,6 +11,7 @@ import type {
 } from 'lightweight-charts';
 import type { CanvasRenderingTarget2D } from 'fancy-canvas';
 import { formatRR } from '../utils/planLevels';
+import type { Rect } from '../utils/chartAnnotationLayout';
 
 export interface RiskRewardData {
   id: string;
@@ -469,6 +470,60 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
 
   getGeometry() {
     return this._currentGeometry;
+  }
+
+  getReservedRects(): readonly Rect[] {
+    const { entryY, slY, tpY, startX, endX } = this._currentGeometry;
+    if (entryY === null || slY === null || tpY === null || !Number.isFinite(startX) || !Number.isFinite(endX)) {
+      return [];
+    }
+
+    const rects: Rect[] = [];
+    const handleX = startX + 16;
+
+    // 1. Entry Badge / Handle (width 28, height 20)
+    rects.push({
+      x: handleX - 14,
+      y: entryY - 10,
+      width: 28,
+      height: 20,
+    });
+
+    // 2. Stop Loss Badge / Handle
+    rects.push({
+      x: handleX - 14,
+      y: slY - 10,
+      width: 28,
+      height: 20,
+    });
+
+    // 3. Take Profit Badge / Handle
+    rects.push({
+      x: handleX - 14,
+      y: tpY - 10,
+      width: 28,
+      height: 20,
+    });
+
+    // 4. Right Edge Handle
+    const minY = Math.min(entryY, slY, tpY);
+    const maxY = Math.max(entryY, slY, tpY);
+    rects.push({
+      x: endX - 6,
+      y: minY - 5,
+      width: 12,
+      height: Math.abs(maxY - minY) + 10,
+    });
+
+    // 5. Header / R:R Info Pill (top of box body)
+    rects.push({
+      x: startX + 8,
+      y: minY + 4,
+      width: 130,
+      height: 22,
+    });
+
+    return rects;
   }
 
   autoscaleInfo(): AutoscaleInfo | null {

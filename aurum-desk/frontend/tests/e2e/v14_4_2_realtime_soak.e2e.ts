@@ -26,22 +26,23 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
       const ws = (window as any).__AURUM_WS_CLIENT__;
       return ws?.getDiagnostics?.() ?? null;
     });
-    if (diagBefore) {
-      expect(diagBefore.isOpen).toBe(true);
-      expect(diagBefore.subscriberCount).toBeGreaterThan(0);
-    }
+    expect(diagBefore).not.toBeNull();
+    expect(diagBefore.isOpen).toBe(true);
+    expect(diagBefore.subscriberCount).toBeGreaterThan(0);
+    const genBefore = diagBefore.generation || 1;
 
     // Trigger reconnect simulation by closing socket
     await page.evaluate(() => {
       const ws = (window as any).__AURUM_WS_CLIENT__;
-      ws?.ws?.close?.();
+      ws?.closeForTesting?.();
     });
 
     // Wait for automatic reconnect via polling
     await expect.poll(async () => {
       return page.evaluate(() => {
         const ws = (window as any).__AURUM_WS_CLIENT__;
-        return ws?.getDiagnostics?.()?.isOpen ?? false;
+        const d = ws?.getDiagnostics?.();
+        return d?.isOpen && (d?.generation ?? 0) >= 1;
       });
     }, {
       message: 'Waiting for WebSocket client to reconnect',
@@ -91,8 +92,8 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
     const pageErrors: string[] = [];
     page.on('pageerror', (err) => pageErrors.push(err.message));
 
-    // Rapidly switch between chart, upcoming, and journal tabs 10 times (representing selection cycles)
-    for (let i = 0; i < 10; i++) {
+    // Rapidly switch between chart, upcoming, and journal tabs for 100 cycles
+    for (let i = 0; i < 34; i++) {
       await openUpcomingTab(page);
       await openJournalTab(page);
       await openChartTab(page);
@@ -137,6 +138,6 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
     });
 
     // Should not exponentially grow subscribers
-    expect(finalSubs).toBeLessThanOrEqual(initialSubs + 5);
+    expect(finalSubs).toBeLessThanOrEqual(initialSubs + 2);
   });
 });

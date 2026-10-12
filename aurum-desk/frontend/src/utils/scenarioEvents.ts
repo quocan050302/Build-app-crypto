@@ -51,37 +51,75 @@ export function parseScenarioUpdated(msg: any, symbol: string): ParsedScenarioEv
   };
 }
 
+export type SeenDigests = ReadonlyMap<string, string>;
+
+export function buildScenarioEventKey(p: ScenarioEventPayload): string {
+  return `${p.symbol}|${p.scenario_id}|${p.instance_id}|${p.revision}`;
+}
+
+export function pruneSeenDigests(
+  previous: SeenDigests,
+  key: string,
+  digest: string | null,
+  limit = 256
+): SeenDigests {
+  if (!digest) return previous;
+  const next = new Map(previous);
+  next.set(key, digest);
+  while (next.size > limit) {
+    const oldest = next.keys().next().value;
+    if (oldest === undefined) break;
+    next.delete(oldest);
+  }
+  return next;
+}
+
 export interface ScenarioReduceResult {
   scenarios: SMCScenarioView[];
-  /** true when the event cannot be fully applied from its payload (unknown scenario, revision gap, new instance). */
+  nextSeenDigests: SeenDigests;
+  /** true when the event cannot be fully applied from its payload (unknown scenario, revision gap, new instance, or higher revision needing full inventory). */
   resync: boolean;
   /** true when the event was an old revision / duplicate digest and changed nothing. */
   ignored: boolean;
+  reason?: string;
 }
 
 /**
- * Material-change reducer. Old revisions and duplicate (revision, digest) pairs are ignored; a revision gap,
+ * Pure scenario update reducer.
+ * Neither `prev` nor `seenDigests` is ever mutated.
+ * Old revisions and duplicate (revision, digest) pairs are ignored; a revision gap,
  * an unknown scenario or a changed instance requires a GET resync instead of trusting a partial payload.
  */
 export function applyScenarioUpdate(
-  prev: SMCScenarioView[],
+  prev: readonly SMCScenarioView[],
   upd: ScenarioEventPayload,
-  seenDigests: Map<string, string>
+  seenDigests: SeenDigests = new Map()
 ): ScenarioReduceResult {
-  const idx = prev.findIndex((s) => s.scenario_id === upd.scenario_id);
-  const key = `${upd.scenario_id}#${upd.revision}`;
+  const key = buildScenarioEventKey(upd);
   if (upd.digest && seenDigests.get(key) === upd.digest) {
-    return { scenarios: prev, resync: false, ignored: true };
+    return { scenarios: [...prev], nextSeenDigests: seenDigests, resync: false, ignored: true, reason: 'DUPLICATE_DIGEST' };
   }
+
+  const idx = prev.findIndex((s) => s.scenario_id === upd.scenario_id);
   if (idx < 0) {
-    if (upd.digest) seenDigests.set(key, upd.digest);
-    return { scenarios: prev, resync: true, ignored: false };
+    const nextSeen = pruneSeenDigests(seenDigests, key, upd.digest);
+    return { scenarios: [...prev], nextSeenDigests: nextSeen, resync: true, ignored: false, reason: 'UNKNOWN_SCENARIO' };
   }
+
   const cur = prev[idx];
   if (upd.revision < cur.revision) {
-    return { scenarios: prev, resync: false, ignored: true };
+    return { scenarios: [...prev], nextSeenDigests: seenDigests, resync: false, ignored: true, reason: 'OLD_REVISION' };
   }
-  if (upd.digest) seenDigests.set(key, upd.digest);
+
+  if (upd.revision === cur.revision) {
+    if (upd.digest && seenDigests.has(key) && seenDigests.get(key) !== upd.digest) {
+      const nextSeen = pruneSeenDigests(seenDigests, key, upd.digest);
+      return { scenarios: [...prev], nextSeenDigests: nextSeen, resync: true, ignored: false, reason: 'DIGEST_MISMATCH_SAME_REVISION' };
+    }
+    return { scenarios: [...prev], nextSeenDigests: seenDigests, resync: false, ignored: true, reason: 'SAME_REVISION_NOOP' };
+  }
+
+  const nextSeen = pruneSeenDigests(seenDigests, key, upd.digest);
   const gap = upd.revision > cur.revision + 1 || upd.instance_id !== cur.instance_id;
   const next = [...prev];
   next[idx] = {
@@ -91,6 +129,5 @@ export function applyScenarioUpdate(
     direction: upd.direction,
     current_snapshot_id: upd.snapshot_id ?? cur.current_snapshot_id,
   };
-  // Full fields (summary, plan, as_of) only come from the GET; any material change schedules one.
-  return { scenarios: next, resync: gap || upd.revision > cur.revision, ignored: false };
+  return { scenarios: next, nextSeenDigests: nextSeen, resync: gap || upd.revision > cur.revision, ignored: false };
 }

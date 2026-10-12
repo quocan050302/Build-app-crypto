@@ -450,6 +450,11 @@ def e2e_smc_reset(body: dict = Body(default={})):
                 o.realized_pnl_net = round(sign * (o.take_profit - entry) * o.quantity, 4)
                 o.realized_r = round(o.realized_pnl_net / o.initial_risk_usdt, 4) if o.initial_risk_usdt else None
             db.commit()
+        if body.get("invalidate"):
+            for o in db.query(models.PaperOrder).all():
+                o.state = "invalidated"
+                o.invalidation_reason = "STRUCTURE_VIOLATED"
+            db.commit()
         pad_days = int(body.get("after_days", 0))
         if pad_days > 0:
             # Flat, structure-free bars AFTER the story so that the story is older than the chart's

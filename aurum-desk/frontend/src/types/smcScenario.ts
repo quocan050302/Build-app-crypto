@@ -105,16 +105,22 @@ export interface EntryExplanationDTO {
 }
 
 export interface SnapshotProvenanceDTO {
-  is_current: boolean;
-  snapshot_detector_version?: string;
+  is_current: boolean | null;
+  snapshot_detector_version?: string | null;
   current_detector_version?: string;
-  snapshot_config_version?: string;
-  current_config_version?: string;
-  snapshot_requirement_profile?: string;
+  snapshot_config_version?: number | null;
+  current_config_version?: number;
+  snapshot_requirement_profile?: string | null;
   current_requirement_profile?: string;
-  historical_requirements?: Record<string, any>;
+  historical_requirements?: Record<string, any> | null;
   current_requirements?: Record<string, any>;
   version_label?: string;
+  warning?: string | null;
+  // Aliases for backwards compatibility
+  detector_version?: string | null;
+  requirement_profile?: string | null;
+  is_outdated_version?: boolean;
+  is_custom_profile?: boolean;
 }
 
 export interface ChartEvidenceBundleV144 {

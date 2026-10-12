@@ -259,3 +259,211 @@ def test_o05_invalid_namespace_rejected(db):
             snapshot_id="snap-x", scenario_id="scen-x", order_id=None,
             as_of_ms=-1, payload={}
         )
+
+
+def test_o06_closed_outcome_preserves_zero(db):
+    """O06 / TC-ZERO-ORM: Breakeven order with realized_pnl_net=0.0 and realized_r=0.0 persists 0.0, not None."""
+    import json
+    order = models.PaperOrder(
+        id="ord-o06-zero",
+        instrument="XAUUSDT",
+        direction="LONG",
+        state="closed",
+        planned_entry=2650.0,
+        actual_entry=2650.0,
+        stop_loss=2640.0,
+        take_profit=2685.0,
+        actual_exit=2650.0,
+        quantity=1.0,
+        initial_risk_usdt=10.0,
+        realized_pnl_net=0.0,
+        realized_r=0.0,
+        exit_cause="BREAKEVEN_EXIT",
+        scenario_snapshot_id="snap-o06",
+        created_at=F.NOW_MS,
+        opened_at=F.NOW_MS,
+        closed_at=F.NOW_MS + 50_000
+    )
+    db.add(order)
+    db.commit()
+
+    rec_id = record_closed_outcome(db, order)
+    assert rec_id is not None
+    db.commit()
+
+    obs = db.query(models.PaperObservation).filter(models.PaperObservation.id == rec_id).first()
+    assert obs is not None
+    payload = json.loads(obs.payload_json)
+
+    assert payload["realized_pnl_net"] == 0.0
+    assert payload["realized_r"] == 0.0
+    assert payload["realized_pnl_net"] is not None
+    assert payload["realized_r"] is not None
+    assert isinstance(payload["realized_pnl_net"], (int, float))
+    assert isinstance(payload["realized_r"], (int, float))
+
+
+def test_o07_closed_outcome_dict_preserves_zero(db):
+    """O07 / TC-ZERO-DICT: Dict order input preserves 0.0 and distinguishes None/missing."""
+    import json
+    order_dict = {
+        "id": "ord-o07-dict",
+        "direction": "SHORT",
+        "planned_entry": 2700.0,
+        "actual_entry": 2700.0,
+        "stop_loss": 2710.0,
+        "take_profit": 2680.0,
+        "actual_exit": 2700.0,
+        "realized_pnl_net": 0.0,
+        "realized_r": 0.0,
+        "exit_cause": "MANUAL_EXIT",
+        "scenario_snapshot_id": "snap-o07",
+        "scenario_id": "scen-o07",
+        "closed_at": F.NOW_MS + 60_000,
+    }
+
+    rec_id = record_closed_outcome(db, order_dict)
+    assert rec_id is not None
+    db.commit()
+
+    obs = db.query(models.PaperObservation).filter(models.PaperObservation.id == rec_id).first()
+    assert obs is not None
+    payload = json.loads(obs.payload_json)
+    assert payload["realized_pnl_net"] == 0.0
+    assert payload["realized_r"] == 0.0
+
+
+def test_o08_none_fields_remain_unknown(db):
+    """O08: When financial fields are genuinely None/unknown, they are stored as None, not fabricated 0."""
+    import json
+    order = models.PaperOrder(
+        id="ord-o08-none",
+        instrument="XAUUSDT",
+        direction="LONG",
+        state="closed",
+        planned_entry=2650.0,
+        actual_entry=None,
+        stop_loss=2640.0,
+        take_profit=2685.0,
+        actual_exit=None,
+        quantity=1.0,
+        initial_risk_usdt=10.0,
+        realized_pnl_net=None,
+        realized_r=None,
+        exit_cause="UNKNOWN",
+        scenario_snapshot_id="snap-o08",
+        created_at=F.NOW_MS,
+        opened_at=F.NOW_MS,
+        closed_at=F.NOW_MS + 50_000
+    )
+    db.add(order)
+    db.commit()
+
+    rec_id = record_closed_outcome(db, order)
+    obs = db.query(models.PaperObservation).filter(models.PaperObservation.id == rec_id).first()
+    payload = json.loads(obs.payload_json)
+    assert payload["realized_pnl_net"] is None
+    assert payload["realized_r"] is None
+    assert payload["actual_entry"] is None
+
+
+def test_o09_negative_positive_values_exact(db):
+    """O09: Exact positive and negative values are persisted without modification."""
+    import json
+    order = models.PaperOrder(
+        id="ord-o09-exact",
+        instrument="XAUUSDT",
+        direction="SHORT",
+        state="closed",
+        planned_entry=2650.0,
+        actual_entry=2649.5,
+        stop_loss=2660.0,
+        take_profit=2620.0,
+        actual_exit=2660.0,
+        quantity=1.0,
+        initial_risk_usdt=10.5,
+        realized_pnl_net=-10.5,
+        realized_r=-1.0,
+        exit_cause="SL_HIT",
+        scenario_snapshot_id="snap-o09",
+        created_at=F.NOW_MS,
+        opened_at=F.NOW_MS,
+        closed_at=F.NOW_MS + 70_000
+    )
+    db.add(order)
+    db.commit()
+
+    rec_id = record_closed_outcome(db, order)
+    obs = db.query(models.PaperObservation).filter(models.PaperObservation.id == rec_id).first()
+    payload = json.loads(obs.payload_json)
+    assert payload["realized_pnl_net"] == -10.5
+    assert payload["realized_r"] == -1.0
+
+
+def test_o10_nan_inf_rejected(db):
+    """O10: NaN and Inf in payload raise ValueError (allow_nan=False)."""
+    with pytest.raises(ValueError):
+        persist_paper_observation(
+            db, namespace="paper", event_kind="ORDER_CLOSED",
+            snapshot_id="snap-nan", scenario_id="scen-nan", order_id="ord-nan",
+            as_of_ms=1000, payload={"realized_pnl_net": float("nan")}
+        )
+
+    with pytest.raises(ValueError):
+        persist_paper_observation(
+            db, namespace="paper", event_kind="ORDER_CLOSED",
+            snapshot_id="snap-inf", scenario_id="scen-inf", order_id="ord-inf",
+            as_of_ms=1000, payload={"realized_pnl_net": float("inf")}
+        )
+
+
+def test_o11_savepoint_fault_does_not_corrupt_transaction(db):
+    """O11 / TC-OBS-FAULT: Observation savepoint failure does not break parent transaction."""
+    # 1. Close an order in the database
+    order = models.PaperOrder(
+        id="ord-o11-tx",
+        instrument="XAUUSDT",
+        direction="LONG",
+        state="closed",
+        planned_entry=2650.0,
+        actual_entry=2650.0,
+        stop_loss=2640.0,
+        take_profit=2685.0,
+        actual_exit=2685.0,
+        quantity=1.0,
+        initial_risk_usdt=10.0,
+        realized_pnl_net=35.0,
+        realized_r=3.5,
+        exit_cause="TP_HIT",
+        scenario_snapshot_id="snap-o11",
+        created_at=F.NOW_MS,
+        opened_at=F.NOW_MS,
+        closed_at=F.NOW_MS + 80_000
+    )
+    db.add(order)
+    db.flush()
+
+    # 2. First observation succeeds
+    rec1 = record_closed_outcome(db, order)
+    assert rec1 is not None
+
+    # 3. Simulate conflicting observation with different payload for same ID
+    with pytest.raises(ValueError, match="OBSERVATION_IMMUTABILITY_CONFLICT"):
+        persist_paper_observation(
+            db,
+            namespace="paper",
+            event_kind="ORDER_CLOSED",
+            snapshot_id="snap-o11",
+            scenario_id=None,
+            order_id="ord-o11-tx",
+            as_of_ms=F.NOW_MS + 80_000,
+            payload={"realized_pnl_net": 99999.0}  # different payload
+        )
+
+    # 4. Verify parent transaction is NOT corrupted and can commit
+    order.note = "committed_after_observation_fault"
+    db.commit()
+
+    reloaded = db.query(models.PaperOrder).filter(models.PaperOrder.id == "ord-o11-tx").first()
+    assert reloaded is not None
+    assert reloaded.note == "committed_after_observation_fault"

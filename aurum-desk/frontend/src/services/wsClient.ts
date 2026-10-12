@@ -18,6 +18,8 @@ class SharedWSClient {
   private isDisposed: boolean = false;
   private isConnecting: boolean = false;
 
+  private generation: number = 0;
+
   constructor() {
     // Lazily initialized on first subscription or explicit start
   }
@@ -41,9 +43,12 @@ class SharedWSClient {
     const wsUrl = this.getWsUrl();
 
     try {
-      this.ws = new WebSocket(wsUrl);
+      const localWs = new WebSocket(wsUrl);
+      this.ws = localWs;
+      this.generation++;
 
-      this.ws.onopen = () => {
+      localWs.onopen = () => {
+        if (this.ws !== localWs) return;
         this.isConnecting = false;
         this.attempt = 0;
         this.notifyStatus(true);
@@ -57,7 +62,8 @@ class SharedWSClient {
         }, 25000);
       };
 
-      this.ws.onmessage = (event: MessageEvent) => {
+      localWs.onmessage = (event: MessageEvent) => {
+        if (this.ws !== localWs) return;
         if (event.data === 'pong') return;
 
         try {
@@ -74,14 +80,16 @@ class SharedWSClient {
         }
       };
 
-      this.ws.onclose = () => {
+      localWs.onclose = () => {
+        if (this.ws !== localWs) return;
         this.isConnecting = false;
         this.cleanupHeartbeat();
         this.notifyStatus(false);
         this.scheduleReconnect();
       };
 
-      this.ws.onerror = () => {
+      localWs.onerror = () => {
+        if (this.ws !== localWs) return;
         this.isConnecting = false;
         this.cleanupHeartbeat();
         // onclose will be triggered
@@ -124,11 +132,15 @@ class SharedWSClient {
 
   private scheduleReconnect(): void {
     if (this.isDisposed || this.subscribers.size === 0) return;
-    if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
 
     this.attempt++;
     const delay = Math.min(30000, 1000 * Math.pow(1.8, Math.min(this.attempt, 5))) + Math.random() * 500;
     this.reconnectTimeout = setTimeout(() => {
+      this.reconnectTimeout = null;
       this.connect();
     }, delay);
   }
@@ -157,6 +169,12 @@ class SharedWSClient {
     }
   }
 
+  public closeForTesting(): void {
+    if (this.ws) {
+      this.ws.close();
+    }
+  }
+
   public getDiagnostics() {
     return {
       isOpen: this.isOpen(),
@@ -165,13 +183,17 @@ class SharedWSClient {
       statusSubscriberCount: this.statusSubscribers.size,
       attempt: this.attempt,
       isDisposed: this.isDisposed,
+      generation: this.generation,
     };
   }
 
   public dispose(): void {
     this.isDisposed = true;
     this.cleanupHeartbeat();
-    if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
     if (this.ws) {
       this.ws.onclose = null;
       this.ws.onerror = null;
@@ -179,6 +201,7 @@ class SharedWSClient {
       this.ws = null;
     }
     this.subscribers.clear();
+    this.statusSubscribers.clear();
   }
 }
 

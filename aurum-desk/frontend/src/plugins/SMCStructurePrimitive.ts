@@ -9,7 +9,7 @@ import type { CanvasRenderingTarget2D } from 'fancy-canvas';
 import { clipSpanX, projectMsToBar } from '../utils/chartTimeProjection';
 import type { TimeProjection } from '../utils/chartTimeProjection';
 import { layoutAnnotationLabels } from '../utils/chartAnnotationLayout';
-import type { LabelCandidate } from '../utils/chartAnnotationLayout';
+import type { LabelCandidate, Rect } from '../utils/chartAnnotationLayout';
 
 export interface SMCSwing {
   index: number;
@@ -139,6 +139,7 @@ export interface SMCStructureData {
   showDisplacements?: boolean;
   showRetests?: boolean;
   showScenarioPath?: boolean;
+  annotationExclusions?: readonly Rect[];
 }
 
 const MAX_HIT_ITEMS = 400;
@@ -152,15 +153,21 @@ class SMCStructurePaneRenderer implements IPrimitivePaneRenderer {
   private _data: SMCStructureData | null = null;
   private _param: SeriesAttachedParameter<Time> | null = null;
   private _hitRegistry: SMCHitItem[] = [];
+  private _focusedEvidenceId: string | null = null;
 
   update(data: SMCStructureData, param: SeriesAttachedParameter<Time> | null) {
     this._data = data;
     this._param = param;
   }
 
+  setFocusedEvidenceId(id: string | null) {
+    this._focusedEvidenceId = id;
+  }
+
   clear() {
     this._hitRegistry = [];
     this._data = null;
+    this._focusedEvidenceId = null;
   }
 
   getHitItems(): readonly SMCHitItem[] {
@@ -307,7 +314,8 @@ class SMCStructurePaneRenderer implements IPrimitivePaneRenderer {
             priority: isTarget ? 90 : isConsumed ? 20 : 50, text, color, price: liq.price, side: liq.side, state: liq.state,
           });
         }
-        const placed = layoutAnnotationLabels(badges, { x: 0, y: 0, width: viewportWidth, height: scope.mediaSize.height });
+        const exclusions = data.annotationExclusions ? [...data.annotationExclusions] : [];
+        const placed = layoutAnnotationLabels(badges, { x: 0, y: 0, width: viewportWidth, height: scope.mediaSize.height }, exclusions);
         for (const p of placed) {
           const src = badges.find((b) => b.id === p.id)!;
           // Labels that cannot be placed stay reachable through the hit registry (tooltip) without overlapping.
@@ -628,6 +636,22 @@ class SMCStructurePaneRenderer implements IPrimitivePaneRenderer {
         }
       }
 
+      // 7. Focus Highlight Ring if active
+      if (this._focusedEvidenceId) {
+        const targetHit = this._hitRegistry.find((h) => h.id === this._focusedEvidenceId || h.externalId === this._focusedEvidenceId);
+        if (targetHit && Number.isFinite(targetHit.x) && Number.isFinite(targetHit.y)) {
+          ctx.save();
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([4, 2]);
+          ctx.beginPath();
+          ctx.arc(targetHit.x, targetHit.y, Math.max(16, targetHit.radius + 6), 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+      }
+
       ctx.restore();
     });
   }
@@ -638,6 +662,10 @@ class SMCStructurePaneView implements IPrimitivePaneView {
 
   update(data: SMCStructureData, param: SeriesAttachedParameter<Time> | null) {
     this._renderer.update(data, param);
+  }
+
+  setFocusedEvidenceId(id: string | null) {
+    this._renderer.setFocusedEvidenceId(id);
   }
 
   clear() {
@@ -681,6 +709,7 @@ export class SMCStructurePrimitive implements ISeriesPrimitive<Time> {
   private _data: SMCStructureData;
   private _param: SeriesAttachedParameter<Time> | null = null;
   private _paneView = new SMCStructurePaneView();
+  private _focusedEvidenceId: string | null = null;
 
   constructor(data?: SMCStructureData) {
     this._data = data || EMPTY_DATA;
@@ -692,6 +721,27 @@ export class SMCStructurePrimitive implements ISeriesPrimitive<Time> {
     if (this._param) {
       this._param.requestUpdate();
     }
+  }
+
+  setExclusions(exclusions: readonly Rect[]) {
+    this._data = {
+      ...this._data,
+      annotationExclusions: exclusions,
+    };
+    this.updateAllViews();
+    this._param?.requestUpdate();
+  }
+
+  setFocusedEvidenceId(id: string | null) {
+    if (this._focusedEvidenceId !== id) {
+      this._focusedEvidenceId = id;
+      this._paneView.setFocusedEvidenceId(id);
+      this._param?.requestUpdate();
+    }
+  }
+
+  getFocusedEvidenceId(): string | null {
+    return this._focusedEvidenceId;
   }
 
   attached(param: SeriesAttachedParameter<Time>): void {

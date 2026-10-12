@@ -104,10 +104,16 @@ def verify_scenario_binding(
         reasons.append("DETECTOR_VERSION_MISMATCH")
     if snap.config_version != cfg.config_version:
         reasons.append("CONFIG_VERSION_MISMATCH")
-    active_profile = getattr(cfg, "requirement_profile", "V14.4_SMC_BASELINE")
-    snap_profile = getattr(snap, "requirement_profile", "DEFAULT")
-    if snap_profile not in (active_profile, "DEFAULT", "V14.4_SMC_BASELINE"):
-        reasons.append("REQUIREMENT_PROFILE_MISMATCH")
+    active_profile = getattr(cfg, "requirement_profile", "V14.4_SMC_BASELINE") or "V14.4_SMC_BASELINE"
+    snap_profile = getattr(snap, "requirement_profile", "DEFAULT") or "DEFAULT"
+    is_active_baseline = active_profile in ("DEFAULT", "V14.4_SMC_BASELINE")
+    is_snap_baseline = snap_profile in ("DEFAULT", "V14.4_SMC_BASELINE")
+    if is_active_baseline:
+        if not is_snap_baseline:
+            reasons.append("REQUIREMENT_PROFILE_MISMATCH")
+    else:
+        if snap_profile != active_profile:
+            reasons.append("REQUIREMENT_PROFILE_MISMATCH")
     if snap.evidence_cutoff_ms > now_ms:
         reasons.append("SNAPSHOT_FROM_FUTURE")
     if not (snap.trigger_chain or {}).get("verified"):

@@ -159,7 +159,8 @@ test.describe('V14.4.2 Chart Closure & Drag Suite', () => {
     const deltaSl = after!.data.stopLoss - before!.data.stopLoss;
     const deltaTp = after!.data.takeProfit - before!.data.takeProfit;
 
-    // Distances must be equal within float roundoff tolerance
+    // Distances must be equal within float roundoff tolerance and translation must be real (> 0.05)
+    expect(Math.abs(deltaEntry)).toBeGreaterThan(0.05);
     expect(Math.abs(deltaEntry - deltaSl)).toBeLessThan(0.05);
     expect(Math.abs(deltaEntry - deltaTp)).toBeLessThan(0.05);
     expect(mutations).toHaveLength(0);
@@ -183,7 +184,7 @@ test.describe('V14.4.2 Chart Closure & Drag Suite', () => {
     expect(after!.data.plannedEntry).toBe(before!.data.plannedEntry);
     expect(after!.data.stopLoss).toBe(before!.data.stopLoss);
     expect(after!.data.takeProfit).toBe(before!.data.takeProfit);
-    expect(after!.data.projectedBars).toBeGreaterThanOrEqual(before!.data.projectedBars || 20);
+    expect(after!.data.projectedBars).toBeGreaterThan(before!.data.projectedBars || 20);
     expect(mutations).toHaveLength(0);
   });
 
@@ -285,40 +286,50 @@ test.describe('V14.4.2 Chart Closure & Drag Suite', () => {
     expect(mutations).toHaveLength(0);
   });
 
-  // D12: Readonly orders enforce immutable geometry in all 4 states
+  // D12: Readonly orders enforce immutable geometry in all 4 states (armed, paper_open, closed, invalidated)
   test('D12: orders are strictly readonly in armed, open, closed, and invalidated states', async ({ page, request }) => {
-    const { mutations } = trackTradingMutations(page);
-    // Seed armed order
-    const smc = await seedSmtFixture(page, request, { direction: 'SHORT', auto: true });
-    expect(smc.orders.length).toBeGreaterThan(0);
-    const orderId = smc.orders[0].id;
+    const stateCases = [
+      { name: 'armed', options: { direction: 'SHORT' as const, auto: true } },
+      { name: 'paper_open', options: { direction: 'SHORT' as const, auto: true, fill: true } },
+      { name: 'closed', options: { direction: 'SHORT' as const, auto: true, fill: true, close: true } },
+      { name: 'invalidated', options: { direction: 'SHORT' as const, auto: true, invalidate: true } },
+    ];
 
-    await page.goto('/');
-    await openJournalTab(page);
+    for (const sc of stateCases) {
+      const { mutations } = trackTradingMutations(page);
+      const smc = await seedSmtFixture(page, request, sc.options);
+      expect(smc.orders.length).toBeGreaterThan(0);
+      const orderId = smc.orders[0].id;
 
-    const orderRow = page.locator(`tr[data-order-id="${orderId}"]`);
-    await expect(orderRow).toBeVisible();
-    await orderRow.getByTestId('journal-focus-chart').click();
+      await page.goto('/');
+      await openJournalTab(page);
 
-    // Verify on chart
-    await expect(page.locator('[data-tab-id="chart"]')).toHaveClass(/border-aurum-500/);
-    const rr = await readRR(page);
-    expect(rr).not.toBeNull();
-    expect(rr!.data.readOnly).toBe(true);
+      const orderRow = page.locator(`tr[data-order-id="${orderId}"]`);
+      await expect(orderRow).toBeVisible();
+      await orderRow.getByTestId('journal-focus-chart').click();
 
-    const bounds = await chartPaneBounds(page);
-    const slX = bounds.x + rr!.geometry.startX + 16;
-    const slY = bounds.y + rr!.geometry.slY!;
+      // Verify on chart
+      await expect(page.locator('[data-tab-id="chart"]')).toHaveClass(/border-aurum-500/);
+      const rr = await readRR(page);
+      expect(rr).not.toBeNull();
+      expect(rr!.data.readOnly).toBe(true);
 
-    // Attempt dragging SL on readonly order
-    await page.mouse.move(slX, slY);
-    await page.mouse.down();
-    await page.mouse.move(slX, slY - 30);
-    await page.mouse.up();
+      const bounds = await chartPaneBounds(page);
+      const slX = bounds.x + rr!.geometry.startX + 16;
+      const slY = bounds.y + (rr!.geometry.slY ?? bounds.height / 2);
 
-    const after = await readRR(page);
-    expect(after!.data.stopLoss).toBe(rr!.data.stopLoss);
-    expect(mutations).toHaveLength(0);
+      // Attempt dragging SL on readonly order
+      await page.mouse.move(slX, slY);
+      await page.mouse.down();
+      await page.mouse.move(slX, slY - 30);
+      await page.mouse.up();
+
+      const after = await readRR(page);
+      expect(after!.data.stopLoss).toBe(rr!.data.stopLoss);
+      expect(after!.data.plannedEntry).toBe(rr!.data.plannedEntry);
+      expect(after!.data.takeProfit).toBe(rr!.data.takeProfit);
+      expect(mutations).toHaveLength(0);
+    }
   });
 
   // E01: Complete evidence bundle rendering
@@ -358,6 +369,15 @@ test.describe('V14.4.2 Chart Closure & Drag Suite', () => {
     const bounds = await chartPaneBounds(page);
     expect(bounds.width).toBeGreaterThan(300);
     expect(bounds.height).toBeGreaterThan(200);
+
+    const diags = await page.evaluate(() => {
+      const api = (window as any).__AURUM_CHART_TEST__;
+      return {
+        reserved: api?.reservedRects?.() ?? [],
+        hits: api?.smcHits?.() ?? [],
+      };
+    });
+    expect(diags).toBeDefined();
   });
 
   // E04: Old order provenance badge shows historical version
@@ -379,13 +399,19 @@ test.describe('V14.4.2 Chart Closure & Drag Suite', () => {
     await openUpcomingTab(page);
     await clickSetup(page, smc.watches[0].id);
 
-    // Clear selection
+    await expect(page.locator('[data-tab-id="chart"]')).toHaveClass(/border-aurum-500/);
+    const hitsBefore = await waitForHits(page);
+    expect(hitsBefore.length).toBeGreaterThan(0);
+
+    // Clear selection deterministically via data-testid="clear-selection"
     const clearBtn = page.getByTestId('clear-selection');
-    if (await clearBtn.isVisible()) {
-      await clearBtn.click();
+    await expect(clearBtn).toBeVisible({ timeout: 5000 });
+    await clearBtn.click();
+
+    await expect.poll(async () => {
       const hits = await readHits(page);
-      expect(hits).toHaveLength(0);
-    }
+      return hits.length;
+    }).toBe(0);
   });
 
   // E06: Drawer shows exact snapshot refs matching chart binding
@@ -435,5 +461,89 @@ test.describe('V14.4.2 Chart Closure & Drag Suite', () => {
 
     const checkedAfter = await page.locator('input[type="checkbox"]').first().isChecked();
     expect(checkedAfter).toBe(!checkedBefore);
+  });
+
+  // E08: Offscreen evidence focus navigation
+  test('E08: offscreen evidence focus shifts viewport to include anchor and highlights hit', async ({ page, request }) => {
+    const { mutations } = trackTradingMutations(page);
+    const smc = await seedSmtFixture(page, request, { direction: 'SHORT', auto: true, fill: true, close: true });
+    await page.goto('/');
+    await openJournalTab(page);
+    const orderId = smc.orders[0].id;
+
+    // Focus historical order onto chart
+    await clickOrder(page, orderId);
+
+    await expect(page.locator('[data-tab-id="chart"]')).toHaveClass(/border-aurum-500/);
+    const hits = await waitForHits(page);
+    expect(hits.length).toBeGreaterThan(0);
+    const targetHit = hits.find((h) => h.timeMs > 0);
+    expect(targetHit).toBeDefined();
+
+    // Intentionally pan chart away horizontally so anchor is out of visibleRange
+    const bounds = await chartPaneBounds(page);
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + bounds.width / 2 + 250, bounds.y + bounds.height / 2, { steps: 5 });
+    await page.mouse.up();
+
+    // Open evidence list modal
+    const openListBtn = page.getByTestId('open-evidence-list');
+    await expect(openListBtn).toBeVisible();
+    await openListBtn.click();
+
+    // Click "Xem" for targetHit
+    const focusBtn = page.getByTestId(`focus-evidence-${targetHit!.id}`);
+    await expect(focusBtn).toBeVisible();
+    await focusBtn.click();
+
+    // Evidence modal should close and open button is visible again
+    await expect(openListBtn).toBeVisible();
+
+    // Visible range must include target timestamp in seconds
+    const targetSec = Math.floor(targetHit!.timeMs / 1000);
+    await expect.poll(async () => {
+      const range = await page.evaluate(() => {
+        const api = (window as any).__AURUM_CHART_TEST__;
+        return api?.visibleRange?.() ?? null;
+      });
+      if (!range) return false;
+      return range.from <= targetSec && range.to >= targetSec;
+    }, { timeout: 10_000 }).toBe(true);
+
+    // Focused evidence ID matches
+    const focusedId = await page.evaluate(() => {
+      const api = (window as any).__AURUM_CHART_TEST__;
+      return api?.focusedEvidenceId?.() ?? null;
+    });
+    expect(focusedId).toBe(targetHit!.id);
+
+    // No trading mutations occurred
+    expect(mutations).toHaveLength(0);
+  });
+
+  // E09: Focus race condition / selection switch
+  test('E09: focus request does not leak across selection changes', async ({ page, request }) => {
+    const { mutations } = trackTradingMutations(page);
+    const smc = await seedSmtFixture(page, request, { direction: 'SHORT', auto: false });
+    await page.goto('/');
+    await openUpcomingTab(page);
+
+    // Select setup
+    await clickSetup(page, smc.watches[0].id);
+    const hitsA = await waitForHits(page);
+    expect(hitsA.length).toBeGreaterThan(0);
+
+    // Clear selection
+    await page.getByTestId('clear-selection').click();
+    await expect.poll(async () => (await readHits(page)).length).toBe(0);
+
+    // Verify focused ID is cleared
+    const focusedId = await page.evaluate(() => {
+      const api = (window as any).__AURUM_CHART_TEST__;
+      return api?.focusedEvidenceId?.() ?? null;
+    });
+    expect(focusedId).toBeNull();
+    expect(mutations).toHaveLength(0);
   });
 });

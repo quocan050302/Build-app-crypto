@@ -74,6 +74,54 @@ export const EvidenceAccordion: React.FC<EvidenceAccordionProps> = ({
     );
   };
 
+  const formatTarget = (t: any): string => {
+    if (!t) return 'Chưa có bằng chứng';
+    if (typeof t === 'number') return `Mức giá: $${t.toFixed(2)}`;
+    if (typeof t === 'string') return t;
+    if (typeof t === 'object') {
+      const name = t.name || t.level_name || t.label || t.type || 'Mục tiêu thanh khoản';
+      const price = t.price ? ` · $${Number(t.price).toFixed(2)}` : '';
+      const reason = t.reason || t.detail ? ` (${t.reason || t.detail})` : '';
+      return `${name}${price}${reason}`;
+    }
+    return 'Chưa có bằng chứng';
+  };
+
+  const formatInvalidation = (inv: any): string => {
+    if (!inv) return 'Chưa có bằng chứng';
+    if (typeof inv === 'number') return `Hủy khi giá chạm $${inv.toFixed(2)}`;
+    if (typeof inv === 'string') return inv;
+    if (typeof inv === 'object') {
+      const price = inv.price ? `Giá chạm: $${Number(inv.price).toFixed(2)}` : '';
+      const condition = inv.condition || inv.reason || inv.detail || 'Điều kiện hủy kế hoạch';
+      return price ? `${condition} (${price})` : condition;
+    }
+    return 'Chưa có bằng chứng';
+  };
+
+  const formatTrackedLevels = (levels: any): string => {
+    if (!levels) return 'Chưa có bằng chứng';
+    if (Array.isArray(levels)) {
+      if (levels.length === 0) return 'Chưa có bằng chứng';
+      return levels.map((l) => (typeof l === 'object' ? `${l.name || l.label || 'Mức'}: $${l.price}` : String(l))).join(' · ');
+    }
+    if (typeof levels === 'object') {
+      const keys = Object.keys(levels);
+      if (keys.length === 0) return 'Chưa có bằng chứng';
+      return keys.map((k) => {
+        const val = levels[k];
+        if (typeof val === 'object' && val?.price) {
+          return `${val.name || k}: $${Number(val.price).toFixed(2)}`;
+        }
+        if (typeof val === 'number') {
+          return `${k}: $${val.toFixed(2)}`;
+        }
+        return k;
+      }).join(' · ');
+    }
+    return String(levels);
+  };
+
   const rows = [
     {
       key: 'context',
@@ -87,10 +135,7 @@ export const EvidenceAccordion: React.FC<EvidenceAccordionProps> = ({
       key: 'liquidity',
       title: 'Thanh khoản',
       status: explanation?.tracked_levels && Object.keys(explanation.tracked_levels).length > 0 ? 'CONFIRMED' : 'MISSING',
-      content:
-        explanation?.tracked_levels && Object.keys(explanation.tracked_levels).length > 0
-          ? `Mức theo dõi: ${Object.keys(explanation.tracked_levels).join(', ')}`
-          : 'Chưa có bằng chứng',
+      content: formatTrackedLevels(explanation?.tracked_levels),
     },
     {
       key: 'sweep',
@@ -128,28 +173,50 @@ export const EvidenceAccordion: React.FC<EvidenceAccordionProps> = ({
       key: 'target',
       title: 'Mục tiêu (Target)',
       status: target ? 'CONFIRMED' : 'MISSING',
-      content: target ? `Mục tiêu giá: ${typeof target === 'object' ? JSON.stringify(target) : target}` : 'Chưa có bằng chứng',
+      content: formatTarget(target),
     },
     {
       key: 'invalidation',
       title: 'Hủy khi (Invalidation)',
       status: invalidation ? 'CONFIRMED' : 'MISSING',
-      content: invalidation
-        ? `Mức hủy: ${typeof invalidation === 'object' ? JSON.stringify(invalidation) : invalidation}`
-        : 'Chưa có bằng chứng',
+      content: formatInvalidation(invalidation),
     },
     {
       key: 'guards',
       title: 'Điều kiện thực thi (Guards)',
-      status: guards.length > 0 ? (guards.every((g: any) => g.allowed !== false) ? 'CONFIRMED' : 'OBSERVED') : 'MISSING',
+      status: guards.length > 0 ? (guards.every((g: any) => g.allowed === true) ? 'CONFIRMED' : 'OBSERVED') : 'MISSING',
       content:
         guards.length > 0
           ? guards
-              .map((g: any) => `${g.name || g.guard_name || 'Guard'}: ${g.allowed !== false ? 'ĐẠT' : 'CHẶN'}`)
+              .map((g: any) => {
+                const label = g.allowed === true ? 'ĐẠT' : g.allowed === false ? 'CHẶN' : 'CHƯA XÁC ĐỊNH';
+                return `${g.name || g.guard_name || 'Guard'}: ${label}`;
+              })
               .join(' · ')
-          : 'Chưa có bằng chứng',
+          : 'Chưa lưu kiểm tra thời điểm vào lệnh',
     },
   ];
+
+  const provenanceBadge = () => {
+    if (!provenance) return null;
+    const isCurrent = provenance.is_current;
+    let colorClass = 'bg-charcoal-800 text-gray-400 border-charcoal-700';
+    let text = provenance.version_label || 'Chưa đủ thông tin phiên bản';
+
+    if (isCurrent === true) {
+      colorClass = 'bg-emerald-950 text-emerald-400 border-emerald-800';
+      text = provenance.version_label || 'Phiên bản hiện tại';
+    } else if (isCurrent === false) {
+      colorClass = 'bg-amber-950 text-amber-400 border-amber-800';
+      text = provenance.version_label || 'Phiên bản lúc vào lệnh';
+    }
+
+    return (
+      <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono border ${colorClass}`} title={provenance.warning || undefined}>
+        {text}
+      </span>
+    );
+  };
 
   return (
     <div className="border border-charcoal-750 bg-charcoal-900 rounded-lg overflow-hidden text-xs">
@@ -163,17 +230,7 @@ export const EvidenceAccordion: React.FC<EvidenceAccordionProps> = ({
         <div className="flex items-center gap-2">
           <Layers className="w-3.5 h-3.5 text-aurum-400" />
           <span className="font-bold text-gray-200">Kịch bản & Bằng chứng vào lệnh</span>
-          {provenance && (
-            <span
-              className={`px-1.5 py-0.2 rounded text-[9px] font-mono border ${
-                provenance.is_current
-                  ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
-                  : 'bg-amber-950 text-amber-400 border-amber-800'
-              }`}
-            >
-              {provenance.version_label || (provenance.is_current ? 'Phiên bản hiện tại' : 'Phiên bản lúc vào lệnh')}
-            </span>
-          )}
+          {provenanceBadge()}
         </div>
         {isOpen ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
       </button>
