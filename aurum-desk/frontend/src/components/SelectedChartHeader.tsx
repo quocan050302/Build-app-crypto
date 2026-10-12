@@ -78,6 +78,7 @@ export const SelectedChartHeader: React.FC<Props> = ({
         {onOpenDetails && (
           <button
             type="button"
+            data-testid="selected-chart-details-btn"
             onClick={onOpenDetails}
             className="px-2 py-0.5 rounded text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 border border-gray-700 transition-colors"
           >

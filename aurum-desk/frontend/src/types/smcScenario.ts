@@ -73,6 +73,50 @@ export interface SMCScenarioView {
   payload?: any;
 }
 
+export interface EntryExplanationNode {
+  id?: string | null;
+  status: 'CONFIRMED' | 'OBSERVED' | 'MISSING' | string;
+  price?: number | null;
+  occurred_at_ms?: number | null;
+  known_at_ms?: number | null;
+  source_ids?: string[];
+  reason?: string;
+  detail?: string;
+}
+
+export interface EntryExplanationDTO {
+  context?: {
+    h4_bias?: string;
+    h1_alignment?: string;
+    regime?: string;
+  };
+  tracked_levels?: Record<string, any>;
+  nodes?: {
+    sweep?: EntryExplanationNode;
+    break?: EntryExplanationNode;
+    fvg?: EntryExplanationNode;
+    retest?: EntryExplanationNode;
+  };
+  evidence_summary?: Record<string, string>;
+  target?: any;
+  invalidation?: any;
+  plan?: any;
+  guard_audit?: any[];
+}
+
+export interface SnapshotProvenanceDTO {
+  is_current: boolean;
+  snapshot_detector_version?: string;
+  current_detector_version?: string;
+  snapshot_config_version?: string;
+  current_config_version?: string;
+  snapshot_requirement_profile?: string;
+  current_requirement_profile?: string;
+  historical_requirements?: Record<string, any>;
+  current_requirements?: Record<string, any>;
+  version_label?: string;
+}
+
 export interface ChartEvidenceBundleV144 {
   binding: ChartBinding;
   as_of_ms: number;
@@ -89,4 +133,6 @@ export interface ChartEvidenceBundleV144 {
   invalidation_price?: number;
   warnings: string[];
   is_empty?: boolean;
+  provenance?: SnapshotProvenanceDTO;
+  entry_explanation?: EntryExplanationDTO;
 }

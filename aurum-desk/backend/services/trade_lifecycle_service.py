@@ -384,6 +384,13 @@ class TradeLifecycleService:
         # Create structured Lesson
         TradeLifecycleService._create_lesson(db, order, current_time, session_tag=session_tag)
 
+        # Record persistent paper observation for closed trade outcome
+        try:
+            from services.smc_observation_service import record_closed_outcome
+            record_closed_outcome(db, order)
+        except Exception as obs_err:
+            logger.warning(f"Failed to record closed outcome observation for {order.id}: {obs_err}")
+
         # Create Domain Event & Notification Outbox in same transaction
         event_type = "trade.liquidated" if exit_cause == "LIQUIDATED" else "trade.closed"
         event_payload = {

@@ -157,6 +157,17 @@ class SharedWSClient {
     }
   }
 
+  public getDiagnostics() {
+    return {
+      isOpen: this.isOpen(),
+      isConnecting: this.isConnecting,
+      subscriberCount: this.subscribers.size,
+      statusSubscriberCount: this.statusSubscribers.size,
+      attempt: this.attempt,
+      isDisposed: this.isDisposed,
+    };
+  }
+
   public dispose(): void {
     this.isDisposed = true;
     this.cleanupHeartbeat();
@@ -172,3 +183,7 @@ class SharedWSClient {
 }
 
 export const wsClient = new SharedWSClient();
+
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  (window as any).__AURUM_WS_CLIENT__ = wsClient;
+}

@@ -9,16 +9,17 @@ import { SMCStructurePrimitive } from './plugins/SMCStructurePrimitive';
 import type { SMCTimeAxis, SMCZone } from './plugins/SMCStructurePrimitive';
 import { projectMsToBar } from './utils/chartTimeProjection';
 import type { ChartEvidenceBundle } from './utils/chartEvidence';
-import { ChartLayerMenu, defaultLayerSettings } from './components/ChartLayerMenu';
-import type { ChartLayerSettings } from './components/ChartLayerMenu';
+import { ChartLayerMenu } from './components/ChartLayerMenu';
+import { useChartLayers } from './hooks/useChartLayers';
+import { ChartEvidenceList } from './components/ChartEvidenceList';
 import { SelectedChartHeader } from './components/SelectedChartHeader';
 import { ChartEvidenceTooltip } from './components/ChartEvidenceTooltip';
 import type { SMCHitItem } from './plugins/SMCStructurePrimitive';
-import type { ChartBinding } from './types/smcScenario';
+import type { ChartBinding, ChartEvidenceBundleV144 } from './types/smcScenario';
 
 import { calculateClientRiskReward } from './utils/calculator';
 import { quoteStore } from './services/quoteStore';
-import { RefreshCw, AlertCircle, Eye, EyeOff, Crosshair, ArrowUpRight, ArrowDownRight, BarChart2 } from 'lucide-react';
+import { RefreshCw, AlertCircle, Eye, EyeOff, Crosshair, ArrowUpRight, ArrowDownRight, BarChart2, List } from 'lucide-react';
 
 export interface ChartComponentProps {
   symbol: string;
@@ -53,6 +54,7 @@ export interface ChartComponentProps {
   } | null;
   onEvidenceModeChange?: (mode: 'SELECTED' | 'ALL' | 'NONE') => void;
   selectedBinding?: ChartBinding | null;
+  selectedRawBundle?: ChartEvidenceBundleV144 | null;
   selectedSummaryVi?: string;
   onClearSelection?: () => void;
   onOpenSelectionDetails?: () => void;
@@ -114,6 +116,7 @@ export function ChartComponent({
   focusRequest,
   onEvidenceModeChange: _onEvidenceModeChange,
   selectedBinding,
+  selectedRawBundle,
   selectedSummaryVi,
   onClearSelection,
   onOpenSelectionDetails,
@@ -136,9 +139,25 @@ export function ChartComponent({
   const [showOverlay, setShowOverlay] = useState(true);
   const [showSMCLevels] = useState(true);
   const [draftMode, setDraftMode] = useState(false);
-  const [layerSettings, setLayerSettings] = useState<ChartLayerSettings>(defaultLayerSettings);
+  const [layerSettings, setLayerSettings] = useChartLayers();
+  const [isEvidenceListOpen, setIsEvidenceListOpen] = useState(false);
+  const evidenceListTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [hoveredHitItem, setHoveredHitItem] = useState<SMCHitItem | null>(null);
   const [draftDirection, setDraftDirection] = useState<'LONG' | 'SHORT'>('LONG');
+
+  const focusEvidence = useCallback((evidenceId: string) => {
+    if (!smcPrimitiveRef.current) return;
+    const hits = smcPrimitiveRef.current.getHitItems();
+    const match = hits.find((h) => h.id === evidenceId || h.externalId === evidenceId);
+    if (match) {
+      setHoveredHitItem(match);
+      if (chartRef.current && match.timeMs) {
+        chartRef.current.timeScale().scrollToPosition(-5, false);
+      }
+    } else {
+      console.warn(`Evidence ${evidenceId} anchor not found in visible hit items.`);
+    }
+  }, []);
 
   const latestClosePriceRef = useRef<number>(4000.0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -230,8 +249,11 @@ export function ChartComponent({
         },
         visibleRange: () => chartRef.current?.timeScale().getVisibleRange() ?? null,
         candleCount: () => candlesRef.current.length,
-        firstCandleMs: () => candlesRef.current[0]?.time ?? null,
-        lastCandleMs: () => candlesRef.current[candlesRef.current.length - 1]?.time ?? null,
+        firstCandleSec: () => (typeof candlesRef.current[0]?.time === 'number' ? (candlesRef.current[0]?.time as number) : null),
+        lastCandleSec: () => (typeof candlesRef.current[candlesRef.current.length - 1]?.time === 'number' ? (candlesRef.current[candlesRef.current.length - 1]?.time as number) : null),
+        firstCandleMs: () => (typeof candlesRef.current[0]?.time === 'number' ? (candlesRef.current[0]?.time as number) * 1000 : null),
+        lastCandleMs: () => (typeof candlesRef.current[candlesRef.current.length - 1]?.time === 'number' ? (candlesRef.current[candlesRef.current.length - 1]?.time as number) * 1000 : null),
+        focusEvidence: (id: string) => focusEvidence(id),
       };
     }
 
@@ -1082,6 +1104,29 @@ export function ChartComponent({
             onEvidenceModeChange={_onEvidenceModeChange}
           />
 
+          {/* Evidence List Button */}
+          {selectedRawBundle && (
+            <button
+              ref={evidenceListTriggerRef}
+              type="button"
+              data-testid="open-evidence-list"
+              onClick={() => setIsEvidenceListOpen(true)}
+              className="p-1.5 rounded hover:bg-gray-800 text-aurum-400 flex items-center gap-1 border border-charcoal-700 bg-charcoal-850 text-xs"
+              title="Xem danh sách bằng chứng (Evidence List)"
+            >
+              <List className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Bằng chứng</span>
+            </button>
+          )}
+
+          <ChartEvidenceList
+            isOpen={isEvidenceListOpen}
+            onClose={() => setIsEvidenceListOpen(false)}
+            bundle={selectedRawBundle ?? null}
+            onFocusEvidence={focusEvidence}
+            triggerRef={evidenceListTriggerRef}
+          />
+
           {/* Toggle Risk/Reward Overlay */}
           <button
             onClick={() => setShowOverlay(!showOverlay)}
@@ -1120,6 +1165,7 @@ export function ChartComponent({
       {/* Main Chart Area */}
       <div
         ref={chartContainerRef}
+        data-testid="chart-pane"
         className="flex-1 w-full relative touch-none"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}

@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Sequence
 from services.smc_scenario_types import ScenarioSnapshot, ScenarioState
 
 def explain_missing_condition(reason_or_state: str) -> Dict[str, str]:
@@ -163,39 +163,100 @@ def build_scenario_summary_vi(
     return "\n".join(lines)
 
 
-def build_entry_explanation(snapshot: ScenarioSnapshot, plan: Optional[Dict[str, Any]], guards: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
+def build_entry_explanation(snapshot: Any, plan: Optional[Dict[str, Any]], guards: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
     """
-    Returns a structured context including context, tracked levels, sweep, break, FVG, target, and guard audit.
+    Returns a structured entry explanation selecting exact nodes by trigger_chain.node_ids.
+    Reports missing evidence explicitly as 'Chưa có bằng chứng'.
     """
-    ctx = snapshot.context or {}
+    if isinstance(snapshot, dict):
+        ctx = snapshot.get('context') or {}
+        evidence = snapshot.get('evidence') or []
+        trigger_chain = snapshot.get('trigger_chain') or {}
+        liquidity_map = snapshot.get('liquidity_map') or {}
+        target = snapshot.get('target')
+        invalidation = snapshot.get('invalidation')
+    else:
+        ctx = getattr(snapshot, 'context', None) or {}
+        evidence = getattr(snapshot, 'evidence', None) or []
+        trigger_chain = getattr(snapshot, 'trigger_chain', None) or {}
+        liquidity_map = getattr(snapshot, 'liquidity_map', None) or {}
+        target = getattr(snapshot, 'target', None)
+        invalidation = getattr(snapshot, 'invalidation', None)
+
     h4 = ctx.get('h4_bias', 'UNKNOWN')
     h1 = ctx.get('h1_alignment', 'UNKNOWN')
-    
-    evidence_by_kind = {}
-    for n in snapshot.evidence:
-        kind = n.get('kind')
-        if kind:
-            evidence_by_kind[kind] = n
+    regime = ctx.get('regime', 'UNKNOWN')
 
-    sweep = evidence_by_kind.get('SWEEP_HIGH') or evidence_by_kind.get('SWEEP_LOW')
-    break_node = next((n for n in snapshot.evidence if n.get('kind') in ('MSS', 'CHOCH', 'BOS')), None)
-    fvg = evidence_by_kind.get('FVG')
-    retest = evidence_by_kind.get('RETEST')
-    
+    node_ids = trigger_chain.get('node_ids') or {}
+    evidence_by_id = {str(e.get('id')): e for e in evidence if isinstance(e, dict) and e.get('id')}
+
+    def _resolve_node(role: str, fallback_kinds: Sequence[str]) -> Optional[Dict[str, Any]]:
+        target_id = node_ids.get(role)
+        if target_id and str(target_id) in evidence_by_id:
+            return evidence_by_id[str(target_id)]
+        if not node_ids:
+            # Fallback for snapshots without explicit node_ids mapping
+            for e in evidence:
+                if isinstance(e, dict) and e.get('kind') in fallback_kinds:
+                    return e
+        return None
+
+    def _node_info(node: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        if not node:
+            return {
+                "id": None,
+                "status": "MISSING",
+                "price": None,
+                "occurred_at_ms": None,
+                "known_at_ms": None,
+                "source_ids": [],
+                "reason": "Chưa có bằng chứng",
+                "detail": "Chưa có bằng chứng"
+            }
+        extra = node.get('extra') or {}
+        detail = extra.get('detail') or f"{node.get('kind')} tại {node.get('level')}"
+        return {
+            "id": node.get('id'),
+            "status": "CONFIRMED" if node.get('fact_status') == "CONFIRMED_EVIDENCE" or trigger_chain.get('verified') else "OBSERVED",
+            "price": node.get('level'),
+            "occurred_at_ms": node.get('occurred_at_ms'),
+            "known_at_ms": node.get('known_at_ms'),
+            "source_ids": list(node.get('source_ids') or []),
+            "reason": extra.get('reason') or "Đã xác nhận",
+            "detail": detail
+        }
+
+    sweep_node = _resolve_node("sweep", ('SWEEP_HIGH', 'SWEEP_LOW'))
+    break_node = _resolve_node("break", ('MSS', 'CHOCH', 'BOS', 'BREAK_UNCLASSIFIED'))
+    fvg_node = _resolve_node("fvg", ('FVG',))
+    retest_node = _resolve_node("retest", ('RETEST',))
+
+    sweep_info = _node_info(sweep_node)
+    break_info = _node_info(break_node)
+    fvg_info = _node_info(fvg_node)
+    retest_info = _node_info(retest_node)
+
     return {
         "context": {
             "h4_bias": h4,
             "h1_alignment": h1,
-            "regime": ctx.get('regime', 'UNKNOWN')
+            "regime": regime
         },
-        "tracked_levels": snapshot.liquidity_map,
+        "tracked_levels": liquidity_map,
+        "nodes": {
+            "sweep": sweep_info,
+            "break": break_info,
+            "fvg": fvg_info,
+            "retest": retest_info,
+        },
         "evidence_summary": {
-            "sweep": sweep.get('extra', {}).get('detail', 'Có') if sweep else 'Không',
-            "break": break_node.get('extra', {}).get('detail', 'Có') if break_node else 'Không',
-            "fvg": fvg.get('extra', {}).get('detail', 'Có') if fvg else 'Không',
-            "retest": retest.get('extra', {}).get('detail', 'Có') if retest else 'Không'
+            "sweep": sweep_info["detail"],
+            "break": break_info["detail"],
+            "fvg": fvg_info["detail"],
+            "retest": retest_info["detail"]
         },
-        "target": snapshot.target,
+        "target": target,
+        "invalidation": invalidation,
         "plan": plan,
         "guard_audit": guards or []
     }

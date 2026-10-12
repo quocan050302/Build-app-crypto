@@ -659,3 +659,21 @@ class SMCScenarioSnapshot(Base):
     plan_fingerprint = Column(String(32), nullable=True)
     payload = Column(Text, nullable=False)
     created_at = Column(BigInteger, nullable=False)
+
+
+class PaperObservation(Base):
+    __tablename__ = "paper_observations"
+
+    id = Column(String(80), primary_key=True)
+    namespace = Column(String(40), nullable=False)
+    event_kind = Column(String(30), nullable=False)  # SCENARIO_MATERIAL / ORDER_CLOSED
+    snapshot_id = Column(String(160), nullable=True)  # legacy closed order may have no scenario ref
+    scenario_id = Column(String(160), nullable=True)
+    order_id = Column(String(36), nullable=True)
+    as_of_ms = Column(BigInteger, nullable=False)
+    payload_json = Column(Text, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('namespace', 'event_kind', 'snapshot_id', 'order_id',
+                         name='uq_paper_observation_key'),
+    )

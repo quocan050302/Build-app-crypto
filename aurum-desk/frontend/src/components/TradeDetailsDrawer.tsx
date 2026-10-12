@@ -18,6 +18,10 @@ import {
 } from 'lucide-react';
 import { normalizeLessonItem, type NormalizedLessonItem } from '../types/lesson';
 
+import { EvidenceAccordion } from './EvidenceAccordion';
+import type { ChartBinding, ChartEvidenceBundleV144 } from '../types/smcScenario';
+import type { ReturnedBinding } from '../hooks/useSelectedChart';
+
 export interface TradeDetailsDrawerProps {
   isOpen: boolean;
   activeSection: DrawerSectionType;
@@ -36,7 +40,74 @@ export interface TradeDetailsDrawerProps {
   selectedQualitySnapshot?: any;
   selectedQualityLoading?: boolean;
   selectedQualityError?: string | null;
+  selectedRawBundle?: ChartEvidenceBundleV144 | null;
+  selectedBinding?: ChartBinding | null;
+  selectedReturnedBinding?: ReturnedBinding | null;
+  selectedEvidenceLoading?: boolean;
+  selectedEvidenceError?: string | null;
 }
+
+export const SnapshotProvenance: React.FC<{
+  binding?: ChartBinding | null;
+  returnedBinding?: ReturnedBinding | null;
+  provenance?: any;
+  asOfMs?: number | null;
+}> = ({ binding, returnedBinding, provenance, asOfMs }) => {
+  const effectiveBinding = returnedBinding || binding;
+  if (!effectiveBinding && !provenance) return null;
+
+  const source = effectiveBinding?.source || 'UNKNOWN';
+  const snapshotId =
+    (effectiveBinding && ('snapshot_id' in effectiveBinding ? effectiveBinding.snapshot_id : (effectiveBinding as ChartBinding).snapshotId)) ||
+    provenance?.snapshot_id ||
+    '';
+  const id = effectiveBinding?.id || '';
+  const shortId = id.length > 12 ? `${id.slice(0, 8)}…` : id;
+  const shortSnap = snapshotId.length > 16 ? `${snapshotId.slice(0, 10)}…` : snapshotId;
+  const isOrder = source === 'ORDER';
+
+  return (
+    <div
+      data-testid="snapshot-provenance-badge"
+      className="p-2.5 rounded-lg bg-charcoal-850 border border-charcoal-750 flex flex-wrap items-center justify-between gap-2 text-[11px]"
+    >
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span
+          className={`px-1.5 py-0.5 rounded font-mono font-bold text-[9px] ${
+            isOrder
+              ? 'bg-purple-950 text-purple-300 border border-purple-800'
+              : 'bg-indigo-950 text-indigo-300 border border-indigo-800'
+          }`}
+        >
+          {isOrder ? 'LỊCH SỬ LỆNH (FROZEN)' : source}
+        </span>
+        {shortId && (
+          <span className="font-mono text-gray-300" title={id}>
+            ID: {shortId}
+          </span>
+        )}
+        {shortSnap && (
+          <span className="font-mono text-gray-400 text-[10px]" title={snapshotId}>
+            (Snap: {shortSnap})
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        {provenance?.version_label && (
+          <span className="px-1.5 py-0.2 rounded text-[9px] bg-charcoal-800 text-aurum-300 font-mono">
+            {provenance.version_label}
+          </span>
+        )}
+        {asOfMs && (
+          <span className="text-[10px] text-gray-500 font-mono">
+            {new Date(asOfMs).toLocaleTimeString('vi-VN')}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
   isOpen,
@@ -56,6 +127,11 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
   selectedQualitySnapshot,
   selectedQualityLoading = false,
   selectedQualityError,
+  selectedRawBundle,
+  selectedBinding,
+  selectedReturnedBinding,
+  selectedEvidenceLoading = false,
+  selectedEvidenceError,
 }) => {
   const drawerRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
@@ -182,6 +258,18 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
           })}
         </div>
 
+        {/* Snapshot Provenance Badge */}
+        {(selectedBinding || selectedReturnedBinding || selectedRawBundle?.provenance) && (
+          <div className="px-4 pt-3 shrink-0">
+            <SnapshotProvenance
+              binding={selectedBinding}
+              returnedBinding={selectedReturnedBinding}
+              provenance={selectedRawBundle?.provenance}
+              asOfMs={selectedRawBundle?.as_of_ms}
+            />
+          </div>
+        )}
+
         {/* 3. Section Content Body (flex-1 min-h-0 overflow-y-auto) */}
         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 text-xs text-gray-300">
           {/* SECTION: CHẤT LƯỢNG SMC (V14) */}
@@ -197,6 +285,14 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                 </p>
               </div>
 
+              {/* V14.4.2 Structured Evidence Accordion */}
+              <EvidenceAccordion
+                explanation={selectedRawBundle?.entry_explanation}
+                provenance={selectedRawBundle?.provenance}
+                loading={selectedEvidenceLoading}
+                error={selectedEvidenceError}
+              />
+
               {selectedQualityLoading && (
                 <div className="p-4 rounded-lg bg-charcoal-850 border border-charcoal-750 text-center text-xs text-gray-400">
                   Đang phân tích cấu trúc SMC theo snapshot lệnh...
@@ -208,6 +304,7 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                   {selectedQualityError}
                 </div>
               )}
+
 
               {!selectedQualityLoading && !selectedQualitySnapshot && (
                 <div className="p-4 rounded-lg bg-charcoal-850 border border-charcoal-750 text-xs text-gray-400 space-y-2">

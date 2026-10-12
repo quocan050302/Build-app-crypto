@@ -456,6 +456,13 @@ class StrategyService:
                 db, symbol, candles_by_tf, q, now_ms, config=cfg, settings=settings, entry_window=entry_window)
             self._cache_session_forecasts(symbol, candles_by_tf, now_ms, cfg, result.primary, result.issues)
 
+            from services.smc_observation_service import record_observation_snapshot
+            for s in result.changed:
+                try:
+                    record_observation_snapshot(db, s)
+                except Exception as obs_err:
+                    logger.warning(f"Could not record paper observation for {s.scenario_id}: {obs_err}")
+
             promotable = [s for s in result.snapshots if s.state == ScenarioState.STRUCTURE_CONFIRMED
                           and not s.blockers and (s.plan or {}).get("is_valid")]
             winner = select_primary_scenario(promotable) if promotable else None

@@ -239,12 +239,12 @@ test('a closed order older than the loaded window loads bounded history, anchors
   expect(od.binding.source).toBe('ORDER')
   const entrySec = Math.floor((order.opened_at as number) / 1000)
   await expect
-    .poll(async () => page.evaluate(() => (window as any).__AURUM_CHART_TEST__?.firstCandleMs?.() ?? null), { timeout: 20_000 })
+    .poll(async () => page.evaluate(() => (window as any).__AURUM_CHART_TEST__?.firstCandleSec?.() ?? null), { timeout: 20_000 })
     .toBeLessThanOrEqual(entrySec)
   await expect(page.getByTestId('back-to-live')).toBeVisible()
   const range = await page.evaluate(() => (window as any).__AURUM_CHART_TEST__?.visibleRange?.())
   expect(range.from).toBeLessThanOrEqual(entrySec)
-  const liveEnd = await page.evaluate(() => (window as any).__AURUM_CHART_TEST__?.lastCandleMs?.())
+  const liveEnd = await page.evaluate(() => (window as any).__AURUM_CHART_TEST__?.lastCandleSec?.())
   await page.getByTestId('back-to-live').click()
   await expect
     .poll(async () => (await page.evaluate(() => (window as any).__AURUM_CHART_TEST__?.visibleRange?.()))?.to, { timeout: 10_000 })

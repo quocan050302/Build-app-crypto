@@ -210,7 +210,7 @@ class ScenarioSnapshot:
     def is_terminal(self) -> bool:
         return self.state in TERMINAL_STATES
 
-    def compute_digest(self) -> str:
+    def compute_digest(self, include_profile: bool = True) -> str:
         """Digest of MATERIAL content only: full evidence, liquidity/target/plan and config/schema versions.
         as_of/evidence_cutoff/revision are deliberately excluded so an unchanged picture does not mint a
         new revision every cycle (live distance telemetry never enters the frozen decision snapshot)."""
@@ -236,8 +236,13 @@ class ScenarioSnapshot:
             "detector_version": self.detector_version,
             "blockers": sorted(self.blockers),
         }
+        if include_profile:
+            canonical_content["requirement_profile"] = getattr(self, "requirement_profile", "DEFAULT")
         raw_json = json.dumps(canonical_content, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
         return hashlib.sha256(raw_json.encode("utf-8")).hexdigest()
+
+    def compute_digest_legacy(self) -> str:
+        return self.compute_digest(include_profile=False)
 
     @staticmethod
     def from_dict(d: Dict[str, Any]) -> "ScenarioSnapshot":

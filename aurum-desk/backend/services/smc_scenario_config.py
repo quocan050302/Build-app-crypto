@@ -17,6 +17,7 @@ class ScenarioConfig:
     detector_version: str = "v14.4.1"
     config_version: int = 1
     family: str = "STANDARD_SMC"
+    requirement_profile: str = "V14.4_SMC_BASELINE"
 
     # Structural parameters
     pivot_left_bars: int = 2
@@ -105,5 +106,6 @@ def describe_model_requirements(config: ScenarioConfig) -> dict[str, Any]:
         },
         "config_version": config.config_version,
         "detector_version": config.detector_version,
-        "family": config.family
+        "family": config.family,
+        "requirement_profile": getattr(config, "requirement_profile", "V14.4_SMC_BASELINE"),
     }

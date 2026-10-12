@@ -1335,3 +1335,4 @@ class ChartEvidenceDTO(BaseModel):
     warnings: List[str] = Field(default_factory=list)
     is_empty: bool = False
     provenance: Optional[Dict[str, Any]] = None
+    entry_explanation: Optional[Dict[str, Any]] = None

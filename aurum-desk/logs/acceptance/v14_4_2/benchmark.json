@@ -1,0 +1,76 @@
+{
+  "status": "PASS",
+  "failures": [],
+  "cycles": 600,
+  "confirmed_cycles": 600,
+  "total_s": 8.734,
+  "throughput_cycles_per_s": 68.7,
+  "latency_ms": {
+    "p50": 13.638,
+    "p95": 18.845,
+    "max": 21.834
+  },
+  "traced_memory_growth_mb": 0.106,
+  "progression_sample": [
+    {
+      "bars_back": 0,
+      "states": [
+        "STRUCTURE_CONFIRMED",
+        "WAITING_SWEEP"
+      ]
+    },
+    {
+      "bars_back": 2,
+      "states": [
+        "WAITING_RETEST",
+        "WAITING_SWEEP"
+      ]
+    },
+    {
+      "bars_back": 4,
+      "states": [
+        "WAITING_BREAK",
+        "WAITING_SWEEP"
+      ]
+    },
+    {
+      "bars_back": 6,
+      "states": [
+        "INVALIDATED",
+        "WAITING_SWEEP"
+      ]
+    },
+    {
+      "bars_back": 8,
+      "states": [
+        "INVALIDATED",
+        "WAITING_SWEEP"
+      ]
+    },
+    {
+      "bars_back": 10,
+      "states": [
+        "INVALIDATED",
+        "WAITING_SWEEP"
+      ]
+    }
+  ],
+  "thresholds": {
+    "p95_limit_ms": 250.0,
+    "mem_growth_limit_mb": 25.0,
+    "note": "configured hypotheses, not guarantees"
+  },
+  "environment": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 151 Stepping 5, GenuineIntel",
+    "cpu_count": 12
+  },
+  "NOT_MEASURED": [
+    "browser render latency",
+    "WS subscriber count",
+    "frontend queue length",
+    "chart recreation per tick",
+    "10,000-tick/60s browser stream"
+  ]
+}

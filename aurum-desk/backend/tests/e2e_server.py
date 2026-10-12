@@ -258,7 +258,7 @@ def e2e_ny_reset(body: dict = Body(default={})):
         _CLOCK["ms"] = _ny_now(body.get("time", "09:00"))
         for model in (models.NotificationOutbox, models.DomainEvent, models.PaperOrder, models.EconomicNews,
                       models.WatchSetup, models.SessionQuota, models.NYOpportunityAudit, models.NYSessionAudit,
-                      models.DayAudit):
+                      models.DayAudit, models.PaperObservation):
             db.query(model).delete()
         db.query(models.Candle).filter(models.Candle.timeframe == "5M").delete()
         db.commit()
@@ -405,7 +405,8 @@ def e2e_smc_reset(body: dict = Body(default={})):
         _CLOCK["ms"] = now
         for model in (models.NotificationOutbox, models.DomainEvent, models.PaperOrder, models.EconomicNews,
                       models.WatchSetup, models.SessionQuota, models.NYOpportunityAudit, models.NYSessionAudit,
-                      models.SMCScenarioSnapshot, models.SMCScenario, models.SetupQualitySnapshot):
+                      models.SMCScenarioSnapshot, models.SMCScenario, models.SetupQualitySnapshot,
+                      models.PaperObservation):
             db.query(model).delete()
         db.query(models.Candle).delete()
         db.commit()

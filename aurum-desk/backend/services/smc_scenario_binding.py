@@ -96,13 +96,17 @@ def verify_scenario_binding(
         reasons.append("SNAPSHOT_FAMILY_MISMATCH")
     if snap.state != ScenarioState.STRUCTURE_CONFIRMED:
         reasons.append(f"SNAPSHOT_STATE_{snap.state.value}")
-    if snap.digest != snap.compute_digest() or row.evidence_digest != snap.digest:
+    valid_digest = (snap.digest == snap.compute_digest() or
+                    (hasattr(snap, "compute_digest_legacy") and snap.digest == snap.compute_digest_legacy()))
+    if not valid_digest or row.evidence_digest != snap.digest:
         reasons.append("SNAPSHOT_DIGEST_MISMATCH")
     if snap.detector_version != cfg.detector_version:
         reasons.append("DETECTOR_VERSION_MISMATCH")
     if snap.config_version != cfg.config_version:
         reasons.append("CONFIG_VERSION_MISMATCH")
-    if getattr(snap, "requirement_profile", "DEFAULT") != "DEFAULT":
+    active_profile = getattr(cfg, "requirement_profile", "V14.4_SMC_BASELINE")
+    snap_profile = getattr(snap, "requirement_profile", "DEFAULT")
+    if snap_profile not in (active_profile, "DEFAULT", "V14.4_SMC_BASELINE"):
         reasons.append("REQUIREMENT_PROFILE_MISMATCH")
     if snap.evidence_cutoff_ms > now_ms:
         reasons.append("SNAPSHOT_FROM_FUTURE")

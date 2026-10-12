@@ -1,0 +1,153 @@
+{
+  "overall": "PASS",
+  "required_cases_count": 34,
+  "statuses": {
+    "backend_targeted": "PASS",
+    "frontend_typecheck": "PASS",
+    "frontend_lint": "PASS",
+    "frontend_vitest": "PASS",
+    "frontend_build": "PASS",
+    "browser_e2e": "PASS",
+    "benchmark": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "steps": {
+    "backend_targeted": {
+      "status": "PASS",
+      "summary": "156 passed, 1 warning in 14.73s",
+      "failed": [],
+      "unexpected_failures": [],
+      "exit_code": 0,
+      "duration_s": 17.09,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\backend_targeted.log",
+      "argv": [
+        "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "tests/test_v14_4_2_requirements.py",
+        "tests/test_v14_4_2_forecast_requirements.py",
+        "tests/test_v14_4_2_entry_regression.py",
+        "tests/test_v14_4_1_production_pipeline.py",
+        "tests/test_v14_4_1_contracts.py",
+        "tests/test_v14_3_ny_quota.py",
+        "tests/test_v14_3_frequency_audit.py",
+        "-q",
+        "-p",
+        "no:cacheprovider"
+      ]
+    },
+    "frontend_typecheck": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 6.72,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_typecheck.log",
+      "argv": [
+        "C:\\Program Files\\nodejs\\npx.CMD",
+        "tsc",
+        "-b"
+      ]
+    },
+    "frontend_lint": {
+      "status": "PASS",
+      "warnings": 28,
+      "errors": 0,
+      "exit_code": 0,
+      "duration_s": 1.11,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_lint.log",
+      "argv": [
+        "C:\\Program Files\\nodejs\\npx.CMD",
+        "oxlint"
+      ]
+    },
+    "frontend_vitest": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 3.21,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_vitest.log",
+      "argv": [
+        "C:\\Program Files\\nodejs\\npx.CMD",
+        "vitest",
+        "run"
+      ]
+    },
+    "frontend_build": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 6.47,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_build.log",
+      "argv": [
+        "C:\\Program Files\\nodejs\\npm.CMD",
+        "run",
+        "build"
+      ]
+    },
+    "browser_e2e": {
+      "status": "PASS",
+      "playwright_stats": {
+        "startTime": "2026-10-12T08:13:55.562Z",
+        "duration": 105651.865,
+        "expected": 37,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "executed_tests": 37,
+      "exit_code": 0,
+      "duration_s": 107.09,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\browser_e2e.log",
+      "argv": [
+        "C:\\Program Files\\nodejs\\npx.CMD",
+        "playwright",
+        "test",
+        "tests/e2e/v14_4_2_chart_closure.e2e.ts",
+        "tests/e2e/v14_4_2_realtime_soak.e2e.ts",
+        "tests/e2e/v14_4_2_mobile.e2e.ts",
+        "tests/e2e/v14_4_1_sessions_chart.e2e.ts"
+      ]
+    },
+    "benchmark": {
+      "status": "PASS",
+      "latency_ms": {
+        "p50": 13.638,
+        "p95": 18.845,
+        "max": 21.834
+      },
+      "not_measured": [
+        "browser render latency",
+        "WS subscriber count",
+        "frontend queue length",
+        "chart recreation per tick",
+        "10,000-tick/60s browser stream"
+      ],
+      "exit_code": 0,
+      "duration_s": 9.58,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\benchmark.log",
+      "argv": [
+        "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+        "D:\\build app-crypto\\aurum-desk\\tools\\run_v14_4_chart_acceptance.py",
+        "--cycles",
+        "600",
+        "--out",
+        "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\benchmark.json"
+      ]
+    },
+    "git_diff_check": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 0.1,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\git_diff_check.log",
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ]
+    }
+  },
+  "baseline_failures_declared": [
+    "tests/test_v11_historical_replay.py::test_s01_and_s02_soak_burst_and_fault_injection",
+    "tests/test_v12_4_acceptance.py::test_v124_01_canonical_ledger_schema_and_export",
+    "tests/test_v13_5_integrity_acceptance.py::test_01_integrity_pass_on_valid_inputs"
+  ],
+  "probability_research": "NOT_VERIFIED (no real out-of-sample dataset; metrics are null, not 0)",
+  "timestamp": "2026-10-12 15:15:50"
+}

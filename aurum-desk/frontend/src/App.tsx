@@ -1212,6 +1212,7 @@ function AppContent() {
       leverage: setup.leverage || leverage,
       marginMode: setup.margin_mode || marginMode,
       estimatedLiquidation: calc.isValid ? calc.estimatedLiquidation : setup.estimated_liquidation,
+      projectedBars: 25,
     };
     setActiveOverlay(overlay);
     setSelectedIntent({
@@ -1628,6 +1629,11 @@ function AppContent() {
         selectedQualitySnapshot={selectedQualitySnapshot}
         selectedQualityLoading={selectedQualityLoading}
         selectedQualityError={selectedQualityError}
+        selectedRawBundle={selectedChart.rawBundle}
+        selectedBinding={selectedChart.binding}
+        selectedReturnedBinding={selectedChart.returnedBinding}
+        selectedEvidenceLoading={selectedChart.isLoading}
+        selectedEvidenceError={selectedChart.error}
       />
 
       {/* 1. Global Header Bar */}
@@ -1863,6 +1869,7 @@ function AppContent() {
                   structureEvents: analysis?.structure_events || [],
                 }}
                 selectedEvidence={chartEvidenceBundle}
+                selectedRawBundle={selectedChart.rawBundle}
                 selectedLoading={selectedChart.isLoading}
                 selectedError={selectedChart.error}
                 evidenceMode={evidenceMode}
@@ -2177,6 +2184,7 @@ function AppContent() {
                               <span>Xem Trên Chart</span>
                             </button>
                             <button
+                              data-testid="copy-setup-to-draft"
                               onClick={() => handleCopySetupToDraft(s)}
                               className="flex items-center gap-1 px-3 py-1.5 bg-charcoal-800 hover:bg-charcoal-750 text-gray-200 rounded text-xs border border-charcoal-700 transition"
                             >

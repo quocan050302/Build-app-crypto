@@ -737,7 +737,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                   <th className="py-2.5 px-2">Realized R</th>
                   <th className="py-2.5 px-2">Lý Do Đóng</th>
                   <th className="py-2.5 px-2">Đánh Giá</th>
-                  <th className="py-2.5 px-2 text-right">Thao Tác</th>
+                  <th className="py-2.5 px-2 text-right sticky right-0 bg-charcoal-850 z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.3)]">Thao Tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-charcoal-800 text-[11px]">
@@ -817,7 +817,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                           </span>
                         )}
                       </td>
-                      <td className="py-2.5 px-2 text-right whitespace-nowrap">
+                      <td className="py-2.5 px-2 text-right whitespace-nowrap sticky right-0 bg-charcoal-850 z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.3)]">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
@@ -831,6 +831,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                             <button
                               type="button"
                               data-testid="journal-focus-chart"
+                              data-order-id={t.id}
                               onClick={() => onFocusChart(t)}
                               className="px-2 py-1 rounded bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 text-[10px] font-bold transition flex items-center gap-1"
                               title="Xem snapshot trên chart"
@@ -1192,7 +1193,13 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
 
       {/* Trade Detail & Psychology Review Drawer (Modal) */}
       {selectedTrade && (
-        <div className="fixed inset-0 z-50 bg-black/75 flex justify-end backdrop-blur-sm transition-all animate-fadeIn">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Chi Tiết Lệnh & Ghi Chú Tâm Lý"
+          data-testid="journal-trade-drawer"
+          className="fixed inset-0 z-50 bg-black/75 flex justify-end backdrop-blur-sm transition-all animate-fadeIn"
+        >
           <div className="w-full max-w-2xl bg-charcoal-900 border-l border-charcoal-750 h-full flex flex-col shadow-2xl overflow-hidden">
             {/* Drawer Header */}
             <div className="p-4 bg-charcoal-850 border-b border-charcoal-750 flex justify-between items-center">
@@ -1211,6 +1218,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
               </div>
               <button
                 type="button"
+                aria-label="Đóng bảng chi tiết"
                 onClick={() => setSelectedTrade(null)}
                 className="p-1 rounded hover:bg-charcoal-700 text-gray-400 hover:text-gray-200 transition"
               >

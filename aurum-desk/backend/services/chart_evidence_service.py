@@ -28,26 +28,36 @@ BUNDLE_VERSION = 'v14.4.1'
 def read_snapshot_provenance(snapshot_dict: dict, current_config: ScenarioConfig) -> dict:
     """
     Extracts provenance information and compares the snapshot's config version
-    with the current active config version to identify any rule differences.
+    and detector version with the current active config to identify rule differences.
     """
     snap_config_version = snapshot_dict.get('config_version', 0)
-    detector_version = snapshot_dict.get('detector_version', 'UNKNOWN')
+    detector_version = snapshot_dict.get('detector_version')
     req_profile = snapshot_dict.get('requirement_profile', 'DEFAULT')
-    
+
     version_diff = snap_config_version != current_config.config_version
+    detector_diff = bool(detector_version and detector_version != current_config.detector_version)
     profile_diff = req_profile != "DEFAULT"
-    
+
     current_reqs = describe_model_requirements(current_config)
-    
+    historical_reqs = snapshot_dict.get('requirements') or {
+        'config_version': snap_config_version,
+        'detector_version': detector_version,
+        'requirement_profile': req_profile,
+    }
+
+    is_outdated = version_diff or detector_diff
+
     return {
         'snapshot_config_version': snap_config_version,
         'current_config_version': current_config.config_version,
         'detector_version': detector_version,
+        'current_detector_version': current_config.detector_version,
         'requirement_profile': req_profile,
-        'is_outdated_version': version_diff,
+        'is_outdated_version': is_outdated,
         'is_custom_profile': profile_diff,
+        'historical_requirements': historical_reqs,
         'current_requirements': current_reqs,
-        'warning': "Luật SMC đã thay đổi từ lúc ghi nhận snapshot" if version_diff else None
+        'warning': "Luật SMC đã thay đổi từ lúc ghi nhận snapshot" if is_outdated else None
     }
 
 
@@ -286,6 +296,17 @@ def build_selected_chart_bundle_from_dict(
         'config_version': data.get('config_version'),
         'schema_version': data.get('schema_version'),
     }
+    from services.smc_scenario_config import active_scenario_config
+    prov = read_snapshot_provenance(data, active_scenario_config)
+
+    from services.smc_scenario_summary import build_entry_explanation
+    try:
+        guards = (order_data.get('guards') if order_data else None) or data.get('guard_audit')
+        explanation = build_entry_explanation(data, plan_dict, guards)
+    except Exception as exc:
+        logger.warning(f"Could not build entry explanation: {exc}")
+        explanation = None
+
     chain = data.get('trigger_chain') or {}
     return {
         'bundle_version': BUNDLE_VERSION,
@@ -312,6 +333,8 @@ def build_selected_chart_bundle_from_dict(
         'probability': prob,
         'blockers': list(data.get('blockers') or []),
         'warnings': warnings,
+        'provenance': prov,
+        'entry_explanation': explanation,
         'is_empty': not nodes,
     }
 
@@ -384,5 +407,6 @@ def adapt_legacy_quality_snapshot(
         'risk_reward_plan': plan_data or order_data, 'target': None, 'invalidation': None,
         'invalidation_price': None, 'chain': {'verified': False, 'reasons': ['LEGACY_EVIDENCE'], 'advisories': []},
         'probability': {'status': 'UNAVAILABLE', 'p_tp_before_sl': None, 'support_n': None},
-        'blockers': [], 'warnings': warnings, 'is_empty': not (structure_events or poi_zones),
+        'blockers': [], 'warnings': warnings, 'provenance': None, 'entry_explanation': None,
+        'is_empty': not (structure_events or poi_zones),
     }

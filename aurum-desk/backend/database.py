@@ -309,6 +309,19 @@ def run_schema_migrations(target_engine=None):
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenario_snapshots_scenario_id ON smc_scenario_snapshots (scenario_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenario_snapshots_instance_id ON smc_scenario_snapshots (instance_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenario_snapshots_as_of_ms ON smc_scenario_snapshots (as_of_ms);"))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS paper_observations (
+                    id VARCHAR(80) PRIMARY KEY,
+                    namespace VARCHAR(40) NOT NULL,
+                    event_kind VARCHAR(30) NOT NULL,
+                    snapshot_id VARCHAR(160),
+                    scenario_id VARCHAR(160),
+                    order_id VARCHAR(36),
+                    as_of_ms BIGINT NOT NULL,
+                    payload_json TEXT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_paper_observation_key ON paper_observations (namespace, event_kind, snapshot_id, order_id);"))
             conn.commit()
     except Exception:
         pass
