@@ -121,7 +121,7 @@ def _node_dict(n: Any) -> Dict[str, Any]:
     if isinstance(n, dict):
         return dict(n)
     if isinstance(n, str):
-        return {'id': n, 'kind': 'UNKNOWN'}
+        return {'id': n, 'kind': 'UNKNOWN', 'occurred_at_ms': None, 'known_at_ms': None}
     return {}
 
 
@@ -152,7 +152,16 @@ def build_scenario_path(nodes: List[Any], target_price: Optional[float] = None,
                         target_time_ms: Optional[int] = None) -> List[Dict[str, Any]]:
     """Segments between REAL chain nodes (sorted by occurrence). The projection to the target is a logical
     display hint (`is_projection`, no timestamp): it never claims price arrives at a future time."""
-    chain = [_node_dict(n) for n in nodes if _node_dict(n).get('kind') not in SWING_KINDS + ('POI',)]
+    chain = []
+    for n in nodes:
+        d = _node_dict(n)
+        if not d or not d.get('id'):
+            continue
+        if d.get('kind') in SWING_KINDS + ('POI', 'UNKNOWN'):
+            continue
+        if d.get('occurred_at_ms') is not None and _finite(d.get('occurred_at_ms')):
+            chain.append(d)
+
     chain.sort(key=lambda n: n['occurred_at_ms'])
     segs: List[Dict[str, Any]] = []
     for a, b in zip(chain, chain[1:]):
@@ -160,7 +169,7 @@ def build_scenario_path(nodes: List[Any], target_price: Optional[float] = None,
         pb = b.get('level') if _finite(b.get('level')) else None
         segs.append({'from_id': a['id'], 'to_id': b['id'], 'from_time_ms': a['occurred_at_ms'], 'from_price': pa,
                      'to_time_ms': b['occurred_at_ms'], 'to_price': pb, 'is_confirmed': True,
-                     'is_projection': False, 'label': f"{a['kind']} -> {b['kind']}"})
+                     'is_projection': False, 'label': f"{a.get('kind')} -> {b.get('kind')}"})
     if chain and _finite(target_price):
         last = chain[-1]
         segs.append({'from_id': last['id'], 'to_id': 'projected_target', 'from_time_ms': last['occurred_at_ms'],
@@ -202,9 +211,9 @@ def build_selected_chart_bundle_from_dict(
 ) -> Dict[str, Any]:
     """Canonical snapshot dict (ScenarioSnapshot.to_dict) -> selected chart bundle."""
     warnings: List[str] = []
-    nodes: List[Dict[str, Any]] = [_node_dict(n) for n in (data.get('evidence') or [])]
+    nodes: List[Dict[str, Any]] = [_node_dict(n) for n in (data.get('evidence') or []) if _node_dict(n).get('id')]
     as_of_ms = int(data.get('as_of_ms') or 0)
-    by_id = {n['id']: n for n in nodes}
+    by_id = {n['id']: n for n in nodes if 'id' in n}
 
     swing_roles: Dict[str, str] = {}
     for n in nodes:
@@ -221,6 +230,8 @@ def build_selected_chart_bundle_from_dict(
     for n in nodes:
         k = n.get('kind')
         ex = n.get('extra') or {}
+        occ = n.get('occurred_at_ms') or as_of_ms
+        known = n.get('known_at_ms') or occ
         if k in SWING_KINDS:
             if not _finite(n.get('level')):
                 warnings.append(f"SWING_WITHOUT_PRICE:{n.get('id')}")
@@ -228,7 +239,7 @@ def build_selected_chart_bundle_from_dict(
             swings.append({
                 'id': n['id'], 'kind': k, 'price': n['level'], 'label': ex.get('label'),
                 'role': swing_roles.get(n['id'], 'RELATED'),
-                'occurred_at_ms': n['occurred_at_ms'], 'known_at_ms': n['known_at_ms'],     # pivot vs confirmation
+                'occurred_at_ms': occ, 'known_at_ms': known,     # pivot vs confirmation
                 'source_timeframe': n.get('timeframe'),
             })
         elif k in ('FVG', 'POI'):
@@ -238,7 +249,7 @@ def build_selected_chart_bundle_from_dict(
         elif k == 'RETEST':
             r = {'id': n['id'], 'type': k, 'kind': k, 'direction': n.get('direction'), 'price': ex.get('touch_price'),
                  'zone_top': ex.get('zone_top'), 'zone_bottom': ex.get('zone_bottom'), 'location': ex.get('source'),
-                 'occurred_at_ms': n['occurred_at_ms'], 'known_at_ms': n['known_at_ms'],
+                 'occurred_at_ms': occ, 'known_at_ms': known,
                  'source_timeframe': n.get('timeframe'), 'source_ids': list(n.get('source_ids') or [])}
             retests.append(r)
             structure_events.append({**r, 'detail': f"Retest FVG tại {ex.get('touch_price')}"})
@@ -248,17 +259,17 @@ def build_selected_chart_bundle_from_dict(
                 'wick_extreme': ex.get('wick_extreme'), 'close_back': ex.get('close_back'),
                 'closed_back': ex.get('closed_back'), 'level_label': ex.get('level_label'),
                 'source_level_id': ex.get('source_level_id'),
-                'occurred_at_ms': n['occurred_at_ms'], 'known_at_ms': n['known_at_ms'],
+                'occurred_at_ms': occ, 'known_at_ms': known,
                 'source_timeframe': n.get('timeframe'), 'source_ids': list(n.get('source_ids') or []),
                 'detail': ex.get('level_label') or f"Quét thanh khoản tại {n.get('level')}"})
         elif k in BREAK_KINDS:
             anchor = by_id.get(ex.get('broken_swing_id'))
             ev = {
                 'id': n['id'], 'type': k, 'kind': k, 'direction': n.get('direction'), 'price': n.get('level'),
-                'occurred_at_ms': n['occurred_at_ms'], 'known_at_ms': n['known_at_ms'],
+                'occurred_at_ms': occ, 'known_at_ms': known,
                 'source_timeframe': n.get('timeframe'), 'source_ids': list(n.get('source_ids') or []),
                 'broken_swing_id': ex.get('broken_swing_id'),
-                'start_at_ms': anchor['occurred_at_ms'] if anchor else None,     # break line starts at the broken swing
+                'start_at_ms': anchor.get('occurred_at_ms') if anchor else None,     # break line starts at the broken swing
                 'start_price': anchor.get('level') if anchor else None,
                 'detail': f"{k} tại {n.get('level')}"}
             if anchor is None:
@@ -271,8 +282,8 @@ def build_selected_chart_bundle_from_dict(
                 warnings.append(f"DISPLACEMENT_NOT_MEASURED:{n['id']}")
         else:
             structure_events.append({'id': n['id'], 'type': k, 'kind': k, 'direction': n.get('direction'),
-                                     'price': n.get('level'), 'occurred_at_ms': n['occurred_at_ms'],
-                                     'known_at_ms': n['known_at_ms'], 'source_timeframe': n.get('timeframe'),
+                                     'price': n.get('level'), 'occurred_at_ms': occ,
+                                     'known_at_ms': known, 'source_timeframe': n.get('timeframe'),
                                      'source_ids': list(n.get('source_ids') or []), 'detail': str(k)})
 
     # --- liquidity: swept level + anchor + target + (optionally) the whole stored map

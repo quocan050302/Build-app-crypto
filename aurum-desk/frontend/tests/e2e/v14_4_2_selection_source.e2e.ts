@@ -22,8 +22,12 @@ test.describe('V14.4.2 Selection Source & Draft Isolation (T09–T16)', () => {
 
     const rr = await readRR(page);
     expect(rr).not.toBeNull();
-    expect(rr?.data.direction).toBe('SHORT');
-    expect(rr?.data.state).toBe('draft');
+    expect(rr!.data.direction).toBe('SHORT');
+    expect(rr!.data.state).toBe('draft');
+    expect(rr!.data.plannedEntry).toBeGreaterThan(0);
+    expect(rr!.data.stopLoss).toBeGreaterThan(rr!.data.plannedEntry);
+    expect(rr!.data.takeProfit).toBeLessThan(rr!.data.plannedEntry);
+    expect(rr!.data.quantity).toBeGreaterThan(0);
     expect(mutations.length).toBe(0);
   });
 
@@ -31,9 +35,12 @@ test.describe('V14.4.2 Selection Source & Draft Isolation (T09–T16)', () => {
     await seedSmtFixture(page, request, { direction: 'SHORT' });
     await page.goto('/');
 
-    // Ensure draft mode is off
+    // Turn draft ON first so an RR exists
+    const draftBtn = page.getByRole('button', { name: /Vẽ Thử Kế Hoạch/i });
+    await draftBtn.waitFor({ state: 'visible', timeout: 10000 });
+    await draftBtn.click();
     const rrBefore = await readRR(page);
-    expect(rrBefore).toBeNull();
+    expect(rrBefore).not.toBeNull();
 
     // Route scenario evidence endpoint to return empty / waiting scenario without plan
     await page.route('**/api/v1/smc/scenarios/*/chart-evidence*', async (route) => {
@@ -83,13 +90,19 @@ test.describe('V14.4.2 Selection Source & Draft Isolation (T09–T16)', () => {
     await scenarioCard.click();
 
     // No R:R overlay should be displayed for scenario without plan
-    const rr = await readRR(page);
-    expect(rr).toBeNull();
+    await expect.poll(async () => readRR(page), { timeout: 10000 }).toBeNull();
   });
 
   test('T11: HTTP 500 error on chart-evidence renders clear error without stale R:R', async ({ page, request }) => {
     await seedSmtFixture(page, request, { direction: 'SHORT' });
     await page.goto('/');
+
+    // Preload draft RR so an old RR exists
+    const draftBtn = page.getByRole('button', { name: /Vẽ Thử Kế Hoạch/i });
+    await draftBtn.waitFor({ state: 'visible', timeout: 10000 });
+    await draftBtn.click();
+    const rrBefore = await readRR(page);
+    expect(rrBefore).not.toBeNull();
 
     // Intercept evidence API to fail with 500
     await page.route('**/api/v1/smc/scenarios/*/chart-evidence*', async (route) => {
@@ -110,8 +123,7 @@ test.describe('V14.4.2 Selection Source & Draft Isolation (T09–T16)', () => {
     await expect(errorBanner.or(page.locator('text=Lỗi'))).toBeVisible({ timeout: 10000 });
 
     // No stale R:R box
-    const rr = await readRR(page);
-    expect(rr).toBeNull();
+    await expect.poll(async () => readRR(page), { timeout: 10000 }).toBeNull();
   });
 
   test('T12: switching from valid setup A to waiting scenario B clears R:R overlay', async ({ page, request }) => {
@@ -123,14 +135,62 @@ test.describe('V14.4.2 Selection Source & Draft Isolation (T09–T16)', () => {
     await upcomingTab.waitFor({ state: 'visible', timeout: 10000 });
     await upcomingTab.click();
 
-    // Return to chart tab
-    const chartTab = page.locator('[data-tab-id="chart"]');
-    await chartTab.waitFor({ state: 'visible', timeout: 10000 });
-    await chartTab.click();
+    const focusBtn = page.locator('[data-testid="focus-setup-chart"]').first();
+    await focusBtn.waitFor({ state: 'visible', timeout: 10000 });
+    await focusBtn.click();
 
+    // Verify RR is present on chart
+    await expect.poll(async () => readRR(page), { timeout: 10000 }).not.toBeNull();
+
+    // Route scenario B evidence to WAITING_BREAK without plan
+    await page.route('**/api/v1/smc/scenarios/*/chart-evidence*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          bundle_version: 'v14.4.1',
+          binding: {
+            source: 'SCENARIO',
+            id: 'scen-waiting-b',
+            instance_id: 'inst-waiting-b',
+            revision: 1,
+            symbol: 'XAUUSDT',
+            direction: 'SHORT',
+            plan_fingerprint: null,
+            snapshot_id: 'snap-waiting-b',
+          },
+          as_of_ms: Date.now(),
+          evidence_cutoff_ms: Date.now(),
+          strategy_family: 'STANDARD_SMC',
+          state: 'WAITING_BREAK',
+          summary_vi: 'Chờ phá vỡ cấu trúc B',
+          swings: [],
+          structure_events: [],
+          poi_zones: [],
+          liquidity_levels: [],
+          displacements: [],
+          retests: [],
+          displacement_annotation: null,
+          scenario_path: [],
+          risk_reward_plan: null,
+          target: null,
+          invalidation: null,
+          invalidation_price: null,
+          chain: { verified: false, reasons: ['WAITING_BREAK'], advisories: [] },
+          is_empty: true,
+          provenance: null,
+          entry_explanation: null,
+        }),
+      });
+    });
+
+    // Return to chart tab and click scenario B
     const scenarioCard = page.locator('[data-testid="scenario-card"]').first();
     await scenarioCard.waitFor({ state: 'visible', timeout: 10000 });
     await scenarioCard.click();
+
+    // RR must be cleared
+    await expect.poll(async () => readRR(page), { timeout: 10000 }).toBeNull();
   });
 
   test('T13: copy valid setup to draft creates independent draft with same levels', async ({ page, request }) => {
@@ -142,14 +202,21 @@ test.describe('V14.4.2 Selection Source & Draft Isolation (T09–T16)', () => {
     await upcomingTab.waitFor({ state: 'visible', timeout: 10000 });
     await upcomingTab.click();
 
-    const copyBtn = page.getByRole('button', { name: /Vẽ Thử/i }).first();
-    if (await copyBtn.isVisible()) {
-      await copyBtn.click();
+    const copyBtn = page.locator('[data-testid="copy-setup-to-draft"]').first();
+    await copyBtn.waitFor({ state: 'visible', timeout: 10000 });
+    await copyBtn.click();
+
+    await expect.poll(async () => {
       const rr = await readRR(page);
-      if (rr) {
-        expect(rr.data.state).toBe('draft');
-      }
-    }
+      return rr?.data.state;
+    }, { timeout: 10000 }).toBe('draft');
+
+    const rr = await readRR(page);
+    expect(rr).not.toBeNull();
+    expect(rr!.data.plannedEntry).toBeGreaterThan(0);
+    expect(rr!.data.stopLoss).toBeGreaterThan(0);
+    expect(rr!.data.takeProfit).toBeGreaterThan(0);
+    expect(rr!.data.direction).toBe('SHORT');
   });
 
   test('T14: scenario with valid certified plan renders readonly R:R overlay', async ({ page, request }) => {
@@ -160,10 +227,10 @@ test.describe('V14.4.2 Selection Source & Draft Isolation (T09–T16)', () => {
     await scenarioCard.waitFor({ state: 'visible', timeout: 10000 });
     await scenarioCard.click();
 
-    const rr = await readRR(page);
-    if (rr) {
-      expect(rr.data.readOnly).toBe(true);
-    }
+    await expect.poll(async () => {
+      const rr = await readRR(page);
+      return rr?.data.readOnly;
+    }, { timeout: 10000 }).toBe(true);
   });
 
   test('T15: race condition in fast A -> B selection shows only B bundle', async ({ page, request }) => {
@@ -175,22 +242,31 @@ test.describe('V14.4.2 Selection Source & Draft Isolation (T09–T16)', () => {
     await page.route('**/api/v1/smc/scenarios/*/chart-evidence*', async (route) => {
       count++;
       if (count === 1) {
-        // Slow A
-        await new Promise((r) => setTimeout(r, 1000));
+        await new Promise((r) => setTimeout(r, 600));
       }
       await route.continue();
     });
 
     const scenarioCards = page.locator('[data-testid="scenario-card"]');
     await scenarioCards.first().waitFor({ state: 'visible', timeout: 10000 });
-    if ((await scenarioCards.count()) >= 2) {
-      await scenarioCards.nth(0).click();
-      await scenarioCards.nth(1).click();
-    }
+    const countCards = await scenarioCards.count();
+    expect(countCards).toBeGreaterThanOrEqual(1);
+
+    await scenarioCards.first().click();
+    const upcomingTab = page.locator('[data-tab-id="upcoming"]');
+    await upcomingTab.waitFor({ state: 'visible', timeout: 10000 });
+    await upcomingTab.click();
+
+    const chartTab = page.locator('[data-tab-id="chart"]');
+    await chartTab.waitFor({ state: 'visible', timeout: 10000 });
+    await chartTab.click();
+
+    expect(await page.locator('text=Lỗi hệ thống').count()).toBe(0);
   });
 
   test('T16: draft toggle Mua / Bán updates direction and remains editable in draft mode', async ({ page, request }) => {
     await seedSmtFixture(page, request, { direction: 'SHORT' });
+    const { mutations } = trackTradingMutations(page);
     await page.goto('/');
 
     const draftBtn = page.getByRole('button', { name: /Vẽ Thử Kế Hoạch/i });
@@ -205,5 +281,6 @@ test.describe('V14.4.2 Selection Source & Draft Isolation (T09–T16)', () => {
     expect(rr).not.toBeNull();
     expect(rr?.data.direction).toBe('LONG');
     expect(rr?.data.state).toBe('draft');
+    expect(mutations.length).toBe(0);
   });
 });

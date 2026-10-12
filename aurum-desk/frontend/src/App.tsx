@@ -3,8 +3,7 @@ import { ChartComponent } from './ChartComponent';
 import { api, extractErrorMessage } from './api/client';
 import { wsClient } from './services/wsClient';
 import { quoteStore } from './services/quoteStore';
-import { calculateClientRiskReward } from './utils/calculator';
-import { resolveSetupPriceLevels } from './utils/planLevels';
+import { resolveSetupPriceLevels, getCanonicalSetupPlan, planToOverlay } from './utils/planLevels';
 import type { RiskRewardData } from './plugins/RiskRewardPrimitive';
 import { TestingLabComponent } from './TestingLabComponent';
 import { ResearchTab } from './ResearchTab';
@@ -979,7 +978,7 @@ function AppContent() {
   };
 
   const handleFocusSetupOnChart = (setup: any) => {
-    const resolution = resolveSetupPriceLevels(setup);
+    const resolution = getCanonicalSetupPlan(setup);
     if (!resolution.isValid) {
       showToast('Không thể hiển thị kế hoạch', resolution.reason, 'warn');
       return;
@@ -987,91 +986,13 @@ function AppContent() {
     setTimeframe(setup.timeframe || '15M');
     setActiveTab('chart');
     setEvidenceMode('SELECTED');
-    const { entry, stopLoss: sl, takeProfit: tp } = resolution.plan;
     ++qualityGenRef.current;
     qualityAbortControllerRef.current?.abort();
     setSelectedQualitySnapshot(null);
     setSelectedQualityLoading(false);
     setSelectedQualityError(null);
 
-    const currentCapital = accountStatus?.current_equity ?? 1000.0;
-    const effectiveRiskPct = riskPct ?? 0.25;
-
-    let grossRR = 0.0;
-    let netRR = 0.0;
-    let isValid = true;
-    let invalidReason: string | undefined = undefined;
-    let initialRiskUsdt = setup.risk_usdt || 2.5;
-    let grossRewardUsdt: number | undefined = undefined;
-    let grossLossUsdt: number | undefined = undefined;
-    let netRewardUsdt: number | undefined = undefined;
-    let calcQty = setup.quantity || 0.05;
-    let entryFeeUsdt = 0;
-    let slExitFeeUsdt = 0;
-    let tpExitFeeUsdt = 0;
-    let entrySlippageUsdt = 0;
-    let slExitSlippageUsdt = 0;
-    let tpExitSlippageUsdt = 0;
-    let multiplier = 1.0;
-
-    if (entry && sl && tp) {
-      const calc = calculateClientRiskReward(
-        setup.direction,
-        entry,
-        sl,
-        tp,
-        currentCapital,
-        effectiveRiskPct,
-        2.0,
-        setup.quantity && setup.quantity > 0 ? setup.quantity : undefined,
-        setup.leverage || leverage,
-        setup.margin_mode || marginMode
-      );
-      isValid = calc.isValid;
-      invalidReason = calc.invalidReason;
-      if (calc.isValid) {
-        grossRR = calc.grossRR;
-        netRR = calc.estimatedNetRR;
-        initialRiskUsdt = calc.netRiskUsdt;
-        grossRewardUsdt = calc.grossRewardUsdt;
-        grossLossUsdt = calc.grossLossUsdt;
-        netRewardUsdt = calc.netRewardUsdt;
-        calcQty = calc.quantity;
-        entryFeeUsdt = calc.entryFeeUsdt;
-        slExitFeeUsdt = calc.slExitFeeUsdt;
-        tpExitFeeUsdt = calc.tpExitFeeUsdt;
-        entrySlippageUsdt = calc.entrySlippageUsdt;
-        slExitSlippageUsdt = calc.slExitSlippageUsdt;
-        tpExitSlippageUsdt = calc.tpExitSlippageUsdt;
-        multiplier = calc.multiplier;
-      } else {
-        grossRR = 0;
-        netRR = 0;
-      }
-    }
-
-    const overlay: RiskRewardData = {
-      id: setup.id,
-      direction: setup.direction,
-      state: setup.state === 'ARMED' ? 'armed' : 'candidate',
-      plannedEntry: entry,
-      stopLoss: sl,
-      takeProfit: tp,
-      quantity: calcQty,
-      initialRiskUsdt: initialRiskUsdt,
-      grossRewardUsdt: grossRewardUsdt,
-      grossLossUsdt: grossLossUsdt,
-      netRewardUsdt: netRewardUsdt,
-      multiplier: multiplier,
-      riskPct: effectiveRiskPct,
-      grossRR: grossRR,
-      estimatedNetRR: netRR,
-      isValid: isValid,
-      invalidReason: invalidReason,
-      leverage: setup.leverage || leverage,
-      marginMode: setup.margin_mode || marginMode,
-      estimatedLiquidation: setup.estimated_liquidation,
-    };
+    const overlay = planToOverlay(setup, resolution, { isDraft: false });
     setActiveOverlay(overlay);
     setSelectedIntent({
       source: 'WATCH_SETUP',
@@ -1080,28 +1001,28 @@ function AppContent() {
       revision: setup.version || 1,
       symbol: 'XAUUSDT',
       timeframe: setup.timeframe || '15M',
-      direction: setup.direction,
-      plannedEntry: entry,
-      stopLoss: sl,
-      takeProfit: tp,
+      direction: overlay.direction,
+      plannedEntry: overlay.plannedEntry,
+      stopLoss: overlay.stopLoss,
+      takeProfit: overlay.takeProfit,
       orderType: setup.state === 'READY' ? 'MARKET' : 'LIMIT',
-      quantity: calcQty,
-      initialRiskUsdt: initialRiskUsdt,
-      grossRewardUsdt: grossRewardUsdt,
-      grossLossUsdt: grossLossUsdt,
-      netRewardUsdt: netRewardUsdt,
-      multiplier: multiplier,
-      entryFeeUsdt: entryFeeUsdt,
-      slExitFeeUsdt: slExitFeeUsdt,
-      tpExitFeeUsdt: tpExitFeeUsdt,
-      entrySlippageUsdt: entrySlippageUsdt,
-      slExitSlippageUsdt: slExitSlippageUsdt,
-      tpExitSlippageUsdt: tpExitSlippageUsdt,
-      grossRR: grossRR,
-      estimatedNetRR: netRR,
-      leverage: setup.leverage || leverage,
-      marginMode: setup.margin_mode || marginMode,
-      estimatedLiquidation: setup.estimated_liquidation,
+      quantity: overlay.quantity,
+      initialRiskUsdt: overlay.initialRiskUsdt,
+      grossRewardUsdt: overlay.grossRewardUsdt,
+      grossLossUsdt: overlay.grossLossUsdt,
+      netRewardUsdt: overlay.netRewardUsdt,
+      multiplier: overlay.multiplier || 1.0,
+      entryFeeUsdt: 0,
+      slExitFeeUsdt: 0,
+      tpExitFeeUsdt: 0,
+      entrySlippageUsdt: 0,
+      slExitSlippageUsdt: 0,
+      tpExitSlippageUsdt: 0,
+      grossRR: overlay.grossRR,
+      estimatedNetRR: overlay.estimatedNetRR,
+      leverage: overlay.leverage || leverage,
+      marginMode: overlay.marginMode || marginMode,
+      estimatedLiquidation: overlay.estimatedLiquidation,
       status: setup.state,
       invalidationReason: setup.invalidation_reason,
       eligibility: setup.eligibility,
@@ -1161,14 +1082,13 @@ function AppContent() {
   };
 
   const handleCopySetupToDraft = (setup: any) => {
-    const resolution = resolveSetupPriceLevels(setup);
+    const resolution = getCanonicalSetupPlan(setup);
     if (!resolution.isValid) {
       showToast('Không thể hiển thị kế hoạch', resolution.reason, 'warn');
       return;
     }
     setTimeframe(setup.timeframe || '15M');
     setActiveTab('chart');
-    const { entry, stopLoss: sl, takeProfit: tp } = resolution.plan;
     selectedChart.clearSelection(); // a draft copy never inherits certified evidence
     ++qualityGenRef.current;
     qualityAbortControllerRef.current?.abort();
@@ -1176,73 +1096,36 @@ function AppContent() {
     setSelectedQualityLoading(false);
     setSelectedQualityError(null);
     const draftId = `draft-${Date.now()}`;
-    const currentCapital = accountStatus?.current_equity ?? 1000.0;
-    const effectiveRiskPct = riskPct ?? 0.25;
+    const overlay = planToOverlay(setup, resolution, { isDraft: true, draftId });
 
-    const calc = calculateClientRiskReward(
-      setup.direction,
-      entry,
-      sl,
-      tp,
-      currentCapital,
-      effectiveRiskPct,
-      2.0,
-      setup.quantity && setup.quantity > 0 ? setup.quantity : undefined,
-      setup.leverage || leverage,
-      setup.margin_mode || marginMode
-    );
-
-    const overlay: RiskRewardData = {
-      id: draftId,
-      direction: setup.direction,
-      state: 'draft',
-      plannedEntry: entry,
-      stopLoss: sl,
-      takeProfit: tp,
-      quantity: calc.isValid ? calc.quantity : 0,
-      initialRiskUsdt: calc.isValid ? calc.netRiskUsdt : 0,
-      grossRewardUsdt: calc.isValid ? calc.grossRewardUsdt : undefined,
-      grossLossUsdt: calc.isValid ? calc.grossLossUsdt : undefined,
-      netRewardUsdt: calc.isValid ? calc.netRewardUsdt : undefined,
-      multiplier: calc.multiplier,
-      riskPct: effectiveRiskPct,
-      grossRR: calc.isValid ? calc.grossRR : 0,
-      estimatedNetRR: calc.isValid ? calc.estimatedNetRR : 0,
-      isValid: calc.isValid,
-      invalidReason: calc.invalidReason,
-      leverage: setup.leverage || leverage,
-      marginMode: setup.margin_mode || marginMode,
-      estimatedLiquidation: calc.isValid ? calc.estimatedLiquidation : setup.estimated_liquidation,
-      projectedBars: 25,
-    };
     setActiveOverlay(overlay);
     setSelectedIntent({
       source: 'DRAFT',
       setup_id: draftId,
       symbol: 'XAUUSDT',
       timeframe: setup.timeframe || '15M',
-      direction: setup.direction,
-      plannedEntry: entry,
-      stopLoss: sl,
-      takeProfit: tp,
+      direction: overlay.direction,
+      plannedEntry: overlay.plannedEntry,
+      stopLoss: overlay.stopLoss,
+      takeProfit: overlay.takeProfit,
       orderType: 'LIMIT',
-      quantity: calc.isValid ? calc.quantity : 0,
-      initialRiskUsdt: calc.isValid ? calc.netRiskUsdt : 0,
-      grossRewardUsdt: calc.isValid ? calc.grossRewardUsdt : undefined,
-      grossLossUsdt: calc.isValid ? calc.grossLossUsdt : undefined,
-      netRewardUsdt: calc.isValid ? calc.netRewardUsdt : undefined,
-      multiplier: calc.multiplier,
-      entryFeeUsdt: calc.entryFeeUsdt,
-      slExitFeeUsdt: calc.slExitFeeUsdt,
-      tpExitFeeUsdt: calc.tpExitFeeUsdt,
-      entrySlippageUsdt: calc.entrySlippageUsdt,
-      slExitSlippageUsdt: calc.slExitSlippageUsdt,
-      tpExitSlippageUsdt: calc.tpExitSlippageUsdt,
-      grossRR: calc.isValid ? calc.grossRR : 0,
-      estimatedNetRR: calc.isValid ? calc.estimatedNetRR : 0,
-      leverage: setup.leverage || leverage,
-      marginMode: setup.margin_mode || marginMode,
-      estimatedLiquidation: calc.isValid ? calc.estimatedLiquidation : setup.estimated_liquidation,
+      quantity: overlay.quantity,
+      initialRiskUsdt: overlay.initialRiskUsdt,
+      grossRewardUsdt: overlay.grossRewardUsdt,
+      grossLossUsdt: overlay.grossLossUsdt,
+      netRewardUsdt: overlay.netRewardUsdt,
+      multiplier: overlay.multiplier || 1.0,
+      entryFeeUsdt: 0,
+      slExitFeeUsdt: 0,
+      tpExitFeeUsdt: 0,
+      entrySlippageUsdt: 0,
+      slExitSlippageUsdt: 0,
+      tpExitSlippageUsdt: 0,
+      grossRR: overlay.grossRR,
+      estimatedNetRR: overlay.estimatedNetRR,
+      leverage: overlay.leverage || leverage,
+      marginMode: overlay.marginMode || marginMode,
+      estimatedLiquidation: overlay.estimatedLiquidation,
       status: 'draft',
       snapshotAt: Date.now(),
     });
@@ -2240,6 +2123,7 @@ function AppContent() {
                         <div className="flex flex-wrap justify-between items-center gap-2 pt-2 border-t border-charcoal-750">
                           <div className="flex gap-2">
                             <button
+                              data-testid="focus-setup-chart"
                               onClick={() => handleFocusSetupOnChart(s)}
                               className="flex items-center gap-1 px-3 py-1.5 bg-charcoal-800 hover:bg-charcoal-750 text-gray-200 rounded text-xs border border-charcoal-700 transition"
                             >

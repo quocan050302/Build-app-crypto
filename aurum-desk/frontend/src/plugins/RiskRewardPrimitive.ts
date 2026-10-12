@@ -421,6 +421,21 @@ class RiskRewardPaneView implements IPrimitivePaneView {
   }
 }
 
+let _measureCtx: CanvasRenderingContext2D | null = null;
+function measureBadgeTextWidth(text: string): number {
+  if (typeof document !== 'undefined') {
+    if (!_measureCtx) {
+      const c = document.createElement('canvas');
+      _measureCtx = c.getContext('2d');
+    }
+    if (_measureCtx) {
+      _measureCtx.font = 'bold 11px Inter, sans-serif';
+      return _measureCtx.measureText(text).width;
+    }
+  }
+  return text.length * 6.8;
+}
+
 /**
  * Main RiskRewardPrimitive implementing ISeriesPrimitive<Time>
  */
@@ -515,12 +530,23 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
       height: Math.abs(maxY - minY) + 10,
     });
 
-    // 5. Header / R:R Info Pill (top of box body)
+    // 5. Central Badge Pill at entryY
+    const d = this._data;
+    const width = Math.max(endX - startX, 40);
+    const effectiveEntry = d.actualEntry ?? d.plannedEntry;
+    const nonPositiveReward = d.direction === 'LONG' ? d.takeProfit <= effectiveEntry : d.takeProfit >= effectiveEntry;
+    const rrPassText = nonPositiveReward ? ' · TP không bù chi phí' : (d.estimatedNetRR >= (d.minNetRR ?? 2.0) ? '' : ' · Chưa đạt R:R');
+    const badgeText = `${d.direction} · Gross ${formatRR(d.grossRR)} · Net ${formatRR(d.estimatedNetRR)}${rrPassText} · ${d.state.toUpperCase()}`;
+    const badgeWidth = measureBadgeTextWidth(badgeText) + 24;
+    const badgeHeight = 22;
+    const badgeX = startX + (width - badgeWidth) / 2;
+    const badgeY = entryY;
+
     rects.push({
-      x: startX + 8,
-      y: minY + 4,
-      width: 130,
-      height: 22,
+      x: badgeX,
+      y: badgeY - badgeHeight / 2,
+      width: badgeWidth,
+      height: badgeHeight,
     });
 
     return rects;

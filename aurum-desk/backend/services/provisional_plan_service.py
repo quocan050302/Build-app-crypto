@@ -48,12 +48,13 @@ def adapt_legacy_liquidity_candidates(
 ) -> List[LiquidityLevel]:
     """
     Adapts legacy swings or dict items into typed LiquidityLevel instances.
-    Levels already typed as LiquidityLevel are passed through.
+    Levels already typed as LiquidityLevel are passed through without mutating the inputs.
     Causal rules:
     - known_at_ms must be <= as_of_ms if as_of_ms is provided.
-    - If known_at_ms is missing or unknown, do not fabricate untouched.
-    - Preserves state: UNTOUCHED, APPROACHED, SWEPT, BROKEN, CONSUMED.
+    - If known_at_ms/confirmed_at is missing, do NOT fabricate untouched or infer confirmed.
+    - State is strictly preserved or validated: UNTOUCHED, APPROACHED, SWEPT, BROKEN, CONSUMED.
     """
+    import copy
     adapted: List[LiquidityLevel] = []
     if not raw_levels_or_swings:
         return adapted
@@ -61,7 +62,7 @@ def adapt_legacy_liquidity_candidates(
     for idx, item in enumerate(raw_levels_or_swings):
         if isinstance(item, LiquidityLevel):
             if as_of_ms is None or item.known_at_ms <= as_of_ms:
-                adapted.append(item)
+                adapted.append(copy.deepcopy(item))
             continue
 
         if not isinstance(item, dict):
@@ -84,21 +85,31 @@ def adapt_legacy_liquidity_candidates(
         else:
             continue
 
-        occ_ms = item.get("timestamp", item.get("occurred_at_ms"))
-        known_ms = item.get("confirmed_at", item.get("known_at_ms"))
-        if known_ms is None:
-            known_ms = occ_ms
+        occ_ms = item.get("timestamp") if item.get("timestamp") is not None else item.get("occurred_at_ms")
+        known_ms = item.get("confirmed_at") if item.get("confirmed_at") is not None else item.get("known_at_ms")
 
+        # Causal requirement: confirmation time (known_ms) must be explicitly known.
+        # Do not fall back to occ_ms (elapsed pivot timestamp is not confirmation).
         if known_ms is None:
-            # Metadata missing: causal rule dictates we cannot certify as untouched
             continue
 
         if as_of_ms is not None and known_ms > as_of_ms:
             # Future bar / lookahead rejected
             continue
 
-        level_id = item.get("id") or make_evidence_id(symbol, timeframe, raw_type or side, f"{price:.2f}-{idx}")
-        state = item.get("state", "UNTOUCHED")
+        # Determine state strictly from source
+        if item.get("consumed") is True:
+            state = "CONSUMED"
+        elif item.get("state"):
+            state = str(item.get("state")).upper()
+        elif item.get("is_confirmed") is True or "confirmed_at" in item:
+            state = "UNTOUCHED"
+        else:
+            # Unknown state without confirmation metadata cannot be assumed UNTOUCHED
+            continue
+
+        stable_key = f"{price:.2f}-{occ_ms or known_ms}"
+        level_id = item.get("id") or make_evidence_id(symbol, timeframe, raw_type or side, stable_key)
 
         adapted.append(
             LiquidityLevel(
@@ -126,6 +137,8 @@ def build_provisional_plan(
     as_of_ms: Optional[int] = None,
     settings: Optional[Union[FinancialSettings, Dict[str, Any], Any]] = None,
     causal_candles: Optional[Sequence[Any]] = None,
+    symbol: str = "XAUUSDT",
+    timeframe: str = "15M",
 ) -> ProvisionalPlanResult:
     """
     Pure service building provisional plan according to Appendix A contract.
@@ -175,13 +188,24 @@ def build_provisional_plan(
     entry = float(entry)
     stop_loss = float(stop_loss)
 
+    # Timeframe duration mapping
+    tf_durations = {
+        "1M": 60_000,
+        "5M": 300_000,
+        "15M": 900_000,
+        "1H": 3_600_000,
+        "4H": 14_400_000,
+        "1D": 86_400_000,
+    }
+    candle_dur_ms = tf_durations.get(str(timeframe).upper(), 900_000 if "15" in str(timeframe) else 300_000)
+
     # Adapt candidates if needed
-    typed_levels = adapt_legacy_liquidity_candidates(levels, as_of_ms=now_ms)
+    typed_levels = adapt_legacy_liquidity_candidates(levels, symbol=symbol, timeframe=timeframe, as_of_ms=now_ms)
 
     # Update states if causal candles provided
     if causal_candles:
         from services.smc_liquidity_service import update_liquidity_states
-        update_liquidity_states(typed_levels, causal_candles, now_ms)
+        update_liquidity_states(typed_levels, causal_candles, now_ms, candle_duration_ms=candle_dur_ms)
 
     # Select unconsumed target strictly on the correct side
     target = select_unconsumed_target(typed_levels, direction, entry, as_of_ms=now_ms)

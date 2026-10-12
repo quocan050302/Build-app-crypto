@@ -95,6 +95,11 @@ REQUIRED_CASES = {
     "T18": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "screenshot 1 zero financial estimate"},
     "T19": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "signed R:R does not abs negative reward into profit"},
     "T20": {"suite": "backend", "file": "backend/tests/test_v14_4_2_provisional_plan_regression.py", "desc": "consistent cost snapshot for long and short"},
+    # Financial Context & Pricing Correctness (4)
+    "FIN01": {"suite": "backend", "file": "backend/tests/test_v14_4_2_financial_context_regression.py", "desc": "DayAudit equity 2000 sizing"},
+    "FIN02": {"suite": "backend", "file": "backend/tests/test_v14_4_2_financial_context_regression.py", "desc": "None financial fields no TypeError"},
+    "FIN03": {"suite": "backend", "file": "backend/tests/test_v14_4_2_financial_context_regression.py", "desc": "Upcoming API preserves degraded and valid rows"},
+    "FIN04": {"suite": "backend", "file": "backend/tests/test_v14_4_2_financial_context_regression.py", "desc": "Capital variants and long mirror"},
 }
 
 BASELINE_FAILURES = {
@@ -149,8 +154,8 @@ def parse_junit_xml(xml_path: str) -> dict[str, str]:
             key = f"{classname}::{name}" if classname else name
             results[key] = status
             results[name] = status
-            # Extract case tokens like S01, O06, P01, A01
-            for m in re.finditer(r"(?i)(?:^|[\W_])(RT\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
+            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01
+            for m in re.finditer(r"(?i)(?:^|[\W_])(RT\d{2}|FIN\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
                 results[m.group(1).upper()] = status
     except Exception as e:
         print(f"Error parsing JUnit XML {xml_path}: {e}", file=sys.stderr)
@@ -310,6 +315,7 @@ def main(argv=None) -> int:
 
     env_backend = {"PYTHONPATH": os.pathsep.join([BACKEND, os.path.join(BACKEND, "tests"), "."])}
     targeted_files = [
+        "tests/test_v14_4_2_financial_context_regression.py",
         "tests/test_v14_4_2_provisional_plan_regression.py",
         "tests/test_v14_4_2_requirements.py",
         "tests/test_v14_4_2_forecast_requirements.py",

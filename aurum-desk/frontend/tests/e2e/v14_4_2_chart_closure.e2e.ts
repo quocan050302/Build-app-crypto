@@ -374,10 +374,26 @@ test.describe('V14.4.2 Chart Closure & Drag Suite', () => {
       const api = (window as any).__AURUM_CHART_TEST__;
       return {
         reserved: api?.reservedRects?.() ?? [],
-        hits: api?.smcHits?.() ?? [],
+        labels: api?.labelRects?.() ?? [],
       };
     });
     expect(diags).toBeDefined();
+
+    for (const label of diags.labels) {
+      expect(label.x).toBeGreaterThanOrEqual(0);
+      expect(label.x + label.width).toBeLessThanOrEqual(bounds.width + 20);
+      expect(label.y).toBeGreaterThanOrEqual(0);
+      expect(label.y + label.height).toBeLessThanOrEqual(bounds.height + 20);
+
+      for (const res of diags.reserved) {
+        const overlap =
+          label.x < res.x + res.width &&
+          label.x + label.width > res.x &&
+          label.y < res.y + res.height &&
+          label.y + label.height > res.y;
+        expect(overlap).toBe(false);
+      }
+    }
   });
 
   // E04: Old order provenance badge shows historical version

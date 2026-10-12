@@ -9,7 +9,7 @@ import type { CanvasRenderingTarget2D } from 'fancy-canvas';
 import { clipSpanX, projectMsToBar } from '../utils/chartTimeProjection';
 import type { TimeProjection } from '../utils/chartTimeProjection';
 import { layoutAnnotationLabels } from '../utils/chartAnnotationLayout';
-import type { LabelCandidate, Rect } from '../utils/chartAnnotationLayout';
+import type { LabelCandidate, Rect, PlacedLabel } from '../utils/chartAnnotationLayout';
 
 export interface SMCSwing {
   index: number;
@@ -154,6 +154,7 @@ class SMCStructurePaneRenderer implements IPrimitivePaneRenderer {
   private _param: SeriesAttachedParameter<Time> | null = null;
   private _hitRegistry: SMCHitItem[] = [];
   private _focusedEvidenceId: string | null = null;
+  private _placedLabels: readonly PlacedLabel[] = [];
 
   update(data: SMCStructureData, param: SeriesAttachedParameter<Time> | null) {
     this._data = data;
@@ -168,10 +169,15 @@ class SMCStructurePaneRenderer implements IPrimitivePaneRenderer {
     this._hitRegistry = [];
     this._data = null;
     this._focusedEvidenceId = null;
+    this._placedLabels = [];
   }
 
   getHitItems(): readonly SMCHitItem[] {
     return this._hitRegistry;
+  }
+
+  getPlacedLabels(): readonly PlacedLabel[] {
+    return this._placedLabels;
   }
 
   hitTest(px: number, py: number): SMCHitItem | null {
@@ -316,6 +322,7 @@ class SMCStructurePaneRenderer implements IPrimitivePaneRenderer {
         }
         const exclusions = data.annotationExclusions ? [...data.annotationExclusions] : [];
         const placed = layoutAnnotationLabels(badges, { x: 0, y: 0, width: viewportWidth, height: scope.mediaSize.height }, exclusions);
+        this._placedLabels = placed;
         for (const p of placed) {
           const src = badges.find((b) => b.id === p.id)!;
           // Labels that cannot be placed stay reachable through the hit registry (tooltip) without overlapping.
@@ -687,6 +694,10 @@ class SMCStructurePaneView implements IPrimitivePaneView {
   getHitItems(): readonly SMCHitItem[] {
     return this._renderer.getHitItems();
   }
+
+  getPlacedLabels(): readonly PlacedLabel[] {
+    return this._renderer.getPlacedLabels();
+  }
 }
 
 const EMPTY_DATA: SMCStructureData = {
@@ -752,8 +763,14 @@ export class SMCStructurePrimitive implements ISeriesPrimitive<Time> {
 
   detached(): void {
     this._param = null;
+    this._focusedEvidenceId = null;
+    this._paneView.setFocusedEvidenceId(null);
     this._paneView.update(EMPTY_DATA, null);
     this._paneView.clear(); // no hover target of a previous selection may survive a detach
+  }
+
+  getPlacedLabels(): readonly PlacedLabel[] {
+    return this._paneView.getPlacedLabels();
   }
 
   updateAllViews(): void {

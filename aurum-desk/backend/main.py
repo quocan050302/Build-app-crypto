@@ -461,6 +461,14 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
     setups = db.query(models.WatchSetup).order_by(models.WatchSetup.updated_at.desc()).all()
     from services.setup_quality_repository import setup_quality_repository
     from services.setup_display_plan_service import build_setup_display_plan
+    from services.plan_financial_context_service import load_plan_financial_context, degraded_setup_plan
+
+    fin_context = None
+    try:
+        fin_context = load_plan_financial_context(db)
+    except Exception as exc:
+        logger.warning(f"Could not load plan financial context: {exc}")
+
     quality_map = setup_quality_repository.get_snapshots_batch(db, [s.id for s in setups])
     setup_items = []
     for s in setups:
@@ -470,52 +478,93 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
             eligibility = evaluate_setup_eligibility(db, s)
             quality_sum = quality_map.get(s.id, {}).get("assessment", {}).get("summary")
             quality_snap_id = quality_map.get(s.id, {}).get("snapshot_id")
-            resolved_plan = build_setup_display_plan(s, quality_sum)
+            resolved_plan = build_setup_display_plan(s, quality_sum, financial_context=fin_context)
             setup_items.append({
-            "id": s.id,
-            "version": s.version,
-            "strategy": s.strategy,
-            "direction": s.direction,
-            "timeframe": s.timeframe,
-            "state": s.state,
-            "htf_bias": s.htf_bias,
-            "h1_alignment": s.h1_alignment,
-            "trigger_mode": s.trigger_mode,
-            "provisional_entry": s.provisional_entry,
-            "provisional_sl": s.provisional_sl,
-            "provisional_tp": s.provisional_tp,
-            "confirmed_entry": s.confirmed_entry,
-            "confirmed_sl": s.confirmed_sl,
-            "confirmed_tp": s.confirmed_tp,
-            "invalidation_price": s.invalidation_price,
-            "invalidation_reason": s.invalidation_reason,
-            "gross_rr": s.gross_rr,
-            "net_rr": s.net_rr,
-            "risk_usdt": s.risk_usdt,
-            "quantity": s.quantity,
-            "leverage": s.leverage,
-            "margin_mode": s.margin_mode,
-            "estimated_liquidation": s.estimated_liquidation,
-            "conditions_met": cond_met,
-            "conditions_remaining": cond_rem,
-            "distance_to_entry_atr": s.distance_to_entry_atr,
-            "distance_to_entry_usdt": s.distance_to_entry_usdt,
-            "setup_instance_id": s.setup_instance_id,
-            "near_entry_alerted_at": s.near_entry_alerted_at,
-            "near_entry_distance_price": s.near_entry_distance_price,
-            "near_entry_distance_atr": s.near_entry_distance_atr,
-            "entry_zone_low": s.entry_zone_low or s.provisional_entry,
-            "entry_zone_high": s.entry_zone_high or s.provisional_entry,
-            "created_at": s.created_at,
-            "updated_at": s.updated_at,
-            "eligibility": eligibility,
-            "quality_summary": quality_sum,
-            "quality_snapshot_id": quality_snap_id,
-            "resolved_display_plan": resolved_plan
-        })
+                "id": s.id,
+                "version": s.version,
+                "strategy": s.strategy,
+                "direction": s.direction,
+                "timeframe": s.timeframe,
+                "state": s.state,
+                "htf_bias": s.htf_bias,
+                "h1_alignment": s.h1_alignment,
+                "trigger_mode": s.trigger_mode,
+                "provisional_entry": s.provisional_entry,
+                "provisional_sl": s.provisional_sl,
+                "provisional_tp": s.provisional_tp,
+                "confirmed_entry": s.confirmed_entry,
+                "confirmed_sl": s.confirmed_sl,
+                "confirmed_tp": s.confirmed_tp,
+                "invalidation_price": s.invalidation_price,
+                "invalidation_reason": s.invalidation_reason,
+                "gross_rr": s.gross_rr,
+                "net_rr": s.net_rr,
+                "risk_usdt": s.risk_usdt,
+                "quantity": s.quantity,
+                "leverage": s.leverage,
+                "margin_mode": s.margin_mode,
+                "estimated_liquidation": s.estimated_liquidation,
+                "conditions_met": cond_met,
+                "conditions_remaining": cond_rem,
+                "distance_to_entry_atr": s.distance_to_entry_atr,
+                "distance_to_entry_usdt": s.distance_to_entry_usdt,
+                "setup_instance_id": s.setup_instance_id,
+                "near_entry_alerted_at": s.near_entry_alerted_at,
+                "near_entry_distance_price": s.near_entry_distance_price,
+                "near_entry_distance_atr": s.near_entry_distance_atr,
+                "entry_zone_low": s.entry_zone_low or s.provisional_entry,
+                "entry_zone_high": s.entry_zone_high or s.provisional_entry,
+                "created_at": s.created_at,
+                "updated_at": s.updated_at,
+                "eligibility": eligibility,
+                "quality_summary": quality_sum,
+                "quality_snapshot_id": quality_snap_id,
+                "resolved_display_plan": resolved_plan
+            })
         except Exception as exc:
-            logger.warning(f"Skipping concurrently modified setup: {exc}")
-            continue
+            logger.exception(f"Error building setup item {getattr(s, 'id', 'unknown')}: {exc}")
+            setup_items.append({
+                "id": getattr(s, "id", "unknown"),
+                "version": getattr(s, "version", 1),
+                "strategy": getattr(s, "strategy", "SMC_V1"),
+                "direction": getattr(s, "direction", "SHORT"),
+                "timeframe": getattr(s, "timeframe", "15M"),
+                "state": getattr(s, "state", "WATCHING"),
+                "htf_bias": getattr(s, "htf_bias", "UNKNOWN"),
+                "h1_alignment": getattr(s, "h1_alignment", "UNKNOWN"),
+                "trigger_mode": getattr(s, "trigger_mode", "CONFIRMED_CLOSE"),
+                "provisional_entry": getattr(s, "provisional_entry", None),
+                "provisional_sl": getattr(s, "provisional_sl", None),
+                "provisional_tp": getattr(s, "provisional_tp", None),
+                "confirmed_entry": getattr(s, "confirmed_entry", None),
+                "confirmed_sl": getattr(s, "confirmed_sl", None),
+                "confirmed_tp": getattr(s, "confirmed_tp", None),
+                "invalidation_price": getattr(s, "invalidation_price", None),
+                "invalidation_reason": getattr(s, "invalidation_reason", None),
+                "gross_rr": getattr(s, "gross_rr", None),
+                "net_rr": getattr(s, "net_rr", None),
+                "risk_usdt": getattr(s, "risk_usdt", None),
+                "quantity": getattr(s, "quantity", None),
+                "leverage": getattr(s, "leverage", 5),
+                "margin_mode": getattr(s, "margin_mode", "ISOLATED"),
+                "estimated_liquidation": getattr(s, "estimated_liquidation", None),
+                "conditions_met": [],
+                "conditions_remaining": [],
+                "distance_to_entry_atr": getattr(s, "distance_to_entry_atr", None),
+                "distance_to_entry_usdt": getattr(s, "distance_to_entry_usdt", None),
+                "setup_instance_id": getattr(s, "setup_instance_id", None),
+                "near_entry_alerted_at": getattr(s, "near_entry_alerted_at", None),
+                "near_entry_distance_price": getattr(s, "near_entry_distance_price", None),
+                "near_entry_distance_atr": getattr(s, "near_entry_distance_atr", None),
+                "entry_zone_low": getattr(s, "entry_zone_low", None),
+                "entry_zone_high": getattr(s, "entry_zone_high", None),
+                "created_at": getattr(s, "created_at", None),
+                "updated_at": getattr(s, "updated_at", None),
+                "eligibility": None,
+                "quality_summary": None,
+                "quality_snapshot_id": None,
+                "resolved_display_plan": degraded_setup_plan(getattr(s, "id", "unknown"), getattr(s, "direction", "SHORT"), "DEGRADED_PROCESSING"),
+            })
 
     # Generate Daily Scenarios
     scenarios = {

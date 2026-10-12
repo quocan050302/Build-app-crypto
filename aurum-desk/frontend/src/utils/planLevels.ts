@@ -93,3 +93,92 @@ export function formatKnownNumber(value: unknown, decimals: number): string {
     ? value.toFixed(decimals)
     : 'Chưa xác định';
 }
+
+import type { RiskRewardData } from '../plugins/RiskRewardPrimitive';
+
+export function getCanonicalSetupPlan(setup: any): PlanResolution {
+  if (setup?.resolved_display_plan) {
+    const rdp = setup.resolved_display_plan;
+    if (rdp.is_valid && rdp.entry != null && rdp.stop_loss != null && rdp.take_profit != null) {
+      return {
+        isValid: true,
+        plan: {
+          direction: rdp.direction,
+          entry: rdp.entry,
+          stopLoss: rdp.stop_loss,
+          takeProfit: rdp.take_profit,
+          levelSource: (rdp.level_source as any) || 'provisional',
+        },
+      };
+    }
+    if (!rdp.is_valid) {
+      return {
+        isValid: false,
+        reason: rdp.reason_message || 'Kế hoạch không hợp lệ hoặc thiếu mục tiêu thanh khoản.',
+      };
+    }
+  }
+  return resolveSetupPriceLevels(setup);
+}
+
+export function planToOverlay(
+  setup: any,
+  planRes?: PlanResolution,
+  options?: { isDraft?: boolean; draftId?: string }
+): RiskRewardData {
+  const rdp = setup?.resolved_display_plan;
+  const isDraft = options?.isDraft ?? false;
+  const overlayId = isDraft ? (options?.draftId || `draft-${Date.now()}`) : (setup?.id || `setup-${Date.now()}`);
+
+  let entry = 0;
+  let sl = 0;
+  let tp = 0;
+  let direction: 'LONG' | 'SHORT' = 'SHORT';
+
+  if (rdp && rdp.entry != null && rdp.stop_loss != null && rdp.take_profit != null) {
+    entry = rdp.entry;
+    sl = rdp.stop_loss;
+    tp = rdp.take_profit;
+    direction = rdp.direction;
+  } else if (planRes && planRes.isValid) {
+    entry = planRes.plan.entry;
+    sl = planRes.plan.stopLoss;
+    tp = planRes.plan.takeProfit;
+    direction = planRes.plan.direction;
+  } else {
+    const res = resolveSetupPriceLevels(setup);
+    if (res.isValid) {
+      entry = res.plan.entry;
+      sl = res.plan.stopLoss;
+      tp = res.plan.takeProfit;
+      direction = res.plan.direction;
+    }
+  }
+
+  const fin = rdp?.financial;
+  const state = isDraft ? 'draft' : (setup?.state === 'ARMED' ? 'armed' : 'candidate');
+
+  return {
+    id: overlayId,
+    direction: direction,
+    state: state,
+    plannedEntry: entry,
+    stopLoss: sl,
+    takeProfit: tp,
+    quantity: fin?.quantity ?? (setup?.quantity || 0),
+    initialRiskUsdt: fin?.net_risk_usdt ?? (setup?.risk_usdt || 0),
+    grossRewardUsdt: fin?.gross_reward_usdt,
+    grossLossUsdt: fin?.gross_loss_usdt,
+    netRewardUsdt: fin?.net_reward_usdt,
+    multiplier: 1.0,
+    riskPct: setup?.risk_pct ?? 0.25,
+    grossRR: fin?.gross_rr ?? (setup?.gross_rr || 0),
+    estimatedNetRR: fin?.net_rr ?? (setup?.net_rr || 0),
+    isValid: rdp ? rdp.is_valid : (entry > 0 && sl > 0 && tp > 0),
+    invalidReason: rdp ? (!rdp.is_valid ? rdp.reason_message : undefined) : undefined,
+    leverage: fin?.leverage ?? setup?.leverage ?? 20,
+    marginMode: (fin?.margin_mode as any) ?? setup?.margin_mode ?? 'ISOLATED',
+    estimatedLiquidation: fin?.estimated_liquidation ?? setup?.estimated_liquidation,
+    readOnly: !isDraft,
+  };
+}

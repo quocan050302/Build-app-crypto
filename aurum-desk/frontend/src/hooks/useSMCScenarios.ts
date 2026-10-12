@@ -129,7 +129,7 @@ export function useSMCScenarios(symbol: string = 'XAUUSDT') {
   // Initial load + WS status tracking. Reconnect sets dataSynced=false and re-fetches inventory.
   useEffect(() => {
     isMountedRef.current = true;
-    dispatch({ type: 'SET_UNSYNCED' });
+    dispatch({ type: 'RESET_STATE' });
     void fetchScenarios();
     setWsLive(wsClient.isOpen());
 

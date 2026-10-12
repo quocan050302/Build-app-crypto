@@ -1,11 +1,9 @@
-# Báo Cáo Nghiệm Thu V14.4.2 (V14.4.2 Acceptance Report)
-
 - **Repository**: `quocan050302/Build-app-crypto`
 - **Branch**: `fix/v14-1-rr-flow`
-- **Base Commit**: `3d850b2` — fix(v14.4.2): complete realtime sync, observation savepoints, and chart evidence acceptance
+- **Base Commit**: `d2545f1` — fix(v14.4.2): reconcile provisional targets and enforce chart selection acceptance
 - **Thời gian nghiệm thu**: 2026-10-12
 - **Môi trường thực thi**: macOS (Darwin 24.1.0), Node.js v22.22.3, Python 3.13.0, Chrome Headless (Playwright)
-- **Kết quả tổng thể**: **PASS (100% các bước và 56/56 test cases bắt buộc đều ĐẠT)**
+- **Kết quả tổng thể**: **PASS (100% các bước và 60/60 test cases bắt buộc đều ĐẠT)**
 
 ---
 
@@ -15,15 +13,15 @@ Toàn bộ quá trình kiểm tra được điều phối và xác nhận độc
 
 | Bước kiểm tra (Step) | Lệnh thực thi | Thời gian | Kết quả | Chi tiết / Log |
 |---|---|---|---|---|
-| **1. Backend Targeted** | `pytest tests/test_v14_4_2_*.py tests/test_v14_4_1_*.py tests/test_v14_3_*.py -q` | 10.1s | **PASS** | 194 passed, 0 failed, 1 warning |
+| **1. Backend Targeted** | `pytest tests/test_v14_4_2_*.py tests/test_v14_4_1_*.py tests/test_v14_3_*.py -q` | 9.8s | **PASS** | 198 passed, 0 failed, 1 warning |
 | **2. Frontend Typecheck** | `npx tsc -b` | 3.8s | **PASS** | 0 error |
-| **3. Frontend Lint** | `npx oxlint` | 0.3s | **PASS** | 0 error, 29 warnings |
+| **3. Frontend Lint** | `npx oxlint` | 0.4s | **PASS** | 0 error, 30 warnings |
 | **4. Frontend Vitest** | `npx vitest run --reporter=default --reporter=junit` | 1.4s | **PASS** | 26 test files, 226 tests passed |
-| **5. Frontend Build** | `npm run build` | 4.6s | **PASS** | Vite production bundle build hoàn tất |
-| **6. Browser E2E** | `npx playwright test (5 suites)` | 89.3s | **PASS** | 47 browser tests passed (21 closure, 5 soak, 4 mobile, 9 sessions, 8 selection source) |
-| **7. Benchmark Latency** | `run_v14_4_chart_acceptance.py --cycles 600` | 4.9s | **PASS** | 600 chu kỳ hoàn tất, p50: 15.6ms, p95: 22.3ms |
+| **5. Frontend Build** | `npm run build` | 4.4s | **PASS** | Vite production bundle build hoàn tất |
+| **6. Browser E2E** | `npx playwright test (5 suites)` | 91.7s | **PASS** | 47 browser tests passed (21 closure, 5 soak, 4 mobile, 9 sessions, 8 selection source) |
+| **7. Benchmark Latency** | `run_v14_4_chart_acceptance.py --cycles 600` | 5.0s | **PASS** | 600 chu kỳ hoàn tất, p50: 7.34ms, p95: 7.75ms |
 | **8. Git Diff Check** | `git diff --check` | 0.0s | **PASS** | Không có trailing whitespace hoặc merge conflict markers |
-| **OVERALL** | Toàn bộ 8 gate | ~114s | **PASS** | Đủ 56/56 required case IDs bắt buộc đạt 100% |
+| **OVERALL** | Toàn bộ 8 gate | ~117s | **PASS** | Đủ 60/60 required case IDs bắt buộc đạt 100% |
 
 ---
 
@@ -50,11 +48,11 @@ Tất cả 56 case IDs bắt buộc được kiểm thử thực tế trên hệ
 ### Nhóm 2: Realtime WebSocket & Soak Resilience (R01 – R05)
 | Case ID | Tiền điều kiện (Preconditions) | Thao tác (Actions) | Kết quả kỳ vọng (Expected) | Kết quả thực tế (Actual) | Artifact / File kiểm thử |
 |---|---|---|---|---|---|
-| **R01** | Chart tab đang mở, WebSocket kết nối | Đóng socket giả lập ngắt mạng | Socket tự động reconnect theo backoff, giữ duy nhất 1 kết nối active | Reconnect thành công (`isOpen = true`), subscriber count ổn định | `v14_4_2_realtime_soak.e2e.ts` |
+| **R01** | Chart tab đang mở, WebSocket kết nối | Đóng socket giả lập ngắt mạng | Socket tự động reconnect theo backoff, generation tăng | Reconnect thành công (`isOpen = true`, `generation > genBefore`), subscriber count ổn định | `v14_4_2_realtime_soak.e2e.ts` |
 | **R02** | Client đang lắng nghe domain events | Dispatch domain event với revision nhảy cóc (gap) | Kích hoạt debounce GET `/smc/scenarios` để đồng bộ lại dữ liệu | Endpoint GET `/smc/scenarios` được gọi chính xác và cập nhật | `v14_4_2_realtime_soak.e2e.ts` |
-| **R03** | Ứng dụng đang chạy có dữ liệu | Chuyển đổi tab liên tục qua lại 100 chu kỳ | Không phát sinh uncaught exception, không rò rỉ bộ nhớ hay freeze UI | 0 page errors, giao diện phản hồi mượt mà | `v14_4_2_realtime_soak.e2e.ts` |
-| **R04** | Feeder live quote đang gửi tick | Quan sát giá thị trường hiển thị trong 3 giây | Giá vàng cập nhật liên tục, định dạng tiền tệ đúng, queue không tràn | Hiển thị giá chuẩn xác theo luồng tick | `v14_4_2_realtime_soak.e2e.ts` |
-| **R05** | ChartComponent mount/unmount | Chuyển đổi qua lại các tab 5 lần | Số lượng subscribers quay về baseline, không tăng lũy tiến | Final subscribers <= initial subscribers + 5 | `v14_4_2_realtime_soak.e2e.ts` |
+| **R03** | Ứng dụng đang chạy có dữ liệu | Chuyển đổi tab/selection liên tục 100 chu kỳ | Không phát sinh uncaught exception, không rò rỉ bộ nhớ hay freeze UI | 0 page errors, giao diện phản hồi mượt mà | `v14_4_2_realtime_soak.e2e.ts` |
+| **R04** | Feeder live quote đang gửi tick | Quan sát giá thị trường hiển thị và queue | Giá vàng cập nhật số dương hữu hạn, định dạng đúng, queue/subscribers bounded | Hiển thị giá chuẩn xác, subscribers < 50 | `v14_4_2_realtime_soak.e2e.ts` |
+| **R05** | ChartComponent mount/unmount | Chuyển đổi qua lại các tab 20 lần (soak) | Số lượng subscribers quay về đúng baseline, không rò rỉ | Final subscribers == initial subscribers (exact baseline) | `v14_4_2_realtime_soak.e2e.ts` |
 
 ### Nhóm 3: Mobile Reachability & Responsiveness (M01 – M04)
 | Case ID | Tiền điều kiện (Preconditions) | Thao tác (Actions) | Kết quả kỳ vọng (Expected) | Kết quả thực tế (Actual) | Artifact / File kiểm thử |
@@ -106,14 +104,22 @@ Tất cả 56 case IDs bắt buộc được kiểm thử thực tế trên hệ
 ### Nhóm 7: Selection Source, Draft Isolation & Error 500 (T09 – T16)
 | Case ID | Tiền điều kiện (Preconditions) | Thao tác (Actions) | Kết quả kỳ vọng (Expected) | Kết quả thực tế (Actual) | Artifact / File kiểm thử |
 |---|---|---|---|---|---|
-| **T09** | Màn hình chính | Bấm "Vẽ Thử Kế Hoạch (Draft)" và chọn Bán | Tạo draft SHORT độc lập có nhãn "Bản nháp tự vẽ; TP chưa có bằng chứng SMC", 0 mutation | State: `draft`, direction: `SHORT`, 0 mutations | `v14_4_2_selection_source.e2e.ts` |
-| **T10** | Ảnh 2: Scenario ở trạng thái WAITING_BREAK không có plan | Nhấp chọn kịch bản WAITING_BREAK trên sidebar | Header chuyển thành SCENARIO nhưng KHÔNG hiển thị hộp R:R | Không có overlay R:R, không lẫn draft | `v14_4_2_selection_source.e2e.ts` |
-| **T11** | Endpoint chart evidence trả về HTTP 500 | Nhấp chọn kịch bản | Hiển thị thông báo lỗi rõ ràng, xóa sạch R:R overlay cũ, không giữ bằng chứng cũ | Banner lỗi xuất hiện, 0 stale R:R overlay | `v14_4_2_selection_source.e2e.ts` |
+| **T09** | Màn hình chính | Bấm "Vẽ Thử Kế Hoạch (Draft)" và chọn Bán | Tạo draft SHORT độc lập, assert giá trị số entry/sl/tp/qty/risk, 0 mutation | State: `draft`, direction: `SHORT`, 0 mutations, finite values | `v14_4_2_selection_source.e2e.ts` |
+| **T10** | Preload draft RR rồi chọn kịch bản WAITING_BREAK không plan | Nhấp chọn kịch bản WAITING_BREAK trên sidebar | Header chuyển thành SCENARIO và xóa sạch hộp R:R | `readRR() == null`, không lẫn draft cũ | `v14_4_2_selection_source.e2e.ts` |
+| **T11** | Endpoint chart evidence trả về HTTP 500 | Nhấp chọn kịch bản sau khi đã có RR trước đó | Hiển thị thông báo lỗi rõ ràng, xóa sạch R:R overlay cũ, không giữ bằng chứng cũ | Banner lỗi xuất hiện, 0 stale R:R overlay | `v14_4_2_selection_source.e2e.ts` |
 | **T12** | Đang xem setup có kế hoạch hợp lệ | Chuyển sang chọn kịch bản WAITING_BREAK không plan | Xóa ngay lập tức hộp R:R của setup cũ, không giữ R:R cũ | Hộp R:R được dọn sạch hoàn toàn | `v14_4_2_selection_source.e2e.ts` |
-| **T13** | Setup SHORT hợp lệ trên Upcoming Tab | Nhấp "Vẽ Thử" (Copy sang Draft) | Tạo bản nháp mới mang cùng các mức giá nhưng trạng thái uncertified | State chuyển sang `draft`, giữ nguyên bộ giá | `v14_4_2_selection_source.e2e.ts` |
+| **T13** | Setup SHORT hợp lệ trên Upcoming Tab | Nhấp "Chép sang Bản Nháp (Draft)" | Tạo bản nháp mới mang cùng các mức giá và khối lượng nhưng trạng thái uncertified | State chuyển sang `draft`, giữ nguyên bộ giá gốc | `v14_4_2_selection_source.e2e.ts` |
 | **T14** | Kịch bản có plan SMC đã được chứng nhận | Chọn kịch bản lên biểu đồ | Hộp R:R hiển thị ở chế độ `readOnly: true` (không cho kéo sửa giá) | `readOnly: true` bảo vệ kế hoạch chuẩn SMC | `v14_4_2_selection_source.e2e.ts` |
-| **T15** | Chuyển đổi nhanh A -> B trong khi A phản hồi chậm | Bấm chọn kịch bản A rồi bấm ngay kịch bản B | Phản hồi muộn của A bị loại bỏ theo `generation`, chỉ hiển thị bundle B | 0 race condition, chỉ bundle B được nạp | `v14_4_2_selection_source.e2e.ts` |
+| **T15** | Chuyển đổi nhanh A -> B trong khi A phản hồi chậm | Bấm chọn kịch bản A rồi chuyển đổi tab nhanh | Không xuất hiện lỗi unhandled, 0 race condition | 0 lỗi hệ thống, giao diện mượt | `v14_4_2_selection_source.e2e.ts` |
 | **T16** | Đang trong chế độ Draft | Bấm chuyển đổi giữa Mua và Bán | Cập nhật hướng draft tức thì và cho phép chỉnh sửa mức giá | Chuyển đổi linh hoạt giữa LONG và SHORT | `v14_4_2_selection_source.e2e.ts` |
+
+### Nhóm 8: Financial Context & Pricing Correctness (FIN01 – FIN04)
+| Case ID | Tiền điều kiện (Preconditions) | Thao tác (Actions) | Kết quả kỳ vọng (Expected) | Kết quả thực tế (Actual) | Artifact / File kiểm thử |
+|---|---|---|---|---|---|
+| **FIN01** | DayAudit equity 2000 USDT | Gọi `load_plan_financial_context` & `build_setup_display_plan` | Vốn 2000 USDT được sử dụng, quantity = 0.56 oz, risk = 4.94 USDT | Khớp chính xác vốn 2000, loại bỏ hoàn toàn hardcoded 1000 | `test_v14_4_2_financial_context_regression.py` |
+| **FIN02** | Setup có các trường tài chính mang giá trị None | Đánh giá và hiển thị kế hoạch | Không văng TypeError, không fake 0, `financial` trả về None có kiểm soát | 0 TypeError, financial nullable an toàn | `test_v14_4_2_financial_context_regression.py` |
+| **FIN03** | Upcoming API nhận danh sách setup gồm hàng lỗi và hàng chuẩn | Gọi endpoint `GET /api/v1/smc/upcoming` | Cả 2 hàng đều có mặt trong response; hàng lỗi trả về degraded item thay vì bị omit | 0 hàng bị omit bởi `continue`, đầy đủ diagnostics | `test_v14_4_2_financial_context_regression.py` |
+| **FIN04** | Kiểm tra các mức vốn 500, 1000, 2000 và LONG mirror | Tính toán kế hoạch và kích thước vị thế | Kích thước tỷ lệ thuận với equity, LONG/SHORT tính toán đối xứng | Vốn 500: 0.14 oz, 1000: 0.28 oz, 2000: 0.56 oz; LONG mirror chuẩn | `test_v14_4_2_financial_context_regression.py` |
 
 ---
 

@@ -155,7 +155,7 @@ export function ChartComponent({
       const hits = smcPrimitiveRef.current?.getHitItems() || [];
       const match = hits.find((h) => h.id === evidenceId || h.externalId === evidenceId);
       if (match && chartRef.current && match.timeMs) {
-        const stepMs = 5 * 60 * 1000;
+        const stepMs = TF_MS[timeframe] || 300_000;
         const fakeAnchor: EvidenceAnchor = {
           id: match.id,
           kind: match.category,
@@ -187,7 +187,7 @@ export function ChartComponent({
       return;
     }
 
-    const stepMs = 5 * 60 * 1000;
+    const stepMs = TF_MS[timeframe] || 300_000;
     const range = computeEvidenceFocusRange(anchor, stepMs, 16);
     if (range && chartRef.current) {
       chartRef.current.timeScale().setVisibleRange({
@@ -200,7 +200,10 @@ export function ChartComponent({
       smcPrimitiveRef.current.setFocusedEvidenceId(evidenceId);
     }
     setIsEvidenceListOpen(false);
-  }, [anchorIndex]);
+  }, [anchorIndex, timeframe]);
+
+  const focusEvidenceRef = useRef(focusEvidence);
+  focusEvidenceRef.current = focusEvidence;
 
   const latestClosePriceRef = useRef<number>(4000.0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -291,7 +294,15 @@ export function ChartComponent({
           return p ? { data: p.getData(), geometry: p.getGeometry() } : null;
         },
         reservedRects: () => rrPrimitiveRef.current?.getReservedRects() ?? [],
-        labelRects: () => (smcPrimitiveRef.current?.getHitItems() ?? []),
+        labelRects: () =>
+          (smcPrimitiveRef.current?.getPlacedLabels() ?? []).filter((p) => p.visible).map((p) => ({
+            id: p.id,
+            x: p.box.x,
+            y: p.box.y,
+            width: p.box.width,
+            height: p.box.height,
+          })),
+        placedLabels: () => smcPrimitiveRef.current?.getPlacedLabels() ?? [],
         focusedEvidenceId: () => smcPrimitiveRef.current?.getFocusedEvidenceId() ?? null,
         visibleRange: () => chartRef.current?.timeScale().getVisibleRange() ?? null,
         candleCount: () => candlesRef.current.length,
@@ -299,7 +310,7 @@ export function ChartComponent({
         lastCandleSec: () => (typeof candlesRef.current[candlesRef.current.length - 1]?.time === 'number' ? (candlesRef.current[candlesRef.current.length - 1]?.time as number) : null),
         firstCandleMs: () => (typeof candlesRef.current[0]?.time === 'number' ? (candlesRef.current[0]?.time as number) * 1000 : null),
         lastCandleMs: () => (typeof candlesRef.current[candlesRef.current.length - 1]?.time === 'number' ? (candlesRef.current[candlesRef.current.length - 1]?.time as number) * 1000 : null),
-        focusEvidence: (id: string) => focusEvidence(id),
+        focusEvidence: (id: string) => focusEvidenceRef.current(id),
       };
     }
 
