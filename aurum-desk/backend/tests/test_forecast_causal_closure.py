@@ -208,6 +208,52 @@ def test_fct02_summary_counts_and_separation(isolated_db):
     )
 
     import json
+    from services.smc_scenario_types import ScenarioSnapshot, ScenarioState, EvidenceNode, FactStatus
+    nodes_fct02 = [
+        EvidenceNode(id="sweep-01", kind="SWEEP_LOW", symbol="XAUUSDT", timeframe="5M", direction=None, occurred_at_ms=50, known_at_ms=60, level=4170.0, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+        EvidenceNode(id="break-01", kind="CHOCH", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=65, known_at_ms=75, source_ids=("sweep-01",), level=4185.0, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+        EvidenceNode(id="fvg-01", kind="FVG", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=80, known_at_ms=85, source_ids=("break-01",), level=4182.0, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+        EvidenceNode(id="retest-01", kind="RETEST", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=90, known_at_ms=100, source_ids=("fvg-01",), level=4182.5, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+    ]
+    snap_fct02 = ScenarioSnapshot(
+        scenario_id="ASIA:1",
+        instance_id="inst-fct02",
+        revision=1,
+        symbol="XAUUSDT",
+        setup_timeframe="5M",
+        context_timeframes=["D", "4H", "15M"],
+        family="STANDARD_SMC",
+        direction="LONG",
+        state=ScenarioState.STRUCTURE_CONFIRMED,
+        as_of_ms=100,
+        evidence_cutoff_ms=100,
+        evidence_ids=[n.id for n in nodes_fct02],
+        liquidity_map={},
+        trigger_chain={"verified": True, "reasons": [], "node_ids": {"sweep": "sweep-01", "break": "break-01", "fvg": "fvg-01", "retest": "retest-01"}},
+        target=None,
+        invalidation=None,
+        summary_vi="Snapshot",
+        config_version=1,
+        detector_version="v14.4",
+        requirement_profile="SMC_DEFAULT",
+        evidence=[n.to_dict() for n in nodes_fct02],
+    )
+    isolated_db.add(models.SMCScenarioSnapshot(
+        snapshot_id="snap-fct02",
+        scenario_id="ASIA:1",
+        instance_id="inst-fct02",
+        revision=1,
+        symbol="XAUUSDT",
+        timeframe="5M",
+        direction="LONG",
+        state="STRUCTURE_CONFIRMED",
+        as_of_ms=100,
+        evidence_cutoff_ms=100,
+        evidence_digest="digest_fct02",
+        created_at=100,
+        payload=json.dumps(snap_fct02.to_dict()),
+    ))
+
     # Seed genuine confirmation proof event
     proof_event = models.DomainEvent(
         event_id="proof-fct02",
@@ -224,6 +270,7 @@ def test_fct02_summary_counts_and_separation(isolated_db):
             "direction": "LONG",
             "scenario_id": "ASIA:1",
             "instance_id": "inst-fct02",
+            "snapshot_id": "snap-fct02",
             "retest_id": "retest-01",
             "evidence_chain_ids": ["sweep-01", "break-01", "fvg-01", "retest-01"],
             "known_at_ms": 100,
@@ -376,6 +423,52 @@ def test_legacy_unverified_is_excluded_from_verified_rate(isolated_db):
     assert summary_leg["target_touch_fraction"] is None
 
     # Subtest 2: add 1 verified LOSS (invalidated)
+    from services.smc_scenario_types import ScenarioSnapshot, ScenarioState, EvidenceNode, FactStatus
+    nodes_leg01 = [
+        EvidenceNode(id="sweep-01", kind="SWEEP_LOW", symbol="XAUUSDT", timeframe="5M", direction=None, occurred_at_ms=50, known_at_ms=60, level=4170.0, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+        EvidenceNode(id="break-01", kind="CHOCH", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=65, known_at_ms=75, source_ids=("sweep-01",), level=4185.0, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+        EvidenceNode(id="fvg-01", kind="FVG", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=80, known_at_ms=85, source_ids=("break-01",), level=4182.0, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+        EvidenceNode(id="retest-01", kind="RETEST", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=90, known_at_ms=100, source_ids=("fvg-01",), level=4182.5, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+    ]
+    snap_leg01 = ScenarioSnapshot(
+        scenario_id="ASIA:ver1",
+        instance_id="inst-leg01",
+        revision=1,
+        symbol="XAUUSDT",
+        setup_timeframe="5M",
+        context_timeframes=["D", "4H", "15M"],
+        family="STANDARD_SMC",
+        direction="LONG",
+        state=ScenarioState.STRUCTURE_CONFIRMED,
+        as_of_ms=100,
+        evidence_cutoff_ms=100,
+        evidence_ids=[n.id for n in nodes_leg01],
+        liquidity_map={},
+        trigger_chain={"verified": True, "reasons": [], "node_ids": {"sweep": "sweep-01", "break": "break-01", "fvg": "fvg-01", "retest": "retest-01"}},
+        target=None,
+        invalidation=None,
+        summary_vi="Snapshot",
+        config_version=1,
+        detector_version="v14.4",
+        requirement_profile="SMC_DEFAULT",
+        evidence=[n.to_dict() for n in nodes_leg01],
+    )
+    isolated_db.add(models.SMCScenarioSnapshot(
+        snapshot_id="snap-leg01",
+        scenario_id="ASIA:ver1",
+        instance_id="inst-leg01",
+        revision=1,
+        symbol="XAUUSDT",
+        timeframe="5M",
+        direction="LONG",
+        state="STRUCTURE_CONFIRMED",
+        as_of_ms=100,
+        evidence_cutoff_ms=100,
+        evidence_digest="digest_leg01",
+        created_at=100,
+        payload=json.dumps(snap_leg01.to_dict()),
+    ))
+
     proof_event = models.DomainEvent(
         event_id="proof-leg01",
         sequence=1,
@@ -391,6 +484,7 @@ def test_legacy_unverified_is_excluded_from_verified_rate(isolated_db):
             "direction": "LONG",
             "scenario_id": "ASIA:ver1",
             "instance_id": "inst-leg01",
+            "snapshot_id": "snap-leg01",
             "retest_id": "retest-01",
             "evidence_chain_ids": ["sweep-01", "break-01", "fvg-01", "retest-01"],
             "known_at_ms": 100,

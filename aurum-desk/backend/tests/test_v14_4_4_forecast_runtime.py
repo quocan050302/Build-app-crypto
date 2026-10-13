@@ -49,8 +49,56 @@ def test_proof_repository_validation(isolated_db):
     assert v_none["is_valid"] is False
     assert v_none["reason_code"] == "PROOF_NOT_FOUND"
 
-    # Seed a real DomainEvent representing a verified transition
+    # Seed canonical scenario snapshot in SMCScenarioSnapshot repository (PHẦN 059)
     import json
+    from services.smc_scenario_types import ScenarioSnapshot, ScenarioState, EvidenceNode, FactStatus
+    nodes = [
+        EvidenceNode(id="sw_1", kind="SWEEP_LOW", symbol="XAUUSDT", timeframe="5M", direction=None, occurred_at_ms=as_of-2000, known_at_ms=as_of-1800, level=4170.0, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+        EvidenceNode(id="break_1", kind="CHOCH", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=as_of-1700, known_at_ms=as_of-1500, source_ids=("sw_1",), level=4185.0, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+        EvidenceNode(id="fvg_1", kind="FVG", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=as_of-1400, known_at_ms=as_of-1200, source_ids=("break_1",), level=4182.0, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+        EvidenceNode(id="retest_1", kind="RETEST", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=as_of-1100, known_at_ms=as_of-1000, source_ids=("fvg_1",), level=4182.5, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+    ]
+    snap_obj = ScenarioSnapshot(
+        scenario_id="scen_1",
+        instance_id="inst_1",
+        revision=1,
+        symbol="XAUUSDT",
+        setup_timeframe="5M",
+        context_timeframes=["D", "4H", "15M"],
+        family="STANDARD_SMC",
+        direction="LONG",
+        state=ScenarioState.STRUCTURE_CONFIRMED,
+        as_of_ms=as_of - 1000,
+        evidence_cutoff_ms=as_of - 1000,
+        evidence_ids=[n.id for n in nodes],
+        liquidity_map={},
+        trigger_chain={"verified": True, "reasons": [], "node_ids": {"sweep": "sw_1", "break": "break_1", "fvg": "fvg_1", "retest": "retest_1"}},
+        target=None,
+        invalidation=None,
+        summary_vi="Snapshot",
+        config_version=1,
+        detector_version="v14.4",
+        requirement_profile="SMC_DEFAULT",
+        evidence=[n.to_dict() for n in nodes],
+    )
+    snap_row = models.SMCScenarioSnapshot(
+        snapshot_id="snap_1",
+        scenario_id="scen_1",
+        instance_id="inst_1",
+        revision=1,
+        symbol="XAUUSDT",
+        timeframe="5M",
+        direction="LONG",
+        state="STRUCTURE_CONFIRMED",
+        as_of_ms=as_of - 1000,
+        evidence_cutoff_ms=as_of - 1000,
+        evidence_digest="digest_test",
+        created_at=as_of - 1000,
+        payload=json.dumps(snap_obj.to_dict()),
+    )
+    isolated_db.add(snap_row)
+
+    # Seed a real DomainEvent representing a verified transition
     event = models.DomainEvent(
         event_id="evt_valid_proof_1",
         sequence=1,
@@ -63,12 +111,14 @@ def test_proof_repository_validation(isolated_db):
         payload=json.dumps({
             "symbol": "XAUUSDT",
             "scenario_instance_id": "inst_1",
+            "snapshot_id": "snap_1",
             "direction": "LONG",
             "transition": "VERIFIED_SWEEP_TO_RETEST",
             "retest_id": "retest_1",
             "break_id": "break_1",
             "evidence_chain_ids": ["sw_1", "break_1", "fvg_1", "retest_1"],
             "known_at_ms": as_of - 1000,
+            "occurred_at_ms": as_of - 2000,
         }),
     )
     isolated_db.add(event)

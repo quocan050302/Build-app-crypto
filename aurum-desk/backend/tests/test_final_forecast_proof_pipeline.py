@@ -13,6 +13,12 @@ Tests:
 import json
 import pytest
 import models
+from services.smc_scenario_service import (
+    EvidenceNode,
+    FactStatus,
+    ScenarioSnapshot,
+    ScenarioState,
+)
 from services.smc_forecast_observation_service import (
     create_forecast_snapshot,
     evaluate_forecast_outcome,
@@ -73,6 +79,52 @@ def test_fcproof02_caller_spoofed_verified_is_overridden_to_unverified(isolated_
 
 
 def test_fcproof03_genuine_confirmation_proof_yields_confirmed_target(isolated_db):
+    sw = EvidenceNode(id="sweep-01", kind="SWEEP_LOW", symbol="XAUUSDT", timeframe="5M", direction=None, occurred_at_ms=800, known_at_ms=850, level=4170.0, fact_status=FactStatus.CONFIRMED_EVIDENCE)
+    br = EvidenceNode(id="break-01", kind="CHOCH", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=850, known_at_ms=880, source_ids=(sw.id,), level=4185.0, fact_status=FactStatus.CONFIRMED_EVIDENCE)
+    fvg = EvidenceNode(id="fvg-01", kind="FVG", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=880, known_at_ms=890, source_ids=(br.id,), level=4182.0, fact_status=FactStatus.CONFIRMED_EVIDENCE)
+    rt = EvidenceNode(id="retest-proof-01", kind="RETEST", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=900, known_at_ms=1000, source_ids=(fvg.id,), level=4182.5, fact_status=FactStatus.CONFIRMED_EVIDENCE)
+    nodes = [sw, br, fvg, rt]
+    scenario_id = "NY:2026-10-13:test03"
+    instance_id = "sc-inst-test03"
+    snap_scen = ScenarioSnapshot(
+        scenario_id=scenario_id,
+        instance_id=instance_id,
+        revision=1,
+        symbol="XAUUSDT",
+        setup_timeframe="5M",
+        context_timeframes=["D", "4H", "15M"],
+        family="STANDARD_SMC",
+        direction="LONG",
+        state=ScenarioState.STRUCTURE_CONFIRMED,
+        as_of_ms=1000,
+        evidence_cutoff_ms=1000,
+        evidence_ids=[n.id for n in nodes],
+        liquidity_map={},
+        trigger_chain={"verified": True, "reasons": [], "node_ids": {"sweep": sw.id, "break": br.id, "fvg": fvg.id, "retest": rt.id}},
+        target=None,
+        invalidation=None,
+        summary_vi="Proof snapshot",
+        config_version=1,
+        detector_version="v14.4",
+        requirement_profile="DEFAULT",
+        evidence=[n.to_dict() for n in nodes],
+    )
+    isolated_db.add(models.SMCScenarioSnapshot(
+        snapshot_id="snap-test03",
+        scenario_id=scenario_id,
+        instance_id=instance_id,
+        revision=1,
+        symbol="XAUUSDT",
+        timeframe="5M",
+        direction="LONG",
+        state=ScenarioState.STRUCTURE_CONFIRMED.value,
+        as_of_ms=1000,
+        evidence_cutoff_ms=1000,
+        evidence_digest="d_test03",
+        created_at=1000,
+        payload=json.dumps(snap_scen.to_dict()),
+    ))
+
     # Seed genuine confirmation DomainEvent per PHẦN 037
     proof_event = models.DomainEvent(
         event_id="proof-retest-fvg-01",
@@ -87,8 +139,16 @@ def test_fcproof03_genuine_confirmation_proof_yields_confirmed_target(isolated_d
             "event_kind": "scenario.confirmed",
             "symbol": "XAUUSDT",
             "direction": "LONG",
-            "scenario_id": "NY:2026-10-13:test03",
-            "instance_id": "sc-inst-test03",
+            "scenario_id": scenario_id,
+            "instance_id": instance_id,
+            "snapshot_id": "snap-test03",
+            "revision": 1,
+            "config_version": 1,
+            "profile": "DEFAULT",
+            "evidence_digest": "d_test03",
+            "sweep_id": "sweep-01",
+            "break_id": "break-01",
+            "fvg_id": "fvg-01",
             "retest_id": "retest-proof-01",
             "evidence_chain_ids": ["sweep-01", "break-01", "fvg-01", "retest-proof-01"],
             "known_at_ms": 1000,
@@ -103,6 +163,8 @@ def test_fcproof03_genuine_confirmation_proof_yields_confirmed_target(isolated_d
         "session": "NY",
         "session_id": "NY:2026-10-13:test03",
         "instance_id": "sc-inst-test03",
+        "config_version": 1,
+        "profile": "DEFAULT",
         "as_of_ms": 1000,
         "hypothesis_type": "PRIMARY",
         "primary": {
@@ -192,6 +254,52 @@ def test_fcproof06_summary_cohort_excludes_unverified_records(isolated_db):
     Summary cohort only includes decisive outcomes from VERIFIED records.
     Unverified records are counted in n_legacy_unverified and excluded from target_touch_fraction.
     """
+    sw = EvidenceNode(id="sweep-01", kind="SWEEP_LOW", symbol="XAUUSDT", timeframe="5M", direction=None, occurred_at_ms=80, known_at_ms=85, level=4170.0, fact_status=FactStatus.CONFIRMED_EVIDENCE)
+    br = EvidenceNode(id="break-01", kind="CHOCH", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=85, known_at_ms=88, source_ids=(sw.id,), level=4185.0, fact_status=FactStatus.CONFIRMED_EVIDENCE)
+    fvg = EvidenceNode(id="fvg-01", kind="FVG", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=88, known_at_ms=89, source_ids=(br.id,), level=4182.0, fact_status=FactStatus.CONFIRMED_EVIDENCE)
+    rt = EvidenceNode(id="retest-01", kind="RETEST", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=90, known_at_ms=100, source_ids=(fvg.id,), level=4182.5, fact_status=FactStatus.CONFIRMED_EVIDENCE)
+    nodes = [sw, br, fvg, rt]
+    scenario_id = "NY:ver1"
+    instance_id = "inst-ver1"
+    snap_scen = ScenarioSnapshot(
+        scenario_id=scenario_id,
+        instance_id=instance_id,
+        revision=1,
+        symbol="XAUUSDT",
+        setup_timeframe="5M",
+        context_timeframes=["D", "4H", "15M"],
+        family="STANDARD_SMC",
+        direction="LONG",
+        state=ScenarioState.STRUCTURE_CONFIRMED,
+        as_of_ms=100,
+        evidence_cutoff_ms=100,
+        evidence_ids=[n.id for n in nodes],
+        liquidity_map={},
+        trigger_chain={"verified": True, "reasons": [], "node_ids": {"sweep": sw.id, "break": br.id, "fvg": fvg.id, "retest": rt.id}},
+        target=None,
+        invalidation=None,
+        summary_vi="Proof snapshot",
+        config_version=1,
+        detector_version="v14.4",
+        requirement_profile="DEFAULT",
+        evidence=[n.to_dict() for n in nodes],
+    )
+    isolated_db.add(models.SMCScenarioSnapshot(
+        snapshot_id="snap-fcproof06",
+        scenario_id=scenario_id,
+        instance_id=instance_id,
+        revision=1,
+        symbol="XAUUSDT",
+        timeframe="5M",
+        direction="LONG",
+        state=ScenarioState.STRUCTURE_CONFIRMED.value,
+        as_of_ms=100,
+        evidence_cutoff_ms=100,
+        evidence_digest="d_ver1",
+        created_at=100,
+        payload=json.dumps(snap_scen.to_dict()),
+    ))
+
     proof_event = models.DomainEvent(
         event_id="proof-fcproof06",
         sequence=1,
@@ -207,6 +315,14 @@ def test_fcproof06_summary_cohort_excludes_unverified_records(isolated_db):
             "direction": "LONG",
             "scenario_id": "NY:ver1",
             "instance_id": "inst-ver1",
+            "snapshot_id": "snap-fcproof06",
+            "revision": 1,
+            "config_version": 1,
+            "profile": "DEFAULT",
+            "evidence_digest": "d_ver1",
+            "sweep_id": "sweep-01",
+            "break_id": "break-01",
+            "fvg_id": "fvg-01",
             "retest_id": "retest-01",
             "evidence_chain_ids": ["sweep-01", "break-01", "fvg-01", "retest-01"],
             "known_at_ms": 100,
@@ -236,6 +352,8 @@ def test_fcproof06_summary_cohort_excludes_unverified_records(isolated_db):
             "instance_id": "inst-ver1",
             "confirmation_proof_id": "proof-fcproof06",
             "confirmed_at_ms": 100,
+            "config_version": 1,
+            "profile": "DEFAULT",
         }),
         created_at=100,
     )

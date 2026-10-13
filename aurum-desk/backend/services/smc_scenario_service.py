@@ -1000,6 +1000,28 @@ def record_scenario_confirmation_event(
         "schema_version": "1.0.0",
     }
 
+    # PHẦN 019: Ensure emit event referencing persisted same revision and profile
+    snap_row = db.query(models.SMCScenarioSnapshot).filter_by(snapshot_id=snapshot.snapshot_id).first()
+    if not snap_row:
+        state_str = getattr(snapshot.state, "value", str(snapshot.state))
+        snap_row = models.SMCScenarioSnapshot(
+            snapshot_id=snapshot.snapshot_id,
+            scenario_id=snapshot.scenario_id,
+            instance_id=snapshot.instance_id,
+            revision=snapshot.revision,
+            symbol=snapshot.symbol,
+            timeframe=snapshot.setup_timeframe,
+            direction=snapshot.direction,
+            state=state_str,
+            as_of_ms=snapshot.as_of_ms,
+            evidence_cutoff_ms=snapshot.evidence_cutoff_ms,
+            evidence_digest=getattr(snapshot, "digest", "") or "canonical_digest",
+            created_at=snapshot.as_of_ms,
+            payload=json.dumps(snapshot.to_dict()),
+        )
+        db.add(snap_row)
+        db.flush()
+
     event = models.DomainEvent(
         event_id=event_uid,
         sequence=1,

@@ -20,6 +20,7 @@ import json
 import logging
 import math
 import re
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Sequence
 from sqlalchemy import func
@@ -216,6 +217,303 @@ def normalize_forecast_identity(
 ALLOWED_PROOF_EVENT_TYPES = {"scenario.confirmed", "SCENARIO_CONFIRMATION", "smc.confirmation"}
 
 
+@dataclass(frozen=True)
+class ProofReference:
+    schema_version: str
+    event_id: str
+    snapshot_id: str
+    instance_id: str
+    revision: int
+    config_version: str
+    requirement_profile: str
+    evidence_digest: Optional[str]
+    known_at_ms: int
+    symbol: str
+    direction: str
+    payload: Dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ConfirmationSourceResult:
+    is_valid: bool
+    reason_code: str
+    row: Optional[Any] = None
+    snapshot: Optional[Any] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+def load_confirmation_source(db: Session, reference: ProofReference) -> ConfirmationSourceResult:
+    """PHẦN 010, 077: Loads canonical snapshot record from SMCScenarioSnapshot repository.
+    Strict fail-closed: missing row, corrupt payload, or schema error returns invalid.
+    """
+    if not reference.snapshot_id:
+        return ConfirmationSourceResult(is_valid=False, reason_code="MISSING_SNAPSHOT_ID")
+
+    from services.smc_scenario_repository import get_scenario_snapshot, snapshot_from_row
+    row = get_scenario_snapshot(db, reference.snapshot_id)
+    if not row:
+        return ConfirmationSourceResult(is_valid=False, reason_code="PROOF_SNAPSHOT_NOT_FOUND")
+
+    if not row.payload:
+        return ConfirmationSourceResult(is_valid=False, reason_code="CORRUPT_PROOF_SNAPSHOT", row=row)
+
+    try:
+        snapshot = snapshot_from_row(row)
+    except Exception:
+        return ConfirmationSourceResult(is_valid=False, reason_code="CORRUPT_PROOF_SNAPSHOT", row=row)
+
+    if snapshot is None:
+        return ConfirmationSourceResult(is_valid=False, reason_code="CORRUPT_PROOF_SNAPSHOT", row=row)
+
+    snap_sym = getattr(snapshot, "symbol", None)
+    if row.symbol and snap_sym and row.symbol != snap_sym:
+        return ConfirmationSourceResult(is_valid=False, reason_code="CORRUPT_PROOF_SNAPSHOT", row=row, snapshot=snapshot)
+
+    # Digest check if provided in schema/reference
+    if row.evidence_digest and reference.evidence_digest:
+        if row.evidence_digest != reference.evidence_digest:
+            return ConfirmationSourceResult(is_valid=False, reason_code="PROOF_DIGEST_MISMATCH", row=row, snapshot=snapshot)
+
+    return ConfirmationSourceResult(
+        is_valid=True,
+        reason_code="SOURCE_LOADED",
+        row=row,
+        snapshot=snapshot,
+        metadata={
+            "snapshot_id": row.snapshot_id,
+            "scenario_id": row.scenario_id,
+            "instance_id": row.instance_id,
+            "revision": row.revision,
+            "evidence_digest": row.evidence_digest,
+        },
+    )
+
+
+def validate_confirmation_event_schema(
+    event: models.DomainEvent,
+    identity: Optional[ForecastIdentity] = None,
+    as_of_ms: Optional[int] = None,
+) -> tuple[bool, str, Optional[ProofReference]]:
+    """PHẦN 011, 079: Validates domain event schema and envelope matching before querying repository.
+    Enforces required typed fields, JSON object payload, and snapshot reference.
+    """
+    if event.event_type not in ALLOWED_PROOF_EVENT_TYPES:
+        return False, "UNAUTHORIZED_EVENT_TYPE", None
+
+    payload: Dict[str, Any] = {}
+    if event.payload:
+        try:
+            if isinstance(event.payload, str):
+                payload = json.loads(event.payload)
+            elif isinstance(event.payload, dict):
+                payload = event.payload
+            else:
+                return False, "INVALID_PROOF_SCHEMA", None
+        except Exception:
+            return False, "INVALID_PROOF_SCHEMA", None
+
+    if not isinstance(payload, dict) or not payload:
+        return False, "EMPTY_PROOF_PAYLOAD", None
+
+    event_symbol = payload.get("symbol")
+    event_dir = payload.get("direction")
+    event_inst = payload.get("instance_id") or payload.get("scenario_instance_id")
+    event_config = payload.get("config_version")
+    event_profile = payload.get("profile") or payload.get("requirement_profile")
+
+    # Direction normalization helper
+    def _norm_dir(d: Optional[str]) -> str:
+        if not d:
+            return ""
+        u = str(d).upper()
+        if "BUY" in u or "BULL" in u or "LONG" in u:
+            return "LONG"
+        if "SELL" in u or "BEAR" in u or "SHORT" in u:
+            return "SHORT"
+        return u
+
+    # Check identity mismatches early to preserve clear error codes
+    if identity:
+        if identity.symbol and event_symbol and identity.symbol != event_symbol:
+            return False, "PROOF_SYMBOL_MISMATCH", None
+
+        ident_dir = _norm_dir(identity.direction)
+        payload_dir = _norm_dir(event_dir)
+        if ident_dir and payload_dir and ident_dir != payload_dir:
+            return False, "PROOF_DIRECTION_MISMATCH", None
+
+        if identity.instance_id and event_inst and identity.instance_id != event_inst:
+            return False, "PROOF_INSTANCE_MISMATCH", None
+
+        if identity.config_version and event_config and str(identity.config_version) != str(event_config):
+            return False, "PROOF_CONFIG_MISMATCH", None
+
+        if identity.profile and event_profile and identity.profile != event_profile:
+            return False, "PROOF_PROFILE_MISMATCH", None
+
+    # Known_at timestamp: finite typed integer, no bool
+    known_at = payload.get("known_at_ms") or event.published_at or event.occurred_at
+    if isinstance(known_at, bool) or not isinstance(known_at, int) or known_at <= 0:
+        return False, "INVALID_PROOF_SCHEMA", None
+
+    occurred_at = payload.get("occurred_at_ms") or event.occurred_at
+    if isinstance(occurred_at, bool) or not isinstance(occurred_at, int) or occurred_at <= 0:
+        return False, "INVALID_PROOF_SCHEMA", None
+
+    if known_at < occurred_at:
+        return False, "PROOF_CAUSALITY_VIOLATION", None
+
+    if as_of_ms is not None and known_at > as_of_ms:
+        return False, "PROOF_KNOWN_AT_FUTURE", None
+
+    # Check required snapshot_id
+    snap_id = payload.get("snapshot_id")
+    if not snap_id or not isinstance(snap_id, str):
+        if payload.get("transition"):
+            return False, "INCOMPLETE_CONFIRMATION_CHAIN", None
+        return False, "MISSING_SNAPSHOT_ID", None
+
+    ref = ProofReference(
+        schema_version=getattr(event, "schema_version", "1.0.0") or "1.0.0",
+        event_id=event.event_id,
+        snapshot_id=snap_id,
+        instance_id=str(event_inst) if event_inst else "",
+        revision=int(payload.get("revision") or getattr(event, "aggregate_version", 1) or 1),
+        config_version=str(event_config or "1"),
+        requirement_profile=str(event_profile or "SMC_DEFAULT"),
+        evidence_digest=payload.get("evidence_digest"),
+        known_at_ms=known_at,
+        symbol=str(event_symbol) if event_symbol else "",
+        direction=_norm_dir(event_dir),
+        payload=payload,
+    )
+    return True, "SCHEMA_VALID", ref
+
+
+def validate_event_source_forecast_binding(
+    ref: ProofReference,
+    source: ConfirmationSourceResult,
+    identity: ForecastIdentity,
+    as_of_ms: int,
+) -> tuple[bool, str]:
+    """PHẦN 012, 013, 080: Compares canonical snapshot vs event vs forecast constraints.
+    Rejects mismatches in symbol, direction, instance_id, config_version, profile, or future known_at.
+    """
+    snap = source.snapshot
+
+    # 1. Symbol
+    if identity.symbol and ref.symbol and identity.symbol != ref.symbol:
+        return False, "PROOF_SYMBOL_MISMATCH"
+    if snap and getattr(snap, "symbol", None) and identity.symbol and getattr(snap, "symbol") != identity.symbol:
+        return False, "PROOF_SYMBOL_MISMATCH"
+
+    # 2. Direction (normalized)
+    def _norm_dir(d: Optional[str]) -> str:
+        if not d:
+            return ""
+        u = str(d).upper()
+        if "BUY" in u or "BULL" in u or "LONG" in u:
+            return "LONG"
+        if "SELL" in u or "BEAR" in u or "SHORT" in u:
+            return "SHORT"
+        return u
+
+    ident_dir = _norm_dir(identity.direction)
+    ref_dir = _norm_dir(ref.direction)
+    snap_dir = _norm_dir(getattr(snap, "direction", None)) if snap else ""
+
+    if ident_dir and ref_dir and ident_dir != ref_dir:
+        return False, "PROOF_DIRECTION_MISMATCH"
+    if ident_dir and snap_dir and ident_dir != snap_dir:
+        return False, "PROOF_DIRECTION_MISMATCH"
+    if ref_dir and snap_dir and ref_dir != snap_dir:
+        return False, "PROOF_DIRECTION_MISMATCH"
+
+    # 3. Instance
+    if identity.instance_id and ref.instance_id and identity.instance_id != ref.instance_id:
+        return False, "PROOF_INSTANCE_MISMATCH"
+    if snap and getattr(snap, "instance_id", None) and identity.instance_id and getattr(snap, "instance_id") != identity.instance_id:
+        return False, "PROOF_INSTANCE_MISMATCH"
+    if snap and getattr(snap, "instance_id", None) and ref.instance_id and getattr(snap, "instance_id") != ref.instance_id:
+        return False, "PROOF_INSTANCE_MISMATCH"
+
+    # 4. Config version
+    def _norm_cfg(c: Any) -> str:
+        if c is None:
+            return ""
+        s = str(c).strip().lower()
+        if s.startswith("v"):
+            s = s[1:]
+        return s
+
+    id_cfg = _norm_cfg(identity.config_version)
+    ref_cfg = _norm_cfg(ref.config_version)
+    snap_cfg = _norm_cfg(getattr(snap, "config_version", None)) if snap else ""
+
+    if id_cfg and ref_cfg and id_cfg != ref_cfg:
+        return False, "PROOF_CONFIG_MISMATCH"
+    if snap_cfg and id_cfg and snap_cfg != id_cfg:
+        return False, "PROOF_CONFIG_MISMATCH"
+    if snap_cfg and ref_cfg and snap_cfg != ref_cfg:
+        return False, "PROOF_CONFIG_MISMATCH"
+
+    # 5. Requirement profile
+    if identity.profile and ref.requirement_profile and identity.profile != ref.requirement_profile:
+        return False, "PROOF_PROFILE_MISMATCH"
+    if snap and getattr(snap, "requirement_profile", None) and identity.profile and getattr(snap, "requirement_profile") != identity.profile:
+        return False, "PROOF_PROFILE_MISMATCH"
+
+    # 6. Cutoff time: no future information!
+    if ref.known_at_ms > as_of_ms:
+        return False, "PROOF_KNOWN_AT_FUTURE"
+
+    return True, "BINDING_VALID"
+
+
+def validate_referenced_canonical_chain(
+    snapshot: Any,
+    ref: ProofReference,
+    cutoff_ms: int,
+) -> tuple[bool, str, list[str]]:
+    """PHẦN 015, 016, 081: Validates canonical confirmation chain from snapshot evidence.
+    Compares event selected IDs with actual canonical nodes in the snapshot.
+    """
+    from services.smc_scenario_service import extract_confirmation_chain
+    chain_res = extract_confirmation_chain(snapshot)
+    if not chain_res.is_valid:
+        first_err = chain_res.reasons[0] if chain_res.reasons else "INVALID_CHAIN"
+        return False, f"INVALID_CONFIRMATION_CHAIN_{first_err}", []
+
+    canonical_node_ids = set()
+    if getattr(snapshot, "evidence", None):
+        for node in snapshot.evidence:
+            nid = node.get("id") if isinstance(node, dict) else getattr(node, "id", None)
+            if nid:
+                canonical_node_ids.add(nid)
+    if getattr(snapshot, "evidence_ids", None):
+        for eid in snapshot.evidence_ids:
+            canonical_node_ids.add(eid)
+
+    payload = ref.payload
+    event_sweep = payload.get("sweep_id")
+    event_break = payload.get("break_id")
+    event_fvg = payload.get("fvg_id")
+    event_retest = payload.get("retest_id")
+    event_chain_ids = payload.get("evidence_chain_ids") or payload.get("chain_ids") or []
+
+    for k, eid in [("break_id", event_break), ("retest_id", event_retest), ("sweep_id", event_sweep), ("fvg_id", event_fvg)]:
+        if eid and eid not in canonical_node_ids:
+            return False, "PROOF_EVIDENCE_MISMATCH", []
+
+    if event_chain_ids:
+        for cid in event_chain_ids:
+            if cid not in canonical_node_ids:
+                return False, "PROOF_EVIDENCE_MISMATCH", []
+
+    selected_ids = list(canonical_node_ids)
+    return True, "CHAIN_VALIDATED", selected_ids
+
+
 def load_confirmation_snapshot(db: Session, snapshot_id: str) -> Optional[Any]:
     """PHẦN 022, 081: Loads canonical ScenarioSnapshot from SMCScenarioSnapshot table."""
     row = db.query(models.SMCScenarioSnapshot).filter(models.SMCScenarioSnapshot.snapshot_id == snapshot_id).first()
@@ -232,21 +530,11 @@ def load_and_validate_confirmation_proof(
     db: Session,
     proof_id: str,
     snapshot_definition: Any,
-    as_of_ms: int
+    as_of_ms: int,
 ) -> Dict[str, Any]:
-    """Pure proof repository loader & validator (PHẦN 017, 038, 040, 041, 083, 095):
-    Validates genuine machine proof record from DomainEvent store.
-    Checks:
-    - ID exists
-    - Event type is an authorized confirmation event type
-    - Payload is non-empty
-    - Normalized direction matches
-    - Symbol matches
-    - Scenario instance matches
-    - Config version matches
-    - Profile matches
-    - Event known_at <= as_of_ms (no future information)
-    - Closed chain proof presence (no transition-only shortcuts)
+    """Pure proof repository loader & validator (PHẦN 007–024, 076–082):
+    Validates genuine machine proof record from DomainEvent store and canonical ScenarioSnapshot.
+    Strict fail-closed: missing snapshot, corrupt row, mismatched metadata, or fake IDs fail immediately.
     """
     if not proof_id or not isinstance(proof_id, str):
         return {"is_valid": False, "reason_code": "EMPTY_PROOF_ID"}
@@ -255,75 +543,35 @@ def load_and_validate_confirmation_proof(
     if not event:
         return {"is_valid": False, "reason_code": "PROOF_NOT_FOUND"}
 
-    if event.event_type not in ALLOWED_PROOF_EVENT_TYPES:
-        return {"is_valid": False, "reason_code": "UNAUTHORIZED_EVENT_TYPE"}
-
-    payload: Dict[str, Any] = {}
-    if event.payload:
-        try:
-            payload = json.loads(event.payload) if isinstance(event.payload, str) else event.payload
-        except Exception:
-            payload = {}
-
-    if not payload:
-        return {"is_valid": False, "reason_code": "EMPTY_PROOF_PAYLOAD"}
-
     identity, err = normalize_forecast_identity(snapshot_definition)
     if err or not identity:
         return {"is_valid": False, "reason_code": err or "INVALID_FORECAST_IDENTITY"}
 
-    event_symbol = payload.get("symbol")
-    if identity.symbol and event_symbol and identity.symbol != event_symbol:
-        return {"is_valid": False, "reason_code": "PROOF_SYMBOL_MISMATCH"}
+    schema_ok, schema_reason, ref = validate_confirmation_event_schema(event, identity=identity, as_of_ms=as_of_ms)
+    if not schema_ok or not ref:
+        return {"is_valid": False, "reason_code": schema_reason}
 
-    event_dir = payload.get("direction")
-    if identity.direction and event_dir and identity.direction != event_dir:
-        return {"is_valid": False, "reason_code": "PROOF_DIRECTION_MISMATCH"}
+    source = load_confirmation_source(db, ref)
+    if not source.is_valid:
+        return {"is_valid": False, "reason_code": source.reason_code}
 
-    event_inst = payload.get("instance_id") or payload.get("scenario_instance_id")
-    if identity.instance_id and event_inst and identity.instance_id != event_inst:
-        return {"is_valid": False, "reason_code": "PROOF_INSTANCE_MISMATCH"}
+    binding_ok, binding_reason = validate_event_source_forecast_binding(ref, source, identity, as_of_ms)
+    if not binding_ok:
+        return {"is_valid": False, "reason_code": binding_reason}
 
-    event_config = payload.get("config_version")
-    if identity.config_version and event_config and str(identity.config_version) != str(event_config):
-        return {"is_valid": False, "reason_code": "PROOF_CONFIG_MISMATCH"}
-
-    event_profile = payload.get("profile") or payload.get("requirement_profile")
-    if identity.profile and event_profile and identity.profile != event_profile:
-        return {"is_valid": False, "reason_code": "PROOF_PROFILE_MISMATCH"}
-
-    event_known_at = payload.get("known_at_ms") or event.published_at or event.occurred_at
-    if event_known_at is not None and event_known_at > as_of_ms:
-        return {"is_valid": False, "reason_code": "PROOF_KNOWN_AT_FUTURE"}
-
-    # PHẦN 017, 083: Require genuine confirmation chain (no transition-only shortcuts)
-    snap_id = payload.get("snapshot_id")
-    if snap_id:
-        snap_obj = load_confirmation_snapshot(db, snap_id)
-        if snap_obj is not None:
-            from services.smc_scenario_service import extract_confirmation_chain
-            chain_res = extract_confirmation_chain(snap_obj)
-            if not chain_res.is_valid:
-                return {"is_valid": False, "reason_code": f"INVALID_CONFIRMATION_CHAIN_{chain_res.reasons[0]}"}
-
-    has_chain = bool(
-        payload.get("retest_id")
-        and (
-            payload.get("break_id")
-            or len(payload.get("evidence_chain_ids") or []) >= 3
-            or len(payload.get("chain_ids") or []) >= 3
-        )
-    )
-    if not has_chain:
-        return {"is_valid": False, "reason_code": "INCOMPLETE_CONFIRMATION_CHAIN"}
+    chain_ok, chain_reason, selected_ids = validate_referenced_canonical_chain(source.snapshot, ref, as_of_ms)
+    if not chain_ok:
+        return {"is_valid": False, "reason_code": chain_reason}
 
     return {
         "is_valid": True,
         "reason_code": "PROOF_VALIDATED",
         "proof_event_id": event.event_id,
-        "evidence_ids": payload.get("evidence_chain_ids") or payload.get("chain_ids") or [],
-        "known_at": event_known_at,
-        "source_profile": event_profile,
+        "snapshot_id": ref.snapshot_id,
+        "evidence_ids": selected_ids,
+        "known_at": ref.known_at_ms,
+        "source_profile": ref.requirement_profile,
+        "validation_version": "v14.4.7",
     }
 
 
@@ -449,6 +697,11 @@ def create_forecast_snapshot(
             else:
                 verif_status = "UNVERIFIED"
 
+            proof_reasons = []
+            if not is_machine_verified and proof_val.get("reason_code"):
+                proof_reasons = [proof_val["reason_code"]]
+            f_dict["proof_verification_reasons"] = proof_reasons
+
             payload_clean = json.dumps(f_dict, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
             obs = models.ForecastObservation(
@@ -471,6 +724,7 @@ def create_forecast_snapshot(
                 payload_json=payload_clean,
                 created_at=now_ms if now_ms is not None else as_of_effective,
             )
+            obs.proof_verification_reasons = proof_reasons
             db.add(obs)
             db.flush()
             return obs

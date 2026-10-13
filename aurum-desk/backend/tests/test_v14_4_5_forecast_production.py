@@ -102,6 +102,54 @@ def test_f02_exact_binding_and_causal_cutoff(isolated_db: Session):
     """Case F02 (PHẦN 039, 040, 041, 113):
     Exact binding to direction, instance_id, config_version, profile, and known_at <= as_of_ms.
     """
+    # Create genuine snapshot in SMCScenarioSnapshot repository (PHẦN 059)
+    from services.smc_scenario_types import ScenarioSnapshot, ScenarioState, EvidenceNode, FactStatus
+    nodes = [
+        EvidenceNode(id="s1", kind="SWEEP_LOW", symbol="XAUUSDT", timeframe="5M", direction=None, occurred_at_ms=800, known_at_ms=850, level=4170.0, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+        EvidenceNode(id="b1", kind="CHOCH", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=860, known_at_ms=900, source_ids=("s1",), level=4185.0, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+        EvidenceNode(id="f1", kind="FVG", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=910, known_at_ms=950, source_ids=("b1",), level=4182.0, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+        EvidenceNode(id="retest-1", kind="RETEST", symbol="XAUUSDT", timeframe="5M", direction="BULLISH", occurred_at_ms=960, known_at_ms=1000, source_ids=("f1",), level=4182.5, fact_status=FactStatus.CONFIRMED_EVIDENCE),
+    ]
+    snap_f02 = ScenarioSnapshot(
+        scenario_id="scen-long-01",
+        instance_id="inst-long-01",
+        revision=1,
+        symbol="XAUUSDT",
+        setup_timeframe="5M",
+        context_timeframes=["D", "4H", "15M"],
+        family="STANDARD_SMC",
+        direction="LONG",
+        state=ScenarioState.STRUCTURE_CONFIRMED,
+        as_of_ms=1000,
+        evidence_cutoff_ms=1000,
+        evidence_ids=[n.id for n in nodes],
+        liquidity_map={},
+        trigger_chain={"verified": True, "reasons": [], "node_ids": {"sweep": "s1", "break": "b1", "fvg": "f1", "retest": "retest-1"}},
+        target=None,
+        invalidation=None,
+        summary_vi="Snapshot",
+        config_version="v1",
+        detector_version="v14.4",
+        requirement_profile="SMC_DEFAULT",
+        evidence=[n.to_dict() for n in nodes],
+    )
+    snap_row = models.SMCScenarioSnapshot(
+        snapshot_id="snap-long-01",
+        scenario_id="scen-long-01",
+        instance_id="inst-long-01",
+        revision=1,
+        symbol="XAUUSDT",
+        timeframe="5M",
+        direction="LONG",
+        state="STRUCTURE_CONFIRMED",
+        as_of_ms=1000,
+        evidence_cutoff_ms=1000,
+        evidence_digest="digest_test_f02",
+        created_at=1000,
+        payload=json.dumps(snap_f02.to_dict()),
+    )
+    isolated_db.add(snap_row)
+
     # Create genuine proof for LONG, instance "inst-long-01", config "v1", profile "SMC_DEFAULT"
     proof = models.DomainEvent(
         event_id="proof-genuine-long-01",
@@ -117,6 +165,7 @@ def test_f02_exact_binding_and_causal_cutoff(isolated_db: Session):
             "symbol": "XAUUSDT",
             "direction": "LONG",
             "instance_id": "inst-long-01",
+            "snapshot_id": "snap-long-01",
             "config_version": "v1",
             "profile": "SMC_DEFAULT",
             "retest_id": "retest-1",

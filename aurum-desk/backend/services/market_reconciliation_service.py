@@ -164,15 +164,163 @@ class OrderReconciliationWindow:
 
 
 @dataclass(frozen=True)
+class WindowCursor:
+    schema_version: str = "1.0.0"
+    phase: str = "OPEN"  # "OPEN" or "CLOSED"
+    last_time: int = 0
+    last_order_id: str = ""
+    scan_revision: int = 1
+    symbol: str = "XAUUSDT"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "phase": self.phase,
+            "last_time": self.last_time,
+            "last_order_id": self.last_order_id,
+            "scan_revision": self.scan_revision,
+            "symbol": self.symbol,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> WindowCursor:
+        return cls(
+            schema_version=str(data.get("schema_version", "1.0.0")),
+            phase=str(data.get("phase", "OPEN")),
+            last_time=int(data.get("last_time", 0) or 0),
+            last_order_id=str(data.get("last_order_id", "") or ""),
+            scan_revision=int(data.get("scan_revision", 1) or 1),
+            symbol=str(data.get("symbol", "XAUUSDT")),
+        )
+
+
+@dataclass
+class ReconciliationScanProgress:
+    category: str = "DEFAULT"
+    window_cursor: Optional[WindowCursor] = None
+    query_revision: int = 1
+    symbol: str = "XAUUSDT"
+    updated_at: int = 0
+    reason: str = "INITIAL"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "category": self.category,
+            "window_cursor": self.window_cursor.to_dict() if self.window_cursor else None,
+            "query_revision": self.query_revision,
+            "symbol": self.symbol,
+            "updated_at": self.updated_at,
+            "reason": self.reason,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> ReconciliationScanProgress:
+        wc_dict = data.get("window_cursor")
+        wc = WindowCursor.from_dict(wc_dict) if isinstance(wc_dict, dict) else None
+        return cls(
+            category=str(data.get("category", "DEFAULT")),
+            window_cursor=wc,
+            query_revision=int(data.get("query_revision", 1) or 1),
+            symbol=str(data.get("symbol", "XAUUSDT")),
+            updated_at=int(data.get("updated_at", 0) or 0),
+            reason=str(data.get("reason", "INITIAL")),
+        )
+
+
+@dataclass(frozen=True)
+class SaveResult:
+    success: bool
+    revision: int
+    reason: str = ""
+
+
+@dataclass
+class EvidenceProgress:
+    window_id: str = ""
+    source_cursor: Optional[Tuple[int, str]] = None
+    arrival_revision: int = 1
+    scan_cutoff: int = 0
+    candidate_refs: List[str] = field(default_factory=list)
+    read_status: str = "PENDING"  # PENDING, MORE_WORK, COMPLETE, REPLAY_NEEDED, RESET
+    updated_at: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "window_id": self.window_id,
+            "source_cursor": list(self.source_cursor) if isinstance(self.source_cursor, tuple) else self.source_cursor,
+            "arrival_revision": self.arrival_revision,
+            "scan_cutoff": self.scan_cutoff,
+            "candidate_refs": self.candidate_refs,
+            "read_status": self.read_status,
+            "updated_at": self.updated_at,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> EvidenceProgress:
+        raw_sc = data.get("source_cursor")
+        sc = (int(raw_sc[0]), str(raw_sc[1])) if (isinstance(raw_sc, (list, tuple)) and len(raw_sc) == 2) else None
+        return cls(
+            window_id=str(data.get("window_id", "")),
+            source_cursor=sc,
+            arrival_revision=int(data.get("arrival_revision", 1) or 1),
+            scan_cutoff=int(data.get("scan_cutoff", 0) or 0),
+            candidate_refs=list(data.get("candidate_refs") or []),
+            read_status=str(data.get("read_status", "PENDING")),
+            updated_at=int(data.get("updated_at", 0) or 0),
+        )
+
+
+@dataclass
+class CycleBudget:
+    max_windows: int = 50
+    max_pages: int = 20
+    max_records: int = 4000
+    deadline_monotonic: float = 0.0
+    pages_processed: int = 0
+    records_processed: int = 0
+    windows_processed: int = 0
+
+    def allows_page(self) -> bool:
+        return self.pages_processed < self.max_pages and self.records_processed < self.max_records
+
+    def allows_window(self) -> bool:
+        return self.windows_processed < self.max_windows
+
+    def record_page(self, count: int):
+        self.pages_processed += 1
+        self.records_processed += count
+
+    def record_window(self):
+        self.windows_processed += 1
+
+
+@dataclass(frozen=True)
+class WindowSliceResult:
+    progressed: bool
+    has_more: bool
+    next_progress: Optional[EvidenceProgress] = None
+    read_complete: bool = False
+    decision: Optional[ResolutionDecision] = None
+    reasons: List[str] = field(default_factory=list)
+    processed_count: int = 0
+
+
+@dataclass(frozen=True)
+class TaskRegistrationResult:
+    registered_count: int
+    affected_order_ids: List[str]
+
+
+@dataclass(frozen=True)
 class WindowPage:
     items: List[OrderReconciliationWindow]
-    next_cursor: Optional[int] = None
+    next_cursor: Any = None
 
 
 @dataclass(frozen=True)
 class EvidencePage:
     items: List[Dict[str, Any]]
-    next_cursor: Optional[int] = None
+    next_cursor: Any = None
 
 
 @dataclass(frozen=True)
@@ -400,7 +548,7 @@ def persist_reconciliation_evidence(db: Session, records: List[Dict[str, Any]]) 
     persisted_ids: List[str] = []
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     for r in records:
-        ev_id = r.get("evidence_id")
+        ev_id = r.get("evidence_id") or r.get("event_id")
         if not ev_id:
             continue
         event_uid = f"late_ev_{ev_id}"
@@ -411,7 +559,7 @@ def persist_reconciliation_evidence(db: Session, records: List[Dict[str, Any]]) 
                 sequence=1,
                 schema_version="1.0.0",
                 event_type="LATE_RECONCILIATION_EVIDENCE",
-                aggregate_id=ev_id,
+                aggregate_id=r.get("symbol") or r.get("instrument") or ev_id,
                 aggregate_version=1,
                 occurred_at=r.get("source_timestamp") or now_ms,
                 published_at=now_ms,
@@ -426,6 +574,138 @@ def persist_reconciliation_evidence(db: Session, records: List[Dict[str, Any]]) 
         logger.error(f"Failed to persist reconciliation evidence batch: {e}")
         return []
     return persisted_ids
+
+
+def load_scan_progress(db: Session, symbol: str = "XAUUSDT", scan_scope: str = "default") -> ReconciliationScanProgress:
+    """PHẦN 030, 085: Loads persistent reconciliation scan progress across coordinator cycles."""
+    key = f"recon_scan:{symbol}:{scan_scope}"[:50]
+    rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+    if not rec or not rec.value:
+        return ReconciliationScanProgress(category="DEFAULT", window_cursor=None, symbol=symbol)
+    try:
+        data = json.loads(rec.value)
+        return ReconciliationScanProgress.from_dict(data)
+    except Exception:
+        return ReconciliationScanProgress(category="DEFAULT", window_cursor=None, symbol=symbol)
+
+
+def save_scan_progress(
+    db: Session,
+    progress: ReconciliationScanProgress,
+    scan_scope: str = "default",
+    expected_revision: Optional[int] = None,
+) -> SaveResult:
+    """PHẦN 030, 085: Saves persistent reconciliation scan progress atomically."""
+    key = f"recon_scan:{progress.symbol}:{scan_scope}"[:50]
+    rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    current_rev = progress.query_revision
+    if rec and expected_revision is not None:
+        try:
+            curr_data = json.loads(rec.value)
+            if curr_data.get("query_revision", 1) != expected_revision:
+                return SaveResult(success=False, revision=curr_data.get("query_revision", 1), reason="REVISION_CONFLICT")
+        except Exception:
+            pass
+
+    progress.updated_at = now_ms
+    val_json = json.dumps(progress.to_dict())
+    if not rec:
+        rec = models.SystemConfig(key=key, value=val_json, updated_at=now_ms)
+        db.add(rec)
+    else:
+        rec.value = val_json
+        rec.updated_at = now_ms
+    try:
+        db.commit()
+        return SaveResult(success=True, revision=current_rev)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to save scan progress for {key}: {e}")
+        return SaveResult(success=False, revision=current_rev, reason=str(e))
+
+
+def load_window_progress(db: Session, window_id: str) -> Optional[EvidenceProgress]:
+    """PHẦN 032, 086, 088: Loads evidence progress for a specific reconciliation window."""
+    key = f"ev_prog:{window_id}"[:50]
+    rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+    if not rec or not rec.value:
+        return None
+    try:
+        data = json.loads(rec.value)
+        return EvidenceProgress.from_dict(data)
+    except Exception:
+        return None
+
+
+def save_window_progress(db: Session, progress: EvidenceProgress) -> bool:
+    """PHẦN 032, 086, 088: Persists evidence progress for a specific reconciliation window."""
+    key = f"ev_prog:{progress.window_id}"[:50]
+    rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    progress.updated_at = now_ms
+    val_json = json.dumps(progress.to_dict())
+    if not rec:
+        rec = models.SystemConfig(key=key, value=val_json, updated_at=now_ms)
+        db.add(rec)
+    else:
+        rec.value = val_json
+        rec.updated_at = now_ms
+    try:
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to save window progress for {key}: {e}")
+        return False
+
+
+def invalidate_affected_window_progress(db: Session, order_ids: List[str], arrival_ts: int) -> int:
+    """PHẦN 036, 091, 106: Marks affected windows for replay when late older evidence arrives."""
+    invalidated = 0
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    for oid in order_ids:
+        prog = load_window_progress(db, oid)
+        if prog:
+            prog.read_status = "REPLAY_NEEDED"
+            prog.updated_at = now_ms
+            save_window_progress(db, prog)
+            invalidated += 1
+    return invalidated
+
+
+def register_affected_reconciliation_tasks(db: Session, committed_evidence_ids: List[str]) -> TaskRegistrationResult:
+    """PHẦN 038, 090: Links durable evidence to relevant orders and registers tasks for replay."""
+    if not committed_evidence_ids:
+        return TaskRegistrationResult(registered_count=0, affected_order_ids=[])
+
+    events = (
+        db.query(models.DomainEvent)
+        .filter(models.DomainEvent.event_id.in_([f"late_ev_{eid}" for eid in committed_evidence_ids]))
+        .all()
+    )
+    affected_ids: Set[str] = set()
+    for ev in events:
+        try:
+            payload = json.loads(ev.payload) if isinstance(ev.payload, str) else ev.payload
+            ts = payload.get("source_timestamp") or ev.occurred_at
+            sym = payload.get("symbol") or payload.get("instrument") or "XAUUSDT"
+            matching = (
+                db.query(models.PaperOrder)
+                .filter(
+                    models.PaperOrder.instrument == sym,
+                    models.PaperOrder.opened_at <= ts,
+                )
+                .all()
+            )
+            for m in matching:
+                if m.state == "paper_open" or (m.closed_at and ts <= m.closed_at):
+                    affected_ids.add(m.id)
+                    invalidate_affected_window_progress(db, [m.id], arrival_ts=ts)
+        except Exception:
+            continue
+    return TaskRegistrationResult(registered_count=len(affected_ids), affected_order_ids=list(affected_ids))
+
 
 
 def append_reconciliation_audit(
@@ -563,63 +843,140 @@ def load_pending_reconciliation_windows(
     limit: int = 50,
     cursor: Any = None,
 ) -> WindowPage:
-    """PHẦN 020, 037, 086: Loads active paper_open orders and recently closed orders with keyset pagination."""
-    query_open = (
-        db.query(models.PaperOrder)
-        .filter(
-            models.PaperOrder.instrument == symbol,
-            models.PaperOrder.state == "paper_open",
-        )
-    )
+    """PHẦN 020, 026, 028, 037, 083, 084, 086:
+    Loads active paper_open orders and recently closed orders with phased keyset pagination.
+    OPEN phase: opened_at ASC, id ASC with keyset (opened_at > last_time) | (opened_at == last_time & id > last_id).
+    CLOSED phase: closed_at DESC, id DESC with keyset (closed_at < last_time) | (closed_at == last_time & id < last_id).
+    """
+    phase = "OPEN"
+    last_time = 0
+    last_id = ""
+
     if cursor is not None:
-        if isinstance(cursor, tuple) and len(cursor) == 2:
-            last_op, last_id = cursor
-            query_open = query_open.filter(
-                or_(
-                    models.PaperOrder.opened_at > last_op,
-                    and_(
-                        models.PaperOrder.opened_at == last_op,
-                        models.PaperOrder.id > last_id,
-                    )
-                )
-            )
+        if isinstance(cursor, WindowCursor):
+            phase = cursor.phase
+            last_time = cursor.last_time
+            last_id = cursor.last_order_id
+        elif isinstance(cursor, tuple) and len(cursor) == 2:
+            phase = "OPEN"
+            last_time, last_id = cursor
+        elif isinstance(cursor, dict):
+            phase = cursor.get("phase", "OPEN")
+            last_time = cursor.get("last_time", 0) or 0
+            last_id = str(cursor.get("last_order_id", "") or "")
         elif isinstance(cursor, int) and cursor > 0:
-            query_open = query_open.filter(models.PaperOrder.opened_at >= cursor)
-
-    open_orders = (
-        query_open
-        .order_by(models.PaperOrder.opened_at.asc(), models.PaperOrder.id.asc())
-        .limit(limit + 1)
-        .all()
-    )
-
-    has_more_open = len(open_orders) > limit
-    if has_more_open:
-        open_orders = open_orders[:limit]
-        next_cursor = (getattr(open_orders[-1], "opened_at", 0) or 0, open_orders[-1].id)
-    else:
-        next_cursor = None
+            phase = "OPEN"
+            last_time = cursor
+            last_id = ""
 
     windows: List[OrderReconciliationWindow] = []
-    for ord in open_orders:
-        op_at = getattr(ord, "opened_at", None) or getattr(ord, "created_at", None) or 0
-        cl_at = getattr(ord, "closed_at", None) or 0
-        windows.append(
-            OrderReconciliationWindow(
-                order_id=ord.id,
-                symbol=symbol,
-                opened_at=op_at,
-                end_as_of=cl_at,
-                source_epoch=1,
-                status="PENDING",
-                cursor=op_at,
-                order=ord,
+
+    if phase == "OPEN":
+        query_open = (
+            db.query(models.PaperOrder)
+            .filter(
+                models.PaperOrder.instrument == symbol,
+                models.PaperOrder.state == "paper_open",
             )
         )
+        if last_time > 0 or last_id:
+            query_open = query_open.filter(
+                or_(
+                    models.PaperOrder.opened_at > last_time,
+                    and_(
+                        models.PaperOrder.opened_at == last_time,
+                        models.PaperOrder.id > last_id,
+                    ),
+                )
+            )
 
-    # If open_orders didn't fill limit and no more open, query recently closed
-    if not has_more_open and len(windows) < limit:
-        remaining = limit - len(windows)
+        open_orders = (
+            query_open
+            .order_by(models.PaperOrder.opened_at.asc(), models.PaperOrder.id.asc())
+            .limit(limit + 1)
+            .all()
+        )
+
+        has_more_open = len(open_orders) > limit
+        if has_more_open:
+            open_orders = open_orders[:limit]
+            next_cursor = WindowCursor(
+                schema_version="1.0.0",
+                phase="OPEN",
+                last_time=getattr(open_orders[-1], "opened_at", 0) or 0,
+                last_order_id=str(open_orders[-1].id),
+                scan_revision=1,
+                symbol=symbol,
+            )
+        else:
+            next_cursor = None
+
+        for ord in open_orders:
+            op_at = getattr(ord, "opened_at", None) or getattr(ord, "created_at", None) or 0
+            cl_at = getattr(ord, "closed_at", None) or 0
+            windows.append(
+                OrderReconciliationWindow(
+                    order_id=ord.id,
+                    symbol=symbol,
+                    opened_at=op_at,
+                    end_as_of=cl_at,
+                    source_epoch=1,
+                    status="PENDING",
+                    cursor=op_at,
+                    order=ord,
+                )
+            )
+
+        # If open_orders didn't fill limit and no more open, query recently closed
+        if not has_more_open and len(windows) < limit:
+            remaining = limit - len(windows)
+            query_closed = (
+                db.query(models.PaperOrder)
+                .filter(
+                    models.PaperOrder.instrument == symbol,
+                    models.PaperOrder.state == "closed",
+                )
+            )
+            closed_orders = (
+                query_closed
+                .order_by(models.PaperOrder.closed_at.desc(), models.PaperOrder.id.desc())
+                .limit(remaining + 1)
+                .all()
+            )
+            has_more_closed = len(closed_orders) > remaining
+            if has_more_closed:
+                closed_orders = closed_orders[:remaining]
+                next_cursor = WindowCursor(
+                    schema_version="1.0.0",
+                    phase="CLOSED",
+                    last_time=getattr(closed_orders[-1], "closed_at", 0) or 0,
+                    last_order_id=str(closed_orders[-1].id),
+                    scan_revision=1,
+                    symbol=symbol,
+                )
+            else:
+                next_cursor = None
+
+            for ord in closed_orders:
+                op_at = getattr(ord, "opened_at", None) or getattr(ord, "created_at", None) or 0
+                cl_at = getattr(ord, "closed_at", None) or 0
+                windows.append(
+                    OrderReconciliationWindow(
+                        order_id=ord.id,
+                        symbol=symbol,
+                        opened_at=op_at,
+                        end_as_of=cl_at,
+                        source_epoch=1,
+                        status="RESOLVED",
+                        cursor=op_at,
+                        order=ord,
+                    )
+                )
+
+        return WindowPage(items=windows, next_cursor=next_cursor)
+
+    else:
+        # Phase is "CLOSED"
         query_closed = (
             db.query(models.PaperOrder)
             .filter(
@@ -627,13 +984,39 @@ def load_pending_reconciliation_windows(
                 models.PaperOrder.state == "closed",
             )
         )
-        recent_closed = (
+        if last_time > 0 or last_id:
+            query_closed = query_closed.filter(
+                or_(
+                    models.PaperOrder.closed_at < last_time,
+                    and_(
+                        models.PaperOrder.closed_at == last_time,
+                        models.PaperOrder.id < last_id,
+                    ),
+                )
+            )
+
+        closed_orders = (
             query_closed
             .order_by(models.PaperOrder.closed_at.desc(), models.PaperOrder.id.desc())
-            .limit(remaining)
+            .limit(limit + 1)
             .all()
         )
-        for ord in recent_closed:
+
+        has_more_closed = len(closed_orders) > limit
+        if has_more_closed:
+            closed_orders = closed_orders[:limit]
+            next_cursor = WindowCursor(
+                schema_version="1.0.0",
+                phase="CLOSED",
+                last_time=getattr(closed_orders[-1], "closed_at", 0) or 0,
+                last_order_id=str(closed_orders[-1].id),
+                scan_revision=1,
+                symbol=symbol,
+            )
+        else:
+            next_cursor = None
+
+        for ord in closed_orders:
             op_at = getattr(ord, "opened_at", None) or getattr(ord, "created_at", None) or 0
             cl_at = getattr(ord, "closed_at", None) or 0
             windows.append(
@@ -649,7 +1032,7 @@ def load_pending_reconciliation_windows(
                 )
             )
 
-    return WindowPage(items=windows, next_cursor=next_cursor)
+        return WindowPage(items=windows, next_cursor=next_cursor)
 
 
 def load_persisted_window_evidence(
@@ -687,11 +1070,11 @@ def load_persisted_window_evidence(
     if window.symbol:
         query = query.filter(
             or_(
+                models.DomainEvent.aggregate_id == window.symbol,
                 models.DomainEvent.payload.like(f'%"symbol": "{window.symbol}"%'),
                 models.DomainEvent.payload.like(f'%"symbol":"{window.symbol}"%'),
                 models.DomainEvent.payload.like(f'%"instrument": "{window.symbol}"%'),
                 models.DomainEvent.payload.like(f'%"instrument":"{window.symbol}"%'),
-                models.DomainEvent.aggregate_id == window.symbol,
             )
         )
 
@@ -708,6 +1091,9 @@ def load_persisted_window_evidence(
         )
     else:
         query = query.filter(models.DomainEvent.occurred_at >= last_ts)
+
+    if as_of_ms <= 0 and window.end_as_of > 0:
+        as_of_ms = window.end_as_of
 
     if as_of_ms > 0:
         query = query.filter(models.DomainEvent.occurred_at <= as_of_ms)
@@ -739,6 +1125,106 @@ def load_persisted_window_evidence(
         next_cursor = (events[-1].occurred_at, events[-1].event_id)
 
     return EvidencePage(items=evidence_items, next_cursor=next_cursor)
+
+
+def process_window_slice(
+    db: Session,
+    window: OrderReconciliationWindow,
+    progress: Optional[EvidenceProgress] = None,
+    budget: Optional[CycleBudget] = None,
+    coverage_source: Optional[Dict[str, Any]] = None,
+    page_size: int = 200,
+) -> WindowSliceResult:
+    """PHẦN 033, 087, 088: Reads bounded pages, validates/accumulates proof/candidates,
+    persists progress, and returns complete/has_more/cursor/decision.
+    """
+    if progress is None:
+        progress = load_window_progress(db, window.order_id)
+        if progress is None or progress.read_status in ("REPLAY_NEEDED", "RESET"):
+            progress = EvidenceProgress(
+                window_id=window.order_id,
+                source_cursor=None,
+                arrival_revision=1,
+                scan_cutoff=window.end_as_of,
+                candidate_refs=[],
+                read_status="PENDING",
+            )
+
+    if budget is None:
+        budget = CycleBudget()
+
+    all_evidence: List[Dict[str, Any]] = []
+    current_cursor = progress.source_cursor
+    has_more = False
+
+    while budget.allows_page():
+        cutoff_ms = progress.scan_cutoff if progress.scan_cutoff > 0 else window.end_as_of
+        page = load_persisted_window_evidence(
+            db,
+            window,
+            as_of_ms=cutoff_ms,
+            limit=page_size,
+            cursor=current_cursor,
+        )
+        if page.items:
+            all_evidence.extend(page.items)
+            budget.record_page(len(page.items))
+
+        current_cursor = page.next_cursor
+        if not page.next_cursor or not page.items or len(page.items) < page_size:
+            has_more = False
+            break
+        else:
+            has_more = True
+
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    if has_more:
+        new_progress = EvidenceProgress(
+            window_id=window.order_id,
+            source_cursor=current_cursor,
+            arrival_revision=progress.arrival_revision,
+            scan_cutoff=progress.scan_cutoff,
+            candidate_refs=progress.candidate_refs,
+            read_status="MORE_WORK",
+            updated_at=now_ms,
+        )
+        save_window_progress(db, new_progress)
+        return WindowSliceResult(
+            progressed=True,
+            has_more=True,
+            next_progress=new_progress,
+            read_complete=False,
+            decision=None,
+            reasons=["RECONCILIATION_BUDGET_EXHAUSTED"],
+            processed_count=budget.records_processed,
+        )
+
+    new_progress = EvidenceProgress(
+        window_id=window.order_id,
+        source_cursor=current_cursor,
+        arrival_revision=progress.arrival_revision,
+        scan_cutoff=progress.scan_cutoff,
+        candidate_refs=progress.candidate_refs,
+        read_status="COMPLETE",
+        updated_at=now_ms,
+    )
+    save_window_progress(db, new_progress)
+
+    decision = None
+    if window.order:
+        coverage = load_reconciliation_coverage(db, window, source_state=coverage_source)
+        candidates = collect_terminal_candidates(window.order, all_evidence)
+        decision = resolve_reconciliation_window(window.order, candidates, coverage)
+
+    return WindowSliceResult(
+        progressed=True,
+        has_more=False,
+        next_progress=new_progress,
+        read_complete=True,
+        decision=decision,
+        reasons=[],
+        processed_count=budget.records_processed,
+    )
 
 
 def persist_resolution_or_review(
@@ -829,61 +1315,48 @@ class MarketReconciliationService:
         db: Session,
         symbol: str = "XAUUSDT",
         source_state: Optional[Dict[str, Any]] = None,
+        budget: Optional[CycleBudget] = None,
     ) -> int:
         """Processes late evidence and pending reconciliation windows in chronological order.
-        PHẦN 016, 019, 089: Replays persisted window evidence; requires authoritative coverage proof.
+        PHẦN 016, 019, 029, 088, 089: Replays persisted window evidence; requires authoritative coverage proof.
         """
+        if budget is None:
+            budget = CycleBudget()
+
         batch = quote_ordering_service.claim_late_evidence_batch(symbol, limit=50)
         sorted_batch = sorted(batch, key=lambda r: r.get("source_timestamp") or 0) if batch else []
 
         committed_ids = persist_reconciliation_evidence(db, sorted_batch) if sorted_batch else []
+        if committed_ids:
+            register_affected_reconciliation_tasks(db, committed_ids)
 
-        # Load pending windows to assess full historical interval (PHẦN 019, 020, 086)
-        window_page = load_pending_reconciliation_windows(db, symbol=symbol, limit=50)
+        scheduler = load_scan_progress(db, symbol=symbol, scan_scope="default")
+
+        # Load pending windows using persistent scan cursor (PHẦN 019, 020, 029, 086, 089)
+        window_page = load_pending_reconciliation_windows(
+            db, symbol=symbol, limit=50, cursor=scheduler.window_cursor
+        )
         closed_order_ids: Set[str] = set()
 
         for window in window_page.items:
+            if not budget.allows_window():
+                break
+            budget.record_window()
+
             if window.order_id in closed_order_ids:
                 continue
 
-            all_evidence: List[Dict[str, Any]] = []
-            ev_cursor = None
-            max_pages = 20  # Bounded budget per order window
-            while max_pages > 0:
-                evidence_page = load_persisted_window_evidence(
-                    db, window, as_of_ms=int(datetime.now(timezone.utc).timestamp() * 1000), limit=200, cursor=ev_cursor
-                )
-                all_evidence.extend(evidence_page.items)
-                if not evidence_page.next_cursor or not evidence_page.items:
-                    break
-                ev_cursor = evidence_page.next_cursor
-                max_pages -= 1
-
-            # Replay all persisted evidence for this order's window
-            if not all_evidence and sorted_batch:
-                all_evidence = [r for r in sorted_batch if (r.get("source_timestamp") or 0) >= window.opened_at]
-
-            # Determine target interval end for this order's reconciliation
-            max_ev_ts = max((r.get("source_timestamp") or 0 for r in all_evidence), default=window.opened_at)
-            eval_end = window.end_as_of if (window.order and window.order.state == "closed" and window.end_as_of > 0) else max_ev_ts
-            eval_window = OrderReconciliationWindow(
-                order_id=window.order_id,
-                symbol=window.symbol,
-                opened_at=window.opened_at,
-                end_as_of=eval_end,
-                source_epoch=window.source_epoch,
-                status=window.status,
-                cursor=window.cursor,
-                order=window.order,
+            slice_result = process_window_slice(
+                db, window, budget=budget, coverage_source=source_state
             )
+            if slice_result.read_complete and slice_result.decision:
+                res = persist_resolution_or_review(db, window, slice_result.decision)
+                if slice_result.decision.action == "CLOSE" and res.applied:
+                    closed_order_ids.add(window.order_id)
 
-            coverage = load_reconciliation_coverage(db, eval_window, source_state=source_state)
-            candidates = collect_terminal_candidates(window.order, all_evidence)
-            decision = resolve_reconciliation_window(window.order, candidates, coverage)
-
-            res = persist_resolution_or_review(db, eval_window, decision)
-            if decision.action == "CLOSE" and res.applied:
-                closed_order_ids.add(window.order_id)
+        # Update scheduler cursor for the next coordinator cycle (PHẦN 029, 089)
+        scheduler.window_cursor = window_page.next_cursor
+        save_scan_progress(db, scheduler, scan_scope="default")
 
         if committed_ids:
             quote_ordering_service.acknowledge_late_evidence(symbol, evidence_ids=committed_ids)

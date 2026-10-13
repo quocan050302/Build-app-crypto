@@ -193,6 +193,19 @@ REQUIRED_CASES = {
     "FLOW02": {"suite": "backend", "file": "backend/tests/test_v14_4_6_flow_preservation.py", "desc": "negative guards and protective exits preserved"},
     # V14.4.6 Acceptance Evidence Gate (1)
     "GATE01": {"suite": "backend", "file": "backend/tests/test_v14_4_2_acceptance_runner.py", "desc": "wrong evidence fails runner and machine evidence verified"},
+    # V14.4.7 Strict Proof Fail-Closed (4)
+    "PROOF01": {"suite": "backend", "file": "backend/tests/test_v14_4_7_proof_fail_closed.py", "desc": "missing snapshot record fails closed"},
+    "PROOF02": {"suite": "backend", "file": "backend/tests/test_v14_4_7_proof_fail_closed.py", "desc": "missing snapshot id and corrupt row fails closed"},
+    "PROOF03": {"suite": "backend", "file": "backend/tests/test_v14_4_7_proof_fail_closed.py", "desc": "mismatched valid referenced snapshot fails closed"},
+    "PROOF04": {"suite": "backend", "file": "backend/tests/test_v14_4_7_proof_fail_closed.py", "desc": "genuine producer integration passes"},
+    # V14.4.7 Coordinator Window Pagination (2)
+    "WINDOW01": {"suite": "backend", "file": "backend/tests/test_v14_4_7_coordinator_pagination.py", "desc": "51 closed orders reached via coordinator"},
+    "WINDOW02": {"suite": "backend", "file": "backend/tests/test_v14_4_7_coordinator_pagination.py", "desc": "101 mixed and tie keys traversed"},
+    # V14.4.7 Evidence Budget Continuation & Restart (4)
+    "EVIDENCE01": {"suite": "backend", "file": "backend/tests/test_v14_4_7_coordinator_pagination.py", "desc": "budget continuation across 4001 events"},
+    "EVIDENCE02": {"suite": "backend", "file": "backend/tests/test_v14_4_7_coordinator_pagination.py", "desc": "small injected budget and restart"},
+    "EVIDENCE03": {"suite": "backend", "file": "backend/tests/test_v14_4_7_coordinator_pagination.py", "desc": "late older timestamp invalidates progress"},
+    "EVIDENCE04": {"suite": "backend", "file": "backend/tests/test_v14_4_7_coordinator_pagination.py", "desc": "symbol filter before limit prevents starvation"},
 }
 
 BASELINE_FAILURES = {
@@ -247,8 +260,8 @@ def parse_junit_xml(xml_path: str) -> dict[str, str]:
             key = f"{classname}::{name}" if classname else name
             results[key] = status
             results[name] = status
-            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, TIMELINE01, CHRONO01, PLANSRC01, FCPROOF01, SMC01, STATE01, LEGACY01, PAGE01, FLOW01, GATE01, etc.
-            for m in re.finditer(r"(?i)(?:^|[\W_])(CHRONO\d{2}|PLANSRC\d{2}|FCPROOF\d{2}|TIMELINE\d{2}|GEOMSRC\d{2}|BINDNULL\d{2}|INVCLOSED\d{2}|COHORT\d{2}|REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|SMC\d{2}|STATE\d{2}|LEGACY\d{2}|PAGE\d{2}|FLOW\d{2}|GATE\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
+            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, TIMELINE01, CHRONO01, PLANSRC01, FCPROOF01, SMC01, STATE01, LEGACY01, PAGE01, FLOW01, GATE01, PROOF01, WINDOW01, EVIDENCE01, etc.
+            for m in re.finditer(r"(?i)(?:^|[\W_])(PROOF\d{2}|WINDOW\d{2}|EVIDENCE\d{2}|CHRONO\d{2}|PLANSRC\d{2}|FCPROOF\d{2}|TIMELINE\d{2}|GEOMSRC\d{2}|BINDNULL\d{2}|INVCLOSED\d{2}|COHORT\d{2}|REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|SMC\d{2}|STATE\d{2}|LEGACY\d{2}|PAGE\d{2}|FLOW\d{2}|GATE\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
                 results[m.group(1).upper()] = status
     except Exception as e:
         print(f"Error parsing JUnit XML {xml_path}: {e}", file=sys.stderr)
@@ -672,6 +685,8 @@ def main(argv=None) -> int:
         "tests/test_v14_4_6_forecast_state_transitions.py",
         "tests/test_v14_4_6_pagination_replay.py",
         "tests/test_v14_4_6_flow_preservation.py",
+        "tests/test_v14_4_7_proof_fail_closed.py",
+        "tests/test_v14_4_7_coordinator_pagination.py",
     ]
     s = run_step(
         "backend_targeted",

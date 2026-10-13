@@ -10,6 +10,12 @@ import pytest
 from sqlalchemy.orm import Session
 
 import models
+from services.smc_scenario_service import (
+    EvidenceNode,
+    FactStatus,
+    ScenarioSnapshot,
+    ScenarioState,
+)
 from services.smc_forecast_observation_service import (
     assess_forecast_cohort_eligibility,
     create_forecast_snapshot,
@@ -19,18 +25,126 @@ from services.smc_forecast_observation_service import (
 
 
 def _seed_genuine_confirmation_event(db: Session, event_id: str, instance_id: str, occurred_at: int, known_at: int):
+    snap_id = f"snap_{event_id}"
+    sw_id = f"sw_{event_id}"
+    br_id = f"br_{event_id}"
+    fvg_id = f"fvg_{event_id}"
+    rt_id = f"rt_{event_id}"
+
+    sw = EvidenceNode(
+        id=sw_id,
+        kind="SWEEP_LOW",
+        symbol="XAUUSDT",
+        timeframe="5M",
+        direction=None,
+        occurred_at_ms=occurred_at - 400,
+        known_at_ms=occurred_at - 300,
+        level=4170.0,
+        fact_status=FactStatus.CONFIRMED_EVIDENCE,
+    )
+    br = EvidenceNode(
+        id=br_id,
+        kind="CHOCH",
+        symbol="XAUUSDT",
+        timeframe="5M",
+        direction="BULLISH",
+        occurred_at_ms=occurred_at - 300,
+        known_at_ms=occurred_at - 200,
+        source_ids=(sw.id,),
+        level=4185.0,
+        fact_status=FactStatus.CONFIRMED_EVIDENCE,
+    )
+    fvg = EvidenceNode(
+        id=fvg_id,
+        kind="FVG",
+        symbol="XAUUSDT",
+        timeframe="5M",
+        direction="BULLISH",
+        occurred_at_ms=occurred_at - 200,
+        known_at_ms=occurred_at - 100,
+        source_ids=(br.id,),
+        level=4182.0,
+        fact_status=FactStatus.CONFIRMED_EVIDENCE,
+    )
+    rt = EvidenceNode(
+        id=rt_id,
+        kind="RETEST",
+        symbol="XAUUSDT",
+        timeframe="5M",
+        direction="BULLISH",
+        occurred_at_ms=occurred_at,
+        known_at_ms=known_at,
+        source_ids=(fvg.id,),
+        level=4182.5,
+        fact_status=FactStatus.CONFIRMED_EVIDENCE,
+    )
+    nodes = [sw, br, fvg, rt]
+    scenario_id = f"scen_{instance_id}"
+    snapshot = ScenarioSnapshot(
+        scenario_id=scenario_id,
+        instance_id=instance_id,
+        revision=1,
+        symbol="XAUUSDT",
+        setup_timeframe="5M",
+        context_timeframes=["D", "4H", "15M"],
+        family="STANDARD_SMC",
+        direction="LONG",
+        state=ScenarioState.STRUCTURE_CONFIRMED,
+        as_of_ms=known_at,
+        evidence_cutoff_ms=known_at,
+        evidence_ids=[n.id for n in nodes],
+        liquidity_map={},
+        trigger_chain={
+            "verified": True,
+            "reasons": [],
+            "node_ids": {
+                "sweep": sw.id,
+                "break": br.id,
+                "fvg": fvg.id,
+                "retest": rt.id,
+            },
+        },
+        target=None,
+        invalidation=None,
+        summary_vi="Canonical snapshot",
+        config_version=1,
+        detector_version="v14.4",
+        requirement_profile="DEFAULT",
+        evidence=[n.to_dict() for n in nodes],
+    )
+    db_row = models.SMCScenarioSnapshot(
+        snapshot_id=snap_id,
+        scenario_id=scenario_id,
+        instance_id=instance_id,
+        revision=1,
+        symbol="XAUUSDT",
+        timeframe="5M",
+        direction="LONG",
+        state=ScenarioState.STRUCTURE_CONFIRMED.value,
+        as_of_ms=known_at,
+        evidence_cutoff_ms=known_at,
+        evidence_digest=f"d_{event_id}",
+        created_at=known_at,
+        payload=json.dumps(snapshot.to_dict()),
+    )
+    db.add(db_row)
+
     payload = {
         "event_kind": "scenario.confirmed",
         "symbol": "XAUUSDT",
         "direction": "LONG",
+        "scenario_id": scenario_id,
         "instance_id": instance_id,
+        "snapshot_id": snap_id,
+        "revision": 1,
         "config_version": 1,
-        "profile": "SMC_DEFAULT",
-        "sweep_id": f"sw_{event_id}",
-        "break_id": f"br_{event_id}",
-        "fvg_id": f"fvg_{event_id}",
-        "retest_id": f"rt_{event_id}",
-        "evidence_chain_ids": [f"sw_{event_id}", f"br_{event_id}", f"fvg_{event_id}", f"rt_{event_id}"],
+        "profile": "DEFAULT",
+        "evidence_digest": f"d_{event_id}",
+        "sweep_id": sw_id,
+        "break_id": br_id,
+        "fvg_id": fvg_id,
+        "retest_id": rt_id,
+        "evidence_chain_ids": [sw_id, br_id, fvg_id, rt_id],
         "occurred_at_ms": occurred_at,
         "known_at_ms": known_at,
         "schema_version": "1.0.0",
@@ -70,8 +184,8 @@ def test_state01_later_genuine_confirmation_promotes_outcome_and_cohort(isolated
             "session": "NY",
             "session_id": "sc-ny-state01",
             "instance_id": "inst-state01-long",
-            "config_version": "1",
-            "profile": "SMC_DEFAULT",
+            "config_version": 1,
+            "profile": "DEFAULT",
             "as_of_ms": 1_000_000,
             "hypothesis_type": "PRIMARY",
             "primary": {
