@@ -5,8 +5,8 @@
 - **Repository**: `quocan050302/Build-app-crypto`
 - **Branch**: `fix/v14-1-rr-flow`
 - **Baseline Runtime Commit**: `5a9cef8` (*fix(v14.4.5): remove verification bypasses and close production evidence flow*)
-- **Baseline Head Commit**: `4a49808` (*docs: record final commit SHA in V14.4.5 runtime repair report*)
 - **Tested Commit SHA**: `4a49808f3e99bd93dd33d0dec7561f83a1a5ef9d`
+- **Implementation Commit SHA**: `baf7fb50f067a5a03bb9b9ed78e995f6634d8544`
 - **Tree Fingerprint**: `c0820926279fb70e1a18066e9d6f536e594734a3`
 - **Acceptance Run ID**: `run_1791904586431`
 - **Date**: 2026-10-13
