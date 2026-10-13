@@ -7,7 +7,8 @@ Provides single authoritative source of truth for cards, chart overlay, and copy
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 from domain_calculator import calculate_risk_reward, validate_price_geometry
 from services.plan_resolver import resolve_plan_levels
@@ -16,6 +17,211 @@ from services.plan_financial_context_service import (
     calculate_display_financial,
     financial_value_is_known,
 )
+
+
+@dataclass(frozen=True)
+class SelectedPlanSource:
+    source_kind: str  # "FROZEN_ORDER" or "SETUP_PREVIEW"
+    direction: Optional[str]
+    setup_id: Optional[str]
+    order_id: Optional[str]
+    setup_instance_id: Optional[str]
+    setup_revision: Optional[int]
+    entry: Optional[float]
+    planned_entry: Optional[float]
+    actual_entry: Optional[float]
+    stop_loss: Optional[float]
+    take_profit: Optional[float]
+    level_source: str
+    price_basis: str
+    is_complete: bool
+    missing_fields: List[str]
+    raw_snapshot: Optional[Dict[str, Any]] = None
+    as_of_ms: Optional[int] = None
+    target_source_id: Optional[str] = None
+    target_cutoff_ms: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class PlanValidation:
+    is_valid: bool
+    reason_code: str
+    reason_message: str
+
+
+def finite_price(value: Any) -> bool:
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and value > 0
+    )
+
+
+def select_authoritative_plan_source(
+    setup: Any,
+    pricing_mode: str = "CURRENT_PREVIEW",
+    frozen_snapshot: Optional[Dict[str, Any]] = None,
+) -> SelectedPlanSource:
+    """Pure selector (PHẦN 032, 133, 153):
+    Extracts the authoritative price triple entirely from a single source.
+    If order is bound/frozen, selects strictly from frozen_snapshot without borrowing setup levels.
+    """
+    def _get(field: str, default: Any = None) -> Any:
+        if isinstance(setup, dict):
+            return setup.get(field, default)
+        return getattr(setup, field, default)
+
+    setup_id = _get("id")
+    instance_id = _get("setup_instance_id")
+    revision = _get("version", 1)
+    state = str(_get("state", "WATCHING")).upper()
+    direction = _get("direction")
+    updated_at = _get("updated_at") or _get("created_at")
+
+    is_frozen_order = state in ("ARMED", "PAPER_OPEN", "CLOSED") or pricing_mode == "FROZEN_ORDER"
+    if is_frozen_order and frozen_snapshot is not None and isinstance(frozen_snapshot, dict):
+        order_direction = frozen_snapshot.get("direction") or direction
+        planned_entry = frozen_snapshot.get("planned_entry")
+        actual_entry = frozen_snapshot.get("actual_entry")
+        entry = frozen_snapshot.get("entry")
+        sl = frozen_snapshot.get("stop_loss")
+        tp = frozen_snapshot.get("take_profit")
+
+        if entry is None:
+            if state in ("PAPER_OPEN", "CLOSED"):
+                entry = actual_entry
+            else:
+                entry = planned_entry if planned_entry is not None else (_get("provisional_entry") or _get("entry"))
+
+        if sl is None and state not in ("PAPER_OPEN", "CLOSED"):
+            sl = _get("provisional_sl") or _get("stop_loss")
+        if tp is None and state not in ("PAPER_OPEN", "CLOSED"):
+            tp = _get("provisional_tp") or _get("take_profit")
+
+        missing = []
+        if entry is None or not finite_price(entry):
+            missing.append("entry")
+        if sl is None or not finite_price(sl):
+            missing.append("stop_loss")
+        if tp is None or not finite_price(tp):
+            missing.append("take_profit")
+
+        is_comp = len(missing) == 0
+        return SelectedPlanSource(
+            source_kind="FROZEN_ORDER",
+            direction=order_direction,
+            setup_id=setup_id,
+            order_id=frozen_snapshot.get("order_id"),
+            setup_instance_id=instance_id,
+            setup_revision=revision,
+            entry=float(entry) if (entry is not None and finite_price(entry)) else None,
+            planned_entry=float(planned_entry) if (planned_entry is not None and finite_price(planned_entry)) else None,
+            actual_entry=float(actual_entry) if (actual_entry is not None and finite_price(actual_entry)) else None,
+            stop_loss=float(sl) if (sl is not None and finite_price(sl)) else None,
+            take_profit=float(tp) if (tp is not None and finite_price(tp)) else None,
+            level_source="frozen_order",
+            price_basis=frozen_snapshot.get("price_basis") or ("ACTUAL_FILL" if state in ("PAPER_OPEN", "CLOSED") else "PLANNED_LIMIT"),
+            is_complete=is_comp,
+            missing_fields=missing,
+            raw_snapshot=frozen_snapshot,
+            as_of_ms=updated_at,
+            target_source_id=frozen_snapshot.get("target_source_id") or _get("evidence_snapshot_id"),
+            target_cutoff_ms=updated_at,
+        )
+
+    # Setup preview source
+    resolution = resolve_plan_levels(setup)
+    missing = []
+    if not resolution.is_valid:
+        missing.append("invalid_setup_resolution")
+    return SelectedPlanSource(
+        source_kind="SETUP_PREVIEW",
+        direction=direction,
+        setup_id=setup_id,
+        order_id=None,
+        setup_instance_id=instance_id,
+        setup_revision=revision,
+        entry=float(resolution.entry) if resolution.entry is not None else None,
+        planned_entry=float(resolution.entry) if resolution.entry is not None else None,
+        actual_entry=None,
+        stop_loss=float(resolution.stop_loss) if resolution.stop_loss is not None else None,
+        take_profit=float(resolution.take_profit) if resolution.take_profit is not None else None,
+        level_source=resolution.level_source,
+        price_basis="CLOSED_REFERENCE",
+        is_complete=resolution.is_valid,
+        missing_fields=missing,
+        raw_snapshot=None,
+        as_of_ms=updated_at,
+        target_source_id=_get("evidence_snapshot_id"),
+        target_cutoff_ms=updated_at,
+    )
+
+
+def validate_selected_plan(selected: SelectedPlanSource) -> PlanValidation:
+    """Pure validation (PHẦN 033, 154):
+    Validates signed price geometry. No abs() tricks!
+    LONG: stop_loss < entry < take_profit
+    SHORT: take_profit < entry < stop_loss
+    """
+    entry = selected.entry
+    sl = selected.stop_loss
+    tp = selected.take_profit
+    direction = selected.direction
+
+    if entry is None or sl is None or tp is None:
+        return PlanValidation(is_valid=False, reason_code="MISSING_PRICE_LEVELS", reason_message="Thiếu mức giá trong kế hoạch.")
+
+    if not finite_price(entry) or not finite_price(sl) or not finite_price(tp):
+        return PlanValidation(is_valid=False, reason_code="INVALID_PRICE_INPUT", reason_message="Mức giá không hợp lệ.")
+
+    if direction == "LONG":
+        if not (sl < entry < tp):
+            msg = "TP lệnh mua đang thấp hơn Entry hoặc SL cao hơn Entry; hình học không hợp lệ."
+            return PlanValidation(is_valid=False, reason_code="INVALID_GEOMETRY", reason_message=msg)
+    elif direction == "SHORT":
+        if not (tp < entry < sl):
+            msg = "TP lệnh bán đang cao hơn Entry hoặc SL thấp hơn Entry; hình học không hợp lệ."
+            return PlanValidation(is_valid=False, reason_code="INVALID_GEOMETRY", reason_message=msg)
+    else:
+        return PlanValidation(is_valid=False, reason_code="UNSUPPORTED_DIRECTION", reason_message=f"Hướng giao dịch không hỗ trợ: {direction}")
+
+    return PlanValidation(is_valid=True, reason_code="VALID_PLAN", reason_message="Kế hoạch giá hợp lệ.")
+
+
+def build_degraded_display_plan(
+    selected: SelectedPlanSource,
+    reason_code: str,
+    reason_message: Optional[str] = None,
+    diagnostic_prices: Optional[dict] = None,
+) -> Dict[str, Any]:
+    """Builds a standardized degraded display plan dictionary."""
+    err_msg = reason_message or "Kế hoạch giá chưa hợp lệ hoặc thiếu dữ liệu nguồn."
+    return {
+        "identity": {
+            "setup_id": selected.setup_id,
+            "instance_id": selected.setup_instance_id,
+            "revision": selected.setup_revision,
+            "timeframe": "15M",
+        },
+        "status": "INVALID_GEOMETRY" if "GEOMETRY" in reason_code else reason_code,
+        "is_valid": False,
+        "reason_code": reason_code,
+        "reason_message": err_msg,
+        "direction": selected.direction,
+        "level_source": selected.level_source,
+        "entry": selected.entry,
+        "planned_entry": selected.planned_entry,
+        "actual_entry": selected.actual_entry,
+        "stop_loss": selected.stop_loss,
+        "take_profit": None,  # Strictly None for invalid plan
+        "as_of_ms": selected.as_of_ms,
+        "price_basis": selected.price_basis,
+        "target_source_id": selected.target_source_id,
+        "target_cutoff_ms": selected.target_cutoff_ms,
+        "financial": None,  # Strictly None, no fake defaults
+        "diagnostic_prices": diagnostic_prices or {},
+    }
 
 
 def build_setup_display_plan(
@@ -27,14 +233,13 @@ def build_setup_display_plan(
     frozen_snapshot: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    Builds the canonical resolved_display_plan DTO for upcoming setup items.
-    Enforces:
-    - Atomic price triple via resolve_plan_levels (no mixing confirmed entry with provisional SL/TP).
-    - If plan is invalid or geometry fails:
-      take_profit = None, financial = None, is_valid = False.
-    - If plan is valid:
-      financial estimates are populated without fake defaults, using explicit financial_context.
-      If financial_context is absent and uncomputed, financial = None without raising TypeError.
+    Builds the canonical resolved_display_plan DTO for upcoming setup items (PHẦN 034, 153).
+    Follows strict 5-step control flow:
+    1. select_authoritative_plan_source
+    2. Check source completeness
+    3. validate_selected_plan
+    4. resolve matching financial
+    5. serialize canonical DTO
     """
     def _get(field: str, default: Any = None) -> Any:
         if isinstance(setup, dict):
@@ -49,16 +254,6 @@ def build_setup_display_plan(
     state = _get("state", "WATCHING")
     updated_at = _get("updated_at") or _get("created_at")
 
-    # Atomic plan resolution
-    resolution = resolve_plan_levels(setup)
-
-    finite_price = lambda value: (
-        isinstance(value, (int, float))
-        and not isinstance(value, bool)
-        and math.isfinite(value)
-        and value > 0
-    )
-
     diagnostic_prices = {
         "provisional_entry": _get("provisional_entry"),
         "provisional_sl": _get("provisional_sl"),
@@ -68,61 +263,35 @@ def build_setup_display_plan(
         "confirmed_tp": _get("confirmed_tp"),
     }
 
-    if not resolution.is_valid:
-        err_code = resolution.error_code or "INVALID_PLAN"
-        err_msg = resolution.error_message or "Kế hoạch giá chưa hợp lệ."
-        if "SHORT" in err_msg and "Take Profit" in err_msg:
-            err_msg = "TP lệnh bán đang cao hơn Entry; setup chưa hợp lệ"
-        elif "LONG" in err_msg and "Take Profit" in err_msg:
-            err_msg = "TP lệnh mua đang thấp hơn Entry; setup chưa hợp lệ"
+    # Step 1: Select Authoritative Source
+    selected = select_authoritative_plan_source(setup, pricing_mode, frozen_snapshot)
 
-        entry_val = _get("confirmed_entry") if resolution.level_source == "confirmed" else _get("provisional_entry")
-        sl_val = _get("confirmed_sl") if resolution.level_source == "confirmed" else _get("provisional_sl")
+    # Step 2: Check source completeness
+    if not selected.is_complete:
+        if selected.source_kind == "FROZEN_ORDER":
+            err_code = "INCOMPLETE_SOURCE"
+            err_msg = f"Snapshot lệnh chưa đầy đủ: thiếu {', '.join(selected.missing_fields)}"
+        else:
+            resolution = resolve_plan_levels(setup)
+            err_code = resolution.error_code or "INVALID_PLAN"
+            err_msg = resolution.error_message or "Kế hoạch giá chưa hợp lệ."
+            if "SHORT" in err_msg and "Take Profit" in err_msg:
+                err_msg = "TP lệnh bán đang cao hơn Entry; setup chưa hợp lệ"
+            elif "LONG" in err_msg and "Take Profit" in err_msg:
+                err_msg = "TP lệnh mua đang thấp hơn Entry; setup chưa hợp lệ"
+        return build_degraded_display_plan(selected, err_code, err_msg, diagnostic_prices=diagnostic_prices)
 
-        return {
-            "identity": {
-                "setup_id": setup_id,
-                "instance_id": instance_id,
-                "revision": revision,
-                "timeframe": timeframe,
-            },
-            "status": "INVALID_GEOMETRY" if "GEOMETRY" in err_code else err_code,
-            "is_valid": False,
-            "reason_code": err_code,
-            "reason_message": err_msg,
-            "direction": direction,
-            "level_source": resolution.level_source,
-            "entry": float(entry_val) if finite_price(entry_val) else None,
-            "stop_loss": float(sl_val) if finite_price(sl_val) else None,
-            "take_profit": None,  # Strictly None for invalid plan
-            "as_of_ms": updated_at,
-            "price_basis": "CLOSED_REFERENCE",
-            "target_source_id": _get("evidence_snapshot_id"),
-            "target_cutoff_ms": updated_at,
-            "financial": None,  # Strictly None, no fake defaults
-            "diagnostic_prices": diagnostic_prices,
-        }
+    # Step 3: Validate Selected Plan
+    validation = validate_selected_plan(selected)
+    if not validation.is_valid:
+        return build_degraded_display_plan(selected, validation.reason_code, validation.reason_message, diagnostic_prices=diagnostic_prices)
 
-    # Resolution is valid
-    entry = float(resolution.entry)
-    stop_loss = float(resolution.stop_loss)
-    take_profit = float(resolution.take_profit)
-    level_source = resolution.level_source
-
-    is_frozen_order = str(state).upper() in ("ARMED", "PAPER_OPEN", "CLOSED") or pricing_mode == "FROZEN_ORDER"
-    if is_frozen_order and frozen_snapshot is not None and isinstance(frozen_snapshot, dict):
-        frozen_entry = frozen_snapshot.get("entry")
-        if frozen_entry is None:
-            if str(state).upper() in ("PAPER_OPEN", "CLOSED"):
-                frozen_entry = frozen_snapshot.get("actual_entry")
-            else:
-                frozen_entry = frozen_snapshot.get("planned_entry")
-        if frozen_entry is not None and finite_price(frozen_entry):
-            entry = float(frozen_entry)
-        if frozen_snapshot.get("stop_loss") is not None and finite_price(frozen_snapshot["stop_loss"]):
-            stop_loss = float(frozen_snapshot["stop_loss"])
-        if frozen_snapshot.get("take_profit") is not None and finite_price(frozen_snapshot["take_profit"]):
-            take_profit = float(frozen_snapshot["take_profit"])
+    # Step 4: Plan is valid!
+    entry = float(selected.entry)
+    stop_loss = float(selected.stop_loss)
+    take_profit = float(selected.take_profit)
+    level_source = selected.level_source
+    direction = selected.direction or direction
 
     # Read stored financial figures safely (handling None without TypeError)
     gross_rr = _get("gross_rr")
@@ -134,7 +303,7 @@ def build_setup_display_plan(
     est_liq = _get("estimated_liquidation")
     meets_min_rr = False
 
-    is_frozen_order = str(state).upper() in ("ARMED", "PAPER_OPEN", "CLOSED")
+    is_frozen_order = str(state).upper() in ("ARMED", "PAPER_OPEN", "CLOSED") or pricing_mode == "FROZEN_ORDER"
 
     if is_frozen_order:
         stored_gross_loss = None
@@ -154,22 +323,29 @@ def build_setup_display_plan(
 
         # Check if an explicit frozen snapshot was passed
         if frozen_snapshot is not None and isinstance(frozen_snapshot, dict):
-            stored_gross_rr = frozen_snapshot.get("gross_rr")
-            stored_net_rr = frozen_snapshot.get("net_rr")
-            stored_risk = frozen_snapshot.get("net_risk_usdt", frozen_snapshot.get("risk_usdt"))
-            stored_qty = frozen_snapshot.get("quantity")
-            stored_lev = frozen_snapshot.get("leverage")
-            stored_mm = frozen_snapshot.get("margin_mode")
-            stored_liq = frozen_snapshot.get("estimated_liquidation")
-            stored_eq = frozen_snapshot.get("equity_usdt")
-            stored_cv = frozen_snapshot.get("cost_version")
-            stored_iv = frozen_snapshot.get("instrument_version")
-            stored_rv = frozen_snapshot.get("risk_config_version")
-            stored_gross_loss = frozen_snapshot.get("gross_loss_usdt")
-            stored_gross_reward = frozen_snapshot.get("gross_reward_usdt")
-            stored_net_reward = frozen_snapshot.get("net_reward_usdt")
+            fin_sub = frozen_snapshot.get("financial") if isinstance(frozen_snapshot.get("financial"), dict) else {}
+            stored_gross_rr = frozen_snapshot.get("gross_rr") if frozen_snapshot.get("gross_rr") is not None else fin_sub.get("gross_rr")
+            stored_net_rr = frozen_snapshot.get("net_rr") if frozen_snapshot.get("net_rr") is not None else fin_sub.get("net_rr")
+            stored_risk = (
+                frozen_snapshot.get("net_risk_usdt")
+                if frozen_snapshot.get("net_risk_usdt") is not None
+                else frozen_snapshot.get("risk_usdt")
+                if frozen_snapshot.get("risk_usdt") is not None
+                else fin_sub.get("net_risk_usdt", fin_sub.get("net_risk", fin_sub.get("risk_usdt")))
+            )
+            stored_qty = frozen_snapshot.get("quantity") if frozen_snapshot.get("quantity") is not None else fin_sub.get("quantity")
+            stored_lev = frozen_snapshot.get("leverage") if frozen_snapshot.get("leverage") is not None else fin_sub.get("leverage")
+            stored_mm = frozen_snapshot.get("margin_mode") if frozen_snapshot.get("margin_mode") is not None else fin_sub.get("margin_mode")
+            stored_liq = frozen_snapshot.get("estimated_liquidation") if frozen_snapshot.get("estimated_liquidation") is not None else fin_sub.get("estimated_liquidation")
+            stored_eq = frozen_snapshot.get("equity_usdt") if frozen_snapshot.get("equity_usdt") is not None else fin_sub.get("equity_usdt")
+            stored_cv = frozen_snapshot.get("cost_version") if frozen_snapshot.get("cost_version") is not None else fin_sub.get("cost_version")
+            stored_iv = frozen_snapshot.get("instrument_version") if frozen_snapshot.get("instrument_version") is not None else fin_sub.get("instrument_version")
+            stored_rv = frozen_snapshot.get("risk_config_version") if frozen_snapshot.get("risk_config_version") is not None else fin_sub.get("risk_config_version")
+            stored_gross_loss = frozen_snapshot.get("gross_loss_usdt") if frozen_snapshot.get("gross_loss_usdt") is not None else fin_sub.get("gross_loss_usdt")
+            stored_gross_reward = frozen_snapshot.get("gross_reward_usdt") if frozen_snapshot.get("gross_reward_usdt") is not None else fin_sub.get("gross_reward_usdt")
+            stored_net_reward = frozen_snapshot.get("net_reward_usdt") if frozen_snapshot.get("net_reward_usdt") is not None else fin_sub.get("net_reward_usdt", fin_sub.get("net_reward"))
             stored_multiplier = frozen_snapshot.get("multiplier", 1.0)
-            stored_risk_pct = frozen_snapshot.get("risk_pct")
+            stored_risk_pct = frozen_snapshot.get("risk_pct") if frozen_snapshot.get("risk_pct") is not None else fin_sub.get("risk_pct")
             stored_eff_risk_pct = frozen_snapshot.get("effective_risk_pct", stored_risk_pct)
             stored_entry_fee = frozen_snapshot.get("entry_fee_usdt")
             stored_sl_exit_fee = frozen_snapshot.get("sl_exit_fee_usdt")

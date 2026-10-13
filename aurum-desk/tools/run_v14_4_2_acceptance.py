@@ -52,6 +52,7 @@ REQUIRED_CASES = {
     "R03": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_realtime_soak.e2e.ts", "desc": "100 selection cycles complete without unhandled errors or leak"},
     "R04": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_realtime_soak.e2e.ts", "desc": "continuous quote stream preserves valid display price and bounded queue"},
     "R05": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_realtime_soak.e2e.ts", "desc": "repeated tab unmount and remount returns subscribers to baseline"},
+    "R06": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_realtime_soak.e2e.ts", "desc": "10,000-event 60s stream soak with continuous telemetry measurement"},
     # Mobile Reachability (4)
     "M01": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_mobile.e2e.ts", "desc": "mobile journal Chart button is reachable and naturally clickable"},
     "M02": {"suite": "browser", "file": "frontend/tests/e2e/v14_4_2_mobile.e2e.ts", "desc": "mobile note drawer opens and closes cleanly without mutating state"},
@@ -154,6 +155,25 @@ REQUIRED_CASES = {
     "BINDNULL01": {"suite": "backend", "file": "backend/tests/test_order_binding_integrity.py", "desc": "new instance does not bind order with missing instance"},
     "INVCLOSED01": {"suite": "backend", "file": "backend/tests/test_forecast_causal_closure.py", "desc": "closed price vs wick invalidation"},
     "COHORT01": {"suite": "backend", "file": "backend/tests/test_forecast_causal_closure.py", "desc": "numeric nonnull without proof excluded from verified cohort"},
+    # Final Chronology & Reconciliation (PHẦN 010 - 028)
+    "CHRONO01": {"suite": "backend", "file": "backend/tests/test_final_reconciliation_chronology.py", "desc": "cross batch TP wins when coverage complete"},
+    "CHRONO02": {"suite": "backend", "file": "backend/tests/test_final_reconciliation_chronology.py", "desc": "cross batch needs reconciliation when coverage incomplete"},
+    "CHRONO03": {"suite": "backend", "file": "backend/tests/test_final_reconciliation_chronology.py", "desc": "earlier conflicting quote for closed order records audit review"},
+    "CHRONO04": {"suite": "backend", "file": "backend/tests/test_final_reconciliation_chronology.py", "desc": "ambiguous same timestamp both levels"},
+    "CHRONO05": {"suite": "backend", "file": "backend/tests/test_final_reconciliation_chronology.py", "desc": "worker shutdown waits for active drain"},
+    # Final Display Plan Sources (PHẦN 029 - 046)
+    "PLANSRC01": {"suite": "backend", "file": "backend/tests/test_final_display_plan_sources.py", "desc": "frozen LONG with invalid entry beyond TP is invalid"},
+    "PLANSRC02": {"suite": "backend", "file": "backend/tests/test_final_display_plan_sources.py", "desc": "frozen SHORT with invalid entry beyond TP is invalid"},
+    "PLANSRC03": {"suite": "backend", "file": "backend/tests/test_final_display_plan_sources.py", "desc": "valid frozen SHORT signed RR without abs"},
+    "PLANSRC04": {"suite": "backend", "file": "backend/tests/test_final_display_plan_sources.py", "desc": "incomplete frozen snapshot does not piece together hybrid triple"},
+    "PLANSRC05": {"suite": "backend", "file": "backend/tests/test_final_display_plan_sources.py", "desc": "setup raw invalid does not break valid bound order"},
+    # Final Forecast Proof Pipeline (PHẦN 047 - 068)
+    "FCPROOF01": {"suite": "backend", "file": "backend/tests/test_final_forecast_proof_pipeline.py", "desc": "default snapshot creation is unverified"},
+    "FCPROOF02": {"suite": "backend", "file": "backend/tests/test_final_forecast_proof_pipeline.py", "desc": "caller spoofed verified is overridden to unverified"},
+    "FCPROOF03": {"suite": "backend", "file": "backend/tests/test_final_forecast_proof_pipeline.py", "desc": "genuine confirmation proof yields confirmed target"},
+    "FCPROOF04": {"suite": "backend", "file": "backend/tests/test_final_forecast_proof_pipeline.py", "desc": "feed gap in window yields data unavailable"},
+    "FCPROOF05": {"suite": "backend", "file": "backend/tests/test_final_forecast_proof_pipeline.py", "desc": "target reached before confirmation is watched liquidity"},
+    "FCPROOF06": {"suite": "backend", "file": "backend/tests/test_final_forecast_proof_pipeline.py", "desc": "summary cohort excludes unverified records"},
 }
 
 BASELINE_FAILURES = {
@@ -208,12 +228,96 @@ def parse_junit_xml(xml_path: str) -> dict[str, str]:
             key = f"{classname}::{name}" if classname else name
             results[key] = status
             results[name] = status
-            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, TIMELINE01, etc.
-            for m in re.finditer(r"(?i)(?:^|[\W_])(TIMELINE\d{2}|GEOMSRC\d{2}|BINDNULL\d{2}|INVCLOSED\d{2}|COHORT\d{2}|REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
+            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, TIMELINE01, CHRONO01, PLANSRC01, FCPROOF01, etc.
+            for m in re.finditer(r"(?i)(?:^|[\W_])(CHRONO\d{2}|PLANSRC\d{2}|FCPROOF\d{2}|TIMELINE\d{2}|GEOMSRC\d{2}|BINDNULL\d{2}|INVCLOSED\d{2}|COHORT\d{2}|REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
                 results[m.group(1).upper()] = status
     except Exception as e:
         print(f"Error parsing JUnit XML {xml_path}: {e}", file=sys.stderr)
     return results
+
+
+def validate_required_metrics(bench_data: dict) -> dict:
+    """Validates required performance and latency metrics per PHẦN 097, 158.
+    Fails closed if Python or browser metrics are missing, incomplete, or violate budgets.
+    """
+    errors = []
+    status = bench_data.get("status")
+    if status != "PASS":
+        errors.append(f"Benchmark status is {status}, expected PASS")
+
+    # 1. Python Scenario Engine Latency
+    latency = bench_data.get("latency_ms") or {}
+    p95 = latency.get("p95")
+    if p95 is None or not isinstance(p95, (int, float)) or p95 > 250.0:
+        errors.append(f"Python P95 latency {p95}ms violates budget (<= 250.0ms)")
+
+    cycles = bench_data.get("cycles", 0)
+    if cycles < 60:
+        errors.append(f"Python benchmark cycles {cycles} < 60 minimum sample budget")
+
+    # 2. Check for browser benchmark artifact if not already in bench_data
+    browser_bench_path = os.path.join(LOG_DIR, "browser_benchmark.json")
+    if "browser_measurements" not in bench_data and os.path.isfile(browser_bench_path):
+        try:
+            with open(browser_bench_path, "r", encoding="utf-8") as bfh:
+                b_art = json.load(bfh)
+                tel = b_art.get("telemetry", {})
+                bench_data["browser_measurements"] = {
+                    "status": "PASS",
+                    "stream_duration_s": b_art.get("duration_seconds", 0),
+                    "events_streamed": b_art.get("total_frames_streamed", 0),
+                    "render_latency_ms": tel.get("render_latency_ms", {}),
+                    "queue_peak": tel.get("queue_peak", 0),
+                    "queue_current": tel.get("queue_current", 0),
+                    "active_subscriber_count": tel.get("active_subscriber_count", 0),
+                    "chart_create_count": tel.get("chart_create_count", 0),
+                    "chart_destroy_count": tel.get("chart_destroy_count", 0),
+                    "dropped_execution_event_count": tel.get("dropped_execution_event_count", 0),
+                }
+                bench_data["NOT_MEASURED"] = []
+        except Exception as e:
+            errors.append(f"Failed to read browser benchmark artifact: {e}")
+
+    # 3. Browser Render Latency & Soak Telemetry (PHẦN 087, 088, 089, 091, 094)
+    browser_m = bench_data.get("browser_measurements")
+    if not browser_m:
+        # Check if NOT_MEASURED contains browser metrics
+        not_measured = bench_data.get("NOT_MEASURED", [])
+        if not_measured:
+            errors.append(f"Mandatory browser metrics are NOT_MEASURED: {', '.join(not_measured)}")
+        else:
+            errors.append("Missing mandatory browser_measurements in benchmark")
+    else:
+        b_lat = browser_m.get("render_latency_ms") or {}
+        b_p95 = b_lat.get("p95")
+        if b_p95 is None or not isinstance(b_p95, (int, float)) or b_p95 > 250.0:
+            errors.append(f"Browser render P95 latency {b_p95}ms violates budget (<= 250.0ms)")
+
+        b_dur = browser_m.get("stream_duration_s", 0)
+        if b_dur < 60.0:
+            errors.append(f"Browser soak duration {b_dur}s < 60.0s mandatory duration (PHẦN 089)")
+
+        b_events = browser_m.get("events_streamed", 0)
+        if b_events < 10000:
+            errors.append(f"Browser stream events {b_events} < 10,000 minimum frames (PHẦN 089)")
+
+        b_chart_create = browser_m.get("chart_create_count", 0)
+        if b_chart_create > 1:
+            errors.append(f"Chart recreated {b_chart_create} times during streaming (budget: 1 mount only)")
+
+        b_dropped = browser_m.get("dropped_execution_event_count", 0)
+        if b_dropped > 0:
+            errors.append(f"Dropped execution events {b_dropped} > 0")
+
+    return {
+        "pass": len(errors) == 0,
+        "status": "PASS" if not errors else "FAIL",
+        "errors": errors,
+        "p95_ms": p95,
+        "cycles": cycles,
+        "browser_p95_ms": (browser_m.get("render_latency_ms") or {}).get("p95") if browser_m else None,
+        "browser_events": browser_m.get("events_streamed") if browser_m else None,
+    }
 
 
 def parse_playwright_json(report_path: str, run_start_time: float) -> dict[str, str]:
@@ -399,6 +503,9 @@ def main(argv=None) -> int:
         "tests/test_late_source_chronology.py",
         "tests/test_order_geometry_parity.py",
         "tests/test_order_binding_integrity.py",
+        "tests/test_final_reconciliation_chronology.py",
+        "tests/test_final_display_plan_sources.py",
+        "tests/test_final_forecast_proof_pipeline.py",
     ]
     s = run_step(
         "backend_targeted",
@@ -490,7 +597,20 @@ def main(argv=None) -> int:
             bench = json.load(fh)
     except (OSError, ValueError):
         pass
-    record("benchmark", s, simple(s, {"latency_ms": bench.get("latency_ms"), "not_measured": bench.get("NOT_MEASURED")}))
+    bench_val = validate_required_metrics(bench)
+    if "browser_measurements" in bench:
+        try:
+            with open(bench_out, "w", encoding="utf-8") as fh:
+                json.dump(bench, fh, indent=2)
+        except Exception:
+            pass
+    bench_verdict = {
+        "status": "PASS" if s["exit_code"] == 0 and bench_val["pass"] else "FAIL",
+        "latency_ms": bench.get("latency_ms"),
+        "not_measured": bench.get("NOT_MEASURED"),
+        "metric_validation": bench_val,
+    }
+    record("benchmark", s, bench_verdict)
 
     # 5. Git Diff Check
     s = run_step("git_diff_check", ["git", "diff", "--check"], ROOT)

@@ -4,7 +4,7 @@
       "C:\\Program Files\\nodejs\\node.exe",
       "D:\\build app-crypto\\aurum-desk\\frontend\\node_modules\\@playwright\\test\\cli.js",
       "test",
-      "tests/e2e/v14_4_2_selection_source.e2e.ts"
+      "tests/e2e/v14_4_2_mobile.e2e.ts"
     ],
     "configFile": "D:\\build app-crypto\\aurum-desk\\frontend\\playwright.config.ts",
     "rootDir": "D:/build app-crypto/aurum-desk/frontend/tests/e2e",
@@ -56,7 +56,7 @@
         "testMatch": "**/*.e2e.ts",
         "timeout": 60000,
         "use": {
-          "baseURL": "http://127.0.0.1:5199",
+          "baseURL": "http://127.0.0.1:5200",
           "viewport": {
             "width": 1512,
             "height": 857
@@ -97,20 +97,20 @@
   },
   "suites": [
     {
-      "title": "v14_4_2_selection_source.e2e.ts",
-      "file": "v14_4_2_selection_source.e2e.ts",
+      "title": "v14_4_2_mobile.e2e.ts",
+      "file": "v14_4_2_mobile.e2e.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "V14.4.2 Selection Source & Draft Isolation (T09–T16)",
-          "file": "v14_4_2_selection_source.e2e.ts",
-          "line": 8,
+          "title": "V14.4.2 Mobile Reachability Suite",
+          "file": "v14_4_2_mobile.e2e.ts",
+          "line": 16,
           "column": 6,
           "specs": [
             {
-              "title": "T09: manual SHORT draft exact calculator values and uncertified label",
+              "title": "M01: mobile journal Chart button is reachable and naturally clickable",
               "ok": true,
               "tags": [],
               "tests": [
@@ -125,12 +125,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2042,
+                      "duration": 2376,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-13T01:33:55.159Z",
+                      "startTime": "2026-10-13T04:27:22.902Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -138,13 +138,13 @@
                   "status": "expected"
                 }
               ],
-              "id": "73da7cc99d3fa4148882-c178ac17d98d9a7b4166",
-              "file": "v14_4_2_selection_source.e2e.ts",
-              "line": 9,
+              "id": "7a7b71042829362d7952-b959bf215543e51fab4d",
+              "file": "v14_4_2_mobile.e2e.ts",
+              "line": 20,
               "column": 3
             },
             {
-              "title": "T10: clicking WAITING_BREAK scenario without plan displays header SCENARIO without R:R box",
+              "title": "M02: mobile note drawer opens and closes cleanly without mutating state",
               "ok": true,
               "tags": [],
               "tests": [
@@ -159,12 +159,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1768,
+                      "duration": 1914,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-13T01:33:57.617Z",
+                      "startTime": "2026-10-13T04:27:25.692Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -172,13 +172,13 @@
                   "status": "expected"
                 }
               ],
-              "id": "73da7cc99d3fa4148882-d14279693e257a05f860",
-              "file": "v14_4_2_selection_source.e2e.ts",
-              "line": 34,
+              "id": "7a7b71042829362d7952-45f35d8bda59042cfa2c",
+              "file": "v14_4_2_mobile.e2e.ts",
+              "line": 63,
               "column": 3
             },
             {
-              "title": "T11: HTTP 500 error on chart-evidence renders clear error without stale R:R",
+              "title": "M03: mobile touch layer menu and annotation controls remain within viewport",
               "ok": true,
               "tags": [],
               "tests": [
@@ -193,12 +193,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1740,
+                      "duration": 1496,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-13T01:33:59.398Z",
+                      "startTime": "2026-10-13T04:27:27.621Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -206,13 +206,13 @@
                   "status": "expected"
                 }
               ],
-              "id": "73da7cc99d3fa4148882-138d8cf1b4aa2043eda7",
-              "file": "v14_4_2_selection_source.e2e.ts",
-              "line": 96,
+              "id": "7a7b71042829362d7952-165616655ebaa4d31358",
+              "file": "v14_4_2_mobile.e2e.ts",
+              "line": 92,
               "column": 3
             },
             {
-              "title": "T12: switching from valid setup A to waiting scenario B clears R:R overlay",
+              "title": "M04: responsive layout maintains usable bounds across viewport sizes",
               "ok": true,
               "tags": [],
               "tests": [
@@ -227,12 +227,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1917,
+                      "duration": 1800,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-13T01:34:01.153Z",
+                      "startTime": "2026-10-13T04:27:29.129Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -240,145 +240,9 @@
                   "status": "expected"
                 }
               ],
-              "id": "73da7cc99d3fa4148882-24c7365ebcea8b887f05",
-              "file": "v14_4_2_selection_source.e2e.ts",
-              "line": 129,
-              "column": 3
-            },
-            {
-              "title": "T13: copy valid setup to draft creates independent draft with same levels",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "",
-                  "projectName": "",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1909,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-10-13T01:34:03.085Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "73da7cc99d3fa4148882-3000578fbe6d2190f9fa",
-              "file": "v14_4_2_selection_source.e2e.ts",
-              "line": 196,
-              "column": 3
-            },
-            {
-              "title": "T14: scenario with valid certified plan renders readonly R:R overlay",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "",
-                  "projectName": "",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1682,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-10-13T01:34:05.007Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "73da7cc99d3fa4148882-3819b9d14f797dec28d3",
-              "file": "v14_4_2_selection_source.e2e.ts",
-              "line": 222,
-              "column": 3
-            },
-            {
-              "title": "T15: race condition in fast A -> B selection shows only B bundle",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "",
-                  "projectName": "",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1818,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-10-13T01:34:06.702Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "73da7cc99d3fa4148882-9b38dcb91087d3a7b5dc",
-              "file": "v14_4_2_selection_source.e2e.ts",
-              "line": 236,
-              "column": 3
-            },
-            {
-              "title": "T16: draft toggle Mua / Bán updates direction and remains editable in draft mode",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "",
-                  "projectName": "",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1591,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-10-13T01:34:08.533Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "73da7cc99d3fa4148882-67c5338b4534480c975e",
-              "file": "v14_4_2_selection_source.e2e.ts",
-              "line": 267,
+              "id": "7a7b71042829362d7952-866b92027b9a5cbf0389",
+              "file": "v14_4_2_mobile.e2e.ts",
+              "line": 115,
               "column": 3
             }
           ]
@@ -388,9 +252,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-13T01:33:49.313Z",
-    "duration": 21665.463,
-    "expected": 8,
+    "startTime": "2026-10-13T04:27:17.417Z",
+    "duration": 14400.636999999999,
+    "expected": 4,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

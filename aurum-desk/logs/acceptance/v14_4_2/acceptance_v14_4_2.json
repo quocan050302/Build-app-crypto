@@ -1,6 +1,6 @@
 {
   "overall": "PASS",
-  "required_cases_count": 109,
+  "required_cases_count": 126,
   "case_coverage": {
     "D01": {
       "status": "PASS",
@@ -83,6 +83,11 @@
       "not_passed": {}
     },
     "R05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "R06": {
       "status": "PASS",
       "missing": [],
       "not_passed": {}
@@ -546,6 +551,86 @@
       "status": "PASS",
       "missing": [],
       "not_passed": {}
+    },
+    "CHRONO01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "CHRONO02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "CHRONO03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "CHRONO04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "CHRONO05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PLANSRC01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PLANSRC02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PLANSRC03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PLANSRC04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PLANSRC05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FCPROOF01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FCPROOF02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FCPROOF03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FCPROOF04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FCPROOF05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FCPROOF06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
     }
   },
   "statuses": {
@@ -561,11 +646,11 @@
   "steps": {
     "backend_targeted": {
       "status": "PASS",
-      "summary": "269 passed, 1 warning in 21.17s",
+      "summary": "285 passed, 1 warning in 21.00s",
       "failed": [],
       "unexpected_failures": [],
       "exit_code": 0,
-      "duration_s": 23.37,
+      "duration_s": 23.11,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\backend_targeted.log",
       "argv": [
         "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
@@ -592,6 +677,9 @@
         "tests/test_late_source_chronology.py",
         "tests/test_order_geometry_parity.py",
         "tests/test_order_binding_integrity.py",
+        "tests/test_final_reconciliation_chronology.py",
+        "tests/test_final_display_plan_sources.py",
+        "tests/test_final_forecast_proof_pipeline.py",
         "-q",
         "-p",
         "no:cacheprovider",
@@ -601,7 +689,7 @@
     "frontend_typecheck": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 5.03,
+      "duration_s": 5.09,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_typecheck.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npx.CMD",
@@ -611,7 +699,7 @@
     },
     "frontend_lint": {
       "status": "PASS",
-      "warnings": 29,
+      "warnings": 31,
       "errors": 0,
       "exit_code": 0,
       "duration_s": 0.94,
@@ -638,7 +726,7 @@
     "frontend_build": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 6.2,
+      "duration_s": 6.12,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_build.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npm.CMD",
@@ -649,16 +737,16 @@
     "browser_e2e": {
       "status": "PASS",
       "playwright_stats": {
-        "startTime": "2026-10-13T03:42:13.886Z",
-        "duration": 133707.956,
-        "expected": 47,
+        "startTime": "2026-10-13T05:03:55.921Z",
+        "duration": 190115.417,
+        "expected": 48,
         "skipped": 0,
         "unexpected": 0,
         "flaky": 0
       },
-      "executed_tests": 47,
+      "executed_tests": 48,
       "exit_code": 0,
-      "duration_s": 135.08,
+      "duration_s": 191.41,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\browser_e2e.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npx.CMD",
@@ -674,19 +762,22 @@
     "benchmark": {
       "status": "PASS",
       "latency_ms": {
-        "p50": 12.46,
-        "p95": 15.197,
-        "max": 21.95
+        "p50": 12.623,
+        "p95": 15.279,
+        "max": 21.394
       },
-      "not_measured": [
-        "browser render latency",
-        "WS subscriber count",
-        "frontend queue length",
-        "chart recreation per tick",
-        "10,000-tick/60s browser stream"
-      ],
+      "not_measured": [],
+      "metric_validation": {
+        "pass": true,
+        "status": "PASS",
+        "errors": [],
+        "p95_ms": 15.279,
+        "cycles": 600,
+        "browser_p95_ms": 0,
+        "browser_events": 15195
+      },
       "exit_code": 0,
-      "duration_s": 8.53,
+      "duration_s": 8.6,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\benchmark.log",
       "argv": [
         "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
@@ -700,7 +791,7 @@
     "git_diff_check": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 0.07,
+      "duration_s": 0.14,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\git_diff_check.log",
       "argv": [
         "git",
@@ -715,5 +806,5 @@
     "tests/test_v13_5_integrity_acceptance.py::test_01_integrity_pass_on_valid_inputs"
   ],
   "probability_research": "NOT_VERIFIED (no real out-of-sample dataset; metrics are null, not 0)",
-  "timestamp": "2026-10-13 10:44:36"
+  "timestamp": "2026-10-13 12:07:14"
 }

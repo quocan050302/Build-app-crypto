@@ -20,6 +20,7 @@ import type { ChartBinding, ChartEvidenceBundleV144 } from './types/smcScenario'
 
 import { calculateClientRiskReward } from './utils/calculator';
 import { quoteStore } from './services/quoteStore';
+import { telemetryBridge } from './services/telemetryBridge';
 import { RefreshCw, AlertCircle, Eye, EyeOff, Crosshair, ArrowUpRight, ArrowDownRight, BarChart2, List } from 'lucide-react';
 
 export interface ChartComponentProps {
@@ -241,6 +242,7 @@ export function ChartComponent({
   // 1. Initialize Chart instance with React 19 / StrictMode safety
   useEffect(() => {
     if (!chartContainerRef.current) return;
+    telemetryBridge.recordChartCreate();
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -368,6 +370,7 @@ export function ChartComponent({
       if (import.meta.env.DEV) {
         delete (window as unknown as { __AURUM_CHART_TEST__?: unknown }).__AURUM_CHART_TEST__;
       }
+      telemetryBridge.recordChartDestroy();
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -387,6 +390,7 @@ export function ChartComponent({
   const reportChartDataIssue = useCallback((code: string) => {
     issueCountRef.current = Math.min(issueCountRef.current + 1, 999);
     setChartIssue({ code, count: issueCountRef.current });
+    telemetryBridge.recordInvalidEvent();
   }, []);
 
   // Define renderCandles before loadCandles for clean closure semantics
@@ -487,7 +491,11 @@ export function ChartComponent({
     let disposed = false;
     let pendingRaf: number | null = null;
     let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
-    const pendingBarsQueue: CandleData[] = [];
+    interface QueuedBar {
+      bar: CandleData;
+      receiveTs: number;
+    }
+    const pendingBarsQueue: QueuedBar[] = [];
     const MAX_QUEUE = 100;
 
     // Gap / ordering problems are repaired from the API (debounced), never silently ignored.
@@ -503,8 +511,9 @@ export function ChartComponent({
       pendingRaf = null;
       if (disposed || !seriesRef.current) return;
       while (pendingBarsQueue.length > 0) {
-        const nextBar = pendingBarsQueue.shift();
-        if (!nextBar) continue;
+        const item = pendingBarsQueue.shift();
+        if (!item) continue;
+        const nextBar = item.bar;
         const list = candlesRef.current;
         const last = list[list.length - 1];
         const t = nextBar.time as number;
@@ -515,6 +524,8 @@ export function ChartComponent({
         }
         try {
           seriesRef.current.update(nextBar);
+          telemetryBridge.recordRenderLatency(item.receiveTs);
+          telemetryBridge.updateQueueDepth(pendingBarsQueue.length);
         } catch {
           reportChartDataIssue('SERIES_UPDATE_REJECTED');
           scheduleRecovery();
@@ -534,6 +545,7 @@ export function ChartComponent({
       try {
         if (msg.type === 'CANDLE_UPDATE' || msg.type === 'CANDLE_CLOSED') {
           if (msg.symbol === symbol && msg.timeframe === timeframe && msg.payload) {
+            const receiveTs = telemetryBridge.recordEventReceived();
             const p = msg.payload;
             const finite = [p.open, p.high, p.low, p.close].every((v: unknown) => typeof v === 'number' && Number.isFinite(v));
             if (!Number.isSafeInteger(p.time) || p.time <= 0 || !finite || p.high < p.low) {
@@ -561,11 +573,13 @@ export function ChartComponent({
 
             // Same-open updates coalesce; a closed bar followed by a NEW open bar keeps both (boundary preserved).
             const tail = pendingBarsQueue[pendingBarsQueue.length - 1];
-            if (tail && (tail.time as number) === p.time) {
-              pendingBarsQueue[pendingBarsQueue.length - 1] = bar;
+            if (tail && (tail.bar.time as number) === p.time) {
+              pendingBarsQueue[pendingBarsQueue.length - 1] = { bar, receiveTs };
             } else {
-              pendingBarsQueue.push(bar);
+              pendingBarsQueue.push({ bar, receiveTs });
             }
+            telemetryBridge.updateQueueDepth(pendingBarsQueue.length);
+
             if (pendingBarsQueue.length > MAX_QUEUE) {
               pendingBarsQueue.splice(0, pendingBarsQueue.length - MAX_QUEUE);
               reportChartDataIssue('QUEUE_OVERFLOW');
@@ -577,6 +591,7 @@ export function ChartComponent({
             }
           }
         } else if (msg.type === 'QUOTE_UPDATE' && msg.payload?.last) {
+          const receiveTs = telemetryBridge.recordEventReceived();
           // Quotes are telemetry only: no setData, no scenario analysis in the browser.
           quoteStore.updateFromQuoteEnvelope(msg);
           if (msg.symbol === symbol) {
@@ -585,6 +600,7 @@ export function ChartComponent({
               latestClosePriceRef.current = lastPrice;
               latestQuoteTsRef.current = msg.exchange_ts_ms || msg.server_received_at_ms || Date.now();
               setCurrentPriceDisplay(lastPrice);
+              telemetryBridge.recordRenderLatency(receiveTs);
             }
           }
         }

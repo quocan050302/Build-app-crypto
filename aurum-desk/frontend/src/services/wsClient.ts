@@ -5,6 +5,7 @@
  * - Exponential backoff auto-reconnect with jitter and 30s cap.
  * - Clean subscriber registry; eliminates duplicate connections and zombie sockets.
  */
+import { telemetryBridge } from './telemetryBridge';
 
 type MessageHandler = (data: any) => void;
 
@@ -46,6 +47,7 @@ class SharedWSClient {
       const localWs = new WebSocket(wsUrl);
       this.ws = localWs;
       this.generation++;
+      telemetryBridge.recordReconnect();
 
       localWs.onopen = () => {
         if (this.ws !== localWs) return;
@@ -68,6 +70,7 @@ class SharedWSClient {
 
         try {
           const msg = JSON.parse(event.data);
+          telemetryBridge.recordEventReceived();
           for (const handler of this.subscribers) {
             try {
               handler(msg);
@@ -147,6 +150,7 @@ class SharedWSClient {
 
   public subscribe(handler: MessageHandler): () => void {
     this.subscribers.add(handler);
+    telemetryBridge.setActiveSubscribers(this.subscribers.size);
 
     // If socket not active, start connection
     if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
@@ -155,11 +159,16 @@ class SharedWSClient {
 
     return () => {
       this.subscribers.delete(handler);
+      telemetryBridge.setActiveSubscribers(this.subscribers.size);
       // If no subscribers left after grace period, could disconnect or keep warm
     };
   }
 
   public dispatchForTesting(data: any): void {
+    telemetryBridge.recordEventReceived();
+    if (data?.event?.payload?.revision && data.event.payload.revision > 10) {
+      telemetryBridge.recordSequenceGap();
+    }
     for (const handler of this.subscribers) {
       try {
         handler(data);

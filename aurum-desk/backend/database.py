@@ -340,7 +340,7 @@ def run_schema_migrations(target_engine=None):
                     outcome_status VARCHAR(50) DEFAULT 'PENDING',
                     outcome_at_ms BIGINT,
                     outcome_details TEXT,
-                    verification_status VARCHAR(30) DEFAULT 'VERIFIED',
+                    verification_status VARCHAR(30) DEFAULT 'UNVERIFIED',
                     invalidation_mode VARCHAR(30) DEFAULT 'CLOSED_PRICE',
                     payload_json TEXT NOT NULL,
                     created_at BIGINT NOT NULL
@@ -356,7 +356,7 @@ def run_schema_migrations(target_engine=None):
             fc_cols = {row[1] for row in res_fc.fetchall()}
             if fc_cols:
                 if "verification_status" not in fc_cols:
-                    conn.execute(text("ALTER TABLE forecast_observations ADD COLUMN verification_status VARCHAR(30) DEFAULT 'VERIFIED';"))
+                    conn.execute(text("ALTER TABLE forecast_observations ADD COLUMN verification_status VARCHAR(30) DEFAULT 'UNVERIFIED';"))
                 if "invalidation_mode" not in fc_cols:
                     conn.execute(text("ALTER TABLE forecast_observations ADD COLUMN invalidation_mode VARCHAR(30) DEFAULT 'CLOSED_PRICE';"))
 

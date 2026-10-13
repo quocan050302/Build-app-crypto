@@ -71,10 +71,132 @@ def forecast_content_digest(forecast: Any) -> str:
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
+def validate_forecast_definition(
+    definition: Any,
+    context_provenance: Optional[Any] = None
+) -> Dict[str, Any]:
+    """Validates structured forecast definition (PHẦN 051, 052, 156).
+    Checks finite positive levels, valid direction, target/invalidation logic,
+    and presence of genuine machine verification proof.
+    """
+    d_dict = definition.to_dict() if hasattr(definition, "to_dict") else dict(definition)
+    primary = d_dict.get("primary") or {}
+    target = d_dict.get("target") or primary.get("target") or {}
+
+    target_price = d_dict.get("target_price") or (target.get("price") if isinstance(target, dict) else None)
+    invalidation_price = d_dict.get("invalidation_price") or primary.get("invalidation_price")
+    direction = d_dict.get("direction") or primary.get("direction")
+
+    missing_fields = []
+    if not d_dict.get("session_id"):
+        missing_fields.append("session_id")
+    if target_price is None:
+        missing_fields.append("target_price")
+    if invalidation_price is None:
+        missing_fields.append("invalidation_price")
+
+    if missing_fields:
+        return {
+            "is_valid": False,
+            "status": "UNVERIFIED_DEFINITION",
+            "reason_code": "MISSING_REQUIRED_FIELDS",
+            "missing_fields": missing_fields,
+            "has_proof": False,
+        }
+
+    # Check numeric validity
+    for name, val in [("target_price", target_price), ("invalidation_price", invalidation_price)]:
+        if isinstance(val, bool) or not isinstance(val, (int, float)) or not math.isfinite(val) or val <= 0:
+            return {
+                "is_valid": False,
+                "status": "UNVERIFIED_DEFINITION",
+                "reason_code": f"INVALID_{name.upper()}",
+                "has_proof": False,
+            }
+
+    # Check direction logic
+    if direction == "LONG":
+        if invalidation_price >= target_price:
+            return {
+                "is_valid": False,
+                "status": "UNVERIFIED_DEFINITION",
+                "reason_code": "INVALID_LONG_LEVELS",
+                "has_proof": False,
+            }
+    elif direction == "SHORT":
+        if invalidation_price <= target_price:
+            return {
+                "is_valid": False,
+                "status": "UNVERIFIED_DEFINITION",
+                "reason_code": "INVALID_SHORT_LEVELS",
+                "has_proof": False,
+            }
+
+    has_proof = bool(
+        d_dict.get("confirmation_proof_id")
+        or d_dict.get("confirmation_event_id")
+        or d_dict.get("has_machine_proof")
+    )
+
+    return {
+        "is_valid": True,
+        "status": "VALIDATED_DEFINITION" if has_proof else "UNVERIFIED_DEFINITION",
+        "has_proof": has_proof,
+        "reason_code": "OK" if has_proof else "LACKS_MACHINE_PROOF",
+    }
+
+
+def assess_forecast_coverage(
+    snapshot: Any,
+    observations: Sequence[Dict[str, Any]],
+    as_of_ms: int
+) -> Dict[str, Any]:
+    """Assesses data coverage for forecast observation window (PHẦN 060, 157).
+    Detects feed gaps (missing candles > 15m), empty windows, or disjoint timelines.
+    """
+    if not observations:
+        return {
+            "coverage_status": "UNKNOWN",
+            "has_gap": False,
+            "missing_intervals": [],
+            "reason": "EMPTY_OBSERVATIONS",
+        }
+
+    snap_as_of = getattr(snapshot, "as_of_ms", None) or 0
+    cutoff_ms = getattr(snapshot, "context_cutoff_ms", None) or snap_as_of
+    window_start = max(snap_as_of, cutoff_ms)
+
+    sorted_obs = sorted(
+        [o for o in observations if isinstance(o.get("source_timestamp"), int)],
+        key=lambda x: x["source_timestamp"]
+    )
+
+    missing_intervals = []
+    prev_ts = None
+    for o in sorted_obs:
+        ts = o["source_timestamp"]
+        if prev_ts is not None:
+            # 5M bar expected step is 300_000ms. Gap > 15 mins (900_000ms) indicates feed gap
+            if ts - prev_ts > 900_000:
+                missing_intervals.append((prev_ts + 300_000, ts))
+        prev_ts = ts
+
+    has_gap = len(missing_intervals) > 0
+    status = "PARTIAL" if has_gap else "COMPLETE"
+
+    return {
+        "coverage_status": status,
+        "has_gap": has_gap,
+        "missing_intervals": missing_intervals,
+        "reason": "FEED_GAP_DETECTED" if has_gap else "CONTINUOUS_FEED",
+    }
+
+
 def create_forecast_snapshot(
     db: Session,
     forecast: Any,
-    now_ms: Optional[int] = None
+    now_ms: Optional[int] = None,
+    as_of: Optional[int] = None
 ) -> Optional[models.ForecastObservation]:
     """Persists a forecast snapshot prior to knowing future outcomes.
     Uses SQLite savepoint / nested transaction to isolate from caller transactions.
@@ -86,7 +208,7 @@ def create_forecast_snapshot(
         return None
 
     digest = forecast_content_digest(f_dict)
-    as_of = f_dict.get("as_of_ms") or (now_ms if now_ms is not None else 0)
+    as_of_effective = as_of if as_of is not None else (f_dict.get("as_of_ms") or (now_ms if now_ms is not None else 0))
 
     try:
         with db.begin_nested():
@@ -109,8 +231,8 @@ def create_forecast_snapshot(
 
             record_id = f"fc-{session_id[:24]}-r{revision}-{digest[:12]}"
             primary = f_dict.get("primary") or {}
-            target = f_dict.get("target") or {}
-            target_price = target.get("price")
+            target = f_dict.get("target") or primary.get("target") or {}
+            target_price = target.get("price") if isinstance(target, dict) else None
 
             # Extract invalidation price if numeric
             invalidation_price = f_dict.get("invalidation_price") or primary.get("invalidation_price")
@@ -125,14 +247,19 @@ def create_forecast_snapshot(
                     except Exception:
                         pass
 
-            cutoff_ms = f_dict.get("as_of_ms", as_of)
+            cutoff_ms = f_dict.get("as_of_ms", as_of_effective)
             if f_dict.get("session_range"):
                 cutoff_ms = f_dict["session_range"].get("cutoff_ms") or cutoff_ms
 
             inval_mode = f_dict.get("invalidation_mode") or "CLOSED_PRICE"
-            verif_status = f_dict.get("verification_status")
-            if not verif_status:
-                verif_status = "VERIFIED" if invalidation_price is not None and f_dict.get("hypothesis_type") != "UNVERIFIED" else "UNVERIFIED"
+
+            # Server-derived verification status (PHẦN 048, 052, 156)
+            # Never trust client-spoofed verification_status="VERIFIED" without machine proof
+            val_def = validate_forecast_definition(f_dict)
+            if val_def["is_valid"] and val_def.get("has_proof") and f_dict.get("hypothesis_type") != "UNVERIFIED":
+                verif_status = "VERIFIED"
+            else:
+                verif_status = "UNVERIFIED"
 
             payload_clean = json.dumps(f_dict, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
@@ -143,7 +270,7 @@ def create_forecast_snapshot(
                 symbol=f_dict.get("symbol", "XAUUSDT"),
                 session=f_dict.get("session", "UNKNOWN"),
                 session_id=session_id,
-                as_of_ms=as_of,
+                as_of_ms=as_of_effective,
                 context_cutoff_ms=cutoff_ms,
                 content_digest=digest,
                 hypothesis_type=f_dict.get("hypothesis_type", "UNKNOWN"),
@@ -154,7 +281,7 @@ def create_forecast_snapshot(
                 invalidation_mode=inval_mode,
                 outcome_status=ForecastOutcomeDefinition.PENDING.value,
                 payload_json=payload_clean,
-                created_at=now_ms if now_ms is not None else as_of,
+                created_at=now_ms if now_ms is not None else as_of_effective,
             )
             db.add(obs)
             db.flush()
@@ -445,19 +572,24 @@ def process_pending_forecasts(
         ]
 
         expiry_ms = None
+        has_proof = False
         if snapshot.payload_json:
             try:
                 p_dict = json.loads(snapshot.payload_json)
                 rng = p_dict.get("session_range") or {}
                 expiry_ms = rng.get("end_ms")
+                has_proof = bool(p_dict.get("confirmation_proof_id") or p_dict.get("confirmation_event_id"))
             except Exception:
                 expiry_ms = None
+
+        cov = assess_forecast_coverage(snapshot, obs_list, as_of_ms)
+        feed_gap = cov.get("has_gap", False)
 
         res = evaluate_forecast_outcome(
             snapshot=snapshot,
             observations=obs_list,
             as_of_ms=as_of_ms,
-            feed_gap=False,
+            feed_gap=feed_gap,
             expiry_ms=expiry_ms
         )
 

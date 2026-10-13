@@ -742,7 +742,7 @@ def run_migration(db_path=None, *, backup_dir=None):
             outcome_status VARCHAR(50) DEFAULT 'PENDING',
             outcome_at_ms BIGINT,
             outcome_details TEXT,
-            verification_status VARCHAR(30) DEFAULT 'VERIFIED',
+            verification_status VARCHAR(30) DEFAULT 'UNVERIFIED',
             invalidation_mode VARCHAR(30) DEFAULT 'CLOSED_PRICE',
             payload_json TEXT NOT NULL,
             created_at BIGINT NOT NULL,
@@ -757,7 +757,7 @@ def run_migration(db_path=None, *, backup_dir=None):
     cur.execute("PRAGMA table_info(forecast_observations);")
     fc_mig_cols = {row[1] for row in cur.fetchall()}
     if "verification_status" not in fc_mig_cols:
-        cur.execute("ALTER TABLE forecast_observations ADD COLUMN verification_status VARCHAR(30) DEFAULT 'VERIFIED';")
+        cur.execute("ALTER TABLE forecast_observations ADD COLUMN verification_status VARCHAR(30) DEFAULT 'UNVERIFIED';")
     if "invalidation_mode" not in fc_mig_cols:
         cur.execute("ALTER TABLE forecast_observations ADD COLUMN invalidation_mode VARCHAR(30) DEFAULT 'CLOSED_PRICE';")
 

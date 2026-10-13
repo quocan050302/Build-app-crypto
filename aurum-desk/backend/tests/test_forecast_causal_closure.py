@@ -212,6 +212,7 @@ def test_fct02_summary_counts_and_separation(isolated_db):
         id="fc-test-1", forecast_id="s1", revision=1, symbol="XAUUSDT", session="ASIA",
         session_id="ASIA:1", as_of_ms=100, context_cutoff_ms=100, content_digest="d1",
         hypothesis_type="H1", target_price=4200.0, invalidation_price=4150.0,
+        verification_status="VERIFIED",
         outcome_status=ForecastOutcomeDefinition.CONFIRMED_TARGET_BEFORE_INVALIDATION.value,
         payload_json="{}", created_at=100
     )
@@ -220,6 +221,7 @@ def test_fct02_summary_counts_and_separation(isolated_db):
         id="fc-test-2", forecast_id="s2", revision=1, symbol="XAUUSDT", session="ASIA",
         session_id="ASIA:2", as_of_ms=100, context_cutoff_ms=100, content_digest="d2",
         hypothesis_type="H1", target_price=4200.0, invalidation_price=4150.0,
+        verification_status="VERIFIED",
         outcome_status=ForecastOutcomeDefinition.INVALIDATED_BEFORE_TARGET.value,
         payload_json="{}", created_at=100
     )
@@ -228,6 +230,7 @@ def test_fct02_summary_counts_and_separation(isolated_db):
         id="fc-test-3", forecast_id="s3", revision=1, symbol="XAUUSDT", session="ASIA",
         session_id="ASIA:3", as_of_ms=100, context_cutoff_ms=100, content_digest="d3",
         hypothesis_type="H1", target_price=4200.0, invalidation_price=4150.0,
+        verification_status="VERIFIED",
         outcome_status=ForecastOutcomeDefinition.EXPIRED.value,
         payload_json="{}", created_at=100
     )
@@ -236,6 +239,7 @@ def test_fct02_summary_counts_and_separation(isolated_db):
         id="fc-test-4", forecast_id="s4", revision=1, symbol="XAUUSDT", session="ASIA",
         session_id="ASIA:4", as_of_ms=100, context_cutoff_ms=100, content_digest="d4",
         hypothesis_type="H1", target_price=4200.0, invalidation_price=4150.0,
+        verification_status="VERIFIED",
         outcome_status=ForecastOutcomeDefinition.WATCHED_LIQUIDITY_TOUCH.value,
         payload_json="{}", created_at=100
     )
@@ -244,6 +248,7 @@ def test_fct02_summary_counts_and_separation(isolated_db):
         id="fc-test-5", forecast_id="s5", revision=1, symbol="XAUUSDT", session="ASIA",
         session_id="ASIA:5", as_of_ms=100, context_cutoff_ms=100, content_digest="d5",
         hypothesis_type="H1", target_price=4200.0, invalidation_price=4150.0,
+        verification_status="VERIFIED",
         outcome_status=ForecastOutcomeDefinition.PENDING.value,
         payload_json="{}", created_at=100
     )
@@ -252,6 +257,7 @@ def test_fct02_summary_counts_and_separation(isolated_db):
         id="fc-test-6", forecast_id="s6", revision=1, symbol="XAUUSDT", session="ASIA",
         session_id="ASIA:6", as_of_ms=100, context_cutoff_ms=100, content_digest="d6",
         hypothesis_type="H1", target_price=4200.0, invalidation_price=None,
+        verification_status="LEGACY_UNVERIFIED",
         outcome_status=ForecastOutcomeDefinition.CONFIRMED_TARGET_BEFORE_INVALIDATION.value,
         payload_json="{}", created_at=100
     )
@@ -322,6 +328,7 @@ def test_legacy_unverified_is_excluded_from_verified_rate(isolated_db):
         id="fc-legacy-win", forecast_id="s_leg", revision=1, symbol="XAUUSDT", session="ASIA",
         session_id="ASIA:leg1", as_of_ms=100, context_cutoff_ms=100, content_digest="d_leg1",
         hypothesis_type="H1", target_price=4200.0, invalidation_price=None,
+        verification_status="LEGACY_UNVERIFIED",
         outcome_status=ForecastOutcomeDefinition.CONFIRMED_TARGET_BEFORE_INVALIDATION.value,
         payload_json="{}", created_at=100
     )
@@ -340,6 +347,7 @@ def test_legacy_unverified_is_excluded_from_verified_rate(isolated_db):
         id="fc-verified-loss", forecast_id="s_ver", revision=1, symbol="XAUUSDT", session="ASIA",
         session_id="ASIA:ver1", as_of_ms=100, context_cutoff_ms=100, content_digest="d_ver1",
         hypothesis_type="H1", target_price=4200.0, invalidation_price=4150.0,
+        verification_status="VERIFIED",
         outcome_status=ForecastOutcomeDefinition.INVALIDATED_BEFORE_TARGET.value,
         payload_json="{}", created_at=100
     )
