@@ -204,9 +204,9 @@ test.describe('V14.4.2 Chart Closure & Drag Suite', () => {
     // Perform multiple fast pointer moves and release
     await page.mouse.move(startX, startY);
     await page.mouse.down();
-    await page.mouse.move(startX, startY - 10);
-    await page.mouse.move(startX, startY - 20);
-    await page.mouse.move(startX, startY - 30);
+    await page.mouse.move(startX, startY - 10, { steps: 2 });
+    await page.mouse.move(startX, startY - 20, { steps: 2 });
+    await page.mouse.move(startX, startY - 30, { steps: 3 });
     await page.mouse.up();
 
     const after = await readRR(page);

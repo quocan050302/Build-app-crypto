@@ -192,7 +192,30 @@ def test_fcproof06_summary_cohort_excludes_unverified_records(isolated_db):
     Summary cohort only includes decisive outcomes from VERIFIED records.
     Unverified records are counted in n_legacy_unverified and excluded from target_touch_fraction.
     """
-    # Record 1: VERIFIED snapshot with CONFIRMED_TARGET
+    proof_event = models.DomainEvent(
+        event_id="proof-fcproof06",
+        sequence=1,
+        schema_version="1.0.0",
+        event_type="scenario.confirmed",
+        aggregate_id="inst-ver1",
+        aggregate_version=1,
+        occurred_at=90,
+        published_at=100,
+        payload=json.dumps({
+            "event_kind": "scenario.confirmed",
+            "symbol": "XAUUSDT",
+            "direction": "LONG",
+            "scenario_id": "NY:ver1",
+            "instance_id": "inst-ver1",
+            "retest_id": "retest-01",
+            "evidence_chain_ids": ["sweep-01", "break-01", "fvg-01", "retest-01"],
+            "known_at_ms": 100,
+            "occurred_at_ms": 90,
+        }),
+    )
+    isolated_db.add(proof_event)
+
+    # Record 1: VERIFIED snapshot with CONFIRMED_TARGET and valid proof reference
     r_ver = models.ForecastObservation(
         id="fc-ver-1",
         forecast_id="s_ver",
@@ -208,7 +231,12 @@ def test_fcproof06_summary_cohort_excludes_unverified_records(isolated_db):
         invalidation_price=4170.0,
         verification_status="VERIFIED",
         outcome_status=ForecastOutcomeDefinition.CONFIRMED_TARGET_BEFORE_INVALIDATION.value,
-        payload_json="{}",
+        payload_json=json.dumps({
+            "direction": "LONG",
+            "instance_id": "inst-ver1",
+            "confirmation_proof_id": "proof-fcproof06",
+            "confirmed_at_ms": 100,
+        }),
         created_at=100,
     )
     # Record 2: UNVERIFIED snapshot with CONFIRMED_TARGET

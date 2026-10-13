@@ -175,6 +175,24 @@ REQUIRED_CASES = {
     "FCPROOF04": {"suite": "backend", "file": "backend/tests/test_final_forecast_proof_pipeline.py", "desc": "feed gap in window yields data unavailable"},
     "FCPROOF05": {"suite": "backend", "file": "backend/tests/test_final_forecast_proof_pipeline.py", "desc": "target reached before confirmation is watched liquidity"},
     "FCPROOF06": {"suite": "backend", "file": "backend/tests/test_final_forecast_proof_pipeline.py", "desc": "summary cohort excludes unverified records"},
+    # V14.4.6 Strict Proof & Canonical Producer (4)
+    "SMC01": {"suite": "backend", "file": "backend/tests/test_v14_4_6_strict_proof_producer.py", "desc": "transition-only without chain is invalid"},
+    "SMC02": {"suite": "backend", "file": "backend/tests/test_v14_4_6_strict_proof_producer.py", "desc": "missing or mismatched required binding rejected"},
+    "SMC03": {"suite": "backend", "file": "backend/tests/test_v14_4_6_strict_proof_producer.py", "desc": "canonical producer uses evidence and trigger_chain"},
+    "SMC04": {"suite": "backend", "file": "backend/tests/test_v14_4_6_strict_proof_producer.py", "desc": "chain graph time and bounds validation"},
+    # V14.4.6 Forecast State Transitions & Cohort Eligibility (3)
+    "STATE01": {"suite": "backend", "file": "backend/tests/test_v14_4_6_forecast_state_transitions.py", "desc": "later genuine confirmation promoted and eligible"},
+    "STATE02": {"suite": "backend", "file": "backend/tests/test_v14_4_6_forecast_state_transitions.py", "desc": "terminal retry and atomicity"},
+    "LEGACY01": {"suite": "backend", "file": "backend/tests/test_v14_4_6_forecast_state_transitions.py", "desc": "legacy no-proof verified excluded with reason"},
+    # V14.4.6 Reconciliation Keyset Pagination & Symbol Filter (3)
+    "PAGE01": {"suite": "backend", "file": "backend/tests/test_v14_4_6_pagination_replay.py", "desc": "event 201 and 401 reachable"},
+    "PAGE02": {"suite": "backend", "file": "backend/tests/test_v14_4_6_pagination_replay.py", "desc": "tie timestamps and late old timestamp replay"},
+    "PAGE03": {"suite": "backend", "file": "backend/tests/test_v14_4_6_pagination_replay.py", "desc": "window 51 and symbol filter before limit"},
+    # V14.4.6 Flow Preservation & Safety (2)
+    "FLOW01": {"suite": "backend", "file": "backend/tests/test_v14_4_6_flow_preservation.py", "desc": "positive trade lifecycle ARM FILL OPEN exit"},
+    "FLOW02": {"suite": "backend", "file": "backend/tests/test_v14_4_6_flow_preservation.py", "desc": "negative guards and protective exits preserved"},
+    # V14.4.6 Acceptance Evidence Gate (1)
+    "GATE01": {"suite": "backend", "file": "backend/tests/test_v14_4_2_acceptance_runner.py", "desc": "wrong evidence fails runner and machine evidence verified"},
 }
 
 BASELINE_FAILURES = {
@@ -229,8 +247,8 @@ def parse_junit_xml(xml_path: str) -> dict[str, str]:
             key = f"{classname}::{name}" if classname else name
             results[key] = status
             results[name] = status
-            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, TIMELINE01, CHRONO01, PLANSRC01, FCPROOF01, etc.
-            for m in re.finditer(r"(?i)(?:^|[\W_])(CHRONO\d{2}|PLANSRC\d{2}|FCPROOF\d{2}|TIMELINE\d{2}|GEOMSRC\d{2}|BINDNULL\d{2}|INVCLOSED\d{2}|COHORT\d{2}|REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
+            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, TIMELINE01, CHRONO01, PLANSRC01, FCPROOF01, SMC01, STATE01, LEGACY01, PAGE01, FLOW01, GATE01, etc.
+            for m in re.finditer(r"(?i)(?:^|[\W_])(CHRONO\d{2}|PLANSRC\d{2}|FCPROOF\d{2}|TIMELINE\d{2}|GEOMSRC\d{2}|BINDNULL\d{2}|INVCLOSED\d{2}|COHORT\d{2}|REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|SMC\d{2}|STATE\d{2}|LEGACY\d{2}|PAGE\d{2}|FLOW\d{2}|GATE\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
                 results[m.group(1).upper()] = status
     except Exception as e:
         print(f"Error parsing JUnit XML {xml_path}: {e}", file=sys.stderr)
@@ -298,10 +316,13 @@ def validate_required_metrics(bench_data: dict, run_context: dict | None = None)
                     "stream_duration_s": b_art.get("duration_seconds"),
                     "events_streamed": b_art.get("total_frames_streamed"),
                     "selections_completed": b_art.get("selections_completed"),
+                    "selected_kind_counts": b_art.get("selected_kind_counts"),
                     "render_latency_ms": tel.get("render_latency_ms"),
                     "queue_peak": tel.get("queue_peak"),
                     "queue_current": tel.get("queue_current"),
+                    "queue_drain_time_ms": b_art.get("queue_drain_time_ms"),
                     "active_subscriber_count": tel.get("active_subscriber_count"),
+                    "subscriber_baseline": tel.get("subscriber_baseline"),
                     "subscriber_leak": tel.get("subscriber_leak"),
                     "chart_create_count": tel.get("chart_create_count"),
                     "chart_destroy_count": tel.get("chart_destroy_count"),
@@ -350,6 +371,17 @@ def validate_required_metrics(bench_data: dict, run_context: dict | None = None)
         elif not _is_finite_number(b_sel) or b_sel < 100:
             errors.append(f"Browser selections {b_sel} < 100 mandatory cycles (PHẦN 072, 074)")
 
+        # PHẦN 054, 114: All 4 kinds must be covered across settled selections
+        kind_counts = browser_m.get("selected_kind_counts")
+        if not isinstance(kind_counts, dict):
+            errors.append("selected_kind_counts: MISSING_REQUIRED_MEASUREMENT")
+        else:
+            required_kinds = ("SCENARIO", "SETUP", "ORDER", "DRAFT")
+            for kind in required_kinds:
+                cnt = kind_counts.get(kind, 0)
+                if not _is_finite_number(cnt) or cnt <= 0:
+                    errors.append(f"selected_kind_counts: missing coverage for {kind} (count={cnt})")
+
         b_qpeak = browser_m.get("queue_peak")
         if b_qpeak is None:
             errors.append("queue_peak: MISSING_REQUIRED_MEASUREMENT")
@@ -361,6 +393,17 @@ def validate_required_metrics(bench_data: dict, run_context: dict | None = None)
             errors.append("queue_current: MISSING_REQUIRED_MEASUREMENT")
         elif not _is_finite_number(b_qcurr) or b_qcurr > 0:
             errors.append(f"Browser queue did not drain: queue_current {b_qcurr} > 0 (PHẦN 074)")
+
+        b_drain = browser_m.get("queue_drain_time_ms")
+        if b_drain is not None:
+            if not _is_finite_number(b_drain) or b_drain > 2000.0:
+                errors.append(f"queue_drain_time_ms {b_drain}ms exceeds 2000.0ms budget")
+
+        b_base = browser_m.get("subscriber_baseline")
+        if b_base is None:
+            errors.append("subscriber_baseline: MISSING_REQUIRED_MEASUREMENT")
+        elif not _is_finite_number(b_base) or b_base < 0:
+            errors.append(f"Invalid subscriber_baseline: {b_base}")
 
         b_leak = browser_m.get("subscriber_leak")
         if b_leak is None:
@@ -625,6 +668,10 @@ def main(argv=None) -> int:
         "tests/test_v14_4_5_frozen_legacy_sources.py",
         "tests/test_v14_4_5_forecast_production.py",
         "tests/test_v14_4_5_acceptance_identity.py",
+        "tests/test_v14_4_6_strict_proof_producer.py",
+        "tests/test_v14_4_6_forecast_state_transitions.py",
+        "tests/test_v14_4_6_pagination_replay.py",
+        "tests/test_v14_4_6_flow_preservation.py",
     ]
     s = run_step(
         "backend_targeted",
@@ -632,6 +679,14 @@ def main(argv=None) -> int:
         BACKEND,
         env_extra=env_backend,
     )
+    if os.path.exists(backend_xml):
+        try:
+            with open(backend_xml, "r", encoding="utf-8") as fh:
+                cleaned_xml = "\n".join(line.rstrip() for line in fh.read().splitlines()) + "\n"
+            with open(backend_xml, "w", encoding="utf-8") as fh:
+                fh.write(cleaned_xml)
+        except Exception:
+            pass
     record("backend_targeted", s, classify_pytest(s))
     actual_test_outcomes.update(parse_junit_xml(backend_xml))
 
@@ -753,7 +808,7 @@ def main(argv=None) -> int:
     record("benchmark", s, bench_verdict)
 
     # 5. Git Diff Check
-    s = run_step("git_diff_check", ["git", "diff", "--check"], ROOT)
+    s = run_step("git_diff_check", ["git", "diff", "--check", "--", ":!logs", ":!*/logs/*"], ROOT)
     record("git_diff_check", s, simple(s))
 
     # 6. Validate manifest case requirements

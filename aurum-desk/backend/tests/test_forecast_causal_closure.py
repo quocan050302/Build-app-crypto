@@ -207,6 +207,38 @@ def test_fct02_summary_counts_and_separation(isolated_db):
         summarize_forecast_observations,
     )
 
+    import json
+    # Seed genuine confirmation proof event
+    proof_event = models.DomainEvent(
+        event_id="proof-fct02",
+        sequence=1,
+        schema_version="1.0.0",
+        event_type="scenario.confirmed",
+        aggregate_id="inst-fct02",
+        aggregate_version=1,
+        occurred_at=90,
+        published_at=100,
+        payload=json.dumps({
+            "event_kind": "scenario.confirmed",
+            "symbol": "XAUUSDT",
+            "direction": "LONG",
+            "scenario_id": "ASIA:1",
+            "instance_id": "inst-fct02",
+            "retest_id": "retest-01",
+            "evidence_chain_ids": ["sweep-01", "break-01", "fvg-01", "retest-01"],
+            "known_at_ms": 100,
+            "occurred_at_ms": 90,
+        }),
+    )
+    isolated_db.add(proof_event)
+
+    payload_valid = json.dumps({
+        "direction": "LONG",
+        "instance_id": "inst-fct02",
+        "confirmation_proof_id": "proof-fct02",
+        "confirmed_at_ms": 100,
+    })
+
     # 1. Confirmed target record
     r1 = models.ForecastObservation(
         id="fc-test-1", forecast_id="s1", revision=1, symbol="XAUUSDT", session="ASIA",
@@ -214,7 +246,7 @@ def test_fct02_summary_counts_and_separation(isolated_db):
         hypothesis_type="H1", target_price=4200.0, invalidation_price=4150.0,
         verification_status="VERIFIED",
         outcome_status=ForecastOutcomeDefinition.CONFIRMED_TARGET_BEFORE_INVALIDATION.value,
-        payload_json="{}", created_at=100
+        payload_json=payload_valid, created_at=100
     )
     # 2. Invalidated record
     r2 = models.ForecastObservation(
@@ -223,7 +255,7 @@ def test_fct02_summary_counts_and_separation(isolated_db):
         hypothesis_type="H1", target_price=4200.0, invalidation_price=4150.0,
         verification_status="VERIFIED",
         outcome_status=ForecastOutcomeDefinition.INVALIDATED_BEFORE_TARGET.value,
-        payload_json="{}", created_at=100
+        payload_json=payload_valid, created_at=100
     )
     # 3. Expired record
     r3 = models.ForecastObservation(
@@ -232,7 +264,7 @@ def test_fct02_summary_counts_and_separation(isolated_db):
         hypothesis_type="H1", target_price=4200.0, invalidation_price=4150.0,
         verification_status="VERIFIED",
         outcome_status=ForecastOutcomeDefinition.EXPIRED.value,
-        payload_json="{}", created_at=100
+        payload_json=payload_valid, created_at=100
     )
     # 4. Watched liquidity touch record
     r4 = models.ForecastObservation(
@@ -241,7 +273,7 @@ def test_fct02_summary_counts_and_separation(isolated_db):
         hypothesis_type="H1", target_price=4200.0, invalidation_price=4150.0,
         verification_status="VERIFIED",
         outcome_status=ForecastOutcomeDefinition.WATCHED_LIQUIDITY_TOUCH.value,
-        payload_json="{}", created_at=100
+        payload_json=payload_valid, created_at=100
     )
     # 5. Pending record
     r5 = models.ForecastObservation(
@@ -250,7 +282,7 @@ def test_fct02_summary_counts_and_separation(isolated_db):
         hypothesis_type="H1", target_price=4200.0, invalidation_price=4150.0,
         verification_status="VERIFIED",
         outcome_status=ForecastOutcomeDefinition.PENDING.value,
-        payload_json="{}", created_at=100
+        payload_json=payload_valid, created_at=100
     )
     # 6. Legacy record without invalidation_price
     r6 = models.ForecastObservation(
@@ -318,6 +350,7 @@ def test_legacy_unverified_is_excluded_from_verified_rate(isolated_db):
        must yield verified rate = 0.0 (not 0.5!).
     """
     import models
+    import json
     from services.smc_forecast_observation_service import (
         ForecastOutcomeDefinition,
         summarize_forecast_observations,
@@ -343,13 +376,42 @@ def test_legacy_unverified_is_excluded_from_verified_rate(isolated_db):
     assert summary_leg["target_touch_fraction"] is None
 
     # Subtest 2: add 1 verified LOSS (invalidated)
+    proof_event = models.DomainEvent(
+        event_id="proof-leg01",
+        sequence=1,
+        schema_version="1.0.0",
+        event_type="scenario.confirmed",
+        aggregate_id="inst-leg01",
+        aggregate_version=1,
+        occurred_at=90,
+        published_at=100,
+        payload=json.dumps({
+            "event_kind": "scenario.confirmed",
+            "symbol": "XAUUSDT",
+            "direction": "LONG",
+            "scenario_id": "ASIA:ver1",
+            "instance_id": "inst-leg01",
+            "retest_id": "retest-01",
+            "evidence_chain_ids": ["sweep-01", "break-01", "fvg-01", "retest-01"],
+            "known_at_ms": 100,
+            "occurred_at_ms": 90,
+        }),
+    )
+    isolated_db.add(proof_event)
+
     verified_loss = models.ForecastObservation(
         id="fc-verified-loss", forecast_id="s_ver", revision=1, symbol="XAUUSDT", session="ASIA",
         session_id="ASIA:ver1", as_of_ms=100, context_cutoff_ms=100, content_digest="d_ver1",
         hypothesis_type="H1", target_price=4200.0, invalidation_price=4150.0,
         verification_status="VERIFIED",
         outcome_status=ForecastOutcomeDefinition.INVALIDATED_BEFORE_TARGET.value,
-        payload_json="{}", created_at=100
+        payload_json=json.dumps({
+            "direction": "LONG",
+            "instance_id": "inst-leg01",
+            "confirmation_proof_id": "proof-leg01",
+            "confirmed_at_ms": 100,
+        }),
+        created_at=100
     )
     isolated_db.add(verified_loss)
     isolated_db.commit()

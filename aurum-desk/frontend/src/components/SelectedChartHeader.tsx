@@ -42,7 +42,11 @@ export const SelectedChartHeader: React.FC<Props> = ({
         <span className={`px-2 py-0.5 rounded font-semibold border ${dirColor}`}>
           {binding.direction || 'QUAN SÁT'}
         </span>
-        <span className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700 font-medium">
+        <span
+          data-testid="selected-chart-source"
+          data-source={binding.source}
+          className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700 font-medium"
+        >
           {sourceLabels[binding.source] || binding.source}
         </span>
         {state && (

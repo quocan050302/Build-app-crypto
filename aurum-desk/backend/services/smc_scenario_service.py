@@ -851,14 +851,121 @@ def evaluate_scenario_cycle(
                                primary=select_primary_scenario(snapshots), issues=ctx.issues)
 
 
+@dataclass(frozen=True)
+class ChainExtractionResult:
+    is_valid: bool
+    reasons: Tuple[str, ...]
+    sweep: Optional[EvidenceNode] = None
+    brk: Optional[EvidenceNode] = None
+    fvg: Optional[EvidenceNode] = None
+    retest: Optional[EvidenceNode] = None
+    nodes: Tuple[EvidenceNode, ...] = ()
+    evidence_ids: Tuple[str, ...] = ()
+    retest_node: Optional[EvidenceNode] = None
+
+
+def extract_confirmation_chain(snapshot: ScenarioSnapshot) -> ChainExtractionResult:
+    """PHẦN 010, 076, 077: Canonical chain extraction from snapshot.evidence and snapshot.trigger_chain.
+    Does NOT use dynamic snapshot.nodes.
+    """
+    raw_evidence = getattr(snapshot, "evidence", []) or []
+    if not raw_evidence:
+        return ChainExtractionResult(is_valid=False, reasons=("EMPTY_SNAPSHOT_EVIDENCE",))
+
+    parsed_nodes: List[EvidenceNode] = []
+    for raw in raw_evidence:
+        if isinstance(raw, EvidenceNode):
+            parsed_nodes.append(raw)
+        elif isinstance(raw, dict):
+            try:
+                parsed_nodes.append(EvidenceNode.from_dict(raw))
+            except Exception as e:
+                return ChainExtractionResult(is_valid=False, reasons=(f"CORRUPT_EVIDENCE_NODE: {e}",))
+
+    by_id = {n.id: n for n in parsed_nodes}
+
+    trig = getattr(snapshot, "trigger_chain", {}) or {}
+    node_ids = trig.get("node_ids") if isinstance(trig, dict) else {}
+
+    sweep_id = None
+    break_id = None
+    fvg_id = None
+    retest_id = None
+
+    if isinstance(node_ids, dict):
+        sweep_id = node_ids.get("sweep")
+        break_id = node_ids.get("break")
+        fvg_id = node_ids.get("fvg")
+        retest_id = node_ids.get("retest")
+
+    sweep = by_id.get(sweep_id) if sweep_id else next((n for n in parsed_nodes if n.kind in ("SWEEP_LOW", "SWEEP_HIGH")), None)
+    brk = by_id.get(break_id) if break_id else next((n for n in parsed_nodes if n.kind in ("BOS", "CHOCH", "MSS")), None)
+    fvg = by_id.get(fvg_id) if fvg_id else next((n for n in parsed_nodes if n.kind == "FVG"), None)
+    retest = by_id.get(retest_id) if retest_id else next((n for n in parsed_nodes if n.kind == "RETEST"), None)
+
+    if not sweep or not brk or not fvg or not retest:
+        missing = []
+        if not sweep: missing.append("SWEEP")
+        if not brk: missing.append("BREAK")
+        if not fvg: missing.append("FVG")
+        if not retest: missing.append("RETEST")
+        return ChainExtractionResult(is_valid=False, reasons=(f"MISSING_REQUIRED_CHAIN_NODES: {','.join(missing)}",))
+
+    from services.smc_scenario_types import validate_reversal_order
+    direction = getattr(snapshot, "direction", "LONG") or "LONG"
+    as_of = getattr(snapshot, "evidence_cutoff_ms", 0) or getattr(snapshot, "as_of_ms", 0)
+
+    check = validate_reversal_order(
+        symbol=snapshot.symbol,
+        direction=direction,
+        as_of_ms=as_of,
+        sweep=sweep,
+        brk=brk,
+        fvg=fvg,
+        retest=retest,
+    )
+
+    if not check.verified:
+        return ChainExtractionResult(
+            is_valid=False,
+            reasons=check.reasons,
+            sweep=sweep,
+            brk=brk,
+            fvg=fvg,
+            retest=retest,
+            nodes=(sweep, brk, fvg, retest),
+            evidence_ids=check.evidence_ids,
+            retest_node=retest,
+        )
+
+    return ChainExtractionResult(
+        is_valid=True,
+        reasons=(),
+        sweep=sweep,
+        brk=brk,
+        fvg=fvg,
+        retest=retest,
+        nodes=(sweep, brk, fvg, retest),
+        evidence_ids=check.evidence_ids,
+        retest_node=retest,
+    )
+
+
 def record_scenario_confirmation_event(
     db: Session,
     snapshot: ScenarioSnapshot,
     transition: Optional[str] = None,
 ) -> Optional[models.DomainEvent]:
-    """PHẦN 044, 045, 097: Records an authoritative DomainEvent when a scenario reaches STRUCTURE_CONFIRMED."""
+    """PHẦN 044, 045, 079, 080: Records an authoritative DomainEvent when a scenario reaches STRUCTURE_CONFIRMED.
+    Validates canonical confirmation chain from snapshot.evidence (no .nodes/.profile dynamic fields).
+    """
     state_val = getattr(snapshot.state, "value", str(snapshot.state))
     if state_val != "STRUCTURE_CONFIRMED":
+        return None
+
+    chain = extract_confirmation_chain(snapshot)
+    if not chain.is_valid or not chain.retest_node:
+        logger.warning(f"Scenario {snapshot.instance_id} reached STRUCTURE_CONFIRMED but failed chain extraction: {chain.reasons}")
         return None
 
     event_uid = f"conf_{snapshot.instance_id}_r{snapshot.revision}"
@@ -866,12 +973,10 @@ def record_scenario_confirmation_event(
     if existing:
         return existing
 
-    nodes = getattr(snapshot, "nodes", []) or []
-    node_ids = {getattr(n, "kind", ""): getattr(n, "id", "") for n in nodes}
-    retest_node = next((n for n in nodes if getattr(n, "kind", "") == "RETEST"), None)
-
-    known_at = getattr(retest_node, "known_at_ms", None) or snapshot.as_of_ms
-    occurred_at = getattr(retest_node, "occurred_at_ms", None) or snapshot.as_of_ms
+    retest_node = chain.retest_node
+    known_at = retest_node.known_at_ms
+    occurred_at = retest_node.occurred_at_ms
+    profile = getattr(snapshot, "requirement_profile", "SMC_DEFAULT") or "SMC_DEFAULT"
 
     payload = {
         "event_kind": "scenario.confirmed",
@@ -883,13 +988,13 @@ def record_scenario_confirmation_event(
         "revision": snapshot.revision,
         "model_version": getattr(snapshot, "detector_version", "1.0"),
         "config_version": getattr(snapshot, "config_version", "1"),
-        "profile": getattr(snapshot, "profile", "SMC_DEFAULT"),
+        "profile": profile,
         "transition": transition or "STRUCTURE_CONFIRMED",
-        "evidence_chain_ids": [getattr(n, "id", "") for n in nodes],
-        "sweep_id": node_ids.get("SWEEP"),
-        "break_id": node_ids.get("BREAK"),
-        "fvg_id": node_ids.get("FVG"),
-        "retest_id": node_ids.get("RETEST"),
+        "evidence_chain_ids": list(chain.evidence_ids),
+        "sweep_id": chain.sweep.id if chain.sweep else None,
+        "break_id": chain.brk.id if chain.brk else None,
+        "fvg_id": chain.fvg.id if chain.fvg else None,
+        "retest_id": chain.retest.id if chain.retest else None,
         "occurred_at_ms": occurred_at,
         "known_at_ms": known_at,
         "schema_version": "1.0.0",

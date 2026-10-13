@@ -164,7 +164,21 @@ def normalize_forecast_identity(
     server_context: Optional[Any] = None,
 ) -> Tuple[Optional[ForecastIdentity], Optional[str]]:
     """PHẦN 039, 094: Normalizes forecast identity across primary.direction and top-level direction."""
-    d = definition.to_dict() if hasattr(definition, "to_dict") else dict(definition)
+    if hasattr(definition, "to_dict"):
+        d = definition.to_dict()
+    elif isinstance(definition, dict):
+        d = dict(definition)
+    elif hasattr(definition, "payload_json") and definition.payload_json:
+        try:
+            d = json.loads(definition.payload_json)
+        except Exception:
+            d = {}
+        for f in ("symbol", "direction", "session_id", "as_of_ms"):
+            if not d.get(f) and hasattr(definition, f):
+                d[f] = getattr(definition, f)
+    else:
+        d = {}
+
     primary = d.get("primary") or {}
     top_dir = d.get("direction")
     pri_dir = primary.get("direction")
@@ -202,13 +216,25 @@ def normalize_forecast_identity(
 ALLOWED_PROOF_EVENT_TYPES = {"scenario.confirmed", "SCENARIO_CONFIRMATION", "smc.confirmation"}
 
 
+def load_confirmation_snapshot(db: Session, snapshot_id: str) -> Optional[Any]:
+    """PHẦN 022, 081: Loads canonical ScenarioSnapshot from SMCScenarioSnapshot table."""
+    row = db.query(models.SMCScenarioSnapshot).filter(models.SMCScenarioSnapshot.snapshot_id == snapshot_id).first()
+    if not row or not row.payload:
+        return None
+    try:
+        from services.smc_scenario_types import ScenarioSnapshot
+        return ScenarioSnapshot.from_dict(json.loads(row.payload))
+    except Exception:
+        return None
+
+
 def load_and_validate_confirmation_proof(
     db: Session,
     proof_id: str,
     snapshot_definition: Any,
     as_of_ms: int
 ) -> Dict[str, Any]:
-    """Pure proof repository loader & validator (PHẦN 038, 040, 041, 095):
+    """Pure proof repository loader & validator (PHẦN 017, 038, 040, 041, 083, 095):
     Validates genuine machine proof record from DomainEvent store.
     Checks:
     - ID exists
@@ -220,7 +246,7 @@ def load_and_validate_confirmation_proof(
     - Config version matches
     - Profile matches
     - Event known_at <= as_of_ms (no future information)
-    - Closed chain proof presence
+    - Closed chain proof presence (no transition-only shortcuts)
     """
     if not proof_id or not isinstance(proof_id, str):
         return {"is_valid": False, "reason_code": "EMPTY_PROOF_ID"}
@@ -270,12 +296,23 @@ def load_and_validate_confirmation_proof(
     if event_known_at is not None and event_known_at > as_of_ms:
         return {"is_valid": False, "reason_code": "PROOF_KNOWN_AT_FUTURE"}
 
+    # PHẦN 017, 083: Require genuine confirmation chain (no transition-only shortcuts)
+    snap_id = payload.get("snapshot_id")
+    if snap_id:
+        snap_obj = load_confirmation_snapshot(db, snap_id)
+        if snap_obj is not None:
+            from services.smc_scenario_service import extract_confirmation_chain
+            chain_res = extract_confirmation_chain(snap_obj)
+            if not chain_res.is_valid:
+                return {"is_valid": False, "reason_code": f"INVALID_CONFIRMATION_CHAIN_{chain_res.reasons[0]}"}
+
     has_chain = bool(
         payload.get("retest_id")
-        or payload.get("evidence_chain_ids")
-        or payload.get("chain_ids")
-        or (payload.get("sweep_id") and payload.get("break_id"))
-        or payload.get("transition")
+        and (
+            payload.get("break_id")
+            or len(payload.get("evidence_chain_ids") or []) >= 3
+            or len(payload.get("chain_ids") or []) >= 3
+        )
     )
     if not has_chain:
         return {"is_valid": False, "reason_code": "INCOMPLETE_CONFIRMATION_CHAIN"}
@@ -340,7 +377,8 @@ def create_forecast_snapshot(
     db: Session,
     forecast: Any,
     now_ms: Optional[int] = None,
-    as_of: Optional[int] = None
+    as_of: Optional[int] = None,
+    proof_id: Optional[str] = None,
 ) -> Optional[models.ForecastObservation]:
     """Persists a forecast snapshot prior to knowing future outcomes.
     Uses SQLite savepoint / nested transaction to isolate from caller transactions.
@@ -400,8 +438,10 @@ def create_forecast_snapshot(
             # Server-derived verification status (PHẦN 048, 052, 056, 110, 156)
             # Never trust client-spoofed verification_status="VERIFIED" without machine proof
             val_def = validate_forecast_definition(f_dict)
-            proof_id = f_dict.get("confirmation_proof_id") or f_dict.get("confirmation_event_id")
-            proof_val = load_and_validate_confirmation_proof(db, proof_id, f_dict, as_of_effective) if proof_id else {"is_valid": False}
+            effective_proof_id = proof_id or f_dict.get("confirmation_proof_id") or f_dict.get("confirmation_event_id")
+            if effective_proof_id:
+                f_dict["confirmation_proof_id"] = effective_proof_id
+            proof_val = load_and_validate_confirmation_proof(db, effective_proof_id, f_dict, as_of_effective) if effective_proof_id else {"is_valid": False}
 
             is_machine_verified = bool(proof_val.get("is_valid"))
             if val_def["is_valid"] and is_machine_verified and f_dict.get("hypothesis_type") != "UNVERIFIED":
@@ -798,6 +838,105 @@ def load_forecast_evidence_window(
     )
 
 
+@dataclass(frozen=True)
+class ConfirmationApplyResult:
+    applied: bool
+    confirmation_event_id: Optional[str]
+    confirmed_at_ms: Optional[int]
+    verification_status: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class VerdictApplyResult:
+    applied: bool
+    outcome_status: str
+    verification_status: str
+    reason: str
+
+
+def apply_forecast_confirmation(
+    db: Session,
+    row: models.ForecastObservation,
+    decision: Dict[str, Any]
+) -> ConfirmationApplyResult:
+    """PHẦN 028, 086: Records genuine confirmation metadata/reference within caller transaction/savepoint.
+    Idempotent on row + proof version. Does not mutate original definition or as_of_ms.
+    """
+    event_id = decision.get("confirmation_event_id") or decision.get("proof_event_id")
+    if not event_id:
+        return ConfirmationApplyResult(
+            applied=False,
+            confirmation_event_id=None,
+            confirmed_at_ms=None,
+            verification_status=row.verification_status,
+            reason="NO_CONFIRMATION_EVENT"
+        )
+
+    confirmed_at = decision.get("confirmed_at_ms") or decision.get("known_at_ms") or row.as_of_ms
+
+    p_dict = {}
+    if row.payload_json:
+        try:
+            p_dict = json.loads(row.payload_json)
+        except Exception:
+            p_dict = {}
+
+    p_dict["confirmation_event_id"] = event_id
+    p_dict["confirmation_proof_id"] = event_id
+    p_dict["confirmed_at_ms"] = confirmed_at
+    row.payload_json = json.dumps(p_dict, ensure_ascii=False)
+
+    if row.verification_status in ("UNVERIFIED", "V1_UNVERIFIED"):
+        row.verification_status = "CONFIRMED"
+
+    return ConfirmationApplyResult(
+        applied=True,
+        confirmation_event_id=event_id,
+        confirmed_at_ms=confirmed_at,
+        verification_status=row.verification_status,
+        reason="CONFIRMATION_RECORDED"
+    )
+
+
+def persist_forecast_verdict(
+    db: Session,
+    row: models.ForecastObservation,
+    confirmation: Optional[Dict[str, Any]],
+    coverage: Dict[str, Any],
+    outcome: Dict[str, Any]
+) -> VerdictApplyResult:
+    """PHẦN 029, 087: Atomic semantic update of outcome and proof link within caller transaction/savepoint."""
+    outcome_name = outcome.get("outcome") or ForecastOutcomeDefinition.PENDING.value
+    if outcome_name == ForecastOutcomeDefinition.PENDING.value:
+        return VerdictApplyResult(
+            applied=False,
+            outcome_status=row.outcome_status,
+            verification_status=row.verification_status,
+            reason="OUTCOME_PENDING"
+        )
+
+    row.outcome_status = outcome_name
+    row.outcome_at_ms = outcome.get("outcome_at_ms") or row.as_of_ms
+    details = outcome.get("details") or {}
+    if outcome.get("reason"):
+        details["reason"] = outcome["reason"]
+    row.outcome_details = json.dumps(details, ensure_ascii=False)
+
+    # If outcome is confirmed target and confirmation was present/applied
+    if outcome_name == ForecastOutcomeDefinition.CONFIRMED_TARGET_BEFORE_INVALIDATION.value:
+        row.verification_status = "VERIFIED"
+    elif row.verification_status == "CONFIRMED":
+        row.verification_status = "VERIFIED"
+
+    return VerdictApplyResult(
+        applied=True,
+        outcome_status=row.outcome_status,
+        verification_status=row.verification_status,
+        reason=outcome.get("reason", "OUTCOME_RESOLVED")
+    )
+
+
 def process_pending_forecasts(
     db: Session,
     symbol: str = "XAUUSDT",
@@ -826,6 +965,28 @@ def process_pending_forecasts(
     for snapshot in pending_records:
         window = load_forecast_evidence_window(db, snapshot, as_of_ms)
 
+        # PHẦN 028: Apply confirmation immediately if genuine proof found in window
+        confirmation_decision = None
+        if window.confirmation_event_id:
+            for o in window.observations:
+                if o.get("is_confirmation") and o.get("proof_event_id") == window.confirmation_event_id:
+                    confirmation_decision = {
+                        "confirmation_event_id": window.confirmation_event_id,
+                        "confirmed_at_ms": o.get("known_at_ms") or o.get("source_timestamp"),
+                    }
+                    break
+            if not confirmation_decision:
+                confirmation_decision = {
+                    "confirmation_event_id": window.confirmation_event_id,
+                    "confirmed_at_ms": as_of_ms,
+                }
+            try:
+                with db.begin_nested():
+                    apply_forecast_confirmation(db, snapshot, confirmation_decision)
+                    db.flush()
+            except Exception as e:
+                logger.error(f"Error applying confirmation for snapshot {snapshot.id}: {e}")
+
         expiry_ms = None
         if snapshot.payload_json:
             try:
@@ -846,12 +1007,7 @@ def process_pending_forecasts(
         if res.get("outcome") and res["outcome"] != ForecastOutcomeDefinition.PENDING.value:
             try:
                 with db.begin_nested():
-                    snapshot.outcome_status = res["outcome"]
-                    snapshot.outcome_at_ms = res.get("outcome_at_ms") or as_of_ms
-                    details = res.get("details") or {}
-                    if res.get("reason"):
-                        details["reason"] = res["reason"]
-                    snapshot.outcome_details = json.dumps(details, ensure_ascii=False)
+                    persist_forecast_verdict(db, snapshot, confirmation_decision, window.coverage_assessment, res)
                     db.flush()
                 updated_count += 1
             except Exception as e:
@@ -887,10 +1043,15 @@ def assess_forecast_cohort_eligibility(
             pass
 
     proof_id = p_dict.get("confirmation_proof_id") or p_dict.get("confirmation_event_id")
-    if proof_id:
-        proof_val = load_and_validate_confirmation_proof(db, proof_id, p_dict or row, row.as_of_ms)
-        if not proof_val.get("is_valid"):
-            return CohortEligibility(is_eligible=False, reason_code=f"INVALID_PROOF_{proof_val.get('reason_code')}", record_id=row.id)
+    if not proof_id:
+        # PHẦN 031, 110: Legacy records without proof reference must not be eligible
+        return CohortEligibility(is_eligible=False, reason_code="NO_PROOF_REFERENCE", record_id=row.id)
+
+    # PHẦN 030: Cohort evaluation cutoff uses confirmed_at_ms / outcome_at_ms rather than creation as_of_ms
+    proof_cutoff = p_dict.get("confirmed_at_ms") or row.outcome_at_ms or row.as_of_ms
+    proof_val = load_and_validate_confirmation_proof(db, proof_id, p_dict or row, proof_cutoff)
+    if not proof_val.get("is_valid"):
+        return CohortEligibility(is_eligible=False, reason_code=f"INVALID_PROOF_{proof_val.get('reason_code')}", record_id=row.id)
 
     return CohortEligibility(is_eligible=True, reason_code="ELIGIBLE", record_id=row.id)
 

@@ -1182,11 +1182,14 @@ export function ChartComponent({
         <div className="flex items-center space-x-2">
           {/* Toggle Draft Mode */}
           <button
+            data-testid="toggle-draft-mode"
             onClick={() => {
               if (!draftMode && selectedBinding) {
+                draftBaseOverlayRef.current = null;
                 onClearSelection?.();
+              } else {
+                draftBaseOverlayRef.current = activeOverlay;
               }
-              draftBaseOverlayRef.current = activeOverlay;
               setDraftMode(!draftMode);
             }}
             className={`flex items-center px-2.5 py-1 rounded font-medium transition-all ${
@@ -1202,6 +1205,7 @@ export function ChartComponent({
           {draftMode && (
             <div className="flex items-center bg-gray-900 rounded p-0.5 border border-gray-700">
               <button
+                data-testid="draft-direction-long"
                 onClick={() => setDraftDirection('LONG')}
                 className={`flex items-center px-2 py-0.5 rounded ${
                   draftDirection === 'LONG' ? 'bg-emerald-600 text-white' : 'text-gray-400'
@@ -1210,6 +1214,7 @@ export function ChartComponent({
                 <ArrowUpRight className="w-3 h-3 mr-0.5" /> Mua
               </button>
               <button
+                data-testid="draft-direction-short"
                 onClick={() => setDraftDirection('SHORT')}
                 className={`flex items-center px-2 py-0.5 rounded ${
                   draftDirection === 'SHORT' ? 'bg-rose-600 text-white' : 'text-gray-400'

@@ -43,6 +43,7 @@ def valid_bench_fixture():
             "stream_duration_s": 60.5,
             "events_streamed": 10000,
             "selections_completed": 100,
+            "selected_kind_counts": {"SCENARIO": 25, "SETUP": 25, "ORDER": 25, "DRAFT": 25},
             "render_latency_ms": {
                 "p50": 8.0,
                 "p90": 14.0,
@@ -53,6 +54,7 @@ def valid_bench_fixture():
             "queue_peak": 45,
             "queue_current": 0,  # Drained!
             "active_subscriber_count": 2,
+            "subscriber_baseline": 2,
             "subscriber_leak": 0,
             "chart_create_count": 1,
             "dropped_execution_event_count": 0,

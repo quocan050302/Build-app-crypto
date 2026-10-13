@@ -1,15 +1,15 @@
 {
   "overall": "PASS",
   "run_context": {
-    "run_id": "run_1791898228032",
-    "sha": "e4f563cbedd444de5c9c2f113c87dc17d1c39d77",
-    "tested_sha": "e4f563cbedd444de5c9c2f113c87dc17d1c39d77",
-    "tree_fingerprint": "5ea75a16be761487c095236217725ab41138613a",
-    "started_at_ms": 1791898228032,
+    "run_id": "run_1791904586431",
+    "sha": "4a49808f3e99bd93dd33d0dec7561f83a1a5ef9d",
+    "tested_sha": "4a49808f3e99bd93dd33d0dec7561f83a1a5ef9d",
+    "tree_fingerprint": "c0820926279fb70e1a18066e9d6f536e594734a3",
+    "started_at_ms": 1791904586431,
     "environment": "mac",
     "required_schema": "1.0.0"
   },
-  "required_cases_count": 126,
+  "required_cases_count": 139,
   "case_coverage": {
     "D01": {
       "status": "PASS",
@@ -640,6 +640,71 @@
       "status": "PASS",
       "missing": [],
       "not_passed": {}
+    },
+    "SMC01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "SMC02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "SMC03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "SMC04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "STATE01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "STATE02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "LEGACY01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PAGE01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PAGE02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PAGE03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FLOW01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FLOW02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "GATE01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
     }
   },
   "statuses": {
@@ -655,11 +720,11 @@
   "steps": {
     "backend_targeted": {
       "status": "PASS",
-      "summary": "333 passed, 2 warnings in 12.01s",
+      "summary": "346 passed, 2 warnings in 14.19s",
       "failed": [],
       "unexpected_failures": [],
       "exit_code": 0,
-      "duration_s": 13.84,
+      "duration_s": 16.0,
       "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/backend_targeted.log",
       "argv": [
         "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
@@ -700,6 +765,10 @@
         "tests/test_v14_4_5_frozen_legacy_sources.py",
         "tests/test_v14_4_5_forecast_production.py",
         "tests/test_v14_4_5_acceptance_identity.py",
+        "tests/test_v14_4_6_strict_proof_producer.py",
+        "tests/test_v14_4_6_forecast_state_transitions.py",
+        "tests/test_v14_4_6_pagination_replay.py",
+        "tests/test_v14_4_6_flow_preservation.py",
         "-q",
         "-p",
         "no:cacheprovider",
@@ -709,7 +778,7 @@
     "frontend_typecheck": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 3.71,
+      "duration_s": 3.68,
       "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_typecheck.log",
       "argv": [
         "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npx",
@@ -722,7 +791,7 @@
       "warnings": 29,
       "errors": 0,
       "exit_code": 0,
-      "duration_s": 0.36,
+      "duration_s": 0.37,
       "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_lint.log",
       "argv": [
         "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npx",
@@ -732,7 +801,7 @@
     "frontend_vitest": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 1.38,
+      "duration_s": 1.68,
       "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_vitest.log",
       "argv": [
         "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npx",
@@ -746,7 +815,7 @@
     "frontend_build": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 4.26,
+      "duration_s": 4.61,
       "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_build.log",
       "argv": [
         "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npm",
@@ -757,8 +826,8 @@
     "browser_e2e": {
       "status": "PASS",
       "playwright_stats": {
-        "startTime": "2026-10-13T13:30:52.141Z",
-        "duration": 151848.452,
+        "startTime": "2026-10-13T15:16:53.374Z",
+        "duration": 156355.843,
         "expected": 48,
         "skipped": 0,
         "unexpected": 0,
@@ -766,7 +835,7 @@
       },
       "executed_tests": 48,
       "exit_code": 0,
-      "duration_s": 152.4,
+      "duration_s": 156.94,
       "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/browser_e2e.log",
       "argv": [
         "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npx",
@@ -782,9 +851,9 @@
     "benchmark": {
       "status": "PASS",
       "latency_ms": {
-        "p50": 6.934,
-        "p95": 7.638,
-        "max": 8.79,
+        "p50": 7.108,
+        "p95": 7.763,
+        "max": 46.857,
         "sample_count": 600
       },
       "not_measured": [],
@@ -792,13 +861,13 @@
         "pass": true,
         "status": "PASS",
         "errors": [],
-        "p95_ms": 7.638,
+        "p95_ms": 7.763,
         "cycles": 600,
-        "browser_p95_ms": 24.6,
-        "browser_events": 10061
+        "browser_p95_ms": 23.4,
+        "browser_events": 10060
       },
       "exit_code": 0,
-      "duration_s": 4.74,
+      "duration_s": 4.97,
       "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/benchmark.log",
       "argv": [
         "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
@@ -806,9 +875,9 @@
         "--cycles",
         "600",
         "--run-id",
-        "run_1791898228032",
+        "run_1791904586431",
         "--tested-sha",
-        "e4f563cbedd444de5c9c2f113c87dc17d1c39d77",
+        "4a49808f3e99bd93dd33d0dec7561f83a1a5ef9d",
         "--out",
         "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/benchmark.json"
       ]
@@ -816,12 +885,15 @@
     "git_diff_check": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 0.03,
+      "duration_s": 0.04,
       "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/git_diff_check.log",
       "argv": [
         "git",
         "diff",
-        "--check"
+        "--check",
+        "--",
+        ":!logs",
+        ":!*/logs/*"
       ]
     }
   },
@@ -831,5 +903,5 @@
     "tests/test_v13_5_integrity_acceptance.py::test_01_integrity_pass_on_valid_inputs"
   ],
   "probability_research": "NOT_VERIFIED (no real out-of-sample dataset; metrics are null, not 0)",
-  "timestamp": "2026-10-13 20:33:28"
+  "timestamp": "2026-10-13 22:19:34"
 }

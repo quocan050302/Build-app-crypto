@@ -65,6 +65,9 @@ def test_proof_repository_validation(isolated_db):
             "scenario_instance_id": "inst_1",
             "direction": "LONG",
             "transition": "VERIFIED_SWEEP_TO_RETEST",
+            "retest_id": "retest_1",
+            "break_id": "break_1",
+            "evidence_chain_ids": ["sw_1", "break_1", "fvg_1", "retest_1"],
             "known_at_ms": as_of - 1000,
         }),
     )

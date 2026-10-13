@@ -58,6 +58,7 @@ export interface QuickDecisionSidebarProps {
   onFocusOnChart?: () => void;
   scenarios?: SMCScenarioView[];
   onSelectScenario?: (scenario: SMCScenarioView) => void;
+  onFocusTradeOnChart?: (trade: any) => void;
 }
 
 export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
@@ -68,6 +69,7 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
   stalePlanNotice,
   onClearStalePlanNotice,
   onFocusSetupOnChart,
+  onFocusTradeOnChart,
   onArmSetup,
   onCancelSetup,
   onClosePosition,
@@ -445,6 +447,18 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
               <span className="text-emerald-300/90 font-medium">ExitMonitor đang giám sát</span>
             </div>
 
+            {/* Focus active order on chart */}
+            {onFocusTradeOnChart && (
+              <button
+                type="button"
+                data-testid="sidebar-focus-order"
+                onClick={() => onFocusTradeOnChart(pos)}
+                className="w-full py-1 text-center bg-charcoal-800 hover:bg-charcoal-750 text-emerald-400 rounded text-xs border border-charcoal-700 font-semibold transition"
+              >
+                Xem Lệnh Trên Chart
+              </button>
+            )}
+
             {/* Quick close position button */}
             <button
               type="button"
@@ -510,6 +524,22 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                 onSelect={onSelectScenario}
               />
             ))}
+          </div>
+        )}
+
+        {/* UPCOMING SETUPS SHORTCUT CARD */}
+        {upcomingSetups && upcomingSetups.length > 0 && onFocusSetupOnChart && (
+          <div className="p-2.5 rounded-lg bg-charcoal-850 border border-charcoal-750 space-y-1.5">
+            <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block">Setup Tiềm Năng</span>
+            <button
+              type="button"
+              data-testid="sidebar-focus-setup"
+              onClick={() => onFocusSetupOnChart(upcomingSetups[0])}
+              className="w-full py-1.5 px-2 bg-charcoal-800 hover:bg-charcoal-750 text-indigo-300 rounded text-xs border border-charcoal-700 font-semibold transition flex items-center justify-between"
+            >
+              <span>{upcomingSetups[0].direction} {upcomingSetups[0].symbol || 'XAUUSDT'}</span>
+              <span className="text-gray-400 text-[10px]">Xem trên chart →</span>
+            </button>
           </div>
         )}
 

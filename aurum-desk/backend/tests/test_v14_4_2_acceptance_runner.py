@@ -183,3 +183,56 @@ def test_a12_port_busy_does_not_kill_process(monkeypatch):
 
     monkeypatch.setattr(runner, "is_port_in_use", mock_is_port_in_use)
     assert runner.is_port_in_use(8000) is True
+
+
+def test_gate01_wrong_evidence_fails_runner():
+    """GATE01: validate_required_metrics rejects incomplete or fake artifacts."""
+    run_ctx = {
+        "run_id": "test_run",
+        "sha": "abc",
+        "started_at_ms": 1000,
+    }
+    # 1. missing selected_kind_counts coverage (only SCENARIO covered)
+    bench_bad_kinds = {
+        "run_id": "test_run",
+        "tested_sha": "abc",
+        "status": "PASS",
+        "latency_ms": {"sample_count": 100, "p95": 10.0},
+        "cycles": 100,
+        "browser_measurements": {
+            "status": "PASS",
+            "stream_duration_s": 65.0,
+            "events_streamed": 10500,
+            "selections_completed": 100,
+            "selected_kind_counts": {"SCENARIO": 100, "SETUP": 0, "ORDER": 0, "DRAFT": 0},
+            "render_latency_ms": {"sample_count": 100, "p95": 20.0},
+            "queue_peak": 5,
+            "queue_current": 0,
+            "active_subscriber_count": 1,
+            "subscriber_baseline": 1,
+            "subscriber_leak": 0,
+            "chart_create_count": 1,
+            "dropped_execution_event_count": 0,
+        },
+    }
+    res = runner.validate_required_metrics(bench_bad_kinds, run_context=run_ctx)
+    assert res["pass"] is False
+    assert any("selected_kind_counts: missing coverage" in err for err in res["errors"])
+
+    # 2. missing subscriber baseline (literal 0 leak without baseline)
+    bench_no_baseline = dict(bench_bad_kinds)
+    bench_no_baseline["browser_measurements"] = dict(bench_bad_kinds["browser_measurements"])
+    bench_no_baseline["browser_measurements"]["selected_kind_counts"] = {
+        "SCENARIO": 25, "SETUP": 25, "ORDER": 25, "DRAFT": 25
+    }
+    bench_no_baseline["browser_measurements"]["subscriber_baseline"] = None
+    res2 = runner.validate_required_metrics(bench_no_baseline, run_context=run_ctx)
+    assert res2["pass"] is False
+    assert any("subscriber_baseline: MISSING_REQUIRED_MEASUREMENT" in err for err in res2["errors"])
+
+    # 3. genuine measured artifact with all 4 kinds and baseline passes
+    bench_good = dict(bench_no_baseline)
+    bench_good["browser_measurements"] = dict(bench_no_baseline["browser_measurements"])
+    bench_good["browser_measurements"]["subscriber_baseline"] = 1
+    res3 = runner.validate_required_metrics(bench_good, run_context=run_ctx)
+    assert res3["pass"] is True

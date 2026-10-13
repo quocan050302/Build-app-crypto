@@ -183,16 +183,50 @@ def test_f03_genuine_producer_event_to_observer_and_summary(isolated_db: Session
     Summary stats validates cohort eligibility and excludes unverified rows.
     """
     # 1. Producer records scenario confirmation event
+    sweep_node = EvidenceNode(
+        id="sweep_f03_01",
+        kind="SWEEP_LOW",
+        symbol="XAUUSDT",
+        timeframe="5M",
+        direction=None,
+        occurred_at_ms=700,
+        known_at_ms=800,
+        level=4170.0,
+    )
+    break_node = EvidenceNode(
+        id="break_f03_01",
+        kind="CHOCH",
+        symbol="XAUUSDT",
+        timeframe="5M",
+        direction="BULLISH",
+        occurred_at_ms=900,
+        known_at_ms=1000,
+        source_ids=("sweep_f03_01",),
+        level=4185.0,
+    )
+    fvg_node = EvidenceNode(
+        id="fvg_f03_01",
+        kind="FVG",
+        symbol="XAUUSDT",
+        timeframe="5M",
+        direction="BULLISH",
+        occurred_at_ms=1050,
+        known_at_ms=1150,
+        source_ids=("break_f03_01",),
+        level=4182.0,
+    )
     retest_node = EvidenceNode(
         id="retest_f03_01",
         kind="RETEST",
         symbol="XAUUSDT",
         timeframe="5M",
-        direction="LONG",
-        occurred_at_ms=1000,
+        direction="BULLISH",
+        occurred_at_ms=1200,
         known_at_ms=1300,
+        source_ids=("fvg_f03_01",),
         level=4180.0,
     )
+    all_nodes = [sweep_node, break_node, fvg_node, retest_node]
     snap_producer = ScenarioSnapshot(
         scenario_id="sc-f03-ny",
         instance_id="inst-f03-long",
@@ -205,17 +239,26 @@ def test_f03_genuine_producer_event_to_observer_and_summary(isolated_db: Session
         state=ScenarioState.STRUCTURE_CONFIRMED,
         as_of_ms=1300,
         evidence_cutoff_ms=1300,
-        evidence_ids=["retest_f03_01"],
+        evidence_ids=[n.id for n in all_nodes],
         liquidity_map={},
-        trigger_chain={"verified": True, "node_ids": ["retest_f03_01"]},
+        trigger_chain={
+            "verified": True,
+            "reasons": [],
+            "node_ids": {
+                "sweep": "sweep_f03_01",
+                "break": "break_f03_01",
+                "fvg": "fvg_f03_01",
+                "retest": "retest_f03_01",
+            },
+        },
         target=None,
         invalidation=None,
         summary_vi="Test snapshot",
         config_version=1,
         detector_version="1.0",
         requirement_profile="SMC_DEFAULT",
+        evidence=[n.to_dict() for n in all_nodes],
     )
-    snap_producer.nodes = [retest_node]
     event = record_scenario_confirmation_event(isolated_db, snap_producer, transition="STRUCTURE_CONFIRMED")
     assert event is not None
     assert event.event_type == "scenario.confirmed"

@@ -15,6 +15,7 @@ import {
   openJournalTab,
   clickSetup,
   clickOrder,
+  readRR,
 } from './v14_4_2_helpers';
 
 test.describe('V14.4.2 Realtime Soak Suite', () => {
@@ -176,14 +177,16 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
   test('R06: 10,000-event 60s stream soak with continuous telemetry measurement', async ({ page, request }) => {
     test.setTimeout(240_000); // 240s budget for 60s soak + 100 selections + setup
 
-    await seedSmtFixture(page, request, { direction: 'LONG', auto: false });
+    await seedSmtFixture(page, request, { direction: 'LONG', auto: true, fill: true });
     await page.goto('/');
     await openChartTab(page);
 
-    // Reset telemetry bridge counters
+    // Capture subscriber baseline & reset telemetry counters
     await page.evaluate(() => {
       const tel = (window as any).__AURUM_TELEMETRY__;
+      const ws = (window as any).__AURUM_WS_CLIENT__;
       tel?.reset();
+      tel?.captureSubscriberBaseline(ws?.getDiagnostics?.()?.subscriberCount ?? 0);
     });
 
     const scenarioCards = page.locator('[data-testid="scenario-card"]');
@@ -199,6 +202,12 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
 
     let framesSent = 0;
     let selectionsDone = 0;
+    const kindCounts: Record<string, number> = {
+      SCENARIO: 0,
+      SETUP: 0,
+      ORDER: 0,
+      DRAFT: 0,
+    };
 
     for (let c = 0; c < cycles; c++) {
       const cycleStart = Date.now();
@@ -250,18 +259,61 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
       // 1. Broadcast frames across genuine WebSocket transport (PHẦN 055, 056, 057)
       await request.post(`${API}/__e2e/ws/broadcast_frames`, { data: { frames } });
 
-      // 2. Parallel selection soak: actual user interactions via Playwright locator (PHẦN 058, 059)
+      // 2. Parallel selection soak: actual user interactions across 4 object kinds (PHẦN 047, 048, 100)
       const selTarget = Math.min(100, (c + 1) * 2);
-      const selThisCycle = Math.max(0, selTarget - selectionsDone);
-      if (cardCount > 0 && selThisCycle > 0) {
-        for (let s = 0; s < selThisCycle; s++) {
-          const card = scenarioCards.nth((selectionsDone + s) % cardCount);
+      while (selectionsDone < selTarget) {
+        const kindIdx = selectionsDone % 4;
+        if (kindIdx === 0 && cardCount > 0) {
+          // SCENARIO selection
+          const card = scenarioCards.nth(kindCounts.SCENARIO % cardCount);
           await card.click();
+          await expect(page.locator('[data-testid="selected-chart-source"]')).toHaveAttribute('data-source', 'SCENARIO', { timeout: 3000 });
+          kindCounts.SCENARIO += 1;
+          selectionsDone += 1;
+        } else if (kindIdx === 1) {
+          // SETUP selection
+          const setupBtn = page.locator('[data-testid="sidebar-focus-setup"]');
+          if (await setupBtn.count() > 0) {
+            await setupBtn.click();
+            await expect(page.locator('[data-testid="selected-chart-source"]')).toHaveAttribute('data-source', 'SETUP', { timeout: 3000 });
+            kindCounts.SETUP += 1;
+            selectionsDone += 1;
+          } else {
+            const card = scenarioCards.first();
+            await card.click();
+            kindCounts.SCENARIO += 1;
+            selectionsDone += 1;
+          }
+        } else if (kindIdx === 2) {
+          // ORDER selection
+          const orderBtn = page.locator('[data-testid="sidebar-focus-order"]');
+          if (await orderBtn.count() > 0) {
+            await orderBtn.click();
+            await expect(page.locator('[data-testid="selected-chart-source"]')).toHaveAttribute('data-source', 'ORDER', { timeout: 3000 });
+            kindCounts.ORDER += 1;
+            selectionsDone += 1;
+          } else {
+            const card = scenarioCards.first();
+            await card.click();
+            kindCounts.SCENARIO += 1;
+            selectionsDone += 1;
+          }
+        } else {
+          // DRAFT selection
+          const draftBtn = page.locator('[data-testid="toggle-draft-mode"]');
+          if (await draftBtn.count() > 0) {
+            const isToggled = (await draftBtn.textContent())?.includes('Đang bật');
+            if (!isToggled) {
+              await draftBtn.click();
+            }
+            await expect.poll(async () => readRR(page), { timeout: 3000 }).not.toBeNull();
+            kindCounts.DRAFT += 1;
+            selectionsDone += 1;
+          }
         }
       }
 
       framesSent += countThisCycle;
-      selectionsDone += selThisCycle;
 
       // Ensure each cycle takes at least ~1000ms to guarantee >= 60s soak duration
       const cycleElapsed = Date.now() - cycleStart;
@@ -271,16 +323,30 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
 
     const durationSeconds = (Date.now() - tStart) / 1000.0;
 
-    // Wait for queue drain steady <= 2s naturally without test-only forceflush (PHẦN 064)
+    // Strict queue drain measurement without hiding failures (PHẦN 051, 102)
+    const drainStartTime = Date.now();
     const drainDeadline = Date.now() + 2500;
+    let queueDrained = false;
     while (Date.now() < drainDeadline) {
       const q = await page.evaluate(() => {
         const tel = (window as any).__AURUM_TELEMETRY__;
-        return tel?.getSnapshot?.()?.queue_current ?? 0;
-      }).catch(() => 0);
-      if (q === 0) break;
+        if (!tel || typeof tel.getSnapshot !== 'function') {
+          throw new Error('MISSING_REQUIRED_QUEUE_TELEMETRY');
+        }
+        const snap = tel.getSnapshot();
+        if (!snap || typeof snap.queue_current !== 'number') {
+          throw new Error('INVALID_QUEUE_MEASUREMENT_DATA');
+        }
+        return snap.queue_current;
+      });
+      if (q === 0) {
+        queueDrained = true;
+        break;
+      }
       await new Promise((r) => setTimeout(r, 100));
     }
+    const queueDrainTimeMs = Date.now() - drainStartTime;
+    expect(queueDrained).toBe(true);
 
     // Collect telemetry snapshot from browser (PHẦN 087, 088)
     const snapshot = await page.evaluate(() => {
@@ -290,16 +356,21 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
 
     expect(snapshot).not.toBeNull();
 
-    // Verify mandatory budgets (PHẦN 091)
+    // Verify mandatory budgets (PHẦN 091, Chặng D)
     expect(durationSeconds).toBeGreaterThanOrEqual(60.0);
     expect(snapshot.events_received_count).toBeGreaterThanOrEqual(totalTargetFrames);
     expect(selectionsDone).toBeGreaterThanOrEqual(100);
+    expect(kindCounts.SCENARIO).toBeGreaterThan(0);
+    expect(kindCounts.SETUP).toBeGreaterThan(0);
+    expect(kindCounts.ORDER).toBeGreaterThan(0);
+    expect(kindCounts.DRAFT).toBeGreaterThan(0);
     expect(snapshot.chart_create_count).toBeLessThanOrEqual(1); // 0 recreations per tick
     expect(snapshot.chart_destroy_count).toBe(0);
     expect(snapshot.dropped_execution_event_count).toBe(0);
     expect(snapshot.render_latency_ms.p95).toBeLessThanOrEqual(250.0);
     expect(snapshot.queue_peak).toBeLessThanOrEqual(100);
     expect(snapshot.queue_current).toBe(0);
+    expect(snapshot.subscriber_leak).toBe(0);
 
     // Save browser benchmark artifact per PHẦN 094
     const logDir = path.resolve(process.cwd(), '../logs/acceptance/v14_4_2');
@@ -322,9 +393,13 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
       total_frames_streamed: snapshot.events_received_count,
       selection_cycles: selectionsDone,
       selections_completed: selectionsDone,
+      selected_kind_counts: kindCounts,
+      all_four_kinds_covered: true,
+      queue_drain_time_ms: queueDrainTimeMs,
       telemetry: {
         ...snapshot,
-        subscriber_leak: 0,
+        subscriber_leak: snapshot.subscriber_leak,
+        subscriber_baseline: snapshot.subscriber_baseline,
       },
       budgets: {
         render_latency_p95_limit_ms: 250.0,
@@ -359,11 +434,15 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
       stream_duration_s: durationSeconds,
       events_streamed: snapshot.events_received_count,
       selections_completed: selectionsDone,
+      selected_kind_counts: kindCounts,
+      all_four_kinds_covered: true,
       render_latency_ms: snapshot.render_latency_ms,
       queue_peak: snapshot.queue_peak,
       queue_current: snapshot.queue_current,
+      queue_drain_time_ms: queueDrainTimeMs,
       active_subscriber_count: snapshot.active_subscriber_count,
-      subscriber_leak: 0,
+      subscriber_baseline: snapshot.subscriber_baseline,
+      subscriber_leak: snapshot.subscriber_leak,
       chart_create_count: snapshot.chart_create_count,
       chart_destroy_count: snapshot.chart_destroy_count,
       dropped_execution_event_count: snapshot.dropped_execution_event_count,

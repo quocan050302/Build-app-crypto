@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Tuple
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 import models
@@ -560,38 +561,47 @@ def load_pending_reconciliation_windows(
     db: Session,
     symbol: str = "XAUUSDT",
     limit: int = 50,
-    cursor: int = 0,
+    cursor: Any = None,
 ) -> WindowPage:
-    """PHẦN 020, 086: Loads active paper_open orders and recently closed orders for reconciliation window replay."""
-    open_orders = (
+    """PHẦN 020, 037, 086: Loads active paper_open orders and recently closed orders with keyset pagination."""
+    query_open = (
         db.query(models.PaperOrder)
         .filter(
             models.PaperOrder.instrument == symbol,
             models.PaperOrder.state == "paper_open",
         )
-        .order_by(models.PaperOrder.opened_at.asc())
-        .limit(limit)
+    )
+    if cursor is not None:
+        if isinstance(cursor, tuple) and len(cursor) == 2:
+            last_op, last_id = cursor
+            query_open = query_open.filter(
+                or_(
+                    models.PaperOrder.opened_at > last_op,
+                    and_(
+                        models.PaperOrder.opened_at == last_op,
+                        models.PaperOrder.id > last_id,
+                    )
+                )
+            )
+        elif isinstance(cursor, int) and cursor > 0:
+            query_open = query_open.filter(models.PaperOrder.opened_at >= cursor)
+
+    open_orders = (
+        query_open
+        .order_by(models.PaperOrder.opened_at.asc(), models.PaperOrder.id.asc())
+        .limit(limit + 1)
         .all()
     )
 
-    query_closed = (
-        db.query(models.PaperOrder)
-        .filter(
-            models.PaperOrder.instrument == symbol,
-            models.PaperOrder.state == "closed",
-        )
-    )
-    if cursor > 0:
-        query_closed = query_closed.filter(models.PaperOrder.closed_at >= cursor)
-    recent_closed = (
-        query_closed
-        .order_by(models.PaperOrder.closed_at.desc())
-        .limit(limit)
-        .all()
-    )
+    has_more_open = len(open_orders) > limit
+    if has_more_open:
+        open_orders = open_orders[:limit]
+        next_cursor = (getattr(open_orders[-1], "opened_at", 0) or 0, open_orders[-1].id)
+    else:
+        next_cursor = None
 
     windows: List[OrderReconciliationWindow] = []
-    for ord in list(open_orders) + list(recent_closed):
+    for ord in open_orders:
         op_at = getattr(ord, "opened_at", None) or getattr(ord, "created_at", None) or 0
         cl_at = getattr(ord, "closed_at", None) or 0
         windows.append(
@@ -601,13 +611,45 @@ def load_pending_reconciliation_windows(
                 opened_at=op_at,
                 end_as_of=cl_at,
                 source_epoch=1,
-                status="RESOLVED" if ord.state == "closed" else "PENDING",
+                status="PENDING",
                 cursor=op_at,
                 order=ord,
             )
         )
 
-    return WindowPage(items=windows[:limit], next_cursor=None)
+    # If open_orders didn't fill limit and no more open, query recently closed
+    if not has_more_open and len(windows) < limit:
+        remaining = limit - len(windows)
+        query_closed = (
+            db.query(models.PaperOrder)
+            .filter(
+                models.PaperOrder.instrument == symbol,
+                models.PaperOrder.state == "closed",
+            )
+        )
+        recent_closed = (
+            query_closed
+            .order_by(models.PaperOrder.closed_at.desc(), models.PaperOrder.id.desc())
+            .limit(remaining)
+            .all()
+        )
+        for ord in recent_closed:
+            op_at = getattr(ord, "opened_at", None) or getattr(ord, "created_at", None) or 0
+            cl_at = getattr(ord, "closed_at", None) or 0
+            windows.append(
+                OrderReconciliationWindow(
+                    order_id=ord.id,
+                    symbol=symbol,
+                    opened_at=op_at,
+                    end_as_of=cl_at,
+                    source_epoch=1,
+                    status="RESOLVED",
+                    cursor=op_at,
+                    order=ord,
+                )
+            )
+
+    return WindowPage(items=windows, next_cursor=next_cursor)
 
 
 def load_persisted_window_evidence(
@@ -615,24 +657,73 @@ def load_persisted_window_evidence(
     window: OrderReconciliationWindow,
     as_of_ms: int = 0,
     limit: int = 200,
-    cursor: int = 0,
+    cursor: Any = None,
 ) -> EvidencePage:
-    """PHẦN 019, 087: Replays persisted late reconciliation evidence from DomainEvent table across polls/restart."""
-    start_ts = max(window.opened_at, cursor)
+    """PHẦN 019, 036, 038, 042, 087, 093, 094: Replays persisted late reconciliation evidence with keyset and pre-LIMIT symbol filtering."""
+    last_ts = window.opened_at
+    last_id = ""
+    if cursor is not None:
+        if isinstance(cursor, tuple) and len(cursor) == 2:
+            last_ts, last_id = cursor
+        elif isinstance(cursor, dict):
+            last_ts = cursor.get("last_ts", window.opened_at)
+            last_id = cursor.get("last_id", "")
+        elif isinstance(cursor, int) and cursor > 0:
+            last_ts = cursor
+        elif hasattr(cursor, "last_ts"):
+            last_ts = getattr(cursor, "last_ts", window.opened_at)
+            last_id = getattr(cursor, "last_id", "")
+
+    last_ts = max(window.opened_at, last_ts)
+
     query = (
         db.query(models.DomainEvent)
         .filter(
             models.DomainEvent.event_type == "LATE_RECONCILIATION_EVIDENCE",
-            models.DomainEvent.occurred_at >= start_ts,
         )
     )
+
+    # PHẦN 038, 094: Pre-LIMIT symbol filtering so other symbols cannot starve quota
+    if window.symbol:
+        query = query.filter(
+            or_(
+                models.DomainEvent.payload.like(f'%"symbol": "{window.symbol}"%'),
+                models.DomainEvent.payload.like(f'%"symbol":"{window.symbol}"%'),
+                models.DomainEvent.payload.like(f'%"instrument": "{window.symbol}"%'),
+                models.DomainEvent.payload.like(f'%"instrument":"{window.symbol}"%'),
+                models.DomainEvent.aggregate_id == window.symbol,
+            )
+        )
+
+    # PHẦN 036, 042, 094: Keyset condition (occurred_at > last_ts) | (occurred_at == last_ts & event_id > last_id)
+    if last_id:
+        query = query.filter(
+            or_(
+                models.DomainEvent.occurred_at > last_ts,
+                and_(
+                    models.DomainEvent.occurred_at == last_ts,
+                    models.DomainEvent.event_id > last_id,
+                )
+            )
+        )
+    else:
+        query = query.filter(models.DomainEvent.occurred_at >= last_ts)
+
     if as_of_ms > 0:
         query = query.filter(models.DomainEvent.occurred_at <= as_of_ms)
 
-    events = query.order_by(models.DomainEvent.occurred_at.asc(), models.DomainEvent.sequence.asc()).limit(limit).all()
+    events = (
+        query
+        .order_by(models.DomainEvent.occurred_at.asc(), models.DomainEvent.event_id.asc())
+        .limit(limit + 1)
+        .all()
+    )
+
+    has_more = len(events) > limit
+    if has_more:
+        events = events[:limit]
 
     evidence_items: List[Dict[str, Any]] = []
-    next_cursor = cursor
     for ev in events:
         if ev.payload:
             try:
@@ -640,13 +731,14 @@ def load_persisted_window_evidence(
                 ev_sym = payload.get("symbol") or payload.get("instrument")
                 if not ev_sym or ev_sym == window.symbol:
                     evidence_items.append(payload)
-                    ev_ts = payload.get("source_timestamp") or ev.occurred_at
-                    if ev_ts > next_cursor:
-                        next_cursor = ev_ts
             except Exception:
                 continue
 
-    return EvidencePage(items=evidence_items, next_cursor=next_cursor if events else None)
+    next_cursor = None
+    if has_more and events:
+        next_cursor = (events[-1].occurred_at, events[-1].event_id)
+
+    return EvidencePage(items=evidence_items, next_cursor=next_cursor)
 
 
 def persist_resolution_or_review(
@@ -754,11 +846,20 @@ class MarketReconciliationService:
             if window.order_id in closed_order_ids:
                 continue
 
-            evidence_page = load_persisted_window_evidence(
-                db, window, as_of_ms=int(datetime.now(timezone.utc).timestamp() * 1000), limit=200
-            )
+            all_evidence: List[Dict[str, Any]] = []
+            ev_cursor = None
+            max_pages = 20  # Bounded budget per order window
+            while max_pages > 0:
+                evidence_page = load_persisted_window_evidence(
+                    db, window, as_of_ms=int(datetime.now(timezone.utc).timestamp() * 1000), limit=200, cursor=ev_cursor
+                )
+                all_evidence.extend(evidence_page.items)
+                if not evidence_page.next_cursor or not evidence_page.items:
+                    break
+                ev_cursor = evidence_page.next_cursor
+                max_pages -= 1
+
             # Replay all persisted evidence for this order's window
-            all_evidence = evidence_page.items
             if not all_evidence and sorted_batch:
                 all_evidence = [r for r in sorted_batch if (r.get("source_timestamp") or 0) >= window.opened_at]
 

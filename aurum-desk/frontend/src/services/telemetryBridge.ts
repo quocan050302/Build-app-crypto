@@ -12,11 +12,20 @@ export interface LatencyStats {
   sample_count: number;
 }
 
+export interface SubscriberMeasurement {
+  baseline_count: number;
+  current_count: number;
+  leak_delta: number;
+  measured_at_ms: number;
+}
+
 export interface TelemetrySnapshot {
   render_latency_ms: LatencyStats;
   queue_current: number;
   queue_peak: number;
   active_subscriber_count: number;
+  subscriber_baseline: number;
+  subscriber_leak: number;
   reconnect_count: number;
   chart_create_count: number;
   chart_destroy_count: number;
@@ -35,6 +44,8 @@ class TelemetryBridge {
   private queueCurrent = 0;
   private queuePeak = 0;
   private activeSubscribers = 0;
+  private subscriberBaseline = 0;
+  private subscriberBaselineSet = false;
   private reconnectCount = 0;
   private chartCreateCount = 0;
   private chartDestroyCount = 0;
@@ -48,6 +59,8 @@ class TelemetryBridge {
     this.renderLatenciesMs = [];
     this.queueCurrent = 0;
     this.queuePeak = 0;
+    this.subscriberBaseline = 0;
+    this.subscriberBaselineSet = false;
     this.reconnectCount = 0;
     this.chartCreateCount = 0;
     this.chartDestroyCount = 0;
@@ -56,6 +69,23 @@ class TelemetryBridge {
     this.droppedExecutionCount = 0;
     this.eventsReceived = 0;
     this.eventsRendered = 0;
+  }
+
+  public captureSubscriberBaseline(count?: number): void {
+    this.subscriberBaseline = count !== undefined ? count : this.activeSubscribers;
+    this.subscriberBaselineSet = true;
+  }
+
+  public getSubscriberMeasurement(): SubscriberMeasurement {
+    const current = this.activeSubscribers;
+    const baseline = this.subscriberBaselineSet ? this.subscriberBaseline : current;
+    const leak = Math.max(0, current - baseline);
+    return {
+      baseline_count: baseline,
+      current_count: current,
+      leak_delta: leak,
+      measured_at_ms: Date.now(),
+    };
   }
 
   public recordChartCreate(): void {
@@ -127,6 +157,8 @@ class TelemetryBridge {
 
     const maxVal = count > 0 ? Number(latencies[count - 1].toFixed(2)) : 0;
 
+    const subMeas = this.getSubscriberMeasurement();
+
     return {
       render_latency_ms: {
         p50: calcPercentile(50),
@@ -138,6 +170,8 @@ class TelemetryBridge {
       queue_current: this.queueCurrent,
       queue_peak: this.queuePeak,
       active_subscriber_count: this.activeSubscribers,
+      subscriber_baseline: subMeas.baseline_count,
+      subscriber_leak: subMeas.leak_delta,
       reconnect_count: this.reconnectCount,
       chart_create_count: this.chartCreateCount,
       chart_destroy_count: this.chartDestroyCount,

@@ -351,46 +351,50 @@ function AppContent() {
       }
       if (posData?.has_active_position) {
         setActivePosition(posData);
-        const p = posData.position;
-        const overlay: RiskRewardData = {
-          id: p.id,
-          direction: p.direction,
-          state: 'paper_open',
-          plannedEntry: p.planned_entry,
-          actualEntry: p.actual_entry || p.planned_entry,
-          stopLoss: p.stop_loss,
-          takeProfit: p.take_profit,
-          quantity: p.quantity,
-          initialRiskUsdt: p.initial_risk_usdt,
-          riskPct: p.risk_pct,
-          grossRR: p.gross_rr,
-          estimatedNetRR: p.estimated_net_rr,
-          leverage: p.leverage,
-          marginMode: p.margin_mode,
-          estimatedLiquidation: p.estimated_liquidation,
-        };
-        setActiveOverlay(overlay);
-        setSelectedIntent({
-          source: 'OPEN_POSITION',
-          setup_id: p.setup_id,
-          setup_instance_id: p.setup_instance_id,
-          symbol: p.instrument || 'XAUUSDT',
-          timeframe: p.timeframe || timeframe,
-          direction: p.direction,
-          plannedEntry: p.actual_entry || p.planned_entry,
-          stopLoss: p.stop_loss,
-          takeProfit: p.take_profit,
-          orderType: p.order_type || 'MARKET',
-          quantity: p.quantity,
-          initialRiskUsdt: p.initial_risk_usdt,
-          grossRR: p.gross_rr,
-          estimatedNetRR: p.estimated_net_rr,
-          leverage: p.leverage,
-          marginMode: p.margin_mode,
-          estimatedLiquidation: p.estimated_liquidation,
-          status: 'paper_open',
-          snapshotAt: Date.now(),
-        });
+        // Do not overwrite user's actively selected setup, scenario, or draft on chart
+        const currentSource = selectedIntentRef.current?.source;
+        if (!currentSource || currentSource === 'OPEN_POSITION') {
+          const p = posData.position;
+          const overlay: RiskRewardData = {
+            id: p.id,
+            direction: p.direction,
+            state: 'paper_open',
+            plannedEntry: p.planned_entry,
+            actualEntry: p.actual_entry || p.planned_entry,
+            stopLoss: p.stop_loss,
+            takeProfit: p.take_profit,
+            quantity: p.quantity,
+            initialRiskUsdt: p.initial_risk_usdt,
+            riskPct: p.risk_pct,
+            grossRR: p.gross_rr,
+            estimatedNetRR: p.estimated_net_rr,
+            leverage: p.leverage,
+            marginMode: p.margin_mode,
+            estimatedLiquidation: p.estimated_liquidation,
+          };
+          setActiveOverlay(overlay);
+          setSelectedIntent({
+            source: 'OPEN_POSITION',
+            setup_id: p.setup_id,
+            setup_instance_id: p.setup_instance_id,
+            symbol: p.instrument || 'XAUUSDT',
+            timeframe: p.timeframe || timeframe,
+            direction: p.direction,
+            plannedEntry: p.actual_entry || p.planned_entry,
+            stopLoss: p.stop_loss,
+            takeProfit: p.take_profit,
+            orderType: p.order_type || 'MARKET',
+            quantity: p.quantity,
+            initialRiskUsdt: p.initial_risk_usdt,
+            grossRR: p.gross_rr,
+            estimatedNetRR: p.estimated_net_rr,
+            leverage: p.leverage,
+            marginMode: p.margin_mode,
+            estimatedLiquidation: p.estimated_liquidation,
+            status: 'paper_open',
+            snapshotAt: Date.now(),
+          });
+        }
       } else {
         setActivePosition(null);
         setSelectedIntent((prev) => (prev?.source === 'OPEN_POSITION' ? null : prev));
@@ -431,8 +435,8 @@ function AppContent() {
       // Only update candidate overlay if there's no open position AND user hasn't selected a watch setup or draft!
       if (!activePosition && analysisData?.active_signal) {
         setSelectedIntent((prev) => {
-          // If user actively selected a watch setup or draft, DO NOT OVERWRITE!
-          if (prev && (prev.source === 'WATCH_SETUP' || prev.source === 'DRAFT')) {
+          // If user actively selected a watch setup, scenario, or draft, DO NOT OVERWRITE!
+          if (prev && (prev.source === 'WATCH_SETUP' || prev.source === 'DRAFT' || prev.source === 'SCENARIO')) {
             return prev;
           }
           const sig = analysisData.active_signal;
@@ -3162,6 +3166,7 @@ function AppContent() {
                     onFocusOnChart={() => setFocusRequest({ nonce: Date.now() })}
                     scenarios={smcScenarios}
                     onSelectScenario={handleSelectScenarioOnChart}
+                    onFocusTradeOnChart={handleFocusTradeOnChart}
                   />
                 </div>
               </div>
@@ -3180,6 +3185,7 @@ function AppContent() {
               stalePlanNotice={stalePlanNotice}
               onClearStalePlanNotice={() => setStalePlanNotice(null)}
               onFocusSetupOnChart={handleFocusSetupOnChart}
+              onFocusTradeOnChart={handleFocusTradeOnChart}
               onArmSetup={handleArmWatchSetup}
               onCancelSetup={handleCancelWatchSetup}
               onClosePosition={() => {
