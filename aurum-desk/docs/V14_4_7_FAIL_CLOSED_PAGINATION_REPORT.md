@@ -7,6 +7,7 @@
 - **Branch**: `fix/v14-1-rr-flow`
 - **Base / HEAD Commit**: `5d9b8fc34012c93c908fa9242482a080875ec70a` (*docs: record final implementation SHA in V14.4.6 contract closure report*)
 - **Code Runtime Baseline**: `baf7fb50f067a5a03bb9b9ed78e995f6634d8544` (*fix(v14.4.6): validate canonical proof chains and complete forecast pagination flow*)
+- **Implementation Commit SHA**: `1a2214488695aa642c52d70ebe6ae24822d73747`
 - **Tree Fingerprint**: `5143f3286456e77ae790b17cd26c1aebb5698fca`
 - **Acceptance Run ID**: `run_1791907840354`
 - **Date**: 2026-10-13
