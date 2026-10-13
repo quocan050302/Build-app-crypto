@@ -6,6 +6,7 @@
 **Branch:** `fix/v14-1-rr-flow`  
 **Base Commit SHA:** `7bfae74d3fb680e5a048dcf13a6d6a64c2cdb481` (baseline: `7bfae74`)  
 **Tested SHA:** `7bfae74` (working tree with V14.4.4 production repairs verified)  
+**Final Commit SHA:** `d5034e1e62319bc5b033be44be5ddb5d7f4d213d` (pushed to origin `fix/v14-1-rr-flow`)  
 **Execution Context:** Isolated test SQLite DB (`TESTING=1`, `AURUM_DB_PATH`), mock quotes & clock, clean process lifecycle, zero live database / Telegram side-effects.
 
 ---
