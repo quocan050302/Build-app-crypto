@@ -244,6 +244,28 @@ def evaluate_forecast_outcome(
         low = float(o.get("low", o.get("price", 0.0)))
         bar_ts = o.get("source_timestamp", as_of_ms)
 
+        # Determine bar interval
+        bar_end = (
+            o.get("bar_end_ms")
+            or o.get("end_ms")
+            or (bar_ts + o["duration_ms"] if isinstance(o.get("duration_ms"), int) and o["duration_ms"] > 0 else None)
+        )
+        if bar_end is None:
+            tf = o.get("timeframe")
+            tf_durations = {"1M": 60_000, "5M": 300_000, "15M": 900_000, "1H": 3_600_000, "4H": 14_400_000, "1D": 86_400_000, "D": 86_400_000}
+            if tf in tf_durations:
+                bar_end = bar_ts + tf_durations[tf]
+            elif isinstance(o.get("known_at_ms"), int) and o.get("known_at_ms") > bar_ts:
+                bar_end = o["known_at_ms"]
+            else:
+                bar_end = bar_ts + 300_000
+
+        is_straddling_expiry = (
+            expiry_ms is not None
+            and bar_ts < expiry_ms < bar_end
+            and not o.get("finer_proof_before_expiry")
+        )
+
         target_hit = False
         inval_hit = False
 
@@ -270,6 +292,22 @@ def evaluate_forecast_outcome(
                 "reason": "SAME_BAR_TARGET_AND_INVALIDATION",
                 "outcome_at_ms": bar_ts,
                 "details": {"bar_timestamp": bar_ts, "target": target_price, "invalidation": invalidation_price}
+            }
+
+        # Check bar straddling expiry: if target or invalidation touched on a candle spanning expiry
+        if (target_hit or inval_hit) and is_straddling_expiry:
+            return {
+                "outcome": ForecastOutcomeDefinition.AMBIGUOUS.value,
+                "reason": "BAR_STRADDLES_EXPIRY_HORIZON_UNVERIFIED",
+                "outcome_at_ms": bar_ts,
+                "details": {
+                    "bar_timestamp": bar_ts,
+                    "bar_end_ms": bar_end,
+                    "expiry_ms": expiry_ms,
+                    "target_hit": target_hit,
+                    "inval_hit": inval_hit,
+                    "straddling": True
+                }
             }
 
         # Check Target Hit BEFORE confirmation -> WATCHED_LIQUIDITY_TOUCH (NOT a WIN trade)
@@ -465,23 +503,28 @@ def summarize_forecast_observations(
             "note_vi": "Chưa có đủ mẫu dự đoán phiên để thống kê."
         }
 
-    outcomes = [r.outcome_status for r in records]
-    n_confirmed_target = outcomes.count(ForecastOutcomeDefinition.CONFIRMED_TARGET_BEFORE_INVALIDATION.value)
-    n_touch = outcomes.count(ForecastOutcomeDefinition.WATCHED_LIQUIDITY_TOUCH.value)
-    n_inval = outcomes.count(ForecastOutcomeDefinition.INVALIDATED_BEFORE_TARGET.value)
-    n_ambiguous = outcomes.count(ForecastOutcomeDefinition.AMBIGUOUS.value)
-    n_data_unavail = outcomes.count(ForecastOutcomeDefinition.DATA_UNAVAILABLE.value)
-    n_expired = outcomes.count(ForecastOutcomeDefinition.EXPIRED.value)
-    n_pending = outcomes.count(ForecastOutcomeDefinition.PENDING.value)
-    n_terminal = n_total - n_pending
-
-    # Distinguish legacy/unverified (records created without numeric invalidation)
+    verified_records = [
+        r for r in records
+        if getattr(r, "invalidation_price", None) is not None
+        and getattr(r, "verification_status", None) != "V1_UNVERIFIED"
+    ]
+    legacy_records = [r for r in records if r not in verified_records]
     n_legacy_unverified = sum(
-        1 for r in records
-        if r.invalidation_price is None and r.outcome_status != ForecastOutcomeDefinition.PENDING.value
+        1 for r in legacy_records
+        if r.outcome_status != ForecastOutcomeDefinition.PENDING.value
     )
 
-    # Valid resolved events denominator: only eligible defined decisive outcomes
+    verified_outcomes = [r.outcome_status for r in verified_records]
+    n_confirmed_target = verified_outcomes.count(ForecastOutcomeDefinition.CONFIRMED_TARGET_BEFORE_INVALIDATION.value)
+    n_touch = verified_outcomes.count(ForecastOutcomeDefinition.WATCHED_LIQUIDITY_TOUCH.value)
+    n_inval = verified_outcomes.count(ForecastOutcomeDefinition.INVALIDATED_BEFORE_TARGET.value)
+    n_ambiguous = verified_outcomes.count(ForecastOutcomeDefinition.AMBIGUOUS.value)
+    n_data_unavail = verified_outcomes.count(ForecastOutcomeDefinition.DATA_UNAVAILABLE.value)
+    n_expired = verified_outcomes.count(ForecastOutcomeDefinition.EXPIRED.value)
+    n_pending = sum(1 for r in records if r.outcome_status == ForecastOutcomeDefinition.PENDING.value)
+    n_terminal = n_total - n_pending
+
+    # Valid resolved events denominator: only eligible defined decisive outcomes from verified cohort
     n_resolved_valid = n_confirmed_target + n_inval + n_expired
     target_touch_frac = round(n_confirmed_target / n_resolved_valid, 4) if n_resolved_valid > 0 else None
 

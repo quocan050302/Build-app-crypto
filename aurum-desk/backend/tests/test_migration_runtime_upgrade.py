@@ -20,14 +20,12 @@ def temp_mig_db():
     fd, path = tempfile.mkstemp(suffix="_old_aurum.db")
     os.close(fd)
     yield Path(path)
-    if os.path.exists(path):
-        os.remove(path)
-    wal = path + "-wal"
-    if os.path.exists(wal):
-        os.remove(wal)
-    shm = path + "-shm"
-    if os.path.exists(shm):
-        os.remove(shm)
+    for p in (path, path + "-wal", path + "-shm"):
+        if os.path.exists(p):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
 
 
 def create_v3_legacy_schema(db_path: Path):
@@ -137,36 +135,39 @@ def test_mig03_orm_models_match(temp_mig_db):
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    # Query existing audit
-    audit = session.query(models.DayAudit).filter_by(date_str="2026-10-12").first()
-    assert audit is not None
-    assert audit.current_equity == 1050.0
+    try:
+        # Query existing audit
+        audit = session.query(models.DayAudit).filter_by(date_str="2026-10-12").first()
+        assert audit is not None
+        assert audit.current_equity == 1050.0
 
-    # Insert a new forecast observation using ORM
-    obs = models.ForecastObservation(
-        id="fc-test-orm-1",
-        forecast_id="fc-test-orm",
-        revision=1,
-        symbol="XAUUSDT",
-        session="NEW_YORK",
-        session_id="fc:ny:2026-10-12",
-        as_of_ms=1776120000000,
-        context_cutoff_ms=1776120000000,
-        content_digest="digest123456",
-        hypothesis_type="CONTINUATION",
-        direction="LONG",
-        target_price=2680.0,
-        outcome_status="PENDING",
-        payload_json="{}",
-        created_at=1776120000000,
-    )
-    session.add(obs)
-    session.commit()
+        # Insert a new forecast observation using ORM
+        obs = models.ForecastObservation(
+            id="fc-test-orm-1",
+            forecast_id="fc-test-orm",
+            revision=1,
+            symbol="XAUUSDT",
+            session="NEW_YORK",
+            session_id="fc:ny:2026-10-12",
+            as_of_ms=1776120000000,
+            context_cutoff_ms=1776120000000,
+            content_digest="digest123456",
+            hypothesis_type="CONTINUATION",
+            direction="LONG",
+            target_price=2680.0,
+            outcome_status="PENDING",
+            payload_json="{}",
+            created_at=1776120000000,
+        )
+        session.add(obs)
+        session.commit()
 
-    queried = session.query(models.ForecastObservation).filter_by(id="fc-test-orm-1").first()
-    assert queried is not None
-    assert queried.target_price == 2680.0
-    session.close()
+        queried = session.query(models.ForecastObservation).filter_by(id="fc-test-orm-1").first()
+        assert queried is not None
+        assert queried.target_price == 2680.0
+    finally:
+        session.close()
+        engine.dispose()
 
 
 def test_mig04_resolve_migration_db_path(monkeypatch, temp_mig_db):
@@ -222,8 +223,11 @@ def test_mig06_run_schema_migrations_parity(temp_mig_db):
     create_v3_legacy_schema(temp_mig_db)
     engine = create_engine(f"sqlite:///{temp_mig_db}")
 
-    # First run schema migration via database engine
-    run_schema_migrations(target_engine=engine)
+    try:
+        # First run schema migration via database engine
+        run_schema_migrations(target_engine=engine)
+    finally:
+        engine.dispose()
 
     # Then run full migration via migrate.run_migration
     run_migration(db_path=temp_mig_db)

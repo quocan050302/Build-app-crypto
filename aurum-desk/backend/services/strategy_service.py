@@ -904,7 +904,24 @@ class StrategyService:
             logger.info(f"Auto-arm lesson warnings (non-blocking): {lesson_eval['warning_messages']}")
         lesson_eval["entry_gate"] = guard.summary()
 
-        # 6. Create armed paper order with complete V7 metadata
+        # 6. Create armed paper order with complete V7 metadata and canonical financial snapshot
+        from services.order_plan_snapshot_service import build_arm_plan_snapshot
+        arm_snap = build_arm_plan_snapshot(
+            calc_res,
+            order_type=resolved_order_type,
+            direction=watch_setup.direction,
+            planned_entry=plan_entry,
+            stop_loss=plan_sl,
+            take_profit=plan_tp,
+            capital_usdt=audit.current_equity,
+            risk_pct=eff_risk_pct,
+            leverage=watch_setup.leverage or 5,
+            margin_mode=watch_setup.margin_mode or "ISOLATED",
+            now_ms=now_ms,
+            policy_config_version=getattr(policy_eval.get("policy"), "version", 1) if policy_eval.get("policy") else 1,
+            risk_config_version=watch_setup.config_version or 1,
+        )
+
         order_id = f"order-{uuid.uuid4().hex[:8]}"
         new_order = models.PaperOrder(
             id=order_id,
@@ -926,14 +943,14 @@ class StrategyService:
             planned_entry=plan_entry,
             stop_loss=plan_sl,
             take_profit=plan_tp,
-            quantity=watch_setup.quantity,
-            initial_risk_usdt=watch_setup.risk_usdt,
+            quantity=calc_res.quantity or watch_setup.quantity,
+            initial_risk_usdt=calc_res.net_risk_usdt or watch_setup.risk_usdt,
             risk_pct=eff_risk_pct,
-            gross_rr=watch_setup.gross_rr,
-            estimated_net_rr=watch_setup.net_rr,
-            leverage=watch_setup.leverage,
-            margin_mode=watch_setup.margin_mode,
-            estimated_liquidation=watch_setup.estimated_liquidation,
+            gross_rr=calc_res.gross_rr or watch_setup.gross_rr,
+            estimated_net_rr=calc_res.net_rr or watch_setup.net_rr,
+            leverage=calc_res.leverage or watch_setup.leverage,
+            margin_mode=calc_res.margin_mode or watch_setup.margin_mode,
+            estimated_liquidation=calc_res.estimated_liquidation or watch_setup.estimated_liquidation,
             config_version=watch_setup.config_version or 1,
             created_at=now_ms,
             armed_at=now_ms,
@@ -948,7 +965,8 @@ class StrategyService:
             quality_snapshot_id=getattr(watch_setup, "quality_snapshot_id", None),
             evidence_snapshot_id=getattr(watch_setup, "evidence_snapshot_id", None),
             arm_decision_snapshot=json.dumps(lesson_eval),
-            lessons_retrieved=json.dumps(lesson_eval.get("lessons_retrieved_snapshot", []))
+            lessons_retrieved=json.dumps(lesson_eval.get("lessons_retrieved_snapshot", [])),
+            cost_snapshot=json.dumps(arm_snap, ensure_ascii=False)
         )
         EntryDecisionService.record_stage_decision(new_order, "BEFORE_ARM", lesson_eval, now_ms=now_ms)
         db.add(new_order)

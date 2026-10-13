@@ -77,23 +77,14 @@ class TradeLifecycleService:
                 return order
 
         # 2. Invariant: Max 1 active position enforced atomically at DB level
-        cost_snap = json.dumps({
-            "phase": "FILLED_ESTIMATE",
-            "maker_fee_rate": getattr(calc_result, "maker_fee_rate", 0.0002),
-            "taker_fee_rate": getattr(calc_result, "taker_fee_rate", 0.0004),
-            "slippage_usd": 0.10,
-            "tp_slippage_usd": getattr(calc_result, "tp_exit_slippage_usdt", 0.0) / (calc_result.quantity * getattr(calc_result, "multiplier", 1.0)) if (calc_result.quantity > 0 and getattr(calc_result, "multiplier", 1.0) > 0) else 0.0,
-            "multiplier": getattr(calc_result, "multiplier", 1.0),
-            "entry_fee_usdt": getattr(calc_result, "entry_fee_usdt", 0.0),
-            "sl_exit_fee_usdt": getattr(calc_result, "sl_exit_fee_usdt", 0.0),
-            "tp_exit_fee_usdt": getattr(calc_result, "tp_exit_fee_usdt", 0.0),
-            "entry_slippage_usdt": getattr(calc_result, "entry_slippage_usdt", 0.0),
-            "sl_exit_slippage_usdt": getattr(calc_result, "sl_exit_slippage_usdt", 0.0),
-            "tp_exit_slippage_usdt": getattr(calc_result, "tp_exit_slippage_usdt", 0.0),
-            "fees_total_usdt": calc_result.fees_total_usdt,
-            "slippage_total_usdt": calc_result.slippage_total_usdt,
-            "source": "BITGET_PAPER_MODEL_V10_4"
-        })
+        from services.order_plan_snapshot_service import build_fill_plan_snapshot
+        cost_snap_dict = build_fill_plan_snapshot(
+            calc_result=calc_result,
+            order=order,
+            fill_price=fill_price,
+            now_ms=current_time,
+        )
+        cost_snap = json.dumps(cost_snap_dict, ensure_ascii=False)
 
         stmt = text("""
             UPDATE paper_orders

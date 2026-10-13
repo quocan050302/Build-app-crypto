@@ -99,7 +99,8 @@ def test_arm_get_order_fetch_chart_exact_frozen_ids(db, client, direction):
     plan = b["risk_reward_plan"]
     assert plan["planned_entry"] == order.planned_entry and plan["stop_loss"] == order.stop_loss
     assert plan["take_profit"] == order.take_profit      # ACTUAL order geometry
-    assert plan["net_reward_usdt"] is None               # never a fake 0
+    assert plan["net_reward_usdt"] is None or plan["net_reward_usdt"] > 0  # never a fake 0
+    assert plan["net_reward_usdt"] != 0
     assert b["chain"]["verified"] is True
 
 

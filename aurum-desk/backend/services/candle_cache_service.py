@@ -67,6 +67,8 @@ def validate_candle_row(row: Any) -> Optional[Dict[str, Any]]:
     }
 
 
+import concurrent.futures
+
 class CandleCacheService:
     """
     In-memory Sliding Window Candle Cache with Real Bitget OHLCV Streams (V7.2):
@@ -87,11 +89,19 @@ class CandleCacheService:
         self._watermarks: Dict[Tuple[str, str], int] = {}
         self._persist_queue: asyncio.Queue[schemas.CandleCreate] = asyncio.Queue(maxsize=2000)
         self._running = False
+        self._stopping = False
         self._bootstrapped = False
+        self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
+        self._active_persist_future: Optional[concurrent.futures.Future] = None
         self.persistence_drops = 0
         self.has_candle_gap = False
         self.candle_gap_telemetry: Dict[Tuple[str, str], int] = {}
         self.retry_buffer: List[schemas.CandleCreate] = []
+
+    def _ensure_executor(self) -> concurrent.futures.ThreadPoolExecutor:
+        if self._executor is None or getattr(self._executor, "_shutdown", False):
+            self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="candle_persist")
+        return self._executor
 
     def is_bootstrapped(self, symbol: str = "XAUUSDT", timeframe: str = "15M") -> bool:
         candles = self._cache.get((symbol, timeframe), [])
@@ -382,7 +392,16 @@ class CandleCacheService:
                     finally:
                         db.close()
 
-                success = await asyncio.to_thread(_persist_batch_sync, batch)
+                executor = self._ensure_executor()
+                self._active_persist_future = executor.submit(_persist_batch_sync, batch)
+                try:
+                    success = await asyncio.wrap_future(self._active_persist_future)
+                except Exception as e:
+                    logger.error(f"Error in candle persist future: {e}", exc_info=True)
+                    success = False
+                finally:
+                    self._active_persist_future = None
+
                 if not success:
                     # Retain failed batch in retry buffer to prevent silent drops
                     self.retry_buffer.extend(batch)
@@ -419,20 +438,34 @@ class CandleCacheService:
         """Stops candle persistence worker, draining queue and flushing remaining items."""
         self._stopping = True
         start = time.perf_counter()
-        while (not self._persist_queue.empty() or self.retry_buffer) and (time.perf_counter() - start < timeout):
-            await asyncio.sleep(0.05)
+        while time.perf_counter() - start < timeout:
+            persist_done = (self._active_persist_future is None or self._active_persist_future.done())
+            if persist_done and self._persist_queue.empty() and not self.retry_buffer:
+                break
+            await asyncio.sleep(0.02)
 
         self._running = False
+        persist_done = (self._active_persist_future is None or self._active_persist_future.done())
         remaining = self._persist_queue.qsize() + len(self.retry_buffer)
-        if remaining > 0:
+        if not persist_done or remaining > 0:
             self.has_candle_gap = True
             logger.warning(
-                f"Candle persistence stop timed out with {remaining} remaining items. Marked candle gap."
+                f"Candle persistence stop timed out (persist_done={persist_done}, remaining={remaining}). Marked candle gap."
             )
-            return {"status": "TIMED_OUT", "remaining_count": remaining, "has_gap": True}
+            return {
+                "status": "TIMED_OUT",
+                "persist_done": persist_done,
+                "remaining_count": remaining,
+                "has_gap": True,
+            }
 
         logger.info("CandleCacheService persistence worker stopped.")
-        return {"status": "COMPLETE", "remaining_count": 0, "has_gap": self.has_candle_gap}
+        return {
+            "status": "COMPLETE",
+            "persist_done": True,
+            "remaining_count": 0,
+            "has_gap": self.has_candle_gap,
+        }
 
 
 candle_cache_service = CandleCacheService()

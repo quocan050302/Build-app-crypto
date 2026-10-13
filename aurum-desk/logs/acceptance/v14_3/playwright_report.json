@@ -1,13 +1,13 @@
 {
   "config": {
     "argv": [
-      "/Users/macbook/.nvm/versions/node/v22.22.3/bin/node",
-      "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/node_modules/.bin/playwright",
+      "C:\\Program Files\\nodejs\\node.exe",
+      "D:\\build app-crypto\\aurum-desk\\frontend\\node_modules\\@playwright\\test\\cli.js",
       "test",
       "tests/e2e/v14_4_2_selection_source.e2e.ts"
     ],
-    "configFile": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/playwright.config.ts",
-    "rootDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
+    "configFile": "D:\\build app-crypto\\aurum-desk\\frontend\\playwright.config.ts",
+    "rootDir": "D:/build app-crypto/aurum-desk/frontend/tests/e2e",
     "failOnFlakyTests": false,
     "forbidOnly": false,
     "fullyParallel": false,
@@ -23,7 +23,7 @@
     "preserveOutput": "always",
     "projects": [
       {
-        "outputDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/test-results",
+        "outputDir": "D:/build app-crypto/aurum-desk/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
@@ -31,7 +31,7 @@
         },
         "id": "",
         "name": "",
-        "testDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
+        "testDir": "D:/build app-crypto/aurum-desk/frontend/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.e2e.ts"
@@ -43,15 +43,15 @@
       {
         "grep": {},
         "grepInvert": null,
-        "outputDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/test-results",
+        "outputDir": "D:\\build app-crypto\\aurum-desk\\frontend\\test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
           "actualWorkers": 1
         },
         "name": "",
-        "testDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
-        "snapshotDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
+        "testDir": "D:\\build app-crypto\\aurum-desk\\frontend\\tests\\e2e",
+        "snapshotDir": "D:\\build app-crypto\\aurum-desk\\frontend\\tests\\e2e",
         "testIgnore": [],
         "testMatch": "**/*.e2e.ts",
         "timeout": 60000,
@@ -125,12 +125,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1271,
+                      "duration": 2042,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-12T13:35:49.665Z",
+                      "startTime": "2026-10-13T01:33:55.159Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -159,12 +159,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1053,
+                      "duration": 1768,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-12T13:35:51.435Z",
+                      "startTime": "2026-10-13T01:33:57.617Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -193,12 +193,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1083,
+                      "duration": 1740,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-12T13:35:52.497Z",
+                      "startTime": "2026-10-13T01:33:59.398Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -227,12 +227,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1156,
+                      "duration": 1917,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-12T13:35:53.591Z",
+                      "startTime": "2026-10-13T01:34:01.153Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -261,12 +261,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1229,
+                      "duration": 1909,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-12T13:35:54.756Z",
+                      "startTime": "2026-10-13T01:34:03.085Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -295,12 +295,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1018,
+                      "duration": 1682,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-12T13:35:55.993Z",
+                      "startTime": "2026-10-13T01:34:05.007Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -329,12 +329,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1243,
+                      "duration": 1818,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-12T13:35:57.024Z",
+                      "startTime": "2026-10-13T01:34:06.702Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -363,12 +363,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1210,
+                      "duration": 1591,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-12T13:35:58.276Z",
+                      "startTime": "2026-10-13T01:34:08.533Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -388,8 +388,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-12T13:35:47.598Z",
-    "duration": 12163.068000000001,
+    "startTime": "2026-10-13T01:33:49.313Z",
+    "duration": 21665.463,
     "expected": 8,
     "skipped": 0,
     "unexpected": 0,

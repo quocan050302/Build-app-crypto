@@ -288,7 +288,11 @@ class TradingPolicyService:
             quota.last_status_reason = f"Đã hoàn thành chỉ tiêu phiên Mỹ: {quota.total_fills}/{quota.target_fills} lệnh khớp"
             quota.last_evaluated_at = current_time
             quota.updated_at = current_time
-            db.commit()
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+                raise
             return quota
 
         # 2. Before entry window
@@ -297,7 +301,11 @@ class TradingPolicyService:
             quota.last_status_reason = f"Chưa tới cửa sổ phiên Mỹ ({window['vn_window_str']})"
             quota.last_evaluated_at = current_time
             quota.updated_at = current_time
-            db.commit()
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+                raise
             return quota
 
         # 3. After entry window has closed
@@ -307,7 +315,11 @@ class TradingPolicyService:
                 quota.last_status_reason = TradingPolicyService._missed_reason_text(db, quota)
             quota.last_evaluated_at = current_time
             quota.updated_at = current_time
-            db.commit()
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+                raise
             return quota
 
         # 4. In window (Standard or Fallback): check block conditions
@@ -347,7 +359,11 @@ class TradingPolicyService:
 
         quota.last_evaluated_at = current_time
         quota.updated_at = current_time
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
         return quota
 
     @staticmethod

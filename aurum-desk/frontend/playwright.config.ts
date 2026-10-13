@@ -10,7 +10,7 @@ import { defineConfig } from '@playwright/test'
  */
 const API_PORT = Number(process.env.AURUM_E2E_API_PORT ?? 8765)
 const WEB_PORT = Number(process.env.AURUM_E2E_WEB_PORT ?? 5199)
-const PYTHON = process.env.AURUM_E2E_PYTHON ?? '../backend/venv/bin/python'
+const PYTHON = process.env.AURUM_E2E_PYTHON ?? (process.platform === 'win32' ? '../backend/venv/Scripts/python.exe' : '../backend/venv/bin/python')
 const executablePath = process.env.AURUM_E2E_BROWSER_PATH
 
 export default defineConfig({

@@ -73,10 +73,22 @@ class QuoteOrderingService:
         st = self.get_state(symbol)
         return list(st.late_evidence_queue[:limit])
 
-    def acknowledge_late_evidence(self, symbol: str, processed_count: int) -> None:
-        """Acknowledges processed late evidence records from the queue."""
+    def acknowledge_late_evidence(
+        self,
+        symbol: str,
+        processed_count: Optional[int] = None,
+        evidence_ids: Optional[Sequence[str]] = None
+    ) -> None:
+        """Acknowledges processed late evidence records from the queue by count or stable IDs."""
         st = self.get_state(symbol)
-        st.late_evidence_queue = st.late_evidence_queue[processed_count:]
+        if evidence_ids is not None:
+            id_set = set(evidence_ids)
+            st.late_evidence_queue = [
+                r for r in st.late_evidence_queue
+                if r.get("evidence_id") not in id_set
+            ]
+        elif processed_count is not None:
+            st.late_evidence_queue = st.late_evidence_queue[processed_count:]
 
     def get_overflow_gap(self, symbol: str) -> Optional[Dict[str, Any]]:
         """Returns overflow gap interval if queue overflowed."""
@@ -144,7 +156,9 @@ class QuoteOrderingService:
 
         # Older exchange timestamp: source arrived out-of-order
         state.total_late += 1
+        evidence_id = f"late-{quote.symbol}-{src_ts}-{digest[:8]}"
         record = {
+            "evidence_id": evidence_id,
             "symbol": quote.symbol,
             "source_timestamp": src_ts,
             "watermark_at_arrival": state.watermark_ms,

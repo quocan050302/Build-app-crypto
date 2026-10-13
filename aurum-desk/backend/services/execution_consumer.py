@@ -11,6 +11,8 @@ from services.clock import live_clock, IClock
 
 logger = logging.getLogger(__name__)
 
+import concurrent.futures
+
 class ExecutionConsumer:
     """
     Ordered Execution Consumer (V7.1):
@@ -30,6 +32,8 @@ class ExecutionConsumer:
         self._running = False
         self._stopping = False
         self._inflight = False
+        self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
+        self._active_worker_future: Optional[concurrent.futures.Future] = None
         self.processed_count = 0
         self.dropped_count = 0
         self.last_processed_quote_ts = 0
@@ -44,6 +48,11 @@ class ExecutionConsumer:
         self.gap_start_ms: Optional[int] = None
         self.gap_end_ms: Optional[int] = None
         self.last_lag_warn_ts = 0
+
+    def _ensure_executor(self) -> concurrent.futures.ThreadPoolExecutor:
+        if self._executor is None or getattr(self._executor, "_shutdown", False):
+            self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="exec_consumer")
+        return self._executor
 
     @property
     def queue_depth(self) -> int:
@@ -186,15 +195,19 @@ class ExecutionConsumer:
     async def stop(self, timeout: float = 3.0) -> Dict[str, Any]:
         """
         Gracefully terminates consumer loop, awaiting completion of any in-flight worker execution.
-        Returns StopResult: {"status": "COMPLETE" | "TIMED_OUT", "unprocessed_count": int, "has_gap": bool}.
+        Returns StopResult: {"status": "COMPLETE" | "TIMED_OUT", "inflight_done": bool, "unprocessed_count": int, "has_gap": bool}.
         """
         self._stopping = True
         start = time.perf_counter()
-        while (self._inflight or not self.queue.empty()) and (time.perf_counter() - start < timeout):
-            await asyncio.sleep(0.02)
+        while time.perf_counter() - start < timeout:
+            future_done = (self._active_worker_future is None or self._active_worker_future.done())
+            if future_done and not self._inflight and self.queue.empty():
+                break
+            await asyncio.sleep(0.01)
 
         self._running = False
-        timed_out = self._inflight or not self.queue.empty()
+        future_done = (self._active_worker_future is None or self._active_worker_future.done())
+        inflight_done = future_done and not self._inflight
         unprocessed = self.queue.qsize()
 
         # Unblock worker waiting on queue.get() if queue is empty
@@ -203,15 +216,28 @@ class ExecutionConsumer:
         except (asyncio.QueueFull, AttributeError):
             pass
 
-        if timed_out and unprocessed > 0:
+        timed_out = (not inflight_done) or (unprocessed > 0)
+        if timed_out:
             self.has_execution_gap = True
+            reason = "WORKER_INFLIGHT_TIMEOUT" if not inflight_done else "QUEUE_DRAIN_TIMEOUT"
             logger.warning(
-                f"ExecutionConsumer stop timed out with {unprocessed} unprocessed quotes. Marked execution gap."
+                f"ExecutionConsumer stop timed out (inflight_done={inflight_done}, unprocessed={unprocessed}). Marked execution gap ({reason})."
             )
-            return {"status": "TIMED_OUT", "unprocessed_count": unprocessed, "has_gap": True}
+            return {
+                "status": "TIMED_OUT",
+                "inflight_done": inflight_done,
+                "unprocessed_count": unprocessed,
+                "has_gap": True,
+                "reason": reason,
+            }
 
         logger.info("ExecutionConsumer stopped gracefully.")
-        return {"status": "COMPLETE", "unprocessed_count": 0, "has_gap": self.has_execution_gap}
+        return {
+            "status": "COMPLETE",
+            "inflight_done": True,
+            "unprocessed_count": 0,
+            "has_gap": self.has_execution_gap,
+        }
 
     async def run_consumer_loop(self):
         """
@@ -220,6 +246,7 @@ class ExecutionConsumer:
         """
         self._running = True
         self._stopping = False
+        executor = self._ensure_executor()
         logger.info("ExecutionConsumer loop started.")
 
         while self._running:
@@ -232,7 +259,8 @@ class ExecutionConsumer:
                 self._inflight = True
                 t0 = time.perf_counter()
                 try:
-                    await asyncio.to_thread(self._process_quote_worker, quote)
+                    self._active_worker_future = executor.submit(self._process_quote_worker, quote)
+                    await asyncio.wrap_future(self._active_worker_future)
                 except Exception as e:
                     logger.error(f"Error evaluating quote in worker {quote.symbol}: {e}", exc_info=True)
                     self.has_execution_gap = True
@@ -261,9 +289,12 @@ class ExecutionConsumer:
 
             except asyncio.CancelledError:
                 self._running = False
+                if self._active_worker_future and not self._active_worker_future.done():
+                    logger.warning("ExecutionConsumer cancelled while worker thread still active; holding lease.")
                 break
             except Exception as e:
                 logger.error(f"ExecutionConsumer loop error: {e}", exc_info=True)
+                await asyncio.sleep(0.1)
                 await asyncio.sleep(0.1)
 
         logger.info("ExecutionConsumer loop terminated.")

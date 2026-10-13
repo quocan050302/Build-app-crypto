@@ -1266,10 +1266,16 @@ function AppContent() {
     setActiveTab('chart');
     setEvidenceMode('SELECTED');
     const tradeEntryTime = trade.opened_at ? Math.floor(trade.opened_at / 1000) : (trade.armed_at ? Math.floor(trade.armed_at / 1000) : (trade.created_at ? Math.floor(trade.created_at / 1000) : undefined));
+    const tradeStateLower = String(trade.state || '').toLowerCase();
+    const mappedTradeState: RiskRewardData['state'] =
+      tradeStateLower === 'closed' ? 'closed' :
+      tradeStateLower === 'armed' ? 'armed' :
+      tradeStateLower === 'invalidated' ? 'invalidated' :
+      'paper_open';
     const overlay: RiskRewardData = {
       id: trade.id,
       direction: trade.direction,
-      state: ['closed', 'CLOSED'].includes(trade.state) ? 'closed' : 'paper_open',
+      state: mappedTradeState,
       readOnly: true,
       plannedEntry: trade.planned_entry,
       actualEntry: trade.actual_entry,

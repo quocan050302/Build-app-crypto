@@ -112,6 +112,8 @@ async def lifespan(app: FastAPI):
     # Wire WS quote broadcaster to market_broadcaster
     bitget_ws_service.register_broadcaster(market_broadcaster.broadcast_quote)
 
+    from services.market_reconciliation_service import market_reconciliation_service
+
     tasks = [
         asyncio.create_task(bitget_ws_service.run_ws_loop()),
         asyncio.create_task(execution_consumer.run_consumer_loop()),
@@ -121,11 +123,13 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(proximity_service.run_proximity_loop()),
         asyncio.create_task(execution_coordinator.run_coordinator_loop()),
         asyncio.create_task(exit_monitor.run_exit_monitor_loop()),
+        asyncio.create_task(market_reconciliation_service.run_late_reconciliation_loop()),
         asyncio.create_task(process_notification_outbox())
     ]
     yield
     # Graceful shutdown: orderly stop of worker loops before cancelling
     bitget_ws_service.stop()
+    market_reconciliation_service.stop()
     try:
         res_ec = await execution_consumer.stop(timeout=2.0)
         if res_ec and res_ec.get("status") == "TIMED_OUT":
@@ -487,6 +491,8 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
     quality_map = setup_quality_repository.get_snapshots_batch(db, [s.id for s in setups])
 
     # Batch load bound orders to wire frozen order financial snapshots
+    from services.order_plan_snapshot_service import select_bound_order_for_setup
+
     setup_ids = [s.id for s in setups]
     bound_orders = (
         db.query(models.PaperOrder)
@@ -495,12 +501,9 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
         .all()
     ) if setup_ids else []
 
-    order_map = {}
+    orders_by_setup: Dict[str, List[Any]] = {}
     for o in bound_orders:
-        if o.setup_id not in order_map:
-            order_map[o.setup_id] = o
-        elif o.state in ("armed", "paper_open") and order_map[o.setup_id].state not in ("armed", "paper_open"):
-            order_map[o.setup_id] = o
+        orders_by_setup.setdefault(o.setup_id, []).append(o)
 
     setup_items = []
     for s in setups:
@@ -511,7 +514,8 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
             quality_sum = quality_map.get(s.id, {}).get("assessment", {}).get("summary")
             quality_snap_id = quality_map.get(s.id, {}).get("snapshot_id")
 
-            bound_order = order_map.get(s.id)
+            candidates = orders_by_setup.get(s.id, [])
+            bound_order = select_bound_order_for_setup(s, candidates)
             frozen_snap = None
             pricing_mode = "CURRENT_PREVIEW"
             is_frozen = str(s.state).upper() in ("ARMED", "PAPER_OPEN", "CLOSED") or (bound_order and bound_order.state in ("armed", "paper_open"))
@@ -854,6 +858,23 @@ def manual_arm_setup(
     eff_risk_pct = min(watch_setup.risk_pct or 0.25, 0.10) if is_quota else (watch_setup.risk_pct or 0.25)
     risk_profile = "QUOTA" if is_quota else "STANDARD"
 
+    from services.order_plan_snapshot_service import build_arm_plan_snapshot
+    arm_snap = build_arm_plan_snapshot(
+        calc_res,
+        order_type=order_type,
+        direction=watch_setup.direction,
+        planned_entry=entry,
+        stop_loss=sl,
+        take_profit=tp,
+        capital_usdt=equity,
+        risk_pct=eff_risk_pct,
+        leverage=calc_res.leverage,
+        margin_mode=calc_res.margin_mode,
+        now_ms=now_ms,
+        policy_config_version=elig.get("policy_config_version", 1),
+        risk_config_version=watch_setup.config_version or 1,
+    )
+
     new_order = models.PaperOrder(
         id=order_id,
         setup_id=watch_setup.id,
@@ -889,7 +910,8 @@ def manual_arm_setup(
         origin="MANUAL_WEB",
         execution_mode="MANUAL",
         arm_decision_snapshot=json.dumps(elig.get("lesson_evaluations", [])),
-        lessons_retrieved=json.dumps(elig.get("lessons_retrieved_snapshot", []))
+        lessons_retrieved=json.dumps(elig.get("lessons_retrieved_snapshot", [])),
+        cost_snapshot=json.dumps(arm_snap, ensure_ascii=False)
     )
     db.add(new_order)
     watch_setup.confirmed_entry = entry

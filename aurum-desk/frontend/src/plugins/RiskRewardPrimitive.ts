@@ -463,12 +463,20 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
   } = { entryY: null, slY: null, tpY: null, lpY: null, startX: 0, endX: 0 };
   private _hoverPart: DragTargetPart | null = null;
 
+  private _normalizeData(data: RiskRewardData): RiskRewardData {
+    const isOrderState = ['armed', 'paper_open', 'closed', 'invalidated'].includes(data.state);
+    return {
+      ...data,
+      readOnly: data.readOnly ?? (isOrderState ? true : false),
+    };
+  }
+
   constructor(data: RiskRewardData) {
-    this._data = data;
+    this._data = this._normalizeData(data);
   }
 
   setData(data: RiskRewardData) {
-    this._data = data;
+    this._data = this._normalizeData(data);
     this.updateAllViews();
     if (this._param) {
       this._param.requestUpdate();

@@ -14,6 +14,17 @@ logger = logging.getLogger(__name__)
 
 VN_TZ = timezone(timedelta(hours=7))
 
+TF_DURATION_MS = {
+    "1M": 60_000,
+    "5M": 300_000,
+    "15M": 900_000,
+    "1H": 3_600_000,
+    "4H": 14_400_000,
+    "1D": 86_400_000,
+    "D": 86_400_000,
+}
+
+
 def get_vn_date_str(epoch_ms: int) -> str:
     """Converts epoch ms to YYYY-MM-DD in UTC+7 (Asia/Ho_Chi_Minh)."""
     dt = datetime.fromtimestamp(epoch_ms / 1000.0, tz=VN_TZ)
@@ -61,19 +72,42 @@ class PositionRecoveryService:
             order.last_recovery_attempt = current_time
             db.commit()
 
-            # Retrieve closed candles for evaluation (strictly closed bars)
+            # Retrieve closed candles for evaluation (strictly closed bars, finest available timeframe)
             candles: List[models.Candle] = []
             if candles_override is not None:
-                candles = [c for c in candles_override if getattr(c, 'is_closed', True)]
+                closed_override = [c for c in candles_override if getattr(c, 'is_closed', True)]
+                distinct_tfs = {getattr(c, 'timeframe', None) for c in closed_override if getattr(c, 'timeframe', None)}
+                finest_tf = next((tf for tf in ("1M", "5M", "15M", "1H", "4H", "1D", "D") if tf in distinct_tfs), None)
+                if finest_tf:
+                    candles = [c for c in closed_override if getattr(c, 'timeframe', None) == finest_tf]
+                else:
+                    candles = closed_override
             else:
-                # Query local DB for closed candles in the window
-                db_candles = db.query(models.Candle).filter(
-                    models.Candle.symbol == order.instrument,
-                    models.Candle.timestamp > lower_bound,
-                    models.Candle.timestamp <= current_time,
-                    models.Candle.is_closed == True
-                ).order_by(models.Candle.timestamp.asc()).all()
-                candles = db_candles
+                # Query local DB for closed candles in the window on finest available timeframe
+                finest_tf = None
+                for cand_tf in ("1M", "5M", "15M", "1H", "4H", "1D"):
+                    has_row = db.query(models.Candle.id).filter(
+                        models.Candle.symbol == order.instrument,
+                        models.Candle.timeframe == cand_tf,
+                        models.Candle.timestamp > lower_bound,
+                        models.Candle.timestamp <= current_time,
+                        models.Candle.is_closed == True
+                    ).first()
+                    if has_row:
+                        finest_tf = cand_tf
+                        break
+
+                if finest_tf:
+                    db_candles = db.query(models.Candle).filter(
+                        models.Candle.symbol == order.instrument,
+                        models.Candle.timeframe == finest_tf,
+                        models.Candle.timestamp > lower_bound,
+                        models.Candle.timestamp <= current_time,
+                        models.Candle.is_closed == True
+                    ).order_by(models.Candle.timestamp.asc()).all()
+                    candles = db_candles
+                else:
+                    candles = []
 
             if not candles:
                 logger.warning(f"[OFFLINE_RECOVERY] No closed candles available in range {lower_bound} - {current_time} for {order.id}")
@@ -98,7 +132,7 @@ class PositionRecoveryService:
             for c in sorted_candles:
                 resolved_through_ts = c.timestamp
                 bar_start = c.timestamp
-                tf_ms = 15 * 60 * 1000 if c.timeframe == "15M" else (5 * 60 * 1000 if c.timeframe == "5M" else 60 * 1000)
+                tf_ms = TF_DURATION_MS.get(getattr(c, "timeframe", ""), 60_000)
                 bar_end = bar_start + tf_ms
 
                 # Guard 1: Bar was before order opened

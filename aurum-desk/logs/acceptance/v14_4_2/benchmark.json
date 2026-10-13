@@ -3,14 +3,14 @@
   "failures": [],
   "cycles": 600,
   "confirmed_cycles": 600,
-  "total_s": 4.426,
-  "throughput_cycles_per_s": 135.6,
+  "total_s": 9.101,
+  "throughput_cycles_per_s": 65.9,
   "latency_ms": {
-    "p50": 7.282,
-    "p95": 8.009,
-    "max": 15.347
+    "p50": 14.534,
+    "p95": 19.004,
+    "max": 25.177
   },
-  "traced_memory_growth_mb": 0.12,
+  "traced_memory_growth_mb": 0.105,
   "progression_sample": [
     {
       "bars_back": 0,
@@ -61,10 +61,10 @@
     "note": "configured hypotheses, not guarantees"
   },
   "environment": {
-    "python": "3.13.0",
-    "platform": "macOS-14.4.1-arm64-arm-64bit-Mach-O",
-    "processor": "arm",
-    "cpu_count": 8
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 151 Stepping 5, GenuineIntel",
+    "cpu_count": 12
   },
   "NOT_MEASURED": [
     "browser render latency",

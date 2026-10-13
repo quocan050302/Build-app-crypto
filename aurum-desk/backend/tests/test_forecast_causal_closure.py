@@ -264,16 +264,95 @@ def test_fct02_summary_counts_and_separation(isolated_db):
     assert summary["n_forecasts"] == 6
     assert summary["n_pending"] == 1
     assert summary["n_terminal"] == 5
-    assert summary["n_confirmed_target"] == 2
+    assert summary["n_confirmed_target"] == 1
     assert summary["n_invalidated"] == 1
     assert summary["n_expired"] == 1
     assert summary["n_watched_liquidity_touch"] == 1
     assert summary["n_legacy_unverified"] == 1
-    # n_resolved_valid = 2 (confirmed) + 1 (inval) + 1 (expired) = 4
-    assert summary["n_resolved_valid"] == 4
-    # target_touch_fraction = 2 / 4 = 0.5
-    assert summary["target_touch_fraction"] == 0.5
+    # n_resolved_valid = 1 (confirmed) + 1 (inval) + 1 (expired) = 3 (legacy excluded)
+    assert summary["n_resolved_valid"] == 3
+    # target_touch_fraction = 1 / 3 = 0.3333
+    assert summary["target_touch_fraction"] == 0.3333
     assert summary["probability_status"] == "UNAVAILABLE"
+
+
+def test_bar_straddling_expiry_is_not_verified_target():
+    """NEWBUGBAR01 (PHẦN 162):
+    Snap asof=1000, cutoff=800, LONG target=4200, inval=4170.
+    Obs1 source=1100, known=1200, price=4190, is_confirmation=True.
+    Obs2 source=1800, known=2300, bar_end_ms=2300, high=4201, low=4180.
+    expiry=2000, eval=2400.
+    Bar 1800-2300 straddles expiry 2000. Because target could have occurred after 2000,
+    it cannot be counted as CONFIRMED_TARGET.
+    Outcome must be AMBIGUOUS with reason BAR_STRADDLES_EXPIRY_HORIZON_UNVERIFIED.
+    """
+    snap = MagicMock(
+        as_of_ms=1000,
+        context_cutoff_ms=800,
+        target_price=4200.0,
+        invalidation_price=4170.0,
+        direction="LONG"
+    )
+    obs = [
+        {"source_timestamp": 1100, "known_at_ms": 1200, "price": 4190.0, "is_confirmation": True},
+        {"source_timestamp": 1800, "known_at_ms": 2300, "bar_end_ms": 2300, "high": 4201.0, "low": 4180.0, "price": 4190.0}
+    ]
+    res = evaluate_forecast_outcome(snap, obs, as_of_ms=2400, expiry_ms=2000)
+    assert res["outcome"] == ForecastOutcomeDefinition.AMBIGUOUS.value
+    assert res["reason"] == "BAR_STRADDLES_EXPIRY_HORIZON_UNVERIFIED"
+    assert res["details"]["straddling"] is True
+
+
+def test_legacy_unverified_is_excluded_from_verified_rate(isolated_db):
+    """NEWBUGSUM01 (PHẦN 208):
+    1. Single legacy row (invalidation_price=None, outcome=CONFIRMED_TARGET):
+       must yield n_legacy_unverified=1, n_resolved_valid=0, target_touch_fraction=None.
+       (Baseline 557bd5e erroneously yielded n_resolved_valid=1, rate=1.0).
+    2. Mixed fixture: 1 legacy WIN + 1 verified LOSS:
+       must yield verified rate = 0.0 (not 0.5!).
+    """
+    import models
+    from services.smc_forecast_observation_service import (
+        ForecastOutcomeDefinition,
+        summarize_forecast_observations,
+    )
+
+    # Subtest 1: single legacy WIN
+    legacy_win = models.ForecastObservation(
+        id="fc-legacy-win", forecast_id="s_leg", revision=1, symbol="XAUUSDT", session="ASIA",
+        session_id="ASIA:leg1", as_of_ms=100, context_cutoff_ms=100, content_digest="d_leg1",
+        hypothesis_type="H1", target_price=4200.0, invalidation_price=None,
+        outcome_status=ForecastOutcomeDefinition.CONFIRMED_TARGET_BEFORE_INVALIDATION.value,
+        payload_json="{}", created_at=100
+    )
+    isolated_db.add(legacy_win)
+    isolated_db.commit()
+
+    summary_leg = summarize_forecast_observations(isolated_db)
+    assert summary_leg["n_forecasts"] == 1
+    assert summary_leg["n_legacy_unverified"] == 1
+    assert summary_leg["n_confirmed_target"] == 0
+    assert summary_leg["n_resolved_valid"] == 0
+    assert summary_leg["target_touch_fraction"] is None
+
+    # Subtest 2: add 1 verified LOSS (invalidated)
+    verified_loss = models.ForecastObservation(
+        id="fc-verified-loss", forecast_id="s_ver", revision=1, symbol="XAUUSDT", session="ASIA",
+        session_id="ASIA:ver1", as_of_ms=100, context_cutoff_ms=100, content_digest="d_ver1",
+        hypothesis_type="H1", target_price=4200.0, invalidation_price=4150.0,
+        outcome_status=ForecastOutcomeDefinition.INVALIDATED_BEFORE_TARGET.value,
+        payload_json="{}", created_at=100
+    )
+    isolated_db.add(verified_loss)
+    isolated_db.commit()
+
+    summary_mixed = summarize_forecast_observations(isolated_db)
+    assert summary_mixed["n_forecasts"] == 2
+    assert summary_mixed["n_legacy_unverified"] == 1
+    assert summary_mixed["n_confirmed_target"] == 0
+    assert summary_mixed["n_invalidated"] == 1
+    assert summary_mixed["n_resolved_valid"] == 1
+    assert summary_mixed["target_touch_fraction"] == 0.0
 
 
 def test_obs01_cycle_persist_and_observer_updates_outcome(isolated_db):
@@ -303,7 +382,7 @@ def test_obs01_cycle_persist_and_observer_updates_outcome(isolated_db):
         "invalidation": ["Below 4170"],
         "confirmation": ["M5 displacement"],
         "watched_liquidity": [{"id": "pdh", "price": 4190.0, "side": "HIGH"}],
-        "session_range": {"cutoff_ms": 100000, "end_ms": 200000},
+        "session_range": {"cutoff_ms": 100000, "end_ms": 500000},
     }
 
     snap = create_forecast_snapshot(isolated_db, fc, now_ms=100000)
