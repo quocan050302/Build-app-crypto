@@ -9,7 +9,7 @@ Khép Lỗi Runtime Đã Tái Hiện Trên V14.4.4
 - **Baseline Review:** `e4f563c — docs: record final commit SHA in V14.4.4 runtime repair report`
 - **Tested SHA:** `e4f563cbedd444de5c9c2f113c87dc17d1c39d77`
 - **Tree Fingerprint:** `5ea75a16be761487c095236217725ab41138613a`
-- **Final Commit SHA:** *Được ghi nhận khi commit và push hoàn tất (xem Mục 6)*
+- **Final Commit SHA:** `5a9cef8d63d332b3c63614dbdadc2dde50332cef` (`5a9cef8`)
 - **Môi trường thực thi:** Isolated SQLite (`TESTING=1`, `AURUM_DB_PATH`), mock quotes & deterministic clock, clean process lifecycle, zero live database / Telegram side-effects.
 
 ---
