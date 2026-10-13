@@ -11,11 +11,13 @@ evidence nodes is MEASURED from candles before links are written:
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 from dataclasses import dataclass, field, replace
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
+import models
 import smc_engine
 from sqlalchemy.orm import Session
 
@@ -842,5 +844,68 @@ def evaluate_scenario_cycle(
         if material:
             upsert_scenario_revision(db=db, snapshot=s, is_material_change=True)
             changed.append(s)
+            state_val = getattr(s.state, "value", str(s.state))
+            if state_val == "STRUCTURE_CONFIRMED":
+                record_scenario_confirmation_event(db, s, transition="STRUCTURE_CONFIRMED")
     return ScenarioCycleResult(snapshots=snapshots, changed=changed, superseded=superseded,
                                primary=select_primary_scenario(snapshots), issues=ctx.issues)
+
+
+def record_scenario_confirmation_event(
+    db: Session,
+    snapshot: ScenarioSnapshot,
+    transition: Optional[str] = None,
+) -> Optional[models.DomainEvent]:
+    """PHẦN 044, 045, 097: Records an authoritative DomainEvent when a scenario reaches STRUCTURE_CONFIRMED."""
+    state_val = getattr(snapshot.state, "value", str(snapshot.state))
+    if state_val != "STRUCTURE_CONFIRMED":
+        return None
+
+    event_uid = f"conf_{snapshot.instance_id}_r{snapshot.revision}"
+    existing = db.query(models.DomainEvent).filter(models.DomainEvent.event_id == event_uid).first()
+    if existing:
+        return existing
+
+    nodes = getattr(snapshot, "nodes", []) or []
+    node_ids = {getattr(n, "kind", ""): getattr(n, "id", "") for n in nodes}
+    retest_node = next((n for n in nodes if getattr(n, "kind", "") == "RETEST"), None)
+
+    known_at = getattr(retest_node, "known_at_ms", None) or snapshot.as_of_ms
+    occurred_at = getattr(retest_node, "occurred_at_ms", None) or snapshot.as_of_ms
+
+    payload = {
+        "event_kind": "scenario.confirmed",
+        "symbol": snapshot.symbol,
+        "direction": snapshot.direction,
+        "scenario_id": snapshot.scenario_id,
+        "instance_id": snapshot.instance_id,
+        "snapshot_id": snapshot.snapshot_id,
+        "revision": snapshot.revision,
+        "model_version": getattr(snapshot, "detector_version", "1.0"),
+        "config_version": getattr(snapshot, "config_version", "1"),
+        "profile": getattr(snapshot, "profile", "SMC_DEFAULT"),
+        "transition": transition or "STRUCTURE_CONFIRMED",
+        "evidence_chain_ids": [getattr(n, "id", "") for n in nodes],
+        "sweep_id": node_ids.get("SWEEP"),
+        "break_id": node_ids.get("BREAK"),
+        "fvg_id": node_ids.get("FVG"),
+        "retest_id": node_ids.get("RETEST"),
+        "occurred_at_ms": occurred_at,
+        "known_at_ms": known_at,
+        "schema_version": "1.0.0",
+    }
+
+    event = models.DomainEvent(
+        event_id=event_uid,
+        sequence=1,
+        schema_version="1.0.0",
+        event_type="scenario.confirmed",
+        aggregate_id=snapshot.instance_id,
+        aggregate_version=snapshot.revision,
+        occurred_at=occurred_at,
+        published_at=known_at,
+        payload=json.dumps(payload),
+    )
+    db.add(event)
+    db.flush()
+    return event

@@ -145,9 +145,15 @@ def main(argv=None) -> int:
     ap.add_argument("--cycles", type=int, default=600)
     ap.add_argument("--p95-limit-ms", type=float, default=250.0)
     ap.add_argument("--mem-growth-limit-mb", type=float, default=25.0)
+    ap.add_argument("--run-id", default=None)
+    ap.add_argument("--tested-sha", default=None)
     ap.add_argument("--out", default=None)
     args = ap.parse_args(argv)
     report = run_benchmark(args.cycles, args.p95_limit_ms, args.mem_growth_limit_mb)
+    if args.run_id:
+        report["run_id"] = args.run_id
+    if args.tested_sha:
+        report["tested_sha"] = args.tested_sha
     print(json.dumps(report, indent=2))
     if args.out:
         os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)

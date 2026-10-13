@@ -222,8 +222,12 @@ def test_ordchain02_order_chart_evidence_populates_net_reward_and_fees(client, i
 
 
 def test_freeze01_changing_settings_does_not_reprice_armed_order():
-    """FREEZE01 (PHẦN 146): Changing context does not mutate frozen display plan."""
+    """FREEZE01 (PHẦN 146, PHẦN 032): Complete canonical frozen snapshot does not reprice on context change."""
     frozen_snap = {
+        "planned_entry": 4180.0,
+        "stop_loss": 4185.0,
+        "take_profit": 4165.0,
+        "price_basis": "PLANNED_LIMIT",
         "net_rr": 2.1,
         "quantity": 0.5,
         "gross_reward_usdt": 7.5,

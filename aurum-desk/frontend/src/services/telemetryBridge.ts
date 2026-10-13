@@ -25,6 +25,8 @@ export interface TelemetrySnapshot {
   dropped_execution_event_count: number;
   events_received_count: number;
   events_rendered_count: number;
+  transport_kind: string;
+  measurement_scope: string;
 }
 
 class TelemetryBridge {
@@ -73,13 +75,17 @@ class TelemetryBridge {
     return this.acceptTransportFrame();
   }
 
-  public recordRenderLatency(receiveTimeMs: number): void {
+  public markVisualCommit(_frameId: number | string, _kind: string, receivedAt: number, committedAt?: number): void {
     this.eventsRendered += 1;
-    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    const latency = Math.max(0, now - receiveTimeMs);
+    const now = committedAt ?? (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const latency = Math.max(0, now - receivedAt);
     if (this.renderLatenciesMs.length < this.maxSamples) {
       this.renderLatenciesMs.push(latency);
     }
+  }
+
+  public recordRenderLatency(receiveTimeMs: number): void {
+    this.markVisualCommit('legacy', 'RENDER_LATENCY', receiveTimeMs);
   }
 
   public updateQueueDepth(depth: number): void {
@@ -140,6 +146,8 @@ class TelemetryBridge {
       dropped_execution_event_count: this.droppedExecutionCount,
       events_received_count: this.eventsReceived,
       events_rendered_count: this.eventsRendered,
+      transport_kind: 'WEBSOCKET',
+      measurement_scope: 'QUOTE_DOM_COMMIT_RAF_PROXY',
     };
   }
 }

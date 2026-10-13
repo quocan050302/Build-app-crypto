@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
 import type { IChartApi, ISeriesApi, Time } from 'lightweight-charts';
 import { api, getNextRequestGeneration, isLatestGeneration } from './api/client';
@@ -378,6 +378,22 @@ export function ChartComponent({
   }, []);
 
   const [currentPriceDisplay, setCurrentPriceDisplay] = useState<number>(4000.0);
+  const [displayedQuote, setDisplayedQuote] = useState<{ price: number; frameId: number | string; receivedAt: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!displayedQuote) return;
+    const marker = displayedQuote;
+    const raf = requestAnimationFrame(() => {
+      telemetryBridge.markVisualCommit(
+        marker.frameId,
+        'QUOTE_DOM_COMMIT_RAF_PROXY',
+        marker.receivedAt,
+        typeof performance !== 'undefined' ? performance.now() : Date.now()
+      );
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [displayedQuote]);
+
   const [staleNotice, setStaleNotice] = useState<string | null>(null);
 
   const applyCandleList = useCallback((list: CandleData[]) => {
@@ -543,10 +559,6 @@ export function ChartComponent({
       telemetryBridge.updateQueueDepth(pendingBarsQueue.length);
     };
 
-    if (import.meta.env.DEV) {
-      (window as any).__AURUM_FLUSH_QUEUE__ = () => flushQueue();
-    }
-
     const unsubscribe = wsClient.subscribe((msg: any) => {
       if (disposed) return;
       try {
@@ -606,8 +618,11 @@ export function ChartComponent({
             if (Number.isFinite(lastPrice)) {
               latestClosePriceRef.current = lastPrice;
               latestQuoteTsRef.current = msg.exchange_ts_ms || msg.server_received_at_ms || Date.now();
-              setCurrentPriceDisplay(lastPrice);
-              telemetryBridge.recordRenderLatency(receiveTs);
+              setDisplayedQuote({
+                price: lastPrice,
+                frameId: msg.server_sequence || msg._frameId || Date.now(),
+                receivedAt: receiveTs,
+              });
             }
           }
         }

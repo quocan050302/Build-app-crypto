@@ -85,8 +85,22 @@ def test_timeline01_earlier_tp_wins_over_later_sl_arriving_first(isolated_db):
     disp2, _ = quote_ordering_service.classify_quote(q_tp)
     assert disp2.value == "LATE_EVIDENCE"
 
-    # Execute reconciliation batch
-    n_processed = market_reconciliation_service.process_late_batch(isolated_db, symbol=symbol)
+    # Execute reconciliation batch with authoritative provider proof (PHẦN 029)
+    provider_proof = {
+        "continuity_proof": {
+            "source": "BITGET_WS",
+            "epoch": 1,
+            "resolution": "TICK",
+            "interval_start_ms": 1000,
+            "interval_end_ms": 35000,
+            "has_gap": False,
+            "missing_intervals": [],
+            "proof_references": ["ext_provider_ledger_1000_35000"],
+        }
+    }
+    n_processed = market_reconciliation_service.process_late_batch(
+        isolated_db, symbol=symbol, source_state=provider_proof
+    )
     assert n_processed >= 2
 
     # Check order state
@@ -165,7 +179,21 @@ def test_mirror_short_earlier_tp_wins_over_later_sl(isolated_db):
     )
     quote_ordering_service.classify_quote(q_tp)
 
-    n_processed = market_reconciliation_service.process_late_batch(isolated_db, symbol=symbol)
+    provider_proof = {
+        "continuity_proof": {
+            "source": "BITGET_WS",
+            "epoch": 1,
+            "resolution": "TICK",
+            "interval_start_ms": 1000,
+            "interval_end_ms": 35000,
+            "has_gap": False,
+            "missing_intervals": [],
+            "proof_references": ["ext_provider_ledger_1000_35000"],
+        }
+    }
+    n_processed = market_reconciliation_service.process_late_batch(
+        isolated_db, symbol=symbol, source_state=provider_proof
+    )
     assert n_processed >= 2
 
     closed_order = isolated_db.query(models.PaperOrder).filter_by(id="ord-late-chrono-short-01").first()

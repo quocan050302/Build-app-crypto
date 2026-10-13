@@ -238,7 +238,7 @@ def parse_junit_xml(xml_path: str) -> dict[str, str]:
 
 
 def validate_required_metrics(bench_data: dict, run_context: dict | None = None) -> dict:
-    """Validates required performance and latency metrics per PHẦN 077, 078, 116.
+    """Validates required performance and latency metrics per PHẦN 067, 068, 077, 078, 106, 107.
     Fails closed if Python or browser metrics are missing, incomplete, or violate budgets.
     """
     errors = []
@@ -246,8 +246,10 @@ def validate_required_metrics(bench_data: dict, run_context: dict | None = None)
     def _is_finite_number(v: Any) -> bool:
         return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
 
-    # 0. Context and identity freshness validation
-    if run_context:
+    # 0. Context and identity freshness validation (PHẦN 067, 106, 107)
+    if run_context is None:
+        errors.append("MISSING_REQUIRED_RUN_CONTEXT")
+    else:
         req_run_id = run_context.get("run_id")
         req_sha = run_context.get("sha")
         if req_run_id and bench_data.get("run_id") != req_run_id:
@@ -279,26 +281,37 @@ def validate_required_metrics(bench_data: dict, run_context: dict | None = None)
         try:
             with open(browser_bench_path, "r", encoding="utf-8") as bfh:
                 b_art = json.load(bfh)
+
+                # Freshness and identity check (PHẦN 066, 068)
+                if run_context and run_context.get("started_at_ms"):
+                    file_mtime_ms = int(os.path.getmtime(browser_bench_path) * 1000)
+                    if file_mtime_ms < run_context["started_at_ms"]:
+                        errors.append(f"STALE_BROWSER_ARTIFACT: file mtime {file_mtime_ms} < run start {run_context['started_at_ms']}")
+                if run_context and run_context.get("sha") and b_art.get("tested_sha"):
+                    if b_art["tested_sha"] != run_context["sha"]:
+                        errors.append(f"Tested SHA mismatch in browser artifact: expected {run_context['sha']}, got {b_art.get('tested_sha')}")
+
                 tel = b_art.get("telemetry", {})
+                # PHẦN 068: NO FAKE DEFAULTS. If field is missing in artifact, do NOT set default 100 or 0.
                 bench_data["browser_measurements"] = {
-                    "status": "PASS",
-                    "stream_duration_s": b_art.get("duration_seconds", 0),
-                    "events_streamed": b_art.get("total_frames_streamed", 0),
-                    "selections_completed": b_art.get("selections_completed", 100),
-                    "render_latency_ms": tel.get("render_latency_ms", {}),
-                    "queue_peak": tel.get("queue_peak", 0),
-                    "queue_current": tel.get("queue_current", 0),
-                    "active_subscriber_count": tel.get("active_subscriber_count", 0),
-                    "subscriber_leak": tel.get("subscriber_leak", 0),
-                    "chart_create_count": tel.get("chart_create_count", 0),
-                    "chart_destroy_count": tel.get("chart_destroy_count", 0),
-                    "dropped_execution_event_count": tel.get("dropped_execution_event_count", 0),
+                    "status": b_art.get("status") or b_art.get("budgets", {}).get("status", "FAIL"),
+                    "stream_duration_s": b_art.get("duration_seconds"),
+                    "events_streamed": b_art.get("total_frames_streamed"),
+                    "selections_completed": b_art.get("selections_completed"),
+                    "render_latency_ms": tel.get("render_latency_ms"),
+                    "queue_peak": tel.get("queue_peak"),
+                    "queue_current": tel.get("queue_current"),
+                    "active_subscriber_count": tel.get("active_subscriber_count"),
+                    "subscriber_leak": tel.get("subscriber_leak"),
+                    "chart_create_count": tel.get("chart_create_count"),
+                    "chart_destroy_count": tel.get("chart_destroy_count"),
+                    "dropped_execution_event_count": tel.get("dropped_execution_event_count"),
                 }
                 bench_data["NOT_MEASURED"] = []
         except Exception as e:
             errors.append(f"Failed to read browser benchmark artifact: {e}")
 
-    # 3. Browser Render Latency & Soak Telemetry (PHẦN 069-074, 087-094)
+    # 3. Browser Render Latency & Soak Telemetry (PHẦN 068, 069-074, 087-094)
     browser_m = bench_data.get("browser_measurements")
     if not browser_m:
         not_measured = bench_data.get("NOT_MEASURED", [])
@@ -307,45 +320,64 @@ def validate_required_metrics(bench_data: dict, run_context: dict | None = None)
         else:
             errors.append("Missing mandatory browser_measurements in benchmark")
     else:
-        b_lat = browser_m.get("render_latency_ms") or {}
-        b_samples = b_lat.get("sample_count")
-        if b_samples is None or not _is_finite_number(b_samples) or b_samples <= 0:
-            errors.append(f"Browser render latency sample_count {b_samples} is invalid or 0")
+        b_lat = browser_m.get("render_latency_ms")
+        if not isinstance(b_lat, dict):
+            errors.append("render_latency_ms: MISSING_REQUIRED_MEASUREMENT")
+        else:
+            b_samples = b_lat.get("sample_count")
+            if b_samples is None or not _is_finite_number(b_samples) or b_samples <= 0:
+                errors.append(f"Browser render latency sample_count {b_samples} is invalid or 0")
 
-        b_p95 = b_lat.get("p95")
-        if b_p95 is None or not _is_finite_number(b_p95) or b_p95 > 250.0:
-            errors.append(f"Browser render P95 latency {b_p95}ms violates budget (<= 250.0ms)")
+            b_p95 = b_lat.get("p95")
+            if b_p95 is None or not _is_finite_number(b_p95) or b_p95 > 250.0:
+                errors.append(f"Browser render P95 latency {b_p95}ms violates budget (<= 250.0ms)")
 
-        b_dur = browser_m.get("stream_duration_s", 0)
-        if not _is_finite_number(b_dur) or b_dur < 60.0:
+        b_dur = browser_m.get("stream_duration_s")
+        if b_dur is None:
+            errors.append("stream_duration_s: MISSING_REQUIRED_MEASUREMENT")
+        elif not _is_finite_number(b_dur) or b_dur < 60.0:
             errors.append(f"Browser soak duration {b_dur}s < 60.0s mandatory duration (PHẦN 074, 089)")
 
-        b_events = browser_m.get("events_streamed", 0)
-        if not _is_finite_number(b_events) or b_events < 10000:
+        b_events = browser_m.get("events_streamed")
+        if b_events is None:
+            errors.append("events_streamed: MISSING_REQUIRED_MEASUREMENT")
+        elif not _is_finite_number(b_events) or b_events < 10000:
             errors.append(f"Browser stream events {b_events} < 10,000 minimum frames (PHẦN 074, 089)")
 
         b_sel = browser_m.get("selections_completed")
-        if b_sel is not None and (not _is_finite_number(b_sel) or b_sel < 100):
+        if b_sel is None:
+            errors.append("selections_completed: MISSING_REQUIRED_MEASUREMENT")
+        elif not _is_finite_number(b_sel) or b_sel < 100:
             errors.append(f"Browser selections {b_sel} < 100 mandatory cycles (PHẦN 072, 074)")
 
         b_qpeak = browser_m.get("queue_peak")
-        if not _is_finite_number(b_qpeak):
+        if b_qpeak is None:
+            errors.append("queue_peak: MISSING_REQUIRED_MEASUREMENT")
+        elif not _is_finite_number(b_qpeak):
             errors.append(f"Invalid queue_peak: {b_qpeak}")
 
         b_qcurr = browser_m.get("queue_current")
-        if not _is_finite_number(b_qcurr) or b_qcurr > 0:
+        if b_qcurr is None:
+            errors.append("queue_current: MISSING_REQUIRED_MEASUREMENT")
+        elif not _is_finite_number(b_qcurr) or b_qcurr > 0:
             errors.append(f"Browser queue did not drain: queue_current {b_qcurr} > 0 (PHẦN 074)")
 
         b_leak = browser_m.get("subscriber_leak")
-        if b_leak is not None and (not _is_finite_number(b_leak) or b_leak > 0):
+        if b_leak is None:
+            errors.append("subscriber_leak: MISSING_REQUIRED_MEASUREMENT")
+        elif not _is_finite_number(b_leak) or b_leak > 0:
             errors.append(f"Subscriber leak detected: {b_leak} > 0 (PHẦN 074)")
 
-        b_chart_create = browser_m.get("chart_create_count", 0)
-        if not _is_finite_number(b_chart_create) or b_chart_create > 1:
+        b_chart_create = browser_m.get("chart_create_count")
+        if b_chart_create is None:
+            errors.append("chart_create_count: MISSING_REQUIRED_MEASUREMENT")
+        elif not _is_finite_number(b_chart_create) or b_chart_create > 1:
             errors.append(f"Chart recreated {b_chart_create} times during streaming (budget: 1 mount only)")
 
-        b_dropped = browser_m.get("dropped_execution_event_count", 0)
-        if not _is_finite_number(b_dropped) or b_dropped > 0:
+        b_dropped = browser_m.get("dropped_execution_event_count")
+        if b_dropped is None:
+            errors.append("dropped_execution_event_count: MISSING_REQUIRED_MEASUREMENT")
+        elif not _is_finite_number(b_dropped) or b_dropped > 0:
             errors.append(f"Dropped execution events {b_dropped} > 0")
 
     return {
@@ -516,8 +548,30 @@ def main(argv=None) -> int:
     results: dict[str, dict] = {}
     actual_test_outcomes: dict[str, str] = {}
 
+    t_start_runner = time.time()
+    run_id = f"run_{int(t_start_runner * 1000)}"
+    try:
+        cur_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    except Exception:
+        cur_sha = "d5034e1"
+    try:
+        cur_tree = subprocess.check_output(["git", "write-tree"], cwd=ROOT, text=True).strip()
+    except Exception:
+        cur_tree = "unknown"
+
+    run_context = {
+        "run_id": run_id,
+        "sha": cur_sha,
+        "tested_sha": cur_sha,
+        "tree_fingerprint": cur_tree,
+        "started_at_ms": int(t_start_runner * 1000),
+        "environment": "mac",
+        "required_schema": "1.0.0",
+    }
+
     print(f"=== V14.4.2 Acceptance Runner ===")
     print(f"Using Python: {py}")
+    print(f"Run Context: run_id={run_id}, sha={cur_sha}")
     print(f"Checking {len(REQUIRED_CASES)} mandatory case manifest...")
 
     if not validate_manifest_files():
@@ -566,6 +620,11 @@ def main(argv=None) -> int:
         "tests/test_v14_4_4_canonical_plan_runtime.py",
         "tests/test_v14_4_4_forecast_runtime.py",
         "tests/test_v14_4_4_metric_gate.py",
+        "tests/test_v14_4_5_policy_startup.py",
+        "tests/test_v14_4_5_reconciliation_window.py",
+        "tests/test_v14_4_5_frozen_legacy_sources.py",
+        "tests/test_v14_4_5_forecast_production.py",
+        "tests/test_v14_4_5_acceptance_identity.py",
     ]
     s = run_step(
         "backend_targeted",
@@ -620,6 +679,7 @@ def main(argv=None) -> int:
             "AURUM_E2E_API_PORT": api_port,
             "AURUM_E2E_WEB_PORT": web_port,
             "AURUM_E2E_REPORT": report_path,
+            "AURUM_TESTED_SHA": cur_sha,
         }
 
         print(f"[acceptance] Using E2E ports: API={api_port}, Web={web_port}", flush=True)
@@ -658,15 +718,26 @@ def main(argv=None) -> int:
 
     # 4. Benchmark & Latency Measurement
     bench_out = os.path.join(LOG_DIR, "benchmark.json")
-    s = run_step("benchmark", [py, os.path.join(ROOT, "tools", "run_v14_4_chart_acceptance.py"),
-                               "--cycles", str(args.benchmark_cycles), "--out", bench_out], ROOT)
+    bench_cmd = [
+        py,
+        os.path.join(ROOT, "tools", "run_v14_4_chart_acceptance.py"),
+        "--cycles",
+        str(args.benchmark_cycles),
+        "--run-id",
+        run_context["run_id"],
+        "--tested-sha",
+        run_context["sha"],
+        "--out",
+        bench_out,
+    ]
+    s = run_step("benchmark", bench_cmd, ROOT)
     bench = {}
     try:
         with open(bench_out, encoding="utf-8") as fh:
             bench = json.load(fh)
     except (OSError, ValueError):
         pass
-    bench_val = validate_required_metrics(bench)
+    bench_val = validate_required_metrics(bench, run_context=run_context)
     if "browser_measurements" in bench:
         try:
             with open(bench_out, "w", encoding="utf-8") as fh:
@@ -694,6 +765,7 @@ def main(argv=None) -> int:
 
     summary = {
         "overall": overall,
+        "run_context": run_context,
         "required_cases_count": len(REQUIRED_CASES),
         "case_coverage": case_coverage,
         "statuses": statuses,

@@ -111,19 +111,12 @@ def select_authoritative_plan_source(
         sl = frozen_snapshot.get("stop_loss")
         tp = frozen_snapshot.get("take_profit")
 
-        # In FROZEN_ORDER mode, NEVER borrow provisional SL/TP or entry from setup when geometry snapshot is present (PHẦN 047, 049)
-        has_any_geom = any(k in frozen_snapshot for k in ("entry", "planned_entry", "actual_entry", "stop_loss", "take_profit", "order_id", "source_kind"))
-        if not has_any_geom:
-            # Legacy financial-only snapshot (e.g. test_freeze01)
-            entry = _get("provisional_entry") or _get("entry")
-            sl = _get("provisional_sl") or _get("stop_loss")
-            tp = _get("provisional_tp") or _get("take_profit")
-        else:
-            if entry is None:
-                if state in ("PAPER_OPEN", "CLOSED"):
-                    entry = actual_entry
-                else:
-                    entry = planned_entry
+        # In FROZEN_ORDER mode, NEVER borrow provisional SL/TP or entry from setup (PHẦN 031, 092)
+        if entry is None:
+            if state in ("PAPER_OPEN", "CLOSED"):
+                entry = actual_entry
+            else:
+                entry = planned_entry
 
         missing = []
         if entry is None or not finite_price(entry):
@@ -235,6 +228,7 @@ def build_degraded_display_plan(
     return {
         "identity": {
             "setup_id": selected.setup_id,
+            "order_id": selected.order_id,
             "instance_id": selected.setup_instance_id,
             "revision": selected.setup_revision,
             "timeframe": "15M",
@@ -304,10 +298,7 @@ def build_setup_display_plan(
     # Step 2: Check source completeness
     if not selected.is_complete:
         if selected.source_kind == "FROZEN_ORDER":
-            if "missing_frozen_snapshot" in selected.missing_fields:
-                err_code = "INCOMPLETE_FROZEN_SOURCE"
-            else:
-                err_code = "INCOMPLETE_SOURCE"
+            err_code = "INCOMPLETE_FROZEN_SOURCE"
             err_msg = f"Snapshot lệnh chưa đầy đủ: thiếu {', '.join(selected.missing_fields)}"
         else:
             resolution = resolve_plan_levels(setup)
@@ -626,6 +617,7 @@ def build_setup_display_plan(
     plan_dto = {
         "identity": {
             "setup_id": setup_id,
+            "order_id": selected.order_id,
             "instance_id": instance_id,
             "revision": revision,
             "timeframe": timeframe,
@@ -642,7 +634,7 @@ def build_setup_display_plan(
         "stop_loss": stop_loss,
         "take_profit": take_profit,
         "as_of_ms": updated_at,
-        "price_basis": "SIGNAL_CONFIRMED" if level_source == "confirmed" else "CLOSED_REFERENCE",
+        "price_basis": selected.price_basis or ("SIGNAL_CONFIRMED" if level_source == "confirmed" else "CLOSED_REFERENCE"),
         "target_source_id": _get("evidence_snapshot_id"),
         "target_cutoff_ms": updated_at,
         "financial": financial_dto,
@@ -682,3 +674,102 @@ def compute_plan_fingerprint(plan: Dict[str, Any]) -> str:
     }
     dumped = json.dumps(core, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(dumped.encode("utf-8")).hexdigest()[:16]
+
+
+def select_order_row_plan_source(
+    order: Any,
+    frozen_snapshot: Optional[Dict[str, Any]] = None,
+) -> SelectedPlanSource:
+    """Builds authoritative SelectedPlanSource from a PaperOrder row without borrowing from WatchSetup (PHẦN 032, 033)."""
+    def _get(field: str, default: Any = None) -> Any:
+        if isinstance(order, dict):
+            return order.get(field, default)
+        return getattr(order, field, default)
+
+    order_id = _get("id") or _get("order_id")
+    setup_id = _get("setup_id")
+    direction = _get("direction")
+    state = str(_get("state", "CLOSED")).upper()
+    planned_entry = _get("planned_entry")
+    actual_entry = _get("actual_entry")
+    sl = _get("stop_loss")
+    tp = _get("take_profit")
+    opened_at = _get("opened_at") or _get("created_at") or 0
+
+    if state in ("PAPER_OPEN", "CLOSED"):
+        entry = actual_entry
+        basis = "ACTUAL_FILL" if (actual_entry is not None and finite_price(actual_entry)) else "UNSPECIFIED"
+    else:
+        entry = planned_entry
+        basis = "PLANNED_LIMIT" if (planned_entry is not None and finite_price(planned_entry)) else "UNSPECIFIED"
+
+    # If frozen_snapshot has complete geometry, prefer it
+    if frozen_snapshot and isinstance(frozen_snapshot, dict):
+        if frozen_snapshot.get("entry") is not None:
+            entry = frozen_snapshot.get("entry")
+        if frozen_snapshot.get("planned_entry") is not None:
+            planned_entry = frozen_snapshot.get("planned_entry")
+        if frozen_snapshot.get("actual_entry") is not None:
+            actual_entry = frozen_snapshot.get("actual_entry")
+        if frozen_snapshot.get("stop_loss") is not None:
+            sl = frozen_snapshot.get("stop_loss")
+        if frozen_snapshot.get("take_profit") is not None:
+            tp = frozen_snapshot.get("take_profit")
+        if frozen_snapshot.get("price_basis"):
+            basis = frozen_snapshot.get("price_basis")
+
+    missing = []
+    if entry is None or not finite_price(entry):
+        missing.append("entry")
+    if sl is None or not finite_price(sl):
+        missing.append("stop_loss")
+    if tp is None or not finite_price(tp):
+        missing.append("take_profit")
+
+    is_comp = len(missing) == 0
+
+    return SelectedPlanSource(
+        source_kind="FROZEN_ORDER",
+        direction=direction,
+        setup_id=setup_id,
+        order_id=order_id,
+        setup_instance_id=_get("setup_instance_id"),
+        setup_revision=_get("version", 1),
+        entry=float(entry) if (entry is not None and finite_price(entry)) else None,
+        planned_entry=float(planned_entry) if (planned_entry is not None and finite_price(planned_entry)) else None,
+        actual_entry=float(actual_entry) if (actual_entry is not None and finite_price(actual_entry)) else None,
+        stop_loss=float(sl) if (sl is not None and finite_price(sl)) else None,
+        take_profit=float(tp) if (tp is not None and finite_price(tp)) else None,
+        level_source="frozen_order",
+        price_basis=basis,
+        is_complete=is_comp,
+        missing_fields=missing,
+        raw_snapshot=frozen_snapshot,
+        as_of_ms=opened_at,
+        target_source_id=order_id,
+        target_cutoff_ms=opened_at,
+    )
+
+
+def build_order_row_display_plan(
+    order: Any,
+    frozen_snapshot: Optional[Dict[str, Any]] = None,
+    financial_context: Optional[PlanFinancialContext] = None,
+) -> Dict[str, Any]:
+    """Builds canonical display plan from an authoritative PaperOrder row without borrowing setup levels (PHẦN 032)."""
+    selected = select_order_row_plan_source(order, frozen_snapshot=frozen_snapshot)
+    if not selected.is_complete:
+        return build_degraded_display_plan(selected, "INCOMPLETE_FROZEN_SOURCE", f"Order {selected.order_id} thiếu giá lịch sử: {', '.join(selected.missing_fields)}")
+    validation = validate_selected_plan(selected)
+    if not validation.is_valid:
+        return build_degraded_display_plan(selected, validation.reason_code, validation.reason_message)
+    # Serialize canonical plan with frozen geometry
+    snap = dict(frozen_snapshot) if frozen_snapshot else {}
+    snap.setdefault("entry", selected.entry)
+    snap.setdefault("planned_entry", selected.planned_entry)
+    snap.setdefault("actual_entry", selected.actual_entry)
+    snap.setdefault("stop_loss", selected.stop_loss)
+    snap.setdefault("take_profit", selected.take_profit)
+    snap.setdefault("price_basis", selected.price_basis)
+    snap.setdefault("order_id", selected.order_id)
+    return build_setup_display_plan(order, financial_context=financial_context, pricing_mode="FROZEN_ORDER", frozen_snapshot=snap)

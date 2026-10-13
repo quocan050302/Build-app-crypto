@@ -10,6 +10,7 @@ Tests:
 5. FCPROOF05: Target reached before confirmation -> WATCHED_LIQUIDITY_TOUCH.
 6. FCPROOF06: Summary cohort denominator strictly excludes unverified records.
 """
+import json
 import pytest
 import models
 from services.smc_forecast_observation_service import (
@@ -72,13 +73,36 @@ def test_fcproof02_caller_spoofed_verified_is_overridden_to_unverified(isolated_
 
 
 def test_fcproof03_genuine_confirmation_proof_yields_confirmed_target(isolated_db):
-    """FCPROOF03 (PHẦN 054, 056, 062):
-    Forecast with genuine confirmation proof reaches target -> CONFIRMED_TARGET_BEFORE_INVALIDATION.
-    """
+    # Seed genuine confirmation DomainEvent per PHẦN 037
+    proof_event = models.DomainEvent(
+        event_id="proof-retest-fvg-01",
+        sequence=1,
+        schema_version="1.0.0",
+        event_type="scenario.confirmed",
+        aggregate_id="sc-inst-test03",
+        aggregate_version=1,
+        occurred_at=900,
+        published_at=1000,
+        payload=json.dumps({
+            "event_kind": "scenario.confirmed",
+            "symbol": "XAUUSDT",
+            "direction": "LONG",
+            "scenario_id": "NY:2026-10-13:test03",
+            "instance_id": "sc-inst-test03",
+            "retest_id": "retest-proof-01",
+            "evidence_chain_ids": ["sweep-01", "break-01", "fvg-01", "retest-proof-01"],
+            "known_at_ms": 1000,
+            "occurred_at_ms": 900,
+        }),
+    )
+    isolated_db.add(proof_event)
+    isolated_db.commit()
+
     forecast_data = {
         "symbol": "XAUUSDT",
         "session": "NY",
         "session_id": "NY:2026-10-13:test03",
+        "instance_id": "sc-inst-test03",
         "as_of_ms": 1000,
         "hypothesis_type": "PRIMARY",
         "primary": {
@@ -86,7 +110,7 @@ def test_fcproof03_genuine_confirmation_proof_yields_confirmed_target(isolated_d
             "target": {"price": 4200.0, "source": "SWING_HIGH"},
         },
         "invalidation_price": 4170.0,
-        "confirmation_proof_id": "proof-retest-fvg-01",  # Verified server proof!
+        "confirmation_proof_id": "proof-retest-fvg-01",  # Genuine verified server proof!
     }
 
     snap = create_forecast_snapshot(isolated_db, forecast_data, as_of=1000)

@@ -3,15 +3,15 @@
   "failures": [],
   "cycles": 600,
   "confirmed_cycles": 600,
-  "total_s": 10.355,
-  "throughput_cycles_per_s": 57.9,
+  "total_s": 4.232,
+  "throughput_cycles_per_s": 141.8,
   "latency_ms": {
-    "p50": 16.163,
-    "p95": 23.52,
-    "max": 47.164,
+    "p50": 6.934,
+    "p95": 7.638,
+    "max": 8.79,
     "sample_count": 600
   },
-  "traced_memory_growth_mb": 0.105,
+  "traced_memory_growth_mb": 0.128,
   "progression_sample": [
     {
       "bars_back": 0,
@@ -62,23 +62,25 @@
     "note": "configured hypotheses, not guarantees"
   },
   "environment": {
-    "python": "3.11.9",
-    "platform": "Windows-10-10.0.26200-SP0",
-    "processor": "Intel64 Family 6 Model 151 Stepping 5, GenuineIntel",
-    "cpu_count": 12
+    "python": "3.13.0",
+    "platform": "macOS-14.4.1-arm64-arm-64bit-Mach-O",
+    "processor": "arm",
+    "cpu_count": 8
   },
   "NOT_MEASURED": [],
+  "run_id": "run_1791898228032",
+  "tested_sha": "e4f563cbedd444de5c9c2f113c87dc17d1c39d77",
   "browser_measurements": {
     "status": "PASS",
-    "stream_duration_s": 60.88,
-    "events_streamed": 10060,
+    "stream_duration_s": 60.64,
+    "events_streamed": 10061,
     "selections_completed": 100,
     "render_latency_ms": {
-      "p50": 0,
-      "p95": 0,
-      "p99": 0.1,
-      "max": 0.4,
-      "sample_count": 5060
+      "p50": 10.2,
+      "p95": 24.6,
+      "p99": 28,
+      "max": 30,
+      "sample_count": 152
     },
     "queue_peak": 2,
     "queue_current": 0,

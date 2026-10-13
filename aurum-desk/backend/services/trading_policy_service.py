@@ -1,6 +1,7 @@
 import time
 import json
 import logging
+from dataclasses import dataclass
 from datetime import datetime, time as dtime
 from zoneinfo import ZoneInfo
 from typing import Dict, Any, Optional, Tuple
@@ -26,6 +27,18 @@ def _fallback_search_allowed(policy, window, quota, now_ms: int) -> bool:
         total_fills=int(quota.total_fills or 0),
     )
 
+
+
+@dataclass(frozen=True)
+class UpgradeSummary:
+    changed: bool
+    before_version: int
+    after_version: int
+    old_mode: str
+    new_mode: str
+    marker: str
+    audit_id: Optional[str]
+    status: str
 
 
 class TradingPolicyService:
@@ -65,19 +78,37 @@ class TradingPolicyService:
         db: Session,
         *,
         target_symbol: str = "XAUUSDT",
-        migration_id: str = "V14_4_4_ALL_SESSIONS_NY_RESERVE",
+        migration_id: str = "V14_4_5_ALL_SESSIONS_NY_RESERVE",
         desired_mode: str = "ALL_SESSIONS_WITH_NY_RESERVE",
         now_ms: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
-        PHẦN 008, 009, 097: Idempotent session policy upgrade with audit record.
-        Upgrades legacy NY_ONLY default to ALL_SESSIONS_WITH_NY_RESERVE.
+        PHẦN 008, 009, 083, 085: Idempotent session policy upgrade with durable SystemConfig marker & audit record.
+        Upgrades legacy NY_ONLY default to ALL_SESSIONS_WITH_NY_RESERVE for authorized target deployment.
+        Gated by persisted SystemConfig migration marker: once applied, does NOT overwrite future explicit user NY_ONLY choices.
         Preserves custom capital/leverage/risk settings.
         """
         now = now_ms if now_ms is not None else int(time.time() * 1000)
+        marker_key = f"mig_marker:{migration_id}:{target_symbol}"[:50]
+
+        # Check if migration marker was already committed to DB (PHẦN 009, 085)
+        existing_marker = db.query(models.SystemConfig).filter(models.SystemConfig.key == marker_key).first()
         policy = TradingPolicyService.get_or_create_policy(db)
         old_mode = policy.entry_session_policy
         before_version = policy.version or 1
+
+        if existing_marker:
+            # Marker already applied on a prior startup; preserve user's explicit policy choices!
+            return {
+                "changed": False,
+                "before_version": before_version,
+                "after_version": before_version,
+                "old_mode": old_mode,
+                "new_mode": old_mode,
+                "marker": migration_id,
+                "audit_id": None,
+                "status": "ALREADY_APPLIED",
+            }
 
         if old_mode != desired_mode:
             policy.entry_session_policy = desired_mode
@@ -102,6 +133,24 @@ class TradingPolicyService:
                 }),
             )
             db.add(audit_event)
+
+            # Persist durable completion marker (PHẦN 009, 085)
+            marker_row = models.SystemConfig(
+                key=marker_key,
+                value=json.dumps({
+                    "migration_id": migration_id,
+                    "status": "APPLIED",
+                    "applied_at": int(now),
+                    "target_symbol": target_symbol,
+                    "old_mode": old_mode,
+                    "new_mode": desired_mode,
+                    "before_version": before_version,
+                    "after_version": policy.version,
+                    "audit_ref": audit_event.event_id,
+                }),
+                updated_at=int(now),
+            )
+            db.add(marker_row)
             db.commit()
             db.refresh(policy)
             return {
@@ -112,8 +161,27 @@ class TradingPolicyService:
                 "new_mode": desired_mode,
                 "marker": migration_id,
                 "audit_id": audit_event.event_id,
+                "status": "APPLIED",
             }
 
+        # Policy was already in desired mode; write marker so future runs know migration is recorded
+        marker_row = models.SystemConfig(
+            key=marker_key,
+            value=json.dumps({
+                "migration_id": migration_id,
+                "status": "APPLIED",
+                "applied_at": int(now),
+                "target_symbol": target_symbol,
+                "old_mode": old_mode,
+                "new_mode": desired_mode,
+                "before_version": before_version,
+                "after_version": before_version,
+                "audit_ref": None,
+            }),
+            updated_at=int(now),
+        )
+        db.add(marker_row)
+        db.commit()
         return {
             "changed": False,
             "before_version": before_version,
@@ -122,6 +190,7 @@ class TradingPolicyService:
             "new_mode": desired_mode,
             "marker": migration_id,
             "audit_id": None,
+            "status": "APPLIED",
         }
 
     @staticmethod
@@ -704,3 +773,30 @@ class TradingPolicyService:
 
 trading_policy_service = TradingPolicyService()
 
+
+def apply_runtime_contract_upgrades(
+    db: Session,
+    *,
+    deployment_scope: str = "XAUUSDT",
+    now_ms: Optional[int] = None,
+) -> UpgradeSummary:
+    """PHẦN 008, 083, 084: Bootstrap runtime contract upgrade for target deployment.
+    Called before background workers start; idempotent with durable SystemConfig marker and audit.
+    """
+    res = TradingPolicyService.upgrade_session_policy_contract(
+        db,
+        target_symbol=deployment_scope,
+        migration_id="V14_4_5_ALL_SESSIONS_NY_RESERVE",
+        desired_mode="ALL_SESSIONS_WITH_NY_RESERVE",
+        now_ms=now_ms,
+    )
+    return UpgradeSummary(
+        changed=res["changed"],
+        before_version=res["before_version"],
+        after_version=res["after_version"],
+        old_mode=res["old_mode"],
+        new_mode=res["new_mode"],
+        marker=res["marker"],
+        audit_id=res.get("audit_id"),
+        status=res.get("status", "APPLIED" if res["changed"] else "NOOP"),
+    )

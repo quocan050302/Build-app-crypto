@@ -1,13 +1,15 @@
 {
   "config": {
     "argv": [
-      "C:\\Program Files\\nodejs\\node.exe",
-      "D:\\build app-crypto\\aurum-desk\\frontend\\node_modules\\@playwright\\test\\cli.js",
+      "/Users/macbook/.nvm/versions/node/v22.22.3/bin/node",
+      "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/node_modules/.bin/playwright",
       "test",
-      "tests/e2e/v14_4_2_mobile.e2e.ts"
+      "tests/e2e/v14_4_2_realtime_soak.e2e.ts",
+      "-g",
+      "R06"
     ],
-    "configFile": "D:\\build app-crypto\\aurum-desk\\frontend\\playwright.config.ts",
-    "rootDir": "D:/build app-crypto/aurum-desk/frontend/tests/e2e",
+    "configFile": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/playwright.config.ts",
+    "rootDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
     "failOnFlakyTests": false,
     "forbidOnly": false,
     "fullyParallel": false,
@@ -23,7 +25,7 @@
     "preserveOutput": "always",
     "projects": [
       {
-        "outputDir": "D:/build app-crypto/aurum-desk/frontend/test-results",
+        "outputDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
@@ -31,7 +33,7 @@
         },
         "id": "",
         "name": "",
-        "testDir": "D:/build app-crypto/aurum-desk/frontend/tests/e2e",
+        "testDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.e2e.ts"
@@ -43,20 +45,20 @@
       {
         "grep": {},
         "grepInvert": null,
-        "outputDir": "D:\\build app-crypto\\aurum-desk\\frontend\\test-results",
+        "outputDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
           "actualWorkers": 1
         },
         "name": "",
-        "testDir": "D:\\build app-crypto\\aurum-desk\\frontend\\tests\\e2e",
-        "snapshotDir": "D:\\build app-crypto\\aurum-desk\\frontend\\tests\\e2e",
+        "testDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
+        "snapshotDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
         "testIgnore": [],
         "testMatch": "**/*.e2e.ts",
         "timeout": 60000,
         "use": {
-          "baseURL": "http://127.0.0.1:5200",
+          "baseURL": "http://127.0.0.1:5199",
           "viewport": {
             "width": 1512,
             "height": 857
@@ -97,25 +99,25 @@
   },
   "suites": [
     {
-      "title": "v14_4_2_mobile.e2e.ts",
-      "file": "v14_4_2_mobile.e2e.ts",
+      "title": "v14_4_2_realtime_soak.e2e.ts",
+      "file": "v14_4_2_realtime_soak.e2e.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "V14.4.2 Mobile Reachability Suite",
-          "file": "v14_4_2_mobile.e2e.ts",
-          "line": 16,
+          "title": "V14.4.2 Realtime Soak Suite",
+          "file": "v14_4_2_realtime_soak.e2e.ts",
+          "line": 20,
           "column": 6,
           "specs": [
             {
-              "title": "M01: mobile journal Chart button is reachable and naturally clickable",
+              "title": "R06: 10,000-event 60s stream soak with continuous telemetry measurement",
               "ok": true,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 60000,
+                  "timeout": 240000,
                   "annotations": [],
                   "expectedStatus": "passed",
                   "projectId": "",
@@ -125,12 +127,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2376,
+                      "duration": 61803,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-13T04:27:22.902Z",
+                      "startTime": "2026-10-13T13:22:35.745Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -138,111 +140,9 @@
                   "status": "expected"
                 }
               ],
-              "id": "7a7b71042829362d7952-b959bf215543e51fab4d",
-              "file": "v14_4_2_mobile.e2e.ts",
-              "line": 20,
-              "column": 3
-            },
-            {
-              "title": "M02: mobile note drawer opens and closes cleanly without mutating state",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "",
-                  "projectName": "",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1914,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-10-13T04:27:25.692Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "7a7b71042829362d7952-45f35d8bda59042cfa2c",
-              "file": "v14_4_2_mobile.e2e.ts",
-              "line": 63,
-              "column": 3
-            },
-            {
-              "title": "M03: mobile touch layer menu and annotation controls remain within viewport",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "",
-                  "projectName": "",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1496,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-10-13T04:27:27.621Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "7a7b71042829362d7952-165616655ebaa4d31358",
-              "file": "v14_4_2_mobile.e2e.ts",
-              "line": 92,
-              "column": 3
-            },
-            {
-              "title": "M04: responsive layout maintains usable bounds across viewport sizes",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "",
-                  "projectName": "",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1800,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-10-13T04:27:29.129Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "7a7b71042829362d7952-866b92027b9a5cbf0389",
-              "file": "v14_4_2_mobile.e2e.ts",
-              "line": 115,
+              "id": "becef10e6f6730db2629-886701cb5d7b2167d43a",
+              "file": "v14_4_2_realtime_soak.e2e.ts",
+              "line": 176,
               "column": 3
             }
           ]
@@ -252,9 +152,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-13T04:27:17.417Z",
-    "duration": 14400.636999999999,
-    "expected": 4,
+    "startTime": "2026-10-13T13:22:34.031Z",
+    "duration": 64348.075000000004,
+    "expected": 1,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

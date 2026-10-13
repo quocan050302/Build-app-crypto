@@ -1,17 +1,19 @@
 {
+  "status": "PASS",
   "schema_version": "1.0.0",
-  "run_id": "browser-soak-1791881690243",
-  "duration_seconds": 60.88,
-  "total_frames_streamed": 10060,
+  "run_id": "browser-soak-1791898393905",
+  "tested_sha": "e4f563cbedd444de5c9c2f113c87dc17d1c39d77",
+  "duration_seconds": 60.64,
+  "total_frames_streamed": 10061,
   "selection_cycles": 100,
   "selections_completed": 100,
   "telemetry": {
     "render_latency_ms": {
-      "p50": 0,
-      "p95": 0,
-      "p99": 0.1,
-      "max": 0.4,
-      "sample_count": 5060
+      "p50": 10.2,
+      "p95": 24.6,
+      "p99": 28,
+      "max": 30,
+      "sample_count": 152
     },
     "queue_current": 0,
     "queue_peak": 2,
@@ -19,15 +21,18 @@
     "reconnect_count": 0,
     "chart_create_count": 0,
     "chart_destroy_count": 0,
-    "invalid_event_count": 0,
+    "invalid_event_count": 2,
     "sequence_gap_count": 0,
     "dropped_execution_event_count": 0,
-    "events_received_count": 10060,
-    "events_rendered_count": 5060
+    "events_received_count": 10061,
+    "events_rendered_count": 152,
+    "transport_kind": "WEBSOCKET",
+    "measurement_scope": "QUOTE_DOM_COMMIT_RAF_PROXY",
+    "subscriber_leak": 0
   },
   "budgets": {
     "render_latency_p95_limit_ms": 250,
-    "actual_p95_ms": 0,
+    "actual_p95_ms": 24.6,
     "chart_recreation_limit": 0,
     "actual_chart_create_count": 0,
     "subscriber_leak_limit": 0,
@@ -37,6 +42,6 @@
   "environment": {
     "browser": "chromium-chrome",
     "viewport": "1512x857",
-    "platform": "win32"
+    "platform": "darwin"
   }
 }

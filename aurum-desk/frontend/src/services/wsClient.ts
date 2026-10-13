@@ -172,9 +172,6 @@ class SharedWSClient {
     if (data && typeof data === 'object') {
       data._transportReceivedAt = transportReceivedAt;
     }
-    if (data?.event?.payload?.revision && data.event.payload.revision > 10) {
-      telemetryBridge.recordSequenceGap();
-    }
     for (const handler of this.subscribers) {
       try {
         handler(data);

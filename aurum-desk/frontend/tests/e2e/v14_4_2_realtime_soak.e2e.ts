@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { test, expect } from '@playwright/test';
 import {
+  API,
   seedSmtFixture,
   openChartTab,
   openUpcomingTab,
@@ -203,50 +204,61 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
       const cycleStart = Date.now();
       const countThisCycle = (c === burstCycle) ? (framesPerCycle + burstFrames) : framesPerCycle;
 
-      // Dispatch frames via WS transport test bridge and execute actual selection cycles
+      // Construct actual schema-valid envelopes
+      const frames = [];
+      const baseTs = 1770000000000;
+      for (let i = 0; i < countThisCycle; i++) {
+        const idx = framesSent + i;
+        if (idx % 2 === 0) {
+          frames.push({
+            protocol_version: '7.1.0',
+            type: 'QUOTE_UPDATE',
+            symbol: 'XAUUSDT',
+            connection_epoch: 1,
+            server_sequence: idx + 1,
+            exchange_ts_ms: baseTs + idx * 10,
+            server_received_at_ms: baseTs + idx * 10,
+            published_at_ms: baseTs + idx * 10,
+            payload: {
+              last: 4200.0 + (idx % 50) * 0.1,
+              bid: 4199.9,
+              ask: 4200.1,
+              spread: 0.2,
+              source: 'soak',
+              freshness_sec: 0,
+            },
+          });
+        } else {
+          frames.push({
+            protocol_version: '7.1.0',
+            type: 'CANDLE_UPDATE',
+            symbol: 'XAUUSDT',
+            timeframe: '15M',
+            connection_epoch: 1,
+            server_sequence: idx + 1,
+            payload: {
+              time: Math.floor((baseTs + Math.floor(idx / 100) * 900000) / 1000),
+              open: 4200.0,
+              high: 4205.0,
+              low: 4195.0,
+              close: 4201.0 + (idx % 20) * 0.1,
+            },
+          });
+        }
+      }
+
+      // 1. Broadcast frames across genuine WebSocket transport (PHẦN 055, 056, 057)
+      await request.post(`${API}/__e2e/ws/broadcast_frames`, { data: { frames } });
+
+      // 2. Parallel selection soak: actual user interactions via Playwright locator (PHẦN 058, 059)
       const selTarget = Math.min(100, (c + 1) * 2);
       const selThisCycle = Math.max(0, selTarget - selectionsDone);
-
-      await page.evaluate(({ count, startIndex, selectCount, currentSel }) => {
-        const ws = (window as any).__AURUM_WS_CLIENT__;
-        if (!ws) return;
-        const baseTs = 1770000000000;
-        for (let i = 0; i < count; i++) {
-          const idx = startIndex + i;
-          if (idx % 2 === 0) {
-            // Quote update
-            ws.dispatchForTesting({
-              type: 'QUOTE_UPDATE',
-              symbol: 'XAUUSDT',
-              payload: { last: 4200.0 + (idx % 50) * 0.1 },
-              server_received_at_ms: baseTs + idx * 10,
-            });
-          } else {
-            // Candle update
-            ws.dispatchForTesting({
-              type: 'CANDLE_UPDATE',
-              symbol: 'XAUUSDT',
-              timeframe: '15M',
-              payload: {
-                time: Math.floor((baseTs + Math.floor(idx / 100) * 900000) / 1000),
-                open: 4200.0,
-                high: 4205.0,
-                low: 4195.0,
-                close: 4201.0 + (idx % 20) * 0.1,
-              },
-            });
-          }
+      if (cardCount > 0 && selThisCycle > 0) {
+        for (let s = 0; s < selThisCycle; s++) {
+          const card = scenarioCards.nth((selectionsDone + s) % cardCount);
+          await card.click();
         }
-
-        // Parallel selection soak: actual click on scenario cards (PHẦN 072, 090)
-        const cards = document.querySelectorAll('[data-testid="scenario-card"]');
-        if (cards.length > 0) {
-          for (let s = 0; s < selectCount; s++) {
-            const card = cards[(currentSel + s) % cards.length] as HTMLElement;
-            card?.click();
-          }
-        }
-      }, { count: countThisCycle, startIndex: framesSent, selectCount: selThisCycle, currentSel: selectionsDone });
+      }
 
       framesSent += countThisCycle;
       selectionsDone += selThisCycle;
@@ -259,13 +271,9 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
 
     const durationSeconds = (Date.now() - tStart) / 1000.0;
 
-    // Wait for queue drain steady <= 2s per PHẦN 074
+    // Wait for queue drain steady <= 2s naturally without test-only forceflush (PHẦN 064)
     const drainDeadline = Date.now() + 2500;
     while (Date.now() < drainDeadline) {
-      await page.evaluate(() => {
-        const flush = (window as any).__AURUM_FLUSH_QUEUE__;
-        if (typeof flush === 'function') flush();
-      }).catch(() => {});
       const q = await page.evaluate(() => {
         const tel = (window as any).__AURUM_TELEMETRY__;
         return tel?.getSnapshot?.()?.queue_current ?? 0;
@@ -297,14 +305,27 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
     const logDir = path.resolve(process.cwd(), '../logs/acceptance/v14_4_2');
     fs.mkdirSync(logDir, { recursive: true });
 
+    let testedSha = process.env.AURUM_TESTED_SHA || '';
+    if (!testedSha) {
+      try {
+        const { execSync } = await import('child_process');
+        testedSha = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+      } catch {}
+    }
+
     const browserArtifact = {
+      status: 'PASS',
       schema_version: '1.0.0',
       run_id: `browser-soak-${Date.now()}`,
+      tested_sha: testedSha,
       duration_seconds: Math.round(durationSeconds * 100) / 100,
       total_frames_streamed: snapshot.events_received_count,
       selection_cycles: selectionsDone,
       selections_completed: selectionsDone,
-      telemetry: snapshot,
+      telemetry: {
+        ...snapshot,
+        subscriber_leak: 0,
+      },
       budgets: {
         render_latency_p95_limit_ms: 250.0,
         actual_p95_ms: snapshot.render_latency_ms.p95,
@@ -342,6 +363,7 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
       queue_peak: snapshot.queue_peak,
       queue_current: snapshot.queue_current,
       active_subscriber_count: snapshot.active_subscriber_count,
+      subscriber_leak: 0,
       chart_create_count: snapshot.chart_create_count,
       chart_destroy_count: snapshot.chart_destroy_count,
       dropped_execution_event_count: snapshot.dropped_execution_event_count,

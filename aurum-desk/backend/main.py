@@ -91,6 +91,18 @@ async def lifespan(app: FastAPI):
     # 0. Sync broken DB states before starting loops
     reconcile_stuck_orders()
 
+    # PHẦN 007, 008, 010, 084: Apply runtime contract upgrades (policy session upgrade to ALL_SESSIONS_WITH_NY_RESERVE)
+    db_upgrade = SessionLocal()
+    try:
+        from services.trading_policy_service import apply_runtime_contract_upgrades
+        upgrade_summary = apply_runtime_contract_upgrades(db_upgrade, deployment_scope="XAUUSDT")
+        logger.info(f"Runtime contract upgrade completed: {upgrade_summary}")
+    except Exception as e:
+        logger.error(f"Fatal error during runtime contract upgrade at startup: {e}")
+        raise
+    finally:
+        db_upgrade.close()
+
     # V6.1 Offline Position Recovery: check if any open position needs historical reconciliation
     db_rec = SessionLocal()
     try:

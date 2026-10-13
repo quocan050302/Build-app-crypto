@@ -218,8 +218,22 @@ def test_lattrue01_market_reconciliation_consumer_processes_batch(isolated_db):
     disp, _ = quote_ordering_service.classify_quote(tp_quote)
     assert disp == QuoteDisposition.LATE_EVIDENCE
 
-    # Process batch via market_reconciliation_service
-    processed_count = market_reconciliation_service.process_late_batch(isolated_db, symbol="XAUUSDT")
+    # Process batch via market_reconciliation_service with authoritative provider proof (PHẦN 029)
+    provider_proof = {
+        "continuity_proof": {
+            "source": "BITGET_WS",
+            "epoch": 1,
+            "resolution": "TICK",
+            "interval_start_ms": 100000,
+            "interval_end_ms": 160000,
+            "has_gap": False,
+            "missing_intervals": [],
+            "proof_references": ["ext_provider_ledger_100k_160k"],
+        }
+    }
+    processed_count = market_reconciliation_service.process_late_batch(
+        isolated_db, symbol="XAUUSDT", source_state=provider_proof
+    )
     assert processed_count >= 1
 
     # Verify order was closed due to TP_HIT

@@ -495,6 +495,19 @@ def e2e_smc_state():
         return _smc_state(db)
     finally:
         db.close()
+
+
+@app.post("/__e2e/ws/broadcast_frames")
+async def e2e_broadcast_frames(body: dict = Body(...)):
+    """Broadcasts actual schema-valid envelopes over the active WebSocket transport to the browser (PHẦN 055, 056, 057)."""
+    from services.market_broadcaster import market_broadcaster
+    frames = body.get("frames", [])
+    sent = 0
+    for frame in frames:
+        await market_broadcaster._send_to_all(frame)
+        sent += 1
+    return {"sent_count": sent, "timestamp": int(time.time() * 1000)}
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8765)

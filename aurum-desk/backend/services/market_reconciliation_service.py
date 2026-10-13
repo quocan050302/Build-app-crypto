@@ -150,6 +150,40 @@ class ShutdownResult:
     reason: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class OrderReconciliationWindow:
+    order_id: str
+    symbol: str
+    opened_at: int
+    end_as_of: int
+    source_epoch: int = 1
+    status: str = "PENDING"  # "PENDING", "RESOLVED", "REVIEW_REQUIRED"
+    cursor: int = 0
+    order: Optional[models.PaperOrder] = None
+
+
+@dataclass(frozen=True)
+class WindowPage:
+    items: List[OrderReconciliationWindow]
+    next_cursor: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class EvidencePage:
+    items: List[Dict[str, Any]]
+    next_cursor: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class ResolutionApplyResult:
+    action: str
+    applied: bool
+    audit_id: Optional[str] = None
+    version: int = 1
+    committed: bool = False
+
+
+
 def assess_reconciliation_coverage(
     order: models.PaperOrder,
     window: Any,
@@ -460,6 +494,223 @@ def append_reconciliation_audit(
     return event
 
 
+def assess_provider_coverage(
+    provider_proof: Optional[Dict[str, Any]],
+    window: OrderReconciliationWindow,
+    required_resolution: str = "TICK",
+) -> CoverageAssessment:
+    """PHẦN 088: Assesses authority coverage provided by an external provider contract."""
+    if not provider_proof:
+        return CoverageAssessment(
+            interval_start_ms=window.opened_at,
+            interval_end_ms=window.end_as_of,
+            source=window.symbol,
+            epoch=window.source_epoch,
+            price_basis="BID_ASK",
+            coverage_status=CoverageStatus.UNKNOWN,
+            missing_intervals=[],
+            evidence_ids=[],
+            assessed_at_ms=window.end_as_of,
+            reason_code="MISSING_PROVIDER_PROOF",
+        )
+
+    proof_val = validate_coverage_proof(
+        provider_proof,
+        requested_interval=(window.opened_at, window.end_as_of),
+        required_price_basis="BID_ASK",
+        source_epoch=window.source_epoch,
+    )
+    return CoverageAssessment(
+        interval_start_ms=window.opened_at,
+        interval_end_ms=window.end_as_of,
+        source=provider_proof.get("source", window.symbol),
+        epoch=provider_proof.get("epoch", window.source_epoch),
+        price_basis="BID_ASK",
+        coverage_status=proof_val.status,
+        missing_intervals=proof_val.details.get("missing_intervals", []),
+        evidence_ids=provider_proof.get("proof_references", []),
+        assessed_at_ms=window.end_as_of,
+        reason_code=proof_val.reason_code,
+    )
+
+
+def load_reconciliation_coverage(
+    db: Session,
+    window: OrderReconciliationWindow,
+    source_state: Optional[Dict[str, Any]] = None,
+) -> CoverageAssessment:
+    """PHẦN 017: Evaluates reconciliation coverage from authoritative source contract."""
+    if source_state and "continuity_proof" in source_state:
+        return assess_provider_coverage(source_state["continuity_proof"], window, required_resolution="TICK")
+    return CoverageAssessment(
+        interval_start_ms=window.opened_at,
+        interval_end_ms=window.end_as_of,
+        source=window.symbol,
+        epoch=window.source_epoch,
+        price_basis="BID_ASK",
+        coverage_status=CoverageStatus.UNKNOWN,
+        missing_intervals=[],
+        evidence_ids=[],
+        assessed_at_ms=window.end_as_of,
+        reason_code="NO_AUTHORITATIVE_PROVIDER_PROOF",
+    )
+
+
+def load_pending_reconciliation_windows(
+    db: Session,
+    symbol: str = "XAUUSDT",
+    limit: int = 50,
+    cursor: int = 0,
+) -> WindowPage:
+    """PHẦN 020, 086: Loads active paper_open orders and recently closed orders for reconciliation window replay."""
+    open_orders = (
+        db.query(models.PaperOrder)
+        .filter(
+            models.PaperOrder.instrument == symbol,
+            models.PaperOrder.state == "paper_open",
+        )
+        .order_by(models.PaperOrder.opened_at.asc())
+        .limit(limit)
+        .all()
+    )
+
+    query_closed = (
+        db.query(models.PaperOrder)
+        .filter(
+            models.PaperOrder.instrument == symbol,
+            models.PaperOrder.state == "closed",
+        )
+    )
+    if cursor > 0:
+        query_closed = query_closed.filter(models.PaperOrder.closed_at >= cursor)
+    recent_closed = (
+        query_closed
+        .order_by(models.PaperOrder.closed_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    windows: List[OrderReconciliationWindow] = []
+    for ord in list(open_orders) + list(recent_closed):
+        op_at = getattr(ord, "opened_at", None) or getattr(ord, "created_at", None) or 0
+        cl_at = getattr(ord, "closed_at", None) or 0
+        windows.append(
+            OrderReconciliationWindow(
+                order_id=ord.id,
+                symbol=symbol,
+                opened_at=op_at,
+                end_as_of=cl_at,
+                source_epoch=1,
+                status="RESOLVED" if ord.state == "closed" else "PENDING",
+                cursor=op_at,
+                order=ord,
+            )
+        )
+
+    return WindowPage(items=windows[:limit], next_cursor=None)
+
+
+def load_persisted_window_evidence(
+    db: Session,
+    window: OrderReconciliationWindow,
+    as_of_ms: int = 0,
+    limit: int = 200,
+    cursor: int = 0,
+) -> EvidencePage:
+    """PHẦN 019, 087: Replays persisted late reconciliation evidence from DomainEvent table across polls/restart."""
+    start_ts = max(window.opened_at, cursor)
+    query = (
+        db.query(models.DomainEvent)
+        .filter(
+            models.DomainEvent.event_type == "LATE_RECONCILIATION_EVIDENCE",
+            models.DomainEvent.occurred_at >= start_ts,
+        )
+    )
+    if as_of_ms > 0:
+        query = query.filter(models.DomainEvent.occurred_at <= as_of_ms)
+
+    events = query.order_by(models.DomainEvent.occurred_at.asc(), models.DomainEvent.sequence.asc()).limit(limit).all()
+
+    evidence_items: List[Dict[str, Any]] = []
+    next_cursor = cursor
+    for ev in events:
+        if ev.payload:
+            try:
+                payload = json.loads(ev.payload) if isinstance(ev.payload, str) else ev.payload
+                ev_sym = payload.get("symbol") or payload.get("instrument")
+                if not ev_sym or ev_sym == window.symbol:
+                    evidence_items.append(payload)
+                    ev_ts = payload.get("source_timestamp") or ev.occurred_at
+                    if ev_ts > next_cursor:
+                        next_cursor = ev_ts
+            except Exception:
+                continue
+
+    return EvidencePage(items=evidence_items, next_cursor=next_cursor if events else None)
+
+
+def persist_resolution_or_review(
+    db: Session,
+    window: OrderReconciliationWindow,
+    decision: ResolutionDecision,
+) -> ResolutionApplyResult:
+    """PHẦN 090: Persists resolution decision atomically or appends audit for review."""
+    if not window.order:
+        return ResolutionApplyResult(action=decision.action, applied=False, committed=False)
+
+    if decision.action == "CLOSE" and decision.candidate:
+        cand = decision.candidate
+        confidence = "SIMULATED_AMBIGUOUS" if cand.cause == "AMBIGUOUS_BAR_SL_FIRST" else "CONFIRMED_TICK"
+        TradeLifecycleService.execute_close(
+            db=db,
+            order_id=window.order.id,
+            exit_price=cand.executable_price,
+            exit_cause=cand.cause,
+            occurred_at=cand.source_timestamp,
+            session_tag="LATE_RECONCILIATION",
+            recovery_metadata={
+                "recovery_status": "RECOVERED",
+                "confidence": confidence,
+                "evidence_id": cand.evidence_id,
+            },
+        )
+        return ResolutionApplyResult(
+            action="CLOSE",
+            applied=True,
+            audit_id=None,
+            version=getattr(window.order, "version", 1) or 1,
+            committed=True,
+        )
+
+    if decision.action == "REVIEW_REQUIRED":
+        evidence_ids = [decision.candidate.evidence_id] if (decision.candidate and decision.candidate.evidence_id) else []
+        audit_event = append_reconciliation_audit(db, window.order.id, decision, evidence_ids=evidence_ids)
+        return ResolutionApplyResult(
+            action="REVIEW_REQUIRED",
+            applied=True,
+            audit_id=audit_event.event_id if audit_event else None,
+            version=getattr(window.order, "version", 1) or 1,
+            committed=True,
+        )
+
+    if decision.action == "NEEDS_RECONCILIATION":
+        return ResolutionApplyResult(
+            action="NEEDS_RECONCILIATION",
+            applied=False,
+            audit_id=None,
+            version=getattr(window.order, "version", 1) or 1,
+            committed=True,
+        )
+
+    return ResolutionApplyResult(
+        action=decision.action,
+        applied=False,
+        audit_id=None,
+        version=getattr(window.order, "version", 1) or 1,
+        committed=True,
+    )
+
+
 class MarketReconciliationService:
     def __init__(self):
         self._running = False
@@ -470,117 +721,74 @@ class MarketReconciliationService:
         db: Session,
         order: models.PaperOrder,
         decision: ResolutionDecision,
-    ) -> None:
+    ) -> ResolutionApplyResult:
         """Applies a resolved reconciliation decision atomically and durably commits."""
-        evidence_ids = [decision.candidate.evidence_id] if (decision.candidate and decision.candidate.evidence_id) else []
-        if decision.action == "CLOSE" and decision.candidate:
-            cand = decision.candidate
-            logger.info(
-                f"[LATE_RECONCILIATION] Closing order {order.id} due to late tick at {cand.source_timestamp}: "
-                f"{cand.cause} at {cand.executable_price}"
-            )
-            TradeLifecycleService.execute_close(
-                db=db,
-                order_id=order.id,
-                exit_price=cand.executable_price,
-                exit_cause=cand.cause,
-                occurred_at=cand.source_timestamp,
-                session_tag="LATE_RECONCILIATION",
-                recovery_metadata={
-                    "recovery_status": "RECOVERED",
-                    "confidence": "CONFIRMED_TICK",
-                    "evidence_id": cand.evidence_id,
-                },
-            )
-        elif decision.action == "REVIEW_REQUIRED":
-            # Durably persist audit record in DB
-            append_reconciliation_audit(db, order.id, decision, evidence_ids=evidence_ids)
-            logger.warning(
-                f"[LATE_RECONCILIATION] Durable audit recorded on closed order {order.id}: {decision.reason_code}"
-            )
+        window = OrderReconciliationWindow(
+            order_id=order.id,
+            symbol=getattr(order, "instrument", "XAUUSDT"),
+            opened_at=getattr(order, "opened_at", 0) or 0,
+            end_as_of=getattr(order, "closed_at", 0) or int(datetime.now(timezone.utc).timestamp() * 1000),
+            order=order,
+        )
+        return persist_resolution_or_review(db, window, decision)
 
-    def process_late_batch(self, db: Session, symbol: str = "XAUUSDT") -> int:
-        """Processes one batch of late evidence for the symbol in chronological source order.
-        PHẦN 034, 035, 038: Bounded lookup, persist before ACK, durable audit.
+    def process_late_batch(
+        self,
+        db: Session,
+        symbol: str = "XAUUSDT",
+        source_state: Optional[Dict[str, Any]] = None,
+    ) -> int:
+        """Processes late evidence and pending reconciliation windows in chronological order.
+        PHẦN 016, 019, 089: Replays persisted window evidence; requires authoritative coverage proof.
         """
         batch = quote_ordering_service.claim_late_evidence_batch(symbol, limit=50)
-        if not batch:
-            return 0
+        sorted_batch = sorted(batch, key=lambda r: r.get("source_timestamp") or 0) if batch else []
 
-        # Sort batch by source_timestamp ascending to enforce market chronology (PHẦN 061, 217, 218)
-        sorted_batch = sorted(batch, key=lambda r: r.get("source_timestamp") or 0)
+        committed_ids = persist_reconciliation_evidence(db, sorted_batch) if sorted_batch else []
 
-        # 1. Persist evidence first before processing or acknowledging (PHẦN 034, 103)
-        committed_ids = persist_reconciliation_evidence(db, sorted_batch)
-        if not committed_ids:
-            return 0
-
-        # 2. Bounded query for active open orders (PHẦN 035)
-        open_orders = (
-            db.query(models.PaperOrder)
-            .filter(
-                models.PaperOrder.instrument == symbol,
-                models.PaperOrder.state == "paper_open",
-            )
-            .limit(50)
-            .all()
-        )
-
-        # Also query recently closed orders for conflict detection (PHẦN 020, 035)
-        min_ts = sorted_batch[0].get("source_timestamp") or 0
-        recent_closed_orders = (
-            db.query(models.PaperOrder)
-            .filter(
-                models.PaperOrder.instrument == symbol,
-                models.PaperOrder.state == "closed",
-                models.PaperOrder.closed_at >= min_ts,
-            )
-            .limit(50)
-            .all()
-        )
-
-        all_relevant = list(open_orders) + list(recent_closed_orders)
-
+        # Load pending windows to assess full historical interval (PHẦN 019, 020, 086)
+        window_page = load_pending_reconciliation_windows(db, symbol=symbol, limit=50)
         closed_order_ids: Set[str] = set()
 
-        epoch = sorted_batch[0].get("epoch", 1) if sorted_batch else 1
-        src = sorted_batch[0].get("source", "BITGET_WS") if sorted_batch else "BITGET_WS"
-        batch_min_ts = sorted_batch[0].get("source_timestamp", 0) if sorted_batch else 0
-        batch_max_ts = sorted_batch[-1].get("source_timestamp", 0) if sorted_batch else 0
-        gap = quote_ordering_service.get_overflow_gap(symbol)
-        has_gap = bool(gap)
-
-        for order in all_relevant:
-            if order.id in closed_order_ids:
+        for window in window_page.items:
+            if window.order_id in closed_order_ids:
                 continue
 
-            order_opened = getattr(order, "opened_at", 0) or 0
-            order_source_metadata = {
-                "source": src,
-                "epoch": epoch,
-                "continuity_proof": {
-                    "has_gap": has_gap,
-                    "resolution": "TICK",
-                    "epoch": epoch,
-                    "interval_start_ms": min(order_opened, batch_min_ts),
-                    "interval_end_ms": max(order_opened, batch_max_ts),
-                    "missing_intervals": [gap] if gap else [],
-                },
-            }
-            coverage = assess_reconciliation_coverage(order, None, sorted_batch, source_metadata=order_source_metadata)
-            candidates = collect_terminal_candidates(order, sorted_batch)
-            decision = resolve_reconciliation_window(order, candidates, coverage)
+            evidence_page = load_persisted_window_evidence(
+                db, window, as_of_ms=int(datetime.now(timezone.utc).timestamp() * 1000), limit=200
+            )
+            # Replay all persisted evidence for this order's window
+            all_evidence = evidence_page.items
+            if not all_evidence and sorted_batch:
+                all_evidence = [r for r in sorted_batch if (r.get("source_timestamp") or 0) >= window.opened_at]
 
-            if decision.action in ("CLOSE", "REVIEW_REQUIRED"):
-                self.apply_reconciliation_decision(db, order, decision)
-                if decision.action == "CLOSE":
-                    closed_order_ids.add(order.id)
+            # Determine target interval end for this order's reconciliation
+            max_ev_ts = max((r.get("source_timestamp") or 0 for r in all_evidence), default=window.opened_at)
+            eval_end = window.end_as_of if (window.order and window.order.state == "closed" and window.end_as_of > 0) else max_ev_ts
+            eval_window = OrderReconciliationWindow(
+                order_id=window.order_id,
+                symbol=window.symbol,
+                opened_at=window.opened_at,
+                end_as_of=eval_end,
+                source_epoch=window.source_epoch,
+                status=window.status,
+                cursor=window.cursor,
+                order=window.order,
+            )
 
-        # 3. Only ACK after evidence was committed and resolutions applied (PHẦN 038)
+            coverage = load_reconciliation_coverage(db, eval_window, source_state=source_state)
+            candidates = collect_terminal_candidates(window.order, all_evidence)
+            decision = resolve_reconciliation_window(window.order, candidates, coverage)
+
+            res = persist_resolution_or_review(db, eval_window, decision)
+            if decision.action == "CLOSE" and res.applied:
+                closed_order_ids.add(window.order_id)
+
         if committed_ids:
             quote_ordering_service.acknowledge_late_evidence(symbol, evidence_ids=committed_ids)
 
         return len(committed_ids)
+
 
     async def run_late_reconciliation_loop(self, poll_interval_s: float = 2.0):
         """Continuous background reconciliation loop.

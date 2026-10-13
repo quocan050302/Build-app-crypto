@@ -168,7 +168,7 @@ def test_plansrc04_incomplete_frozen_snapshot_does_not_piece_together_hybrid_tri
     )
 
     assert plan["is_valid"] is False
-    assert plan["reason_code"] == "INCOMPLETE_SOURCE"
+    assert plan["reason_code"] == "INCOMPLETE_FROZEN_SOURCE"
     assert plan["financial"] is None
 
 
