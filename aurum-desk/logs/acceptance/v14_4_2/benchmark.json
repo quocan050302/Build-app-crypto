@@ -3,14 +3,15 @@
   "failures": [],
   "cycles": 600,
   "confirmed_cycles": 600,
-  "total_s": 7.815,
-  "throughput_cycles_per_s": 76.8,
+  "total_s": 10.355,
+  "throughput_cycles_per_s": 57.9,
   "latency_ms": {
-    "p50": 12.623,
-    "p95": 15.279,
-    "max": 21.394
+    "p50": 16.163,
+    "p95": 23.52,
+    "max": 47.164,
+    "sample_count": 600
   },
-  "traced_memory_growth_mb": 0.101,
+  "traced_memory_growth_mb": 0.105,
   "progression_sample": [
     {
       "bars_back": 0,
@@ -69,18 +70,20 @@
   "NOT_MEASURED": [],
   "browser_measurements": {
     "status": "PASS",
-    "stream_duration_s": 61.21,
-    "events_streamed": 15195,
+    "stream_duration_s": 60.88,
+    "events_streamed": 10060,
+    "selections_completed": 100,
     "render_latency_ms": {
       "p50": 0,
       "p95": 0,
       "p99": 0.1,
-      "max": 0.2,
+      "max": 0.4,
       "sample_count": 5060
     },
     "queue_peak": 2,
-    "queue_current": 2,
+    "queue_current": 0,
     "active_subscriber_count": 3,
+    "subscriber_leak": 0,
     "chart_create_count": 0,
     "chart_destroy_count": 0,
     "dropped_execution_event_count": 0

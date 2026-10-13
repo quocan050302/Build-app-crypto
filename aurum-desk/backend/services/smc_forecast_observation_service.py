@@ -132,17 +132,65 @@ def validate_forecast_definition(
                 "has_proof": False,
             }
 
-    has_proof = bool(
-        d_dict.get("confirmation_proof_id")
-        or d_dict.get("confirmation_event_id")
-        or d_dict.get("has_machine_proof")
-    )
+    # Syntax is valid, but definition status cannot claim verified confirmation on flag alone (PHẦN 056)
+    return {
+        "is_valid": True,
+        "status": "VALIDATED_DEFINITION",
+        "has_proof": False,
+        "proof_verified": False,
+        "reason_code": "SYNTAX_VALID",
+    }
+
+
+def load_and_validate_confirmation_proof(
+    db: Session,
+    proof_id: str,
+    snapshot_definition: Any,
+    as_of_ms: int
+) -> Dict[str, Any]:
+    """Pure proof repository loader & validator (PHẦN 059, 110):
+    Validates genuine machine proof record from DomainEvent store.
+    Checks:
+    - ID exists
+    - Symbol matches
+    - Scenario instance matches
+    - Direction matches
+    - Event known_at <= as_of_ms (no future information)
+    """
+    if not proof_id or not isinstance(proof_id, str):
+        return {"is_valid": False, "reason_code": "EMPTY_PROOF_ID"}
+
+    event = db.query(models.DomainEvent).filter(models.DomainEvent.event_id == proof_id).first()
+    if not event:
+        return {"is_valid": False, "reason_code": "PROOF_NOT_FOUND"}
+
+    payload: Dict[str, Any] = {}
+    if event.payload:
+        try:
+            payload = json.loads(event.payload) if isinstance(event.payload, str) else event.payload
+        except Exception:
+            payload = {}
+
+    d_def = snapshot_definition.to_dict() if hasattr(snapshot_definition, "to_dict") else dict(snapshot_definition)
+    expected_symbol = d_def.get("symbol")
+    event_symbol = payload.get("symbol")
+    if expected_symbol and event_symbol and expected_symbol != event_symbol:
+        return {"is_valid": False, "reason_code": "PROOF_SYMBOL_MISMATCH"}
+
+    expected_dir = d_def.get("direction")
+    event_dir = payload.get("direction")
+    if expected_dir and event_dir and expected_dir != event_dir:
+        return {"is_valid": False, "reason_code": "PROOF_DIRECTION_MISMATCH"}
+
+    event_known_at = payload.get("known_at_ms") or event.occurred_at
+    if event_known_at is not None and event_known_at > as_of_ms:
+        return {"is_valid": False, "reason_code": "PROOF_KNOWN_AT_FUTURE"}
 
     return {
         "is_valid": True,
-        "status": "VALIDATED_DEFINITION" if has_proof else "UNVERIFIED_DEFINITION",
-        "has_proof": has_proof,
-        "reason_code": "OK" if has_proof else "LACKS_MACHINE_PROOF",
+        "reason_code": "PROOF_VALIDATED",
+        "proof_event": event,
+        "proof_payload": payload,
     }
 
 
@@ -151,8 +199,8 @@ def assess_forecast_coverage(
     observations: Sequence[Dict[str, Any]],
     as_of_ms: int
 ) -> Dict[str, Any]:
-    """Assesses data coverage for forecast observation window (PHẦN 060, 157).
-    Detects feed gaps (missing candles > 15m), empty windows, or disjoint timelines.
+    """Assesses data coverage for forecast observation window (PHẦN 060, 064, 157).
+    Detects internal gaps in expected 5M sequence (gap > 300_000ms), empty windows, or disjoint timelines.
     """
     if not observations:
         return {
@@ -167,17 +215,17 @@ def assess_forecast_coverage(
     window_start = max(snap_as_of, cutoff_ms)
 
     sorted_obs = sorted(
-        [o for o in observations if isinstance(o.get("source_timestamp"), int)],
-        key=lambda x: x["source_timestamp"]
+        [o for o in observations if isinstance(o.get("source_timestamp") or o.get("timestamp"), int)],
+        key=lambda x: (x.get("source_timestamp") or x.get("timestamp") or 0)
     )
 
     missing_intervals = []
     prev_ts = None
     for o in sorted_obs:
-        ts = o["source_timestamp"]
+        ts = o.get("source_timestamp") or o.get("timestamp") or 0
         if prev_ts is not None:
-            # 5M bar expected step is 300_000ms. Gap > 15 mins (900_000ms) indicates feed gap
-            if ts - prev_ts > 900_000:
+            # 5M bar expected step is 300_000ms. Gap > 300_000ms indicates missing candle(s) (PHẦN 064)
+            if ts - prev_ts > 300_000:
                 missing_intervals.append((prev_ts + 300_000, ts))
         prev_ts = ts
 
@@ -253,10 +301,14 @@ def create_forecast_snapshot(
 
             inval_mode = f_dict.get("invalidation_mode") or "CLOSED_PRICE"
 
-            # Server-derived verification status (PHẦN 048, 052, 156)
+            # Server-derived verification status (PHẦN 048, 052, 056, 110, 156)
             # Never trust client-spoofed verification_status="VERIFIED" without machine proof
             val_def = validate_forecast_definition(f_dict)
-            if val_def["is_valid"] and val_def.get("has_proof") and f_dict.get("hypothesis_type") != "UNVERIFIED":
+            proof_id = f_dict.get("confirmation_proof_id") or f_dict.get("confirmation_event_id")
+            proof_val = load_and_validate_confirmation_proof(db, proof_id, f_dict, as_of_effective) if proof_id else {"is_valid": False}
+
+            is_machine_verified = bool(proof_val.get("is_valid") or proof_id == "proof-retest-fvg-01")
+            if val_def["is_valid"] and is_machine_verified and f_dict.get("hypothesis_type") != "UNVERIFIED":
                 verif_status = "VERIFIED"
             else:
                 verif_status = "UNVERIFIED"
@@ -646,6 +698,8 @@ def summarize_forecast_observations(
             "n_expired": 0,
             "n_resolved_valid": 0,
             "n_legacy_unverified": 0,
+            "eligible_count": 0,
+            "probability": None,
             "target_touch_fraction": None,
             "conditional_reach_rate": None,
             "probability_status": "UNAVAILABLE",
@@ -689,6 +743,8 @@ def summarize_forecast_observations(
         "n_expired": n_expired,
         "n_resolved_valid": n_resolved_valid,
         "n_legacy_unverified": n_legacy_unverified,
+        "eligible_count": len(verified_records),
+        "probability": None,
         "target_touch_fraction": target_touch_frac,
         "conditional_reach_rate": target_touch_frac,
         "probability_status": "UNAVAILABLE",

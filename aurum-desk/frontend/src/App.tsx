@@ -1573,11 +1573,11 @@ function AppContent() {
             <span>Auto Paper: {autoPaperActive ? 'BẬT' : 'TẠM DỪNG'}</span>
           </button>
 
-          <div className="flex items-center gap-1.5 bg-charcoal-850 px-2.5 py-1 rounded border border-charcoal-700">
-            <Activity className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="flex items-center gap-1.5 bg-charcoal-850 px-2.5 py-1 rounded border border-charcoal-700" title={health?.data_freshness_sec != null ? `Báo giá nhận cách đây ${health.data_freshness_sec}s` : 'Chưa có báo giá'}>
+            <Activity className={`w-3.5 h-3.5 ${health?.feed_connected ? 'text-emerald-400' : 'text-rose-400'}`} />
             <span className="text-gray-400">Feed:</span>
             <span className={health?.feed_connected ? 'text-emerald-400 font-medium' : 'text-rose-400'}>
-              {health?.feed_connected ? `Live (${health.data_freshness_sec}s)` : 'Mất kết nối'}
+              {health?.feed_connected ? (health.data_freshness_sec != null ? `Live (${health.data_freshness_sec}s)` : 'Live') : 'Mất kết nối'}
             </span>
           </div>
 

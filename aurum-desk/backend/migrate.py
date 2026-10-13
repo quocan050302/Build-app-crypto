@@ -663,7 +663,7 @@ def run_migration(db_path=None, *, backup_dir=None):
             symbol VARCHAR(20) DEFAULT 'XAUUSDT',
             max_daily_fills INTEGER DEFAULT 3,
             daily_timezone VARCHAR(50) DEFAULT 'Asia/Ho_Chi_Minh',
-            entry_session_policy VARCHAR(40) DEFAULT 'NY_ONLY',
+            entry_session_policy VARCHAR(40) DEFAULT 'ALL_SESSIONS_WITH_NY_RESERVE',
             ny_timezone VARCHAR(50) DEFAULT 'America/New_York',
             ny_entry_start VARCHAR(10) DEFAULT '08:00',
             ny_entry_end VARCHAR(10) DEFAULT '11:00',
@@ -773,7 +773,7 @@ def run_migration(db_path=None, *, backup_dir=None):
                 updated_at
             ) VALUES (
                 'default', 1, 'PAPER', 'XAUUSDT', 3, 'Asia/Ho_Chi_Minh',
-                'NY_ONLY', 'America/New_York', '08:00', '11:00',
+                'ALL_SESSIONS_WITH_NY_RESERVE', 'America/New_York', '08:00', '11:00',
                 1, 1, 1, '10:30',
                 0.10, 2.0, 1, 1,
                 ?

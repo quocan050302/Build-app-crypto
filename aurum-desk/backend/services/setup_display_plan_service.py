@@ -80,6 +80,29 @@ def select_authoritative_plan_source(
     updated_at = _get("updated_at") or _get("created_at")
 
     is_frozen_order = state in ("ARMED", "PAPER_OPEN", "CLOSED") or pricing_mode == "FROZEN_ORDER"
+    if is_frozen_order and (frozen_snapshot is None and pricing_mode == "FROZEN_ORDER"):
+        return SelectedPlanSource(
+            source_kind="FROZEN_ORDER",
+            direction=direction,
+            setup_id=setup_id,
+            order_id=None,
+            setup_instance_id=instance_id,
+            setup_revision=revision,
+            entry=None,
+            planned_entry=None,
+            actual_entry=None,
+            stop_loss=None,
+            take_profit=None,
+            level_source="frozen_order",
+            price_basis="NONE",
+            is_complete=False,
+            missing_fields=["missing_frozen_snapshot"],
+            raw_snapshot=None,
+            as_of_ms=updated_at,
+            target_source_id=None,
+            target_cutoff_ms=updated_at,
+        )
+
     if is_frozen_order and frozen_snapshot is not None and isinstance(frozen_snapshot, dict):
         order_direction = frozen_snapshot.get("direction") or direction
         planned_entry = frozen_snapshot.get("planned_entry")
@@ -88,16 +111,19 @@ def select_authoritative_plan_source(
         sl = frozen_snapshot.get("stop_loss")
         tp = frozen_snapshot.get("take_profit")
 
-        if entry is None:
-            if state in ("PAPER_OPEN", "CLOSED"):
-                entry = actual_entry
-            else:
-                entry = planned_entry if planned_entry is not None else (_get("provisional_entry") or _get("entry"))
-
-        if sl is None and state not in ("PAPER_OPEN", "CLOSED"):
+        # In FROZEN_ORDER mode, NEVER borrow provisional SL/TP or entry from setup when geometry snapshot is present (PHẦN 047, 049)
+        has_any_geom = any(k in frozen_snapshot for k in ("entry", "planned_entry", "actual_entry", "stop_loss", "take_profit", "order_id", "source_kind"))
+        if not has_any_geom:
+            # Legacy financial-only snapshot (e.g. test_freeze01)
+            entry = _get("provisional_entry") or _get("entry")
             sl = _get("provisional_sl") or _get("stop_loss")
-        if tp is None and state not in ("PAPER_OPEN", "CLOSED"):
             tp = _get("provisional_tp") or _get("take_profit")
+        else:
+            if entry is None:
+                if state in ("PAPER_OPEN", "CLOSED"):
+                    entry = actual_entry
+                else:
+                    entry = planned_entry
 
         missing = []
         if entry is None or not finite_price(entry):
@@ -108,6 +134,15 @@ def select_authoritative_plan_source(
             missing.append("take_profit")
 
         is_comp = len(missing) == 0
+
+        # Price basis:
+        basis = frozen_snapshot.get("price_basis")
+        if not basis:
+            if state in ("PAPER_OPEN", "CLOSED"):
+                basis = "ACTUAL_FILL" if (actual_entry is not None and finite_price(actual_entry)) else "UNSPECIFIED"
+            else:
+                basis = "PLANNED_LIMIT"
+
         return SelectedPlanSource(
             source_kind="FROZEN_ORDER",
             direction=order_direction,
@@ -121,7 +156,7 @@ def select_authoritative_plan_source(
             stop_loss=float(sl) if (sl is not None and finite_price(sl)) else None,
             take_profit=float(tp) if (tp is not None and finite_price(tp)) else None,
             level_source="frozen_order",
-            price_basis=frozen_snapshot.get("price_basis") or ("ACTUAL_FILL" if state in ("PAPER_OPEN", "CLOSED") else "PLANNED_LIMIT"),
+            price_basis=basis,
             is_complete=is_comp,
             missing_fields=missing,
             raw_snapshot=frozen_snapshot,
@@ -269,7 +304,10 @@ def build_setup_display_plan(
     # Step 2: Check source completeness
     if not selected.is_complete:
         if selected.source_kind == "FROZEN_ORDER":
-            err_code = "INCOMPLETE_SOURCE"
+            if "missing_frozen_snapshot" in selected.missing_fields:
+                err_code = "INCOMPLETE_FROZEN_SOURCE"
+            else:
+                err_code = "INCOMPLETE_SOURCE"
             err_msg = f"Snapshot lệnh chưa đầy đủ: thiếu {', '.join(selected.missing_fields)}"
         else:
             resolution = resolve_plan_levels(setup)

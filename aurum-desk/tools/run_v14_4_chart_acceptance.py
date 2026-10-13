@@ -122,7 +122,12 @@ def run_benchmark(cycles: int = 600, p95_limit_ms: float = 250.0, mem_growth_lim
         "confirmed_cycles": confirmed_cycles,
         "total_s": round(total_s, 3),
         "throughput_cycles_per_s": round(cycles / total_s, 1) if total_s else None,
-        "latency_ms": {"p50": round(p50, 3), "p95": round(p95, 3), "max": round(max(latencies_ms), 3)},
+        "latency_ms": {
+            "p50": round(p50, 3),
+            "p95": round(p95, 3),
+            "max": round(max(latencies_ms), 3),
+            "sample_count": len(latencies_ms),
+        },
         "traced_memory_growth_mb": round(growth_mb, 3),
         "progression_sample": [{"bars_back": b, "states": s} for b, s in progression[:6]],
         "thresholds": {"p95_limit_ms": p95_limit_ms, "mem_growth_limit_mb": mem_growth_limit_mb,

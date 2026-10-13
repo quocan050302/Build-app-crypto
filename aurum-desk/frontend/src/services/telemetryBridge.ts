@@ -64,9 +64,13 @@ class TelemetryBridge {
     this.chartDestroyCount += 1;
   }
 
-  public recordEventReceived(): number {
+  public acceptTransportFrame(): number {
     this.eventsReceived += 1;
     return typeof performance !== 'undefined' ? performance.now() : Date.now();
+  }
+
+  public recordEventReceived(): number {
+    return this.acceptTransportFrame();
   }
 
   public recordRenderLatency(receiveTimeMs: number): void {

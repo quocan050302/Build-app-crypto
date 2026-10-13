@@ -280,7 +280,7 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
 
   const getQualityBadgeLabel = (status: string) => {
     switch (status) {
-      case 'SATISFIED': return 'Đủ checklist';
+      case 'SATISFIED': return 'Đủ checklist phân tích';
       case 'PARTIAL': return 'Đang chờ xác nhận';
       case 'INSUFFICIENT_DATA': return 'Thiếu dữ liệu';
       case 'BLOCKED_EXISTING': return 'Đang bị chặn';

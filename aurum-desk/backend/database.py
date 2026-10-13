@@ -208,7 +208,7 @@ def run_schema_migrations(target_engine=None):
                     symbol VARCHAR(20) DEFAULT 'XAUUSDT',
                     max_daily_fills INTEGER DEFAULT 3,
                     daily_timezone VARCHAR(50) DEFAULT 'Asia/Ho_Chi_Minh',
-                    entry_session_policy VARCHAR(40) DEFAULT 'NY_ONLY',
+                    entry_session_policy VARCHAR(40) DEFAULT 'ALL_SESSIONS_WITH_NY_RESERVE',
                     ny_timezone VARCHAR(50) DEFAULT 'America/New_York',
                     ny_entry_start VARCHAR(10) DEFAULT '08:00',
                     ny_entry_end VARCHAR(10) DEFAULT '11:00',
@@ -359,6 +359,14 @@ def run_schema_migrations(target_engine=None):
                     conn.execute(text("ALTER TABLE forecast_observations ADD COLUMN verification_status VARCHAR(30) DEFAULT 'UNVERIFIED';"))
                 if "invalidation_mode" not in fc_cols:
                     conn.execute(text("ALTER TABLE forecast_observations ADD COLUMN invalidation_mode VARCHAR(30) DEFAULT 'CLOSED_PRICE';"))
+
+            # V14.4.4: Upgrade legacy default policy NY_ONLY to ALL_SESSIONS_WITH_NY_RESERVE
+            conn.execute(text("""
+                UPDATE trading_policies
+                SET entry_session_policy = 'ALL_SESSIONS_WITH_NY_RESERVE',
+                    version = version + 1
+                WHERE id = 'default' AND entry_session_policy = 'NY_ONLY';
+            """))
 
             conn.commit()
     except Exception:

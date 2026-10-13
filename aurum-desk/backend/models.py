@@ -470,7 +470,7 @@ class TradingPolicy(Base):
     symbol = Column(String(20), default="XAUUSDT")
     max_daily_fills = Column(Integer, default=3)
     daily_timezone = Column(String(50), default="Asia/Ho_Chi_Minh")
-    entry_session_policy = Column(String(40), default="NY_ONLY")  # NY_ONLY or ALL_SESSIONS_WITH_NY_RESERVE
+    entry_session_policy = Column(String(40), default="ALL_SESSIONS_WITH_NY_RESERVE")  # ALL_SESSIONS_WITH_NY_RESERVE or NY_ONLY
     ny_timezone = Column(String(50), default="America/New_York")
     ny_entry_start = Column(String(10), default="08:00")
     ny_entry_end = Column(String(10), default="11:00")

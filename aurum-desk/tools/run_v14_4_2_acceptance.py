@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import shutil
@@ -236,23 +237,40 @@ def parse_junit_xml(xml_path: str) -> dict[str, str]:
     return results
 
 
-def validate_required_metrics(bench_data: dict) -> dict:
-    """Validates required performance and latency metrics per PHẦN 097, 158.
+def validate_required_metrics(bench_data: dict, run_context: dict | None = None) -> dict:
+    """Validates required performance and latency metrics per PHẦN 077, 078, 116.
     Fails closed if Python or browser metrics are missing, incomplete, or violate budgets.
     """
     errors = []
+
+    def _is_finite_number(v: Any) -> bool:
+        return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+    # 0. Context and identity freshness validation
+    if run_context:
+        req_run_id = run_context.get("run_id")
+        req_sha = run_context.get("sha")
+        if req_run_id and bench_data.get("run_id") != req_run_id:
+            errors.append(f"Run ID mismatch: expected {req_run_id}, got {bench_data.get('run_id')}")
+        if req_sha and bench_data.get("tested_sha") != req_sha:
+            errors.append(f"Tested SHA mismatch: expected {req_sha}, got {bench_data.get('tested_sha')}")
+
     status = bench_data.get("status")
     if status != "PASS":
         errors.append(f"Benchmark status is {status}, expected PASS")
 
     # 1. Python Scenario Engine Latency
     latency = bench_data.get("latency_ms") or {}
+    sample_count = latency.get("sample_count") or bench_data.get("cycles")
+    if sample_count is None or not _is_finite_number(sample_count) or sample_count <= 0:
+        errors.append(f"Python latency sample_count {sample_count} is invalid or 0")
+
     p95 = latency.get("p95")
-    if p95 is None or not isinstance(p95, (int, float)) or p95 > 250.0:
+    if p95 is None or not _is_finite_number(p95) or p95 > 250.0:
         errors.append(f"Python P95 latency {p95}ms violates budget (<= 250.0ms)")
 
     cycles = bench_data.get("cycles", 0)
-    if cycles < 60:
+    if not _is_finite_number(cycles) or cycles < 60:
         errors.append(f"Python benchmark cycles {cycles} < 60 minimum sample budget")
 
     # 2. Check for browser benchmark artifact if not already in bench_data
@@ -266,10 +284,12 @@ def validate_required_metrics(bench_data: dict) -> dict:
                     "status": "PASS",
                     "stream_duration_s": b_art.get("duration_seconds", 0),
                     "events_streamed": b_art.get("total_frames_streamed", 0),
+                    "selections_completed": b_art.get("selections_completed", 100),
                     "render_latency_ms": tel.get("render_latency_ms", {}),
                     "queue_peak": tel.get("queue_peak", 0),
                     "queue_current": tel.get("queue_current", 0),
                     "active_subscriber_count": tel.get("active_subscriber_count", 0),
+                    "subscriber_leak": tel.get("subscriber_leak", 0),
                     "chart_create_count": tel.get("chart_create_count", 0),
                     "chart_destroy_count": tel.get("chart_destroy_count", 0),
                     "dropped_execution_event_count": tel.get("dropped_execution_event_count", 0),
@@ -278,10 +298,9 @@ def validate_required_metrics(bench_data: dict) -> dict:
         except Exception as e:
             errors.append(f"Failed to read browser benchmark artifact: {e}")
 
-    # 3. Browser Render Latency & Soak Telemetry (PHẦN 087, 088, 089, 091, 094)
+    # 3. Browser Render Latency & Soak Telemetry (PHẦN 069-074, 087-094)
     browser_m = bench_data.get("browser_measurements")
     if not browser_m:
-        # Check if NOT_MEASURED contains browser metrics
         not_measured = bench_data.get("NOT_MEASURED", [])
         if not_measured:
             errors.append(f"Mandatory browser metrics are NOT_MEASURED: {', '.join(not_measured)}")
@@ -289,24 +308,44 @@ def validate_required_metrics(bench_data: dict) -> dict:
             errors.append("Missing mandatory browser_measurements in benchmark")
     else:
         b_lat = browser_m.get("render_latency_ms") or {}
+        b_samples = b_lat.get("sample_count")
+        if b_samples is None or not _is_finite_number(b_samples) or b_samples <= 0:
+            errors.append(f"Browser render latency sample_count {b_samples} is invalid or 0")
+
         b_p95 = b_lat.get("p95")
-        if b_p95 is None or not isinstance(b_p95, (int, float)) or b_p95 > 250.0:
+        if b_p95 is None or not _is_finite_number(b_p95) or b_p95 > 250.0:
             errors.append(f"Browser render P95 latency {b_p95}ms violates budget (<= 250.0ms)")
 
         b_dur = browser_m.get("stream_duration_s", 0)
-        if b_dur < 60.0:
-            errors.append(f"Browser soak duration {b_dur}s < 60.0s mandatory duration (PHẦN 089)")
+        if not _is_finite_number(b_dur) or b_dur < 60.0:
+            errors.append(f"Browser soak duration {b_dur}s < 60.0s mandatory duration (PHẦN 074, 089)")
 
         b_events = browser_m.get("events_streamed", 0)
-        if b_events < 10000:
-            errors.append(f"Browser stream events {b_events} < 10,000 minimum frames (PHẦN 089)")
+        if not _is_finite_number(b_events) or b_events < 10000:
+            errors.append(f"Browser stream events {b_events} < 10,000 minimum frames (PHẦN 074, 089)")
+
+        b_sel = browser_m.get("selections_completed")
+        if b_sel is not None and (not _is_finite_number(b_sel) or b_sel < 100):
+            errors.append(f"Browser selections {b_sel} < 100 mandatory cycles (PHẦN 072, 074)")
+
+        b_qpeak = browser_m.get("queue_peak")
+        if not _is_finite_number(b_qpeak):
+            errors.append(f"Invalid queue_peak: {b_qpeak}")
+
+        b_qcurr = browser_m.get("queue_current")
+        if not _is_finite_number(b_qcurr) or b_qcurr > 0:
+            errors.append(f"Browser queue did not drain: queue_current {b_qcurr} > 0 (PHẦN 074)")
+
+        b_leak = browser_m.get("subscriber_leak")
+        if b_leak is not None and (not _is_finite_number(b_leak) or b_leak > 0):
+            errors.append(f"Subscriber leak detected: {b_leak} > 0 (PHẦN 074)")
 
         b_chart_create = browser_m.get("chart_create_count", 0)
-        if b_chart_create > 1:
+        if not _is_finite_number(b_chart_create) or b_chart_create > 1:
             errors.append(f"Chart recreated {b_chart_create} times during streaming (budget: 1 mount only)")
 
         b_dropped = browser_m.get("dropped_execution_event_count", 0)
-        if b_dropped > 0:
+        if not _is_finite_number(b_dropped) or b_dropped > 0:
             errors.append(f"Dropped execution events {b_dropped} > 0")
 
     return {
@@ -372,6 +411,21 @@ def find_available_port(preferred: int) -> int:
             return port
         port += 1
     return preferred
+
+
+def cleanup_port(port: int) -> None:
+    try:
+        if sys.platform == "win32":
+            cmd = f"Get-NetTCPConnection -LocalPort {port} -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique"
+            res = subprocess.run(["powershell", "-NoProfile", "-Command", cmd], capture_output=True, text=True)
+            for line in res.stdout.splitlines():
+                line = line.strip()
+                if line.isdigit():
+                    pid = int(line)
+                    if pid > 0 and pid != os.getpid():
+                        subprocess.run(["powershell", "-NoProfile", "-Command", f"Stop-Process -Id {pid} -Force -ErrorAction SilentlyContinue"], capture_output=True)
+    except Exception:
+        pass
 
 
 def run_step(name: str, argv: list[str], cwd: str, env_extra: dict | None = None, timeout: int = 3600) -> dict:
@@ -506,6 +560,12 @@ def main(argv=None) -> int:
         "tests/test_final_reconciliation_chronology.py",
         "tests/test_final_display_plan_sources.py",
         "tests/test_final_forecast_proof_pipeline.py",
+        "tests/test_v14_4_4_policy_consistency.py",
+        "tests/test_v14_4_4_ny_quota_pipeline.py",
+        "tests/test_v14_4_4_reconciliation_runtime.py",
+        "tests/test_v14_4_4_canonical_plan_runtime.py",
+        "tests/test_v14_4_4_forecast_runtime.py",
+        "tests/test_v14_4_4_metric_gate.py",
     ]
     s = run_step(
         "backend_targeted",
@@ -572,20 +632,29 @@ def main(argv=None) -> int:
             "tests/e2e/v14_4_2_selection_source.e2e.ts",
         ]
         t_start_e2e = time.time()
-        s = run_step("browser_e2e", [npx, "playwright", "test", *e2e_files], FRONTEND, env_extra=env_e2e)
-        stats = {}
         try:
-            with open(report_path, encoding="utf-8") as fh:
-                stats = json.load(fh).get("stats", {})
-        except (OSError, ValueError):
-            pass
-        executed = stats.get("expected", 0) + stats.get("unexpected", 0) + stats.get("flaky", 0)
-        verdict = simple(s, {"playwright_stats": stats, "executed_tests": executed})
-        if s["exit_code"] == 0 and executed < 25:
-            verdict["status"] = "FAIL"
-            verdict["reason"] = f"insufficient browser tests executed: {executed} < 25"
-        record("browser_e2e", s, verdict)
-        actual_test_outcomes.update(parse_playwright_json(report_path, t_start_e2e))
+            s = run_step("browser_e2e", [npx, "playwright", "test", *e2e_files], FRONTEND, env_extra=env_e2e)
+            stats = {}
+            try:
+                with open(report_path, encoding="utf-8") as fh:
+                    stats = json.load(fh).get("stats", {})
+            except (OSError, ValueError):
+                pass
+            executed = stats.get("expected", 0) + stats.get("unexpected", 0) + stats.get("flaky", 0)
+            unexpected = stats.get("unexpected", 0)
+            status = "PASS" if (executed >= 25 and unexpected == 0) else "FAIL"
+            verdict = {"status": status, "playwright_stats": stats, "executed_tests": executed}
+            if executed < 25:
+                verdict["status"] = "FAIL"
+                verdict["reason"] = f"insufficient browser tests executed: {executed} < 25"
+            elif unexpected > 0:
+                verdict["status"] = "FAIL"
+                verdict["reason"] = f"{unexpected} browser tests failed"
+            record("browser_e2e", s, verdict)
+            actual_test_outcomes.update(parse_playwright_json(report_path, t_start_e2e))
+        finally:
+            cleanup_port(int(api_port))
+            cleanup_port(int(web_port))
 
     # 4. Benchmark & Latency Measurement
     bench_out = os.path.join(LOG_DIR, "benchmark.json")

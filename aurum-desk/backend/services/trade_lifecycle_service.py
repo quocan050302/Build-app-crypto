@@ -10,6 +10,7 @@ import models, crud
 from domain_calculator import CalculationResult, calculate_risk_reward
 from services.event_bus import event_bus
 from services.clock import live_clock, IClock
+from services.shared_exit_evaluator import evaluate_order_exit
 
 logger = logging.getLogger(__name__)
 
@@ -450,127 +451,26 @@ class TradeLifecycleService:
             if bar_start <= opened_at < bar_end:
                 is_candle_eval = False
 
-        exit_triggered = False
-        exit_price = 0.0
-        exit_cause = ""
-        lp = active_pos.estimated_liquidation
+        executable_quote: Dict[str, Any] = {
+            "bid": current_bid,
+            "ask": current_ask,
+            "evidence_id": f"tick_{tick_timestamp or now_ms}",
+        }
+        if is_candle_eval:
+            executable_quote["high"] = candle_high
+            executable_quote["low"] = candle_low
 
-        if not is_candle_eval:
-            # TICK-ONLY EVALUATION
-            if active_pos.direction == "LONG":
-                if lp is not None and current_bid <= lp:
-                    exit_triggered = True
-                    exit_price = current_bid
-                    exit_cause = "LIQUIDATED"
-                elif current_bid <= active_pos.stop_loss:
-                    exit_triggered = True
-                    exit_price = current_bid
-                    exit_cause = "SL_HIT"
-                elif current_bid >= active_pos.take_profit:
-                    exit_triggered = True
-                    tp_slip = 0.0
-                    if getattr(active_pos, 'cost_snapshot', None):
-                        try:
-                            snap = json.loads(active_pos.cost_snapshot)
-                            tp_slip = float(snap.get("tp_slippage_usd", 0.0))
-                        except Exception:
-                            tp_slip = 0.0
-                    exit_price = round(active_pos.take_profit - tp_slip, 2)
-                    exit_cause = "TP_HIT"
+        decision = evaluate_order_exit(active_pos, executable_quote)
 
-            elif active_pos.direction == "SHORT":
-                if lp is not None and current_ask >= lp:
-                    exit_triggered = True
-                    exit_price = current_ask
-                    exit_cause = "LIQUIDATED"
-                elif current_ask >= active_pos.stop_loss:
-                    exit_triggered = True
-                    exit_price = current_ask
-                    exit_cause = "SL_HIT"
-                elif current_ask <= active_pos.take_profit:
-                    exit_triggered = True
-                    tp_slip = 0.0
-                    if getattr(active_pos, 'cost_snapshot', None):
-                        try:
-                            snap = json.loads(active_pos.cost_snapshot)
-                            tp_slip = float(snap.get("tp_slippage_usd", 0.0))
-                        except Exception:
-                            tp_slip = 0.0
-                    exit_price = round(active_pos.take_profit + tp_slip, 2)
-                    exit_cause = "TP_HIT"
-
-        else:
-            # CANDLE OHLC EVALUATION
-            high_val = candle_high
-            low_val = candle_low
-
-            if active_pos.direction == "LONG":
-                hit_sl = low_val <= active_pos.stop_loss
-                hit_tp = high_val >= active_pos.take_profit
-                hit_liq = (lp is not None and low_val <= lp)
-
-                if hit_sl and hit_tp:
-                    exit_triggered = True
-                    exit_price = active_pos.stop_loss
-                    exit_cause = "AMBIGUOUS_BAR_SL_FIRST"
-                elif hit_liq and not hit_tp:
-                    exit_triggered = True
-                    exit_price = lp
-                    exit_cause = "LIQUIDATED"
-                elif hit_sl:
-                    exit_triggered = True
-                    exit_price = min(active_pos.stop_loss, low_val)
-                    exit_cause = "SL_HIT"
-                elif hit_tp:
-                    exit_triggered = True
-                    tp_slip = 0.0
-                    if getattr(active_pos, 'cost_snapshot', None):
-                        try:
-                            snap = json.loads(active_pos.cost_snapshot)
-                            tp_slip = float(snap.get("tp_slippage_usd", 0.0))
-                        except Exception:
-                            tp_slip = 0.0
-                    exit_price = round(active_pos.take_profit - tp_slip, 2)
-                    exit_cause = "TP_HIT"
-
-            elif active_pos.direction == "SHORT":
-                hit_sl = high_val >= active_pos.stop_loss
-                hit_tp = low_val <= active_pos.take_profit
-                hit_liq = (lp is not None and high_val >= lp)
-
-                if hit_sl and hit_tp:
-                    exit_triggered = True
-                    exit_price = active_pos.stop_loss
-                    exit_cause = "AMBIGUOUS_BAR_SL_FIRST"
-                elif hit_liq and not hit_tp:
-                    exit_triggered = True
-                    exit_price = lp
-                    exit_cause = "LIQUIDATED"
-                elif hit_sl:
-                    exit_triggered = True
-                    exit_price = max(active_pos.stop_loss, high_val)
-                    exit_cause = "SL_HIT"
-                elif hit_tp:
-                    exit_triggered = True
-                    tp_slip = 0.0
-                    if getattr(active_pos, 'cost_snapshot', None):
-                        try:
-                            snap = json.loads(active_pos.cost_snapshot)
-                            tp_slip = float(snap.get("tp_slippage_usd", 0.0))
-                        except Exception:
-                            tp_slip = 0.0
-                    exit_price = round(active_pos.take_profit + tp_slip, 2)
-                    exit_cause = "TP_HIT"
-
-        if exit_triggered:
+        if decision.triggered:
             return TradeLifecycleService.execute_close(
                 db=db,
                 order_id=active_pos.id,
-                exit_price=exit_price,
-                exit_cause=exit_cause,
-                occurred_at=candle_timestamp or now_ms,
+                exit_price=decision.applied_exit_price,
+                exit_cause=decision.cause,
+                occurred_at=candle_timestamp or tick_timestamp or now_ms,
                 clock=clock,
-                session_tag=session_tag
+                session_tag=session_tag,
             )
 
         return None

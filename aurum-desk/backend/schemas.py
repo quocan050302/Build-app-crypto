@@ -1041,7 +1041,7 @@ class TradingPolicyUpdate(BaseModel):
     symbol: Optional[str] = "XAUUSDT"
     max_daily_fills: Optional[int] = 3
     daily_timezone: Optional[str] = "Asia/Ho_Chi_Minh"
-    entry_session_policy: Optional[str] = "NY_ONLY"  # NY_ONLY, ALL_SESSIONS_WITH_NY_RESERVE
+    entry_session_policy: Optional[str] = "ALL_SESSIONS_WITH_NY_RESERVE"  # NY_ONLY, ALL_SESSIONS_WITH_NY_RESERVE
     ny_timezone: Optional[str] = "America/New_York"
     ny_entry_start: Optional[str] = "08:00"
     ny_entry_end: Optional[str] = "11:00"
@@ -1062,7 +1062,7 @@ class TradingPolicyResponse(BaseModel):
     is_active: bool = True
     max_daily_fills: int = 3
     daily_timezone: str = "Asia/Ho_Chi_Minh"
-    entry_session_policy: str = "NY_ONLY"
+    entry_session_policy: str = "ALL_SESSIONS_WITH_NY_RESERVE"
     ny_timezone: str = "America/New_York"
     ny_entry_start: str = "08:00"
     ny_entry_end: str = "11:00"

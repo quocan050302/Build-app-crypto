@@ -70,7 +70,10 @@ class SharedWSClient {
 
         try {
           const msg = JSON.parse(event.data);
-          telemetryBridge.recordEventReceived();
+          const transportReceivedAt = telemetryBridge.acceptTransportFrame();
+          if (msg && typeof msg === 'object') {
+            msg._transportReceivedAt = transportReceivedAt;
+          }
           for (const handler of this.subscribers) {
             try {
               handler(msg);
@@ -165,7 +168,10 @@ class SharedWSClient {
   }
 
   public dispatchForTesting(data: any): void {
-    telemetryBridge.recordEventReceived();
+    const transportReceivedAt = telemetryBridge.acceptTransportFrame();
+    if (data && typeof data === 'object') {
+      data._transportReceivedAt = transportReceivedAt;
+    }
     if (data?.event?.payload?.revision && data.event.payload.revision > 10) {
       telemetryBridge.recordSequenceGap();
     }

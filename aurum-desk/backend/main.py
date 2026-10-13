@@ -129,7 +129,12 @@ async def lifespan(app: FastAPI):
     yield
     # Graceful shutdown: orderly stop of worker loops before cancelling
     bitget_ws_service.stop()
-    market_reconciliation_service.stop()
+    try:
+        recon_res = await market_reconciliation_service.shutdown(timeout_s=5.0)
+        if recon_res and recon_res.status == "TIMED_OUT":
+            logger.warning(f"Market reconciliation shutdown timed out: {recon_res}")
+    except Exception as re_err:
+        logger.error(f"Error during market reconciliation shutdown: {re_err}")
     try:
         res_ec = await execution_consumer.stop(timeout=2.0)
         if res_ec and res_ec.get("status") == "TIMED_OUT":
@@ -2405,46 +2410,19 @@ def update_trading_policy_endpoint(
     db: Session = Depends(get_db)
 ):
     """
-    Update or customize Trading Policy.
-    Strict validation:
-    - max_daily_fills >= 1
-    - min_net_rr >= 1.5
-    - Cross-midnight window validation: start must be earlier than end.
+    PHẦN 010, 011, 098: Update or customize Trading Policy.
+    Uses centralized TradingPolicyService.update_policy which delegates
+    to validate_trading_policy_update. Bypassing validation via HTTP is strictly prevented.
     """
     from services.trading_policy_service import TradingPolicyService
-    symbol = req.symbol or "XAUUSDT"
-    policy = TradingPolicyService.get_active_policy(db, symbol)
+    from services.clock import live_clock
 
-    # Validation
-    if req.max_daily_fills is not None and req.max_daily_fills < 1:
-        raise HTTPException(status_code=400, detail="max_daily_fills phải lớn hơn hoặc bằng 1")
-    if req.min_net_rr is not None and req.min_net_rr < 1.0:
-        raise HTTPException(status_code=400, detail="min_net_rr phải lớn hơn hoặc bằng 1.0")
-
-    # Time validation
-    start_str = req.ny_entry_start or policy.ny_entry_start
-    end_str = req.ny_entry_end or policy.ny_entry_end
+    patch = req.model_dump(exclude_unset=True)
     try:
-        sh, sm = map(int, start_str.split(":"))
-        eh, em = map(int, end_str.split(":"))
-        if (sh * 60 + sm) >= (eh * 60 + em):
-            raise HTTPException(
-                status_code=400,
-                detail="Cửa sổ phiên giao dịch qua nửa đêm (start >= end) chưa được hỗ trợ, vui lòng cấu hình start < end."
-            )
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Định dạng giờ không hợp lệ, yêu cầu HH:MM")
-
-    now_ms = int(time.time() * 1000)
-    for field, val in req.model_dump(exclude_unset=True).items():
-        if hasattr(policy, field):
-            setattr(policy, field, val)
-
-    policy.version = (policy.version or 1) + 1
-    policy.updated_at = now_ms
-    db.commit()
-    db.refresh(policy)
-    return policy
+        updated = TradingPolicyService.update_policy(db, patch, clock=live_clock)
+        return updated
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
 
 
 @app.get("/api/v1/policy/ny-session", response_model=schemas.NYSessionStatusResponse)

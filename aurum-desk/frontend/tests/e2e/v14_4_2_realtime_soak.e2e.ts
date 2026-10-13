@@ -173,7 +173,7 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
 
   // R06: 10,000-event 60-second soak with continuous telemetry measurement (PHẦN 087, 088, 089, 090, 091, 094)
   test('R06: 10,000-event 60s stream soak with continuous telemetry measurement', async ({ page, request }) => {
-    test.setTimeout(140_000); // 140s budget for 60s soak + setup
+    test.setTimeout(240_000); // 240s budget for 60s soak + 100 selections + setup
 
     await seedSmtFixture(page, request, { direction: 'LONG', auto: false });
     await page.goto('/');
@@ -185,9 +185,9 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
       tel?.reset();
     });
 
-    const upcomingTab = page.locator('[data-tab-id="upcoming"]');
-    const chartTab = page.locator('[data-tab-id="chart"]');
-    const scenarioCard = page.locator('[data-testid="scenario-card"]').first();
+    const scenarioCards = page.locator('[data-testid="scenario-card"]');
+    await scenarioCards.first().waitFor({ state: 'visible', timeout: 10000 });
+    const cardCount = await scenarioCards.count();
 
     const tStart = Date.now();
     const totalTargetFrames = 10_000;
@@ -203,8 +203,11 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
       const cycleStart = Date.now();
       const countThisCycle = (c === burstCycle) ? (framesPerCycle + burstFrames) : framesPerCycle;
 
-      // Dispatch frames via WS transport test bridge
-      await page.evaluate(({ count, startIndex }) => {
+      // Dispatch frames via WS transport test bridge and execute actual selection cycles
+      const selTarget = Math.min(100, (c + 1) * 2);
+      const selThisCycle = Math.max(0, selTarget - selectionsDone);
+
+      await page.evaluate(({ count, startIndex, selectCount, currentSel }) => {
         const ws = (window as any).__AURUM_WS_CLIENT__;
         if (!ws) return;
         const baseTs = 1770000000000;
@@ -234,40 +237,42 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
             });
           }
         }
-      }, { count: countThisCycle, startIndex: framesSent });
+
+        // Parallel selection soak: actual click on scenario cards (PHẦN 072, 090)
+        const cards = document.querySelectorAll('[data-testid="scenario-card"]');
+        if (cards.length > 0) {
+          for (let s = 0; s < selectCount; s++) {
+            const card = cards[(currentSel + s) % cards.length] as HTMLElement;
+            card?.click();
+          }
+        }
+      }, { count: countThisCycle, startIndex: framesSent, selectCount: selThisCycle, currentSel: selectionsDone });
 
       framesSent += countThisCycle;
-
-      // Parallel selection soak: 100 selection cycles distributed across the 60s stream (PHẦN 090)
-      if (selectionsDone < 100) {
-        try {
-          const mod = selectionsDone % 4;
-          if (mod === 0) {
-            const hasCard = (await scenarioCard.count()) > 0;
-            if (hasCard) await scenarioCard.click();
-          } else if (mod === 1) {
-            const layerBtn = page.locator('[data-testid="layer-menu-trigger"]');
-            if ((await layerBtn.count()) > 0) await layerBtn.click();
-          } else if (mod === 2) {
-            const detailsBtn = page.locator('[data-testid="selected-details-btn"]');
-            if ((await detailsBtn.count()) > 0) await detailsBtn.click();
-          } else {
-            // Subtle viewport resize to test responsive bounds without recreation
-            await page.setViewportSize({ width: 1510 + (selectionsDone % 3) * 2, height: 857 });
-          }
-        } catch {
-          // Swallow intermittent layout transient during fast stream
-        }
-        selectionsDone++;
-      }
+      selectionsDone += selThisCycle;
 
       // Ensure each cycle takes at least ~1000ms to guarantee >= 60s soak duration
       const cycleElapsed = Date.now() - cycleStart;
       const sleepNeeded = Math.max(10, 1010 - cycleElapsed);
-      await page.waitForTimeout(sleepNeeded);
+      await new Promise((r) => setTimeout(r, sleepNeeded));
     }
 
     const durationSeconds = (Date.now() - tStart) / 1000.0;
+
+    // Wait for queue drain steady <= 2s per PHẦN 074
+    const drainDeadline = Date.now() + 2500;
+    while (Date.now() < drainDeadline) {
+      await page.evaluate(() => {
+        const flush = (window as any).__AURUM_FLUSH_QUEUE__;
+        if (typeof flush === 'function') flush();
+      }).catch(() => {});
+      const q = await page.evaluate(() => {
+        const tel = (window as any).__AURUM_TELEMETRY__;
+        return tel?.getSnapshot?.()?.queue_current ?? 0;
+      }).catch(() => 0);
+      if (q === 0) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
 
     // Collect telemetry snapshot from browser (PHẦN 087, 088)
     const snapshot = await page.evaluate(() => {
@@ -280,11 +285,13 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
     // Verify mandatory budgets (PHẦN 091)
     expect(durationSeconds).toBeGreaterThanOrEqual(60.0);
     expect(snapshot.events_received_count).toBeGreaterThanOrEqual(totalTargetFrames);
+    expect(selectionsDone).toBeGreaterThanOrEqual(100);
     expect(snapshot.chart_create_count).toBeLessThanOrEqual(1); // 0 recreations per tick
     expect(snapshot.chart_destroy_count).toBe(0);
     expect(snapshot.dropped_execution_event_count).toBe(0);
     expect(snapshot.render_latency_ms.p95).toBeLessThanOrEqual(250.0);
     expect(snapshot.queue_peak).toBeLessThanOrEqual(100);
+    expect(snapshot.queue_current).toBe(0);
 
     // Save browser benchmark artifact per PHẦN 094
     const logDir = path.resolve(process.cwd(), '../logs/acceptance/v14_4_2');
@@ -296,6 +303,7 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
       duration_seconds: Math.round(durationSeconds * 100) / 100,
       total_frames_streamed: snapshot.events_received_count,
       selection_cycles: selectionsDone,
+      selections_completed: selectionsDone,
       telemetry: snapshot,
       budgets: {
         render_latency_p95_limit_ms: 250.0,
@@ -329,6 +337,7 @@ test.describe('V14.4.2 Realtime Soak Suite', () => {
       status: 'PASS',
       stream_duration_s: durationSeconds,
       events_streamed: snapshot.events_received_count,
+      selections_completed: selectionsDone,
       render_latency_ms: snapshot.render_latency_ms,
       queue_peak: snapshot.queue_peak,
       queue_current: snapshot.queue_current,

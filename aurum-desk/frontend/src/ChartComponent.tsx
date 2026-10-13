@@ -519,6 +519,7 @@ export function ChartComponent({
         const t = nextBar.time as number;
         if (last && t < (last.time as number)) {
           reportChartDataIssue('OUT_OF_ORDER_BAR');
+          telemetryBridge.updateQueueDepth(pendingBarsQueue.length);
           scheduleRecovery();
           continue;
         }
@@ -528,6 +529,7 @@ export function ChartComponent({
           telemetryBridge.updateQueueDepth(pendingBarsQueue.length);
         } catch {
           reportChartDataIssue('SERIES_UPDATE_REJECTED');
+          telemetryBridge.updateQueueDepth(pendingBarsQueue.length);
           scheduleRecovery();
           continue;
         }
@@ -538,14 +540,19 @@ export function ChartComponent({
           timeAxisRef.current.startsMs.push(t * 1000);
         }
       }
+      telemetryBridge.updateQueueDepth(pendingBarsQueue.length);
     };
+
+    if (import.meta.env.DEV) {
+      (window as any).__AURUM_FLUSH_QUEUE__ = () => flushQueue();
+    }
 
     const unsubscribe = wsClient.subscribe((msg: any) => {
       if (disposed) return;
       try {
         if (msg.type === 'CANDLE_UPDATE' || msg.type === 'CANDLE_CLOSED') {
           if (msg.symbol === symbol && msg.timeframe === timeframe && msg.payload) {
-            const receiveTs = telemetryBridge.recordEventReceived();
+            const receiveTs = msg._transportReceivedAt || (typeof performance !== 'undefined' ? performance.now() : Date.now());
             const p = msg.payload;
             const finite = [p.open, p.high, p.low, p.close].every((v: unknown) => typeof v === 'number' && Number.isFinite(v));
             if (!Number.isSafeInteger(p.time) || p.time <= 0 || !finite || p.high < p.low) {
@@ -591,7 +598,7 @@ export function ChartComponent({
             }
           }
         } else if (msg.type === 'QUOTE_UPDATE' && msg.payload?.last) {
-          const receiveTs = telemetryBridge.recordEventReceived();
+          const receiveTs = msg._transportReceivedAt || (typeof performance !== 'undefined' ? performance.now() : Date.now());
           // Quotes are telemetry only: no setData, no scenario analysis in the browser.
           quoteStore.updateFromQuoteEnvelope(msg);
           if (msg.symbol === symbol) {

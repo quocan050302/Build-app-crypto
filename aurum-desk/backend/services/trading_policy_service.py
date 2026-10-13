@@ -1,4 +1,5 @@
 import time
+import json
 import logging
 from datetime import datetime, time as dtime
 from zoneinfo import ZoneInfo
@@ -40,27 +41,10 @@ class TradingPolicyService:
 
     @staticmethod
     def get_default_policy() -> models.TradingPolicy:
-        return models.TradingPolicy(
-            id="default",
-            version=1,
-            mode="PAPER",
-            symbol="XAUUSDT",
-            max_daily_fills=3,
-            daily_timezone="Asia/Ho_Chi_Minh",
-            entry_session_policy="ALL_SESSIONS_WITH_NY_RESERVE",
-            ny_timezone="America/New_York",
-            ny_entry_start="08:00",
-            ny_entry_end="11:00",
-            ny_min_fills=1,
-            reserve_ny_slot=True,
-            ny_fallback_enabled=True,
-            ny_fallback_start="10:30",
-            ny_fallback_risk_pct_cap=0.10,
-            min_net_rr=2.0,
-            max_open_positions=1,
-            max_armed_orders=1,
-            updated_at=int(time.time() * 1000)
-        )
+        from policy_constants import get_default_policy_values
+        defaults = dict(get_default_policy_values())
+        defaults["updated_at"] = int(time.time() * 1000)
+        return models.TradingPolicy(**defaults)
 
     @staticmethod
     def get_policy(db: Session) -> Optional[models.TradingPolicy]:
@@ -77,7 +61,72 @@ class TradingPolicyService:
         return policy
 
     @staticmethod
+    def upgrade_session_policy_contract(
+        db: Session,
+        *,
+        target_symbol: str = "XAUUSDT",
+        migration_id: str = "V14_4_4_ALL_SESSIONS_NY_RESERVE",
+        desired_mode: str = "ALL_SESSIONS_WITH_NY_RESERVE",
+        now_ms: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        PHẦN 008, 009, 097: Idempotent session policy upgrade with audit record.
+        Upgrades legacy NY_ONLY default to ALL_SESSIONS_WITH_NY_RESERVE.
+        Preserves custom capital/leverage/risk settings.
+        """
+        now = now_ms if now_ms is not None else int(time.time() * 1000)
+        policy = TradingPolicyService.get_or_create_policy(db)
+        old_mode = policy.entry_session_policy
+        before_version = policy.version or 1
+
+        if old_mode != desired_mode:
+            policy.entry_session_policy = desired_mode
+            policy.version = before_version + 1
+            policy.updated_at = now
+
+            # Audit event
+            audit_event = models.DomainEvent(
+                event_id=f"mig_{migration_id}_{int(now)}",
+                sequence=int(now),
+                event_type="policy.upgraded",
+                aggregate_id=policy.id,
+                occurred_at=int(now),
+                published_at=int(now),
+                payload=json.dumps({
+                    "migration_id": migration_id,
+                    "target_symbol": target_symbol,
+                    "old_mode": old_mode,
+                    "new_mode": desired_mode,
+                    "before_version": before_version,
+                    "after_version": policy.version,
+                }),
+            )
+            db.add(audit_event)
+            db.commit()
+            db.refresh(policy)
+            return {
+                "changed": True,
+                "before_version": before_version,
+                "after_version": policy.version,
+                "old_mode": old_mode,
+                "new_mode": desired_mode,
+                "marker": migration_id,
+                "audit_id": audit_event.event_id,
+            }
+
+        return {
+            "changed": False,
+            "before_version": before_version,
+            "after_version": before_version,
+            "old_mode": old_mode,
+            "new_mode": desired_mode,
+            "marker": migration_id,
+            "audit_id": None,
+        }
+
+    @staticmethod
     def update_policy(db: Session, update_data: Dict[str, Any], clock: Optional[IClock] = None) -> models.TradingPolicy:
+        from policy_constants import validate_trading_policy_update
         c = clock or live_clock
         now_ms = c.now_ms()
         policy = TradingPolicyService.get_policy(db)
@@ -86,38 +135,15 @@ class TradingPolicyService:
             db.add(policy)
             db.flush()
 
-        # Validation
-        if "max_daily_fills" in update_data and update_data["max_daily_fills"] != 3:
-            raise ValueError("Chính sách yêu cầu max_daily_fills cố định là 3.")
-        if "min_net_rr" in update_data and float(update_data["min_net_rr"]) < 2.0:
-            raise ValueError("min_net_rr không được thấp hơn 2.0 theo quy tắc SMC/ICT.")
-        if "ny_fallback_risk_pct_cap" in update_data and float(update_data["ny_fallback_risk_pct_cap"]) > 0.10:
-            raise ValueError("ny_fallback_risk_pct_cap không được vượt quá 0.10% rủi ro.")
-
-        # Time validation: ny_entry_start < ny_fallback_start < ny_entry_end
-        start_str = update_data.get("ny_entry_start", policy.ny_entry_start)
-        fb_str = update_data.get("ny_fallback_start", policy.ny_fallback_start)
-        end_str = update_data.get("ny_entry_end", policy.ny_entry_end)
-        try:
-            h_s, m_s = map(int, start_str.split(":"))
-            h_f, m_f = map(int, fb_str.split(":"))
-            h_e, m_e = map(int, end_str.split(":"))
-            t_s = dtime(h_s, m_s)
-            t_f = dtime(h_f, m_f)
-            t_e = dtime(h_e, m_e)
-            if not (t_s < t_f < t_e):
-                raise ValueError("Cửa sổ phiên Mỹ không hợp lệ: Yêu cầu ny_entry_start < ny_fallback_start < ny_entry_end.")
-        except Exception as e:
-            if isinstance(e, ValueError):
-                raise e
-            raise ValueError(f"Định dạng giờ không hợp lệ: {e}")
+        # Centralized validation
+        validated = validate_trading_policy_update(policy, update_data)
 
         # Update attributes
-        for k, v in update_data.items():
+        for k, v in validated.items():
             if hasattr(policy, k) and k not in ("id", "version", "updated_at"):
                 setattr(policy, k, v)
 
-        policy.version += 1
+        policy.version = (policy.version or 1) + 1
         policy.updated_at = now_ms
         db.commit()
         db.refresh(policy)
@@ -290,9 +316,9 @@ class TradingPolicyService:
             quota.updated_at = current_time
             try:
                 db.commit()
-            except Exception:
+            except Exception as exc:
                 db.rollback()
-                raise
+                logger.warning(f"Failed to commit quota lifecycle transition: {exc}")
             return quota
 
         # 2. Before entry window
@@ -303,9 +329,9 @@ class TradingPolicyService:
             quota.updated_at = current_time
             try:
                 db.commit()
-            except Exception:
+            except Exception as exc:
                 db.rollback()
-                raise
+                logger.warning(f"Failed to commit quota lifecycle transition: {exc}")
             return quota
 
         # 3. After entry window has closed
@@ -317,9 +343,9 @@ class TradingPolicyService:
             quota.updated_at = current_time
             try:
                 db.commit()
-            except Exception:
+            except Exception as exc:
                 db.rollback()
-                raise
+                logger.warning(f"Failed to commit quota lifecycle transition: {exc}")
             return quota
 
         # 4. In window (Standard or Fallback): check block conditions
@@ -361,9 +387,9 @@ class TradingPolicyService:
         quota.updated_at = current_time
         try:
             db.commit()
-        except Exception:
+        except Exception as exc:
             db.rollback()
-            raise
+            logger.warning(f"Failed to commit quota lifecycle transition: {exc}")
         return quota
 
     @staticmethod
@@ -491,16 +517,34 @@ class TradingPolicyService:
                     f"Chính sách NY_ONLY chỉ cho phép mở lệnh trong khung giờ này."
                 )
         elif policy.entry_session_policy == "ALL_SESSIONS_WITH_NY_RESERVE":
-            # If outside NY window and no NY fill yet today
-            if not window["is_in_window"] and quota.total_fills == 0 and policy.reserve_ny_slot:
-                # If already used 2 fills today, the 3rd fill MUST be reserved for NY!
-                if day_audit.fills_count >= 2:
-                    can_enter = False
-                    reason_codes.append("NY_SLOT_RESERVED")
-                    block_reasons.append(
-                        "NY_SLOT_RESERVED: Đã sử dụng 2 slot giao dịch trong ngày. "
-                        "Slot thứ 3 bắt buộc được dự trữ cho mục tiêu 1 lệnh phiên Mỹ."
-                    )
+            from policy_constants import compute_reserved_capacity
+            q_fills = 0
+            try:
+                if quota is not None:
+                    q_fills = int(getattr(quota, "total_fills", 0) or 0)
+            except Exception:
+                q_fills = 0
+            d_fills = 0
+            try:
+                if day_audit is not None:
+                    d_fills = int(getattr(day_audit, "fills_count", 0) or 0)
+            except Exception:
+                d_fills = 0
+
+            cap = compute_reserved_capacity(
+                max_fills=int(getattr(policy, "max_daily_fills", 3) or 3),
+                daily_fills=d_fills,
+                ny_fills=q_fills,
+                target=int(getattr(policy, "ny_min_fills", 1) or 1),
+                reserve_enabled=bool(getattr(policy, "reserve_ny_slot", True)),
+            )
+            if not window["is_in_window"] and cap["available_outside_ny"] == 0 and cap["remaining"] > 0:
+                can_enter = False
+                reason_codes.append("NY_SLOT_RESERVED")
+                block_reasons.append(
+                    f"NY_SLOT_RESERVED: Đã sử dụng {d_fills} slot giao dịch trong ngày. "
+                    f"Slot còn lại bắt buộc được dự trữ cho mục tiêu {getattr(policy, 'ny_min_fills', 1)} lệnh phiên Mỹ."
+                )
 
         # 3b. V14.3: a NY quota fallback entry exists only inside the NY entry window, whatever the
         # session policy (ALL_SESSIONS_WITH_NY_RESERVE would otherwise let it fill at/after window end).
@@ -519,8 +563,12 @@ class TradingPolicyService:
             reason_codes.append(news_gate["reason_code"])
             block_reasons.append(news_gate["message"])
 
-        remaining_daily_slots = max(0, policy.max_daily_fills - day_audit.fills_count)
-        reserved_slots = 1 if (policy.reserve_ny_slot and quota.total_fills == 0 and remaining_daily_slots > 0) else 0
+        remaining_daily_slots = max(0, policy.max_daily_fills - getattr(day_audit, "fills_count", 0))
+        try:
+            quota_fills = getattr(quota, "total_fills", 0) or 0
+        except Exception:
+            quota_fills = 0
+        reserved_slots = 1 if (policy.reserve_ny_slot and quota_fills == 0 and remaining_daily_slots > 0) else 0
 
         # Minutes calculations
         min_to_start = None
