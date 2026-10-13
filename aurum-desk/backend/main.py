@@ -491,7 +491,7 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
     quality_map = setup_quality_repository.get_snapshots_batch(db, [s.id for s in setups])
 
     # Batch load bound orders to wire frozen order financial snapshots
-    from services.order_plan_snapshot_service import select_bound_order_for_setup
+    from services.order_plan_snapshot_service import select_bound_order_for_setup, resolve_order_display_snapshot
 
     setup_ids = [s.id for s in setups]
     bound_orders = (
@@ -520,40 +520,7 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
             pricing_mode = "CURRENT_PREVIEW"
             is_frozen = str(s.state).upper() in ("ARMED", "PAPER_OPEN", "CLOSED") or (bound_order and bound_order.state in ("armed", "paper_open"))
             if bound_order and is_frozen:
-                cost_dict = {}
-                if bound_order.cost_snapshot:
-                    try:
-                        cost_dict = json.loads(bound_order.cost_snapshot) if isinstance(bound_order.cost_snapshot, str) else dict(bound_order.cost_snapshot)
-                    except Exception:
-                        cost_dict = {}
-                frozen_snap = {
-                    "order_id": bound_order.id,
-                    "direction": bound_order.direction,
-                    "gross_rr": bound_order.gross_rr,
-                    "net_rr": bound_order.estimated_net_rr,
-                    "risk_usdt": bound_order.initial_risk_usdt,
-                    "net_risk_usdt": bound_order.initial_risk_usdt,
-                    "quantity": bound_order.quantity,
-                    "leverage": bound_order.leverage,
-                    "margin_mode": bound_order.margin_mode,
-                    "estimated_liquidation": bound_order.estimated_liquidation,
-                    "gross_loss_usdt": cost_dict.get("gross_loss_usdt"),
-                    "gross_reward_usdt": cost_dict.get("gross_reward_usdt"),
-                    "net_reward_usdt": cost_dict.get("net_reward_usdt"),
-                    "multiplier": cost_dict.get("multiplier", 1.0),
-                    "risk_pct": bound_order.risk_pct or cost_dict.get("risk_pct"),
-                    "effective_risk_pct": bound_order.effective_risk_pct or cost_dict.get("effective_risk_pct"),
-                    "entry_fee_usdt": cost_dict.get("entry_fee_usdt"),
-                    "sl_exit_fee_usdt": cost_dict.get("sl_exit_fee_usdt"),
-                    "tp_exit_fee_usdt": cost_dict.get("tp_exit_fee_usdt"),
-                    "entry_slippage_usdt": cost_dict.get("entry_slippage_usdt"),
-                    "sl_exit_slippage_usdt": cost_dict.get("sl_exit_slippage_usdt"),
-                    "tp_exit_slippage_usdt": cost_dict.get("tp_exit_slippage_usdt"),
-                    "cost_source": cost_dict.get("cost_source", "FROZEN_ORDER_SNAPSHOT"),
-                    "equity_as_of_ms": bound_order.opened_at or bound_order.armed_at or bound_order.created_at,
-                    "cost_version": bound_order.policy_config_version or bound_order.config_version,
-                    "risk_config_version": bound_order.config_version,
-                }
+                frozen_snap = resolve_order_display_snapshot(bound_order)
                 pricing_mode = "FROZEN_ORDER"
 
             resolved_plan = build_setup_display_plan(

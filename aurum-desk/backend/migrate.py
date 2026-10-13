@@ -742,6 +742,8 @@ def run_migration(db_path=None, *, backup_dir=None):
             outcome_status VARCHAR(50) DEFAULT 'PENDING',
             outcome_at_ms BIGINT,
             outcome_details TEXT,
+            verification_status VARCHAR(30) DEFAULT 'VERIFIED',
+            invalidation_mode VARCHAR(30) DEFAULT 'CLOSED_PRICE',
             payload_json TEXT NOT NULL,
             created_at BIGINT NOT NULL,
             CONSTRAINT uq_forecast_session_digest UNIQUE (session_id, content_digest)
@@ -750,6 +752,14 @@ def run_migration(db_path=None, *, backup_dir=None):
     cur.execute("CREATE INDEX IF NOT EXISTS ix_forecast_observations_forecast_id ON forecast_observations(forecast_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS ix_forecast_observations_session_id ON forecast_observations(session_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS ix_forecast_observations_as_of_ms ON forecast_observations(as_of_ms);")
+
+    # Column migration for forecast_observations if table existed
+    cur.execute("PRAGMA table_info(forecast_observations);")
+    fc_mig_cols = {row[1] for row in cur.fetchall()}
+    if "verification_status" not in fc_mig_cols:
+        cur.execute("ALTER TABLE forecast_observations ADD COLUMN verification_status VARCHAR(30) DEFAULT 'VERIFIED';")
+    if "invalidation_mode" not in fc_mig_cols:
+        cur.execute("ALTER TABLE forecast_observations ADD COLUMN invalidation_mode VARCHAR(30) DEFAULT 'CLOSED_PRICE';")
 
     # Seed default TradingPolicy if absent
     cur.execute("SELECT id FROM trading_policies WHERE id = 'default';")

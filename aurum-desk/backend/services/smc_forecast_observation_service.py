@@ -129,6 +129,11 @@ def create_forecast_snapshot(
             if f_dict.get("session_range"):
                 cutoff_ms = f_dict["session_range"].get("cutoff_ms") or cutoff_ms
 
+            inval_mode = f_dict.get("invalidation_mode") or "CLOSED_PRICE"
+            verif_status = f_dict.get("verification_status")
+            if not verif_status:
+                verif_status = "VERIFIED" if invalidation_price is not None and f_dict.get("hypothesis_type") != "UNVERIFIED" else "UNVERIFIED"
+
             payload_clean = json.dumps(f_dict, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
             obs = models.ForecastObservation(
@@ -145,6 +150,8 @@ def create_forecast_snapshot(
                 direction=primary.get("direction"),
                 target_price=target_price,
                 invalidation_price=invalidation_price,
+                verification_status=verif_status,
+                invalidation_mode=inval_mode,
                 outcome_status=ForecastOutcomeDefinition.PENDING.value,
                 payload_json=payload_clean,
                 created_at=now_ms if now_ms is not None else as_of,
@@ -278,12 +285,22 @@ def evaluate_forecast_outcome(
                 target_hit = True
 
         if invalidation_price is not None and math.isfinite(invalidation_price):
-            if direction == "LONG" and low <= invalidation_price:
-                inval_hit = True
-            elif direction == "SHORT" and high >= invalidation_price:
-                inval_hit = True
-            elif direction is None and (low <= invalidation_price <= high):
-                inval_hit = True
+            inval_mode = getattr(snapshot, "invalidation_mode", None) or "CLOSED_PRICE"
+            bar_close = o.get("close", o.get("price"))
+            if inval_mode == "CLOSED_PRICE" and bar_close is not None and math.isfinite(bar_close):
+                if direction == "LONG" and bar_close <= invalidation_price:
+                    inval_hit = True
+                elif direction == "SHORT" and bar_close >= invalidation_price:
+                    inval_hit = True
+                elif direction is None and (low <= invalidation_price <= high):
+                    inval_hit = True
+            else:
+                if direction == "LONG" and low <= invalidation_price:
+                    inval_hit = True
+                elif direction == "SHORT" and high >= invalidation_price:
+                    inval_hit = True
+                elif direction is None and (low <= invalidation_price <= high):
+                    inval_hit = True
 
         # Check Ambiguous: both hit on the same candle
         if target_hit and inval_hit:
@@ -506,7 +523,7 @@ def summarize_forecast_observations(
     verified_records = [
         r for r in records
         if getattr(r, "invalidation_price", None) is not None
-        and getattr(r, "verification_status", None) != "V1_UNVERIFIED"
+        and getattr(r, "verification_status", "VERIFIED") not in ("V1_UNVERIFIED", "UNVERIFIED")
     ]
     legacy_records = [r for r in records if r not in verified_records]
     n_legacy_unverified = sum(

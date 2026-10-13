@@ -109,6 +109,21 @@ def build_setup_display_plan(
     take_profit = float(resolution.take_profit)
     level_source = resolution.level_source
 
+    is_frozen_order = str(state).upper() in ("ARMED", "PAPER_OPEN", "CLOSED") or pricing_mode == "FROZEN_ORDER"
+    if is_frozen_order and frozen_snapshot is not None and isinstance(frozen_snapshot, dict):
+        frozen_entry = frozen_snapshot.get("entry")
+        if frozen_entry is None:
+            if str(state).upper() in ("PAPER_OPEN", "CLOSED"):
+                frozen_entry = frozen_snapshot.get("actual_entry")
+            else:
+                frozen_entry = frozen_snapshot.get("planned_entry")
+        if frozen_entry is not None and finite_price(frozen_entry):
+            entry = float(frozen_entry)
+        if frozen_snapshot.get("stop_loss") is not None and finite_price(frozen_snapshot["stop_loss"]):
+            stop_loss = float(frozen_snapshot["stop_loss"])
+        if frozen_snapshot.get("take_profit") is not None and finite_price(frozen_snapshot["take_profit"]):
+            take_profit = float(frozen_snapshot["take_profit"])
+
     # Read stored financial figures safely (handling None without TypeError)
     gross_rr = _get("gross_rr")
     net_rr = _get("net_rr")
@@ -408,6 +423,8 @@ def build_setup_display_plan(
         "direction": direction,
         "level_source": level_source,
         "entry": entry,
+        "planned_entry": float(frozen_snapshot.get("planned_entry")) if (is_frozen_order and frozen_snapshot and frozen_snapshot.get("planned_entry") is not None) else entry,
+        "actual_entry": float(frozen_snapshot.get("actual_entry")) if (is_frozen_order and frozen_snapshot and frozen_snapshot.get("actual_entry") is not None) else None,
         "stop_loss": stop_loss,
         "take_profit": take_profit,
         "as_of_ms": updated_at,

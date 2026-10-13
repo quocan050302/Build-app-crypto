@@ -3,14 +3,14 @@
   "failures": [],
   "cycles": 600,
   "confirmed_cycles": 600,
-  "total_s": 9.101,
-  "throughput_cycles_per_s": 65.9,
+  "total_s": 7.721,
+  "throughput_cycles_per_s": 77.7,
   "latency_ms": {
-    "p50": 14.534,
-    "p95": 19.004,
-    "max": 25.177
+    "p50": 12.46,
+    "p95": 15.197,
+    "max": 21.95
   },
-  "traced_memory_growth_mb": 0.105,
+  "traced_memory_growth_mb": 0.083,
   "progression_sample": [
     {
       "bars_back": 0,

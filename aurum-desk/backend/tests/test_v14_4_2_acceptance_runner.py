@@ -54,19 +54,20 @@ def test_a03_skipped_required_fails():
     assert cov["E08"]["not_passed"]["E08"] == "SKIPPED"
 
 
-def test_a04_stale_report_fails(tmp_path):
+def test_a04_stale_report_fails():
     """A04: parse_playwright_json rejects stale reports older than run_start_time."""
-    report_file = tmp_path / "playwright_report.json"
-    report_file.write_text('{"suites": []}', encoding="utf-8")
-    
-    # Set file modification time to 100 seconds in the past
-    stale_time = time.time() - 100
-    os.utime(report_file, (stale_time, stale_time))
-    
-    run_start = time.time()
-    res = runner.parse_playwright_json(str(report_file), run_start)
-    # Stale report should return empty dict (rejected)
-    assert res == {}
+    with tempfile.TemporaryDirectory() as td:
+        report_file = Path(td) / "playwright_report.json"
+        report_file.write_text('{"suites": []}', encoding="utf-8")
+
+        # Set file modification time to 100 seconds in the past
+        stale_time = time.time() - 100
+        os.utime(str(report_file), (stale_time, stale_time))
+
+        run_start = time.time()
+        res = runner.parse_playwright_json(str(report_file), run_start)
+        # Stale report should return empty dict (rejected)
+        assert res == {}
 
 
 def test_a05_timeout_or_unknown_failure():

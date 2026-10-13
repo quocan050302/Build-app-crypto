@@ -148,6 +148,12 @@ REQUIRED_CASES = {
     "STLEASE01": {"suite": "backend", "file": "backend/tests/test_realtime_closure.py", "desc": "execution consumer stop returns stop result"},
     "STQUEUE01": {"suite": "backend", "file": "backend/tests/test_realtime_closure.py", "desc": "execution consumer timeout sets execution gap"},
     "STCANDLE01": {"suite": "backend", "file": "backend/tests/test_realtime_closure.py", "desc": "candle worker stop returns stop result"},
+    # New Repros & Invariants (PHẦN 217 - 228)
+    "TIMELINE01": {"suite": "backend", "file": "backend/tests/test_late_source_chronology.py", "desc": "earlier TP wins over later SL arriving first"},
+    "GEOMSRC01": {"suite": "backend", "file": "backend/tests/test_order_geometry_parity.py", "desc": "open order uses actual entry across upcoming and chart views"},
+    "BINDNULL01": {"suite": "backend", "file": "backend/tests/test_order_binding_integrity.py", "desc": "new instance does not bind order with missing instance"},
+    "INVCLOSED01": {"suite": "backend", "file": "backend/tests/test_forecast_causal_closure.py", "desc": "closed price vs wick invalidation"},
+    "COHORT01": {"suite": "backend", "file": "backend/tests/test_forecast_causal_closure.py", "desc": "numeric nonnull without proof excluded from verified cohort"},
 }
 
 BASELINE_FAILURES = {
@@ -202,8 +208,8 @@ def parse_junit_xml(xml_path: str) -> dict[str, str]:
             key = f"{classname}::{name}" if classname else name
             results[key] = status
             results[name] = status
-            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, etc.
-            for m in re.finditer(r"(?i)(?:^|[\W_])(REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
+            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, TIMELINE01, etc.
+            for m in re.finditer(r"(?i)(?:^|[\W_])(TIMELINE\d{2}|GEOMSRC\d{2}|BINDNULL\d{2}|INVCLOSED\d{2}|COHORT\d{2}|REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
                 results[m.group(1).upper()] = status
     except Exception as e:
         print(f"Error parsing JUnit XML {xml_path}: {e}", file=sys.stderr)
@@ -253,6 +259,15 @@ def parse_playwright_json(report_path: str, run_start_time: float) -> dict[str, 
 def is_port_in_use(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(("127.0.0.1", port)) == 0
+
+
+def find_available_port(preferred: int) -> int:
+    port = preferred
+    while port < 65535:
+        if not is_port_in_use(port):
+            return port
+        port += 1
+    return preferred
 
 
 def run_step(name: str, argv: list[str], cwd: str, env_extra: dict | None = None, timeout: int = 3600) -> dict:
@@ -381,6 +396,9 @@ def main(argv=None) -> int:
         "tests/test_entry_intent_closure.py",
         "tests/test_order_snapshot_closure.py",
         "tests/test_realtime_closure.py",
+        "tests/test_late_source_chronology.py",
+        "tests/test_order_geometry_parity.py",
+        "tests/test_order_binding_integrity.py",
     ]
     s = run_step(
         "backend_targeted",
@@ -414,8 +432,18 @@ def main(argv=None) -> int:
     if args.skip_e2e:
         results["browser_e2e"] = {"status": "INCOMPLETE", "reason": "--skip-e2e specified; acceptance requires full browser run"}
     else:
-        api_port = os.environ.get("AURUM_E2E_API_PORT", "8765")
-        web_port = os.environ.get("AURUM_E2E_WEB_PORT", "5199")
+        raw_api_port = os.environ.get("AURUM_E2E_API_PORT")
+        if raw_api_port:
+            api_port = raw_api_port if not is_port_in_use(int(raw_api_port)) else str(find_available_port(int(raw_api_port) + 1))
+        else:
+            api_port = str(find_available_port(8765))
+
+        raw_web_port = os.environ.get("AURUM_E2E_WEB_PORT")
+        if raw_web_port:
+            web_port = raw_web_port if not is_port_in_use(int(raw_web_port)) else str(find_available_port(int(raw_web_port) + 1))
+        else:
+            web_port = str(find_available_port(5199))
+
         report_path = os.path.join(LOG_DIR, "playwright_report.json")
         if os.path.exists(report_path):
             os.remove(report_path)
@@ -427,9 +455,7 @@ def main(argv=None) -> int:
             "AURUM_E2E_REPORT": report_path,
         }
 
-        # Safe port verification: check if isolated port is occupied
-        if is_port_in_use(int(api_port)):
-            print(f"[acceptance] Port {api_port} is currently bound. Playwright test server will attach or use isolated instance.", flush=True)
+        print(f"[acceptance] Using E2E ports: API={api_port}, Web={web_port}", flush=True)
 
         e2e_files = [
             "tests/e2e/v14_4_2_chart_closure.e2e.ts",

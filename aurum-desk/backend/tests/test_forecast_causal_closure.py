@@ -417,3 +417,93 @@ def test_obs01_cycle_persist_and_observer_updates_outcome(isolated_db):
     updated_snap = isolated_db.query(models.ForecastObservation).filter_by(id=snap.id).first()
     assert updated_snap.outcome_status == ForecastOutcomeDefinition.WATCHED_LIQUIDITY_TOUCH.value
 
+
+def test_invclosed01_closed_price_vs_wick_invalidation():
+    """INVCLOSED01 (PHẦN 093, 210):
+    LONG forecast with invalidation_price=4170.0 and rule CLOSED_PRICE.
+    Bar has low=4169.0, high=4185.0, close=4180.0.
+    1. In CLOSED_PRICE mode (default for SMC structure invalidation):
+       close=4180.0 > 4170.0 -> NOT invalidated! Outcome remains PENDING.
+    2. In explicit WICK mode:
+       low=4169.0 <= 4170.0 -> invalidated! Outcome becomes INVALIDATED_BEFORE_TARGET.
+    """
+    snap_closed = MagicMock(
+        as_of_ms=1000,
+        context_cutoff_ms=800,
+        target_price=4200.0,
+        invalidation_price=4170.0,
+        invalidation_mode="CLOSED_PRICE",
+        direction="LONG"
+    )
+    obs = [
+        {
+            "source_timestamp": 1100,
+            "known_at_ms": 1200,
+            "high": 4185.0,
+            "low": 4169.0,
+            "close": 4180.0,
+            "price": 4180.0,
+        }
+    ]
+    res_closed = evaluate_forecast_outcome(snap_closed, obs, as_of_ms=1500, expiry_ms=5000)
+    assert res_closed["outcome"] == ForecastOutcomeDefinition.PENDING.value, (
+        f"In CLOSED_PRICE mode, low=4169 with close=4180 must NOT trigger invalidation at 4170, got {res_closed['outcome']}"
+    )
+
+    # In WICK mode
+    snap_wick = MagicMock(
+        as_of_ms=1000,
+        context_cutoff_ms=800,
+        target_price=4200.0,
+        invalidation_price=4170.0,
+        invalidation_mode="WICK",
+        direction="LONG"
+    )
+    res_wick = evaluate_forecast_outcome(snap_wick, obs, as_of_ms=1500, expiry_ms=5000)
+    assert res_wick["outcome"] == ForecastOutcomeDefinition.INVALIDATED_BEFORE_TARGET.value, (
+        f"In WICK mode, low=4169 must trigger invalidation at 4170, got {res_wick['outcome']}"
+    )
+
+
+def test_cohort01_numeric_nonnull_without_proof_excluded(isolated_db):
+    """COHORT01 (PHẦN 112):
+    A record with numeric invalidation_price but verification_status='UNVERIFIED'
+    (or missing proof / confirmation evidence) must be excluded from the verified cohort.
+    It must count towards n_legacy_unverified and NOT inflate n_resolved_valid.
+    """
+    import models
+    from services.smc_forecast_observation_service import (
+        ForecastOutcomeDefinition,
+        summarize_forecast_observations,
+    )
+
+    r_unverified = models.ForecastObservation(
+        id="fc-unverified-numeric",
+        forecast_id="s_unver",
+        revision=1,
+        symbol="XAUUSDT",
+        session="ASIA",
+        session_id="ASIA:unver1",
+        as_of_ms=100,
+        context_cutoff_ms=100,
+        content_digest="d_unver1",
+        hypothesis_type="H1",
+        target_price=4200.0,
+        invalidation_price=4170.0,  # numeric present!
+        verification_status="UNVERIFIED",  # but unverified proof/coverage!
+        outcome_status=ForecastOutcomeDefinition.CONFIRMED_TARGET_BEFORE_INVALIDATION.value,
+        payload_json="{}",
+        created_at=100,
+    )
+    isolated_db.add(r_unverified)
+    isolated_db.commit()
+
+    summary = summarize_forecast_observations(isolated_db)
+    assert summary["n_forecasts"] == 1
+    assert summary["n_legacy_unverified"] == 1, (
+        f"Expected n_legacy_unverified=1 for UNVERIFIED record, got {summary['n_legacy_unverified']}"
+    )
+    assert summary["n_confirmed_target"] == 0
+    assert summary["n_resolved_valid"] == 0
+    assert summary["target_touch_fraction"] is None
+

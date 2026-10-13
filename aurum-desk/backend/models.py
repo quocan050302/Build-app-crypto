@@ -699,6 +699,8 @@ class ForecastObservation(Base):
     outcome_status = Column(String(50), default="PENDING")
     outcome_at_ms = Column(BigInteger, nullable=True)
     outcome_details = Column(Text, nullable=True)
+    verification_status = Column(String(30), default="VERIFIED", nullable=True)
+    invalidation_mode = Column(String(30), default="CLOSED_PRICE", nullable=True)
     payload_json = Column(Text, nullable=False)
     created_at = Column(BigInteger, nullable=False)
 

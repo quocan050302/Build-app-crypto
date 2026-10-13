@@ -29,12 +29,15 @@ class MarketReconciliationService:
         self._running = False
 
     def process_late_batch(self, db: Session, symbol: str = "XAUUSDT") -> int:
-        """Processes one batch of late evidence for the symbol."""
-        batch = quote_ordering_service.claim_late_evidence_batch(symbol, limit=20)
+        """Processes one batch of late evidence for the symbol in chronological source order."""
+        batch = quote_ordering_service.claim_late_evidence_batch(symbol, limit=50)
         if not batch:
             return 0
 
-        processed_ids = []
+        # Sort batch by source_timestamp ascending to enforce market chronology (PHẦN 061, 217, 218)
+        sorted_batch = sorted(batch, key=lambda r: r.get("source_timestamp") or 0)
+
+        processed_ids = [r["evidence_id"] for r in batch if r.get("evidence_id")]
         open_orders = (
             db.query(models.PaperOrder)
             .filter(
@@ -44,11 +47,10 @@ class MarketReconciliationService:
             .all()
         )
 
-        for record in batch:
-            ev_id = record.get("evidence_id")
-            if ev_id:
-                processed_ids.append(ev_id)
+        closed_order_ids = set()
 
+        for record in sorted_batch:
+            ev_id = record.get("evidence_id")
             src_ts = record.get("source_timestamp") or 0
             bid = record.get("bid")
             ask = record.get("ask")
@@ -58,6 +60,10 @@ class MarketReconciliationService:
                 continue
 
             for order in open_orders:
+                if order.id in closed_order_ids or order.state == "closed":
+                    closed_order_ids.add(order.id)
+                    continue
+
                 if order.opened_at and src_ts < order.opened_at:
                     # Ignore quotes before order was opened
                     continue
@@ -73,11 +79,17 @@ class MarketReconciliationService:
                     # Exit trigger: Bid <= SL or Bid >= TP
                     price_to_check = bid if bid is not None else last
                     if price_to_check is not None:
-                        if order.stop_loss and price_to_check <= order.stop_loss:
+                        sl_hit = order.stop_loss and price_to_check <= order.stop_loss
+                        tp_hit = order.take_profit and price_to_check >= order.take_profit
+                        if sl_hit and tp_hit:
+                            exit_found = True
+                            exit_price = order.stop_loss
+                            exit_cause = "AMBIGUOUS_BAR_SL_FIRST"
+                        elif sl_hit:
                             exit_found = True
                             exit_price = order.stop_loss
                             exit_cause = "SL_HIT"
-                        elif order.take_profit and price_to_check >= order.take_profit:
+                        elif tp_hit:
                             exit_found = True
                             exit_price = order.take_profit
                             exit_cause = "TP_HIT"
@@ -85,11 +97,17 @@ class MarketReconciliationService:
                     # Exit trigger: Ask >= SL or Ask <= TP
                     price_to_check = ask if ask is not None else last
                     if price_to_check is not None:
-                        if order.stop_loss and price_to_check >= order.stop_loss:
+                        sl_hit = order.stop_loss and price_to_check >= order.stop_loss
+                        tp_hit = order.take_profit and price_to_check <= order.take_profit
+                        if sl_hit and tp_hit:
+                            exit_found = True
+                            exit_price = order.stop_loss
+                            exit_cause = "AMBIGUOUS_BAR_SL_FIRST"
+                        elif sl_hit:
                             exit_found = True
                             exit_price = order.stop_loss
                             exit_cause = "SL_HIT"
-                        elif order.take_profit and price_to_check <= order.take_profit:
+                        elif tp_hit:
                             exit_found = True
                             exit_price = order.take_profit
                             exit_cause = "TP_HIT"
@@ -112,6 +130,7 @@ class MarketReconciliationService:
                             "evidence_id": ev_id,
                         }
                     )
+                    closed_order_ids.add(order.id)
 
         if processed_ids:
             quote_ordering_service.acknowledge_late_evidence(symbol, evidence_ids=processed_ids)
@@ -119,16 +138,22 @@ class MarketReconciliationService:
         return len(processed_ids)
 
     async def run_late_reconciliation_loop(self, poll_interval_s: float = 2.0):
-        """Continuous background reconciliation loop."""
+        """Continuous background reconciliation loop.
+        Dispatches synchronous DB batch processing to a worker thread via asyncio.to_thread
+        to keep the asyncio event loop completely non-blocking (PHẦN 221).
+        """
         self._running = True
         logger.info("MarketReconciliationService background loop started.")
         while self._running:
             try:
-                db = SessionLocal()
-                try:
-                    self.process_late_batch(db, symbol="XAUUSDT")
-                finally:
-                    db.close()
+                def _worker():
+                    db = SessionLocal()
+                    try:
+                        return self.process_late_batch(db, symbol="XAUUSDT")
+                    finally:
+                        db.close()
+
+                await asyncio.to_thread(_worker)
             except Exception as e:
                 logger.error(f"Error in late reconciliation loop: {e}", exc_info=True)
             await asyncio.sleep(poll_interval_s)

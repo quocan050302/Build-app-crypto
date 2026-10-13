@@ -340,6 +340,8 @@ def run_schema_migrations(target_engine=None):
                     outcome_status VARCHAR(50) DEFAULT 'PENDING',
                     outcome_at_ms BIGINT,
                     outcome_details TEXT,
+                    verification_status VARCHAR(30) DEFAULT 'VERIFIED',
+                    invalidation_mode VARCHAR(30) DEFAULT 'CLOSED_PRICE',
                     payload_json TEXT NOT NULL,
                     created_at BIGINT NOT NULL
                 );
@@ -348,6 +350,16 @@ def run_schema_migrations(target_engine=None):
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_forecast_observations_forecast_id ON forecast_observations (forecast_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_forecast_observations_session_id ON forecast_observations (session_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_forecast_observations_as_of_ms ON forecast_observations (as_of_ms);"))
+
+            # Column migration for forecast_observations
+            res_fc = conn.execute(text("PRAGMA table_info(forecast_observations)"))
+            fc_cols = {row[1] for row in res_fc.fetchall()}
+            if fc_cols:
+                if "verification_status" not in fc_cols:
+                    conn.execute(text("ALTER TABLE forecast_observations ADD COLUMN verification_status VARCHAR(30) DEFAULT 'VERIFIED';"))
+                if "invalidation_mode" not in fc_cols:
+                    conn.execute(text("ALTER TABLE forecast_observations ADD COLUMN invalidation_mode VARCHAR(30) DEFAULT 'CLOSED_PRICE';"))
+
             conn.commit()
     except Exception:
         pass

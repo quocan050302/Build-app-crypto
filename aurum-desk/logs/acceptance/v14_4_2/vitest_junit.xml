@@ -1,507 +1,507 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<testsuites name="vitest tests" tests="226" failures="0" errors="0" time="0.3911494">
-    <testsuite name="src/extract_error.test.ts" timestamp="2026-10-13T01:35:37.601Z" hostname="Lil-Poppa" tests="7" failures="0" errors="0" skipped="0" time="0.0052067">
-        <testcase classname="src/extract_error.test.ts" name="extractErrorMessage &gt; handles null/undefined gracefully" time="0.0019455">
+<testsuites name="vitest tests" tests="226" failures="0" errors="0" time="0.3420897">
+    <testsuite name="src/extract_error.test.ts" timestamp="2026-10-13T03:42:02.171Z" hostname="Lil-Poppa" tests="7" failures="0" errors="0" skipped="0" time="0.0038389">
+        <testcase classname="src/extract_error.test.ts" name="extractErrorMessage &gt; handles null/undefined gracefully" time="0.0014733">
         </testcase>
-        <testcase classname="src/extract_error.test.ts" name="extractErrorMessage &gt; handles string input directly" time="0.0002216">
+        <testcase classname="src/extract_error.test.ts" name="extractErrorMessage &gt; handles string input directly" time="0.0001932">
         </testcase>
-        <testcase classname="src/extract_error.test.ts" name="extractErrorMessage &gt; extracts detail object with message property" time="0.0001416">
+        <testcase classname="src/extract_error.test.ts" name="extractErrorMessage &gt; extracts detail object with message property" time="0.0001355">
         </testcase>
-        <testcase classname="src/extract_error.test.ts" name="extractErrorMessage &gt; extracts detail object with reason or error property" time="0.0002526">
+        <testcase classname="src/extract_error.test.ts" name="extractErrorMessage &gt; extracts detail object with reason or error property" time="0.0002428">
         </testcase>
-        <testcase classname="src/extract_error.test.ts" name="extractErrorMessage &gt; extracts FastAPI validation error array" time="0.0001448">
+        <testcase classname="src/extract_error.test.ts" name="extractErrorMessage &gt; extracts FastAPI validation error array" time="0.0001449">
         </testcase>
-        <testcase classname="src/extract_error.test.ts" name="extractErrorMessage &gt; extracts standard Error message" time="0.0001824">
+        <testcase classname="src/extract_error.test.ts" name="extractErrorMessage &gt; extracts standard Error message" time="0.0001583">
         </testcase>
-        <testcase classname="src/extract_error.test.ts" name="extractErrorMessage &gt; never outputs [object Object]" time="0.000312">
-        </testcase>
-    </testsuite>
-    <testsuite name="src/selection_logic.test.ts" timestamp="2026-10-13T01:35:37.613Z" hostname="Lil-Poppa" tests="5" failures="0" errors="0" skipped="0" time="0.0064079">
-        <testcase classname="src/selection_logic.test.ts" name="V5 Setup Selection &amp; Trade Intent Invariants &gt; preserves user-selected SHORT setup when background analysis updates with LONG" time="0.0027046">
-        </testcase>
-        <testcase classname="src/selection_logic.test.ts" name="V5 Setup Selection &amp; Trade Intent Invariants &gt; constructs arm request payload with expected_direction and revision" time="0.0004585">
-        </testcase>
-        <testcase classname="src/selection_logic.test.ts" name="V5 Setup Selection &amp; Trade Intent Invariants &gt; prevents paper execution if Take Profit is missing or equal to Stop Loss" time="0.0002708">
-        </testcase>
-        <testcase classname="src/selection_logic.test.ts" name="V5 Setup Selection &amp; Trade Intent Invariants &gt; V6.1: Strict identity - arming card A never adopts dragged levels from selected intent B" time="0.0006301">
-        </testcase>
-        <testcase classname="src/selection_logic.test.ts" name="V5 Setup Selection &amp; Trade Intent Invariants &gt; V6.1: Cross margin and Active Position block arming" time="0.0004218">
+        <testcase classname="src/extract_error.test.ts" name="extractErrorMessage &gt; never outputs [object Object]" time="0.000296">
         </testcase>
     </testsuite>
-    <testsuite name="src/v10_2_acceptance.test.ts" timestamp="2026-10-13T01:35:37.614Z" hostname="Lil-Poppa" tests="16" failures="0" errors="0" skipped="0" time="0.0133188">
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area A: Lesson Contract &amp; Normalizer (L09, L10) &gt; L09: Normalizes legacy string lesson item cleanly without #undefined" time="0.0034136">
+    <testsuite name="src/selection_logic.test.ts" timestamp="2026-10-13T03:42:02.183Z" hostname="Lil-Poppa" tests="5" failures="0" errors="0" skipped="0" time="0.0061111">
+        <testcase classname="src/selection_logic.test.ts" name="V5 Setup Selection &amp; Trade Intent Invariants &gt; preserves user-selected SHORT setup when background analysis updates with LONG" time="0.0025935">
         </testcase>
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area A: Lesson Contract &amp; Normalizer (L09, L10) &gt; L10: Handles null, undefined, and empty objects safely without #undefined" time="0.0006239">
+        <testcase classname="src/selection_logic.test.ts" name="V5 Setup Selection &amp; Trade Intent Invariants &gt; constructs arm request payload with expected_direction and revision" time="0.000432">
         </testcase>
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area B: Geometry Validation (G01 - G05) &gt; G01: Accepts valid LONG geometry (SL &lt; Entry &lt; TP)" time="0.0003704">
+        <testcase classname="src/selection_logic.test.ts" name="V5 Setup Selection &amp; Trade Intent Invariants &gt; prevents paper execution if Take Profit is missing or equal to Stop Loss" time="0.000255">
         </testcase>
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area B: Geometry Validation (G01 - G05) &gt; G02: Accepts valid SHORT geometry (TP &lt; Entry &lt; SL) [Fixture F1]" time="0.0004824">
+        <testcase classname="src/selection_logic.test.ts" name="V5 Setup Selection &amp; Trade Intent Invariants &gt; V6.1: Strict identity - arming card A never adopts dragged levels from selected intent B" time="0.0005869">
         </testcase>
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area B: Geometry Validation (G01 - G05) &gt; G03: Rejects SHORT when SL &lt; Entry with explicit Vietnamese error message [Fixture F2]" time="0.0004711">
-        </testcase>
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area B: Geometry Validation (G01 - G05) &gt; G04: Rejects SHORT when TP &gt; Entry with explicit Vietnamese error message" time="0.0002612">
-        </testcase>
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area B: Geometry Validation (G01 - G05) &gt; G05: calculateClientRiskReward returns isValid: false, grossRR: 0 for invalid geometry" time="0.0011471">
-        </testcase>
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area C: Canonical Quote Store &amp; Monotonic Sync (R01 - R08) [Fixture F5] &gt; R01: Initializes with empty quote state" time="0.0012908">
-        </testcase>
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area C: Canonical Quote Store &amp; Monotonic Sync (R01 - R08) [Fixture F5] &gt; R02: Updates quote monotonically with newer timestamp" time="0.0009049">
-        </testcase>
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area C: Canonical Quote Store &amp; Monotonic Sync (R01 - R08) [Fixture F5] &gt; R03: Rejects or ignores quote update with older timestamp" time="0.0003255">
-        </testcase>
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area C: Canonical Quote Store &amp; Monotonic Sync (R01 - R08) [Fixture F5] &gt; R04: Updates from candle close without regressing fresh real-time quote" time="0.0003345">
-        </testcase>
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area C: Canonical Quote Store &amp; Monotonic Sync (R01 - R08) [Fixture F5] &gt; R05: Computes accurate distance |last - plannedEntry| in USDT [Fixture F5]" time="0.0002936">
-        </testcase>
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area C: Canonical Quote Store &amp; Monotonic Sync (R01 - R08) [Fixture F5] &gt; R07: Returns &quot;-- / chưa có dữ liệu&quot; when quote is unavailable" time="0.0001874">
-        </testcase>
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area C: Canonical Quote Store &amp; Monotonic Sync (R01 - R08) [Fixture F5] &gt; R08: Returns accurate distance for SHORT setup" time="0.0002179">
-        </testcase>
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area D &amp; E: Copy to Draft &amp; Single ID Consistency (E05, E06) &gt; E05: Generates a single matching draft ID for overlay and intent" time="0.0001235">
-        </testcase>
-        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area D &amp; E: Copy to Draft &amp; Single ID Consistency (E05, E06) &gt; E06: Copying setup with invalid levels produces invalid draft with grossRR: 0" time="0.0001708">
+        <testcase classname="src/selection_logic.test.ts" name="V5 Setup Selection &amp; Trade Intent Invariants &gt; V6.1: Cross margin and Active Position block arming" time="0.0004357">
         </testcase>
     </testsuite>
-    <testsuite name="src/v10_3_ui_and_notifications.test.ts" timestamp="2026-10-13T01:35:37.616Z" hostname="Lil-Poppa" tests="23" failures="0" errors="0" skipped="0" time="0.0415271">
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T01: setup.updated returns null so it never generates UNKNOWN or error toast" time="0.0025797">
+    <testsuite name="src/v10_2_acceptance.test.ts" timestamp="2026-10-13T03:42:02.184Z" hostname="Lil-Poppa" tests="16" failures="0" errors="0" skipped="0" time="0.0122182">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area A: Lesson Contract &amp; Normalizer (L09, L10) &gt; L09: Normalizes legacy string lesson item cleanly without #undefined" time="0.0033197">
         </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T02: 100 updated events do not create 100 toast messages" time="0.000535">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area A: Lesson Contract &amp; Normalizer (L09, L10) &gt; L10: Handles null, undefined, and empty objects safely without #undefined" time="0.0006013">
         </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T03: setup.ready generates 1 notification with deterministic dedupe key" time="0.000873">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area B: Geometry Validation (G01 - G05) &gt; G01: Accepts valid LONG geometry (SL &lt; Entry &lt; TP)" time="0.0003838">
         </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T04: Two distinct trade.opened events have distinct keys; replay same event generates identical key" time="0.0232204">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area B: Geometry Validation (G01 - G05) &gt; G02: Accepts valid SHORT geometry (TP &lt; Entry &lt; SL) [Fixture F1]" time="0.000354">
         </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T05: Malformed or unknown domain event returns null instead of falling back to UNKNOWN error" time="0.0003827">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area B: Geometry Validation (G01 - G05) &gt; G03: Rejects SHORT when SL &lt; Entry with explicit Vietnamese error message [Fixture F2]" time="0.0002329">
         </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T06: Real backend failures (ARMED_ORDER_EXISTS, RISK_BUDGET_EXCEEDED) normalize with correct catalog template" time="0.0016657">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area B: Geometry Validation (G01 - G05) &gt; G04: Rejects SHORT when TP &gt; Entry with explicit Vietnamese error message" time="0.0001964">
         </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T07: Repeated background errors generate incident dedupe key with operation and code" time="0.0005495">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area B: Geometry Validation (G01 - G05) &gt; G05: calculateClientRiskReward returns isValid: false, grossRR: 0 for invalid geometry" time="0.0009721">
         </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T08: Mutation timeout sets certainty to unknown/estimated with RECONCILE_STATUS action" time="0.0003393">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area C: Canonical Quote Store &amp; Monotonic Sync (R01 - R08) [Fixture F5] &gt; R01: Initializes with empty quote state" time="0.0007387">
         </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T09: getCatalogTemplate returns calibrated templates for GENERIC_INFO, SUCCESS, WARNING without UNKNOWN loan" time="0.00081">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area C: Canonical Quote Store &amp; Monotonic Sync (R01 - R08) [Fixture F5] &gt; R02: Updates quote monotonically with newer timestamp" time="0.0009085">
         </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T10: generateCompositeEventId generates deterministic composite IDs for domain events" time="0.0004495">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area C: Canonical Quote Store &amp; Monotonic Sync (R01 - R08) [Fixture F5] &gt; R03: Rejects or ignores quote update with older timestamp" time="0.0003526">
         </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U01: App root and sidebar CSS classes guarantee zero document vertical scroll" time="0.0003234">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area C: Canonical Quote Store &amp; Monotonic Sync (R01 - R08) [Fixture F5] &gt; R04: Updates from candle close without regressing fresh real-time quote" time="0.0003942">
         </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U02: NYSessionPanel compact collapsed mode displays exact required summary format" time="0.0002371">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area C: Canonical Quote Store &amp; Monotonic Sync (R01 - R08) [Fixture F5] &gt; R05: Computes accurate distance |last - plannedEntry| in USDT [Fixture F5]" time="0.0003663">
         </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U03: Inner tab containers use flex-1 min-h-0 overflow-y-auto instead of hardcoded max-height" time="0.0001644">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area C: Canonical Quote Store &amp; Monotonic Sync (R01 - R08) [Fixture F5] &gt; R07: Returns &quot;-- / chưa có dữ liệu&quot; when quote is unavailable" time="0.0001758">
         </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U04: Normalizes list of 20 lessons with distinct severities and badges for drawer display" time="0.0010427">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area C: Canonical Quote Store &amp; Monotonic Sync (R01 - R08) [Fixture F5] &gt; R08: Returns accurate distance for SHORT setup" time="0.0002326">
         </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U05: Geometry validator generates clear Vietnamese explanation for invalid price levels" time="0.0003797">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area D &amp; E: Copy to Draft &amp; Single ID Consistency (E05, E06) &gt; E05: Generates a single matching draft ID for overlay and intent" time="0.0001271">
         </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U06: Preserves immutable snapshot of setup intent during drawer state changes" time="0.0015419">
-        </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U07: ESC key listener callback triggers drawer close" time="0.0001822">
-        </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U08: Resize coalescing with requestAnimationFrame prevents redundant layout recalcs" time="0.0001243">
-        </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U09: Calculates client risk reward with fees and slippage preserved" time="0.0013708">
-        </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U10: Sidebar status helper translates all execution lifecycle states to clear Vietnamese" time="0.0002271">
-        </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U11: Switching between tabs preserves selected setup intent and overlay state" time="0.0001817">
-        </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area P: Performance &amp; Stability (P01 - P02) &gt; P01: Ingesting high rate of canonical quotes updates store deterministically without memory leak" time="0.0009974">
-        </testcase>
-        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area P: Performance &amp; Stability (P01 - P02) &gt; P02: Subscribing and unsubscribing 50 times leaves exactly 0 listeners" time="0.0003989">
+        <testcase classname="src/v10_2_acceptance.test.ts" name="V10.2 Frontend Acceptance Tests &gt; Area D &amp; E: Copy to Draft &amp; Single ID Consistency (E05, E06) &gt; E06: Copying setup with invalid levels produces invalid draft with grossRR: 0" time="0.0001714">
         </testcase>
     </testsuite>
-    <testsuite name="src/v10_4_cost_and_rr.test.ts" timestamp="2026-10-13T01:35:37.622Z" hostname="Lil-Poppa" tests="12" failures="0" errors="0" skipped="0" time="0.0101818">
-        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C01: matches authoritative calculations for LONG setup" time="0.0025628">
+    <testsuite name="src/v10_3_ui_and_notifications.test.ts" timestamp="2026-10-13T03:42:02.186Z" hostname="Lil-Poppa" tests="23" failures="0" errors="0" skipped="0" time="0.0368317">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T01: setup.updated returns null so it never generates UNKNOWN or error toast" time="0.0024367">
         </testcase>
-        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C03: SHORT geometry has Gross RR &gt; 0 and correct distance signs" time="0.0008614">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T02: 100 updated events do not create 100 toast messages" time="0.0004929">
         </testcase>
-        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C04: taker fee rate is double maker fee rate for TP" time="0.0004283">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T03: setup.ready generates 1 notification with deterministic dedupe key" time="0.000903">
         </testcase>
-        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C06: Multiplier scales notionals, gross loss, and gross reward proportionally" time="0.0005376">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T04: Two distinct trade.opened events have distinct keys; replay same event generates identical key" time="0.0203979">
         </testcase>
-        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C08: Invalid quantity override (&lt;=0, inf, nan) returns isValid=false" time="0.0005264">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T05: Malformed or unknown domain event returns null instead of falling back to UNKNOWN error" time="0.000265">
         </testcase>
-        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C09: Unknown direction is rejected with UNKNOWN_DIRECTION" time="0.0002217">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T06: Real backend failures (ARMED_ORDER_EXISTS, RISK_BUDGET_EXCEEDED) normalize with correct catalog template" time="0.0012914">
         </testcase>
-        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C10: Non-positive net reward blocks execution without claiming false profit" time="0.0004336">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T07: Repeated background errors generate incident dedupe key with operation and code" time="0.0003922">
         </testcase>
-        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C11: Net RR is checked against minNetRR without premature rounding" time="0.000466">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T08: Mutation timeout sets certainty to unknown/estimated with RECONCILE_STATUS action" time="0.0002243">
         </testcase>
-        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C12: Gross loss and reward are invariant under leverage changes" time="0.0009891">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T09: getCatalogTemplate returns calibrated templates for GENERIC_INFO, SUCCESS, WARNING without UNKNOWN loan" time="0.0006732">
         </testcase>
-        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; I01: BITGET_XAUUSDT_TIERS has 10 tiers and all deduction is 0.0" time="0.0007358">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area T: Notification Routing &amp; Deduplication (T01 - T10) &gt; T10: generateCompositeEventId generates deterministic composite IDs for domain events" time="0.0003331">
         </testcase>
-        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; I02: calculateIsolatedLiquidation calculates LP below entry for LONG and above entry for SHORT" time="0.000329">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U01: App root and sidebar CSS classes guarantee zero document vertical scroll" time="0.0002845">
         </testcase>
-        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; S04: Horizontal width resize modifies projected bars only without altering price levels, quantity, or RR" time="0.0002418">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U02: NYSessionPanel compact collapsed mode displays exact required summary format" time="0.0002292">
         </testcase>
-    </testsuite>
-    <testsuite name="src/v12_4_lab_job.test.ts" timestamp="2026-10-13T01:35:37.623Z" hostname="Lil-Poppa" tests="5" failures="0" errors="0" skipped="0" time="0.0081032">
-        <testcase classname="src/v12_4_lab_job.test.ts" name="V12.4 Frontend Job Flow &amp; Persistence Invariants (V124-07) &gt; T01: persists and retrieves active job ID without leakage" time="0.0031667">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U03: Inner tab containers use flex-1 min-h-0 overflow-y-auto instead of hardcoded max-height" time="0.0001512">
         </testcase>
-        <testcase classname="src/v12_4_lab_job.test.ts" name="V12.4 Frontend Job Flow &amp; Persistence Invariants (V124-07) &gt; T02: recognizes terminal states and prevents automatic rerun" time="0.0006929">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U04: Normalizes list of 20 lessons with distinct severities and badges for drawer display" time="0.0008651">
         </testcase>
-        <testcase classname="src/v12_4_lab_job.test.ts" name="V12.4 Frontend Job Flow &amp; Persistence Invariants (V124-07) &gt; T03: retains job reference on poll timeout (attempts &gt;= MAX_POLLS)" time="0.0002829">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U05: Geometry validator generates clear Vietnamese explanation for invalid price levels" time="0.0002975">
         </testcase>
-        <testcase classname="src/v12_4_lab_job.test.ts" name="V12.4 Frontend Job Flow &amp; Persistence Invariants (V124-07) &gt; T04: retains job reference on transient network disconnection" time="0.0009314">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U06: Preserves immutable snapshot of setup intent during drawer state changes" time="0.0012499">
         </testcase>
-        <testcase classname="src/v12_4_lab_job.test.ts" name="V12.4 Frontend Job Flow &amp; Persistence Invariants (V124-07) &gt; T05: provides clear, informative Vietnamese status labels with actionable states" time="0.0007056">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U07: ESC key listener callback triggers drawer close" time="0.0002009">
         </testcase>
-    </testsuite>
-    <testsuite name="src/v13_3_research_utils.test.ts" timestamp="2026-10-13T01:35:37.624Z" hostname="Lil-Poppa" tests="3" failures="0" errors="0" skipped="0" time="0.0051421">
-        <testcase classname="src/v13_3_research_utils.test.ts" name="V13.3 Frontend Utilities &gt; buildResearchReplayRequest properly builds canonical payload and caps" time="0.0018681">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U08: Resize coalescing with requestAnimationFrame prevents redundant layout recalcs" time="0.0001326">
         </testcase>
-        <testcase classname="src/v13_3_research_utils.test.ts" name="V13.3 Frontend Utilities &gt; deriveResearchVerdict prioritizes data missing and zero closed" time="0.0008249">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U09: Calculates client risk reward with fees and slippage preserved" time="0.0013724">
         </testcase>
-        <testcase classname="src/v13_3_research_utils.test.ts" name="V13.3 Frontend Utilities &gt; getComparisonRows returns dynamic rows without hardcoded fallbacks" time="0.000937">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U10: Sidebar status helper translates all execution lifecycle states to clear Vietnamese" time="0.000221">
         </testcase>
-    </testsuite>
-    <testsuite name="src/v13_4_research_ui.test.ts" timestamp="2026-10-13T01:35:37.625Z" hostname="Lil-Poppa" tests="3" failures="0" errors="0" skipped="0" time="0.0038161">
-        <testcase classname="src/v13_4_research_ui.test.ts" name="V13.4 Frontend Research UI &amp; Utilities (Phần 86) &gt; translates technical blocker codes into friendly explanations" time="0.0015703">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area U: UI Layout &amp; Viewport Invariants (U01 - U11) &gt; U11: Switching between tabs preserves selected setup intent and overlay state" time="0.0001611">
         </testcase>
-        <testcase classname="src/v13_4_research_ui.test.ts" name="V13.4 Frontend Research UI &amp; Utilities (Phần 86) &gt; formats realized_r correctly including 0R, positive, negative, and OPEN" time="0.0004383">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area P: Performance &amp; Stability (P01 - P02) &gt; P01: Ingesting high rate of canonical quotes updates store deterministically without memory leak" time="0.0011659">
         </testcase>
-        <testcase classname="src/v13_4_research_ui.test.ts" name="V13.4 Frontend Research UI &amp; Utilities (Phần 86) &gt; deriveResearchVerdict produces accurate technical, cadence, and economic statuses" time="0.0004294">
+        <testcase classname="src/v10_3_ui_and_notifications.test.ts" name="V10.3 UI and Notification Invariants (T01 - T10, U01 - U11, P01 - P02) &gt; Area P: Performance &amp; Stability (P01 - P02) &gt; P02: Subscribing and unsubscribing 50 times leaves exactly 0 listeners" time="0.0004">
         </testcase>
     </testsuite>
-    <testsuite name="src/v13_5_research_acceptance.test.ts" timestamp="2026-10-13T01:35:37.625Z" hostname="Lil-Poppa" tests="4" failures="0" errors="0" skipped="0" time="0.0047576">
-        <testcase classname="src/v13_5_research_acceptance.test.ts" name="V13.5 Research Acceptance Tests &gt; verifies breakeven economic status when net PnL is 0.00" time="0.0021368">
+    <testsuite name="src/v10_4_cost_and_rr.test.ts" timestamp="2026-10-13T03:42:02.188Z" hostname="Lil-Poppa" tests="12" failures="0" errors="0" skipped="0" time="0.0101222">
+        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C01: matches authoritative calculations for LONG setup" time="0.002567">
         </testcase>
-        <testcase classname="src/v13_5_research_acceptance.test.ts" name="V13.5 Research Acceptance Tests &gt; verifies technical FAIL when integrity summary fails" time="0.0002649">
+        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C03: SHORT geometry has Gross RR &gt; 0 and correct distance signs" time="0.0006711">
         </testcase>
-        <testcase classname="src/v13_5_research_acceptance.test.ts" name="V13.5 Research Acceptance Tests &gt; verifies cadence UNMET when unmet sessions &gt; 0" time="0.0002404">
+        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C04: taker fee rate is double maker fee rate for TP" time="0.0004523">
         </testcase>
-        <testcase classname="src/v13_5_research_acceptance.test.ts" name="V13.5 Research Acceptance Tests &gt; verifies friendly reason translations for new traders" time="0.000406">
+        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C06: Multiplier scales notionals, gross loss, and gross reward proportionally" time="0.0005452">
         </testcase>
-    </testsuite>
-    <testsuite name="src/v13_research_tab.test.ts" timestamp="2026-10-13T01:35:37.626Z" hostname="Lil-Poppa" tests="8" failures="0" errors="0" skipped="0" time="0.0260302">
-        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T01: correctly determines CURRENT_ASOF vs HISTORICAL_ASOF based on selected date" time="0.0029097">
+        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C08: Invalid quantity override (&lt;=0, inf, nan) returns isValid=false" time="0.0005678">
         </testcase>
-        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T02: validates scenario geometry and net R:R threshold for LONG and SHORT" time="0.0004903">
+        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C09: Unknown direction is rejected with UNKNOWN_DIRECTION" time="0.0002271">
         </testcase>
-        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T03: verifies quick date offset calculations" time="0.0003286">
+        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C10: Non-positive net reward blocks execution without claiming false profit" time="0.0004398">
         </testcase>
-        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T04: provides beginner-friendly Vietnamese regime translations" time="0.0005832">
+        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C11: Net RR is checked against minNetRR without premature rounding" time="0.0005166">
         </testcase>
-        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T05: DST-aware timezone conversion does not hardcode 11h difference" time="0.0194071">
+        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; C12: Gross loss and reward are invariant under leverage changes" time="0.0009347">
         </testcase>
-        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T06: renders safe fallback when metrics are null/undefined without fake 80% or 0R" time="0.0003943">
+        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; I01: BITGET_XAUUSDT_TIERS has 10 tiers and all deduction is 0.0" time="0.0007103">
         </testcase>
-        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T07: evaluates method status accurately with priority to data validity and sample size" time="0.0002707">
+        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; I02: calculateIsolatedLiquidation calculates LP below entry for LONG and above entry for SHORT" time="0.0002169">
         </testcase>
-        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T08: distinguishes between geometric price validity, pending trigger, and armed trigger" time="0.0001513">
+        <testcase classname="src/v10_4_cost_and_rr.test.ts" name="V10.4 Unified Cost, R:R and PnL Frontend Parity Suite &gt; S04: Horizontal width resize modifies projected bars only without altering price levels, quantity, or RR" time="0.0001551">
         </testcase>
     </testsuite>
-    <testsuite name="src/v14_1_rr_flow.test.ts" timestamp="2026-10-13T01:35:37.627Z" hostname="Lil-Poppa" tests="7" failures="0" errors="0" skipped="0" time="0.0122187">
-        <testcase classname="src/v14_1_rr_flow.test.ts" name="V14.1 selected R:R flow &gt; reproduces the screenshot without inventing a farther TP" time="0.0054604">
+    <testsuite name="src/v12_4_lab_job.test.ts" timestamp="2026-10-13T03:42:02.190Z" hostname="Lil-Poppa" tests="5" failures="0" errors="0" skipped="0" time="0.0070866">
+        <testcase classname="src/v12_4_lab_job.test.ts" name="V12.4 Frontend Job Flow &amp; Persistence Invariants (V124-07) &gt; T01: persists and retrieves active job ID without leakage" time="0.0028222">
         </testcase>
-        <testcase classname="src/v14_1_rr_flow.test.ts" name="V14.1 selected R:R flow &gt; keeps a zero or negative net ratio visible" time="0.0005196">
+        <testcase classname="src/v12_4_lab_job.test.ts" name="V12.4 Frontend Job Flow &amp; Persistence Invariants (V124-07) &gt; T02: recognizes terminal states and prevents automatic rerun" time="0.000674">
         </testcase>
-        <testcase classname="src/v14_1_rr_flow.test.ts" name="V14.1 selected R:R flow &gt; rejects partial confirmed prices instead of creating a hybrid plan" time="0.0004085">
+        <testcase classname="src/v12_4_lab_job.test.ts" name="V12.4 Frontend Job Flow &amp; Persistence Invariants (V124-07) &gt; T03: retains job reference on poll timeout (attempts &gt;= MAX_POLLS)" time="0.0003149">
         </testcase>
-        <testcase classname="src/v14_1_rr_flow.test.ts" name="V14.1 selected R:R flow &gt; falls back atomically from stale unarmed LONG prices to a SHORT triple" time="0.0012444">
+        <testcase classname="src/v12_4_lab_job.test.ts" name="V12.4 Frontend Job Flow &amp; Persistence Invariants (V124-07) &gt; T04: retains job reference on transient network disconnection" time="0.0005132">
         </testcase>
-        <testcase classname="src/v14_1_rr_flow.test.ts" name="V14.1 selected R:R flow &gt; does not replace an invalid armed plan or invent a direction" time="0.0003045">
-        </testcase>
-        <testcase classname="src/v14_1_rr_flow.test.ts" name="V14.1 selected R:R flow &gt; includes SHORT SL above the candle range and excludes liquidation from scale" time="0.0007679">
-        </testcase>
-        <testcase classname="src/v14_1_rr_flow.test.ts" name="V14.1 selected R:R flow &gt; maps SHORT price bands to the correct coordinates and locks a filled trade" time="0.0011955">
+        <testcase classname="src/v12_4_lab_job.test.ts" name="V12.4 Frontend Job Flow &amp; Persistence Invariants (V124-07) &gt; T05: provides clear, informative Vietnamese status labels with actionable states" time="0.0005599">
         </testcase>
     </testsuite>
-    <testsuite name="src/v14_2_entry_gate.test.ts" timestamp="2026-10-13T01:35:37.628Z" hostname="Lil-Poppa" tests="22" failures="0" errors="0" skipped="0" time="0.0123888">
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 eligibility binding &gt; binds only when identity, version, direction and the whole price triple match" time="0.0030318">
+    <testsuite name="src/v13_3_research_utils.test.ts" timestamp="2026-10-13T03:42:02.190Z" hostname="Lil-Poppa" tests="3" failures="0" errors="0" skipped="0" time="0.0064698">
+        <testcase classname="src/v13_3_research_utils.test.ts" name="V13.3 Frontend Utilities &gt; buildResearchReplayRequest properly builds canonical payload and caps" time="0.0030831">
         </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 eligibility binding &gt; a dragged entry makes the cached eligibility stale" time="0.0005067">
+        <testcase classname="src/v13_3_research_utils.test.ts" name="V13.3 Frontend Utilities &gt; deriveResearchVerdict prioritizes data missing and zero closed" time="0.0008336">
         </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 eligibility binding &gt; a dragged stop loss makes the cached eligibility stale" time="0.0002149">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 eligibility binding &gt; a dragged take profit makes the cached eligibility stale" time="0.0003807">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 eligibility binding &gt; treats missing eligibility or intent as not bound (never green)" time="0.0005785">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 eligibility binding &gt; accepts null instance ids on both sides and legacy `revision` alias" time="0.0002351">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 eligibility binding &gt; isSamePlan compares every identity field" time="0.000443">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 distance label &gt; never shows a numeric distance for a provisional entry" time="0.0003161">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 distance label &gt; asks for a fresh quote when the feed is stale" time="0.0006481">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 distance label &gt; formats a confirmed distance and handles missing/invalid numbers" time="0.000387">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; CAN_ARM only with a bound, unblocked decision and a fresh quote" time="0.0004748">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; uses a market CTA only when the backend says execute-now" time="0.0001736">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; missing eligibility is WAITING, never a success" time="0.0001409">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; a stale (unbound) eligibility cannot submit and is flagged stale" time="0.0001458">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; backend blockers win and carry the backend reason" time="0.0002134">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; can_arm undefined (legacy payload) is not treated as true" time="0.0001256">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; provisional plan and WAITING_MSS never become submit-able" time="0.0001918">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; stale quote waits even if eligibility is green" time="0.000145">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; armed order and open position switch to management views" time="0.0001464">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; SHORT screenshot plan: geometry is valid but a stale/blocked decision still cannot submit" time="0.000155">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 signed R:R and catalog &gt; keeps zero and negative R:R visible" time="0.0001751">
-        </testcase>
-        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 signed R:R and catalog &gt; catalog has a human title for every new guard code (not the UNKNOWN fallback)" time="0.0005445">
+        <testcase classname="src/v13_3_research_utils.test.ts" name="V13.3 Frontend Utilities &gt; getComparisonRows returns dynamic rows without hardcoded fallbacks" time="0.0006245">
         </testcase>
     </testsuite>
-    <testsuite name="src/v14_3_ny_quota_labels.test.ts" timestamp="2026-10-13T01:35:37.630Z" hostname="Lil-Poppa" tests="7" failures="0" errors="0" skipped="0" time="0.0089001">
-        <testcase classname="src/v14_3_ny_quota_labels.test.ts" name="V14.3 NY quota labels &gt; shows fallback searching only while the flag is on" time="0.0025024">
+    <testsuite name="src/v13_4_research_ui.test.ts" timestamp="2026-10-13T03:42:02.191Z" hostname="Lil-Poppa" tests="3" failures="0" errors="0" skipped="0" time="0.0041337">
+        <testcase classname="src/v13_4_research_ui.test.ts" name="V13.4 Frontend Research UI &amp; Utilities (Phần 86) &gt; translates technical blocker codes into friendly explanations" time="0.0019088">
         </testcase>
-        <testcase classname="src/v14_3_ny_quota_labels.test.ts" name="V14.3 NY quota labels &gt; standard seeking with fallback disabled says so, enabled says &quot;Đang tìm SMC&quot;" time="0.0003663">
+        <testcase classname="src/v13_4_research_ui.test.ts" name="V13.4 Frontend Research UI &amp; Utilities (Phần 86) &gt; formats realized_r correctly including 0R, positive, negative, and OPEN" time="0.0004418">
         </testcase>
-        <testcase classname="src/v14_3_ny_quota_labels.test.ts" name="V14.3 NY quota labels &gt; counter is actual fills only: pending/armed stays 0/1, fulfilled is 1/1" time="0.0003607">
-        </testcase>
-        <testcase classname="src/v14_3_ny_quota_labels.test.ts" name="V14.3 NY quota labels &gt; MISSED is not presented as an order and prefers the real backend reason" time="0.0003488">
-        </testcase>
-        <testcase classname="src/v14_3_ny_quota_labels.test.ts" name="V14.3 NY quota labels &gt; null counts render as a dash, never as zero" time="0.0004039">
-        </testcase>
-        <testcase classname="src/v14_3_ny_quota_labels.test.ts" name="V14.3 NY quota labels &gt; labels blockers/categories in Vietnamese and falls back to code" time="0.0002704">
-        </testcase>
-        <testcase classname="src/v14_3_ny_quota_labels.test.ts" name="V14.3 NY quota labels &gt; validates the NY date filter (format, real calendar day, not in the future)" time="0.0020472">
+        <testcase classname="src/v13_4_research_ui.test.ts" name="V13.4 Frontend Research UI &amp; Utilities (Phần 86) &gt; deriveResearchVerdict produces accurate technical, cadence, and economic statuses" time="0.0004403">
         </testcase>
     </testsuite>
-    <testsuite name="src/v14_4_1_pipeline.test.ts" timestamp="2026-10-13T01:35:37.631Z" hostname="Lil-Poppa" tests="19" failures="0" errors="0" skipped="0" time="0.0525428">
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 server bundle -&gt; renderer inputs (mapper) &gt; maps swings with the pivot candle time and keeps confirmation time separate" time="0.0039243">
+    <testsuite name="src/v13_5_research_acceptance.test.ts" timestamp="2026-10-13T03:42:02.191Z" hostname="Lil-Poppa" tests="4" failures="0" errors="0" skipped="0" time="0.0037098">
+        <testcase classname="src/v13_5_research_acceptance.test.ts" name="V13.5 Research Acceptance Tests &gt; verifies breakeven economic status when net PnL is 0.00" time="0.001704">
         </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 server bundle -&gt; renderer inputs (mapper) &gt; draws the break line from the broken swing; no anchor =&gt; no start (marker only) and no default direction" time="0.0006532">
+        <testcase classname="src/v13_5_research_acceptance.test.ts" name="V13.5 Research Acceptance Tests &gt; verifies technical FAIL when integrity summary fails" time="0.000282">
         </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 server bundle -&gt; renderer inputs (mapper) &gt; keeps wick extreme / close-back of a sweep and routes retests to their own array" time="0.0008469">
+        <testcase classname="src/v13_5_research_acceptance.test.ts" name="V13.5 Research Acceptance Tests &gt; verifies cadence UNMET when unmet sessions &gt; 0" time="0.0001662">
         </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 server bundle -&gt; renderer inputs (mapper) &gt; displacement qualification comes from the server measurement (never hardcoded true)" time="0.0004518">
-        </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 server bundle -&gt; renderer inputs (mapper) &gt; FVG zones use real source times and bounds; unanchored zones are dropped with a warning" time="0.001315">
-        </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 server bundle -&gt; renderer inputs (mapper) &gt; liquidity levels keep target/consumed state; path projection has no timestamp" time="0.0003921">
-        </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 server bundle -&gt; renderer inputs (mapper) &gt; direction stays null when the server did not decide one" time="0.0005498">
-        </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 time projection and clipping &gt; snaps an event to its containing bar and reports outside-window times explicitly" time="0.0006484">
-        </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 time projection and clipping &gt; a gap bar snaps to the latest bar at or before the time" time="0.0006002">
-        </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 time projection and clipping &gt; zone spans clip to the viewport but are never stretched across the whole pane" time="0.0006017">
-        </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 scenario.updated envelope and reducer &gt; parses only the real DOMAIN_EVENT envelope, never a bare scenario.updated type" time="0.0006678">
-        </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 scenario.updated envelope and reducer &gt; applies a newer revision, ignores old revisions and duplicate digests, resyncs on gaps/unknown" time="0.0007733">
-        </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 session forecast lines &gt; shows QUAN SÁT for a null direction, &quot;chưa xác định&quot; for a missing target and never invents values" time="0.0229689">
-        </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 session forecast lines &gt; uses the conditional thesis and real watched liquidity when present" time="0.0006057">
-        </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 session forecast lines &gt; labels partial / missing sessions and picks the default session from NY time" time="0.0017215">
-        </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 probability badge honesty &gt; never renders a percentage without a validated estimate" time="0.010259">
-        </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 probability badge honesty &gt; a validated estimate is labelled as TP-before-SL for its horizon, not as winrate" time="0.0015929">
-        </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 selection factories and reducer returned binding &gt; setup/order selection bind only the SCENARIO snapshot id (other ids belong to other tables)" time="0.0004807">
-        </testcase>
-        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 selection factories and reducer returned binding &gt; keeps the server-returned binding apart from the requested one and drops it on reselect" time="0.0003901">
+        <testcase classname="src/v13_5_research_acceptance.test.ts" name="V13.5 Research Acceptance Tests &gt; verifies friendly reason translations for new traders" time="0.0003381">
         </testcase>
     </testsuite>
-    <testsuite name="src/v14_4_2_annotation_layout.test.ts" timestamp="2026-10-13T01:35:37.633Z" hostname="Lil-Poppa" tests="13" failures="0" errors="0" skipped="0" time="0.0114904">
-        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; contained helper returns true only when rect is strictly within viewport" time="0.0022969">
+    <testsuite name="src/v13_research_tab.test.ts" timestamp="2026-10-13T03:42:02.192Z" hostname="Lil-Poppa" tests="8" failures="0" errors="0" skipped="0" time="0.0207397">
+        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T01: correctly determines CURRENT_ASOF vs HISTORICAL_ASOF based on selected date" time="0.002733">
         </testcase>
-        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; overlaps helper detects intersection properly" time="0.0004031">
+        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T02: validates scenario geometry and net R:R threshold for LONG and SHORT" time="0.0004294">
         </testcase>
-        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; chooseLabelBox selects first valid candidate not colliding with occupied" time="0.0009232">
+        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T03: verifies quick date offset calculations" time="0.0002323">
         </testcase>
-        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; handles zero pane / degenerate viewport safely without exceptions" time="0.0014529">
+        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T04: provides beginner-friendly Vietnamese regime translations" time="0.000307">
         </testcase>
-        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; respects RR exclusions and avoids reserved areas" time="0.0004686">
+        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T05: DST-aware timezone conversion does not hardcode 11h difference" time="0.0142632">
         </testcase>
-        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; deterministic priority sorting: higher priority occupies space first" time="0.0003363">
+        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T06: renders safe fallback when metrics are null/undefined without fake 80% or 0R" time="0.0004055">
         </testcase>
-        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; preserves anchor coordinates (x, y) on candidates without modification" time="0.0003858">
+        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T07: evaluates method status accurately with priority to data validity and sample size" time="0.0004148">
         </testcase>
-        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; clamps oversized labels to viewport dimensions" time="0.0004151">
-        </testcase>
-        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; L01-L05: Layout Exclusions and Viewport Constraints (PHẦN 066) &gt; L01: single RR label rect exclusion prevents any label overlap" time="0.0008151">
-        </testcase>
-        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; L01-L05: Layout Exclusions and Viewport Constraints (PHẦN 066) &gt; L02: multiple dense RR exclusions (entry, sl, tp, right edge) are strictly avoided by all visible labels" time="0.0007295">
-        </testcase>
-        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; L01-L05: Layout Exclusions and Viewport Constraints (PHẦN 066) &gt; L03: oversized text is clamped to pane media width without negative coords" time="0.0003598">
-        </testcase>
-        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; L01-L05: Layout Exclusions and Viewport Constraints (PHẦN 066) &gt; L04: non-zero viewport offset (e.g. padding / header) maintains containment" time="0.0002587">
-        </testcase>
-        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; L01-L05: Layout Exclusions and Viewport Constraints (PHẦN 066) &gt; L05: RR hidden / empty exclusions list allows placing labels in previously blocked zone" time="0.0001756">
+        <testcase classname="src/v13_research_tab.test.ts" name="V13 Frontend Research Tab Invariants &amp; Logic &gt; T08: distinguishes between geometric price validity, pending trigger, and armed trigger" time="0.0002612">
         </testcase>
     </testsuite>
-    <testsuite name="src/v14_4_2_evidence_focus.test.ts" timestamp="2026-10-13T01:35:37.636Z" hostname="Lil-Poppa" tests="6" failures="0" errors="0" skipped="0" time="0.0096532">
-        <testcase classname="src/v14_4_2_evidence_focus.test.ts" name="F01-F06: Evidence Focus Range and Anchor Index Tests &gt; F01: event range computes correct fromSec and toSec with 16 bars padding" time="0.0027033">
+    <testsuite name="src/v14_1_rr_flow.test.ts" timestamp="2026-10-13T03:42:02.193Z" hostname="Lil-Poppa" tests="7" failures="0" errors="0" skipped="0" time="0.0096253">
+        <testcase classname="src/v14_1_rr_flow.test.ts" name="V14.1 selected R:R flow &gt; reproduces the screenshot without inventing a farther TP" time="0.003329">
         </testcase>
-        <testcase classname="src/v14_4_2_evidence_focus.test.ts" name="F01-F06: Evidence Focus Range and Anchor Index Tests &gt; F02: FVG zone with start and end spans full width with padding" time="0.0010238">
+        <testcase classname="src/v14_1_rr_flow.test.ts" name="V14.1 selected R:R flow &gt; keeps a zero or negative net ratio visible" time="0.0004924">
         </testcase>
-        <testcase classname="src/v14_4_2_evidence_focus.test.ts" name="F01-F06: Evidence Focus Range and Anchor Index Tests &gt; F03: ms to sec conversion occurs strictly at the chart boundary" time="0.0005263">
+        <testcase classname="src/v14_1_rr_flow.test.ts" name="V14.1 selected R:R flow &gt; rejects partial confirmed prices instead of creating a hybrid plan" time="0.0003738">
         </testcase>
-        <testcase classname="src/v14_4_2_evidence_focus.test.ts" name="F01-F06: Evidence Focus Range and Anchor Index Tests &gt; F04: missing anchor timestamps returns null range and reports reason" time="0.0006867">
+        <testcase classname="src/v14_1_rr_flow.test.ts" name="V14.1 selected R:R flow &gt; falls back atomically from stale unarmed LONG prices to a SHORT triple" time="0.0012686">
         </testcase>
-        <testcase classname="src/v14_4_2_evidence_focus.test.ts" name="F01-F06: Evidence Focus Range and Anchor Index Tests &gt; F05: flattenEvidenceBundle includes displacements and retests from raw bundle" time="0.0018802">
+        <testcase classname="src/v14_1_rr_flow.test.ts" name="V14.1 selected R:R flow &gt; does not replace an invalid armed plan or invent a direction" time="0.0003165">
         </testcase>
-        <testcase classname="src/v14_4_2_evidence_focus.test.ts" name="F01-F06: Evidence Focus Range and Anchor Index Tests &gt; F06: two distinct IDs of the same kind do not collide or overwrite" time="0.0003774">
+        <testcase classname="src/v14_1_rr_flow.test.ts" name="V14.1 selected R:R flow &gt; includes SHORT SL above the candle range and excludes liquidation from scale" time="0.0007217">
         </testcase>
-    </testsuite>
-    <testsuite name="src/v14_4_2_realtime_hook.test.ts" timestamp="2026-10-13T01:35:37.637Z" hostname="Lil-Poppa" tests="6" failures="0" errors="0" skipped="0" time="0.0050503">
-        <testcase classname="src/v14_4_2_realtime_hook.test.ts" name="RT09-RT14: Realtime Hook &amp; Reducer Integration Tests &gt; RT09 / TC-STRICT-HOOK: StrictMode replay is purely deterministic and does not corrupt cache" time="0.0022748">
-        </testcase>
-        <testcase classname="src/v14_4_2_realtime_hook.test.ts" name="RT09-RT14: Realtime Hook &amp; Reducer Integration Tests &gt; RT10 / TC-GAP-BURST: Burst of 20 revision gap events properly increments nonce and updates cache" time="0.0005501">
-        </testcase>
-        <testcase classname="src/v14_4_2_realtime_hook.test.ts" name="RT09-RT14: Realtime Hook &amp; Reducer Integration Tests &gt; RT11 / TC-RACE-GET: Out-of-order GET response does not regress scenario revision or epoch" time="0.0002334">
-        </testcase>
-        <testcase classname="src/v14_4_2_realtime_hook.test.ts" name="RT09-RT14: Realtime Hook &amp; Reducer Integration Tests &gt; RT12: Pending gap keeps dataSynced=false until valid inventory commit" time="0.0002891">
-        </testcase>
-        <testcase classname="src/v14_4_2_realtime_hook.test.ts" name="RT09-RT14: Realtime Hook &amp; Reducer Integration Tests &gt; RT13 / TC-RECONNECT: Socket reconnect invalidates dataSynced until inventory re-fetch commits" time="0.0001706">
-        </testcase>
-        <testcase classname="src/v14_4_2_realtime_hook.test.ts" name="RT09-RT14: Realtime Hook &amp; Reducer Integration Tests &gt; RT14: Events from other symbols are rejected before reducer and do not pollute state" time="0.0002802">
+        <testcase classname="src/v14_1_rr_flow.test.ts" name="V14.1 selected R:R flow &gt; maps SHORT price bands to the correct coordinates and locks a filled trade" time="0.0010773">
         </testcase>
     </testsuite>
-    <testsuite name="src/v14_4_2_selection_ws.test.ts" timestamp="2026-10-13T01:35:37.638Z" hostname="Lil-Poppa" tests="14" failures="0" errors="0" skipped="0" time="0.0187523">
-        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; SELECT_CONTEXT clears previous bundle and increments generation" time="0.0031991">
+    <testsuite name="src/v14_2_entry_gate.test.ts" timestamp="2026-10-13T03:42:02.194Z" hostname="Lil-Poppa" tests="22" failures="0" errors="0" skipped="0" time="0.0117621">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 eligibility binding &gt; binds only when identity, version, direction and the whole price triple match" time="0.0026401">
         </testcase>
-        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; A -&gt; B -&gt; A race condition: stale response from prior generation is discarded" time="0.0008631">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 eligibility binding &gt; a dragged entry makes the cached eligibility stale" time="0.0004484">
         </testcase>
-        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; CLEAR_SELECTION zeroes all bindings and evidence" time="0.0003075">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 eligibility binding &gt; a dragged stop loss makes the cached eligibility stale" time="0.0001843">
         </testcase>
-        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; validateSelectedBundle rejects instance and revision mismatches" time="0.002314">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 eligibility binding &gt; a dragged take profit makes the cached eligibility stale" time="0.0003739">
         </testcase>
-        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; applyScenarioUpdate handles jumped revision gap by triggering resync" time="0.0006356">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 eligibility binding &gt; treats missing eligibility or intent as not bound (never green)" time="0.0005795">
         </testcase>
-        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; parseScenarioUpdated parses DOMAIN_EVENT envelope correctly" time="0.0005091">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 eligibility binding &gt; accepts null instance ids on both sides and legacy `revision` alias" time="0.0002195">
         </testcase>
-        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT01 / TC-STRICT-DIGEST: same input including digest remains deterministic and pure" time="0.00079">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 eligibility binding &gt; isSamePlan compares every identity field" time="0.0003814">
         </testcase>
-        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT02: duplicate event with same revision and digest is ignored without mutation" time="0.0003701">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 distance label &gt; never shows a numeric distance for a provisional entry" time="0.0002832">
         </testcase>
-        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT03: older revision is ignored without lowering revision" time="0.0008037">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 distance label &gt; asks for a fresh quote when the feed is stale" time="0.0006452">
         </testcase>
-        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT04: jumped revision sets resync=true and updates badge" time="0.0003746">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 distance label &gt; formats a confirmed distance and handles missing/invalid numbers" time="0.0003648">
         </testcase>
-        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT05: same revision with different digest triggers resync verification" time="0.0003157">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; CAN_ARM only with a bound, unblocked decision and a fresh quote" time="0.0004508">
         </testcase>
-        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT06: changed instance ID triggers resync" time="0.0001882">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; uses a market CTA only when the backend says execute-now" time="0.0001715">
         </testcase>
-        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT07: cache capacity is bounded to 256 keys FIFO" time="0.0055456">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; missing eligibility is WAITING, never a success" time="0.0001289">
         </testcase>
-        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT08: symbol mismatch is rejected by parseScenarioUpdated" time="0.0002365">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; a stale (unbound) eligibility cannot submit and is flagged stale" time="0.0001822">
         </testcase>
-    </testsuite>
-    <testsuite name="src/v14_4_annotation_layout.test.ts" timestamp="2026-10-13T01:35:37.640Z" hostname="Lil-Poppa" tests="4" failures="0" errors="0" skipped="0" time="0.0081586">
-        <testcase classname="src/v14_4_annotation_layout.test.ts" name="V14.4 Annotation Layout &amp; Viewport Projection Tests &gt; correctly clips boxes against viewport without expanding outside" time="0.0034233">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; backend blockers win and carry the backend reason" time="0.0002301">
         </testcase>
-        <testcase classname="src/v14_4_annotation_layout.test.ts" name="V14.4 Annotation Layout &amp; Viewport Projection Tests &gt; locates containing bar index in sorted loaded bars with binary search" time="0.000742">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; can_arm undefined (legacy payload) is not treated as true" time="0.0001328">
         </testcase>
-        <testcase classname="src/v14_4_annotation_layout.test.ts" name="V14.4 Annotation Layout &amp; Viewport Projection Tests &gt; resolves priority label layout without overlapping essential entry/SL/TP badges" time="0.0009576">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; provisional plan and WAITING_MSS never become submit-able" time="0.0001979">
         </testcase>
-        <testcase classname="src/v14_4_annotation_layout.test.ts" name="V14.4 Annotation Layout &amp; Viewport Projection Tests &gt; provides consistent color scheme and fonts across SMC layers" time="0.0004761">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; stale quote waits even if eligibility is green" time="0.0001378">
         </testcase>
-    </testsuite>
-    <testsuite name="src/v14_4_chart_evidence.test.ts" timestamp="2026-10-13T01:35:37.640Z" hostname="Lil-Poppa" tests="5" failures="0" errors="0" skipped="0" time="0.0098779">
-        <testcase classname="src/v14_4_chart_evidence.test.ts" name="V14.4 SMC Chart Evidence Contract &amp; Selection Tests &gt; builds deterministic selection keys that are distinct from timeframe" time="0.0032779">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; armed order and open position switch to management views" time="0.000156">
         </testcase>
-        <testcase classname="src/v14_4_chart_evidence.test.ts" name="V14.4 SMC Chart Evidence Contract &amp; Selection Tests &gt; validates causal evidence timestamps against as_of_ms cutoff" time="0.0005028">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 decision view &gt; SHORT screenshot plan: geometry is valid but a stale/blocked decision still cannot submit" time="0.0001661">
         </testcase>
-        <testcase classname="src/v14_4_chart_evidence.test.ts" name="V14.4 SMC Chart Evidence Contract &amp; Selection Tests &gt; handles A -&gt; B -&gt; A selection generation race conditions cleanly" time="0.001305">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 signed R:R and catalog &gt; keeps zero and negative R:R visible" time="0.0001926">
         </testcase>
-        <testcase classname="src/v14_4_chart_evidence.test.ts" name="V14.4 SMC Chart Evidence Contract &amp; Selection Tests &gt; validates a server bundle against the requested binding field by field" time="0.0009173">
-        </testcase>
-        <testcase classname="src/v14_4_chart_evidence.test.ts" name="V14.4 SMC Chart Evidence Contract &amp; Selection Tests &gt; compares a non-null requested snapshot / fingerprint and rejects evidence after the cutoff" time="0.0005855">
+        <testcase classname="src/v14_2_entry_gate.test.ts" name="V14.2 signed R:R and catalog &gt; catalog has a human title for every new guard code (not the UNKNOWN fallback)" time="0.000574">
         </testcase>
     </testsuite>
-    <testsuite name="src/v14_chart_evidence.test.ts" timestamp="2026-10-13T01:35:37.641Z" hostname="Lil-Poppa" tests="6" failures="0" errors="0" skipped="0" time="0.0078331">
-        <testcase classname="src/v14_chart_evidence.test.ts" name="V14 Chart Evidence Normalizers &amp; Geometry &gt; normalizes CHOCH, CHoCH, choch, BOS, and SWEEP correctly" time="0.0027716">
+    <testsuite name="src/v14_3_ny_quota_labels.test.ts" timestamp="2026-10-13T03:42:02.196Z" hostname="Lil-Poppa" tests="7" failures="0" errors="0" skipped="0" time="0.009088">
+        <testcase classname="src/v14_3_ny_quota_labels.test.ts" name="V14.3 NY quota labels &gt; shows fallback searching only while the flag is on" time="0.002646">
         </testcase>
-        <testcase classname="src/v14_chart_evidence.test.ts" name="V14 Chart Evidence Normalizers &amp; Geometry &gt; converts domain millisecond timestamps to lightweight-charts second timestamps" time="0.0004091">
+        <testcase classname="src/v14_3_ny_quota_labels.test.ts" name="V14.3 NY quota labels &gt; standard seeking with fallback disabled says so, enabled says &quot;Đang tìm SMC&quot;" time="0.0004003">
         </testcase>
-        <testcase classname="src/v14_chart_evidence.test.ts" name="V14 Chart Evidence Normalizers &amp; Geometry &gt; validates positive prices and finite numbers" time="0.0003166">
+        <testcase classname="src/v14_3_ny_quota_labels.test.ts" name="V14.3 NY quota labels &gt; counter is actual fills only: pending/armed stays 0/1, fulfilled is 1/1" time="0.0003999">
         </testcase>
-        <testcase classname="src/v14_chart_evidence.test.ts" name="V14 Chart Evidence Normalizers &amp; Geometry &gt; strictly validates LONG and SHORT geometry" time="0.0005471">
+        <testcase classname="src/v14_3_ny_quota_labels.test.ts" name="V14.3 NY quota labels &gt; MISSED is not presented as an order and prefers the real backend reason" time="0.0003744">
         </testcase>
-        <testcase classname="src/v14_chart_evidence.test.ts" name="V14 Chart Evidence Normalizers &amp; Geometry &gt; builds deterministic selection keys and plan fingerprints" time="0.0004033">
+        <testcase classname="src/v14_3_ny_quota_labels.test.ts" name="V14.3 NY quota labels &gt; null counts render as a dash, never as zero" time="0.0004947">
         </testcase>
-        <testcase classname="src/v14_chart_evidence.test.ts" name="V14 Chart Evidence Normalizers &amp; Geometry &gt; builds chart evidence bundle from quality snapshot" time="0.0012584">
+        <testcase classname="src/v14_3_ny_quota_labels.test.ts" name="V14.3 NY quota labels &gt; labels blockers/categories in Vietnamese and falls back to code" time="0.0003085">
         </testcase>
-    </testsuite>
-    <testsuite name="src/v5_1_geometry_and_news.test.ts" timestamp="2026-10-13T01:35:37.642Z" hostname="Lil-Poppa" tests="4" failures="0" errors="0" skipped="0" time="0.0076934">
-        <testcase classname="src/v5_1_geometry_and_news.test.ts" name="V5.1 Direction Geometry, Margin &amp; News Invariants &gt; rejects inverted SHORT geometry from screenshot fixture (Entry 4123.32, SL 4109.02, TP 4151.92)" time="0.0027015">
-        </testcase>
-        <testcase classname="src/v5_1_geometry_and_news.test.ts" name="V5.1 Direction Geometry, Margin &amp; News Invariants &gt; accepts valid SHORT geometry (TP &lt; Entry &lt; SL)" time="0.0005543">
-        </testcase>
-        <testcase classname="src/v5_1_geometry_and_news.test.ts" name="V5.1 Direction Geometry, Margin &amp; News Invariants &gt; calculates initial margin using (quantity * entry) / leverage and not risk * 2" time="0.0010719">
-        </testcase>
-        <testcase classname="src/v5_1_geometry_and_news.test.ts" name="V5.1 Direction Geometry, Margin &amp; News Invariants &gt; disables or replaces Arm button when setup is already ARMED or WAITING_MSS" time="0.0006404">
+        <testcase classname="src/v14_3_ny_quota_labels.test.ts" name="V14.3 NY quota labels &gt; validates the NY date filter (format, real calendar day, not in the future)" time="0.0021331">
         </testcase>
     </testsuite>
-    <testsuite name="src/v7_1_realtime.test.ts" timestamp="2026-10-13T01:35:37.642Z" hostname="Lil-Poppa" tests="1" failures="0" errors="0" skipped="0" time="0.0029974">
-        <testcase classname="src/v7_1_realtime.test.ts" name="V7.1 Realtime Request Generation Scoping &gt; scopes generation counter per resource independently" time="0.0017342">
+    <testsuite name="src/v14_4_1_pipeline.test.ts" timestamp="2026-10-13T03:42:02.197Z" hostname="Lil-Poppa" tests="19" failures="0" errors="0" skipped="0" time="0.0499142">
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 server bundle -&gt; renderer inputs (mapper) &gt; maps swings with the pivot candle time and keeps confirmation time separate" time="0.003751">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 server bundle -&gt; renderer inputs (mapper) &gt; draws the break line from the broken swing; no anchor =&gt; no start (marker only) and no default direction" time="0.0005884">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 server bundle -&gt; renderer inputs (mapper) &gt; keeps wick extreme / close-back of a sweep and routes retests to their own array" time="0.0006863">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 server bundle -&gt; renderer inputs (mapper) &gt; displacement qualification comes from the server measurement (never hardcoded true)" time="0.0004376">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 server bundle -&gt; renderer inputs (mapper) &gt; FVG zones use real source times and bounds; unanchored zones are dropped with a warning" time="0.0012356">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 server bundle -&gt; renderer inputs (mapper) &gt; liquidity levels keep target/consumed state; path projection has no timestamp" time="0.0003835">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 server bundle -&gt; renderer inputs (mapper) &gt; direction stays null when the server did not decide one" time="0.0005575">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 time projection and clipping &gt; snaps an event to its containing bar and reports outside-window times explicitly" time="0.0006359">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 time projection and clipping &gt; a gap bar snaps to the latest bar at or before the time" time="0.0006907">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 time projection and clipping &gt; zone spans clip to the viewport but are never stretched across the whole pane" time="0.000571">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 scenario.updated envelope and reducer &gt; parses only the real DOMAIN_EVENT envelope, never a bare scenario.updated type" time="0.0005402">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 scenario.updated envelope and reducer &gt; applies a newer revision, ignores old revisions and duplicate digests, resyncs on gaps/unknown" time="0.0006962">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 session forecast lines &gt; shows QUAN SÁT for a null direction, &quot;chưa xác định&quot; for a missing target and never invents values" time="0.0227724">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 session forecast lines &gt; uses the conditional thesis and real watched liquidity when present" time="0.0006582">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 session forecast lines &gt; labels partial / missing sessions and picks the default session from NY time" time="0.0016583">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 probability badge honesty &gt; never renders a percentage without a validated estimate" time="0.0092912">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 probability badge honesty &gt; a validated estimate is labelled as TP-before-SL for its horizon, not as winrate" time="0.0011568">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 selection factories and reducer returned binding &gt; setup/order selection bind only the SCENARIO snapshot id (other ids belong to other tables)" time="0.0003672">
+        </testcase>
+        <testcase classname="src/v14_4_1_pipeline.test.ts" name="V14.4.1 selection factories and reducer returned binding &gt; keeps the server-returned binding apart from the requested one and drops it on reselect" time="0.0003512">
         </testcase>
     </testsuite>
-    <testsuite name="src/v7_2_realtime.test.ts" timestamp="2026-10-13T01:35:37.643Z" hostname="Lil-Poppa" tests="2" failures="0" errors="0" skipped="0" time="0.0464873">
-        <testcase classname="src/v7_2_realtime.test.ts" name="V7.2 Realtime WebSocket Transport &amp; Ordered Queue &gt; manages multiple subscribers and dispatches messages without duplicates" time="0.0440539">
+    <testsuite name="src/v14_4_2_annotation_layout.test.ts" timestamp="2026-10-13T03:42:02.199Z" hostname="Lil-Poppa" tests="13" failures="0" errors="0" skipped="0" time="0.0090353">
+        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; contained helper returns true only when rect is strictly within viewport" time="0.0017544">
         </testcase>
-        <testcase classname="src/v7_2_realtime.test.ts" name="V7.2 Realtime WebSocket Transport &amp; Ordered Queue &gt; preserves boundary closed bars in ordered queue without dropping" time="0.0009463">
+        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; overlaps helper detects intersection properly" time="0.0002898">
+        </testcase>
+        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; chooseLabelBox selects first valid candidate not colliding with occupied" time="0.0007015">
+        </testcase>
+        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; handles zero pane / degenerate viewport safely without exceptions" time="0.0014719">
+        </testcase>
+        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; respects RR exclusions and avoids reserved areas" time="0.0003369">
+        </testcase>
+        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; deterministic priority sorting: higher priority occupies space first" time="0.0002214">
+        </testcase>
+        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; preserves anchor coordinates (x, y) on candidates without modification" time="0.0002464">
+        </testcase>
+        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; clamps oversized labels to viewport dimensions" time="0.0002879">
+        </testcase>
+        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; L01-L05: Layout Exclusions and Viewport Constraints (PHẦN 066) &gt; L01: single RR label rect exclusion prevents any label overlap" time="0.0005692">
+        </testcase>
+        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; L01-L05: Layout Exclusions and Viewport Constraints (PHẦN 066) &gt; L02: multiple dense RR exclusions (entry, sl, tp, right edge) are strictly avoided by all visible labels" time="0.0004406">
+        </testcase>
+        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; L01-L05: Layout Exclusions and Viewport Constraints (PHẦN 066) &gt; L03: oversized text is clamped to pane media width without negative coords" time="0.0002247">
+        </testcase>
+        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; L01-L05: Layout Exclusions and Viewport Constraints (PHẦN 066) &gt; L04: non-zero viewport offset (e.g. padding / header) maintains containment" time="0.0001509">
+        </testcase>
+        <testcase classname="src/v14_4_2_annotation_layout.test.ts" name="V14.4.2 Annotation Layout Unit Tests (Part 121) &gt; L01-L05: Layout Exclusions and Viewport Constraints (PHẦN 066) &gt; L05: RR hidden / empty exclusions list allows placing labels in previously blocked zone" time="0.0001131">
         </testcase>
     </testsuite>
-    <testsuite name="src/v8_tabs.test.ts" timestamp="2026-10-13T01:35:37.643Z" hostname="Lil-Poppa" tests="5" failures="0" errors="0" skipped="0" time="0.0090291">
-        <testcase classname="src/v8_tabs.test.ts" name="V8 Frontend Client &amp; Tab Contract Verification &gt; correctly maps TelegramConfig with has_token and masked token security" time="0.003527">
+    <testsuite name="src/v14_4_2_evidence_focus.test.ts" timestamp="2026-10-13T03:42:02.200Z" hostname="Lil-Poppa" tests="6" failures="0" errors="0" skipped="0" time="0.007391">
+        <testcase classname="src/v14_4_2_evidence_focus.test.ts" name="F01-F06: Evidence Focus Range and Anchor Index Tests &gt; F01: event range computes correct fromSec and toSec with 16 bars padding" time="0.0024447">
         </testcase>
-        <testcase classname="src/v8_tabs.test.ts" name="V8 Frontend Client &amp; Tab Contract Verification &gt; sends clear_token flag without sending masked token placeholder" time="0.0014768">
+        <testcase classname="src/v14_4_2_evidence_focus.test.ts" name="F01-F06: Evidence Focus Range and Anchor Index Tests &gt; F02: FVG zone with start and end spans full width with padding" time="0.0004433">
         </testcase>
-        <testcase classname="src/v8_tabs.test.ts" name="V8 Frontend Client &amp; Tab Contract Verification &gt; correctly retrieves paginated journal with server-side summary calculations" time="0.0005975">
+        <testcase classname="src/v14_4_2_evidence_focus.test.ts" name="F01-F06: Evidence Focus Range and Anchor Index Tests &gt; F03: ms to sec conversion occurs strictly at the chart boundary" time="0.000503">
         </testcase>
-        <testcase classname="src/v8_tabs.test.ts" name="V8 Frontend Client &amp; Tab Contract Verification &gt; manages TradeReview and preserves optimistic concurrency revision" time="0.0006563">
+        <testcase classname="src/v14_4_2_evidence_focus.test.ts" name="F01-F06: Evidence Focus Range and Anchor Index Tests &gt; F04: missing anchor timestamps returns null range and reports reason" time="0.0003606">
         </testcase>
-        <testcase classname="src/v8_tabs.test.ts" name="V8 Frontend Client &amp; Tab Contract Verification &gt; handles lesson lifecycle actions: approve, reject, archive" time="0.0005772">
+        <testcase classname="src/v14_4_2_evidence_focus.test.ts" name="F01-F06: Evidence Focus Range and Anchor Index Tests &gt; F05: flattenEvidenceBundle includes displacements and retests from raw bundle" time="0.0012145">
+        </testcase>
+        <testcase classname="src/v14_4_2_evidence_focus.test.ts" name="F01-F06: Evidence Focus Range and Anchor Index Tests &gt; F06: two distinct IDs of the same kind do not collide or overwrite" time="0.0002741">
         </testcase>
     </testsuite>
-    <testsuite name="src/v9_1_user_messages.test.ts" timestamp="2026-10-13T01:35:37.644Z" hostname="Lil-Poppa" tests="19" failures="0" errors="0" skipped="0" time="0.0435845">
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 1. Catalog Coverage &amp; Template Structure &gt; contains all required semantic codes with Vietnamese content" time="0.0055371">
+    <testsuite name="src/v14_4_2_realtime_hook.test.ts" timestamp="2026-10-13T03:42:02.201Z" hostname="Lil-Poppa" tests="6" failures="0" errors="0" skipped="0" time="0.0054729">
+        <testcase classname="src/v14_4_2_realtime_hook.test.ts" name="RT09-RT14: Realtime Hook &amp; Reducer Integration Tests &gt; RT09 / TC-STRICT-HOOK: StrictMode replay is purely deterministic and does not corrupt cache" time="0.0023304">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 1. Catalog Coverage &amp; Template Structure &gt; getCatalogTemplate falls back cleanly for unknown codes without throwing" time="0.0005211">
+        <testcase classname="src/v14_4_2_realtime_hook.test.ts" name="RT09-RT14: Realtime Hook &amp; Reducer Integration Tests &gt; RT10 / TC-GAP-BURST: Burst of 20 revision gap events properly increments nonce and updates cache" time="0.0005674">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; normalizes string-only known codes cleanly" time="0.0014099">
+        <testcase classname="src/v14_4_2_realtime_hook.test.ts" name="RT09-RT14: Realtime Hook &amp; Reducer Integration Tests &gt; RT11 / TC-RACE-GET: Out-of-order GET response does not regress scenario revision or epoch" time="0.0002465">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; normalizes string with legacy &quot;CODE: message&quot; prefix" time="0.0006921">
+        <testcase classname="src/v14_4_2_realtime_hook.test.ts" name="RT09-RT14: Realtime Hook &amp; Reducer Integration Tests &gt; RT12: Pending gap keeps dataSynced=false until valid inventory commit" time="0.0003295">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; normalizes structured Axios response with detail object and parameters" time="0.0005525">
+        <testcase classname="src/v14_4_2_realtime_hook.test.ts" name="RT09-RT14: Realtime Hook &amp; Reducer Integration Tests &gt; RT13 / TC-RECONNECT: Socket reconnect invalidates dataSynced until inventory re-fetch commits" time="0.0002169">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; normalizes FastAPI 422 validation errors with Vietnamese field names" time="0.0027531">
+        <testcase classname="src/v14_4_2_realtime_hook.test.ts" name="RT09-RT14: Realtime Hook &amp; Reducer Integration Tests &gt; RT14: Events from other symbols are rejected before reducer and do not pollute state" time="0.0002983">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; distinguishes HTTP 409 conflict based on operation context" time="0.0005974">
+    </testsuite>
+    <testsuite name="src/v14_4_2_selection_ws.test.ts" timestamp="2026-10-13T03:42:02.202Z" hostname="Lil-Poppa" tests="14" failures="0" errors="0" skipped="0" time="0.0159462">
+        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; SELECT_CONTEXT clears previous bundle and increments generation" time="0.0030505">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; handles timeout and marks outcome_certainty as unknown with RECONCILE_STATUS" time="0.0004163">
+        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; A -&gt; B -&gt; A race condition: stale response from prior generation is discarded" time="0.0008206">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; handles Network Error and marks outcome_certainty as unknown" time="0.0011038">
+        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; CLEAR_SELECTION zeroes all bindings and evidence" time="0.0002994">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; sanitizes sensitive Telegram bot tokens and credentials from errors" time="0.0009374">
+        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; validateSelectedBundle rejects instance and revision mismatches" time="0.0004742">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 3. Formatting Utilities &amp; Robustness &gt; formatPrice handles valid decimals and fallback on non-finite values" time="0.0224284">
+        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; applyScenarioUpdate handles jumped revision gap by triggering resync" time="0.0004765">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 3. Formatting Utilities &amp; Robustness &gt; formatCurrency preserves 0 and negative values in USDT format" time="0.000587">
+        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; parseScenarioUpdated parses DOMAIN_EVENT envelope correctly" time="0.000433">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 3. Formatting Utilities &amp; Robustness &gt; formatRRRatio formats valid ratios cleanly and guards against zero/non-finite values" time="0.0002595">
+        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT01 / TC-STRICT-DIGEST: same input including digest remains deterministic and pure" time="0.0008095">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 3. Formatting Utilities &amp; Robustness &gt; formatLeverage adds multiplier symbol correctly" time="0.0001769">
+        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT02: duplicate event with same revision and digest is ignored without mutation" time="0.0003278">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 3. Formatting Utilities &amp; Robustness &gt; sanitizeText replaces bot tokens, basic auth, and bearer tokens" time="0.0002554">
+        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT03: older revision is ignored without lowering revision" time="0.0007298">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 4. buildTradeEventMessage - Trading Domain Events &gt; builds trade.opened event with PAPER simulation label and position details" time="0.0008134">
+        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT04: jumped revision sets resync=true and updates badge" time="0.0003711">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 4. buildTradeEventMessage - Trading Domain Events &gt; builds trade.closed event correctly distinguishes TP, SL and MANUAL exit causes" time="0.0008491">
+        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT05: same revision with different digest triggers resync verification" time="0.0003133">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 4. buildTradeEventMessage - Trading Domain Events &gt; builds order.armed event stating no open position has been created yet" time="0.0002292">
+        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT06: changed instance ID triggers resync" time="0.0001683">
         </testcase>
-        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 4. buildTradeEventMessage - Trading Domain Events &gt; builds setup.ready event stating conditions met without claiming trade is executed" time="0.0001688">
+        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT07: cache capacity is bounded to 256 keys FIFO" time="0.0051957">
+        </testcase>
+        <testcase classname="src/v14_4_2_selection_ws.test.ts" name="V14.4.2 Selection and WS Lifecycle Unit Tests (Part 122) &gt; RT01-RT08: Deterministic and Bounded Scenario Reducer Tests &gt; RT08: symbol mismatch is rejected by parseScenarioUpdated" time="0.0002039">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/v14_4_annotation_layout.test.ts" timestamp="2026-10-13T03:42:02.203Z" hostname="Lil-Poppa" tests="4" failures="0" errors="0" skipped="0" time="0.0075276">
+        <testcase classname="src/v14_4_annotation_layout.test.ts" name="V14.4 Annotation Layout &amp; Viewport Projection Tests &gt; correctly clips boxes against viewport without expanding outside" time="0.0031891">
+        </testcase>
+        <testcase classname="src/v14_4_annotation_layout.test.ts" name="V14.4 Annotation Layout &amp; Viewport Projection Tests &gt; locates containing bar index in sorted loaded bars with binary search" time="0.000672">
+        </testcase>
+        <testcase classname="src/v14_4_annotation_layout.test.ts" name="V14.4 Annotation Layout &amp; Viewport Projection Tests &gt; resolves priority label layout without overlapping essential entry/SL/TP badges" time="0.0010002">
+        </testcase>
+        <testcase classname="src/v14_4_annotation_layout.test.ts" name="V14.4 Annotation Layout &amp; Viewport Projection Tests &gt; provides consistent color scheme and fonts across SMC layers" time="0.0005006">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/v14_4_chart_evidence.test.ts" timestamp="2026-10-13T03:42:02.204Z" hostname="Lil-Poppa" tests="5" failures="0" errors="0" skipped="0" time="0.0049382">
+        <testcase classname="src/v14_4_chart_evidence.test.ts" name="V14.4 SMC Chart Evidence Contract &amp; Selection Tests &gt; builds deterministic selection keys that are distinct from timeframe" time="0.0019372">
+        </testcase>
+        <testcase classname="src/v14_4_chart_evidence.test.ts" name="V14.4 SMC Chart Evidence Contract &amp; Selection Tests &gt; validates causal evidence timestamps against as_of_ms cutoff" time="0.0002869">
+        </testcase>
+        <testcase classname="src/v14_4_chart_evidence.test.ts" name="V14.4 SMC Chart Evidence Contract &amp; Selection Tests &gt; handles A -&gt; B -&gt; A selection generation race conditions cleanly" time="0.0004057">
+        </testcase>
+        <testcase classname="src/v14_4_chart_evidence.test.ts" name="V14.4 SMC Chart Evidence Contract &amp; Selection Tests &gt; validates a server bundle against the requested binding field by field" time="0.0004787">
+        </testcase>
+        <testcase classname="src/v14_4_chart_evidence.test.ts" name="V14.4 SMC Chart Evidence Contract &amp; Selection Tests &gt; compares a non-null requested snapshot / fingerprint and rejects evidence after the cutoff" time="0.000271">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/v14_chart_evidence.test.ts" timestamp="2026-10-13T03:42:02.205Z" hostname="Lil-Poppa" tests="6" failures="0" errors="0" skipped="0" time="0.0080668">
+        <testcase classname="src/v14_chart_evidence.test.ts" name="V14 Chart Evidence Normalizers &amp; Geometry &gt; normalizes CHOCH, CHoCH, choch, BOS, and SWEEP correctly" time="0.0028934">
+        </testcase>
+        <testcase classname="src/v14_chart_evidence.test.ts" name="V14 Chart Evidence Normalizers &amp; Geometry &gt; converts domain millisecond timestamps to lightweight-charts second timestamps" time="0.0004632">
+        </testcase>
+        <testcase classname="src/v14_chart_evidence.test.ts" name="V14 Chart Evidence Normalizers &amp; Geometry &gt; validates positive prices and finite numbers" time="0.0003049">
+        </testcase>
+        <testcase classname="src/v14_chart_evidence.test.ts" name="V14 Chart Evidence Normalizers &amp; Geometry &gt; strictly validates LONG and SHORT geometry" time="0.0005768">
+        </testcase>
+        <testcase classname="src/v14_chart_evidence.test.ts" name="V14 Chart Evidence Normalizers &amp; Geometry &gt; builds deterministic selection keys and plan fingerprints" time="0.0004254">
+        </testcase>
+        <testcase classname="src/v14_chart_evidence.test.ts" name="V14 Chart Evidence Normalizers &amp; Geometry &gt; builds chart evidence bundle from quality snapshot" time="0.0013242">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/v5_1_geometry_and_news.test.ts" timestamp="2026-10-13T03:42:02.206Z" hostname="Lil-Poppa" tests="4" failures="0" errors="0" skipped="0" time="0.0058661">
+        <testcase classname="src/v5_1_geometry_and_news.test.ts" name="V5.1 Direction Geometry, Margin &amp; News Invariants &gt; rejects inverted SHORT geometry from screenshot fixture (Entry 4123.32, SL 4109.02, TP 4151.92)" time="0.0024922">
+        </testcase>
+        <testcase classname="src/v5_1_geometry_and_news.test.ts" name="V5.1 Direction Geometry, Margin &amp; News Invariants &gt; accepts valid SHORT geometry (TP &lt; Entry &lt; SL)" time="0.0003675">
+        </testcase>
+        <testcase classname="src/v5_1_geometry_and_news.test.ts" name="V5.1 Direction Geometry, Margin &amp; News Invariants &gt; calculates initial margin using (quantity * entry) / leverage and not risk * 2" time="0.0007009">
+        </testcase>
+        <testcase classname="src/v5_1_geometry_and_news.test.ts" name="V5.1 Direction Geometry, Margin &amp; News Invariants &gt; disables or replaces Arm button when setup is already ARMED or WAITING_MSS" time="0.0003795">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/v7_1_realtime.test.ts" timestamp="2026-10-13T03:42:02.206Z" hostname="Lil-Poppa" tests="1" failures="0" errors="0" skipped="0" time="0.002455">
+        <testcase classname="src/v7_1_realtime.test.ts" name="V7.1 Realtime Request Generation Scoping &gt; scopes generation counter per resource independently" time="0.0013744">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/v7_2_realtime.test.ts" timestamp="2026-10-13T03:42:02.207Z" hostname="Lil-Poppa" tests="2" failures="0" errors="0" skipped="0" time="0.0379971">
+        <testcase classname="src/v7_2_realtime.test.ts" name="V7.2 Realtime WebSocket Transport &amp; Ordered Queue &gt; manages multiple subscribers and dispatches messages without duplicates" time="0.0351849">
+        </testcase>
+        <testcase classname="src/v7_2_realtime.test.ts" name="V7.2 Realtime WebSocket Transport &amp; Ordered Queue &gt; preserves boundary closed bars in ordered queue without dropping" time="0.0008857">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/v8_tabs.test.ts" timestamp="2026-10-13T03:42:02.207Z" hostname="Lil-Poppa" tests="5" failures="0" errors="0" skipped="0" time="0.0088281">
+        <testcase classname="src/v8_tabs.test.ts" name="V8 Frontend Client &amp; Tab Contract Verification &gt; correctly maps TelegramConfig with has_token and masked token security" time="0.0035426">
+        </testcase>
+        <testcase classname="src/v8_tabs.test.ts" name="V8 Frontend Client &amp; Tab Contract Verification &gt; sends clear_token flag without sending masked token placeholder" time="0.0014595">
+        </testcase>
+        <testcase classname="src/v8_tabs.test.ts" name="V8 Frontend Client &amp; Tab Contract Verification &gt; correctly retrieves paginated journal with server-side summary calculations" time="0.0006321">
+        </testcase>
+        <testcase classname="src/v8_tabs.test.ts" name="V8 Frontend Client &amp; Tab Contract Verification &gt; manages TradeReview and preserves optimistic concurrency revision" time="0.0006634">
+        </testcase>
+        <testcase classname="src/v8_tabs.test.ts" name="V8 Frontend Client &amp; Tab Contract Verification &gt; handles lesson lifecycle actions: approve, reject, archive" time="0.0005323">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/v9_1_user_messages.test.ts" timestamp="2026-10-13T03:42:02.208Z" hostname="Lil-Poppa" tests="19" failures="0" errors="0" skipped="0" time="0.0369141">
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 1. Catalog Coverage &amp; Template Structure &gt; contains all required semantic codes with Vietnamese content" time="0.0054258">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 1. Catalog Coverage &amp; Template Structure &gt; getCatalogTemplate falls back cleanly for unknown codes without throwing" time="0.0004789">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; normalizes string-only known codes cleanly" time="0.0013772">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; normalizes string with legacy &quot;CODE: message&quot; prefix" time="0.0007082">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; normalizes structured Axios response with detail object and parameters" time="0.0005829">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; normalizes FastAPI 422 validation errors with Vietnamese field names" time="0.0011561">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; distinguishes HTTP 409 conflict based on operation context" time="0.0014534">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; handles timeout and marks outcome_certainty as unknown with RECONCILE_STATUS" time="0.0004439">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; handles Network Error and marks outcome_certainty as unknown" time="0.0006773">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 2. normalizeAppError - Error Types &amp; Normalization &gt; sanitizes sensitive Telegram bot tokens and credentials from errors" time="0.0004165">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 3. Formatting Utilities &amp; Robustness &gt; formatPrice handles valid decimals and fallback on non-finite values" time="0.0177746">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 3. Formatting Utilities &amp; Robustness &gt; formatCurrency preserves 0 and negative values in USDT format" time="0.0005898">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 3. Formatting Utilities &amp; Robustness &gt; formatRRRatio formats valid ratios cleanly and guards against zero/non-finite values" time="0.0002232">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 3. Formatting Utilities &amp; Robustness &gt; formatLeverage adds multiplier symbol correctly" time="0.0001568">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 3. Formatting Utilities &amp; Robustness &gt; sanitizeText replaces bot tokens, basic auth, and bearer tokens" time="0.0002341">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 4. buildTradeEventMessage - Trading Domain Events &gt; builds trade.opened event with PAPER simulation label and position details" time="0.0008098">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 4. buildTradeEventMessage - Trading Domain Events &gt; builds trade.closed event correctly distinguishes TP, SL and MANUAL exit causes" time="0.0008736">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 4. buildTradeEventMessage - Trading Domain Events &gt; builds order.armed event stating no open position has been created yet" time="0.0002765">
+        </testcase>
+        <testcase classname="src/v9_1_user_messages.test.ts" name="V9.1 User Message Catalog &amp; Normalizer Suite &gt; 4. buildTradeEventMessage - Trading Domain Events &gt; builds setup.ready event stating conditions met without claiming trade is executed" time="0.000244">
         </testcase>
     </testsuite>
 </testsuites>

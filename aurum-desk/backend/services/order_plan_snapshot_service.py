@@ -234,8 +234,9 @@ def select_bound_order_for_setup(
             continue
 
         o_inst = getattr(o, "setup_instance_id", None)
-        if setup_inst and o_inst and setup_inst != o_inst:
-            # Instance mismatch: reject binding!
+        # Strict instance binding (PHẦN 043, 224 / BINDNULL01):
+        # If either setup or order specifies an instance, they MUST match exactly.
+        if (setup_inst is not None or o_inst is not None) and setup_inst != o_inst:
             continue
 
         matching.append(o)

@@ -1,6 +1,6 @@
 {
   "overall": "PASS",
-  "required_cases_count": 104,
+  "required_cases_count": 109,
   "case_coverage": {
     "D01": {
       "status": "PASS",
@@ -521,6 +521,31 @@
       "status": "PASS",
       "missing": [],
       "not_passed": {}
+    },
+    "TIMELINE01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "GEOMSRC01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "BINDNULL01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "INVCLOSED01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "COHORT01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
     }
   },
   "statuses": {
@@ -536,11 +561,11 @@
   "steps": {
     "backend_targeted": {
       "status": "PASS",
-      "summary": "260 passed, 1 warning in 22.85s",
+      "summary": "269 passed, 1 warning in 21.17s",
       "failed": [],
       "unexpected_failures": [],
       "exit_code": 0,
-      "duration_s": 25.23,
+      "duration_s": 23.37,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\backend_targeted.log",
       "argv": [
         "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
@@ -564,6 +589,9 @@
         "tests/test_entry_intent_closure.py",
         "tests/test_order_snapshot_closure.py",
         "tests/test_realtime_closure.py",
+        "tests/test_late_source_chronology.py",
+        "tests/test_order_geometry_parity.py",
+        "tests/test_order_binding_integrity.py",
         "-q",
         "-p",
         "no:cacheprovider",
@@ -573,7 +601,7 @@
     "frontend_typecheck": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 5.38,
+      "duration_s": 5.03,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_typecheck.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npx.CMD",
@@ -586,7 +614,7 @@
       "warnings": 29,
       "errors": 0,
       "exit_code": 0,
-      "duration_s": 0.99,
+      "duration_s": 0.94,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_lint.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npx.CMD",
@@ -596,7 +624,7 @@
     "frontend_vitest": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 2.92,
+      "duration_s": 2.67,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_vitest.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npx.CMD",
@@ -610,7 +638,7 @@
     "frontend_build": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 6.77,
+      "duration_s": 6.2,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_build.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npm.CMD",
@@ -621,8 +649,8 @@
     "browser_e2e": {
       "status": "PASS",
       "playwright_stats": {
-        "startTime": "2026-10-13T01:35:47.887Z",
-        "duration": 139606.515,
+        "startTime": "2026-10-13T03:42:13.886Z",
+        "duration": 133707.956,
         "expected": 47,
         "skipped": 0,
         "unexpected": 0,
@@ -630,7 +658,7 @@
       },
       "executed_tests": 47,
       "exit_code": 0,
-      "duration_s": 141.05,
+      "duration_s": 135.08,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\browser_e2e.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npx.CMD",
@@ -646,9 +674,9 @@
     "benchmark": {
       "status": "PASS",
       "latency_ms": {
-        "p50": 14.534,
-        "p95": 19.004,
-        "max": 25.177
+        "p50": 12.46,
+        "p95": 15.197,
+        "max": 21.95
       },
       "not_measured": [
         "browser render latency",
@@ -658,7 +686,7 @@
         "10,000-tick/60s browser stream"
       ],
       "exit_code": 0,
-      "duration_s": 9.99,
+      "duration_s": 8.53,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\benchmark.log",
       "argv": [
         "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
@@ -672,7 +700,7 @@
     "git_diff_check": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 0.14,
+      "duration_s": 0.07,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\git_diff_check.log",
       "argv": [
         "git",
@@ -687,5 +715,5 @@
     "tests/test_v13_5_integrity_acceptance.py::test_01_integrity_pass_on_valid_inputs"
   ],
   "probability_research": "NOT_VERIFIED (no real out-of-sample dataset; metrics are null, not 0)",
-  "timestamp": "2026-10-13 08:38:17"
+  "timestamp": "2026-10-13 10:44:36"
 }
