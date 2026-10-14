@@ -5,6 +5,7 @@
 - **Branch**: `fix/v14-1-rr-flow`
 - **Base Reviewed HEAD**: `e5d51ab5bd39fb8fa9dbfd5e32b08c56ee0fa003`
 - **Implementation Baseline**: `edaf69d0a0954297f36b867b11da7c298fa0cb22`
+- **Final Implementation SHA**: `ef25eeb5c8c569c766eeebdbd1ccefb0a996f86a`
 - **Report Date**: 2026-10-14
 - **Testing Mode**: Strict PAPER / Dry-run only (`TESTING=1`, temporary isolated DB, no real Bitget/exchange orders, no real Telegram messages, zero live ledger overwrite)
 - **Targeted Backend Files**: **55 targeted files** (including `test_v14_4_14_membership_transaction.py` and `test_v14_4_14_outcome_authority.py`)
