@@ -982,10 +982,19 @@ class StrategyService:
         db.add(new_order)
         watch_setup.state = "ARMED"
 
-        # V14.4.14: Stage armed order to active forward paper session if one is active
+        # V14.4.15: Stage armed order to active forward paper session if one is active
         try:
-            from services.forward_paper_service import stage_order_to_active_forward_session
-            stage_order_to_active_forward_session(db, new_order, now_ms=now_ms)
+            from services.forward_paper_service import stage_order_to_active_forward_session, stage_forward_repair_task
+            stage_res = stage_order_to_active_forward_session(db, new_order, now_ms=now_ms)
+            if stage_res and stage_res.tracking_repair_needed:
+                stage_forward_repair_task(
+                    db=db,
+                    order_id=new_order.id,
+                    forward_session_id=stage_res.forward_session_id,
+                    target_status="ARMED",
+                    reason_codes=stage_res.reason_codes,
+                    now_ms=now_ms,
+                )
         except Exception as _fwd_err:
             logger.warning(f"Forward session binding warning for order {order_id}: {_fwd_err}")
 

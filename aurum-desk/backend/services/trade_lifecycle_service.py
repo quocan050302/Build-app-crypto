@@ -223,13 +223,21 @@ class TradeLifecycleService:
             occurred_at=current_time
         )
 
-        # V14.4.14: Stage forward session membership status update to FILLED if bound
-        from services.forward_paper_service import stage_forward_membership_status
+        # V14.4.15: Stage forward session membership status update to FILLED if bound
+        from services.forward_paper_service import stage_forward_membership_status, stage_forward_repair_task
         try:
             stage_res = stage_forward_membership_status(db, order.id, "FILLED", now_ms=current_time)
             if stage_res.tracking_repair_needed:
                 logger.warning(
                     f"Forward membership tracking repair needed for order {order.id}: {stage_res.reason_codes}"
+                )
+                stage_forward_repair_task(
+                    db=db,
+                    order_id=order.id,
+                    forward_session_id=stage_res.forward_session_id,
+                    target_status="FILLED",
+                    reason_codes=stage_res.reason_codes,
+                    now_ms=current_time,
                 )
         except Exception as e:
             db.rollback()
@@ -287,13 +295,21 @@ class TradeLifecycleService:
                 watch_setup.invalidation_reason = reason
                 watch_setup.updated_at = current_time
 
-        # V14.4.14: Stage forward session membership status to REJECTED if bound
-        from services.forward_paper_service import stage_forward_membership_status
+        # V14.4.15: Stage forward session membership status to REJECTED if bound
+        from services.forward_paper_service import stage_forward_membership_status, stage_forward_repair_task
         try:
             stage_res = stage_forward_membership_status(db, order.id, "REJECTED", now_ms=current_time)
             if stage_res.tracking_repair_needed:
                 logger.warning(
                     f"Forward membership tracking repair needed for order {order.id}: {stage_res.reason_codes}"
+                )
+                stage_forward_repair_task(
+                    db=db,
+                    order_id=order.id,
+                    forward_session_id=stage_res.forward_session_id,
+                    target_status="REJECTED",
+                    reason_codes=stage_res.reason_codes,
+                    now_ms=current_time,
                 )
         except Exception as e:
             db.rollback()
@@ -449,13 +465,21 @@ class TradeLifecycleService:
             occurred_at=current_time
         )
 
-        # V14.4.14: Stage forward session membership status to CLOSED if bound
-        from services.forward_paper_service import stage_forward_membership_status
+        # V14.4.15: Stage forward session membership status to CLOSED if bound
+        from services.forward_paper_service import stage_forward_membership_status, stage_forward_repair_task
         try:
             stage_res = stage_forward_membership_status(db, order.id, "CLOSED", now_ms=current_time)
             if stage_res.tracking_repair_needed:
                 logger.warning(
                     f"Forward membership tracking repair needed for order {order.id}: {stage_res.reason_codes}"
+                )
+                stage_forward_repair_task(
+                    db=db,
+                    order_id=order.id,
+                    forward_session_id=stage_res.forward_session_id,
+                    target_status="CLOSED",
+                    reason_codes=stage_res.reason_codes,
+                    now_ms=current_time,
                 )
         except Exception as e:
             db.rollback()
