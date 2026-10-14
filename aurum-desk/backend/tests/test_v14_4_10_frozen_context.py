@@ -200,9 +200,16 @@ def test_c02_ctx02_fingerprint_geometry_validation(isolated_db: Session):
     assert canonical_num(4180.5) == "4180.5"
 
     ctx_base = {
+        "context_schema_version": "1.0.0",
         "order_id": "ord_c02",
+        "window_id": "ord_c02",
         "symbol": "XAUUSDT",
         "direction": "LONG",
+        "opened_at": 1000,
+        "scan_cutoff": 5000,
+        "source_epoch": 1,
+        "query_generation": 1,
+        "arrival_revision": 1,
         "entry_price": 4180.0,
         "stop_loss": 4170.0,
         "take_profit": 4200.0,
@@ -233,10 +240,15 @@ def test_c03_ctx03_revision_generation_epoch_validation():
     Matching values pass.
     """
     expected = {
+        "context_schema_version": "1.0.0",
         "order_id": "ord_c03",
+        "window_id": "ord_c03",
         "symbol": "XAUUSDT",
         "direction": "LONG",
+        "opened_at": 1000,
+        "scan_cutoff": 5000,
         "exit_policy_version": "1.0.0",
+        "exit_context_fingerprint": "fp_c03",
         "source_epoch": 1,
         "query_generation": 2,
         "arrival_revision": 3,
@@ -385,11 +397,18 @@ def test_c06_ctx06_duplicate_evidence_conflict_detection():
     )
 
     ctx = {
+        "context_schema_version": "1.0.0",
         "window_id": "ord_c06",
         "order_id": "ord_c06",
         "symbol": "XAUUSDT",
         "direction": "LONG",
+        "opened_at": 1000,
+        "scan_cutoff": 5000,
+        "source_epoch": 1,
+        "query_generation": 1,
+        "arrival_revision": 1,
         "exit_policy_version": "1.0.0",
+        "exit_context_fingerprint": "fp_c06",
     }
 
     # First insertion
@@ -551,11 +570,18 @@ def test_c10_ctx10_earliest_tp_and_audit_preservation(isolated_db: Session):
     )
 
     ctx = {
+        "context_schema_version": "1.0.0",
         "window_id": "ord_c10",
         "order_id": "ord_c10",
         "symbol": "XAUUSDT",
         "direction": "LONG",
+        "opened_at": 1000,
+        "scan_cutoff": 5000,
+        "source_epoch": 1,
+        "query_generation": 1,
+        "arrival_revision": 1,
         "exit_policy_version": "1.0.0",
+        "exit_context_fingerprint": "fp_c10",
     }
 
     # Pass in both candidates (order doesn't matter)

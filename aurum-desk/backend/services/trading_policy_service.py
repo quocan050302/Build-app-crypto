@@ -62,13 +62,31 @@ def resolve_entry_session_context(
     now_ms: Optional[int] = None,
     clock: Any = None,
 ) -> EntrySessionContext:
-    """PHẦN 018, 019: Pure context resolver mapping session policy and strategy family to entry restrictions."""
+    """PHẦN 018, 019, 034, 035: Pure context resolver mapping session policy and strategy family to entry restrictions."""
     c = clock
     current_time = now_ms if now_ms is not None else (c.now_ms() if c else int(time.time() * 1000))
-    ny_win = TradingPolicyService.get_ny_session_window(now_ms=current_time, clock=c)
+    ny_win = TradingPolicyService.get_ny_session_window(policy=policy, now_ms=current_time, clock=c)
 
     from services.smc_scenario_service import session_for
     analysis_session, _ = session_for(current_time)
+
+    reason_codes: List[str] = []
+
+    if policy is None:
+        reason_codes.append("MISSING_POLICY")
+        return EntrySessionContext(
+            policy_mode="UNKNOWN",
+            policy_version=1,
+            strategy_family=family,
+            analysis_session=analysis_session,
+            as_of_ms=current_time,
+            in_ny_entry_window=False,
+            ny_start_ms=0,
+            ny_end_ms=0,
+            standard_window_restriction=(0, 0),
+            expiry_cap_ms=current_time,
+            reason_codes=reason_codes,
+        )
 
     pol_mode = getattr(policy, "entry_session_policy", "ALL_SESSIONS_WITH_NY_RESERVE")
     pol_ver = getattr(policy, "version", 1) or 1
@@ -76,8 +94,6 @@ def resolve_entry_session_context(
     in_ny = bool(ny_win.get("is_in_window", False))
     ny_start = int(ny_win.get("window_start_ms", 0))
     ny_end = int(ny_win.get("window_end_ms", 0))
-
-    reason_codes: List[str] = []
 
     if family == "NY_QUOTA_PAPER":
         restriction = (ny_start, ny_end)

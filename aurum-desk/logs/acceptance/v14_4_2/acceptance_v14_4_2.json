@@ -1,98 +1,74 @@
 {
-  "overall": "FAIL",
+  "overall": "PASS",
   "run_context": {
-    "run_id": "run_1791949819286",
-    "sha": "1ed60f41753744ff304afb05e93797a049d15425",
-    "tested_sha": "1ed60f41753744ff304afb05e93797a049d15425",
-    "tree_fingerprint": "2568618e6bee0f3e827856902e948f4c74cd9028",
-    "started_at_ms": 1791949819286,
+    "run_id": "run_1791953198423",
+    "sha": "26b6b13b3cf529caa2f4c2c1995a68326e60f609",
+    "tested_sha": "26b6b13b3cf529caa2f4c2c1995a68326e60f609",
+    "tree_fingerprint": "4f1f19810355e1f3b76f7a03d41edd8cfbc9538c",
+    "started_at_ms": 1791953198423,
     "environment": "mac",
     "required_schema": "1.0.0"
   },
-  "required_cases_count": 195,
+  "required_cases_count": 211,
   "case_coverage": {
     "D01": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "D01"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "D02": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "D02"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "D03": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "D03"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "D04": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "D04"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "D05": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "D05"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "D06": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "D06"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "D07": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "D07"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "D08": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "D08"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "D09": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "D09"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "D10": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "D10"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "D11": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "D11"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "D12": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "D12"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "R01": {
@@ -121,101 +97,73 @@
       "not_passed": {}
     },
     "R06": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "R06"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "M01": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "M01"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "M02": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "M02"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "M03": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "M03"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "M04": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "M04"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "E01": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "E01"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "E02": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "E02"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "E03": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "E03"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "E04": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "E04"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "E05": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "E05"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "E06": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "E06"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "E07": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "E07"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "E08": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "E08"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "E09": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "E09"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "S01": {
@@ -299,45 +247,33 @@
       "not_passed": {}
     },
     "T11": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "T11"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "T12": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "T12"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "T13": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "T13"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "T14": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "T14"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "T15": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "T15"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "T16": {
-      "status": "INCOMPLETE",
-      "missing": [
-        "T16"
-      ],
+      "status": "PASS",
+      "missing": [],
       "not_passed": {}
     },
     "T17": {
@@ -1049,6 +985,86 @@
       "status": "PASS",
       "missing": [],
       "not_passed": {}
+    },
+    "A01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "A02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "A03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "A04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "A05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "A06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC07": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC08": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC09": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC10": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
     }
   },
   "statuses": {
@@ -1057,18 +1073,18 @@
     "frontend_lint": "PASS",
     "frontend_vitest": "PASS",
     "frontend_build": "PASS",
-    "browser_e2e": "INCOMPLETE",
-    "benchmark": "FAIL",
+    "browser_e2e": "PASS",
+    "benchmark": "PASS",
     "git_diff_check": "PASS"
   },
   "steps": {
     "backend_targeted": {
       "status": "PASS",
-      "summary": "407 passed, 1 warning in 28.88s",
+      "summary": "445 passed, 1 warning in 29.96s",
       "failed": [],
       "unexpected_failures": [],
       "exit_code": 0,
-      "duration_s": 31.49,
+      "duration_s": 32.68,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\backend_targeted.log",
       "argv": [
         "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
@@ -1119,6 +1135,8 @@
         "tests/test_v14_4_9_reconciliation_integrity.py",
         "tests/test_v14_4_10_three_session_entry.py",
         "tests/test_v14_4_10_frozen_context.py",
+        "tests/test_v14_4_11_reconciliation_authority.py",
+        "tests/test_v14_4_11_three_session_execution.py",
         "-q",
         "-p",
         "no:cacheprovider",
@@ -1128,7 +1146,7 @@
     "frontend_typecheck": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 6.06,
+      "duration_s": 5.35,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_typecheck.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npx.CMD",
@@ -1141,7 +1159,7 @@
       "warnings": 29,
       "errors": 0,
       "exit_code": 0,
-      "duration_s": 0.99,
+      "duration_s": 1.0,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_lint.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npx.CMD",
@@ -1151,7 +1169,7 @@
     "frontend_vitest": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 2.72,
+      "duration_s": 2.97,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_vitest.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npx.CMD",
@@ -1165,7 +1183,7 @@
     "frontend_build": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 6.4,
+      "duration_s": 6.74,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_build.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npm.CMD",
@@ -1174,31 +1192,50 @@
       ]
     },
     "browser_e2e": {
-      "status": "INCOMPLETE",
-      "reason": "--skip-e2e specified; acceptance requires full browser run"
+      "status": "PASS",
+      "playwright_stats": {
+        "startTime": "2026-10-14T04:47:32.787Z",
+        "duration": 211058.177,
+        "expected": 48,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "executed_tests": 48,
+      "exit_code": 0,
+      "duration_s": 212.57,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\browser_e2e.log",
+      "argv": [
+        "C:\\Program Files\\nodejs\\npx.CMD",
+        "playwright",
+        "test",
+        "tests/e2e/v14_4_2_chart_closure.e2e.ts",
+        "tests/e2e/v14_4_2_realtime_soak.e2e.ts",
+        "tests/e2e/v14_4_2_mobile.e2e.ts",
+        "tests/e2e/v14_4_1_sessions_chart.e2e.ts",
+        "tests/e2e/v14_4_2_selection_source.e2e.ts"
+      ]
     },
     "benchmark": {
-      "status": "FAIL",
+      "status": "PASS",
       "latency_ms": {
-        "p50": 13.026,
-        "p95": 15.956,
-        "max": 27.503,
+        "p50": 14.206,
+        "p95": 18.123,
+        "max": 30.499,
         "sample_count": 600
       },
       "not_measured": [],
       "metric_validation": {
-        "pass": false,
-        "status": "FAIL",
-        "errors": [
-          "STALE_BROWSER_ARTIFACT: file mtime 1791948706663 < run start 1791949819286"
-        ],
-        "p95_ms": 15.956,
+        "pass": true,
+        "status": "PASS",
+        "errors": [],
+        "p95_ms": 18.123,
         "cycles": 600,
-        "browser_p95_ms": 35,
-        "browser_events": 10061
+        "browser_p95_ms": 28.3,
+        "browser_events": 10062
       },
       "exit_code": 0,
-      "duration_s": 8.83,
+      "duration_s": 9.77,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\benchmark.log",
       "argv": [
         "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
@@ -1206,9 +1243,9 @@
         "--cycles",
         "600",
         "--run-id",
-        "run_1791949819286",
+        "run_1791953198423",
         "--tested-sha",
-        "1ed60f41753744ff304afb05e93797a049d15425",
+        "26b6b13b3cf529caa2f4c2c1995a68326e60f609",
         "--out",
         "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\benchmark.json"
       ]
@@ -1216,7 +1253,7 @@
     "git_diff_check": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 0.05,
+      "duration_s": 0.06,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\git_diff_check.log",
       "argv": [
         "git",
@@ -1234,5 +1271,5 @@
     "tests/test_v13_5_integrity_acceptance.py::test_01_integrity_pass_on_valid_inputs"
   ],
   "probability_research": "NOT_VERIFIED (no real out-of-sample dataset; metrics are null, not 0)",
-  "timestamp": "2026-10-14 10:51:15"
+  "timestamp": "2026-10-14 11:51:45"
 }

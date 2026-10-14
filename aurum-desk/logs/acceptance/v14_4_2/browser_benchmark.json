@@ -1,10 +1,10 @@
 {
   "status": "PASS",
   "schema_version": "1.0.0",
-  "run_id": "browser-soak-1791948706662",
-  "tested_sha": "1ed60f41753744ff304afb05e93797a049d15425",
-  "duration_seconds": 61.46,
-  "total_frames_streamed": 10061,
+  "run_id": "browser-soak-1791953443595",
+  "tested_sha": "26b6b13b3cf529caa2f4c2c1995a68326e60f609",
+  "duration_seconds": 61.9,
+  "total_frames_streamed": 10062,
   "selection_cycles": 100,
   "selections_completed": 100,
   "selected_kind_counts": {
@@ -14,14 +14,14 @@
     "DRAFT": 25
   },
   "all_four_kinds_covered": true,
-  "queue_drain_time_ms": 9,
+  "queue_drain_time_ms": 11,
   "telemetry": {
     "render_latency_ms": {
-      "p50": 6.8,
-      "p95": 35,
-      "p99": 44.3,
-      "max": 62.7,
-      "sample_count": 951
+      "p50": 7.2,
+      "p95": 28.3,
+      "p99": 36.6,
+      "max": 43.4,
+      "sample_count": 784
     },
     "queue_current": 0,
     "queue_peak": 2,
@@ -31,17 +31,17 @@
     "reconnect_count": 0,
     "chart_create_count": 0,
     "chart_destroy_count": 0,
-    "invalid_event_count": 7,
+    "invalid_event_count": 4,
     "sequence_gap_count": 0,
     "dropped_execution_event_count": 0,
-    "events_received_count": 10061,
-    "events_rendered_count": 951,
+    "events_received_count": 10062,
+    "events_rendered_count": 784,
     "transport_kind": "WEBSOCKET",
     "measurement_scope": "QUOTE_DOM_COMMIT_RAF_PROXY"
   },
   "budgets": {
     "render_latency_p95_limit_ms": 250,
-    "actual_p95_ms": 35,
+    "actual_p95_ms": 28.3,
     "chart_recreation_limit": 0,
     "actual_chart_create_count": 0,
     "subscriber_leak_limit": 0,

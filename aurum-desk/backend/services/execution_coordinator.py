@@ -183,8 +183,13 @@ class ExecutionCoordinator:
             # Re-verify trading policy (daily max 3 fills, NY window, slot reservation)
             from services.trading_policy_service import TradingPolicyService
             from datetime import datetime, timezone
-            current_dt = datetime.fromtimestamp(current_time / 1000.0, tz=timezone.utc)
-            policy_eval = TradingPolicyService.evaluate_entry_policy(db, order.instrument or "XAUUSDT", current_dt)
+            policy_eval = TradingPolicyService.evaluate_entry_policy(
+                db=db,
+                order_type_or_symbol=order.instrument or "XAUUSDT",
+                clock=c,
+                now_ms=current_time,
+                strategy_family=getattr(order, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC"
+            )
             if not policy_eval["allowed"]:
                 TradeLifecycleService.execute_reject(
                     db=db,

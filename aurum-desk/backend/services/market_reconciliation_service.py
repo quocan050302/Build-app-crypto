@@ -601,12 +601,10 @@ def read_frozen_exit_context(order: Any) -> FrozenExitContextResult:
 
     snapshot_raw = getattr(order, "cost_snapshot", None)
     snapshot_dict: Optional[Dict[str, Any]] = None
-    if snapshot_raw:
-        if isinstance(snapshot_raw, dict):
-            snapshot_dict = snapshot_raw
-        elif isinstance(snapshot_raw, str):
+    if snapshot_raw is not None:
+        if isinstance(snapshot_raw, str):
             try:
-                snapshot_dict = json.loads(snapshot_raw)
+                parsed = json.loads(snapshot_raw)
             except Exception:
                 return FrozenExitContextResult(
                     status="INVALID",
@@ -619,12 +617,39 @@ def read_frozen_exit_context(order: Any) -> FrozenExitContextResult:
                     exit_policy_version="",
                     issues=["CORRUPT_COST_SNAPSHOT_JSON"],
                 )
+            if not isinstance(parsed, dict):
+                return FrozenExitContextResult(
+                    status="INVALID",
+                    order_id=order_id,
+                    symbol=symbol,
+                    direction=direction,
+                    entry_price=0.0,
+                    stop_loss=0.0,
+                    take_profit=0.0,
+                    exit_policy_version="",
+                    issues=["ROOT_NOT_DICT"],
+                )
+            snapshot_dict = parsed
+        elif isinstance(snapshot_raw, dict):
+            snapshot_dict = snapshot_raw
+        else:
+            return FrozenExitContextResult(
+                status="INVALID",
+                order_id=order_id,
+                symbol=symbol,
+                direction=direction,
+                entry_price=0.0,
+                stop_loss=0.0,
+                take_profit=0.0,
+                exit_policy_version="",
+                issues=["ROOT_NOT_DICT"],
+            )
 
     exit_policy_version = "1.0.0"
     policy_config_version = 1
-    if snapshot_dict:
+    if snapshot_dict is not None:
         direction = str(snapshot_dict.get("direction") or direction).upper()
-        entry_val = snapshot_dict.get("actual_entry") or snapshot_dict.get("planned_entry")
+        entry_val = snapshot_dict.get("actual_entry") if snapshot_dict.get("actual_entry") is not None else snapshot_dict.get("planned_entry")
         sl_val = snapshot_dict.get("stop_loss")
         tp_val = snapshot_dict.get("take_profit")
         exit_policy_version = str(snapshot_dict.get("cost_source") or snapshot_dict.get("cost_version") or snapshot_dict.get("policy_config_version") or "1.0.0")
@@ -697,51 +722,121 @@ def read_frozen_exit_context(order: Any) -> FrozenExitContextResult:
     return result
 
 
-def build_reconciliation_context(
-    window: OrderReconciliationWindow,
-    progress: Optional[EvidenceProgress] = None,
-) -> Dict[str, Any]:
-    cutoff = progress.scan_cutoff if (progress and progress.scan_cutoff > 0) else window.end_as_of
-    rev = progress.arrival_revision if progress else 1
-    query_gen = progress.accumulator.query_generation if (progress and progress.accumulator and progress.accumulator.query_generation) else 1
-
-    frozen_exit = read_frozen_exit_context(window.order) if window.order else None
-
-    direction = (frozen_exit.direction if frozen_exit and frozen_exit.direction else getattr(window.order, "direction", "LONG")) if window.order else "LONG"
-    symbol = (frozen_exit.symbol if frozen_exit and frozen_exit.symbol else window.symbol)
-    exit_policy_ver = frozen_exit.exit_policy_version if (frozen_exit and frozen_exit.exit_policy_version) else "1.0.0"
-    fp = frozen_exit.fingerprint if (frozen_exit and frozen_exit.fingerprint) else fingerprint_exit_context({
-        "order_id": window.order_id,
-        "symbol": symbol,
-        "direction": direction,
-        "entry_price": getattr(window.order, "entry_price", getattr(window.order, "actual_entry", getattr(window.order, "planned_entry", 0.0))) if window.order else 0.0,
-        "stop_loss": getattr(window.order, "stop_loss", 0.0) if window.order else 0.0,
-        "take_profit": getattr(window.order, "take_profit", 0.0) if window.order else 0.0,
-        "exit_policy_version": exit_policy_ver,
-    })
-
-    return {
-        "context_schema_version": "1.0.0",
-        "order_id": window.order_id,
-        "window_id": window.order_id,
-        "symbol": symbol,
-        "direction": direction,
-        "opened_at": window.opened_at,
-        "scan_cutoff": cutoff,
-        "source_epoch": window.source_epoch,
-        "query_generation": query_gen,
-        "arrival_revision": rev,
-        "exit_policy_version": exit_policy_ver,
-        "exit_context_fingerprint": fp,
-    }
+@dataclass(frozen=True)
+class ContextBuildResult:
+    status: str  # "VALID", "INVALID", "UNVERIFIED"
+    context: Optional[Dict[str, Any]]
+    issues: List[str] = field(default_factory=list)
+    source_status: str = "UNKNOWN"
 
 
-CRITICAL_IDENTITY_AND_POLICY_FIELDS = [
+REQUIRED_CONTEXT_FIELDS: List[str] = [
+    "context_schema_version",
     "order_id",
+    "window_id",
     "symbol",
     "direction",
+    "opened_at",
+    "scan_cutoff",
+    "source_epoch",
+    "query_generation",
+    "arrival_revision",
     "exit_policy_version",
+    "exit_context_fingerprint",
 ]
+
+
+def validate_context_schema(
+    payload: Any,
+    mode: str = "STRICT",
+) -> ValidationResult:
+    """PHẦN 025, 026, 054: Validates context dictionary schema strictly."""
+    issues: List[ValidationIssue] = []
+    if not isinstance(payload, dict) or not payload:
+        issues.append(ValidationIssue(code="EMPTY_CONTEXT", field="payload", detail="Context must be a non-empty dictionary"))
+        return ValidationResult(is_valid=False, issues=issues)
+
+    if mode == "STRICT":
+        # Check presence and nullability of all required fields
+        for f in REQUIRED_CONTEXT_FIELDS:
+            if f not in payload:
+                issues.append(ValidationIssue(
+                    code=f"MISSING_FIELD_{f.upper()}",
+                    field=f,
+                    detail=f"Field {f} is missing in context"
+                ))
+            elif payload[f] is None:
+                issues.append(ValidationIssue(
+                    code=f"NULL_FIELD_{f.upper()}",
+                    field=f,
+                    detail=f"Field {f} cannot be null"
+                ))
+
+        if issues:
+            return ValidationResult(is_valid=False, issues=issues)
+
+        # String fields: order_id, window_id, symbol, direction, exit_policy_version, exit_context_fingerprint
+        for str_f in ["order_id", "window_id", "symbol", "direction", "exit_policy_version", "exit_context_fingerprint"]:
+            val = payload.get(str_f)
+            if not isinstance(val, str) or not val.strip():
+                issues.append(ValidationIssue(
+                    code=f"INVALID_TYPE_{str_f.upper()}",
+                    field=str_f,
+                    detail=f"{str_f} must be a non-empty string"
+                ))
+
+        # direction must be LONG or SHORT
+        direction_val = str(payload.get("direction", "")).strip().upper()
+        if direction_val not in ("LONG", "SHORT"):
+            issues.append(ValidationIssue(
+                code="INVALID_DIRECTION",
+                field="direction",
+                detail=f"direction must be LONG or SHORT, got {payload.get('direction')}"
+            ))
+
+        # context_schema_version must be str or int, not bool
+        csv = payload.get("context_schema_version")
+        if isinstance(csv, bool) or not (isinstance(csv, str) or isinstance(csv, int)):
+            issues.append(ValidationIssue(
+                code="INVALID_TYPE_CONTEXT_SCHEMA_VERSION",
+                field="context_schema_version",
+                detail="context_schema_version must be str or int"
+            ))
+
+        # Positive ints, not bool: source_epoch, query_generation, arrival_revision
+        for int_pos_f in ["source_epoch", "query_generation", "arrival_revision"]:
+            v = payload.get(int_pos_f)
+            if isinstance(v, bool) or not isinstance(v, int) or v <= 0:
+                issues.append(ValidationIssue(
+                    code=f"INVALID_VALUE_{int_pos_f.upper()}",
+                    field=int_pos_f,
+                    detail=f"{int_pos_f} must be a positive integer, got {type(v).__name__}: {v}"
+                ))
+
+        # Non-negative timestamps, not bool: opened_at, scan_cutoff
+        for ts_f in ["opened_at", "scan_cutoff"]:
+            v = payload.get(ts_f)
+            if isinstance(v, bool) or not isinstance(v, int) or v < 0:
+                issues.append(ValidationIssue(
+                    code=f"INVALID_VALUE_{ts_f.upper()}",
+                    field=ts_f,
+                    detail=f"{ts_f} must be a non-negative integer, got {type(v).__name__}: {v}"
+                ))
+
+        opened_at = payload.get("opened_at")
+        scan_cutoff = payload.get("scan_cutoff")
+        if (
+            isinstance(opened_at, int) and not isinstance(opened_at, bool)
+            and isinstance(scan_cutoff, int) and not isinstance(scan_cutoff, bool)
+        ):
+            if scan_cutoff > 0 and opened_at > scan_cutoff:
+                issues.append(ValidationIssue(
+                    code="OPENED_AT_EXCEEDS_SCAN_CUTOFF",
+                    field="opened_at",
+                    detail=f"opened_at {opened_at} cannot exceed scan_cutoff {scan_cutoff}"
+                ))
+
+    return ValidationResult(is_valid=len(issues) == 0, issues=issues)
 
 
 def validate_context_compatibility(
@@ -749,63 +844,170 @@ def validate_context_compatibility(
     expected: Any,
     migration_mode: str = "STRICT",
 ) -> ValidationResult:
-    """Validates compatibility between stored validation_context and expected context."""
+    """PHẦN 003, 025, 027, 028: Validates compatibility between stored validation_context and expected context."""
     issues: List[ValidationIssue] = []
     if not isinstance(stored, dict) or not stored:
-        issues.append(ValidationIssue(code="EMPTY_VALIDATION_CONTEXT", field="validation_context"))
+        issues.append(ValidationIssue(code="EMPTY_VALIDATION_CONTEXT", field="validation_context", detail="Stored context is empty"))
         return ValidationResult(is_valid=False, issues=issues)
     if not isinstance(expected, dict) or not expected:
-        issues.append(ValidationIssue(code="EMPTY_EXPECTED_CONTEXT", field="expected_context"))
+        issues.append(ValidationIssue(code="EMPTY_EXPECTED_CONTEXT", field="expected_context", detail="Expected context is empty"))
         return ValidationResult(is_valid=False, issues=issues)
 
-    # Check critical identity & policy fields
-    for f in CRITICAL_IDENTITY_AND_POLICY_FIELDS:
-        if f not in stored and f not in expected:
-            continue
-        if f not in stored:
-            issues.append(ValidationIssue(code=f"CONTEXT_{f.upper()}_MISMATCH", field=f, detail=f"Missing {f} in stored context"))
-        elif f not in expected:
-            issues.append(ValidationIssue(code=f"CONTEXT_{f.upper()}_MISMATCH", field=f, detail=f"Missing {f} in expected context"))
-        else:
-            s_val = str(stored.get(f) or "").strip().upper()
-            e_val = str(expected.get(f) or "").strip().upper()
-            if s_val != e_val:
+    if migration_mode == "STRICT":
+        s_val = validate_context_schema(stored, mode="STRICT")
+        e_val = validate_context_schema(expected, mode="STRICT")
+        if not s_val.is_valid or not e_val.is_valid:
+            return ValidationResult(is_valid=False, issues=list(s_val.issues) + list(e_val.issues))
+
+        for f in REQUIRED_CONTEXT_FIELDS:
+            s_item = stored.get(f)
+            e_item = expected.get(f)
+
+            mismatch = False
+            if f in ("symbol", "direction"):
+                if str(s_item or "").strip().upper() != str(e_item or "").strip().upper():
+                    mismatch = True
+            elif f in ("order_id", "window_id", "exit_policy_version", "exit_context_fingerprint", "context_schema_version"):
+                if str(s_item or "").strip() != str(e_item or "").strip():
+                    mismatch = True
+            else:
+                if s_item != e_item:
+                    mismatch = True
+
+            if mismatch:
+                code_map = {
+                    "scan_cutoff": "CONTEXT_CUTOFF_MISMATCH",
+                    "exit_context_fingerprint": "CONTEXT_FINGERPRINT_MISMATCH",
+                }
+                code = code_map.get(f, f"CONTEXT_{f.upper()}_MISMATCH")
+                issues.append(ValidationIssue(
+                    code=code,
+                    field=f,
+                    detail=f"Stored {s_item} != expected {e_item}"
+                ))
+
+        return ValidationResult(is_valid=len(issues) == 0, issues=issues)
+
+    elif migration_mode == "LEGACY":
+        # Explicit authorized legacy migration branch (PHẦN 027, 031)
+        if not isinstance(stored, dict) or not stored:
+            return ValidationResult(is_valid=False, issues=[ValidationIssue(code="EMPTY_VALIDATION_CONTEXT", field="validation_context")])
+        if not isinstance(expected, dict) or not expected:
+            return ValidationResult(is_valid=False, issues=[ValidationIssue(code="EMPTY_EXPECTED_CONTEXT", field="expected_context")])
+
+        for f in ["order_id", "symbol", "direction"]:
+            s_item = str(stored.get(f) or "").strip().upper() if stored else ""
+            e_item = str(expected.get(f) or "").strip().upper() if expected else ""
+            if s_item != e_item:
                 issues.append(ValidationIssue(
                     code=f"CONTEXT_{f.upper()}_MISMATCH",
                     field=f,
-                    detail=f"Stored {stored.get(f)} != expected {expected.get(f)}"
+                    detail=f"Stored {s_item} != expected {e_item}"
                 ))
+        return ValidationResult(is_valid=len(issues) == 0, issues=issues)
 
-    # Check exit context fingerprint if present in both
-    stored_fp = stored.get("exit_context_fingerprint")
-    expected_fp = expected.get("exit_context_fingerprint")
-    if stored_fp and expected_fp and stored_fp != expected_fp:
+    else:
         issues.append(ValidationIssue(
-            code="CONTEXT_FINGERPRINT_MISMATCH",
-            field="exit_context_fingerprint",
-            detail=f"Stored fp {stored_fp} != expected fp {expected_fp}"
+            code="UNSUPPORTED_MIGRATION_MODE",
+            field="migration_mode",
+            detail=f"Unsupported migration mode {migration_mode}"
         ))
+        return ValidationResult(is_valid=False, issues=issues)
 
-    # Check epoch, generation, revision
-    for f in ["source_epoch", "query_generation", "arrival_revision"]:
-        if f in stored and f in expected:
-            if stored[f] != expected[f]:
-                issues.append(ValidationIssue(
-                    code=f"CONTEXT_{f.upper()}_MISMATCH",
-                    field=f,
-                    detail=f"Stored {stored[f]} != expected {expected[f]}"
-                ))
 
-    # Check scan cutoff: stored scan cutoff should match expected scan cutoff
-    if "scan_cutoff" in stored and "scan_cutoff" in expected:
-        if stored["scan_cutoff"] != expected["scan_cutoff"]:
-            issues.append(ValidationIssue(
-                code="CONTEXT_CUTOFF_MISMATCH",
-                field="scan_cutoff",
-                detail=f"Stored cutoff {stored['scan_cutoff']} != expected cutoff {expected['scan_cutoff']}"
-            ))
+def build_reconciliation_context_result(
+    window: OrderReconciliationWindow,
+    progress: Optional[EvidenceProgress] = None,
+) -> ContextBuildResult:
+    """PHẦN 014, 015, 019: Strict reconciliation context builder from verified frozen sources."""
+    if not window.order:
+        return ContextBuildResult(
+            status="INVALID",
+            context=None,
+            issues=["MISSING_ORDER"],
+            source_status="INVALID",
+        )
 
-    return ValidationResult(is_valid=len(issues) == 0, issues=issues)
+    frozen = read_frozen_exit_context(window.order)
+    if frozen.status == "INVALID":
+        return ContextBuildResult(
+            status="INVALID",
+            context=None,
+            issues=list(frozen.issues),
+            source_status="INVALID",
+        )
+
+    issues: List[str] = []
+    if str(window.order_id) != str(frozen.order_id):
+        issues.append("FIELD_SOURCE_CONFLICT_ORDER_ID")
+    if str(window.symbol).upper() != str(frozen.symbol).upper():
+        issues.append("FIELD_SOURCE_CONFLICT_SYMBOL")
+
+    ord_dir = str(getattr(window.order, "direction", "") or "").upper()
+    if ord_dir and ord_dir != frozen.direction:
+        issues.append("FIELD_SOURCE_CONFLICT_DIRECTION")
+
+    if issues:
+        return ContextBuildResult(
+            status="INVALID",
+            context=None,
+            issues=issues,
+            source_status=frozen.status,
+        )
+
+    cutoff = progress.scan_cutoff if (progress and progress.scan_cutoff > 0) else window.end_as_of
+    rev = progress.arrival_revision if progress else 1
+    query_gen = progress.accumulator.query_generation if (progress and progress.accumulator and progress.accumulator.query_generation) else 1
+
+    fp = frozen.fingerprint or fingerprint_exit_context(frozen)
+
+    ctx = {
+        "context_schema_version": "1.0.0",
+        "order_id": window.order_id,
+        "window_id": window.order_id,
+        "symbol": frozen.symbol,
+        "direction": frozen.direction,
+        "opened_at": window.opened_at,
+        "scan_cutoff": cutoff,
+        "source_epoch": window.source_epoch,
+        "query_generation": query_gen,
+        "arrival_revision": rev,
+        "exit_policy_version": frozen.exit_policy_version,
+        "exit_context_fingerprint": fp,
+    }
+
+    schema_val = validate_context_schema(ctx, mode="STRICT")
+    if not schema_val.is_valid:
+        return ContextBuildResult(
+            status="INVALID",
+            context=None,
+            issues=[iss.code for iss in schema_val.issues],
+            source_status=frozen.status,
+        )
+
+    if frozen.status == "UNVERIFIED":
+        return ContextBuildResult(
+            status="UNVERIFIED",
+            context=ctx,
+            issues=list(frozen.issues),
+            source_status="UNVERIFIED",
+        )
+
+    return ContextBuildResult(
+        status="VALID",
+        context=ctx,
+        issues=[],
+        source_status="VALID",
+    )
+
+
+def build_reconciliation_context(
+    window: OrderReconciliationWindow,
+    progress: Optional[EvidenceProgress] = None,
+) -> Optional[Dict[str, Any]]:
+    """Legacy wrapper delegating to strict builder."""
+    res = build_reconciliation_context_result(window, progress)
+    return res.context
 
 
 def validate_candidate_context(
@@ -1459,6 +1661,16 @@ def resolve_reconciliation_window(
     """
     if not candidates:
         return ResolutionDecision(action="NONE", reason_code="NO_CANDIDATE")
+
+    # Defense: Validate frozen exit context authority (PHẦN 020, 053)
+    frozen = read_frozen_exit_context(order)
+    if frozen.status == "INVALID":
+        return ResolutionDecision(
+            action="REVIEW_REQUIRED",
+            candidate=None,
+            reason_code="FROZEN_CONTEXT_INVALID",
+            details={"issues": frozen.issues},
+        )
 
     # Defense: Validate candidate integrity and order identity (PHẦN 041)
     for c in candidates:
@@ -2198,7 +2410,21 @@ def process_window_slice(
     if budget is None:
         budget = CycleBudget()
 
-    context = build_reconciliation_context(window, progress)
+    ctx_res = build_reconciliation_context_result(window, progress)
+    if ctx_res.status == "INVALID":
+        progress.read_status = "REPLAY_NEEDED"
+        save_window_progress(db, progress)
+        return WindowSliceResult(
+            progressed=False,
+            has_more=False,
+            next_progress=progress,
+            read_complete=False,
+            decision=None,
+            reasons=list(ctx_res.issues),
+            processed_count=0,
+        )
+
+    context = ctx_res.context
 
     # Validate injected progress and accumulator context (PHẦN 032, 040)
     if progress and progress.accumulator:
@@ -2393,7 +2619,14 @@ def persist_resolution_or_review(
 
     if decision.action == "CLOSE" and decision.candidate:
         cand = decision.candidate
-        # Apply boundary defense (PHẦN 043)
+        # Apply boundary defense (PHẦN 022, 043)
+        frozen = read_frozen_exit_context(window.order)
+        if frozen.status == "INVALID":
+            logger.error(
+                f"Apply boundary rejected CLOSE for order {window.order.id} with INVALID frozen snapshot: {frozen.issues}"
+            )
+            return ResolutionApplyResult(action="CLOSE", applied=False, committed=False)
+
         if (
             cand.order_id != window.order.id
             or not is_finite_real(cand.executable_price)
@@ -2469,6 +2702,11 @@ class MarketReconciliationService:
         decision: ResolutionDecision,
     ) -> ResolutionApplyResult:
         """Applies a resolved reconciliation decision atomically and durably commits."""
+        frozen = read_frozen_exit_context(order)
+        if decision.action == "CLOSE" and frozen.status == "INVALID":
+            logger.error(f"apply_reconciliation_decision rejected forged CLOSE for order {order.id}: {frozen.issues}")
+            return ResolutionApplyResult(action="CLOSE", applied=False, committed=False)
+
         window = OrderReconciliationWindow(
             order_id=order.id,
             symbol=getattr(order, "instrument", "XAUUSDT"),

@@ -3,15 +3,15 @@
   "failures": [],
   "cycles": 600,
   "confirmed_cycles": 600,
-  "total_s": 8.075,
-  "throughput_cycles_per_s": 74.3,
+  "total_s": 8.84,
+  "throughput_cycles_per_s": 67.9,
   "latency_ms": {
-    "p50": 13.026,
-    "p95": 15.956,
-    "max": 27.503,
+    "p50": 14.206,
+    "p95": 18.123,
+    "max": 30.499,
     "sample_count": 600
   },
-  "traced_memory_growth_mb": 0.098,
+  "traced_memory_growth_mb": 0.099,
   "progression_sample": [
     {
       "bars_back": 0,
@@ -68,12 +68,12 @@
     "cpu_count": 12
   },
   "NOT_MEASURED": [],
-  "run_id": "run_1791949819286",
-  "tested_sha": "1ed60f41753744ff304afb05e93797a049d15425",
+  "run_id": "run_1791953198423",
+  "tested_sha": "26b6b13b3cf529caa2f4c2c1995a68326e60f609",
   "browser_measurements": {
     "status": "PASS",
-    "stream_duration_s": 61.46,
-    "events_streamed": 10061,
+    "stream_duration_s": 61.9,
+    "events_streamed": 10062,
     "selections_completed": 100,
     "selected_kind_counts": {
       "SCENARIO": 25,
@@ -82,15 +82,15 @@
       "DRAFT": 25
     },
     "render_latency_ms": {
-      "p50": 6.8,
-      "p95": 35,
-      "p99": 44.3,
-      "max": 62.7,
-      "sample_count": 951
+      "p50": 7.2,
+      "p95": 28.3,
+      "p99": 36.6,
+      "max": 43.4,
+      "sample_count": 784
     },
     "queue_peak": 2,
     "queue_current": 0,
-    "queue_drain_time_ms": 9,
+    "queue_drain_time_ms": 11,
     "active_subscriber_count": 3,
     "subscriber_baseline": 3,
     "subscriber_leak": 0,
