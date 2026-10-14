@@ -164,7 +164,19 @@ def test_mbr01_session_isolation_overlap_and_unbound_orders(isolated_db: Session
         strategy_family="STANDARD_SMC",
     )
 
-    isolated_db.add_all([ord_a, ord_b, ord_unbound, ord_pre])
+    # Domain events to satisfy strict terminal event authority in report
+    ev_a = models.DomainEvent(
+        event_id="evt_mbr_A", sequence=1, schema_version="1.0.0", event_type="trade.closed", aggregate_id="ord_A_001",
+        aggregate_version=2, occurred_at=now_ms + 5000, published_at=now_ms + 5000,
+        payload=json.dumps({"order_id": "ord_A_001", "direction": "LONG", "exit_cause": "TP_HIT", "actual_entry": 4180.0, "actual_exit": 4200.0, "realized_pnl": 4.0}),
+    )
+    ev_b = models.DomainEvent(
+        event_id="evt_mbr_B", sequence=2, schema_version="1.0.0", event_type="trade.closed", aggregate_id="ord_B_001",
+        aggregate_version=2, occurred_at=now_ms + 6000, published_at=now_ms + 6000,
+        payload=json.dumps({"order_id": "ord_B_001", "direction": "SHORT", "exit_cause": "TP_HIT", "actual_entry": 4200.0, "actual_exit": 4180.0, "realized_pnl": 4.0}),
+    )
+
+    isolated_db.add_all([ord_a, ord_b, ord_unbound, ord_pre, ev_a, ev_b])
     isolated_db.commit()
 
     # Explicitly bind Order A to Session A while Session A is active

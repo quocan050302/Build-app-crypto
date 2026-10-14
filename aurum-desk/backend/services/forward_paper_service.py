@@ -924,7 +924,9 @@ def load_due_forward_repairs(
     now_ms: Optional[int] = None,
     limit: int = 50,
 ) -> List[ForwardMembershipRepairTask]:
-    """PHẦN 042: Loads bounded list of due forward membership repair tasks."""
+    """PHẦN 042, 033, 034: Loads bounded list of due forward membership repair tasks using a durable cursor.
+    Guarantees fair keyset round-robin scanning so prefix repaired/manual tasks do not starve tail tasks.
+    """
     now_ms = now_ms if now_ms is not None else int(datetime.now(timezone.utc).timestamp() * 1000)
 
     queue_rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == "fwd_repair_queue").first()
@@ -938,8 +940,35 @@ def load_due_forward_repairs(
     except Exception:
         return []
 
+    total_queue = len(order_ids)
+    if total_queue == 0:
+        return []
+
+    # Read durable cursor
+    last_index = 0
+    cursor_rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == "fwd_repair_cursor").first()
+    if cursor_rec and cursor_rec.value:
+        try:
+            cdata = json.loads(cursor_rec.value)
+            if isinstance(cdata, dict):
+                last_index = int(cdata.get("last_index", 0))
+        except Exception:
+            last_index = 0
+
+    start_idx = last_index % total_queue if total_queue > 0 else 0
+
+    # We inspect up to min(total_queue, max(limit * 3, 30)) items per cycle starting from start_idx
+    inspect_limit = min(total_queue, max(limit * 3, 30))
     due_tasks: List[ForwardMembershipRepairTask] = []
-    for ord_id in order_ids[:limit * 3]:
+    inspected_count = 0
+
+    for i in range(total_queue):
+        if inspected_count >= inspect_limit or len(due_tasks) >= limit:
+            break
+        idx = (start_idx + i) % total_queue
+        inspected_count += 1
+        ord_id = order_ids[idx]
+
         task_key = _repair_task_key(ord_id)
         task_rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == task_key).first()
         if not task_rec or not task_rec.value:
@@ -949,12 +978,60 @@ def load_due_forward_repairs(
             if task.status in ("PENDING", "RETRY_SCHEDULED"):
                 if task.next_retry_at_ms is None or task.next_retry_at_ms <= now_ms:
                     due_tasks.append(task)
-                    if len(due_tasks) >= limit:
-                        break
         except Exception:
             continue
 
+    # Update durable cursor to advance beyond inspected items
+    new_last_index = (start_idx + inspected_count) % total_queue
+    cursor_val = json.dumps({"last_index": new_last_index, "updated_at_ms": now_ms})
+    if not cursor_rec:
+        cursor_rec = models.SystemConfig(key="fwd_repair_cursor", value=cursor_val, updated_at=now_ms)
+        db.add(cursor_rec)
+    else:
+        cursor_rec.value = cursor_val
+        cursor_rec.updated_at = now_ms
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+
     return due_tasks
+
+
+def validate_repair_session(
+    db: Session,
+    task: ForwardMembershipRepairTask,
+    order: models.PaperOrder,
+) -> Tuple[bool, Optional[str]]:
+    """PHẦN 036, 037, 038: Validates target forward session existence and provenance consistency.
+    Returns (is_valid, failure_reason).
+    """
+    if not task.forward_session_id:
+        return False, "MISSING_FORWARD_SESSION_ID"
+
+    # 1. Existence check: target session must exist
+    target_session = load_forward_session(db, task.forward_session_id)
+    if not target_session:
+        return False, f"NONEXISTENT_FORWARD_SESSION: {task.forward_session_id}"
+
+    # 2. Provenance cross-check against original damaged payload
+    if task.original_damaged_payload:
+        try:
+            parsed = json.loads(task.original_damaged_payload)
+            if isinstance(parsed, dict):
+                orig_sess = parsed.get("forward_session_id")
+                if orig_sess and orig_sess != task.forward_session_id:
+                    return False, f"PROVENANCE_SESSION_MISMATCH: task session {task.forward_session_id} != payload session {orig_sess}"
+        except Exception:
+            pass
+
+    # 3. Provenance cross-check against order session_instance_id if it's a forward session
+    order_sess_inst = getattr(order, "session_instance_id", "") or ""
+    if order_sess_inst.startswith("fwd_sess_") and order_sess_inst != task.forward_session_id:
+        return False, f"PROVENANCE_SESSION_MISMATCH: task session {task.forward_session_id} != order instance {order_sess_inst}"
+
+    return True, None
 
 
 def repair_forward_membership_task(
@@ -995,6 +1072,22 @@ def repair_forward_membership_task(
             trec.updated_at = now_ms
             db.commit()
         return {"success": False, "status": "MANUAL_REVIEW_REQUIRED", "reason": f"Order {task.order_id} not found"}
+
+    # PHẦN 005, 036, 037, 038: Validate target session existence and provenance consistency
+    valid_session, session_reason = validate_repair_session(db, task, order)
+    if not valid_session:
+        task.status = "MANUAL_REVIEW_REQUIRED"
+        task.last_error = session_reason
+        task.updated_at_ms = now_ms
+        if session_reason and session_reason not in task.reason_codes:
+            task.reason_codes.append(session_reason)
+        task_key = _repair_task_key(task.order_id)
+        trec = db.query(models.SystemConfig).filter(models.SystemConfig.key == task_key).first()
+        if trec:
+            trec.value = json.dumps(task.to_dict())
+            trec.updated_at = now_ms
+            db.commit()
+        return {"success": False, "status": "MANUAL_REVIEW_REQUIRED", "reason": session_reason}
 
     # Monotonic resolution: check actual order state in DB
     order_state = getattr(order, "state", "") or ""
@@ -1469,27 +1562,43 @@ def read_outcome_authority(
             reason_codes=[f"UNSUPPORTED_RECOVERY_STATUS_{rec_status}"],
         )
 
-    # 4. Terminal Event Validation (PHẦN 015, 018, 027)
+    # 4. Terminal Contradictions
+    if isinstance(terminal_event, dict) and terminal_event.get("status") == "CONFLICTED":
+        return RecoveryOutcomeAuthority(
+            status="CONFLICTED",
+            confidence=rec_conf,
+            recovery_status=rec_status,
+            exit_mode="CONFLICT",
+            countable_for_confirmed=False,
+            reason_codes=["CONTRADICTORY_TERMINAL_EVENTS"],
+        )
+
+    # 5. Authority Classification Matrix for non-confirmed categories (PHẦN 014, 021)
+    # If recovery_confidence is set to UNRESOLVED or recovery_status is unresolved:
+    if rec_conf == "UNRESOLVED" or rec_status in KNOWN_UNRESOLVED_STATUSES:
+        return RecoveryOutcomeAuthority(
+            status="UNRESOLVED",
+            confidence=rec_conf,
+            recovery_status=rec_status,
+            exit_mode="RECOVERY",
+            countable_for_confirmed=False,
+            reason_codes=["UNRESOLVED_RECOVERY"],
+        )
+
+    # If conservative simulation:
+    if rec_conf in ("ASSUMED_CONSERVATIVE", "SIMULATED_AMBIGUOUS") or exit_cause == "AMBIGUOUS_BAR_SL_FIRST":
+        return RecoveryOutcomeAuthority(
+            status="CONSERVATIVE_SIMULATION",
+            confidence=rec_conf,
+            recovery_status=rec_status,
+            exit_mode="SIMULATION",
+            countable_for_confirmed=False,
+            reason_codes=["CONSERVATIVE_SIMULATION"],
+        )
+
+    # 6. Terminal Event Validation for Confirmed Trades (PHẦN 015, 018, 027)
     bound_event_id: Optional[str] = None
-    if terminal_event is not None:
-        if isinstance(terminal_event, dict) and terminal_event.get("status") == "CONFLICTED":
-            return RecoveryOutcomeAuthority(
-                status="CONFLICTED",
-                confidence=rec_conf,
-                recovery_status=rec_status,
-                exit_mode="CONFLICT",
-                countable_for_confirmed=False,
-                reason_codes=["CONTRADICTORY_TERMINAL_EVENTS"],
-            )
-        if isinstance(terminal_event, dict) and terminal_event.get("status") == "MISSING":
-            return RecoveryOutcomeAuthority(
-                status="UNVERIFIED",
-                confidence=rec_conf,
-                recovery_status=rec_status,
-                exit_mode="UNVERIFIED",
-                countable_for_confirmed=False,
-                reason_codes=["MISSING_TERMINAL_EVENT"],
-            )
+    if terminal_event is not None and not (isinstance(terminal_event, dict) and terminal_event.get("status") == "MISSING"):
         dec = decode_terminal_event(terminal_event)
         if dec.status != "VALID" or not dec.event_view:
             return RecoveryOutcomeAuthority(
@@ -1511,7 +1620,7 @@ def read_outcome_authority(
                 reason_codes=bind_reasons,
             )
         bound_event_id = dec.event_view.event_id
-    elif require_terminal_event:
+    elif require_terminal_event or (isinstance(terminal_event, dict) and terminal_event.get("status") == "MISSING"):
         return RecoveryOutcomeAuthority(
             status="UNVERIFIED",
             confidence=rec_conf,
@@ -1519,31 +1628,6 @@ def read_outcome_authority(
             exit_mode="UNVERIFIED",
             countable_for_confirmed=False,
             reason_codes=["MISSING_TERMINAL_EVENT", "LEGACY_UNAVAILABLE"],
-        )
-
-    # 5. Authority Classification Matrix (PHẦN 014)
-    # If recovery_confidence is set to UNRESOLVED or recovery_status is unresolved:
-    if rec_conf == "UNRESOLVED" or rec_status in KNOWN_UNRESOLVED_STATUSES:
-        return RecoveryOutcomeAuthority(
-            status="UNRESOLVED",
-            confidence=rec_conf,
-            recovery_status=rec_status,
-            exit_mode="RECOVERY",
-            countable_for_confirmed=False,
-            reason_codes=["UNRESOLVED_RECOVERY"],
-            terminal_event_id=bound_event_id,
-        )
-
-    # If conservative simulation:
-    if rec_conf in ("ASSUMED_CONSERVATIVE", "SIMULATED_AMBIGUOUS") or exit_cause == "AMBIGUOUS_BAR_SL_FIRST":
-        return RecoveryOutcomeAuthority(
-            status="CONSERVATIVE_SIMULATION",
-            confidence=rec_conf,
-            recovery_status=rec_status,
-            exit_mode="SIMULATION",
-            countable_for_confirmed=False,
-            reason_codes=["CONSERVATIVE_SIMULATION"],
-            terminal_event_id=bound_event_id,
         )
 
     # If verified recovery:
@@ -1745,6 +1829,25 @@ def classify_forward_outcome(
         "r": None,
         "reasons": [f"UNKNOWN_STATE_{state}"],
     }
+
+
+def strict_classify_forward_outcome(
+    order: models.PaperOrder,
+    terminal_event: Optional[Any] = None,
+    review_record: Optional[Dict[str, Any]] = None,
+    as_of_ms: Optional[int] = None,
+) -> Dict[str, Any]:
+    """PHẦN 016: Strict outcome classification requiring terminal event matching.
+    Missing event maps explicitly to MISSING; calls classify_forward_outcome with require_terminal_event=True.
+    """
+    event_arg = terminal_event if terminal_event is not None else {"status": "MISSING"}
+    return classify_forward_outcome(
+        order=order,
+        review_record=review_record,
+        as_of_ms=as_of_ms,
+        terminal_event=event_arg,
+        require_terminal_event=True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1956,7 +2059,7 @@ def generate_forward_paper_report(
 
         rev_rec = review_map.get(o.id)
         ev = terminal_events_map.get(o.id)
-        classification = classify_forward_outcome(o, review_record=rev_rec, as_of_ms=now_ms, terminal_event=ev)
+        classification = strict_classify_forward_outcome(o, terminal_event=ev, review_record=rev_rec, as_of_ms=now_ms)
         cls_code = classification["classification"]
 
         if cls_code == "CONFIRMED":
@@ -2002,6 +2105,7 @@ def generate_forward_paper_report(
 
     confirmed_count = len(confirmed_closed)
     net_pnl = sum((o.realized_pnl_net or 0.0) for o in confirmed_closed)
+    recorded_closed_pnl = sum((o.realized_pnl_net or 0.0) for o in orders if getattr(o, "state", "") == "closed")
     winrate = (len(wins) / confirmed_count) if confirmed_count > 0 else 0.0
 
     # Profit factor
@@ -2105,6 +2209,7 @@ def generate_forward_paper_report(
         "confirmed_losses": len(losses),
         "breakevens": len(breakevens),
         "net_pnl": round(net_pnl, 2),
+        "recorded_closed_pnl": round(recorded_closed_pnl, 2),
         "winrate": round(winrate, 3),
         "profit_factor": profit_factor,
         "expectancy_r": expectancy_r,
@@ -2164,7 +2269,7 @@ def export_forward_paper_data(
     for o in orders:
         rev_rec = review_map.get(o.id)
         ev = terminal_events_map.get(o.id)
-        cls_info = classify_forward_outcome(o, review_record=rev_rec, terminal_event=ev)
+        cls_info = strict_classify_forward_outcome(o, terminal_event=ev, review_record=rev_rec)
 
         trade_rev = db.query(models.TradeReview).filter(models.TradeReview.trade_id == o.id).first()
         row = {

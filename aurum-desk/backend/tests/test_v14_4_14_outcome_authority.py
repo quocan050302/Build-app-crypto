@@ -404,7 +404,12 @@ def test_auth07_as_of_missing_nan_and_export_parity(isolated_db: Session):
         closed_at=now_ms + 1000,
         created_at=now_ms,
     )
-    isolated_db.add(ord_no_r)
+    ev_no_r = models.DomainEvent(
+        event_id="evt_a05_no_r", sequence=1, schema_version="1.0.0", event_type="trade.closed", aggregate_id="ord_a05_no_r",
+        aggregate_version=2, occurred_at=now_ms + 1000, published_at=now_ms + 1000,
+        payload=json.dumps({"order_id": "ord_a05_no_r", "direction": "LONG", "exit_cause": "TP_HIT", "actual_entry": 4180.0, "actual_exit": 4200.0, "realized_pnl": 10.0}),
+    )
+    isolated_db.add_all([ord_no_r, ev_no_r])
     stage_forward_membership_binding(isolated_db, sess.session_id, ord_no_r, now_ms=now_ms)
     stage_forward_membership_status(isolated_db, ord_no_r.id, "CLOSED", now_ms=now_ms + 1000)
     isolated_db.commit()

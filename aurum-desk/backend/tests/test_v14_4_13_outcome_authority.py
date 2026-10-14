@@ -176,11 +176,28 @@ def test_auth01_outcome_authority_matrix_and_denominator(isolated_db: Session):
         strategy_family="STANDARD_SMC",
     )
 
+    # Domain events to satisfy strict terminal event authority in report
+    ev_win = models.DomainEvent(
+        event_id="evt_mat_win", sequence=1, schema_version="1.0.0", event_type="trade.closed", aggregate_id="ord_mat_win",
+        aggregate_version=2, occurred_at=now_ms + 5000, published_at=now_ms + 5000,
+        payload=json.dumps({"order_id": "ord_mat_win", "direction": "LONG", "exit_cause": "TP_HIT", "actual_entry": 4180.0, "actual_exit": 4200.0, "realized_pnl": 4.00, "realized_r": 2.00}),
+    )
+    ev_loss = models.DomainEvent(
+        event_id="evt_mat_loss", sequence=2, schema_version="1.0.0", event_type="trade.closed", aggregate_id="ord_mat_loss",
+        aggregate_version=2, occurred_at=now_ms + 15000, published_at=now_ms + 15000,
+        payload=json.dumps({"order_id": "ord_mat_loss", "direction": "SHORT", "exit_cause": "SL_HIT", "actual_entry": 4200.0, "actual_exit": 4210.0, "realized_pnl": -2.00, "realized_r": -1.00}),
+    )
+    ev_be = models.DomainEvent(
+        event_id="evt_mat_be", sequence=3, schema_version="1.0.0", event_type="trade.closed", aggregate_id="ord_mat_be",
+        aggregate_version=2, occurred_at=now_ms + 25000, published_at=now_ms + 25000,
+        payload=json.dumps({"order_id": "ord_mat_be", "direction": "LONG", "exit_cause": "MANUAL_CLOSE", "actual_entry": 4180.0, "actual_exit": 4180.0, "realized_pnl": 0.00, "realized_r": 0.00}),
+    )
+
     all_orders = [
         o_win, o_loss, o_be, o_rev, o_conf, o_unver,
         o_null_pnl, o_nan_pnl, o_open, o_armed, o_expired,
     ]
-    isolated_db.add_all(all_orders + [rev_config_pending, rev_config_conf])
+    isolated_db.add_all(all_orders + [rev_config_pending, rev_config_conf, ev_win, ev_loss, ev_be])
     isolated_db.commit()
 
     # Explicitly bind all orders to Session
@@ -255,7 +272,19 @@ def test_auth02_review_scope_and_strategy_breakdown(isolated_db: Session):
         strategy_family="NY_QUOTA_PAPER",
     )
 
-    isolated_db.add_all([ord_a, ord_a2])
+    # Domain events to satisfy strict terminal event authority in report
+    ev_a1 = models.DomainEvent(
+        event_id="evt_scope_A1", sequence=1, schema_version="1.0.0", event_type="trade.closed", aggregate_id="ord_scope_A1",
+        aggregate_version=2, occurred_at=now_ms + 5000, published_at=now_ms + 5000,
+        payload=json.dumps({"order_id": "ord_scope_A1", "direction": "LONG", "exit_cause": "TP_HIT", "actual_entry": 4180.0, "actual_exit": 4200.0, "realized_pnl": 4.00, "realized_r": 2.00}),
+    )
+    ev_a2 = models.DomainEvent(
+        event_id="evt_scope_A2", sequence=2, schema_version="1.0.0", event_type="trade.closed", aggregate_id="ord_scope_A2",
+        aggregate_version=2, occurred_at=now_ms + 15000, published_at=now_ms + 15000,
+        payload=json.dumps({"order_id": "ord_scope_A2", "direction": "SHORT", "exit_cause": "TP_HIT", "actual_entry": 4200.0, "actual_exit": 4180.0, "realized_pnl": 4.00}),
+    )
+
+    isolated_db.add_all([ord_a, ord_a2, ev_a1, ev_a2])
     isolated_db.commit()
     bind_order_to_forward_session(isolated_db, sess_a.session_id, ord_a, now_ms=now_ms)
     bind_order_to_forward_session(isolated_db, sess_a.session_id, ord_a2, now_ms=now_ms)

@@ -265,7 +265,29 @@ def test_f03_report_truthfulness_and_canonical_metrics(isolated_db: Session):
         updated_at=now_ms,
     )
 
-    isolated_db.add_all([o1, o2, o3, o4, o5, rev_config])
+    # Domain events to satisfy strict terminal event authority in report
+    ev1 = models.DomainEvent(
+        event_id="evt_w1", sequence=1, schema_version="1.0.0", event_type="trade.closed", aggregate_id="ord_w1",
+        aggregate_version=2, occurred_at=now_ms + 5000, published_at=now_ms + 5000,
+        payload=json.dumps({"order_id": "ord_w1", "direction": "LONG", "exit_cause": "TP_HIT", "actual_entry": 4180.0, "actual_exit": 4200.0, "realized_pnl": 3.80, "realized_r": 1.90}),
+    )
+    ev2 = models.DomainEvent(
+        event_id="evt_w2", sequence=2, schema_version="1.0.0", event_type="trade.closed", aggregate_id="ord_w2",
+        aggregate_version=2, occurred_at=now_ms + 15000, published_at=now_ms + 15000,
+        payload=json.dumps({"order_id": "ord_w2", "direction": "SHORT", "exit_cause": "TP_HIT", "actual_entry": 4200.0, "actual_exit": 4180.0, "realized_pnl": 3.80, "realized_r": 1.90}),
+    )
+    ev3 = models.DomainEvent(
+        event_id="evt_l1", sequence=3, schema_version="1.0.0", event_type="trade.closed", aggregate_id="ord_l1",
+        aggregate_version=2, occurred_at=now_ms + 25000, published_at=now_ms + 25000,
+        payload=json.dumps({"order_id": "ord_l1", "direction": "LONG", "exit_cause": "SL_HIT", "actual_entry": 4180.0, "actual_exit": 4169.5, "realized_pnl": -2.00, "realized_r": -1.00}),
+    )
+    ev4 = models.DomainEvent(
+        event_id="evt_be1", sequence=4, schema_version="1.0.0", event_type="trade.closed", aggregate_id="ord_be1",
+        aggregate_version=2, occurred_at=now_ms + 35000, published_at=now_ms + 35000,
+        payload=json.dumps({"order_id": "ord_be1", "direction": "LONG", "exit_cause": "MANUAL_CLOSE", "actual_entry": 4180.0, "actual_exit": 4180.0, "realized_pnl": 0.00, "realized_r": 0.00}),
+    )
+
+    isolated_db.add_all([o1, o2, o3, o4, o5, rev_config, ev1, ev2, ev3, ev4])
     isolated_db.commit()
 
     # Generate report

@@ -327,6 +327,23 @@ REQUIRED_CASES = {
     "REP06": {"suite": "backend", "file": "backend/tests/test_v14_4_15_membership_repair.py", "desc": "monotonic status and duplicate protection"},
     "REP07": {"suite": "backend", "file": "backend/tests/test_v14_4_15_membership_repair.py", "desc": "bounded budget and retry backoff"},
     "REP08": {"suite": "backend", "file": "backend/tests/test_v14_4_15_membership_repair.py", "desc": "pure tracking vs sql failure distinction"},
+    # V14.4.16 Strict Report Authority (3)
+    "SREP01": {"suite": "backend", "file": "backend/tests/test_v14_4_16_strict_report_authority.py", "desc": "exact report missing terminal event repro nonconfirmed"},
+    "SREP02": {"suite": "backend", "file": "backend/tests/test_v14_4_16_strict_report_authority.py", "desc": "terminal event decoding binding and as of matrix"},
+    "SREP03": {"suite": "backend", "file": "backend/tests/test_v14_4_16_strict_report_authority.py", "desc": "legacy session scoping export parity and non mutating report"},
+    # V14.4.16 Runtime Repair Worker & Fair Keyset Scanning (5)
+    "WREP01": {"suite": "backend", "file": "backend/tests/test_v14_4_16_repair_runtime.py", "desc": "production worker wiring and execution"},
+    "WREP02": {"suite": "backend", "file": "backend/tests/test_v14_4_16_repair_runtime.py", "desc": "start stop shutdown and in flight drain"},
+    "WREP03": {"suite": "backend", "file": "backend/tests/test_v14_4_16_repair_runtime.py", "desc": "non blocking event loop responsiveness"},
+    "WREP04": {"suite": "backend", "file": "backend/tests/test_v14_4_16_repair_runtime.py", "desc": "prefix starvation defense and fair keyset scanning"},
+    "WREP05": {"suite": "backend", "file": "backend/tests/test_v14_4_16_repair_runtime.py", "desc": "lifecycle owner failure and worker isolation"},
+    # V14.4.16 Original Session Provenance & Target Monotonicity (6)
+    "PREP01": {"suite": "backend", "file": "backend/tests/test_v14_4_16_repair_provenance.py", "desc": "nonexistent session repro non mutating manual review"},
+    "PREP02": {"suite": "backend", "file": "backend/tests/test_v14_4_16_repair_provenance.py", "desc": "existent but wrong run conflict manual review"},
+    "PREP03": {"suite": "backend", "file": "backend/tests/test_v14_4_16_repair_provenance.py", "desc": "corrupt proof and damaged payload preservation"},
+    "PREP04": {"suite": "backend", "file": "backend/tests/test_v14_4_16_repair_provenance.py", "desc": "monotonic target status progression"},
+    "PREP05": {"suite": "backend", "file": "backend/tests/test_v14_4_16_repair_provenance.py", "desc": "stopped session repair without forcing active"},
+    "PREP06": {"suite": "backend", "file": "backend/tests/test_v14_4_16_repair_provenance.py", "desc": "zero financial side effects on order accounting"},
 }
 
 BASELINE_FAILURES = {
@@ -381,8 +398,8 @@ def parse_junit_xml(xml_path: str) -> dict[str, str]:
             key = f"{classname}::{name}" if classname else name
             results[key] = status
             results[name] = status
-            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, TIMELINE01, CHRONO01, PLANSRC01, FCPROOF01, SMC01, STATE01, LEGACY01, PAGE01, FLOW01, GATE01, PROOF01, WINDOW01, EVIDENCE01, ACC01, BUDGET01, SCHED01, DURABLE01, REPLAY01, CLOSE01, V01, B01, ENTRY01, CTX01, C01, EXEC01, Q01, F01, MBR01, AUTH01, DD01, REC01, TXN01, EVTAUTH01, REP01, etc.
-            for m in re.finditer(r"(?i)(?:^|[\W_])(EVTAUTH\d{2}|REP\d{2}|EXEC\d{2}|ENTRY\d{2}|CTX\d{2}|C\d{2}|ACC\d{2}|BUDGET\d{2}|SCHED\d{2}|DURABLE\d{2}|REPLAY\d{2}|CLOSE\d{2}|PROOF\d{2}|WINDOW\d{2}|EVIDENCE\d{2}|CHRONO\d{2}|PLANSRC\d{2}|FCPROOF\d{2}|TIMELINE\d{2}|GEOMSRC\d{2}|BINDNULL\d{2}|INVCLOSED\d{2}|COHORT\d{2}|REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|SMC\d{2}|STATE\d{2}|LEGACY\d{2}|PAGE\d{2}|FLOW\d{2}|GATE\d{2}|V\d{2}|B\d{2}|MBR\d{2}|AUTH\d{2}|DD\d{2}|REC\d{2}|TXN\d{2}|[TSOPFLRAQ]\d{2})(?:[\W_]|$)", name):
+            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, TIMELINE01, CHRONO01, PLANSRC01, FCPROOF01, SMC01, STATE01, LEGACY01, PAGE01, FLOW01, GATE01, PROOF01, WINDOW01, EVIDENCE01, ACC01, BUDGET01, SCHED01, DURABLE01, REPLAY01, CLOSE01, V01, B01, ENTRY01, CTX01, C01, EXEC01, Q01, F01, MBR01, AUTH01, DD01, REC01, TXN01, EVTAUTH01, REP01, SREP01, WREP01, PREP01, etc.
+            for m in re.finditer(r"(?i)(?:^|[\W_])(SREP\d{2}|WREP\d{2}|PREP\d{2}|EVTAUTH\d{2}|REP\d{2}|EXEC\d{2}|ENTRY\d{2}|CTX\d{2}|C\d{2}|ACC\d{2}|BUDGET\d{2}|SCHED\d{2}|DURABLE\d{2}|REPLAY\d{2}|CLOSE\d{2}|PROOF\d{2}|WINDOW\d{2}|EVIDENCE\d{2}|CHRONO\d{2}|PLANSRC\d{2}|FCPROOF\d{2}|TIMELINE\d{2}|GEOMSRC\d{2}|BINDNULL\d{2}|INVCLOSED\d{2}|COHORT\d{2}|REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|SMC\d{2}|STATE\d{2}|LEGACY\d{2}|PAGE\d{2}|FLOW\d{2}|GATE\d{2}|V\d{2}|B\d{2}|MBR\d{2}|AUTH\d{2}|DD\d{2}|REC\d{2}|TXN\d{2}|[TSOPFLRAQ]\d{2})(?:[\W_]|$)", name):
                 results[m.group(1).upper()] = status
     except Exception as e:
         print(f"Error parsing JUnit XML {xml_path}: {e}", file=sys.stderr)
@@ -824,6 +841,9 @@ def main(argv=None) -> int:
         "tests/test_v14_4_14_outcome_authority.py",
         "tests/test_v14_4_15_terminal_event_authority.py",
         "tests/test_v14_4_15_membership_repair.py",
+        "tests/test_v14_4_16_strict_report_authority.py",
+        "tests/test_v14_4_16_repair_runtime.py",
+        "tests/test_v14_4_16_repair_provenance.py",
     ]
     s = run_step(
         "backend_targeted",

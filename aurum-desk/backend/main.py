@@ -125,6 +125,7 @@ async def lifespan(app: FastAPI):
     bitget_ws_service.register_broadcaster(market_broadcaster.broadcast_quote)
 
     from services.market_reconciliation_service import market_reconciliation_service
+    from services.forward_repair_worker import forward_repair_worker
 
     tasks = [
         asyncio.create_task(bitget_ws_service.run_ws_loop()),
@@ -136,11 +137,19 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(execution_coordinator.run_coordinator_loop()),
         asyncio.create_task(exit_monitor.run_exit_monitor_loop()),
         asyncio.create_task(market_reconciliation_service.run_late_reconciliation_loop()),
-        asyncio.create_task(process_notification_outbox())
+        asyncio.create_task(process_notification_outbox()),
+        asyncio.create_task(forward_repair_worker.run_repair_loop()),
     ]
     yield
     # Graceful shutdown: orderly stop of worker loops before cancelling
     bitget_ws_service.stop()
+    forward_repair_worker.stop()
+    try:
+        rep_res = await forward_repair_worker.shutdown(timeout_s=5.0)
+        if rep_res and getattr(rep_res, "status", "") == "TIMED_OUT":
+            logger.warning(f"Forward repair worker shutdown timed out: {rep_res}")
+    except Exception as rep_err:
+        logger.error(f"Error during forward repair worker shutdown: {rep_err}")
     try:
         recon_res = await market_reconciliation_service.shutdown(timeout_s=5.0)
         if recon_res and recon_res.status == "TIMED_OUT":
