@@ -982,6 +982,13 @@ class StrategyService:
         db.add(new_order)
         watch_setup.state = "ARMED"
 
+        # V14.4.13: Bind armed order to active forward paper session if one is active
+        try:
+            from services.forward_paper_service import bind_order_to_active_forward_session
+            bind_order_to_active_forward_session(db, new_order, now_ms=now_ms)
+        except Exception as _fwd_err:
+            logger.warning(f"Forward session binding warning for order {order_id}: {_fwd_err}")
+
         event_bus.publish_event(
             event_type="order.armed",
             aggregate_id=order_id,

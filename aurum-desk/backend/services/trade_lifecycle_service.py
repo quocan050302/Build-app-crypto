@@ -218,6 +218,13 @@ class TradeLifecycleService:
             occurred_at=current_time
         )
 
+        # V14.4.13: Update forward session membership status to FILLED if bound
+        try:
+            from services.forward_paper_service import update_order_forward_membership_status
+            update_order_forward_membership_status(db, order.id, "FILLED", now_ms=current_time)
+        except Exception:
+            pass
+
         # 7. Commit atomically at boundary
         db.commit()
         db.refresh(order)
@@ -263,6 +270,13 @@ class TradeLifecycleService:
                 watch_setup.state = "REJECTED"
                 watch_setup.invalidation_reason = reason
                 watch_setup.updated_at = current_time
+
+        # V14.4.13: Update forward session membership status to REJECTED if bound
+        try:
+            from services.forward_paper_service import update_order_forward_membership_status
+            update_order_forward_membership_status(db, order.id, "REJECTED", now_ms=current_time)
+        except Exception:
+            pass
 
         db.commit()
         db.refresh(order)
@@ -407,6 +421,13 @@ class TradeLifecycleService:
             db=db,
             occurred_at=current_time
         )
+
+        # V14.4.13: Update forward session membership status to CLOSED if bound
+        try:
+            from services.forward_paper_service import update_order_forward_membership_status
+            update_order_forward_membership_status(db, order.id, "CLOSED", now_ms=current_time)
+        except Exception:
+            pass
 
         db.commit()
         db.refresh(order)

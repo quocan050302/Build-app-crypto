@@ -2753,20 +2753,20 @@ def process_window_slice(
     """
     if progress is None:
         progress = load_window_progress(db, window.order_id)
-        if (
-            progress is None
-            or progress.read_status in ("REPLAY_NEEDED", "RESET")
-            or (progress.source_cursor is not None and progress.accumulator is None and progress.read_status != "COMPLETE")
-        ):
-            progress = EvidenceProgress(
-                window_id=window.order_id,
-                source_cursor=None,
-                arrival_revision=1,
-                scan_cutoff=window.end_as_of,
-                candidate_refs=[],
-                read_status="PENDING",
-                accumulator=None,
-            )
+    if (
+        progress is None
+        or progress.read_status in ("REPLAY_NEEDED", "RESET")
+        or (progress.source_cursor is not None and progress.accumulator is None and progress.read_status != "COMPLETE")
+    ):
+        progress = EvidenceProgress(
+            window_id=window.order_id,
+            source_cursor=None,
+            arrival_revision=progress.arrival_revision if progress else 1,
+            scan_cutoff=window.end_as_of,
+            candidate_refs=[],
+            read_status="PENDING",
+            accumulator=None,
+        )
 
     if budget is None:
         budget = CycleBudget()
@@ -3083,13 +3083,56 @@ def persist_resolution_or_review(
     )
 
 
+def classify_review_resolution(
+    ctx_res: ContextBuildResult,
+    slice_res: WindowSliceResult,
+    apply_res: Optional[ResolutionApplyResult] = None,
+    order: Optional[models.PaperOrder] = None,
+) -> Tuple[str, str]:
+    """PHẦN 051–054: Classifies recovery review outcome into specific disposition and status.
+    Guarantees:
+    - Distinguishes STILL_INVALID, MORE_WORK, WAITING_COVERAGE, REVIEW_REQUIRED, APPLY_FAILED, RECOVERED, NO_TERMINAL_CONFIRMED.
+    - read_complete=True alone does NOT imply RECOVERED unless terminal decision was applied/confirmed.
+    - Earlier terminal conflict (REVIEW_REQUIRED) remains unresolved conflict, not confirmed clean.
+    """
+    if ctx_res.status == "INVALID":
+        return "STILL_INVALID", ReconciliationReviewStatus.RETRY_SCHEDULED.value
+
+    if not slice_res.read_complete:
+        return "MORE_WORK", ReconciliationReviewStatus.RETRYING.value
+
+    if not slice_res.decision:
+        return "NO_TERMINAL_CONFIRMED", ReconciliationReviewStatus.RETRY_SCHEDULED.value
+
+    action = slice_res.decision.action
+    if action == "NEEDS_RECONCILIATION":
+        return "WAITING_COVERAGE", ReconciliationReviewStatus.RETRY_SCHEDULED.value
+
+    if action in ("REVIEW_REQUIRED", "AMBIGUOUS"):
+        return "REVIEW_REQUIRED", ReconciliationReviewStatus.MANUAL_REVIEW_REQUIRED.value
+
+    if action == "CLOSE":
+        if apply_res and apply_res.applied and apply_res.committed:
+            return "RECOVERED", ReconciliationReviewStatus.RECOVERED.value
+        return "APPLY_FAILED", ReconciliationReviewStatus.RETRY_SCHEDULED.value
+
+    if action == "NONE":
+        if order and getattr(order, "state", "") == "closed" and slice_res.read_complete:
+            return "RECOVERED", ReconciliationReviewStatus.RECOVERED.value
+        return "NO_TERMINAL_CONFIRMED", ReconciliationReviewStatus.RETRY_SCHEDULED.value
+
+    return "NO_TERMINAL_CONFIRMED", ReconciliationReviewStatus.RETRY_SCHEDULED.value
+
+
 def retry_review_task(
     db: Session,
     task: ReconciliationReviewRecord,
     now_ms: Optional[int] = None,
     budget: Optional[CycleBudget] = None,
 ) -> Tuple[str, ReconciliationReviewRecord]:
-    """PHẦN 034: Retries a review task against production reconciliation path."""
+    """PHẦN 034, 051–060: Retries a review task against production reconciliation path.
+    Preserves window continuation across retries without resetting accumulator unless source changed.
+    """
     now_ms = now_ms if now_ms is not None else int(datetime.now(timezone.utc).timestamp() * 1000)
     order = db.query(models.PaperOrder).filter(models.PaperOrder.id == task.order_id).first()
     if not order:
@@ -3120,25 +3163,59 @@ def retry_review_task(
         save_review_record(db, task)
         return "STILL_INVALID", task
 
-    # Source is valid now! Replay through production reconciliation path
-    task.status = ReconciliationReviewStatus.RETRYING.value
+    # Source is valid now!
+    task.last_seen_at = now_ms
     prog = load_window_progress(db, window.order_id)
-    if prog:
-        prog.read_status = "RESET"
-        save_window_progress(db, prog)
+    # PHẦN 057: Do NOT reset progress on each retry!
+    # Only reset if explicitly marked "RESET" by source repair trigger.
+    # Otherwise, pass existing progress to process_window_slice for seamless continuation!
+    slice_res = process_window_slice(db, window, progress=prog, budget=budget)
 
-    slice_res = process_window_slice(db, window, budget=budget)
+    apply_res = None
     if slice_res.decision:
-        persist_resolution_or_review(db, window, slice_res.decision)
+        apply_res = persist_resolution_or_review(db, window, slice_res.decision)
 
-    if slice_res.read_complete:
+    disp, new_status = classify_review_resolution(ctx_res, slice_res, apply_res=apply_res, order=order)
+
+    if disp == "RECOVERED":
         task.status = ReconciliationReviewStatus.RECOVERED.value
         task.resolved_at = now_ms
+        task.last_error = None
         save_review_record(db, task)
         return "RECOVERED", task
-    else:
+
+    if disp == "MORE_WORK":
+        task.status = ReconciliationReviewStatus.RETRYING.value
+        task.next_retry_at = now_ms
         save_review_record(db, task)
-        return "PROGRESSING", task
+        return "MORE_WORK", task
+
+    if disp == "WAITING_COVERAGE":
+        task.status = ReconciliationReviewStatus.RETRY_SCHEDULED.value
+        task.last_error = "NEEDS_RECONCILIATION"
+        task.next_retry_at = compute_review_retry_at("TRANSIENT_DATA_GAP", task.attempt_count, now_ms)
+        save_review_record(db, task)
+        return "WAITING_COVERAGE", task
+
+    if disp == "REVIEW_REQUIRED":
+        task.status = ReconciliationReviewStatus.MANUAL_REVIEW_REQUIRED.value
+        task.last_error = slice_res.decision.reason_code if slice_res.decision else "REVIEW_REQUIRED"
+        save_review_record(db, task)
+        return "REVIEW_REQUIRED", task
+
+    if disp == "APPLY_FAILED":
+        task.status = ReconciliationReviewStatus.RETRY_SCHEDULED.value
+        task.last_error = "APPLY_FAILED"
+        task.next_retry_at = compute_review_retry_at("TRANSIENT_DATA_GAP", task.attempt_count, now_ms)
+        save_review_record(db, task)
+        return "APPLY_FAILED", task
+
+    # NO_TERMINAL_CONFIRMED
+    task.status = ReconciliationReviewStatus.RETRY_SCHEDULED.value
+    task.last_error = "NO_TERMINAL_CONFIRMED"
+    task.next_retry_at = compute_review_retry_at("TRANSIENT_DATA_GAP", task.attempt_count, now_ms)
+    save_review_record(db, task)
+    return "NO_TERMINAL_CONFIRMED", task
 
 
 def trigger_source_repair_recheck(
@@ -3147,14 +3224,23 @@ def trigger_source_repair_recheck(
     new_source_revision: Optional[int] = None,
     budget: Optional[CycleBudget] = None,
 ) -> Tuple[str, Optional[ReconciliationReviewRecord]]:
-    """PHẦN 033: Immediately re-evaluates a review task when source is repaired or revision updated."""
+    """PHẦN 033, 058: Immediately re-evaluates a review task when source is repaired or revision updated."""
     rec = load_review_record(db, order_id)
     if not rec:
         return "NOT_FOUND", None
     if new_source_revision is not None:
         rec.source_revision = new_source_revision
+    else:
+        rec.source_revision = (rec.source_revision or 1) + 1
     rec.next_retry_at = 0
     rec.status = ReconciliationReviewStatus.RETRYING.value
+
+    # Mark window progress for a single fresh reset on repair
+    prog = load_window_progress(db, order_id)
+    if prog:
+        prog.read_status = "RESET"
+        save_window_progress(db, prog)
+
     save_review_record(db, rec)
     outcome, updated_task = retry_review_task(db, rec, budget=budget)
     return outcome, updated_task

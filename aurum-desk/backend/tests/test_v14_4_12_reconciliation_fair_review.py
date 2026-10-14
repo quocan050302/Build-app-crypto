@@ -326,7 +326,15 @@ def test_q04_source_repaired_replays_and_recovers_task(isolated_db: Session):
     Trigger source repair recheck -> task status transitions to RECOVERED,
     resolved_at recorded, no duplicate outbox/ledger corruption.
     """
-    broken_ord = _seed_closed_order(isolated_db, order_id="ord_rep_01", opened_at=1000, closed_at=3500, cost_snapshot="{broken")
+    broken_ord = _seed_closed_order(
+        isolated_db,
+        order_id="ord_rep_01",
+        opened_at=1000,
+        closed_at=2000,
+        exit_cause="TP_HIT",
+        exit_price=4205.0,
+        cost_snapshot="{broken",
+    )
 
     quotes = [
         {"event_id": "ev_rep_tp", "symbol": "XAUUSDT", "source_timestamp": 2000, "bid": 4205.0, "ask": 4206.0, "source": "REALTIME"}
