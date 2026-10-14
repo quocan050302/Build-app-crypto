@@ -6,6 +6,7 @@
 - **Branch**: `fix/v14-1-rr-flow`
 - **Reviewer Target Commit**: `1ed60f4`
 - **Implementation Baseline**: `ab3e845`
+- **Implementation Commit SHA**: `041458d5ca7468b5e00e320ce36e3cc928234f72`
 - **Date**: 2026-10-14
 - **Core Mission**:
   1. **Three-Session Alignment for Standard SMC**: Eliminate false `OUTSIDE_ENTRY_WINDOW` rejections and premature setup expiry for Asian and London sessions under `ALL_SESSIONS_WITH_NY_RESERVE`, while preserving the 1-slot NY reserve target, max 3 fills/day UTC+7, strict entry guards, and restricting fallback search to the NY window.
