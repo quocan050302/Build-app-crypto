@@ -31,6 +31,14 @@ from services.forward_paper_service import (
 from services.forward_repair_worker import ForwardRepairWorker, forward_repair_worker
 
 
+@pytest.fixture
+def anyio_backend():
+    """Worker production is designed for FastAPI's asyncio event loop.
+    Scope anyio_backend to 'asyncio' in this worker test module to match runtime.
+    """
+    return "asyncio"
+
+
 @pytest.mark.anyio
 async def test_wrep01_production_worker_wiring(isolated_db: Session):
     """WREP01 / W01: Production Worker Wiring & Execution (PHẦN 004, 025, 028, 054).
@@ -67,6 +75,9 @@ async def test_wrep01_production_worker_wiring(isolated_db: Session):
         created_at=now_ms,
     )
     isolated_db.add(ord_w)
+    isolated_db.commit()
+
+    bind_order_to_forward_session(isolated_db, sess.session_id, ord_w, now_ms=now_ms)
     isolated_db.commit()
 
     # Stage a durable repair task
@@ -262,6 +273,9 @@ def test_wrep05_owner_fail_and_repair_isolation(isolated_db: Session):
         created_at=now_ms,
     )
     isolated_db.add(ord_iso)
+    isolated_db.commit()
+
+    bind_order_to_forward_session(isolated_db, sess.session_id, ord_iso, now_ms=now_ms)
     isolated_db.commit()
 
     task = stage_forward_repair_task(

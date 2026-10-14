@@ -266,6 +266,13 @@ def test_prep04_monotonic_target_status(isolated_db: Session):
         max_attempts=5,
         created_at_ms=now_ms,
         updated_at_ms=now_ms,
+        original_damaged_payload=json.dumps({
+            "forward_session_id": sess.session_id,
+            "order_id": order.id,
+            "config_revision": 1,
+            "runtime_commit": "commit_p04",
+            "bound_at_ms": now_ms,
+        }),
     )
     task_key = _repair_task_key(order.id)
     rec = models.SystemConfig(key=task_key, value=json.dumps(stale_task.to_dict()), updated_at=now_ms)
@@ -291,12 +298,6 @@ def test_prep05_stopped_session_repair(isolated_db: Session):
     now_ms = 1792000000000
 
     sess_a = create_forward_paper_session(isolated_db, "fwd_sess_P05_A", virtual_capital=1000.0, now_ms=now_ms)
-    # Transition to STOPPED by creating Session B
-    sess_b = create_forward_paper_session(isolated_db, "fwd_sess_P05_B", virtual_capital=2000.0, now_ms=now_ms + 1000)
-
-    sess_a_reloaded = load_forward_session(isolated_db, sess_a.session_id)
-    assert sess_a_reloaded is not None
-    assert sess_a_reloaded.status == "STOPPED"
 
     order = models.PaperOrder(
         id="ord_p05_stopped",
@@ -318,6 +319,16 @@ def test_prep05_stopped_session_repair(isolated_db: Session):
     )
     isolated_db.add(order)
     isolated_db.commit()
+
+    bind_order_to_forward_session(isolated_db, sess_a.session_id, order, now_ms=now_ms)
+    isolated_db.commit()
+
+    # Transition Session A to STOPPED by creating active Session B
+    sess_b = create_forward_paper_session(isolated_db, "fwd_sess_P05_B", virtual_capital=2000.0, now_ms=now_ms + 1000)
+
+    sess_a_reloaded = load_forward_session(isolated_db, sess_a.session_id)
+    assert sess_a_reloaded is not None
+    assert sess_a_reloaded.status == "STOPPED"
 
     task = stage_forward_repair_task(
         db=isolated_db,
@@ -375,6 +386,9 @@ def test_prep06_zero_financial_mutations(isolated_db: Session):
         created_at=now_ms,
     )
     isolated_db.add(order)
+    isolated_db.commit()
+
+    bind_order_to_forward_session(isolated_db, sess.session_id, order, now_ms=now_ms)
     isolated_db.commit()
 
     task = stage_forward_repair_task(

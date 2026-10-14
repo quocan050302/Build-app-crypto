@@ -79,10 +79,15 @@ def test_rep01_durable_marker_and_valid_close(isolated_db: Session):
     stage_forward_membership_binding(isolated_db, sess.session_id, order, now_ms=now_ms)
     isolated_db.commit()
 
-    # Corrupt membership payload in SystemConfig to simulate invalid schema
+    # Save independent binding snapshot before corrupting membership record (PHẦN 027, 061, 071)
     mem_key = f"fwd_mem:{order.id}"[:50]
     rec = isolated_db.query(models.SystemConfig).filter(models.SystemConfig.key == mem_key).first()
     assert rec is not None
+    snap_key = f"fwd_snap:{order.id}"[:50]
+    isolated_db.add(models.SystemConfig(key=snap_key, value=rec.value, updated_at=now_ms))
+    isolated_db.commit()
+
+    # Corrupt membership payload in SystemConfig to simulate invalid schema
     rec.value = '{"corrupted_data": true, "missing_session": null}'
     isolated_db.commit()
 
@@ -248,6 +253,10 @@ def test_rep03_repair_commit_fail(isolated_db: Session):
         created_at=now_ms,
     )
     isolated_db.add(order)
+    isolated_db.commit()
+
+    # Bind order to forward session before staging repair task (PHẦN 071)
+    stage_forward_membership_binding(isolated_db, sess.session_id, order, now_ms=now_ms)
     isolated_db.commit()
 
     # Stage a repair task
@@ -543,6 +552,7 @@ def test_rep07_budget_and_backoff(isolated_db: Session):
             created_at=now_ms,
         )
         isolated_db.add(ord_i)
+        stage_forward_membership_binding(isolated_db, sess.session_id, ord_i, now_ms=now_ms)
         stage_forward_repair_task(
             db=isolated_db,
             order_id=ord_i.id,

@@ -788,6 +788,7 @@ def stage_forward_repair_task(
     target_status: str = "CLOSED",
     reason_codes: Optional[List[str]] = None,
     now_ms: Optional[int] = None,
+    original_damaged_payload: Optional[str] = None,
 ) -> Optional[ForwardMembershipRepairTask]:
     """PHẦN 031, 034, 037, 038, 040: Stages a durable forward membership repair task.
     Guarantees:
@@ -803,13 +804,13 @@ def stage_forward_repair_task(
 
     # 1. Resolve forward_session_id if not explicitly provided
     resolved_session_id = forward_session_id
-    damaged_payload = None
+    damaged_payload = original_damaged_payload
 
     mem_key = f"fwd_mem:{order_id}"[:50]
     rec_mem = db.query(models.SystemConfig).filter(models.SystemConfig.key == mem_key).first()
     has_mem_record = rec_mem is not None and bool(rec_mem.value)
 
-    if has_mem_record:
+    if damaged_payload is None and has_mem_record:
         damaged_payload = rec_mem.value
         if not resolved_session_id:
             try:
@@ -999,39 +1000,419 @@ def load_due_forward_repairs(
     return due_tasks
 
 
+# ---------------------------------------------------------------------------
+# V14.4.17: Strict Repair Provenance, Original Config Preservation & Constants
+# ---------------------------------------------------------------------------
+
+REPAIR_PROOF_MISSING = "REPAIR_PROOF_MISSING"
+REPAIR_PROOF_MALFORMED = "REPAIR_PROOF_MALFORMED"
+REPAIR_PROOF_INVALID_SCHEMA = "REPAIR_PROOF_INVALID_SCHEMA"
+REPAIR_SESSION_NOT_FOUND = "REPAIR_SESSION_NOT_FOUND"
+REPAIR_SESSION_CONFLICT = "REPAIR_SESSION_CONFLICT"
+REPAIR_ORDER_CONFLICT = "REPAIR_ORDER_CONFLICT"
+REPAIR_CONFIG_REVISION_MISSING = "REPAIR_CONFIG_REVISION_MISSING"
+REPAIR_CONFIG_REVISION_CONFLICT = "REPAIR_CONFIG_REVISION_CONFLICT"
+REPAIR_RUNTIME_COMMIT_MISSING = "REPAIR_RUNTIME_COMMIT_MISSING"
+REPAIR_RUNTIME_COMMIT_CONFLICT = "REPAIR_RUNTIME_COMMIT_CONFLICT"
+REPAIR_BOUND_AT_MISSING = "REPAIR_BOUND_AT_MISSING"
+REPAIR_BOUND_AT_CONFLICT = "REPAIR_BOUND_AT_CONFLICT"
+
+
+@dataclass(frozen=True)
+class RepairProvenanceResolution:
+    """PHẦN 018: Structured resolution for forward paper membership repair provenance."""
+    status: str  # "VERIFIED", "INSUFFICIENT", "CONFLICT"
+    forward_session_id: Optional[str] = None
+    config_revision: Optional[int] = None
+    runtime_commit: Optional[str] = None
+    bound_at_ms: Optional[int] = None
+    source_names: List[str] = field(default_factory=list)
+    reason_codes: List[str] = field(default_factory=list)
+    diagnostics: Optional[Dict[str, Any]] = None
+
+
+def parse_repair_source_payload(raw_payload: Optional[str]) -> Tuple[str, Optional[Dict[str, Any]], Optional[str]]:
+    """PHẦN 020, 021, 022: Pure structured parser for membership payload strings.
+    Distinguishes: ABSENT, VALID, MALFORMED, INVALID_SCHEMA.
+    Checks field types strictly without applying loose defaults.
+    """
+    if raw_payload is None or not str(raw_payload).strip():
+        return "ABSENT", None, REPAIR_PROOF_MISSING
+
+    raw_str = str(raw_payload).strip()
+    try:
+        parsed = json.loads(raw_str)
+    except Exception:
+        return "MALFORMED", None, REPAIR_PROOF_MALFORMED
+
+    if not isinstance(parsed, dict):
+        return "INVALID_SCHEMA", None, REPAIR_PROOF_INVALID_SCHEMA
+
+    # Validate specific fields if present
+    if "config_revision" in parsed:
+        cr = parsed["config_revision"]
+        if isinstance(cr, bool) or not isinstance(cr, int) or cr <= 0:
+            return "INVALID_SCHEMA", None, REPAIR_PROOF_INVALID_SCHEMA
+
+    if "bound_at_ms" in parsed:
+        bat = parsed["bound_at_ms"]
+        if isinstance(bat, bool) or not isinstance(bat, (int, float)) or not math.isfinite(bat) or bat <= 0:
+            return "INVALID_SCHEMA", None, REPAIR_PROOF_INVALID_SCHEMA
+
+    if "order_id" in parsed:
+        oid = parsed["order_id"]
+        if not isinstance(oid, str) or not oid.strip():
+            return "INVALID_SCHEMA", None, REPAIR_PROOF_INVALID_SCHEMA
+
+    if "forward_session_id" in parsed:
+        fsid = parsed["forward_session_id"]
+        if fsid is not None and (not isinstance(fsid, str) or not fsid.strip()):
+            return "INVALID_SCHEMA", None, REPAIR_PROOF_INVALID_SCHEMA
+
+    if "runtime_commit" in parsed:
+        rc = parsed["runtime_commit"]
+        if rc is not None and (not isinstance(rc, str) or not rc.strip()):
+            return "INVALID_SCHEMA", None, REPAIR_PROOF_INVALID_SCHEMA
+
+    return "VALID", parsed, None
+
+
+def collect_repair_provenance_sources(
+    db: Session,
+    task: ForwardMembershipRepairTask,
+    order: models.PaperOrder,
+) -> Dict[str, Any]:
+    """PHẦN 023, 024, 025: Read-only collector for all candidate provenance sources.
+    Never commits, mutates, or calls network.
+    """
+    dp_status, dp_data, dp_err = parse_repair_source_payload(task.original_damaged_payload)
+
+    mem_key = f"fwd_mem:{order.id}"[:50]
+    rec_mem = db.query(models.SystemConfig).filter(models.SystemConfig.key == mem_key).first()
+    db_mem_status, db_mem_data, db_mem_err = parse_repair_source_payload(rec_mem.value if rec_mem else None)
+
+    snap_key = f"fwd_snap:{order.id}"[:50]
+    rec_snap = db.query(models.SystemConfig).filter(models.SystemConfig.key == snap_key).first()
+    db_snap_status, db_snap_data, db_snap_err = parse_repair_source_payload(rec_snap.value if rec_snap else None)
+
+    order_sess_inst = getattr(order, "session_instance_id", "") or ""
+
+    matching_indexes = []
+    sess_configs = db.query(models.SystemConfig).filter(
+        models.SystemConfig.key.like("fwd_sess_ords:%")
+    ).all()
+    for sc in sess_configs:
+        try:
+            ord_list = json.loads(sc.value)
+            if isinstance(ord_list, list) and order.id in ord_list:
+                s_id = sc.key.split("fwd_sess_ords:", 1)[-1]
+                matching_indexes.append(s_id)
+        except Exception:
+            pass
+
+    return {
+        "damaged_payload_status": dp_status,
+        "damaged_payload": dp_data,
+        "damaged_payload_err": dp_err,
+        "db_mem_status": db_mem_status,
+        "db_mem_payload": db_mem_data,
+        "db_snap_status": db_snap_status,
+        "db_snap_payload": db_snap_data,
+        "order_session_instance_id": order_sess_inst,
+        "session_indexes": matching_indexes,
+    }
+
+
+def resolve_repair_provenance(
+    db: Session,
+    task: ForwardMembershipRepairTask,
+    order: models.PaperOrder,
+) -> RepairProvenanceResolution:
+    """PHẦN 026: Resolves provenance against candidate sources.
+    Returns structured RepairProvenanceResolution (VERIFIED, INSUFFICIENT, CONFLICT).
+    Guarantees:
+    - Pure read query: zero mutations.
+    - No defaults (no defaulting config_revision to 1 or runtime_commit to HEAD).
+    - Session existence verified via load_forward_session.
+    - Preserves exact historical bound_at_ms, config_revision, runtime_commit.
+    """
+    sources = collect_repair_provenance_sources(db, task, order)
+    source_names: List[str] = []
+
+    # 0. If task explicitly specifies a forward_session_id, verify target session exists in DB
+    if task.forward_session_id:
+        target_session_obj = load_forward_session(db, task.forward_session_id)
+        if not target_session_obj:
+            return RepairProvenanceResolution(
+                status="INSUFFICIENT",
+                reason_codes=[
+                    REPAIR_SESSION_NOT_FOUND,
+                    f"NONEXISTENT_FORWARD_SESSION: {task.forward_session_id}",
+                ],
+                diagnostics={"missing_session_id": task.forward_session_id},
+            )
+
+    dp_status = sources["damaged_payload_status"]
+    dp_data = sources["damaged_payload"]
+
+    # 1. Order ID check in damaged payload
+    if dp_status == "VALID" and dp_data and "order_id" in dp_data:
+        p_oid = str(dp_data["order_id"]).strip()
+        if p_oid and p_oid != order.id:
+            return RepairProvenanceResolution(
+                status="CONFLICT",
+                reason_codes=[REPAIR_ORDER_CONFLICT],
+                diagnostics={"payload_order_id": p_oid, "order_id": order.id},
+            )
+
+    # 2. Check for independent complete proof if damaged payload is missing, malformed, or invalid
+    has_independent_complete_proof = False
+    valid_independent_data = None
+    independent_source_name = None
+
+    for s_name, s_status, s_data in [
+        ("db_membership", sources["db_mem_status"], sources["db_mem_payload"]),
+        ("db_snapshot", sources["db_snap_status"], sources["db_snap_payload"]),
+    ]:
+        if s_status == "VALID" and s_data:
+            if "order_id" in s_data and str(s_data["order_id"]).strip() != order.id:
+                continue
+            if (
+                "forward_session_id" in s_data
+                and "config_revision" in s_data
+                and "runtime_commit" in s_data
+                and "bound_at_ms" in s_data
+            ):
+                has_independent_complete_proof = True
+                valid_independent_data = s_data
+                independent_source_name = s_name
+                break
+
+    if dp_status == "MALFORMED":
+        if not has_independent_complete_proof:
+            return RepairProvenanceResolution(
+                status="INSUFFICIENT",
+                reason_codes=[REPAIR_PROOF_MALFORMED],
+                diagnostics={"damaged_payload": task.original_damaged_payload},
+            )
+    elif dp_status == "INVALID_SCHEMA":
+        if not has_independent_complete_proof:
+            return RepairProvenanceResolution(
+                status="INSUFFICIENT",
+                reason_codes=[REPAIR_PROOF_INVALID_SCHEMA],
+                diagnostics={"damaged_payload": task.original_damaged_payload},
+            )
+    elif dp_status == "ABSENT":
+        if not has_independent_complete_proof:
+            return RepairProvenanceResolution(
+                status="INSUFFICIENT",
+                reason_codes=[REPAIR_PROOF_MISSING],
+                diagnostics={"order_id": order.id},
+            )
+
+    # 3. Determine candidate data sources
+    cand_sources: List[Tuple[str, Dict[str, Any]]] = []
+    if dp_status == "VALID" and dp_data:
+        cand_sources.append(("original_damaged_payload", dp_data))
+    if has_independent_complete_proof and valid_independent_data and independent_source_name:
+        cand_sources.append((independent_source_name, valid_independent_data))
+
+    if not cand_sources and not task.forward_session_id:
+        return RepairProvenanceResolution(
+            status="INSUFFICIENT",
+            reason_codes=[REPAIR_PROOF_MISSING],
+        )
+
+    # 4. Resolve and validate forward_session_id
+    order_sess_inst = sources.get("order_session_instance_id", "") or ""
+    index_sessions = sources.get("session_indexes", []) or []
+    claimed_sessions: Dict[str, str] = {}
+    if dp_status == "VALID" and dp_data and dp_data.get("forward_session_id"):
+        claimed_sessions["original_damaged_payload"] = str(dp_data["forward_session_id"]).strip()
+    if has_independent_complete_proof and valid_independent_data and valid_independent_data.get("forward_session_id"):
+        claimed_sessions[independent_source_name or "db_snapshot"] = str(valid_independent_data["forward_session_id"]).strip()
+    if task.forward_session_id:
+        claimed_sessions["task"] = str(task.forward_session_id).strip()
+    if order_sess_inst and order_sess_inst.startswith("fwd_sess_"):
+        claimed_sessions["order_instance"] = str(order_sess_inst).strip()
+
+    unique_sessions = set(claimed_sessions.values())
+    if len(unique_sessions) > 1:
+        return RepairProvenanceResolution(
+            status="CONFLICT",
+            reason_codes=[
+                REPAIR_SESSION_CONFLICT,
+                f"PROVENANCE_SESSION_MISMATCH: conflicting sessions {claimed_sessions}",
+            ],
+            diagnostics={"claimed_sessions": claimed_sessions},
+        )
+
+    target_session_id = next(iter(unique_sessions)) if unique_sessions else None
+    if not target_session_id:
+        return RepairProvenanceResolution(
+            status="INSUFFICIENT",
+            reason_codes=[REPAIR_PROOF_MISSING, "MISSING_FORWARD_SESSION_ID"],
+        )
+
+    if len(index_sessions) > 1 and target_session_id not in index_sessions:
+        return RepairProvenanceResolution(
+            status="CONFLICT",
+            reason_codes=[
+                REPAIR_SESSION_CONFLICT,
+                f"PROVENANCE_SESSION_MISMATCH: index sessions {index_sessions} conflict with {target_session_id}",
+            ],
+            diagnostics={"index_sessions": index_sessions},
+        )
+
+    target_session_id = str(target_session_id).strip()
+    target_session_obj = load_forward_session(db, target_session_id)
+    if not target_session_obj:
+        return RepairProvenanceResolution(
+            status="INSUFFICIENT",
+            reason_codes=[REPAIR_SESSION_NOT_FOUND, f"NONEXISTENT_FORWARD_SESSION: {target_session_id}"],
+            diagnostics={"missing_session_id": target_session_id},
+        )
+
+    # 5. Resolve config_revision
+    rev_sources: Dict[str, int] = {}
+    for s_name, s_data in cand_sources:
+        if "config_revision" in s_data:
+            cr = s_data["config_revision"]
+            if isinstance(cr, bool) or not isinstance(cr, int) or cr <= 0:
+                return RepairProvenanceResolution(
+                    status="INSUFFICIENT",
+                    reason_codes=[REPAIR_PROOF_INVALID_SCHEMA],
+                    diagnostics={"invalid_config_revision": cr, "source": s_name},
+                )
+            rev_sources[s_name] = int(cr)
+
+    if not rev_sources:
+        return RepairProvenanceResolution(
+            status="INSUFFICIENT",
+            reason_codes=[REPAIR_CONFIG_REVISION_MISSING],
+            diagnostics={"checked_sources": [s[0] for s in cand_sources]},
+        )
+
+    if len(set(rev_sources.values())) > 1:
+        return RepairProvenanceResolution(
+            status="CONFLICT",
+            reason_codes=[REPAIR_CONFIG_REVISION_CONFLICT],
+            diagnostics={"conflicting_revisions": rev_sources},
+        )
+    resolved_revision = next(iter(rev_sources.values()))
+
+    # 6. Resolve runtime_commit
+    commit_sources: Dict[str, str] = {}
+    for s_name, s_data in cand_sources:
+        if "runtime_commit" in s_data:
+            rc = s_data["runtime_commit"]
+            if not isinstance(rc, str) or not rc.strip():
+                return RepairProvenanceResolution(
+                    status="INSUFFICIENT",
+                    reason_codes=[REPAIR_PROOF_INVALID_SCHEMA],
+                    diagnostics={"invalid_runtime_commit": rc, "source": s_name},
+                )
+            commit_sources[s_name] = str(rc).strip()
+
+    if not commit_sources:
+        return RepairProvenanceResolution(
+            status="INSUFFICIENT",
+            reason_codes=[REPAIR_RUNTIME_COMMIT_MISSING],
+            diagnostics={"checked_sources": [s[0] for s in cand_sources]},
+        )
+
+    if len(set(commit_sources.values())) > 1:
+        return RepairProvenanceResolution(
+            status="CONFLICT",
+            reason_codes=[REPAIR_RUNTIME_COMMIT_CONFLICT],
+            diagnostics={"conflicting_commits": commit_sources},
+        )
+    resolved_commit = next(iter(commit_sources.values()))
+
+    # 7. Resolve bound_at_ms
+    bound_sources: Dict[str, int] = {}
+    for s_name, s_data in cand_sources:
+        if "bound_at_ms" in s_data:
+            bat = s_data["bound_at_ms"]
+            if isinstance(bat, bool) or not isinstance(bat, (int, float)) or not math.isfinite(bat) or bat <= 0:
+                return RepairProvenanceResolution(
+                    status="INSUFFICIENT",
+                    reason_codes=[REPAIR_PROOF_INVALID_SCHEMA],
+                    diagnostics={"invalid_bound_at": bat, "source": s_name},
+                )
+            bound_sources[s_name] = int(bat)
+
+    if not bound_sources:
+        return RepairProvenanceResolution(
+            status="INSUFFICIENT",
+            reason_codes=[REPAIR_BOUND_AT_MISSING],
+            diagnostics={"checked_sources": [s[0] for s in cand_sources]},
+        )
+
+    if len(set(bound_sources.values())) > 1:
+        return RepairProvenanceResolution(
+            status="CONFLICT",
+            reason_codes=[REPAIR_BOUND_AT_CONFLICT],
+            diagnostics={"conflicting_bound_at": bound_sources},
+        )
+    resolved_bound_at = next(iter(bound_sources.values()))
+
+    source_names = [s[0] for s in cand_sources]
+
+    return RepairProvenanceResolution(
+        status="VERIFIED",
+        forward_session_id=target_session_id,
+        config_revision=resolved_revision,
+        runtime_commit=resolved_commit,
+        bound_at_ms=resolved_bound_at,
+        source_names=source_names,
+        reason_codes=[],
+        diagnostics={"sources": source_names},
+    )
+
+
+def stage_repair_manual_review(
+    db: Session,
+    task: ForwardMembershipRepairTask,
+    reason_codes: List[str],
+    now_ms: int,
+    error_msg: Optional[str] = None,
+) -> None:
+    """PHẦN 039: Stage-only helper to transition task to MANUAL_REVIEW_REQUIRED.
+    Preserves task raw payload and never calls db.commit() or db.rollback().
+    """
+    task.status = "MANUAL_REVIEW_REQUIRED"
+    task.updated_at_ms = now_ms
+    for rc in reason_codes:
+        if rc and rc not in task.reason_codes:
+            task.reason_codes.append(rc)
+    if error_msg:
+        task.last_error = error_msg
+    elif reason_codes:
+        task.last_error = reason_codes[0]
+    task_key = _repair_task_key(task.order_id)
+    trec = db.query(models.SystemConfig).filter(models.SystemConfig.key == task_key).first()
+    if not trec:
+        trec = models.SystemConfig(key=task_key, value=json.dumps(task.to_dict()), updated_at=now_ms)
+        db.add(trec)
+    else:
+        trec.value = json.dumps(task.to_dict())
+        trec.updated_at = now_ms
+
+
 def validate_repair_session(
     db: Session,
     task: ForwardMembershipRepairTask,
     order: models.PaperOrder,
 ) -> Tuple[bool, Optional[str]]:
-    """PHẦN 036, 037, 038: Validates target forward session existence and provenance consistency.
-    Returns (is_valid, failure_reason).
+    """PHẦN 038: Compatibility helper for callers of validate_repair_session.
+    Delegates directly to resolve_repair_provenance to eliminate divergent validation logic.
     """
-    if not task.forward_session_id:
-        return False, "MISSING_FORWARD_SESSION_ID"
-
-    # 1. Existence check: target session must exist
-    target_session = load_forward_session(db, task.forward_session_id)
-    if not target_session:
-        return False, f"NONEXISTENT_FORWARD_SESSION: {task.forward_session_id}"
-
-    # 2. Provenance cross-check against original damaged payload
-    if task.original_damaged_payload:
-        try:
-            parsed = json.loads(task.original_damaged_payload)
-            if isinstance(parsed, dict):
-                orig_sess = parsed.get("forward_session_id")
-                if orig_sess and orig_sess != task.forward_session_id:
-                    return False, f"PROVENANCE_SESSION_MISMATCH: task session {task.forward_session_id} != payload session {orig_sess}"
-        except Exception:
-            pass
-
-    # 3. Provenance cross-check against order session_instance_id if it's a forward session
-    order_sess_inst = getattr(order, "session_instance_id", "") or ""
-    if order_sess_inst.startswith("fwd_sess_") and order_sess_inst != task.forward_session_id:
-        return False, f"PROVENANCE_SESSION_MISMATCH: task session {task.forward_session_id} != order instance {order_sess_inst}"
-
-    return True, None
+    resolution = resolve_repair_provenance(db, task, order)
+    if resolution.status == "VERIFIED":
+        return True, None
+    reason = resolution.reason_codes[0] if resolution.reason_codes else "PROVENANCE_NOT_VERIFIED"
+    return False, reason
 
 
 def repair_forward_membership_task(
@@ -1040,7 +1421,7 @@ def repair_forward_membership_task(
     now_ms: Optional[int] = None,
 ) -> Dict[str, Any]:
     """PHẦN 044, 045: Executes repair for a single ForwardMembershipRepairTask.
-    Reconstructs membership and index from immutable sources.
+    Reconstructs membership and index from verified immutable sources.
     Atomic repair owner commit. Zero financial side-effects.
     """
     now_ms = now_ms if now_ms is not None else int(datetime.now(timezone.utc).timestamp() * 1000)
@@ -1048,46 +1429,33 @@ def repair_forward_membership_task(
     if task.status == "REPAIRED":
         return {"success": True, "status": "ALREADY_REPAIRED", "task": task}
 
-    if not task.forward_session_id:
-        task.status = "MANUAL_REVIEW_REQUIRED"
-        task.last_error = "MISSING_FORWARD_SESSION_ID"
-        task.updated_at_ms = now_ms
-        task_key = _repair_task_key(task.order_id)
-        trec = db.query(models.SystemConfig).filter(models.SystemConfig.key == task_key).first()
-        if trec:
-            trec.value = json.dumps(task.to_dict())
-            trec.updated_at = now_ms
-            db.commit()
-        return {"success": False, "status": "MANUAL_REVIEW_REQUIRED", "reason": "MISSING_FORWARD_SESSION_ID"}
-
     order = db.query(models.PaperOrder).filter(models.PaperOrder.id == task.order_id).first()
     if not order:
-        task.status = "MANUAL_REVIEW_REQUIRED"
-        task.last_error = f"Order {task.order_id} not found in DB"
-        task.updated_at_ms = now_ms
-        task_key = _repair_task_key(task.order_id)
-        trec = db.query(models.SystemConfig).filter(models.SystemConfig.key == task_key).first()
-        if trec:
-            trec.value = json.dumps(task.to_dict())
-            trec.updated_at = now_ms
+        stage_repair_manual_review(db, task, [REPAIR_PROOF_MISSING], now_ms, f"Order {task.order_id} not found in DB")
+        try:
             db.commit()
+        except Exception:
+            db.rollback()
+            return {"success": False, "status": "COMMIT_FAILED", "error": "db_commit_failed"}
         return {"success": False, "status": "MANUAL_REVIEW_REQUIRED", "reason": f"Order {task.order_id} not found"}
 
-    # PHẦN 005, 036, 037, 038: Validate target session existence and provenance consistency
-    valid_session, session_reason = validate_repair_session(db, task, order)
-    if not valid_session:
-        task.status = "MANUAL_REVIEW_REQUIRED"
-        task.last_error = session_reason
-        task.updated_at_ms = now_ms
-        if session_reason and session_reason not in task.reason_codes:
-            task.reason_codes.append(session_reason)
-        task_key = _repair_task_key(task.order_id)
-        trec = db.query(models.SystemConfig).filter(models.SystemConfig.key == task_key).first()
-        if trec:
-            trec.value = json.dumps(task.to_dict())
-            trec.updated_at = now_ms
+    resolution = resolve_repair_provenance(db, task, order)
+    if resolution.status != "VERIFIED":
+        err_reason = resolution.reason_codes[0] if resolution.reason_codes else "PROVENANCE_NOT_VERIFIED"
+        if len(resolution.reason_codes) > 1:
+            err_reason = f"{resolution.reason_codes[0]}: {resolution.reason_codes[1]}"
+        stage_repair_manual_review(db, task, resolution.reason_codes, now_ms, err_reason)
+        try:
             db.commit()
-        return {"success": False, "status": "MANUAL_REVIEW_REQUIRED", "reason": session_reason}
+        except Exception:
+            db.rollback()
+            return {"success": False, "status": "COMMIT_FAILED", "error": "db_commit_failed"}
+        return {
+            "success": False,
+            "status": "MANUAL_REVIEW_REQUIRED",
+            "reason": err_reason,
+            "resolution": resolution,
+        }
 
     # Monotonic resolution: check actual order state in DB
     order_state = getattr(order, "state", "") or ""
@@ -1097,19 +1465,20 @@ def repair_forward_membership_task(
     elif order_state == "paper_open" and task.target_status in ("ARMED", "BOUND"):
         effective_status = "FILLED"
 
-    sess = load_forward_session(db, task.forward_session_id)
-    runtime_commit = (sess.strategy_commit if sess else None) or _resolve_runtime_commit()
-
-    bound_at = getattr(order, "opened_at", None) or getattr(order, "created_at", None) or now_ms
-
     repaired_mem = ForwardOrderMembership(
-        forward_session_id=task.forward_session_id,
+        forward_session_id=resolution.forward_session_id,
         order_id=order.id,
-        bound_at_ms=bound_at,
-        config_revision=1,
-        runtime_commit=runtime_commit,
+        bound_at_ms=resolution.bound_at_ms,
+        config_revision=resolution.config_revision,
+        runtime_commit=resolution.runtime_commit,
         membership_status=effective_status,
-        metadata={"repaired_by": "ForwardMembershipRepairTask", "task_id": task.task_id},
+        metadata={
+            "repaired_by": "ForwardMembershipRepairTask",
+            "task_id": task.task_id,
+            "repaired_at_ms": now_ms,
+            "provenance_sources": resolution.source_names,
+            "provenance_validation_version": "1.0.0",
+        },
     )
 
     try:
@@ -1125,7 +1494,7 @@ def repair_forward_membership_task(
             mrec.updated_at = now_ms
 
         # Stage session order index
-        _append_session_order_id(db, task.forward_session_id, order.id, now_ms)
+        _append_session_order_id(db, resolution.forward_session_id, order.id, now_ms)
 
         # Stage task as REPAIRED
         task.status = "REPAIRED"
@@ -1138,7 +1507,7 @@ def repair_forward_membership_task(
             trec.updated_at = now_ms
 
         db.commit()
-        return {"success": True, "status": "REPAIRED", "task": task}
+        return {"success": True, "status": "REPAIRED", "task": task, "membership": repaired_mem}
     except Exception as exc:
         db.rollback()
         task.attempts += 1
