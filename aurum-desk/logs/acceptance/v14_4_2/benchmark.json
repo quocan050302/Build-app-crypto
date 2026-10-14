@@ -3,15 +3,15 @@
   "failures": [],
   "cycles": 600,
   "confirmed_cycles": 600,
-  "total_s": 4.223,
-  "throughput_cycles_per_s": 142.1,
+  "total_s": 5.073,
+  "throughput_cycles_per_s": 118.3,
   "latency_ms": {
-    "p50": 6.971,
-    "p95": 7.381,
-    "max": 7.663,
+    "p50": 7.345,
+    "p95": 10.568,
+    "max": 234.115,
     "sample_count": 600
   },
-  "traced_memory_growth_mb": 0.125,
+  "traced_memory_growth_mb": 0.107,
   "progression_sample": [
     {
       "bars_back": 0,
@@ -68,8 +68,8 @@
     "cpu_count": 8
   },
   "NOT_MEASURED": [],
-  "run_id": "run_1791980161491",
-  "tested_sha": "e5d51ab5bd39fb8fa9dbfd5e32b08c56ee0fa003",
+  "run_id": "run_1791982417147",
+  "tested_sha": "73e43edeccaab615d1b39c82750b86d8910a4747",
   "browser_measurements": {
     "status": "PASS",
     "stream_duration_s": 60.6,
