@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -136,6 +137,258 @@ class TerminalCandidate:
 
 
 @dataclass(frozen=True)
+class CandidateDecodeResult:
+    is_valid: bool
+    candidate: Optional[TerminalCandidate] = None
+    reason: str = ""
+
+
+def encode_candidate(cand: TerminalCandidate) -> Dict[str, Any]:
+    return {
+        "order_id": str(cand.order_id),
+        "evidence_id": str(cand.evidence_id),
+        "source_timestamp": int(cand.source_timestamp),
+        "known_at_ms": int(cand.known_at_ms),
+        "bid": float(cand.bid) if cand.bid is not None else None,
+        "ask": float(cand.ask) if cand.ask is not None else None,
+        "last": float(cand.last) if cand.last is not None else None,
+        "price_basis": str(cand.price_basis),
+        "cause": str(cand.cause),
+        "executable_price": float(cand.executable_price),
+        "epoch": int(cand.epoch or 1),
+        "source": str(cand.source or "UNKNOWN"),
+    }
+
+
+def decode_candidate(data: Any) -> CandidateDecodeResult:
+    if not isinstance(data, dict):
+        return CandidateDecodeResult(is_valid=False, reason="NOT_A_DICT")
+    try:
+        order_id = str(data.get("order_id", ""))
+        evidence_id = str(data.get("evidence_id", ""))
+        cause = str(data.get("cause", ""))
+        if not order_id or not evidence_id or not cause:
+            return CandidateDecodeResult(is_valid=False, reason="MISSING_REQUIRED_IDENTIFIERS")
+
+        src_ts = data.get("source_timestamp")
+        if src_ts is None or isinstance(src_ts, bool) or not isinstance(src_ts, (int, float)):
+            return CandidateDecodeResult(is_valid=False, reason="INVALID_SOURCE_TIMESTAMP")
+
+        known_at = data.get("known_at_ms", src_ts)
+        if isinstance(known_at, bool) or not isinstance(known_at, (int, float)):
+            known_at = src_ts
+
+        exec_px = data.get("executable_price")
+        if exec_px is None or isinstance(exec_px, bool) or not isinstance(exec_px, (int, float)):
+            return CandidateDecodeResult(is_valid=False, reason="INVALID_EXECUTABLE_PRICE")
+
+        def _parse_opt_px(val: Any) -> Optional[float]:
+            if val is None or isinstance(val, bool):
+                return None
+            if isinstance(val, (int, float)):
+                return float(val)
+            return None
+
+        bid = _parse_opt_px(data.get("bid"))
+        ask = _parse_opt_px(data.get("ask"))
+        last = _parse_opt_px(data.get("last"))
+
+        cand = TerminalCandidate(
+            order_id=order_id,
+            evidence_id=evidence_id,
+            source_timestamp=int(src_ts),
+            known_at_ms=int(known_at),
+            bid=bid,
+            ask=ask,
+            last=last,
+            price_basis=str(data.get("price_basis", "BID_ASK")),
+            cause=cause,
+            executable_price=float(exec_px),
+            epoch=int(data.get("epoch", 1) or 1),
+            source=str(data.get("source", "UNKNOWN")),
+        )
+        return CandidateDecodeResult(is_valid=True, candidate=cand)
+    except Exception as e:
+        return CandidateDecodeResult(is_valid=False, reason=f"DECODE_ERROR:{e}")
+
+
+@dataclass(frozen=True)
+class CandidateAccumulator:
+    schema_version: str = "1.0.0"
+    window_id: str = ""
+    query_generation: int = 1
+    arrival_revision: int = 1
+    earliest_source_ts: Optional[int] = None
+    earliest_candidates: List[TerminalCandidate] = field(default_factory=list)
+    conflict_flags: List[str] = field(default_factory=list)
+    processed_interval: Tuple[int, int] = (0, 0)
+    validation_context: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "window_id": self.window_id,
+            "query_generation": self.query_generation,
+            "arrival_revision": self.arrival_revision,
+            "earliest_source_ts": self.earliest_source_ts,
+            "earliest_candidates": [encode_candidate(c) for c in self.earliest_candidates],
+            "conflict_flags": list(self.conflict_flags),
+            "processed_interval": list(self.processed_interval),
+            "validation_context": dict(self.validation_context),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> CandidateAccumulator:
+        if not isinstance(data, dict):
+            return cls()
+        raw_cands = data.get("earliest_candidates") or []
+        decoded_cands: List[TerminalCandidate] = []
+        for rc in raw_cands:
+            res = decode_candidate(rc)
+            if res.is_valid and res.candidate:
+                decoded_cands.append(res.candidate)
+        raw_int = data.get("processed_interval") or [0, 0]
+        p_int = (int(raw_int[0]), int(raw_int[1])) if len(raw_int) == 2 else (0, 0)
+        return cls(
+            schema_version=str(data.get("schema_version", "1.0.0")),
+            window_id=str(data.get("window_id", "")),
+            query_generation=int(data.get("query_generation", 1) or 1),
+            arrival_revision=int(data.get("arrival_revision", 1) or 1),
+            earliest_source_ts=data.get("earliest_source_ts"),
+            earliest_candidates=decoded_cands,
+            conflict_flags=list(data.get("conflict_flags") or []),
+            processed_interval=p_int,
+            validation_context=dict(data.get("validation_context") or {}),
+        )
+
+
+@dataclass(frozen=True)
+class AccumulatorMergeResult:
+    is_valid: bool
+    accumulator: CandidateAccumulator
+    reasons: List[str] = field(default_factory=list)
+
+
+def merge_candidate_accumulator(
+    previous: Optional[CandidateAccumulator],
+    new_candidates: List[TerminalCandidate],
+    window_context: Optional[Dict[str, Any]] = None,
+) -> CandidateAccumulator:
+    """Pure, deterministic merge of TerminalCandidates preserving earliest terminal group.
+    PHẦN 014, 015, 066:
+    - Deduplicates by evidence_id.
+    - Preserves earliest terminal group: if new candidate has earlier timestamp, replaces earliest group.
+    - If new candidate has equal timestamp, retains distinct causes (e.g. SL and TP ambiguity).
+    - Later candidates are discarded (do NOT overwrite early candidates).
+    """
+    ctx = dict(window_context or {})
+    w_id = ctx.get("window_id", "")
+    query_gen = ctx.get("query_generation", 1)
+    arrival_rev = ctx.get("arrival_revision", 1)
+
+    if previous is None:
+        previous = CandidateAccumulator(
+            window_id=w_id,
+            query_generation=query_gen,
+            arrival_revision=arrival_rev,
+            validation_context=ctx,
+        )
+
+    conflict_flags = list(previous.conflict_flags)
+    if previous.window_id and w_id and previous.window_id != w_id:
+        conflict_flags.append(f"WINDOW_ID_MISMATCH:{previous.window_id}!={w_id}")
+
+    all_cands: List[TerminalCandidate] = list(previous.earliest_candidates) + list(new_candidates)
+
+    seen_ids: Set[str] = set()
+    unique_cands: List[TerminalCandidate] = []
+    for c in all_cands:
+        if c.evidence_id not in seen_ids:
+            seen_ids.add(c.evidence_id)
+            unique_cands.append(c)
+
+    if not unique_cands:
+        return CandidateAccumulator(
+            schema_version="1.0.0",
+            window_id=previous.window_id or w_id,
+            query_generation=query_gen,
+            arrival_revision=arrival_rev,
+            earliest_source_ts=None,
+            earliest_candidates=[],
+            conflict_flags=conflict_flags,
+            processed_interval=previous.processed_interval,
+            validation_context=ctx,
+        )
+
+    min_ts = min(c.source_timestamp for c in unique_cands)
+    earliest_group = [c for c in unique_cands if c.source_timestamp == min_ts]
+    earliest_group.sort(key=lambda c: (c.source_timestamp, c.evidence_id))
+
+    return CandidateAccumulator(
+        schema_version="1.0.0",
+        window_id=previous.window_id or w_id,
+        query_generation=query_gen,
+        arrival_revision=arrival_rev,
+        earliest_source_ts=min_ts,
+        earliest_candidates=earliest_group,
+        conflict_flags=conflict_flags,
+        processed_interval=previous.processed_interval,
+        validation_context=ctx,
+    )
+
+
+def merge_candidate_accumulator_with_result(
+    previous: Optional[CandidateAccumulator],
+    new_candidates: List[TerminalCandidate],
+    window_context: Optional[Dict[str, Any]] = None,
+) -> AccumulatorMergeResult:
+    acc = merge_candidate_accumulator(previous, new_candidates, window_context)
+    is_valid = len(acc.conflict_flags) == 0
+    return AccumulatorMergeResult(is_valid=is_valid, accumulator=acc, reasons=acc.conflict_flags)
+
+
+@dataclass(frozen=True)
+class ScanCheckpoint:
+    schema_version: str = "1.0.0"
+    phase: str = "OPEN"
+    last_completed_window_key: Optional[Tuple[int, str]] = None
+    resume_window_id: Optional[str] = None
+    resume_generation: int = 1
+    page_scope: str = "default"
+    revision: int = 1
+    updated_at: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "phase": self.phase,
+            "last_completed_window_key": list(self.last_completed_window_key) if self.last_completed_window_key else None,
+            "resume_window_id": self.resume_window_id,
+            "resume_generation": self.resume_generation,
+            "page_scope": self.page_scope,
+            "revision": self.revision,
+            "updated_at": self.updated_at,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> ScanCheckpoint:
+        if not isinstance(data, dict):
+            return cls()
+        raw_key = data.get("last_completed_window_key")
+        key = (int(raw_key[0]), str(raw_key[1])) if (isinstance(raw_key, (list, tuple)) and len(raw_key) == 2) else None
+        return cls(
+            schema_version=str(data.get("schema_version", "1.0.0")),
+            phase=str(data.get("phase", "OPEN")),
+            last_completed_window_key=key,
+            resume_window_id=data.get("resume_window_id"),
+            resume_generation=int(data.get("resume_generation", 1) or 1),
+            page_scope=str(data.get("page_scope", "default")),
+            revision=int(data.get("revision", 1) or 1),
+            updated_at=int(data.get("updated_at", 0) or 0),
+        )
+
+
+@dataclass(frozen=True)
 class ResolutionDecision:
     action: str  # "CLOSE", "NEEDS_RECONCILIATION", "AMBIGUOUS", "REVIEW_REQUIRED", "NONE"
     candidate: Optional[TerminalCandidate] = None
@@ -171,6 +424,7 @@ class WindowCursor:
     last_order_id: str = ""
     scan_revision: int = 1
     symbol: str = "XAUUSDT"
+    resume_window_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -180,6 +434,7 @@ class WindowCursor:
             "last_order_id": self.last_order_id,
             "scan_revision": self.scan_revision,
             "symbol": self.symbol,
+            "resume_window_id": self.resume_window_id,
         }
 
     @classmethod
@@ -191,6 +446,7 @@ class WindowCursor:
             last_order_id=str(data.get("last_order_id", "") or ""),
             scan_revision=int(data.get("scan_revision", 1) or 1),
             symbol=str(data.get("symbol", "XAUUSDT")),
+            resume_window_id=data.get("resume_window_id"),
         )
 
 
@@ -202,6 +458,8 @@ class ReconciliationScanProgress:
     symbol: str = "XAUUSDT"
     updated_at: int = 0
     reason: str = "INITIAL"
+    resume_window_id: Optional[str] = None
+    checkpoint: Optional[ScanCheckpoint] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -211,12 +469,16 @@ class ReconciliationScanProgress:
             "symbol": self.symbol,
             "updated_at": self.updated_at,
             "reason": self.reason,
+            "resume_window_id": self.resume_window_id,
+            "checkpoint": self.checkpoint.to_dict() if self.checkpoint else None,
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> ReconciliationScanProgress:
         wc_dict = data.get("window_cursor")
         wc = WindowCursor.from_dict(wc_dict) if isinstance(wc_dict, dict) else None
+        cp_dict = data.get("checkpoint")
+        cp = ScanCheckpoint.from_dict(cp_dict) if isinstance(cp_dict, dict) else None
         return cls(
             category=str(data.get("category", "DEFAULT")),
             window_cursor=wc,
@@ -224,6 +486,8 @@ class ReconciliationScanProgress:
             symbol=str(data.get("symbol", "XAUUSDT")),
             updated_at=int(data.get("updated_at", 0) or 0),
             reason=str(data.get("reason", "INITIAL")),
+            resume_window_id=data.get("resume_window_id"),
+            checkpoint=cp,
         )
 
 
@@ -243,6 +507,7 @@ class EvidenceProgress:
     candidate_refs: List[str] = field(default_factory=list)
     read_status: str = "PENDING"  # PENDING, MORE_WORK, COMPLETE, REPLAY_NEEDED, RESET
     updated_at: int = 0
+    accumulator: Optional[CandidateAccumulator] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -253,12 +518,15 @@ class EvidenceProgress:
             "candidate_refs": self.candidate_refs,
             "read_status": self.read_status,
             "updated_at": self.updated_at,
+            "accumulator": self.accumulator.to_dict() if self.accumulator else None,
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> EvidenceProgress:
         raw_sc = data.get("source_cursor")
         sc = (int(raw_sc[0]), str(raw_sc[1])) if (isinstance(raw_sc, (list, tuple)) and len(raw_sc) == 2) else None
+        raw_acc = data.get("accumulator")
+        acc = CandidateAccumulator.from_dict(raw_acc) if isinstance(raw_acc, dict) else None
         return cls(
             window_id=str(data.get("window_id", "")),
             source_cursor=sc,
@@ -267,6 +535,7 @@ class EvidenceProgress:
             candidate_refs=list(data.get("candidate_refs") or []),
             read_status=str(data.get("read_status", "PENDING")),
             updated_at=int(data.get("updated_at", 0) or 0),
+            accumulator=acc,
         )
 
 
@@ -281,10 +550,21 @@ class CycleBudget:
     windows_processed: int = 0
 
     def allows_page(self) -> bool:
+        if self.max_pages <= 0 or self.max_records <= 0:
+            return False
+        if self.deadline_monotonic > 0 and time.monotonic() >= self.deadline_monotonic:
+            return False
         return self.pages_processed < self.max_pages and self.records_processed < self.max_records
 
     def allows_window(self) -> bool:
+        if self.max_windows <= 0:
+            return False
+        if self.deadline_monotonic > 0 and time.monotonic() >= self.deadline_monotonic:
+            return False
         return self.windows_processed < self.max_windows
+
+    def can_start_window_read(self) -> bool:
+        return self.allows_window() and self.allows_page()
 
     def record_page(self, count: int):
         self.pages_processed += 1
@@ -451,10 +731,11 @@ def collect_terminal_candidates(
 
         decision = evaluate_order_exit(order, r)
         if decision.triggered:
+            ev_id = r.get("evidence_id") or r.get("event_id") or "UNKNOWN"
             candidates.append(
                 TerminalCandidate(
                     order_id=order.id,
-                    evidence_id=r.get("evidence_id") or "UNKNOWN",
+                    evidence_id=ev_id,
                     source_timestamp=src_ts,
                     known_at_ms=r.get("known_at_ms") or src_ts,
                     bid=r.get("bid"),
@@ -1127,6 +1408,34 @@ def load_persisted_window_evidence(
     return EvidencePage(items=evidence_items, next_cursor=next_cursor)
 
 
+def _window_cursor_for_item(
+    window: OrderReconciliationWindow,
+    symbol: str = "XAUUSDT",
+    scan_revision: int = 1,
+) -> WindowCursor:
+    """Helper to construct a keyset WindowCursor anchored to a specific window."""
+    is_open = window.order and getattr(window.order, "state", "") == "paper_open"
+    if is_open:
+        return WindowCursor(
+            schema_version="1.0.0",
+            phase="OPEN",
+            last_time=window.opened_at,
+            last_order_id=str(window.order_id),
+            scan_revision=scan_revision,
+            symbol=symbol,
+        )
+    else:
+        cl_at = (window.order and getattr(window.order, "closed_at", None)) or window.end_as_of or window.opened_at
+        return WindowCursor(
+            schema_version="1.0.0",
+            phase="CLOSED",
+            last_time=cl_at,
+            last_order_id=str(window.order_id),
+            scan_revision=scan_revision,
+            symbol=symbol,
+        )
+
+
 def process_window_slice(
     db: Session,
     window: OrderReconciliationWindow,
@@ -1135,12 +1444,16 @@ def process_window_slice(
     coverage_source: Optional[Dict[str, Any]] = None,
     page_size: int = 200,
 ) -> WindowSliceResult:
-    """PHẦN 033, 087, 088: Reads bounded pages, validates/accumulates proof/candidates,
+    """PHẦN 010–017, 023, 024, 033, 087, 088: Reads bounded pages, accumulates candidates durably,
     persists progress, and returns complete/has_more/cursor/decision.
     """
     if progress is None:
         progress = load_window_progress(db, window.order_id)
-        if progress is None or progress.read_status in ("REPLAY_NEEDED", "RESET"):
+        if (
+            progress is None
+            or progress.read_status in ("REPLAY_NEEDED", "RESET")
+            or (progress.source_cursor is not None and progress.accumulator is None and progress.read_status != "COMPLETE")
+        ):
             progress = EvidenceProgress(
                 window_id=window.order_id,
                 source_cursor=None,
@@ -1148,14 +1461,40 @@ def process_window_slice(
                 scan_cutoff=window.end_as_of,
                 candidate_refs=[],
                 read_status="PENDING",
+                accumulator=None,
             )
 
     if budget is None:
         budget = CycleBudget()
 
+    context = {
+        "window_id": window.order_id,
+        "symbol": window.symbol,
+        "direction": getattr(window.order, "direction", "LONG"),
+        "opened_at": window.opened_at,
+        "end_as_of": window.end_as_of,
+        "source_epoch": window.source_epoch,
+        "query_generation": 1,
+        "arrival_revision": progress.arrival_revision,
+    }
+
+    # Preflight zero / exhausted budget check (PHẦN 023, 024, 070, 088)
+    if not budget.allows_page():
+        return WindowSliceResult(
+            progressed=False,
+            has_more=True,
+            next_progress=progress,
+            read_complete=False,
+            decision=None,
+            reasons=["NO_BUDGET"],
+            processed_count=0,
+        )
+
     all_evidence: List[Dict[str, Any]] = []
     current_cursor = progress.source_cursor
+    accumulator = progress.accumulator
     has_more = False
+    records_before = budget.records_processed
 
     while budget.allows_page():
         cutoff_ms = progress.scan_cutoff if progress.scan_cutoff > 0 else window.end_as_of
@@ -1169,6 +1508,9 @@ def process_window_slice(
         if page.items:
             all_evidence.extend(page.items)
             budget.record_page(len(page.items))
+            if window.order:
+                page_candidates = collect_terminal_candidates(window.order, page.items)
+                accumulator = merge_candidate_accumulator(accumulator, page_candidates, context)
 
         current_cursor = page.next_cursor
         if not page.next_cursor or not page.items or len(page.items) < page_size:
@@ -1178,25 +1520,39 @@ def process_window_slice(
             has_more = True
 
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    cand_refs = [c.evidence_id for c in accumulator.earliest_candidates] if accumulator else []
+    records_in_slice = budget.records_processed - records_before
+
     if has_more:
         new_progress = EvidenceProgress(
             window_id=window.order_id,
             source_cursor=current_cursor,
             arrival_revision=progress.arrival_revision,
             scan_cutoff=progress.scan_cutoff,
-            candidate_refs=progress.candidate_refs,
+            candidate_refs=cand_refs,
             read_status="MORE_WORK",
             updated_at=now_ms,
+            accumulator=accumulator,
         )
-        save_window_progress(db, new_progress)
+        saved = save_window_progress(db, new_progress)
+        if not saved:
+            return WindowSliceResult(
+                progressed=False,
+                has_more=True,
+                next_progress=progress,
+                read_complete=False,
+                decision=None,
+                reasons=["PROGRESS_SAVE_FAILED"],
+                processed_count=0,
+            )
         return WindowSliceResult(
-            progressed=True,
+            progressed=records_in_slice > 0,
             has_more=True,
             next_progress=new_progress,
             read_complete=False,
             decision=None,
-            reasons=["RECONCILIATION_BUDGET_EXHAUSTED"],
-            processed_count=budget.records_processed,
+            reasons=["RECONCILIATION_BUDGET_EXHAUSTED"] if records_in_slice > 0 else ["NO_BUDGET"],
+            processed_count=records_in_slice,
         )
 
     new_progress = EvidenceProgress(
@@ -1204,17 +1560,28 @@ def process_window_slice(
         source_cursor=current_cursor,
         arrival_revision=progress.arrival_revision,
         scan_cutoff=progress.scan_cutoff,
-        candidate_refs=progress.candidate_refs,
+        candidate_refs=cand_refs,
         read_status="COMPLETE",
         updated_at=now_ms,
+        accumulator=accumulator,
     )
-    save_window_progress(db, new_progress)
+    saved = save_window_progress(db, new_progress)
+    if not saved:
+        return WindowSliceResult(
+            progressed=False,
+            has_more=True,
+            next_progress=progress,
+            read_complete=False,
+            decision=None,
+            reasons=["PROGRESS_SAVE_FAILED"],
+            processed_count=0,
+        )
 
     decision = None
     if window.order:
         coverage = load_reconciliation_coverage(db, window, source_state=coverage_source)
-        candidates = collect_terminal_candidates(window.order, all_evidence)
-        decision = resolve_reconciliation_window(window.order, candidates, coverage)
+        accumulated_candidates = accumulator.earliest_candidates if accumulator else []
+        decision = resolve_reconciliation_window(window.order, accumulated_candidates, coverage)
 
     return WindowSliceResult(
         progressed=True,
@@ -1223,7 +1590,7 @@ def process_window_slice(
         read_complete=True,
         decision=decision,
         reasons=[],
-        processed_count=budget.records_processed,
+        processed_count=records_in_slice,
     )
 
 
@@ -1318,7 +1685,8 @@ class MarketReconciliationService:
         budget: Optional[CycleBudget] = None,
     ) -> int:
         """Processes late evidence and pending reconciliation windows in chronological order.
-        PHẦN 016, 019, 029, 088, 089: Replays persisted window evidence; requires authoritative coverage proof.
+        PHẦN 016, 019, 025, 027, 029, 075, 088, 089: Replays persisted window evidence;
+        checkpoints last fully handled window or current unfinished window to prevent skipping items.
         """
         if budget is None:
             budget = CycleBudget()
@@ -1338,9 +1706,17 @@ class MarketReconciliationService:
         )
         closed_order_ids: Set[str] = set()
 
+        completed_all_items = True
+        last_fully_handled_cursor: Optional[WindowCursor] = scheduler.window_cursor
+        unfinished_window_id: Optional[str] = None
+
         for window in window_page.items:
-            if not budget.allows_window():
+            # Check if budget allows starting a new window read (PHẦN 023, 025, 075)
+            if not budget.can_start_window_read():
+                completed_all_items = False
+                unfinished_window_id = window.order_id
                 break
+
             budget.record_window()
 
             if window.order_id in closed_order_ids:
@@ -1349,13 +1725,27 @@ class MarketReconciliationService:
             slice_result = process_window_slice(
                 db, window, budget=budget, coverage_source=source_state
             )
-            if slice_result.read_complete and slice_result.decision:
+
+            if not slice_result.read_complete:
+                completed_all_items = False
+                unfinished_window_id = window.order_id
+                break
+
+            if slice_result.decision:
                 res = persist_resolution_or_review(db, window, slice_result.decision)
                 if slice_result.decision.action == "CLOSE" and res.applied:
                     closed_order_ids.add(window.order_id)
 
-        # Update scheduler cursor for the next coordinator cycle (PHẦN 029, 089)
-        scheduler.window_cursor = window_page.next_cursor
+            last_fully_handled_cursor = _window_cursor_for_item(window, symbol, scheduler.query_revision)
+
+        # Update scheduler cursor for the next coordinator cycle (PHẦN 027, 029, 075, 089)
+        if completed_all_items:
+            scheduler.window_cursor = window_page.next_cursor
+            scheduler.resume_window_id = None
+        else:
+            scheduler.window_cursor = last_fully_handled_cursor
+            scheduler.resume_window_id = unfinished_window_id
+
         save_scan_progress(db, scheduler, scan_scope="default")
 
         if committed_ids:

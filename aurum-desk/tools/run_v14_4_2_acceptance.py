@@ -206,6 +206,20 @@ REQUIRED_CASES = {
     "EVIDENCE02": {"suite": "backend", "file": "backend/tests/test_v14_4_7_coordinator_pagination.py", "desc": "small injected budget and restart"},
     "EVIDENCE03": {"suite": "backend", "file": "backend/tests/test_v14_4_7_coordinator_pagination.py", "desc": "late older timestamp invalidates progress"},
     "EVIDENCE04": {"suite": "backend", "file": "backend/tests/test_v14_4_7_coordinator_pagination.py", "desc": "symbol filter before limit prevents starvation"},
+    # V14.4.8 Reconciliation Accumulator & Budget Fairness (13)
+    "ACC01": {"suite": "backend", "file": "backend/tests/test_v14_4_8_reconciliation_accumulator.py", "desc": "early TP before later SL across slices (LONG)"},
+    "ACC02": {"suite": "backend", "file": "backend/tests/test_v14_4_8_reconciliation_accumulator.py", "desc": "early TP before later SL across slices (SHORT mirror)"},
+    "ACC03": {"suite": "backend", "file": "backend/tests/test_v14_4_8_reconciliation_accumulator.py", "desc": "tie ambiguity split across pages retained"},
+    "ACC04": {"suite": "backend", "file": "backend/tests/test_v14_4_8_reconciliation_accumulator.py", "desc": "chunking equivalence across page sizes"},
+    "ACC05": {"suite": "backend", "file": "backend/tests/test_v14_4_8_reconciliation_accumulator.py", "desc": "corrupt context and legacy replay safe"},
+    "ACC06": {"suite": "backend", "file": "backend/tests/test_v14_4_8_reconciliation_accumulator.py", "desc": "latest page neutral or empty resolves prior candidate"},
+    "BUDGET01": {"suite": "backend", "file": "backend/tests/test_v14_4_8_reconciliation_accumulator.py", "desc": "zero budget returns NO_BUDGET never false complete"},
+    "SCHED01": {"suite": "backend", "file": "backend/tests/test_v14_4_8_reconciliation_accumulator.py", "desc": "coordinator audits all 51 closed orders without skipping"},
+    "SCHED02": {"suite": "backend", "file": "backend/tests/test_v14_4_8_reconciliation_accumulator.py", "desc": "restart unfinished window resumes exact tail"},
+    "SCHED03": {"suite": "backend", "file": "backend/tests/test_v14_4_8_reconciliation_accumulator.py", "desc": "uneven fairness between open and closed orders"},
+    "DURABLE01": {"suite": "backend", "file": "backend/tests/test_v14_4_8_reconciliation_accumulator.py", "desc": "progress commit failure isolation"},
+    "REPLAY01": {"suite": "backend", "file": "backend/tests/test_v14_4_8_reconciliation_accumulator.py", "desc": "earlier late evidence triggers replay"},
+    "CLOSE01": {"suite": "backend", "file": "backend/tests/test_v14_4_8_reconciliation_accumulator.py", "desc": "race monitor and recovery CAS audit without reopen"},
 }
 
 BASELINE_FAILURES = {
@@ -260,8 +274,8 @@ def parse_junit_xml(xml_path: str) -> dict[str, str]:
             key = f"{classname}::{name}" if classname else name
             results[key] = status
             results[name] = status
-            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, TIMELINE01, CHRONO01, PLANSRC01, FCPROOF01, SMC01, STATE01, LEGACY01, PAGE01, FLOW01, GATE01, PROOF01, WINDOW01, EVIDENCE01, etc.
-            for m in re.finditer(r"(?i)(?:^|[\W_])(PROOF\d{2}|WINDOW\d{2}|EVIDENCE\d{2}|CHRONO\d{2}|PLANSRC\d{2}|FCPROOF\d{2}|TIMELINE\d{2}|GEOMSRC\d{2}|BINDNULL\d{2}|INVCLOSED\d{2}|COHORT\d{2}|REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|SMC\d{2}|STATE\d{2}|LEGACY\d{2}|PAGE\d{2}|FLOW\d{2}|GATE\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
+            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, TIMELINE01, CHRONO01, PLANSRC01, FCPROOF01, SMC01, STATE01, LEGACY01, PAGE01, FLOW01, GATE01, PROOF01, WINDOW01, EVIDENCE01, ACC01, BUDGET01, SCHED01, DURABLE01, REPLAY01, CLOSE01, etc.
+            for m in re.finditer(r"(?i)(?:^|[\W_])(ACC\d{2}|BUDGET\d{2}|SCHED\d{2}|DURABLE\d{2}|REPLAY\d{2}|CLOSE\d{2}|PROOF\d{2}|WINDOW\d{2}|EVIDENCE\d{2}|CHRONO\d{2}|PLANSRC\d{2}|FCPROOF\d{2}|TIMELINE\d{2}|GEOMSRC\d{2}|BINDNULL\d{2}|INVCLOSED\d{2}|COHORT\d{2}|REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|SMC\d{2}|STATE\d{2}|LEGACY\d{2}|PAGE\d{2}|FLOW\d{2}|GATE\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
                 results[m.group(1).upper()] = status
     except Exception as e:
         print(f"Error parsing JUnit XML {xml_path}: {e}", file=sys.stderr)
@@ -687,6 +701,7 @@ def main(argv=None) -> int:
         "tests/test_v14_4_6_flow_preservation.py",
         "tests/test_v14_4_7_proof_fail_closed.py",
         "tests/test_v14_4_7_coordinator_pagination.py",
+        "tests/test_v14_4_8_reconciliation_accumulator.py",
     ]
     s = run_step(
         "backend_targeted",
