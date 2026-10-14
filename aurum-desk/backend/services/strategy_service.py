@@ -524,8 +524,14 @@ class StrategyService:
                 leverage=int(g.requested_leverage), margin_mode=str(g.margin_mode), costs=CostAssumptions(),
                 instrument_version=str(getattr(g, "metadata_version", None) or "unknown"),
             )
-            win = TradingPolicyService.get_ny_session_window(now_ms=now_ms, clock=clock)
-            entry_window = (win["window_start_ms"], win["window_end_ms"])
+            from services.trading_policy_service import (
+                TradingPolicyService,
+                resolve_entry_session_context,
+                compute_promoted_setup_expiry,
+            )
+            policy = TradingPolicyService.get_or_create_policy(db)
+            session_ctx = resolve_entry_session_context(policy, "STANDARD_SMC", now_ms=now_ms, clock=clock)
+            entry_window = session_ctx.standard_window_restriction
             if quote is not None:
                 q = quote
             else:
@@ -533,7 +539,8 @@ class StrategyService:
                 q = QuoteValidator.validate_ticker(raw, now_ms=now_ms) if raw else None
 
             result = evaluate_scenario_cycle(
-                db, symbol, candles_by_tf, q, now_ms, config=cfg, settings=settings, entry_window=entry_window)
+                db, symbol, candles_by_tf, q, now_ms, config=cfg, settings=settings,
+                entry_window=entry_window, session_context=session_ctx)
             self._cache_session_forecasts(symbol, candles_by_tf, now_ms, cfg, result.primary, result.issues, db=db)
 
             from services.smc_observation_service import record_observation_snapshot
@@ -548,11 +555,14 @@ class StrategyService:
             winner = select_primary_scenario(promotable) if promotable else None
             ws = None
             if winner is not None:
-                ws = promote_confirmed_scenario(
-                    db, winner, now_ms=now_ms, risk_config_version=int(g.config_version),
-                    leverage=settings.leverage, margin_mode=settings.margin_mode, risk_pct=settings.risk_pct,
-                    expires_at_ms=min(now_ms + cfg.scenario_ttl_ms, entry_window[1]) if entry_window[1] > now_ms
-                    else now_ms)
+                promoted_expiry = compute_promoted_setup_expiry(
+                    now_ms, getattr(winner, "expires_at", None), cfg.scenario_ttl_ms, session_context=session_ctx
+                )
+                if promoted_expiry is not None:
+                    ws = promote_confirmed_scenario(
+                        db, winner, now_ms=now_ms, risk_config_version=int(g.config_version),
+                        leverage=settings.leverage, margin_mode=settings.margin_mode, risk_pct=settings.risk_pct,
+                        expires_at_ms=promoted_expiry)
                 if ws is not None and ws.state == "READY":
                     self._assess_and_save_quality(
                         db=db, watch_setup=ws,

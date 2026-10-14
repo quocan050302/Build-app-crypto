@@ -415,7 +415,8 @@ def _evaluate_direction(
     *, direction: str, symbol: str, m5: List[Any], idx_by_ts: Dict[int, int], sh: List[Dict], sl: List[Dict],
     events: List[Dict], level_sweeps: List[Dict], fvg_nodes: List[EvidenceNode], levels: List[LiquidityLevel],
     m15: List[Any], regime: str, h4_bias: str, h1_align: str, config: ScenarioConfig, now_ms: int,
-    quote: Any, settings: Optional[FinancialSettings], session_ctx: Dict[str, Any], entry_window: Optional[Tuple[int, int]],
+    quote: Any, settings: Optional[FinancialSettings], session_ctx: Dict[str, Any], entry_window: Optional[Tuple[int, int]] = None,
+    session_context: Optional[Any] = None,
 ) -> ScenarioSnapshot:
     bull = direction == "LONG"
     dir_ev = "BULLISH" if bull else "BEARISH"
@@ -493,7 +494,10 @@ def _evaluate_direction(
                 plan_dict["entry_basis"] = entry_basis
                 if not plan.is_valid:
                     blockers.append(str(plan.invalid_reason))
-            if entry_window is not None and not (entry_window[0] <= now_ms < entry_window[1]):
+            effective_window = entry_window
+            if session_context is not None:
+                effective_window = getattr(session_context, "standard_window_restriction", None)
+            if effective_window is not None and not (effective_window[0] <= now_ms < effective_window[1]):
                 blockers.append("OUTSIDE_ENTRY_WINDOW")
     # ---------------------------------------------------------------------- identity
     name, date_str = session_for(now_ms)
@@ -725,6 +729,7 @@ def evaluate_scenarios(
     quote: Any = None,
     settings: Optional[FinancialSettings] = None,
     entry_window: Optional[Tuple[int, int]] = None,
+    session_context: Optional[Any] = None,
 ) -> List[ScenarioSnapshot]:
     """Pure: closed context (+ optional validated quote and financial settings) -> scenario snapshots.
     Missing/invalid required data returns ONE observation snapshot carrying DATA_UNAVAILABLE blockers
@@ -769,6 +774,7 @@ def evaluate_scenarios(
             level_sweeps=level_sweeps, fvg_nodes=fvg_nodes, levels=levels, m15=context.get("15M"),
             regime=regime, h4_bias=h4.bias, h1_align=h1_align, config=config, now_ms=now_ms, quote=quote,
             settings=settings, session_ctx=session_ctx, entry_window=entry_window,
+            session_context=session_context,
         )
         results.append(_reconcile_with_previous(snap, previous_scenarios, now_ms))
     return results
@@ -814,13 +820,17 @@ def evaluate_scenario_cycle(
     config: Optional[ScenarioConfig] = None,
     settings: Optional[FinancialSettings] = None,
     entry_window: Optional[Tuple[int, int]] = None,
+    session_context: Optional[Any] = None,
 ) -> ScenarioCycleResult:
     """Context -> evaluate -> persist (flush only). Reads previously persisted scenarios so terminal ones
     stay terminal and revisions only advance on material change."""
     cfg = config or active_scenario_config
     ctx = load_closed_context(candles_by_tf, now_ms, cfg)
     previous = get_previous_scenarios(db, symbol)
-    snapshots = evaluate_scenarios(symbol, ctx, previous, cfg, now_ms, quote=quote, settings=settings, entry_window=entry_window)
+    snapshots = evaluate_scenarios(
+        symbol, ctx, previous, cfg, now_ms, quote=quote, settings=settings,
+        entry_window=entry_window, session_context=session_context
+    )
 
     changed: List[ScenarioSnapshot] = []
     superseded: List[ScenarioSnapshot] = []

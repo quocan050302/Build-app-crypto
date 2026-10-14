@@ -17,6 +17,7 @@ Enforces:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import math
@@ -24,7 +25,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
@@ -520,25 +521,291 @@ class CandidateAccumulator:
         return cls(conflict_flags=["CORRUPT_ACCUMULATOR_PAYLOAD"])
 
 
+@dataclass(frozen=True)
+class FrozenExitContextResult:
+    status: str  # "VALID", "UNVERIFIED", "INVALID"
+    order_id: str
+    symbol: str
+    direction: str
+    entry_price: float
+    stop_loss: float
+    take_profit: float
+    exit_policy_version: str
+    policy_config_version: int = 1
+    fingerprint: str = ""
+    issues: List[str] = field(default_factory=list)
+
+    @property
+    def is_valid(self) -> bool:
+        return self.status == "VALID"
+
+
+def canonical_num(val: Any) -> str:
+    """Formats numeric value deterministically for hashing/fingerprinting."""
+    if val is None:
+        return "none"
+    try:
+        f = float(val)
+        if not math.isfinite(f):
+            return "nan"
+        return f"{f:.8f}".rstrip("0").rstrip(".")
+    except Exception:
+        return str(val)
+
+
+def fingerprint_exit_context(ctx: Union[FrozenExitContextResult, Dict[str, Any]]) -> str:
+    """Computes stable, deterministic SHA256 fingerprint for frozen exit context."""
+    if isinstance(ctx, FrozenExitContextResult):
+        if not ctx.is_valid and ctx.status != "UNVERIFIED":
+            return ""
+        order_id = str(ctx.order_id).strip()
+        symbol = str(ctx.symbol).strip().upper()
+        direction = str(ctx.direction).strip().upper()
+        entry = canonical_num(ctx.entry_price)
+        sl = canonical_num(ctx.stop_loss)
+        tp = canonical_num(ctx.take_profit)
+        version = str(ctx.exit_policy_version).strip()
+    elif isinstance(ctx, dict):
+        order_id = str(ctx.get("order_id") or ctx.get("window_id") or "").strip()
+        symbol = str(ctx.get("symbol") or "").strip().upper()
+        direction = str(ctx.get("direction") or "").strip().upper()
+        entry = canonical_num(ctx.get("entry_price") or ctx.get("actual_entry") or ctx.get("planned_entry"))
+        sl = canonical_num(ctx.get("stop_loss"))
+        tp = canonical_num(ctx.get("take_profit"))
+        version = str(ctx.get("exit_policy_version") or "1.0.0").strip()
+    else:
+        return ""
+
+    payload = f"{order_id}|{symbol}|{direction}|{entry}|{sl}|{tp}|{version}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def read_frozen_exit_context(order: Any) -> FrozenExitContextResult:
+    """Pure extraction of order ID, symbol, direction, entry, SL, TP and actual exit-policy version."""
+    if order is None:
+        return FrozenExitContextResult(
+            status="INVALID",
+            order_id="",
+            symbol="",
+            direction="",
+            entry_price=0.0,
+            stop_loss=0.0,
+            take_profit=0.0,
+            exit_policy_version="",
+            issues=["MISSING_ORDER"],
+        )
+
+    order_id = str(getattr(order, "id", "") or "")
+    symbol = str(getattr(order, "symbol", "") or getattr(order, "instrument", "") or "").upper()
+    direction = str(getattr(order, "direction", "") or "").upper()
+
+    snapshot_raw = getattr(order, "cost_snapshot", None)
+    snapshot_dict: Optional[Dict[str, Any]] = None
+    if snapshot_raw:
+        if isinstance(snapshot_raw, dict):
+            snapshot_dict = snapshot_raw
+        elif isinstance(snapshot_raw, str):
+            try:
+                snapshot_dict = json.loads(snapshot_raw)
+            except Exception:
+                return FrozenExitContextResult(
+                    status="INVALID",
+                    order_id=order_id,
+                    symbol=symbol,
+                    direction=direction,
+                    entry_price=0.0,
+                    stop_loss=0.0,
+                    take_profit=0.0,
+                    exit_policy_version="",
+                    issues=["CORRUPT_COST_SNAPSHOT_JSON"],
+                )
+
+    exit_policy_version = "1.0.0"
+    policy_config_version = 1
+    if snapshot_dict:
+        direction = str(snapshot_dict.get("direction") or direction).upper()
+        entry_val = snapshot_dict.get("actual_entry") or snapshot_dict.get("planned_entry")
+        sl_val = snapshot_dict.get("stop_loss")
+        tp_val = snapshot_dict.get("take_profit")
+        exit_policy_version = str(snapshot_dict.get("cost_source") or snapshot_dict.get("cost_version") or snapshot_dict.get("policy_config_version") or "1.0.0")
+        policy_config_version = int(snapshot_dict.get("policy_config_version") or 1)
+        is_legacy = False
+    else:
+        entry_val = getattr(order, "entry_price", None) or getattr(order, "actual_entry", None) or getattr(order, "planned_entry", None)
+        sl_val = getattr(order, "stop_loss", None)
+        tp_val = getattr(order, "take_profit", None)
+        exit_policy_version = "legacy_1.0.0"
+        is_legacy = True
+
+    issues: List[str] = []
+    if not order_id:
+        issues.append("MISSING_ORDER_ID")
+    if not symbol:
+        issues.append("MISSING_SYMBOL")
+    if direction not in ("LONG", "SHORT"):
+        issues.append("INVALID_DIRECTION")
+
+    for name, val in [("entry_price", entry_val), ("stop_loss", sl_val), ("take_profit", tp_val)]:
+        if not is_finite_real(val) or float(val) <= 0:
+            issues.append(f"INVALID_{name.upper()}")
+
+    entry_f = float(entry_val) if is_finite_real(entry_val) else 0.0
+    sl_f = float(sl_val) if is_finite_real(sl_val) else 0.0
+    tp_f = float(tp_val) if is_finite_real(tp_val) else 0.0
+
+    if not issues:
+        if direction == "LONG":
+            if sl_f >= entry_f:
+                issues.append("LONG_SL_GTE_ENTRY")
+            if tp_f <= entry_f:
+                issues.append("LONG_TP_LTE_ENTRY")
+        elif direction == "SHORT":
+            if sl_f <= entry_f:
+                issues.append("SHORT_SL_LTE_ENTRY")
+            if tp_f >= entry_f:
+                issues.append("SHORT_TP_GTE_ENTRY")
+
+    status = "INVALID" if issues else ("UNVERIFIED" if is_legacy else "VALID")
+
+    result = FrozenExitContextResult(
+        status=status,
+        order_id=order_id,
+        symbol=symbol,
+        direction=direction,
+        entry_price=entry_f,
+        stop_loss=sl_f,
+        take_profit=tp_f,
+        exit_policy_version=exit_policy_version,
+        policy_config_version=policy_config_version,
+        issues=issues,
+    )
+    if status in ("VALID", "UNVERIFIED"):
+        fp = fingerprint_exit_context(result)
+        result = FrozenExitContextResult(
+            status=result.status,
+            order_id=result.order_id,
+            symbol=result.symbol,
+            direction=result.direction,
+            entry_price=result.entry_price,
+            stop_loss=result.stop_loss,
+            take_profit=result.take_profit,
+            exit_policy_version=result.exit_policy_version,
+            policy_config_version=result.policy_config_version,
+            fingerprint=fp,
+            issues=result.issues,
+        )
+    return result
+
+
 def build_reconciliation_context(
     window: OrderReconciliationWindow,
     progress: Optional[EvidenceProgress] = None,
 ) -> Dict[str, Any]:
     cutoff = progress.scan_cutoff if (progress and progress.scan_cutoff > 0) else window.end_as_of
     rev = progress.arrival_revision if progress else 1
-    direction = getattr(window.order, "direction", "LONG") if window.order else "LONG"
+    query_gen = progress.accumulator.query_generation if (progress and progress.accumulator and progress.accumulator.query_generation) else 1
+
+    frozen_exit = read_frozen_exit_context(window.order) if window.order else None
+
+    direction = (frozen_exit.direction if frozen_exit and frozen_exit.direction else getattr(window.order, "direction", "LONG")) if window.order else "LONG"
+    symbol = (frozen_exit.symbol if frozen_exit and frozen_exit.symbol else window.symbol)
+    exit_policy_ver = frozen_exit.exit_policy_version if (frozen_exit and frozen_exit.exit_policy_version) else "1.0.0"
+    fp = frozen_exit.fingerprint if (frozen_exit and frozen_exit.fingerprint) else fingerprint_exit_context({
+        "order_id": window.order_id,
+        "symbol": symbol,
+        "direction": direction,
+        "entry_price": getattr(window.order, "entry_price", getattr(window.order, "actual_entry", getattr(window.order, "planned_entry", 0.0))) if window.order else 0.0,
+        "stop_loss": getattr(window.order, "stop_loss", 0.0) if window.order else 0.0,
+        "take_profit": getattr(window.order, "take_profit", 0.0) if window.order else 0.0,
+        "exit_policy_version": exit_policy_ver,
+    })
+
     return {
+        "context_schema_version": "1.0.0",
         "order_id": window.order_id,
         "window_id": window.order_id,
-        "symbol": window.symbol,
+        "symbol": symbol,
         "direction": direction,
         "opened_at": window.opened_at,
         "scan_cutoff": cutoff,
         "source_epoch": window.source_epoch,
-        "query_generation": 1,
+        "query_generation": query_gen,
         "arrival_revision": rev,
-        "exit_policy_version": "1.0.0",
+        "exit_policy_version": exit_policy_ver,
+        "exit_context_fingerprint": fp,
     }
+
+
+CRITICAL_IDENTITY_AND_POLICY_FIELDS = [
+    "order_id",
+    "symbol",
+    "direction",
+    "exit_policy_version",
+]
+
+
+def validate_context_compatibility(
+    stored: Any,
+    expected: Any,
+    migration_mode: str = "STRICT",
+) -> ValidationResult:
+    """Validates compatibility between stored validation_context and expected context."""
+    issues: List[ValidationIssue] = []
+    if not isinstance(stored, dict) or not stored:
+        issues.append(ValidationIssue(code="EMPTY_VALIDATION_CONTEXT", field="validation_context"))
+        return ValidationResult(is_valid=False, issues=issues)
+    if not isinstance(expected, dict) or not expected:
+        issues.append(ValidationIssue(code="EMPTY_EXPECTED_CONTEXT", field="expected_context"))
+        return ValidationResult(is_valid=False, issues=issues)
+
+    # Check critical identity & policy fields
+    for f in CRITICAL_IDENTITY_AND_POLICY_FIELDS:
+        if f not in stored and f not in expected:
+            continue
+        if f not in stored:
+            issues.append(ValidationIssue(code=f"CONTEXT_{f.upper()}_MISMATCH", field=f, detail=f"Missing {f} in stored context"))
+        elif f not in expected:
+            issues.append(ValidationIssue(code=f"CONTEXT_{f.upper()}_MISMATCH", field=f, detail=f"Missing {f} in expected context"))
+        else:
+            s_val = str(stored.get(f) or "").strip().upper()
+            e_val = str(expected.get(f) or "").strip().upper()
+            if s_val != e_val:
+                issues.append(ValidationIssue(
+                    code=f"CONTEXT_{f.upper()}_MISMATCH",
+                    field=f,
+                    detail=f"Stored {stored.get(f)} != expected {expected.get(f)}"
+                ))
+
+    # Check exit context fingerprint if present in both
+    stored_fp = stored.get("exit_context_fingerprint")
+    expected_fp = expected.get("exit_context_fingerprint")
+    if stored_fp and expected_fp and stored_fp != expected_fp:
+        issues.append(ValidationIssue(
+            code="CONTEXT_FINGERPRINT_MISMATCH",
+            field="exit_context_fingerprint",
+            detail=f"Stored fp {stored_fp} != expected fp {expected_fp}"
+        ))
+
+    # Check epoch, generation, revision
+    for f in ["source_epoch", "query_generation", "arrival_revision"]:
+        if f in stored and f in expected:
+            if stored[f] != expected[f]:
+                issues.append(ValidationIssue(
+                    code=f"CONTEXT_{f.upper()}_MISMATCH",
+                    field=f,
+                    detail=f"Stored {stored[f]} != expected {expected[f]}"
+                ))
+
+    # Check scan cutoff: stored scan cutoff should match expected scan cutoff
+    if "scan_cutoff" in stored and "scan_cutoff" in expected:
+        if stored["scan_cutoff"] != expected["scan_cutoff"]:
+            issues.append(ValidationIssue(
+                code="CONTEXT_CUTOFF_MISMATCH",
+                field="scan_cutoff",
+                detail=f"Stored cutoff {stored['scan_cutoff']} != expected cutoff {expected['scan_cutoff']}"
+            ))
+
+    return ValidationResult(is_valid=len(issues) == 0, issues=issues)
 
 
 def validate_candidate_context(
@@ -572,6 +839,36 @@ def validate_candidate_context(
             field="source",
             detail="Candidate has UNKNOWN provenance source",
         ))
+
+    # PHẦN 055: source_timestamp <= frozen cutoff
+    cutoff = (context.get("scan_cutoff") if context else None) or window.end_as_of
+    if cutoff and candidate.source_timestamp > cutoff:
+        issues.append(ValidationIssue(
+            code="TIMESTAMP_AFTER_SCAN_CUTOFF",
+            field="source_timestamp",
+            detail=f"Candidate ts {candidate.source_timestamp} > cutoff {cutoff}",
+        ))
+
+    # PHẦN 055: Price & basis validation
+    if not is_finite_real(candidate.executable_price) or candidate.executable_price <= 0:
+        issues.append(ValidationIssue(
+            code="NON_FINITE_CANDIDATE_PRICE",
+            field="executable_price",
+            detail="Candidate price is non-finite or <= 0",
+        ))
+    if candidate.price_basis not in VALID_PRICE_BASES:
+        issues.append(ValidationIssue(
+            code="INVALID_PRICE_BASIS",
+            field="price_basis",
+            detail=f"Invalid price basis {candidate.price_basis}",
+        ))
+    if candidate.cause not in VALID_EXIT_CAUSES:
+        issues.append(ValidationIssue(
+            code="INVALID_EXIT_CAUSE",
+            field="cause",
+            detail=f"Invalid exit cause {candidate.cause}",
+        ))
+
     return ValidationResult(is_valid=len(issues) == 0, issues=issues)
 
 
@@ -591,6 +888,20 @@ def validate_accumulator_context(
     if accumulator.conflict_flags:
         for flag in accumulator.conflict_flags:
             issues.append(ValidationIssue(code=flag, field="conflict_flags"))
+
+    # Validate stored validation_context against expected context (PHẦN 001, 003, 052, 054)
+    if context is not None:
+        if not accumulator.validation_context:
+            issues.append(ValidationIssue(
+                code="MISSING_VALIDATION_CONTEXT",
+                field="validation_context",
+                detail="Accumulator lacks validation_context",
+            ))
+        else:
+            compat_res = validate_context_compatibility(accumulator.validation_context, context)
+            if not compat_res.is_valid:
+                issues.extend(compat_res.issues)
+
     for cand in accumulator.earliest_candidates:
         c_val = validate_candidate_context(cand, window, context)
         if not c_val.is_valid:
@@ -624,6 +935,8 @@ def merge_candidate_accumulator_with_result(
     query_gen = ctx.get("query_generation", 1)
     arrival_rev = ctx.get("arrival_revision", 1)
 
+    has_previous = previous is not None
+
     if previous is None:
         previous = CandidateAccumulator(
             window_id=w_id,
@@ -633,6 +946,14 @@ def merge_candidate_accumulator_with_result(
         )
 
     conflict_flags = list(previous.conflict_flags)
+
+    # PHẦN 053: Validate previous context compatibility before merging
+    if has_previous and previous.validation_context and ctx:
+        compat = validate_context_compatibility(previous.validation_context, ctx)
+        if not compat.is_valid:
+            for iss in compat.issues:
+                conflict_flags.append(iss.code)
+
     if previous.window_id and w_id and previous.window_id != w_id:
         conflict_flags.append(f"WINDOW_ID_MISMATCH:{previous.window_id}!={w_id}")
 
@@ -650,12 +971,19 @@ def merge_candidate_accumulator_with_result(
     for c in all_cands:
         if c.evidence_id in seen_map:
             prior_c = seen_map[c.evidence_id]
+            # PHẦN 056: Full duplicate fingerprint checking
             if (
                 prior_c.order_id != c.order_id
                 or prior_c.cause != c.cause
                 or prior_c.source_timestamp != c.source_timestamp
                 or prior_c.executable_price != c.executable_price
                 or prior_c.epoch != c.epoch
+                or prior_c.bid != c.bid
+                or prior_c.ask != c.ask
+                or prior_c.last != c.last
+                or prior_c.price_basis != c.price_basis
+                or prior_c.source != c.source
+                or prior_c.known_at_ms != c.known_at_ms
             ):
                 conflict_flags.append(f"EVIDENCE_ID_CONFLICT:{c.evidence_id}")
                 conflict_detected = True
@@ -674,7 +1002,7 @@ def merge_candidate_accumulator_with_result(
             earliest_candidates=[] if (conflict_detected or conflict_flags) else previous.earliest_candidates,
             conflict_flags=conflict_flags,
             processed_interval=previous.processed_interval,
-            validation_context=ctx,
+            validation_context=previous.validation_context if previous.validation_context else ctx,
         )
         return AccumulatorMergeResult(
             is_valid=len(conflict_flags) == 0,

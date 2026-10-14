@@ -1,10 +1,10 @@
 import time
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, time as dtime
 from zoneinfo import ZoneInfo
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 import models, crud
@@ -39,6 +39,100 @@ class UpgradeSummary:
     marker: str
     audit_id: Optional[str]
     status: str
+
+
+@dataclass(frozen=True)
+class EntrySessionContext:
+    policy_mode: str
+    policy_version: int
+    strategy_family: str
+    analysis_session: str
+    as_of_ms: int
+    in_ny_entry_window: bool
+    ny_start_ms: int
+    ny_end_ms: int
+    standard_window_restriction: Optional[Tuple[int, int]]
+    expiry_cap_ms: Optional[int]
+    reason_codes: List[str] = field(default_factory=list)
+
+
+def resolve_entry_session_context(
+    policy: Any,
+    family: str = "STANDARD_SMC",
+    now_ms: Optional[int] = None,
+    clock: Any = None,
+) -> EntrySessionContext:
+    """PHẦN 018, 019: Pure context resolver mapping session policy and strategy family to entry restrictions."""
+    c = clock
+    current_time = now_ms if now_ms is not None else (c.now_ms() if c else int(time.time() * 1000))
+    ny_win = TradingPolicyService.get_ny_session_window(now_ms=current_time, clock=c)
+
+    from services.smc_scenario_service import session_for
+    analysis_session, _ = session_for(current_time)
+
+    pol_mode = getattr(policy, "entry_session_policy", "ALL_SESSIONS_WITH_NY_RESERVE")
+    pol_ver = getattr(policy, "version", 1) or 1
+
+    in_ny = bool(ny_win.get("is_in_window", False))
+    ny_start = int(ny_win.get("window_start_ms", 0))
+    ny_end = int(ny_win.get("window_end_ms", 0))
+
+    reason_codes: List[str] = []
+
+    if family == "NY_QUOTA_PAPER":
+        restriction = (ny_start, ny_end)
+        expiry_cap = ny_end
+    elif family == "STANDARD_SMC":
+        if pol_mode == "NY_ONLY":
+            restriction = (ny_start, ny_end)
+            expiry_cap = ny_end
+        elif pol_mode == "ALL_SESSIONS_WITH_NY_RESERVE":
+            restriction = None
+            expiry_cap = None
+        else:
+            restriction = (0, 0)
+            expiry_cap = current_time
+            reason_codes.append("UNSUPPORTED_SESSION_POLICY")
+    else:
+        restriction = (ny_start, ny_end)
+        expiry_cap = ny_end
+
+    return EntrySessionContext(
+        policy_mode=pol_mode,
+        policy_version=pol_ver,
+        strategy_family=family,
+        analysis_session=analysis_session,
+        as_of_ms=current_time,
+        in_ny_entry_window=in_ny,
+        ny_start_ms=ny_start,
+        ny_end_ms=ny_end,
+        standard_window_restriction=restriction,
+        expiry_cap_ms=expiry_cap,
+        reason_codes=reason_codes,
+    )
+
+
+def compute_promoted_setup_expiry(
+    now_ms: int,
+    scenario_expires_at: Optional[int],
+    scenario_ttl_ms: int,
+    session_context: Optional[EntrySessionContext] = None,
+) -> Optional[int]:
+    """PHẦN 028, 029: Pure setup expiry calculation honoring model TTL, scenario expiry, and permitted session cap."""
+    if now_ms <= 0 or scenario_ttl_ms <= 0:
+        return None
+    if scenario_expires_at is not None and scenario_expires_at <= now_ms:
+        return None
+
+    ttl_target = now_ms + scenario_ttl_ms
+    cand = min(ttl_target, scenario_expires_at) if scenario_expires_at is not None else ttl_target
+
+    if session_context and session_context.expiry_cap_ms is not None:
+        cand = min(cand, session_context.expiry_cap_ms)
+
+    if cand <= now_ms:
+        return None
+    return cand
 
 
 class TradingPolicyService:
