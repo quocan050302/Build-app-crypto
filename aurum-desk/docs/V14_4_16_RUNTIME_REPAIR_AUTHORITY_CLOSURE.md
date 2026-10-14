@@ -5,6 +5,7 @@
 - **Branch**: `fix/v14-1-rr-flow`
 - **Reviewed HEAD**: `ab5aa460be9197fbd6e2a6c59638051dbbad15e7`
 - **Implementation Baseline**: `dd9ad9cca8c738e482701f5313a0767228a6fcf7`
+- **Final Implementation SHA**: `514259a94127f49b3e5b8aec306ebcddc8d56194`
 - **Report Date**: 2026-10-14
 - **Testing Mode**: Strict PAPER / Dry-run only (`TESTING=1`, isolated SQLite DB `AURUM_DB_PATH`, zero live Bitget/exchange orders, zero live Telegram notifications, zero live ledger overwrite)
 - **Targeted Backend Files**: **60 targeted files** (including `test_v14_4_16_strict_report_authority.py`, `test_v14_4_16_repair_runtime.py`, and `test_v14_4_16_repair_provenance.py`)
