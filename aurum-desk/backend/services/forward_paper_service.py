@@ -1016,6 +1016,10 @@ REPAIR_RUNTIME_COMMIT_MISSING = "REPAIR_RUNTIME_COMMIT_MISSING"
 REPAIR_RUNTIME_COMMIT_CONFLICT = "REPAIR_RUNTIME_COMMIT_CONFLICT"
 REPAIR_BOUND_AT_MISSING = "REPAIR_BOUND_AT_MISSING"
 REPAIR_BOUND_AT_CONFLICT = "REPAIR_BOUND_AT_CONFLICT"
+REPAIR_SOURCE_CONFLICT = "REPAIR_SOURCE_CONFLICT"
+REPAIR_INDEX_CONFLICT = "REPAIR_INDEX_CONFLICT"
+REPAIR_SOURCE_UNVERIFIED = "REPAIR_SOURCE_UNVERIFIED"
+REPAIR_SOURCE_ORDER_MISMATCH = "REPAIR_SOURCE_ORDER_MISMATCH"
 
 
 @dataclass(frozen=True)
@@ -1029,6 +1033,17 @@ class RepairProvenanceResolution:
     source_names: List[str] = field(default_factory=list)
     reason_codes: List[str] = field(default_factory=list)
     diagnostics: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class RepairProvenanceSource:
+    """PHẦN 021: Structured representation of a repair provenance candidate source."""
+    name: str
+    kind: str  # "ORIGINAL_BINDING", "LEGACY_BINDING", "REPAIRED_MEMBERSHIP", "INDEX_REFERENCE", "TASK_REQUEST"
+    parse_status: str  # "VALID", "MALFORMED", "INVALID_SCHEMA", "ABSENT"
+    payload: Optional[Dict[str, Any]] = None
+    reason_codes: List[str] = field(default_factory=list)
+    diagnostics: Dict[str, Any] = field(default_factory=dict)
 
 
 def parse_repair_source_payload(raw_payload: Optional[str]) -> Tuple[str, Optional[Dict[str, Any]], Optional[str]]:
@@ -1077,6 +1092,197 @@ def parse_repair_source_payload(raw_payload: Optional[str]) -> Tuple[str, Option
     return "VALID", parsed, None
 
 
+def validate_repair_binding_source(
+    source: RepairProvenanceSource,
+    order: models.PaperOrder,
+) -> Dict[str, Any]:
+    """PHẦN 025: Validates a single binding candidate source against the order.
+    Checks order_id, forward_session_id, config_revision, runtime_commit, bound_at_ms.
+    Returns dictionary with validation outcome, extracted fields, and reason codes.
+    Zero mutations.
+    """
+    res: Dict[str, Any] = {
+        "valid": False,
+        "order_match": True,
+        "is_complete": False,
+        "fields": {},
+        "reason_codes": [],
+        "diagnostics": {},
+    }
+    if source.parse_status != "VALID" or not isinstance(source.payload, dict):
+        res["reason_codes"].append(source.parse_status)
+        return res
+
+    data = source.payload
+
+    # Order ID validation: record under order key claiming another order is a conflict
+    if "order_id" in data:
+        p_oid = str(data["order_id"]).strip()
+        if p_oid and p_oid != order.id:
+            res["order_match"] = False
+            res["reason_codes"].extend([REPAIR_ORDER_CONFLICT, REPAIR_SOURCE_ORDER_MISMATCH])
+            res["diagnostics"]["payload_order_id"] = p_oid
+            res["diagnostics"]["expected_order_id"] = order.id
+            return res
+
+    fields: Dict[str, Any] = {}
+
+    if "forward_session_id" in data:
+        fsid = str(data["forward_session_id"]).strip()
+        if fsid:
+            fields["forward_session_id"] = fsid
+
+    if "config_revision" in data:
+        cr = data["config_revision"]
+        if not isinstance(cr, bool) and isinstance(cr, int) and cr > 0:
+            fields["config_revision"] = int(cr)
+        else:
+            res["reason_codes"].append(REPAIR_PROOF_INVALID_SCHEMA)
+
+    if "runtime_commit" in data:
+        rc = str(data["runtime_commit"]).strip()
+        if rc:
+            fields["runtime_commit"] = rc
+
+    if "bound_at_ms" in data:
+        bat = data["bound_at_ms"]
+        if not isinstance(bat, bool) and isinstance(bat, (int, float)) and math.isfinite(bat) and bat > 0:
+            fields["bound_at_ms"] = int(bat)
+        else:
+            res["reason_codes"].append(REPAIR_PROOF_INVALID_SCHEMA)
+
+    res["fields"] = fields
+    has_all_4 = (
+        "forward_session_id" in fields
+        and "config_revision" in fields
+        and "runtime_commit" in fields
+        and "bound_at_ms" in fields
+    )
+    res["is_complete"] = has_all_4
+    res["valid"] = (len(res["reason_codes"]) == 0 and len(fields) > 0)
+    return res
+
+
+def validate_repair_session_indexes(
+    index_sessions: List[str],
+    target_session_id: Optional[str],
+) -> Tuple[str, List[str], Dict[str, Any]]:
+    """PHẦN 042, 043, 044: Validates order presence across session order indexes.
+    Returns: (status: "CONSISTENT" | "MISSING" | "CONFLICT", reason_codes, diagnostics).
+    If order is present in any session other than target_session_id -> CONFLICT.
+    Presence of target_session_id in multi-session indexes does NOT dismiss conflict.
+    """
+    clean_indexes = [str(s).strip() for s in index_sessions if str(s).strip()]
+    target = str(target_session_id).strip() if target_session_id else None
+
+    if not clean_indexes:
+        return "MISSING", [], {"index_sessions": []}
+
+    if target:
+        conflicting = [s for s in clean_indexes if s != target]
+        if conflicting:
+            return (
+                "CONFLICT",
+                [REPAIR_INDEX_CONFLICT, REPAIR_SESSION_CONFLICT],
+                {
+                    "index_sessions": clean_indexes,
+                    "target_session_id": target,
+                    "conflicting_sessions": conflicting,
+                },
+            )
+        return "CONSISTENT", [], {"index_sessions": clean_indexes}
+
+    # If target is None but there are multiple index sessions
+    if len(set(clean_indexes)) > 1:
+        return (
+            "CONFLICT",
+            [REPAIR_INDEX_CONFLICT, REPAIR_SESSION_CONFLICT],
+            {"index_sessions": clean_indexes},
+        )
+    return "CONSISTENT", [], {"index_sessions": clean_indexes}
+
+
+def compare_repair_binding_sources(
+    sources_to_compare: List[Tuple[str, Dict[str, Any]]],
+) -> Tuple[str, Dict[str, Any], List[str], Dict[str, Any]]:
+    """PHẦN 032, 033, 034: Compares binding fields across multiple sources.
+    Strictly order-invariant (reversing sources list yields identical status and reason).
+    Checks forward_session_id, config_revision, runtime_commit, bound_at_ms.
+    Returns: (status: "VERIFIED" | "INSUFFICIENT" | "CONFLICT", resolved_fields, reason_codes, diagnostics).
+    """
+    if not sources_to_compare:
+        return "INSUFFICIENT", {}, [REPAIR_PROOF_MISSING], {}
+
+    claimed_sessions: Dict[str, str] = {}
+    claimed_revisions: Dict[str, int] = {}
+    claimed_commits: Dict[str, str] = {}
+    claimed_bound_at: Dict[str, int] = {}
+
+    for s_name, s_fields in sources_to_compare:
+        if "forward_session_id" in s_fields and s_fields["forward_session_id"]:
+            claimed_sessions[s_name] = str(s_fields["forward_session_id"]).strip()
+        if "config_revision" in s_fields and s_fields["config_revision"] is not None:
+            claimed_revisions[s_name] = int(s_fields["config_revision"])
+        if "runtime_commit" in s_fields and s_fields["runtime_commit"]:
+            claimed_commits[s_name] = str(s_fields["runtime_commit"]).strip()
+        if "bound_at_ms" in s_fields and s_fields["bound_at_ms"] is not None:
+            claimed_bound_at[s_name] = int(s_fields["bound_at_ms"])
+
+    # 1. Compare session
+    if len(set(claimed_sessions.values())) > 1:
+        return (
+            "CONFLICT",
+            {},
+            [REPAIR_SESSION_CONFLICT, REPAIR_SOURCE_CONFLICT],
+            {"conflicting_sessions": claimed_sessions},
+        )
+
+    # 2. Compare revision
+    if len(set(claimed_revisions.values())) > 1:
+        return (
+            "CONFLICT",
+            {},
+            [REPAIR_CONFIG_REVISION_CONFLICT, REPAIR_SOURCE_CONFLICT],
+            {"conflicting_revisions": claimed_revisions},
+        )
+
+    # 3. Compare runtime commit
+    if len(set(claimed_commits.values())) > 1:
+        return (
+            "CONFLICT",
+            {},
+            [REPAIR_RUNTIME_COMMIT_CONFLICT, REPAIR_SOURCE_CONFLICT],
+            {"conflicting_commits": claimed_commits},
+        )
+
+    # 4. Compare bound_at_ms
+    if len(set(claimed_bound_at.values())) > 1:
+        return (
+            "CONFLICT",
+            {},
+            [REPAIR_BOUND_AT_CONFLICT, REPAIR_SOURCE_CONFLICT],
+            {"conflicting_bound_at": claimed_bound_at},
+        )
+
+    # Check completeness
+    if not claimed_sessions:
+        return "INSUFFICIENT", {}, [REPAIR_PROOF_MISSING], {"missing": "forward_session_id"}
+    if not claimed_revisions:
+        return "INSUFFICIENT", {}, [REPAIR_CONFIG_REVISION_MISSING], {"missing": "config_revision"}
+    if not claimed_commits:
+        return "INSUFFICIENT", {}, [REPAIR_RUNTIME_COMMIT_MISSING], {"missing": "runtime_commit"}
+    if not claimed_bound_at:
+        return "INSUFFICIENT", {}, [REPAIR_BOUND_AT_MISSING], {"missing": "bound_at_ms"}
+
+    resolved = {
+        "forward_session_id": next(iter(claimed_sessions.values())),
+        "config_revision": next(iter(claimed_revisions.values())),
+        "runtime_commit": next(iter(claimed_commits.values())),
+        "bound_at_ms": next(iter(claimed_bound_at.values())),
+    }
+    return "VERIFIED", resolved, [], {}
+
+
 def collect_repair_provenance_sources(
     db: Session,
     task: ForwardMembershipRepairTask,
@@ -1084,16 +1290,51 @@ def collect_repair_provenance_sources(
 ) -> Dict[str, Any]:
     """PHẦN 023, 024, 025: Read-only collector for all candidate provenance sources.
     Never commits, mutates, or calls network.
+    Returns dictionary with parsed sources and structured RepairProvenanceSource objects.
     """
     dp_status, dp_data, dp_err = parse_repair_source_payload(task.original_damaged_payload)
+    dp_source = RepairProvenanceSource(
+        name="original_damaged_payload",
+        kind="ORIGINAL_BINDING",
+        parse_status=dp_status,
+        payload=dp_data,
+        reason_codes=[dp_err] if dp_err else [],
+        diagnostics={"raw_payload": task.original_damaged_payload},
+    )
 
     mem_key = f"fwd_mem:{order.id}"[:50]
     rec_mem = db.query(models.SystemConfig).filter(models.SystemConfig.key == mem_key).first()
     db_mem_status, db_mem_data, db_mem_err = parse_repair_source_payload(rec_mem.value if rec_mem else None)
 
+    is_repaired = False
+    if db_mem_data and isinstance(db_mem_data, dict):
+        if db_mem_data.get("repaired_by"):
+            is_repaired = True
+        meta = db_mem_data.get("metadata")
+        if isinstance(meta, dict) and (meta.get("repaired_by") or meta.get("repair_task_id")):
+            is_repaired = True
+
+    db_mem_kind = "REPAIRED_MEMBERSHIP" if is_repaired else "ORIGINAL_BINDING"
+    db_mem_source = RepairProvenanceSource(
+        name="db_membership",
+        kind=db_mem_kind,
+        parse_status=db_mem_status,
+        payload=db_mem_data,
+        reason_codes=[db_mem_err] if db_mem_err else [],
+        diagnostics={"is_repaired": is_repaired},
+    )
+
     snap_key = f"fwd_snap:{order.id}"[:50]
     rec_snap = db.query(models.SystemConfig).filter(models.SystemConfig.key == snap_key).first()
     db_snap_status, db_snap_data, db_snap_err = parse_repair_source_payload(rec_snap.value if rec_snap else None)
+    db_snap_source = RepairProvenanceSource(
+        name="db_snapshot",
+        kind="LEGACY_BINDING",
+        parse_status=db_snap_status,
+        payload=db_snap_data,
+        reason_codes=[db_snap_err] if db_snap_err else [],
+        diagnostics={"has_production_writer": False},
+    )
 
     order_sess_inst = getattr(order, "session_instance_id", "") or ""
 
@@ -1120,6 +1361,7 @@ def collect_repair_provenance_sources(
         "db_snap_payload": db_snap_data,
         "order_session_instance_id": order_sess_inst,
         "session_indexes": matching_indexes,
+        "structured_sources": [dp_source, db_mem_source, db_snap_source],
     }
 
 
@@ -1128,16 +1370,20 @@ def resolve_repair_provenance(
     task: ForwardMembershipRepairTask,
     order: models.PaperOrder,
 ) -> RepairProvenanceResolution:
-    """PHẦN 026: Resolves provenance against candidate sources.
+    """PHẦN 026, 048: Resolves provenance across all candidate sources.
     Returns structured RepairProvenanceResolution (VERIFIED, INSUFFICIENT, CONFLICT).
     Guarantees:
     - Pure read query: zero mutations.
-    - No defaults (no defaulting config_revision to 1 or runtime_commit to HEAD).
+    - All-source validation: eliminates first-source-wins.
+    - Compares all candidate sources and flags conflicts across revisions, commits, bounds, sessions.
+    - Identifies index conflicts even when target session is present.
+    - Repaired memberships cannot self-certify without independent provenance.
+    - Rejects records under order key claiming another order ID.
     - Session existence verified via load_forward_session.
     - Preserves exact historical bound_at_ms, config_revision, runtime_commit.
     """
     sources = collect_repair_provenance_sources(db, task, order)
-    source_names: List[str] = []
+    dp_source, db_mem_source, db_snap_source = sources["structured_sources"]
 
     # 0. If task explicitly specifies a forward_session_id, verify target session exists in DB
     if task.forward_session_id:
@@ -1152,119 +1398,129 @@ def resolve_repair_provenance(
                 diagnostics={"missing_session_id": task.forward_session_id},
             )
 
-    dp_status = sources["damaged_payload_status"]
-    dp_data = sources["damaged_payload"]
+    # 1. Validate each candidate binding source individually
+    v_dp = validate_repair_binding_source(dp_source, order)
+    v_mem = validate_repair_binding_source(db_mem_source, order)
+    v_snap = validate_repair_binding_source(db_snap_source, order)
 
-    # 1. Order ID check in damaged payload
-    if dp_status == "VALID" and dp_data and "order_id" in dp_data:
-        p_oid = str(dp_data["order_id"]).strip()
-        if p_oid and p_oid != order.id:
+    # 1.1 Strict Order ID Mismatch Check (PHẦN 026, 027, C18-05):
+    # A record stored under order key that claims a different order_id is a corruption/conflict!
+    for s_name, v_res in [
+        ("original_damaged_payload", v_dp),
+        ("db_membership", v_mem),
+        ("db_snapshot", v_snap),
+    ]:
+        if not v_res["order_match"]:
             return RepairProvenanceResolution(
                 status="CONFLICT",
-                reason_codes=[REPAIR_ORDER_CONFLICT],
-                diagnostics={"payload_order_id": p_oid, "order_id": order.id},
+                reason_codes=[REPAIR_ORDER_CONFLICT, REPAIR_SOURCE_ORDER_MISMATCH],
+                diagnostics={"source": s_name, "details": v_res["diagnostics"]},
             )
 
-    # 2. Check for independent complete proof if damaged payload is missing, malformed, or invalid
-    has_independent_complete_proof = False
-    valid_independent_data = None
-    independent_source_name = None
-
-    for s_name, s_status, s_data in [
-        ("db_membership", sources["db_mem_status"], sources["db_mem_payload"]),
-        ("db_snapshot", sources["db_snap_status"], sources["db_snap_payload"]),
-    ]:
-        if s_status == "VALID" and s_data:
-            if "order_id" in s_data and str(s_data["order_id"]).strip() != order.id:
-                continue
-            if (
-                "forward_session_id" in s_data
-                and "config_revision" in s_data
-                and "runtime_commit" in s_data
-                and "bound_at_ms" in s_data
-            ):
-                has_independent_complete_proof = True
-                valid_independent_data = s_data
-                independent_source_name = s_name
-                break
+    # 2. Check damaged payload integrity vs independent proof availability
+    dp_status = dp_source.parse_status
+    independent_complete_sources = []
+    if v_mem["valid"] and v_mem["is_complete"]:
+        if db_mem_source.kind != "REPAIRED_MEMBERSHIP":
+            independent_complete_sources.append(("db_membership", v_mem["fields"]))
+    if v_snap["valid"] and v_snap["is_complete"]:
+        independent_complete_sources.append(("db_snapshot", v_snap["fields"]))
 
     if dp_status == "MALFORMED":
-        if not has_independent_complete_proof:
+        if not independent_complete_sources and not (v_mem["valid"] and v_mem["is_complete"]):
             return RepairProvenanceResolution(
                 status="INSUFFICIENT",
                 reason_codes=[REPAIR_PROOF_MALFORMED],
                 diagnostics={"damaged_payload": task.original_damaged_payload},
             )
     elif dp_status == "INVALID_SCHEMA":
-        if not has_independent_complete_proof:
+        if not independent_complete_sources and not (v_mem["valid"] and v_mem["is_complete"]):
             return RepairProvenanceResolution(
                 status="INSUFFICIENT",
                 reason_codes=[REPAIR_PROOF_INVALID_SCHEMA],
                 diagnostics={"damaged_payload": task.original_damaged_payload},
             )
     elif dp_status == "ABSENT":
-        if not has_independent_complete_proof:
+        if not independent_complete_sources and not (v_mem["valid"] and v_mem["is_complete"]) and not task.forward_session_id:
             return RepairProvenanceResolution(
                 status="INSUFFICIENT",
                 reason_codes=[REPAIR_PROOF_MISSING],
                 diagnostics={"order_id": order.id},
             )
 
-    # 3. Determine candidate data sources
-    cand_sources: List[Tuple[str, Dict[str, Any]]] = []
-    if dp_status == "VALID" and dp_data:
-        cand_sources.append(("original_damaged_payload", dp_data))
-    if has_independent_complete_proof and valid_independent_data and independent_source_name:
-        cand_sources.append((independent_source_name, valid_independent_data))
+    # 3. Repaired Membership Self-Proof Check (PHẦN 036, C18-13):
+    # If db_membership is marked REPAIRED_MEMBERSHIP, damaged payload is not valid,
+    # and no independent proof (e.g. db_snapshot) exists -> CANNOT self-certify.
+    if db_mem_source.kind == "REPAIRED_MEMBERSHIP":
+        if dp_status != "VALID" and not (v_snap["valid"] and v_snap["is_complete"]):
+            return RepairProvenanceResolution(
+                status="INSUFFICIENT",
+                reason_codes=[REPAIR_SOURCE_UNVERIFIED],
+                diagnostics={
+                    "unverified_source": "db_membership",
+                    "order_id": order.id,
+                    "reason": "Repaired membership cannot self-certify without independent provenance",
+                },
+            )
 
-    if not cand_sources and not task.forward_session_id:
+    # 4. Gather ALL candidate binding sources for comparison (PHẦN 012: No first-source-wins!)
+    cand_sources: List[Tuple[str, Dict[str, Any]]] = []
+    if dp_status == "VALID" and v_dp["valid"] and v_dp["fields"]:
+        cand_sources.append(("original_damaged_payload", v_dp["fields"]))
+    if v_mem["valid"] and v_mem["fields"]:
+        cand_sources.append(("db_membership", v_mem["fields"]))
+    if v_snap["valid"] and v_snap["fields"]:
+        cand_sources.append(("db_snapshot", v_snap["fields"]))
+
+    # Additional contextual session claims (for conflict detection)
+    context_session_claims: Dict[str, str] = {}
+    if task.forward_session_id:
+        context_session_claims["task"] = str(task.forward_session_id).strip()
+    order_sess_inst = sources.get("order_session_instance_id", "") or ""
+    if order_sess_inst and order_sess_inst.startswith("fwd_sess_"):
+        context_session_claims["order_instance"] = str(order_sess_inst).strip()
+
+    if not cand_sources and not context_session_claims:
         return RepairProvenanceResolution(
             status="INSUFFICIENT",
             reason_codes=[REPAIR_PROOF_MISSING],
         )
 
-    # 4. Resolve and validate forward_session_id
-    order_sess_inst = sources.get("order_session_instance_id", "") or ""
-    index_sessions = sources.get("session_indexes", []) or []
-    claimed_sessions: Dict[str, str] = {}
-    if dp_status == "VALID" and dp_data and dp_data.get("forward_session_id"):
-        claimed_sessions["original_damaged_payload"] = str(dp_data["forward_session_id"]).strip()
-    if has_independent_complete_proof and valid_independent_data and valid_independent_data.get("forward_session_id"):
-        claimed_sessions[independent_source_name or "db_snapshot"] = str(valid_independent_data["forward_session_id"]).strip()
-    if task.forward_session_id:
-        claimed_sessions["task"] = str(task.forward_session_id).strip()
-    if order_sess_inst and order_sess_inst.startswith("fwd_sess_"):
-        claimed_sessions["order_instance"] = str(order_sess_inst).strip()
+    # 5. Cross-check session claims across candidate sources AND context claims (PHẦN 070: partial conflict detection)
+    all_session_claims: Dict[str, str] = dict(context_session_claims)
+    for s_name, s_fields in cand_sources:
+        if "forward_session_id" in s_fields and s_fields["forward_session_id"]:
+            all_session_claims[s_name] = str(s_fields["forward_session_id"]).strip()
 
-    unique_sessions = set(claimed_sessions.values())
-    if len(unique_sessions) > 1:
+    if len(set(all_session_claims.values())) > 1:
         return RepairProvenanceResolution(
             status="CONFLICT",
             reason_codes=[
                 REPAIR_SESSION_CONFLICT,
-                f"PROVENANCE_SESSION_MISMATCH: conflicting sessions {claimed_sessions}",
+                f"PROVENANCE_SESSION_MISMATCH: conflicting sessions {all_session_claims}",
+                REPAIR_SOURCE_CONFLICT,
             ],
-            diagnostics={"claimed_sessions": claimed_sessions},
+            diagnostics={"claimed_sessions": all_session_claims},
         )
 
-    target_session_id = next(iter(unique_sessions)) if unique_sessions else None
-    if not target_session_id:
+    # 6. Compare candidate binding sources for revision, commit, bound_at, and session
+    cmp_status, resolved_fields, cmp_reasons, cmp_diag = compare_repair_binding_sources(cand_sources)
+    if cmp_status == "CONFLICT":
+        return RepairProvenanceResolution(
+            status="CONFLICT",
+            reason_codes=cmp_reasons,
+            diagnostics=cmp_diag,
+        )
+    elif cmp_status == "INSUFFICIENT":
         return RepairProvenanceResolution(
             status="INSUFFICIENT",
-            reason_codes=[REPAIR_PROOF_MISSING, "MISSING_FORWARD_SESSION_ID"],
+            reason_codes=cmp_reasons,
+            diagnostics=cmp_diag,
         )
 
-    if len(index_sessions) > 1 and target_session_id not in index_sessions:
-        return RepairProvenanceResolution(
-            status="CONFLICT",
-            reason_codes=[
-                REPAIR_SESSION_CONFLICT,
-                f"PROVENANCE_SESSION_MISMATCH: index sessions {index_sessions} conflict with {target_session_id}",
-            ],
-            diagnostics={"index_sessions": index_sessions},
-        )
+    target_session_id = resolved_fields["forward_session_id"]
 
-    target_session_id = str(target_session_id).strip()
+    # 7. Verify target session exists in DB
     target_session_obj = load_forward_session(db, target_session_id)
     if not target_session_obj:
         return RepairProvenanceResolution(
@@ -1273,101 +1529,27 @@ def resolve_repair_provenance(
             diagnostics={"missing_session_id": target_session_id},
         )
 
-    # 5. Resolve config_revision
-    rev_sources: Dict[str, int] = {}
-    for s_name, s_data in cand_sources:
-        if "config_revision" in s_data:
-            cr = s_data["config_revision"]
-            if isinstance(cr, bool) or not isinstance(cr, int) or cr <= 0:
-                return RepairProvenanceResolution(
-                    status="INSUFFICIENT",
-                    reason_codes=[REPAIR_PROOF_INVALID_SCHEMA],
-                    diagnostics={"invalid_config_revision": cr, "source": s_name},
-                )
-            rev_sources[s_name] = int(cr)
-
-    if not rev_sources:
-        return RepairProvenanceResolution(
-            status="INSUFFICIENT",
-            reason_codes=[REPAIR_CONFIG_REVISION_MISSING],
-            diagnostics={"checked_sources": [s[0] for s in cand_sources]},
-        )
-
-    if len(set(rev_sources.values())) > 1:
+    # 8. Validate session order indexes (PHẦN 014, 042, 043, 044: Index conflict handling)
+    index_sessions = sources.get("session_indexes", []) or []
+    idx_status, idx_reasons, idx_diag = validate_repair_session_indexes(index_sessions, target_session_id)
+    if idx_status == "CONFLICT":
         return RepairProvenanceResolution(
             status="CONFLICT",
-            reason_codes=[REPAIR_CONFIG_REVISION_CONFLICT],
-            diagnostics={"conflicting_revisions": rev_sources},
-        )
-    resolved_revision = next(iter(rev_sources.values()))
-
-    # 6. Resolve runtime_commit
-    commit_sources: Dict[str, str] = {}
-    for s_name, s_data in cand_sources:
-        if "runtime_commit" in s_data:
-            rc = s_data["runtime_commit"]
-            if not isinstance(rc, str) or not rc.strip():
-                return RepairProvenanceResolution(
-                    status="INSUFFICIENT",
-                    reason_codes=[REPAIR_PROOF_INVALID_SCHEMA],
-                    diagnostics={"invalid_runtime_commit": rc, "source": s_name},
-                )
-            commit_sources[s_name] = str(rc).strip()
-
-    if not commit_sources:
-        return RepairProvenanceResolution(
-            status="INSUFFICIENT",
-            reason_codes=[REPAIR_RUNTIME_COMMIT_MISSING],
-            diagnostics={"checked_sources": [s[0] for s in cand_sources]},
+            reason_codes=idx_reasons,
+            diagnostics=idx_diag,
         )
 
-    if len(set(commit_sources.values())) > 1:
-        return RepairProvenanceResolution(
-            status="CONFLICT",
-            reason_codes=[REPAIR_RUNTIME_COMMIT_CONFLICT],
-            diagnostics={"conflicting_commits": commit_sources},
-        )
-    resolved_commit = next(iter(commit_sources.values()))
-
-    # 7. Resolve bound_at_ms
-    bound_sources: Dict[str, int] = {}
-    for s_name, s_data in cand_sources:
-        if "bound_at_ms" in s_data:
-            bat = s_data["bound_at_ms"]
-            if isinstance(bat, bool) or not isinstance(bat, (int, float)) or not math.isfinite(bat) or bat <= 0:
-                return RepairProvenanceResolution(
-                    status="INSUFFICIENT",
-                    reason_codes=[REPAIR_PROOF_INVALID_SCHEMA],
-                    diagnostics={"invalid_bound_at": bat, "source": s_name},
-                )
-            bound_sources[s_name] = int(bat)
-
-    if not bound_sources:
-        return RepairProvenanceResolution(
-            status="INSUFFICIENT",
-            reason_codes=[REPAIR_BOUND_AT_MISSING],
-            diagnostics={"checked_sources": [s[0] for s in cand_sources]},
-        )
-
-    if len(set(bound_sources.values())) > 1:
-        return RepairProvenanceResolution(
-            status="CONFLICT",
-            reason_codes=[REPAIR_BOUND_AT_CONFLICT],
-            diagnostics={"conflicting_bound_at": bound_sources},
-        )
-    resolved_bound_at = next(iter(bound_sources.values()))
-
+    # 9. All sources verified and consistent!
     source_names = [s[0] for s in cand_sources]
-
     return RepairProvenanceResolution(
         status="VERIFIED",
         forward_session_id=target_session_id,
-        config_revision=resolved_revision,
-        runtime_commit=resolved_commit,
-        bound_at_ms=resolved_bound_at,
+        config_revision=resolved_fields["config_revision"],
+        runtime_commit=resolved_fields["runtime_commit"],
+        bound_at_ms=resolved_fields["bound_at_ms"],
         source_names=source_names,
         reason_codes=[],
-        diagnostics={"sources": source_names},
+        diagnostics={"sources": source_names, "indexes": index_sessions},
     )
 
 
