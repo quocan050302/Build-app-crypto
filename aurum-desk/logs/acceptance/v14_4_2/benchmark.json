@@ -3,15 +3,15 @@
   "failures": [],
   "cycles": 600,
   "confirmed_cycles": 600,
-  "total_s": 8.84,
-  "throughput_cycles_per_s": 67.9,
+  "total_s": 8.759,
+  "throughput_cycles_per_s": 68.5,
   "latency_ms": {
-    "p50": 14.206,
-    "p95": 18.123,
-    "max": 30.499,
+    "p50": 13.552,
+    "p95": 19.365,
+    "max": 24.951,
     "sample_count": 600
   },
-  "traced_memory_growth_mb": 0.099,
+  "traced_memory_growth_mb": 0.097,
   "progression_sample": [
     {
       "bars_back": 0,
@@ -68,11 +68,11 @@
     "cpu_count": 12
   },
   "NOT_MEASURED": [],
-  "run_id": "run_1791953198423",
-  "tested_sha": "26b6b13b3cf529caa2f4c2c1995a68326e60f609",
+  "run_id": "run_1791963476656",
+  "tested_sha": "3a34b6b6a7fa3488c20805109d514887f31c8627",
   "browser_measurements": {
     "status": "PASS",
-    "stream_duration_s": 61.9,
+    "stream_duration_s": 62.23,
     "events_streamed": 10062,
     "selections_completed": 100,
     "selected_kind_counts": {
@@ -82,15 +82,15 @@
       "DRAFT": 25
     },
     "render_latency_ms": {
-      "p50": 7.2,
+      "p50": 6,
       "p95": 28.3,
-      "p99": 36.6,
-      "max": 43.4,
-      "sample_count": 784
+      "p99": 35.6,
+      "max": 50,
+      "sample_count": 705
     },
     "queue_peak": 2,
     "queue_current": 0,
-    "queue_drain_time_ms": 11,
+    "queue_drain_time_ms": 8,
     "active_subscriber_count": 3,
     "subscriber_baseline": 3,
     "subscriber_leak": 0,

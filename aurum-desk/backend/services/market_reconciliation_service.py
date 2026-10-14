@@ -1471,6 +1471,77 @@ class CycleBudget:
         self.windows_processed += 1
 
 
+class ReconciliationWorkDisposition(str, Enum):
+    RESOLVED = "RESOLVED"
+    MORE_WORK = "MORE_WORK"
+    REVIEW_PENDING = "REVIEW_PENDING"
+    RETRY_LATER = "RETRY_LATER"
+    FAILED_PERSISTENCE = "FAILED_PERSISTENCE"
+
+
+class ReconciliationReviewStatus(str, Enum):
+    PENDING_REVIEW = "PENDING_REVIEW"
+    RETRY_SCHEDULED = "RETRY_SCHEDULED"
+    RETRYING = "RETRYING"
+    RECOVERED = "RECOVERED"
+    MANUAL_REVIEW_REQUIRED = "MANUAL_REVIEW_REQUIRED"
+
+
+@dataclass
+class ReconciliationReviewRecord:
+    order_id: str
+    window_id: str
+    symbol: str
+    reason_codes: List[str]
+    source_status: str
+    first_seen_at: int
+    last_seen_at: int
+    attempt_count: int = 1
+    next_retry_at: int = 0
+    source_revision: int = 1
+    fingerprint: str = ""
+    status: str = ReconciliationReviewStatus.PENDING_REVIEW.value
+    last_error: Optional[str] = None
+    resolved_at: Optional[int] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "order_id": self.order_id,
+            "window_id": self.window_id,
+            "symbol": self.symbol,
+            "reason_codes": list(self.reason_codes),
+            "source_status": self.source_status,
+            "first_seen_at": self.first_seen_at,
+            "last_seen_at": self.last_seen_at,
+            "attempt_count": self.attempt_count,
+            "next_retry_at": self.next_retry_at,
+            "source_revision": self.source_revision,
+            "fingerprint": self.fingerprint,
+            "status": self.status,
+            "last_error": self.last_error,
+            "resolved_at": self.resolved_at,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> ReconciliationReviewRecord:
+        return cls(
+            order_id=str(data.get("order_id") or ""),
+            window_id=str(data.get("window_id") or ""),
+            symbol=str(data.get("symbol") or "XAUUSDT"),
+            reason_codes=list(data.get("reason_codes") or []),
+            source_status=str(data.get("source_status") or "UNKNOWN"),
+            first_seen_at=int(data.get("first_seen_at") or 0),
+            last_seen_at=int(data.get("last_seen_at") or 0),
+            attempt_count=int(data.get("attempt_count") or 1),
+            next_retry_at=int(data.get("next_retry_at") or 0),
+            source_revision=int(data.get("source_revision") or 1),
+            fingerprint=str(data.get("fingerprint") or ""),
+            status=str(data.get("status") or ReconciliationReviewStatus.PENDING_REVIEW.value),
+            last_error=data.get("last_error"),
+            resolved_at=data.get("resolved_at"),
+        )
+
+
 @dataclass(frozen=True)
 class WindowSliceResult:
     progressed: bool
@@ -1480,6 +1551,7 @@ class WindowSliceResult:
     decision: Optional[ResolutionDecision] = None
     reasons: List[str] = field(default_factory=list)
     processed_count: int = 0
+    disposition: str = ReconciliationWorkDisposition.RESOLVED.value
 
 
 @dataclass(frozen=True)
@@ -1507,6 +1579,295 @@ class ResolutionApplyResult:
     audit_id: Optional[str] = None
     version: int = 1
     committed: bool = False
+
+
+def classify_reconciliation_issue(
+    issues: List[str],
+    source_status: str = "INVALID",
+    persistence_failed: bool = False,
+) -> Tuple[str, str, str]:
+    """PHẦN 021: Classifies reconciliation issues into disposition, retry category, and primary reason."""
+    if persistence_failed:
+        return (
+            ReconciliationWorkDisposition.FAILED_PERSISTENCE.value,
+            "PERSISTENCE_FAILURE",
+            "PERSISTENCE_FAILED",
+        )
+    issues_set = set(issues)
+    if "NO_BUDGET" in issues_set:
+        return (
+            ReconciliationWorkDisposition.MORE_WORK.value,
+            "BUDGET_EXHAUSTED",
+            "NO_BUDGET",
+        )
+    corrupt_indicators = {
+        "CORRUPT_COST_SNAPSHOT_JSON",
+        "CORRUPT_JSON",
+        "INVALID_NUMERIC",
+        "NAN_NOT_ALLOWED",
+        "SCHEMA_VIOLATION",
+        "UNVERIFIED_LEGACY_SNAPSHOT_REJECTED",
+    }
+    for iss in issues:
+        if iss in corrupt_indicators or iss.startswith("MISSING_REQUIRED_FIELD_") or iss.startswith("INVALID_FIELD_"):
+            return (
+                ReconciliationWorkDisposition.REVIEW_PENDING.value,
+                "CORRUPT_DATA",
+                iss,
+            )
+    conflict_indicators = {
+        "FINGERPRINT_MISMATCH",
+        "EPOCH_MISMATCH",
+        "GENERATION_MISMATCH",
+        "ARRIVAL_REVISION_MISMATCH",
+        "REVISION_CONFLICT",
+        "CANDIDATE_ORDER_MISMATCH",
+    }
+    for iss in issues:
+        if iss in conflict_indicators or "MISMATCH" in iss:
+            return (
+                ReconciliationWorkDisposition.REVIEW_PENDING.value,
+                "CONFLICT",
+                iss,
+            )
+    feed_indicators = {
+        "OVERFLOW_GAP_DETECTED",
+        "INSUFFICIENT_EVIDENCE_NO_CONTINUITY_PROOF",
+        "INSUFFICIENT_EVIDENCE",
+        "FEED_GAP",
+        "NO_AUTHORITATIVE_PROVIDER_PROOF",
+    }
+    for iss in issues:
+        if iss in feed_indicators:
+            return (
+                ReconciliationWorkDisposition.REVIEW_PENDING.value,
+                "TRANSIENT_FEED",
+                iss,
+            )
+    primary = issues[0] if issues else "UNKNOWN_ISSUE"
+    return (
+        ReconciliationWorkDisposition.REVIEW_PENDING.value,
+        "CORRUPT_DATA" if source_status == "INVALID" else "TRANSIENT_FEED",
+        primary,
+    )
+
+
+def compute_review_retry_at(
+    category: str,
+    attempt_count: int,
+    now_ms: int,
+    base_delay_ms: int = 60_000,
+) -> int:
+    """PHẦN 032: Pure function computing next retry timestamp based on category and attempt count."""
+    if category == "CORRUPT_DATA":
+        factor = 2 ** min(max(attempt_count - 1, 0), 6)
+        delay = min(3600_000, base_delay_ms * factor)
+        return now_ms + delay
+    elif category == "TRANSIENT_FEED":
+        delay = min(300_000, base_delay_ms * max(attempt_count, 1))
+        return now_ms + delay
+    elif category == "CONFLICT":
+        delay = min(600_000, base_delay_ms * 2 * max(attempt_count, 1))
+        return now_ms + delay
+    else:
+        return now_ms + base_delay_ms
+
+
+def save_review_record(db: Session, record: ReconciliationReviewRecord) -> bool:
+    """Saves a review record into SystemConfig."""
+    key = f"recon_rev:{record.order_id}"[:50]
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+    try:
+        val_json = json.dumps(record.to_dict(), allow_nan=False)
+    except (ValueError, TypeError) as e:
+        logger.error(f"Failed to serialize review record for {key}: {e}")
+        return False
+    if not rec:
+        rec = models.SystemConfig(key=key, value=val_json, updated_at=now_ms)
+        db.add(rec)
+    else:
+        rec.value = val_json
+        rec.updated_at = now_ms
+    try:
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to save review record {record.order_id}: {e}")
+        return False
+
+
+def load_review_record(db: Session, order_id: str) -> Optional[ReconciliationReviewRecord]:
+    """Loads a review record by order_id from SystemConfig."""
+    key = f"recon_rev:{order_id}"[:50]
+    rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+    if not rec or not rec.value:
+        return None
+    try:
+        return ReconciliationReviewRecord.from_dict(json.loads(rec.value))
+    except Exception:
+        return None
+
+
+def persist_review_pending(
+    db: Session,
+    window: OrderReconciliationWindow,
+    issues: List[str],
+    current_source_revision: int = 1,
+    now_ms: Optional[int] = None,
+) -> Tuple[bool, Optional[ReconciliationReviewRecord], int]:
+    """PHẦN 022, 023: Persists review-pending state durably and idempotently."""
+    now_ms = now_ms if now_ms is not None else int(datetime.now(timezone.utc).timestamp() * 1000)
+    order_id = window.order_id
+    disp, category, primary_reason = classify_reconciliation_issue(issues, source_status="INVALID")
+
+    existing_record = load_review_record(db, order_id)
+    is_new = existing_record is None
+    if existing_record:
+        same_reasons = set(existing_record.reason_codes) == set(issues)
+        same_rev = existing_record.source_revision == current_source_revision
+
+        existing_record.last_seen_at = now_ms
+        existing_record.attempt_count += 1
+        existing_record.next_retry_at = compute_review_retry_at(category, existing_record.attempt_count, now_ms)
+        if existing_record.attempt_count >= 10 and category == "CORRUPT_DATA":
+            existing_record.status = ReconciliationReviewStatus.MANUAL_REVIEW_REQUIRED.value
+        elif existing_record.status == ReconciliationReviewStatus.RECOVERED.value:
+            existing_record.status = ReconciliationReviewStatus.PENDING_REVIEW.value
+
+        if not same_reasons:
+            existing_record.reason_codes = list(issues)
+        if not same_rev:
+            existing_record.source_revision = current_source_revision
+
+        target_record = existing_record
+    else:
+        next_retry = compute_review_retry_at(category, 1, now_ms)
+        target_record = ReconciliationReviewRecord(
+            order_id=order_id,
+            window_id=str(window.order_id),
+            symbol=window.symbol,
+            reason_codes=list(issues),
+            source_status="INVALID",
+            first_seen_at=now_ms,
+            last_seen_at=now_ms,
+            attempt_count=1,
+            next_retry_at=next_retry,
+            source_revision=current_source_revision,
+            status=ReconciliationReviewStatus.PENDING_REVIEW.value,
+        )
+
+    # Save to SystemConfig
+    key = f"recon_rev:{order_id}"[:50]
+    rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+    try:
+        val_json = json.dumps(target_record.to_dict(), allow_nan=False)
+    except (ValueError, TypeError) as e:
+        logger.error(f"Failed to serialize review record for {key}: {e}")
+        return False, None, current_source_revision
+
+    if not rec:
+        rec = models.SystemConfig(key=key, value=val_json, updated_at=now_ms)
+        db.add(rec)
+    else:
+        rec.value = val_json
+        rec.updated_at = now_ms
+
+    if is_new or target_record.source_revision != current_source_revision:
+        event_id = hashlib.sha256(f"recon_rev_{order_id}_{target_record.source_revision}".encode()).hexdigest()[:36]
+        ev_exists = db.query(models.DomainEvent).filter(models.DomainEvent.event_id == event_id).first()
+        if not ev_exists:
+            event = models.DomainEvent(
+                event_id=event_id,
+                sequence=1,
+                schema_version="1.0.0",
+                event_type="RECONCILIATION_REVIEW",
+                aggregate_id=order_id[:50],
+                aggregate_version=target_record.source_revision,
+                occurred_at=now_ms,
+                published_at=now_ms,
+                payload=val_json,
+            )
+            db.add(event)
+
+    order = window.order or db.query(models.PaperOrder).filter(models.PaperOrder.id == order_id).first()
+    if order:
+        note = f"QUARANTINE_REVIEW: {primary_reason}"
+        if not order.invalidation_reason:
+            order.invalidation_reason = note
+        elif note not in order.invalidation_reason:
+            order.invalidation_reason = f"{order.invalidation_reason} | {note}"
+
+    try:
+        db.commit()
+        return True, target_record, target_record.source_revision
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to persist review pending for order {order_id}: {e}")
+        return False, None, current_source_revision
+
+
+def is_scheduler_item_handled(
+    slice_result: WindowSliceResult,
+    persistence_result: Optional[ResolutionApplyResult] = None,
+) -> bool:
+    """PHẦN 025: Returns True only when:
+    - Resolution/audit has been durably handled; or
+    - REVIEW_PENDING has been durably saved.
+    MORE_WORK and FAILED_PERSISTENCE are NOT considered handled.
+    Do NOT change read_complete=True just to make this return True!
+    """
+    if slice_result.disposition == ReconciliationWorkDisposition.REVIEW_PENDING.value:
+        return True
+    if slice_result.disposition in (
+        ReconciliationWorkDisposition.MORE_WORK.value,
+        ReconciliationWorkDisposition.FAILED_PERSISTENCE.value,
+        ReconciliationWorkDisposition.RETRY_LATER.value,
+    ):
+        return False
+    if slice_result.read_complete:
+        if slice_result.decision is None:
+            return True
+        if persistence_result is not None:
+            return persistence_result.committed or persistence_result.applied
+        return True
+    return False
+
+
+def load_due_review_tasks(
+    db: Session,
+    symbol: str = "XAUUSDT",
+    now_ms: Optional[int] = None,
+    limit: int = 50,
+    allowed_statuses: Optional[List[str]] = None,
+    cursor: Any = None,
+) -> List[ReconciliationReviewRecord]:
+    """PHẦN 030: Loads bounded due review tasks."""
+    now_ms = now_ms if now_ms is not None else int(datetime.now(timezone.utc).timestamp() * 1000)
+    if allowed_statuses is None:
+        allowed_statuses = [
+            ReconciliationReviewStatus.PENDING_REVIEW.value,
+            ReconciliationReviewStatus.RETRY_SCHEDULED.value,
+            ReconciliationReviewStatus.RETRYING.value,
+        ]
+
+    recs = db.query(models.SystemConfig).filter(models.SystemConfig.key.like("recon_rev:%")).all()
+    tasks: List[ReconciliationReviewRecord] = []
+    for r in recs:
+        if not r.value:
+            continue
+        try:
+            data = json.loads(r.value)
+            task = ReconciliationReviewRecord.from_dict(data)
+            if task.symbol == symbol and task.status in allowed_statuses and task.next_retry_at <= now_ms:
+                tasks.append(task)
+        except Exception:
+            continue
+
+    tasks.sort(key=lambda t: (t.next_retry_at, t.order_id))
+    return tasks[:limit]
+
 
 
 
@@ -2414,6 +2775,14 @@ def process_window_slice(
     if ctx_res.status == "INVALID":
         progress.read_status = "REPLAY_NEEDED"
         save_window_progress(db, progress)
+        saved_rev, rev_rec, _ = persist_review_pending(
+            db, window, issues=list(ctx_res.issues)
+        )
+        disp = (
+            ReconciliationWorkDisposition.REVIEW_PENDING.value
+            if saved_rev
+            else ReconciliationWorkDisposition.FAILED_PERSISTENCE.value
+        )
         return WindowSliceResult(
             progressed=False,
             has_more=False,
@@ -2422,6 +2791,7 @@ def process_window_slice(
             decision=None,
             reasons=list(ctx_res.issues),
             processed_count=0,
+            disposition=disp,
         )
 
     context = ctx_res.context
@@ -2432,6 +2802,14 @@ def process_window_slice(
         if not acc_ctx_val.is_valid:
             progress.read_status = "REPLAY_NEEDED"
             save_window_progress(db, progress)
+            saved_rev, rev_rec, _ = persist_review_pending(
+                db, window, issues=[iss.code for iss in acc_ctx_val.issues]
+            )
+            disp = (
+                ReconciliationWorkDisposition.REVIEW_PENDING.value
+                if saved_rev
+                else ReconciliationWorkDisposition.FAILED_PERSISTENCE.value
+            )
             return WindowSliceResult(
                 progressed=False,
                 has_more=False,
@@ -2440,6 +2818,7 @@ def process_window_slice(
                 decision=None,
                 reasons=[iss.code for iss in acc_ctx_val.issues],
                 processed_count=0,
+                disposition=disp,
             )
 
     # Preflight zero / exhausted budget check (PHẦN 023, 024, 046, 047, 070, 088)
@@ -2452,6 +2831,7 @@ def process_window_slice(
             decision=None,
             reasons=["NO_BUDGET"],
             processed_count=0,
+            disposition=ReconciliationWorkDisposition.MORE_WORK.value,
         )
 
     all_evidence: List[Dict[str, Any]] = []
@@ -2535,6 +2915,7 @@ def process_window_slice(
                 decision=None,
                 reasons=["PROGRESS_SAVE_FAILED"],
                 processed_count=0,
+                disposition=ReconciliationWorkDisposition.FAILED_PERSISTENCE.value,
             )
         return WindowSliceResult(
             progressed=records_in_slice > 0,
@@ -2544,6 +2925,7 @@ def process_window_slice(
             decision=None,
             reasons=["RECONCILIATION_BUDGET_EXHAUSTED"] if records_in_slice > 0 else ["NO_BUDGET"],
             processed_count=records_in_slice,
+            disposition=ReconciliationWorkDisposition.MORE_WORK.value,
         )
 
     # Check if accumulator has conflict flags before completing (PHẦN 024, 033)
@@ -2559,6 +2941,14 @@ def process_window_slice(
             accumulator=accumulator,
         )
         save_window_progress(db, new_progress)
+        saved_rev, rev_rec, _ = persist_review_pending(
+            db, window, issues=list(accumulator.conflict_flags)
+        )
+        disp = (
+            ReconciliationWorkDisposition.REVIEW_PENDING.value
+            if saved_rev
+            else ReconciliationWorkDisposition.FAILED_PERSISTENCE.value
+        )
         return WindowSliceResult(
             progressed=records_in_slice > 0,
             has_more=False,
@@ -2567,6 +2957,7 @@ def process_window_slice(
             decision=None,
             reasons=list(accumulator.conflict_flags),
             processed_count=records_in_slice,
+            disposition=disp,
         )
 
     new_progress = EvidenceProgress(
@@ -2589,6 +2980,7 @@ def process_window_slice(
             decision=None,
             reasons=["PROGRESS_SAVE_FAILED"],
             processed_count=0,
+            disposition=ReconciliationWorkDisposition.FAILED_PERSISTENCE.value,
         )
 
     decision = None
@@ -2605,6 +2997,7 @@ def process_window_slice(
         decision=decision,
         reasons=[],
         processed_count=records_in_slice,
+        disposition=ReconciliationWorkDisposition.RESOLVED.value,
     )
 
 
@@ -2690,10 +3083,105 @@ def persist_resolution_or_review(
     )
 
 
+def retry_review_task(
+    db: Session,
+    task: ReconciliationReviewRecord,
+    now_ms: Optional[int] = None,
+    budget: Optional[CycleBudget] = None,
+) -> Tuple[str, ReconciliationReviewRecord]:
+    """PHẦN 034: Retries a review task against production reconciliation path."""
+    now_ms = now_ms if now_ms is not None else int(datetime.now(timezone.utc).timestamp() * 1000)
+    order = db.query(models.PaperOrder).filter(models.PaperOrder.id == task.order_id).first()
+    if not order:
+        task.status = ReconciliationReviewStatus.MANUAL_REVIEW_REQUIRED.value
+        task.last_error = "ORDER_NOT_FOUND"
+        save_review_record(db, task)
+        return "MANUAL_REVIEW_REQUIRED", task
+
+    window = OrderReconciliationWindow(
+        order_id=order.id,
+        symbol=getattr(order, "instrument", "XAUUSDT"),
+        opened_at=getattr(order, "opened_at", 0) or 0,
+        end_as_of=getattr(order, "closed_at", 0) or now_ms,
+        order=order,
+    )
+
+    ctx_res = build_reconciliation_context_result(window)
+    if ctx_res.status == "INVALID":
+        task.attempt_count += 1
+        task.last_seen_at = now_ms
+        task.reason_codes = list(ctx_res.issues)
+        _, cat, _ = classify_reconciliation_issue(task.reason_codes, source_status="INVALID")
+        task.next_retry_at = compute_review_retry_at(cat, task.attempt_count, now_ms)
+        if task.attempt_count >= 10:
+            task.status = ReconciliationReviewStatus.MANUAL_REVIEW_REQUIRED.value
+        else:
+            task.status = ReconciliationReviewStatus.RETRY_SCHEDULED.value
+        save_review_record(db, task)
+        return "STILL_INVALID", task
+
+    # Source is valid now! Replay through production reconciliation path
+    task.status = ReconciliationReviewStatus.RETRYING.value
+    prog = load_window_progress(db, window.order_id)
+    if prog:
+        prog.read_status = "RESET"
+        save_window_progress(db, prog)
+
+    slice_res = process_window_slice(db, window, budget=budget)
+    if slice_res.decision:
+        persist_resolution_or_review(db, window, slice_res.decision)
+
+    if slice_res.read_complete:
+        task.status = ReconciliationReviewStatus.RECOVERED.value
+        task.resolved_at = now_ms
+        save_review_record(db, task)
+        return "RECOVERED", task
+    else:
+        save_review_record(db, task)
+        return "PROGRESSING", task
+
+
+def trigger_source_repair_recheck(
+    db: Session,
+    order_id: str,
+    new_source_revision: Optional[int] = None,
+    budget: Optional[CycleBudget] = None,
+) -> Tuple[str, Optional[ReconciliationReviewRecord]]:
+    """PHẦN 033: Immediately re-evaluates a review task when source is repaired or revision updated."""
+    rec = load_review_record(db, order_id)
+    if not rec:
+        return "NOT_FOUND", None
+    if new_source_revision is not None:
+        rec.source_revision = new_source_revision
+    rec.next_retry_at = 0
+    rec.status = ReconciliationReviewStatus.RETRYING.value
+    save_review_record(db, rec)
+    outcome, updated_task = retry_review_task(db, rec, budget=budget)
+    return outcome, updated_task
+
+
 class MarketReconciliationService:
     def __init__(self):
         self._running = False
         self._active_worker_task: Optional[asyncio.Task] = None
+
+    def _process_due_reviews_bounded(
+        self,
+        db: Session,
+        symbol: str = "XAUUSDT",
+        max_tasks: int = 5,
+        now_ms: Optional[int] = None,
+    ) -> int:
+        """PHẦN 031: Processes bounded review retry quantum without consuming main traversal budget."""
+        due_tasks = load_due_review_tasks(db, symbol=symbol, limit=max_tasks, now_ms=now_ms)
+        processed = 0
+        review_budget = CycleBudget(max_pages=2, max_records=200, max_windows=2)
+        for task in due_tasks:
+            if not review_budget.can_start_window_read():
+                break
+            retry_review_task(db, task, now_ms=now_ms, budget=review_budget)
+            processed += 1
+        return processed
 
     def apply_reconciliation_decision(
         self,
@@ -2730,6 +3218,9 @@ class MarketReconciliationService:
         if budget is None:
             budget = CycleBudget()
 
+        # PHẦN 031: Bounded review retry quantum
+        self._process_due_reviews_bounded(db, symbol=symbol, max_tasks=5)
+
         batch = quote_ordering_service.claim_late_evidence_batch(symbol, limit=50)
         sorted_batch = sorted(batch, key=lambda r: r.get("source_timestamp") or 0) if batch else []
 
@@ -2765,17 +3256,19 @@ class MarketReconciliationService:
                 db, window, budget=budget, coverage_source=source_state
             )
 
-            if not slice_result.read_complete:
-                completed_all_items = False
-                unfinished_window_id = window.order_id
-                break
-
+            res = None
             if slice_result.decision:
                 res = persist_resolution_or_review(db, window, slice_result.decision)
                 if slice_result.decision.action == "CLOSE" and res.applied:
                     closed_order_ids.add(window.order_id)
 
-            last_fully_handled_cursor = _window_cursor_for_item(window, symbol, scheduler.query_revision)
+            if is_scheduler_item_handled(slice_result, res):
+                last_fully_handled_cursor = _window_cursor_for_item(window, symbol, scheduler.query_revision)
+                continue
+            else:
+                completed_all_items = False
+                unfinished_window_id = window.order_id
+                break
 
         # Update scheduler cursor for the next coordinator cycle (PHẦN 027, 029, 075, 089)
         if completed_all_items:

@@ -275,6 +275,19 @@ REQUIRED_CASES = {
     "EXEC08": {"suite": "backend", "file": "backend/tests/test_v14_4_11_three_session_execution.py", "desc": "No-trigger quote keeps order armed with zero fills"},
     "EXEC09": {"suite": "backend", "file": "backend/tests/test_v14_4_11_three_session_execution.py", "desc": "Custom NY window parity in and out of window"},
     "EXEC10": {"suite": "backend", "file": "backend/tests/test_v14_4_11_three_session_execution.py", "desc": "Post-fill exit execution path canonical close"},
+    # V14.4.12 Fair Review & Starvation Prevention (7)
+    "Q01": {"suite": "backend", "file": "backend/tests/test_v14_4_12_reconciliation_fair_review.py", "desc": "broken head does not starve valid tail orders"},
+    "Q02": {"suite": "backend", "file": "backend/tests/test_v14_4_12_reconciliation_fair_review.py", "desc": "restart preserves review and scheduler progress"},
+    "Q03": {"suite": "backend", "file": "backend/tests/test_v14_4_12_reconciliation_fair_review.py", "desc": "persist failure does not advance cursor"},
+    "Q04": {"suite": "backend", "file": "backend/tests/test_v14_4_12_reconciliation_fair_review.py", "desc": "source repaired replays and recovers task"},
+    "Q05": {"suite": "backend", "file": "backend/tests/test_v14_4_12_reconciliation_fair_review.py", "desc": "still invalid backs off without event spam"},
+    "Q06": {"suite": "backend", "file": "backend/tests/test_v14_4_12_reconciliation_fair_review.py", "desc": "open position protective exit unblocked by background review"},
+    "Q07": {"suite": "backend", "file": "backend/tests/test_v14_4_12_reconciliation_fair_review.py", "desc": "large history pagination with small budget"},
+    # V14.4.12 Forward Paper Practice & Truthful Reporting (4)
+    "F01": {"suite": "backend", "file": "backend/tests/test_v14_4_12_forward_paper_session.py", "desc": "forward session creation freeze and restart"},
+    "F02": {"suite": "backend", "file": "backend/tests/test_v14_4_12_forward_paper_session.py", "desc": "real production entry three sessions forward provenance"},
+    "F03": {"suite": "backend", "file": "backend/tests/test_v14_4_12_forward_paper_session.py", "desc": "report truthfulness and canonical metrics"},
+    "F04": {"suite": "backend", "file": "backend/tests/test_v14_4_12_forward_paper_session.py", "desc": "user notes and export integrity"},
 }
 
 BASELINE_FAILURES = {
@@ -329,8 +342,8 @@ def parse_junit_xml(xml_path: str) -> dict[str, str]:
             key = f"{classname}::{name}" if classname else name
             results[key] = status
             results[name] = status
-            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, TIMELINE01, CHRONO01, PLANSRC01, FCPROOF01, SMC01, STATE01, LEGACY01, PAGE01, FLOW01, GATE01, PROOF01, WINDOW01, EVIDENCE01, ACC01, BUDGET01, SCHED01, DURABLE01, REPLAY01, CLOSE01, V01, B01, ENTRY01, CTX01, C01, EXEC01, etc.
-            for m in re.finditer(r"(?i)(?:^|[\W_])(EXEC\d{2}|ENTRY\d{2}|CTX\d{2}|C\d{2}|ACC\d{2}|BUDGET\d{2}|SCHED\d{2}|DURABLE\d{2}|REPLAY\d{2}|CLOSE\d{2}|PROOF\d{2}|WINDOW\d{2}|EVIDENCE\d{2}|CHRONO\d{2}|PLANSRC\d{2}|FCPROOF\d{2}|TIMELINE\d{2}|GEOMSRC\d{2}|BINDNULL\d{2}|INVCLOSED\d{2}|COHORT\d{2}|REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|SMC\d{2}|STATE\d{2}|LEGACY\d{2}|PAGE\d{2}|FLOW\d{2}|GATE\d{2}|V\d{2}|B\d{2}|[TSOPFLRA]\d{2})(?:[\W_]|$)", name):
+            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, TIMELINE01, CHRONO01, PLANSRC01, FCPROOF01, SMC01, STATE01, LEGACY01, PAGE01, FLOW01, GATE01, PROOF01, WINDOW01, EVIDENCE01, ACC01, BUDGET01, SCHED01, DURABLE01, REPLAY01, CLOSE01, V01, B01, ENTRY01, CTX01, C01, EXEC01, Q01, F01, etc.
+            for m in re.finditer(r"(?i)(?:^|[\W_])(EXEC\d{2}|ENTRY\d{2}|CTX\d{2}|C\d{2}|ACC\d{2}|BUDGET\d{2}|SCHED\d{2}|DURABLE\d{2}|REPLAY\d{2}|CLOSE\d{2}|PROOF\d{2}|WINDOW\d{2}|EVIDENCE\d{2}|CHRONO\d{2}|PLANSRC\d{2}|FCPROOF\d{2}|TIMELINE\d{2}|GEOMSRC\d{2}|BINDNULL\d{2}|INVCLOSED\d{2}|COHORT\d{2}|REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|SMC\d{2}|STATE\d{2}|LEGACY\d{2}|PAGE\d{2}|FLOW\d{2}|GATE\d{2}|V\d{2}|B\d{2}|[TSOPFLRAQ]\d{2})(?:[\W_]|$)", name):
                 results[m.group(1).upper()] = status
     except Exception as e:
         print(f"Error parsing JUnit XML {xml_path}: {e}", file=sys.stderr)
@@ -762,6 +775,8 @@ def main(argv=None) -> int:
         "tests/test_v14_4_10_frozen_context.py",
         "tests/test_v14_4_11_reconciliation_authority.py",
         "tests/test_v14_4_11_three_session_execution.py",
+        "tests/test_v14_4_12_reconciliation_fair_review.py",
+        "tests/test_v14_4_12_forward_paper_session.py",
     ]
     s = run_step(
         "backend_targeted",

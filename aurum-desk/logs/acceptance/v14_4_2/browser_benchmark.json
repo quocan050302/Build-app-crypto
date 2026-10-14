@@ -1,9 +1,9 @@
 {
   "status": "PASS",
   "schema_version": "1.0.0",
-  "run_id": "browser-soak-1791953443595",
-  "tested_sha": "26b6b13b3cf529caa2f4c2c1995a68326e60f609",
-  "duration_seconds": 61.9,
+  "run_id": "browser-soak-1791963729319",
+  "tested_sha": "3a34b6b6a7fa3488c20805109d514887f31c8627",
+  "duration_seconds": 62.23,
   "total_frames_streamed": 10062,
   "selection_cycles": 100,
   "selections_completed": 100,
@@ -14,14 +14,14 @@
     "DRAFT": 25
   },
   "all_four_kinds_covered": true,
-  "queue_drain_time_ms": 11,
+  "queue_drain_time_ms": 8,
   "telemetry": {
     "render_latency_ms": {
-      "p50": 7.2,
+      "p50": 6,
       "p95": 28.3,
-      "p99": 36.6,
-      "max": 43.4,
-      "sample_count": 784
+      "p99": 35.6,
+      "max": 50,
+      "sample_count": 705
     },
     "queue_current": 0,
     "queue_peak": 2,
@@ -31,11 +31,11 @@
     "reconnect_count": 0,
     "chart_create_count": 0,
     "chart_destroy_count": 0,
-    "invalid_event_count": 4,
+    "invalid_event_count": 5,
     "sequence_gap_count": 0,
     "dropped_execution_event_count": 0,
     "events_received_count": 10062,
-    "events_rendered_count": 784,
+    "events_rendered_count": 705,
     "transport_kind": "WEBSOCKET",
     "measurement_scope": "QUOTE_DOM_COMMIT_RAF_PROXY"
   },
