@@ -8,6 +8,7 @@
 - **Base / HEAD Commit**: `e64a946` (*docs: record final implementation SHA in V14.4.8 closure report*)
 - **Implementation Baseline**: `bdb3a20` (*fix(v14.4.8): retain reconciliation candidates and stop safely on exhausted budgets*)
 - **Pre-V14.4.8 Baseline**: `ad2501d` (*docs: record final implementation SHA in V14.4.7 closure report*)
+- **Implementation Commit SHA**: `ab3e8459d9347793e0b8c3b9a9282111a8d3564f`
 - **Acceptance Run ID**: `run_1791944825423`
 - **Tested SHA**: `e64a9461fc84c6c4cf81c142f8bcb7ac2707af98`
 - **Tree Fingerprint**: `c0b6730546be870893595d94d007ff26b40bfa2a`
