@@ -7,6 +7,7 @@
 - **Branch**: `fix/v14-1-rr-flow`
 - **Base / HEAD Commit**: `ad2501d7dd34f08f6de4bc3db730f40c4dfbf08a` (*docs: record final implementation SHA in V14.4.7 closure report*)
 - **Code Runtime Baseline**: `1a2214488695aa642c52d70ebe6ae24822d73747` (*fix(v14.4.7): fail closed on missing proof snapshots and resume reconciliation scans*)
+- **Implementation Commit SHA**: `bdb3a201b1cb6a6b8c4c379a5ea5104ec0370f1a`
 - **Acceptance Run ID**: `run_1791940701980`
 - **Tree Fingerprint**: `cf3c078832c6abfd8cfba8dbe2a9e70092a8f25f`
 - **Date**: 2026-10-14
