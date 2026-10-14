@@ -404,6 +404,29 @@ REQUIRED_CASES = {
     "S19_19": {"suite": "backend", "file": "backend/tests/test_v14_4_19_repair_self_proof.py", "desc": "worker real path continues batch"},
     "S19_20": {"suite": "backend", "file": "backend/tests/test_v14_4_19_repair_self_proof.py", "desc": "commit failure rollbacks cleanly"},
     "S19_21": {"suite": "backend", "file": "backend/tests/test_v14_4_19_repair_self_proof.py", "desc": "idempotency on failed repair"},
+    # V14.4.20 Prevent Copied Repaired Data From Becoming Original Binding Proof (22)
+    "C20_01": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "copied repaired membership staging fails closed"},
+    "C20_02": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "top level repaired by marker via staging fails closed"},
+    "C20_03": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "repair task id marker via staging fails closed"},
+    "C20_04": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "provenance sources marker via staging fails closed"},
+    "C20_05": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "membership missing after copy fails closed"},
+    "C20_06": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "all sources repaired fails closed"},
+    "C20_07": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "real original membership via staging succeeds"},
+    "C20_08": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "real original payload with repaired membership succeeds"},
+    "C20_09": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "repaired payload with original snapshot succeeds"},
+    "C20_10": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "repaired snapshot only fails closed"},
+    "C20_11": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "partial original payload fails closed"},
+    "C20_12": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "empty payload fails closed"},
+    "C20_13": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "original repaired conflict fails closed"},
+    "C20_14": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "index conflict fails closed"},
+    "C20_15": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "wrong order fails closed"},
+    "C20_16": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "existing task restage fails closed"},
+    "C20_17": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "roundtrip classification preserves repaired origin"},
+    "C20_18": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "malformed metadata does not crash or falsely flag"},
+    "C20_19": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "zero financial mutations on failed repair"},
+    "C20_20": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "worker production path separates copied from valid"},
+    "C20_21": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "owner commit failure rollbacks cleanly"},
+    "C20_22": {"suite": "backend", "file": "backend/tests/test_v14_4_20_copied_repair_provenance.py", "desc": "idempotency on failed repair"},
 }
 
 BASELINE_FAILURES = {
@@ -458,8 +481,8 @@ def parse_junit_xml(xml_path: str) -> dict[str, str]:
             key = f"{classname}::{name}" if classname else name
             results[key] = status
             results[name] = status
-            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, TIMELINE01, CHRONO01, PLANSRC01, FCPROOF01, SMC01, STATE01, LEGACY01, PAGE01, FLOW01, GATE01, PROOF01, WINDOW01, EVIDENCE01, ACC01, BUDGET01, SCHED01, DURABLE01, REPLAY01, CLOSE01, V01, B01, ENTRY01, CTX01, C01, EXEC01, Q01, F01, MBR01, AUTH01, DD01, REC01, TXN01, EVTAUTH01, REP01, SREP01, WREP01, PREP01, P17_01, C18_01, etc.
-            for m in re.finditer(r"(?i)(?:^|[\W_])(S19_\d{2}|C18_\d{2}|P17_\d{2}|SREP\d{2}|WREP\d{2}|PREP\d{2}|EVTAUTH\d{2}|REP\d{2}|EXEC\d{2}|ENTRY\d{2}|CTX\d{2}|C\d{2}|ACC\d{2}|BUDGET\d{2}|SCHED\d{2}|DURABLE\d{2}|REPLAY\d{2}|CLOSE\d{2}|PROOF\d{2}|WINDOW\d{2}|EVIDENCE\d{2}|CHRONO\d{2}|PLANSRC\d{2}|FCPROOF\d{2}|TIMELINE\d{2}|GEOMSRC\d{2}|BINDNULL\d{2}|INVCLOSED\d{2}|COHORT\d{2}|REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|SMC\d{2}|STATE\d{2}|LEGACY\d{2}|PAGE\d{2}|FLOW\d{2}|GATE\d{2}|V\d{2}|B\d{2}|MBR\d{2}|AUTH\d{2}|DD\d{2}|REC\d{2}|TXN\d{2}|[TSOPFLRAQ]\d{2})(?:[\W_]|$)", name):
+            # Extract case tokens like S01, O06, P01, A01, FIN01, RT01, LIQ01, FC01, REPRO01, TIMELINE01, CHRONO01, PLANSRC01, FCPROOF01, SMC01, STATE01, LEGACY01, PAGE01, FLOW01, GATE01, PROOF01, WINDOW01, EVIDENCE01, ACC01, BUDGET01, SCHED01, DURABLE01, REPLAY01, CLOSE01, V01, B01, ENTRY01, CTX01, C01, EXEC01, Q01, F01, MBR01, AUTH01, DD01, REC01, TXN01, EVTAUTH01, REP01, SREP01, WREP01, PREP01, P17_01, C18_01, S19_01, C20_01, etc.
+            for m in re.finditer(r"(?i)(?:^|[\W_])(C20_\d{2}|S19_\d{2}|C18_\d{2}|P17_\d{2}|SREP\d{2}|WREP\d{2}|PREP\d{2}|EVTAUTH\d{2}|REP\d{2}|EXEC\d{2}|ENTRY\d{2}|CTX\d{2}|C\d{2}|ACC\d{2}|BUDGET\d{2}|SCHED\d{2}|DURABLE\d{2}|REPLAY\d{2}|CLOSE\d{2}|PROOF\d{2}|WINDOW\d{2}|EVIDENCE\d{2}|CHRONO\d{2}|PLANSRC\d{2}|FCPROOF\d{2}|TIMELINE\d{2}|GEOMSRC\d{2}|BINDNULL\d{2}|INVCLOSED\d{2}|COHORT\d{2}|REPRO\d{2}|FCT\d{2}|OBS\d{2}|INT\d{2}|ORDARM\d{2}|ORDFILL\d{2}|ORDCHAIN\d{2}|FREEZE\d{2}|LATBUF\d{2}|STLEASE\d{2}|STQUEUE\d{2}|STCANDLE\d{2}|RT\d{2}|FIN\d{2}|LIQ\d{2}|FC\d{2}|SMC\d{2}|STATE\d{2}|LEGACY\d{2}|PAGE\d{2}|FLOW\d{2}|GATE\d{2}|V\d{2}|B\d{2}|MBR\d{2}|AUTH\d{2}|DD\d{2}|REC\d{2}|TXN\d{2}|[TSOPFLRAQ]\d{2})(?:[\W_]|$)", name):
                 results[m.group(1).upper()] = status
     except Exception as e:
         print(f"Error parsing JUnit XML {xml_path}: {e}", file=sys.stderr)
@@ -907,6 +930,7 @@ def main(argv=None) -> int:
         "tests/test_v14_4_17_repair_provenance.py",
         "tests/test_v14_4_18_repair_source_conflicts.py",
         "tests/test_v14_4_19_repair_self_proof.py",
+        "tests/test_v14_4_20_copied_repair_provenance.py",
     ]
     s = run_step(
         "backend_targeted",

@@ -1163,6 +1163,34 @@ def validate_repair_binding_source(
     return res
 
 
+def classify_repair_binding_payload_origin(
+    payload: Any,
+    default_kind: str = "ORIGINAL_BINDING",
+) -> str:
+    """PHẦN 018, 019, 020, 021, 022: Shared pure helper to classify whether a payload
+    originates from a repaired membership record or an original/legacy binding.
+    Detects repair markers:
+    - top-level 'repaired_by'
+    - metadata['repaired_by']
+    - metadata['repair_task_id']
+    - metadata['provenance_sources']
+    Pure function: no DB, no network, no mutations. Safely handles None, non-dict metadata.
+    Returns: 'REPAIRED_MEMBERSHIP' if repaired marker detected, otherwise default_kind.
+    """
+    if not isinstance(payload, dict):
+        return default_kind
+
+    if payload.get("repaired_by"):
+        return "REPAIRED_MEMBERSHIP"
+
+    meta = payload.get("metadata")
+    if isinstance(meta, dict):
+        if meta.get("repaired_by") or meta.get("repair_task_id") or meta.get("provenance_sources"):
+            return "REPAIRED_MEMBERSHIP"
+
+    return default_kind
+
+
 def is_complete_original_binding_proof(
     source: Optional[RepairProvenanceSource],
     validation: Dict[str, Any],
@@ -1173,6 +1201,7 @@ def is_complete_original_binding_proof(
     Requires:
     - parse_status == "VALID" and payload is dict
     - kind != "REPAIRED_MEMBERSHIP" (cannot be repaired self-proof)
+    - payload does not contain repaired origin markers
     - validation["valid"] is True
     - validation["order_match"] is True
     - validation["is_complete"] is True (has forward_session_id, config_revision, runtime_commit, bound_at_ms)
@@ -1184,6 +1213,8 @@ def is_complete_original_binding_proof(
     if source.parse_status != "VALID" or not isinstance(source.payload, dict):
         return False
     if source.kind == "REPAIRED_MEMBERSHIP":
+        return False
+    if classify_repair_binding_payload_origin(source.payload) == "REPAIRED_MEMBERSHIP":
         return False
     if not validation.get("valid", False):
         return False
@@ -1327,47 +1358,41 @@ def collect_repair_provenance_sources(
     Returns dictionary with parsed sources and structured RepairProvenanceSource objects.
     """
     dp_status, dp_data, dp_err = parse_repair_source_payload(task.original_damaged_payload)
+    dp_kind = classify_repair_binding_payload_origin(dp_data, default_kind="ORIGINAL_BINDING")
     dp_source = RepairProvenanceSource(
         name="original_damaged_payload",
-        kind="ORIGINAL_BINDING",
+        kind=dp_kind,
         parse_status=dp_status,
         payload=dp_data,
         reason_codes=[dp_err] if dp_err else [],
-        diagnostics={"raw_payload": task.original_damaged_payload},
+        diagnostics={"raw_payload": task.original_damaged_payload, "classified_kind": dp_kind},
     )
 
     mem_key = f"fwd_mem:{order.id}"[:50]
     rec_mem = db.query(models.SystemConfig).filter(models.SystemConfig.key == mem_key).first()
     db_mem_status, db_mem_data, db_mem_err = parse_repair_source_payload(rec_mem.value if rec_mem else None)
-
-    is_repaired = False
-    if db_mem_data and isinstance(db_mem_data, dict):
-        if db_mem_data.get("repaired_by"):
-            is_repaired = True
-        meta = db_mem_data.get("metadata")
-        if isinstance(meta, dict) and (meta.get("repaired_by") or meta.get("repair_task_id") or meta.get("provenance_sources")):
-            is_repaired = True
-
-    db_mem_kind = "REPAIRED_MEMBERSHIP" if is_repaired else "ORIGINAL_BINDING"
+    db_mem_kind = classify_repair_binding_payload_origin(db_mem_data, default_kind="ORIGINAL_BINDING")
+    is_repaired = (db_mem_kind == "REPAIRED_MEMBERSHIP")
     db_mem_source = RepairProvenanceSource(
         name="db_membership",
         kind=db_mem_kind,
         parse_status=db_mem_status,
         payload=db_mem_data,
         reason_codes=[db_mem_err] if db_mem_err else [],
-        diagnostics={"is_repaired": is_repaired},
+        diagnostics={"is_repaired": is_repaired, "classified_kind": db_mem_kind},
     )
 
     snap_key = f"fwd_snap:{order.id}"[:50]
     rec_snap = db.query(models.SystemConfig).filter(models.SystemConfig.key == snap_key).first()
     db_snap_status, db_snap_data, db_snap_err = parse_repair_source_payload(rec_snap.value if rec_snap else None)
+    db_snap_kind = classify_repair_binding_payload_origin(db_snap_data, default_kind="LEGACY_BINDING")
     db_snap_source = RepairProvenanceSource(
         name="db_snapshot",
-        kind="LEGACY_BINDING",
+        kind=db_snap_kind,
         parse_status=db_snap_status,
         payload=db_snap_data,
         reason_codes=[db_snap_err] if db_snap_err else [],
-        diagnostics={"has_production_writer": False},
+        diagnostics={"has_production_writer": False, "classified_kind": db_snap_kind},
     )
 
     order_sess_inst = getattr(order, "session_instance_id", "") or ""
@@ -1485,21 +1510,30 @@ def resolve_repair_provenance(
                 diagnostics={"order_id": order.id},
             )
 
-    # 3. Repaired Membership Self-Proof Check (PHẦN 014, 016, 033, C18-13, S19-01):
-    # If db_membership is marked REPAIRED_MEMBERSHIP, it CANNOT self-certify unless
-    # there is a complete, valid, independent original binding proof (from original_damaged_payload or snapshot).
-    if db_mem_source.kind == "REPAIRED_MEMBERSHIP":
-        if not (has_complete_original_payload or has_complete_independent_snapshot):
+    # 3. Repaired Source Self-Proof Check (PHẦN 014, 016, 033, C18-13, S19-01, C20-01, C20-05):
+    # Any source marked REPAIRED_MEMBERSHIP cannot self-certify or become original authority
+    # unless there is an independent, complete, valid original binding proof.
+    repaired_sources = [s for s in [db_mem_source, dp_source, db_snap_source] if s.kind == "REPAIRED_MEMBERSHIP"]
+    if repaired_sources:
+        has_independent_original_proof = (
+            has_complete_original_payload
+            or has_complete_independent_snapshot
+            or has_complete_original_membership
+        )
+        if not has_independent_original_proof:
+            repaired_names = [s.name for s in repaired_sources]
             return RepairProvenanceResolution(
                 status="INSUFFICIENT",
                 reason_codes=[REPAIR_SOURCE_UNVERIFIED],
                 diagnostics={
-                    "unverified_source": "db_membership",
+                    "unverified_source": repaired_names[0] if repaired_names else "repaired_source",
+                    "unverified_sources": repaired_names,
                     "order_id": order.id,
-                    "reason": "Repaired membership cannot self-certify without independent provenance",
+                    "reason": "Repaired source cannot self-certify without independent original provenance",
                     "damaged_payload_status": dp_status,
                     "damaged_payload_complete": has_complete_original_payload,
                     "snapshot_complete": has_complete_independent_snapshot,
+                    "membership_complete": has_complete_original_membership,
                 },
             )
 
