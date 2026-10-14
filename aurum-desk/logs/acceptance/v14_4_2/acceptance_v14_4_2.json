@@ -1,15 +1,15 @@
 {
   "overall": "PASS",
   "run_context": {
-    "run_id": "run_1791940701980",
-    "sha": "ad2501d7dd34f08f6de4bc3db730f40c4dfbf08a",
-    "tested_sha": "ad2501d7dd34f08f6de4bc3db730f40c4dfbf08a",
-    "tree_fingerprint": "cf3c078832c6abfd8cfba8dbe2a9e70092a8f25f",
-    "started_at_ms": 1791940701980,
+    "run_id": "run_1791944825423",
+    "sha": "e64a9461fc84c6c4cf81c142f8bcb7ac2707af98",
+    "tested_sha": "e64a9461fc84c6c4cf81c142f8bcb7ac2707af98",
+    "tree_fingerprint": "c0b6730546be870893595d94d007ff26b40bfa2a",
+    "started_at_ms": 1791944825423,
     "environment": "mac",
     "required_schema": "1.0.0"
   },
-  "required_cases_count": 162,
+  "required_cases_count": 175,
   "case_coverage": {
     "D01": {
       "status": "PASS",
@@ -820,6 +820,71 @@
       "status": "PASS",
       "missing": [],
       "not_passed": {}
+    },
+    "V01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "V02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "V03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "V04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "V05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "V06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "V07": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "V08": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "B01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "B02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "B03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "B04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "B05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
     }
   },
   "statuses": {
@@ -835,11 +900,11 @@
   "steps": {
     "backend_targeted": {
       "status": "PASS",
-      "summary": "370 passed, 1 warning in 25.70s",
+      "summary": "387 passed, 1 warning in 32.13s",
       "failed": [],
       "unexpected_failures": [],
       "exit_code": 0,
-      "duration_s": 28.19,
+      "duration_s": 35.2,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\backend_targeted.log",
       "argv": [
         "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
@@ -887,6 +952,7 @@
         "tests/test_v14_4_7_proof_fail_closed.py",
         "tests/test_v14_4_7_coordinator_pagination.py",
         "tests/test_v14_4_8_reconciliation_accumulator.py",
+        "tests/test_v14_4_9_reconciliation_integrity.py",
         "-q",
         "-p",
         "no:cacheprovider",
@@ -896,7 +962,7 @@
     "frontend_typecheck": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 5.23,
+      "duration_s": 6.53,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_typecheck.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npx.CMD",
@@ -909,7 +975,7 @@
       "warnings": 29,
       "errors": 0,
       "exit_code": 0,
-      "duration_s": 1.18,
+      "duration_s": 1.4,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_lint.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npx.CMD",
@@ -919,7 +985,7 @@
     "frontend_vitest": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 3.36,
+      "duration_s": 3.87,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_vitest.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npx.CMD",
@@ -933,7 +999,7 @@
     "frontend_build": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 6.6,
+      "duration_s": 7.37,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_build.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npm.CMD",
@@ -944,8 +1010,8 @@
     "browser_e2e": {
       "status": "PASS",
       "playwright_stats": {
-        "startTime": "2026-10-14T01:19:12.252Z",
-        "duration": 204174.165,
+        "startTime": "2026-10-14T02:28:06.480Z",
+        "duration": 208445.9,
         "expected": 48,
         "skipped": 0,
         "unexpected": 0,
@@ -953,7 +1019,7 @@
       },
       "executed_tests": 48,
       "exit_code": 0,
-      "duration_s": 205.75,
+      "duration_s": 210.6,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\browser_e2e.log",
       "argv": [
         "C:\\Program Files\\nodejs\\npx.CMD",
@@ -969,9 +1035,9 @@
     "benchmark": {
       "status": "PASS",
       "latency_ms": {
-        "p50": 14.396,
-        "p95": 20.288,
-        "max": 33.401,
+        "p50": 15.023,
+        "p95": 21.919,
+        "max": 49.186,
         "sample_count": 600
       },
       "not_measured": [],
@@ -979,13 +1045,13 @@
         "pass": true,
         "status": "PASS",
         "errors": [],
-        "p95_ms": 20.288,
+        "p95_ms": 21.919,
         "cycles": 600,
-        "browser_p95_ms": 31.1,
-        "browser_events": 10063
+        "browser_p95_ms": 30.1,
+        "browser_events": 10064
       },
       "exit_code": 0,
-      "duration_s": 10.26,
+      "duration_s": 10.74,
       "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\benchmark.log",
       "argv": [
         "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
@@ -993,9 +1059,9 @@
         "--cycles",
         "600",
         "--run-id",
-        "run_1791940701980",
+        "run_1791944825423",
         "--tested-sha",
-        "ad2501d7dd34f08f6de4bc3db730f40c4dfbf08a",
+        "e64a9461fc84c6c4cf81c142f8bcb7ac2707af98",
         "--out",
         "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\benchmark.json"
       ]
@@ -1021,5 +1087,5 @@
     "tests/test_v13_5_integrity_acceptance.py::test_01_integrity_pass_on_valid_inputs"
   ],
   "probability_research": "NOT_VERIFIED (no real out-of-sample dataset; metrics are null, not 0)",
-  "timestamp": "2026-10-14 08:23:17"
+  "timestamp": "2026-10-14 09:32:18"
 }

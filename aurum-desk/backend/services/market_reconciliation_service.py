@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -137,13 +138,121 @@ class TerminalCandidate:
 
 
 @dataclass(frozen=True)
+class ValidationIssue:
+    code: str
+    field: str
+    detail: str = ""
+
+
+@dataclass(frozen=True)
+class ValidationResult:
+    is_valid: bool
+    issues: List[ValidationIssue] = field(default_factory=list)
+
+
+VALID_EXIT_CAUSES: Set[str] = {
+    "TP_HIT",
+    "SL_HIT",
+    "AMBIGUOUS_BAR_SL_FIRST",
+    "LIQUIDATED",
+    "LIQUIDATION",
+    "MANUAL",
+    "EXPIRY",
+    "GAP_SL",
+    "GAP_TP",
+    "SL_HIT_RECONCILED",
+    "TP_HIT_RECONCILED",
+}
+
+VALID_PRICE_BASES: Set[str] = {
+    "BID",
+    "ASK",
+    "BID_ASK",
+    "LAST",
+    "BAR_EXTREMES",
+    "MID",
+    "OHLC",
+}
+
+
+def is_finite_real(value: Any) -> bool:
+    """Returns True if value is an int or float, not a boolean, and is finite (not NaN, Inf, -Inf)."""
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+    )
+
+
+def parse_positive_price(
+    value: Any,
+    field_name: str,
+    optional: bool = False,
+) -> Tuple[Optional[float], Optional[ValidationIssue]]:
+    """Strictly parses a positive finite real price."""
+    if value is None:
+        if optional:
+            return None, None
+        return None, ValidationIssue(code="MISSING_PRICE", field=field_name, detail="Price is required")
+    if not is_finite_real(value):
+        return None, ValidationIssue(
+            code="INVALID_PRICE_NON_FINITE",
+            field=field_name,
+            detail=f"Price must be finite real number, got {value!r}",
+        )
+    val_float = float(value)
+    if val_float <= 0:
+        return None, ValidationIssue(
+            code="INVALID_PRICE_NON_POSITIVE",
+            field=field_name,
+            detail=f"Price must be > 0, got {val_float}",
+        )
+    return val_float, None
+
+
+def parse_timestamp(
+    value: Any,
+    field_name: str,
+    optional: bool = False,
+) -> Tuple[Optional[int], Optional[ValidationIssue]]:
+    """Strictly parses a non-negative integer millisecond timestamp."""
+    if value is None:
+        if optional:
+            return None, None
+        return None, ValidationIssue(code="MISSING_TIMESTAMP", field=field_name, detail="Timestamp is required")
+    if not is_finite_real(value):
+        return None, ValidationIssue(
+            code="INVALID_TIMESTAMP_TYPE",
+            field=field_name,
+            detail=f"Timestamp must be real finite int, got {value!r}",
+        )
+    val_float = float(value)
+    if val_float < 0:
+        return None, ValidationIssue(
+            code="INVALID_TIMESTAMP_NEGATIVE",
+            field=field_name,
+            detail=f"Timestamp must be >= 0, got {val_float}",
+        )
+    if int(val_float) != val_float:
+        return None, ValidationIssue(
+            code="INVALID_TIMESTAMP_FRACTIONAL",
+            field=field_name,
+            detail=f"Timestamp must be integer ms, got {val_float}",
+        )
+    return int(val_float), None
+
+
+@dataclass(frozen=True)
 class CandidateDecodeResult:
     is_valid: bool
     candidate: Optional[TerminalCandidate] = None
     reason: str = ""
+    issues: List[ValidationIssue] = field(default_factory=list)
 
 
 def encode_candidate(cand: TerminalCandidate) -> Dict[str, Any]:
+    if not is_finite_real(cand.executable_price) or cand.executable_price <= 0:
+        raise ValueError(f"Cannot encode candidate with non-finite/non-positive executable_price: {cand.executable_price!r}")
     return {
         "order_id": str(cand.order_id),
         "evidence_id": str(cand.evidence_id),
@@ -155,61 +264,227 @@ def encode_candidate(cand: TerminalCandidate) -> Dict[str, Any]:
         "price_basis": str(cand.price_basis),
         "cause": str(cand.cause),
         "executable_price": float(cand.executable_price),
-        "epoch": int(cand.epoch or 1),
+        "epoch": int(cand.epoch if isinstance(cand.epoch, int) and not isinstance(cand.epoch, bool) and cand.epoch >= 0 else 1),
         "source": str(cand.source or "UNKNOWN"),
     }
 
 
 def decode_candidate(data: Any) -> CandidateDecodeResult:
     if not isinstance(data, dict):
-        return CandidateDecodeResult(is_valid=False, reason="NOT_A_DICT")
-    try:
-        order_id = str(data.get("order_id", ""))
-        evidence_id = str(data.get("evidence_id", ""))
-        cause = str(data.get("cause", ""))
-        if not order_id or not evidence_id or not cause:
-            return CandidateDecodeResult(is_valid=False, reason="MISSING_REQUIRED_IDENTIFIERS")
-
-        src_ts = data.get("source_timestamp")
-        if src_ts is None or isinstance(src_ts, bool) or not isinstance(src_ts, (int, float)):
-            return CandidateDecodeResult(is_valid=False, reason="INVALID_SOURCE_TIMESTAMP")
-
-        known_at = data.get("known_at_ms", src_ts)
-        if isinstance(known_at, bool) or not isinstance(known_at, (int, float)):
-            known_at = src_ts
-
-        exec_px = data.get("executable_price")
-        if exec_px is None or isinstance(exec_px, bool) or not isinstance(exec_px, (int, float)):
-            return CandidateDecodeResult(is_valid=False, reason="INVALID_EXECUTABLE_PRICE")
-
-        def _parse_opt_px(val: Any) -> Optional[float]:
-            if val is None or isinstance(val, bool):
-                return None
-            if isinstance(val, (int, float)):
-                return float(val)
-            return None
-
-        bid = _parse_opt_px(data.get("bid"))
-        ask = _parse_opt_px(data.get("ask"))
-        last = _parse_opt_px(data.get("last"))
-
-        cand = TerminalCandidate(
-            order_id=order_id,
-            evidence_id=evidence_id,
-            source_timestamp=int(src_ts),
-            known_at_ms=int(known_at),
-            bid=bid,
-            ask=ask,
-            last=last,
-            price_basis=str(data.get("price_basis", "BID_ASK")),
-            cause=cause,
-            executable_price=float(exec_px),
-            epoch=int(data.get("epoch", 1) or 1),
-            source=str(data.get("source", "UNKNOWN")),
+        return CandidateDecodeResult(
+            is_valid=False,
+            reason="NOT_A_DICT",
+            issues=[ValidationIssue(code="NOT_A_DICT", field="candidate", detail=f"Expected dict, got {type(data)}")],
         )
-        return CandidateDecodeResult(is_valid=True, candidate=cand)
-    except Exception as e:
-        return CandidateDecodeResult(is_valid=False, reason=f"DECODE_ERROR:{e}")
+    issues: List[ValidationIssue] = []
+
+    # 1. Identifiers
+    order_id = data.get("order_id")
+    if not isinstance(order_id, str) or not order_id.strip():
+        issues.append(ValidationIssue(code="MISSING_ORDER_ID", field="order_id", detail=f"Invalid order_id: {order_id!r}"))
+
+    evidence_id = data.get("evidence_id")
+    if not isinstance(evidence_id, str) or not evidence_id.strip() or evidence_id == "UNKNOWN":
+        issues.append(ValidationIssue(code="MISSING_OR_UNKNOWN_EVIDENCE_ID", field="evidence_id", detail=f"Invalid evidence_id: {evidence_id!r}"))
+
+    cause = data.get("cause")
+    if not isinstance(cause, str) or cause not in VALID_EXIT_CAUSES:
+        issues.append(ValidationIssue(code="INVALID_EXIT_CAUSE", field="cause", detail=f"Invalid exit cause: {cause!r}"))
+
+    price_basis = data.get("price_basis", "BID_ASK")
+    if not isinstance(price_basis, str) or price_basis not in VALID_PRICE_BASES:
+        issues.append(ValidationIssue(code="INVALID_PRICE_BASIS", field="price_basis", detail=f"Invalid price basis: {price_basis!r}"))
+
+    # 2. Timestamps
+    src_ts, ts_issue = parse_timestamp(data.get("source_timestamp"), "source_timestamp", optional=False)
+    if ts_issue:
+        issues.append(ts_issue)
+
+    known_at, known_issue = parse_timestamp(data.get("known_at_ms"), "known_at_ms", optional=True)
+    if known_issue:
+        issues.append(known_issue)
+    elif known_at is None:
+        known_at = src_ts if src_ts is not None else 0
+
+    # 3. Numeric prices
+    exec_px, exec_issue = parse_positive_price(data.get("executable_price"), "executable_price", optional=False)
+    if exec_issue:
+        issues.append(exec_issue)
+
+    bid, bid_issue = parse_positive_price(data.get("bid"), "bid", optional=True)
+    if bid_issue:
+        issues.append(bid_issue)
+
+    ask, ask_issue = parse_positive_price(data.get("ask"), "ask", optional=True)
+    if ask_issue:
+        issues.append(ask_issue)
+
+    last, last_issue = parse_positive_price(data.get("last"), "last", optional=True)
+    if last_issue:
+        issues.append(last_issue)
+
+    # 4. Epoch & Source
+    epoch_raw = data.get("epoch", 1)
+    if not isinstance(epoch_raw, int) or isinstance(epoch_raw, bool) or epoch_raw < 0:
+        issues.append(ValidationIssue(code="INVALID_SOURCE_EPOCH", field="epoch", detail=f"Epoch must be non-negative int, got {epoch_raw!r}"))
+        epoch = 1
+    else:
+        epoch = epoch_raw
+
+    source_raw = data.get("source", "UNKNOWN")
+    if not isinstance(source_raw, str) or not source_raw.strip():
+        issues.append(ValidationIssue(code="INVALID_SOURCE", field="source", detail=f"Source must be non-empty string, got {source_raw!r}"))
+        source = "UNKNOWN"
+    else:
+        source = source_raw
+
+    if issues:
+        primary_reason = issues[0].code
+        return CandidateDecodeResult(
+            is_valid=False,
+            candidate=None,
+            reason=primary_reason,
+            issues=issues,
+        )
+
+    cand = TerminalCandidate(
+        order_id=str(order_id),
+        evidence_id=str(evidence_id),
+        source_timestamp=src_ts,
+        known_at_ms=known_at,
+        bid=bid,
+        ask=ask,
+        last=last,
+        price_basis=str(price_basis),
+        cause=str(cause),
+        executable_price=exec_px,
+        epoch=epoch,
+        source=source,
+    )
+    return CandidateDecodeResult(is_valid=True, candidate=cand)
+
+
+@dataclass(frozen=True)
+class AccumulatorDecodeResult:
+    is_valid: bool
+    accumulator: Optional[CandidateAccumulator] = None
+    issues: List[ValidationIssue] = field(default_factory=list)
+    reasons: List[str] = field(default_factory=list)
+
+
+def decode_candidate_accumulator(data: Any) -> AccumulatorDecodeResult:
+    if not isinstance(data, dict):
+        iss = ValidationIssue(code="NOT_A_DICT", field="accumulator", detail=f"Expected dict, got {type(data)}")
+        return AccumulatorDecodeResult(is_valid=False, issues=[iss], reasons=[iss.code])
+
+    issues: List[ValidationIssue] = []
+
+    schema_ver = str(data.get("schema_version", "1.0.0"))
+    if schema_ver not in ("1.0.0",):
+        issues.append(ValidationIssue(code="UNSUPPORTED_SCHEMA_VERSION", field="schema_version", detail=f"Schema {schema_ver} not supported"))
+
+    window_id = str(data.get("window_id", ""))
+
+    query_gen_raw = data.get("query_generation", 1)
+    if not isinstance(query_gen_raw, int) or isinstance(query_gen_raw, bool) or query_gen_raw < 1:
+        issues.append(ValidationIssue(code="INVALID_QUERY_GENERATION", field="query_generation", detail=f"Invalid query generation: {query_gen_raw!r}"))
+        query_gen = 1
+    else:
+        query_gen = query_gen_raw
+
+    arrival_rev_raw = data.get("arrival_revision", 1)
+    if not isinstance(arrival_rev_raw, int) or isinstance(arrival_rev_raw, bool) or arrival_rev_raw < 1:
+        issues.append(ValidationIssue(code="INVALID_ARRIVAL_REVISION", field="arrival_revision", detail=f"Invalid arrival revision: {arrival_rev_raw!r}"))
+        arrival_rev = 1
+    else:
+        arrival_rev = arrival_rev_raw
+
+    raw_cands = data.get("earliest_candidates")
+    if raw_cands is None:
+        raw_cands = []
+    elif not isinstance(raw_cands, list):
+        issues.append(ValidationIssue(code="INVALID_CANDIDATES_LIST", field="earliest_candidates", detail=f"Expected list, got {type(raw_cands)}"))
+        raw_cands = []
+
+    decoded_cands: List[TerminalCandidate] = []
+    for idx, rc in enumerate(raw_cands):
+        c_res = decode_candidate(rc)
+        if not c_res.is_valid or not c_res.candidate:
+            issues.append(ValidationIssue(
+                code="CORRUPT_CANDIDATE",
+                field=f"earliest_candidates[{idx}]",
+                detail=f"Candidate failed decode: {c_res.reason}",
+            ))
+        else:
+            decoded_cands.append(c_res.candidate)
+
+    raw_int = data.get("processed_interval") or [0, 0]
+    if isinstance(raw_int, (list, tuple)) and len(raw_int) == 2 and is_finite_real(raw_int[0]) and is_finite_real(raw_int[1]):
+        p_int = (int(raw_int[0]), int(raw_int[1]))
+    else:
+        issues.append(ValidationIssue(code="INVALID_PROCESSED_INTERVAL", field="processed_interval", detail=f"Invalid interval: {raw_int!r}"))
+        p_int = (0, 0)
+
+    raw_ctx = data.get("validation_context")
+    if raw_ctx is None:
+        val_ctx = {}
+    elif isinstance(raw_ctx, dict):
+        val_ctx = dict(raw_ctx)
+    else:
+        issues.append(ValidationIssue(code="INVALID_VALIDATION_CONTEXT", field="validation_context", detail=f"Expected dict, got {type(raw_ctx)}"))
+        val_ctx = {}
+
+    raw_flags = data.get("conflict_flags")
+    conflict_flags = list(raw_flags) if isinstance(raw_flags, list) else []
+
+    raw_earliest_ts = data.get("earliest_source_ts")
+    if decoded_cands:
+        expected_min_ts = min(c.source_timestamp for c in decoded_cands)
+        if raw_earliest_ts != expected_min_ts:
+            issues.append(ValidationIssue(
+                code="EARLIEST_SOURCE_TS_MISMATCH",
+                field="earliest_source_ts",
+                detail=f"Stored ts {raw_earliest_ts} != min ts {expected_min_ts}",
+            ))
+        for idx, c in enumerate(decoded_cands):
+            if c.source_timestamp != expected_min_ts:
+                issues.append(ValidationIssue(
+                    code="CANDIDATE_NOT_IN_EARLIEST_GROUP",
+                    field=f"earliest_candidates[{idx}]",
+                    detail=f"Candidate ts {c.source_timestamp} != min ts {expected_min_ts}",
+                ))
+    else:
+        if raw_earliest_ts is not None:
+            issues.append(ValidationIssue(
+                code="EMPTY_CANDIDATES_WITH_NON_NULL_TS",
+                field="earliest_source_ts",
+                detail=f"Expected None for empty candidates, got {raw_earliest_ts}",
+            ))
+
+    reasons = [iss.code for iss in issues]
+    all_flags = list(conflict_flags) + reasons
+
+    acc = CandidateAccumulator(
+        schema_version=schema_ver,
+        window_id=window_id,
+        query_generation=query_gen,
+        arrival_revision=arrival_rev,
+        earliest_source_ts=raw_earliest_ts if not issues else None,
+        earliest_candidates=decoded_cands if not issues else [],
+        conflict_flags=all_flags,
+        processed_interval=p_int,
+        validation_context=val_ctx,
+    )
+
+    if issues:
+        return AccumulatorDecodeResult(
+            is_valid=False,
+            accumulator=acc,
+            issues=issues,
+            reasons=reasons,
+        )
+
+    return AccumulatorDecodeResult(is_valid=True, accumulator=acc)
 
 
 @dataclass(frozen=True)
@@ -239,27 +514,88 @@ class CandidateAccumulator:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> CandidateAccumulator:
-        if not isinstance(data, dict):
-            return cls()
-        raw_cands = data.get("earliest_candidates") or []
-        decoded_cands: List[TerminalCandidate] = []
-        for rc in raw_cands:
-            res = decode_candidate(rc)
-            if res.is_valid and res.candidate:
-                decoded_cands.append(res.candidate)
-        raw_int = data.get("processed_interval") or [0, 0]
-        p_int = (int(raw_int[0]), int(raw_int[1])) if len(raw_int) == 2 else (0, 0)
-        return cls(
-            schema_version=str(data.get("schema_version", "1.0.0")),
-            window_id=str(data.get("window_id", "")),
-            query_generation=int(data.get("query_generation", 1) or 1),
-            arrival_revision=int(data.get("arrival_revision", 1) or 1),
-            earliest_source_ts=data.get("earliest_source_ts"),
-            earliest_candidates=decoded_cands,
-            conflict_flags=list(data.get("conflict_flags") or []),
-            processed_interval=p_int,
-            validation_context=dict(data.get("validation_context") or {}),
-        )
+        res = decode_candidate_accumulator(data)
+        if res.accumulator:
+            return res.accumulator
+        return cls(conflict_flags=["CORRUPT_ACCUMULATOR_PAYLOAD"])
+
+
+def build_reconciliation_context(
+    window: OrderReconciliationWindow,
+    progress: Optional[EvidenceProgress] = None,
+) -> Dict[str, Any]:
+    cutoff = progress.scan_cutoff if (progress and progress.scan_cutoff > 0) else window.end_as_of
+    rev = progress.arrival_revision if progress else 1
+    direction = getattr(window.order, "direction", "LONG") if window.order else "LONG"
+    return {
+        "order_id": window.order_id,
+        "window_id": window.order_id,
+        "symbol": window.symbol,
+        "direction": direction,
+        "opened_at": window.opened_at,
+        "scan_cutoff": cutoff,
+        "source_epoch": window.source_epoch,
+        "query_generation": 1,
+        "arrival_revision": rev,
+        "exit_policy_version": "1.0.0",
+    }
+
+
+def validate_candidate_context(
+    candidate: TerminalCandidate,
+    window: OrderReconciliationWindow,
+    context: Optional[Dict[str, Any]] = None,
+) -> ValidationResult:
+    issues: List[ValidationIssue] = []
+    expected_order_id = str(window.order.id if window.order else window.order_id)
+    if candidate.order_id != expected_order_id:
+        issues.append(ValidationIssue(
+            code="ORDER_ID_MISMATCH",
+            field="order_id",
+            detail=f"Candidate order {candidate.order_id} != window order {expected_order_id}",
+        ))
+    if candidate.source_timestamp < window.opened_at:
+        issues.append(ValidationIssue(
+            code="TIMESTAMP_BEFORE_ORDER_OPEN",
+            field="source_timestamp",
+            detail=f"Candidate ts {candidate.source_timestamp} < opened_at {window.opened_at}",
+        ))
+    if candidate.epoch != window.source_epoch:
+        issues.append(ValidationIssue(
+            code="EPOCH_MISMATCH",
+            field="epoch",
+            detail=f"Candidate epoch {candidate.epoch} != window epoch {window.source_epoch}",
+        ))
+    if candidate.source == "UNKNOWN":
+        issues.append(ValidationIssue(
+            code="UNKNOWN_PROVENANCE_SOURCE",
+            field="source",
+            detail="Candidate has UNKNOWN provenance source",
+        ))
+    return ValidationResult(is_valid=len(issues) == 0, issues=issues)
+
+
+def validate_accumulator_context(
+    accumulator: CandidateAccumulator,
+    window: OrderReconciliationWindow,
+    context: Optional[Dict[str, Any]] = None,
+) -> ValidationResult:
+    issues: List[ValidationIssue] = []
+    expected_order_id = str(window.order.id if window.order else window.order_id)
+    if accumulator.window_id and accumulator.window_id != expected_order_id:
+        issues.append(ValidationIssue(
+            code="WINDOW_ID_MISMATCH",
+            field="window_id",
+            detail=f"Accumulator window_id {accumulator.window_id} != expected {expected_order_id}",
+        ))
+    if accumulator.conflict_flags:
+        for flag in accumulator.conflict_flags:
+            issues.append(ValidationIssue(code=flag, field="conflict_flags"))
+    for cand in accumulator.earliest_candidates:
+        c_val = validate_candidate_context(cand, window, context)
+        if not c_val.is_valid:
+            issues.extend(c_val.issues)
+    return ValidationResult(is_valid=len(issues) == 0, issues=issues)
 
 
 @dataclass(frozen=True)
@@ -274,13 +610,15 @@ def merge_candidate_accumulator(
     new_candidates: List[TerminalCandidate],
     window_context: Optional[Dict[str, Any]] = None,
 ) -> CandidateAccumulator:
-    """Pure, deterministic merge of TerminalCandidates preserving earliest terminal group.
-    PHẦN 014, 015, 066:
-    - Deduplicates by evidence_id.
-    - Preserves earliest terminal group: if new candidate has earlier timestamp, replaces earliest group.
-    - If new candidate has equal timestamp, retains distinct causes (e.g. SL and TP ambiguity).
-    - Later candidates are discarded (do NOT overwrite early candidates).
-    """
+    res = merge_candidate_accumulator_with_result(previous, new_candidates, window_context)
+    return res.accumulator
+
+
+def merge_candidate_accumulator_with_result(
+    previous: Optional[CandidateAccumulator],
+    new_candidates: List[TerminalCandidate],
+    window_context: Optional[Dict[str, Any]] = None,
+) -> AccumulatorMergeResult:
     ctx = dict(window_context or {})
     w_id = ctx.get("window_id", "")
     query_gen = ctx.get("query_generation", 1)
@@ -298,33 +636,57 @@ def merge_candidate_accumulator(
     if previous.window_id and w_id and previous.window_id != w_id:
         conflict_flags.append(f"WINDOW_ID_MISMATCH:{previous.window_id}!={w_id}")
 
-    all_cands: List[TerminalCandidate] = list(previous.earliest_candidates) + list(new_candidates)
+    validated_new: List[TerminalCandidate] = []
+    for c in new_candidates:
+        if w_id and c.order_id != w_id:
+            conflict_flags.append(f"ORDER_ID_MISMATCH:{c.order_id}!={w_id}")
+        else:
+            validated_new.append(c)
 
-    seen_ids: Set[str] = set()
-    unique_cands: List[TerminalCandidate] = []
+    all_cands: List[TerminalCandidate] = list(previous.earliest_candidates) + validated_new
+
+    seen_map: Dict[str, TerminalCandidate] = {}
+    conflict_detected = False
     for c in all_cands:
-        if c.evidence_id not in seen_ids:
-            seen_ids.add(c.evidence_id)
-            unique_cands.append(c)
+        if c.evidence_id in seen_map:
+            prior_c = seen_map[c.evidence_id]
+            if (
+                prior_c.order_id != c.order_id
+                or prior_c.cause != c.cause
+                or prior_c.source_timestamp != c.source_timestamp
+                or prior_c.executable_price != c.executable_price
+                or prior_c.epoch != c.epoch
+            ):
+                conflict_flags.append(f"EVIDENCE_ID_CONFLICT:{c.evidence_id}")
+                conflict_detected = True
+        else:
+            seen_map[c.evidence_id] = c
 
-    if not unique_cands:
-        return CandidateAccumulator(
+    unique_cands = list(seen_map.values())
+
+    if not unique_cands or conflict_detected or len(conflict_flags) > 0:
+        acc = CandidateAccumulator(
             schema_version="1.0.0",
             window_id=previous.window_id or w_id,
             query_generation=query_gen,
             arrival_revision=arrival_rev,
-            earliest_source_ts=None,
-            earliest_candidates=[],
+            earliest_source_ts=previous.earliest_source_ts if not conflict_detected and not conflict_flags else None,
+            earliest_candidates=[] if (conflict_detected or conflict_flags) else previous.earliest_candidates,
             conflict_flags=conflict_flags,
             processed_interval=previous.processed_interval,
             validation_context=ctx,
+        )
+        return AccumulatorMergeResult(
+            is_valid=len(conflict_flags) == 0,
+            accumulator=acc,
+            reasons=conflict_flags,
         )
 
     min_ts = min(c.source_timestamp for c in unique_cands)
     earliest_group = [c for c in unique_cands if c.source_timestamp == min_ts]
     earliest_group.sort(key=lambda c: (c.source_timestamp, c.evidence_id))
 
-    return CandidateAccumulator(
+    acc = CandidateAccumulator(
         schema_version="1.0.0",
         window_id=previous.window_id or w_id,
         query_generation=query_gen,
@@ -335,16 +697,11 @@ def merge_candidate_accumulator(
         processed_interval=previous.processed_interval,
         validation_context=ctx,
     )
-
-
-def merge_candidate_accumulator_with_result(
-    previous: Optional[CandidateAccumulator],
-    new_candidates: List[TerminalCandidate],
-    window_context: Optional[Dict[str, Any]] = None,
-) -> AccumulatorMergeResult:
-    acc = merge_candidate_accumulator(previous, new_candidates, window_context)
-    is_valid = len(acc.conflict_flags) == 0
-    return AccumulatorMergeResult(is_valid=is_valid, accumulator=acc, reasons=acc.conflict_flags)
+    return AccumulatorMergeResult(
+        is_valid=len(conflict_flags) == 0,
+        accumulator=acc,
+        reasons=conflict_flags,
+    )
 
 
 @dataclass(frozen=True)
@@ -564,7 +921,17 @@ class CycleBudget:
         return self.windows_processed < self.max_windows
 
     def can_start_window_read(self) -> bool:
-        return self.allows_window() and self.allows_page()
+        return self.allows_window() and self.allows_page() and self.remaining_records() > 0
+
+    def remaining_records(self) -> int:
+        if self.max_records <= 0:
+            return 0
+        return max(0, self.max_records - self.records_processed)
+
+    def remaining_pages(self) -> int:
+        if self.max_pages <= 0:
+            return 0
+        return max(0, self.max_pages - self.pages_processed)
 
     def record_page(self, count: int):
         self.pages_processed += 1
@@ -765,6 +1132,31 @@ def resolve_reconciliation_window(
     if not candidates:
         return ResolutionDecision(action="NONE", reason_code="NO_CANDIDATE")
 
+    # Defense: Validate candidate integrity and order identity (PHẦN 041)
+    for c in candidates:
+        if c.order_id != order.id:
+            return ResolutionDecision(
+                action="REVIEW_REQUIRED",
+                candidate=None,
+                reason_code="CANDIDATE_ORDER_ID_MISMATCH",
+                details={"expected_order_id": order.id, "candidate_order_id": c.order_id},
+            )
+        if not is_finite_real(c.executable_price) or c.executable_price <= 0:
+            return ResolutionDecision(
+                action="REVIEW_REQUIRED",
+                candidate=None,
+                reason_code="CANDIDATE_PRICE_INVALID",
+                details={"executable_price": c.executable_price},
+            )
+        opened_at_val = getattr(order, "opened_at", None) or 0
+        if c.source_timestamp < opened_at_val:
+            return ResolutionDecision(
+                action="REVIEW_REQUIRED",
+                candidate=None,
+                reason_code="CANDIDATE_TIMESTAMP_BEFORE_OPEN",
+                details={"opened_at": opened_at_val, "candidate_ts": c.source_timestamp},
+            )
+
     first_cand = candidates[0]
 
     # Check if order is already closed
@@ -907,25 +1299,36 @@ def save_scan_progress(
 
 
 def load_window_progress(db: Session, window_id: str) -> Optional[EvidenceProgress]:
-    """PHẦN 032, 086, 088: Loads evidence progress for a specific reconciliation window."""
+    """PHẦN 032, 038, 086, 088: Loads evidence progress with key collision protection."""
     key = f"ev_prog:{window_id}"[:50]
     rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
     if not rec or not rec.value:
         return None
     try:
         data = json.loads(rec.value)
+        # PHẦN 038: Detect key truncation collision
+        stored_id = data.get("window_id")
+        if stored_id and stored_id != window_id:
+            logger.warning(f"Key collision detected: stored {stored_id} != requested {window_id}")
+            return None
         return EvidenceProgress.from_dict(data)
     except Exception:
         return None
 
 
 def save_window_progress(db: Session, progress: EvidenceProgress) -> bool:
-    """PHẦN 032, 086, 088: Persists evidence progress for a specific reconciliation window."""
+    """PHẦN 023, 032, 086, 088: Persists evidence progress for a specific reconciliation window."""
     key = f"ev_prog:{progress.window_id}"[:50]
     rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     progress.updated_at = now_ms
-    val_json = json.dumps(progress.to_dict())
+    try:
+        # PHẦN 023: Disallow NaN/Infinity serialization
+        val_json = json.dumps(progress.to_dict(), allow_nan=False)
+    except (ValueError, TypeError) as e:
+        logger.error(f"Failed to serialize progress with allow_nan=False for {key}: {e}")
+        return False
+
     if not rec:
         rec = models.SystemConfig(key=key, value=val_json, updated_at=now_ms)
         db.add(rec)
@@ -1467,19 +1870,26 @@ def process_window_slice(
     if budget is None:
         budget = CycleBudget()
 
-    context = {
-        "window_id": window.order_id,
-        "symbol": window.symbol,
-        "direction": getattr(window.order, "direction", "LONG"),
-        "opened_at": window.opened_at,
-        "end_as_of": window.end_as_of,
-        "source_epoch": window.source_epoch,
-        "query_generation": 1,
-        "arrival_revision": progress.arrival_revision,
-    }
+    context = build_reconciliation_context(window, progress)
 
-    # Preflight zero / exhausted budget check (PHẦN 023, 024, 070, 088)
-    if not budget.allows_page():
+    # Validate injected progress and accumulator context (PHẦN 032, 040)
+    if progress and progress.accumulator:
+        acc_ctx_val = validate_accumulator_context(progress.accumulator, window, context)
+        if not acc_ctx_val.is_valid:
+            progress.read_status = "REPLAY_NEEDED"
+            save_window_progress(db, progress)
+            return WindowSliceResult(
+                progressed=False,
+                has_more=False,
+                next_progress=progress,
+                read_complete=False,
+                decision=None,
+                reasons=[iss.code for iss in acc_ctx_val.issues],
+                processed_count=0,
+            )
+
+    # Preflight zero / exhausted budget check (PHẦN 023, 024, 046, 047, 070, 088)
+    if not budget.allows_page() or budget.remaining_records() <= 0:
         return WindowSliceResult(
             progressed=False,
             has_more=True,
@@ -1497,27 +1907,54 @@ def process_window_slice(
     records_before = budget.records_processed
 
     while budget.allows_page():
+        rem_records = budget.remaining_records()
+        if rem_records <= 0:
+            has_more = True
+            break
+        effective_limit = min(page_size, rem_records)
+        if effective_limit <= 0:
+            has_more = True
+            break
+
         cutoff_ms = progress.scan_cutoff if progress.scan_cutoff > 0 else window.end_as_of
         page = load_persisted_window_evidence(
             db,
             window,
             as_of_ms=cutoff_ms,
-            limit=page_size,
+            limit=effective_limit,
             cursor=current_cursor,
         )
+        # Empty page also costs 1 page query (PHẦN 050)
+        budget.record_page(len(page.items))
+
         if page.items:
             all_evidence.extend(page.items)
-            budget.record_page(len(page.items))
             if window.order:
                 page_candidates = collect_terminal_candidates(window.order, page.items)
-                accumulator = merge_candidate_accumulator(accumulator, page_candidates, context)
+                merge_res = merge_candidate_accumulator_with_result(accumulator, page_candidates, context)
+                if not merge_res.is_valid:
+                    # Invalid merge: fail closed, mark REPLAY_NEEDED
+                    progress.read_status = "REPLAY_NEEDED"
+                    save_window_progress(db, progress)
+                    return WindowSliceResult(
+                        progressed=False,
+                        has_more=False,
+                        next_progress=progress,
+                        read_complete=False,
+                        decision=None,
+                        reasons=merge_res.reasons,
+                        processed_count=budget.records_processed - records_before,
+                    )
+                accumulator = merge_res.accumulator
 
         current_cursor = page.next_cursor
-        if not page.next_cursor or not page.items or len(page.items) < page_size:
+        if page.next_cursor is None:
             has_more = False
             break
         else:
             has_more = True
+            if not budget.allows_page() or budget.remaining_records() <= 0:
+                break
 
     now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
     cand_refs = [c.evidence_id for c in accumulator.earliest_candidates] if accumulator else []
@@ -1552,6 +1989,29 @@ def process_window_slice(
             read_complete=False,
             decision=None,
             reasons=["RECONCILIATION_BUDGET_EXHAUSTED"] if records_in_slice > 0 else ["NO_BUDGET"],
+            processed_count=records_in_slice,
+        )
+
+    # Check if accumulator has conflict flags before completing (PHẦN 024, 033)
+    if accumulator and accumulator.conflict_flags:
+        new_progress = EvidenceProgress(
+            window_id=window.order_id,
+            source_cursor=current_cursor,
+            arrival_revision=progress.arrival_revision,
+            scan_cutoff=progress.scan_cutoff,
+            candidate_refs=[],
+            read_status="REPLAY_NEEDED",
+            updated_at=now_ms,
+            accumulator=accumulator,
+        )
+        save_window_progress(db, new_progress)
+        return WindowSliceResult(
+            progressed=records_in_slice > 0,
+            has_more=False,
+            next_progress=new_progress,
+            read_complete=False,
+            decision=None,
+            reasons=list(accumulator.conflict_flags),
             processed_count=records_in_slice,
         )
 
@@ -1599,12 +2059,25 @@ def persist_resolution_or_review(
     window: OrderReconciliationWindow,
     decision: ResolutionDecision,
 ) -> ResolutionApplyResult:
-    """PHẦN 090: Persists resolution decision atomically or appends audit for review."""
+    """PHẦN 043, 044, 090: Persists resolution decision atomically or appends audit for review."""
     if not window.order:
         return ResolutionApplyResult(action=decision.action, applied=False, committed=False)
 
     if decision.action == "CLOSE" and decision.candidate:
         cand = decision.candidate
+        # Apply boundary defense (PHẦN 043)
+        if (
+            cand.order_id != window.order.id
+            or not is_finite_real(cand.executable_price)
+            or cand.executable_price <= 0
+            or cand.source_timestamp < (getattr(window.order, "opened_at", 0) or 0)
+        ):
+            logger.error(
+                f"Apply boundary rejected invalid candidate for order {window.order.id}: "
+                f"cand_order={cand.order_id}, price={cand.executable_price}, ts={cand.source_timestamp}"
+            )
+            return ResolutionApplyResult(action="CLOSE", applied=False, committed=False)
+
         confidence = "SIMULATED_AMBIGUOUS" if cand.cause == "AMBIGUOUS_BAR_SL_FIRST" else "CONFIRMED_TICK"
         TradeLifecycleService.execute_close(
             db=db,
@@ -1746,7 +2219,9 @@ class MarketReconciliationService:
             scheduler.window_cursor = last_fully_handled_cursor
             scheduler.resume_window_id = unfinished_window_id
 
-        save_scan_progress(db, scheduler, scan_scope="default")
+        save_res = save_scan_progress(db, scheduler, scan_scope="default")
+        if not save_res.success:
+            logger.error(f"Failed to save scheduler scan progress for {symbol}: {save_res.reason}")
 
         if committed_ids:
             quote_ordering_service.acknowledge_late_evidence(symbol, evidence_ids=committed_ids)
