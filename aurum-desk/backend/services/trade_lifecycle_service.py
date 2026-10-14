@@ -141,8 +141,13 @@ class TradeLifecycleService:
                 order.state = "rejected"
                 order.invalidation_reason = "Đã có vị thế đang mở (giới hạn tối đa 1 vị thế)"
                 order.closed_at = current_time
-                db.commit()
-                return order
+                try:
+                    db.commit()
+                    return order
+                except Exception as e:
+                    db.rollback()
+                    logger.error(f"Commit failed rejecting fill for {order.id}: {e}")
+                    return None
             else:
                 db.refresh(order)
                 return order
@@ -218,17 +223,28 @@ class TradeLifecycleService:
             occurred_at=current_time
         )
 
-        # V14.4.13: Update forward session membership status to FILLED if bound
+        # V14.4.14: Stage forward session membership status update to FILLED if bound
+        from services.forward_paper_service import stage_forward_membership_status
         try:
-            from services.forward_paper_service import update_order_forward_membership_status
-            update_order_forward_membership_status(db, order.id, "FILLED", now_ms=current_time)
-        except Exception:
-            pass
+            stage_res = stage_forward_membership_status(db, order.id, "FILLED", now_ms=current_time)
+            if stage_res.tracking_repair_needed:
+                logger.warning(
+                    f"Forward membership tracking repair needed for order {order.id}: {stage_res.reason_codes}"
+                )
+        except Exception as e:
+            db.rollback()
+            logger.error(f"execute_fill aborted due to membership staging failure for order {order.id}: {e}")
+            return None
 
-        # 7. Commit atomically at boundary
-        db.commit()
-        db.refresh(order)
-        return order
+        # 7. Commit atomically at boundary (owner transaction)
+        try:
+            db.commit()
+            db.refresh(order)
+            return order
+        except Exception as e:
+            db.rollback()
+            logger.error(f"execute_fill failed to commit for order {order.id}: {e}", exc_info=True)
+            return None
 
     @staticmethod
     def execute_reject(
@@ -271,16 +287,27 @@ class TradeLifecycleService:
                 watch_setup.invalidation_reason = reason
                 watch_setup.updated_at = current_time
 
-        # V14.4.13: Update forward session membership status to REJECTED if bound
+        # V14.4.14: Stage forward session membership status to REJECTED if bound
+        from services.forward_paper_service import stage_forward_membership_status
         try:
-            from services.forward_paper_service import update_order_forward_membership_status
-            update_order_forward_membership_status(db, order.id, "REJECTED", now_ms=current_time)
-        except Exception:
-            pass
+            stage_res = stage_forward_membership_status(db, order.id, "REJECTED", now_ms=current_time)
+            if stage_res.tracking_repair_needed:
+                logger.warning(
+                    f"Forward membership tracking repair needed for order {order.id}: {stage_res.reason_codes}"
+                )
+        except Exception as e:
+            db.rollback()
+            logger.error(f"execute_reject aborted due to membership staging failure for order {order.id}: {e}")
+            return None
 
-        db.commit()
-        db.refresh(order)
-        return order
+        try:
+            db.commit()
+            db.refresh(order)
+            return order
+        except Exception as e:
+            db.rollback()
+            logger.error(f"execute_reject failed to commit for order {order.id}: {e}", exc_info=True)
+            return None
 
     @staticmethod
     def execute_close(
@@ -422,16 +449,27 @@ class TradeLifecycleService:
             occurred_at=current_time
         )
 
-        # V14.4.13: Update forward session membership status to CLOSED if bound
+        # V14.4.14: Stage forward session membership status to CLOSED if bound
+        from services.forward_paper_service import stage_forward_membership_status
         try:
-            from services.forward_paper_service import update_order_forward_membership_status
-            update_order_forward_membership_status(db, order.id, "CLOSED", now_ms=current_time)
-        except Exception:
-            pass
+            stage_res = stage_forward_membership_status(db, order.id, "CLOSED", now_ms=current_time)
+            if stage_res.tracking_repair_needed:
+                logger.warning(
+                    f"Forward membership tracking repair needed for order {order.id}: {stage_res.reason_codes}"
+                )
+        except Exception as e:
+            db.rollback()
+            logger.error(f"execute_close aborted due to membership staging failure for order {order.id}: {e}")
+            return None
 
-        db.commit()
-        db.refresh(order)
-        return order
+        try:
+            db.commit()
+            db.refresh(order)
+            return order
+        except Exception as e:
+            db.rollback()
+            logger.error(f"execute_close failed to commit for order {order.id}: {e}", exc_info=True)
+            return None
 
     @staticmethod
     def process_exit_tick(

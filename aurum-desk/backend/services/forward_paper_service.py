@@ -20,7 +20,7 @@ import os
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
 
@@ -133,6 +133,27 @@ class ForwardOrderMembership:
             membership_status=str(data.get("membership_status") or "ARMED"),
             metadata=dict(data.get("metadata") or {}),
         )
+
+
+@dataclass(frozen=True)
+class MembershipStageResult:
+    status: str  # "STAGED", "ALREADY_APPLIED", "NOT_BOUND", "DATA_INVALID", "CONFLICTING_MEMBERSHIP", "SESSION_NOT_FOUND", "SESSION_INACTIVE", "INVALID_ORDER"
+    order_id: str
+    forward_session_id: Optional[str] = None
+    membership: Optional[ForwardOrderMembership] = None
+    reason_codes: List[str] = field(default_factory=list)
+    tracking_repair_needed: bool = False
+
+
+@dataclass(frozen=True)
+class RecoveryOutcomeAuthority:
+    status: str  # "VERIFIED_PAPER", "UNVERIFIED", "CONSERVATIVE_SIMULATION", "UNRESOLVED", "CONFLICTED"
+    confidence: Optional[str] = None
+    recovery_status: Optional[str] = None
+    exit_mode: str = "NORMAL"  # "NORMAL", "RECOVERY", "MANUAL", "SIMULATION"
+    countable_for_confirmed: bool = False
+    terminal_event_id: Optional[str] = None
+    reason_codes: List[str] = field(default_factory=list)
 
 
 def save_forward_session(db: Session, config: ForwardSessionConfig) -> bool:
@@ -326,7 +347,107 @@ def _append_session_order_id(db: Session, session_id: str, order_id: str, now_ms
     return True
 
 
-def bind_order_to_forward_session(
+def prepare_membership_update_payload(
+    existing_payload: Any,
+    new_status: str,
+    now_ms: int,
+) -> Tuple[bool, Optional[str], List[str]]:
+    """PHẦN 021: Pure parse, schema, identity, and status validation without ORM mutation.
+    Returns (is_valid, serialized_payload, reason_codes).
+    """
+    if isinstance(existing_payload, str):
+        try:
+            data = json.loads(existing_payload)
+        except Exception:
+            return False, None, ["CORRUPT_MEMBERSHIP_JSON"]
+    elif isinstance(existing_payload, dict):
+        data = dict(existing_payload)
+    else:
+        return False, None, ["INVALID_MEMBERSHIP_PAYLOAD_TYPE"]
+
+    if not isinstance(data, dict):
+        return False, None, ["ROOT_PAYLOAD_NOT_DICT"]
+
+    order_id = data.get("order_id")
+    if not order_id or not isinstance(order_id, str):
+        return False, None, ["MISSING_OR_INVALID_ORDER_ID"]
+
+    session_id = data.get("forward_session_id")
+    if not session_id or not isinstance(session_id, str):
+        return False, None, ["MISSING_OR_INVALID_FORWARD_SESSION_ID"]
+
+    valid_statuses = {"BOUND", "ARMED", "FILLED", "CLOSED", "REJECTED", "CANCELLED", "EXPIRED"}
+    if new_status not in valid_statuses:
+        return False, None, [f"INVALID_NEW_STATUS_{new_status}"]
+
+    data["membership_status"] = new_status
+    data["updated_at_ms"] = now_ms
+
+    try:
+        serialized = json.dumps(data, allow_nan=False)
+        return True, serialized, []
+    except Exception as e:
+        return False, None, [f"SERIALIZATION_FAILED: {e}"]
+
+
+def stage_forward_membership_status(
+    db: Session,
+    order_id: str,
+    new_status: str,
+    now_ms: Optional[int] = None,
+) -> MembershipStageResult:
+    """PHẦN 018, 020, 022: Stages forward session membership status update under caller's transaction.
+    Guarantees:
+    - Never calls db.commit() or db.rollback().
+    - Pure validation errors return DATA_INVALID with tracking_repair_needed=True without failing parent session.
+    - SQL/autoflush exceptions propagate to caller (transaction owner) so owner can handle rollback.
+    """
+    now_ms = now_ms if now_ms is not None else int(datetime.now(timezone.utc).timestamp() * 1000)
+    mem_key = f"fwd_mem:{order_id}"[:50]
+    rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == mem_key).first()
+    if not rec or not rec.value:
+        return MembershipStageResult(
+            status="NOT_BOUND",
+            order_id=order_id,
+            reason_codes=["NOT_BOUND"],
+        )
+
+    # Check if already applied
+    sess_id = None
+    try:
+        raw_dict = json.loads(rec.value)
+        if isinstance(raw_dict, dict):
+            sess_id = raw_dict.get("forward_session_id")
+            if raw_dict.get("membership_status") == new_status:
+                return MembershipStageResult(
+                    status="ALREADY_APPLIED",
+                    order_id=order_id,
+                    forward_session_id=sess_id,
+                )
+    except Exception:
+        pass
+
+    is_valid, serialized, reasons = prepare_membership_update_payload(rec.value, new_status, now_ms)
+    if not is_valid or not serialized:
+        return MembershipStageResult(
+            status="DATA_INVALID",
+            order_id=order_id,
+            forward_session_id=sess_id,
+            reason_codes=reasons,
+            tracking_repair_needed=True,
+        )
+
+    rec.value = serialized
+    rec.updated_at = now_ms
+    db.flush()
+    return MembershipStageResult(
+        status="STAGED",
+        order_id=order_id,
+        forward_session_id=sess_id,
+    )
+
+
+def stage_forward_membership_binding(
     db: Session,
     session_id: str,
     order: models.PaperOrder,
@@ -334,33 +455,54 @@ def bind_order_to_forward_session(
     config_revision: int = 1,
     runtime_commit: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
-    """PHẦN 021, 022: Explicitly binds a PaperOrder to an active forward session.
+) -> MembershipStageResult:
+    """PHẦN 018, 020, 023: Stages forward session membership binding under caller's transaction.
     Guarantees:
-    - Target session must exist and be ACTIVE.
-    - Idempotent: repeated binding of same order/session returns ALREADY_BOUND.
-    - Preserves PaperOrder.session_instance_id (never overwrites trading session identity).
-    - Stores durable membership record in SystemConfig.
+    - Never calls db.commit() or db.rollback().
+    - Validates target session and order.
+    - Idempotent: repeated binding of same order/session returns ALREADY_APPLIED.
+    - Stages membership and session order-ID index together in same transaction.
     """
     now_ms = now_ms if now_ms is not None else int(datetime.now(timezone.utc).timestamp() * 1000)
     sess = load_forward_session(db, session_id)
     if not sess:
-        return {"success": False, "status": "SESSION_NOT_FOUND", "reason": f"Forward session {session_id} not found"}
+        return MembershipStageResult(
+            status="SESSION_NOT_FOUND",
+            order_id=getattr(order, "id", "") or "",
+            forward_session_id=session_id,
+            reason_codes=[f"Forward session {session_id} not found"],
+        )
     if sess.status != "ACTIVE":
-        return {"success": False, "status": "SESSION_INACTIVE", "reason": f"Forward session {session_id} is {sess.status}"}
+        return MembershipStageResult(
+            status="SESSION_INACTIVE",
+            order_id=getattr(order, "id", "") or "",
+            forward_session_id=session_id,
+            reason_codes=[f"Forward session {session_id} is {sess.status}"],
+        )
     if not order or not getattr(order, "id", None):
-        return {"success": False, "status": "INVALID_ORDER", "reason": "Missing paper order or order id"}
+        return MembershipStageResult(
+            status="INVALID_ORDER",
+            order_id="",
+            forward_session_id=session_id,
+            reason_codes=["Missing paper order or order id"],
+        )
 
     # Check existing membership
     existing = get_order_forward_membership(db, order.id)
     if existing:
         if existing.forward_session_id == session_id:
-            return {"success": True, "status": "ALREADY_BOUND", "membership": existing}
-        return {
-            "success": False,
-            "status": "CONFLICTING_MEMBERSHIP",
-            "reason": f"Order {order.id} is already bound to forward session {existing.forward_session_id}",
-        }
+            return MembershipStageResult(
+                status="ALREADY_APPLIED",
+                order_id=order.id,
+                forward_session_id=session_id,
+                membership=existing,
+            )
+        return MembershipStageResult(
+            status="CONFLICTING_MEMBERSHIP",
+            order_id=order.id,
+            forward_session_id=existing.forward_session_id,
+            reason_codes=[f"Order {order.id} is already bound to forward session {existing.forward_session_id}"],
+        )
 
     resolved_commit = runtime_commit or sess.strategy_commit or _resolve_runtime_commit()
     initial_status = "ARMED" if getattr(order, "state", "") == "armed" else "BOUND"
@@ -386,10 +528,59 @@ def bind_order_to_forward_session(
         rec.updated_at = now_ms
 
     _append_session_order_id(db, session_id, order.id, now_ms)
+    db.flush()
+
+    return MembershipStageResult(
+        status="STAGED",
+        order_id=order.id,
+        forward_session_id=session_id,
+        membership=mem,
+    )
+
+
+def stage_order_to_active_forward_session(
+    db: Session,
+    order: models.PaperOrder,
+    now_ms: Optional[int] = None,
+) -> MembershipStageResult:
+    """Stage-only convenience: stages binding to currently active forward session if one exists."""
+    active = load_active_forward_session(db)
+    if not active:
+        return MembershipStageResult(
+            status="NOT_BOUND",
+            order_id=getattr(order, "id", "") or "",
+            reason_codes=["NO_ACTIVE_FORWARD_SESSION"],
+        )
+    return stage_forward_membership_binding(db, active.session_id, order, now_ms=now_ms)
+
+
+def bind_order_to_forward_session(
+    db: Session,
+    session_id: str,
+    order: models.PaperOrder,
+    now_ms: Optional[int] = None,
+    config_revision: int = 1,
+    runtime_commit: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """PHẦN 019: Standalone convenience wrapper: stages and commits binding in its own transaction."""
+    res = stage_forward_membership_binding(
+        db=db,
+        session_id=session_id,
+        order=order,
+        now_ms=now_ms,
+        config_revision=config_revision,
+        runtime_commit=runtime_commit,
+        metadata=metadata,
+    )
+    if res.status == "ALREADY_APPLIED":
+        return {"success": True, "status": "ALREADY_BOUND", "membership": res.membership}
+    if res.status != "STAGED":
+        return {"success": False, "status": res.status, "reason": (res.reason_codes or ["FAILED"])[0]}
 
     try:
         db.commit()
-        return {"success": True, "status": "BOUND", "membership": mem}
+        return {"success": True, "status": "BOUND", "membership": res.membership}
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to bind order {order.id} to forward session {session_id}: {e}")
@@ -401,7 +592,7 @@ def bind_order_to_active_forward_session(
     order: models.PaperOrder,
     now_ms: Optional[int] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Convenience helper: binds order to currently active forward session if one exists."""
+    """PHẦN 019: Standalone convenience helper: binds order to currently active forward session with commit."""
     active = load_active_forward_session(db)
     if not active:
         return None
@@ -414,24 +605,17 @@ def update_order_forward_membership_status(
     new_status: str,
     now_ms: Optional[int] = None,
 ) -> bool:
-    """Updates membership status (e.g. ARMED -> FILLED -> CLOSED)."""
-    now_ms = now_ms if now_ms is not None else int(datetime.now(timezone.utc).timestamp() * 1000)
-    mem_key = f"fwd_mem:{order_id}"[:50]
-    rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == mem_key).first()
-    if not rec or not rec.value:
-        return False
-    try:
-        data = json.loads(rec.value)
-        data["membership_status"] = new_status
-        data["updated_at_ms"] = now_ms
-        rec.value = json.dumps(data, allow_nan=False)
-        rec.updated_at = now_ms
-        db.commit()
-        return True
-    except Exception as e:
-        db.rollback()
-        logger.warning(f"Could not update forward membership status for {order_id}: {e}")
-        return False
+    """PHẦN 019: Standalone convenience helper: stages and commits membership status update."""
+    res = stage_forward_membership_status(db, order_id, new_status, now_ms=now_ms)
+    if res.status in ("STAGED", "ALREADY_APPLIED"):
+        try:
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            logger.warning(f"Could not commit forward membership status for {order_id}: {e}")
+            return False
+    return False
 
 
 def load_forward_session_orders(
@@ -466,19 +650,156 @@ def load_forward_session_orders(
 
 
 # ---------------------------------------------------------------------------
-# PHẦN 033–038: Outcome Classification & Truthful Denominator
+# PHẦN 004, 038–044: Outcome Authority & Classification
 # ---------------------------------------------------------------------------
+
+VALID_EXIT_CAUSES: Set[str] = {
+    "TP_HIT",
+    "SL_HIT",
+    "AMBIGUOUS_BAR_SL_FIRST",
+    "LIQUIDATED",
+    "LIQUIDATION",
+    "MANUAL",
+    "MANUAL_CLOSE",
+    "EXPIRY",
+    "GAP_SL",
+    "GAP_TP",
+    "SL_HIT_RECONCILED",
+    "TP_HIT_RECONCILED",
+}
+
+
+def read_outcome_authority(
+    order: models.PaperOrder,
+    terminal_event: Optional[Dict[str, Any]] = None,
+    review_record: Optional[Dict[str, Any]] = None,
+) -> RecoveryOutcomeAuthority:
+    """PHẦN 004, 038, 039, 040, 041, 042, 043:
+    Pure extraction of outcome authority from real ORM fields and provenance.
+    Categories:
+    - VERIFIED_PAPER: Valid normal paper close or verified recovery (CONFIRMED / CONFIRMED_TICK).
+    - CONSERVATIVE_SIMULATION: Conservative simulation (SIMULATED_AMBIGUOUS, ASSUMED_CONSERVATIVE, AMBIGUOUS_BAR_SL_FIRST).
+    - UNRESOLVED: Recovery status UNRESOLVED / UNRESOLVED_GAP / RECOVERING, or review pending.
+    - CONFLICTED: Terminal conflict review requiring manual review.
+    - UNVERIFIED: Missing exit metadata, invalid exit cause, or unverified recovery.
+    """
+    # 1. Active Review Record
+    if review_record:
+        rev_st = review_record.get("status")
+        if rev_st == "MANUAL_REVIEW_REQUIRED":
+            return RecoveryOutcomeAuthority(
+                status="CONFLICTED",
+                exit_mode="CONFLICT",
+                countable_for_confirmed=False,
+                reason_codes=["CONFLICT_REQUIRES_MANUAL_REVIEW"],
+            )
+        if rev_st in ("PENDING_REVIEW", "RETRY_SCHEDULED", "RETRYING"):
+            return RecoveryOutcomeAuthority(
+                status="UNRESOLVED",
+                exit_mode="REVIEW",
+                countable_for_confirmed=False,
+                reason_codes=review_record.get("reason_codes") or ["REVIEW_PENDING"],
+            )
+
+    # 2. State & Basic Closed Exit Metadata
+    state = getattr(order, "state", "") or ""
+    if state != "closed":
+        return RecoveryOutcomeAuthority(
+            status="UNVERIFIED",
+            exit_mode="NOT_CLOSED",
+            countable_for_confirmed=False,
+            reason_codes=[f"ORDER_NOT_CLOSED_{state}"],
+        )
+
+    closed_at = getattr(order, "closed_at", None)
+    exit_cause = getattr(order, "exit_cause", None)
+    if not closed_at or not exit_cause:
+        return RecoveryOutcomeAuthority(
+            status="UNVERIFIED",
+            exit_mode="UNVERIFIED",
+            countable_for_confirmed=False,
+            reason_codes=["UNVERIFIED_EXIT_METADATA"],
+        )
+
+    if exit_cause not in VALID_EXIT_CAUSES:
+        return RecoveryOutcomeAuthority(
+            status="UNVERIFIED",
+            exit_mode="UNVERIFIED",
+            countable_for_confirmed=False,
+            reason_codes=[f"INVALID_EXIT_CAUSE_{exit_cause}"],
+        )
+
+    # 3. Recovery Fields (real columns: recovery_status, recovery_confidence)
+    rec_status = getattr(order, "recovery_status", "NONE") or "NONE"
+    rec_conf = getattr(order, "recovery_confidence", None)
+
+    # If recovery_confidence is set to UNRESOLVED or recovery_status is unresolved:
+    if rec_conf == "UNRESOLVED" or rec_status in ("UNRESOLVED_GAP", "RECOVERING"):
+        return RecoveryOutcomeAuthority(
+            status="UNRESOLVED",
+            confidence=rec_conf,
+            recovery_status=rec_status,
+            exit_mode="RECOVERY",
+            countable_for_confirmed=False,
+            reason_codes=["UNRESOLVED_RECOVERY"],
+        )
+
+    # If conservative simulation:
+    if rec_conf in ("ASSUMED_CONSERVATIVE", "SIMULATED_AMBIGUOUS") or exit_cause == "AMBIGUOUS_BAR_SL_FIRST":
+        return RecoveryOutcomeAuthority(
+            status="CONSERVATIVE_SIMULATION",
+            confidence=rec_conf,
+            recovery_status=rec_status,
+            exit_mode="SIMULATION",
+            countable_for_confirmed=False,
+            reason_codes=["CONSERVATIVE_SIMULATION"],
+        )
+
+    # If verified recovery:
+    if rec_conf in ("CONFIRMED", "CONFIRMED_TICK"):
+        return RecoveryOutcomeAuthority(
+            status="VERIFIED_PAPER",
+            confidence=rec_conf,
+            recovery_status=rec_status,
+            exit_mode="RECOVERY",
+            countable_for_confirmed=True,
+            reason_codes=[],
+        )
+
+    # If recovery_confidence is None (normal live PAPER trade closed via execute_close)
+    if rec_conf is None:
+        exit_mode = "MANUAL" if exit_cause in ("MANUAL", "MANUAL_CLOSE") else "NORMAL"
+        return RecoveryOutcomeAuthority(
+            status="VERIFIED_PAPER",
+            confidence=None,
+            recovery_status=rec_status,
+            exit_mode=exit_mode,
+            countable_for_confirmed=True,
+            reason_codes=[],
+        )
+
+    # If an unknown/unsupported recovery_confidence string was recorded:
+    return RecoveryOutcomeAuthority(
+        status="UNVERIFIED",
+        confidence=rec_conf,
+        recovery_status=rec_status,
+        exit_mode="UNKNOWN",
+        countable_for_confirmed=False,
+        reason_codes=[f"UNKNOWN_RECOVERY_CONFIDENCE_{rec_conf}"],
+    )
+
 
 def classify_forward_outcome(
     order: models.PaperOrder,
     review_record: Optional[Dict[str, Any]] = None,
     as_of_ms: Optional[int] = None,
 ) -> Dict[str, Any]:
-    """PHẦN 034: Pure classification of an order's outcome.
+    """PHẦN 034, 044: Pure classification of an order's outcome using authoritative outcome extraction.
     Classifications:
     - CONFIRMED: Closed with valid authority, finite PnL, no unresolved conflict.
-    - UNVERIFIED: Closed but missing canonical exit cause or closed_at timestamp.
-    - REVIEW_PENDING: Has active background reconciliation review task.
+    - CONSERVATIVE_SIMULATION: Closed under ambiguous/conservative recovery assumption; excluded from clean confirmed denominator.
+    - UNVERIFIED: Closed but missing canonical exit cause or closed_at timestamp or unverified recovery.
+    - REVIEW_PENDING: Has active background reconciliation review task or unresolved recovery.
     - CONFLICTED: Has terminal conflicting evidence or requires manual review.
     - OPEN: Active paper_open position.
     - ARMED: Armed order waiting for trigger.
@@ -530,28 +851,6 @@ def classify_forward_outcome(
                     "reasons": ["CLOSED_AFTER_AS_OF"],
                 }
 
-        # Check review record status
-        if review_record:
-            rev_st = review_record.get("status")
-            if rev_st in ("PENDING_REVIEW", "RETRY_SCHEDULED", "RETRYING"):
-                return {
-                    "classification": "REVIEW_PENDING",
-                    "countable_for_confirmed": False,
-                    "outcome_type": None,
-                    "pnl": None,
-                    "r": None,
-                    "reasons": review_record.get("reason_codes") or ["REVIEW_PENDING"],
-                }
-            if rev_st == "MANUAL_REVIEW_REQUIRED":
-                return {
-                    "classification": "CONFLICTED",
-                    "countable_for_confirmed": False,
-                    "outcome_type": None,
-                    "pnl": None,
-                    "r": None,
-                    "reasons": ["CONFLICT_REQUIRES_MANUAL_REVIEW"],
-                }
-
         pnl = getattr(order, "realized_pnl_net", None)
         if pnl is None:
             return {
@@ -572,22 +871,49 @@ def classify_forward_outcome(
                 "reasons": ["NON_FINITE_REALIZED_PNL"],
             }
 
-        # Verify exit cause & closed_at authority
-        if not getattr(order, "closed_at", None) or not getattr(order, "exit_cause", None):
+        auth = read_outcome_authority(order, review_record=review_record)
+        r_val = getattr(order, "realized_r", None)
+        valid_r = r_val if (r_val is not None and math.isfinite(r_val)) else None
+        outcome = "WIN" if pnl > 0 else ("LOSS" if pnl < 0 else "BREAKEVEN")
+
+        if auth.status == "CONFLICTED":
+            return {
+                "classification": "CONFLICTED",
+                "countable_for_confirmed": False,
+                "outcome_type": None,
+                "pnl": None,
+                "r": None,
+                "reasons": auth.reason_codes or ["CONFLICTED"],
+            }
+        if auth.status == "UNRESOLVED":
+            return {
+                "classification": "REVIEW_PENDING",
+                "countable_for_confirmed": False,
+                "outcome_type": None,
+                "pnl": None,
+                "r": None,
+                "reasons": auth.reason_codes or ["UNRESOLVED"],
+            }
+        if auth.status == "CONSERVATIVE_SIMULATION":
+            return {
+                "classification": "CONSERVATIVE_SIMULATION",
+                "countable_for_confirmed": False,
+                "outcome_type": outcome,
+                "pnl": float(pnl),
+                "r": valid_r,
+                "reasons": auth.reason_codes or ["CONSERVATIVE_SIMULATION"],
+            }
+        if auth.status == "UNVERIFIED":
             return {
                 "classification": "UNVERIFIED",
                 "countable_for_confirmed": False,
                 "outcome_type": None,
                 "pnl": None,
                 "r": None,
-                "reasons": ["UNVERIFIED_EXIT_METADATA"],
+                "reasons": auth.reason_codes or ["UNVERIFIED"],
             }
 
-        # Valid confirmed trade outcome
-        outcome = "WIN" if pnl > 0 else ("LOSS" if pnl < 0 else "BREAKEVEN")
-        r_val = getattr(order, "realized_r", None)
-        valid_r = r_val if (r_val is not None and math.isfinite(r_val)) else None
-
+        # VERIFIED_PAPER
         return {
             "classification": "CONFIRMED",
             "countable_for_confirmed": True,
@@ -783,6 +1109,7 @@ def generate_forward_paper_report(
     armed_orders: List[models.PaperOrder] = []
     review_pending_orders: List[models.PaperOrder] = []
     unverified_orders: List[models.PaperOrder] = []
+    conservative_simulation_orders: List[models.PaperOrder] = []
     data_invalid_orders: List[models.PaperOrder] = []
 
     valid_r_list: List[float] = []
@@ -823,6 +1150,8 @@ def generate_forward_paper_report(
             armed_orders.append(o)
         elif cls_code in ("REVIEW_PENDING", "CONFLICTED"):
             review_pending_orders.append(o)
+        elif cls_code == "CONSERVATIVE_SIMULATION":
+            conservative_simulation_orders.append(o)
         elif cls_code == "UNVERIFIED":
             unverified_orders.append(o)
         elif cls_code == "DATA_INVALID":
@@ -952,7 +1281,8 @@ def generate_forward_paper_report(
         "pending_count": len(open_orders),
         "armed_count": len(armed_orders),
         "review_count": active_review_count,
-        "unverified_count": len(unverified_orders),
+        "unverified_count": len(unverified_orders) + len(conservative_simulation_orders),
+        "conservative_simulation_count": len(conservative_simulation_orders),
         "data_invalid_count": len(data_invalid_orders),
         "sample_status": sample_status,
         "strategy_breakdown": {
@@ -1034,3 +1364,7 @@ def export_forward_paper_data(
         return output.getvalue()
 
     return rows
+
+
+# Backward-compatible alias
+build_forward_session_report = generate_forward_paper_report

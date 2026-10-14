@@ -1,15 +1,15 @@
 {
   "overall": "PASS",
   "run_context": {
-    "run_id": "run_1791963476656",
-    "sha": "3a34b6b6a7fa3488c20805109d514887f31c8627",
-    "tested_sha": "3a34b6b6a7fa3488c20805109d514887f31c8627",
-    "tree_fingerprint": "0e615cc048efe7dafaa8ab3a696940b813c21a94",
-    "started_at_ms": 1791963476656,
+    "run_id": "run_1791980161491",
+    "sha": "e5d51ab5bd39fb8fa9dbfd5e32b08c56ee0fa003",
+    "tested_sha": "e5d51ab5bd39fb8fa9dbfd5e32b08c56ee0fa003",
+    "tree_fingerprint": "0c2e188435d08cc9301f8fea128be51b1fd5fc40",
+    "started_at_ms": 1791980161491,
     "environment": "mac",
     "required_schema": "1.0.0"
   },
-  "required_cases_count": 222,
+  "required_cases_count": 242,
   "case_coverage": {
     "D01": {
       "status": "PASS",
@@ -1120,6 +1120,106 @@
       "status": "PASS",
       "missing": [],
       "not_passed": {}
+    },
+    "MBR01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "MBR02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "MBR03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "AUTH01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "AUTH02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "DD01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REC01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REC02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REC03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REC04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "TXN01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "TXN02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "TXN03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "TXN04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "TXN05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "AUTH03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "AUTH04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "AUTH05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "AUTH06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "AUTH07": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
     }
   },
   "statuses": {
@@ -1135,14 +1235,14 @@
   "steps": {
     "backend_targeted": {
       "status": "PASS",
-      "summary": "457 passed, 1 warning in 29.20s",
+      "summary": "494 passed, 2 warnings in 16.64s",
       "failed": [],
       "unexpected_failures": [],
       "exit_code": 0,
-      "duration_s": 31.87,
-      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\backend_targeted.log",
+      "duration_s": 18.65,
+      "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/backend_targeted.log",
       "argv": [
-        "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
         "-m",
         "pytest",
         "tests/test_v14_4_2_financial_context_regression.py",
@@ -1194,19 +1294,25 @@
         "tests/test_v14_4_11_three_session_execution.py",
         "tests/test_v14_4_12_reconciliation_fair_review.py",
         "tests/test_v14_4_12_forward_paper_session.py",
+        "tests/test_v14_4_13_forward_membership.py",
+        "tests/test_v14_4_13_outcome_authority.py",
+        "tests/test_v14_4_13_drawdown.py",
+        "tests/test_v14_4_13_review_resolution.py",
+        "tests/test_v14_4_14_membership_transaction.py",
+        "tests/test_v14_4_14_outcome_authority.py",
         "-q",
         "-p",
         "no:cacheprovider",
-        "--junitxml=D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\backend_junit.xml"
+        "--junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/backend_junit.xml"
       ]
     },
     "frontend_typecheck": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 5.89,
-      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_typecheck.log",
+      "duration_s": 3.63,
+      "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_typecheck.log",
       "argv": [
-        "C:\\Program Files\\nodejs\\npx.CMD",
+        "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npx",
         "tsc",
         "-b"
       ]
@@ -1216,34 +1322,34 @@
       "warnings": 29,
       "errors": 0,
       "exit_code": 0,
-      "duration_s": 1.11,
-      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_lint.log",
+      "duration_s": 0.35,
+      "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_lint.log",
       "argv": [
-        "C:\\Program Files\\nodejs\\npx.CMD",
+        "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npx",
         "oxlint"
       ]
     },
     "frontend_vitest": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 3.63,
-      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_vitest.log",
+      "duration_s": 1.36,
+      "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_vitest.log",
       "argv": [
-        "C:\\Program Files\\nodejs\\npx.CMD",
+        "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npx",
         "vitest",
         "run",
         "--reporter=default",
         "--reporter=junit",
-        "--outputFile.junit=D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\vitest_junit.xml"
+        "--outputFile.junit=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/vitest_junit.xml"
       ]
     },
     "frontend_build": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 6.86,
-      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\frontend_build.log",
+      "duration_s": 4.51,
+      "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_build.log",
       "argv": [
-        "C:\\Program Files\\nodejs\\npm.CMD",
+        "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npm",
         "run",
         "build"
       ]
@@ -1251,8 +1357,8 @@
     "browser_e2e": {
       "status": "PASS",
       "playwright_stats": {
-        "startTime": "2026-10-14T07:38:51.683Z",
-        "duration": 217937.629,
+        "startTime": "2026-10-14T12:16:30.573Z",
+        "duration": 162802.356,
         "expected": 48,
         "skipped": 0,
         "unexpected": 0,
@@ -1260,10 +1366,10 @@
       },
       "executed_tests": 48,
       "exit_code": 0,
-      "duration_s": 219.45,
-      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\browser_e2e.log",
+      "duration_s": 163.35,
+      "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/browser_e2e.log",
       "argv": [
-        "C:\\Program Files\\nodejs\\npx.CMD",
+        "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npx",
         "playwright",
         "test",
         "tests/e2e/v14_4_2_chart_closure.e2e.ts",
@@ -1276,9 +1382,9 @@
     "benchmark": {
       "status": "PASS",
       "latency_ms": {
-        "p50": 13.552,
-        "p95": 19.365,
-        "max": 24.951,
+        "p50": 6.971,
+        "p95": 7.381,
+        "max": 7.663,
         "sample_count": 600
       },
       "not_measured": [],
@@ -1286,32 +1392,32 @@
         "pass": true,
         "status": "PASS",
         "errors": [],
-        "p95_ms": 19.365,
+        "p95_ms": 7.381,
         "cycles": 600,
-        "browser_p95_ms": 28.3,
-        "browser_events": 10062
+        "browser_p95_ms": 21.5,
+        "browser_events": 10060
       },
       "exit_code": 0,
-      "duration_s": 9.74,
-      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\benchmark.log",
+      "duration_s": 4.78,
+      "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/benchmark.log",
       "argv": [
-        "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
-        "D:\\build app-crypto\\aurum-desk\\tools\\run_v14_4_chart_acceptance.py",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/tools/run_v14_4_chart_acceptance.py",
         "--cycles",
         "600",
         "--run-id",
-        "run_1791963476656",
+        "run_1791980161491",
         "--tested-sha",
-        "3a34b6b6a7fa3488c20805109d514887f31c8627",
+        "e5d51ab5bd39fb8fa9dbfd5e32b08c56ee0fa003",
         "--out",
-        "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\benchmark.json"
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/benchmark.json"
       ]
     },
     "git_diff_check": {
       "status": "PASS",
       "exit_code": 0,
-      "duration_s": 0.13,
-      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v14_4_2\\git_diff_check.log",
+      "duration_s": 0.03,
+      "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/git_diff_check.log",
       "argv": [
         "git",
         "diff",
@@ -1328,5 +1434,5 @@
     "tests/test_v13_5_integrity_acceptance.py::test_01_integrity_pass_on_valid_inputs"
   ],
   "probability_research": "NOT_VERIFIED (no real out-of-sample dataset; metrics are null, not 0)",
-  "timestamp": "2026-10-14 14:43:08"
+  "timestamp": "2026-10-14 19:19:18"
 }

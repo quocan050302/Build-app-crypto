@@ -982,10 +982,10 @@ class StrategyService:
         db.add(new_order)
         watch_setup.state = "ARMED"
 
-        # V14.4.13: Bind armed order to active forward paper session if one is active
+        # V14.4.14: Stage armed order to active forward paper session if one is active
         try:
-            from services.forward_paper_service import bind_order_to_active_forward_session
-            bind_order_to_active_forward_session(db, new_order, now_ms=now_ms)
+            from services.forward_paper_service import stage_order_to_active_forward_session
+            stage_order_to_active_forward_session(db, new_order, now_ms=now_ms)
         except Exception as _fwd_err:
             logger.warning(f"Forward session binding warning for order {order_id}: {_fwd_err}")
 
@@ -1007,8 +1007,13 @@ class StrategyService:
             db=db,
             occurred_at=now_ms
         )
-        db.commit()
-        return {"armed": True, "codes": [], "order_id": order_id, "message": None}
+        try:
+            db.commit()
+            return {"armed": True, "codes": [], "order_id": order_id, "message": None}
+        except Exception as e:
+            db.rollback()
+            logger.error(f"_auto_arm_candidate failed to commit for order {order_id}: {e}", exc_info=True)
+            return {"armed": False, "codes": ["COMMIT_FAILED"], "order_id": None, "message": str(e)}
 
     def _log_auto_arm_block(self, watch_setup, codes, message=None):
         """Log an auto-arm block once per (setup, version, reasons); the 6s loop must not spam."""

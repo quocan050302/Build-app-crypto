@@ -3033,7 +3033,7 @@ def persist_resolution_or_review(
             return ResolutionApplyResult(action="CLOSE", applied=False, committed=False)
 
         confidence = "SIMULATED_AMBIGUOUS" if cand.cause == "AMBIGUOUS_BAR_SL_FIRST" else "CONFIRMED_TICK"
-        TradeLifecycleService.execute_close(
+        closed_order = TradeLifecycleService.execute_close(
             db=db,
             order_id=window.order.id,
             exit_price=cand.executable_price,
@@ -3046,11 +3046,20 @@ def persist_resolution_or_review(
                 "evidence_id": cand.evidence_id,
             },
         )
+        if not closed_order:
+            logger.error(f"execute_close failed or was CAS loser for order {window.order.id}")
+            return ResolutionApplyResult(
+                action="CLOSE",
+                applied=False,
+                audit_id=None,
+                version=getattr(window.order, "version", 1) or 1,
+                committed=False,
+            )
         return ResolutionApplyResult(
             action="CLOSE",
             applied=True,
             audit_id=None,
-            version=getattr(window.order, "version", 1) or 1,
+            version=getattr(closed_order, "version", 1) or 1,
             committed=True,
         )
 

@@ -3,15 +3,15 @@
   "failures": [],
   "cycles": 600,
   "confirmed_cycles": 600,
-  "total_s": 8.759,
-  "throughput_cycles_per_s": 68.5,
+  "total_s": 4.223,
+  "throughput_cycles_per_s": 142.1,
   "latency_ms": {
-    "p50": 13.552,
-    "p95": 19.365,
-    "max": 24.951,
+    "p50": 6.971,
+    "p95": 7.381,
+    "max": 7.663,
     "sample_count": 600
   },
-  "traced_memory_growth_mb": 0.097,
+  "traced_memory_growth_mb": 0.125,
   "progression_sample": [
     {
       "bars_back": 0,
@@ -62,18 +62,18 @@
     "note": "configured hypotheses, not guarantees"
   },
   "environment": {
-    "python": "3.11.9",
-    "platform": "Windows-10-10.0.26200-SP0",
-    "processor": "Intel64 Family 6 Model 151 Stepping 5, GenuineIntel",
-    "cpu_count": 12
+    "python": "3.13.0",
+    "platform": "macOS-14.4.1-arm64-arm-64bit-Mach-O",
+    "processor": "arm",
+    "cpu_count": 8
   },
   "NOT_MEASURED": [],
-  "run_id": "run_1791963476656",
-  "tested_sha": "3a34b6b6a7fa3488c20805109d514887f31c8627",
+  "run_id": "run_1791980161491",
+  "tested_sha": "e5d51ab5bd39fb8fa9dbfd5e32b08c56ee0fa003",
   "browser_measurements": {
     "status": "PASS",
-    "stream_duration_s": 62.23,
-    "events_streamed": 10062,
+    "stream_duration_s": 60.6,
+    "events_streamed": 10060,
     "selections_completed": 100,
     "selected_kind_counts": {
       "SCENARIO": 25,
@@ -82,15 +82,15 @@
       "DRAFT": 25
     },
     "render_latency_ms": {
-      "p50": 6,
-      "p95": 28.3,
-      "p99": 35.6,
-      "max": 50,
-      "sample_count": 705
+      "p50": 3.8,
+      "p95": 21.5,
+      "p99": 28.2,
+      "max": 37.6,
+      "sample_count": 216
     },
     "queue_peak": 2,
     "queue_current": 0,
-    "queue_drain_time_ms": 8,
+    "queue_drain_time_ms": 5,
     "active_subscriber_count": 3,
     "subscriber_baseline": 3,
     "subscriber_leak": 0,
