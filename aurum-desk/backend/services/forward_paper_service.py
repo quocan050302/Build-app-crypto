@@ -1163,6 +1163,40 @@ def validate_repair_binding_source(
     return res
 
 
+def is_complete_original_binding_proof(
+    source: Optional[RepairProvenanceSource],
+    validation: Dict[str, Any],
+    order: models.PaperOrder,
+) -> bool:
+    """PHẦN 021, 022, 023, 024, 026: Determines whether a provenance source
+    constitutes a complete, valid, independent original binding proof.
+    Requires:
+    - parse_status == "VALID" and payload is dict
+    - kind != "REPAIRED_MEMBERSHIP" (cannot be repaired self-proof)
+    - validation["valid"] is True
+    - validation["order_match"] is True
+    - validation["is_complete"] is True (has forward_session_id, config_revision, runtime_commit, bound_at_ms)
+    - order identity explicitly confirmed in payload: str(payload.get("order_id", "")).strip() == order.id
+    Pure read query, zero mutations.
+    """
+    if not source:
+        return False
+    if source.parse_status != "VALID" or not isinstance(source.payload, dict):
+        return False
+    if source.kind == "REPAIRED_MEMBERSHIP":
+        return False
+    if not validation.get("valid", False):
+        return False
+    if not validation.get("order_match", False):
+        return False
+    if not validation.get("is_complete", False):
+        return False
+    payload_order_id = str(source.payload.get("order_id", "")).strip()
+    if not payload_order_id or payload_order_id != order.id:
+        return False
+    return True
+
+
 def validate_repair_session_indexes(
     index_sessions: List[str],
     target_session_id: Optional[str],
@@ -1311,7 +1345,7 @@ def collect_repair_provenance_sources(
         if db_mem_data.get("repaired_by"):
             is_repaired = True
         meta = db_mem_data.get("metadata")
-        if isinstance(meta, dict) and (meta.get("repaired_by") or meta.get("repair_task_id")):
+        if isinstance(meta, dict) and (meta.get("repaired_by") or meta.get("repair_task_id") or meta.get("provenance_sources")):
             is_repaired = True
 
     db_mem_kind = "REPAIRED_MEMBERSHIP" if is_repaired else "ORIGINAL_BINDING"
@@ -1419,40 +1453,43 @@ def resolve_repair_provenance(
 
     # 2. Check damaged payload integrity vs independent proof availability
     dp_status = dp_source.parse_status
+    has_complete_original_payload = is_complete_original_binding_proof(dp_source, v_dp, order)
+    has_complete_independent_snapshot = is_complete_original_binding_proof(db_snap_source, v_snap, order)
+    has_complete_original_membership = is_complete_original_binding_proof(db_mem_source, v_mem, order)
+
     independent_complete_sources = []
-    if v_mem["valid"] and v_mem["is_complete"]:
-        if db_mem_source.kind != "REPAIRED_MEMBERSHIP":
-            independent_complete_sources.append(("db_membership", v_mem["fields"]))
-    if v_snap["valid"] and v_snap["is_complete"]:
+    if has_complete_original_membership:
+        independent_complete_sources.append(("db_membership", v_mem["fields"]))
+    if has_complete_independent_snapshot:
         independent_complete_sources.append(("db_snapshot", v_snap["fields"]))
 
     if dp_status == "MALFORMED":
-        if not independent_complete_sources and not (v_mem["valid"] and v_mem["is_complete"]):
+        if not independent_complete_sources:
             return RepairProvenanceResolution(
                 status="INSUFFICIENT",
                 reason_codes=[REPAIR_PROOF_MALFORMED],
                 diagnostics={"damaged_payload": task.original_damaged_payload},
             )
     elif dp_status == "INVALID_SCHEMA":
-        if not independent_complete_sources and not (v_mem["valid"] and v_mem["is_complete"]):
+        if not independent_complete_sources:
             return RepairProvenanceResolution(
                 status="INSUFFICIENT",
                 reason_codes=[REPAIR_PROOF_INVALID_SCHEMA],
                 diagnostics={"damaged_payload": task.original_damaged_payload},
             )
     elif dp_status == "ABSENT":
-        if not independent_complete_sources and not (v_mem["valid"] and v_mem["is_complete"]) and not task.forward_session_id:
+        if not independent_complete_sources and not task.forward_session_id:
             return RepairProvenanceResolution(
                 status="INSUFFICIENT",
                 reason_codes=[REPAIR_PROOF_MISSING],
                 diagnostics={"order_id": order.id},
             )
 
-    # 3. Repaired Membership Self-Proof Check (PHẦN 036, C18-13):
-    # If db_membership is marked REPAIRED_MEMBERSHIP, damaged payload is not valid,
-    # and no independent proof (e.g. db_snapshot) exists -> CANNOT self-certify.
+    # 3. Repaired Membership Self-Proof Check (PHẦN 014, 016, 033, C18-13, S19-01):
+    # If db_membership is marked REPAIRED_MEMBERSHIP, it CANNOT self-certify unless
+    # there is a complete, valid, independent original binding proof (from original_damaged_payload or snapshot).
     if db_mem_source.kind == "REPAIRED_MEMBERSHIP":
-        if dp_status != "VALID" and not (v_snap["valid"] and v_snap["is_complete"]):
+        if not (has_complete_original_payload or has_complete_independent_snapshot):
             return RepairProvenanceResolution(
                 status="INSUFFICIENT",
                 reason_codes=[REPAIR_SOURCE_UNVERIFIED],
@@ -1460,6 +1497,9 @@ def resolve_repair_provenance(
                     "unverified_source": "db_membership",
                     "order_id": order.id,
                     "reason": "Repaired membership cannot self-certify without independent provenance",
+                    "damaged_payload_status": dp_status,
+                    "damaged_payload_complete": has_complete_original_payload,
+                    "snapshot_complete": has_complete_independent_snapshot,
                 },
             )
 
