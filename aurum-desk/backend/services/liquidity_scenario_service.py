@@ -14,11 +14,17 @@ Core Components:
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import math
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from sqlalchemy.orm import Session
+
+import models
 import smc_engine
 from services.ny_quota_helpers import closed_candles_at
 from services.scalp_m1_types import M1ScalpConfig, WatchedZone, ZoneState, get_scalp_config
@@ -747,38 +753,284 @@ class LiquidityHypothesis:
         }
 
 
+class HypothesisLoadStatus(str, Enum):
+    FOUND = "FOUND"
+    NOT_FOUND = "NOT_FOUND"
+    CORRUPT = "CORRUPT"
+    UNSUPPORTED_VERSION = "UNSUPPORTED_VERSION"
+
+
+@dataclass(frozen=True)
+class DurableHypothesisRecord:
+    """
+    Durable persisted anchor for a liquidity hypothesis lifecycle (SECTIONS 021 - 040).
+    Immutable anchor fields preserve original creation and expiry authority across restarts.
+    """
+    schema_version: int
+    hypothesis_id: str
+    symbol: str
+    direction: str
+    is_primary: bool
+    created_at_ms: int
+    expiry_ms: int
+    status: str
+    revision: int
+    source_zone_id: Optional[str] = None
+    target_price: Optional[float] = None
+    target_level_id: Optional[str] = None
+    target_type: str = "LIQUIDITY_LEVEL"
+    target_status: str = "CONFIRMED"
+    source_fingerprint: str = ""
+    updated_at_ms: int = 0
+
+
+def compute_hypothesis_source_fingerprint(
+    hypothesis_id: str,
+    symbol: str,
+    direction: str,
+    source_zone_id: Optional[str],
+    created_at_ms: int,
+) -> str:
+    """
+    Deterministic SHA-256 fingerprint from immutable identity and context anchors (SECTIONS 035, 073).
+    Does NOT include current quotes, transient volatility, or evaluation time.
+    """
+    anchor_str = f"{hypothesis_id}|{symbol.upper()}|{direction.upper()}|{source_zone_id or ''}|{int(created_at_ms)}"
+    return hashlib.sha256(anchor_str.encode("utf-8")).hexdigest()
+
+
+def get_hypothesis_storage_key(symbol: str, hypothesis_id: str) -> str:
+    """
+    Computes a bounded <=50 char storage key for SystemConfig (SECTIONS 026, 027).
+    Scheme: 'hlc:' + symbol[:7] + ':' + 24-char SHA-256 hex. Length <= 36 chars.
+    """
+    sym = (symbol or "UNKNOWN")[:7].upper()
+    hyp_hash = hashlib.sha256(hypothesis_id.encode("utf-8")).hexdigest()[:24]
+    return f"hlc:{sym}:{hyp_hash}"
+
+
+def load_hypothesis_lifecycle(
+    db: Session,
+    hypothesis_id: str,
+    symbol: str = "XAUUSDT",
+) -> Tuple[HypothesisLoadStatus, Optional[DurableHypothesisRecord]]:
+    """
+    Loads and validates a single durable hypothesis lifecycle from SystemConfig (SECTIONS 031 - 035).
+    Pure reader: DOES NOT COMMIT OR CREATE RECORDS.
+    Distinguishes FOUND, NOT_FOUND, CORRUPT, UNSUPPORTED_VERSION.
+    """
+    if not hypothesis_id:
+        return HypothesisLoadStatus.NOT_FOUND, None
+
+    key = get_hypothesis_storage_key(symbol, hypothesis_id)
+    try:
+        rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+    except Exception as e:
+        logger.warning(f"Error querying hypothesis lifecycle key '{key}': {e}")
+        return HypothesisLoadStatus.CORRUPT, None
+
+    if rec is None:
+        return HypothesisLoadStatus.NOT_FOUND, None
+
+    try:
+        data = json.loads(rec.value)
+    except Exception:
+        logger.warning(f"Corrupt JSON payload for hypothesis lifecycle key '{key}'")
+        return HypothesisLoadStatus.CORRUPT, None
+
+    if not isinstance(data, dict):
+        return HypothesisLoadStatus.CORRUPT, None
+
+    schema_ver = data.get("schema_version")
+    if schema_ver != 1:
+        logger.warning(f"Unsupported schema version {schema_ver} for hypothesis '{hypothesis_id}'")
+        return HypothesisLoadStatus.UNSUPPORTED_VERSION, None
+
+    # ID roundtrip check (SECTION 027)
+    stored_id = data.get("hypothesis_id")
+    if stored_id != hypothesis_id:
+        logger.warning(f"Hypothesis ID mismatch: expected '{hypothesis_id}', got '{stored_id}'")
+        return HypothesisLoadStatus.CORRUPT, None
+
+    # Strictly validate integer timestamps and revision (SECTION 057: reject bool masquerading as int)
+    c_at = data.get("created_at_ms")
+    e_at = data.get("expiry_ms")
+    rev = data.get("revision")
+    stat = data.get("status")
+
+    if type(c_at) is not int or type(e_at) is not int or type(rev) is not int:
+        return HypothesisLoadStatus.CORRUPT, None
+    if not (math.isfinite(c_at) and math.isfinite(e_at)):
+        return HypothesisLoadStatus.CORRUPT, None
+    if e_at < c_at or rev < 1:
+        return HypothesisLoadStatus.CORRUPT, None
+    if stat not in ("ACTIVE", "EXPIRED", "INVALIDATED", "FULFILLED"):
+        return HypothesisLoadStatus.CORRUPT, None
+
+    # Source fingerprint integrity check (SECTIONS 028, 035)
+    rec_symbol = str(data.get("symbol", symbol))
+    rec_dir = str(data.get("direction", ""))
+    rec_zone_id = data.get("zone_id")
+    expected_fp = compute_hypothesis_source_fingerprint(
+        hypothesis_id=hypothesis_id,
+        symbol=rec_symbol,
+        direction=rec_dir,
+        source_zone_id=rec_zone_id,
+        created_at_ms=c_at,
+    )
+    if data.get("source_fingerprint") != expected_fp:
+        logger.warning(f"Source fingerprint mismatch for hypothesis '{hypothesis_id}'")
+        return HypothesisLoadStatus.CORRUPT, None
+
+    record = DurableHypothesisRecord(
+        schema_version=schema_ver,
+        hypothesis_id=hypothesis_id,
+        symbol=rec_symbol,
+        direction=rec_dir,
+        is_primary=bool(data.get("is_primary", True)),
+        created_at_ms=c_at,
+        expiry_ms=e_at,
+        status=stat,
+        revision=rev,
+        source_zone_id=rec_zone_id,
+        target_price=float(data["target_price"]) if data.get("target_price") is not None else None,
+        target_level_id=data.get("target_level_id"),
+        target_type=str(data.get("target_type", "LIQUIDITY_LEVEL")),
+        target_status=str(data.get("target_status", "CONFIRMED")),
+        source_fingerprint=expected_fp,
+        updated_at_ms=int(data.get("updated_at_ms", c_at)),
+    )
+    return HypothesisLoadStatus.FOUND, record
+
+
+def load_durable_hypotheses_for_symbol(
+    db: Session,
+    symbol: str,
+) -> Dict[str, DurableHypothesisRecord]:
+    """
+    Batch loads valid durable hypothesis lifecycles for a given symbol (SECTIONS 042, 181).
+    Bounds query using key prefix 'hlc:{symbol}:%'.
+    Fails closed on corrupt entries without throwing unexpected exceptions.
+    """
+    sym = (symbol or "UNKNOWN")[:7].upper()
+    prefix = f"hlc:{sym}:"
+    try:
+        records = db.query(models.SystemConfig).filter(models.SystemConfig.key.like(f"{prefix}%")).all()
+    except Exception as e:
+        logger.warning(f"Error querying durable hypotheses for {symbol}: {e}")
+        return {}
+
+    loaded: Dict[str, DurableHypothesisRecord] = {}
+    for r in records:
+        try:
+            raw = json.loads(r.value)
+            hyp_id = raw.get("hypothesis_id") if isinstance(raw, dict) else None
+            if not hyp_id:
+                continue
+            status, d_rec = load_hypothesis_lifecycle(db, hyp_id, symbol=symbol)
+            if status == HypothesisLoadStatus.FOUND and d_rec:
+                loaded[hyp_id] = d_rec
+        except Exception:
+            continue
+    return loaded
+
+
+def stage_hypothesis_lifecycle(
+    db: Session,
+    symbol: str,
+    hypothesis: LiquidityHypothesis,
+    now_ms: int,
+) -> None:
+    """
+    Stages durable hypothesis lifecycle to SystemConfig (SECTIONS 040, 043).
+    Stage-only: DOES NOT COMMIT OR ROLLBACK. Caller transaction owns commit/rollback.
+    """
+    key = get_hypothesis_storage_key(symbol, hypothesis.hypothesis_id)
+    zone_id = hypothesis.watched_zone.zone_id if hypothesis.watched_zone else None
+    fp = compute_hypothesis_source_fingerprint(
+        hypothesis_id=hypothesis.hypothesis_id,
+        symbol=symbol,
+        direction=hypothesis.direction,
+        source_zone_id=zone_id,
+        created_at_ms=int(hypothesis.created_at_ms),
+    )
+    payload = {
+        "schema_version": 1,
+        "hypothesis_id": hypothesis.hypothesis_id,
+        "symbol": symbol,
+        "direction": hypothesis.direction,
+        "is_primary": bool(hypothesis.is_primary),
+        "zone_id": zone_id,
+        "created_at_ms": int(hypothesis.created_at_ms),
+        "expiry_ms": int(hypothesis.expiry_ms),
+        "status": str(hypothesis.status),
+        "revision": int(hypothesis.revision),
+        "target_price": float(hypothesis.target_price) if hypothesis.target_price is not None else None,
+        "target_level_id": hypothesis.target_level.id if getattr(hypothesis, "target_level", None) else None,
+        "target_type": str(hypothesis.target_type),
+        "target_status": str(hypothesis.target_status),
+        "source_fingerprint": fp,
+        "updated_at_ms": int(now_ms),
+    }
+    rec = models.SystemConfig(
+        key=key,
+        value=json.dumps(payload, ensure_ascii=False),
+        updated_at=int(now_ms),
+    )
+    db.merge(rec)
+
+
 def reconcile_hypothesis_lifecycle(
-    existing_hypotheses: Sequence[LiquidityHypothesis],
+    existing_hypotheses: Sequence[Any],
     new_hypotheses: Sequence[LiquidityHypothesis],
     now_ms: int,
 ) -> List[LiquidityHypothesis]:
     """
     Reconciles existing and newly generated hypotheses preserving causal creation and expiry anchors (PHẦN 101 - 120).
-    - Preserves created_at_ms and expiry_ms of existing hypotheses across evaluation cycles.
+    - Preserves created_at_ms and expiry_ms of existing hypotheses across evaluation cycles and restarts.
     - If now_ms >= expiry_ms, marks hypothesis status as 'EXPIRED'.
+    - Terminal statuses ('EXPIRED', 'INVALIDATED', 'FULFILLED') are immutable and never revert to 'ACTIVE' (SECTIONS 048, 049).
     - If material context changed (target level, direction, invalidation), increments revision.
     """
-    existing_map = {h.hypothesis_id: h for h in (existing_hypotheses or [])}
+    existing_map = {}
+    for h in (existing_hypotheses or []):
+        hid = getattr(h, "hypothesis_id", None) or (h.get("hypothesis_id") if isinstance(h, dict) else None)
+        if hid:
+            existing_map[hid] = h
+
     reconciled: List[LiquidityHypothesis] = []
 
     for hyp in new_hypotheses:
         existing = existing_map.get(hyp.hypothesis_id)
         if existing is not None:
             # Preserve original created_at_ms and expiry_ms
-            c_at = existing.created_at_ms
-            e_at = existing.expiry_ms
+            c_at = int(getattr(existing, "created_at_ms", hyp.created_at_ms))
+            e_at = int(getattr(existing, "expiry_ms", hyp.expiry_ms))
+            existing_stat = getattr(existing, "status", "ACTIVE")
+            existing_rev = int(getattr(existing, "revision", 1))
 
             # Check for material change
-            is_material_change = (
-                existing.direction != hyp.direction
-                or (existing.target_level and hyp.target_level and existing.target_level.id != hyp.target_level.id)
-                or (bool(existing.target_level) != bool(hyp.target_level))
-                or existing.invalidation_condition != hyp.invalidation_condition
-            )
-            rev = (existing.revision + 1) if is_material_change else existing.revision
+            existing_dir = getattr(existing, "direction", "")
+            existing_tl = getattr(existing, "target_level", None)
+            existing_tl_id = getattr(existing_tl, "id", None) if existing_tl else getattr(existing, "target_level_id", None)
+            hyp_tl_id = hyp.target_level.id if hyp.target_level else None
+            existing_inv = getattr(existing, "invalidation_condition", "")
 
-            # Boundary: now_ms >= expiry_ms -> EXPIRED
-            stat = "EXPIRED" if now_ms >= e_at else "ACTIVE"
+            is_material_change = (
+                existing_dir != hyp.direction
+                or (existing_tl_id and hyp_tl_id and existing_tl_id != hyp_tl_id)
+                or (bool(existing_tl_id) != bool(hyp_tl_id))
+                or (existing_inv and existing_inv != hyp.invalidation_condition)
+            )
+            rev = (existing_rev + 1) if is_material_change else existing_rev
+
+            # Terminal status protection (SECTIONS 048, 049): terminal statuses are immutable
+            if existing_stat in ("EXPIRED", "INVALIDATED", "FULFILLED"):
+                stat = existing_stat
+            elif now_ms >= e_at:
+                stat = "EXPIRED"
+            else:
+                stat = "ACTIVE"
 
             reconciled.append(
                 LiquidityHypothesis(

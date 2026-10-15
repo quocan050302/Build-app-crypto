@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 import models
 from services.clock import FakeClock
+from services.trade_lifecycle_service import TradeLifecycleService
 from domain_calculator import calculate_risk_reward
 from services.liquidity_scenario_service import (
     DealingRange,
@@ -544,11 +545,49 @@ def test_full_causal_long_lifecycle_arm_fill_tp(isolated_db: Session):
     assert order.take_profit == 2675.0  # From authoritative unconsumed swing high
     assert order.estimated_net_rr >= 2.0
 
+    # Real Execution: ARM -> FILL -> TP -> CLOSE
+    calc = calculate_risk_reward(
+        "LONG", order.planned_entry, order.stop_loss, order.take_profit, 1000.0, 0.25, 30.0
+    )
+    fill_time = now_ms + 10_000
+    filled = TradeLifecycleService.execute_fill(
+        db=isolated_db,
+        order=order,
+        fill_price=order.planned_entry,
+        calc_result=calc,
+        clock=FakeClock(fill_time),
+        now_ms=fill_time,
+    )
+    assert filled.state == "paper_open"
+    assert filled.actual_entry == order.planned_entry
+    assert filled.opened_at == fill_time
+
+    close_time = fill_time + 60_000
+    closed = TradeLifecycleService.execute_close(
+        db=isolated_db,
+        order_id=order.id,
+        exit_price=order.take_profit,
+        exit_cause="TP_HIT",
+        occurred_at=close_time,
+        session_tag="NORMAL",
+    )
+    assert closed.state == "closed"
+    assert closed.actual_exit == order.take_profit
+    assert closed.exit_cause == "TP_HIT"
+    assert closed.realized_pnl_net > 0
+
+    # Verify domain events & outbox
+    ev_types = [e.event_type for e in isolated_db.query(models.DomainEvent).filter(models.DomainEvent.aggregate_id == order.id).all()]
+    assert "order.armed" in ev_types
+    assert "trade.opened" in ev_types
+    assert "trade.closed" in ev_types
+
 
 def test_full_causal_short_lifecycle_arm_fill_sl(isolated_db: Session):
     """
     SECTION 185: Full causal SHORT lifecycle:
-    Symmetric verification: TP < planned_entry < SL, net R:R >= 2.0.
+    Symmetric verification: TP < planned_entry < SL, net R:R >= 2.0,
+    progressing through ARM -> FILL -> SL -> CLOSE.
     """
     _setup_positive_trading_policy(isolated_db)
     orch = ScalpWatcherOrchestrator()
@@ -589,3 +628,39 @@ def test_full_causal_short_lifecycle_arm_fill_sl(isolated_db: Session):
     assert order.take_profit == 2595.0  # Authoritative unconsumed swing low target
     assert order.take_profit < order.planned_entry < order.stop_loss
     assert order.estimated_net_rr >= 2.0
+
+    # Real Execution: ARM -> FILL -> SL -> CLOSE
+    calc = calculate_risk_reward(
+        "SHORT", order.planned_entry, order.stop_loss, order.take_profit, 1000.0, 0.25, 30.0
+    )
+    fill_time = now_ms + 10_000
+    filled = TradeLifecycleService.execute_fill(
+        db=isolated_db,
+        order=order,
+        fill_price=order.planned_entry,
+        calc_result=calc,
+        clock=FakeClock(fill_time),
+        now_ms=fill_time,
+    )
+    assert filled.state == "paper_open"
+    assert filled.actual_entry == order.planned_entry
+    assert filled.opened_at == fill_time
+
+    close_time = fill_time + 60_000
+    closed = TradeLifecycleService.execute_close(
+        db=isolated_db,
+        order_id=order.id,
+        exit_price=order.stop_loss,
+        exit_cause="SL_HIT",
+        occurred_at=close_time,
+        session_tag="NORMAL",
+    )
+    assert closed.state == "closed"
+    assert closed.actual_exit == order.stop_loss
+    assert closed.exit_cause == "SL_HIT"
+    assert closed.realized_pnl_net < 0
+
+    ev_types = [e.event_type for e in isolated_db.query(models.DomainEvent).filter(models.DomainEvent.aggregate_id == order.id).all()]
+    assert "order.armed" in ev_types
+    assert "trade.opened" in ev_types
+    assert "trade.closed" in ev_types

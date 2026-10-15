@@ -344,6 +344,8 @@ class ScalpWatcherOrchestrator:
             classify_market_regime,
             rank_zones_multi_dimensional,
             build_zone_assessment_explanation,
+            load_durable_hypotheses_for_symbol,
+            stage_hypothesis_lifecycle,
         )
         from services.smc_liquidity_service import build_liquidity_map, update_liquidity_states
 
@@ -376,12 +378,48 @@ class ScalpWatcherOrchestrator:
         bounded_zones = ZoneWatchlistService.prune_and_bound_watchlist(ranked_zones, current_px, t_recv, cfg)
         self.set_active_zones(symbol, bounded_zones)
 
-        existing_hyps = self._active_hypotheses.get(symbol, [])
+        # Load durable hypothesis lifecycle from DB (SECTIONS 042, 046)
+        durable_hyps_map = load_durable_hypotheses_for_symbol(db, symbol)
+        existing_hyps = list(self._active_hypotheses.get(symbol, []))
+        existing_ids = {h.hypothesis_id for h in existing_hyps}
+        for d_id, d_rec in durable_hyps_map.items():
+            if d_id not in existing_ids:
+                existing_hyps.append(d_rec)
+
         hypotheses = build_liquidity_hypotheses(
             bounded_zones, liq_levels, dealing_range, current_px, regime, t_recv,
             session_cap_ms=session_ctx.expiry_cap_ms if session_ctx else None,
             existing_hypotheses=existing_hyps,
         )
+
+        # Stage durable hypothesis records in same cycle transaction (SECTIONS 040, 043)
+        staged_ids = set()
+        for h in hypotheses:
+            stage_hypothesis_lifecycle(db, symbol, h, now_ms=t_recv)
+            staged_ids.add(h.hypothesis_id)
+
+        # Ensure any durable hypothesis past its expiry deadline transitions to EXPIRED (SECTIONS 048, 051)
+        for d_id, d_rec in durable_hyps_map.items():
+            if d_id not in staged_ids and t_recv >= d_rec.expiry_ms and d_rec.status == "ACTIVE":
+                expired_h = LiquidityHypothesis(
+                    hypothesis_id=d_rec.hypothesis_id,
+                    direction=d_rec.direction,
+                    is_primary=d_rec.is_primary,
+                    watched_zone=WatchedZone(d_rec.source_zone_id or "unknown", symbol, "15M", "OB", d_rec.direction, 0.0, 0.0, d_rec.created_at_ms, d_rec.created_at_ms, state=ZoneState.EXPIRED.value) if d_rec.source_zone_id else None,
+                    target_level=None,
+                    target_price=d_rec.target_price,
+                    dealing_range=DealingRange("UNKNOWN", 0.0, 0.0, 0.0, 0, 0),
+                    range_position="EQUILIBRIUM",
+                    prerequisites=[],
+                    invalidation_condition="",
+                    expiry_ms=d_rec.expiry_ms,
+                    created_at_ms=d_rec.created_at_ms,
+                    status="EXPIRED",
+                    revision=d_rec.revision,
+                    target_type=d_rec.target_type,
+                    target_status=d_rec.target_status,
+                )
+                stage_hypothesis_lifecycle(db, symbol, expired_h, now_ms=t_recv)
 
         hyp_by_zone = {h.watched_zone.zone_id: h for h in hypotheses if getattr(h, "watched_zone", None)}
         assessments_map: Dict[str, Any] = {}
@@ -402,7 +440,6 @@ class ScalpWatcherOrchestrator:
                 "as_of_ms": t_recv,
                 "regime": regime,
             }
-            self._active_hypotheses[symbol] = hypotheses
             self._active_liquidity_levels[symbol] = liq_levels
             self._active_dealing_range[symbol] = dealing_range
             self._active_regime[symbol] = regime
@@ -555,12 +592,21 @@ class ScalpWatcherOrchestrator:
                 if armed_order:
                     break
 
+        commit_ok = False
         try:
             db.commit()
+            commit_ok = True
         except Exception as e:
             logger.warning(f"Error committing scalp watcher cycle: {e}")
             db.rollback()
             armed_order = None
+
+        if commit_ok:
+            with self._lock:
+                self._active_hypotheses[symbol] = hypotheses
+        else:
+            with self._lock:
+                self._active_hypotheses.pop(symbol, None)
 
         t_cycle_done = int(time.time() * 1000)
 

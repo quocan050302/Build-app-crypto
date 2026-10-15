@@ -251,6 +251,60 @@ class ScalpCandidate:
     zone_id: Optional[str] = None
 
 
+def qualify_selected_break(
+    candles: Sequence[Any],
+    break_idx: int,
+    direction: str,
+    config: M1ScalpConfig,
+    fallback_atr: float = 1.0,
+) -> Tuple[bool, float, float, int, str]:
+    """
+    Qualifies displacement for the exact selected break bar (SECTIONS 076 - 084).
+    Uses ONLY the body and prefix ATR of the selected break candle.
+    A later strong candle CANNOT qualify an earlier weak break candle.
+    Returns: (is_qualified, break_body, prefix_atr, known_at_ms, fail_reason)
+    """
+    if break_idx < 0 or break_idx >= len(candles):
+        return False, 0.0, fallback_atr, 0, "Chỉ số nến phá vỡ không hợp lệ"
+
+    bar = candles[break_idx]
+    c_open = float(getattr(bar, "open", 0.0))
+    c_close = float(getattr(bar, "close", 0.0))
+
+    if not (math.isfinite(c_open) and math.isfinite(c_close)):
+        return False, 0.0, fallback_atr, 0, "Dữ liệu nến phá vỡ không hợp lệ"
+
+    body = abs(c_close - c_open)
+    if body <= 0.0:
+        return False, 0.0, fallback_atr, 0, "Nến Doji không đạt điều kiện xung lực"
+
+    # Direction-specific check (Section 083)
+    if direction == "LONG" and c_close <= c_open:
+        return False, body, fallback_atr, 0, "Nến phá vỡ cấu trúc LONG phải là nến tăng"
+    elif direction == "SHORT" and c_close >= c_open:
+        return False, body, fallback_atr, 0, "Nến phá vỡ cấu trúc SHORT phải là nến giảm"
+
+    # Prefix ATR computed strictly up to break candle (Section 084)
+    prefix_atr = smc_engine.compute_atr(candles[:break_idx + 1], period=config.displacement_atr_period)
+    if prefix_atr <= 0 or not math.isfinite(prefix_atr):
+        prefix_atr = fallback_atr
+
+    threshold = config.displacement_body_atr_min * prefix_atr
+    open_ms = int(getattr(bar, "open_time", None) or getattr(bar, "timestamp", 0))
+    known_at_ms = open_ms + 60_000
+
+    if body < threshold:
+        return (
+            False,
+            body,
+            prefix_atr,
+            known_at_ms,
+            f"Thân nến phá vỡ không đạt ngưỡng xung lực ({body:.2f} < {threshold:.2f})",
+        )
+
+    return True, body, prefix_atr, known_at_ms, ""
+
+
 class ScalpM1ModelService:
     @staticmethod
     def identify_m1_swings(
@@ -414,16 +468,14 @@ class ScalpM1ModelService:
 
             first_break_bar = breaking_bars[0]
             first_break_idx = closed_1m.index(first_break_bar)
-            break_prefix_atr = smc_engine.compute_atr(closed_1m[:first_break_idx + 1], period=cfg.displacement_atr_period)
-            if break_prefix_atr <= 0:
-                break_prefix_atr = atr_1m
-
-            max_break_body = max(abs(float(b.close) - float(b.open)) for b in breaking_bars)
-            if max_break_body < cfg.displacement_body_atr_min * break_prefix_atr:
+            is_break_qual, break_body, break_prefix_atr, break_known_at, fail_reason = qualify_selected_break(
+                closed_1m, first_break_idx, "LONG", cfg, fallback_atr=atr_1m
+            )
+            if not is_break_qual:
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
-                    missing_conditions=[f"Thân nến phá vỡ không đạt ngưỡng xung lực ({max_break_body:.2f} < {cfg.displacement_body_atr_min * break_prefix_atr:.2f})"],
+                    missing_conditions=[fail_reason],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
@@ -557,16 +609,14 @@ class ScalpM1ModelService:
 
             first_break_bar = breaking_bars[0]
             first_break_idx = closed_1m.index(first_break_bar)
-            break_prefix_atr = smc_engine.compute_atr(closed_1m[:first_break_idx + 1], period=cfg.displacement_atr_period)
-            if break_prefix_atr <= 0:
-                break_prefix_atr = atr_1m
-
-            max_break_body = max(abs(float(b.close) - float(b.open)) for b in breaking_bars)
-            if max_break_body < cfg.displacement_body_atr_min * break_prefix_atr:
+            is_break_qual, break_body, break_prefix_atr, break_known_at, fail_reason = qualify_selected_break(
+                closed_1m, first_break_idx, "SHORT", cfg, fallback_atr=atr_1m
+            )
+            if not is_break_qual:
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
-                    missing_conditions=[f"Thân nến phá vỡ không đạt ngưỡng xung lực ({max_break_body:.2f} < {cfg.displacement_body_atr_min * break_prefix_atr:.2f})"],
+                    missing_conditions=[fail_reason],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
@@ -754,7 +804,7 @@ class ScalpM1ModelService:
                 known_at_ms=break_bar_open_ms + 60_000, level=break_level,
                 extra={
                     "broken_swing_id": pivot_to_break["id"],
-                    "displacement_body": max_break_body,
+                    "displacement_body": break_body,
                     "displacement_atr": break_prefix_atr,
                 }
             ).to_dict(),
