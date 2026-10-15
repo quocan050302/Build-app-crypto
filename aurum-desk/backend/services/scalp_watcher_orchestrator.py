@@ -72,10 +72,15 @@ class ScalpWatcherOrchestrator:
         self._active_zone_assessments: Dict[str, Dict[str, Any]] = {}
         self._active_market_context: Dict[str, Dict[str, Any]] = {}
         self._latest_hypothesis_batch_result: Dict[str, Any] = {}
+        self._latest_hypothesis_authority: Dict[str, Any] = {}
 
     def get_latest_hypothesis_batch_result(self, symbol: str = "XAUUSDT") -> Optional[Any]:
         with self._lock:
             return self._latest_hypothesis_batch_result.get(symbol)
+
+    def get_latest_hypothesis_authority(self, symbol: str = "XAUUSDT") -> Optional[Any]:
+        with self._lock:
+            return self._latest_hypothesis_authority.get(symbol)
 
     def get_active_zones(self, symbol: str = "XAUUSDT") -> List[WatchedZone]:
         with self._lock:
@@ -356,6 +361,11 @@ class ScalpWatcherOrchestrator:
             LifecycleStageResult,
             HypothesisLoadStatus,
             HypothesisBatchLoadResult,
+            is_lifecycle_stage_success,
+            HypothesisWriteOutcome,
+            LifecycleCycleAuthority,
+            derive_cycle_status,
+            check_candidate_lifecycle_authority,
         )
         from services.smc_liquidity_service import build_liquidity_map, update_liquidity_states
 
@@ -425,24 +435,96 @@ class ScalpWatcherOrchestrator:
                 continue
             hypotheses.append(h)
 
-        # Stage durable hypothesis records in same cycle transaction (SECTIONS 040, 043, 121 - 140)
+        # Stage durable hypothesis records in same cycle transaction (SECTIONS 040, 043, 061 - 065)
         staged_ids = set()
-        for h in hypotheses:
-            res = stage_hypothesis_lifecycle(db, symbol, h, now_ms=t_recv)
-            if res in (LifecycleStageResult.CREATED, LifecycleStageResult.UPDATED, LifecycleStageResult.NO_CHANGE, LifecycleStageResult.STAGED):
-                staged_ids.add(h.hypothesis_id)
+        entry_authorized_hypotheses: List[Any] = []
+        cycle_authority = LifecycleCycleAuthority()
 
-        # Ensure any durable hypothesis past its expiry deadline transitions to EXPIRED (SECTIONS 031 - 047, 048, 051)
+        for h in hypotheses:
+            h_key = get_hypothesis_storage_key(symbol, h.hypothesis_id)
+            z_id = h.watched_zone.zone_id if getattr(h, "watched_zone", None) else None
+            try:
+                res = stage_hypothesis_lifecycle(db, symbol, h, now_ms=t_recv)
+            except Exception as e:
+                logger.warning(f"Exception during stage_hypothesis_lifecycle for {h.hypothesis_id}: {e}")
+                res = LifecycleStageResult.FAILED
+
+            success = is_lifecycle_stage_success(res)
+            rcode = None
+            if not success:
+                if res == LifecycleStageResult.BLOCKED:
+                    rcode = OpportunityReasonCode.HYPOTHESIS_WRITE_BLOCKED.value
+                    cycle_authority.has_write_blocks = True
+                else:
+                    rcode = OpportunityReasonCode.HYPOTHESIS_WRITE_FAILED.value
+                    cycle_authority.has_write_failures = True
+                cycle_authority.write_issues_count += 1
+            else:
+                staged_ids.add(h.hypothesis_id)
+                entry_authorized_hypotheses.append(h)
+
+            outcome = HypothesisWriteOutcome(
+                hypothesis_id=h.hypothesis_id,
+                storage_key=h_key,
+                zone_id=z_id,
+                operation="UPSERT_HYPOTHESIS",
+                result=res if isinstance(res, LifecycleStageResult) else LifecycleStageResult.FAILED,
+                is_success=success,
+                reason_code=rcode,
+            )
+            cycle_authority.write_outcomes[h.hypothesis_id] = outcome
+            if z_id:
+                cycle_authority.zone_outcomes[z_id] = outcome
+
+        # Ensure any durable hypothesis past its expiry deadline transitions to EXPIRED (SECTIONS 116 - 120)
         for d_id, d_rec in durable_hyps_map.items():
             if d_id not in staged_ids and t_recv >= d_rec.expiry_ms and d_rec.status == "ACTIVE":
-                stage_hypothesis_status_transition(db, symbol, d_rec, desired_status="EXPIRED", now_ms=t_recv)
+                try:
+                    exp_res = stage_hypothesis_status_transition(db, symbol, d_rec, desired_status="EXPIRED", now_ms=t_recv)
+                except Exception as e:
+                    logger.warning(f"Exception during stage_hypothesis_status_transition for {d_id}: {e}")
+                    exp_res = LifecycleStageResult.FAILED
 
-        hyp_by_zone = {h.watched_zone.zone_id: h for h in hypotheses if getattr(h, "watched_zone", None)}
+                exp_success = is_lifecycle_stage_success(exp_res)
+                exp_key = get_hypothesis_storage_key(symbol, d_id)
+                exp_rcode = None
+                if not exp_success:
+                    if exp_res == LifecycleStageResult.BLOCKED:
+                        exp_rcode = OpportunityReasonCode.HYPOTHESIS_WRITE_BLOCKED.value
+                        cycle_authority.has_write_blocks = True
+                    else:
+                        exp_rcode = OpportunityReasonCode.HYPOTHESIS_WRITE_FAILED.value
+                        cycle_authority.has_write_failures = True
+                    cycle_authority.write_issues_count += 1
+
+                exp_outcome = HypothesisWriteOutcome(
+                    hypothesis_id=d_id,
+                    storage_key=exp_key,
+                    zone_id=d_rec.source_zone_id,
+                    operation="EXPIRE_DURABLE",
+                    result=exp_res if isinstance(exp_res, LifecycleStageResult) else LifecycleStageResult.FAILED,
+                    is_success=exp_success,
+                    reason_code=exp_rcode,
+                )
+                cycle_authority.write_outcomes[f"{d_id}:EXPIRE"] = exp_outcome
+
+        # Compute cycle write_status
+        if cycle_authority.has_write_failures:
+            cycle_authority.write_status = "FAILED"
+        elif cycle_authority.has_write_blocks:
+            cycle_authority.write_status = "BLOCKED"
+        else:
+            cycle_authority.write_status = "OK"
+
+        cycle_authority.entry_authorized_hypotheses = entry_authorized_hypotheses
+
+        display_hypotheses_by_zone = {h.watched_zone.zone_id: h for h in hypotheses if getattr(h, "watched_zone", None)}
+        entry_hypotheses_by_zone = {h.watched_zone.zone_id: h for h in entry_authorized_hypotheses if getattr(h, "watched_zone", None)}
         assessments_map: Dict[str, Any] = {}
         for z in bounded_zones:
             r_score = rank_scores_by_id.get(z.zone_id)
             if r_score:
-                h = hyp_by_zone.get(z.zone_id)
+                h = display_hypotheses_by_zone.get(z.zone_id)
                 dto = build_zone_assessment_explanation(
                     z, r_score, h, current_price=current_px, atr=atr_15m, as_of_ms=t_recv, is_stale=False
                 )
@@ -477,7 +559,7 @@ class ScalpWatcherOrchestrator:
         if scalp_mode != ScalpMode.OFF.value and c_1m:
             for z in bounded_zones:
                 if z.state in (ZoneState.NEAR.value, ZoneState.TOUCHED.value, ZoneState.WAITING_TRIGGER.value):
-                    # Check if zone's hypothesis authority failed (SECTIONS 095 - 098)
+                    # Check if zone's hypothesis read authority failed (SECTIONS 095 - 098)
                     if z.zone_id in blocked_zone_issues or batch_result.read_status == "READ_FAILED":
                         issue = blocked_zone_issues.get(z.zone_id)
                         if batch_result.read_status == "READ_FAILED":
@@ -505,8 +587,69 @@ class ScalpWatcherOrchestrator:
                         )
                         continue
 
-                    zone_hyp = hyp_by_zone.get(z.zone_id)
-                    if zone_hyp and zone_hyp.status == "EXPIRED":
+                    # Check write authority (V15.7 SECTIONS 061 - 090)
+                    if cycle_authority.has_write_failures:
+                        OpportunityFunnelService.record_opportunity_transition(
+                            db,
+                            OpportunityEvaluation(
+                                opportunity_id=f"opp_{z.zone_id}",
+                                symbol=symbol,
+                                model_id=ModelIdentifier.SMC_M1_REVERSAL.value,
+                                direction=z.direction,
+                                zone_id=z.zone_id,
+                                as_of_ms=t_recv,
+                                stage=OpportunityStage.TRIGGER_PENDING.value,
+                                reason_codes=(OpportunityReasonCode.HYPOTHESIS_WRITE_FAILED.value,),
+                                market_event_received_at=t_recv,
+                                details={"message": "Chưa thể chuẩn bị lệnh vì bot chưa lưu được trạng thái kịch bản. Bot đang giữ nguyên các lệnh hiện có và sẽ đánh giá lại ở chu kỳ tiếp theo."},
+                            ),
+                            now_ms=t_recv,
+                        )
+                        continue
+
+                    z_outcome = cycle_authority.zone_outcomes.get(z.zone_id)
+                    if z_outcome is not None and not z_outcome.is_success:
+                        rcode = z_outcome.reason_code or OpportunityReasonCode.HYPOTHESIS_WRITE_BLOCKED.value
+                        msg = "Kịch bản này đang bị chặn vì trạng thái lưu không cho phép cập nhật." if rcode == OpportunityReasonCode.HYPOTHESIS_WRITE_BLOCKED.value else "Chưa thể chuẩn bị lệnh vì bot chưa lưu được trạng thái kịch bản. Bot đang giữ nguyên các lệnh hiện có và sẽ đánh giá lại ở chu kỳ tiếp theo."
+                        OpportunityFunnelService.record_opportunity_transition(
+                            db,
+                            OpportunityEvaluation(
+                                opportunity_id=f"opp_{z.zone_id}",
+                                symbol=symbol,
+                                model_id=ModelIdentifier.SMC_M1_REVERSAL.value,
+                                direction=z.direction,
+                                zone_id=z.zone_id,
+                                as_of_ms=t_recv,
+                                stage=OpportunityStage.TRIGGER_PENDING.value,
+                                reason_codes=(rcode,),
+                                market_event_received_at=t_recv,
+                                details={"message": msg},
+                            ),
+                            now_ms=t_recv,
+                        )
+                        continue
+
+                    zone_hyp = entry_hypotheses_by_zone.get(z.zone_id)
+                    if zone_hyp is None:
+                        OpportunityFunnelService.record_opportunity_transition(
+                            db,
+                            OpportunityEvaluation(
+                                opportunity_id=f"opp_{z.zone_id}",
+                                symbol=symbol,
+                                model_id=ModelIdentifier.SMC_M1_REVERSAL.value,
+                                direction=z.direction,
+                                zone_id=z.zone_id,
+                                as_of_ms=t_recv,
+                                stage=OpportunityStage.TRIGGER_PENDING.value,
+                                reason_codes=(OpportunityReasonCode.HYPOTHESIS_AUTHORITY_MISSING.value,),
+                                market_event_received_at=t_recv,
+                                details={"message": "Thiếu dữ liệu xác thực kịch bản, tạm chặn vào lệnh."},
+                            ),
+                            now_ms=t_recv,
+                        )
+                        continue
+
+                    if zone_hyp.status == "EXPIRED" or t_recv >= getattr(zone_hyp, "expiry_ms", float("inf")):
                         OpportunityFunnelService.record_opportunity_transition(
                             db,
                             OpportunityEvaluation(
@@ -528,6 +671,7 @@ class ScalpWatcherOrchestrator:
                         z, c_1m, q, policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels
                     )
                     if cand.is_eligible:
+                        cand.hypothesis_id = zone_hyp.hypothesis_id
                         candidates.append(cand)
                     else:
                         OpportunityFunnelService.record_opportunity_transition(
@@ -546,15 +690,16 @@ class ScalpWatcherOrchestrator:
                             now_ms=t_recv,
                         )
 
-            # B. SMC M1 Continuation Model
-            cand_cont = ScalpM1ModelService.evaluate_m1_continuation_candidate(
-                c_1m, c_5m, q, bias, align, policy_dict, now_ms=t_recv, config=cfg
-            )
-            if cand_cont.is_eligible:
-                candidates.append(cand_cont)
+            # B. SMC M1 Continuation Model (SECTIONS 080 - 082)
+            if not cycle_authority.has_write_failures:
+                cand_cont = ScalpM1ModelService.evaluate_m1_continuation_candidate(
+                    c_1m, c_5m, q, bias, align, policy_dict, now_ms=t_recv, config=cfg
+                )
+                if cand_cont.is_eligible:
+                    candidates.append(cand_cont)
 
-        # C. Daily NY Research Model
-        if cfg.daily_ny_research_enabled:
+        # C. Daily NY Research Model (SECTIONS 080 - 083)
+        if cfg.daily_ny_research_enabled and not cycle_authority.has_write_failures:
             today_fills = audit.fills_count if audit else 0
             ny_session_ctx = resolve_entry_session_context(policy, "NY_DAILY_RESEARCH", now_ms=t_recv, clock=clock)
             is_ny = bool(ny_session_ctx.in_ny_entry_window)
@@ -631,7 +776,7 @@ class ScalpWatcherOrchestrator:
             elif effective_scalp_mode == ScalpMode.PAPER.value or (cand.model_id == ModelIdentifier.NY_DAILY_RESEARCH.value and cfg.daily_ny_research_enabled and global_auto):
                 # In PAPER mode: validate through canonical entry guards (PHẦN 025 - 033, 059)
                 armed_order = self._arm_paper_candidate(
-                    db, cand, now_ms=t_recv, clock=clock, quote=q, policy_settings=policy_dict, config=cfg, feed_health=feed_health, auto_enabled=auto_enabled
+                    db, cand, now_ms=t_recv, clock=clock, quote=q, policy_settings=policy_dict, config=cfg, feed_health=feed_health, auto_enabled=auto_enabled, authority_context=cycle_authority
                 )
                 if armed_order:
                     break
@@ -647,29 +792,37 @@ class ScalpWatcherOrchestrator:
 
         if commit_ok:
             with self._lock:
-                self._active_hypotheses[symbol] = hypotheses
+                self._active_hypotheses[symbol] = entry_authorized_hypotheses
                 self._latest_hypothesis_batch_result[symbol] = batch_result
+                self._latest_hypothesis_authority[symbol] = cycle_authority
         else:
             with self._lock:
                 self._active_hypotheses.pop(symbol, None)
                 self._latest_hypothesis_batch_result.pop(symbol, None)
+                self._latest_hypothesis_authority.pop(symbol, None)
 
         t_cycle_done = int(time.time() * 1000)
 
-        cycle_status = (
-            "OK"
-            if batch_result.read_status == "COMPLETE"
-            else ("DEGRADED" if batch_result.read_status == "READ_FAILED" else "PARTIAL")
+        cycle_status = derive_cycle_status(
+            read_status=batch_result.read_status,
+            write_status=cycle_authority.write_status,
+            commit_ok=commit_ok,
+            has_failed_write=cycle_authority.has_write_failures,
+            has_blocked_write=cycle_authority.has_write_blocks,
         )
         return {
             "status": cycle_status,
             "lifecycle_read_status": batch_result.read_status,
+            "lifecycle_write_status": cycle_authority.write_status,
+            "lifecycle_write_issues_count": cycle_authority.write_issues_count,
+            "transaction_status": "COMMITTED" if commit_ok else "FAILED",
             "as_of_ms": t_recv,
             "zones_count": len(bounded_zones),
             "candidates_count": len(candidates),
             "armed_order_id": armed_order.id if armed_order else None,
             "evaluation_duration_ms": max(0, t_cycle_done - t_start),
             "hypotheses_count": len(hypotheses),
+            "entry_authorized_hypotheses_count": len(entry_authorized_hypotheses),
             "issues_count": len(batch_result.issues),
             "liquidity_levels_count": len(liq_levels),
             "market_regime": regime,
@@ -688,6 +841,7 @@ class ScalpWatcherOrchestrator:
         config: Optional[M1ScalpConfig] = None,
         feed_health: Optional[Dict[str, Any]] = None,
         auto_enabled: Optional[bool] = None,
+        authority_context: Optional[Any] = None,
     ) -> Optional[models.PaperOrder]:
         """
         Guarded ARM path under entry_mutation_lock (PHẦN 025 - 033, 059).
@@ -746,6 +900,31 @@ class ScalpWatcherOrchestrator:
         if existing_order:
             logger.info(f"Idempotent hit: PaperOrder {existing_order.id} already armed for {cand.candidate_key}")
             return existing_order
+
+        # 1b. Check candidate lifecycle authority (SECTIONS 088 - 093)
+        from services.liquidity_scenario_service import check_candidate_lifecycle_authority
+        is_auth, auth_reason = check_candidate_lifecycle_authority(cand, authority_context)
+        if not is_auth:
+            logger.info(f"Refusing to arm candidate {cand.candidate_key}: lifecycle authority rejected ({auth_reason})")
+            OpportunityFunnelService.record_opportunity_transition(
+                db,
+                OpportunityEvaluation(
+                    opportunity_id=f"opp_{cand.candidate_key}",
+                    symbol=cand.symbol,
+                    model_id=cand.model_id,
+                    direction=cand.direction,
+                    zone_id=cand.zone_id,
+                    as_of_ms=now_ms,
+                    stage=OpportunityStage.GUARD_BLOCKED.value,
+                    reason_codes=(auth_reason or OpportunityReasonCode.GUARD_BLOCKED.value,),
+                    planned_entry=cand.planned_entry,
+                    stop_loss=cand.stop_loss,
+                    take_profit=cand.take_profit,
+                    net_rr=cand.net_rr,
+                ),
+                now_ms=now_ms,
+            )
+            return None
 
         # 2. Immutable WatchSetup instance (PHẦN 031)
         ws_id = f"watch-{cand.symbol}-{cand.model_id}-{cand.candidate_key}"
@@ -810,6 +989,29 @@ class ScalpWatcherOrchestrator:
         # 4. Canonical Entry Guard evaluation (PHẦN 004, 034, 035)
         from services.entry_guard_service import read_execution_feed_health
         actual_feed_health = feed_health if feed_health is not None else read_execution_feed_health()
+        v_quote = quote
+        if isinstance(quote, dict):
+            from services.quote_validator import ValidatedQuote
+            bid_val = float(quote.get("bid", 0.0))
+            ask_val = float(quote.get("ask", 0.0))
+            valid = (
+                bid_val > 0 and ask_val > 0 and ask_val >= bid_val
+                and bool(quote.get("is_valid", True))
+                and not bool(quote.get("is_stale", False))
+            )
+            v_quote = ValidatedQuote(
+                is_valid=valid,
+                bid=bid_val,
+                ask=ask_val,
+                last=float(quote.get("last", (bid_val + ask_val) / 2.0 if valid else 0.0)),
+                spread=max(0.0, ask_val - bid_val),
+                exchange_time=quote.get("exchange_time") or now_ms,
+                observed_at=quote.get("observed_at") or now_ms,
+                freshness_sec=float(quote.get("freshness_sec", 0.0)),
+                is_stale=bool(quote.get("is_stale", False)),
+                rejection_code=quote.get("rejection_code"),
+                rejection_detail=quote.get("rejection_detail"),
+            )
 
         req = EntryGuardRequest(
             stage="ARM",
@@ -827,7 +1029,7 @@ class ScalpWatcherOrchestrator:
             stop_loss=cand.stop_loss,
             take_profit=cand.take_profit,
             calc_result=calc,
-            validated_quote=quote,
+            validated_quote=v_quote,
             feed_health=actual_feed_health,
             min_net_rr=cfg.min_net_rr,
             clock=clock,

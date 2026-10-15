@@ -770,6 +770,107 @@ class LifecycleStageResult(str, Enum):
     FAILED = "FAILED"
 
 
+def is_lifecycle_stage_success(result: Any) -> bool:
+    """Pure helper to check whether a LifecycleStageResult grants stage authority (SECTIONS 036, 049).
+    Returns True ONLY for CREATED, UPDATED, NO_CHANGE, STAGED.
+    Returns False for BLOCKED, FAILED, None, or any unrecognized value.
+    """
+    if result is None:
+        return False
+    return result in (
+        LifecycleStageResult.CREATED,
+        LifecycleStageResult.UPDATED,
+        LifecycleStageResult.NO_CHANGE,
+        LifecycleStageResult.STAGED,
+    )
+
+
+@dataclass(frozen=True)
+class HypothesisWriteOutcome:
+    """Outcome of staging/persisting a single hypothesis lifecycle record in a cycle (SECTIONS 043 - 047)."""
+    hypothesis_id: str
+    storage_key: str
+    zone_id: Optional[str]
+    operation: str                           # "UPSERT_HYPOTHESIS" or "EXPIRE_DURABLE"
+    result: LifecycleStageResult
+    is_success: bool
+    reason_code: Optional[str] = None
+    diagnostics: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class LifecycleCycleAuthority:
+    """Cycle-level authority summary for hypothesis persistence and entry gating (SECTIONS 043, 044, 126)."""
+    write_outcomes: Dict[str, HypothesisWriteOutcome] = field(default_factory=dict)
+    zone_outcomes: Dict[str, HypothesisWriteOutcome] = field(default_factory=dict)
+    entry_authorized_hypotheses: List[Any] = field(default_factory=list)
+    has_write_failures: bool = False
+    has_write_blocks: bool = False
+    write_status: str = "OK"                  # "OK", "BLOCKED", "FAILED"
+    write_issues_count: int = 0
+
+
+def derive_cycle_status(
+    read_status: str,
+    write_status: str,
+    commit_ok: bool,
+    has_failed_write: bool,
+    has_blocked_write: bool,
+) -> str:
+    """
+    Deterministic resolution of overall cycle status (SECTIONS 126 - 130).
+    Priority:
+    1. If commit failed or read failed or any write failed -> DEGRADED
+    2. If write blocked or read partial -> PARTIAL
+    3. If read COMPLETE, write OK, commit OK -> OK
+    """
+    if not commit_ok or read_status == "READ_FAILED" or has_failed_write or write_status == "FAILED":
+        return "DEGRADED"
+    if has_blocked_write or write_status == "BLOCKED" or read_status == "PARTIAL":
+        return "PARTIAL"
+    return "OK"
+
+
+def check_candidate_lifecycle_authority(
+    candidate: Any,
+    authority_context: Optional[Any] = None,
+) -> Tuple[bool, Optional[str]]:
+    """
+    Validates lifecycle authority for a candidate before arming (SECTIONS 088 - 093).
+    Returns: (is_allowed, reason_code_if_blocked)
+    """
+    model_id = getattr(candidate, "model_id", None)
+    # Non-reversal models (continuation, daily research) do not require reversal lifecycle authority
+    if model_id != "SMC_M1_REVERSAL":
+        return True, None
+
+    if authority_context is None:
+        return False, "HYPOTHESIS_AUTHORITY_MISSING"
+
+    if hasattr(authority_context, "has_write_failures") and authority_context.has_write_failures:
+        return False, "HYPOTHESIS_WRITE_FAILED"
+
+    zone_id = getattr(candidate, "zone_id", None)
+    hyp_id = getattr(candidate, "hypothesis_id", None)
+
+    zone_outcomes = getattr(authority_context, "zone_outcomes", {})
+    write_outcomes = getattr(authority_context, "write_outcomes", {})
+
+    outcome = None
+    if zone_id and zone_id in zone_outcomes:
+        outcome = zone_outcomes[zone_id]
+    elif hyp_id and hyp_id in write_outcomes:
+        outcome = write_outcomes[hyp_id]
+
+    if outcome is None:
+        return False, "HYPOTHESIS_AUTHORITY_MISSING"
+
+    if not outcome.is_success:
+        return False, outcome.reason_code or "HYPOTHESIS_WRITE_BLOCKED"
+
+    return True, None
+
+
 @dataclass(frozen=True)
 class DurableHypothesisRecord:
     """

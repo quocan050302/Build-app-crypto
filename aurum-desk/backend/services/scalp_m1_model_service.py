@@ -249,6 +249,7 @@ class ScalpCandidate:
     snapshot: Optional[ScenarioSnapshot] = None
     as_of_ms: int = 0
     zone_id: Optional[str] = None
+    hypothesis_id: Optional[str] = None
 
 
 def qualify_selected_break(

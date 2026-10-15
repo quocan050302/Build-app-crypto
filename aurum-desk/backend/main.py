@@ -3243,11 +3243,18 @@ def get_scalp_hypotheses_endpoint(symbol: str = "XAUUSDT"):
     from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
     hyps = scalp_watcher_orchestrator.get_active_hypotheses(symbol)
     batch_res = scalp_watcher_orchestrator.get_latest_hypothesis_batch_result(symbol)
+    authority = scalp_watcher_orchestrator.get_latest_hypothesis_authority(symbol)
     data_quality = "HEALTHY"
     issues_count = 0
     if batch_res is not None:
         data_quality = "DEGRADED" if batch_res.read_status != "COMPLETE" else "HEALTHY"
         issues_count = len(batch_res.issues)
+    if authority is not None:
+        if authority.has_write_failures:
+            data_quality = "DEGRADED"
+        elif authority.has_write_blocks and data_quality != "DEGRADED":
+            data_quality = "PARTIAL"
+        issues_count += authority.write_issues_count
     return {
         "symbol": symbol,
         "count": len(hyps),
