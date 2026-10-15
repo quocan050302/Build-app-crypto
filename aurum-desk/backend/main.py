@@ -3022,22 +3022,20 @@ def get_order_chart_evidence(
 
 @app.get("/api/scalp/config")
 def get_scalp_config_endpoint(db: Session = Depends(get_db)):
-    from services.scalp_m1_types import active_scalp_config
-    cfg_mode = db.query(models.SystemConfig).filter(models.SystemConfig.key == "scalp_m1_mode").first()
-    cfg_ny = db.query(models.SystemConfig).filter(models.SystemConfig.key == "daily_ny_research_enabled").first()
-    mode = cfg_mode.value if cfg_mode else active_scalp_config.scalp_m1_mode
-    ny_res = (cfg_ny.value.lower() == "true") if cfg_ny else active_scalp_config.daily_ny_research_enabled
+    from services.scalp_m1_types import load_effective_scalp_config
+    cfg = load_effective_scalp_config(db)
     return {
-        "scalp_m1_enabled": (mode != "OFF"),
-        "scalp_m1_mode": mode,
-        "daily_ny_research_enabled": ny_res,
-        "min_closed_m1_bars": active_scalp_config.min_closed_m1_bars,
-        "min_net_rr": active_scalp_config.min_net_rr,
-        "fallback_risk_pct": active_scalp_config.fallback_risk_pct,
-        "near_zone_enter_atr": active_scalp_config.near_zone_enter_atr,
-        "near_zone_exit_atr": active_scalp_config.near_zone_exit_atr,
-        "max_active_zones": active_scalp_config.max_active_zones,
-        "config_version": active_scalp_config.config_version,
+        "scalp_m1_enabled": (cfg.scalp_m1_mode != "OFF"),
+        "scalp_m1_mode": cfg.scalp_m1_mode,
+        "daily_ny_research_enabled": cfg.daily_ny_research_enabled,
+        "min_closed_m1_bars": cfg.min_closed_m1_bars,
+        "displacement_body_atr_min": cfg.displacement_body_atr_min,
+        "min_net_rr": cfg.min_net_rr,
+        "fallback_risk_pct": cfg.fallback_risk_pct,
+        "near_zone_enter_atr": cfg.near_zone_enter_atr,
+        "near_zone_exit_atr": cfg.near_zone_exit_atr,
+        "max_active_zones": cfg.max_active_zones,
+        "config_version": cfg.config_version,
     }
 
 
@@ -3046,22 +3044,38 @@ def update_scalp_config_endpoint(
     payload: Dict[str, Any] = Body(...),
     db: Session = Depends(get_db),
 ):
-    from services.scalp_m1_types import ScalpMode
+    from services.scalp_m1_types import ScalpMode, load_effective_scalp_config
     now_ms = int(time.time() * 1000)
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="INVALID_PAYLOAD: JSON object required")
+
     mode = payload.get("scalp_m1_mode")
     if mode is not None:
-        if mode not in (ScalpMode.OFF.value, ScalpMode.SHADOW.value, ScalpMode.PAPER.value):
+        if not isinstance(mode, str):
+            raise HTTPException(status_code=400, detail="INVALID_SCALP_MODE: must be a string")
+        mode_clean = mode.strip().upper()
+        if mode_clean not in (ScalpMode.OFF.value, ScalpMode.SHADOW.value, ScalpMode.PAPER.value):
             raise HTTPException(status_code=400, detail="INVALID_SCALP_MODE: must be OFF, SHADOW, or PAPER")
         cfg_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == "scalp_m1_mode").first()
         if cfg_row:
-            cfg_row.value = mode
+            cfg_row.value = mode_clean
             cfg_row.updated_at = now_ms
         else:
-            db.add(models.SystemConfig(key="scalp_m1_mode", value=mode, updated_at=now_ms))
+            db.add(models.SystemConfig(key="scalp_m1_mode", value=mode_clean, updated_at=now_ms))
 
-    ny_res = payload.get("daily_ny_research_enabled")
-    if ny_res is not None:
-        val_str = "true" if bool(ny_res) else "false"
+    if "daily_ny_research_enabled" in payload:
+        ny_res = payload.get("daily_ny_research_enabled")
+        if isinstance(ny_res, bool):
+            val_bool = ny_res
+        elif isinstance(ny_res, str) and ny_res.strip().lower() in ("true", "false"):
+            val_bool = (ny_res.strip().lower() == "true")
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="INVALID_BOOLEAN: daily_ny_research_enabled must be a strict boolean (true/false)"
+            )
+        val_str = "true" if val_bool else "false"
         cfg_ny = db.query(models.SystemConfig).filter(models.SystemConfig.key == "daily_ny_research_enabled").first()
         if cfg_ny:
             cfg_ny.value = val_str
@@ -3069,8 +3083,42 @@ def update_scalp_config_endpoint(
         else:
             db.add(models.SystemConfig(key="daily_ny_research_enabled", value=val_str, updated_at=now_ms))
 
-    db.commit()
-    return {"status": "SUCCESS", "updated_at": now_ms}
+    if "min_net_rr" in payload:
+        try:
+            rr_val = float(payload["min_net_rr"])
+            if rr_val <= 0 or not math.isfinite(rr_val):
+                raise ValueError()
+            cfg_rr = db.query(models.SystemConfig).filter(models.SystemConfig.key == "min_net_rr").first()
+            if cfg_rr:
+                cfg_rr.value = str(rr_val)
+                cfg_rr.updated_at = now_ms
+            else:
+                db.add(models.SystemConfig(key="min_net_rr", value=str(rr_val), updated_at=now_ms))
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="INVALID_VALUE: min_net_rr must be a positive number")
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to persist scalp config: {e}")
+        raise HTTPException(status_code=500, detail="DATABASE_ERROR: failed to persist config")
+
+    effective_cfg = load_effective_scalp_config(db)
+    return {
+        "status": "SUCCESS",
+        "updated_at": now_ms,
+        "effective_config": {
+            "scalp_m1_enabled": (effective_cfg.scalp_m1_mode != "OFF"),
+            "scalp_m1_mode": effective_cfg.scalp_m1_mode,
+            "daily_ny_research_enabled": effective_cfg.daily_ny_research_enabled,
+            "min_closed_m1_bars": effective_cfg.min_closed_m1_bars,
+            "displacement_body_atr_min": effective_cfg.displacement_body_atr_min,
+            "min_net_rr": effective_cfg.min_net_rr,
+            "fallback_risk_pct": effective_cfg.fallback_risk_pct,
+            "config_version": effective_cfg.config_version,
+        }
+    }
 
 
 @app.get("/api/scalp/watchlist")

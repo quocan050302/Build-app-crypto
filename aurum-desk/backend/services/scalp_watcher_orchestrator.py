@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import threading
 import time
 from typing import Any, Dict, List, Optional, Sequence
@@ -46,6 +47,7 @@ from services.scalp_m1_types import (
     WatchedZone,
     ZoneState,
     get_scalp_config,
+    load_effective_scalp_config,
 )
 from services.smc_scenario_binding import promote_confirmed_scenario
 from services.telegram_service import queue_telegram_notification
@@ -88,14 +90,26 @@ class ScalpWatcherOrchestrator:
         h1_alignment: Optional[str] = None,
         config: Optional[M1ScalpConfig] = None,
         auto_enabled: Optional[bool] = None,
+        feed_health: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
-        Single-cycle autonomous evaluation (PHẦN 054, 055, 056).
+        Single-cycle autonomous evaluation (PHẦN 015 - 024, 054 - 056).
         Can be driven synchronously by tests / replay or asynchronously by background watcher.
+        Uses load_effective_scalp_config(db) if config is not injected.
         """
         t_recv = int(now_ms if now_ms is not None else int(time.time() * 1000))
         t_start = int(time.time() * 1000)
-        cfg = config or get_scalp_config()
+        cfg = config if config is not None else load_effective_scalp_config(db)
+
+        # Global auto stop policy check (PHẦN 024)
+        if auto_enabled is None:
+            try:
+                from services.strategy_service import strategy_service
+                global_auto = strategy_service.get_auto_state(db)
+            except Exception:
+                global_auto = True
+        else:
+            global_auto = bool(auto_enabled)
 
         # Check feature flag
         scalp_mode = cfg.scalp_m1_mode
@@ -107,26 +121,68 @@ class ScalpWatcherOrchestrator:
                 "zones_count": 0,
                 "candidates_count": 0,
                 "candidates": [],
+                "armed_order_id": None,
             }
 
-        # Validate quote & price
+        # Validate quote & price (PHẦN 035, 080)
         if quote is not None:
-            q = quote
+            if hasattr(quote, "is_valid"):
+                q = quote
+            elif isinstance(quote, dict):
+                from services.quote_validator import ValidatedQuote
+                bid_val = float(quote.get("bid", 0.0))
+                ask_val = float(quote.get("ask", 0.0))
+                import math
+                valid = (
+                    bool(quote.get("is_valid", True))
+                    and not bool(quote.get("is_stale", False))
+                    and bid_val > 0
+                    and ask_val >= bid_val
+                    and math.isfinite(bid_val)
+                    and math.isfinite(ask_val)
+                )
+                q = ValidatedQuote(
+                    is_valid=valid,
+                    bid=bid_val,
+                    ask=ask_val,
+                    last=float(quote.get("last", (bid_val + ask_val) / 2.0 if valid else 0.0)),
+                    spread=float(ask_val - bid_val if valid else 0.0),
+                    exchange_time=quote.get("exchange_time") or t_recv,
+                    observed_at=quote.get("observed_at") or t_recv,
+                    freshness_sec=float(quote.get("freshness_sec", 0.0)),
+                    is_stale=bool(quote.get("is_stale", False)),
+                    rejection_code=quote.get("rejection_code"),
+                    rejection_detail=quote.get("rejection_detail"),
+                )
+            else:
+                q = quote
         else:
             raw_t = ticker if ticker is not None else collector_service.latest_ticker
             q = QuoteValidator.validate_ticker(raw_t, now_ms=t_recv) if raw_t else None
 
         bid = float(getattr(q, "bid", 0.0) if hasattr(q, "bid") else (q or {}).get("bid", 0.0))
         ask = float(getattr(q, "ask", 0.0) if hasattr(q, "ask") else (q or {}).get("ask", 0.0))
-        current_px = (bid + ask) / 2.0 if (bid > 0 and ask > 0) else 0.0
+        import math
+        is_q_valid = (
+            bool(getattr(q, "is_valid", False))
+            and not bool(getattr(q, "is_stale", False))
+            and bid > 0
+            and ask >= bid
+            and math.isfinite(bid)
+            and math.isfinite(ask)
+        )
 
-        if current_px <= 0:
+        if not is_q_valid:
             return {
                 "status": "NO_QUOTE",
                 "as_of_ms": t_recv,
                 "zones_count": 0,
+                "candidates_count": 0,
                 "candidates": [],
+                "armed_order_id": None,
             }
+
+        current_px = (bid + ask) / 2.0
 
         # 1. Load or use injected candles
         c_15m = candles_15m if candles_15m is not None else crud.get_candles(db, symbol, "15M", limit=120, ascending=True, cutoff_ms=t_recv)
@@ -196,7 +252,6 @@ class ScalpWatcherOrchestrator:
             if new_state == ZoneState.NEAR.value and prev_state != ZoneState.NEAR.value:
                 alert_key = f"{z.zone_id}:NEAR"
                 last_alert = self._last_alert_times.get(alert_key, 0)
-                # Cooldown 15 minutes between near alerts for the same zone
                 if (t_recv - last_alert) > 15 * 60 * 1000:
                     self._last_alert_times[alert_key] = t_recv
                     OpportunityFunnelService.record_opportunity_transition(
@@ -227,7 +282,7 @@ class ScalpWatcherOrchestrator:
                                 "distance_price": abs(current_px - z.midpoint),
                                 "distance_atr": dist_atr,
                                 "atr": atr_15m,
-                                "auto_paper_enabled": (scalp_mode == ScalpMode.PAPER.value),
+                                "auto_paper_enabled": (scalp_mode == ScalpMode.PAPER.value and global_auto),
                             },
                             occurred_at=t_recv,
                         )
@@ -262,7 +317,6 @@ class ScalpWatcherOrchestrator:
                     if cand.is_eligible:
                         candidates.append(cand)
                     else:
-                        # Record waiting / rejection funnel transition
                         OpportunityFunnelService.record_opportunity_transition(
                             db,
                             OpportunityEvaluation(
@@ -317,6 +371,11 @@ class ScalpWatcherOrchestrator:
         t_eval_done = int(time.time() * 1000)
         armed_order = None
 
+        effective_scalp_mode = scalp_mode
+        # Global auto stop policy check: if stopped, downgrade PAPER to SHADOW (PHẦN 024)
+        if not global_auto and effective_scalp_mode == ScalpMode.PAPER.value:
+            effective_scalp_mode = ScalpMode.SHADOW.value
+
         for cand in candidates:
             opp_eval = OpportunityEvaluation(
                 opportunity_id=f"opp_{cand.candidate_key}",
@@ -337,8 +396,8 @@ class ScalpWatcherOrchestrator:
             )
             OpportunityFunnelService.record_opportunity_transition(db, opp_eval, now_ms=t_recv)
 
-            if scalp_mode == ScalpMode.SHADOW.value:
-                # In SHADOW mode: record hypothetical plan, do NOT arm or fill order (PHẦN 024)
+            if effective_scalp_mode == ScalpMode.SHADOW.value:
+                # In SHADOW mode: record hypothetical plan, do NOT arm or fill order (PHẦN 024, 079)
                 logger.info(f"[SHADOW] Qualified {cand.model_id} candidate: {cand.direction} @ {cand.planned_entry}")
                 opp_eval = OpportunityEvaluation(
                     opportunity_id=f"opp_{cand.candidate_key}",
@@ -355,10 +414,10 @@ class ScalpWatcherOrchestrator:
                 )
                 OpportunityFunnelService.record_opportunity_transition(db, opp_eval, now_ms=t_recv)
 
-            elif scalp_mode == ScalpMode.PAPER.value or (cand.model_id == ModelIdentifier.NY_DAILY_RESEARCH.value and cfg.daily_ny_research_enabled):
-                # In PAPER mode: validate through canonical entry guards (PHẦN 025, 059)
+            elif effective_scalp_mode == ScalpMode.PAPER.value or (cand.model_id == ModelIdentifier.NY_DAILY_RESEARCH.value and cfg.daily_ny_research_enabled and global_auto):
+                # In PAPER mode: validate through canonical entry guards (PHẦN 025 - 033, 059)
                 armed_order = self._arm_paper_candidate(
-                    db, cand, now_ms=t_recv, clock=clock, quote=q, policy_settings=policy_dict
+                    db, cand, now_ms=t_recv, clock=clock, quote=q, policy_settings=policy_dict, config=cfg, feed_health=feed_health
                 )
                 if armed_order:
                     break
@@ -368,6 +427,9 @@ class ScalpWatcherOrchestrator:
         except Exception as e:
             logger.warning(f"Error committing scalp watcher cycle: {e}")
             db.rollback()
+            armed_order = None
+
+        t_cycle_done = int(time.time() * 1000)
 
         return {
             "status": "OK",
@@ -375,7 +437,7 @@ class ScalpWatcherOrchestrator:
             "zones_count": len(bounded_zones),
             "candidates_count": len(candidates),
             "armed_order_id": armed_order.id if armed_order else None,
-            "evaluation_duration_ms": t_eval_done - t_start,
+            "evaluation_duration_ms": max(0, t_cycle_done - t_start),
         }
 
     @serialize_entry_mutation
@@ -388,23 +450,43 @@ class ScalpWatcherOrchestrator:
         clock: Any,
         quote: Any,
         policy_settings: Dict[str, Any],
+        config: Optional[M1ScalpConfig] = None,
+        feed_health: Optional[Dict[str, Any]] = None,
     ) -> Optional[models.PaperOrder]:
         """
-        Guarded ARM path under entry_mutation_lock (PHẦN 059).
+        Guarded ARM path under entry_mutation_lock (PHẦN 025 - 033, 059).
         Never bypasses entry guards or daily quotas.
         """
+        cfg = config if config is not None else load_effective_scalp_config(db)
         snap = cand.snapshot
-        if snap is None:
+        calc = cand.calculation
+
+        # Validate calculation output (PHẦN 026, 037)
+        if calc is None or not getattr(calc, "is_valid", False) or not getattr(calc, "can_execute", False):
+            logger.info(f"Candidate calculation is invalid or cannot execute: {getattr(calc, 'skip_reason', None) or getattr(calc, 'invalid_reason', None)}")
             return None
 
-        # Build WatchSetup
-        ws_id = f"watch-{cand.symbol}-{cand.model_id}"
+        qty = float(getattr(calc, "quantity", 0.0))
+        if qty <= 0 or not math.isfinite(qty):
+            logger.info(f"Invalid calculator quantity: {qty}")
+            return None
+
+        # 1. Idempotency Check: prevent duplicate orders for the same signal (PHẦN 058)
+        idempotency_key = f"scalp_arm_{cand.candidate_key}"
+        existing_order = db.query(models.PaperOrder).filter(models.PaperOrder.idempotency_key == idempotency_key).first()
+        if existing_order:
+            logger.info(f"Idempotent hit: PaperOrder {existing_order.id} already armed for {cand.candidate_key}")
+            return existing_order
+
+        # 2. Immutable WatchSetup instance (PHẦN 031)
+        ws_id = f"watch-{cand.symbol}-{cand.model_id}-{cand.candidate_key}"
         ws = db.query(models.WatchSetup).filter(models.WatchSetup.id == ws_id).first()
         if ws is None:
             ws = models.WatchSetup(
                 id=ws_id,
+                setup_instance_id=cand.candidate_key,
                 direction=cand.direction,
-                timeframe=snap.setup_timeframe,
+                timeframe=snap.setup_timeframe if snap else "1M",
                 state="READY",
                 provisional_entry=cand.planned_entry,
                 provisional_sl=cand.stop_loss,
@@ -426,7 +508,21 @@ class ScalpWatcherOrchestrator:
             ws.updated_at = now_ms
         db.flush()
 
-        # Canonical Entry Guard evaluation
+        # 3. Save immutable scenario snapshot for chart evidence linking (PHẦN 069, 070)
+        scenario_snap_id = None
+        if snap is not None:
+            from services.smc_scenario_repository import save_immutable_scenario_snapshot
+            try:
+                snap_row = save_immutable_scenario_snapshot(db, snap)
+                scenario_snap_id = snap_row.snapshot_id
+            except Exception as e:
+                logger.warning(f"Error persisting scenario snapshot: {e}")
+                scenario_snap_id = snap.snapshot_id
+
+        # 4. Canonical Entry Guard evaluation (PHẦN 004, 034, 035)
+        from services.entry_guard_service import read_execution_feed_health
+        actual_feed_health = feed_health if feed_health is not None else read_execution_feed_health()
+
         req = EntryGuardRequest(
             stage="ARM",
             now_ms=now_ms,
@@ -434,18 +530,24 @@ class ScalpWatcherOrchestrator:
             direction=cand.direction,
             execution_mode="AUTO",
             origin="AUTO_STRATEGY",
-            watch_setup_id=ws.id,
+            setup_id=ws.id,
+            setup_instance_id=cand.candidate_key,
+            setup_state=ws.state,
+            timeframe=snap.setup_timeframe if snap else "1M",
             strategy_family=cand.model_id,
             planned_entry=cand.planned_entry,
             stop_loss=cand.stop_loss,
             take_profit=cand.take_profit,
-            calc_result=cand.calculation,
-            feed_health={"status": "CONNECTED"},
+            calc_result=calc,
+            validated_quote=quote,
+            feed_health=actual_feed_health,
+            min_net_rr=cfg.min_net_rr,
+            clock=clock,
         )
 
         decision = evaluate_entry_guard(db, req)
         if not decision.allowed:
-            logger.info(f"Guard blocked {cand.model_id} candidate: {decision.primary_reason}")
+            logger.info(f"Guard blocked {cand.model_id} candidate: {decision.primary_reason if hasattr(decision, 'primary_reason') else decision.reason_codes}")
             OpportunityFunnelService.record_opportunity_transition(
                 db,
                 OpportunityEvaluation(
@@ -456,7 +558,7 @@ class ScalpWatcherOrchestrator:
                     zone_id=cand.zone_id,
                     as_of_ms=now_ms,
                     stage=OpportunityStage.GUARD_BLOCKED.value,
-                    reason_codes=tuple(decision.blockers),
+                    reason_codes=tuple(decision.reason_codes),
                     planned_entry=cand.planned_entry,
                     stop_loss=cand.stop_loss,
                     take_profit=cand.take_profit,
@@ -466,30 +568,69 @@ class ScalpWatcherOrchestrator:
             )
             return None
 
-        # Guard passed: Create PaperOrder
-        order_id = f"ord_{cand.model_id}_{now_ms}"
+        # 5. Guard passed: Create PaperOrder with canonical sizing and schema fields (PHẦN 025 - 030)
+        from services.order_plan_snapshot_service import build_arm_plan_snapshot
+        arm_snap = build_arm_plan_snapshot(
+            calc,
+            order_type="MARKET",
+            direction=cand.direction,
+            planned_entry=cand.planned_entry,
+            stop_loss=cand.stop_loss,
+            take_profit=cand.take_profit,
+            capital_usdt=policy_settings.get("capital_usdt", 1000.0),
+            risk_pct=float(getattr(calc, "effective_risk_pct", cfg.fallback_risk_pct)),
+            leverage=calc.leverage,
+            margin_mode=calc.margin_mode,
+            now_ms=now_ms,
+            policy_config_version=cfg.config_version,
+            risk_config_version=cfg.config_version,
+        )
+
+        order_id = f"ord_{cand.model_id}_{cand.candidate_key}"
         order = models.PaperOrder(
             id=order_id,
+            setup_id=ws.id,
+            setup_instance_id=cand.candidate_key,
+            idempotency_key=idempotency_key,
+            signal_id=f"sig-{cand.candidate_key}",
             instrument=cand.symbol,
             direction=cand.direction,
             state="armed",
+            order_type="MARKET",
+            timeframe=snap.setup_timeframe if snap else "1M",
             planned_entry=cand.planned_entry,
             actual_entry=None,
             stop_loss=cand.stop_loss,
             take_profit=cand.take_profit,
-            quantity=0.1,
-            initial_risk_usdt=float(cand.calculation.risk_usdt if cand.calculation else 2.5),
-            estimated_net_rr=float(cand.net_rr),
-            estimated_gross_rr=float(cand.gross_rr),
-            leverage=policy_settings.get("leverage", 50),
-            margin_mode=policy_settings.get("margin_mode", "ISOLATED"),
+            quantity=qty,
+            initial_risk_usdt=float(calc.net_risk_usdt),
+            risk_pct=float(getattr(calc, "effective_risk_pct", cfg.fallback_risk_pct)),
+            gross_rr=float(calc.gross_rr),
+            estimated_net_rr=float(calc.net_rr),
+            leverage=calc.leverage,
+            margin_mode=calc.margin_mode,
+            estimated_liquidation=calc.estimated_liquidation,
             opened_at=None,
             created_at=now_ms,
-            source="AUTO",
+            armed_at=now_ms,
+            expires_at=now_ms + (2 * 3600 * 1000),
+            origin="AUTO_STRATEGY",
+            execution_mode="AUTO",
             strategy_family=cand.model_id,
+            strategy_version="15.0",
+            scenario_snapshot_id=scenario_snap_id,
+            arm_decision_snapshot=json.dumps(decision.to_dict() if hasattr(decision, 'to_dict') else {}, ensure_ascii=False),
+            cost_snapshot=json.dumps(arm_snap, ensure_ascii=False),
         )
         db.add(order)
         ws.state = "ARMED"
+        ws.confirmed_entry = cand.planned_entry
+        ws.confirmed_sl = cand.stop_loss
+        ws.confirmed_tp = cand.take_profit
+        ws.net_rr = calc.net_rr
+        ws.gross_rr = calc.gross_rr
+        ws.quantity = qty
+        ws.risk_usdt = calc.net_risk_usdt
         db.flush()
 
         OpportunityFunnelService.record_opportunity_transition(
@@ -529,8 +670,23 @@ class ScalpWatcherOrchestrator:
             occurred_at=now_ms,
         )
 
-        return order
+        from services.event_bus import event_bus
+        event_bus.publish_event(
+            event_type="order.armed",
+            aggregate_id=order.id,
+            payload={
+                "order_id": order.id,
+                "setup_id": ws.id,
+                "direction": cand.direction,
+                "order_type": "MARKET",
+                "planned_entry": cand.planned_entry,
+                "stop_loss": cand.stop_loss,
+                "take_profit": cand.take_profit,
+                "net_rr": calc.net_rr,
+            }
+        )
 
+        return order
     async def run_watcher_loop(self):
         """Periodic background evaluation loop for autonomous scalp watcher."""
         self._running = True

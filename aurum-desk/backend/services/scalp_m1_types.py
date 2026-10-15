@@ -189,6 +189,11 @@ class WatchedZone:
     def __post_init__(self):
         if self.top <= self.bottom:
             raise ValueError(f"INVALID_ZONE_BOUNDS: top ({self.top}) must be > bottom ({self.bottom})")
+        if self.invalidation_level <= 0.0:
+            if self.direction in ("BEARISH", "SHORT"):
+                object.__setattr__(self, "invalidation_level", round(self.top + 0.1 * (self.top - self.bottom), 2))
+            else:
+                object.__setattr__(self, "invalidation_level", round(self.bottom - 0.1 * (self.top - self.bottom), 2))
 
     @property
     def midpoint(self) -> float:
@@ -287,7 +292,86 @@ class M1ScalpConfig:
             raise ValueError("INVALID_CONFIG: max_active_zones must be > 0")
 
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 active_scalp_config = M1ScalpConfig()
+
+
+def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
+    """
+    PHẦN 016, 017: Single source of config persistence for M1 Scalp & Watcher.
+    Loads persisted overrides from SystemConfig in DB, validates types and boundaries,
+    and returns an immutable M1ScalpConfig.
+    Does NOT commit when reading. Does NOT call network.
+    """
+    if db is None:
+        return active_scalp_config
+
+    try:
+        import models
+        rows = db.query(models.SystemConfig).filter(
+            models.SystemConfig.key.in_([
+                "scalp_m1_mode",
+                "daily_ny_research_enabled",
+                "min_closed_m1_bars",
+                "displacement_body_atr_min",
+                "min_net_rr",
+                "fallback_risk_pct",
+                "near_zone_enter_atr",
+                "near_zone_exit_atr",
+                "max_active_zones",
+                "config_version",
+            ])
+        ).all()
+        config_map = {r.key: r.value for r in rows}
+    except Exception as e:
+        logger.warning(f"Failed to query SystemConfig for scalp config: {e}")
+        return active_scalp_config
+
+    overrides: Dict[str, Any] = {}
+
+    if "scalp_m1_mode" in config_map:
+        val = str(config_map["scalp_m1_mode"]).strip().upper()
+        if val in (ScalpMode.OFF.value, ScalpMode.SHADOW.value, ScalpMode.PAPER.value):
+            overrides["scalp_m1_mode"] = val
+            overrides["scalp_m1_enabled"] = (val != ScalpMode.OFF.value)
+
+    if "daily_ny_research_enabled" in config_map:
+        val = str(config_map["daily_ny_research_enabled"]).strip().lower()
+        if val in ("true", "1", "yes"):
+            overrides["daily_ny_research_enabled"] = True
+        elif val in ("false", "0", "no"):
+            overrides["daily_ny_research_enabled"] = False
+
+    for num_key, typ in [
+        ("min_closed_m1_bars", int),
+        ("displacement_body_atr_min", float),
+        ("min_net_rr", float),
+        ("fallback_risk_pct", float),
+        ("near_zone_enter_atr", float),
+        ("near_zone_exit_atr", float),
+        ("max_active_zones", int),
+        ("config_version", int),
+    ]:
+        if num_key in config_map:
+            try:
+                parsed_val = typ(config_map[num_key])
+                overrides[num_key] = parsed_val
+            except (ValueError, TypeError):
+                pass
+
+    if not overrides:
+        return active_scalp_config
+
+    base_dict = active_scalp_config.__dict__.copy()
+    base_dict.update(overrides)
+    try:
+        return M1ScalpConfig(**base_dict)
+    except Exception as e:
+        logger.warning(f"Invalid persisted scalp config overrides: {e}, falling back to defaults")
+        return active_scalp_config
 
 
 def get_scalp_config(**overrides: Any) -> M1ScalpConfig:

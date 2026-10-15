@@ -109,7 +109,14 @@ class DailyNYResearchService:
 
         bid = float(getattr(current_quote, "bid", 0.0) if hasattr(current_quote, "bid") else (current_quote or {}).get("bid", 0.0))
         ask = float(getattr(current_quote, "ask", 0.0) if hasattr(current_quote, "ask") else (current_quote or {}).get("ask", 0.0))
-        is_quote_valid = bool(getattr(current_quote, "is_valid", True)) and bid > 0 and ask >= bid
+        is_quote_valid = (
+            bool(getattr(current_quote, "is_valid", True))
+            and not bool(getattr(current_quote, "is_stale", False))
+            and bid > 0
+            and ask >= bid
+            and math.isfinite(bid)
+            and math.isfinite(ask)
+        )
 
         if not is_quote_valid:
             return {
@@ -135,6 +142,9 @@ class DailyNYResearchService:
                 "missing_conditions": ["Xu hướng khung lớn chưa xác định để tạo lệnh nghiên cứu"],
                 "as_of_ms": now_ms,
             }
+
+        bar_open_5m = int(getattr(closed_5m[-1], "open_time", None) or getattr(closed_5m[-1], "timestamp", 0))
+        candidate_key = f"{model_id}_XAUUSDT_{direction}_{bar_open_5m}"
 
         import smc_engine
         atr_5m = smc_engine.compute_atr(closed_5m, period=14)
@@ -167,9 +177,9 @@ class DailyNYResearchService:
                 "as_of_ms": now_ms,
             }
 
-        # Calculator check
+        # Calculator check with fallback risk cap (PHẦN 055)
         capital = float(policy_settings.get("capital_usdt", 1000.0))
-        risk_pct = float(policy_settings.get("risk_pct", cfg.fallback_risk_pct))
+        eff_risk_pct = min(float(policy_settings.get("risk_pct", cfg.fallback_risk_pct)), cfg.fallback_risk_pct)
         lev = int(policy_settings.get("leverage", 50))
         margin_mode = str(policy_settings.get("margin_mode", "ISOLATED"))
 
@@ -179,10 +189,31 @@ class DailyNYResearchService:
             stop_loss=sl_price,
             take_profit=target_price,
             capital_usdt=capital,
-            risk_pct=risk_pct,
+            risk_pct=eff_risk_pct,
             leverage=lev,
             margin_mode=margin_mode,
+            min_net_rr=cfg.min_net_rr,
         )
+
+        if not calc_res.is_valid:
+            return {
+                "is_eligible": False,
+                "model_id": model_id,
+                "candidate_key": candidate_key,
+                "reason_code": "CALCULATOR_INVALID",
+                "missing_conditions": [f"Kế hoạch tính toán không hợp lệ: {calc_res.invalid_reason}"],
+                "as_of_ms": now_ms,
+            }
+
+        if not calc_res.can_execute:
+            return {
+                "is_eligible": False,
+                "model_id": model_id,
+                "candidate_key": candidate_key,
+                "reason_code": "CANNOT_EXECUTE",
+                "missing_conditions": [f"Không đủ điều kiện thực thi: {calc_res.skip_reason}"],
+                "as_of_ms": now_ms,
+            }
 
         if not calc_res.meets_min_rr:
             return {
@@ -219,7 +250,7 @@ class DailyNYResearchService:
             context_timeframes=["15M", "5M", "1H"],
             family=model_id,
             direction=direction,
-            state=ScenarioState.STRUCTURE_CONFIRMED,
+            state=ScenarioState.OBSERVING,
             as_of_ms=now_ms,
             evidence_cutoff_ms=now_ms,
             evidence_ids=[n["id"] for n in ev_nodes],

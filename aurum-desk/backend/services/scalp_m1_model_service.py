@@ -139,18 +139,19 @@ class ScalpM1ModelService:
         context_levels: Optional[Sequence[Any]] = None,
     ) -> ScalpCandidate:
         """
-        Evaluate M1 Reversal Candidate (PHẦN 045, 046).
+        Evaluate M1 Reversal Candidate (PHẦN 040 - 050).
         Prerequisites:
         1. Closed M1 candles >= min_closed_m1_bars.
-        2. Price approached/touched watched zone.
-        3. Sweep of local M1 swing or rejection extreme at zone edge.
-        4. Causal structure break (CHOCH) past confirmed opposite M1 swing.
-        5. Displacement exceeding body ATR threshold.
-        6. Net R:R >= 2.0 with valid SL/TP geometry.
+        2. Valid authoritative quote (bid > 0, ask >= bid, fresh, not stale).
+        3. Price approached/touched watched zone.
+        4. Sweep of local M1 swing or rejection extreme at zone edge.
+        5. Causal structure break (CHOCH) past confirmed opposite M1 swing with displacement.
+        6. Closed M1 retest pulling back towards the break zone without breaking sweep invalidation.
+        7. Net R:R >= min_net_rr with valid SL/TP geometry and executable calculator sizing.
         """
         cfg = config or get_scalp_config()
         model_id = ModelIdentifier.SMC_M1_REVERSAL.value
-        candidate_key = f"{model_id}_{zone.zone_id}_{now_ms}"
+        fallback_key = f"{model_id}_{zone.symbol}_{zone.zone_id}_{zone.direction}"
 
         # 1. Closed candles audit (PHẦN 042, 043)
         try:
@@ -158,15 +159,34 @@ class ScalpM1ModelService:
         except ValueError as err:
             return ScalpCandidate(
                 is_eligible=False, model_id=model_id, direction=zone.direction,
-                candidate_key=candidate_key, reason_code=OpportunityReasonCode.DATA_INCOMPLETE.value,
+                candidate_key=fallback_key, reason_code=OpportunityReasonCode.DATA_INCOMPLETE.value,
                 missing_conditions=[f"Lỗi dữ liệu nến M1: {err}"],
                 as_of_ms=now_ms, zone_id=zone.zone_id,
             )
         if len(closed_1m) < cfg.min_closed_m1_bars:
             return ScalpCandidate(
                 is_eligible=False, model_id=model_id, direction=zone.direction,
-                candidate_key=candidate_key, reason_code=OpportunityReasonCode.DATA_INCOMPLETE.value,
+                candidate_key=fallback_key, reason_code=OpportunityReasonCode.DATA_INCOMPLETE.value,
                 missing_conditions=[f"Thiếu nến M1 đã đóng: {len(closed_1m)}/{cfg.min_closed_m1_bars}"],
+                as_of_ms=now_ms, zone_id=zone.zone_id,
+            )
+
+        # 2. Quote freshness and validity (PHẦN 035, 036)
+        bid = float(getattr(current_quote, "bid", 0.0) if hasattr(current_quote, "bid") else (current_quote or {}).get("bid", 0.0))
+        ask = float(getattr(current_quote, "ask", 0.0) if hasattr(current_quote, "ask") else (current_quote or {}).get("ask", 0.0))
+        is_quote_valid = (
+            bool(getattr(current_quote, "is_valid", True))
+            and not bool(getattr(current_quote, "is_stale", False))
+            and bid > 0
+            and ask >= bid
+            and math.isfinite(bid)
+            and math.isfinite(ask)
+        )
+        if not is_quote_valid:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=zone.direction,
+                candidate_key=fallback_key, reason_code=OpportunityReasonCode.QUOTE_STALE.value,
+                missing_conditions=["Báo giá thị trường không hợp lệ hoặc bị mất kết nối"],
                 as_of_ms=now_ms, zone_id=zone.zone_id,
             )
 
@@ -179,16 +199,12 @@ class ScalpM1ModelService:
         )
 
         direction = "LONG" if zone.direction in ("BULLISH", "LONG") else "SHORT"
-        bid = float(getattr(current_quote, "bid", 0.0) if hasattr(current_quote, "bid") else (current_quote or {}).get("bid", 0.0))
-        ask = float(getattr(current_quote, "ask", 0.0) if hasattr(current_quote, "ask") else (current_quote or {}).get("ask", 0.0))
         exec_price = ask if direction == "LONG" else bid
 
         if direction == "LONG":
-            # For Bullish Reversal:
-            # Must find a recent sweep low into/near the zone, then a CHOCH breaking the previous swing high
             if not sl_list or not sh_list:
                 return ScalpCandidate(
-                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
                     missing_conditions=["Chưa đủ swing high/low M1 để xác nhận cấu trúc đảo chiều"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
@@ -199,13 +215,12 @@ class ScalpM1ModelService:
             # Anchor sweep: must be close to or inside zone
             if sweep_price > zone.top + (0.5 * atr_1m):
                 return ScalpCandidate(
-                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_ZONE_TOUCH.value,
                     missing_conditions=["Sweep low chưa chạm hoặc tiếp cận vùng theo dõi"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
-            # Structure break: look for closed candle breaking above the last confirmed swing high
             pivot_to_break = None
             for sh in reversed(sh_list):
                 if sh["occurred_at_ms"] < recent_sl["occurred_at_ms"]:
@@ -217,12 +232,13 @@ class ScalpM1ModelService:
 
             if not pivot_to_break:
                 return ScalpCandidate(
-                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
                     missing_conditions=["Không tìm thấy pivot high M1 để kiểm tra CHOCH"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
+            candidate_key = f"{model_id}_{zone.symbol}_{zone.zone_id}_{direction}_{pivot_to_break['id']}"
             break_level = pivot_to_break["price"]
             sweep_ts = recent_sl["occurred_at_ms"]
             bars_after_sweep = [
@@ -256,11 +272,32 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
+            # Retest Verification (PHẦN 040, 048): require closed M1 candle post-break touching retest zone
+            first_break_bar = breaking_bars[0]
+            first_break_idx = closed_1m.index(first_break_bar)
+            post_break_bars = closed_1m[first_break_idx + 1:]
+            if not post_break_bars:
+                return ScalpCandidate(
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    reason_code=OpportunityReasonCode.WAITING_M1_RETEST.value,
+                    missing_conditions=["Chờ nến M1 hồi về (retest) vùng kích hoạt sau phá vỡ"],
+                    as_of_ms=now_ms, zone_id=zone.zone_id,
+                )
+
+            retest_upper = max(break_level + (1.5 * atr_1m), float(first_break_bar.close))
+            retest_bars = [b for b in post_break_bars if float(b.low) <= retest_upper and float(b.low) >= sweep_price]
+            if not retest_bars:
+                return ScalpCandidate(
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    reason_code=OpportunityReasonCode.WAITING_M1_RETEST.value,
+                    missing_conditions=["Chờ nến M1 hồi về (retest) vùng kích hoạt"],
+                    as_of_ms=now_ms, zone_id=zone.zone_id,
+                )
+
             # Plan levels
             sl_price = round(sweep_price - (cfg.sl_buffer_ticks * cfg.tick_size), 2)
-            entry_price = round(exec_price if exec_price > 0 else break_close, 2)
+            entry_price = round(exec_price, 2)
 
-            # Target: opposing swing high or zone top + 2*ATR
             target_price = None
             if context_levels:
                 for lvl in context_levels:
@@ -270,15 +307,14 @@ class ScalpM1ModelService:
                         break
 
             if target_price is None:
-                # Use HTF or multiple of swing distance
                 risk_dist = entry_price - sl_price
                 target_price = round(entry_price + max(risk_dist * 2.5, 3.0 * atr_1m), 2)
 
         else:
-            # For Bearish Reversal:
+            # For Bearish Reversal
             if not sl_list or not sh_list:
                 return ScalpCandidate(
-                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
                     missing_conditions=["Chưa đủ swing high/low M1 để xác nhận cấu trúc đảo chiều"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
@@ -288,7 +324,7 @@ class ScalpM1ModelService:
             sweep_price = recent_sh["price"]
             if sweep_price < zone.bottom - (0.5 * atr_1m):
                 return ScalpCandidate(
-                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_ZONE_TOUCH.value,
                     missing_conditions=["Sweep high chưa chạm hoặc tiếp cận vùng theo dõi"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
@@ -305,12 +341,13 @@ class ScalpM1ModelService:
 
             if not pivot_to_break:
                 return ScalpCandidate(
-                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
                     missing_conditions=["Không tìm thấy pivot low M1 để kiểm tra CHOCH"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
+            candidate_key = f"{model_id}_{zone.symbol}_{zone.zone_id}_{direction}_{pivot_to_break['id']}"
             break_level = pivot_to_break["price"]
             sweep_ts = recent_sh["occurred_at_ms"]
             bars_after_sweep = [
@@ -344,8 +381,30 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
+            # Retest Verification (PHẦN 040, 048)
+            first_break_bar = breaking_bars[0]
+            first_break_idx = closed_1m.index(first_break_bar)
+            post_break_bars = closed_1m[first_break_idx + 1:]
+            if not post_break_bars:
+                return ScalpCandidate(
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    reason_code=OpportunityReasonCode.WAITING_M1_RETEST.value,
+                    missing_conditions=["Chờ nến M1 hồi về (retest) vùng kích hoạt sau phá vỡ"],
+                    as_of_ms=now_ms, zone_id=zone.zone_id,
+                )
+
+            retest_lower = min(break_level - (1.5 * atr_1m), float(first_break_bar.close))
+            retest_bars = [b for b in post_break_bars if float(b.high) >= retest_lower and float(b.high) <= sweep_price]
+            if not retest_bars:
+                return ScalpCandidate(
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    reason_code=OpportunityReasonCode.WAITING_M1_RETEST.value,
+                    missing_conditions=["Chờ nến M1 hồi về (retest) vùng kích hoạt"],
+                    as_of_ms=now_ms, zone_id=zone.zone_id,
+                )
+
             sl_price = round(sweep_price + (cfg.sl_buffer_ticks * cfg.tick_size), 2)
-            entry_price = round(exec_price if exec_price > 0 else break_close, 2)
+            entry_price = round(exec_price, 2)
 
             target_price = None
             if context_levels:
@@ -368,7 +427,7 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms, zone_id=zone.zone_id,
             )
 
-        # Net RR calculation via canonical calculator
+        # Net RR calculation via canonical calculator (PHẦN 037, 038)
         capital = float(policy_settings.get("capital_usdt", 1000.0))
         risk_pct = float(policy_settings.get("risk_pct", cfg.fallback_risk_pct))
         lev = int(policy_settings.get("leverage", 50))
@@ -383,7 +442,26 @@ class ScalpM1ModelService:
             risk_pct=risk_pct,
             leverage=lev,
             margin_mode=margin_mode,
+            min_net_rr=cfg.min_net_rr,
         )
+
+        if not calc_res.is_valid:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                planned_entry=entry_price, stop_loss=sl_price, take_profit=target_price,
+                reason_code="CALCULATOR_INVALID",
+                missing_conditions=[f"Kế hoạch tính toán không hợp lệ: {calc_res.invalid_reason}"],
+                as_of_ms=now_ms, zone_id=zone.zone_id,
+            )
+
+        if not calc_res.can_execute:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                planned_entry=entry_price, stop_loss=sl_price, take_profit=target_price,
+                reason_code="CANNOT_EXECUTE",
+                missing_conditions=[f"Không đủ điều kiện thực thi: {calc_res.skip_reason}"],
+                as_of_ms=now_ms, zone_id=zone.zone_id,
+            )
 
         if not calc_res.meets_min_rr:
             return ScalpCandidate(
@@ -395,7 +473,7 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms, zone_id=zone.zone_id,
             )
 
-        # Build evidence nodes
+        # Build evidence nodes including retest node
         ev_nodes = [
             EvidenceNode(
                 id=f"ev_zone_{zone.zone_id}", kind="POI", symbol=zone.symbol, timeframe=zone.timeframe,
@@ -411,11 +489,18 @@ class ScalpM1ModelService:
                 level=sweep_price,
             ).to_dict(),
             EvidenceNode(
-                id=f"ev_choch_{int(getattr(closed_1m[-1], 'open_time', 0))}",
+                id=f"ev_choch_{int(getattr(first_break_bar, 'open_time', 0))}",
                 kind="CHOCH", symbol=zone.symbol, timeframe="1M", direction=direction,
-                occurred_at_ms=int(getattr(closed_1m[-1], "open_time", 0)),
+                occurred_at_ms=int(getattr(first_break_bar, "open_time", 0)),
                 known_at_ms=now_ms, level=break_level,
                 extra={"broken_swing_id": pivot_to_break["id"], "displacement_body": max_break_body, "atr_1m": atr_1m}
+            ).to_dict(),
+            EvidenceNode(
+                id=f"ev_retest_{int(getattr(retest_bars[-1], 'open_time', 0))}",
+                kind="RETEST", symbol=zone.symbol, timeframe="1M", direction=direction,
+                occurred_at_ms=int(getattr(retest_bars[-1], "open_time", 0)),
+                known_at_ms=now_ms, level=float(retest_bars[-1].low if direction == "LONG" else retest_bars[-1].high),
+                extra={"break_level": break_level, "retest_candle_open_ms": int(getattr(retest_bars[-1], "open_time", 0))}
             ).to_dict(),
         ]
 
@@ -491,21 +576,21 @@ class ScalpM1ModelService:
         context_levels: Optional[Sequence[Any]] = None,
     ) -> ScalpCandidate:
         """
-        Evaluate M1 Continuation Candidate (PHẦN 048).
+        Evaluate M1 Continuation Candidate (PHẦN 051).
         Prerequisites:
         1. Aligned HTF trend context (4H/1H aligned).
-        2. M5 trend confirmation in alignment with HTF bias.
-        3. Pullback into dynamic 5M value area followed by M1 BOS in trend direction.
-        4. Net R:R >= 2.0 with valid SL/TP geometry.
+        2. Valid quote.
+        3. Pullback into dynamic value area followed by M1 BOS in trend direction.
+        4. Net R:R >= min_net_rr with valid SL/TP geometry and executable calculator sizing.
         """
         cfg = config or get_scalp_config()
         model_id = ModelIdentifier.SMC_M1_CONTINUATION.value
-        candidate_key = f"{model_id}_{now_ms}"
+        fallback_key = f"{model_id}_XAUUSDT"
 
         # 1. HTF Trend alignment
         if htf_bias not in ("BULLISH", "BEARISH") or h1_alignment not in ("ALIGNED", "BULLISH", "BEARISH"):
             return ScalpCandidate(
-                is_eligible=False, model_id=model_id, direction="UNKNOWN", candidate_key=candidate_key,
+                is_eligible=False, model_id=model_id, direction="UNKNOWN", candidate_key=fallback_key,
                 reason_code="HTF_BIAS_NOT_ALIGNED",
                 missing_conditions=[f"Xu hướng khung lớn chưa đồng pha ({htf_bias} / {h1_alignment})"],
                 as_of_ms=now_ms,
@@ -518,16 +603,35 @@ class ScalpM1ModelService:
             closed_1m = closed_candles_at(candles_1m, now_ms=now_ms, duration_ms=60_000)
         except ValueError as err:
             return ScalpCandidate(
-                is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                 reason_code=OpportunityReasonCode.DATA_INCOMPLETE.value,
                 missing_conditions=[f"Lỗi dữ liệu nến M1: {err}"],
                 as_of_ms=now_ms,
             )
         if len(closed_1m) < cfg.min_closed_m1_bars:
             return ScalpCandidate(
-                is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                 reason_code=OpportunityReasonCode.DATA_INCOMPLETE.value,
                 missing_conditions=[f"Thiếu nến M1 đã đóng: {len(closed_1m)}/{cfg.min_closed_m1_bars}"],
+                as_of_ms=now_ms,
+            )
+
+        # 3. Quote freshness check
+        bid = float(getattr(current_quote, "bid", 0.0) if hasattr(current_quote, "bid") else (current_quote or {}).get("bid", 0.0))
+        ask = float(getattr(current_quote, "ask", 0.0) if hasattr(current_quote, "ask") else (current_quote or {}).get("ask", 0.0))
+        is_quote_valid = (
+            bool(getattr(current_quote, "is_valid", True))
+            and not bool(getattr(current_quote, "is_stale", False))
+            and bid > 0
+            and ask >= bid
+            and math.isfinite(bid)
+            and math.isfinite(ask)
+        )
+        if not is_quote_valid:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
+                reason_code=OpportunityReasonCode.QUOTE_STALE.value,
+                missing_conditions=["Báo giá thị trường không hợp lệ hoặc bị mất kết nối"],
                 as_of_ms=now_ms,
             )
 
@@ -539,14 +643,12 @@ class ScalpM1ModelService:
             closed_1m, cfg.pivot_left_bars, cfg.pivot_right_bars, as_of_ms=now_ms
         )
 
-        bid = float(getattr(current_quote, "bid", 0.0) if hasattr(current_quote, "bid") else (current_quote or {}).get("bid", 0.0))
-        ask = float(getattr(current_quote, "ask", 0.0) if hasattr(current_quote, "ask") else (current_quote or {}).get("ask", 0.0))
         exec_price = ask if direction == "LONG" else bid
 
         if direction == "LONG":
             if not sh_list or not sl_list:
                 return ScalpCandidate(
-                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
                     missing_conditions=["Chưa đủ swing high/low M1 để kiểm tra tiếp diễn"],
                     as_of_ms=now_ms,
@@ -562,22 +664,23 @@ class ScalpM1ModelService:
             breaking_bars = [b for b in bars_after_sl if float(b.close) > last_sh["price"]]
             if not breaking_bars:
                 return ScalpCandidate(
-                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
                     missing_conditions=[f"Nến M1 chưa đóng phá đỉnh tiếp diễn BOS (> {last_sh['price']:.2f})"],
                     as_of_ms=now_ms,
                 )
 
+            break_bar_open = int(getattr(breaking_bars[-1], "open_time", None) or getattr(breaking_bars[-1], "timestamp", 0))
+            candidate_key = f"{model_id}_XAUUSDT_{direction}_{break_bar_open}"
             sl_price = round(last_sl["price"] - (cfg.sl_buffer_ticks * cfg.tick_size), 2)
-            break_close = float(breaking_bars[-1].close)
-            entry_price = round(exec_price if exec_price > 0 else break_close, 2)
+            entry_price = round(exec_price, 2)
             risk_dist = entry_price - sl_price
             target_price = round(entry_price + max(risk_dist * 2.5, 3.0 * atr_1m), 2)
 
         else:
             if not sh_list or not sl_list:
                 return ScalpCandidate(
-                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
                     missing_conditions=["Chưa đủ swing high/low M1 để kiểm tra tiếp diễn"],
                     as_of_ms=now_ms,
@@ -593,15 +696,16 @@ class ScalpM1ModelService:
             breaking_bars = [b for b in bars_after_sh if float(b.close) < last_sl["price"]]
             if not breaking_bars:
                 return ScalpCandidate(
-                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
                     missing_conditions=[f"Nến M1 chưa đóng thủng đáy tiếp diễn BOS (< {last_sl['price']:.2f})"],
                     as_of_ms=now_ms,
                 )
 
+            break_bar_open = int(getattr(breaking_bars[-1], "open_time", None) or getattr(breaking_bars[-1], "timestamp", 0))
+            candidate_key = f"{model_id}_XAUUSDT_{direction}_{break_bar_open}"
             sl_price = round(last_sh["price"] + (cfg.sl_buffer_ticks * cfg.tick_size), 2)
-            break_close = float(breaking_bars[-1].close)
-            entry_price = round(exec_price if exec_price > 0 else break_close, 2)
+            entry_price = round(exec_price, 2)
             risk_dist = sl_price - entry_price
             target_price = round(entry_price - max(risk_dist * 2.5, 3.0 * atr_1m), 2)
 
@@ -627,7 +731,26 @@ class ScalpM1ModelService:
             risk_pct=risk_pct,
             leverage=lev,
             margin_mode=margin_mode,
+            min_net_rr=cfg.min_net_rr,
         )
+
+        if not calc_res.is_valid:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                planned_entry=entry_price, stop_loss=sl_price, take_profit=target_price,
+                reason_code="CALCULATOR_INVALID",
+                missing_conditions=[f"Kế hoạch tính toán không hợp lệ: {calc_res.invalid_reason}"],
+                as_of_ms=now_ms,
+            )
+
+        if not calc_res.can_execute:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                planned_entry=entry_price, stop_loss=sl_price, take_profit=target_price,
+                reason_code="CANNOT_EXECUTE",
+                missing_conditions=[f"Không đủ điều kiện thực thi: {calc_res.skip_reason}"],
+                as_of_ms=now_ms,
+            )
 
         if not calc_res.meets_min_rr:
             return ScalpCandidate(
