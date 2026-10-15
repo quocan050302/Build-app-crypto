@@ -949,6 +949,7 @@ def main(argv=None) -> int:
         "tests/test_v15_8_database_failure_recovery.py",
         "tests/test_v15_8_execution_quote_validation.py",
         "tests/test_v15_9_quote_source_rejection.py",
+        "tests/test_v15_10_quote_age_policy_parity.py",
     ]
     s = run_step(
         "backend_targeted",

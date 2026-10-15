@@ -538,9 +538,8 @@ def extract_execution_quote_source_state(raw_quote: Any) -> QuoteSourceState:
             status_str != "VALID"
             or not raw_quote.is_valid
             or rej_code is not None
-            or raw_quote.freshness_sec > 15.0
         )
-        is_stale = bool(status_str == "STALE" or rej_code == "TICKER_STALE" or raw_quote.freshness_sec > 15.0)
+        is_stale = bool(status_str == "STALE" or rej_code == "TICKER_STALE")
 
         if rejected:
             if status_str == "DISCONNECTED" or rej_code == "FEED_DISCONNECTED":
