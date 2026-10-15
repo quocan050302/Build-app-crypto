@@ -139,6 +139,70 @@ class LiquidityLevel:
         )
 
 
+@dataclass
+class LiquidityCluster:
+    """
+    V16 Liquidity Cluster Contract (Rules 056-060).
+    Clusters multiple swing / equal / session levels into an actionable liquidity band.
+    Distinguishes OBSERVED_STRUCTURE (swings, ranges) from INFERRED_LIQUIDITY (EQH/EQL, round numbers).
+    Tracks causal states: UNSWEPT, SWEPT, RECLAIMED, ACCEPTED_BEYOND, INVALIDATED.
+    """
+    id: str
+    side: str                                # BUY_SIDE / SELL_SIDE
+    bottom: float
+    top: float
+    price_mid: float
+    source_level_ids: List[str] = field(default_factory=list)
+    known_at_ms: int = 0
+    state: str = "UNSWEPT"                   # UNSWEPT, SWEPT, RECLAIMED, ACCEPTED_BEYOND, INVALIDATED
+    cluster_type: str = "OBSERVED_STRUCTURE" # OBSERVED_STRUCTURE vs INFERRED_LIQUIDITY
+    score: float = 0.0
+    label_vi: str = ""
+    evidence_references: List[str] = field(default_factory=list)
+    swept_extreme: Optional[float] = None
+    swept_at_ms: Optional[int] = None
+    reclaimed_at_ms: Optional[int] = None
+    volume_weight: float = 1.0
+    quality_score: float = 0.0
+
+    @property
+    def price_band(self) -> Tuple[float, float]:
+        return (self.bottom, self.top)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "side": self.side,
+            "bottom": round(self.bottom, 2),
+            "top": round(self.top, 2),
+            "price_mid": round(self.price_mid, 2),
+            "source_level_ids": list(self.source_level_ids),
+            "known_at_ms": self.known_at_ms,
+            "state": self.state,
+            "cluster_type": self.cluster_type,
+            "score": round(self.score, 2),
+            "label_vi": self.label_vi,
+            "evidence_references": list(self.evidence_references),
+        }
+
+    @staticmethod
+    def from_dict(d: Dict[str, Any]) -> "LiquidityCluster":
+        return LiquidityCluster(
+            id=d["id"],
+            side=d["side"],
+            bottom=float(d["bottom"]),
+            top=float(d["top"]),
+            price_mid=float(d["price_mid"]),
+            source_level_ids=list(d.get("source_level_ids") or []),
+            known_at_ms=int(d.get("known_at_ms", 0)),
+            state=d.get("state", "UNSWEPT"),
+            cluster_type=d.get("cluster_type", "OBSERVED_STRUCTURE"),
+            score=float(d.get("score", 0.0)),
+            label_vi=d.get("label_vi", ""),
+            evidence_references=list(d.get("evidence_references") or []),
+        )
+
+
 SNAPSHOT_SCHEMA_VERSION = "v14.4.1"
 
 TERMINAL_STATES = (ScenarioState.INVALIDATED, ScenarioState.EXPIRED, ScenarioState.SUPERSEDED)

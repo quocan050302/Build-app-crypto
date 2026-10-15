@@ -232,6 +232,7 @@ class SMCStructurePaneRenderer implements IPrimitivePaneRenderer {
       // 1. Zones (FVG / POI): real source times, clipped to the loaded window, drawn under the candles' labels.
       if (data.showZones !== false && Array.isArray(data.zones)) {
         for (const zone of data.zones) {
+          if (!zone.top || !zone.bottom || zone.top <= 0 || zone.bottom <= 0 || !Number.isFinite(zone.top) || !Number.isFinite(zone.bottom)) continue;
           const topY = series.priceToCoordinate(zone.top);
           const bottomY = series.priceToCoordinate(zone.bottom);
           if (topY === null || bottomY === null) continue;

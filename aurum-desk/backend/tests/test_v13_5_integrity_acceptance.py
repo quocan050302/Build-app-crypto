@@ -26,8 +26,8 @@ def test_01_integrity_pass_on_valid_inputs():
         daily_stats=daily_stats,
         initial_equity=1000.0,
         reported_cash=1005.0,
-        dataset_hash="hash-dataset-12345",
-        run_config_hash="hash-config-67890"
+        dataset_hash="1234567890abcdef1234567890abcdef",
+        run_config_hash="abcdef1234567890abcdef1234567890"
     )
     assert summary["status"] == "PASS"
 

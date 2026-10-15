@@ -836,12 +836,20 @@ def check_candidate_lifecycle_authority(
     authority_context: Optional[Any] = None,
 ) -> Tuple[bool, Optional[str]]:
     """
-    Validates lifecycle authority for a candidate before arming (SECTIONS 088 - 093).
+    Validates lifecycle authority for a candidate before arming (SECTIONS 088 - 093, V16 Rules 091-092).
     Returns: (is_allowed, reason_code_if_blocked)
     """
     model_id = getattr(candidate, "model_id", None)
-    # Non-reversal models (continuation, daily research) do not require reversal lifecycle authority
-    if model_id != "SMC_M1_REVERSAL":
+    if not model_id:
+        return False, "MODEL_UNREGISTERED"
+
+    from services.smc_model_registry import get_model_spec
+    spec = get_model_spec(model_id)
+    if spec is None:
+        return False, "MODEL_UNREGISTERED"
+
+    # Direct models do not require zone write authority
+    if spec.authority_type == "DIRECT":
         return True, None
 
     if authority_context is None:
@@ -849,6 +857,9 @@ def check_candidate_lifecycle_authority(
 
     if hasattr(authority_context, "has_write_failures") and authority_context.has_write_failures:
         return False, "HYPOTHESIS_WRITE_FAILED"
+
+    if spec.authority_type == "CLUSTER_LIFECYCLE":
+        return True, None
 
     zone_id = getattr(candidate, "zone_id", None)
     hyp_id = getattr(candidate, "hypothesis_id", None)
@@ -1586,6 +1597,127 @@ def build_liquidity_hypotheses(
             target_status=alt_t_status,
         )
         hypotheses.append(a_hyp)
+
+    if existing_hypotheses is not None:
+        return reconcile_hypothesis_lifecycle(existing_hypotheses, hypotheses, now_ms)
+
+    return hypotheses
+
+
+def build_execution_hypotheses_for_zones(
+    zones: Sequence[WatchedZone],
+    levels: Optional[Sequence[LiquidityLevel]] = None,
+    dealing_range: Optional[DealingRange] = None,
+    current_price: float = 0.0,
+    regime: str = "BALANCED",
+    now_ms: Optional[int] = None,
+    session_cap_ms: Optional[int] = None,
+    existing_hypotheses: Optional[Sequence[Any]] = None,
+    ttl_ms: int = 4 * 3600 * 1000,
+    as_of_ms: Optional[int] = None,
+) -> List[LiquidityHypothesis]:
+    """
+    V16 Multi-Zone Execution Hypotheses Builder (Rules 070 - 080).
+    Builds causal execution hypotheses for ALL bounded active eligible zones.
+    Preserves existing durable hypothesis IDs and anchors per zone to prevent expiry drift.
+    Determines primary and alternative display selection without restricting execution coverage.
+    """
+    t_now = now_ms if now_ms is not None else (as_of_ms if as_of_ms is not None else int(time.time() * 1000))
+    active_zones = [
+        z for z in zones
+        if z.state in (ZoneState.CONFIRMED.value, ZoneState.WATCHING.value, ZoneState.NEAR.value, ZoneState.TOUCHED.value, ZoneState.WAITING_TRIGGER.value)
+    ]
+    if not active_zones:
+        return []
+
+    calc_expiry = t_now + ttl_ms
+    expiry = min(calc_expiry, session_cap_ms) if session_cap_ms else calc_expiry
+
+    # Existing map by zone_id
+    existing_zone_map: Dict[str, Any] = {}
+    for h in (existing_hypotheses or []):
+        z_id = getattr(h, "source_zone_id", None)
+        if not z_id and getattr(h, "watched_zone", None):
+            z_id = getattr(h.watched_zone, "zone_id", None)
+        if not z_id and isinstance(h, dict):
+            z_id = h.get("source_zone_id") or h.get("zone_id")
+        if z_id:
+            existing_zone_map[z_id] = h
+
+    # Determine primary zone for presentation
+    preferred_dir = "BULLISH" if "BULLISH" in regime else ("BEARISH" if "BEARISH" in regime else None)
+    aligned_zones = [z for z in active_zones if z.direction == preferred_dir] if preferred_dir else active_zones
+    candidate_zones = aligned_zones or active_zones
+    primary_zone = min(candidate_zones, key=lambda z: abs(current_price - z.midpoint))
+    p_dir = primary_zone.direction
+
+    # Determine alternative opposing zone
+    alt_dir = "BEARISH" if p_dir == "BULLISH" else "BULLISH"
+    alt_zones = [z for z in active_zones if z.direction == alt_dir]
+    alt_zone = min(alt_zones, key=lambda z: abs(current_price - z.midpoint)) if alt_zones else None
+
+    pos = assess_range_position(current_price, dealing_range) if (dealing_range and getattr(dealing_range, "is_valid", False)) else "EQUILIBRIUM"
+    hypotheses: List[LiquidityHypothesis] = []
+
+    for z in active_zones:
+        is_primary = (z.zone_id == primary_zone.zone_id)
+        is_alt = (alt_zone is not None and z.zone_id == alt_zone.zone_id)
+
+        # Stable hypothesis ID: execution identity is decoupled from presentation rank (Rule 073)
+        existing_h = existing_zone_map.get(z.zone_id)
+        if existing_h:
+            h_id = getattr(existing_h, "hypothesis_id", None) or (existing_h.get("hypothesis_id") if isinstance(existing_h, dict) else None)
+            if not h_id:
+                h_id = f"hyp-zone-{z.zone_id}"
+        else:
+            h_id = f"hyp-zone-{z.zone_id}"
+
+        target_dir = "LONG" if z.direction == "BULLISH" else "SHORT"
+        target_lvl = select_unconsumed_target(levels, target_dir, current_price, as_of_ms=now_ms)
+        if target_lvl is not None:
+            t_price = round(target_lvl.price, 2)
+            t_type = "LIQUIDITY_LEVEL"
+            t_status = "CONFIRMED"
+            target_clause = f"theo dõi mục tiêu thanh khoản {t_price:.2f}"
+        else:
+            t_price = None
+            t_type = "UNAVAILABLE"
+            t_status = "TARGET_UNAVAILABLE"
+            target_clause = "chưa xác định được mục tiêu thanh khoản chưa hấp thụ; tiếp tục theo dõi phản ứng vùng"
+
+        prereqs = [
+            f"Giá giữ vững vùng {z.zone_type} [{z.bottom:.2f} - {z.top:.2f}]",
+            "Có tín hiệu quét thanh khoản (Sweep) hoặc từ chối tại biên",
+            "Nến M1 đóng xác nhận phá vỡ cấu trúc vi mô (CHOCH)",
+            "Nến M1 retest vùng kích hoạt mà không vi phạm invalidation",
+        ]
+        inv = f"Giá đóng nến vượt qua mức {z.invalidation_level:.2f}"
+        role_label = "Kịch bản chính" if is_primary else ("Kịch bản dự phòng" if is_alt else f"Kịch bản theo dõi ({z.direction})")
+        exp_vi = (
+            f"{role_label}: Nếu giá phản ứng tại {z.zone_type} "
+            f"[{z.bottom:.2f} - {z.top:.2f}] và xác nhận đảo chiều M1, "
+            f"{target_clause}. Kịch bản vô hiệu nếu phá {z.invalidation_level:.2f}."
+        )
+
+        hyp = LiquidityHypothesis(
+            hypothesis_id=h_id,
+            direction=z.direction,
+            is_primary=is_primary,
+            watched_zone=z,
+            target_level=target_lvl,
+            target_price=t_price,
+            dealing_range=dealing_range,
+            range_position=pos,
+            prerequisites=prereqs,
+            invalidation_condition=inv,
+            expiry_ms=expiry,
+            created_at_ms=now_ms,
+            evidence_ids=list(z.source_evidence_ids),
+            explanation_vi=exp_vi,
+            target_type=t_type,
+            target_status=t_status,
+        )
+        hypotheses.append(hyp)
 
     if existing_hypotheses is not None:
         return reconcile_hypothesis_lifecycle(existing_hypotheses, hypotheses, now_ms)

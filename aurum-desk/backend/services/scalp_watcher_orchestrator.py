@@ -74,6 +74,7 @@ class ScalpWatcherOrchestrator:
         self._latest_hypothesis_batch_result: Dict[str, Any] = {}
         self._latest_hypothesis_authority: Dict[str, Any] = {}
         self._latest_cycle_outcome: Dict[str, Dict[str, Any]] = {}
+        self._arm_rejections: Dict[str, Any] = {}
 
     def get_latest_hypothesis_batch_result(self, symbol: str = "XAUUSDT") -> Optional[Any]:
         with self._lock:
@@ -393,11 +394,19 @@ class ScalpWatcherOrchestrator:
             if d_id not in existing_ids:
                 existing_hyps.append(d_rec)
 
-        unfiltered_hyps = build_liquidity_hypotheses(
-            bounded_zones, liq_levels, dealing_range, current_px, regime, t_recv,
-            session_cap_ms=session_ctx.expiry_cap_ms if session_ctx else None,
-            existing_hypotheses=existing_hyps,
-        )
+        if getattr(cfg, "multi_zone_hypotheses_enabled", True):
+            from services.liquidity_scenario_service import build_execution_hypotheses_for_zones
+            unfiltered_hyps = build_execution_hypotheses_for_zones(
+                bounded_zones, liq_levels, dealing_range, current_px, regime, t_recv,
+                session_cap_ms=session_ctx.expiry_cap_ms if session_ctx else None,
+                existing_hypotheses=existing_hyps,
+            )
+        else:
+            unfiltered_hyps = build_liquidity_hypotheses(
+                bounded_zones, liq_levels, dealing_range, current_px, regime, t_recv,
+                session_cap_ms=session_ctx.expiry_cap_ms if session_ctx else None,
+                existing_hypotheses=existing_hyps,
+            )
 
         hypotheses: List[Any] = []
         blocked_zone_issues: Dict[str, Any] = {}
@@ -704,13 +713,38 @@ class ScalpWatcherOrchestrator:
                             now_ms=t_recv,
                         )
 
+            has_valid_zone_authority = (not bounded_zones) or any(
+                getattr(h, "status", "") == "ACTIVE" and t_recv < getattr(h, "expiry_ms", float("inf"))
+                for h in entry_authorized_hypotheses
+            )
+
             # B. SMC M1 Continuation Model (SECTIONS 080 - 082)
-            if not cycle_authority.has_write_failures:
+            if not cycle_authority.has_write_failures and has_valid_zone_authority:
                 cand_cont = ScalpM1ModelService.evaluate_m1_continuation_candidate(
                     c_1m, c_5m, q, bias, align, policy_dict, now_ms=t_recv, config=cfg
                 )
                 if cand_cont.is_eligible:
                     candidates.append(cand_cont)
+
+            # B2. SMC M1 FVG Continuation Model (Rules 083 - 085)
+            if getattr(cfg, "fvg_continuation_enabled", True) and not cycle_authority.has_write_failures and has_valid_zone_authority:
+                cand_fvg_cont = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
+                    c_1m, c_5m, q, bias, align, policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels
+                )
+                if cand_fvg_cont.is_eligible:
+                    candidates.append(cand_fvg_cont)
+
+            # B3. SMC M1 Sweep Reclaim Model (Rules 086 - 089)
+            if getattr(cfg, "sweep_reclaim_enabled", True) and not cycle_authority.has_write_failures and has_valid_zone_authority:
+                from services.smc_liquidity_service import build_liquidity_clusters
+                liq_clusters = build_liquidity_clusters(liq_levels, timeframe="15M", symbol=symbol, now_ms=t_recv)
+                for cluster in liq_clusters:
+                    if getattr(cluster, "state", "") in ("UNSWEPT", "SWEPT"):
+                        cand_sr = ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate(
+                            cluster, c_1m, q, policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels
+                        )
+                        if cand_sr.is_eligible:
+                            candidates.append(cand_sr)
 
         # C. Daily NY Research Model (SECTIONS 080 - 083)
         if cfg.daily_ny_research_enabled and not cycle_authority.has_write_failures:
@@ -739,6 +773,10 @@ class ScalpWatcherOrchestrator:
                     snapshot=cand_res["snapshot"],
                     as_of_ms=t_recv,
                 ))
+
+        # Candidate Router & Deduplication (Rules 093 - 096)
+        from services.scalp_m1_model_service import evaluate_smc_opportunity_candidates
+        candidates = evaluate_smc_opportunity_candidates(candidates, htf_bias=bias or "UNKNOWN")
 
         # 5. Execution or Shadow Handling
         t_eval_done = int(time.time() * 1000)
@@ -949,6 +987,16 @@ class ScalpWatcherOrchestrator:
         snap = cand.snapshot
         calc = cand.calculation
 
+        # Reason-aware repeated arm-rejection suppression (Rule 109)
+        suppression_ms = getattr(cfg, "arm_rejection_suppression_ms", 30_000)
+        with self._lock:
+            last_rej = self._arm_rejections.get(cand.candidate_key)
+            if last_rej:
+                last_ts, last_reason = last_rej
+                if (now_ms - last_ts) < suppression_ms:
+                    logger.debug(f"Candidate {cand.candidate_key} suppressed due to repeated rejection ({last_reason})")
+                    return None
+
         # Validate calculation output (PHẦN 026, 037)
         if calc is None or not getattr(calc, "is_valid", False) or not getattr(calc, "can_execute", False):
             logger.info(f"Candidate calculation is invalid or cannot execute: {getattr(calc, 'skip_reason', None) or getattr(calc, 'invalid_reason', None)}")
@@ -1144,6 +1192,9 @@ class ScalpWatcherOrchestrator:
         decision = evaluate_entry_guard(db, req)
         if not decision.allowed:
             logger.info(f"Guard blocked {cand.model_id} candidate: {decision.primary_reason if hasattr(decision, 'primary_reason') else decision.reason_codes}")
+            rej_reason = decision.reason_codes[0] if decision.reason_codes else "GUARD_BLOCKED"
+            with self._lock:
+                self._arm_rejections[cand.candidate_key] = (now_ms, rej_reason)
             OpportunityFunnelService.record_opportunity_transition(
                 db,
                 OpportunityEvaluation(
@@ -1165,6 +1216,8 @@ class ScalpWatcherOrchestrator:
             return None
 
         # 5. Guard passed: Create PaperOrder with canonical sizing and schema fields (PHẦN 025 - 030)
+        with self._lock:
+            self._arm_rejections.pop(cand.candidate_key, None)
         from services.order_plan_snapshot_service import build_arm_plan_snapshot
         arm_snap = build_arm_plan_snapshot(
             calc,

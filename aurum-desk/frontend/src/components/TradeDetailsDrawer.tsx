@@ -22,6 +22,28 @@ import { EvidenceAccordion } from './EvidenceAccordion';
 import type { ChartBinding, ChartEvidenceBundleV144 } from '../types/smcScenario';
 import type { ReturnedBinding } from '../hooks/useSelectedChart';
 
+export function formatStrategyFamilyVi(family?: string): string {
+  switch (family) {
+    case 'SMC_M1_REVERSAL':
+    case 'SCALP_M1_REVERSAL':
+      return 'SMC Đảo chiều M1 (Reversal)';
+    case 'SMC_M1_CONTINUATION':
+    case 'SCALP_M1_CONTINUATION':
+      return 'SMC Tiếp diễn M1 (BOS)';
+    case 'SMC_M1_FVG_CONTINUATION':
+      return 'SMC Tiếp diễn FVG M1';
+    case 'SMC_M1_SWEEP_RECLAIM':
+      return 'SMC Quét & Reclaim M1';
+    case 'NY_DAILY_RESEARCH':
+    case 'NY_QUOTA_PAPER':
+      return 'Nghiên cứu phiên Mỹ (NY_DAILY_RESEARCH)';
+    case 'STANDARD_SMC':
+      return 'SMC Tiêu chuẩn';
+    default:
+      return family || 'SMC Tiêu chuẩn';
+  }
+}
+
 export interface TradeDetailsDrawerProps {
   isOpen: boolean;
   activeSection: DrawerSectionType;
@@ -346,7 +368,7 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">Chiến lược / Family:</span>
                       <span className="font-mono text-aurum-300 font-bold">
-                        {selectedQualitySnapshot.strategy_family || 'STANDARD_SMC'} ({selectedQualitySnapshot.direction})
+                        {formatStrategyFamilyVi(selectedQualitySnapshot.strategy_family)} ({selectedQualitySnapshot.direction})
                       </span>
                     </div>
 

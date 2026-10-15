@@ -5,8 +5,9 @@ V14.4 — Causal liquidity inventory, clustering, state tracking, and target sel
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List, Optional, Sequence, Tuple
-from services.smc_scenario_types import LiquidityLevel, make_evidence_id
+from services.smc_scenario_types import LiquidityLevel, LiquidityCluster, make_evidence_id
 
 
 def cluster_equal_levels(
@@ -76,6 +77,7 @@ def build_liquidity_map(
     previous_day: Optional[Any] = None,
     tolerance_atr: float = 0.25,
     atr: float = 2.0,
+    include_round_numbers: bool = False,
     now_ms: int,
 ) -> List[LiquidityLevel]:
     """Builds comprehensive causal liquidity map from swings, equal levels, session extremes, and PDH/PDL."""
@@ -179,6 +181,32 @@ def build_liquidity_map(
                 )
             )
 
+    # 6. Round Number Levels (Rule 055: Secondary context with clear configuration)
+    if include_round_numbers:
+        min_p = min((l.price for l in levels), default=0.0)
+        max_p = max((l.price for l in levels), default=0.0)
+        if min_p > 0 and max_p > min_p:
+            step = 50.0 if (max_p - min_p) >= 100.0 else 10.0
+            start_round = math.ceil(min_p / step) * step
+            while start_round <= max_p:
+                r_price = round(start_round, 2)
+                # Avoid duplicating an existing level at the exact same price
+                if not any(abs(l.price - r_price) < 0.05 for l in levels):
+                    mid_p = (min_p + max_p) / 2.0
+                    side = "BUY_SIDE" if r_price >= mid_p else "SELL_SIDE"
+                    levels.append(
+                        LiquidityLevel(
+                            id=f"liq-round-{int(r_price)}",
+                            price=r_price,
+                            side=side,
+                            source_kind="ROUND_NUMBER",
+                            occurred_at_ms=now_ms,
+                            known_at_ms=now_ms,
+                            label_vi=f"Mức số tròn {r_price:.2f}",
+                        )
+                    )
+                start_round += step
+
     return levels
 
 
@@ -278,6 +306,8 @@ def select_unconsumed_target(
         return None
 
     def _live(l: LiquidityLevel) -> bool:
+        if getattr(l, "source_kind", "") == "ROUND_NUMBER":
+            return False
         return l.state in ("UNTOUCHED", "APPROACHED") and (as_of_ms is None or l.known_at_ms <= as_of_ms)
 
     if direction == "LONG":
@@ -314,3 +344,145 @@ def rank_secondary_targets(
         )[:3]
 
     return []
+
+
+def _create_cluster_from_group(
+    group: List[LiquidityLevel],
+    side: str,
+    symbol: str,
+    timeframe: str,
+    now_ms: int,
+) -> LiquidityCluster:
+    prices = [l.price for l in group]
+    bot = min(prices)
+    top = max(prices)
+    mid = round((bot + top) / 2.0, 2)
+    source_ids = [l.id for l in group]
+    max_known = max(l.known_at_ms for l in group)
+
+    inferred_kinds = {"EQH", "EQL", "ROUND_NUMBER"}
+    is_inferred = any(l.source_kind in inferred_kinds for l in group)
+    c_type = "INFERRED_LIQUIDITY" if is_inferred else "OBSERVED_STRUCTURE"
+
+    # Score calculation (Rule 058): base on number of distinct sources, recency, state
+    base_score = min(5.0, len(group) * 1.5)
+    if any(l.source_kind.startswith("SESSION") for l in group):
+        base_score += 1.0
+    if any(l.source_kind in ("PDH", "PDL") for l in group):
+        base_score += 1.5
+    cluster_score = round(min(10.0, base_score), 2)
+
+    if any(l.state == "CONSUMED" for l in group):
+        c_state = "INVALIDATED"
+    elif any(l.state in ("SWEPT", "BROKEN") for l in group):
+        c_state = "SWEPT"
+    else:
+        c_state = "UNSWEPT"
+
+    c_id = f"cl-{side[:3].lower()}-{symbol}-{timeframe}-{mid:.2f}-{len(group)}"
+    side_vi = "Mua (Buy-side)" if side == "BUY_SIDE" else "Bán (Sell-side)"
+    label = f"Cụm thanh khoản {side_vi} [{bot:.2f} - {top:.2f}] ({len(group)} nguồn)"
+
+    return LiquidityCluster(
+        id=c_id,
+        side=side,
+        bottom=bot,
+        top=top,
+        price_mid=mid,
+        source_level_ids=source_ids,
+        known_at_ms=max_known,
+        state=c_state,
+        cluster_type=c_type,
+        score=cluster_score,
+        label_vi=label,
+        evidence_references=source_ids,
+    )
+
+
+def build_liquidity_clusters(
+    levels: Sequence[LiquidityLevel],
+    tolerance_price: float = 0.50,
+    now_ms: Optional[int] = None,
+    timeframe: str = "15M",
+    symbol: str = "XAUUSDT",
+    tolerance: Optional[float] = None,
+    as_of_ms: Optional[int] = None,
+) -> List[LiquidityCluster]:
+    """
+    V16 Liquidity Cluster grouping (Rules 054-060).
+    Clusters nearby liquidity levels of the same side (BUY_SIDE / SELL_SIDE) within tolerance_price.
+    Distinguishes OBSERVED_STRUCTURE vs INFERRED_LIQUIDITY.
+    Calculates cluster score based on number of distinct sources, timeframes, and confirmation state.
+    """
+    tol = tolerance if tolerance is not None else tolerance_price
+    t_now = now_ms if now_ms is not None else (as_of_ms if as_of_ms is not None else int(time.time() * 1000))
+    if not levels or tol <= 0:
+        return []
+
+    clusters: List[LiquidityCluster] = []
+    for side in ("BUY_SIDE", "SELL_SIDE"):
+        side_lvls = [l for l in levels if l.side == side and l.known_at_ms <= t_now]
+        if not side_lvls:
+            continue
+        sorted_lvls = sorted(side_lvls, key=lambda l: l.price)
+
+        current_group: List[LiquidityLevel] = [sorted_lvls[0]]
+        for lvl in sorted_lvls[1:]:
+            if abs(lvl.price - current_group[-1].price) <= tol:
+                current_group.append(lvl)
+            else:
+                clusters.append(_create_cluster_from_group(current_group, side, symbol, timeframe, t_now))
+                current_group = [lvl]
+        if current_group:
+            clusters.append(_create_cluster_from_group(current_group, side, symbol, timeframe, t_now))
+
+    return clusters
+
+
+def update_cluster_state(
+    cluster: LiquidityCluster,
+    causal_candles: Sequence[Any],
+    now_ms: int,
+) -> str:
+    """
+    V16 Causal state transition for a liquidity cluster (Rules 060-063).
+    UNSWEPT -> SWEPT -> RECLAIMED or ACCEPTED_BEYOND.
+    """
+    if cluster.state in ("INVALIDATED", "ACCEPTED_BEYOND", "RECLAIMED"):
+        return cluster.state
+
+    subsequent_bars = [
+        c for c in causal_candles
+        if getattr(c, "timestamp", getattr(c, "open_time", 0)) >= cluster.known_at_ms
+    ]
+    if not subsequent_bars:
+        return cluster.state
+
+    for bar in subsequent_bars:
+        high = float(bar.high)
+        low = float(bar.low)
+        close = float(bar.close)
+
+        b_time = getattr(bar, "timestamp", getattr(bar, "open_time", now_ms))
+        if cluster.side == "BUY_SIDE":
+            if high > cluster.top:
+                cluster.swept_extreme = high if cluster.swept_extreme is None else max(cluster.swept_extreme, high)
+                cluster.swept_at_ms = b_time
+                cluster.state = "SWEPT"
+                if close <= cluster.top:
+                    cluster.state = "RECLAIMED"
+                    cluster.reclaimed_at_ms = b_time
+                else:
+                    cluster.state = "ACCEPTED_BEYOND"
+        elif cluster.side == "SELL_SIDE":
+            if low < cluster.bottom:
+                cluster.swept_extreme = low if cluster.swept_extreme is None else min(cluster.swept_extreme, low)
+                cluster.swept_at_ms = b_time
+                cluster.state = "SWEPT"
+                if close >= cluster.bottom:
+                    cluster.state = "RECLAIMED"
+                    cluster.reclaimed_at_ms = b_time
+                else:
+                    cluster.state = "ACCEPTED_BEYOND"
+
+    return cluster.state

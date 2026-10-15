@@ -98,7 +98,15 @@ def resolve_entry_session_context(
     if family in ("NY_QUOTA_PAPER", "NY_DAILY_RESEARCH"):
         restriction = (ny_start, ny_end)
         expiry_cap = ny_end
-    elif family in ("STANDARD_SMC", "SMC_M1_REVERSAL", "SMC_M1_CONTINUATION"):
+    elif family in (
+        "STANDARD_SMC",
+        "SMC_M1_REVERSAL",
+        "SMC_M1_CONTINUATION",
+        "SMC_M1_FVG_CONTINUATION",
+        "SMC_M1_SWEEP_RECLAIM",
+        "SCALP_M1_REVERSAL",
+        "SCALP_M1_CONTINUATION",
+    ):
         if pol_mode == "NY_ONLY":
             restriction = (ny_start, ny_end)
             expiry_cap = ny_end
@@ -149,6 +157,21 @@ def compute_promoted_setup_expiry(
     if cand <= now_ms:
         return None
     return cand
+
+
+@dataclass
+class DailyFrequencyGoalEvaluation:
+    daily_fills: int
+    daily_min_goal: int
+    daily_max_cap: int
+    ny_fills: int
+    ny_goal: int
+    status: str
+    reason_vi: str
+    is_blocked: bool
+    remaining_daily_slots: int
+    ny_reserve_active: bool
+    shortfall_breakdown: Optional[Dict[str, int]] = None
 
 
 class TradingPolicyService:
@@ -881,6 +904,84 @@ class TradingPolicyService:
             "total_fills": quota.total_fills
         }
 
+    @staticmethod
+    def evaluate_daily_frequency_goal(
+        db: Session,
+        now_ms: Optional[int] = None,
+        clock: Optional[IClock] = None,
+        daily_min_goal: int = 2,
+    ) -> DailyFrequencyGoalEvaluation:
+        """
+        V16 Daily Frequency Goal Evaluator (Rules 028-030, 126-140).
+        Evaluates real daily fills vs daily minimum goal (2), hard cap (3), and NY session goal (1).
+        States: SEARCHING, MINIMUM_MET, CAP_REACHED, SHORTFALL, BLOCKED.
+        Does NOT place orders or bypass guards.
+        """
+        c = clock or live_clock
+        current_time = now_ms if now_ms is not None else c.now_ms()
+        policy = TradingPolicyService.get_or_create_policy(db)
+        window = TradingPolicyService.get_ny_session_window(policy, now_ms=current_time, clock=c)
+        quota = TradingPolicyService.get_or_create_session_quota(db, policy, now_ms=current_time, clock=c)
+        day_audit = crud.get_or_create_today_audit(db, clock=c)
+
+        d_fills = int(getattr(day_audit, "fills_count", 0) or 0)
+        ny_fills = int(getattr(quota, "total_fills", 0) or 0)
+        daily_max_cap = int(getattr(policy, "max_daily_fills", 3) or 3)
+        ny_goal = int(getattr(policy, "ny_min_fills", 1) or 1)
+        remaining_slots = max(0, daily_max_cap - d_fills)
+
+        # Check NY reservation (Rule 128)
+        ny_reserve_active = False
+        if (
+            not window.get("is_in_window", False)
+            and window.get("phase") == "BEFORE_WINDOW"
+            and ny_fills < ny_goal
+            and remaining_slots <= (ny_goal - ny_fills)
+            and bool(getattr(policy, "reserve_ny_slot", True))
+        ):
+            ny_reserve_active = True
+
+        is_blocked = bool(getattr(day_audit, "is_blocked", False))
+        if day_audit.cooldown_until and current_time < day_audit.cooldown_until:
+            is_blocked = True
+
+        status = "SEARCHING"
+        reason_vi = ""
+
+        if is_blocked:
+            status = "BLOCKED"
+            reason_vi = f"Tạm dừng giao dịch: {day_audit.block_reason or 'Đang trong thời gian cooldown/bảo vệ rủi ro'}"
+        elif d_fills >= daily_max_cap:
+            status = "CAP_REACHED"
+            reason_vi = f"Đã đạt giới hạn tối đa {daily_max_cap} lệnh khớp trong ngày (UTC+7)."
+        elif d_fills >= daily_min_goal:
+            status = "MINIMUM_MET"
+            if remaining_slots > 0:
+                reason_vi = f"Đã hoàn thành mục tiêu tối thiểu {daily_min_goal} lệnh (hiện có {d_fills} fills). Có thể đón nhận thêm tối đa {remaining_slots} cơ hội chất lượng cao."
+            else:
+                reason_vi = f"Đã đạt mục tiêu tối thiểu {daily_min_goal} lệnh và sử dụng hết hạn ngạch ngày."
+        elif window.get("phase") == "AFTER_WINDOW" and d_fills < daily_min_goal:
+            status = "SHORTFALL"
+            reason_vi = f"Kết thúc ngày chưa đạt mục tiêu tối thiểu: {d_fills}/{daily_min_goal} lệnh (DAILY_GOAL_SHORTFALL)."
+        else:
+            status = "SEARCHING"
+            reserve_note = " (1 slot đang được bảo lưu cho phiên Mỹ)" if ny_reserve_active else ""
+            reason_vi = f"Đang quét tìm cơ hội hợp lệ: đã khớp {d_fills}/{daily_min_goal} lệnh tối thiểu (tối đa {daily_max_cap}){reserve_note}."
+
+        return DailyFrequencyGoalEvaluation(
+            daily_fills=d_fills,
+            daily_min_goal=daily_min_goal,
+            daily_max_cap=daily_max_cap,
+            ny_fills=ny_fills,
+            ny_goal=ny_goal,
+            status=status,
+            reason_vi=reason_vi,
+            is_blocked=is_blocked,
+            remaining_daily_slots=remaining_slots,
+            ny_reserve_active=ny_reserve_active,
+        )
+
+
 trading_policy_service = TradingPolicyService()
 
 
@@ -910,3 +1011,5 @@ def apply_runtime_contract_upgrades(
         audit_id=res.get("audit_id"),
         status=res.get("status", "APPLIED" if res["changed"] else "NOOP"),
     )
+
+evaluate_daily_frequency_goal = TradingPolicyService.evaluate_daily_frequency_goal

@@ -29,6 +29,8 @@ class ModelIdentifier(str, Enum):
     STANDARD_SMC = "STANDARD_SMC"
     SMC_M1_REVERSAL = "SMC_M1_REVERSAL"
     SMC_M1_CONTINUATION = "SMC_M1_CONTINUATION"
+    SMC_M1_FVG_CONTINUATION = "SMC_M1_FVG_CONTINUATION"
+    SMC_M1_SWEEP_RECLAIM = "SMC_M1_SWEEP_RECLAIM"
     NY_DAILY_RESEARCH = "NY_DAILY_RESEARCH"
 
 
@@ -69,6 +71,10 @@ class OpportunityReasonCode(str, Enum):
     HYPOTHESIS_WRITE_BLOCKED = "HYPOTHESIS_WRITE_BLOCKED"
     HYPOTHESIS_WRITE_FAILED = "HYPOTHESIS_WRITE_FAILED"
     HYPOTHESIS_AUTHORITY_MISSING = "HYPOTHESIS_AUTHORITY_MISSING"
+    EVIDENCE_READY = "EVIDENCE_READY"
+    PLAN_PREPARED = "PLAN_PREPARED"
+    REPEATED_ARM_REJECT_COOLDOWN = "REPEATED_ARM_REJECT_COOLDOWN"
+    MODEL_UNREGISTERED = "MODEL_UNREGISTERED"
 
 
 class ZoneState(str, Enum):
@@ -303,6 +309,17 @@ class M1ScalpConfig:
     max_active_zones: int = 8                # Bounded watchlist size
     config_version: int = 1
 
+    # V16 Feature Profile & Opportunity Expansion (Rules 025-030, 083-096)
+    v16_profile_enabled: bool = True
+    fvg_continuation_enabled: bool = True
+    sweep_reclaim_enabled: bool = True
+    multi_zone_hypotheses_enabled: bool = False
+    orderflow_shadow_enabled: bool = True
+    arm_rejection_suppression_ms: int = 60_000
+    daily_min_goal: int = 2
+    daily_max_cap: int = 3
+    daily_ny_goal: int = 1
+
     def __post_init__(self):
         if self.near_zone_enter_atr >= self.near_zone_exit_atr:
             raise ValueError("INVALID_CONFIG: near_zone_enter_atr must be < near_zone_exit_atr for hysteresis")
@@ -347,6 +364,15 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
                 "max_trigger_age_ms",
                 "max_entry_distance_atr",
                 "config_version",
+                "v16_profile_enabled",
+                "fvg_continuation_enabled",
+                "sweep_reclaim_enabled",
+                "multi_zone_hypotheses_enabled",
+                "orderflow_shadow_enabled",
+                "arm_rejection_suppression_ms",
+                "daily_min_goal",
+                "daily_max_cap",
+                "daily_ny_goal",
             ])
         ).all()
         config_map = {r.key: r.value for r in rows}
@@ -362,12 +388,20 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
             overrides["scalp_m1_mode"] = val
             overrides["scalp_m1_enabled"] = (val != ScalpMode.OFF.value)
 
-    if "daily_ny_research_enabled" in config_map:
-        val = str(config_map["daily_ny_research_enabled"]).strip().lower()
-        if val in ("true", "1", "yes"):
-            overrides["daily_ny_research_enabled"] = True
-        elif val in ("false", "0", "no"):
-            overrides["daily_ny_research_enabled"] = False
+    for bool_key in [
+        "daily_ny_research_enabled",
+        "v16_profile_enabled",
+        "fvg_continuation_enabled",
+        "sweep_reclaim_enabled",
+        "multi_zone_hypotheses_enabled",
+        "orderflow_shadow_enabled",
+    ]:
+        if bool_key in config_map:
+            val = str(config_map[bool_key]).strip().lower()
+            if val in ("true", "1", "yes"):
+                overrides[bool_key] = True
+            elif val in ("false", "0", "no"):
+                overrides[bool_key] = False
 
     for num_key, typ in [
         ("min_closed_m1_bars", int),
@@ -380,6 +414,10 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
         ("max_trigger_age_ms", int),
         ("max_entry_distance_atr", float),
         ("config_version", int),
+        ("arm_rejection_suppression_ms", int),
+        ("daily_min_goal", int),
+        ("daily_max_cap", int),
+        ("daily_ny_goal", int),
     ]:
         if num_key in config_map:
             try:
