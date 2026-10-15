@@ -20,7 +20,7 @@ import logging
 import math
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 from sqlalchemy.orm import Session
 
@@ -760,6 +760,16 @@ class HypothesisLoadStatus(str, Enum):
     UNSUPPORTED_VERSION = "UNSUPPORTED_VERSION"
 
 
+class LifecycleStageResult(str, Enum):
+    """Result of staging durable hypothesis lifecycle or status transition (SECTIONS 034, 127)."""
+    STAGED = "STAGED"
+    CREATED = "CREATED"
+    UPDATED = "UPDATED"
+    NO_CHANGE = "NO_CHANGE"
+    BLOCKED = "BLOCKED"
+    FAILED = "FAILED"
+
+
 @dataclass(frozen=True)
 class DurableHypothesisRecord:
     """
@@ -782,6 +792,60 @@ class DurableHypothesisRecord:
     target_status: str = "CONFIRMED"
     source_fingerprint: str = ""
     updated_at_ms: int = 0
+
+
+@dataclass(frozen=True)
+class HypothesisLoadIssue:
+    """Diagnostic detail for a corrupt, unsupported, or failed durable hypothesis record (SECTIONS 064 - 066)."""
+    storage_key: str
+    status: HypothesisLoadStatus
+    reason: str
+    hypothesis_id: Optional[str] = None
+    schema_version: Optional[Any] = None
+    raw_preview: str = ""
+
+
+@dataclass
+class HypothesisBatchLoadResult:
+    """
+    Structured result of batch loading durable hypotheses for a symbol (SECTIONS 061 - 087).
+    Distinguishes COMPLETE, PARTIAL, and READ_FAILED statuses.
+    Tracks blocked keys and identities to prevent recreation or blind overwriting of corrupt state.
+    Implements dict-like helper methods for seamless backward compatibility.
+    """
+    records: Dict[str, DurableHypothesisRecord]
+    issues: List[HypothesisLoadIssue]
+    read_status: str  # "COMPLETE", "PARTIAL", "READ_FAILED"
+    blocked_keys: Set[str]
+    blocked_identities: Set[str]
+    diagnostics: Dict[str, Any]
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.records.get(key, default)
+
+    def items(self):
+        return self.records.items()
+
+    def values(self):
+        return self.records.values()
+
+    def keys(self):
+        return self.records.keys()
+
+    def __iter__(self):
+        return iter(self.records)
+
+    def __getitem__(self, item: str) -> DurableHypothesisRecord:
+        return self.records[item]
+
+    def __contains__(self, item: str) -> bool:
+        return item in self.records
+
+    def __len__(self) -> int:
+        return len(self.records)
+
+    def __bool__(self) -> bool:
+        return True
 
 
 def compute_hypothesis_source_fingerprint(
@@ -809,6 +873,115 @@ def get_hypothesis_storage_key(symbol: str, hypothesis_id: str) -> str:
     return f"hlc:{sym}:{hyp_hash}"
 
 
+def parse_hypothesis_lifecycle_row(
+    key: str,
+    raw_value: Any,
+    expected_symbol: str,
+) -> Tuple[HypothesisLoadStatus, Optional[DurableHypothesisRecord], Optional[str], str]:
+    """
+    Pure validation parser for a persisted SystemConfig row (SECTIONS 070 - 084).
+    DOES NOT MUTATE DB OR SESSION.
+    Returns: (status, record_or_none, hypothesis_id_if_known, reason_str)
+    """
+    if not isinstance(raw_value, str) or not raw_value.strip():
+        return HypothesisLoadStatus.CORRUPT, None, None, "Empty or non-string raw payload"
+
+    try:
+        data = json.loads(raw_value)
+    except Exception as e:
+        return HypothesisLoadStatus.CORRUPT, None, None, f"Corrupt JSON payload: {e}"
+
+    if not isinstance(data, dict):
+        return HypothesisLoadStatus.CORRUPT, None, None, "Payload is not a JSON object"
+
+    stored_id = data.get("hypothesis_id")
+    hyp_id = stored_id if isinstance(stored_id, str) and stored_id.strip() else None
+
+    schema_ver = data.get("schema_version")
+    if schema_ver != 1:
+        return HypothesisLoadStatus.UNSUPPORTED_VERSION, None, hyp_id, f"Unsupported schema version: {schema_ver}"
+
+    if not hyp_id:
+        return HypothesisLoadStatus.CORRUPT, None, None, "Missing or non-string hypothesis_id in payload"
+
+    expected_key = get_hypothesis_storage_key(expected_symbol, hyp_id)
+    if key != expected_key:
+        return (
+            HypothesisLoadStatus.CORRUPT,
+            None,
+            hyp_id,
+            f"Storage key mismatch: row key '{key}' != derived key '{expected_key}'",
+        )
+
+    rec_symbol = data.get("symbol")
+    if not rec_symbol or str(rec_symbol).upper() != expected_symbol.upper():
+        return (
+            HypothesisLoadStatus.CORRUPT,
+            None,
+            hyp_id,
+            f"Symbol mismatch: payload symbol '{rec_symbol}' != requested '{expected_symbol}'",
+        )
+
+    c_at = data.get("created_at_ms")
+    e_at = data.get("expiry_ms")
+    rev = data.get("revision")
+    stat = data.get("status")
+
+    # Strict integer checks (Section 075: reject bool masquerading as int)
+    if type(c_at) is not int or type(e_at) is not int or type(rev) is not int:
+        return HypothesisLoadStatus.CORRUPT, None, hyp_id, "created_at_ms, expiry_ms, and revision must be strict int"
+
+    if not (math.isfinite(c_at) and math.isfinite(e_at)):
+        return HypothesisLoadStatus.CORRUPT, None, hyp_id, "Non-finite timestamps"
+
+    if c_at <= 0 or e_at < c_at or rev < 1:
+        return HypothesisLoadStatus.CORRUPT, None, hyp_id, f"Invalid timestamps or revision: c_at={c_at}, e_at={e_at}, rev={rev}"
+
+    if stat not in ("ACTIVE", "EXPIRED", "INVALIDATED", "FULFILLED"):
+        return HypothesisLoadStatus.CORRUPT, None, hyp_id, f"Invalid status: '{stat}'"
+
+    target_price = data.get("target_price")
+    if target_price is not None:
+        if not isinstance(target_price, (int, float)) or isinstance(target_price, bool) or not math.isfinite(target_price):
+            return HypothesisLoadStatus.CORRUPT, None, hyp_id, f"Invalid target_price: {target_price}"
+
+    updated_at_ms = data.get("updated_at_ms", c_at)
+    if type(updated_at_ms) is not int or isinstance(updated_at_ms, bool) or not math.isfinite(updated_at_ms) or updated_at_ms < c_at:
+        return HypothesisLoadStatus.CORRUPT, None, hyp_id, f"Invalid updated_at_ms: {updated_at_ms}"
+
+    rec_dir = str(data.get("direction", ""))
+    rec_zone_id = data.get("zone_id")
+    expected_fp = compute_hypothesis_source_fingerprint(
+        hypothesis_id=hyp_id,
+        symbol=expected_symbol,
+        direction=rec_dir,
+        source_zone_id=rec_zone_id,
+        created_at_ms=c_at,
+    )
+    if data.get("source_fingerprint") != expected_fp:
+        return HypothesisLoadStatus.CORRUPT, None, hyp_id, "Source fingerprint mismatch"
+
+    record = DurableHypothesisRecord(
+        schema_version=schema_ver,
+        hypothesis_id=hyp_id,
+        symbol=expected_symbol.upper(),
+        direction=rec_dir,
+        is_primary=bool(data.get("is_primary", True)),
+        created_at_ms=c_at,
+        expiry_ms=e_at,
+        status=stat,
+        revision=rev,
+        source_zone_id=rec_zone_id,
+        target_price=float(target_price) if target_price is not None else None,
+        target_level_id=data.get("target_level_id"),
+        target_type=str(data.get("target_type", "LIQUIDITY_LEVEL")),
+        target_status=str(data.get("target_status", "CONFIRMED")),
+        source_fingerprint=expected_fp,
+        updated_at_ms=updated_at_ms,
+    )
+    return HypothesisLoadStatus.FOUND, record, hyp_id, "OK"
+
+
 def load_hypothesis_lifecycle(
     db: Session,
     hypothesis_id: str,
@@ -832,85 +1005,23 @@ def load_hypothesis_lifecycle(
     if rec is None:
         return HypothesisLoadStatus.NOT_FOUND, None
 
-    try:
-        data = json.loads(rec.value)
-    except Exception:
-        logger.warning(f"Corrupt JSON payload for hypothesis lifecycle key '{key}'")
-        return HypothesisLoadStatus.CORRUPT, None
+    status, record, _, reason = parse_hypothesis_lifecycle_row(key, rec.value, symbol)
+    if status != HypothesisLoadStatus.FOUND:
+        logger.warning(f"Hypothesis lifecycle load failed for '{hypothesis_id}': {reason}")
+        return status, None
 
-    if not isinstance(data, dict):
-        return HypothesisLoadStatus.CORRUPT, None
-
-    schema_ver = data.get("schema_version")
-    if schema_ver != 1:
-        logger.warning(f"Unsupported schema version {schema_ver} for hypothesis '{hypothesis_id}'")
-        return HypothesisLoadStatus.UNSUPPORTED_VERSION, None
-
-    # ID roundtrip check (SECTION 027)
-    stored_id = data.get("hypothesis_id")
-    if stored_id != hypothesis_id:
-        logger.warning(f"Hypothesis ID mismatch: expected '{hypothesis_id}', got '{stored_id}'")
-        return HypothesisLoadStatus.CORRUPT, None
-
-    # Strictly validate integer timestamps and revision (SECTION 057: reject bool masquerading as int)
-    c_at = data.get("created_at_ms")
-    e_at = data.get("expiry_ms")
-    rev = data.get("revision")
-    stat = data.get("status")
-
-    if type(c_at) is not int or type(e_at) is not int or type(rev) is not int:
-        return HypothesisLoadStatus.CORRUPT, None
-    if not (math.isfinite(c_at) and math.isfinite(e_at)):
-        return HypothesisLoadStatus.CORRUPT, None
-    if e_at < c_at or rev < 1:
-        return HypothesisLoadStatus.CORRUPT, None
-    if stat not in ("ACTIVE", "EXPIRED", "INVALIDATED", "FULFILLED"):
-        return HypothesisLoadStatus.CORRUPT, None
-
-    # Source fingerprint integrity check (SECTIONS 028, 035)
-    rec_symbol = str(data.get("symbol", symbol))
-    rec_dir = str(data.get("direction", ""))
-    rec_zone_id = data.get("zone_id")
-    expected_fp = compute_hypothesis_source_fingerprint(
-        hypothesis_id=hypothesis_id,
-        symbol=rec_symbol,
-        direction=rec_dir,
-        source_zone_id=rec_zone_id,
-        created_at_ms=c_at,
-    )
-    if data.get("source_fingerprint") != expected_fp:
-        logger.warning(f"Source fingerprint mismatch for hypothesis '{hypothesis_id}'")
-        return HypothesisLoadStatus.CORRUPT, None
-
-    record = DurableHypothesisRecord(
-        schema_version=schema_ver,
-        hypothesis_id=hypothesis_id,
-        symbol=rec_symbol,
-        direction=rec_dir,
-        is_primary=bool(data.get("is_primary", True)),
-        created_at_ms=c_at,
-        expiry_ms=e_at,
-        status=stat,
-        revision=rev,
-        source_zone_id=rec_zone_id,
-        target_price=float(data["target_price"]) if data.get("target_price") is not None else None,
-        target_level_id=data.get("target_level_id"),
-        target_type=str(data.get("target_type", "LIQUIDITY_LEVEL")),
-        target_status=str(data.get("target_status", "CONFIRMED")),
-        source_fingerprint=expected_fp,
-        updated_at_ms=int(data.get("updated_at_ms", c_at)),
-    )
     return HypothesisLoadStatus.FOUND, record
 
 
 def load_durable_hypotheses_for_symbol(
     db: Session,
     symbol: str,
-) -> Dict[str, DurableHypothesisRecord]:
+) -> HypothesisBatchLoadResult:
     """
-    Batch loads valid durable hypothesis lifecycles for a given symbol (SECTIONS 042, 181).
+    Batch loads valid durable hypothesis lifecycles for a given symbol (SECTIONS 042, 061 - 087).
     Bounds query using key prefix 'hlc:{symbol}:%'.
     Fails closed on corrupt entries without throwing unexpected exceptions.
+    Returns structured HypothesisBatchLoadResult with records, issues, and blocked keys/identities.
     """
     sym = (symbol or "UNKNOWN")[:7].upper()
     prefix = f"hlc:{sym}:"
@@ -918,21 +1029,123 @@ def load_durable_hypotheses_for_symbol(
         records = db.query(models.SystemConfig).filter(models.SystemConfig.key.like(f"{prefix}%")).all()
     except Exception as e:
         logger.warning(f"Error querying durable hypotheses for {symbol}: {e}")
-        return {}
+        issue = HypothesisLoadIssue(
+            storage_key=prefix,
+            status=HypothesisLoadStatus.CORRUPT,
+            reason=f"Database query error: {e}",
+            hypothesis_id=None,
+        )
+        return HypothesisBatchLoadResult(
+            records={},
+            issues=[issue],
+            read_status="READ_FAILED",
+            blocked_keys={prefix},
+            blocked_identities=set(),
+            diagnostics={"error": str(e)},
+        )
 
     loaded: Dict[str, DurableHypothesisRecord] = {}
+    issues: List[HypothesisLoadIssue] = []
+    blocked_keys: Set[str] = set()
+    blocked_identities: Set[str] = set()
+
     for r in records:
-        try:
-            raw = json.loads(r.value)
-            hyp_id = raw.get("hypothesis_id") if isinstance(raw, dict) else None
-            if not hyp_id:
-                continue
-            status, d_rec = load_hypothesis_lifecycle(db, hyp_id, symbol=symbol)
-            if status == HypothesisLoadStatus.FOUND and d_rec:
-                loaded[hyp_id] = d_rec
-        except Exception:
-            continue
-    return loaded
+        status, d_rec, hyp_id, reason = parse_hypothesis_lifecycle_row(r.key, r.value, symbol)
+        if status == HypothesisLoadStatus.FOUND and d_rec:
+            loaded[d_rec.hypothesis_id] = d_rec
+        else:
+            issue = HypothesisLoadIssue(
+                storage_key=r.key,
+                status=status,
+                reason=reason,
+                hypothesis_id=hyp_id,
+                raw_preview=str(r.value)[:100] if r.value else "",
+            )
+            issues.append(issue)
+            blocked_keys.add(r.key)
+            if hyp_id:
+                blocked_identities.add(hyp_id)
+
+    read_status = "COMPLETE" if not issues else "PARTIAL"
+    return HypothesisBatchLoadResult(
+        records=loaded,
+        issues=issues,
+        read_status=read_status,
+        blocked_keys=blocked_keys,
+        blocked_identities=blocked_identities,
+        diagnostics={"total_rows": len(records), "valid_count": len(loaded), "issues_count": len(issues)},
+    )
+
+
+def stage_hypothesis_status_transition(
+    db: Session,
+    symbol: str,
+    record_or_identity: Union[DurableHypothesisRecord, str],
+    desired_status: str,
+    now_ms: int,
+) -> LifecycleStageResult:
+    """
+    Directly stages a status transition for a durable hypothesis record without synthetic zones (SECTIONS 031 - 047).
+    Pure stage-only: caller owns transaction commit/rollback.
+    Preconditions:
+    - Only ACTIVE records can transition to EXPIRED when now_ms >= expiry_ms.
+    - Terminal states (EXPIRED, INVALIDATED, FULFILLED) cannot transition back to ACTIVE.
+    - Preserves all immutable anchors (created_at_ms, expiry_ms, source_fingerprint, revision).
+    """
+    hyp_id = record_or_identity.hypothesis_id if isinstance(record_or_identity, DurableHypothesisRecord) else str(record_or_identity)
+    if not hyp_id:
+        return LifecycleStageResult.BLOCKED
+
+    key = get_hypothesis_storage_key(symbol, hyp_id)
+    try:
+        rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+    except Exception as e:
+        logger.warning(f"Error checking hypothesis key '{key}' for status transition: {e}")
+        return LifecycleStageResult.FAILED
+
+    if rec is None:
+        return LifecycleStageResult.BLOCKED
+
+    status, d_rec, parsed_id, reason = parse_hypothesis_lifecycle_row(key, rec.value, symbol)
+    if status != HypothesisLoadStatus.FOUND or not d_rec:
+        logger.warning(f"Refusing status transition on corrupt or invalid record '{key}': {reason}")
+        return LifecycleStageResult.BLOCKED
+
+    if d_rec.status == desired_status:
+        return LifecycleStageResult.NO_CHANGE
+
+    # Terminal monotonicity
+    if d_rec.status in ("EXPIRED", "INVALIDATED", "FULFILLED") and desired_status == "ACTIVE":
+        logger.warning(f"Refusing to transition terminal status '{d_rec.status}' to ACTIVE for '{hyp_id}'")
+        return LifecycleStageResult.BLOCKED
+
+    # Expiry precondition
+    if desired_status == "EXPIRED" and now_ms < d_rec.expiry_ms:
+        return LifecycleStageResult.NO_CHANGE
+
+    new_rev = d_rec.revision + 1 if desired_status != d_rec.status else d_rec.revision
+    payload = {
+        "schema_version": d_rec.schema_version,
+        "hypothesis_id": d_rec.hypothesis_id,
+        "symbol": d_rec.symbol,
+        "direction": d_rec.direction,
+        "is_primary": bool(d_rec.is_primary),
+        "zone_id": d_rec.source_zone_id,
+        "created_at_ms": int(d_rec.created_at_ms),
+        "expiry_ms": int(d_rec.expiry_ms),
+        "status": desired_status,
+        "revision": int(new_rev),
+        "target_price": float(d_rec.target_price) if d_rec.target_price is not None else None,
+        "target_level_id": d_rec.target_level_id,
+        "target_type": str(d_rec.target_type),
+        "target_status": str(d_rec.target_status),
+        "source_fingerprint": d_rec.source_fingerprint,
+        "updated_at_ms": int(now_ms),
+    }
+    rec.value = json.dumps(payload, ensure_ascii=False)
+    rec.updated_at = int(now_ms)
+    db.merge(rec)
+    return LifecycleStageResult.STAGED
 
 
 def stage_hypothesis_lifecycle(
@@ -940,33 +1153,91 @@ def stage_hypothesis_lifecycle(
     symbol: str,
     hypothesis: LiquidityHypothesis,
     now_ms: int,
-) -> None:
+) -> LifecycleStageResult:
     """
-    Stages durable hypothesis lifecycle to SystemConfig (SECTIONS 040, 043).
+    Stages durable hypothesis lifecycle to SystemConfig with write-side defense (SECTIONS 121 - 140).
     Stage-only: DOES NOT COMMIT OR ROLLBACK. Caller transaction owns commit/rollback.
+    Does NOT blind merge over corrupt records. Preserves existing anchors.
     """
+    if not hypothesis or not hypothesis.hypothesis_id:
+        return LifecycleStageResult.BLOCKED
+
     key = get_hypothesis_storage_key(symbol, hypothesis.hypothesis_id)
     zone_id = hypothesis.watched_zone.zone_id if hypothesis.watched_zone else None
-    fp = compute_hypothesis_source_fingerprint(
-        hypothesis_id=hypothesis.hypothesis_id,
-        symbol=symbol,
-        direction=hypothesis.direction,
-        source_zone_id=zone_id,
-        created_at_ms=int(hypothesis.created_at_ms),
-    )
+
+    try:
+        existing_rec = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+    except Exception as e:
+        logger.warning(f"Error querying key '{key}' during stage_hypothesis_lifecycle: {e}")
+        return LifecycleStageResult.FAILED
+
+    # If key exists, validate it first (double defense)
+    if existing_rec is not None:
+        status, d_rec, parsed_id, reason = parse_hypothesis_lifecycle_row(key, existing_rec.value, symbol)
+        if status != HypothesisLoadStatus.FOUND or not d_rec:
+            # Corrupt, unsupported or invalid: REFUSE TO OVERWRITE RAW RECORD!
+            logger.warning(f"Write defense blocked stage_hypothesis_lifecycle on corrupt key '{key}': {reason}")
+            return LifecycleStageResult.BLOCKED
+
+        # Terminal state cannot be downgraded to ACTIVE
+        if d_rec.status in ("EXPIRED", "INVALIDATED", "FULFILLED") and hypothesis.status == "ACTIVE":
+            logger.warning(f"Write defense blocked downgrading terminal status '{d_rec.status}' to ACTIVE for '{hypothesis.hypothesis_id}'")
+            return LifecycleStageResult.BLOCKED
+
+        target_lvl_id = hypothesis.target_level.id if getattr(hypothesis, "target_level", None) else None
+        # Check if no-op
+        if (
+            d_rec.status == hypothesis.status
+            and d_rec.revision == hypothesis.revision
+            and d_rec.target_price == hypothesis.target_price
+            and d_rec.target_level_id == target_lvl_id
+        ):
+            return LifecycleStageResult.NO_CHANGE
+
+        # Preserve authoritative anchors from existing durable record
+        c_at = d_rec.created_at_ms
+        e_at = d_rec.expiry_ms
+        fp = d_rec.source_fingerprint
+        rev = max(d_rec.revision, int(hypothesis.revision))
+        direction = d_rec.direction
+        is_primary = d_rec.is_primary
+        source_zone = d_rec.source_zone_id
+    else:
+        # First-time creation validation
+        c_at = int(hypothesis.created_at_ms)
+        e_at = int(hypothesis.expiry_ms)
+        rev = int(hypothesis.revision)
+        if c_at <= 0 or e_at < c_at or rev < 1:
+            logger.warning(f"Write defense blocked invalid timestamps for new hypothesis '{hypothesis.hypothesis_id}'")
+            return LifecycleStageResult.BLOCKED
+        if hypothesis.status not in ("ACTIVE", "EXPIRED", "INVALIDATED", "FULFILLED"):
+            return LifecycleStageResult.BLOCKED
+
+        direction = hypothesis.direction
+        is_primary = bool(hypothesis.is_primary)
+        source_zone = zone_id
+        fp = compute_hypothesis_source_fingerprint(
+            hypothesis_id=hypothesis.hypothesis_id,
+            symbol=symbol,
+            direction=direction,
+            source_zone_id=source_zone,
+            created_at_ms=c_at,
+        )
+
+    target_lvl_id = hypothesis.target_level.id if getattr(hypothesis, "target_level", None) else None
     payload = {
         "schema_version": 1,
         "hypothesis_id": hypothesis.hypothesis_id,
         "symbol": symbol,
-        "direction": hypothesis.direction,
-        "is_primary": bool(hypothesis.is_primary),
-        "zone_id": zone_id,
-        "created_at_ms": int(hypothesis.created_at_ms),
-        "expiry_ms": int(hypothesis.expiry_ms),
+        "direction": direction,
+        "is_primary": is_primary,
+        "zone_id": source_zone,
+        "created_at_ms": c_at,
+        "expiry_ms": e_at,
         "status": str(hypothesis.status),
-        "revision": int(hypothesis.revision),
+        "revision": rev,
         "target_price": float(hypothesis.target_price) if hypothesis.target_price is not None else None,
-        "target_level_id": hypothesis.target_level.id if getattr(hypothesis, "target_level", None) else None,
+        "target_level_id": target_lvl_id,
         "target_type": str(hypothesis.target_type),
         "target_status": str(hypothesis.target_status),
         "source_fingerprint": fp,
@@ -978,6 +1249,7 @@ def stage_hypothesis_lifecycle(
         updated_at=int(now_ms),
     )
     db.merge(rec)
+    return LifecycleStageResult.CREATED if existing_rec is None else LifecycleStageResult.UPDATED
 
 
 def reconcile_hypothesis_lifecycle(

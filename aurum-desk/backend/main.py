@@ -3242,9 +3242,17 @@ def get_scalp_liquidity_map_endpoint(symbol: str = "XAUUSDT"):
 def get_scalp_hypotheses_endpoint(symbol: str = "XAUUSDT"):
     from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
     hyps = scalp_watcher_orchestrator.get_active_hypotheses(symbol)
+    batch_res = scalp_watcher_orchestrator.get_latest_hypothesis_batch_result(symbol)
+    data_quality = "HEALTHY"
+    issues_count = 0
+    if batch_res is not None:
+        data_quality = "DEGRADED" if batch_res.read_status != "COMPLETE" else "HEALTHY"
+        issues_count = len(batch_res.issues)
     return {
         "symbol": symbol,
         "count": len(hyps),
+        "data_quality": data_quality,
+        "issues_count": issues_count,
         "hypotheses": [h.to_dict() if hasattr(h, "to_dict") else h for h in hyps],
     }
 
