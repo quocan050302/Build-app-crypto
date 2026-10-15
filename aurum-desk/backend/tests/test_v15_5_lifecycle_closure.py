@@ -89,7 +89,7 @@ def test_durable_hypothesis_restart_preserves_expiry(isolated_db: Session):
         direction="BULLISH", top=2620.0, bottom=2600.0, created_at=t0 - 60_000, known_at=t0 - 60_000,
         state=ZoneState.WAITING_TRIGGER.value,
     )
-    quote = {"bid": 2615.0, "ask": 2615.5, "is_valid": True}
+    quote = {"bid": 2615.0, "ask": 2615.5, "is_valid": True, "server_time": t0, "observed_at": t0}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     # 1. First runtime instance at T0
@@ -119,7 +119,7 @@ def test_durable_hypothesis_restart_preserves_expiry(isolated_db: Session):
 
     res2 = orch2.evaluate_cycle(
         isolated_db, "XAUUSDT",
-        now_ms=t1, quote=quote, candles_1m=_make_causal_long_m1_candles(),
+        now_ms=t1, quote=dict(quote, server_time=t1, observed_at=t1), candles_1m=_make_causal_long_m1_candles(),
         candles_5m=[], candles_15m=[], config=cfg, feed_health=feed_health, auto_enabled=True,
     )
     assert res2["status"] == "OK"
@@ -154,7 +154,7 @@ def test_durable_hypothesis_restart_past_deadline_stays_expired(isolated_db: Ses
         direction="BULLISH", top=2620.0, bottom=2600.0, created_at=t0 - 60_000, known_at=t0 - 60_000,
         state=ZoneState.WAITING_TRIGGER.value,
     )
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": t0, "observed_at": t0}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     # 1. Create at T0
@@ -180,7 +180,7 @@ def test_durable_hypothesis_restart_past_deadline_stays_expired(isolated_db: Ses
 
     res2 = orch2.evaluate_cycle(
         isolated_db, "XAUUSDT",
-        now_ms=t2, quote=quote, candles_1m=_make_causal_long_m1_candles(),
+        now_ms=t2, quote=dict(quote, server_time=t2, observed_at=t2), candles_1m=_make_causal_long_m1_candles(),
         candles_5m=[], candles_15m=[], config=cfg, feed_health=feed_health, auto_enabled=True,
     )
 
@@ -219,7 +219,7 @@ def test_durable_hypothesis_dropped_from_top_list_and_returns(isolated_db: Sessi
         direction="BEARISH", top=2680.0, bottom=2660.0, created_at=t0 - 60_000, known_at=t0 - 60_000,
         state=ZoneState.WAITING_TRIGGER.value,
     )
-    quote = {"bid": 2615.0, "ask": 2615.5, "is_valid": True}
+    quote = {"bid": 2615.0, "ask": 2615.5, "is_valid": True, "server_time": t0, "observed_at": t0}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     orch = ScalpWatcherOrchestrator()
@@ -233,12 +233,12 @@ def test_durable_hypothesis_dropped_from_top_list_and_returns(isolated_db: Sessi
     # Cycle 2: zoneA is dropped from watchlist, only zoneB active
     t1 = t0 + 600_000
     orch.set_active_zones("XAUUSDT", [zoneB])
-    orch.evaluate_cycle(isolated_db, "XAUUSDT", now_ms=t1, quote=quote, candles_1m=_make_causal_long_m1_candles(), config=cfg, feed_health=feed_health, auto_enabled=True)
+    orch.evaluate_cycle(isolated_db, "XAUUSDT", now_ms=t1, quote=dict(quote, server_time=t1, observed_at=t1), candles_1m=_make_causal_long_m1_candles(), config=cfg, feed_health=feed_health, auto_enabled=True)
 
     # Cycle 3: zoneA returns to watchlist
     t2 = t1 + 600_000
     orch.set_active_zones("XAUUSDT", [zoneA])
-    orch.evaluate_cycle(isolated_db, "XAUUSDT", now_ms=t2, quote=quote, candles_1m=_make_causal_long_m1_candles(), config=cfg, feed_health=feed_health, auto_enabled=True)
+    orch.evaluate_cycle(isolated_db, "XAUUSDT", now_ms=t2, quote=dict(quote, server_time=t2, observed_at=t2), candles_1m=_make_causal_long_m1_candles(), config=cfg, feed_health=feed_health, auto_enabled=True)
 
     rec_a_t2 = load_hypothesis_lifecycle(isolated_db, hyp_id_a, "XAUUSDT")[1]
     assert rec_a_t2 is not None
@@ -473,7 +473,7 @@ def test_full_production_long_arm_fill_tp_lifecycle(isolated_db: Session):
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     # 1. EVALUATION & ARMED
@@ -565,7 +565,7 @@ def test_full_production_short_arm_fill_sl_lifecycle(isolated_db: Session):
 
     candles_1m = _make_causal_short_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2647.5, "ask": 2648.0, "is_valid": True}
+    quote = {"bid": 2647.5, "ask": 2648.0, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     # 1. EVALUATION & ARMED

@@ -209,7 +209,7 @@ def test_v15_3_real_zone_assessment_and_ranking_runtime(isolated_db: Session):
     )
     orch.set_active_zones("XAUUSDT", [zone])
     candles = _make_causal_long_m1_candles()
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
 
     res = orch.evaluate_cycle(
         isolated_db, "XAUUSDT", now_ms=1_300_000, quote=quote, candles_1m=candles,
@@ -237,7 +237,7 @@ def test_v15_3_non_refreshing_ttl_and_entry_distance():
         direction="BULLISH", top=2620.0, bottom=2600.0, created_at=60_000, known_at=60_000,
         state=ZoneState.WAITING_TRIGGER.value,
     )
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
     policy_dict = {"capital_usdt": 1000.0, "risk_pct": 0.1, "leverage": 50, "margin_mode": "ISOLATED"}
 
     # At now_ms = 1_300_000, trigger_known_at is fixed at 1_140_000 (age 160_000 ms).
@@ -250,7 +250,7 @@ def test_v15_3_non_refreshing_ttl_and_entry_distance():
     assert cand_expired.reason_code == OpportunityReasonCode.TRIGGER_EXPIRED.value
 
     # Far quote beyond 1.5 ATR triggers ENTRY_TOO_FAR
-    far_quote = {"bid": 2635.0, "ask": 2635.5, "is_valid": True}
+    far_quote = {"bid": 2635.0, "ask": 2635.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
     cand_far = ScalpM1ModelService.evaluate_m1_reversal_candidate(
         zone, candles_1m, far_quote, policy_dict, now_ms=1_300_000
     )
@@ -306,7 +306,7 @@ def test_v15_3_real_fvg_retest_vs_broad_atr():
         direction="BULLISH", top=2620.0, bottom=2600.0, created_at=60_000, known_at=60_000,
         state=ZoneState.WAITING_TRIGGER.value,
     )
-    quote = {"bid": 2623.5, "ask": 2624.0, "is_valid": True}
+    quote = {"bid": 2623.5, "ask": 2624.0, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
     policy = {"capital_usdt": 1000.0, "risk_pct": 0.1, "leverage": 50, "margin_mode": "ISOLATED"}
 
     cand = ScalpM1ModelService.evaluate_m1_reversal_candidate(
@@ -369,7 +369,7 @@ def test_v15_3_zone_rank_never_bypasses_guards(isolated_db: Session):
     )
     orch.set_active_zones("XAUUSDT", [zone])
     candles = _make_causal_long_m1_candles()
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
 
     res = orch.evaluate_cycle(
         isolated_db, "XAUUSDT", now_ms=1_300_000, quote=quote, candles_1m=candles,

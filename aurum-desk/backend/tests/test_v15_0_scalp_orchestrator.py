@@ -45,7 +45,7 @@ def test_orchestrator_disabled_when_off(db_session):
     """PHẦN 021, 022: Orchestrator returns DISABLED when scalp mode is OFF and daily NY research disabled."""
     orch = ScalpWatcherOrchestrator()
     cfg = M1ScalpConfig(scalp_m1_mode=ScalpMode.OFF.value, daily_ny_research_enabled=False)
-    quote = {"bid": 2600.0, "ask": 2600.5, "is_valid": True}
+    quote = {"bid": 2600.0, "ask": 2600.5, "is_valid": True, "server_time": 1_000_000, "observed_at": 1_000_000}
 
     res = orch.evaluate_cycle(db_session, "XAUUSDT", now_ms=1_000_000, quote=quote, config=cfg)
     assert res["status"] == "DISABLED"
@@ -76,7 +76,7 @@ def test_orchestrator_shadow_mode_isolation(db_session):
     candles_1m = _make_causal_long_m1_candles()
 
     now_ms = 1300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
 
     res = orch.evaluate_cycle(
         db_session, "XAUUSDT",
@@ -117,7 +117,7 @@ def test_orchestrator_near_zone_hysteresis_and_telegram_dedup(db_session):
 
     now_ms = 1_000_000
     # Price is 2610.8 (within 0.5 ATR of top 2610 with ATR=2.0)
-    quote = {"bid": 2610.8, "ask": 2611.2, "is_valid": True}
+    quote = {"bid": 2610.8, "ask": 2611.2, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
 
     # Cycle 1: Price enters NEAR
     res1 = orch.evaluate_cycle(

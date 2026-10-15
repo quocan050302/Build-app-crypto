@@ -34,7 +34,7 @@ from services.entry_guard_service import (
     serialize_entry_mutation,
 )
 from services.opportunity_funnel_service import OpportunityFunnelService
-from services.quote_validator import QuoteValidator
+from services.quote_validator import QuoteValidator, ValidatedQuote, normalize_execution_quote
 from services.risk_settings_service import risk_settings_service
 from services.scalp_m1_model_service import ScalpCandidate, ScalpM1ModelService
 from services.scalp_m1_types import (
@@ -73,6 +73,7 @@ class ScalpWatcherOrchestrator:
         self._active_market_context: Dict[str, Dict[str, Any]] = {}
         self._latest_hypothesis_batch_result: Dict[str, Any] = {}
         self._latest_hypothesis_authority: Dict[str, Any] = {}
+        self._latest_cycle_outcome: Dict[str, Dict[str, Any]] = {}
 
     def get_latest_hypothesis_batch_result(self, symbol: str = "XAUUSDT") -> Optional[Any]:
         with self._lock:
@@ -81,6 +82,11 @@ class ScalpWatcherOrchestrator:
     def get_latest_hypothesis_authority(self, symbol: str = "XAUUSDT") -> Optional[Any]:
         with self._lock:
             return self._latest_hypothesis_authority.get(symbol)
+
+    def get_latest_cycle_outcome(self, symbol: str = "XAUUSDT") -> Optional[Dict[str, Any]]:
+        with self._lock:
+            outcome = self._latest_cycle_outcome.get(symbol)
+            return dict(outcome) if outcome else None
 
     def get_active_zones(self, symbol: str = "XAUUSDT") -> List[WatchedZone]:
         with self._lock:
@@ -183,47 +189,19 @@ class ScalpWatcherOrchestrator:
                 "armed_order_id": None,
             }
 
-        # Validate quote & price (PHẦN 035, 080)
+        # Validate quote & price using canonical execution quote normalizer (V15.8 PROMPT 086-096, 116-119)
         if quote is not None:
-            if hasattr(quote, "is_valid"):
-                q = quote
-            elif isinstance(quote, dict):
-                from services.quote_validator import ValidatedQuote
-                bid_val = float(quote.get("bid", 0.0))
-                ask_val = float(quote.get("ask", 0.0))
-                import math
-                valid = (
-                    bool(quote.get("is_valid", True))
-                    and not bool(quote.get("is_stale", False))
-                    and bid_val > 0
-                    and ask_val >= bid_val
-                    and math.isfinite(bid_val)
-                    and math.isfinite(ask_val)
-                )
-                q = ValidatedQuote(
-                    is_valid=valid,
-                    bid=bid_val,
-                    ask=ask_val,
-                    last=float(quote.get("last", (bid_val + ask_val) / 2.0 if valid else 0.0)),
-                    spread=float(ask_val - bid_val if valid else 0.0),
-                    exchange_time=quote.get("exchange_time") or t_recv,
-                    observed_at=quote.get("observed_at") or t_recv,
-                    freshness_sec=float(quote.get("freshness_sec", 0.0)),
-                    is_stale=bool(quote.get("is_stale", False)),
-                    rejection_code=quote.get("rejection_code"),
-                    rejection_detail=quote.get("rejection_detail"),
-                )
-            else:
-                q = quote
+            q = normalize_execution_quote(quote, now_ms=t_recv)
         else:
             raw_t = ticker if ticker is not None else collector_service.latest_ticker
-            q = QuoteValidator.validate_ticker(raw_t, now_ms=t_recv) if raw_t else None
+            q = normalize_execution_quote(raw_t, now_ms=t_recv) if raw_t else None
 
         bid = float(getattr(q, "bid", 0.0) if hasattr(q, "bid") else (q or {}).get("bid", 0.0))
         ask = float(getattr(q, "ask", 0.0) if hasattr(q, "ask") else (q or {}).get("ask", 0.0))
         import math
         is_q_valid = (
-            bool(getattr(q, "is_valid", False))
+            q is not None
+            and bool(getattr(q, "is_valid", False))
             and not bool(getattr(q, "is_stale", False))
             and bid > 0
             and ask >= bid
@@ -476,6 +454,25 @@ class ScalpWatcherOrchestrator:
             if z_id:
                 cycle_authority.zone_outcomes[z_id] = outcome
 
+            # SECTION 046: Fatal persistence failure or poisoned session: stop staging immediately
+            if not getattr(db, "is_active", True) or res == LifecycleStageResult.FAILED:
+                cycle_authority.has_write_failures = True
+                cycle_authority.write_status = "FAILED"
+                break
+
+        if cycle_authority.has_write_failures or not getattr(db, "is_active", True):
+            return self._finalize_failed_cycle(
+                db, symbol,
+                t_recv=t_recv,
+                t_start=t_start,
+                batch_result=batch_result,
+                cycle_authority=cycle_authority,
+                bounded_zones_count=len(bounded_zones),
+                hypotheses_count=len(hypotheses),
+                regime=regime,
+                liq_levels_count=len(liq_levels),
+            )
+
         # Ensure any durable hypothesis past its expiry deadline transitions to EXPIRED (SECTIONS 116 - 120)
         for d_id, d_rec in durable_hyps_map.items():
             if d_id not in staged_ids and t_recv >= d_rec.expiry_ms and d_rec.status == "ACTIVE":
@@ -507,6 +504,23 @@ class ScalpWatcherOrchestrator:
                     reason_code=exp_rcode,
                 )
                 cycle_authority.write_outcomes[f"{d_id}:EXPIRE"] = exp_outcome
+                if not getattr(db, "is_active", True) or exp_res == LifecycleStageResult.FAILED:
+                    cycle_authority.has_write_failures = True
+                    cycle_authority.write_status = "FAILED"
+                    break
+
+        if cycle_authority.has_write_failures or not getattr(db, "is_active", True):
+            return self._finalize_failed_cycle(
+                db, symbol,
+                t_recv=t_recv,
+                t_start=t_start,
+                batch_result=batch_result,
+                cycle_authority=cycle_authority,
+                bounded_zones_count=len(bounded_zones),
+                hypotheses_count=len(hypotheses),
+                regime=regime,
+                liq_levels_count=len(liq_levels),
+            )
 
         # Compute cycle write_status
         if cycle_authority.has_write_failures:
@@ -782,24 +796,19 @@ class ScalpWatcherOrchestrator:
                     break
 
         commit_ok = False
+        rollback_ok = False
         try:
             db.commit()
             commit_ok = True
         except Exception as e:
             logger.warning(f"Error committing scalp watcher cycle: {e}")
-            db.rollback()
+            try:
+                db.rollback()
+                rollback_ok = True
+            except Exception as rb_e:
+                logger.error(f"Error rolling back after commit failure: {rb_e}")
+                rollback_ok = False
             armed_order = None
-
-        if commit_ok:
-            with self._lock:
-                self._active_hypotheses[symbol] = entry_authorized_hypotheses
-                self._latest_hypothesis_batch_result[symbol] = batch_result
-                self._latest_hypothesis_authority[symbol] = cycle_authority
-        else:
-            with self._lock:
-                self._active_hypotheses.pop(symbol, None)
-                self._latest_hypothesis_batch_result.pop(symbol, None)
-                self._latest_hypothesis_authority.pop(symbol, None)
 
         t_cycle_done = int(time.time() * 1000)
 
@@ -810,21 +819,110 @@ class ScalpWatcherOrchestrator:
             has_failed_write=cycle_authority.has_write_failures,
             has_blocked_write=cycle_authority.has_write_blocks,
         )
+
+        if commit_ok:
+            with self._lock:
+                self._active_hypotheses[symbol] = entry_authorized_hypotheses
+                self._latest_hypothesis_batch_result[symbol] = batch_result
+                self._latest_hypothesis_authority[symbol] = cycle_authority
+                self._latest_cycle_outcome[symbol] = {
+                    "status": cycle_status,
+                    "transaction_status": "COMMITTED",
+                    "rollback_status": "NONE",
+                    "as_of_ms": t_recv,
+                }
+        else:
+            with self._lock:
+                self._active_hypotheses.pop(symbol, None)
+                self._latest_hypothesis_batch_result.pop(symbol, None)
+                self._latest_hypothesis_authority.pop(symbol, None)
+                self._latest_cycle_outcome[symbol] = {
+                    "status": "DEGRADED",
+                    "transaction_status": "FAILED",
+                    "rollback_status": "ROLLED_BACK" if rollback_ok else "ROLLBACK_FAILED",
+                    "as_of_ms": t_recv,
+                    "write_status": "FAILED",
+                    "message": "Bot tạm dừng chuẩn bị lệnh mới vì chưa lưu được dữ liệu. Các lệnh đã có vẫn được giữ nguyên; hệ thống sẽ đánh giá lại khi kết nối dữ liệu hoạt động.",
+                }
         return {
-            "status": cycle_status,
+            "status": cycle_status if commit_ok else "DEGRADED",
             "lifecycle_read_status": batch_result.read_status,
             "lifecycle_write_status": cycle_authority.write_status,
             "lifecycle_write_issues_count": cycle_authority.write_issues_count,
             "transaction_status": "COMMITTED" if commit_ok else "FAILED",
+            "rollback_status": "NONE" if commit_ok else ("ROLLED_BACK" if rollback_ok else "ROLLBACK_FAILED"),
             "as_of_ms": t_recv,
             "zones_count": len(bounded_zones),
-            "candidates_count": len(candidates),
-            "armed_order_id": armed_order.id if armed_order else None,
+            "candidates_count": len(candidates) if commit_ok else 0,
+            "armed_order_id": armed_order.id if armed_order and commit_ok else None,
             "evaluation_duration_ms": max(0, t_cycle_done - t_start),
             "hypotheses_count": len(hypotheses),
-            "entry_authorized_hypotheses_count": len(entry_authorized_hypotheses),
+            "entry_authorized_hypotheses_count": len(entry_authorized_hypotheses) if commit_ok else 0,
             "issues_count": len(batch_result.issues),
             "liquidity_levels_count": len(liq_levels),
+            "market_regime": regime,
+        }
+
+    def _finalize_failed_cycle(
+        self,
+        db: Session,
+        symbol: str,
+        *,
+        t_recv: int,
+        t_start: int,
+        batch_result: Any,
+        cycle_authority: Any,
+        bounded_zones_count: int = 0,
+        hypotheses_count: int = 0,
+        regime: str = "UNKNOWN",
+        liq_levels_count: int = 0,
+    ) -> Dict[str, Any]:
+        """
+        Failure finalization helper for aborted/failed cycle transactions (V15.8 PROMPT 049-056).
+        Rolls back the active transaction without making further queries on a poisoned session.
+        Clears authoritative cache and publishes runtime diagnostic outcome.
+        """
+        rollback_ok = False
+        try:
+            db.rollback()
+            rollback_ok = True
+        except Exception as rb_err:
+            logger.error(f"Error executing rollback during failed cycle finalization: {rb_err}")
+            rollback_ok = False
+
+        cycle_authority.write_status = "FAILED"
+        cycle_authority.has_write_failures = True
+
+        with self._lock:
+            self._active_hypotheses.pop(symbol, None)
+            self._latest_hypothesis_batch_result.pop(symbol, None)
+            self._latest_hypothesis_authority.pop(symbol, None)
+            self._latest_cycle_outcome[symbol] = {
+                "status": "DEGRADED",
+                "transaction_status": "FAILED",
+                "rollback_status": "ROLLED_BACK" if rollback_ok else "ROLLBACK_FAILED",
+                "as_of_ms": t_recv,
+                "write_status": "FAILED",
+                "message": "Bot tạm dừng chuẩn bị lệnh mới vì chưa lưu được dữ liệu. Các lệnh đã có vẫn được giữ nguyên; hệ thống sẽ đánh giá lại khi kết nối dữ liệu hoạt động.",
+            }
+
+        t_cycle_done = int(time.time() * 1000)
+        return {
+            "status": "DEGRADED",
+            "lifecycle_read_status": getattr(batch_result, "read_status", "UNKNOWN"),
+            "lifecycle_write_status": "FAILED",
+            "lifecycle_write_issues_count": getattr(cycle_authority, "write_issues_count", 1),
+            "transaction_status": "FAILED",
+            "rollback_status": "ROLLED_BACK" if rollback_ok else "ROLLBACK_FAILED",
+            "as_of_ms": t_recv,
+            "zones_count": bounded_zones_count,
+            "candidates_count": 0,
+            "armed_order_id": None,
+            "evaluation_duration_ms": max(0, t_cycle_done - t_start),
+            "hypotheses_count": hypotheses_count,
+            "entry_authorized_hypotheses_count": 0,
+            "issues_count": len(getattr(batch_result, "issues", [])),
+            "liquidity_levels_count": liq_levels_count,
             "market_regime": regime,
         }
 
@@ -926,6 +1024,37 @@ class ScalpWatcherOrchestrator:
             )
             return None
 
+        # 1c. Validate and normalize execution quote before mutations (V15.8 PROMPT 120, 121, 126)
+        v_quote = normalize_execution_quote(quote, now_ms=now_ms)
+        if not v_quote.is_valid or v_quote.is_stale:
+            reason = v_quote.rejection_code or ("TICKER_STALE" if v_quote.is_stale else "QUOTE_INVALID")
+            msg = (
+                "Giá nhận được đã cũ nên bot chưa chuẩn bị lệnh mới. Đang chờ báo giá mới từ nguồn dữ liệu."
+                if v_quote.is_stale
+                else (v_quote.rejection_detail or "Chưa xác định được thời điểm của báo giá nên bot tạm chưa vào lệnh.")
+            )
+            logger.info(f"Quote invalid or stale at arm boundary for {cand.candidate_key}: {reason} ({msg})")
+            OpportunityFunnelService.record_opportunity_transition(
+                db,
+                OpportunityEvaluation(
+                    opportunity_id=f"opp_{cand.candidate_key}",
+                    symbol=cand.symbol,
+                    model_id=cand.model_id,
+                    direction=cand.direction,
+                    zone_id=cand.zone_id,
+                    as_of_ms=now_ms,
+                    stage=OpportunityStage.GUARD_BLOCKED.value,
+                    reason_codes=(reason,),
+                    planned_entry=cand.planned_entry,
+                    stop_loss=cand.stop_loss,
+                    take_profit=cand.take_profit,
+                    net_rr=cand.net_rr,
+                    details={"message": msg},
+                ),
+                now_ms=now_ms,
+            )
+            return None
+
         # 2. Immutable WatchSetup instance (PHẦN 031)
         ws_id = f"watch-{cand.symbol}-{cand.model_id}-{cand.candidate_key}"
         ws = db.query(models.WatchSetup).filter(models.WatchSetup.id == ws_id).first()
@@ -989,29 +1118,6 @@ class ScalpWatcherOrchestrator:
         # 4. Canonical Entry Guard evaluation (PHẦN 004, 034, 035)
         from services.entry_guard_service import read_execution_feed_health
         actual_feed_health = feed_health if feed_health is not None else read_execution_feed_health()
-        v_quote = quote
-        if isinstance(quote, dict):
-            from services.quote_validator import ValidatedQuote
-            bid_val = float(quote.get("bid", 0.0))
-            ask_val = float(quote.get("ask", 0.0))
-            valid = (
-                bid_val > 0 and ask_val > 0 and ask_val >= bid_val
-                and bool(quote.get("is_valid", True))
-                and not bool(quote.get("is_stale", False))
-            )
-            v_quote = ValidatedQuote(
-                is_valid=valid,
-                bid=bid_val,
-                ask=ask_val,
-                last=float(quote.get("last", (bid_val + ask_val) / 2.0 if valid else 0.0)),
-                spread=max(0.0, ask_val - bid_val),
-                exchange_time=quote.get("exchange_time") or now_ms,
-                observed_at=quote.get("observed_at") or now_ms,
-                freshness_sec=float(quote.get("freshness_sec", 0.0)),
-                is_stale=bool(quote.get("is_stale", False)),
-                rejection_code=quote.get("rejection_code"),
-                rejection_detail=quote.get("rejection_detail"),
-            )
 
         req = EntryGuardRequest(
             stage="ARM",

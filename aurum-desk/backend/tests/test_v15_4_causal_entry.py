@@ -524,7 +524,7 @@ def test_full_causal_long_lifecycle_arm_fill_tp(isolated_db: Session):
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     res = orch.evaluate_cycle(
@@ -607,7 +607,7 @@ def test_full_causal_short_lifecycle_arm_fill_sl(isolated_db: Session):
 
     candles_1m = _make_causal_short_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2647.5, "ask": 2648.0, "is_valid": True}
+    quote = {"bid": 2647.5, "ask": 2648.0, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     res = orch.evaluate_cycle(

@@ -122,7 +122,7 @@ class QuoteValidator:
                 rejection_detail="Giá bid/ask không phải số hợp lệ"
             )
 
-        if math.isnan(bid) or math.isinf(bid) or math.isnan(ask) or math.isinf(ask):
+        if math.isnan(bid) or math.isinf(bid) or math.isnan(ask) or math.isinf(ask) or math.isnan(last) or math.isinf(last):
             return ValidatedQuote(
                 is_valid=False,
                 bid=0.0,
@@ -134,7 +134,7 @@ class QuoteValidator:
                 freshness_sec=9999.0,
                 is_stale=True,
                 rejection_code="NON_FINITE_QUOTE",
-                rejection_detail="Giá bid/ask chứa NaN hoặc Infinity"
+                rejection_detail="Giá bid/ask/last chứa NaN hoặc Infinity"
             )
 
         if bid <= 0 or ask <= 0:
@@ -168,8 +168,51 @@ class QuoteValidator:
             )
 
         # Timestamps
-        exchange_time = ticker.get("server_time") or ticker.get("timestamp")
-        actual_observed = ticker.get("observed_at") or ticker.get("received_at_ms")
+        raw_ex = (
+            ticker.get("server_time")
+            or ticker.get("server_time_ms")
+            or ticker.get("exchange_time")
+            or ticker.get("exchange_ts_ms")
+            or ticker.get("timestamp")
+        )
+        raw_obs = (
+            ticker.get("observed_at")
+            or ticker.get("received_at_ms")
+        )
+
+        def _parse_ts(val: Any) -> Tuple[Optional[int], bool]:
+            if val is None:
+                return None, False
+            if isinstance(val, (bool, dict, list)):
+                return None, True
+            try:
+                f_val = float(val)
+                if not math.isfinite(f_val):
+                    return None, True
+                i_val = int(f_val)
+                if i_val <= 0:
+                    return None, True
+                return i_val, False
+            except (ValueError, TypeError, OverflowError):
+                return None, True
+
+        exchange_time, ex_malformed = _parse_ts(raw_ex)
+        actual_observed, obs_malformed = _parse_ts(raw_obs)
+
+        if (raw_ex is not None and ex_malformed) or (raw_obs is not None and obs_malformed):
+            return ValidatedQuote(
+                is_valid=False,
+                bid=bid,
+                ask=ask,
+                last=last,
+                spread=round(ask - bid, 4),
+                exchange_time=None,
+                observed_at=now,
+                freshness_sec=9999.0,
+                is_stale=True,
+                rejection_code="MALFORMED_TIMESTAMP",
+                rejection_detail="Timestamp quote không hợp lệ (NaN, Infinity, boolean hoặc không thể chuyển đổi)",
+            )
 
         # If neither exchange_time nor actual receipt provenance is provided, do NOT fabricate now as fresh quote
         if not exchange_time and not actual_observed:
@@ -421,3 +464,136 @@ class QuoteValidator:
             rejection_code=None,
             rejection_detail=None
         )
+
+
+def normalize_execution_quote(
+    raw_quote: Any,
+    *,
+    now_ms: int,
+    max_age_sec: Optional[float] = None,
+) -> ValidatedQuote:
+    """
+    Authoritative quote normalizer and freshness validator for execution entry paths (V15.8).
+    Accepts:
+    - None -> ValidatedQuote(is_valid=False, rejection_code='FEED_DISCONNECTED')
+    - ValidatedQuote -> Re-validates against now_ms, preserves original timestamps and source rejections.
+    - CanonicalQuote -> Re-validates against now_ms, maps exchange_ts_ms / received_at_ms, preserves source rejections.
+    - dict -> Re-validates against now_ms, maps server_time / timestamp / exchange_time / observed_at / received_at_ms.
+      Does NOT mutate input dict.
+      Does NOT fabricate now_ms as quote timestamp when provenance is missing.
+    - Unsupported types -> ValidatedQuote(is_valid=False, rejection_code='MALFORMED_QUOTE')
+    """
+    if raw_quote is None:
+        return ValidatedQuote(
+            is_valid=False,
+            bid=0.0,
+            ask=0.0,
+            last=0.0,
+            spread=0.0,
+            exchange_time=None,
+            observed_at=now_ms,
+            freshness_sec=9999.0,
+            is_stale=True,
+            rejection_code="FEED_DISCONNECTED",
+            rejection_detail="Không có dữ liệu báo giá",
+        )
+
+    if isinstance(raw_quote, ValidatedQuote):
+        t_dict = {
+            "bid": raw_quote.bid,
+            "ask": raw_quote.ask,
+            "last": raw_quote.last,
+            "server_time": raw_quote.exchange_time,
+            "observed_at": raw_quote.observed_at,
+        }
+        res = QuoteValidator.validate_ticker(t_dict, now_ms=now_ms, max_age_sec=max_age_sec)
+        if not raw_quote.is_valid:
+            return ValidatedQuote(
+                is_valid=False,
+                bid=res.bid,
+                ask=res.ask,
+                last=res.last,
+                spread=res.spread,
+                exchange_time=res.exchange_time,
+                observed_at=res.observed_at,
+                freshness_sec=res.freshness_sec,
+                is_stale=res.is_stale or raw_quote.is_stale,
+                rejection_code=raw_quote.rejection_code or res.rejection_code or "QUOTE_INVALID",
+                rejection_detail=raw_quote.rejection_detail or res.rejection_detail or "Báo giá không hợp lệ",
+            )
+        return res
+
+    if isinstance(raw_quote, CanonicalQuote):
+        t_dict = {
+            "bid": raw_quote.bid,
+            "ask": raw_quote.ask,
+            "last": raw_quote.last,
+            "server_time": raw_quote.exchange_ts_ms,
+            "observed_at": raw_quote.received_at_ms,
+        }
+        res = QuoteValidator.validate_ticker(t_dict, now_ms=now_ms, max_age_sec=max_age_sec)
+        if not raw_quote.is_valid:
+            return ValidatedQuote(
+                is_valid=False,
+                bid=res.bid,
+                ask=res.ask,
+                last=res.last,
+                spread=res.spread,
+                exchange_time=res.exchange_time,
+                observed_at=res.observed_at,
+                freshness_sec=res.freshness_sec,
+                is_stale=res.is_stale,
+                rejection_code=raw_quote.rejection_code or raw_quote.status or "QUOTE_INVALID",
+                rejection_detail=raw_quote.rejection_detail or f"CanonicalQuote trạng thái {raw_quote.status}",
+            )
+        return res
+
+    if isinstance(raw_quote, dict):
+        raw_ex = (
+            raw_quote.get("server_time")
+            or raw_quote.get("server_time_ms")
+            or raw_quote.get("exchange_time")
+            or raw_quote.get("exchange_ts_ms")
+            or raw_quote.get("timestamp")
+        )
+        raw_obs = (
+            raw_quote.get("observed_at")
+            or raw_quote.get("received_at_ms")
+        )
+        t_dict = {
+            "bid": raw_quote.get("bid"),
+            "ask": raw_quote.get("ask"),
+            "last": raw_quote.get("last"),
+            "server_time": raw_ex,
+            "observed_at": raw_obs,
+        }
+        res = QuoteValidator.validate_ticker(t_dict, now_ms=now_ms, max_age_sec=max_age_sec)
+        if raw_quote.get("is_valid") is False:
+            return ValidatedQuote(
+                is_valid=False,
+                bid=res.bid,
+                ask=res.ask,
+                last=res.last,
+                spread=res.spread,
+                exchange_time=res.exchange_time,
+                observed_at=res.observed_at,
+                freshness_sec=res.freshness_sec,
+                is_stale=res.is_stale or bool(raw_quote.get("is_stale", False)),
+                rejection_code=raw_quote.get("rejection_code") or res.rejection_code or "QUOTE_INVALID",
+                rejection_detail=raw_quote.get("rejection_detail") or res.rejection_detail or "Báo giá không hợp lệ",
+            )
+        return res
+
+    return ValidatedQuote(
+        is_valid=False,
+        bid=0.0,
+        ask=0.0,
+        last=0.0,
+        spread=0.0,
+        exchange_time=None,
+        observed_at=now_ms,
+        freshness_sec=9999.0,
+        is_stale=True,
+        rejection_code="MALFORMED_QUOTE",
+        rejection_detail=f"Kiểu dữ liệu báo giá không được hỗ trợ: {type(raw_quote).__name__}",
+    )

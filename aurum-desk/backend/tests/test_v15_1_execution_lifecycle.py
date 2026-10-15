@@ -182,7 +182,7 @@ def test_v15_1_config_api_persists_to_db_and_read_by_runtime_orchestrator(client
     assert res.json()["effective_config"]["scalp_m1_mode"] == "SHADOW"
 
     # Verify watcher reads SHADOW without config injection
-    quote = {"bid": 2600.0, "ask": 2600.5, "is_valid": True}
+    quote = {"bid": 2600.0, "ask": 2600.5, "is_valid": True, "server_time": 1_000_000, "observed_at": 1_000_000}
     res_eval = orch.evaluate_cycle(isolated_db, "XAUUSDT", now_ms=1_000_000, quote=quote, config=None)
     assert res_eval["status"] == "OK"
 
@@ -249,7 +249,7 @@ def test_v15_1_long_paper_arm_positive_control(isolated_db: Session):
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     res = orch.evaluate_cycle(
@@ -315,7 +315,7 @@ def test_v15_1_short_paper_arm_positive_control(isolated_db: Session):
 
     candles_1m = _make_causal_short_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2647.5, "ask": 2648.0, "is_valid": True}
+    quote = {"bid": 2647.5, "ask": 2648.0, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     res = orch.evaluate_cycle(
@@ -361,7 +361,7 @@ def test_v15_1_full_long_lifecycle_arm_fill_tp(isolated_db: Session):
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
 
     res = orch.evaluate_cycle(
         isolated_db, "XAUUSDT",
@@ -446,7 +446,7 @@ def test_v15_1_full_short_lifecycle_arm_fill_sl(isolated_db: Session):
 
     candles_1m = _make_causal_short_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2647.5, "ask": 2648.0, "is_valid": True}
+    quote = {"bid": 2647.5, "ask": 2648.0, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
 
     res = orch.evaluate_cycle(
         isolated_db, "XAUUSDT",
@@ -510,7 +510,7 @@ def test_v15_1_shadow_mode_isolation(isolated_db: Session):
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
 
     res = orch.evaluate_cycle(
         isolated_db, "XAUUSDT",
@@ -560,7 +560,7 @@ def test_v15_1_quote_and_feed_health_negatives(isolated_db: Session):
     assert res_stale["armed_order_id"] is None
 
     # Case B: Disconnected feed health blocks arm
-    valid_quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    valid_quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
     disconnected_feed = {"has_execution_gap": True, "is_lagging": True}
     res_feed = orch.evaluate_cycle(
         isolated_db, "XAUUSDT", now_ms=1_300_000, quote=valid_quote,
@@ -587,7 +587,7 @@ def test_v15_1_causal_reversal_negative_controls(isolated_db: Session):
         state=ZoneState.WAITING_TRIGGER.value,
     )
     cfg = M1ScalpConfig(min_closed_m1_bars=15)
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
     policy_dict = {"capital_usdt": 1000.0, "risk_pct": 0.25, "default_leverage": 30.0}
 
     # Case A: No sweep (Candles stay above zone without piercing swing low)
@@ -625,7 +625,7 @@ def test_v15_1_cost_and_min_net_rr_threshold(isolated_db: Session):
     # Set unrealistically high min_net_rr = 5.0
     cfg = M1ScalpConfig(min_closed_m1_bars=15, min_net_rr=5.0)
     candles = _make_causal_long_m1_candles()
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
     policy_dict = {"capital_usdt": 1000.0, "risk_pct": 0.25, "default_leverage": 30.0}
 
     res = ScalpM1ModelService.evaluate_m1_reversal_candidate(
@@ -656,7 +656,7 @@ def test_v15_1_signal_dedup_and_idempotency_across_eval_cycles(isolated_db: Sess
     )
     orch.set_active_zones("XAUUSDT", [zone])
     candles = _make_causal_long_m1_candles()
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
 
     # Cycle 1
     res1 = orch.evaluate_cycle(
@@ -720,7 +720,7 @@ def test_v15_1_shared_daily_limit_guard(isolated_db: Session):
     )
     orch.set_active_zones("XAUUSDT", [zone])
     candles = _make_causal_long_m1_candles()
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
 
     res = orch.evaluate_cycle(
         isolated_db, "XAUUSDT", now_ms=1_300_000, quote=quote, candles_1m=candles,
@@ -750,7 +750,7 @@ def test_v15_1_daily_ny_research_model_behavior(isolated_db: Session):
     """
     base_ts = 1_000_000_000
     candles_5m = [CandleStub(base_ts + i * 300_000, 2600.0 + i, 2605.0 + i, 2595.0 + i, 2602.0 + i) for i in range(25)]
-    quote = {"bid": 2624.0, "ask": 2624.5, "is_valid": True}
+    quote = {"bid": 2624.0, "ask": 2624.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
     cfg = M1ScalpConfig(fallback_risk_pct=0.20)
     policy_dict = {"risk_pct": 0.50, "capital_usdt": 1000.0, "default_leverage": 30.0}
     now_ms = base_ts + 25 * 300_000 + 10_000
@@ -797,7 +797,7 @@ def test_v15_1_commit_failure_atomicity(isolated_db: Session, monkeypatch):
     )
     orch.set_active_zones("XAUUSDT", [zone])
     candles = _make_causal_long_m1_candles()
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
 
     def _failing_commit():
         raise RuntimeError("Simulated DB Commit Failure")
@@ -835,7 +835,7 @@ def test_v15_1_chart_evidence_endpoint_immutable(client: TestClient, isolated_db
     )
     orch.set_active_zones("XAUUSDT", [zone])
     candles = _make_causal_long_m1_candles()
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
 
     res = orch.evaluate_cycle(
         isolated_db, "XAUUSDT", now_ms=1_300_000, quote=quote, candles_1m=candles,
@@ -887,13 +887,13 @@ def test_v15_1_performance_bounded_evaluation(isolated_db: Session):
     )
     orch.set_active_zones("XAUUSDT", [zone])
     candles = _make_causal_long_m1_candles()
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
 
     durations = []
     for i in range(10):
         t0 = time.perf_counter()
         res = orch.evaluate_cycle(
-            isolated_db, "XAUUSDT", now_ms=1_300_000 + i * 1000, quote=quote, candles_1m=candles,
+            isolated_db, "XAUUSDT", now_ms=1_300_000 + i * 1000, quote=dict(quote, server_time=1_300_000 + i * 1000, observed_at=1_300_000 + i * 1000), candles_1m=candles,
             candles_5m=[], candles_15m=[], config=cfg,
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000.0

@@ -946,6 +946,8 @@ def main(argv=None) -> int:
         "tests/test_v15_5_lifecycle_closure.py",
         "tests/test_v15_6_hypothesis_persistence.py",
         "tests/test_v15_7_lifecycle_write_authority.py",
+        "tests/test_v15_8_database_failure_recovery.py",
+        "tests/test_v15_8_execution_quote_validation.py",
     ]
     s = run_step(
         "backend_targeted",

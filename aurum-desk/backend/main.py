@@ -3244,6 +3244,7 @@ def get_scalp_hypotheses_endpoint(symbol: str = "XAUUSDT"):
     hyps = scalp_watcher_orchestrator.get_active_hypotheses(symbol)
     batch_res = scalp_watcher_orchestrator.get_latest_hypothesis_batch_result(symbol)
     authority = scalp_watcher_orchestrator.get_latest_hypothesis_authority(symbol)
+    outcome = scalp_watcher_orchestrator.get_latest_cycle_outcome(symbol)
     data_quality = "HEALTHY"
     issues_count = 0
     if batch_res is not None:
@@ -3255,6 +3256,9 @@ def get_scalp_hypotheses_endpoint(symbol: str = "XAUUSDT"):
         elif authority.has_write_blocks and data_quality != "DEGRADED":
             data_quality = "PARTIAL"
         issues_count += authority.write_issues_count
+    if outcome is not None and outcome.get("status") == "DEGRADED":
+        data_quality = "DEGRADED"
+        issues_count = max(issues_count, 1)
     return {
         "symbol": symbol,
         "count": len(hyps),

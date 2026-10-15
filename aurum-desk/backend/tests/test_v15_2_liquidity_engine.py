@@ -90,7 +90,7 @@ def test_v15_2_auto_state_fail_closed_on_error(isolated_db: Session):
     )
     orch.set_active_zones("XAUUSDT", [zone])
 
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
 
     # Pass auto_enabled=False to simulate fail-closed or auto disabled
     res = orch.evaluate_cycle(
@@ -133,7 +133,7 @@ def test_v15_2_snapshot_failure_blocks_arm(isolated_db: Session, monkeypatch):
         state=ZoneState.WAITING_TRIGGER.value,
     )
     orch.set_active_zones("XAUUSDT", [zone])
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
 
     res = orch.evaluate_cycle(
         isolated_db, "XAUUSDT", now_ms=1_300_000, quote=quote,
@@ -360,7 +360,7 @@ def test_v15_2_m1_trigger_expired_negative_control():
         direction="BULLISH", top=2620.0, bottom=2600.0, created_at=60_000, known_at=60_000,
         state=ZoneState.WAITING_TRIGGER.value,
     )
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
     policy_dict = {"capital_usdt": 1000.0, "risk_pct": 0.1, "leverage": 50, "margin_mode": "ISOLATED"}
 
     # Retest bar open is at 1140_000 (confirmed at 1200_000).
@@ -384,7 +384,7 @@ def test_v15_2_m1_entry_too_far_negative_control():
         state=ZoneState.WAITING_TRIGGER.value,
     )
     # Quote moved very far from retest bar (retest is ~2622, quote ask is 2635.0 -> distance ~13.0 >> 1.5 ATR)
-    far_quote = {"bid": 2634.5, "ask": 2635.0, "is_valid": True}
+    far_quote = {"bid": 2634.5, "ask": 2635.0, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
     policy_dict = {"capital_usdt": 1000.0, "risk_pct": 0.1, "leverage": 50, "margin_mode": "ISOLATED"}
 
     cand = ScalpM1ModelService.evaluate_m1_reversal_candidate(zone, candles_1m, far_quote, policy_dict, now_ms=1_300_000)
@@ -431,7 +431,7 @@ def test_v15_2_api_endpoints_liquidity_and_assessment(client: TestClient, isolat
     from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
     scalp_watcher_orchestrator.set_active_zones("XAUUSDT", [zone])
 
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": 1_300_000, "observed_at": 1_300_000}
     res = scalp_watcher_orchestrator.evaluate_cycle(
         isolated_db, "XAUUSDT", now_ms=1_300_000, quote=quote,
         candles_1m=candles_1m, candles_5m=[], candles_15m=[], config=cfg, auto_enabled=True,

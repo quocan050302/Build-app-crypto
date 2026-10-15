@@ -102,7 +102,7 @@ def test_v15_7_regression_failed_long(isolated_db: Session, base_cfg: M1ScalpCon
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     with patch("services.liquidity_scenario_service.stage_hypothesis_lifecycle", return_value=LifecycleStageResult.FAILED):
@@ -147,7 +147,7 @@ def test_v15_7_regression_blocked_long(isolated_db: Session, base_cfg: M1ScalpCo
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     with patch("services.liquidity_scenario_service.stage_hypothesis_lifecycle", return_value=LifecycleStageResult.BLOCKED):
@@ -187,7 +187,7 @@ def test_v15_7_regression_failed_short(isolated_db: Session, base_cfg: M1ScalpCo
 
     candles_1m = _make_causal_short_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2647.0, "ask": 2647.5, "is_valid": True}
+    quote = {"bid": 2647.0, "ask": 2647.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     with patch("services.liquidity_scenario_service.stage_hypothesis_lifecycle", return_value=LifecycleStageResult.FAILED):
@@ -219,7 +219,7 @@ def test_v15_7_regression_blocked_short(isolated_db: Session, base_cfg: M1ScalpC
 
     candles_1m = _make_causal_short_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2647.0, "ask": 2647.5, "is_valid": True}
+    quote = {"bid": 2647.0, "ask": 2647.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     with patch("services.liquidity_scenario_service.stage_hypothesis_lifecycle", return_value=LifecycleStageResult.BLOCKED):
@@ -257,7 +257,7 @@ def test_v15_7_positive_control_long(isolated_db: Session, base_cfg: M1ScalpConf
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     res = orch.evaluate_cycle(
@@ -303,7 +303,7 @@ def test_v15_7_positive_control_short(isolated_db: Session, base_cfg: M1ScalpCon
 
     candles_1m = _make_causal_short_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2647.0, "ask": 2647.5, "is_valid": True}
+    quote = {"bid": 2647.0, "ask": 2647.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     res = orch.evaluate_cycle(
@@ -361,7 +361,7 @@ def test_v15_7_unknown_result_fails_closed(isolated_db: Session, base_cfg: M1Sca
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     with patch("services.liquidity_scenario_service.stage_hypothesis_lifecycle", return_value="BOGUS_RESULT"):
@@ -397,7 +397,7 @@ def test_v15_7_writer_raises_exception_safe(isolated_db: Session, base_cfg: M1Sc
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     with patch("services.liquidity_scenario_service.stage_hypothesis_lifecycle", side_effect=RuntimeError("DB disk full")):
@@ -429,7 +429,7 @@ def test_v15_7_query_failure_inside_writer(isolated_db: Session, base_cfg: M1Sca
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     real_query = isolated_db.query
@@ -480,7 +480,7 @@ def test_v15_7_commit_failure_atomicity(isolated_db: Session, base_cfg: M1ScalpC
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     with patch.object(isolated_db, "commit", side_effect=RuntimeError("Injected Commit Error")):
@@ -512,7 +512,7 @@ def test_v15_7_rollback_clean_subsequent_session(isolated_db: Session, base_cfg:
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     # Cycle 1: failed
@@ -525,9 +525,10 @@ def test_v15_7_rollback_clean_subsequent_session(isolated_db: Session, base_cfg:
     assert res1["status"] == "DEGRADED"
 
     # Cycle 2: healthy session
+    quote2 = dict(quote, server_time=now_ms + 60_000, observed_at=now_ms + 60_000)
     res2 = orch.evaluate_cycle(
         isolated_db, "XAUUSDT",
-        now_ms=now_ms + 60_000, quote=quote, candles_1m=candles_1m, candles_5m=[], candles_15m=[],
+        now_ms=now_ms + 60_000, quote=quote2, candles_1m=candles_1m, candles_5m=[], candles_15m=[],
         config=base_cfg, feed_health=feed_health, auto_enabled=True,
     )
     assert res2["status"] == "OK"
@@ -554,7 +555,7 @@ def test_v15_7_watchsetup_no_side_effects(isolated_db: Session, base_cfg: M1Scal
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     initial_ws_count = isolated_db.query(models.WatchSetup).count()
@@ -586,7 +587,7 @@ def test_v15_7_scenario_snapshot_no_side_effects(isolated_db: Session, base_cfg:
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
     feed_health = {"status": "CONNECTED", "latency_ms": 10}
 
     initial_snaps = isolated_db.query(models.SystemConfig).filter(models.SystemConfig.key.like("snap:%")).count()
@@ -634,7 +635,7 @@ def test_v15_7_order_no_side_effects_on_existing_orders(isolated_db: Session, ba
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
 
     with patch("services.liquidity_scenario_service.stage_hypothesis_lifecycle", return_value=LifecycleStageResult.FAILED):
         orch.evaluate_cycle(
@@ -673,7 +674,7 @@ def test_v15_7_shadow_mode_writer_failed(isolated_db: Session):
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
 
     with patch("services.liquidity_scenario_service.stage_hypothesis_lifecycle", return_value=LifecycleStageResult.FAILED):
         res = orch.evaluate_cycle(
@@ -703,7 +704,7 @@ def test_v15_7_auto_disabled_guard(isolated_db: Session, base_cfg: M1ScalpConfig
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
 
     res = orch.evaluate_cycle(
         isolated_db, "XAUUSDT",
@@ -743,7 +744,7 @@ def test_v15_7_two_zones_one_blocked_one_valid(isolated_db: Session, base_cfg: M
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
 
     real_stage = stage_hypothesis_lifecycle
 
@@ -789,7 +790,7 @@ def test_v15_7_two_zones_one_failed(isolated_db: Session, base_cfg: M1ScalpConfi
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
 
     real_stage = stage_hypothesis_lifecycle
 
@@ -842,7 +843,7 @@ def test_v15_7_arm_direct_call_missing_or_rejected_authority(isolated_db: Sessio
     # 1. authority_context is None
     order_none = orch._arm_paper_candidate(
         isolated_db, cand, now_ms=1_000_000, clock=FakeClock(1_000_000),
-        quote={"bid": 2620.0, "ask": 2620.5, "is_valid": True},
+        quote={"bid": 2620.0, "ask": 2620.5, "is_valid": True, "server_time": 1_000_000, "observed_at": 1_000_000},
         policy_settings={"capital_usdt": 1000.0, "risk_pct": 0.25, "leverage": 30, "margin_mode": "ISOLATED", "max_daily_trades": 3},
         authority_context=None,
     )
@@ -863,7 +864,7 @@ def test_v15_7_arm_direct_call_missing_or_rejected_authority(isolated_db: Sessio
 
     order_blocked = orch._arm_paper_candidate(
         isolated_db, cand, now_ms=1_000_000, clock=FakeClock(1_000_000),
-        quote={"bid": 2620.0, "ask": 2620.5, "is_valid": True},
+        quote={"bid": 2620.0, "ask": 2620.5, "is_valid": True, "server_time": 1_000_000, "observed_at": 1_000_000},
         policy_settings={"capital_usdt": 1000.0, "risk_pct": 0.25, "leverage": 30, "margin_mode": "ISOLATED", "max_daily_trades": 3},
         authority_context=bad_auth,
     )
@@ -924,7 +925,7 @@ def test_v15_7_arm_direct_call_valid_authority(isolated_db: Session, base_cfg: M
         is_success=True,
     )
 
-    quote = {"bid": 2620.0, "ask": 2620.5, "last": 2620.25, "is_valid": True}
+    quote = {"bid": 2620.0, "ask": 2620.5, "last": 2620.25, "is_valid": True, "server_time": 1_000_000, "observed_at": 1_000_000}
 
     order = orch._arm_paper_candidate(
         isolated_db, cand, now_ms=1_000_000, clock=FakeClock(1_000_000),
@@ -982,7 +983,7 @@ def test_v15_7_expired_deadline_blocks_entry_even_if_unwritten(isolated_db: Sess
     orch.set_active_zones("XAUUSDT", [zone])
 
     candles_1m = _make_causal_long_m1_candles()
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
 
     # Simulate transition failure
     with patch("services.liquidity_scenario_service.stage_hypothesis_status_transition", return_value=LifecycleStageResult.FAILED):
@@ -1013,7 +1014,7 @@ def test_v15_7_recovery_preserves_expiry_and_created_anchors(isolated_db: Sessio
 
     candles_1m = _make_causal_long_m1_candles()
     now_ms = 1_300_000
-    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
+    quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True, "server_time": now_ms, "observed_at": now_ms}
 
     # 1. Normal first run creates durable record
     res1 = orch.evaluate_cycle(
@@ -1030,17 +1031,19 @@ def test_v15_7_recovery_preserves_expiry_and_created_anchors(isolated_db: Sessio
     orig_e_at = orig_data["expiry_ms"]
 
     # 2. Subsequent cycle with failed write
+    quote2 = dict(quote, server_time=now_ms + 60_000, observed_at=now_ms + 60_000)
     with patch("services.liquidity_scenario_service.stage_hypothesis_lifecycle", return_value=LifecycleStageResult.FAILED):
         orch.evaluate_cycle(
             isolated_db, "XAUUSDT",
-            now_ms=now_ms + 60_000, quote=quote, candles_1m=candles_1m, candles_5m=[], candles_15m=[],
+            now_ms=now_ms + 60_000, quote=quote2, candles_1m=candles_1m, candles_5m=[], candles_15m=[],
             config=base_cfg, feed_health={"status": "CONNECTED", "latency_ms": 10}, auto_enabled=True,
         )
 
     # 3. Third cycle with normal write
+    quote3 = dict(quote, server_time=now_ms + 120_000, observed_at=now_ms + 120_000)
     res3 = orch.evaluate_cycle(
         isolated_db, "XAUUSDT",
-        now_ms=now_ms + 120_000, quote=quote, candles_1m=candles_1m, candles_5m=[], candles_15m=[],
+        now_ms=now_ms + 120_000, quote=quote3, candles_1m=candles_1m, candles_5m=[], candles_15m=[],
         config=base_cfg, feed_health={"status": "CONNECTED", "latency_ms": 10}, auto_enabled=True,
     )
     assert res3["status"] == "OK"
