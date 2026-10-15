@@ -92,7 +92,7 @@ class ZoneWatchlistService:
         )
         swings = sh_list + sl_list
         ob_zones = detect_order_blocks(
-            candles, swings, timeframe=timeframe, symbol=symbol, as_of_ms=as_of_ms, atr=calc_atr
+            candles, swings, timeframe=timeframe, symbol=symbol, as_of_ms=as_of_ms
         )
         zones.extend(ob_zones)
 

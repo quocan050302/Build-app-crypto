@@ -290,10 +290,14 @@ def detect_order_blocks(
         if as_of_ms and curr_confirmed_at > as_of_ms:
             continue
 
-        # Prefix ATR for causal displacement measurement (SECTIONS 045, 046)
-        prefix_atr = calc_atr if atr is not None else smc_engine.compute_atr(candles[:i + 1], period=14)
+        # Prefix ATR for causal displacement measurement (SECTIONS 045, 046, 061 - 065)
+        prefix_atr = smc_engine.compute_atr(candles[:i + 1], period=14)
         if prefix_atr <= 0:
-            prefix_atr = calc_atr
+            prefix_atr = smc_engine.compute_atr(candles[:min(len(candles), 14)], period=min(len(candles), 14))
+            if prefix_atr <= 0:
+                prefix_atr = float(atr) if atr is not None and atr > 0 else calc_atr
+            if prefix_atr <= 0:
+                prefix_atr = 1.0
 
         # --- Check Bullish OB: Current bar broke a prior confirmed swing high ---
         prior_shs = [
@@ -743,6 +747,90 @@ class LiquidityHypothesis:
         }
 
 
+def reconcile_hypothesis_lifecycle(
+    existing_hypotheses: Sequence[LiquidityHypothesis],
+    new_hypotheses: Sequence[LiquidityHypothesis],
+    now_ms: int,
+) -> List[LiquidityHypothesis]:
+    """
+    Reconciles existing and newly generated hypotheses preserving causal creation and expiry anchors (PHẦN 101 - 120).
+    - Preserves created_at_ms and expiry_ms of existing hypotheses across evaluation cycles.
+    - If now_ms >= expiry_ms, marks hypothesis status as 'EXPIRED'.
+    - If material context changed (target level, direction, invalidation), increments revision.
+    """
+    existing_map = {h.hypothesis_id: h for h in (existing_hypotheses or [])}
+    reconciled: List[LiquidityHypothesis] = []
+
+    for hyp in new_hypotheses:
+        existing = existing_map.get(hyp.hypothesis_id)
+        if existing is not None:
+            # Preserve original created_at_ms and expiry_ms
+            c_at = existing.created_at_ms
+            e_at = existing.expiry_ms
+
+            # Check for material change
+            is_material_change = (
+                existing.direction != hyp.direction
+                or (existing.target_level and hyp.target_level and existing.target_level.id != hyp.target_level.id)
+                or (bool(existing.target_level) != bool(hyp.target_level))
+                or existing.invalidation_condition != hyp.invalidation_condition
+            )
+            rev = (existing.revision + 1) if is_material_change else existing.revision
+
+            # Boundary: now_ms >= expiry_ms -> EXPIRED
+            stat = "EXPIRED" if now_ms >= e_at else "ACTIVE"
+
+            reconciled.append(
+                LiquidityHypothesis(
+                    hypothesis_id=hyp.hypothesis_id,
+                    direction=hyp.direction,
+                    is_primary=hyp.is_primary,
+                    watched_zone=hyp.watched_zone,
+                    target_level=hyp.target_level,
+                    target_price=hyp.target_price,
+                    dealing_range=hyp.dealing_range,
+                    range_position=hyp.range_position,
+                    prerequisites=hyp.prerequisites,
+                    invalidation_condition=hyp.invalidation_condition,
+                    expiry_ms=e_at,
+                    created_at_ms=c_at,
+                    status=stat,
+                    revision=rev,
+                    evidence_ids=hyp.evidence_ids,
+                    explanation_vi=hyp.explanation_vi,
+                    target_type=hyp.target_type,
+                    target_status=hyp.target_status,
+                )
+            )
+        else:
+            # Fresh hypothesis
+            stat = "EXPIRED" if now_ms >= hyp.expiry_ms else "ACTIVE"
+            reconciled.append(
+                LiquidityHypothesis(
+                    hypothesis_id=hyp.hypothesis_id,
+                    direction=hyp.direction,
+                    is_primary=hyp.is_primary,
+                    watched_zone=hyp.watched_zone,
+                    target_level=hyp.target_level,
+                    target_price=hyp.target_price,
+                    dealing_range=hyp.dealing_range,
+                    range_position=hyp.range_position,
+                    prerequisites=hyp.prerequisites,
+                    invalidation_condition=hyp.invalidation_condition,
+                    expiry_ms=hyp.expiry_ms,
+                    created_at_ms=hyp.created_at_ms,
+                    status=stat,
+                    revision=hyp.revision,
+                    evidence_ids=hyp.evidence_ids,
+                    explanation_vi=hyp.explanation_vi,
+                    target_type=hyp.target_type,
+                    target_status=hyp.target_status,
+                )
+            )
+
+    return reconciled
+
+
 def build_liquidity_hypotheses(
     zones: Sequence[WatchedZone],
     levels: Sequence[LiquidityLevel],
@@ -751,14 +839,18 @@ def build_liquidity_hypotheses(
     regime: str,
     now_ms: int,
     session_cap_ms: Optional[int] = None,
+    existing_hypotheses: Optional[Sequence[LiquidityHypothesis]] = None,
+    ttl_ms: int = 4 * 3600 * 1000,
 ) -> List[LiquidityHypothesis]:
     """
     Builds primary and alternative causal liquidity hypotheses (PHẦN 091, 092).
     Phased conditionally: 'Nếu A xác nhận, theo dõi B. Hủy nếu phá C.'
     Target must be a real unconsumed liquidity level. Never fabricates +-10 fake levels (SECTIONS 101, 103).
+    Preserves created_at_ms and expiry_ms of existing hypotheses to prevent expiry drift (PHẦN 101 - 120).
     """
     hypotheses: List[LiquidityHypothesis] = []
-    expiry = session_cap_ms or (now_ms + 4 * 3600 * 1000)
+    calc_expiry = now_ms + ttl_ms
+    expiry = min(calc_expiry, session_cap_ms) if session_cap_ms else calc_expiry
 
     # 1. Primary Hypothesis
     # Filter active watched zones
@@ -869,6 +961,9 @@ def build_liquidity_hypotheses(
             target_status=alt_t_status,
         )
         hypotheses.append(a_hyp)
+
+    if existing_hypotheses is not None:
+        return reconcile_hypothesis_lifecycle(existing_hypotheses, hypotheses, now_ms)
 
     return hypotheses
 

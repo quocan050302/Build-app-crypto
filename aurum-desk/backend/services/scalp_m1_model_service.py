@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import smc_engine
 from domain_calculator import CalculationResult, calculate_risk_reward, validate_price_geometry
+from services.liquidity_scenario_service import confirm_liquidity_sweep, identify_confirmed_swings
 from services.ny_quota_helpers import closed_candles_at, validate_candle_ohlc
 from services.scalp_m1_types import (
     M1ScalpConfig,
@@ -24,12 +25,207 @@ from services.scalp_m1_types import (
     OpportunityEvaluation,
     OpportunityReasonCode,
     OpportunityStage,
+    TargetDecision,
     WatchedZone,
     get_scalp_config,
 )
-from services.smc_scenario_types import EvidenceNode, FactStatus, ScenarioSnapshot, ScenarioState
+from services.smc_liquidity_service import build_liquidity_map, select_unconsumed_target
+from services.smc_scenario_types import EvidenceNode, FactStatus, LiquidityLevel, ScenarioSnapshot, ScenarioState
 
 logger = logging.getLogger(__name__)
+
+
+def candle_intersects_price_zone(candle: Any, bottom: float, top: float) -> bool:
+    """
+    Checks genuine geometric interval intersection between candle range [low, high]
+    and price zone [bottom, top] (PHẦN 021 - 027).
+    Two closed intervals [low, high] and [bottom, top] intersect if and only if:
+        low <= top and high >= bottom.
+    Strictly validates finite numbers, low <= high, bottom < top.
+    """
+    try:
+        c_low = float(candle.low)
+        c_high = float(candle.high)
+        bot = float(bottom)
+        tp = float(top)
+    except (ValueError, TypeError, AttributeError):
+        return False
+
+    if not (math.isfinite(c_low) and math.isfinite(c_high) and math.isfinite(bot) and math.isfinite(tp)):
+        return False
+    if c_low > c_high or bot >= tp:
+        return False
+
+    return c_low <= tp and c_high >= bot
+
+
+def select_sweep_reference(
+    levels: Sequence[Any],
+    zone: WatchedZone,
+    direction: str,
+    as_of_ms: int,
+    candles: Optional[Sequence[Any]] = None,
+    atr: float = 1.0,
+) -> Optional[LiquidityLevel]:
+    """
+    Selects a deterministic prior known liquidity reference level for reversal sweep (PHẦN 042 - 048).
+    - LONG: Requires sell-side reference (SELL_SIDE / LOW) near or inside zone, known before or at as_of_ms.
+    - SHORT: Requires buy-side reference (BUY_SIDE / HIGH) near or inside zone, known before or at as_of_ms.
+    - Proximity: price within [zone.bottom - 0.5 * atr, zone.top + 0.5 * atr].
+    - Deterministic selection:
+      - When candles provided, selects level with confirmed breach + reclaim via confirm_liquidity_sweep.
+      - Falls back to closest eligible boundary level if sweep not yet confirmed.
+    """
+    if not levels:
+        return None
+
+    z_bot = zone.bottom - (0.5 * atr)
+    z_top = zone.top + (0.5 * atr)
+
+    target_side = "SELL_SIDE" if direction == "LONG" else "BUY_SIDE"
+    target_type = "LOW" if direction == "LONG" else "HIGH"
+
+    eligible: List[LiquidityLevel] = []
+    for lvl in levels:
+        l_side = getattr(lvl, "side", None) or (lvl.get("side") if isinstance(lvl, dict) else None)
+        l_type = getattr(lvl, "type", None) or (lvl.get("type") if isinstance(lvl, dict) else None)
+        l_price = float(getattr(lvl, "price", 0.0) if hasattr(lvl, "price") else lvl.get("price", 0.0))
+        l_known = int(getattr(lvl, "known_at_ms", 0) if hasattr(lvl, "known_at_ms") else lvl.get("known_at_ms", lvl.get("confirmed_at", 0)))
+
+        if l_known > as_of_ms:
+            continue
+        if l_side != target_side and l_type != target_type:
+            continue
+        if not (z_bot <= l_price <= z_top):
+            continue
+
+        if not isinstance(lvl, LiquidityLevel):
+            l_id = getattr(lvl, "id", None) or (lvl.get("id") if isinstance(lvl, dict) else f"lvl_{l_price}")
+            l_occ = int(getattr(lvl, "occurred_at_ms", 0) if hasattr(lvl, "occurred_at_ms") else lvl.get("occurred_at_ms", l_known))
+            lvl_obj = LiquidityLevel(
+                id=str(l_id),
+                price=l_price,
+                side=target_side,
+                source_kind=str(getattr(lvl, "source_kind", "SWING") if hasattr(lvl, "source_kind") else (lvl.get("source_kind") or "SWING")),
+                occurred_at_ms=l_occ,
+                known_at_ms=l_known,
+                source_ids=[str(l_id)],
+                label_vi=f"Mốc thanh khoản {l_price:.2f}",
+            )
+        else:
+            lvl_obj = lvl
+        eligible.append(lvl_obj)
+
+    if not eligible:
+        return None
+
+    if candles is not None:
+        confirmed = [
+            l for l in eligible
+            if (conf := confirm_liquidity_sweep(l, candles, now_ms=as_of_ms)) and conf.is_confirmed
+        ]
+        if confirmed:
+            return min(confirmed, key=lambda l: l.price) if direction == "LONG" else max(confirmed, key=lambda l: l.price)
+
+    if direction == "LONG":
+        return min(eligible, key=lambda l: l.price)
+    else:
+        return max(eligible, key=lambda l: l.price)
+
+
+def resolve_executable_target(
+    levels: Optional[Sequence[Any]],
+    direction: str,
+    entry_price: float,
+    as_of_ms: int,
+    atr: float = 1.0,
+    model_id: str = "SMC_M1_REVERSAL",
+) -> TargetDecision:
+    """
+    Resolves authoritative executable target (PHẦN 081 - 091).
+    Validates side, unconsumed state, minimum distance, and causal discovery time.
+    Strictly forbids artificial risk-multiplier fallback when liquidity target is unavailable.
+    """
+    if not levels or entry_price <= 0:
+        return TargetDecision(
+            status="UNAVAILABLE",
+            target_type="UNAVAILABLE",
+            price=None,
+            source_level_id=None,
+            known_at_ms=None,
+            reason_codes=("TARGET_UNAVAILABLE",),
+            label_vi="Chưa có mục tiêu phù hợp, đang theo dõi.",
+        )
+
+    typed_levels: List[LiquidityLevel] = []
+    for l in levels:
+        if isinstance(l, LiquidityLevel):
+            typed_levels.append(l)
+        elif isinstance(l, dict):
+            typed_levels.append(
+                LiquidityLevel(
+                    id=str(l.get("id", f"lvl_{l.get('price')}")),
+                    price=float(l.get("price", 0.0)),
+                    side=str(l.get("side", "BUY_SIDE")),
+                    source_kind=str(l.get("source_kind", "SWING")),
+                    occurred_at_ms=int(l.get("occurred_at_ms", 0)),
+                    known_at_ms=int(l.get("known_at_ms", l.get("confirmed_at", 0))),
+                    state=str(l.get("state", "UNTOUCHED")),
+                    label_vi=str(l.get("label_vi", "")),
+                )
+            )
+
+    min_dist = max(1.0 * atr, 0.50)
+    filtered_levels = []
+    for l in typed_levels:
+        if direction == "LONG" and l.price >= entry_price + min_dist:
+            filtered_levels.append(l)
+        elif direction == "SHORT" and l.price <= entry_price - min_dist:
+            filtered_levels.append(l)
+
+    target_lvl = select_unconsumed_target(filtered_levels, direction, entry_price, as_of_ms=as_of_ms)
+    if target_lvl is None:
+        return TargetDecision(
+            status="UNAVAILABLE",
+            target_type="UNAVAILABLE",
+            price=None,
+            source_level_id=None,
+            known_at_ms=None,
+            reason_codes=("TARGET_UNAVAILABLE",),
+            label_vi="Chưa có mục tiêu phù hợp, đang theo dõi.",
+        )
+
+    t_price = round(float(target_lvl.price), 2)
+    if direction == "LONG" and t_price <= entry_price:
+        return TargetDecision(
+            status="INVALID_SIDE",
+            target_type="UNAVAILABLE",
+            price=None,
+            source_level_id=target_lvl.id,
+            known_at_ms=target_lvl.known_at_ms,
+            reason_codes=("WRONG_SIDE_TARGET",),
+            label_vi="Mục tiêu nằm sai phía so với điểm vào lệnh.",
+        )
+    if direction == "SHORT" and t_price >= entry_price:
+        return TargetDecision(
+            status="INVALID_SIDE",
+            target_type="UNAVAILABLE",
+            price=None,
+            source_level_id=target_lvl.id,
+            known_at_ms=target_lvl.known_at_ms,
+            reason_codes=("WRONG_SIDE_TARGET",),
+            label_vi="Mục tiêu nằm sai phía so với điểm vào lệnh.",
+        )
+
+    return TargetDecision(
+        status="CONFIRMED",
+        target_type="LIQUIDITY_LEVEL",
+        price=t_price,
+        source_level_id=target_lvl.id,
+        known_at_ms=target_lvl.known_at_ms,
+        reason_codes=(),
+        label_vi=target_lvl.label_vi or f"Mục tiêu {t_price:.2f}",
+    )
 
 
 @dataclass
@@ -145,6 +341,14 @@ class ScalpM1ModelService:
         if atr_1m <= 0:
             atr_1m = 1.0
 
+        if context_levels is None:
+            c_sh, c_sl = ScalpM1ModelService.identify_m1_swings(
+                closed_1m, cfg.pivot_left_bars, cfg.pivot_right_bars, as_of_ms=now_ms
+            )
+            context_levels = build_liquidity_map(
+                symbol=zone.symbol, timeframe="1M", swing_highs=c_sh, swing_lows=c_sl, now_ms=now_ms
+            )
+
         sh_list, sl_list = ScalpM1ModelService.identify_m1_swings(
             closed_1m, cfg.pivot_left_bars, cfg.pivot_right_bars, as_of_ms=now_ms
         )
@@ -161,39 +365,39 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
-            recent_sl = None
-            pivot_to_break = None
-            for sl in reversed(sl_list):
-                if sl["price"] <= zone.top + (0.5 * atr_1m):
-                    for sh in reversed(sh_list):
-                        if sh["occurred_at_ms"] < sl["occurred_at_ms"]:
-                            recent_sl = sl
-                            pivot_to_break = sh
-                            break
-                    if recent_sl:
-                        break
+            sweep_ref = select_sweep_reference(context_levels, zone, "LONG", as_of_ms=now_ms, candles=closed_1m, atr=atr_1m)
+            if sweep_ref is None:
+                return ScalpCandidate(
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
+                    reason_code=OpportunityReasonCode.WAITING_LIQUIDITY_REFERENCE.value,
+                    missing_conditions=["Chưa có điểm tham chiếu thanh khoản (sell-side reference) được xác nhận trước đợt quét"],
+                    as_of_ms=now_ms, zone_id=zone.zone_id,
+                )
 
-            if not recent_sl:
-                recent_sl = sl_list[-1]
-                sweep_price = recent_sl["price"]
-                if sweep_price > zone.top + (0.5 * atr_1m):
-                    return ScalpCandidate(
-                        is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
-                        reason_code=OpportunityReasonCode.WAITING_ZONE_TOUCH.value,
-                        missing_conditions=["Sweep low chưa chạm hoặc tiếp cận vùng theo dõi"],
-                        as_of_ms=now_ms, zone_id=zone.zone_id,
-                    )
+            sweep_conf = confirm_liquidity_sweep(sweep_ref, closed_1m, now_ms=now_ms, candle_duration_ms=60_000)
+            if sweep_conf is None or not sweep_conf.is_confirmed:
+                return ScalpCandidate(
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
+                    reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
+                    missing_conditions=["Chưa xác nhận quét và lấy lại thanh khoản (breach + reclaim) trên mốc tham chiếu"],
+                    as_of_ms=now_ms, zone_id=zone.zone_id,
+                )
+
+            sweep_price = sweep_conf.breach_price
+            sweep_ts = sweep_conf.occurred_at_ms
+
+            prior_shs = [sh for sh in sh_list if sh["occurred_at_ms"] < sweep_ts]
+            if not prior_shs:
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
                     missing_conditions=["Không tìm thấy pivot high M1 có trước điểm sweep để làm mốc phá vỡ CHOCH"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
+            pivot_to_break = prior_shs[-1]
 
-            sweep_price = recent_sl["price"]
             candidate_key = f"{model_id}_{zone.symbol}_{zone.zone_id}_{direction}_{pivot_to_break['id']}"
             break_level = pivot_to_break["price"]
-            sweep_ts = recent_sl["occurred_at_ms"]
             bars_after_sweep = [
                 b for b in closed_1m
                 if (int(getattr(b, "open_time", None) or getattr(b, "timestamp", 0))) >= sweep_ts
@@ -208,12 +412,18 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
+            first_break_bar = breaking_bars[0]
+            first_break_idx = closed_1m.index(first_break_bar)
+            break_prefix_atr = smc_engine.compute_atr(closed_1m[:first_break_idx + 1], period=cfg.displacement_atr_period)
+            if break_prefix_atr <= 0:
+                break_prefix_atr = atr_1m
+
             max_break_body = max(abs(float(b.close) - float(b.open)) for b in breaking_bars)
-            if max_break_body < cfg.displacement_body_atr_min * atr_1m:
+            if max_break_body < cfg.displacement_body_atr_min * break_prefix_atr:
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
-                    missing_conditions=[f"Thân nến phá vỡ không đạt ngưỡng xung lực ({max_break_body:.2f} < {cfg.displacement_body_atr_min * atr_1m:.2f})"],
+                    missing_conditions=[f"Thân nến phá vỡ không đạt ngưỡng xung lực ({max_break_body:.2f} < {cfg.displacement_body_atr_min * break_prefix_atr:.2f})"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
@@ -225,13 +435,11 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
-            # Retest Verification (SECTIONS 127 - 130)
-            first_break_bar = breaking_bars[0]
-            first_break_idx = closed_1m.index(first_break_bar)
+            # Retest Verification (SECTIONS 021 - 040)
             sweep_bar = next((b for b in closed_1m if (int(getattr(b, "open_time", None) or getattr(b, "timestamp", 0))) == sweep_ts), None)
             sweep_idx = closed_1m.index(sweep_bar) if sweep_bar in closed_1m else max(0, first_break_idx - 5)
 
-            # Causal FVG detection bound to the displacement break leg (SECTIONS 127, 128)
+            # Causal FVG detection bound to the displacement break leg (SECTIONS 036, 037)
             disp_fvgs = []
             end_k = min(len(closed_1m), first_break_idx + 2)
             for k in range(max(2, sweep_idx + 2), end_k + 1):
@@ -263,7 +471,10 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
-            retest_bars = [b for b in post_fvg_bars if float(b.low) <= fvg_top and float(b.low) >= sweep_price]
+            retest_bars = [
+                b for b in post_fvg_bars
+                if candle_intersects_price_zone(b, fvg_bot, fvg_top) and float(b.low) >= sweep_price
+            ]
             if not retest_bars:
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
@@ -276,17 +487,16 @@ class ScalpM1ModelService:
             sl_price = round(sweep_price - (cfg.sl_buffer_ticks * cfg.tick_size), 2)
             entry_price = round(exec_price, 2)
 
-            target_price = None
-            if context_levels:
-                for lvl in context_levels:
-                    p = float(getattr(lvl, "price", 0.0) if hasattr(lvl, "price") else lvl.get("price", 0.0))
-                    if p > entry_price + (1.5 * atr_1m):
-                        target_price = round(p, 2)
-                        break
-
-            if target_price is None:
-                risk_dist = entry_price - sl_price
-                target_price = round(entry_price + max(risk_dist * 2.5, 3.0 * atr_1m), 2)
+            # Target Resolution (SECTIONS 081 - 100)
+            target_dec = resolve_executable_target(context_levels, direction, entry_price, as_of_ms=now_ms, atr=atr_1m, model_id=model_id)
+            if target_dec.status != "CONFIRMED" or target_dec.price is None:
+                return ScalpCandidate(
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    reason_code=OpportunityReasonCode.WAITING_LIQUIDITY_TARGET.value,
+                    missing_conditions=["Chưa có mục tiêu thanh khoản chưa tiêu thụ phù hợp, đang theo dõi"],
+                    as_of_ms=now_ms, zone_id=zone.zone_id,
+                )
+            target_price = target_dec.price
 
         else:
             # For Bearish Reversal
@@ -298,39 +508,39 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
-            recent_sh = None
-            pivot_to_break = None
-            for sh in reversed(sh_list):
-                if sh["price"] >= zone.bottom - (0.5 * atr_1m):
-                    for sl in reversed(sl_list):
-                        if sl["occurred_at_ms"] < sh["occurred_at_ms"]:
-                            recent_sh = sh
-                            pivot_to_break = sl
-                            break
-                    if recent_sh:
-                        break
+            sweep_ref = select_sweep_reference(context_levels, zone, "SHORT", as_of_ms=now_ms, candles=closed_1m, atr=atr_1m)
+            if sweep_ref is None:
+                return ScalpCandidate(
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
+                    reason_code=OpportunityReasonCode.WAITING_LIQUIDITY_REFERENCE.value,
+                    missing_conditions=["Chưa có điểm tham chiếu thanh khoản (buy-side reference) được xác nhận trước đợt quét"],
+                    as_of_ms=now_ms, zone_id=zone.zone_id,
+                )
 
-            if not recent_sh:
-                recent_sh = sh_list[-1]
-                sweep_price = recent_sh["price"]
-                if sweep_price < zone.bottom - (0.5 * atr_1m):
-                    return ScalpCandidate(
-                        is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
-                        reason_code=OpportunityReasonCode.WAITING_ZONE_TOUCH.value,
-                        missing_conditions=["Sweep high chưa chạm hoặc tiếp cận vùng theo dõi"],
-                        as_of_ms=now_ms, zone_id=zone.zone_id,
-                    )
+            sweep_conf = confirm_liquidity_sweep(sweep_ref, closed_1m, now_ms=now_ms, candle_duration_ms=60_000)
+            if sweep_conf is None or not sweep_conf.is_confirmed:
+                return ScalpCandidate(
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
+                    reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
+                    missing_conditions=["Chưa xác nhận quét và lấy lại thanh khoản (breach + reclaim) trên mốc tham chiếu"],
+                    as_of_ms=now_ms, zone_id=zone.zone_id,
+                )
+
+            sweep_price = sweep_conf.breach_price
+            sweep_ts = sweep_conf.occurred_at_ms
+
+            prior_sls = [sl for sl in sl_list if sl["occurred_at_ms"] < sweep_ts]
+            if not prior_sls:
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
                     missing_conditions=["Không tìm thấy pivot low M1 có trước điểm sweep để làm mốc phá vỡ CHOCH"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
+            pivot_to_break = prior_sls[-1]
 
-            sweep_price = recent_sh["price"]
             candidate_key = f"{model_id}_{zone.symbol}_{zone.zone_id}_{direction}_{pivot_to_break['id']}"
             break_level = pivot_to_break["price"]
-            sweep_ts = recent_sh["occurred_at_ms"]
             bars_after_sweep = [
                 b for b in closed_1m
                 if (int(getattr(b, "open_time", None) or getattr(b, "timestamp", 0))) >= sweep_ts
@@ -345,12 +555,18 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
+            first_break_bar = breaking_bars[0]
+            first_break_idx = closed_1m.index(first_break_bar)
+            break_prefix_atr = smc_engine.compute_atr(closed_1m[:first_break_idx + 1], period=cfg.displacement_atr_period)
+            if break_prefix_atr <= 0:
+                break_prefix_atr = atr_1m
+
             max_break_body = max(abs(float(b.close) - float(b.open)) for b in breaking_bars)
-            if max_break_body < cfg.displacement_body_atr_min * atr_1m:
+            if max_break_body < cfg.displacement_body_atr_min * break_prefix_atr:
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
-                    missing_conditions=[f"Thân nến phá vỡ không đạt ngưỡng xung lực ({max_break_body:.2f} < {cfg.displacement_body_atr_min * atr_1m:.2f})"],
+                    missing_conditions=[f"Thân nến phá vỡ không đạt ngưỡng xung lực ({max_break_body:.2f} < {cfg.displacement_body_atr_min * break_prefix_atr:.2f})"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
@@ -362,9 +578,7 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
-            # Retest Verification (SECTIONS 127 - 130)
-            first_break_bar = breaking_bars[0]
-            first_break_idx = closed_1m.index(first_break_bar)
+            # Retest Verification (SECTIONS 021 - 040)
             sweep_bar = next((b for b in closed_1m if (int(getattr(b, "open_time", None) or getattr(b, "timestamp", 0))) == sweep_ts), None)
             sweep_idx = closed_1m.index(sweep_bar) if sweep_bar in closed_1m else max(0, first_break_idx - 5)
 
@@ -399,7 +613,10 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
-            retest_bars = [b for b in post_fvg_bars if float(b.high) >= fvg_bot and float(b.high) <= sweep_price]
+            retest_bars = [
+                b for b in post_fvg_bars
+                if candle_intersects_price_zone(b, fvg_bot, fvg_top) and float(b.high) <= sweep_price
+            ]
             if not retest_bars:
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
@@ -411,17 +628,16 @@ class ScalpM1ModelService:
             sl_price = round(sweep_price + (cfg.sl_buffer_ticks * cfg.tick_size), 2)
             entry_price = round(exec_price, 2)
 
-            target_price = None
-            if context_levels:
-                for lvl in context_levels:
-                    p = float(getattr(lvl, "price", 0.0) if hasattr(lvl, "price") else lvl.get("price", 0.0))
-                    if p < entry_price - (1.5 * atr_1m):
-                        target_price = round(p, 2)
-                        break
-
-            if target_price is None:
-                risk_dist = sl_price - entry_price
-                target_price = round(entry_price - max(risk_dist * 2.5, 3.0 * atr_1m), 2)
+            # Target Resolution (SECTIONS 081 - 100)
+            target_dec = resolve_executable_target(context_levels, direction, entry_price, as_of_ms=now_ms, atr=atr_1m, model_id=model_id)
+            if target_dec.status != "CONFIRMED" or target_dec.price is None:
+                return ScalpCandidate(
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    reason_code=OpportunityReasonCode.WAITING_LIQUIDITY_TARGET.value,
+                    missing_conditions=["Chưa có mục tiêu thanh khoản chưa tiêu thụ phù hợp, đang theo dõi"],
+                    as_of_ms=now_ms, zone_id=zone.zone_id,
+                )
+            target_price = target_dec.price
 
         # Trigger age check (PHẦN 114, SECTIONS 130, 131, 132)
         # Select the FIRST qualifying retest bar for non-refreshing trigger_known_at
@@ -505,6 +721,11 @@ class ScalpM1ModelService:
 
         # Build evidence nodes including retest node with exact causal timestamps (PHẦN 042, 112)
         break_bar_open_ms = int(getattr(first_break_bar, "open_time", 0))
+        fvg_id = f"fvg_{fvg_confirm_k}_{int(fvg_bot)}_{int(fvg_top)}"
+        retest_low = float(first_retest_bar.low)
+        retest_high = float(first_retest_bar.high)
+        inter_bot = max(retest_low, fvg_bot)
+        inter_top = min(retest_high, fvg_top)
         ev_nodes = [
             EvidenceNode(
                 id=f"ev_zone_{zone.zone_id}", kind="POI", symbol=zone.symbol, timeframe=zone.timeframe,
@@ -512,26 +733,55 @@ class ScalpM1ModelService:
                 level=zone.midpoint, extra={"zone_top": zone.top, "zone_bottom": zone.bottom}
             ).to_dict(),
             EvidenceNode(
-                id=f"ev_sweep_{recent_sl['id'] if direction == 'LONG' else recent_sh['id']}",
+                id=f"ev_sweep_{sweep_ref.id}",
                 kind="SWEEP_LOW" if direction == "LONG" else "SWEEP_HIGH",
                 symbol=zone.symbol, timeframe="1M", direction=direction,
-                occurred_at_ms=recent_sl["occurred_at_ms"] if direction == "LONG" else recent_sh["occurred_at_ms"],
-                known_at_ms=recent_sl["known_at_ms"] if direction == "LONG" else recent_sh["known_at_ms"],
-                level=sweep_price,
+                occurred_at_ms=sweep_conf.occurred_at_ms,
+                known_at_ms=sweep_conf.known_at_ms,
+                level=sweep_conf.breach_price,
+                extra={
+                    "reference_level_id": sweep_ref.id,
+                    "reference_price": sweep_ref.price,
+                    "swept_extreme": sweep_conf.breach_price,
+                    "reclaim_price": sweep_conf.reclaim_price,
+                    "rejection_ratio": sweep_conf.rejection_ratio,
+                }
             ).to_dict(),
             EvidenceNode(
                 id=f"ev_choch_{break_bar_open_ms}",
                 kind="CHOCH", symbol=zone.symbol, timeframe="1M", direction=direction,
                 occurred_at_ms=break_bar_open_ms,
                 known_at_ms=break_bar_open_ms + 60_000, level=break_level,
-                extra={"broken_swing_id": pivot_to_break["id"], "displacement_body": max_break_body, "atr_1m": atr_1m}
+                extra={
+                    "broken_swing_id": pivot_to_break["id"],
+                    "displacement_body": max_break_body,
+                    "displacement_atr": break_prefix_atr,
+                }
             ).to_dict(),
             EvidenceNode(
                 id=f"ev_retest_{retest_open_ms}",
                 kind="RETEST", symbol=zone.symbol, timeframe="1M", direction=direction,
                 occurred_at_ms=retest_open_ms,
                 known_at_ms=trigger_known_at, level=float(first_retest_bar.low if direction == "LONG" else first_retest_bar.high),
-                extra={"break_level": break_level, "retest_candle_open_ms": retest_open_ms}
+                extra={
+                    "fvg_id": fvg_id,
+                    "fvg_bounds": [fvg_bot, fvg_top],
+                    "intersection_interval": [round(inter_bot, 2), round(inter_top, 2)],
+                    "break_level": break_level,
+                    "retest_candle_open_ms": retest_open_ms,
+                }
+            ).to_dict(),
+            EvidenceNode(
+                id=f"ev_target_{target_dec.source_level_id}",
+                kind="TARGET", symbol=zone.symbol, timeframe="1M", direction=direction,
+                occurred_at_ms=target_dec.known_at_ms or now_ms,
+                known_at_ms=target_dec.known_at_ms or now_ms,
+                level=target_price,
+                extra={
+                    "target_type": target_dec.target_type,
+                    "source_level_id": target_dec.source_level_id,
+                    "label_vi": target_dec.label_vi,
+                }
             ).to_dict(),
         ]
 

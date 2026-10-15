@@ -73,24 +73,27 @@ class CandleStub:
 def _make_causal_long_m1_candles() -> List[CandleStub]:
     """
     21 causal M1 candles for LONG reversal:
-    - Candle 6: Swing High @ 2618.0
-    - Candle 11: Sweep Low @ 2602.0 (inside zone [2600.0, 2620.0])
-    - Candle 15: Displacement CHOCH break candle closing @ 2626.0 (> 2618.0)
-    - Candle 16-20: Pullback & Closed Retest candle tapping 2621-2622
+    - Candle 2 (180k): Target Swing High @ 2675.0 (confirmed at 360k)
+    - Candle 5 (360k): Swing Low Reference @ 2603.5 (confirmed at 540k)
+    - Candle 8 (540k): Swing High (CHOCH) @ 2618.0 (confirmed at 720k)
+    - Candle 11 (720k): Sweep Low @ 2602.0 (breach 2603.5, reclaim close 2605.0)
+    - Candle 15 (960k): Displacement CHOCH break candle closing @ 2626.0 (> 2618.0)
+    - Candle 16 (1020k): Bullish FVG [2614.0, 2622.0] confirmed
+    - Candle 18 (1140k): Closed Retest candle tapping FVG at [2620.0, 2624.0]
     """
     return [
-        CandleStub(60_000, 2625.0, 2626.0, 2620.0, 2622.0),
-        CandleStub(120_000, 2622.0, 2624.0, 2619.0, 2620.0),
-        CandleStub(180_000, 2620.0, 2621.0, 2616.0, 2617.0),
-        CandleStub(240_000, 2617.0, 2619.0, 2615.0, 2616.0),
-        CandleStub(300_000, 2616.0, 2617.0, 2613.0, 2614.0),
-        CandleStub(360_000, 2614.0, 2615.0, 2612.0, 2613.0),
-        CandleStub(420_000, 2613.0, 2618.0, 2612.0, 2615.0),  # Swing High @ 2618.0
-        CandleStub(480_000, 2615.0, 2616.0, 2610.0, 2611.0),
-        CandleStub(540_000, 2611.0, 2612.0, 2607.0, 2608.0),
-        CandleStub(600_000, 2608.0, 2609.0, 2605.0, 2606.0),
-        CandleStub(660_000, 2606.0, 2607.0, 2603.0, 2604.0),
-        CandleStub(720_000, 2604.0, 2606.0, 2602.0, 2605.0),  # Sweep Low @ 2602.0
+        CandleStub(60_000, 2650.0, 2655.0, 2648.0, 2652.0),
+        CandleStub(120_000, 2652.0, 2660.0, 2650.0, 2658.0),
+        CandleStub(180_000, 2658.0, 2675.0, 2655.0, 2670.0),  # Target Swing High @ 2675.0
+        CandleStub(240_000, 2670.0, 2671.0, 2635.0, 2638.0),
+        CandleStub(300_000, 2638.0, 2640.0, 2615.0, 2618.0),
+        CandleStub(360_000, 2618.0, 2620.0, 2603.5, 2608.0),  # Swing Low Reference @ 2603.5
+        CandleStub(420_000, 2608.0, 2612.0, 2605.0, 2610.0),
+        CandleStub(480_000, 2610.0, 2614.0, 2607.0, 2611.0),
+        CandleStub(540_000, 2611.0, 2618.0, 2609.0, 2616.0),  # Swing High (CHOCH) @ 2618.0
+        CandleStub(600_000, 2616.0, 2617.0, 2608.0, 2609.0),
+        CandleStub(660_000, 2609.0, 2611.0, 2605.0, 2606.0),
+        CandleStub(720_000, 2606.0, 2607.0, 2602.0, 2605.0),  # Sweep Low @ 2602.0
         CandleStub(780_000, 2605.0, 2609.0, 2604.0, 2608.0),
         CandleStub(840_000, 2608.0, 2611.0, 2607.0, 2610.0),
         CandleStub(900_000, 2610.0, 2614.0, 2609.0, 2612.0),
@@ -106,33 +109,36 @@ def _make_causal_long_m1_candles() -> List[CandleStub]:
 def _make_causal_short_m1_candles() -> List[CandleStub]:
     """
     21 causal M1 candles for SHORT reversal:
-    - Candle 6: Swing Low @ 2648.0
-    - Candle 11: Bearish Sweep High @ 2668.0 (inside zone [2650.0, 2670.0])
-    - Candle 15: Displacement CHOCH break candle closing @ 2644.0 (< 2648.0)
-    - Candle 16-20: Pullback & Closed Retest candle tapping 2648-2647
+    - Candle 2 (180k): Target Swing Low @ 2595.0 (confirmed at 360k)
+    - Candle 5 (360k): Swing High Reference @ 2666.5 (confirmed at 540k)
+    - Candle 8 (540k): Swing Low (CHOCH) @ 2652.0 (confirmed at 720k)
+    - Candle 11 (720k): Sweep High @ 2668.0 (breach 2666.5, reclaim close 2665.0)
+    - Candle 15 (960k): Displacement CHOCH break candle closing @ 2642.0 (< 2652.0)
+    - Candle 16 (1020k): Bearish FVG [2648.0, 2654.0] confirmed
+    - Candle 18 (1140k): Closed Retest candle tapping FVG at [2639.0, 2648.0]
     """
     return [
-        CandleStub(60_000, 2645.0, 2647.0, 2644.0, 2646.0),
-        CandleStub(120_000, 2646.0, 2648.0, 2645.0, 2647.0),
-        CandleStub(180_000, 2647.0, 2650.0, 2646.0, 2648.0),
-        CandleStub(240_000, 2648.0, 2651.0, 2647.0, 2650.0),
-        CandleStub(300_000, 2650.0, 2652.0, 2649.0, 2651.0),
-        CandleStub(360_000, 2651.0, 2653.0, 2650.0, 2652.0),
-        CandleStub(420_000, 2652.0, 2653.0, 2648.0, 2650.0),  # Swing Low @ 2648.0
-        CandleStub(480_000, 2650.0, 2655.0, 2649.0, 2654.0),
-        CandleStub(540_000, 2654.0, 2659.0, 2653.0, 2658.0),
-        CandleStub(600_000, 2658.0, 2663.0, 2657.0, 2662.0),
-        CandleStub(660_000, 2662.0, 2666.0, 2661.0, 2665.0),
-        CandleStub(720_000, 2665.0, 2668.0, 2664.0, 2666.0),  # Sweep High @ 2668.0
-        CandleStub(780_000, 2666.0, 2667.0, 2660.0, 2661.0),
+        CandleStub(60_000, 2620.0, 2622.0, 2615.0, 2618.0),
+        CandleStub(120_000, 2618.0, 2620.0, 2610.0, 2612.0),
+        CandleStub(180_000, 2612.0, 2615.0, 2595.0, 2600.0),  # Target Swing Low @ 2595.0
+        CandleStub(240_000, 2600.0, 2630.0, 2599.0, 2628.0),
+        CandleStub(300_000, 2628.0, 2650.0, 2627.0, 2648.0),
+        CandleStub(360_000, 2648.0, 2666.5, 2647.0, 2662.0),  # Swing High Reference @ 2666.5
+        CandleStub(420_000, 2662.0, 2664.0, 2658.0, 2660.0),
+        CandleStub(480_000, 2660.0, 2663.0, 2656.0, 2658.0),
+        CandleStub(540_000, 2658.0, 2660.0, 2652.0, 2654.0),  # Swing Low (CHOCH) @ 2652.0
+        CandleStub(600_000, 2654.0, 2661.0, 2653.0, 2660.0),
+        CandleStub(660_000, 2660.0, 2664.0, 2658.0, 2663.0),
+        CandleStub(720_000, 2663.0, 2668.0, 2662.0, 2665.0),  # Sweep High @ 2668.0
+        CandleStub(780_000, 2665.0, 2666.0, 2660.0, 2661.0),
         CandleStub(840_000, 2661.0, 2662.0, 2655.0, 2656.0),
-        CandleStub(900_000, 2656.0, 2657.0, 2650.0, 2651.0),
-        CandleStub(960_000, 2651.0, 2652.0, 2643.0, 2644.0),  # Break candle below 2648.0
-        CandleStub(1020_000, 2644.0, 2646.0, 2643.0, 2645.0),
-        CandleStub(1080_000, 2645.0, 2648.0, 2644.0, 2647.0),
-        CandleStub(1140_000, 2647.0, 2649.0, 2646.0, 2648.0),  # Closed retest candle
-        CandleStub(1200_000, 2648.0, 2649.0, 2647.0, 2647.5),
-        CandleStub(1260_000, 2647.5, 2648.0, 2647.0, 2647.5),
+        CandleStub(900_000, 2656.0, 2657.0, 2654.0, 2655.0),
+        CandleStub(960_000, 2655.0, 2656.0, 2642.0, 2642.0),  # Break candle below 2652.0
+        CandleStub(1020_000, 2642.0, 2648.0, 2640.0, 2646.0),
+        CandleStub(1080_000, 2646.0, 2649.0, 2643.0, 2647.0),
+        CandleStub(1140_000, 2647.0, 2650.0, 2639.0, 2648.0),  # Closed retest candle
+        CandleStub(1200_000, 2648.0, 2649.0, 2645.0, 2647.5),
+        CandleStub(1260_000, 2647.5, 2648.0, 2646.0, 2647.5),
     ]
 
 

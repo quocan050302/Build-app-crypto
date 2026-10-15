@@ -71,29 +71,9 @@ def test_orchestrator_shadow_mode_isolation(db_session):
     )
     orch.set_active_zones("XAUUSDT", [zone])
 
-    # Build 20 M1 candles with reversal pattern
-    candles_1m = [
-        CandleStub(60_000, 2625.0, 2626.0, 2620.0, 2622.0),
-        CandleStub(120_000, 2622.0, 2624.0, 2619.0, 2620.0),
-        CandleStub(180_000, 2620.0, 2621.0, 2616.0, 2617.0),
-        CandleStub(240_000, 2617.0, 2619.0, 2615.0, 2616.0),
-        CandleStub(300_000, 2616.0, 2617.0, 2613.0, 2614.0),
-        CandleStub(360_000, 2614.0, 2615.0, 2612.0, 2613.0),
-        CandleStub(420_000, 2613.0, 2618.0, 2612.0, 2615.0), # Swing High @ 2618
-        CandleStub(480_000, 2615.0, 2616.0, 2610.0, 2611.0),
-        CandleStub(540_000, 2611.0, 2612.0, 2607.0, 2608.0),
-        CandleStub(600_000, 2608.0, 2609.0, 2605.0, 2606.0),
-        CandleStub(660_000, 2606.0, 2607.0, 2603.0, 2604.0),
-        CandleStub(720_000, 2604.0, 2606.0, 2602.0, 2605.0), # Sweep Low @ 2602 inside zone
-        CandleStub(780_000, 2605.0, 2609.0, 2604.0, 2608.0),
-        CandleStub(840_000, 2608.0, 2611.0, 2607.0, 2610.0),
-        CandleStub(900_000, 2610.0, 2614.0, 2609.0, 2612.0),
-        CandleStub(960_000, 2612.0, 2626.0, 2611.0, 2625.0), # Displacement CHOCH break above 2618!
-        CandleStub(1020_000, 2625.0, 2626.0, 2622.0, 2624.0),
-        CandleStub(1080_000, 2624.0, 2625.0, 2621.0, 2623.0),
-        CandleStub(1140_000, 2623.0, 2624.0, 2620.0, 2622.0),
-        CandleStub(1200_000, 2622.0, 2623.0, 2621.0, 2622.0),
-    ]
+    # Build 21 causal M1 candles with reversal pattern
+    from tests.test_v15_1_execution_lifecycle import _make_causal_long_m1_candles
+    candles_1m = _make_causal_long_m1_candles()
 
     now_ms = 1300_000
     quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}

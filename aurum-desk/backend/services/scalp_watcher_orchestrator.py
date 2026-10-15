@@ -376,9 +376,11 @@ class ScalpWatcherOrchestrator:
         bounded_zones = ZoneWatchlistService.prune_and_bound_watchlist(ranked_zones, current_px, t_recv, cfg)
         self.set_active_zones(symbol, bounded_zones)
 
+        existing_hyps = self._active_hypotheses.get(symbol, [])
         hypotheses = build_liquidity_hypotheses(
             bounded_zones, liq_levels, dealing_range, current_px, regime, t_recv,
             session_cap_ms=session_ctx.expiry_cap_ms if session_ctx else None,
+            existing_hypotheses=existing_hyps,
         )
 
         hyp_by_zone = {h.watched_zone.zone_id: h for h in hypotheses if getattr(h, "watched_zone", None)}
@@ -422,6 +424,25 @@ class ScalpWatcherOrchestrator:
         if scalp_mode != ScalpMode.OFF.value and c_1m:
             for z in bounded_zones:
                 if z.state in (ZoneState.NEAR.value, ZoneState.TOUCHED.value, ZoneState.WAITING_TRIGGER.value):
+                    zone_hyp = hyp_by_zone.get(z.zone_id)
+                    if zone_hyp and zone_hyp.status == "EXPIRED":
+                        OpportunityFunnelService.record_opportunity_transition(
+                            db,
+                            OpportunityEvaluation(
+                                opportunity_id=f"opp_{z.zone_id}",
+                                symbol=symbol,
+                                model_id=ModelIdentifier.SMC_M1_REVERSAL.value,
+                                direction=z.direction,
+                                zone_id=z.zone_id,
+                                as_of_ms=t_recv,
+                                stage=OpportunityStage.TRIGGER_PENDING.value,
+                                reason_codes=(OpportunityReasonCode.HYPOTHESIS_EXPIRED.value,),
+                                market_event_received_at=t_recv,
+                            ),
+                            now_ms=t_recv,
+                        )
+                        continue
+
                     cand = ScalpM1ModelService.evaluate_m1_reversal_candidate(
                         z, c_1m, q, policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels
                     )

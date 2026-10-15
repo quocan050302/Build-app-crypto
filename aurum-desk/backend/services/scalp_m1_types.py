@@ -60,6 +60,9 @@ class OpportunityReasonCode(str, Enum):
     GUARD_BLOCKED = "GUARD_BLOCKED"
     SESSION_CLOSED = "SESSION_CLOSED"
     DAILY_LIMIT_REACHED = "DAILY_LIMIT_REACHED"
+    WAITING_LIQUIDITY_REFERENCE = "WAITING_LIQUIDITY_REFERENCE"
+    WAITING_LIQUIDITY_TARGET = "WAITING_LIQUIDITY_TARGET"
+    HYPOTHESIS_EXPIRED = "HYPOTHESIS_EXPIRED"
 
 
 class ZoneState(str, Enum):
@@ -70,6 +73,18 @@ class ZoneState(str, Enum):
     CONFIRMED = "CONFIRMED"
     INVALIDATED = "INVALIDATED"
     EXPIRED = "EXPIRED"
+
+
+@dataclass(frozen=True)
+class TargetDecision:
+    """Canonical Target Decision contract (PHẦN 081, 082, 091)."""
+    status: str                                     # CONFIRMED / UNAVAILABLE / INVALID_SIDE / INSUFFICIENT_DISTANCE
+    target_type: str                                # LIQUIDITY_LEVEL / UNAVAILABLE
+    price: Optional[float]
+    source_level_id: Optional[str] = None
+    known_at_ms: Optional[int] = None
+    reason_codes: Tuple[str, ...] = ()
+    label_vi: str = ""
 
 
 @dataclass(frozen=True)

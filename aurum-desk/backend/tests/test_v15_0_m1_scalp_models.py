@@ -45,45 +45,18 @@ def test_m1_model_requires_sufficient_closed_candles():
 
 def test_m1_reversal_positive_control_long():
     """PHẦN 045, 046, 086: Full causal M1 Reversal chain (LONG) produces eligible candidate with valid Net R:R."""
+    from tests.test_v15_1_execution_lifecycle import _make_causal_long_m1_candles
+
     cfg = M1ScalpConfig(min_closed_m1_bars=15, displacement_body_atr_min=0.7)
 
-    # 1. Watched Bullish FVG zone at [2600, 2610]
+    # 1. Watched Bullish FVG zone at [2600, 2620]
     zone = WatchedZone(
         zone_id="z_long", symbol="XAUUSDT", timeframe="15M", zone_type="FVG",
-        direction="BULLISH", top=2610.0, bottom=2600.0, created_at=0, known_at=0,
+        direction="BULLISH", top=2620.0, bottom=2600.0, created_at=60_000, known_at=60_000,
+        state=ZoneState.CONFIRMED.value,
     )
 
-    # 2. Build 20 causal M1 candles:
-    # - Bars 0-5: steady downtrend down to 2615
-    # - Bar 6: Swing High at 2618 (open=2614, high=2618, low=2613, close=2615)
-    # - Bars 7-10: Downtrend into zone
-    # - Bar 11: Sweep Low inside zone at 2602 (open=2608, high=2609, low=2602, close=2605)
-    # - Bars 12-14: Consolidation around 2605-2610
-    # - Bar 15: Strong bullish displacement candle closing above 2618 (open=2610, high=2626, low=2609, close=2625)
-    # - Bars 16-19: Confirmation bars
-    candles = [
-        CandleStub(60_000, 2625.0, 2626.0, 2620.0, 2622.0),
-        CandleStub(120_000, 2622.0, 2624.0, 2619.0, 2620.0),
-        CandleStub(180_000, 2620.0, 2621.0, 2616.0, 2617.0),
-        CandleStub(240_000, 2617.0, 2619.0, 2615.0, 2616.0),
-        CandleStub(300_000, 2616.0, 2617.0, 2613.0, 2614.0),
-        CandleStub(360_000, 2614.0, 2615.0, 2612.0, 2613.0),
-        CandleStub(420_000, 2613.0, 2618.0, 2612.0, 2615.0), # Swing High @ 2618
-        CandleStub(480_000, 2615.0, 2616.0, 2610.0, 2611.0),
-        CandleStub(540_000, 2611.0, 2612.0, 2607.0, 2608.0),
-        CandleStub(600_000, 2608.0, 2609.0, 2605.0, 2606.0),
-        CandleStub(660_000, 2606.0, 2607.0, 2603.0, 2604.0),
-        CandleStub(720_000, 2604.0, 2606.0, 2602.0, 2605.0), # Sweep Low @ 2602 inside zone
-        CandleStub(780_000, 2605.0, 2609.0, 2604.0, 2608.0),
-        CandleStub(840_000, 2608.0, 2611.0, 2607.0, 2610.0),
-        CandleStub(900_000, 2610.0, 2614.0, 2609.0, 2612.0),
-        CandleStub(960_000, 2612.0, 2626.0, 2611.0, 2625.0), # Displacement CHOCH break above 2618!
-        CandleStub(1020_000, 2625.0, 2626.0, 2622.0, 2624.0),
-        CandleStub(1080_000, 2624.0, 2625.0, 2621.0, 2623.0),
-        CandleStub(1140_000, 2623.0, 2624.0, 2620.0, 2622.0),
-        CandleStub(1200_000, 2622.0, 2623.0, 2621.0, 2622.0),
-    ]
-
+    candles = _make_causal_long_m1_candles()
     now_ms = 1300_000
     quote = {"bid": 2622.0, "ask": 2622.5, "is_valid": True}
     res = ScalpM1ModelService.evaluate_m1_reversal_candidate(
@@ -103,40 +76,20 @@ def test_m1_reversal_positive_control_long():
 
 def test_m1_reversal_positive_control_short():
     """PHẦN 088: Symmetry check - Full causal M1 Reversal chain (SHORT) produces eligible candidate."""
+    from tests.test_v15_1_execution_lifecycle import _make_causal_short_m1_candles
+
     cfg = M1ScalpConfig(min_closed_m1_bars=15, displacement_body_atr_min=0.7)
 
-    # Watched Bearish FVG zone at [2650, 2660]
+    # Watched Bearish FVG zone at [2650, 2670]
     zone = WatchedZone(
         zone_id="z_short", symbol="XAUUSDT", timeframe="15M", zone_type="FVG",
-        direction="BEARISH", top=2660.0, bottom=2650.0, created_at=60_000, known_at=60_000,
+        direction="BEARISH", top=2670.0, bottom=2650.0, created_at=60_000, known_at=60_000,
+        state=ZoneState.CONFIRMED.value,
     )
 
-    # Inverted candles: Uptrend -> Swing Low at 2642 -> Sweep High at 2658 -> Displacement breakdown below 2642
-    candles = [
-        CandleStub(60_000, 2635.0, 2638.0, 2634.0, 2637.0),
-        CandleStub(120_000, 2637.0, 2640.0, 2636.0, 2639.0),
-        CandleStub(180_000, 2639.0, 2643.0, 2638.0, 2642.0),
-        CandleStub(240_000, 2642.0, 2645.0, 2641.0, 2644.0),
-        CandleStub(300_000, 2644.0, 2646.0, 2643.0, 2645.0),
-        CandleStub(360_000, 2645.0, 2647.0, 2644.0, 2646.0),
-        CandleStub(420_000, 2646.0, 2648.0, 2642.0, 2645.0), # Swing Low @ 2642
-        CandleStub(480_000, 2645.0, 2652.0, 2644.0, 2650.0),
-        CandleStub(540_000, 2650.0, 2655.0, 2649.0, 2654.0),
-        CandleStub(600_000, 2654.0, 2657.0, 2653.0, 2656.0),
-        CandleStub(660_000, 2656.0, 2659.0, 2654.0, 2658.0), # Sweep High @ 2659 inside zone
-        CandleStub(720_000, 2657.0, 2658.0, 2652.0, 2653.0),
-        CandleStub(780_000, 2653.0, 2654.0, 2648.0, 2649.0),
-        CandleStub(840_000, 2649.0, 2650.0, 2645.0, 2646.0),
-        CandleStub(900_000, 2646.0, 2647.0, 2643.0, 2644.0),
-        CandleStub(960_000, 2644.0, 2645.0, 2634.0, 2635.0), # Displacement CHOCH breakdown below 2642!
-        CandleStub(1020_000, 2635.0, 2637.0, 2633.0, 2636.0),
-        CandleStub(1080_000, 2636.0, 2638.0, 2634.0, 2637.0),
-        CandleStub(1140_000, 2637.0, 2639.0, 2635.0, 2638.0),
-        CandleStub(1200_000, 2638.0, 2639.0, 2636.0, 2637.0),
-    ]
-
+    candles = _make_causal_short_m1_candles()
     now_ms = 1300_000
-    quote = {"bid": 2637.0, "ask": 2637.5, "is_valid": True}
+    quote = {"bid": 2647.5, "ask": 2648.0, "is_valid": True}
     res = ScalpM1ModelService.evaluate_m1_reversal_candidate(
         zone, candles, quote, {"capital_usdt": 1000.0, "risk_pct": 0.25, "leverage": 50}, now_ms=now_ms, config=cfg
     )
@@ -144,8 +97,8 @@ def test_m1_reversal_positive_control_short():
     assert res.is_eligible is True
     assert res.model_id == "SMC_M1_REVERSAL"
     assert res.direction == "SHORT"
-    assert res.stop_loss >= 2658.0  # SL above sweep high
-    assert res.planned_entry <= 2640.0
+    assert res.stop_loss >= 2668.0  # SL above sweep high
+    assert res.planned_entry <= 2650.0
     assert res.take_profit < res.planned_entry
     assert res.net_rr >= 2.0
 
