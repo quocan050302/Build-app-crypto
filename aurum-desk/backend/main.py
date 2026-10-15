@@ -3158,3 +3158,46 @@ def get_scalp_comparison_endpoint(
         db, start_ms=start_ms, end_ms=end_ms
     )
     return report
+
+
+@app.get("/api/scalp/liquidity-map")
+def get_scalp_liquidity_map_endpoint(symbol: str = "XAUUSDT"):
+    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+    levels = scalp_watcher_orchestrator.get_active_liquidity_levels(symbol)
+    return {
+        "symbol": symbol,
+        "count": len(levels),
+        "levels": [
+            {
+                "id": l.id,
+                "price": l.price,
+                "side": l.side,
+                "source_kind": l.source_kind,
+                "state": l.state,
+                "label_vi": l.label_vi,
+                "is_partial": getattr(l, "is_partial", False),
+                "known_at_ms": l.known_at_ms,
+            }
+            for l in levels
+        ],
+    }
+
+
+@app.get("/api/scalp/hypotheses")
+def get_scalp_hypotheses_endpoint(symbol: str = "XAUUSDT"):
+    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+    hyps = scalp_watcher_orchestrator.get_active_hypotheses(symbol)
+    return {
+        "symbol": symbol,
+        "count": len(hyps),
+        "hypotheses": [h.to_dict() if hasattr(h, "to_dict") else h for h in hyps],
+    }
+
+
+@app.get("/api/scalp/zone-assessment/{zone_id}")
+def get_scalp_zone_assessment_endpoint(zone_id: str, symbol: str = "XAUUSDT"):
+    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+    assessment = scalp_watcher_orchestrator.get_zone_assessment_explanation(symbol, zone_id)
+    if not assessment:
+        raise HTTPException(status_code=404, detail="ZONE_NOT_FOUND: zone not active or does not exist")
+    return assessment

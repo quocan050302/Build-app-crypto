@@ -227,14 +227,11 @@ class ScalpM1ModelService:
                     pivot_to_break = sh
                     break
 
-            if not pivot_to_break and sh_list:
-                pivot_to_break = sh_list[0]
-
             if not pivot_to_break:
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
-                    missing_conditions=["Không tìm thấy pivot high M1 để kiểm tra CHOCH"],
+                    missing_conditions=["Không tìm thấy pivot high M1 có trước điểm sweep để làm mốc phá vỡ CHOCH"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
@@ -336,14 +333,11 @@ class ScalpM1ModelService:
                     pivot_to_break = sl
                     break
 
-            if not pivot_to_break and sl_list:
-                pivot_to_break = sl_list[0]
-
             if not pivot_to_break:
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
-                    missing_conditions=["Không tìm thấy pivot low M1 để kiểm tra CHOCH"],
+                    missing_conditions=["Không tìm thấy pivot low M1 có trước điểm sweep để làm mốc phá vỡ CHOCH"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
@@ -418,6 +412,30 @@ class ScalpM1ModelService:
                 risk_dist = sl_price - entry_price
                 target_price = round(entry_price - max(risk_dist * 2.5, 3.0 * atr_1m), 2)
 
+        # Trigger age check (PHẦN 114)
+        last_retest_bar = retest_bars[-1]
+        retest_open_ms = int(getattr(last_retest_bar, "open_time", None) or getattr(last_retest_bar, "timestamp", 0))
+        trigger_known_at = retest_open_ms + 60_000
+        trigger_age_ms = now_ms - trigger_known_at
+        if trigger_age_ms > cfg.max_trigger_age_ms:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                reason_code=OpportunityReasonCode.TRIGGER_EXPIRED.value,
+                missing_conditions=[f"Tín hiệu kích hoạt đã quá hạn ({trigger_age_ms}ms > {cfg.max_trigger_age_ms}ms)"],
+                as_of_ms=now_ms, zone_id=zone.zone_id,
+            )
+
+        # Entry distance check (PHẦN 115)
+        retest_close = float(last_retest_bar.close)
+        entry_dist_atr = abs(entry_price - retest_close) / max(0.50, atr_1m)
+        if entry_dist_atr > cfg.max_entry_distance_atr:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                reason_code=OpportunityReasonCode.ENTRY_TOO_FAR.value,
+                missing_conditions=[f"Khoảng cách vào lệnh quá xa ({entry_dist_atr:.2f} ATR > {cfg.max_entry_distance_atr:.2f} ATR)"],
+                as_of_ms=now_ms, zone_id=zone.zone_id,
+            )
+
         # Price geometry check
         is_geom, geom_err = validate_price_geometry(direction, entry_price, sl_price, target_price)
         if not is_geom:
@@ -473,7 +491,8 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms, zone_id=zone.zone_id,
             )
 
-        # Build evidence nodes including retest node
+        # Build evidence nodes including retest node with exact causal timestamps (PHẦN 042, 112)
+        break_bar_open_ms = int(getattr(first_break_bar, "open_time", 0))
         ev_nodes = [
             EvidenceNode(
                 id=f"ev_zone_{zone.zone_id}", kind="POI", symbol=zone.symbol, timeframe=zone.timeframe,
@@ -489,18 +508,18 @@ class ScalpM1ModelService:
                 level=sweep_price,
             ).to_dict(),
             EvidenceNode(
-                id=f"ev_choch_{int(getattr(first_break_bar, 'open_time', 0))}",
+                id=f"ev_choch_{break_bar_open_ms}",
                 kind="CHOCH", symbol=zone.symbol, timeframe="1M", direction=direction,
-                occurred_at_ms=int(getattr(first_break_bar, "open_time", 0)),
-                known_at_ms=now_ms, level=break_level,
+                occurred_at_ms=break_bar_open_ms,
+                known_at_ms=break_bar_open_ms + 60_000, level=break_level,
                 extra={"broken_swing_id": pivot_to_break["id"], "displacement_body": max_break_body, "atr_1m": atr_1m}
             ).to_dict(),
             EvidenceNode(
-                id=f"ev_retest_{int(getattr(retest_bars[-1], 'open_time', 0))}",
+                id=f"ev_retest_{retest_open_ms}",
                 kind="RETEST", symbol=zone.symbol, timeframe="1M", direction=direction,
-                occurred_at_ms=int(getattr(retest_bars[-1], "open_time", 0)),
-                known_at_ms=now_ms, level=float(retest_bars[-1].low if direction == "LONG" else retest_bars[-1].high),
-                extra={"break_level": break_level, "retest_candle_open_ms": int(getattr(retest_bars[-1], "open_time", 0))}
+                occurred_at_ms=retest_open_ms,
+                known_at_ms=trigger_known_at, level=float(last_retest_bar.low if direction == "LONG" else last_retest_bar.high),
+                extra={"break_level": break_level, "retest_candle_open_ms": retest_open_ms}
             ).to_dict(),
         ]
 
@@ -509,6 +528,7 @@ class ScalpM1ModelService:
             "reasons": (),
             "node_ids": [n["id"] for n in ev_nodes],
             "model_id": model_id,
+            "trigger_known_at": trigger_known_at,
         }
 
         # Snapshot for chart evidence representation

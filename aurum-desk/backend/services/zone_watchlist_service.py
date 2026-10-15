@@ -80,6 +80,16 @@ class ZoneWatchlistService:
                 last_evaluated_at=as_of_ms,
             ))
 
+        # Extract Order Blocks (PHẦN 055 - 064)
+        from services.liquidity_scenario_service import detect_order_blocks
+        from services.scalp_m1_model_service import ScalpM1ModelService
+        sh_list, sl_list = ScalpM1ModelService.identify_m1_swings(candles, left_bars=2, right_bars=2, as_of_ms=as_of_ms)
+        swings = sh_list + sl_list
+        ob_zones = detect_order_blocks(
+            candles, swings, timeframe=timeframe, symbol=symbol, as_of_ms=as_of_ms, atr=calc_atr
+        )
+        zones.extend(ob_zones)
+
         return zones
 
     @staticmethod
@@ -144,6 +154,23 @@ class ZoneWatchlistService:
                 new_state = ZoneState.WATCHING.value
 
         return new_state, dist_atr
+
+    @staticmethod
+    def track_zone_touch_episode(zone: WatchedZone, bar_id_or_ts: Any) -> bool:
+        """
+        Dedups touch episodes by bar/episode identity (PHẦN 103).
+        A sustained touch over multiple ticks within the same episode counts as one interaction.
+        Returns True if a new episode was started.
+        """
+        if getattr(zone, "_last_touch_bar", None) == bar_id_or_ts:
+            return False
+        setattr(zone, "_last_touch_bar", bar_id_or_ts)
+        zone.touch_count += 1
+        if zone.touch_count == 1:
+            zone.freshness_state = "PARTIALLY_MITIGATED"
+        elif zone.touch_count >= 3:
+            zone.freshness_state = "MITIGATED"
+        return True
 
     @staticmethod
     def rank_watch_zones(

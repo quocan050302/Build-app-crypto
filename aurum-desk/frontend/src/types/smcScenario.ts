@@ -19,7 +19,7 @@ export interface EvidenceTime {
 
 export interface ChartZoneV144 extends EvidenceTime {
   id: string;
-  kind: 'FVG' | 'POI';
+  kind: 'FVG' | 'POI' | 'OB';
   top: number;
   bottom: number;
   startAtMs: number;

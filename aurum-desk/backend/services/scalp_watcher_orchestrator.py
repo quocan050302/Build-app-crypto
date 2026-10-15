@@ -65,6 +65,10 @@ class ScalpWatcherOrchestrator:
         self._last_alert_times: Dict[str, int] = {}            # zone_id:alert_type -> timestamp
         self._running = False
         self._last_m1_evaluated_ts: Dict[str, int] = {}
+        self._active_hypotheses: Dict[str, List[Any]] = {}
+        self._active_liquidity_levels: Dict[str, List[Any]] = {}
+        self._active_dealing_range: Dict[str, Any] = {}
+        self._active_regime: Dict[str, str] = {}
 
     def get_active_zones(self, symbol: str = "XAUUSDT") -> List[WatchedZone]:
         with self._lock:
@@ -73,6 +77,37 @@ class ScalpWatcherOrchestrator:
     def set_active_zones(self, symbol: str, zones: List[WatchedZone]):
         with self._lock:
             self._active_zones[symbol] = list(zones)
+
+    def get_active_hypotheses(self, symbol: str = "XAUUSDT") -> List[Any]:
+        with self._lock:
+            return list(self._active_hypotheses.get(symbol, []))
+
+    def get_active_liquidity_levels(self, symbol: str = "XAUUSDT") -> List[Any]:
+        with self._lock:
+            return list(self._active_liquidity_levels.get(symbol, []))
+
+    def get_zone_assessment_explanation(self, symbol: str, zone_id: str) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            zones = self._active_zones.get(symbol, [])
+            matching = [z for z in zones if z.zone_id == zone_id]
+            if not matching:
+                return None
+            zone = matching[0]
+            hyps = self._active_hypotheses.get(symbol, [])
+            matching_hyp = next((h for h in hyps if getattr(h, "watched_zone", None) and h.watched_zone.zone_id == zone_id), None)
+            from services.liquidity_scenario_service import build_zone_assessment_explanation, ZoneRankScore, ZoneConfluence
+            rank_score = ZoneRankScore(
+                zone_id=zone.zone_id,
+                total_score=getattr(zone, "rank_score", 50.0),
+                zone_quality_score=60.0,
+                context_score=60.0,
+                readiness_score=70.0,
+                execution_score=70.0,
+                confluence=ZoneConfluence(has_confluence=False),
+                intervening_obstacles=[],
+                explanation_vi=f"Vùng {zone.zone_type} được xếp hạng theo dõi mức {getattr(zone, 'rank_score', 50.0):.1f}/100.",
+            )
+            return build_zone_assessment_explanation(zone, rank_score, matching_hyp, current_price=zone.midpoint, atr=2.0)
 
     def evaluate_cycle(
         self,
@@ -107,7 +142,7 @@ class ScalpWatcherOrchestrator:
                 from services.strategy_service import strategy_service
                 global_auto = strategy_service.get_auto_state(db)
             except Exception:
-                global_auto = True
+                global_auto = False  # Fail closed for execution (PHẦN 024)
         else:
             global_auto = bool(auto_enabled)
 
@@ -292,12 +327,47 @@ class ScalpWatcherOrchestrator:
         bounded_zones = ZoneWatchlistService.prune_and_bound_watchlist(ranked_zones, current_px, t_recv, cfg)
         self.set_active_zones(symbol, bounded_zones)
 
+        # Build Liquidity Map, Dealing Range & Hypotheses (PHẦN 071 - 096)
+        from services.liquidity_scenario_service import (
+            build_liquidity_hypotheses,
+            compute_dealing_range,
+            classify_market_regime,
+        )
+        from services.smc_liquidity_service import build_liquidity_map, update_liquidity_states
+
+        ref_candles = c_15m if c_15m else (c_5m if c_5m else c_1m)
+        shs, sls = ScalpM1ModelService.identify_m1_swings(ref_candles, left_bars=2, right_bars=2, as_of_ms=t_recv) if ref_candles else ([], [])
+        liq_levels = build_liquidity_map(
+            symbol=symbol,
+            timeframe="15M" if c_15m else "5M",
+            swing_highs=shs,
+            swing_lows=sls,
+            now_ms=t_recv,
+        )
+        if c_1m:
+            update_liquidity_states(liq_levels, c_1m, t_recv, candle_duration_ms=60_000)
+
+        dealing_range = compute_dealing_range(shs + sls, t_recv, symbol=symbol)
+        regime = classify_market_regime(ref_candles if ref_candles else c_1m, atr_15m, t_recv)
+
+        policy = TradingPolicyService.get_or_create_policy(db)
+        session_ctx = resolve_entry_session_context(policy, "STANDARD_SMC", now_ms=t_recv, clock=clock)
+
+        hypotheses = build_liquidity_hypotheses(
+            bounded_zones, liq_levels, dealing_range, current_px, regime, t_recv,
+            session_cap_ms=session_ctx.expiry_cap_ms if session_ctx else None,
+        )
+
+        with self._lock:
+            self._active_hypotheses[symbol] = hypotheses
+            self._active_liquidity_levels[symbol] = liq_levels
+            self._active_dealing_range[symbol] = dealing_range
+            self._active_regime[symbol] = regime
+
         # 4. Model evaluations
         candidates: List[ScalpCandidate] = []
         g_settings = risk_settings_service.get_settings(db)
         audit = crud.get_or_create_today_audit(db, clock=clock)
-        policy = TradingPolicyService.get_or_create_policy(db)
-        session_ctx = resolve_entry_session_context(policy, "STANDARD_SMC", now_ms=t_recv, clock=clock)
 
         policy_dict = {
             "capital_usdt": float(audit.current_equity if audit else 1000.0),
@@ -312,7 +382,7 @@ class ScalpWatcherOrchestrator:
             for z in bounded_zones:
                 if z.state in (ZoneState.NEAR.value, ZoneState.TOUCHED.value, ZoneState.WAITING_TRIGGER.value):
                     cand = ScalpM1ModelService.evaluate_m1_reversal_candidate(
-                        z, c_1m, q, policy_dict, now_ms=t_recv, config=cfg
+                        z, c_1m, q, policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels
                     )
                     if cand.is_eligible:
                         candidates.append(cand)
@@ -343,7 +413,8 @@ class ScalpWatcherOrchestrator:
         # C. Daily NY Research Model
         if cfg.daily_ny_research_enabled:
             today_fills = audit.fills_count if audit else 0
-            is_ny = bool(session_ctx.current_session and session_ctx.current_session.name == "NY")
+            ny_session_ctx = resolve_entry_session_context(policy, "NY_DAILY_RESEARCH", now_ms=t_recv, clock=clock)
+            is_ny = bool(ny_session_ctx.in_ny_entry_window)
             cand_res = DailyNYResearchService.evaluate_daily_research_candidate(
                 c_5m, q, bias, align, policy_dict, today_fills, now_ms=t_recv, is_ny_session=is_ny, config=cfg
             )
@@ -417,7 +488,7 @@ class ScalpWatcherOrchestrator:
             elif effective_scalp_mode == ScalpMode.PAPER.value or (cand.model_id == ModelIdentifier.NY_DAILY_RESEARCH.value and cfg.daily_ny_research_enabled and global_auto):
                 # In PAPER mode: validate through canonical entry guards (PHẦN 025 - 033, 059)
                 armed_order = self._arm_paper_candidate(
-                    db, cand, now_ms=t_recv, clock=clock, quote=q, policy_settings=policy_dict, config=cfg, feed_health=feed_health
+                    db, cand, now_ms=t_recv, clock=clock, quote=q, policy_settings=policy_dict, config=cfg, feed_health=feed_health, auto_enabled=auto_enabled
                 )
                 if armed_order:
                     break
@@ -438,6 +509,9 @@ class ScalpWatcherOrchestrator:
             "candidates_count": len(candidates),
             "armed_order_id": armed_order.id if armed_order else None,
             "evaluation_duration_ms": max(0, t_cycle_done - t_start),
+            "hypotheses_count": len(hypotheses),
+            "liquidity_levels_count": len(liq_levels),
+            "market_regime": regime,
         }
 
     @serialize_entry_mutation
@@ -452,6 +526,7 @@ class ScalpWatcherOrchestrator:
         policy_settings: Dict[str, Any],
         config: Optional[M1ScalpConfig] = None,
         feed_health: Optional[Dict[str, Any]] = None,
+        auto_enabled: Optional[bool] = None,
     ) -> Optional[models.PaperOrder]:
         """
         Guarded ARM path under entry_mutation_lock (PHẦN 025 - 033, 059).
@@ -469,6 +544,39 @@ class ScalpWatcherOrchestrator:
         qty = float(getattr(calc, "quantity", 0.0))
         if qty <= 0 or not math.isfinite(qty):
             logger.info(f"Invalid calculator quantity: {qty}")
+            return None
+
+        # 0. Critical section auto check (PHẦN 024, 025, 026)
+        if auto_enabled is not None:
+            is_auto = bool(auto_enabled)
+        else:
+            try:
+                from services.strategy_service import strategy_service
+                is_auto = strategy_service.get_auto_state(db)
+            except Exception as e:
+                logger.warning(f"Error checking auto state in arm critical section: {e}")
+                is_auto = False
+
+        if not is_auto:
+            logger.info(f"Auto trading disabled or unreadable at arm time, refusing to arm candidate {cand.candidate_key}")
+            OpportunityFunnelService.record_opportunity_transition(
+                db,
+                OpportunityEvaluation(
+                    opportunity_id=f"opp_{cand.candidate_key}",
+                    symbol=cand.symbol,
+                    model_id=cand.model_id,
+                    direction=cand.direction,
+                    zone_id=cand.zone_id,
+                    as_of_ms=now_ms,
+                    stage=OpportunityStage.GUARD_BLOCKED.value,
+                    reason_codes=("GLOBAL_AUTO_DISABLED",),
+                    planned_entry=cand.planned_entry,
+                    stop_loss=cand.stop_loss,
+                    take_profit=cand.take_profit,
+                    net_rr=cand.net_rr,
+                ),
+                now_ms=now_ms,
+            )
             return None
 
         # 1. Idempotency Check: prevent duplicate orders for the same signal (PHẦN 058)
@@ -508,7 +616,7 @@ class ScalpWatcherOrchestrator:
             ws.updated_at = now_ms
         db.flush()
 
-        # 3. Save immutable scenario snapshot for chart evidence linking (PHẦN 069, 070)
+        # 3. Save immutable scenario snapshot for chart evidence linking (PHẦN 022, 023, 069, 070)
         scenario_snap_id = None
         if snap is not None:
             from services.smc_scenario_repository import save_immutable_scenario_snapshot
@@ -517,7 +625,26 @@ class ScalpWatcherOrchestrator:
                 scenario_snap_id = snap_row.snapshot_id
             except Exception as e:
                 logger.warning(f"Error persisting scenario snapshot: {e}")
-                scenario_snap_id = snap.snapshot_id
+                err_code = "SNAPSHOT_IMMUTABILITY_CONFLICT" if "IMMUTABILITY_CONFLICT" in str(e).upper() else "SNAPSHOT_PERSISTENCE_FAILED"
+                OpportunityFunnelService.record_opportunity_transition(
+                    db,
+                    OpportunityEvaluation(
+                        opportunity_id=f"opp_{cand.candidate_key}",
+                        symbol=cand.symbol,
+                        model_id=cand.model_id,
+                        direction=cand.direction,
+                        zone_id=cand.zone_id,
+                        as_of_ms=now_ms,
+                        stage=OpportunityStage.GUARD_BLOCKED.value,
+                        reason_codes=(err_code,),
+                        planned_entry=cand.planned_entry,
+                        stop_loss=cand.stop_loss,
+                        take_profit=cand.take_profit,
+                        net_rr=cand.net_rr,
+                    ),
+                    now_ms=now_ms,
+                )
+                return None
 
         # 4. Canonical Entry Guard evaluation (PHẦN 004, 034, 035)
         from services.entry_guard_service import read_execution_feed_health
@@ -654,22 +781,8 @@ class ScalpWatcherOrchestrator:
             now_ms=now_ms,
         )
 
-        queue_telegram_notification(
-            db=db,
-            item_type="ARMED",
-            data={
-                "order_id": order.id,
-                "setup_id": ws.id,
-                "direction": cand.direction,
-                "order_type": "MARKET",
-                "planned_entry": cand.planned_entry,
-                "stop_loss": cand.stop_loss,
-                "take_profit": cand.take_profit,
-                "net_rr": cand.net_rr,
-            },
-            occurred_at=now_ms,
-        )
-
+        # 6. Publish order.armed domain event atomically within caller's db transaction (PHẦN 019, 020, 021, 138)
+        # EventBus handles outbox notification deduplicated under the same transaction.
         from services.event_bus import event_bus
         event_bus.publish_event(
             event_type="order.armed",
@@ -683,7 +796,9 @@ class ScalpWatcherOrchestrator:
                 "stop_loss": cand.stop_loss,
                 "take_profit": cand.take_profit,
                 "net_rr": calc.net_rr,
-            }
+            },
+            db=db,
+            occurred_at=now_ms,
         )
 
         return order
