@@ -126,6 +126,7 @@ async def lifespan(app: FastAPI):
 
     from services.market_reconciliation_service import market_reconciliation_service
     from services.forward_repair_worker import forward_repair_worker
+    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
 
     tasks = [
         asyncio.create_task(bitget_ws_service.run_ws_loop()),
@@ -139,11 +140,13 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(market_reconciliation_service.run_late_reconciliation_loop()),
         asyncio.create_task(process_notification_outbox()),
         asyncio.create_task(forward_repair_worker.run_repair_loop()),
+        asyncio.create_task(scalp_watcher_orchestrator.run_watcher_loop()),
     ]
     yield
     # Graceful shutdown: orderly stop of worker loops before cancelling
     bitget_ws_service.stop()
     forward_repair_worker.stop()
+    scalp_watcher_orchestrator.stop()
     try:
         rep_res = await forward_repair_worker.shutdown(timeout_s=5.0)
         if rep_res and getattr(rep_res, "status", "") == "TIMED_OUT":
@@ -3013,3 +3016,97 @@ def get_order_chart_evidence(
         family=order.strategy_family,
         summary=f"Lệnh {order.direction} ({order.state}). Không có bằng chứng được lưu lúc đặt lệnh (lệnh cũ).",
         plan=order_plan, invalidation_price=order.stop_loss, warnings=["LEGACY_ORDER_NO_EVIDENCE"])
+
+
+# ==================== V15.0 SCALP WATCHER & OPPORTUNITY FUNNEL ====================
+
+@app.get("/api/scalp/config")
+def get_scalp_config_endpoint(db: Session = Depends(get_db)):
+    from services.scalp_m1_types import active_scalp_config
+    cfg_mode = db.query(models.SystemConfig).filter(models.SystemConfig.key == "scalp_m1_mode").first()
+    cfg_ny = db.query(models.SystemConfig).filter(models.SystemConfig.key == "daily_ny_research_enabled").first()
+    mode = cfg_mode.value if cfg_mode else active_scalp_config.scalp_m1_mode
+    ny_res = (cfg_ny.value.lower() == "true") if cfg_ny else active_scalp_config.daily_ny_research_enabled
+    return {
+        "scalp_m1_enabled": (mode != "OFF"),
+        "scalp_m1_mode": mode,
+        "daily_ny_research_enabled": ny_res,
+        "min_closed_m1_bars": active_scalp_config.min_closed_m1_bars,
+        "min_net_rr": active_scalp_config.min_net_rr,
+        "fallback_risk_pct": active_scalp_config.fallback_risk_pct,
+        "near_zone_enter_atr": active_scalp_config.near_zone_enter_atr,
+        "near_zone_exit_atr": active_scalp_config.near_zone_exit_atr,
+        "max_active_zones": active_scalp_config.max_active_zones,
+        "config_version": active_scalp_config.config_version,
+    }
+
+
+@app.post("/api/scalp/config")
+def update_scalp_config_endpoint(
+    payload: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db),
+):
+    from services.scalp_m1_types import ScalpMode
+    now_ms = int(time.time() * 1000)
+    mode = payload.get("scalp_m1_mode")
+    if mode is not None:
+        if mode not in (ScalpMode.OFF.value, ScalpMode.SHADOW.value, ScalpMode.PAPER.value):
+            raise HTTPException(status_code=400, detail="INVALID_SCALP_MODE: must be OFF, SHADOW, or PAPER")
+        cfg_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == "scalp_m1_mode").first()
+        if cfg_row:
+            cfg_row.value = mode
+            cfg_row.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="scalp_m1_mode", value=mode, updated_at=now_ms))
+
+    ny_res = payload.get("daily_ny_research_enabled")
+    if ny_res is not None:
+        val_str = "true" if bool(ny_res) else "false"
+        cfg_ny = db.query(models.SystemConfig).filter(models.SystemConfig.key == "daily_ny_research_enabled").first()
+        if cfg_ny:
+            cfg_ny.value = val_str
+            cfg_ny.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="daily_ny_research_enabled", value=val_str, updated_at=now_ms))
+
+    db.commit()
+    return {"status": "SUCCESS", "updated_at": now_ms}
+
+
+@app.get("/api/scalp/watchlist")
+def get_scalp_watchlist_endpoint(symbol: str = "XAUUSDT"):
+    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+    zones = scalp_watcher_orchestrator.get_active_zones(symbol)
+    return {
+        "symbol": symbol,
+        "count": len(zones),
+        "zones": [z.to_dict() for z in zones],
+    }
+
+
+@app.get("/api/scalp/funnel")
+def get_scalp_funnel_endpoint(
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    model_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    from services.opportunity_funnel_service import OpportunityFunnelService
+    summary = OpportunityFunnelService.summarize_opportunity_funnel(
+        db, start_ms=start_ms, end_ms=end_ms, model_id=model_id, session_id=session_id
+    )
+    return summary
+
+
+@app.get("/api/scalp/comparison")
+def get_scalp_comparison_endpoint(
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    from services.model_comparison_service import ModelComparisonService
+    report = ModelComparisonService.generate_comparison_report(
+        db, start_ms=start_ms, end_ms=end_ms
+    )
+    return report

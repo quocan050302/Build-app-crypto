@@ -95,10 +95,10 @@ def resolve_entry_session_context(
     ny_start = int(ny_win.get("window_start_ms", 0))
     ny_end = int(ny_win.get("window_end_ms", 0))
 
-    if family == "NY_QUOTA_PAPER":
+    if family in ("NY_QUOTA_PAPER", "NY_DAILY_RESEARCH"):
         restriction = (ny_start, ny_end)
         expiry_cap = ny_end
-    elif family == "STANDARD_SMC":
+    elif family in ("STANDARD_SMC", "SMC_M1_REVERSAL", "SMC_M1_CONTINUATION"):
         if pol_mode == "NY_ONLY":
             restriction = (ny_start, ny_end)
             expiry_cap = ny_end

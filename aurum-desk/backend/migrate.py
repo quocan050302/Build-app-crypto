@@ -780,9 +780,37 @@ def run_migration(db_path=None, *, backup_dir=None):
             );
         """, (now_ms,))
 
+    # V15.0 Opportunity Funnel Records table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS opportunity_funnel_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            opportunity_id VARCHAR(80) NOT NULL,
+            symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+            model_id VARCHAR(40) NOT NULL,
+            model_version VARCHAR(20) DEFAULT 'v15.0',
+            direction VARCHAR(10) NOT NULL,
+            session_id VARCHAR(60) NOT NULL,
+            zone_id VARCHAR(80),
+            as_of_ms BIGINT NOT NULL,
+            stage VARCHAR(30) NOT NULL,
+            reason_codes_json TEXT,
+            evidence_ids_json TEXT,
+            metrics_json TEXT,
+            payload_json TEXT NOT NULL,
+            created_at BIGINT NOT NULL,
+            updated_at BIGINT NOT NULL,
+            CONSTRAINT uq_opportunity_stage UNIQUE (opportunity_id, stage)
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_funnel_opp_id ON opportunity_funnel_records(opportunity_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_funnel_model_id ON opportunity_funnel_records(model_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_funnel_session_id ON opportunity_funnel_records(session_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_funnel_as_of_ms ON opportunity_funnel_records(as_of_ms);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_funnel_stage ON opportunity_funnel_records(stage);")
+
     conn.commit()
     conn.close()
-    print("[+] V7 migration completed successfully with full historical preservation!")
+    print("[+] V7/V15 migration completed successfully with full historical preservation!")
 
 if __name__ == "__main__":
     run_migration()

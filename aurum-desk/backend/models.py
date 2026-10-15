@@ -707,3 +707,31 @@ class ForecastObservation(Base):
     __table_args__ = (
         UniqueConstraint('session_id', 'content_digest', name='uq_forecast_session_digest'),
     )
+
+
+# ---------------------------------------------------------------------------
+# V15.0 Opportunity Funnel Record (Additive table for funnel telemetry & audits)
+# ---------------------------------------------------------------------------
+class OpportunityFunnelRecord(Base):
+    __tablename__ = "opportunity_funnel_records"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    opportunity_id = Column(String(80), nullable=False, index=True)
+    symbol = Column(String(20), default="XAUUSDT")
+    model_id = Column(String(40), nullable=False, index=True)
+    model_version = Column(String(20), default="v15.0")
+    direction = Column(String(10), nullable=False)
+    session_id = Column(String(60), nullable=False, index=True)
+    zone_id = Column(String(80), nullable=True)
+    as_of_ms = Column(BigInteger, nullable=False, index=True)
+    stage = Column(String(30), nullable=False, index=True)
+    reason_codes_json = Column(Text, nullable=True)
+    evidence_ids_json = Column(Text, nullable=True)
+    metrics_json = Column(Text, nullable=True)
+    payload_json = Column(Text, nullable=False)
+    created_at = Column(BigInteger, nullable=False)
+    updated_at = Column(BigInteger, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('opportunity_id', 'stage', name='uq_opportunity_stage'),
+    )

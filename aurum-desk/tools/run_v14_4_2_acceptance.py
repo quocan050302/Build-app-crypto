@@ -931,6 +931,14 @@ def main(argv=None) -> int:
         "tests/test_v14_4_18_repair_source_conflicts.py",
         "tests/test_v14_4_19_repair_self_proof.py",
         "tests/test_v14_4_20_copied_repair_provenance.py",
+        "tests/test_v15_0_scalp_types.py",
+        "tests/test_v15_0_opportunity_funnel.py",
+        "tests/test_v15_0_zone_watchlist.py",
+        "tests/test_v15_0_m1_scalp_models.py",
+        "tests/test_v15_0_daily_ny_research.py",
+        "tests/test_v15_0_scalp_orchestrator.py",
+        "tests/test_v15_0_model_comparison.py",
+        "tests/test_v15_0_telegram_and_api.py",
     ]
     s = run_step(
         "backend_targeted",

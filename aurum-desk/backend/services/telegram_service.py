@@ -127,6 +127,27 @@ def format_telegram_message(
             f"⏱ _{event_time_vn} (UTC+7)_"
         )
 
+    elif item_type in ("TRIGGER_CONFIRMED", "SCALP_TRIGGER"):
+        model_id = escape_markdown(data.get("model_id", "SMC_M1_SCALP"))
+        mode_label = escape_markdown(data.get("mode", "PAPER"))
+        direction = data.get("direction", "Chưa có dữ liệu")
+        entry = data.get("planned_entry", 0.0)
+        sl = data.get("stop_loss", 0.0)
+        tp = data.get("take_profit", 0.0)
+        net_rr = data.get("net_rr", 0.0)
+        zone_id = escape_markdown(data.get("zone_id", "N/A"))
+
+        return (
+            f"⚡ *AURUM DESK — XÁC NHẬN TRIGGER ({mode_label})*\n\n"
+            f"• *Mô hình:* `{model_id}`\n"
+            f"• *Vùng liên kết:* `{zone_id}`\n"
+            f"• *Hướng:* {direction} XAUUSDT\n"
+            f"• *Entry:* `${entry:.2f}` | *SL:* `${sl:.2f}` | *TP:* `${tp:.2f}`\n"
+            f"• *Net R:R:* `1:{net_rr:.2f}`\n"
+            f"• *Trạng thái:* Đã xác nhận nến M1 đóng phá vỡ cấu trúc và xung lực.\n\n"
+            f"⏱ _{event_time_vn} (UTC+7)_"
+        )
+
     elif item_type == "ARMED":
         order_id = escape_markdown(data.get("order_id", "N/A"))
         setup_id = escape_markdown(data.get("setup_id", "N/A"))
@@ -631,6 +652,37 @@ async def send_telegram_direct(
             error_code="INTERNAL_ERROR",
             error_message=f"Lỗi nội bộ khi gửi tin Telegram: {type(e).__name__}"
         )
+
+
+def queue_telegram_notification(
+    db: Session,
+    item_type: str,
+    data: Dict[str, Any],
+    occurred_at: Optional[int] = None,
+    dedupe_key: Optional[str] = None,
+) -> Optional[models.NotificationOutbox]:
+    """Helper to safely queue telegram notification into NotificationOutbox table."""
+    now_ms = occurred_at or int(time.time() * 1000)
+    tg_cfg = db.query(models.TelegramConfig).first()
+    chat_id = tg_cfg.chat_id if tg_cfg else None
+    dkey = dedupe_key or f"{item_type}_{data.get('setup_id', now_ms)}_{now_ms}"
+    existing = db.query(models.NotificationOutbox).filter(models.NotificationOutbox.dedupe_key == dkey).first()
+    if existing:
+        return existing
+    entry = models.NotificationOutbox(
+        channel="TELEGRAM",
+        recipient=chat_id,
+        message_type=item_type,
+        dedupe_key=dkey,
+        payload=json.dumps({"notif_type": item_type, "data": data, "occurred_at": now_ms}),
+        status="PENDING",
+        priority="STANDARD",
+        created_at=now_ms,
+        occurred_at=now_ms,
+    )
+    db.add(entry)
+    db.flush()
+    return entry
 
 
 async def process_notification_outbox(run_once: bool = False):
