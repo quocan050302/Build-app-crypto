@@ -58,6 +58,8 @@ class CanonicalQuote:
             "spread": self.spread,
             "freshness_sec": self.freshness_sec,
             "rejection_code": self.rejection_code,
+            "rejection_detail": self.rejection_detail,
+            "is_valid": self.is_valid,
             # Backward compatibility with ticker dict
             "server_time": self.exchange_ts_ms or self.received_at_ms,
             "observed_at": self.received_at_ms
@@ -466,6 +468,239 @@ class QuoteValidator:
         )
 
 
+@dataclass
+class QuoteSourceState:
+    rejected: bool
+    is_stale: bool
+    rejection_code: Optional[str]
+    rejection_detail: Optional[str]
+    status: Optional[str] = None
+
+
+def parse_optional_bool(v: Any) -> Optional[bool]:
+    """Parse real boolean or boolean string without letting bool('false') evaluate to True."""
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        s = v.strip().lower()
+        if s in ("true", "1"):
+            return True
+        if s in ("false", "0"):
+            return False
+    if isinstance(v, (int, float)):
+        return bool(v)
+    return None
+
+
+def extract_execution_quote_source_state(raw_quote: Any) -> QuoteSourceState:
+    """
+    Extract source rejection authority and state from execution quote representations (V15.9).
+    Pure function: no DB, network, or global mutations.
+    """
+    if raw_quote is None:
+        return QuoteSourceState(
+            rejected=True,
+            is_stale=True,
+            rejection_code="FEED_DISCONNECTED",
+            rejection_detail="Không có dữ liệu báo giá",
+            status="DISCONNECTED",
+        )
+
+    if isinstance(raw_quote, ValidatedQuote):
+        rejected = (
+            not raw_quote.is_valid
+            or raw_quote.is_stale
+            or raw_quote.rejection_code is not None
+        )
+        is_stale = bool(raw_quote.is_stale)
+        rej_code = raw_quote.rejection_code
+        rej_detail = raw_quote.rejection_detail
+        if rejected and not rej_code:
+            rej_code = "TICKER_STALE" if is_stale else "QUOTE_INVALID"
+            rej_detail = rej_detail or ("Báo giá đang bị đánh dấu cũ" if is_stale else "Báo giá không hợp lệ")
+        return QuoteSourceState(
+            rejected=rejected,
+            is_stale=is_stale,
+            rejection_code=rej_code,
+            rejection_detail=rej_detail,
+            status="STALE" if is_stale else ("INVALID" if rejected else "VALID"),
+        )
+
+    if isinstance(raw_quote, CanonicalQuote):
+        raw_status = raw_quote.status
+        status_str = str(raw_status).strip().upper() if raw_status is not None else None
+        rej_code = raw_quote.rejection_code
+        rej_detail = raw_quote.rejection_detail
+
+        rejected = (
+            status_str != "VALID"
+            or not raw_quote.is_valid
+            or rej_code is not None
+            or raw_quote.freshness_sec > 15.0
+        )
+        is_stale = bool(status_str == "STALE" or rej_code == "TICKER_STALE" or raw_quote.freshness_sec > 15.0)
+
+        if rejected:
+            if status_str == "DISCONNECTED" or rej_code == "FEED_DISCONNECTED":
+                rej_code = "FEED_DISCONNECTED"
+                rej_detail = rej_detail or "Nguồn báo giá đang bị ngắt hoặc chưa đủ điều kiện sử dụng"
+            elif status_str == "STALE" or is_stale or rej_code == "TICKER_STALE":
+                rej_code = "TICKER_STALE"
+                rej_detail = rej_detail or "Báo giá đang bị đánh dấu cũ nên bot chưa chuẩn bị lệnh mới"
+            elif status_str == "INVERTED" or rej_code == "INVERTED_SPREAD":
+                rej_code = "INVERTED_SPREAD"
+                rej_detail = rej_detail or "Spread báo giá bị đảo ngược từ nguồn"
+            elif status_str == "TIME_UNAVAILABLE" or rej_code == "TIME_UNAVAILABLE":
+                rej_code = "TIME_UNAVAILABLE"
+                rej_detail = rej_detail or "Thời gian báo giá không khả dụng từ nguồn"
+            elif status_str == "FUTURE_TIMESTAMP" or rej_code == "FUTURE_TIMESTAMP":
+                rej_code = "FUTURE_TIMESTAMP"
+                rej_detail = rej_detail or "Timestamp quote ở tương lai từ nguồn"
+            elif status_str == "MALFORMED" or rej_code == "MALFORMED_QUOTE":
+                rej_code = "MALFORMED_QUOTE"
+                rej_detail = rej_detail or "Dữ liệu báo giá chưa hợp lệ nên bot tạm chưa vào lệnh"
+            elif rej_code:
+                rej_detail = rej_detail or f"Báo giá bị từ chối từ nguồn: {rej_code}"
+            elif status_str and status_str != "VALID":
+                rej_code = status_str
+                rej_detail = rej_detail or f"Trạng thái nguồn không hợp lệ: {status_str}"
+            else:
+                rej_code = "QUOTE_INVALID"
+                rej_detail = rej_detail or "Báo giá không hợp lệ từ nguồn"
+
+        return QuoteSourceState(
+            rejected=rejected,
+            is_stale=is_stale,
+            rejection_code=rej_code,
+            rejection_detail=rej_detail,
+            status=status_str,
+        )
+
+    if isinstance(raw_quote, dict):
+        raw_is_valid = raw_quote.get("is_valid")
+        raw_is_stale = raw_quote.get("is_stale")
+        is_valid_flag = parse_optional_bool(raw_is_valid)
+        is_stale_flag = parse_optional_bool(raw_is_stale)
+
+        if (raw_is_valid is not None and is_valid_flag is None) or (
+            raw_is_stale is not None and is_stale_flag is None
+        ):
+            return QuoteSourceState(
+                rejected=True,
+                is_stale=True,
+                rejection_code="MALFORMED_QUOTE",
+                rejection_detail="Trường boolean báo giá không đúng định dạng",
+                status="MALFORMED",
+            )
+
+        raw_status = raw_quote.get("status")
+        status_str = str(raw_status).strip().upper() if raw_status is not None else None
+        raw_rej_code = raw_quote.get("rejection_code")
+        rej_code = str(raw_rej_code).strip() if raw_rej_code is not None and str(raw_rej_code).strip() else None
+        raw_rej_detail = raw_quote.get("rejection_detail")
+        rej_detail = str(raw_rej_detail).strip() if raw_rej_detail is not None and str(raw_rej_detail).strip() else None
+
+        rejected = (
+            is_valid_flag is False
+            or is_stale_flag is True
+            or (status_str is not None and status_str != "VALID")
+            or (rej_code is not None)
+        )
+        is_stale = bool(is_stale_flag is True or status_str == "STALE" or rej_code == "TICKER_STALE")
+
+        if rejected:
+            if status_str == "DISCONNECTED" or rej_code == "FEED_DISCONNECTED":
+                rej_code = "FEED_DISCONNECTED"
+                rej_detail = rej_detail or "Nguồn báo giá đang bị ngắt hoặc chưa đủ điều kiện sử dụng"
+            elif status_str == "STALE" or is_stale or rej_code == "TICKER_STALE":
+                rej_code = "TICKER_STALE"
+                rej_detail = rej_detail or "Báo giá đang bị đánh dấu cũ nên bot chưa chuẩn bị lệnh mới"
+            elif status_str == "INVERTED" or rej_code == "INVERTED_SPREAD":
+                rej_code = "INVERTED_SPREAD"
+                rej_detail = rej_detail or "Spread báo giá bị đảo ngược từ nguồn"
+            elif status_str == "TIME_UNAVAILABLE" or rej_code == "TIME_UNAVAILABLE":
+                rej_code = "TIME_UNAVAILABLE"
+                rej_detail = rej_detail or "Thời gian báo giá không khả dụng từ nguồn"
+            elif status_str == "FUTURE_TIMESTAMP" or rej_code == "FUTURE_TIMESTAMP":
+                rej_code = "FUTURE_TIMESTAMP"
+                rej_detail = rej_detail or "Timestamp quote ở tương lai từ nguồn"
+            elif status_str == "MALFORMED" or rej_code == "MALFORMED_QUOTE":
+                rej_code = "MALFORMED_QUOTE"
+                rej_detail = rej_detail or "Dữ liệu báo giá chưa hợp lệ nên bot tạm chưa vào lệnh"
+            elif rej_code:
+                rej_detail = rej_detail or f"Báo giá bị từ chối từ nguồn: {rej_code}"
+            elif status_str and status_str != "VALID":
+                rej_code = status_str
+                rej_detail = rej_detail or f"Trạng thái nguồn không hợp lệ: {status_str}"
+            else:
+                rej_code = "QUOTE_INVALID"
+                rej_detail = rej_detail or "Báo giá không hợp lệ từ nguồn"
+
+        return QuoteSourceState(
+            rejected=rejected,
+            is_stale=is_stale,
+            rejection_code=rej_code,
+            rejection_detail=rej_detail,
+            status=status_str,
+        )
+
+    return QuoteSourceState(
+        rejected=True,
+        is_stale=True,
+        rejection_code="MALFORMED_QUOTE",
+        rejection_detail=f"Kiểu dữ liệu báo giá không được hỗ trợ: {type(raw_quote).__name__}",
+        status="MALFORMED",
+    )
+
+
+def apply_quote_source_rejection(
+    validated_quote: ValidatedQuote,
+    source_state: QuoteSourceState,
+) -> ValidatedQuote:
+    """
+    Combines numeric/time validation result with source state rejection authority.
+    Rule: final_is_valid = validated_quote.is_valid and not source_state.rejected.
+    """
+    if not source_state.rejected:
+        return validated_quote
+
+    final_is_stale = bool(validated_quote.is_stale or source_state.is_stale)
+
+    if source_state.rejection_code == "FEED_DISCONNECTED":
+        final_code = "FEED_DISCONNECTED"
+        final_detail = source_state.rejection_detail or validated_quote.rejection_detail or "Nguồn báo giá đang bị ngắt kết nối"
+    elif not validated_quote.is_valid and validated_quote.rejection_code in (
+        "NON_FINITE_QUOTE",
+        "ZERO_OR_NEGATIVE_PRICE",
+        "INVERTED_SPREAD",
+        "MALFORMED_QUOTE",
+    ):
+        final_code = validated_quote.rejection_code
+        final_detail = validated_quote.rejection_detail
+    elif source_state.rejection_code:
+        final_code = source_state.rejection_code
+        final_detail = source_state.rejection_detail or validated_quote.rejection_detail
+    else:
+        final_code = validated_quote.rejection_code or "QUOTE_INVALID"
+        final_detail = validated_quote.rejection_detail or source_state.rejection_detail or "Báo giá bị từ chối từ nguồn"
+
+    return ValidatedQuote(
+        is_valid=False,
+        bid=validated_quote.bid,
+        ask=validated_quote.ask,
+        last=validated_quote.last,
+        spread=validated_quote.spread,
+        exchange_time=validated_quote.exchange_time,
+        observed_at=validated_quote.observed_at,
+        freshness_sec=validated_quote.freshness_sec,
+        is_stale=final_is_stale,
+        rejection_code=final_code,
+        rejection_detail=final_detail,
+    )
+
+
 def normalize_execution_quote(
     raw_quote: Any,
     *,
@@ -473,7 +708,7 @@ def normalize_execution_quote(
     max_age_sec: Optional[float] = None,
 ) -> ValidatedQuote:
     """
-    Authoritative quote normalizer and freshness validator for execution entry paths (V15.8).
+    Authoritative quote normalizer and freshness validator for execution entry paths (V15.8 / V15.9).
     Accepts:
     - None -> ValidatedQuote(is_valid=False, rejection_code='FEED_DISCONNECTED')
     - ValidatedQuote -> Re-validates against now_ms, preserves original timestamps and source rejections.
@@ -481,6 +716,7 @@ def normalize_execution_quote(
     - dict -> Re-validates against now_ms, maps server_time / timestamp / exchange_time / observed_at / received_at_ms.
       Does NOT mutate input dict.
       Does NOT fabricate now_ms as quote timestamp when provenance is missing.
+      Preserves source rejection authority across representations.
     - Unsupported types -> ValidatedQuote(is_valid=False, rejection_code='MALFORMED_QUOTE')
     """
     if raw_quote is None:
@@ -498,6 +734,23 @@ def normalize_execution_quote(
             rejection_detail="Không có dữ liệu báo giá",
         )
 
+    if not isinstance(raw_quote, (ValidatedQuote, CanonicalQuote, dict)):
+        return ValidatedQuote(
+            is_valid=False,
+            bid=0.0,
+            ask=0.0,
+            last=0.0,
+            spread=0.0,
+            exchange_time=None,
+            observed_at=now_ms,
+            freshness_sec=9999.0,
+            is_stale=True,
+            rejection_code="MALFORMED_QUOTE",
+            rejection_detail=f"Kiểu dữ liệu báo giá không được hỗ trợ: {type(raw_quote).__name__}",
+        )
+
+    source_state = extract_execution_quote_source_state(raw_quote)
+
     if isinstance(raw_quote, ValidatedQuote):
         t_dict = {
             "bid": raw_quote.bid,
@@ -506,24 +759,7 @@ def normalize_execution_quote(
             "server_time": raw_quote.exchange_time,
             "observed_at": raw_quote.observed_at,
         }
-        res = QuoteValidator.validate_ticker(t_dict, now_ms=now_ms, max_age_sec=max_age_sec)
-        if not raw_quote.is_valid:
-            return ValidatedQuote(
-                is_valid=False,
-                bid=res.bid,
-                ask=res.ask,
-                last=res.last,
-                spread=res.spread,
-                exchange_time=res.exchange_time,
-                observed_at=res.observed_at,
-                freshness_sec=res.freshness_sec,
-                is_stale=res.is_stale or raw_quote.is_stale,
-                rejection_code=raw_quote.rejection_code or res.rejection_code or "QUOTE_INVALID",
-                rejection_detail=raw_quote.rejection_detail or res.rejection_detail or "Báo giá không hợp lệ",
-            )
-        return res
-
-    if isinstance(raw_quote, CanonicalQuote):
+    elif isinstance(raw_quote, CanonicalQuote):
         t_dict = {
             "bid": raw_quote.bid,
             "ask": raw_quote.ask,
@@ -531,24 +767,7 @@ def normalize_execution_quote(
             "server_time": raw_quote.exchange_ts_ms,
             "observed_at": raw_quote.received_at_ms,
         }
-        res = QuoteValidator.validate_ticker(t_dict, now_ms=now_ms, max_age_sec=max_age_sec)
-        if not raw_quote.is_valid:
-            return ValidatedQuote(
-                is_valid=False,
-                bid=res.bid,
-                ask=res.ask,
-                last=res.last,
-                spread=res.spread,
-                exchange_time=res.exchange_time,
-                observed_at=res.observed_at,
-                freshness_sec=res.freshness_sec,
-                is_stale=res.is_stale,
-                rejection_code=raw_quote.rejection_code or raw_quote.status or "QUOTE_INVALID",
-                rejection_detail=raw_quote.rejection_detail or f"CanonicalQuote trạng thái {raw_quote.status}",
-            )
-        return res
-
-    if isinstance(raw_quote, dict):
+    else:  # dict
         raw_ex = (
             raw_quote.get("server_time")
             or raw_quote.get("server_time_ms")
@@ -567,33 +786,6 @@ def normalize_execution_quote(
             "server_time": raw_ex,
             "observed_at": raw_obs,
         }
-        res = QuoteValidator.validate_ticker(t_dict, now_ms=now_ms, max_age_sec=max_age_sec)
-        if raw_quote.get("is_valid") is False:
-            return ValidatedQuote(
-                is_valid=False,
-                bid=res.bid,
-                ask=res.ask,
-                last=res.last,
-                spread=res.spread,
-                exchange_time=res.exchange_time,
-                observed_at=res.observed_at,
-                freshness_sec=res.freshness_sec,
-                is_stale=res.is_stale or bool(raw_quote.get("is_stale", False)),
-                rejection_code=raw_quote.get("rejection_code") or res.rejection_code or "QUOTE_INVALID",
-                rejection_detail=raw_quote.get("rejection_detail") or res.rejection_detail or "Báo giá không hợp lệ",
-            )
-        return res
 
-    return ValidatedQuote(
-        is_valid=False,
-        bid=0.0,
-        ask=0.0,
-        last=0.0,
-        spread=0.0,
-        exchange_time=None,
-        observed_at=now_ms,
-        freshness_sec=9999.0,
-        is_stale=True,
-        rejection_code="MALFORMED_QUOTE",
-        rejection_detail=f"Kiểu dữ liệu báo giá không được hỗ trợ: {type(raw_quote).__name__}",
-    )
+    vq_num = QuoteValidator.validate_ticker(t_dict, now_ms=now_ms, max_age_sec=max_age_sec)
+    return apply_quote_source_rejection(vq_num, source_state)
