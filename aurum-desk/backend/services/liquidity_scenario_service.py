@@ -56,6 +56,169 @@ def round_price(symbol: str, price: float) -> float:
     return round(float(price), 4)
 
 
+TIMEFRAME_DURATIONS_MS: Dict[str, int] = {
+    "1M": 60_000,
+    "5M": 300_000,
+    "15M": 900_000,
+    "1H": 3_600_000,
+    "4H": 14_400_000,
+    "D": 86_400_000,
+}
+
+
+def resolve_timeframe_duration_ms(timeframe: str) -> int:
+    """
+    Resolves timeframe string to millisecond duration (SECTIONS 023, 025).
+    Fails closed on unsupported timeframes (no silent M1 fallback).
+    """
+    if not timeframe:
+        raise ValueError("timeframe cannot be empty")
+    tf_clean = str(timeframe).strip().upper()
+    if tf_clean in TIMEFRAME_DURATIONS_MS:
+        return TIMEFRAME_DURATIONS_MS[tf_clean]
+    if tf_clean.endswith("M"):
+        try:
+            return int(tf_clean[:-1]) * 60_000
+        except ValueError:
+            pass
+    elif tf_clean.endswith("H"):
+        try:
+            return int(tf_clean[:-1]) * 3_600_000
+        except ValueError:
+            pass
+    raise ValueError(f"UNSUPPORTED_TIMEFRAME: cannot resolve duration for '{timeframe}'")
+
+
+@dataclass(frozen=True)
+class ConfirmedSwing:
+    """
+    Canonical confirmed swing high or swing low (SECTIONS 021 - 024).
+    Contains strict causal timestamps:
+    - occurred_at_ms: Open timestamp of the pivot candle.
+    - known_at_ms: Close timestamp of the right-bars confirmation candle.
+    Provides backward-compatibility properties for legacy consumers (timestamp, confirmed_at).
+    """
+    id: str
+    symbol: str
+    timeframe: str
+    side: str                # BUY_SIDE (highs) or SELL_SIDE (lows)
+    price: float
+    occurred_at_ms: int
+    known_at_ms: int
+    source_ids: Tuple[str, ...] = ()
+    detector_version: str = "v15.3"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "symbol": self.symbol,
+            "timeframe": self.timeframe,
+            "side": self.side,
+            "type": "HIGH" if self.side == "BUY_SIDE" else "LOW",
+            "price": self.price,
+            "occurred_at_ms": self.occurred_at_ms,
+            "known_at_ms": self.known_at_ms,
+            "timestamp": self.occurred_at_ms,      # legacy compatibility
+            "confirmed_at": self.known_at_ms,      # legacy compatibility
+            "source_ids": list(self.source_ids),
+            "detector_version": self.detector_version,
+        }
+
+
+def identify_confirmed_swings(
+    candles: Sequence[Any],
+    timeframe: str = "1M",
+    left_bars: int = 2,
+    right_bars: int = 2,
+    *,
+    symbol: str = "XAUUSDT",
+    as_of_ms: int = 0,
+    detector_version: str = "v15.3",
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    Causally identify swing highs and swing lows for any timeframe (SECTIONS 021 - 032).
+    Confirmation strictly requires right_bars closed candles.
+    known_at_ms = confirm_open + duration_ms (when right_bars confirmation bar closes).
+    """
+    if len(candles) < left_bars + right_bars + 1:
+        return [], []
+
+    duration_ms = resolve_timeframe_duration_ms(timeframe)
+    highs: List[Dict[str, Any]] = []
+    lows: List[Dict[str, Any]] = []
+    n = len(candles)
+    tf_lower = timeframe.lower()
+
+    for i in range(left_bars, n - right_bars):
+        mid = candles[i]
+        mid_high = float(getattr(mid, "high", 0.0))
+        mid_low = float(getattr(mid, "low", 0.0))
+        open_ms = int(getattr(mid, "open_time", None) or getattr(mid, "timestamp", 0))
+
+        # Confirmation candle is candles[i + right_bars]
+        confirm_candle = candles[i + right_bars]
+        confirm_open = int(getattr(confirm_candle, "open_time", None) or getattr(confirm_candle, "timestamp", 0))
+        known_at_ms = confirm_open + duration_ms
+        if as_of_ms and known_at_ms > as_of_ms:
+            continue
+
+        # Swing High
+        is_sh = True
+        for j in range(i - left_bars, i + right_bars + 1):
+            if j == i:
+                continue
+            bar_h = float(getattr(candles[j], "high", 0.0))
+            if j < i and bar_h >= mid_high:
+                is_sh = False
+                break
+            elif j > i and bar_h > mid_high:
+                is_sh = False
+                break
+        if is_sh:
+            sh_id = f"{tf_lower}_sh_{open_ms}"
+            swing_obj = ConfirmedSwing(
+                id=sh_id,
+                symbol=symbol,
+                timeframe=timeframe,
+                side="BUY_SIDE",
+                price=mid_high,
+                occurred_at_ms=open_ms,
+                known_at_ms=known_at_ms,
+                source_ids=(f"bar_{open_ms}", f"bar_{confirm_open}"),
+                detector_version=detector_version,
+            )
+            highs.append(swing_obj.to_dict())
+
+        # Swing Low
+        is_sl = True
+        for j in range(i - left_bars, i + right_bars + 1):
+            if j == i:
+                continue
+            bar_l = float(getattr(candles[j], "low", 0.0))
+            if j < i and bar_l <= mid_low:
+                is_sl = False
+                break
+            elif j > i and bar_l < mid_low:
+                is_sl = False
+                break
+        if is_sl:
+            sl_id = f"{tf_lower}_sl_{open_ms}"
+            swing_obj = ConfirmedSwing(
+                id=sl_id,
+                symbol=symbol,
+                timeframe=timeframe,
+                side="SELL_SIDE",
+                price=mid_low,
+                occurred_at_ms=open_ms,
+                known_at_ms=known_at_ms,
+                source_ids=(f"bar_{open_ms}", f"bar_{confirm_open}"),
+                detector_version=detector_version,
+            )
+            lows.append(swing_obj.to_dict())
+
+    return highs, lows
+
+
 # =====================================================================
 # 2. CAUSAL ORDER BLOCK (OB) DETECTOR (SECTIONS 055 - 064)
 # =====================================================================
@@ -107,7 +270,7 @@ def detect_order_blocks(
     if calc_atr <= 0:
         calc_atr = 1.0
 
-    duration_ms = 900_000 if timeframe == "15M" else (300_000 if timeframe == "5M" else 60_000)
+    duration_ms = resolve_timeframe_duration_ms(timeframe)
     zones: List[WatchedZone] = []
 
     # Map confirmed swings
@@ -127,6 +290,11 @@ def detect_order_blocks(
         if as_of_ms and curr_confirmed_at > as_of_ms:
             continue
 
+        # Prefix ATR for causal displacement measurement (SECTIONS 045, 046)
+        prefix_atr = calc_atr if atr is not None else smc_engine.compute_atr(candles[:i + 1], period=14)
+        if prefix_atr <= 0:
+            prefix_atr = calc_atr
+
         # --- Check Bullish OB: Current bar broke a prior confirmed swing high ---
         prior_shs = [
             sh for sh in swing_highs
@@ -138,7 +306,6 @@ def detect_order_blocks(
             broken_sh = prior_shs[-1]
             break_lvl = float(broken_sh["price"])
             # Trace backward to find displacement leg and base candle
-            # Displacement leg: 1 to 3 bullish bars preceding the break
             base_idx = None
             for j in range(i, max(-1, i - 5), -1):
                 bar_j = candles[j]
@@ -151,7 +318,7 @@ def detect_order_blocks(
                 disp_bars = candles[base_idx + 1: i + 1]
                 if disp_bars:
                     leg_body = max(float(b.close) - float(b.open) for b in disp_bars)
-                    if leg_body >= min_displacement_atr * calc_atr:
+                    if leg_body >= min_displacement_atr * prefix_atr:
                         base_low = float(base_bar.low)
                         base_high = float(base_bar.high)
                         base_open = float(base_bar.open)
@@ -166,7 +333,7 @@ def detect_order_blocks(
                             top = base_high
 
                         if top > bot:
-                            inv_level = round_price(symbol, base_low - (0.1 * calc_atr))
+                            inv_level = round_price(symbol, base_low - (0.1 * prefix_atr))
                             zone_id = f"ob-{symbol}-{timeframe}-BULLISH-{base_ts}"
                             zones.append(WatchedZone(
                                 zone_id=zone_id,
@@ -180,7 +347,7 @@ def detect_order_blocks(
                                 known_at=curr_confirmed_at,
                                 source_evidence_ids=(f"base-{base_ts}", f"break-{curr_ts}"),
                                 invalidation_level=inv_level,
-                                model_version="v15.2",
+                                model_version="v15.3",
                                 state=ZoneState.WATCHING.value,
                                 last_evaluated_at=as_of_ms or curr_confirmed_at,
                             ))
@@ -207,7 +374,7 @@ def detect_order_blocks(
                 disp_bars = candles[base_idx + 1: i + 1]
                 if disp_bars:
                     leg_body = max(float(b.open) - float(b.close) for b in disp_bars)
-                    if leg_body >= min_displacement_atr * calc_atr:
+                    if leg_body >= min_displacement_atr * prefix_atr:
                         base_low = float(base_bar.low)
                         base_high = float(base_bar.high)
                         base_open = float(base_bar.open)
@@ -222,7 +389,7 @@ def detect_order_blocks(
                             top = base_high
 
                         if top > bot:
-                            inv_level = round_price(symbol, base_high + (0.1 * calc_atr))
+                            inv_level = round_price(symbol, base_high + (0.1 * prefix_atr))
                             zone_id = f"ob-{symbol}-{timeframe}-BEARISH-{base_ts}"
                             zones.append(WatchedZone(
                                 zone_id=zone_id,
@@ -236,7 +403,7 @@ def detect_order_blocks(
                                 known_at=curr_confirmed_at,
                                 source_evidence_ids=(f"base-{base_ts}", f"break-{curr_ts}"),
                                 invalidation_level=inv_level,
-                                model_version="v15.2",
+                                model_version="v15.3",
                                 state=ZoneState.WATCHING.value,
                                 last_evaluated_at=as_of_ms or curr_confirmed_at,
                             ))
@@ -391,19 +558,19 @@ def compute_dealing_range(
     valid_highs = [
         s for s in swings
         if s.get("side", s.get("type")) in ("BUY_SIDE", "HIGH", "SH")
-        and s.get("confirmed_at", s.get("known_at_ms", 0)) <= now_ms
+        and s.get("known_at_ms", s.get("confirmed_at", 0)) <= now_ms
     ]
     valid_lows = [
         s for s in swings
         if s.get("side", s.get("type")) in ("SELL_SIDE", "LOW", "SL")
-        and s.get("confirmed_at", s.get("known_at_ms", 0)) <= now_ms
+        and s.get("known_at_ms", s.get("confirmed_at", 0)) <= now_ms
     ]
 
     if not valid_highs or not valid_lows:
         return DealingRange(0.0, 0.0, 0.0, "UNKNOWN", now_ms, False)
 
-    recent_h = max(valid_highs, key=lambda s: s.get("confirmed_at", 0))
-    recent_l = max(valid_lows, key=lambda s: s.get("confirmed_at", 0))
+    recent_h = max(valid_highs, key=lambda s: s.get("known_at_ms", s.get("confirmed_at", 0)))
+    recent_l = max(valid_lows, key=lambda s: s.get("known_at_ms", s.get("confirmed_at", 0)))
 
     rh = float(recent_h["price"])
     rl = float(recent_l["price"])
@@ -413,7 +580,10 @@ def compute_dealing_range(
 
     eq = round_price(symbol, (rh + rl) / 2.0)
     range_id = f"range-{recent_l.get('id', rl)}-{recent_h.get('id', rh)}"
-    max_known = max(recent_h.get("confirmed_at", 0), recent_l.get("confirmed_at", 0))
+    max_known = max(
+        recent_h.get("known_at_ms", recent_h.get("confirmed_at", 0)),
+        recent_l.get("known_at_ms", recent_l.get("confirmed_at", 0)),
+    )
 
     return DealingRange(
         range_high=rh,
@@ -536,7 +706,7 @@ class LiquidityHypothesis:
     is_primary: bool                                # True = primary, False = alternative
     watched_zone: WatchedZone
     target_level: Optional[LiquidityLevel]
-    target_price: float
+    target_price: Optional[float]                   # None if no unconsumed liquidity level is available
     dealing_range: DealingRange
     range_position: str                             # DISCOUNT / PREMIUM / EQUILIBRIUM
     prerequisites: List[str]
@@ -547,6 +717,8 @@ class LiquidityHypothesis:
     revision: int = 1
     evidence_ids: List[str] = field(default_factory=list)
     explanation_vi: str = ""
+    target_type: str = "LIQUIDITY_LEVEL"            # LIQUIDITY_LEVEL or UNAVAILABLE
+    target_status: str = "CONFIRMED"                # CONFIRMED or TARGET_UNAVAILABLE
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -558,7 +730,9 @@ class LiquidityHypothesis:
             "zone_bounds": [self.watched_zone.bottom, self.watched_zone.top],
             "target_price": self.target_price,
             "target_level_id": self.target_level.id if self.target_level else None,
-            "target_label": self.target_level.label_vi if self.target_level else "Mục tiêu cấu trúc",
+            "target_label": self.target_level.label_vi if self.target_level else ("Mục tiêu cấu trúc" if self.target_price is not None else "Chưa có mục tiêu"),
+            "target_type": self.target_type,
+            "target_status": self.target_status,
             "range_position": self.range_position,
             "prerequisites": self.prerequisites,
             "invalidation_condition": self.invalidation_condition,
@@ -581,6 +755,7 @@ def build_liquidity_hypotheses(
     """
     Builds primary and alternative causal liquidity hypotheses (PHẦN 091, 092).
     Phased conditionally: 'Nếu A xác nhận, theo dõi B. Hủy nếu phá C.'
+    Target must be a real unconsumed liquidity level. Never fabricates +-10 fake levels (SECTIONS 101, 103).
     """
     hypotheses: List[LiquidityHypothesis] = []
     expiry = session_cap_ms or (now_ms + 4 * 3600 * 1000)
@@ -598,11 +773,19 @@ def build_liquidity_hypotheses(
 
     primary_zone = min(candidate_zones, key=lambda z: abs(current_price - z.midpoint))
     p_dir = primary_zone.direction
-    target_side = "BUY_SIDE" if p_dir == "BULLISH" else "SELL_SIDE"
 
-    # Select target level
+    # Select target level honestly
     target_lvl = select_unconsumed_target(levels, "LONG" if p_dir == "BULLISH" else "SHORT", current_price, as_of_ms=now_ms)
-    t_price = target_lvl.price if target_lvl else (current_price + 10.0 if p_dir == "BULLISH" else current_price - 10.0)
+    if target_lvl is not None:
+        t_price = round(target_lvl.price, 2)
+        t_type = "LIQUIDITY_LEVEL"
+        t_status = "CONFIRMED"
+        target_clause = f"theo dõi mục tiêu thanh khoản {t_price:.2f}"
+    else:
+        t_price = None
+        t_type = "UNAVAILABLE"
+        t_status = "TARGET_UNAVAILABLE"
+        target_clause = "chưa xác định được mục tiêu thanh khoản chưa hấp thụ; tiếp tục theo dõi phản ứng vùng"
 
     pos = assess_range_position(current_price, dealing_range)
     prereqs = [
@@ -615,7 +798,7 @@ def build_liquidity_hypotheses(
     exp_vi = (
         f"Kịch bản chính ({p_dir}): Nếu giá phản ứng tại {primary_zone.zone_type} "
         f"[{primary_zone.bottom:.2f} - {primary_zone.top:.2f}] và xác nhận đảo chiều M1, "
-        f"theo dõi mục tiêu thanh khoản {t_price:.2f}. Kịch bản vô hiệu nếu phá {primary_zone.invalidation_level:.2f}."
+        f"{target_clause}. Kịch bản vô hiệu nếu phá {primary_zone.invalidation_level:.2f}."
     )
 
     p_hyp = LiquidityHypothesis(
@@ -624,7 +807,7 @@ def build_liquidity_hypotheses(
         is_primary=True,
         watched_zone=primary_zone,
         target_level=target_lvl,
-        target_price=round(t_price, 2),
+        target_price=t_price,
         dealing_range=dealing_range,
         range_position=pos,
         prerequisites=prereqs,
@@ -633,6 +816,8 @@ def build_liquidity_hypotheses(
         created_at_ms=now_ms,
         evidence_ids=list(primary_zone.source_evidence_ids),
         explanation_vi=exp_vi,
+        target_type=t_type,
+        target_status=t_status,
     )
     hypotheses.append(p_hyp)
 
@@ -642,7 +827,16 @@ def build_liquidity_hypotheses(
     if alt_zones:
         alt_zone = min(alt_zones, key=lambda z: abs(current_price - z.midpoint))
         alt_target = select_unconsumed_target(levels, "LONG" if alt_dir == "BULLISH" else "SHORT", current_price, as_of_ms=now_ms)
-        alt_t_price = alt_target.price if alt_target else (current_price + 10.0 if alt_dir == "BULLISH" else current_price - 10.0)
+        if alt_target is not None:
+            alt_t_price = round(alt_target.price, 2)
+            alt_t_type = "LIQUIDITY_LEVEL"
+            alt_t_status = "CONFIRMED"
+            alt_target_clause = f"hướng về mục tiêu thanh khoản {alt_t_price:.2f}"
+        else:
+            alt_t_price = None
+            alt_t_type = "UNAVAILABLE"
+            alt_t_status = "TARGET_UNAVAILABLE"
+            alt_target_clause = "chưa xác định được mục tiêu thanh khoản dự phòng hợp lệ"
 
         alt_prereqs = [
             f"Kịch bản chính bị vô hiệu khi giá xuyên thủng {primary_zone.invalidation_level:.2f}",
@@ -653,7 +847,7 @@ def build_liquidity_hypotheses(
         alt_exp_vi = (
             f"Kịch bản dự phòng ({alt_dir}): Nếu kịch bản chính bị phá vỡ qua {primary_zone.invalidation_level:.2f}, "
             f"chuyển hướng theo dõi vùng {alt_zone.zone_type} [{alt_zone.bottom:.2f} - {alt_zone.top:.2f}] "
-            f"hướng về mục tiêu {alt_t_price:.2f}."
+            f"{alt_target_clause}."
         )
 
         a_hyp = LiquidityHypothesis(
@@ -662,7 +856,7 @@ def build_liquidity_hypotheses(
             is_primary=False,
             watched_zone=alt_zone,
             target_level=alt_target,
-            target_price=round(alt_t_price, 2),
+            target_price=alt_t_price,
             dealing_range=dealing_range,
             range_position=pos,
             prerequisites=alt_prereqs,
@@ -671,6 +865,8 @@ def build_liquidity_hypotheses(
             created_at_ms=now_ms,
             evidence_ids=list(alt_zone.source_evidence_ids),
             explanation_vi=alt_exp_vi,
+            target_type=alt_t_type,
+            target_status=alt_t_status,
         )
         hypotheses.append(a_hyp)
 
@@ -764,11 +960,15 @@ def rank_zones_multi_dimensional(
 
         # 4. Execution Feasibility (0-100)
         target = select_unconsumed_target(levels, "LONG" if z.direction == "BULLISH" else "SHORT", current_price, as_of_ms=now_ms)
-        t_price = target.price if target else (current_price + 10.0 if z.direction == "BULLISH" else current_price - 10.0)
-        obstacles = find_intervening_obstacles(levels, zones, "LONG" if z.direction == "BULLISH" else "SHORT", current_price, t_price)
-        e_score = 80.0
-        if obstacles:
-            e_score -= min(40.0, len(obstacles) * 15.0)
+        if target is not None:
+            t_price = target.price
+            obstacles = find_intervening_obstacles(levels, zones, "LONG" if z.direction == "BULLISH" else "SHORT", current_price, t_price)
+            e_score = 80.0
+            if obstacles:
+                e_score -= min(40.0, len(obstacles) * 15.0)
+        else:
+            obstacles = []
+            e_score = 45.0  # Reduced feasibility when no unconsumed liquidity target is found (SECTIONS 101, 103)
 
         # Weighted total
         total = round(0.30 * q_score + 0.30 * c_score + 0.25 * r_score + 0.15 * e_score, 1)
@@ -809,10 +1009,14 @@ def build_zone_assessment_explanation(
     hypothesis: Optional[LiquidityHypothesis],
     current_price: float,
     atr: float,
+    *,
+    as_of_ms: int = 0,
+    is_stale: bool = False,
 ) -> Dict[str, Any]:
     """
     Builds comprehensive explanation drawer DTO in clear Vietnamese (PHẦN 099, 164).
     Explains why zone is watched, missing conditions, target, invalidation, and guards.
+    Never produces fake win probability (strictly null when uncalibrated).
     """
     dist_atr = round(abs(current_price - zone.midpoint) / max(0.50, atr), 2)
 
@@ -842,15 +1046,20 @@ def build_zone_assessment_explanation(
         "context_score": rank_score.context_score,
         "readiness_score": rank_score.readiness_score,
         "execution_score": rank_score.execution_score,
+        "win_probability": None,
         "has_confluence": rank_score.confluence.has_confluence,
         "confluence_description": rank_score.confluence.description_vi,
         "intervening_obstacles_count": len(rank_score.intervening_obstacles),
         "target_price": hypothesis.target_price if hypothesis else None,
-        "target_label": hypothesis.target_level.label_vi if (hypothesis and hypothesis.target_level) else "Mục tiêu cấu trúc",
+        "target_type": getattr(hypothesis, "target_type", "UNAVAILABLE") if hypothesis else "UNAVAILABLE",
+        "target_status": getattr(hypothesis, "target_status", "TARGET_UNAVAILABLE") if hypothesis else "TARGET_UNAVAILABLE",
+        "target_label": hypothesis.target_level.label_vi if (hypothesis and hypothesis.target_level) else ("Mục tiêu cấu trúc" if (hypothesis and hypothesis.target_price is not None) else "Chưa có mục tiêu"),
         "missing_conditions": missing,
         "why_watched": (
             f"Vùng {zone.zone_type} {zone.direction} trên khung {zone.timeframe} hình thành tại [{zone.bottom:.2f} - {zone.top:.2f}]. "
             f"{rank_score.explanation_vi}"
         ),
         "hypothesis_summary": hypothesis.explanation_vi if hypothesis else "",
+        "as_of_ms": as_of_ms,
+        "is_stale": is_stale,
     }

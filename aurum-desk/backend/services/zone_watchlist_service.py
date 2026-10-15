@@ -80,10 +80,16 @@ class ZoneWatchlistService:
                 last_evaluated_at=as_of_ms,
             ))
 
-        # Extract Order Blocks (PHẦN 055 - 064)
-        from services.liquidity_scenario_service import detect_order_blocks
-        from services.scalp_m1_model_service import ScalpM1ModelService
-        sh_list, sl_list = ScalpM1ModelService.identify_m1_swings(candles, left_bars=2, right_bars=2, as_of_ms=as_of_ms)
+        # Extract Order Blocks (SECTIONS 028, 041 - 064)
+        from services.liquidity_scenario_service import detect_order_blocks, identify_confirmed_swings
+        sh_list, sl_list = identify_confirmed_swings(
+            candles,
+            timeframe=timeframe,
+            left_bars=2,
+            right_bars=2,
+            symbol=symbol,
+            as_of_ms=as_of_ms,
+        )
         swings = sh_list + sl_list
         ob_zones = detect_order_blocks(
             candles, swings, timeframe=timeframe, symbol=symbol, as_of_ms=as_of_ms, atr=calc_atr

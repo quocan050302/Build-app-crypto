@@ -323,6 +323,8 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
                 "near_zone_enter_atr",
                 "near_zone_exit_atr",
                 "max_active_zones",
+                "max_trigger_age_ms",
+                "max_entry_distance_atr",
                 "config_version",
             ])
         ).all()
@@ -354,6 +356,8 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
         ("near_zone_enter_atr", float),
         ("near_zone_exit_atr", float),
         ("max_active_zones", int),
+        ("max_trigger_age_ms", int),
+        ("max_entry_distance_atr", float),
         ("config_version", int),
     ]:
         if num_key in config_map:

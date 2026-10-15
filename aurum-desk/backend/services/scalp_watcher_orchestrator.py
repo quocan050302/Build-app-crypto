@@ -69,6 +69,8 @@ class ScalpWatcherOrchestrator:
         self._active_liquidity_levels: Dict[str, List[Any]] = {}
         self._active_dealing_range: Dict[str, Any] = {}
         self._active_regime: Dict[str, str] = {}
+        self._active_zone_assessments: Dict[str, Dict[str, Any]] = {}
+        self._active_market_context: Dict[str, Dict[str, Any]] = {}
 
     def get_active_zones(self, symbol: str = "XAUUSDT") -> List[WatchedZone]:
         with self._lock:
@@ -87,27 +89,39 @@ class ScalpWatcherOrchestrator:
             return list(self._active_liquidity_levels.get(symbol, []))
 
     def get_zone_assessment_explanation(self, symbol: str, zone_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Returns real multi-dimensional assessment and Vietnamese explanation for zone (SECTIONS 083 - 086, 164).
+        Never uses hardcoded scores or fake constants. Returns None (404) if zone not found.
+        """
         with self._lock:
+            assessments = self._active_zone_assessments.get(symbol, {})
+            if zone_id in assessments:
+                dto = dict(assessments[zone_id])
+                dto["win_probability"] = None
+                return dto
+
             zones = self._active_zones.get(symbol, [])
             matching = [z for z in zones if z.zone_id == zone_id]
             if not matching:
                 return None
             zone = matching[0]
+
+            ctx = self._active_market_context.get(symbol, {})
+            c_px = ctx.get("current_price", zone.midpoint)
+            c_atr = ctx.get("atr", 1.0)
+            c_as_of = ctx.get("as_of_ms", 0)
+            dr = self._active_dealing_range.get(symbol)
+            levels = self._active_liquidity_levels.get(symbol, [])
             hyps = self._active_hypotheses.get(symbol, [])
             matching_hyp = next((h for h in hyps if getattr(h, "watched_zone", None) and h.watched_zone.zone_id == zone_id), None)
-            from services.liquidity_scenario_service import build_zone_assessment_explanation, ZoneRankScore, ZoneConfluence
-            rank_score = ZoneRankScore(
-                zone_id=zone.zone_id,
-                total_score=getattr(zone, "rank_score", 50.0),
-                zone_quality_score=60.0,
-                context_score=60.0,
-                readiness_score=70.0,
-                execution_score=70.0,
-                confluence=ZoneConfluence(has_confluence=False),
-                intervening_obstacles=[],
-                explanation_vi=f"Vùng {zone.zone_type} được xếp hạng theo dõi mức {getattr(zone, 'rank_score', 50.0):.1f}/100.",
-            )
-            return build_zone_assessment_explanation(zone, rank_score, matching_hyp, current_price=zone.midpoint, atr=2.0)
+            from services.liquidity_scenario_service import rank_zones_multi_dimensional, build_zone_assessment_explanation
+            if dr is not None:
+                pairs = rank_zones_multi_dimensional([zone], levels, dr, c_px, c_atr, now_ms=c_as_of)
+                if pairs:
+                    return build_zone_assessment_explanation(
+                        zone, pairs[0][1], matching_hyp, current_price=c_px, atr=c_atr, as_of_ms=c_as_of, is_stale=True
+                    )
+            return None
 
     def evaluate_cycle(
         self,
@@ -322,24 +336,23 @@ class ScalpWatcherOrchestrator:
                             occurred_at=t_recv,
                         )
 
-        # Rank and prune active zones
-        ranked_zones = ZoneWatchlistService.rank_watch_zones(current_zones, current_px, atr_15m, bias, align, t_recv)
-        bounded_zones = ZoneWatchlistService.prune_and_bound_watchlist(ranked_zones, current_px, t_recv, cfg)
-        self.set_active_zones(symbol, bounded_zones)
-
-        # Build Liquidity Map, Dealing Range & Hypotheses (PHẦN 071 - 096)
+        # Build Liquidity Map, Dealing Range & Hypotheses (SECTIONS 028, 071 - 096)
         from services.liquidity_scenario_service import (
+            identify_confirmed_swings,
             build_liquidity_hypotheses,
             compute_dealing_range,
             classify_market_regime,
+            rank_zones_multi_dimensional,
+            build_zone_assessment_explanation,
         )
         from services.smc_liquidity_service import build_liquidity_map, update_liquidity_states
 
         ref_candles = c_15m if c_15m else (c_5m if c_5m else c_1m)
-        shs, sls = ScalpM1ModelService.identify_m1_swings(ref_candles, left_bars=2, right_bars=2, as_of_ms=t_recv) if ref_candles else ([], [])
+        ref_tf = "15M" if c_15m else ("5M" if c_5m else "1M")
+        shs, sls = identify_confirmed_swings(ref_candles, timeframe=ref_tf, left_bars=2, right_bars=2, symbol=symbol, as_of_ms=t_recv) if ref_candles else ([], [])
         liq_levels = build_liquidity_map(
             symbol=symbol,
-            timeframe="15M" if c_15m else "5M",
+            timeframe=ref_tf,
             swing_highs=shs,
             swing_lows=sls,
             now_ms=t_recv,
@@ -353,12 +366,40 @@ class ScalpWatcherOrchestrator:
         policy = TradingPolicyService.get_or_create_policy(db)
         session_ctx = resolve_entry_session_context(policy, "STANDARD_SMC", now_ms=t_recv, clock=clock)
 
+        # Multi-dimensional ranking of active zones (SECTIONS 081, 097, 098)
+        scored_pairs = rank_zones_multi_dimensional(
+            current_zones, liq_levels, dealing_range, current_px, atr_15m, htf_bias=bias, now_ms=t_recv
+        )
+        ranked_zones = [p[0] for p in scored_pairs]
+        rank_scores_by_id = {p[0].zone_id: p[1] for p in scored_pairs}
+
+        bounded_zones = ZoneWatchlistService.prune_and_bound_watchlist(ranked_zones, current_px, t_recv, cfg)
+        self.set_active_zones(symbol, bounded_zones)
+
         hypotheses = build_liquidity_hypotheses(
             bounded_zones, liq_levels, dealing_range, current_px, regime, t_recv,
             session_cap_ms=session_ctx.expiry_cap_ms if session_ctx else None,
         )
 
+        hyp_by_zone = {h.watched_zone.zone_id: h for h in hypotheses if getattr(h, "watched_zone", None)}
+        assessments_map: Dict[str, Any] = {}
+        for z in bounded_zones:
+            r_score = rank_scores_by_id.get(z.zone_id)
+            if r_score:
+                h = hyp_by_zone.get(z.zone_id)
+                dto = build_zone_assessment_explanation(
+                    z, r_score, h, current_price=current_px, atr=atr_15m, as_of_ms=t_recv, is_stale=False
+                )
+                assessments_map[z.zone_id] = dto
+
         with self._lock:
+            self._active_zone_assessments[symbol] = assessments_map
+            self._active_market_context[symbol] = {
+                "current_price": current_px,
+                "atr": atr_15m,
+                "as_of_ms": t_recv,
+                "regime": regime,
+            }
             self._active_hypotheses[symbol] = hypotheses
             self._active_liquidity_levels[symbol] = liq_levels
             self._active_dealing_range[symbol] = dealing_range

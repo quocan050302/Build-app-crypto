@@ -65,67 +65,18 @@ class ScalpM1ModelService:
         as_of_ms: int = 0,
     ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """
-        Identify causal M1 swing highs and swing lows (PHẦN 047).
+        Identify causal M1 swing highs and swing lows (PHẦN 047, SECTIONS 021 - 027).
         known_at_ms strictly requires right_bars closed candles.
+        Delegates to canonical identify_confirmed_swings with timeframe='1M'.
         """
-        highs: List[Dict[str, Any]] = []
-        lows: List[Dict[str, Any]] = []
-        n = len(candles_1m)
-
-        for i in range(left_bars, n - right_bars):
-            mid = candles_1m[i]
-            mid_high = float(getattr(mid, "high", 0.0))
-            mid_low = float(getattr(mid, "low", 0.0))
-            open_ms = int(getattr(mid, "open_time", None) or getattr(mid, "timestamp", 0))
-
-            # Confirmation requires right_bars following candles to be fully closed
-            confirm_candle = candles_1m[i + right_bars]
-            confirm_open = int(getattr(confirm_candle, "open_time", None) or getattr(confirm_candle, "timestamp", 0))
-            known_at_ms = confirm_open + 60_000
-            if as_of_ms and known_at_ms > as_of_ms:
-                continue
-
-            # Swing High
-            is_sh = True
-            for j in range(i - left_bars, i + right_bars + 1):
-                if j == i:
-                    continue
-                bar_h = float(getattr(candles_1m[j], "high", 0.0))
-                if j < i and bar_h >= mid_high:
-                    is_sh = False
-                    break
-                elif j > i and bar_h > mid_high:
-                    is_sh = False
-                    break
-            if is_sh:
-                highs.append({
-                    "id": f"m1_sh_{open_ms}",
-                    "price": mid_high,
-                    "occurred_at_ms": open_ms,
-                    "known_at_ms": known_at_ms,
-                })
-
-            # Swing Low
-            is_sl = True
-            for j in range(i - left_bars, i + right_bars + 1):
-                if j == i:
-                    continue
-                bar_l = float(getattr(candles_1m[j], "low", 0.0))
-                if j < i and bar_l <= mid_low:
-                    is_sl = False
-                    break
-                elif j > i and bar_l < mid_low:
-                    is_sl = False
-                    break
-            if is_sl:
-                lows.append({
-                    "id": f"m1_sl_{open_ms}",
-                    "price": mid_low,
-                    "occurred_at_ms": open_ms,
-                    "known_at_ms": known_at_ms,
-                })
-
-        return highs, lows
+        from services.liquidity_scenario_service import identify_confirmed_swings
+        return identify_confirmed_swings(
+            candles_1m,
+            timeframe="1M",
+            left_bars=left_bars,
+            right_bars=right_bars,
+            as_of_ms=as_of_ms,
+        )
 
     @staticmethod
     def evaluate_m1_reversal_candidate(
@@ -210,24 +161,28 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
-            recent_sl = sl_list[-1]
-            sweep_price = recent_sl["price"]
-            # Anchor sweep: must be close to or inside zone
-            if sweep_price > zone.top + (0.5 * atr_1m):
-                return ScalpCandidate(
-                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
-                    reason_code=OpportunityReasonCode.WAITING_ZONE_TOUCH.value,
-                    missing_conditions=["Sweep low chưa chạm hoặc tiếp cận vùng theo dõi"],
-                    as_of_ms=now_ms, zone_id=zone.zone_id,
-                )
-
+            recent_sl = None
             pivot_to_break = None
-            for sh in reversed(sh_list):
-                if sh["occurred_at_ms"] < recent_sl["occurred_at_ms"]:
-                    pivot_to_break = sh
-                    break
+            for sl in reversed(sl_list):
+                if sl["price"] <= zone.top + (0.5 * atr_1m):
+                    for sh in reversed(sh_list):
+                        if sh["occurred_at_ms"] < sl["occurred_at_ms"]:
+                            recent_sl = sl
+                            pivot_to_break = sh
+                            break
+                    if recent_sl:
+                        break
 
-            if not pivot_to_break:
+            if not recent_sl:
+                recent_sl = sl_list[-1]
+                sweep_price = recent_sl["price"]
+                if sweep_price > zone.top + (0.5 * atr_1m):
+                    return ScalpCandidate(
+                        is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
+                        reason_code=OpportunityReasonCode.WAITING_ZONE_TOUCH.value,
+                        missing_conditions=["Sweep low chưa chạm hoặc tiếp cận vùng theo dõi"],
+                        as_of_ms=now_ms, zone_id=zone.zone_id,
+                    )
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
@@ -235,6 +190,7 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
+            sweep_price = recent_sl["price"]
             candidate_key = f"{model_id}_{zone.symbol}_{zone.zone_id}_{direction}_{pivot_to_break['id']}"
             break_level = pivot_to_break["price"]
             sweep_ts = recent_sl["occurred_at_ms"]
@@ -269,25 +225,50 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
-            # Retest Verification (PHẦN 040, 048): require closed M1 candle post-break touching retest zone
+            # Retest Verification (SECTIONS 127 - 130)
             first_break_bar = breaking_bars[0]
             first_break_idx = closed_1m.index(first_break_bar)
-            post_break_bars = closed_1m[first_break_idx + 1:]
-            if not post_break_bars:
+            sweep_bar = next((b for b in closed_1m if (int(getattr(b, "open_time", None) or getattr(b, "timestamp", 0))) == sweep_ts), None)
+            sweep_idx = closed_1m.index(sweep_bar) if sweep_bar in closed_1m else max(0, first_break_idx - 5)
+
+            # Causal FVG detection bound to the displacement break leg (SECTIONS 127, 128)
+            disp_fvgs = []
+            end_k = min(len(closed_1m), first_break_idx + 2)
+            for k in range(max(2, sweep_idx + 2), end_k + 1):
+                if k >= len(closed_1m):
+                    break
+                p2 = closed_1m[k - 2]
+                curr = closed_1m[k]
+                if float(curr.low) > float(p2.high):
+                    bot = float(p2.high)
+                    top = float(curr.low)
+                    if bot >= sweep_price:
+                        disp_fvgs.append((k, bot, top))
+
+            if not disp_fvgs:
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_RETEST.value,
-                    missing_conditions=["Chờ nến M1 hồi về (retest) vùng kích hoạt sau phá vỡ"],
+                    missing_conditions=["Chờ xuất hiện Fair Value Gap (FVG) hợp lệ trong nhịp xung lực phá vỡ để retest"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
-            retest_upper = max(break_level + (1.5 * atr_1m), float(first_break_bar.close))
-            retest_bars = [b for b in post_break_bars if float(b.low) <= retest_upper and float(b.low) >= sweep_price]
+            fvg_confirm_k, fvg_bot, fvg_top = disp_fvgs[-1]
+            post_fvg_bars = closed_1m[fvg_confirm_k + 1:]
+            if not post_fvg_bars:
+                return ScalpCandidate(
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    reason_code=OpportunityReasonCode.WAITING_M1_RETEST.value,
+                    missing_conditions=[f"Chờ nến M1 hồi về retest FVG [{fvg_bot:.2f} - {fvg_top:.2f}]"],
+                    as_of_ms=now_ms, zone_id=zone.zone_id,
+                )
+
+            retest_bars = [b for b in post_fvg_bars if float(b.low) <= fvg_top and float(b.low) >= sweep_price]
             if not retest_bars:
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_RETEST.value,
-                    missing_conditions=["Chờ nến M1 hồi về (retest) vùng kích hoạt"],
+                    missing_conditions=[f"Chờ nến M1 hồi về retest FVG [{fvg_bot:.2f} - {fvg_top:.2f}]"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
@@ -317,23 +298,28 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
-            recent_sh = sh_list[-1]
-            sweep_price = recent_sh["price"]
-            if sweep_price < zone.bottom - (0.5 * atr_1m):
-                return ScalpCandidate(
-                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
-                    reason_code=OpportunityReasonCode.WAITING_ZONE_TOUCH.value,
-                    missing_conditions=["Sweep high chưa chạm hoặc tiếp cận vùng theo dõi"],
-                    as_of_ms=now_ms, zone_id=zone.zone_id,
-                )
-
+            recent_sh = None
             pivot_to_break = None
-            for sl in reversed(sl_list):
-                if sl["occurred_at_ms"] < recent_sh["occurred_at_ms"]:
-                    pivot_to_break = sl
-                    break
+            for sh in reversed(sh_list):
+                if sh["price"] >= zone.bottom - (0.5 * atr_1m):
+                    for sl in reversed(sl_list):
+                        if sl["occurred_at_ms"] < sh["occurred_at_ms"]:
+                            recent_sh = sh
+                            pivot_to_break = sl
+                            break
+                    if recent_sh:
+                        break
 
-            if not pivot_to_break:
+            if not recent_sh:
+                recent_sh = sh_list[-1]
+                sweep_price = recent_sh["price"]
+                if sweep_price < zone.bottom - (0.5 * atr_1m):
+                    return ScalpCandidate(
+                        is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
+                        reason_code=OpportunityReasonCode.WAITING_ZONE_TOUCH.value,
+                        missing_conditions=["Sweep high chưa chạm hoặc tiếp cận vùng theo dõi"],
+                        as_of_ms=now_ms, zone_id=zone.zone_id,
+                    )
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
@@ -341,6 +327,7 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
+            sweep_price = recent_sh["price"]
             candidate_key = f"{model_id}_{zone.symbol}_{zone.zone_id}_{direction}_{pivot_to_break['id']}"
             break_level = pivot_to_break["price"]
             sweep_ts = recent_sh["occurred_at_ms"]
@@ -375,25 +362,49 @@ class ScalpM1ModelService:
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
-            # Retest Verification (PHẦN 040, 048)
+            # Retest Verification (SECTIONS 127 - 130)
             first_break_bar = breaking_bars[0]
             first_break_idx = closed_1m.index(first_break_bar)
-            post_break_bars = closed_1m[first_break_idx + 1:]
-            if not post_break_bars:
+            sweep_bar = next((b for b in closed_1m if (int(getattr(b, "open_time", None) or getattr(b, "timestamp", 0))) == sweep_ts), None)
+            sweep_idx = closed_1m.index(sweep_bar) if sweep_bar in closed_1m else max(0, first_break_idx - 5)
+
+            disp_fvgs = []
+            end_k = min(len(closed_1m), first_break_idx + 2)
+            for k in range(max(2, sweep_idx + 2), end_k + 1):
+                if k >= len(closed_1m):
+                    break
+                p2 = closed_1m[k - 2]
+                curr = closed_1m[k]
+                if float(curr.high) < float(p2.low):
+                    top = float(p2.low)
+                    bot = float(curr.high)
+                    if top <= sweep_price:
+                        disp_fvgs.append((k, bot, top))
+
+            if not disp_fvgs:
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_RETEST.value,
-                    missing_conditions=["Chờ nến M1 hồi về (retest) vùng kích hoạt sau phá vỡ"],
+                    missing_conditions=["Chờ xuất hiện Fair Value Gap (FVG) hợp lệ trong nhịp xung lực phá vỡ để retest"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
-            retest_lower = min(break_level - (1.5 * atr_1m), float(first_break_bar.close))
-            retest_bars = [b for b in post_break_bars if float(b.high) >= retest_lower and float(b.high) <= sweep_price]
+            fvg_confirm_k, fvg_bot, fvg_top = disp_fvgs[-1]
+            post_fvg_bars = closed_1m[fvg_confirm_k + 1:]
+            if not post_fvg_bars:
+                return ScalpCandidate(
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
+                    reason_code=OpportunityReasonCode.WAITING_M1_RETEST.value,
+                    missing_conditions=[f"Chờ nến M1 hồi về retest FVG [{fvg_bot:.2f} - {fvg_top:.2f}]"],
+                    as_of_ms=now_ms, zone_id=zone.zone_id,
+                )
+
+            retest_bars = [b for b in post_fvg_bars if float(b.high) >= fvg_bot and float(b.high) <= sweep_price]
             if not retest_bars:
                 return ScalpCandidate(
                     is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
                     reason_code=OpportunityReasonCode.WAITING_M1_RETEST.value,
-                    missing_conditions=["Chờ nến M1 hồi về (retest) vùng kích hoạt"],
+                    missing_conditions=[f"Chờ nến M1 hồi về retest FVG [{fvg_bot:.2f} - {fvg_top:.2f}]"],
                     as_of_ms=now_ms, zone_id=zone.zone_id,
                 )
 
@@ -412,9 +423,10 @@ class ScalpM1ModelService:
                 risk_dist = sl_price - entry_price
                 target_price = round(entry_price - max(risk_dist * 2.5, 3.0 * atr_1m), 2)
 
-        # Trigger age check (PHẦN 114)
-        last_retest_bar = retest_bars[-1]
-        retest_open_ms = int(getattr(last_retest_bar, "open_time", None) or getattr(last_retest_bar, "timestamp", 0))
+        # Trigger age check (PHẦN 114, SECTIONS 130, 131, 132)
+        # Select the FIRST qualifying retest bar for non-refreshing trigger_known_at
+        first_retest_bar = retest_bars[0]
+        retest_open_ms = int(getattr(first_retest_bar, "open_time", None) or getattr(first_retest_bar, "timestamp", 0))
         trigger_known_at = retest_open_ms + 60_000
         trigger_age_ms = now_ms - trigger_known_at
         if trigger_age_ms > cfg.max_trigger_age_ms:
@@ -425,9 +437,9 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms, zone_id=zone.zone_id,
             )
 
-        # Entry distance check (PHẦN 115)
-        retest_close = float(last_retest_bar.close)
-        entry_dist_atr = abs(entry_price - retest_close) / max(0.50, atr_1m)
+        # Entry distance check (PHẦN 115, SECTIONS 133, 134)
+        entry_reference = float(first_retest_bar.close)
+        entry_dist_atr = abs(entry_price - entry_reference) / max(0.50, atr_1m)
         if entry_dist_atr > cfg.max_entry_distance_atr:
             return ScalpCandidate(
                 is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
@@ -518,7 +530,7 @@ class ScalpM1ModelService:
                 id=f"ev_retest_{retest_open_ms}",
                 kind="RETEST", symbol=zone.symbol, timeframe="1M", direction=direction,
                 occurred_at_ms=retest_open_ms,
-                known_at_ms=trigger_known_at, level=float(last_retest_bar.low if direction == "LONG" else last_retest_bar.high),
+                known_at_ms=trigger_known_at, level=float(first_retest_bar.low if direction == "LONG" else first_retest_bar.high),
                 extra={"break_level": break_level, "retest_candle_open_ms": retest_open_ms}
             ).to_dict(),
         ]

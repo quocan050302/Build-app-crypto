@@ -2,6 +2,7 @@ import time
 import json
 import uuid
 import asyncio
+import math
 import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -3025,8 +3026,26 @@ def get_scalp_config_endpoint(db: Session = Depends(get_db)):
     from services.scalp_m1_types import load_effective_scalp_config
     cfg = load_effective_scalp_config(db)
     return {
+        "status": "SUCCESS",
+        "effective_config": {
+            "scalp_m1_enabled": (cfg.scalp_m1_mode != "OFF"),
+            "scalp_m1_mode": cfg.scalp_m1_mode,
+            "mode": cfg.scalp_m1_mode,
+            "daily_ny_research_enabled": cfg.daily_ny_research_enabled,
+            "min_closed_m1_bars": cfg.min_closed_m1_bars,
+            "displacement_body_atr_min": cfg.displacement_body_atr_min,
+            "min_net_rr": cfg.min_net_rr,
+            "fallback_risk_pct": cfg.fallback_risk_pct,
+            "near_zone_enter_atr": cfg.near_zone_enter_atr,
+            "near_zone_exit_atr": cfg.near_zone_exit_atr,
+            "max_trigger_age_ms": cfg.max_trigger_age_ms,
+            "max_entry_distance_atr": cfg.max_entry_distance_atr,
+            "max_active_zones": cfg.max_active_zones,
+            "config_version": cfg.config_version,
+        },
         "scalp_m1_enabled": (cfg.scalp_m1_mode != "OFF"),
         "scalp_m1_mode": cfg.scalp_m1_mode,
+        "mode": cfg.scalp_m1_mode,
         "daily_ny_research_enabled": cfg.daily_ny_research_enabled,
         "min_closed_m1_bars": cfg.min_closed_m1_bars,
         "displacement_body_atr_min": cfg.displacement_body_atr_min,
@@ -3034,6 +3053,8 @@ def get_scalp_config_endpoint(db: Session = Depends(get_db)):
         "fallback_risk_pct": cfg.fallback_risk_pct,
         "near_zone_enter_atr": cfg.near_zone_enter_atr,
         "near_zone_exit_atr": cfg.near_zone_exit_atr,
+        "max_trigger_age_ms": cfg.max_trigger_age_ms,
+        "max_entry_distance_atr": cfg.max_entry_distance_atr,
         "max_active_zones": cfg.max_active_zones,
         "config_version": cfg.config_version,
     }
@@ -3051,6 +3072,9 @@ def update_scalp_config_endpoint(
         raise HTTPException(status_code=400, detail="INVALID_PAYLOAD: JSON object required")
 
     mode = payload.get("scalp_m1_mode")
+    if mode is None and "mode" in payload:
+        mode = payload.get("mode")
+
     if mode is not None:
         if not isinstance(mode, str):
             raise HTTPException(status_code=400, detail="INVALID_SCALP_MODE: must be a string")
@@ -3097,6 +3121,34 @@ def update_scalp_config_endpoint(
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="INVALID_VALUE: min_net_rr must be a positive number")
 
+    if "max_trigger_age_ms" in payload:
+        try:
+            ttl_val = int(payload["max_trigger_age_ms"])
+            if ttl_val <= 0:
+                raise ValueError()
+            cfg_ttl = db.query(models.SystemConfig).filter(models.SystemConfig.key == "max_trigger_age_ms").first()
+            if cfg_ttl:
+                cfg_ttl.value = str(ttl_val)
+                cfg_ttl.updated_at = now_ms
+            else:
+                db.add(models.SystemConfig(key="max_trigger_age_ms", value=str(ttl_val), updated_at=now_ms))
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="INVALID_VALUE: max_trigger_age_ms must be a positive integer")
+
+    if "max_entry_distance_atr" in payload:
+        try:
+            dist_val = float(payload["max_entry_distance_atr"])
+            if dist_val <= 0 or not math.isfinite(dist_val):
+                raise ValueError()
+            cfg_dist = db.query(models.SystemConfig).filter(models.SystemConfig.key == "max_entry_distance_atr").first()
+            if cfg_dist:
+                cfg_dist.value = str(dist_val)
+                cfg_dist.updated_at = now_ms
+            else:
+                db.add(models.SystemConfig(key="max_entry_distance_atr", value=str(dist_val), updated_at=now_ms))
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="INVALID_VALUE: max_entry_distance_atr must be a positive number")
+
     try:
         db.commit()
     except Exception as e:
@@ -3111,11 +3163,14 @@ def update_scalp_config_endpoint(
         "effective_config": {
             "scalp_m1_enabled": (effective_cfg.scalp_m1_mode != "OFF"),
             "scalp_m1_mode": effective_cfg.scalp_m1_mode,
+            "mode": effective_cfg.scalp_m1_mode,
             "daily_ny_research_enabled": effective_cfg.daily_ny_research_enabled,
             "min_closed_m1_bars": effective_cfg.min_closed_m1_bars,
             "displacement_body_atr_min": effective_cfg.displacement_body_atr_min,
             "min_net_rr": effective_cfg.min_net_rr,
             "fallback_risk_pct": effective_cfg.fallback_risk_pct,
+            "max_trigger_age_ms": effective_cfg.max_trigger_age_ms,
+            "max_entry_distance_atr": effective_cfg.max_entry_distance_atr,
             "config_version": effective_cfg.config_version,
         }
     }

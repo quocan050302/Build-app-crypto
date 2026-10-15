@@ -43,8 +43,8 @@ def cluster_equal_levels(
     for idx, cl in enumerate(clusters):
         avg_p = round(sum(s["price"] for s in cl) / len(cl), 2)
         source_ids = [s.get("id", f"sw-{s['price']}") for s in cl]
-        max_known = max(s.get("confirmed_at", s.get("timestamp", 0)) for s in cl)
-        min_occ = min(s.get("timestamp", 0) for s in cl)
+        max_known = max(s.get("known_at_ms", s.get("confirmed_at", s.get("timestamp", 0))) for s in cl)
+        min_occ = min(s.get("occurred_at_ms", s.get("timestamp", 0)) for s in cl)
         label = f"Đỉnh đôi ({len(cl)} đỉnh)" if kind == "EQH" else f"Đáy đôi ({len(cl)} đáy)"
         eq_id = make_evidence_id(symbol, timeframe, kind, f"{avg_p}-{idx}")
 
@@ -84,15 +84,17 @@ def build_liquidity_map(
 
     # 1. Confirmed Swing Highs (Buy-side)
     for sh in swing_highs:
-        if sh.get("confirmed_at", sh.get("timestamp", 0)) <= now_ms:
+        sh_known = sh.get("known_at_ms", sh.get("confirmed_at", sh.get("timestamp", 0)))
+        sh_occ = sh.get("occurred_at_ms", sh.get("timestamp", 0))
+        if sh_known <= now_ms:
             levels.append(
                 LiquidityLevel(
                     id=sh.get("id", f"sh-{sh['price']}"),
                     price=float(sh["price"]),
                     side="BUY_SIDE",
                     source_kind="SWING",
-                    occurred_at_ms=sh.get("timestamp", 0),
-                    known_at_ms=sh.get("confirmed_at", sh.get("timestamp", 0)),
+                    occurred_at_ms=sh_occ,
+                    known_at_ms=sh_known,
                     source_ids=[sh.get("id", f"sh-{sh['price']}")],
                     label_vi=f"Đỉnh swing {sh['price']:.2f}",
                 )
@@ -100,15 +102,17 @@ def build_liquidity_map(
 
     # 2. Confirmed Swing Lows (Sell-side)
     for sl in swing_lows:
-        if sl.get("confirmed_at", sl.get("timestamp", 0)) <= now_ms:
+        sl_known = sl.get("known_at_ms", sl.get("confirmed_at", sl.get("timestamp", 0)))
+        sl_occ = sl.get("occurred_at_ms", sl.get("timestamp", 0))
+        if sl_known <= now_ms:
             levels.append(
                 LiquidityLevel(
                     id=sl.get("id", f"sl-{sl['price']}"),
                     price=float(sl["price"]),
                     side="SELL_SIDE",
                     source_kind="SWING",
-                    occurred_at_ms=sl.get("timestamp", 0),
-                    known_at_ms=sl.get("confirmed_at", sl.get("timestamp", 0)),
+                    occurred_at_ms=sl_occ,
+                    known_at_ms=sl_known,
                     source_ids=[sl.get("id", f"sl-{sl['price']}")],
                     label_vi=f"Đáy swing {sl['price']:.2f}",
                 )
