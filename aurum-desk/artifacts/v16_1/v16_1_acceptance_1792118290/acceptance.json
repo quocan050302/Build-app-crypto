@@ -1,0 +1,149 @@
+{
+  "overall_technical_verdict": "PASS",
+  "technical_steps": {
+    "git_diff_check": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 0.07,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\git_diff_check.log",
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ]
+    },
+    "backend_v16_engine": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 1.87,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\backend_v16_engine.log",
+      "argv": [
+        "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "tests/test_v16_opportunity_engine.py",
+        "-v",
+        "-p",
+        "no:cacheprovider"
+      ]
+    },
+    "backend_targeted": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 7.01,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\backend_targeted.log",
+      "argv": [
+        "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "tests/test_v16_opportunity_engine.py",
+        "tests/test_v15_0_scalp_types.py",
+        "tests/test_v15_1_execution_lifecycle.py",
+        "tests/test_v15_2_liquidity_engine.py",
+        "tests/test_v15_3_causal_wiring.py",
+        "tests/test_v15_4_causal_entry.py",
+        "tests/test_v14_4_1_production_pipeline.py",
+        "tests/test_v14_4_1_entry_guards.py",
+        "-q",
+        "-p",
+        "no:cacheprovider"
+      ]
+    },
+    "frontend_typecheck": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 5.74,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\frontend_typecheck.log",
+      "argv": [
+        "C:\\Program Files\\nodejs\\npx.CMD",
+        "tsc",
+        "-b"
+      ]
+    },
+    "frontend_lint": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 0.9,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\frontend_lint.log",
+      "argv": [
+        "C:\\Program Files\\nodejs\\npx.CMD",
+        "oxlint"
+      ]
+    },
+    "frontend_vitest": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 2.65,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\frontend_vitest.log",
+      "argv": [
+        "C:\\Program Files\\nodejs\\npx.CMD",
+        "vitest",
+        "run"
+      ]
+    },
+    "frontend_build": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 6.8,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\frontend_build.log",
+      "argv": [
+        "C:\\Program Files\\nodejs\\npm.CMD",
+        "run",
+        "build"
+      ]
+    },
+    "browser_e2e": {
+      "status": "PASS",
+      "executed_tests": 9,
+      "exit_code": 0,
+      "duration_s": 43.24,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\browser_e2e.log",
+      "argv": [
+        "C:\\Program Files\\nodejs\\npx.CMD",
+        "playwright",
+        "test",
+        "tests/e2e/v14_4_1_sessions_chart.e2e.ts"
+      ]
+    },
+    "benchmark": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 9.15,
+      "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\benchmark.log",
+      "argv": [
+        "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+        "D:\\build app-crypto\\aurum-desk\\tools\\run_v14_4_chart_acceptance.py",
+        "--cycles",
+        "600",
+        "--out",
+        "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\benchmark.json"
+      ]
+    }
+  },
+  "strategy_replay": {
+    "dataset_path": "D:\\build app-crypto\\aurum-desk\\backend\\lab\\data\\XAUUSDT_5m_1783789200000_1791793667634.json",
+    "dataset_hash": "7595e15dd5197577c1390c59377c4568791f795bf2c588be685c04a9f482dd26",
+    "sample_start_iso": "2026-09-28T08:25:00+00:00",
+    "sample_end_iso": "2026-10-12T08:25:00+00:00",
+    "total_calendar_days": 15,
+    "eligible_market_days": 11,
+    "days_goal_met_2_to_3": 9,
+    "attainment_rate_pct": 81.82,
+    "days_above_cap": 0,
+    "days_with_ny_fills": 6,
+    "total_fills": 23,
+    "closed_orders": 22,
+    "winrate_pct": 0.0,
+    "net_pnl_usd": -241.24,
+    "max_drawdown_pct": 24.12,
+    "artifacts": {
+      "trades_csv": "D:\\build app-crypto\\aurum-desk\\artifacts\\v16_1\\v16_1_acceptance_1792118290\\trades.csv",
+      "daily_stats_csv": "D:\\build app-crypto\\aurum-desk\\artifacts\\v16_1\\v16_1_acceptance_1792118290\\daily_stats.csv",
+      "equity_curve_csv": "D:\\build app-crypto\\aurum-desk\\artifacts\\v16_1\\v16_1_acceptance_1792118290\\equity_curve.csv",
+      "rejection_funnel_csv": "D:\\build app-crypto\\aurum-desk\\artifacts\\v16_1\\v16_1_acceptance_1792118290\\rejection_funnel.csv",
+      "replay_report_md": "D:\\build app-crypto\\aurum-desk\\artifacts\\v16_1\\v16_1_acceptance_1792118290\\V16_1_REPLAY_REPORT.md"
+    }
+  },
+  "manifest_path": "D:\\build app-crypto\\aurum-desk\\artifacts\\v16_1\\v16_1_acceptance_1792118290\\manifest.json",
+  "run_id": "v16_1_acceptance_1792118290"
+}

@@ -1,0 +1,120 @@
+{
+  "git_diff_check": {
+    "status": "PASS",
+    "exit_code": 0,
+    "duration_s": 0.07,
+    "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\git_diff_check.log",
+    "argv": [
+      "git",
+      "diff",
+      "--check"
+    ]
+  },
+  "backend_v16_engine": {
+    "status": "PASS",
+    "exit_code": 0,
+    "duration_s": 1.87,
+    "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\backend_v16_engine.log",
+    "argv": [
+      "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "tests/test_v16_opportunity_engine.py",
+      "-v",
+      "-p",
+      "no:cacheprovider"
+    ]
+  },
+  "backend_targeted": {
+    "status": "PASS",
+    "exit_code": 0,
+    "duration_s": 7.01,
+    "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\backend_targeted.log",
+    "argv": [
+      "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "tests/test_v16_opportunity_engine.py",
+      "tests/test_v15_0_scalp_types.py",
+      "tests/test_v15_1_execution_lifecycle.py",
+      "tests/test_v15_2_liquidity_engine.py",
+      "tests/test_v15_3_causal_wiring.py",
+      "tests/test_v15_4_causal_entry.py",
+      "tests/test_v14_4_1_production_pipeline.py",
+      "tests/test_v14_4_1_entry_guards.py",
+      "-q",
+      "-p",
+      "no:cacheprovider"
+    ]
+  },
+  "frontend_typecheck": {
+    "status": "PASS",
+    "exit_code": 0,
+    "duration_s": 5.74,
+    "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\frontend_typecheck.log",
+    "argv": [
+      "C:\\Program Files\\nodejs\\npx.CMD",
+      "tsc",
+      "-b"
+    ]
+  },
+  "frontend_lint": {
+    "status": "PASS",
+    "exit_code": 0,
+    "duration_s": 0.9,
+    "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\frontend_lint.log",
+    "argv": [
+      "C:\\Program Files\\nodejs\\npx.CMD",
+      "oxlint"
+    ]
+  },
+  "frontend_vitest": {
+    "status": "PASS",
+    "exit_code": 0,
+    "duration_s": 2.65,
+    "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\frontend_vitest.log",
+    "argv": [
+      "C:\\Program Files\\nodejs\\npx.CMD",
+      "vitest",
+      "run"
+    ]
+  },
+  "frontend_build": {
+    "status": "PASS",
+    "exit_code": 0,
+    "duration_s": 6.8,
+    "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\frontend_build.log",
+    "argv": [
+      "C:\\Program Files\\nodejs\\npm.CMD",
+      "run",
+      "build"
+    ]
+  },
+  "browser_e2e": {
+    "status": "PASS",
+    "executed_tests": 9,
+    "exit_code": 0,
+    "duration_s": 43.24,
+    "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\browser_e2e.log",
+    "argv": [
+      "C:\\Program Files\\nodejs\\npx.CMD",
+      "playwright",
+      "test",
+      "tests/e2e/v14_4_1_sessions_chart.e2e.ts"
+    ]
+  },
+  "benchmark": {
+    "status": "PASS",
+    "exit_code": 0,
+    "duration_s": 9.15,
+    "log": "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\benchmark.log",
+    "argv": [
+      "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+      "D:\\build app-crypto\\aurum-desk\\tools\\run_v14_4_chart_acceptance.py",
+      "--cycles",
+      "600",
+      "--out",
+      "D:\\build app-crypto\\aurum-desk\\logs\\acceptance\\v16_1\\v16_1_acceptance_1792118290\\benchmark.json"
+    ]
+  }
+}

@@ -394,7 +394,11 @@ class ScalpWatcherOrchestrator:
             if d_id not in existing_ids:
                 existing_hyps.append(d_rec)
 
-        if getattr(cfg, "multi_zone_hypotheses_enabled", True):
+        use_multi_zone = bool(
+            getattr(cfg, "v16_profile_enabled", True)
+            and getattr(cfg, "multi_zone_hypotheses_enabled", False)
+        )
+        if use_multi_zone:
             from services.liquidity_scenario_service import build_execution_hypotheses_for_zones
             unfiltered_hyps = build_execution_hypotheses_for_zones(
                 bounded_zones, liq_levels, dealing_range, current_px, regime, t_recv,
@@ -718,30 +722,43 @@ class ScalpWatcherOrchestrator:
                 for h in entry_authorized_hypotheses
             )
 
-            # B. SMC M1 Continuation Model (SECTIONS 080 - 082)
-            if not cycle_authority.has_write_failures and has_valid_zone_authority:
+            # B. SMC M1 Continuation Model (SECTIONS 080 - 082) - DIRECT authority
+            if not cycle_authority.has_write_failures:
                 cand_cont = ScalpM1ModelService.evaluate_m1_continuation_candidate(
                     c_1m, c_5m, q, bias, align, policy_dict, now_ms=t_recv, config=cfg
                 )
                 if cand_cont.is_eligible:
                     candidates.append(cand_cont)
 
-            # B2. SMC M1 FVG Continuation Model (Rules 083 - 085)
-            if getattr(cfg, "fvg_continuation_enabled", True) and not cycle_authority.has_write_failures and has_valid_zone_authority:
+            # B2. SMC M1 FVG Continuation Model (Rules 046 - 060) - DIRECT authority, V16 profile gated
+            if (
+                getattr(cfg, "v16_profile_enabled", True)
+                and getattr(cfg, "fvg_continuation_enabled", True)
+                and not cycle_authority.has_write_failures
+            ):
                 cand_fvg_cont = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
-                    c_1m, c_5m, q, bias, align, policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels
+                    closed_1m=c_1m, closed_5m=c_5m, quote=q, htf_bias=bias, h1_alignment=align,
+                    policy_settings=policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels
                 )
                 if cand_fvg_cont.is_eligible:
                     candidates.append(cand_fvg_cont)
 
-            # B3. SMC M1 Sweep Reclaim Model (Rules 086 - 089)
-            if getattr(cfg, "sweep_reclaim_enabled", True) and not cycle_authority.has_write_failures and has_valid_zone_authority:
-                from services.smc_liquidity_service import build_liquidity_clusters
+            # B3. SMC M1 Sweep Reclaim Model (Rules 061 - 074, 080) - CLUSTER authority, V16 profile gated
+            if (
+                getattr(cfg, "v16_profile_enabled", True)
+                and getattr(cfg, "sweep_reclaim_enabled", True)
+                and not cycle_authority.has_write_failures
+            ):
+                from services.smc_liquidity_service import build_liquidity_clusters, update_cluster_state
                 liq_clusters = build_liquidity_clusters(liq_levels, timeframe="15M", symbol=symbol, now_ms=t_recv)
                 for cluster in liq_clusters:
-                    if getattr(cluster, "state", "") in ("UNSWEPT", "SWEPT"):
+                    # Update cluster state in runtime (Rule 080)
+                    update_cluster_state(cluster, c_1m, now_ms=t_recv)
+                    cycle_authority.cluster_outcomes[cluster.id] = cluster
+                    if getattr(cluster, "state", "") in ("SWEPT", "RECLAIMED"):
                         cand_sr = ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate(
-                            cluster, c_1m, q, policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels
+                            closed_1m=c_1m, cluster=cluster, quote=q, policy_settings=policy_dict,
+                            now_ms=t_recv, config=cfg, context_levels=liq_levels
                         )
                         if cand_sr.is_eligible:
                             candidates.append(cand_sr)
@@ -882,6 +899,15 @@ class ScalpWatcherOrchestrator:
                     "write_status": "FAILED",
                     "message": "Bot tạm dừng chuẩn bị lệnh mới vì chưa lưu được dữ liệu. Các lệnh đã có vẫn được giữ nguyên; hệ thống sẽ đánh giá lại khi kết nối dữ liệu hoạt động.",
                 }
+        try:
+            daily_goal_eval = TradingPolicyService.evaluate_daily_frequency_goal(
+                db, now_ms=t_recv, clock=clock, daily_min_goal=getattr(cfg, "daily_min_goal", 2)
+            )
+            daily_goal_dict = daily_goal_eval.to_dict()
+        except Exception as dg_e:
+            logger.debug(f"Failed to evaluate daily frequency goal: {dg_e}")
+            daily_goal_dict = {}
+
         return {
             "status": cycle_status if commit_ok else "DEGRADED",
             "lifecycle_read_status": batch_result.read_status,
@@ -899,6 +925,7 @@ class ScalpWatcherOrchestrator:
             "issues_count": len(batch_result.issues),
             "liquidity_levels_count": len(liq_levels),
             "market_regime": regime,
+            "daily_goal": daily_goal_dict,
         }
 
     def _finalize_failed_cycle(
@@ -962,6 +989,7 @@ class ScalpWatcherOrchestrator:
             "issues_count": len(getattr(batch_result, "issues", [])),
             "liquidity_levels_count": liq_levels_count,
             "market_regime": regime,
+            "daily_goal": {},
         }
 
     @serialize_entry_mutation
@@ -1035,6 +1063,36 @@ class ScalpWatcherOrchestrator:
                     stop_loss=cand.stop_loss,
                     take_profit=cand.take_profit,
                     net_rr=cand.net_rr,
+                ),
+                now_ms=now_ms,
+            )
+            return None
+
+        # 0b. Atomic Daily Cap & Pending Opening Intent check (Rules 008, 131)
+        audit = crud.get_or_create_today_audit(db, clock=clock)
+        effective_max_cap = int(getattr(cfg, "daily_max_cap", 3) or 3)
+        armed_open_count = db.query(models.PaperOrder).filter(models.PaperOrder.state == "armed").count()
+        if (audit.fills_count + armed_open_count) >= effective_max_cap:
+            logger.info(
+                f"Daily cap reached: fills={audit.fills_count}, armed={armed_open_count}, cap={effective_max_cap}. "
+                f"Refusing to arm candidate {cand.candidate_key}"
+            )
+            OpportunityFunnelService.record_opportunity_transition(
+                db,
+                OpportunityEvaluation(
+                    opportunity_id=f"opp_{cand.candidate_key}",
+                    symbol=cand.symbol,
+                    model_id=cand.model_id,
+                    direction=cand.direction,
+                    zone_id=cand.zone_id,
+                    as_of_ms=now_ms,
+                    stage=OpportunityStage.GUARD_BLOCKED.value,
+                    reason_codes=("DAILY_CAP_REACHED",),
+                    planned_entry=cand.planned_entry,
+                    stop_loss=cand.stop_loss,
+                    take_profit=cand.take_profit,
+                    net_rr=cand.net_rr,
+                    details={"fills_count": audit.fills_count, "armed_count": armed_open_count, "daily_max_cap": effective_max_cap},
                 ),
                 now_ms=now_ms,
             )

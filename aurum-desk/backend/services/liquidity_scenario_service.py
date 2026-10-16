@@ -803,6 +803,7 @@ class LifecycleCycleAuthority:
     """Cycle-level authority summary for hypothesis persistence and entry gating (SECTIONS 043, 044, 126)."""
     write_outcomes: Dict[str, HypothesisWriteOutcome] = field(default_factory=dict)
     zone_outcomes: Dict[str, HypothesisWriteOutcome] = field(default_factory=dict)
+    cluster_outcomes: Dict[str, Any] = field(default_factory=dict)
     entry_authorized_hypotheses: List[Any] = field(default_factory=list)
     has_write_failures: bool = False
     has_write_blocks: bool = False
@@ -836,7 +837,7 @@ def check_candidate_lifecycle_authority(
     authority_context: Optional[Any] = None,
 ) -> Tuple[bool, Optional[str]]:
     """
-    Validates lifecycle authority for a candidate before arming (SECTIONS 088 - 093, V16 Rules 091-092).
+    Validates lifecycle authority for a candidate before arming (SECTIONS 088 - 093, V16 Rules 085-088).
     Returns: (is_allowed, reason_code_if_blocked)
     """
     model_id = getattr(candidate, "model_id", None)
@@ -859,6 +860,32 @@ def check_candidate_lifecycle_authority(
         return False, "HYPOTHESIS_WRITE_FAILED"
 
     if spec.authority_type == "CLUSTER_LIFECYCLE":
+        cluster_id = getattr(candidate, "cluster_id", None)
+        if not cluster_id and getattr(candidate, "evidence", None):
+            for ev in candidate.evidence:
+                if ev.get("kind") == "LIQUIDITY_CLUSTER":
+                    cluster_id = ev.get("extra", {}).get("cluster_id") or ev.get("id", "").replace("ev_cluster_", "")
+                    break
+        if not cluster_id and getattr(candidate, "candidate_key", None):
+            parts = candidate.candidate_key.split("_")
+            if len(parts) >= 4:
+                cluster_id = parts[3]
+
+        cluster_outcomes = getattr(authority_context, "cluster_outcomes", {})
+        if not cluster_outcomes:
+            return False, "CLUSTER_AUTHORITY_MISSING"
+
+        cluster_obj = cluster_outcomes.get(cluster_id)
+        if cluster_obj is None:
+            cluster_obj = next((c for cid, c in cluster_outcomes.items() if cid == cluster_id or getattr(c, "id", "") == cluster_id), None)
+
+        if cluster_obj is None:
+            return False, "CLUSTER_NOT_IN_AUTHORITY"
+
+        c_state = getattr(cluster_obj, "state", "")
+        if c_state not in ("SWEPT", "RECLAIMED"):
+            return False, f"CLUSTER_STATE_UNAUTHORIZED_{c_state}"
+
         return True, None
 
     zone_id = getattr(candidate, "zone_id", None)

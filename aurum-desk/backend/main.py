@@ -3025,24 +3025,7 @@ def get_order_chart_evidence(
 def get_scalp_config_endpoint(db: Session = Depends(get_db)):
     from services.scalp_m1_types import load_effective_scalp_config
     cfg = load_effective_scalp_config(db)
-    return {
-        "status": "SUCCESS",
-        "effective_config": {
-            "scalp_m1_enabled": (cfg.scalp_m1_mode != "OFF"),
-            "scalp_m1_mode": cfg.scalp_m1_mode,
-            "mode": cfg.scalp_m1_mode,
-            "daily_ny_research_enabled": cfg.daily_ny_research_enabled,
-            "min_closed_m1_bars": cfg.min_closed_m1_bars,
-            "displacement_body_atr_min": cfg.displacement_body_atr_min,
-            "min_net_rr": cfg.min_net_rr,
-            "fallback_risk_pct": cfg.fallback_risk_pct,
-            "near_zone_enter_atr": cfg.near_zone_enter_atr,
-            "near_zone_exit_atr": cfg.near_zone_exit_atr,
-            "max_trigger_age_ms": cfg.max_trigger_age_ms,
-            "max_entry_distance_atr": cfg.max_entry_distance_atr,
-            "max_active_zones": cfg.max_active_zones,
-            "config_version": cfg.config_version,
-        },
+    config_data = {
         "scalp_m1_enabled": (cfg.scalp_m1_mode != "OFF"),
         "scalp_m1_mode": cfg.scalp_m1_mode,
         "mode": cfg.scalp_m1_mode,
@@ -3057,6 +3040,19 @@ def get_scalp_config_endpoint(db: Session = Depends(get_db)):
         "max_entry_distance_atr": cfg.max_entry_distance_atr,
         "max_active_zones": cfg.max_active_zones,
         "config_version": cfg.config_version,
+        "v16_profile_enabled": cfg.v16_profile_enabled,
+        "fvg_continuation_enabled": cfg.fvg_continuation_enabled,
+        "sweep_reclaim_enabled": cfg.sweep_reclaim_enabled,
+        "multi_zone_hypotheses_enabled": cfg.multi_zone_hypotheses_enabled,
+        "orderflow_shadow_enabled": cfg.orderflow_shadow_enabled,
+        "daily_min_goal": cfg.daily_min_goal,
+        "daily_max_cap": cfg.daily_max_cap,
+        "daily_ny_goal": cfg.daily_ny_goal,
+    }
+    return {
+        "status": "SUCCESS",
+        "effective_config": config_data,
+        **config_data,
     }
 
 
@@ -3088,24 +3084,32 @@ def update_scalp_config_endpoint(
         else:
             db.add(models.SystemConfig(key="scalp_m1_mode", value=mode_clean, updated_at=now_ms))
 
-    if "daily_ny_research_enabled" in payload:
-        ny_res = payload.get("daily_ny_research_enabled")
-        if isinstance(ny_res, bool):
-            val_bool = ny_res
-        elif isinstance(ny_res, str) and ny_res.strip().lower() in ("true", "false"):
-            val_bool = (ny_res.strip().lower() == "true")
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail="INVALID_BOOLEAN: daily_ny_research_enabled must be a strict boolean (true/false)"
-            )
-        val_str = "true" if val_bool else "false"
-        cfg_ny = db.query(models.SystemConfig).filter(models.SystemConfig.key == "daily_ny_research_enabled").first()
-        if cfg_ny:
-            cfg_ny.value = val_str
-            cfg_ny.updated_at = now_ms
-        else:
-            db.add(models.SystemConfig(key="daily_ny_research_enabled", value=val_str, updated_at=now_ms))
+    for bool_field in (
+        "daily_ny_research_enabled",
+        "v16_profile_enabled",
+        "fvg_continuation_enabled",
+        "sweep_reclaim_enabled",
+        "multi_zone_hypotheses_enabled",
+        "orderflow_shadow_enabled",
+    ):
+        if bool_field in payload:
+            b_val = payload[bool_field]
+            if isinstance(b_val, bool):
+                val_bool = b_val
+            elif isinstance(b_val, str) and b_val.strip().lower() in ("true", "false"):
+                val_bool = (b_val.strip().lower() == "true")
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"INVALID_BOOLEAN: {bool_field} must be a strict boolean (true/false)"
+                )
+            val_str = "true" if val_bool else "false"
+            row = db.query(models.SystemConfig).filter(models.SystemConfig.key == bool_field).first()
+            if row:
+                row.value = val_str
+                row.updated_at = now_ms
+            else:
+                db.add(models.SystemConfig(key=bool_field, value=val_str, updated_at=now_ms))
 
     if "min_net_rr" in payload:
         try:
@@ -3149,6 +3153,35 @@ def update_scalp_config_endpoint(
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="INVALID_VALUE: max_entry_distance_atr must be a positive number")
 
+    # Daily frequency goals validation & persistence (Rules 026, 027, 028)
+    cur_cfg = load_effective_scalp_config(db)
+    has_daily_update = any(k in payload for k in ("daily_min_goal", "daily_max_cap", "daily_ny_goal"))
+    if has_daily_update:
+        try:
+            min_g = int(payload.get("daily_min_goal", cur_cfg.daily_min_goal))
+            max_c = int(payload.get("daily_max_cap", cur_cfg.daily_max_cap))
+            ny_g = int(payload.get("daily_ny_goal", cur_cfg.daily_ny_goal))
+            if not (0 <= min_g <= max_c):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"INVALID_DAILY_GOAL_CONFIG: daily_min_goal ({min_g}) must be between 0 and daily_max_cap ({max_c})"
+                )
+            if not (0 <= ny_g <= max_c):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"INVALID_DAILY_NY_GOAL_CONFIG: daily_ny_goal ({ny_g}) must be between 0 and daily_max_cap ({max_c})"
+                )
+            for d_key, d_val in (("daily_min_goal", min_g), ("daily_max_cap", max_c), ("daily_ny_goal", ny_g)):
+                if d_key in payload:
+                    d_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == d_key).first()
+                    if d_row:
+                        d_row.value = str(d_val)
+                        d_row.updated_at = now_ms
+                    else:
+                        db.add(models.SystemConfig(key=d_key, value=str(d_val), updated_at=now_ms))
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="INVALID_VALUE: daily goal/cap parameters must be integers")
+
     try:
         db.commit()
     except Exception as e:
@@ -3157,22 +3190,61 @@ def update_scalp_config_endpoint(
         raise HTTPException(status_code=500, detail="DATABASE_ERROR: failed to persist config")
 
     effective_cfg = load_effective_scalp_config(db)
+    out_config = {
+        "scalp_m1_enabled": (effective_cfg.scalp_m1_mode != "OFF"),
+        "scalp_m1_mode": effective_cfg.scalp_m1_mode,
+        "mode": effective_cfg.scalp_m1_mode,
+        "daily_ny_research_enabled": effective_cfg.daily_ny_research_enabled,
+        "min_closed_m1_bars": effective_cfg.min_closed_m1_bars,
+        "displacement_body_atr_min": effective_cfg.displacement_body_atr_min,
+        "min_net_rr": effective_cfg.min_net_rr,
+        "fallback_risk_pct": effective_cfg.fallback_risk_pct,
+        "max_trigger_age_ms": effective_cfg.max_trigger_age_ms,
+        "max_entry_distance_atr": effective_cfg.max_entry_distance_atr,
+        "config_version": effective_cfg.config_version,
+        "v16_profile_enabled": effective_cfg.v16_profile_enabled,
+        "fvg_continuation_enabled": effective_cfg.fvg_continuation_enabled,
+        "sweep_reclaim_enabled": effective_cfg.sweep_reclaim_enabled,
+        "multi_zone_hypotheses_enabled": effective_cfg.multi_zone_hypotheses_enabled,
+        "orderflow_shadow_enabled": effective_cfg.orderflow_shadow_enabled,
+        "daily_min_goal": effective_cfg.daily_min_goal,
+        "daily_max_cap": effective_cfg.daily_max_cap,
+        "daily_ny_goal": effective_cfg.daily_ny_goal,
+    }
     return {
         "status": "SUCCESS",
         "updated_at": now_ms,
-        "effective_config": {
-            "scalp_m1_enabled": (effective_cfg.scalp_m1_mode != "OFF"),
-            "scalp_m1_mode": effective_cfg.scalp_m1_mode,
-            "mode": effective_cfg.scalp_m1_mode,
-            "daily_ny_research_enabled": effective_cfg.daily_ny_research_enabled,
-            "min_closed_m1_bars": effective_cfg.min_closed_m1_bars,
-            "displacement_body_atr_min": effective_cfg.displacement_body_atr_min,
-            "min_net_rr": effective_cfg.min_net_rr,
-            "fallback_risk_pct": effective_cfg.fallback_risk_pct,
-            "max_trigger_age_ms": effective_cfg.max_trigger_age_ms,
-            "max_entry_distance_atr": effective_cfg.max_entry_distance_atr,
-            "config_version": effective_cfg.config_version,
-        }
+        "effective_config": out_config,
+    }
+
+
+@app.get("/api/scalp/daily-status")
+@app.get("/api/v1/policy/daily-status")
+def get_scalp_daily_status_endpoint(db: Session = Depends(get_db)):
+    """
+    V16.1 Rule 138: Lightweight daily status API.
+    Returns trading_day_id, fills_count, min_goal, cap, ny_fills, reservation_state, search_state, primary_reason.
+    """
+    from services.scalp_m1_types import load_effective_scalp_config
+    from services.trading_policy_service import TradingPolicyService
+    cfg = load_effective_scalp_config(db)
+    now_ms = int(time.time() * 1000)
+    day_audit = crud.get_or_create_today_audit(db)
+    goal_eval = TradingPolicyService.evaluate_daily_frequency_goal(
+        db, now_ms=now_ms, daily_min_goal=getattr(cfg, "daily_min_goal", 2)
+    )
+    return {
+        "status": "SUCCESS",
+        "trading_day_id": day_audit.date_str,
+        "fills_count": goal_eval.daily_fills,
+        "min_goal": goal_eval.daily_min_goal,
+        "cap": goal_eval.daily_max_cap,
+        "ny_fills": goal_eval.ny_fills,
+        "ny_goal": goal_eval.ny_goal,
+        "reservation_state": "RESERVED" if goal_eval.ny_reserve_active else "NONE",
+        "search_state": goal_eval.status,
+        "primary_reason": goal_eval.reason_vi,
+        "shortfall_breakdown": goal_eval.shortfall_breakdown or {},
     }
 
 

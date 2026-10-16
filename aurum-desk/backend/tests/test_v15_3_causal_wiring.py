@@ -12,6 +12,7 @@ from typing import Any, List
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+import crud
 import models
 from main import app
 from services.liquidity_scenario_service import (
@@ -350,7 +351,7 @@ def test_v15_3_zone_rank_never_bypasses_guards(isolated_db: Session):
     _setup_positive_trading_policy(isolated_db)
     # Seed 3 fills today
     audit = models.DayAudit(
-        date_str="2026-10-15",
+        date_str=crud.get_today_str_vn(),
         fills_count=3,
         initial_equity=1000.0,
         current_equity=1000.0,

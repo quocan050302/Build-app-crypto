@@ -250,6 +250,13 @@ class ScalpCandidate:
     as_of_ms: int = 0
     zone_id: Optional[str] = None
     hypothesis_id: Optional[str] = None
+    model_version: str = "v16.1"
+    evidence_ids: Tuple[str, ...] = ()
+    origin_episode_id: Optional[str] = None
+    valid_until_ms: Optional[int] = None
+    execution_state: str = "PENDING"
+    rejection_reasons: List[str] = field(default_factory=list)
+    cluster_id: Optional[str] = None
 
 
 def candle_open_ms(bar: Any) -> Optional[int]:
@@ -327,6 +334,428 @@ def qualify_selected_break(
         )
 
     return True, body, prefix_atr, known_at_ms, ""
+
+
+def validate_evidence_timeline(evidence_nodes: Sequence[Dict[str, Any]], now_ms: int) -> Tuple[bool, List[str]]:
+    """
+    V16.1 Rule 039: Causal evidence timeline validation:
+    occurred_at_ms <= known_at_ms <= now_ms for every evidence node.
+    """
+    issues: List[str] = []
+    for ev in evidence_nodes:
+        ev_id = ev.get("id", "unknown_node")
+        occ = ev.get("occurred_at_ms")
+        kn = ev.get("known_at_ms")
+        if occ is None or kn is None:
+            issues.append(f"{ev_id}: missing occurred_at_ms or known_at_ms")
+            continue
+        if occ <= 0 or kn <= 0:
+            issues.append(f"{ev_id}: non-positive timestamp (occ={occ}, kn={kn})")
+            continue
+        if occ > kn:
+            issues.append(f"{ev_id}: occurred_at_ms ({occ}) > known_at_ms ({kn})")
+        if kn > now_ms:
+            issues.append(f"{ev_id}: known_at_ms ({kn}) > now_ms ({now_ms}) (future leak)")
+    return (len(issues) == 0, issues)
+
+
+def resolve_confirmed_structure_reference(
+    closed_1m: Sequence[Any],
+    direction: str,
+    as_of_ms: int,
+    left_bars: int = 2,
+    right_bars: int = 2,
+) -> Optional[Dict[str, Any]]:
+    """
+    V16.1 Rule 048: Resolves causal confirmed swing reference known_at_ms <= as_of_ms.
+    For LONG: confirmed swing high before break.
+    For SHORT: confirmed swing low before break.
+    Does NOT use future candles or lookahead.
+    """
+    if not closed_1m or len(closed_1m) < (left_bars + 1):
+        return None
+
+    bars = list(closed_1m)
+
+    # Tier 1: Search for a confirmed swing pivot that actually has a confirmed continuation break
+    for r in range(right_bars, -1, -1):
+        candidate_pivots: List[Dict[str, Any]] = []
+        for i in range(left_bars, len(bars) - max(1, r)):
+            b = bars[i]
+            b_open = candle_open_ms(b) or 0
+            b_known = b_open + (r + 1) * 60_000
+            if b_known > as_of_ms:
+                continue
+
+            if direction == "LONG":
+                h = float(b.high)
+                is_pivot = all(float(bars[j].high) <= h for j in range(i - left_bars, i + r + 1))
+                if is_pivot:
+                    candidate_pivots.append({
+                        "id": f"m1_sh_{b_open}",
+                        "price": h,
+                        "occurred_at_ms": b_open,
+                        "known_at_ms": b_known,
+                        "side": "BUY_SIDE",
+                    })
+            else:
+                l = float(b.low)
+                is_pivot = all(float(bars[j].low) >= l for j in range(i - left_bars, i + r + 1))
+                if is_pivot:
+                    candidate_pivots.append({
+                        "id": f"m1_sl_{b_open}",
+                        "price": l,
+                        "occurred_at_ms": b_open,
+                        "known_at_ms": b_known,
+                        "side": "SELL_SIDE",
+                    })
+
+        broken_candidates = []
+        for p in reversed(candidate_pivots):
+            brk = detect_confirmed_continuation_break(bars, p, direction, as_of_ms=as_of_ms)
+            if brk is not None:
+                broken_candidates.append((p, brk))
+
+        if broken_candidates:
+            best_p, _ = max(broken_candidates, key=lambda pair: pair[1]["broken_at_ms"])
+            return best_p
+
+    # Tier 2: Fallback to the latest pivot known at as_of_ms for observation/waiting
+    for i in range(left_bars, len(bars) - max(1, right_bars)):
+        b = bars[i]
+        b_open = candle_open_ms(b) or 0
+        b_known = b_open + (right_bars + 1) * 60_000
+        if b_known > as_of_ms:
+            continue
+
+        if direction == "LONG":
+            h = float(b.high)
+            if all(float(bars[j].high) <= h for j in range(i - left_bars, i + right_bars + 1)):
+                return {
+                    "id": f"m1_sh_{b_open}",
+                    "price": h,
+                    "occurred_at_ms": b_open,
+                    "known_at_ms": b_known,
+                    "side": "BUY_SIDE",
+                }
+        else:
+            l = float(b.low)
+            if all(float(bars[j].low) >= l for j in range(i - left_bars, i + right_bars + 1)):
+                return {
+                    "id": f"m1_sl_{b_open}",
+                    "price": l,
+                    "occurred_at_ms": b_open,
+                    "known_at_ms": b_known,
+                    "side": "SELL_SIDE",
+                }
+
+    return None
+
+
+def detect_confirmed_continuation_break(
+    closed_1m: Sequence[Any],
+    swing_ref: Dict[str, Any],
+    direction: str,
+    as_of_ms: int,
+    tick_size: float = 0.01,
+) -> Optional[Dict[str, Any]]:
+    """
+    V16.1 Rule 049: Detects closed candle breaking the reference structure level.
+    LONG: closed candle > swing_ref.price
+    SHORT: closed candle < swing_ref.price
+    Only considers bars where closed_at <= as_of_ms and known_at >= swing_ref.known_at.
+    """
+    ref_px = float(swing_ref["price"])
+    ref_known = int(swing_ref.get("known_at_ms", 0) or 0)
+
+    for b in closed_1m:
+        b_open = candle_open_ms(b) or 0
+        b_close_ms = b_open + 60_000
+        if b_close_ms > as_of_ms or b_open < ref_known - 60_000:
+            continue
+
+        b_close = float(b.close)
+        if direction == "LONG":
+            if b_close > ref_px:
+                return {
+                    "bar": b,
+                    "break_price": b_close,
+                    "broken_at_ms": b_open,
+                    "known_at_ms": b_close_ms,
+                    "swing_ref_id": swing_ref.get("id"),
+                    "swing_ref_price": ref_px,
+                    "excess": round(b_close - ref_px, 2),
+                }
+        else:
+            if b_close < ref_px:
+                return {
+                    "bar": b,
+                    "break_price": b_close,
+                    "broken_at_ms": b_open,
+                    "known_at_ms": b_close_ms,
+                    "swing_ref_id": swing_ref.get("id"),
+                    "swing_ref_price": ref_px,
+                    "excess": round(ref_px - b_close, 2),
+                }
+
+    return None
+
+
+def evaluate_displacement(
+    breaking_bar: Any,
+    atr_1m: float,
+    min_body_atr: float = 0.70,
+    direction: str = "LONG",
+) -> Tuple[bool, float, Dict[str, Any]]:
+    """
+    V16.1 Rules 050-051: Evaluates candle displacement magnitude relative to causal prefix ATR.
+    Checks body >= min_body_atr * ATR and candle close conviction.
+    """
+    body = abs(float(breaking_bar.close) - float(breaking_bar.open))
+    atr = max(0.01, float(atr_1m))
+    ratio = round(body / atr, 4)
+
+    high = float(breaking_bar.high)
+    low = float(breaking_bar.low)
+    rng = max(0.01, high - low)
+
+    if direction == "LONG":
+        conviction = (float(breaking_bar.close) - low) / rng >= 0.40
+    else:
+        conviction = (high - float(breaking_bar.close)) / rng >= 0.40
+
+    is_qualified = bool(ratio >= min_body_atr and conviction)
+    details = {
+        "body": round(body, 2),
+        "atr": round(atr, 2),
+        "ratio": ratio,
+        "min_ratio": min_body_atr,
+        "conviction": conviction,
+        "is_qualified": is_qualified,
+    }
+    return is_qualified, ratio, details
+
+
+def detect_cluster_sweep_event(
+    closed_1m: Sequence[Any],
+    cluster: Any,
+    direction: str,
+) -> Optional[Dict[str, Any]]:
+    """
+    V16.1 Rule 065: Specific cluster sweep detector.
+    LONG: Low pierces below cluster.bottom.
+    SHORT: High pierces above cluster.top.
+    Filters candles to those known after cluster.known_at_ms.
+    """
+    c_known = int(getattr(cluster, "known_at_ms", 0) or 0)
+    c_bot = float(cluster.bottom)
+    c_top = float(cluster.top)
+
+    swept_bar = None
+    swept_extreme = None
+    swept_at_ms = None
+
+    for b in closed_1m:
+        b_open = candle_open_ms(b) or 0
+        if b_open < c_known - 60_000:
+            continue
+
+        if direction == "LONG":
+            if float(b.low) < c_bot:
+                if swept_extreme is None or float(b.low) < swept_extreme:
+                    swept_extreme = float(b.low)
+                    swept_bar = b
+                    swept_at_ms = b_open
+        else:
+            if float(b.high) > c_top:
+                if swept_extreme is None or float(b.high) > swept_extreme:
+                    swept_extreme = float(b.high)
+                    swept_bar = b
+                    swept_at_ms = b_open
+
+    if swept_bar is not None and swept_extreme is not None:
+        return {
+            "bar": swept_bar,
+            "swept_extreme": swept_extreme,
+            "swept_at_ms": swept_at_ms,
+            "cluster_id": getattr(cluster, "id", ""),
+            "direction": direction,
+            "cluster_bot": c_bot,
+            "cluster_top": c_top,
+        }
+    return None
+
+
+def detect_cluster_reclaim_event(
+    closed_1m: Sequence[Any],
+    cluster: Any,
+    sweep_event: Dict[str, Any],
+    direction: str,
+) -> Optional[Dict[str, Any]]:
+    """
+    V16.1 Rule 066: Specific cluster reclaim detector.
+    LONG: Closed candle >= cluster.bottom after sweep.
+    SHORT: Closed candle <= cluster.top after sweep.
+    """
+    c_bot = float(cluster.bottom)
+    c_top = float(cluster.top)
+    swept_time = int(sweep_event["swept_at_ms"])
+
+    for b in closed_1m:
+        b_open = candle_open_ms(b) or 0
+        if b_open < swept_time:
+            continue
+
+        b_close = float(b.close)
+        if direction == "LONG":
+            if b_close >= c_bot:
+                return {
+                    "bar": b,
+                    "reclaimed_at_ms": b_open,
+                    "reclaim_price": b_close,
+                    "direction": direction,
+                }
+        else:
+            if b_close <= c_top:
+                return {
+                    "bar": b,
+                    "reclaimed_at_ms": b_open,
+                    "reclaim_price": b_close,
+                    "direction": direction,
+                }
+    return None
+
+
+def detect_post_reclaim_micro_break(
+    closed_1m: Sequence[Any],
+    sweep_event: Dict[str, Any],
+    reclaim_event: Dict[str, Any],
+    direction: str,
+    as_of_ms: int,
+) -> Optional[Dict[str, Any]]:
+    """
+    V16.1 Rules 067-068: Mandatory micro-break following sweep and reclaim.
+    LONG: Closed candle breaks above micro swing high formed before/during sweep-reclaim.
+    SHORT: Closed candle breaks below micro swing low formed before/during sweep-reclaim.
+    """
+    swept_time = int(sweep_event["swept_at_ms"])
+    reclaim_time = int(reclaim_event["reclaimed_at_ms"])
+
+    bars = list(closed_1m)
+    sweep_idx = None
+    for idx, b in enumerate(bars):
+        if (candle_open_ms(b) or 0) == swept_time:
+            sweep_idx = idx
+            break
+
+    if sweep_idx is None:
+        sweep_idx = max(0, len(bars) - 4)
+
+    pre_sweep_bars = bars[max(0, sweep_idx - 3): sweep_idx + 1]
+    if not pre_sweep_bars:
+        pre_sweep_bars = [sweep_event["bar"]]
+
+    sweep_bar = sweep_event["bar"]
+
+    if direction == "LONG":
+        micro_ref_price = max(float(b.high) for b in pre_sweep_bars)
+        # 1. Structural break past pre-sweep high
+        for b in bars:
+            b_open = candle_open_ms(b) or 0
+            if b_open < reclaim_time or b_open + 60_000 > as_of_ms:
+                continue
+            if float(b.close) > micro_ref_price:
+                return {
+                    "bar": b,
+                    "broken_at_ms": b_open,
+                    "break_price": float(b.close),
+                    "micro_swing_price": micro_ref_price,
+                    "direction": direction,
+                }
+        # 2. Inside-bar / sweep candle reclaim break
+        alt_micro_level = max(float(sweep_bar.open), float(sweep_bar.close))
+        for b in bars:
+            b_open = candle_open_ms(b) or 0
+            if b_open < reclaim_time or b_open + 60_000 > as_of_ms:
+                continue
+            if float(b.close) > alt_micro_level:
+                return {
+                    "bar": b,
+                    "broken_at_ms": b_open,
+                    "break_price": float(b.close),
+                    "micro_swing_price": alt_micro_level,
+                    "direction": direction,
+                }
+        # 3. If reclaim bar closed decisively above cluster.bottom and reached top of sweep candle
+        c_bot = float(sweep_event.get("cluster_bot", 0.0))
+        reclaim_bar = reclaim_event["bar"]
+        if float(reclaim_bar.close) >= c_bot and float(reclaim_bar.close) > float(sweep_bar.close):
+            return {
+                "bar": reclaim_bar,
+                "broken_at_ms": reclaim_time,
+                "break_price": float(reclaim_bar.close),
+                "micro_swing_price": float(sweep_bar.close),
+                "direction": direction,
+            }
+    else:
+        micro_ref_price = min(float(b.low) for b in pre_sweep_bars)
+        for b in bars:
+            b_open = candle_open_ms(b) or 0
+            if b_open < reclaim_time or b_open + 60_000 > as_of_ms:
+                continue
+            if float(b.close) < micro_ref_price:
+                return {
+                    "bar": b,
+                    "broken_at_ms": b_open,
+                    "break_price": float(b.close),
+                    "micro_swing_price": micro_ref_price,
+                    "direction": direction,
+                }
+        alt_micro_level = min(float(sweep_bar.open), float(sweep_bar.close))
+        for b in bars:
+            b_open = candle_open_ms(b) or 0
+            if b_open < reclaim_time or b_open + 60_000 > as_of_ms:
+                continue
+            if float(b.close) < alt_micro_level:
+                return {
+                    "bar": b,
+                    "broken_at_ms": b_open,
+                    "break_price": float(b.close),
+                    "micro_swing_price": alt_micro_level,
+                    "direction": direction,
+                }
+        c_top = float(sweep_event.get("cluster_top", float("inf")))
+        reclaim_bar = reclaim_event["bar"]
+        if float(reclaim_bar.close) <= c_top and float(reclaim_bar.close) < float(sweep_bar.close):
+            return {
+                "bar": reclaim_bar,
+                "broken_at_ms": reclaim_time,
+                "break_price": float(reclaim_bar.close),
+                "micro_swing_price": float(sweep_bar.close),
+                "direction": direction,
+            }
+
+    return None
+
+
+def make_sweep_episode_id(
+    cluster_id: str,
+    direction: str,
+    swept_extreme: float,
+    swept_bar_time: int,
+) -> str:
+    """V16.1 Rule 072: Stable episode ID tied to cluster, direction, and root sweep event."""
+    return f"ep_sr_{cluster_id}_{direction}_{int(swept_extreme * 100)}_{swept_bar_time}"
+
+
+def candidate_execution_fingerprint(cand: ScalpCandidate) -> str:
+    """V16.1 Rule 112: Meaning-based candidate execution fingerprint for idempotency."""
+    sym = getattr(cand, "symbol", "XAUUSDT") or "XAUUSDT"
+    direction = getattr(cand, "direction", "LONG") or "LONG"
+    mid = getattr(cand, "model_id", "UNKNOWN") or "UNKNOWN"
+    ep = getattr(cand, "origin_episode_id", "") or getattr(cand, "zone_id", "") or getattr(cand, "candidate_key", "")
+    px = round(float(getattr(cand, "planned_entry", 0.0) or 0.0), 1)
+    return f"fp_{sym}_{direction}_{mid}_{ep}_{px}"
 
 
 class ScalpM1ModelService:
@@ -1214,10 +1643,11 @@ class ScalpM1ModelService:
         context_levels: Optional[Sequence[Any]] = None,
     ) -> ScalpCandidate:
         """
-        V16 SMC M1 FVG Continuation Model (Rules 083 - 085).
-        Evaluates trend-aligned break with real FVG formation and closed retest.
+        V16.1 SMC M1 FVG Continuation Model (Rules 046 - 060).
+        Evaluates trend-aligned confirmed break of structural reference,
+        causal displacement leg, real FVG binding, and closed retest.
         """
-        cfg = config or active_scalp_config
+        cfg = config if config is not None else get_scalp_config()
         model_id = ModelIdentifier.SMC_M1_FVG_CONTINUATION.value
 
         if not getattr(cfg, "fvg_continuation_enabled", True):
@@ -1230,7 +1660,15 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms,
             )
 
-        # 1. Trend alignment
+        # 1. Trend alignment & Conflict handling (Rule 047)
+        if (htf_bias == "BULLISH" and h1_alignment == "BEARISH") or (htf_bias == "BEARISH" and h1_alignment == "BULLISH"):
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, candidate_key=f"{model_id}_{now_ms}",
+                reason_code="HTF_H1_CONFLICT",
+                missing_conditions=["Xung đột xu hướng giữa khung thời gian lớn HTF và H1"],
+                as_of_ms=now_ms,
+            )
+
         if htf_bias == "BULLISH" or (htf_bias == "UNKNOWN" and h1_alignment == "BULLISH"):
             direction = "LONG"
         elif htf_bias == "BEARISH" or (htf_bias == "UNKNOWN" and h1_alignment == "BEARISH"):
@@ -1245,7 +1683,7 @@ class ScalpM1ModelService:
 
         fallback_key = f"{model_id}_{direction}_{now_ms}"
 
-        # 2. Quote sanity
+        # 2. Quote sanity (Rule 036)
         if quote is None:
             return ScalpCandidate(is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key, reason_code="QUOTE_UNAVAILABLE", as_of_ms=now_ms)
 
@@ -1257,37 +1695,90 @@ class ScalpM1ModelService:
         exec_price = ask if direction == "LONG" else bid
         atr_1m = smc_engine.compute_atr(closed_1m, period=cfg.displacement_atr_period) or 1.0
 
-        # 3. Detect recent real FVGs on 1M
+        # 3. Confirmed structure reference (Rule 048)
+        swing_ref = resolve_confirmed_structure_reference(
+            closed_1m, direction, as_of_ms=now_ms,
+            left_bars=cfg.pivot_left_bars, right_bars=cfg.pivot_right_bars,
+        )
+        if swing_ref is None:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
+                reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
+                missing_conditions=["Chưa xác định được đỉnh/đáy cấu trúc M1 tham chiếu"],
+                as_of_ms=now_ms,
+            )
+
+        # 4. Confirmed continuation break (Rule 049)
+        break_res = detect_confirmed_continuation_break(closed_1m, swing_ref, direction, as_of_ms=now_ms, tick_size=cfg.tick_size)
+        if break_res is None:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
+                reason_code="M1_BREAK_MISSING",
+                missing_conditions=["Chưa có nến M1 đóng phá vỡ đỉnh/đáy cấu trúc tham chiếu (Break/BOS)"],
+                as_of_ms=now_ms,
+            )
+
+        # 5. Causal displacement evaluation (Rules 050-051)
+        is_disp, disp_ratio, disp_info = evaluate_displacement(
+            break_res["bar"], atr_1m, min_body_atr=cfg.displacement_body_atr_min, direction=direction,
+        )
+        if not is_disp:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
+                reason_code="DISPLACEMENT_WEAK",
+                missing_conditions=[f"Nến phá vỡ không đủ biên độ displacement ({disp_ratio:.2f} < {cfg.displacement_body_atr_min:.2f} ATR)"],
+                as_of_ms=now_ms,
+            )
+
+        # 6. Detect real FVGs tied to the break/displacement leg (Rules 052-053)
         raw_fvgs = smc_engine.detect_fvgs(list(closed_1m), timeframe="1M")
         target_fvg_type = "BULLISH_FVG" if direction == "LONG" else "BEARISH_FVG"
         matching_fvgs = [
             f for f in raw_fvgs
-            if f.get("type") == target_fvg_type and f.get("state") in ("confirmed", "partially_mitigated")
+            if f.get("type") == target_fvg_type
+            and f.get("state") in ("confirmed", "partially_mitigated")
+            and float(f.get("bottom", 0.0)) < float(f.get("top", 0.0))
+            and int(f.get("confirmed_at") or f.get("timestamp") or 0) >= break_res["broken_at_ms"] - 60_000
         ]
 
         if not matching_fvgs:
             return ScalpCandidate(
                 is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                 reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
-                missing_conditions=["Chưa phát hiện FVG M1 hợp lệ cùng chiều xu hướng"],
+                missing_conditions=["Chưa phát hiện FVG M1 hợp lệ gắn liền với nhịp phá vỡ cấu trúc"],
                 as_of_ms=now_ms,
             )
 
         # Select closest FVG to current execution price
-        selected_fvg = min(matching_fvgs, key=lambda f: abs(exec_price - ((f["top"] + f["bottom"]) / 2.0)))
+        selected_fvg = min(matching_fvgs, key=lambda f: abs(exec_price - ((float(f["top"]) + float(f["bottom"])) / 2.0)))
         fvg_top = float(selected_fvg["top"])
         fvg_bot = float(selected_fvg["bottom"])
         fvg_mid = round((fvg_top + fvg_bot) / 2.0, 2)
         fvg_created_ms = int(selected_fvg.get("confirmed_at") or selected_fvg.get("timestamp") or 0)
         fvg_id = selected_fvg.get("id", f"fvg_cont_{int(fvg_bot)}_{int(fvg_top)}")
 
-        # 4. Check for retest into FVG
-        post_fvg_bars = [
-            b for b in closed_1m
-            if (candle_open_ms(b) or 0) >= fvg_created_ms
-        ]
+        # 7. Check FVG invalidation (Rule 057)
+        post_creation_bars = [b for b in closed_1m if (candle_open_ms(b) or 0) >= fvg_created_ms]
+        if direction == "LONG":
+            if any(float(b.close) < fvg_bot for b in post_creation_bars):
+                return ScalpCandidate(
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
+                    reason_code="FVG_INVALIDATED",
+                    missing_conditions=["Vùng FVG tiếp diễn đã bị nến đóng xuyên qua mức vô hiệu"],
+                    as_of_ms=now_ms,
+                )
+        else:
+            if any(float(b.close) > fvg_top for b in post_creation_bars):
+                return ScalpCandidate(
+                    is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
+                    reason_code="FVG_INVALIDATED",
+                    missing_conditions=["Vùng FVG tiếp diễn đã bị nến đóng xuyên qua mức vô hiệu"],
+                    as_of_ms=now_ms,
+                )
+
+        # 8. Check for closed retest into FVG (Rules 054-055)
         retest_bars = [
-            b for b in post_fvg_bars
+            b for b in post_creation_bars
             if candle_intersects_price_zone(b, fvg_bot, fvg_top)
         ]
         if not retest_bars:
@@ -1302,6 +1793,15 @@ class ScalpM1ModelService:
         retest_open_ms = candle_open_ms(first_retest_bar) or 0
         trigger_known_at = retest_open_ms + 60_000
         trigger_age_ms = now_ms - trigger_known_at
+
+        # Rule 056: Future candle check & trigger staleness
+        if trigger_age_ms < 0:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction,
+                reason_code="FUTURE_TRIGGER",
+                missing_conditions=["Tín hiệu retest thuộc nến chưa hoàn tất tại thời điểm now_ms"],
+                as_of_ms=now_ms,
+            )
         if trigger_age_ms > cfg.max_trigger_age_ms:
             return ScalpCandidate(
                 is_eligible=False, model_id=model_id, direction=direction,
@@ -1310,7 +1810,7 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms,
             )
 
-        # 5. Pricing geometry & Target
+        # 9. Pricing geometry & Target (Rules 058-059, 147-148)
         entry_price = round(exec_price, 2)
         if direction == "LONG":
             sl_price = round(fvg_bot - (cfg.sl_buffer_ticks * cfg.tick_size), 2)
@@ -1327,6 +1827,20 @@ class ScalpM1ModelService:
             )
         target_price = target_dec.price
 
+        # Directional target check
+        if direction == "LONG" and target_price <= entry_price:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction,
+                reason_code="INVALID_GEOMETRY", missing_conditions=["Mục tiêu thanh khoản phải lớn hơn giá vào cho lệnh LONG"],
+                as_of_ms=now_ms,
+            )
+        if direction == "SHORT" and target_price >= entry_price:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction,
+                reason_code="INVALID_GEOMETRY", missing_conditions=["Mục tiêu thanh khoản phải nhỏ hơn giá vào cho lệnh SHORT"],
+                as_of_ms=now_ms,
+            )
+
         is_geom, geom_err = validate_price_geometry(direction, entry_price, sl_price, target_price)
         if not is_geom:
             return ScalpCandidate(
@@ -1335,7 +1849,7 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms,
             )
 
-        # 6. Net RR calculation
+        # 10. Net RR calculation
         capital = float(policy_settings.get("capital_usdt", 1000.0))
         risk_pct = float(policy_settings.get("risk_pct", cfg.fallback_risk_pct))
         lev = int(policy_settings.get("leverage", 50))
@@ -1374,18 +1888,49 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms,
             )
 
+        # 11. Full causal evidence chain (Rule 060)
         ev_nodes = [
+            EvidenceNode(
+                id=f"ev_context_{direction}_{now_ms}",
+                kind="CONTEXT", symbol="XAUUSDT", timeframe="1H", direction=direction,
+                occurred_at_ms=now_ms - 3600_000, known_at_ms=now_ms,
+                level=entry_price, extra={"htf_bias": htf_bias, "h1_alignment": h1_alignment}
+            ).to_dict(),
+            EvidenceNode(
+                id=f"ev_struct_{swing_ref.get('id', 'ref')}",
+                kind="STRUCTURE_REFERENCE", symbol="XAUUSDT", timeframe="1M", direction=direction,
+                occurred_at_ms=swing_ref["occurred_at_ms"], known_at_ms=swing_ref["known_at_ms"],
+                level=swing_ref["price"], extra={"swing_side": swing_ref.get("side")}
+            ).to_dict(),
+            EvidenceNode(
+                id=f"ev_break_{break_res['broken_at_ms']}",
+                kind="BREAK", symbol="XAUUSDT", timeframe="1M", direction=direction,
+                occurred_at_ms=break_res["broken_at_ms"], known_at_ms=break_res["known_at_ms"],
+                level=break_res["break_price"], extra={"excess": break_res["excess"]}
+            ).to_dict(),
+            EvidenceNode(
+                id=f"ev_disp_{break_res['broken_at_ms']}",
+                kind="DISPLACEMENT", symbol="XAUUSDT", timeframe="1M", direction=direction,
+                occurred_at_ms=break_res["broken_at_ms"], known_at_ms=break_res["known_at_ms"],
+                level=break_res["break_price"], extra=disp_info
+            ).to_dict(),
             EvidenceNode(
                 id=f"ev_fvg_{fvg_id}",
                 kind="FVG", symbol="XAUUSDT", timeframe="1M", direction=direction,
                 occurred_at_ms=fvg_created_ms, known_at_ms=fvg_created_ms + 60_000,
-                level=fvg_mid, extra={"fvg_top": fvg_top, "fvg_bottom": fvg_bot}
+                level=fvg_mid, extra={"fvg_top": fvg_top, "fvg_bottom": fvg_bot, "displacement_leg_ms": break_res["broken_at_ms"]}
             ).to_dict(),
             EvidenceNode(
                 id=f"ev_retest_{retest_open_ms}",
                 kind="RETEST", symbol="XAUUSDT", timeframe="1M", direction=direction,
                 occurred_at_ms=retest_open_ms, known_at_ms=trigger_known_at,
                 level=entry_price, extra={"retest_candle_open_ms": retest_open_ms}
+            ).to_dict(),
+            EvidenceNode(
+                id=f"ev_inval_{sl_price:.2f}",
+                kind="INVALIDATION", symbol="XAUUSDT", timeframe="1M", direction=direction,
+                occurred_at_ms=fvg_created_ms, known_at_ms=fvg_created_ms + 60_000,
+                level=sl_price, extra={"buffer_ticks": cfg.sl_buffer_ticks}
             ).to_dict(),
             EvidenceNode(
                 id=f"ev_target_{target_dec.source_level_id}",
@@ -1395,9 +1940,10 @@ class ScalpM1ModelService:
             ).to_dict(),
         ]
 
+        tl_ok, tl_issues = validate_evidence_timeline(ev_nodes, now_ms)
         trigger_chain = {
-            "verified": True,
-            "reasons": (),
+            "verified": tl_ok,
+            "reasons": tuple(tl_issues),
             "node_ids": [n["id"] for n in ev_nodes],
             "model_id": model_id,
             "trigger_known_at": trigger_known_at,
@@ -1422,7 +1968,7 @@ class ScalpM1ModelService:
             invalidation={"price": sl_price},
             summary_vi=f"SMC M1 FVG Continuation {direction} [{fvg_bot:.2f} - {fvg_top:.2f}]",
             config_version=cfg.config_version,
-            detector_version="v16.0",
+            detector_version="v16.1",
             plan={
                 "is_valid": True,
                 "entry": entry_price,
@@ -1450,46 +1996,96 @@ class ScalpM1ModelService:
             trigger_chain=trigger_chain,
             snapshot=snap,
             as_of_ms=now_ms,
+            origin_episode_id=f"ep_fvg_{direction}_{fvg_id}_{retest_open_ms}",
+            evidence_ids=tuple(n["id"] for n in ev_nodes),
+            valid_until_ms=now_ms + cfg.max_trigger_age_ms,
+            model_version="v16.1",
         )
 
     @staticmethod
     def evaluate_m1_sweep_reclaim_candidate(
-        closed_1m: Sequence[Any],
-        cluster: Any,
-        quote: Any,
-        policy_settings: Dict[str, Any],
-        now_ms: int,
+        closed_1m: Sequence[Any] = (),
+        cluster: Any = None,
+        quote: Any = None,
+        policy_settings: Optional[Dict[str, Any]] = None,
+        now_ms: int = 0,
         config: Optional[M1ScalpConfig] = None,
         context_levels: Optional[Sequence[Any]] = None,
+        **kwargs: Any,
     ) -> ScalpCandidate:
         """
-        V16 SMC M1 Sweep & Reclaim Model (Rules 086 - 088).
-        Triggers on confirmed sweep of a liquidity cluster with closed reclaim.
+        V16.1 SMC M1 Sweep & Reclaim Model (Rules 061 - 074).
+        Triggers on confirmed sweep of a liquidity cluster, closed reclaim,
+        and mandatory micro-structure break.
         Does NOT require or fabricate an OB or FVG.
         """
-        cfg = config or active_scalp_config
-        model_id = ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value
-
         if not isinstance(closed_1m, (list, tuple)) and isinstance(cluster, (list, tuple)):
             closed_1m, cluster = cluster, closed_1m
+
+        cfg = config if config is not None else get_scalp_config()
+        model_id = ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value
+        policy_dict = policy_settings or {}
 
         fallback_key = f"{model_id}_{getattr(cluster, 'id', 'cid')}_{now_ms}"
 
         if not getattr(cfg, "sweep_reclaim_enabled", True):
             return ScalpCandidate(is_eligible=False, model_id=model_id, candidate_key=fallback_key, reason_code="MODEL_DISABLED", as_of_ms=now_ms)
 
-        if cluster is None or getattr(cluster, "state", "") in ("INVALIDATED", "CONSUMED"):
+        # 1. Cluster validation (Rule 062)
+        if cluster is None:
             return ScalpCandidate(is_eligible=False, model_id=model_id, candidate_key=fallback_key, reason_code="CLUSTER_INVALID", as_of_ms=now_ms)
 
-        # Direction: sweep of SELL_SIDE (lows) -> LONG reclaim; sweep of BUY_SIDE (highs) -> SHORT reclaim
         c_side = getattr(cluster, "side", "")
+        if c_side not in ("BUY_SIDE", "SELL_SIDE"):
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, candidate_key=fallback_key,
+                reason_code="CLUSTER_INVALID",
+                missing_conditions=["Phía thanh khoản cluster không hợp lệ (phải là BUY_SIDE hoặc SELL_SIDE)"],
+                as_of_ms=now_ms,
+            )
+
+        c_state = getattr(cluster, "state", "")
+        if c_state == "ACCEPTED_BEYOND":
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, candidate_key=fallback_key,
+                reason_code="ACCEPTED_BEYOND",
+                missing_conditions=["Cụm thanh khoản đã bị thị trường chấp nhận phía ngoài (ACCEPTED_BEYOND), không đủ điều kiện đảo chiều"],
+                as_of_ms=now_ms,
+            )
+        if c_state in ("INVALIDATED", "CONSUMED"):
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, candidate_key=fallback_key,
+                reason_code="CLUSTER_INVALID",
+                missing_conditions=[f"Cụm thanh khoản ở trạng thái {c_state}"],
+                as_of_ms=now_ms,
+            )
+
+        try:
+            c_bot = float(cluster.bottom)
+            c_top = float(cluster.top)
+        except (ValueError, TypeError, AttributeError):
+            return ScalpCandidate(is_eligible=False, model_id=model_id, candidate_key=fallback_key, reason_code="CLUSTER_INVALID", as_of_ms=now_ms)
+
+        if not (math.isfinite(c_bot) and math.isfinite(c_top)) or c_bot >= c_top:
+            return ScalpCandidate(is_eligible=False, model_id=model_id, candidate_key=fallback_key, reason_code="CLUSTER_INVALID", as_of_ms=now_ms)
+
+        cluster_known_at = int(getattr(cluster, "known_at_ms", 0) or 0)
+        if cluster_known_at > now_ms:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, candidate_key=fallback_key,
+                reason_code="FUTURE_CLUSTER",
+                missing_conditions=["Cụm thanh khoản có thời điểm xác nhận lớn hơn now_ms"],
+                as_of_ms=now_ms,
+            )
+
+        # 2. Direction: sweep of SELL_SIDE (lows) -> LONG; sweep of BUY_SIDE (highs) -> SHORT (Rule 063)
         direction = "LONG" if c_side == "SELL_SIDE" else "SHORT"
         cand_key = f"sweep_rec_{direction}_{getattr(cluster, 'id', 'cid')}_{now_ms}"
 
         if len(closed_1m) < 5:
             return ScalpCandidate(is_eligible=False, model_id=model_id, direction=direction, candidate_key=cand_key, reason_code="DATA_INCOMPLETE", as_of_ms=now_ms)
 
-        # Quote sanity
+        # 3. Quote sanity (Rule 036)
         if quote is None:
             return ScalpCandidate(is_eligible=False, model_id=model_id, direction=direction, candidate_key=cand_key, reason_code="QUOTE_UNAVAILABLE", as_of_ms=now_ms)
         bid = float(getattr(quote, "bid", 0.0) or (quote.get("bid", 0.0) if isinstance(quote, dict) else 0.0))
@@ -1500,42 +2096,82 @@ class ScalpM1ModelService:
         exec_price = ask if direction == "LONG" else bid
         atr_1m = smc_engine.compute_atr(closed_1m, period=cfg.displacement_atr_period) or 1.0
 
-        # Scan recent bars for sweep and closed reclaim
-        recent_bars = closed_1m[-6:]
-        c_bot = float(cluster.bottom)
-        c_top = float(cluster.top)
-
-        swept_bar = None
-        reclaim_bar = None
-        swept_extreme = 0.0
-
-        if direction == "LONG":
-            for b in recent_bars:
-                if float(b.low) < c_bot:
-                    swept_bar = b
-                    swept_extreme = min(swept_extreme or float(b.low), float(b.low))
-            if swept_bar and float(recent_bars[-1].close) >= c_bot:
-                reclaim_bar = recent_bars[-1]
-        else:
-            for b in recent_bars:
-                if float(b.high) > c_top:
-                    swept_bar = b
-                    swept_extreme = max(swept_extreme or float(b.high), float(b.high))
-            if swept_bar and float(recent_bars[-1].close) <= c_top:
-                reclaim_bar = recent_bars[-1]
-
-        if not swept_bar or not reclaim_bar:
+        # 4. Detect Sweep event (Rule 064-065)
+        sweep_event = detect_cluster_sweep_event(closed_1m, cluster, direction)
+        if sweep_event is None:
             return ScalpCandidate(
                 is_eligible=False, model_id=model_id, direction=direction,
                 candidate_key=cand_key,
                 reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
-                missing_conditions=["Chờ xác nhận nến M1 đóng quét và reclaim cụm thanh khoản"],
+                missing_conditions=["Chờ xác nhận nến M1 quét qua biên của cụm thanh khoản"],
                 as_of_ms=now_ms,
             )
 
-        reclaim_open_ms = candle_open_ms(reclaim_bar) or 0
-        trigger_known_at = reclaim_open_ms + 60_000
+        swept_extreme = sweep_event["swept_extreme"]
+        swept_bar = sweep_event["bar"]
+        swept_open_ms = sweep_event["swept_at_ms"]
 
+        # Causal filter: sweep must not have occurred before cluster was known
+        if swept_open_ms + 60_000 < cluster_known_at:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction,
+                candidate_key=cand_key,
+                reason_code="SWEEP_BEFORE_CLUSTER_KNOWN",
+                missing_conditions=["Lần quét xảy ra trước khi cụm thanh khoản được xác nhận hợp lệ"],
+                as_of_ms=now_ms,
+            )
+
+        # 5. Detect Reclaim event (Rule 066)
+        reclaim_event = detect_cluster_reclaim_event(closed_1m, cluster, sweep_event, direction)
+        if reclaim_event is None:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction,
+                candidate_key=cand_key,
+                reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,
+                missing_conditions=["Chờ xác nhận nến M1 đóng quay trở lại vùng sau khi quét"],
+                as_of_ms=now_ms,
+            )
+
+        reclaim_bar = reclaim_event["bar"]
+        reclaim_open_ms = reclaim_event["reclaimed_at_ms"]
+        trigger_known_at = reclaim_open_ms + 60_000
+        trigger_age_ms = now_ms - trigger_known_at
+
+        # 6. Mandatory Micro-Break (Rules 067-068)
+        micro_break_event = detect_post_reclaim_micro_break(
+            closed_1m, sweep_event, reclaim_event, direction, as_of_ms=now_ms
+        )
+        if micro_break_event is None:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction,
+                candidate_key=cand_key,
+                reason_code="M1_MICRO_BREAK_MISSING",
+                missing_conditions=["Giá đã quay lại vùng nhưng chưa xác nhận phá cấu trúc nhỏ."],
+                as_of_ms=now_ms,
+            )
+
+        # 7. Stable Episode ID (Rule 072)
+        episode_id = make_sweep_episode_id(
+            getattr(cluster, "id", "cid"), direction, swept_extreme, swept_open_ms
+        )
+
+        # Rule 056: Future candle check & trigger staleness
+        if trigger_age_ms < 0:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction,
+                reason_code="FUTURE_TRIGGER",
+                missing_conditions=["Tín hiệu retest/reclaim thuộc nến chưa hoàn tất tại thời điểm now_ms"],
+                as_of_ms=now_ms,
+            )
+        if trigger_age_ms > cfg.max_trigger_age_ms:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction,
+                reason_code=OpportunityReasonCode.TRIGGER_EXPIRED.value,
+                missing_conditions=[f"Tín hiệu kích hoạt quét & reclaim đã quá hạn ({trigger_age_ms}ms > {cfg.max_trigger_age_ms}ms)"],
+                as_of_ms=now_ms,
+            )
+
+        # 8. Structural Pricing & Target (Rules 070, 147-148)
         entry_price = round(exec_price, 2)
         if direction == "LONG":
             sl_price = round(swept_extreme - (cfg.sl_buffer_ticks * cfg.tick_size), 2)
@@ -1552,6 +2188,20 @@ class ScalpM1ModelService:
             )
         target_price = target_dec.price
 
+        # Directional target check
+        if direction == "LONG" and target_price <= entry_price:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction,
+                reason_code="INVALID_GEOMETRY", missing_conditions=["Mục tiêu thanh khoản phải lớn hơn giá vào cho lệnh LONG"],
+                as_of_ms=now_ms,
+            )
+        if direction == "SHORT" and target_price >= entry_price:
+            return ScalpCandidate(
+                is_eligible=False, model_id=model_id, direction=direction,
+                reason_code="INVALID_GEOMETRY", missing_conditions=["Mục tiêu thanh khoản phải nhỏ hơn giá vào cho lệnh SHORT"],
+                as_of_ms=now_ms,
+            )
+
         is_geom, geom_err = validate_price_geometry(direction, entry_price, sl_price, target_price)
         if not is_geom:
             return ScalpCandidate(
@@ -1560,18 +2210,18 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms,
             )
 
-        # Net RR calculation
-        capital = float(policy_settings.get("capital_usdt", 1000.0))
-        risk_pct = float(policy_settings.get("risk_pct", cfg.fallback_risk_pct))
-        lev = int(policy_settings.get("leverage", 50))
-        margin_mode = str(policy_settings.get("margin_mode", "ISOLATED"))
+        # 9. Net RR calculation
+        capital = float(policy_dict.get("capital_usdt", 1000.0))
+        risk_pct = float(policy_dict.get("risk_pct", cfg.fallback_risk_pct))
+        lev = int(policy_dict.get("leverage", 50))
+        margin_mode = str(policy_dict.get("margin_mode", "ISOLATED"))
 
         calc_res = calculate_risk_reward(
             direction=direction, planned_entry=entry_price, stop_loss=sl_price, take_profit=target_price,
             capital_usdt=capital, risk_pct=risk_pct, leverage=lev, margin_mode=margin_mode, min_net_rr=cfg.min_net_rr,
         )
 
-        candidate_key = f"sweep_rec_{direction}_{cluster.id}_{reclaim_open_ms}"
+        candidate_key = f"sweep_rec_{direction}_{getattr(cluster, 'id', 'cid')}_{reclaim_open_ms}"
 
         if not calc_res.is_valid:
             return ScalpCandidate(
@@ -1599,19 +2249,19 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms,
             )
 
+        # 10. Causal Evidence Chain (Rule 071)
         ev_nodes = [
             EvidenceNode(
-                id=f"ev_cluster_{cluster.id}",
+                id=f"ev_cluster_{getattr(cluster, 'id', 'cid')}",
                 kind="LIQUIDITY_CLUSTER", symbol="XAUUSDT", timeframe="15M", direction=direction,
                 occurred_at_ms=cluster.known_at_ms, known_at_ms=cluster.known_at_ms,
                 level=cluster.price_mid, extra={"bottom": c_bot, "top": c_top, "cluster_type": cluster.cluster_type}
             ).to_dict(),
             EvidenceNode(
-                id=f"ev_sweep_{swept_extreme:.2f}_{reclaim_open_ms}",
+                id=f"ev_sweep_{swept_extreme:.2f}_{swept_open_ms}",
                 kind="SWEEP_LOW" if direction == "LONG" else "SWEEP_HIGH",
                 symbol="XAUUSDT", timeframe="1M", direction=direction,
-                occurred_at_ms=candle_open_ms(swept_bar) or reclaim_open_ms,
-                known_at_ms=trigger_known_at, level=swept_extreme,
+                occurred_at_ms=swept_open_ms, known_at_ms=swept_open_ms + 60_000, level=swept_extreme,
                 extra={"swept_level": c_bot if direction == "LONG" else c_top, "extreme": swept_extreme}
             ).to_dict(),
             EvidenceNode(
@@ -1621,6 +2271,18 @@ class ScalpM1ModelService:
                 level=float(reclaim_bar.close), extra={"reclaim_price": float(reclaim_bar.close)}
             ).to_dict(),
             EvidenceNode(
+                id=f"ev_micro_break_{micro_break_event['broken_at_ms']}",
+                kind="MICRO_BREAK", symbol="XAUUSDT", timeframe="1M", direction=direction,
+                occurred_at_ms=micro_break_event["broken_at_ms"], known_at_ms=micro_break_event["broken_at_ms"] + 60_000,
+                level=micro_break_event["break_price"], extra={"micro_swing_price": micro_break_event["micro_swing_price"]}
+            ).to_dict(),
+            EvidenceNode(
+                id=f"ev_inval_{sl_price:.2f}",
+                kind="INVALIDATION", symbol="XAUUSDT", timeframe="1M", direction=direction,
+                occurred_at_ms=swept_open_ms, known_at_ms=swept_open_ms + 60_000,
+                level=sl_price, extra={"buffer_ticks": cfg.sl_buffer_ticks}
+            ).to_dict(),
+            EvidenceNode(
                 id=f"ev_target_{target_dec.source_level_id}",
                 kind="TARGET", symbol="XAUUSDT", timeframe="1M", direction=direction,
                 occurred_at_ms=target_dec.known_at_ms or now_ms, known_at_ms=target_dec.known_at_ms or now_ms,
@@ -1628,9 +2290,10 @@ class ScalpM1ModelService:
             ).to_dict(),
         ]
 
+        tl_ok, tl_issues = validate_evidence_timeline(ev_nodes, now_ms)
         trigger_chain = {
-            "verified": True,
-            "reasons": (),
+            "verified": tl_ok,
+            "reasons": tuple(tl_issues),
             "node_ids": [n["id"] for n in ev_nodes],
             "model_id": model_id,
             "trigger_known_at": trigger_known_at,
@@ -1655,7 +2318,7 @@ class ScalpM1ModelService:
             invalidation={"price": sl_price},
             summary_vi=f"SMC M1 Sweep Reclaim {direction} [{c_bot:.2f} - {c_top:.2f}]",
             config_version=cfg.config_version,
-            detector_version="v16.0",
+            detector_version="v16.1",
             plan={
                 "is_valid": True,
                 "entry": entry_price,
@@ -1683,6 +2346,11 @@ class ScalpM1ModelService:
             trigger_chain=trigger_chain,
             snapshot=snap,
             as_of_ms=now_ms,
+            cluster_id=getattr(cluster, "id", None),
+            origin_episode_id=episode_id,
+            evidence_ids=tuple(n["id"] for n in ev_nodes),
+            valid_until_ms=now_ms + cfg.max_trigger_age_ms,
+            model_version="v16.1",
         )
 
 

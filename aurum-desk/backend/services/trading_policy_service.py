@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, time as dtime
 from zoneinfo import ZoneInfo
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Dict, Any, Optional, Tuple, List, Sequence
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 import models, crud
@@ -172,6 +172,21 @@ class DailyFrequencyGoalEvaluation:
     remaining_daily_slots: int
     ny_reserve_active: bool
     shortfall_breakdown: Optional[Dict[str, int]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "daily_fills": self.daily_fills,
+            "daily_min_goal": self.daily_min_goal,
+            "daily_max_cap": self.daily_max_cap,
+            "ny_fills": self.ny_fills,
+            "ny_goal": self.ny_goal,
+            "status": self.status,
+            "reason_vi": self.reason_vi,
+            "is_blocked": self.is_blocked,
+            "remaining_daily_slots": self.remaining_daily_slots,
+            "ny_reserve_active": self.ny_reserve_active,
+            "shortfall_breakdown": self.shortfall_breakdown or {},
+        }
 
 
 class TradingPolicyService:
@@ -968,6 +983,15 @@ class TradingPolicyService:
             reserve_note = " (1 slot đang được bảo lưu cho phiên Mỹ)" if ny_reserve_active else ""
             reason_vi = f"Đang quét tìm cơ hội hợp lệ: đã khớp {d_fills}/{daily_min_goal} lệnh tối thiểu (tối đa {daily_max_cap}){reserve_note}."
 
+        shortfall_breakdown = None
+        if status in ("SHORTFALL", "SEARCHING") and d_fills < daily_min_goal:
+            try:
+                sf = summarize_daily_shortfall(db, now_ms=current_time, clock=c, daily_min_goal=daily_min_goal)
+                shortfall_breakdown = sf.get("category_breakdown")
+            except Exception as sf_err:
+                logger.debug(f"Failed to compute shortfall breakdown: {sf_err}")
+                shortfall_breakdown = None
+
         return DailyFrequencyGoalEvaluation(
             daily_fills=d_fills,
             daily_min_goal=daily_min_goal,
@@ -979,9 +1003,126 @@ class TradingPolicyService:
             is_blocked=is_blocked,
             remaining_daily_slots=remaining_slots,
             ny_reserve_active=ny_reserve_active,
+            shortfall_breakdown=shortfall_breakdown,
         )
 
 
+SHORTFALL_CATEGORIES = (
+    "data",
+    "market_hours",
+    "model_confirmation",
+    "cost",
+    "news",
+    "lessons",
+    "risk",
+    "open_position",
+    "execution_error",
+)
+
+
+def categorize_shortfall_reason(code: str) -> str:
+    """Categorizes a rejection or shortfall reason code into the 9 canonical V16 categories (Rule 136)."""
+    c = str(code).upper()
+    if any(k in c for k in ("NEWS", "BLACKOUT")):
+        return "news"
+    if any(k in c for k in ("LESSON",)):
+        return "lessons"
+    if any(k in c for k in ("DATA", "QUOTE", "FEED", "STALE", "TICKER")):
+        return "data"
+    if any(k in c for k in ("SESSION", "MARKET_HOUR", "OUTSIDE_SESSION", "WEEKEND", "RESERVE")):
+        return "market_hours"
+    if any(k in c for k in ("BREAK", "SWING", "FVG", "CLUSTER", "RECLAIM", "SWEEP", "DISPLACEMENT", "STRUCTURE", "CONFIRM")):
+        return "model_confirmation"
+    if any(k in c for k in ("SPREAD", "COST", "RR", "STOP", "GEOMETRY")):
+        return "cost"
+    if any(k in c for k in ("RISK", "LOSS", "CAPITAL", "EQUITY", "CAP", "COOLDOWN")):
+        return "risk"
+    if any(k in c for k in ("POSITION", "OPEN_POSITION", "ACTIVE_POSITION")):
+        return "open_position"
+    return "execution_error"
+
+
+def summarize_daily_shortfall(
+    db: Optional[Session] = None,
+    *,
+    now_ms: Optional[int] = None,
+    clock: Optional[Any] = None,
+    daily_min_goal: int = 2,
+    funnel_records: Optional[Sequence[Any]] = None,
+) -> Dict[str, Any]:
+    """
+    V16.1 Rule 136: Categorizes daily opportunity shortfall reasons across:
+    data, market_hours, model_confirmation, cost, news, lessons, risk, open_position, execution_error.
+    Reports primary cause and count of distinct opportunities impacted.
+    """
+    c = clock or live_clock
+    current_time = now_ms if now_ms is not None else c.now_ms()
+    category_counts: Dict[str, int] = {cat: 0 for cat in SHORTFALL_CATEGORIES}
+    reason_counts: Dict[str, int] = {}
+    distinct_opps_by_cat: Dict[str, set] = {cat: set() for cat in SHORTFALL_CATEGORIES}
+    all_distinct_opps: set = set()
+
+    raw_items: List[Dict[str, Any]] = []
+
+    if funnel_records:
+        for r in funnel_records:
+            if hasattr(r, "to_dict"):
+                raw_items.append(r.to_dict())
+            elif isinstance(r, dict):
+                raw_items.append(r)
+    elif db is not None:
+        try:
+            rows = db.query(models.OpportunityFunnelRecord).filter(
+                models.OpportunityFunnelRecord.stage.in_([
+                    "GUARD_BLOCKED", "EXPIRED", "INVALIDATED"
+                ])
+            ).all()
+            for row in rows:
+                opp_id = row.opportunity_id
+                reasons = []
+                try:
+                    reasons = json.loads(row.reason_codes_json or "[]")
+                except Exception:
+                    pass
+                raw_items.append({"opportunity_id": opp_id, "reason_codes": reasons})
+        except Exception as e:
+            logger.warning(f"Error querying funnel records for shortfall summary: {e}")
+
+    for item in raw_items:
+        opp_id = item.get("opportunity_id") or "unknown_opp"
+        all_distinct_opps.add(opp_id)
+        codes = item.get("reason_codes", [])
+        if not codes:
+            codes = ["NO_SMC_SETUP"]
+        for code in codes:
+            cat = categorize_shortfall_reason(code)
+            category_counts[cat] = category_counts.get(cat, 0) + 1
+            reason_counts[code] = reason_counts.get(code, 0) + 1
+            distinct_opps_by_cat[cat].add(opp_id)
+
+    primary_cat = "model_confirmation"
+    max_cat_count = -1
+    for cat in SHORTFALL_CATEGORIES:
+        cnt = len(distinct_opps_by_cat[cat])
+        if cnt > max_cat_count:
+            max_cat_count = cnt
+            primary_cat = cat
+
+    primary_reason = "NO_SMC_SETUP"
+    if reason_counts:
+        primary_reason = max(reason_counts.items(), key=lambda kv: kv[1])[0]
+
+    return {
+        "has_shortfall": True,
+        "primary_category": primary_cat,
+        "primary_reason": primary_reason,
+        "distinct_opportunities_impacted": len(all_distinct_opps),
+        "category_breakdown": {cat: len(distinct_opps_by_cat[cat]) for cat in SHORTFALL_CATEGORIES},
+        "reason_breakdown": dict(sorted(reason_counts.items(), key=lambda kv: -kv[1])),
+    }
+
+
+TradingPolicyService.summarize_daily_shortfall = staticmethod(summarize_daily_shortfall)
 trading_policy_service = TradingPolicyService()
 
 

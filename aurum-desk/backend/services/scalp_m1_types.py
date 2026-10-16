@@ -279,6 +279,27 @@ class WatchedZone:
         )
 
 
+def validate_daily_frequency_config(config: Any) -> None:
+    """
+    V16.1 Rules 026-027:
+    Validates daily frequency goal & cap boundaries:
+    0 <= daily_min_goal <= daily_max_cap
+    0 <= daily_ny_goal <= daily_max_cap
+    """
+    min_goal = getattr(config, "daily_min_goal", 2)
+    max_cap = getattr(config, "daily_max_cap", 3)
+    ny_goal = getattr(config, "daily_ny_goal", 1)
+
+    if not (0 <= min_goal <= max_cap):
+        raise ValueError(
+            f"INVALID_DAILY_GOAL_CONFIG: daily_min_goal ({min_goal}) must be between 0 and daily_max_cap ({max_cap})"
+        )
+    if not (0 <= ny_goal <= max_cap):
+        raise ValueError(
+            f"INVALID_DAILY_NY_GOAL_CONFIG: daily_ny_goal ({ny_goal}) must be between 0 and daily_max_cap ({max_cap})"
+        )
+
+
 @dataclass(frozen=True)
 class M1ScalpConfig:
     """Configuration and thresholds for M1 Scalp & Watcher (PHẦN 050)."""
@@ -329,6 +350,7 @@ class M1ScalpConfig:
             raise ValueError("INVALID_CONFIG: min_net_rr must be > 0")
         if self.max_active_zones <= 0:
             raise ValueError("INVALID_CONFIG: max_active_zones must be > 0")
+        validate_daily_frequency_config(self)
 
 
 import logging
@@ -443,4 +465,30 @@ def get_scalp_config(**overrides: Any) -> M1ScalpConfig:
         return active_scalp_config
     base_dict = active_scalp_config.__dict__.copy()
     base_dict.update(overrides)
+    return M1ScalpConfig(**base_dict)
+
+
+
+
+def build_v16_1_paper_profile(base_config: Optional[M1ScalpConfig] = None) -> M1ScalpConfig:
+    """
+    V16.1 Rule 025: Builds immutable PAPER_SCALP_V16_1 profile snapshot:
+    - v16 enabled, both new models enabled, multi-zone hypotheses enabled.
+    - daily minimum goal = 2, daily maximum cap = 3, daily NY goal = 1.
+    - preserves orderflow shadow and safety limits.
+    Does NOT mutate base_config or live risk settings.
+    """
+    cfg = base_config if base_config is not None else active_scalp_config
+    base_dict = cfg.__dict__.copy()
+    base_dict.update({
+        "scalp_m1_enabled": True,
+        "scalp_m1_mode": ScalpMode.PAPER.value,
+        "v16_profile_enabled": True,
+        "fvg_continuation_enabled": True,
+        "sweep_reclaim_enabled": True,
+        "multi_zone_hypotheses_enabled": True,
+        "daily_min_goal": 2,
+        "daily_max_cap": 3,
+        "daily_ny_goal": 1,
+    })
     return M1ScalpConfig(**base_dict)

@@ -702,7 +702,7 @@ def test_v15_1_shared_daily_limit_guard(isolated_db: Session):
     _setup_positive_trading_policy(isolated_db)
     # Seed DayAudit with fills_count = 3
     audit = models.DayAudit(
-        date_str="2026-10-15",
+        date_str=crud.get_today_str_vn(),
         fills_count=3,
         initial_equity=1000.0,
         current_equity=1000.0,

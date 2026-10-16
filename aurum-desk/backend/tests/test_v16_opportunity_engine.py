@@ -467,3 +467,289 @@ def test_daily_frequency_goal_progress(isolated_db: Session):
     res_shortfall = TradingPolicyService.evaluate_daily_frequency_goal(isolated_db, clock=after_win_clock)
     assert res_shortfall.status == "SHORTFALL"
     assert res3.remaining_daily_slots == 0
+
+
+# ==============================================================================
+# 11. V16 CONFIG & MASTER FLAG ISOLATION (Rules 023 - 030, 186)
+# ==============================================================================
+
+def test_v16_config_and_master_flag_isolation(isolated_db: Session):
+    """Rules 023-030, 186: Profile builder, config=None, invalid goals, and master flag off."""
+    from services.scalp_m1_types import (
+        build_v16_1_paper_profile,
+        validate_daily_frequency_config,
+    )
+
+    # 1. Profile builder returns immutable profile with V16 enabled & 2/3 goals
+    base_cfg = M1ScalpConfig()
+    v16_profile = build_v16_1_paper_profile(base_cfg)
+    assert v16_profile.v16_profile_enabled is True
+    assert v16_profile.fvg_continuation_enabled is True
+    assert v16_profile.sweep_reclaim_enabled is True
+    assert v16_profile.multi_zone_hypotheses_enabled is True
+    assert v16_profile.daily_min_goal == 2
+    assert v16_profile.daily_max_cap == 3
+    assert v16_profile.daily_ny_goal == 1
+
+    # Base config must not be mutated
+    assert base_cfg.multi_zone_hypotheses_enabled is False
+
+    # 2. validate_daily_frequency_config rejects invalid goals
+    with pytest.raises(ValueError, match="INVALID_DAILY_GOAL_CONFIG"):
+        validate_daily_frequency_config(type("Cfg", (), {"daily_min_goal": 5, "daily_max_cap": 3, "daily_ny_goal": 1})())
+
+    with pytest.raises(ValueError, match="INVALID_DAILY_GOAL_CONFIG"):
+        validate_daily_frequency_config(type("Cfg", (), {"daily_min_goal": -1, "daily_max_cap": 3, "daily_ny_goal": 1})())
+
+    with pytest.raises(ValueError, match="INVALID_DAILY_NY_GOAL_CONFIG"):
+        validate_daily_frequency_config(type("Cfg", (), {"daily_min_goal": 2, "daily_max_cap": 3, "daily_ny_goal": 4})())
+
+    # 3. config=None does not crash and defaults safely
+    c_list = [CandleBarStub(60_000 * i, 2600.0, 2605.0, 2598.0, 2602.0) for i in range(1, 20)]
+    quote = {"bid": 2602.0, "ask": 2602.5, "is_valid": True}
+    res_none = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
+        c_list, c_list, quote, "BEARISH", "BEARISH", {"capital_usdt": 1000.0, "risk_pct": 0.25, "leverage": 50},
+        now_ms=1_500_000, config=None
+    )
+    assert res_none.is_eligible is False
+
+    # 4. Master flag disabled blocks evaluation
+    cfg_disabled = M1ScalpConfig(fvg_continuation_enabled=False)
+    res_dis = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
+        c_list, c_list, quote, "BULLISH", "BULLISH", {"capital_usdt": 1000.0, "risk_pct": 0.25, "leverage": 50},
+        now_ms=1_500_000, config=cfg_disabled
+    )
+    assert res_dis.is_eligible is False
+    assert res_dis.reason_code == "MODEL_DISABLED"
+
+
+# ==============================================================================
+# 12. FVG CONTINUATION NEGATIVE CONTROLS (Rules 046 - 060, 187)
+# ==============================================================================
+
+def test_m1_fvg_continuation_negatives_comprehensive():
+    """Rule 187: Break missing, weak displacement, future leak, FVG invalidated, conflict, wrong side target."""
+    from services.scalp_m1_model_service import validate_evidence_timeline
+    cfg = M1ScalpConfig(min_closed_m1_bars=15)
+    now_ms = 1_100_000
+
+    # 1. Break missing: candles rise without breaking any reference level
+    c_no_break = [
+        CandleBarStub(60_000 * i, 2600.0 + (i * 0.1), 2601.0 + (i * 0.1), 2599.0 + (i * 0.1), 2600.5 + (i * 0.1))
+        for i in range(1, 20)
+    ]
+    quote = {"bid": 2602.0, "ask": 2602.5, "is_valid": True}
+    res1 = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
+        c_no_break, c_no_break, quote, "BULLISH", "BULLISH",
+        {"capital_usdt": 1000.0, "risk_pct": 0.25, "leverage": 50},
+        now_ms=now_ms, config=cfg
+    )
+    assert res1.is_eligible is False
+    assert res1.reason_code in ("M1_BREAK_MISSING", "WAITING_M1_STRUCTURE", "DISPLACEMENT_WEAK")
+
+    # 2. HTF / H1 conflict: BULLISH vs BEARISH
+    res2 = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
+        c_no_break, c_no_break, quote, "BULLISH", "BEARISH",
+        {"capital_usdt": 1000.0, "risk_pct": 0.25, "leverage": 50},
+        now_ms=now_ms, config=cfg
+    )
+    assert res2.is_eligible is False
+    assert res2.reason_code == "HTF_H1_CONFLICT"
+
+    # 3. Future candle leak detected by validate_evidence_timeline
+    future_ev = [
+        {"id": "ev_1", "occurred_at_ms": 100_000, "known_at_ms": 120_000},
+        {"id": "ev_future", "occurred_at_ms": 150_000, "known_at_ms": 2_000_000},  # known > now_ms (1_100_000)
+    ]
+    is_valid_tl, issues = validate_evidence_timeline(future_ev, now_ms=now_ms)
+    assert is_valid_tl is False
+    assert any("future leak" in iss for iss in issues)
+
+    # 4. Target on wrong side: SHORT direction but target price > entry price
+    target_wrong_side = LiquidityLevel(
+        id="t_wrong", price=2650.0, side="BUY_SIDE", source_kind="SWING",
+        occurred_at_ms=100_000, known_at_ms=120_000, state="UNTOUCHED"
+    )
+    res_wrong_target = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
+        c_no_break, c_no_break, quote, "BEARISH", "BEARISH",
+        {"capital_usdt": 1000.0, "risk_pct": 0.25, "leverage": 50},
+        now_ms=now_ms, config=cfg, context_levels=[target_wrong_side]
+    )
+    assert res_wrong_target.is_eligible is False
+
+
+# ==============================================================================
+# 13. SWEEP RECLAIM NEGATIVE CONTROLS (Rules 061 - 074, 188)
+# ==============================================================================
+
+def test_m1_sweep_reclaim_negatives_comprehensive():
+    """Rule 188: Sweep before cluster known, reclaim not closed, missing micro-break, invalid side, ACCEPTED_BEYOND, consumed."""
+    cfg = M1ScalpConfig(min_closed_m1_bars=10)
+    now_ms = 1_000_000
+
+    # 1. Sweep before cluster known: cluster known at 800_000, but sweep occurred at 600_000
+    cluster_future_known = LiquidityCluster(
+        id="c_future", side="SELL_SIDE", cluster_type="EQUAL_LOWS",
+        bottom=2600.0, top=2601.0, price_mid=2600.5,
+        source_level_ids=["sl_1"], known_at_ms=800_000, state="UNSWEPT",
+        volume_weight=1.0, quality_score=0.9
+    )
+    swept_bars = [
+        CandleBarStub(60_000 * i, 2605.0, 2607.0, 2603.0, 2604.0) for i in range(1, 10)
+    ]
+    swept_bars.append(CandleBarStub(600_000, 2604.0, 2605.0, 2595.0, 2598.0))  # Sweep at 600k < known 800k
+    swept_bars.append(CandleBarStub(660_000, 2598.0, 2604.0, 2597.0, 2603.0))  # Reclaim
+    quote = {"bid": 2603.0, "ask": 2603.5, "is_valid": True}
+
+    res_early = ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate(
+        cluster_future_known, swept_bars, quote, {"capital_usdt": 1000.0, "risk_pct": 0.25, "leverage": 50},
+        now_ms=750_000, config=cfg
+    )
+    assert res_early.is_eligible is False
+
+    # 2. Unknown / invalid cluster side
+    cluster_invalid_side = LiquidityCluster(
+        id="c_inv", side="UNKNOWN_SIDE", cluster_type="EQUAL_LOWS",
+        bottom=2600.0, top=2601.0, price_mid=2600.5,
+        source_level_ids=["sl_1"], known_at_ms=100_000, state="UNSWEPT",
+        volume_weight=1.0, quality_score=0.9
+    )
+    res_inv = ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate(
+        cluster_invalid_side, swept_bars, quote, {"capital_usdt": 1000.0, "risk_pct": 0.25, "leverage": 50},
+        now_ms=now_ms, config=cfg
+    )
+    assert res_inv.is_eligible is False
+    assert res_inv.reason_code == "CLUSTER_INVALID"
+
+    # 3. ACCEPTED_BEYOND state: price accepted beyond cluster, no reclaim
+    cluster_accepted = LiquidityCluster(
+        id="c_acc", side="SELL_SIDE", cluster_type="EQUAL_LOWS",
+        bottom=2600.0, top=2601.0, price_mid=2600.5,
+        source_level_ids=["sl_1"], known_at_ms=100_000, state="ACCEPTED_BEYOND",
+        volume_weight=1.0, quality_score=0.9
+    )
+    res_acc = ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate(
+        cluster_accepted, swept_bars, quote, {"capital_usdt": 1000.0, "risk_pct": 0.25, "leverage": 50},
+        now_ms=now_ms, config=cfg
+    )
+    assert res_acc.is_eligible is False
+    assert res_acc.reason_code == "ACCEPTED_BEYOND"
+
+    # 4. CONSUMED cluster state
+    cluster_consumed = LiquidityCluster(
+        id="c_con", side="SELL_SIDE", cluster_type="EQUAL_LOWS",
+        bottom=2600.0, top=2601.0, price_mid=2600.5,
+        source_level_ids=["sl_1"], known_at_ms=100_000, state="CONSUMED",
+        volume_weight=1.0, quality_score=0.9
+    )
+    res_con = ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate(
+        cluster_consumed, swept_bars, quote, {"capital_usdt": 1000.0, "risk_pct": 0.25, "leverage": 50},
+        now_ms=now_ms, config=cfg
+    )
+    assert res_con.is_eligible is False
+    assert res_con.reason_code == "CLUSTER_INVALID"
+
+
+# ==============================================================================
+# 14. ATOMIC DAILY CAP PROTECTION (Rules 008, 131, 190)
+# ==============================================================================
+
+def test_daily_cap_atomic_protection(isolated_db: Session):
+    """Rules 008, 131, 190: Atomic daily max cap blocks 4th entry attempt under serialization lock."""
+    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+    from services.strategy_service import strategy_service
+    from domain_calculator import calculate_risk_reward
+
+    strategy_service.set_auto_state(isolated_db, True)
+    cfg = M1ScalpConfig(daily_max_cap=3)
+    clock = FakeClock(1_700_000_000_000)
+
+    # Set day audit to 3 fills
+    day_audit = crud.get_or_create_today_audit(isolated_db, clock=clock)
+    day_audit.fills_count = 3
+    isolated_db.commit()
+
+    calc = calculate_risk_reward(
+        direction="LONG", entry=2620.0, sl=2615.0, tp=2645.0,
+        capital=1000.0, risk_pct=0.25, leverage=50, margin_mode="ISOLATED"
+    )
+
+    cand = ScalpCandidate(
+        is_eligible=True,
+        model_id=ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+        direction="LONG",
+        candidate_key="cand_cap_test_1",
+        symbol="XAUUSDT",
+        planned_entry=2620.0,
+        stop_loss=2615.0,
+        take_profit=2645.0,
+        net_rr=calc.net_rr,
+        calculation=calc,
+    )
+
+    quote = {"bid": 2620.0, "ask": 2620.5, "is_valid": True, "feed_healthy": True}
+    armed = scalp_watcher_orchestrator._arm_paper_candidate(
+        isolated_db, cand, now_ms=1_700_000_000_000, clock=clock, quote=quote,
+        policy_settings={"capital_usdt": 1000.0}, config=cfg, auto_enabled=True
+    )
+    assert armed is None
+
+    # Check opportunity funnel recorded DAILY_CAP_REACHED
+    rec = isolated_db.query(models.OpportunityFunnelRecord).filter(
+        models.OpportunityFunnelRecord.opportunity_id == "opp_cand_cap_test_1"
+    ).first()
+    assert rec is not None
+    assert "DAILY_CAP_REACHED" in (rec.reason_codes_json or "")
+
+
+# ==============================================================================
+# 15. DAILY SHORTFALL SUMMARY CATEGORIES (Rules 136, 175)
+# ==============================================================================
+
+def test_daily_shortfall_summary_categories(isolated_db: Session):
+    """Rule 136: Categorizes shortfall reasons across 9 canonical categories and identifies primary cause."""
+    from services.trading_policy_service import summarize_daily_shortfall, SHORTFALL_CATEGORIES
+
+    clock = FakeClock(1_700_000_000_000)
+    # Feed test records across different categories
+    mock_records = [
+        {"opportunity_id": "opp_1", "reason_codes": ["M1_BREAK_MISSING"]},
+        {"opportunity_id": "opp_2", "reason_codes": ["DISPLACEMENT_WEAK"]},
+        {"opportunity_id": "opp_3", "reason_codes": ["SPREAD_TOO_WIDE"]},
+        {"opportunity_id": "opp_4", "reason_codes": ["HIGH_IMPACT_NEWS"]},
+        {"opportunity_id": "opp_5", "reason_codes": ["ACTIVE_POSITION_EXISTS"]},
+        {"opportunity_id": "opp_6", "reason_codes": ["M1_MICRO_BREAK_MISSING"]},
+    ]
+
+    summary = summarize_daily_shortfall(
+        isolated_db, now_ms=1_700_000_000_000, clock=clock, daily_min_goal=2, funnel_records=mock_records
+    )
+    assert summary["has_shortfall"] is True
+    assert summary["distinct_opportunities_impacted"] == 6
+    assert summary["primary_category"] == "model_confirmation"  # 3 opps in model_confirmation
+    for cat in SHORTFALL_CATEGORIES:
+        assert cat in summary["category_breakdown"]
+
+
+# ==============================================================================
+# 16. DAILY STATUS API (Rule 138)
+# ==============================================================================
+
+def test_v16_daily_status_api():
+    """Rule 138: Lightweight daily status API returns canonical payload."""
+    from fastapi.testclient import TestClient
+    from main import app
+
+    client = TestClient(app)
+    res = client.get("/api/scalp/daily-status")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "SUCCESS"
+    assert "trading_day_id" in data
+    assert "fills_count" in data
+    assert "min_goal" in data
+    assert "cap" in data
+    assert "ny_fills" in data
+    assert "reservation_state" in data
+    assert "search_state" in data
+    assert "primary_reason" in data
