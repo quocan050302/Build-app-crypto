@@ -1,0 +1,140 @@
+{
+  "run_id": "run_v16_9_1792159305",
+  "base_commit": "13dfe2d53a343f9d66ea8e086c75c0d21e41782c",
+  "commit_sha": "13dfe2d53a343f9d66ea8e086c75c0d21e41782c",
+  "tested_diff_sha256": "9f96f677238eeb569a8d614b3e3b32f6da3f0681bfcfc0e4c1fa13c9b2e1f95d",
+  "timestamp_iso": "2026-10-16T14:01:45.437932+00:00",
+  "technical_status": "PASS",
+  "historical_status": "BLOCKED_DATA",
+  "performance_status": "NOT_EVALUATED",
+  "simulation_evidence_type": "DATA_SYNTHESIZED_DEMO",
+  "gates": [
+    {
+      "name": "causal_execution",
+      "required_cases": [
+        "test_build_assumed_bar_events_pure_helper",
+        "test_no_future_close_at_open_long",
+        "test_no_future_close_at_open_short",
+        "test_close_quote_mode_ignores_wicks",
+        "test_unknown_execution_model_rejected"
+      ],
+      "executed_cases": [
+        "test_build_assumed_bar_events_pure_helper",
+        "test_no_future_close_at_open_long",
+        "test_no_future_close_at_open_short",
+        "test_close_quote_mode_ignores_wicks",
+        "test_unknown_execution_model_rejected"
+      ],
+      "status": "PASS",
+      "evidence_suite": "test_v16_9_causal_ohlc_execution",
+      "reason": null
+    },
+    {
+      "name": "historical_routing",
+      "required_cases": [
+        "test_missing_dataset_returns_blocked_data",
+        "test_corrupt_json_dataset_returns_blocked_data",
+        "test_historical_branch_never_seeds_orders",
+        "test_distinct_datasets_produce_distinct_fingerprints"
+      ],
+      "executed_cases": [
+        "test_missing_dataset_returns_blocked_data",
+        "test_corrupt_json_dataset_returns_blocked_data",
+        "test_historical_branch_never_seeds_orders",
+        "test_distinct_datasets_produce_distinct_fingerprints"
+      ],
+      "status": "PASS",
+      "evidence_suite": "test_v16_9_historical_runner",
+      "reason": null
+    },
+    {
+      "name": "decision_contract",
+      "required_cases": [
+        "test_serialize_cg01_evaluation_pure_helper",
+        "test_normalize_replay_cycle_observation",
+        "test_orchestrator_returns_cg01_evaluation_on_observing",
+        "test_funnel_counts_armed_order_correctly"
+      ],
+      "executed_cases": [
+        "test_serialize_cg01_evaluation_pure_helper",
+        "test_normalize_replay_cycle_observation",
+        "test_orchestrator_returns_cg01_evaluation_on_observing",
+        "test_funnel_counts_armed_order_correctly"
+      ],
+      "status": "PASS",
+      "evidence_suite": "test_v16_9_cg01_decision_funnel",
+      "reason": null
+    },
+    {
+      "name": "executable_sizing",
+      "required_cases": [
+        "test_resolve_executable_sizing_context_current_mode",
+        "test_resolve_executable_sizing_context_fixed_mode",
+        "test_coordinator_fill_persists_sizing_contract",
+        "test_resolve_executable_sizing_context_excess_equity",
+        "test_resolve_executable_sizing_context_short_direction",
+        "test_legacy_order_fill_without_sizing_context"
+      ],
+      "executed_cases": [
+        "test_resolve_executable_sizing_context_current_mode",
+        "test_resolve_executable_sizing_context_fixed_mode",
+        "test_coordinator_fill_persists_sizing_contract",
+        "test_resolve_executable_sizing_context_excess_equity",
+        "test_resolve_executable_sizing_context_short_direction",
+        "test_legacy_order_fill_without_sizing_context"
+      ],
+      "status": "PASS",
+      "evidence_suite": "test_v16_9_executable_sizing_contract",
+      "reason": null
+    },
+    {
+      "name": "full_regression_v16",
+      "required_cases": [
+        "v16_full_suite"
+      ],
+      "executed_cases": [
+        "v16_full_suite"
+      ],
+      "status": "PASS",
+      "evidence_suite": "v16_full_suite",
+      "reason": null
+    },
+    {
+      "name": "git_cleanliness",
+      "required_cases": [
+        "git_diff_check"
+      ],
+      "executed_cases": [
+        "git_diff_check"
+      ],
+      "status": "PASS",
+      "evidence_suite": "git_diff_check",
+      "reason": null
+    }
+  ],
+  "config_hash": "a4a7ec1c57be579272d193e6dab8ead8fa8c777adef662e35a695cd38f4cb085",
+  "effective_config": {
+    "initial_capital": 5000.0,
+    "risk_pct": 0.1,
+    "slippage_usd": 0.1,
+    "maker_fee_rate": 0.0002,
+    "taker_fee_rate": 0.0004,
+    "contract_multiplier": 1.0,
+    "capital_mode": "CURRENT_ACCOUNT_BALANCE",
+    "execution_model": "ASSUMED_OHLC_PATH",
+    "authority_pipeline": "CG01ReplayExecutionAdapter + ScalpWatcherOrchestrator + ExecutionCoordinator"
+  },
+  "total_fills": 1,
+  "closed_trades_count": 0,
+  "open_positions_count": 1,
+  "pending_orders_count": 0,
+  "metrics": {
+    "initial_capital": 5000.0,
+    "final_cash": 5000.0,
+    "total_pnl_usd": null,
+    "winrate_pct": null,
+    "max_drawdown_pct": 0.05,
+    "total_trades": 0
+  },
+  "summary_readable": "\u0110\u00e3 ki\u1ec3m tra k\u1ef9 thu\u1eadt V16.9: 1 l\u1ec7nh kh\u1edbp c\u00f3 guard. \u0110\u00e3 \u0111\u00f3ng: 0 \u00b7 \u0110ang m\u1edf: 1. L\u1eddi/l\u1ed7 \u0111\u00e3 ch\u1ed1t sau ph\u00ed: 0.0 USD. Drawdown t\u1ed1i \u0111a MTM: 0.05%. Historical status: BLOCKED_DATA \u00b7 Technical status: PASS."
+}

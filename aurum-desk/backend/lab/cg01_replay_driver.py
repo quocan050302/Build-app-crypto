@@ -33,6 +33,37 @@ from services.clock import ReplayClock
 from services.scalp_m1_types import ModelIdentifier
 
 
+def normalize_replay_cycle_observation(cycle_res: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Normalizes cycle observation separating lifecycle status from CG-01 decision (PHẦN 101 - 104).
+    """
+    cg_eval = cycle_res.get("cg01_evaluation") or {}
+    armed_id = cycle_res.get("armed_order_id") or cg_eval.get("armed_order_id")
+
+    stage = cg_eval.get("stage")
+    if not stage:
+        stage = cycle_res.get("stage") or cycle_res.get("status", "IDLE")
+
+    reasons = cg_eval.get("reason_codes") or []
+    if cycle_res.get("reason") and cycle_res["reason"] not in reasons:
+        reasons = list(reasons) + [cycle_res["reason"]]
+
+    return {
+        "timestamp": cycle_res.get("as_of_ms", 0),
+        "lifecycle_status": cycle_res.get("status", "UNKNOWN"),
+        "transaction_status": cycle_res.get("transaction_status", "UNKNOWN"),
+        "stage": stage,
+        "reasons": list(reasons),
+        "armed_order_id": armed_id,
+        "is_eligible": cg_eval.get("eligible", False),
+        "candidate_key": cg_eval.get("candidate_key"),
+        "episode_key": cg_eval.get("episode_key"),
+        "cg01_enabled": cg_eval.get("enabled", True),
+        "cg01_evaluated": cg_eval.get("evaluated", False),
+        "guard_summary": cg_eval.get("guard_summary"),
+    }
+
+
 @dataclass
 class ReplayBar:
     open_time: int
@@ -472,16 +503,8 @@ class CG01ReplayDriver:
             # PHẦN 131: Capture evaluation cycle decision
             cycle_res = adapter.on_bar_close(bar_event)
             if cycle_res:
-                st = cycle_res.get("status", "UNKNOWN")
-                rsn = cycle_res.get("reason")
-                stg = cycle_res.get("stage") or st
-                decision_funnel_records.append({
-                    "timestamp": now_ms,
-                    "status": st,
-                    "stage": stg,
-                    "reason": rsn,
-                    "order_id": cycle_res.get("order_id"),
-                })
+                obs = normalize_replay_cycle_observation(cycle_res)
+                decision_funnel_records.append(obs)
 
             # 3. Track state snapshot for MTM series & Daily Stats Delta
             interim = adapter.collect_state()
@@ -545,13 +568,29 @@ class CG01ReplayDriver:
             else:
                 d_stat["status"] = "SEARCHING" if d_stat.get("is_market_day", True) else "WEEKEND"
 
-        # V16.8 Decision funnel accounting from recorded evaluations + lifecycle (PHẦN 131 - 139)
+        # V16.9 Decision funnel accounting from recorded evaluations + lifecycle (PHẦN 101 - 110)
         expired_count = lab_db.query(models.PaperOrder).filter(models.PaperOrder.state == "expired").count()
         cancelled_count = lab_db.query(models.PaperOrder).filter(models.PaperOrder.state == "cancelled").count()
-        armed_count = sum(1 for d in decision_funnel_records if d.get("status") in ("ARMED", "ARM_SUCCESS"))
-        guard_blocked_count = sum(1 for d in decision_funnel_records if d.get("status") in ("BLOCKED", "GUARD_BLOCKED"))
-        observing_count = sum(1 for d in decision_funnel_records if d.get("status") in ("OBSERVING", "WAITING", "SEARCHING", "TRIGGER_WAITING"))
-        context_not_ready_count = sum(1 for d in decision_funnel_records if d.get("status") in ("CONTEXT_NOT_READY", "WARMUP", "DISABLED"))
+
+        armed_order_ids = {d["armed_order_id"] for d in decision_funnel_records if d.get("armed_order_id")}
+        db_armed_count = lab_db.query(models.PaperOrder).filter(models.PaperOrder.state.in_(("armed", "paper_open", "closed", "expired", "cancelled"))).count()
+        armed_count = max(len(armed_order_ids), db_armed_count)
+
+        guard_blocked_count = sum(
+            1 for d in decision_funnel_records
+            if d.get("stage") in ("GUARD_BLOCKED", "BLOCKED")
+            or d.get("guard_summary") is not None
+            or any("BLOCKED" in str(r) or "GUARD" in str(r) for r in d.get("reasons", []))
+        )
+        observing_count = sum(
+            1 for d in decision_funnel_records
+            if d.get("stage") in ("OBSERVING", "WAITING", "SEARCHING", "TRIGGER_WAITING", "WAIT_SWEEP", "WAIT_MSS", "WAIT_FVG", "WAIT_ENTRY", "TRIGGER_PENDING")
+        )
+        context_not_ready_count = sum(
+            1 for d in decision_funnel_records
+            if d.get("stage") in ("CONTEXT_NOT_READY", "WARMUP", "DISABLED", "MODEL_DISABLED", "WAIT_WINDOW", "WAIT_POI")
+            or not d.get("cg01_evaluated", True)
+        )
 
         rejection_funnel = [
             {"category": "CONTEXT_NOT_READY", "count": context_not_ready_count, "description": "HTF context or warmup insufficient for evaluation"},

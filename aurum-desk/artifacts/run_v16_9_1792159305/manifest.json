@@ -1,0 +1,15 @@
+{
+  "run_id": "run_v16_9_1792159305",
+  "commit_sha": "13dfe2d53a343f9d66ea8e086c75c0d21e41782c",
+  "created_at_iso": "2026-10-16T14:01:45.437932+00:00",
+  "files": {
+    "acceptance.json": "123cf34a71e7d4e428bee5f4ad49aaae2f0e70b1aad7c1c44ada93f225d91ea2",
+    "test_results.json": "ebd70346482922565de11eed9ee8332a04a1b4b8fa644e2de901a744b16e0cf9",
+    "effective_config.json": "6a89d0c65222c966599fa1f8b8e80139faae2618ad700198b37dae5db6750a70",
+    "trades.csv": "6b6f12f7374e20550bbc3ab6581b306b8c19d65fd740599016ace609222a8cf1",
+    "daily_stats.csv": "3dc849e9754cf39782214aebf55b34d822a9b293991d292b0f3fbbcb0fecf1a9",
+    "equity_mtm.csv": "c8cbe475649cfbc88c7ba9d12694e925d2304e7a4234a36f4fd97e9672b99233",
+    "equity_realized.csv": "5ea647414de271738ea116078050fa3eddaa18b6ac588ae2c1c95e1f8720cd8f",
+    "rejection_funnel.csv": "0c35a0b1446f16683b68adbbe03d6e450ccd27acdeae132ec5e04f8dc8ffd256"
+  }
+}

@@ -57,6 +57,61 @@ from services.zone_watchlist_service import ZoneWatchlistService
 logger = logging.getLogger(__name__)
 
 
+def serialize_cg01_evaluation(
+    decision: Optional[Any],
+    *,
+    enabled: bool = False,
+    evaluated: bool = False,
+    as_of_ms: int = 0,
+    skip_reason: Optional[str] = None,
+    armed_order_id: Optional[str] = None,
+    guard_summary: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Pure serializer for CG-01 candidate decision evaluation (V16.9 NHÓM 09, PHẦN 083 - 090).
+    Produces a JSON-safe additive structure for orchestrator cycle responses.
+    """
+    if decision is None:
+        stage_str = skip_reason or ("MODEL_DISABLED" if not enabled else "NOT_EVALUATED")
+        reasons = [skip_reason] if skip_reason else ([stage_str] if stage_str else [])
+        return {
+            "enabled": enabled,
+            "evaluated": evaluated,
+            "as_of_ms": as_of_ms,
+            "stage": stage_str,
+            "eligible": False,
+            "reason_codes": reasons,
+            "candidate_key": None,
+            "episode_key": None,
+            "router_outcome": None,
+            "arm_outcome": None,
+            "armed_order_id": None,
+            "guard_summary": guard_summary,
+        }
+
+    dec_dict = decision.to_dict() if hasattr(decision, "to_dict") else dict(decision)
+    stage_val = dec_dict.get("stage") or "OBSERVING"
+    reasons = dec_dict.get("reason_codes") or []
+    cand_obj = getattr(decision, "candidate", None)
+    cand_key = getattr(cand_obj, "candidate_key", None) if cand_obj else dec_dict.get("episode_id")
+    episode_key = dec_dict.get("episode_id")
+
+    return {
+        "enabled": enabled,
+        "evaluated": evaluated,
+        "as_of_ms": as_of_ms or dec_dict.get("as_of_ms", 0),
+        "stage": stage_val,
+        "eligible": bool(dec_dict.get("is_eligible", False)),
+        "reason_codes": list(reasons),
+        "candidate_key": cand_key,
+        "episode_key": episode_key,
+        "router_outcome": None,
+        "arm_outcome": "ARMED" if armed_order_id else None,
+        "armed_order_id": armed_order_id,
+        "guard_summary": guard_summary,
+    }
+
+
 class ScalpWatcherOrchestrator:
     def __init__(self):
         self._lock = threading.RLock()
@@ -182,7 +237,7 @@ class ScalpWatcherOrchestrator:
 
         # Check feature flag
         scalp_mode = cfg.scalp_m1_mode
-        if scalp_mode == ScalpMode.OFF.value and not cfg.daily_ny_research_enabled:
+        if scalp_mode == ScalpMode.OFF.value and not cfg.daily_ny_research_enabled and not getattr(cfg, "cg01_enabled", False):
             return {
                 "status": "DISABLED",
                 "scalp_mode": scalp_mode,
@@ -191,6 +246,7 @@ class ScalpWatcherOrchestrator:
                 "candidates_count": 0,
                 "candidates": [],
                 "armed_order_id": None,
+                "cg01_evaluation": serialize_cg01_evaluation(None, enabled=False, evaluated=False, skip_reason="MODEL_DISABLED", as_of_ms=t_recv),
             }
 
         # Validate quote & price using canonical execution quote normalizer (V15.8 PROMPT 086-096, 116-119)
@@ -221,6 +277,7 @@ class ScalpWatcherOrchestrator:
                 "candidates_count": 0,
                 "candidates": [],
                 "armed_order_id": None,
+                "cg01_evaluation": serialize_cg01_evaluation(None, enabled=bool(getattr(cfg, "cg01_enabled", True)), evaluated=False, skip_reason="NO_QUOTE", as_of_ms=t_recv),
             }
 
         current_px = (bid + ask) / 2.0
@@ -846,11 +903,12 @@ class ScalpWatcherOrchestrator:
                     as_of_ms=t_recv,
                 ))
 
-        # D. CG-01 Paper Profile Model (V16.2 Rules 001 - 035, 121 - 125)
+        # D. CG-01 Paper Profile Model (V16.2 Rules 001 - 035, 121 - 125, V16.9 NHÓM 09 - 11)
         cg01_mode = getattr(cfg, "cg01_profile_mode", None)
         if cg01_mode is None:
             cg01_mode = "PAPER_EXECUTION" if getattr(cfg, "cg01_enabled", False) else "OFF"
 
+        cg01_eval_data = None
         if cg01_mode != "OFF" and c_1m:
             from services.cg01_engine import evaluate_cg01_candidate
             from services.cg01_types import CG01Config
@@ -872,8 +930,17 @@ class ScalpWatcherOrchestrator:
                 capital=policy_dict["capital_usdt"], risk_pct=policy_dict["risk_pct"],
                 costs=costs_to_pass,
             )
+            cg01_eval_data = serialize_cg01_evaluation(cg01_dec, enabled=True, evaluated=True, as_of_ms=t_recv)
             if cg01_dec.candidate:
                 candidates.append(cg01_dec.candidate)
+        else:
+            cg01_eval_data = serialize_cg01_evaluation(
+                None,
+                enabled=(cg01_mode != "OFF"),
+                evaluated=False,
+                skip_reason="MODEL_DISABLED" if cg01_mode == "OFF" else "WARMUP_INSUFFICIENT",
+                as_of_ms=t_recv,
+            )
 
         # Candidate Router & Deduplication (Rules 093 - 096)
         from services.scalp_m1_model_service import evaluate_smc_opportunity_candidates
@@ -945,6 +1012,20 @@ class ScalpWatcherOrchestrator:
                 armed_order = self._arm_paper_candidate(
                     db, cand, now_ms=t_recv, clock=clock, quote=q, policy_settings=policy_dict, config=cfg, feed_health=feed_health, auto_enabled=auto_enabled, authority_context=cycle_authority
                 )
+                if is_cg01_model and cg01_eval_data:
+                    if armed_order:
+                        cg01_eval_data["armed_order_id"] = armed_order.id
+                        cg01_eval_data["arm_outcome"] = "ARMED"
+                        cg01_eval_data["stage"] = OpportunityStage.ARMED.value if hasattr(OpportunityStage, "ARMED") else "ARMED"
+                    else:
+                        rej = self._arm_rejections.get(cand.candidate_key)
+                        if rej:
+                            cg01_eval_data["stage"] = OpportunityStage.GUARD_BLOCKED.value
+                            cg01_eval_data["guard_summary"] = {"blocked_reason": rej[1], "blocked_at": rej[0]}
+                            if rej[1] not in cg01_eval_data["reason_codes"]:
+                                cg01_eval_data["reason_codes"].append(rej[1])
+                elif not is_cg01_model and armed_order and cg01_eval_data:
+                    cg01_eval_data["router_outcome"] = "OTHER_MODEL_SELECTED"
                 if armed_order:
                     break
 
@@ -1024,6 +1105,7 @@ class ScalpWatcherOrchestrator:
             "liquidity_levels_count": len(liq_levels),
             "market_regime": regime,
             "daily_goal": daily_goal_dict,
+            "cg01_evaluation": cg01_eval_data or serialize_cg01_evaluation(None, enabled=False, evaluated=False, as_of_ms=t_recv),
         }
 
     def _finalize_failed_cycle(
@@ -1088,6 +1170,7 @@ class ScalpWatcherOrchestrator:
             "liquidity_levels_count": liq_levels_count,
             "market_regime": regime,
             "daily_goal": {},
+            "cg01_evaluation": serialize_cg01_evaluation(None, enabled=True, evaluated=False, skip_reason="CYCLE_FAILED", as_of_ms=t_recv),
         }
 
     @serialize_entry_mutation

@@ -33,7 +33,8 @@ class TradeLifecycleService:
         source: str = "AUTO",
         now_ms: Optional[int] = None,
         clock: Optional[IClock] = None,
-        date_str: Optional[str] = None
+        date_str: Optional[str] = None,
+        sizing_context: Optional[Dict[str, Any]] = None,
     ) -> models.PaperOrder:
         """
         Atomic Unit of Work: Fill Armed or Market Order.
@@ -84,6 +85,7 @@ class TradeLifecycleService:
             order=order,
             fill_price=fill_price,
             now_ms=current_time,
+            sizing_context=sizing_context,
         )
         cost_snap = json.dumps(cost_snap_dict, ensure_ascii=False)
 
@@ -551,7 +553,7 @@ class TradeLifecycleService:
                 order_id=active_pos.id,
                 exit_price=decision.applied_exit_price,
                 exit_cause=decision.cause,
-                occurred_at=candle_timestamp or tick_timestamp or now_ms,
+                occurred_at=tick_timestamp or now_ms or candle_timestamp,
                 clock=clock,
                 session_tag=session_tag,
             )

@@ -25,8 +25,77 @@ from services.cg01_types import CG01Config, resolve_slippage_usd
 from services.execution_coordinator import ExecutionCoordinator
 from services.scalp_m1_types import M1ScalpConfig, ModelIdentifier, ScalpMode
 from services.scalp_watcher_orchestrator import ScalpWatcherOrchestrator
+from services.trade_lifecycle_service import TradeLifecycleService
 
 logger = logging.getLogger("cg01_replay_execution_adapter")
+
+
+def build_assumed_bar_events(
+    bar: Dict[str, Any],
+    path_policy: str = "COLOR_BASED",
+    spread: Optional[float] = None,
+    execution_model: str = "ASSUMED_OHLC_PATH",
+    assumption_version: int = 1,
+) -> List[Dict[str, Any]]:
+    """
+    Pure event expansion (V16.9 NHÓM 03, PHẦN 027 - 029).
+    Expands an OHLC candle into ordered synthetic quote events.
+    Green candle (close >= open): OPEN -> LOW -> HIGH -> CLOSE
+    Red candle (close < open):    OPEN -> HIGH -> LOW -> CLOSE
+    """
+    open_px = float(bar["open"])
+    high = float(bar["high"])
+    low = float(bar["low"])
+    close_px = float(bar["close"])
+    now_ms = int(bar["timestamp"])
+    bar_dur = int(bar.get("bar_duration_ms", 60_000))
+    bar_open = int(bar.get("bar_open_time", now_ms - bar_dur))
+
+    if high < low or open_px < (low - 1e-4) or open_px > (high + 1e-4) or close_px < (low - 1e-4) or close_px > (high + 1e-4):
+        raise ValueError(f"INVALID_OHLC_GEOMETRY: open={open_px}, high={high}, low={low}, close={close_px}")
+
+    if spread is None:
+        raw_spread = max(0.0, float(bar.get("ask", close_px)) - float(bar.get("bid", close_px)))
+        spread = raw_spread if raw_spread > 0 else 0.10
+    half_spread = spread / 2.0
+
+    if close_px >= open_px:
+        waypoints = [
+            ("OPEN", open_px),
+            ("LOW", low),
+            ("HIGH", high),
+            ("CLOSE", close_px),
+        ]
+    else:
+        waypoints = [
+            ("OPEN", open_px),
+            ("HIGH", high),
+            ("LOW", low),
+            ("CLOSE", close_px),
+        ]
+
+    wp_offsets = [0, int(bar_dur * 0.25), int(bar_dur * 0.75), bar_dur]
+
+    events: List[Dict[str, Any]] = []
+    for seq, (phase, px) in enumerate(waypoints):
+        sub_ts = min(now_ms, bar_open + wp_offsets[seq])
+        wp_bid = round(px - half_spread, 2)
+        wp_ask = round(px + half_spread, 2)
+        events.append({
+            "timestamp_ms": sub_ts,
+            "sequence": seq,
+            "phase": phase,
+            "price": px,
+            "bid": wp_bid,
+            "ask": wp_ask,
+            "source": "SYNTHETIC_WAYPOINT",
+            "execution_model": execution_model,
+            "path_policy": path_policy,
+            "assumption_version": assumption_version,
+            "bar_open_time": bar_open,
+            "bar_duration_ms": bar_dur,
+        })
+    return events
 
 
 class CG01ReplayExecutionAdapter:
@@ -332,40 +401,33 @@ class CG01ReplayExecutionAdapter:
             return
 
         elif model == "ASSUMED_OHLC_PATH":
-            # ASSUMED_OHLC_PATH: Deterministic intrabar waypoints with synthetic subevent timestamps (PHẦN 061, 064, 071)
-            raw_spread = max(0.0, ask - bid)
-            spread = raw_spread if raw_spread > 0 else 0.10
-            half_spread = spread / 2.0
+            # ASSUMED_OHLC_PATH: Deterministic intrabar waypoints with synthetic subevent timestamps (V16.9 PHẦN 021 - 040)
+            events = build_assumed_bar_events(event)
 
-            raw_waypoints = self._generate_intrabar_waypoints(open_px, high, low, close_px)
-            # Subevent timestamps: t0 = open, t1 = open + 25%, t2 = open + 75%, t3 = close (now_ms)
-            wp_offsets = [0, int(bar_dur * 0.25), int(bar_dur * 0.75), bar_dur]
-
-            # Ambiguity Check & Worst-case handling for ALREADY active open positions (PHẦN 076)
-            from services.trade_lifecycle_service import TradeLifecycleService
+            # Check if any currently open position is intrabar ambiguous across the full candle range
             open_pos = crud.get_active_position(self.db)
             if open_pos and open_pos.state == "paper_open":
-                is_ambiguous = False
+                is_ambig = False
                 if open_pos.direction == "LONG":
                     if open_pos.stop_loss is not None and open_pos.take_profit is not None:
                         if low <= open_pos.stop_loss and high >= open_pos.take_profit:
-                            is_ambiguous = True
+                            is_ambig = True
                 elif open_pos.direction == "SHORT":
                     if open_pos.stop_loss is not None and open_pos.take_profit is not None:
                         if high >= open_pos.stop_loss and low <= open_pos.take_profit:
-                            is_ambiguous = True
+                            is_ambig = True
 
-                if is_ambiguous:
+                if is_ambig:
+                    sl_ts = events[1]["timestamp_ms"]
+                    self.clock.set_time(sl_ts)
                     open_pos.intrabar_ambiguous = True
-                    # Exit occurs at bar_open or waypoint
-                    exit_ts = min(now_ms, bar_open)
-                    self.clock.set_time(exit_ts)
                     TradeLifecycleService.execute_close(
                         db=self.db,
                         order_id=open_pos.id,
                         exit_price=open_pos.stop_loss,
                         exit_cause="AMBIGUOUS_BAR_SL_FIRST",
-                        now_ms=exit_ts,
+                        occurred_at=sl_ts,
+                        now_ms=sl_ts,
                         clock=self.clock,
                         session_tag="REPLAY",
                         recovery_metadata={"intrabar_ambiguous": True},
@@ -373,14 +435,14 @@ class CG01ReplayExecutionAdapter:
                     open_pos.intrabar_ambiguous = True
                     self.db.commit()
 
-            # Process waypoints with strictly nondecreasing timestamps
-            for idx, (phase, px) in enumerate(raw_waypoints):
-                sub_ts = min(now_ms, (bar_open or (now_ms - bar_dur)) + wp_offsets[idx])
-                self.clock.set_time(sub_ts)
+            # Process waypoints in strictly nondecreasing order without premature future close at bar_open
+            for ev in events:
+                sub_ts = ev["timestamp_ms"]
+                px = ev["price"]
+                wp_bid = ev["bid"]
+                wp_ask = ev["ask"]
 
-                # Uniform spread across all waypoints (PHẦN 081 & 082)
-                wp_bid = round(px - half_spread, 2)
-                wp_ask = round(px + half_spread, 2)
+                self.clock.set_time(sub_ts)
 
                 # Step 1: Re-fetch position that was ALREADY open before this waypoint
                 curr_pos = crud.get_active_position(self.db)
@@ -416,7 +478,7 @@ class CG01ReplayExecutionAdapter:
 
                 # Step 3: If an order was filled at this waypoint, evaluate exit against this same waypoint
                 curr_pos = crud.get_active_position(self.db)
-                if curr_pos and curr_pos.state == "paper_open":
+                if curr_pos and curr_pos.state == "paper_open" and curr_pos.opened_at == sub_ts:
                     exit_res = PaperBroker.process_price_tick(
                         db=self.db,
                         current_bid=wp_bid,

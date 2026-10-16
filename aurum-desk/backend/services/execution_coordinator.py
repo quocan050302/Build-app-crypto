@@ -14,6 +14,56 @@ from services.quote_validator import QuoteValidator
 from services.clock import live_clock, IClock
 from services.entry_guard_service import serialize_entry_mutation
 
+
+def resolve_executable_sizing_context(
+    order: Any,
+    current_equity: float,
+    *,
+    capital_mode: Optional[str] = None,
+    order_cost_snap: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    V16.9 NHÓM 12, PHẦN 111 - 120: Resolve executable sizing context.
+    Distinguishes requested sizing target, account safety budget, and executable budget.
+    """
+    snap = order_cost_snap or {}
+    mode = capital_mode or snap.get("capital_mode") or "CURRENT_ACCOUNT_BALANCE"
+    risk_pct = float(order.risk_pct or snap.get("risk_pct") or 0.25)
+
+    if mode == "FIXED_INITIAL_CAPITAL":
+        target_capital = float(snap.get("target_capital") or snap.get("capital_usdt") or (order.initial_risk_usdt / (risk_pct / 100.0) if order.initial_risk_usdt else current_equity))
+        target_budget = round(target_capital * (risk_pct / 100.0), 4)
+
+        # Account safety constraint: cannot risk more than current equity allows
+        safety_max_risk = round(current_equity * (risk_pct / 100.0), 4)
+        if current_equity < target_capital and target_budget > safety_max_risk:
+            # Degraded account equity: cap target risk budget to safety budget
+            executable_budget = safety_max_risk
+            sizing_capital = current_equity
+            adjustment_reason = "ACCOUNT_SAFETY_CAP"
+        else:
+            executable_budget = target_budget
+            sizing_capital = target_capital
+            adjustment_reason = "NONE"
+    else:
+        # CURRENT_ACCOUNT_BALANCE: target basis is current equity
+        target_capital = current_equity
+        target_budget = round(current_equity * (risk_pct / 100.0), 4)
+        executable_budget = target_budget
+        sizing_capital = current_equity
+        adjustment_reason = "NONE"
+
+    return {
+        "capital_mode": mode,
+        "target_capital": target_capital,
+        "target_budget": target_budget,
+        "account_capital_at_fill": current_equity,
+        "executable_budget": executable_budget,
+        "sizing_capital": sizing_capital,
+        "adjustment_reason": adjustment_reason,
+    }
+
+
 class ExecutionCoordinator:
     """
     Singleton Execution Coordinator:
@@ -246,6 +296,13 @@ class ExecutionCoordinator:
                 )
                 continue
 
+            # V16.9 Resolve executable sizing context (target budget, safety cap, executable budget)
+            sizing_ctx = resolve_executable_sizing_context(
+                order=order,
+                current_equity=audit.current_equity,
+                order_cost_snap=order_cost_snap,
+            )
+
             # Authoritative execution re-check with actual fill price
             # Must preserve the armed quantity (no silent size increase) and validate against budget/netRR
             calc_budget = calculate_risk_reward(
@@ -253,7 +310,7 @@ class ExecutionCoordinator:
                 entry=fill_price,
                 sl=order.stop_loss,
                 tp=order.take_profit,
-                capital=audit.current_equity,
+                capital=sizing_ctx["sizing_capital"],
                 risk_pct=order.risk_pct or 0.25,
                 entry_has_slippage=True,
                 costs=order_costs,
@@ -290,7 +347,7 @@ class ExecutionCoordinator:
                 entry=fill_price,
                 sl=order.stop_loss,
                 tp=order.take_profit,
-                capital=audit.current_equity,
+                capital=sizing_ctx["sizing_capital"],
                 risk_pct=order.risk_pct or 0.25,
                 quantity_override=qty_to_use,
                 entry_has_slippage=True,
@@ -408,7 +465,8 @@ class ExecutionCoordinator:
                 calc_result=calc,
                 source=effective_source,
                 now_ms=current_time,
-                clock=c
+                clock=c,
+                sizing_context=sizing_ctx,
             )
             # Max 1 position enforced, break after filling first triggered order
             break

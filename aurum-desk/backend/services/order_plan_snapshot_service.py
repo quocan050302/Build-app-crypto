@@ -74,6 +74,9 @@ def build_arm_plan_snapshot(
     policy_config_version: int = 1,
     risk_config_version: int = 1,
     slippage_usd: Optional[float] = None,
+    capital_mode: str = "CURRENT_ACCOUNT_BALANCE",
+    target_capital: Optional[float] = None,
+    target_risk_budget: Optional[float] = None,
 ) -> OrderPlanSnapshot:
     """Builds canonical frozen financial snapshot at ARM stage."""
     from services.cg01_types import resolve_slippage_usd
@@ -145,6 +148,13 @@ def build_arm_plan_snapshot(
         "risk_config_version": risk_config_version,
         "calculated_at": now_ms,
         "equity_as_of_ms": now_ms,
+        "capital_mode": capital_mode,
+        "target_capital": target_capital if target_capital is not None else capital_usdt,
+        "target_risk_budget": target_risk_budget if target_risk_budget is not None else net_risk,
+        "account_capital_at_fill": capital_usdt,
+        "executable_risk_budget": net_risk,
+        "actual_risk_after_rounding": net_risk,
+        "sizing_adjustment_reason": "NONE",
     })
 
 
@@ -155,6 +165,7 @@ def build_fill_plan_snapshot(
     *,
     now_ms: int,
     cost_source: str = "BITGET_PAPER_MODEL_V10_4",
+    sizing_context: Optional[Dict[str, Any]] = None,
 ) -> OrderPlanSnapshot:
     """Builds canonical frozen financial snapshot at FILL stage, preserving arm refs and legacy keys."""
     qty = getattr(calc_result, "quantity", getattr(order, "quantity", 0.0))
@@ -252,6 +263,13 @@ def build_fill_plan_snapshot(
         "risk_config_version": getattr(order, "config_version", 1),
         "calculated_at": now_ms,
         "equity_as_of_ms": getattr(order, "opened_at", None) or now_ms,
+        "capital_mode": (sizing_context or {}).get("capital_mode") or arm_dict.get("capital_mode", "CURRENT_ACCOUNT_BALANCE"),
+        "target_capital": (sizing_context or {}).get("target_capital") if (sizing_context and "target_capital" in sizing_context) else arm_dict.get("target_capital"),
+        "target_risk_budget": (sizing_context or {}).get("target_budget") if (sizing_context and "target_budget" in sizing_context) else arm_dict.get("target_risk_budget"),
+        "account_capital_at_fill": (sizing_context or {}).get("account_capital_at_fill") or equity,
+        "executable_risk_budget": (sizing_context or {}).get("executable_budget") or net_risk,
+        "actual_risk_after_rounding": net_risk,
+        "sizing_adjustment_reason": (sizing_context or {}).get("adjustment_reason") or arm_dict.get("sizing_adjustment_reason", "NONE"),
     })
 
 

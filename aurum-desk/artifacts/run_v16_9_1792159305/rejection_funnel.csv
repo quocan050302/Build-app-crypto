@@ -1,0 +1,7 @@
+category,count,description
+CONTEXT_NOT_READY,0,HTF context or warmup insufficient for evaluation
+OBSERVING_WAITING_TRIGGER,3,Active observation awaiting valid sweep / displacement
+GUARD_BLOCKED,0,Candidate setup blocked by risk/news/account/cooldown guards
+ARMED_CANDIDATES,2,Setups successfully validated and armed for execution
+EXPIRED_BEFORE_FILL,1,Armed orders expired prior to reaching limit price
+CANCELLED_ORDERS,0,Armed orders cancelled prior to execution
