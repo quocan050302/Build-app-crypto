@@ -1,0 +1,1 @@
+trade_id,entry_time,exit_time,direction,model_id,entry_price,exit_price,stop_loss,take_profit,quantity,outcome,is_ambiguous,ambiguity_reason,net_pnl_usd,realized_cash

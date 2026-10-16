@@ -1337,10 +1337,12 @@ class ScalpWatcherOrchestrator:
         # 5. Guard passed: Create PaperOrder with canonical sizing and schema fields (PHẦN 025 - 030)
         with self._lock:
             self._arm_rejections.pop(cand.candidate_key, None)
+        from services.cg01_types import candidate_execution_order_type
+        resolved_order_type = candidate_execution_order_type(cand, legacy_default="MARKET")
         from services.order_plan_snapshot_service import build_arm_plan_snapshot
         arm_snap = build_arm_plan_snapshot(
             calc,
-            order_type="MARKET",
+            order_type=resolved_order_type,
             direction=cand.direction,
             planned_entry=cand.planned_entry,
             stop_loss=cand.stop_loss,
@@ -1364,7 +1366,7 @@ class ScalpWatcherOrchestrator:
             instrument=cand.symbol,
             direction=cand.direction,
             state="armed",
-            order_type="MARKET",
+            order_type=resolved_order_type,
             timeframe=snap.setup_timeframe if snap else "1M",
             planned_entry=cand.planned_entry,
             actual_entry=None,
@@ -1432,7 +1434,7 @@ class ScalpWatcherOrchestrator:
                 "order_id": order.id,
                 "setup_id": ws.id,
                 "direction": cand.direction,
-                "order_type": "MARKET",
+                "order_type": order.order_type,
                 "planned_entry": cand.planned_entry,
                 "stop_loss": cand.stop_loss,
                 "take_profit": cand.take_profit,

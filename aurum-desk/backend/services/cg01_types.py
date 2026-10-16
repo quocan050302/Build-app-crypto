@@ -222,3 +222,60 @@ class CG01Decision:
             "time_context": self.time_context.to_dict() if self.time_context else None,
             "ui_summary_vi": self.ui_summary_vi,
         }
+
+
+@dataclass(frozen=True)
+class CG01EntryIntent:
+    """
+    Rules 041 - 043: Explicit execution intent for CG-01 candidate.
+    Distinguishes limit at CE from confirmed retest market order.
+    """
+    entry_mode: str               # "LIMIT_AT_CE_AFTER_CONFIRMATION" or "CONFIRMED_RETEST_MARKET"
+    order_type: str               # "LIMIT" or "MARKET"
+    reference_ce: float           # 50% CE price of FVG
+    planned_entry: float          # CE for LIMIT, or executable market price (ask/bid + slippage) for MARKET
+    price_basis: str              # "LIMIT_CE" or "MARKET_QUOTE_ASK" / "MARKET_QUOTE_BID"
+    trigger_known_at: int         # Milliseconds UTC when trigger was confirmed
+    valid_until: int              # Milliseconds UTC when intent expires
+    quote_timestamp: int          # Timestamp of the quote used for market estimation
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "entry_mode": self.entry_mode,
+            "order_type": self.order_type,
+            "reference_ce": self.reference_ce,
+            "planned_entry": self.planned_entry,
+            "price_basis": self.price_basis,
+            "trigger_known_at": self.trigger_known_at,
+            "valid_until": self.valid_until,
+            "quote_timestamp": self.quote_timestamp,
+        }
+
+
+def resolve_cg01_order_type(entry_mode: str) -> str:
+    """
+    Rule 042: Maps entry_mode enum/string to standard order_type ('LIMIT' or 'MARKET').
+    Rejects unknown modes fail-closed.
+    """
+    if entry_mode in (CG01EntryMode.LIMIT_AT_CE_AFTER_CONFIRMATION.value, "LIMIT_AT_CE_AFTER_CONFIRMATION", "LIMIT"):
+        return "LIMIT"
+    elif entry_mode in (CG01EntryMode.CONFIRMED_RETEST_MARKET.value, "CONFIRMED_RETEST_MARKET", "MARKET"):
+        return "MARKET"
+    else:
+        raise ValueError(f"UNSUPPORTED_ENTRY_MODE: {entry_mode}. Only LIMIT_AT_CE_AFTER_CONFIRMATION and CONFIRMED_RETEST_MARKET are supported.")
+
+
+def candidate_execution_order_type(cand: Any, legacy_default: str = "MARKET") -> str:
+    """
+    Rule 009 & Appendix B: Determines authoritative order_type for paper execution.
+    Prioritizes cand.order_type or cand.entry_intent, with legacy_default for non-CG01 models.
+    """
+    if cand is None:
+        return legacy_default
+    ot = getattr(cand, "order_type", None)
+    if ot:
+        return str(ot).upper()
+    intent = getattr(cand, "entry_intent", None)
+    if isinstance(intent, dict) and "order_type" in intent:
+        return str(intent["order_type"]).upper()
+    return legacy_default

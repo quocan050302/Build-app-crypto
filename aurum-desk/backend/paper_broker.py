@@ -279,7 +279,12 @@ class PaperBroker:
         current_ask: float,
         candle_high: Optional[float] = None,
         candle_low: Optional[float] = None,
-        candle_timestamp: Optional[int] = None
+        candle_timestamp: Optional[int] = None,
+        bar_duration_ms: int = 15 * 60 * 1000,
+        now_ms: Optional[int] = None,
+        clock: Optional[Any] = None,
+        session_tag: str = "LIVE_PAPER",
+        tick_timestamp: Optional[int] = None,
     ) -> Optional[models.PaperOrder]:
         """
         Evaluate active paper position against latest price/candle tick via unified TradeLifecycleService.
@@ -291,7 +296,12 @@ class PaperBroker:
             current_ask=current_ask,
             candle_high=candle_high,
             candle_low=candle_low,
-            candle_timestamp=candle_timestamp
+            candle_timestamp=candle_timestamp,
+            bar_duration_ms=bar_duration_ms,
+            now_ms=now_ms,
+            clock=clock,
+            session_tag=session_tag,
+            tick_timestamp=tick_timestamp,
         )
 
     @staticmethod

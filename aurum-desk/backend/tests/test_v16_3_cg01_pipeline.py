@@ -419,14 +419,29 @@ def test_rule_168_confirmed_retest_market_mode():
     assert dec_pre.stage == CG01Stage.WAIT_ENTRY
     assert "WAIT_RETEST" in dec_pre.reason_codes
 
-    # 2. Add closed retest bar touching CE (2623.75) and closing above
+    # 2. Add retest bar (opens at now_ms, closes at now_ms + 60_000)
     retest_bar = make_bar(now_ms, 2625.0, 2625.5, 2623.5, 2624.5)  # low 2623.5 <= 2623.75, close >= 2623.75
     c_1m_retested = list(c_1m) + [retest_bar]
     ctx_retested = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m_retested}
 
-    dec_post = evaluate_cg01_candidate(ctx_retested, quote, config=cfg_retest, now_ms=now_ms + 60_000)
+    # At now_ms: the retest bar has NOT closed yet! (Rule 007 regression)
+    dec_unclosed = evaluate_cg01_candidate(ctx_retested, quote, config=cfg_retest, now_ms=now_ms)
+    assert dec_unclosed.stage == CG01Stage.WAIT_ENTRY
+    assert "WAIT_RETEST" in dec_unclosed.reason_codes
+
+    # At now_ms + 60_000: retest bar has closed. If quote is runaway (ask=2625.6), RR check rejects (Rule 008, 049)
+    dec_runaway = evaluate_cg01_candidate(ctx_retested, quote, config=cfg_retest, now_ms=now_ms + 60_000)
+    assert dec_runaway.stage == CG01Stage.WAIT_ENTRY
+    assert "RR_BELOW_MINIMUM" in dec_runaway.reason_codes
+
+    # At now_ms + 60_000 with quote executable near CE: EXECUTABLE with MARKET order type (Rule 041, 042)
+    quote_near_ce = {"bid": 2623.75, "ask": 2623.85, "is_valid": True}
+    dec_post = evaluate_cg01_candidate(ctx_retested, quote_near_ce, config=cfg_retest, now_ms=now_ms + 60_000)
     assert dec_post.stage == CG01Stage.EXECUTABLE
     assert dec_post.is_eligible
+    assert dec_post.candidate.order_type == "MARKET"
+    assert dec_post.candidate.planned_entry == 2623.95
+    assert dec_post.candidate.reference_ce == 2623.75
 
 
 def test_rule_170_shadow_hard_boundary(pipeline_db):

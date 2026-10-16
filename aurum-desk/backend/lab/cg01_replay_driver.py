@@ -98,12 +98,24 @@ class CG01ReplayDriver:
                 "status": "BLOCKED_DATA",
                 "reason": "Thiếu tệp dữ liệu M1 nến đóng chuẩn (Rules 013, 163, 195). Không dùng nến 5M/15M giả lập M1.",
                 "total_fills": 0,
+                "closed_trades_count": 0,
+                "open_positions_count": 0,
+                "pending_orders_count": 0,
                 "closed_trades": [],
+                "open_position": None,
+                "pending_order": None,
                 "daily_stats": {},
                 "equity_mtm": [],
                 "equity_realized": [],
                 "rejection_funnel": [],
-                "metrics": {},
+                "metrics": {
+                    "initial_capital": self.initial_capital,
+                    "final_cash": None,
+                    "total_pnl_usd": None,
+                    "winrate_pct": None,
+                    "max_drawdown_pct": None,
+                    "total_trades": 0,
+                },
             }
 
         # Load and validate M1 candles
@@ -115,40 +127,176 @@ class CG01ReplayDriver:
                 "status": "BLOCKED_DATA",
                 "reason": f"Không thể đọc tệp dữ liệu M1: {e}",
                 "total_fills": 0,
+                "closed_trades_count": 0,
+                "open_positions_count": 0,
+                "pending_orders_count": 0,
                 "closed_trades": [],
+                "open_position": None,
+                "pending_order": None,
                 "daily_stats": {},
                 "equity_mtm": [],
                 "equity_realized": [],
                 "rejection_funnel": [],
-                "metrics": {},
+                "metrics": {
+                    "initial_capital": self.initial_capital,
+                    "final_cash": None,
+                    "total_pnl_usd": None,
+                    "winrate_pct": None,
+                    "max_drawdown_pct": None,
+                    "total_trades": 0,
+                },
             }
 
-        # Validate M1 interval
+        # Validate M1 interval and length (Rule 096, 142)
         if len(raw_data) < 2:
             return {
                 "status": "BLOCKED_DATA",
                 "reason": "Dữ liệu M1 quá ngắn (< 2 nến).",
                 "total_fills": 0,
+                "closed_trades_count": 0,
+                "open_positions_count": 0,
+                "pending_orders_count": 0,
                 "closed_trades": [],
+                "open_position": None,
+                "pending_order": None,
                 "daily_stats": {},
                 "equity_mtm": [],
                 "equity_realized": [],
                 "rejection_funnel": [],
-                "metrics": {},
+                "metrics": {
+                    "initial_capital": self.initial_capital,
+                    "final_cash": None,
+                    "total_pnl_usd": None,
+                    "winrate_pct": None,
+                    "max_drawdown_pct": None,
+                    "total_trades": 0,
+                },
             }
 
         candles: List[ReplayBar] = []
-        for r in raw_data:
-            c = ReplayBar(
-                open_time=int(r.get("open_time") or r.get("timestamp") or r.get("time")),
-                open=float(r["open"]),
-                high=float(r["high"]),
-                low=float(r["low"]),
-                close=float(r["close"]),
-                volume=float(r.get("volume", 100.0)),
+        for idx, r in enumerate(raw_data):
+            try:
+                t_raw = int(r.get("open_time") or r.get("timestamp") or r.get("time") or 0)
+                o = float(r["open"])
+                h = float(r["high"])
+                l = float(r["low"])
+                c = float(r["close"])
+                v = float(r.get("volume", 100.0))
+            except (ValueError, TypeError, KeyError) as e:
+                return {
+                    "status": "BLOCKED_DATA",
+                    "reason": f"Dữ liệu nến không hợp lệ ở vị trí {idx}: {e}",
+                    "total_fills": 0,
+                    "closed_trades_count": 0,
+                    "open_positions_count": 0,
+                    "pending_orders_count": 0,
+                    "closed_trades": [],
+                    "open_position": None,
+                    "pending_order": None,
+                    "daily_stats": {},
+                    "equity_mtm": [],
+                    "equity_realized": [],
+                    "rejection_funnel": [],
+                    "metrics": {
+                        "initial_capital": self.initial_capital,
+                        "final_cash": None,
+                        "total_pnl_usd": None,
+                        "winrate_pct": None,
+                        "max_drawdown_pct": None,
+                        "total_trades": 0,
+                    },
+                }
+
+            if h < l or o < (l - 1e-4) or o > (h + 1e-4) or c < (l - 1e-4) or c > (h + 1e-4) or t_raw <= 0:
+                return {
+                    "status": "BLOCKED_DATA",
+                    "reason": f"Lỗi hình học giá OHLC hoặc timestamp ở vị trí {idx} (t={t_raw}, O={o}, H={h}, L={l}, C={c}).",
+                    "total_fills": 0,
+                    "closed_trades_count": 0,
+                    "open_positions_count": 0,
+                    "pending_orders_count": 0,
+                    "closed_trades": [],
+                    "open_position": None,
+                    "pending_order": None,
+                    "daily_stats": {},
+                    "equity_mtm": [],
+                    "equity_realized": [],
+                    "rejection_funnel": [],
+                    "metrics": {
+                        "initial_capital": self.initial_capital,
+                        "final_cash": None,
+                        "total_pnl_usd": None,
+                        "winrate_pct": None,
+                        "max_drawdown_pct": None,
+                        "total_trades": 0,
+                    },
+                }
+
+            candles.append(ReplayBar(
+                open_time=t_raw,
+                open=o,
+                high=h,
+                low=l,
+                close=c,
+                volume=v,
                 is_closed=True,
-            )
-            candles.append(c)
+            ))
+
+        # Check non-decreasing timestamps and conflicting duplicates (Rule 025, 096)
+        for i in range(len(candles) - 1):
+            curr_c = candles[i]
+            next_c = candles[i+1]
+            if next_c.open_time < curr_c.open_time:
+                return {
+                    "status": "BLOCKED_DATA",
+                    "reason": f"Dữ liệu timestamps bị đảo lộn tại vị trí {i} ({curr_c.open_time} > {next_c.open_time}).",
+                    "total_fills": 0,
+                    "closed_trades_count": 0,
+                    "open_positions_count": 0,
+                    "pending_orders_count": 0,
+                    "closed_trades": [],
+                    "open_position": None,
+                    "pending_order": None,
+                    "daily_stats": {},
+                    "equity_mtm": [],
+                    "equity_realized": [],
+                    "rejection_funnel": [],
+                    "metrics": {
+                        "initial_capital": self.initial_capital,
+                        "final_cash": None,
+                        "total_pnl_usd": None,
+                        "winrate_pct": None,
+                        "max_drawdown_pct": None,
+                        "total_trades": 0,
+                    },
+                }
+            elif next_c.open_time == curr_c.open_time:
+                # Conflicting duplicate check (Rule 025)
+                if (next_c.high != curr_c.high or next_c.low != curr_c.low or
+                    next_c.open != curr_c.open or next_c.close != curr_c.close):
+                    return {
+                        "status": "BLOCKED_DATA",
+                        "reason": f"Phát hiện nến trùng timestamp {curr_c.open_time} nhưng xung đột OHLC (vị trí {i}).",
+                        "total_fills": 0,
+                        "closed_trades_count": 0,
+                        "open_positions_count": 0,
+                        "pending_orders_count": 0,
+                        "closed_trades": [],
+                        "open_position": None,
+                        "pending_order": None,
+                        "daily_stats": {},
+                        "equity_mtm": [],
+                        "equity_realized": [],
+                        "rejection_funnel": [],
+                        "metrics": {
+                            "initial_capital": self.initial_capital,
+                            "final_cash": None,
+                            "total_pnl_usd": None,
+                            "winrate_pct": None,
+                            "max_drawdown_pct": None,
+                            "total_trades": 0,
+                        },
+                    }
 
         diffs = [candles[i+1].open_time - candles[i].open_time for i in range(min(10, len(candles)-1))]
         avg_diff = sum(diffs) / len(diffs) if diffs else 0
@@ -157,12 +305,24 @@ class CG01ReplayDriver:
                 "status": "BLOCKED_DATA",
                 "reason": f"Interval dữ liệu không phải 1M (khoảng cách trung bình: {avg_diff/1000:.1f}s, yêu cầu 60s).",
                 "total_fills": 0,
+                "closed_trades_count": 0,
+                "open_positions_count": 0,
+                "pending_orders_count": 0,
                 "closed_trades": [],
+                "open_position": None,
+                "pending_order": None,
                 "daily_stats": {},
                 "equity_mtm": [],
                 "equity_realized": [],
                 "rejection_funnel": [],
-                "metrics": {},
+                "metrics": {
+                    "initial_capital": self.initial_capital,
+                    "final_cash": None,
+                    "total_pnl_usd": None,
+                    "winrate_pct": None,
+                    "max_drawdown_pct": None,
+                    "total_trades": 0,
+                },
             }
 
         # Run causal forward simulation
@@ -250,13 +410,18 @@ class CG01ReplayDriver:
                 exit_price = p_entry
                 outcome = "OPEN"
 
+                is_ambiguous = False
+                ambiguity_reason = None
+
                 # Check SL / TP on current bar
                 if p_dir == "LONG":
                     hit_sl = (current_bar.low <= p_sl)
                     hit_tp = (current_bar.high >= p_tp)
                     if hit_sl and hit_tp:
-                        # Conservative rule 172: ambiguous bar touches both SL and TP -> treat as SL
+                        # Conservative rule 172: ambiguous bar touches both SL and TP -> treat as SL assumption
                         outcome = "SL"
+                        is_ambiguous = True
+                        ambiguity_reason = "INTRABAR_SL_TP_COLLISION"
                         exit_price = p_sl
                         exit_occurred = True
                     elif hit_sl:
@@ -272,6 +437,8 @@ class CG01ReplayDriver:
                     hit_tp = (current_bar.low <= p_tp)
                     if hit_sl and hit_tp:
                         outcome = "SL"
+                        is_ambiguous = True
+                        ambiguity_reason = "INTRABAR_SL_TP_COLLISION"
                         exit_price = p_sl
                         exit_occurred = True
                     elif hit_sl:
@@ -302,6 +469,8 @@ class CG01ReplayDriver:
                         "take_profit": p_tp,
                         "quantity": p_qty,
                         "outcome": outcome,
+                        "is_ambiguous": is_ambiguous,
+                        "ambiguity_reason": ambiguity_reason,
                         "net_pnl_usd": net_pnl,
                         "realized_cash": cash,
                     }
@@ -415,16 +584,27 @@ class CG01ReplayDriver:
                     "reason": decision.reason_codes[0],
                 })
 
-        # Summary Metrics
-        wins = sum(1 for t in closed_trades if t["outcome"] == "TP")
-        winrate = (wins / len(closed_trades) * 100.0) if closed_trades else None
+        # Summary Metrics (Rules 111 - 119)
+        closed_trades_count = len(closed_trades)
+        open_positions_count = 1 if open_position is not None else 0
+        pending_orders_count = 1 if pending_order is not None else 0
+        total_fills = closed_trades_count + open_positions_count
+
+        # Net winrate (Rules 118, 170): Gross TP but net negative is NOT counted as win
+        wins = sum(1 for t in closed_trades if t.get("outcome") == "TP" and t.get("net_pnl_usd", 0.0) > 0.0)
+        winrate = (wins / closed_trades_count * 100.0) if closed_trades_count > 0 else None
         total_pnl = round(cash - self.initial_capital, 2)
 
         return {
             "status": "COMPLETED",
             "reason": "OK",
-            "total_fills": len(closed_trades),
+            "total_fills": total_fills,
+            "closed_trades_count": closed_trades_count,
+            "open_positions_count": open_positions_count,
+            "pending_orders_count": pending_orders_count,
             "closed_trades": closed_trades,
+            "open_position": open_position,
+            "pending_order": pending_order,
             "daily_stats": daily_stats,
             "equity_mtm": equity_mtm_series,
             "equity_realized": equity_realized_series,
@@ -435,6 +615,7 @@ class CG01ReplayDriver:
                 "total_pnl_usd": total_pnl,
                 "winrate_pct": round(winrate, 2) if winrate is not None else None,
                 "max_drawdown_pct": round(max_dd_pct, 2),
-                "total_trades": len(closed_trades),
+                "total_trades": closed_trades_count,
+                "open_trades": open_positions_count,
             },
         }

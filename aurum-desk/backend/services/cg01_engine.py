@@ -24,9 +24,11 @@ from services.cg01_context_adapter import (
     CanonicalCandle,
     CanonicalQuote,
     adapt_cg01_quote,
+    assess_cg01_context_readiness,
     build_cg01_closed_context,
     build_cg01_liquidity_context,
     normalize_cg01_candle,
+    resolve_cg01_retest,
     select_closed_candles,
 )
 from services.cg01_evidence_adapter import (
@@ -38,11 +40,13 @@ from services.cg01_evidence_adapter import (
 from services.cg01_types import (
     CG01Config,
     CG01Decision,
+    CG01EntryIntent,
     CG01EntryMode,
     CG01EvidenceRefs,
     CG01ProfileMode,
     CG01Stage,
     CG01TimeContext,
+    resolve_cg01_order_type,
 )
 from services.liquidity_scenario_service import (
     assess_range_position,
@@ -611,8 +615,24 @@ def evaluate_cg01_candidate(
     # 1. Step 1: Timing Window Check (Rules 051 - 060)
     time_ctx = resolve_cg01_time_context(t_now, cfg)
 
+    # RULE 021: Closed boundary at evaluator — build closed bundle at start (Rules 021 - 032)
+    closed_bundle = build_cg01_closed_context(context, as_of_ms=t_now, symbol="XAUUSDT")
+    ready, ready_reason, missing_conds = assess_cg01_context_readiness(closed_bundle, cfg)
+    if not ready:
+        return CG01Decision(
+            stage=CG01Stage.OBSERVING,
+            is_eligible=False,
+            model_version=cfg.model_version,
+            config_version=cfg.config_version,
+            reason_codes=(ready_reason,),
+            missing_conditions=tuple(missing_conds),
+            as_of_ms=t_now,
+            time_context=time_ctx,
+            ui_summary_vi={"status": f"Đang khởi động dữ liệu bối cảnh HTF: {ready_reason}."},
+        )
+
     # 2. Step 2: HTF Context & Dealing Range (Rules 046 - 050)
-    htf_data = build_cg01_context(context, t_now, cfg)
+    htf_data = build_cg01_context(closed_bundle, t_now, cfg)
     if htf_data.get("is_warmup"):
         return CG01Decision(
             stage=CG01Stage.OBSERVING,
@@ -639,8 +659,8 @@ def evaluate_cg01_candidate(
     else:
         directions_to_evaluate = ["LONG", "SHORT"]
 
-    c_15m = [normalize_cg01_candle(b, "15M") if not isinstance(b, CanonicalCandle) else b for b in (context.get("15M") or [])]
-    c_1m = [normalize_cg01_candle(b, "1M") if not isinstance(b, CanonicalCandle) else b for b in (context.get("1M") or [])]
+    c_15m = closed_bundle["15M"]
+    c_1m = closed_bundle["1M"]
 
     # Rule 039: Strict M1 timeframe verification
     if not c_1m:
@@ -660,10 +680,12 @@ def evaluate_cg01_candidate(
 
     # Liquidity map for sweep & targets (Rules 041, 042, 061 - 070)
     liquidity_levels = build_cg01_liquidity_context(
-        context, as_of_ms=t_now, symbol="XAUUSDT", config=cfg
+        closed_bundle, as_of_ms=t_now, symbol="XAUUSDT", config=cfg
     )
 
     best_decision: Optional[CG01Decision] = None
+    last_rejection_stage: Optional[CG01Stage] = None
+    last_rejection_reason: Optional[str] = None
 
     for direction in directions_to_evaluate:
         # Rule 050: Filter POIs
@@ -687,41 +709,7 @@ def evaluate_cg01_candidate(
             if not fvg:
                 continue
 
-            # Rule 078, 081, 082: Entry mode validation
-            is_retest_market = (cfg.entry_mode == CG01EntryMode.CONFIRMED_RETEST_MARKET.value)
-            if is_retest_market:
-                form_idx = fvg.get("formation_bar_idx", 0)
-                retest_confirmed = False
-                for j in range(form_idx + 1, len(c_1m)):
-                    b = c_1m[j]
-                    b_low = float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0))
-                    b_high = float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0))
-                    b_close = float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0))
-                    if direction == "LONG":
-                        if b_low <= fvg["ce_price"] and b_close >= fvg["ce_price"]:
-                            retest_confirmed = True
-                            break
-                    else:
-                        if b_high >= fvg["ce_price"] and b_close <= fvg["ce_price"]:
-                            retest_confirmed = True
-                            break
-                if not retest_confirmed:
-                    return CG01Decision(
-                        stage=CG01Stage.WAIT_ENTRY,
-                        is_eligible=False,
-                        model_id=ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
-                        model_version=cfg.model_version,
-                        config_version=cfg.config_version,
-                        direction=direction,
-                        reason_codes=("WAIT_RETEST",),
-                        missing_conditions=("FVG_RETEST_NOT_CONFIRMED",),
-                        as_of_ms=t_now,
-                        time_context=time_ctx,
-                        ui_summary_vi={"status": "Đang chờ giá hồi (retest) vào vùng FVG."},
-                    )
-
-            # 7. Sizing, Structural SL & Target
-            planned_entry = fvg["ce_price"]
+            ce_price = fvg["ce_price"]
             sweep_extreme = sweep["sweep_extreme"]
             buffer_ticks = cfg.sl_buffer_ticks
             tick_size = cfg.tick_size
@@ -731,21 +719,70 @@ def evaluate_cg01_candidate(
             else:
                 sl = round(sweep_extreme + (buffer_ticks * tick_size), 2)
 
+            # Rule 078, 081, 082: Entry mode validation & resolution
+            is_retest_market = (cfg.entry_mode == CG01EntryMode.CONFIRMED_RETEST_MARKET.value)
+            if is_retest_market:
+                retest_res = resolve_cg01_retest(
+                    closed_m1=c_1m,
+                    fvg=fvg,
+                    direction=direction,
+                    as_of_ms=t_now,
+                    config=cfg,
+                    structural_sl=sl,
+                )
+                if not retest_res.confirmed:
+                    return CG01Decision(
+                        stage=CG01Stage.WAIT_ENTRY,
+                        is_eligible=False,
+                        model_id=ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+                        model_version=cfg.model_version,
+                        config_version=cfg.config_version,
+                        direction=direction,
+                        reason_codes=(retest_res.reason,),
+                        missing_conditions=("FVG_RETEST_NOT_CONFIRMED",),
+                        as_of_ms=t_now,
+                        time_context=time_ctx,
+                        ui_summary_vi={"status": "Đang chờ giá hồi (retest) vào vùng FVG."},
+                    )
+
+                # Rules 008, 045, 046: Market entry uses executable quote estimate + slippage
+                costs_obj = costs or CostAssumptions()
+                slippage = float(getattr(costs_obj, "slippage_usd", 0.10) or 0.10)
+                if direction == "LONG":
+                    planned_entry = round(ask + slippage, 2)
+                    price_basis = "MARKET_QUOTE_ASK"
+                else:
+                    planned_entry = round(bid - slippage, 2)
+                    price_basis = "MARKET_QUOTE_BID"
+                order_type = "MARKET"
+                entry_has_slippage = True
+                trigger_known_at = retest_res.known_at or t_now
+            else:
+                # Rule 044: Limit at CE
+                planned_entry = ce_price
+                price_basis = "LIMIT_CE"
+                order_type = "LIMIT"
+                entry_has_slippage = False
+                trigger_known_at = int(fvg.get("formation_time_ms") or t_now)
+
             target_dec = resolve_executable_target(
                 liquidity_levels, direction, planned_entry, as_of_ms=t_now, model_id=ModelIdentifier.CG01_SWEEP_MSS_FVG.value
             )
             tp = target_dec.price if (target_dec and target_dec.status == "CONFIRMED") else None
 
             if not tp:
-                # Target unavailable
+                last_rejection_stage = CG01Stage.WAIT_ENTRY
+                last_rejection_reason = "TARGET_UNAVAILABLE"
                 continue
 
-            # Rule 118: Validate price geometry
+            # Rule 118: Validate price geometry (LONG: SL < entry < TP; SHORT: TP < entry < SL)
             geom_ok, geom_err = validate_price_geometry(direction, planned_entry, sl, tp)
             if not geom_ok:
+                last_rejection_stage = CG01Stage.WAIT_ENTRY
+                last_rejection_reason = f"GEOMETRY_INVALID: {geom_err}"
                 continue
 
-            # Sizing via calculate_risk_reward (Rules 116, 117)
+            # Sizing via calculate_risk_reward (Rules 116, 117, 049)
             costs_obj = costs or CostAssumptions()
             calc = calculate_risk_reward(
                 direction=direction,
@@ -756,11 +793,27 @@ def evaluate_cg01_candidate(
                 risk_pct=risk_pct,
                 min_net_rr=cfg.min_net_rr,
                 costs=costs_obj,
+                entry_has_slippage=entry_has_slippage,
                 now_ms=t_now,
             )
 
-            if not calc.is_valid or calc.net_rr < cfg.min_net_rr:
+            if not calc.is_valid or not calc.can_execute or calc.net_rr < cfg.min_net_rr:
+                last_rejection_stage = CG01Stage.WAIT_ENTRY
+                last_rejection_reason = "RR_BELOW_MINIMUM" if calc.net_rr < cfg.min_net_rr else (calc.invalid_reason or "CALCULATION_INVALID")
                 continue
+
+            # Construct CG01EntryIntent (Rule 041)
+            valid_until = trigger_known_at + cfg.candidate_ttl_ms
+            intent = CG01EntryIntent(
+                entry_mode=cfg.entry_mode,
+                order_type=order_type,
+                reference_ce=ce_price,
+                planned_entry=planned_entry,
+                price_basis=price_basis,
+                trigger_known_at=trigger_known_at,
+                valid_until=valid_until,
+                quote_timestamp=q_adapted.timestamp,
+            )
 
             # Build required evidence references (Rule 034)
             ev_refs = CG01EvidenceRefs(
@@ -772,7 +825,7 @@ def evaluate_cg01_candidate(
                 mss_id=mss["mss_id"],
                 displacement_id=f"disp_{mss['mss_id']}",
                 fvg_id=fvg["fvg_id"],
-                entry_trigger_id=f"trig_ce_{fvg['fvg_id']}",
+                entry_trigger_id=f"trig_{order_type.lower()}_{fvg['fvg_id']}",
                 invalidation_id=f"sl_sweep_{sweep['sweep_id']}",
                 target_id=target_dec.source_level_id or f"tp_{tp}",
             )
@@ -850,9 +903,12 @@ def evaluate_cg01_candidate(
                 trigger_chain=trig_chain,
                 snapshot=snap,
                 evidence_ids=ev_refs.to_tuple(),
-                valid_until_ms=t_now + cfg.candidate_ttl_ms,
+                valid_until_ms=valid_until,
                 as_of_ms=t_now,
                 model_version=cfg.model_version,
+                order_type=order_type,
+                entry_intent=intent.to_dict(),
+                reference_ce=ce_price,
             )
 
             decision = CG01Decision(
@@ -879,6 +935,21 @@ def evaluate_cg01_candidate(
             )
 
             return decision
+
+    # If rejected due to calculation / geometry / target, report that specific reason (Rule 049, 099)
+    if last_rejection_reason:
+        return CG01Decision(
+            stage=last_rejection_stage or CG01Stage.WAIT_ENTRY,
+            is_eligible=False,
+            model_id=ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+            model_version=cfg.model_version,
+            config_version=cfg.config_version,
+            reason_codes=(last_rejection_reason,),
+            missing_conditions=("NET_RR_BELOW_MINIMUM",) if "RR_BELOW_MINIMUM" in last_rejection_reason else ("CALCULATION_REJECTED",),
+            as_of_ms=t_now,
+            time_context=time_ctx,
+            ui_summary_vi={"status": f"Kịch bản không khả thi: {last_rejection_reason}."},
+        )
 
     # If no candidate reached full checklist, return current observation state
     return CG01Decision(

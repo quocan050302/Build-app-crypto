@@ -261,15 +261,22 @@ def build_cg01_snapshot(
         f"SL {sl:.2f}, TP {tp:.2f} (Net R:R {calc.net_rr:.2f})."
     )
 
+    ce_price = float(fvg.get("ce_price", planned_entry))
+    entry_mode = getattr(config, "entry_mode", "LIMIT_AT_CE_AFTER_CONFIRMATION")
+    order_type = "MARKET" if entry_mode == "CONFIRMED_RETEST_MARKET" else "LIMIT"
+
     plan = {
         "is_valid": True,
         "entry": planned_entry,
+        "reference_ce": ce_price,
+        "entry_mode": entry_mode,
+        "order_type": order_type,
         "stop_loss": sl,
         "take_profit": tp,
         "net_rr": calc.net_rr,
         "gross_rr": calc.gross_rr,
         "quantity": calc.quantity,
-        "initial_risk_usdt": calc.cost_breakdown.net_risk_usdt if hasattr(calc, "cost_breakdown") else round(abs(planned_entry - sl) * calc.quantity, 2),
+        "initial_risk_usdt": float(getattr(calc, "net_risk_usdt", round(abs(planned_entry - sl) * calc.quantity, 2))),
     }
 
     snap = ScenarioSnapshot(

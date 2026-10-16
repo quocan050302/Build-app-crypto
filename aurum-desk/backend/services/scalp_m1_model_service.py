@@ -257,6 +257,9 @@ class ScalpCandidate:
     execution_state: str = "PENDING"
     rejection_reasons: List[str] = field(default_factory=list)
     cluster_id: Optional[str] = None
+    order_type: str = "MARKET"
+    entry_intent: Optional[Dict[str, Any]] = None
+    reference_ce: Optional[float] = None
 
 
 def candle_open_ms(bar: Any) -> Optional[int]:

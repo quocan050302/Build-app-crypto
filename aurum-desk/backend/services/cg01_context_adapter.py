@@ -500,3 +500,139 @@ def aggregate_closed_bars(
         aggregated.append(agg_candle)
 
     return aggregated
+
+
+@dataclass(frozen=True)
+class CG01RetestResult:
+    """
+    Rules 033 - 038: Authoritative retest confirmation evaluation.
+    Preserves confirmation state, timestamps, touch price, and reason code.
+    """
+    confirmed: bool
+    candle_id: Optional[str] = None
+    occurred_at: int = 0
+    known_at: int = 0
+    touch_price: float = 0.0
+    close_price: float = 0.0
+    reason: str = "WAIT_RETEST"
+    invalidation_occurred: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "confirmed": self.confirmed,
+            "candle_id": self.candle_id,
+            "occurred_at": self.occurred_at,
+            "known_at": self.known_at,
+            "touch_price": self.touch_price,
+            "close_price": self.close_price,
+            "reason": self.reason,
+            "invalidation_occurred": self.invalidation_occurred,
+        }
+
+
+def resolve_cg01_retest(
+    closed_m1: Sequence[Any],
+    fvg: Dict[str, Any],
+    direction: str,
+    as_of_ms: int,
+    config: Optional[Any] = None,
+    structural_sl: Optional[float] = None,
+) -> CG01RetestResult:
+    """
+    Rules 033 - 038: Evaluates whether a confirmed, closed retest candle has touched CE
+    after the FVG formation was established, without lookahead or violating invalidation.
+    """
+    if not closed_m1 or not fvg:
+        return CG01RetestResult(confirmed=False, reason="MISSING_DATA")
+
+    form_time_ms = int(fvg.get("formation_time_ms") or 0)
+    ce_price = float(fvg.get("ce_price", 0.0))
+    if ce_price <= 0:
+        return CG01RetestResult(confirmed=False, reason="INVALID_CE_PRICE")
+
+    max_trigger_age_ms = getattr(config, "max_trigger_age_ms", 600_000)
+
+    # Candles evaluated for retest must have closed strictly after the FVG was formed (Rule 036)
+    latest_confirmed: Optional[CG01RetestResult] = None
+
+    for b in closed_m1:
+        b_open = int(b.get("open_time") if isinstance(b, dict) else getattr(b, "open_time", 0))
+        b_low = float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0))
+        b_high = float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0))
+        b_close = float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0))
+        b_close_time = b_open + 60_000
+
+        # Must be strictly after formation bar and closed by as_of_ms
+        if b_open < form_time_ms or b_close_time > as_of_ms:
+            continue
+
+        # Invalidation check: did price breach structural SL?
+        if structural_sl is not None:
+            if direction == "LONG" and b_low <= structural_sl:
+                return CG01RetestResult(
+                    confirmed=False,
+                    reason="INVALIDATED_BEFORE_RETEST",
+                    occurred_at=b_open,
+                    known_at=b_close_time,
+                    invalidation_occurred=True,
+                )
+            elif direction == "SHORT" and b_high >= structural_sl:
+                return CG01RetestResult(
+                    confirmed=False,
+                    reason="INVALIDATED_BEFORE_RETEST",
+                    occurred_at=b_open,
+                    known_at=b_close_time,
+                    invalidation_occurred=True,
+                )
+
+        # Check retest touch and confirmation close
+        if direction == "LONG":
+            if b_low <= ce_price and b_close >= ce_price:
+                # Check staleness (Rule 038)
+                if as_of_ms - b_close_time > max_trigger_age_ms:
+                    return CG01RetestResult(
+                        confirmed=False,
+                        candle_id=f"retest_{b_open}",
+                        occurred_at=b_open,
+                        known_at=b_close_time,
+                        touch_price=ce_price,
+                        close_price=b_close,
+                        reason="STALE_TRIGGER",
+                    )
+                latest_confirmed = CG01RetestResult(
+                    confirmed=True,
+                    candle_id=f"retest_{b_open}",
+                    occurred_at=b_open,
+                    known_at=b_close_time,
+                    touch_price=ce_price,
+                    close_price=b_close,
+                    reason="CONFIRMED_RETEST",
+                )
+                break
+        else:
+            if b_high >= ce_price and b_close <= ce_price:
+                if as_of_ms - b_close_time > max_trigger_age_ms:
+                    return CG01RetestResult(
+                        confirmed=False,
+                        candle_id=f"retest_{b_open}",
+                        occurred_at=b_open,
+                        known_at=b_close_time,
+                        touch_price=ce_price,
+                        close_price=b_close,
+                        reason="STALE_TRIGGER",
+                    )
+                latest_confirmed = CG01RetestResult(
+                    confirmed=True,
+                    candle_id=f"retest_{b_open}",
+                    occurred_at=b_open,
+                    known_at=b_close_time,
+                    touch_price=ce_price,
+                    close_price=b_close,
+                    reason="CONFIRMED_RETEST",
+                )
+                break
+
+    if latest_confirmed:
+        return latest_confirmed
+
+    return CG01RetestResult(confirmed=False, reason="WAIT_RETEST")
