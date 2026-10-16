@@ -1,0 +1,2 @@
+date,is_market_day,fills_count,ny_fills,status,shortfall_reason
+2026-10-15,True,1,1,SEARCHING,SEARCHING

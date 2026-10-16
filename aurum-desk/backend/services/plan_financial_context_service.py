@@ -164,23 +164,97 @@ def degraded_setup_plan(setup_id: str, direction: str, reason_code: str) -> Dict
     }
 
 
-# ==================== V16.7 REPLAY FINANCIAL CONTEXT & CONFIG RESOLVER ====================
+# ==================== V16.7 & V16.8 REPLAY FINANCIAL CONTEXT & CONFIG RESOLVER ====================
+
+from enum import Enum
+from typing import Union
+
+
+class ReplayCapitalMode(str, Enum):
+    """Authoritative sizing capital basis for replay (V16.8 NHÓM 03)."""
+    CURRENT_ACCOUNT_BALANCE = "CURRENT_ACCOUNT_BALANCE"
+    FIXED_INITIAL_CAPITAL = "FIXED_INITIAL_CAPITAL"
+
+
+def resolve_replay_sizing_capital(
+    capital_mode: Union[ReplayCapitalMode, str] = ReplayCapitalMode.CURRENT_ACCOUNT_BALANCE,
+    initial_capital: float = 1000.0,
+    account_equity: Optional[float] = None,
+    as_of_ms: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    V16.8 NHÓM 03 (PHẦN 026, 027, 028): Pure helper to resolve sizing capital basis.
+    - Validates strictly positive finite numbers.
+    - Zero account equity stops entry (is_valid=False); never falls back to initial_capital.
+    - Distinguishes None (deferred to account audit) from 0.0 (exhausted account).
+    """
+    mode_str = str(capital_mode.value if hasattr(capital_mode, "value") else capital_mode).upper()
+    if mode_str not in ("CURRENT_ACCOUNT_BALANCE", "FIXED_INITIAL_CAPITAL"):
+        raise ValueError(f"INVALID_REPLAY_CAPITAL_MODE: {capital_mode}")
+
+    cap = float(initial_capital)
+    if isinstance(initial_capital, bool) or not math.isfinite(cap) or cap <= 0:
+        raise ValueError(f"INITIAL_CAPITAL_INVALID: {initial_capital}")
+
+    if mode_str == "FIXED_INITIAL_CAPITAL":
+        return {
+            "sizing_capital": cap,
+            "capital_mode": mode_str,
+            "basis": "FIXED_INITIAL_CAPITAL",
+            "as_of_ms": as_of_ms,
+            "is_valid": True,
+            "provenance": "EXPLICIT_FIXED_INITIAL_CAPITAL",
+        }
+    else:
+        # CURRENT_ACCOUNT_BALANCE
+        if account_equity is None:
+            return {
+                "sizing_capital": None,
+                "capital_mode": mode_str,
+                "basis": "CURRENT_ACCOUNT_BALANCE",
+                "as_of_ms": as_of_ms,
+                "is_valid": True,
+                "provenance": "DEFERRED_TO_ACCOUNT_AUDIT",
+            }
+        eq = float(account_equity)
+        if isinstance(account_equity, bool) or not math.isfinite(eq):
+            raise ValueError(f"ACCOUNT_EQUITY_INVALID: {account_equity}")
+        if eq <= 0:
+            return {
+                "sizing_capital": 0.0,
+                "capital_mode": mode_str,
+                "basis": "CURRENT_ACCOUNT_BALANCE",
+                "as_of_ms": as_of_ms,
+                "is_valid": False,
+                "reason": "ACCOUNT_EQUITY_NON_POSITIVE",
+                "provenance": "ACCOUNT_AUDIT_EXHAUSTED",
+            }
+        return {
+            "sizing_capital": eq,
+            "capital_mode": mode_str,
+            "basis": "CURRENT_ACCOUNT_BALANCE",
+            "as_of_ms": as_of_ms,
+            "is_valid": True,
+            "provenance": "ACCOUNT_AUDIT_CURRENT_EQUITY",
+        }
+
 
 @dataclass(frozen=True)
 class ReplayFinancialContext:
-    """Explicit, typed execution/replay financial context (V16.7 Group D & E)."""
+    """Explicit, typed execution/replay financial context (V16.7 Group D & E, V16.8 NHÓM 03)."""
     risk_pct: float
     capital_usdt: Optional[float] = None
     slippage_usd: Optional[float] = None
     fee_bps: Optional[float] = None
     costs: Optional[CostAssumptions] = None
     source: str = "REPLAY_EXPLICIT"
+    capital_mode: str = "CURRENT_ACCOUNT_BALANCE"
 
     def validate(self) -> None:
         if isinstance(self.risk_pct, bool) or not math.isfinite(self.risk_pct) or self.risk_pct <= 0:
             raise ValueError(f"REPLAY_RISK_INVALID: {self.risk_pct}")
         if self.capital_usdt is not None:
-            if isinstance(self.capital_usdt, bool) or not math.isfinite(self.capital_usdt) or self.capital_usdt <= 0:
+            if isinstance(self.capital_usdt, bool) or not math.isfinite(self.capital_usdt) or self.capital_usdt < 0:
                 raise ValueError(f"REPLAY_CAPITAL_INVALID: {self.capital_usdt}")
         if self.slippage_usd is not None:
             if isinstance(self.slippage_usd, bool) or not math.isfinite(self.slippage_usd) or self.slippage_usd < 0:
@@ -192,7 +266,7 @@ class ReplayFinancialContext:
 
 @dataclass(frozen=True)
 class EffectiveReplayFinancialConfig:
-    """Authoritative, immutable replay configuration result (V16.7 Group E)."""
+    """Authoritative, immutable replay configuration result (V16.7 Group E, V16.8 NHÓM 03 & 06)."""
     initial_capital: float
     risk_pct: float
     slippage_usd: float
@@ -201,6 +275,9 @@ class EffectiveReplayFinancialConfig:
     costs: CostAssumptions
     provenance: Dict[str, Any]
     config_hash: str
+    capital_mode: str = "CURRENT_ACCOUNT_BALANCE"
+    contract_multiplier: float = 1.0
+    execution_model: str = "ASSUMED_OHLC_PATH"
 
 
 def resolve_execution_risk(
@@ -248,16 +325,29 @@ def resolve_replay_financial_config(
     taker_fee_bps: Optional[float] = None,
     costs: Optional[CostAssumptions] = None,
     config: Optional[Any] = None,
+    capital_mode: Union[ReplayCapitalMode, str] = ReplayCapitalMode.CURRENT_ACCOUNT_BALANCE,
+    contract_multiplier: float = 1.0,
+    execution_model: str = "ASSUMED_OHLC_PATH",
 ) -> EffectiveReplayFinancialConfig:
     """
-    V16.7 Group E: Centralized immutable config resolver for replay execution.
+    V16.7 Group E & V16.8: Centralized immutable config resolver for replay execution.
     - Validates strictly positive finite numbers.
     - Preserves zero values (0.0 slippage, 0 bps fee).
     - Accurately converts fee_bps / 10000.0 without threshold coercion.
+    - Validates execution_model and capital_mode.
     - Does NOT mutate caller's `costs` or `config` objects.
     """
     import hashlib
     import json
+
+    # 0. Validate execution_model and capital_mode
+    model_str = str(execution_model or "ASSUMED_OHLC_PATH").upper()
+    if model_str not in ("ASSUMED_OHLC_PATH", "CLOSE_QUOTE"):
+        raise ValueError(f"CONFIG_ERROR: unknown execution_model '{execution_model}'")
+
+    mode_str = str(capital_mode.value if hasattr(capital_mode, "value") else capital_mode).upper()
+    if mode_str not in ("CURRENT_ACCOUNT_BALANCE", "FIXED_INITIAL_CAPITAL"):
+        raise ValueError(f"CONFIG_ERROR: invalid capital_mode '{capital_mode}'")
 
     # 1. Validate capital & risk
     cap = float(initial_capital)
@@ -356,4 +446,7 @@ def resolve_replay_financial_config(
         costs=clean_costs,
         provenance=provenance,
         config_hash=cfg_hash,
+        capital_mode=mode_str,
+        contract_multiplier=float(contract_multiplier or 1.0),
+        execution_model=model_str,
     )

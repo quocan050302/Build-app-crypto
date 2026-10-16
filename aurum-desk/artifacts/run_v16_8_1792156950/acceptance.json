@@ -1,0 +1,130 @@
+{
+  "run_id": "run_v16_8_1792156950",
+  "base_commit": "9663b3db6cf1c76240c1ccb41c6709a1040d19c4",
+  "commit_sha": "9663b3db6cf1c76240c1ccb41c6709a1040d19c4",
+  "tested_diff_sha256": "3fd77ebf84c9a08c4e97e168668a7ef183b7cc696b7e262a8543500e88084b85",
+  "timestamp_iso": "2026-10-16T13:22:30.059843+00:00",
+  "technical_status": "PASS",
+  "historical_status": "BLOCKED_DATA",
+  "performance_status": "NOT_EVALUATED",
+  "simulation_evidence_type": "DATA_SYNTHESIZED_DEMO",
+  "gates": [
+    {
+      "name": "capital_basis_authority",
+      "required_cases": [
+        "test_resolve_replay_sizing_capital_pure_helper",
+        "test_account_reduction_scales_risk_in_current_account_mode",
+        "test_account_gain_scales_risk_in_current_account_mode",
+        "test_fixed_capital_mode_preserves_initial_basis",
+        "test_zero_capital_fails_closed_without_fallback",
+        "test_bootstrap_idempotency"
+      ],
+      "executed_cases": [
+        "test_resolve_replay_sizing_capital_pure_helper",
+        "test_account_reduction_scales_risk_in_current_account_mode",
+        "test_account_gain_scales_risk_in_current_account_mode",
+        "test_fixed_capital_mode_preserves_initial_basis",
+        "test_zero_capital_fails_closed_without_fallback",
+        "test_bootstrap_idempotency"
+      ],
+      "status": "PASS",
+      "evidence_suite": "test_v16_8_capital_basis",
+      "reason": null
+    },
+    {
+      "name": "execution_model_and_time_monotonicity",
+      "required_cases": [
+        "test_close_quote_open_position_ignores_wick_breach_long",
+        "test_close_quote_open_position_ignores_wick_breach_short",
+        "test_close_quote_actual_stop_exit_at_close",
+        "test_close_quote_pending_limit_ignores_wick",
+        "test_assumed_ohlc_path_monotonically_increasing_timestamps",
+        "test_unknown_execution_model_rejected"
+      ],
+      "executed_cases": [
+        "test_close_quote_open_position_ignores_wick_breach_long",
+        "test_close_quote_open_position_ignores_wick_breach_short",
+        "test_close_quote_actual_stop_exit_at_close",
+        "test_close_quote_pending_limit_ignores_wick",
+        "test_assumed_ohlc_path_monotonically_increasing_timestamps",
+        "test_unknown_execution_model_rejected"
+      ],
+      "status": "PASS",
+      "evidence_suite": "test_v16_8_execution_model_and_time",
+      "reason": null
+    },
+    {
+      "name": "statistics_and_financial_accounting",
+      "required_cases": [
+        "test_daily_stats_canonical_timezone_vietnam",
+        "test_dst_boundary_handling_in_driver",
+        "test_contract_multiplier_in_collect_state_and_equity_mark",
+        "test_actual_persisted_entry_fee_used",
+        "test_closed_trades_chronological_sort",
+        "test_session_policy_configurable",
+        "test_missing_dataset_returns_blocked_data"
+      ],
+      "executed_cases": [
+        "test_daily_stats_canonical_timezone_vietnam",
+        "test_dst_boundary_handling_in_driver",
+        "test_contract_multiplier_in_collect_state_and_equity_mark",
+        "test_actual_persisted_entry_fee_used",
+        "test_closed_trades_chronological_sort",
+        "test_session_policy_configurable",
+        "test_missing_dataset_returns_blocked_data"
+      ],
+      "status": "PASS",
+      "evidence_suite": "test_v16_8_statistics_and_accounting",
+      "reason": null
+    },
+    {
+      "name": "full_regression_v16",
+      "required_cases": [
+        "v16_full_suite"
+      ],
+      "executed_cases": [
+        "v16_full_suite"
+      ],
+      "status": "PASS",
+      "evidence_suite": "v16_full_suite",
+      "reason": null
+    },
+    {
+      "name": "git_cleanliness",
+      "required_cases": [
+        "git_diff_check"
+      ],
+      "executed_cases": [
+        "git_diff_check"
+      ],
+      "status": "PASS",
+      "evidence_suite": "git_diff_check",
+      "reason": null
+    }
+  ],
+  "config_hash": "2101e961473b5438c713beeef10594daf46930d9ede0a423f5007551cd747a3b",
+  "effective_config": {
+    "initial_capital": 5000.0,
+    "risk_pct": 0.1,
+    "slippage_usd": 0.0,
+    "maker_fee_rate": 0.0002,
+    "taker_fee_rate": 0.0004,
+    "contract_multiplier": 1.0,
+    "capital_mode": "CURRENT_ACCOUNT_BALANCE",
+    "execution_model": "ASSUMED_OHLC_PATH",
+    "authority_pipeline": "CG01ReplayExecutionAdapter + ScalpWatcherOrchestrator + ExecutionCoordinator"
+  },
+  "total_fills": 1,
+  "closed_trades_count": 0,
+  "open_positions_count": 1,
+  "pending_orders_count": 0,
+  "metrics": {
+    "initial_capital": 5000.0,
+    "final_cash": 5000.0,
+    "total_pnl_usd": null,
+    "winrate_pct": null,
+    "max_drawdown_pct": 0.05,
+    "total_trades": 0
+  },
+  "summary_readable": "\u0110\u00e3 ki\u1ec3m tra: 1 ng\u00e0y m\u1eabu m\u00f4 ph\u1ecfng k\u1ef9 thu\u1eadt \u00b7 1 l\u1ec7nh kh\u1edbp c\u00f3 guard. \u0110\u00e3 \u0111\u00f3ng: 0 \u00b7 \u0110ang m\u1edf: 1. L\u1eddi/l\u1ed7 \u0111\u00e3 ch\u1ed1t sau ph\u00ed: 0.0 USD. Drawdown t\u1ed1i \u0111a MTM: 0.05%. Historical status: BLOCKED_DATA."
+}

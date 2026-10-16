@@ -61,7 +61,7 @@ class ReplayBar:
 
 
 def compute_equity_mark(cash: float, open_position: Optional[Dict[str, Any]], current_price: float) -> float:
-    """Rule 176 & V16.7: Computes MTM Equity = cash - entry_fees_of_open_positions + unrealized PnL with multiplier."""
+    """Rule 176 & V16.7/V16.8: Computes MTM Equity = cash - entry_fees_of_open_positions + unrealized PnL with multiplier."""
     if not open_position:
         return round(cash, 4)
 
@@ -69,7 +69,7 @@ def compute_equity_mark(cash: float, open_position: Optional[Dict[str, Any]], cu
     entry_price = open_position["entry_price"]
     qty = open_position["quantity"]
     entry_fee = float(open_position.get("entry_fee_usdt", 0.0))
-    mult = float(open_position.get("multiplier", 1.0) or 1.0)
+    mult = float(open_position.get("contract_multiplier", open_position.get("multiplier", 1.0)) or 1.0)
 
     if direction == "LONG":
         unrealized = qty * (current_price - entry_price) * mult
@@ -80,24 +80,22 @@ def compute_equity_mark(cash: float, open_position: Optional[Dict[str, Any]], cu
 
 
 
-def _is_in_ny_session(ts_val: Any) -> bool:
+def _is_in_ny_session(ts_val: Any, policy: Optional[models.TradingPolicy] = None) -> bool:
     """
-    V16.6: Authoritative NY session validator based on execution timestamp.
-    Checks if timestamp falls within standard NY session (08:00 - 17:00 America/New_York).
+    V16.8: Authoritative NY session validator based on canonical policy.
+    Uses TradingPolicyService.get_ny_session_window or policy windows.
     """
     if ts_val is None:
         return False
-    ny_tz = ZoneInfo("America/New_York")
+    from services.trading_policy_service import TradingPolicyService
     if isinstance(ts_val, (int, float)):
-        sec = ts_val / 1000.0 if ts_val > 1e11 else float(ts_val)
-        dt_ny = datetime.fromtimestamp(sec, tz=ny_tz)
+        now_ms = int(ts_val if ts_val > 1e11 else ts_val * 1000)
     elif isinstance(ts_val, datetime):
-        dt_ny = ts_val.astimezone(ny_tz) if ts_val.tzinfo else ts_val.replace(tzinfo=ny_tz)
+        now_ms = int(ts_val.timestamp() * 1000)
     else:
         return False
-
-    total_minutes = dt_ny.hour * 60 + dt_ny.minute
-    return (8 * 60 <= total_minutes < 17 * 60)
+    win = TradingPolicyService.get_ny_session_window(policy=policy, now_ms=now_ms)
+    return bool(win.get("is_in_window", False))
 
 
 class CG01ReplayDriver:
@@ -113,6 +111,9 @@ class CG01ReplayDriver:
         risk_pct: float = 0.25,
         costs: Optional[CostAssumptions] = None,
         setup_hook: Optional[Callable[[Any, Any], None]] = None,
+        capital_mode: Any = "CURRENT_ACCOUNT_BALANCE",
+        execution_model: str = "ASSUMED_OHLC_PATH",
+        trading_day_timezone: Optional[str] = None,
     ):
         self.m1_dataset_path = m1_dataset_path
         self.config = config or CG01Config(enabled=True, profile_mode="PAPER_EXECUTION")
@@ -120,6 +121,9 @@ class CG01ReplayDriver:
         self.risk_pct = risk_pct
         self.costs = costs or CostAssumptions()
         self.setup_hook = setup_hook
+        self.capital_mode = capital_mode
+        self.execution_model = execution_model
+        self.trading_day_timezone = trading_day_timezone
 
     def run(self) -> Dict[str, Any]:
         """
@@ -378,16 +382,29 @@ class CG01ReplayDriver:
             costs=self.costs,
             initial_capital=self.initial_capital,
             risk_pct=self.risk_pct,
+            capital_mode=self.capital_mode,
+            execution_model=self.execution_model,
         )
 
         if self.setup_hook:
             self.setup_hook(adapter, lab_db)
 
-        ny_tz = ZoneInfo("America/New_York")
+        # PHẦN 091: Canonical trading_day_timezone from policy
+        from services.trading_policy_service import (
+            resolve_effective_daily_policy,
+            resolve_trade_day_bounds,
+            TradingPolicyService,
+        )
+        effective_daily_policy = resolve_effective_daily_policy(lab_db)
+        effective_tz_name = self.trading_day_timezone or effective_daily_policy.trading_day_timezone or "Asia/Ho_Chi_Minh"
+        trading_policy_model = TradingPolicyService.get_policy(lab_db)
+        tz_obj = ZoneInfo(effective_tz_name)
+
         daily_stats: Dict[str, Dict[str, Any]] = {}
+        daily_bounds_map: Dict[str, Tuple[int, int]] = {}
         equity_mtm_series: List[Dict[str, Any]] = []
         equity_realized_series: List[Dict[str, Any]] = []
-        rejection_funnel: List[Dict[str, Any]] = []
+        decision_funnel_records: List[Dict[str, Any]] = []
         peak_mtm = self.initial_capital
         max_dd_pct = 0.0
 
@@ -397,11 +414,14 @@ class CG01ReplayDriver:
         for idx in range(start_idx, len(candles)):
             current_bar = candles[idx]
             now_ms = current_bar.open_time + 60_000
-            dt_ny = datetime.fromtimestamp(now_ms / 1000, tz=ny_tz)
-            date_str = dt_ny.strftime("%Y-%m-%d")
+
+            # PHẦN 092, 093: Direct resolve_trade_day_bounds from timestamp and effective timezone
+            date_str, d_start_ms, d_end_ms = resolve_trade_day_bounds(now_ms, effective_tz_name)
+            daily_bounds_map[date_str] = (d_start_ms, d_end_ms)
 
             if date_str not in daily_stats:
-                is_weekday = (dt_ny.weekday() < 5)
+                local_dt = datetime.fromtimestamp(now_ms / 1000.0, tz=tz_obj)
+                is_weekday = (local_dt.weekday() < 5)
                 daily_stats[date_str] = {
                     "date": date_str,
                     "is_market_day": is_weekday,
@@ -449,16 +469,23 @@ class CG01ReplayDriver:
                 "candles_1h": agg_1h,
                 "candles_4h": agg_4h,
             }
-            adapter.on_bar_close(bar_event)
+            # PHẦN 131: Capture evaluation cycle decision
+            cycle_res = adapter.on_bar_close(bar_event)
+            if cycle_res:
+                st = cycle_res.get("status", "UNKNOWN")
+                rsn = cycle_res.get("reason")
+                stg = cycle_res.get("stage") or st
+                decision_funnel_records.append({
+                    "timestamp": now_ms,
+                    "status": st,
+                    "stage": stg,
+                    "reason": rsn,
+                    "order_id": cycle_res.get("order_id"),
+                })
 
             # 3. Track state snapshot for MTM series & Daily Stats Delta
             interim = adapter.collect_state()
             d_stat = daily_stats[date_str]
-
-            from services.trading_policy_service import resolve_trade_day_bounds
-            d_start_dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=ny_tz)
-            base_ms = int(d_start_dt.timestamp() * 1000)
-            _, d_start_ms, d_end_ms = resolve_trade_day_bounds(base_ms + 3600_000, "America/New_York")
 
             all_orders_curr = lab_db.query(models.PaperOrder).all()
             day_filled_orders = [
@@ -466,7 +493,7 @@ class CG01ReplayDriver:
                 if o.opened_at is not None and d_start_ms <= o.opened_at < d_end_ms
             ]
             d_stat["fills_count"] = len(day_filled_orders)
-            d_stat["ny_fills"] = sum(1 for o in day_filled_orders if _is_in_ny_session(o.opened_at))
+            d_stat["ny_fills"] = sum(1 for o in day_filled_orders if _is_in_ny_session(o.opened_at, policy=trading_policy_model))
 
             if d_stat["fills_count"] >= self.config.daily_max_cap:
                 d_stat["status"] = "CAP_REACHED"
@@ -494,19 +521,23 @@ class CG01ReplayDriver:
 
         final_report = adapter.collect_state()
 
-        # V16.7 Final Daily Stats Reconciliation across all days using canonical day bounds
+        # V16.8 Final Daily Stats Reconciliation across all days using canonical day bounds (PHẦN 092, 095)
         final_orders = lab_db.query(models.PaperOrder).all()
         for d_key, d_stat in daily_stats.items():
-            d_start_dt = datetime.strptime(d_key, "%Y-%m-%d").replace(tzinfo=ny_tz)
-            base_ms = int(d_start_dt.timestamp() * 1000)
-            _, d_start_ms, d_end_ms = resolve_trade_day_bounds(base_ms + 3600_000, "America/New_York")
+            bounds = daily_bounds_map.get(d_key)
+            if bounds:
+                d_start_ms, d_end_ms = bounds
+            else:
+                d_start_dt = datetime.strptime(d_key, "%Y-%m-%d").replace(tzinfo=tz_obj)
+                base_ms = int(d_start_dt.timestamp() * 1000)
+                _, d_start_ms, d_end_ms = resolve_trade_day_bounds(base_ms + 3600_000, effective_tz_name)
 
             day_filled = [
                 o for o in final_orders
                 if o.opened_at is not None and d_start_ms <= o.opened_at < d_end_ms
             ]
             d_stat["fills_count"] = len(day_filled)
-            d_stat["ny_fills"] = sum(1 for o in day_filled if _is_in_ny_session(o.opened_at))
+            d_stat["ny_fills"] = sum(1 for o in day_filled if _is_in_ny_session(o.opened_at, policy=trading_policy_model))
             if d_stat["fills_count"] >= self.config.daily_max_cap:
                 d_stat["status"] = "CAP_REACHED"
             elif d_stat["fills_count"] >= self.config.daily_min_goal:
@@ -514,12 +545,21 @@ class CG01ReplayDriver:
             else:
                 d_stat["status"] = "SEARCHING" if d_stat.get("is_market_day", True) else "WEEKEND"
 
-        # V16.7 Rejection funnel accounting
+        # V16.8 Decision funnel accounting from recorded evaluations + lifecycle (PHẦN 131 - 139)
         expired_count = lab_db.query(models.PaperOrder).filter(models.PaperOrder.state == "expired").count()
         cancelled_count = lab_db.query(models.PaperOrder).filter(models.PaperOrder.state == "cancelled").count()
+        armed_count = sum(1 for d in decision_funnel_records if d.get("status") in ("ARMED", "ARM_SUCCESS"))
+        guard_blocked_count = sum(1 for d in decision_funnel_records if d.get("status") in ("BLOCKED", "GUARD_BLOCKED"))
+        observing_count = sum(1 for d in decision_funnel_records if d.get("status") in ("OBSERVING", "WAITING", "SEARCHING", "TRIGGER_WAITING"))
+        context_not_ready_count = sum(1 for d in decision_funnel_records if d.get("status") in ("CONTEXT_NOT_READY", "WARMUP", "DISABLED"))
+
         rejection_funnel = [
-            {"category": "EXPIRED_BEFORE_FILL", "count": expired_count, "description": "Orders expired prior to reaching fill limit"},
-            {"category": "CANCELLED_ORDERS", "count": cancelled_count, "description": "Orders cancelled prior to execution"},
+            {"category": "CONTEXT_NOT_READY", "count": context_not_ready_count, "description": "HTF context or warmup insufficient for evaluation"},
+            {"category": "OBSERVING_WAITING_TRIGGER", "count": observing_count, "description": "Active observation awaiting valid sweep / displacement"},
+            {"category": "GUARD_BLOCKED", "count": guard_blocked_count, "description": "Candidate setup blocked by risk/news/account/cooldown guards"},
+            {"category": "ARMED_CANDIDATES", "count": armed_count, "description": "Setups successfully validated and armed for execution"},
+            {"category": "EXPIRED_BEFORE_FILL", "count": expired_count, "description": "Armed orders expired prior to reaching limit price"},
+            {"category": "CANCELLED_ORDERS", "count": cancelled_count, "description": "Armed orders cancelled prior to execution"},
         ]
 
         adapter.finalize_run()
@@ -529,6 +569,7 @@ class CG01ReplayDriver:
         final_report["equity_mtm"] = equity_mtm_series
         final_report["equity_realized"] = equity_realized_series
         final_report["rejection_funnel"] = rejection_funnel
+        final_report["decision_observations"] = decision_funnel_records
 
         # V16.6: Max drawdown computed directly from MTM series (never None if series is present)
         if equity_mtm_series:

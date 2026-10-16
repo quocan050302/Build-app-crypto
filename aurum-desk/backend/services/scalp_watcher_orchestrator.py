@@ -605,7 +605,26 @@ class ScalpWatcherOrchestrator:
         )
         resolved_risk_pct = float(risk_resolution["effective_risk_pct"])
 
-        capital_val = float(getattr(execution_financial_context, "capital_usdt", None) or (audit.current_equity if audit else 1000.0))
+        # V16.8 Capital Resolution (NHÓM 03, 04, PHẦN 027, 028, 034)
+        override_cap = getattr(execution_financial_context, "capital_usdt", None) if execution_financial_context else None
+        cap_mode = getattr(execution_financial_context, "capital_mode", "CURRENT_ACCOUNT_BALANCE") if execution_financial_context else "CURRENT_ACCOUNT_BALANCE"
+
+        if override_cap is not None:
+            capital_val = float(override_cap)
+            capital_source = getattr(execution_financial_context, "source", "REPLAY_EXPLICIT_CAPITAL")
+        else:
+            raw_eq = audit.current_equity if audit is not None else None
+            capital_val = float(raw_eq) if raw_eq is not None else 1000.0
+            capital_source = "ACCOUNT_AUDIT"
+
+        # Validate capital (PHẦN 027): reject NaN, inf, or non-positive; entry fails closed without fallback
+        if isinstance(capital_val, bool) or not math.isfinite(capital_val):
+            logger.warning(f"Capital value invalid: {capital_val}. Disabling cycle entries.")
+            return {"status": "BLOCKED", "reason": "CAPITAL_VALUE_INVALID", "candidates": [], "evaluations": []}
+
+        if capital_val <= 0:
+            logger.warning(f"Capital non-positive: {capital_val}. Entry blocked by account capacity guard.")
+            return {"status": "BLOCKED", "reason": "ACCOUNT_EQUITY_NON_POSITIVE", "candidates": [], "evaluations": []}
 
         policy_dict = {
             "capital_usdt": capital_val,
@@ -614,6 +633,8 @@ class ScalpWatcherOrchestrator:
             "margin_mode": str(g_settings.margin_mode),
             "max_daily_trades": getattr(policy, "max_daily_fills", 3) if policy else 3,
             "risk_source": risk_resolution["source"],
+            "capital_source": capital_source,
+            "capital_mode": cap_mode,
         }
 
         # A. SMC M1 Reversal Model on watched zones

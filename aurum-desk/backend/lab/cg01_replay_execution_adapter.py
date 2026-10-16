@@ -48,13 +48,19 @@ class CG01ReplayExecutionAdapter:
         taker_fee_bps: Optional[float] = None,
         run_id: Optional[str] = None,
         execution_model: str = "ASSUMED_OHLC_PATH",
+        capital_mode: Any = "CURRENT_ACCOUNT_BALANCE",
     ):
         self.db = db
         self.clock = clock
         self.fee_bps = float(fee_bps) if fee_bps is not None else 4.0
+        self._bootstrapped = False
 
-        # V16.7 Group E: Centralized Immutable Replay Config & Cost Resolution
-        from services.plan_financial_context_service import resolve_replay_financial_config, ReplayFinancialContext
+        # V16.7 & V16.8: Centralized Immutable Replay Config, Execution Model & Capital Mode Resolution
+        from services.plan_financial_context_service import (
+            resolve_replay_financial_config,
+            ReplayFinancialContext,
+            ReplayCapitalMode,
+        )
         self.effective_config = resolve_replay_financial_config(
             initial_capital=initial_capital,
             risk_pct=risk_pct,
@@ -64,12 +70,16 @@ class CG01ReplayExecutionAdapter:
             taker_fee_bps=taker_fee_bps,
             costs=costs,
             config=config,
+            capital_mode=capital_mode,
+            execution_model=execution_model,
         )
 
         self.initial_capital = self.effective_config.initial_capital
         self.risk_pct = self.effective_config.risk_pct
         self.slippage = self.effective_config.slippage_usd
         self.costs = self.effective_config.costs
+        self.capital_mode = self.effective_config.capital_mode
+        self.execution_model = self.effective_config.execution_model
 
         # Clone config without mutating caller's object (PHẦN 041)
         import copy
@@ -77,7 +87,6 @@ class CG01ReplayExecutionAdapter:
         self.config.slippage_usd = self.slippage
         self.config.costs = self.costs
         self.config.fallback_risk_pct = self.risk_pct
-        self.execution_model = execution_model
         self._processed_candles: set = set()
 
         self.run_id = run_id or f"run_{self.clock.now_ms()}"
@@ -89,10 +98,12 @@ class CG01ReplayExecutionAdapter:
 
     def bootstrap_replay_settings(self) -> None:
         """
-        V16.7 Group E & F: One-time bootstrap of authoritative replay configuration:
-        - models.SystemConfig (default_risk_pct, fallback_risk_pct, default_slippage, slippage, slippage_usd, fee_bps)
-        - DayAudit (initial_equity, current_equity = initial_capital)
+        V16.7 & V16.8: One-time bootstrap of authoritative replay configuration.
+        Idempotent (PHẦN 042, 148): calling again on same run does not reset current equity.
         """
+        if getattr(self, "_bootstrapped", False):
+            return
+
         now_ms = self.clock.now_ms() if hasattr(self.clock, "now_ms") else int(time.time() * 1000)
 
         def _upsert(key: str, val: str):
@@ -120,6 +131,7 @@ class CG01ReplayExecutionAdapter:
         audit.current_equity = self.initial_capital
         audit.updated_at_ms = now_ms
         self.db.commit()
+        self._bootstrapped = True
 
     def sync_runtime_settings(self) -> None:
         """
@@ -180,6 +192,12 @@ class CG01ReplayExecutionAdapter:
             cg01_config=self.config,
         )
 
+        # Resolve capital to pass based on capital_mode (PHẦN 031, 032, 033)
+        if getattr(self, "capital_mode", "CURRENT_ACCOUNT_BALANCE") == "FIXED_INITIAL_CAPITAL":
+            sizing_capital_override = self.initial_capital
+        else:
+            sizing_capital_override = None  # Defer to account audit in orchestrator
+
         res = self.orchestrator.evaluate_cycle(
             db=self.db,
             symbol=event.get("symbol", "XAUUSDT"),
@@ -194,9 +212,10 @@ class CG01ReplayExecutionAdapter:
             auto_enabled=True,
             execution_financial_context=ReplayFinancialContext(
                 risk_pct=self.risk_pct,
-                capital_usdt=self.initial_capital,
+                capital_usdt=sizing_capital_override,
                 slippage_usd=self.slippage,
                 costs=self.costs,
+                capital_mode=self.capital_mode,
             ),
         )
         return res
@@ -231,20 +250,19 @@ class CG01ReplayExecutionAdapter:
 
     def on_quote(self, event: Dict[str, Any]) -> None:
         """
-        V16.7 Group B, C, G, H: Intrabar execution through canonical ExecutionCoordinator.
-        - Single quote ticks route to broker and coordinator.
-        - Candles route through deterministic waypoints with subevent timestamps and uniform spread.
-        - All fills pass through ExecutionCoordinator BEFORE_FILL guards (no direct execute_fill).
-        - Intrabar ambiguity is flagged without raising TypeError.
+        V16.8 Group 06, 07, 08: Canonical execution model dispatch and strictly nondecreasing time.
+        1. Validates execution model (CLOSE_QUOTE vs ASSUMED_OHLC_PATH).
+        2. Dispatches BEFORE any execution or ambiguity handling.
+        3. Never mutates clock to candle close prior to processing earlier subevents.
+        4. In CLOSE_QUOTE mode, candle wicks are completely ignored (high/low are not passed to PaperBroker/coordinator).
+        5. In ASSUMED_OHLC_PATH, waypoints advance clock monotonically: t0 <= t1 <= t2 <= t3 == now_ms.
         """
         now_ms = int(event["timestamp"])
-        self.clock.set_time(now_ms)
-
         bid = float(event["bid"])
         ask = float(event["ask"])
         high = float(event.get("high", max(bid, ask)))
         low = float(event.get("low", min(bid, ask)))
-        bar_open = event.get("bar_open_time", now_ms - 60_000)
+        bar_open = int(event.get("bar_open_time", now_ms - 60_000))
         bar_dur = int(event.get("bar_duration_ms", 60_000))
         symbol = event.get("symbol", "XAUUSDT")
 
@@ -252,6 +270,7 @@ class CG01ReplayExecutionAdapter:
 
         if not is_candle:
             # Single quote tick processing
+            self.clock.set_time(now_ms)
             PaperBroker.process_price_tick(
                 db=self.db,
                 current_bid=bid,
@@ -274,7 +293,7 @@ class CG01ReplayExecutionAdapter:
             )
             return
 
-        # Duplicate candle protection (PHẦN 075)
+        # Duplicate candle protection (PHẦN 075, 105)
         candle_key = (symbol, bar_open, bar_dur)
         if candle_key in self._processed_candles:
             return
@@ -283,38 +302,13 @@ class CG01ReplayExecutionAdapter:
         open_px = float(event["open"])
         close_px = float(event["close"])
 
-        from services.trade_lifecycle_service import TradeLifecycleService
+        # EXECUTION MODEL DISPATCH FIRST (PHẦN 051)
+        model = getattr(self, "execution_model", "ASSUMED_OHLC_PATH")
 
-        # 0. Ambiguity Check & Worst-case handling for ALREADY active open positions (Case A)
-        open_pos = crud.get_active_position(self.db)
-        if open_pos and open_pos.state == "paper_open":
-            is_ambiguous = False
-            if open_pos.direction == "LONG":
-                if open_pos.stop_loss is not None and open_pos.take_profit is not None:
-                    if low <= open_pos.stop_loss and high >= open_pos.take_profit:
-                        is_ambiguous = True
-            elif open_pos.direction == "SHORT":
-                if open_pos.stop_loss is not None and open_pos.take_profit is not None:
-                    if high >= open_pos.stop_loss and low <= open_pos.take_profit:
-                        is_ambiguous = True
-
-            if is_ambiguous:
-                open_pos.intrabar_ambiguous = True
-                TradeLifecycleService.execute_close(
-                    db=self.db,
-                    order_id=open_pos.id,
-                    exit_price=open_pos.stop_loss,
-                    exit_cause="AMBIGUOUS_BAR_SL_FIRST",
-                    now_ms=now_ms,
-                    clock=self.clock,
-                    session_tag="REPLAY",
-                    recovery_metadata={"intrabar_ambiguous": True},
-                )
-                open_pos.intrabar_ambiguous = True
-                self.db.commit()
-
-        # 1. Waypoint simulation based on declared execution model
-        if getattr(self, "execution_model", "ASSUMED_OHLC_PATH") == "CLOSE_QUOTE":
+        if model == "CLOSE_QUOTE":
+            # Advance clock monotonically directly to candle close
+            self.clock.set_time(now_ms)
+            # In CLOSE_QUOTE: candle_high and candle_low are set to close_px so broker only checks close quote (PHẦN 055, 056)
             PaperBroker.process_price_tick(
                 db=self.db,
                 current_bid=bid,
@@ -337,84 +331,120 @@ class CG01ReplayExecutionAdapter:
             )
             return
 
-        # ASSUMED_OHLC_PATH: Deterministic intrabar waypoints with synthetic subevent timestamps (PHẦN 064, 071)
-        raw_spread = max(0.0, ask - bid)
-        spread = raw_spread if raw_spread > 0 else 0.10
-        half_spread = spread / 2.0
+        elif model == "ASSUMED_OHLC_PATH":
+            # ASSUMED_OHLC_PATH: Deterministic intrabar waypoints with synthetic subevent timestamps (PHẦN 061, 064, 071)
+            raw_spread = max(0.0, ask - bid)
+            spread = raw_spread if raw_spread > 0 else 0.10
+            half_spread = spread / 2.0
 
-        raw_waypoints = self._generate_intrabar_waypoints(open_px, high, low, close_px)
-        # Subevent timestamps: t0 = open, t1 = open + 25%, t2 = open + 75%, t3 = close (now_ms)
-        wp_offsets = [0, int(bar_dur * 0.25), int(bar_dur * 0.75), bar_dur]
+            raw_waypoints = self._generate_intrabar_waypoints(open_px, high, low, close_px)
+            # Subevent timestamps: t0 = open, t1 = open + 25%, t2 = open + 75%, t3 = close (now_ms)
+            wp_offsets = [0, int(bar_dur * 0.25), int(bar_dur * 0.75), bar_dur]
 
-        for idx, (phase, px) in enumerate(raw_waypoints):
-            sub_ts = min(now_ms, (bar_open or (now_ms - bar_dur)) + wp_offsets[idx])
-            self.clock.set_time(sub_ts)
+            # Ambiguity Check & Worst-case handling for ALREADY active open positions (PHẦN 076)
+            from services.trade_lifecycle_service import TradeLifecycleService
+            open_pos = crud.get_active_position(self.db)
+            if open_pos and open_pos.state == "paper_open":
+                is_ambiguous = False
+                if open_pos.direction == "LONG":
+                    if open_pos.stop_loss is not None and open_pos.take_profit is not None:
+                        if low <= open_pos.stop_loss and high >= open_pos.take_profit:
+                            is_ambiguous = True
+                elif open_pos.direction == "SHORT":
+                    if open_pos.stop_loss is not None and open_pos.take_profit is not None:
+                        if high >= open_pos.stop_loss and low <= open_pos.take_profit:
+                            is_ambiguous = True
 
-            # PHẦN 081 & 082: Uniform spread across all waypoints
-            wp_bid = round(px - half_spread, 2)
-            wp_ask = round(px + half_spread, 2)
+                if is_ambiguous:
+                    open_pos.intrabar_ambiguous = True
+                    # Exit occurs at bar_open or waypoint
+                    exit_ts = min(now_ms, bar_open)
+                    self.clock.set_time(exit_ts)
+                    TradeLifecycleService.execute_close(
+                        db=self.db,
+                        order_id=open_pos.id,
+                        exit_price=open_pos.stop_loss,
+                        exit_cause="AMBIGUOUS_BAR_SL_FIRST",
+                        now_ms=exit_ts,
+                        clock=self.clock,
+                        session_tag="REPLAY",
+                        recovery_metadata={"intrabar_ambiguous": True},
+                    )
+                    open_pos.intrabar_ambiguous = True
+                    self.db.commit()
 
-            # Step 1: Re-fetch position that was ALREADY open before this waypoint
-            curr_pos = crud.get_active_position(self.db)
-            if curr_pos and curr_pos.state == "paper_open":
-                PaperBroker.process_price_tick(
+            # Process waypoints with strictly nondecreasing timestamps
+            for idx, (phase, px) in enumerate(raw_waypoints):
+                sub_ts = min(now_ms, (bar_open or (now_ms - bar_dur)) + wp_offsets[idx])
+                self.clock.set_time(sub_ts)
+
+                # Uniform spread across all waypoints (PHẦN 081 & 082)
+                wp_bid = round(px - half_spread, 2)
+                wp_ask = round(px + half_spread, 2)
+
+                # Step 1: Re-fetch position that was ALREADY open before this waypoint
+                curr_pos = crud.get_active_position(self.db)
+                if curr_pos and curr_pos.state == "paper_open":
+                    PaperBroker.process_price_tick(
+                        db=self.db,
+                        current_bid=wp_bid,
+                        current_ask=wp_ask,
+                        candle_high=px,
+                        candle_low=px,
+                        candle_timestamp=bar_open,
+                        bar_duration_ms=bar_dur,
+                        now_ms=sub_ts,
+                        clock=self.clock,
+                        session_tag="REPLAY",
+                        tick_timestamp=sub_ts,
+                    )
+
+                # Step 2: Evaluate pending limit orders against this waypoint through canonical coordinator
+                quote_dict = {
+                    "bid": wp_bid,
+                    "ask": wp_ask,
+                    "last": px,
+                    "timestamp": sub_ts,
+                }
+                self.coordinator.evaluate_orders_sync(
                     db=self.db,
-                    current_bid=wp_bid,
-                    current_ask=wp_ask,
-                    candle_high=px,
-                    candle_low=px,
-                    candle_timestamp=bar_open,
-                    bar_duration_ms=bar_dur,
-                    now_ms=sub_ts,
+                    ticker_override=quote_dict,
                     clock=self.clock,
-                    session_tag="REPLAY",
-                    tick_timestamp=sub_ts,
+                    now_ms=sub_ts,
+                    slippage=self.slippage,
                 )
 
-            # Step 2: Evaluate pending limit orders against this waypoint through canonical coordinator
-            quote_dict = {
-                "bid": wp_bid,
-                "ask": wp_ask,
-                "last": px,
-                "timestamp": sub_ts,
-            }
-            self.coordinator.evaluate_orders_sync(
-                db=self.db,
-                ticker_override=quote_dict,
-                clock=self.clock,
-                now_ms=sub_ts,
-                slippage=self.slippage,
-            )
+                # Step 3: If an order was filled at this waypoint, evaluate exit against this same waypoint
+                curr_pos = crud.get_active_position(self.db)
+                if curr_pos and curr_pos.state == "paper_open":
+                    exit_res = PaperBroker.process_price_tick(
+                        db=self.db,
+                        current_bid=wp_bid,
+                        current_ask=wp_ask,
+                        candle_high=px,
+                        candle_low=px,
+                        candle_timestamp=bar_open,
+                        bar_duration_ms=bar_dur,
+                        now_ms=sub_ts,
+                        clock=self.clock,
+                        session_tag="REPLAY",
+                        tick_timestamp=sub_ts,
+                    )
+                    if exit_res:
+                        # Intrabar ambiguity flag if candle range reached both entry and SL/TP
+                        hit_both = False
+                        if curr_pos.direction == "LONG" and low <= curr_pos.planned_entry and low <= curr_pos.stop_loss:
+                            hit_both = True
+                        elif curr_pos.direction == "SHORT" and high >= curr_pos.planned_entry and high >= curr_pos.stop_loss:
+                            hit_both = True
+                        if hit_both:
+                            curr_pos.intrabar_ambiguous = True
+                            self.db.commit()
 
-            # Step 3: If an order was filled at this waypoint, evaluate exit against this same waypoint
-            curr_pos = crud.get_active_position(self.db)
-            if curr_pos and curr_pos.state == "paper_open":
-                exit_res = PaperBroker.process_price_tick(
-                    db=self.db,
-                    current_bid=wp_bid,
-                    current_ask=wp_ask,
-                    candle_high=px,
-                    candle_low=px,
-                    candle_timestamp=bar_open,
-                    bar_duration_ms=bar_dur,
-                    now_ms=sub_ts,
-                    clock=self.clock,
-                    session_tag="REPLAY",
-                    tick_timestamp=sub_ts,
-                )
-                if exit_res:
-                    # Intrabar ambiguity flag if candle range reached both entry and SL/TP
-                    hit_both = False
-                    if curr_pos.direction == "LONG" and low <= curr_pos.planned_entry and low <= curr_pos.stop_loss:
-                        hit_both = True
-                    elif curr_pos.direction == "SHORT" and high >= curr_pos.planned_entry and high >= curr_pos.stop_loss:
-                        hit_both = True
-                    if hit_both:
-                        curr_pos.intrabar_ambiguous = True
-                        self.db.commit()
-
-        # Restore clock to candle close
-        self.clock.set_time(now_ms)
+            # Restore clock to candle close (PHẦN 061)
+            self.clock.set_time(now_ms)
+        else:
+            raise ValueError(f"CONFIG_ERROR: Unknown execution model '{model}'")
 
     def collect_state(self) -> Dict[str, Any]:
         """
@@ -424,6 +454,9 @@ class CG01ReplayExecutionAdapter:
         all_orders = self.db.query(models.PaperOrder).all()
 
         closed_orders = [o for o in all_orders if o.state in ("closed", "paper_closed")]
+        # PHẦN 115: Sort closed trades chronologically by actual closed timestamp then stable ID
+        closed_orders.sort(key=lambda o: (int(o.closed_at or 0), str(o.id or "")))
+
         open_orders = [o for o in all_orders if o.state == "paper_open"]
         pending_orders = [o for o in all_orders if o.state == "armed"]
         expired_orders = [o for o in all_orders if o.state == "expired"]
@@ -473,7 +506,17 @@ class CG01ReplayExecutionAdapter:
                     op_snap = {}
             entry_p = op.actual_entry or op.planned_entry
             taker_rate = float(op_snap.get("taker_fee_rate", 0.0004))
-            op_fee = float(op_snap.get("entry_fee_usdt", entry_p * op.quantity * taker_rate))
+
+            # PHẦN 113: Prioritize persisted entry_fee_usdt from snapshot
+            if "entry_fee_usdt" in op_snap and op_snap["entry_fee_usdt"] is not None:
+                op_fee = float(op_snap["entry_fee_usdt"])
+            elif getattr(op, "fees_assumption", None) is not None:
+                op_fee = float(op.fees_assumption)
+            else:
+                op_fee = float(entry_p * op.quantity * taker_rate)
+
+            # PHẦN 015, 111: Extract contract_multiplier from snapshot
+            contract_mult = float(op_snap.get("contract_multiplier", op_snap.get("multiplier", 1.0)) or 1.0)
 
             open_position = {
                 "trade_id": op.id,
@@ -485,6 +528,8 @@ class CG01ReplayExecutionAdapter:
                 "quantity": op.quantity,
                 "initial_risk_usdt": op.initial_risk_usdt,
                 "entry_fee_usdt": op_fee,
+                "contract_multiplier": contract_mult,
+                "multiplier": contract_mult,
                 "intrabar_ambiguous": getattr(op, "intrabar_ambiguous", False),
             }
 
