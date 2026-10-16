@@ -1,0 +1,3 @@
+category,count,description
+EXPIRED_BEFORE_FILL,1,Orders expired prior to reaching fill limit
+CANCELLED_ORDERS,0,Orders cancelled prior to execution

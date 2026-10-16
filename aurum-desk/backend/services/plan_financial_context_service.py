@@ -162,3 +162,198 @@ def degraded_setup_plan(setup_id: str, direction: str, reason_code: str) -> Dict
         "reason_code": reason_code,
         "reason_message": "Chưa đủ dữ liệu để tính kế hoạch. Mở chi tiết để kiểm tra.",
     }
+
+
+# ==================== V16.7 REPLAY FINANCIAL CONTEXT & CONFIG RESOLVER ====================
+
+@dataclass(frozen=True)
+class ReplayFinancialContext:
+    """Explicit, typed execution/replay financial context (V16.7 Group D & E)."""
+    risk_pct: float
+    capital_usdt: Optional[float] = None
+    slippage_usd: Optional[float] = None
+    fee_bps: Optional[float] = None
+    costs: Optional[CostAssumptions] = None
+    source: str = "REPLAY_EXPLICIT"
+
+    def validate(self) -> None:
+        if isinstance(self.risk_pct, bool) or not math.isfinite(self.risk_pct) or self.risk_pct <= 0:
+            raise ValueError(f"REPLAY_RISK_INVALID: {self.risk_pct}")
+        if self.capital_usdt is not None:
+            if isinstance(self.capital_usdt, bool) or not math.isfinite(self.capital_usdt) or self.capital_usdt <= 0:
+                raise ValueError(f"REPLAY_CAPITAL_INVALID: {self.capital_usdt}")
+        if self.slippage_usd is not None:
+            if isinstance(self.slippage_usd, bool) or not math.isfinite(self.slippage_usd) or self.slippage_usd < 0:
+                raise ValueError(f"REPLAY_SLIPPAGE_INVALID: {self.slippage_usd}")
+        if self.fee_bps is not None:
+            if isinstance(self.fee_bps, bool) or not math.isfinite(self.fee_bps) or self.fee_bps < 0:
+                raise ValueError(f"REPLAY_FEE_BPS_INVALID: {self.fee_bps}")
+
+
+@dataclass(frozen=True)
+class EffectiveReplayFinancialConfig:
+    """Authoritative, immutable replay configuration result (V16.7 Group E)."""
+    initial_capital: float
+    risk_pct: float
+    slippage_usd: float
+    maker_fee_rate: float
+    taker_fee_rate: float
+    costs: CostAssumptions
+    provenance: Dict[str, Any]
+    config_hash: str
+
+
+def resolve_execution_risk(
+    account_risk_pct: float,
+    explicit_replay_risk_pct: Optional[float] = None,
+    model_risk_cap_pct: Optional[float] = None,
+) -> Dict[str, Any]:
+    """
+    V16.7 Group D: Reconciles risk authority between user account settings,
+    explicit replay context, and optional model cap.
+    """
+    selected = (
+        explicit_replay_risk_pct
+        if explicit_replay_risk_pct is not None
+        else account_risk_pct
+    )
+
+    if isinstance(selected, bool) or not math.isfinite(selected) or selected <= 0:
+        raise ValueError(f"RISK_VALUE_INVALID: {selected}")
+
+    if model_risk_cap_pct is not None:
+        if isinstance(model_risk_cap_pct, bool) or not math.isfinite(model_risk_cap_pct) or model_risk_cap_pct <= 0:
+            raise ValueError(f"MODEL_CAP_INVALID: {model_risk_cap_pct}")
+        effective = min(selected, model_risk_cap_pct)
+    else:
+        effective = selected
+
+    return {
+        "configured_risk_pct": selected,
+        "effective_risk_pct": effective,
+        "source": (
+            "REPLAY_EXPLICIT"
+            if explicit_replay_risk_pct is not None
+            else "ACCOUNT_SETTINGS"
+        ),
+    }
+
+
+def resolve_replay_financial_config(
+    initial_capital: float = 1000.0,
+    risk_pct: float = 0.25,
+    slippage: Optional[float] = None,
+    fee_bps: Optional[float] = None,
+    maker_fee_bps: Optional[float] = None,
+    taker_fee_bps: Optional[float] = None,
+    costs: Optional[CostAssumptions] = None,
+    config: Optional[Any] = None,
+) -> EffectiveReplayFinancialConfig:
+    """
+    V16.7 Group E: Centralized immutable config resolver for replay execution.
+    - Validates strictly positive finite numbers.
+    - Preserves zero values (0.0 slippage, 0 bps fee).
+    - Accurately converts fee_bps / 10000.0 without threshold coercion.
+    - Does NOT mutate caller's `costs` or `config` objects.
+    """
+    import hashlib
+    import json
+
+    # 1. Validate capital & risk
+    cap = float(initial_capital)
+    if isinstance(initial_capital, bool) or not math.isfinite(cap) or cap <= 0:
+        raise ValueError(f"INITIAL_CAPITAL_INVALID: {initial_capital}")
+
+    risk = float(risk_pct)
+    if isinstance(risk_pct, bool) or not math.isfinite(risk) or risk <= 0:
+        raise ValueError(f"RISK_PCT_INVALID: {risk_pct}")
+
+    # 2. Resolve slippage (0.0 is explicitly valid)
+    prov_slip = "DEFAULT"
+    if slippage is not None:
+        slip_val = float(slippage)
+        prov_slip = "EXPLICIT_ARG"
+    elif costs is not None and getattr(costs, "slippage_usd", None) is not None:
+        slip_val = float(costs.slippage_usd)
+        prov_slip = "CALLER_COSTS"
+    elif config is not None and getattr(config, "slippage_usd", None) is not None:
+        slip_val = float(config.slippage_usd)
+        prov_slip = "CALLER_CONFIG"
+    else:
+        slip_val = 0.10
+        prov_slip = "DEFAULT"
+
+    if isinstance(slip_val, bool) or not math.isfinite(slip_val) or slip_val < 0:
+        raise ValueError(f"SLIPPAGE_INVALID: {slip_val}")
+
+    # 3. Resolve fees (0 bps and fractional bps like 0.5 are explicitly valid)
+    if maker_fee_bps is not None:
+        m_bps = float(maker_fee_bps)
+        if isinstance(maker_fee_bps, bool) or not math.isfinite(m_bps) or m_bps < 0:
+            raise ValueError(f"MAKER_FEE_BPS_INVALID: {maker_fee_bps}")
+        maker_rate = m_bps / 10000.0
+        prov_maker = "EXPLICIT_MAKER_BPS"
+    elif costs is not None and getattr(costs, "maker_fee_rate", None) is not None:
+        maker_rate = float(costs.maker_fee_rate)
+        prov_maker = "CALLER_COSTS"
+    else:
+        maker_rate = 0.0002
+        prov_maker = "DEFAULT"
+
+    if isinstance(maker_rate, bool) or not math.isfinite(maker_rate) or maker_rate < 0:
+        raise ValueError(f"MAKER_RATE_INVALID: {maker_rate}")
+
+    if taker_fee_bps is not None:
+        t_bps = float(taker_fee_bps)
+        if isinstance(taker_fee_bps, bool) or not math.isfinite(t_bps) or t_bps < 0:
+            raise ValueError(f"TAKER_FEE_BPS_INVALID: {taker_fee_bps}")
+        taker_rate = t_bps / 10000.0
+        prov_taker = "EXPLICIT_TAKER_BPS"
+    elif fee_bps is not None:
+        f_bps = float(fee_bps)
+        if isinstance(fee_bps, bool) or not math.isfinite(f_bps) or f_bps < 0:
+            raise ValueError(f"FEE_BPS_INVALID: {fee_bps}")
+        taker_rate = f_bps / 10000.0
+        prov_taker = "EXPLICIT_GENERIC_FEE_BPS"
+    elif costs is not None and getattr(costs, "taker_fee_rate", None) is not None:
+        taker_rate = float(costs.taker_fee_rate)
+        prov_taker = "CALLER_COSTS"
+    else:
+        taker_rate = 0.0004
+        prov_taker = "DEFAULT"
+
+    if isinstance(taker_rate, bool) or not math.isfinite(taker_rate) or taker_rate < 0:
+        raise ValueError(f"TAKER_RATE_INVALID: {taker_rate}")
+
+    # 4. Construct brand new CostAssumptions without mutating caller's object
+    clean_costs = CostAssumptions(
+        maker_fee_rate=maker_rate,
+        taker_fee_rate=taker_rate,
+        slippage_usd=slip_val,
+        tp_slippage_usd=float(getattr(costs, "tp_slippage_usd", 0.0)) if costs else 0.0,
+    )
+
+    provenance = {
+        "initial_capital": cap,
+        "risk_pct": risk,
+        "slippage_usd": slip_val,
+        "slippage_source": prov_slip,
+        "maker_fee_rate": maker_rate,
+        "maker_fee_source": prov_maker,
+        "taker_fee_rate": taker_rate,
+        "taker_fee_source": prov_taker,
+    }
+
+    hash_str = json.dumps(provenance, sort_keys=True)
+    cfg_hash = hashlib.sha256(hash_str.encode("utf-8")).hexdigest()[:16]
+
+    return EffectiveReplayFinancialConfig(
+        initial_capital=cap,
+        risk_pct=risk,
+        slippage_usd=slip_val,
+        maker_fee_rate=maker_rate,
+        taker_fee_rate=taker_rate,
+        costs=clean_costs,
+        provenance=provenance,
+        config_hash=cfg_hash,
+    )

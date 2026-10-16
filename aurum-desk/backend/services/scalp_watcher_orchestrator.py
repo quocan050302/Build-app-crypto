@@ -159,6 +159,7 @@ class ScalpWatcherOrchestrator:
         config: Optional[M1ScalpConfig] = None,
         auto_enabled: Optional[bool] = None,
         feed_health: Optional[Dict[str, Any]] = None,
+        execution_financial_context: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """
         Single-cycle autonomous evaluation (PHẦN 015 - 024, 054 - 056).
@@ -591,12 +592,28 @@ class ScalpWatcherOrchestrator:
         g_settings = risk_settings_service.get_settings(db)
         audit = crud.get_or_create_today_audit(db, clock=clock)
 
+        # V16.7 Group D: Canonical Risk Authority
+        # g_settings.risk_pct is the default authority for non-replay callers.
+        # Fallback is only used if g_settings.risk_pct is missing.
+        # Explicit execution_financial_context overrides for replay.
+        from services.plan_financial_context_service import resolve_execution_risk
+        explicit_replay_risk = getattr(execution_financial_context, "risk_pct", None) if execution_financial_context else None
+        account_risk = float(g_settings.risk_pct) if (g_settings and g_settings.risk_pct is not None) else float(getattr(cfg, "fallback_risk_pct", 0.10))
+        risk_resolution = resolve_execution_risk(
+            account_risk_pct=account_risk,
+            explicit_replay_risk_pct=explicit_replay_risk,
+        )
+        resolved_risk_pct = float(risk_resolution["effective_risk_pct"])
+
+        capital_val = float(getattr(execution_financial_context, "capital_usdt", None) or (audit.current_equity if audit else 1000.0))
+
         policy_dict = {
-            "capital_usdt": float(audit.current_equity if audit else 1000.0),
-            "risk_pct": float(getattr(cfg, "fallback_risk_pct", None) if getattr(cfg, "fallback_risk_pct", None) is not None else g_settings.risk_pct),
+            "capital_usdt": capital_val,
+            "risk_pct": resolved_risk_pct,
             "leverage": int(g_settings.requested_leverage),
             "margin_mode": str(g_settings.margin_mode),
             "max_daily_trades": getattr(policy, "max_daily_fills", 3) if policy else 3,
+            "risk_source": risk_resolution["source"],
         }
 
         # A. SMC M1 Reversal Model on watched zones

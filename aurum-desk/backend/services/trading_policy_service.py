@@ -2,7 +2,7 @@ import time
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, time as dtime
+from datetime import datetime, time as dtime, timedelta
 from zoneinfo import ZoneInfo
 from typing import Dict, Any, Optional, Tuple, List, Sequence
 from sqlalchemy.orm import Session
@@ -1228,3 +1228,32 @@ def apply_runtime_contract_upgrades(
     )
 
 evaluate_daily_frequency_goal = TradingPolicyService.evaluate_daily_frequency_goal
+
+
+def resolve_trade_day_bounds(timestamp_ms: int, timezone_name: str = "Asia/Ho_Chi_Minh") -> Tuple[str, int, int]:
+    """
+    V16.7 Group J: Resolves canonical trade day string, start_ms, and end_ms
+    using standard IANA timezone handling to correctly account for DST (23h or 25h days).
+    """
+    tz = ZoneInfo(timezone_name)
+    sec = timestamp_ms / 1000.0 if timestamp_ms > 1e11 else float(timestamp_ms)
+    local_dt = datetime.fromtimestamp(sec, tz=tz)
+    local_day = local_dt.date()
+
+    start_local = datetime.combine(
+        local_day,
+        dtime.min,
+        tzinfo=tz,
+    )
+
+    end_local = datetime.combine(
+        local_day + timedelta(days=1),
+        dtime.min,
+        tzinfo=tz,
+    )
+
+    return (
+        local_day.isoformat(),
+        int(start_local.timestamp() * 1000),
+        int(end_local.timestamp() * 1000),
+    )

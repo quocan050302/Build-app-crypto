@@ -61,7 +61,7 @@ class ReplayBar:
 
 
 def compute_equity_mark(cash: float, open_position: Optional[Dict[str, Any]], current_price: float) -> float:
-    """Rule 176 & V16.6: Computes MTM Equity = cash - entry_fees_of_open_positions + unrealized PnL."""
+    """Rule 176 & V16.7: Computes MTM Equity = cash - entry_fees_of_open_positions + unrealized PnL with multiplier."""
     if not open_position:
         return round(cash, 4)
 
@@ -69,13 +69,15 @@ def compute_equity_mark(cash: float, open_position: Optional[Dict[str, Any]], cu
     entry_price = open_position["entry_price"]
     qty = open_position["quantity"]
     entry_fee = float(open_position.get("entry_fee_usdt", 0.0))
+    mult = float(open_position.get("multiplier", 1.0) or 1.0)
 
     if direction == "LONG":
-        unrealized = qty * (current_price - entry_price)
+        unrealized = qty * (current_price - entry_price) * mult
     else:
-        unrealized = qty * (entry_price - current_price)
+        unrealized = qty * (entry_price - current_price) * mult
 
     return round(cash - entry_fee + unrealized, 4)
+
 
 
 def _is_in_ny_session(ts_val: Any) -> bool:
@@ -453,10 +455,10 @@ class CG01ReplayDriver:
             interim = adapter.collect_state()
             d_stat = daily_stats[date_str]
 
-            # V16.6: Compute day bounds in NY time and count true daily delta
+            from services.trading_policy_service import resolve_trade_day_bounds
             d_start_dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=ny_tz)
-            d_start_ms = int(d_start_dt.timestamp() * 1000)
-            d_end_ms = d_start_ms + 86_400_000
+            base_ms = int(d_start_dt.timestamp() * 1000)
+            _, d_start_ms, d_end_ms = resolve_trade_day_bounds(base_ms + 3600_000, "America/New_York")
 
             all_orders_curr = lab_db.query(models.PaperOrder).all()
             day_filled_orders = [
@@ -471,7 +473,8 @@ class CG01ReplayDriver:
             elif d_stat["fills_count"] >= self.config.daily_min_goal:
                 d_stat["status"] = "MINIMUM_MET"
 
-            curr_cash = interim["metrics"]["final_cash"] or self.initial_capital
+            raw_cash = interim.get("metrics", {}).get("final_cash")
+            curr_cash = float(raw_cash) if raw_cash is not None else float(self.initial_capital)
             mtm_eq = compute_equity_mark(curr_cash, interim["open_position"], current_bar.close)
             if mtm_eq > peak_mtm:
                 peak_mtm = mtm_eq
@@ -484,15 +487,19 @@ class CG01ReplayDriver:
                 "mtm_equity": round(mtm_eq, 2),
                 "drawdown_pct": round(dd, 2),
             })
+            equity_realized_series.append({
+                "timestamp": now_ms,
+                "cash_equity": round(curr_cash, 2),
+            })
 
         final_report = adapter.collect_state()
 
-        # V16.6 Final Daily Stats Reconciliation across all days
+        # V16.7 Final Daily Stats Reconciliation across all days using canonical day bounds
         final_orders = lab_db.query(models.PaperOrder).all()
         for d_key, d_stat in daily_stats.items():
             d_start_dt = datetime.strptime(d_key, "%Y-%m-%d").replace(tzinfo=ny_tz)
-            d_start_ms = int(d_start_dt.timestamp() * 1000)
-            d_end_ms = d_start_ms + 86_400_000
+            base_ms = int(d_start_dt.timestamp() * 1000)
+            _, d_start_ms, d_end_ms = resolve_trade_day_bounds(base_ms + 3600_000, "America/New_York")
 
             day_filled = [
                 o for o in final_orders
@@ -506,6 +513,14 @@ class CG01ReplayDriver:
                 d_stat["status"] = "MINIMUM_MET"
             else:
                 d_stat["status"] = "SEARCHING" if d_stat.get("is_market_day", True) else "WEEKEND"
+
+        # V16.7 Rejection funnel accounting
+        expired_count = lab_db.query(models.PaperOrder).filter(models.PaperOrder.state == "expired").count()
+        cancelled_count = lab_db.query(models.PaperOrder).filter(models.PaperOrder.state == "cancelled").count()
+        rejection_funnel = [
+            {"category": "EXPIRED_BEFORE_FILL", "count": expired_count, "description": "Orders expired prior to reaching fill limit"},
+            {"category": "CANCELLED_ORDERS", "count": cancelled_count, "description": "Orders cancelled prior to execution"},
+        ]
 
         adapter.finalize_run()
 

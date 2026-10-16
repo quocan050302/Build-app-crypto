@@ -1,0 +1,31 @@
+{
+  "run_id": "run_v16_7_1792155022",
+  "base_commit": "7b721d58de447c351c4805884baede95a4eae6c7",
+  "commit_sha": "7b721d58de447c351c4805884baede95a4eae6c7",
+  "tested_diff_sha256": "e5675d8cbb3a4ebb227001eae59a2734cdf181347e6978bb1f92752992b0b7bb",
+  "timestamp_iso": "2026-10-16T12:50:22.773995+00:00",
+  "technical_status": "PASS",
+  "historical_status": "DATA_SYNTHESIZED_DEMO",
+  "performance_status": "EVALUATED_DEMO",
+  "gates": {
+    "execution_guard_parity": "PASS",
+    "risk_authority": "PASS",
+    "replay_costs_immutability": "PASS",
+    "measurement_integrity": "PASS",
+    "full_regression_v16": "PASS"
+  },
+  "config_hash": "c6f6b97706c13d55f50310eb1af0be6ed7483560252aaaad4530e38868bf54d2",
+  "total_fills": 1,
+  "closed_trades_count": 0,
+  "open_positions_count": 1,
+  "pending_orders_count": 0,
+  "metrics": {
+    "initial_capital": 5000.0,
+    "final_cash": 5000.0,
+    "total_pnl_usd": null,
+    "winrate_pct": null,
+    "max_drawdown_pct": 0.05,
+    "total_trades": 0
+  },
+  "summary_readable": "\u0110\u00e3 ki\u1ec3m tra: 1 ng\u00e0y d\u1eef li\u1ec7u m\u1eabu \u00b7 1 l\u1ec7nh kh\u1edbp. \u0110\u00e3 \u0111\u00f3ng: 0 \u00b7 \u0110ang m\u1edf: 1. L\u1eddi/l\u1ed7 \u0111\u00e3 ch\u1ed1t sau ph\u00ed: 0.0 USD. Drawdown t\u1ed1i \u0111a MTM: 0.05%."
+}
