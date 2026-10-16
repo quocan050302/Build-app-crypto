@@ -1,0 +1,17 @@
+{
+  "run_id": "run_v16_10_1792162373",
+  "commit_sha": "74174e0cc2a8dd94b7459d4bed4b3a5afa4184c2",
+  "created_at_iso": "2026-10-16T14:52:53.675190+00:00",
+  "files": {
+    "acceptance.json": "ed1173ad797bc67964e740ae6b89a5c2f67c1112d9d99b605edf1c32bad6933d",
+    "test_results.json": "2854312f5dd22f31875955be085491999e2b463c6e6d35be112418e3508a6c2f",
+    "effective_config.json": "dfe77357c55bad28065335cec5afaffc51227eb1a3bc89600fc5637fc95104f6",
+    "strategy_funnel.json": "cb017d7bc1bb90f03ec166dce398e5432b7e1fa8e71714a28d4c06ccff3ca119",
+    "execution_demo.json": "832dcc1fc68869425a081f830529c5c5ad84122a46387b0f8b3f372141a4e773",
+    "trades.csv": "6b6f12f7374e20550bbc3ab6581b306b8c19d65fd740599016ace609222a8cf1",
+    "daily_stats.csv": "3dc849e9754cf39782214aebf55b34d822a9b293991d292b0f3fbbcb0fecf1a9",
+    "equity_mtm.csv": "c8cbe475649cfbc88c7ba9d12694e925d2304e7a4234a36f4fd97e9672b99233",
+    "equity_realized.csv": "5ea647414de271738ea116078050fa3eddaa18b6ac588ae2c1c95e1f8720cd8f",
+    "rejection_funnel.csv": "59dc64d151e303e4d0634407d0457056d9aa957459b12575e79166194fff7239"
+  }
+}

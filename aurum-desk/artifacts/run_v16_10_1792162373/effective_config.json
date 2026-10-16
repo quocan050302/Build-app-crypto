@@ -1,0 +1,21 @@
+{
+  "initial_capital": 5000.0,
+  "risk_pct": 0.1,
+  "slippage_usd": 0.0,
+  "maker_fee_rate": 0.0002,
+  "taker_fee_rate": 0.0004,
+  "contract_multiplier": 1.0,
+  "capital_mode": "CURRENT_ACCOUNT_BALANCE",
+  "execution_model": "ASSUMED_OHLC_PATH",
+  "provenance": {
+    "initial_capital": 5000.0,
+    "risk_pct": 0.1,
+    "slippage_usd": 0.0,
+    "slippage_source": "CALLER_COSTS",
+    "maker_fee_rate": 0.0002,
+    "maker_fee_source": "CALLER_COSTS",
+    "taker_fee_rate": 0.0004,
+    "taker_fee_source": "CALLER_COSTS"
+  },
+  "authority_pipeline": "CG01ReplayExecutionAdapter + ScalpWatcherOrchestrator + ExecutionCoordinator"
+}

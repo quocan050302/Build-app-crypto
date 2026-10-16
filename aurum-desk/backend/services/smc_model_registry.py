@@ -102,10 +102,14 @@ SMC_MODEL_REGISTRY: Dict[str, SMCModelSpec] = {
 
 
 def get_model_spec(model_id: str) -> Optional[SMCModelSpec]:
+    if model_id == "CG01":
+        model_id = ModelIdentifier.CG01_SWEEP_MSS_FVG.value
     return SMC_MODEL_REGISTRY.get(model_id)
 
 
 def is_registered_model(model_id: str) -> bool:
+    if model_id == "CG01":
+        model_id = ModelIdentifier.CG01_SWEEP_MSS_FVG.value
     return model_id in SMC_MODEL_REGISTRY
 
 

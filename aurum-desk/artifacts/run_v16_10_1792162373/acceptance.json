@@ -1,0 +1,196 @@
+{
+  "run_id": "run_v16_10_1792162373",
+  "base_commit": "74174e0cc2a8dd94b7459d4bed4b3a5afa4184c2",
+  "commit_sha": "74174e0cc2a8dd94b7459d4bed4b3a5afa4184c2",
+  "tested_diff_sha256": "37fb1ddcb18555fafb725da066f980039a73d1952ccce4ae9d2de44a9c8b6741",
+  "timestamp_iso": "2026-10-16T14:52:53.675190+00:00",
+  "technical_status": "PASS",
+  "historical_status": "BLOCKED_DATA",
+  "performance_status": "NOT_EVALUATED",
+  "simulation_evidence_type": "DATA_SYNTHESIZED_DEMO",
+  "gates": [
+    {
+      "name": "causal_ohlc_path",
+      "required_cases": [
+        "test_long_red_candle_hits_tp_at_high_before_sl_at_low",
+        "test_short_green_candle_hits_tp_at_low_before_sl_at_high",
+        "test_monotonic_clock_invariant_during_bar_processing",
+        "test_unknown_path_policy_raises_config_error",
+        "test_cooldown_starts_at_exact_exit_timestamp"
+      ],
+      "executed_cases": [
+        "test_long_red_candle_hits_tp_at_high_before_sl_at_low",
+        "test_short_green_candle_hits_tp_at_low_before_sl_at_high",
+        "test_monotonic_clock_invariant_during_bar_processing",
+        "test_unknown_path_policy_raises_config_error",
+        "test_cooldown_starts_at_exact_exit_timestamp"
+      ],
+      "status": "PASS",
+      "evidence_suite": "test_v16_10_causal_ohlc_path",
+      "reason": null
+    },
+    {
+      "name": "arm_sizing_contract",
+      "required_cases": [
+        "test_real_orchestrator_arm_fixed_capital_snapshot_long",
+        "test_real_orchestrator_arm_fixed_capital_snapshot_short",
+        "test_account_degraded_after_arm_applies_safety_cap",
+        "test_account_growth_after_arm_preserves_fixed_target"
+      ],
+      "executed_cases": [
+        "test_real_orchestrator_arm_fixed_capital_snapshot_long",
+        "test_real_orchestrator_arm_fixed_capital_snapshot_short",
+        "test_account_degraded_after_arm_applies_safety_cap",
+        "test_account_growth_after_arm_preserves_fixed_target"
+      ],
+      "status": "PASS",
+      "evidence_suite": "test_v16_10_arm_to_fill_sizing",
+      "reason": null
+    },
+    {
+      "name": "funnel_attribution",
+      "required_cases": [
+        "test_global_order_from_other_model_excluded_from_cg01_funnel",
+        "test_seeded_demo_orders_excluded_from_strategy_funnel_and_tracked_in_execution_demo",
+        "test_transaction_rollback_clears_armed_order_and_categorizes_system_degraded",
+        "test_distinct_cycle_categories_attribution",
+        "test_observed_vs_persisted_arm_mismatch_without_max"
+      ],
+      "executed_cases": [
+        "test_global_order_from_other_model_excluded_from_cg01_funnel",
+        "test_seeded_demo_orders_excluded_from_strategy_funnel_and_tracked_in_execution_demo",
+        "test_transaction_rollback_clears_armed_order_and_categorizes_system_degraded",
+        "test_distinct_cycle_categories_attribution",
+        "test_observed_vs_persisted_arm_mismatch_without_max"
+      ],
+      "status": "PASS",
+      "evidence_suite": "test_v16_10_funnel_attribution",
+      "reason": null
+    },
+    {
+      "name": "runner_result_authority",
+      "required_cases": [
+        "test_missing_path_directory_or_corrupt_json_produces_blocked_data_with_run_context",
+        "test_config_parity_demo_zero_slippage_in_run_context",
+        "test_zero_seed_assertion_in_historical_run"
+      ],
+      "executed_cases": [
+        "test_missing_path_directory_or_corrupt_json_produces_blocked_data_with_run_context",
+        "test_config_parity_demo_zero_slippage_in_run_context",
+        "test_zero_seed_assertion_in_historical_run"
+      ],
+      "status": "PASS",
+      "evidence_suite": "test_v16_10_runner_result_authority",
+      "reason": null
+    },
+    {
+      "name": "legacy_causal_execution",
+      "required_cases": [
+        "test_build_assumed_bar_events_pure_helper",
+        "test_no_future_close_at_open_long",
+        "test_no_future_close_at_open_short",
+        "test_close_quote_mode_ignores_wicks",
+        "test_unknown_execution_model_rejected"
+      ],
+      "executed_cases": [
+        "test_build_assumed_bar_events_pure_helper",
+        "test_no_future_close_at_open_long",
+        "test_no_future_close_at_open_short",
+        "test_close_quote_mode_ignores_wicks",
+        "test_unknown_execution_model_rejected"
+      ],
+      "status": "PASS",
+      "evidence_suite": "test_v16_9_causal_ohlc_execution",
+      "reason": null
+    },
+    {
+      "name": "full_regression_v16",
+      "required_cases": [
+        "v16_full_suite"
+      ],
+      "executed_cases": [
+        "v16_full_suite"
+      ],
+      "status": "PASS",
+      "evidence_suite": "v16_full_suite",
+      "reason": null
+    },
+    {
+      "name": "git_cleanliness",
+      "required_cases": [
+        "git_diff_check"
+      ],
+      "executed_cases": [
+        "git_diff_check"
+      ],
+      "status": "PASS",
+      "evidence_suite": "git_diff_check",
+      "reason": null
+    }
+  ],
+  "config_hash": "c968d679c4f87fe5",
+  "effective_config": {
+    "initial_capital": 5000.0,
+    "risk_pct": 0.1,
+    "slippage_usd": 0.0,
+    "maker_fee_rate": 0.0002,
+    "taker_fee_rate": 0.0004,
+    "contract_multiplier": 1.0,
+    "capital_mode": "CURRENT_ACCOUNT_BALANCE",
+    "execution_model": "ASSUMED_OHLC_PATH",
+    "provenance": {
+      "initial_capital": 5000.0,
+      "risk_pct": 0.1,
+      "slippage_usd": 0.0,
+      "slippage_source": "CALLER_COSTS",
+      "maker_fee_rate": 0.0002,
+      "maker_fee_source": "CALLER_COSTS",
+      "taker_fee_rate": 0.0004,
+      "taker_fee_source": "CALLER_COSTS"
+    },
+    "authority_pipeline": "CG01ReplayExecutionAdapter + ScalpWatcherOrchestrator + ExecutionCoordinator"
+  },
+  "strategy_funnel": {
+    "cycle_count": 3,
+    "unique_episode_count": 0,
+    "model_disabled_count": 0,
+    "no_quote_count": 0,
+    "wait_window_count": 0,
+    "wait_poi_count": 0,
+    "context_not_ready_count": 3,
+    "observing_waiting_trigger_count": 0,
+    "guard_blocked_count": 0,
+    "system_degraded_count": 0,
+    "cg01_observed_arms": 0,
+    "cg01_persisted_arms": 0,
+    "cg01_unique_armed_orders": [],
+    "cg01_unique_armed_count": 0,
+    "expired_before_fill_count": 0,
+    "cancelled_orders_count": 0,
+    "reconciliation_discrepancy": []
+  },
+  "execution_demo": {
+    "seeded_orders_count": 2,
+    "seeded_order_ids": [
+      "ord_demo_expired_guard",
+      "ord_demo_guarded_fill"
+    ],
+    "demo_fills_count": 1,
+    "demo_closed_count": 0
+  },
+  "cycle_count": 3,
+  "unique_episode_count": 0,
+  "total_fills": 1,
+  "closed_trades_count": 0,
+  "open_positions_count": 1,
+  "pending_orders_count": 0,
+  "metrics": {
+    "initial_capital": 5000.0,
+    "final_cash": 5000.0,
+    "total_pnl_usd": null,
+    "winrate_pct": null,
+    "max_drawdown_pct": 0.05,
+    "total_trades": 0
+  },
+  "summary_readable": "\u0110\u00e3 ki\u1ec3m tra k\u1ef9 thu\u1eadt V16.10: 1 l\u1ec7nh kh\u1edbp c\u00f3 guard. \u0110\u00e3 \u0111\u00f3ng: 0 \u00b7 \u0110ang m\u1edf: 1. L\u1eddi/l\u1ed7 \u0111\u00e3 ch\u1ed1t sau ph\u00ed: 0.0 USD. Drawdown t\u1ed1i \u0111a MTM: 0.05%. Historical status: BLOCKED_DATA \u00b7 Technical status: PASS."
+}

@@ -1,0 +1,270 @@
+[
+  {
+    "name": "git_diff_check",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "cwd": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk",
+    "status": "PASS",
+    "exit_code": 0,
+    "elapsed_sec": 0.018,
+    "summary_counts": {},
+    "executed_cases": [],
+    "output": ""
+  },
+  {
+    "name": "test_v16_10_causal_ohlc_path",
+    "command": [
+      "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
+      "-m",
+      "pytest",
+      "tests/test_v16_10_causal_ohlc_path.py",
+      "-v"
+    ],
+    "cwd": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend",
+    "status": "PASS",
+    "exit_code": 0,
+    "elapsed_sec": 1.389,
+    "summary_counts": {
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "deselected": 0,
+      "warnings": 1
+    },
+    "executed_cases": [
+      "test_long_red_candle_hits_tp_at_high_before_sl_at_low",
+      "test_short_green_candle_hits_tp_at_low_before_sl_at_high",
+      "test_monotonic_clock_invariant_during_bar_processing",
+      "test_unknown_path_policy_raises_config_error",
+      "test_cooldown_starts_at_exact_exit_timestamp"
+    ],
+    "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.0, pytest-9.1.1, pluggy-1.6.0 -- /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3\ncachedir: .pytest_cache\nrootdir: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend\nplugins: anyio-4.15.1\ncollecting ... collected 5 items\n\ntests/test_v16_10_causal_ohlc_path.py::test_long_red_candle_hits_tp_at_high_before_sl_at_low PASSED [ 20%]\ntests/test_v16_10_causal_ohlc_path.py::test_short_green_candle_hits_tp_at_low_before_sl_at_high PASSED [ 40%]\ntests/test_v16_10_causal_ohlc_path.py::test_monotonic_clock_invariant_during_bar_processing PASSED [ 60%]\ntests/test_v16_10_causal_ohlc_path.py::test_unknown_path_policy_raises_config_error PASSED [ 80%]\ntests/test_v16_10_causal_ohlc_path.py::test_cooldown_starts_at_exact_exit_timestamp PASSED [100%]\n\n=============================== warnings summary ===============================\nvenv/lib/python3.13/site-packages/fastapi/testclient.py:1\n  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n========================= 5 passed, 1 warning in 0.23s =========================\n"
+  },
+  {
+    "name": "test_v16_10_arm_to_fill_sizing",
+    "command": [
+      "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
+      "-m",
+      "pytest",
+      "tests/test_v16_10_arm_to_fill_sizing.py",
+      "-v"
+    ],
+    "cwd": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend",
+    "status": "PASS",
+    "exit_code": 0,
+    "elapsed_sec": 1.419,
+    "summary_counts": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "deselected": 0,
+      "warnings": 1
+    },
+    "executed_cases": [
+      "test_real_orchestrator_arm_fixed_capital_snapshot_long",
+      "test_real_orchestrator_arm_fixed_capital_snapshot_short",
+      "test_account_degraded_after_arm_applies_safety_cap",
+      "test_account_growth_after_arm_preserves_fixed_target"
+    ],
+    "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.0, pytest-9.1.1, pluggy-1.6.0 -- /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3\ncachedir: .pytest_cache\nrootdir: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend\nplugins: anyio-4.15.1\ncollecting ... collected 4 items\n\ntests/test_v16_10_arm_to_fill_sizing.py::test_real_orchestrator_arm_fixed_capital_snapshot_long PASSED [ 25%]\ntests/test_v16_10_arm_to_fill_sizing.py::test_real_orchestrator_arm_fixed_capital_snapshot_short PASSED [ 50%]\ntests/test_v16_10_arm_to_fill_sizing.py::test_account_degraded_after_arm_applies_safety_cap PASSED [ 75%]\ntests/test_v16_10_arm_to_fill_sizing.py::test_account_growth_after_arm_preserves_fixed_target PASSED [100%]\n\n=============================== warnings summary ===============================\nvenv/lib/python3.13/site-packages/fastapi/testclient.py:1\n  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n========================= 4 passed, 1 warning in 0.35s =========================\n"
+  },
+  {
+    "name": "test_v16_10_funnel_attribution",
+    "command": [
+      "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
+      "-m",
+      "pytest",
+      "tests/test_v16_10_funnel_attribution.py",
+      "-v"
+    ],
+    "cwd": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend",
+    "status": "PASS",
+    "exit_code": 0,
+    "elapsed_sec": 1.266,
+    "summary_counts": {
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "deselected": 0,
+      "warnings": 1
+    },
+    "executed_cases": [
+      "test_global_order_from_other_model_excluded_from_cg01_funnel",
+      "test_seeded_demo_orders_excluded_from_strategy_funnel_and_tracked_in_execution_demo",
+      "test_transaction_rollback_clears_armed_order_and_categorizes_system_degraded",
+      "test_distinct_cycle_categories_attribution",
+      "test_observed_vs_persisted_arm_mismatch_without_max"
+    ],
+    "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.0, pytest-9.1.1, pluggy-1.6.0 -- /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3\ncachedir: .pytest_cache\nrootdir: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend\nplugins: anyio-4.15.1\ncollecting ... collected 5 items\n\ntests/test_v16_10_funnel_attribution.py::test_global_order_from_other_model_excluded_from_cg01_funnel PASSED [ 20%]\ntests/test_v16_10_funnel_attribution.py::test_seeded_demo_orders_excluded_from_strategy_funnel_and_tracked_in_execution_demo PASSED [ 40%]\ntests/test_v16_10_funnel_attribution.py::test_transaction_rollback_clears_armed_order_and_categorizes_system_degraded PASSED [ 60%]\ntests/test_v16_10_funnel_attribution.py::test_distinct_cycle_categories_attribution PASSED [ 80%]\ntests/test_v16_10_funnel_attribution.py::test_observed_vs_persisted_arm_mismatch_without_max PASSED [100%]\n\n=============================== warnings summary ===============================\nvenv/lib/python3.13/site-packages/fastapi/testclient.py:1\n  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n========================= 5 passed, 1 warning in 0.34s =========================\n"
+  },
+  {
+    "name": "test_v16_10_runner_result_authority",
+    "command": [
+      "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
+      "-m",
+      "pytest",
+      "tests/test_v16_10_runner_result_authority.py",
+      "-v"
+    ],
+    "cwd": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend",
+    "status": "PASS",
+    "exit_code": 0,
+    "elapsed_sec": 1.166,
+    "summary_counts": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "deselected": 0,
+      "warnings": 1
+    },
+    "executed_cases": [
+      "test_missing_path_directory_or_corrupt_json_produces_blocked_data_with_run_context",
+      "test_config_parity_demo_zero_slippage_in_run_context",
+      "test_zero_seed_assertion_in_historical_run"
+    ],
+    "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.0, pytest-9.1.1, pluggy-1.6.0 -- /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3\ncachedir: .pytest_cache\nrootdir: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend\nplugins: anyio-4.15.1\ncollecting ... collected 3 items\n\ntests/test_v16_10_runner_result_authority.py::test_missing_path_directory_or_corrupt_json_produces_blocked_data_with_run_context PASSED [ 33%]\ntests/test_v16_10_runner_result_authority.py::test_config_parity_demo_zero_slippage_in_run_context PASSED [ 66%]\ntests/test_v16_10_runner_result_authority.py::test_zero_seed_assertion_in_historical_run PASSED [100%]\n\n=============================== warnings summary ===============================\nvenv/lib/python3.13/site-packages/fastapi/testclient.py:1\n  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n========================= 3 passed, 1 warning in 0.20s =========================\n"
+  },
+  {
+    "name": "test_v16_9_causal_ohlc_execution",
+    "command": [
+      "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
+      "-m",
+      "pytest",
+      "tests/test_v16_9_causal_ohlc_execution.py",
+      "-v"
+    ],
+    "cwd": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend",
+    "status": "PASS",
+    "exit_code": 0,
+    "elapsed_sec": 1.371,
+    "summary_counts": {
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "deselected": 0,
+      "warnings": 1
+    },
+    "executed_cases": [
+      "test_build_assumed_bar_events_pure_helper",
+      "test_no_future_close_at_open_long",
+      "test_no_future_close_at_open_short",
+      "test_close_quote_mode_ignores_wicks",
+      "test_unknown_execution_model_rejected"
+    ],
+    "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.0, pytest-9.1.1, pluggy-1.6.0 -- /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3\ncachedir: .pytest_cache\nrootdir: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend\nplugins: anyio-4.15.1\ncollecting ... collected 5 items\n\ntests/test_v16_9_causal_ohlc_execution.py::test_build_assumed_bar_events_pure_helper PASSED [ 20%]\ntests/test_v16_9_causal_ohlc_execution.py::test_no_future_close_at_open_long PASSED [ 40%]\ntests/test_v16_9_causal_ohlc_execution.py::test_no_future_close_at_open_short PASSED [ 60%]\ntests/test_v16_9_causal_ohlc_execution.py::test_close_quote_mode_ignores_wicks PASSED [ 80%]\ntests/test_v16_9_causal_ohlc_execution.py::test_unknown_execution_model_rejected PASSED [100%]\n\n=============================== warnings summary ===============================\nvenv/lib/python3.13/site-packages/fastapi/testclient.py:1\n  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n========================= 5 passed, 1 warning in 0.21s =========================\n"
+  },
+  {
+    "name": "test_v16_9_historical_runner",
+    "command": [
+      "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
+      "-m",
+      "pytest",
+      "tests/test_v16_9_historical_runner.py",
+      "-v"
+    ],
+    "cwd": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend",
+    "status": "PASS",
+    "exit_code": 0,
+    "elapsed_sec": 1.091,
+    "summary_counts": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "deselected": 0,
+      "warnings": 1
+    },
+    "executed_cases": [
+      "test_missing_dataset_returns_blocked_data",
+      "test_corrupt_json_dataset_returns_blocked_data",
+      "test_historical_branch_never_seeds_orders",
+      "test_distinct_datasets_produce_distinct_fingerprints"
+    ],
+    "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.0, pytest-9.1.1, pluggy-1.6.0 -- /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3\ncachedir: .pytest_cache\nrootdir: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend\nplugins: anyio-4.15.1\ncollecting ... collected 4 items\n\ntests/test_v16_9_historical_runner.py::test_missing_dataset_returns_blocked_data PASSED [ 25%]\ntests/test_v16_9_historical_runner.py::test_corrupt_json_dataset_returns_blocked_data PASSED [ 50%]\ntests/test_v16_9_historical_runner.py::test_historical_branch_never_seeds_orders PASSED [ 75%]\ntests/test_v16_9_historical_runner.py::test_distinct_datasets_produce_distinct_fingerprints PASSED [100%]\n\n=============================== warnings summary ===============================\nvenv/lib/python3.13/site-packages/fastapi/testclient.py:1\n  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n========================= 4 passed, 1 warning in 0.17s =========================\n"
+  },
+  {
+    "name": "test_v16_9_cg01_decision_funnel",
+    "command": [
+      "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
+      "-m",
+      "pytest",
+      "tests/test_v16_9_cg01_decision_funnel.py",
+      "-v"
+    ],
+    "cwd": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend",
+    "status": "PASS",
+    "exit_code": 0,
+    "elapsed_sec": 1.013,
+    "summary_counts": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "deselected": 0,
+      "warnings": 1
+    },
+    "executed_cases": [
+      "test_serialize_cg01_evaluation_pure_helper",
+      "test_normalize_replay_cycle_observation",
+      "test_orchestrator_returns_cg01_evaluation_on_observing",
+      "test_funnel_counts_armed_order_correctly"
+    ],
+    "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.0, pytest-9.1.1, pluggy-1.6.0 -- /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3\ncachedir: .pytest_cache\nrootdir: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend\nplugins: anyio-4.15.1\ncollecting ... collected 4 items\n\ntests/test_v16_9_cg01_decision_funnel.py::test_serialize_cg01_evaluation_pure_helper PASSED [ 25%]\ntests/test_v16_9_cg01_decision_funnel.py::test_normalize_replay_cycle_observation PASSED [ 50%]\ntests/test_v16_9_cg01_decision_funnel.py::test_orchestrator_returns_cg01_evaluation_on_observing PASSED [ 75%]\ntests/test_v16_9_cg01_decision_funnel.py::test_funnel_counts_armed_order_correctly PASSED [100%]\n\n=============================== warnings summary ===============================\nvenv/lib/python3.13/site-packages/fastapi/testclient.py:1\n  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n========================= 4 passed, 1 warning in 0.07s =========================\n"
+  },
+  {
+    "name": "test_v16_9_executable_sizing_contract",
+    "command": [
+      "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
+      "-m",
+      "pytest",
+      "tests/test_v16_9_executable_sizing_contract.py",
+      "-v"
+    ],
+    "cwd": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend",
+    "status": "PASS",
+    "exit_code": 0,
+    "elapsed_sec": 1.192,
+    "summary_counts": {
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "deselected": 0,
+      "warnings": 1
+    },
+    "executed_cases": [
+      "test_resolve_executable_sizing_context_current_mode",
+      "test_resolve_executable_sizing_context_fixed_mode",
+      "test_coordinator_fill_persists_sizing_contract",
+      "test_resolve_executable_sizing_context_excess_equity",
+      "test_resolve_executable_sizing_context_short_direction",
+      "test_legacy_order_fill_without_sizing_context"
+    ],
+    "output": "============================= test session starts ==============================\nplatform darwin -- Python 3.13.0, pytest-9.1.1, pluggy-1.6.0 -- /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3\ncachedir: .pytest_cache\nrootdir: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend\nplugins: anyio-4.15.1\ncollecting ... collected 6 items\n\ntests/test_v16_9_executable_sizing_contract.py::test_resolve_executable_sizing_context_current_mode PASSED [ 16%]\ntests/test_v16_9_executable_sizing_contract.py::test_resolve_executable_sizing_context_fixed_mode PASSED [ 33%]\ntests/test_v16_9_executable_sizing_contract.py::test_coordinator_fill_persists_sizing_contract PASSED [ 50%]\ntests/test_v16_9_executable_sizing_contract.py::test_resolve_executable_sizing_context_excess_equity PASSED [ 66%]\ntests/test_v16_9_executable_sizing_contract.py::test_resolve_executable_sizing_context_short_direction PASSED [ 83%]\ntests/test_v16_9_executable_sizing_contract.py::test_legacy_order_fill_without_sizing_context PASSED [100%]\n\n=============================== warnings summary ===============================\nvenv/lib/python3.13/site-packages/fastapi/testclient.py:1\n  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n========================= 6 passed, 1 warning in 0.17s =========================\n"
+  },
+  {
+    "name": "v16_full_suite",
+    "command": [
+      "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
+      "-m",
+      "pytest",
+      "tests",
+      "-k",
+      "v16",
+      "-q"
+    ],
+    "cwd": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend",
+    "status": "PASS",
+    "exit_code": 0,
+    "elapsed_sec": 8.899,
+    "summary_counts": {
+      "passed": 180,
+      "failed": 0,
+      "skipped": 0,
+      "deselected": 1785,
+      "warnings": 1
+    },
+    "executed_cases": [],
+    "output": "........................................................................ [ 40%]\n........................................................................ [ 80%]\n....................................                                     [100%]\n=============================== warnings summary ===============================\nvenv/lib/python3.13/site-packages/fastapi/testclient.py:1\n  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n180 passed, 1785 deselected, 1 warning in 7.05s\n"
+  }
+]

@@ -51,6 +51,9 @@ def build_assumed_bar_events(
     bar_dur = int(bar.get("bar_duration_ms", 60_000))
     bar_open = int(bar.get("bar_open_time", now_ms - bar_dur))
 
+    if path_policy != "COLOR_BASED":
+        raise ValueError(f"CONFIG_ERROR: Unknown path policy '{path_policy}'")
+
     if high < low or open_px < (low - 1e-4) or open_px > (high + 1e-4) or close_px < (low - 1e-4) or close_px > (high + 1e-4):
         raise ValueError(f"INVALID_OHLC_GEOMETRY: open={open_px}, high={high}, low={low}, close={close_px}")
 
@@ -149,6 +152,7 @@ class CG01ReplayExecutionAdapter:
         self.costs = self.effective_config.costs
         self.capital_mode = self.effective_config.capital_mode
         self.execution_model = self.effective_config.execution_model
+        self.path_policy = getattr(config, "path_policy", "COLOR_BASED") if config is not None else "COLOR_BASED"
 
         # Clone config without mutating caller's object (PHẦN 041)
         import copy
@@ -401,112 +405,144 @@ class CG01ReplayExecutionAdapter:
             return
 
         elif model == "ASSUMED_OHLC_PATH":
-            # ASSUMED_OHLC_PATH: Deterministic intrabar waypoints with synthetic subevent timestamps (V16.9 PHẦN 021 - 040)
-            events = build_assumed_bar_events(event)
+            # ASSUMED_OHLC_PATH: Deterministic intrabar waypoints with synthetic subevent timestamps (V16.10 PHẦN 021 - 040)
+            path_pol = getattr(self, "path_policy", "COLOR_BASED")
+            events = build_assumed_bar_events(
+                bar=event,
+                path_policy=path_pol,
+                spread=self.slippage,
+                execution_model="ASSUMED_OHLC_PATH",
+                assumption_version=1,
+            )
 
-            # Check if any currently open position is intrabar ambiguous across the full candle range
-            open_pos = crud.get_active_position(self.db)
-            if open_pos and open_pos.state == "paper_open":
-                is_ambig = False
-                if open_pos.direction == "LONG":
-                    if open_pos.stop_loss is not None and open_pos.take_profit is not None:
-                        if low <= open_pos.stop_loss and high >= open_pos.take_profit:
-                            is_ambig = True
-                elif open_pos.direction == "SHORT":
-                    if open_pos.stop_loss is not None and open_pos.take_profit is not None:
-                        if high >= open_pos.stop_loss and low <= open_pos.take_profit:
-                            is_ambig = True
-
-                if is_ambig:
-                    sl_ts = events[1]["timestamp_ms"]
-                    self.clock.set_time(sl_ts)
-                    open_pos.intrabar_ambiguous = True
-                    TradeLifecycleService.execute_close(
-                        db=self.db,
-                        order_id=open_pos.id,
-                        exit_price=open_pos.stop_loss,
-                        exit_cause="AMBIGUOUS_BAR_SL_FIRST",
-                        occurred_at=sl_ts,
-                        now_ms=sl_ts,
-                        clock=self.clock,
-                        session_tag="REPLAY",
-                        recovery_metadata={"intrabar_ambiguous": True},
-                    )
-                    open_pos.intrabar_ambiguous = True
-                    self.db.commit()
-
-            # Process waypoints in strictly nondecreasing order without premature future close at bar_open
+            # Strictly nondecreasing order processing without pre-pass close or clock reversal
             for ev in events:
-                sub_ts = ev["timestamp_ms"]
-                px = ev["price"]
-                wp_bid = ev["bid"]
-                wp_ask = ev["ask"]
+                self._process_replay_quote_event(ev, bar_open=bar_open, bar_dur=bar_dur)
 
-                self.clock.set_time(sub_ts)
-
-                # Step 1: Re-fetch position that was ALREADY open before this waypoint
-                curr_pos = crud.get_active_position(self.db)
-                if curr_pos and curr_pos.state == "paper_open":
-                    PaperBroker.process_price_tick(
-                        db=self.db,
-                        current_bid=wp_bid,
-                        current_ask=wp_ask,
-                        candle_high=px,
-                        candle_low=px,
-                        candle_timestamp=bar_open,
-                        bar_duration_ms=bar_dur,
-                        now_ms=sub_ts,
-                        clock=self.clock,
-                        session_tag="REPLAY",
-                        tick_timestamp=sub_ts,
-                    )
-
-                # Step 2: Evaluate pending limit orders against this waypoint through canonical coordinator
-                quote_dict = {
-                    "bid": wp_bid,
-                    "ask": wp_ask,
-                    "last": px,
-                    "timestamp": sub_ts,
-                }
-                self.coordinator.evaluate_orders_sync(
-                    db=self.db,
-                    ticker_override=quote_dict,
-                    clock=self.clock,
-                    now_ms=sub_ts,
-                    slippage=self.slippage,
-                )
-
-                # Step 3: If an order was filled at this waypoint, evaluate exit against this same waypoint
-                curr_pos = crud.get_active_position(self.db)
-                if curr_pos and curr_pos.state == "paper_open" and curr_pos.opened_at == sub_ts:
-                    exit_res = PaperBroker.process_price_tick(
-                        db=self.db,
-                        current_bid=wp_bid,
-                        current_ask=wp_ask,
-                        candle_high=px,
-                        candle_low=px,
-                        candle_timestamp=bar_open,
-                        bar_duration_ms=bar_dur,
-                        now_ms=sub_ts,
-                        clock=self.clock,
-                        session_tag="REPLAY",
-                        tick_timestamp=sub_ts,
-                    )
-                    if exit_res:
-                        # Intrabar ambiguity flag if candle range reached both entry and SL/TP
-                        hit_both = False
-                        if curr_pos.direction == "LONG" and low <= curr_pos.planned_entry and low <= curr_pos.stop_loss:
-                            hit_both = True
-                        elif curr_pos.direction == "SHORT" and high >= curr_pos.planned_entry and high >= curr_pos.stop_loss:
-                            hit_both = True
-                        if hit_both:
-                            curr_pos.intrabar_ambiguous = True
-                            self.db.commit()
+            # Post-bar ambiguity evaluation (metadata only - never rewrites exit, closed_at, realized_pnl)
+            self._evaluate_post_bar_ambiguity(low=low, high=high, bar_open=bar_open, bar_close=now_ms)
 
             # Restore clock to candle close (PHẦN 061)
             self.clock.set_time(now_ms)
         else:
             raise ValueError(f"CONFIG_ERROR: Unknown execution model '{model}'")
+
+    def _process_replay_quote_event(self, ev: Dict[str, Any], bar_open: int, bar_dur: int) -> None:
+        """
+        V16.10 PHẦN 031 - 035: Process one synthetic or observed replay quote event.
+        - Advance clock to event timestamp.
+        - Step 1: Evaluate existing open position exits via PaperBroker against this waypoint quote.
+        - Step 2: Evaluate pending limit orders against this waypoint quote via coordinator.
+        - Step 3: If an order filled at this waypoint, evaluate exit against this same waypoint.
+        """
+        sub_ts = ev["timestamp_ms"]
+        px = ev["price"]
+        wp_bid = ev["bid"]
+        wp_ask = ev["ask"]
+
+        self.clock.set_time(sub_ts)
+
+        # Step 1: Re-fetch position that was ALREADY open before this waypoint
+        curr_pos = crud.get_active_position(self.db)
+        if curr_pos and curr_pos.state == "paper_open":
+            exit_bid = wp_bid
+            exit_ask = wp_ask
+            if curr_pos.direction == "LONG":
+                if curr_pos.stop_loss is not None and px <= curr_pos.stop_loss:
+                    exit_bid = curr_pos.stop_loss
+                elif curr_pos.take_profit is not None and px >= curr_pos.take_profit:
+                    exit_bid = curr_pos.take_profit
+            elif curr_pos.direction == "SHORT":
+                if curr_pos.stop_loss is not None and px >= curr_pos.stop_loss:
+                    exit_ask = curr_pos.stop_loss
+                elif curr_pos.take_profit is not None and px <= curr_pos.take_profit:
+                    exit_ask = curr_pos.take_profit
+
+            PaperBroker.process_price_tick(
+                db=self.db,
+                current_bid=exit_bid,
+                current_ask=exit_ask,
+                candle_high=px,
+                candle_low=px,
+                candle_timestamp=bar_open,
+                bar_duration_ms=bar_dur,
+                now_ms=sub_ts,
+                clock=self.clock,
+                session_tag="REPLAY",
+                tick_timestamp=sub_ts,
+            )
+
+        # Step 2: Evaluate pending limit orders against this waypoint through canonical coordinator
+        quote_dict = {
+            "bid": wp_bid,
+            "ask": wp_ask,
+            "last": px,
+            "timestamp": sub_ts,
+        }
+        self.coordinator.evaluate_orders_sync(
+            db=self.db,
+            ticker_override=quote_dict,
+            clock=self.clock,
+            now_ms=sub_ts,
+            slippage=self.slippage,
+        )
+
+        # Step 3: If an order was filled at this waypoint, evaluate exit against this same waypoint
+        curr_pos = crud.get_active_position(self.db)
+        if curr_pos and curr_pos.state == "paper_open" and curr_pos.opened_at == sub_ts:
+            exit_bid = wp_bid
+            exit_ask = wp_ask
+            if curr_pos.direction == "LONG":
+                if curr_pos.stop_loss is not None and px <= curr_pos.stop_loss:
+                    exit_bid = curr_pos.stop_loss
+                elif curr_pos.take_profit is not None and px >= curr_pos.take_profit:
+                    exit_bid = curr_pos.take_profit
+            elif curr_pos.direction == "SHORT":
+                if curr_pos.stop_loss is not None and px >= curr_pos.stop_loss:
+                    exit_ask = curr_pos.stop_loss
+                elif curr_pos.take_profit is not None and px <= curr_pos.take_profit:
+                    exit_ask = curr_pos.take_profit
+
+            PaperBroker.process_price_tick(
+                db=self.db,
+                current_bid=exit_bid,
+                current_ask=exit_ask,
+                candle_high=px,
+                candle_low=px,
+                candle_timestamp=bar_open,
+                bar_duration_ms=bar_dur,
+                now_ms=sub_ts,
+                clock=self.clock,
+                session_tag="REPLAY",
+                tick_timestamp=sub_ts,
+            )
+
+    def _evaluate_post_bar_ambiguity(self, low: float, high: float, bar_open: int, bar_close: int) -> None:
+        """
+        V16.10 PHẦN 030: Ambiguity metadata attached after full bar data completes.
+        Never rewrites actual_exit, closed_at, realized_pnl, fees, or quota.
+        """
+        orders = self.db.query(models.PaperOrder).filter(
+            (models.PaperOrder.opened_at <= bar_close) &
+            ((models.PaperOrder.closed_at.is_(None)) | (models.PaperOrder.closed_at >= bar_open))
+        ).all()
+        for ord_row in orders:
+            if ord_row.stop_loss is None or ord_row.take_profit is None:
+                continue
+            hit_both = False
+            if ord_row.direction == "LONG":
+                if low <= ord_row.stop_loss and high >= ord_row.take_profit:
+                    hit_both = True
+                elif ord_row.planned_entry is not None and low <= ord_row.planned_entry and low <= ord_row.stop_loss:
+                    hit_both = True
+            elif ord_row.direction == "SHORT":
+                if high >= ord_row.stop_loss and low <= ord_row.take_profit:
+                    hit_both = True
+                elif ord_row.planned_entry is not None and high >= ord_row.planned_entry and high >= ord_row.stop_loss:
+                    hit_both = True
+            if hit_both and not getattr(ord_row, "intrabar_ambiguous", False):
+                ord_row.intrabar_ambiguous = True
+                self.db.commit()
 
     def collect_state(self) -> Dict[str, Any]:
         """

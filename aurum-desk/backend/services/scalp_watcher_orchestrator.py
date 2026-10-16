@@ -1041,8 +1041,13 @@ class ScalpWatcherOrchestrator:
                 rollback_ok = True
             except Exception as rb_e:
                 logger.error(f"Error rolling back after commit failure: {rb_e}")
-                rollback_ok = False
             armed_order = None
+            if cg01_eval_data:
+                cg01_eval_data["armed_order_id"] = None
+                cg01_eval_data["arm_outcome"] = "TRANSACTION_ROLLBACK"
+                cg01_eval_data["stage"] = "DEGRADED"
+                if "TRANSACTION_COMMIT_FAILED" not in cg01_eval_data.setdefault("reason_codes", []):
+                    cg01_eval_data["reason_codes"].append("TRANSACTION_COMMIT_FAILED")
 
         t_cycle_done = int(time.time() * 1000)
 
@@ -1499,6 +1504,13 @@ class ScalpWatcherOrchestrator:
         if cand_slip is None and getattr(cfg, "cg01_config", None):
             cand_slip = getattr(cfg.cg01_config, "slippage_usd", None)
         effective_risk = policy_settings.get("risk_pct") if policy_settings.get("risk_pct") is not None else float(getattr(calc, "effective_risk_pct", cfg.fallback_risk_pct))
+        target_capital = float(policy_settings.get("capital_usdt", 1000.0))
+        configured_risk_pct = float(effective_risk)
+        target_budget = round(target_capital * (configured_risk_pct / 100.0), 4)
+        resolved_cap_mode = str(policy_settings.get("capital_mode", "CURRENT_ACCOUNT_BALANCE") or "CURRENT_ACCOUNT_BALANCE").upper()
+        if resolved_cap_mode not in ("CURRENT_ACCOUNT_BALANCE", "FIXED_INITIAL_CAPITAL"):
+            resolved_cap_mode = "CURRENT_ACCOUNT_BALANCE"
+
         arm_snap = build_arm_plan_snapshot(
             calc,
             order_type=resolved_order_type,
@@ -1506,14 +1518,17 @@ class ScalpWatcherOrchestrator:
             planned_entry=cand.planned_entry,
             stop_loss=cand.stop_loss,
             take_profit=cand.take_profit,
-            capital_usdt=policy_settings.get("capital_usdt", 1000.0),
-            risk_pct=effective_risk,
+            capital_usdt=target_capital,
+            risk_pct=configured_risk_pct,
             leverage=calc.leverage,
             margin_mode=calc.margin_mode,
             now_ms=now_ms,
             policy_config_version=cfg.config_version,
             risk_config_version=cfg.config_version,
             slippage_usd=cand_slip,
+            capital_mode=resolved_cap_mode,
+            target_capital=target_capital,
+            target_risk_budget=target_budget,
         )
         arm_snap["expires_at"] = resolved_expires_at
 
