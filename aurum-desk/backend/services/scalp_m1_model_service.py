@@ -338,14 +338,21 @@ def qualify_selected_break(
 
 def validate_evidence_timeline(evidence_nodes: Sequence[Dict[str, Any]], now_ms: int) -> Tuple[bool, List[str]]:
     """
-    V16.1 Rule 039: Causal evidence timeline validation:
-    occurred_at_ms <= known_at_ms <= now_ms for every evidence node.
+    V16.1 & V16.2 Rule 131: Causal evidence timeline and chain relation validation:
+    1. occurred_at_ms <= known_at_ms <= now_ms for every node.
+    2. Causal chain ordering between stages (reference -> sweep -> mss -> fvg -> trigger).
     """
     issues: List[str] = []
+    nodes_by_role: Dict[str, Dict[str, Any]] = {}
+
     for ev in evidence_nodes:
         ev_id = ev.get("id", "unknown_node")
         occ = ev.get("occurred_at_ms")
         kn = ev.get("known_at_ms")
+        role = ev.get("role") or ev.get("kind")
+        if role:
+            nodes_by_role[str(role).upper()] = ev
+
         if occ is None or kn is None:
             issues.append(f"{ev_id}: missing occurred_at_ms or known_at_ms")
             continue
@@ -356,6 +363,30 @@ def validate_evidence_timeline(evidence_nodes: Sequence[Dict[str, Any]], now_ms:
             issues.append(f"{ev_id}: occurred_at_ms ({occ}) > known_at_ms ({kn})")
         if kn > now_ms:
             issues.append(f"{ev_id}: known_at_ms ({kn}) > now_ms ({now_ms}) (future leak)")
+
+    # Validate causal relationships between steps (Rule 131)
+    ref_node = nodes_by_role.get("REFERENCE") or nodes_by_role.get("LIQUIDITY_REFERENCE")
+    sweep_node = nodes_by_role.get("SWEEP") or nodes_by_role.get("SWEEP_EVENT")
+    mss_node = nodes_by_role.get("MSS") or nodes_by_role.get("STRUCTURE_BREAK")
+    fvg_node = nodes_by_role.get("FVG") or nodes_by_role.get("FAIR_VALUE_GAP")
+    trig_node = nodes_by_role.get("TRIGGER") or nodes_by_role.get("ENTRY_TRIGGER")
+
+    if ref_node and sweep_node:
+        if (ref_node.get("known_at_ms") or 0) > (sweep_node.get("occurred_at_ms") or 0):
+            issues.append("Causal chain violation: liquidity reference known after sweep occurred")
+
+    if sweep_node and mss_node:
+        if (sweep_node.get("occurred_at_ms") or 0) > (mss_node.get("occurred_at_ms") or 0):
+            issues.append("Causal chain violation: sweep occurred after MSS break occurred")
+
+    if mss_node and fvg_node:
+        if (mss_node.get("occurred_at_ms") or 0) > (fvg_node.get("known_at_ms") or 0):
+            issues.append("Causal chain violation: MSS occurred after FVG confirmed")
+
+    if fvg_node and trig_node:
+        if (fvg_node.get("known_at_ms") or 0) > (trig_node.get("occurred_at_ms") or 0):
+            issues.append("Causal chain violation: FVG confirmed after entry trigger occurred")
+
     return (len(issues) == 0, issues)
 
 
@@ -632,11 +663,17 @@ def detect_post_reclaim_micro_break(
     reclaim_event: Dict[str, Any],
     direction: str,
     as_of_ms: int,
+    *,
+    tick_size: float = 0.01,
+    tick_excess_threshold: int = 1,
+    structural_reference_price: Optional[float] = None,
+    allow_sweep_candle_fallback: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """
-    V16.1 Rules 067-068: Mandatory micro-break following sweep and reclaim.
-    LONG: Closed candle breaks above micro swing high formed before/during sweep-reclaim.
-    SHORT: Closed candle breaks below micro swing low formed before/during sweep-reclaim.
+    V16.2 Rules 011, 088, 089: Structural micro-break / MSS following sweep and reclaim.
+    Requires closed candle beyond the confirmed structural swing reference price.
+    Tick excess threshold is strictly applied (excess = tick_size * tick_excess_threshold).
+    Sweep candle fallback (branches 2 & 3) is rejected by default for strict SMC models.
     """
     swept_time = int(sweep_event["swept_at_ms"])
     reclaim_time = int(reclaim_event["reclaimed_at_ms"])
@@ -656,15 +693,21 @@ def detect_post_reclaim_micro_break(
         pre_sweep_bars = [sweep_event["bar"]]
 
     sweep_bar = sweep_event["bar"]
+    excess = max(0.0, float(tick_size) * float(tick_excess_threshold))
 
     if direction == "LONG":
-        micro_ref_price = max(float(b.high) for b in pre_sweep_bars)
-        # 1. Structural break past pre-sweep high
+        micro_ref_price = (
+            float(structural_reference_price)
+            if structural_reference_price is not None
+            else max(float(b.high) for b in pre_sweep_bars)
+        )
+        # 1. Structural break past pre-sweep high + required tick excess
+        required_break = micro_ref_price + excess
         for b in bars:
             b_open = candle_open_ms(b) or 0
             if b_open < reclaim_time or b_open + 60_000 > as_of_ms:
                 continue
-            if float(b.close) > micro_ref_price:
+            if float(b.close) >= required_break:
                 return {
                     "bar": b,
                     "broken_at_ms": b_open,
@@ -672,38 +715,45 @@ def detect_post_reclaim_micro_break(
                     "micro_swing_price": micro_ref_price,
                     "direction": direction,
                 }
-        # 2. Inside-bar / sweep candle reclaim break
-        alt_micro_level = max(float(sweep_bar.open), float(sweep_bar.close))
-        for b in bars:
-            b_open = candle_open_ms(b) or 0
-            if b_open < reclaim_time or b_open + 60_000 > as_of_ms:
-                continue
-            if float(b.close) > alt_micro_level:
+
+        if allow_sweep_candle_fallback:
+            # Legacy fallback 2: Inside-bar / sweep candle reclaim break
+            alt_micro_level = max(float(sweep_bar.open), float(sweep_bar.close))
+            for b in bars:
+                b_open = candle_open_ms(b) or 0
+                if b_open < reclaim_time or b_open + 60_000 > as_of_ms:
+                    continue
+                if float(b.close) > alt_micro_level:
+                    return {
+                        "bar": b,
+                        "broken_at_ms": b_open,
+                        "break_price": float(b.close),
+                        "micro_swing_price": alt_micro_level,
+                        "direction": direction,
+                    }
+            # Legacy fallback 3: Reclaim bar closed decisively above cluster.bottom and reached top of sweep candle
+            c_bot = float(sweep_event.get("cluster_bot", 0.0))
+            reclaim_bar = reclaim_event["bar"]
+            if float(reclaim_bar.close) >= c_bot and float(reclaim_bar.close) > float(sweep_bar.close):
                 return {
-                    "bar": b,
-                    "broken_at_ms": b_open,
-                    "break_price": float(b.close),
-                    "micro_swing_price": alt_micro_level,
+                    "bar": reclaim_bar,
+                    "broken_at_ms": reclaim_time,
+                    "break_price": float(reclaim_bar.close),
+                    "micro_swing_price": float(sweep_bar.close),
                     "direction": direction,
                 }
-        # 3. If reclaim bar closed decisively above cluster.bottom and reached top of sweep candle
-        c_bot = float(sweep_event.get("cluster_bot", 0.0))
-        reclaim_bar = reclaim_event["bar"]
-        if float(reclaim_bar.close) >= c_bot and float(reclaim_bar.close) > float(sweep_bar.close):
-            return {
-                "bar": reclaim_bar,
-                "broken_at_ms": reclaim_time,
-                "break_price": float(reclaim_bar.close),
-                "micro_swing_price": float(sweep_bar.close),
-                "direction": direction,
-            }
     else:
-        micro_ref_price = min(float(b.low) for b in pre_sweep_bars)
+        micro_ref_price = (
+            float(structural_reference_price)
+            if structural_reference_price is not None
+            else min(float(b.low) for b in pre_sweep_bars)
+        )
+        required_break = micro_ref_price - excess
         for b in bars:
             b_open = candle_open_ms(b) or 0
             if b_open < reclaim_time or b_open + 60_000 > as_of_ms:
                 continue
-            if float(b.close) < micro_ref_price:
+            if float(b.close) <= required_break:
                 return {
                     "bar": b,
                     "broken_at_ms": b_open,
@@ -711,29 +761,31 @@ def detect_post_reclaim_micro_break(
                     "micro_swing_price": micro_ref_price,
                     "direction": direction,
                 }
-        alt_micro_level = min(float(sweep_bar.open), float(sweep_bar.close))
-        for b in bars:
-            b_open = candle_open_ms(b) or 0
-            if b_open < reclaim_time or b_open + 60_000 > as_of_ms:
-                continue
-            if float(b.close) < alt_micro_level:
+
+        if allow_sweep_candle_fallback:
+            alt_micro_level = min(float(sweep_bar.open), float(sweep_bar.close))
+            for b in bars:
+                b_open = candle_open_ms(b) or 0
+                if b_open < reclaim_time or b_open + 60_000 > as_of_ms:
+                    continue
+                if float(b.close) < alt_micro_level:
+                    return {
+                        "bar": b,
+                        "broken_at_ms": b_open,
+                        "break_price": float(b.close),
+                        "micro_swing_price": alt_micro_level,
+                        "direction": direction,
+                    }
+            c_top = float(sweep_event.get("cluster_top", float("inf")))
+            reclaim_bar = reclaim_event["bar"]
+            if float(reclaim_bar.close) <= c_top and float(reclaim_bar.close) < float(sweep_bar.close):
                 return {
-                    "bar": b,
-                    "broken_at_ms": b_open,
-                    "break_price": float(b.close),
-                    "micro_swing_price": alt_micro_level,
+                    "bar": reclaim_bar,
+                    "broken_at_ms": reclaim_time,
+                    "break_price": float(reclaim_bar.close),
+                    "micro_swing_price": float(sweep_bar.close),
                     "direction": direction,
                 }
-        c_top = float(sweep_event.get("cluster_top", float("inf")))
-        reclaim_bar = reclaim_event["bar"]
-        if float(reclaim_bar.close) <= c_top and float(reclaim_bar.close) < float(sweep_bar.close):
-            return {
-                "bar": reclaim_bar,
-                "broken_at_ms": reclaim_time,
-                "break_price": float(reclaim_bar.close),
-                "micro_swing_price": float(sweep_bar.close),
-                "direction": direction,
-            }
 
     return None
 
@@ -748,14 +800,21 @@ def make_sweep_episode_id(
     return f"ep_sr_{cluster_id}_{direction}_{int(swept_extreme * 100)}_{swept_bar_time}"
 
 
-def candidate_execution_fingerprint(cand: ScalpCandidate) -> str:
-    """V16.1 Rule 112: Meaning-based candidate execution fingerprint for idempotency."""
+def candidate_execution_fingerprint(cand: ScalpCandidate, include_plan_revision: bool = False) -> str:
+    """
+    Rule 128: Episode-based candidate execution fingerprint for idempotency.
+    Separates episode idempotency from plan revisions so quote jitter within the
+    same episode does not create multiple arms.
+    """
     sym = getattr(cand, "symbol", "XAUUSDT") or "XAUUSDT"
     direction = getattr(cand, "direction", "LONG") or "LONG"
     mid = getattr(cand, "model_id", "UNKNOWN") or "UNKNOWN"
     ep = getattr(cand, "origin_episode_id", "") or getattr(cand, "zone_id", "") or getattr(cand, "candidate_key", "")
-    px = round(float(getattr(cand, "planned_entry", 0.0) or 0.0), 1)
-    return f"fp_{sym}_{direction}_{mid}_{ep}_{px}"
+    base_fp = f"fp_{sym}_{direction}_{mid}_{ep}"
+    if include_plan_revision:
+        px = round(float(getattr(cand, "planned_entry", 0.0) or 0.0), 1)
+        return f"{base_fp}_{px}"
+    return base_fp
 
 
 class ScalpM1ModelService:
@@ -2139,7 +2198,9 @@ class ScalpM1ModelService:
 
         # 6. Mandatory Micro-Break (Rules 067-068)
         micro_break_event = detect_post_reclaim_micro_break(
-            closed_1m, sweep_event, reclaim_event, direction, as_of_ms=now_ms
+            closed_1m, sweep_event, reclaim_event, direction, as_of_ms=now_ms,
+            tick_size=getattr(cfg, "tick_size", 0.01),
+            allow_sweep_candle_fallback=True,
         )
         if micro_break_event is None:
             return ScalpCandidate(

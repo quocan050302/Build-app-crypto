@@ -368,6 +368,12 @@ def run_schema_migrations(target_engine=None):
                 WHERE id = 'default' AND entry_session_policy = 'NY_ONLY';
             """))
 
+            # V16.2: Ensure daily_min_goal in trading_policies
+            res_tp = conn.execute(text("PRAGMA table_info(trading_policies)"))
+            tp_cols = {row[1] for row in res_tp.fetchall()}
+            if tp_cols and "daily_min_goal" not in tp_cols:
+                conn.execute(text("ALTER TABLE trading_policies ADD COLUMN daily_min_goal INTEGER DEFAULT 2;"))
+
             conn.commit()
     except Exception:
         pass

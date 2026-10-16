@@ -162,21 +162,28 @@ class ZoneWatchlistService:
         return new_state, dist_atr
 
     @staticmethod
-    def track_zone_touch_episode(zone: WatchedZone, bar_id_or_ts: Any) -> bool:
+    def track_zone_touch_episode(zone: WatchedZone, bar_id_or_ts: Any = None, is_touching: bool = True) -> bool:
         """
-        Dedups touch episodes by bar/episode identity (PHẦN 103).
-        A sustained touch over multiple ticks within the same episode counts as one interaction.
-        Returns True if a new episode was started.
+        Rule 075, 076: Single authoritative point for touch tracking and freshness.
+        An episode is when price enters the zone from the outside.
+        It must exit the zone before a subsequent entry counts as a new episode.
+        Multiple ticks or candles inside the zone do NOT increment touch_count multiple times.
         """
-        if getattr(zone, "_last_touch_bar", None) == bar_id_or_ts:
+        inside = getattr(zone, "_inside_zone", False)
+        if not is_touching:
+            setattr(zone, "_inside_zone", False)
             return False
-        setattr(zone, "_last_touch_bar", bar_id_or_ts)
-        zone.touch_count += 1
-        if zone.touch_count == 1:
-            zone.freshness_state = "PARTIALLY_MITIGATED"
-        elif zone.touch_count >= 3:
-            zone.freshness_state = "MITIGATED"
-        return True
+
+        if not inside:
+            setattr(zone, "_inside_zone", True)
+            setattr(zone, "_last_touch_bar", bar_id_or_ts)
+            zone.touch_count += 1
+            if zone.touch_count == 1:
+                zone.freshness_state = "PARTIALLY_MITIGATED"
+            elif zone.touch_count >= 2:
+                zone.freshness_state = "MITIGATED"
+            return True
+        return False
 
     @staticmethod
     def rank_watch_zones(

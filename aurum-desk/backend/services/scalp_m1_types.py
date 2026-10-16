@@ -32,6 +32,7 @@ class ModelIdentifier(str, Enum):
     SMC_M1_FVG_CONTINUATION = "SMC_M1_FVG_CONTINUATION"
     SMC_M1_SWEEP_RECLAIM = "SMC_M1_SWEEP_RECLAIM"
     NY_DAILY_RESEARCH = "NY_DAILY_RESEARCH"
+    CG01_SWEEP_MSS_FVG = "CG01_SWEEP_MSS_FVG"
 
 
 class OpportunityStage(str, Enum):
@@ -340,6 +341,9 @@ class M1ScalpConfig:
     daily_min_goal: int = 2
     daily_max_cap: int = 3
     daily_ny_goal: int = 1
+    cg01_enabled: bool = False
+    cg01_profile_mode: str = "OFF"
+    execution_profile: str = "BASELINE"
 
     def __post_init__(self):
         if self.near_zone_enter_atr >= self.near_zone_exit_atr:
@@ -395,6 +399,9 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
                 "daily_min_goal",
                 "daily_max_cap",
                 "daily_ny_goal",
+                "cg01_enabled",
+                "cg01_profile_mode",
+                "execution_profile",
             ])
         ).all()
         config_map = {r.key: r.value for r in rows}
@@ -487,6 +494,31 @@ def build_v16_1_paper_profile(base_config: Optional[M1ScalpConfig] = None) -> M1
         "fvg_continuation_enabled": True,
         "sweep_reclaim_enabled": True,
         "multi_zone_hypotheses_enabled": True,
+        "daily_min_goal": 2,
+        "daily_max_cap": 3,
+        "daily_ny_goal": 1,
+    })
+    return M1ScalpConfig(**base_dict)
+
+
+    return M1ScalpConfig(**base_dict)
+
+
+def build_cg01_paper_profile(base_config: Optional[M1ScalpConfig] = None) -> M1ScalpConfig:
+    """
+    V16.2 Rule 031: Builds immutable CG01_PAPER profile snapshot:
+    - scalp_m1_enabled=True, scalp_m1_mode=PAPER.
+    - cg01_enabled=True, cg01_profile_mode='PAPER_EXECUTION', execution_profile='CG01'.
+    - daily_min_goal=2, daily_max_cap=3, daily_ny_goal=1.
+    """
+    cfg = base_config if base_config is not None else active_scalp_config
+    base_dict = cfg.__dict__.copy()
+    base_dict.update({
+        "scalp_m1_enabled": True,
+        "scalp_m1_mode": ScalpMode.PAPER.value,
+        "cg01_enabled": True,
+        "cg01_profile_mode": "PAPER_EXECUTION",
+        "execution_profile": "CG01",
         "daily_min_goal": 2,
         "daily_max_cap": 3,
         "daily_ny_goal": 1,

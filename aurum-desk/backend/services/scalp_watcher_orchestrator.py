@@ -270,8 +270,9 @@ class ScalpWatcherOrchestrator:
             z.proximity_distance_atr = dist_atr
             z.last_evaluated_at = t_recv
 
-            if new_state == ZoneState.TOUCHED.value and prev_state != ZoneState.TOUCHED.value:
-                z.touch_count += 1
+            is_touching = (new_state == ZoneState.TOUCHED.value)
+            new_episode = ZoneWatchlistService.track_zone_touch_episode(z, bar_id_or_ts=t_recv, is_touching=is_touching)
+            if new_episode and prev_state != ZoneState.TOUCHED.value:
                 OpportunityFunnelService.record_opportunity_transition(
                     db,
                     OpportunityEvaluation(
@@ -791,6 +792,31 @@ class ScalpWatcherOrchestrator:
                     as_of_ms=t_recv,
                 ))
 
+        # D. CG-01 Paper Profile Model (V16.2 Rules 001 - 035, 121 - 125)
+        cg01_mode = getattr(cfg, "cg01_profile_mode", None)
+        if cg01_mode is None:
+            cg01_mode = "PAPER_EXECUTION" if getattr(cfg, "cg01_enabled", False) else "OFF"
+
+        if cg01_mode != "OFF" and c_1m:
+            from services.cg01_engine import evaluate_cg01_candidate
+            from services.cg01_types import CG01Config
+            from services.trading_policy_service import resolve_effective_daily_policy
+            eff_daily = resolve_effective_daily_policy(db, "default")
+            cg01_cfg = CG01Config(
+                enabled=True,
+                profile_mode=cg01_mode,
+                daily_min_goal=eff_daily.min_goal,
+                daily_max_cap=eff_daily.max_fills,
+                daily_ny_goal=eff_daily.ny_goal,
+            )
+            closed_ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m}
+            cg01_dec = evaluate_cg01_candidate(
+                closed_ctx, q, config=cg01_cfg, now_ms=t_recv,
+                capital=policy_dict["capital_usdt"], risk_pct=policy_dict["risk_pct"],
+            )
+            if cg01_dec.candidate:
+                candidates.append(cg01_dec.candidate)
+
         # Candidate Router & Deduplication (Rules 093 - 096)
         from services.scalp_m1_model_service import evaluate_smc_opportunity_candidates
         candidates = evaluate_smc_opportunity_candidates(candidates, htf_bias=bias or "UNKNOWN")
@@ -824,7 +850,18 @@ class ScalpWatcherOrchestrator:
             )
             OpportunityFunnelService.record_opportunity_transition(db, opp_eval, now_ms=t_recv)
 
-            if effective_scalp_mode == ScalpMode.SHADOW.value:
+            exec_profile = getattr(cfg, "execution_profile", "BASELINE")
+            is_cg01_model = (cand.model_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value)
+
+            # Rule 019 & 035: Execution profile arbitration
+            should_shadow = (effective_scalp_mode == ScalpMode.SHADOW.value)
+            if not should_shadow:
+                if exec_profile == "CG01" and not is_cg01_model:
+                    should_shadow = True
+                elif exec_profile != "CG01" and is_cg01_model:
+                    should_shadow = True
+
+            if should_shadow:
                 # In SHADOW mode: record hypothetical plan, do NOT arm or fill order (PHẦN 024, 079)
                 logger.info(f"[SHADOW] Qualified {cand.model_id} candidate: {cand.direction} @ {cand.planned_entry}")
                 opp_eval = OpportunityEvaluation(
@@ -1098,9 +1135,14 @@ class ScalpWatcherOrchestrator:
             )
             return None
 
-        # 1. Idempotency Check: prevent duplicate orders for the same signal (PHẦN 058)
-        idempotency_key = f"scalp_arm_{cand.candidate_key}"
-        existing_order = db.query(models.PaperOrder).filter(models.PaperOrder.idempotency_key == idempotency_key).first()
+        # 1. Idempotency Check: prevent duplicate orders for the same signal (PHẦN 058, Rule 128)
+        from services.scalp_m1_model_service import candidate_execution_fingerprint
+        cand_fp = candidate_execution_fingerprint(cand)
+        idempotency_key = f"scalp_arm_{cand_fp}"
+        existing_order = db.query(models.PaperOrder).filter(
+            (models.PaperOrder.idempotency_key == idempotency_key) |
+            (models.PaperOrder.idempotency_key == f"scalp_arm_{cand.candidate_key}")
+        ).first()
         if existing_order:
             logger.info(f"Idempotent hit: PaperOrder {existing_order.id} already armed for {cand.candidate_key}")
             return existing_order

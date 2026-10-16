@@ -19,6 +19,7 @@ DEFAULT_POLICY_VALUES: Dict[str, Any] = {
     "mode": "PAPER",
     "symbol": "XAUUSDT",
     "max_daily_fills": 3,
+    "daily_min_goal": 2,
     "daily_timezone": "Asia/Ho_Chi_Minh",
     "entry_session_policy": "ALL_SESSIONS_WITH_NY_RESERVE",
     "ny_timezone": "America/New_York",

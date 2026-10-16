@@ -853,6 +853,21 @@ def check_candidate_lifecycle_authority(
     if spec.authority_type == "DIRECT":
         return True, None
 
+    if spec.authority_type == "CG01_LIFECYCLE":
+        zone_id = getattr(candidate, "zone_id", None)
+        origin_episode_id = getattr(candidate, "origin_episode_id", None)
+        if not zone_id or not origin_episode_id:
+            return False, "CG01_AUTHORITY_MISSING_ZONE_OR_EPISODE"
+        if authority_context is not None:
+            if hasattr(authority_context, "has_write_failures") and authority_context.has_write_failures:
+                return False, "HYPOTHESIS_WRITE_FAILED"
+            zone_outcomes = getattr(authority_context, "zone_outcomes", {})
+            if zone_outcomes and zone_id in zone_outcomes:
+                outcome = zone_outcomes[zone_id]
+                if hasattr(outcome, "is_success") and not outcome.is_success:
+                    return False, getattr(outcome, "reason_code", None) or "HYPOTHESIS_WRITE_BLOCKED"
+        return True, None
+
     if authority_context is None:
         return False, "HYPOTHESIS_AUTHORITY_MISSING"
 

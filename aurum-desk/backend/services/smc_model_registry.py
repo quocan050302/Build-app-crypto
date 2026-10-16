@@ -15,12 +15,13 @@ from services.scalp_m1_types import ModelIdentifier
 class SMCModelSpec:
     model_id: str
     display_name_vi: str
-    authority_type: str  # "ZONE_LIFECYCLE", "CLUSTER_LIFECYCLE", "DIRECT"
-    session_family: str  # "SCALP_M1_REVERSAL", "SCALP_M1_CONTINUATION", "NY_DAILY_RESEARCH"
+    authority_type: str  # "ZONE_LIFECYCLE", "CLUSTER_LIFECYCLE", "DIRECT", "CG01_LIFECYCLE"
+    session_family: str  # "SCALP_M1_REVERSAL", "SCALP_M1_CONTINUATION", "NY_DAILY_RESEARCH", "CG01_PAPER"
     requires_zone: bool
     requires_fvg: bool
     requires_cluster: bool
     description_vi: str
+    required_evidence: tuple = ()
 
 
 SMC_MODEL_REGISTRY: Dict[str, SMCModelSpec] = {
@@ -73,6 +74,29 @@ SMC_MODEL_REGISTRY: Dict[str, SMCModelSpec] = {
         requires_fvg=False,
         requires_cluster=False,
         description_vi="Mô hình nghiên cứu phiên Mỹ trên khung 5M nhằm đảm bảo cơ hội tối thiểu.",
+    ),
+    ModelIdentifier.CG01_SWEEP_MSS_FVG.value: SMCModelSpec(
+        model_id=ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+        display_name_vi="CG-01 Quét, MSS & FVG Retest M1",
+        authority_type="CG01_LIFECYCLE",
+        session_family="CG01_PAPER",
+        requires_zone=True,
+        requires_fvg=True,
+        requires_cluster=False,
+        description_vi="Mô hình chuẩn CG-01: HTF context -> HTF POI -> liquidity sweep -> MSS displacement -> FVG retest.",
+        required_evidence=(
+            "HTF_CONTEXT",
+            "HTF_POI",
+            "LIQUIDITY_REFERENCE",
+            "SWEEP",
+            "STRUCTURE_REFERENCE",
+            "MSS",
+            "DISPLACEMENT",
+            "FVG",
+            "ENTRY_TRIGGER",
+            "INVALIDATION",
+            "TARGET",
+        ),
     ),
 }
 

@@ -1,0 +1,93 @@
+{
+  "run_id": "v16_2_1792122191",
+  "commit_sha": "07db5e1d61e25f7ae2c3be4f9fff39f3c1713934",
+  "tech_results": [
+    {
+      "name": "git_diff_check",
+      "cmd": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "D:\\build app-crypto\\aurum-desk",
+      "exit_code": 0,
+      "duration_sec": 0.055,
+      "status": "PASS"
+    },
+    {
+      "name": "backend_tests",
+      "cmd": [
+        "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+        "-m",
+        "pytest",
+        "tests/test_v16_opportunity_engine.py",
+        "tests/test_v15_0_scalp_types.py",
+        "tests/test_v15_1_execution_lifecycle.py",
+        "tests/test_v15_2_liquidity_engine.py",
+        "tests/test_v15_3_causal_wiring.py",
+        "tests/test_v15_4_causal_entry.py",
+        "tests/test_v14_4_1_production_pipeline.py",
+        "tests/test_v14_4_1_entry_guards.py",
+        "tests/test_v16_2_repro_and_micro_break.py",
+        "tests/test_v16_2_causal_evidence_chain.py",
+        "tests/test_v16_2_cg01_long_short.py",
+        "tests/test_v16_2_cg01_guards_lifecycle.py",
+        "-q",
+        "-p",
+        "no:cacheprovider"
+      ],
+      "cwd": "D:\\build app-crypto\\aurum-desk\\backend",
+      "exit_code": 0,
+      "duration_sec": 7.773,
+      "status": "PASS"
+    },
+    {
+      "name": "frontend_typecheck",
+      "cmd": [
+        "npx.cmd",
+        "tsc",
+        "-b"
+      ],
+      "cwd": "D:\\build app-crypto\\aurum-desk\\frontend",
+      "exit_code": 0,
+      "duration_sec": 6.693,
+      "status": "PASS"
+    },
+    {
+      "name": "frontend_lint",
+      "cmd": [
+        "npx.cmd",
+        "oxlint"
+      ],
+      "cwd": "D:\\build app-crypto\\aurum-desk\\frontend",
+      "exit_code": 0,
+      "duration_sec": 1.077,
+      "status": "PASS"
+    },
+    {
+      "name": "frontend_vitest",
+      "cmd": [
+        "npx.cmd",
+        "vitest",
+        "run"
+      ],
+      "cwd": "D:\\build app-crypto\\aurum-desk\\frontend",
+      "exit_code": 0,
+      "duration_sec": 3.334,
+      "status": "PASS"
+    },
+    {
+      "name": "frontend_build",
+      "cmd": [
+        "npm.cmd",
+        "run",
+        "build"
+      ],
+      "cwd": "D:\\build app-crypto\\aurum-desk\\frontend",
+      "exit_code": 0,
+      "duration_sec": 7.502,
+      "status": "PASS"
+    }
+  ],
+  "all_tech_pass": true
+}

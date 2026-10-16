@@ -3024,7 +3024,9 @@ def get_order_chart_evidence(
 @app.get("/api/scalp/config")
 def get_scalp_config_endpoint(db: Session = Depends(get_db)):
     from services.scalp_m1_types import load_effective_scalp_config
+    from services.trading_policy_service import resolve_effective_daily_policy
     cfg = load_effective_scalp_config(db)
+    eff_policy = resolve_effective_daily_policy(db)
     config_data = {
         "scalp_m1_enabled": (cfg.scalp_m1_mode != "OFF"),
         "scalp_m1_mode": cfg.scalp_m1_mode,
@@ -3045,9 +3047,10 @@ def get_scalp_config_endpoint(db: Session = Depends(get_db)):
         "sweep_reclaim_enabled": cfg.sweep_reclaim_enabled,
         "multi_zone_hypotheses_enabled": cfg.multi_zone_hypotheses_enabled,
         "orderflow_shadow_enabled": cfg.orderflow_shadow_enabled,
-        "daily_min_goal": cfg.daily_min_goal,
-        "daily_max_cap": cfg.daily_max_cap,
-        "daily_ny_goal": cfg.daily_ny_goal,
+        "daily_min_goal": eff_policy.min_goal,
+        "daily_max_cap": eff_policy.max_fills,
+        "daily_ny_goal": eff_policy.ny_goal,
+        "policy_version": eff_policy.policy_version,
     }
     return {
         "status": "SUCCESS",
@@ -3062,10 +3065,44 @@ def update_scalp_config_endpoint(
     db: Session = Depends(get_db),
 ):
     from services.scalp_m1_types import ScalpMode, load_effective_scalp_config
+    from services.trading_policy_service import resolve_effective_daily_policy, TradingPolicyService
     now_ms = int(time.time() * 1000)
 
     if not isinstance(payload, dict):
         raise HTTPException(status_code=400, detail="INVALID_PAYLOAD: JSON object required")
+
+    def _parse_strict_int(val: Any, field_name: str) -> int:
+        if isinstance(val, bool):
+            raise HTTPException(status_code=400, detail=f"INVALID_TYPE: {field_name} must be a strict integer, not a boolean")
+        if not isinstance(val, int):
+            raise HTTPException(status_code=400, detail=f"INVALID_TYPE: {field_name} must be an integer")
+        return int(val)
+
+    # 1. Atomic validation of all daily goal parameters first (Rules 025, 026, 027)
+    cur_policy = resolve_effective_daily_policy(db)
+    has_daily_update = any(k in payload for k in ("daily_min_goal", "daily_max_cap", "daily_ny_goal"))
+    min_g = cur_policy.min_goal
+    max_c = cur_policy.max_fills
+    ny_g = cur_policy.ny_goal
+
+    if "daily_min_goal" in payload:
+        min_g = _parse_strict_int(payload["daily_min_goal"], "daily_min_goal")
+    if "daily_max_cap" in payload:
+        max_c = _parse_strict_int(payload["daily_max_cap"], "daily_max_cap")
+    if "daily_ny_goal" in payload:
+        ny_g = _parse_strict_int(payload["daily_ny_goal"], "daily_ny_goal")
+
+    if has_daily_update:
+        if not (0 <= min_g <= max_c):
+            raise HTTPException(
+                status_code=400,
+                detail=f"INVALID_DAILY_GOAL_CONFIG: daily_min_goal ({min_g}) must be between 0 and daily_max_cap ({max_c})"
+            )
+        if not (0 <= ny_g <= max_c):
+            raise HTTPException(
+                status_code=400,
+                detail=f"INVALID_DAILY_NY_GOAL_CONFIG: daily_ny_goal ({ny_g}) must be between 0 and daily_max_cap ({max_c})"
+            )
 
     mode = payload.get("scalp_m1_mode")
     if mode is None and "mode" in payload:
@@ -3153,34 +3190,22 @@ def update_scalp_config_endpoint(
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="INVALID_VALUE: max_entry_distance_atr must be a positive number")
 
-    # Daily frequency goals validation & persistence (Rules 026, 027, 028)
-    cur_cfg = load_effective_scalp_config(db)
-    has_daily_update = any(k in payload for k in ("daily_min_goal", "daily_max_cap", "daily_ny_goal"))
+    # Persist validated daily frequency goals to both TradingPolicy and SystemConfig
     if has_daily_update:
-        try:
-            min_g = int(payload.get("daily_min_goal", cur_cfg.daily_min_goal))
-            max_c = int(payload.get("daily_max_cap", cur_cfg.daily_max_cap))
-            ny_g = int(payload.get("daily_ny_goal", cur_cfg.daily_ny_goal))
-            if not (0 <= min_g <= max_c):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"INVALID_DAILY_GOAL_CONFIG: daily_min_goal ({min_g}) must be between 0 and daily_max_cap ({max_c})"
-                )
-            if not (0 <= ny_g <= max_c):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"INVALID_DAILY_NY_GOAL_CONFIG: daily_ny_goal ({ny_g}) must be between 0 and daily_max_cap ({max_c})"
-                )
-            for d_key, d_val in (("daily_min_goal", min_g), ("daily_max_cap", max_c), ("daily_ny_goal", ny_g)):
-                if d_key in payload:
-                    d_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == d_key).first()
-                    if d_row:
-                        d_row.value = str(d_val)
-                        d_row.updated_at = now_ms
-                    else:
-                        db.add(models.SystemConfig(key=d_key, value=str(d_val), updated_at=now_ms))
-        except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="INVALID_VALUE: daily goal/cap parameters must be integers")
+        pol = TradingPolicyService.get_or_create_policy(db)
+        pol.max_daily_fills = max_c
+        pol.ny_min_fills = ny_g
+        pol.daily_min_goal = min_g
+        pol.version = (pol.version or 1) + 1
+        pol.updated_at = now_ms
+
+        for d_key, d_val in (("daily_min_goal", min_g), ("daily_max_cap", max_c), ("daily_ny_goal", ny_g)):
+            d_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == d_key).first()
+            if d_row:
+                d_row.value = str(d_val)
+                d_row.updated_at = now_ms
+            else:
+                db.add(models.SystemConfig(key=d_key, value=str(d_val), updated_at=now_ms))
 
     try:
         db.commit()
@@ -3190,6 +3215,7 @@ def update_scalp_config_endpoint(
         raise HTTPException(status_code=500, detail="DATABASE_ERROR: failed to persist config")
 
     effective_cfg = load_effective_scalp_config(db)
+    synced_policy = resolve_effective_daily_policy(db)
     out_config = {
         "scalp_m1_enabled": (effective_cfg.scalp_m1_mode != "OFF"),
         "scalp_m1_mode": effective_cfg.scalp_m1_mode,
@@ -3207,9 +3233,10 @@ def update_scalp_config_endpoint(
         "sweep_reclaim_enabled": effective_cfg.sweep_reclaim_enabled,
         "multi_zone_hypotheses_enabled": effective_cfg.multi_zone_hypotheses_enabled,
         "orderflow_shadow_enabled": effective_cfg.orderflow_shadow_enabled,
-        "daily_min_goal": effective_cfg.daily_min_goal,
-        "daily_max_cap": effective_cfg.daily_max_cap,
-        "daily_ny_goal": effective_cfg.daily_ny_goal,
+        "daily_min_goal": synced_policy.min_goal,
+        "daily_max_cap": synced_policy.max_fills,
+        "daily_ny_goal": synced_policy.ny_goal,
+        "policy_version": synced_policy.policy_version,
     }
     return {
         "status": "SUCCESS",
@@ -3222,25 +3249,25 @@ def update_scalp_config_endpoint(
 @app.get("/api/v1/policy/daily-status")
 def get_scalp_daily_status_endpoint(db: Session = Depends(get_db)):
     """
-    V16.1 Rule 138: Lightweight daily status API.
+    V16.1 Rule 138, V16.2 Rules 021-028: Canonical daily status API.
     Returns trading_day_id, fills_count, min_goal, cap, ny_fills, reservation_state, search_state, primary_reason.
     """
-    from services.scalp_m1_types import load_effective_scalp_config
-    from services.trading_policy_service import TradingPolicyService
-    cfg = load_effective_scalp_config(db)
+    from services.trading_policy_service import TradingPolicyService, resolve_effective_daily_policy
+    eff_policy = resolve_effective_daily_policy(db)
     now_ms = int(time.time() * 1000)
     day_audit = crud.get_or_create_today_audit(db)
     goal_eval = TradingPolicyService.evaluate_daily_frequency_goal(
-        db, now_ms=now_ms, daily_min_goal=getattr(cfg, "daily_min_goal", 2)
+        db, now_ms=now_ms, effective_policy=eff_policy
     )
     return {
         "status": "SUCCESS",
         "trading_day_id": day_audit.date_str,
         "fills_count": goal_eval.daily_fills,
-        "min_goal": goal_eval.daily_min_goal,
-        "cap": goal_eval.daily_max_cap,
+        "min_goal": eff_policy.min_goal,
+        "cap": eff_policy.max_fills,
         "ny_fills": goal_eval.ny_fills,
-        "ny_goal": goal_eval.ny_goal,
+        "ny_goal": eff_policy.ny_goal,
+        "policy_version": eff_policy.policy_version,
         "reservation_state": "RESERVED" if goal_eval.ny_reserve_active else "NONE",
         "search_state": goal_eval.status,
         "primary_reason": goal_eval.reason_vi,

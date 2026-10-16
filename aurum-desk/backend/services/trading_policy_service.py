@@ -171,6 +171,7 @@ class DailyFrequencyGoalEvaluation:
     is_blocked: bool
     remaining_daily_slots: int
     ny_reserve_active: bool
+    policy_version: int = 1
     shortfall_breakdown: Optional[Dict[str, int]] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -180,6 +181,7 @@ class DailyFrequencyGoalEvaluation:
             "daily_max_cap": self.daily_max_cap,
             "ny_fills": self.ny_fills,
             "ny_goal": self.ny_goal,
+            "policy_version": self.policy_version,
             "status": self.status,
             "reason_vi": self.reason_vi,
             "is_blocked": self.is_blocked,
@@ -187,6 +189,71 @@ class DailyFrequencyGoalEvaluation:
             "ny_reserve_active": self.ny_reserve_active,
             "shortfall_breakdown": self.shortfall_breakdown or {},
         }
+
+
+@dataclass(frozen=True)
+class EffectiveDailyPolicy:
+    min_goal: int
+    max_fills: int
+    ny_goal: int
+    reserve_ny_slot: bool
+    trading_day_timezone: str
+    policy_version: int
+    config_source: str
+    account_scope: str = "default"
+
+
+def resolve_effective_daily_policy(db: Session, account_scope: str = "default") -> EffectiveDailyPolicy:
+    """
+    V16.2 Rules 021 - 028: Canonical daily policy resolver.
+    Single authoritative resolver returning min_goal, max_fills, ny_goal, reserve_ny_slot,
+    trading_day_timezone, policy_version, and config_source.
+    Ensures zero is treated as a valid value (never coerced to default via 'val or default').
+    Synchronizes TradingPolicy and SystemConfig.
+    """
+    policy = TradingPolicyService.get_or_create_policy(db)
+
+    # 1. max_fills (canonical source: policy.max_daily_fills)
+    if policy.max_daily_fills is not None:
+        max_fills = int(policy.max_daily_fills)
+    else:
+        sys_cap = db.query(models.SystemConfig).filter(models.SystemConfig.key == "daily_max_cap").first()
+        max_fills = int(sys_cap.value) if sys_cap and sys_cap.value is not None else 3
+        policy.max_daily_fills = max_fills
+
+    # 2. ny_goal (canonical source: policy.ny_min_fills)
+    if policy.ny_min_fills is not None:
+        ny_goal = int(policy.ny_min_fills)
+    else:
+        sys_ny = db.query(models.SystemConfig).filter(models.SystemConfig.key == "daily_ny_goal").first()
+        ny_goal = int(sys_ny.value) if sys_ny and sys_ny.value is not None else 1
+        policy.ny_min_fills = ny_goal
+
+    # 3. min_goal (canonical source: policy.daily_min_goal)
+    if hasattr(policy, "daily_min_goal") and policy.daily_min_goal is not None:
+        min_goal = int(policy.daily_min_goal)
+    else:
+        sys_min = db.query(models.SystemConfig).filter(models.SystemConfig.key == "daily_min_goal").first()
+        min_goal = int(sys_min.value) if sys_min and sys_min.value is not None else 2
+        try:
+            policy.daily_min_goal = min_goal
+        except Exception:
+            pass
+
+    reserve_ny = bool(policy.reserve_ny_slot) if policy.reserve_ny_slot is not None else True
+    tz = getattr(policy, "daily_timezone", "Asia/Ho_Chi_Minh") or "Asia/Ho_Chi_Minh"
+    ver = int(policy.version or 1)
+
+    return EffectiveDailyPolicy(
+        min_goal=min_goal,
+        max_fills=max_fills,
+        ny_goal=ny_goal,
+        reserve_ny_slot=reserve_ny,
+        trading_day_timezone=tz,
+        policy_version=ver,
+        config_source="TRADING_POLICY",
+        account_scope=account_scope,
+    )
 
 
 class TradingPolicyService:
@@ -924,25 +991,28 @@ class TradingPolicyService:
         db: Session,
         now_ms: Optional[int] = None,
         clock: Optional[IClock] = None,
-        daily_min_goal: int = 2,
+        daily_min_goal: Optional[int] = None,
+        effective_policy: Optional[EffectiveDailyPolicy] = None,
     ) -> DailyFrequencyGoalEvaluation:
         """
-        V16 Daily Frequency Goal Evaluator (Rules 028-030, 126-140).
-        Evaluates real daily fills vs daily minimum goal (2), hard cap (3), and NY session goal (1).
+        V16 Daily Frequency Goal Evaluator (Rules 028-030, 126-140, V16.2 Rules 021-028).
+        Evaluates real daily fills vs daily minimum goal, hard cap, and NY session goal.
         States: SEARCHING, MINIMUM_MET, CAP_REACHED, SHORTFALL, BLOCKED.
         Does NOT place orders or bypass guards.
         """
         c = clock or live_clock
         current_time = now_ms if now_ms is not None else c.now_ms()
         policy = TradingPolicyService.get_or_create_policy(db)
+        eff_policy = effective_policy or resolve_effective_daily_policy(db)
         window = TradingPolicyService.get_ny_session_window(policy, now_ms=current_time, clock=c)
         quota = TradingPolicyService.get_or_create_session_quota(db, policy, now_ms=current_time, clock=c)
         day_audit = crud.get_or_create_today_audit(db, clock=c)
 
         d_fills = int(getattr(day_audit, "fills_count", 0) or 0)
         ny_fills = int(getattr(quota, "total_fills", 0) or 0)
-        daily_max_cap = int(getattr(policy, "max_daily_fills", 3) or 3)
-        ny_goal = int(getattr(policy, "ny_min_fills", 1) or 1)
+        daily_max_cap = eff_policy.max_fills
+        ny_goal = eff_policy.ny_goal
+        target_min_goal = eff_policy.min_goal if daily_min_goal is None else daily_min_goal
         remaining_slots = max(0, daily_max_cap - d_fills)
 
         # Check NY reservation (Rule 128)
@@ -952,7 +1022,7 @@ class TradingPolicyService:
             and window.get("phase") == "BEFORE_WINDOW"
             and ny_fills < ny_goal
             and remaining_slots <= (ny_goal - ny_fills)
-            and bool(getattr(policy, "reserve_ny_slot", True))
+            and bool(eff_policy.reserve_ny_slot)
         ):
             ny_reserve_active = True
 
@@ -969,24 +1039,24 @@ class TradingPolicyService:
         elif d_fills >= daily_max_cap:
             status = "CAP_REACHED"
             reason_vi = f"Đã đạt giới hạn tối đa {daily_max_cap} lệnh khớp trong ngày (UTC+7)."
-        elif d_fills >= daily_min_goal:
+        elif d_fills >= target_min_goal:
             status = "MINIMUM_MET"
             if remaining_slots > 0:
-                reason_vi = f"Đã hoàn thành mục tiêu tối thiểu {daily_min_goal} lệnh (hiện có {d_fills} fills). Có thể đón nhận thêm tối đa {remaining_slots} cơ hội chất lượng cao."
+                reason_vi = f"Đã hoàn thành mục tiêu tối thiểu {target_min_goal} lệnh (hiện có {d_fills} fills). Có thể đón nhận thêm tối đa {remaining_slots} cơ hội chất lượng cao."
             else:
-                reason_vi = f"Đã đạt mục tiêu tối thiểu {daily_min_goal} lệnh và sử dụng hết hạn ngạch ngày."
-        elif window.get("phase") == "AFTER_WINDOW" and d_fills < daily_min_goal:
+                reason_vi = f"Đã đạt mục tiêu tối thiểu {target_min_goal} lệnh và sử dụng hết hạn ngạch ngày."
+        elif window.get("phase") == "AFTER_WINDOW" and d_fills < target_min_goal:
             status = "SHORTFALL"
-            reason_vi = f"Kết thúc ngày chưa đạt mục tiêu tối thiểu: {d_fills}/{daily_min_goal} lệnh (DAILY_GOAL_SHORTFALL)."
+            reason_vi = f"Kết thúc ngày chưa đạt mục tiêu tối thiểu: {d_fills}/{target_min_goal} lệnh (DAILY_GOAL_SHORTFALL)."
         else:
             status = "SEARCHING"
             reserve_note = " (1 slot đang được bảo lưu cho phiên Mỹ)" if ny_reserve_active else ""
-            reason_vi = f"Đang quét tìm cơ hội hợp lệ: đã khớp {d_fills}/{daily_min_goal} lệnh tối thiểu (tối đa {daily_max_cap}){reserve_note}."
+            reason_vi = f"Đang quét tìm cơ hội hợp lệ: đã khớp {d_fills}/{target_min_goal} lệnh tối thiểu (tối đa {daily_max_cap}){reserve_note}."
 
         shortfall_breakdown = None
-        if status in ("SHORTFALL", "SEARCHING") and d_fills < daily_min_goal:
+        if status in ("SHORTFALL", "SEARCHING") and d_fills < target_min_goal:
             try:
-                sf = summarize_daily_shortfall(db, now_ms=current_time, clock=c, daily_min_goal=daily_min_goal)
+                sf = summarize_daily_shortfall(db, now_ms=current_time, clock=c, daily_min_goal=target_min_goal)
                 shortfall_breakdown = sf.get("category_breakdown")
             except Exception as sf_err:
                 logger.debug(f"Failed to compute shortfall breakdown: {sf_err}")
@@ -994,7 +1064,7 @@ class TradingPolicyService:
 
         return DailyFrequencyGoalEvaluation(
             daily_fills=d_fills,
-            daily_min_goal=daily_min_goal,
+            daily_min_goal=target_min_goal,
             daily_max_cap=daily_max_cap,
             ny_fills=ny_fills,
             ny_goal=ny_goal,
@@ -1003,8 +1073,12 @@ class TradingPolicyService:
             is_blocked=is_blocked,
             remaining_daily_slots=remaining_slots,
             ny_reserve_active=ny_reserve_active,
+            policy_version=eff_policy.policy_version,
             shortfall_breakdown=shortfall_breakdown,
         )
+
+
+TradingPolicyService.resolve_effective_daily_policy = staticmethod(resolve_effective_daily_policy)
 
 
 SHORTFALL_CATEGORIES = (
