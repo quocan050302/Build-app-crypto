@@ -46,7 +46,10 @@ from services.cg01_types import (
     CG01ProfileMode,
     CG01Stage,
     CG01TimeContext,
+    ExecutionDeadline,
+    resolve_cg01_execution_deadline,
     resolve_cg01_order_type,
+    resolve_slippage_usd,
 )
 from services.liquidity_scenario_service import (
     assess_range_position,
@@ -745,9 +748,9 @@ def evaluate_cg01_candidate(
                         ui_summary_vi={"status": "Đang chờ giá hồi (retest) vào vùng FVG."},
                     )
 
-                # Rules 008, 045, 046: Market entry uses executable quote estimate + slippage
+                # Rules 008, 045, 046, 052: Market entry uses executable quote estimate + slippage
                 costs_obj = costs or CostAssumptions()
-                slippage = float(getattr(costs_obj, "slippage_usd", 0.10) or 0.10)
+                slippage = resolve_slippage_usd(getattr(costs_obj, "slippage_usd", None), default=0.10)
                 if direction == "LONG":
                     planned_entry = round(ask + slippage, 2)
                     price_basis = "MARKET_QUOTE_ASK"
@@ -802,8 +805,21 @@ def evaluate_cg01_candidate(
                 last_rejection_reason = "RR_BELOW_MINIMUM" if calc.net_rr < cfg.min_net_rr else (calc.invalid_reason or "CALCULATION_INVALID")
                 continue
 
-            # Construct CG01EntryIntent (Rule 041)
-            valid_until = trigger_known_at + cfg.candidate_ttl_ms
+            # Construct CG01EntryIntent (Rule 024, 025, 028, 041)
+            exec_deadline = resolve_cg01_execution_deadline(
+                trigger_known_at_ms=int(trigger_known_at),
+                candidate_ttl_ms=int(cfg.candidate_ttl_ms),
+                max_trigger_age_ms=int(getattr(cfg, "max_trigger_age_ms", cfg.candidate_ttl_ms * 2)),
+                entry_window_end_ms=getattr(time_ctx, "window_end_ms", None),
+            )
+            valid_until = exec_deadline.expires_at_ms
+
+            # Rule 028: Evaluator returns EXPIRED if t_now >= valid_until
+            if t_now >= valid_until:
+                last_rejection_stage = CG01Stage.EXPIRED
+                last_rejection_reason = "TRIGGER_EXPIRED"
+                continue
+
             intent = CG01EntryIntent(
                 entry_mode=cfg.entry_mode,
                 order_type=order_type,
@@ -834,7 +850,7 @@ def evaluate_cg01_candidate(
             episode_id = sweep["episode_id"]
             cand_key = f"cg01_{direction}_{poi.zone_id}_{sweep['reference_id']}_{fvg['fvg_id']}"
 
-            # Build full EvidenceNodes, TriggerChain, and immutable ScenarioSnapshot (Rules 096, 121 - 127)
+            # Build full EvidenceNodes, TriggerChain, and immutable ScenarioSnapshot (Rules 096, 121 - 127, PHẦN 030)
             ev_nodes = build_cg01_evidence_nodes(
                 symbol="XAUUSDT",
                 direction=direction,
@@ -867,6 +883,9 @@ def evaluate_cg01_candidate(
                 trigger_chain=trig_chain,
                 config=cfg,
                 now_ms=t_now,
+                trigger_known_at=trigger_known_at,
+                execution_valid_until=valid_until,
+                deadline_constraints=exec_deadline.constraints,
             )
 
             # Rule 153: Six short sentences for newbie drawer
@@ -936,8 +955,13 @@ def evaluate_cg01_candidate(
 
             return decision
 
-    # If rejected due to calculation / geometry / target, report that specific reason (Rule 049, 099)
+    # If rejected due to calculation / geometry / target / expiry, report that specific reason (Rule 028, 049, 099)
     if last_rejection_reason:
+        missing_cond = (
+            ("TRIGGER_EXPIRED",)
+            if last_rejection_reason == "TRIGGER_EXPIRED"
+            else (("NET_RR_BELOW_MINIMUM",) if "RR_BELOW_MINIMUM" in last_rejection_reason else ("CALCULATION_REJECTED",))
+        )
         return CG01Decision(
             stage=last_rejection_stage or CG01Stage.WAIT_ENTRY,
             is_eligible=False,
@@ -945,7 +969,7 @@ def evaluate_cg01_candidate(
             model_version=cfg.model_version,
             config_version=cfg.config_version,
             reason_codes=(last_rejection_reason,),
-            missing_conditions=("NET_RR_BELOW_MINIMUM",) if "RR_BELOW_MINIMUM" in last_rejection_reason else ("CALCULATION_REJECTED",),
+            missing_conditions=missing_cond,
             as_of_ms=t_now,
             time_context=time_ctx,
             ui_summary_vi={"status": f"Kịch bản không khả thi: {last_rejection_reason}."},

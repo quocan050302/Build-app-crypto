@@ -344,6 +344,7 @@ class M1ScalpConfig:
     cg01_enabled: bool = False
     cg01_profile_mode: str = "OFF"
     execution_profile: str = "BASELINE"
+    cg01_config: Optional[Any] = None
 
     def __post_init__(self):
         if self.near_zone_enter_atr >= self.near_zone_exit_atr:

@@ -18,11 +18,18 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
+import models
+from database import run_schema_migrations
 from domain_calculator import CostAssumptions, calculate_risk_reward
+from lab.cg01_replay_execution_adapter import CG01ReplayExecutionAdapter
 from services.cg01_context_adapter import aggregate_closed_bars, select_closed_candles
 from services.cg01_engine import evaluate_cg01_candidate
 from services.cg01_types import CG01Config, CG01EntryMode, CG01Stage
+from services.clock import ReplayClock
 from services.scalp_m1_types import ModelIdentifier
 
 
@@ -325,25 +332,43 @@ class CG01ReplayDriver:
                 },
             }
 
-        # Run causal forward simulation
-        ny_tz = ZoneInfo("America/New_York")
-        cash = self.initial_capital
-        peak_mtm = cash
-        max_dd_pct = 0.0
+        # Run causal forward simulation via authoritative CG01ReplayExecutionAdapter (Rules 081 - 100)
+        engine = create_engine(
+            "sqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        models.Base.metadata.create_all(bind=engine)
+        run_schema_migrations(engine)
+        LabSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        lab_db = LabSession()
 
+        initial_ms = candles[0].open_time if candles else 0
+        replay_clock = ReplayClock(initial_ms=initial_ms)
+
+        adapter = CG01ReplayExecutionAdapter(
+            db=lab_db,
+            clock=replay_clock,
+            config=self.config,
+            costs=self.costs,
+            initial_capital=self.initial_capital,
+            risk_pct=self.risk_pct,
+        )
+
+        ny_tz = ZoneInfo("America/New_York")
         daily_stats: Dict[str, Dict[str, Any]] = {}
-        closed_trades: List[Dict[str, Any]] = []
         equity_mtm_series: List[Dict[str, Any]] = []
         equity_realized_series: List[Dict[str, Any]] = []
         rejection_funnel: List[Dict[str, Any]] = []
+        peak_mtm = self.initial_capital
+        max_dd_pct = 0.0
 
-        open_position: Optional[Dict[str, Any]] = None
-        pending_order: Optional[Dict[str, Any]] = None
-        executed_episodes: set = set()
+        warmup_bars = 15
+        start_idx = min(warmup_bars, len(candles))
 
-        for idx in range(15, len(candles)):
+        for idx in range(start_idx, len(candles)):
             current_bar = candles[idx]
-            now_ms = current_bar.open_time + 60_000 # candle close time
+            now_ms = current_bar.open_time + 60_000
             dt_ny = datetime.fromtimestamp(now_ms / 1000, tz=ny_tz)
             date_str = dt_ny.strftime("%Y-%m-%d")
 
@@ -358,132 +383,57 @@ class CG01ReplayDriver:
                     "shortfall_reason": "SEARCHING" if is_weekday else "WEEKEND_MARKET_CLOSED",
                 }
 
+            # 1. on_quote: process ticks against open position & pending orders
+            quote_tick_event = {
+                "timestamp": now_ms,
+                "bid": round(current_bar.close - 0.05, 2),
+                "ask": round(current_bar.close + 0.05, 2),
+                "high": current_bar.high,
+                "low": current_bar.low,
+                "bar_open_time": current_bar.open_time,
+                "bar_duration_ms": 60_000,
+            }
+            adapter.on_quote(quote_tick_event)
+
+            # 2. on_bar_close: evaluate setups via real orchestrator
+            c_slice = candles[:idx+1]
+            agg_4h = aggregate_closed_bars(c_slice, "4H", as_of_ms=now_ms)
+            agg_1h = aggregate_closed_bars(c_slice, "1H", as_of_ms=now_ms)
+            agg_15m = aggregate_closed_bars(c_slice, "15M", as_of_ms=now_ms)
+            agg_1m = select_closed_candles(c_slice, "1M", as_of_ms=now_ms)
+
+            eval_quote = {
+                "bid": round(current_bar.close - 0.05, 2),
+                "ask": round(current_bar.close + 0.05, 2),
+                "last": current_bar.close,
+                "is_valid": True,
+                "is_stale": False,
+                "timestamp": now_ms,
+            }
+            bar_event = {
+                "symbol": "XAUUSDT",
+                "as_of_ms": now_ms,
+                "quote": eval_quote,
+                "candles_1m": agg_1m,
+                "candles_15m": agg_15m,
+                "candles_1h": agg_1h,
+                "candles_4h": agg_4h,
+            }
+            adapter.on_bar_close(bar_event)
+
+            # 3. Track state snapshot for MTM series
+            interim = adapter.collect_state()
             d_stat = daily_stats[date_str]
+            d_stat["fills_count"] = interim["total_fills"]
+            if 10 <= dt_ny.hour < 11:
+                d_stat["ny_fills"] = d_stat["fills_count"]
+            if d_stat["fills_count"] >= self.config.daily_max_cap:
+                d_stat["status"] = "CAP_REACHED"
+            elif d_stat["fills_count"] >= self.config.daily_min_goal:
+                d_stat["status"] = "MINIMUM_MET"
 
-            # 0. Check pending limit orders against current bar price (Rules 081, 084, 149, 169)
-            if pending_order is not None and open_position is None:
-                if now_ms > pending_order["valid_until_ms"]:
-                    # Order expired before fill
-                    pending_order = None
-                else:
-                    po_dir = pending_order["direction"]
-                    po_entry = pending_order["planned_entry"]
-                    filled = False
-                    fill_price = po_entry
-
-                    if po_dir == "LONG" and current_bar.low <= po_entry:
-                        filled = True
-                        fill_price = po_entry
-                    elif po_dir == "SHORT" and current_bar.high >= po_entry:
-                        filled = True
-                        fill_price = po_entry
-
-                    if filled:
-                        open_position = {
-                            "trade_id": pending_order["trade_id"],
-                            "entry_time": now_ms,
-                            "direction": po_dir,
-                            "model_id": pending_order["model_id"],
-                            "entry_price": fill_price,
-                            "stop_loss": pending_order["stop_loss"],
-                            "take_profit": pending_order["take_profit"],
-                            "quantity": pending_order["quantity"],
-                        }
-                        pending_order = None
-                        d_stat["fills_count"] += 1
-                        if 10 <= dt_ny.hour < 11:
-                            d_stat["ny_fills"] += 1
-                        if d_stat["fills_count"] >= self.config.daily_max_cap:
-                            d_stat["status"] = "CAP_REACHED"
-                        elif d_stat["fills_count"] >= self.config.daily_min_goal:
-                            d_stat["status"] = "MINIMUM_MET"
-
-            # 1. Update open position exits causally (Rules 168, 172, 173)
-            if open_position is not None:
-                p_dir = open_position["direction"]
-                p_sl = open_position["stop_loss"]
-                p_tp = open_position["take_profit"]
-                p_entry = open_position["entry_price"]
-                p_qty = open_position["quantity"]
-
-                exit_occurred = False
-                exit_price = p_entry
-                outcome = "OPEN"
-
-                is_ambiguous = False
-                ambiguity_reason = None
-
-                # Check SL / TP on current bar
-                if p_dir == "LONG":
-                    hit_sl = (current_bar.low <= p_sl)
-                    hit_tp = (current_bar.high >= p_tp)
-                    if hit_sl and hit_tp:
-                        # Conservative rule 172: ambiguous bar touches both SL and TP -> treat as SL assumption
-                        outcome = "SL"
-                        is_ambiguous = True
-                        ambiguity_reason = "INTRABAR_SL_TP_COLLISION"
-                        exit_price = p_sl
-                        exit_occurred = True
-                    elif hit_sl:
-                        outcome = "SL"
-                        exit_price = min(p_sl, current_bar.open) if current_bar.open < p_sl else p_sl
-                        exit_occurred = True
-                    elif hit_tp:
-                        outcome = "TP"
-                        exit_price = p_tp
-                        exit_occurred = True
-                else:
-                    hit_sl = (current_bar.high >= p_sl)
-                    hit_tp = (current_bar.low <= p_tp)
-                    if hit_sl and hit_tp:
-                        outcome = "SL"
-                        is_ambiguous = True
-                        ambiguity_reason = "INTRABAR_SL_TP_COLLISION"
-                        exit_price = p_sl
-                        exit_occurred = True
-                    elif hit_sl:
-                        outcome = "SL"
-                        exit_price = max(p_sl, current_bar.open) if current_bar.open > p_sl else p_sl
-                        exit_occurred = True
-                    elif hit_tp:
-                        outcome = "TP"
-                        exit_price = p_tp
-                        exit_occurred = True
-
-                if exit_occurred:
-                    fee_rate = self.costs.taker_fee if self.costs else 0.0005
-                    gross_pnl = p_qty * (exit_price - p_entry if p_dir == "LONG" else p_entry - exit_price)
-                    fees = (p_qty * p_entry * fee_rate) + (p_qty * exit_price * fee_rate)
-                    net_pnl = round(gross_pnl - fees, 2)
-                    cash = round(cash + net_pnl, 2)
-
-                    trade_record = {
-                        "trade_id": open_position["trade_id"],
-                        "entry_time": open_position["entry_time"],
-                        "exit_time": now_ms,
-                        "direction": p_dir,
-                        "model_id": open_position["model_id"],
-                        "entry_price": p_entry,
-                        "exit_price": exit_price,
-                        "stop_loss": p_sl,
-                        "take_profit": p_tp,
-                        "quantity": p_qty,
-                        "outcome": outcome,
-                        "is_ambiguous": is_ambiguous,
-                        "ambiguity_reason": ambiguity_reason,
-                        "net_pnl_usd": net_pnl,
-                        "realized_cash": cash,
-                    }
-                    closed_trades.append(trade_record)
-                    equity_realized_series.append({
-                        "timestamp": now_ms,
-                        "cash": cash,
-                        "realized_pnl": net_pnl,
-                    })
-                    open_position = None
-
-            # Mark to Market Equity calculation (Rule 176, 177)
-            mtm_eq = compute_equity_mark(cash, open_position, current_bar.close)
+            curr_cash = interim["metrics"]["final_cash"] or self.initial_capital
+            mtm_eq = compute_equity_mark(curr_cash, interim["open_position"], current_bar.close)
             if mtm_eq > peak_mtm:
                 peak_mtm = mtm_eq
             dd = ((peak_mtm - mtm_eq) / peak_mtm * 100.0) if peak_mtm > 0 else 0.0
@@ -496,126 +446,17 @@ class CG01ReplayDriver:
                 "drawdown_pct": round(dd, 2),
             })
 
-            # 2. Check if we can look for new entries (Rule 169: single position or pending order at a time)
-            if open_position is not None or pending_order is not None:
-                continue
+        final_report = adapter.collect_state()
+        adapter.finalize_run()
 
-            # Check daily cap
-            if d_stat["fills_count"] >= self.config.daily_max_cap:
-                d_stat["status"] = "CAP_REACHED"
-                continue
+        final_report["reason"] = "OK"
+        final_report["daily_stats"] = daily_stats
+        final_report["equity_mtm"] = equity_mtm_series
+        final_report["equity_realized"] = equity_realized_series
+        final_report["rejection_funnel"] = rejection_funnel
+        if final_report["closed_trades_count"] > 0:
+            final_report["metrics"]["max_drawdown_pct"] = round(max_dd_pct, 2)
+        else:
+            final_report["metrics"]["max_drawdown_pct"] = None
 
-            # Evaluate CG-01 candidate causally with aggregated closed HTF bars (Rules 146 - 148)
-            c_slice = candles[:idx+1]
-            agg_4h = aggregate_closed_bars(c_slice, "4H", as_of_ms=now_ms)
-            agg_1h = aggregate_closed_bars(c_slice, "1H", as_of_ms=now_ms)
-            agg_15m = aggregate_closed_bars(c_slice, "15M", as_of_ms=now_ms)
-            agg_1m = select_closed_candles(c_slice, "1M", as_of_ms=now_ms)
-
-            ctx = {
-                "4H": agg_4h,
-                "1H": agg_1h,
-                "15M": agg_15m,
-                "1M": agg_1m,
-            }
-            quote = {
-                "bid": current_bar.close,
-                "ask": current_bar.close + 0.10,
-                "is_valid": True,
-                "is_stale": False,
-                "timestamp": now_ms,
-            }
-
-            decision = evaluate_cg01_candidate(
-                context=ctx,
-                current_quote=quote,
-                config=self.config,
-                now_ms=now_ms,
-                capital=cash,
-                risk_pct=self.risk_pct,
-                costs=self.costs,
-            )
-
-            if decision.is_eligible and decision.candidate and decision.stage == CG01Stage.EXECUTABLE:
-                cand = decision.candidate
-                ep_id = cand.origin_episode_id or decision.episode_id
-                if ep_id in executed_episodes:
-                    continue
-                executed_episodes.add(ep_id)
-
-                calc = cand.calculation
-                qty = calc.quantity if calc else 0.01
-
-                if self.config.entry_mode == CG01EntryMode.CONFIRMED_RETEST_MARKET.value:
-                    open_position = {
-                        "trade_id": f"trade_{len(closed_trades) + 1}",
-                        "entry_time": now_ms,
-                        "direction": cand.direction,
-                        "model_id": cand.model_id,
-                        "entry_price": cand.planned_entry,
-                        "stop_loss": cand.stop_loss,
-                        "take_profit": cand.take_profit,
-                        "quantity": qty,
-                    }
-                    d_stat["fills_count"] += 1
-                    if 10 <= dt_ny.hour < 11:
-                        d_stat["ny_fills"] += 1
-                    if d_stat["fills_count"] >= self.config.daily_max_cap:
-                        d_stat["status"] = "CAP_REACHED"
-                    elif d_stat["fills_count"] >= self.config.daily_min_goal:
-                        d_stat["status"] = "MINIMUM_MET"
-                else:
-                    # Limit at CE: armed pending order awaiting future bar touch
-                    pending_order = {
-                        "trade_id": f"trade_{len(closed_trades) + 1}",
-                        "armed_at": now_ms,
-                        "valid_until_ms": now_ms + self.config.candidate_ttl_ms,
-                        "direction": cand.direction,
-                        "model_id": cand.model_id,
-                        "planned_entry": cand.planned_entry,
-                        "stop_loss": cand.stop_loss,
-                        "take_profit": cand.take_profit,
-                        "quantity": qty,
-                    }
-            elif decision.reason_codes:
-                rejection_funnel.append({
-                    "date": date_str,
-                    "stage": decision.stage.value if hasattr(decision.stage, "value") else str(decision.stage),
-                    "reason": decision.reason_codes[0],
-                })
-
-        # Summary Metrics (Rules 111 - 119)
-        closed_trades_count = len(closed_trades)
-        open_positions_count = 1 if open_position is not None else 0
-        pending_orders_count = 1 if pending_order is not None else 0
-        total_fills = closed_trades_count + open_positions_count
-
-        # Net winrate (Rules 118, 170): Gross TP but net negative is NOT counted as win
-        wins = sum(1 for t in closed_trades if t.get("outcome") == "TP" and t.get("net_pnl_usd", 0.0) > 0.0)
-        winrate = (wins / closed_trades_count * 100.0) if closed_trades_count > 0 else None
-        total_pnl = round(cash - self.initial_capital, 2)
-
-        return {
-            "status": "COMPLETED",
-            "reason": "OK",
-            "total_fills": total_fills,
-            "closed_trades_count": closed_trades_count,
-            "open_positions_count": open_positions_count,
-            "pending_orders_count": pending_orders_count,
-            "closed_trades": closed_trades,
-            "open_position": open_position,
-            "pending_order": pending_order,
-            "daily_stats": daily_stats,
-            "equity_mtm": equity_mtm_series,
-            "equity_realized": equity_realized_series,
-            "rejection_funnel": rejection_funnel,
-            "metrics": {
-                "initial_capital": self.initial_capital,
-                "final_cash": cash,
-                "total_pnl_usd": total_pnl,
-                "winrate_pct": round(winrate, 2) if winrate is not None else None,
-                "max_drawdown_pct": round(max_dd_pct, 2),
-                "total_trades": closed_trades_count,
-                "open_trades": open_positions_count,
-            },
-        }
+        return final_report

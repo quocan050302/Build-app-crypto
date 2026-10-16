@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+import math
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 import time
 
@@ -279,3 +280,95 @@ def candidate_execution_order_type(cand: Any, legacy_default: str = "MARKET") ->
     if isinstance(intent, dict) and "order_type" in intent:
         return str(intent["order_type"]).upper()
     return legacy_default
+
+
+@dataclass(frozen=True)
+class ExecutionDeadline:
+    """
+    Rule 024 & Appendix A: Execution deadline breakdown.
+    Contains authoritative expiry timestamp in milliseconds and constraints.
+    """
+    expires_at_ms: int
+    constraints: Dict[str, int] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "expires_at_ms": self.expires_at_ms,
+            "constraints": self.constraints,
+        }
+
+
+def resolve_cg01_execution_deadline(
+    *,
+    trigger_known_at_ms: int,
+    candidate_ttl_ms: int,
+    max_trigger_age_ms: int,
+    entry_window_end_ms: Optional[int] = None,
+    existing_deadline_ms: Optional[int] = None,
+) -> ExecutionDeadline:
+    """
+    Rule 024, 025 & Appendix A: Resolves immutable deadline for CG-01 setup.
+    Guarantees no drifting and strictly respects session window and TTL upper bounds.
+    """
+    if trigger_known_at_ms <= 0:
+        raise ValueError(f"INVALID_DEADLINE_INPUT: trigger_known_at_ms must be > 0, got {trigger_known_at_ms}")
+    if candidate_ttl_ms <= 0:
+        raise ValueError(f"INVALID_DEADLINE_INPUT: candidate_ttl_ms must be > 0, got {candidate_ttl_ms}")
+    if max_trigger_age_ms <= 0:
+        raise ValueError(f"INVALID_DEADLINE_INPUT: max_trigger_age_ms must be > 0, got {max_trigger_age_ms}")
+
+    constraints: Dict[str, int] = {
+        "ttl": int(trigger_known_at_ms + candidate_ttl_ms),
+        "max_age": int(trigger_known_at_ms + max_trigger_age_ms),
+    }
+    if entry_window_end_ms is not None and entry_window_end_ms > 0:
+        constraints["session_end"] = int(entry_window_end_ms)
+    if existing_deadline_ms is not None and existing_deadline_ms > 0:
+        constraints["existing"] = int(existing_deadline_ms)
+
+    expires_at_ms = min(constraints.values())
+    return ExecutionDeadline(expires_at_ms=expires_at_ms, constraints=constraints)
+
+
+def resolve_slippage_usd(value: Any, *, default: float = 0.10) -> float:
+    """
+    Rule 052 & Appendix B: Authoritative slippage resolver.
+    Only uses default when value is None. 0.0 is valid.
+    Rejects negative, NaN, or infinite values.
+    """
+    raw = default if value is None else value
+    try:
+        resolved = float(raw)
+    except (ValueError, TypeError) as e:
+        raise ValueError(f"slippage_usd must be a valid float: {e}")
+    if not math.isfinite(resolved) or resolved < 0:
+        raise ValueError(f"slippage_usd must be finite and non-negative, got {resolved}")
+    return resolved
+
+
+def resolve_candidate_order_expiry(
+    cand: Any,
+    now_ms: int,
+    session_context: Optional[Any] = None,
+    legacy_default_hours: float = 2.0,
+) -> int:
+    """
+    Rule 031: Authoritative expiry resolver for paper candidates.
+    For CG-01: extracts valid_until_ms from candidate or entry_intent.
+    If session_context has window_end_ms, ensures order does not outlive window.
+    For legacy models: now_ms + legacy_default_hours.
+    """
+    model_id = getattr(cand, "model_id", "")
+    if model_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value:
+        exp = getattr(cand, "valid_until_ms", None)
+        if exp is None:
+            intent = getattr(cand, "entry_intent", None)
+            if isinstance(intent, dict):
+                exp = intent.get("valid_until")
+        if exp is not None and int(exp) > 0:
+            res_exp = int(exp)
+            if session_context and hasattr(session_context, "window_end_ms") and session_context.window_end_ms:
+                res_exp = min(res_exp, int(session_context.window_end_ms))
+            return res_exp
+        raise ValueError("CG01_CANDIDATE_MISSING_EXPIRY: CG-01 candidate must define valid_until_ms")
+    return int(now_ms + (legacy_default_hours * 3600 * 1000))

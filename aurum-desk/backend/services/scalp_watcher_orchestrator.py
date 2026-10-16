@@ -818,13 +818,15 @@ class ScalpWatcherOrchestrator:
             from services.cg01_types import CG01Config
             from services.trading_policy_service import resolve_effective_daily_policy
             eff_daily = resolve_effective_daily_policy(db, "default")
-            cg01_cfg = CG01Config(
-                enabled=True,
-                profile_mode=cg01_mode,
-                daily_min_goal=eff_daily.min_goal,
-                daily_max_cap=eff_daily.max_fills,
-                daily_ny_goal=eff_daily.ny_goal,
-            )
+            cg01_cfg = getattr(cfg, "cg01_config", None)
+            if cg01_cfg is None:
+                cg01_cfg = CG01Config(
+                    enabled=True,
+                    profile_mode=cg01_mode,
+                    daily_min_goal=eff_daily.min_goal,
+                    daily_max_cap=eff_daily.max_fills,
+                    daily_ny_goal=eff_daily.ny_goal,
+                )
             closed_ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m}
             cg01_dec = evaluate_cg01_candidate(
                 closed_ctx, q, config=cg01_cfg, now_ms=t_recv,
@@ -1062,6 +1064,7 @@ class ScalpWatcherOrchestrator:
         feed_health: Optional[Dict[str, Any]] = None,
         auto_enabled: Optional[bool] = None,
         authority_context: Optional[Any] = None,
+        session_context: Optional[Any] = None,
     ) -> Optional[models.PaperOrder]:
         """
         Guarded ARM path under entry_mutation_lock (PHẦN 025 - 033, 059).
@@ -1334,12 +1337,42 @@ class ScalpWatcherOrchestrator:
             )
             return None
 
-        # 5. Guard passed: Create PaperOrder with canonical sizing and schema fields (PHẦN 025 - 030)
+        # 5. Guard passed: Create PaperOrder with canonical sizing and schema fields (PHẦN 025 - 030, Rule 031 - 034)
         with self._lock:
             self._arm_rejections.pop(cand.candidate_key, None)
-        from services.cg01_types import candidate_execution_order_type
+        from services.cg01_types import candidate_execution_order_type, resolve_candidate_order_expiry
         resolved_order_type = candidate_execution_order_type(cand, legacy_default="MARKET")
+        try:
+            resolved_expires_at = resolve_candidate_order_expiry(cand, now_ms=now_ms, session_context=session_context)
+        except Exception as e:
+            logger.warning(f"[_arm_paper_candidate] Expiry resolution failed for candidate {cand.candidate_key}: {e}")
+            return None
+
+        # Rule 032: Check expiry before mutation - reject if already expired
+        if now_ms >= resolved_expires_at:
+            logger.info(f"[_arm_paper_candidate] Candidate {cand.candidate_key} expired before arm (now={now_ms} >= expires={resolved_expires_at})")
+            OpportunityFunnelService.record_opportunity_transition(
+                db,
+                OpportunityEvaluation(
+                    opportunity_id=f"opp_{cand.candidate_key}",
+                    symbol=cand.symbol,
+                    model_id=cand.model_id,
+                    direction=cand.direction,
+                    zone_id=cand.zone_id,
+                    as_of_ms=now_ms,
+                    stage=OpportunityStage.GUARD_BLOCKED.value,
+                    reason_codes=("TRIGGER_EXPIRED",),
+                    planned_entry=cand.planned_entry,
+                    stop_loss=cand.stop_loss,
+                    take_profit=cand.take_profit,
+                    net_rr=cand.net_rr,
+                ),
+                now_ms=now_ms,
+            )
+            return None
+
         from services.order_plan_snapshot_service import build_arm_plan_snapshot
+        cand_slip = getattr(calc, "slippage_usd", None)
         arm_snap = build_arm_plan_snapshot(
             calc,
             order_type=resolved_order_type,
@@ -1354,7 +1387,9 @@ class ScalpWatcherOrchestrator:
             now_ms=now_ms,
             policy_config_version=cfg.config_version,
             risk_config_version=cfg.config_version,
+            slippage_usd=cand_slip,
         )
+        arm_snap["expires_at"] = resolved_expires_at
 
         order_id = f"ord_{cand.model_id}_{cand.candidate_key}"
         order = models.PaperOrder(
@@ -1383,7 +1418,7 @@ class ScalpWatcherOrchestrator:
             opened_at=None,
             created_at=now_ms,
             armed_at=now_ms,
-            expires_at=now_ms + (2 * 3600 * 1000),
+            expires_at=resolved_expires_at,
             origin="AUTO_STRATEGY",
             execution_mode="AUTO",
             strategy_family=cand.model_id,
@@ -1424,7 +1459,7 @@ class ScalpWatcherOrchestrator:
             now_ms=now_ms,
         )
 
-        # 6. Publish order.armed domain event atomically within caller's db transaction (PHẦN 019, 020, 021, 138)
+        # 6. Publish order.armed domain event atomically within caller's db transaction (PHẦN 019, 020, 021, 138, Rule 034)
         # EventBus handles outbox notification deduplicated under the same transaction.
         from services.event_bus import event_bus
         event_bus.publish_event(
@@ -1439,6 +1474,7 @@ class ScalpWatcherOrchestrator:
                 "stop_loss": cand.stop_loss,
                 "take_profit": cand.take_profit,
                 "net_rr": calc.net_rr,
+                "expires_at": resolved_expires_at,
             },
             db=db,
             occurred_at=now_ms,

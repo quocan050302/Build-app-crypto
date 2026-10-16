@@ -39,8 +39,12 @@ def build_arm_plan_snapshot(
     cost_source: str = "BITGET_PAPER_MODEL_V10_4",
     policy_config_version: int = 1,
     risk_config_version: int = 1,
+    slippage_usd: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Builds canonical frozen financial snapshot at ARM stage."""
+    from services.cg01_types import resolve_slippage_usd
+    raw_arm_slip = slippage_usd if slippage_usd is not None else getattr(calc_res, "slippage_usd", None)
+    resolved_arm_slip = resolve_slippage_usd(raw_arm_slip, default=0.10)
     qty = getattr(calc_res, "quantity", 0.0)
     multiplier = getattr(calc_res, "multiplier", 1.0)
     net_rr = getattr(calc_res, "net_rr", None)
@@ -90,7 +94,7 @@ def build_arm_plan_snapshot(
         "slippage_total_usdt": slip_total,
         "maker_fee_rate": maker_fee_rate,
         "taker_fee_rate": taker_fee_rate,
-        "slippage_usd": 0.10,
+        "slippage_usd": resolved_arm_slip,
         "multiplier": multiplier,
         "equity_usdt": capital_usdt,
         "risk_pct": risk_pct,
@@ -151,6 +155,12 @@ def build_fill_plan_snapshot(
         except Exception:
             arm_dict = {}
 
+    from services.cg01_types import resolve_slippage_usd
+    arm_slip = arm_dict.get("slippage_usd") if arm_dict else None
+    calc_slip = getattr(calc_result, "slippage_usd", None)
+    raw_fill_slip = calc_slip if calc_slip is not None else arm_slip
+    resolved_fill_slip = resolve_slippage_usd(raw_fill_slip, default=0.10)
+
     equity = getattr(order, "capital_usdt", None) or arm_dict.get("equity_usdt") or 1000.0
 
     return {
@@ -158,7 +168,7 @@ def build_fill_plan_snapshot(
         "phase": "FILLED_ESTIMATE",
         "maker_fee_rate": maker_fee_rate,
         "taker_fee_rate": taker_fee_rate,
-        "slippage_usd": 0.10,
+        "slippage_usd": resolved_fill_slip,
         "tp_slippage_usd": tp_slip_usd,
         "multiplier": multiplier,
         "entry_fee_usdt": entry_fee,

@@ -1,4 +1,5 @@
 import time
+import json
 import asyncio
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
@@ -58,6 +59,34 @@ class ExecutionCoordinator:
         if not armed_orders:
             return
 
+        # Housekeeping: Expire pending armed orders that reached or exceeded deadline (Rules 036, 037, 038)
+        # Pending orders expire even if quote is invalid or an active position already exists.
+        remaining_armed = []
+        for order in armed_orders:
+            if order.expires_at and current_time >= order.expires_at:
+                order.state = "expired"
+                order.exit_cause = "EXPIRED"
+                order.closed_at = current_time
+                event_bus.publish_event(
+                    event_type="setup.expired",
+                    aggregate_id=order.id,
+                    payload={"order_id": order.id, "reason": "Hết hạn lệnh armed", "expires_at": order.expires_at},
+                    db=db,
+                    occurred_at=current_time
+                )
+                if order.setup_id:
+                    watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == order.setup_id).first()
+                    if watch_setup:
+                        watch_setup.state = "EXPIRED"
+                        watch_setup.invalidation_reason = "Order expired in armed state"
+                        watch_setup.updated_at = current_time
+                db.commit()
+            else:
+                remaining_armed.append(order)
+
+        if not remaining_armed:
+            return
+
         # 2. Check and validate ticker via authoritative QuoteValidator
         raw_ticker = ticker_override if ticker_override is not None else collector_service.latest_ticker
         quote = QuoteValidator.validate_ticker(raw_ticker, now_ms=current_time)
@@ -76,31 +105,11 @@ class ExecutionCoordinator:
 
         from services.risk_settings_service import risk_settings_service
         from domain_calculator import calculate_risk_reward, CostAssumptions
+        from services.cg01_types import resolve_slippage_usd
 
         global_settings = risk_settings_service.get_settings(db)
 
-        for order in armed_orders:
-            # Check expiry
-            if order.expires_at and current_time > order.expires_at:
-                order.state = "expired"
-                order.exit_cause = "EXPIRED"
-                order.closed_at = current_time
-                event_bus.publish_event(
-                    event_type="setup.expired",
-                    aggregate_id=order.id,
-                    payload={"order_id": order.id, "reason": "Hết hạn lệnh armed"},
-                    db=db,
-                    occurred_at=current_time
-                )
-                if order.setup_id:
-                    watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == order.setup_id).first()
-                    if watch_setup:
-                        watch_setup.state = "EXPIRED"
-                        watch_setup.invalidation_reason = "Order expired in armed state"
-                        watch_setup.updated_at = current_time
-                db.commit()
-                continue
-
+        for order in remaining_armed:
             # V14.4.2: Invalidate pending armed order if config version changed (no silent repricing)
             if getattr(order, 'config_version', 1) != global_settings.config_version:
                 curr_cfg = getattr(order, 'config_version', 1)
@@ -133,6 +142,30 @@ class ExecutionCoordinator:
                 )
                 continue
 
+            # Resolve order slippage and costs from cost_snapshot (Rules 052, 060, 062)
+            order_cost_snap = {}
+            if order.cost_snapshot:
+                try:
+                    order_cost_snap = json.loads(order.cost_snapshot) if isinstance(order.cost_snapshot, str) else dict(order.cost_snapshot)
+                except Exception:
+                    order_cost_snap = {}
+
+            raw_order_slip = order_cost_snap.get("slippage_usd")
+            if raw_order_slip is not None:
+                order_slip = resolve_slippage_usd(raw_order_slip, default=0.10)
+            elif slippage != 0.10:
+                order_slip = resolve_slippage_usd(slippage, default=0.10)
+            else:
+                order_slip = resolve_slippage_usd(getattr(global_settings, "slippage_usd", 0.10), default=0.10)
+
+            order_maker_fee = float(order_cost_snap.get("maker_fee_rate", 0.0002))
+            order_taker_fee = float(order_cost_snap.get("taker_fee_rate", 0.0004))
+            order_costs = CostAssumptions(
+                maker_fee_rate=order_maker_fee,
+                taker_fee_rate=order_taker_fee,
+                slippage_usd=order_slip,
+            )
+
             # Evaluate entry trigger
             triggered = False
             fill_price = 0.0
@@ -141,7 +174,7 @@ class ExecutionCoordinator:
             if order_type == "MARKET":
                 # Immediate market trigger: Ask for LONG, Bid for SHORT + directional slippage
                 triggered = True
-                fill_price = round(current_ask + slippage, 2) if order.direction == "LONG" else round(current_bid - slippage, 2)
+                fill_price = round(current_ask + order_slip, 2) if order.direction == "LONG" else round(current_bid - order_slip, 2)
 
             elif order_type == "LIMIT":
                 if order.direction == "LONG":
@@ -160,12 +193,12 @@ class ExecutionCoordinator:
                     # BUY STOP: Ask >= stop (breakout)
                     if current_ask >= order.planned_entry:
                         triggered = True
-                        fill_price = round(current_ask + slippage, 2)
+                        fill_price = round(current_ask + order_slip, 2)
                 elif order.direction == "SHORT":
                     # SELL STOP: Bid <= stop (breakout)
                     if current_bid <= order.planned_entry:
                         triggered = True
-                        fill_price = round(current_bid - slippage, 2)
+                        fill_price = round(current_bid - order_slip, 2)
 
             else:
                 TradeLifecycleService.execute_reject(
@@ -223,6 +256,7 @@ class ExecutionCoordinator:
                 capital=audit.current_equity,
                 risk_pct=order.risk_pct or 0.25,
                 entry_has_slippage=True,
+                costs=order_costs,
                 leverage=order.leverage or 5,
                 margin_mode=order.margin_mode or "ISOLATED",
                 phase="FILLED_ESTIMATE",
@@ -260,6 +294,7 @@ class ExecutionCoordinator:
                 risk_pct=order.risk_pct or 0.25,
                 quantity_override=qty_to_use,
                 entry_has_slippage=True,
+                costs=order_costs,
                 leverage=order.leverage or 5,
                 margin_mode=order.margin_mode or "ISOLATED",
                 phase="FILLED_ESTIMATE",

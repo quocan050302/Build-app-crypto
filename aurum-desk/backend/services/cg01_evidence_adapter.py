@@ -234,6 +234,9 @@ def build_cg01_snapshot(
     trigger_chain: Dict[str, Any],
     config: Optional[CG01Config],
     now_ms: int,
+    trigger_known_at: Optional[int] = None,
+    execution_valid_until: Optional[int] = None,
+    deadline_constraints: Optional[Dict[str, int]] = None,
 ) -> ScenarioSnapshot:
     """
     Rule 121 - 127: Builds immutable ScenarioSnapshot object for CG-01 ScalpCandidate.
@@ -277,6 +280,10 @@ def build_cg01_snapshot(
         "gross_rr": calc.gross_rr,
         "quantity": calc.quantity,
         "initial_risk_usdt": float(getattr(calc, "net_risk_usdt", round(abs(planned_entry - sl) * calc.quantity, 2))),
+        "trigger_known_at": trigger_known_at,
+        "execution_valid_until": execution_valid_until,
+        "valid_until": execution_valid_until,
+        "deadline_constraints": deadline_constraints or {},
     }
 
     snap = ScenarioSnapshot(
@@ -302,6 +309,11 @@ def build_cg01_snapshot(
         plan=plan,
         evidence=ev_nodes,
         session_name="LONDON_NY",
+        context={
+            "trigger_known_at": trigger_known_at,
+            "execution_valid_until": execution_valid_until,
+            "deadline_constraints": deadline_constraints or {},
+        },
     )
 
     return snap
