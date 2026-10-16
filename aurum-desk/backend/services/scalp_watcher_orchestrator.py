@@ -152,6 +152,8 @@ class ScalpWatcherOrchestrator:
         candles_1m: Optional[Sequence[Any]] = None,
         candles_5m: Optional[Sequence[Any]] = None,
         candles_15m: Optional[Sequence[Any]] = None,
+        candles_1h: Optional[Sequence[Any]] = None,
+        candles_4h: Optional[Sequence[Any]] = None,
         htf_bias: Optional[str] = None,
         h1_alignment: Optional[str] = None,
         config: Optional[M1ScalpConfig] = None,
@@ -223,9 +225,23 @@ class ScalpWatcherOrchestrator:
         current_px = (bid + ask) / 2.0
 
         # 1. Load or use injected candles
+        c_4h = candles_4h if candles_4h is not None else crud.get_candles(db, symbol, "4H", limit=40, ascending=True, cutoff_ms=t_recv)
+        c_1h = candles_1h if candles_1h is not None else crud.get_candles(db, symbol, "1H", limit=60, ascending=True, cutoff_ms=t_recv)
         c_15m = candles_15m if candles_15m is not None else crud.get_candles(db, symbol, "15M", limit=120, ascending=True, cutoff_ms=t_recv)
         c_5m = candles_5m if candles_5m is not None else crud.get_candles(db, symbol, "5M", limit=150, ascending=True, cutoff_ms=t_recv)
         c_1m = candles_1m if candles_1m is not None else crud.get_candles(db, symbol, "1M", limit=100, ascending=True, cutoff_ms=t_recv)
+
+        from services.cg01_context_adapter import normalize_cg01_candle
+        if c_4h and isinstance(c_4h[0], dict):
+            c_4h = [normalize_cg01_candle(b, "4H", symbol) for b in c_4h]
+        if c_1h and isinstance(c_1h[0], dict):
+            c_1h = [normalize_cg01_candle(b, "1H", symbol) for b in c_1h]
+        if c_15m and isinstance(c_15m[0], dict):
+            c_15m = [normalize_cg01_candle(b, "15M", symbol) for b in c_15m]
+        if c_5m and isinstance(c_5m[0], dict):
+            c_5m = [normalize_cg01_candle(b, "5M", symbol) for b in c_5m]
+        if c_1m and isinstance(c_1m[0], dict):
+            c_1m = [normalize_cg01_candle(b, "1M", symbol) for b in c_1m]
 
         import smc_engine
         atr_15m = smc_engine.compute_atr(c_15m, period=14) if c_15m else 2.0
@@ -853,13 +869,16 @@ class ScalpWatcherOrchestrator:
             exec_profile = getattr(cfg, "execution_profile", "BASELINE")
             is_cg01_model = (cand.model_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value)
 
-            # Rule 019 & 035: Execution profile arbitration
+            # Rule 019 & 035, 102, 104: Execution profile arbitration
             should_shadow = (effective_scalp_mode == ScalpMode.SHADOW.value)
             if not should_shadow:
-                if exec_profile == "CG01" and not is_cg01_model:
-                    should_shadow = True
-                elif exec_profile != "CG01" and is_cg01_model:
-                    should_shadow = True
+                if is_cg01_model:
+                    cg01_pm = getattr(cfg, "cg01_profile_mode", None)
+                    if cg01_pm != "PAPER_EXECUTION" or exec_profile != "CG01":
+                        should_shadow = True
+                else:
+                    if exec_profile == "CG01":
+                        should_shadow = True
 
             if should_shadow:
                 # In SHADOW mode: record hypothetical plan, do NOT arm or fill order (PHẦN 024, 079)

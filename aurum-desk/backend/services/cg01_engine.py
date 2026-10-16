@@ -20,6 +20,21 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import zoneinfo
 
 from domain_calculator import CalculationResult, CostAssumptions, calculate_risk_reward, validate_price_geometry
+from services.cg01_context_adapter import (
+    CanonicalCandle,
+    CanonicalQuote,
+    adapt_cg01_quote,
+    build_cg01_closed_context,
+    build_cg01_liquidity_context,
+    normalize_cg01_candle,
+    select_closed_candles,
+)
+from services.cg01_evidence_adapter import (
+    build_cg01_evidence_nodes,
+    build_cg01_rejection_summary,
+    build_cg01_snapshot,
+    build_cg01_trigger_chain,
+)
 from services.cg01_types import (
     CG01Config,
     CG01Decision,
@@ -29,10 +44,14 @@ from services.cg01_types import (
     CG01Stage,
     CG01TimeContext,
 )
-from services.liquidity_scenario_service import assess_range_position, compute_dealing_range
+from services.liquidity_scenario_service import (
+    assess_range_position,
+    compute_dealing_range,
+    identify_confirmed_swings,
+)
 from services.scalp_m1_model_service import ScalpCandidate, candle_open_ms, resolve_executable_target
 from services.scalp_m1_types import ModelIdentifier, OpportunityStage, WatchedZone, ZoneState
-from services.smc_liquidity_service import build_liquidity_map
+from services.smc_liquidity_service import build_liquidity_map, update_liquidity_states
 from services.smc_regime_service import build_htf_context
 from services.zone_watchlist_service import ZoneWatchlistService
 
@@ -125,10 +144,10 @@ def build_cg01_context(
     Rules 046 - 050: HTF Context & Dealing Range Builder.
     Verifies causal availability and warm-up requirements.
     """
-    c_4h = closed_context.get("4H") or []
-    c_1h = closed_context.get("1H") or []
-    c_15m = closed_context.get("15M") or []
-    c_1m = closed_context.get("1M") or []
+    c_4h = [normalize_cg01_candle(b, "4H") if not isinstance(b, CanonicalCandle) else b for b in (closed_context.get("4H") or [])]
+    c_1h = [normalize_cg01_candle(b, "1H") if not isinstance(b, CanonicalCandle) else b for b in (closed_context.get("1H") or [])]
+    c_15m = [normalize_cg01_candle(b, "15M") if not isinstance(b, CanonicalCandle) else b for b in (closed_context.get("15M") or [])]
+    c_1m = [normalize_cg01_candle(b, "1M") if not isinstance(b, CanonicalCandle) else b for b in (closed_context.get("1M") or [])]
 
     # Rule 041: Warmup validation
     if len(c_4h) < 12 or len(c_1h) < 12 or len(c_15m) < 12:
@@ -146,10 +165,18 @@ def build_cg01_context(
     h4_ctx = build_htf_context(c_4h, "4H")
     h1_ctx = build_htf_context(c_1h, "1H")
 
-    # Dealing range from 15M (or 1H) swings
-    from services.smc_liquidity_service import detect_swing_points_causal
-    swings_15m = detect_swing_points_causal(c_15m, left_bars=2, right_bars=2, now_ms=now_ms)
-    dealing_range = compute_dealing_range(swings_15m, now_ms=now_ms)
+    # Dealing range from 15M swings (Rules 036 - 038)
+    left_b = config.pivot_left_bars if config else 2
+    right_b = config.pivot_right_bars if config else 2
+    shs, sls = identify_confirmed_swings(
+        c_15m,
+        timeframe="15M",
+        left_bars=left_b,
+        right_bars=right_b,
+        symbol="XAUUSDT",
+        as_of_ms=now_ms,
+    )
+    dealing_range = compute_dealing_range([*shs, *sls], now_ms=now_ms, symbol="XAUUSDT")
 
     last_close = 0.0
     if c_1m:
@@ -244,17 +271,22 @@ def detect_cg01_sweep(
     for lvl in liquidity_levels:
         lvl_known = getattr(lvl, "known_at_ms", 0) or 0
         lvl_price = float(getattr(lvl, "price", 0.0) or 0.0)
+        lvl_side = getattr(lvl, "side", "")
         if lvl_price <= 0:
             continue
 
-        # Rule 082: Confluence with POI (level is within or touching POI bounds + buffer)
+        # Rule 061, 062, 082:
+        # LONG sweeps sell-side liquidity (lows/EQL) near/in POI
+        # SHORT sweeps buy-side liquidity (highs/EQH) near/in POI
         buffer = poi.height * 0.50
         if direction == "LONG":
-            # Sell-side liquidity near POI lower boundary
+            if lvl_side and lvl_side != "SELL_SIDE":
+                continue
             if (poi.bottom - buffer) <= lvl_price <= (poi.top + buffer):
                 valid_refs.append(lvl)
         else:
-            # Buy-side liquidity near POI upper boundary
+            if lvl_side and lvl_side != "BUY_SIDE":
+                continue
             if (poi.bottom - buffer) <= lvl_price <= (poi.top + buffer):
                 valid_refs.append(lvl)
 
@@ -571,9 +603,10 @@ def evaluate_cg01_candidate(
     cfg = config or CG01Config()
     t_now = now_ms if now_ms is not None else int(datetime.datetime.now().timestamp() * 1000)
 
-    bid = current_quote.get("bid", 0.0)
-    ask = current_quote.get("ask", 0.0)
-    current_price = (bid + ask) / 2.0 if (bid > 0 and ask > 0) else bid
+    q_adapted = adapt_cg01_quote(current_quote)
+    bid = q_adapted.bid
+    ask = q_adapted.ask
+    current_price = q_adapted.mid
 
     # 1. Step 1: Timing Window Check (Rules 051 - 060)
     time_ctx = resolve_cg01_time_context(t_now, cfg)
@@ -604,16 +637,10 @@ def evaluate_cg01_candidate(
     elif h1_bias == "BEARISH":
         directions_to_evaluate = ["SHORT"]
     else:
-        # Check discount/premium
-        if range_pos == "DISCOUNT":
-            directions_to_evaluate = ["LONG"]
-        elif range_pos == "PREMIUM":
-            directions_to_evaluate = ["SHORT"]
-        else:
-            directions_to_evaluate = ["LONG", "SHORT"]
+        directions_to_evaluate = ["LONG", "SHORT"]
 
-    c_15m = context.get("15M") or []
-    c_1m = context.get("1M") or []
+    c_15m = [normalize_cg01_candle(b, "15M") if not isinstance(b, CanonicalCandle) else b for b in (context.get("15M") or [])]
+    c_1m = [normalize_cg01_candle(b, "1M") if not isinstance(b, CanonicalCandle) else b for b in (context.get("1M") or [])]
 
     # Rule 039: Strict M1 timeframe verification
     if not c_1m:
@@ -631,9 +658,9 @@ def evaluate_cg01_candidate(
         c_15m, timeframe="15M", symbol="XAUUSDT", as_of_ms=t_now
     )
 
-    # Liquidity map for sweep & targets (Rules 061 - 070)
-    liquidity_levels = build_liquidity_map(
-        c_15m, c_1m, now_ms=t_now, symbol="XAUUSDT"
+    # Liquidity map for sweep & targets (Rules 041, 042, 061 - 070)
+    liquidity_levels = build_cg01_liquidity_context(
+        context, as_of_ms=t_now, symbol="XAUUSDT", config=cfg
     )
 
     best_decision: Optional[CG01Decision] = None
@@ -659,6 +686,39 @@ def evaluate_cg01_candidate(
             fvg = select_cg01_leg_fvg(c_1m, mss, direction, t_now, cfg)
             if not fvg:
                 continue
+
+            # Rule 078, 081, 082: Entry mode validation
+            is_retest_market = (cfg.entry_mode == CG01EntryMode.CONFIRMED_RETEST_MARKET.value)
+            if is_retest_market:
+                form_idx = fvg.get("formation_bar_idx", 0)
+                retest_confirmed = False
+                for j in range(form_idx + 1, len(c_1m)):
+                    b = c_1m[j]
+                    b_low = float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0))
+                    b_high = float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0))
+                    b_close = float(b.get("close") if isinstance(b, dict) else getattr(b, "close", 0.0))
+                    if direction == "LONG":
+                        if b_low <= fvg["ce_price"] and b_close >= fvg["ce_price"]:
+                            retest_confirmed = True
+                            break
+                    else:
+                        if b_high >= fvg["ce_price"] and b_close <= fvg["ce_price"]:
+                            retest_confirmed = True
+                            break
+                if not retest_confirmed:
+                    return CG01Decision(
+                        stage=CG01Stage.WAIT_ENTRY,
+                        is_eligible=False,
+                        model_id=ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+                        model_version=cfg.model_version,
+                        config_version=cfg.config_version,
+                        direction=direction,
+                        reason_codes=("WAIT_RETEST",),
+                        missing_conditions=("FVG_RETEST_NOT_CONFIRMED",),
+                        as_of_ms=t_now,
+                        time_context=time_ctx,
+                        ui_summary_vi={"status": "Đang chờ giá hồi (retest) vào vùng FVG."},
+                    )
 
             # 7. Sizing, Structural SL & Target
             planned_entry = fvg["ce_price"]
@@ -721,6 +781,41 @@ def evaluate_cg01_candidate(
             episode_id = sweep["episode_id"]
             cand_key = f"cg01_{direction}_{poi.zone_id}_{sweep['reference_id']}_{fvg['fvg_id']}"
 
+            # Build full EvidenceNodes, TriggerChain, and immutable ScenarioSnapshot (Rules 096, 121 - 127)
+            ev_nodes = build_cg01_evidence_nodes(
+                symbol="XAUUSDT",
+                direction=direction,
+                htf_data=htf_data,
+                poi=poi,
+                sweep=sweep,
+                mss=mss,
+                fvg=fvg,
+                planned_entry=planned_entry,
+                sl=sl,
+                tp=tp,
+                target_dec=target_dec,
+                now_ms=t_now,
+            )
+            trig_chain = build_cg01_trigger_chain(ev_nodes, t_now)
+            snap = build_cg01_snapshot(
+                symbol="XAUUSDT",
+                direction=direction,
+                candidate_key=cand_key,
+                planned_entry=planned_entry,
+                sl=sl,
+                tp=tp,
+                calc=calc,
+                poi=poi,
+                sweep=sweep,
+                mss=mss,
+                fvg=fvg,
+                target_dec=target_dec,
+                ev_nodes=ev_nodes,
+                trigger_chain=trig_chain,
+                config=cfg,
+                now_ms=t_now,
+            )
+
             # Rule 153: Six short sentences for newbie drawer
             ui_summary = {
                 "context": f"Bối cảnh: HTF {h1_bias}, Dealing Range ở vùng {range_pos}.",
@@ -751,6 +846,9 @@ def evaluate_cg01_candidate(
                 reason_code="EVIDENCE_READY" if is_eligible else "WAIT_WINDOW",
                 zone_id=poi.zone_id,
                 origin_episode_id=episode_id,
+                evidence=ev_nodes,
+                trigger_chain=trig_chain,
+                snapshot=snap,
                 evidence_ids=ev_refs.to_tuple(),
                 valid_until_ms=t_now + cfg.candidate_ttl_ms,
                 as_of_ms=t_now,

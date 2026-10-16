@@ -20,8 +20,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 from domain_calculator import CostAssumptions, calculate_risk_reward
+from services.cg01_context_adapter import aggregate_closed_bars, select_closed_candles
 from services.cg01_engine import evaluate_cg01_candidate
-from services.cg01_types import CG01Config, CG01Stage
+from services.cg01_types import CG01Config, CG01EntryMode, CG01Stage
 from services.scalp_m1_types import ModelIdentifier
 
 
@@ -177,6 +178,7 @@ class CG01ReplayDriver:
         rejection_funnel: List[Dict[str, Any]] = []
 
         open_position: Optional[Dict[str, Any]] = None
+        pending_order: Optional[Dict[str, Any]] = None
         executed_episodes: set = set()
 
         for idx in range(15, len(candles)):
@@ -197,6 +199,44 @@ class CG01ReplayDriver:
                 }
 
             d_stat = daily_stats[date_str]
+
+            # 0. Check pending limit orders against current bar price (Rules 081, 084, 149, 169)
+            if pending_order is not None and open_position is None:
+                if now_ms > pending_order["valid_until_ms"]:
+                    # Order expired before fill
+                    pending_order = None
+                else:
+                    po_dir = pending_order["direction"]
+                    po_entry = pending_order["planned_entry"]
+                    filled = False
+                    fill_price = po_entry
+
+                    if po_dir == "LONG" and current_bar.low <= po_entry:
+                        filled = True
+                        fill_price = po_entry
+                    elif po_dir == "SHORT" and current_bar.high >= po_entry:
+                        filled = True
+                        fill_price = po_entry
+
+                    if filled:
+                        open_position = {
+                            "trade_id": pending_order["trade_id"],
+                            "entry_time": now_ms,
+                            "direction": po_dir,
+                            "model_id": pending_order["model_id"],
+                            "entry_price": fill_price,
+                            "stop_loss": pending_order["stop_loss"],
+                            "take_profit": pending_order["take_profit"],
+                            "quantity": pending_order["quantity"],
+                        }
+                        pending_order = None
+                        d_stat["fills_count"] += 1
+                        if 10 <= dt_ny.hour < 11:
+                            d_stat["ny_fills"] += 1
+                        if d_stat["fills_count"] >= self.config.daily_max_cap:
+                            d_stat["status"] = "CAP_REACHED"
+                        elif d_stat["fills_count"] >= self.config.daily_min_goal:
+                            d_stat["status"] = "MINIMUM_MET"
 
             # 1. Update open position exits causally (Rules 168, 172, 173)
             if open_position is not None:
@@ -287,8 +327,8 @@ class CG01ReplayDriver:
                 "drawdown_pct": round(dd, 2),
             })
 
-            # 2. Check if we can look for new entries (Rule 169: single position at a time)
-            if open_position is not None:
+            # 2. Check if we can look for new entries (Rule 169: single position or pending order at a time)
+            if open_position is not None or pending_order is not None:
                 continue
 
             # Check daily cap
@@ -296,11 +336,26 @@ class CG01ReplayDriver:
                 d_stat["status"] = "CAP_REACHED"
                 continue
 
-            # Evaluate CG-01 candidate causally
-            # Aggregate 15M from 1M up to now_ms
+            # Evaluate CG-01 candidate causally with aggregated closed HTF bars (Rules 146 - 148)
             c_slice = candles[:idx+1]
-            quote = {"bid": current_bar.close, "ask": current_bar.close + 0.10, "is_valid": True}
-            ctx = {"1M": [b.to_dict() for b in c_slice[-60:]], "15M": [b.to_dict() for b in c_slice[-120:]]}
+            agg_4h = aggregate_closed_bars(c_slice, "4H", as_of_ms=now_ms)
+            agg_1h = aggregate_closed_bars(c_slice, "1H", as_of_ms=now_ms)
+            agg_15m = aggregate_closed_bars(c_slice, "15M", as_of_ms=now_ms)
+            agg_1m = select_closed_candles(c_slice, "1M", as_of_ms=now_ms)
+
+            ctx = {
+                "4H": agg_4h,
+                "1H": agg_1h,
+                "15M": agg_15m,
+                "1M": agg_1m,
+            }
+            quote = {
+                "bid": current_bar.close,
+                "ask": current_bar.close + 0.10,
+                "is_valid": True,
+                "is_stale": False,
+                "timestamp": now_ms,
+            }
 
             decision = evaluate_cg01_candidate(
                 context=ctx,
@@ -322,25 +377,37 @@ class CG01ReplayDriver:
                 calc = cand.calculation
                 qty = calc.quantity if calc else 0.01
 
-                open_position = {
-                    "trade_id": f"trade_{len(closed_trades) + 1}",
-                    "entry_time": now_ms,
-                    "direction": cand.direction,
-                    "model_id": cand.model_id,
-                    "entry_price": cand.planned_entry,
-                    "stop_loss": cand.stop_loss,
-                    "take_profit": cand.take_profit,
-                    "quantity": qty,
-                }
-
-                d_stat["fills_count"] += 1
-                if 10 <= dt_ny.hour < 11:
-                    d_stat["ny_fills"] += 1
-
-                if d_stat["fills_count"] >= self.config.daily_max_cap:
-                    d_stat["status"] = "CAP_REACHED"
-                elif d_stat["fills_count"] >= self.config.daily_min_goal:
-                    d_stat["status"] = "MINIMUM_MET"
+                if self.config.entry_mode == CG01EntryMode.CONFIRMED_RETEST_MARKET.value:
+                    open_position = {
+                        "trade_id": f"trade_{len(closed_trades) + 1}",
+                        "entry_time": now_ms,
+                        "direction": cand.direction,
+                        "model_id": cand.model_id,
+                        "entry_price": cand.planned_entry,
+                        "stop_loss": cand.stop_loss,
+                        "take_profit": cand.take_profit,
+                        "quantity": qty,
+                    }
+                    d_stat["fills_count"] += 1
+                    if 10 <= dt_ny.hour < 11:
+                        d_stat["ny_fills"] += 1
+                    if d_stat["fills_count"] >= self.config.daily_max_cap:
+                        d_stat["status"] = "CAP_REACHED"
+                    elif d_stat["fills_count"] >= self.config.daily_min_goal:
+                        d_stat["status"] = "MINIMUM_MET"
+                else:
+                    # Limit at CE: armed pending order awaiting future bar touch
+                    pending_order = {
+                        "trade_id": f"trade_{len(closed_trades) + 1}",
+                        "armed_at": now_ms,
+                        "valid_until_ms": now_ms + self.config.candidate_ttl_ms,
+                        "direction": cand.direction,
+                        "model_id": cand.model_id,
+                        "planned_entry": cand.planned_entry,
+                        "stop_loss": cand.stop_loss,
+                        "take_profit": cand.take_profit,
+                        "quantity": qty,
+                    }
             elif decision.reason_codes:
                 rejection_funnel.append({
                     "date": date_str,

@@ -336,10 +336,10 @@ def _check_strategy(req: EntryGuardRequest) -> EntryCheck:
                           "Điểm vào chưa xác nhận: đây chỉ là kế hoạch tạm để quan sát, hướng chưa đủ cơ sở xác nhận.",
                           "Chờ hệ thống xác nhận phá vỡ cấu trúc.")
     if state == "READY":
-        if req.strategy_family not in ("STANDARD_SMC", "SMC_M1_REVERSAL", "SMC_M1_CONTINUATION", "SMC_M1_FVG_CONTINUATION", "SMC_M1_SWEEP_RECLAIM", "NY_DAILY_RESEARCH", "NY_QUOTA_PAPER"):
+        if req.strategy_family not in ("STANDARD_SMC", "SMC_M1_REVERSAL", "SMC_M1_CONTINUATION", "SMC_M1_FVG_CONTINUATION", "SMC_M1_SWEEP_RECLAIM", "NY_DAILY_RESEARCH", "NY_QUOTA_PAPER", "CG01_SWEEP_MSS_FVG"):
             return EntryCheck("UNKNOWN_STRATEGY_FAMILY", "BLOCK",
                               f"Chiến lược không được hỗ trợ ({req.strategy_family}).",
-                              "Chỉ hỗ trợ STANDARD_SMC, SMC_M1_REVERSAL, SMC_M1_CONTINUATION, SMC_M1_FVG_CONTINUATION, SMC_M1_SWEEP_RECLAIM, NY_DAILY_RESEARCH, NY_QUOTA_PAPER.")
+                              "Chỉ hỗ trợ STANDARD_SMC, SMC_M1_REVERSAL, SMC_M1_CONTINUATION, SMC_M1_FVG_CONTINUATION, SMC_M1_SWEEP_RECLAIM, NY_DAILY_RESEARCH, NY_QUOTA_PAPER, CG01_SWEEP_MSS_FVG.")
         if req.strategy_family == "STANDARD_SMC":
             from services.smc_scenario_config import active_scenario_config
             if active_scenario_config.certified_smc_entry_enabled:
