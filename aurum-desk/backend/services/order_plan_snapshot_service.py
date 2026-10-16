@@ -23,6 +23,40 @@ from typing import Any, Dict, List, Optional, Sequence
 logger = logging.getLogger("order_plan_snapshot")
 
 
+class OrderPlanSnapshot(dict):
+    """
+    V16.6: Authoritative order financial and plan snapshot representation.
+    Subclasses dict to support both dictionary lookup (snapshot['risk_pct'])
+    and attribute access (snapshot.risk_pct, snapshot.slippage, snapshot.initial_risk_usd).
+    """
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(f"'OrderPlanSnapshot' object has no attribute '{name}'")
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        self[name] = value
+
+
+def parse_order_plan_snapshot(raw: Any) -> Optional[OrderPlanSnapshot]:
+    """Parses raw cost_snapshot (JSON string, dict, or OrderPlanSnapshot) into OrderPlanSnapshot."""
+    if not raw:
+        return None
+    if isinstance(raw, OrderPlanSnapshot):
+        return raw
+    if isinstance(raw, dict):
+        return OrderPlanSnapshot(raw)
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                return OrderPlanSnapshot(parsed)
+        except Exception:
+            return None
+    return None
+
+
 def build_arm_plan_snapshot(
     calc_res: Any,
     *,
@@ -40,7 +74,7 @@ def build_arm_plan_snapshot(
     policy_config_version: int = 1,
     risk_config_version: int = 1,
     slippage_usd: Optional[float] = None,
-) -> Dict[str, Any]:
+) -> OrderPlanSnapshot:
     """Builds canonical frozen financial snapshot at ARM stage."""
     from services.cg01_types import resolve_slippage_usd
     raw_arm_slip = slippage_usd if slippage_usd is not None else getattr(calc_res, "slippage_usd", None)
@@ -66,7 +100,7 @@ def build_arm_plan_snapshot(
     maker_fee_rate = getattr(calc_res, "maker_fee_rate", 0.0002)
     taker_fee_rate = getattr(calc_res, "taker_fee_rate", 0.0004)
 
-    return {
+    return OrderPlanSnapshot({
         "phase": "ARMED_ESTIMATE",
         "pricing_mode": "FROZEN_ORDER",
         "order_type": order_type,
@@ -79,6 +113,7 @@ def build_arm_plan_snapshot(
         "gross_rr": gross_rr,
         "net_rr": net_rr,
         "initial_risk_usdt": net_risk,
+        "initial_risk_usd": net_risk,
         "net_risk_usdt": net_risk,
         "risk_usdt": net_risk,
         "gross_loss_usdt": gross_loss,
@@ -94,8 +129,10 @@ def build_arm_plan_snapshot(
         "slippage_total_usdt": slip_total,
         "maker_fee_rate": maker_fee_rate,
         "taker_fee_rate": taker_fee_rate,
+        "slippage": resolved_arm_slip,
         "slippage_usd": resolved_arm_slip,
         "multiplier": multiplier,
+        "capital_usdt": capital_usdt,
         "equity_usdt": capital_usdt,
         "risk_pct": risk_pct,
         "effective_risk_pct": risk_pct,
@@ -108,7 +145,7 @@ def build_arm_plan_snapshot(
         "risk_config_version": risk_config_version,
         "calculated_at": now_ms,
         "equity_as_of_ms": now_ms,
-    }
+    })
 
 
 def build_fill_plan_snapshot(
@@ -118,7 +155,7 @@ def build_fill_plan_snapshot(
     *,
     now_ms: int,
     cost_source: str = "BITGET_PAPER_MODEL_V10_4",
-) -> Dict[str, Any]:
+) -> OrderPlanSnapshot:
     """Builds canonical frozen financial snapshot at FILL stage, preserving arm refs and legacy keys."""
     qty = getattr(calc_result, "quantity", getattr(order, "quantity", 0.0))
     multiplier = getattr(calc_result, "multiplier", 1.0)
@@ -163,11 +200,14 @@ def build_fill_plan_snapshot(
 
     equity = getattr(order, "capital_usdt", None) or arm_dict.get("equity_usdt") or 1000.0
 
-    return {
+    risk_pct_val = getattr(order, "risk_pct", None) if getattr(order, "risk_pct", None) is not None else arm_dict.get("risk_pct")
+
+    return OrderPlanSnapshot({
         # Legacy keys required by exit monitor and lifecycle calculators
         "phase": "FILLED_ESTIMATE",
         "maker_fee_rate": maker_fee_rate,
         "taker_fee_rate": taker_fee_rate,
+        "slippage": resolved_fill_slip,
         "slippage_usd": resolved_fill_slip,
         "tp_slippage_usd": tp_slip_usd,
         "multiplier": multiplier,
@@ -193,14 +233,16 @@ def build_fill_plan_snapshot(
         "gross_rr": gross_rr,
         "net_rr": net_rr,
         "initial_risk_usdt": net_risk,
+        "initial_risk_usd": net_risk,
         "net_risk_usdt": net_risk,
         "risk_usdt": net_risk,
         "gross_loss_usdt": gross_loss,
         "gross_reward_usdt": gross_reward,
         "net_reward_usdt": net_reward,
+        "capital_usdt": equity,
         "equity_usdt": equity,
-        "risk_pct": getattr(order, "risk_pct", None) or arm_dict.get("risk_pct"),
-        "effective_risk_pct": getattr(order, "effective_risk_pct", None) or arm_dict.get("effective_risk_pct"),
+        "risk_pct": risk_pct_val,
+        "effective_risk_pct": getattr(order, "effective_risk_pct", None) if getattr(order, "effective_risk_pct", None) is not None else arm_dict.get("effective_risk_pct"),
         "leverage": getattr(calc_result, "leverage", getattr(order, "leverage", 5)),
         "margin_mode": getattr(calc_result, "margin_mode", getattr(order, "margin_mode", "ISOLATED")),
         "initial_margin_usdt": getattr(calc_result, "initial_margin_usdt", None),
@@ -210,7 +252,7 @@ def build_fill_plan_snapshot(
         "risk_config_version": getattr(order, "config_version", 1),
         "calculated_at": now_ms,
         "equity_as_of_ms": getattr(order, "opened_at", None) or now_ms,
-    }
+    })
 
 
 def select_bound_order_for_setup(

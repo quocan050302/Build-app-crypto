@@ -61,20 +61,41 @@ class ReplayBar:
 
 
 def compute_equity_mark(cash: float, open_position: Optional[Dict[str, Any]], current_price: float) -> float:
-    """Rule 176: Computes MTM Equity = cash + unrealized PnL."""
+    """Rule 176 & V16.6: Computes MTM Equity = cash - entry_fees_of_open_positions + unrealized PnL."""
     if not open_position:
-        return cash
+        return round(cash, 4)
 
     direction = open_position["direction"]
     entry_price = open_position["entry_price"]
     qty = open_position["quantity"]
+    entry_fee = float(open_position.get("entry_fee_usdt", 0.0))
 
     if direction == "LONG":
         unrealized = qty * (current_price - entry_price)
     else:
         unrealized = qty * (entry_price - current_price)
 
-    return round(cash + unrealized, 4)
+    return round(cash - entry_fee + unrealized, 4)
+
+
+def _is_in_ny_session(ts_val: Any) -> bool:
+    """
+    V16.6: Authoritative NY session validator based on execution timestamp.
+    Checks if timestamp falls within standard NY session (08:00 - 17:00 America/New_York).
+    """
+    if ts_val is None:
+        return False
+    ny_tz = ZoneInfo("America/New_York")
+    if isinstance(ts_val, (int, float)):
+        sec = ts_val / 1000.0 if ts_val > 1e11 else float(ts_val)
+        dt_ny = datetime.fromtimestamp(sec, tz=ny_tz)
+    elif isinstance(ts_val, datetime):
+        dt_ny = ts_val.astimezone(ny_tz) if ts_val.tzinfo else ts_val.replace(tzinfo=ny_tz)
+    else:
+        return False
+
+    total_minutes = dt_ny.hour * 60 + dt_ny.minute
+    return (8 * 60 <= total_minutes < 17 * 60)
 
 
 class CG01ReplayDriver:
@@ -89,12 +110,14 @@ class CG01ReplayDriver:
         initial_capital: float = 1000.0,
         risk_pct: float = 0.25,
         costs: Optional[CostAssumptions] = None,
+        setup_hook: Optional[Callable[[Any, Any], None]] = None,
     ):
         self.m1_dataset_path = m1_dataset_path
         self.config = config or CG01Config(enabled=True, profile_mode="PAPER_EXECUTION")
         self.initial_capital = initial_capital
         self.risk_pct = risk_pct
         self.costs = costs or CostAssumptions()
+        self.setup_hook = setup_hook
 
     def run(self) -> Dict[str, Any]:
         """
@@ -355,6 +378,9 @@ class CG01ReplayDriver:
             risk_pct=self.risk_pct,
         )
 
+        if self.setup_hook:
+            self.setup_hook(adapter, lab_db)
+
         ny_tz = ZoneInfo("America/New_York")
         daily_stats: Dict[str, Dict[str, Any]] = {}
         equity_mtm_series: List[Dict[str, Any]] = []
@@ -383,13 +409,15 @@ class CG01ReplayDriver:
                     "shortfall_reason": "SEARCHING" if is_weekday else "WEEKEND_MARKET_CLOSED",
                 }
 
-            # 1. on_quote: process ticks against open position & pending orders
+            # 1. on_quote: process ticks against open position & pending orders via intrabar simulation
             quote_tick_event = {
                 "timestamp": now_ms,
-                "bid": round(current_bar.close - 0.05, 2),
-                "ask": round(current_bar.close + 0.05, 2),
+                "open": current_bar.open,
                 "high": current_bar.high,
                 "low": current_bar.low,
+                "close": current_bar.close,
+                "bid": round(current_bar.close - 0.05, 2),
+                "ask": round(current_bar.close + 0.05, 2),
                 "bar_open_time": current_bar.open_time,
                 "bar_duration_ms": 60_000,
             }
@@ -421,12 +449,23 @@ class CG01ReplayDriver:
             }
             adapter.on_bar_close(bar_event)
 
-            # 3. Track state snapshot for MTM series
+            # 3. Track state snapshot for MTM series & Daily Stats Delta
             interim = adapter.collect_state()
             d_stat = daily_stats[date_str]
-            d_stat["fills_count"] = interim["total_fills"]
-            if 10 <= dt_ny.hour < 11:
-                d_stat["ny_fills"] = d_stat["fills_count"]
+
+            # V16.6: Compute day bounds in NY time and count true daily delta
+            d_start_dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=ny_tz)
+            d_start_ms = int(d_start_dt.timestamp() * 1000)
+            d_end_ms = d_start_ms + 86_400_000
+
+            all_orders_curr = lab_db.query(models.PaperOrder).all()
+            day_filled_orders = [
+                o for o in all_orders_curr
+                if o.opened_at is not None and d_start_ms <= o.opened_at < d_end_ms
+            ]
+            d_stat["fills_count"] = len(day_filled_orders)
+            d_stat["ny_fills"] = sum(1 for o in day_filled_orders if _is_in_ny_session(o.opened_at))
+
             if d_stat["fills_count"] >= self.config.daily_max_cap:
                 d_stat["status"] = "CAP_REACHED"
             elif d_stat["fills_count"] >= self.config.daily_min_goal:
@@ -447,6 +486,27 @@ class CG01ReplayDriver:
             })
 
         final_report = adapter.collect_state()
+
+        # V16.6 Final Daily Stats Reconciliation across all days
+        final_orders = lab_db.query(models.PaperOrder).all()
+        for d_key, d_stat in daily_stats.items():
+            d_start_dt = datetime.strptime(d_key, "%Y-%m-%d").replace(tzinfo=ny_tz)
+            d_start_ms = int(d_start_dt.timestamp() * 1000)
+            d_end_ms = d_start_ms + 86_400_000
+
+            day_filled = [
+                o for o in final_orders
+                if o.opened_at is not None and d_start_ms <= o.opened_at < d_end_ms
+            ]
+            d_stat["fills_count"] = len(day_filled)
+            d_stat["ny_fills"] = sum(1 for o in day_filled if _is_in_ny_session(o.opened_at))
+            if d_stat["fills_count"] >= self.config.daily_max_cap:
+                d_stat["status"] = "CAP_REACHED"
+            elif d_stat["fills_count"] >= self.config.daily_min_goal:
+                d_stat["status"] = "MINIMUM_MET"
+            else:
+                d_stat["status"] = "SEARCHING" if d_stat.get("is_market_day", True) else "WEEKEND"
+
         adapter.finalize_run()
 
         final_report["reason"] = "OK"
@@ -454,9 +514,23 @@ class CG01ReplayDriver:
         final_report["equity_mtm"] = equity_mtm_series
         final_report["equity_realized"] = equity_realized_series
         final_report["rejection_funnel"] = rejection_funnel
-        if final_report["closed_trades_count"] > 0:
+
+        # V16.6: Max drawdown computed directly from MTM series (never None if series is present)
+        if equity_mtm_series:
+            peak_val = self.initial_capital
+            calc_dd = 0.0
+            for pt in equity_mtm_series:
+                eq_val = pt["mtm_equity"]
+                if eq_val > peak_val:
+                    peak_val = eq_val
+                if peak_val > 0:
+                    pt_dd = ((peak_val - eq_val) / peak_val) * 100.0
+                    if pt_dd > calc_dd:
+                        calc_dd = pt_dd
+            final_report["metrics"]["max_drawdown_pct"] = round(calc_dd, 2)
+        elif final_report["closed_trades_count"] > 0:
             final_report["metrics"]["max_drawdown_pct"] = round(max_dd_pct, 2)
         else:
-            final_report["metrics"]["max_drawdown_pct"] = None
+            final_report["metrics"]["max_drawdown_pct"] = 0.0
 
         return final_report

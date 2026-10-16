@@ -107,6 +107,17 @@ class PaperOrder(Base):
     quality_snapshot_id = Column(String(80), nullable=True, index=True)
     # V11 Lab/Replay transient sizing policy override (not mapped to DB column to preserve zero-migration DB integrity)
     resize_policy = None
+    # V16.6 Intrabar execution ambiguity flag
+    intrabar_ambiguous = Column(Boolean, default=False)
+
+    @property
+    def filled_at(self):
+        return self.opened_at
+
+    @property
+    def snapshot(self):
+        from services.order_plan_snapshot_service import parse_order_plan_snapshot
+        return parse_order_plan_snapshot(self.cost_snapshot)
 
 
 

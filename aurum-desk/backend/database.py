@@ -76,7 +76,10 @@ def run_schema_migrations(target_engine=None):
                     ("scenario_snapshot_id", "VARCHAR(80)"),
                     ("quality_snapshot_id", "VARCHAR(80)"),
                 ]
-                for col_name, col_type in (v6_cols + v7_cols + v10_1_cols + v14_4_po_cols):
+                v16_6_po_cols = [
+                    ("intrabar_ambiguous", "BOOLEAN DEFAULT 0"),
+                ]
+                for col_name, col_type in (v6_cols + v7_cols + v10_1_cols + v14_4_po_cols + v16_6_po_cols):
                     if col_name not in cols:
                         conn.execute(text(f"ALTER TABLE paper_orders ADD COLUMN {col_name} {col_type}"))
                 conn.commit()

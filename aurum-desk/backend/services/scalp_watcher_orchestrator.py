@@ -593,7 +593,7 @@ class ScalpWatcherOrchestrator:
 
         policy_dict = {
             "capital_usdt": float(audit.current_equity if audit else 1000.0),
-            "risk_pct": float(g_settings.risk_pct),
+            "risk_pct": float(getattr(cfg, "fallback_risk_pct", None) if getattr(cfg, "fallback_risk_pct", None) is not None else g_settings.risk_pct),
             "leverage": int(g_settings.requested_leverage),
             "margin_mode": str(g_settings.margin_mode),
             "max_daily_trades": getattr(policy, "max_daily_fills", 3) if policy else 3,
@@ -828,9 +828,11 @@ class ScalpWatcherOrchestrator:
                     daily_ny_goal=eff_daily.ny_goal,
                 )
             closed_ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m}
+            costs_to_pass = getattr(cg01_cfg, "costs", None) or getattr(cfg, "costs", None)
             cg01_dec = evaluate_cg01_candidate(
                 closed_ctx, q, config=cg01_cfg, now_ms=t_recv,
                 capital=policy_dict["capital_usdt"], risk_pct=policy_dict["risk_pct"],
+                costs=costs_to_pass,
             )
             if cg01_dec.candidate:
                 candidates.append(cg01_dec.candidate)
@@ -1373,6 +1375,9 @@ class ScalpWatcherOrchestrator:
 
         from services.order_plan_snapshot_service import build_arm_plan_snapshot
         cand_slip = getattr(calc, "slippage_usd", None)
+        if cand_slip is None and getattr(cfg, "cg01_config", None):
+            cand_slip = getattr(cfg.cg01_config, "slippage_usd", None)
+        effective_risk = policy_settings.get("risk_pct") if policy_settings.get("risk_pct") is not None else float(getattr(calc, "effective_risk_pct", cfg.fallback_risk_pct))
         arm_snap = build_arm_plan_snapshot(
             calc,
             order_type=resolved_order_type,
@@ -1381,7 +1386,7 @@ class ScalpWatcherOrchestrator:
             stop_loss=cand.stop_loss,
             take_profit=cand.take_profit,
             capital_usdt=policy_settings.get("capital_usdt", 1000.0),
-            risk_pct=float(getattr(calc, "effective_risk_pct", cfg.fallback_risk_pct)),
+            risk_pct=effective_risk,
             leverage=calc.leverage,
             margin_mode=calc.margin_mode,
             now_ms=now_ms,
@@ -1409,7 +1414,7 @@ class ScalpWatcherOrchestrator:
             take_profit=cand.take_profit,
             quantity=qty,
             initial_risk_usdt=float(calc.net_risk_usdt),
-            risk_pct=float(getattr(calc, "effective_risk_pct", cfg.fallback_risk_pct)),
+            risk_pct=effective_risk,
             gross_rr=float(calc.gross_rr),
             estimated_net_rr=float(calc.net_rr),
             leverage=calc.leverage,

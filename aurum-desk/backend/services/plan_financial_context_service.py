@@ -83,17 +83,22 @@ def load_plan_financial_context(
     equity_as_of = int(audit_as_of) if (audit_as_of is not None and audit_as_of > 0) else current_ms
 
     settings = risk_settings_service.get_settings(db)
-    risk_pct = float(settings.risk_pct) if settings.risk_pct else 0.25
-    leverage = int(settings.requested_leverage) if settings.requested_leverage else 5
+    risk_pct = float(settings.risk_pct) if settings.risk_pct is not None else 0.25
+    leverage = int(settings.requested_leverage) if settings.requested_leverage is not None else 5
     margin_mode = str(settings.margin_mode or "ISOLATED")
-    risk_config_version = int(settings.config_version) if settings.config_version else 1
+    risk_config_version = int(settings.config_version) if settings.config_version is not None else 1
     instrument_ver = str(settings.metadata_version or "XAUUSDT-paper-v1")
 
     # Read policy min_net_rr
     policy = db.query(models.TradingPolicy).filter(models.TradingPolicy.id == "default").first()
     min_net_rr = float(policy.min_net_rr) if policy and policy.min_net_rr is not None else 2.0
 
-    costs = CostAssumptions()
+    slip_row = db.query(models.SystemConfig).filter(models.SystemConfig.key.in_(["default_slippage", "slippage", "slippage_usd"])).first()
+    custom_slippage = float(slip_row.value) if (slip_row and slip_row.value is not None) else None
+
+    costs = CostAssumptions(
+        slippage_usd=custom_slippage if custom_slippage is not None else 0.10
+    )
     cost_version = "v14.4_standard_costs"
 
     ctx = PlanFinancialContext(
