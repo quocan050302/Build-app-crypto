@@ -55,14 +55,36 @@ class CG01MissedOpportunityAuditService:
         eval_records: Sequence[Dict[str, Any]],
     ) -> str:
         """
-        Appendix B & Rules 027, 142-144: Returns 'TOUCHED', 'NOT_TOUCHED', or 'UNVERIFIABLE'
-        based on quote tape coverage in the validity window.
+        Appendix B & Rules 027, 122-124: Returns 'TOUCHED', 'NOT_TOUCHED', or 'UNVERIFIABLE'
+        based on quote tape coverage and executable price touch in the validity window.
         """
-        if order and order.get("quote_coverage_verified") is True:
-            return "NOT_TOUCHED"
-        if any(e.get("quote_coverage_verified") is True for e in eval_records):
-            return "NOT_TOUCHED"
-        return "UNVERIFIABLE"
+        order_cov = order.get("quote_coverage_verified") if order else None
+        eval_cov = any(e.get("quote_coverage_verified") is True for e in eval_records)
+        has_coverage = (order_cov is True) or eval_cov
+        if not has_coverage:
+            return "UNVERIFIABLE"
+
+        # Check for price touch facts (Rule 124: Long check ask, Short check bid)
+        is_touched = False
+        if order:
+            if order.get("touched") is True:
+                is_touched = True
+            direction = str(order.get("direction") or "").upper()
+            planned_entry = order.get("planned_entry")
+            if planned_entry is not None:
+                if direction == "LONG" and order.get("lowest_ask") is not None:
+                    if float(order["lowest_ask"]) <= float(planned_entry):
+                        is_touched = True
+                elif direction == "SHORT" and order.get("highest_bid") is not None:
+                    if float(order["highest_bid"]) >= float(planned_entry):
+                        is_touched = True
+
+        for e in eval_records:
+            if e.get("touched") is True:
+                is_touched = True
+                break
+
+        return "TOUCHED" if is_touched else "NOT_TOUCHED"
 
     @classmethod
     def classify_opportunity(
@@ -194,16 +216,19 @@ class CG01MissedOpportunityAuditService:
                 notes=f"Intentional policy block enforced by protective guards: {reason}.",
             )
 
-        # 4. Rules 027, 097, 142-144: Expired order check with quote coverage requirement
+        # 4. Rules 026, 027, 097, 121, 142-144: Expired order check with quote coverage requirement
         if OpportunityStage.EXPIRED.value in all_stages or order_state == "expired":
-            has_gap = (
-                quote_coverage_verified is False
-                or (order and order.get("quote_coverage_verified") is False)
-                or any(e.get("quote_coverage_verified") is False for e in sorted_evals)
-                or (order and order.get("has_quote_coverage") is False)
-                or any(e.get("has_quote_coverage") is False for e in sorted_evals)
-            )
-            if has_gap:
+            cov = quote_coverage_verified
+            if cov is None and order:
+                cov = order.get("quote_coverage_verified")
+            if cov is None and sorted_evals:
+                for e in sorted_evals:
+                    if "quote_coverage_verified" in e and e["quote_coverage_verified"] is not None:
+                        cov = e["quote_coverage_verified"]
+                        break
+
+            # Rule 121: Missing coverage (None or not True) MUST be UNVERIFIABLE / DATA_GAP
+            if cov is not True:
                 return OpportunityAuditRecord(
                     opportunity_id=opp_id,
                     symbol=symbol,
@@ -218,19 +243,36 @@ class CG01MissedOpportunityAuditService:
                     notes="Expired without complete quote tape coverage to verify non-fill.",
                 )
             else:
-                return OpportunityAuditRecord(
-                    opportunity_id=opp_id,
-                    symbol=symbol,
-                    direction=direction,
-                    as_of_ms=as_of_ms,
-                    terminal_stage=OpportunityStage.EXPIRED.value,
-                    classification="MARKET_NON_FILL",
-                    miss_reason="ENTRY_NEVER_TOUCHED",
-                    evidence_ids=evidence_ids,
-                    timestamps=timestamps,
-                    price_levels=price_levels,
-                    notes="Verified with quote coverage: market price never touched planned entry before expiry.",
-                )
+                # With verified coverage, check if touch was observed (Rule 027, 122)
+                touch_verdict = cls.verify_entry_touch_coverage(order, sorted_evals)
+                if touch_verdict == "TOUCHED":
+                    return OpportunityAuditRecord(
+                        opportunity_id=opp_id,
+                        symbol=symbol,
+                        direction=direction,
+                        as_of_ms=as_of_ms,
+                        terminal_stage=OpportunityStage.EXPIRED.value,
+                        classification="UNVERIFIABLE",
+                        miss_reason="TOUCHED_BUT_EXPIRED",
+                        evidence_ids=evidence_ids,
+                        timestamps=timestamps,
+                        price_levels=price_levels,
+                        notes="Quote tape confirmed entry price was touched before expiry.",
+                    )
+                else:
+                    return OpportunityAuditRecord(
+                        opportunity_id=opp_id,
+                        symbol=symbol,
+                        direction=direction,
+                        as_of_ms=as_of_ms,
+                        terminal_stage=OpportunityStage.EXPIRED.value,
+                        classification="MARKET_NON_FILL",
+                        miss_reason="ENTRY_NEVER_TOUCHED",
+                        evidence_ids=evidence_ids,
+                        timestamps=timestamps,
+                        price_levels=price_levels,
+                        notes="Verified with quote coverage: market price never touched planned entry before expiry.",
+                    )
 
         # 5. Technical / Latency Misses (Rules 028, 145, 146)
         is_runaway = (
@@ -358,9 +400,7 @@ class CG01MissedOpportunityAuditService:
                     models.PaperOrder.id.in_(linked_order_ids)
                 ).all()
             else:
-                db_orders = db.query(models.PaperOrder).filter(
-                    models.PaperOrder.origin.in_(["AUTO_STRATEGY", "CG01", run_id])
-                ).all()
+                db_orders = []
 
             for o in db_orders:
                 od = {

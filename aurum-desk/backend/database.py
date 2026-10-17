@@ -409,6 +409,20 @@ def run_schema_migrations(target_engine=None):
             conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_run_order ON paper_research_order_links (run_id, order_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_order_run ON paper_research_order_links (run_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_order_order ON paper_research_order_links (order_id);"))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS paper_research_order_milestones (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    run_id VARCHAR(80) NOT NULL,
+                    order_id VARCHAR(36) NOT NULL,
+                    milestone VARCHAR(30) NOT NULL,
+                    timestamp_ms BIGINT NOT NULL,
+                    payload_json TEXT,
+                    created_at_ms BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_run_order_milestone ON paper_research_order_milestones (run_id, order_id, milestone);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_milestone_run ON paper_research_order_milestones (run_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_milestone_order ON paper_research_order_milestones (order_id);"))
 
             conn.commit()
     except Exception:

@@ -344,6 +344,7 @@ class CG01EvaluationScheduler:
             # Rule 096: Associate trace and order with active research run
             from services.paper_research_run_service import (
                 associate_order_with_research_run,
+                record_committed_order_milestone,
                 PaperResearchRunService,
             )
             act_run = PaperResearchRunService.get_or_create_run(symbol=symbol, scope="CG01", db=db)
@@ -366,6 +367,14 @@ class CG01EvaluationScheduler:
                         opportunity_id=f"opp_{trace.candidate_key}" if trace.candidate_key else None,
                         trace_id=trace_id,
                         now_ms=trace.armed_at or t_done,
+                    )
+                    record_committed_order_milestone(
+                        db=db,
+                        run_id=act_run.run_id,
+                        order_id=trace.armed_order_id,
+                        milestone="ARMED",
+                        timestamp_ms=trace.armed_at or t_done,
+                        payload={"candidate_key": trace.candidate_key},
                     )
 
             trace.evaluation_status = cycle_result.get("status", "COMPLETED")

@@ -1680,6 +1680,23 @@ class ScalpWatcherOrchestrator:
             db=db,
             occurred_at=now_ms,
         )
+        # V16.16: Record ARMED milestone for linked research runs (Rules 028, 092, 095)
+        try:
+            from services.paper_research_run_service import record_committed_order_milestone
+            run_links = db.query(models.PaperResearchOrderLink).filter(
+                models.PaperResearchOrderLink.order_id == order.id
+            ).all()
+            for rlink in run_links:
+                record_committed_order_milestone(
+                    db=db,
+                    run_id=rlink.run_id,
+                    order_id=order.id,
+                    milestone="ARMED",
+                    timestamp_ms=now_ms,
+                    payload={"planned_entry": cand.planned_entry, "stop_loss": cand.stop_loss, "take_profit": cand.take_profit},
+                )
+        except Exception as ms_err:
+            logger.warning(f"Failed to record ARMED milestone for order {order.id}: {ms_err}")
 
         return order
     async def run_watcher_loop(self):
@@ -1691,10 +1708,18 @@ class ScalpWatcherOrchestrator:
                 def _eval():
                     db = SessionLocal()
                     try:
-                        from services.cg01_scheduler_service import cg01_evaluation_scheduler
-                        # Rule 070, 165: If scheduler is active execution owner, periodic watcher acts as watchdog
-                        watcher_auto = False if cg01_evaluation_scheduler.is_owner else None
-                        self.evaluate_cycle(db, "XAUUSDT", auto_enabled=watcher_auto)
+                        from services.cg01_scheduler_service import (
+                            cg01_evaluation_scheduler,
+                            resolve_entry_execution_owner,
+                        )
+                        # Rules 014, 024, 025, 051-055: Use effective owner arbitration instead of raw is_owner
+                        owner_info = resolve_entry_execution_owner(cg01_evaluation_scheduler, db=db)
+                        if owner_info["execution_owner"] == "SCHEDULER":
+                            # Rule 055: Scheduler is active execution owner; watcher acts strictly as watchdog
+                            # and does not run competing mutable production evaluation cycles.
+                            return
+                        # Watcher is effective execution owner:
+                        self.evaluate_cycle(db, "XAUUSDT", auto_enabled=owner_info["can_execute"])
                     finally:
                         db.close()
                 await asyncio.to_thread(_eval)

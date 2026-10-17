@@ -57,7 +57,7 @@ class PaperResearchRunService:
     @classmethod
     def get_or_create_run(
         cls,
-        run_id: str = "run_cg01_v16_15_default",
+        run_id: Optional[str] = "run_cg01_v16_15_default",
         symbol: str = "XAUUSDT",
         execution_mode: str = "PAPER_SHADOW",
         initial_capital: float = 1000.0,
@@ -69,17 +69,17 @@ class PaperResearchRunService:
         """
         Rules 081, 084, 089: Load run from DB first to survive restarts.
         Create only if explicitly requested, preventing fictitious runs on GET queries.
+        Uses db.flush(), never committing caller's transaction prematurely (Rule 031, 032).
         """
+        t_now = int(time.time() * 1000)
+        actual_run_id = run_id or f"run_{scope.lower()}_{symbol.lower()}_{t_now}"
         cap = initial_capital_usdt if initial_capital_usdt is not None else initial_capital
-        # 1. In-memory cache
-        if run_id in cls._active_runs:
-            return cls._active_runs[run_id]
 
-        # 2. Database persistent record lookup
+        # 1. Database persistent record lookup (DB is authority, Rule 041)
         if db is not None:
             try:
                 row = db.query(models.PaperResearchRunRecord).filter(
-                    models.PaperResearchRunRecord.run_id == run_id
+                    models.PaperResearchRunRecord.run_id == actual_run_id
                 ).first()
                 if row:
                     run = PaperResearchRun(
@@ -93,19 +93,20 @@ class PaperResearchRunService:
                         execution_mode=row.execution_mode,
                         initial_capital_usdt=row.initial_capital_usdt,
                     )
-                    cls._active_runs[run_id] = run
+                    cls._active_runs[actual_run_id] = run
                     return run
             except Exception as e:
                 logger.warning(f"Error querying PaperResearchRunRecord: {e}")
+        elif actual_run_id in cls._active_runs:
+            return cls._active_runs[actual_run_id]
 
-        # 3. Create new run if requested
+        # 2. Create new run if requested
         if not create_if_missing:
             return None
 
-        t_now = int(time.time() * 1000)
-        version = "V16.14" if "v16_14" in run_id.lower() else "V16.15"
+        version = "V16.14" if "v16_14" in actual_run_id.lower() else ("V16.15" if "v16_15" in actual_run_id.lower() else "V16.16")
         run = PaperResearchRun(
-            run_id=run_id,
+            run_id=actual_run_id,
             symbol=symbol,
             execution_mode=execution_mode,
             initial_capital_usdt=cap,
@@ -113,7 +114,6 @@ class PaperResearchRunService:
             software_version=version,
             config_fingerprint=f"CG01_DEFAULT_{version.replace('.', '_')}",
         )
-        cls._active_runs[run_id] = run
 
         if db is not None:
             try:
@@ -132,10 +132,11 @@ class PaperResearchRunService:
                     updated_at_ms=t_now,
                 )
                 db.add(rec)
-                db.commit()
+                db.flush()
             except Exception as e:
                 logger.warning(f"Error persisting PaperResearchRunRecord: {e}")
 
+        cls._active_runs[actual_run_id] = run
         return run
 
     @classmethod
@@ -153,10 +154,16 @@ class PaperResearchRunService:
                         row.status = "COMPLETED"
                         row.ended_at_ms = run.ended_at_ms
                         row.updated_at_ms = run.ended_at_ms
-                        db.commit()
+                        db.flush()
                 except Exception as e:
                     logger.warning(f"Error updating completed PaperResearchRunRecord: {e}")
         return run
+
+
+def complete_run(run_id: str, db: Optional[Session] = None) -> Optional[PaperResearchRun]:
+    """Module-level wrapper for PaperResearchRunService.complete_run (Rule 033)."""
+    return PaperResearchRunService.complete_run(run_id, db=db)
+
 
 
 def associate_order_with_research_run(
@@ -178,6 +185,15 @@ def associate_order_with_research_run(
             models.PaperResearchOrderLink.order_id == order_id,
         ).first()
         if existing:
+            updated = False
+            if trace_id and not existing.trace_id:
+                existing.trace_id = trace_id
+                updated = True
+            if opportunity_id and not existing.opportunity_id:
+                existing.opportunity_id = opportunity_id
+                updated = True
+            if updated:
+                db.flush()
             return True
 
         link = models.PaperResearchOrderLink(
@@ -241,7 +257,24 @@ def build_cg01_paper_run_summary(
     - Latency percentiles (Rule 128).
     - Opportunity funnel & top bottlenecks (Rule 127, 129).
     """
-    run = PaperResearchRunService.get_or_create_run(run_id, db=db, create_if_missing=True)
+    run = PaperResearchRunService.get_or_create_run(run_id, db=db, create_if_missing=False)
+    if run is None:
+        if synthetic_trades is not None:
+            t_now = int(time.time() * 1000)
+            run = PaperResearchRun(
+                run_id=run_id,
+                symbol="XAUUSDT",
+                status="COLLECTING",
+                started_at_ms=t_now - 3600000,
+            )
+        else:
+            return {
+                "status": "NOT_FOUND",
+                "run_id": run_id,
+                "error": f"Research run {run_id} not found",
+                "total_trades": 0,
+                "net_pnl_usd": 0.0,
+            }
     t_now = int(time.time() * 1000)
     dur_ms = max(1, (run.ended_at_ms or t_now) - run.started_at_ms)
     dur_hours = round(dur_ms / (1000.0 * 3600.0), 2)
@@ -358,6 +391,14 @@ def build_cg01_paper_run_summary(
     # 4. Missed Opportunity Audit (Rule 127, 129)
     audit_summary = CG01MissedOpportunityAuditService.audit_run(run_id=run.run_id, db=db)
 
+    # Data coverage grounded in actual trace recordings (Rule 119)
+    recent_traces = cg01_trace_recorder.get_recent_traces(limit=500) if hasattr(cg01_trace_recorder, "get_recent_traces") else []
+    run_traces = [t for t in recent_traces if getattr(t, "run_id", None) == run.run_id]
+    coverage_summary = build_run_coverage_summary(run, run_traces)
+
+    armed_list = [t for t in open_trades_list if str(t.get("state") or "").lower() == "armed"]
+    open_pos_list = [t for t in open_trades_list if str(t.get("state") or "").lower() in ("paper_open", "open", "filled")]
+
     summary = {
         "run_id": run.run_id,
         "symbol": run.symbol,
@@ -367,12 +408,14 @@ def build_cg01_paper_run_summary(
         "execution_mode": run.execution_mode,
         "duration_hours": dur_hours,
         "data_coverage": {
-            "uptime_pct": 100.0,
-            "data_gaps_count": 0,
+            "uptime_pct": coverage_summary.get("uptime_pct"),
+            "data_gaps_count": coverage_summary.get("data_gaps_count", 0),
+            "coverage_state": coverage_summary.get("coverage_state", run.status),
         },
         "trades": {
             "total_closed_trades": total_closed,
-            "open_trades_count": len(open_trades_list),
+            "open_trades_count": len(open_pos_list),
+            "armed_orders_count": len(armed_list),
             "winning_trades": wins,
             "losing_trades": losses,
             "breakeven_trades": breakevens,
@@ -489,8 +532,10 @@ def start_observation_run(
     Appendix B & Rules 085-087: Explicitly start an observation run into COLLECTING state.
     Does NOT modify global auto, risk, margin, or account balance.
     """
+    t_now = int(time.time() * 1000)
+    actual_run_id = run_id or f"run_{scope.lower()}_{symbol.lower()}_{t_now}"
     run = PaperResearchRunService.get_or_create_run(
-        run_id=run_id,
+        run_id=actual_run_id,
         symbol=symbol,
         scope=scope,
         initial_capital_usdt=initial_capital_usdt,
@@ -506,7 +551,7 @@ def start_observation_run(
         if rec:
             rec.status = "COLLECTING"
             rec.config_fingerprint = config_fingerprint
-            db.commit()
+            db.flush()
     return run
 
 
@@ -608,6 +653,7 @@ def record_committed_order_milestone(
     """
     t_now = timestamp_ms or int(time.time() * 1000)
     try:
+        # 1. Ensure link exists
         link = db.query(models.PaperResearchOrderLink).filter(
             models.PaperResearchOrderLink.run_id == run_id,
             models.PaperResearchOrderLink.order_id == order_id,
@@ -620,7 +666,124 @@ def record_committed_order_milestone(
             )
             db.add(link)
             db.flush()
+
+        # 2. Persist milestone fact idempotently (Rules 028, 095)
+        existing_ms = db.query(models.PaperResearchOrderMilestone).filter(
+            models.PaperResearchOrderMilestone.run_id == run_id,
+            models.PaperResearchOrderMilestone.order_id == order_id,
+            models.PaperResearchOrderMilestone.milestone == milestone,
+        ).first()
+        if not existing_ms:
+            ms_rec = models.PaperResearchOrderMilestone(
+                run_id=run_id,
+                order_id=order_id,
+                milestone=milestone,
+                timestamp_ms=t_now,
+                payload_json=json.dumps(payload, ensure_ascii=False) if payload else None,
+                created_at_ms=t_now,
+            )
+            db.add(ms_rec)
+            db.flush()
+
         return True
     except Exception as e:
         logger.warning(f"Error recording milestone {milestone} for order {order_id} in run {run_id}: {e}")
         return False
+
+
+def generate_runtime_paper_report_content(
+    run_id: str,
+    db: Optional[Session] = None,
+    scheduler: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """
+    Appendix A #12 & Rules 029, 141-146: Generate truthful forward paper report grounded in DB and worker health.
+    Never asserts 'running continuously' when worker is stopped or no heartbeat.
+    """
+    # 1. Fetch run from DB without creating
+    run = PaperResearchRunService.get_or_create_run(run_id, db=db, create_if_missing=False)
+    if not run:
+        return {
+            "status": "NOT_FOUND",
+            "run_id": run_id,
+            "markdown": f"# CG-01 Paper Run Status\n\nRun `{run_id}` was not found in persistence records.",
+            "operational_status": "NOT_FOUND",
+            "total_closed_trades": 0,
+        }
+
+    # 2. Worker health
+    sched = scheduler
+    if sched is None:
+        try:
+            from services.cg01_scheduler_service import cg01_evaluation_scheduler
+            sched = cg01_evaluation_scheduler
+        except Exception:
+            pass
+
+    health = sched.get_health_snapshot() if sched else {"worker_status": "UNKNOWN", "running": False}
+    worker_running = health.get("running", False)
+
+    # 3. Build summary
+    summary = build_cg01_paper_run_summary(run_id, db=db)
+    tr = summary.get("trades", {})
+    fin = summary.get("financial_metrics_post_fee", {})
+    cov = summary.get("data_coverage", {})
+
+    # Evaluate true operational status
+    if not worker_running or health.get("worker_status") == "STOPPED":
+        operational_status = "STOPPED"
+        obs_notice = "Observation worker is currently STOPPED. Forward evaluation is paused."
+    elif run.status == "COMPLETED":
+        operational_status = "COMPLETED"
+        obs_notice = "Observation run has completed."
+    elif run.status == "PAUSED":
+        operational_status = "PAUSED"
+        obs_notice = "Observation run is paused."
+    elif cov.get("coverage_state") == "NO_TELEMETRY":
+        operational_status = "COLLECTING_INITIALIZING"
+        obs_notice = "Worker is active; waiting for initial telemetry samples from the live market."
+    else:
+        operational_status = run.status
+        obs_notice = "Forward observation is active in the live market."
+
+    total_closed = tr.get("total_closed_trades", 0)
+    winrate_disp = f"{tr.get('winrate_pct')}%" if tr.get('winrate_pct') is not None else "N/A (0 closed trades)"
+
+    lines = [
+        f"# V16.16 CG-01 Paper Run Status & Measurement Report",
+        "",
+        "## 1. Run Metadata & Operational State",
+        f"- **Run ID**: `{run.run_id}`",
+        f"- **Software Version**: `{run.software_version}`",
+        f"- **Deployment Scope**: `{run.symbol}`",
+        f"- **Run Status**: `{run.status}`",
+        f"- **Worker Health**: `{health.get('worker_status', 'UNKNOWN')}` (running: {worker_running})",
+        f"- **Operational Status**: `{operational_status}`",
+        f"- **Execution Mode**: `{run.execution_mode}` (Strictly respect user auto authority)",
+        f"- **Persistence Authority**: `SQLite: paper_research_run_records`",
+        "",
+        "## 2. Forward Data Collection Status",
+        f"- {obs_notice}",
+        f"- Observed duration: {summary.get('duration_hours', 0.0)} hours",
+        f"- Uptime: {cov.get('uptime_pct', 'N/A')}% | Data gaps: {cov.get('data_gaps_count', 0)}",
+        f"- Verified closed trades: {total_closed}",
+        f"- Open positions: {tr.get('open_trades_count', 0)} | Armed orders: {tr.get('armed_orders_count', 0)}",
+        "",
+        "## 3. Post-Fee Performance Summary",
+        f"- Net Realized PnL: ${fin.get('net_realized_pnl_usd', 0.0)} USDT",
+        f"- Winrate: {winrate_disp}",
+        f"- Max Drawdown: ${fin.get('max_drawdown_usd', 0.0)} ({fin.get('max_drawdown_pct', 0.0)}%)",
+        "",
+        "> [!NOTE]",
+        "> Under Rules 009, 010, and 189, forward data is collected causally without synthetic time simulation.",
+        "> Winrate and statistical expectancy are marked N/A until live market trade outcomes have confirmed.",
+    ]
+    md_content = "\n".join(lines)
+    return {
+        "run_id": run.run_id,
+        "operational_status": operational_status,
+        "worker_running": worker_running,
+        "total_closed_trades": total_closed,
+        "markdown": md_content,
+        "summary": summary,
+    }

@@ -783,3 +783,19 @@ class PaperResearchOrderLink(Base):
     __table_args__ = (
         UniqueConstraint('run_id', 'order_id', name='uq_run_order'),
     )
+
+
+class PaperResearchOrderMilestone(Base):
+    __tablename__ = "paper_research_order_milestones"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    run_id = Column(String(80), nullable=False, index=True)
+    order_id = Column(String(36), nullable=False, index=True)
+    milestone = Column(String(30), nullable=False, index=True)
+    timestamp_ms = Column(BigInteger, nullable=False)
+    payload_json = Column(Text, nullable=True)
+    created_at_ms = Column(BigInteger, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('run_id', 'order_id', 'milestone', name='uq_run_order_milestone'),
+    )

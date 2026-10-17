@@ -79,10 +79,10 @@ def test_rule_097_entry_never_touched_classification():
     before expiry MUST be classified as ENTRY_NEVER_TOUCHED, not a bot failure.
     """
     eval_records = [
-        {"opportunity_id": "opp_notouch", "as_of_ms": 1000, "stage": OpportunityStage.ARMED.value, "symbol": "XAUUSDT", "direction": "LONG"},
-        {"opportunity_id": "opp_notouch", "as_of_ms": 2000, "stage": OpportunityStage.EXPIRED.value, "symbol": "XAUUSDT", "direction": "LONG"},
+        {"opportunity_id": "opp_notouch", "as_of_ms": 1000, "stage": OpportunityStage.ARMED.value, "symbol": "XAUUSDT", "direction": "LONG", "quote_coverage_verified": True},
+        {"opportunity_id": "opp_notouch", "as_of_ms": 2000, "stage": OpportunityStage.EXPIRED.value, "symbol": "XAUUSDT", "direction": "LONG", "quote_coverage_verified": True},
     ]
-    order = {"id": "ord_notouch", "state": "expired"}
+    order = {"id": "ord_notouch", "state": "expired", "quote_coverage_verified": True}
     res = CG01MissedOpportunityAuditService.classify_opportunity(eval_records, order=order)
     assert res.classification == "MARKET_NON_FILL"
     assert res.miss_reason == "ENTRY_NEVER_TOUCHED"
@@ -124,12 +124,12 @@ def test_cg01_missed_opportunity_audit_run_summary():
         {"opportunity_id": "opp_1", "as_of_ms": 1000, "stage": OpportunityStage.FILLED.value, "direction": "LONG", "symbol": "XAUUSDT"},
         # Opp 2: Blocked Short by News Guard
         {"opportunity_id": "opp_2", "as_of_ms": 1100, "stage": OpportunityStage.GUARD_BLOCKED.value, "direction": "SHORT", "reason_codes": ["NEWS_BLACKOUT"], "symbol": "XAUUSDT"},
-        # Opp 3: Entry never touched Long
-        {"opportunity_id": "opp_3", "as_of_ms": 1200, "stage": OpportunityStage.EXPIRED.value, "direction": "LONG", "symbol": "XAUUSDT"},
+        # Opp 3: Entry never touched Long with verified quote coverage
+        {"opportunity_id": "opp_3", "as_of_ms": 1200, "stage": OpportunityStage.EXPIRED.value, "direction": "LONG", "symbol": "XAUUSDT", "quote_coverage_verified": True},
     ]
     orders = [
         {"setup_instance_id": "opp_1", "state": "filled"},
-        {"setup_instance_id": "opp_3", "state": "expired"},
+        {"setup_instance_id": "opp_3", "state": "expired", "quote_coverage_verified": True},
     ]
 
     report = CG01MissedOpportunityAuditService.audit_run(
