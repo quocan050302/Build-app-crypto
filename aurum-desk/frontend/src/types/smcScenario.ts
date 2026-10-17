@@ -123,6 +123,81 @@ export interface SnapshotProvenanceDTO {
   is_custom_profile?: boolean;
 }
 
+export interface StructuralReferenceDTO {
+  id?: string | null;
+  price?: number | null;
+  occurred_at_ms?: number | null;
+  known_at_ms?: number | null;
+  associated_event_id?: string | null;
+}
+
+export interface HtfStructureEventDTO {
+  event_type: string;
+  previous_phase?: string | null;
+  new_phase: string;
+  direction?: Direction | string | null;
+  reference_id?: string | null;
+  reference_price?: number | null;
+  close_price?: number | null;
+  occurred_at_ms?: number | null;
+  known_at_ms: number;
+}
+
+export interface HtfSnapshotDTO {
+  symbol: string;
+  timeframe: string;
+  as_of_ms: number;
+  bias: string;
+  phase: string;
+  data_status: string;
+  protected_low?: StructuralReferenceDTO | number | null;
+  protected_high?: StructuralReferenceDTO | number | null;
+  broken_protection?: StructuralReferenceDTO | number | null;
+  latest_event?: HtfStructureEventDTO | null;
+  invalidation_cutoff_ms?: number | null;
+  effective_settings?: Record<string, any>;
+  settings_fingerprint?: string | null;
+  algorithm_version?: string;
+}
+
+export interface HtfContextDTO {
+  schema_version?: string;
+  evaluation_as_of_ms?: number;
+  h4_snapshot?: HtfSnapshotDTO | null;
+  h1_snapshot?: HtfSnapshotDTO | null;
+  direction_context?: {
+    relation?: string;
+    executable_permission?: boolean;
+    reason?: string;
+    bias?: string;
+    confidence_level?: string;
+  } | null;
+  effective_settings?: Record<string, any>;
+  config_version?: number;
+  settings_fingerprint?: string | null;
+  context_source?: string;
+}
+
+/**
+ * Rule 122: Extract valid finite price from StructuralReferenceDTO, number, or return null.
+ * Strictly prevents parseFloat(String(object)) or Number(object) resulting in NaN.
+ */
+export function readStructuralReferencePrice(
+  ref: StructuralReferenceDTO | number | null | undefined
+): number | null {
+  if (ref == null) return null;
+  if (typeof ref === 'number') {
+    return Number.isFinite(ref) ? ref : null;
+  }
+  if (typeof ref === 'object') {
+    const price = ref.price;
+    if (typeof price === 'number' && Number.isFinite(price)) {
+      return price;
+    }
+  }
+  return null;
+}
+
 export interface ChartEvidenceBundleV144 {
   binding: ChartBinding;
   as_of_ms: number;
@@ -141,5 +216,5 @@ export interface ChartEvidenceBundleV144 {
   is_empty?: boolean;
   provenance?: SnapshotProvenanceDTO;
   entry_explanation?: EntryExplanationDTO;
-  htf_context?: any;
+  htf_context?: HtfContextDTO;
 }

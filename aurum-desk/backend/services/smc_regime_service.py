@@ -109,8 +109,11 @@ class HTFContext:
     protected_low: Optional[Dict[str, Any]] = None
     latest_structure_event: Optional[Dict[str, Any]] = None
     indicator_bias: Optional[str] = None
-    algorithm_version: str = "v16.11"
+    algorithm_version: str = "v16.13"
     data_status: str = "READY"
+    effective_settings: Optional[Dict[str, Any]] = None
+    config_version: Optional[int] = None
+    settings_fingerprint: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -132,6 +135,9 @@ class HTFContext:
             "indicator_bias": self.indicator_bias,
             "algorithm_version": self.algorithm_version,
             "data_status": self.data_status,
+            "effective_settings": self.effective_settings,
+            "config_version": self.config_version,
+            "settings_fingerprint": self.settings_fingerprint,
         }
 
 
@@ -139,17 +145,17 @@ def build_htf_context(
     closed_candles: Sequence[Any],
     timeframe: str,
     *,
-    min_bars: int = 12,
+    min_bars: Optional[int] = None,
     as_of_ms: Optional[int] = None,
     config: Optional[Any] = None,
     symbol: str = "XAUUSDT",
 ) -> HTFContext:
     """
-    Adapter closed candles -> HTFContext using V16.11 Causal HTF Structure Engine.
+    Adapter closed candles -> HTFContext using V16.13 Causal HTF Structure Engine.
     Missing/short history returns UNKNOWN with provenance.
     Never uses SMA fallback as market structure evidence.
     """
-    from services.htf_structure_service import evaluate_htf_structure, resolve_timeframe_ms
+    from services.htf_structure_service import evaluate_htf_structure, resolve_timeframe_ms, build_htf_settings_fingerprint
 
     if not closed_candles:
         return HTFContext(
@@ -180,6 +186,10 @@ def build_htf_context(
         min_bars=min_bars,
     )
 
+    eff_settings = snapshot.effective_settings if snapshot else None
+    cfg_ver = getattr(config, "config_version", None) if config else (snapshot.config_version if snapshot else None)
+    fingerprint = build_htf_settings_fingerprint(eff_settings) if eff_settings else None
+
     return HTFContext(
         timeframe=timeframe,
         bias=snapshot.bias,
@@ -199,6 +209,9 @@ def build_htf_context(
         indicator_bias=snapshot.indicator_bias,
         algorithm_version=snapshot.algorithm_version,
         data_status=snapshot.data_status,
+        effective_settings=eff_settings,
+        config_version=cfg_ver,
+        settings_fingerprint=fingerprint,
     )
 
 

@@ -282,12 +282,32 @@ class ScalpWatcherOrchestrator:
 
         current_px = (bid + ask) / 2.0
 
+        # Check whether caller explicitly injected HTF candles or bias (Rules 105, 106)
+        caller_injected_htf = (candles_4h is not None or candles_1h is not None or htf_bias is not None)
+
+        # Pre-resolve cg01_cfg early for HTF settings synchronization (Rules 016, 087, 088)
+        cg01_mode = getattr(cfg, "cg01_profile_mode", None)
+        if cg01_mode is None:
+            cg01_mode = "PAPER_EXECUTION" if getattr(cfg, "cg01_enabled", False) else "OFF"
+        cg01_cfg = getattr(cfg, "cg01_config", None)
+        if cg01_cfg is None and cg01_mode != "OFF":
+            from services.cg01_types import CG01Config
+            from services.trading_policy_service import resolve_effective_daily_policy
+            eff_daily = resolve_effective_daily_policy(db, "default") if db else None
+            cg01_cfg = CG01Config(
+                enabled=True,
+                profile_mode=cg01_mode,
+                daily_min_goal=eff_daily.min_goal if eff_daily else 1,
+                daily_max_cap=eff_daily.max_fills if eff_daily else 3,
+                daily_ny_goal=eff_daily.ny_goal if eff_daily else 1,
+            )
+
         # 1. Load or use injected candles
-        c_4h = candles_4h if candles_4h is not None else crud.get_candles(db, symbol, "4H", limit=40, ascending=True, cutoff_ms=t_recv)
-        c_1h = candles_1h if candles_1h is not None else crud.get_candles(db, symbol, "1H", limit=60, ascending=True, cutoff_ms=t_recv)
-        c_15m = candles_15m if candles_15m is not None else crud.get_candles(db, symbol, "15M", limit=120, ascending=True, cutoff_ms=t_recv)
-        c_5m = candles_5m if candles_5m is not None else crud.get_candles(db, symbol, "5M", limit=150, ascending=True, cutoff_ms=t_recv)
-        c_1m = candles_1m if candles_1m is not None else crud.get_candles(db, symbol, "1M", limit=100, ascending=True, cutoff_ms=t_recv)
+        c_4h = candles_4h if candles_4h is not None else (crud.get_candles(db, symbol, "4H", limit=40, ascending=True, cutoff_ms=t_recv) if db else [])
+        c_1h = candles_1h if candles_1h is not None else (crud.get_candles(db, symbol, "1H", limit=60, ascending=True, cutoff_ms=t_recv) if db else [])
+        c_15m = candles_15m if candles_15m is not None else (crud.get_candles(db, symbol, "15M", limit=120, ascending=True, cutoff_ms=t_recv) if db else [])
+        c_5m = candles_5m if candles_5m is not None else (crud.get_candles(db, symbol, "5M", limit=150, ascending=True, cutoff_ms=t_recv) if db else [])
+        c_1m = candles_1m if candles_1m is not None else (crud.get_candles(db, symbol, "1M", limit=100, ascending=True, cutoff_ms=t_recv) if db else [])
 
         from services.cg01_context_adapter import normalize_cg01_candle
         if c_4h and isinstance(c_4h[0], dict):
@@ -307,23 +327,31 @@ class ScalpWatcherOrchestrator:
             atr_15m = 2.0
 
         # Rules 105 - 108: Causal HTF Resolution for evaluate_cycle
+        from services.smc_regime_service import build_htf_context, h1_alignment_from
+
         if htf_bias is not None:
             bias = htf_bias
             align = h1_alignment if h1_alignment is not None else "UNKNOWN"
             context_source = "INJECTED_REPLAY"
-        elif c_4h is not None:
+        elif caller_injected_htf:
             # Explicit candle injection (even if empty list)
-            from services.smc_regime_service import build_htf_context, h1_alignment_from
-            h4_ctx = build_htf_context(c_4h, "4H", as_of_ms=t_recv, symbol=symbol)
+            h4_ctx = build_htf_context(c_4h, "4H", as_of_ms=t_recv, symbol=symbol, config=cg01_cfg)
             bias = getattr(h4_ctx, "bias", "UNKNOWN")
-            if c_1h is not None:
-                h1_ctx = build_htf_context(c_1h, "1H", as_of_ms=t_recv, symbol=symbol)
+            if candles_1h is not None:
+                h1_ctx = build_htf_context(c_1h, "1H", as_of_ms=t_recv, symbol=symbol, config=cg01_cfg)
                 align = h1_alignment_from(h4_ctx, h1_ctx)
             else:
                 align = "UNKNOWN"
             context_source = "INJECTED_REPLAY"
+        elif c_4h or c_1h:
+            # Database-loaded candles
+            h4_ctx = build_htf_context(c_4h, "4H", as_of_ms=t_recv, symbol=symbol, config=cg01_cfg)
+            bias = getattr(h4_ctx, "bias", "UNKNOWN")
+            h1_ctx = build_htf_context(c_1h, "1H", as_of_ms=t_recv, symbol=symbol, config=cg01_cfg)
+            align = h1_alignment_from(h4_ctx, h1_ctx)
+            context_source = "DATABASE_LOADED"
         else:
-            # Fallback to live collector singleton only when caller did not provide HTF candles
+            # Fallback to live collector singleton only when caller did not provide HTF candles and DB had none
             bias = collector_service.d_4h_bias
             align = collector_service.h1_alignment
             context_source = "LIVE_COLLECTOR"
@@ -942,7 +970,7 @@ class ScalpWatcherOrchestrator:
                     daily_max_cap=eff_daily.max_fills,
                     daily_ny_goal=eff_daily.ny_goal,
                 )
-            closed_ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m}
+            closed_ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m, "context_source": context_source}
             costs_to_pass = getattr(cg01_cfg, "costs", None) or getattr(cfg, "costs", None)
             cg01_dec = evaluate_cg01_candidate(
                 closed_ctx, q, config=cg01_cfg, now_ms=t_recv,

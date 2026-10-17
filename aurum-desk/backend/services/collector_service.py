@@ -115,17 +115,31 @@ class CollectorService:
         try:
             import time
             from services.smc_regime_service import build_htf_context
+            from services.cg01_types import CG01Config
 
             as_of_ms = int(time.time() * 1000)
 
+            # Load effective CG-01 / trading configuration if available (Rule 086, 089)
+            cfg = None
+            try:
+                from services.trading_policy_service import resolve_effective_daily_policy
+                eff_daily = resolve_effective_daily_policy(db, "default")
+                cfg = CG01Config(
+                    daily_min_goal=eff_daily.min_goal,
+                    daily_max_cap=eff_daily.max_fills,
+                    daily_ny_goal=eff_daily.ny_goal,
+                )
+            except Exception:
+                cfg = None
+
             # 1. Independent Daily Context (D) - closed candles only
             d_candles = crud.get_closed_candles(db, symbol, "D", limit=50, ascending=True)
-            d_ctx = build_htf_context(d_candles, "D", as_of_ms=as_of_ms, symbol=symbol, min_bars=15)
+            d_ctx = build_htf_context(d_candles, "D", as_of_ms=as_of_ms, symbol=symbol, config=cfg)
             d_bias = d_ctx.bias
 
             # 2. Independent 4H Bias (4H) - closed candles only
             h4_candles = crud.get_closed_candles(db, symbol, "4H", limit=80, ascending=True)
-            h4_ctx = build_htf_context(h4_candles, "4H", as_of_ms=as_of_ms, symbol=symbol, min_bars=15)
+            h4_ctx = build_htf_context(h4_candles, "4H", as_of_ms=as_of_ms, symbol=symbol, config=cfg)
             h4_bias = h4_ctx.bias
 
             # 3. Synthesized HTF Context (Conflict aware)
@@ -143,7 +157,7 @@ class CollectorService:
 
             # 4. Independent 1H Context & Alignment
             h1_candles = crud.get_closed_candles(db, symbol, "1H", limit=80, ascending=True)
-            h1_ctx = build_htf_context(h1_candles, "1H", as_of_ms=as_of_ms, symbol=symbol, min_bars=15)
+            h1_ctx = build_htf_context(h1_candles, "1H", as_of_ms=as_of_ms, symbol=symbol, config=cfg)
             h1_trend = h1_ctx.bias
 
             if d_4h_bias in ("BULLISH", "BEARISH"):

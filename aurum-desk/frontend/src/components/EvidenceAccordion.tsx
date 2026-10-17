@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
-import type { EntryExplanationDTO, SnapshotProvenanceDTO } from '../types/smcScenario';
+import type {
+  EntryExplanationDTO,
+  HtfContextDTO,
+  SnapshotProvenanceDTO,
+} from '../types/smcScenario';
+import { readStructuralReferencePrice } from '../types/smcScenario';
 import {
   ChevronDown,
   ChevronRight,
@@ -14,7 +19,7 @@ import {
 export interface EvidenceAccordionProps {
   explanation?: EntryExplanationDTO | null;
   provenance?: SnapshotProvenanceDTO | null;
-  htfContext?: any | null;
+  htfContext?: HtfContextDTO | null;
   loading?: boolean;
   error?: string | null;
   initialExpanded?: boolean;
@@ -124,14 +129,22 @@ export const EvidenceAccordion: React.FC<EvidenceAccordionProps> = ({
     return String(levels);
   };
 
-  const formatHtfContext = (htf: any, legacyContext: any): { status: string; content: string; detail?: string } => {
+  const formatHtfContext = (
+    htf: HtfContextDTO | null | undefined,
+    legacyContext: any
+  ): { status: string; content: string; detail?: string } => {
     if (!htf) {
       if (!legacyContext) {
         return { status: 'MISSING', content: 'Lệnh cũ chưa lưu bằng chứng HTF' };
       }
       return {
-        status: legacyContext?.h4_bias && legacyContext?.h4_bias !== 'UNKNOWN' ? 'CONFIRMED' : 'OBSERVED',
-        content: `H4: ${legacyContext.h4_bias || 'Chưa rõ'} · H1: ${legacyContext.h1_alignment || 'Chưa rõ'} · Chế độ: ${legacyContext.regime || 'Chưa rõ'}`,
+        status:
+          legacyContext?.h4_bias && legacyContext?.h4_bias !== 'UNKNOWN'
+            ? 'CONFIRMED'
+            : 'OBSERVED',
+        content: `H4: ${legacyContext.h4_bias || 'Chưa rõ'} · H1: ${
+          legacyContext.h1_alignment || 'Chưa rõ'
+        } · Chế độ: ${legacyContext.regime || 'Chưa rõ'}`,
       };
     }
 
@@ -153,14 +166,27 @@ export const EvidenceAccordion: React.FC<EvidenceAccordionProps> = ({
     const relText = dir?.relation ? ` · Quan hệ: ${dir.relation}` : '';
     const mainContent = `${h4Text} · ${h1Text}${relText}`;
 
-    let detail = 'HTF là bối cảnh; lệnh còn cần quét thanh khoản → MSS/displacement → FVG → retest/entry hợp lệ.';
-    if (h1?.protected_low != null) {
-      detail += ` · H1 Protected Low: $${Number(h1.protected_low).toFixed(2)}`;
-    } else if (h1?.protected_high != null) {
-      detail += ` · H1 Protected High: $${Number(h1.protected_high).toFixed(2)}`;
+    let detail =
+      'HTF là bối cảnh; lệnh còn cần quét thanh khoản → MSS/displacement → FVG → retest/entry hợp lệ.';
+    const pLow = readStructuralReferencePrice(h1?.protected_low);
+    const pHigh = readStructuralReferencePrice(h1?.protected_high);
+
+    if (pLow != null) {
+      detail += ` · H1 đáy bảo vệ: $${pLow.toFixed(2)}`;
+    } else if (pHigh != null) {
+      detail += ` · H1 đỉnh bảo vệ: $${pHigh.toFixed(2)}`;
+    } else if (
+      h1?.phase === 'TRANSITION' ||
+      h1?.phase === 'UNDETERMINED' ||
+      h1?.phase != null
+    ) {
+      detail += ' · Chưa có mức bảo vệ được xác nhận';
     }
 
-    const isConfirmed = h1?.phase === 'ESTABLISHED' || h1?.phase === 'PULLBACK' || h1?.phase === 'RANGE';
+    const isConfirmed =
+      h1?.phase === 'ESTABLISHED' ||
+      h1?.phase === 'PULLBACK' ||
+      h1?.phase === 'RANGE';
     return {
       status: isConfirmed ? 'CONFIRMED' : 'OBSERVED',
       content: mainContent,

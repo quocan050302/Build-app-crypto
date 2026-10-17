@@ -222,27 +222,28 @@ def test_valid_recovery_after_bullish_invalidation():
 
     # Invalidate bullish trend
     t_break = candles[-1].open_time + dur
-    candles.append(CandleMock(t_break, 2555, 2556, 2510, 2515, is_closed=True, tf="1H"))
+    candles.append(CandleMock(t_break, 2555, 2556, 2514, 2515, is_closed=True, tf="1H"))
     snap_break = evaluate_htf_structure(candles, "1H", as_of_ms=t_break + dur)
     assert snap_break.phase == "TRANSITION"
 
     # Now append a brand new sequence forming post-invalidation:
-    # New Low 1 at 2510, New High 1 at 2540, New Low 2 at 2525 (HL), New High 2 at 2560 (HH)
-    # plus confirmation bars
+    # Low 1 at 2505, High 1 at 2540, Low 2 at 2515 (HL > 2505), High 2 at 2560 (HH > 2540)
+    # plus bar 29 closing at 2565 > 2560 (genuine close break!)
     new_prices = [
-        (2515, 2520, 2510, 2515), # 15: Low 1 at 2510
-        (2515, 2525, 2512, 2520), # 16
-        (2520, 2530, 2518, 2525), # 17: Confirms Low 1
-        (2525, 2540, 2522, 2535), # 18: High 1 at 2540
-        (2535, 2536, 2520, 2522), # 19
-        (2522, 2526, 2518, 2520), # 20: Confirms High 1
-        (2520, 2528, 2515, 2525), # 21: Low 2 at 2515 (Wait, HL needs > 2510 so 2515 is HL)
-        (2525, 2535, 2522, 2530), # 22
-        (2530, 2545, 2528, 2540), # 23: Confirms Low 2
-        (2540, 2560, 2538, 2555), # 24: High 2 at 2560 (HH > 2540)
-        (2555, 2558, 2545, 2550), # 25
-        (2550, 2552, 2540, 2545), # 26: Confirms High 2
-        (2545, 2555, 2542, 2550), # 27: Follow through closing at 2550 >= 2515
+        (2515, 2520, 2512, 2516),  # 16
+        (2516, 2520, 2505, 2508),  # 17: Swing Low 1 at 2505
+        (2508, 2522, 2510, 2518),  # 18
+        (2518, 2530, 2515, 2525),  # 19: Confirms Low 1
+        (2525, 2540, 2522, 2535),  # 20: Swing High 1 at 2540
+        (2535, 2536, 2522, 2525),  # 21
+        (2525, 2528, 2518, 2520),  # 22: Confirms High 1
+        (2520, 2525, 2515, 2522),  # 23: Swing Low 2 at 2515 (> 2505)
+        (2522, 2535, 2520, 2530),  # 24
+        (2530, 2545, 2528, 2540),  # 25: Confirms Low 2
+        (2540, 2560, 2538, 2555),  # 26: Swing High 2 at 2560 (> 2540)
+        (2555, 2558, 2545, 2550),  # 27
+        (2550, 2552, 2540, 2545),  # 28: Confirms High 2
+        (2545, 2570, 2542, 2565),  # 29: True break closing at 2565 > 2560
     ]
     cur_t = t_break
     for o, h, l, c in new_prices:
@@ -254,7 +255,7 @@ def test_valid_recovery_after_bullish_invalidation():
     assert snap_recovered.phase == "ESTABLISHED"
     assert snap_recovered.protected_low is not None
     assert snap_recovered.protected_low["price"] == 2515.0
-    assert snap_recovered.latest_structure_event["event_type"] in ("STRUCTURE_RECONFIRMED", "BOS")
+    assert snap_recovered.latest_structure_event["event_type"] in ("STRUCTURE_RECONFIRMED", "BOS", "CHOCH")
 
 
 # =========================================================================

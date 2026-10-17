@@ -157,9 +157,34 @@ def build_cg01_context(
     c_15m = [normalize_cg01_candle(b, "15M") if not isinstance(b, CanonicalCandle) else b for b in (closed_context.get("15M") or [])]
     c_1m = [normalize_cg01_candle(b, "1M") if not isinstance(b, CanonicalCandle) else b for b in (closed_context.get("1M") or [])]
 
+    # Rule 111: Filter closed candles excluding unclosed bars (is_closed=False)
+    from services.htf_structure_service import filter_closed_candles, resolve_timeframe_ms
+
+    def _is_closed_bar(b: Any, tf: str) -> bool:
+        if isinstance(b, dict):
+            if b.get("is_closed") is False:
+                return False
+            is_explicit = b.get("is_closed") is True
+            o_time = b.get("open_time", b.get("timestamp", 0))
+        else:
+            if getattr(b, "is_closed", True) is False:
+                return False
+            is_explicit = getattr(b, "is_closed", None) is True
+            o_time = getattr(b, "open_time", getattr(b, "timestamp", 0))
+
+        if is_explicit:
+            return True
+        dur = resolve_timeframe_ms(tf)
+        return o_time + dur <= now_ms
+
+    c_4h_closed = [b for b in c_4h if _is_closed_bar(b, "4H")]
+    c_1h_closed = [b for b in c_1h if _is_closed_bar(b, "1H")]
+    c_15m_closed = [b for b in c_15m if _is_closed_bar(b, "15M")]
+    c_1m_closed = [b for b in c_1m if _is_closed_bar(b, "1M")]
+
     # Rule 045: Warmup validation with dynamic config min_bars
     min_b = getattr(config, "htf_min_bars", 12) if config else 12
-    if len(c_4h) < min_b or len(c_1h) < min_b or len(c_15m) < min_b:
+    if len(c_4h_closed) < min_b or len(c_1h_closed) < min_b or len(c_15m_closed) < min_b:
         return {
             "status": "CONTEXT_WARMUP",
             "is_warmup": True,
@@ -169,16 +194,17 @@ def build_cg01_context(
             "range_position": "EQUILIBRIUM",
             "evidence_id": "ev_cg01_warmup",
             "reason": "Chưa đủ số nến đóng tối thiểu cho khung H4/H1/15M.",
+            "context_source": closed_context.get("context_source", "DECISION_CONTEXT"),
         }
 
-    h4_ctx = build_htf_context(c_4h, "4H", as_of_ms=now_ms, config=config, min_bars=min_b)
-    h1_ctx = build_htf_context(c_1h, "1H", as_of_ms=now_ms, config=config, min_bars=min_b)
+    h4_ctx = build_htf_context(c_4h_closed, "4H", as_of_ms=now_ms, config=config, min_bars=min_b)
+    h1_ctx = build_htf_context(c_1h_closed, "1H", as_of_ms=now_ms, config=config, min_bars=min_b)
 
     # Dealing range from 15M swings (Rules 036 - 038)
     left_b = config.pivot_left_bars if config else 2
     right_b = config.pivot_right_bars if config else 2
     shs, sls = identify_confirmed_swings(
-        c_15m,
+        c_15m_closed,
         timeframe="15M",
         left_bars=left_b,
         right_bars=right_b,
@@ -187,21 +213,13 @@ def build_cg01_context(
     )
     dealing_range = compute_dealing_range([*shs, *sls], now_ms=now_ms, symbol="XAUUSDT")
 
-    # Rule 098: Causal price for range position calculation at now_ms
-    c_1m_closed = filter_closed_candles(c_1m, "1M", now_ms) if c_1m else []
-    c_15m_closed = filter_closed_candles(c_15m, "15M", now_ms) if c_15m else []
+    # Rule 098, 113, 114: Causal price for range position: M1 closed first, then M15 closed. NO FUTURE FALLBACK!
     last_close = 0.0
     if c_1m_closed:
         last_bar = c_1m_closed[-1]
         last_close = float(last_bar.get("close", 0.0) if isinstance(last_bar, dict) else getattr(last_bar, "close", 0.0))
-    elif c_1m:
-        last_bar = c_1m[-1]
-        last_close = float(last_bar.get("close", 0.0) if isinstance(last_bar, dict) else getattr(last_bar, "close", 0.0))
     elif c_15m_closed:
         last_bar = c_15m_closed[-1]
-        last_close = float(last_bar.get("close", 0.0) if isinstance(last_bar, dict) else getattr(last_bar, "close", 0.0))
-    elif c_15m:
-        last_bar = c_15m[-1]
         last_close = float(last_bar.get("close", 0.0) if isinstance(last_bar, dict) else getattr(last_bar, "close", 0.0))
 
     range_position = "EQUILIBRIUM"
@@ -233,6 +251,7 @@ def build_cg01_context(
         "range_position": range_position,
         "evidence_id": f"ev_cg01_ctx_{now_ms}",
         "reason": "Bối cảnh HTF đã sẵn sàng.",
+        "context_source": closed_context.get("context_source", "DECISION_CONTEXT"),
     }
 
 
@@ -643,6 +662,8 @@ def evaluate_cg01_candidate(
 
     # RULE 021: Closed boundary at evaluator — build closed bundle at start (Rules 021 - 032)
     closed_bundle = build_cg01_closed_context(context, as_of_ms=t_now, symbol="XAUUSDT")
+    if isinstance(context, dict) and "context_source" in context:
+        closed_bundle["context_source"] = context["context_source"]
     ready, ready_reason, missing_conds = assess_cg01_context_readiness(closed_bundle, cfg)
     if not ready:
         return CG01Decision(

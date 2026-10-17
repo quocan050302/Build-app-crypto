@@ -22,6 +22,7 @@ from services.smc_scenario_types import (
     ScenarioSnapshot,
     ScenarioState,
 )
+from services.htf_structure_service import build_htf_settings_fingerprint
 from services.zone_watchlist_service import WatchedZone
 
 
@@ -303,13 +304,24 @@ def build_cg01_snapshot(
     }
 
     if htf_data:
+        eff_settings = htf_data.get("effective_settings") or {}
+        if not eff_settings and htf_data.get("h1_snapshot"):
+            eff_settings = htf_data["h1_snapshot"].get("effective_settings", {})
+        fingerprint = htf_data.get("settings_fingerprint")
+        if not fingerprint:
+            if eff_settings:
+                fingerprint = build_htf_settings_fingerprint(eff_settings)
+            else:
+                fingerprint = f"cfg_v{cfg_version}"
         snap_context["htf_context"] = {
             "schema_version": "v16.12",
             "evaluation_as_of_ms": now_ms,
             "h4_snapshot": copy.deepcopy(htf_data.get("h4_snapshot")),
             "h1_snapshot": copy.deepcopy(htf_data.get("h1_snapshot")),
             "direction_context": copy.deepcopy(htf_data.get("direction_context")),
-            "settings_fingerprint": f"cfg_v{cfg_version}",
+            "effective_settings": copy.deepcopy(eff_settings),
+            "config_version": cfg_version,
+            "settings_fingerprint": fingerprint,
             "context_source": htf_data.get("context_source", "DECISION_CONTEXT"),
         }
 
