@@ -527,6 +527,7 @@ class CG01EvaluationScheduler:
         self.duplicate_events_ignored_count = 0
         self.dropped_evaluations_count = 0
         self._active_eval_tasks: Set[Any] = set()
+        self._active_eval_threads: Set[threading.Thread] = set()
 
     def set_flags(
         self,
@@ -549,6 +550,8 @@ class CG01EvaluationScheduler:
             self.enabled = new_enabled
             self.shadow_mode = new_shadow
             self.is_owner = new_owner
+            if new_enabled:
+                self._stopped = False
 
         logger.info(
             f"CG01EvaluationScheduler flags updated: enabled={self.enabled}, "
@@ -577,12 +580,30 @@ class CG01EvaluationScheduler:
                 "events_received_count": self.events_received_count,
                 "evaluations_scheduled_count": self.evaluations_scheduled_count,
                 "duplicate_events_ignored_count": self.duplicate_events_ignored_count,
+                "active_eval_tasks_count": len([t for t in self._active_eval_tasks if not t.done()]),
+                "active_eval_threads_count": len(self._active_eval_threads),
             }
 
     def is_running(self) -> bool:
         """Return True if background worker loop is active."""
         with self._lock:
             return self._running
+
+    def reset_state(self) -> None:
+        """Reset internal event deduplication, queues, and counters for test isolation."""
+        with self._lock:
+            self._stopped = False
+            self._running = False
+            self._dirty_symbols.clear()
+            self._symbol_in_flight.clear()
+            self._seen_events.clear()
+            self._last_evaluated_event_time.clear()
+            self._pending_market_events.clear()
+            self.events_received_count = 0
+            self.evaluations_scheduled_count = 0
+            self.duplicate_events_ignored_count = 0
+            self.dropped_evaluations_count = 0
+            self._active_eval_threads.clear()
 
     def notify_market_change(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -903,11 +924,25 @@ class CG01EvaluationScheduler:
 
                     async def _run_eval(s=sym, ev=source_ev):
                         def _do_eval():
+                            cur_th = threading.current_thread()
+                            with self._lock:
+                                self._active_eval_threads.add(cur_th)
                             db = SessionLocal()
                             try:
-                                return self.evaluate_symbol_now(db, s, source_event=ev)
+                                as_of = None
+                                if ev:
+                                    dur = TF_DURATIONS_MS.get(ev.get("timeframe", "1M"), 60000)
+                                    if ev.get("candle_timestamp"):
+                                        as_of = int(ev["candle_timestamp"]) + dur
+                                    elif ev.get("received_at_ms"):
+                                        as_of = int(ev["received_at_ms"])
+                                return self.evaluate_symbol_now(db, s, as_of_ms=as_of, source_event=ev)
                             finally:
-                                db.close()
+                                try:
+                                    db.close()
+                                finally:
+                                    with self._lock:
+                                        self._active_eval_threads.discard(cur_th)
                         return await asyncio.to_thread(_do_eval)
 
                     eval_task = asyncio.create_task(_run_eval(sym, source_ev))
@@ -925,14 +960,17 @@ class CG01EvaluationScheduler:
 
     async def wait_evaluations_drained(self, timeout_s: float = 3.0) -> bool:
         """
-        V16.22 Rule 043: Wait for all in-flight evaluation tasks to finish.
-        Ensures thread-dispatched evaluations finish before trace persistence drains.
+        V16.22 / V16.23 Rules 027, 043, 072, 073, 133: Wait for all in-flight evaluation tasks
+        and dispatched worker threads to finish.
+        Ensures thread-dispatched evaluations finish before trace persistence drains,
+        even if the async coroutine wrapper was cancelled.
         """
         start_t = time.monotonic()
         while (time.monotonic() - start_t) < timeout_s:
             with self._lock:
                 pending = [t for t in self._active_eval_tasks if not t.done()]
-            if not pending:
+                pending_threads = len(self._active_eval_threads)
+            if not pending and pending_threads == 0:
                 return True
             await asyncio.sleep(0.05)
         return False

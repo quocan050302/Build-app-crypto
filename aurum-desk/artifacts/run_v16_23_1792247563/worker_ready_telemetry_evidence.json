@@ -1,0 +1,8 @@
+{
+  "worker_scope_unbound_local_test": "test_red_021_worker_unbound_local_error_on_batch",
+  "worker_ready_race_test": "test_red_022_worker_ready_race_prevents_fake_pass",
+  "queue_ownership_loss_test": "test_red_023_queue_item_ownership_retained_on_failure",
+  "retry_ownership_barrier_test": "test_red_024_retry_item_ownership_barrier",
+  "event_driven_scheduler_test": "test_red_025_event_driven_scheduler_execution",
+  "worker_idempotence_restart_test": "test_red_030_worker_start_stop_restart_idempotence"
+}

@@ -1,0 +1,6 @@
+{
+  "shutdown_timeout_loss_test": "test_red_026_shutdown_timeout_or_loss_recorded",
+  "thread_evaluation_tracking_test": "test_red_027_thread_evaluation_still_running_detected",
+  "trace_error_distinction_test": "test_red_028_trace_error_causes_acceptance_failure",
+  "source_event_exact_linkage_test": "test_red_029_exact_source_event_linkage"
+}

@@ -172,6 +172,9 @@ _TRACE_QUEUE_DROPS = 0
 _TRACE_PERSIST_FAILURES = 0
 _TRACE_PERSISTED_COUNT = 0
 _TRACE_WORKER_RUNNING = False
+_TRACE_WORKER_STATE: str = "STOPPED"  # "STOPPED", "STARTING", "RUNNING", "STOPPING", "FAILED"
+_TRACE_WORKER_READY_EVENT: Optional[asyncio.Event] = None
+_TRACE_WORKER_TASK: Optional[asyncio.Task] = None
 _TRACE_WORKER_THREAD: Optional[threading.Thread] = None
 
 # V16.20 Rules 081-087: In-flight and retry buffer tracking
@@ -192,6 +195,72 @@ def set_in_flight_count(val: int) -> None:
 def get_retry_buffer_count() -> int:
     with _RETRY_BUFFER_LOCK:
         return len(_RETRY_BUFFER)
+
+
+def get_trace_worker_state() -> str:
+    return _TRACE_WORKER_STATE
+
+
+def is_trace_worker_running() -> bool:
+    return _TRACE_WORKER_RUNNING
+
+
+async def start_trace_persistence_worker(timeout_s: float = 3.0) -> bool:
+    """
+    V16.23 Rules 037-040: Start background worker with explicit ready handshake.
+    Awaits until worker has initialized, registered its task, and is ready to process.
+    Prevents race where callers or tests immediately invoke drain/flush before worker starts.
+    """
+    global _TRACE_WORKER_STATE, _TRACE_WORKER_READY_EVENT, _TRACE_WORKER_TASK, _TRACE_WORKER_RUNNING
+    with _RETRY_BUFFER_LOCK:
+        if _TRACE_WORKER_STATE in ("RUNNING", "STARTING") and _TRACE_WORKER_TASK and not _TRACE_WORKER_TASK.done():
+            return True
+        _TRACE_WORKER_STATE = "STARTING"
+        _TRACE_WORKER_READY_EVENT = asyncio.Event()
+
+    _TRACE_WORKER_TASK = asyncio.create_task(run_trace_persistence_worker())
+
+    try:
+        await asyncio.wait_for(_TRACE_WORKER_READY_EVENT.wait(), timeout=timeout_s)
+        return _TRACE_WORKER_STATE == "RUNNING"
+    except asyncio.TimeoutError:
+        logger.error(f"Trace persistence worker failed to become ready within {timeout_s}s")
+        _TRACE_WORKER_STATE = "FAILED"
+        return False
+
+
+async def wait_trace_persistence_worker_stopped(timeout_s: float = 3.0) -> bool:
+    """
+    V16.23 Rule 079: Await clean termination of background worker task.
+    """
+    global _TRACE_WORKER_TASK
+    start_t = time.monotonic()
+    while (time.monotonic() - start_t) < timeout_s:
+        if _TRACE_WORKER_TASK is None or _TRACE_WORKER_TASK.done():
+            return True
+        await asyncio.sleep(0.05)
+    return False
+
+
+def reset_telemetry_worker_state() -> None:
+    """Reset telemetry worker globals cleanly for test isolation."""
+    global _TRACE_WORKER_RUNNING, _TRACE_WORKER_STATE, _TRACE_WORKER_TASK, _TRACE_WORKER_READY_EVENT
+    global _IN_FLIGHT_COUNT, _TRACE_PERSISTED_COUNT, _TRACE_PERSIST_FAILURES, _TRACE_QUEUE_DROPS
+    with _RETRY_BUFFER_LOCK:
+        _TRACE_WORKER_RUNNING = False
+        _TRACE_WORKER_STATE = "STOPPED"
+        _TRACE_WORKER_TASK = None
+        _TRACE_WORKER_READY_EVENT = None
+        _IN_FLIGHT_COUNT = 0
+        _TRACE_PERSISTED_COUNT = 0
+        _TRACE_PERSIST_FAILURES = 0
+        _TRACE_QUEUE_DROPS = 0
+        _RETRY_BUFFER.clear()
+    while not _TRACE_QUEUE.empty():
+        try:
+            _TRACE_QUEUE.get_nowait()
+        except queue.Empty:
+            break
 
 
 class CG01TracePersistenceWriter:
@@ -370,7 +439,7 @@ def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
     """
     Appendix B, Rules 025-028, 066-105: Flush all pending traces within monotonic timeout.
     Enforces Single-Consumer Drain:
-    - If background worker is RUNNING, worker is the sole consumer; flush waits for worker.
+    - If background worker is STARTING, RUNNING, or STOPPING, worker is the sole consumer; flush waits for worker.
     - If background worker is STOPPED, flush acts as the sole consumer to persist remaining items.
     Truthfully accounts for succeeded vs failed writes, and tracks in-flight and retrying writes.
     Does NOT report COMPLETED prematurely if an in-flight batch is committing.
@@ -379,8 +448,8 @@ def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
     flushed = 0
     failed = 0
 
-    if _TRACE_WORKER_RUNNING:
-        # Worker is the single consumer (Rule 091). Wait for worker to drain.
+    if _TRACE_WORKER_RUNNING or _TRACE_WORKER_STATE in ("STARTING", "RUNNING", "STOPPING"):
+        # Worker is the single consumer (Rules 032, 035, 062, 063). Wait for worker to drain.
         while (
             not _TRACE_QUEUE.empty()
             or get_retry_buffer_count() > 0
@@ -432,28 +501,42 @@ def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
         status = "TIMED_OUT"
 
     return {
+        "status": status,
         "flushed": flushed,
+        "committed": flushed,
         "failed": failed,
         "pending": pending,
+        "owned": current_inflight,
         "in_flight": current_inflight,
         "retry_buffer": retry_pending,
-        "status": status,
+        "retrying": retry_pending,
+        "terminal_loss": _TRACE_QUEUE_DROPS,
         "elapsed_sec": round(time.monotonic() - start_t, 3),
     }
 
 
 async def drain_trace_persistence(timeout_s: float = 5.0) -> Dict[str, Any]:
     """
-    V16.22 Rules 013, 025, 031-040: Asynchronous non-blocking drain for trace persistence.
+    V16.22 / V16.23 Rules 013, 025, 031-040, 061-069: Asynchronous non-blocking drain for trace persistence.
     Awaits queue, retry buffer, and in-flight commits using asyncio.sleep without blocking the event loop.
     Enforces Single-Consumer Drain:
-    - If worker is running, awaits worker-driven drain.
-    - If worker is stopped, delegates remaining drain to thread so event loop is never blocked.
+    - If worker is STARTING, awaits ready handshake before checking work.
+    - If worker is RUNNING or STOPPING, awaits worker-driven drain without stealing items.
+    - If worker is STOPPED or FAILED, delegates remaining drain to thread so event loop is never blocked.
     """
     start_t = time.monotonic()
+    boundary_token = f"bnd_{int(start_t * 1000)}"
 
-    if _TRACE_WORKER_RUNNING:
-        # Worker is the single consumer (Rule 032, 091). Await worker completion asynchronously without blocking time.sleep
+    # If worker is starting, wait for it to become ready
+    if _TRACE_WORKER_STATE == "STARTING" and _TRACE_WORKER_READY_EVENT is not None:
+        rem_ready = max(0.05, timeout_s - (time.monotonic() - start_t))
+        try:
+            await asyncio.wait_for(_TRACE_WORKER_READY_EVENT.wait(), timeout=rem_ready)
+        except asyncio.TimeoutError:
+            pass
+
+    if _TRACE_WORKER_RUNNING or _TRACE_WORKER_STATE in ("RUNNING", "STOPPING"):
+        # Worker is the single consumer (Rules 032, 035, 062, 063). Await worker completion asynchronously without blocking
         while (
             not _TRACE_QUEUE.empty()
             or get_retry_buffer_count() > 0
@@ -461,15 +544,29 @@ async def drain_trace_persistence(timeout_s: float = 5.0) -> Dict[str, Any]:
         ) and (time.monotonic() - start_t) < timeout_s:
             await asyncio.sleep(0.05)
     else:
-        # Worker is stopped. Delegate synchronous drain to thread so asyncio loop is not blocked
+        # Worker is stopped or failed. Delegate synchronous drain to thread so asyncio loop is not blocked
         rem_timeout = max(0.1, timeout_s - (time.monotonic() - start_t))
-        return await asyncio.to_thread(flush_pending_traces, rem_timeout)
+        res = await asyncio.to_thread(flush_pending_traces, rem_timeout)
+        res["boundary"] = boundary_token
+        res["owned"] = res.get("in_flight", 0)
+        res["terminal_loss"] = _TRACE_QUEUE_DROPS
+        res["committed"] = res.get("flushed", 0)
+        res["worker_state"] = _TRACE_WORKER_STATE
+        res["diagnostics"] = {
+            "worker_running": _TRACE_WORKER_RUNNING,
+            "worker_state": _TRACE_WORKER_STATE,
+            "queue_drops": _TRACE_QUEUE_DROPS,
+            "persist_failures": _TRACE_PERSIST_FAILURES,
+        }
+        return res
 
     pending = _TRACE_QUEUE.qsize()
     retry_pending = get_retry_buffer_count()
     current_inflight = _IN_FLIGHT_COUNT
 
-    if _TRACE_QUEUE_DROPS > 0:
+    if _TRACE_PERSIST_FAILURES > 0 and _TRACE_QUEUE_DROPS > 0:
+        status = "COMPLETED_WITH_LOSS" if (pending == 0 and current_inflight == 0 and retry_pending == 0) else "TIMED_OUT"
+    elif _TRACE_QUEUE_DROPS > 0:
         status = "COMPLETED_WITH_LOSS" if (pending == 0 and current_inflight == 0 and retry_pending == 0) else "TIMED_OUT"
     elif pending == 0 and current_inflight == 0 and retry_pending == 0:
         status = "COMPLETED"
@@ -479,13 +576,25 @@ async def drain_trace_persistence(timeout_s: float = 5.0) -> Dict[str, Any]:
         status = "TIMED_OUT"
 
     return {
+        "status": status,
+        "boundary": boundary_token,
+        "committed": _TRACE_PERSISTED_COUNT,
         "flushed": _TRACE_PERSISTED_COUNT,
         "failed": _TRACE_PERSIST_FAILURES,
         "pending": pending,
+        "owned": current_inflight,
         "in_flight": current_inflight,
         "retry_buffer": retry_pending,
-        "status": status,
+        "retrying": retry_pending,
+        "terminal_loss": _TRACE_QUEUE_DROPS,
         "elapsed_sec": round(time.monotonic() - start_t, 3),
+        "worker_state": _TRACE_WORKER_STATE,
+        "diagnostics": {
+            "worker_running": _TRACE_WORKER_RUNNING,
+            "worker_state": _TRACE_WORKER_STATE,
+            "queue_drops": _TRACE_QUEUE_DROPS,
+            "persist_failures": _TRACE_PERSIST_FAILURES,
+        },
     }
 
 
@@ -594,62 +703,90 @@ def _persist_trace_batch_sync(
 
 async def run_trace_persistence_worker() -> None:
     """
-    Appendix B, Rules 035, 038, 056-060, 081-085, 091-095: Background worker draining trace queue with isolated DB sessions.
+    Appendix B, Rules 021, 031-035, 038, 056-060, 081-085, 091-095:
+    Background worker draining trace queue with isolated DB sessions.
     Executes synchronous database operations in thread pool without blocking asyncio event loop.
     Prioritizes and retries batches in _RETRY_BUFFER.
     Worker is the single consumer of queue & retry buffer.
     """
-    global _TRACE_WORKER_RUNNING
-    _TRACE_WORKER_RUNNING = True
-    logger.info("CG01 trace persistence worker started.")
-    while _TRACE_WORKER_RUNNING:
+    global _TRACE_WORKER_RUNNING, _IN_FLIGHT_COUNT, _TRACE_PERSIST_FAILURES, _TRACE_PERSISTED_COUNT, _TRACE_WORKER_STATE, _TRACE_WORKER_TASK
+    with _RETRY_BUFFER_LOCK:
+        if _TRACE_WORKER_RUNNING and _TRACE_WORKER_STATE == "RUNNING":
+            logger.warning("Trace persistence worker already running; skipping duplicate start.")
+            return
+        _TRACE_WORKER_RUNNING = True
+        _TRACE_WORKER_STATE = "RUNNING"
         try:
-            # 1. Drain retries first with atomic ownership transfer (Rules 026, 034, 035)
-            retry_items: List[Tuple[CG01EvaluationTrace, int]] = []
-            with _RETRY_BUFFER_LOCK:
-                if _RETRY_BUFFER:
-                    retry_items = _RETRY_BUFFER[:10]
-                    del _RETRY_BUFFER[:len(retry_items)]
-                    _IN_FLIGHT_COUNT += len(retry_items)
+            _TRACE_WORKER_TASK = asyncio.current_task()
+        except RuntimeError:
+            _TRACE_WORKER_TASK = None
 
-            unprocessed_retries = list(retry_items)
+    if _TRACE_WORKER_READY_EVENT is not None and not _TRACE_WORKER_READY_EVENT.is_set():
+        _TRACE_WORKER_READY_EVENT.set()
+
+    logger.info("CG01 trace persistence worker started and ready.")
+    try:
+        while _TRACE_WORKER_RUNNING:
             try:
-                while unprocessed_retries:
-                    trace, attempt = unprocessed_retries.pop(0)
-                    await asyncio.to_thread(_persist_trace_batch_sync, [trace], None, attempt, True)
-            except Exception:
+                # 1. Drain retries first with atomic ownership transfer (Rules 026, 034, 035, 044)
+                retry_items: List[Tuple[CG01EvaluationTrace, int]] = []
                 with _RETRY_BUFFER_LOCK:
-                    for t, a in reversed(unprocessed_retries):
-                        _RETRY_BUFFER.insert(0, (t, a))
-                    _IN_FLIGHT_COUNT = max(0, _IN_FLIGHT_COUNT - len(unprocessed_retries))
-                raise
+                    if _RETRY_BUFFER:
+                        retry_items = _RETRY_BUFFER[:10]
+                        del _RETRY_BUFFER[:len(retry_items)]
+                        _IN_FLIGHT_COUNT += len(retry_items)
 
-            # 2. Drain new items from queue
-            batch: List[CG01EvaluationTrace] = []
-            while len(batch) < 50:
+                unprocessed_retries = list(retry_items)
                 try:
-                    item = _TRACE_QUEUE.get_nowait()
-                    batch.append(item)
-                except queue.Empty:
-                    break
+                    while unprocessed_retries:
+                        trace, attempt = unprocessed_retries.pop(0)
+                        await asyncio.to_thread(_persist_trace_batch_sync, [trace], None, attempt, True)
+                except BaseException:
+                    with _RETRY_BUFFER_LOCK:
+                        for t, a in reversed(unprocessed_retries):
+                            _RETRY_BUFFER.insert(0, (t, a))
+                        _IN_FLIGHT_COUNT = max(0, _IN_FLIGHT_COUNT - len(unprocessed_retries))
+                    raise
 
-            if batch:
-                with _RETRY_BUFFER_LOCK:
-                    _IN_FLIGHT_COUNT += len(batch)
-                await asyncio.to_thread(_persist_trace_batch_sync, batch, None, 1, True)
+                # 2. Drain new items from queue with atomic ownership transfer (Rules 023, 043)
+                batch: List[CG01EvaluationTrace] = []
+                while len(batch) < 50:
+                    try:
+                        item = _TRACE_QUEUE.get_nowait()
+                        batch.append(item)
+                    except queue.Empty:
+                        break
 
-            await asyncio.sleep(0.5)
-        except asyncio.CancelledError:
+                if batch:
+                    with _RETRY_BUFFER_LOCK:
+                        _IN_FLIGHT_COUNT += len(batch)
+                    try:
+                        await asyncio.to_thread(_persist_trace_batch_sync, batch, None, 1, True)
+                    except BaseException:
+                        with _RETRY_BUFFER_LOCK:
+                            for t in reversed(batch):
+                                _RETRY_BUFFER.insert(0, (t, 1))
+                            _IN_FLIGHT_COUNT = max(0, _IN_FLIGHT_COUNT - len(batch))
+                        raise
+
+                await asyncio.sleep(0.5)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Trace persistence worker loop error: {e}", exc_info=True)
+                await asyncio.sleep(1.0)
+    finally:
+        with _RETRY_BUFFER_LOCK:
             _TRACE_WORKER_RUNNING = False
-            break
-        except Exception as e:
-            logger.error(f"Trace persistence worker loop error: {e}", exc_info=True)
-            await asyncio.sleep(1.0)
+            _TRACE_WORKER_STATE = "STOPPED"
+            _TRACE_WORKER_TASK = None
 
 
 def stop_trace_persistence_worker():
-    global _TRACE_WORKER_RUNNING
+    global _TRACE_WORKER_RUNNING, _TRACE_WORKER_STATE
     _TRACE_WORKER_RUNNING = False
+    if _TRACE_WORKER_STATE == "RUNNING":
+        _TRACE_WORKER_STATE = "STOPPING"
 
 
 class CG01TraceRecorder:
@@ -685,7 +822,7 @@ class CG01TraceRecorder:
                 CG01TracePersistenceWriter.persist_trace(snap, db=db)
             else:
                 # No DB provided: enqueue for background persistence or write with dedicated session
-                if _TRACE_WORKER_RUNNING:
+                if _TRACE_WORKER_RUNNING or _TRACE_WORKER_STATE in ("STARTING", "RUNNING", "STOPPING"):
                     enqueue_trace_persistence(snap)
                 else:
                     CG01TracePersistenceWriter.persist_trace(snap, db=None)

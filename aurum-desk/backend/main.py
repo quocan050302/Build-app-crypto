@@ -83,6 +83,12 @@ def reconcile_stuck_orders():
     finally:
         db.close()
 
+_LIFESPAN_SHUTDOWN_RESULT: Dict[str, Any] = {}
+
+def get_last_shutdown_result() -> Dict[str, Any]:
+    """Return the structured result of the most recent lifespan shutdown sequence."""
+    return dict(_LIFESPAN_SHUTDOWN_RESULT)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -133,10 +139,14 @@ async def lifespan(app: FastAPI):
     from services.cg01_projection_worker import cg01_projection_worker
     from services.cg01_telemetry_service import (
         run_trace_persistence_worker,
+        start_trace_persistence_worker,
         stop_trace_persistence_worker,
+        wait_trace_persistence_worker_stopped,
         flush_pending_traces,
         drain_trace_persistence,
     )
+
+    await start_trace_persistence_worker(timeout_s=3.0)
 
     tasks = [
         asyncio.create_task(bitget_ws_service.run_ws_loop()),
@@ -153,24 +163,53 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(scalp_watcher_orchestrator.run_watcher_loop()),
         asyncio.create_task(cg01_evaluation_scheduler.run()),
         asyncio.create_task(cg01_projection_worker.run()),
-        asyncio.create_task(run_trace_persistence_worker()),
     ]
     yield
-    # Graceful shutdown: orderly stop of worker loops before cancelling (V16.22 Rules 017, 038, 041, 184)
+    # Graceful shutdown: orderly stop of worker loops before cancelling (V16.22 / V16.23 Rules 017, 026, 038, 075-079, 136, 184)
+    global _LIFESPAN_SHUTDOWN_RESULT
+    _LIFESPAN_SHUTDOWN_RESULT = {
+        "status": "COMPLETED",
+        "scheduler_drained": True,
+        "telemetry_drain": {},
+        "errors": [],
+    }
+
     bitget_ws_service.stop()
     forward_repair_worker.stop()
     scalp_watcher_orchestrator.stop()
     cg01_evaluation_scheduler.stop()
+
+    sched_ok = False
     try:
-        await cg01_evaluation_scheduler.wait_evaluations_drained(timeout_s=3.0)
+        sched_ok = await cg01_evaluation_scheduler.wait_evaluations_drained(timeout_s=3.0)
+        if not sched_ok:
+            logger.warning("CG01 evaluation scheduler did not drain all evaluations within timeout.")
+            _LIFESPAN_SHUTDOWN_RESULT["scheduler_drained"] = False
+            _LIFESPAN_SHUTDOWN_RESULT["status"] = "TIMED_OUT"
     except Exception as se:
         logger.error(f"Error waiting for scheduler evaluations: {se}")
+        _LIFESPAN_SHUTDOWN_RESULT["errors"].append(str(se))
+        _LIFESPAN_SHUTDOWN_RESULT["status"] = "FAILED"
+
     cg01_projection_worker.stop()
+
+    drain_res = {}
     try:
-        await drain_trace_persistence(timeout_s=5.0)
+        drain_res = await drain_trace_persistence(timeout_s=5.0)
+        _LIFESPAN_SHUTDOWN_RESULT["telemetry_drain"] = drain_res
+        d_status = drain_res.get("status", "")
+        if d_status in ("TIMED_OUT", "FAILED", "COMPLETED_WITH_LOSS"):
+            logger.warning(f"Telemetry drain incomplete or degraded on shutdown: status={d_status}, details={drain_res}")
+            if _LIFESPAN_SHUTDOWN_RESULT["status"] == "COMPLETED":
+                _LIFESPAN_SHUTDOWN_RESULT["status"] = d_status
     except Exception as te:
         logger.error(f"Error draining traces on shutdown: {te}")
+        _LIFESPAN_SHUTDOWN_RESULT["errors"].append(str(te))
+        _LIFESPAN_SHUTDOWN_RESULT["status"] = "FAILED"
+
     stop_trace_persistence_worker()
+    await wait_trace_persistence_worker_stopped(timeout_s=2.0)
+
     try:
         rep_res = await forward_repair_worker.shutdown(timeout_s=5.0)
         if rep_res and getattr(rep_res, "status", "") == "TIMED_OUT":

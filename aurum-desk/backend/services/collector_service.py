@@ -40,13 +40,17 @@ class CollectorService:
     @property
     def latest_ticker(self) -> Optional[Dict[str, Any]]:
         from services.bitget_ws_service import bitget_ws_service
-        if bitget_ws_service.latest_quote and bitget_ws_service.latest_quote.is_valid:
+        if bitget_ws_service.latest_quote and bitget_ws_service.latest_quote.is_valid and getattr(bitget_ws_service, "_running", False):
             return bitget_ws_service.latest_quote.to_dict()
         return self._latest_ticker
 
     @latest_ticker.setter
     def latest_ticker(self, val: Optional[Dict[str, Any]]):
         self._latest_ticker = val
+        if val is not None:
+            from services.bitget_ws_service import bitget_ws_service
+            if not getattr(bitget_ws_service, "_running", False):
+                bitget_ws_service.latest_quote = None
 
     @property
     def feed_connected(self) -> bool:

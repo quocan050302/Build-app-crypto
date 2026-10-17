@@ -365,6 +365,7 @@ class BitgetWSService:
 
     def stop(self):
         self._running = False
+        self.latest_quote = None
         if self._ws_client:
             asyncio.create_task(self._ws_client.close())
         if self._rest_fallback_task and not self._rest_fallback_task.done():
