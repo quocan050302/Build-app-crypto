@@ -1064,6 +1064,19 @@ class ScalpWatcherOrchestrator:
                         cg01_eval_data["armed_order_id"] = armed_order.id
                         cg01_eval_data["arm_outcome"] = "ARMED"
                         cg01_eval_data["stage"] = OpportunityStage.ARMED.value if hasattr(OpportunityStage, "ARMED") else "ARMED"
+                        try:
+                            from services.paper_research_run_service import associate_order_with_research_run, PaperResearchRunService
+                            act_run = PaperResearchRunService.get_or_create_run(symbol=symbol, scope="CG01", db=db)
+                            if act_run:
+                                associate_order_with_research_run(
+                                    db=db,
+                                    run_id=act_run.run_id,
+                                    order_id=armed_order.id,
+                                    opportunity_id=f"opp_{cand.candidate_key}",
+                                    now_ms=t_recv,
+                                )
+                        except Exception as e:
+                            logger.warning(f"Error associating armed order with CG01 run: {e}")
                     else:
                         rej = self._arm_rejections.get(cand.candidate_key)
                         if rej:

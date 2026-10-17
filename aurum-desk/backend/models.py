@@ -747,3 +747,39 @@ class OpportunityFunnelRecord(Base):
     __table_args__ = (
         UniqueConstraint('opportunity_id', 'stage', name='uq_opportunity_stage'),
     )
+
+
+# ---------------------------------------------------------------------------
+# V16.15 Paper Research Run & Order Association Models (Rules 081-083, 091-096)
+# ---------------------------------------------------------------------------
+class PaperResearchRunRecord(Base):
+    __tablename__ = "paper_research_run_records"
+
+    run_id = Column(String(80), primary_key=True, index=True)
+    symbol = Column(String(20), default="XAUUSDT")
+    status = Column(String(20), default="COLLECTING", index=True)  # CREATED, COLLECTING, PAUSED, COMPLETED, DEGRADED, FAILED
+    started_at_ms = Column(BigInteger, nullable=False)
+    ended_at_ms = Column(BigInteger, nullable=True)
+    software_version = Column(String(20), default="V16.15")
+    config_fingerprint = Column(String(80), default="DEFAULT")
+    execution_mode = Column(String(30), default="PAPER_SHADOW")  # PAPER_SHADOW or PAPER_EXECUTION
+    initial_capital_usdt = Column(Float, default=1000.0)
+    current_capital_usdt = Column(Float, default=1000.0)
+    metadata_json = Column(Text, nullable=True)
+    created_at_ms = Column(BigInteger, nullable=False)
+    updated_at_ms = Column(BigInteger, nullable=False)
+
+
+class PaperResearchOrderLink(Base):
+    __tablename__ = "paper_research_order_links"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    run_id = Column(String(80), nullable=False, index=True)
+    order_id = Column(String(36), nullable=False, index=True)
+    opportunity_id = Column(String(80), nullable=True, index=True)
+    trace_id = Column(String(80), nullable=True)
+    linked_at_ms = Column(BigInteger, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('run_id', 'order_id', name='uq_run_order'),
+    )

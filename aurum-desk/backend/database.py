@@ -377,6 +377,39 @@ def run_schema_migrations(target_engine=None):
             if tp_cols and "daily_min_goal" not in tp_cols:
                 conn.execute(text("ALTER TABLE trading_policies ADD COLUMN daily_min_goal INTEGER DEFAULT 2;"))
 
+            # V16.15: Ensure paper_research_run_records and paper_research_order_links exist
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS paper_research_run_records (
+                    run_id VARCHAR(80) PRIMARY KEY,
+                    symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+                    status VARCHAR(20) DEFAULT 'COLLECTING',
+                    started_at_ms BIGINT NOT NULL,
+                    ended_at_ms BIGINT,
+                    software_version VARCHAR(20) DEFAULT 'V16.15',
+                    config_fingerprint VARCHAR(80) DEFAULT 'DEFAULT',
+                    execution_mode VARCHAR(30) DEFAULT 'PAPER_SHADOW',
+                    initial_capital_usdt FLOAT DEFAULT 1000.0,
+                    current_capital_usdt FLOAT DEFAULT 1000.0,
+                    metadata_json TEXT,
+                    created_at_ms BIGINT NOT NULL,
+                    updated_at_ms BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_run_status ON paper_research_run_records (status);"))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS paper_research_order_links (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    run_id VARCHAR(80) NOT NULL,
+                    order_id VARCHAR(36) NOT NULL,
+                    opportunity_id VARCHAR(80),
+                    trace_id VARCHAR(80),
+                    linked_at_ms BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_run_order ON paper_research_order_links (run_id, order_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_order_run ON paper_research_order_links (run_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_order_order ON paper_research_order_links (order_id);"))
+
             conn.commit()
     except Exception:
         pass

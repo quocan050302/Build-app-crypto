@@ -49,15 +49,31 @@ class CG01MissedOpportunityAuditService:
     grounded in causal timestamps and structural facts.
     """
 
+    @staticmethod
+    def verify_entry_touch_coverage(
+        order: Optional[Dict[str, Any]],
+        eval_records: Sequence[Dict[str, Any]],
+    ) -> str:
+        """
+        Appendix B & Rules 027, 142-144: Returns 'TOUCHED', 'NOT_TOUCHED', or 'UNVERIFIABLE'
+        based on quote tape coverage in the validity window.
+        """
+        if order and order.get("quote_coverage_verified") is True:
+            return "NOT_TOUCHED"
+        if any(e.get("quote_coverage_verified") is True for e in eval_records):
+            return "NOT_TOUCHED"
+        return "UNVERIFIABLE"
+
     @classmethod
     def classify_opportunity(
         cls,
         eval_records: Sequence[Dict[str, Any]],
         order: Optional[Dict[str, Any]] = None,
         max_retrace_delay_ms: int = 500,
+        quote_coverage_verified: Optional[bool] = None,
     ) -> OpportunityAuditRecord:
         """
-        Pure classification function for an opportunity progression (Rules 094-100).
+        Pure classification function for an opportunity progression (Rules 094-100, 141-150).
         Evaluates sequence of stage evaluations and any associated paper order.
         """
         if not eval_records:
@@ -104,8 +120,8 @@ class CG01MissedOpportunityAuditService:
 
         evidence_ids = list(last_eval.get("evidence_ids", []))
 
-        # 1. Did it successfully fill?
-        if OpportunityStage.FILLED.value in all_stages or (order and order.get("state") in ("filled", "closed")):
+        # 1. Did it successfully fill? (Rules 106, 149: paper_open is filled!)
+        if OpportunityStage.FILLED.value in all_stages or (order and order.get("state") in ("filled", "closed", "paper_open")):
             return OpportunityAuditRecord(
                 opportunity_id=opp_id,
                 symbol=symbol,
@@ -117,10 +133,45 @@ class CG01MissedOpportunityAuditService:
                 evidence_ids=evidence_ids,
                 timestamps=timestamps,
                 price_levels=price_levels,
-                notes="Order successfully reached filled state.",
+                notes="Order successfully reached filled or paper_open state.",
             )
 
-        # 2. Rule 094: Was it blocked by a guard / risk / quota / lesson policy?
+        # 2. Rule 141: Is the opportunity currently active / pending?
+        order_state = order.get("state") if order else None
+        is_order_active = order_state in ("armed", "candidate")
+        terminal_stages = {
+            OpportunityStage.EXPIRED.value,
+            OpportunityStage.INVALIDATED.value,
+            OpportunityStage.GUARD_BLOCKED.value,
+            OpportunityStage.FILLED.value,
+        }
+        has_terminal_stage = any(s in terminal_stages for s in all_stages)
+        has_runaway_or_invalid = (
+            OpportunityReasonCode.ENTRY_TOO_FAR.value in all_reasons
+            or "RUNAWAY" in all_reasons
+            or "INVALIDATED" in all_reasons
+        )
+
+        t_recv = timestamps.get("market_event_received_at")
+        t_start = timestamps.get("evaluation_started_at")
+        is_delayed = bool(t_recv and t_start and (t_start - t_recv) > max_retrace_delay_ms)
+
+        if not has_runaway_or_invalid and not is_delayed and (is_order_active or (not has_terminal_stage and order_state not in ("expired", "closed", "cancelled"))):
+            return OpportunityAuditRecord(
+                opportunity_id=opp_id,
+                symbol=symbol,
+                direction=direction,
+                as_of_ms=as_of_ms,
+                terminal_stage=last_eval.get("stage", "PENDING"),
+                classification="PENDING",
+                miss_reason="IN_PROGRESS",
+                evidence_ids=evidence_ids,
+                timestamps=timestamps,
+                price_levels=price_levels,
+                notes="Opportunity is currently active and pending execution.",
+            )
+
+        # 3. Rule 094 & 147: Was it blocked by a guard / risk / quota / lesson policy?
         policy_reasons = {
             "GUARD_BLOCKED", "NEWS_BLACKOUT", "LESSON_POLICY_BLOCKED",
             "DAILY_LIMIT_REACHED", "ACTIVE_POSITION_EXISTS", "POLICY_BLOCKED",
@@ -143,9 +194,30 @@ class CG01MissedOpportunityAuditService:
                 notes=f"Intentional policy block enforced by protective guards: {reason}.",
             )
 
-        # 3. Rule 097: Was order armed, but market never retraced to entry?
-        if OpportunityStage.ARMED.value in all_stages or (order and order.get("state") in ("armed", "expired")):
-            if order and order.get("state") == "expired":
+        # 4. Rules 027, 097, 142-144: Expired order check with quote coverage requirement
+        if OpportunityStage.EXPIRED.value in all_stages or order_state == "expired":
+            has_gap = (
+                quote_coverage_verified is False
+                or (order and order.get("quote_coverage_verified") is False)
+                or any(e.get("quote_coverage_verified") is False for e in sorted_evals)
+                or (order and order.get("has_quote_coverage") is False)
+                or any(e.get("has_quote_coverage") is False for e in sorted_evals)
+            )
+            if has_gap:
+                return OpportunityAuditRecord(
+                    opportunity_id=opp_id,
+                    symbol=symbol,
+                    direction=direction,
+                    as_of_ms=as_of_ms,
+                    terminal_stage=OpportunityStage.EXPIRED.value,
+                    classification="UNVERIFIABLE",
+                    miss_reason="DATA_GAP",
+                    evidence_ids=evidence_ids,
+                    timestamps=timestamps,
+                    price_levels=price_levels,
+                    notes="Expired without complete quote tape coverage to verify non-fill.",
+                )
+            else:
                 return OpportunityAuditRecord(
                     opportunity_id=opp_id,
                     symbol=symbol,
@@ -157,15 +229,16 @@ class CG01MissedOpportunityAuditService:
                     evidence_ids=evidence_ids,
                     timestamps=timestamps,
                     price_levels=price_levels,
-                    notes="Order was armed causally, but market price never touched planned entry before expiry.",
+                    notes="Verified with quote coverage: market price never touched planned entry before expiry.",
                 )
 
-        # 4. Technical / Latency Misses (Rules 095, 096)
-        t_recv = timestamps.get("market_event_received_at")
-        t_start = timestamps.get("evaluation_started_at")
-        t_done = timestamps.get("evaluation_completed_at")
+        # 5. Technical / Latency Misses (Rules 028, 145, 146)
+        is_runaway = (
+            OpportunityReasonCode.ENTRY_TOO_FAR.value in all_reasons
+            or "RUNAWAY" in all_reasons
+        )
 
-        if t_recv and t_start and (t_start - t_recv) > max_retrace_delay_ms:
+        if is_delayed and (is_runaway or not order or order_state not in ("armed", "paper_open", "filled", "closed")):
             return OpportunityAuditRecord(
                 opportunity_id=opp_id,
                 symbol=symbol,
@@ -180,7 +253,7 @@ class CG01MissedOpportunityAuditService:
                 notes=f"Scheduler delay exceeded budget: {t_start - t_recv}ms > {max_retrace_delay_ms}ms.",
             )
 
-        if OpportunityReasonCode.ENTRY_TOO_FAR.value in all_reasons:
+        if is_runaway:
             return OpportunityAuditRecord(
                 opportunity_id=opp_id,
                 symbol=symbol,
@@ -192,10 +265,10 @@ class CG01MissedOpportunityAuditService:
                 evidence_ids=evidence_ids,
                 timestamps=timestamps,
                 price_levels=price_levels,
-                notes="Price moved away rapidly beyond valid entry retrace limit.",
+                notes="Price moved away rapidly beyond valid entry retrace limit without technical delay.",
             )
 
-        # 5. Invalidated or expired before arm
+        # 6. Invalidated or expired before arm
         if OpportunityStage.INVALIDATED.value in all_stages or "INVALIDATED" in all_reasons:
             return OpportunityAuditRecord(
                 opportunity_id=opp_id,
@@ -213,6 +286,7 @@ class CG01MissedOpportunityAuditService:
 
         # Default fallback
         term_stage = last_eval.get("stage", "UNKNOWN")
+        note_suffix = " (latency budget violated but entry not lost)" if is_delayed else ""
         return OpportunityAuditRecord(
             opportunity_id=opp_id,
             symbol=symbol,
@@ -224,7 +298,7 @@ class CG01MissedOpportunityAuditService:
             evidence_ids=evidence_ids,
             timestamps=timestamps,
             price_levels=price_levels,
-            notes=f"Opportunity concluded at stage {term_stage} without filling.",
+            notes=f"Opportunity concluded at stage {term_stage} without filling{note_suffix}.",
         )
 
     @classmethod
@@ -237,16 +311,18 @@ class CG01MissedOpportunityAuditService:
         orders: Optional[Sequence[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """
-        Audit a paper run's opportunities and generate structured bottleneck breakdown (Rules 101-110).
+        Audit a paper run's opportunities and generate structured bottleneck breakdown (Rules 101-110, 150-151).
         """
         all_evals: List[Dict[str, Any]] = []
         orders_map: Dict[str, Dict[str, Any]] = {}
 
         if orders:
             for o in orders:
-                setup_id = o.get("setup_instance_id") or o.get("signal_id") or o.get("id")
+                setup_id = o.get("setup_instance_id") or o.get("signal_id") or o.get("id") or o.get("opportunity_id")
                 if setup_id:
                     orders_map[str(setup_id)] = o
+                if o.get("id"):
+                    orders_map[str(o["id"])] = o
 
         if records:
             all_evals.extend(records)
@@ -271,17 +347,34 @@ class CG01MissedOpportunityAuditService:
                     payload["reason_codes"] = []
                 all_evals.append(payload)
 
-            # Query PaperOrders
-            db_orders = db.query(models.PaperOrder).filter(
-                models.PaperOrder.origin.in_(["AUTO_STRATEGY", "CG01", run_id])
+            # Rule 150 & 151: Exact query for PaperOrders linked to this research run
+            links = db.query(models.PaperResearchOrderLink).filter(
+                models.PaperResearchOrderLink.run_id == run_id
             ).all()
+            linked_order_ids = {l.order_id for l in links}
+
+            if linked_order_ids:
+                db_orders = db.query(models.PaperOrder).filter(
+                    models.PaperOrder.id.in_(linked_order_ids)
+                ).all()
+            else:
+                db_orders = db.query(models.PaperOrder).filter(
+                    models.PaperOrder.origin.in_(["AUTO_STRATEGY", "CG01", run_id])
+                ).all()
+
             for o in db_orders:
-                orders_map[o.id] = {
+                od = {
                     "id": o.id,
                     "state": o.state,
                     "direction": o.direction,
                     "setup_instance_id": o.setup_instance_id,
+                    "signal_id": o.signal_id,
                 }
+                orders_map[str(o.id)] = od
+                if o.setup_instance_id:
+                    orders_map[str(o.setup_instance_id)] = od
+                if o.signal_id:
+                    orders_map[str(o.signal_id)] = od
 
         # Group by opportunity_id
         grouped: Dict[str, List[Dict[str, Any]]] = {}
@@ -291,20 +384,31 @@ class CG01MissedOpportunityAuditService:
 
         audits: List[OpportunityAuditRecord] = []
         for opp_id, ev_list in grouped.items():
-            matching_order = None
-            for oid, od in orders_map.items():
-                if opp_id in oid or (od.get("setup_instance_id") and od["setup_instance_id"] in opp_id):
-                    matching_order = od
-                    break
+            # Rule 150: Exact association without substring matching!
+            matching_order = orders_map.get(opp_id)
+            if not matching_order:
+                # Check exact equality on fields
+                for oid, od in orders_map.items():
+                    if (
+                        oid == opp_id
+                        or od.get("setup_instance_id") == opp_id
+                        or od.get("signal_id") == opp_id
+                        or od.get("id") == opp_id
+                        or f"opp_{od.get('setup_instance_id')}" == opp_id
+                    ):
+                        matching_order = od
+                        break
             audits.append(cls.classify_opportunity(ev_list, order=matching_order))
 
         # Metrics aggregation
         total_unique = len(audits)
         filled_count = sum(1 for a in audits if a.classification == "FILLED")
+        pending_count = sum(1 for a in audits if a.classification == "PENDING")
         policy_blocked_count = sum(1 for a in audits if a.classification == "POLICY_BLOCKED")
         technical_miss_count = sum(1 for a in audits if a.classification == "TECHNICAL_MISS")
         market_non_fill_count = sum(1 for a in audits if a.classification == "MARKET_NON_FILL")
         invalidated_count = sum(1 for a in audits if a.classification == "INVALIDATED")
+        unverifiable_count = sum(1 for a in audits if a.classification == "UNVERIFIABLE")
 
         # Bottlenecks by reason
         reason_counts: Dict[str, int] = {}
@@ -326,15 +430,19 @@ class CG01MissedOpportunityAuditService:
         long_example = next((a.to_dict() for a in audits if a.direction == "LONG"), None)
         short_example = next((a.to_dict() for a in audits if a.direction == "SHORT"), None)
 
+        capture_rate = round((filled_count / total_unique) * 100.0, 2) if total_unique > 0 else None
+
         return {
             "run_id": run_id,
             "total_unique_opportunities": total_unique,
             "actual_filled_count": filled_count,
+            "pending_count": pending_count,
             "policy_blocked_count": policy_blocked_count,
             "technical_miss_count": technical_miss_count,
             "market_non_fill_count": market_non_fill_count,
             "invalidated_count": invalidated_count,
-            "capture_rate_pct": round((filled_count / max(1, total_unique)) * 100.0, 2),
+            "unverifiable_count": unverifiable_count,
+            "capture_rate_pct": capture_rate,
             "top_bottlenecks": bottlenecks_summary,
             "representative_examples": {
                 "long": long_example,

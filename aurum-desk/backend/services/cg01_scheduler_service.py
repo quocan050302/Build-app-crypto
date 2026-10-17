@@ -16,17 +16,20 @@ import copy
 import logging
 import threading
 import time
+import hashlib
+import json
 from typing import Any, Dict, List, Optional, Set, Tuple
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
+import models
 import schemas
 from services.cg01_telemetry_service import (
     CG01EvaluationTrace,
     CG01Span,
     cg01_trace_recorder,
 )
-from services.cg01_types import CG01Config
+from services.cg01_types import CG01Config, CG01ProfileMode
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +100,8 @@ def capture_cg01_input_bundle(
                 last_closed_ts = c.timestamp
 
         bundle[tf] = closed_immutable
-        bundle["input_versions"][tf] = len(closed_immutable)
+        # Rule 061, 062: Real versioning per timeframe using last closed timestamp and count
+        bundle["input_versions"][tf] = f"{tf}:{last_closed_ts}:{len(closed_immutable)}" if last_closed_ts else f"{tf}:EMPTY"
         bundle["last_closed_times"][tf] = last_closed_ts
 
     return bundle
@@ -143,18 +147,54 @@ class CG01EvaluationScheduler:
         shadow_mode: Optional[bool] = None,
         is_owner: Optional[bool] = None,
     ) -> None:
-        """Update scheduler operational mode cleanly (Rule 161, 166)."""
+        """Update scheduler operational mode cleanly with validation (Rules 044, 161, 166)."""
         with self._lock:
-            if enabled is not None:
-                self.enabled = enabled
-            if shadow_mode is not None:
-                self.shadow_mode = shadow_mode
-            if is_owner is not None:
-                self.is_owner = is_owner
+            new_enabled = enabled if enabled is not None else self.enabled
+            new_shadow = shadow_mode if shadow_mode is not None else self.shadow_mode
+            new_owner = is_owner if is_owner is not None else self.is_owner
+
+            # Rule 044: Validate flag combinations
+            # If scheduler is disabled, it cannot be active execution owner
+            if not new_enabled and new_owner:
+                raise ValueError("Cannot set is_owner=True when scheduler is disabled")
+
+            self.enabled = new_enabled
+            self.shadow_mode = new_shadow
+            self.is_owner = new_owner
+
         logger.info(
             f"CG01EvaluationScheduler flags updated: enabled={self.enabled}, "
             f"shadow_mode={self.shadow_mode}, is_owner={self.is_owner}"
         )
+
+    def get_health_snapshot(self) -> Dict[str, Any]:
+        """Rules 034, 035: Return granular operational health snapshot."""
+        with self._lock:
+            if not self.enabled or getattr(self, "_stopped", False):
+                state = "STOPPED"
+            elif self._running:
+                state = "RUNNING"
+            else:
+                state = "CONFIGURED"
+            return {
+                "status": state,
+                "running": self._running,
+                "enabled": self.enabled,
+                "shadow_mode": self.shadow_mode,
+                "is_owner": self.is_owner,
+                "effective_owner": "SCHEDULER" if (self.enabled and self.is_owner and self._running and not self.shadow_mode) else "WATCHER",
+                "role": "OWNER" if (self.enabled and self.is_owner and self._running and not self.shadow_mode) else ("WATCHDOG" if (self.enabled and self._running) else "STANDBY"),
+                "dirty_symbols": list(self._dirty_symbols),
+                "in_flight_symbols": list(self._symbol_in_flight),
+                "events_received_count": self.events_received_count,
+                "evaluations_scheduled_count": self.evaluations_scheduled_count,
+                "duplicate_events_ignored_count": self.duplicate_events_ignored_count,
+            }
+
+    def is_running(self) -> bool:
+        """Return True if background worker loop is active."""
+        with self._lock:
+            return self._running
 
     def notify_market_change(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -185,13 +225,16 @@ class CG01EvaluationScheduler:
             # Only closed candles or significant structural events trigger evaluation (Rules 053, 054)
             if event_type == "CANDLE_CLOSED":
                 self._dirty_symbols.add(symbol)
+                # Rule 068: Preserve earliest arrival timestamp among pending events
+                existing = self._pending_market_events.get(symbol)
+                earliest_recv = existing.get("received_at_ms") if existing else received_at
                 self._pending_market_events[symbol] = {
                     "event_id": event_id,
                     "event_type": event_type,
                     "timeframe": tf,
                     "candle_timestamp": candle_ts,
                     "exchange_event_time_ms": event.get("exchange_event_time_ms"),
-                    "received_at_ms": received_at,
+                    "received_at_ms": earliest_recv,
                     "enqueued_at_ms": int(time.time() * 1000),
                 }
 
@@ -207,16 +250,37 @@ class CG01EvaluationScheduler:
 
     def evaluate_symbol_now(
         self,
-        db: Session,
-        symbol: str = "XAUUSDT",
+        db_or_symbol: Any = "XAUUSDT",
+        symbol_or_db: Any = None,
         *,
+        symbol: Optional[str] = None,
+        db: Optional[Session] = None,
         as_of_ms: Optional[int] = None,
         source_event: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Synchronously execute an event-driven evaluation cycle for a symbol with tracing.
         Respects single-flight per symbol (Rule 057).
+        Supports either evaluate_symbol_now(db, symbol) or evaluate_symbol_now(symbol, db=db).
         """
+        target_db = db
+        target_symbol = symbol
+
+        if isinstance(db_or_symbol, str):
+            target_symbol = db_or_symbol
+            if symbol_or_db is not None and not isinstance(symbol_or_db, str):
+                target_db = symbol_or_db
+        elif db_or_symbol is not None:
+            target_db = db_or_symbol
+            if isinstance(symbol_or_db, str):
+                target_symbol = symbol_or_db
+
+        if target_symbol is None:
+            target_symbol = "XAUUSDT"
+
+        symbol = target_symbol
+        db = target_db
+
         from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
 
         with self._lock:
@@ -248,8 +312,10 @@ class CG01EvaluationScheduler:
             bundle = capture_cg01_input_bundle(symbol=symbol, as_of_ms=t_now)
             trace.input_version = bundle["input_versions"].get("1M", 1)
 
-            # Auto execution control: in shadow mode, we force auto_enabled=False so no real orders arm
-            effective_auto = False if self.shadow_mode else (True if self.is_owner else None)
+            # Auto execution control (Rules 041, 042):
+            # In shadow mode or if scheduler is not owner, force auto_enabled=False.
+            # When scheduler is owner, pass None so evaluate_cycle reads global auto from strategy_service!
+            effective_auto = False if (self.shadow_mode or not self.is_owner) else None
 
             # Delegate to canonical production evaluate_cycle (Rule 052)
             span_engine = CG01Span(name="engine_evaluation", start_perf=time.perf_counter())
@@ -274,8 +340,33 @@ class CG01EvaluationScheduler:
             cg_eval = cycle_result.get("cg01_evaluation") or {}
             trace.candidate_key = cg_eval.get("candidate_key")
             trace.armed_order_id = cycle_result.get("armed_order_id")
+
+            # Rule 096: Associate trace and order with active research run
+            from services.paper_research_run_service import (
+                associate_order_with_research_run,
+                PaperResearchRunService,
+            )
+            act_run = PaperResearchRunService.get_or_create_run(symbol=symbol, scope="CG01", db=db)
+            if act_run:
+                trace.run_id = act_run.run_id
+
             if trace.armed_order_id:
-                trace.armed_at = t_done
+                # Rule 029, 127: Use real lifecycle fact from order instead of falsely setting armed_at = t_done
+                armed_ord = db.query(models.PaperOrder).filter(models.PaperOrder.id == trace.armed_order_id).first()
+                if armed_ord and armed_ord.armed_at:
+                    trace.armed_at = armed_ord.armed_at
+                else:
+                    trace.armed_at = t_done
+
+                if act_run:
+                    associate_order_with_research_run(
+                        db=db,
+                        run_id=act_run.run_id,
+                        order_id=trace.armed_order_id,
+                        opportunity_id=f"opp_{trace.candidate_key}" if trace.candidate_key else None,
+                        trace_id=trace_id,
+                        now_ms=trace.armed_at or t_done,
+                    )
 
             trace.evaluation_status = cycle_result.get("status", "COMPLETED")
             trace.skip_reason = cg_eval.get("skip_reason")
@@ -309,10 +400,20 @@ class CG01EvaluationScheduler:
 
     async def run(self) -> None:
         """
-        Appendix A #2: Long-running async scheduler worker.
+        Appendix A #2 & Rules 031-036: Long-running async scheduler worker.
         Drains dirty symbols under single-flight control.
         """
-        self._running = True
+        with self._lock:
+            if self._running:
+                logger.warning("CG01EvaluationScheduler is already running; skipping duplicate start.")
+                return
+            self._running = True
+            self._stopped = False
+            try:
+                self._task = asyncio.current_task()
+            except RuntimeError:
+                self._task = None
+
         self._wakeup_event = asyncio.Event()
         logger.info("CG01EvaluationScheduler run loop started.")
 
@@ -357,9 +458,134 @@ class CG01EvaluationScheduler:
 
     def stop(self) -> None:
         self._running = False
+        self._stopped = True
         if self._wakeup_event is not None:
             self._wakeup_event.set()
 
 
 # Global singleton
 cg01_evaluation_scheduler = CG01EvaluationScheduler()
+
+
+def resolve_entry_execution_owner(
+    db_or_sched: Any = None,
+    sched_or_db: Any = None,
+    *,
+    db: Optional[Session] = None,
+    scheduler: Optional[CG01EvaluationScheduler] = None,
+) -> Dict[str, Any]:
+    """
+    Rule 046 & Appendix B: Resolve whether SCHEDULER or WATCHER has active entry execution ownership.
+    Takes into account worker health, feature flags, and global auto state.
+    """
+    target_db = db
+    target_sched = scheduler
+
+    if isinstance(db_or_sched, CG01EvaluationScheduler):
+        target_sched = db_or_sched
+        if sched_or_db is not None and not isinstance(sched_or_db, CG01EvaluationScheduler):
+            target_db = sched_or_db
+    elif db_or_sched is not None:
+        target_db = db_or_sched
+        if isinstance(sched_or_db, CG01EvaluationScheduler):
+            target_sched = sched_or_db
+
+    sched = target_sched or cg01_evaluation_scheduler
+    health = sched.get_health_snapshot()
+
+    global_auto = False
+    if target_db is not None:
+        try:
+            from services.strategy_service import strategy_service
+            global_auto = strategy_service.get_auto_state(target_db)
+        except Exception:
+            global_auto = False
+    else:
+        try:
+            from database import SessionLocal
+            from services.strategy_service import strategy_service
+            local_db = SessionLocal()
+            try:
+                global_auto = strategy_service.get_auto_state(local_db)
+            finally:
+                local_db.close()
+        except Exception:
+            global_auto = False
+
+    # Effective owner logic (Rules 041-047)
+    if sched.enabled and sched.is_owner and sched._running and not sched.shadow_mode:
+        owner = "SCHEDULER"
+        watchdog = "WATCHER"
+        can_execute = global_auto
+        reason = "SCHEDULER_ACTIVE_OWNER"
+    else:
+        owner = "WATCHER"
+        watchdog = "SCHEDULER" if (sched.enabled and sched._running) else "NONE"
+        can_execute = global_auto
+        if sched.shadow_mode:
+            reason = "SCHEDULER_IN_SHADOW_MODE"
+        elif not sched.is_owner:
+            reason = "WATCHER_DEFAULT_OWNER"
+        elif not sched._running:
+            reason = "SCHEDULER_NOT_RUNNING"
+        else:
+            reason = "SCHEDULER_DISABLED"
+
+    return {
+        "execution_owner": owner,
+        "watchdog": watchdog,
+        "can_execute": can_execute,
+        "global_auto": global_auto,
+        "reason": reason,
+        "scheduler_health": health,
+    }
+
+
+def resolve_effective_cg01_config(
+    db: Optional[Session] = None,
+    symbol: str = "XAUUSDT",
+    base_config: Optional[CG01Config] = None,
+) -> Tuple[CG01Config, str, str]:
+    """
+    Appendix B & Rules 071-073: Resolve effective CG01 config, content fingerprint, and provenance source.
+    """
+    source = "DEFAULT"
+    cfg = base_config
+    if cfg is None:
+        if db is not None:
+            try:
+                from services.trading_policy_service import resolve_effective_daily_policy
+                eff_daily = resolve_effective_daily_policy(db, "default")
+                cfg = CG01Config(
+                    enabled=True,
+                    profile_mode=CG01ProfileMode.PAPER_EXECUTION.value,
+                    daily_min_goal=eff_daily.min_goal,
+                    daily_max_cap=eff_daily.max_fills,
+                    daily_ny_goal=eff_daily.ny_goal,
+                )
+                source = "DATABASE_POLICY"
+            except Exception:
+                cfg = CG01Config()
+                source = "FALLBACK_DEFAULT"
+        else:
+            cfg = CG01Config()
+            source = "FALLBACK_DEFAULT"
+    else:
+        source = "EXPLICIT_PARAMETER"
+
+    # Compute content fingerprint
+    fingerprint_payload = {
+        "model_version": cfg.model_version,
+        "entry_mode": cfg.entry_mode,
+        "min_net_rr": cfg.min_net_rr,
+        "displacement_body_atr_min": cfg.displacement_body_atr_min,
+        "pivot_left_bars": cfg.pivot_left_bars,
+        "pivot_right_bars": cfg.pivot_right_bars,
+        "timing_profile": cfg.timing_profile,
+        "daily_min_goal": cfg.daily_min_goal,
+        "daily_max_cap": cfg.daily_max_cap,
+    }
+    raw = json.dumps(fingerprint_payload, sort_keys=True)
+    fingerprint = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+    return cfg, fingerprint, source

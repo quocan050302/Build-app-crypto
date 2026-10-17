@@ -42,10 +42,10 @@ class CG01EvaluationTrace:
     trace_id: str
     run_id: Optional[str] = None
     symbol: str = "XAUUSDT"
-    input_version: int = 1
+    input_version: Any = 1
     source_event_id: Optional[str] = None
     context_source: str = "CACHE_AUTHORITATIVE"
-    model_fingerprint: str = "CG01_V16_14"
+    model_fingerprint: str = "CG01_V16_15"
     config_fingerprint: str = "DEFAULT"
 
     # Wall-clock timestamps in UTC ms (Rules 031, 036, 038)
