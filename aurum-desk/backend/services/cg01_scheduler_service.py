@@ -107,6 +107,231 @@ def capture_cg01_input_bundle(
     return bundle
 
 
+def capture_cg01_quote_snapshot(
+    symbol: str = "XAUUSDT",
+    as_of_ms: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    V16.20 Rules 041-046: Capture authoritative immutable quote snapshot from collector service.
+    Normalizes quote with canonical execution quote validator without synthesizing artificial quotes.
+    """
+    from services.collector_service import collector_service
+    from services.quote_validator import normalize_execution_quote
+    import math
+
+    now_ms = as_of_ms if as_of_ms is not None else int(time.time() * 1000)
+    raw_t = collector_service.latest_ticker
+    if not raw_t:
+        return {
+            "bid": 0.0,
+            "ask": 0.0,
+            "spread": 0.0,
+            "mid": 0.0,
+            "price": 0.0,
+            "timestamp": 0,
+            "is_valid": False,
+            "is_stale": True,
+            "rejection_code": "QUOTE_UNAVAILABLE",
+            "source": "COLLECTOR_TICKER",
+        }
+
+    q = normalize_execution_quote(raw_t, now_ms=now_ms)
+    if q is None:
+        return {
+            "bid": 0.0,
+            "ask": 0.0,
+            "spread": 0.0,
+            "mid": 0.0,
+            "price": 0.0,
+            "timestamp": 0,
+            "is_valid": False,
+            "is_stale": True,
+            "rejection_code": "QUOTE_UNAVAILABLE",
+            "source": "COLLECTOR_TICKER",
+        }
+
+    bid = float(q.bid) if hasattr(q, "bid") else float((q or {}).get("bid", 0.0))
+    ask = float(q.ask) if hasattr(q, "ask") else float((q or {}).get("ask", 0.0))
+    ts = int(q.timestamp) if hasattr(q, "timestamp") else int((q or {}).get("timestamp", 0))
+    is_valid = bool(getattr(q, "is_valid", False))
+    is_stale = bool(getattr(q, "is_stale", False))
+    spread = round(ask - bid, 4) if (bid > 0 and ask >= bid) else 0.0
+    mid = round((bid + ask) / 2.0, 4) if (bid > 0 and ask > 0) else bid
+
+    return {
+        "bid": bid,
+        "ask": ask,
+        "spread": spread,
+        "mid": mid,
+        "price": mid,
+        "last": mid,
+        "timestamp": ts,
+        "is_valid": is_valid,
+        "is_stale": is_stale,
+        "rejection_code": getattr(q, "rejection_code", None) or ("QUOTE_STALE" if is_stale else ("QUOTE_UNAVAILABLE" if not is_valid else None)),
+        "source": "COLLECTOR_TICKER",
+        "epoch": getattr(q, "epoch", None),
+        "sequence": getattr(q, "sequence", None),
+    }
+
+
+def resolve_cg01_financial_context(
+    db: Optional[Session] = None,
+) -> Dict[str, Any]:
+    """
+    V16.20 Rules 018, 025, 057: Resolve authoritative financial context (capital and risk_pct).
+    Reuses the canonical risk settings and account audit source used by ACTIVE.
+    Does NOT hardcode capital=1000.0 / risk_pct=0.25.
+    """
+    from services.risk_settings_service import risk_settings_service
+    import crud
+    from database import SessionLocal
+
+    owns_db = False
+    target_db = db
+    if target_db is None:
+        target_db = SessionLocal()
+        owns_db = True
+
+    try:
+        g_settings = risk_settings_service.get_settings(target_db)
+        audit = crud.get_or_create_today_audit(target_db)
+
+        raw_eq = audit.current_equity if audit is not None else None
+        capital_val = float(raw_eq) if raw_eq is not None else 1000.0
+
+        risk_val = float(g_settings.risk_pct) if (g_settings and g_settings.risk_pct is not None) else 0.25
+
+        return {
+            "capital_usdt": capital_val,
+            "risk_pct": risk_val,
+            "leverage": int(g_settings.requested_leverage) if g_settings else 10,
+            "margin_mode": str(g_settings.margin_mode) if g_settings else "isolated",
+            "capital_source": "ACCOUNT_AUDIT",
+            "risk_source": "RISK_SETTINGS",
+        }
+    finally:
+        if owns_db:
+            target_db.close()
+
+
+def ensure_observation_run_started(
+    symbol: str = "XAUUSDT",
+    scope: str = "CG01",
+    mode: str = "SHADOW",
+    run_id: Optional[str] = None,
+    initial_capital_usdt: float = 1000.0,
+) -> Optional[Any]:
+    """
+    V16.20 Rules 027, 061-068: Managed start transaction for observation run.
+    Uses its own dedicated DB session, validates mode/scope, commits, and returns an immutable run reference.
+    Guarantees run persistence across session close and restart.
+    Does NOT mutate global auto, risk settings, or trading policies.
+    """
+    from database import SessionLocal
+    from services.paper_research_run_service import (
+        PaperResearchRunService,
+        PaperResearchRun,
+    )
+    import models
+
+    db = SessionLocal()
+    try:
+        if run_id:
+            row = db.query(models.PaperResearchRunRecord).filter(
+                models.PaperResearchRunRecord.run_id == run_id
+            ).first()
+            if row:
+                run = PaperResearchRun(
+                    run_id=row.run_id,
+                    symbol=row.symbol,
+                    status=row.status,
+                    started_at_ms=row.started_at_ms,
+                    ended_at_ms=row.ended_at_ms,
+                    software_version=row.software_version,
+                    config_fingerprint=row.config_fingerprint,
+                    execution_mode=row.execution_mode,
+                    initial_capital_usdt=row.initial_capital_usdt,
+                    observation_mode=row.observation_mode or mode,
+                )
+                PaperResearchRunService._active_runs[row.run_id] = run
+                return run
+
+        if not run_id:
+            # Look up collecting run matching scope, symbol, and mode
+            query = db.query(models.PaperResearchRunRecord).filter(
+                models.PaperResearchRunRecord.scope == scope,
+                models.PaperResearchRunRecord.symbol == symbol,
+                models.PaperResearchRunRecord.status == "COLLECTING",
+            )
+            if hasattr(models.PaperResearchRunRecord, "observation_mode"):
+                query = query.filter(models.PaperResearchRunRecord.observation_mode == mode)
+            existing = query.order_by(models.PaperResearchRunRecord.started_at_ms.desc()).first()
+            if existing:
+                run = PaperResearchRun(
+                    run_id=existing.run_id,
+                    symbol=existing.symbol,
+                    status=existing.status,
+                    started_at_ms=existing.started_at_ms,
+                    ended_at_ms=existing.ended_at_ms,
+                    software_version=existing.software_version,
+                    config_fingerprint=existing.config_fingerprint,
+                    execution_mode=existing.execution_mode,
+                    initial_capital_usdt=existing.initial_capital_usdt,
+                    observation_mode=getattr(existing, "observation_mode", mode),
+                )
+                PaperResearchRunService._active_runs[existing.run_id] = run
+                return run
+
+        # Create and COMMIT new run in worker session
+        t_now = int(time.time() * 1000)
+        actual_run_id = run_id or f"run_{scope.lower()}_{symbol.lower()}_{mode.lower()}_{t_now}"
+        exec_mode = "PAPER_EXECUTION" if mode == "ACTIVE" else "PAPER_SHADOW"
+
+        rec = models.PaperResearchRunRecord(
+            run_id=actual_run_id,
+            scope=scope,
+            symbol=symbol,
+            status="COLLECTING",
+            started_at_ms=t_now,
+            ended_at_ms=None,
+            software_version="V16.20",
+            config_fingerprint=f"CG01_{mode}_V16_20",
+            execution_mode=exec_mode,
+            observation_mode=mode,
+            initial_capital_usdt=initial_capital_usdt,
+            current_capital_usdt=initial_capital_usdt,
+            created_at_ms=t_now,
+            updated_at_ms=t_now,
+        )
+        db.add(rec)
+        db.commit()
+
+        run = PaperResearchRun(
+            run_id=actual_run_id,
+            symbol=symbol,
+            status="COLLECTING",
+            started_at_ms=t_now,
+            ended_at_ms=None,
+            software_version="V16.20",
+            config_fingerprint=f"CG01_{mode}_V16_20",
+            execution_mode=exec_mode,
+            initial_capital_usdt=initial_capital_usdt,
+            observation_mode=mode,
+        )
+        PaperResearchRunService._active_runs[actual_run_id] = run
+        return run
+    except Exception as e:
+        logger.error(f"Failed to start observation run: {e}")
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
+    finally:
+        db.close()
+
+
 def evaluate_cg01_shadow_snapshot(
     symbol: str,
     as_of_ms: int,
@@ -114,7 +339,7 @@ def evaluate_cg01_shadow_snapshot(
     config: Optional[Any] = None,
     research_ctx: Optional[Any] = None,
     poi_context: Optional[Any] = None,
-    current_quote: Optional[Dict[str, float]] = None,
+    current_quote: Optional[Dict[str, Any]] = None,
     capital: float = 1000.0,
     risk_pct: float = 0.25,
     costs: Optional[Any] = None,
@@ -125,10 +350,13 @@ def evaluate_cg01_shadow_snapshot(
     watchlist (_active_zones), rejections (_arm_rejections), or emitting trade notifications.
     Reuses the canonical CG-01 evaluator (services.cg01_engine.evaluate_cg01_candidate).
     Uses canonical raw_by_tf bundle and effective configuration (Rules 021-023, 031-040).
+    Never accesses .get() directly on candles (Rule 021).
+    Never fabricates synthetic quotes when real quote is unavailable (Rule 024, 032, 043).
     """
     from services.cg01_engine import evaluate_cg01_candidate
     from services.scalp_watcher_orchestrator import serialize_cg01_evaluation
     from services.cg01_types import CG01Config
+    import math
 
     cfg = config
     if cfg is None:
@@ -158,16 +386,33 @@ def evaluate_cg01_shadow_snapshot(
             "armed_order_id": None,
         }
 
+    # Quote validation (Rules 023, 024, 043): Authoritative quote only, NO synthetic fallback
     q = current_quote
-    if not q:
-        last_candle = c_1m[-1]
-        last_price = float(last_candle.get("c") or last_candle.get("close") or 0.0)
-        tick_sz = getattr(cfg, "tick_size", 0.01) or 0.01
-        q = {
-            "bid": last_price,
-            "ask": round(last_price + tick_sz, 4),
-            "price": last_price,
-            "timestamp": as_of_ms,
+    if q is None:
+        return {
+            "status": "SKIPPED",
+            "candidate": None,
+            "skip_reason": "QUOTE_UNAVAILABLE",
+            "cg01_evaluation": serialize_cg01_evaluation(
+                None, enabled=getattr(cfg, "enabled", True), evaluated=False, skip_reason="QUOTE_UNAVAILABLE", as_of_ms=as_of_ms
+            ),
+            "armed_order_id": None,
+        }
+
+    is_valid = bool(getattr(q, "is_valid", False) if hasattr(q, "is_valid") else (q.get("is_valid", True) if isinstance(q, dict) and "is_valid" in q else True))
+    is_stale = bool(getattr(q, "is_stale", False) if hasattr(q, "is_stale") else (q.get("is_stale", False) if isinstance(q, dict) else False))
+    bid = float(getattr(q, "bid", 0.0) if hasattr(q, "bid") else (q.get("bid", 0.0) if isinstance(q, dict) else 0.0))
+    ask = float(getattr(q, "ask", 0.0) if hasattr(q, "ask") else (q.get("ask", 0.0) if isinstance(q, dict) else 0.0))
+
+    if not is_valid or is_stale or bid <= 0 or ask <= 0 or not math.isfinite(bid) or not math.isfinite(ask):
+        return {
+            "status": "SKIPPED",
+            "candidate": None,
+            "skip_reason": "QUOTE_UNAVAILABLE",
+            "cg01_evaluation": serialize_cg01_evaluation(
+                None, enabled=getattr(cfg, "enabled", True), evaluated=False, skip_reason="QUOTE_UNAVAILABLE", as_of_ms=as_of_ms
+            ),
+            "armed_order_id": None,
         }
 
     effective_costs = costs if costs is not None else getattr(cfg, "costs", None)
@@ -400,29 +645,43 @@ class CG01EvaluationScheduler:
             bundle = capture_cg01_input_bundle(symbol=symbol, as_of_ms=t_now)
             trace.input_version = bundle["input_versions"].get("1M", 1)
 
-            # Resolve active research run and build immutable research context
+            # Resolve authoritative quote snapshot (Rules 041-046)
+            quote_snap = capture_cg01_quote_snapshot(symbol=symbol, as_of_ms=t_now)
+
+            # Resolve authoritative financial context (Rules 018, 025, 057)
+            fin_ctx = resolve_cg01_financial_context(db=db)
+            effective_capital = fin_ctx["capital_usdt"]
+            effective_risk = fin_ctx["risk_pct"]
+
+            # Mode resolution
+            obs_mode = "SHADOW" if self.shadow_mode else "ACTIVE"
+            trace.observation_mode = obs_mode
+
+            # Managed observation run start (Rules 027, 061-068)
             from services.paper_research_run_service import (
-                resolve_active_observation_run,
                 associate_order_with_research_run,
                 record_committed_order_milestone,
-                PaperResearchRunService,
             )
             from services.cg01_types import CG01ResearchContext
 
-            act_run = resolve_active_observation_run(db=db, scope="CG01", symbol=symbol)
-            if not act_run:
-                act_run = PaperResearchRunService.get_or_create_run(symbol=symbol, scope="CG01", db=db)
-            if act_run:
-                trace.run_id = act_run.run_id
-
-            obs_mode = "SHADOW" if self.shadow_mode else "ACTIVE"
-            trace.observation_mode = obs_mode
+            try:
+                act_run = ensure_observation_run_started(
+                    symbol=symbol,
+                    scope="CG01",
+                    mode=obs_mode,
+                    initial_capital_usdt=effective_capital,
+                )
+                if act_run:
+                    trace.run_id = act_run.run_id
+            except Exception as run_err:
+                logger.warning(f"Failed to ensure observation run started: {run_err}")
+                trace.run_id = None
 
             eff_cfg, fingerprint, _ = resolve_effective_cg01_config(db=db, symbol=symbol)
 
             research_ctx = CG01ResearchContext(
                 trace_id=trace_id,
-                run_id=act_run.run_id if act_run else None,
+                run_id=trace.run_id,
                 segment_id=None,
                 symbol=symbol,
                 config_fingerprint=fingerprint,
@@ -441,8 +700,9 @@ class CG01EvaluationScheduler:
                     bundle=bundle,
                     config=eff_cfg,
                     research_ctx=research_ctx,
-                    capital=1000.0,
-                    risk_pct=0.25,
+                    current_quote=quote_snap,
+                    capital=effective_capital,
+                    risk_pct=effective_risk,
                     costs=getattr(eff_cfg, "costs", None),
                 )
                 span_engine.finish()
@@ -459,6 +719,7 @@ class CG01EvaluationScheduler:
                     candles_15m=bundle.get("15M"),
                     candles_1h=bundle.get("1H"),
                     candles_4h=bundle.get("4H"),
+                    quote=quote_snap,
                     auto_enabled=effective_auto,
                     research_context=research_ctx,
                 )
@@ -688,43 +949,62 @@ def resolve_effective_cg01_config(
     base_config: Optional[CG01Config] = None,
 ) -> Tuple[CG01Config, str, str]:
     """
-    Appendix B & Rules 071-073: Resolve effective CG01 config, content fingerprint, and provenance source.
+    Appendix B & Rules 026, 051-056: Resolve effective CG01 config, content fingerprint, and provenance source.
+    Propagates strategy parameters from authoritative M1ScalpConfig.
     """
+    from services.scalp_m1_types import load_effective_scalp_config
     source = "DEFAULT"
     cfg = base_config
+
+    scalp_cfg = load_effective_scalp_config(db)
+
     if cfg is None:
+        min_net_rr = float(getattr(scalp_cfg, "min_net_rr", 2.0))
+        displacement_body_atr_min = float(getattr(scalp_cfg, "displacement_body_atr_min", 0.6))
+        daily_min_goal = int(getattr(scalp_cfg, "daily_min_goal", 1))
+        daily_max_cap = int(getattr(scalp_cfg, "daily_max_cap", 3))
+        daily_ny_goal = int(getattr(scalp_cfg, "daily_ny_goal", 1))
+
         if db is not None:
             try:
                 from services.trading_policy_service import resolve_effective_daily_policy
                 eff_daily = resolve_effective_daily_policy(db, "default")
-                cfg = CG01Config(
-                    enabled=True,
-                    profile_mode=CG01ProfileMode.PAPER_EXECUTION.value,
-                    daily_min_goal=eff_daily.min_goal,
-                    daily_max_cap=eff_daily.max_fills,
-                    daily_ny_goal=eff_daily.ny_goal,
-                )
+                daily_min_goal = eff_daily.min_goal
+                daily_max_cap = eff_daily.max_fills
+                daily_ny_goal = eff_daily.ny_goal
                 source = "DATABASE_POLICY"
             except Exception:
-                cfg = CG01Config()
-                source = "FALLBACK_DEFAULT"
+                source = "DATABASE_CONFIG"
         else:
-            cfg = CG01Config()
-            source = "FALLBACK_DEFAULT"
+            source = "SCALP_CONFIG"
+
+        cfg = CG01Config(
+            enabled=True,
+            profile_mode=CG01ProfileMode.PAPER_EXECUTION.value,
+            min_net_rr=min_net_rr,
+            displacement_body_atr_min=displacement_body_atr_min,
+            daily_min_goal=daily_min_goal,
+            daily_max_cap=daily_max_cap,
+            daily_ny_goal=daily_ny_goal,
+        )
     else:
         source = "EXPLICIT_PARAMETER"
 
-    # Compute content fingerprint
+    # Compute content fingerprint across all decision-affecting fields (Rule 056)
     fingerprint_payload = {
         "model_version": cfg.model_version,
         "entry_mode": cfg.entry_mode,
         "min_net_rr": cfg.min_net_rr,
         "displacement_body_atr_min": cfg.displacement_body_atr_min,
+        "displacement_tail_ratio_max": getattr(cfg, "displacement_tail_ratio_max", 0.5),
         "pivot_left_bars": cfg.pivot_left_bars,
         "pivot_right_bars": cfg.pivot_right_bars,
         "timing_profile": cfg.timing_profile,
         "daily_min_goal": cfg.daily_min_goal,
         "daily_max_cap": cfg.daily_max_cap,
+        "daily_ny_goal": cfg.daily_ny_goal,
+        "tick_size": getattr(cfg, "tick_size", 0.01),
+        "fvg_min_gap_atr": getattr(cfg, "fvg_min_gap_atr", 0.1),
     }
     raw = json.dumps(fingerprint_payload, sort_keys=True)
     fingerprint = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]

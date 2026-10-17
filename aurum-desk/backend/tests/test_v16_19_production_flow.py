@@ -86,6 +86,9 @@ def test_v16_19_scenario_1_full_long_tp_flow(db: Session):
     audit = crud.get_or_create_today_audit(db)
     audit.cooldown_until = None
     audit.fills_count = 0
+    audit.realized_pnl = 0.0
+    audit.current_equity = 1000.0
+    candle_cache_service._cache.clear()
     db.query(models.PaperOrder).delete()
     db.query(models.WatchSetup).delete()
     db.query(models.PaperResearchOrderLink).delete()
@@ -242,6 +245,9 @@ def test_v16_19_scenario_2_full_short_sl_flow(db: Session):
     audit = crud.get_or_create_today_audit(db)
     audit.cooldown_until = None
     audit.fills_count = 0
+    audit.realized_pnl = 0.0
+    audit.current_equity = 1000.0
+    candle_cache_service._cache.clear()
     db.query(models.PaperOrder).delete()
     db.query(models.WatchSetup).delete()
     db.query(models.PaperResearchOrderLink).delete()

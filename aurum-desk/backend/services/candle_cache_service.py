@@ -131,6 +131,26 @@ class CandleCacheService:
         self._bootstrapped = True
         logger.info(f"CandleCacheService bootstrapped for {symbol}.")
 
+    def add_candle(self, symbol: str, timeframe: str, bar: Any) -> None:
+        """
+        V16.20 Rule 022: Ingest a single candle dict or CandleCreate object directly into cache.
+        """
+        if isinstance(bar, dict):
+            c = schemas.CandleCreate(
+                symbol=symbol,
+                timeframe=timeframe,
+                timestamp=int(bar.get("timestamp") or bar.get("time") or 0),
+                open=float(bar.get("open") or 0.0),
+                high=float(bar.get("high") or 0.0),
+                low=float(bar.get("low") or 0.0),
+                close=float(bar.get("close") or 0.0),
+                volume=float(bar.get("volume") or 0.0),
+                is_closed=bool(bar.get("is_closed", True)),
+            )
+        else:
+            c = bar
+        self.update_from_rest_sync(symbol, timeframe, [c])
+
     def get_candles(self, symbol: str, timeframe: str, limit: int = 150) -> List[schemas.CandleCreate]:
         candles = self._cache.get((symbol, timeframe), [])
         if not candles:
