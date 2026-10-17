@@ -169,8 +169,8 @@ def build_cg01_context(
             "reason": "Chưa đủ số nến đóng tối thiểu cho khung H4/H1/15M.",
         }
 
-    h4_ctx = build_htf_context(c_4h, "4H")
-    h1_ctx = build_htf_context(c_1h, "1H")
+    h4_ctx = build_htf_context(c_4h, "4H", as_of_ms=now_ms, config=config)
+    h1_ctx = build_htf_context(c_1h, "1H", as_of_ms=now_ms, config=config)
 
     # Dealing range from 15M swings (Rules 036 - 038)
     left_b = config.pivot_left_bars if config else 2
@@ -197,15 +197,28 @@ def build_cg01_context(
     if dealing_range and getattr(dealing_range, "is_valid", False) and last_close > 0:
         range_position = assess_range_position(last_close, dealing_range)
 
-    # Context Bias determination
-    h4_bias = getattr(h4_ctx, "bias", "NEUTRAL")
-    h1_bias = getattr(h1_ctx, "bias", "NEUTRAL")
+    # Context Bias & Direction Context determination (V16.11)
+    from services.htf_structure_service import resolve_cg01_direction_context
+    dir_ctx = resolve_cg01_direction_context(
+        h4_ctx=h4_ctx,
+        h1_ctx=h1_ctx,
+        range_pos=range_position,
+        config=config,
+    )
+
+    h4_bias = getattr(h4_ctx, "bias", "UNKNOWN")
+    h1_bias = getattr(h1_ctx, "bias", "UNKNOWN")
 
     return {
         "status": "READY",
         "is_warmup": False,
         "h4_bias": h4_bias,
         "h1_bias": h1_bias,
+        "h4_snapshot": h4_ctx.to_dict(),
+        "h1_snapshot": h1_ctx.to_dict(),
+        "direction_context": dir_ctx,
+        "relation": dir_ctx.get("relation", "UNKNOWN"),
+        "directions_to_evaluate": dir_ctx.get("directions_to_evaluate", []),
         "dealing_range": dealing_range,
         "range_position": range_position,
         "evidence_id": f"ev_cg01_ctx_{now_ms}",
@@ -649,18 +662,32 @@ def evaluate_cg01_candidate(
             ui_summary_vi={"status": "Đang khởi động dữ liệu bối cảnh HTF."},
         )
 
-    # Context Bias determines primary hypothesis direction
-    h1_bias = htf_data.get("h1_bias", "NEUTRAL")
+    # Context Bias determines primary hypothesis direction (V16.11)
+    h1_bias = htf_data.get("h1_bias", "UNKNOWN")
     range_pos = htf_data.get("range_position", "EQUILIBRIUM")
+    dir_ctx = htf_data.get("direction_context") or {}
 
-    # Direction selection: rule 050 prefers discount for LONG, premium for SHORT
-    directions_to_evaluate: List[str] = []
-    if h1_bias == "BULLISH":
-        directions_to_evaluate = ["LONG"]
-    elif h1_bias == "BEARISH":
-        directions_to_evaluate = ["SHORT"]
-    else:
-        directions_to_evaluate = ["LONG", "SHORT"]
+    directions_to_evaluate = list(dir_ctx.get("directions_to_evaluate", []))
+    if not directions_to_evaluate:
+        # If HTF structure is UNKNOWN or insufficient, do not blindly open Long and Short (Phần 108)
+        if h1_bias in ("UNKNOWN", "NEUTRAL") or dir_ctx.get("readiness") == "NOT_READY":
+            return CG01Decision(
+                stage=CG01Stage.OBSERVING,
+                is_eligible=False,
+                model_version=cfg.model_version,
+                config_version=cfg.config_version,
+                reason_codes=dir_ctx.get("reason_codes", ("HTF_DATA_INSUFFICIENT",)),
+                missing_conditions=("HTF_STRUCTURE_UNKNOWN",),
+                as_of_ms=t_now,
+                time_context=time_ctx,
+                ui_summary_vi={"status": "Chưa đủ bằng chứng cấu trúc HTF để xác định hướng giao dịch."},
+            )
+        elif h1_bias == "BULLISH":
+            directions_to_evaluate = ["LONG"]
+        elif h1_bias == "BEARISH":
+            directions_to_evaluate = ["SHORT"]
+        else:
+            directions_to_evaluate = ["LONG", "SHORT"]
 
     c_15m = closed_bundle["15M"]
     c_1m = closed_bundle["1M"]
@@ -888,9 +915,11 @@ def evaluate_cg01_candidate(
                 deadline_constraints=exec_deadline.constraints,
             )
 
-            # Rule 153: Six short sentences for newbie drawer
+            # Rule 153 & V16.11: Six short sentences for newbie drawer
+            h4_bias_label = htf_data.get("h4_bias", "UNKNOWN")
+            rel_label = htf_data.get("relation", "ALIGNED")
             ui_summary = {
-                "context": f"Bối cảnh: HTF {h1_bias}, Dealing Range ở vùng {range_pos}.",
+                "context": f"Bối cảnh: H4 {h4_bias_label}, H1 {h1_bias} ({rel_label}), Dealing Range {range_pos}.",
                 "poi": f"Vùng theo dõi: POI {poi.timeframe} [{poi.bottom:.2f} - {poi.top:.2f}].",
                 "liquidity": f"Thanh khoản đã lấy: Quét qua mốc {sweep['reference_price']:.2f}.",
                 "confirmation": f"Xác nhận: MSS phá vỡ {mss['structure_ref_price']:.2f} kèm FVG M1.",

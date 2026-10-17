@@ -96,38 +96,130 @@ class HTFContext:
     bias: str                                # BULLISH | BEARISH | RANGE | UNKNOWN
     bars: int = 0
     last_closed_ms: Optional[int] = None
-    provenance: str = "NO_DATA"              # CLOSED_CANDLES_SWING_STRUCTURE | NO_DATA | INSUFFICIENT_BARS
+    provenance: str = "NO_DATA"              # CLOSED_CANDLES_SWING_STRUCTURE | NO_DATA | INSUFFICIENT_BARS | ...
+    # Additive V16.11 fields
+    last_confirmed_bias: str = "UNKNOWN"
+    phase: str = "UNDETERMINED"              # INSUFFICIENT_DATA, UNDETERMINED, ESTABLISHED, PULLBACK, TRANSITION, RANGE
+    as_of_ms: Optional[int] = None
+    last_bar_open_ms: Optional[int] = None
+    last_bar_close_ms: Optional[int] = None
+    reference_high: Optional[Dict[str, Any]] = None
+    reference_low: Optional[Dict[str, Any]] = None
+    protected_high: Optional[Dict[str, Any]] = None
+    protected_low: Optional[Dict[str, Any]] = None
+    latest_structure_event: Optional[Dict[str, Any]] = None
+    indicator_bias: Optional[str] = None
+    algorithm_version: str = "v16.11"
+    data_status: str = "READY"
 
     def to_dict(self) -> Dict[str, Any]:
-        return {"timeframe": self.timeframe, "bias": self.bias, "bars": self.bars,
-                "last_closed_ms": self.last_closed_ms, "provenance": self.provenance}
+        return {
+            "timeframe": self.timeframe,
+            "bias": self.bias,
+            "bars": self.bars,
+            "last_closed_ms": self.last_closed_ms,
+            "provenance": self.provenance,
+            "last_confirmed_bias": self.last_confirmed_bias,
+            "phase": self.phase,
+            "as_of_ms": self.as_of_ms,
+            "last_bar_open_ms": self.last_bar_open_ms,
+            "last_bar_close_ms": self.last_bar_close_ms,
+            "reference_high": self.reference_high,
+            "reference_low": self.reference_low,
+            "protected_high": self.protected_high,
+            "protected_low": self.protected_low,
+            "latest_structure_event": self.latest_structure_event,
+            "indicator_bias": self.indicator_bias,
+            "algorithm_version": self.algorithm_version,
+            "data_status": self.data_status,
+        }
 
 
-def build_htf_context(closed_candles: Sequence[Any], timeframe: str, *, min_bars: int = 12) -> HTFContext:
-    """Adapter closed candles -> HTFContext. Missing/short history returns UNKNOWN with provenance."""
+def build_htf_context(
+    closed_candles: Sequence[Any],
+    timeframe: str,
+    *,
+    min_bars: int = 12,
+    as_of_ms: Optional[int] = None,
+    config: Optional[Any] = None,
+    symbol: str = "XAUUSDT",
+) -> HTFContext:
+    """
+    Adapter closed candles -> HTFContext using V16.11 Causal HTF Structure Engine.
+    Missing/short history returns UNKNOWN with provenance.
+    Never uses SMA fallback as market structure evidence.
+    """
+    from services.htf_structure_service import evaluate_htf_structure, resolve_timeframe_ms
+
     if not closed_candles:
-        return HTFContext(timeframe=timeframe, bias="UNKNOWN", provenance="NO_DATA")
-    if len(closed_candles) < min_bars:
-        return HTFContext(timeframe=timeframe, bias="UNKNOWN", bars=len(closed_candles),
-                          last_closed_ms=closed_candles[-1].timestamp, provenance="INSUFFICIENT_BARS")
-    import smc_engine
-    sh, sl = smc_engine.identify_pivots(list(closed_candles), timeframe=timeframe)
-    trend = smc_engine.determine_causal_trend_at(
-        list(closed_candles), len(closed_candles) - 1, sh, sl,
-        closed_candles[-1].timestamp + smc_engine.TIMEFRAME_MS.get(timeframe, 0),
-    ) if (sh and sl) else "UNKNOWN"
-    bias = {"BULLISH": "BULLISH", "BEARISH": "BEARISH", "RANGING": "RANGE"}.get(trend, "UNKNOWN")
-    return HTFContext(timeframe=timeframe, bias=bias, bars=len(closed_candles),
-                      last_closed_ms=closed_candles[-1].timestamp,
-                      provenance="CLOSED_CANDLES_SWING_STRUCTURE" if bias != "UNKNOWN" else "NO_STRUCTURE")
+        return HTFContext(
+            timeframe=timeframe,
+            bias="UNKNOWN",
+            last_confirmed_bias="UNKNOWN",
+            phase="INSUFFICIENT_DATA",
+            provenance="NO_DATA",
+            data_status="NO_DATA",
+            as_of_ms=as_of_ms,
+        )
+
+    dur = resolve_timeframe_ms(timeframe)
+    # Determine default evaluation time from actual close time of the last candle if not provided
+    if as_of_ms is None:
+        last_c = closed_candles[-1]
+        last_open = int(last_c.get("open_time") or last_c.get("timestamp") or 0) if isinstance(last_c, dict) else int(getattr(last_c, "open_time", None) or getattr(last_c, "timestamp", 0))
+        computed_as_of = last_open + dur
+    else:
+        computed_as_of = as_of_ms
+
+    snapshot = evaluate_htf_structure(
+        candles=closed_candles,
+        timeframe=timeframe,
+        as_of_ms=computed_as_of,
+        config=config,
+        symbol=symbol,
+    )
+
+    # If candle count is strictly less than min_bars, mark INSUFFICIENT_BARS provenance
+    if len(closed_candles) < min_bars and snapshot.bias == "UNKNOWN":
+        prov = "INSUFFICIENT_BARS"
+    else:
+        prov = snapshot.provenance
+
+    return HTFContext(
+        timeframe=timeframe,
+        bias=snapshot.bias,
+        bars=snapshot.bars,
+        last_closed_ms=snapshot.last_bar_close_ms,
+        provenance=prov,
+        last_confirmed_bias=snapshot.last_confirmed_bias,
+        phase=snapshot.phase,
+        as_of_ms=snapshot.as_of_ms,
+        last_bar_open_ms=snapshot.last_bar_open_ms,
+        last_bar_close_ms=snapshot.last_bar_close_ms,
+        reference_high=snapshot.reference_high if isinstance(snapshot.reference_high, dict) else (snapshot.reference_high.to_dict() if snapshot.reference_high else None),
+        reference_low=snapshot.reference_low if isinstance(snapshot.reference_low, dict) else (snapshot.reference_low.to_dict() if snapshot.reference_low else None),
+        protected_high=snapshot.protected_high if isinstance(snapshot.protected_high, dict) else (snapshot.protected_high.to_dict() if snapshot.protected_high else None),
+        protected_low=snapshot.protected_low if isinstance(snapshot.protected_low, dict) else (snapshot.protected_low.to_dict() if snapshot.protected_low else None),
+        latest_structure_event=snapshot.latest_structure_event if isinstance(snapshot.latest_structure_event, dict) else (snapshot.latest_structure_event.to_dict() if snapshot.latest_structure_event else None),
+        indicator_bias=snapshot.indicator_bias,
+        algorithm_version=snapshot.algorithm_version,
+        data_status=snapshot.data_status,
+    )
 
 
 def h1_alignment_from(h4: HTFContext, h1: HTFContext) -> str:
-    if h4.bias in ("UNKNOWN",) or h1.bias in ("UNKNOWN",):
+    h4_bias = getattr(h4, "bias", "UNKNOWN")
+    h1_bias = getattr(h1, "bias", "UNKNOWN")
+    h4_phase = getattr(h4, "phase", "UNDETERMINED")
+    h1_phase = getattr(h1, "phase", "UNDETERMINED")
+
+    if h4_bias in ("UNKNOWN",) or h1_bias in ("UNKNOWN",):
         return "UNKNOWN"
-    if h4.bias == "RANGE" or h1.bias == "RANGE":
+    if h4_phase == "TRANSITION" or h1_phase == "TRANSITION":
         return "DIVERGENT"
-    return "ALIGNED" if h4.bias == h1.bias else "DIVERGENT"
+    if h4_bias == "RANGE" or h1_bias == "RANGE":
+        return "DIVERGENT"
+    return "ALIGNED" if h4_bias == h1_bias else "DIVERGENT"
 
 
 def atr_relative(closed_candles: Sequence[Any], short: int = 3, long: int = 20) -> Optional[float]:

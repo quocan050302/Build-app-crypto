@@ -1,0 +1,46 @@
+{
+  "v16_11": {
+    "command": "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe -m pytest backend/tests/test_v16_11_htf_structure.py -v",
+    "exit_code": 0,
+    "duration_sec": 1.66,
+    "stats": {
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "deselected": 0,
+      "warnings": 1
+    },
+    "passed_tests": [
+      "backend/tests/test_v16_11_htf_structure.py::test_case_01_bullish_intact_internal_pullback",
+      "backend/tests/test_v16_11_htf_structure.py::test_case_02_bullish_protected_low_broken_by_close",
+      "backend/tests/test_v16_11_htf_structure.py::test_case_03_bearish_protected_high_broken_by_close",
+      "backend/tests/test_v16_11_htf_structure.py::test_case_04_wick_sweep_rejection_keeps_structure",
+      "backend/tests/test_v16_11_htf_structure.py::test_case_05_insufficient_swings_no_sma_fallback",
+      "backend/tests/test_v16_11_htf_structure.py::test_case_06_equal_highs_lows_tick_tolerance",
+      "backend/tests/test_v16_11_htf_structure.py::test_case_07_unclosed_candle_ignored_in_confirmed_structure",
+      "backend/tests/test_v16_11_htf_structure.py::test_case_08_pivot_requires_two_right_bars",
+      "backend/tests/test_v16_11_htf_structure.py::test_case_09_h4_bullish_h1_bearish_divergent_relation",
+      "backend/tests/test_v16_11_htf_structure.py::test_case_10_replay_isolation_no_live_collector_bias",
+      "backend/tests/test_v16_11_htf_structure.py::test_case_11_order_snapshot_immutability",
+      "backend/tests/test_v16_11_htf_structure.py::test_case_12_prefix_invariance",
+      "backend/tests/test_v16_11_htf_structure.py::test_case_13_collector_closed_only_query",
+      "backend/tests/test_v16_11_htf_structure.py::test_case_14_cg01_positive_long_flow",
+      "backend/tests/test_v16_11_htf_structure.py::test_case_15_cg01_positive_short_flow"
+    ],
+    "output": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\nplugins: anyio-4.15.1\ncollecting ... collected 15 items\n\nbackend/tests/test_v16_11_htf_structure.py::test_case_01_bullish_intact_internal_pullback PASSED [  6%]\nbackend/tests/test_v16_11_htf_structure.py::test_case_02_bullish_protected_low_broken_by_close PASSED [ 13%]\nbackend/tests/test_v16_11_htf_structure.py::test_case_03_bearish_protected_high_broken_by_close PASSED [ 20%]\nbackend/tests/test_v16_11_htf_structure.py::test_case_04_wick_sweep_rejection_keeps_structure PASSED [ 26%]\nbackend/tests/test_v16_11_htf_structure.py::test_case_05_insufficient_swings_no_sma_fallback PASSED [ 33%]\nbackend/tests/test_v16_11_htf_structure.py::test_case_06_equal_highs_lows_tick_tolerance PASSED [ 40%]\nbackend/tests/test_v16_11_htf_structure.py::test_case_07_unclosed_candle_ignored_in_confirmed_structure PASSED [ 46%]\nbackend/tests/test_v16_11_htf_structure.py::test_case_08_pivot_requires_two_right_bars PASSED [ 53%]\nbackend/tests/test_v16_11_htf_structure.py::test_case_09_h4_bullish_h1_bearish_divergent_relation PASSED [ 60%]\nbackend/tests/test_v16_11_htf_structure.py::test_case_10_replay_isolation_no_live_collector_bias PASSED [ 66%]\nbackend/tests/test_v16_11_htf_structure.py::test_case_11_order_snapshot_immutability PASSED [ 73%]\nbackend/tests/test_v16_11_htf_structure.py::test_case_12_prefix_invariance PASSED [ 80%]\nbackend/tests/test_v16_11_htf_structure.py::test_case_13_collector_closed_only_query PASSED [ 86%]\nbackend/tests/test_v16_11_htf_structure.py::test_case_14_cg01_positive_long_flow PASSED [ 93%]\nbackend/tests/test_v16_11_htf_structure.py::test_case_15_cg01_positive_short_flow PASSED [100%]\n\n============================== warnings summary ===============================\nbackend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 15 passed, 1 warning in 0.16s ========================\n\n"
+  },
+  "legacy_regression": {
+    "command": "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe -m pytest backend/tests -k v16 -q",
+    "exit_code": 0,
+    "duration_sec": 10.39,
+    "stats": {
+      "passed": 195,
+      "failed": 0,
+      "skipped": 0,
+      "deselected": 1785,
+      "warnings": 1
+    },
+    "passed_tests": [],
+    "output": "........................................................................ [ 36%]\n........................................................................ [ 73%]\n...................................................                      [100%]\n============================== warnings summary ===============================\nbackend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n195 passed, 1785 deselected, 1 warning in 8.38s\n\n"
+  }
+}

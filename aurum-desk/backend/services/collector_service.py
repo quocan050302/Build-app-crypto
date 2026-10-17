@@ -30,6 +30,7 @@ class CollectorService:
         self.h4_bias = "UNKNOWN"
         self.d_4h_bias = "UNKNOWN"
         self.h1_alignment = "UNKNOWN"
+        self.htf_contexts: Dict[str, Any] = {}
         self._latest_ticker: Optional[Dict[str, Any]] = None
         self._was_degraded = False
         self._last_d_sync = 0
@@ -108,24 +109,24 @@ class CollectorService:
         """
         Calculate authentic, independent D & 4H bias and 1H alignment.
         No synthetic consensus or fake fallback.
+        V16.11: Strict closed-candle boundary, synchronized as_of_ms, and causal HTF contexts.
         """
         db: Session = SessionLocal()
         try:
-            # 1. Independent Daily Context (D)
-            d_candles = crud.get_candles(db, symbol, "D", limit=50, ascending=True)
-            if len(d_candles) >= 15:
-                sh_d, sl_d = smc_engine.identify_pivots(d_candles, "D")
-                self.d_bias = smc_engine.determine_trend(d_candles, sh_d, sl_d)
-            else:
-                self.d_bias = "UNKNOWN"
+            import time
+            from services.smc_regime_service import build_htf_context
 
-            # 2. Independent 4H Bias (4H)
-            h4_candles = crud.get_candles(db, symbol, "4H", limit=80, ascending=True)
-            if len(h4_candles) >= 15:
-                sh_h4, sl_h4 = smc_engine.identify_pivots(h4_candles, "4H")
-                self.h4_bias = smc_engine.determine_trend(h4_candles, sh_h4, sl_h4)
-            else:
-                self.h4_bias = "UNKNOWN"
+            as_of_ms = int(time.time() * 1000)
+
+            # 1. Independent Daily Context (D) - closed candles only
+            d_candles = crud.get_closed_candles(db, symbol, "D", limit=50, ascending=True)
+            d_ctx = build_htf_context(d_candles, "D", as_of_ms=as_of_ms, symbol=symbol, min_bars=15)
+            self.d_bias = d_ctx.bias
+
+            # 2. Independent 4H Bias (4H) - closed candles only
+            h4_candles = crud.get_closed_candles(db, symbol, "4H", limit=80, ascending=True)
+            h4_ctx = build_htf_context(h4_candles, "4H", as_of_ms=as_of_ms, symbol=symbol, min_bars=15)
+            self.h4_bias = h4_ctx.bias
 
             # 3. Synthesized HTF Context (Conflict aware)
             if self.d_bias in ("BULLISH", "BEARISH") and self.h4_bias in ("BULLISH", "BEARISH"):
@@ -140,22 +141,29 @@ class CollectorService:
             else:
                 self.d_4h_bias = "UNKNOWN"
 
-            # 4. Independent 1H Alignment
-            h1_candles = crud.get_candles(db, symbol, "1H", limit=80, ascending=True)
-            if len(h1_candles) >= 15:
-                sh1, sl1 = smc_engine.identify_pivots(h1_candles, "1H")
-                h1_trend = smc_engine.determine_trend(h1_candles, sh1, sl1)
-                if self.d_4h_bias in ("BULLISH", "BEARISH"):
-                    if h1_trend == self.d_4h_bias:
-                        self.h1_alignment = "ALIGNED"
-                    elif h1_trend in ("BULLISH", "BEARISH"):
-                        self.h1_alignment = "OPPOSING"
-                    else:
-                        self.h1_alignment = "NEUTRAL"
+            # 4. Independent 1H Context & Alignment
+            h1_candles = crud.get_closed_candles(db, symbol, "1H", limit=80, ascending=True)
+            h1_ctx = build_htf_context(h1_candles, "1H", as_of_ms=as_of_ms, symbol=symbol, min_bars=15)
+            h1_trend = h1_ctx.bias
+
+            if self.d_4h_bias in ("BULLISH", "BEARISH"):
+                if h1_trend == self.d_4h_bias:
+                    self.h1_alignment = "ALIGNED"
+                elif h1_trend in ("BULLISH", "BEARISH"):
+                    self.h1_alignment = "OPPOSING"
                 else:
-                    self.h1_alignment = "NEUTRAL" if h1_trend != "UNKNOWN" else "UNKNOWN"
+                    self.h1_alignment = "NEUTRAL"
             else:
-                self.h1_alignment = "UNKNOWN"
+                self.h1_alignment = "NEUTRAL" if h1_trend != "UNKNOWN" else "UNKNOWN"
+
+            # Store rich HTF contexts atomically
+            self.htf_contexts = {
+                "D": d_ctx.to_dict(),
+                "4H": h4_ctx.to_dict(),
+                "1H": h1_ctx.to_dict(),
+                "as_of_ms": as_of_ms,
+            }
+            self._last_htf_update = as_of_ms
         finally:
             db.close()
 

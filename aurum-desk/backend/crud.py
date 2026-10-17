@@ -25,10 +25,13 @@ def get_candles(
     limit: int = 200,
     ascending: bool = True,
     cutoff_ms: Optional[int] = None,
-    start_ms: Optional[int] = None
+    start_ms: Optional[int] = None,
+    closed_only: bool = False,
 ) -> List[models.Candle]:
     """Retrieve candles from SQLite with optional cutoff_ms/start_ms, ordered chronologically if ascending=True"""
     query = db.query(models.Candle).filter(models.Candle.symbol == symbol, models.Candle.timeframe == timeframe)
+    if closed_only:
+        query = query.filter(models.Candle.is_closed.is_(True))
     if cutoff_ms is not None:
         query = query.filter(models.Candle.timestamp <= cutoff_ms)
     if start_ms is not None:
@@ -37,6 +40,28 @@ def get_candles(
     if ascending:
         candles.reverse()
     return candles
+
+
+def get_closed_candles(
+    db: Session,
+    symbol: str,
+    timeframe: str,
+    limit: int = 200,
+    ascending: bool = True,
+    cutoff_ms: Optional[int] = None,
+    start_ms: Optional[int] = None,
+) -> List[models.Candle]:
+    """Convenience helper to retrieve strictly closed candles for HTF analysis without modifying default get_candles."""
+    return get_candles(
+        db,
+        symbol=symbol,
+        timeframe=timeframe,
+        limit=limit,
+        ascending=ascending,
+        cutoff_ms=cutoff_ms,
+        start_ms=start_ms,
+        closed_only=True,
+    )
 
 
 def get_candles_in_range(

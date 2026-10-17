@@ -1,0 +1,17 @@
+[
+  {
+    "event_id": "evt_prot_low_break_1700057600000",
+    "event_type": "PROTECTED_LOW_BREAK",
+    "direction": "BEARISH",
+    "reference_swing_id": "1h_sl_1700028800000",
+    "reference_price": 2520.0,
+    "breaking_bar_open_ms": 1700054000000,
+    "breaking_bar_close_ms": 1700057600000,
+    "close_price": 2515.0,
+    "known_at_ms": 1700057600000,
+    "previous_bias": "BULLISH",
+    "new_bias": "UNKNOWN",
+    "previous_phase": "ESTABLISHED",
+    "new_phase": "TRANSITION"
+  }
+]

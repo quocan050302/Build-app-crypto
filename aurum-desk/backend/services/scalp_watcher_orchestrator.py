@@ -306,8 +306,24 @@ class ScalpWatcherOrchestrator:
         if atr_15m <= 0:
             atr_15m = 2.0
 
-        bias = htf_bias if htf_bias is not None else collector_service.d_4h_bias
-        align = h1_alignment if h1_alignment is not None else collector_service.h1_alignment
+        if htf_bias is not None:
+            bias = htf_bias
+        elif c_4h:
+            from services.smc_regime_service import build_htf_context
+            h4_ctx = build_htf_context(c_4h, "4H", as_of_ms=t_recv, symbol=symbol)
+            bias = getattr(h4_ctx, "bias", "UNKNOWN")
+        else:
+            bias = collector_service.d_4h_bias
+
+        if h1_alignment is not None:
+            align = h1_alignment
+        elif c_4h and c_1h:
+            from services.smc_regime_service import build_htf_context, h1_alignment_from
+            h4_ctx = build_htf_context(c_4h, "4H", as_of_ms=t_recv, symbol=symbol)
+            h1_ctx = build_htf_context(c_1h, "1H", as_of_ms=t_recv, symbol=symbol)
+            align = h1_alignment_from(h4_ctx, h1_ctx)
+        else:
+            align = collector_service.h1_alignment
 
         # 2. Watchlist update from 15M/5M closures
         existing_zones = self.get_active_zones(symbol)
