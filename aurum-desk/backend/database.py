@@ -464,10 +464,67 @@ def run_schema_migrations(target_engine=None):
                     updated_at_ms BIGINT NOT NULL
                 );
             """))
-            try:
-                conn.execute(text("ALTER TABLE paper_research_checkpoints ADD COLUMN last_sequence INTEGER DEFAULT 0;"))
-            except Exception:
-                pass
+            # V16.18: paper_research_run_records scope and observation_mode columns
+            run_res = conn.execute(text("PRAGMA table_info(paper_research_run_records)"))
+            run_cols = {row[1] for row in run_res.fetchall()}
+            if run_cols:
+                if "scope" not in run_cols:
+                    conn.execute(text("ALTER TABLE paper_research_run_records ADD COLUMN scope VARCHAR(50) DEFAULT 'CG01';"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_run_scope ON paper_research_run_records (scope);"))
+                if "observation_mode" not in run_cols:
+                    conn.execute(text("ALTER TABLE paper_research_run_records ADD COLUMN observation_mode VARCHAR(30) DEFAULT 'SHADOW';"))
+
+            # V16.18: cg01_trace_records observation_mode column
+            trace_res = conn.execute(text("PRAGMA table_info(cg01_trace_records)"))
+            trace_cols = {row[1] for row in trace_res.fetchall()}
+            if trace_cols and "observation_mode" not in trace_cols:
+                conn.execute(text("ALTER TABLE cg01_trace_records ADD COLUMN observation_mode VARCHAR(30) DEFAULT 'SHADOW';"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cg01_trace_mode ON cg01_trace_records (observation_mode);"))
+
+            # V16.18: Durable Pending Projections Table
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS paper_research_pending_projections (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_id VARCHAR(80) NOT NULL,
+                    scope VARCHAR(50) DEFAULT 'CG01',
+                    event_type VARCHAR(50) NOT NULL,
+                    aggregate_id VARCHAR(80),
+                    order_id VARCHAR(36),
+                    run_id VARCHAR(80),
+                    reason VARCHAR(100) NOT NULL,
+                    attempt_count INTEGER DEFAULT 0,
+                    next_retry_at_ms BIGINT DEFAULT 0,
+                    first_seen_at_ms BIGINT NOT NULL,
+                    last_error TEXT,
+                    status VARCHAR(30) DEFAULT 'PENDING',
+                    payload_json TEXT,
+                    created_at_ms BIGINT NOT NULL,
+                    updated_at_ms BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pending_proj_status ON paper_research_pending_projections (status);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pending_proj_event ON paper_research_pending_projections (event_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pending_proj_order ON paper_research_pending_projections (order_id);"))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_pending_proj_event_scope ON paper_research_pending_projections (event_id, scope);"))
+
+            # V16.18: Observation Intervals Table
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS paper_observation_intervals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    scope VARCHAR(50) DEFAULT 'CG01',
+                    run_id VARCHAR(80),
+                    symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+                    worker_role VARCHAR(40) DEFAULT 'SCHEDULER',
+                    mode VARCHAR(30) DEFAULT 'SHADOW',
+                    start_ms BIGINT NOT NULL,
+                    end_ms BIGINT NOT NULL,
+                    data_quality VARCHAR(30) DEFAULT 'GOOD',
+                    heartbeats_count INTEGER DEFAULT 1,
+                    created_at_ms BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_obs_interval_run ON paper_observation_intervals (run_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_obs_interval_scope ON paper_observation_intervals (scope);"))
 
             conn.commit()
     except Exception:

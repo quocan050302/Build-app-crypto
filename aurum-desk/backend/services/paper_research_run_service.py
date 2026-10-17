@@ -43,13 +43,15 @@ class PaperResearchRun:
     States: CREATED, COLLECTING, PAUSED, COMPLETED, DEGRADED, FAILED.
     """
     run_id: str
+    scope: str = "CG01"
     symbol: str = "XAUUSDT"
     status: str = "COLLECTING"
     started_at_ms: int = field(default_factory=lambda: int(time.time() * 1000))
     ended_at_ms: Optional[int] = None
-    software_version: str = "V16.15"
-    config_fingerprint: str = "CG01_DEFAULT_V16_15"
+    software_version: str = "V16.18"
+    config_fingerprint: str = "CG01_DEFAULT_V16_18"
     execution_mode: str = "PAPER_SHADOW"     # "PAPER_SHADOW" or "PAPER_EXECUTION"
+    observation_mode: str = "SHADOW"         # "SHADOW" or "ACTIVE"
     initial_capital_usdt: float = 1000.0
     notes: str = "CG-01 forward paper measurement run."
 
@@ -61,24 +63,41 @@ def resolve_active_observation_run(
     db: Optional[Session] = None,
     scope: str = "CG01",
     symbol: str = "XAUUSDT",
+    mode: Optional[str] = None,
 ) -> Optional[PaperResearchRun]:
     """
-    V16.17 Single authoritative active run resolver (Rules 061-063, 158).
+    V16.18 Single authoritative active run resolver (Rules 023, 051-054).
     Resolves the active persisted observation run for scope/symbol.
-    Never creates a fictitious run or mutates global execution flags.
+    Enforces scope match in query and backwards compatibility with legacy run_id format.
+    Database is strictly authoritative when session is provided.
     """
+    scope_clean = str(scope or "CG01").strip().upper()
+
     if db is not None:
         try:
-            row = (
-                db.query(models.PaperResearchRunRecord)
-                .filter(
-                    models.PaperResearchRunRecord.symbol == symbol,
-                    models.PaperResearchRunRecord.status.in_(["COLLECTING", "CREATED"]),
-                )
-                .order_by(models.PaperResearchRunRecord.started_at_ms.desc())
-                .first()
+            from sqlalchemy import or_
+            query = db.query(models.PaperResearchRunRecord).filter(
+                models.PaperResearchRunRecord.symbol == symbol,
+                models.PaperResearchRunRecord.status.in_(["COLLECTING", "CREATED"]),
             )
-            if row:
+            # Match either explicit scope column or run_id containing scope
+            query = query.filter(
+                or_(
+                    models.PaperResearchRunRecord.scope == scope_clean,
+                    models.PaperResearchRunRecord.run_id.ilike(f"%{scope_clean.lower()}%"),
+                )
+            )
+            if mode:
+                query = query.filter(
+                    or_(
+                        models.PaperResearchRunRecord.observation_mode == mode,
+                        models.PaperResearchRunRecord.execution_mode.ilike(f"%{mode.lower()}%"),
+                    )
+                )
+
+            rows = query.order_by(models.PaperResearchRunRecord.started_at_ms.desc()).all()
+            if rows:
+                row = rows[0]
                 run = PaperResearchRun(
                     run_id=row.run_id,
                     symbol=row.symbol,
@@ -90,14 +109,22 @@ def resolve_active_observation_run(
                     execution_mode=row.execution_mode,
                     initial_capital_usdt=row.initial_capital_usdt,
                 )
+                run.scope = getattr(row, "scope", scope_clean) or scope_clean
+                run.observation_mode = getattr(row, "observation_mode", "SHADOW") or "SHADOW"
                 PaperResearchRunService._active_runs[row.run_id] = run
                 return run
+            # When db session is provided, database is authoritative (Rule 054)
+            return None
         except Exception as e:
             logger.warning(f"Error resolving active observation run from DB: {e}")
+            return None
 
-    # Check memory active runs
+    # Memory active runs fallback ONLY when db is None
     for r in reversed(list(PaperResearchRunService._active_runs.values())):
-        if r.symbol == symbol and r.status in ("COLLECTING", "CREATED"):
+        r_scope = getattr(r, "scope", None) or ("CG01" if "cg01" in r.run_id.lower() else "DEFAULT")
+        if r.symbol == symbol and r.status in ("COLLECTING", "CREATED") and r_scope.upper() == scope_clean:
+            if mode and getattr(r, "observation_mode", None) and r.observation_mode != mode:
+                continue
             return r
 
     return None
@@ -182,6 +209,7 @@ class PaperResearchRunService:
             try:
                 rec = models.PaperResearchRunRecord(
                     run_id=run.run_id,
+                    scope=scope,
                     symbol=run.symbol,
                     status=run.status,
                     started_at_ms=run.started_at_ms,
@@ -189,6 +217,7 @@ class PaperResearchRunService:
                     software_version=run.software_version,
                     config_fingerprint=run.config_fingerprint,
                     execution_mode=run.execution_mode,
+                    observation_mode=getattr(run, "observation_mode", "SHADOW"),
                     initial_capital_usdt=run.initial_capital_usdt,
                     current_capital_usdt=run.initial_capital_usdt,
                     created_at_ms=t_now,
@@ -371,11 +400,12 @@ def build_cg01_paper_run_summary(
         ).all()
         linked_order_ids = {l.order_id for l in links}
 
-        # Also support legacy session_instance_id matching run_id
-        db_orders = db.query(models.PaperOrder).filter(
-            (models.PaperOrder.id.in_(linked_order_ids)) |
-            (models.PaperOrder.session_instance_id == run_id)
-        ).all()
+        if linked_order_ids:
+            db_orders = db.query(models.PaperOrder).filter(
+                models.PaperOrder.id.in_(linked_order_ids)
+            ).all()
+        else:
+            db_orders = []
 
         for o in db_orders:
             # Rule 101: Read realized_pnl_net!
@@ -455,9 +485,8 @@ def build_cg01_paper_run_summary(
     audit_summary = CG01MissedOpportunityAuditService.audit_run(run_id=run.run_id, db=db)
 
     # Data coverage grounded in actual trace recordings (Rule 119)
-    recent_traces = cg01_trace_recorder.get_recent_traces(limit=500) if hasattr(cg01_trace_recorder, "get_recent_traces") else []
-    run_traces = [t for t in recent_traces if getattr(t, "run_id", None) == run.run_id]
-    coverage_summary = build_run_coverage_summary(run, run_traces)
+    run_traces = cg01_trace_recorder.get_traces(symbol=run.symbol, run_id=run.run_id, limit=1000)
+    coverage_summary = build_run_coverage_summary(run, run_traces, db=db)
 
     armed_list = [t for t in open_trades_list if str(t.get("state") or "").lower() == "armed"]
     open_pos_list = [t for t in open_trades_list if str(t.get("state") or "").lower() in ("paper_open", "open", "filled")]
@@ -472,7 +501,9 @@ def build_cg01_paper_run_summary(
         "duration_hours": dur_hours,
         "data_coverage": {
             "uptime_pct": coverage_summary.get("uptime_pct"),
+            "trace_health_pct": coverage_summary.get("trace_health_pct"),
             "data_gaps_count": coverage_summary.get("data_gaps_count", 0),
+            "traces_count": coverage_summary.get("traces_count", 0),
             "coverage_state": coverage_summary.get("coverage_state", run.status),
         },
         "trades": {
@@ -618,6 +649,7 @@ def start_observation_run(
         ).first()
         if rec:
             rec.status = "COLLECTING"
+            rec.scope = scope
             rec.config_fingerprint = config_fingerprint
             db.flush()
     return run
@@ -680,15 +712,29 @@ def reconcile_run_accounting(db: Session, run_id: str) -> Dict[str, Any]:
 def build_run_coverage_summary(
     run: PaperResearchRun,
     traces: Sequence[Any] = (),
+    observation_intervals: Sequence[Any] = (),
+    db: Optional[Session] = None,
 ) -> Dict[str, Any]:
     """
-    Appendix B & Rules 114, 115: Computes observation coverage and data health
-    grounded in actual trace recordings, never hardcoding 100% when data is absent.
+    Appendix B & Rules 111, 112, 113: Computes observation coverage and data health
+    grounded in actual trace recordings and observation intervals, never hardcoding 100%
+    or conflating trace health with wall-clock uptime.
     """
-    if not traces:
+    if db is not None and not observation_intervals:
+        try:
+            observation_intervals = (
+                db.query(models.PaperObservationInterval)
+                .filter(models.PaperObservationInterval.run_id == run.run_id)
+                .all()
+            )
+        except Exception:
+            observation_intervals = ()
+
+    if not traces and not observation_intervals:
         return {
             "run_id": run.run_id,
             "uptime_pct": None,
+            "trace_health_pct": None,
             "data_gaps_count": 0,
             "traces_count": 0,
             "coverage_state": "NO_TELEMETRY",
@@ -697,11 +743,24 @@ def build_run_coverage_summary(
     # Count valid vs gap traces
     gap_count = sum(1 for t in traces if getattr(t, "evaluation_status", "") == "DATA_GAP")
     total_traces = len(traces)
-    uptime = round(((total_traces - gap_count) / total_traces) * 100.0, 2) if total_traces > 0 else None
+    trace_health_pct = round(((total_traces - gap_count) / total_traces) * 100.0, 2) if total_traces > 0 else None
+
+    # Wall-clock uptime is only computed if observation intervals are provided
+    uptime_pct = None
+    if observation_intervals and run.started_at_ms:
+        end_ms = run.completed_at_ms or int(time.time() * 1000)
+        total_duration = max(1, end_ms - run.started_at_ms)
+        healthy_duration = sum(
+            max(0, getattr(inv, "end_time_ms", 0) - getattr(inv, "start_time_ms", 0))
+            for inv in observation_intervals
+            if getattr(inv, "data_quality", "") in ("HEALTHY", "GOOD", "OK")
+        )
+        uptime_pct = round(min(100.0, (healthy_duration / total_duration) * 100.0), 2)
 
     return {
         "run_id": run.run_id,
-        "uptime_pct": uptime,
+        "uptime_pct": uptime_pct,
+        "trace_health_pct": trace_health_pct,
         "data_gaps_count": gap_count,
         "traces_count": total_traces,
         "coverage_state": "COLLECTING" if run.status == "COLLECTING" else run.status,
@@ -819,7 +878,7 @@ def generate_runtime_paper_report_content(
     winrate_disp = f"{tr.get('winrate_pct')}%" if tr.get('winrate_pct') is not None else "N/A (0 closed trades)"
 
     lines = [
-        f"# V16.17 CG-01 Paper Run Status & Measurement Report",
+        f"# {run.software_version or 'V16.18'} CG-01 Paper Run Status & Measurement Report",
         "",
         "## 1. Run Metadata & Operational State",
         f"- **Run ID**: `{run.run_id}`",

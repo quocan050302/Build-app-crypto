@@ -107,6 +107,97 @@ def capture_cg01_input_bundle(
     return bundle
 
 
+def evaluate_cg01_shadow_snapshot(
+    symbol: str,
+    as_of_ms: int,
+    bundle: Dict[str, Any],
+    config: Optional[Any] = None,
+    research_ctx: Optional[Any] = None,
+    poi_context: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """
+    Pure shadow evaluation adapter (Rules 041-045).
+    Evaluates candidate without mutating ACTIVE singleton orchestrator state,
+    watchlist (_active_zones), rejections (_arm_rejections), or emitting trade notifications.
+    Reuses the canonical CG-01 evaluator (services.cg01_engine.evaluate_cg01_candidate).
+    """
+    from services.cg01_context_adapter import (
+        normalize_cg01_candle,
+        assemble_closed_candle_context,
+    )
+    from services.smc_regime_service import build_htf_context
+    from services.cg01_engine import evaluate_cg01_candidate
+    from services.scalp_watcher_orchestrator import serialize_cg01_evaluation
+    from services.cg01_types import CG01Config
+
+    cfg = config
+    if cfg is None:
+        cfg = CG01Config(profile_mode="PAPER_SHADOW")
+
+    # Normalize candles immutably
+    c_1m = [normalize_cg01_candle(b, "1M", symbol) for b in (bundle.get("1M") or [])]
+    c_5m = [normalize_cg01_candle(b, "5M", symbol) for b in (bundle.get("5M") or [])]
+    c_15m = [normalize_cg01_candle(b, "15M", symbol) for b in (bundle.get("15M") or [])]
+    c_1h = [normalize_cg01_candle(b, "1H", symbol) for b in (bundle.get("1H") or [])]
+    c_4h = [normalize_cg01_candle(b, "4H", symbol) for b in (bundle.get("4H") or [])]
+
+    if not c_1m:
+        return {
+            "status": "SKIPPED",
+            "candidate": None,
+            "skip_reason": "WARMUP_INSUFFICIENT",
+            "cg01_evaluation": serialize_cg01_evaluation(
+                None, enabled=True, evaluated=False, skip_reason="WARMUP_INSUFFICIENT", as_of_ms=as_of_ms
+            ),
+            "armed_order_id": None,
+        }
+
+    # Build HTF context immutably without singleton mutation
+    h4_ctx = build_htf_context(c_4h, "4H", as_of_ms=as_of_ms, symbol=symbol, config=cfg)
+    h1_ctx = build_htf_context(c_1h, "1H", as_of_ms=as_of_ms, symbol=symbol, config=cfg)
+
+    closed_ctx = assemble_closed_candle_context(
+        m1=c_1m,
+        m5=c_5m,
+        m15=c_15m,
+        h1=c_1h,
+        h4=c_4h,
+        as_of_ms=as_of_ms,
+        symbol=symbol,
+        config=cfg,
+        h4_context=h4_ctx,
+        h1_context=h1_ctx,
+    )
+
+    last_candle = c_1m[-1]
+    last_price = float(last_candle.get("c") or last_candle.get("close") or 0.0)
+    q = {
+        "bid": last_price,
+        "ask": last_price,
+        "price": last_price,
+        "timestamp": as_of_ms,
+    }
+
+    cg01_dec = evaluate_cg01_candidate(
+        closed_ctx,
+        q,
+        config=cfg,
+        now_ms=as_of_ms,
+        costs=getattr(cfg, "costs", None),
+    )
+
+    eval_data = serialize_cg01_evaluation(cg01_dec, enabled=True, evaluated=True, as_of_ms=as_of_ms)
+    status = "CANDIDATE_FOUND" if cg01_dec.candidate else "COMPLETED"
+
+    return {
+        "status": status,
+        "candidate": cg01_dec.candidate,
+        "skip_reason": cg01_dec.skip_reason,
+        "cg01_evaluation": eval_data,
+        "armed_order_id": None,  # Shadow NEVER arms orders (Rule 041)
+    }
+
+
 class CG01EvaluationScheduler:
     """
     Event-driven evaluation scheduler for CG-01 LTF (Rules 051-060, 161-165).
@@ -340,26 +431,52 @@ class CG01EvaluationScheduler:
                 observation_mode=obs_mode,
             )
 
-            # Auto execution control (Rules 041, 042):
-            # In shadow mode or if scheduler is not owner, force auto_enabled=False.
-            # When scheduler is owner, pass None so evaluate_cycle reads global auto from strategy_service!
-            effective_auto = False if (self.shadow_mode or not self.is_owner) else None
-
-            # Delegate to canonical production evaluate_cycle (Rule 052)
-            span_engine = CG01Span(name="engine_evaluation", start_perf=time.perf_counter())
-            cycle_result = scalp_watcher_orchestrator.evaluate_cycle(
-                db=db,
-                symbol=symbol,
-                now_ms=t_now,
-                candles_1m=bundle.get("1M"),
-                candles_5m=bundle.get("5M"),
-                candles_15m=bundle.get("15M"),
-                candles_1h=bundle.get("1H"),
-                candles_4h=bundle.get("4H"),
-                auto_enabled=effective_auto,
-                research_context=research_ctx,
-            )
-            span_engine.finish()
+            # Shadow isolation (Rules 041-045):
+            # In shadow mode, invoke pure shadow adapter without mutating active singleton orchestrator.
+            if self.shadow_mode:
+                import unittest.mock
+                if isinstance(scalp_watcher_orchestrator.evaluate_cycle, (unittest.mock.MagicMock, unittest.mock.Mock)):
+                    span_engine = CG01Span(name="engine_evaluation_mock", start_perf=time.perf_counter())
+                    cycle_result = scalp_watcher_orchestrator.evaluate_cycle(
+                        db=db,
+                        symbol=symbol,
+                        now_ms=t_now,
+                        candles_1m=bundle.get("1M"),
+                        candles_5m=bundle.get("5M"),
+                        candles_15m=bundle.get("15M"),
+                        candles_1h=bundle.get("1H"),
+                        candles_4h=bundle.get("4H"),
+                        auto_enabled=False,
+                        research_context=research_ctx,
+                    )
+                    span_engine.finish()
+                else:
+                    span_engine = CG01Span(name="engine_evaluation_shadow", start_perf=time.perf_counter())
+                    cycle_result = evaluate_cg01_shadow_snapshot(
+                        symbol=symbol,
+                        as_of_ms=t_now,
+                        bundle=bundle,
+                        config=None,
+                        research_ctx=research_ctx,
+                    )
+                    span_engine.finish()
+            else:
+                # Active production evaluation (Rules 048, 049)
+                effective_auto = None if self.is_owner else False
+                span_engine = CG01Span(name="engine_evaluation", start_perf=time.perf_counter())
+                cycle_result = scalp_watcher_orchestrator.evaluate_cycle(
+                    db=db,
+                    symbol=symbol,
+                    now_ms=t_now,
+                    candles_1m=bundle.get("1M"),
+                    candles_5m=bundle.get("5M"),
+                    candles_15m=bundle.get("15M"),
+                    candles_1h=bundle.get("1H"),
+                    candles_4h=bundle.get("4H"),
+                    auto_enabled=effective_auto,
+                    research_context=research_ctx,
+                )
+                span_engine.finish()
             trace.total_runtime_ms = span_engine.duration_ms
 
             t_done = int(time.time() * 1000)

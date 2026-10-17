@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, BigInteger, Boolean, Text, UniqueConstraint, ForeignKey
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import declarative_base, relationship, synonym
 
 Base = declarative_base()
 
@@ -765,13 +765,15 @@ class PaperResearchRunRecord(Base):
     __tablename__ = "paper_research_run_records"
 
     run_id = Column(String(80), primary_key=True, index=True)
+    scope = Column(String(50), nullable=True, index=True)
     symbol = Column(String(20), default="XAUUSDT")
     status = Column(String(20), default="COLLECTING", index=True)  # CREATED, COLLECTING, PAUSED, COMPLETED, DEGRADED, FAILED
     started_at_ms = Column(BigInteger, nullable=False)
     ended_at_ms = Column(BigInteger, nullable=True)
-    software_version = Column(String(20), default="V16.17")
+    software_version = Column(String(20), default="V16.18")
     config_fingerprint = Column(String(80), default="DEFAULT")
     execution_mode = Column(String(30), default="PAPER_SHADOW")  # PAPER_SHADOW or PAPER_EXECUTION
+    observation_mode = Column(String(30), default="SHADOW")      # SHADOW or ACTIVE
     initial_capital_usdt = Column(Float, default=1000.0)
     current_capital_usdt = Column(Float, default=1000.0)
     metadata_json = Column(Text, nullable=True)
@@ -823,6 +825,7 @@ class CG01TraceRecord(Base):
     trace_id = Column(String(80), primary_key=True)
     symbol = Column(String(20), default="XAUUSDT", index=True)
     run_id = Column(String(80), nullable=True, index=True)
+    observation_mode = Column(String(30), default="SHADOW", index=True)
     source_event_id = Column(String(120), nullable=True)
     input_version = Column(String(80), nullable=True)
     evaluation_status = Column(String(30), default="COMPLETED")
@@ -845,3 +848,52 @@ class PaperResearchCheckpoint(Base):
     last_event_time_ms = Column(BigInteger, default=0)
     last_sequence = Column(Integer, default=0)
     updated_at_ms = Column(BigInteger, nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# V16.18 Durable Pending Projections & Observation Intervals (Rules 078, 112)
+# ---------------------------------------------------------------------------
+class PaperResearchPendingProjection(Base):
+    __tablename__ = "paper_research_pending_projections"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    event_id = Column(String(80), nullable=False, index=True)
+    scope = Column(String(50), default="CG01", index=True)
+    event_type = Column(String(50), nullable=False)
+    aggregate_id = Column(String(80), nullable=True, index=True)
+    order_id = Column(String(36), nullable=True, index=True)
+    run_id = Column(String(80), nullable=True, index=True)
+    reason = Column(String(100), nullable=False)
+    attempt_count = Column(Integer, default=0)
+    next_retry_at_ms = Column(BigInteger, default=0)
+    first_seen_at_ms = Column(BigInteger, nullable=False)
+    last_error = Column(Text, nullable=True)
+    status = Column(String(30), default="PENDING", index=True)  # PENDING, RESOLVED, UNVERIFIABLE
+    payload_json = Column(Text, nullable=True)
+    created_at_ms = Column(BigInteger, nullable=False)
+    updated_at_ms = Column(BigInteger, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('event_id', 'scope', name='uq_pending_proj_event_scope'),
+    )
+
+    resolution_status = synonym("status")
+    next_retry_at = synonym("next_retry_at_ms")
+    first_seen_at = synonym("first_seen_at_ms")
+
+
+class PaperObservationInterval(Base):
+    __tablename__ = "paper_observation_intervals"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    scope = Column(String(50), default="CG01", index=True)
+    run_id = Column(String(80), nullable=True, index=True)
+    symbol = Column(String(20), default="XAUUSDT")
+    worker_role = Column(String(40), default="SCHEDULER")
+    mode = Column(String(30), default="SHADOW")
+    start_ms = Column(BigInteger, nullable=False)
+    end_ms = Column(BigInteger, nullable=False)
+    data_quality = Column(String(30), default="GOOD")
+    heartbeats_count = Column(Integer, default=1)
+    created_at_ms = Column(BigInteger, nullable=False)
+

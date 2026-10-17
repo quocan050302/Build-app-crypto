@@ -131,6 +131,11 @@ async def lifespan(app: FastAPI):
     from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
     from services.cg01_scheduler_service import cg01_evaluation_scheduler
     from services.cg01_projection_worker import cg01_projection_worker
+    from services.cg01_telemetry_service import (
+        run_trace_persistence_worker,
+        stop_trace_persistence_worker,
+        flush_pending_traces,
+    )
 
     tasks = [
         asyncio.create_task(bitget_ws_service.run_ws_loop()),
@@ -147,6 +152,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(scalp_watcher_orchestrator.run_watcher_loop()),
         asyncio.create_task(cg01_evaluation_scheduler.run()),
         asyncio.create_task(cg01_projection_worker.run()),
+        asyncio.create_task(run_trace_persistence_worker()),
     ]
     yield
     # Graceful shutdown: orderly stop of worker loops before cancelling
@@ -155,6 +161,11 @@ async def lifespan(app: FastAPI):
     scalp_watcher_orchestrator.stop()
     cg01_evaluation_scheduler.stop()
     cg01_projection_worker.stop()
+    stop_trace_persistence_worker()
+    try:
+        flush_pending_traces(timeout_s=3.0)
+    except Exception as te:
+        logger.error(f"Error flushing traces on shutdown: {te}")
     try:
         rep_res = await forward_repair_worker.shutdown(timeout_s=5.0)
         if rep_res and getattr(rep_res, "status", "") == "TIMED_OUT":

@@ -10,8 +10,10 @@ Enforces:
 from __future__ import annotations
 
 import collections
+import copy
 import json
 import logging
+import queue
 import threading
 import time
 from dataclasses import asdict, dataclass, field
@@ -43,10 +45,11 @@ class CG01EvaluationTrace:
     trace_id: str
     run_id: Optional[str] = None
     symbol: str = "XAUUSDT"
+    observation_mode: str = "SHADOW"  # "SHADOW" or "ACTIVE"
     input_version: Any = 1
     source_event_id: Optional[str] = None
     context_source: str = "CACHE_AUTHORITATIVE"
-    model_fingerprint: str = "CG01_V16_15"
+    model_fingerprint: str = "CG01_V16_18"
     config_fingerprint: str = "DEFAULT"
 
     # Wall-clock timestamps in UTC ms (Rules 031, 036, 038)
@@ -57,6 +60,7 @@ class CG01EvaluationTrace:
     evaluation_enqueued_at: Optional[int] = None
     evaluation_started_at: Optional[int] = None
     evaluation_completed_at: Optional[int] = None
+    arm_request_at: Optional[int] = None
     candidate_persisted_at: Optional[int] = None
     armed_at: Optional[int] = None
     first_fill_eligible_quote_at: Optional[int] = None
@@ -83,6 +87,7 @@ class CG01EvaluationTrace:
         """
         Calculate latency metrics adhering to Rules 039 & 041-046.
         Missing milestones stay None rather than being clamped to 0.
+        Negative diffs caused by clock skew are marked as None (Rule 100).
         """
         delays: Dict[str, Optional[float]] = {
             "feed_delay_ms": None,
@@ -93,7 +98,7 @@ class CG01EvaluationTrace:
             "fill_delay_ms": None,
         }
 
-        # Rule 041: Feed delay (receive - exchange)
+        # Rule 041 & 100: Feed delay (receive - exchange)
         if self.event_received_at is not None and self.exchange_event_time_ms is not None:
             diff = self.event_received_at - self.exchange_event_time_ms
             if diff >= 0:
@@ -120,13 +125,14 @@ class CG01EvaluationTrace:
         elif self.total_runtime_ms is not None:
             delays["detector_runtime_ms"] = float(self.total_runtime_ms)
 
-        # Rule 045: Arm delay
-        if self.armed_at is not None and self.evaluation_completed_at is not None:
-            diff = self.armed_at - self.evaluation_completed_at
+        # Rule 045 & 098: Arm delay (armed_at - arm_request_at or evaluation_completed_at)
+        ref_arm_start = self.arm_request_at or self.evaluation_completed_at
+        if self.armed_at is not None and ref_arm_start is not None:
+            diff = self.armed_at - ref_arm_start
             if diff >= 0:
                 delays["arm_delay_ms"] = float(diff)
 
-        # Rule 046: Fill delay
+        # Rule 046 & 099: Fill delay
         if self.filled_at is not None and self.armed_at is not None:
             diff = self.filled_at - self.armed_at
             if diff >= 0:
@@ -140,13 +146,25 @@ class CG01EvaluationTrace:
         return d
 
 
+import queue
+
+_TRACE_QUEUE: queue.Queue = queue.Queue(maxsize=10000)
+_TRACE_QUEUE_DROPS = 0
+_TRACE_PERSIST_FAILURES = 0
+_TRACE_PERSISTED_COUNT = 0
+_TRACE_WORKER_RUNNING = False
+_TRACE_WORKER_THREAD: Optional[threading.Thread] = None
+
+
 class CG01TracePersistenceWriter:
     """
-    Durable SQLite trace persistence writer (Appendix B, Rules 027, 122, 123).
+    Durable SQLite trace persistence writer (Appendix B, Rules 027, 031-037, 122, 123).
     Persists evaluation traces in dedicated sessions so latency history survives restarts.
+    CRITICAL: Never commits caller's database session (Rule 032).
     """
     @staticmethod
     def persist_trace(trace: CG01EvaluationTrace, db: Optional[Any] = None) -> bool:
+        global _TRACE_PERSISTED_COUNT, _TRACE_PERSIST_FAILURES
         should_close = False
         target_db = db
         if target_db is None:
@@ -154,19 +172,25 @@ class CG01TracePersistenceWriter:
                 from database import SessionLocal
                 target_db = SessionLocal()
                 should_close = True
-            except Exception:
+            except Exception as e:
+                _TRACE_PERSIST_FAILURES += 1
+                logger.error(f"Failed to open session for trace persistence: {e}")
                 return False
 
         try:
             import models
             delays = trace.calculate_delays()
+            mode_val = getattr(trace, "observation_mode", "SHADOW") or "SHADOW"
+            created_ts = trace.evaluation_completed_at or trace.evaluation_started_at or int(time.time() * 1000)
+
             rec = models.CG01TraceRecord(
                 trace_id=trace.trace_id,
-                symbol=trace.symbol,
+                symbol=trace.symbol or "XAUUSDT",
                 run_id=trace.run_id,
+                observation_mode=mode_val,
                 source_event_id=trace.source_event_id,
                 input_version=str(trace.input_version),
-                evaluation_status=trace.evaluation_status,
+                evaluation_status=trace.evaluation_status or "COMPLETED",
                 candidate_key=trace.candidate_key,
                 armed_order_id=trace.armed_order_id,
                 total_runtime_ms=trace.total_runtime_ms or delays.get("detector_runtime_ms"),
@@ -175,12 +199,20 @@ class CG01TracePersistenceWriter:
                 arm_delay_ms=delays.get("arm_delay_ms"),
                 fill_delay_ms=delays.get("fill_delay_ms"),
                 payload_json=json.dumps(trace.to_dict(), ensure_ascii=False),
-                created_at_ms=trace.evaluation_completed_at or trace.evaluation_started_at or int(time.time() * 1000),
+                created_at_ms=created_ts,
             )
             target_db.merge(rec)
-            target_db.commit()
+            if should_close:
+                # Dedicated session: safe to commit
+                target_db.commit()
+            else:
+                # Caller's session: ONLY flush, NEVER commit! (Rule 031, 032)
+                target_db.flush()
+
+            _TRACE_PERSISTED_COUNT += 1
             return True
         except Exception as e:
+            _TRACE_PERSIST_FAILURES += 1
             if should_close and target_db is not None:
                 try:
                     target_db.rollback()
@@ -196,9 +228,14 @@ class CG01TracePersistenceWriter:
     def load_traces(
         symbol: Optional[str] = None,
         run_id: Optional[str] = None,
+        mode: Optional[str] = None,
         limit: int = 100,
         db: Optional[Any] = None,
     ) -> List[CG01EvaluationTrace]:
+        """
+        Truthfully load persisted traces from SQLite without zeroing or corrupting timestamps.
+        (Rules 027, 091-093).
+        """
         should_close = False
         target_db = db
         if target_db is None:
@@ -216,31 +253,52 @@ class CG01TracePersistenceWriter:
                 query = query.filter(models.CG01TraceRecord.symbol == symbol)
             if run_id:
                 query = query.filter(models.CG01TraceRecord.run_id == run_id)
+            if mode:
+                query = query.filter(models.CG01TraceRecord.observation_mode == mode)
+
             rows = query.order_by(models.CG01TraceRecord.created_at_ms.desc()).limit(limit).all()
 
             traces: List[CG01EvaluationTrace] = []
             for r in rows:
+                p: Dict[str, Any] = {}
+                if r.payload_json:
+                    try:
+                        p = json.loads(r.payload_json)
+                    except Exception:
+                        p = {}
+
+                # Rule 092: Truthfully restore timestamps from original payload
+                t_started = p.get("evaluation_started_at")
+                t_completed = p.get("evaluation_completed_at")
+                if t_started is None and t_completed is None:
+                    # Fallback to created_at_ms only if completely absent in payload
+                    t_started = r.created_at_ms
+                    t_completed = r.created_at_ms
+
                 t = CG01EvaluationTrace(
                     trace_id=r.trace_id,
                     symbol=r.symbol or "XAUUSDT",
                     run_id=r.run_id,
-                    source_event_id=r.source_event_id,
-                    input_version=r.input_version,
-                    evaluation_status=r.evaluation_status or "COMPLETED",
-                    candidate_key=r.candidate_key,
-                    armed_order_id=r.armed_order_id,
-                    total_runtime_ms=r.total_runtime_ms,
-                    evaluation_started_at=r.created_at_ms,
-                    evaluation_completed_at=r.created_at_ms,
+                    observation_mode=getattr(r, "observation_mode", "SHADOW") or p.get("observation_mode", "SHADOW"),
+                    source_event_id=r.source_event_id or p.get("source_event_id"),
+                    input_version=r.input_version or p.get("input_version", 1),
+                    evaluation_status=r.evaluation_status or p.get("evaluation_status", "COMPLETED"),
+                    candidate_key=r.candidate_key or p.get("candidate_key"),
+                    armed_order_id=r.armed_order_id or p.get("armed_order_id"),
+                    total_runtime_ms=r.total_runtime_ms if r.total_runtime_ms is not None else p.get("total_runtime_ms"),
+                    evaluation_started_at=t_started,
+                    evaluation_completed_at=t_completed,
+                    exchange_event_time_ms=p.get("exchange_event_time_ms"),
+                    event_received_at=p.get("event_received_at"),
+                    evidence_known_at=p.get("evidence_known_at"),
+                    evidence_available_at=p.get("evidence_available_at"),
+                    evaluation_enqueued_at=p.get("evaluation_enqueued_at"),
+                    arm_request_at=p.get("arm_request_at"),
+                    armed_at=p.get("armed_at"),
+                    first_fill_eligible_quote_at=p.get("first_fill_eligible_quote_at"),
+                    filled_at=p.get("filled_at"),
+                    skip_reason=p.get("skip_reason"),
                 )
-                if r.payload_json:
-                    try:
-                        p = json.loads(r.payload_json)
-                        for k, v in p.items():
-                            if hasattr(t, k) and v is not None and getattr(t, k) is None:
-                                setattr(t, k, v)
-                    except Exception:
-                        pass
                 traces.append(t)
             return traces
         except Exception as e:
@@ -249,6 +307,96 @@ class CG01TracePersistenceWriter:
         finally:
             if should_close and target_db is not None:
                 target_db.close()
+
+
+def enqueue_trace_persistence(trace: CG01EvaluationTrace) -> bool:
+    """
+    Appendix B, Rule 033: Non-blocking enqueue of immutable trace snapshot for background persistence.
+    """
+    global _TRACE_QUEUE_DROPS
+    try:
+        # Enqueue deep copy / snapshot
+        t_copy = copy.deepcopy(trace)
+        _TRACE_QUEUE.put_nowait(t_copy)
+        return True
+    except queue.Full:
+        _TRACE_QUEUE_DROPS += 1
+        logger.warning("Trace persistence queue full; dropped trace")
+        return False
+    except Exception as e:
+        logger.warning(f"Failed to enqueue trace persistence: {e}")
+        return False
+
+
+def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
+    """
+    Appendix B, Rule 039: Flush all pending traces in queue within timeout.
+    """
+    start_t = time.time()
+    flushed = 0
+    while not _TRACE_QUEUE.empty() and (time.time() - start_t) < timeout_s:
+        try:
+            t = _TRACE_QUEUE.get_nowait()
+            CG01TracePersistenceWriter.persist_trace(t, db=None)
+            _TRACE_QUEUE.task_done()
+            flushed += 1
+        except queue.Empty:
+            break
+        except Exception as e:
+            logger.warning(f"Error during trace flush: {e}")
+
+    pending = _TRACE_QUEUE.qsize()
+    return {
+        "flushed": flushed,
+        "pending": pending,
+        "status": "COMPLETED" if pending == 0 else "TIMED_OUT",
+        "elapsed_sec": round(time.time() - start_t, 3),
+    }
+
+
+async def run_trace_persistence_worker() -> None:
+    """
+    Appendix B, Rule 035, 038: Background worker draining trace queue with isolated DB sessions.
+    """
+    global _TRACE_WORKER_RUNNING
+    _TRACE_WORKER_RUNNING = True
+    logger.info("CG01 trace persistence worker started.")
+    while _TRACE_WORKER_RUNNING:
+        try:
+            batch: List[CG01EvaluationTrace] = []
+            while len(batch) < 50:
+                try:
+                    item = _TRACE_QUEUE.get_nowait()
+                    batch.append(item)
+                except queue.Empty:
+                    break
+
+            if batch:
+                from database import SessionLocal
+                db = SessionLocal()
+                try:
+                    for t in batch:
+                        CG01TracePersistenceWriter.persist_trace(t, db=db)
+                        _TRACE_QUEUE.task_done()
+                    db.commit()
+                except Exception as be:
+                    db.rollback()
+                    logger.warning(f"Error persisting trace batch: {be}")
+                finally:
+                    db.close()
+
+            await asyncio.sleep(0.5)
+        except asyncio.CancelledError:
+            _TRACE_WORKER_RUNNING = False
+            break
+        except Exception as e:
+            logger.error(f"Trace persistence worker loop error: {e}", exc_info=True)
+            await asyncio.sleep(1.0)
+
+
+def stop_trace_persistence_worker():
+    global _TRACE_WORKER_RUNNING
+    _TRACE_WORKER_RUNNING = False
 
 
 class CG01TraceRecorder:
@@ -263,62 +411,109 @@ class CG01TraceRecorder:
         self.dropped_traces_count = 0
         self.total_recorded_count = 0
 
-    def record_trace(self, trace: CG01EvaluationTrace, persist: bool = True, db: Optional[Any] = None) -> None:
+    def record_trace(
+        self,
+        trace: CG01EvaluationTrace,
+        persist: bool = True,
+        db: Optional[Any] = None,
+    ) -> None:
         """Enqueue trace into ring buffer; tracks drops if buffer fills; durably persists to DB."""
+        # Immutable snapshot for ring buffer (Rule 037)
+        snap = copy.deepcopy(trace)
         with self._lock:
             if len(self._buffer) >= self._maxlen:
                 self.dropped_traces_count += 1
-            self._buffer.append(trace)
+            self._buffer.append(snap)
             self.total_recorded_count += 1
 
         if persist:
-            CG01TracePersistenceWriter.persist_trace(trace, db=db)
+            if db is not None:
+                # Caller provided DB: only flush in caller session, NEVER commit! (Rule 032)
+                CG01TracePersistenceWriter.persist_trace(snap, db=db)
+            else:
+                # No DB provided: enqueue for background persistence or write with dedicated session
+                if _TRACE_WORKER_RUNNING:
+                    enqueue_trace_persistence(snap)
+                else:
+                    CG01TracePersistenceWriter.persist_trace(snap, db=None)
 
     def get_traces(
         self,
         symbol: Optional[str] = None,
         run_id: Optional[str] = None,
+        mode: Optional[str] = None,
         limit: int = 100,
     ) -> List[CG01EvaluationTrace]:
-        """Fetch traces filtered by symbol or run_id, falling back to persistent DB if needed."""
+        """Fetch traces filtered by symbol, run_id, or mode, merging memory buffer with persistent DB."""
         with self._lock:
             items = list(self._buffer)
 
+        seen_ids = set()
         res: List[CG01EvaluationTrace] = []
+
         for t in reversed(items):
             if symbol and t.symbol != symbol:
                 continue
             if run_id and t.run_id != run_id:
                 continue
+            if mode and getattr(t, "observation_mode", None) != mode:
+                continue
+            seen_ids.add(t.trace_id)
             res.append(t)
             if len(res) >= limit:
                 break
 
-        # Fallback to persistent DB if in-memory buffer has no matching traces (Rules 027, 122)
-        if not res and run_id:
-            res = CG01TracePersistenceWriter.load_traces(symbol=symbol, run_id=run_id, limit=limit)
+        # Query DB if run_id is requested or in-memory ring buffer has no traces (e.g. after restart)
+        if run_id or len(self._buffer) == 0:
+            db_limit = limit * 2 if limit else 200
+            persisted = CG01TracePersistenceWriter.load_traces(
+                symbol=symbol,
+                run_id=run_id,
+                mode=mode,
+                limit=db_limit,
+            )
+            for pt in persisted:
+                if pt.trace_id not in seen_ids:
+                    seen_ids.add(pt.trace_id)
+                    res.append(pt)
+                if len(res) >= limit:
+                    break
 
-        return res
+        # Sort by completed/started timestamp descending
+        res.sort(key=lambda x: int(x.evaluation_completed_at or x.evaluation_started_at or 0), reverse=True)
+        return res[:limit]
+
+    def get_traces_by_mode(
+        self,
+        mode: str,
+        symbol: Optional[str] = None,
+        run_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[CG01EvaluationTrace]:
+        """Explicit mode-filtered trace retrieval (Rule 029)."""
+        return self.get_traces(symbol=symbol, run_id=run_id, mode=mode, limit=limit)
 
     def get_recent_traces(
         self,
         limit: int = 100,
         symbol: Optional[str] = None,
         run_id: Optional[str] = None,
+        mode: Optional[str] = None,
     ) -> List[CG01EvaluationTrace]:
         """Alias for get_traces to satisfy coverage report callers (Rules 026, 121)."""
-        return self.get_traces(symbol=symbol, run_id=run_id, limit=limit)
+        return self.get_traces(symbol=symbol, run_id=run_id, mode=mode, limit=limit)
 
     def get_latency_summary(
         self,
         symbol: Optional[str] = None,
         run_id: Optional[str] = None,
+        mode: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Calculate p50, p95, p99 percentiles for all key delay stages (Rules 041-050, 128).
         """
-        traces = self.get_traces(symbol=symbol, run_id=run_id, limit=self._maxlen)
-        
+        traces = self.get_traces(symbol=symbol, run_id=run_id, mode=mode, limit=self._maxlen)
+
         feed_delays: List[float] = []
         sched_delays: List[float] = []
         runtime_delays: List[float] = []
@@ -374,3 +569,4 @@ class CG01TraceRecorder:
 
 # Global singleton
 cg01_trace_recorder = CG01TraceRecorder(maxlen=2000)
+
