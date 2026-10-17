@@ -1,0 +1,7 @@
+{
+  "retry_batch_test": "test_red_025_session_factory_failure_retry_accounting",
+  "false_write_test": "test_red_026_false_write_result_causes_batch_retry",
+  "in_flight_drain_test": "test_red_027_in_flight_drain_blocks_completed",
+  "single_consumer_test": "test_red_028_single_consumer_flush_waits_for_worker",
+  "gate_4_status": "PASS"
+}

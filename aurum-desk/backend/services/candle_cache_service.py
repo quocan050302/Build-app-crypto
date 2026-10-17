@@ -31,19 +31,41 @@ FRESHNESS_THRESHOLDS_SEC = {
 
 def validate_candle_row(row: Any) -> Optional[Dict[str, Any]]:
     """
-    Validates a single candle row from Bitget WebSocket or REST.
-    Expected: [ts, open, high, low, close, base_vol, quote_vol, usdt_vol]
+    Validates a single candle row from Bitget WebSocket, REST, dict, or CandleCreate.
+    Expected array: [ts, open, high, low, close, base_vol, quote_vol, usdt_vol]
+    Expected dict: {"timestamp": ts, "open": o, "high": h, "low": l, "close": c, "volume": vol}
     """
-    if not isinstance(row, (list, tuple)) or len(row) < 5:
-        return None
-    try:
-        ts = int(row[0])
-        o = float(row[1])
-        h = float(row[2])
-        l = float(row[3])
-        c = float(row[4])
-        vol = float(row[5]) if len(row) > 5 and row[5] is not None and str(row[5]).strip() != "" else 0.0
-    except (ValueError, TypeError):
+    if isinstance(row, dict):
+        try:
+            ts = int(row.get("timestamp") or row.get("ts") or 0)
+            o = float(row.get("open") or row.get("o") or 0.0)
+            h = float(row.get("high") or row.get("h") or 0.0)
+            l = float(row.get("low") or row.get("l") or 0.0)
+            c = float(row.get("close") or row.get("c") or 0.0)
+            vol = float(row.get("volume") or row.get("vol") or row.get("v") or 0.0)
+        except (ValueError, TypeError):
+            return None
+    elif hasattr(row, "timestamp") and hasattr(row, "open") and hasattr(row, "close"):
+        try:
+            ts = int(row.timestamp)
+            o = float(row.open)
+            h = float(row.high)
+            l = float(row.low)
+            c = float(row.close)
+            vol = float(getattr(row, "volume", 0.0) or 0.0)
+        except (ValueError, TypeError):
+            return None
+    elif isinstance(row, (list, tuple)) and len(row) >= 5:
+        try:
+            ts = int(row[0])
+            o = float(row[1])
+            h = float(row[2])
+            l = float(row[3])
+            c = float(row[4])
+            vol = float(row[5]) if len(row) > 5 and row[5] is not None and str(row[5]).strip() != "" else 0.0
+        except (ValueError, TypeError):
+            return None
+    else:
         return None
 
     # Finite and positive checks

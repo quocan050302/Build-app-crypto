@@ -107,72 +107,124 @@ def capture_cg01_input_bundle(
     return bundle
 
 
+def validated_quote_to_cg01_snapshot(
+    q: Any,
+    symbol: str = "XAUUSDT",
+    raw_meta: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    V16.21 Rule 042: Pure converter from ValidatedQuote to CG01 quote snapshot dictionary.
+    Preserves exact bid, ask, last (distinct from mid), spread, exchange_time, observed_at,
+    is_valid, is_stale, and rejection reason without mutating input.
+    """
+    bid = float(getattr(q, "bid", 0.0))
+    ask = float(getattr(q, "ask", 0.0))
+    q_last = float(getattr(q, "last", 0.0))
+    mid = round((bid + ask) / 2.0, 4) if (bid > 0 and ask > 0) else bid
+    last = q_last if q_last > 0 else (mid if mid > 0 else bid)
+    spread = float(getattr(q, "spread", 0.0))
+    if spread <= 0 and (bid > 0 and ask >= bid):
+        spread = round(ask - bid, 4)
+
+    is_valid = bool(getattr(q, "is_valid", False))
+    is_stale = bool(getattr(q, "is_stale", False))
+    rejection_code = getattr(q, "rejection_code", None) or ("QUOTE_STALE" if is_stale else ("QUOTE_UNAVAILABLE" if not is_valid else None))
+    rejection_detail = getattr(q, "rejection_detail", None)
+
+    exchange_time = getattr(q, "exchange_time", None)
+    observed_at = int(getattr(q, "observed_at", 0))
+    freshness_sec = float(getattr(q, "freshness_sec", 9999.0))
+
+    meta = raw_meta or {}
+    epoch = meta.get("connection_epoch") or meta.get("epoch")
+    sequence = meta.get("sequence")
+    source = meta.get("source", "COLLECTOR_TICKER")
+
+    return {
+        "symbol": symbol,
+        "bid": bid,
+        "ask": ask,
+        "last": last,
+        "mid": mid,
+        "price": mid,
+        "spread": spread,
+        "exchange_time": exchange_time,
+        "observed_at": observed_at,
+        "timestamp": exchange_time or observed_at,
+        "freshness_sec": freshness_sec,
+        "is_valid": is_valid,
+        "is_stale": is_stale,
+        "rejection_code": rejection_code,
+        "rejection_detail": rejection_detail,
+        "source": source,
+        "epoch": epoch,
+        "sequence": sequence,
+    }
+
+
 def capture_cg01_quote_snapshot(
     symbol: str = "XAUUSDT",
     as_of_ms: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
-    V16.20 Rules 041-046: Capture authoritative immutable quote snapshot from collector service.
+    V16.21 Rules 014, 015, 031-045: Capture authoritative immutable quote snapshot from collector service.
     Normalizes quote with canonical execution quote validator without synthesizing artificial quotes.
+    Handles ValidatedQuote contract strictly: exchange_time, observed_at, last != mid.
     """
     from services.collector_service import collector_service
     from services.quote_validator import normalize_execution_quote
-    import math
 
     now_ms = as_of_ms if as_of_ms is not None else int(time.time() * 1000)
     raw_t = collector_service.latest_ticker
     if not raw_t:
         return {
+            "symbol": symbol,
             "bid": 0.0,
             "ask": 0.0,
+            "last": 0.0,
             "spread": 0.0,
             "mid": 0.0,
             "price": 0.0,
-            "timestamp": 0,
+            "exchange_time": None,
+            "observed_at": now_ms,
+            "timestamp": now_ms,
+            "freshness_sec": 9999.0,
             "is_valid": False,
             "is_stale": True,
             "rejection_code": "QUOTE_UNAVAILABLE",
+            "rejection_detail": "Không có dữ liệu ticker từ collector feed",
             "source": "COLLECTOR_TICKER",
+            "epoch": None,
+            "sequence": None,
+        }
+
+    # Rule 040: Verify symbol matching
+    raw_sym = raw_t.get("symbol") if isinstance(raw_t, dict) else getattr(raw_t, "symbol", None)
+    if raw_sym and str(raw_sym).upper() != str(symbol).upper():
+        return {
+            "symbol": symbol,
+            "bid": 0.0,
+            "ask": 0.0,
+            "last": 0.0,
+            "spread": 0.0,
+            "mid": 0.0,
+            "price": 0.0,
+            "exchange_time": None,
+            "observed_at": now_ms,
+            "timestamp": now_ms,
+            "freshness_sec": 9999.0,
+            "is_valid": False,
+            "is_stale": True,
+            "rejection_code": "SYMBOL_MISMATCH",
+            "rejection_detail": f"Ticker symbol {raw_sym} does not match requested symbol {symbol}",
+            "source": "COLLECTOR_TICKER",
+            "epoch": None,
+            "sequence": None,
         }
 
     q = normalize_execution_quote(raw_t, now_ms=now_ms)
-    if q is None:
-        return {
-            "bid": 0.0,
-            "ask": 0.0,
-            "spread": 0.0,
-            "mid": 0.0,
-            "price": 0.0,
-            "timestamp": 0,
-            "is_valid": False,
-            "is_stale": True,
-            "rejection_code": "QUOTE_UNAVAILABLE",
-            "source": "COLLECTOR_TICKER",
-        }
-
-    bid = float(q.bid) if hasattr(q, "bid") else float((q or {}).get("bid", 0.0))
-    ask = float(q.ask) if hasattr(q, "ask") else float((q or {}).get("ask", 0.0))
-    ts = int(q.timestamp) if hasattr(q, "timestamp") else int((q or {}).get("timestamp", 0))
-    is_valid = bool(getattr(q, "is_valid", False))
-    is_stale = bool(getattr(q, "is_stale", False))
-    spread = round(ask - bid, 4) if (bid > 0 and ask >= bid) else 0.0
-    mid = round((bid + ask) / 2.0, 4) if (bid > 0 and ask > 0) else bid
-
-    return {
-        "bid": bid,
-        "ask": ask,
-        "spread": spread,
-        "mid": mid,
-        "price": mid,
-        "last": mid,
-        "timestamp": ts,
-        "is_valid": is_valid,
-        "is_stale": is_stale,
-        "rejection_code": getattr(q, "rejection_code", None) or ("QUOTE_STALE" if is_stale else ("QUOTE_UNAVAILABLE" if not is_valid else None)),
-        "source": "COLLECTOR_TICKER",
-        "epoch": getattr(q, "epoch", None),
-        "sequence": getattr(q, "sequence", None),
-    }
+    raw_meta = raw_t if isinstance(raw_t, dict) else {}
+    return validated_quote_to_cg01_snapshot(q, symbol=symbol, raw_meta=raw_meta)
 
 
 def resolve_cg01_financial_context(
@@ -949,64 +1001,12 @@ def resolve_effective_cg01_config(
     base_config: Optional[CG01Config] = None,
 ) -> Tuple[CG01Config, str, str]:
     """
-    Appendix B & Rules 026, 051-056: Resolve effective CG01 config, content fingerprint, and provenance source.
-    Propagates strategy parameters from authoritative M1ScalpConfig.
+    Appendix B & Rules 023, 046-065: Resolve effective CG01 config via canonical factory.
+    Guarantees exact parity between ACTIVE orchestrator and SHADOW scheduler.
     """
-    from services.scalp_m1_types import load_effective_scalp_config
-    source = "DEFAULT"
-    cfg = base_config
-
-    scalp_cfg = load_effective_scalp_config(db)
-
-    if cfg is None:
-        min_net_rr = float(getattr(scalp_cfg, "min_net_rr", 2.0))
-        displacement_body_atr_min = float(getattr(scalp_cfg, "displacement_body_atr_min", 0.6))
-        daily_min_goal = int(getattr(scalp_cfg, "daily_min_goal", 1))
-        daily_max_cap = int(getattr(scalp_cfg, "daily_max_cap", 3))
-        daily_ny_goal = int(getattr(scalp_cfg, "daily_ny_goal", 1))
-
-        if db is not None:
-            try:
-                from services.trading_policy_service import resolve_effective_daily_policy
-                eff_daily = resolve_effective_daily_policy(db, "default")
-                daily_min_goal = eff_daily.min_goal
-                daily_max_cap = eff_daily.max_fills
-                daily_ny_goal = eff_daily.ny_goal
-                source = "DATABASE_POLICY"
-            except Exception:
-                source = "DATABASE_CONFIG"
-        else:
-            source = "SCALP_CONFIG"
-
-        cfg = CG01Config(
-            enabled=True,
-            profile_mode=CG01ProfileMode.PAPER_EXECUTION.value,
-            min_net_rr=min_net_rr,
-            displacement_body_atr_min=displacement_body_atr_min,
-            daily_min_goal=daily_min_goal,
-            daily_max_cap=daily_max_cap,
-            daily_ny_goal=daily_ny_goal,
-        )
-    else:
-        source = "EXPLICIT_PARAMETER"
-
-    # Compute content fingerprint across all decision-affecting fields (Rule 056)
-    fingerprint_payload = {
-        "model_version": cfg.model_version,
-        "entry_mode": cfg.entry_mode,
-        "min_net_rr": cfg.min_net_rr,
-        "displacement_body_atr_min": cfg.displacement_body_atr_min,
-        "displacement_tail_ratio_max": getattr(cfg, "displacement_tail_ratio_max", 0.5),
-        "pivot_left_bars": cfg.pivot_left_bars,
-        "pivot_right_bars": cfg.pivot_right_bars,
-        "timing_profile": cfg.timing_profile,
-        "daily_min_goal": cfg.daily_min_goal,
-        "daily_max_cap": cfg.daily_max_cap,
-        "daily_ny_goal": cfg.daily_ny_goal,
-        "tick_size": getattr(cfg, "tick_size", 0.01),
-        "fvg_min_gap_atr": getattr(cfg, "fvg_min_gap_atr", 0.1),
-    }
-    raw = json.dumps(fingerprint_payload, sort_keys=True)
-    fingerprint = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
-
-    return cfg, fingerprint, source
+    from services.cg01_config_factory import resolve_canonical_cg01_config
+    return resolve_canonical_cg01_config(
+        db=db,
+        symbol=symbol,
+        base_config=base_config,
+    )

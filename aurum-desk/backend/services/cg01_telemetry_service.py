@@ -367,42 +367,55 @@ def enqueue_trace_persistence(trace: CG01EvaluationTrace) -> bool:
 
 def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
     """
-    Appendix B, Rules 026, 064, 065, 087, 101, 146: Flush all pending traces within timeout.
+    Appendix B, Rules 025-028, 066-105: Flush all pending traces within monotonic timeout.
+    Enforces Single-Consumer Drain:
+    - If background worker is RUNNING, worker is the sole consumer; flush waits for worker.
+    - If background worker is STOPPED, flush acts as the sole consumer to persist remaining items.
     Truthfully accounts for succeeded vs failed writes, and tracks in-flight and retrying writes.
     Does NOT report COMPLETED prematurely if an in-flight batch is committing.
     """
-    start_t = time.time()
+    start_t = time.monotonic()
     flushed = 0
     failed = 0
 
-    # 1. Drain existing retry buffer if any
-    with _RETRY_BUFFER_LOCK:
-        retries = list(_RETRY_BUFFER)
-        _RETRY_BUFFER.clear()
+    if _TRACE_WORKER_RUNNING:
+        # Worker is the single consumer (Rule 091). Wait for worker to drain.
+        while (
+            not _TRACE_QUEUE.empty()
+            or get_retry_buffer_count() > 0
+            or _IN_FLIGHT_COUNT > 0
+        ) and (time.monotonic() - start_t) < timeout_s:
+            time.sleep(0.05)
+    else:
+        # Worker is stopped. Flush becomes the sole consumer.
+        # 1. Drain existing retry buffer if any
+        with _RETRY_BUFFER_LOCK:
+            retries = list(_RETRY_BUFFER)
+            _RETRY_BUFFER.clear()
 
-    for trace, attempt in retries:
-        res = _persist_trace_batch_sync([trace], attempt=attempt)
-        flushed += res.committed_count
-        failed += res.failed_count
-
-    # 2. Drain in-queue items
-    while not _TRACE_QUEUE.empty() and (time.time() - start_t) < timeout_s:
-        try:
-            t = _TRACE_QUEUE.get_nowait()
-        except queue.Empty:
-            break
-
-        try:
-            res = _persist_trace_batch_sync([t])
+        for trace, attempt in retries:
+            res = _persist_trace_batch_sync([trace], attempt=attempt)
             flushed += res.committed_count
             failed += res.failed_count
-        except Exception as e:
-            failed += 1
-            logger.warning(f"Error during trace flush: {e}")
 
-    # Wait for in-flight writes to finish or timeout
-    while _IN_FLIGHT_COUNT > 0 and (time.time() - start_t) < timeout_s:
-        time.sleep(0.05)
+        # 2. Drain in-queue items
+        while not _TRACE_QUEUE.empty() and (time.monotonic() - start_t) < timeout_s:
+            try:
+                t = _TRACE_QUEUE.get_nowait()
+            except queue.Empty:
+                break
+
+            try:
+                res = _persist_trace_batch_sync([t])
+                flushed += res.committed_count
+                failed += res.failed_count
+            except Exception as e:
+                failed += 1
+                logger.warning(f"Error during trace flush: {e}")
+
+        # Wait for any in-flight writes to finish or timeout
+        while _IN_FLIGHT_COUNT > 0 and (time.monotonic() - start_t) < timeout_s:
+            time.sleep(0.05)
 
     pending = _TRACE_QUEUE.qsize()
     retry_pending = get_retry_buffer_count()
@@ -413,7 +426,7 @@ def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
     elif pending == 0 and current_inflight == 0 and retry_pending == 0:
         status = "COMPLETED"
     elif current_inflight > 0:
-        status = "TIMED_OUT" if (time.time() - start_t) >= timeout_s else "IN_FLIGHT"
+        status = "TIMED_OUT" if (time.monotonic() - start_t) >= timeout_s else "IN_FLIGHT"
     else:
         status = "TIMED_OUT"
 
@@ -424,7 +437,7 @@ def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
         "in_flight": current_inflight,
         "retry_buffer": retry_pending,
         "status": status,
-        "elapsed_sec": round(time.time() - start_t, 3),
+        "elapsed_sec": round(time.monotonic() - start_t, 3),
     }
 
 
@@ -432,34 +445,45 @@ def _persist_trace_batch_sync(
     batch: List[CG01EvaluationTrace],
     session_factory: Optional[Any] = None,
     attempt: int = 1,
+    already_accounted_inflight: bool = False,
 ) -> TraceBatchResult:
     """
-    Rules 056-060, 081-085, 087: Persist trace batch in worker-owned session,
+    Rules 025, 026, 066-075, 081-085, 087: Persist trace batch in worker-owned session,
     committing only upon complete batch success.
-    On failure, retains batch in _RETRY_BUFFER (up to 3 attempts) and does NOT call task_done().
-    Returns structured TraceBatchResult.
+    - session_factory invocation inside try: block (catches session-open errors cleanly).
+    - If persist_trace returns False for any record, treats as batch failure (rollback & retry).
+    - Only ACKs queue items after successful commit or terminal drop.
+    - Decrements in-flight count in finally: guaranteed.
     """
     global _TRACE_PERSISTED_COUNT, _TRACE_PERSIST_FAILURES, _IN_FLIGHT_COUNT
-    with _RETRY_BUFFER_LOCK:
-        _IN_FLIGHT_COUNT += len(batch)
+    if not already_accounted_inflight:
+        with _RETRY_BUFFER_LOCK:
+            _IN_FLIGHT_COUNT += len(batch)
 
-    from database import SessionLocal
-    sf = session_factory or SessionLocal
-    db = sf()
+    db = None
     persisted = 0
     failed = 0
     batch_ids = [t.trace_id for t in batch]
 
     try:
+        from database import SessionLocal
+        sf = session_factory or SessionLocal
+        db = sf()
+
         for t in batch:
             ok = CG01TracePersistenceWriter.persist_trace(t, db=db)
             if ok:
                 persisted += 1
             else:
                 failed += 1
+
+        if failed > 0:
+            # Rule 026 / 071: Helper returned False for some record; fail batch to prevent partial commit
+            raise RuntimeError(f"Trace persistence failed for {failed}/{len(batch)} records in batch")
+
         db.commit()
 
-        # ACK ONLY AFTER SUCCESSFUL COMMIT! (Rule 058, 083)
+        # ACK ONLY AFTER SUCCESSFUL COMMIT! (Rules 058, 074, 083)
         _TRACE_PERSISTED_COUNT += persisted
         for _ in range(len(batch)):
             try:
@@ -467,39 +491,33 @@ def _persist_trace_batch_sync(
             except ValueError:
                 pass
 
-        if failed == 0:
-            batch_status = "COMMITTED"
-        elif persisted == 0:
-            batch_status = "PERMANENT_FAILURE"
-        else:
-            batch_status = "PARTIAL_REJECTED"
-
         return TraceBatchResult(
-            status=batch_status,
+            status="COMMITTED",
             committed_count=persisted,
-            failed_count=failed,
+            failed_count=0,
             retained_for_retry_count=0,
             batch_ids=batch_ids,
         )
     except Exception as be:
-        try:
-            if hasattr(db, "rollback"):
-                db.rollback()
-        except Exception:
-            pass
+        if db is not None:
+            try:
+                if hasattr(db, "rollback"):
+                    db.rollback()
+            except Exception:
+                pass
         logger.warning(f"Error persisting trace batch (attempt {attempt}): {be}")
         _TRACE_PERSIST_FAILURES += len(batch)
 
         retained = 0
         if attempt < 3:
-            # Retain batch for retry! DO NOT call task_done()
+            # Retain batch for retry! DO NOT call task_done() (Rule 068, 084)
             with _RETRY_BUFFER_LOCK:
                 for t in batch:
                     _RETRY_BUFFER.append((t, attempt + 1))
                     retained += 1
             status = "RETRYABLE_FAILURE"
         else:
-            # Dead-letter / dropped after max retries
+            # Terminal dead-letter / dropped after max retries
             for _ in range(len(batch)):
                 try:
                     _TRACE_QUEUE.task_done()
@@ -518,15 +536,20 @@ def _persist_trace_batch_sync(
     finally:
         with _RETRY_BUFFER_LOCK:
             _IN_FLIGHT_COUNT = max(0, _IN_FLIGHT_COUNT - len(batch))
-        if hasattr(db, "close"):
-            db.close()
+        if db is not None:
+            try:
+                if hasattr(db, "close"):
+                    db.close()
+            except Exception:
+                pass
 
 
 async def run_trace_persistence_worker() -> None:
     """
-    Appendix B, Rules 035, 038, 056-060, 081-085: Background worker draining trace queue with isolated DB sessions.
+    Appendix B, Rules 035, 038, 056-060, 081-085, 091-095: Background worker draining trace queue with isolated DB sessions.
     Executes synchronous database operations in thread pool without blocking asyncio event loop.
     Prioritizes and retries batches in _RETRY_BUFFER.
+    Worker is the single consumer of queue & retry buffer.
     """
     global _TRACE_WORKER_RUNNING
     _TRACE_WORKER_RUNNING = True
@@ -553,7 +576,9 @@ async def run_trace_persistence_worker() -> None:
                     break
 
             if batch:
-                await asyncio.to_thread(_persist_trace_batch_sync, batch)
+                with _RETRY_BUFFER_LOCK:
+                    _IN_FLIGHT_COUNT += len(batch)
+                await asyncio.to_thread(_persist_trace_batch_sync, batch, None, 1, True)
 
             await asyncio.sleep(0.5)
         except asyncio.CancelledError:

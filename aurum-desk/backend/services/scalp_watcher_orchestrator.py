@@ -286,22 +286,14 @@ class ScalpWatcherOrchestrator:
         # Check whether caller explicitly injected HTF candles or bias (Rules 105, 106)
         caller_injected_htf = (candles_4h is not None or candles_1h is not None or htf_bias is not None)
 
-        # Pre-resolve cg01_cfg early for HTF settings synchronization (Rules 016, 087, 088)
-        cg01_mode = getattr(cfg, "cg01_profile_mode", None)
-        if cg01_mode is None:
-            cg01_mode = "PAPER_EXECUTION" if getattr(cfg, "cg01_enabled", False) else "OFF"
-        cg01_cfg = getattr(cfg, "cg01_config", None)
-        if cg01_cfg is None and cg01_mode != "OFF":
-            from services.cg01_types import CG01Config
-            from services.trading_policy_service import resolve_effective_daily_policy
-            eff_daily = resolve_effective_daily_policy(db, "default") if db else None
-            cg01_cfg = CG01Config(
-                enabled=True,
-                profile_mode=cg01_mode,
-                daily_min_goal=eff_daily.min_goal if eff_daily else 1,
-                daily_max_cap=eff_daily.max_fills if eff_daily else 3,
-                daily_ny_goal=eff_daily.ny_goal if eff_daily else 1,
-            )
+        # Pre-resolve cg01_cfg early for HTF settings synchronization (Rules 016, 087, 088, V16.21 Rules 046-065)
+        from services.cg01_config_factory import resolve_canonical_cg01_config
+        cg01_cfg, _, _ = resolve_canonical_cg01_config(
+            db=db,
+            symbol=symbol,
+            scalp_config_override=cfg,
+        )
+        cg01_mode = cg01_cfg.profile_mode
 
         # 1. Load or use injected candles
         c_4h = candles_4h if candles_4h is not None else (crud.get_candles(db, symbol, "4H", limit=40, ascending=True, cutoff_ms=t_recv) if db else [])
@@ -740,6 +732,7 @@ class ScalpWatcherOrchestrator:
             "risk_source": risk_resolution["source"],
             "capital_source": capital_source,
             "capital_mode": cap_mode,
+            "config_version": getattr(g_settings, "config_version", 1),
         }
 
         # A. SMC M1 Reversal Model on watched zones
@@ -957,20 +950,8 @@ class ScalpWatcherOrchestrator:
             cg01_mode = "PAPER_EXECUTION" if getattr(cfg, "cg01_enabled", False) else "OFF"
 
         cg01_eval_data = None
-        if cg01_mode != "OFF" and c_1m:
+        if cg01_cfg.enabled and c_1m:
             from services.cg01_engine import evaluate_cg01_candidate
-            from services.cg01_types import CG01Config
-            from services.trading_policy_service import resolve_effective_daily_policy
-            eff_daily = resolve_effective_daily_policy(db, "default")
-            cg01_cfg = getattr(cfg, "cg01_config", None)
-            if cg01_cfg is None:
-                cg01_cfg = CG01Config(
-                    enabled=True,
-                    profile_mode=cg01_mode,
-                    daily_min_goal=eff_daily.min_goal,
-                    daily_max_cap=eff_daily.max_fills,
-                    daily_ny_goal=eff_daily.ny_goal,
-                )
             closed_ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m, "context_source": context_source}
             costs_to_pass = getattr(cg01_cfg, "costs", None) or getattr(cfg, "costs", None)
             cg01_dec = evaluate_cg01_candidate(
@@ -984,9 +965,9 @@ class ScalpWatcherOrchestrator:
         else:
             cg01_eval_data = serialize_cg01_evaluation(
                 None,
-                enabled=(cg01_mode != "OFF"),
+                enabled=cg01_cfg.enabled,
                 evaluated=False,
-                skip_reason="MODEL_DISABLED" if cg01_mode == "OFF" else "WARMUP_INSUFFICIENT",
+                skip_reason="MODEL_DISABLED" if not cg01_cfg.enabled else "WARMUP_INSUFFICIENT",
                 as_of_ms=t_recv,
             )
 
@@ -1588,6 +1569,7 @@ class ScalpWatcherOrchestrator:
             id=order_id,
             setup_id=ws.id,
             setup_instance_id=cand.candidate_key,
+            config_version=int(policy_settings.get("config_version") or getattr(cfg, "config_version", 1)),
             idempotency_key=idempotency_key,
             signal_id=f"sig-{cand.candidate_key}",
             instrument=cand.symbol,
