@@ -157,30 +157,29 @@ def build_cg01_context(
     c_15m = [normalize_cg01_candle(b, "15M") if not isinstance(b, CanonicalCandle) else b for b in (closed_context.get("15M") or [])]
     c_1m = [normalize_cg01_candle(b, "1M") if not isinstance(b, CanonicalCandle) else b for b in (closed_context.get("1M") or [])]
 
-    # Rule 111: Filter closed candles excluding unclosed bars (is_closed=False)
-    from services.htf_structure_service import filter_closed_candles, resolve_timeframe_ms
+    # Rule 024 (V16.14): Single closed candle filter: strictly not unclosed AND close_ms <= now_ms
+    from services.htf_structure_service import resolve_timeframe_ms
 
-    def _is_closed_bar(b: Any, tf: str) -> bool:
+    def _is_valid_closed_bar(b: Any, tf: str) -> bool:
         if isinstance(b, dict):
             if b.get("is_closed") is False:
                 return False
-            is_explicit = b.get("is_closed") is True
             o_time = b.get("open_time", b.get("timestamp", 0))
+            c_time = b.get("close_time")
         else:
             if getattr(b, "is_closed", True) is False:
                 return False
-            is_explicit = getattr(b, "is_closed", None) is True
             o_time = getattr(b, "open_time", getattr(b, "timestamp", 0))
+            c_time = getattr(b, "close_time", None)
 
-        if is_explicit:
-            return True
         dur = resolve_timeframe_ms(tf)
-        return o_time + dur <= now_ms
+        close_ms = c_time if c_time is not None else (o_time + dur)
+        return close_ms <= now_ms
 
-    c_4h_closed = [b for b in c_4h if _is_closed_bar(b, "4H")]
-    c_1h_closed = [b for b in c_1h if _is_closed_bar(b, "1H")]
-    c_15m_closed = [b for b in c_15m if _is_closed_bar(b, "15M")]
-    c_1m_closed = [b for b in c_1m if _is_closed_bar(b, "1M")]
+    c_4h_closed = [b for b in c_4h if _is_valid_closed_bar(b, "4H")]
+    c_1h_closed = [b for b in c_1h if _is_valid_closed_bar(b, "1H")]
+    c_15m_closed = [b for b in c_15m if _is_valid_closed_bar(b, "15M")]
+    c_1m_closed = [b for b in c_1m if _is_valid_closed_bar(b, "1M")]
 
     # Rule 045: Warmup validation with dynamic config min_bars
     min_b = getattr(config, "htf_min_bars", 12) if config else 12

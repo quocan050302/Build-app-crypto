@@ -1162,7 +1162,7 @@ def step_htf_state(
                 return HTFStepResult(state=st, new_event=evt)
 
             # 3. Bullish BOS (Rule 066, 041 - 046)
-            elif st.reference_high:
+            if st.reference_high:
                 bos_res = evaluate_reference_close_break("BULLISH", st.reference_high, bar, settings)
                 if bos_res.is_confirmed:
                     break_key = (st.reference_high["id"], "BULLISH_BOS")
@@ -1194,12 +1194,11 @@ def step_htf_state(
                         st.latest_event = evt
                         return HTFStepResult(state=st, new_event=evt)
 
-            # 4. Internal Pullback
-            else:
-                if st.protected_low and known_l:
-                    higher_lows = [l for l in known_l if l["occurred_at_ms"] > st.protected_low["occurred_at_ms"] and l["price"] > st.protected_low["price"]]
-                    if higher_lows and bar_c < higher_lows[-1]["price"] - tick_size and bar_c >= prot_p - tick_size:
-                        st.phase = "PULLBACK"
+            # 4. Internal Pullback (V16.14 Rule 021: Evaluated when neither protected break nor sweep nor BOS confirmed)
+            if st.protected_low and known_l:
+                higher_lows = [l for l in known_l if l["occurred_at_ms"] > st.protected_low["occurred_at_ms"] and l["price"] > st.protected_low["price"]]
+                if higher_lows and bar_c < higher_lows[-1]["price"] - tick_size and bar_c >= prot_p - tick_size:
+                    st.phase = "PULLBACK"
             return HTFStepResult(state=st, new_event=None)
 
         elif st.bias == "BEARISH":
@@ -1256,7 +1255,7 @@ def step_htf_state(
                 return HTFStepResult(state=st, new_event=evt)
 
             # 3. Bearish BOS (Rule 067, 041 - 046)
-            elif st.reference_low:
+            if st.reference_low:
                 bos_res = evaluate_reference_close_break("BEARISH", st.reference_low, bar, settings)
                 if bos_res.is_confirmed:
                     break_key = (st.reference_low["id"], "BEARISH_BOS")
@@ -1288,12 +1287,11 @@ def step_htf_state(
                         st.latest_event = evt
                         return HTFStepResult(state=st, new_event=evt)
 
-            # 4. Internal Pullback
-            else:
-                if st.protected_high and known_h:
-                    lower_highs = [h for h in known_h if h["occurred_at_ms"] > st.protected_high["occurred_at_ms"] and h["price"] < st.protected_high["price"]]
-                    if lower_highs and bar_c > lower_highs[-1]["price"] + tick_size and bar_c <= prot_p + tick_size:
-                        st.phase = "PULLBACK"
+            # 4. Internal Pullback (V16.14 Rule 022: Evaluated when neither protected break nor sweep nor BOS confirmed)
+            if st.protected_high and known_h:
+                lower_highs = [h for h in known_h if h["occurred_at_ms"] > st.protected_high["occurred_at_ms"] and h["price"] < st.protected_high["price"]]
+                if lower_highs and bar_c > lower_highs[-1]["price"] + tick_size and bar_c <= prot_p + tick_size:
+                    st.phase = "PULLBACK"
             return HTFStepResult(state=st, new_event=None)
 
     return HTFStepResult(state=previous_state, new_event=None)

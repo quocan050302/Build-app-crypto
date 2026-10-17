@@ -287,7 +287,25 @@ class CandleCacheService:
             if len(bars) > self.max_bars:
                 self._cache[key] = bars[-self.max_bars:]
 
+        # V16.14 (Rule 061): Notify scheduler after batch cache mutation is fully consistent
+        if closed_bars:
+            try:
+                from services.cg01_scheduler_service import cg01_evaluation_scheduler
+                import time as _t
+                now_recv = int(_t.time() * 1000)
+                for cb in closed_bars:
+                    cg01_evaluation_scheduler.notify_market_change({
+                        "symbol": symbol,
+                        "timeframe": timeframe,
+                        "event_type": "CANDLE_CLOSED",
+                        "candle_timestamp": cb.timestamp,
+                        "received_at_ms": now_recv,
+                    })
+            except Exception as e:
+                logger.debug(f"CG01EvaluationScheduler notification error: {e}")
+
         return closed_bars
+
 
     def _enqueue_persist(self, bar: schemas.CandleCreate):
         try:

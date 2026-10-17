@@ -386,8 +386,9 @@ def test_case_10_replay_isolation_no_live_collector_bias():
         (2530, 2532, 2520, 2522),
         (2522, 2525, 2518, 2520),
     ]
+    t_now = base_t + len(prices) * dur
     c_1h = [CandleMock(base_t + i * dur, o, h, l, c, is_closed=True, tf="1H") for i, (o, h, l, c) in enumerate(prices)]
-    c_4h = [CandleMock(base_t + i * 14400000, o, h, l, c, is_closed=True, tf="4H") for i, (o, h, l, c) in enumerate(prices)]
+    c_4h = [CandleMock(t_now - (len(prices) - i) * 14400000, o, h, l, c, is_closed=True, tf="4H") for i, (o, h, l, c) in enumerate(prices)]
 
     closed_bundle = {
         "4H": c_4h,
@@ -396,7 +397,6 @@ def test_case_10_replay_isolation_no_live_collector_bias():
         "1M": c_1h,
     }
 
-    t_now = base_t + len(prices) * dur
     cg01_ctx = build_cg01_context(closed_bundle, t_now)
 
     # Injected candles are BEARISH; CG-01 context MUST evaluate to BEARISH and NOT live collector's BULLISH
@@ -518,9 +518,10 @@ def test_case_14_cg01_positive_long_flow():
     base_t = 1791984600000 # In NY window (10:10 AM NY)
 
     # 1. HTF Bullish
-    c_4h = [CanonicalCandle(base_t + i * 14400000, 2600.0, 2610.0, 2595.0, 2605.0 + i, 100.0, "4H", "XAUUSDT", True) for i in range(15)]
-    c_1h = [CanonicalCandle(base_t + i * dur_1h, 2600.0, 2605.0 + i * 2, 2598.0, 2604.0 + i * 2, 100.0, "1H", "XAUUSDT", True) for i in range(15)]
-    c_15m = [CanonicalCandle(base_t + i * dur_15m, 2620.0, 2625.0, 2615.0, 2622.0, 100.0, "15M", "XAUUSDT", True) for i in range(15)]
+    t_now = base_t + 25 * dur_1m
+    c_4h = [CanonicalCandle(t_now - (15 - i) * 14400000, 2600.0, 2610.0, 2595.0, 2605.0 + i, 100.0, "4H", "XAUUSDT", True) for i in range(15)]
+    c_1h = [CanonicalCandle(t_now - (15 - i) * dur_1h, 2600.0, 2605.0 + i * 2, 2598.0, 2604.0 + i * 2, 100.0, "1H", "XAUUSDT", True) for i in range(15)]
+    c_15m = [CanonicalCandle(t_now - (15 - i) * dur_15m, 2620.0, 2625.0, 2615.0, 2622.0, 100.0, "15M", "XAUUSDT", True) for i in range(15)]
 
     # 2. M1 setup with POI, Sweep, MSS, and FVG
     m1_candles = []
@@ -535,7 +536,7 @@ def test_case_14_cg01_positive_long_flow():
         "15M": c_15m,
         "1M": m1_candles,
     }
-    htf_data = build_cg01_context(context, now_ms=base_t + 25 * dur_1m)
+    htf_data = build_cg01_context(context, now_ms=t_now)
     assert htf_data["status"] == "READY"
     assert htf_data["h1_bias"] in ("BULLISH", "UNKNOWN", "RANGE")
 
@@ -551,9 +552,10 @@ def test_case_15_cg01_positive_short_flow():
     base_t = 1791984600000
 
     # 1. HTF Bearish
-    c_4h = [CanonicalCandle(base_t + i * 14400000, 2700.0, 2705.0, 2680.0, 2685.0 - i, 100.0, "4H", "XAUUSDT", True) for i in range(15)]
-    c_1h = [CanonicalCandle(base_t + i * dur_1h, 2700.0, 2702.0, 2680.0 - i * 2, 2682.0 - i * 2, 100.0, "1H", "XAUUSDT", True) for i in range(15)]
-    c_15m = [CanonicalCandle(base_t + i * dur_15m, 2650.0, 2655.0, 2640.0, 2645.0, 100.0, "15M", "XAUUSDT", True) for i in range(15)]
+    t_now = base_t + 25 * dur_1m
+    c_4h = [CanonicalCandle(t_now - (15 - i) * 14400000, 2700.0, 2705.0, 2680.0, 2685.0 - i, 100.0, "4H", "XAUUSDT", True) for i in range(15)]
+    c_1h = [CanonicalCandle(t_now - (15 - i) * dur_1h, 2700.0, 2702.0, 2680.0 - i * 2, 2682.0 - i * 2, 100.0, "1H", "XAUUSDT", True) for i in range(15)]
+    c_15m = [CanonicalCandle(t_now - (15 - i) * dur_15m, 2650.0, 2655.0, 2640.0, 2645.0, 100.0, "15M", "XAUUSDT", True) for i in range(15)]
     c_1m = [CanonicalCandle(base_t + i * dur_1m, 2645.0, 2648.0, 2642.0, 2644.0, 50.0, "1M", "XAUUSDT", True) for i in range(20)]
 
     context = {
@@ -562,5 +564,5 @@ def test_case_15_cg01_positive_short_flow():
         "15M": c_15m,
         "1M": c_1m,
     }
-    htf_data = build_cg01_context(context, now_ms=base_t + 25 * dur_1m)
+    htf_data = build_cg01_context(context, now_ms=t_now)
     assert htf_data["status"] == "READY"

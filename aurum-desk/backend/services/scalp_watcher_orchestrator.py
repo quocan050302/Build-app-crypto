@@ -1670,7 +1670,7 @@ class ScalpWatcherOrchestrator:
 
         return order
     async def run_watcher_loop(self):
-        """Periodic background evaluation loop for autonomous scalp watcher."""
+        """Periodic background evaluation loop for autonomous scalp watcher (Rules 011, 070, 165)."""
         self._running = True
         while self._running:
             try:
@@ -1678,7 +1678,10 @@ class ScalpWatcherOrchestrator:
                 def _eval():
                     db = SessionLocal()
                     try:
-                        self.evaluate_cycle(db, "XAUUSDT")
+                        from services.cg01_scheduler_service import cg01_evaluation_scheduler
+                        # Rule 070, 165: If scheduler is active execution owner, periodic watcher acts as watchdog
+                        watcher_auto = False if cg01_evaluation_scheduler.is_owner else None
+                        self.evaluate_cycle(db, "XAUUSDT", auto_enabled=watcher_auto)
                     finally:
                         db.close()
                 await asyncio.to_thread(_eval)
@@ -1688,6 +1691,7 @@ class ScalpWatcherOrchestrator:
             except Exception as e:
                 logger.error(f"Scalp watcher loop error: {e}", exc_info=True)
                 await asyncio.sleep(2.0)
+
 
     def stop(self):
         self._running = False

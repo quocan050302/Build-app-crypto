@@ -77,11 +77,10 @@ def test_rule_161_repaired_import_and_liquidity_contracts():
         else:
             candles_15m.append(make_raw_dict(t, 2620.0, 2625.0, 2618.0, 2622.0))
 
-    candles_4h = [make_raw_dict(base_ts + i * 14_400_000, 2600.0, 2640.0, 2590.0, 2630.0) for i in range(15)]
-    candles_1h = [make_raw_dict(base_ts + i * 3_600_000, 2610.0, 2635.0, 2605.0, 2625.0) for i in range(20)]
-    candles_1m = [make_raw_dict(base_ts + i * 60_000, 2621.0, 2623.0, 2620.0, 2622.0) for i in range(30)]
-
     now_ms = base_ts + 25 * 900_000 + 60_000
+    candles_4h = [make_raw_dict(now_ms - (15 - i) * 14_400_000, 2600.0, 2640.0, 2590.0, 2630.0) for i in range(15)]
+    candles_1h = [make_raw_dict(now_ms - (20 - i) * 3_600_000, 2610.0, 2635.0, 2605.0, 2625.0) for i in range(20)]
+    candles_1m = [make_raw_dict(now_ms - (30 - i) * 60_000, 2621.0, 2623.0, 2620.0, 2622.0) for i in range(30)]
     cfg = CG01Config(pivot_left_bars=2, pivot_right_bars=2)
 
     raw_ctx = {

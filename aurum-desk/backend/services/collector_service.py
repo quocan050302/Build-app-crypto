@@ -105,11 +105,15 @@ class CollectorService:
             self.last_error = f"{timeframe} sync error: {str(e)}"
             return False
 
-    def update_htf_context(self, symbol: str = "XAUUSDT"):
+    def set_effective_config(self, config: Optional[Any]):
+        """Sets effective structural CG01Config for collector service (Rules 026, 027)."""
+        self._effective_config = config
+
+    def update_htf_context(self, symbol: str = "XAUUSDT", config: Optional[Any] = None, as_of_ms: Optional[int] = None):
         """
         Calculate authentic, independent D & 4H bias and 1H alignment.
         No synthetic consensus or fake fallback.
-        V16.11: Strict closed-candle boundary, synchronized as_of_ms, and causal HTF contexts.
+        V16.14: Supports explicit config and synchronized as_of_ms (Rules 026, 027).
         """
         db: Session = SessionLocal()
         try:
@@ -117,20 +121,22 @@ class CollectorService:
             from services.smc_regime_service import build_htf_context
             from services.cg01_types import CG01Config
 
-            as_of_ms = int(time.time() * 1000)
+            if as_of_ms is None:
+                as_of_ms = int(time.time() * 1000)
 
-            # Load effective CG-01 / trading configuration if available (Rule 086, 089)
-            cfg = None
-            try:
-                from services.trading_policy_service import resolve_effective_daily_policy
-                eff_daily = resolve_effective_daily_policy(db, "default")
-                cfg = CG01Config(
-                    daily_min_goal=eff_daily.min_goal,
-                    daily_max_cap=eff_daily.max_fills,
-                    daily_ny_goal=eff_daily.ny_goal,
-                )
-            except Exception:
-                cfg = None
+            # Load effective CG-01 / trading configuration if available (Rule 026, 086, 089)
+            cfg = config or getattr(self, "_effective_config", None)
+            if cfg is None:
+                try:
+                    from services.trading_policy_service import resolve_effective_daily_policy
+                    eff_daily = resolve_effective_daily_policy(db, "default")
+                    cfg = CG01Config(
+                        daily_min_goal=eff_daily.min_goal,
+                        daily_max_cap=eff_daily.max_fills,
+                        daily_ny_goal=eff_daily.ny_goal,
+                    )
+                except Exception:
+                    cfg = None
 
             # 1. Independent Daily Context (D) - closed candles only
             d_candles = crud.get_closed_candles(db, symbol, "D", limit=50, ascending=True)
