@@ -323,7 +323,9 @@ async def test_red_025_event_driven_scheduler_execution(db: Session):
         "observed_at": now_ms,
     }
 
-    # Configure scheduler singleton
+    # Configure scheduler singleton with controlled clock for fixture scenario (Rule 018, 101)
+    from services.clock import ReplayClock
+    cg01_evaluation_scheduler.set_clock(ReplayClock(now_ms))
     cg01_evaluation_scheduler.set_flags(enabled=True, shadow_mode=False, is_owner=True)
     sched_task = asyncio.create_task(cg01_evaluation_scheduler.run())
     worker_started = await start_trace_persistence_worker(timeout_s=2.0)

@@ -54,6 +54,7 @@ class CG01EvaluationTrace:
     config_fingerprint: str = "DEFAULT"
 
     # Wall-clock timestamps in UTC ms (Rules 031, 036, 038)
+    market_evidence_as_of_ms: Optional[int] = None
     exchange_event_time_ms: Optional[int] = None
     event_received_at: Optional[int] = None
     evidence_known_at: Optional[int] = None
@@ -99,9 +100,10 @@ class CG01EvaluationTrace:
             "fill_delay_ms": None,
         }
 
-        # Rule 041 & 100: Feed delay (receive - exchange)
-        if self.event_received_at is not None and self.exchange_event_time_ms is not None:
-            diff = self.event_received_at - self.exchange_event_time_ms
+        # Rule 041, 056 & 100: Feed delay (receive - exchange or evidence time)
+        ref_exchange = self.exchange_event_time_ms or self.market_evidence_as_of_ms
+        if self.event_received_at is not None and ref_exchange is not None:
+            diff = self.event_received_at - ref_exchange
             if diff >= 0:
                 delays["feed_delay_ms"] = float(diff)
 
@@ -165,6 +167,23 @@ class TraceBatchResult:
         return iter((self.committed_count, self.failed_count))
 
 
+@dataclass
+class BatchHandle:
+    """
+    V16.24 Rules 061-075: Batch handle tracking synchronous DB execution.
+    Maintains exclusive batch ownership until the synchronous DB operation completes.
+    Prevents premature requeue into _RETRY_BUFFER or counter corruption upon coroutine cancellation.
+    """
+    batch_id: str
+    trace_ids: List[str]
+    traces: List[CG01EvaluationTrace]
+    attempt: int = 1
+    state: str = "SUBMITTED"  # "SUBMITTED", "RUNNING", "COMPLETED", "FAILED"
+    result: Optional[TraceBatchResult] = None
+    thread_done_event: threading.Event = field(default_factory=threading.Event)
+    is_retry: bool = False
+
+
 import queue
 
 _TRACE_QUEUE: queue.Queue = queue.Queue(maxsize=10000)
@@ -176,10 +195,13 @@ _TRACE_WORKER_STATE: str = "STOPPED"  # "STOPPED", "STARTING", "RUNNING", "STOPP
 _TRACE_WORKER_READY_EVENT: Optional[asyncio.Event] = None
 _TRACE_WORKER_TASK: Optional[asyncio.Task] = None
 _TRACE_WORKER_THREAD: Optional[threading.Thread] = None
+_TRACE_WORKER_GENERATION: int = 0
+_TRACE_WORKER_STOP_ERROR: Optional[str] = None
 
-# V16.20 Rules 081-087: In-flight and retry buffer tracking
+# V16.20 & V16.24 Rules 061-087: In-flight, retry buffer, and active batch handles
 _IN_FLIGHT_COUNT = 0
 _RETRY_BUFFER: List[Tuple[CG01EvaluationTrace, int]] = []  # (trace, attempt_count)
+_ACTIVE_BATCH_HANDLES: Dict[str, BatchHandle] = {}
 _RETRY_BUFFER_LOCK = threading.Lock()
 
 
@@ -197,6 +219,20 @@ def get_retry_buffer_count() -> int:
         return len(_RETRY_BUFFER)
 
 
+def get_active_batch_count() -> int:
+    with _RETRY_BUFFER_LOCK:
+        return len(_ACTIVE_BATCH_HANDLES)
+
+
+def get_active_batch_handles() -> Dict[str, BatchHandle]:
+    with _RETRY_BUFFER_LOCK:
+        return dict(_ACTIVE_BATCH_HANDLES)
+
+
+def get_trace_worker_stop_error() -> Optional[str]:
+    return _TRACE_WORKER_STOP_ERROR
+
+
 def get_trace_worker_state() -> str:
     return _TRACE_WORKER_STATE
 
@@ -207,36 +243,60 @@ def is_trace_worker_running() -> bool:
 
 async def start_trace_persistence_worker(timeout_s: float = 3.0) -> bool:
     """
-    V16.23 Rules 037-040: Start background worker with explicit ready handshake.
-    Awaits until worker has initialized, registered its task, and is ready to process.
-    Prevents race where callers or tests immediately invoke drain/flush before worker starts.
+    V16.23 & V16.24 Rules 086-092: Start background worker with explicit ready handshake.
+    - If already RUNNING and task alive: returns True.
+    - If STARTING: awaits current generation's ready event (does NOT return True prematurely).
+    - If STOPPED / FAILED: creates new task and awaits ready event.
+    - If ready event times out or task dies: marks FAILED and returns False.
     """
     global _TRACE_WORKER_STATE, _TRACE_WORKER_READY_EVENT, _TRACE_WORKER_TASK, _TRACE_WORKER_RUNNING
-    with _RETRY_BUFFER_LOCK:
-        if _TRACE_WORKER_STATE in ("RUNNING", "STARTING") and _TRACE_WORKER_TASK and not _TRACE_WORKER_TASK.done():
-            return True
-        _TRACE_WORKER_STATE = "STARTING"
-        _TRACE_WORKER_READY_EVENT = asyncio.Event()
+    global _TRACE_WORKER_GENERATION, _TRACE_WORKER_STOP_ERROR
 
-    _TRACE_WORKER_TASK = asyncio.create_task(run_trace_persistence_worker())
+    ready_event = None
+    with _RETRY_BUFFER_LOCK:
+        if _TRACE_WORKER_STATE == "RUNNING" and _TRACE_WORKER_TASK and not _TRACE_WORKER_TASK.done():
+            return True
+        if _TRACE_WORKER_STATE == "STARTING" and _TRACE_WORKER_READY_EVENT is not None:
+            ready_event = _TRACE_WORKER_READY_EVENT
+        else:
+            _TRACE_WORKER_GENERATION += 1
+            _TRACE_WORKER_STATE = "STARTING"
+            _TRACE_WORKER_STOP_ERROR = None
+            _TRACE_WORKER_READY_EVENT = asyncio.Event()
+            ready_event = _TRACE_WORKER_READY_EVENT
+            _TRACE_WORKER_TASK = asyncio.create_task(run_trace_persistence_worker())
 
     try:
-        await asyncio.wait_for(_TRACE_WORKER_READY_EVENT.wait(), timeout=timeout_s)
-        return _TRACE_WORKER_STATE == "RUNNING"
+        await asyncio.wait_for(ready_event.wait(), timeout=timeout_s)
+        with _RETRY_BUFFER_LOCK:
+            return _TRACE_WORKER_STATE == "RUNNING" and _TRACE_WORKER_TASK is not None and not _TRACE_WORKER_TASK.done()
     except asyncio.TimeoutError:
         logger.error(f"Trace persistence worker failed to become ready within {timeout_s}s")
-        _TRACE_WORKER_STATE = "FAILED"
+        with _RETRY_BUFFER_LOCK:
+            _TRACE_WORKER_STATE = "FAILED"
         return False
 
 
 async def wait_trace_persistence_worker_stopped(timeout_s: float = 3.0) -> bool:
     """
-    V16.23 Rule 079: Await clean termination of background worker task.
+    V16.23 & V16.24 Rules 079, 093, 094: Await clean termination of background worker task.
+    Also awaits any lingering active DB threads.
+    Records task exception if task terminated due to error.
     """
-    global _TRACE_WORKER_TASK
+    global _TRACE_WORKER_TASK, _TRACE_WORKER_STOP_ERROR
     start_t = time.monotonic()
     while (time.monotonic() - start_t) < timeout_s:
-        if _TRACE_WORKER_TASK is None or _TRACE_WORKER_TASK.done():
+        with _RETRY_BUFFER_LOCK:
+            task_done = (_TRACE_WORKER_TASK is None or _TRACE_WORKER_TASK.done())
+            active_batches = len(_ACTIVE_BATCH_HANDLES)
+        if task_done and active_batches == 0:
+            if _TRACE_WORKER_TASK and _TRACE_WORKER_TASK.done() and not _TRACE_WORKER_TASK.cancelled():
+                try:
+                    exc = _TRACE_WORKER_TASK.exception()
+                    if exc:
+                        _TRACE_WORKER_STOP_ERROR = str(exc)
+                except Exception:
+                    pass
             return True
         await asyncio.sleep(0.05)
     return False
@@ -246,16 +306,19 @@ def reset_telemetry_worker_state() -> None:
     """Reset telemetry worker globals cleanly for test isolation."""
     global _TRACE_WORKER_RUNNING, _TRACE_WORKER_STATE, _TRACE_WORKER_TASK, _TRACE_WORKER_READY_EVENT
     global _IN_FLIGHT_COUNT, _TRACE_PERSISTED_COUNT, _TRACE_PERSIST_FAILURES, _TRACE_QUEUE_DROPS
+    global _TRACE_WORKER_STOP_ERROR
     with _RETRY_BUFFER_LOCK:
         _TRACE_WORKER_RUNNING = False
         _TRACE_WORKER_STATE = "STOPPED"
         _TRACE_WORKER_TASK = None
         _TRACE_WORKER_READY_EVENT = None
+        _TRACE_WORKER_STOP_ERROR = None
         _IN_FLIGHT_COUNT = 0
         _TRACE_PERSISTED_COUNT = 0
         _TRACE_PERSIST_FAILURES = 0
         _TRACE_QUEUE_DROPS = 0
         _RETRY_BUFFER.clear()
+        _ACTIVE_BATCH_HANDLES.clear()
     while not _TRACE_QUEUE.empty():
         try:
             _TRACE_QUEUE.get_nowait()
@@ -541,6 +604,7 @@ async def drain_trace_persistence(timeout_s: float = 5.0) -> Dict[str, Any]:
             not _TRACE_QUEUE.empty()
             or get_retry_buffer_count() > 0
             or _IN_FLIGHT_COUNT > 0
+            or get_active_batch_count() > 0
         ) and (time.monotonic() - start_t) < timeout_s:
             await asyncio.sleep(0.05)
     else:
@@ -563,14 +627,15 @@ async def drain_trace_persistence(timeout_s: float = 5.0) -> Dict[str, Any]:
     pending = _TRACE_QUEUE.qsize()
     retry_pending = get_retry_buffer_count()
     current_inflight = _IN_FLIGHT_COUNT
+    active_batches = get_active_batch_count()
 
     if _TRACE_PERSIST_FAILURES > 0 and _TRACE_QUEUE_DROPS > 0:
-        status = "COMPLETED_WITH_LOSS" if (pending == 0 and current_inflight == 0 and retry_pending == 0) else "TIMED_OUT"
+        status = "COMPLETED_WITH_LOSS" if (pending == 0 and current_inflight == 0 and retry_pending == 0 and active_batches == 0) else "TIMED_OUT"
     elif _TRACE_QUEUE_DROPS > 0:
-        status = "COMPLETED_WITH_LOSS" if (pending == 0 and current_inflight == 0 and retry_pending == 0) else "TIMED_OUT"
-    elif pending == 0 and current_inflight == 0 and retry_pending == 0:
+        status = "COMPLETED_WITH_LOSS" if (pending == 0 and current_inflight == 0 and retry_pending == 0 and active_batches == 0) else "TIMED_OUT"
+    elif pending == 0 and current_inflight == 0 and retry_pending == 0 and active_batches == 0:
         status = "COMPLETED"
-    elif current_inflight > 0:
+    elif current_inflight > 0 or active_batches > 0:
         status = "TIMED_OUT" if (time.monotonic() - start_t) >= timeout_s else "IN_FLIGHT"
     else:
         status = "TIMED_OUT"
@@ -586,6 +651,7 @@ async def drain_trace_persistence(timeout_s: float = 5.0) -> Dict[str, Any]:
         "in_flight": current_inflight,
         "retry_buffer": retry_pending,
         "retrying": retry_pending,
+        "active_batches": active_batches,
         "terminal_loss": _TRACE_QUEUE_DROPS,
         "elapsed_sec": round(time.monotonic() - start_t, 3),
         "worker_state": _TRACE_WORKER_STATE,
@@ -603,19 +669,24 @@ def _persist_trace_batch_sync(
     session_factory: Optional[Any] = None,
     attempt: int = 1,
     already_accounted_inflight: bool = False,
+    handle: Optional[BatchHandle] = None,
 ) -> TraceBatchResult:
     """
-    Rules 025, 026, 066-075, 081-085, 087: Persist trace batch in worker-owned session,
+    Rules 025, 026, 061-075, 081-085, 087: Persist trace batch in worker-owned session,
     committing only upon complete batch success.
     - session_factory invocation inside try: block (catches session-open errors cleanly).
     - If persist_trace returns False for any record, treats as batch failure (rollback & retry).
     - Only ACKs queue items after successful commit or terminal drop.
     - Decrements in-flight count in finally: guaranteed.
+    - Updates handle state and signals completion if handle is provided.
     """
     global _TRACE_PERSISTED_COUNT, _TRACE_PERSIST_FAILURES, _IN_FLIGHT_COUNT
     if not already_accounted_inflight:
         with _RETRY_BUFFER_LOCK:
             _IN_FLIGHT_COUNT += len(batch)
+
+    if handle:
+        handle.state = "RUNNING"
 
     db = None
     persisted = 0
@@ -642,19 +713,25 @@ def _persist_trace_batch_sync(
 
         # ACK ONLY AFTER SUCCESSFUL COMMIT! (Rules 058, 074, 083)
         _TRACE_PERSISTED_COUNT += persisted
-        for _ in range(len(batch)):
-            try:
-                _TRACE_QUEUE.task_done()
-            except ValueError:
-                pass
+        is_retry = handle.is_retry if handle else False
+        if not is_retry:
+            for _ in range(len(batch)):
+                try:
+                    _TRACE_QUEUE.task_done()
+                except ValueError:
+                    pass
 
-        return TraceBatchResult(
+        res = TraceBatchResult(
             status="COMMITTED",
             committed_count=persisted,
             failed_count=0,
             retained_for_retry_count=0,
             batch_ids=batch_ids,
         )
+        if handle:
+            handle.state = "COMPLETED"
+            handle.result = res
+        return res
     except Exception as be:
         if db is not None:
             try:
@@ -675,14 +752,16 @@ def _persist_trace_batch_sync(
             status = "RETRYABLE_FAILURE"
         else:
             # Terminal dead-letter / dropped after max retries
-            for _ in range(len(batch)):
-                try:
-                    _TRACE_QUEUE.task_done()
-                except ValueError:
-                    pass
+            is_retry = handle.is_retry if handle else False
+            if not is_retry:
+                for _ in range(len(batch)):
+                    try:
+                        _TRACE_QUEUE.task_done()
+                    except ValueError:
+                        pass
             status = "PERMANENT_FAILURE"
 
-        return TraceBatchResult(
+        res = TraceBatchResult(
             status=status,
             committed_count=0,
             failed_count=len(batch),
@@ -690,9 +769,17 @@ def _persist_trace_batch_sync(
             error=str(be),
             batch_ids=batch_ids,
         )
+        if handle:
+            handle.state = "FAILED"
+            handle.result = res
+        return res
     finally:
         with _RETRY_BUFFER_LOCK:
             _IN_FLIGHT_COUNT = max(0, _IN_FLIGHT_COUNT - len(batch))
+            if handle and handle.batch_id in _ACTIVE_BATCH_HANDLES:
+                _ACTIVE_BATCH_HANDLES.pop(handle.batch_id, None)
+        if handle:
+            handle.thread_done_event.set()
         if db is not None:
             try:
                 if hasattr(db, "close"):
@@ -737,16 +824,33 @@ async def run_trace_persistence_worker() -> None:
                         _IN_FLIGHT_COUNT += len(retry_items)
 
                 unprocessed_retries = list(retry_items)
-                try:
-                    while unprocessed_retries:
-                        trace, attempt = unprocessed_retries.pop(0)
-                        await asyncio.to_thread(_persist_trace_batch_sync, [trace], None, attempt, True)
-                except BaseException:
+                while unprocessed_retries:
+                    trace, attempt = unprocessed_retries.pop(0)
+                    batch_id = f"batch_retry_{trace.trace_id}_{int(time.time()*1000)}"
+                    handle = BatchHandle(
+                        batch_id=batch_id,
+                        trace_ids=[trace.trace_id],
+                        traces=[trace],
+                        attempt=attempt,
+                        state="SUBMITTED",
+                        is_retry=True,
+                    )
                     with _RETRY_BUFFER_LOCK:
-                        for t, a in reversed(unprocessed_retries):
-                            _RETRY_BUFFER.insert(0, (t, a))
-                        _IN_FLIGHT_COUNT = max(0, _IN_FLIGHT_COUNT - len(unprocessed_retries))
-                    raise
+                        _ACTIVE_BATCH_HANDLES[batch_id] = handle
+
+                    try:
+                        await asyncio.to_thread(_persist_trace_batch_sync, [trace], None, attempt, True, handle)
+                    except asyncio.CancelledError:
+                        # V16.24 Rule 028, 070: Waiter cancelled while handle is running in thread!
+                        # Running thread retains ownership of handle until completion.
+                        # Only return unprocessed_retries (unstarted items) to retry buffer:
+                        with _RETRY_BUFFER_LOCK:
+                            for t, a in reversed(unprocessed_retries):
+                                _RETRY_BUFFER.insert(0, (t, a))
+                            _IN_FLIGHT_COUNT = max(0, _IN_FLIGHT_COUNT - len(unprocessed_retries))
+                        raise
+                    except Exception as err:
+                        logger.error(f"Error persisting retry trace {trace.trace_id}: {err}")
 
                 # 2. Drain new items from queue with atomic ownership transfer (Rules 023, 043)
                 batch: List[CG01EvaluationTrace] = []
@@ -758,16 +862,28 @@ async def run_trace_persistence_worker() -> None:
                         break
 
                 if batch:
+                    batch_id = f"batch_queue_{int(time.time()*1000)}_{len(batch)}"
+                    handle = BatchHandle(
+                        batch_id=batch_id,
+                        trace_ids=[t.trace_id for t in batch],
+                        traces=batch,
+                        attempt=1,
+                        state="SUBMITTED",
+                        is_retry=False,
+                    )
                     with _RETRY_BUFFER_LOCK:
                         _IN_FLIGHT_COUNT += len(batch)
+                        _ACTIVE_BATCH_HANDLES[batch_id] = handle
+
                     try:
-                        await asyncio.to_thread(_persist_trace_batch_sync, batch, None, 1, True)
-                    except BaseException:
-                        with _RETRY_BUFFER_LOCK:
-                            for t in reversed(batch):
-                                _RETRY_BUFFER.insert(0, (t, 1))
-                            _IN_FLIGHT_COUNT = max(0, _IN_FLIGHT_COUNT - len(batch))
+                        await asyncio.to_thread(_persist_trace_batch_sync, batch, None, 1, True, handle)
+                    except asyncio.CancelledError:
+                        # V16.24 Rule 027, 061-075: Waiter cancelled while handle is running in thread!
+                        # Do NOT requeue handle.traces! Thread is STILL RUNNING and owns the batch!
+                        # Do NOT decrement _IN_FLIGHT_COUNT! Thread will decrement upon exit!
                         raise
+                    except Exception as be:
+                        logger.error(f"Error persisting trace batch: {be}")
 
                 await asyncio.sleep(0.5)
             except asyncio.CancelledError:
@@ -892,6 +1008,11 @@ class CG01TraceRecorder:
     ) -> List[CG01EvaluationTrace]:
         """Alias for get_traces to satisfy coverage report callers (Rules 026, 121)."""
         return self.get_traces(symbol=symbol, run_id=run_id, mode=mode, limit=limit)
+
+    def get_latest_trace(self, symbol: Optional[str] = None) -> Optional[CG01EvaluationTrace]:
+        """Return the most recent recorded evaluation trace, or None if empty."""
+        traces = self.get_traces(symbol=symbol, limit=1)
+        return traces[0] if traces else None
 
     def get_latency_summary(
         self,

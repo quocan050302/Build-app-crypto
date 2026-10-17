@@ -1,0 +1,8 @@
+{
+  "delayed_event_execution_time_test": "test_red_021_delayed_event_execution_time_distinct_from_evidence_time",
+  "quote_freshness_execution_time_test": "test_red_022_delayed_event_stale_quote_rejected_against_execution_time",
+  "news_guard_execution_time_test": "test_red_023_news_guard_evaluates_at_execution_time_not_candle_time",
+  "candidate_expiry_execution_time_test": "test_red_024_candidate_expiry_checked_at_execution_time",
+  "session_boundary_execution_time_test": "test_red_025_session_boundary_checked_at_execution_time",
+  "reconnect_old_candle_not_backdated_test": "test_red_026_reconnect_replayed_candle_not_backdated"
+}

@@ -167,16 +167,26 @@ def validated_quote_to_cg01_snapshot(
 def capture_cg01_quote_snapshot(
     symbol: str = "XAUUSDT",
     as_of_ms: Optional[int] = None,
+    execution_now_ms: Optional[int] = None,
+    clock: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
-    V16.21 Rules 014, 015, 031-045: Capture authoritative immutable quote snapshot from collector service.
+    V16.21 / V16.24 Rules 014, 015, 031-046: Capture authoritative immutable quote snapshot from collector service.
     Normalizes quote with canonical execution quote validator without synthesizing artificial quotes.
+    Freshness is strictly evaluated against execution_now_ms (current clock), not candle close time.
     Handles ValidatedQuote contract strictly: exchange_time, observed_at, last != mid.
     """
     from services.collector_service import collector_service
     from services.quote_validator import normalize_execution_quote
 
-    now_ms = as_of_ms if as_of_ms is not None else int(time.time() * 1000)
+    if execution_now_ms is not None:
+        now_ms = execution_now_ms
+    elif as_of_ms is not None:
+        now_ms = as_of_ms
+    elif clock is not None:
+        now_ms = clock.now_ms()
+    else:
+        now_ms = int(time.time() * 1000)
     raw_t = collector_service.latest_ticker
     if not raw_t:
         return {
@@ -513,6 +523,7 @@ class CG01EvaluationScheduler:
         self.enabled: bool = True
         self.shadow_mode: bool = True       # Shadow evaluation by default (does not execute live orders)
         self.is_owner: bool = False         # False = periodic watcher is owner; True = scheduler is execution owner
+        self._clock: Optional[Any] = None   # V16.24 Rule 040-042: Injected runtime/test clock
 
         # State tracking per symbol
         self._dirty_symbols: Set[str] = set()
@@ -528,6 +539,11 @@ class CG01EvaluationScheduler:
         self.dropped_evaluations_count = 0
         self._active_eval_tasks: Set[Any] = set()
         self._active_eval_threads: Set[threading.Thread] = set()
+
+    def set_clock(self, clock: Optional[Any]) -> None:
+        """V16.24 Rule 040-042: Inject controlled runtime clock for tests / replay."""
+        with self._lock:
+            self._clock = clock
 
     def set_flags(
         self,
@@ -604,6 +620,7 @@ class CG01EvaluationScheduler:
             self.duplicate_events_ignored_count = 0
             self.dropped_evaluations_count = 0
             self._active_eval_threads.clear()
+            self._clock = None
 
     def notify_market_change(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -668,12 +685,17 @@ class CG01EvaluationScheduler:
         symbol: Optional[str] = None,
         db: Optional[Session] = None,
         as_of_ms: Optional[int] = None,
+        market_evidence_as_of_ms: Optional[int] = None,
+        execution_now_ms: Optional[int] = None,
         source_event: Optional[Dict[str, Any]] = None,
+        clock: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """
         Synchronously execute an event-driven evaluation cycle for a symbol with tracing.
         Respects single-flight per symbol (Rule 057).
-        Supports either evaluate_symbol_now(db, symbol) or evaluate_symbol_now(symbol, db=db).
+        V16.24 Rules 031-060: Strict separation between:
+        - market_evidence_as_of_ms (causal closed candles evidence boundary)
+        - execution_now_ms (current clock for processing start, quote freshness, news, session, expiry, arming)
         """
         target_db = db
         target_symbol = symbol
@@ -694,6 +716,9 @@ class CG01EvaluationScheduler:
         db = target_db
 
         from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+        from services.clock import live_clock
+
+        effective_clock = clock or getattr(self, "_clock", None) or live_clock
 
         with self._lock:
             if symbol in self._symbol_in_flight:
@@ -703,29 +728,52 @@ class CG01EvaluationScheduler:
             self._symbol_in_flight.add(symbol)
             self._dirty_symbols.discard(symbol)
 
-        t_now = as_of_ms if as_of_ms is not None else int(time.time() * 1000)
+        ev = source_event or {}
+
+        # 1. Market evidence time (closed candle timestamp boundary)
+        evidence_as_of = market_evidence_as_of_ms
+        if evidence_as_of is None:
+            if ev.get("candle_timestamp"):
+                dur = TF_DURATIONS_MS.get(ev.get("timeframe", "1M"), 60000)
+                evidence_as_of = int(ev["candle_timestamp"]) + dur
+            elif as_of_ms is not None:
+                evidence_as_of = as_of_ms
+            else:
+                evidence_as_of = effective_clock.now_ms()
+
+        # 2. Execution time (clock time for quote freshness, news blackout, session, expiry, arming)
+        if execution_now_ms is not None:
+            exec_now = execution_now_ms
+        elif as_of_ms is not None:
+            # Explicit replay / legacy test clock passed as as_of_ms (Rule 039)
+            exec_now = as_of_ms
+        else:
+            exec_now = effective_clock.now_ms()
+
+        t_now = exec_now
         trace_id = f"trc_{symbol}_{t_now}_{int(time.perf_counter() * 1000) % 100000}"
 
-        ev = source_event or {}
         trace = CG01EvaluationTrace(
             trace_id=trace_id,
             symbol=symbol,
             source_event_id=ev.get("event_id"),
+            market_evidence_as_of_ms=evidence_as_of,
             exchange_event_time_ms=ev.get("exchange_event_time_ms"),
             event_received_at=ev.get("received_at_ms"),
+            evidence_known_at=evidence_as_of,
             evidence_available_at=ev.get("received_at_ms"),
             evaluation_enqueued_at=ev.get("enqueued_at_ms"),
-            evaluation_started_at=t_now,
+            evaluation_started_at=exec_now,
         )
 
         p_start = time.perf_counter()
         try:
-            # Capture immutable input bundle (Rule 062, Appendix A #3)
-            bundle = capture_cg01_input_bundle(symbol=symbol, as_of_ms=t_now)
+            # Capture immutable input bundle up to causal market evidence time (Rule 062, Appendix A #3)
+            bundle = capture_cg01_input_bundle(symbol=symbol, as_of_ms=evidence_as_of)
             trace.input_version = bundle["input_versions"].get("1M", 1)
 
-            # Resolve authoritative quote snapshot (Rules 041-046)
-            quote_snap = capture_cg01_quote_snapshot(symbol=symbol, as_of_ms=t_now)
+            # Resolve authoritative quote snapshot evaluated at current execution time (Rules 041-046)
+            quote_snap = capture_cg01_quote_snapshot(symbol=symbol, execution_now_ms=exec_now, clock=effective_clock)
 
             # Resolve authoritative financial context (Rules 018, 025, 057)
             fin_ctx = resolve_cg01_financial_context(db=db)
@@ -765,7 +813,7 @@ class CG01EvaluationScheduler:
                 symbol=symbol,
                 config_fingerprint=fingerprint,
                 input_versions=bundle.get("input_versions", {}),
-                evaluation_as_of_ms=t_now,
+                evaluation_as_of_ms=exec_now,
                 observation_mode=obs_mode,
             )
 
@@ -775,7 +823,7 @@ class CG01EvaluationScheduler:
                 span_engine = CG01Span(name="engine_evaluation_shadow", start_perf=time.perf_counter())
                 cycle_result = evaluate_cg01_shadow_snapshot(
                     symbol=symbol,
-                    as_of_ms=t_now,
+                    as_of_ms=evidence_as_of,
                     bundle=bundle,
                     config=eff_cfg,
                     research_ctx=research_ctx,
@@ -792,7 +840,8 @@ class CG01EvaluationScheduler:
                 cycle_result = scalp_watcher_orchestrator.evaluate_cycle(
                     db=db,
                     symbol=symbol,
-                    now_ms=t_now,
+                    now_ms=exec_now,
+                    clock=effective_clock,
                     candles_1m=bundle.get("1M"),
                     candles_5m=bundle.get("5M"),
                     candles_15m=bundle.get("15M"),
@@ -805,7 +854,7 @@ class CG01EvaluationScheduler:
                 span_engine.finish()
             trace.total_runtime_ms = span_engine.duration_ms
 
-            t_done = int(time.time() * 1000)
+            t_done = int(effective_clock.now_ms() if effective_clock else time.time() * 1000)
             trace.evaluation_completed_at = t_done
 
             cg_eval = cycle_result.get("cg01_evaluation") or {}
@@ -929,14 +978,20 @@ class CG01EvaluationScheduler:
                                 self._active_eval_threads.add(cur_th)
                             db = SessionLocal()
                             try:
-                                as_of = None
+                                ev_evidence_as_of = None
                                 if ev:
                                     dur = TF_DURATIONS_MS.get(ev.get("timeframe", "1M"), 60000)
                                     if ev.get("candle_timestamp"):
-                                        as_of = int(ev["candle_timestamp"]) + dur
+                                        ev_evidence_as_of = int(ev["candle_timestamp"]) + dur
                                     elif ev.get("received_at_ms"):
-                                        as_of = int(ev["received_at_ms"])
-                                return self.evaluate_symbol_now(db, s, as_of_ms=as_of, source_event=ev)
+                                        ev_evidence_as_of = int(ev["received_at_ms"])
+                                return self.evaluate_symbol_now(
+                                    db,
+                                    s,
+                                    market_evidence_as_of_ms=ev_evidence_as_of,
+                                    source_event=ev,
+                                    clock=getattr(self, "_clock", None),
+                                )
                             finally:
                                 try:
                                     db.close()

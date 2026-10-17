@@ -16,6 +16,11 @@ class IClock(ABC):
         """Returns current timezone-aware datetime in Asia/Ho_Chi_Minh (UTC+7)"""
         pass
 
+    @abstractmethod
+    def monotonic_s(self) -> float:
+        """Returns monotonic time in seconds for duration calculation"""
+        pass
+
     def get_today_str_vn(self) -> str:
         """Returns YYYY-MM-DD string in Asia/Ho_Chi_Minh timezone"""
         return self.now_datetime().strftime("%Y-%m-%d")
@@ -28,6 +33,9 @@ class LiveClock(IClock):
 
     def now_datetime(self) -> datetime:
         return datetime.now(VN_TZ)
+
+    def monotonic_s(self) -> float:
+        return time.monotonic()
 
 
 class ReplayClock(IClock):
@@ -46,6 +54,9 @@ class ReplayClock(IClock):
 
     def now_datetime(self) -> datetime:
         return datetime.fromtimestamp(self._current_ms / 1000.0, tz=VN_TZ)
+
+    def monotonic_s(self) -> float:
+        return self._current_ms / 1000.0
 
 
 # Default system singleton clock

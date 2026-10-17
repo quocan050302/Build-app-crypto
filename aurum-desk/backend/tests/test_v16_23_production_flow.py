@@ -43,6 +43,7 @@ from services.trading_policy_service import TradingPolicyService
 from services.candle_cache_service import candle_cache_service
 from services.collector_service import collector_service
 from services.strategy_service import strategy_service
+from services.clock import ReplayClock
 from services.cg01_scheduler_service import (
     CG01EvaluationScheduler,
     cg01_evaluation_scheduler,
@@ -189,7 +190,8 @@ async def test_v16_23_flow_scenario_1_long_tp_event_driven_execution(db: Session
         "observed_at": now_ms,
     }
 
-    # 1. Start background workers
+    # 1. Start background workers with controlled fixture clock (Rule 018, 101)
+    cg01_evaluation_scheduler.set_clock(ReplayClock(now_ms))
     cg01_evaluation_scheduler.set_flags(enabled=True, shadow_mode=False, is_owner=True)
     sched_task = asyncio.create_task(cg01_evaluation_scheduler.run())
     worker_started = await start_trace_persistence_worker(timeout_s=2.0)
@@ -334,6 +336,7 @@ async def test_v16_23_flow_scenario_2_short_sl_event_driven_execution(db: Sessio
         "observed_at": now_ms,
     }
 
+    cg01_evaluation_scheduler.set_clock(ReplayClock(now_ms))
     cg01_evaluation_scheduler.set_flags(enabled=True, shadow_mode=False, is_owner=True)
     sched_task = asyncio.create_task(cg01_evaluation_scheduler.run())
     worker_started = await start_trace_persistence_worker(timeout_s=2.0)
@@ -457,6 +460,7 @@ async def test_v16_23_flow_scenario_3_shadow_pure_observation(db: Session):
         "observed_at": now_ms,
     }
 
+    cg01_evaluation_scheduler.set_clock(ReplayClock(now_ms))
     cg01_evaluation_scheduler.set_flags(enabled=True, shadow_mode=True, is_owner=False)
     sched_task = asyncio.create_task(cg01_evaluation_scheduler.run())
     worker_started = await start_trace_persistence_worker(timeout_s=2.0)
@@ -533,6 +537,7 @@ async def test_v16_23_flow_scenario_4_auto_off_guard(db: Session):
         "observed_at": now_ms,
     }
 
+    cg01_evaluation_scheduler.set_clock(ReplayClock(now_ms))
     cg01_evaluation_scheduler.set_flags(enabled=True, shadow_mode=False, is_owner=True)
     sched_task = asyncio.create_task(cg01_evaluation_scheduler.run())
 

@@ -83,11 +83,38 @@ def reconcile_stuck_orders():
     finally:
         db.close()
 
+_LIFESPAN_STARTUP_RESULT: Dict[str, Any] = {}
 _LIFESPAN_SHUTDOWN_RESULT: Dict[str, Any] = {}
+
+
+def get_last_startup_result() -> Dict[str, Any]:
+    """Return the structured result of the most recent lifespan startup sequence."""
+    return dict(_LIFESPAN_STARTUP_RESULT)
+
+
+def get_lifespan_startup_result() -> Dict[str, Any]:
+    """Alias for get_last_startup_result."""
+    return dict(_LIFESPAN_STARTUP_RESULT)
+
 
 def get_last_shutdown_result() -> Dict[str, Any]:
     """Return the structured result of the most recent lifespan shutdown sequence."""
     return dict(_LIFESPAN_SHUTDOWN_RESULT)
+
+
+def get_lifespan_shutdown_result() -> Dict[str, Any]:
+    """Alias for get_last_shutdown_result."""
+    return dict(_LIFESPAN_SHUTDOWN_RESULT)
+
+
+def _apply_lifespan_shutdown_status(new_status: str) -> None:
+    """Apply shutdown status adhering to Rule 096 precedence: FAILED > TIMED_OUT > COMPLETED_WITH_LOSS > COMPLETED."""
+    global _LIFESPAN_SHUTDOWN_RESULT
+    precedence = {"FAILED": 4, "TIMED_OUT": 3, "COMPLETED_WITH_LOSS": 2, "COMPLETED": 1}
+    curr_status = _LIFESPAN_SHUTDOWN_RESULT.get("status", "COMPLETED")
+    if precedence.get(new_status, 0) > precedence.get(curr_status, 0):
+        _LIFESPAN_SHUTDOWN_RESULT["status"] = new_status
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -98,6 +125,13 @@ async def lifespan(app: FastAPI):
     """
     # 0. Sync broken DB states before starting loops
     reconcile_stuck_orders()
+
+    global _LIFESPAN_STARTUP_RESULT
+    _LIFESPAN_STARTUP_RESULT = {
+        "status": "STARTING",
+        "telemetry_worker_ready": False,
+        "errors": [],
+    }
 
     # PHẦN 007, 008, 010, 084: Apply runtime contract upgrades (policy session upgrade to ALL_SESSIONS_WITH_NY_RESERVE)
     db_upgrade = SessionLocal()
@@ -142,11 +176,25 @@ async def lifespan(app: FastAPI):
         start_trace_persistence_worker,
         stop_trace_persistence_worker,
         wait_trace_persistence_worker_stopped,
+        get_trace_worker_stop_error,
         flush_pending_traces,
         drain_trace_persistence,
     )
 
-    await start_trace_persistence_worker(timeout_s=3.0)
+    try:
+        worker_ready = await start_trace_persistence_worker(timeout_s=3.0)
+        if worker_ready:
+            _LIFESPAN_STARTUP_RESULT["status"] = "HEALTHY"
+            _LIFESPAN_STARTUP_RESULT["telemetry_worker_ready"] = True
+        else:
+            logger.warning("Telemetry persistence worker failed ready handshake; operating degraded.")
+            _LIFESPAN_STARTUP_RESULT["status"] = "STARTUP_DEGRADED"
+            _LIFESPAN_STARTUP_RESULT["telemetry_worker_ready"] = False
+    except Exception as we:
+        logger.error(f"Error starting telemetry persistence worker: {we}")
+        _LIFESPAN_STARTUP_RESULT["status"] = "FAILED"
+        _LIFESPAN_STARTUP_RESULT["telemetry_worker_ready"] = False
+        _LIFESPAN_STARTUP_RESULT["errors"].append(str(we))
 
     tasks = [
         asyncio.create_task(bitget_ws_service.run_ws_loop()),
@@ -165,12 +213,13 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(cg01_projection_worker.run()),
     ]
     yield
-    # Graceful shutdown: orderly stop of worker loops before cancelling (V16.22 / V16.23 Rules 017, 026, 038, 075-079, 136, 184)
+    # Graceful shutdown: orderly stop of worker loops before cancelling (V16.22 / V16.23 / V16.24 Rules 086-100)
     global _LIFESPAN_SHUTDOWN_RESULT
     _LIFESPAN_SHUTDOWN_RESULT = {
         "status": "COMPLETED",
         "scheduler_drained": True,
         "telemetry_drain": {},
+        "worker_stopped": True,
         "errors": [],
     }
 
@@ -185,11 +234,11 @@ async def lifespan(app: FastAPI):
         if not sched_ok:
             logger.warning("CG01 evaluation scheduler did not drain all evaluations within timeout.")
             _LIFESPAN_SHUTDOWN_RESULT["scheduler_drained"] = False
-            _LIFESPAN_SHUTDOWN_RESULT["status"] = "TIMED_OUT"
+            _apply_lifespan_shutdown_status("TIMED_OUT")
     except Exception as se:
         logger.error(f"Error waiting for scheduler evaluations: {se}")
         _LIFESPAN_SHUTDOWN_RESULT["errors"].append(str(se))
-        _LIFESPAN_SHUTDOWN_RESULT["status"] = "FAILED"
+        _apply_lifespan_shutdown_status("FAILED")
 
     cg01_projection_worker.stop()
 
@@ -200,15 +249,28 @@ async def lifespan(app: FastAPI):
         d_status = drain_res.get("status", "")
         if d_status in ("TIMED_OUT", "FAILED", "COMPLETED_WITH_LOSS"):
             logger.warning(f"Telemetry drain incomplete or degraded on shutdown: status={d_status}, details={drain_res}")
-            if _LIFESPAN_SHUTDOWN_RESULT["status"] == "COMPLETED":
-                _LIFESPAN_SHUTDOWN_RESULT["status"] = d_status
+            _apply_lifespan_shutdown_status(d_status)
     except Exception as te:
         logger.error(f"Error draining traces on shutdown: {te}")
         _LIFESPAN_SHUTDOWN_RESULT["errors"].append(str(te))
-        _LIFESPAN_SHUTDOWN_RESULT["status"] = "FAILED"
+        _apply_lifespan_shutdown_status("FAILED")
 
     stop_trace_persistence_worker()
-    await wait_trace_persistence_worker_stopped(timeout_s=2.0)
+    worker_stopped = False
+    try:
+        worker_stopped = await wait_trace_persistence_worker_stopped(timeout_s=2.0)
+        _LIFESPAN_SHUTDOWN_RESULT["worker_stopped"] = bool(worker_stopped)
+        if not worker_stopped:
+            logger.warning("Telemetry persistence worker did not stop cleanly within timeout.")
+            _apply_lifespan_shutdown_status("TIMED_OUT")
+        stop_err = get_trace_worker_stop_error()
+        if stop_err:
+            _LIFESPAN_SHUTDOWN_RESULT["errors"].append(f"Worker task error: {stop_err}")
+            _apply_lifespan_shutdown_status("FAILED")
+    except Exception as stop_e:
+        logger.error(f"Error waiting for worker stop on shutdown: {stop_e}")
+        _LIFESPAN_SHUTDOWN_RESULT["errors"].append(str(stop_e))
+        _apply_lifespan_shutdown_status("FAILED")
 
     try:
         rep_res = await forward_repair_worker.shutdown(timeout_s=5.0)
