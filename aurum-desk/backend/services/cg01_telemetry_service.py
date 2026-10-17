@@ -330,33 +330,88 @@ def enqueue_trace_persistence(trace: CG01EvaluationTrace) -> bool:
 
 def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
     """
-    Appendix B, Rule 039: Flush all pending traces in queue within timeout.
+    Appendix B, Rules 026, 064, 065: Flush all pending traces in queue within timeout.
+    Truthfully accounts for succeeded vs failed writes, never reporting COMPLETED when writes fail.
     """
     start_t = time.time()
     flushed = 0
+    failed = 0
     while not _TRACE_QUEUE.empty() and (time.time() - start_t) < timeout_s:
         try:
             t = _TRACE_QUEUE.get_nowait()
-            CG01TracePersistenceWriter.persist_trace(t, db=None)
-            _TRACE_QUEUE.task_done()
-            flushed += 1
         except queue.Empty:
             break
+
+        try:
+            ok = CG01TracePersistenceWriter.persist_trace(t, db=None)
+            _TRACE_QUEUE.task_done()
+            if ok:
+                flushed += 1
+            else:
+                failed += 1
         except Exception as e:
+            _TRACE_QUEUE.task_done()
+            failed += 1
             logger.warning(f"Error during trace flush: {e}")
 
     pending = _TRACE_QUEUE.qsize()
+    if failed > 0:
+        status = "FAILED"
+    elif pending == 0:
+        status = "COMPLETED"
+    else:
+        status = "TIMED_OUT"
+
     return {
         "flushed": flushed,
+        "failed": failed,
         "pending": pending,
-        "status": "COMPLETED" if pending == 0 else "TIMED_OUT",
+        "status": status,
         "elapsed_sec": round(time.time() - start_t, 3),
     }
 
 
+def _persist_trace_batch_sync(batch: List[CG01EvaluationTrace]) -> Tuple[int, int]:
+    """
+    Rules 056-060: Persist trace batch in worker-owned session, committing only upon complete batch success.
+    Only ACKs queue items after successful commit.
+    Returns (persisted_count, failed_count).
+    """
+    from database import SessionLocal
+    db = SessionLocal()
+    persisted = 0
+    failed = 0
+    try:
+        for t in batch:
+            ok = CG01TracePersistenceWriter.persist_trace(t, db=db)
+            if ok:
+                persisted += 1
+            else:
+                failed += 1
+        db.commit()
+        # ACK ONLY AFTER SUCCESSFUL COMMIT! (Rule 058)
+        for _ in batch:
+            _TRACE_QUEUE.task_done()
+        return persisted, failed
+    except Exception as be:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        logger.warning(f"Error persisting trace batch: {be}")
+        global _TRACE_PERSIST_FAILURES
+        _TRACE_PERSIST_FAILURES += len(batch)
+        for _ in batch:
+            _TRACE_QUEUE.task_done()
+        return 0, len(batch)
+    finally:
+        db.close()
+
+
 async def run_trace_persistence_worker() -> None:
     """
-    Appendix B, Rule 035, 038: Background worker draining trace queue with isolated DB sessions.
+    Appendix B, Rules 035, 038, 056-060: Background worker draining trace queue with isolated DB sessions.
+    Executes synchronous database operations in thread pool without blocking asyncio event loop.
     """
     global _TRACE_WORKER_RUNNING
     _TRACE_WORKER_RUNNING = True
@@ -372,18 +427,7 @@ async def run_trace_persistence_worker() -> None:
                     break
 
             if batch:
-                from database import SessionLocal
-                db = SessionLocal()
-                try:
-                    for t in batch:
-                        CG01TracePersistenceWriter.persist_trace(t, db=db)
-                        _TRACE_QUEUE.task_done()
-                    db.commit()
-                except Exception as be:
-                    db.rollback()
-                    logger.warning(f"Error persisting trace batch: {be}")
-                finally:
-                    db.close()
+                await asyncio.to_thread(_persist_trace_batch_sync, batch)
 
             await asyncio.sleep(0.5)
         except asyncio.CancelledError:

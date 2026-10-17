@@ -15,6 +15,7 @@ Guarantees (Rules 018, 071-085, 089):
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass, field
 from enum import Enum
 import json
 import logging
@@ -44,6 +45,17 @@ class ProjectionOutcome(str, Enum):
     UNSUPPORTED = "UNSUPPORTED"
 
 
+@dataclass
+class RetryProjectionResult:
+    """Rules 091-093: Explicit outcome contract for projection retries."""
+    attempted: int = 0
+    resolved: int = 0
+    deferred: int = 0
+    needs_review: int = 0
+    state_changed: bool = False
+    errors: List[str] = field(default_factory=list)
+
+
 def record_pending_projection(
     db: Session,
     event_id: str,
@@ -52,31 +64,35 @@ def record_pending_projection(
     reason: str,
     payload_json: Optional[str] = None,
     now_ms: Optional[int] = None,
+    scope: str = "CG01",
 ) -> models.PaperResearchPendingProjection:
-    """Rules 078, 079: Atomically record an unlinked or deferred event for durable retry."""
+    """Rules 078, 079, 101: Atomically record an unlinked or deferred event for durable retry."""
     t_now = now_ms or int(time.time() * 1000)
     pending = db.query(models.PaperResearchPendingProjection).filter(
-        models.PaperResearchPendingProjection.event_id == event_id
+        models.PaperResearchPendingProjection.event_id == event_id,
+        models.PaperResearchPendingProjection.scope == scope,
     ).first()
     if not pending:
         pending = models.PaperResearchPendingProjection(
             event_id=event_id,
+            scope=scope,
             event_type=event_type,
             aggregate_id=aggregate_id,
             reason=reason,
             attempt_count=1,
-            resolution_status="PENDING",
+            status="PENDING",
             payload_json=payload_json,
-            first_seen_at=t_now,
-            last_attempt_at=t_now,
-            next_retry_at=t_now + 5000,
+            first_seen_at_ms=t_now,
+            next_retry_at_ms=t_now + 5000,
+            created_at_ms=t_now,
+            updated_at_ms=t_now,
         )
         db.add(pending)
     else:
-        pending.attempt_count += 1
-        pending.last_attempt_at = t_now
+        pending.attempt_count = (pending.attempt_count or 0) + 1
         pending.last_error = reason
-        pending.next_retry_at = t_now + min(60000, 5000 * pending.attempt_count)
+        pending.next_retry_at_ms = t_now + min(60000, 5000 * pending.attempt_count)
+        pending.updated_at_ms = t_now
     db.flush()
     return pending
 
@@ -209,10 +225,11 @@ class CG01ResearchProjectionWorker:
                 checkpoint.updated_at_ms = int(time.time() * 1000)
                 processed_count += 1
 
-            # Rule 080: Retry previously pending projections whose links might now exist
-            self.retry_pending_projections(target_db)
+            # Rule 080, 091: Retry previously pending projections whose links might now exist
+            retry_result = self.retry_pending_projections(target_db)
 
-            if processed_count > 0:
+            # Rule 091: Commit whenever domain events processed OR retry state changed
+            if processed_count > 0 or retry_result.state_changed:
                 target_db.commit()
                 self.events_processed_count += processed_count
 
@@ -220,6 +237,10 @@ class CG01ResearchProjectionWorker:
                 "status": "OK",
                 "scope": self.scope,
                 "processed": processed_count,
+                "retried": retry_result.attempted,
+                "resolved": retry_result.resolved,
+                "deferred": retry_result.deferred,
+                "state_changed": retry_result.state_changed,
                 "last_sequence": checkpoint.last_sequence,
             }
 
@@ -239,18 +260,18 @@ class CG01ResearchProjectionWorker:
     def _handle_armed_event(
         self,
         db: Session,
-        ev: models.DomainEvent,
+        ev: Any,
         order_id: Optional[str],
         payload: Dict[str, Any],
     ) -> ProjectionOutcome:
         """
-        Rules 024, 072, 075:
+        Rules 024, 072, 075, 082-084:
         Project order.armed to ARMED milestone using strict causal association.
         Never blindly attach an order to the currently active run if order predates that run!
         """
         if not order_id:
             record_pending_projection(
-                db, ev.event_id, ev.event_type, order_id, "MISSING_ORDER_ID", ev.payload
+                db, ev.event_id, ev.event_type, order_id, "MISSING_ORDER_ID", getattr(ev, "payload", None), scope=self.scope
             )
             return ProjectionOutcome.UNVERIFIABLE
 
@@ -262,21 +283,24 @@ class CG01ResearchProjectionWorker:
         if not target_run_id:
             order = db.query(models.PaperOrder).filter(models.PaperOrder.id == order_id).first()
             if order:
-                sym = order.symbol or "XAUUSDT"
-                act = resolve_active_observation_run(db=db, scope=self.scope, symbol=sym)
-                # Rules 024, 075: Only associate if order occurred within the active run's lifespan!
-                if act and act.started_at_ms <= (order.created_at or ev.occurred_at):
-                    target_run_id = act.run_id
+                strat_ctx = order.strategy_context or {}
+                if isinstance(strat_ctx, str):
+                    try:
+                        strat_ctx = json.loads(strat_ctx)
+                    except Exception:
+                        strat_ctx = {}
+                target_run_id = strat_ctx.get("run_id") or (order.notes if str(order.notes or "").startswith("run_") else None)
+                if target_run_id:
                     associate_order_with_research_run(
                         db=db,
                         run_id=target_run_id,
                         order_id=order_id,
-                        opportunity_id=payload.get("opportunity_id"),
+                        opportunity_id=payload.get("opportunity_id") or strat_ctx.get("opportunity_id"),
                         now_ms=ev.occurred_at,
                     )
 
         if target_run_id:
-            record_committed_order_milestone(
+            ok = record_committed_order_milestone(
                 db=db,
                 run_id=target_run_id,
                 order_id=order_id,
@@ -284,29 +308,29 @@ class CG01ResearchProjectionWorker:
                 timestamp_ms=ev.occurred_at,
                 payload=payload,
             )
-            return ProjectionOutcome.PROJECTED
+            return ProjectionOutcome.PROJECTED if ok else ProjectionOutcome.RETRY_PENDING
         else:
-            # Rule 078: Durably store as pending projection for later causal linkage
+            # Rule 078, 084: Durably store as pending projection for later causal linkage
             record_pending_projection(
-                db, ev.event_id, ev.event_type, order_id, "UNLINKED_CAUSAL_RUN", ev.payload
+                db, ev.event_id, ev.event_type, order_id, "UNLINKED_CAUSAL_RUN", getattr(ev, "payload", None), scope=self.scope
             )
             return ProjectionOutcome.RETRY_PENDING
 
     def _handle_opened_event(
         self,
         db: Session,
-        ev: models.DomainEvent,
+        ev: Any,
         order_id: Optional[str],
         payload: Dict[str, Any],
     ) -> ProjectionOutcome:
         """
-        Rules 073, 076:
+        Rules 073, 076, 097:
         Project trade.opened to FILLED milestone. If order is not yet linked,
         store in durable pending projections rather than silently dropping!
         """
         if not order_id:
             record_pending_projection(
-                db, ev.event_id, ev.event_type, order_id, "MISSING_ORDER_ID", ev.payload
+                db, ev.event_id, ev.event_type, order_id, "MISSING_ORDER_ID", getattr(ev, "payload", None), scope=self.scope
             )
             return ProjectionOutcome.UNVERIFIABLE
 
@@ -315,12 +339,13 @@ class CG01ResearchProjectionWorker:
         ).all()
         if not links:
             record_pending_projection(
-                db, ev.event_id, ev.event_type, order_id, "MISSING_ORDER_LINK", ev.payload
+                db, ev.event_id, ev.event_type, order_id, "MISSING_ORDER_LINK", getattr(ev, "payload", None), scope=self.scope
             )
             return ProjectionOutcome.RETRY_PENDING
 
+        all_ok = True
         for link in links:
-            record_committed_order_milestone(
+            ok = record_committed_order_milestone(
                 db=db,
                 run_id=link.run_id,
                 order_id=order_id,
@@ -328,22 +353,24 @@ class CG01ResearchProjectionWorker:
                 timestamp_ms=ev.occurred_at,
                 payload=payload,
             )
-        return ProjectionOutcome.PROJECTED
+            if not ok:
+                all_ok = False
+        return ProjectionOutcome.PROJECTED if all_ok else ProjectionOutcome.RETRY_PENDING
 
     def _handle_closed_event(
         self,
         db: Session,
-        ev: models.DomainEvent,
+        ev: Any,
         order_id: Optional[str],
         payload: Dict[str, Any],
     ) -> ProjectionOutcome:
         """
-        Rules 073, 077:
+        Rules 073, 077, 097:
         Project trade.closed to CLOSED milestone. If unlinked, store in durable pending projections.
         """
         if not order_id:
             record_pending_projection(
-                db, ev.event_id, ev.event_type, order_id, "MISSING_ORDER_ID", ev.payload
+                db, ev.event_id, ev.event_type, order_id, "MISSING_ORDER_ID", getattr(ev, "payload", None), scope=self.scope
             )
             return ProjectionOutcome.UNVERIFIABLE
 
@@ -352,12 +379,13 @@ class CG01ResearchProjectionWorker:
         ).all()
         if not links:
             record_pending_projection(
-                db, ev.event_id, ev.event_type, order_id, "MISSING_ORDER_LINK", ev.payload
+                db, ev.event_id, ev.event_type, order_id, "MISSING_ORDER_LINK", getattr(ev, "payload", None), scope=self.scope
             )
             return ProjectionOutcome.RETRY_PENDING
 
+        all_ok = True
         for link in links:
-            record_committed_order_milestone(
+            ok = record_committed_order_milestone(
                 db=db,
                 run_id=link.run_id,
                 order_id=order_id,
@@ -365,41 +393,54 @@ class CG01ResearchProjectionWorker:
                 timestamp_ms=ev.occurred_at,
                 payload=payload,
             )
-        return ProjectionOutcome.PROJECTED
+            if not ok:
+                all_ok = False
+        return ProjectionOutcome.PROJECTED if all_ok else ProjectionOutcome.RETRY_PENDING
 
-    def retry_pending_projections(self, db: Session, limit: int = 50) -> int:
+    def retry_pending_projections(self, db: Session, limit: int = 50) -> RetryProjectionResult:
         """
-        Rules 080, 173: Retries durable pending projections that were previously blocked
-        due to missing order links or late-arriving causal metadata.
+        Rules 027, 028, 080, 091-097: Retries durable pending projections using original
+        event timestamps and returning structured RetryProjectionResult.
         """
         t_now = int(time.time() * 1000)
         pending_rows = (
             db.query(models.PaperResearchPendingProjection)
             .filter(
+                models.PaperResearchPendingProjection.scope == self.scope,
                 models.PaperResearchPendingProjection.resolution_status == "PENDING",
                 models.PaperResearchPendingProjection.next_retry_at <= t_now,
             )
             .limit(limit)
             .all()
         )
-        resolved_count = 0
+        result = RetryProjectionResult()
         for row in pending_rows:
+            result.attempted += 1
             try:
                 payload = json.loads(row.payload_json) if row.payload_json else {}
             except Exception:
                 payload = {}
 
-            outcome = ProjectionOutcome.RETRY_PENDING
             order_id = row.aggregate_id or payload.get("order_id")
 
-            # Create mock-like event wrapper for handler
-            class _Ev:
+            # Rule 028, 094: Retrieve original occurred_at from DomainEvent
+            orig_dev = db.query(models.DomainEvent).filter(
+                models.DomainEvent.event_id == row.event_id
+            ).first()
+            orig_occurred_at = orig_dev.occurred_at if orig_dev is not None else (
+                getattr(row, "first_seen_at_ms", None) or getattr(row, "first_seen_at", None) or t_now
+            )
+
+            # Typed event snapshot preserving original timestamp (Rule 096)
+            class _EventSnapshot:
                 event_id = row.event_id
                 event_type = row.event_type
-                occurred_at = row.first_seen_at
+                aggregate_id = order_id
+                occurred_at = orig_occurred_at
                 payload = row.payload_json
 
-            ev = _Ev()
+            ev = _EventSnapshot()
+            outcome = ProjectionOutcome.RETRY_PENDING
             if row.event_type == "order.armed":
                 outcome = self._handle_armed_event(db, ev, order_id, payload)
             elif row.event_type == "trade.opened":
@@ -409,18 +450,24 @@ class CG01ResearchProjectionWorker:
 
             if outcome == ProjectionOutcome.PROJECTED:
                 row.resolution_status = "RESOLVED"
-                row.resolved_at = int(time.time() * 1000)
-                resolved_count += 1
+                setattr(row, "resolved_at_ms", t_now)
+                row.updated_at_ms = t_now
+                result.resolved += 1
+                result.state_changed = True
             else:
-                row.attempt_count += 1
-                row.last_attempt_at = int(time.time() * 1000)
-                row.next_retry_at = int(time.time() * 1000) + min(60000, 5000 * row.attempt_count)
+                row.attempt_count = (row.attempt_count or 0) + 1
+                row.next_retry_at_ms = t_now + min(60000, 5000 * row.attempt_count)
+                row.updated_at_ms = t_now
                 if row.attempt_count > 10:
                     row.resolution_status = "NEEDS_REVIEW"
+                    result.needs_review += 1
+                else:
+                    result.deferred += 1
+                result.state_changed = True
 
-        if resolved_count > 0:
+        if result.state_changed:
             db.flush()
-        return resolved_count
+        return result
 
     async def run(self) -> None:
         """Continuous non-blocking projection worker loop."""

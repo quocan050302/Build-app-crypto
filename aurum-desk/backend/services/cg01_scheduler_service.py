@@ -114,87 +114,84 @@ def evaluate_cg01_shadow_snapshot(
     config: Optional[Any] = None,
     research_ctx: Optional[Any] = None,
     poi_context: Optional[Any] = None,
+    current_quote: Optional[Dict[str, float]] = None,
+    capital: float = 1000.0,
+    risk_pct: float = 0.25,
+    costs: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Pure shadow evaluation adapter (Rules 041-045).
     Evaluates candidate without mutating ACTIVE singleton orchestrator state,
     watchlist (_active_zones), rejections (_arm_rejections), or emitting trade notifications.
     Reuses the canonical CG-01 evaluator (services.cg01_engine.evaluate_cg01_candidate).
+    Uses canonical raw_by_tf bundle and effective configuration (Rules 021-023, 031-040).
     """
-    from services.cg01_context_adapter import (
-        normalize_cg01_candle,
-        assemble_closed_candle_context,
-    )
-    from services.smc_regime_service import build_htf_context
     from services.cg01_engine import evaluate_cg01_candidate
     from services.scalp_watcher_orchestrator import serialize_cg01_evaluation
     from services.cg01_types import CG01Config
 
     cfg = config
     if cfg is None:
-        cfg = CG01Config(profile_mode="PAPER_SHADOW")
+        try:
+            eff_cfg, _, _ = resolve_effective_cg01_config(symbol=symbol)
+            cfg = eff_cfg
+        except Exception:
+            cfg = CG01Config(profile_mode="PAPER_SHADOW")
 
-    # Normalize candles immutably
-    c_1m = [normalize_cg01_candle(b, "1M", symbol) for b in (bundle.get("1M") or [])]
-    c_5m = [normalize_cg01_candle(b, "5M", symbol) for b in (bundle.get("5M") or [])]
-    c_15m = [normalize_cg01_candle(b, "15M", symbol) for b in (bundle.get("15M") or [])]
-    c_1h = [normalize_cg01_candle(b, "1H", symbol) for b in (bundle.get("1H") or [])]
-    c_4h = [normalize_cg01_candle(b, "4H", symbol) for b in (bundle.get("4H") or [])]
+    raw_by_tf = {
+        "1M": bundle.get("1M") or [],
+        "5M": bundle.get("5M") or [],
+        "15M": bundle.get("15M") or [],
+        "1H": bundle.get("1H") or [],
+        "4H": bundle.get("4H") or [],
+    }
 
+    c_1m = raw_by_tf["1M"]
     if not c_1m:
         return {
             "status": "SKIPPED",
             "candidate": None,
             "skip_reason": "WARMUP_INSUFFICIENT",
             "cg01_evaluation": serialize_cg01_evaluation(
-                None, enabled=True, evaluated=False, skip_reason="WARMUP_INSUFFICIENT", as_of_ms=as_of_ms
+                None, enabled=getattr(cfg, "enabled", True), evaluated=False, skip_reason="WARMUP_INSUFFICIENT", as_of_ms=as_of_ms
             ),
             "armed_order_id": None,
         }
 
-    # Build HTF context immutably without singleton mutation
-    h4_ctx = build_htf_context(c_4h, "4H", as_of_ms=as_of_ms, symbol=symbol, config=cfg)
-    h1_ctx = build_htf_context(c_1h, "1H", as_of_ms=as_of_ms, symbol=symbol, config=cfg)
+    q = current_quote
+    if not q:
+        last_candle = c_1m[-1]
+        last_price = float(last_candle.get("c") or last_candle.get("close") or 0.0)
+        tick_sz = getattr(cfg, "tick_size", 0.01) or 0.01
+        q = {
+            "bid": last_price,
+            "ask": round(last_price + tick_sz, 4),
+            "price": last_price,
+            "timestamp": as_of_ms,
+        }
 
-    closed_ctx = assemble_closed_candle_context(
-        m1=c_1m,
-        m5=c_5m,
-        m15=c_15m,
-        h1=c_1h,
-        h4=c_4h,
-        as_of_ms=as_of_ms,
-        symbol=symbol,
-        config=cfg,
-        h4_context=h4_ctx,
-        h1_context=h1_ctx,
-    )
-
-    last_candle = c_1m[-1]
-    last_price = float(last_candle.get("c") or last_candle.get("close") or 0.0)
-    q = {
-        "bid": last_price,
-        "ask": last_price,
-        "price": last_price,
-        "timestamp": as_of_ms,
-    }
+    effective_costs = costs if costs is not None else getattr(cfg, "costs", None)
 
     cg01_dec = evaluate_cg01_candidate(
-        closed_ctx,
+        raw_by_tf,
         q,
         config=cfg,
         now_ms=as_of_ms,
-        costs=getattr(cfg, "costs", None),
+        capital=capital,
+        risk_pct=risk_pct,
+        costs=effective_costs,
     )
 
-    eval_data = serialize_cg01_evaluation(cg01_dec, enabled=True, evaluated=True, as_of_ms=as_of_ms)
-    status = "CANDIDATE_FOUND" if cg01_dec.candidate else "COMPLETED"
+    eval_data = serialize_cg01_evaluation(cg01_dec, enabled=getattr(cfg, "enabled", True), evaluated=True, as_of_ms=as_of_ms)
+    skip_reason = cg01_dec.reason_codes[0] if getattr(cg01_dec, "reason_codes", None) else getattr(cg01_dec, "skip_reason", None)
+    status = "CANDIDATE_FOUND" if cg01_dec.candidate else ("SKIPPED" if skip_reason else "COMPLETED")
 
     return {
         "status": status,
         "candidate": cg01_dec.candidate,
-        "skip_reason": cg01_dec.skip_reason,
+        "skip_reason": skip_reason,
         "cg01_evaluation": eval_data,
-        "armed_order_id": None,  # Shadow NEVER arms orders (Rule 041)
+        "armed_order_id": None,  # Shadow NEVER arms orders (Rule 040)
     }
 
 
@@ -420,12 +417,15 @@ class CG01EvaluationScheduler:
 
             obs_mode = "SHADOW" if self.shadow_mode else "ACTIVE"
             trace.observation_mode = obs_mode
+
+            eff_cfg, fingerprint, _ = resolve_effective_cg01_config(db=db, symbol=symbol)
+
             research_ctx = CG01ResearchContext(
                 trace_id=trace_id,
                 run_id=act_run.run_id if act_run else None,
                 segment_id=None,
                 symbol=symbol,
-                config_fingerprint=None,
+                config_fingerprint=fingerprint,
                 input_versions=bundle.get("input_versions", {}),
                 evaluation_as_of_ms=t_now,
                 observation_mode=obs_mode,
@@ -434,32 +434,18 @@ class CG01EvaluationScheduler:
             # Shadow isolation (Rules 041-045):
             # In shadow mode, invoke pure shadow adapter without mutating active singleton orchestrator.
             if self.shadow_mode:
-                import unittest.mock
-                if isinstance(scalp_watcher_orchestrator.evaluate_cycle, (unittest.mock.MagicMock, unittest.mock.Mock)):
-                    span_engine = CG01Span(name="engine_evaluation_mock", start_perf=time.perf_counter())
-                    cycle_result = scalp_watcher_orchestrator.evaluate_cycle(
-                        db=db,
-                        symbol=symbol,
-                        now_ms=t_now,
-                        candles_1m=bundle.get("1M"),
-                        candles_5m=bundle.get("5M"),
-                        candles_15m=bundle.get("15M"),
-                        candles_1h=bundle.get("1H"),
-                        candles_4h=bundle.get("4H"),
-                        auto_enabled=False,
-                        research_context=research_ctx,
-                    )
-                    span_engine.finish()
-                else:
-                    span_engine = CG01Span(name="engine_evaluation_shadow", start_perf=time.perf_counter())
-                    cycle_result = evaluate_cg01_shadow_snapshot(
-                        symbol=symbol,
-                        as_of_ms=t_now,
-                        bundle=bundle,
-                        config=None,
-                        research_ctx=research_ctx,
-                    )
-                    span_engine.finish()
+                span_engine = CG01Span(name="engine_evaluation_shadow", start_perf=time.perf_counter())
+                cycle_result = evaluate_cg01_shadow_snapshot(
+                    symbol=symbol,
+                    as_of_ms=t_now,
+                    bundle=bundle,
+                    config=eff_cfg,
+                    research_ctx=research_ctx,
+                    capital=1000.0,
+                    risk_pct=0.25,
+                    costs=getattr(eff_cfg, "costs", None),
+                )
+                span_engine.finish()
             else:
                 # Active production evaluation (Rules 048, 049)
                 effective_auto = None if self.is_owner else False
@@ -485,10 +471,11 @@ class CG01EvaluationScheduler:
             cg_eval = cycle_result.get("cg01_evaluation") or {}
             trace.candidate_key = cg_eval.get("candidate_key")
             trace.armed_order_id = cycle_result.get("armed_order_id")
-            trace.evaluation_status = cycle_result.get("status", "COMPLETED")
+            cycle_status = cycle_result.get("status", "COMPLETED")
+            trace.evaluation_status = cycle_status
             trace.skip_reason = cg_eval.get("skip_reason")
 
-            if trace.armed_order_id:
+            if trace.armed_order_id and db is not None:
                 armed_ord = db.query(models.PaperOrder).filter(models.PaperOrder.id == trace.armed_order_id).first()
                 if armed_ord and armed_ord.armed_at:
                     trace.armed_at = armed_ord.armed_at
@@ -522,12 +509,15 @@ class CG01EvaluationScheduler:
                         logger.warning(f"Error persisting fallback order research link: {link_err}")
                         db.rollback()
 
-            # Record telemetry trace in ring buffer and durable store
-            cg01_trace_recorder.record_trace(trace, db=db)
+            # Record telemetry trace in ring buffer and durable store (Rule 051: never pass caller db)
+            cg01_trace_recorder.record_trace(trace, db=None)
             self.evaluations_scheduled_count += 1
 
             return {
                 "status": "COMPLETED",
+                "processing_status": "COMPLETED",
+                "evaluation_status": cycle_status,
+                "cycle_status": cycle_status,
                 "symbol": symbol,
                 "trace_id": trace_id,
                 "shadow_mode": self.shadow_mode,

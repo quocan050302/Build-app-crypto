@@ -57,7 +57,9 @@ def test_global_auto_off_blocks_execution_even_if_scheduler_is_owner():
 
 def test_shadow_mode_forces_auto_enabled_false():
     """
-    Rule 043: In shadow mode, auto_enabled must be explicitly False to prevent order creation.
+    Rules 041-043: In shadow mode, scheduler invokes pure shadow adapter without
+    calling singleton scalp_watcher_orchestrator.evaluate_cycle. In active mode,
+    it delegates to evaluate_cycle.
     """
     db = SessionLocal()
     try:
@@ -68,10 +70,18 @@ def test_shadow_mode_forces_auto_enabled_false():
 
         with patch("services.scalp_watcher_orchestrator.scalp_watcher_orchestrator.evaluate_cycle") as mock_eval:
             mock_eval.return_value = {"status": "COMPLETED", "cg01_evaluation": {}}
+            res = sched.evaluate_symbol_now("XAUUSDT", db=db)
+            # In shadow mode, orchestrator evaluate_cycle MUST NOT be called!
+            assert mock_eval.call_count == 0, "Shadow mode must bypass scalp_watcher_orchestrator.evaluate_cycle"
+            assert res["armed_order_id"] is None
+            assert res["shadow_mode"] is True
+
+        # In active mode, evaluate_cycle is called
+        sched.shadow_mode = False
+        with patch("services.scalp_watcher_orchestrator.scalp_watcher_orchestrator.evaluate_cycle") as mock_eval:
+            mock_eval.return_value = {"status": "COMPLETED", "cg01_evaluation": {}}
             sched.evaluate_symbol_now("XAUUSDT", db=db)
             assert mock_eval.called
-            _, kwargs = mock_eval.call_args
-            assert kwargs.get("auto_enabled") is False
     finally:
         db.close()
 

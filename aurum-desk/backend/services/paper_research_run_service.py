@@ -80,13 +80,8 @@ def resolve_active_observation_run(
                 models.PaperResearchRunRecord.symbol == symbol,
                 models.PaperResearchRunRecord.status.in_(["COLLECTING", "CREATED"]),
             )
-            # Match either explicit scope column or run_id containing scope
-            query = query.filter(
-                or_(
-                    models.PaperResearchRunRecord.scope == scope_clean,
-                    models.PaperResearchRunRecord.run_id.ilike(f"%{scope_clean.lower()}%"),
-                )
-            )
+            # Match strictly explicit scope column (Rule 030, 074)
+            query = query.filter(models.PaperResearchRunRecord.scope == scope_clean)
             if mode:
                 query = query.filter(
                     or_(
@@ -121,8 +116,8 @@ def resolve_active_observation_run(
 
     # Memory active runs fallback ONLY when db is None
     for r in reversed(list(PaperResearchRunService._active_runs.values())):
-        r_scope = getattr(r, "scope", None) or ("CG01" if "cg01" in r.run_id.lower() else "DEFAULT")
-        if r.symbol == symbol and r.status in ("COLLECTING", "CREATED") and r_scope.upper() == scope_clean:
+        r_scope = getattr(r, "scope", None) or "DEFAULT"
+        if r.symbol == symbol and r.status in ("COLLECTING", "CREATED") and str(r_scope).upper() == scope_clean:
             if mode and getattr(r, "observation_mode", None) and r.observation_mode != mode:
                 continue
             return r
@@ -748,14 +743,39 @@ def build_run_coverage_summary(
     # Wall-clock uptime is only computed if observation intervals are provided
     uptime_pct = None
     if observation_intervals and run.started_at_ms:
-        end_ms = run.completed_at_ms or int(time.time() * 1000)
-        total_duration = max(1, end_ms - run.started_at_ms)
-        healthy_duration = sum(
-            max(0, getattr(inv, "end_time_ms", 0) - getattr(inv, "start_time_ms", 0))
-            for inv in observation_intervals
-            if getattr(inv, "data_quality", "") in ("HEALTHY", "GOOD", "OK")
-        )
-        uptime_pct = round(min(100.0, (healthy_duration / total_duration) * 100.0), 2)
+        end_ms = run.ended_at_ms or int(time.time() * 1000)
+        start_ms = run.started_at_ms
+        total_duration = max(1, end_ms - start_ms)
+
+        valid_intervals = []
+        for inv in observation_intervals:
+            quality = getattr(inv, "data_quality", "")
+            if quality not in ("HEALTHY", "GOOD", "OK"):
+                continue
+            inv_s = getattr(inv, "start_ms", None) if getattr(inv, "start_ms", None) is not None else getattr(inv, "start_time_ms", 0)
+            inv_e = getattr(inv, "end_ms", None) if getattr(inv, "end_ms", None) is not None else getattr(inv, "end_time_ms", 0)
+            if inv_e < inv_s:
+                continue
+            # Clip interval to [start_ms, end_ms] (Rule 114)
+            clipped_s = max(start_ms, inv_s)
+            clipped_e = min(end_ms, inv_e)
+            if clipped_e > clipped_s:
+                valid_intervals.append((clipped_s, clipped_e))
+
+        # Union overlapping intervals before summing duration (Rule 115)
+        if valid_intervals:
+            sorted_inv = sorted(valid_intervals, key=lambda x: x[0])
+            merged = [sorted_inv[0]]
+            for s, e in sorted_inv[1:]:
+                ps, pe = merged[-1]
+                if s <= pe:
+                    merged[-1] = (ps, max(pe, e))
+                else:
+                    merged.append((s, e))
+            healthy_duration = sum(e - s for s, e in merged)
+            uptime_pct = round(min(100.0, (healthy_duration / total_duration) * 100.0), 2)
+        else:
+            uptime_pct = 0.0
 
     return {
         "run_id": run.run_id,
