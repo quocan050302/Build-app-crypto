@@ -1,0 +1,8 @@
+{
+  "async_drain_test": "test_red_025_async_drain_non_blocking_event_loop",
+  "retry_buffer_ownership_test": "test_red_026_retry_buffer_atomic_in_flight_ownership",
+  "commit_counter_exact_test": "test_red_027_persist_trace_counter_exact_single_count",
+  "rollback_counter_safety_test": "test_red_028_rollback_counter_safety",
+  "config_parity_test": "test_red_029_actual_caller_production_config_parity",
+  "scheduler_drain_test": "test_red_030_scheduler_shutdown_stops_accepting_and_drains_in_flight"
+}

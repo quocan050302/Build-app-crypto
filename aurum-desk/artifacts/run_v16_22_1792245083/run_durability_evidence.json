@@ -1,0 +1,14 @@
+{
+  "gate_3_status": "PASS",
+  "red_run_durability_tests": [
+    "tests/test_v16_21_red_reproductions.py::test_red_025_session_factory_failure_retry_accounting",
+    "tests/test_v16_20_red_reproductions.py::test_red_027_run_persists_after_session_close",
+    "tests/test_v16_20_red_reproductions.py::test_red_028_trace_unresolved_run_on_failure",
+    "tests/test_v16_18_red_reproductions.py::test_red_023_resolve_active_run_ignores_scope",
+    "tests/test_v16_18_red_reproductions.py::test_red_024_projection_attaches_old_event_to_new_run",
+    "tests/test_v16_16_transaction_and_linkage.py::test_get_or_create_run_does_not_commit_caller_transaction",
+    "tests/test_v16_16_transaction_and_linkage.py::test_start_and_complete_run_do_not_commit_caller_transaction",
+    "tests/test_v16_16_transaction_and_linkage.py::test_build_summary_does_not_create_run_on_read",
+    "tests/test_v16_16_transaction_and_linkage.py::test_start_observation_run_generates_valid_id_when_none"
+  ]
+}

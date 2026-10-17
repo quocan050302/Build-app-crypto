@@ -286,12 +286,14 @@ class ScalpWatcherOrchestrator:
         # Check whether caller explicitly injected HTF candles or bias (Rules 105, 106)
         caller_injected_htf = (candles_4h is not None or candles_1h is not None or htf_bias is not None)
 
-        # Pre-resolve cg01_cfg early for HTF settings synchronization (Rules 016, 087, 088, V16.21 Rules 046-065)
+        # Pre-resolve cg01_cfg early for HTF settings synchronization (Rules 016, 087, 088, V16.21 Rules 046-065, V16.22 Rules 071-085)
         from services.cg01_config_factory import resolve_canonical_cg01_config
+        is_explicit = (config is not None and getattr(config, "_is_explicit_override", True))
         cg01_cfg, _, _ = resolve_canonical_cg01_config(
             db=db,
             symbol=symbol,
             scalp_config_override=cfg,
+            is_explicit_override=is_explicit,
         )
         cg01_mode = cg01_cfg.profile_mode
 

@@ -81,23 +81,25 @@ def capture_cg01_input_bundle(
 
         for c in cached:
             # Rule 024 & causality: must be closed and closed on/before now_ms
-            c_close_ms = c.timestamp + dur
-            if getattr(c, "is_closed", False) and c_close_ms <= now_ms:
+            c_ts = int(c.get("timestamp") if isinstance(c, dict) else getattr(c, "timestamp", 0))
+            c_is_closed = bool(c.get("is_closed", False) if isinstance(c, dict) else getattr(c, "is_closed", False))
+            c_close_ms = c_ts + dur
+            if c_is_closed and c_close_ms <= now_ms:
                 # Deep copy to isolate from concurrent WS stream mutation
                 closed_immutable.append(
                     schemas.CandleCreate(
-                        symbol=c.symbol,
-                        timeframe=c.timeframe,
-                        timestamp=c.timestamp,
-                        open=float(c.open),
-                        high=float(c.high),
-                        low=float(c.low),
-                        close=float(c.close),
-                        volume=float(c.volume),
+                        symbol=str(c.get("symbol", symbol) if isinstance(c, dict) else getattr(c, "symbol", symbol)),
+                        timeframe=str(c.get("timeframe", tf) if isinstance(c, dict) else getattr(c, "timeframe", tf)),
+                        timestamp=c_ts,
+                        open=float(c.get("open", 0.0) if isinstance(c, dict) else getattr(c, "open", 0.0)),
+                        high=float(c.get("high", 0.0) if isinstance(c, dict) else getattr(c, "high", 0.0)),
+                        low=float(c.get("low", 0.0) if isinstance(c, dict) else getattr(c, "low", 0.0)),
+                        close=float(c.get("close", 0.0) if isinstance(c, dict) else getattr(c, "close", 0.0)),
+                        volume=float(c.get("volume", 0.0) if isinstance(c, dict) else getattr(c, "volume", 0.0)),
                         is_closed=True,
                     )
                 )
-                last_closed_ts = c.timestamp
+                last_closed_ts = c_ts
 
         bundle[tf] = closed_immutable
         # Rule 061, 062: Real versioning per timeframe using last closed timestamp and count
@@ -524,6 +526,7 @@ class CG01EvaluationScheduler:
         self.evaluations_scheduled_count = 0
         self.duplicate_events_ignored_count = 0
         self.dropped_evaluations_count = 0
+        self._active_eval_tasks: Set[Any] = set()
 
     def set_flags(
         self,
@@ -606,6 +609,9 @@ class CG01EvaluationScheduler:
 
             if not self.enabled:
                 return {"enqueued": False, "reason": "SCHEDULER_DISABLED", "event_id": event_id}
+
+            if getattr(self, "_stopped", False):
+                return {"enqueued": False, "reason": "SCHEDULER_STOPPED", "event_id": event_id}
 
             # Only closed candles or significant structural events trigger evaluation (Rules 053, 054)
             if event_type == "CANDLE_CLOSED":
@@ -833,6 +839,7 @@ class CG01EvaluationScheduler:
                 "cycle_status": cycle_status,
                 "symbol": symbol,
                 "trace_id": trace_id,
+                "run_id": trace.run_id,
                 "shadow_mode": self.shadow_mode,
                 "is_owner": self.is_owner,
                 "armed_order_id": trace.armed_order_id,
@@ -894,14 +901,20 @@ class CG01EvaluationScheduler:
                     with self._lock:
                         source_ev = self._pending_market_events.pop(sym, None)
 
-                    def _do_eval(s=sym, ev=source_ev):
-                        db = SessionLocal()
-                        try:
-                            return self.evaluate_symbol_now(db, s, source_event=ev)
-                        finally:
-                            db.close()
+                    async def _run_eval(s=sym, ev=source_ev):
+                        def _do_eval():
+                            db = SessionLocal()
+                            try:
+                                return self.evaluate_symbol_now(db, s, source_event=ev)
+                            finally:
+                                db.close()
+                        return await asyncio.to_thread(_do_eval)
 
-                    await asyncio.to_thread(_do_eval)
+                    eval_task = asyncio.create_task(_run_eval(sym, source_ev))
+                    with self._lock:
+                        self._active_eval_tasks.add(eval_task)
+                    eval_task.add_done_callback(lambda t: self._active_eval_tasks.discard(t))
+                    await eval_task
 
             except asyncio.CancelledError:
                 self._running = False
@@ -910,9 +923,25 @@ class CG01EvaluationScheduler:
                 logger.error(f"CG01EvaluationScheduler loop error: {e}", exc_info=True)
                 await asyncio.sleep(1.0)
 
+    async def wait_evaluations_drained(self, timeout_s: float = 3.0) -> bool:
+        """
+        V16.22 Rule 043: Wait for all in-flight evaluation tasks to finish.
+        Ensures thread-dispatched evaluations finish before trace persistence drains.
+        """
+        start_t = time.monotonic()
+        while (time.monotonic() - start_t) < timeout_s:
+            with self._lock:
+                pending = [t for t in self._active_eval_tasks if not t.done()]
+            if not pending:
+                return True
+            await asyncio.sleep(0.05)
+        return False
+
     def stop(self) -> None:
-        self._running = False
-        self._stopped = True
+        """V16.22 Rule 042: Stop accepting new events and signal loop to terminate."""
+        with self._lock:
+            self._running = False
+            self._stopped = True
         if self._wakeup_event is not None:
             self._wakeup_event.set()
 

@@ -67,9 +67,10 @@ def resolve_canonical_cg01_config(
     base_config: Optional[CG01Config] = None,
     scalp_config_override: Optional[Any] = None,
     explicit_profile_mode: Optional[str] = None,
+    is_explicit_override: Optional[bool] = None,
 ) -> Tuple[CG01Config, str, str]:
     """
-    Rules 046-065: Authoritative shared factory for effective CG01Config.
+    Rules 046-065, V16.22 Rules 071-085: Authoritative shared factory for effective CG01Config.
     Used by BOTH scalp_watcher_orchestrator (ACTIVE) and cg01_scheduler_service (SHADOW).
 
     Returns:
@@ -107,8 +108,10 @@ def resolve_canonical_cg01_config(
 
     source = "SCALP_CONFIG"
 
-    # Daily policy integration (Rule 054) - only if no explicit scalp_config_override was provided
-    if scalp_config_override is None and db is not None:
+    # Daily policy integration (Rule 054, V16.22 Rules 071-085)
+    # When caller does not specify an explicit override, integrate authoritative daily policy from DB
+    should_integrate_daily_policy = (not is_explicit_override) if is_explicit_override is not None else (scalp_config_override is None)
+    if should_integrate_daily_policy and db is not None:
         try:
             from services.trading_policy_service import resolve_effective_daily_policy
             eff_daily = resolve_effective_daily_policy(db, "default")

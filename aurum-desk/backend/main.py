@@ -135,6 +135,7 @@ async def lifespan(app: FastAPI):
         run_trace_persistence_worker,
         stop_trace_persistence_worker,
         flush_pending_traces,
+        drain_trace_persistence,
     )
 
     tasks = [
@@ -155,17 +156,21 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(run_trace_persistence_worker()),
     ]
     yield
-    # Graceful shutdown: orderly stop of worker loops before cancelling
+    # Graceful shutdown: orderly stop of worker loops before cancelling (V16.22 Rules 017, 038, 041, 184)
     bitget_ws_service.stop()
     forward_repair_worker.stop()
     scalp_watcher_orchestrator.stop()
     cg01_evaluation_scheduler.stop()
-    cg01_projection_worker.stop()
-    stop_trace_persistence_worker()
     try:
-        flush_pending_traces(timeout_s=3.0)
+        await cg01_evaluation_scheduler.wait_evaluations_drained(timeout_s=3.0)
+    except Exception as se:
+        logger.error(f"Error waiting for scheduler evaluations: {se}")
+    cg01_projection_worker.stop()
+    try:
+        await drain_trace_persistence(timeout_s=5.0)
     except Exception as te:
-        logger.error(f"Error flushing traces on shutdown: {te}")
+        logger.error(f"Error draining traces on shutdown: {te}")
+    stop_trace_persistence_worker()
     try:
         rep_res = await forward_repair_worker.shutdown(timeout_s=5.0)
         if rep_res and getattr(rep_res, "status", "") == "TIMED_OUT":

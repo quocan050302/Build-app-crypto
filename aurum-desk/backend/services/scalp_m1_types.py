@@ -445,6 +445,7 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
         "sweep_reclaim_enabled",
         "multi_zone_hypotheses_enabled",
         "orderflow_shadow_enabled",
+        "cg01_enabled",
     ]:
         if bool_key in config_map:
             val = str(config_map[bool_key]).strip().lower()
@@ -452,6 +453,10 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
                 overrides[bool_key] = True
             elif val in ("false", "0", "no"):
                 overrides[bool_key] = False
+
+    for str_key in ["cg01_profile_mode", "execution_profile"]:
+        if str_key in config_map:
+            overrides[str_key] = str(config_map[str_key]).strip()
 
     for num_key, typ in [
         ("min_closed_m1_bars", int),

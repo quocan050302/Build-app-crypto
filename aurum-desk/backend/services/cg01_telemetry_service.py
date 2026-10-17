@@ -9,6 +9,7 @@ Enforces:
 """
 from __future__ import annotations
 
+import asyncio
 import collections
 import copy
 import json
@@ -240,13 +241,13 @@ class CG01TracePersistenceWriter:
             )
             target_db.merge(rec)
             if should_close:
-                # Dedicated session: safe to commit
+                # Dedicated session: safe to commit (Rules 027, 051, 052)
                 target_db.commit()
+                _TRACE_PERSISTED_COUNT += 1
             else:
-                # Caller's session: ONLY flush, NEVER commit! (Rule 031, 032)
+                # Caller's session: ONLY flush, NEVER commit, NEVER count as committed here! (Rules 031, 051)
                 target_db.flush()
 
-            _TRACE_PERSISTED_COUNT += 1
             return True
         except Exception as e:
             _TRACE_PERSIST_FAILURES += 1
@@ -441,6 +442,53 @@ def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
     }
 
 
+async def drain_trace_persistence(timeout_s: float = 5.0) -> Dict[str, Any]:
+    """
+    V16.22 Rules 013, 025, 031-040: Asynchronous non-blocking drain for trace persistence.
+    Awaits queue, retry buffer, and in-flight commits using asyncio.sleep without blocking the event loop.
+    Enforces Single-Consumer Drain:
+    - If worker is running, awaits worker-driven drain.
+    - If worker is stopped, delegates remaining drain to thread so event loop is never blocked.
+    """
+    start_t = time.monotonic()
+
+    if _TRACE_WORKER_RUNNING:
+        # Worker is the single consumer (Rule 032, 091). Await worker completion asynchronously without blocking time.sleep
+        while (
+            not _TRACE_QUEUE.empty()
+            or get_retry_buffer_count() > 0
+            or _IN_FLIGHT_COUNT > 0
+        ) and (time.monotonic() - start_t) < timeout_s:
+            await asyncio.sleep(0.05)
+    else:
+        # Worker is stopped. Delegate synchronous drain to thread so asyncio loop is not blocked
+        rem_timeout = max(0.1, timeout_s - (time.monotonic() - start_t))
+        return await asyncio.to_thread(flush_pending_traces, rem_timeout)
+
+    pending = _TRACE_QUEUE.qsize()
+    retry_pending = get_retry_buffer_count()
+    current_inflight = _IN_FLIGHT_COUNT
+
+    if _TRACE_QUEUE_DROPS > 0:
+        status = "COMPLETED_WITH_LOSS" if (pending == 0 and current_inflight == 0 and retry_pending == 0) else "TIMED_OUT"
+    elif pending == 0 and current_inflight == 0 and retry_pending == 0:
+        status = "COMPLETED"
+    elif current_inflight > 0:
+        status = "TIMED_OUT" if (time.monotonic() - start_t) >= timeout_s else "IN_FLIGHT"
+    else:
+        status = "TIMED_OUT"
+
+    return {
+        "flushed": _TRACE_PERSISTED_COUNT,
+        "failed": _TRACE_PERSIST_FAILURES,
+        "pending": pending,
+        "in_flight": current_inflight,
+        "retry_buffer": retry_pending,
+        "status": status,
+        "elapsed_sec": round(time.monotonic() - start_t, 3),
+    }
+
+
 def _persist_trace_batch_sync(
     batch: List[CG01EvaluationTrace],
     session_factory: Optional[Any] = None,
@@ -556,15 +604,25 @@ async def run_trace_persistence_worker() -> None:
     logger.info("CG01 trace persistence worker started.")
     while _TRACE_WORKER_RUNNING:
         try:
-            # 1. Drain retries first
+            # 1. Drain retries first with atomic ownership transfer (Rules 026, 034, 035)
             retry_items: List[Tuple[CG01EvaluationTrace, int]] = []
             with _RETRY_BUFFER_LOCK:
                 if _RETRY_BUFFER:
                     retry_items = _RETRY_BUFFER[:10]
                     del _RETRY_BUFFER[:len(retry_items)]
+                    _IN_FLIGHT_COUNT += len(retry_items)
 
-            for trace, attempt in retry_items:
-                await asyncio.to_thread(_persist_trace_batch_sync, [trace], None, attempt)
+            unprocessed_retries = list(retry_items)
+            try:
+                while unprocessed_retries:
+                    trace, attempt = unprocessed_retries.pop(0)
+                    await asyncio.to_thread(_persist_trace_batch_sync, [trace], None, attempt, True)
+            except Exception:
+                with _RETRY_BUFFER_LOCK:
+                    for t, a in reversed(unprocessed_retries):
+                        _RETRY_BUFFER.insert(0, (t, a))
+                    _IN_FLIGHT_COUNT = max(0, _IN_FLIGHT_COUNT - len(unprocessed_retries))
+                raise
 
             # 2. Drain new items from queue
             batch: List[CG01EvaluationTrace] = []
