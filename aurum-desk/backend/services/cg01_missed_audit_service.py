@@ -196,12 +196,14 @@ class CG01MissedOpportunityAuditService:
         # 3. Rule 094 & 147: Was it blocked by a guard / risk / quota / lesson policy?
         policy_reasons = {
             "GUARD_BLOCKED", "NEWS_BLACKOUT", "LESSON_POLICY_BLOCKED",
-            "DAILY_LIMIT_REACHED", "ACTIVE_POSITION_EXISTS", "POLICY_BLOCKED",
+            "DAILY_LIMIT_REACHED", "DAILY_CAP_REACHED", "DAILY_MAX_CAP",
+            "ACTIVE_POSITION_EXISTS", "POLICY_BLOCKED",
             "SPREAD_EXCEEDED", "FEED_DEGRADED"
         }
         if OpportunityStage.GUARD_BLOCKED.value in all_stages or any(r in policy_reasons for r in all_reasons):
             matching_policy = [r for r in all_reasons if r in policy_reasons]
-            reason = matching_policy[0] if matching_policy else "POLICY_BLOCKED"
+            specific_reasons = [r for r in all_reasons if r != "GUARD_BLOCKED" and r != "POLICY_BLOCKED"]
+            reason = matching_policy[0] if matching_policy else (specific_reasons[0] if specific_reasons else "POLICY_BLOCKED")
             return OpportunityAuditRecord(
                 opportunity_id=opp_id,
                 symbol=symbol,
@@ -369,10 +371,24 @@ class CG01MissedOpportunityAuditService:
         if records:
             all_evals.extend(records)
         elif db is not None:
-            # Query OpportunityFunnelRecord from DB
-            rows = db.query(models.OpportunityFunnelRecord).filter(
-                models.OpportunityFunnelRecord.session_id == run_id
+            from sqlalchemy import or_
+
+            # Rule 150 & 151: Exact query for PaperOrders linked to this research run
+            links = db.query(models.PaperResearchOrderLink).filter(
+                models.PaperResearchOrderLink.run_id == run_id
             ).all()
+            linked_order_ids = {l.order_id for l in links}
+            linked_opp_ids = {l.opportunity_id for l in links if l.opportunity_id}
+
+            # Query OpportunityFunnelRecord belonging to this run (Rules 028, 131, 132)
+            filters = [
+                models.OpportunityFunnelRecord.run_id == run_id,
+                models.OpportunityFunnelRecord.session_id == run_id,
+            ]
+            if linked_opp_ids:
+                filters.append(models.OpportunityFunnelRecord.opportunity_id.in_(linked_opp_ids))
+
+            rows = db.query(models.OpportunityFunnelRecord).filter(or_(*filters)).all()
             for r in rows:
                 try:
                     payload = json.loads(r.payload_json) if r.payload_json else {}
@@ -388,12 +404,6 @@ class CG01MissedOpportunityAuditService:
                 except Exception:
                     payload["reason_codes"] = []
                 all_evals.append(payload)
-
-            # Rule 150 & 151: Exact query for PaperOrders linked to this research run
-            links = db.query(models.PaperResearchOrderLink).filter(
-                models.PaperResearchOrderLink.run_id == run_id
-            ).all()
-            linked_order_ids = {l.order_id for l in links}
 
             if linked_order_ids:
                 db_orders = db.query(models.PaperOrder).filter(
@@ -471,11 +481,15 @@ class CG01MissedOpportunityAuditService:
         short_example = next((a.to_dict() for a in audits if a.direction == "SHORT"), None)
 
         capture_rate = round((filled_count / total_unique) * 100.0, 2) if total_unique > 0 else None
+        top_reasons = [b["reason"] for b in bottlenecks_summary]
+        missed_count = policy_blocked_count + technical_miss_count + market_non_fill_count + invalidated_count
 
         return {
             "run_id": run_id,
             "total_unique_opportunities": total_unique,
+            "total_evaluated_count": total_unique,
             "actual_filled_count": filled_count,
+            "missed_opportunities_count": missed_count,
             "pending_count": pending_count,
             "policy_blocked_count": policy_blocked_count,
             "technical_miss_count": technical_miss_count,
@@ -484,6 +498,7 @@ class CG01MissedOpportunityAuditService:
             "unverifiable_count": unverifiable_count,
             "capture_rate_pct": capture_rate,
             "top_bottlenecks": bottlenecks_summary,
+            "top_bottleneck_reasons": top_reasons,
             "representative_examples": {
                 "long": long_example,
                 "short": short_example,

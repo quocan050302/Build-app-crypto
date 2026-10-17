@@ -247,20 +247,22 @@ class TradeLifecycleService:
             return None
 
         # V16.16: Record FILLED milestone for linked research runs (Rules 028, 093, 095)
+        # V16.17: Wrapped in nested savepoint (db.begin_nested) to prevent research failure from aborting fill
         try:
-            from services.paper_research_run_service import record_committed_order_milestone
-            run_links = db.query(models.PaperResearchOrderLink).filter(
-                models.PaperResearchOrderLink.order_id == order.id
-            ).all()
-            for rlink in run_links:
-                record_committed_order_milestone(
-                    db=db,
-                    run_id=rlink.run_id,
-                    order_id=order.id,
-                    milestone="FILLED",
-                    timestamp_ms=current_time,
-                    payload={"fill_price": fill_price, "quantity": order.quantity},
-                )
+            with db.begin_nested():
+                from services.paper_research_run_service import record_committed_order_milestone
+                run_links = db.query(models.PaperResearchOrderLink).filter(
+                    models.PaperResearchOrderLink.order_id == order.id
+                ).all()
+                for rlink in run_links:
+                    record_committed_order_milestone(
+                        db=db,
+                        run_id=rlink.run_id,
+                        order_id=order.id,
+                        milestone="FILLED",
+                        timestamp_ms=current_time,
+                        payload={"fill_price": fill_price, "quantity": order.quantity},
+                    )
         except Exception as ms_err:
             logger.warning(f"Failed to record FILLED milestone for order {order.id}: {ms_err}")
 
@@ -507,20 +509,22 @@ class TradeLifecycleService:
             return None
 
         # V16.16: Record CLOSED milestone for linked research runs (Rules 028, 094, 095)
+        # V16.17: Wrapped in nested savepoint (db.begin_nested) to prevent research failure from aborting close
         try:
-            from services.paper_research_run_service import record_committed_order_milestone
-            run_links = db.query(models.PaperResearchOrderLink).filter(
-                models.PaperResearchOrderLink.order_id == order.id
-            ).all()
-            for rlink in run_links:
-                record_committed_order_milestone(
-                    db=db,
-                    run_id=rlink.run_id,
-                    order_id=order.id,
-                    milestone="CLOSED",
-                    timestamp_ms=current_time,
-                    payload={"exit_price": exit_price, "exit_cause": exit_cause, "realized_pnl_net": net_pnl},
-                )
+            with db.begin_nested():
+                from services.paper_research_run_service import record_committed_order_milestone
+                run_links = db.query(models.PaperResearchOrderLink).filter(
+                    models.PaperResearchOrderLink.order_id == order.id
+                ).all()
+                for rlink in run_links:
+                    record_committed_order_milestone(
+                        db=db,
+                        run_id=rlink.run_id,
+                        order_id=order.id,
+                        milestone="CLOSED",
+                        timestamp_ms=current_time,
+                        payload={"exit_price": exit_price, "exit_cause": exit_cause, "realized_pnl_net": net_pnl},
+                    )
         except Exception as ms_err:
             logger.warning(f"Failed to record CLOSED milestone for order {order.id}: {ms_err}")
 

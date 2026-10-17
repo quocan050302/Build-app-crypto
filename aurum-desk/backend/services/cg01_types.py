@@ -384,3 +384,19 @@ def resolve_candidate_order_expiry(
             return res_exp
         raise ValueError("CG01_CANDIDATE_MISSING_EXPIRY: CG-01 candidate must define valid_until_ms")
     return int(now_ms + (legacy_default_hours * 3600 * 1000))
+
+
+@dataclass(frozen=True)
+class CG01ResearchContext:
+    """
+    V16.17 Frozen, immutable research context for telemetry and run attribution (Rules 034-036).
+    Never contains database Session objects, mutable collectors, or live trading credentials.
+    """
+    trace_id: str
+    run_id: Optional[str] = None
+    segment_id: Optional[str] = None
+    symbol: str = "XAUUSDT"
+    config_fingerprint: str = "DEFAULT"
+    input_versions: Dict[str, Any] = field(default_factory=dict)
+    evaluation_as_of_ms: int = 0
+    observation_mode: str = "PAPER_EXECUTION"

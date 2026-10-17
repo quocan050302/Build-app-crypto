@@ -28,6 +28,14 @@ from services.cg01_telemetry_service import cg01_trace_recorder
 logger = logging.getLogger(__name__)
 
 
+def _get_projection_worker():
+    try:
+        from services.cg01_projection_worker import cg01_projection_worker
+        return cg01_projection_worker
+    except Exception:
+        return None
+
+
 @dataclass
 class PaperResearchRun:
     """
@@ -49,6 +57,52 @@ class PaperResearchRun:
         return asdict(self)
 
 
+def resolve_active_observation_run(
+    db: Optional[Session] = None,
+    scope: str = "CG01",
+    symbol: str = "XAUUSDT",
+) -> Optional[PaperResearchRun]:
+    """
+    V16.17 Single authoritative active run resolver (Rules 061-063, 158).
+    Resolves the active persisted observation run for scope/symbol.
+    Never creates a fictitious run or mutates global execution flags.
+    """
+    if db is not None:
+        try:
+            row = (
+                db.query(models.PaperResearchRunRecord)
+                .filter(
+                    models.PaperResearchRunRecord.symbol == symbol,
+                    models.PaperResearchRunRecord.status.in_(["COLLECTING", "CREATED"]),
+                )
+                .order_by(models.PaperResearchRunRecord.started_at_ms.desc())
+                .first()
+            )
+            if row:
+                run = PaperResearchRun(
+                    run_id=row.run_id,
+                    symbol=row.symbol,
+                    status=row.status,
+                    started_at_ms=row.started_at_ms,
+                    ended_at_ms=row.ended_at_ms,
+                    software_version=row.software_version,
+                    config_fingerprint=row.config_fingerprint,
+                    execution_mode=row.execution_mode,
+                    initial_capital_usdt=row.initial_capital_usdt,
+                )
+                PaperResearchRunService._active_runs[row.run_id] = run
+                return run
+        except Exception as e:
+            logger.warning(f"Error resolving active observation run from DB: {e}")
+
+    # Check memory active runs
+    for r in reversed(list(PaperResearchRunService._active_runs.values())):
+        if r.symbol == symbol and r.status in ("COLLECTING", "CREATED"):
+            return r
+
+    return None
+
+
 class PaperResearchRunService:
     """Service managing research runs and computing post-fee metrics (Rules 081-090, 111-130)."""
 
@@ -57,7 +111,7 @@ class PaperResearchRunService:
     @classmethod
     def get_or_create_run(
         cls,
-        run_id: Optional[str] = "run_cg01_v16_15_default",
+        run_id: Optional[str] = None,
         symbol: str = "XAUUSDT",
         execution_mode: str = "PAPER_SHADOW",
         initial_capital: float = 1000.0,
@@ -72,8 +126,17 @@ class PaperResearchRunService:
         Uses db.flush(), never committing caller's transaction prematurely (Rule 031, 032).
         """
         t_now = int(time.time() * 1000)
-        actual_run_id = run_id or f"run_{scope.lower()}_{symbol.lower()}_{t_now}"
         cap = initial_capital_usdt if initial_capital_usdt is not None else initial_capital
+
+        if not run_id:
+            active = resolve_active_observation_run(db=db, scope=scope, symbol=symbol)
+            if active:
+                return active
+            if not create_if_missing:
+                return None
+            actual_run_id = f"run_{scope.lower()}_{symbol.lower()}_{t_now}"
+        else:
+            actual_run_id = run_id
 
         # 1. Database persistent record lookup (DB is authority, Rule 041)
         if db is not None:
@@ -104,7 +167,7 @@ class PaperResearchRunService:
         if not create_if_missing:
             return None
 
-        version = "V16.14" if "v16_14" in actual_run_id.lower() else ("V16.15" if "v16_15" in actual_run_id.lower() else "V16.16")
+        version = "V16.14" if "v16_14" in actual_run_id.lower() else ("V16.15" if "v16_15" in actual_run_id.lower() else ("V16.16" if "v16_16" in actual_run_id.lower() else "V16.17"))
         run = PaperResearchRun(
             run_id=actual_run_id,
             symbol=symbol,
@@ -436,6 +499,11 @@ def build_cg01_paper_run_summary(
         },
         "latency_percentiles": latencies,
         "opportunity_funnel_audit": audit_summary,
+        "projection_worker": (
+            _get_projection_worker().get_health_status(db=db)
+            if _get_projection_worker() is not None
+            else {"status": "NOT_LOADED"}
+        ),
         "limitations": (
             "Paper measurement run is active and currently COLLECTING samples. "
             "Under Rules 010 and 117, technical verification does not constitute a statistical claim of forward profitability."
@@ -720,8 +788,9 @@ def generate_runtime_paper_report_content(
         except Exception:
             pass
 
-    health = sched.get_health_snapshot() if sched else {"worker_status": "UNKNOWN", "running": False}
+    health = sched.get_health_snapshot() if sched else {"worker_status": "UNKNOWN", "status": "UNKNOWN", "running": False}
     worker_running = health.get("running", False)
+    worker_status = health.get("status") or health.get("worker_status") or ("RUNNING" if worker_running else "STOPPED")
 
     # 3. Build summary
     summary = build_cg01_paper_run_summary(run_id, db=db)
@@ -730,7 +799,7 @@ def generate_runtime_paper_report_content(
     cov = summary.get("data_coverage", {})
 
     # Evaluate true operational status
-    if not worker_running or health.get("worker_status") == "STOPPED":
+    if not worker_running or worker_status == "STOPPED":
         operational_status = "STOPPED"
         obs_notice = "Observation worker is currently STOPPED. Forward evaluation is paused."
     elif run.status == "COMPLETED":
@@ -750,14 +819,14 @@ def generate_runtime_paper_report_content(
     winrate_disp = f"{tr.get('winrate_pct')}%" if tr.get('winrate_pct') is not None else "N/A (0 closed trades)"
 
     lines = [
-        f"# V16.16 CG-01 Paper Run Status & Measurement Report",
+        f"# V16.17 CG-01 Paper Run Status & Measurement Report",
         "",
         "## 1. Run Metadata & Operational State",
         f"- **Run ID**: `{run.run_id}`",
         f"- **Software Version**: `{run.software_version}`",
         f"- **Deployment Scope**: `{run.symbol}`",
         f"- **Run Status**: `{run.status}`",
-        f"- **Worker Health**: `{health.get('worker_status', 'UNKNOWN')}` (running: {worker_running})",
+        f"- **Worker Health**: `{worker_status}` (running: {worker_running})",
         f"- **Operational Status**: `{operational_status}`",
         f"- **Execution Mode**: `{run.execution_mode}` (Strictly respect user auto authority)",
         f"- **Persistence Authority**: `SQLite: paper_research_run_records`",

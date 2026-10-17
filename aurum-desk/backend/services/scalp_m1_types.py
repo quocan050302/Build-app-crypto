@@ -127,6 +127,7 @@ class OpportunityEvaluation:
     model_version: str = "v15.0"
     direction: str = "LONG"
     session_id: str = ""
+    run_id: Optional[str] = None
     zone_id: Optional[str] = None
     as_of_ms: int = 0
     stage: str = OpportunityStage.ZONE_DETECTED.value
@@ -159,6 +160,7 @@ class OpportunityEvaluation:
             "model_version": self.model_version,
             "direction": self.direction,
             "session_id": self.session_id,
+            "run_id": self.run_id,
             "zone_id": self.zone_id,
             "as_of_ms": self.as_of_ms,
             "stage": self.stage,

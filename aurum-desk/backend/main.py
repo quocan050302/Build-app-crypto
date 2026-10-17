@@ -130,6 +130,7 @@ async def lifespan(app: FastAPI):
     from services.forward_repair_worker import forward_repair_worker
     from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
     from services.cg01_scheduler_service import cg01_evaluation_scheduler
+    from services.cg01_projection_worker import cg01_projection_worker
 
     tasks = [
         asyncio.create_task(bitget_ws_service.run_ws_loop()),
@@ -145,6 +146,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(forward_repair_worker.run_repair_loop()),
         asyncio.create_task(scalp_watcher_orchestrator.run_watcher_loop()),
         asyncio.create_task(cg01_evaluation_scheduler.run()),
+        asyncio.create_task(cg01_projection_worker.run()),
     ]
     yield
     # Graceful shutdown: orderly stop of worker loops before cancelling
@@ -152,6 +154,7 @@ async def lifespan(app: FastAPI):
     forward_repair_worker.stop()
     scalp_watcher_orchestrator.stop()
     cg01_evaluation_scheduler.stop()
+    cg01_projection_worker.stop()
     try:
         rep_res = await forward_repair_worker.shutdown(timeout_s=5.0)
         if rep_res and getattr(rep_res, "status", "") == "TIMED_OUT":

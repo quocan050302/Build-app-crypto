@@ -215,6 +215,7 @@ class ScalpWatcherOrchestrator:
         auto_enabled: Optional[bool] = None,
         feed_health: Optional[Dict[str, Any]] = None,
         execution_financial_context: Optional[Any] = None,
+        research_context: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """
         Single-cycle autonomous evaluation (PHẦN 015 - 024, 054 - 056).
@@ -1057,26 +1058,15 @@ class ScalpWatcherOrchestrator:
             elif effective_scalp_mode == ScalpMode.PAPER.value or (cand.model_id == ModelIdentifier.NY_DAILY_RESEARCH.value and cfg.daily_ny_research_enabled and global_auto):
                 # In PAPER mode: validate through canonical entry guards (PHẦN 025 - 033, 059)
                 armed_order = self._arm_paper_candidate(
-                    db, cand, now_ms=t_recv, clock=clock, quote=q, policy_settings=policy_dict, config=cfg, feed_health=feed_health, auto_enabled=auto_enabled, authority_context=cycle_authority
+                    db, cand, now_ms=t_recv, clock=clock, quote=q, policy_settings=policy_dict,
+                    config=cfg, feed_health=feed_health, auto_enabled=auto_enabled,
+                    authority_context=cycle_authority, research_context=research_context,
                 )
                 if is_cg01_model and cg01_eval_data:
                     if armed_order:
                         cg01_eval_data["armed_order_id"] = armed_order.id
                         cg01_eval_data["arm_outcome"] = "ARMED"
                         cg01_eval_data["stage"] = OpportunityStage.ARMED.value if hasattr(OpportunityStage, "ARMED") else "ARMED"
-                        try:
-                            from services.paper_research_run_service import associate_order_with_research_run, PaperResearchRunService
-                            act_run = PaperResearchRunService.get_or_create_run(symbol=symbol, scope="CG01", db=db)
-                            if act_run:
-                                associate_order_with_research_run(
-                                    db=db,
-                                    run_id=act_run.run_id,
-                                    order_id=armed_order.id,
-                                    opportunity_id=f"opp_{cand.candidate_key}",
-                                    now_ms=t_recv,
-                                )
-                        except Exception as e:
-                            logger.warning(f"Error associating armed order with CG01 run: {e}")
                     else:
                         rej = self._arm_rejections.get(cand.candidate_key)
                         if rej:
@@ -1253,6 +1243,7 @@ class ScalpWatcherOrchestrator:
         auto_enabled: Optional[bool] = None,
         authority_context: Optional[Any] = None,
         session_context: Optional[Any] = None,
+        research_context: Optional[Any] = None,
     ) -> Optional[models.PaperOrder]:
         """
         Guarded ARM path under entry_mutation_lock (PHẦN 025 - 033, 059).
@@ -1639,6 +1630,45 @@ class ScalpWatcherOrchestrator:
         ws.risk_usdt = calc.net_risk_usdt
         db.flush()
 
+        # V16.17: Exact run association and ARMED milestone within the same transaction (Rules 021, 044, 045)
+        target_run_id = getattr(research_context, "run_id", None) if research_context else None
+        if not target_run_id:
+            try:
+                from services.paper_research_run_service import resolve_active_observation_run
+                act_run = resolve_active_observation_run(db=db, symbol=cand.symbol)
+                if act_run:
+                    target_run_id = act_run.run_id
+            except Exception:
+                pass
+
+        trace_id_val = getattr(research_context, "trace_id", None) if research_context else None
+
+        if target_run_id:
+            try:
+                with db.begin_nested():
+                    from services.paper_research_run_service import (
+                        associate_order_with_research_run,
+                        record_committed_order_milestone,
+                    )
+                    associate_order_with_research_run(
+                        db=db,
+                        run_id=target_run_id,
+                        order_id=order.id,
+                        opportunity_id=f"opp_{cand.candidate_key}",
+                        trace_id=trace_id_val,
+                        now_ms=now_ms,
+                    )
+                    record_committed_order_milestone(
+                        db=db,
+                        run_id=target_run_id,
+                        order_id=order.id,
+                        milestone="ARMED",
+                        timestamp_ms=now_ms,
+                        payload={"planned_entry": cand.planned_entry, "stop_loss": cand.stop_loss, "take_profit": cand.take_profit},
+                    )
+            except Exception as ms_err:
+                logger.warning(f"Failed to record ARMED milestone for order {order.id}: {ms_err}")
+
         OpportunityFunnelService.record_opportunity_transition(
             db,
             OpportunityEvaluation(
@@ -1651,6 +1681,7 @@ class ScalpWatcherOrchestrator:
                 stage=OpportunityStage.ARMED.value,
                 armed_at=now_ms,
                 order_id=order.id,
+                run_id=target_run_id,
                 watch_setup_id=ws.id,
                 planned_entry=cand.planned_entry,
                 stop_loss=cand.stop_loss,
@@ -1661,7 +1692,6 @@ class ScalpWatcherOrchestrator:
         )
 
         # 6. Publish order.armed domain event atomically within caller's db transaction (PHẦN 019, 020, 021, 138, Rule 034)
-        # EventBus handles outbox notification deduplicated under the same transaction.
         from services.event_bus import event_bus
         event_bus.publish_event(
             event_type="order.armed",
@@ -1676,27 +1706,12 @@ class ScalpWatcherOrchestrator:
                 "take_profit": cand.take_profit,
                 "net_rr": calc.net_rr,
                 "expires_at": resolved_expires_at,
+                "run_id": target_run_id,
+                "trace_id": trace_id_val,
             },
             db=db,
             occurred_at=now_ms,
         )
-        # V16.16: Record ARMED milestone for linked research runs (Rules 028, 092, 095)
-        try:
-            from services.paper_research_run_service import record_committed_order_milestone
-            run_links = db.query(models.PaperResearchOrderLink).filter(
-                models.PaperResearchOrderLink.order_id == order.id
-            ).all()
-            for rlink in run_links:
-                record_committed_order_milestone(
-                    db=db,
-                    run_id=rlink.run_id,
-                    order_id=order.id,
-                    milestone="ARMED",
-                    timestamp_ms=now_ms,
-                    payload={"planned_entry": cand.planned_entry, "stop_loss": cand.stop_loss, "take_profit": cand.take_profit},
-                )
-        except Exception as ms_err:
-            logger.warning(f"Failed to record ARMED milestone for order {order.id}: {ms_err}")
 
         return order
     async def run_watcher_loop(self):

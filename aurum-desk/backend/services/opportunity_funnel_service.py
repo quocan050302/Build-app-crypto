@@ -52,6 +52,16 @@ class OpportunityFunnelService:
                 })
                 payload_str = json.dumps(eval_data.to_dict(), ensure_ascii=False)
 
+                eff_run_id = eval_data.run_id
+                if not eff_run_id:
+                    try:
+                        from services.paper_research_run_service import resolve_active_observation_run
+                        act_run = resolve_active_observation_run(db, symbol=eval_data.symbol)
+                        if act_run:
+                            eff_run_id = act_run.run_id
+                    except Exception:
+                        pass
+
                 if row is None:
                     row = models.OpportunityFunnelRecord(
                         opportunity_id=eval_data.opportunity_id,
@@ -60,6 +70,7 @@ class OpportunityFunnelService:
                         model_version=eval_data.model_version,
                         direction=eval_data.direction,
                         session_id=eval_data.session_id,
+                        run_id=eff_run_id,
                         zone_id=eval_data.zone_id,
                         as_of_ms=eval_data.as_of_ms,
                         stage=eval_data.stage,
@@ -73,6 +84,8 @@ class OpportunityFunnelService:
                     db.add(row)
                 else:
                     row.updated_at = t_now
+                    if eff_run_id and not getattr(row, "run_id", None):
+                        row.run_id = eff_run_id
                     row.reason_codes_json = reasons_str
                     row.evidence_ids_json = evidence_str
                     row.metrics_json = metrics_str

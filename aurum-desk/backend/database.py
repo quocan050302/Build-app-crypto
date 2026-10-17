@@ -424,6 +424,51 @@ def run_schema_migrations(target_engine=None):
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_milestone_run ON paper_research_order_milestones (run_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_milestone_order ON paper_research_order_milestones (order_id);"))
 
+            # V16.17 Opportunity Funnel run_id column
+            opp_res = conn.execute(text("PRAGMA table_info(opportunity_funnel_records)"))
+            opp_cols = {row[1] for row in opp_res.fetchall()}
+            if opp_cols and "run_id" not in opp_cols:
+                conn.execute(text("ALTER TABLE opportunity_funnel_records ADD COLUMN run_id VARCHAR(80)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opportunity_funnel_run_id ON opportunity_funnel_records (run_id);"))
+
+            # V16.17 Durable CG-01 Trace Records Table
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS cg01_trace_records (
+                    trace_id VARCHAR(80) PRIMARY KEY,
+                    symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+                    run_id VARCHAR(80),
+                    source_event_id VARCHAR(120),
+                    input_version VARCHAR(80),
+                    evaluation_status VARCHAR(30) DEFAULT 'COMPLETED',
+                    candidate_key VARCHAR(80),
+                    armed_order_id VARCHAR(36),
+                    total_runtime_ms FLOAT,
+                    feed_delay_ms FLOAT,
+                    scheduler_delay_ms FLOAT,
+                    arm_delay_ms FLOAT,
+                    fill_delay_ms FLOAT,
+                    payload_json TEXT,
+                    created_at_ms BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cg01_trace_run_id ON cg01_trace_records (run_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cg01_trace_created ON cg01_trace_records (created_at_ms);"))
+
+            # V16.17 Paper Research Projection Checkpoints Table
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS paper_research_checkpoints (
+                    scope VARCHAR(50) PRIMARY KEY,
+                    last_event_id VARCHAR(80),
+                    last_event_time_ms BIGINT DEFAULT 0,
+                    last_sequence INTEGER DEFAULT 0,
+                    updated_at_ms BIGINT NOT NULL
+                );
+            """))
+            try:
+                conn.execute(text("ALTER TABLE paper_research_checkpoints ADD COLUMN last_sequence INTEGER DEFAULT 0;"))
+            except Exception:
+                pass
+
             conn.commit()
     except Exception:
         pass

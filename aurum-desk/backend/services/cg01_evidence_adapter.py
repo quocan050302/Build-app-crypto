@@ -377,3 +377,57 @@ def build_cg01_rejection_summary(decision: CG01Decision) -> Dict[str, Any]:
             else stage_str
         ),
     }
+
+
+from dataclasses import dataclass, field
+
+
+@dataclass
+class CG01ChartEvidence:
+    """Chart annotations and evidence bindings for UI display."""
+    zone_id: str
+    symbol: str
+    direction: str
+    entry_level: float
+    sl_level: float
+    tp_level: float
+    trigger_time_ms: int
+    sweep_reference: Optional[float] = None
+    annotations: List[Dict[str, Any]] = field(default_factory=list)
+
+
+class CG01EvidenceAdapter:
+    """Adapter for binding CG-01 candidate data to chart evidence annotations."""
+
+    @staticmethod
+    def build_chart_evidence(
+        zone: Any,
+        direction: str,
+        entry_price: float,
+        stop_loss: float,
+        take_profit: float,
+        trigger_time_ms: int,
+        sweep_reference: Optional[float] = None,
+    ) -> CG01ChartEvidence:
+        annotations = [
+            {"type": "ENTRY", "price": entry_price, "time_ms": trigger_time_ms, "label": f"Entry {entry_price}"},
+            {"type": "STOP_LOSS", "price": stop_loss, "time_ms": trigger_time_ms, "label": f"SL {stop_loss}"},
+            {"type": "TAKE_PROFIT", "price": take_profit, "time_ms": trigger_time_ms, "label": f"TP {take_profit}"},
+        ]
+        if sweep_reference is not None:
+            annotations.append({"type": "SWEEP", "price": sweep_reference, "time_ms": trigger_time_ms, "label": f"Sweep {sweep_reference}"})
+
+        zone_id = getattr(zone, "zone_id", None) or getattr(zone, "id", str(zone))
+        symbol = getattr(zone, "symbol", "XAUUSDT")
+
+        return CG01ChartEvidence(
+            zone_id=zone_id,
+            symbol=symbol,
+            direction=direction,
+            entry_level=entry_price,
+            sl_level=stop_loss,
+            tp_level=take_profit,
+            trigger_time_ms=trigger_time_ms,
+            sweep_reference=sweep_reference,
+            annotations=annotations,
+        )

@@ -312,6 +312,34 @@ class CG01EvaluationScheduler:
             bundle = capture_cg01_input_bundle(symbol=symbol, as_of_ms=t_now)
             trace.input_version = bundle["input_versions"].get("1M", 1)
 
+            # Resolve active research run and build immutable research context
+            from services.paper_research_run_service import (
+                resolve_active_observation_run,
+                associate_order_with_research_run,
+                record_committed_order_milestone,
+                PaperResearchRunService,
+            )
+            from services.cg01_types import CG01ResearchContext
+
+            act_run = resolve_active_observation_run(db=db, scope="CG01", symbol=symbol)
+            if not act_run:
+                act_run = PaperResearchRunService.get_or_create_run(symbol=symbol, scope="CG01", db=db)
+            if act_run:
+                trace.run_id = act_run.run_id
+
+            obs_mode = "SHADOW" if self.shadow_mode else "ACTIVE"
+            trace.observation_mode = obs_mode
+            research_ctx = CG01ResearchContext(
+                trace_id=trace_id,
+                run_id=act_run.run_id if act_run else None,
+                segment_id=None,
+                symbol=symbol,
+                config_fingerprint=None,
+                input_versions=bundle.get("input_versions", {}),
+                evaluation_as_of_ms=t_now,
+                observation_mode=obs_mode,
+            )
+
             # Auto execution control (Rules 041, 042):
             # In shadow mode or if scheduler is not owner, force auto_enabled=False.
             # When scheduler is owner, pass None so evaluate_cycle reads global auto from strategy_service!
@@ -329,6 +357,7 @@ class CG01EvaluationScheduler:
                 candles_1h=bundle.get("1H"),
                 candles_4h=bundle.get("4H"),
                 auto_enabled=effective_auto,
+                research_context=research_ctx,
             )
             span_engine.finish()
             trace.total_runtime_ms = span_engine.duration_ms
@@ -336,52 +365,48 @@ class CG01EvaluationScheduler:
             t_done = int(time.time() * 1000)
             trace.evaluation_completed_at = t_done
 
-            # Extract outcome details
             cg_eval = cycle_result.get("cg01_evaluation") or {}
             trace.candidate_key = cg_eval.get("candidate_key")
             trace.armed_order_id = cycle_result.get("armed_order_id")
-
-            # Rule 096: Associate trace and order with active research run
-            from services.paper_research_run_service import (
-                associate_order_with_research_run,
-                record_committed_order_milestone,
-                PaperResearchRunService,
-            )
-            act_run = PaperResearchRunService.get_or_create_run(symbol=symbol, scope="CG01", db=db)
-            if act_run:
-                trace.run_id = act_run.run_id
+            trace.evaluation_status = cycle_result.get("status", "COMPLETED")
+            trace.skip_reason = cg_eval.get("skip_reason")
 
             if trace.armed_order_id:
-                # Rule 029, 127: Use real lifecycle fact from order instead of falsely setting armed_at = t_done
                 armed_ord = db.query(models.PaperOrder).filter(models.PaperOrder.id == trace.armed_order_id).first()
                 if armed_ord and armed_ord.armed_at:
                     trace.armed_at = armed_ord.armed_at
                 else:
                     trace.armed_at = t_done
 
-                if act_run:
-                    associate_order_with_research_run(
-                        db=db,
-                        run_id=act_run.run_id,
-                        order_id=trace.armed_order_id,
-                        opportunity_id=f"opp_{trace.candidate_key}" if trace.candidate_key else None,
-                        trace_id=trace_id,
-                        now_ms=trace.armed_at or t_done,
-                    )
-                    record_committed_order_milestone(
-                        db=db,
-                        run_id=act_run.run_id,
-                        order_id=trace.armed_order_id,
-                        milestone="ARMED",
-                        timestamp_ms=trace.armed_at or t_done,
-                        payload={"candidate_key": trace.candidate_key},
-                    )
+                # Rules 022, 031, 032: Ensure order is linked and committed if not already linked by cycle
+                existing_link = db.query(models.PaperResearchOrderLink).filter(
+                    models.PaperResearchOrderLink.order_id == trace.armed_order_id
+                ).first()
+                if not existing_link and research_ctx and research_ctx.run_id:
+                    try:
+                        as_of = trace.armed_at or trace.evaluation_started_at or t_done
+                        associate_order_with_research_run(
+                            db,
+                            run_id=research_ctx.run_id,
+                            order_id=trace.armed_order_id,
+                            trace_id=trace_id,
+                            now_ms=as_of,
+                        )
+                        record_committed_order_milestone(
+                            db,
+                            run_id=research_ctx.run_id,
+                            order_id=trace.armed_order_id,
+                            milestone="ARMED",
+                            timestamp_ms=as_of,
+                            payload={"source": "CG01Scheduler", "trace_id": trace_id},
+                        )
+                        db.commit()
+                    except Exception as link_err:
+                        logger.warning(f"Error persisting fallback order research link: {link_err}")
+                        db.rollback()
 
-            trace.evaluation_status = cycle_result.get("status", "COMPLETED")
-            trace.skip_reason = cg_eval.get("skip_reason")
-
-            # Record telemetry trace in ring buffer (Rule 040)
-            cg01_trace_recorder.record_trace(trace)
+            # Record telemetry trace in ring buffer and durable store
+            cg01_trace_recorder.record_trace(trace, db=db)
             self.evaluations_scheduled_count += 1
 
             return {

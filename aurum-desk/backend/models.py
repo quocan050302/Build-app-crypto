@@ -111,6 +111,14 @@ class PaperOrder(Base):
     intrabar_ambiguous = Column(Boolean, default=False)
 
     @property
+    def symbol(self):
+        return self.instrument
+
+    @symbol.setter
+    def symbol(self, val):
+        self.instrument = val
+
+    @property
     def filled_at(self):
         return self.opened_at
 
@@ -734,6 +742,7 @@ class OpportunityFunnelRecord(Base):
     model_version = Column(String(20), default="v15.0")
     direction = Column(String(10), nullable=False)
     session_id = Column(String(60), nullable=False, index=True)
+    run_id = Column(String(80), nullable=True, index=True)
     zone_id = Column(String(80), nullable=True)
     as_of_ms = Column(BigInteger, nullable=False, index=True)
     stage = Column(String(30), nullable=False, index=True)
@@ -760,7 +769,7 @@ class PaperResearchRunRecord(Base):
     status = Column(String(20), default="COLLECTING", index=True)  # CREATED, COLLECTING, PAUSED, COMPLETED, DEGRADED, FAILED
     started_at_ms = Column(BigInteger, nullable=False)
     ended_at_ms = Column(BigInteger, nullable=True)
-    software_version = Column(String(20), default="V16.15")
+    software_version = Column(String(20), default="V16.17")
     config_fingerprint = Column(String(80), default="DEFAULT")
     execution_mode = Column(String(30), default="PAPER_SHADOW")  # PAPER_SHADOW or PAPER_EXECUTION
     initial_capital_usdt = Column(Float, default=1000.0)
@@ -799,3 +808,40 @@ class PaperResearchOrderMilestone(Base):
     __table_args__ = (
         UniqueConstraint('run_id', 'order_id', 'milestone', name='uq_run_order_milestone'),
     )
+
+
+# Alias for backwards compatibility
+PaperResearchMilestone = PaperResearchOrderMilestone
+
+
+# ---------------------------------------------------------------------------
+# V16.17 Durable Trace Persistence & Projection Checkpoints
+# ---------------------------------------------------------------------------
+class CG01TraceRecord(Base):
+    __tablename__ = "cg01_trace_records"
+
+    trace_id = Column(String(80), primary_key=True)
+    symbol = Column(String(20), default="XAUUSDT", index=True)
+    run_id = Column(String(80), nullable=True, index=True)
+    source_event_id = Column(String(120), nullable=True)
+    input_version = Column(String(80), nullable=True)
+    evaluation_status = Column(String(30), default="COMPLETED")
+    candidate_key = Column(String(80), nullable=True)
+    armed_order_id = Column(String(36), nullable=True)
+    total_runtime_ms = Column(Float, nullable=True)
+    feed_delay_ms = Column(Float, nullable=True)
+    scheduler_delay_ms = Column(Float, nullable=True)
+    arm_delay_ms = Column(Float, nullable=True)
+    fill_delay_ms = Column(Float, nullable=True)
+    payload_json = Column(Text, nullable=True)
+    created_at_ms = Column(BigInteger, nullable=False, index=True)
+
+
+class PaperResearchCheckpoint(Base):
+    __tablename__ = "paper_research_checkpoints"
+
+    scope = Column(String(50), primary_key=True)
+    last_event_id = Column(String(80), nullable=True)
+    last_event_time_ms = Column(BigInteger, default=0)
+    last_sequence = Column(Integer, default=0)
+    updated_at_ms = Column(BigInteger, nullable=False)
