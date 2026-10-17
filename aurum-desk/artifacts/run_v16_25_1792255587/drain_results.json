@@ -1,0 +1,5 @@
+{
+  "drain_waits_for_submitted_executor_tasks": "test_red_033_drain_waits_for_submitted_executor_tasks",
+  "long_tp_with_queue_receipt_ack": "test_v16_25_flow_scenario_1_long_tp_with_queue_receipt_ack",
+  "short_sl_with_queue_receipt_ack": "test_v16_25_flow_scenario_2_short_sl_with_queue_receipt_ack"
+}

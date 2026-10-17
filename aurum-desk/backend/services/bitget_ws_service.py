@@ -366,9 +366,21 @@ class BitgetWSService:
     def stop(self):
         self._running = False
         self.latest_quote = None
-        if self._ws_client:
-            asyncio.create_task(self._ws_client.close())
+        ws = self._ws_client
+        self._ws_client = None
+        if ws:
+            try:
+                loop = getattr(ws, "loop", None)
+                try:
+                    curr_loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    curr_loop = None
+                if loop is None or (curr_loop is not None and loop is curr_loop and not curr_loop.is_closed()):
+                    asyncio.create_task(ws.close())
+            except Exception:
+                pass
         if self._rest_fallback_task and not self._rest_fallback_task.done():
             self._rest_fallback_task.cancel()
+            self._rest_fallback_task = None
 
 bitget_ws_service = BitgetWSService()

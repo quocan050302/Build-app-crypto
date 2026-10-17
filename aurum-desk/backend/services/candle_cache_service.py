@@ -410,6 +410,21 @@ class CandleCacheService:
         """Background worker that flushes closed candles in batches to SQLite with retry buffer."""
         self._running = True
         self._stopping = False
+        try:
+            curr_loop = asyncio.get_running_loop()
+            q_loop = getattr(self._persist_queue, "_loop", None)
+            if q_loop is not None and q_loop is not curr_loop:
+                old_items = []
+                while not self._persist_queue.empty():
+                    try:
+                        old_items.append(self._persist_queue.get_nowait())
+                    except Exception:
+                        break
+                self._persist_queue = asyncio.Queue(maxsize=2000)
+                for item in old_items:
+                    self._persist_queue.put_nowait(item)
+        except Exception:
+            pass
         logger.info("Candle persistence worker started.")
 
         while self._running or (self._stopping and (not self._persist_queue.empty() or self.retry_buffer)):

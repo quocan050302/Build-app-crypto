@@ -17,8 +17,9 @@ import logging
 import queue
 import threading
 import time
+import uuid
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -168,19 +169,81 @@ class TraceBatchResult:
 
 
 @dataclass
+class QueueReceipt:
+    """
+    V16.25 Rules 061-079: Queue receipt tracking original enqueue acknowledgement.
+    Guarantees exactly-once queue task_done() invocation across arbitrary retries and failures.
+    Receipt identity is distinct from trace_id (permitting multiple distinct enqueues of same trace).
+    """
+    receipt_id: str
+    created_at_ms: int
+    queue_ref: Optional[queue.Queue] = None
+    finalized: bool = False
+    finalized_status: Optional[str] = None  # "COMMITTED", "TERMINAL_FAILURE", "REJECTED"
+    finalized_at_ms: Optional[int] = None
+    _lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def finalize_once(self, status: str) -> bool:
+        """
+        Rules 068, 069, 071: Atomically finalize receipt exactly once and call task_done() on origin queue.
+        Returns True if this call finalized the receipt, False if already finalized (preventing double ACK).
+        """
+        with self._lock:
+            if self.finalized:
+                return False
+            self.finalized = True
+            self.finalized_status = status
+            self.finalized_at_ms = int(time.time() * 1000)
+
+        if self.queue_ref is not None:
+            # Rule 072: Clean queue invariants; do not swallow ValueError with pass
+            self.queue_ref.task_done()
+        return True
+
+
+def finalize_queue_receipt_once(receipt: Optional[QueueReceipt], status: str) -> bool:
+    """
+    V16.25 Rules 071, 072: Atomically finalize receipt once and remove from active receipts.
+    """
+    if receipt is None:
+        return False
+    ok = receipt.finalize_once(status)
+    if ok:
+        with _RETRY_BUFFER_LOCK:
+            _ACTIVE_RECEIPTS.pop(receipt.receipt_id, None)
+    return ok
+
+
+class RetryItem(tuple):
+    """
+    V16.25 Rule 067: Backward-compatible 2-tuple (trace, attempt) that also holds receipt attribute.
+    Allows legacy tests and code doing `for t, _ in _RETRY_BUFFER` to work without ValueError,
+    while carrying the original QueueReceipt across retries.
+    """
+    def __new__(cls, trace: CG01EvaluationTrace, attempt: int, receipt: Optional[QueueReceipt] = None):
+        obj = super().__new__(cls, (trace, attempt))
+        obj.trace = trace
+        obj.attempt = attempt
+        obj.receipt = receipt
+        return obj
+
+
+@dataclass
 class BatchHandle:
     """
-    V16.24 Rules 061-075: Batch handle tracking synchronous DB execution.
+    V16.24 & V16.25 Rules 015, 031-050: Batch handle tracking synchronous DB execution.
     Maintains exclusive batch ownership until the synchronous DB operation completes.
-    Prevents premature requeue into _RETRY_BUFFER or counter corruption upon coroutine cancellation.
+    Tracks operation_task and receipts across cancellation and retries.
     """
     batch_id: str
     trace_ids: List[str]
     traces: List[CG01EvaluationTrace]
+    receipts: List[Optional[QueueReceipt]] = field(default_factory=list)
     attempt: int = 1
-    state: str = "SUBMITTED"  # "SUBMITTED", "RUNNING", "COMPLETED", "FAILED"
+    state: str = "SUBMITTED"  # "SUBMITTED", "RUNNING", "COMMITTED", "FAILED"
     result: Optional[TraceBatchResult] = None
     thread_done_event: threading.Event = field(default_factory=threading.Event)
+    operation_task: Optional[asyncio.Task] = None
     is_retry: bool = False
 
 
@@ -198,10 +261,12 @@ _TRACE_WORKER_THREAD: Optional[threading.Thread] = None
 _TRACE_WORKER_GENERATION: int = 0
 _TRACE_WORKER_STOP_ERROR: Optional[str] = None
 
-# V16.20 & V16.24 Rules 061-087: In-flight, retry buffer, and active batch handles
+# V16.20, V16.24 & V16.25 Rules 031-075: In-flight, retry buffer, active batch handles, receipts & operations
 _IN_FLIGHT_COUNT = 0
-_RETRY_BUFFER: List[Tuple[CG01EvaluationTrace, int]] = []  # (trace, attempt_count)
+_RETRY_BUFFER: List[Tuple[Any, ...]] = []  # (trace, attempt_count, Optional[receipt])
 _ACTIVE_BATCH_HANDLES: Dict[str, BatchHandle] = {}
+_ACTIVE_RECEIPTS: Dict[str, QueueReceipt] = {}
+_ACTIVE_OPERATIONS: Dict[str, asyncio.Task] = {}
 _RETRY_BUFFER_LOCK = threading.Lock()
 
 
@@ -227,6 +292,34 @@ def get_active_batch_count() -> int:
 def get_active_batch_handles() -> Dict[str, BatchHandle]:
     with _RETRY_BUFFER_LOCK:
         return dict(_ACTIVE_BATCH_HANDLES)
+
+
+def get_active_receipts() -> Dict[str, QueueReceipt]:
+    with _RETRY_BUFFER_LOCK:
+        return dict(_ACTIVE_RECEIPTS)
+
+
+def get_outstanding_receipt_count() -> int:
+    with _RETRY_BUFFER_LOCK:
+        return len(_ACTIVE_RECEIPTS)
+
+
+def get_active_operations() -> Dict[str, asyncio.Task]:
+    with _RETRY_BUFFER_LOCK:
+        return dict(_ACTIVE_OPERATIONS)
+
+
+def get_active_operations_count() -> int:
+    with _RETRY_BUFFER_LOCK:
+        return len(_ACTIVE_OPERATIONS)
+
+
+def get_persisted_count() -> int:
+    return _TRACE_PERSISTED_COUNT
+
+
+def get_persist_failures() -> int:
+    return _TRACE_PERSIST_FAILURES
 
 
 def get_trace_worker_stop_error() -> Optional[str]:
@@ -279,8 +372,8 @@ async def start_trace_persistence_worker(timeout_s: float = 3.0) -> bool:
 
 async def wait_trace_persistence_worker_stopped(timeout_s: float = 3.0) -> bool:
     """
-    V16.23 & V16.24 Rules 079, 093, 094: Await clean termination of background worker task.
-    Also awaits any lingering active DB threads.
+    V16.23, V16.24 & V16.25 Rules 079, 086, 093, 094: Await clean termination of background worker task.
+    Also awaits any lingering active DB threads and operation tasks.
     Records task exception if task terminated due to error.
     """
     global _TRACE_WORKER_TASK, _TRACE_WORKER_STOP_ERROR
@@ -289,7 +382,8 @@ async def wait_trace_persistence_worker_stopped(timeout_s: float = 3.0) -> bool:
         with _RETRY_BUFFER_LOCK:
             task_done = (_TRACE_WORKER_TASK is None or _TRACE_WORKER_TASK.done())
             active_batches = len(_ACTIVE_BATCH_HANDLES)
-        if task_done and active_batches == 0:
+            active_ops = len(_ACTIVE_OPERATIONS)
+        if task_done and active_batches == 0 and active_ops == 0:
             if _TRACE_WORKER_TASK and _TRACE_WORKER_TASK.done() and not _TRACE_WORKER_TASK.cancelled():
                 try:
                     exc = _TRACE_WORKER_TASK.exception()
@@ -319,9 +413,20 @@ def reset_telemetry_worker_state() -> None:
         _TRACE_QUEUE_DROPS = 0
         _RETRY_BUFFER.clear()
         _ACTIVE_BATCH_HANDLES.clear()
+        for r in list(_ACTIVE_RECEIPTS.values()):
+            try:
+                r.finalize_once("REJECTED")
+            except Exception:
+                pass
+        _ACTIVE_RECEIPTS.clear()
+        _ACTIVE_OPERATIONS.clear()
     while not _TRACE_QUEUE.empty():
         try:
             _TRACE_QUEUE.get_nowait()
+            try:
+                _TRACE_QUEUE.task_done()
+            except ValueError:
+                pass
         except queue.Empty:
             break
 
@@ -481,19 +586,32 @@ class CG01TracePersistenceWriter:
 
 def enqueue_trace_persistence(trace: CG01EvaluationTrace) -> bool:
     """
-    Appendix B, Rule 033: Non-blocking enqueue of immutable trace snapshot for background persistence.
+    Appendix B, Rule 033, V16.25 Rules 061-079: Non-blocking enqueue of immutable trace snapshot
+    along with authoritative QueueReceipt for exactly-once queue task acknowledgement.
     """
     global _TRACE_QUEUE_DROPS
+    receipt_id = f"rcpt_{trace.trace_id}_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}"
+    receipt = QueueReceipt(
+        receipt_id=receipt_id,
+        created_at_ms=int(time.time() * 1000),
+        queue_ref=_TRACE_QUEUE,
+    )
+    with _RETRY_BUFFER_LOCK:
+        _ACTIVE_RECEIPTS[receipt_id] = receipt
+
     try:
-        # Enqueue deep copy / snapshot
         t_copy = copy.deepcopy(trace)
-        _TRACE_QUEUE.put_nowait(t_copy)
+        _TRACE_QUEUE.put_nowait((t_copy, receipt))
         return True
     except queue.Full:
         _TRACE_QUEUE_DROPS += 1
+        with _RETRY_BUFFER_LOCK:
+            _ACTIVE_RECEIPTS.pop(receipt_id, None)
         logger.warning("Trace persistence queue full; dropped trace")
         return False
     except Exception as e:
+        with _RETRY_BUFFER_LOCK:
+            _ACTIVE_RECEIPTS.pop(receipt_id, None)
         logger.warning(f"Failed to enqueue trace persistence: {e}")
         return False
 
@@ -517,6 +635,8 @@ def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
             not _TRACE_QUEUE.empty()
             or get_retry_buffer_count() > 0
             or _IN_FLIGHT_COUNT > 0
+            or get_active_batch_count() > 0
+            or get_active_operations_count() > 0
         ) and (time.monotonic() - start_t) < timeout_s:
             time.sleep(0.05)
     else:
@@ -526,24 +646,43 @@ def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
             retries = list(_RETRY_BUFFER)
             _RETRY_BUFFER.clear()
 
-        for trace, attempt in retries:
-            res = _persist_trace_batch_sync([trace], attempt=attempt)
+        for item in retries:
+            trace = item[0]
+            attempt = item[1]
+            receipt = getattr(item, "receipt", None)
+            if receipt is None and len(item) >= 3:
+                receipt = item[2]
+            res = _persist_trace_batch_sync([trace], attempt=attempt, receipts=[receipt] if receipt else None)
             flushed += res.committed_count
             failed += res.failed_count
 
         # 2. Drain in-queue items
         while not _TRACE_QUEUE.empty() and (time.monotonic() - start_t) < timeout_s:
             try:
-                t = _TRACE_QUEUE.get_nowait()
+                q_item = _TRACE_QUEUE.get_nowait()
             except queue.Empty:
                 break
 
+            if isinstance(q_item, tuple) and len(q_item) == 2 and isinstance(q_item[1], QueueReceipt):
+                t, r = q_item
+            elif isinstance(q_item, CG01EvaluationTrace):
+                t = q_item
+                r_id = f"rcpt_flush_{t.trace_id}_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}"
+                r = QueueReceipt(receipt_id=r_id, created_at_ms=int(time.time()*1000), queue_ref=_TRACE_QUEUE)
+                with _RETRY_BUFFER_LOCK:
+                    _ACTIVE_RECEIPTS[r_id] = r
+            else:
+                t = q_item
+                r = None
+
             try:
-                res = _persist_trace_batch_sync([t])
+                res = _persist_trace_batch_sync([t], receipts=[r] if r else None)
                 flushed += res.committed_count
                 failed += res.failed_count
             except Exception as e:
                 failed += 1
+                if r:
+                    finalize_queue_receipt_once(r, "TERMINAL_FAILURE")
                 logger.warning(f"Error during trace flush: {e}")
 
         # Wait for any in-flight writes to finish or timeout
@@ -580,12 +719,12 @@ def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
 
 async def drain_trace_persistence(timeout_s: float = 5.0) -> Dict[str, Any]:
     """
-    V16.22 / V16.23 Rules 013, 025, 031-040, 061-069: Asynchronous non-blocking drain for trace persistence.
+    V16.22 - V16.25 Rules 013, 025, 031-050, 061-085: Asynchronous non-blocking drain for trace persistence.
     Awaits queue, retry buffer, and in-flight commits using asyncio.sleep without blocking the event loop.
     Enforces Single-Consumer Drain:
     - If worker is STARTING, awaits ready handshake before checking work.
-    - If worker is RUNNING or STOPPING, awaits worker-driven drain without stealing items.
-    - If worker is STOPPED or FAILED, delegates remaining drain to thread so event loop is never blocked.
+    - If worker is RUNNING/STOPPING or has active submitted/running operations, awaits completion without stealing items.
+    - If worker is STOPPED/FAILED and no active operations remain, delegates remaining drain to thread safely.
     """
     start_t = time.monotonic()
     boundary_token = f"bnd_{int(start_t * 1000)}"
@@ -598,17 +737,26 @@ async def drain_trace_persistence(timeout_s: float = 5.0) -> Dict[str, Any]:
         except asyncio.TimeoutError:
             pass
 
-    if _TRACE_WORKER_RUNNING or _TRACE_WORKER_STATE in ("RUNNING", "STOPPING"):
-        # Worker is the single consumer (Rules 032, 035, 062, 063). Await worker completion asynchronously without blocking
+    has_active_work = (
+        _TRACE_WORKER_RUNNING
+        or _TRACE_WORKER_STATE in ("RUNNING", "STOPPING")
+        or get_active_batch_count() > 0
+        or get_active_operations_count() > 0
+    )
+
+    if has_active_work:
+        # Worker/executor owns active operations. Await completion asynchronously without stealing items (Rules 046, 081)
         while (
             not _TRACE_QUEUE.empty()
             or get_retry_buffer_count() > 0
             or _IN_FLIGHT_COUNT > 0
             or get_active_batch_count() > 0
+            or get_active_operations_count() > 0
+            or get_outstanding_receipt_count() > 0
         ) and (time.monotonic() - start_t) < timeout_s:
             await asyncio.sleep(0.05)
     else:
-        # Worker is stopped or failed. Delegate synchronous drain to thread so asyncio loop is not blocked
+        # Worker is stopped and no active operations exist. Delegate synchronous drain to thread safely
         rem_timeout = max(0.1, timeout_s - (time.monotonic() - start_t))
         res = await asyncio.to_thread(flush_pending_traces, rem_timeout)
         res["boundary"] = boundary_token
@@ -628,14 +776,25 @@ async def drain_trace_persistence(timeout_s: float = 5.0) -> Dict[str, Any]:
     retry_pending = get_retry_buffer_count()
     current_inflight = _IN_FLIGHT_COUNT
     active_batches = get_active_batch_count()
+    active_ops = get_active_operations_count()
+    outstanding_receipts = get_outstanding_receipt_count()
+
+    all_clean = (
+        pending == 0
+        and current_inflight == 0
+        and retry_pending == 0
+        and active_batches == 0
+        and active_ops == 0
+        and outstanding_receipts == 0
+    )
 
     if _TRACE_PERSIST_FAILURES > 0 and _TRACE_QUEUE_DROPS > 0:
-        status = "COMPLETED_WITH_LOSS" if (pending == 0 and current_inflight == 0 and retry_pending == 0 and active_batches == 0) else "TIMED_OUT"
+        status = "COMPLETED_WITH_LOSS" if all_clean else "TIMED_OUT"
     elif _TRACE_QUEUE_DROPS > 0:
-        status = "COMPLETED_WITH_LOSS" if (pending == 0 and current_inflight == 0 and retry_pending == 0 and active_batches == 0) else "TIMED_OUT"
-    elif pending == 0 and current_inflight == 0 and retry_pending == 0 and active_batches == 0:
+        status = "COMPLETED_WITH_LOSS" if all_clean else "TIMED_OUT"
+    elif all_clean:
         status = "COMPLETED"
-    elif current_inflight > 0 or active_batches > 0:
+    elif current_inflight > 0 or active_batches > 0 or active_ops > 0 or outstanding_receipts > 0:
         status = "TIMED_OUT" if (time.monotonic() - start_t) >= timeout_s else "IN_FLIGHT"
     else:
         status = "TIMED_OUT"
@@ -652,6 +811,8 @@ async def drain_trace_persistence(timeout_s: float = 5.0) -> Dict[str, Any]:
         "retry_buffer": retry_pending,
         "retrying": retry_pending,
         "active_batches": active_batches,
+        "active_operations": active_ops,
+        "outstanding_receipts": outstanding_receipts,
         "terminal_loss": _TRACE_QUEUE_DROPS,
         "elapsed_sec": round(time.monotonic() - start_t, 3),
         "worker_state": _TRACE_WORKER_STATE,
@@ -670,13 +831,14 @@ def _persist_trace_batch_sync(
     attempt: int = 1,
     already_accounted_inflight: bool = False,
     handle: Optional[BatchHandle] = None,
+    receipts: Optional[List[Optional[QueueReceipt]]] = None,
 ) -> TraceBatchResult:
     """
     Rules 025, 026, 061-075, 081-085, 087: Persist trace batch in worker-owned session,
     committing only upon complete batch success.
     - session_factory invocation inside try: block (catches session-open errors cleanly).
     - If persist_trace returns False for any record, treats as batch failure (rollback & retry).
-    - Only ACKs queue items after successful commit or terminal drop.
+    - Only ACKs queue items after successful commit or terminal drop via QueueReceipt.
     - Decrements in-flight count in finally: guaranteed.
     - Updates handle state and signals completion if handle is provided.
     """
@@ -687,6 +849,14 @@ def _persist_trace_batch_sync(
 
     if handle:
         handle.state = "RUNNING"
+
+    batch_receipts: List[Optional[QueueReceipt]] = []
+    if receipts is not None:
+        batch_receipts = list(receipts)
+    elif handle and handle.receipts:
+        batch_receipts = list(handle.receipts)
+    else:
+        batch_receipts = [None] * len(batch)
 
     db = None
     persisted = 0
@@ -711,15 +881,11 @@ def _persist_trace_batch_sync(
 
         db.commit()
 
-        # ACK ONLY AFTER SUCCESSFUL COMMIT! (Rules 058, 074, 083)
+        # ACK ONLY AFTER SUCCESSFUL COMMIT VIA QUEUE RECEIPTS! (Rules 061, 068, 071, 072)
         _TRACE_PERSISTED_COUNT += persisted
-        is_retry = handle.is_retry if handle else False
-        if not is_retry:
-            for _ in range(len(batch)):
-                try:
-                    _TRACE_QUEUE.task_done()
-                except ValueError:
-                    pass
+        for r in batch_receipts:
+            if r is not None:
+                finalize_queue_receipt_once(r, "COMMITTED")
 
         res = TraceBatchResult(
             status="COMMITTED",
@@ -729,7 +895,7 @@ def _persist_trace_batch_sync(
             batch_ids=batch_ids,
         )
         if handle:
-            handle.state = "COMPLETED"
+            handle.state = "COMMITTED"
             handle.result = res
         return res
     except Exception as be:
@@ -744,21 +910,17 @@ def _persist_trace_batch_sync(
 
         retained = 0
         if attempt < 3:
-            # Retain batch for retry! DO NOT call task_done() (Rule 068, 084)
+            # Retain batch for retry! DO NOT call task_done() (Rule 067, 070)
             with _RETRY_BUFFER_LOCK:
-                for t in batch:
-                    _RETRY_BUFFER.append((t, attempt + 1))
+                for t, r in zip(batch, batch_receipts):
+                    _RETRY_BUFFER.append(RetryItem(t, attempt + 1, r))
                     retained += 1
             status = "RETRYABLE_FAILURE"
         else:
-            # Terminal dead-letter / dropped after max retries
-            is_retry = handle.is_retry if handle else False
-            if not is_retry:
-                for _ in range(len(batch)):
-                    try:
-                        _TRACE_QUEUE.task_done()
-                    except ValueError:
-                        pass
+            # Terminal dead-letter / dropped after max retries (Rule 069)
+            for r in batch_receipts:
+                if r is not None:
+                    finalize_queue_receipt_once(r, "TERMINAL_FAILURE")
             status = "PERMANENT_FAILURE"
 
         res = TraceBatchResult(
@@ -790,13 +952,15 @@ def _persist_trace_batch_sync(
 
 async def run_trace_persistence_worker() -> None:
     """
-    Appendix B, Rules 021, 031-035, 038, 056-060, 081-085, 091-095:
+    Appendix B, Rules 021-029, 031-050, 061-085:
     Background worker draining trace queue with isolated DB sessions.
     Executes synchronous database operations in thread pool without blocking asyncio event loop.
-    Prioritizes and retries batches in _RETRY_BUFFER.
-    Worker is the single consumer of queue & retry buffer.
+    Wraps submitted operations in tracked asyncio Tasks so cancellation of the worker waiter
+    never abandons in-flight or submitted batches in the executor.
+    Prioritizes and retries batches in _RETRY_BUFFER with original QueueReceipts.
     """
-    global _TRACE_WORKER_RUNNING, _IN_FLIGHT_COUNT, _TRACE_PERSIST_FAILURES, _TRACE_PERSISTED_COUNT, _TRACE_WORKER_STATE, _TRACE_WORKER_TASK
+    global _TRACE_WORKER_RUNNING, _IN_FLIGHT_COUNT, _TRACE_PERSIST_FAILURES, _TRACE_PERSISTED_COUNT
+    global _TRACE_WORKER_STATE, _TRACE_WORKER_TASK
     with _RETRY_BUFFER_LOCK:
         if _TRACE_WORKER_RUNNING and _TRACE_WORKER_STATE == "RUNNING":
             logger.warning("Trace persistence worker already running; skipping duplicate start.")
@@ -815,8 +979,8 @@ async def run_trace_persistence_worker() -> None:
     try:
         while _TRACE_WORKER_RUNNING:
             try:
-                # 1. Drain retries first with atomic ownership transfer (Rules 026, 034, 035, 044)
-                retry_items: List[Tuple[CG01EvaluationTrace, int]] = []
+                # 1. Drain retries first with atomic ownership transfer (Rules 026, 034, 035, 044, 051)
+                retry_items: List[Tuple[Any, ...]] = []
                 with _RETRY_BUFFER_LOCK:
                     if _RETRY_BUFFER:
                         retry_items = _RETRY_BUFFER[:10]
@@ -825,12 +989,19 @@ async def run_trace_persistence_worker() -> None:
 
                 unprocessed_retries = list(retry_items)
                 while unprocessed_retries:
-                    trace, attempt = unprocessed_retries.pop(0)
-                    batch_id = f"batch_retry_{trace.trace_id}_{int(time.time()*1000)}"
+                    item = unprocessed_retries.pop(0)
+                    trace = item[0]
+                    attempt = item[1]
+                    receipt = getattr(item, "receipt", None)
+                    if receipt is None and len(item) >= 3:
+                        receipt = item[2]
+
+                    batch_id = f"batch_retry_{trace.trace_id}_{int(time.time()*1000)}_{uuid.uuid4().hex[:4]}"
                     handle = BatchHandle(
                         batch_id=batch_id,
                         trace_ids=[trace.trace_id],
                         traces=[trace],
+                        receipts=[receipt],
                         attempt=attempt,
                         state="SUBMITTED",
                         is_retry=True,
@@ -838,35 +1009,75 @@ async def run_trace_persistence_worker() -> None:
                     with _RETRY_BUFFER_LOCK:
                         _ACTIVE_BATCH_HANDLES[batch_id] = handle
 
+                    def _run_retry_sync(b_id=batch_id, b_handle=handle, b_trace=trace, b_att=attempt, b_rcpt=receipt):
+                        return _persist_trace_batch_sync([b_trace], None, b_att, True, b_handle, receipts=[b_rcpt])
+
+                    op_task = asyncio.create_task(asyncio.to_thread(_run_retry_sync))
+                    handle.operation_task = op_task
+                    with _RETRY_BUFFER_LOCK:
+                        _ACTIVE_OPERATIONS[batch_id] = op_task
+
+                    def _make_retry_done(b_id=batch_id):
+                        def _on_done(t: asyncio.Task):
+                            with _RETRY_BUFFER_LOCK:
+                                _ACTIVE_OPERATIONS.pop(b_id, None)
+                            if not t.cancelled():
+                                exc = t.exception()
+                                if exc:
+                                    logger.error(f"Retry batch {b_id} task exception: {exc}")
+                        return _on_done
+
+                    op_task.add_done_callback(_make_retry_done(batch_id))
+
                     try:
-                        await asyncio.to_thread(_persist_trace_batch_sync, [trace], None, attempt, True, handle)
+                        await asyncio.shield(op_task)
                     except asyncio.CancelledError:
-                        # V16.24 Rule 028, 070: Waiter cancelled while handle is running in thread!
-                        # Running thread retains ownership of handle until completion.
+                        # V16.24 & V16.25 Rules 028, 051, 070: Waiter cancelled while handle is submitted/running!
+                        # Shielded op_task continues running/queued in executor and retains batch ownership.
                         # Only return unprocessed_retries (unstarted items) to retry buffer:
                         with _RETRY_BUFFER_LOCK:
-                            for t, a in reversed(unprocessed_retries):
-                                _RETRY_BUFFER.insert(0, (t, a))
+                            for it in reversed(unprocessed_retries):
+                                if isinstance(it, RetryItem):
+                                    _RETRY_BUFFER.insert(0, it)
+                                else:
+                                    t = it[0]
+                                    a = it[1]
+                                    r = it[2] if len(it) == 3 else getattr(it, "receipt", None)
+                                    _RETRY_BUFFER.insert(0, RetryItem(t, a, r))
                             _IN_FLIGHT_COUNT = max(0, _IN_FLIGHT_COUNT - len(unprocessed_retries))
                         raise
                     except Exception as err:
                         logger.error(f"Error persisting retry trace {trace.trace_id}: {err}")
 
-                # 2. Drain new items from queue with atomic ownership transfer (Rules 023, 043)
+                # 2. Drain new items from queue with atomic ownership transfer (Rules 023, 035, 043)
                 batch: List[CG01EvaluationTrace] = []
+                receipts: List[Optional[QueueReceipt]] = []
                 while len(batch) < 50:
                     try:
-                        item = _TRACE_QUEUE.get_nowait()
-                        batch.append(item)
+                        q_item = _TRACE_QUEUE.get_nowait()
+                        if isinstance(q_item, tuple) and len(q_item) == 2 and isinstance(q_item[1], QueueReceipt):
+                            t, r = q_item
+                        elif isinstance(q_item, CG01EvaluationTrace):
+                            t = q_item
+                            r_id = f"rcpt_legacy_{t.trace_id}_{int(time.time()*1000)}_{uuid.uuid4().hex[:6]}"
+                            r = QueueReceipt(receipt_id=r_id, created_at_ms=int(time.time()*1000), queue_ref=_TRACE_QUEUE)
+                            with _RETRY_BUFFER_LOCK:
+                                _ACTIVE_RECEIPTS[r_id] = r
+                        else:
+                            t = q_item
+                            r = None
+                        batch.append(t)
+                        receipts.append(r)
                     except queue.Empty:
                         break
 
                 if batch:
-                    batch_id = f"batch_queue_{int(time.time()*1000)}_{len(batch)}"
+                    batch_id = f"batch_queue_{int(time.time()*1000)}_{len(batch)}_{uuid.uuid4().hex[:4]}"
                     handle = BatchHandle(
                         batch_id=batch_id,
                         trace_ids=[t.trace_id for t in batch],
                         traces=batch,
+                        receipts=receipts,
                         attempt=1,
                         state="SUBMITTED",
                         is_retry=False,
@@ -875,12 +1086,31 @@ async def run_trace_persistence_worker() -> None:
                         _IN_FLIGHT_COUNT += len(batch)
                         _ACTIVE_BATCH_HANDLES[batch_id] = handle
 
+                    def _run_queue_sync(b_id=batch_id, b_handle=handle, b_batch=batch, b_rcpts=receipts):
+                        return _persist_trace_batch_sync(b_batch, None, 1, True, b_handle, receipts=b_rcpts)
+
+                    op_task = asyncio.create_task(asyncio.to_thread(_run_queue_sync))
+                    handle.operation_task = op_task
+                    with _RETRY_BUFFER_LOCK:
+                        _ACTIVE_OPERATIONS[batch_id] = op_task
+
+                    def _make_queue_done(b_id=batch_id):
+                        def _on_done(t: asyncio.Task):
+                            with _RETRY_BUFFER_LOCK:
+                                _ACTIVE_OPERATIONS.pop(b_id, None)
+                            if not t.cancelled():
+                                exc = t.exception()
+                                if exc:
+                                    logger.error(f"Queue batch {b_id} task exception: {exc}")
+                        return _on_done
+
+                    op_task.add_done_callback(_make_queue_done(batch_id))
+
                     try:
-                        await asyncio.to_thread(_persist_trace_batch_sync, batch, None, 1, True, handle)
+                        await asyncio.shield(op_task)
                     except asyncio.CancelledError:
-                        # V16.24 Rule 027, 061-075: Waiter cancelled while handle is running in thread!
-                        # Do NOT requeue handle.traces! Thread is STILL RUNNING and owns the batch!
-                        # Do NOT decrement _IN_FLIGHT_COUNT! Thread will decrement upon exit!
+                        # V16.25 Rules 021-024, 031-050: Waiter cancelled while batch is submitted/running!
+                        # Shielded op_task continues running/queued in executor and retains batch ownership.
                         raise
                     except Exception as be:
                         logger.error(f"Error persisting trace batch: {be}")
