@@ -61,6 +61,8 @@ PARAMETER_ORIGINS: Dict[str, str] = {
     "max_trigger_age_ms": "IMPLEMENTATION_PARAMETER",
     "candidate_ttl_ms": "IMPLEMENTATION_PARAMETER",
     "min_net_rr": "IMPLEMENTATION_PARAMETER",
+    "htf_min_bars": "IMPLEMENTATION_PARAMETER",
+    "htf_break_buffer_ticks": "IMPLEMENTATION_PARAMETER",
 }
 
 
@@ -86,6 +88,10 @@ class CG01Config:
     sl_buffer_ticks: int = 5
     tick_size: float = 0.01
 
+    # HTF structure parameters (V16.12 Section D)
+    htf_min_bars: int = 12
+    htf_break_buffer_ticks: int = 0
+
     # POI & FVG Freshness
     max_touch_episodes: int = 2
     max_fvg_mitigation_ratio: float = 0.50
@@ -109,8 +115,14 @@ class CG01Config:
             raise ValueError("INVALID_CONFIG: min_net_rr must be > 0")
         if self.max_touch_episodes <= 0:
             raise ValueError("INVALID_CONFIG: max_touch_episodes must be > 0")
-        if self.pivot_left_bars < 1 or self.pivot_right_bars < 1:
-            raise ValueError("INVALID_CONFIG: pivot bars must be >= 1")
+        if type(self.pivot_left_bars) is not int or self.pivot_left_bars < 1 or type(self.pivot_right_bars) is not int or self.pivot_right_bars < 1:
+            raise ValueError("INVALID_CONFIG: pivot bars must be int >= 1")
+        if type(self.htf_min_bars) is not int or self.htf_min_bars <= 0:
+            raise ValueError("INVALID_CONFIG: htf_min_bars must be positive int")
+        if type(self.htf_break_buffer_ticks) is not int or self.htf_break_buffer_ticks < 0:
+            raise ValueError("INVALID_CONFIG: htf_break_buffer_ticks must be non-negative int")
+        if not math.isfinite(self.tick_size) or self.tick_size <= 0:
+            raise ValueError("INVALID_CONFIG: tick_size must be positive finite float")
 
 
 @dataclass(frozen=True)

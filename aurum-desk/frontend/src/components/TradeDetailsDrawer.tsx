@@ -311,6 +311,7 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
               <EvidenceAccordion
                 explanation={selectedRawBundle?.entry_explanation}
                 provenance={selectedRawBundle?.provenance}
+                htfContext={selectedRawBundle?.htf_context}
                 loading={selectedEvidenceLoading}
                 error={selectedEvidenceError}
               />

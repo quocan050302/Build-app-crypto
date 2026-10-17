@@ -1,0 +1,59 @@
+{
+  "policy_version": "v16.12",
+  "primary_execution_timeframe": "1H",
+  "higher_context_timeframe": "4H",
+  "dealing_range_timeframe": "15M",
+  "entry_timeframe": "1M",
+  "matrix": [
+    {
+      "h4_bias": "BULLISH",
+      "h1_bias": "BULLISH",
+      "relation": "ALIGNED",
+      "readiness": "READY",
+      "directions_to_evaluate": [
+        "LONG"
+      ],
+      "reason": "H1 t\u0103ng \u0111\u1ed3ng thu\u1eadn H4; \u0111\u00e1nh gi\u00e1 c\u01a1 h\u1ed9i Mua thu\u1eadn xu h\u01b0\u1edbng."
+    },
+    {
+      "h4_bias": "BULLISH",
+      "h1_bias": "BEARISH",
+      "relation": "DIVERGENT",
+      "readiness": "READY",
+      "directions_to_evaluate": [
+        "SHORT"
+      ],
+      "reason": "H1 l\u00e0 khung ch\u1ee7 \u0111\u1ea1o; H1 gi\u1ea3m trong H4 t\u0103ng \u0111\u01b0\u1ee3c di\u1ec5n gi\u1ea3i l\u00e0 \u0111i\u1ec1u ch\u1ec9nh."
+    },
+    {
+      "h4_bias": "BULLISH",
+      "h1_bias": "UNKNOWN (phase=TRANSITION)",
+      "relation": "TRANSITION",
+      "readiness": "READY",
+      "directions_to_evaluate": [
+        "LONG",
+        "SHORT"
+      ],
+      "reason": "H1 \u0111ang chuy\u1ec3n tr\u1ea1ng th\u00e1i c\u1ea5u tr\u00fac; m\u1edf xem x\u00e9t c\u1ea3 hai chi\u1ec1u c\u00f3 \u0111i\u1ec1u ki\u1ec7n."
+    },
+    {
+      "h4_bias": "BULLISH",
+      "h1_bias": "RANGE",
+      "relation": "RANGE",
+      "readiness": "READY",
+      "directions_to_evaluate": [
+        "LONG",
+        "SHORT"
+      ],
+      "reason": "H1 \u0111ang trong bi\u00ean \u0111\u1ed9 Range; \u0111\u00e1nh gi\u00e1 c\u1ea3 hai chi\u1ec1u theo v\u1ecb th\u1ebf Dealing Range."
+    },
+    {
+      "h4_bias": "ANY",
+      "h1_bias": "UNKNOWN (phase=INSUFFICIENT_DATA)",
+      "relation": "UNKNOWN",
+      "readiness": "NOT_READY",
+      "directions_to_evaluate": [],
+      "reason": "Ch\u01b0a \u0111\u1ee7 s\u1ed1 n\u1ebfn \u0111\u00f3ng t\u1ed1i thi\u1ec3u \u0111\u1ec3 \u0111\u00e1nh gi\u00e1 c\u1ea5u tr\u00fac HTF."
+    }
+  ]
+}

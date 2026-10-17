@@ -177,20 +177,15 @@ def build_htf_context(
         as_of_ms=computed_as_of,
         config=config,
         symbol=symbol,
+        min_bars=min_bars,
     )
-
-    # If candle count is strictly less than min_bars, mark INSUFFICIENT_BARS provenance
-    if len(closed_candles) < min_bars and snapshot.bias == "UNKNOWN":
-        prov = "INSUFFICIENT_BARS"
-    else:
-        prov = snapshot.provenance
 
     return HTFContext(
         timeframe=timeframe,
         bias=snapshot.bias,
         bars=snapshot.bars,
         last_closed_ms=snapshot.last_bar_close_ms,
-        provenance=prov,
+        provenance=snapshot.provenance,
         last_confirmed_bias=snapshot.last_confirmed_bias,
         phase=snapshot.phase,
         as_of_ms=snapshot.as_of_ms,

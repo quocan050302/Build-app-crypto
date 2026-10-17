@@ -306,24 +306,27 @@ class ScalpWatcherOrchestrator:
         if atr_15m <= 0:
             atr_15m = 2.0
 
+        # Rules 105 - 108: Causal HTF Resolution for evaluate_cycle
         if htf_bias is not None:
             bias = htf_bias
-        elif c_4h:
-            from services.smc_regime_service import build_htf_context
-            h4_ctx = build_htf_context(c_4h, "4H", as_of_ms=t_recv, symbol=symbol)
-            bias = getattr(h4_ctx, "bias", "UNKNOWN")
-        else:
-            bias = collector_service.d_4h_bias
-
-        if h1_alignment is not None:
-            align = h1_alignment
-        elif c_4h and c_1h:
+            align = h1_alignment if h1_alignment is not None else "UNKNOWN"
+            context_source = "INJECTED_REPLAY"
+        elif c_4h is not None:
+            # Explicit candle injection (even if empty list)
             from services.smc_regime_service import build_htf_context, h1_alignment_from
             h4_ctx = build_htf_context(c_4h, "4H", as_of_ms=t_recv, symbol=symbol)
-            h1_ctx = build_htf_context(c_1h, "1H", as_of_ms=t_recv, symbol=symbol)
-            align = h1_alignment_from(h4_ctx, h1_ctx)
+            bias = getattr(h4_ctx, "bias", "UNKNOWN")
+            if c_1h is not None:
+                h1_ctx = build_htf_context(c_1h, "1H", as_of_ms=t_recv, symbol=symbol)
+                align = h1_alignment_from(h4_ctx, h1_ctx)
+            else:
+                align = "UNKNOWN"
+            context_source = "INJECTED_REPLAY"
         else:
+            # Fallback to live collector singleton only when caller did not provide HTF candles
+            bias = collector_service.d_4h_bias
             align = collector_service.h1_alignment
+            context_source = "LIVE_COLLECTOR"
 
         # 2. Watchlist update from 15M/5M closures
         existing_zones = self.get_active_zones(symbol)

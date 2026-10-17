@@ -403,6 +403,7 @@ def build_selected_chart_bundle_from_dict(
         'provenance': prov,
         'entry_explanation': explanation,
         'is_empty': not nodes,
+        'htf_context': (data.get('context') or {}).get('htf_context') or data.get('htf_context'),
     }
 
 

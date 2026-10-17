@@ -58,6 +58,7 @@ from services.liquidity_scenario_service import (
 )
 from services.scalp_m1_model_service import ScalpCandidate, candle_open_ms, resolve_executable_target
 from services.scalp_m1_types import ModelIdentifier, OpportunityStage, WatchedZone, ZoneState
+from services.htf_structure_service import filter_closed_candles, resolve_cg01_direction_context
 from services.smc_liquidity_service import build_liquidity_map, update_liquidity_states
 from services.smc_regime_service import build_htf_context
 from services.zone_watchlist_service import ZoneWatchlistService
@@ -156,8 +157,9 @@ def build_cg01_context(
     c_15m = [normalize_cg01_candle(b, "15M") if not isinstance(b, CanonicalCandle) else b for b in (closed_context.get("15M") or [])]
     c_1m = [normalize_cg01_candle(b, "1M") if not isinstance(b, CanonicalCandle) else b for b in (closed_context.get("1M") or [])]
 
-    # Rule 041: Warmup validation
-    if len(c_4h) < 12 or len(c_1h) < 12 or len(c_15m) < 12:
+    # Rule 045: Warmup validation with dynamic config min_bars
+    min_b = getattr(config, "htf_min_bars", 12) if config else 12
+    if len(c_4h) < min_b or len(c_1h) < min_b or len(c_15m) < min_b:
         return {
             "status": "CONTEXT_WARMUP",
             "is_warmup": True,
@@ -169,8 +171,8 @@ def build_cg01_context(
             "reason": "Chưa đủ số nến đóng tối thiểu cho khung H4/H1/15M.",
         }
 
-    h4_ctx = build_htf_context(c_4h, "4H", as_of_ms=now_ms, config=config)
-    h1_ctx = build_htf_context(c_1h, "1H", as_of_ms=now_ms, config=config)
+    h4_ctx = build_htf_context(c_4h, "4H", as_of_ms=now_ms, config=config, min_bars=min_b)
+    h1_ctx = build_htf_context(c_1h, "1H", as_of_ms=now_ms, config=config, min_bars=min_b)
 
     # Dealing range from 15M swings (Rules 036 - 038)
     left_b = config.pivot_left_bars if config else 2
@@ -185,9 +187,18 @@ def build_cg01_context(
     )
     dealing_range = compute_dealing_range([*shs, *sls], now_ms=now_ms, symbol="XAUUSDT")
 
+    # Rule 098: Causal price for range position calculation at now_ms
+    c_1m_closed = filter_closed_candles(c_1m, "1M", now_ms) if c_1m else []
+    c_15m_closed = filter_closed_candles(c_15m, "15M", now_ms) if c_15m else []
     last_close = 0.0
-    if c_1m:
+    if c_1m_closed:
+        last_bar = c_1m_closed[-1]
+        last_close = float(last_bar.get("close", 0.0) if isinstance(last_bar, dict) else getattr(last_bar, "close", 0.0))
+    elif c_1m:
         last_bar = c_1m[-1]
+        last_close = float(last_bar.get("close", 0.0) if isinstance(last_bar, dict) else getattr(last_bar, "close", 0.0))
+    elif c_15m_closed:
+        last_bar = c_15m_closed[-1]
         last_close = float(last_bar.get("close", 0.0) if isinstance(last_bar, dict) else getattr(last_bar, "close", 0.0))
     elif c_15m:
         last_bar = c_15m[-1]
@@ -198,7 +209,6 @@ def build_cg01_context(
         range_position = assess_range_position(last_close, dealing_range)
 
     # Context Bias & Direction Context determination (V16.11)
-    from services.htf_structure_service import resolve_cg01_direction_context
     dir_ctx = resolve_cg01_direction_context(
         h4_ctx=h4_ctx,
         h1_ctx=h1_ctx,
@@ -913,6 +923,7 @@ def evaluate_cg01_candidate(
                 trigger_known_at=trigger_known_at,
                 execution_valid_until=valid_until,
                 deadline_constraints=exec_deadline.constraints,
+                htf_data=htf_data,
             )
 
             # Rule 153 & V16.11: Six short sentences for newbie drawer

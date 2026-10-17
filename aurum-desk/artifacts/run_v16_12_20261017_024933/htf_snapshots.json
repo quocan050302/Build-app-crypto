@@ -1,0 +1,36 @@
+[
+  {
+    "case_name": "REBOUND_BULLISH_PROTECTION",
+    "description": "Bullish sequence broken at 2515 (protected low 2520), followed by rebound to 2530 without new causal swings",
+    "as_of_ms": 1700061200000,
+    "baseline_behavior": "BULLISH (Error: old swing pairs reused after invalidation)",
+    "corrected_bias": "UNKNOWN",
+    "phase": "TRANSITION",
+    "last_confirmed_bias": "BULLISH",
+    "latest_event_type": "PROTECTED_LOW_BREAK",
+    "evidence_reason": "Rebound candle without new confirmed causal swings strictly stays in TRANSITION; old swings cannot re-bootstrap trend."
+  },
+  {
+    "case_name": "RANGE_BREAKOUT_UP",
+    "description": "Oscillating range (highs 105, lows 95) followed by close at 110 above range high 105",
+    "as_of_ms": 1700075600000,
+    "baseline_behavior": "RANGE with latest_structure_event=None (Error: range state ignored closes outside bounds)",
+    "corrected_bias": "UNKNOWN",
+    "phase": "TRANSITION",
+    "last_confirmed_bias": "UNKNOWN",
+    "latest_event_type": "RANGE_BREAK_UP",
+    "reference_price": 105.0,
+    "evidence_reason": "Close at 110.0 above frozen range_high (105.0) triggers RANGE_BREAK_UP and shifts phase to TRANSITION."
+  },
+  {
+    "case_name": "RANGE_REENTRY_FAILED_BREAKOUT",
+    "description": "Candle closes at 103.0 back inside frozen range bounds (95 - 105) before new trend is established",
+    "as_of_ms": 1700079200000,
+    "baseline_behavior": "Undefined / permanently stuck in breakout loop",
+    "corrected_bias": "RANGE",
+    "phase": "RANGE",
+    "last_confirmed_bias": "UNKNOWN",
+    "latest_event_type": "RANGE_REENTRY",
+    "evidence_reason": "Close back within original range boundaries restores RANGE phase and issues RANGE_REENTRY event."
+  }
+]

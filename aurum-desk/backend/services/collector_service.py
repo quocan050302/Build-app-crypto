@@ -121,49 +121,54 @@ class CollectorService:
             # 1. Independent Daily Context (D) - closed candles only
             d_candles = crud.get_closed_candles(db, symbol, "D", limit=50, ascending=True)
             d_ctx = build_htf_context(d_candles, "D", as_of_ms=as_of_ms, symbol=symbol, min_bars=15)
-            self.d_bias = d_ctx.bias
+            d_bias = d_ctx.bias
 
             # 2. Independent 4H Bias (4H) - closed candles only
             h4_candles = crud.get_closed_candles(db, symbol, "4H", limit=80, ascending=True)
             h4_ctx = build_htf_context(h4_candles, "4H", as_of_ms=as_of_ms, symbol=symbol, min_bars=15)
-            self.h4_bias = h4_ctx.bias
+            h4_bias = h4_ctx.bias
 
             # 3. Synthesized HTF Context (Conflict aware)
-            if self.d_bias in ("BULLISH", "BEARISH") and self.h4_bias in ("BULLISH", "BEARISH"):
-                if self.d_bias == self.h4_bias:
-                    self.d_4h_bias = self.d_bias
+            if d_bias in ("BULLISH", "BEARISH") and h4_bias in ("BULLISH", "BEARISH"):
+                if d_bias == h4_bias:
+                    d_4h_bias = d_bias
                 else:
-                    self.d_4h_bias = "CONFLICT"
-            elif self.h4_bias in ("BULLISH", "BEARISH"):
-                self.d_4h_bias = self.h4_bias
-            elif self.d_bias in ("BULLISH", "BEARISH"):
-                self.d_4h_bias = self.d_bias
+                    d_4h_bias = "CONFLICT"
+            elif h4_bias in ("BULLISH", "BEARISH"):
+                d_4h_bias = h4_bias
+            elif d_bias in ("BULLISH", "BEARISH"):
+                d_4h_bias = d_bias
             else:
-                self.d_4h_bias = "UNKNOWN"
+                d_4h_bias = "UNKNOWN"
 
             # 4. Independent 1H Context & Alignment
             h1_candles = crud.get_closed_candles(db, symbol, "1H", limit=80, ascending=True)
             h1_ctx = build_htf_context(h1_candles, "1H", as_of_ms=as_of_ms, symbol=symbol, min_bars=15)
             h1_trend = h1_ctx.bias
 
-            if self.d_4h_bias in ("BULLISH", "BEARISH"):
-                if h1_trend == self.d_4h_bias:
-                    self.h1_alignment = "ALIGNED"
+            if d_4h_bias in ("BULLISH", "BEARISH"):
+                if h1_trend == d_4h_bias:
+                    h1_alignment = "ALIGNED"
                 elif h1_trend in ("BULLISH", "BEARISH"):
-                    self.h1_alignment = "OPPOSING"
+                    h1_alignment = "OPPOSING"
                 else:
-                    self.h1_alignment = "NEUTRAL"
+                    h1_alignment = "NEUTRAL"
             else:
-                self.h1_alignment = "NEUTRAL" if h1_trend != "UNKNOWN" else "UNKNOWN"
+                h1_alignment = "NEUTRAL" if h1_trend != "UNKNOWN" else "UNKNOWN"
 
-            # Store rich HTF contexts atomically
-            self.htf_contexts = {
+            # Store rich HTF contexts and projections atomically
+            bundle = {
                 "D": d_ctx.to_dict(),
                 "4H": h4_ctx.to_dict(),
                 "1H": h1_ctx.to_dict(),
                 "as_of_ms": as_of_ms,
             }
-            self._last_htf_update = as_of_ms
+            self.d_bias = d_bias
+            self.h4_bias = h4_bias
+            self.d_4h_bias = d_4h_bias
+            self.h1_alignment = h1_alignment
+            self.htf_contexts = bundle
+            self._last_htf_update = time.time()
         finally:
             db.close()
 

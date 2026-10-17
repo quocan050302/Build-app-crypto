@@ -57,6 +57,12 @@ def build_cg01_evidence_nodes(
                 "h4_bias": htf_data.get("h4_bias", "NEUTRAL"),
                 "h1_bias": htf_data.get("h1_bias", "NEUTRAL"),
                 "range_position": htf_data.get("range_position", "EQUILIBRIUM"),
+                "relation": htf_data.get("relation", "ALIGNED"),
+                "h1_phase": (htf_data.get("h1_snapshot") or {}).get("phase"),
+                "h4_phase": (htf_data.get("h4_snapshot") or {}).get("phase"),
+                "h1_protected_low": (htf_data.get("h1_snapshot") or {}).get("protected_low"),
+                "h1_protected_high": (htf_data.get("h1_snapshot") or {}).get("protected_high"),
+                "latest_structure_event": (htf_data.get("h1_snapshot") or {}).get("latest_structure_event"),
             },
         ).to_dict(),
 
@@ -237,10 +243,14 @@ def build_cg01_snapshot(
     trigger_known_at: Optional[int] = None,
     execution_valid_until: Optional[int] = None,
     deadline_constraints: Optional[Dict[str, int]] = None,
+    *,
+    htf_data: Optional[Dict[str, Any]] = None,
 ) -> ScenarioSnapshot:
     """
     Rule 121 - 127: Builds immutable ScenarioSnapshot object for CG-01 ScalpCandidate.
+    V16.12 Rules 111 - 114: Persists causal HTF decision context inside snapshot.
     """
+    import copy
     cfg_version = config.config_version if config else 1
     model_ver = config.model_version if config else "v16.2"
 
@@ -286,6 +296,23 @@ def build_cg01_snapshot(
         "deadline_constraints": deadline_constraints or {},
     }
 
+    snap_context: Dict[str, Any] = {
+        "trigger_known_at": trigger_known_at,
+        "execution_valid_until": execution_valid_until,
+        "deadline_constraints": deadline_constraints or {},
+    }
+
+    if htf_data:
+        snap_context["htf_context"] = {
+            "schema_version": "v16.12",
+            "evaluation_as_of_ms": now_ms,
+            "h4_snapshot": copy.deepcopy(htf_data.get("h4_snapshot")),
+            "h1_snapshot": copy.deepcopy(htf_data.get("h1_snapshot")),
+            "direction_context": copy.deepcopy(htf_data.get("direction_context")),
+            "settings_fingerprint": f"cfg_v{cfg_version}",
+            "context_source": htf_data.get("context_source", "DECISION_CONTEXT"),
+        }
+
     snap = ScenarioSnapshot(
         scenario_id=f"scen-{candidate_key}",
         instance_id=candidate_key,
@@ -309,11 +336,7 @@ def build_cg01_snapshot(
         plan=plan,
         evidence=ev_nodes,
         session_name="LONDON_NY",
-        context={
-            "trigger_known_at": trigger_known_at,
-            "execution_valid_until": execution_valid_until,
-            "deadline_constraints": deadline_constraints or {},
-        },
+        context=snap_context,
     )
 
     return snap

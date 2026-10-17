@@ -1,0 +1,27 @@
+{
+  "version": "v16.12",
+  "evaluated_at_utc": "2026-10-17T02:49:33.844528+00:00",
+  "commit_sha": "11fea7325f30495757f4ccce754b515886583b09",
+  "diff_hash": "a04df79bc93af59d65a87f26fa334629379b0f5e192605def3c6a2c38b9da6ae",
+  "overall_technical_status": "PASS",
+  "trading_performance_status": "NOT_EVALUATED",
+  "gates": {
+    "GATE_A_CLOSED_CANDLE_CAUSALITY_CONFIG": "PASS",
+    "GATE_B_TRANSITION_RANGE_NON_REBOUND": "PASS",
+    "GATE_C_REPLAY_COLLECTOR_ISOLATION": "PASS",
+    "GATE_D_REAL_PAPER_ENTRY_LIFECYCLE": "PASS",
+    "GATE_E_IMMUTABLE_EVIDENCE_PERSISTENCE": "PASS",
+    "GATE_F_LEGACY_V16_REGRESSION": "PASS"
+  },
+  "test_counts": {
+    "v16_12_state_machine_passed": 16,
+    "v16_12_state_machine_failed": 0,
+    "v16_12_execution_passed": 5,
+    "v16_12_execution_failed": 0,
+    "v16_11_htf_structure_passed": 15,
+    "v16_11_htf_structure_failed": 0,
+    "v16_total_selected": 216,
+    "v16_total_failed": 0,
+    "note": "B\u1ed9 test -k v16 c\u00f3 216 test pass, bao g\u1ed3m 15 test V16.11, 16 test state machine V16.12 v\u00e0 5 test execution V16.12. Kh\u00f4ng b\u00e1o tr\u00f9ng l\u1eb7p th\u00e0nh s\u1ed1 l\u01b0\u1ee3ng \u1ea3o."
+  }
+}

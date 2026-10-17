@@ -1336,3 +1336,4 @@ class ChartEvidenceDTO(BaseModel):
     is_empty: bool = False
     provenance: Optional[Dict[str, Any]] = None
     entry_explanation: Optional[Dict[str, Any]] = None
+    htf_context: Optional[Dict[str, Any]] = None

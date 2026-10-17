@@ -14,6 +14,7 @@ import {
 export interface EvidenceAccordionProps {
   explanation?: EntryExplanationDTO | null;
   provenance?: SnapshotProvenanceDTO | null;
+  htfContext?: any | null;
   loading?: boolean;
   error?: string | null;
   initialExpanded?: boolean;
@@ -22,6 +23,7 @@ export interface EvidenceAccordionProps {
 export const EvidenceAccordion: React.FC<EvidenceAccordionProps> = ({
   explanation,
   provenance,
+  htfContext,
   loading = false,
   error = null,
   initialExpanded = true,
@@ -122,14 +124,59 @@ export const EvidenceAccordion: React.FC<EvidenceAccordionProps> = ({
     return String(levels);
   };
 
+  const formatHtfContext = (htf: any, legacyContext: any): { status: string; content: string; detail?: string } => {
+    if (!htf) {
+      if (!legacyContext) {
+        return { status: 'MISSING', content: 'Lệnh cũ chưa lưu bằng chứng HTF' };
+      }
+      return {
+        status: legacyContext?.h4_bias && legacyContext?.h4_bias !== 'UNKNOWN' ? 'CONFIRMED' : 'OBSERVED',
+        content: `H4: ${legacyContext.h4_bias || 'Chưa rõ'} · H1: ${legacyContext.h1_alignment || 'Chưa rõ'} · Chế độ: ${legacyContext.regime || 'Chưa rõ'}`,
+      };
+    }
+
+    const h4 = htf.h4_snapshot;
+    const h1 = htf.h1_snapshot;
+    const dir = htf.direction_context;
+
+    const translateBias = (bias?: string, phase?: string) => {
+      if (phase === 'TRANSITION') return 'đang chuyển cấu trúc (chờ xác nhận mới)';
+      if (phase === 'INSUFFICIENT_DATA') return 'chưa đủ nến đóng để đánh giá';
+      if (bias === 'BULLISH') return 'tăng';
+      if (bias === 'BEARISH') return 'giảm';
+      if (bias === 'RANGE') return 'đi ngang (Range)';
+      return 'chưa rõ';
+    };
+
+    const h4Text = `H4 ${translateBias(h4?.bias, h4?.phase)}`;
+    const h1Text = `H1 ${translateBias(h1?.bias, h1?.phase)}`;
+    const relText = dir?.relation ? ` · Quan hệ: ${dir.relation}` : '';
+    const mainContent = `${h4Text} · ${h1Text}${relText}`;
+
+    let detail = 'HTF là bối cảnh; lệnh còn cần quét thanh khoản → MSS/displacement → FVG → retest/entry hợp lệ.';
+    if (h1?.protected_low != null) {
+      detail += ` · H1 Protected Low: $${Number(h1.protected_low).toFixed(2)}`;
+    } else if (h1?.protected_high != null) {
+      detail += ` · H1 Protected High: $${Number(h1.protected_high).toFixed(2)}`;
+    }
+
+    const isConfirmed = h1?.phase === 'ESTABLISHED' || h1?.phase === 'PULLBACK' || h1?.phase === 'RANGE';
+    return {
+      status: isConfirmed ? 'CONFIRMED' : 'OBSERVED',
+      content: mainContent,
+      detail,
+    };
+  };
+
+  const htfInfo = formatHtfContext(htfContext, context);
+
   const rows = [
     {
       key: 'context',
-      title: 'Bối cảnh',
-      status: context?.h4_bias && context?.h4_bias !== 'UNKNOWN' ? 'CONFIRMED' : 'MISSING',
-      content: context
-        ? `H4 Bias: ${context.h4_bias || 'Chưa rõ'} · H1: ${context.h1_alignment || 'Chưa rõ'} · Chế độ: ${context.regime || 'Chưa rõ'}`
-        : 'Chưa có bằng chứng',
+      title: 'Bối cảnh HTF (H4 / H1)',
+      status: htfInfo.status,
+      content: htfInfo.content,
+      detail: htfInfo.detail,
     },
     {
       key: 'liquidity',
@@ -248,6 +295,9 @@ export const EvidenceAccordion: React.FC<EvidenceAccordionProps> = ({
                 {row.content}
                 {row.price && <span className="ml-1 text-aurum-400 font-mono">(${row.price})</span>}
                 {row.nodeId && <span className="ml-1 text-[10px] text-gray-500 font-mono">[{row.nodeId}]</span>}
+                {'detail' in row && row.detail && (
+                  <p className="mt-1 text-[10px] text-gray-500 italic">{row.detail}</p>
+                )}
               </div>
             </div>
           ))}

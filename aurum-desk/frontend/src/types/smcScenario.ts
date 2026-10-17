@@ -141,4 +141,5 @@ export interface ChartEvidenceBundleV144 {
   is_empty?: boolean;
   provenance?: SnapshotProvenanceDTO;
   entry_explanation?: EntryExplanationDTO;
+  htf_context?: any;
 }
