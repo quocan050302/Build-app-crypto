@@ -9,6 +9,7 @@ Enforces:
 """
 from __future__ import annotations
 
+import csv
 import json
 import math
 import os
@@ -33,6 +34,7 @@ from services.cg01_context_adapter import (
 )
 
 from tools.download_v16_27_m1_dataset import (
+    download_m1_candles,
     validate_and_normalize,
     compute_logical_sha256,
     CADENCE_MS,
@@ -42,9 +44,11 @@ from tools.eval_cg01_v16_27_baseline import (
     fast_select_closed_candles,
     fast_aggregation_context,
     reset_fast_caches,
+    normalize_replay_closed_trade,
     process_closed_trades,
     export_run_artifacts,
 )
+
 
 
 # =====================================================================
@@ -154,6 +158,227 @@ def test_downloader_invalid_geometry_and_non_finite():
     assert len(candles) == 1
     assert stats["invalid_geometry_rejected"] == 1
     assert stats["non_finite_rejected"] == 2
+
+
+# =====================================================================
+# 1B. GENUINE DOWNLOADER LOOP & PAGINATION TESTS (Part B & Gate 2)
+# Directly invokes download_m1_candles() with injected FakeBitgetClient.
+# =====================================================================
+
+class FakeBitgetResponse:
+    def __init__(self, status_code: int = 200, payload: Dict[str, Any] = None):
+        self.status_code = status_code
+        self._payload = payload or {"code": "00000", "msg": "success", "data": []}
+
+    def json(self):
+        return self._payload
+
+
+class FakeBitgetClient:
+    def __init__(self, handler=None):
+        self.handler = handler
+        self.calls: List[Dict[str, Any]] = []
+        self.is_closed = False
+
+    def get(self, url: str, params: Dict[str, Any] = None):
+        self.calls.append({"url": url, "params": dict(params or {})})
+        if self.handler:
+            return self.handler(url, params)
+        return FakeBitgetResponse(200, {"code": "00000", "msg": "success", "data": []})
+
+    def close(self):
+        self.is_closed = True
+
+
+def test_downloader_genuine_pagination_three_pages_traversal(monkeypatch):
+    """
+    Directly invokes download_m1_candles() with an injected FakeBitgetClient across 3 pages.
+    Simulates Bitget close-time semantics (close_time <= endTime).
+    Verifies that endTime decrements correctly on each iteration and reaches COMPLETE status.
+    """
+    monkeypatch.setattr("tools.download_v16_27_m1_dataset.time.sleep", lambda s: None)
+
+    start_ms = 1789736700000  # Target start (t=0)
+    end_ms = 1789737000000    # Target end_exclusive (t=300000, 5 mins)
+
+    # 3 pages:
+    # Page 1: endTime = 1789737000000 -> returns candles with open_time [1789736880000, 1789736940000]
+    # Page 2: endTime = 1789736880000 -> returns candles with open_time [1789736760000, 1789736820000]
+    # Page 3: endTime = 1789736760000 -> returns candle with open_time [1789736700000] (earliest <= start_ms)
+    def mock_get(url: str, params: Dict[str, Any]):
+        end_time = params["endTime"]
+        if end_time == 1789737000000:
+            return FakeBitgetResponse(200, {
+                "code": "00000",
+                "data": [
+                    [1789736880000, "2600.0", "2601.0", "2599.0", "2600.5", "10.0"],
+                    [1789736940000, "2600.5", "2602.0", "2600.0", "2601.5", "12.0"],
+                ]
+            })
+        elif end_time == 1789736880000:
+            return FakeBitgetResponse(200, {
+                "code": "00000",
+                "data": [
+                    [1789736760000, "2598.0", "2599.0", "2597.5", "2598.5", "8.0"],
+                    [1789736820000, "2598.5", "2600.0", "2598.0", "2600.0", "9.0"],
+                ]
+            })
+        elif end_time == 1789736760000:
+            return FakeBitgetResponse(200, {
+                "code": "00000",
+                "data": [
+                    [1789736700000, "2597.0", "2598.0", "2596.5", "2597.5", "7.0"],
+                ]
+            })
+        return FakeBitgetResponse(200, {"code": "00000", "data": []})
+
+    client = FakeBitgetClient(handler=mock_get)
+    raw_rows, status = download_m1_candles(start_ms, end_ms, client=client)
+
+    assert status == "COMPLETE"
+    assert len(client.calls) == 3
+    assert client.calls[0]["params"]["endTime"] == 1789737000000
+    assert client.calls[1]["params"]["endTime"] == 1789736880000
+    assert client.calls[2]["params"]["endTime"] == 1789736760000
+    assert len(raw_rows) == 5
+
+    # Validate that raw_rows produce contiguous sequence
+    candles, stats = validate_and_normalize(raw_rows, start_ms, end_ms)
+    assert len(candles) == 5
+    assert stats["gaps_count"] == 0
+    assert client.is_closed is False  # Injected client should not be closed
+
+
+def test_downloader_genuine_no_progress_termination(monkeypatch):
+    """
+    Verifies that if API returns earliest >= current_end, download_m1_candles terminates immediately
+    with PARTIAL status rather than entering an infinite loop.
+    """
+    monkeypatch.setattr("tools.download_v16_27_m1_dataset.time.sleep", lambda s: None)
+
+    def stuck_get(url: str, params: Dict[str, Any]):
+        return FakeBitgetResponse(200, {
+            "code": "00000",
+            # Earliest returned is 1789737000000 which is >= current_end
+            "data": [[1789737000000, "2600.0", "2601.0", "2599.0", "2600.5", "10.0"]]
+        })
+
+    client = FakeBitgetClient(handler=stuck_get)
+    raw_rows, status = download_m1_candles(1789736000000, 1789737000000, client=client)
+
+    assert status == "PARTIAL"
+    assert len(client.calls) == 1
+    assert len(raw_rows) == 1
+
+
+def test_downloader_genuine_http_failure_first_page(monkeypatch):
+    """Verifies that HTTP 500 across all 4 retries on first page results in FAILED status."""
+    monkeypatch.setattr("tools.download_v16_27_m1_dataset.time.sleep", lambda s: None)
+
+    client = FakeBitgetClient(handler=lambda u, p: FakeBitgetResponse(500, {}))
+    raw_rows, status = download_m1_candles(1789736000000, 1789737000000, client=client)
+
+    assert status == "FAILED"
+    assert len(raw_rows) == 0
+    assert len(client.calls) == 4  # 4 retry attempts
+
+
+def test_downloader_genuine_http_failure_subsequent_page(monkeypatch):
+    """Verifies that failure on page 2 after successful page 1 results in PARTIAL status with data preserved."""
+    monkeypatch.setattr("tools.download_v16_27_m1_dataset.time.sleep", lambda s: None)
+
+    call_count = 0
+    def mock_get(url: str, params: Dict[str, Any]):
+        nonlocal call_count
+        call_count += 1
+        if params["endTime"] == 1789737000000:
+            return FakeBitgetResponse(200, {
+                "code": "00000",
+                "data": [[1789736940000, "2600.0", "2601.0", "2599.0", "2600.5", "10.0"]]
+            })
+        return FakeBitgetResponse(500, {})
+
+    client = FakeBitgetClient(handler=mock_get)
+    raw_rows, status = download_m1_candles(1789736000000, 1789737000000, client=client)
+
+    assert status == "PARTIAL"
+    assert len(raw_rows) == 1
+    assert len(client.calls) == 5  # 1 successful + 4 failed retries on page 2
+
+
+def test_downloader_genuine_api_code_error(monkeypatch):
+    """Verifies that HTTP 200 with code != '00000' is treated as request failure."""
+    monkeypatch.setattr("tools.download_v16_27_m1_dataset.time.sleep", lambda s: None)
+
+    client = FakeBitgetClient(handler=lambda u, p: FakeBitgetResponse(200, {"code": "40001", "msg": "Rate limit"}))
+    raw_rows, status = download_m1_candles(1789736000000, 1789737000000, client=client)
+
+    assert status == "FAILED"
+    assert len(client.calls) == 4
+
+
+def test_downloader_genuine_empty_data_early_termination(monkeypatch):
+    """Verifies that empty data returned before reaching start boundary produces PARTIAL status."""
+    monkeypatch.setattr("tools.download_v16_27_m1_dataset.time.sleep", lambda s: None)
+
+    client = FakeBitgetClient(handler=lambda u, p: FakeBitgetResponse(200, {"code": "00000", "data": []}))
+    raw_rows, status = download_m1_candles(1789736000000, 1789737000000, client=client)
+
+    assert status == "PARTIAL"
+    assert len(raw_rows) == 0
+
+
+def test_downloader_genuine_max_pages_limit(monkeypatch):
+    """Verifies that setting max_pages halts pagination early with PARTIAL status."""
+    monkeypatch.setattr("tools.download_v16_27_m1_dataset.time.sleep", lambda s: None)
+
+    def endless_pages(url: str, params: Dict[str, Any]):
+        end = params["endTime"]
+        return FakeBitgetResponse(200, {
+            "code": "00000",
+            "data": [[end - 60_000, "2600.0", "2601.0", "2599.0", "2600.5", "10.0"]]
+        })
+
+    client = FakeBitgetClient(handler=endless_pages)
+    raw_rows, status = download_m1_candles(1789730000000, 1789737000000, client=client, max_pages=2)
+
+    assert status == "PARTIAL"
+    assert len(client.calls) == 2
+    assert len(raw_rows) == 2
+
+
+def test_downloader_genuine_duplicate_and_conflict_preservation(monkeypatch):
+    """
+    Verifies that download_m1_candles retains duplicate rows from overlapping pages
+    so that validate_and_normalize can detect conflicting duplicates.
+    """
+    monkeypatch.setattr("tools.download_v16_27_m1_dataset.time.sleep", lambda s: None)
+
+    def overlapping_get(url: str, params: Dict[str, Any]):
+        end = params["endTime"]
+        if end == 1789737000000:
+            return FakeBitgetResponse(200, {
+                "code": "00000",
+                "data": [[1789736880000, "2600.0", "2601.0", "2599.0", "2600.5", "10.0"]]
+            })
+        elif end == 1789736880000:
+            return FakeBitgetResponse(200, {
+                "code": "00000",
+                # Same timestamp 1789736880000 but conflicting OHLC values
+                "data": [
+                    [1789736880000, "2600.0", "2610.0", "2590.0", "2608.0", "50.0"],
+                    [1789736700000, "2595.0", "2596.0", "2594.0", "2595.5", "8.0"],
+                ]
+            })
+        return FakeBitgetResponse(200, {"code": "00000", "data": []})
+
+    client = FakeBitgetClient(handler=overlapping_get)
+    raw_rows, status = download_m1_candles(1789736700000, 1789737000000, client=client)
+
+    assert status == "COMPLETE"
+    assert len(raw_rows) == 3
+    candles, stats = validate_and_normalize(raw_rows, 1789736700000, 1789737000000)
+    assert stats["conflicting_duplicates"] == 1
 
 
 # =====================================================================
@@ -371,3 +596,309 @@ def test_immediate_per_run_export():
         with open(os.path.join(tmpdir, "raw_report_30_day.json")) as f:
             loaded = json.load(f)
             assert loaded["status"] == "COMPLETED"
+
+
+# =====================================================================
+# 5. CANONICAL REPLAY TRADE MAPPING & REPORTING TESTS (Part A & Gate 1)
+# =====================================================================
+
+def test_mapping_canonical_adapter_schema():
+    """
+    Verifies that normalize_replay_closed_trade and process_closed_trades consume
+    the exact canonical schema produced by CG01ReplayExecutionAdapter.collect_state().
+    Asserts:
+    - trade_id is preserved intact
+    - entry_time and exit_time map to ms and formatted UTC/VN/NY strings
+    - duration_minutes is correctly calculated
+    - net_pnl_usd is preserved without double-deduction of fees
+    - initial_risk_usdt, realized_r, and intrabar_ambiguous are preserved
+    - gross_pnl_usd and total_fee_usd remain None when authority is absent
+    """
+    adapter_fixture = [{
+        "trade_id": "ORD_TEST_CANONICAL_01",
+        "direction": "LONG",
+        "entry_time": 1789737000000,
+        "entry_price": 2650.50,
+        "exit_time": 1789737300000,
+        "exit_price": 2655.75,
+        "outcome": "TP",
+        "exit_reason": "TP_HIT",
+        "quantity": 0.5,
+        "net_pnl_usd": 2.625,
+        "realized_r": 2.1,
+        "initial_risk_usdt": 1.25,
+        "intrabar_ambiguous": False,
+    }]
+
+    res = process_closed_trades(adapter_fixture, initial_capital=1000.0)
+
+    assert res["total_closed"] == 1
+    assert res["wins"] == 1
+    assert res["losses"] == 0
+    assert res["breakevens"] == 0
+    assert res["winrate_pct"] == 100.0
+    assert res["net_pnl_usd"] == 2.625
+    assert res["expectancy_net_usd"] == 2.625
+    assert res["expectancy_r"] == 2.1
+    assert res["gross_pnl_usd"] is None  # Adapter provides net only; must remain None
+    assert res["total_fees_usd"] is None # Authority absent; must remain None
+
+    t0 = res["processed_trades"][0]
+    assert t0["trade_id"] == "ORD_TEST_CANONICAL_01"
+    assert t0["direction"] == "LONG"
+    assert t0["entry_time_ms"] == 1789737000000
+    assert t0["exit_time_ms"] == 1789737300000
+    assert t0["duration_minutes"] == 5.0
+    assert t0["timing_status"] == "VALID"
+    assert t0["entry_price"] == 2650.50
+    assert t0["exit_price"] == 2655.75
+    assert t0["net_pnl_usd"] == 2.625
+    assert t0["realized_r"] == 2.1
+    assert t0["initial_risk_usdt"] == 1.25
+    assert t0["exit_reason"] == "TP_HIT"
+    assert t0["intrabar_ambiguous"] is False
+    assert "2026" in t0["entry_time_utc"]
+
+
+def test_mapping_long_win_short_loss_and_breakeven():
+    """
+    Verifies accounting across LONG win, SHORT loss, and zero-PnL breakeven.
+    Ensures zero PnL is preserved (not falsy fallback) and loss sign is not inverted.
+    """
+    trades = [
+        # Win
+        {
+            "trade_id": "T_WIN",
+            "direction": "LONG",
+            "entry_time": 1789737000000,
+            "exit_time": 1789737180000,
+            "entry_price": 2650.0,
+            "exit_price": 2655.0,
+            "net_pnl_usd": 15.0,
+            "realized_r": 2.0,
+            "initial_risk_usdt": 7.5,
+        },
+        # Loss
+        {
+            "trade_id": "T_LOSS",
+            "direction": "SHORT",
+            "entry_time": 1789737200000,
+            "exit_time": 1789737300000,
+            "entry_price": 2660.0,
+            "exit_price": 2662.0,
+            "net_pnl_usd": -10.0,
+            "realized_r": -1.0,
+            "initial_risk_usdt": 10.0,
+        },
+        # Breakeven
+        {
+            "trade_id": "T_BE",
+            "direction": "LONG",
+            "entry_time": 1789737400000,
+            "exit_time": 1789737500000,
+            "entry_price": 2650.0,
+            "exit_price": 2650.0,
+            "net_pnl_usd": 0.0,
+            "realized_r": 0.0,
+            "initial_risk_usdt": 5.0,
+        },
+    ]
+
+    res = process_closed_trades(trades, initial_capital=1000.0)
+
+    assert res["total_closed"] == 3
+    assert res["wins"] == 1
+    assert res["losses"] == 1
+    assert res["breakevens"] == 1
+    assert res["winrate_pct"] == 33.33
+    assert res["net_pnl_usd"] == 5.0  # 15.0 - 10.0 + 0.0
+    assert res["expectancy_net_usd"] == round(5.0 / 3, 4)
+    assert res["long_trades"]["count"] == 2
+    assert res["long_trades"]["wins"] == 1
+    assert res["short_trades"]["count"] == 1
+    assert res["short_trades"]["losses"] == 1
+    assert res["short_trades"]["net_pnl_usd"] == -10.0
+
+
+def test_mapping_canonical_precedence_over_legacy():
+    """Verifies that canonical fields strictly take precedence over legacy fields when both are present."""
+    mixed_trade = {
+        "trade_id": "CANONICAL_ID",
+        "order_id": "LEGACY_ORDER_ID",
+        "id": "LEGACY_ID",
+        "entry_time": 1789737000000,
+        "opened_at": 1789736000000,
+        "exit_time": 1789737300000,
+        "closed_at": 1789738000000,
+        "net_pnl_usd": 50.0,
+        "realized_pnl_net": 999.0,
+        "gross_pnl_usd": 55.0,
+        "realized_pnl_gross": 999.0,
+        "exit_reason": "CANONICAL_EXIT",
+        "close_reason": "LEGACY_CLOSE",
+    }
+
+    norm = normalize_replay_closed_trade(mixed_trade)
+    assert norm["trade_id"] == "CANONICAL_ID"
+    assert norm["entry_time_ms"] == 1789737000000
+    assert norm["exit_time_ms"] == 1789737300000
+    assert norm["net_pnl_usd"] == 50.0
+    assert norm["gross_pnl_usd"] == 55.0
+    assert norm["exit_reason"] == "CANONICAL_EXIT"
+
+
+def test_mapping_legacy_field_compatibility():
+    """Verifies that legacy records without canonical keys still parse correctly."""
+    legacy_trade = {
+        "order_id": "LEGACY_001",
+        "direction": "long",
+        "opened_at": 1789737000000,
+        "closed_at": 1789737180000,
+        "entry_price": 2600.0,
+        "exit_price": 2605.0,
+        "realized_pnl_net": 12.5,
+        "close_reason": "MANUAL",
+    }
+
+    norm = normalize_replay_closed_trade(legacy_trade)
+    assert norm["trade_id"] == "LEGACY_001"
+    assert norm["direction"] == "LONG"
+    assert norm["entry_time_ms"] == 1789737000000
+    assert norm["exit_time_ms"] == 1789737180000
+    assert norm["duration_minutes"] == 3.0
+    assert norm["net_pnl_usd"] == 12.5
+    assert norm["exit_reason"] == "MANUAL"
+
+
+def test_mapping_missing_pnl_authority_handling():
+    """
+    Verifies that trades lacking PnL authority are flagged as MISSING_PNL_AUTHORITY,
+    recorded in invalid_trades_count, and NOT counted as breakevens.
+    """
+    invalid_trade = {
+        "trade_id": "NO_PNL",
+        "entry_time": 1789737000000,
+        "exit_time": 1789737100000,
+        # net_pnl_usd and realized_pnl_net are absent
+    }
+
+    norm = normalize_replay_closed_trade(invalid_trade)
+    assert norm["pnl_status"] == "MISSING_PNL_AUTHORITY"
+    assert norm["net_pnl_usd"] is None
+
+    res = process_closed_trades([invalid_trade])
+    assert res["invalid_trades_count"] == 1
+    assert res["total_closed"] == 0
+    assert res["wins"] == 0
+    assert res["losses"] == 0
+    assert res["breakevens"] == 0
+    assert res["winrate_reason"] == "NO_VALID_TRADES_WITH_PNL_AUTHORITY"
+
+
+def test_mapping_invalid_and_missing_timestamps():
+    """Verifies that invalid timestamp ordering and missing timestamps are flagged without using abs()."""
+    inverted_trade = {
+        "trade_id": "INVERTED",
+        "entry_time": 1789737300000,
+        "exit_time": 1789737000000,  # Exit before entry!
+        "net_pnl_usd": 5.0,
+    }
+    norm_inv = normalize_replay_closed_trade(inverted_trade)
+    assert norm_inv["timing_status"] == "INVALID_TIMESTAMP_ORDERING"
+    assert norm_inv["duration_minutes"] is None  # Must NOT be abs()
+
+    missing_ts_trade = {
+        "trade_id": "MISSING_TS",
+        "entry_time": None,
+        "exit_time": 1789737000000,
+        "net_pnl_usd": 5.0,
+    }
+    norm_miss = normalize_replay_closed_trade(missing_ts_trade)
+    assert norm_miss["timing_status"] == "MISSING_TIMESTAMPS"
+    assert norm_miss["duration_minutes"] is None
+
+
+def test_mapping_duplicate_trade_ids_detection():
+    """Verifies that duplicate trade IDs in reporting input are recorded in duplicate_trade_ids."""
+    trades = [
+        {"trade_id": "DUP_A", "entry_time": 1000, "exit_time": 2000, "net_pnl_usd": 1.0},
+        {"trade_id": "DUP_A", "entry_time": 3000, "exit_time": 4000, "net_pnl_usd": 2.0},
+        {"trade_id": "UNIQUE_B", "entry_time": 5000, "exit_time": 6000, "net_pnl_usd": 3.0},
+    ]
+    res = process_closed_trades(trades)
+    assert "DUP_A" in res["duplicate_trade_ids"]
+    assert "UNIQUE_B" not in res["duplicate_trade_ids"]
+
+
+def test_mapping_closed_equity_drawdown_chronology_sorting():
+    """
+    Verifies that closed equity drawdown sorts trades by exit_time_ms rather than
+    relying on input list ordering.
+    """
+    # Out of order trades:
+    # Trade 1: exit at t=3, loss -50
+    # Trade 2: exit at t=1, win +100 (peak = 1100)
+    # Trade 3: exit at t=2, loss -20 (equity = 1080)
+    # Chronological equity curve from $1000:
+    # t=1: 1100 (peak 1100, DD = 0%)
+    # t=2: 1080 (peak 1100, DD = (20/1100)*100 = 1.82%)
+    # t=3: 1030 (peak 1100, DD = (70/1100)*100 = 6.36%) -> max DD = 6.36%
+    unordered_trades = [
+        {"trade_id": "T3", "entry_time": 100, "exit_time": 3000, "net_pnl_usd": -50.0},
+        {"trade_id": "T1", "entry_time": 100, "exit_time": 1000, "net_pnl_usd": 100.0},
+        {"trade_id": "T2", "entry_time": 100, "exit_time": 2000, "net_pnl_usd": -20.0},
+    ]
+
+    res = process_closed_trades(unordered_trades, initial_capital=1000.0)
+    assert res["closed_equity_drawdown_pct"] == 6.36
+    assert res["drawdown_chronology_valid"] is True
+
+
+def test_mapping_csv_export_content_and_null_formatting():
+    """
+    Verifies that export_run_artifacts writes trades.csv containing canonical trade fields,
+    and formats missing fields as empty CSV cells rather than misleading '0' values.
+    """
+    canonical_trade = {
+        "trade_id": "ORD_CANON_CSV_99",
+        "direction": "SHORT",
+        "entry_time": 1789737000000,
+        "entry_price": 2680.25,
+        "exit_time": 1789737240000,
+        "exit_price": 2675.50,
+        "exit_reason": "TP_HIT",
+        "quantity": 1.0,
+        "net_pnl_usd": 4.75,
+        "realized_r": 1.9,
+        "initial_risk_usdt": 2.50,
+        # Notice: gross_pnl_usd and total_fee_usd are intentionally absent!
+    }
+
+    metrics = {
+        "label": "Test",
+        "trade_metrics": process_closed_trades([canonical_trade]),
+    }
+    raw_mock = {"status": "COMPLETED", "daily_stats": {}, "equity_mtm": [], "equity_realized": []}
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        export_run_artifacts(raw_mock, metrics, "test_csv", out_dir=tmpdir)
+        csv_path = os.path.join(tmpdir, "trades_test_csv.csv")
+        assert os.path.exists(csv_path)
+
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            reader = list(csv.DictReader(f))
+
+        assert len(reader) == 1
+        row = reader[0]
+        assert row["trade_id"] == "ORD_CANON_CSV_99"
+        assert row["direction"] == "SHORT"
+        assert row["entry_time_ms"] == "1789737000000"
+        assert row["exit_time_ms"] == "1789737240000"
+        assert row["duration_minutes"] == "4.0"
+        assert row["net_pnl_usd"] == "4.75"
+        assert row["realized_r"] == "1.9"
+        assert row["initial_risk_usdt"] == "2.5"
+        assert row["timing_status"] == "VALID"
+        # Crucial: missing gross_pnl and total_fee must be empty string "", NOT "0" or "0.0"!
+        assert row["gross_pnl_usd"] == ""
+        assert row["total_fee_usd"] == ""

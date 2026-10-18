@@ -204,11 +204,162 @@ def compute_wilson_score_interval(wins: int, total: int, confidence: float = 0.9
     return (round(lower, 2), round(upper, 2))
 
 
+def normalize_replay_closed_trade(t: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Normalizes a closed trade record from adapter or legacy run output.
+    Precedence:
+    - ID: trade_id (canonical) -> order_id -> id
+    - Entry Time: entry_time (canonical ms) -> opened_at
+    - Exit Time: exit_time (canonical ms) -> closed_at
+    - Net PnL: net_pnl_usd (canonical) -> realized_pnl_net
+    - Gross PnL: gross_pnl_usd (canonical) -> realized_pnl_gross (None if missing)
+    - Fees: total_fee_usd (canonical) -> (entry_fee_usdt + exit_fee_usdt) -> None if missing
+    - Exit Reason: exit_reason (canonical) -> close_reason
+    - Ambiguity: intrabar_ambiguous (canonical) -> False
+    """
+    raw_id = t.get("trade_id")
+    if raw_id is None:
+        raw_id = t.get("order_id")
+    if raw_id is None:
+        raw_id = t.get("id")
+    trade_id = str(raw_id) if raw_id is not None else None
+
+    raw_dir = t.get("direction")
+    direction = str(raw_dir).upper() if raw_dir is not None else None
+
+    raw_entry = t.get("entry_time")
+    if raw_entry is None:
+        raw_entry = t.get("opened_at")
+    entry_time = None
+    if raw_entry is not None:
+        try:
+            entry_val = int(raw_entry)
+            if entry_val > 0:
+                entry_time = entry_val
+        except (ValueError, TypeError):
+            entry_time = None
+
+    raw_exit = t.get("exit_time")
+    if raw_exit is None:
+        raw_exit = t.get("closed_at")
+    exit_time = None
+    if raw_exit is not None:
+        try:
+            exit_val = int(raw_exit)
+            if exit_val > 0:
+                exit_time = exit_val
+        except (ValueError, TypeError):
+            exit_time = None
+
+    dur_mins = None
+    if entry_time is not None and exit_time is not None:
+        if exit_time >= entry_time:
+            dur_mins = round((exit_time - entry_time) / 60_000.0, 2)
+            timing_status = "VALID"
+        else:
+            timing_status = "INVALID_TIMESTAMP_ORDERING"
+    else:
+        timing_status = "MISSING_TIMESTAMPS"
+
+    raw_net = t.get("net_pnl_usd")
+    if raw_net is None:
+        raw_net = t.get("realized_pnl_net")
+    net_pnl = None
+    if raw_net is not None:
+        try:
+            val = float(raw_net)
+            if math.isfinite(val):
+                net_pnl = val
+                pnl_status = "VALID"
+            else:
+                pnl_status = "NON_FINITE_PNL"
+        except (ValueError, TypeError):
+            pnl_status = "INVALID_PNL_FORMAT"
+    else:
+        pnl_status = "MISSING_PNL_AUTHORITY"
+
+    raw_gross = t.get("gross_pnl_usd")
+    if raw_gross is None:
+        raw_gross = t.get("realized_pnl_gross")
+    gross_pnl = None
+    if raw_gross is not None:
+        try:
+            val = float(raw_gross)
+            if math.isfinite(val):
+                gross_pnl = val
+        except (ValueError, TypeError):
+            gross_pnl = None
+
+    raw_fee = t.get("total_fee_usd")
+    total_fee = None
+    if raw_fee is not None:
+        try:
+            val = float(raw_fee)
+            if math.isfinite(val):
+                total_fee = val
+        except (ValueError, TypeError):
+            total_fee = None
+    elif t.get("entry_fee_usdt") is not None or t.get("exit_fee_usdt") is not None:
+        try:
+            f1 = float(t.get("entry_fee_usdt") or 0.0)
+            f2 = float(t.get("exit_fee_usdt") or 0.0)
+            total_fee = round(f1 + f2, 4)
+        except (ValueError, TypeError):
+            total_fee = None
+
+    exit_reason = t.get("exit_reason")
+    if exit_reason is None:
+        exit_reason = t.get("close_reason")
+    if exit_reason is not None:
+        exit_reason = str(exit_reason)
+
+    entry_price = float(t["entry_price"]) if t.get("entry_price") is not None else None
+    exit_price = float(t["exit_price"]) if t.get("exit_price") is not None else None
+    quantity = float(t["quantity"]) if t.get("quantity") is not None else None
+    realized_r = float(t["realized_r"]) if t.get("realized_r") is not None else None
+    initial_risk_usdt = float(t["initial_risk_usdt"]) if t.get("initial_risk_usdt") is not None else None
+    planned_entry = float(t["planned_entry"]) if t.get("planned_entry") is not None else None
+    planned_sl = float(t["planned_sl"]) if t.get("planned_sl") is not None else None
+    planned_tp = float(t["planned_tp"]) if t.get("planned_tp") is not None else None
+    intrabar_ambiguous = bool(t.get("intrabar_ambiguous", False))
+
+    return {
+        "trade_id": trade_id,
+        "direction": direction,
+        "entry_time_ms": entry_time,
+        "entry_time_utc": format_ms(entry_time, timezone.utc) if entry_time else "",
+        "entry_time_vn": format_ms(entry_time, VN_TZ) if entry_time else "",
+        "entry_time_ny": format_ms(entry_time, NY_TZ) if entry_time else "",
+        "exit_time_ms": exit_time,
+        "exit_time_utc": format_ms(exit_time, timezone.utc) if exit_time else "",
+        "exit_time_vn": format_ms(exit_time, VN_TZ) if exit_time else "",
+        "exit_time_ny": format_ms(exit_time, NY_TZ) if exit_time else "",
+        "entry_price": entry_price,
+        "exit_price": exit_price,
+        "quantity": quantity,
+        "exit_reason": exit_reason,
+        "net_pnl_usd": net_pnl,
+        "gross_pnl_usd": gross_pnl,
+        "total_fee_usd": total_fee,
+        "realized_r": realized_r,
+        "initial_risk_usdt": initial_risk_usdt,
+        "planned_entry": planned_entry,
+        "planned_sl": planned_sl,
+        "planned_tp": planned_tp,
+        "duration_minutes": dur_mins,
+        "timing_status": timing_status,
+        "pnl_status": pnl_status,
+        "intrabar_ambiguous": intrabar_ambiguous,
+    }
+
+
 def process_closed_trades(closed_trades: List[Dict[str, Any]], initial_capital: float = 1000.0) -> Dict[str, Any]:
-    total_closed = len(closed_trades)
-    if total_closed == 0:
+    if len(closed_trades) == 0:
         return {
             "total_closed": 0,
+            "total_raw_records": 0,
+            "invalid_trades_count": 0,
+            "duplicate_trade_ids": [],
             "wins": 0,
             "losses": 0,
             "breakevens": 0,
@@ -226,19 +377,84 @@ def process_closed_trades(closed_trades: List[Dict[str, Any]], initial_capital: 
             "avg_loss_usd": None,
             "max_consecutive_losses": 0,
             "closed_equity_drawdown_pct": 0.0,
+            "drawdown_chronology_valid": True,
             "long_trades": {"count": 0, "wins": 0, "losses": 0, "net_pnl_usd": 0.0, "winrate_pct": None},
             "short_trades": {"count": 0, "wins": 0, "losses": 0, "net_pnl_usd": 0.0, "winrate_pct": None},
             "durations_minutes": {"avg": None, "min": None, "max": None},
             "processed_trades": [],
         }
 
+    normalized = [normalize_replay_closed_trade(t) for t in closed_trades]
+
+    seen_ids = set()
+    duplicates = []
+    for t in normalized:
+        tid = t["trade_id"]
+        if tid is not None:
+            if tid in seen_ids:
+                if tid not in duplicates:
+                    duplicates.append(tid)
+            else:
+                seen_ids.add(tid)
+
+    valid_trades = [t for t in normalized if t["pnl_status"] == "VALID"]
+    invalid_trades = [t for t in normalized if t["pnl_status"] != "VALID"]
+
+    if len(valid_trades) == 0:
+        return {
+            "total_closed": 0,
+            "total_raw_records": len(closed_trades),
+            "invalid_trades_count": len(invalid_trades),
+            "duplicate_trade_ids": duplicates,
+            "wins": 0,
+            "losses": 0,
+            "breakevens": 0,
+            "winrate_pct": None,
+            "winrate_reason": "NO_VALID_TRADES_WITH_PNL_AUTHORITY",
+            "net_pnl_usd": None,
+            "gross_pnl_usd": None,
+            "total_fees_usd": None,
+            "expectancy_net_usd": None,
+            "expectancy_reason": "NO_VALID_TRADES_WITH_PNL_AUTHORITY",
+            "expectancy_r": None,
+            "profit_factor": None,
+            "profit_factor_reason": "NO_VALID_TRADES_WITH_PNL_AUTHORITY",
+            "avg_win_usd": None,
+            "avg_loss_usd": None,
+            "max_consecutive_losses": 0,
+            "closed_equity_drawdown_pct": None,
+            "drawdown_chronology_valid": False,
+            "long_trades": {"count": 0, "wins": 0, "losses": 0, "net_pnl_usd": 0.0, "winrate_pct": None},
+            "short_trades": {"count": 0, "wins": 0, "losses": 0, "net_pnl_usd": 0.0, "winrate_pct": None},
+            "durations_minutes": {"avg": None, "min": None, "max": None},
+            "processed_trades": normalized,
+        }
+
+    total_closed = len(valid_trades)
+    missing_exit_times = any(t["exit_time_ms"] is None for t in valid_trades)
+    if missing_exit_times:
+        chronology_valid = False
+        sorted_trades = list(valid_trades)
+        max_closed_dd_pct = None
+    else:
+        chronology_valid = True
+        sorted_trades = sorted(valid_trades, key=lambda x: (x["exit_time_ms"], str(x["trade_id"])))
+        running_equity = initial_capital
+        peak_equity = initial_capital
+        max_closed_dd = 0.0
+        for t in sorted_trades:
+            running_equity += t["net_pnl_usd"]
+            if running_equity > peak_equity:
+                peak_equity = running_equity
+            if peak_equity > 0:
+                dd = ((peak_equity - running_equity) / peak_equity) * 100.0
+                if dd > max_closed_dd:
+                    max_closed_dd = dd
+        max_closed_dd_pct = round(max_closed_dd, 2)
+
     wins = 0
     losses = 0
     breakevens = 0
-    total_net_pnl = 0.0
-    total_gross_pnl = 0.0
-    total_fees = 0.0
-
     sum_win_usd = 0.0
     sum_loss_usd = 0.0
 
@@ -252,28 +468,12 @@ def process_closed_trades(closed_trades: List[Dict[str, Any]], initial_capital: 
     short_losses = 0
     short_net = 0.0
 
-    durations: List[float] = []
-    processed: List[Dict[str, Any]] = []
-
-    running_equity = initial_capital
-    peak_equity = initial_capital
-    max_closed_dd_pct = 0.0
-
     current_loss_streak = 0
     max_loss_streak = 0
 
-    for t in closed_trades:
-        net_pnl = float(t.get("realized_pnl_net") or t.get("net_pnl_usd") or 0.0)
-        gross_pnl = float(t.get("realized_pnl_gross") or t.get("gross_pnl_usd") or 0.0)
-        entry_fee = float(t.get("entry_fee_usdt") or 0.0)
-        exit_fee = float(t.get("exit_fee_usdt") or 0.0)
-        fee = entry_fee + exit_fee
-
-        total_net_pnl += net_pnl
-        total_gross_pnl += gross_pnl
-        total_fees += fee
-
-        direction = str(t.get("direction") or "").upper()
+    for t in sorted_trades:
+        net_pnl = t["net_pnl_usd"]
+        direction = t["direction"]
         if net_pnl > 0.0001:
             wins += 1
             sum_win_usd += net_pnl
@@ -303,49 +503,25 @@ def process_closed_trades(closed_trades: List[Dict[str, Any]], initial_capital: 
             short_count += 1
             short_net += net_pnl
 
-        opened_at = t.get("opened_at")
-        closed_at = t.get("closed_at")
-        dur_mins = None
-        if opened_at and closed_at and closed_at >= opened_at:
-            dur_mins = round((closed_at - opened_at) / 60_000.0, 2)
-            durations.append(dur_mins)
+    total_net_pnl = round(sum(t["net_pnl_usd"] for t in valid_trades), 4)
 
-        running_equity += net_pnl
-        if running_equity > peak_equity:
-            peak_equity = running_equity
-        if peak_equity > 0:
-            dd = ((peak_equity - running_equity) / peak_equity) * 100.0
-            if dd > max_closed_dd_pct:
-                max_closed_dd_pct = dd
+    if any(t["gross_pnl_usd"] is None for t in valid_trades):
+        total_gross_pnl = None
+    else:
+        total_gross_pnl = round(sum(t["gross_pnl_usd"] for t in valid_trades), 4)
 
-        processed.append({
-            "trade_id": t.get("order_id") or t.get("id"),
-            "direction": direction,
-            "entry_time_ms": opened_at,
-            "entry_time_utc": format_ms(opened_at, timezone.utc),
-            "entry_time_vn": format_ms(opened_at, VN_TZ),
-            "entry_time_ny": format_ms(opened_at, NY_TZ),
-            "exit_time_ms": closed_at,
-            "exit_time_utc": format_ms(closed_at, timezone.utc),
-            "exit_time_vn": format_ms(closed_at, VN_TZ),
-            "exit_time_ny": format_ms(closed_at, NY_TZ),
-            "entry_price": t.get("entry_price"),
-            "exit_price": t.get("exit_price"),
-            "quantity": t.get("quantity"),
-            "exit_reason": t.get("exit_reason") or t.get("close_reason"),
-            "net_pnl_usd": round(net_pnl, 4),
-            "gross_pnl_usd": round(gross_pnl, 4),
-            "total_fee_usd": round(fee, 4),
-            "realized_r": t.get("realized_r"),
-            "planned_entry": t.get("planned_entry"),
-            "planned_sl": t.get("planned_sl"),
-            "planned_tp": t.get("planned_tp"),
-            "duration_minutes": dur_mins,
-            "intrabar_ambiguous": t.get("intrabar_ambiguous", False),
-        })
+    if any(t["total_fee_usd"] is None for t in valid_trades):
+        total_fees = None
+    else:
+        total_fees = round(sum(t["total_fee_usd"] for t in valid_trades), 4)
+
+    durations = [t["duration_minutes"] for t in valid_trades if t["duration_minutes"] is not None]
 
     winrate = round((wins / total_closed) * 100.0, 2)
     expectancy_net = round(total_net_pnl / total_closed, 4)
+
+    r_list = [t["realized_r"] for t in valid_trades if t["realized_r"] is not None]
+    expectancy_r = round(sum(r_list) / len(r_list), 4) if r_list else None
 
     profit_factor = None
     pf_reason = None
@@ -365,21 +541,26 @@ def process_closed_trades(closed_trades: List[Dict[str, Any]], initial_capital: 
 
     return {
         "total_closed": total_closed,
+        "total_raw_records": len(closed_trades),
+        "invalid_trades_count": len(invalid_trades),
+        "duplicate_trade_ids": duplicates,
         "wins": wins,
         "losses": losses,
         "breakevens": breakevens,
         "winrate_pct": winrate,
         "winrate_wilson_ci_95": compute_wilson_score_interval(wins, total_closed),
-        "net_pnl_usd": round(total_net_pnl, 4),
-        "gross_pnl_usd": round(total_gross_pnl, 4),
-        "total_fees_usd": round(total_fees, 4),
+        "net_pnl_usd": total_net_pnl,
+        "gross_pnl_usd": total_gross_pnl,
+        "total_fees_usd": total_fees,
         "expectancy_net_usd": expectancy_net,
+        "expectancy_r": expectancy_r,
         "profit_factor": profit_factor,
         "profit_factor_reason": pf_reason,
         "avg_win_usd": avg_win,
         "avg_loss_usd": avg_loss,
         "max_consecutive_losses": max_loss_streak,
-        "closed_equity_drawdown_pct": round(max_closed_dd_pct, 2),
+        "closed_equity_drawdown_pct": max_closed_dd_pct,
+        "drawdown_chronology_valid": chronology_valid,
         "long_trades": {
             "count": long_count,
             "wins": long_wins,
@@ -399,7 +580,7 @@ def process_closed_trades(closed_trades: List[Dict[str, Any]], initial_capital: 
             "min": min(durations) if durations else None,
             "max": max(durations) if durations else None,
         },
-        "processed_trades": processed,
+        "processed_trades": normalized,
     }
 
 
@@ -453,7 +634,7 @@ def export_csv(filepath: str, rows: List[Dict[str, Any]], fieldnames: List[str])
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for r in rows:
-            clean_row = {k: r.get(k, "") for k in fieldnames}
+            clean_row = {k: ("" if r.get(k) is None else r.get(k)) for k in fieldnames}
             writer.writerow(clean_row)
     os.replace(tmp_path, filepath)
 
@@ -473,8 +654,8 @@ def export_run_artifacts(
         "trade_id", "direction", "entry_time_ms", "entry_time_utc", "entry_time_vn", "entry_time_ny",
         "exit_time_ms", "exit_time_utc", "exit_time_vn", "exit_time_ny",
         "entry_price", "exit_price", "quantity", "exit_reason",
-        "net_pnl_usd", "gross_pnl_usd", "total_fee_usd", "realized_r",
-        "planned_entry", "planned_sl", "planned_tp", "duration_minutes", "intrabar_ambiguous"
+        "net_pnl_usd", "gross_pnl_usd", "total_fee_usd", "realized_r", "initial_risk_usdt",
+        "planned_entry", "planned_sl", "planned_tp", "duration_minutes", "timing_status", "intrabar_ambiguous"
     ]
     export_csv(
         os.path.join(out_dir, f"trades_{label_slug}.csv"),

@@ -40,6 +40,7 @@
     "data/dataset_manifest.json",
     "manifest.json",
     "metrics_partial.json",
+    "metrics_audited.json",
     "task_execution.log",
     "CG01_V16_27_BASELINE_PERFORMANCE_REPORT.md"
   ]

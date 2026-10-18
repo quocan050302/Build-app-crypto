@@ -1,20 +1,20 @@
 # BÁO CÁO ĐO HIỆU SUẤT BASELINE CG-01 + HTF V16.27
 **Loại nghiên cứu:** HISTORICAL PAPER REPLAY (Read-only Source Freeze)
 **Trạng thái thí nghiệm:** `PARTIAL/INTERRUPTED` (Dừng có kiểm soát theo lệnh người dùng)
-**Trạng thái kiểm toán (Audit Status):** `AUDIT_COMPLETED` (Đã đính chính và đối soát độc lập)
+**Trạng thái kiểm toán (Audit Status):** `AUDIT_CLOSED_WITH_LIMITATIONS` (Đã đính chính và đối soát độc lập)
 **Hiệu suất chiến lược (Performance Status):** `PERFORMANCE_UNVERIFIED` (Mẫu giao dịch chưa xác minh do tiến trình dừng giữa chừng)
 **Commit SHA Baseline:** [`33dcd791f2ccfba8e3b3c19e5a44318cdf295ad8`](https://github.com/quocan050302/Build-app-crypto/commit/33dcd791f2ccfba8e3b3c19e5a44318cdf295ad8)
 **Nhánh:** `fix/v14-1-rr-flow`
 **Thời gian bắt đầu:** 2026-10-18T04:59:24.420Z (11:59:24 AM giờ VN)
 **Thời gian dừng:** 2026-10-18T11:36:11Z (18:36:11 PM giờ VN)
-**Tổng thời gian CPU tích lũy:** **338 phút 23 giây** (~5.64 giờ CPU liên tục trên 1 core)
+**Tổng thời gian CPU tích lũy:** **338 phút 23 giây** (Báo cáo trong log/metrics thô, chưa có OS audit trail độc lập)
 
 > [!IMPORTANT]
 > **THÔNG BÁO KIỂM TOÁN VÀ ĐÍNH CHÍNH (AUDIT NOTICE):**
 > Báo cáo này đã được kiểm toán chính thức theo tài liệu [CG01_V16_27_BASELINE_AUDIT_CLOSURE.md](file:///Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/CG01_V16_27_BASELINE_AUDIT_CLOSURE.md) và tệp dữ liệu máy đọc được [metrics_audited.json](file:///Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/research_artifacts/cg01_v16_27_baseline_20261018/metrics_audited.json).
 > 1. **Phạm vi thực thi:** Tách bạch rõ giữa *Tập dữ liệu mục tiêu* (30 ngày lịch, 42.986 nến) và *Phạm vi thực thi thực tế* (tiến trình dừng giữa chừng, chưa hoàn tất chu kỳ, DB in-memory không kịp checkpoint ra đĩa).
 > 2. **Chỉ số chưa xác minh:** Mọi số liệu chưa có ledger chứng minh (số lệnh đóng, net PnL, drawdown) được chuyển từ `0` thành `UNVERIFIED` / `N/A`, không dùng số 0 thay cho dữ liệu bị gián đoạn.
-> 3. **Đính chính nguồn gốc 214 Gaps:** 214 khoảng cách 120s lặp lại đều đặn mỗi 201 phút bắt nguồn từ lỗi phân trang downloader (`current_end = earliest - 1` đối với API Bitget), KHÔNG PHẢI do đóng cửa phiên cuối tuần.
+> 3. **Đính chính nguồn gốc 214 Gaps:** 214 khoảng cách 120s lặp lại đều đặn mỗi 201 phút bắt nguồn từ lỗi phân trang downloader (`current_end = earliest - 1`), KHÔNG PHẢI do đóng cửa phiên cuối tuần; mô hình phân trang close-time đã được kiểm chứng qua mock test suite.
 > 4. **Hạ mức kết luận nhân quả:** Ba lỗi mã nguồn (ATR 1M, FVG mitigation pass, early return) là khuyết tật đã được kiểm chứng trong code, nhưng mối quan hệ nhân quả tuyệt đối với kết quả 0 lệnh cần được kiểm chứng đối chứng trong V16.28.
 > 5. **Loại bỏ cam kết thời gian chưa đo:** Đã xóa bỏ ước tính chưa đo đạc về việc "thời gian chạy sẽ giảm dưới 3 phút".
 
@@ -50,7 +50,7 @@
 | **SHA-256 Dataset (Logical)** | `51060062...a521a1` | `80d788dd...060806` | Hash kiểm tra toàn vẹn chuỗi nến |
 | **Conflicting Duplicates** | 0 | 0 | Đã kiểm định hình học OHLC |
 | **Trạng thái thực thi** | `INTERRUPTED_BEFORE_FINALIZE` | `NOT_STARTED_DUE_TO_STOP` | Dừng có kiểm soát lúc 18:36 VN |
-| **Thời gian CPU tích lũy** | 338 phút 23 giây | 0 phút | Đo bằng `ps aux` & `sample` |
+| **Thời gian CPU tích lũy** | 338 phút 23 giây | 0 phút | Báo cáo từ bảng tiến trình hệ thống trong log/metrics thô |
 | **Vốn ban đầu (Initial Capital)** | 1.000,00 USDT | 1.000,00 USDT | Chạy độc lập, không chuyển vốn |
 | **Chế độ vốn (Capital Mode)** | `CURRENT_ACCOUNT_BALANCE` | `CURRENT_ACCOUNT_BALANCE` | Nhất quán giữa 2 replay |
 | **Tỷ lệ rủi ro (Risk %)** | 0.25% (2.50 USDT / lệnh) | 0.25% (2.50 USDT / lệnh) | Tham số baseline nghiên cứu |
@@ -79,7 +79,7 @@ Quá trình chạy replay tích lũy **338 phút CPU** (~5.64 giờ) trên lư�
 
 ```mermaid
 flowchart TD
-    A["M1 Bar Event (42.986 nến)"] --> B["fast_aggregate_closed_bars (O(1) - Parity Đã kiểm chứng)"]
+    A["M1 Bar Event (42.986 nến)"] --> B["fast_aggregate_closed_bars (O(1) - Parity trong các test cases)"]
     B --> C["CG01ReplayExecutionAdapter.on_bar_close()"]
     C --> D["ScalpWatcherOrchestrator.evaluate_cycle()"]
     D --> E["ZoneWatchlistService.extract_zones_from_candles(candles_15m)"]

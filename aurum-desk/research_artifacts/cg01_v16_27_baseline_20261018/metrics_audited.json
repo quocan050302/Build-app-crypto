@@ -1,15 +1,15 @@
 {
   "document_type": "AUDITED_BASELINE_METRICS",
-  "audit_version": "1.0",
+  "audit_version": "1.1",
   "supersedes": "metrics_partial.json",
-  "audit_timestamp_utc": "2026-10-18T11:58:00Z",
-  "audit_status": "AUDIT_COMPLETED",
+  "audit_timestamp_utc": "2026-10-18T12:45:00Z",
+  "audit_status": "AUDIT_CLOSED_WITH_LIMITATIONS",
   "performance_status": "PERFORMANCE_UNVERIFIED",
   "git_provenance": {
     "remote": "https://github.com/quocan050302/Build-app-crypto.git",
     "branch": "fix/v14-1-rr-flow",
     "strategy_baseline_commit_sha": "33dcd791f2ccfba8e3b3c19e5a44318cdf295ad8",
-    "audit_head_commit_sha": "3a8f0bd7138b315008e58693dab817e720d65279",
+    "audit_reference_commit_sha": "470fbcba24d0016830babc403d14ab59cbd9302d",
     "is_production_source_frozen": true,
     "production_backend_modified_files_count": 0
   },
@@ -24,10 +24,10 @@
     "wall_clock_elapsed_formatted": "6h 36m 47s",
     "reported_cpu_time_seconds": 20303.18,
     "reported_cpu_time_formatted": "338m 23s",
-    "reported_cpu_verification_status": "REPORTED_FROM_PROCESS_TABLE",
+    "reported_cpu_verification_status": "REPORTED_NOT_VERIFIED",
     "exit_code": 0,
     "exit_signal": "SIGINT / KeyboardInterrupt",
-    "verified_interruption_stack": "ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate -> detect_confirmed_continuation_break",
+    "verified_interruption_stack": "ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate -> detect_confirmed_continuation_break (task_execution.log:L43-46)",
     "processed_candles_count": null,
     "processed_candles_reason": "IN_MEMORY_STATE_LOST_ON_SIGINT",
     "last_processed_timestamp_ms": null,
@@ -41,8 +41,8 @@
     "dataset_end_exclusive_utc": "2026-10-18T00:00:00Z",
     "gaps_count": 214,
     "gap_periodicity_minutes": 201,
-    "gap_root_cause": "DOWNLOADER_PAGINATION_OFF_BY_ONE",
-    "gap_root_cause_details": "Bitget /api/v2/mix/market/history-candles treats endTime as upper close-time boundary. Downloader used current_end = earliest - 1, skipping 1 bar every 200 bars (201 minutes). Previous claim attributing 214 gaps to weekend closures was invalid.",
+    "gap_root_cause": "PAGINATION_HYPOTHESIS_CONFIRMED_IN_TESTS",
+    "gap_root_cause_details": "Downloader pagination tested via mock client simulating close-time upper boundary semantics (close_time <= endTime). Setting current_end = earliest eliminates 120s gaps across page boundaries in unit tests. Live exchange semantics remain unverified by live probe. Previous claim attributing 214 gaps to weekend closures was invalid.",
     "dataset_coverage_pct": 99.5,
     "logical_candles_sha256": "51060062620a518a856d4fef507d2f6d748241723196274fd468745788a521a1",
     "conflicting_duplicates": 0,
@@ -165,6 +165,14 @@
     {
       "claim": "214 khoảng gaps do đóng cửa cuối tuần",
       "correction": "214 gaps có chu kỳ lặp 201 phút (cách nhau đúng 120s), bắt nguồn từ lỗi phân trang downloader (current_end = earliest - 1), không phải do đóng cửa cuối tuần."
+    },
+    {
+      "claim": "Semantics phân trang Bitget được xác nhận bằng probe trực tiếp (VERIFIED_BY_PROBE)",
+      "correction": "Semantics phân trang close_time <= endTime được kiểm chứng qua mock test suite; exchange live semantics chưa được probe trực tiếp trong patch này do không gọi external exchange."
+    },
+    {
+      "claim": "14/14 tests parity tuyệt đối",
+      "correction": "Bộ test suite hiện có 31 tests phân định rõ: 5 validator tests, 8 genuine downloader pagination/error tests, 7 parity/cache tests, 2 export tests, và 9 canonical trade mapping tests."
     },
     {
       "claim": "Ba lỗi cốt lõi đã dập tắt toàn bộ setup",
