@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import datetime
 import math
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import zoneinfo
 
 from domain_calculator import CalculationResult, CostAssumptions, calculate_risk_reward, validate_price_geometry
@@ -415,18 +415,88 @@ def detect_cg01_sweep(
     return None
 
 
+def build_cg01_displacement_atr_series(
+    closed_m1: Sequence[Any],
+    period: int = 14,
+    as_of_ms: Optional[int] = None,
+) -> Dict[int, float]:
+    """
+    V16.28 Section B: Causal per-bar M1 ATR series for displacement confirmation.
+    Computes Wilder/SMA Average True Range over `period` completed bars strictly
+    preceding each candle timestamp, with prefix invariance and zero lookahead.
+
+    Formula:
+      For candle at index i (open timestamp t_i):
+      TR_j = max(high_j - low_j, abs(high_j - close_{j-1}), abs(low_j - close_{j-1}))
+      for completed bars strictly prior to candle i (indices 1 .. i-1).
+      If at least `period` completed TRs exist prior to candle i (i >= period + 1):
+        atr_val = sum(TR_{i-1-period : i-1}) / period
+      Mapping: t_i -> atr_val
+    """
+    if not closed_m1 or period <= 0:
+        return {}
+
+    candles = []
+    for c in closed_m1:
+        c_open = candle_open_ms(c)
+        c_close = c_open + 60_000
+        if as_of_ms is not None and c_close > as_of_ms:
+            continue
+        candles.append(c)
+
+    n = len(candles)
+    if n < period + 1:
+        return {}
+
+    tr_list: List[float] = []
+    for j in range(1, n):
+        curr = candles[j]
+        prev = candles[j - 1]
+        c_high = float(curr.get("high") if isinstance(curr, dict) else getattr(curr, "high", 0.0))
+        c_low = float(curr.get("low") if isinstance(curr, dict) else getattr(curr, "low", 0.0))
+        prev_close = float(prev.get("close") if isinstance(prev, dict) else getattr(prev, "close", 0.0))
+
+        if not (math.isfinite(c_high) and math.isfinite(c_low) and math.isfinite(prev_close)):
+            tr_list.append(float("nan"))
+            continue
+        if c_high < c_low:
+            tr_list.append(float("nan"))
+            continue
+
+        tr = max(
+            c_high - c_low,
+            abs(c_high - prev_close),
+            abs(c_low - prev_close),
+        )
+        tr_list.append(tr)
+
+    atr_series: Dict[int, float] = {}
+    for i in range(period + 1, n + 1):
+        recent_trs = tr_list[i - 1 - period : i - 1]
+        if any(not math.isfinite(val) for val in recent_trs):
+            continue
+        raw_atr = sum(recent_trs) / float(period)
+        if math.isfinite(raw_atr) and raw_atr >= 0.0:
+            if i < n:
+                bar_ts = candle_open_ms(candles[i])
+                atr_series[bar_ts] = raw_atr
+
+    return atr_series
+
+
 def resolve_cg01_mss_and_displacement(
     m1_candles: Sequence[Any],
     sweep_info: Dict[str, Any],
     direction: str,
     now_ms: int,
     config: Optional[CG01Config] = None,
-    atr_1m: float = 1.0,
+    atr_1m: Optional[Union[float, Dict[int, float]]] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Rules 086 - 096: MSS & Displacement Detector.
     Finds structural swing break confirmed with closed candle and displacement >= 0.8 ATR.
     Strictly forbids fake micro-breaks (Rules 088, 094, 095).
+    V16.28 Section A: Uses actual causal per-break M1 ATR series or caller-provided ATR.
     """
     sweep_bar_idx = sweep_info["sweep_bar_idx"]
     reclaim_bar_idx = sweep_info.get("reclaim_bar_idx", sweep_bar_idx)
@@ -500,9 +570,19 @@ def resolve_cg01_mss_and_displacement(
     ref_price = structure_ref["price"]
     min_excess = tick_size * 0.50
 
+    # Resolve ATR authority: caller scalar, precomputed series, or build causal series
+    atr_lookup: Union[float, Dict[int, float]]
+    if atr_1m is not None:
+        if isinstance(atr_1m, dict):
+            atr_lookup = atr_1m
+        else:
+            atr_lookup = float(atr_1m)
+    else:
+        atr_period = config.displacement_atr_period if config else 14
+        atr_lookup = build_cg01_displacement_atr_series(m1_candles, period=atr_period, as_of_ms=now_ms)
+
     # 2. Look for closed break candle after the reference bar
     min_disp_ratio = config.displacement_body_atr_min if config else 0.80
-    safe_atr = max(atr_1m, 0.20)
 
     for i in range(reclaim_bar_idx, len(m1_candles)):
         bar = m1_candles[i]
@@ -510,12 +590,26 @@ def resolve_cg01_mss_and_displacement(
         b_close = float(bar.get("close") if isinstance(bar, dict) else getattr(bar, "close", 0.0))
         b_time_ms = candle_open_ms(bar)
 
+        if isinstance(atr_lookup, dict):
+            if b_time_ms not in atr_lookup:
+                # No warmed-up ATR available for this historical break candle
+                continue
+            effective_atr = atr_lookup[b_time_ms]
+        else:
+            effective_atr = atr_lookup
+
+        if not math.isfinite(effective_atr) or effective_atr < 0:
+            continue
+
+        safe_atr = max(effective_atr, 0.20)
+        req_disp = min_disp_ratio * safe_atr
+
         if direction == "LONG":
             # Rule 089: Close MUST exceed swing high reference
             if b_close > (ref_price + min_excess):
                 body = b_close - b_open
                 # Rule 091 - 093: Displacement direction and magnitude
-                if body > 0 and body >= (min_disp_ratio * safe_atr):
+                if body > 0 and body >= req_disp:
                     return {
                         "mss_id": f"mss_{structure_ref['ref_id']}_{b_time_ms}",
                         "structure_ref_id": structure_ref["ref_id"],
@@ -524,13 +618,14 @@ def resolve_cg01_mss_and_displacement(
                         "break_candle_time_ms": b_time_ms,
                         "displacement_body": body,
                         "displacement_atr": safe_atr,
+                        "displacement_ratio": round(body / safe_atr, 4) if safe_atr > 0 else 0.0,
                         "break_close": b_close,
                     }
         else:
             # Rule 089: Close MUST break below swing low reference
             if b_close < (ref_price - min_excess):
                 body = b_open - b_close
-                if body > 0 and body >= (min_disp_ratio * safe_atr):
+                if body > 0 and body >= req_disp:
                     return {
                         "mss_id": f"mss_{structure_ref['ref_id']}_{b_time_ms}",
                         "structure_ref_id": structure_ref["ref_id"],
@@ -539,10 +634,154 @@ def resolve_cg01_mss_and_displacement(
                         "break_candle_time_ms": b_time_ms,
                         "displacement_body": body,
                         "displacement_atr": safe_atr,
+                        "displacement_ratio": round(body / safe_atr, 4) if safe_atr > 0 else 0.0,
                         "break_close": b_close,
                     }
 
     return None
+
+
+def assess_cg01_fvg_lifecycle(
+    fvg: Dict[str, Any],
+    closed_m1: Sequence[Any],
+    direction: str,
+    as_of_ms: int,
+    config: Optional[CG01Config] = None,
+    entry_mode: Optional[str] = None,
+    structural_sl: Optional[float] = None,
+) -> Dict[str, Any]:
+    """
+    V16.28 Section C: Evaluates FVG lifecycle, penetration, CE touch, freshness, and invalidation.
+    Returns structured facts with zero lookahead.
+    """
+    lower = float(fvg["lower"])
+    upper = float(fvg["upper"])
+    ce_price = float(fvg.get("ce_price", 0.0))
+    form_time_ms = int(fvg.get("formation_time_ms") or 0)
+    known_at_ms = int(fvg.get("known_at_ms") or (form_time_ms + 60_000))
+    k_idx = int(fvg.get("formation_bar_idx", 0))
+
+    height = upper - lower
+    tick_size = config.tick_size if config else 0.01
+    max_mitigation_ratio = config.max_fvg_mitigation_ratio if config else 0.50
+    mode = entry_mode or (config.entry_mode if config else CG01EntryMode.LIMIT_AT_CE_AFTER_CONFIRMATION.value)
+
+    if height <= 0:
+        return {
+            "known_at_ms": known_at_ms,
+            "first_touch_ms": None,
+            "first_ce_touch_ms": None,
+            "max_mitigation_ratio": 1.0,
+            "is_invalidated": True,
+            "invalidation_reason": "INVALID_FVG_HEIGHT",
+            "invalidation_time_ms": known_at_ms,
+            "is_fresh": False,
+            "reason": "INVALID_GEOMETRY",
+        }
+
+    first_touch_ms: Optional[int] = None
+    first_ce_touch_ms: Optional[int] = None
+    observed_max_mitigation: float = 0.0
+    is_invalidated = False
+    invalidation_reason: Optional[str] = None
+    invalidation_time_ms: Optional[int] = None
+
+    for j in range(k_idx + 1, len(closed_m1)):
+        b = closed_m1[j]
+        b_open = candle_open_ms(b)
+        b_close_time = b_open + 60_000
+
+        if b_close_time > as_of_ms:
+            break
+        if b_open < known_at_ms:
+            continue
+
+        b_low = float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0))
+        b_high = float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0))
+
+        if direction == "LONG":
+            if b_low < upper:
+                if first_touch_ms is None:
+                    first_touch_ms = b_open
+                depth = upper - b_low
+                ratio = depth / height
+                if ratio > observed_max_mitigation:
+                    observed_max_mitigation = ratio
+
+            if b_low <= (ce_price + tick_size * 0.5):
+                if first_ce_touch_ms is None:
+                    first_ce_touch_ms = b_open
+
+            if b_low <= lower:
+                is_invalidated = True
+                invalidation_reason = "FVG_BOUNDARY_VIOLATED"
+                invalidation_time_ms = b_open
+                break
+            if structural_sl is not None and b_low <= structural_sl:
+                is_invalidated = True
+                invalidation_reason = "STRUCTURAL_SL_BREACHED"
+                invalidation_time_ms = b_open
+                break
+
+        else:
+            if b_high > lower:
+                if first_touch_ms is None:
+                    first_touch_ms = b_open
+                depth = b_high - lower
+                ratio = depth / height
+                if ratio > observed_max_mitigation:
+                    observed_max_mitigation = ratio
+
+            if b_high >= (ce_price - tick_size * 0.5):
+                if first_ce_touch_ms is None:
+                    first_ce_touch_ms = b_open
+
+            if b_high >= upper:
+                is_invalidated = True
+                invalidation_reason = "FVG_BOUNDARY_VIOLATED"
+                invalidation_time_ms = b_open
+                break
+            if structural_sl is not None and b_high >= structural_sl:
+                is_invalidated = True
+                invalidation_reason = "STRUCTURAL_SL_BREACHED"
+                invalidation_time_ms = b_open
+                break
+
+    is_fresh = True
+    reason = "FRESH"
+
+    if is_invalidated:
+        is_fresh = False
+        reason = invalidation_reason or "INVALIDATED"
+    elif mode in (CG01EntryMode.LIMIT_AT_CE_AFTER_CONFIRMATION.value, "LIMIT_AT_CE_AFTER_CONFIRMATION", "LIMIT"):
+        if first_ce_touch_ms is not None:
+            is_fresh = False
+            reason = "FVG_USED_BEFORE_ARM"
+        elif observed_max_mitigation > max_mitigation_ratio:
+            is_fresh = False
+            reason = "FVG_OVER_MITIGATED"
+        else:
+            is_fresh = True
+            reason = "FRESH"
+    else:
+        if observed_max_mitigation > 1.0:
+            is_fresh = False
+            reason = "FVG_OVER_MITIGATED"
+        else:
+            is_fresh = True
+            reason = "ACTIVE_FOR_RETEST"
+
+    return {
+        "known_at_ms": known_at_ms,
+        "first_touch_ms": first_touch_ms,
+        "first_ce_touch_ms": first_ce_touch_ms,
+        "max_mitigation_ratio": round(observed_max_mitigation, 4),
+        "is_invalidated": is_invalidated,
+        "invalidation_reason": invalidation_reason,
+        "invalidation_time_ms": invalidation_time_ms,
+        "is_fresh": is_fresh,
+        "reason": reason,
+    }
 
 
 def select_cg01_leg_fvg(
@@ -551,18 +790,18 @@ def select_cg01_leg_fvg(
     direction: str,
     now_ms: int,
     config: Optional[CG01Config] = None,
+    entry_mode: Optional[str] = None,
+    structural_sl: Optional[float] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Rules 097 - 105: FVG belonging to the MSS Displacement Leg.
-    Computes 50% CE level and validates freshness.
+    Computes 50% CE level and validates freshness across primary and secondary candidates.
+    V16.28 Section C: Replaces empty pass with full lifecycle assessment.
     """
     break_idx = mss_info["break_bar_idx"]
     if break_idx < 2 or break_idx >= len(m1_candles):
         return None
 
-    # Search the 3-candle pattern around the break where the displacement candle is c2:
-    # Primary pattern: k = break_idx + 1 (c1 = break_idx - 1, c2 = break_idx, c3 = break_idx + 1)
-    # Secondary pattern: k = break_idx (c1 = break_idx - 2, c2 = break_idx - 1, c3 = break_idx)
     candidates = []
     scan_order = []
     if break_idx + 1 < len(m1_candles):
@@ -602,36 +841,34 @@ def select_cg01_leg_fvg(
     if not candidates:
         return None
 
-    # Pick the most prominent/relevant FVG of the break leg
-    best = candidates[0]
-    k_idx, lower, upper, ce, form_time_ms = best
+    # Evaluate lifecycle for candidates in scan order (primary then secondary)
+    for cand in candidates:
+        k_idx, lower, upper, ce, form_time_ms = cand
+        fvg_dict = {
+            "fvg_id": f"fvg_leg_{k_idx}_{form_time_ms}",
+            "lower": lower,
+            "upper": upper,
+            "ce_price": ce,
+            "formation_time_ms": form_time_ms,
+            "known_at_ms": form_time_ms + 60_000,
+            "formation_bar_idx": k_idx,
+        }
+        lifecycle = assess_cg01_fvg_lifecycle(
+            fvg=fvg_dict,
+            closed_m1=m1_candles,
+            direction=direction,
+            as_of_ms=now_ms,
+            config=config,
+            entry_mode=entry_mode,
+            structural_sl=structural_sl,
+        )
+        if lifecycle["is_fresh"]:
+            fvg_dict["lifecycle"] = lifecycle
+            fvg_dict["mitigation_ratio"] = lifecycle["max_mitigation_ratio"]
+            fvg_dict["is_fresh"] = True
+            return fvg_dict
 
-    # Rule 101: Freshness verification — check that price after formation has not completely mitigated the gap
-    max_mitigation = config.max_fvg_mitigation_ratio if config else 0.50
-    height = upper - lower
-
-    for j in range(k_idx + 1, len(m1_candles)):
-        b = m1_candles[j]
-        b_low = float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0))
-        b_high = float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0))
-
-        if direction == "LONG":
-            if b_low <= (upper - (height * max_mitigation)):
-                # Mitigated beyond threshold before arming
-                # In strict mode, if it passed CE, it already touched CE
-                pass
-        else:
-            if b_high >= (lower + (height * max_mitigation)):
-                pass
-
-    return {
-        "fvg_id": f"fvg_leg_{k_idx}_{form_time_ms}",
-        "lower": lower,
-        "upper": upper,
-        "ce_price": ce,
-        "formation_time_ms": form_time_ms,
-        "formation_bar_idx": k_idx,
-    }
+    return None
 
 
 def evaluate_cg01_candidate(
@@ -733,6 +970,27 @@ def evaluate_cg01_candidate(
             time_context=time_ctx,
         )
 
+    # V16.28 Section A: Verify M1 ATR Warmup
+    if len(c_1m) < (cfg.displacement_atr_period + 1):
+        return CG01Decision(
+            stage=CG01Stage.OBSERVING,
+            is_eligible=False,
+            model_version=cfg.model_version,
+            config_version=cfg.config_version,
+            reason_codes=("ATR_WARMUP",),
+            missing_conditions=(f"INSUFFICIENT_1M_BARS_FOR_ATR (have {len(c_1m)}, need {cfg.displacement_atr_period + 1})",),
+            as_of_ms=t_now,
+            time_context=time_ctx,
+            ui_summary_vi={"status": "Đang tích luỹ nến M1 để tính độ biến động ATR."},
+        )
+
+    # Precompute causal per-bar ATR series across closed M1 candles
+    atr_series = build_cg01_displacement_atr_series(
+        c_1m,
+        period=cfg.displacement_atr_period,
+        as_of_ms=t_now,
+    )
+
     # 3. Extract HTF POIs from 15M (Rules 071 - 080)
     zones_15m = ZoneWatchlistService.extract_zones_from_candles(
         c_15m, timeframe="15M", symbol="XAUUSDT", as_of_ms=t_now
@@ -743,9 +1001,9 @@ def evaluate_cg01_candidate(
         closed_bundle, as_of_ms=t_now, symbol="XAUUSDT", config=cfg
     )
 
-    best_decision: Optional[CG01Decision] = None
-    last_rejection_stage: Optional[CG01Stage] = None
-    last_rejection_reason: Optional[str] = None
+    executable_decisions: List[CG01Decision] = []
+    waiting_decisions: List[CG01Decision] = []
+    rejection_diagnostics: List[Tuple[CG01Stage, str]] = []
 
     for direction in directions_to_evaluate:
         # Rule 050: Filter POIs
@@ -759,17 +1017,11 @@ def evaluate_cg01_candidate(
             if not sweep:
                 continue
 
-            # 5. MSS & Displacement
-            mss = resolve_cg01_mss_and_displacement(c_1m, sweep, direction, t_now, cfg)
+            # 5. MSS & Displacement with dynamic M1 ATR series
+            mss = resolve_cg01_mss_and_displacement(c_1m, sweep, direction, t_now, cfg, atr_1m=atr_series)
             if not mss:
                 continue
 
-            # 6. Leg FVG & 50% CE
-            fvg = select_cg01_leg_fvg(c_1m, mss, direction, t_now, cfg)
-            if not fvg:
-                continue
-
-            ce_price = fvg["ce_price"]
             sweep_extreme = sweep["sweep_extreme"]
             buffer_ticks = cfg.sl_buffer_ticks
             tick_size = cfg.tick_size
@@ -778,6 +1030,21 @@ def evaluate_cg01_candidate(
                 sl = round(sweep_extreme - (buffer_ticks * tick_size), 2)
             else:
                 sl = round(sweep_extreme + (buffer_ticks * tick_size), 2)
+
+            # 6. Leg FVG & 50% CE with lifecycle validation
+            fvg = select_cg01_leg_fvg(
+                c_1m,
+                mss,
+                direction,
+                t_now,
+                cfg,
+                entry_mode=cfg.entry_mode,
+                structural_sl=sl,
+            )
+            if not fvg:
+                continue
+
+            ce_price = fvg["ce_price"]
 
             # Rule 078, 081, 082: Entry mode validation & resolution
             is_retest_market = (cfg.entry_mode == CG01EntryMode.CONFIRMED_RETEST_MARKET.value)
@@ -791,19 +1058,22 @@ def evaluate_cg01_candidate(
                     structural_sl=sl,
                 )
                 if not retest_res.confirmed:
-                    return CG01Decision(
+                    wait_dec = CG01Decision(
                         stage=CG01Stage.WAIT_ENTRY,
                         is_eligible=False,
                         model_id=ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
                         model_version=cfg.model_version,
                         config_version=cfg.config_version,
                         direction=direction,
+                        poi_id=poi.zone_id,
                         reason_codes=(retest_res.reason,),
                         missing_conditions=("FVG_RETEST_NOT_CONFIRMED",),
                         as_of_ms=t_now,
                         time_context=time_ctx,
                         ui_summary_vi={"status": "Đang chờ giá hồi (retest) vào vùng FVG."},
                     )
+                    waiting_decisions.append(wait_dec)
+                    continue
 
                 # Rules 008, 045, 046, 052: Market entry uses executable quote estimate + slippage
                 costs_obj = costs or CostAssumptions()
@@ -823,7 +1093,7 @@ def evaluate_cg01_candidate(
                 price_basis = "LIMIT_CE"
                 order_type = "LIMIT"
                 entry_has_slippage = False
-                trigger_known_at = int(fvg.get("formation_time_ms") or t_now)
+                trigger_known_at = int(fvg.get("known_at_ms") or fvg.get("formation_time_ms") or t_now)
 
             target_dec = resolve_executable_target(
                 liquidity_levels, direction, planned_entry, as_of_ms=t_now, model_id=ModelIdentifier.CG01_SWEEP_MSS_FVG.value
@@ -831,15 +1101,13 @@ def evaluate_cg01_candidate(
             tp = target_dec.price if (target_dec and target_dec.status == "CONFIRMED") else None
 
             if not tp:
-                last_rejection_stage = CG01Stage.WAIT_ENTRY
-                last_rejection_reason = "TARGET_UNAVAILABLE"
+                rejection_diagnostics.append((CG01Stage.WAIT_ENTRY, "TARGET_UNAVAILABLE"))
                 continue
 
             # Rule 118: Validate price geometry (LONG: SL < entry < TP; SHORT: TP < entry < SL)
             geom_ok, geom_err = validate_price_geometry(direction, planned_entry, sl, tp)
             if not geom_ok:
-                last_rejection_stage = CG01Stage.WAIT_ENTRY
-                last_rejection_reason = f"GEOMETRY_INVALID: {geom_err}"
+                rejection_diagnostics.append((CG01Stage.WAIT_ENTRY, f"GEOMETRY_INVALID: {geom_err}"))
                 continue
 
             # Sizing via calculate_risk_reward (Rules 116, 117, 049)
@@ -858,8 +1126,8 @@ def evaluate_cg01_candidate(
             )
 
             if not calc.is_valid or not calc.can_execute or calc.net_rr < cfg.min_net_rr:
-                last_rejection_stage = CG01Stage.WAIT_ENTRY
-                last_rejection_reason = "RR_BELOW_MINIMUM" if calc.net_rr < cfg.min_net_rr else (calc.invalid_reason or "CALCULATION_INVALID")
+                reason = "RR_BELOW_MINIMUM" if calc.net_rr < cfg.min_net_rr else (calc.invalid_reason or "CALCULATION_INVALID")
+                rejection_diagnostics.append((CG01Stage.WAIT_ENTRY, reason))
                 continue
 
             # Construct CG01EntryIntent (Rule 024, 025, 028, 041)
@@ -873,8 +1141,7 @@ def evaluate_cg01_candidate(
 
             # Rule 028: Evaluator returns EXPIRED if t_now >= valid_until
             if t_now >= valid_until:
-                last_rejection_stage = CG01Stage.EXPIRED
-                last_rejection_reason = "TRIGGER_EXPIRED"
+                rejection_diagnostics.append((CG01Stage.EXPIRED, "TRIGGER_EXPIRED"))
                 continue
 
             intent = CG01EntryIntent(
@@ -1012,27 +1279,48 @@ def evaluate_cg01_candidate(
                 time_context=time_ctx,
                 ui_summary_vi=ui_summary,
             )
+            executable_decisions.append(decision)
 
-            return decision
+    # 7. Candidate Selection Policy (Items 128-130, 134)
+    if executable_decisions:
+        # Precedence to first executable according to stable natural POI ranking
+        return executable_decisions[0]
 
-    # If rejected due to calculation / geometry / target / expiry, report that specific reason (Rule 028, 049, 099)
-    if last_rejection_reason:
+    if waiting_decisions:
+        # Return deterministic representative waiting state
+        return waiting_decisions[0]
+
+    if rejection_diagnostics:
+        # Select most specific actionable diagnostic
+        priority_order = ["TRIGGER_EXPIRED", "RR_BELOW_MINIMUM", "TARGET_UNAVAILABLE", "GEOMETRY_INVALID"]
+        chosen_diag: Optional[Tuple[CG01Stage, str]] = None
+        for prio in priority_order:
+            for diag in rejection_diagnostics:
+                if prio in diag[1]:
+                    chosen_diag = diag
+                    break
+            if chosen_diag:
+                break
+        if not chosen_diag:
+            chosen_diag = rejection_diagnostics[-1]
+
+        stage_rej, reason_rej = chosen_diag
         missing_cond = (
             ("TRIGGER_EXPIRED",)
-            if last_rejection_reason == "TRIGGER_EXPIRED"
-            else (("NET_RR_BELOW_MINIMUM",) if "RR_BELOW_MINIMUM" in last_rejection_reason else ("CALCULATION_REJECTED",))
+            if "TRIGGER_EXPIRED" in reason_rej
+            else (("NET_RR_BELOW_MINIMUM",) if "RR_BELOW_MINIMUM" in reason_rej else ("CALCULATION_REJECTED",))
         )
         return CG01Decision(
-            stage=last_rejection_stage or CG01Stage.WAIT_ENTRY,
+            stage=stage_rej,
             is_eligible=False,
             model_id=ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
             model_version=cfg.model_version,
             config_version=cfg.config_version,
-            reason_codes=(last_rejection_reason,),
+            reason_codes=(reason_rej,),
             missing_conditions=missing_cond,
             as_of_ms=t_now,
             time_context=time_ctx,
-            ui_summary_vi={"status": f"Kịch bản không khả thi: {last_rejection_reason}."},
+            ui_summary_vi={"status": f"Kịch bản không khả thi: {reason_rej}."},
         )
 
     # If no candidate reached full checklist, return current observation state

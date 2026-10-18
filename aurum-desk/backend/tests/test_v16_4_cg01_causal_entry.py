@@ -201,8 +201,8 @@ def test_rule_146_market_price_short():
 
     # Mirror long fixture displacement leg so target is 15M liquidity level 2634.0
     c_1m_adj = list(c_1m)
-    c_1m_adj[9] = make_bar(t_start + 420_000, 2652.0, 2652.2, 2649.5, 2650.0)
-    c_1m_adj[10] = make_bar(t_start + 480_000, 2650.0, 2650.5, 2649.0, 2649.8)
+    c_1m_adj[-2] = make_bar(t_start + 420_000, 2652.0, 2652.2, 2649.5, 2650.0)
+    c_1m_adj[-1] = make_bar(t_start + 480_000, 2650.0, 2650.5, 2649.0, 2649.8)
 
     # Retest bar touching CE 2651.15 and closing below
     retest_bar = make_bar(now_ms, 2650.0, 2651.5, 2649.5, 2650.5)

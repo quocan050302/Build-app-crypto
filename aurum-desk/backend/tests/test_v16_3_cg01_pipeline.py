@@ -99,10 +99,15 @@ def build_long_fixture_series(t_start: int):
             candles_15m.append(make_bar(t_bar, 2626.0, 2630.0, 2625.5, 2628.0, tf="15M"))
 
     # 1M candles:
-    # Warmup bars (-120s, -60s) to establish confirmed SL at 2621.0 and SH at 2623.5
-    # 5: sweep bar down to 2619.5 sweeping 2621.0, reclaims 2621.5
-    # 6,7,8: break leg with displacement and FVG [2623.0, 2624.5], CE = 2623.75
-    c_1m = [
+    # 15 warmup bars for V16.28 ATR period=14 requirement, followed by
+    # confirmed SL at 2621.0 and SH at 2623.5
+    # sweep bar down to 2619.5 sweeping 2621.0, reclaims 2621.5
+    # break leg with displacement and FVG [2623.0, 2624.5], CE = 2623.75
+    warmup_1m = [
+        make_bar(t_start - (17 - i) * 60_000, 2622.0, 2622.8, 2621.8, 2622.2)
+        for i in range(15)
+    ]
+    c_1m = warmup_1m + [
         make_bar(t_start - 120_000, 2623.0, 2623.5, 2622.0, 2622.5),
         make_bar(t_start - 60_000, 2622.5, 2622.8, 2621.5, 2622.0),
         make_bar(t_start, 2622.0, 2622.2, 2621.0, 2621.5),              # SL at 2621.0
@@ -139,10 +144,15 @@ def build_short_fixture_series(t_start: int):
             candles_15m.append(make_bar(t_bar, 2647.0, 2649.0, 2646.0, 2648.0, tf="15M"))
 
     # 1M candles:
-    # Warmup bars (-120s, -60s) to establish confirmed SH at 2654.0 and SL at 2651.0
+    # 15 warmup bars for V16.28 ATR period=14 requirement, followed by
+    # confirmed SH at 2654.0 and SL at 2651.0
     # sweep bar up to 2655.5 sweeping 2654.0, reclaims 2653.5
     # break leg with displacement and bearish FVG [2650.5, 2651.8], CE = 2651.15
-    c_1m = [
+    warmup_1m_short = [
+        make_bar(t_start - (17 - i) * 60_000, 2652.0, 2652.8, 2651.8, 2652.4)
+        for i in range(15)
+    ]
+    c_1m = warmup_1m_short + [
         make_bar(t_start - 120_000, 2651.0, 2652.0, 2650.5, 2651.5),
         make_bar(t_start - 60_000, 2651.5, 2652.5, 2651.0, 2652.0),
         make_bar(t_start, 2652.0, 2654.0, 2651.8, 2653.0),              # SH at 2654.0

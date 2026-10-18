@@ -568,69 +568,81 @@ def resolve_cg01_retest(
 
         # Invalidation check: did price breach structural SL?
         if structural_sl is not None:
-            if direction == "LONG" and b_low <= structural_sl:
+            breached = (direction == "LONG" and b_low <= structural_sl) or (direction == "SHORT" and b_high >= structural_sl)
+            if breached:
+                reason = "INVALIDATED_AFTER_RETEST" if latest_confirmed is not None else "INVALIDATED_BEFORE_RETEST"
                 return CG01RetestResult(
                     confirmed=False,
-                    reason="INVALIDATED_BEFORE_RETEST",
-                    occurred_at=b_open,
-                    known_at=b_close_time,
-                    invalidation_occurred=True,
-                )
-            elif direction == "SHORT" and b_high >= structural_sl:
-                return CG01RetestResult(
-                    confirmed=False,
-                    reason="INVALIDATED_BEFORE_RETEST",
+                    reason=reason,
                     occurred_at=b_open,
                     known_at=b_close_time,
                     invalidation_occurred=True,
                 )
 
         # Check retest touch and confirmation close
-        if direction == "LONG":
-            if b_low <= ce_price and b_close >= ce_price:
-                # Check staleness (Rule 038)
-                if as_of_ms - b_close_time > max_trigger_age_ms:
-                    return CG01RetestResult(
-                        confirmed=False,
+        if latest_confirmed is None:
+            if direction == "LONG":
+                if b_low <= ce_price and b_close >= ce_price:
+                    # Check staleness (Rule 038)
+                    if as_of_ms - b_close_time > max_trigger_age_ms:
+                        return CG01RetestResult(
+                            confirmed=False,
+                            candle_id=f"retest_{b_open}",
+                            occurred_at=b_open,
+                            known_at=b_close_time,
+                            touch_price=ce_price,
+                            close_price=b_close,
+                            reason="STALE_TRIGGER",
+                        )
+                    latest_confirmed = CG01RetestResult(
+                        confirmed=True,
                         candle_id=f"retest_{b_open}",
                         occurred_at=b_open,
                         known_at=b_close_time,
                         touch_price=ce_price,
                         close_price=b_close,
-                        reason="STALE_TRIGGER",
+                        reason="CONFIRMED_RETEST",
                     )
-                latest_confirmed = CG01RetestResult(
-                    confirmed=True,
-                    candle_id=f"retest_{b_open}",
-                    occurred_at=b_open,
-                    known_at=b_close_time,
-                    touch_price=ce_price,
-                    close_price=b_close,
-                    reason="CONFIRMED_RETEST",
-                )
-                break
+            else:
+                if b_high >= ce_price and b_close <= ce_price:
+                    if as_of_ms - b_close_time > max_trigger_age_ms:
+                        return CG01RetestResult(
+                            confirmed=False,
+                            candle_id=f"retest_{b_open}",
+                            occurred_at=b_open,
+                            known_at=b_close_time,
+                            touch_price=ce_price,
+                            close_price=b_close,
+                            reason="STALE_TRIGGER",
+                        )
+                    latest_confirmed = CG01RetestResult(
+                        confirmed=True,
+                        candle_id=f"retest_{b_open}",
+                        occurred_at=b_open,
+                        known_at=b_close_time,
+                        touch_price=ce_price,
+                        close_price=b_close,
+                        reason="CONFIRMED_RETEST",
+                    )
         else:
-            if b_high >= ce_price and b_close <= ce_price:
-                if as_of_ms - b_close_time > max_trigger_age_ms:
+            # Post-retest invalidation check: verify price did not breach structural SL after confirmation
+            if structural_sl is not None:
+                if direction == "LONG" and b_low <= structural_sl:
                     return CG01RetestResult(
                         confirmed=False,
-                        candle_id=f"retest_{b_open}",
+                        reason="INVALIDATED_AFTER_RETEST",
                         occurred_at=b_open,
                         known_at=b_close_time,
-                        touch_price=ce_price,
-                        close_price=b_close,
-                        reason="STALE_TRIGGER",
+                        invalidation_occurred=True,
                     )
-                latest_confirmed = CG01RetestResult(
-                    confirmed=True,
-                    candle_id=f"retest_{b_open}",
-                    occurred_at=b_open,
-                    known_at=b_close_time,
-                    touch_price=ce_price,
-                    close_price=b_close,
-                    reason="CONFIRMED_RETEST",
-                )
-                break
+                elif direction == "SHORT" and b_high >= structural_sl:
+                    return CG01RetestResult(
+                        confirmed=False,
+                        reason="INVALIDATED_AFTER_RETEST",
+                        occurred_at=b_open,
+                        known_at=b_close_time,
+                        invalidation_occurred=True,
+                    )
 
     if latest_confirmed:
         return latest_confirmed

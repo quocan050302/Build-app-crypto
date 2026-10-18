@@ -70,6 +70,11 @@ def pytest_configure(config):
 
 
 @pytest.fixture
+def anyio_backend():
+    return "asyncio"
+
+
+@pytest.fixture
 def isolated_db():
     """Provides a fresh isolated in-memory or temp SQLite session for each test function."""
     engine = create_engine(
