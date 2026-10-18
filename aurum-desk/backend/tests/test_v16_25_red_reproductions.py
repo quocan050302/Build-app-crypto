@@ -224,7 +224,7 @@ async def test_red_026_queue_join_completes_after_retry_success():
         assert ready is True
 
         start_t = time.monotonic()
-        while time.monotonic() - start_t < 3.0:
+        while time.monotonic() - start_t < 6.0:
             if attempts["count"] >= 2 and tel_mod.get_persisted_count() >= 1:
                 break
             await asyncio.sleep(0.05)

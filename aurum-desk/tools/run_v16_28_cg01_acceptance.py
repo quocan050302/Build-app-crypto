@@ -401,7 +401,7 @@ def generate_acceptance_report(
         "- **Causality & Non-Self-Referentiality**: The break candle's own high, low, or body is excluded from its baseline ATR so the candidate break cannot self-inflate its threshold.",
         "- **Warmup & Units**: ATR is denominated in instrument price units (e.g., USD/oz for XAUUSDT). Requires at least `period + 1` closed M1 candles for warmup; if insufficient, candidate evaluation returns `OBSERVING` with reason `ATR_WARMUP`.",
         "- **Volatility Floor**: `resolve_cg01_mss_and_displacement()` enforces `effective_atr = max(effective_atr, 0.20)`, which is a price-volatility floor (not a tick size) protecting against division by zero in flat markets.",
-        "- **Displacement Ratio**: `body_atr_ratio = abs(close - open) / effective_atr`. Must satisfy `body_atr_ratio >= displacement_body_atr_min` (default 1.0).",
+        "- **Displacement Ratio**: `body_atr_ratio = abs(close - open) / effective_atr`. Must satisfy `body_atr_ratio >= displacement_body_atr_min` (default 0.80).",
         "",
         "### 2. Meaningful FVG Lifecycle, Invalidation, & Diagnostic Reasons",
         "- **Defect Fixed**: `select_cg01_leg_fvg()` had an empty `pass` in its mitigation check, allowing over-mitigated or used FVGs to be selected without lifecycle validation. When candidates were rejected, the caller received `None` without the underlying cause, frequently causing the engine to fall back to `WAIT_SWEEP` even though liquidity had already swept.",
@@ -461,7 +461,7 @@ V16.28 resolves fundamental correctness defects in the CG-01 setup evaluation en
 - **Pre-Break Baseline**: True range is measured strictly from candles preceding the break candle to prevent the displacement candle from expanding its own threshold.
 - **Warmup Requirement**: Requires at least `displacement_atr_period + 1` closed M1 candles. If missing, candidate evaluation returns `OBSERVING` with reason `ATR_WARMUP`.
 - **Volatility Floor**: Effective ATR is `max(atr_series, 0.20)`, where 0.20 is a price-volatility floor in instrument price units.
-- **Dynamic Ratio**: `body_atr_ratio = abs(close - open) / effective_atr`. Must satisfy `body_atr_ratio >= displacement_body_atr_min` (default 1.0).
+- **Dynamic Ratio**: `body_atr_ratio = abs(close - open) / effective_atr`. Must satisfy `body_atr_ratio >= displacement_body_atr_min` (default 0.80).
 
 ### 2. FVG Freshness & Entry Modes
 - **LIMIT_AT_CE_AFTER_CONFIRMATION**:

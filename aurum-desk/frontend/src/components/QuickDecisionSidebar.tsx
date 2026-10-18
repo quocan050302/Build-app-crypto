@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import type { SelectedTradeIntent } from '../App';
 import { SMCScenarioCard } from './SMCScenarioCard';
 import { SMCSessionForecastCard } from './SMCSessionForecastCard';
+import { CG01DiagnosticCard } from './CG01DiagnosticCard';
+import { useCG01RealtimeState } from '../hooks/useCG01RealtimeState';
 import type { SMCScenarioView } from '../types/smcScenario';
 import {
   ShieldAlert,
@@ -87,6 +89,9 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
   scenarios,
   onSelectScenario,
 }) => {
+  // Realtime CG-01 diagnostics state (V16.29)
+  const cg01State = useCG01RealtimeState({ symbol: 'XAUUSDT' });
+
   // Realtime quote subscriber for live distance & freshness
   const [currentQuote, setCurrentQuote] = useState(() => quoteStore.getQuote('XAUUSDT'));
 
@@ -499,6 +504,9 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
             </p>
           </div>
         )}
+
+        {/* CG-01 REALTIME CANDIDATE DIAGNOSTICS (V16.29) */}
+        <CG01DiagnosticCard displayState={cg01State.displayState} />
 
         {/* THREE-SESSION CONDITIONAL FORECAST V14.4.1 (read-only, cached) */}
         <SMCSessionForecastCard

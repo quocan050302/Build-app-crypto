@@ -13,7 +13,7 @@ V16.28 resolves fundamental correctness defects in the CG-01 setup evaluation en
 - **Pre-Break Baseline**: True range is measured strictly from candles preceding the break candle to prevent the displacement candle from expanding its own threshold.
 - **Warmup Requirement**: Requires at least `displacement_atr_period + 1` closed M1 candles. If missing, candidate evaluation returns `OBSERVING` with reason `ATR_WARMUP`.
 - **Volatility Floor**: Effective ATR is `max(atr_series, 0.20)`, where 0.20 is a price-volatility floor in instrument price units.
-- **Dynamic Ratio**: `body_atr_ratio = abs(close - open) / effective_atr`. Must satisfy `body_atr_ratio >= displacement_body_atr_min` (default 1.0).
+- **Dynamic Ratio**: `body_atr_ratio = abs(close - open) / effective_atr`. Must satisfy `body_atr_ratio >= displacement_body_atr_min` (default 0.80).
 
 ### 2. FVG Freshness & Entry Modes
 - **LIMIT_AT_CE_AFTER_CONFIRMATION**:

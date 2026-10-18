@@ -152,4 +152,39 @@ class MarketBroadcaster:
         }
         await self._send_to_all(envelope, timeout=2.0)
 
+    async def broadcast_cg01_evaluation(self, eval_dict: Dict[str, Any], symbol: str = "XAUUSDT"):
+        """Broadcasts latest CG-01 candidate diagnostic evaluation immediately to UI."""
+        now_ms = int(time.time() * 1000)
+        envelope = {
+            "protocol_version": "7.1.0",
+            "type": "CG01_EVALUATION",
+            "symbol": symbol,
+            "server_sequence": self._next_sequence(),
+            "published_at_ms": now_ms,
+            "payload": eval_dict,
+        }
+        await self._send_to_all(envelope, timeout=1.0)
+
+    def dispatch_cg01_evaluation(self, eval_dict: Dict[str, Any], symbol: str = "XAUUSDT"):
+        """Non-blocking scheduling of broadcast_cg01_evaluation across thread boundaries."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            loop.create_task(self.broadcast_cg01_evaluation(eval_dict, symbol=symbol))
+            return
+
+        try:
+            from services.event_bus import event_bus
+            target_loop, _ = event_bus._resolve_dispatch_loop()
+            if target_loop and not target_loop.is_closed():
+                target_loop.call_soon_threadsafe(
+                    lambda: asyncio.create_task(self.broadcast_cg01_evaluation(eval_dict, symbol=symbol))
+                )
+        except Exception as e:
+            logger.debug(f"Failed to schedule cg01 evaluation dispatch: {e}")
+
 market_broadcaster = MarketBroadcaster()
+

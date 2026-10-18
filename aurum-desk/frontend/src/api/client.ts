@@ -552,6 +552,11 @@ export const api = {
     return res.data;
   },
 
+  getCG01Evaluation: async (symbol: string = 'XAUUSDT') => {
+    const res = await apiClient.get('/api/scalp/cg01/evaluation', { params: { symbol } });
+    return res.data;
+  },
+
   getCandles: async (
     symbol: string,
     timeframe: string,

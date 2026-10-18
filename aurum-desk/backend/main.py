@@ -3425,6 +3425,12 @@ def get_scalp_watchlist_endpoint(symbol: str = "XAUUSDT"):
     }
 
 
+@app.get("/api/scalp/cg01/evaluation")
+def get_scalp_cg01_evaluation_endpoint(symbol: str = "XAUUSDT"):
+    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+    return scalp_watcher_orchestrator.get_latest_cg01_evaluation(symbol)
+
+
 @app.get("/api/scalp/funnel")
 def get_scalp_funnel_endpoint(
     start_ms: Optional[int] = None,

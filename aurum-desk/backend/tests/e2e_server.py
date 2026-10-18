@@ -508,6 +508,17 @@ async def e2e_broadcast_frames(body: dict = Body(...)):
         sent += 1
     return {"sent_count": sent, "timestamp": int(time.time() * 1000)}
 
+
+@app.post("/__e2e/cg01_evaluation")
+async def e2e_broadcast_cg01_eval(body: dict = Body(...)):
+    """Broadcasts CG-01 evaluation over /ws and updates in-memory snapshot for e2e tests."""
+    from services.market_broadcaster import market_broadcaster
+    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+    scalp_watcher_orchestrator._latest_cg01_evaluation["XAUUSDT"] = dict(body)
+    await market_broadcaster.broadcast_cg01_evaluation(body, symbol="XAUUSDT")
+    return {"ok": True, "timestamp": int(time.time() * 1000)}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8765)

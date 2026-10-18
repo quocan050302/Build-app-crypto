@@ -87,6 +87,9 @@ def serialize_cg01_evaluation(
             "arm_outcome": None,
             "armed_order_id": None,
             "guard_summary": guard_summary,
+            "ui_summary_vi": None,
+            "poi_id": None,
+            "direction": None,
         }
 
     dec_dict = decision.to_dict() if hasattr(decision, "to_dict") else dict(decision)
@@ -133,6 +136,23 @@ class ScalpWatcherOrchestrator:
         self._latest_hypothesis_authority: Dict[str, Any] = {}
         self._latest_cycle_outcome: Dict[str, Dict[str, Any]] = {}
         self._arm_rejections: Dict[str, Any] = {}
+        self._latest_cg01_evaluation: Dict[str, Dict[str, Any]] = {}
+
+    def get_latest_cg01_evaluation(self, symbol: str = "XAUUSDT") -> Dict[str, Any]:
+        with self._lock:
+            eval_data = self._latest_cg01_evaluation.get(symbol)
+            if eval_data:
+                return dict(eval_data)
+        return serialize_cg01_evaluation(None, enabled=False, evaluated=False, as_of_ms=int(time.time() * 1000))
+
+    def _record_and_broadcast_cg01_evaluation(self, symbol: str, cg01_eval_data: Dict[str, Any]):
+        with self._lock:
+            self._latest_cg01_evaluation[symbol] = dict(cg01_eval_data)
+        try:
+            from services.market_broadcaster import market_broadcaster
+            market_broadcaster.dispatch_cg01_evaluation(cg01_eval_data, symbol=symbol)
+        except Exception as e:
+            logger.debug(f"Failed to dispatch cg01 evaluation broadcast for {symbol}: {e}")
 
     def get_latest_hypothesis_batch_result(self, symbol: str = "XAUUSDT") -> Optional[Any]:
         with self._lock:
@@ -242,6 +262,8 @@ class ScalpWatcherOrchestrator:
         # Check feature flag
         scalp_mode = cfg.scalp_m1_mode
         if scalp_mode == ScalpMode.OFF.value and not cfg.daily_ny_research_enabled and not getattr(cfg, "cg01_enabled", False):
+            cg01_eval = serialize_cg01_evaluation(None, enabled=False, evaluated=False, skip_reason="MODEL_DISABLED", as_of_ms=t_recv)
+            self._record_and_broadcast_cg01_evaluation(symbol, cg01_eval)
             return {
                 "status": "DISABLED",
                 "scalp_mode": scalp_mode,
@@ -250,7 +272,7 @@ class ScalpWatcherOrchestrator:
                 "candidates_count": 0,
                 "candidates": [],
                 "armed_order_id": None,
-                "cg01_evaluation": serialize_cg01_evaluation(None, enabled=False, evaluated=False, skip_reason="MODEL_DISABLED", as_of_ms=t_recv),
+                "cg01_evaluation": cg01_eval,
             }
 
         # Validate quote & price using canonical execution quote normalizer (V15.8 PROMPT 086-096, 116-119)
@@ -274,6 +296,8 @@ class ScalpWatcherOrchestrator:
         )
 
         if not is_q_valid:
+            cg01_eval = serialize_cg01_evaluation(None, enabled=bool(getattr(cfg, "cg01_enabled", True)), evaluated=False, skip_reason="NO_QUOTE", as_of_ms=t_recv)
+            self._record_and_broadcast_cg01_evaluation(symbol, cg01_eval)
             return {
                 "status": "NO_QUOTE",
                 "as_of_ms": t_recv,
@@ -281,7 +305,7 @@ class ScalpWatcherOrchestrator:
                 "candidates_count": 0,
                 "candidates": [],
                 "armed_order_id": None,
-                "cg01_evaluation": serialize_cg01_evaluation(None, enabled=bool(getattr(cfg, "cg01_enabled", True)), evaluated=False, skip_reason="NO_QUOTE", as_of_ms=t_recv),
+                "cg01_evaluation": cg01_eval,
             }
 
         current_px = (bid + ask) / 2.0
@@ -1128,6 +1152,9 @@ class ScalpWatcherOrchestrator:
             logger.debug(f"Failed to evaluate daily frequency goal: {dg_e}")
             daily_goal_dict = {}
 
+        cg01_final = cg01_eval_data or serialize_cg01_evaluation(None, enabled=False, evaluated=False, as_of_ms=t_recv)
+        self._record_and_broadcast_cg01_evaluation(symbol, cg01_final)
+
         return {
             "status": cycle_status if commit_ok else "DEGRADED",
             "lifecycle_read_status": batch_result.read_status,
@@ -1146,7 +1173,7 @@ class ScalpWatcherOrchestrator:
             "liquidity_levels_count": len(liq_levels),
             "market_regime": regime,
             "daily_goal": daily_goal_dict,
-            "cg01_evaluation": cg01_eval_data or serialize_cg01_evaluation(None, enabled=False, evaluated=False, as_of_ms=t_recv),
+            "cg01_evaluation": cg01_final,
         }
 
     def _finalize_failed_cycle(
@@ -1193,6 +1220,9 @@ class ScalpWatcherOrchestrator:
             }
 
         t_cycle_done = int(time.time() * 1000)
+        cg01_failed = serialize_cg01_evaluation(None, enabled=True, evaluated=False, skip_reason="CYCLE_FAILED", as_of_ms=t_recv)
+        self._record_and_broadcast_cg01_evaluation(symbol, cg01_failed)
+
         return {
             "status": "DEGRADED",
             "lifecycle_read_status": getattr(batch_result, "read_status", "UNKNOWN"),
@@ -1211,7 +1241,7 @@ class ScalpWatcherOrchestrator:
             "liquidity_levels_count": liq_levels_count,
             "market_regime": regime,
             "daily_goal": {},
-            "cg01_evaluation": serialize_cg01_evaluation(None, enabled=True, evaluated=False, skip_reason="CYCLE_FAILED", as_of_ms=t_recv),
+            "cg01_evaluation": cg01_failed,
         }
 
     @serialize_entry_mutation
