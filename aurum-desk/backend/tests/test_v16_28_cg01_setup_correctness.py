@@ -33,6 +33,7 @@ from services.cg01_types import (
     CG01EntryMode,
     CG01Stage,
 )
+from services.scalp_m1_model_service import candle_open_ms
 from services.scalp_m1_types import WatchedZone
 from tests.test_v16_3_cg01_pipeline import (
     build_long_fixture_series,
@@ -454,13 +455,18 @@ def test_v16_28_fvg_lifecycle_primary_invalid_secondary_valid():
 # PART C: MULTI-POI EVALUATION & CANDIDATE SELECTION
 # ==============================================================================
 
-def test_v16_28_multi_poi_waiting_first_does_not_block_executable_second():
+def test_v16_28_multi_poi_waiting_first_does_not_block_executable_second_long(monkeypatch):
     """
-    Items 121, 128, 141: POI 1 is waiting for retest in confirmed-retest mode.
-    POI 2 has already confirmed retest.
-    evaluate_cg01_candidate MUST NOT return early with WAIT_ENTRY for POI 1;
-    it MUST evaluate POI 2 and return EXECUTABLE!
+    Items 101-115, 121, 128, 141: Evaluates two distinct POIs in the SAME cycle for LONG.
+    POI_A is ranked first (touch_count=0) and reaches WAIT_ENTRY (unconfirmed retest).
+    POI_B is ranked second (touch_count=1) and reaches EXECUTABLE (confirmed retest).
+    evaluate_cg01_candidate MUST NOT return early with WAIT_ENTRY for POI_A;
+    it MUST evaluate POI_B and return EXECUTABLE with evidence bound strictly to POI_B!
     """
+    from services.cg01_context_adapter import CG01RetestResult
+    from services.zone_watchlist_service import ZoneWatchlistService
+    from services import cg01_engine
+
     ny_tz = ZoneInfo("America/New_York")
     dt = datetime(2026, 10, 15, 3, 30, tzinfo=ny_tz)
     t_start = int(dt.timestamp() * 1000)
@@ -468,24 +474,446 @@ def test_v16_28_multi_poi_waiting_first_does_not_block_executable_second():
     c_4h, c_1h, c_15m, c_1m = build_long_fixture_series(t_start)
     now_ms = t_start + 540_000
 
-    # Add closed retest bar for textbook setup
-    retest_bar = make_bar(now_ms, 2623.75, 2624.5, 2623.5, 2624.2)
-    c_1m_retested = list(c_1m) + [retest_bar]
-    t_eval = now_ms + 60_000
-
-    ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m_retested}
+    ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m}
     quote = {"bid": 2623.75, "ask": 2623.85, "is_valid": True}
 
-    cfg_retest = CG01Config(
+    poi_a = WatchedZone(
+        zone_id="POI_A_WAITING",
+        symbol="XAUUSDT",
+        timeframe="15M",
+        zone_type="OB",
+        direction="LONG",
+        top=2623.5,
+        bottom=2620.0,
+        created_at=t_start,
+        known_at=t_start,
+        touch_count=0,
+    )
+    poi_b = WatchedZone(
+        zone_id="POI_B_EXECUTABLE",
+        symbol="XAUUSDT",
+        timeframe="15M",
+        zone_type="OB",
+        direction="LONG",
+        top=2623.8,
+        bottom=2620.2,
+        created_at=t_start,
+        known_at=t_start,
+        touch_count=1,
+    )
+
+    monkeypatch.setattr(
+        ZoneWatchlistService,
+        "extract_zones_from_candles",
+        lambda *args, **kwargs: [poi_a, poi_b],
+    )
+
+    retest_calls = []
+    def mock_resolve_retest(closed_m1, fvg, direction, as_of_ms, config=None, structural_sl=None):
+        call_idx = len(retest_calls)
+        retest_calls.append(call_idx)
+        if call_idx == 0:
+            # POI_A: Waiting for retest touch
+            return CG01RetestResult(confirmed=False, reason="WAIT_RETEST")
+        else:
+            # POI_B: Confirmed retest!
+            return CG01RetestResult(
+                confirmed=True,
+                reason="CONFIRMED_RETEST",
+                candle_id="retest_123",
+                occurred_at=now_ms - 30_000,
+                known_at=now_ms,
+                touch_price=2623.75,
+                close_price=2624.2,
+            )
+
+    monkeypatch.setattr(cg01_engine, "resolve_cg01_retest", mock_resolve_retest)
+
+    cfg = CG01Config(
         enabled=True,
         profile_mode="PAPER_EXECUTION",
         entry_mode=CG01EntryMode.CONFIRMED_RETEST_MARKET.value,
     )
 
-    dec = evaluate_cg01_candidate(ctx, quote, config=cfg_retest, now_ms=t_eval)
+    dec = evaluate_cg01_candidate(ctx, quote, config=cfg, now_ms=now_ms)
+
+    # 1. Both POIs were evaluated in the same cycle (no early return on POI_A)
+    assert len(retest_calls) == 2
+
+    # 2. Executable candidate from POI_B was selected
     assert dec.stage == CG01Stage.EXECUTABLE
     assert dec.is_eligible
+    assert dec.poi_id == "POI_B_EXECUTABLE"
     assert dec.candidate is not None
+    assert dec.candidate.zone_id == "POI_B_EXECUTABLE"
+    assert "POI_B_EXECUTABLE" in dec.candidate.candidate_key
+
+    # 3. Evidence belongs strictly to POI_B, no mixing with POI_A
+    poi_evidence = next((n for n in dec.candidate.evidence if n.get("kind") == "POI"), None)
+    assert poi_evidence is not None
+    assert poi_evidence["id"] == "ev_poi_POI_B_EXECUTABLE"
+    assert poi_evidence.get("extra", {}).get("zone_id") == "POI_B_EXECUTABLE"
+
+
+def test_v16_28_multi_poi_waiting_first_does_not_block_executable_second_short(monkeypatch):
+    """
+    Items 115, 146: Symmetric SHORT multi-POI test.
+    POI_A waiting does not block POI_B executable.
+    """
+    from services.cg01_context_adapter import CG01RetestResult
+    from services.zone_watchlist_service import ZoneWatchlistService
+    from services import cg01_engine
+
+    ny_tz = ZoneInfo("America/New_York")
+    dt = datetime(2026, 10, 15, 10, 15, tzinfo=ny_tz)
+    t_start = int(dt.timestamp() * 1000)
+
+    c_4h, c_1h, c_15m, c_1m = build_short_fixture_series(t_start)
+    now_ms = t_start + 540_000
+
+    ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m}
+    quote = {"bid": 2651.05, "ask": 2651.15, "is_valid": True}
+
+    poi_a = WatchedZone(
+        zone_id="POI_A_SHORT_WAIT",
+        symbol="XAUUSDT",
+        timeframe="15M",
+        zone_type="OB",
+        direction="SHORT",
+        top=2655.0,
+        bottom=2652.0,
+        created_at=t_start,
+        known_at=t_start,
+        touch_count=0,
+    )
+    poi_b = WatchedZone(
+        zone_id="POI_B_SHORT_EXEC",
+        symbol="XAUUSDT",
+        timeframe="15M",
+        zone_type="OB",
+        direction="SHORT",
+        top=2655.5,
+        bottom=2652.5,
+        created_at=t_start,
+        known_at=t_start,
+        touch_count=1,
+    )
+
+    monkeypatch.setattr(
+        ZoneWatchlistService,
+        "extract_zones_from_candles",
+        lambda *args, **kwargs: [poi_a, poi_b],
+    )
+
+    retest_calls = []
+    def mock_resolve_retest(closed_m1, fvg, direction, as_of_ms, config=None, structural_sl=None):
+        call_idx = len(retest_calls)
+        retest_calls.append(call_idx)
+        if call_idx == 0:
+            return CG01RetestResult(confirmed=False, reason="WAIT_RETEST")
+        else:
+            return CG01RetestResult(
+                confirmed=True,
+                reason="CONFIRMED_RETEST",
+                candle_id="retest_short_123",
+                occurred_at=now_ms - 30_000,
+                known_at=now_ms,
+                touch_price=2651.15,
+                close_price=2650.5,
+            )
+
+    monkeypatch.setattr(cg01_engine, "resolve_cg01_retest", mock_resolve_retest)
+
+    cfg = CG01Config(
+        enabled=True,
+        profile_mode="PAPER_EXECUTION",
+        entry_mode=CG01EntryMode.CONFIRMED_RETEST_MARKET.value,
+    )
+
+    dec = evaluate_cg01_candidate(ctx, quote, config=cfg, now_ms=now_ms)
+    assert len(retest_calls) == 2
+    assert dec.stage == CG01Stage.EXECUTABLE
+    assert dec.direction == "SHORT"
+    assert dec.poi_id == "POI_B_SHORT_EXEC"
+    assert dec.candidate is not None
+    assert dec.candidate.zone_id == "POI_B_SHORT_EXEC"
+
+
+def test_v16_28_reason_swept_but_no_mss_reports_wait_mss():
+    """
+    Items 041, 063: When liquidity was swept for a POI, but no MSS displacement candle formed,
+    evaluator MUST report WAIT_MSS (WAITING_MSS_CONFIRMATION), NOT revert to WAIT_SWEEP!
+    """
+    ny_tz = ZoneInfo("America/New_York")
+    dt = datetime(2026, 10, 15, 3, 30, tzinfo=ny_tz)
+    t_start = int(dt.timestamp() * 1000)
+
+    c_4h, c_1h, c_15m, c_1m = build_long_fixture_series(t_start)
+    # Candle 22 (index 22) is the sweep candle (sweeps 2621.0 down to 2619.5, closes at 2621.5).
+    # Slice up to index 22 so sweep has occurred, but MSS break candle (index 24) has not formed.
+    c_1m_swept_only = c_1m[:23]
+    now_ms = candle_open_ms(c_1m_swept_only[-1]) + 60_000
+
+    ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m_swept_only}
+    quote = {"bid": 2622.0, "ask": 2622.1, "is_valid": True}
+    cfg = CG01Config(enabled=True, profile_mode="PAPER_EXECUTION")
+
+    dec = evaluate_cg01_candidate(ctx, quote, config=cfg, now_ms=now_ms)
+    assert dec.stage == CG01Stage.WAIT_MSS
+    assert dec.stage != CG01Stage.WAIT_SWEEP
+    assert "WAITING_MSS_CONFIRMATION" in dec.reason_codes
+    assert "MSS_DISPLACEMENT_NOT_CONFIRMED" in dec.missing_conditions
+    assert "quét thanh khoản" in dec.ui_summary_vi.get("status", "")
+
+
+def test_v16_28_reason_mss_confirmed_but_no_fvg_reports_wait_fvg():
+    """
+    Items 041, 066: When sweep and MSS displacement are confirmed, but no valid FVG formed on the leg,
+    evaluator MUST report WAIT_FVG, NOT revert to WAIT_SWEEP!
+    """
+    ny_tz = ZoneInfo("America/New_York")
+    dt = datetime(2026, 10, 15, 3, 30, tzinfo=ny_tz)
+    t_start = int(dt.timestamp() * 1000)
+
+    c_4h, c_1h, c_15m, c_1m = build_long_fixture_series(t_start)
+    # Ensure neither break_idx nor break_idx+1 form a valid FVG
+    c_1m_no_fvg = list(c_1m)
+    bar_24 = c_1m_no_fvg[24]
+    c_1m_no_fvg[24] = make_bar(
+        candle_open_ms(bar_24),
+        bar_24["open"],
+        bar_24["high"],
+        2622.0,
+        bar_24["close"],
+    )
+    bar_25 = c_1m_no_fvg[25]
+    c_1m_no_fvg[25] = make_bar(
+        candle_open_ms(bar_25),
+        bar_25["open"],
+        bar_25["high"],
+        2622.5,
+        bar_25["close"],
+    )
+    now_ms = t_start + 540_000
+    ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m_no_fvg}
+    quote = {"bid": 2625.5, "ask": 2625.6, "is_valid": True}
+    cfg = CG01Config(enabled=True, profile_mode="PAPER_EXECUTION")
+
+    dec = evaluate_cg01_candidate(ctx, quote, config=cfg, now_ms=now_ms)
+    assert dec.stage == CG01Stage.WAIT_FVG
+    assert dec.stage != CG01Stage.WAIT_SWEEP
+    assert "NO_FVG_ON_LEG" in dec.reason_codes or "WAITING_FVG_FORMATION" in dec.reason_codes
+    assert "xác nhận cấu trúc" in dec.ui_summary_vi.get("status", "")
+
+
+def test_v16_28_multi_poi_furthest_progress_selected(monkeypatch):
+    """
+    Items 075, 076, 122: When POI_1 only reached WAIT_SWEEP and POI_2 reached WAIT_MSS,
+    evaluator returns WAIT_MSS representing POI_2's milestone progress!
+    """
+    from services.zone_watchlist_service import ZoneWatchlistService
+
+    ny_tz = ZoneInfo("America/New_York")
+    dt = datetime(2026, 10, 15, 3, 30, tzinfo=ny_tz)
+    t_start = int(dt.timestamp() * 1000)
+
+    c_4h, c_1h, c_15m, c_1m = build_long_fixture_series(t_start)
+    c_1m_swept = c_1m[:23]
+    now_ms = candle_open_ms(c_1m_swept[-1]) + 60_000
+
+    poi_1 = WatchedZone(
+        zone_id="POI_1_NOSWEEP",
+        symbol="XAUUSDT",
+        timeframe="15M",
+        zone_type="OB",
+        direction="LONG",
+        top=2628.0,
+        bottom=2626.0,
+        created_at=t_start,
+        known_at=t_start,
+        touch_count=0,
+    )
+    poi_2 = WatchedZone(
+        zone_id="POI_2_SWEPT",
+        symbol="XAUUSDT",
+        timeframe="15M",
+        zone_type="OB",
+        direction="LONG",
+        top=2623.5,
+        bottom=2620.0,
+        created_at=t_start,
+        known_at=t_start,
+        touch_count=1,
+    )
+
+    monkeypatch.setattr(
+        ZoneWatchlistService,
+        "extract_zones_from_candles",
+        lambda *args, **kwargs: [poi_1, poi_2],
+    )
+
+    ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m_swept}
+    quote = {"bid": 2622.0, "ask": 2622.1, "is_valid": True}
+    cfg = CG01Config(enabled=True, profile_mode="PAPER_EXECUTION")
+
+    dec = evaluate_cg01_candidate(ctx, quote, config=cfg, now_ms=now_ms)
+    assert dec.stage == CG01Stage.WAIT_MSS
+    assert dec.poi_id == "POI_2_SWEPT"
+    assert "WAITING_MSS_CONFIRMATION" in dec.reason_codes
+
+
+def test_v16_28_multi_poi_executable_first_selected_over_waiting_second(monkeypatch):
+    """
+    Item 118: When POI_A is executable and POI_B is waiting retest,
+    evaluator evaluates both without error and selects POI_A according to stable ranking.
+    """
+    from services.cg01_context_adapter import CG01RetestResult
+    from services.zone_watchlist_service import ZoneWatchlistService
+    from services import cg01_engine
+
+    ny_tz = ZoneInfo("America/New_York")
+    dt = datetime(2026, 10, 15, 3, 30, tzinfo=ny_tz)
+    t_start = int(dt.timestamp() * 1000)
+
+    c_4h, c_1h, c_15m, c_1m = build_long_fixture_series(t_start)
+    now_ms = t_start + 540_000
+
+    ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m}
+    quote = {"bid": 2623.7, "ask": 2623.8, "is_valid": True}
+
+    poi_a = WatchedZone(
+        zone_id="POI_A_EXEC",
+        symbol="XAUUSDT",
+        timeframe="15M",
+        zone_type="OB",
+        direction="LONG",
+        top=2625.0,
+        bottom=2620.0,
+        created_at=t_start,
+        known_at=t_start,
+        touch_count=0,
+    )
+    poi_b = WatchedZone(
+        zone_id="POI_B_WAIT",
+        symbol="XAUUSDT",
+        timeframe="15M",
+        zone_type="OB",
+        direction="LONG",
+        top=2625.5,
+        bottom=2620.5,
+        created_at=t_start,
+        known_at=t_start,
+        touch_count=1,
+    )
+
+    monkeypatch.setattr(
+        ZoneWatchlistService,
+        "extract_zones_from_candles",
+        lambda *args, **kwargs: [poi_a, poi_b],
+    )
+
+    retest_calls = []
+    def mock_resolve_retest(closed_m1, fvg, direction, as_of_ms, config=None, structural_sl=None):
+        call_idx = len(retest_calls)
+        retest_calls.append(call_idx)
+        if call_idx == 0:
+            return CG01RetestResult(
+                confirmed=True,
+                reason="CONFIRMED_RETEST",
+                candle_id="retest_a_123",
+                occurred_at=now_ms - 30_000,
+                known_at=now_ms,
+                touch_price=2623.75,
+                close_price=2624.2,
+            )
+        else:
+            return CG01RetestResult(confirmed=False, reason="WAIT_RETEST")
+
+    monkeypatch.setattr(cg01_engine, "resolve_cg01_retest", mock_resolve_retest)
+
+    cfg = CG01Config(
+        enabled=True,
+        profile_mode="PAPER_EXECUTION",
+        entry_mode=CG01EntryMode.CONFIRMED_RETEST_MARKET.value,
+    )
+
+    dec = evaluate_cg01_candidate(ctx, quote, config=cfg, now_ms=now_ms)
+    assert len(retest_calls) == 2
+    assert dec.stage == CG01Stage.EXECUTABLE
+    assert dec.poi_id == "POI_A_EXEC"
+    assert dec.candidate is not None
+    assert dec.candidate.zone_id == "POI_A_EXEC"
+
+
+def test_v16_28_multi_poi_one_lacks_mss_one_lacks_fvg_selects_furthest_wait_fvg(monkeypatch):
+    """
+    Item 123: POI_1 reached WAIT_MSS (no MSS displacement), POI_2 reached WAIT_FVG (MSS confirmed, FVG rejected).
+    Evaluator MUST return WAIT_FVG reflecting POI_2's further milestone progress!
+    """
+    from services.zone_watchlist_service import ZoneWatchlistService
+    from services import cg01_engine
+
+    ny_tz = ZoneInfo("America/New_York")
+    dt = datetime(2026, 10, 15, 3, 30, tzinfo=ny_tz)
+    t_start = int(dt.timestamp() * 1000)
+
+    c_4h, c_1h, c_15m, c_1m = build_long_fixture_series(t_start)
+    now_ms = t_start + 540_000
+
+    poi_1 = WatchedZone(
+        zone_id="POI_1_NO_MSS",
+        symbol="XAUUSDT",
+        timeframe="15M",
+        zone_type="OB",
+        direction="LONG",
+        top=2625.0,
+        bottom=2620.0,
+        created_at=t_start,
+        known_at=t_start,
+        touch_count=0,
+    )
+    poi_2 = WatchedZone(
+        zone_id="POI_2_NO_FVG",
+        symbol="XAUUSDT",
+        timeframe="15M",
+        zone_type="OB",
+        direction="LONG",
+        top=2625.5,
+        bottom=2620.5,
+        created_at=t_start,
+        known_at=t_start,
+        touch_count=1,
+    )
+
+    monkeypatch.setattr(
+        ZoneWatchlistService,
+        "extract_zones_from_candles",
+        lambda *args, **kwargs: [poi_1, poi_2],
+    )
+
+    orig_mss = cg01_engine.resolve_cg01_mss_and_displacement
+    def mock_mss(candles, sweep, direction, now_ms, config=None, atr_1m=None):
+        if "POI_1_NO_MSS" in sweep.get("episode_id", ""):
+            return None
+        return orig_mss(candles, sweep, direction, now_ms, config, atr_1m=atr_1m)
+
+    monkeypatch.setattr(cg01_engine, "resolve_cg01_mss_and_displacement", mock_mss)
+
+    def mock_fvg_diagnostics(*args, **kwargs):
+        return None, [{"reason": "FVG_OVER_MITIGATED"}]
+
+    monkeypatch.setattr(cg01_engine, "select_cg01_leg_fvg_with_diagnostics", mock_fvg_diagnostics)
+
+    ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m}
+    quote = {"bid": 2622.0, "ask": 2622.1, "is_valid": True}
+    cfg = CG01Config(enabled=True, profile_mode="PAPER_EXECUTION")
+
+    dec = evaluate_cg01_candidate(ctx, quote, config=cfg, now_ms=now_ms)
+    assert dec.stage == CG01Stage.WAIT_FVG
+    assert dec.poi_id == "POI_2_NO_FVG"
+    assert "FVG_OVER_MITIGATED" in dec.reason_codes
+    assert "FVG_OVER_MITIGATED" in dec.ui_summary_vi.get("status", "")
+
 
 
 def test_v16_28_multi_poi_both_waiting_deterministic_wait():

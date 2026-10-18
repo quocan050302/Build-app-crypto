@@ -238,6 +238,33 @@ class CG01Decision:
 
 
 @dataclass(frozen=True)
+class CG01CandidateDiagnostic:
+    """
+    V16.28 Item 046-048: Progress diagnostic capturing the evaluation milestone of a POI.
+    """
+    poi_id: str
+    direction: str
+    stage: CG01Stage
+    reason: str
+    evaluated_at_ms: int
+    progress_rank: int = 0
+    missing_condition: Optional[str] = None
+    ui_summary_vi: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "poi_id": self.poi_id,
+            "direction": self.direction,
+            "stage": self.stage.value if hasattr(self.stage, "value") else str(self.stage),
+            "reason": self.reason,
+            "evaluated_at_ms": self.evaluated_at_ms,
+            "progress_rank": self.progress_rank,
+            "missing_condition": self.missing_condition,
+            "ui_summary_vi": self.ui_summary_vi,
+        }
+
+
+@dataclass(frozen=True)
 class CG01EntryIntent:
     """
     Rules 041 - 043: Explicit execution intent for CG-01 candidate.

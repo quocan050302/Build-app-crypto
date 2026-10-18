@@ -109,6 +109,9 @@ def serialize_cg01_evaluation(
         "arm_outcome": "ARMED" if armed_order_id else None,
         "armed_order_id": armed_order_id,
         "guard_summary": guard_summary,
+        "ui_summary_vi": dec_dict.get("ui_summary_vi"),
+        "poi_id": dec_dict.get("poi_id"),
+        "direction": dec_dict.get("direction"),
     }
 
 

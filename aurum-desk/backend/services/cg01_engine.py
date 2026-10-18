@@ -38,6 +38,7 @@ from services.cg01_evidence_adapter import (
     build_cg01_trigger_chain,
 )
 from services.cg01_types import (
+    CG01CandidateDiagnostic,
     CG01Config,
     CG01Decision,
     CG01EntryIntent,
@@ -421,9 +422,10 @@ def build_cg01_displacement_atr_series(
     as_of_ms: Optional[int] = None,
 ) -> Dict[int, float]:
     """
-    V16.28 Section B: Causal per-bar M1 ATR series for displacement confirmation.
-    Computes Wilder/SMA Average True Range over `period` completed bars strictly
-    preceding each candle timestamp, with prefix invariance and zero lookahead.
+    V16.28 Section B & Items 136-146: Causal per-bar M1 ATR series for displacement confirmation.
+    Computes Simple Moving Average (SMA / arithmetic rolling mean) of True Range over `period` completed
+    bars strictly preceding each candle timestamp (pre-break volatility baseline), with prefix invariance
+    and zero lookahead. Note: This uses rolling arithmetic mean over preceding True Ranges, NOT recursive Wilder RMA.
 
     Formula:
       For candle at index i (open timestamp t_i):
@@ -784,7 +786,19 @@ def assess_cg01_fvg_lifecycle(
     }
 
 
-def select_cg01_leg_fvg(
+def select_cg01_progress_diagnostic(
+    diagnostics: Sequence[CG01CandidateDiagnostic],
+) -> Optional[CG01CandidateDiagnostic]:
+    """
+    V16.28 Item 075-076: Selects the diagnostic representing the furthest observed milestone.
+    Uses progress_rank descending, preserving stable POI tie-break.
+    """
+    if not diagnostics:
+        return None
+    return max(diagnostics, key=lambda d: d.progress_rank)
+
+
+def select_cg01_leg_fvg_with_diagnostics(
     m1_candles: Sequence[Any],
     mss_info: Dict[str, Any],
     direction: str,
@@ -792,15 +806,14 @@ def select_cg01_leg_fvg(
     config: Optional[CG01Config] = None,
     entry_mode: Optional[str] = None,
     structural_sl: Optional[float] = None,
-) -> Optional[Dict[str, Any]]:
+) -> Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]:
     """
-    Rules 097 - 105: FVG belonging to the MSS Displacement Leg.
-    Computes 50% CE level and validates freshness across primary and secondary candidates.
-    V16.28 Section C: Replaces empty pass with full lifecycle assessment.
+    V16.28 Item 082-084: FVG selection with rejection diagnostics.
+    Returns (selected_fvg, list_of_rejected_candidate_facts).
     """
     break_idx = mss_info["break_bar_idx"]
     if break_idx < 2 or break_idx >= len(m1_candles):
-        return None
+        return None, [{"reason": "INVALID_BREAK_INDEX"}]
 
     candidates = []
     scan_order = []
@@ -839,9 +852,9 @@ def select_cg01_leg_fvg(
                 candidates.append((k, lower, upper, ce, candle_open_ms(c3)))
 
     if not candidates:
-        return None
+        return None, [{"reason": "NO_FVG_ON_LEG"}]
 
-    # Evaluate lifecycle for candidates in scan order (primary then secondary)
+    rejection_facts: List[Dict[str, Any]] = []
     for cand in candidates:
         k_idx, lower, upper, ce, form_time_ms = cand
         fvg_dict = {
@@ -866,9 +879,41 @@ def select_cg01_leg_fvg(
             fvg_dict["lifecycle"] = lifecycle
             fvg_dict["mitigation_ratio"] = lifecycle["max_mitigation_ratio"]
             fvg_dict["is_fresh"] = True
-            return fvg_dict
+            return fvg_dict, rejection_facts
+        else:
+            rejection_facts.append({
+                "fvg_id": fvg_dict["fvg_id"],
+                "reason": lifecycle.get("reason", "FVG_NOT_FRESH"),
+                "lifecycle": lifecycle,
+            })
 
-    return None
+    return None, rejection_facts
+
+
+def select_cg01_leg_fvg(
+    m1_candles: Sequence[Any],
+    mss_info: Dict[str, Any],
+    direction: str,
+    now_ms: int,
+    config: Optional[CG01Config] = None,
+    entry_mode: Optional[str] = None,
+    structural_sl: Optional[float] = None,
+) -> Optional[Dict[str, Any]]:
+    """
+    Rules 097 - 105: FVG belonging to the MSS Displacement Leg.
+    Computes 50% CE level and validates freshness across primary and secondary candidates.
+    V16.28 Section C: Preserves compatibility via select_cg01_leg_fvg_with_diagnostics.
+    """
+    fvg, _ = select_cg01_leg_fvg_with_diagnostics(
+        m1_candles=m1_candles,
+        mss_info=mss_info,
+        direction=direction,
+        now_ms=now_ms,
+        config=config,
+        entry_mode=entry_mode,
+        structural_sl=structural_sl,
+    )
+    return fvg
 
 
 def evaluate_cg01_candidate(
@@ -1004,6 +1049,7 @@ def evaluate_cg01_candidate(
     executable_decisions: List[CG01Decision] = []
     waiting_decisions: List[CG01Decision] = []
     rejection_diagnostics: List[Tuple[CG01Stage, str]] = []
+    progress_diagnostics: List[CG01CandidateDiagnostic] = []
 
     for direction in directions_to_evaluate:
         # Rule 050: Filter POIs
@@ -1015,11 +1061,36 @@ def evaluate_cg01_candidate(
             # 4. Sweep Detection
             sweep = detect_cg01_sweep(c_1m, liquidity_levels, poi, direction, t_now, cfg)
             if not sweep:
+                progress_diagnostics.append(
+                    CG01CandidateDiagnostic(
+                        poi_id=poi.zone_id,
+                        direction=direction,
+                        stage=CG01Stage.WAIT_SWEEP,
+                        reason="WAITING_SWEEP_CONFIRMATION",
+                        evaluated_at_ms=t_now,
+                        progress_rank=2,
+                        missing_condition="SWEEP_NOT_CONFIRMED",
+                        ui_summary_vi=f"POI {poi.zone_id}: Đang theo dõi vùng cấu trúc giá và chờ tín hiệu sweep hợp lệ.",
+                    )
+                )
                 continue
 
             # 5. MSS & Displacement with dynamic M1 ATR series
             mss = resolve_cg01_mss_and_displacement(c_1m, sweep, direction, t_now, cfg, atr_1m=atr_series)
             if not mss:
+                ref_price = float(sweep.get("reference_price", 0.0))
+                progress_diagnostics.append(
+                    CG01CandidateDiagnostic(
+                        poi_id=poi.zone_id,
+                        direction=direction,
+                        stage=CG01Stage.WAIT_MSS,
+                        reason="WAITING_MSS_CONFIRMATION",
+                        evaluated_at_ms=t_now,
+                        progress_rank=3,
+                        missing_condition="MSS_DISPLACEMENT_NOT_CONFIRMED",
+                        ui_summary_vi=f"POI {poi.zone_id}: Đã có quét thanh khoản ({ref_price:.2f}); đang chờ nến đóng xác nhận phá cấu trúc và lực đẩy.",
+                    )
+                )
                 continue
 
             sweep_extreme = sweep["sweep_extreme"]
@@ -1031,8 +1102,8 @@ def evaluate_cg01_candidate(
             else:
                 sl = round(sweep_extreme + (buffer_ticks * tick_size), 2)
 
-            # 6. Leg FVG & 50% CE with lifecycle validation
-            fvg = select_cg01_leg_fvg(
+            # 6. Leg FVG & 50% CE with lifecycle validation and rejection diagnostics
+            fvg, fvg_rejections = select_cg01_leg_fvg_with_diagnostics(
                 c_1m,
                 mss,
                 direction,
@@ -1042,6 +1113,24 @@ def evaluate_cg01_candidate(
                 structural_sl=sl,
             )
             if not fvg:
+                fvg_rej_reason = fvg_rejections[0]["reason"] if fvg_rejections else "WAITING_FVG_FORMATION"
+                fvg_ui_desc = (
+                    f"POI {poi.zone_id}: Đã có xác nhận cấu trúc ({mss.get('structure_ref_price', 0.0):.2f}); {fvg_rej_reason}."
+                    if fvg_rejections
+                    else f"POI {poi.zone_id}: Đã có xác nhận cấu trúc ({mss.get('structure_ref_price', 0.0):.2f}); chưa tìm thấy FVG hợp lệ trên nhịp đẩy."
+                )
+                progress_diagnostics.append(
+                    CG01CandidateDiagnostic(
+                        poi_id=poi.zone_id,
+                        direction=direction,
+                        stage=CG01Stage.WAIT_FVG,
+                        reason=fvg_rej_reason,
+                        evaluated_at_ms=t_now,
+                        progress_rank=4,
+                        missing_condition="FVG_NOT_AVAILABLE",
+                        ui_summary_vi=fvg_ui_desc,
+                    )
+                )
                 continue
 
             ce_price = fvg["ce_price"]
@@ -1070,9 +1159,21 @@ def evaluate_cg01_candidate(
                         missing_conditions=("FVG_RETEST_NOT_CONFIRMED",),
                         as_of_ms=t_now,
                         time_context=time_ctx,
-                        ui_summary_vi={"status": "Đang chờ giá hồi (retest) vào vùng FVG."},
+                        ui_summary_vi={"status": f"POI {poi.zone_id}: Đang chờ giá hồi (retest) vào vùng FVG."},
                     )
                     waiting_decisions.append(wait_dec)
+                    progress_diagnostics.append(
+                        CG01CandidateDiagnostic(
+                            poi_id=poi.zone_id,
+                            direction=direction,
+                            stage=CG01Stage.WAIT_ENTRY,
+                            reason=retest_res.reason,
+                            evaluated_at_ms=t_now,
+                            progress_rank=5,
+                            missing_condition="FVG_RETEST_NOT_CONFIRMED",
+                            ui_summary_vi=f"POI {poi.zone_id}: Đang chờ giá hồi (retest) vào vùng FVG.",
+                        )
+                    )
                     continue
 
                 # Rules 008, 045, 046, 052: Market entry uses executable quote estimate + slippage
@@ -1322,6 +1423,26 @@ def evaluate_cg01_candidate(
             time_context=time_ctx,
             ui_summary_vi={"status": f"Kịch bản không khả thi: {reason_rej}."},
         )
+
+    # 8. Highest Progress Diagnostic Policy (Items 041, 063, 066, 075, 076)
+    if progress_diagnostics:
+        best_diag = select_cg01_progress_diagnostic(progress_diagnostics)
+        if best_diag and best_diag.progress_rank >= 3:
+            # Progress reached beyond initial sweep waiting (e.g. WAIT_MSS or WAIT_FVG)
+            return CG01Decision(
+                stage=best_diag.stage,
+                is_eligible=False,
+                model_id=ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+                model_version=cfg.model_version,
+                config_version=cfg.config_version,
+                direction=best_diag.direction,
+                poi_id=best_diag.poi_id,
+                reason_codes=(best_diag.reason,),
+                missing_conditions=(best_diag.missing_condition or "PROGRESS_INCOMPLETE",),
+                as_of_ms=t_now,
+                time_context=time_ctx,
+                ui_summary_vi={"status": best_diag.ui_summary_vi or f"Tiến trình đang ở bước {best_diag.stage.value}."},
+            )
 
     # If no candidate reached full checklist, return current observation state
     return CG01Decision(
