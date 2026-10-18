@@ -203,15 +203,21 @@ class QueueReceipt:
 
 def finalize_queue_receipt_once(receipt: Optional[QueueReceipt], status: str) -> bool:
     """
-    V16.25 Rules 071, 072: Atomically finalize receipt once and remove from active receipts.
+    V16.25 & V16.26 Rules 041-054: Atomically finalize receipt once, account terminal loss,
+    and remove from active receipts registry.
+    Accounting is strictly bound to the first successful finalization.
     """
     if receipt is None:
         return False
     ok = receipt.finalize_once(status)
     if ok:
         with _RETRY_BUFFER_LOCK:
+            if status == "TERMINAL_FAILURE":
+                global _TRACE_TERMINAL_FAILURES
+                _TRACE_TERMINAL_FAILURES += 1
             _ACTIVE_RECEIPTS.pop(receipt.receipt_id, None)
     return ok
+
 
 
 class RetryItem(tuple):
@@ -253,6 +259,7 @@ _TRACE_QUEUE: queue.Queue = queue.Queue(maxsize=10000)
 _TRACE_QUEUE_DROPS = 0
 _TRACE_PERSIST_FAILURES = 0
 _TRACE_PERSISTED_COUNT = 0
+_TRACE_TERMINAL_FAILURES = 0
 _TRACE_WORKER_RUNNING = False
 _TRACE_WORKER_STATE: str = "STOPPED"  # "STOPPED", "STARTING", "RUNNING", "STOPPING", "FAILED"
 _TRACE_WORKER_READY_EVENT: Optional[asyncio.Event] = None
@@ -320,6 +327,33 @@ def get_persisted_count() -> int:
 
 def get_persist_failures() -> int:
     return _TRACE_PERSIST_FAILURES
+
+
+def get_terminal_failure_count() -> int:
+    with _RETRY_BUFFER_LOCK:
+        return _TRACE_TERMINAL_FAILURES
+
+
+def get_queue_drops() -> int:
+    with _RETRY_BUFFER_LOCK:
+        return _TRACE_QUEUE_DROPS
+
+
+def _get_terminal_loss_total() -> int:
+    with _RETRY_BUFFER_LOCK:
+        return _TRACE_QUEUE_DROPS + _TRACE_TERMINAL_FAILURES
+
+
+def _get_loss_accounting_snapshot() -> Dict[str, int]:
+    with _RETRY_BUFFER_LOCK:
+        qd = _TRACE_QUEUE_DROPS
+        tf = _TRACE_TERMINAL_FAILURES
+        return {
+            "queue_drops": qd,
+            "terminal_failures": tf,
+            "terminal_loss": qd + tf,
+        }
+
 
 
 def get_trace_worker_stop_error() -> Optional[str]:
@@ -400,7 +434,7 @@ def reset_telemetry_worker_state() -> None:
     """Reset telemetry worker globals cleanly for test isolation."""
     global _TRACE_WORKER_RUNNING, _TRACE_WORKER_STATE, _TRACE_WORKER_TASK, _TRACE_WORKER_READY_EVENT
     global _IN_FLIGHT_COUNT, _TRACE_PERSISTED_COUNT, _TRACE_PERSIST_FAILURES, _TRACE_QUEUE_DROPS
-    global _TRACE_WORKER_STOP_ERROR
+    global _TRACE_TERMINAL_FAILURES, _TRACE_WORKER_STOP_ERROR
     with _RETRY_BUFFER_LOCK:
         _TRACE_WORKER_RUNNING = False
         _TRACE_WORKER_STATE = "STOPPED"
@@ -411,6 +445,7 @@ def reset_telemetry_worker_state() -> None:
         _TRACE_PERSISTED_COUNT = 0
         _TRACE_PERSIST_FAILURES = 0
         _TRACE_QUEUE_DROPS = 0
+        _TRACE_TERMINAL_FAILURES = 0
         _RETRY_BUFFER.clear()
         _ACTIVE_BATCH_HANDLES.clear()
         for r in list(_ACTIVE_RECEIPTS.values()):
@@ -604,8 +639,8 @@ def enqueue_trace_persistence(trace: CG01EvaluationTrace) -> bool:
         _TRACE_QUEUE.put_nowait((t_copy, receipt))
         return True
     except queue.Full:
-        _TRACE_QUEUE_DROPS += 1
         with _RETRY_BUFFER_LOCK:
+            _TRACE_QUEUE_DROPS += 1
             _ACTIVE_RECEIPTS.pop(receipt_id, None)
         logger.warning("Trace persistence queue full; dropped trace")
         return False
@@ -624,6 +659,7 @@ def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
     - If background worker is STOPPED, flush acts as the sole consumer to persist remaining items.
     Truthfully accounts for succeeded vs failed writes, and tracks in-flight and retrying writes.
     Does NOT report COMPLETED prematurely if an in-flight batch is committing.
+    Reconciles status to COMPLETED_WITH_LOSS when terminal telemetry loss occurred.
     """
     start_t = time.monotonic()
     flushed = 0
@@ -637,6 +673,7 @@ def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
             or _IN_FLIGHT_COUNT > 0
             or get_active_batch_count() > 0
             or get_active_operations_count() > 0
+            or get_outstanding_receipt_count() > 0
         ) and (time.monotonic() - start_t) < timeout_s:
             time.sleep(0.05)
     else:
@@ -692,15 +729,33 @@ def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
     pending = _TRACE_QUEUE.qsize()
     retry_pending = get_retry_buffer_count()
     current_inflight = _IN_FLIGHT_COUNT
+    active_batches = get_active_batch_count()
+    active_ops = get_active_operations_count()
+    outstanding_receipts = get_outstanding_receipt_count()
 
-    if failed > 0:
+    all_clean = (
+        pending == 0
+        and current_inflight == 0
+        and retry_pending == 0
+        and active_batches == 0
+        and active_ops == 0
+        and outstanding_receipts == 0
+    )
+
+    loss_snap = _get_loss_accounting_snapshot()
+    term_loss = loss_snap["terminal_loss"]
+
+    if failed > 0 and not all_clean:
         status = "FAILED"
-    elif pending == 0 and current_inflight == 0 and retry_pending == 0:
-        status = "COMPLETED"
-    elif current_inflight > 0:
-        status = "TIMED_OUT" if (time.monotonic() - start_t) >= timeout_s else "IN_FLIGHT"
+    elif all_clean:
+        status = "COMPLETED_WITH_LOSS" if term_loss > 0 else "COMPLETED"
+    elif (time.monotonic() - start_t) >= timeout_s:
+        status = "TIMED_OUT"
+    elif current_inflight > 0 or active_batches > 0 or active_ops > 0 or outstanding_receipts > 0:
+        status = "IN_FLIGHT"
     else:
         status = "TIMED_OUT"
+
 
     return {
         "status": status,
@@ -712,8 +767,20 @@ def flush_pending_traces(timeout_s: float = 5.0) -> Dict[str, Any]:
         "in_flight": current_inflight,
         "retry_buffer": retry_pending,
         "retrying": retry_pending,
-        "terminal_loss": _TRACE_QUEUE_DROPS,
+        "active_batches": active_batches,
+        "active_operations": active_ops,
+        "outstanding_receipts": outstanding_receipts,
+        "terminal_loss": term_loss,
+        "terminal_failures": loss_snap["terminal_failures"],
+        "queue_drops": loss_snap["queue_drops"],
         "elapsed_sec": round(time.monotonic() - start_t, 3),
+        "diagnostics": {
+            "worker_running": _TRACE_WORKER_RUNNING,
+            "worker_state": _TRACE_WORKER_STATE,
+            "queue_drops": loss_snap["queue_drops"],
+            "persist_failures": _TRACE_PERSIST_FAILURES,
+            "terminal_failures": loss_snap["terminal_failures"],
+        },
     }
 
 
@@ -744,6 +811,7 @@ async def drain_trace_persistence(timeout_s: float = 5.0) -> Dict[str, Any]:
         or get_active_operations_count() > 0
     )
 
+
     if has_active_work:
         # Worker/executor owns active operations. Await completion asynchronously without stealing items (Rules 046, 081)
         while (
@@ -759,16 +827,20 @@ async def drain_trace_persistence(timeout_s: float = 5.0) -> Dict[str, Any]:
         # Worker is stopped and no active operations exist. Delegate synchronous drain to thread safely
         rem_timeout = max(0.1, timeout_s - (time.monotonic() - start_t))
         res = await asyncio.to_thread(flush_pending_traces, rem_timeout)
+        loss_snap = _get_loss_accounting_snapshot()
         res["boundary"] = boundary_token
         res["owned"] = res.get("in_flight", 0)
-        res["terminal_loss"] = _TRACE_QUEUE_DROPS
+        res["terminal_loss"] = loss_snap["terminal_loss"]
+        res["terminal_failures"] = loss_snap["terminal_failures"]
+        res["queue_drops"] = loss_snap["queue_drops"]
         res["committed"] = res.get("flushed", 0)
         res["worker_state"] = _TRACE_WORKER_STATE
         res["diagnostics"] = {
             "worker_running": _TRACE_WORKER_RUNNING,
             "worker_state": _TRACE_WORKER_STATE,
-            "queue_drops": _TRACE_QUEUE_DROPS,
+            "queue_drops": loss_snap["queue_drops"],
             "persist_failures": _TRACE_PERSIST_FAILURES,
+            "terminal_failures": loss_snap["terminal_failures"],
         }
         return res
 
@@ -788,14 +860,15 @@ async def drain_trace_persistence(timeout_s: float = 5.0) -> Dict[str, Any]:
         and outstanding_receipts == 0
     )
 
-    if _TRACE_PERSIST_FAILURES > 0 and _TRACE_QUEUE_DROPS > 0:
-        status = "COMPLETED_WITH_LOSS" if all_clean else "TIMED_OUT"
-    elif _TRACE_QUEUE_DROPS > 0:
-        status = "COMPLETED_WITH_LOSS" if all_clean else "TIMED_OUT"
-    elif all_clean:
-        status = "COMPLETED"
+    loss_snap = _get_loss_accounting_snapshot()
+    term_loss = loss_snap["terminal_loss"]
+
+    if all_clean:
+        status = "COMPLETED_WITH_LOSS" if term_loss > 0 else "COMPLETED"
+    elif (time.monotonic() - start_t) >= timeout_s:
+        status = "TIMED_OUT"
     elif current_inflight > 0 or active_batches > 0 or active_ops > 0 or outstanding_receipts > 0:
-        status = "TIMED_OUT" if (time.monotonic() - start_t) >= timeout_s else "IN_FLIGHT"
+        status = "IN_FLIGHT"
     else:
         status = "TIMED_OUT"
 
@@ -813,14 +886,17 @@ async def drain_trace_persistence(timeout_s: float = 5.0) -> Dict[str, Any]:
         "active_batches": active_batches,
         "active_operations": active_ops,
         "outstanding_receipts": outstanding_receipts,
-        "terminal_loss": _TRACE_QUEUE_DROPS,
+        "terminal_loss": term_loss,
+        "terminal_failures": loss_snap["terminal_failures"],
+        "queue_drops": loss_snap["queue_drops"],
         "elapsed_sec": round(time.monotonic() - start_t, 3),
         "worker_state": _TRACE_WORKER_STATE,
         "diagnostics": {
             "worker_running": _TRACE_WORKER_RUNNING,
             "worker_state": _TRACE_WORKER_STATE,
-            "queue_drops": _TRACE_QUEUE_DROPS,
+            "queue_drops": loss_snap["queue_drops"],
             "persist_failures": _TRACE_PERSIST_FAILURES,
+            "terminal_failures": loss_snap["terminal_failures"],
         },
     }
 

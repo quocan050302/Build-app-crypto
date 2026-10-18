@@ -1,0 +1,33 @@
+{
+  "terminal_failure_exhaustion": {
+    "test": "test_red_001_single_item_terminal_exhaustion_recorded_as_completed_with_loss",
+    "expected_status": "COMPLETED_WITH_LOSS",
+    "expected_terminal_loss": 1,
+    "expected_terminal_failures": 1,
+    "expected_db_records": 0
+  },
+  "transient_retry_success": {
+    "test": "test_red_002_transient_failure_then_retry_success_retains_zero_loss",
+    "expected_status": "COMPLETED",
+    "expected_terminal_loss": 0,
+    "expected_terminal_failures": 0,
+    "expected_db_records": 1
+  },
+  "duplicate_terminal_finalize": {
+    "test": "test_red_004_duplicate_terminal_finalize_does_not_double_count_or_ack",
+    "expected_first_call": true,
+    "expected_second_call": false,
+    "expected_terminal_increment": 1
+  },
+  "sync_async_drain_parity": {
+    "sync_test": "test_red_021_sync_flush_pending_traces_parity",
+    "async_delegation_test": "test_red_022_async_drain_delegation_to_sync_flush_preserves_loss",
+    "expected_status": "COMPLETED_WITH_LOSS",
+    "expected_terminal_loss_min": 1
+  },
+  "timeout_with_recorded_loss": {
+    "test": "test_red_024_timeout_with_recorded_loss",
+    "expected_status": "TIMED_OUT",
+    "expected_terminal_loss_min": 1
+  }
+}
