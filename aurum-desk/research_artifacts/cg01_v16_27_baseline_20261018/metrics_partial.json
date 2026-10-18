@@ -1,0 +1,91 @@
+{
+  "status": "PARTIAL/INTERRUPTED",
+  "reason": "USER_CONTROLLED_STOP",
+  "git_info": {
+    "remote": "https://github.com/quocan050302/Build-app-crypto.git",
+    "branch": "fix/v14-1-rr-flow",
+    "commit_sha": "33dcd791f2ccfba8e3b3c19e5a44318cdf295ad8",
+    "commit_message": "fix(v16.27): make domain event dispatch lifecycle safe",
+    "is_working_tree_clean": true
+  },
+  "runtime_execution": {
+    "pid": 19136,
+    "start_time_utc": "2026-10-18T04:59:24.420Z",
+    "interrupted_time_utc": "2026-10-18T11:36:11Z",
+    "wall_clock_elapsed_seconds": 23806.58,
+    "wall_clock_elapsed_formatted": "6h 36m 47s",
+    "cpu_time_accumulated_seconds": 20303.18,
+    "cpu_time_accumulated_formatted": "338m 23s",
+    "exit_code": 0,
+    "interruption_signal": "SIGINT / KeyboardInterrupt",
+    "call_stack_interrupted_at": "ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate -> detect_confirmed_continuation_break"
+  },
+  "target_intervals": {
+    "30_day": {
+      "start_inclusive_utc": "2026-09-18T00:00:00Z",
+      "end_exclusive_utc": "2026-10-18T00:00:00Z",
+      "status": "INTERRUPTED_BEFORE_FINALIZE",
+      "candles_in_dataset": 42986
+    },
+    "14_day": {
+      "start_inclusive_utc": "2026-10-04T00:00:00Z",
+      "end_exclusive_utc": "2026-10-18T00:00:00Z",
+      "status": "NOT_STARTED_DUE_TO_STOP",
+      "candles_in_dataset": 20060
+    }
+  },
+  "accounting_and_performance": {
+    "initial_capital_usdt": 1000.0,
+    "closed_trades_count": 0,
+    "wins": 0,
+    "losses": 0,
+    "breakevens": 0,
+    "winrate_pct": null,
+    "winrate_reason": "NO_CLOSED_TRADES",
+    "net_realized_pnl_usd": 0.0,
+    "expectancy_net_usd": null,
+    "expectancy_reason": "INSUFFICIENT_SAMPLE",
+    "profit_factor": null,
+    "profit_factor_reason": "NO_CLOSED_TRADES",
+    "open_positions_count": 0,
+    "pending_orders_count": 0,
+    "max_drawdown": {
+      "closed_equity_drawdown_pct": 0.0,
+      "m1_mtm_drawdown_pct": 0.0
+    }
+  },
+  "cost_parameters": {
+    "maker_fee_rate": 0.0002,
+    "taker_fee_rate": 0.0004,
+    "slippage_usd": 0.10,
+    "multiplier": 1.0,
+    "risk_pct": 0.25,
+    "capital_mode": "CURRENT_ACCOUNT_BALANCE",
+    "execution_model": "ASSUMED_OHLC_PATH"
+  },
+  "known_baseline_limitations": [
+    {
+      "id": "DEFECT_A_DYNAMIC_ATR",
+      "file": "backend/services/cg01_engine.py",
+      "line": 763,
+      "description": "resolve_cg01_mss_and_displacement called without passing atr_1m, defaulting to hardcoded 1.0"
+    },
+    {
+      "id": "DEFECT_B_FVG_MITIGATION",
+      "file": "backend/services/cg01_engine.py",
+      "lines": [621, 625],
+      "description": "select_cg01_leg_fvg executes pass on mitigation check without invalidating gap"
+    },
+    {
+      "id": "DEFECT_C_MULTI_POI_EARLY_RETURN",
+      "file": "backend/services/cg01_engine.py",
+      "line": 794,
+      "description": "evaluate_cg01_candidate returns WAIT_ENTRY immediately on first unconfirmed retest POI, preventing evaluation of remaining POIs and opposite direction"
+    },
+    {
+      "id": "BOTTLENECK_FULL_HISTORY_SCAN",
+      "file": "backend/services/scalp_watcher_orchestrator.py",
+      "description": "Full un-windowed history passed to legacy continuation and zone extraction services causes O(N^3) compute scaling during replay"
+    }
+  ]
+}
