@@ -1,0 +1,32 @@
+{
+  "closed_loop_dispatch": {
+    "test": "test_005_closed_bound_loop_no_coroutine_leak",
+    "expected_warnings": 0,
+    "result": "NO_LEAK"
+  },
+  "worker_thread_dispatch": {
+    "test": "test_002_worker_thread_success",
+    "expected_target_thread": "main_thread",
+    "result": "DELIVERED_TO_MAIN_LOOP"
+  },
+  "scheduling_race": {
+    "test": "test_007_scheduling_raise_cleans_up_registry",
+    "expected_unawaited_coro": 0,
+    "result": "CLEAN_REGISTRY"
+  },
+  "generation_protection": {
+    "test": "test_008_late_callback_rejected_across_generations",
+    "expected_broadcast_call_count": 0,
+    "result": "DROPPED_OBSOLETE_GENERATION"
+  },
+  "shutdown_drain": {
+    "test": "test_014_stop_accepting_and_idempotent_shutdown",
+    "expected_status": "COMPLETED",
+    "result": "DRAINED_PRE_SHUTDOWN_WORK"
+  },
+  "rollback_safety": {
+    "test": "test_020_rollback_then_session_reuse",
+    "expected_broadcast_count": 1,
+    "result": "ROLLEDBACK_EVENT_NEVER_BROADCAST"
+  }
+}

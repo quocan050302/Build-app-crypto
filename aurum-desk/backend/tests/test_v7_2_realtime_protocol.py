@@ -27,6 +27,9 @@ class VirtualClock(IClock):
     def now_datetime(self) -> datetime:
         return datetime.fromtimestamp(self._now_ms / 1000.0, tz=timezone.utc)
 
+    def monotonic_s(self) -> float:
+        return self._now_ms / 1000.0
+
     def advance_ms(self, delta_ms: int):
         self._now_ms += delta_ms
 

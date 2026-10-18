@@ -219,6 +219,7 @@ async def lifespan(app: FastAPI):
         "status": "COMPLETED",
         "scheduler_drained": True,
         "telemetry_drain": {},
+        "websocket_drain": {},
         "worker_stopped": True,
         "errors": [],
     }
@@ -299,6 +300,20 @@ async def lifespan(app: FastAPI):
     for t in tasks:
         t.cancel()
     await asyncio.gather(*tasks, return_exceptions=True)
+
+    try:
+        event_bus.begin_dispatch_shutdown()
+        ws_drain = await event_bus.drain_websocket_broadcasts(timeout_s=3.0)
+        _LIFESPAN_SHUTDOWN_RESULT["websocket_drain"] = ws_drain
+        if ws_drain.get("status") == "TIMED_OUT":
+            logger.warning(f"WebSocket broadcast drain timed out on shutdown: {ws_drain}")
+            _apply_lifespan_shutdown_status("TIMED_OUT")
+    except Exception as dwe:
+        logger.error(f"Error draining websocket broadcasts on shutdown: {dwe}")
+        _LIFESPAN_SHUTDOWN_RESULT["errors"].append(str(dwe))
+        _apply_lifespan_shutdown_status("FAILED")
+    finally:
+        event_bus.unbind_main_loop()
 
 app = FastAPI(
     title="Aurum Desk API",
