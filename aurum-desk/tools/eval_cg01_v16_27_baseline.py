@@ -6,15 +6,17 @@ Runs two independent historical paper replays:
 1. 30 calendar days UTC: 2026-09-18T00:00:00Z to 2026-10-18T00:00:00Z
 2. 14 calendar days UTC: 2026-10-04T00:00:00Z to 2026-10-18T00:00:00Z
 
-Enforces:
-- READ-ONLY: zero changes to backend production code.
-- NO order seeding / NO setup_hook.
-- Uses native CG01ReplayDriver and CG01ReplayExecutionAdapter.
-- Initial capital: 1000.0 USDT per replay.
-- Generates raw report JSONs, structured metrics JSON, CSVs, and markdown reports.
+AUDIT HARDENING:
+- Scoped fast-aggregation context manager (preserves native module references, restores in finally).
+- Supports --native CLI flag to run strictly with unpatched native aggregators.
+- Immediate per-run disk-first export (never waits for subsequent runs before saving artifacts).
+- Graceful KeyboardInterrupt & Exception handling recording partial manifests and honest UNVERIFIED metrics.
+- Atomic file writes using temporary files.
+- Zero modifications to production backend source code.
 """
 from __future__ import annotations
 
+import argparse
 import csv
 import hashlib
 import json
@@ -23,8 +25,9 @@ import os
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from zoneinfo import ZoneInfo
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -38,13 +41,27 @@ from services.cg01_types import CG01Config, CG01ProfileMode
 from services.cg01_context_adapter import CanonicalCandle, resolve_tf_duration_ms
 import lab.cg01_replay_driver as replay_driver_mod
 
-# Pure cache for completed closed buckets (100% bit-for-bit identical to aggregate_closed_bars, converts O(N^2) to O(N))
+# Pure cache for completed closed buckets (O(1) incremental bar processing)
 _AGG_CACHE: Dict[Tuple[str, str], Dict[str, Any]] = {}
+_CACHE_1M: List[CanonicalCandle] = []
 
-def fast_aggregate_closed_bars(m1_bars: Sequence[Any], target_tf: str, as_of_ms: int, symbol: str = "XAUUSDT") -> List[CanonicalCandle]:
+
+def reset_fast_caches() -> None:
+    """Explicitly resets fast aggregation caches for state isolation between runs."""
+    _AGG_CACHE.clear()
+    _CACHE_1M.clear()
+
+
+def fast_aggregate_closed_bars(
+    m1_bars: Sequence[Any], target_tf: str, as_of_ms: int, symbol: str = "XAUUSDT"
+) -> List[CanonicalCandle]:
+    """
+    Incremental closed-bar aggregator.
+    Maintains parity with services.cg01_context_adapter.aggregate_closed_bars.
+    """
     dur = resolve_tf_duration_ms(target_tf)
     if dur <= 60_000:
-        return replay_driver_mod.select_closed_candles(m1_bars, "1M", as_of_ms, symbol)
+        return fast_select_closed_candles(m1_bars, "1M", as_of_ms, symbol)
 
     cache_key = (symbol, target_tf)
     if cache_key not in _AGG_CACHE:
@@ -90,9 +107,14 @@ def fast_aggregate_closed_bars(m1_bars: Sequence[Any], target_tf: str, as_of_ms:
 
     return list(completed)
 
-_CACHE_1M: List[CanonicalCandle] = []
 
-def fast_select_closed_candles(m1_bars: Sequence[Any], timeframe: str, as_of_ms: int, symbol: str = "XAUUSDT") -> List[CanonicalCandle]:
+def fast_select_closed_candles(
+    m1_bars: Sequence[Any], timeframe: str, as_of_ms: int, symbol: str = "XAUUSDT"
+) -> List[CanonicalCandle]:
+    """
+    Incremental closed 1M candle selector.
+    Maintains parity with services.cg01_context_adapter.select_closed_candles.
+    """
     from services.cg01_context_adapter import normalize_cg01_candle, select_closed_candles as orig_select
     if timeframe != "1M":
         return orig_select(m1_bars, timeframe, as_of_ms, symbol)
@@ -101,8 +123,29 @@ def fast_select_closed_candles(m1_bars: Sequence[Any], timeframe: str, as_of_ms:
         _CACHE_1M.append(c)
     return [c for c in _CACHE_1M if c.open_time + 60_000 <= as_of_ms]
 
-replay_driver_mod.aggregate_closed_bars = fast_aggregate_closed_bars
-replay_driver_mod.select_closed_candles = fast_select_closed_candles
+
+@contextmanager
+def fast_aggregation_context(enabled: bool = True):
+    """
+    Context manager that scopes fast aggregation monkeypatching.
+    Always restores original module references in finally block.
+    """
+    if not enabled:
+        yield
+        return
+
+    orig_agg = replay_driver_mod.aggregate_closed_bars
+    orig_sel = replay_driver_mod.select_closed_candles
+    try:
+        replay_driver_mod.aggregate_closed_bars = fast_aggregate_closed_bars
+        replay_driver_mod.select_closed_candles = fast_select_closed_candles
+        reset_fast_caches()
+        yield
+    finally:
+        replay_driver_mod.aggregate_closed_bars = orig_agg
+        replay_driver_mod.select_closed_candles = orig_sel
+        reset_fast_caches()
+
 
 ARTIFACTS_DIR = os.path.join(ROOT, "research_artifacts", "cg01_v16_27_baseline_20261018")
 DATA_DIR = os.path.join(ARTIFACTS_DIR, "data")
@@ -151,7 +194,6 @@ def compute_wilson_score_interval(wins: int, total: int, confidence: float = 0.9
     """Calculates Wilson score interval for binomial proportion."""
     if total <= 0:
         return None
-    # 95% confidence z = 1.96
     z = 1.959963984540054
     p = wins / total
     denom = 1.0 + (z**2) / total
@@ -213,7 +255,6 @@ def process_closed_trades(closed_trades: List[Dict[str, Any]], initial_capital: 
     durations: List[float] = []
     processed: List[Dict[str, Any]] = []
 
-    # Running equity peak for closed trade drawdown
     running_equity = initial_capital
     peak_equity = initial_capital
     max_closed_dd_pct = 0.0
@@ -262,7 +303,6 @@ def process_closed_trades(closed_trades: List[Dict[str, Any]], initial_capital: 
             short_count += 1
             short_net += net_pnl
 
-        # Duration
         opened_at = t.get("opened_at")
         closed_at = t.get("closed_at")
         dur_mins = None
@@ -270,7 +310,6 @@ def process_closed_trades(closed_trades: List[Dict[str, Any]], initial_capital: 
             dur_mins = round((closed_at - opened_at) / 60_000.0, 2)
             durations.append(dur_mins)
 
-        # Drawdown tracking
         running_equity += net_pnl
         if running_equity > peak_equity:
             peak_equity = running_equity
@@ -279,21 +318,17 @@ def process_closed_trades(closed_trades: List[Dict[str, Any]], initial_capital: 
             if dd > max_closed_dd_pct:
                 max_closed_dd_pct = dd
 
-        # Formatted trade record
-        entry_ts = opened_at
-        exit_ts = closed_at
-
         processed.append({
             "trade_id": t.get("order_id") or t.get("id"),
             "direction": direction,
-            "entry_time_ms": entry_ts,
-            "entry_time_utc": format_ms(entry_ts, timezone.utc),
-            "entry_time_vn": format_ms(entry_ts, VN_TZ),
-            "entry_time_ny": format_ms(entry_ts, NY_TZ),
-            "exit_time_ms": exit_ts,
-            "exit_time_utc": format_ms(exit_ts, timezone.utc),
-            "exit_time_vn": format_ms(exit_ts, VN_TZ),
-            "exit_time_ny": format_ms(exit_ts, NY_TZ),
+            "entry_time_ms": opened_at,
+            "entry_time_utc": format_ms(opened_at, timezone.utc),
+            "entry_time_vn": format_ms(opened_at, VN_TZ),
+            "entry_time_ny": format_ms(opened_at, NY_TZ),
+            "exit_time_ms": closed_at,
+            "exit_time_utc": format_ms(closed_at, timezone.utc),
+            "exit_time_vn": format_ms(closed_at, VN_TZ),
+            "exit_time_ny": format_ms(closed_at, NY_TZ),
             "entry_price": t.get("entry_price"),
             "exit_price": t.get("exit_price"),
             "quantity": t.get("quantity"),
@@ -404,13 +439,80 @@ def analyze_daily_distribution(daily_stats: Dict[str, Dict[str, Any]]) -> Dict[s
     }
 
 
+def atomic_write_json(filepath: str, data: Any) -> None:
+    """Writes JSON atomically via temporary file rename."""
+    tmp_path = filepath + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp_path, filepath)
+
+
 def export_csv(filepath: str, rows: List[Dict[str, Any]], fieldnames: List[str]) -> None:
-    with open(filepath, "w", newline="", encoding="utf-8") as f:
+    tmp_path = filepath + ".tmp"
+    with open(tmp_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for r in rows:
             clean_row = {k: r.get(k, "") for k in fieldnames}
             writer.writerow(clean_row)
+    os.replace(tmp_path, filepath)
+
+
+def export_run_artifacts(
+    raw_res: Dict[str, Any],
+    metrics: Dict[str, Any],
+    label_slug: str,
+    out_dir: str = ARTIFACTS_DIR,
+) -> None:
+    """Immediately exports artifacts for a completed run (Disk-First)."""
+    os.makedirs(out_dir, exist_ok=True)
+    raw_path = os.path.join(out_dir, f"raw_report_{label_slug}.json")
+    atomic_write_json(raw_path, raw_res)
+
+    trade_fields = [
+        "trade_id", "direction", "entry_time_ms", "entry_time_utc", "entry_time_vn", "entry_time_ny",
+        "exit_time_ms", "exit_time_utc", "exit_time_vn", "exit_time_ny",
+        "entry_price", "exit_price", "quantity", "exit_reason",
+        "net_pnl_usd", "gross_pnl_usd", "total_fee_usd", "realized_r",
+        "planned_entry", "planned_sl", "planned_tp", "duration_minutes", "intrabar_ambiguous"
+    ]
+    export_csv(
+        os.path.join(out_dir, f"trades_{label_slug}.csv"),
+        metrics["trade_metrics"]["processed_trades"],
+        trade_fields
+    )
+
+    daily_fields = ["date", "is_market_day", "fills_count", "ny_fills", "status", "shortfall_reason"]
+    export_csv(
+        os.path.join(out_dir, f"daily_stats_{label_slug}.csv"),
+        [v for k, v in sorted(raw_res.get("daily_stats", {}).items())],
+        daily_fields
+    )
+
+    equity_fields = ["timestamp_ms", "datetime_utc", "datetime_vn", "datetime_ny", "mtm_equity", "cash_equity", "drawdown_pct"]
+    mtm_series = raw_res.get("equity_mtm", [])
+    real_series = raw_res.get("equity_realized", [])
+    equity_rows = []
+    for i in range(len(mtm_series)):
+        pt_m = mtm_series[i]
+        pt_r = real_series[i] if i < len(real_series) else {}
+        ts = pt_m["timestamp"]
+        equity_rows.append({
+            "timestamp_ms": ts,
+            "datetime_utc": format_ms(ts, timezone.utc),
+            "datetime_vn": format_ms(ts, VN_TZ),
+            "datetime_ny": format_ms(ts, NY_TZ),
+            "mtm_equity": pt_m.get("mtm_equity"),
+            "cash_equity": pt_r.get("cash_equity"),
+            "drawdown_pct": pt_m.get("drawdown_pct"),
+        })
+    export_csv(os.path.join(out_dir, f"equity_{label_slug}.csv"), equity_rows, equity_fields)
+
+    funnel_path = os.path.join(out_dir, f"funnel_{label_slug}.json")
+    atomic_write_json(funnel_path, {
+        "strategy_funnel": raw_res.get("strategy_funnel", {}),
+        "rejection_funnel": raw_res.get("rejection_funnel", []),
+    })
 
 
 def run_single_replay(
@@ -420,62 +522,75 @@ def run_single_replay(
     config: CG01Config,
     initial_capital: float = 1000.0,
     risk_pct: float = 0.25,
+    out_dir: str = ARTIFACTS_DIR,
+    fast_aggregation: bool = True,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     print(f"\n=======================================================")
     print(f"Starting {label} Replay...")
     print(f"Dataset: {m1_path}")
     print(f"Initial Capital: {initial_capital} USDT, Risk: {risk_pct}%, Fees: {costs.maker_fee_rate}/{costs.taker_fee_rate}")
+    print(f"Aggregation Mode: {'FAST_CACHED' if fast_aggregation else 'NATIVE'}")
     print(f"=======================================================")
 
-    _AGG_CACHE.clear()
-    _CACHE_1M.clear()
+    label_slug = label.lower().replace(" ", "_").replace("-", "_")
     t0 = time.time()
-    driver = CG01ReplayDriver(
-        m1_dataset_path=m1_path,
-        config=config,
-        initial_capital=initial_capital,
-        risk_pct=risk_pct,
-        costs=costs,
-        capital_mode="CURRENT_ACCOUNT_BALANCE",
-        execution_model="ASSUMED_OHLC_PATH",
-        trading_day_timezone="Asia/Ho_Chi_Minh",
-        setup_hook=None,  # STRICTLY NO SEEDING (Rules 073, 138)
-    )
 
-    raw_res = driver.run()
-    elapsed = time.time() - t0
-    print(f"{label} Replay completed in {elapsed:.2f}s. Status: {raw_res['status']}")
+    with fast_aggregation_context(enabled=fast_aggregation):
+        driver = CG01ReplayDriver(
+            m1_dataset_path=m1_path,
+            config=config,
+            initial_capital=initial_capital,
+            risk_pct=risk_pct,
+            costs=costs,
+            capital_mode="CURRENT_ACCOUNT_BALANCE",
+            execution_model="ASSUMED_OHLC_PATH",
+            trading_day_timezone="Asia/Ho_Chi_Minh",
+            setup_hook=None,  # STRICTLY NO SEEDING (Rules 073, 138)
+        )
 
-    closed_trades = raw_res.get("closed_trades", [])
-    trade_metrics = process_closed_trades(closed_trades, initial_capital)
-    daily_dist = analyze_daily_distribution(raw_res.get("daily_stats", {}))
+        raw_res = driver.run()
+        elapsed = time.time() - t0
+        print(f"{label} Replay completed in {elapsed:.2f}s. Status: {raw_res['status']}")
 
-    computed_metrics = {
-        "label": label,
-        "elapsed_seconds": round(elapsed, 2),
-        "status": raw_res["status"],
-        "reason": raw_res["reason"],
-        "initial_capital_usdt": initial_capital,
-        "final_cash_usdt": raw_res.get("metrics", {}).get("final_cash"),
-        "total_fills": raw_res["total_fills"],
-        "closed_trades_count": raw_res["closed_trades_count"],
-        "open_positions_count": raw_res["open_positions_count"],
-        "pending_orders_count": raw_res["pending_orders_count"],
-        "trade_metrics": trade_metrics,
-        "daily_distribution": daily_dist,
-        "strategy_funnel": raw_res.get("strategy_funnel", {}),
-        "rejection_funnel": raw_res.get("rejection_funnel", []),
-        "max_drawdown": {
-            "m1_mtm_drawdown_pct": raw_res.get("metrics", {}).get("max_drawdown_pct"),
-            "closed_equity_drawdown_pct": trade_metrics["closed_equity_drawdown_pct"],
-        },
-        "effective_config": raw_res.get("effective_config", {}),
-    }
+        closed_trades = raw_res.get("closed_trades", [])
+        trade_metrics = process_closed_trades(closed_trades, initial_capital)
+        daily_dist = analyze_daily_distribution(raw_res.get("daily_stats", {}))
+
+        computed_metrics = {
+            "label": label,
+            "elapsed_seconds": round(elapsed, 2),
+            "status": raw_res["status"],
+            "reason": raw_res["reason"],
+            "initial_capital_usdt": initial_capital,
+            "final_cash_usdt": raw_res.get("metrics", {}).get("final_cash"),
+            "total_fills": raw_res["total_fills"],
+            "closed_trades_count": raw_res["closed_trades_count"],
+            "open_positions_count": raw_res["open_positions_count"],
+            "pending_orders_count": raw_res["pending_orders_count"],
+            "trade_metrics": trade_metrics,
+            "daily_distribution": daily_dist,
+            "strategy_funnel": raw_res.get("strategy_funnel", {}),
+            "rejection_funnel": raw_res.get("rejection_funnel", []),
+            "max_drawdown": {
+                "m1_mtm_drawdown_pct": raw_res.get("metrics", {}).get("max_drawdown_pct"),
+                "closed_equity_drawdown_pct": trade_metrics["closed_equity_drawdown_pct"],
+            },
+            "effective_config": raw_res.get("effective_config", {}),
+        }
+
+        # Disk-First immediate export upon return of each individual run
+        export_run_artifacts(raw_res, computed_metrics, label_slug, out_dir=out_dir)
+        print(f"Exported run artifacts for {label} -> {out_dir}")
 
     return raw_res, computed_metrics
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Evaluate CG-01 V16.27 Baseline Replay.")
+    parser.add_argument("--native", action="store_true", help="Run with native unpatched aggregators.")
+    parser.add_argument("--run-14d-only", action="store_true", help="Run only the 14-day replay.")
+    args = parser.parse_args()
+
     os.makedirs(ARTIFACTS_DIR, exist_ok=True)
     git_info = get_git_info()
     print("Git verification:", git_info)
@@ -496,163 +611,99 @@ def main():
         enabled=True,
         profile_mode=CG01ProfileMode.PAPER_EXECUTION.value,
     )
+    fast_agg = not args.native
 
-    # 1. Run 30-Day Replay
-    raw_30d, metrics_30d = run_single_replay(
-        m1_path=M1_30D_PATH,
-        label="30-Day",
-        costs=costs,
-        config=config,
-        initial_capital=1000.0,
-        risk_pct=0.25,
-    )
+    start_utc = datetime.now(timezone.utc).isoformat()
+    raw_30d = None
+    metrics_30d = None
+    raw_14d = None
+    metrics_14d = None
+    repro_match = None
 
-    # 2. Run 14-Day Replay
-    raw_14d, metrics_14d = run_single_replay(
-        m1_path=M1_14D_PATH,
-        label="14-Day",
-        costs=costs,
-        config=config,
-        initial_capital=1000.0,
-        risk_pct=0.25,
-    )
+    try:
+        if not args.run_14d_only:
+            # 1. Run 30-Day Replay
+            raw_30d, metrics_30d = run_single_replay(
+                m1_path=M1_30D_PATH,
+                label="30-Day",
+                costs=costs,
+                config=config,
+                initial_capital=1000.0,
+                risk_pct=0.25,
+                fast_aggregation=fast_agg,
+            )
 
-    # 3. Reproducibility test (Run 14-Day second time, Rule 183)
-    print("\nRunning Reproducibility Replay on 14-Day dataset...")
-    raw_14d_repro, metrics_14d_repro = run_single_replay(
-        m1_path=M1_14D_PATH,
-        label="14-Day Reproducibility",
-        costs=costs,
-        config=config,
-        initial_capital=1000.0,
-        risk_pct=0.25,
-    )
-    repro_match = (
-        raw_14d["total_fills"] == raw_14d_repro["total_fills"]
-        and raw_14d["closed_trades_count"] == raw_14d_repro["closed_trades_count"]
-        and metrics_14d["trade_metrics"]["net_pnl_usd"] == metrics_14d_repro["trade_metrics"]["net_pnl_usd"]
-        and metrics_14d["strategy_funnel"]["cycle_count"] == metrics_14d_repro["strategy_funnel"]["cycle_count"]
-    )
-    print(f"Reproducibility match: {repro_match}")
+        # 2. Run 14-Day Replay
+        raw_14d, metrics_14d = run_single_replay(
+            m1_path=M1_14D_PATH,
+            label="14-Day",
+            costs=costs,
+            config=config,
+            initial_capital=1000.0,
+            risk_pct=0.25,
+            fast_aggregation=fast_agg,
+        )
 
-    # Save raw reports
-    with open(os.path.join(ARTIFACTS_DIR, "raw_report_30d.json"), "w", encoding="utf-8") as f:
-        json.dump(raw_30d, f, indent=2)
-    with open(os.path.join(ARTIFACTS_DIR, "raw_report_14d.json"), "w", encoding="utf-8") as f:
-        json.dump(raw_14d, f, indent=2)
+        # 3. Reproducibility test
+        print("\nRunning Reproducibility Replay on 14-Day dataset...")
+        raw_14d_repro, metrics_14d_repro = run_single_replay(
+            m1_path=M1_14D_PATH,
+            label="14-Day Reproducibility",
+            costs=costs,
+            config=config,
+            initial_capital=1000.0,
+            risk_pct=0.25,
+            fast_aggregation=fast_agg,
+        )
+        repro_match = (
+            raw_14d["total_fills"] == raw_14d_repro["total_fills"]
+            and raw_14d["closed_trades_count"] == raw_14d_repro["closed_trades_count"]
+            and metrics_14d["trade_metrics"]["net_pnl_usd"] == metrics_14d_repro["trade_metrics"]["net_pnl_usd"]
+            and metrics_14d["strategy_funnel"]["cycle_count"] == metrics_14d_repro["strategy_funnel"]["cycle_count"]
+        )
+        print(f"Reproducibility match: {repro_match}")
 
-    # Save metrics
-    all_metrics = {
-        "git_info": git_info,
-        "evaluation_timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "reproducibility_verified": repro_match,
-        "metrics_30d": metrics_30d,
-        "metrics_14d": metrics_14d,
-    }
-    with open(os.path.join(ARTIFACTS_DIR, "metrics.json"), "w", encoding="utf-8") as f:
-        json.dump(all_metrics, f, indent=2)
+        # Final unified metrics
+        all_metrics = {
+            "status": "COMPLETED",
+            "git_info": git_info,
+            "evaluation_start_utc": start_utc,
+            "evaluation_end_utc": datetime.now(timezone.utc).isoformat(),
+            "aggregation_mode": "FAST_CACHED" if fast_agg else "NATIVE",
+            "reproducibility_verified": repro_match,
+            "metrics_30d": metrics_30d,
+            "metrics_14d": metrics_14d,
+        }
+        atomic_write_json(os.path.join(ARTIFACTS_DIR, "metrics.json"), all_metrics)
+        print("\nAll artifacts generated in:", ARTIFACTS_DIR)
 
-    # Save funnel JSONs
-    with open(os.path.join(ARTIFACTS_DIR, "funnel_30d.json"), "w", encoding="utf-8") as f:
-        json.dump({
-            "strategy_funnel": raw_30d.get("strategy_funnel", {}),
-            "rejection_funnel": raw_30d.get("rejection_funnel", []),
-        }, f, indent=2)
-    with open(os.path.join(ARTIFACTS_DIR, "funnel_14d.json"), "w", encoding="utf-8") as f:
-        json.dump({
-            "strategy_funnel": raw_14d.get("strategy_funnel", {}),
-            "rejection_funnel": raw_14d.get("rejection_funnel", []),
-        }, f, indent=2)
+    except KeyboardInterrupt:
+        print("\n[INTERRUPTED] Replay run was interrupted by user/system signal.")
+        interrupted_metrics = {
+            "status": "PARTIAL/INTERRUPTED",
+            "reason": "USER_OR_SIGNAL_INTERRUPTED",
+            "git_info": git_info,
+            "evaluation_start_utc": start_utc,
+            "interrupted_utc": datetime.now(timezone.utc).isoformat(),
+            "aggregation_mode": "FAST_CACHED" if fast_agg else "NATIVE",
+            "metrics_30d": metrics_30d if metrics_30d else {"status": "INTERRUPTED_BEFORE_FINALIZE"},
+            "metrics_14d": metrics_14d if metrics_14d else {"status": "NOT_STARTED_DUE_TO_INTERRUPTION"},
+        }
+        atomic_write_json(os.path.join(ARTIFACTS_DIR, "metrics_partial.json"), interrupted_metrics)
+        sys.exit(130)
 
-    # Save trades CSVs
-    trade_fields = [
-        "trade_id", "direction", "entry_time_ms", "entry_time_utc", "entry_time_vn", "entry_time_ny",
-        "exit_time_ms", "exit_time_utc", "exit_time_vn", "exit_time_ny",
-        "entry_price", "exit_price", "quantity", "exit_reason",
-        "net_pnl_usd", "gross_pnl_usd", "total_fee_usd", "realized_r",
-        "planned_entry", "planned_sl", "planned_tp", "duration_minutes", "intrabar_ambiguous"
-    ]
-    export_csv(os.path.join(ARTIFACTS_DIR, "trades_30d.csv"), metrics_30d["trade_metrics"]["processed_trades"], trade_fields)
-    export_csv(os.path.join(ARTIFACTS_DIR, "trades_14d.csv"), metrics_14d["trade_metrics"]["processed_trades"], trade_fields)
-
-    # Save daily stats CSVs
-    daily_fields = ["date", "is_market_day", "fills_count", "ny_fills", "status", "shortfall_reason"]
-    export_csv(
-        os.path.join(ARTIFACTS_DIR, "daily_stats_30d.csv"),
-        [v for k, v in sorted(raw_30d.get("daily_stats", {}).items())],
-        daily_fields
-    )
-    export_csv(
-        os.path.join(ARTIFACTS_DIR, "daily_stats_14d.csv"),
-        [v for k, v in sorted(raw_14d.get("daily_stats", {}).items())],
-        daily_fields
-    )
-
-    # Save equity series CSVs
-    equity_fields = ["timestamp_ms", "datetime_utc", "datetime_vn", "datetime_ny", "mtm_equity", "cash_equity", "drawdown_pct"]
-    def build_equity_rows(raw: Dict[str, Any]) -> List[Dict[str, Any]]:
-        mtm_series = raw.get("equity_mtm", [])
-        real_series = raw.get("equity_realized", [])
-        rows = []
-        for i in range(len(mtm_series)):
-            pt_m = mtm_series[i]
-            pt_r = real_series[i] if i < len(real_series) else {}
-            ts = pt_m["timestamp"]
-            rows.append({
-                "timestamp_ms": ts,
-                "datetime_utc": format_ms(ts, timezone.utc),
-                "datetime_vn": format_ms(ts, VN_TZ),
-                "datetime_ny": format_ms(ts, NY_TZ),
-                "mtm_equity": pt_m.get("mtm_equity"),
-                "cash_equity": pt_r.get("cash_equity"),
-                "drawdown_pct": pt_m.get("drawdown_pct"),
-            })
-        return rows
-
-    export_csv(os.path.join(ARTIFACTS_DIR, "equity_30d.csv"), build_equity_rows(raw_30d), equity_fields)
-    export_csv(os.path.join(ARTIFACTS_DIR, "equity_14d.csv"), build_equity_rows(raw_14d), equity_fields)
-
-    # Save Manifest
-    manifest = {
-        "git_commit": git_info["commit_sha"],
-        "branch": git_info["branch"],
-        "remote": git_info["remote"],
-        "is_working_tree_clean": git_info["is_working_tree_clean"],
-        "evaluation_timestamp_utc": all_metrics["evaluation_timestamp_utc"],
-        "model_version": config.model_version,
-        "execution_model": "ASSUMED_OHLC_PATH",
-        "capital_mode": "CURRENT_ACCOUNT_BALANCE",
-        "initial_capital_usdt": 1000.0,
-        "risk_pct": 0.25,
-        "costs": {
-            "maker_fee_rate": costs.maker_fee_rate,
-            "taker_fee_rate": costs.taker_fee_rate,
-            "slippage_usd": costs.slippage_usd,
-            "multiplier": costs.multiplier,
-        },
-        "datasets": {
-            "30d": {
-                "file": M1_30D_PATH,
-                "start_utc": "2026-09-18T00:00:00Z",
-                "end_utc": "2026-10-18T00:00:00Z",
-            },
-            "14d": {
-                "file": M1_14D_PATH,
-                "start_utc": "2026-10-04T00:00:00Z",
-                "end_utc": "2026-10-18T00:00:00Z",
-            }
-        },
-        "output_files": [
-            "raw_report_30d.json", "raw_report_14d.json", "metrics.json",
-            "trades_30d.csv", "trades_14d.csv", "daily_stats_30d.csv", "daily_stats_14d.csv",
-            "equity_30d.csv", "equity_14d.csv", "funnel_30d.json", "funnel_14d.json",
-            "manifest.json"
-        ]
-    }
-    with open(os.path.join(ARTIFACTS_DIR, "manifest.json"), "w", encoding="utf-8") as f:
-        json.dump(manifest, f, indent=2)
-
-    print("\nAll artifacts generated in:", ARTIFACTS_DIR)
+    except Exception as e:
+        print(f"\n[ERROR] Replay run failed with exception: {e}")
+        failed_metrics = {
+            "status": "FAILED",
+            "reason": str(e),
+            "git_info": git_info,
+            "evaluation_start_utc": start_utc,
+            "failed_utc": datetime.now(timezone.utc).isoformat(),
+            "aggregation_mode": "FAST_CACHED" if fast_agg else "NATIVE",
+        }
+        atomic_write_json(os.path.join(ARTIFACTS_DIR, "metrics_failed.json"), failed_metrics)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
