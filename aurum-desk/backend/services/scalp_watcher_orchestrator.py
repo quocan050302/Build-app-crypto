@@ -341,7 +341,7 @@ class ScalpWatcherOrchestrator:
         c_15m = candles_15m if candles_15m is not None else (crud.get_candles(db, symbol, "15M", limit=120, ascending=True, cutoff_ms=t_recv) if db else [])
         c_5m = candles_5m if candles_5m is not None else (crud.get_candles(db, symbol, "5M", limit=150, ascending=True, cutoff_ms=t_recv) if db else [])
         c_1m = candles_1m if candles_1m is not None else (crud.get_candles(db, symbol, "1M", limit=100, ascending=True, cutoff_ms=t_recv) if db else [])
-        c_1d = candles_1d if candles_1d is not None else (crud.get_candles(db, symbol, "1D", limit=30, ascending=True, cutoff_ms=t_recv) or (crud.get_candles(db, symbol, "D", limit=30, ascending=True, cutoff_ms=t_recv) if db else []))
+        c_1d = candles_1d if candles_1d is not None else ((crud.get_candles(db, symbol, "1D", limit=30, ascending=True, cutoff_ms=t_recv) or crud.get_candles(db, symbol, "D", limit=30, ascending=True, cutoff_ms=t_recv)) if db else [])
 
         from services.cg01_context_adapter import normalize_cg01_candle
         if c_4h and isinstance(c_4h[0], dict):
@@ -1518,6 +1518,23 @@ class ScalpWatcherOrchestrator:
         from services.entry_guard_service import read_execution_feed_health
         actual_feed_health = feed_health if feed_health is not None else read_execution_feed_health()
 
+        # Extract evidence from cand or snap for daily bias binding verification (Rules 031, 050)
+        raw_ev = getattr(cand, "evidence", None)
+        if isinstance(raw_ev, dict):
+            cand_evidence = dict(raw_ev)
+        elif isinstance(raw_ev, (list, tuple)):
+            cand_evidence = {"items": list(raw_ev)}
+        else:
+            cand_evidence = {}
+
+        if snap and hasattr(snap, "context") and isinstance(snap.context, dict):
+            if "direction_policy" in snap.context and "direction_policy" not in cand_evidence:
+                cand_evidence["direction_policy"] = snap.context["direction_policy"]
+            if "daily_bias" in snap.context and "daily_bias" not in cand_evidence:
+                cand_evidence["daily_bias"] = snap.context["daily_bias"]
+            if "current_daily_bias" not in cand_evidence and "daily_bias" in snap.context:
+                cand_evidence["current_daily_bias"] = snap.context["daily_bias"]
+
         req = EntryGuardRequest(
             stage="ARM",
             now_ms=now_ms,
@@ -1538,6 +1555,7 @@ class ScalpWatcherOrchestrator:
             feed_health=actual_feed_health,
             min_net_rr=cfg.min_net_rr,
             clock=clock,
+            evidence=cand_evidence,
         )
 
         decision = evaluate_entry_guard(db, req)

@@ -4,13 +4,14 @@
  * Conforms to prompt rules 029, 088-089, 111-118.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Activity,
   ChevronDown,
   ChevronUp,
   WifiOff,
   Clock,
+  Settings,
 } from 'lucide-react';
 import type { CG01DisplayState } from '../utils/cg01DisplayState';
 
@@ -24,6 +25,7 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
   className = '',
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const {
     stageLabel,
@@ -42,6 +44,34 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
     dailyBias,
     dailyBiasSummary,
   } = displayState;
+
+  const [selectedPolicy, setSelectedPolicy] = useState<string>(directionPolicy || 'LEGACY_H1');
+  const [saveStatus, setSaveStatus] = useState<{ type: 'idle' | 'saving' | 'success' | 'error'; message?: string }>({ type: 'idle' });
+
+  useEffect(() => {
+    if (directionPolicy) {
+      setSelectedPolicy(directionPolicy);
+    }
+  }, [directionPolicy]);
+
+  const handleSavePolicy = async () => {
+    setSaveStatus({ type: 'saving' });
+    try {
+      const res = await fetch('/api/scalp/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cg01_direction_policy: selectedPolicy }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `Lỗi máy chủ (${res.status})`);
+      }
+      setSaveStatus({ type: 'success', message: 'Đã lưu cấu hình!' });
+      setTimeout(() => setSaveStatus({ type: 'idle' }), 3000);
+    } catch (err: any) {
+      setSaveStatus({ type: 'error', message: err.message || 'Lưu thất bại' });
+    }
+  };
 
   // Tone color styling maps
   const toneBadgeClasses: Record<string, string> = {
@@ -114,6 +144,17 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
 
           <button
             type="button"
+            data-testid="cg01-toggle-settings-btn"
+            onClick={() => setShowSettings(!showSettings)}
+            className={`p-0.5 rounded transition ${showSettings ? 'text-cyan-400 bg-charcoal-800' : 'text-gray-400 hover:text-gray-200'}`}
+            title="Cấu hình hướng vào lệnh (Direction Policy)"
+            aria-label="Toggle CG01 settings"
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            type="button"
             data-testid="cg01-expand-details-btn"
             onClick={() => setIsExpanded(!isExpanded)}
             className="p-0.5 text-gray-400 hover:text-gray-200 rounded transition"
@@ -124,6 +165,57 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Settings Panel (Rules 104 - 108) */}
+      {showSettings && (
+        <div
+          data-testid="cg01-settings-panel"
+          className="p-2 bg-charcoal-900/90 rounded border border-cyan-800/60 space-y-1.5 text-[11px]"
+        >
+          <div className="font-semibold text-cyan-300 flex items-center justify-between">
+            <span>Cấu hình hướng vào lệnh</span>
+            <span className="text-[10px] text-gray-400 font-mono">Direction Policy</span>
+          </div>
+          <div className="space-y-1">
+            <select
+              data-testid="cg01-policy-select"
+              value={selectedPolicy}
+              onChange={(e) => setSelectedPolicy(e.target.value)}
+              className="w-full bg-charcoal-800 border border-charcoal-700 text-gray-200 rounded px-1.5 py-1 text-[11px] focus:outline-none focus:border-cyan-500"
+            >
+              <option value="LEGACY_H1">LEGACY_H1: H1 chọn hướng</option>
+              <option value="DAILY_BIAS_SHADOW">DAILY_BIAS_SHADOW: Quan sát bias, entry theo H1</option>
+              <option value="DAILY_BIAS_PRIMARY">DAILY_BIAS_PRIMARY: Bias ngày chọn hướng</option>
+            </select>
+            <p className="text-[10px] text-gray-400 italic">
+              {selectedPolicy === 'DAILY_BIAS_PRIMARY'
+                ? 'PRIMARY: bias ngày chọn hướng, trigger/guards vẫn bắt buộc.'
+                : selectedPolicy === 'DAILY_BIAS_SHADOW'
+                ? 'SHADOW: quan sát bias, entry vẫn theo H1.'
+                : 'LEGACY: H1 chọn hướng.'}
+            </p>
+          </div>
+          <div className="flex items-center justify-between pt-1">
+            <button
+              type="button"
+              data-testid="cg01-save-policy-btn"
+              disabled={saveStatus.type === 'saving'}
+              onClick={handleSavePolicy}
+              className="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-700 text-white rounded text-[10px] font-medium transition"
+            >
+              {saveStatus.type === 'saving' ? 'Đang lưu...' : 'Lưu cấu hình'}
+            </button>
+            {saveStatus.message && (
+              <span
+                data-testid="cg01-policy-save-feedback"
+                className={`text-[10px] font-mono ${saveStatus.type === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}
+              >
+                {saveStatus.message}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Daily Bias Summary Strip (Rules 013, 151, 155) */}
       <div className="flex items-center justify-between text-[11px] bg-charcoal-900/60 px-2 py-1 rounded border border-charcoal-800 gap-1.5 flex-wrap">
@@ -239,11 +331,11 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
                   </span>
                 </div>
               )}
-              {dailyBias.invalidation_rule && dailyBias.invalidation_rule.reference_price && (
+              {dailyBias.invalidation_rule && (dailyBias.invalidation_rule.reference_price != null || dailyBias.invalidation_rule.price != null) && (
                 <div>
                   <span className="text-gray-500">Mất hiệu lực nếu: </span>
                   <span className="text-rose-300">
-                    Phá vỡ {dailyBias.invalidation_rule.reference_price.toFixed(2)} ({dailyBias.invalidation_rule.timeframe})
+                    Phá vỡ {((dailyBias.invalidation_rule.reference_price ?? dailyBias.invalidation_rule.price) as number)?.toFixed(2)} ({dailyBias.invalidation_rule.timeframe})
                   </span>
                 </div>
               )}

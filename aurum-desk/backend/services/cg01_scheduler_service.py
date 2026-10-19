@@ -852,6 +852,7 @@ class CG01EvaluationScheduler:
                     candles_15m=bundle.get("15M"),
                     candles_1h=bundle.get("1H"),
                     candles_4h=bundle.get("4H"),
+                    candles_1d=bundle.get("1D") or bundle.get("D"),
                     quote=quote_snap,
                     auto_enabled=effective_auto,
                     research_context=research_ctx,

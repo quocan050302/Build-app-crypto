@@ -360,11 +360,19 @@ def _check_strategy(req: EntryGuardRequest) -> EntryCheck:
                                   "Chuỗi cấu trúc SMC chưa được xác nhận đầy đủ (thiếu sweep, break MSS hoặc FVG).",
                                   "Chờ cấu trúc hoàn thành các bước xác nhận.")
         if req.strategy_family == "CG01_SWEEP_MSS_FVG":
-            # Rules 136, 138, 141: Verify Daily Bias binding for PRIMARY if present
+            # Rules 031 - 045: Verify Daily Bias binding for PRIMARY (Fail-Closed)
             ev = req.evidence or {}
             policy = ev.get("direction_policy")
             daily_b = ev.get("daily_bias")
-            if policy == "DAILY_BIAS_PRIMARY" and daily_b:
+
+            if policy == "DAILY_BIAS_PRIMARY":
+                if not daily_b:
+                    return EntryCheck(
+                        "DAILY_BIAS_MISSING",
+                        "BLOCK",
+                        "Candidate PRIMARY thiếu snapshot bias ngày.",
+                        "Chờ đánh giá bias ngày trước khi arm.",
+                    )
                 b_status = daily_b.get("status") if isinstance(daily_b, dict) else getattr(daily_b, "status", None)
                 if b_status == "INVALIDATED":
                     return EntryCheck(
@@ -380,6 +388,21 @@ def _check_strategy(req: EntryGuardRequest) -> EntryCheck:
                         "Bias ngày không sẵn sàng trước khi arm lệnh.",
                         "Chờ dữ liệu bối cảnh ngày.",
                     )
+                if b_status == "NEUTRAL":
+                    return EntryCheck(
+                        "DAILY_BIAS_NEUTRAL",
+                        "BLOCK",
+                        "Bias ngày trung tính (NEUTRAL), không cho phép mở lệnh.",
+                        "Chờ cấu trúc có xu hướng rõ ràng.",
+                    )
+                auth_token = daily_b.get("authority_token") if isinstance(daily_b, dict) else getattr(daily_b, "authority_token", None)
+                if not auth_token:
+                    return EntryCheck(
+                        "DAILY_BIAS_MISSING_TOKEN",
+                        "BLOCK",
+                        "Candidate PRIMARY thiếu authority token.",
+                        "Yêu cầu đánh giá lại candidate.",
+                    )
                 allowed_dirs = daily_b.get("allowed_directions") if isinstance(daily_b, dict) else getattr(daily_b, "allowed_directions", ())
                 if req.direction not in (allowed_dirs or ()):
                     return EntryCheck(
@@ -388,6 +411,25 @@ def _check_strategy(req: EntryGuardRequest) -> EntryCheck:
                         f"Hướng lệnh {req.direction} không khớp hướng được phép của bias ngày ({allowed_dirs}).",
                         "Chờ bias ngày đồng thuận.",
                     )
+                cur_bias = ev.get("current_daily_bias")
+                if cur_bias:
+                    cur_token = cur_bias.get("authority_token") if isinstance(cur_bias, dict) else getattr(cur_bias, "authority_token", None)
+                    cur_fp = cur_bias.get("config_fingerprint") if isinstance(cur_bias, dict) else getattr(cur_bias, "config_fingerprint", None)
+                    cand_fp = daily_b.get("config_fingerprint") if isinstance(daily_b, dict) else getattr(daily_b, "config_fingerprint", None)
+                    if cand_fp and cur_fp and cand_fp != cur_fp:
+                        return EntryCheck(
+                            "CONFIG_FINGERPRINT_MISMATCH",
+                            "BLOCK",
+                            "Cấu hình giao dịch đã thay đổi kể từ khi tạo candidate.",
+                            "Yêu cầu đánh giá lại candidate theo cấu hình mới.",
+                        )
+                    if cur_token and auth_token != cur_token:
+                        return EntryCheck(
+                            "DAILY_BIAS_AUTHORITY_MISMATCH",
+                            "BLOCK",
+                            "Authority token của candidate không khớp với bias ngày hiện tại.",
+                            "Cấu trúc hoặc bối cảnh ngày đã thay đổi; yêu cầu candidate mới.",
+                        )
             return _ok("strategy")
         return _ok("strategy")
     if state == "WAITING_RETRACE":
@@ -650,6 +692,8 @@ def evaluate_entry_guard(db, request: EntryGuardRequest) -> EntryGuardDecision:
     except Exception:  # noqa: BLE001 - metadata only
         policy_version = None
 
+    ev = req.evidence or {}
+    daily_b = ev.get("daily_bias") or {}
     binding = {
         "setup_id": req.setup_id,
         "setup_instance_id": req.setup_instance_id,
@@ -664,6 +708,9 @@ def evaluate_entry_guard(db, request: EntryGuardRequest) -> EntryGuardDecision:
         "strategy_family": req.strategy_family,
         "execution_mode": req.execution_mode,
         "origin": req.origin,
+        "direction_policy": ev.get("direction_policy") or "LEGACY_H1",
+        "authority_token": daily_b.get("authority_token") if isinstance(daily_b, dict) else getattr(daily_b, "authority_token", None),
+        "allowed_directions": list(daily_b.get("allowed_directions") or []) if isinstance(daily_b, dict) else list(getattr(daily_b, "allowed_directions", ())),
     }
     return aggregate_entry_checks(
         req.stage, req.now_ms, checks,

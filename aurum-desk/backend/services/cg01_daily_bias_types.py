@@ -149,4 +149,5 @@ class CG01DailyBiasSnapshot:
             "invalidation_rule": self.invalidation_rule,
             "reason_codes": list(self.reason_codes),
             "ui_summary_vi": self.ui_summary_vi,
+            "summary_vi": (self.ui_summary_vi.get("detail") or self.ui_summary_vi.get("status")) if isinstance(self.ui_summary_vi, dict) else str(self.ui_summary_vi or ""),
         }

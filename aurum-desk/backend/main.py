@@ -3308,7 +3308,7 @@ def update_scalp_config_endpoint(
 
     if "cg01_profile_mode" in payload:
         pm_val = str(payload["cg01_profile_mode"]).strip().upper()
-        if pm_val not in ("OFF", "SHADOW", "PAPER_SHADOW", "PAPER_EXECUTION", "LIVE_EXECUTION"):
+        if pm_val not in ("OFF", "SHADOW", "PAPER_SHADOW", "PAPER_EXECUTION"):
             raise HTTPException(status_code=400, detail="INVALID_CG01_PROFILE_MODE: must be OFF, SHADOW, or PAPER_EXECUTION")
         cfg_pm = db.query(models.SystemConfig).filter(models.SystemConfig.key == "cg01_profile_mode").first()
         if cfg_pm:

@@ -276,6 +276,12 @@ export function deriveCG01DisplayState(
     isDegraded,
     directionPolicy: payload.direction_policy || 'LEGACY_H1',
     dailyBias: payload.daily_bias || null,
-    dailyBiasSummary: payload.daily_bias?.summary_vi || null,
+    dailyBiasSummary:
+      payload.daily_bias?.summary_vi ||
+      (typeof payload.daily_bias?.ui_summary_vi === 'object'
+        ? payload.daily_bias.ui_summary_vi?.detail || payload.daily_bias.ui_summary_vi?.status
+        : typeof payload.daily_bias?.ui_summary_vi === 'string'
+        ? payload.daily_bias.ui_summary_vi
+        : null),
   };
 }

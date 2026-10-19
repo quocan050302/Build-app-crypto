@@ -112,6 +112,7 @@ def build_daily_liquidity_facts(
             pd_ts = int(prev_day.get("open_time") or prev_day.get("timestamp") or 0) if isinstance(prev_day, dict) else int(getattr(prev_day, "open_time", 0) or getattr(prev_day, "timestamp", 0))
 
             # Check if swept on subsequent candles (e.g. H1/15M)
+            dur_1h = resolve_timeframe_ms("1H")
             h1_candles = bundle.get("1H") or []
             pdh_swept = False
             pdl_swept = False
@@ -120,7 +121,12 @@ def build_daily_liquidity_facts(
 
             for bar in h1_candles:
                 b_open = int(bar.get("open_time") or bar.get("timestamp") or 0) if isinstance(bar, dict) else int(getattr(bar, "open_time", 0) or getattr(bar, "timestamp", 0))
-                if b_open > pd_ts + dur_1d:
+                b_close_ms = b_open + dur_1h
+                # Rule 079, 121: Causality boundary - do not evaluate candles after as_of_ms
+                if as_of_ms and b_close_ms > as_of_ms:
+                    continue
+                # Rule 082: Check H1 candles after previous day completed
+                if b_open >= pd_ts + dur_1d:
                     b_high = float(bar.get("high") if isinstance(bar, dict) else getattr(bar, "high", 0.0))
                     b_low = float(bar.get("low") if isinstance(bar, dict) else getattr(bar, "low", 0.0))
                     b_close = float(bar.get("close") if isinstance(bar, dict) else getattr(bar, "close", 0.0))
@@ -128,10 +134,10 @@ def build_daily_liquidity_facts(
                     # Sweep: wick pierced level but candle closed back inside
                     if b_high > pdh and b_close <= pdh:
                         pdh_swept = True
-                        swept_pdh_ts = b_open
+                        swept_pdh_ts = b_close_ms
                     if b_low < pdl and b_close >= pdl:
                         pdl_swept = True
-                        swept_pdl_ts = b_open
+                        swept_pdl_ts = b_close_ms
 
             facts.append(CG01DailyLiquidityLevel(
                 level_id=f"pdh_{symbol}_{pd_ts}",
@@ -268,43 +274,109 @@ def build_htf_zone_reactions(
     bundle = closed_candles_by_tf or closed_context or {}
     h4_candles = bundle.get("4H") or []
 
-    if len(h4_candles) >= 3:
-        # Check for H4 FVG
-        for i in range(2, min(len(h4_candles), 8)):
-            c1 = h4_candles[i - 2]
-            c2 = h4_candles[i - 1]
-            c3 = h4_candles[i]
+    dur_4h = resolve_timeframe_ms("4H")
+    # Rule 074: Filter H4 candles strictly causal up to as_of_ms
+    h4_closed = [
+        c for c in h4_candles
+        if ((int(c.get("open_time") or c.get("timestamp") or 0) if isinstance(c, dict)
+             else int(getattr(c, "open_time", None) or getattr(c, "timestamp", 0))) + dur_4h <= as_of_ms)
+    ]
+
+    if len(h4_closed) >= 3:
+        # Check for H4 FVG from most recent down
+        for i in range(len(h4_closed) - 1, 1, -1):
+            c1 = h4_closed[i - 2]
+            c2 = h4_closed[i - 1]
+            c3 = h4_closed[i]
 
             h1 = float(c1.get("high") if isinstance(c1, dict) else getattr(c1, "high", 0.0))
             l1 = float(c1.get("low") if isinstance(c1, dict) else getattr(c1, "low", 0.0))
             h3 = float(c3.get("high") if isinstance(c3, dict) else getattr(c3, "high", 0.0))
             l3 = float(c3.get("low") if isinstance(c3, dict) else getattr(c3, "low", 0.0))
-            ts2 = int(c2.get("open_time") or c2.get("timestamp") or 0) if isinstance(c2, dict) else int(getattr(c2, "open_time", 0) or getattr(c2, "timestamp", 0))
+            ts3 = int(c3.get("open_time") or c3.get("timestamp") or 0) if isinstance(c3, dict) else int(getattr(c3, "open_time", 0) or getattr(c3, "timestamp", 0))
+            formation_known_at = ts3 + dur_4h
 
             # Bullish FVG: low of candle 3 > high of candle 1
             if l3 > h1:
+                # Rule 066 - 073: Evaluate reaction on subsequent candles
+                subsequent = h4_closed[i + 1:]
+                reaction = "UNTESTED"
+                reaction_known_at = formation_known_at
+                confirmed_candle_ts = ts3
+
+                for bar in subsequent:
+                    b_open = int(bar.get("open_time") or bar.get("timestamp") or 0) if isinstance(bar, dict) else int(getattr(bar, "open_time", 0) or getattr(bar, "timestamp", 0))
+                    b_high = float(bar.get("high") if isinstance(bar, dict) else getattr(bar, "high", 0.0))
+                    b_low = float(bar.get("low") if isinstance(bar, dict) else getattr(bar, "low", 0.0))
+                    b_close = float(bar.get("close") if isinstance(bar, dict) else getattr(bar, "close", 0.0))
+                    b_close_ms = b_open + dur_4h
+
+                    # Has price reached into the zone?
+                    if b_low <= l3:
+                        if b_close < h1:
+                            reaction = "VIOLATED"
+                            reaction_known_at = b_close_ms
+                            confirmed_candle_ts = b_open
+                            break
+                        elif b_close >= l3 or b_close > b_open:
+                            reaction = "RESPECTED"
+                            reaction_known_at = b_close_ms
+                            confirmed_candle_ts = b_open
+                        else:
+                            reaction = "IN_ZONE"
+                            reaction_known_at = b_close_ms
+                            confirmed_candle_ts = b_open
+
                 reactions.append(CG01HTFZoneReaction(
-                    zone_id=f"h4_fvg_bull_{ts2}",
+                    zone_id=f"h4_fvg_bull_{ts3}",
                     zone_type="FVG",
                     timeframe="4H",
                     top=l3,
                     bottom=h1,
-                    reaction="RESPECTED",
-                    confirmed_candle_ts=ts2,
-                    known_at_ms=ts2 + resolve_timeframe_ms("4H"),
+                    reaction=reaction,
+                    confirmed_candle_ts=confirmed_candle_ts,
+                    known_at_ms=reaction_known_at,
                 ).to_dict())
                 break
+
             # Bearish FVG: high of candle 3 < low of candle 1
             elif h3 < l1:
+                subsequent = h4_closed[i + 1:]
+                reaction = "UNTESTED"
+                reaction_known_at = formation_known_at
+                confirmed_candle_ts = ts3
+
+                for bar in subsequent:
+                    b_open = int(bar.get("open_time") or bar.get("timestamp") or 0) if isinstance(bar, dict) else int(getattr(bar, "open_time", 0) or getattr(bar, "timestamp", 0))
+                    b_high = float(bar.get("high") if isinstance(bar, dict) else getattr(bar, "high", 0.0))
+                    b_low = float(bar.get("low") if isinstance(bar, dict) else getattr(bar, "low", 0.0))
+                    b_close = float(bar.get("close") if isinstance(bar, dict) else getattr(bar, "close", 0.0))
+                    b_close_ms = b_open + dur_4h
+
+                    if b_high >= h3:
+                        if b_close > l1:
+                            reaction = "VIOLATED"
+                            reaction_known_at = b_close_ms
+                            confirmed_candle_ts = b_open
+                            break
+                        elif b_close <= h3 or b_close < b_open:
+                            reaction = "RESPECTED"
+                            reaction_known_at = b_close_ms
+                            confirmed_candle_ts = b_open
+                        else:
+                            reaction = "IN_ZONE"
+                            reaction_known_at = b_close_ms
+                            confirmed_candle_ts = b_open
+
                 reactions.append(CG01HTFZoneReaction(
-                    zone_id=f"h4_fvg_bear_{ts2}",
+                    zone_id=f"h4_fvg_bear_{ts3}",
                     zone_type="FVG",
                     timeframe="4H",
                     top=l1,
                     bottom=h3,
-                    reaction="RESPECTED",
-                    confirmed_candle_ts=ts2,
-                    known_at_ms=ts2 + resolve_timeframe_ms("4H"),
+                    reaction=reaction,
+                    confirmed_candle_ts=confirmed_candle_ts,
+                    known_at_ms=reaction_known_at,
                 ).to_dict())
                 break
 
@@ -332,7 +404,8 @@ def evaluate_cg01_daily_bias(
     c_1d = closed_context.get("1D") or closed_context.get("D") or []
 
     trading_day_key = resolve_trading_day_key(as_of_ms, config.ny_timezone if config else "America/New_York")
-    cfg_fp = getattr(config, "fingerprint", "") or ""
+    from services.cg01_config_factory import compute_cg01_config_fingerprint
+    cfg_fp = compute_cg01_config_fingerprint(config or CG01Config())
 
     # 1. Evaluate H4 Structure (Anchor)
     if h4_ctx is None:
@@ -402,6 +475,7 @@ def evaluate_cg01_daily_bias(
         invalidation_rule = {
             "type": "H4_PROTECTED_LOW",
             "price": h4_inval_price,
+            "reference_price": h4_inval_price,
             "rule": "Nến H4 đóng cửa dưới đáy được bảo vệ (Protected Low)",
             "timeframe": "4H",
         }
@@ -418,6 +492,7 @@ def evaluate_cg01_daily_bias(
         invalidation_rule = {
             "type": "H4_PROTECTED_HIGH",
             "price": h4_inval_price,
+            "reference_price": h4_inval_price,
             "rule": "Nến H4 đóng cửa trên đỉnh được bảo vệ (Protected High)",
             "timeframe": "4H",
         }

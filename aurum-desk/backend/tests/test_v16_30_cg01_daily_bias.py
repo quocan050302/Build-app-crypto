@@ -476,11 +476,13 @@ def test_entry_guard_binding_under_primary():
         "status": "READY",
         "direction": "BULLISH",
         "allowed_directions": ["LONG"],
+        "authority_token": "auth_tok_1234",
     }
     inval_bias = {
         "status": "INVALIDATED",
         "direction": "NEUTRAL",
         "allowed_directions": [],
+        "authority_token": "auth_tok_inval",
     }
 
     req_pass = EntryGuardRequest(

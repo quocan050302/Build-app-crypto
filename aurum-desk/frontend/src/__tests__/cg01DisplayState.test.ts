@@ -383,4 +383,35 @@ describe('deriveCG01DisplayState', () => {
     expect(state.poiId).toBe('poi_short_01');
     expect(state.direction).toBe('SHORT');
   });
+
+  it('correctly derives dailyBiasSummary from ui_summary_vi object or summary_vi string (Rules 109, 136)', () => {
+    const payloadWithObj: CG01EvaluationPayload = {
+      enabled: true,
+      stage: 'WAIT_FVG',
+      as_of_ms: baseNow,
+      direction_policy: 'DAILY_BIAS_PRIMARY',
+      daily_bias: {
+        status: 'READY',
+        direction: 'BULLISH',
+        allowed_directions: ['LONG'],
+        ui_summary_vi: {
+          status: 'TĂNG (LONG)',
+          detail: 'H4 tăng; H1 tiếp diễn.',
+        },
+        invalidation_rule: {
+          type: 'H4_PROTECTED_LOW',
+          price: 2520.0,
+          reference_price: 2520.0,
+          rule: 'Nến H4 đóng cửa dưới đáy được bảo vệ',
+          timeframe: '4H',
+        },
+      },
+    };
+    const state = deriveCG01DisplayState(payloadWithObj, true, baseNow);
+    expect(state.directionPolicy).toBe('DAILY_BIAS_PRIMARY');
+    expect(state.dailyBiasSummary).toBe('H4 tăng; H1 tiếp diễn.');
+    expect(state.dailyBias?.status).toBe('READY');
+    expect(state.dailyBias?.invalidation_rule?.reference_price).toBe(2520.0);
+  });
 });
+
