@@ -1003,6 +1003,17 @@ class ScalpWatcherOrchestrator:
                 capital=policy_dict["capital_usdt"], risk_pct=policy_dict["risk_pct"],
                 costs=costs_to_pass,
             )
+            if cg01_dec and getattr(cg01_dec, "daily_bias", None):
+                from services.cg01_daily_bias_service import publish_current_cg01_bias_authority
+                publish_current_cg01_bias_authority(
+                    symbol=symbol,
+                    bias=cg01_dec.daily_bias,
+                    config=cg01_cfg,
+                    evaluated_at_ms=t_recv,
+                    source="ACTIVE_PIPELINE",
+                    is_active_owner=True,
+                    owner="WATCHER",
+                )
             cg01_eval_data = serialize_cg01_evaluation(cg01_dec, enabled=True, evaluated=True, as_of_ms=t_recv)
             if cg01_dec.candidate:
                 candidates.append(cg01_dec.candidate)
@@ -1533,19 +1544,41 @@ class ScalpWatcherOrchestrator:
             if "daily_bias" in snap.context and "daily_bias" not in cand_evidence:
                 cand_evidence["daily_bias"] = snap.context["daily_bias"]
 
-        # Resolve true current daily bias authority (Rules 022, 032-038, 061)
+        # Resolve true current daily bias authority (Rules 022, 032-038, 061, 076)
         from services.cg01_daily_bias_service import resolve_current_cg01_bias_authority
+        from services.cg01_config_factory import resolve_canonical_cg01_config, compute_cg01_config_fingerprint
         cg01_cfg = getattr(cfg, "cg01_config", None) if cfg else None
+        if cg01_cfg is None:
+            eff_cg01_cfg, eff_fp, _ = resolve_canonical_cg01_config(
+                db=db,
+                symbol=cand.symbol,
+                scalp_config_override=cfg,
+            )
+            cg01_cfg = eff_cg01_cfg
+        else:
+            eff_fp = compute_cg01_config_fingerprint(cg01_cfg)
+
+        cand_daily_b = cand_evidence.get("daily_bias") or {}
+        cand_fp = cand_daily_b.get("config_fingerprint") if isinstance(cand_daily_b, dict) else getattr(cand_daily_b, "config_fingerprint", None)
+        target_fp = cand_fp or eff_fp
+
         curr_auth = resolve_current_cg01_bias_authority(
             symbol=cand.symbol,
             now_ms=now_ms,
             config=cg01_cfg,
+            config_fingerprint=target_fp,
             clock=clock,
         )
         if curr_auth.bias:
             cand_evidence["current_daily_bias"] = curr_auth.bias.to_dict()
         else:
-            cand_evidence.pop("current_daily_bias", None)
+            cand_evidence["current_daily_bias"] = {
+                "status": curr_auth.status,
+                "reason": curr_auth.reason,
+                "available": curr_auth.available,
+                "config_fingerprint": curr_auth.config_fingerprint,
+                "symbol": curr_auth.symbol,
+            }
 
         req = EntryGuardRequest(
             stage="ARM",

@@ -735,11 +735,15 @@ def test_real_fill_path_blocked_on_unready_and_succeeds_on_valid_authority():
     symbol = "XAUUSDT"
     auth_tok = "tok_auth_valid_fill"
 
+    from services.cg01_config_factory import resolve_canonical_cg01_config
+    _, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
+
     arm_snap = {
         "binding": {
             "direction_policy": "DAILY_BIAS_PRIMARY",
             "authority_token": auth_tok,
             "allowed_directions": ["LONG"],
+            "config_fingerprint": eff_fp,
         }
     }
     order = models.PaperOrder(
@@ -783,7 +787,7 @@ def test_real_fill_path_blocked_on_unready_and_succeeds_on_valid_authority():
         status="READY",
         allowed_directions=("LONG",),
         authority_token=auth_tok,
-        config_fingerprint="fp_ok",
+        config_fingerprint=eff_fp,
     )
     record_current_cg01_bias_authority(symbol, valid_snap, evaluated_at_ms=now_ms + 2000)
 
@@ -889,11 +893,15 @@ def test_restart_persisted_pending_order_fills_after_bootstrap():
     now_ms = 1700000000000
     token_x = "token_bootstrap_recovery_100"
 
+    from services.cg01_config_factory import resolve_canonical_cg01_config
+    _, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol="XAUUSDT")
+
     arm_snap = {
         "binding": {
             "direction_policy": "DAILY_BIAS_PRIMARY",
             "authority_token": token_x,
             "allowed_directions": ["LONG"],
+            "config_fingerprint": eff_fp,
         }
     }
     order = models.PaperOrder(
@@ -939,6 +947,7 @@ def test_restart_persisted_pending_order_fills_after_bootstrap():
         status="READY",
         allowed_directions=("LONG",),
         authority_token=token_x,
+        config_fingerprint=eff_fp,
     )
     record_current_cg01_bias_authority("XAUUSDT", recovered_bias, evaluated_at_ms=now_ms + 2000)
 

@@ -78,61 +78,59 @@ class TradeLifecycleService:
                 db.commit()
                 return order
 
-        # 1.6. Rules 055, 056, 059: Verify daily bias validity for PRIMARY pending orders before fill
+        # 1.6. Rules 055, 056, 059, 066, 079, 080: Verify daily bias validity for PRIMARY pending orders before fill
         if getattr(order, "arm_decision_snapshot", None):
             try:
                 raw_snap = order.arm_decision_snapshot
                 arm_snap = json.loads(raw_snap) if isinstance(raw_snap, str) else raw_snap
                 binding = arm_snap.get("binding") or {}
                 if binding.get("direction_policy") == "DAILY_BIAS_PRIMARY":
-                    curr_bias = (sizing_context or {}).get("current_daily_bias")
-                    if not curr_bias:
-                        from services.cg01_daily_bias_service import resolve_current_cg01_bias_authority
+                    from services.cg01_config_factory import resolve_canonical_cg01_config
+                    from services.cg01_daily_bias_service import (
+                        resolve_current_cg01_bias_authority,
+                        validate_cg01_bias_authority_binding,
+                    )
+                    eff_cfg, eff_fp, _ = resolve_canonical_cg01_config(
+                        db=db,
+                        symbol=order.instrument or "XAUUSDT",
+                    )
+                    binding_fp = binding.get("config_fingerprint")
+                    target_fp = binding_fp or eff_fp
+
+                    # Rule 080: Provenance check on sizing_context: if dict provided, validate via shared validator
+                    trusted_bias = (sizing_context or {}).get("current_daily_bias") if isinstance(sizing_context, dict) else None
+                    if trusted_bias is not None:
+                        res_auth = trusted_bias
+                    else:
                         res_auth = resolve_current_cg01_bias_authority(
                             symbol=order.instrument or "XAUUSDT",
                             now_ms=current_time,
+                            config=eff_cfg,
+                            config_fingerprint=target_fp,
                             clock=clock,
                         )
-                        if res_auth.bias:
-                            curr_bias = res_auth.bias.to_dict()
 
-                    if not curr_bias:
-                        # Rules 046, 047, 091: Missing current authority -> do NOT fill, keep pending (defer mutation)
-                        logger.info(f"Cannot fill order {order.id}: current daily bias authority unavailable; keeping pending.")
-                        return order
+                    valid, code, msg_vi, action = validate_cg01_bias_authority_binding(
+                        candidate_bias=binding,
+                        current_authority=res_auth,
+                        order_direction=order.direction,
+                        symbol=order.instrument or "XAUUSDT",
+                        effective_fingerprint=eff_fp if binding_fp else None,
+                    )
 
-                    c_status = curr_bias.get("status") if isinstance(curr_bias, dict) else getattr(curr_bias, "status", None)
-                    c_dirs = curr_bias.get("allowed_directions") if isinstance(curr_bias, dict) else getattr(curr_bias, "allowed_directions", ())
-                    c_tok = curr_bias.get("authority_token") if isinstance(curr_bias, dict) else getattr(curr_bias, "authority_token", None)
-                    auth_tok = binding.get("authority_token")
-
-                    if c_status == "INVALIDATED":
-                        order.state = "invalidated"
-                        order.invalidation_reason = "DAILY_BIAS_INVALIDATED: Bias ngày hiện tại đã mất hiệu lực"
-                        order.closed_at = current_time
-                        db.commit()
-                        return order
-
-                    if c_status != "READY":
-                        # Rules 046, 047: Status not READY -> do NOT fill, keep pending
-                        logger.info(f"Cannot fill order {order.id}: bias status {c_status}; keeping pending.")
-                        return order
-
-                    if order.direction not in (c_dirs or ()):
-                        order.state = "invalidated"
-                        order.invalidation_reason = f"DAILY_BIAS_DIRECTION_MISMATCH: Hướng lệnh {order.direction} không còn được phép bởi bias ngày"
-                        order.closed_at = current_time
-                        db.commit()
-                        return order
-
-                    if auth_tok and c_tok and auth_tok != c_tok:
-                        order.state = "invalidated"
-                        order.invalidation_reason = "DAILY_BIAS_AUTHORITY_MISMATCH: Authority token của lệnh không khớp bias ngày hiện tại"
-                        order.closed_at = current_time
-                        db.commit()
-                        return order
+                    if not valid:
+                        if action == "INVALIDATE":
+                            order.state = "invalidated"
+                            reason_prefix = "DAILY_BIAS_INVALIDATED" if code == "DAILY_BIAS_CURRENT_INVALIDATED" else code
+                            order.invalidation_reason = f"{reason_prefix}: {msg_vi}"
+                            order.closed_at = current_time
+                            db.commit()
+                            return order
+                        else:  # DEFER or BLOCK
+                            logger.info(f"Cannot fill order {order.id}: {code} - {msg_vi}; keeping pending.")
+                            return order
             except Exception as e:
-                # Rules 069, 070: Fail-closed on exception for PRIMARY - do NOT fill!
+                # Rules 069, 070, 082: Fail-closed on exception for PRIMARY - do NOT fill!
                 logger.error(f"Error checking pending bias binding at fill time for {order.id}: {e}")
                 return order
 

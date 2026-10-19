@@ -14,6 +14,7 @@ Implements Rules 001 - 130:
 """
 from __future__ import annotations
 
+import copy
 import datetime
 import hashlib
 import json
@@ -46,9 +47,77 @@ from services.htf_structure_service import (
 
 logger = logging.getLogger("cg01_daily_bias_service")
 
-# Thread-safe in-memory registry for authoritative current daily bias (Rules 032 - 045)
+# Thread-safe in-memory registry for authoritative current daily bias (Rules 041, 043, 044)
+# Bounded storage: exactly one active entry per symbol.
 _bias_authority_registry: Dict[str, Dict[str, Any]] = {}
 _bias_registry_lock = threading.Lock()
+
+
+def publish_current_cg01_bias_authority(
+    symbol: str,
+    bias: Optional[CG01DailyBiasSnapshot],
+    config: Optional[CG01Config] = None,
+    config_fingerprint: str = "",
+    evaluated_at_ms: Optional[int] = None,
+    source: str = "ACTIVE_PIPELINE",
+    is_active_owner: bool = True,
+    owner: str = "WATCHER",
+    generation: int = 1,
+    input_version: str = "",
+) -> bool:
+    """
+    Dedicated backend boundary for publishing current daily bias authority for execution (Rules 035 - 048).
+    - Checks runtime execution ownership (rejects SHADOW / non-active owners, Rules 032, 037, 038).
+    - Anti-rewind check: refuses out-of-order writes (T1 < T2) or stale generations (Rules 027, 045, 048).
+    - Deepcopies snapshot to enforce immutability (Rule 043).
+    - Stores strictly in bounded single-entry per symbol registry (Rule 041).
+    """
+    # Rule 032, 037, 038: Check active ownership
+    if not is_active_owner or "SHADOW" in source.upper() or "SHADOW" in owner.upper():
+        logger.debug(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: non-active owner ({owner}/{source})")
+        return False
+
+    fp = config_fingerprint
+    if not fp and config is not None:
+        fp = compute_cg01_config_fingerprint(config)
+    if not fp and bias is not None:
+        fp = getattr(bias, "config_fingerprint", "") or ""
+
+    now_ts = evaluated_at_ms if evaluated_at_ms is not None else int(time.time() * 1000)
+
+    with _bias_registry_lock:
+        curr = _bias_authority_registry.get(symbol)
+        if curr is not None:
+            curr_gen = curr.get("generation", 1)
+            curr_eval_ts = curr.get("evaluated_at_ms", 0) or 0
+
+            # Rule 048: Stale generation cannot overwrite newer generation
+            if generation < curr_gen:
+                logger.info(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: generation {generation} < {curr_gen}")
+                return False
+
+            # Rule 045: Out-of-order write rejection (T1 completing after T2)
+            if generation == curr_gen and now_ts < curr_eval_ts:
+                logger.info(f"[publish_current_cg01_bias_authority] Refused out-of-order publish for {symbol}: eval_ts {now_ts} < current {curr_eval_ts}")
+                return False
+
+        # Rule 043: Deep copy snapshot to enforce immutability
+        stored_bias = copy.deepcopy(bias) if bias is not None else None
+
+        # Rule 044: Publish metadata
+        entry = {
+            "symbol": symbol,
+            "bias": stored_bias,
+            "config_fingerprint": fp,
+            "evaluated_at_ms": now_ts,
+            "source": source,
+            "owner": owner,
+            "generation": generation,
+            "input_version": input_version,
+            "is_active_owner": True,
+        }
+        _bias_authority_registry[symbol] = entry
+        return True
 
 
 def record_current_cg01_bias_authority(
@@ -57,29 +126,32 @@ def record_current_cg01_bias_authority(
     config_fingerprint: str = "",
     evaluated_at_ms: Optional[int] = None,
     source: str = "PIPELINE",
-) -> None:
+    generation: int = 1,
+    owner: str = "WATCHER",
+    is_active_owner: bool = True,
+    config: Optional[CG01Config] = None,
+) -> bool:
     """
-    Registers the latest authoritative daily bias snapshot computed by the production pipeline (Rules 032-045).
-    Keyed by symbol and config fingerprint to guarantee ownership.
+    Backward-compatible adapter that delegates to publish_current_cg01_bias_authority.
     """
-    now_ts = evaluated_at_ms or int(time.time() * 1000)
-    with _bias_registry_lock:
-        key = f"{symbol}:{config_fingerprint}"
-        entry = {
-            "bias": bias,
-            "config_fingerprint": config_fingerprint,
-            "evaluated_at_ms": now_ts,
-            "source": source,
-            "symbol": symbol,
-        }
-        _bias_authority_registry[key] = entry
-        _bias_authority_registry[f"{symbol}:latest"] = entry
+    return publish_current_cg01_bias_authority(
+        symbol=symbol,
+        bias=bias,
+        config=config,
+        config_fingerprint=config_fingerprint,
+        evaluated_at_ms=evaluated_at_ms,
+        source=source,
+        is_active_owner=is_active_owner,
+        owner=owner,
+        generation=generation,
+    )
 
 
 def clear_current_cg01_bias_authority(symbol: Optional[str] = None) -> None:
-    """For testing isolation and restart simulation (Rule 044, 100)."""
+    """For testing isolation and restart simulation (Rule 044, 049)."""
     with _bias_registry_lock:
         if symbol:
+            _bias_authority_registry.pop(symbol, None)
             keys_to_del = [k for k in _bias_authority_registry if k.startswith(f"{symbol}:")]
             for k in keys_to_del:
                 del _bias_authority_registry[k]
@@ -91,29 +163,30 @@ def resolve_current_cg01_bias_authority(
     symbol: str = "XAUUSDT",
     now_ms: Optional[int] = None,
     config: Optional[CG01Config] = None,
+    config_fingerprint: Optional[str] = None,
     context: Optional[Dict[str, Any]] = None,
     clock: Optional[Any] = None,
 ) -> CG01BiasAuthorityResult:
     """
-    Single source of truth for current Daily Bias authority across ARM and FILL (Rules 032-045).
-    1. If explicit closed_context is provided, evaluates bias deterministically.
-    2. Otherwise, checks the authoritative in-memory registry keyed by symbol & config_fingerprint.
-    3. If neither is available, returns available=False with status UNAVAILABLE (Rules 040, 045).
+    Single source of truth for current Daily Bias authority across ARM and FILL (Rules 051 - 075).
+    - Pure read-only (does NOT mutate registry, Rule 051).
+    - Requires effective config / fingerprint; fails closed if missing (Rule 053).
+    - Rejects config mismatch without falling back to latest (Rule 055).
+    - Validates freshness, time consistency, trading day rollover, and mandatory metadata.
     """
     effective_now = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
-    cfg = config or CG01Config()
-    fp = compute_cg01_config_fingerprint(cfg)
 
-    # 1. If explicit closed context with 4H / 1H is injected:
+    # 1. Explicit context evaluation (pure, no registry mutation, Rules 051, 052)
     if context and ("4H" in context or "closed_candles_by_tf" in context):
         eval_ctx = context.get("closed_candles_by_tf") or context
+        cfg = config or CG01Config()
+        fp = config_fingerprint or compute_cg01_config_fingerprint(cfg)
         bias_snap = evaluate_cg01_daily_bias(
             eval_ctx,
             as_of_ms=effective_now,
             config=cfg,
             symbol=symbol,
         )
-        record_current_cg01_bias_authority(symbol, bias_snap, config_fingerprint=fp, evaluated_at_ms=effective_now, source="EVALUATED_CONTEXT")
         is_avail = (bias_snap.status == CG01DailyBiasStatus.READY.value and bool(bias_snap.allowed_directions))
         return CG01BiasAuthorityResult(
             available=is_avail,
@@ -126,47 +199,280 @@ def resolve_current_cg01_bias_authority(
             config_fingerprint=fp,
         )
 
-    # 2. Check registry by symbol:fingerprint or symbol:latest
-    with _bias_registry_lock:
-        entry = _bias_authority_registry.get(f"{symbol}:{fp}") or _bias_authority_registry.get(f"{symbol}:latest")
+    # 2. Resolve required config fingerprint (Rule 053, 091)
+    req_fp = config_fingerprint
+    if not req_fp and config is not None:
+        req_fp = compute_cg01_config_fingerprint(config)
 
-    if entry:
-        bias_snap = entry["bias"]
-        # Rule 043: Time consistency - snapshot cannot be from the future
-        if entry["evaluated_at_ms"] and entry["evaluated_at_ms"] > effective_now:
-            return CG01BiasAuthorityResult(
-                available=False,
-                status="TIME_INCONSISTENT",
-                bias=None,
-                reason="Snapshot evaluated_at is in future relative to decision time",
-                source=entry["source"],
-                evaluated_at_ms=entry["evaluated_at_ms"],
-                symbol=symbol,
-                config_fingerprint=fp,
-            )
-        is_avail = (bias_snap.status == CG01DailyBiasStatus.READY.value and bool(bias_snap.allowed_directions))
+    if not req_fp:
         return CG01BiasAuthorityResult(
-            available=is_avail,
-            status=bias_snap.status,
-            bias=bias_snap,
-            reason=None if is_avail else f"Daily bias status: {bias_snap.status}",
-            source=entry["source"],
-            evaluated_at_ms=entry["evaluated_at_ms"],
+            available=False,
+            status="CONFIG_UNAVAILABLE",
+            bias=None,
+            reason="Effective CG01 configuration not provided to authority resolver",
+            source="UNAVAILABLE",
+            evaluated_at_ms=None,
             symbol=symbol,
-            config_fingerprint=entry["config_fingerprint"],
+            config_fingerprint="",
         )
 
-    # 3. Not bootstrapped or no cache (Rule 040, 045)
+    # 3. Read-only registry lookup in bounded symbol table (Rule 041)
+    with _bias_registry_lock:
+        entry = _bias_authority_registry.get(symbol)
+
+    if not entry or entry.get("bias") is None:
+        return CG01BiasAuthorityResult(
+            available=False,
+            status="UNAVAILABLE",
+            bias=None,
+            reason="Current daily bias authority not ready or not bootstrapped",
+            source="UNAVAILABLE",
+            evaluated_at_ms=None,
+            symbol=symbol,
+            config_fingerprint=req_fp,
+        )
+
+    bias_snap: CG01DailyBiasSnapshot = entry["bias"]
+    auth_fp = entry.get("config_fingerprint") or getattr(bias_snap, "config_fingerprint", "") or ""
+    eval_ts = entry.get("evaluated_at_ms") or 0
+
+    # Rule 055, 056, 089, 090: Exact config match (NO fallback to latest!)
+    if auth_fp != req_fp:
+        return CG01BiasAuthorityResult(
+            available=False,
+            status="CONFIG_MISMATCH",
+            bias=None,
+            reason=f"Current daily bias authority config fingerprint ({auth_fp}) does not match effective config ({req_fp})",
+            source=entry["source"],
+            evaluated_at_ms=eval_ts,
+            symbol=symbol,
+            config_fingerprint=req_fp,
+        )
+
+    # Rule 062: Time consistency - snapshot cannot be from the future
+    if eval_ts > effective_now:
+        return CG01BiasAuthorityResult(
+            available=False,
+            status="TIME_INCONSISTENT",
+            bias=None,
+            reason="Snapshot evaluated_at is in future relative to decision time",
+            source=entry["source"],
+            evaluated_at_ms=eval_ts,
+            symbol=symbol,
+            config_fingerprint=req_fp,
+        )
+
+    # Rule 061: Trading day consistency / rollover (previous day authority expired)
+    tz_str = getattr(config, "ny_timezone", "America/New_York") if config else "America/New_York"
+    expected_day = resolve_trading_day_key(effective_now, tz_name=tz_str)
+    snap_day = getattr(bias_snap, "trading_day_key", "")
+    if snap_day and snap_day < expected_day:
+        return CG01BiasAuthorityResult(
+            available=False,
+            status="DAY_MISMATCH",
+            bias=None,
+            reason=f"Current daily bias authority trading day ({snap_day}) is from a previous day relative to current day ({expected_day})",
+            source=entry["source"],
+            evaluated_at_ms=eval_ts,
+            symbol=symbol,
+            config_fingerprint=req_fp,
+        )
+
+    # Rule 093: Symbol matching
+    snap_sym = getattr(bias_snap, "symbol", "")
+    if snap_sym and snap_sym != symbol:
+        return CG01BiasAuthorityResult(
+            available=False,
+            status="SYMBOL_MISMATCH",
+            bias=None,
+            reason=f"Authority symbol ({snap_sym}) does not match requested symbol ({symbol})",
+            source=entry["source"],
+            evaluated_at_ms=eval_ts,
+            symbol=symbol,
+            config_fingerprint=req_fp,
+        )
+
+    # Rule 067-074: Required fields on current snapshot
+    b_token = getattr(bias_snap, "authority_token", None)
+    b_dirs = getattr(bias_snap, "allowed_directions", None)
+    b_status = getattr(bias_snap, "status", None)
+
+    if not b_token or not isinstance(b_token, str) or not b_token.strip():
+        return CG01BiasAuthorityResult(
+            available=False,
+            status="MISSING_TOKEN",
+            bias=bias_snap,
+            reason="Current daily bias authority snapshot is missing authority_token",
+            source=entry["source"],
+            evaluated_at_ms=eval_ts,
+            symbol=symbol,
+            config_fingerprint=req_fp,
+        )
+
+    if not auth_fp or not isinstance(auth_fp, str) or not auth_fp.strip():
+        return CG01BiasAuthorityResult(
+            available=False,
+            status="MISSING_FINGERPRINT",
+            bias=bias_snap,
+            reason="Current daily bias authority snapshot is missing config_fingerprint",
+            source=entry["source"],
+            evaluated_at_ms=eval_ts,
+            symbol=symbol,
+            config_fingerprint=req_fp,
+        )
+
+    if not isinstance(b_dirs, (list, tuple)) or not b_dirs or not all(d in ("LONG", "SHORT") for d in b_dirs):
+        if b_status == CG01DailyBiasStatus.READY.value:
+            return CG01BiasAuthorityResult(
+                available=False,
+                status="INVALID_DIRECTIONS",
+                bias=bias_snap,
+                reason="Current daily bias authority snapshot has invalid or empty allowed_directions",
+                source=entry["source"],
+                evaluated_at_ms=eval_ts,
+                symbol=symbol,
+                config_fingerprint=req_fp,
+            )
+
+    if b_status == CG01DailyBiasStatus.INVALIDATED.value:
+        return CG01BiasAuthorityResult(
+            available=False,
+            status="INVALIDATED",
+            bias=bias_snap,
+            reason="Current daily bias authority snapshot is INVALIDATED",
+            source=entry["source"],
+            evaluated_at_ms=eval_ts,
+            symbol=symbol,
+            config_fingerprint=req_fp,
+        )
+
+    is_avail = (b_status == CG01DailyBiasStatus.READY.value and bool(b_dirs))
     return CG01BiasAuthorityResult(
-        available=False,
-        status="UNAVAILABLE",
-        bias=None,
-        reason="Current daily bias authority not ready or not bootstrapped",
-        source="UNAVAILABLE",
-        evaluated_at_ms=None,
+        available=is_avail,
+        status=b_status or "UNAVAILABLE",
+        bias=bias_snap,
+        reason=None if is_avail else f"Daily bias status: {b_status}",
+        source=entry["source"],
+        evaluated_at_ms=eval_ts,
         symbol=symbol,
-        config_fingerprint=fp,
+        config_fingerprint=req_fp,
     )
+
+
+def validate_cg01_bias_authority_binding(
+    candidate_bias: Optional[Any],
+    current_authority: Optional[Any],
+    order_direction: str,
+    symbol: str = "XAUUSDT",
+    effective_fingerprint: Optional[str] = None,
+) -> Tuple[bool, str, str, str]:
+    """
+    Rule 066: Shared validator helper for both ARM guard and FILL lifecycle.
+    Validates candidate daily bias against current authority snapshot.
+    Returns: (valid: bool, status_code: str, message_vi: str, action: str)
+    action: "PASS" | "BLOCK" | "DEFER" | "INVALIDATE"
+    """
+    if candidate_bias is None:
+        return False, "DAILY_BIAS_MISSING", "Candidate PRIMARY thiếu snapshot bias ngày.", "INVALIDATE"
+
+    # 1. Candidate metadata checks
+    cand_status = candidate_bias.get("status") if isinstance(candidate_bias, dict) else getattr(candidate_bias, "status", None)
+    if cand_status == "INVALIDATED":
+        return False, "DAILY_BIAS_INVALIDATED", "Bias ngày của candidate đã mất hiệu lực.", "INVALIDATE"
+    if cand_status == "UNAVAILABLE":
+        return False, "DAILY_BIAS_UNAVAILABLE", "Bias ngày của candidate không sẵn sàng.", "DEFER"
+    if cand_status == "NEUTRAL":
+        return False, "DAILY_BIAS_NEUTRAL", "Bias ngày trung tính (NEUTRAL), không cho phép mở lệnh.", "INVALIDATE"
+    if cand_status is not None and cand_status != "READY":
+        return False, "DAILY_BIAS_NOT_READY", f"Bias ngày của candidate không ở trạng thái READY ({cand_status}).", "DEFER"
+
+    auth_token = candidate_bias.get("authority_token") if isinstance(candidate_bias, dict) else getattr(candidate_bias, "authority_token", None)
+    if not auth_token or not isinstance(auth_token, str) or not auth_token.strip():
+        return False, "DAILY_BIAS_MISSING_TOKEN", "Candidate PRIMARY thiếu authority token hợp lệ.", "INVALIDATE"
+
+    cand_dirs = candidate_bias.get("allowed_directions") if isinstance(candidate_bias, dict) else getattr(candidate_bias, "allowed_directions", ())
+    if not isinstance(cand_dirs, (list, tuple)) or not cand_dirs or not all(d in ("LONG", "SHORT") for d in cand_dirs):
+        return False, "DAILY_BIAS_INVALID_DIRECTIONS", "Candidate PRIMARY có allowed_directions không hợp lệ hoặc rỗng.", "INVALIDATE"
+
+    if order_direction not in cand_dirs:
+        return False, "DAILY_BIAS_DIRECTION_MISMATCH", f"Hướng lệnh {order_direction} không khớp hướng được phép của bias candidate ({cand_dirs}).", "INVALIDATE"
+
+    # 2. Current authority checks
+    if current_authority is None:
+        return False, "DAILY_BIAS_CURRENT_UNAVAILABLE", "Thiếu dữ liệu current daily bias authority.", "DEFER"
+
+    if isinstance(current_authority, CG01BiasAuthorityResult):
+        cur_status = current_authority.status
+        cur_bias = current_authority.bias
+        cur_fp = current_authority.config_fingerprint
+    elif isinstance(current_authority, dict):
+        cur_status = current_authority.get("status")
+        cur_bias = current_authority.get("bias") or current_authority
+        cur_fp = current_authority.get("config_fingerprint")
+    else:
+        cur_status = getattr(current_authority, "status", None)
+        cur_bias = current_authority
+        cur_fp = getattr(current_authority, "config_fingerprint", None)
+
+    # Current authority status code evaluation
+    if cur_status == "INVALIDATED":
+        return False, "DAILY_BIAS_CURRENT_INVALIDATED", "Bias ngày hiện tại đã mất hiệu lực.", "INVALIDATE"
+    if cur_status == "CONFIG_MISMATCH":
+        return False, "CONFIG_FINGERPRINT_MISMATCH", "Cấu hình giao dịch hiện tại không khớp cấu hình của bias authority.", "DEFER"
+    if cur_status in ("UNAVAILABLE", "NOT_BOOTSTRAPPED", "CONFIG_UNAVAILABLE"):
+        return False, "DAILY_BIAS_CURRENT_UNAVAILABLE", "Bias ngày hiện tại chưa sẵn sàng hoặc chưa bootstrap.", "DEFER"
+    if cur_status == "TIME_INCONSISTENT":
+        return False, "DAILY_BIAS_CURRENT_TIME_INCONSISTENT", "Thời gian đánh giá bias ngày hiện tại ở tương lai.", "DEFER"
+    if cur_status == "DAY_MISMATCH":
+        return False, "DAILY_BIAS_CURRENT_DAY_MISMATCH", "Bias ngày hiện tại thuộc ngày giao dịch khác ngày hiện tại.", "DEFER"
+    if cur_status in ("MISSING_TOKEN", "DAILY_BIAS_CURRENT_MISSING_TOKEN"):
+        return False, "DAILY_BIAS_CURRENT_MISSING_TOKEN", "Bias ngày hiện tại thiếu authority token.", "DEFER"
+    if cur_status in ("MISSING_FINGERPRINT", "DAILY_BIAS_CURRENT_MISSING_FINGERPRINT"):
+        return False, "DAILY_BIAS_CURRENT_MISSING_FINGERPRINT", "Bias ngày hiện tại thiếu config fingerprint.", "DEFER"
+    if cur_status in ("INVALID_DIRECTIONS", "DAILY_BIAS_CURRENT_INVALID_DIRECTIONS"):
+        return False, "DAILY_BIAS_CURRENT_INVALID_DIRECTIONS", "Bias ngày hiện tại có allowed_directions không hợp lệ.", "DEFER"
+    if cur_status != "READY":
+        return False, "DAILY_BIAS_CURRENT_NOT_READY", f"Bias ngày hiện tại không ở trạng thái READY ({cur_status}).", "DEFER"
+
+    if cur_bias is None:
+        return False, "DAILY_BIAS_CURRENT_UNAVAILABLE", "Thiếu snapshot bias ngày hiện tại.", "DEFER"
+
+    # 3. Fingerprint validation (Rules 029, 069)
+    cand_fp = candidate_bias.get("config_fingerprint") if isinstance(candidate_bias, dict) else getattr(candidate_bias, "config_fingerprint", None)
+    if not cur_fp and isinstance(cur_bias, dict):
+        cur_fp = cur_bias.get("config_fingerprint")
+    elif not cur_fp and cur_bias is not None:
+        cur_fp = getattr(cur_bias, "config_fingerprint", None)
+
+    if cand_fp or cur_fp:
+        if cand_fp != cur_fp:
+            return False, "CONFIG_FINGERPRINT_MISMATCH", f"Config fingerprint của candidate ({cand_fp}) không khớp bias ngày hiện tại ({cur_fp}).", "DEFER"
+
+    if effective_fingerprint and cur_fp and effective_fingerprint != cur_fp:
+        return False, "CONFIG_FINGERPRINT_MISMATCH", f"Config fingerprint hiệu dụng ({effective_fingerprint}) không khớp bias ngày hiện tại ({cur_fp}).", "DEFER"
+
+    # 4. Token validation (Rules 068, 074)
+    cur_token = cur_bias.get("authority_token") if isinstance(cur_bias, dict) else getattr(cur_bias, "authority_token", None)
+    if not cur_token or not isinstance(cur_token, str) or not cur_token.strip():
+        return False, "DAILY_BIAS_CURRENT_MISSING_TOKEN", "Bias ngày hiện tại thiếu authority token.", "DEFER"
+
+    if auth_token != cur_token:
+        return False, "DAILY_BIAS_AUTHORITY_MISMATCH", "Authority token của candidate không khớp với bias ngày hiện tại.", "INVALIDATE"
+
+    # 5. Allowed directions validation (Rules 070, 072)
+    cur_dirs = cur_bias.get("allowed_directions") if isinstance(cur_bias, dict) else getattr(cur_bias, "allowed_directions", None)
+    if cur_dirs is not None and cur_dirs != ():
+        if not isinstance(cur_dirs, (list, tuple)) or not all(d in ("LONG", "SHORT") for d in cur_dirs):
+            return False, "DAILY_BIAS_CURRENT_INVALID_DIRECTIONS", "Bias ngày hiện tại có allowed_directions không hợp lệ.", "DEFER"
+        if order_direction not in cur_dirs:
+            return False, "DAILY_BIAS_DIRECTION_MISMATCH", f"Hướng lệnh {order_direction} không thuộc hướng được phép của bias ngày hiện tại ({cur_dirs}).", "INVALIDATE"
+
+    # 6. Symbol validation (Rule 093)
+    cur_sym = cur_bias.get("symbol") if isinstance(cur_bias, dict) else getattr(cur_bias, "symbol", None)
+    if cur_sym and cur_sym != symbol:
+        return False, "DAILY_BIAS_SYMBOL_MISMATCH", f"Symbol của bias ngày ({cur_sym}) không khớp lệnh ({symbol}).", "INVALIDATE"
+
+    return True, "READY", "Daily bias authority binding hợp lệ.", "PASS"
 
 
 def resolve_trading_day_key(as_of_ms: int, tz_name: str = "America/New_York") -> str:
@@ -721,13 +1027,6 @@ def evaluate_cg01_daily_bias(
         invalidation_rule=invalidation_rule,
         reason_codes=tuple(reason_codes),
         ui_summary_vi={"status": summary_status, "detail": summary_detail},
-    )
-    record_current_cg01_bias_authority(
-        symbol=symbol,
-        bias=snap,
-        config_fingerprint=cfg_fp,
-        evaluated_at_ms=as_of_ms,
-        source="PIPELINE",
     )
     return snap
 
