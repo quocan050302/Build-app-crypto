@@ -41,6 +41,7 @@ TF_DURATIONS_MS = {
     "1H": 60 * 60 * 1000,
     "4H": 4 * 60 * 60 * 1000,
     "D": 24 * 60 * 60 * 1000,
+    "1D": 24 * 60 * 60 * 1000,
 }
 
 
@@ -70,10 +71,13 @@ def capture_cg01_input_bundle(
         "15M": [],
         "5M": [],
         "1M": [],
+        "1D": [],
     }
 
-    for tf in ["4H", "1H", "15M", "5M", "1M"]:
+    for tf in ["4H", "1H", "15M", "5M", "1M", "1D"]:
         cached = candle_cache_service.get_candles(symbol, tf, limit=150)
+        if not cached and tf == "1D":
+            cached = candle_cache_service.get_candles(symbol, "D", limit=150)
         dur = TF_DURATIONS_MS.get(tf, 60000)
 
         closed_immutable: List[schemas.CandleCreate] = []
@@ -436,6 +440,7 @@ def evaluate_cg01_shadow_snapshot(
         "15M": bundle.get("15M") or [],
         "1H": bundle.get("1H") or [],
         "4H": bundle.get("4H") or [],
+        "1D": bundle.get("1D") or bundle.get("D") or [],
     }
 
     c_1m = raw_by_tf["1M"]

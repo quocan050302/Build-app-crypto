@@ -14,12 +14,32 @@ import time
 from domain_calculator import CalculationResult
 from services.scalp_m1_types import ModelIdentifier
 from services.scalp_m1_model_service import ScalpCandidate
+from services.cg01_daily_bias_types import (
+    CG01DailyBiasDirection,
+    CG01DailyBiasStatus,
+    CG01DailyBiasSnapshot,
+    CG01DailyLiquidityLevel,
+    CG01DailyDealingRange,
+    CG01HTFZoneReaction,
+)
 
 
 class CG01ProfileMode(str, Enum):
     OFF = "OFF"
     SHADOW = "SHADOW"
     PAPER_EXECUTION = "PAPER_EXECUTION"
+
+
+class CG01DirectionPolicy(str, Enum):
+    """
+    Rules 037 - 041, 121: CG-01 Direction Selection Policy.
+    - LEGACY_H1: Default, preserves legacy H1-primary direction context.
+    - DAILY_BIAS_SHADOW: Computes & logs daily bias, but retains legacy H1 entry authority.
+    - DAILY_BIAS_PRIMARY: Daily bias is the authoritative direction source.
+    """
+    LEGACY_H1 = "LEGACY_H1"
+    DAILY_BIAS_SHADOW = "DAILY_BIAS_SHADOW"
+    DAILY_BIAS_PRIMARY = "DAILY_BIAS_PRIMARY"
 
 
 class CG01Stage(str, Enum):
@@ -63,6 +83,7 @@ PARAMETER_ORIGINS: Dict[str, str] = {
     "min_net_rr": "IMPLEMENTATION_PARAMETER",
     "htf_min_bars": "IMPLEMENTATION_PARAMETER",
     "htf_break_buffer_ticks": "IMPLEMENTATION_PARAMETER",
+    "direction_policy": "IMPLEMENTATION_PARAMETER",
 }
 
 
@@ -74,6 +95,7 @@ class CG01Config:
     """
     enabled: bool = False
     profile_mode: str = CG01ProfileMode.OFF.value
+    direction_policy: str = CG01DirectionPolicy.LEGACY_H1.value
     model_version: str = "v16.2"
     config_version: int = 1
     timing_profile: str = "SILVER_BULLET_LONDON_NY"
@@ -109,6 +131,9 @@ class CG01Config:
     ny_timezone: str = "America/New_York"
 
     def __post_init__(self):
+        valid_policies = {p.value for p in CG01DirectionPolicy}
+        if self.direction_policy not in valid_policies:
+            raise ValueError(f"INVALID_DIRECTION_POLICY: direction_policy must be one of {valid_policies}, got {self.direction_policy}")
         if self.displacement_body_atr_min <= 0:
             raise ValueError("INVALID_CONFIG: displacement_body_atr_min must be > 0")
         if self.min_net_rr <= 0:
@@ -212,6 +237,8 @@ class CG01Decision:
     as_of_ms: int = 0
     time_context: Optional[CG01TimeContext] = None
     ui_summary_vi: Dict[str, str] = field(default_factory=dict)
+    daily_bias: Optional[CG01DailyBiasSnapshot] = None
+    direction_policy: str = CG01DirectionPolicy.LEGACY_H1.value
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -234,6 +261,8 @@ class CG01Decision:
             "as_of_ms": self.as_of_ms,
             "time_context": self.time_context.to_dict() if self.time_context else None,
             "ui_summary_vi": self.ui_summary_vi,
+            "daily_bias": self.daily_bias.to_dict() if self.daily_bias else None,
+            "direction_policy": self.direction_policy,
         }
 
 

@@ -359,7 +359,36 @@ def _check_strategy(req: EntryGuardRequest) -> EntryCheck:
                 return EntryCheck("UNCONFIRMED_STRUCTURE_CHAIN", "BLOCK",
                                   "Chuỗi cấu trúc SMC chưa được xác nhận đầy đủ (thiếu sweep, break MSS hoặc FVG).",
                                   "Chờ cấu trúc hoàn thành các bước xác nhận.")
-            return _ok("strategy", "LEGACY_UNCERTIFIED: chế độ cũ, chưa xác minh chuỗi SMC.")
+        if req.strategy_family == "CG01_SWEEP_MSS_FVG":
+            # Rules 136, 138, 141: Verify Daily Bias binding for PRIMARY if present
+            ev = req.evidence or {}
+            policy = ev.get("direction_policy")
+            daily_b = ev.get("daily_bias")
+            if policy == "DAILY_BIAS_PRIMARY" and daily_b:
+                b_status = daily_b.get("status") if isinstance(daily_b, dict) else getattr(daily_b, "status", None)
+                if b_status == "INVALIDATED":
+                    return EntryCheck(
+                        "DAILY_BIAS_INVALIDATED",
+                        "BLOCK",
+                        "Bias ngày đã mất hiệu lực trước khi arm lệnh.",
+                        "Chờ xác nhận cấu trúc ngày mới.",
+                    )
+                if b_status == "UNAVAILABLE":
+                    return EntryCheck(
+                        "DAILY_BIAS_UNAVAILABLE",
+                        "BLOCK",
+                        "Bias ngày không sẵn sàng trước khi arm lệnh.",
+                        "Chờ dữ liệu bối cảnh ngày.",
+                    )
+                allowed_dirs = daily_b.get("allowed_directions") if isinstance(daily_b, dict) else getattr(daily_b, "allowed_directions", ())
+                if req.direction not in (allowed_dirs or ()):
+                    return EntryCheck(
+                        "DAILY_BIAS_DIRECTION_MISMATCH",
+                        "BLOCK",
+                        f"Hướng lệnh {req.direction} không khớp hướng được phép của bias ngày ({allowed_dirs}).",
+                        "Chờ bias ngày đồng thuận.",
+                    )
+            return _ok("strategy")
         return _ok("strategy")
     if state == "WAITING_RETRACE":
         if req.structure_chain_verified is True:

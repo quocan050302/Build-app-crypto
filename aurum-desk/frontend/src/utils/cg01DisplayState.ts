@@ -34,6 +34,16 @@ export interface CG01EvaluationPayload {
   ui_summary_vi?: CG01SummaryVi;
   poi_id?: string | null;
   direction?: string | null;
+  direction_policy?: string;
+  daily_bias?: {
+    direction?: string;
+    status?: string;
+    allowed_directions?: string[];
+    summary_vi?: string;
+    authority_token?: string;
+    trading_day_key?: string;
+    [key: string]: any;
+  } | null;
 }
 
 /**
@@ -70,6 +80,8 @@ export function normalizeCG01EvaluationPayload(raw: any): CG01EvaluationPayload 
     armed_order_id: raw.armed_order_id || null,
     eligible: Boolean(raw.eligible),
     guard_summary: raw.guard_summary || null,
+    direction_policy: raw.direction_policy || 'LEGACY_H1',
+    daily_bias: raw.daily_bias || null,
   };
 }
 
@@ -95,6 +107,9 @@ export interface CG01DisplayState {
   isArmed: boolean;
   isGuardBlocked: boolean;
   isDegraded: boolean;
+  directionPolicy: string;
+  dailyBias: any | null;
+  dailyBiasSummary: string | null;
 }
 
 /**
@@ -154,6 +169,9 @@ export function deriveCG01DisplayState(
       isArmed: false,
       isGuardBlocked: false,
       isDegraded: false,
+      directionPolicy: 'LEGACY_H1',
+      dailyBias: null,
+      dailyBiasSummary: null,
     };
   }
 
@@ -256,5 +274,8 @@ export function deriveCG01DisplayState(
     isArmed,
     isGuardBlocked,
     isDegraded,
+    directionPolicy: payload.direction_policy || 'LEGACY_H1',
+    dailyBias: payload.daily_bias || null,
+    dailyBiasSummary: payload.daily_bias?.summary_vi || null,
   };
 }

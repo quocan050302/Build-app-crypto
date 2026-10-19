@@ -94,6 +94,18 @@ export function isCG01PayloadSemanticEqual(
   const nextSummary = extractCG01SummaryText(next.ui_summary_vi);
   if (curSummary !== nextSummary) return false;
 
+  // Compare direction policy and daily bias authority / state (Rules 147, 148)
+  if ((current.direction_policy || 'LEGACY_H1') !== (next.direction_policy || 'LEGACY_H1')) return false;
+  const curToken = current.daily_bias?.authority_token || null;
+  const nextToken = next.daily_bias?.authority_token || null;
+  if (curToken !== nextToken) return false;
+  const curBiasDir = current.daily_bias?.direction || null;
+  const nextBiasDir = next.daily_bias?.direction || null;
+  if (curBiasDir !== nextBiasDir) return false;
+  const curBiasStatus = current.daily_bias?.status || null;
+  const nextBiasStatus = next.daily_bias?.status || null;
+  if (curBiasStatus !== nextBiasStatus) return false;
+
   return true;
 }
 

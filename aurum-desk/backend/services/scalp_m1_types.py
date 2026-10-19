@@ -364,6 +364,7 @@ class M1ScalpConfig:
     cg01_enabled: bool = False
     cg01_profile_mode: str = "OFF"
     execution_profile: str = "BASELINE"
+    cg01_direction_policy: str = "LEGACY_H1"
     cg01_config: Optional[Any] = None
 
     def __post_init__(self):
@@ -423,6 +424,7 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
                 "cg01_enabled",
                 "cg01_profile_mode",
                 "execution_profile",
+                "cg01_direction_policy",
             ])
         ).all()
         config_map = {r.key: r.value for r in rows}
@@ -454,7 +456,7 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
             elif val in ("false", "0", "no"):
                 overrides[bool_key] = False
 
-    for str_key in ["cg01_profile_mode", "execution_profile"]:
+    for str_key in ["cg01_profile_mode", "execution_profile", "cg01_direction_policy"]:
         if str_key in config_map:
             overrides[str_key] = str(config_map[str_key]).strip()
 

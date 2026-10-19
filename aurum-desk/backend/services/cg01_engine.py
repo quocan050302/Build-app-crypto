@@ -60,6 +60,8 @@ from services.liquidity_scenario_service import (
 from services.scalp_m1_model_service import ScalpCandidate, candle_open_ms, resolve_executable_target
 from services.scalp_m1_types import ModelIdentifier, OpportunityStage, WatchedZone, ZoneState
 from services.htf_structure_service import filter_closed_candles, resolve_cg01_direction_context
+from services.cg01_daily_bias_service import resolve_cg01_entry_direction_policy
+from services.cg01_types import CG01DirectionPolicy
 from services.smc_liquidity_service import build_liquidity_map, update_liquidity_states
 from services.smc_regime_service import build_htf_context
 from services.zone_watchlist_service import ZoneWatchlistService
@@ -226,13 +228,19 @@ def build_cg01_context(
     if dealing_range and getattr(dealing_range, "is_valid", False) and last_close > 0:
         range_position = assess_range_position(last_close, dealing_range)
 
-    # Context Bias & Direction Context determination (V16.11)
-    dir_ctx = resolve_cg01_direction_context(
+    # Context Bias & Direction Context determination (V16.11, V16.30 Daily Bias)
+    policy_res = resolve_cg01_entry_direction_policy(
+        closed_context=closed_context,
+        config=config,
+        as_of_ms=now_ms,
+        symbol="XAUUSDT",
         h4_ctx=h4_ctx,
         h1_ctx=h1_ctx,
         range_pos=range_position,
-        config=config,
     )
+    dir_ctx = policy_res.get("direction_context") or {}
+    daily_bias = policy_res.get("daily_bias")
+    direction_policy = policy_res.get("direction_policy", "LEGACY_H1")
 
     h4_bias = getattr(h4_ctx, "bias", "UNKNOWN")
     h1_bias = getattr(h1_ctx, "bias", "UNKNOWN")
@@ -246,9 +254,11 @@ def build_cg01_context(
         "h1_snapshot": h1_ctx.to_dict(),
         "direction_context": dir_ctx,
         "relation": dir_ctx.get("relation", "UNKNOWN"),
-        "directions_to_evaluate": dir_ctx.get("directions_to_evaluate", []),
+        "directions_to_evaluate": policy_res.get("directions_to_evaluate", []),
         "dealing_range": dealing_range,
         "range_position": range_position,
+        "daily_bias": daily_bias,
+        "direction_policy": direction_policy,
         "evidence_id": f"ev_cg01_ctx_{now_ms}",
         "reason": "Bối cảnh HTF đã sẵn sàng.",
         "context_source": closed_context.get("context_source", "DECISION_CONTEXT"),
@@ -957,6 +967,7 @@ def evaluate_cg01_candidate(
             as_of_ms=t_now,
             time_context=time_ctx,
             ui_summary_vi={"status": f"Đang khởi động dữ liệu bối cảnh HTF: {ready_reason}."},
+            direction_policy=getattr(cfg, "direction_policy", "LEGACY_H1"),
         )
 
     # 2. Step 2: HTF Context & Dealing Range (Rules 046 - 050)
@@ -972,15 +983,47 @@ def evaluate_cg01_candidate(
             as_of_ms=t_now,
             time_context=time_ctx,
             ui_summary_vi={"status": "Đang khởi động dữ liệu bối cảnh HTF."},
+            direction_policy=getattr(cfg, "direction_policy", "LEGACY_H1"),
         )
 
-    # Context Bias determines primary hypothesis direction (V16.11)
+    # Context Bias determines primary hypothesis direction (V16.11, V16.30 Daily Bias)
     h1_bias = htf_data.get("h1_bias", "UNKNOWN")
     range_pos = htf_data.get("range_position", "EQUILIBRIUM")
     dir_ctx = htf_data.get("direction_context") or {}
+    daily_bias = htf_data.get("daily_bias")
+    direction_policy = htf_data.get("direction_policy", getattr(cfg, "direction_policy", "LEGACY_H1"))
 
     directions_to_evaluate = list(dir_ctx.get("directions_to_evaluate", []))
     if not directions_to_evaluate:
+        # Rules 055, 056, 123, 126, 127: In DAILY_BIAS_PRIMARY, NO FALLBACK TO H1!
+        if direction_policy in ("DAILY_BIAS_PRIMARY", CG01DirectionPolicy.DAILY_BIAS_PRIMARY.value):
+            b_status = getattr(daily_bias, "status", "UNAVAILABLE") if daily_bias else "UNAVAILABLE"
+            if b_status == "INVALIDATED":
+                rcode = "DAILY_BIAS_INVALIDATED"
+                mcond = "DAILY_BIAS_INVALIDATED"
+            elif b_status == "UNAVAILABLE":
+                rcode = "DAILY_BIAS_UNAVAILABLE"
+                mcond = "DAILY_BIAS_UNAVAILABLE"
+            else:
+                rcode = "DAILY_BIAS_NEUTRAL"
+                mcond = "DAILY_BIAS_NEUTRAL"
+
+            summ_vi = {"status": getattr(daily_bias, "summary_vi", f"Chưa có hướng giao dịch theo Daily Bias ({b_status}).")} if daily_bias else {"status": "Chưa có dữ liệu Daily Bias."}
+
+            return CG01Decision(
+                stage=CG01Stage.OBSERVING,
+                is_eligible=False,
+                model_version=cfg.model_version,
+                config_version=cfg.config_version,
+                reason_codes=(rcode,),
+                missing_conditions=(mcond,),
+                as_of_ms=t_now,
+                time_context=time_ctx,
+                ui_summary_vi=summ_vi,
+                daily_bias=daily_bias,
+                direction_policy=direction_policy,
+            )
+
         # If HTF structure is UNKNOWN or insufficient, do not blindly open Long and Short (Phần 108)
         if h1_bias in ("UNKNOWN", "NEUTRAL") or dir_ctx.get("readiness") == "NOT_READY":
             return CG01Decision(
@@ -993,6 +1036,8 @@ def evaluate_cg01_candidate(
                 as_of_ms=t_now,
                 time_context=time_ctx,
                 ui_summary_vi={"status": "Chưa đủ bằng chứng cấu trúc HTF để xác định hướng giao dịch."},
+                daily_bias=daily_bias,
+                direction_policy=direction_policy,
             )
         elif h1_bias == "BULLISH":
             directions_to_evaluate = ["LONG"]
@@ -1013,6 +1058,8 @@ def evaluate_cg01_candidate(
             missing_conditions=("MISSING_1M_CANDLES",),
             as_of_ms=t_now,
             time_context=time_ctx,
+            daily_bias=daily_bias,
+            direction_policy=direction_policy,
         )
 
     # V16.28 Section A: Verify M1 ATR Warmup
@@ -1027,6 +1074,8 @@ def evaluate_cg01_candidate(
             as_of_ms=t_now,
             time_context=time_ctx,
             ui_summary_vi={"status": "Đang tích luỹ nến M1 để tính độ biến động ATR."},
+            daily_bias=daily_bias,
+            direction_policy=direction_policy,
         )
 
     # Precompute causal per-bar ATR series across closed M1 candles
@@ -1379,6 +1428,8 @@ def evaluate_cg01_candidate(
                 as_of_ms=t_now,
                 time_context=time_ctx,
                 ui_summary_vi=ui_summary,
+                daily_bias=daily_bias,
+                direction_policy=direction_policy,
             )
             executable_decisions.append(decision)
 
@@ -1422,6 +1473,8 @@ def evaluate_cg01_candidate(
             as_of_ms=t_now,
             time_context=time_ctx,
             ui_summary_vi={"status": f"Kịch bản không khả thi: {reason_rej}."},
+            daily_bias=daily_bias,
+            direction_policy=direction_policy,
         )
 
     # 8. Highest Progress Diagnostic Policy (Items 041, 063, 066, 075, 076)
@@ -1442,6 +1495,8 @@ def evaluate_cg01_candidate(
                 as_of_ms=t_now,
                 time_context=time_ctx,
                 ui_summary_vi={"status": best_diag.ui_summary_vi or f"Tiến trình đang ở bước {best_diag.stage.value}."},
+                daily_bias=daily_bias,
+                direction_policy=direction_policy,
             )
 
     # If no candidate reached full checklist, return current observation state
@@ -1454,4 +1509,6 @@ def evaluate_cg01_candidate(
         as_of_ms=t_now,
         time_context=time_ctx,
         ui_summary_vi={"status": "Đang theo dõi vùng cấu trúc giá và chờ tín hiệu sweep hợp lệ."},
+        daily_bias=daily_bias,
+        direction_policy=direction_policy,
     )

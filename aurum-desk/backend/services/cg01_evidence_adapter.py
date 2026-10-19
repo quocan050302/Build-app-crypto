@@ -323,7 +323,12 @@ def build_cg01_snapshot(
             "config_version": cfg_version,
             "settings_fingerprint": fingerprint,
             "context_source": htf_data.get("context_source", "DECISION_CONTEXT"),
+            "daily_bias": htf_data["daily_bias"].to_dict() if hasattr(htf_data.get("daily_bias"), "to_dict") else copy.deepcopy(htf_data.get("daily_bias")),
+            "direction_policy": htf_data.get("direction_policy", "LEGACY_H1"),
         }
+        if htf_data.get("daily_bias"):
+            snap_context["daily_bias"] = htf_data["daily_bias"].to_dict() if hasattr(htf_data["daily_bias"], "to_dict") else copy.deepcopy(htf_data["daily_bias"])
+            snap_context["direction_policy"] = htf_data.get("direction_policy", "LEGACY_H1")
 
     snap = ScenarioSnapshot(
         scenario_id=f"scen-{candidate_key}",

@@ -2421,9 +2421,10 @@ class ScalpM1ModelService:
 def evaluate_smc_opportunity_candidates(
     candidates: List[ScalpCandidate],
     htf_bias: str = "UNKNOWN",
+    cg01_policy: Optional[str] = None,
 ) -> List[ScalpCandidate]:
     """
-    V16 Candidate Router & Deduplication (Rules 093 - 096).
+    V16 Candidate Router & Deduplication (Rules 093 - 096, 131 - 134).
     - Deduplicates redundant candidates targeting the same direction and underlying level.
     - Resolves opposing conflicting signals deterministically:
       prefers candidate aligned with htf_bias; if tied, prefers higher net R:R.

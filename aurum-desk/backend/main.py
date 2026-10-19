@@ -3190,6 +3190,10 @@ def get_scalp_config_endpoint(db: Session = Depends(get_db)):
         "daily_max_cap": eff_policy.max_fills,
         "daily_ny_goal": eff_policy.ny_goal,
         "policy_version": eff_policy.policy_version,
+        "cg01_enabled": getattr(cfg, "cg01_enabled", False),
+        "cg01_profile_mode": getattr(cfg, "cg01_profile_mode", "OFF"),
+        "execution_profile": getattr(cfg, "execution_profile", "BASELINE"),
+        "cg01_direction_policy": getattr(cfg, "cg01_direction_policy", "LEGACY_H1"),
     }
     return {
         "status": "SUCCESS",
@@ -3267,6 +3271,7 @@ def update_scalp_config_endpoint(
         "sweep_reclaim_enabled",
         "multi_zone_hypotheses_enabled",
         "orderflow_shadow_enabled",
+        "cg01_enabled",
     ):
         if bool_field in payload:
             b_val = payload[bool_field]
@@ -3286,6 +3291,40 @@ def update_scalp_config_endpoint(
                 row.updated_at = now_ms
             else:
                 db.add(models.SystemConfig(key=bool_field, value=val_str, updated_at=now_ms))
+
+    policy_input = payload.get("cg01_direction_policy") or payload.get("direction_policy")
+    if policy_input is not None:
+        if not isinstance(policy_input, str):
+            raise HTTPException(status_code=400, detail="INVALID_DIRECTION_POLICY: must be a string")
+        pol_clean = policy_input.strip().upper()
+        if pol_clean not in ("LEGACY_H1", "DAILY_BIAS_SHADOW", "DAILY_BIAS_PRIMARY"):
+            raise HTTPException(status_code=400, detail="INVALID_DIRECTION_POLICY: must be LEGACY_H1, DAILY_BIAS_SHADOW, or DAILY_BIAS_PRIMARY")
+        cfg_pol = db.query(models.SystemConfig).filter(models.SystemConfig.key == "cg01_direction_policy").first()
+        if cfg_pol:
+            cfg_pol.value = pol_clean
+            cfg_pol.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="cg01_direction_policy", value=pol_clean, updated_at=now_ms))
+
+    if "cg01_profile_mode" in payload:
+        pm_val = str(payload["cg01_profile_mode"]).strip().upper()
+        if pm_val not in ("OFF", "SHADOW", "PAPER_SHADOW", "PAPER_EXECUTION", "LIVE_EXECUTION"):
+            raise HTTPException(status_code=400, detail="INVALID_CG01_PROFILE_MODE: must be OFF, SHADOW, or PAPER_EXECUTION")
+        cfg_pm = db.query(models.SystemConfig).filter(models.SystemConfig.key == "cg01_profile_mode").first()
+        if cfg_pm:
+            cfg_pm.value = pm_val
+            cfg_pm.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="cg01_profile_mode", value=pm_val, updated_at=now_ms))
+
+    if "execution_profile" in payload:
+        ep_val = str(payload["execution_profile"]).strip().upper()
+        cfg_ep = db.query(models.SystemConfig).filter(models.SystemConfig.key == "execution_profile").first()
+        if cfg_ep:
+            cfg_ep.value = ep_val
+            cfg_ep.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="execution_profile", value=ep_val, updated_at=now_ms))
 
     if "min_net_rr" in payload:
         try:

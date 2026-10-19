@@ -56,6 +56,7 @@ def compute_cg01_config_fingerprint(cfg: CG01Config) -> str:
         "daily_max_cap": cfg.daily_max_cap,
         "daily_ny_goal": cfg.daily_ny_goal,
         "ny_timezone": cfg.ny_timezone,
+        "direction_policy": getattr(cfg, "direction_policy", "LEGACY_H1"),
     }
     raw = json.dumps(payload, sort_keys=True)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
@@ -149,6 +150,7 @@ def resolve_canonical_cg01_config(
         candidate_ttl_ms=int(getattr(scalp_cfg, "candidate_ttl_ms", 300_000)),
         fallback_risk_pct=float(getattr(scalp_cfg, "fallback_risk_pct", 0.10)),
         ny_timezone=str(getattr(scalp_cfg, "ny_timezone", "America/New_York")),
+        direction_policy=str(getattr(scalp_cfg, "direction_policy", getattr(scalp_cfg, "cg01_direction_policy", "LEGACY_H1"))),
     )
 
     fingerprint = compute_cg01_config_fingerprint(cfg)

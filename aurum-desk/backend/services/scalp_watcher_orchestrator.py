@@ -66,9 +66,11 @@ def serialize_cg01_evaluation(
     skip_reason: Optional[str] = None,
     armed_order_id: Optional[str] = None,
     guard_summary: Optional[Dict[str, Any]] = None,
+    daily_bias: Optional[Dict[str, Any]] = None,
+    direction_policy: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Pure serializer for CG-01 candidate decision evaluation (V16.9 NHÓM 09, PHẦN 083 - 090).
+    Pure serializer for CG-01 candidate decision evaluation (V16.9 NHÓM 09, PHẦN 083 - 090, V16.30 Daily Bias).
     Produces a JSON-safe additive structure for orchestrator cycle responses.
     """
     if decision is None:
@@ -90,6 +92,8 @@ def serialize_cg01_evaluation(
             "ui_summary_vi": None,
             "poi_id": None,
             "direction": None,
+            "daily_bias": daily_bias,
+            "direction_policy": direction_policy,
         }
 
     dec_dict = decision.to_dict() if hasattr(decision, "to_dict") else dict(decision)
@@ -98,6 +102,10 @@ def serialize_cg01_evaluation(
     cand_obj = getattr(decision, "candidate", None)
     cand_key = getattr(cand_obj, "candidate_key", None) if cand_obj else dec_dict.get("episode_id")
     episode_key = dec_dict.get("episode_id")
+
+    daily_bias_obj = dec_dict.get("daily_bias") if daily_bias is None else daily_bias
+    daily_bias_dict = daily_bias_obj.to_dict() if hasattr(daily_bias_obj, "to_dict") else daily_bias_obj
+    direction_policy_val = dec_dict.get("direction_policy") if direction_policy is None else direction_policy
 
     return {
         "enabled": enabled,
@@ -115,6 +123,8 @@ def serialize_cg01_evaluation(
         "ui_summary_vi": dec_dict.get("ui_summary_vi"),
         "poi_id": dec_dict.get("poi_id"),
         "direction": dec_dict.get("direction"),
+        "daily_bias": daily_bias_dict,
+        "direction_policy": direction_policy_val,
     }
 
 
@@ -232,6 +242,7 @@ class ScalpWatcherOrchestrator:
         candles_15m: Optional[Sequence[Any]] = None,
         candles_1h: Optional[Sequence[Any]] = None,
         candles_4h: Optional[Sequence[Any]] = None,
+        candles_1d: Optional[Sequence[Any]] = None,
         htf_bias: Optional[str] = None,
         h1_alignment: Optional[str] = None,
         config: Optional[M1ScalpConfig] = None,
@@ -330,6 +341,7 @@ class ScalpWatcherOrchestrator:
         c_15m = candles_15m if candles_15m is not None else (crud.get_candles(db, symbol, "15M", limit=120, ascending=True, cutoff_ms=t_recv) if db else [])
         c_5m = candles_5m if candles_5m is not None else (crud.get_candles(db, symbol, "5M", limit=150, ascending=True, cutoff_ms=t_recv) if db else [])
         c_1m = candles_1m if candles_1m is not None else (crud.get_candles(db, symbol, "1M", limit=100, ascending=True, cutoff_ms=t_recv) if db else [])
+        c_1d = candles_1d if candles_1d is not None else (crud.get_candles(db, symbol, "1D", limit=30, ascending=True, cutoff_ms=t_recv) or (crud.get_candles(db, symbol, "D", limit=30, ascending=True, cutoff_ms=t_recv) if db else []))
 
         from services.cg01_context_adapter import normalize_cg01_candle
         if c_4h and isinstance(c_4h[0], dict):
@@ -342,6 +354,8 @@ class ScalpWatcherOrchestrator:
             c_5m = [normalize_cg01_candle(b, "5M", symbol) for b in c_5m]
         if c_1m and isinstance(c_1m[0], dict):
             c_1m = [normalize_cg01_candle(b, "1M", symbol) for b in c_1m]
+        if c_1d and isinstance(c_1d[0], dict):
+            c_1d = [normalize_cg01_candle(b, "1D", symbol) for b in c_1d]
 
         import smc_engine
         atr_15m = smc_engine.compute_atr(c_15m, period=14) if c_15m else 2.0
@@ -979,9 +993,10 @@ class ScalpWatcherOrchestrator:
             cg01_mode = "PAPER_EXECUTION" if getattr(cfg, "cg01_enabled", False) else "OFF"
 
         cg01_eval_data = None
+        cg01_dec = None
         if cg01_cfg.enabled and c_1m:
             from services.cg01_engine import evaluate_cg01_candidate
-            closed_ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m, "context_source": context_source}
+            closed_ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m, "1D": c_1d, "context_source": context_source}
             costs_to_pass = getattr(cg01_cfg, "costs", None) or getattr(cfg, "costs", None)
             cg01_dec = evaluate_cg01_candidate(
                 closed_ctx, q, config=cg01_cfg, now_ms=t_recv,
@@ -1000,9 +1015,28 @@ class ScalpWatcherOrchestrator:
                 as_of_ms=t_recv,
             )
 
-        # Candidate Router & Deduplication (Rules 093 - 096)
+        # Candidate Router & Deduplication (Rules 093 - 096, 131 - 134)
         from services.scalp_m1_model_service import evaluate_smc_opportunity_candidates
-        candidates = evaluate_smc_opportunity_candidates(candidates, htf_bias=bias or "UNKNOWN")
+        effective_router_bias = bias or "UNKNOWN"
+        cg01_policy = getattr(cg01_cfg, "direction_policy", "LEGACY_H1")
+        if cg01_policy == "DAILY_BIAS_PRIMARY" and cg01_dec and getattr(cg01_dec, "daily_bias", None):
+            daily_bias_dir = getattr(cg01_dec.daily_bias, "direction", "NEUTRAL")
+            if daily_bias_dir in ("BULLISH", "BEARISH"):
+                effective_router_bias = daily_bias_dir
+
+        routed_candidates = evaluate_smc_opportunity_candidates(
+            candidates,
+            htf_bias=effective_router_bias,
+            cg01_policy=cg01_policy,
+        )
+
+        if cg01_eval_data and cg01_dec and cg01_dec.candidate:
+            if cg01_dec.candidate not in routed_candidates:
+                cg01_eval_data["router_outcome"] = "OTHER_MODEL_SELECTED"
+            else:
+                cg01_eval_data["router_outcome"] = "SELECTED"
+
+        candidates = routed_candidates
 
         # 5. Execution or Shadow Handling
         t_eval_done = int(time.time() * 1000)

@@ -314,18 +314,21 @@ def build_cg01_closed_context(
     symbol: str = "XAUUSDT",
 ) -> Dict[str, Any]:
     """
-    Rule 029: Assembles canonical closed context bundle across 4H, 1H, 15M, and 1M frames.
+    Rule 029, 071, 082: Assembles canonical closed context bundle across 4H, 1H, 15M, 1M, and optional 1D frames.
     """
     c_4h = select_closed_candles(raw_by_tf.get("4H") or [], "4H", as_of_ms, symbol)
     c_1h = select_closed_candles(raw_by_tf.get("1H") or [], "1H", as_of_ms, symbol)
     c_15m = select_closed_candles(raw_by_tf.get("15M") or [], "15M", as_of_ms, symbol)
     c_1m = select_closed_candles(raw_by_tf.get("1M") or [], "1M", as_of_ms, symbol)
+    raw_1d = raw_by_tf.get("1D") or raw_by_tf.get("D") or []
+    c_1d = select_closed_candles(raw_1d, "1D", as_of_ms, symbol)
 
     counts = {
         "4H": len(c_4h),
         "1H": len(c_1h),
         "15M": len(c_15m),
         "1M": len(c_1m),
+        "1D": len(c_1d),
     }
 
     last_close_times = {
@@ -333,15 +336,18 @@ def build_cg01_closed_context(
         "1H": c_1h[-1].close_time_ms if c_1h else None,
         "15M": c_15m[-1].close_time_ms if c_15m else None,
         "1M": c_1m[-1].close_time_ms if c_1m else None,
+        "1D": c_1d[-1].close_time_ms if c_1d else None,
     }
 
-    missing_frames = [tf for tf, cnt in counts.items() if cnt == 0]
+    # Required legacy frames
+    missing_frames = [tf for tf in ["4H", "1H", "15M", "1M"] if counts.get(tf, 0) == 0]
 
     return {
         "4H": c_4h,
         "1H": c_1h,
         "15M": c_15m,
         "1M": c_1m,
+        "1D": c_1d,
         "counts": counts,
         "last_close_times": last_close_times,
         "missing_frames": missing_frames,
