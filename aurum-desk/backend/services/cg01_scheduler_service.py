@@ -964,6 +964,13 @@ class CG01EvaluationScheduler:
                 self._task = asyncio.current_task()
             except RuntimeError:
                 self._task = None
+            # Rule 046: Bump epoch if starting as active execution owner to revoke prior owner leases
+            if self.is_owner and not self.shadow_mode:
+                try:
+                    from services.cg01_daily_bias_service import bump_runtime_ownership_epoch
+                    bump_runtime_ownership_epoch()
+                except Exception:
+                    pass
 
         self._wakeup_event = asyncio.Event()
         logger.info("CG01EvaluationScheduler run loop started.")

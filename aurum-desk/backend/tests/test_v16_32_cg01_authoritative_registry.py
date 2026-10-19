@@ -44,6 +44,7 @@ from services.cg01_daily_bias_service import (
     resolve_current_cg01_bias_authority,
     evaluate_cg01_daily_bias,
     validate_cg01_bias_authority_binding,
+    bump_runtime_ownership_epoch,
 )
 from services.entry_guard_service import (
     EntryGuardRequest,
@@ -512,7 +513,8 @@ def test_096_097_publisher_ownership_and_generation_lifecycle():
     - Non-active owner cannot publish execution authority.
     - Stale generation cannot overwrite newer generation.
     """
-    clear_current_cg01_bias_authority()
+    clear_current_cg01_bias_authority(reset_epoch=True)
+    bump_runtime_ownership_epoch()
     symbol = "XAUUSDT"
     now_ms = 1700000000000
     cfg = CG01Config()

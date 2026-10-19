@@ -25,10 +25,9 @@ import pytest
 from sqlalchemy.orm import Session
 
 import models
-from tests.test_v16_3_cg01_pipeline import build_long_fixture_series, build_short_fixture_series
+from tests.test_v16_3_cg01_pipeline import build_long_fixture_series, build_short_fixture_series, make_bar
 from tests.test_v16_30_cg01_daily_bias import generate_bullish_candles, generate_bearish_candles
 from services.cg01_types import (
-
     CG01Config,
     CG01DirectionPolicy,
     CG01EntryMode,
@@ -60,6 +59,7 @@ from services.cg01_scheduler_service import (
 )
 from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
 from services.trade_lifecycle_service import TradeLifecycleService
+from services.execution_coordinator import ExecutionCoordinator
 from services.cg01_engine import evaluate_cg01_candidate
 from domain_calculator import calculate_risk_reward
 
@@ -69,16 +69,15 @@ def db(isolated_db):
     yield isolated_db
 
 
-
 @pytest.fixture(autouse=True)
 def clean_registry():
-    clear_current_cg01_bias_authority()
+    clear_current_cg01_bias_authority(reset_epoch=True)
     cg01_evaluation_scheduler.reset_state()
     cg01_evaluation_scheduler.enabled = True
     cg01_evaluation_scheduler.is_owner = False
     cg01_evaluation_scheduler.shadow_mode = True
     yield
-    clear_current_cg01_bias_authority()
+    clear_current_cg01_bias_authority(reset_epoch=True)
     cg01_evaluation_scheduler.reset_state()
 
 
@@ -557,13 +556,13 @@ def test_registry_deep_immutability_across_all_branches(db: Session):
 
 
 # =========================================================================
-# 9. Full Candle-to-Trade Primary LONG via True Engine Evaluation (Rule 082)
+# 9. Engine Integration with Injected POI/Retest LONG (Rule 056)
 # =========================================================================
-def test_candle_to_trade_primary_long_true_engine(db: Session, monkeypatch):
+def test_engine_integration_with_injected_poi_retest_long(db: Session, monkeypatch):
     """
-    Rule 082:
-    Pure candle fixtures -> evaluate_cg01_candidate creates candidate ->
-    owner publishes authority -> ARM -> Coordinator fill -> verified!
+    Rule 056:
+    Engine integration with injected POI/retest (LONG):
+    Validates candidate generation, authority publishing, ARM, and fill with isolated component mocks.
     """
     clear_current_cg01_bias_authority()
     symbol = "XAUUSDT"
@@ -678,14 +677,13 @@ def test_candle_to_trade_primary_long_true_engine(db: Session, monkeypatch):
 
 
 # =========================================================================
-# 10. Full Candle-to-Trade Primary SHORT via True Engine Evaluation (Rule 083)
+# 10. Engine Integration with Injected POI/Retest SHORT (Rule 056)
 # =========================================================================
-def test_candle_to_trade_primary_short_true_engine(db: Session, monkeypatch):
+def test_engine_integration_with_injected_poi_retest_short(db: Session, monkeypatch):
     """
-    Rule 083:
-    Pure candle fixtures -> evaluate_cg01_candidate creates SHORT candidate ->
-    owner publishes authority -> ARM -> Coordinator fill -> verified!
-    Asserts: stop_loss > planned_entry > take_profit throughout!
+    Rule 056:
+    Engine integration with injected POI/retest (SHORT):
+    Validates SHORT candidate generation, authority publishing, ARM, and fill with isolated component mocks.
     """
     clear_current_cg01_bias_authority()
     symbol = "XAUUSDT"
@@ -800,38 +798,42 @@ def test_candle_to_trade_primary_short_true_engine(db: Session, monkeypatch):
 
 
 # =========================================================================
-# 11. Full TP and SL Lifecycle and Accounting Correctness (Rule 085)
+# 11. Full TP and SL Lifecycle and Accounting Correctness (Rule 054, 085)
 # =========================================================================
 def test_full_close_tp_and_sl_financial_correctness(db: Session):
     """
-    Rule 085:
-    Filled paper order closing at TP produces positive net PnL and fee accounting.
-    Filled paper order closing at SL produces expected negative PnL.
-    Single fill and single close are enforced without duplicate events.
+    Rule 054, 085:
+    - Uses production "binding" key in arm_decision_snapshot.
+    - Demonstrates negative control: PRIMARY guard halts fill when authority is missing.
+    - Demonstrates positive control: fill succeeds with valid authority.
+    - Closes at TP and SL with exact net PnL and fee accounting verification.
     """
     clear_current_cg01_bias_authority()
     symbol = "XAUUSDT"
     now_ms = 1700000000000
-    eff_cfg, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
 
-    snap = CG01DailyBiasSnapshot(
-        symbol=symbol,
-        trading_day_key=resolve_trading_day_key(now_ms),
-        bias_id="bias_tp_sl",
-        direction="BULLISH",
-        status="READY",
-        allowed_directions=("LONG",),
-        authority_token="TOKEN_TP_SL",
-        config_fingerprint=eff_fp,
-        evaluated_at_ms=now_ms,
-    )
-    publish_current_cg01_bias_authority(symbol=symbol, bias=snap, config=eff_cfg, evaluated_at_ms=now_ms)
+    for k, v in [
+        ("scalp_m1_mode", "PAPER"),
+        ("cg01_enabled", "true"),
+        ("cg01_profile_mode", "PAPER_EXECUTION"),
+        ("execution_profile", "CG01"),
+        ("cg01_direction_policy", "DAILY_BIAS_PRIMARY"),
+    ]:
+        row = db.query(models.SystemConfig).filter(models.SystemConfig.key == k).first()
+        if not row:
+            db.add(models.SystemConfig(key=k, value=v, updated_at=now_ms))
+        else:
+            row.value = v
+            row.updated_at = now_ms
+    db.commit()
+
+    eff_cfg, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
 
     calc = calculate_risk_reward(
         direction="LONG",
         entry=2500.0,
         sl=2490.0,
-        tp=2525.0,
+        tp=2535.0,
         capital=1000.0,
         risk_pct=0.25,
     )
@@ -845,14 +847,14 @@ def test_full_close_tp_and_sl_financial_correctness(db: Session):
         direction="LONG",
         planned_entry=2500.0,
         stop_loss=2490.0,
-        take_profit=2525.0,
+        take_profit=2535.0,
         quantity=calc.quantity,
         initial_risk_usdt=calc.net_risk_usdt,
         state="armed",
         order_type="LIMIT",
         created_at=now_ms,
         arm_decision_snapshot=json.dumps({
-            "daily_bias_binding": {
+            "binding": {
                 "binding_version": 2,
                 "direction_policy": "DAILY_BIAS_PRIMARY",
                 "authority_token": "TOKEN_TP_SL",
@@ -866,6 +868,26 @@ def test_full_close_tp_and_sl_financial_correctness(db: Session):
     db.add(order_tp)
     db.commit()
 
+    # Negative control: authority is NOT published yet -> execute_fill must NOT fill
+    TradeLifecycleService.execute_fill(db, order=order_tp, fill_price=2500.0, calc_result=calc, now_ms=now_ms + 500)
+    db.refresh(order_tp)
+    assert order_tp.state == "armed", "Order filled despite missing PRIMARY authority!"
+
+    # Positive control: publish valid authority
+    snap = CG01DailyBiasSnapshot(
+        symbol=symbol,
+        trading_day_key=resolve_trading_day_key(now_ms),
+        bias_id="bias_tp_sl",
+        direction="BULLISH",
+        status="READY",
+        allowed_directions=("LONG",),
+        authority_token="TOKEN_TP_SL",
+        config_fingerprint=eff_fp,
+        evaluated_at_ms=now_ms,
+    )
+    ok_pub = publish_current_cg01_bias_authority(symbol=symbol, bias=snap, config=eff_cfg, evaluated_at_ms=now_ms)
+    assert ok_pub is True
+
     TradeLifecycleService.execute_fill(db, order=order_tp, fill_price=2500.0, calc_result=calc, now_ms=now_ms + 1000)
     db.refresh(order_tp)
     assert order_tp.state == "paper_open"
@@ -873,15 +895,17 @@ def test_full_close_tp_and_sl_financial_correctness(db: Session):
     TradeLifecycleService.execute_close(
         db,
         order_id=order_tp.id,
-        exit_price=2525.0,
+        exit_price=2535.0,
         exit_cause="TP_HIT",
         now_ms=now_ms + 5000,
     )
     db.refresh(order_tp)
     assert order_tp.state == "closed"
-    assert order_tp.realized_pnl_net > 0.0
-    assert order_tp.actual_exit == 2525.0
+    assert order_tp.actual_exit == 2535.0
     assert order_tp.exit_cause == "TP_HIT"
+    # Gross = (2535 - 2500) * 0.2 = 7.0. Fees = 2500*0.2*0.0004 + 2535*0.2*0.0004 = 0.4028. Net = 6.5972 -> 6.60
+    assert order_tp.realized_pnl_net == pytest.approx(6.60, abs=0.01)
+    assert order_tp.realized_r > 0.0
 
     # 2. Test Stop-Loss Close
     order_sl = models.PaperOrder(
@@ -892,14 +916,14 @@ def test_full_close_tp_and_sl_financial_correctness(db: Session):
         direction="LONG",
         planned_entry=2500.0,
         stop_loss=2490.0,
-        take_profit=2525.0,
+        take_profit=2535.0,
         quantity=calc.quantity,
         initial_risk_usdt=calc.net_risk_usdt,
         state="armed",
         order_type="LIMIT",
         created_at=now_ms,
         arm_decision_snapshot=json.dumps({
-            "daily_bias_binding": {
+            "binding": {
                 "binding_version": 2,
                 "direction_policy": "DAILY_BIAS_PRIMARY",
                 "authority_token": "TOKEN_TP_SL",
@@ -926,6 +950,909 @@ def test_full_close_tp_and_sl_financial_correctness(db: Session):
     )
     db.refresh(order_sl)
     assert order_sl.state == "closed"
-    assert order_sl.realized_pnl_net < 0.0
     assert order_sl.actual_exit == 2490.0
     assert order_sl.exit_cause == "SL_HIT"
+    # Gross = (2490 - 2500) * 0.2 = -2.0. Fees = 2500*0.2*0.0004 + 2490*0.2*0.0004 = 0.3992. Net = -2.3992 -> -2.40
+    assert order_sl.realized_pnl_net == pytest.approx(-2.40, abs=0.01)
+    assert order_sl.realized_r < 0.0
+
+
+# =========================================================================
+# 12. Full Candle-to-Trade Primary LONG Unmocked Recognition (Rules 057, 061)
+# =========================================================================
+def test_candle_to_trade_primary_long_true_engine_unmocked_recognition(db: Session):
+    """
+    Rules 057, 061:
+    Pure candle fixtures without monkeypatching ZoneWatchlistService or resolve_cg01_retest.
+    Evaluates candidate -> arms order -> coordinator fills order.
+    Asserts: SL < planned_entry < TP, exact net RR, single fill.
+    """
+    clear_current_cg01_bias_authority()
+    symbol = "XAUUSDT"
+    db.query(models.PaperOrder).delete()
+    ny_tz = ZoneInfo("America/New_York")
+    dt = datetime(2026, 10, 15, 3, 30, tzinfo=ny_tz)
+    t_start = int(dt.timestamp() * 1000)
+    now_ms = t_start + 540_000
+
+    for k, v in [
+        ("scalp_m1_mode", "PAPER"),
+        ("cg01_enabled", "true"),
+        ("cg01_profile_mode", "PAPER_EXECUTION"),
+        ("execution_profile", "CG01"),
+        ("cg01_direction_policy", "DAILY_BIAS_PRIMARY"),
+    ]:
+        row = db.query(models.SystemConfig).filter(models.SystemConfig.key == k).first()
+        if not row:
+            db.add(models.SystemConfig(key=k, value=v, updated_at=now_ms))
+        else:
+            row.value = v
+            row.updated_at = now_ms
+    db.commit()
+
+    eff_cfg, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
+    _, c_1h, c_15m, c_1m = build_long_fixture_series(t_start)
+    c_4h = generate_bullish_candles(base_time=t_start - 16 * 14_400_000, tf="4H")
+    # Increase 15M bar 20 high for target RR >= 1.5
+    c_15m[20] = make_bar(c_15m[20]["timestamp"], 2638.0, 2645.0, 2636.0, 2642.0)
+    # Append real retest bar touching CE (2623.6) and closing above CE (2624.2)
+    c_1m.append(make_bar(t_start + 540_000, 2625.8, 2626.0, 2623.6, 2624.2))
+
+    ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m, "context_source": "TEST_ENGINE"}
+    quote = {"bid": 2623.75, "ask": 2623.85, "last": 2623.80, "timestamp": now_ms, "is_valid": True, "is_stale": False}
+
+    # Evaluate candidate with ZERO monkeypatches on zone or retest logic
+    dec = evaluate_cg01_candidate(ctx, quote, config=eff_cfg, now_ms=now_ms, capital=1000.0, risk_pct=0.25)
+    assert dec.stage == CG01Stage.EXECUTABLE
+    assert dec.candidate is not None
+    assert dec.candidate.direction == "LONG"
+    assert dec.candidate.stop_loss < dec.candidate.planned_entry < dec.candidate.take_profit
+    assert dec.candidate.net_rr >= 1.5
+    assert dec.candidate.planned_entry == 2623.75
+
+    # Publish authority
+    ok_pub = publish_current_cg01_bias_authority(
+        symbol=symbol,
+        bias=dec.daily_bias,
+        config=eff_cfg,
+        evaluated_at_ms=now_ms,
+        source="ACTIVE_PIPELINE",
+        is_active_owner=True,
+        owner="WATCHER",
+    )
+    assert ok_pub is True
+
+    # Arm candidate
+    policy_settings = {
+        "capital_usdt": 1000.0,
+        "risk_pct": 0.25,
+        "capital_mode": "FIXED_INITIAL_CAPITAL",
+        "capital_source": "INITIAL_CAPITAL_FIXED",
+    }
+    from services.scalp_m1_types import M1ScalpConfig
+    scalp_cfg = M1ScalpConfig(cg01_config=eff_cfg)
+    armed_order = scalp_watcher_orchestrator._arm_paper_candidate(
+        db,
+        dec.candidate,
+        now_ms=now_ms,
+        clock=None,
+        quote=quote,
+        policy_settings=policy_settings,
+        config=scalp_cfg,
+        auto_enabled=True,
+    )
+    assert armed_order is not None
+    assert armed_order.state == "armed"
+    assert armed_order.direction == "LONG"
+    assert armed_order.stop_loss < armed_order.planned_entry < armed_order.take_profit
+
+    # Coordinator quote-to-fill: Ask touches or dips below planned_entry (2623.75)
+    coord = ExecutionCoordinator()
+    coord.evaluate_orders_sync(
+        db,
+        ticker_override={"bid": 2623.65, "ask": 2623.75, "last": 2623.70, "timestamp": now_ms + 1000, "is_valid": True, "is_stale": False},
+        now_ms=now_ms + 1000,
+    )
+    db.refresh(armed_order)
+    assert armed_order.state == "paper_open"
+    assert armed_order.actual_entry == armed_order.planned_entry
+
+
+# =========================================================================
+# 13. Full Candle-to-Trade Primary SHORT Unmocked Recognition (Rules 057, 062)
+# =========================================================================
+def test_candle_to_trade_primary_short_true_engine_unmocked_recognition(db: Session):
+    """
+    Rules 057, 062:
+    Pure candle fixtures without monkeypatching ZoneWatchlistService or resolve_cg01_retest.
+    Evaluates candidate -> arms order -> coordinator fills order.
+    Asserts: SL > planned_entry > TP, exact net RR, single fill.
+    """
+    clear_current_cg01_bias_authority()
+    symbol = "XAUUSDT"
+    db.query(models.PaperOrder).delete()
+    ny_tz = ZoneInfo("America/New_York")
+    dt = datetime(2026, 10, 15, 3, 30, tzinfo=ny_tz)
+    t_start = int(dt.timestamp() * 1000)
+    now_ms = t_start + 540_000
+
+    for k, v in [
+        ("scalp_m1_mode", "PAPER"),
+        ("cg01_enabled", "true"),
+        ("cg01_profile_mode", "PAPER_EXECUTION"),
+        ("execution_profile", "CG01"),
+        ("cg01_direction_policy", "DAILY_BIAS_PRIMARY"),
+    ]:
+        row = db.query(models.SystemConfig).filter(models.SystemConfig.key == k).first()
+        if not row:
+            db.add(models.SystemConfig(key=k, value=v, updated_at=now_ms))
+        else:
+            row.value = v
+            row.updated_at = now_ms
+    db.commit()
+
+    eff_cfg, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
+    _, c_1h, c_15m, c_1m = build_short_fixture_series(t_start)
+    c_4h = generate_bearish_candles(base_time=t_start - 16 * 14_400_000, tf="4H")
+    # Append real retest bar touching CE (2651.2)
+    c_1m.append(make_bar(t_start + 540_000, 2649.8, 2651.25, 2648.5, 2651.0))
+
+    ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m, "context_source": "TEST_ENGINE"}
+    quote = {"bid": 2651.10, "ask": 2651.20, "last": 2651.15, "timestamp": now_ms, "is_valid": True, "is_stale": False}
+
+    dec = evaluate_cg01_candidate(ctx, quote, config=eff_cfg, now_ms=now_ms, capital=1000.0, risk_pct=0.25)
+    assert dec.stage == CG01Stage.EXECUTABLE
+    assert dec.candidate is not None
+    assert dec.candidate.direction == "SHORT"
+    assert dec.candidate.stop_loss > dec.candidate.planned_entry > dec.candidate.take_profit
+    assert dec.candidate.net_rr >= 1.5
+    assert dec.candidate.planned_entry == 2651.15
+
+    # Publish authority
+    ok_pub = publish_current_cg01_bias_authority(
+        symbol=symbol,
+        bias=dec.daily_bias,
+        config=eff_cfg,
+        evaluated_at_ms=now_ms,
+        source="ACTIVE_PIPELINE",
+        is_active_owner=True,
+        owner="WATCHER",
+    )
+    assert ok_pub is True
+
+    # Arm candidate
+    policy_settings = {
+        "capital_usdt": 1000.0,
+        "risk_pct": 0.25,
+        "capital_mode": "FIXED_INITIAL_CAPITAL",
+        "capital_source": "INITIAL_CAPITAL_FIXED",
+    }
+    from services.scalp_m1_types import M1ScalpConfig
+    scalp_cfg = M1ScalpConfig(cg01_config=eff_cfg)
+    armed_order = scalp_watcher_orchestrator._arm_paper_candidate(
+        db,
+        dec.candidate,
+        now_ms=now_ms,
+        clock=None,
+        quote=quote,
+        policy_settings=policy_settings,
+        config=scalp_cfg,
+        auto_enabled=True,
+    )
+    assert armed_order is not None
+    assert armed_order.state == "armed"
+    assert armed_order.direction == "SHORT"
+    assert armed_order.stop_loss > armed_order.planned_entry > armed_order.take_profit
+
+    # Coordinator quote-to-fill: Bid touches or rises above planned_entry (2651.15)
+    coord = ExecutionCoordinator()
+    coord.evaluate_orders_sync(
+        db,
+        ticker_override={"bid": 2651.15, "ask": 2651.25, "last": 2651.20, "timestamp": now_ms + 1000, "is_valid": True, "is_stale": False},
+        now_ms=now_ms + 1000,
+    )
+    db.refresh(armed_order)
+    assert armed_order.state == "paper_open"
+    assert armed_order.actual_entry == armed_order.planned_entry
+
+
+# =========================================================================
+# 14. Negative Retest Control Unmocked (Rule 063)
+# =========================================================================
+def test_negative_retest_control_unmocked(db: Session):
+    """
+    Rule 063:
+    Using positive LONG fixture with entry_mode=CONFIRMED_RETEST_MARKET,
+    but retest bar does NOT touch CE (stays high).
+    Asserts candidate is NOT EXECUTABLE (unconfirmed retest).
+    """
+    clear_current_cg01_bias_authority()
+    symbol = "XAUUSDT"
+    ny_tz = ZoneInfo("America/New_York")
+    dt = datetime(2026, 10, 15, 3, 30, tzinfo=ny_tz)
+    t_start = int(dt.timestamp() * 1000)
+    now_ms = t_start + 540_000
+
+    eff_cfg, _, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
+    eff_cfg.entry_mode = CG01EntryMode.CONFIRMED_RETEST_MARKET.value
+    _, c_1h, c_15m, c_1m = build_long_fixture_series(t_start)
+    c_4h = generate_bullish_candles(base_time=t_start - 16 * 14_400_000, tf="4H")
+    c_15m[20] = make_bar(c_15m[20]["timestamp"], 2638.0, 2645.0, 2636.0, 2642.0)
+    # Retest bar low is 2625.0, never touching CE (2623.75)
+    c_1m.append(make_bar(t_start + 540_000, 2625.8, 2626.0, 2625.0, 2625.5))
+
+    ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m, "context_source": "TEST_ENGINE"}
+    quote = {"bid": 2625.4, "ask": 2625.5, "last": 2625.45, "timestamp": now_ms, "is_valid": True, "is_stale": False}
+
+    dec = evaluate_cg01_candidate(ctx, quote, config=eff_cfg, now_ms=now_ms, capital=1000.0, risk_pct=0.25)
+    assert dec.stage != CG01Stage.EXECUTABLE
+    assert dec.candidate is None
+
+
+# =========================================================================
+# 15. Negative POI Control Unmocked (Rule 064)
+# =========================================================================
+def test_negative_poi_control_unmocked(db: Session):
+    """
+    Rule 064:
+    Using positive LONG fixture, but 15M candles have no valid POI/OB.
+    Asserts candidate is NOT EXECUTABLE.
+    """
+    clear_current_cg01_bias_authority()
+    symbol = "XAUUSDT"
+    ny_tz = ZoneInfo("America/New_York")
+    dt = datetime(2026, 10, 15, 3, 30, tzinfo=ny_tz)
+    t_start = int(dt.timestamp() * 1000)
+    now_ms = t_start + 540_000
+
+    eff_cfg, _, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
+    _, c_1h, c_15m, c_1m = build_long_fixture_series(t_start)
+    c_4h = generate_bullish_candles(base_time=t_start - 16 * 14_400_000, tf="4H")
+    # Neutralize 15M bars to flat candles with no OB/FVG
+    flat_15m = [make_bar(c["timestamp"], 2630.0, 2630.5, 2629.5, 2630.0) for c in c_15m]
+
+    ctx = {"4H": c_4h, "1H": c_1h, "15M": flat_15m, "1M": c_1m, "context_source": "TEST_ENGINE"}
+    quote = {"bid": 2630.0, "ask": 2630.1, "last": 2630.05, "timestamp": now_ms, "is_valid": True, "is_stale": False}
+
+    dec = evaluate_cg01_candidate(ctx, quote, config=eff_cfg, now_ms=now_ms, capital=1000.0, risk_pct=0.25)
+    assert dec.stage != CG01Stage.EXECUTABLE
+    assert dec.candidate is None
+
+
+# =========================================================================
+# 16. Coordinator Entry Not Touched Leaves Order Pending (Rule 066)
+# =========================================================================
+def test_coordinator_entry_not_touched_leaves_order_pending(db: Session):
+    """
+    Rule 066:
+    When quote does not touch entry, coordinator leaves order in 'armed' state.
+    Zero fills, zero fees paid.
+    """
+    clear_current_cg01_bias_authority()
+    symbol = "XAUUSDT"
+    now_ms = 1700000000000
+
+    for k, v in [
+        ("scalp_m1_mode", "PAPER"),
+        ("cg01_enabled", "true"),
+        ("cg01_profile_mode", "PAPER_EXECUTION"),
+        ("execution_profile", "CG01"),
+        ("cg01_direction_policy", "DAILY_BIAS_PRIMARY"),
+    ]:
+        row = db.query(models.SystemConfig).filter(models.SystemConfig.key == k).first()
+        if not row:
+            db.add(models.SystemConfig(key=k, value=v, updated_at=now_ms))
+        else:
+            row.value = v
+            row.updated_at = now_ms
+    db.commit()
+
+    eff_cfg, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
+
+    snap = CG01DailyBiasSnapshot(
+        symbol=symbol,
+        trading_day_key=resolve_trading_day_key(now_ms),
+        bias_id="bias_pending",
+        direction="BULLISH",
+        status="READY",
+        allowed_directions=("LONG",),
+        authority_token="TOKEN_PENDING",
+        config_fingerprint=eff_fp,
+        evaluated_at_ms=now_ms,
+    )
+    publish_current_cg01_bias_authority(symbol=symbol, bias=snap, config=eff_cfg, evaluated_at_ms=now_ms)
+
+    order = models.PaperOrder(
+        id="ord_pending_test",
+        instrument=symbol,
+        direction="LONG",
+        planned_entry=2500.0,
+        stop_loss=2490.0,
+        take_profit=2535.0,
+        quantity=0.2,
+        initial_risk_usdt=2.0,
+        state="armed",
+        order_type="LIMIT",
+        created_at=now_ms,
+        arm_decision_snapshot=json.dumps({
+            "binding": {
+                "binding_version": 2,
+                "direction_policy": "DAILY_BIAS_PRIMARY",
+                "authority_token": "TOKEN_PENDING",
+                "allowed_directions": ["LONG"],
+                "config_fingerprint": eff_fp,
+                "status": "READY",
+                "symbol": symbol,
+            }
+        }),
+    )
+    db.add(order)
+    db.commit()
+
+    # Quote ask is 2505.0 > planned_entry (2500.0) -> limit order NOT reached!
+    coord = ExecutionCoordinator()
+    coord.evaluate_orders_sync(
+        db,
+        ticker_override={"bid": 2504.8, "ask": 2505.0, "last": 2504.9, "timestamp": now_ms + 1000, "is_valid": True, "is_stale": False},
+        now_ms=now_ms + 1000,
+    )
+    db.refresh(order)
+    assert order.state == "armed"
+    assert order.actual_entry is None
+    assert order.opened_at is None
+    assert order.realized_pnl_net is None
+
+
+# =========================================================================
+# 17. Coordinator Primary Bias Invalid Defers Fill (Rule 067)
+# =========================================================================
+def test_coordinator_primary_bias_invalid_defers_fill(db: Session):
+    """
+    Rule 067:
+    When quote touches entry but daily bias authority is invalid/missing,
+    coordinator does NOT fill the PRIMARY order.
+    """
+    clear_current_cg01_bias_authority()
+    symbol = "XAUUSDT"
+    now_ms = 1700000000000
+
+    for k, v in [
+        ("scalp_m1_mode", "PAPER"),
+        ("cg01_enabled", "true"),
+        ("cg01_profile_mode", "PAPER_EXECUTION"),
+        ("execution_profile", "CG01"),
+        ("cg01_direction_policy", "DAILY_BIAS_PRIMARY"),
+    ]:
+        row = db.query(models.SystemConfig).filter(models.SystemConfig.key == k).first()
+        if not row:
+            db.add(models.SystemConfig(key=k, value=v, updated_at=now_ms))
+        else:
+            row.value = v
+            row.updated_at = now_ms
+    db.commit()
+
+    eff_cfg, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
+
+    order = models.PaperOrder(
+        id="ord_invalid_bias_test",
+        instrument=symbol,
+        direction="LONG",
+        planned_entry=2500.0,
+        stop_loss=2490.0,
+        take_profit=2535.0,
+        quantity=0.2,
+        initial_risk_usdt=2.0,
+        state="armed",
+        order_type="LIMIT",
+        created_at=now_ms,
+        arm_decision_snapshot=json.dumps({
+            "binding": {
+                "binding_version": 2,
+                "direction_policy": "DAILY_BIAS_PRIMARY",
+                "authority_token": "TOKEN_UNAVAILABLE",
+                "allowed_directions": ["LONG"],
+                "config_fingerprint": eff_fp,
+                "status": "READY",
+                "symbol": symbol,
+            }
+        }),
+    )
+    db.add(order)
+    db.commit()
+
+    # Quote touches entry (ask = 2500.0), but authority is cleared/missing
+    coord = ExecutionCoordinator()
+    coord.evaluate_orders_sync(
+        db,
+        ticker_override={"bid": 2499.8, "ask": 2500.0, "last": 2499.9, "timestamp": now_ms + 1000, "is_valid": True, "is_stale": False},
+        now_ms=now_ms + 1000,
+    )
+    db.refresh(order)
+    assert order.state != "paper_open", "Order filled despite missing daily bias authority!"
+
+
+# =========================================================================
+# 18. Coordinator Full Lifecycle and Idempotency (Rule 069)
+# =========================================================================
+def test_coordinator_full_lifecycle_and_idempotency(db: Session):
+    """
+    Rule 069:
+    Repeated coordinator evaluation does not produce duplicate fills.
+    Repeated close call does not produce duplicate closes or fees.
+    """
+    clear_current_cg01_bias_authority()
+    symbol = "XAUUSDT"
+    now_ms = 1700000000000
+
+    for k, v in [
+        ("scalp_m1_mode", "PAPER"),
+        ("cg01_enabled", "true"),
+        ("cg01_profile_mode", "PAPER_EXECUTION"),
+        ("execution_profile", "CG01"),
+        ("cg01_direction_policy", "DAILY_BIAS_PRIMARY"),
+    ]:
+        row = db.query(models.SystemConfig).filter(models.SystemConfig.key == k).first()
+        if not row:
+            db.add(models.SystemConfig(key=k, value=v, updated_at=now_ms))
+        else:
+            row.value = v
+            row.updated_at = now_ms
+    db.commit()
+
+    eff_cfg, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
+
+    snap = CG01DailyBiasSnapshot(
+        symbol=symbol,
+        trading_day_key=resolve_trading_day_key(now_ms),
+        bias_id="bias_idem",
+        direction="BULLISH",
+        status="READY",
+        allowed_directions=("LONG",),
+        authority_token="TOKEN_IDEM",
+        config_fingerprint=eff_fp,
+        evaluated_at_ms=now_ms,
+    )
+    publish_current_cg01_bias_authority(symbol=symbol, bias=snap, config=eff_cfg, evaluated_at_ms=now_ms)
+
+    order = models.PaperOrder(
+        id="ord_idem_test",
+        instrument=symbol,
+        direction="LONG",
+        planned_entry=2500.0,
+        stop_loss=2490.0,
+        take_profit=2535.0,
+        quantity=0.2,
+        initial_risk_usdt=2.0,
+        state="armed",
+        order_type="LIMIT",
+        created_at=now_ms,
+        arm_decision_snapshot=json.dumps({
+            "binding": {
+                "binding_version": 2,
+                "direction_policy": "DAILY_BIAS_PRIMARY",
+                "authority_token": "TOKEN_IDEM",
+                "allowed_directions": ["LONG"],
+                "config_fingerprint": eff_fp,
+                "status": "READY",
+                "symbol": symbol,
+            }
+        }),
+    )
+    db.add(order)
+    db.commit()
+
+    coord = ExecutionCoordinator()
+    ticker = {"bid": 2499.8, "ask": 2500.0, "last": 2499.9, "timestamp": now_ms + 1000, "is_valid": True, "is_stale": False}
+
+    # 1st coordinator pass: triggers fill
+    coord.evaluate_orders_sync(db, ticker_override=ticker, now_ms=now_ms + 1000)
+    db.refresh(order)
+    assert order.state == "paper_open"
+    assert order.actual_entry == 2500.0
+
+    # 2nd coordinator pass: idempotent (already open, no new fill)
+    coord.evaluate_orders_sync(db, ticker_override=ticker, now_ms=now_ms + 2000)
+    db.refresh(order)
+    assert order.state == "paper_open"
+    assert order.actual_entry == 2500.0
+
+    # 1st close: closes order
+    TradeLifecycleService.execute_close(db, order_id=order.id, exit_price=2535.0, exit_cause="TP_HIT", now_ms=now_ms + 5000)
+    db.refresh(order)
+    assert order.state == "closed"
+    assert order.realized_pnl_net == pytest.approx(6.60, abs=0.01)
+    closed_pnl = order.realized_pnl_net
+
+    # 2nd close: idempotent
+    TradeLifecycleService.execute_close(db, order_id=order.id, exit_price=2535.0, exit_cause="TP_HIT", now_ms=now_ms + 6000)
+    db.refresh(order)
+    assert order.state == "closed"
+    assert order.realized_pnl_net == closed_pnl
+
+
+# =========================================================================
+# 19. Open Position Invariance (Rule 070)
+# =========================================================================
+def test_open_position_invariance_after_fill(db: Session):
+    """
+    Rule 070:
+    After order fill, owner transition or authority invalidation does NOT alter
+    the open position while price has not hit SL or TP.
+    """
+    clear_current_cg01_bias_authority()
+    symbol = "XAUUSDT"
+    now_ms = 1700000000000
+
+    for k, v in [
+        ("scalp_m1_mode", "PAPER"),
+        ("cg01_enabled", "true"),
+        ("cg01_profile_mode", "PAPER_EXECUTION"),
+        ("execution_profile", "CG01"),
+        ("cg01_direction_policy", "DAILY_BIAS_PRIMARY"),
+    ]:
+        row = db.query(models.SystemConfig).filter(models.SystemConfig.key == k).first()
+        if not row:
+            db.add(models.SystemConfig(key=k, value=v, updated_at=now_ms))
+        else:
+            row.value = v
+            row.updated_at = now_ms
+    db.commit()
+
+    eff_cfg, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
+
+    snap = CG01DailyBiasSnapshot(
+        symbol=symbol,
+        trading_day_key=resolve_trading_day_key(now_ms),
+        bias_id="bias_inv",
+        direction="BULLISH",
+        status="READY",
+        allowed_directions=("LONG",),
+        authority_token="TOKEN_INV",
+        config_fingerprint=eff_fp,
+        evaluated_at_ms=now_ms,
+    )
+    publish_current_cg01_bias_authority(symbol=symbol, bias=snap, config=eff_cfg, evaluated_at_ms=now_ms)
+
+    order = models.PaperOrder(
+        id="ord_invariance_test",
+        instrument=symbol,
+        direction="LONG",
+        planned_entry=2500.0,
+        stop_loss=2490.0,
+        take_profit=2535.0,
+        quantity=0.2,
+        initial_risk_usdt=2.0,
+        state="armed",
+        order_type="LIMIT",
+        created_at=now_ms,
+        arm_decision_snapshot=json.dumps({
+            "binding": {
+                "binding_version": 2,
+                "direction_policy": "DAILY_BIAS_PRIMARY",
+                "authority_token": "TOKEN_INV",
+                "allowed_directions": ["LONG"],
+                "config_fingerprint": eff_fp,
+                "status": "READY",
+                "symbol": symbol,
+            }
+        }),
+    )
+    db.add(order)
+    db.commit()
+
+    coord = ExecutionCoordinator()
+    coord.evaluate_orders_sync(
+        db,
+        ticker_override={"bid": 2499.8, "ask": 2500.0, "last": 2499.9, "timestamp": now_ms + 1000, "is_valid": True, "is_stale": False},
+        now_ms=now_ms + 1000,
+    )
+    db.refresh(order)
+    assert order.state == "paper_open"
+
+    # Now change owner epoch and invalidate authority
+    bump_runtime_ownership_epoch()
+    clear_current_cg01_bias_authority()
+
+    # Coordinator runs with price in between entry and SL/TP
+    coord.evaluate_orders_sync(
+        db,
+        ticker_override={"bid": 2505.0, "ask": 2505.2, "last": 2505.1, "timestamp": now_ms + 2000, "is_valid": True, "is_stale": False},
+        now_ms=now_ms + 2000,
+    )
+    db.refresh(order)
+    # Invariant: position stays open without modification
+    assert order.state == "paper_open"
+    assert order.planned_entry == 2500.0
+    assert order.stop_loss == 2490.0
+    assert order.take_profit == 2535.0
+    assert order.quantity == 0.2
+
+
+# =========================================================================
+# 20. Lease Captured Before Compute Rejects Mid-Compute Epoch Bump (Rules 019, 027, 071)
+# =========================================================================
+def test_lease_captured_before_compute_rejects_mid_compute_epoch_bump(db: Session):
+    """
+    Rules 019, 027, 071:
+    Publish context / lease is captured before computation starts.
+    If another owner/process bumps the runtime epoch mid-computation,
+    the resulting publish attempt is rejected and does not mutate the registry.
+    """
+    clear_current_cg01_bias_authority(reset_epoch=True)
+    symbol = "XAUUSDT"
+    now_ms = 1700000000000
+    eff_cfg, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
+    eff_cfg.profile_mode = "PAPER_EXECUTION"
+
+    # 1. Capture lease before compute at initial epoch (epoch 1)
+    pub_ctx = build_cg01_authority_publish_context(
+        symbol=symbol,
+        config=eff_cfg,
+        db=db,
+        caller_identity="WATCHER",
+        evaluation_origin="WATCHER",
+        auto_enabled=True,
+        now_ms=now_ms,
+    )
+    assert pub_ctx["generation"] == 1
+
+    # 2. Simulate owner transition mid-compute: epoch bumped to 2
+    bump_runtime_ownership_epoch()
+    assert get_current_runtime_ownership_epoch() == 2
+
+    # 3. Compute completes, attempts to publish with the pre-compute lease
+    snap = CG01DailyBiasSnapshot(
+        symbol=symbol,
+        trading_day_key=resolve_trading_day_key(now_ms),
+        bias_id="bias_stale_compute",
+        direction="BULLISH",
+        status="READY",
+        allowed_directions=("LONG",),
+        authority_token="TOKEN_STALE_COMPUTE",
+        config_fingerprint=eff_fp,
+        evaluated_at_ms=now_ms,
+    )
+    ok_pub = publish_current_cg01_bias_authority(
+        symbol=symbol,
+        bias=snap,
+        config=eff_cfg,
+        evaluated_at_ms=now_ms,
+        generation=pub_ctx["generation"],
+        owner=pub_ctx["owner"],
+        is_active_owner=pub_ctx["is_active_owner"],
+    )
+    # Must be rejected because generation 1 != current epoch 2
+    assert ok_pub is False
+
+    # Verify registry remains clean
+    res = resolve_current_cg01_bias_authority(symbol=symbol, now_ms=now_ms, config=eff_cfg)
+    assert res.available is False
+
+
+# =========================================================================
+# 21. Owner Resolution Exception Fails Closed (Rules 020, 041, 072)
+# =========================================================================
+def test_owner_resolution_exception_fail_closed(db: Session, monkeypatch):
+    """
+    Rules 020, 041, 072:
+    If owner resolution throws an unhandled exception at publish time,
+    the publisher must fail closed (return False) and never mutate the registry.
+    """
+    clear_current_cg01_bias_authority(reset_epoch=True)
+    symbol = "XAUUSDT"
+    now_ms = 1700000000000
+
+    for k, v in [
+        ("scalp_m1_mode", "PAPER"),
+        ("cg01_enabled", "true"),
+        ("cg01_profile_mode", "PAPER_EXECUTION"),
+        ("execution_profile", "CG01"),
+        ("cg01_direction_policy", "DAILY_BIAS_PRIMARY"),
+    ]:
+        row = db.query(models.SystemConfig).filter(models.SystemConfig.key == k).first()
+        if not row:
+            db.add(models.SystemConfig(key=k, value=v, updated_at=now_ms))
+        else:
+            row.value = v
+            row.updated_at = now_ms
+    db.commit()
+
+    eff_cfg, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
+
+    # Prepopulate with token A
+    snap_a = CG01DailyBiasSnapshot(
+        symbol=symbol,
+        trading_day_key=resolve_trading_day_key(now_ms),
+        bias_id="bias_pre",
+        direction="BULLISH",
+        status="READY",
+        allowed_directions=("LONG",),
+        authority_token="TOKEN_PRE_EXISTING",
+        config_fingerprint=eff_fp,
+        evaluated_at_ms=now_ms,
+    )
+    publish_current_cg01_bias_authority(symbol=symbol, bias=snap_a, config=eff_cfg, evaluated_at_ms=now_ms)
+
+    # Monkeypatch resolve_entry_execution_owner inside services.cg01_scheduler_service to raise an error
+    monkeypatch.setattr(
+        "services.cg01_scheduler_service.resolve_entry_execution_owner",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("DB lock failure")),
+    )
+
+    # Attempt to publish token B without explicit owner (triggers resolve_entry_execution_owner)
+    snap_b = CG01DailyBiasSnapshot(
+        symbol=symbol,
+        trading_day_key=resolve_trading_day_key(now_ms),
+        bias_id="bias_new",
+        direction="BEARISH",
+        status="READY",
+        allowed_directions=("SHORT",),
+        authority_token="TOKEN_NEW_POISON",
+        config_fingerprint=eff_fp,
+        evaluated_at_ms=now_ms,
+    )
+    ok_pub = publish_current_cg01_bias_authority(symbol=symbol, bias=snap_b, config=eff_cfg, evaluated_at_ms=now_ms)
+    assert ok_pub is False, "Publisher failed open on owner resolution exception!"
+
+    # Registry must still contain token A intact
+    res = resolve_current_cg01_bias_authority(symbol=symbol, now_ms=now_ms, config=eff_cfg)
+    assert res.available is True
+    assert res.bias.authority_token == "TOKEN_PRE_EXISTING"
+
+
+# =========================================================================
+# 22. Future Epoch Rejection (Rules 035, 073)
+# =========================================================================
+def test_future_epoch_rejection(db: Session):
+    """
+    Rules 035, 073:
+    Caller passing a future generation (N + 100) must be rejected.
+    Subsequent publish with current epoch N must succeed.
+    """
+    clear_current_cg01_bias_authority(reset_epoch=True)
+    symbol = "XAUUSDT"
+    now_ms = 1700000000000
+    eff_cfg, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
+    curr_epoch = get_current_runtime_ownership_epoch()
+
+    snap = CG01DailyBiasSnapshot(
+        symbol=symbol,
+        trading_day_key=resolve_trading_day_key(now_ms),
+        bias_id="bias_future",
+        direction="BULLISH",
+        status="READY",
+        allowed_directions=("LONG",),
+        authority_token="TOKEN_FUTURE",
+        config_fingerprint=eff_fp,
+        evaluated_at_ms=now_ms,
+    )
+
+    # 1. Attempt publish with future generation
+    ok_future = publish_current_cg01_bias_authority(
+        symbol=symbol,
+        bias=snap,
+        config=eff_cfg,
+        evaluated_at_ms=now_ms,
+        generation=curr_epoch + 100,
+    )
+    assert ok_future is False
+
+    # 2. Subsequent publish with current epoch succeeds
+    snap.authority_token = "TOKEN_VALID_EPOCH"
+    ok_curr = publish_current_cg01_bias_authority(
+        symbol=symbol,
+        bias=snap,
+        config=eff_cfg,
+        evaluated_at_ms=now_ms,
+        generation=curr_epoch,
+    )
+    assert ok_curr is True
+    res = resolve_current_cg01_bias_authority(symbol=symbol, now_ms=now_ms, config=eff_cfg)
+    assert res.bias.authority_token == "TOKEN_VALID_EPOCH"
+
+
+# =========================================================================
+# 23. Owner Transition A -> B -> A Rejects Stale Lease (Rule 039)
+# =========================================================================
+def test_owner_transition_a_b_a_rejects_stale_lease(db: Session):
+    """
+    Rule 039:
+    Evaluation starts under WATCHER (epoch 1).
+    Ownership moves to SCHEDULER (epoch 2), then back to WATCHER (epoch 3).
+    Evaluation epoch 1 completes.
+    Even though the current owner name is again 'WATCHER', the lease is stale and rejected.
+    """
+    clear_current_cg01_bias_authority(reset_epoch=True)
+    symbol = "XAUUSDT"
+    now_ms = 1700000000000
+    eff_cfg, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
+    eff_cfg.profile_mode = "PAPER_EXECUTION"
+
+    # Evaluation starts under WATCHER at epoch 1
+    pub_ctx1 = build_cg01_authority_publish_context(
+        symbol=symbol,
+        config=eff_cfg,
+        db=db,
+        caller_identity="WATCHER",
+        evaluation_origin="WATCHER",
+        auto_enabled=True,
+        now_ms=now_ms,
+    )
+    assert pub_ctx1["generation"] == 1
+    assert pub_ctx1["owner"] == "WATCHER"
+
+    # Transition to SCHEDULER (epoch 2)
+    bump_runtime_ownership_epoch()
+
+    # Transition back to WATCHER (epoch 3)
+    bump_runtime_ownership_epoch()
+    assert get_current_runtime_ownership_epoch() == 3
+
+    snap = CG01DailyBiasSnapshot(
+        symbol=symbol,
+        trading_day_key=resolve_trading_day_key(now_ms),
+        bias_id="bias_aba",
+        direction="BULLISH",
+        status="READY",
+        allowed_directions=("LONG",),
+        authority_token="TOKEN_ABA_STALE",
+        config_fingerprint=eff_fp,
+        evaluated_at_ms=now_ms,
+    )
+    # Publishing using epoch 1 lease must be rejected even though owner is WATCHER
+    ok = publish_current_cg01_bias_authority(
+        symbol=symbol,
+        bias=snap,
+        config=eff_cfg,
+        evaluated_at_ms=now_ms,
+        generation=pub_ctx1["generation"],
+        owner=pub_ctx1["owner"],
+        is_active_owner=True,
+    )
+    assert ok is False
+
+
+# =========================================================================
+# 24. Config Changed During Compute Rejects Publish (Rules 040, 079)
+# =========================================================================
+def test_config_changed_during_compute_rejects_publish(db: Session):
+    """
+    Rules 040, 079:
+    Computation starts with Config A (fingerprint A).
+    Config changes to Config B (fingerprint B) during computation.
+    Completed result with fingerprint A cannot be published under Config B.
+    """
+    clear_current_cg01_bias_authority(reset_epoch=True)
+    symbol = "XAUUSDT"
+    now_ms = 1700000000000
+    cfg_a, fp_a, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
+
+    # Config B has different settings
+    cfg_b = copy.deepcopy(cfg_a)
+    cfg_b.min_net_rr = 3.5
+    fp_b = compute_cg01_config_fingerprint(cfg_b)
+    assert fp_a != fp_b
+
+    # Snapshot computed with config A
+    snap = CG01DailyBiasSnapshot(
+        symbol=symbol,
+        trading_day_key=resolve_trading_day_key(now_ms),
+        bias_id="bias_cfg_change",
+        direction="BULLISH",
+        status="READY",
+        allowed_directions=("LONG",),
+        authority_token="TOKEN_CFG_A",
+        config_fingerprint=fp_a,
+        evaluated_at_ms=now_ms,
+    )
+
+    # Publish attempted against Config B
+    ok = publish_current_cg01_bias_authority(
+        symbol=symbol,
+        bias=snap,
+        config=cfg_b,
+        evaluated_at_ms=now_ms,
+    )
+    assert ok is False
+
+

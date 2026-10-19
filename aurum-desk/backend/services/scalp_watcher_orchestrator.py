@@ -998,6 +998,22 @@ class ScalpWatcherOrchestrator:
         cg01_eval_data = None
         cg01_dec = None
         if cg01_cfg.enabled and c_1m:
+            from services.cg01_daily_bias_service import (
+                build_cg01_authority_publish_context,
+                publish_current_cg01_bias_authority,
+            )
+            # Rules 019, 027, 028: Capture runtime ownership publish lease BEFORE compute
+            pub_ctx = build_cg01_authority_publish_context(
+                symbol=symbol,
+                config=cg01_cfg,
+                research_context=research_context,
+                db=db,
+                caller_identity=caller_identity,
+                evaluation_origin=evaluation_origin,
+                execution_scope=execution_scope,
+                auto_enabled=auto_enabled,
+                now_ms=t_recv,
+            )
             from services.cg01_engine import evaluate_cg01_candidate
             closed_ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m, "1D": c_1d, "context_source": context_source}
             costs_to_pass = getattr(cg01_cfg, "costs", None) or getattr(cfg, "costs", None)
@@ -1007,21 +1023,6 @@ class ScalpWatcherOrchestrator:
                 costs=costs_to_pass,
             )
             if cg01_dec and getattr(cg01_dec, "daily_bias", None):
-                from services.cg01_daily_bias_service import (
-                    publish_current_cg01_bias_authority,
-                    build_cg01_authority_publish_context,
-                )
-                pub_ctx = build_cg01_authority_publish_context(
-                    symbol=symbol,
-                    config=cg01_cfg,
-                    research_context=research_context,
-                    db=db,
-                    caller_identity=caller_identity,
-                    evaluation_origin=evaluation_origin,
-                    execution_scope=execution_scope,
-                    auto_enabled=auto_enabled,
-                    now_ms=t_recv,
-                )
                 publish_current_cg01_bias_authority(
                     symbol=symbol,
                     bias=cg01_dec.daily_bias,

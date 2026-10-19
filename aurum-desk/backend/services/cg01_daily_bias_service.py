@@ -87,14 +87,16 @@ def publish_current_cg01_bias_authority(
     source: str = "ACTIVE_PIPELINE",
     is_active_owner: bool = True,
     owner: str = "WATCHER",
-    generation: int = 1,
+    generation: Optional[int] = None,
     input_version: str = "",
 ) -> bool:
     """
     Dedicated backend boundary for publishing current daily bias authority for execution (Rules 035 - 048).
     - Checks runtime execution ownership (rejects SHADOW / non-active owners, Rules 032, 037, 038).
-    - Anti-rewind check: refuses out-of-order writes (T1 < T2) or stale generations (Rules 027, 045, 048).
+    - Anti-rewind check: refuses out-of-order writes (T1 < T2) or stale/future generations (Rules 027, 035, 045, 048).
     - Validates lease freshness against runtime ownership epoch even if registry is empty (Rule 075).
+    - Fail-closed on owner resolution exception (Rule 020, 041).
+    - Atomic commit boundary validation inside registry lock (Rules 036 - 038).
     - Validates consistency between snapshot symbol, config fingerprint, and trading_day_key (Rules 047-053).
     - Deepcopies snapshot to enforce immutability (Rule 043).
     - Stores strictly in bounded single-entry per symbol registry (Rule 041).
@@ -104,13 +106,15 @@ def publish_current_cg01_bias_authority(
         logger.debug(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: non-active owner ({owner}/{source})")
         return False
 
-    # Rule 034, 074, 075: Check lease generation against current runtime ownership epoch
     current_epoch = get_current_runtime_ownership_epoch()
-    if generation < current_epoch:
-        logger.info(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: lease generation {generation} < current runtime epoch {current_epoch}")
+    effective_generation = generation if generation is not None else current_epoch
+
+    # Rule 034, 035, 073, 074, 075: Exact epoch match (reject both stale and future generation leases)
+    if effective_generation != current_epoch:
+        logger.info(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: lease generation {effective_generation} != current runtime epoch {current_epoch}")
         return False
 
-    # Rule 034: Check publisher owner against current runtime execution owner
+    # Rule 020, 034, 041, 072: Check publisher owner against current runtime execution owner with fail-closed semantics
     try:
         from services.cg01_scheduler_service import cg01_evaluation_scheduler, resolve_entry_execution_owner
         owner_info = resolve_entry_execution_owner(cg01_evaluation_scheduler)
@@ -119,7 +123,8 @@ def publish_current_cg01_bias_authority(
             logger.info(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: publisher owner {owner} != runtime active owner {active_exec_owner}")
             return False
     except Exception as e:
-        logger.debug(f"[publish_current_cg01_bias_authority] Exception verifying runtime owner: {e}")
+        logger.error(f"[publish_current_cg01_bias_authority] Exception verifying runtime owner for {symbol}: {e} - failing closed")
+        return False
 
     # Resolve config fingerprint
     computed_fp = compute_cg01_config_fingerprint(config) if config is not None else ""
@@ -155,18 +160,24 @@ def publish_current_cg01_bias_authority(
     now_ts = evaluated_at_ms if evaluated_at_ms is not None else int(time.time() * 1000)
 
     with _bias_registry_lock:
+        # Rules 036, 037, 038: Atomic commit boundary verification inside lock
+        latest_epoch = get_current_runtime_ownership_epoch()
+        if latest_epoch != effective_generation:
+            logger.info(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: epoch advanced to {latest_epoch} during commit (lease was {effective_generation})")
+            return False
+
         curr = _bias_authority_registry.get(symbol)
         if curr is not None:
             curr_gen = curr.get("generation", 1)
             curr_eval_ts = curr.get("evaluated_at_ms", 0) or 0
 
             # Rule 048: Stale generation cannot overwrite newer generation
-            if generation < curr_gen:
-                logger.info(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: generation {generation} < {curr_gen}")
+            if effective_generation < curr_gen:
+                logger.info(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: generation {effective_generation} < {curr_gen}")
                 return False
 
             # Rule 045: Out-of-order write rejection (T1 completing after T2)
-            if generation == curr_gen and now_ts < curr_eval_ts:
+            if effective_generation == curr_gen and now_ts < curr_eval_ts:
                 logger.info(f"[publish_current_cg01_bias_authority] Refused out-of-order publish for {symbol}: eval_ts {now_ts} < current {curr_eval_ts}")
                 return False
 
@@ -181,7 +192,7 @@ def publish_current_cg01_bias_authority(
             "evaluated_at_ms": now_ts,
             "source": source,
             "owner": owner,
-            "generation": generation,
+            "generation": effective_generation,
             "input_version": input_version,
             "is_active_owner": True,
         }
@@ -196,7 +207,7 @@ def record_current_cg01_bias_authority(
     config_fingerprint: str = "",
     evaluated_at_ms: Optional[int] = None,
     source: str = "PIPELINE",
-    generation: int = 1,
+    generation: Optional[int] = None,
     owner: str = "WATCHER",
     is_active_owner: bool = True,
     config: Optional[CG01Config] = None,
@@ -217,8 +228,11 @@ def record_current_cg01_bias_authority(
     )
 
 
-def clear_current_cg01_bias_authority(symbol: Optional[str] = None) -> None:
-    """For testing isolation and restart simulation (Rule 044, 049)."""
+def clear_current_cg01_bias_authority(symbol: Optional[str] = None, reset_epoch: bool = False) -> None:
+    """
+    For testing isolation and restart simulation (Rule 044, 047, 049).
+    Rule 047: Registry clear does NOT reset the ownership epoch to 1 unless explicitly requested for test resets.
+    """
     with _bias_registry_lock:
         if symbol:
             _bias_authority_registry.pop(symbol, None)
@@ -227,7 +241,8 @@ def clear_current_cg01_bias_authority(symbol: Optional[str] = None) -> None:
                 del _bias_authority_registry[k]
         else:
             _bias_authority_registry.clear()
-            reset_runtime_ownership_epoch(1)
+            if reset_epoch:
+                reset_runtime_ownership_epoch(1)
 
 
 def resolve_current_cg01_bias_authority(
