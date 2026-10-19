@@ -283,13 +283,14 @@ class CG01ResearchProjectionWorker:
         if not target_run_id:
             order = db.query(models.PaperOrder).filter(models.PaperOrder.id == order_id).first()
             if order:
-                strat_ctx = order.strategy_context or {}
+                strat_ctx = getattr(order, "strategy_context", None) or {}
                 if isinstance(strat_ctx, str):
                     try:
                         strat_ctx = json.loads(strat_ctx)
                     except Exception:
                         strat_ctx = {}
-                target_run_id = strat_ctx.get("run_id") or (order.notes if str(order.notes or "").startswith("run_") else None)
+                notes = getattr(order, "notes", None)
+                target_run_id = strat_ctx.get("run_id") or (notes if str(notes or "").startswith("run_") else None)
                 if target_run_id:
                     associate_order_with_research_run(
                         db=db,
