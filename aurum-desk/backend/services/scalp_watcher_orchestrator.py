@@ -250,6 +250,9 @@ class ScalpWatcherOrchestrator:
         feed_health: Optional[Dict[str, Any]] = None,
         execution_financial_context: Optional[Any] = None,
         research_context: Optional[Any] = None,
+        caller_identity: Optional[str] = None,
+        evaluation_origin: Optional[str] = None,
+        execution_scope: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Single-cycle autonomous evaluation (PHẦN 015 - 024, 054 - 056).
@@ -1013,7 +1016,9 @@ class ScalpWatcherOrchestrator:
                     config=cg01_cfg,
                     research_context=research_context,
                     db=db,
-                    caller_identity="WATCHER",
+                    caller_identity=caller_identity,
+                    evaluation_origin=evaluation_origin,
+                    execution_scope=execution_scope,
                     auto_enabled=auto_enabled,
                     now_ms=t_recv,
                 )
@@ -1866,7 +1871,13 @@ class ScalpWatcherOrchestrator:
                             # and does not run competing mutable production evaluation cycles.
                             return
                         # Watcher is effective execution owner:
-                        self.evaluate_cycle(db, "XAUUSDT", auto_enabled=owner_info["can_execute"])
+                        self.evaluate_cycle(
+                            db,
+                            "XAUUSDT",
+                            auto_enabled=owner_info["can_execute"],
+                            caller_identity="WATCHER",
+                            evaluation_origin="WATCHER",
+                        )
                     finally:
                         db.close()
                 await asyncio.to_thread(_eval)

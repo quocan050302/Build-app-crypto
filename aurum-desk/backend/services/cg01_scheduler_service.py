@@ -568,11 +568,18 @@ class CG01EvaluationScheduler:
             if not new_enabled and new_owner:
                 raise ValueError("Cannot set is_owner=True when scheduler is disabled")
 
+            changed = (new_enabled != self.enabled or new_shadow != self.shadow_mode or new_owner != self.is_owner)
             self.enabled = new_enabled
             self.shadow_mode = new_shadow
             self.is_owner = new_owner
             if new_enabled:
                 self._stopped = False
+            if changed:
+                try:
+                    from services.cg01_daily_bias_service import bump_runtime_ownership_epoch
+                    bump_runtime_ownership_epoch()
+                except Exception:
+                    pass
 
         logger.info(
             f"CG01EvaluationScheduler flags updated: enabled={self.enabled}, "
@@ -613,6 +620,11 @@ class CG01EvaluationScheduler:
     def reset_state(self) -> None:
         """Reset internal event deduplication, queues, and counters for test isolation."""
         with self._lock:
+            try:
+                from services.cg01_daily_bias_service import reset_runtime_ownership_epoch
+                reset_runtime_ownership_epoch(1)
+            except Exception:
+                pass
             self._stopped = False
             self._running = False
             self._dirty_symbols.clear()
@@ -856,6 +868,8 @@ class CG01EvaluationScheduler:
                     quote=quote_snap,
                     auto_enabled=effective_auto,
                     research_context=research_ctx,
+                    caller_identity="SCHEDULER",
+                    evaluation_origin="SCHEDULER",
                 )
                 span_engine.finish()
             trace.total_runtime_ms = span_engine.duration_ms
@@ -1041,6 +1055,11 @@ class CG01EvaluationScheduler:
         with self._lock:
             self._running = False
             self._stopped = True
+            try:
+                from services.cg01_daily_bias_service import bump_runtime_ownership_epoch
+                bump_runtime_ownership_epoch()
+            except Exception:
+                pass
         if self._wakeup_event is not None:
             self._wakeup_event.set()
 

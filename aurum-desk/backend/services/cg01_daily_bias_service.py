@@ -52,6 +52,31 @@ logger = logging.getLogger("cg01_daily_bias_service")
 _bias_authority_registry: Dict[str, Dict[str, Any]] = {}
 _bias_registry_lock = threading.Lock()
 
+# Thread-safe runtime ownership epoch tracking (Rules 031 - 036, 048, 074, 075)
+_runtime_ownership_epoch: int = 1
+_runtime_ownership_lock = threading.Lock()
+
+
+def get_current_runtime_ownership_epoch() -> int:
+    """Return the current active runtime ownership epoch."""
+    with _runtime_ownership_lock:
+        return _runtime_ownership_epoch
+
+
+def bump_runtime_ownership_epoch() -> int:
+    """Advance the runtime ownership epoch upon owner handoff or configuration change."""
+    global _runtime_ownership_epoch
+    with _runtime_ownership_lock:
+        _runtime_ownership_epoch += 1
+        return _runtime_ownership_epoch
+
+
+def reset_runtime_ownership_epoch(new_epoch: int = 1) -> None:
+    """Reset the runtime ownership epoch (for test isolation and runtime restart)."""
+    global _runtime_ownership_epoch
+    with _runtime_ownership_lock:
+        _runtime_ownership_epoch = new_epoch
+
 
 def publish_current_cg01_bias_authority(
     symbol: str,
@@ -69,19 +94,63 @@ def publish_current_cg01_bias_authority(
     Dedicated backend boundary for publishing current daily bias authority for execution (Rules 035 - 048).
     - Checks runtime execution ownership (rejects SHADOW / non-active owners, Rules 032, 037, 038).
     - Anti-rewind check: refuses out-of-order writes (T1 < T2) or stale generations (Rules 027, 045, 048).
+    - Validates lease freshness against runtime ownership epoch even if registry is empty (Rule 075).
+    - Validates consistency between snapshot symbol, config fingerprint, and trading_day_key (Rules 047-053).
     - Deepcopies snapshot to enforce immutability (Rule 043).
     - Stores strictly in bounded single-entry per symbol registry (Rule 041).
     """
-    # Rule 032, 037, 038: Check active ownership
-    if not is_active_owner or "SHADOW" in source.upper() or "SHADOW" in owner.upper():
+    # Rule 032, 037, 038: Check active ownership and reject shadow/historical
+    if not is_active_owner or any(k in source.upper() or k in owner.upper() for k in ("SHADOW", "HISTORICAL", "REPLAY")):
         logger.debug(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: non-active owner ({owner}/{source})")
         return False
 
-    fp = config_fingerprint
-    if not fp and config is not None:
-        fp = compute_cg01_config_fingerprint(config)
+    # Rule 034, 074, 075: Check lease generation against current runtime ownership epoch
+    current_epoch = get_current_runtime_ownership_epoch()
+    if generation < current_epoch:
+        logger.info(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: lease generation {generation} < current runtime epoch {current_epoch}")
+        return False
+
+    # Rule 034: Check publisher owner against current runtime execution owner
+    try:
+        from services.cg01_scheduler_service import cg01_evaluation_scheduler, resolve_entry_execution_owner
+        owner_info = resolve_entry_execution_owner(cg01_evaluation_scheduler)
+        active_exec_owner = owner_info.get("execution_owner", "WATCHER")
+        if owner != active_exec_owner:
+            logger.info(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: publisher owner {owner} != runtime active owner {active_exec_owner}")
+            return False
+    except Exception as e:
+        logger.debug(f"[publish_current_cg01_bias_authority] Exception verifying runtime owner: {e}")
+
+    # Resolve config fingerprint
+    computed_fp = compute_cg01_config_fingerprint(config) if config is not None else ""
+    if config is not None and config_fingerprint:
+        if computed_fp != config_fingerprint:
+            logger.warning(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: explicit fingerprint ({config_fingerprint}) != computed ({computed_fp})")
+            return False
+
+    fp = config_fingerprint or computed_fp
     if not fp and bias is not None:
         fp = bias.get("config_fingerprint", "") if isinstance(bias, dict) else getattr(bias, "config_fingerprint", "")
+
+    # Rule 047 - 051: Check snapshot metadata consistency
+    if bias is not None:
+        snap_sym = bias.get("symbol", "") if isinstance(bias, dict) else getattr(bias, "symbol", "")
+        if snap_sym and snap_sym != symbol:
+            logger.warning(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: snapshot symbol ({snap_sym}) != requested ({symbol})")
+            return False
+
+        snap_fp = bias.get("config_fingerprint", "") if isinstance(bias, dict) else getattr(bias, "config_fingerprint", "")
+        if snap_fp and fp and snap_fp != fp:
+            logger.warning(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: snapshot fingerprint ({snap_fp}) != config fingerprint ({fp})")
+            return False
+
+        # Rule 052, 078: Check trading_day_key for READY snapshots
+        snap_status = bias.get("status", "") if isinstance(bias, dict) else getattr(bias, "status", "")
+        if snap_status == "READY":
+            snap_day = bias.get("trading_day_key", "") if isinstance(bias, dict) else getattr(bias, "trading_day_key", "")
+            if not snap_day or not isinstance(snap_day, str) or not snap_day.strip():
+                logger.warning(f"[publish_current_cg01_bias_authority] Refused publish for {symbol}: READY snapshot missing trading_day_key")
+                return False
 
     now_ts = evaluated_at_ms if evaluated_at_ms is not None else int(time.time() * 1000)
 
@@ -118,6 +187,7 @@ def publish_current_cg01_bias_authority(
         }
         _bias_authority_registry[symbol] = entry
         return True
+
 
 
 def record_current_cg01_bias_authority(
@@ -157,6 +227,7 @@ def clear_current_cg01_bias_authority(symbol: Optional[str] = None) -> None:
                 del _bias_authority_registry[k]
         else:
             _bias_authority_registry.clear()
+            reset_runtime_ownership_epoch(1)
 
 
 def resolve_current_cg01_bias_authority(
@@ -249,19 +320,60 @@ def resolve_current_cg01_bias_authority(
     snap_fp = bias_snap.get("config_fingerprint", "") if isinstance(bias_snap, dict) else getattr(bias_snap, "config_fingerprint", "")
     auth_fp = entry.get("config_fingerprint") or snap_fp or ""
     eval_ts = entry.get("evaluated_at_ms") or 0
+    entry_gen = entry.get("generation", 1)
 
-    # Rule 055, 056, 089, 090: Exact config match (NO fallback to latest!)
+    # Rule 034, 036, 058: Owner epoch validation - reject stale owner epoch
+    current_epoch = get_current_runtime_ownership_epoch()
+    if entry_gen < current_epoch:
+        return CG01BiasAuthorityResult(
+            available=False,
+            status="STALE_OWNER_EPOCH",
+            bias=copy.deepcopy(bias_snap),
+            reason=f"Current daily bias authority generation ({entry_gen}) is older than active runtime epoch ({current_epoch})",
+            source=entry["source"],
+            evaluated_at_ms=eval_ts,
+            symbol=symbol,
+            config_fingerprint=req_fp,
+        )
+
+    # Rule 055, 056, 089, 090: Exact entry config match (NO fallback to latest!)
     if auth_fp != req_fp:
         return CG01BiasAuthorityResult(
             available=False,
             status="CONFIG_MISMATCH",
-            bias=None,
+            bias=copy.deepcopy(bias_snap),
             reason=f"Current daily bias authority config fingerprint ({auth_fp}) does not match effective config ({req_fp})",
             source=entry["source"],
             evaluated_at_ms=eval_ts,
             symbol=symbol,
             config_fingerprint=req_fp,
         )
+
+    # Rule 048-050: Snapshot config fingerprint must exist and match effective config
+    if not snap_fp or not str(snap_fp).strip():
+        return CG01BiasAuthorityResult(
+            available=False,
+            status="MISSING_FINGERPRINT",
+            bias=copy.deepcopy(bias_snap),
+            reason="Current daily bias authority snapshot is missing config_fingerprint",
+            source=entry["source"],
+            evaluated_at_ms=eval_ts,
+            symbol=symbol,
+            config_fingerprint=req_fp,
+        )
+
+    if snap_fp != req_fp:
+        return CG01BiasAuthorityResult(
+            available=False,
+            status="CONFIG_FINGERPRINT_MISMATCH",
+            bias=copy.deepcopy(bias_snap),
+            reason=f"Snapshot config_fingerprint ({snap_fp}) does not match effective config ({req_fp})",
+            source=entry["source"],
+            evaluated_at_ms=eval_ts,
+            symbol=symbol,
+            config_fingerprint=req_fp,
+        )
+
 
     b_status = bias_snap.get("status") if isinstance(bias_snap, dict) else getattr(bias_snap, "status", None)
     if b_status == "INVALIDATED":
@@ -281,7 +393,7 @@ def resolve_current_cg01_bias_authority(
         return CG01BiasAuthorityResult(
             available=False,
             status="TIME_INCONSISTENT",
-            bias=None,
+            bias=copy.deepcopy(bias_snap),
             reason="Snapshot evaluated_at is in future relative to decision time",
             source=entry["source"],
             evaluated_at_ms=eval_ts,
@@ -289,15 +401,27 @@ def resolve_current_cg01_bias_authority(
             config_fingerprint=req_fp,
         )
 
-    # Rule 058, 061: Trading day consistency / rollover (must match current decision day)
+    # Rule 052, 058, 061, 078: Trading day consistency / rollover (mandatory matching day)
     tz_str = getattr(config, "ny_timezone", "America/New_York") if config else "America/New_York"
     expected_day = resolve_trading_day_key(effective_now, tz_name=tz_str)
     snap_day = bias_snap.get("trading_day_key", "") if isinstance(bias_snap, dict) else getattr(bias_snap, "trading_day_key", "")
-    if snap_day and snap_day != expected_day:
+    if not snap_day or not isinstance(snap_day, str) or not snap_day.strip():
+        return CG01BiasAuthorityResult(
+            available=False,
+            status="MISSING_TRADING_DAY",
+            bias=copy.deepcopy(bias_snap),
+            reason="Current daily bias authority snapshot is missing trading_day_key",
+            source=entry["source"],
+            evaluated_at_ms=eval_ts,
+            symbol=symbol,
+            config_fingerprint=req_fp,
+        )
+
+    if snap_day != expected_day:
         return CG01BiasAuthorityResult(
             available=False,
             status="DAY_MISMATCH",
-            bias=None,
+            bias=copy.deepcopy(bias_snap),
             reason=f"Current daily bias authority trading day ({snap_day}) does not match current day ({expected_day})",
             source=entry["source"],
             evaluated_at_ms=eval_ts,
@@ -305,13 +429,13 @@ def resolve_current_cg01_bias_authority(
             config_fingerprint=req_fp,
         )
 
-    # Rule 093: Symbol matching
+    # Rule 051, 093: Symbol matching
     snap_sym = bias_snap.get("symbol", "") if isinstance(bias_snap, dict) else getattr(bias_snap, "symbol", "")
-    if snap_sym and snap_sym != symbol:
+    if not snap_sym or snap_sym != symbol:
         return CG01BiasAuthorityResult(
             available=False,
             status="SYMBOL_MISMATCH",
-            bias=None,
+            bias=copy.deepcopy(bias_snap),
             reason=f"Authority symbol ({snap_sym}) does not match requested symbol ({symbol})",
             source=entry["source"],
             evaluated_at_ms=eval_ts,
@@ -327,20 +451,8 @@ def resolve_current_cg01_bias_authority(
         return CG01BiasAuthorityResult(
             available=False,
             status="MISSING_TOKEN",
-            bias=bias_snap,
+            bias=copy.deepcopy(bias_snap),
             reason="Current daily bias authority snapshot is missing authority_token",
-            source=entry["source"],
-            evaluated_at_ms=eval_ts,
-            symbol=symbol,
-            config_fingerprint=req_fp,
-        )
-
-    if not auth_fp or not isinstance(auth_fp, str) or not auth_fp.strip():
-        return CG01BiasAuthorityResult(
-            available=False,
-            status="MISSING_FINGERPRINT",
-            bias=bias_snap,
-            reason="Current daily bias authority snapshot is missing config_fingerprint",
             source=entry["source"],
             evaluated_at_ms=eval_ts,
             symbol=symbol,
@@ -352,7 +464,7 @@ def resolve_current_cg01_bias_authority(
             return CG01BiasAuthorityResult(
                 available=False,
                 status="INVALID_DIRECTIONS",
-                bias=bias_snap,
+                bias=copy.deepcopy(bias_snap),
                 reason="Current daily bias authority snapshot has invalid or empty allowed_directions",
                 source=entry["source"],
                 evaluated_at_ms=eval_ts,
@@ -378,38 +490,68 @@ def build_cg01_authority_publish_context(
     config: Optional[CG01Config] = None,
     research_context: Optional[Any] = None,
     db: Optional[Session] = None,
-    caller_identity: str = "WATCHER",
+    caller_identity: Optional[str] = None,
+    evaluation_origin: Optional[str] = None,
+    execution_scope: Optional[str] = None,
     auto_enabled: Optional[bool] = None,
     now_ms: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
-    Rules 022, 028, 029, 031, 032, 033, 034, 035:
+    Rules 022, 023 - 036, 041 - 046:
     Arbitrates runtime authority publish eligibility.
-    Rejects SHADOW observation mode, non-owner scheduler runs, and historical context.
+    Rejects SHADOW observation mode, non-owner scheduler runs, and historical/replay context.
+    Captures runtime ownership epoch lease for publication.
     """
-    # 1. Check research_context
-    obs_mode = getattr(research_context, "observation_mode", None)
-    if obs_mode and str(obs_mode).upper() == "SHADOW":
+    current_epoch = get_current_runtime_ownership_epoch()
+    caller = (evaluation_origin or caller_identity or "WATCHER").upper()
+    scope = (execution_scope or "").upper()
+
+    # 1. Check explicit historical / replay / research origins
+    if caller in ("HISTORICAL", "REPLAY", "RESEARCH", "BACKTEST") or scope in ("HISTORICAL", "REPLAY"):
         return {
             "is_active_owner": False,
-            "owner": "SHADOW",
-            "source": "SHADOW_RESEARCH",
-            "generation": 1,
+            "owner": "HISTORICAL",
+            "source": f"HISTORICAL_{caller or scope}",
+            "generation": current_epoch,
             "can_execute": False,
+            "scope": "HISTORICAL",
         }
 
-    # 2. Check config profile mode
+    # 2. Check research_context
+    if research_context is not None:
+        obs_mode = getattr(research_context, "observation_mode", None)
+        if obs_mode and str(obs_mode).upper() in ("SHADOW", "HISTORICAL", "REPLAY"):
+            return {
+                "is_active_owner": False,
+                "owner": str(obs_mode).upper(),
+                "source": f"{str(obs_mode).upper()}_RESEARCH",
+                "generation": current_epoch,
+                "can_execute": False,
+                "scope": str(obs_mode).upper(),
+            }
+        if getattr(research_context, "is_historical", False) or getattr(research_context, "scope", "") in ("HISTORICAL", "REPLAY"):
+            return {
+                "is_active_owner": False,
+                "owner": "HISTORICAL",
+                "source": "HISTORICAL_RESEARCH_CONTEXT",
+                "generation": current_epoch,
+                "can_execute": False,
+                "scope": "HISTORICAL",
+            }
+
+    # 3. Check config profile mode
     prof_mode = getattr(config, "profile_mode", None)
     if prof_mode and str(prof_mode).upper() in ("SHADOW", "PAPER_SHADOW", "OFF"):
         return {
             "is_active_owner": False,
             "owner": "SHADOW",
             "source": f"CONFIG_{prof_mode}",
-            "generation": 1,
+            "generation": current_epoch,
             "can_execute": False,
+            "scope": "SHADOW",
         }
 
-    # 3. Arbitrate execution owner via scheduler service
+    # 4. Arbitrate execution owner via scheduler service
     try:
         from services.cg01_scheduler_service import (
             cg01_evaluation_scheduler,
@@ -420,14 +562,14 @@ def build_cg01_authority_publish_context(
         can_exec = owner_info.get("can_execute", True) if auto_enabled is None else bool(auto_enabled)
 
         if exec_owner == "SCHEDULER":
-            if caller_identity == "SCHEDULER":
+            if caller == "SCHEDULER":
                 is_active = True
                 owner_label = "SCHEDULER"
             else:
                 is_active = False
                 owner_label = "WATCHDOG"
         else:
-            if caller_identity == "SCHEDULER":
+            if caller == "SCHEDULER":
                 is_active = False
                 owner_label = "SCHEDULER_NON_OWNER"
             else:
@@ -438,8 +580,9 @@ def build_cg01_authority_publish_context(
             "is_active_owner": is_active,
             "owner": owner_label,
             "source": "ACTIVE_PIPELINE" if is_active else f"INACTIVE_{owner_label}",
-            "generation": 1,
+            "generation": current_epoch,
             "can_execute": can_exec,
+            "scope": "PRODUCTION",
         }
     except Exception as e:
         logger.warning(f"[build_cg01_authority_publish_context] Error resolving owner: {e}")
@@ -447,8 +590,9 @@ def build_cg01_authority_publish_context(
             "is_active_owner": False,
             "owner": "UNKNOWN_FAIL_CLOSED",
             "source": "FAIL_CLOSED",
-            "generation": 1,
+            "generation": current_epoch,
             "can_execute": False,
+            "scope": "UNKNOWN",
         }
 
 
