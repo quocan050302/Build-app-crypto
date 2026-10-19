@@ -412,24 +412,60 @@ def _check_strategy(req: EntryGuardRequest) -> EntryCheck:
                         "Chờ bias ngày đồng thuận.",
                     )
                 cur_bias = ev.get("current_daily_bias")
-                if cur_bias:
-                    cur_token = cur_bias.get("authority_token") if isinstance(cur_bias, dict) else getattr(cur_bias, "authority_token", None)
-                    cur_fp = cur_bias.get("config_fingerprint") if isinstance(cur_bias, dict) else getattr(cur_bias, "config_fingerprint", None)
-                    cand_fp = daily_b.get("config_fingerprint") if isinstance(daily_b, dict) else getattr(daily_b, "config_fingerprint", None)
-                    if cand_fp and cur_fp and cand_fp != cur_fp:
-                        return EntryCheck(
-                            "CONFIG_FINGERPRINT_MISMATCH",
-                            "BLOCK",
-                            "Cấu hình giao dịch đã thay đổi kể từ khi tạo candidate.",
-                            "Yêu cầu đánh giá lại candidate theo cấu hình mới.",
-                        )
-                    if cur_token and auth_token != cur_token:
-                        return EntryCheck(
-                            "DAILY_BIAS_AUTHORITY_MISMATCH",
-                            "BLOCK",
-                            "Authority token của candidate không khớp với bias ngày hiện tại.",
-                            "Cấu trúc hoặc bối cảnh ngày đã thay đổi; yêu cầu candidate mới.",
-                        )
+                if not cur_bias:
+                    return EntryCheck(
+                        "DAILY_BIAS_CURRENT_UNAVAILABLE",
+                        "BLOCK",
+                        "Thiếu dữ liệu current daily bias authority.",
+                        "Chờ tính toán bias ngày hiện tại trước khi arm.",
+                    )
+                cur_status = cur_bias.get("status") if isinstance(cur_bias, dict) else getattr(cur_bias, "status", None)
+                if cur_status == "INVALIDATED":
+                    return EntryCheck(
+                        "DAILY_BIAS_CURRENT_INVALIDATED",
+                        "BLOCK",
+                        "Bias ngày hiện tại đã mất hiệu lực.",
+                        "Chờ cấu trúc ngày mới được thiết lập.",
+                    )
+                if cur_status == "UNAVAILABLE":
+                    return EntryCheck(
+                        "DAILY_BIAS_CURRENT_UNAVAILABLE",
+                        "BLOCK",
+                        "Bias ngày hiện tại chưa sẵn sàng.",
+                        "Chờ dữ liệu bối cảnh ngày.",
+                    )
+                if cur_status != "READY":
+                    return EntryCheck(
+                        "DAILY_BIAS_CURRENT_NOT_READY",
+                        "BLOCK",
+                        f"Bias ngày hiện tại không ở trạng thái READY ({cur_status}).",
+                        "Chờ cấu trúc có xu hướng rõ ràng.",
+                    )
+                cur_token = cur_bias.get("authority_token") if isinstance(cur_bias, dict) else getattr(cur_bias, "authority_token", None)
+                cur_fp = cur_bias.get("config_fingerprint") if isinstance(cur_bias, dict) else getattr(cur_bias, "config_fingerprint", None)
+                cand_fp = daily_b.get("config_fingerprint") if isinstance(daily_b, dict) else getattr(daily_b, "config_fingerprint", None)
+                if cand_fp and cur_fp and cand_fp != cur_fp:
+                    return EntryCheck(
+                        "CONFIG_FINGERPRINT_MISMATCH",
+                        "BLOCK",
+                        "Cấu hình giao dịch đã thay đổi kể từ khi tạo candidate.",
+                        "Yêu cầu đánh giá lại candidate theo cấu hình mới.",
+                    )
+                if cur_token and auth_token != cur_token:
+                    return EntryCheck(
+                        "DAILY_BIAS_AUTHORITY_MISMATCH",
+                        "BLOCK",
+                        "Authority token của candidate không khớp với bias ngày hiện tại.",
+                        "Cấu trúc hoặc bối cảnh ngày đã thay đổi; yêu cầu candidate mới.",
+                    )
+                cur_dirs = cur_bias.get("allowed_directions") if isinstance(cur_bias, dict) else getattr(cur_bias, "allowed_directions", None)
+                if cur_dirs is not None and req.direction not in cur_dirs:
+                    return EntryCheck(
+                        "DAILY_BIAS_DIRECTION_MISMATCH",
+                        "BLOCK",
+                        f"Hướng lệnh {req.direction} không thuộc hướng được phép của bias ngày hiện tại ({cur_dirs}).",
+                        "Chờ bias ngày hiện tại đồng thuận.",
+                    )
             return _ok("strategy")
         return _ok("strategy")
     if state == "WAITING_RETRACE":

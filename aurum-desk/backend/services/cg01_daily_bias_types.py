@@ -151,3 +151,33 @@ class CG01DailyBiasSnapshot:
             "ui_summary_vi": self.ui_summary_vi,
             "summary_vi": (self.ui_summary_vi.get("detail") or self.ui_summary_vi.get("status")) if isinstance(self.ui_summary_vi, dict) else str(self.ui_summary_vi or ""),
         }
+
+
+@dataclass(frozen=True)
+class CG01BiasAuthorityResult:
+    """
+    Checklist & Authority Result (Rules 035-037).
+    Single source of truth for current Daily Bias authority across ARM and FILL.
+    """
+    available: bool
+    status: str                         # READY, UNAVAILABLE, INVALIDATED, NOT_BOOTSTRAPPED, etc.
+    bias: Optional[CG01DailyBiasSnapshot] = None
+    reason: Optional[str] = None
+    source: str = "CACHE"               # "REGISTRY", "EVALUATED_CONTEXT", "UNAVAILABLE"
+    evaluated_at_ms: Optional[int] = None
+    facts_version: str = "v16.30"
+    symbol: str = "XAUUSDT"
+    config_fingerprint: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "available": self.available,
+            "status": self.status,
+            "bias": self.bias.to_dict() if self.bias else None,
+            "reason": self.reason,
+            "source": self.source,
+            "evaluated_at_ms": self.evaluated_at_ms,
+            "facts_version": self.facts_version,
+            "symbol": self.symbol,
+            "config_fingerprint": self.config_fingerprint,
+        }

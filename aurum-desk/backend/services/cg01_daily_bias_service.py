@@ -18,6 +18,8 @@ import datetime
 import hashlib
 import json
 import logging
+import threading
+import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 import zoneinfo
 
@@ -32,7 +34,9 @@ from services.cg01_daily_bias_types import (
     CG01DailyLiquidityLevel,
     CG01DailyDealingRange,
     CG01HTFZoneReaction,
+    CG01BiasAuthorityResult,
 )
+from services.cg01_config_factory import compute_cg01_config_fingerprint
 from services.smc_regime_service import build_htf_context, HTFContext
 from services.htf_structure_service import (
     filter_closed_candles,
@@ -41,6 +45,128 @@ from services.htf_structure_service import (
 )
 
 logger = logging.getLogger("cg01_daily_bias_service")
+
+# Thread-safe in-memory registry for authoritative current daily bias (Rules 032 - 045)
+_bias_authority_registry: Dict[str, Dict[str, Any]] = {}
+_bias_registry_lock = threading.Lock()
+
+
+def record_current_cg01_bias_authority(
+    symbol: str,
+    bias: CG01DailyBiasSnapshot,
+    config_fingerprint: str = "",
+    evaluated_at_ms: Optional[int] = None,
+    source: str = "PIPELINE",
+) -> None:
+    """
+    Registers the latest authoritative daily bias snapshot computed by the production pipeline (Rules 032-045).
+    Keyed by symbol and config fingerprint to guarantee ownership.
+    """
+    now_ts = evaluated_at_ms or int(time.time() * 1000)
+    with _bias_registry_lock:
+        key = f"{symbol}:{config_fingerprint}"
+        entry = {
+            "bias": bias,
+            "config_fingerprint": config_fingerprint,
+            "evaluated_at_ms": now_ts,
+            "source": source,
+            "symbol": symbol,
+        }
+        _bias_authority_registry[key] = entry
+        _bias_authority_registry[f"{symbol}:latest"] = entry
+
+
+def clear_current_cg01_bias_authority(symbol: Optional[str] = None) -> None:
+    """For testing isolation and restart simulation (Rule 044, 100)."""
+    with _bias_registry_lock:
+        if symbol:
+            keys_to_del = [k for k in _bias_authority_registry if k.startswith(f"{symbol}:")]
+            for k in keys_to_del:
+                del _bias_authority_registry[k]
+        else:
+            _bias_authority_registry.clear()
+
+
+def resolve_current_cg01_bias_authority(
+    symbol: str = "XAUUSDT",
+    now_ms: Optional[int] = None,
+    config: Optional[CG01Config] = None,
+    context: Optional[Dict[str, Any]] = None,
+    clock: Optional[Any] = None,
+) -> CG01BiasAuthorityResult:
+    """
+    Single source of truth for current Daily Bias authority across ARM and FILL (Rules 032-045).
+    1. If explicit closed_context is provided, evaluates bias deterministically.
+    2. Otherwise, checks the authoritative in-memory registry keyed by symbol & config_fingerprint.
+    3. If neither is available, returns available=False with status UNAVAILABLE (Rules 040, 045).
+    """
+    effective_now = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
+    cfg = config or CG01Config()
+    fp = compute_cg01_config_fingerprint(cfg)
+
+    # 1. If explicit closed context with 4H / 1H is injected:
+    if context and ("4H" in context or "closed_candles_by_tf" in context):
+        eval_ctx = context.get("closed_candles_by_tf") or context
+        bias_snap = evaluate_cg01_daily_bias(
+            eval_ctx,
+            as_of_ms=effective_now,
+            config=cfg,
+            symbol=symbol,
+        )
+        record_current_cg01_bias_authority(symbol, bias_snap, config_fingerprint=fp, evaluated_at_ms=effective_now, source="EVALUATED_CONTEXT")
+        is_avail = (bias_snap.status == CG01DailyBiasStatus.READY.value and bool(bias_snap.allowed_directions))
+        return CG01BiasAuthorityResult(
+            available=is_avail,
+            status=bias_snap.status,
+            bias=bias_snap,
+            reason=None if is_avail else f"Daily bias status: {bias_snap.status}",
+            source="EVALUATED_CONTEXT",
+            evaluated_at_ms=effective_now,
+            symbol=symbol,
+            config_fingerprint=fp,
+        )
+
+    # 2. Check registry by symbol:fingerprint or symbol:latest
+    with _bias_registry_lock:
+        entry = _bias_authority_registry.get(f"{symbol}:{fp}") or _bias_authority_registry.get(f"{symbol}:latest")
+
+    if entry:
+        bias_snap = entry["bias"]
+        # Rule 043: Time consistency - snapshot cannot be from the future
+        if entry["evaluated_at_ms"] and entry["evaluated_at_ms"] > effective_now:
+            return CG01BiasAuthorityResult(
+                available=False,
+                status="TIME_INCONSISTENT",
+                bias=None,
+                reason="Snapshot evaluated_at is in future relative to decision time",
+                source=entry["source"],
+                evaluated_at_ms=entry["evaluated_at_ms"],
+                symbol=symbol,
+                config_fingerprint=fp,
+            )
+        is_avail = (bias_snap.status == CG01DailyBiasStatus.READY.value and bool(bias_snap.allowed_directions))
+        return CG01BiasAuthorityResult(
+            available=is_avail,
+            status=bias_snap.status,
+            bias=bias_snap,
+            reason=None if is_avail else f"Daily bias status: {bias_snap.status}",
+            source=entry["source"],
+            evaluated_at_ms=entry["evaluated_at_ms"],
+            symbol=symbol,
+            config_fingerprint=entry["config_fingerprint"],
+        )
+
+    # 3. Not bootstrapped or no cache (Rule 040, 045)
+    return CG01BiasAuthorityResult(
+        available=False,
+        status="UNAVAILABLE",
+        bias=None,
+        reason="Current daily bias authority not ready or not bootstrapped",
+        source="UNAVAILABLE",
+        evaluated_at_ms=None,
+        symbol=symbol,
+        config_fingerprint=fp,
+    )
 
 
 def resolve_trading_day_key(as_of_ms: int, tz_name: str = "America/New_York") -> str:
@@ -266,8 +392,8 @@ def build_htf_zone_reactions(
     closed_context: Optional[Dict[str, Sequence[Any]]] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Rules 060, 113 - 117: Checklist Fact 3 - Reaction at HTF FVG/OB zones.
-    Evaluates whether HTF zones are respected, violated, or untested.
+    Rules 060, 113 - 117, 078 - 087: Checklist Fact 3 - Reaction at HTF FVG/OB zones.
+    Evaluates whether HTF zones are respected, violated, untested, or in-zone.
     BPR is explicitly reported as BPR_NOT_IMPLEMENTED/UNAVAILABLE (Rule 116).
     """
     reactions: List[Dict[str, Any]] = []
@@ -296,36 +422,36 @@ def build_htf_zone_reactions(
             ts3 = int(c3.get("open_time") or c3.get("timestamp") or 0) if isinstance(c3, dict) else int(getattr(c3, "open_time", 0) or getattr(c3, "timestamp", 0))
             formation_known_at = ts3 + dur_4h
 
-            # Bullish FVG: low of candle 3 > high of candle 1
+            # Bullish FVG: low of candle 3 > high of candle 1 (zone: [bottom=h1, top=l3])
             if l3 > h1:
-                # Rule 066 - 073: Evaluate reaction on subsequent candles
                 subsequent = h4_closed[i + 1:]
                 reaction = "UNTESTED"
                 reaction_known_at = formation_known_at
                 confirmed_candle_ts = ts3
 
                 for bar in subsequent:
-                    b_open = int(bar.get("open_time") or bar.get("timestamp") or 0) if isinstance(bar, dict) else int(getattr(bar, "open_time", 0) or getattr(bar, "timestamp", 0))
-                    b_high = float(bar.get("high") if isinstance(bar, dict) else getattr(bar, "high", 0.0))
-                    b_low = float(bar.get("low") if isinstance(bar, dict) else getattr(bar, "low", 0.0))
-                    b_close = float(bar.get("close") if isinstance(bar, dict) else getattr(bar, "close", 0.0))
-                    b_close_ms = b_open + dur_4h
+                    bar_open_time_ms = int(bar.get("open_time") or bar.get("timestamp") or 0) if isinstance(bar, dict) else int(getattr(bar, "open_time", 0) or getattr(bar, "timestamp", 0))
+                    bar_open_price = float(bar.get("open") if isinstance(bar, dict) else getattr(bar, "open", 0.0))
+                    bar_high = float(bar.get("high") if isinstance(bar, dict) else getattr(bar, "high", 0.0))
+                    bar_low = float(bar.get("low") if isinstance(bar, dict) else getattr(bar, "low", 0.0))
+                    bar_close = float(bar.get("close") if isinstance(bar, dict) else getattr(bar, "close", 0.0))
+                    bar_close_time_ms = bar_open_time_ms + dur_4h
 
-                    # Has price reached into the zone?
-                    if b_low <= l3:
-                        if b_close < h1:
-                            reaction = "VIOLATED"
-                            reaction_known_at = b_close_ms
-                            confirmed_candle_ts = b_open
-                            break
-                        elif b_close >= l3 or b_close > b_open:
+                    # Rules 080 - 084: Priority to violation, touch geometry, separation of price and time
+                    if bar_close < h1:
+                        reaction = "VIOLATED"
+                        reaction_known_at = bar_close_time_ms
+                        confirmed_candle_ts = bar_open_time_ms
+                        break
+                    elif bar_low <= l3 and bar_high >= h1:
+                        if bar_close >= l3:
                             reaction = "RESPECTED"
-                            reaction_known_at = b_close_ms
-                            confirmed_candle_ts = b_open
+                            reaction_known_at = bar_close_time_ms
+                            confirmed_candle_ts = bar_open_time_ms
                         else:
                             reaction = "IN_ZONE"
-                            reaction_known_at = b_close_ms
-                            confirmed_candle_ts = b_open
+                            reaction_known_at = bar_close_time_ms
+                            confirmed_candle_ts = bar_open_time_ms
 
                 reactions.append(CG01HTFZoneReaction(
                     zone_id=f"h4_fvg_bull_{ts3}",
@@ -339,7 +465,7 @@ def build_htf_zone_reactions(
                 ).to_dict())
                 break
 
-            # Bearish FVG: high of candle 3 < low of candle 1
+            # Bearish FVG: high of candle 3 < low of candle 1 (zone: [bottom=h3, top=l1])
             elif h3 < l1:
                 subsequent = h4_closed[i + 1:]
                 reaction = "UNTESTED"
@@ -347,26 +473,28 @@ def build_htf_zone_reactions(
                 confirmed_candle_ts = ts3
 
                 for bar in subsequent:
-                    b_open = int(bar.get("open_time") or bar.get("timestamp") or 0) if isinstance(bar, dict) else int(getattr(bar, "open_time", 0) or getattr(bar, "timestamp", 0))
-                    b_high = float(bar.get("high") if isinstance(bar, dict) else getattr(bar, "high", 0.0))
-                    b_low = float(bar.get("low") if isinstance(bar, dict) else getattr(bar, "low", 0.0))
-                    b_close = float(bar.get("close") if isinstance(bar, dict) else getattr(bar, "close", 0.0))
-                    b_close_ms = b_open + dur_4h
+                    bar_open_time_ms = int(bar.get("open_time") or bar.get("timestamp") or 0) if isinstance(bar, dict) else int(getattr(bar, "open_time", 0) or getattr(bar, "timestamp", 0))
+                    bar_open_price = float(bar.get("open") if isinstance(bar, dict) else getattr(bar, "open", 0.0))
+                    bar_high = float(bar.get("high") if isinstance(bar, dict) else getattr(bar, "high", 0.0))
+                    bar_low = float(bar.get("low") if isinstance(bar, dict) else getattr(bar, "low", 0.0))
+                    bar_close = float(bar.get("close") if isinstance(bar, dict) else getattr(bar, "close", 0.0))
+                    bar_close_time_ms = bar_open_time_ms + dur_4h
 
-                    if b_high >= h3:
-                        if b_close > l1:
-                            reaction = "VIOLATED"
-                            reaction_known_at = b_close_ms
-                            confirmed_candle_ts = b_open
-                            break
-                        elif b_close <= h3 or b_close < b_open:
+                    # Rules 080 - 084: Priority to violation, touch geometry, separation of price and time
+                    if bar_close > l1:
+                        reaction = "VIOLATED"
+                        reaction_known_at = bar_close_time_ms
+                        confirmed_candle_ts = bar_open_time_ms
+                        break
+                    elif bar_high >= h3 and bar_low <= l1:
+                        if bar_close <= h3:
                             reaction = "RESPECTED"
-                            reaction_known_at = b_close_ms
-                            confirmed_candle_ts = b_open
+                            reaction_known_at = bar_close_time_ms
+                            confirmed_candle_ts = bar_open_time_ms
                         else:
                             reaction = "IN_ZONE"
-                            reaction_known_at = b_close_ms
-                            confirmed_candle_ts = b_open
+                            reaction_known_at = bar_close_time_ms
+                            confirmed_candle_ts = bar_open_time_ms
 
                 reactions.append(CG01HTFZoneReaction(
                     zone_id=f"h4_fvg_bear_{ts3}",
@@ -571,7 +699,7 @@ def evaluate_cg01_daily_bias(
         summary_status = "Bias ngày trung lập: H4 đang tích lũy biên độ (Range)."
         summary_detail = "Cấu trúc thị trường chưa có xu hướng rõ ràng."
 
-    return CG01DailyBiasSnapshot(
+    snap = CG01DailyBiasSnapshot(
         symbol=symbol,
         trading_day_key=trading_day_key,
         bias_id=f"bias_{symbol}_{trading_day_key}_{h4_last_ms}",
@@ -594,6 +722,14 @@ def evaluate_cg01_daily_bias(
         reason_codes=tuple(reason_codes),
         ui_summary_vi={"status": summary_status, "detail": summary_detail},
     )
+    record_current_cg01_bias_authority(
+        symbol=symbol,
+        bias=snap,
+        config_fingerprint=cfg_fp,
+        evaluated_at_ms=as_of_ms,
+        source="PIPELINE",
+    )
+    return snap
 
 
 def resolve_cg01_entry_direction_policy(

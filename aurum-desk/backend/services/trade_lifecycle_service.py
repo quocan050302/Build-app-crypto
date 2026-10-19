@@ -86,32 +86,55 @@ class TradeLifecycleService:
                 binding = arm_snap.get("binding") or {}
                 if binding.get("direction_policy") == "DAILY_BIAS_PRIMARY":
                     curr_bias = (sizing_context or {}).get("current_daily_bias")
-                    if curr_bias:
-                        c_status = curr_bias.get("status") if isinstance(curr_bias, dict) else getattr(curr_bias, "status", None)
-                        c_dirs = curr_bias.get("allowed_directions") if isinstance(curr_bias, dict) else getattr(curr_bias, "allowed_directions", ())
-                        c_tok = curr_bias.get("authority_token") if isinstance(curr_bias, dict) else getattr(curr_bias, "authority_token", None)
-                        auth_tok = binding.get("authority_token")
-                        
-                        if c_status != "READY":
-                            order.state = "invalidated"
-                            order.invalidation_reason = f"DAILY_BIAS_INVALIDATED: Bias ngày hiện tại không còn sẵn sàng ({c_status})"
-                            order.closed_at = current_time
-                            db.commit()
-                            return order
-                        if order.direction not in (c_dirs or ()):
-                            order.state = "invalidated"
-                            order.invalidation_reason = f"DAILY_BIAS_DIRECTION_MISMATCH: Hướng lệnh {order.direction} không còn được phép bởi bias ngày"
-                            order.closed_at = current_time
-                            db.commit()
-                            return order
-                        if auth_tok and c_tok and auth_tok != c_tok:
-                            order.state = "invalidated"
-                            order.invalidation_reason = "DAILY_BIAS_AUTHORITY_MISMATCH: Authority token của lệnh không khớp bias ngày hiện tại"
-                            order.closed_at = current_time
-                            db.commit()
-                            return order
+                    if not curr_bias:
+                        from services.cg01_daily_bias_service import resolve_current_cg01_bias_authority
+                        res_auth = resolve_current_cg01_bias_authority(
+                            symbol=order.instrument or "XAUUSDT",
+                            now_ms=current_time,
+                            clock=clock,
+                        )
+                        if res_auth.bias:
+                            curr_bias = res_auth.bias.to_dict()
+
+                    if not curr_bias:
+                        # Rules 046, 047, 091: Missing current authority -> do NOT fill, keep pending (defer mutation)
+                        logger.info(f"Cannot fill order {order.id}: current daily bias authority unavailable; keeping pending.")
+                        return order
+
+                    c_status = curr_bias.get("status") if isinstance(curr_bias, dict) else getattr(curr_bias, "status", None)
+                    c_dirs = curr_bias.get("allowed_directions") if isinstance(curr_bias, dict) else getattr(curr_bias, "allowed_directions", ())
+                    c_tok = curr_bias.get("authority_token") if isinstance(curr_bias, dict) else getattr(curr_bias, "authority_token", None)
+                    auth_tok = binding.get("authority_token")
+
+                    if c_status == "INVALIDATED":
+                        order.state = "invalidated"
+                        order.invalidation_reason = "DAILY_BIAS_INVALIDATED: Bias ngày hiện tại đã mất hiệu lực"
+                        order.closed_at = current_time
+                        db.commit()
+                        return order
+
+                    if c_status != "READY":
+                        # Rules 046, 047: Status not READY -> do NOT fill, keep pending
+                        logger.info(f"Cannot fill order {order.id}: bias status {c_status}; keeping pending.")
+                        return order
+
+                    if order.direction not in (c_dirs or ()):
+                        order.state = "invalidated"
+                        order.invalidation_reason = f"DAILY_BIAS_DIRECTION_MISMATCH: Hướng lệnh {order.direction} không còn được phép bởi bias ngày"
+                        order.closed_at = current_time
+                        db.commit()
+                        return order
+
+                    if auth_tok and c_tok and auth_tok != c_tok:
+                        order.state = "invalidated"
+                        order.invalidation_reason = "DAILY_BIAS_AUTHORITY_MISMATCH: Authority token của lệnh không khớp bias ngày hiện tại"
+                        order.closed_at = current_time
+                        db.commit()
+                        return order
             except Exception as e:
-                logger.warning(f"Error checking pending bias binding at fill time: {e}")
+                # Rules 069, 070: Fail-closed on exception for PRIMARY - do NOT fill!
+                logger.error(f"Error checking pending bias binding at fill time for {order.id}: {e}")
+                return order
 
         # 2. Invariant: Max 1 active position enforced atomically at DB level
         from services.order_plan_snapshot_service import build_fill_plan_snapshot

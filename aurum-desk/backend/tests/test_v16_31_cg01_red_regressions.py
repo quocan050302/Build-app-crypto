@@ -165,6 +165,12 @@ def test_production_orchestrator_arm_binding_passes_and_blocks():
             "allowed_directions": ["LONG"],
             "authority_token": "valid_tok_999",
         },
+        "current_daily_bias": {
+            "status": "READY",
+            "direction": "BULLISH",
+            "allowed_directions": ["LONG"],
+            "authority_token": "valid_tok_999",
+        },
     }
 
     inval_ev = {
@@ -446,3 +452,502 @@ def test_pending_primary_fill_invalidated_when_bias_unready():
     assert res_order.state == "invalidated"
     assert "DAILY_BIAS_INVALIDATED" in res_order.invalidation_reason
 
+
+# =========================================================================
+# Regression RED 1 (Rule 089): PRIMARY missing current authority blocks guard
+# =========================================================================
+def test_red_primary_missing_current_authority_blocks_guard():
+    """Rule 089: Guard with PRIMARY candidate bias READY/valid token but NO current authority must NOT pass."""
+    req = EntryGuardRequest(
+        stage="ARM",
+        now_ms=1700000000000,
+        symbol="XAUUSDT",
+        direction="LONG",
+        execution_mode="AUTO",
+        origin="AUTO_STRATEGY",
+        strategy_family="CG01_SWEEP_MSS_FVG",
+        setup_state="READY",
+        evidence={
+            "direction_policy": "DAILY_BIAS_PRIMARY",
+            "daily_bias": {
+                "status": "READY",
+                "direction": "BULLISH",
+                "allowed_directions": ["LONG"],
+                "authority_token": "auth_tok_111",
+                "config_fingerprint": "fp_111",
+            },
+            # Missing current_daily_bias!
+        },
+    )
+    chk = _check_strategy(req)
+    assert chk.state == "BLOCK"
+    assert chk.code == "DAILY_BIAS_CURRENT_UNAVAILABLE"
+
+
+# =========================================================================
+# Regression RED 2 (Rule 090): Current bias INVALIDATED blocks even if token matches
+# =========================================================================
+def test_red_current_bias_invalidated_blocks_even_if_token_matches():
+    """Rule 090: Current bias status INVALIDATED with empty allowed_directions must BLOCK even if token matches."""
+    req = EntryGuardRequest(
+        stage="ARM",
+        now_ms=1700000000000,
+        symbol="XAUUSDT",
+        direction="LONG",
+        execution_mode="AUTO",
+        origin="AUTO_STRATEGY",
+        strategy_family="CG01_SWEEP_MSS_FVG",
+        setup_state="READY",
+        evidence={
+            "direction_policy": "DAILY_BIAS_PRIMARY",
+            "daily_bias": {
+                "status": "READY",
+                "direction": "BULLISH",
+                "allowed_directions": ["LONG"],
+                "authority_token": "auth_tok_111",
+                "config_fingerprint": "fp_111",
+            },
+            "current_daily_bias": {
+                "status": "INVALIDATED",
+                "direction": "NEUTRAL",
+                "allowed_directions": [],
+                "authority_token": "auth_tok_111",
+                "config_fingerprint": "fp_111",
+            },
+        },
+    )
+    chk = _check_strategy(req)
+    assert chk.state == "BLOCK"
+    assert chk.code == "DAILY_BIAS_CURRENT_INVALIDATED"
+
+
+# =========================================================================
+# Regression RED 3 (Rule 091): Pending PRIMARY without current authority defers fill
+# =========================================================================
+def test_red_pending_primary_missing_current_authority_defers_and_does_not_fill():
+    """Rule 091: Pending PRIMARY order without current authority does NOT fill (remains armed, no quota increment)."""
+    import json
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from models import Base
+    import models
+    from services.trade_lifecycle_service import TradeLifecycleService
+    from services.cg01_daily_bias_service import clear_current_cg01_bias_authority
+    from domain_calculator import calculate_risk_reward
+
+    clear_current_cg01_bias_authority()
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+
+    arm_snap = {
+        "binding": {
+            "direction_policy": "DAILY_BIAS_PRIMARY",
+            "authority_token": "arm_tok_123",
+            "allowed_directions": ["LONG"],
+        }
+    }
+    order = models.PaperOrder(
+        id="ord_pending_primary_defer_test",
+        setup_id="setup_001",
+        signal_id="sig_001",
+        instrument="XAUUSDT",
+        direction="LONG",
+        planned_entry=2500.0,
+        actual_entry=None,
+        stop_loss=2490.0,
+        take_profit=2525.0,
+        quantity=1.0,
+        initial_risk_usdt=10.0,
+        state="armed",
+        created_at=1700000000000,
+        arm_decision_snapshot=json.dumps(arm_snap),
+    )
+    db.add(order)
+    db.commit()
+
+    calc = calculate_risk_reward("LONG", 2500.0, 2490.0, 2525.0, 1000.0, 0.25)
+    res_order = TradeLifecycleService.execute_fill(
+        db, order, fill_price=2500.0, calc_result=calc, now_ms=1700000060000, sizing_context={}
+    )
+    # Order must remain armed, NOT paper_open
+    assert res_order.state == "armed"
+    assert res_order.actual_entry is None
+
+
+# =========================================================================
+# Regression RED 4 (Rule 092, 093): Bearish FVG pullback inside zone is IN_ZONE
+# =========================================================================
+def test_red_bearish_fvg_pullback_inside_zone_is_in_zone_not_respected():
+    """Rules 092, 093: Candle 4 closing inside bearish FVG [90, 100] is IN_ZONE, not RESPECTED."""
+    dur = resolve_timeframe_ms("4H")
+    base_t = 1700000000000
+    # C1: Low=100, C3: High=90 -> Bearish FVG [90, 100]
+    c1 = {"open_time": base_t, "open": 105.0, "high": 110.0, "low": 100.0, "close": 106.0, "is_closed": True}
+    c2 = {"open_time": base_t + dur, "open": 106.0, "high": 108.0, "low": 85.0, "close": 88.0, "is_closed": True}
+    c3 = {"open_time": base_t + 2 * dur, "open": 88.0, "high": 90.0, "low": 80.0, "close": 85.0, "is_closed": True}
+    # C4: Open=91, High=97, Low=89, Close=95 (closed inside [90, 100])
+    c4 = {"open_time": base_t + 3 * dur, "open": 91.0, "high": 97.0, "low": 89.0, "close": 95.0, "is_closed": True}
+    as_of = base_t + 4 * dur
+
+    reactions = build_htf_zone_reactions({"4H": [c1, c2, c3, c4]}, as_of_ms=as_of)
+    assert len(reactions) >= 1
+    assert reactions[0]["reaction"] == "IN_ZONE"
+    assert reactions[0]["reaction"] != "RESPECTED"
+
+
+# =========================================================================
+# Rule 095: Real Orchestrator Arm Caller with Changed Authority Blocks
+# =========================================================================
+def test_real_orchestrator_arm_blocked_when_current_authority_mismatches():
+    """Rule 095: Real orchestrator evaluates candidate; if current authority changed before arm, no order is armed."""
+    import json
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from models import Base
+    import models
+    from services.scalp_watcher_orchestrator import ScalpWatcherOrchestrator
+    from services.scalp_m1_model_service import ScalpCandidate
+    from domain_calculator import calculate_risk_reward
+    from services.scalp_m1_types import M1ScalpConfig
+    from services.cg01_daily_bias_service import record_current_cg01_bias_authority, clear_current_cg01_bias_authority
+    from services.cg01_daily_bias_types import CG01DailyBiasSnapshot
+
+    clear_current_cg01_bias_authority()
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+
+    orchestrator = ScalpWatcherOrchestrator()
+    symbol = "XAUUSDT"
+    now_ms = 1700000000000
+
+    calc = calculate_risk_reward("LONG", 2500.0, 2490.0, 2535.0, 1000.0, 0.25)
+    cand = ScalpCandidate(
+        is_eligible=True,
+        model_id="CG01_SWEEP_MSS_FVG",
+        direction="LONG",
+        candidate_key="cand_arm_test_01",
+        symbol=symbol,
+        planned_entry=2500.0,
+        stop_loss=2490.0,
+        take_profit=2535.0,
+        zone_id="poi_01",
+        origin_episode_id="ep_01",
+        valid_until_ms=now_ms + 60000,
+        calculation=calc,
+        evidence={
+            "direction_policy": "DAILY_BIAS_PRIMARY",
+            "daily_bias": {
+                "status": "READY",
+                "direction": "BULLISH",
+                "allowed_directions": ["LONG"],
+                "authority_token": "cand_tok_original",
+                "config_fingerprint": "fp_same",
+            },
+        },
+    )
+
+    # 1. Authority changed in registry before arming (e.g. direction changed to SHORT)
+    changed_snap = CG01DailyBiasSnapshot(
+        symbol=symbol,
+        trading_day_key="2023-11-20",
+        bias_id="bias_changed",
+        direction="BEARISH",
+        status="READY",
+        allowed_directions=("SHORT",),
+        authority_token="current_tok_changed",
+        config_fingerprint="fp_same",
+    )
+    record_current_cg01_bias_authority(symbol, changed_snap, evaluated_at_ms=now_ms)
+
+    cfg = M1ScalpConfig(
+        scalp_m1_mode="PAPER",
+        execution_profile="CG01",
+        cg01_enabled=True,
+        cg01_profile_mode="PAPER_EXECUTION",
+    )
+    quote = {"bid": 2500.0, "ask": 2500.2, "last": 2500.1, "timestamp": now_ms}
+
+    armed_order = orchestrator._arm_paper_candidate(
+        db, cand, now_ms=now_ms, clock=None, quote=quote, policy_settings={}, config=cfg, auto_enabled=True
+    )
+    # Order must NOT be armed
+    assert armed_order is None
+    orders_in_db = db.query(models.PaperOrder).all()
+    assert len(orders_in_db) == 0
+
+    # 2. When current authority is updated to match candidate, arming succeeds (Rule 097)
+    import copy
+    cand2 = copy.copy(cand)
+    cand2.candidate_key = "cand_arm_test_02"
+    matching_snap = CG01DailyBiasSnapshot(
+        symbol=symbol,
+        trading_day_key="2023-11-20",
+        bias_id="bias_matching",
+        direction="BULLISH",
+        status="READY",
+        allowed_directions=("LONG",),
+        authority_token="cand_tok_original",
+        config_fingerprint="fp_same",
+    )
+    record_current_cg01_bias_authority(symbol, matching_snap, evaluated_at_ms=now_ms)
+
+    armed_order_success = orchestrator._arm_paper_candidate(
+        db, cand2, now_ms=now_ms, clock=None, quote=quote, policy_settings={}, config=cfg, auto_enabled=True
+    )
+    assert armed_order_success is not None
+    assert armed_order_success.state == "armed"
+
+
+# =========================================================================
+# Rule 096, 097: Real Fill Path via Coordinator / PaperBroker
+# =========================================================================
+def test_real_fill_path_blocked_on_unready_and_succeeds_on_valid_authority():
+    """Rules 096, 097: Coordinator fill checks current authority; blocks when unready, fills when valid."""
+    import json
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from models import Base
+    import models
+    from services.execution_coordinator import ExecutionCoordinator
+    from services.cg01_daily_bias_service import record_current_cg01_bias_authority, clear_current_cg01_bias_authority
+    from services.cg01_daily_bias_types import CG01DailyBiasSnapshot
+    from services.trading_policy_service import TradingPolicyService
+
+    clear_current_cg01_bias_authority()
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+
+    policy = TradingPolicyService.get_or_create_policy(db)
+    policy.max_daily_fills = 3
+    policy.is_active = False
+    db.commit()
+
+    now_ms = 1700000000000
+    symbol = "XAUUSDT"
+    auth_tok = "tok_auth_valid_fill"
+
+    arm_snap = {
+        "binding": {
+            "direction_policy": "DAILY_BIAS_PRIMARY",
+            "authority_token": auth_tok,
+            "allowed_directions": ["LONG"],
+        }
+    }
+    order = models.PaperOrder(
+        id="ord_real_fill_test",
+        setup_id="setup_001",
+        signal_id="sig_001",
+        instrument=symbol,
+        direction="LONG",
+        planned_entry=2500.0,
+        actual_entry=None,
+        stop_loss=2490.0,
+        take_profit=2535.0,
+        quantity=1.0,
+        initial_risk_usdt=10.0,
+        state="armed",
+        order_type="LIMIT",
+        created_at=now_ms,
+        arm_decision_snapshot=json.dumps(arm_snap),
+    )
+    db.add(order)
+    db.commit()
+
+    coordinator = ExecutionCoordinator()
+
+    # Case A (Rule 096): Current bias is unavailable in registry -> fill deferred, state remains armed
+    coordinator.evaluate_orders_sync(
+        db,
+        ticker_override={"bid": 2499.5, "ask": 2499.8, "last": 2499.6, "timestamp": now_ms + 1000},
+        now_ms=now_ms + 1000,
+    )
+    db.refresh(order)
+    assert order.state == "armed"
+    assert order.actual_entry is None
+
+    # Case B (Rule 097): Current bias becomes READY with matching token & direction -> fills successfully!
+    valid_snap = CG01DailyBiasSnapshot(
+        symbol=symbol,
+        trading_day_key="2023-11-20",
+        bias_id="bias_valid_01",
+        direction="BULLISH",
+        status="READY",
+        allowed_directions=("LONG",),
+        authority_token=auth_tok,
+        config_fingerprint="fp_ok",
+    )
+    record_current_cg01_bias_authority(symbol, valid_snap, evaluated_at_ms=now_ms + 2000)
+
+    coordinator.evaluate_orders_sync(
+        db,
+        ticker_override={"bid": 2499.5, "ask": 2499.8, "last": 2499.6, "timestamp": now_ms + 2000},
+        now_ms=now_ms + 2000,
+    )
+    db.refresh(order)
+    assert order.state == "paper_open"
+    assert order.actual_entry == 2500.0
+
+
+# =========================================================================
+# Rule 099: Active Position Preserved Under Background Processing Cycles
+# =========================================================================
+def test_active_position_invariant_under_processing_cycles_and_bias_flip():
+    """Rule 099: An open position remains open and immutable even if daily bias flips in registry."""
+    import json
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from models import Base
+    import models
+    from services.execution_coordinator import ExecutionCoordinator
+    from services.cg01_daily_bias_service import record_current_cg01_bias_authority
+    from services.cg01_daily_bias_types import CG01DailyBiasSnapshot
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+
+    now_ms = 1700000000000
+    pos = models.PaperOrder(
+        id="ord_open_pos_invariance",
+        setup_id="setup_002",
+        signal_id="sig_002",
+        instrument="XAUUSDT",
+        direction="LONG",
+        planned_entry=2500.0,
+        actual_entry=2500.0,
+        stop_loss=2490.0,
+        take_profit=2535.0,
+        quantity=1.0,
+        initial_risk_usdt=10.0,
+        state="paper_open",
+        created_at=now_ms,
+    )
+    db.add(pos)
+    db.commit()
+
+    # Flip bias in registry to BEARISH
+    bear_snap = CG01DailyBiasSnapshot(
+        symbol="XAUUSDT",
+        trading_day_key="2023-11-20",
+        bias_id="bias_bear",
+        direction="BEARISH",
+        status="READY",
+        allowed_directions=("SHORT",),
+        authority_token="tok_bear_flip",
+    )
+    record_current_cg01_bias_authority("XAUUSDT", bear_snap, evaluated_at_ms=now_ms + 5000)
+
+    coordinator = ExecutionCoordinator()
+    # Price is safely between SL (2490) and TP (2535)
+    coordinator.evaluate_orders_sync(
+        db,
+        ticker_override={"bid": 2505.0, "ask": 2505.2, "last": 2505.1, "timestamp": now_ms + 5000},
+        now_ms=now_ms + 5000,
+    )
+    db.refresh(pos)
+    assert pos.state == "paper_open"
+    assert pos.stop_loss == 2490.0
+    assert pos.take_profit == 2535.0
+    assert pos.actual_entry == 2500.0
+
+
+# =========================================================================
+# Rule 100: Real Restart with Pending Order and Bootstrap Recovery
+# =========================================================================
+def test_restart_persisted_pending_order_fills_after_bootstrap():
+    """Rule 100: Persist pending order, simulate restart by clearing registry, verify fail-closed then fill after bootstrap."""
+    import json
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from models import Base
+    import models
+    from services.execution_coordinator import ExecutionCoordinator
+    from services.cg01_daily_bias_service import record_current_cg01_bias_authority, clear_current_cg01_bias_authority
+    from services.cg01_daily_bias_types import CG01DailyBiasSnapshot
+    from services.trading_policy_service import TradingPolicyService
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+
+    policy = TradingPolicyService.get_or_create_policy(db)
+    policy.max_daily_fills = 3
+    policy.is_active = False
+    db.commit()
+
+    now_ms = 1700000000000
+    token_x = "token_bootstrap_recovery_100"
+
+    arm_snap = {
+        "binding": {
+            "direction_policy": "DAILY_BIAS_PRIMARY",
+            "authority_token": token_x,
+            "allowed_directions": ["LONG"],
+        }
+    }
+    order = models.PaperOrder(
+        id="ord_restart_test_100",
+        setup_id="setup_100",
+        signal_id="sig_100",
+        instrument="XAUUSDT",
+        direction="LONG",
+        planned_entry=2500.0,
+        actual_entry=None,
+        stop_loss=2490.0,
+        take_profit=2535.0,
+        quantity=1.0,
+        initial_risk_usdt=10.0,
+        state="armed",
+        order_type="LIMIT",
+        created_at=now_ms,
+        arm_decision_snapshot=json.dumps(arm_snap),
+    )
+    db.add(order)
+    db.commit()
+
+    # Step 1: Simulate restart by completely clearing in-memory registry
+    clear_current_cg01_bias_authority()
+
+    coord_restart = ExecutionCoordinator()
+    coord_restart.evaluate_orders_sync(
+        db,
+        ticker_override={"bid": 2499.0, "ask": 2499.5, "last": 2499.2, "timestamp": now_ms + 1000},
+        now_ms=now_ms + 1000,
+    )
+    db.refresh(order)
+    # Order cannot fill without bootstrapped authority!
+    assert order.state == "armed"
+    assert order.actual_entry is None
+
+    # Step 2: Bootstrap/warmup recovers authoritative daily bias
+    recovered_bias = CG01DailyBiasSnapshot(
+        symbol="XAUUSDT",
+        trading_day_key="2023-11-20",
+        bias_id="bias_bootstrap_01",
+        direction="BULLISH",
+        status="READY",
+        allowed_directions=("LONG",),
+        authority_token=token_x,
+    )
+    record_current_cg01_bias_authority("XAUUSDT", recovered_bias, evaluated_at_ms=now_ms + 2000)
+
+    # Step 3: Next evaluation cycle cleanly fills the order
+    coord_restart.evaluate_orders_sync(
+        db,
+        ticker_override={"bid": 2499.0, "ask": 2499.5, "last": 2499.2, "timestamp": now_ms + 2000},
+        now_ms=now_ms + 2000,
+    )
+    db.refresh(order)
+    assert order.state == "paper_open"
+    assert order.actual_entry == 2500.0

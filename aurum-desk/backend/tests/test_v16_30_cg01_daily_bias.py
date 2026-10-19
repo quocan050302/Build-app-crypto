@@ -494,7 +494,7 @@ def test_entry_guard_binding_under_primary():
         origin="AUTO_STRATEGY",
         strategy_family="CG01_SWEEP_MSS_FVG",
         setup_state="READY",
-        evidence={"direction_policy": "DAILY_BIAS_PRIMARY", "daily_bias": valid_bias},
+        evidence={"direction_policy": "DAILY_BIAS_PRIMARY", "daily_bias": valid_bias, "current_daily_bias": valid_bias},
     )
     # Check strategy individually
     from services.entry_guard_service import _check_strategy
@@ -511,7 +511,7 @@ def test_entry_guard_binding_under_primary():
         origin="AUTO_STRATEGY",
         strategy_family="CG01_SWEEP_MSS_FVG",
         setup_state="READY",
-        evidence={"direction_policy": "DAILY_BIAS_PRIMARY", "daily_bias": valid_bias},
+        evidence={"direction_policy": "DAILY_BIAS_PRIMARY", "daily_bias": valid_bias, "current_daily_bias": valid_bias},
     )
     check_mismatch = _check_strategy(req_mismatch)
     assert check_mismatch.state == "BLOCK"

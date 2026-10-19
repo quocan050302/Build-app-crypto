@@ -1532,8 +1532,20 @@ class ScalpWatcherOrchestrator:
                 cand_evidence["direction_policy"] = snap.context["direction_policy"]
             if "daily_bias" in snap.context and "daily_bias" not in cand_evidence:
                 cand_evidence["daily_bias"] = snap.context["daily_bias"]
-            if "current_daily_bias" not in cand_evidence and "daily_bias" in snap.context:
-                cand_evidence["current_daily_bias"] = snap.context["daily_bias"]
+
+        # Resolve true current daily bias authority (Rules 022, 032-038, 061)
+        from services.cg01_daily_bias_service import resolve_current_cg01_bias_authority
+        cg01_cfg = getattr(cfg, "cg01_config", None) if cfg else None
+        curr_auth = resolve_current_cg01_bias_authority(
+            symbol=cand.symbol,
+            now_ms=now_ms,
+            config=cg01_cfg,
+            clock=clock,
+        )
+        if curr_auth.bias:
+            cand_evidence["current_daily_bias"] = curr_auth.bias.to_dict()
+        else:
+            cand_evidence.pop("current_daily_bias", None)
 
         req = EntryGuardRequest(
             stage="ARM",
