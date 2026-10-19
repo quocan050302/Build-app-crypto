@@ -248,7 +248,37 @@ describe('deriveCG01DisplayState', () => {
     expect(state.isGuardBlocked).toBe(true);
     expect(state.tone).toBe('warning');
     expect(state.stageLabel).toBe('Bị Chặn Bởi Guard');
-    expect(state.description).toContain('DAILY_MAX_CAP_REACHED');
+    // Rule 055: Mapped guard explanation in Vietnamese, not raw DAILY_MAX_CAP_REACHED code
+    expect(state.description).toContain('giới hạn số lệnh tối đa');
+  });
+
+  it('handles unknown guard code cleanly with safe fallback (Item 056)', () => {
+    const payload: CG01EvaluationPayload = {
+      enabled: true,
+      evaluated: true,
+      stage: 'GUARD_BLOCKED',
+      guard_summary: {
+        blocked_reason: 'SOME_COMPLETELY_NEW_GUARD_CODE',
+      },
+      reason_codes: ['GUARD_BLOCKED'],
+      as_of_ms: baseNow - 200,
+    };
+    const state = deriveCG01DisplayState(payload, true, baseNow);
+    expect(state.isGuardBlocked).toBe(true);
+    expect(state.description).toContain('cơ chế kiểm soát rủi ro (SOME_COMPLETELY_NEW_GUARD_CODE)');
+  });
+
+  it('handles GUARD_BLOCKED without specific reason code (Item 056)', () => {
+    const payload: CG01EvaluationPayload = {
+      enabled: true,
+      evaluated: true,
+      stage: 'GUARD_BLOCKED',
+      reason_codes: ['GUARD_BLOCKED'],
+      as_of_ms: baseNow - 200,
+    };
+    const state = deriveCG01DisplayState(payload, true, baseNow);
+    expect(state.isGuardBlocked).toBe(true);
+    expect(state.description).toContain('Lệnh đang bị cơ chế bảo vệ chặn; xem chi tiết để biết nguyên nhân.');
   });
 
   it('handles DEGRADED lifecycle state on transaction rollback (Item 055, 144)', () => {
@@ -266,7 +296,55 @@ describe('deriveCG01DisplayState', () => {
     expect(state.isDegraded).toBe(true);
     expect(state.tone).toBe('danger');
     expect(state.stageLabel).toBe('Hệ Thống Tạm Dừng');
-    expect(state.description).toContain('lỗi ghi nhận dữ liệu');
+    // Rule 057: Does NOT promise "các lệnh đã có vẫn an toàn", describes factual pause
+    expect(state.description).toContain('Lỗi ghi nhận hoặc cập nhật dữ liệu');
+    expect(state.description).not.toContain('vẫn an toàn');
+  });
+
+  it('handles structured object ui_summary_vi correctly (Items 048-052, 075-076)', () => {
+    const payload: CG01EvaluationPayload = {
+      enabled: true,
+      evaluated: true,
+      stage: 'WAIT_RETEST',
+      direction: 'LONG',
+      poi_id: 'poi_obj_01',
+      as_of_ms: baseNow - 100,
+      ui_summary_vi: { status: 'POI poi_obj_01: Đang chờ giá hồi (retest) vào vùng FVG.' },
+    };
+    const state = deriveCG01DisplayState(payload, true, baseNow);
+    expect(state.description).toContain('Đang chờ giá hồi (retest) vào vùng FVG');
+    expect(state.description).not.toContain('[object Object]');
+  });
+
+  it('ensures DEGRADED and GUARD_BLOCKED take strict precedence over armed_order_id (Item 058)', () => {
+    // If a stale or rollback payload has armed_order_id set while stage is DEGRADED
+    const degradedWithOrder: CG01EvaluationPayload = {
+      enabled: true,
+      evaluated: true,
+      stage: 'DEGRADED',
+      armed_order_id: 'old_order_id_123',
+      as_of_ms: baseNow,
+    };
+    const stateDegraded = deriveCG01DisplayState(degradedWithOrder, true, baseNow);
+    expect(stateDegraded.isArmed).toBe(false);
+    expect(stateDegraded.isDegraded).toBe(true);
+    expect(stateDegraded.tone).toBe('danger');
+    expect(stateDegraded.description).toContain('Lỗi ghi nhận hoặc cập nhật dữ liệu');
+
+    // If a payload has armed_order_id set while stage is GUARD_BLOCKED
+    const blockedWithOrder: CG01EvaluationPayload = {
+      enabled: true,
+      evaluated: true,
+      stage: 'GUARD_BLOCKED',
+      armed_order_id: 'old_order_id_456',
+      guard_summary: { blocked_reason: 'DAILY_MAX_CAP' },
+      as_of_ms: baseNow,
+    };
+    const stateBlocked = deriveCG01DisplayState(blockedWithOrder, true, baseNow);
+    expect(stateBlocked.isArmed).toBe(false);
+    expect(stateBlocked.isGuardBlocked).toBe(true);
+    expect(stateBlocked.tone).toBe('warning');
+    expect(stateBlocked.description).toContain('giới hạn số lệnh tối đa');
   });
 
   it('tracks fresh vs stale updates based on 90s boundary (Item 145)', () => {

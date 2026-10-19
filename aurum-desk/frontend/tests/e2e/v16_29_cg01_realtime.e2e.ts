@@ -9,8 +9,13 @@ import { test, expect } from '@playwright/test';
 const API_PORT = process.env.AURUM_E2E_API_PORT ?? '8765';
 
 test.describe('V16.29 CG-01 Realtime UI Closure', () => {
+  test.beforeEach(async ({ page, request }) => {
+    await page.goto('about:blank');
+    await request.post(`http://127.0.0.1:${API_PORT}/__e2e/reset`);
+  });
+
   test('E01: CG-01 status card renders stage, direction, compact POI and Vietnamese reason', async ({ page, request }) => {
-    // 1. Seed initial CG-01 state via test endpoint
+    // 1. Seed initial CG-01 state via test endpoint with structured object ui_summary_vi (Rule 089)
     const initialEval = {
       enabled: true,
       evaluated: true,
@@ -18,13 +23,15 @@ test.describe('V16.29 CG-01 Realtime UI Closure', () => {
       direction: 'LONG',
       poi_id: 'poi_xauusdt_15m_demand_test_01',
       reason_codes: ['WAITING_MSS_CONFIRMATION'],
-      ui_summary_vi: 'Đã có quét thanh khoản; đang chờ nến đóng xác nhận phá cấu trúc và lực đẩy.',
+      ui_summary_vi: { status: 'Đã có quét thanh khoản; đang chờ nến đóng xác nhận phá cấu trúc và lực đẩy.' },
       as_of_ms: Date.now(),
     };
-    await request.post(`http://127.0.0.1:${API_PORT}/__e2e/cg01_evaluation`, { data: initialEval });
+    const seedRes = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/cg01_evaluation`, { data: initialEval });
+    expect(seedRes.ok()).toBe(true);
 
     // 2. Open dashboard
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+
 
     // 3. Verify CG-01 Diagnostics card is rendered
     const card = page.locator('[data-testid="cg01-diagnostic-card"]');
@@ -37,7 +44,7 @@ test.describe('V16.29 CG-01 Realtime UI Closure', () => {
     const directionBadge = page.locator('[data-testid="cg01-direction-badge"]');
     await expect(directionBadge).toContainText('LONG');
 
-    // 5. Verify Vietnamese explanation
+    // 5. Verify Vietnamese explanation from object status
     const descText = page.locator('[data-testid="cg01-description-text"]');
     await expect(descText).toContainText('phá cấu trúc');
 
@@ -62,9 +69,10 @@ test.describe('V16.29 CG-01 Realtime UI Closure', () => {
       reason_codes: ['NO_FVG_ON_LEG'],
       as_of_ms: Date.now(),
     };
-    await request.post(`http://127.0.0.1:${API_PORT}/__e2e/cg01_evaluation`, { data: initialEval });
+    const seed1 = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/cg01_evaluation`, { data: initialEval });
+    expect(seed1.ok()).toBe(true);
 
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     const statusBadge = page.locator('[data-testid="cg01-status-badge"]');
     await expect(statusBadge).toContainText('Chờ Tạo FVG', { timeout: 10000 });
 
@@ -80,7 +88,8 @@ test.describe('V16.29 CG-01 Realtime UI Closure', () => {
       reason_codes: ['EXECUTABLE'],
       as_of_ms: Date.now() + 1000,
     };
-    await request.post(`http://127.0.0.1:${API_PORT}/__e2e/cg01_evaluation`, { data: armedEval });
+    const seed2 = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/cg01_evaluation`, { data: armedEval });
+    expect(seed2.ok()).toBe(true);
 
     // 3. UI immediately updates to ARMED
     await expect(statusBadge).toContainText('Đã Đặt Lệnh Chờ', { timeout: 5000 });
@@ -100,9 +109,11 @@ test.describe('V16.29 CG-01 Realtime UI Closure', () => {
       reason_codes: ['WAITING_MSS_CONFIRMATION'],
       as_of_ms: Date.now(),
     };
-    await request.post(`http://127.0.0.1:${API_PORT}/__e2e/cg01_evaluation`, { data: evalData });
+    const seedRes = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/cg01_evaluation`, { data: evalData });
+    expect(seedRes.ok()).toBe(true);
 
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+
     const card = page.locator('[data-testid="cg01-diagnostic-card"]');
     await expect(card).toBeVisible({ timeout: 10000 });
 
@@ -111,5 +122,11 @@ test.describe('V16.29 CG-01 Realtime UI Closure', () => {
     await expect(poiBadge).toBeVisible();
     const text = await poiBadge.textContent();
     expect(text).toContain('...');
+
+    // Rule 091: Measure bounds to verify card fits within mobile viewport width
+    const cardBox = await card.boundingBox();
+    expect(cardBox).not.toBeNull();
+    expect(cardBox!.x + cardBox!.width).toBeLessThanOrEqual(390 + 5);
   });
+
 });

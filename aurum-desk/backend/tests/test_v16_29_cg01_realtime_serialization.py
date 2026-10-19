@@ -231,3 +231,83 @@ def test_get_scalp_cg01_evaluation_endpoint():
     assert "stage" in data
     assert "enabled" in data
     assert "reason_codes" in data
+
+
+def test_serialize_cg01_evaluation_object_ui_summary_vi():
+    """Item 077: Decision with structured dict ui_summary_vi preserves object shape through serialization."""
+    summary_obj = {"status": "POI poi_demand_01: Đang chờ giá hồi (retest) vào vùng FVG."}
+    dec = CG01Decision(
+        stage=CG01Stage.WAIT_ENTRY.value,
+        is_eligible=False,
+        reason_codes=["WAIT_RETEST"],
+        direction="LONG",
+        poi_id="poi_demand_01",
+        ui_summary_vi=summary_obj,
+        as_of_ms=15000,
+    )
+    res = serialize_cg01_evaluation(dec, enabled=True, evaluated=True, as_of_ms=15000)
+    assert res["stage"] == "WAIT_ENTRY"
+    assert res["poi_id"] == "poi_demand_01"
+    assert isinstance(res["ui_summary_vi"], dict)
+    assert res["ui_summary_vi"]["status"] == "POI poi_demand_01: Đang chờ giá hồi (retest) vào vùng FVG."
+
+
+def test_serialize_cg01_multi_poi_isolation():
+    """Item 080: Multi-POI evaluation preserves individual POI ID, direction, and stage without cross-contamination."""
+    dec_a = CG01Decision(
+        stage=CG01Stage.WAIT_SWEEP.value,
+        is_eligible=False,
+        reason_codes=["WAITING_SWEEP_CONFIRMATION"],
+        direction="LONG",
+        poi_id="poi_zone_demand_h1",
+        ui_summary_vi={"status": "Chờ quét thanh khoản"},
+        as_of_ms=20000,
+    )
+    dec_b = CG01Decision(
+        stage=CG01Stage.EXECUTABLE.value,
+        is_eligible=True,
+        reason_codes=["EXECUTABLE"],
+        direction="SHORT",
+        poi_id="poi_zone_supply_m15",
+        ui_summary_vi={"status": "Đủ điều kiện"},
+        as_of_ms=20000,
+    )
+
+    res_a = serialize_cg01_evaluation(dec_a, enabled=True, evaluated=True, as_of_ms=20000)
+    res_b = serialize_cg01_evaluation(dec_b, enabled=True, evaluated=True, as_of_ms=20000)
+
+    assert res_a["poi_id"] == "poi_zone_demand_h1"
+    assert res_a["direction"] == "LONG"
+    assert res_a["stage"] == "WAIT_SWEEP"
+
+    assert res_b["poi_id"] == "poi_zone_supply_m15"
+    assert res_b["direction"] == "SHORT"
+    assert res_b["stage"] == "EXECUTABLE"
+
+
+def test_orchestrator_broadcasts_final_cg01_evaluation_payload():
+    """Items 078, 079: Orchestrator records and dispatches final evaluation payload with accurate stage, armed_order_id, and guards."""
+    orch = ScalpWatcherOrchestrator()
+    eval_final = {
+        "enabled": True,
+        "evaluated": True,
+        "stage": "ARMED",
+        "direction": "LONG",
+        "poi_id": "poi_final_01",
+        "armed_order_id": "order_paper_final_777",
+        "arm_outcome": "ARMED",
+        "reason_codes": ["EXECUTABLE"],
+        "as_of_ms": 30000,
+    }
+
+    with patch("services.market_broadcaster.market_broadcaster.dispatch_cg01_evaluation") as mock_dispatch:
+        orch._record_and_broadcast_cg01_evaluation("XAUUSDT", eval_final)
+
+        # 1. State stored in orchestrator
+        retrieved = orch.get_latest_cg01_evaluation("XAUUSDT")
+        assert retrieved["stage"] == "ARMED"
+        assert retrieved["armed_order_id"] == "order_paper_final_777"
+        assert retrieved["arm_outcome"] == "ARMED"
+
+        # 2. Final payload dispatched via market_broadcaster
+        mock_dispatch.assert_called_once_with(eval_final, symbol="XAUUSDT")

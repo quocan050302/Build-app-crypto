@@ -4,6 +4,8 @@
  * Conforms to prompt rules 071-086, 056-058.
  */
 
+export type CG01SummaryVi = string | { status?: string; message?: string; [key: string]: any } | null;
+
 export const CG01_STAGE_TITLES: Record<string, string> = {
   MODEL_DISABLED: 'Mô Hình Đang Tắt',
   NO_QUOTE: 'Thiếu Báo Giá',
@@ -55,13 +57,21 @@ export const CG01_REASON_DESCRIPTIONS: Record<string, string> = {
   ARMED: 'Lệnh chờ đã được đặt thành công theo kế hoạch.',
   GUARD_BLOCKED: 'Lệnh bị chặn bởi cơ chế kiểm soát rủi ro hệ thống.',
   OTHER_MODEL_SELECTED: 'Hệ thống ưu tiên thực thi mô hình khác trong chu kỳ này.',
+  DAILY_MAX_CAP_REACHED: 'Đã đạt giới hạn số lệnh tối đa trong ngày theo quy tắc quản trị rủi ro.',
+  DAILY_MAX_CAP: 'Đã đạt giới hạn số lệnh tối đa trong ngày theo quy tắc quản trị rủi ro.',
+  MAX_CAP_REACHED: 'Đã đạt giới hạn số lệnh tối đa cho phép.',
+  ACCOUNT_RISK_LIMIT: 'Vượt mức rủi ro tài khoản cho phép.',
+  SPREAD_EXCEEDED: 'Chênh lệch giá mua/bán (spread) vượt ngưỡng cho phép.',
+  QUOTE_STALE: 'Báo giá thị trường bị trễ hoặc mất kết nối.',
+  NEWS_BLACKOUT: 'Đang trong khung giờ hạn chế giao dịch do tin tức mạnh.',
+  LESSON_GUARD_BLOCKED: 'Bị chặn bởi bài học kinh nghiệm giao dịch trong quá khứ.',
 
   // System & Feed Health
   MODEL_DISABLED: 'Mô hình CG-01 hiện đang tắt trong cấu hình.',
   NO_QUOTE: 'Thiếu báo giá hợp lệ từ sàn.',
   WARMUP_INSUFFICIENT: 'Đang thiếu dữ liệu nến cần thiết để tính toán chỉ báo và ATR.',
   ATR_WARMUP: 'Đang thiếu dữ liệu nến cần thiết để tính toán ATR và biên độ.',
-  DEGRADED: 'Hệ thống tạm dừng tạo lệnh do lỗi ghi nhận dữ liệu; các lệnh đã có vẫn được bảo vệ.',
+  DEGRADED: 'Lỗi ghi nhận hoặc cập nhật dữ liệu; hệ thống tạm dừng tạo lệnh và cần kiểm tra lại trạng thái.',
   CYCLE_FAILED: 'Chu kỳ phân tích gặp sự cố hệ thống, sẽ tự động thử lại ở chu kỳ tiếp theo.',
   TRANSACTION_COMMIT_FAILED: 'Giao dịch lưu dữ liệu không thành công; hệ thống đã phục hồi về trạng thái an toàn.',
 };
@@ -78,28 +88,52 @@ export function getCG01StageTitle(stage: string | null | undefined): string {
 }
 
 /**
+ * Safely extracts user-facing summary string from either a string or structured object { status: "..." }.
+ * Never returns "[object Object]".
+ */
+export function extractCG01SummaryText(uiSummary: CG01SummaryVi | undefined): string | null {
+  if (!uiSummary) return null;
+  if (typeof uiSummary === 'string') {
+    const trimmed = uiSummary.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof uiSummary === 'object' && uiSummary !== null) {
+    if (typeof uiSummary.status === 'string') {
+      const trimmed = uiSummary.status.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    }
+    if (typeof uiSummary.message === 'string') {
+      const trimmed = uiSummary.message.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    }
+  }
+  return null;
+}
+
+/**
  * Resolves user-friendly Vietnamese description for a machine reason code.
  * If backend summary contains raw technical constants, catalog takes precedence.
  * Guaranteed never to return undefined, null, or '[object Object]'.
  */
 export function getCG01ReasonDescription(
   reasonCode: string | null | undefined,
-  fallbackSummary?: string | null
+  fallbackSummary?: CG01SummaryVi | null
 ): string {
   // If reason code is mapped in catalog, prefer catalog explanation
   if (reasonCode && typeof reasonCode === 'string' && CG01_REASON_DESCRIPTIONS[reasonCode]) {
     return CG01_REASON_DESCRIPTIONS[reasonCode];
   }
 
-  // If backend provided a summary string, check whether it is friendly or contains raw code
-  if (fallbackSummary && typeof fallbackSummary === 'string' && fallbackSummary.trim().length > 0) {
-    // If fallbackSummary is just an unmapped technical constant, wrap it cleanly
-    if (/^[A-Z0-9_]+$/.test(fallbackSummary.trim())) {
-      const mapped = CG01_REASON_DESCRIPTIONS[fallbackSummary.trim()];
+  // Extract clean text from fallbackSummary (whether it is string or object)
+  const summaryText = extractCG01SummaryText(fallbackSummary);
+  if (summaryText) {
+    // If summaryText is just an unmapped technical constant, wrap it cleanly
+    if (/^[A-Z0-9_]+$/.test(summaryText)) {
+      const mapped = CG01_REASON_DESCRIPTIONS[summaryText];
       if (mapped) return mapped;
-      return `Đang theo dõi điều kiện: ${fallbackSummary.trim()}`;
+      return `Đang theo dõi điều kiện: ${summaryText}`;
     }
-    return fallbackSummary.trim();
+    return summaryText;
   }
 
   // If reasonCode is a string without direct mapping

@@ -1,15 +1,13 @@
 {
   "config": {
     "argv": [
-      "/Users/macbook/.nvm/versions/node/v22.22.3/bin/node",
-      "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/node_modules/.bin/playwright",
+      "C:\\Program Files\\nodejs\\node.exe",
+      "D:\\build app-crypto\\aurum-desk\\frontend\\node_modules\\@playwright\\test\\cli.js",
       "test",
-      "tests/e2e/v14_4_2_realtime_soak.e2e.ts",
-      "-g",
-      "R06"
+      "tests/e2e/v16_29_cg01_realtime.e2e.ts"
     ],
-    "configFile": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/playwright.config.ts",
-    "rootDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
+    "configFile": "D:\\build app-crypto\\aurum-desk\\frontend\\playwright.config.ts",
+    "rootDir": "D:/build app-crypto/aurum-desk/frontend/tests/e2e",
     "failOnFlakyTests": false,
     "forbidOnly": false,
     "fullyParallel": false,
@@ -25,7 +23,7 @@
     "preserveOutput": "always",
     "projects": [
       {
-        "outputDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/test-results",
+        "outputDir": "D:/build app-crypto/aurum-desk/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
@@ -33,7 +31,7 @@
         },
         "id": "",
         "name": "",
-        "testDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
+        "testDir": "D:/build app-crypto/aurum-desk/frontend/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.e2e.ts"
@@ -45,15 +43,15 @@
       {
         "grep": {},
         "grepInvert": null,
-        "outputDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/test-results",
+        "outputDir": "D:\\build app-crypto\\aurum-desk\\frontend\\test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
           "actualWorkers": 1
         },
         "name": "",
-        "testDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
-        "snapshotDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
+        "testDir": "D:\\build app-crypto\\aurum-desk\\frontend\\tests\\e2e",
+        "snapshotDir": "D:\\build app-crypto\\aurum-desk\\frontend\\tests\\e2e",
         "testIgnore": [],
         "testMatch": "**/*.e2e.ts",
         "timeout": 60000,
@@ -99,25 +97,25 @@
   },
   "suites": [
     {
-      "title": "v14_4_2_realtime_soak.e2e.ts",
-      "file": "v14_4_2_realtime_soak.e2e.ts",
+      "title": "v16_29_cg01_realtime.e2e.ts",
+      "file": "v16_29_cg01_realtime.e2e.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "V14.4.2 Realtime Soak Suite",
-          "file": "v14_4_2_realtime_soak.e2e.ts",
-          "line": 20,
+          "title": "V16.29 CG-01 Realtime UI Closure",
+          "file": "v16_29_cg01_realtime.e2e.ts",
+          "line": 11,
           "column": 6,
           "specs": [
             {
-              "title": "R06: 10,000-event 60s stream soak with continuous telemetry measurement",
+              "title": "E01: CG-01 status card renders stage, direction, compact POI and Vietnamese reason",
               "ok": true,
               "tags": [],
               "tests": [
                 {
-                  "timeout": 240000,
+                  "timeout": 60000,
                   "annotations": [],
                   "expectedStatus": "passed",
                   "projectId": "",
@@ -127,12 +125,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 61803,
+                      "duration": 4802,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-13T13:22:35.745Z",
+                      "startTime": "2026-10-19T01:36:58.284Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -140,9 +138,77 @@
                   "status": "expected"
                 }
               ],
-              "id": "becef10e6f6730db2629-886701cb5d7b2167d43a",
-              "file": "v14_4_2_realtime_soak.e2e.ts",
-              "line": 176,
+              "id": "c36dc5943a01ee73a763-c0eb254b4e1dc58cc159",
+              "file": "v16_29_cg01_realtime.e2e.ts",
+              "line": 17,
+              "column": 3
+            },
+            {
+              "title": "E02: CG-01 dynamically updates on live WS ARMED broadcast without page reload",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1742,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-19T01:37:03.829Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c36dc5943a01ee73a763-c050ce9762a90c2f0d69",
+              "file": "v16_29_cg01_realtime.e2e.ts",
+              "line": 61,
+              "column": 3
+            },
+            {
+              "title": "E03: Compact rendering on mobile viewport without overflow",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2263,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-19T01:37:05.599Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c36dc5943a01ee73a763-6133fcd05eaadd096736",
+              "file": "v16_29_cg01_realtime.e2e.ts",
+              "line": 100,
               "column": 3
             }
           ]
@@ -152,9 +218,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-13T13:22:34.031Z",
-    "duration": 64348.075000000004,
-    "expected": 1,
+    "startTime": "2026-10-19T01:36:49.231Z",
+    "duration": 20193.112999999998,
+    "expected": 3,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

@@ -5,7 +5,14 @@
  * Conforms to prompt rules 041-058, 066-070, 085, 089, 106-107, 113-114.
  */
 
-import { getCG01StageTitle, getCG01ReasonDescription } from './cg01ReasonText';
+import {
+  getCG01StageTitle,
+  getCG01ReasonDescription,
+  CG01_REASON_DESCRIPTIONS,
+  type CG01SummaryVi,
+} from './cg01ReasonText';
+
+export type { CG01SummaryVi };
 
 export interface CG01EvaluationPayload {
   enabled?: boolean;
@@ -24,9 +31,46 @@ export interface CG01EvaluationPayload {
     blocked_at?: number;
     [key: string]: any;
   } | null;
-  ui_summary_vi?: string | null;
+  ui_summary_vi?: CG01SummaryVi;
   poi_id?: string | null;
   direction?: string | null;
+}
+
+/**
+ * Normalizes raw evaluation payload from WebSocket or HTTP API boundary (Item 051).
+ * Preserves all underlying facts and structural properties.
+ */
+export function normalizeCG01EvaluationPayload(raw: any): CG01EvaluationPayload {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      enabled: false,
+      evaluated: false,
+      stage: 'OBSERVING',
+      as_of_ms: 0,
+      reason_codes: [],
+      ui_summary_vi: null,
+      poi_id: null,
+      direction: null,
+      armed_order_id: null,
+      eligible: false,
+      guard_summary: null,
+    };
+  }
+
+  return {
+    ...raw,
+    enabled: Boolean(raw.enabled),
+    evaluated: Boolean(raw.evaluated),
+    stage: raw.stage || (raw.enabled ? 'OBSERVING' : 'MODEL_DISABLED'),
+    as_of_ms: Number(raw.as_of_ms) || 0,
+    reason_codes: Array.isArray(raw.reason_codes) ? raw.reason_codes : [],
+    ui_summary_vi: raw.ui_summary_vi ?? null,
+    poi_id: raw.poi_id || null,
+    direction: raw.direction || null,
+    armed_order_id: raw.armed_order_id || null,
+    eligible: Boolean(raw.eligible),
+    guard_summary: raw.guard_summary || null,
+  };
 }
 
 export type CG01Tone = 'neutral' | 'info' | 'warning' | 'success' | 'danger';
@@ -128,21 +172,26 @@ export function deriveCG01DisplayState(
   // 2. Staleness detection (Items 106-107)
   const isStale = asOfMs > 0 && nowMs - asOfMs > CG01_STALE_THRESHOLD_MS;
 
-  // 3. Lifecycle state flags
-  const isArmed = stage === 'ARMED' || Boolean(armedOrderId);
-  const isGuardBlocked = stage === 'GUARD_BLOCKED';
+  // 3. Lifecycle state flags with strict priority (Item 058)
   const isDegraded = stage === 'DEGRADED';
+  const isGuardBlocked = stage === 'GUARD_BLOCKED';
+  const isArmed =
+    (stage === 'ARMED' || Boolean(armedOrderId)) &&
+    !isDegraded &&
+    !isGuardBlocked &&
+    stage !== 'CYCLE_FAILED' &&
+    stage !== 'INVALIDATED';
 
-  // 4. Determine Tone
+  // 4. Determine Tone (precedence: disabled -> degraded -> guard blocked -> armed -> other)
   let tone: CG01Tone = 'neutral';
   if (!enabled || stage === 'MODEL_DISABLED') {
     tone = 'neutral';
-  } else if (isArmed) {
-    tone = 'success';
-  } else if (isGuardBlocked) {
-    tone = 'warning';
   } else if (isDegraded || stage === 'CYCLE_FAILED' || stage === 'INVALIDATED' || stage === 'EXPIRED') {
     tone = 'danger';
+  } else if (isGuardBlocked) {
+    tone = 'warning';
+  } else if (isArmed) {
+    tone = 'success';
   } else if (stage === 'NO_QUOTE' || stage === 'WARMUP_INSUFFICIENT' || stage === 'ATR_WARMUP') {
     tone = 'warning';
   } else if (stage === 'EXECUTABLE') {
@@ -163,22 +212,29 @@ export function deriveCG01DisplayState(
     title = `CG-01: ${stageLabel} (Chậm Cập Nhật)`;
   }
 
-  // 6. Descriptive Explanation
+  // 6. Descriptive Explanation (strict precedence - Items 055-058)
   let description = '';
   if (!isConnected) {
     description = 'Mất kết nối với máy chủ - dữ liệu chưa được cập nhật.';
+  } else if (isDegraded) {
+    description = 'Lỗi ghi nhận hoặc cập nhật dữ liệu; hệ thống tạm dừng tạo lệnh và cần kiểm tra lại trạng thái.';
+  } else if (isGuardBlocked) {
+    const rawBlockedReason = payload.guard_summary?.blocked_reason || (primaryReason !== 'GUARD_BLOCKED' ? primaryReason : null);
+    if (rawBlockedReason && CG01_REASON_DESCRIPTIONS[rawBlockedReason]) {
+      description = CG01_REASON_DESCRIPTIONS[rawBlockedReason];
+    } else if (rawBlockedReason) {
+      description = `Lệnh bị chặn bởi cơ chế kiểm soát rủi ro (${rawBlockedReason}).`;
+    } else {
+      description = 'Lệnh đang bị cơ chế bảo vệ chặn; xem chi tiết để biết nguyên nhân.';
+    }
   } else if (isArmed) {
     description = armedOrderId
       ? `Đã đặt lệnh chờ (${armedOrderId}) theo kế hoạch.`
       : 'Đã đặt lệnh chờ thành công theo kế hoạch.';
-  } else if (isGuardBlocked) {
-    const blockedReason = payload.guard_summary?.blocked_reason || primaryReason || 'GUARD_BLOCKED';
-    description = `Lệnh bị chặn bởi cơ chế kiểm soát rủi ro (${blockedReason}).`;
-  } else if (isDegraded) {
-    description = 'Hệ thống tạm dừng tạo lệnh do lỗi ghi nhận dữ liệu; các lệnh đã có vẫn an toàn.';
   } else {
     description = getCG01ReasonDescription(primaryReason, payload.ui_summary_vi);
   }
+
 
   return {
     title,
