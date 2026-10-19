@@ -125,12 +125,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 4802,
+                      "duration": 2911,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-19T01:36:58.284Z",
+                      "startTime": "2026-10-19T02:04:10.271Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -159,12 +159,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1742,
+                      "duration": 1405,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-19T01:37:03.829Z",
+                      "startTime": "2026-10-19T02:04:13.724Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -193,12 +193,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2263,
+                      "duration": 2005,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-19T01:37:05.599Z",
+                      "startTime": "2026-10-19T02:04:15.157Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -208,7 +208,7 @@
               ],
               "id": "c36dc5943a01ee73a763-6133fcd05eaadd096736",
               "file": "v16_29_cg01_realtime.e2e.ts",
-              "line": 100,
+              "line": 115,
               "column": 3
             }
           ]
@@ -218,8 +218,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-19T01:36:49.231Z",
-    "duration": 20193.112999999998,
+    "startTime": "2026-10-19T02:04:01.788Z",
+    "duration": 16589.477000000003,
     "expected": 3,
     "skipped": 0,
     "unexpected": 0,

@@ -158,6 +158,150 @@ describe('CG-01 Realtime Reducer Production Logic (Rules 024-027, 069-072)', () 
     expect(getCG01LifecycleRank('WAIT_MSS')).toBe(0);
     expect(getCG01LifecycleRank(undefined)).toBe(0);
   });
+
+  it('Newer sequence preserves changed reason (Item 027)', () => {
+    const empty: CG01RealtimeInternalState = {
+      rawEvaluation: null,
+      asOfMs: 0,
+      serverSequence: 0,
+    };
+
+    const first = reduceCG01RealtimeUpdate(empty, {
+      source: 'WS',
+      serverSequence: 10,
+      payload: {
+        enabled: true,
+        as_of_ms: 5000,
+        stage: 'WAIT_FVG',
+        poi_id: 'POI_A',
+        reason_codes: ['NO_FVG_ON_LEG'],
+      },
+    });
+
+    const next = reduceCG01RealtimeUpdate(first, {
+      source: 'WS',
+      serverSequence: 11,
+      payload: {
+        enabled: true,
+        as_of_ms: 5000,
+        stage: 'WAIT_FVG',
+        poi_id: 'POI_A',
+        reason_codes: ['FVG_OVER_MITIGATED'],
+      },
+    });
+
+    expect(next.rawEvaluation?.reason_codes).toEqual(['FVG_OVER_MITIGATED']);
+    expect(next.serverSequence).toBe(11);
+  });
+
+  it('Newer sequence accepts authoritative lifecycle correction (Item 028)', () => {
+    const empty: CG01RealtimeInternalState = {
+      rawEvaluation: null,
+      asOfMs: 0,
+      serverSequence: 0,
+    };
+
+    const first = reduceCG01RealtimeUpdate(empty, {
+      source: 'WS',
+      serverSequence: 10,
+      payload: {
+        enabled: true,
+        as_of_ms: 5000,
+        stage: 'ARMED',
+        poi_id: 'POI_A',
+        armed_order_id: 'order1',
+      },
+    });
+
+    const next = reduceCG01RealtimeUpdate(first, {
+      source: 'WS',
+      serverSequence: 11,
+      payload: {
+        enabled: true,
+        as_of_ms: 5000,
+        stage: 'GUARD_BLOCKED',
+        poi_id: 'POI_A',
+        armed_order_id: null,
+        guard_summary: {
+          blocked_reason: 'NEWS_BLACKOUT',
+        },
+      },
+    });
+
+    expect(next.rawEvaluation?.stage).toBe('GUARD_BLOCKED');
+    expect(next.rawEvaluation?.armed_order_id).toBeNull();
+  });
+
+  it('Rule 058: Rejects older sequence even if incoming stage rank is higher', () => {
+    const empty: CG01RealtimeInternalState = {
+      rawEvaluation: null,
+      asOfMs: 0,
+      serverSequence: 0,
+    };
+
+    const current = reduceCG01RealtimeUpdate(empty, {
+      source: 'WS',
+      serverSequence: 10,
+      payload: {
+        enabled: true,
+        as_of_ms: 5000,
+        stage: 'WAIT_MSS',
+        poi_id: 'POI_A',
+      },
+    });
+
+    // Older sequence 9 arrives claiming ARMED (higher stage rank)
+    const next = reduceCG01RealtimeUpdate(current, {
+      source: 'WS',
+      serverSequence: 9,
+      payload: {
+        enabled: true,
+        as_of_ms: 5000,
+        stage: 'ARMED',
+        armed_order_id: 'stale_order',
+        poi_id: 'POI_A',
+      },
+    });
+
+    expect(next).toBe(current);
+    expect(next.rawEvaluation?.stage).toBe('WAIT_MSS');
+    expect(next.serverSequence).toBe(10);
+  });
+
+  it('Rule 059: Accepts new summary.status when sequence increases on same as_of/stage/POI', () => {
+    const empty: CG01RealtimeInternalState = {
+      rawEvaluation: null,
+      asOfMs: 0,
+      serverSequence: 0,
+    };
+
+    const first = reduceCG01RealtimeUpdate(empty, {
+      source: 'WS',
+      serverSequence: 10,
+      payload: {
+        enabled: true,
+        as_of_ms: 5000,
+        stage: 'WAIT_FVG',
+        poi_id: 'POI_A',
+        ui_summary_vi: { status: 'Thông điệp 1: Đang chờ nến xác nhận.' },
+      },
+    });
+
+    const next = reduceCG01RealtimeUpdate(first, {
+      source: 'WS',
+      serverSequence: 11,
+      payload: {
+        enabled: true,
+        as_of_ms: 5000,
+        stage: 'WAIT_FVG',
+        poi_id: 'POI_A',
+        ui_summary_vi: { status: 'Thông điệp 2: Đã có nến rút chân.' },
+      },
+    });
+
+    expect(next.serverSequence).toBe(11);
+    expect(next.rawEvaluation?.ui_summary_vi).toEqual({ status: 'Thông điệp 2: Đã có nến rút chân.' });
+  });
 });
 
 describe('CG-01 Realtime Hook Lifecycle & Harness Integration (Rules 021-035, 061-076, 081)', () => {
@@ -314,6 +458,112 @@ describe('CG-01 Realtime Hook Lifecycle & Harness Integration (Rules 021-035, 06
     expect(latestHookReturn?.rawEvaluation?.stage).toBe('ARMED');
     expect(latestHookReturn?.rawEvaluation?.armed_order_id).toBe('order_burst_999');
     expect(latestHookReturn?.displayState.isArmed).toBe(true);
+  });
+
+  it('Rule 061: Hook harness reflects regression 1 (preserves changed reason on newer sequence)', async () => {
+    vi.spyOn(api, 'getCG01Evaluation').mockResolvedValue({
+      enabled: true,
+      stage: 'OBSERVING',
+      as_of_ms: 100,
+    });
+
+    await act(async () => {
+      root?.render(React.createElement(HookTestHarness, { symbol: 'XAUUSDT', autoBootstrap: true }));
+    });
+
+    // 1. First event: sequence 10 with NO_FVG_ON_LEG
+    await act(async () => {
+      wsClient.dispatchForTesting({
+        type: 'CG01_EVALUATION',
+        symbol: 'XAUUSDT',
+        server_sequence: 10,
+        payload: {
+          enabled: true,
+          evaluated: true,
+          stage: 'WAIT_FVG',
+          poi_id: 'POI_A',
+          reason_codes: ['NO_FVG_ON_LEG'],
+          as_of_ms: 5000,
+        },
+      });
+    });
+    expect(latestHookReturn?.rawEvaluation?.reason_codes).toEqual(['NO_FVG_ON_LEG']);
+    expect(latestHookReturn?.displayState.description).toContain('chưa tạo được FVG');
+
+    // 2. Next event: sequence 11 with FVG_OVER_MITIGATED at same timestamp
+    await act(async () => {
+      wsClient.dispatchForTesting({
+        type: 'CG01_EVALUATION',
+        symbol: 'XAUUSDT',
+        server_sequence: 11,
+        payload: {
+          enabled: true,
+          evaluated: true,
+          stage: 'WAIT_FVG',
+          poi_id: 'POI_A',
+          reason_codes: ['FVG_OVER_MITIGATED'],
+          as_of_ms: 5000,
+        },
+      });
+    });
+    expect(latestHookReturn?.rawEvaluation?.reason_codes).toEqual(['FVG_OVER_MITIGATED']);
+    expect(latestHookReturn?.displayState.description).toContain('quá sâu vào vùng');
+  });
+
+  it('Rule 062: Hook harness reflects authoritative lifecycle correction (ARMED -> GUARD_BLOCKED)', async () => {
+    vi.spyOn(api, 'getCG01Evaluation').mockResolvedValue({
+      enabled: true,
+      stage: 'OBSERVING',
+      as_of_ms: 100,
+    });
+
+    await act(async () => {
+      root?.render(React.createElement(HookTestHarness, { symbol: 'XAUUSDT', autoBootstrap: true }));
+    });
+
+    // 1. First event: sequence 10 with ARMED
+    await act(async () => {
+      wsClient.dispatchForTesting({
+        type: 'CG01_EVALUATION',
+        symbol: 'XAUUSDT',
+        server_sequence: 10,
+        payload: {
+          enabled: true,
+          evaluated: true,
+          stage: 'ARMED',
+          poi_id: 'POI_A',
+          armed_order_id: 'order_armed_1',
+          as_of_ms: 5000,
+        },
+      });
+    });
+    expect(latestHookReturn?.rawEvaluation?.stage).toBe('ARMED');
+    expect(latestHookReturn?.displayState.isArmed).toBe(true);
+
+    // 2. Authoritative correction: sequence 11 with GUARD_BLOCKED
+    await act(async () => {
+      wsClient.dispatchForTesting({
+        type: 'CG01_EVALUATION',
+        symbol: 'XAUUSDT',
+        server_sequence: 11,
+        payload: {
+          enabled: true,
+          evaluated: true,
+          stage: 'GUARD_BLOCKED',
+          poi_id: 'POI_A',
+          armed_order_id: null,
+          guard_summary: {
+            blocked_reason: 'NEWS_BLACKOUT',
+          },
+          as_of_ms: 5000,
+        },
+      });
+    });
+    expect(latestHookReturn?.rawEvaluation?.stage).toBe('GUARD_BLOCKED');
+    expect(latestHookReturn?.rawEvaluation?.armed_order_id).toBeNull();
+    expect(latestHookReturn?.displayState.isArmed).toBe(false);
+    expect(latestHookReturn?.displayState.tone).toBe('warning');
+    expect(latestHookReturn?.displayState.description).toContain('khung giờ hạn chế giao dịch do tin tức');
   });
 
   it('Rule 067: Resolves HTTP/WS race where older HTTP snapshot finishes after newer WS event', async () => {

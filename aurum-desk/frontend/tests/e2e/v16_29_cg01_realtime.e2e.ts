@@ -75,8 +75,24 @@ test.describe('V16.29 CG-01 Realtime UI Closure', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     const statusBadge = page.locator('[data-testid="cg01-status-badge"]');
     await expect(statusBadge).toContainText('Chờ Tạo FVG', { timeout: 10000 });
+    const descText = page.locator('[data-testid="cg01-description-text"]');
+    await expect(descText).toContainText('chưa tạo được FVG');
 
-    // 2. Live transition to ARMED
+    // 2. Rule 073: Live WS reason update at same stage without page reload
+    const mitigatedEval = {
+      enabled: true,
+      evaluated: true,
+      stage: 'WAIT_FVG',
+      direction: 'SHORT',
+      poi_id: 'poi_m15_supply_test_02',
+      reason_codes: ['FVG_OVER_MITIGATED'],
+      as_of_ms: Date.now() + 500,
+    };
+    const seedMitigated = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/cg01_evaluation`, { data: mitigatedEval });
+    expect(seedMitigated.ok()).toBe(true);
+    await expect(descText).toContainText('quá sâu vào vùng', { timeout: 5000 });
+
+    // 3. Live transition to ARMED
     const armedEval = {
       enabled: true,
       evaluated: true,
@@ -91,9 +107,8 @@ test.describe('V16.29 CG-01 Realtime UI Closure', () => {
     const seed2 = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/cg01_evaluation`, { data: armedEval });
     expect(seed2.ok()).toBe(true);
 
-    // 3. UI immediately updates to ARMED
+    // 4. UI immediately updates to ARMED
     await expect(statusBadge).toContainText('Đã Đặt Lệnh Chờ', { timeout: 5000 });
-    const descText = page.locator('[data-testid="cg01-description-text"]');
     await expect(descText).toContainText('order_cg01_e2e_777');
   });
 

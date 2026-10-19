@@ -14,6 +14,7 @@ import {
   type CG01EvaluationPayload,
   type CG01DisplayState,
 } from '../utils/cg01DisplayState';
+import { extractCG01SummaryText } from '../utils/cg01ReasonText';
 
 export interface UseCG01RealtimeStateOptions {
   symbol?: string;
@@ -60,7 +61,44 @@ export function getCG01LifecycleRank(stage?: string | null): number {
 }
 
 /**
- * Pure state reducer for CG-01 realtime updates (Rules 024-027, 036-042).
+ * Checks if two CG-01 payloads are semantically identical (Rules 045-050).
+ * Compares stage, POI, direction, armed order, guard blocked reason,
+ * reason codes, and localized summary text.
+ */
+export function isCG01PayloadSemanticEqual(
+  current: CG01EvaluationPayload | null,
+  next: CG01EvaluationPayload
+): boolean {
+  if (!current) return false;
+  if (current.stage !== next.stage) return false;
+  if ((current.poi_id || null) !== (next.poi_id || null)) return false;
+  if ((current.direction || null) !== (next.direction || null)) return false;
+  if ((current.armed_order_id || null) !== (next.armed_order_id || null)) return false;
+  if ((current.enabled ?? true) !== (next.enabled ?? true)) return false;
+  if ((current.evaluated ?? false) !== (next.evaluated ?? false)) return false;
+
+  const curGuard = current.guard_summary?.blocked_reason || null;
+  const nextGuard = next.guard_summary?.blocked_reason || null;
+  if (curGuard !== nextGuard) return false;
+
+  // Compare reason_codes array (Rules 046, 047)
+  const curReasons = current.reason_codes || [];
+  const nextReasons = next.reason_codes || [];
+  if (curReasons.length !== nextReasons.length) return false;
+  for (let i = 0; i < curReasons.length; i++) {
+    if (curReasons[i] !== nextReasons[i]) return false;
+  }
+
+  // Compare ui_summary_vi content (Rule 048)
+  const curSummary = extractCG01SummaryText(current.ui_summary_vi);
+  const nextSummary = extractCG01SummaryText(next.ui_summary_vi);
+  if (curSummary !== nextSummary) return false;
+
+  return true;
+}
+
+/**
+ * Pure state reducer for CG-01 realtime updates (Rules 024-027, 035-052).
  * Takes current state and update, returns next state (or current state if rejected).
  * Zero side effects, completely deterministic.
  */
@@ -73,63 +111,110 @@ export function reduceCG01RealtimeUpdate(
     return currentState;
   }
 
-  const newAsOf = Number(payload.as_of_ms) || 0;
+  const normalized = normalizeCG01EvaluationPayload(payload);
+  const newAsOf = normalized.as_of_ms || 0;
   const currentAsOf = currentState.asOfMs;
   const currentSeq = currentState.serverSequence;
 
-  // 1. Strict out-of-order rejection (Rules 036, 037, 069)
-  // If we already have a newer timestamp, reject older data
+  // Initial state population
+  if (!currentState.rawEvaluation) {
+    return {
+      rawEvaluation: normalized,
+      asOfMs: newAsOf > 0 ? newAsOf : 0,
+      serverSequence: serverSequence > 0 ? serverSequence : 0,
+      lastSource: source,
+    };
+  }
+
+  // 1. Strict out-of-order timestamp rejection (Rules 040, 069)
   if (currentAsOf > 0 && newAsOf > 0 && newAsOf < currentAsOf) {
     return currentState;
   }
-
-  // If current state already has a valid timestamp and new payload has as_of_ms=0, reject
   if (currentAsOf > 0 && newAsOf === 0) {
     return currentState;
   }
 
-  // 2. Equal timestamp tie-break (Rules 039, 040, 070)
-  if (newAsOf > 0 && newAsOf === currentAsOf && currentState.rawEvaluation) {
-    // If both have server sequence, prefer higher sequence
-    if (serverSequence > 0 && currentSeq > 0 && serverSequence < currentSeq) {
-      return currentState;
+  // 2. Newer timestamp cycle (Rule 039)
+  // Authoritative over older cycles; reset sequence ownership to this snapshot (Rule 043)
+  if (newAsOf > currentAsOf) {
+    return {
+      rawEvaluation: normalized,
+      asOfMs: newAsOf,
+      serverSequence: serverSequence > 0 ? serverSequence : 0,
+      lastSource: source,
+    };
+  }
+
+  // 3. Equal timestamp ordering (Rules 035-042)
+  if (newAsOf > 0 && newAsOf === currentAsOf) {
+    // 3A. Authoritative serverSequence ordering (Rules 035-038)
+    if (serverSequence > 0 && currentSeq > 0) {
+      // Stale sequence rejected even if stage rank is higher (Rules 037, 058)
+      if (serverSequence < currentSeq) {
+        return currentState;
+      }
+      // Newer sequence accepted unconditionally (Rule 036)
+      if (serverSequence > currentSeq) {
+        return {
+          rawEvaluation: normalized,
+          asOfMs: currentAsOf,
+          serverSequence,
+          lastSource: source,
+        };
+      }
+      // Same sequence: deduplicate if semantically identical (Rules 038, 045)
+      if (isCG01PayloadSemanticEqual(currentState.rawEvaluation, normalized)) {
+        return currentState;
+      }
+      return {
+        rawEvaluation: normalized,
+        asOfMs: currentAsOf,
+        serverSequence,
+        lastSource: source,
+      };
     }
 
-    // Check lifecycle progression (e.g. EXECUTABLE -> ARMED, EXECUTABLE -> GUARD_BLOCKED, ARMED -> DEGRADED)
+    // 3B. One side has sequence, the other does not (Rule 042)
+    if (serverSequence > 0 && currentSeq === 0) {
+      return {
+        rawEvaluation: normalized,
+        asOfMs: currentAsOf,
+        serverSequence,
+        lastSource: source,
+      };
+    }
+
+    if (serverSequence === 0 && currentSeq > 0) {
+      const currentRank = getCG01LifecycleRank(currentState.rawEvaluation.stage);
+      const newRank = getCG01LifecycleRank(normalized.stage);
+      if (newRank <= currentRank) {
+        return currentState;
+      }
+    }
+
+    // 3C. Neither has sequence (or fallback heuristic) (Rules 041, 045-050)
+    if (source === 'HTTP' && currentState.lastSource === 'WS') {
+      const currentRank = getCG01LifecycleRank(currentState.rawEvaluation.stage);
+      const newRank = getCG01LifecycleRank(normalized.stage);
+      if (newRank <= currentRank) {
+        return currentState;
+      }
+    }
+
     const currentRank = getCG01LifecycleRank(currentState.rawEvaluation.stage);
-    const newRank = getCG01LifecycleRank(payload.stage);
+    const newRank = getCG01LifecycleRank(normalized.stage);
     if (newRank < currentRank) {
       return currentState;
     }
 
-    // If identical ranks and sequence is not higher, check if identical payload (duplicate)
-    if (newRank === currentRank) {
-      if (serverSequence > 0 && currentSeq > 0 && serverSequence === currentSeq) {
-        return currentState;
-      }
-      // If same stage, same POI, same armed_order_id, same guard reason, it's a duplicate
-      const curPoi = currentState.rawEvaluation.poi_id || null;
-      const newPoi = payload.poi_id || null;
-      const curOrder = currentState.rawEvaluation.armed_order_id || null;
-      const newOrder = payload.armed_order_id || null;
-      const curGuard = currentState.rawEvaluation.guard_summary?.blocked_reason || null;
-      const newGuard = payload.guard_summary?.blocked_reason || null;
-
-      if (
-        currentState.rawEvaluation.stage === payload.stage &&
-        curPoi === newPoi &&
-        curOrder === newOrder &&
-        curGuard === newGuard
-      ) {
-        return currentState;
-      }
+    // If same rank, check for semantic equality before creating new state
+    if (isCG01PayloadSemanticEqual(currentState.rawEvaluation, normalized)) {
+      return currentState;
     }
-
   }
 
-  const normalized = normalizeCG01EvaluationPayload(payload);
-  const nextSeq = serverSequence > 0 ? Math.max(currentSeq, serverSequence) : currentSeq;
-  const nextAsOf = newAsOf > 0 ? Math.max(currentAsOf, newAsOf) : currentAsOf;
+  const nextSeq = serverSequence > 0 ? serverSequence : currentSeq;
+  const nextAsOf = newAsOf > 0 ? newAsOf : currentAsOf;
 
   return {
     rawEvaluation: normalized,
