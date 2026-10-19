@@ -473,16 +473,20 @@ def test_active_and_shadow_parity():
 def test_entry_guard_binding_under_primary():
     """Rule 179: Valid PRIMARY bias passes ARM; invalidated or mismatched bias is blocked with specific code."""
     valid_bias = {
+        "symbol": "XAUUSDT",
         "status": "READY",
         "direction": "BULLISH",
         "allowed_directions": ["LONG"],
         "authority_token": "auth_tok_1234",
+        "config_fingerprint": "fp_test_123",
     }
     inval_bias = {
+        "symbol": "XAUUSDT",
         "status": "INVALIDATED",
         "direction": "NEUTRAL",
         "allowed_directions": [],
         "authority_token": "auth_tok_inval",
+        "config_fingerprint": "fp_test_123",
     }
 
     req_pass = EntryGuardRequest(

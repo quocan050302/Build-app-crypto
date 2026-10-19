@@ -1004,15 +1004,28 @@ class ScalpWatcherOrchestrator:
                 costs=costs_to_pass,
             )
             if cg01_dec and getattr(cg01_dec, "daily_bias", None):
-                from services.cg01_daily_bias_service import publish_current_cg01_bias_authority
+                from services.cg01_daily_bias_service import (
+                    publish_current_cg01_bias_authority,
+                    build_cg01_authority_publish_context,
+                )
+                pub_ctx = build_cg01_authority_publish_context(
+                    symbol=symbol,
+                    config=cg01_cfg,
+                    research_context=research_context,
+                    db=db,
+                    caller_identity="WATCHER",
+                    auto_enabled=auto_enabled,
+                    now_ms=t_recv,
+                )
                 publish_current_cg01_bias_authority(
                     symbol=symbol,
                     bias=cg01_dec.daily_bias,
                     config=cg01_cfg,
                     evaluated_at_ms=t_recv,
-                    source="ACTIVE_PIPELINE",
-                    is_active_owner=True,
-                    owner="WATCHER",
+                    source=pub_ctx["source"],
+                    is_active_owner=pub_ctx["is_active_owner"],
+                    owner=pub_ctx["owner"],
+                    generation=pub_ctx.get("generation", 1),
                 )
             cg01_eval_data = serialize_cg01_evaluation(cg01_dec, enabled=True, evaluated=True, as_of_ms=t_recv)
             if cg01_dec.candidate:
@@ -1560,25 +1573,30 @@ class ScalpWatcherOrchestrator:
 
         cand_daily_b = cand_evidence.get("daily_bias") or {}
         cand_fp = cand_daily_b.get("config_fingerprint") if isinstance(cand_daily_b, dict) else getattr(cand_daily_b, "config_fingerprint", None)
-        target_fp = cand_fp or eff_fp
 
+        # Rule 021, 042: Query resolver using effective execution config (NOT cand_fp!)
         curr_auth = resolve_current_cg01_bias_authority(
             symbol=cand.symbol,
             now_ms=now_ms,
             config=cg01_cfg,
-            config_fingerprint=target_fp,
+            config_fingerprint=eff_fp,
             clock=clock,
         )
-        if curr_auth.bias:
-            cand_evidence["current_daily_bias"] = curr_auth.bias.to_dict()
-        else:
-            cand_evidence["current_daily_bias"] = {
-                "status": curr_auth.status,
-                "reason": curr_auth.reason,
-                "available": curr_auth.available,
-                "config_fingerprint": curr_auth.config_fingerprint,
-                "symbol": curr_auth.symbol,
-            }
+
+        # Rule 046: Store complete authority envelope in cand_evidence for guard validation
+        cand_evidence["effective_config_fingerprint"] = eff_fp
+        cand_evidence["current_daily_bias"] = {
+            "available": curr_auth.available,
+            "status": curr_auth.status,
+            "reason": curr_auth.reason,
+            "bias": curr_auth.bias.to_dict() if curr_auth.bias else None,
+            "symbol": curr_auth.symbol,
+            "config_fingerprint": curr_auth.config_fingerprint,
+            "evaluated_at_ms": curr_auth.evaluated_at_ms,
+            "source": curr_auth.source,
+            "authority_token": getattr(curr_auth.bias, "authority_token", None) if curr_auth.bias else None,
+            "allowed_directions": list(getattr(curr_auth.bias, "allowed_directions", None) or []) if curr_auth.bias else [],
+        }
 
         req = EntryGuardRequest(
             stage="ARM",

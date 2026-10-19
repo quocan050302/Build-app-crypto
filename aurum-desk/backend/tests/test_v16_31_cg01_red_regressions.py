@@ -160,26 +160,32 @@ def test_production_orchestrator_arm_binding_passes_and_blocks():
     valid_ev = {
         "direction_policy": "DAILY_BIAS_PRIMARY",
         "daily_bias": {
+            "symbol": "XAUUSDT",
             "status": "READY",
             "direction": "BULLISH",
             "allowed_directions": ["LONG"],
             "authority_token": "valid_tok_999",
+            "config_fingerprint": "fp_test_999",
         },
         "current_daily_bias": {
+            "symbol": "XAUUSDT",
             "status": "READY",
             "direction": "BULLISH",
             "allowed_directions": ["LONG"],
             "authority_token": "valid_tok_999",
+            "config_fingerprint": "fp_test_999",
         },
     }
 
     inval_ev = {
         "direction_policy": "DAILY_BIAS_PRIMARY",
         "daily_bias": {
+            "symbol": "XAUUSDT",
             "status": "INVALIDATED",
             "direction": "NEUTRAL",
             "allowed_directions": [],
             "authority_token": "inval_tok_999",
+            "config_fingerprint": "fp_test_999",
         },
     }
 
@@ -403,12 +409,18 @@ def test_pending_primary_fill_invalidated_when_bias_unready():
     Session = sessionmaker(bind=engine)
     db = Session()
 
+    from services.cg01_config_factory import resolve_canonical_cg01_config
+    from services.cg01_daily_bias_service import record_current_cg01_bias_authority
+    _, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol="XAUUSDT")
+
     # Create an armed order that was bound to DAILY_BIAS_PRIMARY
     arm_snap = {
         "binding": {
+            "symbol": "XAUUSDT",
             "direction_policy": "DAILY_BIAS_PRIMARY",
             "authority_token": "arm_tok_123",
             "allowed_directions": ["LONG"],
+            "config_fingerprint": eff_fp,
         }
     }
 
@@ -433,12 +445,15 @@ def test_pending_primary_fill_invalidated_when_bias_unready():
 
     calc = calculate_risk_reward("LONG", 2500.0, 2490.0, 2525.0, 1000.0, 0.25)
 
-    # Context indicates bias is now INVALIDATED
+    # Authority in registry indicates bias is now INVALIDATED
     bad_bias = {
+        "symbol": "XAUUSDT",
         "status": "INVALIDATED",
         "authority_token": "arm_tok_123",
         "allowed_directions": [],
+        "config_fingerprint": eff_fp,
     }
+    record_current_cg01_bias_authority("XAUUSDT", bad_bias, evaluated_at_ms=1700000060000)
 
     res_order = TradeLifecycleService.execute_fill(
         db,
@@ -627,6 +642,11 @@ def test_real_orchestrator_arm_blocked_when_current_authority_mismatches():
     now_ms = 1700000000000
 
     calc = calculate_risk_reward("LONG", 2500.0, 2490.0, 2535.0, 1000.0, 0.25)
+    from services.cg01_config_factory import resolve_canonical_cg01_config
+    from services.cg01_daily_bias_service import resolve_trading_day_key
+    eff_cfg, eff_fp, _ = resolve_canonical_cg01_config(db=db, symbol=symbol)
+    day_key = resolve_trading_day_key(now_ms)
+
     cand = ScalpCandidate(
         is_eligible=True,
         model_id="CG01_SWEEP_MSS_FVG",
@@ -643,11 +663,12 @@ def test_real_orchestrator_arm_blocked_when_current_authority_mismatches():
         evidence={
             "direction_policy": "DAILY_BIAS_PRIMARY",
             "daily_bias": {
+                "symbol": symbol,
                 "status": "READY",
                 "direction": "BULLISH",
                 "allowed_directions": ["LONG"],
                 "authority_token": "cand_tok_original",
-                "config_fingerprint": "fp_same",
+                "config_fingerprint": eff_fp,
             },
         },
     )
@@ -655,13 +676,13 @@ def test_real_orchestrator_arm_blocked_when_current_authority_mismatches():
     # 1. Authority changed in registry before arming (e.g. direction changed to SHORT)
     changed_snap = CG01DailyBiasSnapshot(
         symbol=symbol,
-        trading_day_key="2023-11-20",
+        trading_day_key=day_key,
         bias_id="bias_changed",
         direction="BEARISH",
         status="READY",
         allowed_directions=("SHORT",),
         authority_token="current_tok_changed",
-        config_fingerprint="fp_same",
+        config_fingerprint=eff_fp,
     )
     record_current_cg01_bias_authority(symbol, changed_snap, evaluated_at_ms=now_ms)
 
@@ -670,6 +691,7 @@ def test_real_orchestrator_arm_blocked_when_current_authority_mismatches():
         execution_profile="CG01",
         cg01_enabled=True,
         cg01_profile_mode="PAPER_EXECUTION",
+        cg01_config=eff_cfg,
     )
     quote = {"bid": 2500.0, "ask": 2500.2, "last": 2500.1, "timestamp": now_ms}
 
@@ -687,13 +709,13 @@ def test_real_orchestrator_arm_blocked_when_current_authority_mismatches():
     cand2.candidate_key = "cand_arm_test_02"
     matching_snap = CG01DailyBiasSnapshot(
         symbol=symbol,
-        trading_day_key="2023-11-20",
+        trading_day_key=day_key,
         bias_id="bias_matching",
         direction="BULLISH",
         status="READY",
         allowed_directions=("LONG",),
         authority_token="cand_tok_original",
-        config_fingerprint="fp_same",
+        config_fingerprint=eff_fp,
     )
     record_current_cg01_bias_authority(symbol, matching_snap, evaluated_at_ms=now_ms)
 
@@ -715,7 +737,11 @@ def test_real_fill_path_blocked_on_unready_and_succeeds_on_valid_authority():
     from models import Base
     import models
     from services.execution_coordinator import ExecutionCoordinator
-    from services.cg01_daily_bias_service import record_current_cg01_bias_authority, clear_current_cg01_bias_authority
+    from services.cg01_daily_bias_service import (
+        record_current_cg01_bias_authority,
+        clear_current_cg01_bias_authority,
+        resolve_trading_day_key,
+    )
     from services.cg01_daily_bias_types import CG01DailyBiasSnapshot
     from services.trading_policy_service import TradingPolicyService
 
@@ -781,7 +807,7 @@ def test_real_fill_path_blocked_on_unready_and_succeeds_on_valid_authority():
     # Case B (Rule 097): Current bias becomes READY with matching token & direction -> fills successfully!
     valid_snap = CG01DailyBiasSnapshot(
         symbol=symbol,
-        trading_day_key="2023-11-20",
+        trading_day_key=resolve_trading_day_key(now_ms),
         bias_id="bias_valid_01",
         direction="BULLISH",
         status="READY",
@@ -876,7 +902,11 @@ def test_restart_persisted_pending_order_fills_after_bootstrap():
     from models import Base
     import models
     from services.execution_coordinator import ExecutionCoordinator
-    from services.cg01_daily_bias_service import record_current_cg01_bias_authority, clear_current_cg01_bias_authority
+    from services.cg01_daily_bias_service import (
+        record_current_cg01_bias_authority,
+        clear_current_cg01_bias_authority,
+        resolve_trading_day_key,
+    )
     from services.cg01_daily_bias_types import CG01DailyBiasSnapshot
     from services.trading_policy_service import TradingPolicyService
 
@@ -941,7 +971,7 @@ def test_restart_persisted_pending_order_fills_after_bootstrap():
     # Step 2: Bootstrap/warmup recovers authoritative daily bias
     recovered_bias = CG01DailyBiasSnapshot(
         symbol="XAUUSDT",
-        trading_day_key="2023-11-20",
+        trading_day_key=resolve_trading_day_key(now_ms),
         bias_id="bias_bootstrap_01",
         direction="BULLISH",
         status="READY",

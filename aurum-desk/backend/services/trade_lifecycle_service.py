@@ -95,33 +95,30 @@ class TradeLifecycleService:
                         symbol=order.instrument or "XAUUSDT",
                     )
                     binding_fp = binding.get("config_fingerprint")
-                    target_fp = binding_fp or eff_fp
 
-                    # Rule 080: Provenance check on sizing_context: if dict provided, validate via shared validator
-                    trusted_bias = (sizing_context or {}).get("current_daily_bias") if isinstance(sizing_context, dict) else None
-                    if trusted_bias is not None:
-                        res_auth = trusted_bias
-                    else:
-                        res_auth = resolve_current_cg01_bias_authority(
-                            symbol=order.instrument or "XAUUSDT",
-                            now_ms=current_time,
-                            config=eff_cfg,
-                            config_fingerprint=target_fp,
-                            clock=clock,
-                        )
+                    # Rules 044, 061, 062, 063: Query resolver strictly using effective execution config.
+                    # sizing_context NEVER overrides authoritative resolver.
+                    res_auth = resolve_current_cg01_bias_authority(
+                        symbol=order.instrument or "XAUUSDT",
+                        now_ms=current_time,
+                        config=eff_cfg,
+                        config_fingerprint=eff_fp,
+                        clock=clock,
+                    )
 
                     valid, code, msg_vi, action = validate_cg01_bias_authority_binding(
                         candidate_bias=binding,
                         current_authority=res_auth,
                         order_direction=order.direction,
                         symbol=order.instrument or "XAUUSDT",
-                        effective_fingerprint=eff_fp if binding_fp else None,
+                        effective_fingerprint=eff_fp,
+                        is_persisted_binding=True,
                     )
 
                     if not valid:
                         if action == "INVALIDATE":
                             order.state = "invalidated"
-                            reason_prefix = "DAILY_BIAS_INVALIDATED" if code == "DAILY_BIAS_CURRENT_INVALIDATED" else code
+                            reason_prefix = "DAILY_BIAS_INVALIDATED" if code in ("INVALIDATED", "DAILY_BIAS_CURRENT_INVALIDATED", "DAILY_BIAS_INVALIDATED") else code
                             order.invalidation_reason = f"{reason_prefix}: {msg_vi}"
                             order.closed_at = current_time
                             db.commit()

@@ -373,6 +373,7 @@ def _check_strategy(req: EntryGuardRequest) -> EntryCheck:
                     current_authority=cur_bias,
                     order_direction=req.direction,
                     symbol=req.symbol,
+                    effective_fingerprint=ev.get("effective_config_fingerprint"),
                 )
                 if not valid:
                     next_steps = {
@@ -674,6 +675,9 @@ def evaluate_entry_guard(db, request: EntryGuardRequest) -> EntryGuardDecision:
         "authority_token": daily_b.get("authority_token") if isinstance(daily_b, dict) else getattr(daily_b, "authority_token", None),
         "config_fingerprint": daily_b.get("config_fingerprint") if isinstance(daily_b, dict) else getattr(daily_b, "config_fingerprint", None),
         "allowed_directions": list(daily_b.get("allowed_directions") or []) if isinstance(daily_b, dict) else list(getattr(daily_b, "allowed_directions", ())),
+        "status": daily_b.get("status") if isinstance(daily_b, dict) else getattr(daily_b, "status", None),
+        "symbol": req.symbol,
+        "binding_version": 2,
     }
     return aggregate_entry_checks(
         req.stage, req.now_ms, checks,
