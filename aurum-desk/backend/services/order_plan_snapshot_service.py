@@ -275,6 +275,8 @@ def build_fill_plan_snapshot(
         "executable_risk_budget": (sizing_context or {}).get("executable_budget") or net_risk,
         "actual_risk_after_rounding": net_risk,
         "sizing_adjustment_reason": (sizing_context or {}).get("adjustment_reason") or arm_dict.get("sizing_adjustment_reason", "NONE"),
+        # Rule 031: Preserve min_net_rr_at_arm from arm stage for historical audit trail
+        "min_net_rr_at_arm": arm_dict.get("min_net_rr_at_arm"),
     })
 
 

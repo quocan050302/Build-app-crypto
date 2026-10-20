@@ -60,6 +60,12 @@ class CG01EntryMode(str, Enum):
     CONFIRMED_RETEST_MARKET = "CONFIRMED_RETEST_MARKET"
 
 
+class CG01TimingProfile(str, Enum):
+    """Rules 037 - 043: CG-01 Timing Window Profiles."""
+    SILVER_BULLET_LONDON_NY = "SILVER_BULLET_LONDON_NY"
+    CG01_NY_PAPER_EXPANDED = "CG01_NY_PAPER_EXPANDED"
+
+
 # Rule 033: Parameter Origin Attribution
 PARAMETER_ORIGINS: Dict[str, str] = {
     "htf_poi_required": "SOURCE_DOCUMENT",
@@ -161,6 +167,8 @@ class CG01TimeContext:
     permission_reason: str
     window_start_ms: Optional[int] = None
     window_end_ms: Optional[int] = None
+    timing_profile: str = "SILVER_BULLET_LONDON_NY"
+    execution_scope: str = "PAPER"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -172,6 +180,8 @@ class CG01TimeContext:
             "permission_reason": self.permission_reason,
             "window_start_ms": self.window_start_ms,
             "window_end_ms": self.window_end_ms,
+            "timing_profile": self.timing_profile,
+            "execution_scope": self.execution_scope,
         }
 
 

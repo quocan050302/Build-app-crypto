@@ -2,6 +2,8 @@ import time
 import json
 import logging
 import asyncio
+import math
+from dataclasses import dataclass
 from typing import Dict, Any, Optional, Tuple
 from sqlalchemy.orm import Session
 from database import SessionLocal
@@ -10,6 +12,93 @@ from services.event_bus import event_bus
 from services.collector_service import collector_service
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ZoneProximityMetrics:
+    distance_price: float
+    distance_atr: float
+    midpoint_distance: float
+    inside_zone: bool
+    measured_atr: Optional[float]
+    effective_atr: float
+    atr_effective_floor_used: bool
+    price_basis: str
+    reference_price: float
+    boundary_point: float
+
+
+def compute_zone_proximity_metrics(
+    price: float,
+    zone_low: float,
+    zone_high: float,
+    atr: Any,
+    *,
+    price_basis: str = "MID",
+    floor_atr: float = 0.10,
+) -> ZoneProximityMetrics:
+    """
+    Rules 051 - 057: Canonical pure distance & ATR proximity metrics computation.
+    - Uses exact zone boundary for distance_price.
+    - If price is inside zone [zone_low, zone_high], distance_price = 0.0.
+    - If price < zone_low, distance_price = round(zone_low - price, 2).
+    - If price > zone_high, distance_price = round(price - zone_high, 2).
+    - distance_atr = round(distance_price / effective_atr, 2).
+    - Validates measured ATR (must be numeric, finite, > 0).
+    - If measured ATR < floor_atr (e.g. 0.05 < 0.10) or invalid (None/NaN/Inf/<=0),
+      effective_atr = floor_atr and atr_effective_floor_used = True.
+    - Otherwise, effective_atr = measured_atr and atr_effective_floor_used = False.
+    """
+    if zone_low > zone_high:
+        zone_low, zone_high = zone_high, zone_low
+
+    midpoint = round((zone_low + zone_high) / 2.0, 2)
+    midpoint_dist = round(abs(price - midpoint), 2)
+
+    if zone_low <= price <= zone_high:
+        dist_px = 0.0
+        inside = True
+        boundary = price
+    elif price < zone_low:
+        dist_px = round(zone_low - price, 2)
+        inside = False
+        boundary = zone_low
+    else:
+        dist_px = round(price - zone_high, 2)
+        inside = False
+        boundary = zone_high
+
+    measured_atr_val: Optional[float] = None
+    if atr is not None and not isinstance(atr, bool) and isinstance(atr, (int, float)):
+        try:
+            f = float(atr)
+            if math.isfinite(f) and f > 0:
+                measured_atr_val = f
+        except (TypeError, ValueError):
+            pass
+
+    if measured_atr_val is not None and measured_atr_val >= floor_atr:
+        eff_atr = measured_atr_val
+        floor_used = False
+    else:
+        eff_atr = floor_atr
+        floor_used = True
+
+    dist_atr = round(dist_px / eff_atr, 2)
+
+    return ZoneProximityMetrics(
+        distance_price=dist_px,
+        distance_atr=dist_atr,
+        midpoint_distance=midpoint_dist,
+        inside_zone=inside,
+        measured_atr=measured_atr_val,
+        effective_atr=eff_atr,
+        atr_effective_floor_used=floor_used,
+        price_basis=price_basis,
+        reference_price=price,
+        boundary_point=boundary,
+    )
+
 
 class ProximityService:
     """
@@ -92,21 +181,19 @@ class ProximityService:
         if zone_low > zone_high:
             zone_low, zone_high = zone_high, zone_low
 
-        # 5. Distance Calculation
-        if zone_low <= ref_price <= zone_high:
-            distance_price = 0.0
-        elif ref_price < zone_low:
-            distance_price = round(zone_low - ref_price, 2)
-        else:
-            distance_price = round(ref_price - zone_high, 2)
-
-        # Rule 060: ATR floor of 0.1 prevents division by zero but must be labelled.
-        atr_effective_floor_used = (atr is None or not isinstance(atr, (int, float)) or atr < 0.01)
-        safe_atr = max(0.1, atr) if isinstance(atr, (int, float)) else 0.1
-        if atr_effective_floor_used:
-            safe_atr = 0.1  # documented floor — not a measured ATR value
-        # Rule 058: distance_atr uses SAME boundary-reference as distance_price (nearest edge)
-        distance_atr = round(distance_price / safe_atr, 2)
+        # 5. Distance Calculation (Rules 051 - 057)
+        metrics = compute_zone_proximity_metrics(
+            price=ref_price,
+            zone_low=zone_low,
+            zone_high=zone_high,
+            atr=atr,
+            price_basis=exec_side,
+            floor_atr=0.10,
+        )
+        distance_price = metrics.distance_price
+        distance_atr = metrics.distance_atr
+        safe_atr = metrics.effective_atr
+        atr_effective_floor_used = metrics.atr_effective_floor_used
 
         # Update watch setup distance metrics in DB
         watch_setup.distance_to_entry_usdt = distance_price

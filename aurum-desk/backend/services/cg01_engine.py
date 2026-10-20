@@ -67,13 +67,73 @@ from services.smc_regime_service import build_htf_context
 from services.zone_watchlist_service import ZoneWatchlistService
 
 
+def resolve_cg01_windows_for_profile(
+    dt_ny: datetime.datetime,
+    profile: str = "SILVER_BULLET_LONDON_NY",
+    execution_scope: str = "PAPER",
+) -> Tuple[Optional[str], Optional[int], Optional[int], str]:
+    """
+    Rules 037 - 043: Resolve active window, start/end timestamps, and effective profile.
+    - SILVER_BULLET_LONDON_NY: London (03:00 - 04:00 NY), NY AM (10:00 - 11:00 NY).
+    - CG01_NY_PAPER_EXPANDED (PAPER only): London (03:00 - 04:00 NY), NY Expanded (08:00 - 11:00 NY).
+      Scope check: if execution_scope is not PAPER, falls back to SILVER_BULLET_LONDON_NY.
+    - Start is inclusive, end is exclusive.
+    """
+    cur_hm = (dt_ny.hour, dt_ny.minute)
+
+    # Scope verification: CG01_NY_PAPER_EXPANDED is strictly PAPER-only (Rule 041)
+    effective_profile = profile
+    is_paper_scope = execution_scope.upper() in (
+        "PAPER", "PAPER_EXECUTION", "PAPER_SHADOW", "SHADOW", "SIMULATION"
+    )
+    if profile == "CG01_NY_PAPER_EXPANDED" and not is_paper_scope:
+        effective_profile = "SILVER_BULLET_LONDON_NY"
+
+    active_window_id: Optional[str] = None
+    window_start_ms: Optional[int] = None
+    window_end_ms: Optional[int] = None
+
+    if effective_profile == "CG01_NY_PAPER_EXPANDED":
+        # London Silver Bullet: 03:00 - 04:00
+        # NY PAPER Expanded: 08:00 - 11:00 (start inclusive, end exclusive)
+        if (3, 0) <= cur_hm < (4, 0):
+            active_window_id = "LONDON_SILVER_BULLET"
+            w_start = dt_ny.replace(hour=3, minute=0, second=0, microsecond=0)
+            w_end = dt_ny.replace(hour=4, minute=0, second=0, microsecond=0)
+            window_start_ms = int(w_start.timestamp() * 1000)
+            window_end_ms = int(w_end.timestamp() * 1000)
+        elif (8, 0) <= cur_hm < (11, 0):
+            active_window_id = "NY_PAPER_EXPANDED"
+            w_start = dt_ny.replace(hour=8, minute=0, second=0, microsecond=0)
+            w_end = dt_ny.replace(hour=11, minute=0, second=0, microsecond=0)
+            window_start_ms = int(w_start.timestamp() * 1000)
+            window_end_ms = int(w_end.timestamp() * 1000)
+    else:
+        # Default SILVER_BULLET_LONDON_NY
+        if (3, 0) <= cur_hm < (4, 0):
+            active_window_id = "LONDON_SILVER_BULLET"
+            w_start = dt_ny.replace(hour=3, minute=0, second=0, microsecond=0)
+            w_end = dt_ny.replace(hour=4, minute=0, second=0, microsecond=0)
+            window_start_ms = int(w_start.timestamp() * 1000)
+            window_end_ms = int(w_end.timestamp() * 1000)
+        elif (10, 0) <= cur_hm < (11, 0):
+            active_window_id = "NY_AM_SILVER_BULLET"
+            w_start = dt_ny.replace(hour=10, minute=0, second=0, microsecond=0)
+            w_end = dt_ny.replace(hour=11, minute=0, second=0, microsecond=0)
+            window_start_ms = int(w_start.timestamp() * 1000)
+            window_end_ms = int(w_end.timestamp() * 1000)
+
+    return active_window_id, window_start_ms, window_end_ms, effective_profile
+
+
 def resolve_cg01_time_context(
     now_ms: int,
     config: Optional[CG01Config] = None,
 ) -> CG01TimeContext:
     """
     Rules 051 - 060: Deterministic time context resolver in America/New_York.
-    Supports London Silver Bullet (03:00 - 04:00 NY) and NY AM Silver Bullet (10:00 - 11:00 NY).
+    Supports London Silver Bullet (03:00 - 04:00 NY), NY AM (10:00 - 11:00 NY),
+    and CG01_NY_PAPER_EXPANDED (08:00 - 11:00 NY, PAPER only).
     """
     tz_name = config.ny_timezone if config else "America/New_York"
     try:
@@ -87,35 +147,18 @@ def resolve_cg01_time_context(
     ny_time_str = dt_ny.strftime("%Y-%m-%d %H:%M:%S %Z")
     local_time_str = dt_utc.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
 
-    cur_time = dt_ny.time()
-    cur_hm = (cur_time.hour, cur_time.minute)
+    req_profile = getattr(config, "timing_profile", "SILVER_BULLET_LONDON_NY") or "SILVER_BULLET_LONDON_NY"
+    exec_scope = "PAPER"
+    if config:
+        pm = getattr(config, "profile_mode", "PAPER_EXECUTION")
+        if pm in ("LIVE", "LIVE_EXECUTION", "REAL"):
+            exec_scope = "LIVE"
 
-    # Windows in NY local time
-    # London Silver Bullet: 03:00 - 04:00
-    # NY AM Silver Bullet: 10:00 - 11:00
-    is_london_sb = (3, 0) <= cur_hm < (4, 0)
-    is_ny_am_sb = (10, 0) <= cur_hm < (11, 0)
-
-    # Optional Macro Windows (Rule 053)
-    is_macro_1 = (9, 50) <= cur_hm < (10, 10)
-    is_macro_2 = (10, 50) <= cur_hm < (11, 10)
-
-    active_window_id: Optional[str] = None
-    window_start_ms: Optional[int] = None
-    window_end_ms: Optional[int] = None
-
-    if is_london_sb:
-        active_window_id = "LONDON_SILVER_BULLET"
-        w_start = dt_ny.replace(hour=3, minute=0, second=0, microsecond=0)
-        w_end = dt_ny.replace(hour=4, minute=0, second=0, microsecond=0)
-        window_start_ms = int(w_start.timestamp() * 1000)
-        window_end_ms = int(w_end.timestamp() * 1000)
-    elif is_ny_am_sb:
-        active_window_id = "NY_AM_SILVER_BULLET"
-        w_start = dt_ny.replace(hour=10, minute=0, second=0, microsecond=0)
-        w_end = dt_ny.replace(hour=11, minute=0, second=0, microsecond=0)
-        window_start_ms = int(w_start.timestamp() * 1000)
-        window_end_ms = int(w_end.timestamp() * 1000)
+    active_window_id, window_start_ms, window_end_ms, eff_profile = resolve_cg01_windows_for_profile(
+        dt_ny,
+        profile=req_profile,
+        execution_scope=exec_scope,
+    )
 
     is_in_window = (active_window_id is not None)
     if is_in_window:
@@ -132,6 +175,8 @@ def resolve_cg01_time_context(
         permission_reason=permission_reason,
         window_start_ms=window_start_ms,
         window_end_ms=window_end_ms,
+        timing_profile=eff_profile,
+        execution_scope=exec_scope,
     )
 
 

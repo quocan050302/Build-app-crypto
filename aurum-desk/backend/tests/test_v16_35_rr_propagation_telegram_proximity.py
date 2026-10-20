@@ -118,7 +118,7 @@ class TestRRPropagationThroughFill:
         # Entry=4100, SL=4090, TP=4118 → gross = 18/10 = 1.8, after fees ≈ 1.5–1.7
         calc_15 = calculate_risk_reward(
             "LONG",
-            entry=4100.0, sl=4090.0, tp=4118.0,
+            entry=4100.0, sl=4090.0, tp=4124.0,
             capital=1000.0, risk_pct=0.25,
             min_net_rr=1.5,
             costs=costs,
@@ -126,56 +126,26 @@ class TestRRPropagationThroughFill:
         )
         calc_20 = calculate_risk_reward(
             "LONG",
-            entry=4100.0, sl=4090.0, tp=4118.0,
+            entry=4100.0, sl=4090.0, tp=4124.0,
             capital=1000.0, risk_pct=0.25,
             min_net_rr=2.0,
             costs=costs,
             leverage=5,
         )
 
-        # With threshold 1.5: must be executable if net_rr >= 1.5
-        # With threshold 2.0: must be rejected if net_rr < 2.0
         assert calc_15.is_valid, f"Plan geometry invalid: {calc_15.invalid_reason}"
-        net_rr = calc_15.net_rr
-        # If geometry is good but RR out of range, adjust TP
-        # Skip the range-check gracefully with a message rather than hard-fail on fixture
-        if not (1.5 <= net_rr < 2.0):
-            # Auto-adjust: binary search for tp that gives net_rr in [1.5, 2.0)
-            # Try tp values: 4115 to 4130 step 0.5
-            found = False
-            for tp_try in [4115.0, 4116.0, 4117.0, 4118.0, 4119.0, 4120.0, 4121.0, 4122.0]:
-                c = calculate_risk_reward(
-                    "LONG", entry=4100.0, sl=4090.0, tp=tp_try,
-                    capital=1000.0, risk_pct=0.25, min_net_rr=1.5,
-                    costs=costs, leverage=5,
-                )
-                if c.is_valid and 1.5 <= c.net_rr < 2.0:
-                    calc_15 = c
-                    calc_20 = calculate_risk_reward(
-                        "LONG", entry=4100.0, sl=4090.0, tp=tp_try,
-                        capital=1000.0, risk_pct=0.25, min_net_rr=2.0,
-                        costs=costs, leverage=5,
-                    )
-                    net_rr = c.net_rr
-                    found = True
-                    break
-            if not found:
-                pytest.skip(
-                    "Could not find TP producing net_rr in [1.5, 2.0) with these costs. "
-                    "Adjust cost model or geometry."
-                )
-
+        assert 1.5 <= calc_15.net_rr < 2.0, f"Expected net_rr in [1.5, 2.0), got {calc_15.net_rr}"
         assert calc_15.meets_min_rr is True, (
-            f"With min_net_rr=1.5, net_rr={net_rr:.4f} should meet threshold"
+            f"With min_net_rr=1.5, net_rr={calc_15.net_rr:.4f} should meet threshold"
         )
         assert calc_15.can_execute is True, (
-            f"With min_net_rr=1.5, plan should be executable (net_rr={net_rr:.4f})"
+            f"With min_net_rr=1.5, plan should be executable (net_rr={calc_15.net_rr:.4f})"
         )
         assert calc_20.meets_min_rr is False, (
-            f"With min_net_rr=2.0, net_rr={net_rr:.4f} should NOT meet threshold"
+            f"With min_net_rr=2.0, net_rr={calc_20.net_rr:.4f} should NOT meet threshold"
         )
         assert calc_20.can_execute is False, (
-            f"With min_net_rr=2.0, plan net_rr={net_rr:.4f} should be rejected"
+            f"With min_net_rr=2.0, plan net_rr={calc_20.net_rr:.4f} should be rejected"
         )
 
     def test_coordinator_uses_scalp_config_when_snapshot_missing_key(self, isolated_db):
@@ -463,12 +433,28 @@ class TestTelegramZeroPlaceholder:
         """_has_valid_plan correctly classifies zone-only vs plan payloads."""
         from services.telegram_service import _has_valid_plan
 
-        assert _has_valid_plan({"stop_loss": 4085.0, "take_profit": 4120.0}) is True
-        assert _has_valid_plan({"stop_loss": None, "take_profit": 4120.0}) is False
-        assert _has_valid_plan({"stop_loss": 4085.0, "take_profit": None}) is False
-        assert _has_valid_plan({"stop_loss": 0.0, "take_profit": 4120.0}) is False
-        assert _has_valid_plan({"stop_loss": float("nan"), "take_profit": 4120.0}) is False
-        assert _has_valid_plan({"stop_loss": float("inf"), "take_profit": 4120.0}) is False
+        valid_long = {
+            "direction": "LONG",
+            "planned_entry": 4100.0,
+            "stop_loss": 4085.0,
+            "take_profit": 4120.0,
+        }
+        assert _has_valid_plan(valid_long) is True
+
+        # Broken geometry: SL above entry for LONG
+        broken_geom = {
+            "direction": "LONG",
+            "planned_entry": 4100.0,
+            "stop_loss": 4110.0,
+            "take_profit": 4120.0,
+        }
+        assert _has_valid_plan(broken_geom) is False
+
+        assert _has_valid_plan({**valid_long, "stop_loss": None}) is False
+        assert _has_valid_plan({**valid_long, "take_profit": None}) is False
+        assert _has_valid_plan({**valid_long, "stop_loss": 0.0}) is False
+        assert _has_valid_plan({**valid_long, "stop_loss": float("nan")}) is False
+        assert _has_valid_plan({**valid_long, "stop_loss": float("inf")}) is False
         assert _has_valid_plan({}) is False
 
 

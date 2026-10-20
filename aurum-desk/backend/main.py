@@ -80,6 +80,28 @@ def reconcile_stuck_orders():
         if count > 0:
             db.commit()
             print(f"Reconciled {count} stuck setups.")
+
+        # V14.4.1+: Reconcile SMC scenarios with their highest immutable snapshot
+        scenarios = db.query(models.SMCScenario).all()
+        scen_count = 0
+        for s in scenarios:
+            max_snap = db.query(models.SMCScenarioSnapshot).filter(
+                models.SMCScenarioSnapshot.scenario_id == s.scenario_id
+            ).order_by(
+                models.SMCScenarioSnapshot.revision.desc(),
+                models.SMCScenarioSnapshot.created_at.desc()
+            ).first()
+            if max_snap and max_snap.revision > s.revision:
+                s.revision = max_snap.revision
+                s.state = max_snap.state
+                s.current_snapshot_id = max_snap.snapshot_id
+                s.instance_id = max_snap.instance_id
+                s.payload = max_snap.payload
+                s.updated_at = max_snap.created_at
+                scen_count += 1
+        if scen_count > 0:
+            db.commit()
+            print(f"Reconciled {scen_count} desynchronized SMC scenarios to latest snapshot.")
     finally:
         db.close()
 
@@ -3194,6 +3216,8 @@ def get_scalp_config_endpoint(db: Session = Depends(get_db)):
         "cg01_profile_mode": getattr(cfg, "cg01_profile_mode", "OFF"),
         "execution_profile": getattr(cfg, "execution_profile", "BASELINE"),
         "cg01_direction_policy": getattr(cfg, "cg01_direction_policy", "LEGACY_H1"),
+        "timing_profile": getattr(cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),
+        "effective_timing_profile": getattr(cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),
     }
     return {
         "status": "SUCCESS",
@@ -3340,6 +3364,23 @@ def update_scalp_config_endpoint(
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="INVALID_VALUE: min_net_rr must be a positive number")
 
+    if "timing_profile" in payload:
+        tp_input = payload["timing_profile"]
+        if not isinstance(tp_input, str):
+            raise HTTPException(status_code=400, detail="INVALID_TIMING_PROFILE: must be a string")
+        tp_val = tp_input.strip().upper()
+        if tp_val not in ("SILVER_BULLET_LONDON_NY", "CG01_NY_PAPER_EXPANDED"):
+            raise HTTPException(
+                status_code=400,
+                detail="INVALID_TIMING_PROFILE: must be SILVER_BULLET_LONDON_NY or CG01_NY_PAPER_EXPANDED"
+            )
+        cfg_tp = db.query(models.SystemConfig).filter(models.SystemConfig.key == "timing_profile").first()
+        if cfg_tp:
+            cfg_tp.value = tp_val
+            cfg_tp.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="timing_profile", value=tp_val, updated_at=now_ms))
+
     if "max_trigger_age_ms" in payload:
         try:
             ttl_val = int(payload["max_trigger_age_ms"])
@@ -3415,11 +3456,18 @@ def update_scalp_config_endpoint(
         "daily_max_cap": synced_policy.max_fills,
         "daily_ny_goal": synced_policy.ny_goal,
         "policy_version": synced_policy.policy_version,
+        "cg01_enabled": getattr(effective_cfg, "cg01_enabled", False),
+        "cg01_profile_mode": getattr(effective_cfg, "cg01_profile_mode", "OFF"),
+        "execution_profile": getattr(effective_cfg, "execution_profile", "BASELINE"),
+        "cg01_direction_policy": getattr(effective_cfg, "cg01_direction_policy", "LEGACY_H1"),
+        "timing_profile": getattr(effective_cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),
+        "effective_timing_profile": getattr(effective_cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),
     }
     return {
         "status": "SUCCESS",
         "updated_at": now_ms,
         "effective_config": out_config,
+        **out_config,
     }
 
 

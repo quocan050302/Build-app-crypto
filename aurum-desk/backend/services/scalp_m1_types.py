@@ -365,6 +365,7 @@ class M1ScalpConfig:
     cg01_profile_mode: str = "OFF"
     execution_profile: str = "BASELINE"
     cg01_direction_policy: str = "LEGACY_H1"
+    timing_profile: str = "SILVER_BULLET_LONDON_NY"
     cg01_config: Optional[Any] = None
 
     def __post_init__(self):
@@ -376,6 +377,8 @@ class M1ScalpConfig:
             raise ValueError("INVALID_CONFIG: min_net_rr must be > 0")
         if self.max_active_zones <= 0:
             raise ValueError("INVALID_CONFIG: max_active_zones must be > 0")
+        if self.timing_profile not in ("SILVER_BULLET_LONDON_NY", "CG01_NY_PAPER_EXPANDED"):
+            raise ValueError(f"INVALID_TIMING_PROFILE: timing_profile must be SILVER_BULLET_LONDON_NY or CG01_NY_PAPER_EXPANDED, got {self.timing_profile}")
         validate_daily_frequency_config(self)
 
 
@@ -425,6 +428,7 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
                 "cg01_profile_mode",
                 "execution_profile",
                 "cg01_direction_policy",
+                "timing_profile",
             ])
         ).all()
         config_map = {r.key: r.value for r in rows}
@@ -456,9 +460,15 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
             elif val in ("false", "0", "no"):
                 overrides[bool_key] = False
 
-    for str_key in ["cg01_profile_mode", "execution_profile", "cg01_direction_policy"]:
+    for str_key in ["cg01_profile_mode", "execution_profile", "cg01_direction_policy", "timing_profile"]:
         if str_key in config_map:
-            overrides[str_key] = str(config_map[str_key]).strip()
+            s_val = str(config_map[str_key]).strip()
+            if str_key == "timing_profile":
+                tp_clean = s_val.upper()
+                if tp_clean in ("SILVER_BULLET_LONDON_NY", "CG01_NY_PAPER_EXPANDED"):
+                    overrides["timing_profile"] = tp_clean
+            else:
+                overrides[str_key] = s_val
 
     for num_key, typ in [
         ("min_closed_m1_bars", int),

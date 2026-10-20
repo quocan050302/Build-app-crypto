@@ -46,6 +46,8 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
   } = displayState;
 
   const [selectedPolicy, setSelectedPolicy] = useState<string>(directionPolicy || 'LEGACY_H1');
+  const [selectedMinNetRr, setSelectedMinNetRr] = useState<number>(1.5);
+  const [selectedTimingProfile, setSelectedTimingProfile] = useState<string>('SILVER_BULLET_LONDON_NY');
   const [saveStatus, setSaveStatus] = useState<{ type: 'idle' | 'saving' | 'success' | 'error'; message?: string }>({ type: 'idle' });
 
   useEffect(() => {
@@ -54,17 +56,41 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
     }
   }, [directionPolicy]);
 
+  useEffect(() => {
+    fetch('/api/scalp/config')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) {
+          if (data.min_net_rr != null) setSelectedMinNetRr(Number(data.min_net_rr));
+          if (data.timing_profile) setSelectedTimingProfile(data.timing_profile);
+          if (data.cg01_direction_policy) setSelectedPolicy(data.cg01_direction_policy);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const handleSavePolicy = async () => {
     setSaveStatus({ type: 'saving' });
     try {
       const res = await fetch('/api/scalp/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cg01_direction_policy: selectedPolicy }),
+        body: JSON.stringify({
+          cg01_direction_policy: selectedPolicy,
+          min_net_rr: Number(selectedMinNetRr),
+          timing_profile: selectedTimingProfile,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.detail || `Lỗi máy chủ (${res.status})`);
+      }
+      const respData = await res.json().catch(() => ({}));
+      if (respData && respData.effective_config) {
+        const eff = respData.effective_config;
+        if (eff.min_net_rr != null) setSelectedMinNetRr(Number(eff.min_net_rr));
+        if (eff.timing_profile) setSelectedTimingProfile(eff.timing_profile);
+        if (eff.cg01_direction_policy) setSelectedPolicy(eff.cg01_direction_policy);
       }
       setSaveStatus({ type: 'success', message: 'Đã lưu cấu hình!' });
       setTimeout(() => setSaveStatus({ type: 'idle' }), 3000);
@@ -195,6 +221,45 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
                 : 'LEGACY: H1 chọn hướng.'}
             </p>
           </div>
+
+          {/* Min Net R:R & Timing Profile (Section 046) */}
+          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-charcoal-800">
+            <div>
+              <label className="block text-[10px] text-gray-300 font-medium mb-0.5">
+                Min Net R:R
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                min="1.0"
+                max="5.0"
+                data-testid="cg01-min-net-rr-input"
+                value={selectedMinNetRr}
+                onChange={(e) => setSelectedMinNetRr(parseFloat(e.target.value) || 1.5)}
+                className="w-full bg-charcoal-800 border border-charcoal-700 text-gray-200 rounded px-1.5 py-1 text-[11px] focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] text-gray-300 font-medium mb-0.5">
+                Cửa sổ phiên (Timing)
+              </label>
+              <select
+                data-testid="cg01-timing-profile-select"
+                value={selectedTimingProfile}
+                onChange={(e) => setSelectedTimingProfile(e.target.value)}
+                className="w-full bg-charcoal-800 border border-charcoal-700 text-gray-200 rounded px-1.5 py-1 text-[11px] focus:outline-none focus:border-cyan-500"
+              >
+                <option value="SILVER_BULLET_LONDON_NY">Gốc (NY 10-11h)</option>
+                <option value="CG01_NY_PAPER_EXPANDED">Mỹ Mở Rộng (08-11h)</option>
+              </select>
+            </div>
+          </div>
+          <p className="text-[10px] text-cyan-400/90 italic">
+            {selectedTimingProfile === 'CG01_NY_PAPER_EXPANDED'
+              ? 'NY Mở Rộng: 08:00–11:00 NY (19:00–22:00 VN). Chỉ áp dụng PAPER, giữ nguyên CG-01 triggers & guards.'
+              : 'Gốc: London 03:00–04:00 NY & NY 10:00–11:00 NY (21:00–22:00 VN).'}
+          </p>
           <div className="flex items-center justify-between pt-1">
             <button
               type="button"

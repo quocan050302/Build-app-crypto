@@ -1,6 +1,7 @@
 import time
 import json
 import asyncio
+import math
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 from database import SessionLocal
@@ -13,6 +14,20 @@ from services.trade_lifecycle_service import TradeLifecycleService
 from services.quote_validator import QuoteValidator
 from services.clock import live_clock, IClock
 from services.entry_guard_service import serialize_entry_mutation
+from services.scalp_m1_types import load_effective_scalp_config
+
+
+def _validate_threshold(val: Any) -> Optional[float]:
+    """Rule 029: Validate that threshold is a numeric, finite, positive float (> 0)."""
+    if val is None or isinstance(val, bool):
+        return None
+    try:
+        f = float(val)
+        if math.isfinite(f) and f > 0:
+            return f
+    except (TypeError, ValueError):
+        pass
+    return None
 
 
 def resolve_executable_sizing_context(
@@ -200,23 +215,47 @@ class ExecutionCoordinator:
                 except Exception:
                     order_cost_snap = {}
 
-            # Rule 034/042/043: Resolve effective min_net_rr for this fill.
-            # Priority: (1) min_net_rr_at_arm persisted in cost_snapshot at ARM time,
-            #           (2) canonical scalp config from DB (honours user's /api/scalp/config setting),
-            #           (3) hard-coded 2.0 (never silently promotes RR threshold).
+            # Rule 014, 027 - 032, 070: Resolve effective min_net_rr for this fill.
+            # Priority: (1) min_net_rr_at_arm persisted in cost_snapshot at ARM time.
+            #               If present, must be valid (> 0, finite). If invalid, reject order.
+            #           (2) canonical scalp config from DB (honours user's /api/scalp/config setting).
+            #               If missing key in snapshot, resolve config. If resolution fails, reject order.
             _rr_from_snap = order_cost_snap.get("min_net_rr_at_arm")
             if _rr_from_snap is not None:
-                try:
-                    _rr_candidate = float(_rr_from_snap)
-                    effective_fill_min_rr = _rr_candidate if _rr_candidate > 0 else 2.0
-                except (TypeError, ValueError):
-                    effective_fill_min_rr = 2.0
+                _valid_rr = _validate_threshold(_rr_from_snap)
+                if _valid_rr is None:
+                    TradeLifecycleService.execute_reject(
+                        db=db,
+                        order=order,
+                        reason=f"INVALID_ORDER_THRESHOLD: min_net_rr_at_arm in snapshot is invalid ({_rr_from_snap})",
+                        now_ms=current_time,
+                        clock=c,
+                    )
+                    continue
+                effective_fill_min_rr = _valid_rr
             else:
                 try:
                     _scalp_cfg = load_effective_scalp_config(db)
-                    effective_fill_min_rr = float(_scalp_cfg.min_net_rr) if _scalp_cfg.min_net_rr > 0 else 2.0
-                except Exception:
-                    effective_fill_min_rr = 2.0
+                    _valid_cfg_rr = _validate_threshold(getattr(_scalp_cfg, "min_net_rr", None))
+                    if _valid_cfg_rr is None:
+                        TradeLifecycleService.execute_reject(
+                            db=db,
+                            order=order,
+                            reason="CONFIG_RESOLUTION_ERROR: effective scalp config returned invalid min_net_rr",
+                            now_ms=current_time,
+                            clock=c,
+                        )
+                        continue
+                    effective_fill_min_rr = _valid_cfg_rr
+                except Exception as e:
+                    TradeLifecycleService.execute_reject(
+                        db=db,
+                        order=order,
+                        reason=f"CONFIG_RESOLUTION_ERROR: failed to load scalp config for legacy order fallback ({e})",
+                        now_ms=current_time,
+                        clock=c,
+                    )
+                    continue
 
             raw_order_slip = order_cost_snap.get("slippage_usd")
             if raw_order_slip is not None:

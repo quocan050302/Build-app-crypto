@@ -466,8 +466,17 @@ class ScalpWatcherOrchestrator:
                         ),
                         now_ms=t_recv,
                     )
-                    # Queue Telegram notification
+                    # Queue Telegram notification (Rules 015, 051 - 057)
                     if scalp_mode != ScalpMode.OFF.value:
+                        from services.proximity_service import compute_zone_proximity_metrics
+                        near_metrics = compute_zone_proximity_metrics(
+                            price=current_px,
+                            zone_low=z.bottom,
+                            zone_high=z.top,
+                            atr=atr_15m,
+                            price_basis="MID",
+                            floor_atr=0.10,
+                        )
                         queue_telegram_notification(
                             db=db,
                             item_type="NEAR_ENTRY",
@@ -478,9 +487,14 @@ class ScalpWatcherOrchestrator:
                                 "entry_zone_low": z.bottom,
                                 "entry_zone_high": z.top,
                                 "entry_target": z.midpoint,
-                                "distance_price": abs(current_px - z.midpoint),
-                                "distance_atr": dist_atr,
-                                "atr": atr_15m,
+                                "distance_price": near_metrics.distance_price,
+                                "distance_atr": near_metrics.distance_atr,
+                                "midpoint_distance": near_metrics.midpoint_distance,
+                                "atr": near_metrics.effective_atr,
+                                "measured_atr": near_metrics.measured_atr,
+                                "effective_atr": near_metrics.effective_atr,
+                                "atr_effective_floor_used": near_metrics.atr_effective_floor_used,
+                                "price_basis": "MID",
                                 "auto_paper_enabled": (scalp_mode == ScalpMode.PAPER.value and global_auto),
                             },
                             occurred_at=t_recv,
