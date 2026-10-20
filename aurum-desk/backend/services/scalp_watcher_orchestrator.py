@@ -538,6 +538,28 @@ class ScalpWatcherOrchestrator:
 
         dealing_range = compute_dealing_range(shs + sls, t_recv, symbol=symbol)
         regime = classify_market_regime(ref_candles if ref_candles else c_1m, atr_15m, t_recv)
+        regime_snapshot = {
+            "regime": regime,
+            "timeframe": ref_tf,
+            "atr_reference": float(atr_15m) if atr_15m else 1.0,
+            "known_at_ms": t_recv,
+            "classifier_version": "v16.38",
+        }
+        sr_zones = []
+        if getattr(cfg, "execution_profile", "BASELINE") == "PAPER_ADAPTIVE_SMC":
+            try:
+                from services.support_resistance_service import build_support_resistance_zones
+                sr_zones = build_support_resistance_zones(
+                    symbol=symbol,
+                    swings=(shs + sls),
+                    closed_candles=ref_candles or c_1m or (),
+                    as_of_ms=t_recv,
+                    tick_size=float(getattr(cfg, "tick_size", 0.01) or 0.01),
+                    atr=float(atr_15m) if atr_15m else 1.0,
+                    timeframe=ref_tf,
+                )
+            except Exception as sr_err:
+                logger.warning(f"[SRZone] Error building causal S/R zones: {sr_err}")
 
         policy = TradingPolicyService.get_or_create_policy(db)
         session_ctx = resolve_entry_session_context(policy, "STANDARD_SMC", now_ms=t_recv, clock=clock)
@@ -796,7 +818,21 @@ class ScalpWatcherOrchestrator:
         }
 
         # A. SMC M1 Reversal Model on watched zones
-        if scalp_mode != ScalpMode.OFF.value and c_1m:
+        exec_profile = getattr(cfg, "execution_profile", "BASELINE")
+        adaptive_regime_models = None
+        if exec_profile == "PAPER_ADAPTIVE_SMC":
+            from services.support_resistance_service import resolve_models_for_regime
+            adaptive_regime_models = set(resolve_models_for_regime(regime))
+
+        run_reversal = (scalp_mode != ScalpMode.OFF.value and bool(c_1m))
+        if run_reversal and exec_profile == "PAPER_ADAPTIVE_SMC":
+            allowlist = getattr(cfg, "adaptive_model_allowlist", ()) or ()
+            if ModelIdentifier.SMC_M1_REVERSAL.value not in allowlist:
+                run_reversal = False
+            elif adaptive_regime_models is not None and ModelIdentifier.SMC_M1_REVERSAL.value not in adaptive_regime_models and regime != "UNCERTAIN":
+                run_reversal = False
+
+        if run_reversal:
             for z in bounded_zones:
                 if z.state in (ZoneState.NEAR.value, ZoneState.TOUCHED.value, ZoneState.WAITING_TRIGGER.value):
                     # Check if zone's hypothesis read authority failed (SECTIONS 095 - 098)
@@ -912,6 +948,10 @@ class ScalpWatcherOrchestrator:
                     )
                     if cand.is_eligible:
                         cand.hypothesis_id = zone_hyp.hypothesis_id
+                        cand.regime_snapshot = regime_snapshot
+                        cand.execution_profile = exec_profile
+                        if sr_zones:
+                            cand.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
                         candidates.append(cand)
                     else:
                         OpportunityFunnelService.record_opportunity_transition(
@@ -936,32 +976,61 @@ class ScalpWatcherOrchestrator:
             )
 
             # B. SMC M1 Continuation Model (SECTIONS 080 - 082) - DIRECT authority
-            if not cycle_authority.has_write_failures:
+            run_cont = not cycle_authority.has_write_failures
+            if run_cont and exec_profile == "PAPER_ADAPTIVE_SMC":
+                allowlist = getattr(cfg, "adaptive_model_allowlist", ()) or ()
+                if ModelIdentifier.SMC_M1_CONTINUATION.value not in allowlist:
+                    run_cont = False
+                elif adaptive_regime_models is not None and ModelIdentifier.SMC_M1_CONTINUATION.value not in adaptive_regime_models and regime != "UNCERTAIN":
+                    run_cont = False
+            if run_cont:
                 cand_cont = ScalpM1ModelService.evaluate_m1_continuation_candidate(
                     c_1m, c_5m, q, bias, align, policy_dict, now_ms=t_recv, config=cfg
                 )
                 if cand_cont.is_eligible:
+                    cand_cont.regime_snapshot = regime_snapshot
+                    cand_cont.execution_profile = exec_profile
+                    if sr_zones:
+                        cand_cont.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
                     candidates.append(cand_cont)
 
             # B2. SMC M1 FVG Continuation Model (Rules 046 - 060) - DIRECT authority, V16 profile gated
-            if (
+            run_fvg = (
                 getattr(cfg, "v16_profile_enabled", True)
                 and getattr(cfg, "fvg_continuation_enabled", True)
                 and not cycle_authority.has_write_failures
-            ):
+            )
+            if run_fvg and exec_profile == "PAPER_ADAPTIVE_SMC":
+                allowlist = getattr(cfg, "adaptive_model_allowlist", ()) or ()
+                if ModelIdentifier.SMC_M1_FVG_CONTINUATION.value not in allowlist:
+                    run_fvg = False
+                elif adaptive_regime_models is not None and ModelIdentifier.SMC_M1_FVG_CONTINUATION.value not in adaptive_regime_models and regime != "UNCERTAIN":
+                    run_fvg = False
+            if run_fvg:
                 cand_fvg_cont = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
                     closed_1m=c_1m, closed_5m=c_5m, quote=q, htf_bias=bias, h1_alignment=align,
                     policy_settings=policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels
                 )
                 if cand_fvg_cont.is_eligible:
+                    cand_fvg_cont.regime_snapshot = regime_snapshot
+                    cand_fvg_cont.execution_profile = exec_profile
+                    if sr_zones:
+                        cand_fvg_cont.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
                     candidates.append(cand_fvg_cont)
 
             # B3. SMC M1 Sweep Reclaim Model (Rules 061 - 074, 080) - CLUSTER authority, V16 profile gated
-            if (
+            run_sr = (
                 getattr(cfg, "v16_profile_enabled", True)
                 and getattr(cfg, "sweep_reclaim_enabled", True)
                 and not cycle_authority.has_write_failures
-            ):
+            )
+            if run_sr and exec_profile == "PAPER_ADAPTIVE_SMC":
+                allowlist = getattr(cfg, "adaptive_model_allowlist", ()) or ()
+                if ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value not in allowlist:
+                    run_sr = False
+                elif adaptive_regime_models is not None and ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value not in adaptive_regime_models and regime != "UNCERTAIN":
+                    run_sr = False
+            if run_sr:
                 from services.smc_liquidity_service import build_liquidity_clusters, update_cluster_state
                 liq_clusters = build_liquidity_clusters(liq_levels, timeframe="15M", symbol=symbol, now_ms=t_recv)
                 for cluster in liq_clusters:
@@ -974,6 +1043,10 @@ class ScalpWatcherOrchestrator:
                             now_ms=t_recv, config=cfg, context_levels=liq_levels
                         )
                         if cand_sr.is_eligible:
+                            cand_sr.regime_snapshot = regime_snapshot
+                            cand_sr.execution_profile = exec_profile
+                            if sr_zones:
+                                cand_sr.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
                             candidates.append(cand_sr)
 
         # C. Daily NY Research Model (SECTIONS 080 - 083)
@@ -1049,6 +1122,10 @@ class ScalpWatcherOrchestrator:
                 )
             cg01_eval_data = serialize_cg01_evaluation(cg01_dec, enabled=True, evaluated=True, as_of_ms=t_recv)
             if cg01_dec.candidate:
+                cg01_dec.candidate.regime_snapshot = regime_snapshot
+                cg01_dec.candidate.execution_profile = exec_profile
+                if sr_zones:
+                    cg01_dec.candidate.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
                 candidates.append(cg01_dec.candidate)
         else:
             cg01_eval_data = serialize_cg01_evaluation(
@@ -1111,19 +1188,35 @@ class ScalpWatcherOrchestrator:
             )
             OpportunityFunnelService.record_opportunity_transition(db, opp_eval, now_ms=t_recv)
 
+            from services.scalp_m1_model_service import resolve_model_execution_policy, ModelExecutionAction
             exec_profile = getattr(cfg, "execution_profile", "BASELINE")
             is_cg01_model = (cand.model_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value)
 
-            # Rule 019 & 035, 102, 104: Execution profile arbitration
-            should_shadow = (effective_scalp_mode == ScalpMode.SHADOW.value)
-            if not should_shadow:
-                if is_cg01_model:
-                    cg01_pm = getattr(cfg, "cg01_profile_mode", None)
-                    if cg01_pm != "PAPER_EXECUTION" or exec_profile != "CG01":
-                        should_shadow = True
-                else:
-                    if exec_profile == "CG01":
-                        should_shadow = True
+            # Rule 019 & 033, 034, 035, 102, 104: Policy router-driven execution arbitration
+            pol_action, pol_reason = resolve_model_execution_policy(cfg, cand.model_id, execution_scope="PAPER")
+            if pol_action == ModelExecutionAction.DISABLED:
+                logger.info(f"Candidate {cand.candidate_key} ({cand.model_id}) disabled by execution policy: {pol_reason}")
+                OpportunityFunnelService.record_opportunity_transition(
+                    db,
+                    OpportunityEvaluation(
+                        opportunity_id=f"opp_{cand.candidate_key}",
+                        symbol=symbol,
+                        model_id=cand.model_id,
+                        direction=cand.direction,
+                        zone_id=cand.zone_id,
+                        as_of_ms=t_recv,
+                        stage=OpportunityStage.GUARD_BLOCKED.value,
+                        reason_codes=(pol_reason,),
+                        planned_entry=cand.planned_entry,
+                        stop_loss=cand.stop_loss,
+                        take_profit=cand.take_profit,
+                        net_rr=cand.net_rr,
+                    ),
+                    now_ms=t_recv,
+                )
+                continue
+
+            should_shadow = (effective_scalp_mode == ScalpMode.SHADOW.value) or (pol_action == ModelExecutionAction.EVALUATE_SHADOW)
 
             if should_shadow:
                 # In SHADOW mode: record hypothetical plan, do NOT arm or fill order (PHẦN 024, 079)
@@ -1734,6 +1827,11 @@ class ScalpWatcherOrchestrator:
             min_net_rr=cfg.min_net_rr,
         )
         arm_snap["expires_at"] = resolved_expires_at
+        arm_snap["execution_profile"] = getattr(cfg, "execution_profile", "BASELINE")
+        if hasattr(cand, "regime_snapshot") and cand.regime_snapshot:
+            arm_snap["regime_snapshot"] = cand.regime_snapshot
+        if hasattr(cand, "sr_evidence") and cand.sr_evidence:
+            arm_snap["sr_evidence"] = cand.sr_evidence
 
         order_id = f"ord_{cand.model_id}_{cand.candidate_key}"
         order = models.PaperOrder(

@@ -3215,6 +3215,7 @@ def get_scalp_config_endpoint(db: Session = Depends(get_db)):
         "cg01_enabled": getattr(cfg, "cg01_enabled", False),
         "cg01_profile_mode": getattr(cfg, "cg01_profile_mode", "OFF"),
         "execution_profile": getattr(cfg, "execution_profile", "BASELINE"),
+        "adaptive_model_allowlist": list(getattr(cfg, "adaptive_model_allowlist", ())),
         "cg01_direction_policy": getattr(cfg, "cg01_direction_policy", "LEGACY_H1"),
         "timing_profile": getattr(cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),
         "effective_timing_profile": getattr(cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),
@@ -3342,13 +3343,53 @@ def update_scalp_config_endpoint(
             db.add(models.SystemConfig(key="cg01_profile_mode", value=pm_val, updated_at=now_ms))
 
     if "execution_profile" in payload:
-        ep_val = str(payload["execution_profile"]).strip().upper()
+        from services.scalp_m1_types import ExecutionProfile
+        ep_raw = payload["execution_profile"]
+        if not isinstance(ep_raw, str):
+            raise HTTPException(
+                status_code=400,
+                detail="INVALID_EXECUTION_PROFILE: Chế độ giao dịch không được hỗ trợ."
+            )
+        ep_val = ep_raw.strip().upper()
+        if ep_val not in (ExecutionProfile.BASELINE.value, ExecutionProfile.CG01.value, ExecutionProfile.PAPER_ADAPTIVE_SMC.value):
+            raise HTTPException(
+                status_code=400,
+                detail="INVALID_EXECUTION_PROFILE: Chế độ giao dịch không được hỗ trợ."
+            )
+
+        # Rule 027: Paper-only profile guard
+        db_scope_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == "execution_scope").first()
+        effective_scope = db_scope_row.value.strip().upper() if db_scope_row and db_scope_row.value else "PAPER"
+        req_scope = str(payload.get("execution_scope", payload.get("scope", effective_scope))).strip().upper()
+        if ep_val == ExecutionProfile.PAPER_ADAPTIVE_SMC.value and (req_scope == "LIVE" or effective_scope == "LIVE"):
+            raise HTTPException(
+                status_code=400,
+                detail="PAPER_ONLY_PROFILE_VIOLATION: PAPER_ADAPTIVE_SMC chỉ được phép chạy trong môi trường PAPER."
+            )
+
         cfg_ep = db.query(models.SystemConfig).filter(models.SystemConfig.key == "execution_profile").first()
         if cfg_ep:
             cfg_ep.value = ep_val
             cfg_ep.updated_at = now_ms
         else:
             db.add(models.SystemConfig(key="execution_profile", value=ep_val, updated_at=now_ms))
+
+    if "adaptive_model_allowlist" in payload:
+        from services.scalp_m1_types import normalize_adaptive_model_allowlist
+        raw_al = payload["adaptive_model_allowlist"]
+        try:
+            norm_allowlist = normalize_adaptive_model_allowlist(raw_al)
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=f"INVALID_ADAPTIVE_ALLOWLIST: {ve}")
+
+        import json
+        al_json = json.dumps(list(norm_allowlist))
+        cfg_al = db.query(models.SystemConfig).filter(models.SystemConfig.key == "adaptive_model_allowlist").first()
+        if cfg_al:
+            cfg_al.value = al_json
+            cfg_al.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="adaptive_model_allowlist", value=al_json, updated_at=now_ms))
 
     if "min_net_rr" in payload:
         try:
@@ -3459,6 +3500,7 @@ def update_scalp_config_endpoint(
         "cg01_enabled": getattr(effective_cfg, "cg01_enabled", False),
         "cg01_profile_mode": getattr(effective_cfg, "cg01_profile_mode", "OFF"),
         "execution_profile": getattr(effective_cfg, "execution_profile", "BASELINE"),
+        "adaptive_model_allowlist": list(getattr(effective_cfg, "adaptive_model_allowlist", ())),
         "cg01_direction_policy": getattr(effective_cfg, "cg01_direction_policy", "LEGACY_H1"),
         "timing_profile": getattr(effective_cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),
         "effective_timing_profile": getattr(effective_cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),

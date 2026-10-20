@@ -321,6 +321,47 @@ def _check_identity(req: EntryGuardRequest) -> EntryCheck:
     return _ok("identity")
 
 
+def _validate_daily_bias_policy(req: EntryGuardRequest) -> Optional[EntryCheck]:
+    """
+    V16.38 Rules 082, 083:
+    Validates DAILY_BIAS_PRIMARY binding across all SMC models (CG-01, Reversal, Continuation, FVG, Reclaim).
+    """
+    ev = req.evidence or {}
+    policy = ev.get("direction_policy")
+    if policy != "DAILY_BIAS_PRIMARY":
+        return None
+
+    from services.cg01_daily_bias_service import validate_cg01_bias_authority_binding
+    daily_b = ev.get("daily_bias")
+    cur_bias = ev.get("current_daily_bias")
+    valid, code, msg_vi, _ = validate_cg01_bias_authority_binding(
+        candidate_bias=daily_b,
+        current_authority=cur_bias,
+        order_direction=req.direction,
+        symbol=req.symbol,
+        effective_fingerprint=ev.get("effective_config_fingerprint"),
+    )
+    if not valid:
+        next_steps = {
+            "DAILY_BIAS_MISSING": "Chờ đánh giá bias ngày trước khi arm.",
+            "DAILY_BIAS_INVALIDATED": "Chờ xác nhận cấu trúc ngày mới.",
+            "DAILY_BIAS_UNAVAILABLE": "Chờ dữ liệu bối cảnh ngày.",
+            "DAILY_BIAS_NEUTRAL": "Chờ cấu trúc có xu hướng rõ ràng.",
+            "DAILY_BIAS_MISSING_TOKEN": "Yêu cầu đánh giá lại candidate.",
+            "DAILY_BIAS_MISSING_FINGERPRINT": "Yêu cầu đánh giá lại candidate theo cấu hình hợp lệ.",
+            "DAILY_BIAS_INVALID_DIRECTIONS": "Chờ cấu trúc bias ngày hợp lệ.",
+            "DAILY_BIAS_DIRECTION_MISMATCH": "Chờ bias ngày đồng thuận.",
+            "DAILY_BIAS_CURRENT_UNAVAILABLE": "Chờ tính toán bias ngày hiện tại trước khi arm.",
+            "DAILY_BIAS_CURRENT_INVALIDATED": "Chờ cấu trúc ngày mới được thiết lập.",
+            "CONFIG_FINGERPRINT_MISMATCH": "Yêu cầu đánh giá lại candidate theo cấu hình mới.",
+            "DAILY_BIAS_AUTHORITY_MISMATCH": "Cấu trúc hoặc bối cảnh ngày đã thay đổi; yêu cầu candidate mới.",
+            "DAILY_BIAS_SYMBOL_MISMATCH": "Yêu cầu candidate thuộc đúng symbol.",
+        }
+        next_step = next_steps.get(code, "Yêu cầu đánh giá lại candidate.")
+        return EntryCheck(code, "BLOCK", msg_vi, next_step)
+    return None
+
+
 def _check_strategy(req: EntryGuardRequest) -> EntryCheck:
     if req.origin in NON_SETUP_ORIGINS and req.setup_state is None:
         return _ok("strategy", "Lệnh thủ công, không gắn nhãn SMC.")
@@ -359,41 +400,13 @@ def _check_strategy(req: EntryGuardRequest) -> EntryCheck:
                 return EntryCheck("UNCONFIRMED_STRUCTURE_CHAIN", "BLOCK",
                                   "Chuỗi cấu trúc SMC chưa được xác nhận đầy đủ (thiếu sweep, break MSS hoặc FVG).",
                                   "Chờ cấu trúc hoàn thành các bước xác nhận.")
-        if req.strategy_family == "CG01_SWEEP_MSS_FVG":
-            # Rules 031 - 045: Verify Daily Bias binding for PRIMARY (Fail-Closed)
-            ev = req.evidence or {}
-            policy = ev.get("direction_policy")
-            daily_b = ev.get("daily_bias")
 
-            if policy == "DAILY_BIAS_PRIMARY":
-                from services.cg01_daily_bias_service import validate_cg01_bias_authority_binding
-                cur_bias = ev.get("current_daily_bias")
-                valid, code, msg_vi, _ = validate_cg01_bias_authority_binding(
-                    candidate_bias=daily_b,
-                    current_authority=cur_bias,
-                    order_direction=req.direction,
-                    symbol=req.symbol,
-                    effective_fingerprint=ev.get("effective_config_fingerprint"),
-                )
-                if not valid:
-                    next_steps = {
-                        "DAILY_BIAS_MISSING": "Chờ đánh giá bias ngày trước khi arm.",
-                        "DAILY_BIAS_INVALIDATED": "Chờ xác nhận cấu trúc ngày mới.",
-                        "DAILY_BIAS_UNAVAILABLE": "Chờ dữ liệu bối cảnh ngày.",
-                        "DAILY_BIAS_NEUTRAL": "Chờ cấu trúc có xu hướng rõ ràng.",
-                        "DAILY_BIAS_MISSING_TOKEN": "Yêu cầu đánh giá lại candidate.",
-                        "DAILY_BIAS_MISSING_FINGERPRINT": "Yêu cầu đánh giá lại candidate theo cấu hình hợp lệ.",
-                        "DAILY_BIAS_INVALID_DIRECTIONS": "Chờ cấu trúc bias ngày hợp lệ.",
-                        "DAILY_BIAS_DIRECTION_MISMATCH": "Chờ bias ngày đồng thuận.",
-                        "DAILY_BIAS_CURRENT_UNAVAILABLE": "Chờ tính toán bias ngày hiện tại trước khi arm.",
-                        "DAILY_BIAS_CURRENT_INVALIDATED": "Chờ cấu trúc ngày mới được thiết lập.",
-                        "CONFIG_FINGERPRINT_MISMATCH": "Yêu cầu đánh giá lại candidate theo cấu hình mới.",
-                        "DAILY_BIAS_AUTHORITY_MISMATCH": "Cấu trúc hoặc bối cảnh ngày đã thay đổi; yêu cầu candidate mới.",
-                        "DAILY_BIAS_SYMBOL_MISMATCH": "Yêu cầu candidate thuộc đúng symbol.",
-                    }
-                    next_step = next_steps.get(code, "Yêu cầu đánh giá lại candidate.")
-                    return EntryCheck(code, "BLOCK", msg_vi, next_step)
-            return _ok("strategy")
+        # V16.38 Rules 082, 083: Apply DAILY_BIAS_PRIMARY direction validation across all SMC families
+        if req.strategy_family in ("CG01_SWEEP_MSS_FVG", "SMC_M1_REVERSAL", "SMC_M1_CONTINUATION", "SMC_M1_FVG_CONTINUATION", "SMC_M1_SWEEP_RECLAIM"):
+            bias_res = _validate_daily_bias_policy(req)
+            if bias_res is not None:
+                return bias_res
+
         return _ok("strategy")
     if state == "WAITING_RETRACE":
         if req.structure_chain_verified is True:

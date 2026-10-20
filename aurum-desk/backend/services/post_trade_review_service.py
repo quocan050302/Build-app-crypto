@@ -48,7 +48,7 @@ class LessonSeverity(str, Enum):
 @dataclass
 class PostTradeReview:
     """Detailed post-trade review audit artifact (PHẦN 121 - 127)."""
-    order_id: int
+    order_id: str
     symbol: str
     model_id: str
     direction: str
@@ -61,9 +61,13 @@ class PostTradeReview:
     gross_pnl: float
     net_pnl: float
     realized_rr: float
-    hold_time_ms: int
+    hold_time_ms: Optional[int]
     entry_slippage_usd: float
     loss_classification: str
+    outcome_status: str = "WIN"              # "WIN", "BREAKEVEN", "LOSS" (Rule 126)
+    signed_slippage_usd: float = 0.0
+    adverse_slippage_usd: float = 0.0
+    gross_price_rr: float = 0.0
     evidence_ids: List[str] = field(default_factory=list)
     observations: List[str] = field(default_factory=list)
     proposed_lessons: List[Dict[str, Any]] = field(default_factory=list)
@@ -72,7 +76,7 @@ class PostTradeReview:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "order_id": self.order_id,
+            "order_id": str(self.order_id),
             "symbol": self.symbol,
             "model_id": self.model_id,
             "direction": self.direction,
@@ -85,8 +89,12 @@ class PostTradeReview:
             "gross_pnl": self.gross_pnl,
             "net_pnl": self.net_pnl,
             "realized_rr": self.realized_rr,
+            "outcome_status": self.outcome_status,
+            "gross_price_rr": self.gross_price_rr,
             "hold_time_ms": self.hold_time_ms,
             "entry_slippage_usd": self.entry_slippage_usd,
+            "signed_slippage_usd": self.signed_slippage_usd,
+            "adverse_slippage_usd": self.adverse_slippage_usd,
             "loss_classification": self.loss_classification,
             "evidence_ids": list(self.evidence_ids),
             "observations": list(self.observations),
@@ -98,57 +106,91 @@ class PostTradeReview:
 
 def build_post_trade_review(
     order: Any,
-    outcome: Dict[str, Any],
+    outcome: Optional[Dict[str, Any]] = None,
     entry_evidence: Optional[Dict[str, Any]] = None,
     now_ms: int = 0,
 ) -> PostTradeReview:
     """
-    PHẦN 124 - 128: Builds empirical post-trade review from immutable order, outcome, and entry snapshot.
+    PHẦN 124 - 128, V16.38 Rules 121 - 127:
+    Builds empirical post-trade review from immutable order, outcome, and entry snapshot.
     Does NOT invent causes; distinguishes valid strategy loss from slippage or data anomalies.
     """
+    outcome = outcome or {}
     ev = entry_evidence or {}
-    order_id = getattr(order, "id", 0)
-    symbol = getattr(order, "symbol", "XAUUSDT")
-    model_id = getattr(order, "strategy_family", getattr(order, "model_id", "UNKNOWN"))
-    direction = getattr(order, "direction", "LONG")
+    order_id = str(getattr(order, "id", "") or outcome.get("order_id", ""))
+    symbol = getattr(order, "instrument", getattr(order, "symbol", outcome.get("symbol", "XAUUSDT")))
+    model_id = getattr(order, "strategy_family", getattr(order, "model_id", outcome.get("strategy_family", "UNKNOWN")))
+    direction = getattr(order, "direction", outcome.get("direction", "LONG"))
 
     planned_entry = float(getattr(order, "planned_entry", getattr(order, "entry_price", 0.0)) or 0.0)
     actual_entry = float(getattr(order, "actual_entry", getattr(order, "fill_price", planned_entry)) or planned_entry)
     planned_sl = float(getattr(order, "stop_loss", 0.0) or 0.0)
     planned_tp = float(getattr(order, "take_profit", 0.0) or 0.0)
 
-    exit_price = float(outcome.get("exit_price", actual_entry) or actual_entry)
-    exit_cause = str(outcome.get("exit_cause", "UNKNOWN"))
+    exit_price = float(outcome.get("exit_price", getattr(order, "actual_exit", None)) or getattr(order, "actual_exit", None) or actual_entry)
+    exit_cause = str(outcome.get("exit_cause", getattr(order, "exit_cause", "UNKNOWN")) or getattr(order, "exit_cause", "UNKNOWN"))
     gross_pnl = round(float(outcome.get("gross_pnl", 0.0)), 2)
-    net_pnl = round(float(outcome.get("net_pnl", gross_pnl)), 2)
+    net_pnl = round(float(outcome.get("net_pnl", getattr(order, "realized_pnl_net", gross_pnl)) or 0.0), 2)
 
+    # Accounting Realized R (Rule 124)
+    realized_rr_val = outcome.get("realized_r", getattr(order, "realized_r", None))
+    if realized_rr_val is not None:
+        realized_rr = round(float(realized_rr_val), 2)
+    else:
+        init_risk = float(getattr(order, "initial_risk_usdt", 0.0) or 0.0)
+        realized_rr = round(net_pnl / init_risk, 2) if init_risk > 0 else 0.0
+
+    # Gross Price R based on entry/exit geometry
     risk_budget = abs(actual_entry - planned_sl)
     if risk_budget > 0:
         if direction in ("LONG", "BUY"):
-            realized_rr = round((exit_price - actual_entry) / risk_budget, 2)
+            gross_price_rr = round((exit_price - actual_entry) / risk_budget, 2)
         else:
-            realized_rr = round((actual_entry - exit_price) / risk_budget, 2)
+            gross_price_rr = round((actual_entry - exit_price) / risk_budget, 2)
     else:
-        realized_rr = 0.0
+        gross_price_rr = 0.0
 
+    # Slippage (Rule 127)
+    if direction in ("LONG", "BUY"):
+        signed_slippage_usd = round(actual_entry - planned_entry, 2)
+    else:
+        signed_slippage_usd = round(planned_entry - actual_entry, 2)
+    adverse_slippage_usd = round(max(0.0, signed_slippage_usd), 2)
     entry_slippage_usd = round(abs(actual_entry - planned_entry), 2)
-    hold_time_ms = max(0, int(outcome.get("closed_at_ms", now_ms)) - int(getattr(order, "filled_at", now_ms) or now_ms))
+
+    # Hold time (Rule 123)
+    opened_at = getattr(order, "opened_at", getattr(order, "filled_at", None))
+    closed_at = getattr(order, "closed_at", outcome.get("closed_at_ms", outcome.get("closed_at")))
+    if opened_at is not None and closed_at is not None:
+        try:
+            hold_time_ms = max(0, int(closed_at) - int(opened_at))
+        except (ValueError, TypeError):
+            hold_time_ms = None
+    else:
+        hold_time_ms = None
 
     observations: List[str] = []
     proposed_lessons: List[Dict[str, Any]] = []
 
-    # Classify loss / outcome
-    if net_pnl >= 0:
+    EPSILON = 0.001
+    # Classify outcome (Rule 125, 126)
+    if net_pnl > EPSILON:
+        outcome_status = "WIN"
         loss_cls = LossClassification.NOT_A_LOSS.value
         observations.append(f"Giao dịch có lãi ({net_pnl:+.2f} USDT, {realized_rr:+.2f}R). Kế hoạch đạt mục tiêu.")
+    elif abs(net_pnl) <= EPSILON:
+        outcome_status = "BREAKEVEN"
+        loss_cls = LossClassification.NOT_A_LOSS.value
+        observations.append(f"Giao dịch hòa vốn ({net_pnl:+.2f} USDT).")
     else:
+        outcome_status = "LOSS"
         # Evaluate loss cause
-        if entry_slippage_usd > 1.0:
+        if adverse_slippage_usd > 1.0:
             loss_cls = LossClassification.EXECUTION_SLIPPAGE.value
-            observations.append(f"Trượt giá entry đáng kể ({entry_slippage_usd:.2f} USD).")
+            observations.append(f"Trượt giá entry bất lợi ({adverse_slippage_usd:.2f} USD).")
             proposed_lessons.append({
                 "lesson_id": f"lesson_slip_{order_id}",
-                "observation": f"Slippage {entry_slippage_usd:.2f} USD tại entry lệnh #{order_id}",
+                "observation": f"Slippage bất lợi {adverse_slippage_usd:.2f} USD tại entry lệnh #{order_id}",
                 "severity": LessonSeverity.YELLOW.value,
                 "status": LessonStatus.PROPOSED.value,
                 "proposed_action": "WARN_HIGH_SLIPPAGE",
@@ -188,8 +230,12 @@ def build_post_trade_review(
         gross_pnl=gross_pnl,
         net_pnl=net_pnl,
         realized_rr=realized_rr,
+        outcome_status=outcome_status,
+        gross_price_rr=gross_price_rr,
         hold_time_ms=hold_time_ms,
         entry_slippage_usd=entry_slippage_usd,
+        signed_slippage_usd=signed_slippage_usd,
+        adverse_slippage_usd=adverse_slippage_usd,
         loss_classification=loss_cls,
         evidence_ids=ev_ids,
         observations=observations,

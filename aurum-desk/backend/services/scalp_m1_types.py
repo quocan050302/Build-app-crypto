@@ -25,6 +25,12 @@ class ScalpMode(str, Enum):
     PAPER = "PAPER"
 
 
+class ExecutionProfile(str, Enum):
+    BASELINE = "BASELINE"
+    CG01 = "CG01"
+    PAPER_ADAPTIVE_SMC = "PAPER_ADAPTIVE_SMC"
+
+
 class ModelIdentifier(str, Enum):
     STANDARD_SMC = "STANDARD_SMC"
     SMC_M1_REVERSAL = "SMC_M1_REVERSAL"
@@ -33,6 +39,15 @@ class ModelIdentifier(str, Enum):
     SMC_M1_SWEEP_RECLAIM = "SMC_M1_SWEEP_RECLAIM"
     NY_DAILY_RESEARCH = "NY_DAILY_RESEARCH"
     CG01_SWEEP_MSS_FVG = "CG01_SWEEP_MSS_FVG"
+
+
+SUPPORTED_ADAPTIVE_MODELS: Tuple[str, ...] = (
+    ModelIdentifier.SMC_M1_REVERSAL.value,
+    ModelIdentifier.SMC_M1_CONTINUATION.value,
+    ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+    ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+    ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+)
 
 
 class OpportunityStage(str, Enum):
@@ -300,6 +315,57 @@ class WatchedZone:
         )
 
 
+def normalize_adaptive_model_allowlist(raw: Any) -> Tuple[str, ...]:
+    """
+    V16.38 Rules 018-020:
+    Validates and normalizes adaptive model allowlist.
+    - Input: Sequence or JSON/comma-separated string of model names.
+    - Output: Tuple of valid SMC model names, deduplicated, maintaining stable order.
+    - Rejects unknown models or NY_DAILY_RESEARCH with ValueError.
+    - Never iterates chars over a raw string.
+    - Distinguishes None (default) from [] (empty allowlist, no models enabled).
+    """
+    if raw is None:
+        return SUPPORTED_ADAPTIVE_MODELS
+
+    items: List[str] = []
+    if isinstance(raw, str):
+        s = raw.strip()
+        if not s:
+            return ()
+        import json
+        try:
+            parsed = json.loads(s)
+            if isinstance(parsed, (list, tuple)):
+                items = [str(x) for x in parsed]
+            else:
+                items = [x.strip() for x in s.split(",") if x.strip()]
+        except Exception:
+            items = [x.strip() for x in s.split(",") if x.strip()]
+    elif isinstance(raw, (list, tuple, set)):
+        items = [str(x) for x in raw]
+    else:
+        raise ValueError(f"INVALID_ALLOWLIST_TYPE: Expected list, tuple, or string, got {type(raw).__name__}")
+
+    seen = set()
+    result: List[str] = []
+    for item in items:
+        name = str(item).strip()
+        if not name:
+            continue
+        if name == ModelIdentifier.NY_DAILY_RESEARCH.value:
+            raise ValueError(
+                f"RESEARCH_MODEL_NOT_PERMITTED: '{name}' is a research model and cannot be added to execution allowlist"
+            )
+        if name not in SUPPORTED_ADAPTIVE_MODELS:
+            raise ValueError(f"UNKNOWN_MODEL: '{name}' không thuộc danh sách model SMC được hỗ trợ")
+        if name not in seen:
+            seen.add(name)
+            result.append(name)
+
+    return tuple(result)
+
+
 def validate_daily_frequency_config(config: Any) -> None:
     """
     V16.1 Rules 026-027:
@@ -386,6 +452,10 @@ class M1ScalpConfig:
             raise ValueError("INVALID_CONFIG: max_active_zones must be > 0")
         if self.timing_profile not in ("SILVER_BULLET_LONDON_NY", "CG01_NY_PAPER_EXPANDED"):
             raise ValueError(f"INVALID_TIMING_PROFILE: timing_profile must be SILVER_BULLET_LONDON_NY or CG01_NY_PAPER_EXPANDED, got {self.timing_profile}")
+        if self.execution_profile not in (ExecutionProfile.BASELINE.value, ExecutionProfile.CG01.value, ExecutionProfile.PAPER_ADAPTIVE_SMC.value):
+            raise ValueError(f"INVALID_EXECUTION_PROFILE: {self.execution_profile}")
+        if self.adaptive_model_allowlist is not None:
+            normalize_adaptive_model_allowlist(self.adaptive_model_allowlist)
         validate_daily_frequency_config(self)
 
 
@@ -475,23 +545,19 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
                 tp_clean = s_val.upper()
                 if tp_clean in ("SILVER_BULLET_LONDON_NY", "CG01_NY_PAPER_EXPANDED"):
                     overrides["timing_profile"] = tp_clean
+            elif str_key == "execution_profile":
+                ep_clean = s_val.upper()
+                if ep_clean in (ExecutionProfile.BASELINE.value, ExecutionProfile.CG01.value, ExecutionProfile.PAPER_ADAPTIVE_SMC.value):
+                    overrides["execution_profile"] = ep_clean
             else:
                 overrides[str_key] = s_val
 
     if "adaptive_model_allowlist" in config_map:
         raw_al = config_map["adaptive_model_allowlist"]
-        if isinstance(raw_al, str):
-            import json
-            try:
-                parsed_al = json.loads(raw_al)
-                if isinstance(parsed_al, (list, tuple)):
-                    overrides["adaptive_model_allowlist"] = tuple(str(x) for x in parsed_al)
-                else:
-                    overrides["adaptive_model_allowlist"] = tuple(x.strip() for x in raw_al.split(",") if x.strip())
-            except Exception:
-                overrides["adaptive_model_allowlist"] = tuple(x.strip() for x in raw_al.split(",") if x.strip())
-        elif isinstance(raw_al, (list, tuple)):
-            overrides["adaptive_model_allowlist"] = tuple(str(x) for x in raw_al)
+        try:
+            overrides["adaptive_model_allowlist"] = normalize_adaptive_model_allowlist(raw_al)
+        except Exception as e:
+            logger.warning(f"Failed to normalize persisted adaptive_model_allowlist: {e}")
 
     for num_key, typ in [
         ("min_closed_m1_bars", int),
@@ -584,31 +650,40 @@ def build_cg01_paper_profile(base_config: Optional[M1ScalpConfig] = None) -> M1S
     return M1ScalpConfig(**base_dict)
 
 
-def build_adaptive_smc_paper_profile(base_config: Optional[M1ScalpConfig] = None) -> M1ScalpConfig:
+def build_adaptive_smc_paper_profile(
+    base_config: Optional[M1ScalpConfig] = None,
+    allowlist: Optional[Sequence[str]] = None,
+) -> M1ScalpConfig:
     """
-    V16.37: Builds immutable PAPER_ADAPTIVE_SMC profile snapshot:
-    - scalp_m1_enabled=True, scalp_m1_mode=PAPER.
-    - execution_profile='PAPER_ADAPTIVE_SMC'.
-    - min_net_rr=1.5.
-    - adaptive_model_allowlist defaults to all active SMC models.
-    - daily_min_goal=2, daily_max_cap=3, daily_ny_goal=1.
+    V16.38 Rules 017-020: Builds immutable PAPER_ADAPTIVE_SMC profile snapshot:
+    - Does NOT mutate base_config.
+    - Mode: PAPER, execution_profile='PAPER_ADAPTIVE_SMC', min_net_rr=1.5.
+    - Preserves user custom allowlist (differentiates None from empty []).
+    - Enables CG01 execution only if CG01_SWEEP_MSS_FVG is in allowlist.
+    - Preserves risk_pct, account settings, and timing profile.
     """
     cfg = base_config if base_config is not None else active_scalp_config
     base_dict = cfg.__dict__.copy()
+
+    if allowlist is not None:
+        effective_allowlist = normalize_adaptive_model_allowlist(allowlist)
+    elif getattr(cfg, "adaptive_model_allowlist", None) is not None:
+        effective_allowlist = normalize_adaptive_model_allowlist(cfg.adaptive_model_allowlist)
+    else:
+        effective_allowlist = SUPPORTED_ADAPTIVE_MODELS
+
+    cg01_in_allowlist = ModelIdentifier.CG01_SWEEP_MSS_FVG.value in effective_allowlist
+
     base_dict.update({
         "scalp_m1_enabled": True,
         "scalp_m1_mode": ScalpMode.PAPER.value,
-        "execution_profile": "PAPER_ADAPTIVE_SMC",
+        "execution_profile": ExecutionProfile.PAPER_ADAPTIVE_SMC.value,
         "min_net_rr": 1.5,
         "daily_min_goal": 2,
         "daily_max_cap": 3,
         "daily_ny_goal": 1,
-        "adaptive_model_allowlist": (
-            ModelIdentifier.SMC_M1_REVERSAL.value,
-            ModelIdentifier.SMC_M1_CONTINUATION.value,
-            ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
-            ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
-            ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
-        ),
+        "adaptive_model_allowlist": effective_allowlist,
+        "cg01_enabled": cg01_in_allowlist,
+        "cg01_profile_mode": "PAPER_EXECUTION" if cg01_in_allowlist else "OFF",
     })
     return M1ScalpConfig(**base_dict)

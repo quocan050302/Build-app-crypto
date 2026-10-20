@@ -92,13 +92,33 @@ def resolve_canonical_cg01_config(
     from services.scalp_m1_types import load_effective_scalp_config
     scalp_cfg = scalp_config_override or load_effective_scalp_config(db)
 
-    # Resolve profile mode and enabled status (Rules 050, 051)
+    # Resolve profile mode and enabled status (Rules 050, 051, V16.38 Rules 029, 030)
+    exec_profile = getattr(scalp_cfg, "execution_profile", "BASELINE")
     cg01_enabled = bool(getattr(scalp_cfg, "cg01_enabled", False))
     resolved_profile_mode = explicit_profile_mode
     if resolved_profile_mode is None:
         resolved_profile_mode = getattr(scalp_cfg, "cg01_profile_mode", None)
-    if resolved_profile_mode is None:
-        resolved_profile_mode = CG01ProfileMode.PAPER_EXECUTION.value if cg01_enabled else CG01ProfileMode.OFF.value
+
+    if exec_profile == "PAPER_ADAPTIVE_SMC":
+        allowlist = getattr(scalp_cfg, "adaptive_model_allowlist", ())
+        cg01_in_allowlist = "CG01_SWEEP_MSS_FVG" in allowlist
+        if not cg01_in_allowlist:
+            cg01_enabled = False
+            resolved_profile_mode = CG01ProfileMode.OFF.value
+        else:
+            scalp_mode = getattr(scalp_cfg, "scalp_m1_mode", "OFF")
+            if scalp_mode == "PAPER":
+                cg01_enabled = True
+                resolved_profile_mode = CG01ProfileMode.PAPER_EXECUTION.value
+            elif scalp_mode == "SHADOW":
+                cg01_enabled = True
+                resolved_profile_mode = CG01ProfileMode.SHADOW.value
+            else:
+                cg01_enabled = False
+                resolved_profile_mode = CG01ProfileMode.OFF.value
+    else:
+        if resolved_profile_mode is None:
+            resolved_profile_mode = CG01ProfileMode.PAPER_EXECUTION.value if cg01_enabled else CG01ProfileMode.OFF.value
 
     # Extract strategy parameters from scalp_cfg
     min_net_rr = float(getattr(scalp_cfg, "min_net_rr", 2.0))

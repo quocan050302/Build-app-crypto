@@ -515,6 +515,24 @@ class TradeLifecycleService:
         except Exception as obs_err:
             logger.warning(f"Failed to record closed outcome observation for {order.id}: {obs_err}")
 
+        # V16.38 Rules 131, 132: Safely generate empirical post-trade review artifact without endangering close
+        try:
+            from services.post_trade_review_service import build_post_trade_review
+            outcome_dict = {
+                "order_id": order.id,
+                "exit_price": exit_price,
+                "exit_cause": exit_cause,
+                "gross_pnl": gross_pnl,
+                "net_pnl": net_pnl,
+                "realized_r": realized_r,
+                "closed_at_ms": current_time,
+            }
+            raw_arm_snap = getattr(order, "arm_decision_snapshot", None)
+            arm_evidence = json.loads(raw_arm_snap) if isinstance(raw_arm_snap, str) else (raw_arm_snap or {})
+            build_post_trade_review(order, outcome_dict, entry_evidence=arm_evidence, now_ms=current_time)
+        except Exception as rev_err:
+            logger.warning(f"Post-trade review generation failed for order {order.id}: {rev_err}")
+
         # Create Domain Event & Notification Outbox in same transaction
         event_type = "trade.liquidated" if exit_cause == "LIQUIDATED" else "trade.closed"
         event_payload = {

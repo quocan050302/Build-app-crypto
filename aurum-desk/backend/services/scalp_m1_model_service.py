@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import smc_engine
@@ -20,11 +21,13 @@ from domain_calculator import CalculationResult, calculate_risk_reward, validate
 from services.liquidity_scenario_service import confirm_liquidity_sweep, identify_confirmed_swings
 from services.ny_quota_helpers import closed_candles_at, validate_candle_ohlc
 from services.scalp_m1_types import (
+    ExecutionProfile,
     M1ScalpConfig,
     ModelIdentifier,
     OpportunityEvaluation,
     OpportunityReasonCode,
     OpportunityStage,
+    ScalpMode,
     TargetDecision,
     WatchedZone,
     get_scalp_config,
@@ -33,6 +36,105 @@ from services.smc_liquidity_service import build_liquidity_map, select_unconsume
 from services.smc_scenario_types import EvidenceNode, FactStatus, LiquidityLevel, ScenarioSnapshot, ScenarioState
 
 logger = logging.getLogger(__name__)
+
+
+class ModelExecutionAction(str, Enum):
+    EVALUATE_AND_EXECUTE = "EVALUATE_AND_EXECUTE"
+    EVALUATE_SHADOW = "EVALUATE_SHADOW"
+    DISABLED = "DISABLED"
+
+
+def resolve_model_execution_policy(
+    config: M1ScalpConfig,
+    model_id: str,
+    execution_scope: Optional[str] = "PAPER",
+) -> Tuple[ModelExecutionAction, str]:
+    """
+    V16.38 Rule 033:
+    Pure functional policy router resolving execution rights for an SMC model.
+    Contract returns (action: ModelExecutionAction, reason_code: str).
+    """
+    exec_scope = str(execution_scope or "PAPER").strip().upper()
+    exec_profile = getattr(config, "execution_profile", "BASELINE")
+    scalp_mode = getattr(config, "scalp_m1_mode", "OFF")
+
+    # Paper-only profile guard (Rule 027)
+    if exec_profile == "PAPER_ADAPTIVE_SMC" and exec_scope == "LIVE":
+        return ModelExecutionAction.DISABLED, "PAPER_ONLY_PROFILE_VIOLATION"
+
+    # Validate model identifier existence
+    valid_ids = {m.value for m in ModelIdentifier}
+    if model_id not in valid_ids:
+        return ModelExecutionAction.DISABLED, "UNKNOWN_MODEL"
+
+    # Research model handling (Rule 020)
+    if model_id == ModelIdentifier.NY_DAILY_RESEARCH.value:
+        if getattr(config, "daily_ny_research_enabled", False):
+            if exec_scope == "LIVE":
+                return ModelExecutionAction.DISABLED, "LIVE_SCOPE_REJECTED"
+            return ModelExecutionAction.EVALUATE_AND_EXECUTE, "RESEARCH_ACTIVE"
+        return ModelExecutionAction.DISABLED, "RESEARCH_DISABLED"
+
+    # Standalone CG01 Profile routing (Rule 034)
+    if exec_profile == "CG01":
+        if model_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value:
+            pm = getattr(config, "cg01_profile_mode", "OFF")
+            if pm == "PAPER_EXECUTION":
+                if scalp_mode == "SHADOW":
+                    return ModelExecutionAction.EVALUATE_SHADOW, "CG01_SHADOW_MODE"
+                return ModelExecutionAction.EVALUATE_AND_EXECUTE, "CG01_ACTIVE"
+            elif pm in ("SHADOW", "PAPER_SHADOW"):
+                return ModelExecutionAction.EVALUATE_SHADOW, "CG01_PROFILE_SHADOW"
+            else:
+                return ModelExecutionAction.DISABLED, "CG01_PROFILE_OFF"
+        else:
+            return ModelExecutionAction.EVALUATE_SHADOW, "CG01_PROFILE_OTHER_MODEL"
+
+    # PAPER_ADAPTIVE_SMC profile routing (Rules 016, 030, 034, 035, 037, 038)
+    if exec_profile == "PAPER_ADAPTIVE_SMC":
+        allowlist = getattr(config, "adaptive_model_allowlist", ()) or ()
+        if model_id not in allowlist:
+            return ModelExecutionAction.DISABLED, "MODEL_DISABLED_BY_PROFILE"
+
+        # Check required feature flags
+        if model_id == ModelIdentifier.SMC_M1_FVG_CONTINUATION.value and not getattr(config, "fvg_continuation_enabled", True):
+            return ModelExecutionAction.DISABLED, "FVG_CONTINUATION_DISABLED"
+        if model_id == ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value and not getattr(config, "sweep_reclaim_enabled", True):
+            return ModelExecutionAction.DISABLED, "SWEEP_RECLAIM_DISABLED"
+        if model_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value and not getattr(config, "cg01_enabled", True):
+            return ModelExecutionAction.DISABLED, "CG01_DISABLED"
+
+        if scalp_mode == "SHADOW":
+            return ModelExecutionAction.EVALUATE_SHADOW, "ADAPTIVE_SHADOW"
+        elif scalp_mode == "PAPER":
+            return ModelExecutionAction.EVALUATE_AND_EXECUTE, "ADAPTIVE_PAPER_ACTIVE"
+        else:
+            return ModelExecutionAction.DISABLED, "SCALP_MODE_OFF"
+
+    # BASELINE legacy profile routing (Rule 009, 165)
+    if exec_profile == "BASELINE":
+        if model_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value:
+            if getattr(config, "cg01_enabled", False) and getattr(config, "cg01_profile_mode", "") == "PAPER_EXECUTION":
+                if scalp_mode == "SHADOW":
+                    return ModelExecutionAction.EVALUATE_SHADOW, "BASELINE_CG01_SHADOW"
+                return ModelExecutionAction.EVALUATE_AND_EXECUTE, "BASELINE_CG01_ACTIVE"
+            return ModelExecutionAction.DISABLED, "BASELINE_CG01_DISABLED"
+
+        # Standard SMC models
+        if model_id == ModelIdentifier.SMC_M1_FVG_CONTINUATION.value and not getattr(config, "fvg_continuation_enabled", True):
+            return ModelExecutionAction.DISABLED, "FVG_CONTINUATION_DISABLED"
+        if model_id == ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value and not getattr(config, "sweep_reclaim_enabled", True):
+            return ModelExecutionAction.DISABLED, "SWEEP_RECLAIM_DISABLED"
+
+        if scalp_mode == "PAPER":
+            return ModelExecutionAction.EVALUATE_AND_EXECUTE, "BASELINE_PAPER_ACTIVE"
+        elif scalp_mode == "SHADOW":
+            return ModelExecutionAction.EVALUATE_SHADOW, "BASELINE_SHADOW"
+        else:
+            return ModelExecutionAction.DISABLED, "SCALP_MODE_OFF"
+
+    # Default fallback
+    return ModelExecutionAction.DISABLED, "UNHANDLED_POLICY"
 
 
 def candle_intersects_price_zone(candle: Any, bottom: float, top: float) -> bool:
@@ -260,6 +362,11 @@ class ScalpCandidate:
     order_type: str = "MARKET"
     entry_intent: Optional[Dict[str, Any]] = None
     reference_ce: Optional[float] = None
+    execution_profile: Optional[str] = None
+    regime_snapshot: Optional[Dict[str, Any]] = None
+    sr_evidence: Optional[List[Dict[str, Any]]] = None
+    authority_binding: Optional[Dict[str, Any]] = None
+    selection_reason: Optional[str] = None
 
 
 def candle_open_ms(bar: Any) -> Optional[int]:

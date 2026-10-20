@@ -82,11 +82,14 @@ class TestCoordinatorRealExecutionRR:
         """
         _setup_clean_audit_and_policy(isolated_db)
 
-        # Set effective DB scalp config min_net_rr = 1.5
-        orig_cfg = smt.active_scalp_config
-        smt.active_scalp_config = M1ScalpConfig(min_net_rr=1.5)
-
         now_ms = 1_700_000_000_000
+        # Rule 162: Persist min_net_rr = 1.5 to DB, but set active RAM config to 2.0
+        # This proves the coordinator truly falls back to DB config, overriding RAM 2.0.
+        isolated_db.add(models.SystemConfig(key="min_net_rr", value="1.5", updated_at=now_ms))
+        isolated_db.commit()
+
+        orig_cfg = smt.active_scalp_config
+        smt.active_scalp_config = M1ScalpConfig(min_net_rr=2.0)
         # Plan: Entry 4100.0, SL 4090.0, TP 4124.0. Gross RR = 2.4, Net RR ~ 1.65
         order = models.PaperOrder(
             id="ord-fallback-15",
@@ -390,6 +393,7 @@ class TestOrchestratorProductionNearEntryPayload:
             created_at=1_700_000_000_000,
             known_at=1_700_000_000_000,
             touch_count=0,
+            invalidation_level=4150.0,
         )
 
         orchestrator = ScalpWatcherOrchestrator()
@@ -397,17 +401,8 @@ class TestOrchestratorProductionNearEntryPayload:
 
         quote = {"bid": 4140.58, "ask": 4140.62, "last": 4140.60, "timestamp": 1_700_000_000_000}
 
-        # Mock event_bus to capture the NEAR_ENTRY event
-        captured_events = []
-        with patch("services.event_bus.event_bus.publish_event") as mock_pub:
-            def capture(event_type, aggregate_id, payload, **kwargs):
-                if event_type == "NEAR_ENTRY":
-                    captured_events.append(payload)
-                ev = MagicMock()
-                ev.event_type = event_type
-                return ev
-            mock_pub.side_effect = capture
-
+        # Rule 161: Test real queue_telegram_notification boundary without vacuous if-checks
+        with patch("services.scalp_watcher_orchestrator.queue_telegram_notification") as mock_queue:
             orchestrator.evaluate_cycle(
                 db=isolated_db,
                 symbol="XAUUSDT",
@@ -418,12 +413,14 @@ class TestOrchestratorProductionNearEntryPayload:
                 candles_15m=[],
                 candles_1h=[],
                 candles_4h=[],
-                config=M1ScalpConfig(),
+                config=M1ScalpConfig(scalp_m1_enabled=True, scalp_m1_mode="PAPER"),
                 auto_enabled=True,
             )
 
-        if captured_events:
-            payload = captured_events[0]
+            assert mock_queue.call_count >= 1, "Expected NEAR_ENTRY notification to be queued"
+            call_kwargs = mock_queue.call_args.kwargs
+            assert call_kwargs["item_type"] == "NEAR_ENTRY"
+            payload = call_kwargs["data"]
             dp = payload.get("distance_price")
             da = payload.get("distance_atr")
             eff_atr = payload.get("effective_atr") or 0.10
