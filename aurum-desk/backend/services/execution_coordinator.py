@@ -200,6 +200,24 @@ class ExecutionCoordinator:
                 except Exception:
                     order_cost_snap = {}
 
+            # Rule 034/042/043: Resolve effective min_net_rr for this fill.
+            # Priority: (1) min_net_rr_at_arm persisted in cost_snapshot at ARM time,
+            #           (2) canonical scalp config from DB (honours user's /api/scalp/config setting),
+            #           (3) hard-coded 2.0 (never silently promotes RR threshold).
+            _rr_from_snap = order_cost_snap.get("min_net_rr_at_arm")
+            if _rr_from_snap is not None:
+                try:
+                    _rr_candidate = float(_rr_from_snap)
+                    effective_fill_min_rr = _rr_candidate if _rr_candidate > 0 else 2.0
+                except (TypeError, ValueError):
+                    effective_fill_min_rr = 2.0
+            else:
+                try:
+                    _scalp_cfg = load_effective_scalp_config(db)
+                    effective_fill_min_rr = float(_scalp_cfg.min_net_rr) if _scalp_cfg.min_net_rr > 0 else 2.0
+                except Exception:
+                    effective_fill_min_rr = 2.0
+
             raw_order_slip = order_cost_snap.get("slippage_usd")
             if raw_order_slip is not None:
                 order_slip = resolve_slippage_usd(raw_order_slip, default=0.10)
@@ -312,6 +330,7 @@ class ExecutionCoordinator:
                 tp=order.take_profit,
                 capital=sizing_ctx["sizing_capital"],
                 risk_pct=order.risk_pct or 0.25,
+                min_net_rr=effective_fill_min_rr,
                 entry_has_slippage=True,
                 costs=order_costs,
                 leverage=order.leverage or 5,
@@ -349,6 +368,7 @@ class ExecutionCoordinator:
                 tp=order.take_profit,
                 capital=sizing_ctx["sizing_capital"],
                 risk_pct=order.risk_pct or 0.25,
+                min_net_rr=effective_fill_min_rr,
                 quantity_override=qty_to_use,
                 entry_has_slippage=True,
                 costs=order_costs,

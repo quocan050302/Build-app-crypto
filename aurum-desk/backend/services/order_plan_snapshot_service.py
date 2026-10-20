@@ -77,6 +77,7 @@ def build_arm_plan_snapshot(
     capital_mode: str = "CURRENT_ACCOUNT_BALANCE",
     target_capital: Optional[float] = None,
     target_risk_budget: Optional[float] = None,
+    min_net_rr: Optional[float] = None,
 ) -> OrderPlanSnapshot:
     """Builds canonical frozen financial snapshot at ARM stage."""
     from services.cg01_types import resolve_slippage_usd
@@ -155,6 +156,10 @@ def build_arm_plan_snapshot(
         "executable_risk_budget": net_risk,
         "actual_risk_after_rounding": net_risk,
         "sizing_adjustment_reason": "NONE",
+        # Rule 040/042/043: Persist the effective min_net_rr at ARM time so the
+        # fill coordinator can re-validate with the same threshold instead of the
+        # calculator default (2.0).  None means "use canonical config at fill time".
+        "min_net_rr_at_arm": min_net_rr if min_net_rr is not None else getattr(calc_res, "min_net_rr", None),
     })
 
 

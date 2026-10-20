@@ -100,7 +100,12 @@ class ProximityService:
         else:
             distance_price = round(ref_price - zone_high, 2)
 
-        safe_atr = max(0.1, atr)
+        # Rule 060: ATR floor of 0.1 prevents division by zero but must be labelled.
+        atr_effective_floor_used = (atr is None or not isinstance(atr, (int, float)) or atr < 0.01)
+        safe_atr = max(0.1, atr) if isinstance(atr, (int, float)) else 0.1
+        if atr_effective_floor_used:
+            safe_atr = 0.1  # documented floor — not a measured ATR value
+        # Rule 058: distance_atr uses SAME boundary-reference as distance_price (nearest edge)
         distance_atr = round(distance_price / safe_atr, 2)
 
         # Update watch setup distance metrics in DB
@@ -186,7 +191,9 @@ class ProximityService:
             "conditions_remaining": conditions_remaining,
             "expires_at": watch_setup.expires_at,
             "auto_paper_enabled": auto_enabled,
-            "state": watch_setup.state
+            "state": watch_setup.state,
+            # Rule 060: True when ATR was 0/missing and floor 0.1 was substituted
+            "atr_effective_floor_used": atr_effective_floor_used,
         }
 
         # Dedupe key uses setup_instance_id to prevent blocking future setups

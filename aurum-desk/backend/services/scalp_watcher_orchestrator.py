@@ -1717,6 +1717,7 @@ class ScalpWatcherOrchestrator:
             capital_mode=resolved_cap_mode,
             target_capital=target_capital,
             target_risk_budget=target_budget,
+            min_net_rr=cfg.min_net_rr,
         )
         arm_snap["expires_at"] = resolved_expires_at
 

@@ -26,6 +26,52 @@ def escape_markdown(text: Any) -> str:
     return s
 
 
+
+def _fmt_price(val: Any, prefix: str = "$", suffix: str = "") -> str:
+    """Format a price value safely. Returns 'Chưa xác định' for None/NaN/Inf/0 sentinel."""
+    import math as _math
+    if val is None:
+        return "Chưa xác định"
+    try:
+        f = float(val)
+    except (TypeError, ValueError):
+        return "Chưa xác định"
+    if not _math.isfinite(f):
+        return "Chưa xác định"
+    return f"{prefix}{f:.2f}{suffix}"
+
+
+def _fmt_rr(val: Any) -> str:
+    """Format a net R:R value safely. Returns 'Chưa xác định' for None/NaN/Inf."""
+    import math as _math
+    if val is None:
+        return "Chưa xác định"
+    try:
+        f = float(val)
+    except (TypeError, ValueError):
+        return "Chưa xác định"
+    if not _math.isfinite(f) or f <= 0:
+        return "Chưa xác định"
+    return f"1:{f:.2f}"
+
+
+def _has_valid_plan(data: dict) -> bool:
+    """Return True if data contains a real executable plan with valid SL and TP."""
+    import math as _math
+    sl = data.get("stop_loss")
+    tp = data.get("take_profit")
+    for v in (sl, tp):
+        if v is None:
+            return False
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return False
+        if not _math.isfinite(f) or f <= 0:
+            return False
+    return True
+
+
 def get_formatted_time(epoch_ms: Optional[int], timezone_str: str = "Asia/Ho_Chi_Minh") -> str:
     """Format epoch milliseconds to Vietnam local time string."""
     try:
@@ -74,29 +120,63 @@ def format_telegram_message(
         z_high = data.get("entry_zone_high", 0.0)
         target = data.get("entry_target", 0.0)
         dist_price = data.get("distance_price", 0.0)
-        dist_atr = data.get("distance_atr", 0.0)
-        atr = data.get("atr", 0.0)
-        sl = data.get("stop_loss", 0.0)
-        tp = data.get("take_profit", 0.0)
-        net_rr = data.get("net_rr", 0.0)
-        risk = data.get("risk_usdt", 0.0)
+        dist_atr_raw = data.get("distance_atr")
+        atr_raw = data.get("atr", 0.0)
+        atr_effective = data.get("atr_effective_floor_used", False)
         auto_str = "Đang BẬT" if data.get("auto_paper_enabled") else "Đang TẮT"
+
+        # Distance formatting: label effective-ATR if a floor was applied
+        try:
+            dist_price_str = (_fmt_price(dist_price) + " USDT") if dist_price is not None else "Chưa xác định"
+        except (TypeError, ValueError):
+            dist_price_str = "Chưa xác định"
+
+        if dist_atr_raw is not None:
+            try:
+                import math as _math
+                _da = float(dist_atr_raw)
+                if not _math.isfinite(_da):
+                    dist_atr_str = "Chưa xác định"
+                else:
+                    dist_atr_str = f"{_da:.2f} ATR{'*' if atr_effective else ''}"
+            except (TypeError, ValueError):
+                dist_atr_str = "Chưa xác định"
+        else:
+            dist_atr_str = "Chưa xác định"
+
+        atr_label = _fmt_price(atr_raw) + ("*" if atr_effective else "")
 
         cond_met = data.get("conditions_met", [])
         cond_rem = data.get("conditions_remaining", [])
-        met_str = "\n".join([f"  ✓ {escape_markdown(c)}" for c in cond_met[:3]]) if cond_met else "  ✓ Đang theo dõi cấu trúc"
-        rem_str = "\n".join([f"  ⏳ {escape_markdown(c)}" for c in cond_rem[:2]]) if cond_rem else "  ⏳ Chờ nến xác nhận chạm vùng"
+        # Rule 054: Don't fabricate condition labels when no data
+        met_str = "\n".join([f"  ✓ {escape_markdown(c)}" for c in cond_met[:3]]) if cond_met else "  (Chưa có dữ liệu xác nhận trigger cho vùng này)"
+        rem_str = "\n".join([f"  ⏳ {escape_markdown(c)}" for c in cond_rem[:2]]) if cond_rem else "  (Đang chờ trigger)"
+
+        # Rule 050/076: Zone-only vs plan-with-SL/TP
+        if _has_valid_plan(data):
+            sl_str = _fmt_price(data.get("stop_loss"))
+            tp_str = _fmt_price(data.get("take_profit"))
+            rr_str = _fmt_rr(data.get("net_rr"))
+            risk_raw = data.get("risk_usdt")
+            risk_str = _fmt_price(risk_raw, prefix="$", suffix=" USDT") if risk_raw is not None else "Chưa xác định"
+            plan_lines = (
+                f"• *SL dự kiến:* `{sl_str}` | *TP dự kiến:* `{tp_str}`\n"
+                f"• *Net R:R:* `{rr_str}` | *Rủi ro tài khoản:* `{risk_str}`\n"
+            )
+        else:
+            plan_lines = (
+                "• *SL/TP:* Chưa xác định — đây là vùng theo dõi, chưa có kế hoạch thực thi.\n"
+            )
 
         return (
             f"🔔 *AURUM DESK — SẮP TIẾP CẬN VÙNG ENTRY (PAPER)*\n\n"
             f"• *Kế hoạch:* {direction} XAUUSDT\n"
             f"• *Setup Instance:* `{setup_id}`\n"
-            f"• *Giá tham chiếu:* `${ref_p:.2f}` (Khớp theo {ref_side})\n"
-            f"• *Vùng Entry:* `${z_low:.2f} — ${z_high:.2f}` (Mục tiêu: `${target:.2f}`)\n"
-            f"• *Khoảng cách tới vùng:* `${dist_price:.2f} USDT` (`{dist_atr:.2f} ATR`)\n"
-            f"• *ATR 15M xác nhận:* `${atr:.2f}`\n"
-            f"• *SL dự kiến:* `${sl:.2f}` | *TP dự kiến:* `${tp:.2f}`\n"
-            f"• *Net R:R:* `1:{net_rr:.2f}` | *Rủi ro tài khoản:* `${risk:.2f} USDT`\n"
+            f"• *Giá tham chiếu:* `{_fmt_price(ref_p)}` (Khớp theo {ref_side})\n"
+            f"• *Vùng Entry:* `{_fmt_price(z_low)} — {_fmt_price(z_high)}` (Mục tiêu: `{_fmt_price(target)}`)\n"
+            f"• *Khoảng cách tới vùng:* `{dist_price_str}` (`{dist_atr_str}`)\n"
+            f"• *ATR 15M:* `{atr_label}`\n"
+            f"{plan_lines}"
             f"• *Điều kiện đã đạt:*\n{met_str}\n"
             f"• *Điều kiện còn thiếu:*\n{rem_str}\n"
             f"• *Auto Paper:* {auto_str}\n"
