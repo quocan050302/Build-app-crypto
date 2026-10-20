@@ -736,13 +736,14 @@ class TradeLifecycleService:
             "provenance_issues": ctx.get("provenance_issues", []),
         }
 
-        # Compliance assessment (Section 097)
+        # Compliance assessment (Section 097, V16.39.3 Sections 041 - 080)
         comp_res = assess_entry_compliance_for_review(
             order=order,
             entry_snapshot=entry_snap_dict,
             fill_snapshot=ctx.get("fill_snapshot"),
             audit=guard_audit,
             model_requirements=model_reqs,
+            decision_as_of_ms=ctx.get("decision_as_of_ms"),
         )
 
         cause = str(order.exit_cause or "").upper()
@@ -801,11 +802,49 @@ class TradeLifecycleService:
                 arm_evidence = json.loads(raw_arm_snap) if isinstance(raw_arm_snap, str) else (raw_arm_snap or {})
                 rev = build_post_trade_review(order, outcome_dict, entry_evidence=arm_evidence, now_ms=now_ms)
 
-        classification = classify_post_trade_lesson(rev, entry_snapshot=entry_snap_dict, audit=guard_audit)
+        classification = classify_post_trade_lesson(
+            rev,
+            entry_snapshot=entry_snap_dict,
+            audit=guard_audit,
+            compliance_result=comp_res,
+        )
 
         hold_time_val = None
         if opened_at is not None and now_ms >= opened_at:
             hold_time_val = now_ms - opened_at
+
+        # Resolve real entry session (Sections 085, 087, 119)
+        entry_session = None
+        raw_cost = getattr(order, "cost_snapshot", None)
+        if raw_cost:
+            try:
+                parsed_cost = json.loads(raw_cost) if isinstance(raw_cost, str) else raw_cost
+                if isinstance(parsed_cost, dict):
+                    entry_session = parsed_cost.get("session") or parsed_cost.get("analysis_session")
+            except Exception:
+                pass
+
+        if not entry_session and getattr(order, "arm_decision_snapshot", None):
+            try:
+                raw_arm = order.arm_decision_snapshot
+                parsed_arm = json.loads(raw_arm) if isinstance(raw_arm, str) else raw_arm
+                if isinstance(parsed_arm, dict):
+                    entry_session = parsed_arm.get("session") or parsed_arm.get("analysis_session")
+            except Exception:
+                pass
+
+        if not entry_session:
+            entry_ts = getattr(order, "armed_at", None) or getattr(order, "created_at", None) or now_ms
+            try:
+                from services.trading_policy_service import TradingPolicyService, resolve_entry_session_context
+                pol = TradingPolicyService.get_or_create_policy(db)
+                s_ctx = resolve_entry_session_context(pol, family, now_ms=entry_ts)
+                entry_session = s_ctx.analysis_session
+            except Exception:
+                entry_session = "ALL"
+
+        is_repair = (session_tag == "REPAIR")
+        effective_session = entry_session if is_repair or session_tag in ("ALL", None, "REPAIR") else session_tag
 
         db_lesson = models.Lesson(
             created_at=now_ms,
@@ -813,7 +852,7 @@ class TradeLifecycleService:
             category="EXECUTION",
             related_trade_id=order.id,
             setup_type=family,
-            session=session_tag,
+            session=effective_session,
             reflection=reflection,
             action_rule=action_rule,
             is_hard_filter=False,
@@ -837,6 +876,8 @@ class TradeLifecycleService:
                 "exit_cause": order.exit_cause,
                 "suggested_color": classification.suggested_color,
                 "classification_code": classification.classification_code,
+                "origin": "REPAIR" if is_repair else "NORMAL",
+                "entry_session": effective_session,
             }),
             compliance_snapshot=json.dumps(comp_res.to_dict()),
             mfe_mae_snapshot=json.dumps({
@@ -886,16 +927,18 @@ class TradeLifecycleService:
             pass
 
     @classmethod
-    def repair_pending_lessons(cls, db: Session, now_ms: Optional[int] = None) -> Dict[str, Any]:
+    def repair_pending_lessons(cls, db: Session, now_ms: Optional[int] = None, limit: int = 20) -> Dict[str, Any]:
         """
-        V16.39.2 Sections 039 - 042: Durable repair mechanism for pending/failed lessons.
-        Loads pending tasks, reads closed order + bound snapshots, creates missing Lesson.
+        V16.39.2 / V16.39.3 Sections 039 - 042, 101 - 123:
+        Durable repair mechanism for pending/failed lessons.
+        Loads pending tasks bounded by limit, ordered by created_at.
+        Idempotent: verifies if lesson already exists before creation.
         Never calls execute_close() or mutates accounting/DayAudit.
         """
         current_time = now_ms or int(time.time() * 1000)
         pending_tasks = db.query(models.LessonRepairTask).filter(
             models.LessonRepairTask.status == "PENDING"
-        ).all()
+        ).order_by(models.LessonRepairTask.created_at.asc()).limit(limit).all()
 
         repaired_count = 0
         failed_count = 0
@@ -910,6 +953,15 @@ class TradeLifecycleService:
                 results.append({"order_id": task.order_id, "status": "FAILED", "reason": task.last_error})
                 continue
 
+            # Idempotency check: see if root lesson already exists (Section 041, 112, 123)
+            existing_lesson = db.query(models.Lesson).filter(models.Lesson.related_trade_id == task.order_id).first()
+            if existing_lesson:
+                task.status = "COMPLETED"
+                task.updated_at = current_time
+                repaired_count += 1
+                results.append({"order_id": task.order_id, "status": "ALREADY_EXISTS", "lesson_id": existing_lesson.id})
+                continue
+
             try:
                 lesson = cls._create_lesson(db, order, current_time, session_tag="REPAIR")
                 if lesson:
@@ -918,14 +970,19 @@ class TradeLifecycleService:
                     repaired_count += 1
                     results.append({"order_id": task.order_id, "status": "COMPLETED", "lesson_id": lesson.id})
                 else:
+                    task.retry_count = (task.retry_count or 0) + 1
                     task.last_error = "Lesson creation returned None"
                     task.updated_at = current_time
+                    if task.retry_count >= 5:
+                        task.status = "FAILED"
                     failed_count += 1
                     results.append({"order_id": task.order_id, "status": "FAILED", "reason": task.last_error})
             except Exception as err:
                 task.retry_count = (task.retry_count or 0) + 1
                 task.last_error = str(err)
                 task.updated_at = current_time
+                if task.retry_count >= 5:
+                    task.status = "FAILED"
                 failed_count += 1
                 results.append({"order_id": task.order_id, "status": "FAILED", "reason": str(err)})
 

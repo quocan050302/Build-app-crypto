@@ -1348,11 +1348,13 @@ class ScalpWatcherOrchestrator:
                 OpportunityFunnelService.record_opportunity_transition(db, opp_eval, now_ms=t_recv)
 
             elif effective_scalp_mode == ScalpMode.PAPER.value or (cand.model_id == ModelIdentifier.NY_DAILY_RESEARCH.value and cfg.daily_ny_research_enabled and global_auto):
-                # In PAPER mode: validate through canonical entry guards (PHẦN 025 - 033, 059)
+                # In PAPER mode: validate through canonical entry guards (PHẦN 025 - 033, 059, V16.39.3 Sections 081 - 084)
+                cand_family = getattr(cand, "model_id", "STANDARD_SMC")
+                cand_session_ctx = resolve_entry_session_context(policy, cand_family, now_ms=t_recv, clock=clock)
                 armed_order = self._arm_paper_candidate(
                     db, cand, now_ms=t_recv, clock=clock, quote=q, policy_settings=policy_dict,
                     config=cfg, feed_health=feed_health, auto_enabled=auto_enabled,
-                    authority_context=cycle_authority, research_context=research_context,
+                    authority_context=cycle_authority, session_context=cand_session_ctx, research_context=research_context,
                 )
                 if is_cg01_model and cg01_eval_data:
                     if armed_order:
@@ -1823,6 +1825,8 @@ class ScalpWatcherOrchestrator:
             "allowed_directions": list(getattr(curr_auth.bias, "allowed_directions", None) or []) if curr_auth.bias else [],
         }
 
+        session_tag = getattr(session_context, "analysis_session", None) or getattr(session_context, "session", None) or "ALL"
+
         # V16.39.1 Evidence-based Quality Scoring (Sections 016 - 060)
         quality_assessment = None
         if getattr(cfg, "quality_scoring_enabled", False):
@@ -1835,7 +1839,6 @@ class ScalpWatcherOrchestrator:
             active_m_ctx = self._active_market_context.get(cand.symbol, {})
             active_dr = self._active_dealing_range.get(cand.symbol)
             cand_atr = cand_evidence.get("atr") or cand_evidence.get("atr_15m") or active_m_ctx.get("atr")
-            session_tag = getattr(session_context, "analysis_session", None) or getattr(session_context, "session", None) or "ALL"
             market_ctx = {
                 "regime": (getattr(cand, "regime_snapshot", {}) or {}).get("regime", "UNKNOWN"),
                 "htf_bias": cand_evidence.get("daily_bias", {}).get("direction", "UNKNOWN") if isinstance(cand_evidence.get("daily_bias"), dict) else "UNKNOWN",
@@ -2063,6 +2066,9 @@ class ScalpWatcherOrchestrator:
         )
         arm_snap["expires_at"] = resolved_expires_at
         arm_snap["execution_profile"] = getattr(cfg, "execution_profile", "BASELINE")
+        arm_snap["session"] = session_tag
+        arm_snap["analysis_session"] = session_tag
+        arm_snap["session_policy_version"] = getattr(session_context, "policy_version", 1) if session_context else 1
         if hasattr(cand, "regime_snapshot") and cand.regime_snapshot:
             arm_snap["regime_snapshot"] = cand.regime_snapshot
         if hasattr(cand, "sr_evidence") and cand.sr_evidence:

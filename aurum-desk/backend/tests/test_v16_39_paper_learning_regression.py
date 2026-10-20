@@ -355,7 +355,11 @@ class TestGovernedLessonClassification:
             "planned_sl": 2645.0,
             "planned_tp": 2660.0,
             "compliance_verified": True,
-            "evidence": [{"id": "ev_1", "kind": "CHOCH"}],
+            "evidence": [
+                {"id": "ev_poi", "kind": "POI"},
+                {"id": "ev_swp", "kind": "SWEEP"},
+                {"id": "ev_1", "kind": "CHOCH"},
+            ],
         }
         classification = classify_post_trade_lesson(rev, entry_snapshot=entry_snap)
         assert classification.suggested_color == "GREEN"

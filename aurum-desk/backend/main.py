@@ -190,6 +190,7 @@ async def lifespan(app: FastAPI):
 
     from services.market_reconciliation_service import market_reconciliation_service
     from services.forward_repair_worker import forward_repair_worker
+    from services.lesson_repair_worker import lesson_repair_worker
     from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
     from services.cg01_scheduler_service import cg01_evaluation_scheduler
     from services.cg01_projection_worker import cg01_projection_worker
@@ -230,6 +231,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(market_reconciliation_service.run_late_reconciliation_loop()),
         asyncio.create_task(process_notification_outbox()),
         asyncio.create_task(forward_repair_worker.run_repair_loop()),
+        asyncio.create_task(lesson_repair_worker.run_repair_loop()),
         asyncio.create_task(scalp_watcher_orchestrator.run_watcher_loop()),
         asyncio.create_task(cg01_evaluation_scheduler.run()),
         asyncio.create_task(cg01_projection_worker.run()),
@@ -248,6 +250,7 @@ async def lifespan(app: FastAPI):
 
     bitget_ws_service.stop()
     forward_repair_worker.stop()
+    lesson_repair_worker.stop()
     scalp_watcher_orchestrator.stop()
     cg01_evaluation_scheduler.stop()
 
@@ -301,6 +304,12 @@ async def lifespan(app: FastAPI):
             logger.warning(f"Forward repair worker shutdown timed out: {rep_res}")
     except Exception as rep_err:
         logger.error(f"Error during forward repair worker shutdown: {rep_err}")
+    try:
+        l_rep_res = await lesson_repair_worker.shutdown(timeout_s=5.0)
+        if l_rep_res and getattr(l_rep_res, "status", "") == "TIMED_OUT":
+            logger.warning(f"Lesson repair worker shutdown timed out: {l_rep_res}")
+    except Exception as l_rep_err:
+        logger.error(f"Error during lesson repair worker shutdown: {l_rep_err}")
     try:
         recon_res = await market_reconciliation_service.shutdown(timeout_s=5.0)
         if recon_res and recon_res.status == "TIMED_OUT":
@@ -2491,6 +2500,12 @@ def update_lesson_policy(update: schemas.LessonPolicyUpdate, db: Session = Depen
 def get_system_capabilities():
     from services.lesson_policy_service import LessonPolicyService
     return LessonPolicyService.get_runtime_capabilities()
+
+
+@app.get("/api/v1/lessons/repair/status")
+def get_lesson_repair_status(db: Session = Depends(get_db)):
+    from services.lesson_repair_worker import lesson_repair_worker
+    return lesson_repair_worker.get_status(db=db)
 
 
 @app.put("/api/v1/lessons/{lesson_id}", response_model=schemas.LessonItem)

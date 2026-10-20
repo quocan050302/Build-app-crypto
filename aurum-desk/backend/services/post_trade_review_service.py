@@ -371,6 +371,17 @@ class EntryComplianceResult:
     checks_failed: List[str] = field(default_factory=list)
     missing_evidence: List[str] = field(default_factory=list)
     evidence_refs: List[str] = field(default_factory=list)
+    provenance_issues: List[str] = field(default_factory=list)
+    decision_time_ms: Optional[int] = None
+    requirements_version: str = "v16.39"
+
+    @property
+    def failed_checks(self) -> List[str]:
+        return self.checks_failed
+
+    @property
+    def passed_checks(self) -> List[str]:
+        return self.checks_passed
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -381,7 +392,31 @@ class EntryComplianceResult:
             "checks_failed": list(self.checks_failed),
             "missing_evidence": list(self.missing_evidence),
             "evidence_refs": list(self.evidence_refs),
+            "provenance_issues": list(self.provenance_issues),
+            "decision_time_ms": self.decision_time_ms,
+            "requirements_version": self.requirements_version,
         }
+
+
+def canonical_model_family(family: Optional[str]) -> str:
+    """
+    V16.39.3 Section 025, 053, 056:
+    Canonical strategy model normalization for review and trigger binding.
+    """
+    m = str(family or "").upper().strip()
+    if "CONTINUATION_FVG" in m or "FVG_CONTINUATION" in m:
+        return "FVG_CONTINUATION"
+    if "CONTINUATION" in m:
+        return "CONTINUATION"
+    if "SWEEP_RECLAIM" in m:
+        return "SWEEP_RECLAIM"
+    if "CG01" in m:
+        return "CG01"
+    if "NY_QUOTA" in m:
+        return "NY_QUOTA"
+    if "REVERSAL" in m:
+        return "REVERSAL"
+    return m or "UNKNOWN"
 
 
 def resolve_model_review_requirements(model_id: Optional[str], version: str = "v16.39") -> Dict[str, Any]:
@@ -396,8 +431,8 @@ def resolve_model_review_requirements(model_id: Optional[str], version: str = "v
     - CG01: POI, MSS, RETEST required.
     - NY_QUOTA: POI required (partial fallback).
     """
-    mid = str(model_id or "").upper()
-    if "CONTINUATION_FVG" in mid or "FVG_CONTINUATION" in mid:
+    c_mid = canonical_model_family(model_id)
+    if c_mid == "FVG_CONTINUATION":
         return {
             "model_id": "FVG_CONTINUATION",
             "required_kinds": ["FVG", "RETEST", "BOS"],
@@ -405,7 +440,7 @@ def resolve_model_review_requirements(model_id: Optional[str], version: str = "v
             "allow_no_sweep": True,
             "requires_trigger_chain": True,
         }
-    elif "CONTINUATION" in mid:
+    elif c_mid == "CONTINUATION":
         return {
             "model_id": "CONTINUATION",
             "required_kinds": ["BOS"],
@@ -413,7 +448,7 @@ def resolve_model_review_requirements(model_id: Optional[str], version: str = "v
             "allow_no_sweep": True,
             "requires_trigger_chain": True,
         }
-    elif "SWEEP_RECLAIM" in mid:
+    elif c_mid == "SWEEP_RECLAIM":
         return {
             "model_id": "SWEEP_RECLAIM",
             "required_kinds": ["SWEEP", "RECLAIM"],
@@ -421,7 +456,7 @@ def resolve_model_review_requirements(model_id: Optional[str], version: str = "v
             "allow_no_sweep": False,
             "requires_trigger_chain": True,
         }
-    elif "CG01" in mid:
+    elif c_mid == "CG01":
         return {
             "model_id": "CG01",
             "required_kinds": ["POI", "MSS", "RETEST"],
@@ -429,7 +464,7 @@ def resolve_model_review_requirements(model_id: Optional[str], version: str = "v
             "allow_no_sweep": False,
             "requires_trigger_chain": True,
         }
-    elif "NY_QUOTA" in mid:
+    elif c_mid == "NY_QUOTA":
         return {
             "model_id": "NY_QUOTA",
             "required_kinds": ["POI"],
@@ -449,9 +484,10 @@ def resolve_model_review_requirements(model_id: Optional[str], version: str = "v
 
 def build_entry_review_context(db: Session, order: Any) -> Dict[str, Any]:
     """
-    V16.39.2 Section 021 - 030:
+    V16.39.3 Section 016 - 040:
     Builds strongly-typed entry review context from historical bound artifacts for a closed order.
-    Extracts arm snapshot, fill snapshot, scenario evidence, guard audit, and model requirements.
+    Decodes ORM SMCScenarioSnapshot row via snapshot_from_row into ScenarioSnapshot dataclass.
+    Enforces strict symbol, direction, model family, and instance bindings.
     Never uses current live market context to explain past trades.
     """
     provenance_issues: List[str] = []
@@ -478,35 +514,114 @@ def build_entry_review_context(db: Session, order: Any) -> Dict[str, Any]:
     else:
         provenance_issues.append("MISSING_FILL_SNAPSHOT")
 
-    # 3. Scenario evidence
+    # 3. Scenario evidence decoding (Section 016 - 020)
     scenario_evidence: Dict[str, Any] = {}
     scen_id = getattr(order, "scenario_snapshot_id", None)
     if scen_id:
         try:
-            from services.smc_scenario_repository import get_scenario_snapshot
-            scen_snap = get_scenario_snapshot(db, scen_id)
-            if scen_snap:
-                scenario_evidence["evidence"] = scen_snap.evidence
-                scenario_evidence["trigger_chain"] = getattr(scen_snap, "trigger_chain", None)
-                scenario_evidence["context"] = getattr(scen_snap, "context", {})
-                scenario_evidence["family"] = getattr(scen_snap, "family", None)
-                scenario_evidence["direction"] = getattr(scen_snap, "direction", None)
+            from services.smc_scenario_repository import get_scenario_snapshot, snapshot_from_row
+            scen_row = get_scenario_snapshot(db, scen_id)
+            if scen_row is None:
+                provenance_issues.append(f"BOUND_SCENARIO_NOT_FOUND: {scen_id}")
+            else:
+                snapshot = None
+                try:
+                    snapshot = snapshot_from_row(scen_row)
+                except Exception as dec_err:
+                    provenance_issues.append(f"CORRUPT_BOUND_SCENARIO: {dec_err}")
+
+                if snapshot is not None:
+                    # ID consistency check (Section 022)
+                    if scen_row.snapshot_id != scen_id or snapshot.snapshot_id != scen_id:
+                        provenance_issues.append("PROVENANCE_CONFLICT_SNAPSHOT_ID")
+
+                    # Order symbol binding (Section 023)
+                    ord_sym = getattr(order, "instrument", None) or getattr(order, "symbol", None)
+                    if ord_sym and snapshot.symbol and ord_sym != snapshot.symbol:
+                        provenance_issues.append(f"PROVENANCE_CONFLICT_SYMBOL: order={ord_sym} vs snap={snapshot.symbol}")
+
+                    # Order direction binding (Section 024)
+                    ord_dir = getattr(order, "direction", None)
+                    if ord_dir and snapshot.direction:
+                        ord_dir_norm = "LONG" if str(ord_dir).upper() in ("LONG", "BUY") else ("SHORT" if str(ord_dir).upper() in ("SHORT", "SELL") else None)
+                        snap_dir_norm = "LONG" if str(snapshot.direction).upper() in ("LONG", "BUY") else ("SHORT" if str(snapshot.direction).upper() in ("SHORT", "SELL") else None)
+                        if ord_dir_norm != snap_dir_norm:
+                            provenance_issues.append(f"PROVENANCE_CONFLICT_DIRECTION: order={ord_dir} vs snap={snapshot.direction}")
+
+                    # Model binding (Section 025)
+                    ord_fam = getattr(order, "strategy_family", None)
+                    if ord_fam and snapshot.family:
+                        if canonical_model_family(ord_fam) != canonical_model_family(snapshot.family):
+                            provenance_issues.append(f"PROVENANCE_CONFLICT_MODEL: order={ord_fam} vs snap={snapshot.family}")
+
+                    # Instance binding (Section 026)
+                    ord_inst = getattr(order, "setup_instance_id", None)
+                    if ord_inst and snapshot.instance_id and ord_inst != snapshot.instance_id:
+                        provenance_issues.append(f"PROVENANCE_CONFLICT_INSTANCE: order={ord_inst} vs snap={snapshot.instance_id}")
+
+                    scenario_evidence["evidence"] = snapshot.evidence
+                    scenario_evidence["trigger_chain"] = snapshot.trigger_chain
+                    scenario_evidence["context"] = snapshot.context
+                    scenario_evidence["family"] = snapshot.family
+                    scenario_evidence["direction"] = snapshot.direction
+                    scenario_evidence["symbol"] = snapshot.symbol
+                    scenario_evidence["as_of_ms"] = snapshot.as_of_ms
+                    scenario_evidence["evidence_cutoff_ms"] = snapshot.evidence_cutoff_ms
+                    scenario_evidence["plan"] = snapshot.plan
+                    scenario_evidence["snapshot_id"] = snapshot.snapshot_id
         except Exception as e:
             provenance_issues.append(f"SCENARIO_LOOKUP_FAILED: {e}")
 
-    # Fallback to StrategyEvidence if scenario snapshot didn't provide evidence
-    if not scenario_evidence.get("evidence"):
-        ev_id = getattr(order, "evidence_snapshot_id", None)
-        if ev_id:
-            try:
-                import models
-                ev_row = db.query(models.StrategyEvidence).filter(models.StrategyEvidence.id == ev_id).first()
-                if ev_row and ev_row.evidence_json:
-                    scenario_evidence["evidence"] = json.loads(ev_row.evidence_json)
-            except Exception as e:
-                provenance_issues.append(f"STRATEGY_EVIDENCE_LOOKUP_FAILED: {e}")
+    # Fallback to StrategyEvidence if scenario snapshot didn't provide evidence (Section 029, 030)
+    ev_id = getattr(order, "evidence_snapshot_id", None)
+    if not scenario_evidence.get("evidence") and ev_id:
+        try:
+            import models
+            ev_row = db.query(models.StrategyEvidence).filter(models.StrategyEvidence.id == ev_id).first()
+            if ev_row and hasattr(ev_row, "evidence_json") and getattr(ev_row, "evidence_json", None):
+                parsed_ev = json.loads(ev_row.evidence_json)
+                if isinstance(parsed_ev, dict):
+                    scenario_evidence["evidence"] = parsed_ev.get("evidence") or parsed_ev.get("items") or parsed_ev.get("nodes") or parsed_ev
+                    if "trigger_chain" in parsed_ev:
+                        scenario_evidence["trigger_chain"] = parsed_ev["trigger_chain"]
+                elif isinstance(parsed_ev, list):
+                    scenario_evidence["evidence"] = parsed_ev
+            elif ev_row:
+                ev_list = []
+                for col_name, kind in [
+                    ("sweep_evidence", "SWEEP"),
+                    ("displacement_evidence", "MSS"),
+                    ("fvg_evidence", "FVG"),
+                    ("retest_evidence", "RETEST"),
+                ]:
+                    val = getattr(ev_row, col_name, None)
+                    if val:
+                        try:
+                            d = json.loads(val) if isinstance(val, str) else val
+                            if isinstance(d, dict):
+                                if "kind" not in d:
+                                    d["kind"] = kind
+                                ev_list.append(d)
+                            elif isinstance(d, list):
+                                ev_list.extend(d)
+                        except Exception:
+                            pass
+                if ev_list:
+                    scenario_evidence["evidence"] = ev_list
+                    scenario_evidence["family"] = getattr(ev_row, "strategy_family", None)
+                    scenario_evidence["direction"] = getattr(ev_row, "direction", None)
+                    scenario_evidence["as_of_ms"] = getattr(ev_row, "created_at", None)
+                    trigger_nodes = [n["id"] for n in ev_list if n.get("kind") in ("MSS", "BOS", "CHOCH", "RECLAIM")]
+                    if trigger_nodes:
+                        scenario_evidence["trigger_chain"] = {
+                            "verified": True,
+                            "model_id": getattr(ev_row, "strategy_family", "CG01"),
+                            "node_ids": trigger_nodes,
+                        }
+        except Exception as e:
+            provenance_issues.append(f"STRATEGY_EVIDENCE_LOOKUP_FAILED: {e}")
 
-    # Fallback to arm_snapshot evidence if present
+    # Fallback to arm_snapshot evidence if present (Section 032)
     if not scenario_evidence.get("evidence") and arm_snapshot:
         if "evidence" in arm_snapshot:
             scenario_evidence["evidence"] = arm_snapshot["evidence"]
@@ -516,7 +631,7 @@ def build_entry_review_context(db: Session, order: Any) -> Dict[str, Any]:
     if not scenario_evidence.get("evidence"):
         provenance_issues.append("MISSING_SCENARIO_EVIDENCE")
 
-    # 4. Guard audit from checklist_snapshot
+    # 4. Guard audit from checklist_snapshot (Section 034)
     guard_audit: Optional[Dict[str, Any]] = None
     raw_chk = getattr(order, "checklist_snapshot", None)
     if raw_chk:
@@ -529,13 +644,44 @@ def build_entry_review_context(db: Session, order: Any) -> Dict[str, Any]:
     family = getattr(order, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC"
     model_reqs = resolve_model_review_requirements(family)
 
+    decision_as_of_ms = (
+        getattr(order, "armed_at", None)
+        or scenario_evidence.get("evidence_cutoff_ms")
+        or scenario_evidence.get("as_of_ms")
+        or getattr(order, "created_at", None)
+    )
+
+    if any("CORRUPT" in iss for iss in provenance_issues):
+        source_status = "CORRUPT_BOUND_SCENARIO"
+    elif any("PROVENANCE_CONFLICT" in iss for iss in provenance_issues):
+        source_status = "PROVENANCE_CONFLICT"
+    elif "MISSING_SCENARIO_EVIDENCE" in provenance_issues or not scenario_evidence.get("evidence"):
+        source_status = "MISSING_SOURCE"
+    elif not scen_id and ev_id and scenario_evidence.get("evidence"):
+        source_status = "FALLBACK_STRATEGY_EVIDENCE"
+    else:
+        source_status = "BOUND_SCENARIO"
+
     return {
+        "source_status": source_status,
         "arm_snapshot": arm_snapshot,
         "fill_snapshot": fill_snapshot,
         "scenario_evidence": scenario_evidence,
+        "trigger_chain": scenario_evidence.get("trigger_chain"),
         "guard_audit": guard_audit,
         "model_requirements": model_reqs,
         "provenance_issues": provenance_issues,
+        "decision_as_of_ms": decision_as_of_ms,
+        "direction": getattr(order, "direction", None) or scenario_evidence.get("direction"),
+        "symbol": getattr(order, "instrument", None) or scenario_evidence.get("symbol"),
+        "scenario_snapshot_id": scen_id,
+        "evidence_snapshot_id": ev_id,
+        "bound_ids": {
+            "scenario_snapshot_id": scen_id,
+            "evidence_snapshot_id": ev_id,
+            "setup_instance_id": getattr(order, "setup_instance_id", None),
+            "order_id": getattr(order, "id", None),
+        },
     }
 
 
@@ -545,10 +691,13 @@ def assess_entry_compliance_for_review(
     fill_snapshot: Optional[Dict[str, Any]] = None,
     audit: Optional[Any] = None,
     model_requirements: Optional[Dict[str, Any]] = None,
+    decision_as_of_ms: Optional[int] = None,
 ) -> EntryComplianceResult:
     """
-    V16.39.2 Section 097:
-    Assesses entry and fill compliance against model requirements, geometry, and risk rules.
+    V16.39.3 Sections 041 - 080:
+    Assesses entry and fill compliance against model requirements, causal timeline, and geometry.
+    Filters out future nodes, wrong-symbol nodes, and direction-contradicting nodes.
+    Validates trigger chain references against strictly valid factual nodes.
     Outputs: VERIFIED_COMPLIANT, VERIFIED_VIOLATION, or UNVERIFIABLE.
     """
     passed: List[str] = []
@@ -592,14 +741,33 @@ def assess_entry_compliance_for_review(
             missing_evidence=["ENTRY_SNAPSHOT"],
         )
 
-    # Geometry verification in snapshot (Section 103)
-    s_dir = entry_snapshot.get("direction")
-    s_entry = entry_snapshot.get("planned_entry", entry_snapshot.get("entry_price"))
-    s_sl = entry_snapshot.get("planned_sl", entry_snapshot.get("stop_loss"))
-    s_tp = entry_snapshot.get("planned_tp", entry_snapshot.get("take_profit"))
+    # Resolve decision cutoff timestamp (Section 043 - 046)
+    decision_time = (
+        decision_as_of_ms
+        or entry_snapshot.get("decision_as_of_ms")
+        or entry_snapshot.get("evidence_cutoff_ms")
+        or entry_snapshot.get("as_of_ms")
+        or (getattr(order, "armed_at", None) if order else None)
+    )
+
+    # Resolve candidate symbol and direction
+    ord_sym = (
+        (getattr(order, "instrument", None) if order else None)
+        or (getattr(order, "symbol", None) if order else None)
+        or entry_snapshot.get("symbol")
+    )
+    s_dir = (
+        (getattr(order, "direction", None) if order else None)
+        or entry_snapshot.get("direction")
+    )
     s_dir_norm = None
     if s_dir:
         s_dir_norm = "LONG" if str(s_dir).upper() in ("LONG", "BUY") else ("SHORT" if str(s_dir).upper() in ("SHORT", "SELL") else None)
+
+    # Geometry verification in snapshot (Section 052, 076, 077)
+    s_entry = entry_snapshot.get("planned_entry", entry_snapshot.get("entry_price"))
+    s_sl = entry_snapshot.get("planned_sl", entry_snapshot.get("stop_loss"))
+    s_tp = entry_snapshot.get("planned_tp", entry_snapshot.get("take_profit"))
 
     if not s_dir_norm or s_entry is None or s_sl is None:
         missing.append("NUMERIC_GEOMETRY")
@@ -649,7 +817,7 @@ def assess_entry_compliance_for_review(
         except (ValueError, TypeError):
             missing.append("NUMERIC_GEOMETRY")
 
-    # 3. Model requirements resolution (Section 065 - 070)
+    # 3. Model requirements resolution (Section 053, 065 - 070)
     model_id = str(
         entry_snapshot.get("model_id")
         or entry_snapshot.get("strategy_family")
@@ -657,8 +825,9 @@ def assess_entry_compliance_for_review(
         or "STANDARD_SMC"
     ).upper()
     reqs = model_requirements or resolve_model_review_requirements(model_id)
+    can_model = canonical_model_family(model_id)
 
-    # 4. Extract evidence nodes and observed kinds (Section 013 repair)
+    # 4. Extract and validate evidence nodes (Section 041 - 050, 059)
     raw_ev = entry_snapshot.get("evidence")
     nodes: List[Any] = []
     if isinstance(raw_ev, (list, tuple)):
@@ -671,76 +840,163 @@ def assess_entry_compliance_for_review(
         elif "nodes" in raw_ev and isinstance(raw_ev["nodes"], (list, tuple)):
             nodes = list(raw_ev["nodes"])
 
+    valid_nodes_by_id: Dict[str, Any] = {}
+    valid_nodes_by_kind: Dict[str, List[Any]] = {}
     observed_kinds: set = set()
-    for node in nodes:
-        if isinstance(node, dict):
-            k = str(node.get("kind") or "").upper()
-            nid = str(node.get("id") or "")
-            if k:
-                observed_kinds.add(k)
-            if nid:
-                refs.append(nid)
-        elif hasattr(node, "kind"):
-            k = str(getattr(node, "kind") or "").upper()
-            nid = str(getattr(node, "id") or "")
-            if k:
-                observed_kinds.add(k)
-            if nid:
-                refs.append(nid)
+    node_issues: List[str] = []
 
-    # Extract kinds from legacy flags if dictionary format:
-    if not observed_kinds and isinstance(raw_ev, dict):
-        if raw_ev.get("has_bos") or raw_ev.get("bos_id"):
-            observed_kinds.add("BOS")
-        if raw_ev.get("has_sweep") or raw_ev.get("sweep_detected") or raw_ev.get("sweep_id"):
-            observed_kinds.add("SWEEP")
-            observed_kinds.add("SWEEP_LOW" if s_dir_norm == "LONG" else "SWEEP_HIGH")
-        if raw_ev.get("has_trigger") or raw_ev.get("mss_detected") or raw_ev.get("choch_detected"):
-            observed_kinds.add("CHOCH")
-            observed_kinds.add("MSS")
-        if raw_ev.get("retest_detected") or raw_ev.get("fvg_retest"):
-            observed_kinds.add("RETEST")
-        if raw_ev.get("fvg_id") or raw_ev.get("fvg_zone"):
-            observed_kinds.add("FVG")
-        if raw_ev.get("zone_id") or raw_ev.get("poi_confirmed"):
-            observed_kinds.add("POI")
+    for raw_node in nodes:
+        if isinstance(raw_node, dict):
+            nid = str(raw_node.get("id") or "")
+            k = str(raw_node.get("kind") or "").upper().strip()
+            sym = raw_node.get("symbol")
+            dirn = raw_node.get("direction")
+            occ = raw_node.get("occurred_at_ms")
+            knw = raw_node.get("known_at_ms")
+        elif hasattr(raw_node, "id"):
+            nid = str(getattr(raw_node, "id") or "")
+            k = str(getattr(raw_node, "kind") or "").upper().strip()
+            sym = getattr(raw_node, "symbol", None)
+            dirn = getattr(raw_node, "direction", None)
+            occ = getattr(raw_node, "occurred_at_ms", None)
+            knw = getattr(raw_node, "known_at_ms", None)
+        else:
+            continue
 
-    # 5. Check trigger chain (Section 024, 061)
+        if not nid or not k:
+            node_issues.append("NODE_MISSING_ID_OR_KIND")
+            continue
+
+        # Validate timestamps (Section 052, 156)
+        if isinstance(knw, bool) or isinstance(occ, bool):
+            node_issues.append(f"NODE_{nid}_INVALID_TIMESTAMP")
+            continue
+        if knw is None:
+            if decision_time is not None:
+                node_issues.append(f"NODE_{nid}_INVALID_TIMESTAMP")
+                continue
+            else:
+                knw = 1000
+                occ = 1000
+        if occ is None:
+            occ = knw
+        try:
+            occ_int = int(occ)
+            knw_int = int(knw)
+        except (ValueError, TypeError):
+            node_issues.append(f"NODE_{nid}_INVALID_TIMESTAMP")
+            continue
+
+        if occ_int <= 0 or knw_int <= 0:
+            node_issues.append(f"NODE_{nid}_NONPOSITIVE_TIMESTAMP")
+            continue
+
+        if knw_int < occ_int:
+            node_issues.append(f"NODE_{nid}_INVERTED_TIMELINE")
+            continue
+
+        # Causality check: must be known at or before decision time! (Section 043, 046, 148)
+        if decision_time is not None and knw_int > int(decision_time):
+            node_issues.append(f"NODE_{nid}_FUTURE_TIMESTAMP")
+            continue
+
+        # Symbol check (Section 048, 149)
+        if sym and ord_sym and str(sym).upper() != str(ord_sym).upper():
+            node_issues.append(f"NODE_{nid}_SYMBOL_MISMATCH")
+            continue
+
+        # Direction check for direction-sensitive kinds (Section 049, 150)
+        if dirn and s_dir_norm:
+            node_dir_norm = "LONG" if str(dirn).upper() in ("LONG", "BUY", "BULLISH") else ("SHORT" if str(dirn).upper() in ("SHORT", "SELL", "BEARISH") else None)
+            if k in ("BOS", "CHOCH", "MSS", "SWEEP", "PULLBACK", "SWEEP_LOW", "SWEEP_HIGH"):
+                if node_dir_norm and node_dir_norm != s_dir_norm:
+                    node_issues.append(f"NODE_{nid}_DIRECTION_MISMATCH")
+                    continue
+
+        # Duplicate ID check: dedup stable
+        if nid in valid_nodes_by_id:
+            continue
+
+        valid_nodes_by_id[nid] = raw_node
+        if k not in valid_nodes_by_kind:
+            valid_nodes_by_kind[k] = []
+        valid_nodes_by_kind[k].append(raw_node)
+        observed_kinds.add(k)
+        refs.append(nid)
+
+    # 5. Check trigger chain (Section 055, 056, 057, 063)
     tc = entry_snapshot.get("trigger_chain")
     tc_verified = False
+    requires_tc = reqs.get("requires_trigger_chain", True)
+
     if isinstance(tc, dict):
         if tc.get("verified") is True:  # STRICT True check
-            tc_model = str(tc.get("model_id") or "").upper()
-            # Model match check (Section 029 & 158)
-            if tc_model and model_id and not (tc_model in model_id or model_id in tc_model):
+            tc_model = canonical_model_family(tc.get("model_id"))
+            # Model match check (Section 029, 056, 154)
+            if tc_model and can_model and tc_model != can_model:
                 failed.append("TRIGGER_MODEL_MISMATCH")
                 return EntryComplianceResult(
                     status="UNVERIFIABLE",
-                    reason=f"Trigger chain model '{tc_model}' không khớp với model lệnh '{model_id}'.",
+                    reason=f"Trigger chain model '{tc_model}' không khớp với model lệnh '{can_model}'.",
                     missing_evidence=["MODEL_TRIGGER_MATCH"],
                     checks_failed=failed,
                 )
-            tc_verified = True
-            passed.append("TRIGGER_CHAIN_VERIFIED")
-            for nid in tc.get("node_ids") or ():
-                refs.append(str(nid))
+
+            tc_nodes = list(tc.get("node_ids") or [])
+            if requires_tc and len(tc_nodes) == 0:
+                failed.append("TRIGGER_CHAIN_EMPTY_REFS")
+                tc_verified = False
+            else:
+                all_refs_valid = True
+                for ref_id in tc_nodes:
+                    ref_str = str(ref_id)
+                    if ref_str not in valid_nodes_by_id:
+                        all_refs_valid = False
+                        failed.append(f"TRIGGER_REF_NOT_FOUND_{ref_str}")
+                if all_refs_valid:
+                    tc_verified = True
+                    passed.append("TRIGGER_CHAIN_VERIFIED")
+                else:
+                    tc_verified = False
         else:
             failed.append("TRIGGER_CHAIN_UNVERIFIED")
-    elif entry_snapshot.get("compliance_verified") is True or (audit and audit.get("compliance_verified") is True):
-        # Legacy claim: allowed if trigger/required node exists and no failed tc
+    elif entry_snapshot.get("compliance_verified") is True or (isinstance(audit, dict) and audit.get("compliance_verified") is True):
+        # Legacy claim: allowed if valid observed_kinds exist and no invalid tc
         if observed_kinds:
             tc_verified = True
-            passed.append("LEGACY_TRIGGER_CLAIM_VERIFIED")
+            passed.append("COMPLIANCE_FLAG_VERIFIED")
+        else:
+            failed.append("TRIGGER_CHAIN_UNVERIFIED")
+    else:
+        if requires_tc:
+            failed.append("TRIGGER_CHAIN_UNVERIFIED")
+        else:
+            tc_verified = True
 
-    # 6. Verify required kinds for the specific model (Section 013, 065 - 071)
+    # 6. Temporal sequence check (Section 059, 158)
+    if can_model == "SWEEP_RECLAIM":
+        sweeps = valid_nodes_by_kind.get("SWEEP", [])
+        reclaims = valid_nodes_by_kind.get("RECLAIM", [])
+        if sweeps and reclaims:
+            earliest_sweep = min(s.get("occurred_at_ms", 0) if isinstance(s, dict) else getattr(s, "occurred_at_ms", 0) for s in sweeps)
+            latest_reclaim = max(r.get("occurred_at_ms", 0) if isinstance(r, dict) else getattr(r, "occurred_at_ms", 0) for r in reclaims)
+            if latest_reclaim < earliest_sweep:
+                failed.append("INVALID_TEMPORAL_SEQUENCE_SWEEP_RECLAIM")
+
+    if can_model == "FVG_CONTINUATION":
+        fvgs = valid_nodes_by_kind.get("FVG", [])
+        retests = valid_nodes_by_kind.get("RETEST", [])
+        if fvgs and retests:
+            fvg_known = min(f.get("known_at_ms", 0) if isinstance(f, dict) else getattr(f, "known_at_ms", 0) for f in fvgs)
+            retest_occ = min(r.get("occurred_at_ms", 0) if isinstance(r, dict) else getattr(r, "occurred_at_ms", 0) for r in retests)
+            if retest_occ < fvg_known:
+                failed.append("INVALID_TEMPORAL_SEQUENCE_FVG_RETEST")
+
+    # 7. Verify required kinds for the specific model (Section 061 - 071)
     req_kinds = reqs.get("required_kinds", [])
-    trigger_kinds = reqs.get("trigger_kinds", req_kinds)
     missing_req: List[str] = []
 
-    is_legacy_verified = bool(entry_snapshot.get("compliance_verified") or (audit and audit.get("compliance_verified")))
-    kinds_to_check = trigger_kinds if (is_legacy_verified and len(nodes) == 1 and not tc) else req_kinds
-
-    for rk in kinds_to_check:
+    for rk in req_kinds:
         if rk == "SWEEP":
             if not any(k in observed_kinds for k in ("SWEEP", "SWEEP_LOW", "SWEEP_HIGH")):
                 missing_req.append("REQUIRED_NODE_SWEEP")
@@ -749,23 +1005,28 @@ def assess_entry_compliance_for_review(
                 missing_req.append(f"REQUIRED_NODE_{rk}")
         elif rk in ("CHOCH", "MSS"):
             if not any(k in observed_kinds for k in ("CHOCH", "MSS", "BREAK")):
-                missing_req.append("REQUIRED_NODE_TRIGGER")
+                missing_req.append(f"REQUIRED_NODE_{rk}")
         elif rk not in observed_kinds:
             missing_req.append(f"REQUIRED_NODE_{rk}")
 
-    requires_tc = reqs.get("requires_trigger_chain", True)
     if requires_tc and not tc_verified:
         missing_req.append("TRIGGER_CHAIN_UNVERIFIED")
 
-    if missing_req or "NUMERIC_GEOMETRY" in missing:
+    has_ref_failures = any("TRIGGER_REF_NOT_FOUND" in f for f in failed)
+    has_empty_chain = "TRIGGER_CHAIN_EMPTY_REFS" in failed
+    has_seq_failures = any("INVALID_TEMPORAL_SEQUENCE" in f for f in failed)
+
+    if missing_req or "NUMERIC_GEOMETRY" in missing or has_ref_failures or has_empty_chain or has_seq_failures:
         missing.extend(missing_req)
         return EntryComplianceResult(
             status="UNVERIFIABLE",
-            reason=f"Thiếu bằng chứng bắt buộc cho mô hình {model_id}: {', '.join(missing_req or missing)}.",
+            reason=f"Thiếu hoặc không xác minh được bằng chứng bắt buộc cho mô hình {model_id}: {', '.join(missing_req or failed or missing)}.",
             missing_evidence=list(dict.fromkeys(missing)),
             checks_passed=passed,
             checks_failed=failed + missing_req,
             evidence_refs=refs,
+            provenance_issues=node_issues,
+            decision_time_ms=decision_time,
         )
 
     passed.append("MODEL_REQUIREMENTS_VERIFIED")
@@ -774,6 +1035,8 @@ def assess_entry_compliance_for_review(
         reason=f"Entry snapshot và audit tuân thủ mô hình {model_id} đã xác minh đầy đủ.",
         checks_passed=passed or ["COMPLIANCE_VERIFIED"],
         evidence_refs=refs,
+        provenance_issues=node_issues,
+        decision_time_ms=decision_time,
     )
 
 
@@ -781,10 +1044,12 @@ def classify_post_trade_lesson(
     review: PostTradeReview,
     entry_snapshot: Optional[Dict[str, Any]] = None,
     audit: Optional[Any] = None,
+    compliance_result: Optional[EntryComplianceResult] = None,
 ) -> LessonClassification:
     """
-    V16.39.1 Sections 015, 096 - 110:
+    V16.39.1 Sections 015, 096 - 110, V16.39.3 Section 077:
     Pure deterministic classifier for post-trade reviews based on empirical evidence.
+    Accepts pre-computed EntryComplianceResult to guarantee single assessment.
     Hierarchy:
     1. Verified serious violation (rule violation, wrong geometry, risk exceeded) -> RED (CRITICAL)
     2. Missing evidence, unconfirmed cause, unverified compliance, adverse execution -> YELLOW (WARNING)
@@ -857,20 +1122,23 @@ def classify_post_trade_lesson(
             suggested_scope=scope,
         )
 
-    # 3. Assess compliance from entry_snapshot and audit (Section 097)
-    if entry_snapshot is None:
-        snap_copy = None
+    # 3. Assess compliance from entry_snapshot and audit (Section 077, 097)
+    if compliance_result is not None:
+        comp = compliance_result
     else:
-        snap_copy = dict(entry_snapshot)
-        if "model_id" not in snap_copy and getattr(review, "model_id", None):
-            snap_copy["model_id"] = review.model_id
+        if entry_snapshot is None:
+            snap_copy = None
+        else:
+            snap_copy = dict(entry_snapshot)
+            if "model_id" not in snap_copy and getattr(review, "model_id", None):
+                snap_copy["model_id"] = review.model_id
 
-    comp = assess_entry_compliance_for_review(
-        order=None,
-        entry_snapshot=snap_copy,
-        fill_snapshot=None,
-        audit=audit,
-    )
+        comp = assess_entry_compliance_for_review(
+            order=None,
+            entry_snapshot=snap_copy,
+            fill_snapshot=None,
+            audit=audit,
+        )
 
     if comp.status == "VERIFIED_VIOLATION":
         return LessonClassification(
