@@ -367,6 +367,13 @@ class M1ScalpConfig:
     cg01_direction_policy: str = "LEGACY_H1"
     timing_profile: str = "SILVER_BULLET_LONDON_NY"
     cg01_config: Optional[Any] = None
+    adaptive_model_allowlist: Tuple[str, ...] = (
+        ModelIdentifier.SMC_M1_REVERSAL.value,
+        ModelIdentifier.SMC_M1_CONTINUATION.value,
+        ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+        ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+        ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+    )
 
     def __post_init__(self):
         if self.near_zone_enter_atr >= self.near_zone_exit_atr:
@@ -429,6 +436,7 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
                 "execution_profile",
                 "cg01_direction_policy",
                 "timing_profile",
+                "adaptive_model_allowlist",
             ])
         ).all()
         config_map = {r.key: r.value for r in rows}
@@ -469,6 +477,21 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
                     overrides["timing_profile"] = tp_clean
             else:
                 overrides[str_key] = s_val
+
+    if "adaptive_model_allowlist" in config_map:
+        raw_al = config_map["adaptive_model_allowlist"]
+        if isinstance(raw_al, str):
+            import json
+            try:
+                parsed_al = json.loads(raw_al)
+                if isinstance(parsed_al, (list, tuple)):
+                    overrides["adaptive_model_allowlist"] = tuple(str(x) for x in parsed_al)
+                else:
+                    overrides["adaptive_model_allowlist"] = tuple(x.strip() for x in raw_al.split(",") if x.strip())
+            except Exception:
+                overrides["adaptive_model_allowlist"] = tuple(x.strip() for x in raw_al.split(",") if x.strip())
+        elif isinstance(raw_al, (list, tuple)):
+            overrides["adaptive_model_allowlist"] = tuple(str(x) for x in raw_al)
 
     for num_key, typ in [
         ("min_closed_m1_bars", int),
@@ -539,9 +562,6 @@ def build_v16_1_paper_profile(base_config: Optional[M1ScalpConfig] = None) -> M1
     return M1ScalpConfig(**base_dict)
 
 
-    return M1ScalpConfig(**base_dict)
-
-
 def build_cg01_paper_profile(base_config: Optional[M1ScalpConfig] = None) -> M1ScalpConfig:
     """
     V16.2 Rule 031: Builds immutable CG01_PAPER profile snapshot:
@@ -560,5 +580,35 @@ def build_cg01_paper_profile(base_config: Optional[M1ScalpConfig] = None) -> M1S
         "daily_min_goal": 2,
         "daily_max_cap": 3,
         "daily_ny_goal": 1,
+    })
+    return M1ScalpConfig(**base_dict)
+
+
+def build_adaptive_smc_paper_profile(base_config: Optional[M1ScalpConfig] = None) -> M1ScalpConfig:
+    """
+    V16.37: Builds immutable PAPER_ADAPTIVE_SMC profile snapshot:
+    - scalp_m1_enabled=True, scalp_m1_mode=PAPER.
+    - execution_profile='PAPER_ADAPTIVE_SMC'.
+    - min_net_rr=1.5.
+    - adaptive_model_allowlist defaults to all active SMC models.
+    - daily_min_goal=2, daily_max_cap=3, daily_ny_goal=1.
+    """
+    cfg = base_config if base_config is not None else active_scalp_config
+    base_dict = cfg.__dict__.copy()
+    base_dict.update({
+        "scalp_m1_enabled": True,
+        "scalp_m1_mode": ScalpMode.PAPER.value,
+        "execution_profile": "PAPER_ADAPTIVE_SMC",
+        "min_net_rr": 1.5,
+        "daily_min_goal": 2,
+        "daily_max_cap": 3,
+        "daily_ny_goal": 1,
+        "adaptive_model_allowlist": (
+            ModelIdentifier.SMC_M1_REVERSAL.value,
+            ModelIdentifier.SMC_M1_CONTINUATION.value,
+            ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+            ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+            ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+        ),
     })
     return M1ScalpConfig(**base_dict)

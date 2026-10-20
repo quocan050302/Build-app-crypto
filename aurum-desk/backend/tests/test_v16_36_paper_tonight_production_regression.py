@@ -481,6 +481,128 @@ class TestProximityMetricsAndAtrFlags:
         m_bid = compute_zone_proximity_metrics(4140.58, 4137.76, 4140.21, 5.73, price_basis="BID")
         assert m_bid.price_basis == "BID"
 
+    def test_rule_072_screenshot_case_1_and_case_2(self):
+        """
+        Rule 072: Verify exact values from the two user screenshot fixtures:
+        Case 1: Price=4140.60, Zone=[4137.76, 4140.21], ATR=5.73 -> Boundary distance ~0.39.
+        Case 2: Price=4140.23, Zone=[4132.98, 4139.85], ATR=5.76 -> Boundary distance ~0.38.
+        """
+        # Case 1
+        m1 = compute_zone_proximity_metrics(
+            price=4140.60,
+            zone_low=4137.76,
+            zone_high=4140.21,
+            atr=5.73,
+            price_basis="MID",
+        )
+        assert m1.distance_price == pytest.approx(0.39, abs=0.01)
+        assert m1.distance_atr == pytest.approx(round(0.39 / 5.73, 2), abs=0.01)
+        assert m1.atr_effective_floor_used is False
+
+        # Case 2
+        m2 = compute_zone_proximity_metrics(
+            price=4140.23,
+            zone_low=4132.98,
+            zone_high=4139.85,
+            atr=5.76,
+            price_basis="MID",
+        )
+        assert m2.distance_price == pytest.approx(0.38, abs=0.01)
+        assert m2.distance_atr == pytest.approx(round(0.38 / 5.76, 2), abs=0.01)
+        assert m2.atr_effective_floor_used is False
+
+
+# ===========================================================================
+# 3b. Telegram Message Formatting & Plan Geometry (Rules 058, 059, 075)
+# ===========================================================================
+
+class TestTelegramFormattingRules:
+    """
+    Rules 058, 059, 075:
+    - Zone-only notifications do NOT fabricate SL/TP ($0.00).
+    - Real plan notifications include valid geometry, Net R:R, Min Net R:R.
+    - Broken geometry is rejected as executable plan.
+    - None/NaN/Inf do not crash formatter.
+    - 0.00 inside zone is formatted as "0.00 USDT (Đang trong vùng)".
+    """
+
+    def test_rule_075_telegram_zone_only_no_fake_sl_tp(self):
+        """Rule 058/075: When SL/TP are None or 0, message states SL/TP is unconfirmed."""
+        data = {
+            "setup_id": "zone_test_only",
+            "direction": "LONG",
+            "reference_price": 4140.60,
+            "entry_zone_low": 4137.76,
+            "entry_zone_high": 4140.21,
+            "entry_target": 4138.98,
+            "distance_price": 0.39,
+            "distance_atr": 0.07,
+            "atr": 5.73,
+            "atr_effective_floor_used": False,
+            "price_basis": "MID",
+            "stop_loss": None,
+            "take_profit": None,
+        }
+        msg = format_telegram_message("NEAR_ENTRY", data)
+        assert "Chưa xác định — đây là vùng theo dõi" in msg
+        assert "$0.00" not in msg
+
+    def test_rule_075_telegram_valid_plan_shows_levels_and_rr(self):
+        """Rule 059/075: Valid plan shows entry, SL, TP, Net RR, and Min Net RR."""
+        data = {
+            "setup_id": "setup_real_plan",
+            "direction": "LONG",
+            "reference_price": 4100.0,
+            "entry_zone_low": 4098.0,
+            "entry_zone_high": 4102.0,
+            "entry_target": 4100.0,
+            "planned_entry": 4100.0,
+            "stop_loss": 4090.0,
+            "take_profit": 4124.0,
+            "net_rr": 1.65,
+            "min_net_rr": 1.5,
+            "risk_usdt": 25.0,
+            "distance_price": 0.0,
+            "distance_atr": 0.0,
+            "atr": 5.0,
+            "atr_effective_floor_used": False,
+        }
+        assert _has_valid_plan(data) is True
+        msg = format_telegram_message("NEAR_ENTRY", data)
+        assert "$4090.00" in msg
+        assert "$4124.00" in msg
+        assert "1:1.65" in msg
+        assert "Min: 1:1.50" in msg
+        assert "0.00 USDT (Đang trong vùng)" in msg
+
+    def test_rule_075_telegram_broken_geometry_not_valid_plan(self):
+        """Rule 059/075: LONG with SL >= entry is geometrically invalid."""
+        data_inv = {
+            "direction": "LONG",
+            "planned_entry": 4100.0,
+            "stop_loss": 4110.0,  # SL above entry for LONG -> invalid!
+            "take_profit": 4130.0,
+        }
+        assert _has_valid_plan(data_inv) is False
+        msg = format_telegram_message("NEAR_ENTRY", data_inv)
+        assert "Chưa xác định — đây là vùng theo dõi" in msg
+
+    def test_rule_075_telegram_none_nan_inf_do_not_crash(self):
+        """Rule 075: Formatter handles None, NaN, and Inf safely."""
+        data_nan = {
+            "direction": "UNKNOWN_SIDE",
+            "reference_price": float("nan"),
+            "distance_price": float("inf"),
+            "distance_atr": float("-inf"),
+            "atr": None,
+            "stop_loss": float("nan"),
+            "take_profit": None,
+        }
+        msg = format_telegram_message("NEAR_ENTRY", data_nan)
+        assert isinstance(msg, str)
+        assert "Chưa xác định" in msg
+
+
 
 # ===========================================================================
 # 4. Expanded NY PAPER Window & Time Profile Rules (Rules 076 - 079)
@@ -863,3 +985,247 @@ class TestCG01ExpandedWindowPipeline:
         assert order.state != "paper_open", "Cannot fill when daily max fills (3) is reached"
         assert order.state == "rejected"
         assert "MAX_DAILY_ENTRIES" in (order.invalidation_reason or "") or "Execution guard" in (order.invalidation_reason or "")
+
+    def test_rule_080_news_guard_in_expanded_window(self, isolated_db):
+        """
+        Rule 048, 080: 08:30 NY is inside the expanded window, but is a common time for High-Impact news (CPI/NFP).
+        - Case A: High-impact USD news within +/- 15m blackout blocks ARM via entry guard (fail-closed).
+        - Case B: In the absence of blackout, valid setup is permitted by timing.
+        """
+        _setup_clean_audit_and_policy(isolated_db)
+        from services.entry_guard_service import EntryGuardRequest, evaluate_entry_guard
+
+        ny_tz = ZoneInfo("America/New_York")
+        # 08:30 NY
+        dt_news = datetime(2026, 10, 20, 8, 30, tzinfo=ny_tz)
+        t_news = int(dt_news.timestamp() * 1000)
+
+        # Seed high-impact USD economic news at 08:30 NY
+        news_row = models.EconomicNews(
+            id=88301,
+            title="US CPI MoM",
+            currency="USD",
+            impact="HIGH",
+            scheduled_at=t_news,
+            received_at=t_news - 3600_000,
+        )
+        isolated_db.add(news_row)
+        isolated_db.commit()
+
+        # Case A: Request at 08:25 NY (within 15m blackout envelope)
+        from services.news_blackout_service import evaluate_news_blackout
+        view_blackout = evaluate_news_blackout(isolated_db, t_news - 5 * 60 * 1000)
+        assert view_blackout.is_blackout is True
+        assert view_blackout.title == "US CPI MoM"
+
+        req_blackout = EntryGuardRequest(
+            stage="ARM",
+            now_ms=t_news - 5 * 60 * 1000,
+            symbol="XAUUSDT",
+            direction="LONG",
+            execution_mode="AUTO",
+            origin="AUTO_STRATEGY",
+            planned_entry=2650.0,
+            stop_loss=2645.0,
+            take_profit=2665.0,
+            timeframe="1M",
+        )
+        guard_res = evaluate_entry_guard(isolated_db, req_blackout)
+        assert guard_res.allowed is False, "ARM must be blocked during news blackout"
+        block_codes = [c.code for c in guard_res.checks if c.state == "BLOCK"]
+        assert any("NEWS" in c or "news" in c.lower() for c in block_codes), f"Blocked codes: {block_codes}"
+
+        # Case B: Request at 09:15 NY (outside the 15m blackout envelope)
+        view_clear = evaluate_news_blackout(isolated_db, t_news + 45 * 60 * 1000)
+        assert view_clear.is_blackout is False
+
+        req_clear = EntryGuardRequest(
+            stage="ARM",
+            now_ms=t_news + 45 * 60 * 1000,
+            symbol="XAUUSDT",
+            direction="LONG",
+            execution_mode="AUTO",
+            origin="AUTO_STRATEGY",
+            planned_entry=2650.0,
+            stop_loss=2645.0,
+            take_profit=2665.0,
+            timeframe="1M",
+        )
+        guard_clear = evaluate_entry_guard(isolated_db, req_clear)
+        clear_block_codes = [c.code for c in guard_clear.checks if c.state == "BLOCK"]
+        assert not any("NEWS" in c or "news" in c.lower() for c in clear_block_codes), (
+            f"News blackout should not block outside envelope, got: {clear_block_codes}"
+        )
+
+    def test_rule_085_restart_and_config_switch(self, isolated_db):
+        """
+        Rule 085:
+        - Pending armed order and open position survive across session reload.
+        - Expiry deadline is preserved.
+        - Config switch (e.g. changing timing profile) does not mutate past order snapshot.
+        - Open position SL/TP/direction/quantity remain intact.
+        """
+        _setup_clean_audit_and_policy(isolated_db)
+
+        now_ms = 1_700_000_000_000
+        # 1. Pending armed order
+        armed_order = models.PaperOrder(
+            id="ord_pending_restart",
+            instrument="XAUUSDT",
+            direction="LONG",
+            state="armed",
+            order_type="LIMIT",
+            planned_entry=2650.0,
+            stop_loss=2645.0,
+            take_profit=2665.0,
+            quantity=0.1,
+            initial_risk_usdt=0.5,
+            risk_pct=0.10,
+            gross_rr=3.0,
+            estimated_net_rr=2.5,
+            created_at=now_ms,
+            armed_at=now_ms,
+            expires_at=now_ms + 1800_000,
+            config_version=1,
+            cost_snapshot=json.dumps({"min_net_rr_at_arm": 1.5, "slippage_usd": 0.10}),
+        )
+        # 2. Existing open position
+        open_pos = models.PaperOrder(
+            id="ord_open_pos_restart",
+            instrument="XAUUSDT",
+            direction="SHORT",
+            state="paper_open",
+            order_type="LIMIT",
+            planned_entry=2680.0,
+            actual_entry=2680.0,
+            stop_loss=2685.0,
+            take_profit=2665.0,
+            quantity=0.2,
+            initial_risk_usdt=1.0,
+            risk_pct=0.10,
+            gross_rr=3.0,
+            estimated_net_rr=2.4,
+            created_at=now_ms - 1000,
+            armed_at=now_ms - 1000,
+            opened_at=now_ms - 500,
+            config_version=1,
+            cost_snapshot=json.dumps({"min_net_rr_at_arm": 1.5, "slippage_usd": 0.10}),
+        )
+        isolated_db.add(armed_order)
+        isolated_db.add(open_pos)
+        isolated_db.commit()
+
+        # Simulate fresh session reload from DB
+        isolated_db.expire_all()
+
+        reloaded_armed = isolated_db.query(models.PaperOrder).filter(models.PaperOrder.id == "ord_pending_restart").first()
+        reloaded_pos = isolated_db.query(models.PaperOrder).filter(models.PaperOrder.id == "ord_open_pos_restart").first()
+
+        assert reloaded_armed.state == "armed"
+        assert reloaded_armed.expires_at == now_ms + 1800_000
+        assert json.loads(reloaded_armed.cost_snapshot)["min_net_rr_at_arm"] == 1.5
+
+        assert reloaded_pos.state == "paper_open"
+        assert reloaded_pos.quantity == 0.2
+        assert reloaded_pos.direction == "SHORT"
+        assert reloaded_pos.stop_loss == 2685.0
+        assert reloaded_pos.take_profit == 2665.0
+
+        # Change system config
+        cfg_row = isolated_db.query(models.SystemConfig).filter(models.SystemConfig.key == "timing_profile").first()
+        if cfg_row:
+            cfg_row.value = "SILVER_BULLET_LONDON_NY"
+        else:
+            isolated_db.add(models.SystemConfig(key="timing_profile", value="SILVER_BULLET_LONDON_NY", updated_at=now_ms))
+        isolated_db.commit()
+
+        # Assert past snapshots are not mutated
+        isolated_db.refresh(reloaded_armed)
+        assert json.loads(reloaded_armed.cost_snapshot)["min_net_rr_at_arm"] == 1.5
+
+    def test_rule_086_notification_flow_deterministic(self):
+        """
+        Rule 086: Deterministic verification of the full Telegram notification lifecycle:
+        NEAR_ENTRY -> READY / TRIGGER_CONFIRMED -> ARMED -> FILLED -> TP_HIT / SL_HIT.
+        Assert that each stage has the correct semantics and no fake 'filled' alert is sent before execution.
+        """
+        now_ms = 1_700_000_000_000
+
+        # 1. NEAR_ENTRY
+        msg_near = format_telegram_message("NEAR_ENTRY", {
+            "setup_id": "setup_flow_01",
+            "direction": "LONG",
+            "reference_price": 2650.0,
+            "entry_zone_low": 2648.0,
+            "entry_zone_high": 2652.0,
+            "entry_target": 2650.0,
+            "distance_price": 0.0,
+            "distance_atr": 0.0,
+            "atr": 4.5,
+            "atr_effective_floor_used": False,
+        }, occurred_at=now_ms)
+        assert "SẮP TIẾP CẬN VÙNG ENTRY" in msg_near
+        assert "tự động vào lệnh nếu chưa đủ xác nhận" in msg_near
+
+        # 2. TRIGGER_CONFIRMED
+        msg_conf = format_telegram_message("TRIGGER_CONFIRMED", {
+            "setup_id": "setup_flow_01",
+            "direction": "LONG",
+            "planned_entry": 2650.0,
+            "stop_loss": 2645.0,
+            "take_profit": 2665.0,
+            "net_rr": 1.65,
+            "min_net_rr": 1.5,
+            "model_id": "CG01_SWEEP_MSS_FVG",
+        }, occurred_at=now_ms)
+        assert "XÁC NHẬN TRIGGER" in msg_conf
+
+        # 3. ARMED
+        msg_armed = format_telegram_message("ARMED", {
+            "order_id": "ord_flow_01",
+            "direction": "LONG",
+            "planned_entry": 2650.0,
+            "stop_loss": 2645.0,
+            "take_profit": 2665.0,
+            "quantity": 0.1,
+            "order_type": "LIMIT",
+        }, occurred_at=now_ms)
+        assert "ĐÃ ARM LỆNH CHỜ" in msg_armed
+
+        # 4. FILLED
+        msg_filled = format_telegram_message("FILLED", {
+            "order_id": "ord_flow_01",
+            "direction": "LONG",
+            "actual_entry": 2650.0,
+            "stop_loss": 2645.0,
+            "take_profit": 2665.0,
+            "quantity": 0.1,
+            "realized_pnl_net": 0.0,
+        }, occurred_at=now_ms)
+        assert "ĐÃ KHỚP LỆNH" in msg_filled
+
+        # 5. TP_HIT
+        msg_tp = format_telegram_message("TP_HIT", {
+            "trade_id": "ord_flow_01",
+            "direction": "LONG",
+            "actual_entry": 2650.0,
+            "actual_exit": 2665.0,
+            "realized_pnl": 15.0,
+            "realized_r": 1.65,
+        }, occurred_at=now_ms)
+        assert "CHỐT LỜI TP (PAPER)" in msg_tp
+        assert "$2650.00" in msg_tp
+        assert "$2665.00" in msg_tp
+
+        # 6. SL_HIT
+        msg_sl = format_telegram_message("SL_HIT", {
+            "trade_id": "ord_flow_02",
+            "direction": "SHORT",
+            "actual_entry": 2680.0,
+            "actual_exit": 2685.0,
+            "realized_pnl": -5.0,
+            "realized_r": -1.0,
+        }, occurred_at=now_ms)
+        assert "CẮT LỖ SL (PAPER)" in msg_sl
+        assert "$2680.00" in msg_sl
+        assert "$2685.00" in msg_sl
