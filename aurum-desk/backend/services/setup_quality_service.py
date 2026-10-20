@@ -887,15 +887,67 @@ class EvidenceIndex:
     trigger_node_ids: List[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class ScoringProfileConfig:
+    """
+    V16.39.2 Section 034, 091: Strongly-typed immutable scoring profile configuration.
+    Contains weights, thresholds, budgets, and operational flags.
+    """
+    quality_profile_version: str = "v16.39"
+    quality_arm_threshold: float = 70.0
+    min_net_rr: float = 1.5
+    quality_scoring_enabled: bool = True
+    lesson_score_adjustment_enabled: bool = False
+    weights: Dict[str, float] = field(default_factory=lambda: {
+        "HTF_CONTEXT": 20.0,
+        "POI_QUALITY": 20.0,
+        "LIQUIDITY_SCENARIO": 15.0,
+        "LTF_CONFIRMATION": 25.0,
+        "EXECUTION_QUALITY": 20.0,
+    })
+    budgets: Dict[str, float] = field(default_factory=lambda: {
+        "max_spread_pips": 2.0,
+        "max_slippage_usd": 0.50,
+        "max_entry_distance_atr": 1.5,
+    })
+
+
+def resolve_scoring_profile(config: Any = None) -> ScoringProfileConfig:
+    """Resolves arbitrary config representation into a typed ScoringProfileConfig object."""
+    if isinstance(config, ScoringProfileConfig):
+        return config
+    if config is None:
+        return ScoringProfileConfig()
+    if isinstance(config, str):
+        return ScoringProfileConfig(quality_profile_version=config)
+    if isinstance(config, dict):
+        return ScoringProfileConfig(
+            quality_profile_version=str(config.get("quality_profile_version") or "v16.39"),
+            quality_arm_threshold=float(config.get("quality_arm_threshold", 70.0)),
+            min_net_rr=float(config.get("min_net_rr", 1.5)),
+            quality_scoring_enabled=bool(config.get("quality_scoring_enabled", True)),
+            lesson_score_adjustment_enabled=bool(config.get("lesson_score_adjustment_enabled", False)),
+        )
+    # Generic object (such as M1ScalpConfig)
+    return ScoringProfileConfig(
+        quality_profile_version=str(getattr(config, "quality_profile_version", "v16.39")),
+        quality_arm_threshold=float(getattr(config, "quality_arm_threshold", 70.0)),
+        min_net_rr=float(getattr(config, "min_net_rr", 1.5)),
+        quality_scoring_enabled=bool(getattr(config, "quality_scoring_enabled", True)),
+        lesson_score_adjustment_enabled=bool(getattr(config, "lesson_score_adjustment_enabled", False)),
+    )
+
+
 def normalize_candidate_evidence(
     candidate: Any,
     as_of_ms: int = 0,
 ) -> EvidenceIndex:
     """
-    V16.39.1 Sections 016 - 024:
+    V16.39.2 Sections 012, 016 - 024, 046 - 064:
     Normalizes candidate evidence into typed, indexed, causally-verified evidence nodes.
     Supports both production List[EvidenceNode.to_dict()] and legacy flag dictionaries.
     Strictly checks known_at_ms <= as_of_ms (excluding future evidence).
+    NEVER synthesizes fake timestamps (Section 047) or fake displacement constants (Section 048).
     Verifies trigger_chain with strict boolean and node reference integrity.
     """
     index = EvidenceIndex()
@@ -926,7 +978,8 @@ def normalize_candidate_evidence(
     # If raw_items is empty and raw_ev is a dict of legacy flags:
     legacy_flags = raw_ev if isinstance(raw_ev, dict) and not raw_items else {}
 
-    # Synthesize nodes from legacy flags if present and no nodes exist:
+    # Legacy flags contract (Section 012, 047 - 049):
+    # Do NOT invent synthetic timestamps (now-60s, now-120s) or displacement constants (1.0/1.0)!
     if not raw_items and legacy_flags:
         if legacy_flags.get("has_sweep") or legacy_flags.get("sweep_detected") or legacy_flags.get("sweep_id"):
             raw_items.append({
@@ -935,8 +988,8 @@ def normalize_candidate_evidence(
                 "symbol": cand_sym,
                 "timeframe": "1M",
                 "direction": cand_dir,
-                "occurred_at_ms": now_ms - 60_000,
-                "known_at_ms": now_ms - 60_000,
+                "occurred_at_ms": int(legacy_flags.get("occurred_at_ms") or legacy_flags.get("sweep_occurred_at_ms") or 0),
+                "known_at_ms": int(legacy_flags.get("known_at_ms") or legacy_flags.get("sweep_known_at_ms") or 0),
                 "level": legacy_flags.get("sweep_level"),
             })
         if legacy_flags.get("poi_confirmed") or legacy_flags.get("zone_id") or legacy_flags.get("fvg_id"):
@@ -946,23 +999,25 @@ def normalize_candidate_evidence(
                 "symbol": cand_sym,
                 "timeframe": "1M",
                 "direction": cand_dir,
-                "occurred_at_ms": now_ms - 120_000,
-                "known_at_ms": now_ms - 120_000,
+                "occurred_at_ms": int(legacy_flags.get("occurred_at_ms") or legacy_flags.get("poi_occurred_at_ms") or 0),
+                "known_at_ms": int(legacy_flags.get("known_at_ms") or legacy_flags.get("poi_known_at_ms") or 0),
                 "level": legacy_flags.get("zone_midpoint"),
             })
         if legacy_flags.get("has_trigger") or legacy_flags.get("mss_detected") or legacy_flags.get("choch_detected"):
+            extra_dict = {}
+            if "displacement_body" in legacy_flags:
+                extra_dict["displacement_body"] = legacy_flags["displacement_body"]
+            if "displacement_atr" in legacy_flags:
+                extra_dict["displacement_atr"] = legacy_flags["displacement_atr"]
             raw_items.append({
                 "id": "legacy_trigger",
                 "kind": "CHOCH" if "REVERSAL" in str(getattr(candidate, "model_id", "")) else "BOS",
                 "symbol": cand_sym,
                 "timeframe": "1M",
                 "direction": cand_dir,
-                "occurred_at_ms": now_ms - 30_000,
-                "known_at_ms": now_ms - 30_000,
-                "extra": {
-                    "displacement_body": 1.0,
-                    "displacement_atr": 1.0,
-                },
+                "occurred_at_ms": int(legacy_flags.get("occurred_at_ms") or legacy_flags.get("trigger_occurred_at_ms") or 0),
+                "known_at_ms": int(legacy_flags.get("known_at_ms") or legacy_flags.get("trigger_known_at_ms") or 0),
+                "extra": extra_dict,
             })
         if legacy_flags.get("retest_detected") or legacy_flags.get("fvg_retest"):
             raw_items.append({
@@ -971,8 +1026,8 @@ def normalize_candidate_evidence(
                 "symbol": cand_sym,
                 "timeframe": "1M",
                 "direction": cand_dir,
-                "occurred_at_ms": now_ms - 10_000,
-                "known_at_ms": now_ms - 10_000,
+                "occurred_at_ms": int(legacy_flags.get("occurred_at_ms") or legacy_flags.get("retest_occurred_at_ms") or 0),
+                "known_at_ms": int(legacy_flags.get("known_at_ms") or legacy_flags.get("retest_known_at_ms") or 0),
             })
 
     latest_known = 0
@@ -1000,11 +1055,12 @@ def normalize_candidate_evidence(
             issues.append("MISSING_NODE_ID")
         if not kind:
             issues.append("MISSING_NODE_KIND")
-        if kn_ms <= 0:
-            issues.append("MISSING_KNOWN_AT")
 
         is_causal = True
-        if now_ms > 0 and kn_ms > now_ms:
+        if kn_ms <= 0:
+            issues.append("LEGACY_TIMESTAMP_UNAVAILABLE" if not kn_ms else "MISSING_KNOWN_AT")
+            is_causal = False
+        elif now_ms > 0 and kn_ms > now_ms:
             is_causal = False
             issues.append("FUTURE_EVIDENCE_EXCLUDED")
 
@@ -1034,7 +1090,8 @@ def normalize_candidate_evidence(
 
         if not is_causal:
             index.future_nodes.append(norm_node)
-            index.issues.append(f"FUTURE_NODE_{norm_node.id}")
+            index.issues.append(f"NON_CAUSAL_NODE_{norm_node.id}")
+            index.issues.extend(issues)
             continue
 
         if issues:
@@ -1051,9 +1108,9 @@ def normalize_candidate_evidence(
 
     index.latest_known_at = latest_known
 
-    # Trigger chain validation (Section 024)
+    # Trigger chain validation (Section 024, 061 - 064)
     if isinstance(trigger_chain, dict):
-        verified = trigger_chain.get("verified") is True  # MUST BE STRICT True
+        verified = trigger_chain.get("verified") is True  # MUST BE STRICT True (Section 061)
         t_model = trigger_chain.get("model_id")
         t_node_ids = list(trigger_chain.get("node_ids") or ())
         all_nodes_exist = bool(t_node_ids) and all(
@@ -1069,12 +1126,8 @@ def normalize_candidate_evidence(
                 index.issues.append("TRIGGER_CHAIN_UNVERIFIED")
             elif not all_nodes_exist:
                 index.issues.append("TRIGGER_CHAIN_NODES_MISSING_OR_FUTURE")
-    elif getattr(candidate, "is_eligible", False) and index.by_kind:
-        has_trig = any(k in index.by_kind for k in ("CHOCH", "BOS", "RETEST", "BREAK"))
-        if has_trig:
-            index.trigger_chain_verified = True
-            index.trigger_chain_model = getattr(candidate, "model_id", None)
-            index.trigger_node_ids = [n.id for n in index.valid_nodes]
+    else:
+        index.trigger_chain_verified = False
 
     return index
 
@@ -1100,20 +1153,32 @@ def build_candidate_scoring_context(
     snap = getattr(candidate, "snapshot", None)
     calc = calculation or getattr(candidate, "calculation", None)
 
-    # 1. Resolve htf_bias and h1_alignment (Section 032)
+    # 1. Resolve htf_bias and h1_alignment (Section 032, 094, 095)
     htf_bias = m_ctx.get("htf_bias") or m_ctx.get("bias")
     h1_align = m_ctx.get("h1_alignment")
-    if not htf_bias and snap is not None:
-        htf_bias = getattr(snap, "htf_bias", None)
-        h1_align = getattr(snap, "h1_alignment", None)
+    if (not htf_bias or str(htf_bias).upper() == "UNKNOWN") and snap is not None:
+        if isinstance(snap, dict):
+            snap_ctx = snap.get("context") or {}
+            htf_bias = snap_ctx.get("htf_bias") or snap.get("htf_bias")
+            h1_align = snap_ctx.get("h1_alignment") or snap.get("h1_alignment")
+        else:
+            snap_ctx = getattr(snap, "context", {})
+            if isinstance(snap_ctx, dict):
+                htf_bias = snap_ctx.get("htf_bias") or getattr(snap, "htf_bias", None)
+                h1_align = snap_ctx.get("h1_alignment") or getattr(snap, "h1_alignment", None)
+            else:
+                htf_bias = getattr(snap, "htf_bias", None)
+                h1_align = getattr(snap, "h1_alignment", None)
 
-    if not htf_bias and normalized_evidence:
+    if (not htf_bias or str(htf_bias).upper() == "UNKNOWN") and normalized_evidence:
         bos_nodes = normalized_evidence.by_kind.get("BOS", []) + normalized_evidence.by_kind.get("CONTEXT", [])
         for bn in bos_nodes:
-            if bn.extra.get("htf_bias"):
-                htf_bias = bn.extra.get("htf_bias")
-                h1_align = bn.extra.get("h1_alignment")
-                break
+            if getattr(bn, "is_causal", True) and bn.extra.get("htf_bias"):
+                b_val = str(bn.extra.get("htf_bias")).upper()
+                if b_val and b_val != "UNKNOWN":
+                    htf_bias = bn.extra.get("htf_bias")
+                    h1_align = bn.extra.get("h1_alignment")
+                    break
 
     htf_bias_canonical = str(htf_bias).upper() if htf_bias else "UNKNOWN"
     h1_align_canonical = str(h1_align).upper() if h1_align else "UNKNOWN"
@@ -1126,7 +1191,8 @@ def build_candidate_scoring_context(
         else:
             ctx_src = "UNAVAILABLE"
 
-    # 3. Zone context (Section 038)
+    # 3. Zone context (Section 038, 098)
+    # Do NOT invent touch_count=1 or FRESH if not in extra
     zone = m_ctx.get("zone")
     zone_id = getattr(candidate, "zone_id", None)
     if not zone and normalized_evidence and "POI" in normalized_evidence.by_kind:
@@ -1134,20 +1200,49 @@ def build_candidate_scoring_context(
         zone = {
             "zone_id": poi_node.id,
             "midpoint": poi_node.level,
-            "touch_count": int(poi_node.extra.get("touch_count", 1)),
-            "freshness_state": poi_node.extra.get("freshness_state", "FRESH"),
+            "touch_count": poi_node.extra.get("touch_count"),
+            "freshness_state": poi_node.extra.get("freshness_state"),
         }
 
-    # 4. Dealing range (Section 039)
-    dr = m_ctx.get("dealing_range") or (getattr(snap, "dealing_range", None) if snap else None)
+    # 4. Dealing range (Section 039, 096)
+    # DealingRange has range_high, range_low, equilibrium, known_at_ms, is_valid.
+    # Calculate position as (planned_entry - range_low) / (range_high - range_low)
+    dr = m_ctx.get("dealing_range")
+    if dr is None and snap is not None:
+        if isinstance(snap, dict):
+            snap_ctx = snap.get("context") or {}
+            dr = snap_ctx.get("dealing_range") or snap.get("dealing_range")
+        else:
+            snap_ctx = getattr(snap, "context", {})
+            if isinstance(snap_ctx, dict):
+                dr = snap_ctx.get("dealing_range") or getattr(snap, "dealing_range", None)
+            else:
+                dr = getattr(snap, "dealing_range", None)
+
     dr_pos = None
+    p_entry = float(getattr(candidate, "planned_entry", 0.0) or 0.0)
     if dr is not None:
         if isinstance(dr, (int, float)):
             dr_pos = float(dr)
-        elif hasattr(dr, "position"):
-            dr_pos = getattr(dr, "position")
-        elif isinstance(dr, dict):
-            dr_pos = dr.get("position")
+        elif hasattr(dr, "position") and getattr(dr, "position") is not None:
+            dr_pos = float(getattr(dr, "position"))
+        elif isinstance(dr, dict) and dr.get("position") is not None:
+            dr_pos = float(dr["position"])
+        else:
+            r_high = getattr(dr, "range_high", None) if hasattr(dr, "range_high") else (dr.get("range_high") if isinstance(dr, dict) else None)
+            r_low = getattr(dr, "range_low", None) if hasattr(dr, "range_low") else (dr.get("range_low") if isinstance(dr, dict) else None)
+            is_valid = getattr(dr, "is_valid", True) if hasattr(dr, "is_valid") else (dr.get("is_valid", True) if isinstance(dr, dict) else True)
+            dr_known = getattr(dr, "known_at_ms", 0) if hasattr(dr, "known_at_ms") else (dr.get("known_at_ms", 0) if isinstance(dr, dict) else 0)
+            is_causal = True
+            if now_ms > 0 and dr_known > now_ms:
+                is_causal = False
+            if is_valid and is_causal and r_high is not None and r_low is not None and p_entry > 0:
+                try:
+                    width = float(r_high) - float(r_low)
+                    if width > 0:
+                        dr_pos = (p_entry - float(r_low)) / width
+                except (ValueError, TypeError, ZeroDivisionError):
+                    dr_pos = None
 
     # 5. Quote & Spread (Section 040, 042: NO fake 0.15 default!)
     quote_obj = quote or m_ctx.get("quote")
@@ -1273,9 +1368,10 @@ def assess_candidate_quality(
     if norm_ev is None or not isinstance(norm_ev, EvidenceIndex):
         norm_ev = normalize_candidate_evidence(candidate, as_of_ms=now_ms)
 
-    resolved_threshold = float(threshold if threshold is not None else (getattr(profile, "quality_arm_threshold", 70.0) if profile else 70.0))
-    profile_ver = str(getattr(profile, "quality_profile_version", "v16.39") if profile else (str(profile) if isinstance(profile, str) else "v16.39"))
-    min_net_rr = float(getattr(profile, "min_net_rr", 1.5) if profile else 1.5)
+    resolved_profile = resolve_scoring_profile(profile)
+    resolved_threshold = float(threshold if threshold is not None else resolved_profile.quality_arm_threshold)
+    profile_ver = resolved_profile.quality_profile_version
+    min_net_rr = float(resolved_profile.min_net_rr)
     explicit_lesson_delta = lesson_delta
 
     factors: List[QualityScoreFactor] = []
@@ -1456,42 +1552,56 @@ def assess_candidate_quality(
         )
     factors.append(f_poi_src)
 
-    # Factor 2.2: Freshness / Lifecycle (5 pts) - Section 012 repair
-    if zone is not None:
-        touch_count = int(zone.get("touch_count", 1) if isinstance(zone, dict) else getattr(zone, "touch_count", 1))
-        freshness = str(zone.get("freshness_state", "FRESH") if isinstance(zone, dict) else getattr(zone, "freshness_state", "FRESH")).upper()
-        if touch_count <= 1 and freshness != "OVER_MITIGATED":
+    # Factor 2.2: Freshness / Lifecycle (5 pts) - Section 098
+    raw_tc = zone.get("touch_count") if isinstance(zone, dict) else getattr(zone, "touch_count", None)
+    raw_fresh = zone.get("freshness_state") if isinstance(zone, dict) else getattr(zone, "freshness_state", None)
+    if zone is not None and raw_tc is not None and raw_fresh is not None:
+        try:
+            touch_count = int(raw_tc)
+            freshness = str(raw_fresh).upper()
+            if touch_count <= 1 and freshness not in ("OVER_MITIGATED", "EXPIRED", "MITIGATED"):
+                f_fresh = QualityScoreFactor(
+                    code="POI_FRESHNESS_LIFECYCLE",
+                    group="POI_QUALITY",
+                    earned_points=5.0,
+                    max_points=5.0,
+                    status="FULL",
+                    explanation_vi=f"Vùng POI tươi mới (số lần chạm: {touch_count}).",
+                    known_at_ms=now_ms,
+                    measurement={"touch_count": touch_count, "freshness": freshness},
+                )
+            elif touch_count == 2:
+                f_fresh = QualityScoreFactor(
+                    code="POI_FRESHNESS_LIFECYCLE",
+                    group="POI_QUALITY",
+                    earned_points=3.0,
+                    max_points=5.0,
+                    status="PARTIAL",
+                    explanation_vi=f"Vùng POI đã chạm {touch_count} lần, độ phản ứng giảm nhẹ.",
+                    known_at_ms=now_ms,
+                    measurement={"touch_count": touch_count, "freshness": freshness},
+                )
+            else:
+                f_fresh = QualityScoreFactor(
+                    code="POI_FRESHNESS_LIFECYCLE",
+                    group="POI_QUALITY",
+                    earned_points=1.0,
+                    max_points=5.0,
+                    status="PARTIAL",
+                    explanation_vi=f"Vùng POI đã chạm {touch_count} lần, nguy cơ bị thủng cao.",
+                    known_at_ms=now_ms,
+                    measurement={"touch_count": touch_count, "freshness": freshness},
+                )
+        except (ValueError, TypeError):
+            missing_data.append("POI_FRESHNESS")
             f_fresh = QualityScoreFactor(
                 code="POI_FRESHNESS_LIFECYCLE",
                 group="POI_QUALITY",
-                earned_points=5.0,
+                earned_points=0.0,
                 max_points=5.0,
-                status="FULL",
-                explanation_vi=f"Vùng POI tươi mới (số lần chạm: {touch_count}).",
+                status="UNKNOWN",
+                explanation_vi="Chưa xác định được trạng thái vùng POI (dữ liệu không hợp lệ).",
                 known_at_ms=now_ms,
-                measurement={"touch_count": touch_count, "freshness": freshness},
-            )
-        elif touch_count == 2:
-            f_fresh = QualityScoreFactor(
-                code="POI_FRESHNESS_LIFECYCLE",
-                group="POI_QUALITY",
-                earned_points=3.0,
-                max_points=5.0,
-                status="PARTIAL",
-                explanation_vi=f"Vùng POI đã chạm {touch_count} lần, độ phản ứng giảm nhẹ.",
-                known_at_ms=now_ms,
-                measurement={"touch_count": touch_count, "freshness": freshness},
-            )
-        else:
-            f_fresh = QualityScoreFactor(
-                code="POI_FRESHNESS_LIFECYCLE",
-                group="POI_QUALITY",
-                earned_points=1.0,
-                max_points=5.0,
-                status="PARTIAL",
-                explanation_vi=f"Vùng POI đã chạm {touch_count} lần, nguy cơ bị thủng cao.",
-                known_at_ms=now_ms,
-                measurement={"touch_count": touch_count, "freshness": freshness},
             )
     else:
         missing_data.append("POI_FRESHNESS")
@@ -2089,28 +2199,37 @@ def assess_candidate_quality(
     # Ensure base score strictly within [0.0, 100.0]
     base_score = max(0.0, min(100.0, base_score))
 
-    # Evaluate approved lesson score adjustments if enabled (SECTIONS 121 - 126)
+    # Section 106: Single canonical rule evaluator decides adjustments; no duplicate +/-5 loop
     if explicit_lesson_delta is not None:
-        lesson_delta = explicit_lesson_delta
+        try:
+            lesson_delta = float(explicit_lesson_delta)
+            if not math.isfinite(lesson_delta):
+                lesson_delta = 0.0
+        except (ValueError, TypeError):
+            lesson_delta = 0.0
     else:
         lesson_delta = 0.0
-        if getattr(profile, "lesson_score_adjustment_enabled", False) and approved_rules:
-            raw_delta = 0.0
-            for r in approved_rules:
-                if not getattr(r, "enabled", False) or not getattr(r, "is_approved", False):
-                    continue
-                r_eff = str(getattr(r, "effect", "") or "").upper()
-                if r_eff == "ADD_SCORE":
-                    raw_delta += 5.0
-                elif r_eff == "DEDUCT_SCORE":
-                    raw_delta -= 5.0
-            lesson_delta = max(-15.0, min(15.0, raw_delta))
 
     final_score = round(max(0.0, min(100.0, base_score + lesson_delta)), 2)
 
-    # Decision logic (SECTIONS 040, 053, 054)
-    # 1. Hard structural trigger check: Score CANNOT bypass missing required trigger!
-    if not is_eligible or getattr(candidate, "reason_code", None) in ("WAITING_M1_RETEST", "WAITING_M1_STRUCTURE", "TRIGGER_EXPIRED"):
+    # Decision logic (SECTIONS 040, 053, 054, 102, 173, 174)
+    # 1. Hard structural trigger check: Score CANNOT bypass missing or unverified required trigger!
+    has_trigger_flag = True
+    raw_ev = getattr(candidate, "evidence", None)
+    if isinstance(raw_ev, dict) and "has_trigger" in raw_ev:
+        has_trigger_flag = bool(raw_ev["has_trigger"])
+    elif hasattr(candidate, "has_trigger"):
+        has_trigger_flag = bool(getattr(candidate, "has_trigger"))
+
+    trigger_chain_invalid = False
+    raw_tc = getattr(candidate, "trigger_chain", None) or (raw_ev.get("trigger_chain") if isinstance(raw_ev, dict) else None)
+    if raw_tc is not None:
+        if not norm_ev.trigger_chain_verified:
+            trigger_chain_invalid = True
+    elif not has_trigger_flag:
+        trigger_chain_invalid = True
+
+    if not is_eligible or getattr(candidate, "reason_code", None) in ("WAITING_M1_RETEST", "WAITING_M1_STRUCTURE", "TRIGGER_EXPIRED") or trigger_chain_invalid:
         decision = "BLOCKED_REQUIRED"
         blockers.append("MISSING_REQUIRED_TRIGGER")
     elif blockers:

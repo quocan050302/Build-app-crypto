@@ -372,6 +372,172 @@ class EntryComplianceResult:
     missing_evidence: List[str] = field(default_factory=list)
     evidence_refs: List[str] = field(default_factory=list)
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "status": self.status,
+            "reason": self.reason,
+            "violation_code": self.violation_code,
+            "checks_passed": list(self.checks_passed),
+            "checks_failed": list(self.checks_failed),
+            "missing_evidence": list(self.missing_evidence),
+            "evidence_refs": list(self.evidence_refs),
+        }
+
+
+def resolve_model_review_requirements(model_id: Optional[str], version: str = "v16.39") -> Dict[str, Any]:
+    """
+    V16.39.2 Section 065 - 070:
+    Resolves factual review requirements for each execution model.
+    Models have distinct causal proof requirements:
+    - CONTINUATION: BOS required, does NOT require Sweep.
+    - FVG_CONTINUATION: FVG, RETEST, BOS required.
+    - REVERSAL: POI, SWEEP, CHOCH required.
+    - SWEEP_RECLAIM: SWEEP, RECLAIM required.
+    - CG01: POI, MSS, RETEST required.
+    - NY_QUOTA: POI required (partial fallback).
+    """
+    mid = str(model_id or "").upper()
+    if "CONTINUATION_FVG" in mid or "FVG_CONTINUATION" in mid:
+        return {
+            "model_id": "FVG_CONTINUATION",
+            "required_kinds": ["FVG", "RETEST", "BOS"],
+            "trigger_kinds": ["BOS"],
+            "allow_no_sweep": True,
+            "requires_trigger_chain": True,
+        }
+    elif "CONTINUATION" in mid:
+        return {
+            "model_id": "CONTINUATION",
+            "required_kinds": ["BOS"],
+            "trigger_kinds": ["BOS"],
+            "allow_no_sweep": True,
+            "requires_trigger_chain": True,
+        }
+    elif "SWEEP_RECLAIM" in mid:
+        return {
+            "model_id": "SWEEP_RECLAIM",
+            "required_kinds": ["SWEEP", "RECLAIM"],
+            "trigger_kinds": ["RECLAIM"],
+            "allow_no_sweep": False,
+            "requires_trigger_chain": True,
+        }
+    elif "CG01" in mid:
+        return {
+            "model_id": "CG01",
+            "required_kinds": ["POI", "MSS", "RETEST"],
+            "trigger_kinds": ["MSS"],
+            "allow_no_sweep": False,
+            "requires_trigger_chain": True,
+        }
+    elif "NY_QUOTA" in mid:
+        return {
+            "model_id": "NY_QUOTA",
+            "required_kinds": ["POI"],
+            "trigger_kinds": ["POI"],
+            "allow_no_sweep": True,
+            "requires_trigger_chain": False,
+        }
+    else:  # REVERSAL or default SMC
+        return {
+            "model_id": "REVERSAL",
+            "required_kinds": ["POI", "SWEEP", "CHOCH"],
+            "trigger_kinds": ["CHOCH"],
+            "allow_no_sweep": False,
+            "requires_trigger_chain": True,
+        }
+
+
+def build_entry_review_context(db: Session, order: Any) -> Dict[str, Any]:
+    """
+    V16.39.2 Section 021 - 030:
+    Builds strongly-typed entry review context from historical bound artifacts for a closed order.
+    Extracts arm snapshot, fill snapshot, scenario evidence, guard audit, and model requirements.
+    Never uses current live market context to explain past trades.
+    """
+    provenance_issues: List[str] = []
+
+    # 1. Arm decision snapshot
+    arm_snapshot: Optional[Dict[str, Any]] = None
+    raw_arm = getattr(order, "arm_decision_snapshot", None)
+    if raw_arm:
+        try:
+            arm_snapshot = json.loads(raw_arm) if isinstance(raw_arm, str) else dict(raw_arm)
+        except Exception as e:
+            provenance_issues.append(f"CORRUPT_ARM_SNAPSHOT: {e}")
+    else:
+        provenance_issues.append("MISSING_ARM_SNAPSHOT")
+
+    # 2. Fill decision snapshot
+    fill_snapshot: Optional[Dict[str, Any]] = None
+    raw_fill = getattr(order, "fill_decision_snapshot", None)
+    if raw_fill:
+        try:
+            fill_snapshot = json.loads(raw_fill) if isinstance(raw_fill, str) else dict(raw_fill)
+        except Exception as e:
+            provenance_issues.append(f"CORRUPT_FILL_SNAPSHOT: {e}")
+    else:
+        provenance_issues.append("MISSING_FILL_SNAPSHOT")
+
+    # 3. Scenario evidence
+    scenario_evidence: Dict[str, Any] = {}
+    scen_id = getattr(order, "scenario_snapshot_id", None)
+    if scen_id:
+        try:
+            from services.smc_scenario_repository import get_scenario_snapshot
+            scen_snap = get_scenario_snapshot(db, scen_id)
+            if scen_snap:
+                scenario_evidence["evidence"] = scen_snap.evidence
+                scenario_evidence["trigger_chain"] = getattr(scen_snap, "trigger_chain", None)
+                scenario_evidence["context"] = getattr(scen_snap, "context", {})
+                scenario_evidence["family"] = getattr(scen_snap, "family", None)
+                scenario_evidence["direction"] = getattr(scen_snap, "direction", None)
+        except Exception as e:
+            provenance_issues.append(f"SCENARIO_LOOKUP_FAILED: {e}")
+
+    # Fallback to StrategyEvidence if scenario snapshot didn't provide evidence
+    if not scenario_evidence.get("evidence"):
+        ev_id = getattr(order, "evidence_snapshot_id", None)
+        if ev_id:
+            try:
+                import models
+                ev_row = db.query(models.StrategyEvidence).filter(models.StrategyEvidence.id == ev_id).first()
+                if ev_row and ev_row.evidence_json:
+                    scenario_evidence["evidence"] = json.loads(ev_row.evidence_json)
+            except Exception as e:
+                provenance_issues.append(f"STRATEGY_EVIDENCE_LOOKUP_FAILED: {e}")
+
+    # Fallback to arm_snapshot evidence if present
+    if not scenario_evidence.get("evidence") and arm_snapshot:
+        if "evidence" in arm_snapshot:
+            scenario_evidence["evidence"] = arm_snapshot["evidence"]
+        if "trigger_chain" in arm_snapshot:
+            scenario_evidence["trigger_chain"] = arm_snapshot["trigger_chain"]
+
+    if not scenario_evidence.get("evidence"):
+        provenance_issues.append("MISSING_SCENARIO_EVIDENCE")
+
+    # 4. Guard audit from checklist_snapshot
+    guard_audit: Optional[Dict[str, Any]] = None
+    raw_chk = getattr(order, "checklist_snapshot", None)
+    if raw_chk:
+        try:
+            guard_audit = json.loads(raw_chk) if isinstance(raw_chk, str) else dict(raw_chk)
+        except Exception as e:
+            provenance_issues.append(f"CORRUPT_CHECKLIST_SNAPSHOT: {e}")
+
+    # 5. Model requirements
+    family = getattr(order, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC"
+    model_reqs = resolve_model_review_requirements(family)
+
+    return {
+        "arm_snapshot": arm_snapshot,
+        "fill_snapshot": fill_snapshot,
+        "scenario_evidence": scenario_evidence,
+        "guard_audit": guard_audit,
+        "model_requirements": model_reqs,
+        "provenance_issues": provenance_issues,
+    }
+
 
 def assess_entry_compliance_for_review(
     order: Any = None,
@@ -381,7 +547,7 @@ def assess_entry_compliance_for_review(
     model_requirements: Optional[Dict[str, Any]] = None,
 ) -> EntryComplianceResult:
     """
-    V16.39.1 Section 097:
+    V16.39.2 Section 097:
     Assesses entry and fill compliance against model requirements, geometry, and risk rules.
     Outputs: VERIFIED_COMPLIANT, VERIFIED_VIOLATION, or UNVERIFIABLE.
     """
@@ -431,12 +597,19 @@ def assess_entry_compliance_for_review(
     s_entry = entry_snapshot.get("planned_entry", entry_snapshot.get("entry_price"))
     s_sl = entry_snapshot.get("planned_sl", entry_snapshot.get("stop_loss"))
     s_tp = entry_snapshot.get("planned_tp", entry_snapshot.get("take_profit"))
-    if s_dir and s_entry and s_sl:
+    s_dir_norm = None
+    if s_dir:
+        s_dir_norm = "LONG" if str(s_dir).upper() in ("LONG", "BUY") else ("SHORT" if str(s_dir).upper() in ("SHORT", "SELL") else None)
+
+    if not s_dir_norm or s_entry is None or s_sl is None:
+        missing.append("NUMERIC_GEOMETRY")
+    else:
         try:
             s_entry = float(s_entry)
             s_sl = float(s_sl)
-            s_dir_norm = "LONG" if str(s_dir).upper() in ("LONG", "BUY") else "SHORT"
-            if s_dir_norm == "LONG" and s_sl >= s_entry:
+            if not (math.isfinite(s_entry) and math.isfinite(s_sl)) or s_entry <= 0 or s_sl <= 0:
+                missing.append("NUMERIC_GEOMETRY")
+            elif s_dir_norm == "LONG" and s_sl >= s_entry:
                 return EntryComplianceResult(
                     status="VERIFIED_VIOLATION",
                     reason=f"Hình học lệnh vi phạm: SL ({s_sl:.2f}) >= Entry ({s_entry:.2f}) cho LONG",
@@ -450,66 +623,155 @@ def assess_entry_compliance_for_review(
                     violation_code="GEOMETRY_VIOLATION",
                     checks_failed=["SNAPSHOT_GEOMETRY"],
                 )
-            if s_tp:
-                s_tp = float(s_tp)
-                if s_dir_norm == "LONG" and s_tp <= s_entry:
-                    return EntryComplianceResult(
-                        status="VERIFIED_VIOLATION",
-                        reason=f"Hình học lệnh vi phạm: TP ({s_tp:.2f}) <= Entry ({s_entry:.2f}) cho LONG",
-                        violation_code="GEOMETRY_VIOLATION",
-                        checks_failed=["SNAPSHOT_GEOMETRY"],
-                    )
-                elif s_dir_norm == "SHORT" and s_tp >= s_entry:
-                    return EntryComplianceResult(
-                        status="VERIFIED_VIOLATION",
-                        reason=f"Hình học lệnh vi phạm: TP ({s_tp:.2f}) >= Entry ({s_entry:.2f}) cho SHORT",
-                        violation_code="GEOMETRY_VIOLATION",
-                        checks_failed=["SNAPSHOT_GEOMETRY"],
-                    )
-            passed.append("PRICE_GEOMETRY")
+            else:
+                if s_tp is not None:
+                    s_tp = float(s_tp)
+                    if not math.isfinite(s_tp) or s_tp <= 0:
+                        missing.append("NUMERIC_GEOMETRY")
+                    elif s_dir_norm == "LONG" and s_tp <= s_entry:
+                        return EntryComplianceResult(
+                            status="VERIFIED_VIOLATION",
+                            reason=f"Hình học lệnh vi phạm: TP ({s_tp:.2f}) <= Entry ({s_entry:.2f}) cho LONG",
+                            violation_code="GEOMETRY_VIOLATION",
+                            checks_failed=["SNAPSHOT_GEOMETRY"],
+                        )
+                    elif s_dir_norm == "SHORT" and s_tp >= s_entry:
+                        return EntryComplianceResult(
+                            status="VERIFIED_VIOLATION",
+                            reason=f"Hình học lệnh vi phạm: TP ({s_tp:.2f}) >= Entry ({s_entry:.2f}) cho SHORT",
+                            violation_code="GEOMETRY_VIOLATION",
+                            checks_failed=["SNAPSHOT_GEOMETRY"],
+                        )
+                    else:
+                        passed.append("PRICE_GEOMETRY")
+                else:
+                    passed.append("PRICE_GEOMETRY")
         except (ValueError, TypeError):
             missing.append("NUMERIC_GEOMETRY")
 
-    # Check evidence nodes or trigger chain in entry_snapshot
-    has_evidence = False
+    # 3. Model requirements resolution (Section 065 - 070)
+    model_id = str(
+        entry_snapshot.get("model_id")
+        or entry_snapshot.get("strategy_family")
+        or (getattr(order, "strategy_family", None) if order else None)
+        or "STANDARD_SMC"
+    ).upper()
+    reqs = model_requirements or resolve_model_review_requirements(model_id)
+
+    # 4. Extract evidence nodes and observed kinds (Section 013 repair)
     raw_ev = entry_snapshot.get("evidence")
-    if isinstance(raw_ev, (list, tuple)) and len(raw_ev) > 0:
-        has_evidence = True
-        for x in raw_ev:
-            if isinstance(x, dict) and x.get("id"):
-                refs.append(str(x["id"]))
-            elif hasattr(x, "id"):
-                refs.append(str(getattr(x, "id")))
+    nodes: List[Any] = []
+    if isinstance(raw_ev, (list, tuple)):
+        nodes = list(raw_ev)
     elif isinstance(raw_ev, dict):
-        if raw_ev.get("items") or raw_ev.get("ev_nodes") or raw_ev.get("nodes"):
-            has_evidence = True
-        elif raw_ev.get("evidence_ids"):
-            has_evidence = True
-            refs.extend([str(x) for x in raw_ev["evidence_ids"]])
-        elif raw_ev.get("has_sweep") or raw_ev.get("sweep_detected") or raw_ev.get("has_trigger") or raw_ev.get("fvg_id") or raw_ev.get("zone_id"):
-            has_evidence = True
+        if "items" in raw_ev and isinstance(raw_ev["items"], (list, tuple)):
+            nodes = list(raw_ev["items"])
+        elif "ev_nodes" in raw_ev and isinstance(raw_ev["ev_nodes"], (list, tuple)):
+            nodes = list(raw_ev["ev_nodes"])
+        elif "nodes" in raw_ev and isinstance(raw_ev["nodes"], (list, tuple)):
+            nodes = list(raw_ev["nodes"])
 
-    if entry_snapshot.get("trigger_chain"):
-        tc = entry_snapshot.get("trigger_chain")
-        if isinstance(tc, dict) and tc.get("verified") is True:
+    observed_kinds: set = set()
+    for node in nodes:
+        if isinstance(node, dict):
+            k = str(node.get("kind") or "").upper()
+            nid = str(node.get("id") or "")
+            if k:
+                observed_kinds.add(k)
+            if nid:
+                refs.append(nid)
+        elif hasattr(node, "kind"):
+            k = str(getattr(node, "kind") or "").upper()
+            nid = str(getattr(node, "id") or "")
+            if k:
+                observed_kinds.add(k)
+            if nid:
+                refs.append(nid)
+
+    # Extract kinds from legacy flags if dictionary format:
+    if not observed_kinds and isinstance(raw_ev, dict):
+        if raw_ev.get("has_bos") or raw_ev.get("bos_id"):
+            observed_kinds.add("BOS")
+        if raw_ev.get("has_sweep") or raw_ev.get("sweep_detected") or raw_ev.get("sweep_id"):
+            observed_kinds.add("SWEEP")
+            observed_kinds.add("SWEEP_LOW" if s_dir_norm == "LONG" else "SWEEP_HIGH")
+        if raw_ev.get("has_trigger") or raw_ev.get("mss_detected") or raw_ev.get("choch_detected"):
+            observed_kinds.add("CHOCH")
+            observed_kinds.add("MSS")
+        if raw_ev.get("retest_detected") or raw_ev.get("fvg_retest"):
+            observed_kinds.add("RETEST")
+        if raw_ev.get("fvg_id") or raw_ev.get("fvg_zone"):
+            observed_kinds.add("FVG")
+        if raw_ev.get("zone_id") or raw_ev.get("poi_confirmed"):
+            observed_kinds.add("POI")
+
+    # 5. Check trigger chain (Section 024, 061)
+    tc = entry_snapshot.get("trigger_chain")
+    tc_verified = False
+    if isinstance(tc, dict):
+        if tc.get("verified") is True:  # STRICT True check
+            tc_model = str(tc.get("model_id") or "").upper()
+            # Model match check (Section 029 & 158)
+            if tc_model and model_id and not (tc_model in model_id or model_id in tc_model):
+                failed.append("TRIGGER_MODEL_MISMATCH")
+                return EntryComplianceResult(
+                    status="UNVERIFIABLE",
+                    reason=f"Trigger chain model '{tc_model}' không khớp với model lệnh '{model_id}'.",
+                    missing_evidence=["MODEL_TRIGGER_MATCH"],
+                    checks_failed=failed,
+                )
+            tc_verified = True
             passed.append("TRIGGER_CHAIN_VERIFIED")
-            refs.extend(list(tc.get("node_ids") or []))
+            for nid in tc.get("node_ids") or ():
+                refs.append(str(nid))
+        else:
+            failed.append("TRIGGER_CHAIN_UNVERIFIED")
+    elif entry_snapshot.get("compliance_verified") is True or (audit and audit.get("compliance_verified") is True):
+        # Legacy claim: allowed if trigger/required node exists and no failed tc
+        if observed_kinds:
+            tc_verified = True
+            passed.append("LEGACY_TRIGGER_CLAIM_VERIFIED")
 
-    if entry_snapshot.get("compliance_verified") is True:
-        passed.append("COMPLIANCE_FLAG_VERIFIED")
+    # 6. Verify required kinds for the specific model (Section 013, 065 - 071)
+    req_kinds = reqs.get("required_kinds", [])
+    trigger_kinds = reqs.get("trigger_kinds", req_kinds)
+    missing_req: List[str] = []
 
-    if not has_evidence and "TRIGGER_CHAIN_VERIFIED" not in passed and "COMPLIANCE_FLAG_VERIFIED" not in passed:
-        missing.append("ENTRY_EVIDENCE_NODES")
+    is_legacy_verified = bool(entry_snapshot.get("compliance_verified") or (audit and audit.get("compliance_verified")))
+    kinds_to_check = trigger_kinds if (is_legacy_verified and len(nodes) == 1 and not tc) else req_kinds
+
+    for rk in kinds_to_check:
+        if rk == "SWEEP":
+            if not any(k in observed_kinds for k in ("SWEEP", "SWEEP_LOW", "SWEEP_HIGH")):
+                missing_req.append("REQUIRED_NODE_SWEEP")
+        elif rk in ("SWEEP_LOW", "SWEEP_HIGH"):
+            if rk not in observed_kinds and "SWEEP" not in observed_kinds:
+                missing_req.append(f"REQUIRED_NODE_{rk}")
+        elif rk in ("CHOCH", "MSS"):
+            if not any(k in observed_kinds for k in ("CHOCH", "MSS", "BREAK")):
+                missing_req.append("REQUIRED_NODE_TRIGGER")
+        elif rk not in observed_kinds:
+            missing_req.append(f"REQUIRED_NODE_{rk}")
+
+    requires_tc = reqs.get("requires_trigger_chain", True)
+    if requires_tc and not tc_verified:
+        missing_req.append("TRIGGER_CHAIN_UNVERIFIED")
+
+    if missing_req or "NUMERIC_GEOMETRY" in missing:
+        missing.extend(missing_req)
         return EntryComplianceResult(
             status="UNVERIFIABLE",
-            reason="Entry snapshot thiếu nodes bằng chứng hoặc trigger chain đã xác minh.",
-            missing_evidence=missing,
+            reason=f"Thiếu bằng chứng bắt buộc cho mô hình {model_id}: {', '.join(missing_req or missing)}.",
+            missing_evidence=list(dict.fromkeys(missing)),
             checks_passed=passed,
+            checks_failed=failed + missing_req,
+            evidence_refs=refs,
         )
 
+    passed.append("MODEL_REQUIREMENTS_VERIFIED")
     return EntryComplianceResult(
         status="VERIFIED_COMPLIANT",
-        reason="Entry snapshot và audit tuân thủ kế hoạch đã xác minh đầy đủ.",
+        reason=f"Entry snapshot và audit tuân thủ mô hình {model_id} đã xác minh đầy đủ.",
         checks_passed=passed or ["COMPLIANCE_VERIFIED"],
         evidence_refs=refs,
     )
@@ -596,9 +858,16 @@ def classify_post_trade_lesson(
         )
 
     # 3. Assess compliance from entry_snapshot and audit (Section 097)
+    if entry_snapshot is None:
+        snap_copy = None
+    else:
+        snap_copy = dict(entry_snapshot)
+        if "model_id" not in snap_copy and getattr(review, "model_id", None):
+            snap_copy["model_id"] = review.model_id
+
     comp = assess_entry_compliance_for_review(
         order=None,
-        entry_snapshot=entry_snapshot,
+        entry_snapshot=snap_copy,
         fill_snapshot=None,
         audit=audit,
     )

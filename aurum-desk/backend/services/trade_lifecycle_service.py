@@ -527,9 +527,12 @@ class TradeLifecycleService:
 
         # Create structured Lesson using canonical review (Section 116, 122, 123)
         try:
-            TradeLifecycleService._create_lesson(db, order, current_time, session_tag=session_tag, review_obj=review_obj)
+            lesson_res = TradeLifecycleService._create_lesson(db, order, current_time, session_tag=session_tag, review_obj=review_obj)
+            if lesson_res:
+                TradeLifecycleService._resolve_lesson_repair_task(db, order.id, current_time)
         except Exception as l_err:
             logger.warning(f"Lesson creation failed for order {order.id}: {l_err}")
+            TradeLifecycleService._record_lesson_repair_task(db, order.id, str(l_err), current_time)
 
         # Record persistent paper observation for closed trade outcome
         try:
@@ -683,14 +686,16 @@ class TradeLifecycleService:
         now_ms: int,
         session_tag: str = "LIVE_PAPER",
         review_obj: Optional[Any] = None,
-    ):
+    ) -> Optional[models.Lesson]:
         """
-        Create factual, evidence-based Lesson.
+        V16.39.2 Sections 011, 016, 021 - 045:
+        Create factual, evidence-based Lesson linked directly to closed order.
         Separates trading outcome from execution quality:
-        A win does not prove rules were followed; a loss does not prove rules were wrong.
-        Does NOT fake Sweep/FVG when unverified.
+        - Planned entry reads order.planned_entry (NEVER order.entry_price).
+        - Idempotent: returns existing lesson if one exists for the order.
+        - Uses build_entry_review_context and assess_entry_compliance_for_review.
         """
-        # Check idempotency: do not create duplicate lessons for the same trade
+        # Check idempotency: do not create duplicate lessons for the same trade (Section 034, 124)
         existing_lesson = db.query(models.Lesson).filter(models.Lesson.related_trade_id == order.id).first()
         if existing_lesson:
             return existing_lesson
@@ -701,62 +706,44 @@ class TradeLifecycleService:
         opened_at = order.opened_at or now_ms
         hold_time_ms = max(0, now_ms - opened_at)
 
-        # Retrieve evidence
-        evidence = {}
-        if getattr(order, "evidence_snapshot_id", None):
-            ev_row = db.query(models.StrategyEvidence).filter(models.StrategyEvidence.id == order.evidence_snapshot_id).first()
-            if ev_row and ev_row.evidence_json:
-                try:
-                    evidence = json.loads(ev_row.evidence_json)
-                except Exception:
-                    evidence = {}
+        # Build entry review context from historical artifacts (Section 021)
+        from services.post_trade_review_service import (
+            build_entry_review_context,
+            assess_entry_compliance_for_review,
+            classify_post_trade_lesson,
+            get_post_trade_review,
+            build_post_trade_review,
+            resolve_model_review_requirements,
+        )
+        ctx = build_entry_review_context(db, order)
+        scenario_evidence = ctx.get("scenario_evidence") or {}
+        raw_ev = scenario_evidence.get("evidence")
+        tc = scenario_evidence.get("trigger_chain")
+        guard_audit = ctx.get("guard_audit")
+        model_reqs = ctx.get("model_requirements")
 
-        has_sweep = bool(evidence.get("sweep_id") or evidence.get("sweep_level"))
-        has_fvg = bool(evidence.get("fvg_id") or evidence.get("fvg_zone"))
-        has_displacement = bool(evidence.get("is_displacement"))
+        entry_snap_dict = {
+            "symbol": order.symbol,
+            "direction": order.direction,
+            "planned_entry": order.planned_entry,  # Section 011 & 016: Planned entry, NEVER order.entry_price!
+            "actual_entry": order.actual_entry,
+            "planned_sl": order.stop_loss,
+            "planned_tp": order.take_profit,
+            "evidence": raw_ev,
+            "trigger_chain": tc,
+            "model_id": family,
+            "strategy_family": family,
+            "provenance_issues": ctx.get("provenance_issues", []),
+        }
 
-        # Section 113: Model-aware compliance
-        fam_upper = family.upper()
-        if "NY_QUOTA" in fam_upper:
-            has_poi = bool(evidence.get("zone_id") or evidence.get("poi_confirmed") or evidence.get("fvg_id"))
-            if has_poi:
-                compliance_status = "PARTIAL_FALLBACK"
-                compliance_detail = "Lệnh NY Quota Fallback: Khung 5M retest POI, không yêu cầu Liquidity Sweep đầy đủ."
-            else:
-                compliance_status = "INCOMPLETE_EVIDENCE"
-                compliance_detail = "Thiếu bằng chứng POI cho lệnh NY Quota."
-            invalidation_basis = f"Thủng vùng POI tại SL {order.stop_loss:.2f}"
-        elif "CONTINUATION" in fam_upper:
-            # Continuation requires BOS and HTF trend alignment, does NOT require sweep!
-            has_bos = bool(evidence.get("bos_id") or evidence.get("has_bos") or any(
-                isinstance(x, dict) and x.get("kind") == "BOS" for x in (evidence.get("items") or evidence.get("ev_nodes") or [])
-            ))
-            if has_bos:
-                compliance_status = "FULL_COMPLIANCE"
-                compliance_detail = "Chuỗi SMC Continuation: BOS breakout và pullback có bằng chứng."
-            else:
-                compliance_status = "INCOMPLETE_EVIDENCE"
-                compliance_detail = "Thiếu bằng chứng BOS breakout cho lệnh Continuation."
-            invalidation_basis = f"Thủng đáy/đỉnh bảo vệ tại SL {order.stop_loss:.2f}"
-        elif "CG01" in fam_upper:
-            # CG01 requires POI and Retest
-            has_poi = bool(evidence.get("zone_id") or evidence.get("poi_confirmed"))
-            has_retest = bool(evidence.get("retest_detected") or evidence.get("has_retest"))
-            if has_poi and has_retest:
-                compliance_status = "FULL_COMPLIANCE"
-                compliance_detail = "Chuỗi CG01 Orderblock: POI và Retest có bằng chứng."
-            else:
-                compliance_status = "INCOMPLETE_EVIDENCE"
-                compliance_detail = "Thiếu bằng chứng Retest hoặc POI cho setup CG01."
-            invalidation_basis = f"Invalidation Orderblock tại SL {order.stop_loss:.2f}"
-        elif has_sweep and has_fvg and has_displacement:
-            compliance_status = "FULL_COMPLIANCE"
-            compliance_detail = "Chuỗi SMC Reversal đầy đủ: Sweep + Displacement + MSS + FVG Retest có bằng chứng."
-            invalidation_basis = f"Invalidation cấu trúc tại SL {order.stop_loss:.2f}"
-        else:
-            compliance_status = "INCOMPLETE_EVIDENCE"
-            compliance_detail = "Thiếu bằng chứng chuỗi SMC đầy đủ tại thời điểm vào lệnh."
-            invalidation_basis = f"Stop Loss tại {order.stop_loss:.2f}"
+        # Compliance assessment (Section 097)
+        comp_res = assess_entry_compliance_for_review(
+            order=order,
+            entry_snapshot=entry_snap_dict,
+            fill_snapshot=ctx.get("fill_snapshot"),
+            audit=guard_audit,
+            model_requirements=model_reqs,
+        )
 
         cause = str(order.exit_cause or "").upper()
         exit_p = order.actual_exit or 0.0
@@ -772,32 +759,31 @@ class TradeLifecycleService:
         elif cause in ("MANUAL_CLOSE", "USER_EXIT", "MANUAL_CLOSED"):
             if pnl >= 0:
                 title = f"Đóng chủ động (Có lãi) {family} {order.direction} +{r_mult:.2f}R (+${pnl:.2f}) tại {exit_p:.2f}"
-                reflection = f"Lệnh {order.direction} ({family}) được đóng chủ động từ Dashboard khi đang có lãi (+${pnl:.2f}). {compliance_detail}"
+                reflection = f"Lệnh {order.direction} ({family}) được đóng chủ động từ Dashboard khi đang có lãi (+${pnl:.2f}). {comp_res.reason}"
             else:
                 title = f"Đóng chủ động (Cắt lỗ) {family} {order.direction} {r_mult:.2f}R (-${abs(pnl):.2f}) tại {exit_p:.2f}"
-                reflection = f"Lệnh {order.direction} ({family}) được đóng chủ động từ Dashboard khi đang bị lỗ (-${abs(pnl):.2f}). {compliance_detail}"
+                reflection = f"Lệnh {order.direction} ({family}) được đóng chủ động từ Dashboard khi đang bị lỗ (-${abs(pnl):.2f}). {comp_res.reason}"
             action_rule = "Ghi nhận lý do đóng lệnh trước kế hoạch vào phần Đánh giá tâm lý để rà soát kỷ luật."
         elif cause == "TP_HIT":
             if pnl >= 0:
                 title = f"Thắng {family} {order.direction} +{r_mult:.2f}R (+${pnl:.2f}) tại {exit_p:.2f}"
-                reflection = f"Lệnh {order.direction} ({family}) đạt Take Profit. {compliance_detail}"
+                reflection = f"Lệnh {order.direction} ({family}) đạt Take Profit. {comp_res.reason}"
                 action_rule = "Tiếp tục thu thập dữ liệu; không nới lỏng quy tắc dựa trên kết quả đơn lẻ."
             else:
                 title = f"Đạt TP nhưng lỗ ròng {family} {order.direction} {r_mult:.2f}R (${pnl:.2f}) tại {exit_p:.2f}"
-                reflection = f"Lệnh {order.direction} chạm giá Take Profit nhưng PnL ròng âm sau khi trừ chi phí. {compliance_detail}"
+                reflection = f"Lệnh {order.direction} chạm giá Take Profit nhưng PnL ròng âm sau khi trừ chi phí. {comp_res.reason}"
                 action_rule = "Kiểm tra lại biên độ lợi nhuận tối thiểu so với chi phí spread và phí sàn."
         elif cause == "SL_HIT":
             title = f"Dừng lỗ {family} {order.direction} {r_mult:.2f}R (-${abs(pnl):.2f}) tại {exit_p:.2f}"
-            reflection = f"Lệnh {order.direction} chạm SL ({order.exit_cause}). {compliance_detail}"
+            reflection = f"Lệnh {order.direction} chạm SL ({order.exit_cause}). {comp_res.reason}"
             action_rule = "Kiểm tra lại biên độ buffer ATR và cấu trúc bảo vệ; ghi nhận số liệu mẫu để nghiên cứu."
         else:
             sign = "+" if pnl >= 0 else "-"
             title = f"Đóng vị thế ({cause or 'CLOSED'}) {family} {order.direction} {sign}${abs(pnl):.2f} tại {exit_p:.2f}"
-            reflection = f"Lệnh {order.direction} ({family}) kết thúc với nguyên nhân {cause or 'CLOSED'}. {compliance_detail}"
+            reflection = f"Lệnh {order.direction} ({family}) kết thúc với nguyên nhân {cause or 'CLOSED'}. {comp_res.reason}"
             action_rule = "Ghi nhận dữ liệu thực tế vào Journal để phân tích thêm."
 
-        # V16.39.1 Governed Lesson Classification (Sections 091 - 105, 116, 117)
-        from services.post_trade_review_service import get_post_trade_review, build_post_trade_review, classify_post_trade_lesson
+        # Canonical post-trade review
         rev = review_obj
         if rev is None:
             rev = get_post_trade_review(db, order.id)
@@ -815,20 +801,7 @@ class TradeLifecycleService:
                 arm_evidence = json.loads(raw_arm_snap) if isinstance(raw_arm_snap, str) else (raw_arm_snap or {})
                 rev = build_post_trade_review(order, outcome_dict, entry_evidence=arm_evidence, now_ms=now_ms)
 
-        entry_snap_dict = {
-            "symbol": order.symbol,
-            "direction": order.direction,
-            "planned_entry": order.entry_price,
-            "planned_sl": order.stop_loss,
-            "planned_tp": order.take_profit,
-            "evidence": evidence,
-            "compliance_verified": (compliance_status in ("FULL_COMPLIANCE", "PARTIAL_FALLBACK")),
-        }
-        audit_dict = {
-            "compliance_status": compliance_status,
-            "compliance_verified": (compliance_status in ("FULL_COMPLIANCE", "PARTIAL_FALLBACK")),
-        }
-        classification = classify_post_trade_lesson(rev, entry_snapshot=entry_snap_dict, audit=audit_dict)
+        classification = classify_post_trade_lesson(rev, entry_snapshot=entry_snap_dict, audit=guard_audit)
 
         hold_time_val = None
         if opened_at is not None and now_ms >= opened_at:
@@ -865,12 +838,7 @@ class TradeLifecycleService:
                 "suggested_color": classification.suggested_color,
                 "classification_code": classification.classification_code,
             }),
-            compliance_snapshot=json.dumps({
-                "compliance_status": compliance_status,
-                "compliance_detail": compliance_detail,
-                "invalidation_basis": invalidation_basis,
-                "color_reason": classification.reason_vi,
-            }),
+            compliance_snapshot=json.dumps(comp_res.to_dict()),
             mfe_mae_snapshot=json.dumps({
                 "hold_time_ms": hold_time_val
             })
@@ -878,3 +846,93 @@ class TradeLifecycleService:
         db.add(db_lesson)
         db.flush()
         return db_lesson
+
+    @staticmethod
+    def _record_lesson_repair_task(db: Session, order_id: str, error_msg: str, now_ms: int) -> None:
+        """Section 039: Records durable repair task so missing lesson is recovered."""
+        try:
+            task = db.query(models.LessonRepairTask).filter(models.LessonRepairTask.order_id == order_id).first()
+            if not task:
+                task = models.LessonRepairTask(
+                    id=f"rep_{order_id}",
+                    order_id=order_id,
+                    artifact_type="LESSON",
+                    status="PENDING",
+                    retry_count=1,
+                    last_error=error_msg[:1000] if error_msg else None,
+                    created_at=now_ms,
+                    updated_at=now_ms,
+                )
+                db.add(task)
+            else:
+                task.retry_count = (task.retry_count or 0) + 1
+                task.last_error = error_msg[:1000] if error_msg else None
+                task.status = "PENDING"
+                task.updated_at = now_ms
+            db.flush()
+        except Exception as e:
+            logger.error(f"Failed to record lesson repair task for {order_id}: {e}")
+
+    @staticmethod
+    def _resolve_lesson_repair_task(db: Session, order_id: str, now_ms: int) -> None:
+        """Section 041: Marks lesson repair task COMPLETED when lesson creation succeeds."""
+        try:
+            task = db.query(models.LessonRepairTask).filter(models.LessonRepairTask.order_id == order_id).first()
+            if task and task.status != "COMPLETED":
+                task.status = "COMPLETED"
+                task.updated_at = now_ms
+                db.flush()
+        except Exception:
+            pass
+
+    @classmethod
+    def repair_pending_lessons(cls, db: Session, now_ms: Optional[int] = None) -> Dict[str, Any]:
+        """
+        V16.39.2 Sections 039 - 042: Durable repair mechanism for pending/failed lessons.
+        Loads pending tasks, reads closed order + bound snapshots, creates missing Lesson.
+        Never calls execute_close() or mutates accounting/DayAudit.
+        """
+        current_time = now_ms or int(time.time() * 1000)
+        pending_tasks = db.query(models.LessonRepairTask).filter(
+            models.LessonRepairTask.status == "PENDING"
+        ).all()
+
+        repaired_count = 0
+        failed_count = 0
+        results = []
+
+        for task in pending_tasks:
+            order = db.query(models.PaperOrder).filter(models.PaperOrder.id == task.order_id).first()
+            if not order or order.state != "closed":
+                task.last_error = f"Order {task.order_id} not found or not in closed state"
+                task.updated_at = current_time
+                failed_count += 1
+                results.append({"order_id": task.order_id, "status": "FAILED", "reason": task.last_error})
+                continue
+
+            try:
+                lesson = cls._create_lesson(db, order, current_time, session_tag="REPAIR")
+                if lesson:
+                    task.status = "COMPLETED"
+                    task.updated_at = current_time
+                    repaired_count += 1
+                    results.append({"order_id": task.order_id, "status": "COMPLETED", "lesson_id": lesson.id})
+                else:
+                    task.last_error = "Lesson creation returned None"
+                    task.updated_at = current_time
+                    failed_count += 1
+                    results.append({"order_id": task.order_id, "status": "FAILED", "reason": task.last_error})
+            except Exception as err:
+                task.retry_count = (task.retry_count or 0) + 1
+                task.last_error = str(err)
+                task.updated_at = current_time
+                failed_count += 1
+                results.append({"order_id": task.order_id, "status": "FAILED", "reason": str(err)})
+
+        db.flush()
+        return {
+            "repaired_count": repaired_count,
+            "failed_count": failed_count,
+            "total_processed": len(pending_tasks),
+            "tasks": results,
+        }

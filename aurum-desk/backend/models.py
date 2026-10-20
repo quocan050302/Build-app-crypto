@@ -312,6 +312,24 @@ class PostTradeReviewRecord(Base):
     created_at = Column(BigInteger, nullable=False)
 
 
+class LessonRepairTask(Base):
+    """
+    V16.39.2 Section 039 - 042: Durable repair record for missing/failed post-trade lessons.
+    Tracks orders whose post-trade lesson creation failed or is pending repair.
+    Idempotent, retry count, status: PENDING, COMPLETED, FAILED.
+    """
+    __tablename__ = "lesson_repair_tasks"
+
+    id = Column(String(36), primary_key=True)
+    order_id = Column(String(36), ForeignKey("paper_orders.id"), unique=True, index=True, nullable=False)
+    artifact_type = Column(String(30), default="LESSON")
+    status = Column(String(20), default="PENDING", index=True)  # PENDING, COMPLETED, FAILED
+    retry_count = Column(Integer, default=0)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(BigInteger, nullable=False)
+    updated_at = Column(BigInteger, nullable=False)
+
+
 class SystemConfig(Base):
     __tablename__ = "system_configs"
 

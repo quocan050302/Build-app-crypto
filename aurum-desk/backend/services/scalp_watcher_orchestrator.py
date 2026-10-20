@@ -1832,12 +1832,17 @@ class ScalpWatcherOrchestrator:
                 build_candidate_scoring_context,
             )
             norm_ev = normalize_candidate_evidence(cand, as_of_ms=now_ms)
+            active_m_ctx = self._active_market_context.get(cand.symbol, {})
+            active_dr = self._active_dealing_range.get(cand.symbol)
+            cand_atr = cand_evidence.get("atr") or cand_evidence.get("atr_15m") or active_m_ctx.get("atr")
+            session_tag = getattr(session_context, "analysis_session", None) or getattr(session_context, "session", None) or "ALL"
             market_ctx = {
                 "regime": (getattr(cand, "regime_snapshot", {}) or {}).get("regime", "UNKNOWN"),
                 "htf_bias": cand_evidence.get("daily_bias", {}).get("direction", "UNKNOWN") if isinstance(cand_evidence.get("daily_bias"), dict) else "UNKNOWN",
                 "h1_alignment": cand_evidence.get("h1_alignment") if isinstance(cand_evidence, dict) else None,
                 "sr_zones": getattr(cand, "sr_evidence", None),
-                "dealing_range": getattr(cand, "dealing_range", None),
+                "dealing_range": getattr(cand, "dealing_range", None) or active_dr,
+                "atr": cand_atr,
                 "session": session_tag,
             }
             score_ctx = build_candidate_scoring_context(
@@ -1851,6 +1856,8 @@ class ScalpWatcherOrchestrator:
             )
             lesson_delta = 0.0
             if getattr(cfg, "lesson_score_adjustment_enabled", False):
+                lesson_eval_error = False
+                lesson_err_msg = ""
                 try:
                     from services.lesson_rule_service import LessonRuleService
                     # Pass complete context for lesson retrieval & scope check (Section 063)
@@ -1863,14 +1870,47 @@ class ScalpWatcherOrchestrator:
                     lesson_scope_ctx["session"] = session_tag
 
                     adj_res = LessonRuleService.evaluate_lesson_score_adjustments(lesson_scope_ctx, db=db, now_ms=now_ms)
-                    lesson_delta = adj_res.get("applied_delta", 0.0)
+                    if adj_res.get("status") == "ERROR":
+                        lesson_eval_error = True
+                        lesson_err_msg = adj_res.get("reason") or "Lesson evaluation returned ERROR status"
+                    else:
+                        lesson_delta = adj_res.get("applied_delta", 0.0)
                 except Exception as l_err:
                     logger.warning(f"Lesson score adjustment evaluation error: {l_err}")
+                    lesson_eval_error = True
+                    lesson_err_msg = str(l_err)
+
+                if lesson_eval_error:
+                    # Section 107, 108, 175: Do NOT silently ignore lesson ERROR when enabled; block entry
+                    logger.warning(f"Candidate {cand.candidate_key} blocked due to lesson evaluation error: {lesson_err_msg}")
+                    rej_reason = "LESSON_EVALUATION_ERROR"
+                    with self._lock:
+                        self._arm_rejections[cand.candidate_key] = (now_ms, rej_reason)
+                    OpportunityFunnelService.record_opportunity_transition(
+                        db,
+                        OpportunityEvaluation(
+                            opportunity_id=f"opp_{cand.candidate_key}",
+                            symbol=cand.symbol,
+                            model_id=cand.model_id,
+                            direction=cand.direction,
+                            zone_id=cand.zone_id,
+                            as_of_ms=now_ms,
+                            stage=OpportunityStage.GUARD_BLOCKED.value,
+                            reason_codes=(rej_reason,),
+                            planned_entry=cand.planned_entry,
+                            stop_loss=cand.stop_loss,
+                            take_profit=cand.take_profit,
+                            net_rr=cand.net_rr,
+                            details={"error": lesson_err_msg},
+                        ),
+                        now_ms=now_ms,
+                    )
+                    return None
 
             assessment = assess_candidate_quality(
                 candidate=cand,
                 context=score_ctx,
-                profile=getattr(cfg, "quality_profile_version", "v16.39"),
+                profile=cfg,
                 as_of_ms=now_ms,
                 threshold=float(getattr(cfg, "quality_arm_threshold", 70.0)),
                 lesson_delta=lesson_delta,

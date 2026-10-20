@@ -560,6 +560,22 @@ def run_schema_migrations(target_engine=None):
             """))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_post_trade_reviews_order ON post_trade_reviews (order_id);"))
 
+            # V16.39.2: Durable Lesson Repair Tasks Table (Section 039 - 042)
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS lesson_repair_tasks (
+                    id VARCHAR(36) PRIMARY KEY,
+                    order_id VARCHAR(36) NOT NULL UNIQUE,
+                    artifact_type VARCHAR(30) DEFAULT 'LESSON',
+                    status VARCHAR(20) DEFAULT 'PENDING',
+                    retry_count INTEGER DEFAULT 0,
+                    last_error TEXT,
+                    created_at BIGINT NOT NULL,
+                    updated_at BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_lesson_repair_tasks_order ON lesson_repair_tasks (order_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_lesson_repair_tasks_status ON lesson_repair_tasks (status);"))
+
             conn.commit()
     except Exception:
         pass
