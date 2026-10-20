@@ -419,16 +419,20 @@ def canonical_model_family(family: Optional[str]) -> str:
     return m or "UNKNOWN"
 
 
-def resolve_model_review_requirements(model_id: Optional[str], version: str = "v16.39") -> Dict[str, Any]:
+def resolve_model_review_requirements(
+    model_id: Optional[str],
+    version: str = "v16.39",
+    entry_mode: Optional[str] = None,
+) -> Dict[str, Any]:
     """
-    V16.39.2 Section 065 - 070:
+    V16.39.2 Section 065 - 070, V16.39.5 Rule 086, 126, 127:
     Resolves factual review requirements for each execution model.
     Models have distinct causal proof requirements:
     - CONTINUATION: BOS required, does NOT require Sweep.
     - FVG_CONTINUATION: FVG, RETEST, BOS required.
     - REVERSAL: POI, SWEEP, CHOCH required.
     - SWEEP_RECLAIM: SWEEP, RECLAIM required.
-    - CG01: POI, MSS, RETEST required.
+    - CG01: POI, MSS required; RETEST required for MARKET retest, FVG required for LIMIT.
     - NY_QUOTA: POI required (partial fallback).
     """
     c_mid = canonical_model_family(model_id)
@@ -457,9 +461,11 @@ def resolve_model_review_requirements(model_id: Optional[str], version: str = "v
             "requires_trigger_chain": True,
         }
     elif c_mid == "CG01":
+        is_limit = (str(entry_mode).upper() == "LIMIT_AT_CE_AFTER_CONFIRMATION") or ("LIMIT" in str(entry_mode).upper())
+        req_kinds = ["POI", "MSS", "FVG"] if is_limit else ["POI", "MSS", "RETEST"]
         return {
             "model_id": "CG01",
-            "required_kinds": ["POI", "MSS", "RETEST"],
+            "required_kinds": req_kinds,
             "trigger_kinds": ["MSS"],
             "allow_no_sweep": False,
             "requires_trigger_chain": True,
@@ -827,9 +833,28 @@ def assess_entry_compliance_for_review(
         s_dir_norm = "LONG" if str(s_dir).upper() in ("LONG", "BUY") else ("SHORT" if str(s_dir).upper() in ("SHORT", "SELL") else None)
 
     # Geometry verification in snapshot (Section 030, 052, 076, 094, 161)
-    s_entry = entry_snapshot.get("planned_entry", entry_snapshot.get("entry_price"))
-    s_sl = entry_snapshot.get("planned_sl", entry_snapshot.get("stop_loss"))
-    s_tp = entry_snapshot.get("planned_tp", entry_snapshot.get("take_profit"))
+    s_plan = (entry_snapshot.get("plan") or {}) if isinstance(entry_snapshot, dict) else {}
+    s_entry = (
+        entry_snapshot.get("planned_entry")
+        or entry_snapshot.get("entry_price")
+        or s_plan.get("entry")
+        or s_plan.get("planned_entry")
+        or (getattr(order, "planned_entry", None) if order else None)
+    )
+    s_sl = (
+        entry_snapshot.get("planned_sl")
+        or entry_snapshot.get("stop_loss")
+        or s_plan.get("stop_loss")
+        or s_plan.get("sl")
+        or (getattr(order, "stop_loss", None) if order else None)
+    )
+    s_tp = (
+        entry_snapshot.get("planned_tp")
+        or entry_snapshot.get("take_profit")
+        or s_plan.get("take_profit")
+        or s_plan.get("tp")
+        or (getattr(order, "take_profit", None) if order else None)
+    )
 
     if not s_dir_norm or s_entry is None or s_sl is None:
         missing.append("NUMERIC_GEOMETRY")
@@ -887,14 +912,21 @@ def assess_entry_compliance_for_review(
         except (ValueError, TypeError):
             missing.append("NUMERIC_GEOMETRY")
 
-    # 3. Model requirements resolution (Section 053, 065 - 070)
+    # 3. Model requirements resolution (Section 053, 065 - 070, V16.39.5 Rule 086)
     model_id = str(
         entry_snapshot.get("model_id")
+        or entry_snapshot.get("family")
         or entry_snapshot.get("strategy_family")
         or (getattr(order, "strategy_family", None) if order else None)
         or "STANDARD_SMC"
     ).upper()
-    reqs = model_requirements or resolve_model_review_requirements(model_id)
+    entry_mode = (
+        entry_snapshot.get("entry_mode")
+        or (entry_snapshot.get("plan") or {}).get("entry_mode")
+        or (entry_snapshot.get("entry_intent") or {}).get("entry_mode")
+        or (getattr(order, "entry_mode", None) if order else None)
+    )
+    reqs = model_requirements or resolve_model_review_requirements(model_id, entry_mode=entry_mode)
     can_model = canonical_model_family(model_id)
 
     # 4. Extract and validate evidence nodes (Section 041 - 050, 059)
@@ -991,9 +1023,11 @@ def assess_entry_compliance_for_review(
             valid_nodes_by_kind[k] = []
         valid_nodes_by_kind[k].append(raw_node)
         observed_kinds.add(k)
+        if k == "LIQUIDITY_SWEEP":
+            observed_kinds.add("SWEEP")
         refs.append(nid)
 
-    # 5. Check trigger chain (Section 055, 056, 057, 063)
+    # 5. Check trigger chain (Section 055, 056, 057, 063, V16.39.5 Rule 121, 122)
     tc = entry_snapshot.get("trigger_chain")
     tc_verified = False
     requires_tc = reqs.get("requires_trigger_chain", True)
@@ -1032,8 +1066,8 @@ def assess_entry_compliance_for_review(
         else:
             failed.append("TRIGGER_CHAIN_UNVERIFIED")
     elif entry_snapshot.get("compliance_verified") is True or (isinstance(audit, dict) and audit.get("compliance_verified") is True):
-        # Legacy claim: allowed if valid observed_kinds exist and no invalid tc
-        if observed_kinds:
+        # Legacy claim: allowed ONLY if the model does NOT require a trigger chain (e.g. NY_QUOTA)
+        if not requires_tc and observed_kinds:
             tc_verified = True
             passed.append("COMPLIANCE_FLAG_VERIFIED")
         else:
@@ -1044,7 +1078,7 @@ def assess_entry_compliance_for_review(
         else:
             tc_verified = True
 
-    # 6. Temporal sequence check (Section 059, 158)
+    # 6. Temporal sequence check (Section 059, 158, V16.39.5 Rule 126, 169)
     if can_model == "SWEEP_RECLAIM":
         sweeps = valid_nodes_by_kind.get("SWEEP", [])
         reclaims = valid_nodes_by_kind.get("RECLAIM", [])
@@ -1062,6 +1096,25 @@ def assess_entry_compliance_for_review(
             retest_occ = min(r.get("occurred_at_ms", 0) if isinstance(r, dict) else getattr(r, "occurred_at_ms", 0) for r in retests)
             if retest_occ < fvg_known:
                 failed.append("INVALID_TEMPORAL_SEQUENCE_FVG_RETEST")
+
+    if can_model == "CG01":
+        sweeps = valid_nodes_by_kind.get("SWEEP", []) + valid_nodes_by_kind.get("LIQUIDITY_SWEEP", [])
+        msses = valid_nodes_by_kind.get("MSS", [])
+        retests = valid_nodes_by_kind.get("RETEST", [])
+
+        # 1. Sweep before MSS
+        if sweeps and msses:
+            earliest_sweep = min(s.get("occurred_at_ms", 0) if isinstance(s, dict) else getattr(s, "occurred_at_ms", 0) for s in sweeps)
+            earliest_mss = min(m.get("occurred_at_ms", 0) if isinstance(m, dict) else getattr(m, "occurred_at_ms", 0) for m in msses)
+            if earliest_mss < earliest_sweep:
+                failed.append("INVALID_TEMPORAL_SEQUENCE_CG01_SWEEP_MSS")
+
+        # 2. MSS before Retest (for MARKET retest mode)
+        if msses and retests:
+            earliest_mss = min(m.get("occurred_at_ms", 0) if isinstance(m, dict) else getattr(m, "occurred_at_ms", 0) for m in msses)
+            earliest_retest = min(r.get("occurred_at_ms", 0) if isinstance(r, dict) else getattr(r, "occurred_at_ms", 0) for r in retests)
+            if earliest_retest < earliest_mss:
+                failed.append("INVALID_TEMPORAL_SEQUENCE_CG01_MSS_RETEST")
 
     # 7. Verify required kinds for the specific model (Section 061 - 071)
     req_kinds = reqs.get("required_kinds", [])

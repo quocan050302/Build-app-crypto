@@ -506,6 +506,7 @@ def test_174_valid_loss_green_with_verified_compliance():
         "compliance_verified": True,
         "decision_as_of_ms": t_cutoff,
         "evidence": [{"id": "ev_1", "kind": "BOS", "known_at_ms": t_cutoff - 5000, "occurred_at_ms": t_cutoff - 5000}],
+        "trigger_chain": {"verified": True, "model_id": "CONTINUATION", "node_ids": ["ev_1"]},
     }
     audit = {"compliance_verified": True}
 

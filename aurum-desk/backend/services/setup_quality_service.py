@@ -1103,6 +1103,14 @@ def normalize_candidate_evidence(
         index.valid_nodes.append(norm_node)
         index.by_id[norm_node.id] = norm_node
         index.by_kind.setdefault(norm_node.kind, []).append(norm_node)
+        if norm_node.kind == "LIQUIDITY_SWEEP":
+            index.by_kind.setdefault("SWEEP", []).append(norm_node)
+            if cand_dir in ("LONG", "BUY"):
+                index.by_kind.setdefault("SWEEP_LOW", []).append(norm_node)
+            elif cand_dir in ("SHORT", "SELL"):
+                index.by_kind.setdefault("SWEEP_HIGH", []).append(norm_node)
+        elif norm_node.kind == "HTF_CONTEXT":
+            index.by_kind.setdefault("CONTEXT", []).append(norm_node)
         if norm_node.known_at_ms > latest_known:
             latest_known = norm_node.known_at_ms
 
@@ -1142,7 +1150,7 @@ def build_candidate_scoring_context(
     as_of_ms: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
-    V16.39.1 Sections 031 - 046:
+    V16.39.1 Sections 031 - 046, V16.39.5:
     Builds typed, pure scoring context containing empirical market facts.
     Resolves canonical htf_bias, context_source, zone, dealing_range,
     quote spread (without fake 0.15 default), slippage assumption,
@@ -1153,9 +1161,10 @@ def build_candidate_scoring_context(
     snap = getattr(candidate, "snapshot", None)
     calc = calculation or getattr(candidate, "calculation", None)
 
-    # 1. Resolve htf_bias and h1_alignment (Section 032, 094, 095)
+    # 1. Resolve htf_bias and h1_alignment (Section 032, 094, 095, V16.39.5 Rule 059 - 065)
     htf_bias = m_ctx.get("htf_bias") or m_ctx.get("bias")
     h1_align = m_ctx.get("h1_alignment")
+    snap_ctx = None
     if (not htf_bias or str(htf_bias).upper() == "UNKNOWN") and snap is not None:
         if isinstance(snap, dict):
             snap_ctx = snap.get("context") or {}
@@ -1170,8 +1179,30 @@ def build_candidate_scoring_context(
                 htf_bias = getattr(snap, "htf_bias", None)
                 h1_align = getattr(snap, "h1_alignment", None)
 
+        if isinstance(snap_ctx, dict) and (not htf_bias or str(htf_bias).upper() == "UNKNOWN"):
+            htf_ctx_dict = snap_ctx.get("htf_context") or {}
+            if isinstance(htf_ctx_dict, dict):
+                dir_ctx = htf_ctx_dict.get("direction_context") or {}
+                h1_snap = htf_ctx_dict.get("h1_snapshot") or {}
+                h4_snap = htf_ctx_dict.get("h4_snapshot") or {}
+                cand_bias = (
+                    dir_ctx.get("bias")
+                    or dir_ctx.get("h1_bias")
+                    or h1_snap.get("bias")
+                    or h4_snap.get("bias")
+                    or htf_ctx_dict.get("htf_bias")
+                )
+                if cand_bias and cand_bias != "UNKNOWN":
+                    htf_bias = cand_bias
+                if not h1_align or str(h1_align).upper() == "UNKNOWN":
+                    h1_align = dir_ctx.get("relation") or dir_ctx.get("h1_alignment")
+
     if (not htf_bias or str(htf_bias).upper() == "UNKNOWN") and normalized_evidence:
-        bos_nodes = normalized_evidence.by_kind.get("BOS", []) + normalized_evidence.by_kind.get("CONTEXT", [])
+        bos_nodes = (
+            normalized_evidence.by_kind.get("BOS", [])
+            + normalized_evidence.by_kind.get("CONTEXT", [])
+            + normalized_evidence.by_kind.get("HTF_CONTEXT", [])
+        )
         for bn in bos_nodes:
             if getattr(bn, "is_causal", True) and bn.extra.get("htf_bias"):
                 b_val = str(bn.extra.get("htf_bias")).upper()
@@ -1183,10 +1214,14 @@ def build_candidate_scoring_context(
     htf_bias_canonical = str(htf_bias).upper() if htf_bias else "UNKNOWN"
     h1_align_canonical = str(h1_align).upper() if h1_align else "UNKNOWN"
 
-    # 2. Context source provenance (Section 037)
+    # 2. Context source provenance (Section 037, V16.39.5 Rule 065, 100)
     ctx_src = m_ctx.get("context_source")
     if not ctx_src:
-        if htf_bias_canonical != "UNKNOWN":
+        if isinstance(snap_ctx, dict) and isinstance(snap_ctx.get("htf_context"), dict):
+            ctx_src = snap_ctx["htf_context"].get("context_source") or "BOUND_SNAPSHOT"
+        elif snap is not None and htf_bias_canonical != "UNKNOWN":
+            ctx_src = "BOUND_SNAPSHOT"
+        elif htf_bias_canonical != "UNKNOWN":
             ctx_src = "RUNTIME_CACHE"
         else:
             ctx_src = "UNAVAILABLE"
@@ -1384,14 +1419,14 @@ def assess_candidate_quality(
     ctx_src = str(context.get("context_source") or "UNAVAILABLE").upper()
     htf_bias = str(context.get("htf_bias") or "UNKNOWN").upper()
     if htf_bias == "UNKNOWN" and norm_ev:
-        ctx_nodes = norm_ev.by_kind.get("CONTEXT", []) + norm_ev.by_kind.get("BOS", [])
+        ctx_nodes = norm_ev.by_kind.get("CONTEXT", []) + norm_ev.by_kind.get("BOS", []) + norm_ev.by_kind.get("HTF_CONTEXT", [])
         for cn in ctx_nodes:
             if cn.extra.get("htf_bias"):
                 htf_bias = str(cn.extra.get("htf_bias")).upper()
                 break
 
     # Factor 1.1: Context Provenance (10 pts)
-    if ctx_src in ("INJECTED_REPLAY", "DATABASE_LOADED", "RUNTIME_CACHE") and htf_bias not in ("UNKNOWN", ""):
+    if ctx_src in ("INJECTED_REPLAY", "DATABASE_LOADED", "RUNTIME_CACHE", "BOUND_SNAPSHOT", "DECISION_CONTEXT") and htf_bias not in ("UNKNOWN", ""):
         f_prov = QualityScoreFactor(
             code="HTF_CONTEXT_PROVENANCE",
             group="HTF_CONTEXT",
@@ -1678,6 +1713,7 @@ def assess_candidate_quality(
         norm_ev.by_kind.get("SWEEP_LOW", [])
         + norm_ev.by_kind.get("SWEEP_HIGH", [])
         + norm_ev.by_kind.get("SWEEP", [])
+        + norm_ev.by_kind.get("LIQUIDITY_SWEEP", [])
         + norm_ev.by_kind.get("STRUCTURE_REFERENCE", [])
     )
     # Factor 3.1: Liquidity Reference Sourced (5 pts)
@@ -1834,7 +1870,17 @@ def assess_candidate_quality(
         dn = disp_nodes[0]
         body = dn.extra.get("displacement_body")
         atr = dn.extra.get("displacement_atr")
-        ratio = (float(body) / float(atr)) if body is not None and atr is not None and float(atr) > 0 else None
+        direct_ratio = dn.extra.get("displacement_ratio") or dn.extra.get("body_atr_ratio")
+        if body is not None and atr is not None and float(atr) > 0:
+            ratio = float(body) / float(atr)
+        elif direct_ratio is not None:
+            try:
+                r_val = float(direct_ratio)
+                ratio = r_val if math.isfinite(r_val) else None
+            except (ValueError, TypeError):
+                ratio = None
+        else:
+            ratio = None
         if ratio is not None:
             if ratio >= 0.70:
                 f_disp = QualityScoreFactor(

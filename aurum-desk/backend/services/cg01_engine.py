@@ -1383,6 +1383,8 @@ def evaluate_cg01_candidate(
                 tp=tp,
                 target_dec=target_dec,
                 now_ms=t_now,
+                entry_mode=cfg.entry_mode,
+                retest_res=retest_res if is_retest_market else None,
             )
             trig_chain = build_cg01_trigger_chain(ev_nodes, t_now)
             snap = build_cg01_snapshot(

@@ -39,12 +39,38 @@ def build_cg01_evidence_nodes(
     tp: float,
     target_dec: Optional[Any],
     now_ms: int,
+    *,
+    entry_mode: Optional[str] = None,
+    retest_res: Optional[Any] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Rule 096, 121 - 126: Constructs list of EvidenceNode dictionaries for CG01 candidate.
+    Rule 096, 121 - 126, V16.39.5 Rule 051 - 085:
+    Constructs list of EvidenceNode dictionaries for CG01 candidate.
+    Uses empirical measurements, causal timestamps, and mode-aware trigger chains.
     """
+    resolved_entry_mode = entry_mode or "LIMIT_AT_CE_AFTER_CONFIRMATION"
+    is_market_retest = (resolved_entry_mode == "CONFIRMED_RETEST_MARKET")
+
+    mss_occ_ms = int(mss.get("break_candle_time_ms") or now_ms)
+    fvg_form_ms = int(fvg.get("formation_time_ms") or fvg.get("timestamp") or now_ms)
+    fvg_known_ms = int(fvg.get("known_at_ms") or fvg.get("confirmed_at") or (fvg_form_ms + 60_000) or now_ms)
+
+    retest_known_ms = int(getattr(retest_res, "known_at", None) or now_ms) if (is_market_retest and retest_res) else fvg_known_ms
+
+    # Displacement measurements (Rules 069 - 074) - Never invent 1.0 or 2.0 defaults
+    disp_extra: Dict[str, Any] = {}
+    if mss.get("displacement_body") is not None:
+        disp_extra["displacement_body"] = float(mss["displacement_body"])
+    if mss.get("displacement_atr") is not None:
+        disp_extra["displacement_atr"] = float(mss["displacement_atr"])
+    if mss.get("displacement_ratio") is not None:
+        disp_extra["displacement_ratio"] = float(mss["displacement_ratio"])
+        disp_extra["body_atr_ratio"] = float(mss["displacement_ratio"])
+    elif mss.get("body_atr_ratio") is not None:
+        disp_extra["body_atr_ratio"] = float(mss["body_atr_ratio"])
+
     ev_nodes: List[Dict[str, Any]] = [
-        # 1. HTF Context
+        # 1. HTF Context (Rules 059 - 065)
         EvidenceNode(
             id=str(htf_data.get("evidence_id") or f"ev_htf_{now_ms}"),
             kind="HTF_CONTEXT",
@@ -57,6 +83,7 @@ def build_cg01_evidence_nodes(
             extra={
                 "h4_bias": htf_data.get("h4_bias", "NEUTRAL"),
                 "h1_bias": htf_data.get("h1_bias", "NEUTRAL"),
+                "htf_bias": htf_data.get("h1_bias") or htf_data.get("h4_bias") or htf_data.get("bias", "NEUTRAL"),
                 "range_position": htf_data.get("range_position", "EQUILIBRIUM"),
                 "relation": htf_data.get("relation", "ALIGNED"),
                 "h1_phase": (htf_data.get("h1_snapshot") or {}).get("phase"),
@@ -67,7 +94,7 @@ def build_cg01_evidence_nodes(
             },
         ).to_dict(),
 
-        # 2. HTF POI
+        # 2. HTF POI (Rules 066 - 068)
         EvidenceNode(
             id=f"ev_poi_{poi.zone_id}",
             kind="POI",
@@ -81,11 +108,12 @@ def build_cg01_evidence_nodes(
                 "zone_id": poi.zone_id,
                 "bounds": [poi.bottom, poi.top],
                 "poi_direction": poi.direction,
+                "freshness_state": poi.freshness_state,
                 "touch_count": poi.touch_count,
             },
         ).to_dict(),
 
-        # 3. Liquidity Sweep
+        # 3. Liquidity Sweep (Rules 054 - 058)
         EvidenceNode(
             id=str(sweep.get("sweep_id") or f"ev_sweep_{now_ms}"),
             kind="LIQUIDITY_SWEEP",
@@ -93,9 +121,10 @@ def build_cg01_evidence_nodes(
             timeframe="1M",
             direction=direction,
             occurred_at_ms=int(sweep.get("sweep_time_ms") or now_ms),
-            known_at_ms=now_ms,
+            known_at_ms=int(sweep.get("reclaim_time_ms") or sweep.get("sweep_time_ms") or now_ms),
             level=float(sweep.get("sweep_extreme", planned_entry)),
             extra={
+                "canonical_kind": "SWEEP",
                 "reference_id": sweep.get("reference_id"),
                 "reference_price": sweep.get("reference_price"),
                 "sweep_extreme": sweep.get("sweep_extreme"),
@@ -103,15 +132,15 @@ def build_cg01_evidence_nodes(
             },
         ).to_dict(),
 
-        # 4. MSS
+        # 4. MSS (Rules 075, 076)
         EvidenceNode(
             id=str(mss.get("mss_id") or f"ev_mss_{now_ms}"),
             kind="MSS",
             symbol=symbol,
             timeframe="1M",
             direction=direction,
-            occurred_at_ms=now_ms,
-            known_at_ms=now_ms,
+            occurred_at_ms=mss_occ_ms,
+            known_at_ms=mss_occ_ms,
             level=float(mss.get("structure_ref_price", planned_entry)),
             extra={
                 "structure_ref_id": mss.get("structure_ref_id"),
@@ -120,31 +149,28 @@ def build_cg01_evidence_nodes(
             },
         ).to_dict(),
 
-        # 5. Displacement
+        # 5. Displacement (Rules 069 - 074)
         EvidenceNode(
             id=f"ev_disp_{mss.get('mss_id', now_ms)}",
             kind="DISPLACEMENT",
             symbol=symbol,
             timeframe="1M",
             direction=direction,
-            occurred_at_ms=now_ms,
-            known_at_ms=now_ms,
+            occurred_at_ms=mss_occ_ms,
+            known_at_ms=mss_occ_ms,
             level=float(mss.get("structure_ref_price", planned_entry)),
-            extra={
-                "body_atr_ratio": mss.get("body_atr_ratio", 1.0),
-                "displacement_atr": mss.get("displacement_atr", 2.0),
-            },
+            extra=disp_extra,
         ).to_dict(),
 
-        # 6. FVG
+        # 6. FVG (Rule 077)
         EvidenceNode(
             id=str(fvg.get("fvg_id") or f"ev_fvg_{now_ms}"),
             kind="FVG",
             symbol=symbol,
             timeframe="1M",
             direction=direction,
-            occurred_at_ms=int(fvg.get("formation_time_ms") or now_ms),
-            known_at_ms=now_ms,
+            occurred_at_ms=fvg_form_ms,
+            known_at_ms=fvg_known_ms,
             level=float(fvg.get("ce_price", planned_entry)),
             extra={
                 "lower": fvg.get("lower"),
@@ -154,18 +180,18 @@ def build_cg01_evidence_nodes(
             },
         ).to_dict(),
 
-        # 7. Entry Trigger (Limit at CE)
+        # 7. Entry Trigger (Rules 078 - 085)
         EvidenceNode(
             id=f"ev_trig_{fvg.get('fvg_id', now_ms)}",
             kind="ENTRY_TRIGGER",
             symbol=symbol,
             timeframe="1M",
             direction=direction,
-            occurred_at_ms=now_ms,
-            known_at_ms=now_ms,
+            occurred_at_ms=retest_known_ms,
+            known_at_ms=retest_known_ms,
             level=planned_entry,
             extra={
-                "entry_mode": "LIMIT_AT_CE_AFTER_CONFIRMATION",
+                "entry_mode": resolved_entry_mode,
                 "planned_entry": planned_entry,
             },
         ).to_dict(),
@@ -203,6 +229,26 @@ def build_cg01_evidence_nodes(
             },
         ).to_dict(),
     ]
+
+    # 10. Optional Retest Node for CONFIRMED_RETEST_MARKET mode (Rules 083, 084)
+    if is_market_retest and retest_res and getattr(retest_res, "confirmed", False):
+        retest_node = EvidenceNode(
+            id=f"ev_retest_{getattr(retest_res, 'candle_id', fvg.get('fvg_id', now_ms))}",
+            kind="RETEST",
+            symbol=symbol,
+            timeframe="1M",
+            direction=direction,
+            occurred_at_ms=int(getattr(retest_res, "occurred_at", None) or getattr(retest_res, "known_at", None) or now_ms),
+            known_at_ms=int(getattr(retest_res, "known_at", None) or now_ms),
+            level=float(getattr(retest_res, "touch_price", None) or fvg.get("ce_price", planned_entry)),
+            extra={
+                "fvg_id": fvg.get("fvg_id"),
+                "touch_price": getattr(retest_res, "touch_price", None),
+                "close_price": getattr(retest_res, "close_price", None),
+                "confirmed": True,
+            },
+        ).to_dict()
+        ev_nodes.append(retest_node)
 
     return ev_nodes
 

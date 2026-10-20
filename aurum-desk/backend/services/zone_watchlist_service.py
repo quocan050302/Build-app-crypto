@@ -20,6 +20,76 @@ from services.scalp_m1_types import M1ScalpConfig, WatchedZone, ZoneState, get_s
 logger = logging.getLogger(__name__)
 
 
+def read_fvg_event_times(fvg: Dict[str, Any]) -> Tuple[Optional[int], Optional[int]]:
+    """
+    V16.39.5 Rule 026 - 030, 037:
+    Reads canonical FVG creation and confirmation timestamps without synthetic fallbacks.
+    Canonical contract:
+      - created_at: fvg["timestamp"] (represents middle candle event time)
+      - confirmed_at: fvg["confirmed_at"] (time FVG can be known after 3rd candle closes)
+    Legacy fallback:
+      - open_time / confirmed_time supported only if canonical missing.
+    Validation:
+      - Disallows bool, nan, inf, zero, negative.
+      - Enforces causal order: confirmed_at >= created_at.
+    """
+    if not isinstance(fvg, dict):
+        return None, None
+
+    created_raw = fvg.get("timestamp")
+    if created_raw is None:
+        created_raw = fvg.get("open_time")
+
+    confirmed_raw = fvg.get("confirmed_at")
+    if confirmed_raw is None:
+        confirmed_raw = fvg.get("confirmed_time")
+
+    def _parse_ts(val: Any) -> Optional[int]:
+        if val is None or isinstance(val, bool):
+            return None
+        try:
+            f = float(val)
+            if not math.isfinite(f) or f <= 0:
+                return None
+            return int(f)
+        except (ValueError, TypeError):
+            return None
+
+    created_ts = _parse_ts(created_raw)
+    confirmed_ts = _parse_ts(confirmed_raw)
+
+    if created_ts is None or confirmed_ts is None:
+        return None, None
+
+    # Causality rule 037: confirmed_at cannot precede formation event time
+    if confirmed_ts < created_ts:
+        return None, None
+
+    return created_ts, confirmed_ts
+
+
+def build_fvg_watch_zone_id(
+    symbol: str,
+    timeframe: str,
+    direction: str,
+    created_at: int,
+    source_fvg_id: Optional[str] = None,
+) -> str:
+    """
+    V16.39.5 Rule 038 - 041:
+    Builds deterministic, stable zone ID derived from source FVG identity.
+    Namespaces with symbol. Never includes current time or random UUID.
+    """
+    clean_sym = str(symbol).upper().strip()
+    clean_tf = str(timeframe).upper().strip()
+    clean_dir = "BULLISH" if "BULL" in str(direction).upper() else "BEARISH"
+    if source_fvg_id and str(source_fvg_id).startswith("fvg-"):
+        if clean_sym in str(source_fvg_id).upper():
+            return f"zone-{source_fvg_id}"
+        return f"zone-{clean_sym}-{source_fvg_id}"
+    return f"zone-{clean_sym}-{clean_tf}-{clean_dir}-{created_at}"
+
+
 class ZoneWatchlistService:
     @staticmethod
     def extract_zones_from_candles(
@@ -32,8 +102,9 @@ class ZoneWatchlistService:
         atr: Optional[float] = None,
     ) -> List[WatchedZone]:
         """
-        Extract real FVG zones from closed candles (PHẦN 034).
+        Extract real FVG zones from closed candles (PHẦN 034, V16.39.5 Rule 021-050).
         Never synthesizes fake rectangles or future bars.
+        Preserves detector timestamps, unique deterministic zone IDs, and mitigation lifecycle.
         """
         if len(candles) < 3:
             return []
@@ -50,9 +121,18 @@ class ZoneWatchlistService:
             if top <= bottom or (top - bottom) < min_size:
                 continue
 
+            created_ts, confirmed_ts = read_fvg_event_times(fvg)
+            if created_ts is None or confirmed_ts is None:
+                # Rule 027, 143: Missing timestamps cannot produce executable POIs
+                continue
+
+            # Rule 032, 033, 141: Respect as_of_ms cutoff.
+            # Zone is not knowable or executable before its confirmation closes.
+            if as_of_ms > 0 and confirmed_ts > as_of_ms:
+                continue
+
             direction = "BULLISH" if "BULL" in fvg.get("type", "") else "BEARISH"
-            open_ts = int(fvg.get("open_time", 0))
-            confirmed_ts = int(fvg.get("confirmed_time") or open_ts)
+            source_fvg_id = fvg.get("id") or f"fvg-{direction.lower()}-{timeframe.lower()}-{created_ts}"
 
             # Invalidation level: beyond the anchor candle extreme
             if direction == "BULLISH":
@@ -60,7 +140,27 @@ class ZoneWatchlistService:
             else:
                 inv_lvl = top + (0.2 * calc_atr)
 
-            zone_id = f"zone-{symbol}-{timeframe}-{direction}-{open_ts}"
+            # Rule 045 - 048, 142: Map real mitigation lifecycle
+            fvg_state = str(fvg.get("state", "")).lower()
+            is_mitigated = bool(fvg.get("mitigated", False))
+            if fvg_state == "fully_mitigated" or is_mitigated:
+                freshness_state = "MITIGATED"
+                touch_count = max(int(fvg.get("touch_count", 2)), 2)
+            elif fvg_state == "partially_mitigated":
+                freshness_state = "PARTIALLY_MITIGATED"
+                touch_count = max(int(fvg.get("touch_count", 1)), 1)
+            else:
+                freshness_state = "FRESH"
+                touch_count = int(fvg.get("touch_count", 0))
+
+            zone_id = build_fvg_watch_zone_id(
+                symbol=symbol,
+                timeframe=timeframe,
+                direction=direction,
+                created_at=created_ts,
+                source_fvg_id=source_fvg_id,
+            )
+
             zones.append(WatchedZone(
                 zone_id=zone_id,
                 symbol=symbol,
@@ -69,11 +169,11 @@ class ZoneWatchlistService:
                 direction=direction,
                 top=round(top, 2),
                 bottom=round(bottom, 2),
-                created_at=open_ts,
+                created_at=created_ts,
                 known_at=confirmed_ts,
-                source_evidence_ids=(f"fvg-{open_ts}",),
-                freshness_state="FRESH",
-                touch_count=0,
+                source_evidence_ids=(source_fvg_id,),
+                freshness_state=freshness_state,
+                touch_count=touch_count,
                 invalidation_level=round(inv_lvl, 2),
                 model_version=model_version,
                 state=ZoneState.WATCHING.value,

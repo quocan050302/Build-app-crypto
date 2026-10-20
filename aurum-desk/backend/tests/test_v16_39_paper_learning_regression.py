@@ -362,6 +362,7 @@ class TestGovernedLessonClassification:
                 {"id": "ev_swp", "kind": "SWEEP", "known_at_ms": t_cutoff - 3000, "occurred_at_ms": t_cutoff - 3000},
                 {"id": "ev_1", "kind": "CHOCH", "known_at_ms": t_cutoff - 1000, "occurred_at_ms": t_cutoff - 1000},
             ],
+            "trigger_chain": {"verified": True, "model_id": "REVERSAL", "node_ids": ["ev_poi", "ev_swp", "ev_1"]},
         }
         classification = classify_post_trade_lesson(rev, entry_snapshot=entry_snap)
         assert classification.suggested_color == "GREEN"
