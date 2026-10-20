@@ -130,6 +130,16 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
       data-testid="cg01-diagnostic-card"
       className={`rounded-lg bg-charcoal-850 border border-charcoal-750 p-2.5 space-y-2 text-xs transition-all shadow-sm ${className}`}
     >
+      {/* V16.39 Experiment Banner (Section 141) */}
+      <div
+        data-testid="v1639-paper-experiment-banner"
+        className="flex items-center justify-between text-[10px] font-mono px-2 py-1 rounded bg-indigo-950/70 text-indigo-300 border border-indigo-800/80"
+      >
+        <span className="font-semibold text-indigo-200">PAPER</span>
+        <span className="text-aurum-300 font-medium">Điểm tối thiểu 70/100</span>
+        <span className="text-gray-400">Tối đa 3 lệnh/ngày</span>
+      </div>
+
       {/* Header: Title, Stage Badge & Expand Button */}
       <div className="flex items-center justify-between gap-1.5">
         <div className="flex items-center gap-1.5 min-w-0">

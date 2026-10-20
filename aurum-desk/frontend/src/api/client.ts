@@ -906,6 +906,23 @@ export const api = {
     return res.data;
   },
 
+  approveAndActivateLesson: async (
+    lessonId: number,
+    payload: {
+      expected_revision: number;
+      selected_severity?: string;
+      selected_effect?: string;
+      scope?: any;
+      predicate?: any;
+      score_delta?: number;
+      activate?: boolean;
+      review_note?: string;
+    }
+  ): Promise<LessonItem> => {
+    const res = await apiClient.post(`/api/v1/lessons/${lessonId}/approve-and-activate`, payload);
+    return res.data;
+  },
+
   rejectLesson: async (lessonId: number): Promise<LessonItem> => {
     const res = await apiClient.post(`/api/v1/lessons/${lessonId}/reject`);
     return res.data;

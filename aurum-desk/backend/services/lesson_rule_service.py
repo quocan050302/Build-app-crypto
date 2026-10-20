@@ -1,7 +1,7 @@
 import time
 import json
 import logging
-from typing import Dict, Any, List, Optional, Tuple, Union
+from typing import Dict, Any, List, Optional, Tuple, Union, Sequence
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
@@ -811,5 +811,148 @@ class LessonRuleService:
             "lesson_warnings": lesson_warnings,
             "lesson_blockers": lesson_blockers,
         }
+
+    @classmethod
+    def evaluate_lesson_score_adjustments(
+        cls,
+        context: Dict[str, Any],
+        approved_rules: Optional[Sequence[Any]] = None,
+        db: Optional[Session] = None,
+        now_ms: int = 0,
+        cap_bonus: float = 10.0,
+        cap_penalty: float = 15.0,
+    ) -> Dict[str, Any]:
+        """
+        V16.39 Section 121 - 126:
+        Evaluates active, approved, validated lesson rules that adjust quality score.
+        Outputs:
+        - raw_delta: unconstrained delta
+        - applied_delta: clamped within [-cap_penalty, +cap_bonus]
+        - matched_rules: List of matched rule records
+        - unmatched_reasons: List of reasons for unmatched rules
+        - missing_metrics: List of missing metric warnings
+        - rule_revisions: Dict[str, int]
+        """
+        if now_ms <= 0:
+            now_ms = int(time.time() * 1000)
+
+        rules = approved_rules
+        if rules is None and db is not None:
+            rules = cls.retrieve_active_rules(db, now_ms=now_ms)
+        elif rules is None:
+            rules = []
+
+        raw_delta = 0.0
+        matched_rules = []
+        unmatched_reasons = []
+        missing_metrics = []
+        rule_revisions = {}
+
+        for rule in rules:
+            rule_id = getattr(rule, "id", None)
+            rev = getattr(rule, "revision", 1)
+            rule_revisions[str(rule_id)] = rev
+
+            # Verify approval, enabled, validation (Section 101, 115)
+            if not getattr(rule, "is_approved", False) or not getattr(rule, "enabled", False):
+                unmatched_reasons.append(f"Rule #{rule_id} is not approved or enabled")
+                continue
+            if getattr(rule, "status", "") in ("REJECTED", "ARCHIVED", "PENDING_REVIEW"):
+                unmatched_reasons.append(f"Rule #{rule_id} status is {getattr(rule, 'status')}")
+                continue
+            eff_at = getattr(rule, "effective_at", None)
+            if eff_at is not None and eff_at > now_ms:
+                unmatched_reasons.append(f"Rule #{rule_id} effective_at is in the future")
+                continue
+
+            # Scope check (Section 127)
+            scope_matches = True
+            scope_raw = getattr(rule, "scope", None)
+            if scope_raw:
+                try:
+                    scope = json.loads(scope_raw) if isinstance(scope_raw, str) else scope_raw
+                    if isinstance(scope, dict):
+                        for k, v in scope.items():
+                            if v and str(v).upper() != "ALL":
+                                ctx_val = context.get(k)
+                                if ctx_val is not None and str(ctx_val).upper() != str(v).upper():
+                                    scope_matches = False
+                                    break
+                except Exception:
+                    pass
+            if not scope_matches:
+                unmatched_reasons.append(f"Rule #{rule_id} scope does not match context")
+                continue
+
+            # Check if this rule adjusts score
+            effect = getattr(rule, "effect", "")
+            pred_raw = getattr(rule, "predicate", None)
+            pred = None
+            if pred_raw:
+                try:
+                    pred = json.loads(pred_raw) if isinstance(pred_raw, str) else pred_raw
+                except Exception:
+                    pred = None
+
+            score_delta = 0.0
+            if pred and isinstance(pred, dict) and "score_delta" in pred:
+                try:
+                    score_delta = float(pred["score_delta"])
+                except (ValueError, TypeError):
+                    score_delta = 0.0
+            elif effect == "DEDUCT_SCORE":
+                score_delta = -5.0
+            elif effect == "ADD_SCORE":
+                score_delta = 5.0
+
+            if abs(score_delta) < 0.001:
+                unmatched_reasons.append(f"Rule #{rule_id} does not configure a score adjustment")
+                continue
+
+            # If rule has a predicate metric, check if it matches
+            if pred and isinstance(pred, dict) and pred.get("metric"):
+                metric_name = pred.get("metric")
+                operator = pred.get("operator")
+                target_val = pred.get("threshold", pred.get("value"))
+                metric_val = context.get(metric_name)
+                if metric_val is None:
+                    missing_metrics.append(metric_name)
+                    unmatched_reasons.append(f"Rule #{rule_id} metric {metric_name} missing in context")
+                    continue
+                matched = False
+                try:
+                    if operator == "<=": matched = float(metric_val) <= float(target_val)
+                    elif operator == "<": matched = float(metric_val) < float(target_val)
+                    elif operator == ">=": matched = float(metric_val) >= float(target_val)
+                    elif operator == ">": matched = float(metric_val) > float(target_val)
+                    elif operator in ("==", "="): matched = (metric_val == target_val)
+                except Exception:
+                    matched = False
+                if not matched:
+                    unmatched_reasons.append(f"Rule #{rule_id} predicate condition not met")
+                    continue
+
+            # Matched!
+            raw_delta += score_delta
+            matched_rules.append({
+                "rule_id": rule_id,
+                "title": getattr(rule, "title", ""),
+                "effect": effect,
+                "score_delta": score_delta,
+                "revision": rev,
+            })
+
+        applied_delta = max(-cap_penalty, min(cap_bonus, raw_delta))
+        return {
+            "raw_delta": round(raw_delta, 2),
+            "applied_delta": round(applied_delta, 2),
+            "delta": round(applied_delta, 2),
+            "is_capped": (raw_delta != applied_delta),
+            "matched_rules": matched_rules,
+            "unmatched_reasons": unmatched_reasons,
+            "missing_metrics": missing_metrics,
+            "rule_revisions": rule_revisions,
+        }
+
 
 lesson_rule_service = LessonRuleService()

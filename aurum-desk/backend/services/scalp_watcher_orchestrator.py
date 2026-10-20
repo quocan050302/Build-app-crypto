@@ -57,6 +57,78 @@ from services.zone_watchlist_service import ZoneWatchlistService
 logger = logging.getLogger(__name__)
 
 
+def resolve_regime_inputs(
+    c_15m: Optional[Sequence[Any]],
+    c_5m: Optional[Sequence[Any]],
+    c_1m: Optional[Sequence[Any]],
+) -> Tuple[List[Any], str, float, str]:
+    """
+    V16.39 Section 026: Resolves market regime input candles, timeframe,
+    causal ATR corresponding to selected timeframe, and data status.
+    Prevents using 15M ATR for 1M fallback or using ATR floor as strategy evidence.
+    """
+    import smc_engine
+    if c_15m and len(c_15m) >= 14:
+        atr = smc_engine.compute_atr(c_15m, period=14)
+        return list(c_15m), "15M", float(atr) if atr > 0 else 2.0, "OK"
+    elif c_5m and len(c_5m) >= 14:
+        atr = smc_engine.compute_atr(c_5m, period=14)
+        return list(c_5m), "5M", float(atr) if atr > 0 else 1.0, "FALLBACK_5M"
+    elif c_1m and len(c_1m) >= 14:
+        atr = smc_engine.compute_atr(c_1m, period=14)
+        return list(c_1m), "1M", float(atr) if atr > 0 else 0.5, "FALLBACK_1M"
+    return list(c_15m or c_5m or c_1m or []), "15M", 2.0, "DATA_INSUFFICIENT"
+
+
+def resolve_model_evaluation_plan(
+    model_id: str,
+    config: Any,
+    regime: str,
+    has_m1: bool,
+    cycle_authority: Optional[Any] = None,
+    adaptive_regime_models: Optional[Set[str]] = None,
+) -> Tuple[bool, str, str]:
+    """
+    V16.39 Section 017: Evaluates whether a model should be evaluated in current cycle.
+    Returns (should_evaluate: bool, execution_action: str, reason_code: str).
+    """
+    exec_profile = getattr(config, "execution_profile", "BASELINE")
+    scalp_mode = getattr(config, "scalp_m1_mode", "OFF")
+
+    if scalp_mode == "OFF" and not getattr(config, "daily_ny_research_enabled", False) and not getattr(config, "cg01_enabled", False):
+        return False, "DISABLED", "SCALP_MODE_OFF"
+
+    if cycle_authority and getattr(cycle_authority, "has_write_failures", False):
+        return False, "DISABLED", "CYCLE_WRITE_FAILED"
+
+    if not has_m1:
+        return False, "DISABLED", "M1_DATA_INSUFFICIENT"
+
+    if exec_profile == "PAPER_ADAPTIVE_SMC":
+        allowlist = getattr(config, "adaptive_model_allowlist", ())
+        if allowlist is None:
+            allowlist = SUPPORTED_ADAPTIVE_MODELS
+        if model_id not in allowlist:
+            return False, "DISABLED", "NOT_IN_ALLOWLIST"
+
+        if adaptive_regime_models is not None and model_id not in adaptive_regime_models and regime != "UNCERTAIN":
+            return False, "DISABLED", f"REGIME_DISALLOWED:{regime}"
+
+    # Feature flags
+    if model_id == ModelIdentifier.SMC_M1_FVG_CONTINUATION.value:
+        if not (getattr(config, "v16_profile_enabled", True) and getattr(config, "fvg_continuation_enabled", True)):
+            return False, "DISABLED", "FVG_CONTINUATION_DISABLED"
+    elif model_id == ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value:
+        if not (getattr(config, "v16_profile_enabled", True) and getattr(config, "sweep_reclaim_enabled", True)):
+            return False, "DISABLED", "SWEEP_RECLAIM_DISABLED"
+    elif model_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value:
+        if not getattr(config, "cg01_enabled", False):
+            return False, "DISABLED", "CG01_DISABLED"
+
+    action = "EVALUATE_AND_EXECUTE" if scalp_mode == "PAPER" else "EVALUATE_SHADOW"
+    return True, action, "ELIGIBLE_FOR_EVALUATION"
+
+
 def serialize_cg01_evaluation(
     decision: Optional[Any],
     *,
@@ -523,8 +595,8 @@ class ScalpWatcherOrchestrator:
         )
         from services.smc_liquidity_service import build_liquidity_map, update_liquidity_states
 
-        ref_candles = c_15m if c_15m else (c_5m if c_5m else c_1m)
-        ref_tf = "15M" if c_15m else ("5M" if c_5m else "1M")
+        ref_candles, ref_tf, atr_ref, regime_data_status = resolve_regime_inputs(c_15m, c_5m, c_1m)
+        atr_15m = atr_ref
         shs, sls = identify_confirmed_swings(ref_candles, timeframe=ref_tf, left_bars=2, right_bars=2, symbol=symbol, as_of_ms=t_recv) if ref_candles else ([], [])
         liq_levels = build_liquidity_map(
             symbol=symbol,
@@ -542,8 +614,9 @@ class ScalpWatcherOrchestrator:
             "regime": regime,
             "timeframe": ref_tf,
             "atr_reference": float(atr_15m) if atr_15m else 1.0,
+            "data_status": regime_data_status,
             "known_at_ms": t_recv,
-            "classifier_version": "v16.38",
+            "classifier_version": "v16.39",
         }
         sr_zones = []
         if getattr(cfg, "execution_profile", "BASELINE") == "PAPER_ADAPTIVE_SMC":
@@ -817,22 +890,33 @@ class ScalpWatcherOrchestrator:
             "config_version": getattr(g_settings, "config_version", 1),
         }
 
-        # A. SMC M1 Reversal Model on watched zones
+        # 4. Independent Peer Model Evaluations (V16.39 Sections 016, 017, 030)
         exec_profile = getattr(cfg, "execution_profile", "BASELINE")
         adaptive_regime_models = None
         if exec_profile == "PAPER_ADAPTIVE_SMC":
             from services.support_resistance_service import resolve_models_for_regime
             adaptive_regime_models = set(resolve_models_for_regime(regime))
 
-        run_reversal = (scalp_mode != ScalpMode.OFF.value and bool(c_1m))
-        if run_reversal and exec_profile == "PAPER_ADAPTIVE_SMC":
-            allowlist = getattr(cfg, "adaptive_model_allowlist", ()) or ()
-            if ModelIdentifier.SMC_M1_REVERSAL.value not in allowlist:
-                run_reversal = False
-            elif adaptive_regime_models is not None and ModelIdentifier.SMC_M1_REVERSAL.value not in adaptive_regime_models and regime != "UNCERTAIN":
-                run_reversal = False
+        model_diagnostics: List[Dict[str, Any]] = []
 
-        if run_reversal:
+        # A. SMC M1 Reversal Model on watched zones
+        run_rev, act_rev, reason_rev = resolve_model_evaluation_plan(
+            ModelIdentifier.SMC_M1_REVERSAL.value,
+            config=cfg,
+            regime=regime,
+            has_m1=bool(c_1m),
+            cycle_authority=cycle_authority,
+            adaptive_regime_models=adaptive_regime_models,
+        )
+        rev_diag = {
+            "model_id": ModelIdentifier.SMC_M1_REVERSAL.value,
+            "evaluated": run_rev,
+            "eligible": False,
+            "execution_action": act_rev,
+            "reason": reason_rev,
+        }
+
+        if run_rev:
             for z in bounded_zones:
                 if z.state in (ZoneState.NEAR.value, ZoneState.TOUCHED.value, ZoneState.WAITING_TRIGGER.value):
                     # Check if zone's hypothesis read authority failed (SECTIONS 095 - 098)
@@ -953,6 +1037,7 @@ class ScalpWatcherOrchestrator:
                         if sr_zones:
                             cand.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
                         candidates.append(cand)
+                        rev_diag["eligible"] = True
                     else:
                         OpportunityFunnelService.record_opportunity_transition(
                             db,
@@ -969,85 +1054,102 @@ class ScalpWatcherOrchestrator:
                             ),
                             now_ms=t_recv,
                         )
+        model_diagnostics.append(rev_diag)
 
-            has_valid_zone_authority = (not bounded_zones) or any(
-                getattr(h, "status", "") == "ACTIVE" and t_recv < getattr(h, "expiry_ms", float("inf"))
-                for h in entry_authorized_hypotheses
+        # B. SMC M1 Continuation Model (SECTIONS 080 - 082) - PEER independent branch
+        run_cont, act_cont, reason_cont = resolve_model_evaluation_plan(
+            ModelIdentifier.SMC_M1_CONTINUATION.value,
+            config=cfg,
+            regime=regime,
+            has_m1=bool(c_1m),
+            cycle_authority=cycle_authority,
+            adaptive_regime_models=adaptive_regime_models,
+        )
+        cont_diag = {
+            "model_id": ModelIdentifier.SMC_M1_CONTINUATION.value,
+            "evaluated": run_cont,
+            "eligible": False,
+            "execution_action": act_cont,
+            "reason": reason_cont,
+        }
+        if run_cont:
+            cand_cont = ScalpM1ModelService.evaluate_m1_continuation_candidate(
+                c_1m, c_5m, q, bias, align, policy_dict, now_ms=t_recv, config=cfg
             )
+            if cand_cont.is_eligible:
+                cand_cont.regime_snapshot = regime_snapshot
+                cand_cont.execution_profile = exec_profile
+                if sr_zones:
+                    cand_cont.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
+                candidates.append(cand_cont)
+                cont_diag["eligible"] = True
+        model_diagnostics.append(cont_diag)
 
-            # B. SMC M1 Continuation Model (SECTIONS 080 - 082) - DIRECT authority
-            run_cont = not cycle_authority.has_write_failures
-            if run_cont and exec_profile == "PAPER_ADAPTIVE_SMC":
-                allowlist = getattr(cfg, "adaptive_model_allowlist", ()) or ()
-                if ModelIdentifier.SMC_M1_CONTINUATION.value not in allowlist:
-                    run_cont = False
-                elif adaptive_regime_models is not None and ModelIdentifier.SMC_M1_CONTINUATION.value not in adaptive_regime_models and regime != "UNCERTAIN":
-                    run_cont = False
-            if run_cont:
-                cand_cont = ScalpM1ModelService.evaluate_m1_continuation_candidate(
-                    c_1m, c_5m, q, bias, align, policy_dict, now_ms=t_recv, config=cfg
-                )
-                if cand_cont.is_eligible:
-                    cand_cont.regime_snapshot = regime_snapshot
-                    cand_cont.execution_profile = exec_profile
-                    if sr_zones:
-                        cand_cont.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
-                    candidates.append(cand_cont)
-
-            # B2. SMC M1 FVG Continuation Model (Rules 046 - 060) - DIRECT authority, V16 profile gated
-            run_fvg = (
-                getattr(cfg, "v16_profile_enabled", True)
-                and getattr(cfg, "fvg_continuation_enabled", True)
-                and not cycle_authority.has_write_failures
+        # B2. SMC M1 FVG Continuation Model (Rules 046 - 060) - PEER independent branch
+        run_fvg, act_fvg, reason_fvg = resolve_model_evaluation_plan(
+            ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+            config=cfg,
+            regime=regime,
+            has_m1=bool(c_1m),
+            cycle_authority=cycle_authority,
+            adaptive_regime_models=adaptive_regime_models,
+        )
+        fvg_diag = {
+            "model_id": ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+            "evaluated": run_fvg,
+            "eligible": False,
+            "execution_action": act_fvg,
+            "reason": reason_fvg,
+        }
+        if run_fvg:
+            cand_fvg_cont = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
+                closed_1m=c_1m, closed_5m=c_5m, quote=q, htf_bias=bias, h1_alignment=align,
+                policy_settings=policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels
             )
-            if run_fvg and exec_profile == "PAPER_ADAPTIVE_SMC":
-                allowlist = getattr(cfg, "adaptive_model_allowlist", ()) or ()
-                if ModelIdentifier.SMC_M1_FVG_CONTINUATION.value not in allowlist:
-                    run_fvg = False
-                elif adaptive_regime_models is not None and ModelIdentifier.SMC_M1_FVG_CONTINUATION.value not in adaptive_regime_models and regime != "UNCERTAIN":
-                    run_fvg = False
-            if run_fvg:
-                cand_fvg_cont = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
-                    closed_1m=c_1m, closed_5m=c_5m, quote=q, htf_bias=bias, h1_alignment=align,
-                    policy_settings=policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels
-                )
-                if cand_fvg_cont.is_eligible:
-                    cand_fvg_cont.regime_snapshot = regime_snapshot
-                    cand_fvg_cont.execution_profile = exec_profile
-                    if sr_zones:
-                        cand_fvg_cont.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
-                    candidates.append(cand_fvg_cont)
+            if cand_fvg_cont.is_eligible:
+                cand_fvg_cont.regime_snapshot = regime_snapshot
+                cand_fvg_cont.execution_profile = exec_profile
+                if sr_zones:
+                    cand_fvg_cont.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
+                candidates.append(cand_fvg_cont)
+                fvg_diag["eligible"] = True
+        model_diagnostics.append(fvg_diag)
 
-            # B3. SMC M1 Sweep Reclaim Model (Rules 061 - 074, 080) - CLUSTER authority, V16 profile gated
-            run_sr = (
-                getattr(cfg, "v16_profile_enabled", True)
-                and getattr(cfg, "sweep_reclaim_enabled", True)
-                and not cycle_authority.has_write_failures
-            )
-            if run_sr and exec_profile == "PAPER_ADAPTIVE_SMC":
-                allowlist = getattr(cfg, "adaptive_model_allowlist", ()) or ()
-                if ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value not in allowlist:
-                    run_sr = False
-                elif adaptive_regime_models is not None and ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value not in adaptive_regime_models and regime != "UNCERTAIN":
-                    run_sr = False
-            if run_sr:
-                from services.smc_liquidity_service import build_liquidity_clusters, update_cluster_state
-                liq_clusters = build_liquidity_clusters(liq_levels, timeframe="15M", symbol=symbol, now_ms=t_recv)
-                for cluster in liq_clusters:
-                    # Update cluster state in runtime (Rule 080)
-                    update_cluster_state(cluster, c_1m, now_ms=t_recv)
-                    cycle_authority.cluster_outcomes[cluster.id] = cluster
-                    if getattr(cluster, "state", "") in ("SWEPT", "RECLAIMED"):
-                        cand_sr = ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate(
-                            closed_1m=c_1m, cluster=cluster, quote=q, policy_settings=policy_dict,
-                            now_ms=t_recv, config=cfg, context_levels=liq_levels
-                        )
-                        if cand_sr.is_eligible:
-                            cand_sr.regime_snapshot = regime_snapshot
-                            cand_sr.execution_profile = exec_profile
-                            if sr_zones:
-                                cand_sr.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
-                            candidates.append(cand_sr)
+        # B3. SMC M1 Sweep Reclaim Model (Rules 061 - 074, 080) - PEER independent branch
+        run_sr, act_sr, reason_sr = resolve_model_evaluation_plan(
+            ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+            config=cfg,
+            regime=regime,
+            has_m1=bool(c_1m),
+            cycle_authority=cycle_authority,
+            adaptive_regime_models=adaptive_regime_models,
+        )
+        sr_diag = {
+            "model_id": ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+            "evaluated": run_sr,
+            "eligible": False,
+            "execution_action": act_sr,
+            "reason": reason_sr,
+        }
+        if run_sr:
+            from services.smc_liquidity_service import build_liquidity_clusters, update_cluster_state
+            liq_clusters = build_liquidity_clusters(liq_levels, timeframe="15M", symbol=symbol, now_ms=t_recv)
+            for cluster in liq_clusters:
+                update_cluster_state(cluster, c_1m, now_ms=t_recv)
+                cycle_authority.cluster_outcomes[cluster.id] = cluster
+                if getattr(cluster, "state", "") in ("SWEPT", "RECLAIMED"):
+                    cand_sr = ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate(
+                        closed_1m=c_1m, cluster=cluster, quote=q, policy_settings=policy_dict,
+                        now_ms=t_recv, config=cfg, context_levels=liq_levels
+                    )
+                    if cand_sr.is_eligible:
+                        cand_sr.regime_snapshot = regime_snapshot
+                        cand_sr.execution_profile = exec_profile
+                        if sr_zones:
+                            cand_sr.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
+                        candidates.append(cand_sr)
+                        sr_diag["eligible"] = True
+        model_diagnostics.append(sr_diag)
 
         # C. Daily NY Research Model (SECTIONS 080 - 083)
         if cfg.daily_ny_research_enabled and not cycle_authority.has_write_failures:
@@ -1135,6 +1237,15 @@ class ScalpWatcherOrchestrator:
                 skip_reason="MODEL_DISABLED" if not cg01_cfg.enabled else "WARMUP_INSUFFICIENT",
                 as_of_ms=t_recv,
             )
+
+        cg01_diag = {
+            "model_id": ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+            "evaluated": bool(cg01_cfg.enabled and c_1m),
+            "eligible": bool(cg01_dec and cg01_dec.candidate and cg01_dec.candidate.is_eligible),
+            "execution_action": "EVALUATE_AND_EXECUTE" if cg01_cfg.enabled else "DISABLED",
+            "reason": "ELIGIBLE_FOR_EVALUATION" if (cg01_cfg.enabled and c_1m) else ("CG01_DISABLED" if not cg01_cfg.enabled else "WARMUP_INSUFFICIENT"),
+        }
+        model_diagnostics.append(cg01_diag)
 
         # Candidate Router & Deduplication (Rules 093 - 096, 131 - 134)
         from services.scalp_m1_model_service import evaluate_smc_opportunity_candidates
@@ -1345,6 +1456,7 @@ class ScalpWatcherOrchestrator:
             "market_regime": regime,
             "daily_goal": daily_goal_dict,
             "cg01_evaluation": cg01_final,
+            "model_diagnostics": model_diagnostics,
         }
 
     def _finalize_failed_cycle(
@@ -1711,6 +1823,67 @@ class ScalpWatcherOrchestrator:
             "allowed_directions": list(getattr(curr_auth.bias, "allowed_directions", None) or []) if curr_auth.bias else [],
         }
 
+        # V16.39 Quality Scoring (Sections 031 - 060)
+        quality_assessment = None
+        if getattr(cfg, "quality_scoring_enabled", False):
+            from services.setup_quality_service import assess_candidate_quality
+            score_ctx = {
+                "regime": (getattr(cand, "regime_snapshot", {}) or {}).get("regime", "UNKNOWN"),
+                "bias": cand_evidence.get("daily_bias", {}).get("direction", "UNKNOWN") if isinstance(cand_evidence.get("daily_bias"), dict) else "UNKNOWN",
+                "sr_zones": getattr(cand, "sr_evidence", None),
+                "dealing_range": getattr(cand, "dealing_range", None),
+                "quote": quote,
+                "calc": calc,
+                "db": db,
+            }
+            lesson_delta = 0.0
+            if getattr(cfg, "lesson_score_adjustment_enabled", False):
+                try:
+                    from services.lesson_rule_service import LessonRuleService
+                    adj_res = LessonRuleService.evaluate_lesson_score_adjustments(score_ctx, db=db, now_ms=now_ms)
+                    lesson_delta = adj_res.get("applied_delta", 0.0)
+                except Exception as l_err:
+                    logger.debug(f"Lesson score adjustment evaluation skipped: {l_err}")
+
+            assessment = assess_candidate_quality(
+                candidate=cand,
+                context=score_ctx,
+                profile=getattr(cfg, "quality_profile_version", "v16.39"),
+                as_of_ms=now_ms,
+                threshold=float(getattr(cfg, "quality_arm_threshold", 70.0)),
+                lesson_delta=lesson_delta,
+            )
+            quality_assessment = assessment
+
+            if assessment.decision != "ELIGIBLE_BY_SCORE":
+                logger.info(
+                    f"Candidate {cand.candidate_key} ({cand.model_id}) rejected by quality score: "
+                    f"score={assessment.final_score:.2f}/{assessment.threshold:.2f}, decision={assessment.decision}, blockers={assessment.blockers}"
+                )
+                rej_reason = assessment.decision
+                with self._lock:
+                    self._arm_rejections[cand.candidate_key] = (now_ms, rej_reason)
+                OpportunityFunnelService.record_opportunity_transition(
+                    db,
+                    OpportunityEvaluation(
+                        opportunity_id=f"opp_{cand.candidate_key}",
+                        symbol=cand.symbol,
+                        model_id=cand.model_id,
+                        direction=cand.direction,
+                        zone_id=cand.zone_id,
+                        as_of_ms=now_ms,
+                        stage=OpportunityStage.GUARD_BLOCKED.value,
+                        reason_codes=(rej_reason,),
+                        planned_entry=cand.planned_entry,
+                        stop_loss=cand.stop_loss,
+                        take_profit=cand.take_profit,
+                        net_rr=cand.net_rr,
+                        details={"quality_assessment": assessment.to_dict()},
+                    ),
+                    now_ms=now_ms,
+                )
+                return None
+
         req = EntryGuardRequest(
             stage="ARM",
             now_ms=now_ms,
@@ -1832,6 +2005,8 @@ class ScalpWatcherOrchestrator:
             arm_snap["regime_snapshot"] = cand.regime_snapshot
         if hasattr(cand, "sr_evidence") and cand.sr_evidence:
             arm_snap["sr_evidence"] = cand.sr_evidence
+        if quality_assessment:
+            arm_snap["quality_assessment"] = quality_assessment.to_dict()
 
         order_id = f"ord_{cand.model_id}_{cand.candidate_key}"
         order = models.PaperOrder(

@@ -2164,6 +2164,104 @@ def approve_lesson(lesson_id: int, db: Session = Depends(get_db)):
     return schemas.LessonItem.model_validate(lesson)
 
 
+@app.post("/api/v1/lessons/{lesson_id}/approve-and-activate", response_model=schemas.LessonItem)
+def approve_and_activate_lesson(
+    lesson_id: int,
+    req: schemas.LessonApproveAndActivateRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    V16.39 Section 110 - 113: Atomic Approve and Activate contract.
+    Validates optimistic revision, predicate & scope, activates rule atomically,
+    sets effective_at=now_ms, increments revision, and records audit trail.
+    """
+    lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail={"code": "LESSON_NOT_FOUND", "message": f"Không tìm thấy bài học #{lesson_id}"})
+
+    cur_rev = getattr(lesson, "revision", 1) or 1
+    if req.expected_revision != cur_rev:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "REVISION_MISMATCH",
+                "message": f"Bài học đã được cập nhật bởi thao tác khác (phiên bản hiện tại: {cur_rev}, yêu cầu: {req.expected_revision}). Vui lòng tải lại trang.",
+            },
+        )
+
+    now_ms = int(time.time() * 1000)
+
+    # Optional overrides from request
+    if req.selected_severity:
+        sev = str(req.selected_severity).upper()
+        if sev in ("GREEN", "INFO"): lesson.severity = "INFO"
+        elif sev in ("YELLOW", "WARNING", "WARN"): lesson.severity = "WARNING"
+        elif sev in ("RED", "CRITICAL"): lesson.severity = "CRITICAL"
+        else: lesson.severity = sev
+
+    if req.selected_effect:
+        lesson.effect = str(req.selected_effect).upper()
+
+    if req.scope is not None:
+        lesson.scope = json.dumps(req.scope) if isinstance(req.scope, dict) else str(req.scope)
+
+    if req.predicate is not None:
+        lesson.predicate = json.dumps(req.predicate) if isinstance(req.predicate, dict) else str(req.predicate)
+
+    # If score_delta is provided, embed in predicate
+    if req.score_delta is not None:
+        try:
+            pred_obj = json.loads(lesson.predicate) if lesson.predicate else {}
+        except Exception:
+            pred_obj = {}
+        pred_obj["score_delta"] = float(req.score_delta)
+        lesson.predicate = json.dumps(pred_obj)
+
+    from services.lesson_rule_service import LessonRuleService
+    is_valid, msg, report = LessonRuleService.validate_rule_behavior(lesson)
+    if not is_valid:
+        lesson.validation_status = report.get("status", "INVALID")
+        lesson.validation_report = json.dumps(report)
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "RULE_VALIDATION_FAILED",
+                "message": msg or "Quy tắc không vượt qua kiểm tra cấu trúc.",
+                "report": report,
+            },
+        )
+
+    lesson.is_approved = True
+    lesson.status = "APPROVED"
+    lesson.enabled = bool(req.activate)
+    lesson.validation_status = "VALID"
+    lesson.validated_at = now_ms
+    lesson.validation_report = json.dumps(report)
+    lesson.reviewed_at = now_ms
+    lesson.effective_at = now_ms
+    lesson.revision = cur_rev + 1
+
+    trail = []
+    if lesson.audit_trail:
+        try:
+            trail = json.loads(lesson.audit_trail)
+        except Exception:
+            trail = [lesson.audit_trail]
+    trail.append({
+        "action": "APPROVED_AND_ACTIVATED" if req.activate else "APPROVED",
+        "timestamp": now_ms,
+        "actor": "USER",
+        "note": req.review_note,
+        "revision": lesson.revision,
+    })
+    lesson.audit_trail = json.dumps(trail)
+
+    db.commit()
+    db.refresh(lesson)
+    LessonRuleService.invalidate_cache()
+    return schemas.LessonItem.model_validate(lesson)
+
+
 @app.post("/api/v1/lessons/{lesson_id}/reject", response_model=schemas.LessonItem)
 def reject_lesson(lesson_id: int, db: Session = Depends(get_db)):
     lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
@@ -3180,6 +3278,24 @@ def get_order_chart_evidence(
         plan=order_plan, invalidation_price=order.stop_loss, warnings=["LEGACY_ORDER_NO_EVIDENCE"])
 
 
+@app.get("/api/v1/orders/{order_id}/review")
+def get_order_post_trade_review_endpoint(order_id: str, db: Session = Depends(get_db)):
+    """
+    V16.39 Section 078 - 080: Returns persisted post-trade review audit record for an order.
+    """
+    from services.post_trade_review_service import get_post_trade_review
+    rev = get_post_trade_review(db, order_id)
+    if not rev:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "REVIEW_NOT_FOUND", "message": f"Chưa có đánh giá sau giao dịch cho lệnh #{order_id}"}
+        )
+    return {
+        "status": "SUCCESS",
+        "review": rev.to_dict(),
+    }
+
+
 # ==================== V15.0 SCALP WATCHER & OPPORTUNITY FUNNEL ====================
 
 @app.get("/api/scalp/config")
@@ -3219,6 +3335,10 @@ def get_scalp_config_endpoint(db: Session = Depends(get_db)):
         "cg01_direction_policy": getattr(cfg, "cg01_direction_policy", "LEGACY_H1"),
         "timing_profile": getattr(cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),
         "effective_timing_profile": getattr(cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),
+        "quality_scoring_enabled": getattr(cfg, "quality_scoring_enabled", False),
+        "quality_arm_threshold": getattr(cfg, "quality_arm_threshold", 70.0),
+        "quality_profile_version": getattr(cfg, "quality_profile_version", "v16.39"),
+        "lesson_score_adjustment_enabled": getattr(cfg, "lesson_score_adjustment_enabled", False),
     }
     return {
         "status": "SUCCESS",
@@ -3450,6 +3570,48 @@ def update_scalp_config_endpoint(
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="INVALID_VALUE: max_entry_distance_atr must be a positive number")
 
+    # Quality Scoring configuration (Sections 033 - 035, 061)
+    if "quality_scoring_enabled" in payload:
+        q_en = bool(payload["quality_scoring_enabled"])
+        cfg_q_en = db.query(models.SystemConfig).filter(models.SystemConfig.key == "quality_scoring_enabled").first()
+        if cfg_q_en:
+            cfg_q_en.value = "1" if q_en else "0"
+            cfg_q_en.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="quality_scoring_enabled", value="1" if q_en else "0", updated_at=now_ms))
+
+    if "quality_arm_threshold" in payload:
+        raw_th = payload["quality_arm_threshold"]
+        if isinstance(raw_th, bool) or not isinstance(raw_th, (int, float)) or not math.isfinite(raw_th):
+            raise HTTPException(status_code=400, detail="INVALID_VALUE: quality_arm_threshold must be a finite number")
+        th_val = float(raw_th)
+        if th_val < 0.0 or th_val > 100.0:
+            raise HTTPException(status_code=400, detail="INVALID_VALUE: quality_arm_threshold must be between 0 and 100")
+        cfg_th = db.query(models.SystemConfig).filter(models.SystemConfig.key == "quality_arm_threshold").first()
+        if cfg_th:
+            cfg_th.value = str(th_val)
+            cfg_th.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="quality_arm_threshold", value=str(th_val), updated_at=now_ms))
+
+    if "quality_profile_version" in payload:
+        q_ver = str(payload["quality_profile_version"]).strip()
+        cfg_q_ver = db.query(models.SystemConfig).filter(models.SystemConfig.key == "quality_profile_version").first()
+        if cfg_q_ver:
+            cfg_q_ver.value = q_ver
+            cfg_q_ver.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="quality_profile_version", value=q_ver, updated_at=now_ms))
+
+    if "lesson_score_adjustment_enabled" in payload:
+        l_adj = bool(payload["lesson_score_adjustment_enabled"])
+        cfg_l_adj = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lesson_score_adjustment_enabled").first()
+        if cfg_l_adj:
+            cfg_l_adj.value = "1" if l_adj else "0"
+            cfg_l_adj.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="lesson_score_adjustment_enabled", value="1" if l_adj else "0", updated_at=now_ms))
+
     # Persist validated daily frequency goals to both TradingPolicy and SystemConfig
     if has_daily_update:
         pol = TradingPolicyService.get_or_create_policy(db)
@@ -3504,6 +3666,10 @@ def update_scalp_config_endpoint(
         "cg01_direction_policy": getattr(effective_cfg, "cg01_direction_policy", "LEGACY_H1"),
         "timing_profile": getattr(effective_cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),
         "effective_timing_profile": getattr(effective_cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),
+        "quality_scoring_enabled": getattr(effective_cfg, "quality_scoring_enabled", False),
+        "quality_arm_threshold": getattr(effective_cfg, "quality_arm_threshold", 70.0),
+        "quality_profile_version": getattr(effective_cfg, "quality_profile_version", "v16.39"),
+        "lesson_score_adjustment_enabled": getattr(effective_cfg, "lesson_score_adjustment_enabled", False),
     }
     return {
         "status": "SUCCESS",

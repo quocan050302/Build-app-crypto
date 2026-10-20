@@ -533,6 +533,33 @@ def run_schema_migrations(target_engine=None):
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_obs_interval_run ON paper_observation_intervals (run_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_obs_interval_scope ON paper_observation_intervals (scope);"))
 
+            # V16.39: Post Trade Reviews Table (Section 078 - 080)
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS post_trade_reviews (
+                    id VARCHAR(36) PRIMARY KEY,
+                    order_id VARCHAR(36) NOT NULL UNIQUE,
+                    symbol VARCHAR(20) NOT NULL,
+                    model_id VARCHAR(50) NOT NULL,
+                    direction VARCHAR(10) NOT NULL,
+                    planned_entry FLOAT NOT NULL,
+                    actual_entry FLOAT NOT NULL,
+                    planned_sl FLOAT NOT NULL,
+                    planned_tp FLOAT NOT NULL,
+                    exit_price FLOAT NOT NULL,
+                    exit_cause VARCHAR(50) NOT NULL,
+                    gross_pnl FLOAT NOT NULL,
+                    net_pnl FLOAT NOT NULL,
+                    realized_rr FLOAT NOT NULL,
+                    outcome_status VARCHAR(20) NOT NULL,
+                    hold_time_ms BIGINT,
+                    entry_slippage_usd FLOAT NOT NULL,
+                    loss_classification VARCHAR(50) NOT NULL,
+                    review_json TEXT NOT NULL,
+                    created_at BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_post_trade_reviews_order ON post_trade_reviews (order_id);"))
+
             conn.commit()
     except Exception:
         pass

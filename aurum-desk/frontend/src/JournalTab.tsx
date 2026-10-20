@@ -278,6 +278,30 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
     }
   };
 
+  const handleApproveAndActivateLesson = async (lesson: LessonItem) => {
+    setIsUpdatingLesson(true);
+    try {
+      await api.approveAndActivateLesson(lesson.id, {
+        expected_revision: lesson.revision || 0,
+        selected_severity: lesson.severity,
+        selected_effect: lesson.effect,
+        scope: lesson.scope,
+        predicate: lesson.predicate,
+        activate: true,
+      });
+      if (showToast) {
+        showToast('Bài Học', 'Đã duyệt và áp dụng quy tắc thành công!', 'success');
+      }
+      loadLessons();
+    } catch (err) {
+      if (showToast) {
+        showToast('Bài Học', extractErrorMessage(err, 'Lỗi khi duyệt và áp dụng bài học'), 'warn');
+      }
+    } finally {
+      setIsUpdatingLesson(false);
+    }
+  };
+
   const handleRejectLesson = async (lessonId: number) => {
     setIsUpdatingLesson(true);
     try {
@@ -940,7 +964,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-bold text-gray-200 text-xs">{ls.title}</span>
 
-                      {/* 3-Color Badge */}
+                      {/* 3-Color Badge with Governed V16.39 Safety Status (Section 092, 106, 152) */}
                       {isCritical ? (
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 ${
@@ -956,12 +980,12 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                           <ShieldAlert className="w-3 h-3 text-rose-400" />
                           <span>
                             {isApproved && ls.enabled && isValid
-                              ? 'ĐỎ: ĐANG CHẶN ENTRY'
+                              ? 'ĐỎ: ĐANG ÁP DỤNG (CHẶN ENTRY)'
                               : isApproved && ls.enabled && !isValid
                               ? 'ĐỎ: CHƯA THỂ ÁP DỤNG'
                               : isApproved && !ls.enabled
-                              ? 'ĐỎ: ĐÃ TẮT CHẶN'
-                              : 'ĐỎ: QUY TẮC HẠN CHẾ'}
+                              ? 'ĐỎ: ĐÃ TẮT'
+                              : 'ĐỎ: Chờ duyệt — chưa ảnh hưởng lệnh mới'}
                           </span>
                         </span>
                       ) : isWarning ? (
@@ -977,22 +1001,30 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                           <AlertTriangle className="w-3 h-3 text-amber-400" />
                           <span>
                             {isApproved && ls.enabled
-                              ? 'VÀNG: ĐANG CẢNH BÁO'
+                              ? 'VÀNG: ĐANG ÁP DỤNG (CẢNH BÁO)'
                               : isApproved && !ls.enabled
-                              ? 'VÀNG: ĐÃ TẮT CẢNH BÁO'
-                              : 'VÀNG: CẢNH BÁO ENTRY'}
+                              ? 'VÀNG: ĐÃ TẮT'
+                              : 'VÀNG: Chờ duyệt — chưa ảnh hưởng lệnh mới'}
                           </span>
                         </span>
                       ) : (
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 ${
-                            isApproved
+                            isApproved && ls.enabled
                               ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                              : isApproved && !ls.enabled
+                              ? 'bg-charcoal-800 text-emerald-400/60 border-charcoal-700'
                               : 'bg-charcoal-800 text-emerald-400/70 border-charcoal-700'
                           }`}
                         >
                           <Info className="w-3 h-3 text-emerald-400" />
-                          <span>{isApproved ? 'XANH: CHỈ THAM KHẢO' : 'XANH: THAM KHẢO'}</span>
+                          <span>
+                            {isApproved && ls.enabled
+                              ? 'XANH: ĐANG ÁP DỤNG'
+                              : isApproved && !ls.enabled
+                              ? 'XANH: ĐÃ TẮT'
+                              : 'XANH: Chờ duyệt — chưa ảnh hưởng lệnh mới'}
+                          </span>
                         </span>
                       )}
 
@@ -1055,9 +1087,12 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                   </div>
 
                   {ls.hypothesis && (
-                    <p className="text-[11px] text-gray-400">
-                      <strong className="text-gray-300">Giả thuyết phân tích:</strong> {ls.hypothesis}
-                    </p>
+                    <div className="bg-charcoal-850 p-2.5 rounded border border-charcoal-750 text-[11px] space-y-1">
+                      <span className="font-semibold text-aurum-400 block">
+                        Vì sao bot chọn màu này? (Section 106, 149)
+                      </span>
+                      <p className="text-gray-300 leading-relaxed">{ls.hypothesis}</p>
+                    </div>
                   )}
 
                   {/* Predicate & Scope preview if configured */}
@@ -1136,7 +1171,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                     )}
                   </div>
 
-                  {/* Governance buttons */}
+                  {/* Governance buttons (Section 109 - 111) */}
                   <div className="flex flex-wrap justify-between items-center gap-2 pt-1 border-t border-charcoal-800">
                     <button
                       type="button"
@@ -1147,17 +1182,30 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                       <span>Cấu Hình Quy Tắc (V10)</span>
                     </button>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {ls.status !== 'APPROVED' && (
-                        <button
-                          type="button"
-                          onClick={() => handleApproveLesson(ls.id)}
-                          disabled={isUpdatingLesson}
-                          className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-semibold transition"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Duyệt Bài Học</span>
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleApproveLesson(ls.id)}
+                            disabled={isUpdatingLesson}
+                            className="flex items-center gap-1 px-2.5 py-1 bg-charcoal-800 hover:bg-charcoal-750 text-emerald-300 border border-emerald-700/60 rounded text-[11px] font-semibold transition"
+                            title="Duyệt lưu lại để tham khảo; chưa kích hoạt quy tắc chặn hoặc trừ điểm"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Duyệt Lưu Tham Khảo</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleApproveAndActivateLesson(ls)}
+                            disabled={isUpdatingLesson}
+                            className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-semibold transition shadow-sm"
+                            title="Duyệt và kích hoạt quy tắc có hiệu lực ngay cho các lệnh tiếp theo"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Duyệt & Áp Dụng</span>
+                          </button>
+                        </>
                       )}
                       {ls.status !== 'REJECTED' && (
                         <button

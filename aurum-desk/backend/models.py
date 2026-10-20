@@ -282,6 +282,36 @@ class TradeReview(Base):
     reviewed_at = Column(BigInteger, nullable=True)
 
 
+class PostTradeReviewRecord(Base):
+    """
+    V16.39 Section 078 - 080: Canonical persisted post-trade review artifact.
+    Kept separate from user notes in TradeReview to ensure system automation
+    never overwrites trader psychology or manual reflections.
+    """
+    __tablename__ = "post_trade_reviews"
+
+    id = Column(String(36), primary_key=True)
+    order_id = Column(String(36), ForeignKey("paper_orders.id"), unique=True, index=True, nullable=False)
+    symbol = Column(String(20), nullable=False)
+    model_id = Column(String(50), nullable=False)
+    direction = Column(String(10), nullable=False)
+    planned_entry = Column(Float, nullable=False)
+    actual_entry = Column(Float, nullable=False)
+    planned_sl = Column(Float, nullable=False)
+    planned_tp = Column(Float, nullable=False)
+    exit_price = Column(Float, nullable=False)
+    exit_cause = Column(String(50), nullable=False)
+    gross_pnl = Column(Float, nullable=False)
+    net_pnl = Column(Float, nullable=False)
+    realized_rr = Column(Float, nullable=False)
+    outcome_status = Column(String(20), nullable=False)
+    hold_time_ms = Column(BigInteger, nullable=True)
+    entry_slippage_usd = Column(Float, nullable=False)
+    loss_classification = Column(String(50), nullable=False)
+    review_json = Column(Text, nullable=False)
+    created_at = Column(BigInteger, nullable=False)
+
+
 class SystemConfig(Base):
     __tablename__ = "system_configs"
 

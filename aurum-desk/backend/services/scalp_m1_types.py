@@ -440,6 +440,11 @@ class M1ScalpConfig:
         ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
         ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
     )
+    # V16.39 Quality Scoring Config (SECTIONS 033, 034, 035)
+    quality_scoring_enabled: bool = False
+    quality_arm_threshold: float = 70.0
+    quality_profile_version: str = "v16.39"
+    lesson_score_adjustment_enabled: bool = False
 
     def __post_init__(self):
         if self.near_zone_enter_atr >= self.near_zone_exit_atr:
@@ -456,6 +461,17 @@ class M1ScalpConfig:
             raise ValueError(f"INVALID_EXECUTION_PROFILE: {self.execution_profile}")
         if self.adaptive_model_allowlist is not None:
             normalize_adaptive_model_allowlist(self.adaptive_model_allowlist)
+        # Validate quality_arm_threshold (Rule 034)
+        import math
+        if (
+            isinstance(self.quality_arm_threshold, bool)
+            or not isinstance(self.quality_arm_threshold, (int, float))
+            or not math.isfinite(self.quality_arm_threshold)
+            or not (0.0 <= float(self.quality_arm_threshold) <= 100.0)
+        ):
+            raise ValueError(
+                f"INVALID_QUALITY_THRESHOLD: quality_arm_threshold must be a finite number between 0 and 100, got {self.quality_arm_threshold}"
+            )
         validate_daily_frequency_config(self)
 
 
@@ -507,6 +523,10 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
                 "cg01_direction_policy",
                 "timing_profile",
                 "adaptive_model_allowlist",
+                "quality_scoring_enabled",
+                "quality_arm_threshold",
+                "quality_profile_version",
+                "lesson_score_adjustment_enabled",
             ])
         ).all()
         config_map = {r.key: r.value for r in rows}
@@ -530,6 +550,8 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
         "multi_zone_hypotheses_enabled",
         "orderflow_shadow_enabled",
         "cg01_enabled",
+        "quality_scoring_enabled",
+        "lesson_score_adjustment_enabled",
     ]:
         if bool_key in config_map:
             val = str(config_map[bool_key]).strip().lower()
@@ -538,7 +560,7 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
             elif val in ("false", "0", "no"):
                 overrides[bool_key] = False
 
-    for str_key in ["cg01_profile_mode", "execution_profile", "cg01_direction_policy", "timing_profile"]:
+    for str_key in ["cg01_profile_mode", "execution_profile", "cg01_direction_policy", "timing_profile", "quality_profile_version"]:
         if str_key in config_map:
             s_val = str(config_map[str_key]).strip()
             if str_key == "timing_profile":
@@ -558,6 +580,9 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
             overrides["adaptive_model_allowlist"] = normalize_adaptive_model_allowlist(raw_al)
         except Exception as e:
             logger.warning(f"Failed to normalize persisted adaptive_model_allowlist: {e}")
+            # V16.39 Rule 024: For adaptive profile, corrupt allowlist must NOT silently expand to all 5 models
+            if config_map.get("execution_profile") == ExecutionProfile.PAPER_ADAPTIVE_SMC.value:
+                overrides["adaptive_model_allowlist"] = ()
 
     for num_key, typ in [
         ("min_closed_m1_bars", int),
@@ -574,6 +599,7 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
         ("daily_min_goal", int),
         ("daily_max_cap", int),
         ("daily_ny_goal", int),
+        ("quality_arm_threshold", float),
     ]:
         if num_key in config_map:
             try:
@@ -685,5 +711,8 @@ def build_adaptive_smc_paper_profile(
         "adaptive_model_allowlist": effective_allowlist,
         "cg01_enabled": cg01_in_allowlist,
         "cg01_profile_mode": "PAPER_EXECUTION" if cg01_in_allowlist else "OFF",
+        "quality_scoring_enabled": True,
+        "quality_arm_threshold": 70.0,
+        "quality_profile_version": "v16.39",
     })
     return M1ScalpConfig(**base_dict)

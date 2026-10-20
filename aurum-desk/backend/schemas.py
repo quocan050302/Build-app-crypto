@@ -476,6 +476,16 @@ class LessonUpdate(BaseModel):
     stage: Optional[str] = None
     revision: Optional[int] = None
 
+class LessonApproveAndActivateRequest(BaseModel):
+    expected_revision: int
+    selected_severity: Optional[str] = None
+    selected_effect: Optional[str] = None
+    scope: Optional[Union[Dict[str, Any], str]] = None
+    predicate: Optional[Union[Dict[str, Any], str]] = None
+    score_delta: Optional[float] = None
+    activate: bool = True
+    review_note: Optional[str] = None
+
 class RuleValidationRequest(BaseModel):
     predicate: Optional[Union[Dict[str, Any], str]] = None
     severity: str = "INFO"

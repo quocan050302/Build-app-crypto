@@ -515,9 +515,9 @@ class TradeLifecycleService:
         except Exception as obs_err:
             logger.warning(f"Failed to record closed outcome observation for {order.id}: {obs_err}")
 
-        # V16.38 Rules 131, 132: Safely generate empirical post-trade review artifact without endangering close
+        # V16.38/V16.39 Section 078 - 082: Safely generate and persist empirical post-trade review artifact
         try:
-            from services.post_trade_review_service import build_post_trade_review
+            from services.post_trade_review_service import build_post_trade_review, save_post_trade_review
             outcome_dict = {
                 "order_id": order.id,
                 "exit_price": exit_price,
@@ -529,9 +529,10 @@ class TradeLifecycleService:
             }
             raw_arm_snap = getattr(order, "arm_decision_snapshot", None)
             arm_evidence = json.loads(raw_arm_snap) if isinstance(raw_arm_snap, str) else (raw_arm_snap or {})
-            build_post_trade_review(order, outcome_dict, entry_evidence=arm_evidence, now_ms=current_time)
+            review_obj = build_post_trade_review(order, outcome_dict, entry_evidence=arm_evidence, now_ms=current_time)
+            save_post_trade_review(db, review_obj)
         except Exception as rev_err:
-            logger.warning(f"Post-trade review generation failed for order {order.id}: {rev_err}")
+            logger.warning(f"Post-trade review generation/persistence failed for order {order.id}: {rev_err}")
 
         # Create Domain Event & Notification Outbox in same transaction
         event_type = "trade.liquidated" if exit_cause == "LIQUIDATED" else "trade.closed"
@@ -760,6 +761,29 @@ class TradeLifecycleService:
             reflection = f"Lệnh {order.direction} ({family}) kết thúc với nguyên nhân {cause or 'CLOSED'}. {compliance_detail}"
             action_rule = "Ghi nhận dữ liệu thực tế vào Journal để phân tích thêm."
 
+        # V16.39 Governed Lesson Classification (Sections 091 - 105)
+        from services.post_trade_review_service import get_post_trade_review, build_post_trade_review, classify_post_trade_lesson
+        rev = get_post_trade_review(db, order.id)
+        if rev is None:
+            outcome_dict = {
+                "order_id": order.id,
+                "exit_price": exit_p,
+                "exit_cause": cause,
+                "gross_pnl": order.realized_pnl_net or 0.0,
+                "net_pnl": pnl,
+                "realized_r": r_mult,
+                "closed_at_ms": now_ms,
+            }
+            raw_arm_snap = getattr(order, "arm_decision_snapshot", None)
+            arm_evidence = json.loads(raw_arm_snap) if isinstance(raw_arm_snap, str) else (raw_arm_snap or {})
+            rev = build_post_trade_review(order, outcome_dict, entry_evidence=arm_evidence, now_ms=now_ms)
+
+        classification = classify_post_trade_lesson(rev)
+
+        hold_time_val = None
+        if opened_at is not None and now_ms >= opened_at:
+            hold_time_val = now_ms - opened_at
+
         db_lesson = models.Lesson(
             created_at=now_ms,
             title=title,
@@ -770,7 +794,15 @@ class TradeLifecycleService:
             reflection=reflection,
             action_rule=action_rule,
             is_hard_filter=False,
-            is_approved=False,  # Lessons require human review/validation, never auto-approved
+            is_approved=False,  # Section 101: Never auto-approved
+            enabled=False,      # Section 101: Never auto-enabled
+            status="PENDING_REVIEW",  # Section 101
+            validation_status="UNVALIDATED",
+            severity=classification.canonical_severity,  # INFO, WARNING, CRITICAL
+            effect=classification.proposed_effect,        # ANNOTATE, WARN_ENTRY, BLOCK_ENTRY
+            hypothesis=classification.reason_vi,         # "Vì sao bot chọn màu này?" (Section 106)
+            scope=json.dumps(classification.suggested_scope),
+            action_candidate=json.dumps(classification.to_dict()),
             strategy_family=family,
             facts_snapshot=json.dumps({
                 "family": family,
@@ -779,15 +811,18 @@ class TradeLifecycleService:
                 "actual_exit": order.actual_exit,
                 "pnl": pnl,
                 "realized_r": r_mult,
-                "exit_cause": order.exit_cause
+                "exit_cause": order.exit_cause,
+                "suggested_color": classification.suggested_color,
+                "classification_code": classification.classification_code,
             }),
             compliance_snapshot=json.dumps({
                 "compliance_status": compliance_status,
                 "compliance_detail": compliance_detail,
-                "invalidation_basis": invalidation_basis
+                "invalidation_basis": invalidation_basis,
+                "color_reason": classification.reason_vi,
             }),
             mfe_mae_snapshot=json.dumps({
-                "hold_time_ms": hold_time_ms
+                "hold_time_ms": hold_time_val
             })
         )
         db.add(db_lesson)
