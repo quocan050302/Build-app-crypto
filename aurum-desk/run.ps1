@@ -6,6 +6,21 @@ Write-Host "=====================================================" -ForegroundCo
 Write-Host "   AURUM DESK - HE THONG SMC/ICT & PAPER TRADING   " -ForegroundColor Yellow
 Write-Host "=====================================================" -ForegroundColor DarkYellow
 
+# 0. Don dep cac tien trinh cu dang chay (Port 8000 & 5174) neu co
+Write-Host "[*] Kiem tra va don dep port 8000 va 5174 neu dang chay..." -ForegroundColor Cyan
+$existingPorts = @(8000, 5174)
+foreach ($port in $existingPorts) {
+    $conns = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
+    if ($conns) {
+        $pids = $conns | Select-Object -ExpandProperty OwningProcess -Unique | Where-Object { $_ -gt 4 }
+        foreach ($procId in $pids) {
+            Write-Host "    -> Dung process dang chiem port $port (PID: $procId)..." -ForegroundColor Yellow
+            Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+Start-Sleep -Milliseconds 800
+
 # 1. Kiem tra & Chuan bi Backend
 $BackendDir = Join-Path $ScriptDir "backend"
 $VenvPython = Join-Path $BackendDir "venv\Scripts\python.exe"
@@ -31,7 +46,7 @@ if (-not (Test-Path "$FrontendDir\node_modules")) {
 
 # 3. Khoi chay Backend Server (Port 8000)
 Write-Host "[+] Khoi chay Backend FastAPI tai http://127.0.0.1:8000..." -ForegroundColor Green
-Start-Process powershell -WorkingDirectory $BackendDir -ArgumentList "-NoExit", "-Command", "`$env:PYTHONPATH='.'; & `"$VenvPython`" -m uvicorn main:app --reload --host 127.0.0.1 --port 8000"
+Start-Process powershell -WorkingDirectory $BackendDir -ArgumentList "-NoExit", "-Command", "`$env:PYTHONPATH='.'; & '$VenvPython' -m uvicorn main:app --reload --host 127.0.0.1 --port 8000"
 
 # Cho 2 giay de backend khoi dong
 Start-Sleep -Seconds 2

@@ -24,7 +24,7 @@ SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False, "timeout": 15},
+    connect_args={"check_same_thread": False, "timeout": 30},
     poolclass=NullPool
 )
 
@@ -34,7 +34,7 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
-    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.execute("PRAGMA busy_timeout=30000")
     cursor.close()
 
 def run_schema_migrations(target_engine=None):
@@ -210,6 +210,7 @@ def run_schema_migrations(target_engine=None):
                     mode VARCHAR(20) DEFAULT 'PAPER',
                     symbol VARCHAR(20) DEFAULT 'XAUUSDT',
                     max_daily_fills INTEGER DEFAULT 3,
+                    daily_min_goal INTEGER DEFAULT 2,
                     daily_timezone VARCHAR(50) DEFAULT 'Asia/Ho_Chi_Minh',
                     entry_session_policy VARCHAR(40) DEFAULT 'ALL_SESSIONS_WITH_NY_RESERVE',
                     ny_timezone VARCHAR(50) DEFAULT 'America/New_York',
@@ -226,6 +227,11 @@ def run_schema_migrations(target_engine=None):
                     updated_at BIGINT NOT NULL
                 );
             """))
+            tp_res = conn.execute(text("PRAGMA table_info(trading_policies)"))
+            tp_cols = {row[1] for row in tp_res.fetchall()}
+            if tp_cols and "daily_min_goal" not in tp_cols:
+                conn.execute(text("ALTER TABLE trading_policies ADD COLUMN daily_min_goal INTEGER DEFAULT 2"))
+                conn.commit()
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS session_quotas (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -312,6 +318,7 @@ def run_schema_migrations(target_engine=None):
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenario_snapshots_scenario_id ON smc_scenario_snapshots (scenario_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenario_snapshots_instance_id ON smc_scenario_snapshots (instance_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenario_snapshots_as_of_ms ON smc_scenario_snapshots (as_of_ms);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_sqs_setup_created ON setup_quality_snapshots (setup_id, created_at DESC);"))
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS paper_observations (
                     id VARCHAR(80) PRIMARY KEY,

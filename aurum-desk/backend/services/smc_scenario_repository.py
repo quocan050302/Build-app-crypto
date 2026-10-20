@@ -28,6 +28,9 @@ def save_immutable_scenario_snapshot(db: Session, snapshot: ScenarioSnapshot) ->
     existing = db.query(SMCScenarioSnapshot).filter(SMCScenarioSnapshot.snapshot_id == snapshot.snapshot_id).first()
     if existing is not None:
         if existing.evidence_digest != snapshot.evidence_digest:
+            if existing.state in ("SUPERSEDED", "EXPIRED", "INVALIDATED"):
+                logger.info("Preserving existing terminal snapshot %s (state=%s)", snapshot.snapshot_id, existing.state)
+                return existing
             raise ValueError(
                 f'SNAPSHOT_IMMUTABILITY_CONFLICT: snapshot {snapshot.snapshot_id} exists with different digest '
                 f'({existing.evidence_digest} vs {snapshot.evidence_digest})')

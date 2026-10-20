@@ -86,17 +86,23 @@ class SetupQualityRepository:
 
     @staticmethod
     def get_snapshots_batch(db: Session, setup_ids: List[str]) -> Dict[str, Dict[str, Any]]:
-        """Batch loads latest snapshot for a list of setup_ids to prevent N+1 queries."""
+        """Batch loads latest snapshot for a list of setup_ids to prevent N+1 queries and memory bloat."""
         if not setup_ids:
             return {}
-        records = db.query(models.SetupQualitySnapshot).filter(
-            models.SetupQualitySnapshot.setup_id.in_(setup_ids)
-        ).order_by(models.SetupQualitySnapshot.created_at.desc()).all()
-
         out = {}
-        for r in records:
-            if r.setup_id not in out:
-                out[r.setup_id] = json.loads(r.payload_json)
+        unique_ids = list(dict.fromkeys(setup_ids))
+        for s_id in unique_ids:
+            rec = (
+                db.query(models.SetupQualitySnapshot)
+                .filter(models.SetupQualitySnapshot.setup_id == s_id)
+                .order_by(models.SetupQualitySnapshot.created_at.desc())
+                .first()
+            )
+            if rec:
+                try:
+                    out[s_id] = json.loads(rec.payload_json)
+                except Exception:
+                    pass
         return out
 
 
