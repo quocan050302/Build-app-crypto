@@ -505,17 +505,8 @@ class TradeLifecycleService:
                 watch_setup.state = "CLOSED"
                 watch_setup.updated_at = current_time
 
-        # Create structured Lesson
-        TradeLifecycleService._create_lesson(db, order, current_time, session_tag=session_tag)
-
-        # Record persistent paper observation for closed trade outcome
-        try:
-            from services.smc_observation_service import record_closed_outcome
-            record_closed_outcome(db, order, as_of_ms=current_time)
-        except Exception as obs_err:
-            logger.warning(f"Failed to record closed outcome observation for {order.id}: {obs_err}")
-
-        # V16.38/V16.39 Section 078 - 082: Safely generate and persist empirical post-trade review artifact
+        # V16.39.1 Section 116: Build & persist canonical post-trade review first
+        review_obj = None
         try:
             from services.post_trade_review_service import build_post_trade_review, save_post_trade_review
             outcome_dict = {
@@ -533,6 +524,19 @@ class TradeLifecycleService:
             save_post_trade_review(db, review_obj)
         except Exception as rev_err:
             logger.warning(f"Post-trade review generation/persistence failed for order {order.id}: {rev_err}")
+
+        # Create structured Lesson using canonical review (Section 116, 122, 123)
+        try:
+            TradeLifecycleService._create_lesson(db, order, current_time, session_tag=session_tag, review_obj=review_obj)
+        except Exception as l_err:
+            logger.warning(f"Lesson creation failed for order {order.id}: {l_err}")
+
+        # Record persistent paper observation for closed trade outcome
+        try:
+            from services.smc_observation_service import record_closed_outcome
+            record_closed_outcome(db, order, as_of_ms=current_time)
+        except Exception as obs_err:
+            logger.warning(f"Failed to record closed outcome observation for {order.id}: {obs_err}")
 
         # Create Domain Event & Notification Outbox in same transaction
         event_type = "trade.liquidated" if exit_cause == "LIQUIDATED" else "trade.closed"
@@ -677,7 +681,8 @@ class TradeLifecycleService:
         db: Session,
         order: models.PaperOrder,
         now_ms: int,
-        session_tag: str = "LIVE_PAPER"
+        session_tag: str = "LIVE_PAPER",
+        review_obj: Optional[Any] = None,
     ):
         """
         Create factual, evidence-based Lesson.
@@ -710,13 +715,43 @@ class TradeLifecycleService:
         has_fvg = bool(evidence.get("fvg_id") or evidence.get("fvg_zone"))
         has_displacement = bool(evidence.get("is_displacement"))
 
-        if family == "NY_QUOTA_PAPER":
-            compliance_status = "PARTIAL_FALLBACK"
-            compliance_detail = "Lệnh NY Quota Fallback: Khung 5M retest POI, không yêu cầu Liquidity Sweep đầy đủ."
+        # Section 113: Model-aware compliance
+        fam_upper = family.upper()
+        if "NY_QUOTA" in fam_upper:
+            has_poi = bool(evidence.get("zone_id") or evidence.get("poi_confirmed") or evidence.get("fvg_id"))
+            if has_poi:
+                compliance_status = "PARTIAL_FALLBACK"
+                compliance_detail = "Lệnh NY Quota Fallback: Khung 5M retest POI, không yêu cầu Liquidity Sweep đầy đủ."
+            else:
+                compliance_status = "INCOMPLETE_EVIDENCE"
+                compliance_detail = "Thiếu bằng chứng POI cho lệnh NY Quota."
             invalidation_basis = f"Thủng vùng POI tại SL {order.stop_loss:.2f}"
+        elif "CONTINUATION" in fam_upper:
+            # Continuation requires BOS and HTF trend alignment, does NOT require sweep!
+            has_bos = bool(evidence.get("bos_id") or evidence.get("has_bos") or any(
+                isinstance(x, dict) and x.get("kind") == "BOS" for x in (evidence.get("items") or evidence.get("ev_nodes") or [])
+            ))
+            if has_bos:
+                compliance_status = "FULL_COMPLIANCE"
+                compliance_detail = "Chuỗi SMC Continuation: BOS breakout và pullback có bằng chứng."
+            else:
+                compliance_status = "INCOMPLETE_EVIDENCE"
+                compliance_detail = "Thiếu bằng chứng BOS breakout cho lệnh Continuation."
+            invalidation_basis = f"Thủng đáy/đỉnh bảo vệ tại SL {order.stop_loss:.2f}"
+        elif "CG01" in fam_upper:
+            # CG01 requires POI and Retest
+            has_poi = bool(evidence.get("zone_id") or evidence.get("poi_confirmed"))
+            has_retest = bool(evidence.get("retest_detected") or evidence.get("has_retest"))
+            if has_poi and has_retest:
+                compliance_status = "FULL_COMPLIANCE"
+                compliance_detail = "Chuỗi CG01 Orderblock: POI và Retest có bằng chứng."
+            else:
+                compliance_status = "INCOMPLETE_EVIDENCE"
+                compliance_detail = "Thiếu bằng chứng Retest hoặc POI cho setup CG01."
+            invalidation_basis = f"Invalidation Orderblock tại SL {order.stop_loss:.2f}"
         elif has_sweep and has_fvg and has_displacement:
             compliance_status = "FULL_COMPLIANCE"
-            compliance_detail = "Chuỗi SMC đầy đủ: Sweep + Displacement + MSS + FVG Retest có bằng chứng."
+            compliance_detail = "Chuỗi SMC Reversal đầy đủ: Sweep + Displacement + MSS + FVG Retest có bằng chứng."
             invalidation_basis = f"Invalidation cấu trúc tại SL {order.stop_loss:.2f}"
         else:
             compliance_status = "INCOMPLETE_EVIDENCE"
@@ -761,24 +796,39 @@ class TradeLifecycleService:
             reflection = f"Lệnh {order.direction} ({family}) kết thúc với nguyên nhân {cause or 'CLOSED'}. {compliance_detail}"
             action_rule = "Ghi nhận dữ liệu thực tế vào Journal để phân tích thêm."
 
-        # V16.39 Governed Lesson Classification (Sections 091 - 105)
+        # V16.39.1 Governed Lesson Classification (Sections 091 - 105, 116, 117)
         from services.post_trade_review_service import get_post_trade_review, build_post_trade_review, classify_post_trade_lesson
-        rev = get_post_trade_review(db, order.id)
+        rev = review_obj
         if rev is None:
-            outcome_dict = {
-                "order_id": order.id,
-                "exit_price": exit_p,
-                "exit_cause": cause,
-                "gross_pnl": order.realized_pnl_net or 0.0,
-                "net_pnl": pnl,
-                "realized_r": r_mult,
-                "closed_at_ms": now_ms,
-            }
-            raw_arm_snap = getattr(order, "arm_decision_snapshot", None)
-            arm_evidence = json.loads(raw_arm_snap) if isinstance(raw_arm_snap, str) else (raw_arm_snap or {})
-            rev = build_post_trade_review(order, outcome_dict, entry_evidence=arm_evidence, now_ms=now_ms)
+            rev = get_post_trade_review(db, order.id)
+            if rev is None:
+                outcome_dict = {
+                    "order_id": order.id,
+                    "exit_price": exit_p,
+                    "exit_cause": cause,
+                    "gross_pnl": getattr(order, "realized_pnl_gross", None) or 0.0,
+                    "net_pnl": pnl,
+                    "realized_r": r_mult,
+                    "closed_at_ms": now_ms,
+                }
+                raw_arm_snap = getattr(order, "arm_decision_snapshot", None)
+                arm_evidence = json.loads(raw_arm_snap) if isinstance(raw_arm_snap, str) else (raw_arm_snap or {})
+                rev = build_post_trade_review(order, outcome_dict, entry_evidence=arm_evidence, now_ms=now_ms)
 
-        classification = classify_post_trade_lesson(rev)
+        entry_snap_dict = {
+            "symbol": order.symbol,
+            "direction": order.direction,
+            "planned_entry": order.entry_price,
+            "planned_sl": order.stop_loss,
+            "planned_tp": order.take_profit,
+            "evidence": evidence,
+            "compliance_verified": (compliance_status in ("FULL_COMPLIANCE", "PARTIAL_FALLBACK")),
+        }
+        audit_dict = {
+            "compliance_status": compliance_status,
+            "compliance_verified": (compliance_status in ("FULL_COMPLIANCE", "PARTIAL_FALLBACK")),
+        }
+        classification = classify_post_trade_lesson(rev, entry_snapshot=entry_snap_dict, audit=audit_dict)
 
         hold_time_val = None
         if opened_at is not None and now_ms >= opened_at:

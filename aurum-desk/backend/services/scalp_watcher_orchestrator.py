@@ -1823,27 +1823,49 @@ class ScalpWatcherOrchestrator:
             "allowed_directions": list(getattr(curr_auth.bias, "allowed_directions", None) or []) if curr_auth.bias else [],
         }
 
-        # V16.39 Quality Scoring (Sections 031 - 060)
+        # V16.39.1 Evidence-based Quality Scoring (Sections 016 - 060)
         quality_assessment = None
         if getattr(cfg, "quality_scoring_enabled", False):
-            from services.setup_quality_service import assess_candidate_quality
-            score_ctx = {
+            from services.setup_quality_service import (
+                assess_candidate_quality,
+                normalize_candidate_evidence,
+                build_candidate_scoring_context,
+            )
+            norm_ev = normalize_candidate_evidence(cand, as_of_ms=now_ms)
+            market_ctx = {
                 "regime": (getattr(cand, "regime_snapshot", {}) or {}).get("regime", "UNKNOWN"),
-                "bias": cand_evidence.get("daily_bias", {}).get("direction", "UNKNOWN") if isinstance(cand_evidence.get("daily_bias"), dict) else "UNKNOWN",
+                "htf_bias": cand_evidence.get("daily_bias", {}).get("direction", "UNKNOWN") if isinstance(cand_evidence.get("daily_bias"), dict) else "UNKNOWN",
+                "h1_alignment": cand_evidence.get("h1_alignment") if isinstance(cand_evidence, dict) else None,
                 "sr_zones": getattr(cand, "sr_evidence", None),
                 "dealing_range": getattr(cand, "dealing_range", None),
-                "quote": quote,
-                "calc": calc,
-                "db": db,
+                "session": session_tag,
             }
+            score_ctx = build_candidate_scoring_context(
+                candidate=cand,
+                normalized_evidence=norm_ev,
+                effective_config=cfg,
+                quote=quote,
+                calculation=calc,
+                market_context=market_ctx,
+                as_of_ms=now_ms,
+            )
             lesson_delta = 0.0
             if getattr(cfg, "lesson_score_adjustment_enabled", False):
                 try:
                     from services.lesson_rule_service import LessonRuleService
-                    adj_res = LessonRuleService.evaluate_lesson_score_adjustments(score_ctx, db=db, now_ms=now_ms)
+                    # Pass complete context for lesson retrieval & scope check (Section 063)
+                    lesson_scope_ctx = dict(score_ctx)
+                    lesson_scope_ctx["symbol"] = cand.symbol
+                    lesson_scope_ctx["direction"] = cand.direction
+                    lesson_scope_ctx["strategy_family"] = cand.model_id
+                    lesson_scope_ctx["execution_mode"] = "PAPER"
+                    lesson_scope_ctx["stage"] = "BEFORE_ARM"
+                    lesson_scope_ctx["session"] = session_tag
+
+                    adj_res = LessonRuleService.evaluate_lesson_score_adjustments(lesson_scope_ctx, db=db, now_ms=now_ms)
                     lesson_delta = adj_res.get("applied_delta", 0.0)
                 except Exception as l_err:
-                    logger.debug(f"Lesson score adjustment evaluation skipped: {l_err}")
+                    logger.warning(f"Lesson score adjustment evaluation error: {l_err}")
 
             assessment = assess_candidate_quality(
                 candidate=cand,

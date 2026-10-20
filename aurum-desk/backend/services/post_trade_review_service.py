@@ -362,18 +362,172 @@ class LessonClassification:
         }
 
 
+@dataclass
+class EntryComplianceResult:
+    status: str  # "VERIFIED_COMPLIANT", "VERIFIED_VIOLATION", "UNVERIFIABLE"
+    reason: str
+    violation_code: Optional[str] = None
+    checks_passed: List[str] = field(default_factory=list)
+    checks_failed: List[str] = field(default_factory=list)
+    missing_evidence: List[str] = field(default_factory=list)
+    evidence_refs: List[str] = field(default_factory=list)
+
+
+def assess_entry_compliance_for_review(
+    order: Any = None,
+    entry_snapshot: Optional[Dict[str, Any]] = None,
+    fill_snapshot: Optional[Dict[str, Any]] = None,
+    audit: Optional[Any] = None,
+    model_requirements: Optional[Dict[str, Any]] = None,
+) -> EntryComplianceResult:
+    """
+    V16.39.1 Section 097:
+    Assesses entry and fill compliance against model requirements, geometry, and risk rules.
+    Outputs: VERIFIED_COMPLIANT, VERIFIED_VIOLATION, or UNVERIFIABLE.
+    """
+    passed: List[str] = []
+    failed: List[str] = []
+    missing: List[str] = []
+    refs: List[str] = []
+
+    # If neither entry_snapshot nor audit nor order is provided, it is UNVERIFIABLE
+    if entry_snapshot is None and audit is None and order is None:
+        return EntryComplianceResult(
+            status="UNVERIFIABLE",
+            reason="Thiếu entry snapshot và compliance audit.",
+            missing_evidence=["ENTRY_SNAPSHOT", "COMPLIANCE_AUDIT"],
+        )
+
+    # 1. Audit validation
+    if audit is not None:
+        if isinstance(audit, dict):
+            if audit.get("violation_detected") or audit.get("policy_violation"):
+                return EntryComplianceResult(
+                    status="VERIFIED_VIOLATION",
+                    reason=str(audit.get("reason") or "Audit phát hiện vi phạm quy tắc thực thi."),
+                    violation_code="AUDIT_POLICY_VIOLATION",
+                    checks_failed=["AUDIT_COMPLIANCE"],
+                )
+            if audit.get("risk_violated"):
+                return EntryComplianceResult(
+                    status="VERIFIED_VIOLATION",
+                    reason="Vượt hạn mức rủi ro theo audit.",
+                    violation_code="RISK_BUDGET_VIOLATION",
+                    checks_failed=["RISK_BUDGET"],
+                )
+            if audit.get("compliance_verified") is True:
+                passed.append("AUDIT_COMPLIANCE_VERIFIED")
+
+    # 2. Entry snapshot validation
+    if not entry_snapshot:
+        return EntryComplianceResult(
+            status="UNVERIFIABLE",
+            reason="Thiếu entry snapshot để xác minh bằng chứng và điều kiện vào lệnh.",
+            missing_evidence=["ENTRY_SNAPSHOT"],
+        )
+
+    # Geometry verification in snapshot (Section 103)
+    s_dir = entry_snapshot.get("direction")
+    s_entry = entry_snapshot.get("planned_entry", entry_snapshot.get("entry_price"))
+    s_sl = entry_snapshot.get("planned_sl", entry_snapshot.get("stop_loss"))
+    s_tp = entry_snapshot.get("planned_tp", entry_snapshot.get("take_profit"))
+    if s_dir and s_entry and s_sl:
+        try:
+            s_entry = float(s_entry)
+            s_sl = float(s_sl)
+            s_dir_norm = "LONG" if str(s_dir).upper() in ("LONG", "BUY") else "SHORT"
+            if s_dir_norm == "LONG" and s_sl >= s_entry:
+                return EntryComplianceResult(
+                    status="VERIFIED_VIOLATION",
+                    reason=f"Hình học lệnh vi phạm: SL ({s_sl:.2f}) >= Entry ({s_entry:.2f}) cho LONG",
+                    violation_code="GEOMETRY_VIOLATION",
+                    checks_failed=["SNAPSHOT_GEOMETRY"],
+                )
+            elif s_dir_norm == "SHORT" and s_sl <= s_entry:
+                return EntryComplianceResult(
+                    status="VERIFIED_VIOLATION",
+                    reason=f"Hình học lệnh vi phạm: SL ({s_sl:.2f}) <= Entry ({s_entry:.2f}) cho SHORT",
+                    violation_code="GEOMETRY_VIOLATION",
+                    checks_failed=["SNAPSHOT_GEOMETRY"],
+                )
+            if s_tp:
+                s_tp = float(s_tp)
+                if s_dir_norm == "LONG" and s_tp <= s_entry:
+                    return EntryComplianceResult(
+                        status="VERIFIED_VIOLATION",
+                        reason=f"Hình học lệnh vi phạm: TP ({s_tp:.2f}) <= Entry ({s_entry:.2f}) cho LONG",
+                        violation_code="GEOMETRY_VIOLATION",
+                        checks_failed=["SNAPSHOT_GEOMETRY"],
+                    )
+                elif s_dir_norm == "SHORT" and s_tp >= s_entry:
+                    return EntryComplianceResult(
+                        status="VERIFIED_VIOLATION",
+                        reason=f"Hình học lệnh vi phạm: TP ({s_tp:.2f}) >= Entry ({s_entry:.2f}) cho SHORT",
+                        violation_code="GEOMETRY_VIOLATION",
+                        checks_failed=["SNAPSHOT_GEOMETRY"],
+                    )
+            passed.append("PRICE_GEOMETRY")
+        except (ValueError, TypeError):
+            missing.append("NUMERIC_GEOMETRY")
+
+    # Check evidence nodes or trigger chain in entry_snapshot
+    has_evidence = False
+    raw_ev = entry_snapshot.get("evidence")
+    if isinstance(raw_ev, (list, tuple)) and len(raw_ev) > 0:
+        has_evidence = True
+        for x in raw_ev:
+            if isinstance(x, dict) and x.get("id"):
+                refs.append(str(x["id"]))
+            elif hasattr(x, "id"):
+                refs.append(str(getattr(x, "id")))
+    elif isinstance(raw_ev, dict):
+        if raw_ev.get("items") or raw_ev.get("ev_nodes") or raw_ev.get("nodes"):
+            has_evidence = True
+        elif raw_ev.get("evidence_ids"):
+            has_evidence = True
+            refs.extend([str(x) for x in raw_ev["evidence_ids"]])
+        elif raw_ev.get("has_sweep") or raw_ev.get("sweep_detected") or raw_ev.get("has_trigger") or raw_ev.get("fvg_id") or raw_ev.get("zone_id"):
+            has_evidence = True
+
+    if entry_snapshot.get("trigger_chain"):
+        tc = entry_snapshot.get("trigger_chain")
+        if isinstance(tc, dict) and tc.get("verified") is True:
+            passed.append("TRIGGER_CHAIN_VERIFIED")
+            refs.extend(list(tc.get("node_ids") or []))
+
+    if entry_snapshot.get("compliance_verified") is True:
+        passed.append("COMPLIANCE_FLAG_VERIFIED")
+
+    if not has_evidence and "TRIGGER_CHAIN_VERIFIED" not in passed and "COMPLIANCE_FLAG_VERIFIED" not in passed:
+        missing.append("ENTRY_EVIDENCE_NODES")
+        return EntryComplianceResult(
+            status="UNVERIFIABLE",
+            reason="Entry snapshot thiếu nodes bằng chứng hoặc trigger chain đã xác minh.",
+            missing_evidence=missing,
+            checks_passed=passed,
+        )
+
+    return EntryComplianceResult(
+        status="VERIFIED_COMPLIANT",
+        reason="Entry snapshot và audit tuân thủ kế hoạch đã xác minh đầy đủ.",
+        checks_passed=passed or ["COMPLIANCE_VERIFIED"],
+        evidence_refs=refs,
+    )
+
+
 def classify_post_trade_lesson(
     review: PostTradeReview,
     entry_snapshot: Optional[Dict[str, Any]] = None,
     audit: Optional[Any] = None,
 ) -> LessonClassification:
     """
-    Pure deterministic classifier for post-trade reviews (Sections 094 - 100).
-    No DB or network calls.
+    V16.39.1 Sections 015, 096 - 110:
+    Pure deterministic classifier for post-trade reviews based on empirical evidence.
     Hierarchy:
     1. Verified serious violation (rule violation, wrong geometry, risk exceeded) -> RED (CRITICAL)
-    2. Missing evidence, unconfirmed cause, adverse execution exceeding budget -> YELLOW (WARNING)
-    3. Valid plan compliance (including valid strategy losses) -> GREEN (INFO)
+    2. Missing evidence, unconfirmed cause, unverified compliance, adverse execution -> YELLOW (WARNING)
+    3. Valid plan compliance ONLY when verified by entry_snapshot/audit -> GREEN (INFO)
+    Confirmed SL without entry snapshot/audit -> YELLOW (UNVERIFIABLE_CAUSE).
     """
     facts = {
         "order_id": review.order_id,
@@ -395,13 +549,22 @@ def classify_post_trade_lesson(
         "session": "ALL",
     }
 
-    # 1. Check for verified serious violations -> RED (CRITICAL)
-    is_rule_violation = (review.loss_classification == LossClassification.POLICY_VIOLATION.value)
+    # 1. Full geometry verification (Section 103)
     is_wrong_geometry = False
-    if review.direction in ("LONG", "BUY") and review.planned_entry <= review.planned_sl:
+    if review.direction in ("LONG", "BUY"):
+        if review.planned_entry <= review.planned_sl:
+            is_wrong_geometry = True
+        elif review.planned_tp > 0 and review.planned_tp <= review.planned_entry:
+            is_wrong_geometry = True
+    elif review.direction in ("SHORT", "SELL"):
+        if review.planned_entry >= review.planned_sl:
+            is_wrong_geometry = True
+        elif review.planned_tp > 0 and review.planned_tp >= review.planned_entry:
+            is_wrong_geometry = True
+    elif review.direction not in ("LONG", "BUY", "SHORT", "SELL"):
         is_wrong_geometry = True
-    elif review.direction in ("SHORT", "SELL") and review.planned_entry >= review.planned_sl:
-        is_wrong_geometry = True
+
+    is_rule_violation = (review.loss_classification == LossClassification.POLICY_VIOLATION.value)
 
     if is_rule_violation or is_wrong_geometry:
         reason = "Đỏ vì phát hiện vi phạm quy tắc thực thi hoặc cấu trúc lệnh không hợp lệ."
@@ -418,7 +581,7 @@ def classify_post_trade_lesson(
             suggested_scope=scope,
         )
 
-    # 2. Check for missing data or uncertain causes -> YELLOW (WARNING)
+    # 2. Check outcome confirmation (Section 118)
     if review.outcome_status == "OUTCOME_UNCONFIRMED":
         missing_evidence.append("OUTCOME_CONFIRMATION")
         return LessonClassification(
@@ -432,6 +595,41 @@ def classify_post_trade_lesson(
             suggested_scope=scope,
         )
 
+    # 3. Assess compliance from entry_snapshot and audit (Section 097)
+    comp = assess_entry_compliance_for_review(
+        order=None,
+        entry_snapshot=entry_snapshot,
+        fill_snapshot=None,
+        audit=audit,
+    )
+
+    if comp.status == "VERIFIED_VIOLATION":
+        return LessonClassification(
+            suggested_color="RED",
+            canonical_severity="CRITICAL",
+            classification_code="VERIFIED_RULE_VIOLATION",
+            reason_vi=f"Đỏ vì phát hiện vi phạm thực thi: {comp.reason}",
+            verified_facts=facts,
+            missing_evidence=comp.missing_evidence,
+            proposed_effect="WARN_ENTRY",
+            suggested_scope=scope,
+        )
+
+    # Section 015 & 098 & 099 & 101: If compliance is unverified, default to YELLOW!
+    if comp.status == "UNVERIFIABLE":
+        missing_evidence.extend(comp.missing_evidence or ["ENTRY_SNAPSHOT"])
+        return LessonClassification(
+            suggested_color="YELLOW",
+            canonical_severity="WARNING",
+            classification_code="UNVERIFIABLE_CAUSE",
+            reason_vi="Vàng vì thiếu bằng chứng snapshot hoặc audit tuân thủ kế hoạch; chưa đủ dữ liệu để xác nhận đạt chuẩn.",
+            verified_facts=facts,
+            missing_evidence=list(set(missing_evidence)),
+            proposed_effect="WARN_ENTRY",
+            suggested_scope=scope,
+        )
+
+    # 4. Check for adverse slippage or execution data issues
     if review.loss_classification in (LossClassification.UNVERIFIABLE.value, LossClassification.DATA_ISSUE.value):
         missing_evidence.append("VERIFIABLE_EXIT_DATA")
         return LessonClassification(
@@ -440,7 +638,7 @@ def classify_post_trade_lesson(
             classification_code="UNVERIFIABLE_CAUSE",
             reason_vi="Vàng vì thiếu bằng chứng snapshot hoặc kết quả đóng lệnh do vấn đề dữ liệu/thời gian; cần xác minh thêm.",
             verified_facts=facts,
-            missing_evidence=missing_evidence,
+            missing_evidence=list(set(missing_evidence)),
             proposed_effect="WARN_ENTRY",
             suggested_scope=scope,
         )
@@ -457,18 +655,18 @@ def classify_post_trade_lesson(
             suggested_scope=scope,
         )
 
-    # 3. Check for valid compliance (including valid strategy losses) -> GREEN (INFO)
+    # 5. Verified Compliance -> GREEN (INFO) (Section 100)
     if review.outcome_status == "WIN":
-        reason = f"Xanh vì giao dịch tuân thủ kế hoạch và đạt mục tiêu lợi nhuận ({review.net_pnl:+.2f} USDT, {review.realized_rr:+.2f}R)."
+        reason = f"Xanh vì giao dịch tuân thủ kế hoạch đã xác minh và đạt mục tiêu lợi nhuận ({review.net_pnl:+.2f} USDT, {review.realized_rr:+.2f}R)."
         code = "PLAN_COMPLIANT_WIN"
     elif review.outcome_status == "BREAKEVEN":
-        reason = f"Xanh vì giao dịch tuân thủ kế hoạch và đóng hòa vốn ({review.net_pnl:+.2f} USDT)."
+        reason = f"Xanh vì giao dịch tuân thủ kế hoạch đã xác minh và đóng hòa vốn ({review.net_pnl:+.2f} USDT)."
         code = "PLAN_COMPLIANT_BREAKEVEN"
     elif review.loss_classification == LossClassification.STRATEGY_VALID_LOSS.value or review.exit_cause in ("SL_HIT", "STOP_LOSS"):
-        reason = "Xanh vì dừng lỗ hợp lệ theo đúng cấu trúc của chiến lược; tuân thủ kế hoạch và tiếp tục thu thập mẫu dữ liệu."
+        reason = "Xanh vì dừng lỗ hợp lệ theo đúng cấu trúc và tuân thủ kế hoạch đã xác minh; tiếp tục thu thập mẫu dữ liệu."
         code = "PLAN_COMPLIANT_VALID_LOSS"
     else:
-        reason = "Xanh vì kế hoạch thực thi đạt chuẩn; ghi nhận quan sát cho các chu kỳ tiếp theo."
+        reason = "Xanh vì kế hoạch thực thi đạt chuẩn tuân thủ đã xác minh; ghi nhận quan sát cho các chu kỳ tiếp theo."
         code = "PLAN_COMPLIANT_OBSERVATION"
 
     return LessonClassification(

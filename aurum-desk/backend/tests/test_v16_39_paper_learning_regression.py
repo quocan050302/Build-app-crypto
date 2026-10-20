@@ -348,7 +348,16 @@ class TestGovernedLessonClassification:
             loss_classification=LossClassification.STRATEGY_VALID_LOSS.value,
             outcome_status="LOSS",
         )
-        classification = classify_post_trade_lesson(rev)
+        entry_snap = {
+            "symbol": "XAUUSDT",
+            "direction": "LONG",
+            "planned_entry": 2650.0,
+            "planned_sl": 2645.0,
+            "planned_tp": 2660.0,
+            "compliance_verified": True,
+            "evidence": [{"id": "ev_1", "kind": "CHOCH"}],
+        }
+        classification = classify_post_trade_lesson(rev, entry_snapshot=entry_snap)
         assert classification.suggested_color == "GREEN"
         assert classification.canonical_severity == "INFO"
         assert classification.proposed_effect == "ANNOTATE"

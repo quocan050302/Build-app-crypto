@@ -2171,9 +2171,9 @@ def approve_and_activate_lesson(
     db: Session = Depends(get_db),
 ):
     """
-    V16.39 Section 110 - 113: Atomic Approve and Activate contract.
+    V16.39.1 Section 086 - 095: Atomic Approve and Activate contract.
     Validates optimistic revision, predicate & scope, activates rule atomically,
-    sets effective_at=now_ms, increments revision, and records audit trail.
+    sets effective_at=now_ms, increments revision, records audit trail, and invalidates cache.
     """
     lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
     if not lesson:
@@ -2191,31 +2191,113 @@ def approve_and_activate_lesson(
 
     now_ms = int(time.time() * 1000)
 
-    # Optional overrides from request
+    # 1. Validate severity enum (Section 087)
+    target_severity = lesson.severity
     if req.selected_severity:
         sev = str(req.selected_severity).upper()
-        if sev in ("GREEN", "INFO"): lesson.severity = "INFO"
-        elif sev in ("YELLOW", "WARNING", "WARN"): lesson.severity = "WARNING"
-        elif sev in ("RED", "CRITICAL"): lesson.severity = "CRITICAL"
-        else: lesson.severity = sev
+        if sev in ("GREEN", "INFO"):
+            target_severity = "INFO"
+        elif sev in ("YELLOW", "WARNING", "WARN"):
+            target_severity = "WARNING"
+        elif sev in ("RED", "CRITICAL"):
+            target_severity = "CRITICAL"
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_SEVERITY", "message": f"Unsupported severity: {req.selected_severity}. Allowed: GREEN, YELLOW, RED, INFO, WARNING, CRITICAL."}
+            )
 
+    # 2. Validate effect enum (Section 088)
+    target_effect = lesson.effect
     if req.selected_effect:
-        lesson.effect = str(req.selected_effect).upper()
+        eff = str(req.selected_effect).upper()
+        allowed_effects = ("ANNOTATE", "WARN_ENTRY", "BLOCK_ENTRY", "ADD_SCORE", "DEDUCT_SCORE", "PROPOSE_PLAN_ADJUSTMENT")
+        if eff not in allowed_effects:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_EFFECT", "message": f"Unsupported effect: {req.selected_effect}. Allowed: {allowed_effects}."}
+            )
+        target_effect = eff
 
+    # 3. Validate scope object (Section 089)
+    target_scope = lesson.scope
     if req.scope is not None:
-        lesson.scope = json.dumps(req.scope) if isinstance(req.scope, dict) else str(req.scope)
+        if isinstance(req.scope, dict):
+            target_scope = json.dumps(req.scope)
+        elif isinstance(req.scope, str):
+            try:
+                parsed_sc = json.loads(req.scope)
+                if not isinstance(parsed_sc, dict):
+                    raise ValueError()
+                target_scope = json.dumps(parsed_sc)
+            except Exception:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"code": "INVALID_SCOPE", "message": "Scope must be a valid JSON object dictionary."}
+                )
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_SCOPE", "message": "Scope must be a dictionary object."}
+            )
 
+    # 4. Validate predicate and delta (Section 090)
+    target_predicate = lesson.predicate
     if req.predicate is not None:
-        lesson.predicate = json.dumps(req.predicate) if isinstance(req.predicate, dict) else str(req.predicate)
+        if isinstance(req.predicate, dict):
+            target_predicate = json.dumps(req.predicate)
+        elif isinstance(req.predicate, str):
+            try:
+                parsed_pred = json.loads(req.predicate)
+                if not isinstance(parsed_pred, dict):
+                    raise ValueError()
+                target_predicate = json.dumps(parsed_pred)
+            except Exception:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"code": "INVALID_PREDICATE", "message": "Predicate must be a valid JSON object dictionary."}
+                )
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_PREDICATE", "message": "Predicate must be a dictionary object."}
+            )
 
-    # If score_delta is provided, embed in predicate
     if req.score_delta is not None:
+        if isinstance(req.score_delta, bool) or not isinstance(req.score_delta, (int, float)) or not math.isfinite(req.score_delta):
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_DELTA", "message": "score_delta must be a finite numeric value."}
+            )
         try:
-            pred_obj = json.loads(lesson.predicate) if lesson.predicate else {}
+            pred_obj = json.loads(target_predicate) if target_predicate else {}
         except Exception:
             pred_obj = {}
         pred_obj["score_delta"] = float(req.score_delta)
-        lesson.predicate = json.dumps(pred_obj)
+        target_predicate = json.dumps(pred_obj)
+
+    if target_effect in ("ADD_SCORE", "DEDUCT_SCORE"):
+        try:
+            p_check = json.loads(target_predicate) if target_predicate else {}
+        except Exception:
+            p_check = {}
+        sd_check = p_check.get("score_delta")
+        if sd_check is None or isinstance(sd_check, bool) or not math.isfinite(float(sd_check)):
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_SCORE_RULE", "message": "Score adjustment rule must have an explicit finite score_delta."}
+            )
+        if not p_check.get("metric") or not p_check.get("operator"):
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_SCORE_RULE", "message": "Score adjustment rule must configure a typed predicate with metric and operator."}
+            )
+
+    # Mutate ORM object only after all input validation succeeds (Section 091)
+    lesson.severity = target_severity
+    lesson.effect = target_effect
+    lesson.scope = target_scope
+    lesson.predicate = target_predicate
 
     from services.lesson_rule_service import LessonRuleService
     is_valid, msg, report = LessonRuleService.validate_rule_behavior(lesson)
@@ -2258,6 +2340,7 @@ def approve_and_activate_lesson(
 
     db.commit()
     db.refresh(lesson)
+    LessonRuleService.invalidate_cache()
     LessonRuleService.invalidate_cache()
     return schemas.LessonItem.model_validate(lesson)
 
@@ -3366,6 +3449,20 @@ def update_scalp_config_endpoint(
             raise HTTPException(status_code=400, detail=f"INVALID_TYPE: {field_name} must be an integer")
         return int(val)
 
+    def _parse_strict_bool(val: Any, field_name: str) -> bool:
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, str):
+            v_low = val.strip().lower()
+            if v_low == "true":
+                return True
+            if v_low == "false":
+                return False
+        raise HTTPException(
+            status_code=400,
+            detail=f"INVALID_BOOLEAN: {field_name} must be a strict boolean (true/false)"
+        )
+
     # 1. Atomic validation of all daily goal parameters first (Rules 025, 026, 027)
     cur_policy = resolve_effective_daily_policy(db)
     has_daily_update = any(k in payload for k in ("daily_min_goal", "daily_max_cap", "daily_ny_goal"))
@@ -3570,9 +3667,9 @@ def update_scalp_config_endpoint(
         except (ValueError, TypeError):
             raise HTTPException(status_code=400, detail="INVALID_VALUE: max_entry_distance_atr must be a positive number")
 
-    # Quality Scoring configuration (Sections 033 - 035, 061)
+    # Quality Scoring configuration (Sections 033 - 035, 061, 126, 127, 128)
     if "quality_scoring_enabled" in payload:
-        q_en = bool(payload["quality_scoring_enabled"])
+        q_en = _parse_strict_bool(payload["quality_scoring_enabled"], "quality_scoring_enabled")
         cfg_q_en = db.query(models.SystemConfig).filter(models.SystemConfig.key == "quality_scoring_enabled").first()
         if cfg_q_en:
             cfg_q_en.value = "1" if q_en else "0"
@@ -3595,7 +3692,13 @@ def update_scalp_config_endpoint(
             db.add(models.SystemConfig(key="quality_arm_threshold", value=str(th_val), updated_at=now_ms))
 
     if "quality_profile_version" in payload:
-        q_ver = str(payload["quality_profile_version"]).strip()
+        raw_ver = payload["quality_profile_version"]
+        if not isinstance(raw_ver, str) or not raw_ver.strip():
+            raise HTTPException(status_code=400, detail="CONFIG_INVALID: quality_profile_version must be a non-empty string")
+        q_ver = raw_ver.strip()
+        allowed_profiles = {"v16.39", "v16.39.1", "default", "conservative", "aggressive"}
+        if q_ver not in allowed_profiles:
+            raise HTTPException(status_code=400, detail=f"CONFIG_INVALID: Unknown quality_profile_version '{q_ver}'. Allowed: {sorted(list(allowed_profiles))}")
         cfg_q_ver = db.query(models.SystemConfig).filter(models.SystemConfig.key == "quality_profile_version").first()
         if cfg_q_ver:
             cfg_q_ver.value = q_ver
@@ -3604,7 +3707,7 @@ def update_scalp_config_endpoint(
             db.add(models.SystemConfig(key="quality_profile_version", value=q_ver, updated_at=now_ms))
 
     if "lesson_score_adjustment_enabled" in payload:
-        l_adj = bool(payload["lesson_score_adjustment_enabled"])
+        l_adj = _parse_strict_bool(payload["lesson_score_adjustment_enabled"], "lesson_score_adjustment_enabled")
         cfg_l_adj = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lesson_score_adjustment_enabled").first()
         if cfg_l_adj:
             cfg_l_adj.value = "1" if l_adj else "0"
