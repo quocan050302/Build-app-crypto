@@ -736,7 +736,7 @@ class TradeLifecycleService:
             "provenance_issues": ctx.get("provenance_issues", []),
         }
 
-        # Compliance assessment (Section 097, V16.39.3 Sections 041 - 080)
+        # Compliance assessment (Section 097, V16.39.3 / V16.39.4 Sections 041 - 088)
         comp_res = assess_entry_compliance_for_review(
             order=order,
             entry_snapshot=entry_snap_dict,
@@ -744,6 +744,8 @@ class TradeLifecycleService:
             audit=guard_audit,
             model_requirements=model_reqs,
             decision_as_of_ms=ctx.get("decision_as_of_ms"),
+            provenance_issues=ctx.get("provenance_issues"),
+            review_context=ctx,
         )
 
         cause = str(order.exit_cause or "").upper()
@@ -810,17 +812,18 @@ class TradeLifecycleService:
         )
 
         hold_time_val = None
-        if opened_at is not None and now_ms >= opened_at:
-            hold_time_val = now_ms - opened_at
+        close_ts = getattr(order, "closed_at", None) or now_ms
+        if opened_at is not None and close_ts >= opened_at:
+            hold_time_val = close_ts - opened_at
 
-        # Resolve real entry session (Sections 085, 087, 119)
+        # Resolve real entry session (V16.39.4 Sections 027, 033, 034, 061-065, 071, 078)
         entry_session = None
         raw_cost = getattr(order, "cost_snapshot", None)
         if raw_cost:
             try:
                 parsed_cost = json.loads(raw_cost) if isinstance(raw_cost, str) else raw_cost
                 if isinstance(parsed_cost, dict):
-                    entry_session = parsed_cost.get("session") or parsed_cost.get("analysis_session")
+                    entry_session = parsed_cost.get("entry_session") or parsed_cost.get("analysis_session") or parsed_cost.get("session")
             except Exception:
                 pass
 
@@ -829,7 +832,7 @@ class TradeLifecycleService:
                 raw_arm = order.arm_decision_snapshot
                 parsed_arm = json.loads(raw_arm) if isinstance(raw_arm, str) else raw_arm
                 if isinstance(parsed_arm, dict):
-                    entry_session = parsed_arm.get("session") or parsed_arm.get("analysis_session")
+                    entry_session = parsed_arm.get("entry_session") or parsed_arm.get("analysis_session") or parsed_arm.get("session")
             except Exception:
                 pass
 
@@ -843,8 +846,11 @@ class TradeLifecycleService:
             except Exception:
                 entry_session = "ALL"
 
-        is_repair = (session_tag == "REPAIR")
-        effective_session = entry_session if is_repair or session_tag in ("ALL", None, "REPAIR") else session_tag
+        effective_session = entry_session or "ALL"
+
+        # Determine processing origin
+        execution_origin = session_tag if session_tag in ("LIVE_PAPER", "REPAIR", "OFFLINE_RECOVERY", "LATE_RECONCILIATION") else ("REPAIR" if session_tag == "REPAIR" else "NORMAL")
+        is_repair = (execution_origin == "REPAIR")
 
         db_lesson = models.Lesson(
             created_at=now_ms,
@@ -876,8 +882,11 @@ class TradeLifecycleService:
                 "exit_cause": order.exit_cause,
                 "suggested_color": classification.suggested_color,
                 "classification_code": classification.classification_code,
-                "origin": "REPAIR" if is_repair else "NORMAL",
+                "origin": execution_origin,
+                "execution_origin": execution_origin,
+                "processing_origin": execution_origin,
                 "entry_session": effective_session,
+                "session_source": "FROZEN_ENTRY_CONTEXT" if (raw_cost and ("session" in str(raw_cost))) else "RESOLVER_FALLBACK",
             }),
             compliance_snapshot=json.dumps(comp_res.to_dict()),
             mfe_mae_snapshot=json.dumps({

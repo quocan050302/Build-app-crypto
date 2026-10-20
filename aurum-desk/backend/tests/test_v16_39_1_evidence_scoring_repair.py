@@ -496,6 +496,7 @@ def test_174_valid_loss_green_with_verified_compliance():
         loss_classification=LossClassification.STRATEGY_VALID_LOSS.value,
         outcome_status="LOSS",
     )
+    t_cutoff = 1700000000000
     entry_snap = {
         "symbol": "XAUUSDT",
         "direction": "LONG",
@@ -503,7 +504,8 @@ def test_174_valid_loss_green_with_verified_compliance():
         "planned_sl": 2645.0,
         "planned_tp": 2660.0,
         "compliance_verified": True,
-        "evidence": [{"id": "ev_1", "kind": "BOS"}],
+        "decision_as_of_ms": t_cutoff,
+        "evidence": [{"id": "ev_1", "kind": "BOS", "known_at_ms": t_cutoff - 5000, "occurred_at_ms": t_cutoff - 5000}],
     }
     audit = {"compliance_verified": True}
 

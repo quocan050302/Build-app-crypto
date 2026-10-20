@@ -163,6 +163,45 @@ def build_arm_plan_snapshot(
     })
 
 
+def extract_immutable_entry_metadata(arm_snapshot: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    V16.39.4 Sections 049 - 052:
+    Pure extraction of immutable entry session, timestamps, and binding metadata from arm_snapshot.
+    Strictly preserves provenance across fill transitions without copying dynamic or estimated financial fields.
+    """
+    if not arm_snapshot or not isinstance(arm_snapshot, dict):
+        return {}
+
+    whitelist_keys = (
+        "entry_session",
+        "session",
+        "analysis_session",
+        "session_policy_version",
+        "decision_as_of_ms",
+        "armed_at_ms",
+        "execution_profile",
+        "setup_id",
+        "setup_instance_id",
+        "signal_id",
+        "idempotency_key",
+        "min_net_rr_at_arm",
+    )
+
+    out = {}
+    for k in whitelist_keys:
+        if k in arm_snapshot and arm_snapshot[k] is not None:
+            out[k] = arm_snapshot[k]
+
+    # Ensure canonical session mapping
+    session_val = arm_snapshot.get("entry_session") or arm_snapshot.get("analysis_session") or arm_snapshot.get("session")
+    if session_val:
+        out["entry_session"] = session_val
+        out["analysis_session"] = session_val
+        out["session"] = session_val
+
+    return out
+
+
 def build_fill_plan_snapshot(
     calc_result: Any,
     order: Any,
@@ -218,7 +257,7 @@ def build_fill_plan_snapshot(
 
     risk_pct_val = getattr(order, "risk_pct", None) if getattr(order, "risk_pct", None) is not None else arm_dict.get("risk_pct")
 
-    return OrderPlanSnapshot({
+    fill_dict = {
         # Legacy keys required by exit monitor and lifecycle calculators
         "phase": "FILLED_ESTIMATE",
         "maker_fee_rate": maker_fee_rate,
@@ -277,7 +316,12 @@ def build_fill_plan_snapshot(
         "sizing_adjustment_reason": (sizing_context or {}).get("adjustment_reason") or arm_dict.get("sizing_adjustment_reason", "NONE"),
         # Rule 031: Preserve min_net_rr_at_arm from arm stage for historical audit trail
         "min_net_rr_at_arm": arm_dict.get("min_net_rr_at_arm"),
-    })
+    }
+
+    # V16.39.4 Sections 049 - 052: Inject immutable entry metadata into fill plan snapshot
+    fill_dict.update(extract_immutable_entry_metadata(arm_dict))
+
+    return OrderPlanSnapshot(fill_dict)
 
 
 def select_bound_order_for_setup(

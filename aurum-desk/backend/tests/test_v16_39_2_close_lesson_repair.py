@@ -462,6 +462,11 @@ def test_009_model_requirements_compliance_matrix(model_id, required_kinds, samp
     Section 065 - 071 / 162: Model requirements resolution.
     Continuation, Reversal, CG01 verify distinct factual chains.
     """
+    t_cutoff = 1700000000000
+    evidence_with_timestamps = [
+        {**x, "known_at_ms": t_cutoff - 5000, "occurred_at_ms": t_cutoff - 5000}
+        for x in sample_evidence
+    ]
     entry_snap = {
         "symbol": "XAUUSDT",
         "direction": "LONG",
@@ -469,8 +474,9 @@ def test_009_model_requirements_compliance_matrix(model_id, required_kinds, samp
         "planned_entry": 2650.0,
         "planned_sl": 2645.0,
         "planned_tp": 2660.0,
-        "evidence": sample_evidence,
-        "trigger_chain": {"verified": True, "model_id": model_id, "node_ids": [x["id"] for x in sample_evidence]},
+        "decision_as_of_ms": t_cutoff,
+        "evidence": evidence_with_timestamps,
+        "trigger_chain": {"verified": True, "model_id": model_id, "node_ids": [x["id"] for x in evidence_with_timestamps]},
     }
     comp = assess_entry_compliance_for_review(None, entry_snapshot=entry_snap)
     if is_compliant:

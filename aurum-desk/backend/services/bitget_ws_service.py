@@ -180,42 +180,53 @@ class BitgetWSService:
                 logger.error(f"Broadcaster dispatch error: {e}")
 
     async def _run_rest_fallback(self):
-        """Controlled REST fallback when WebSocket connection is unavailable."""
+        """Controlled REST fallback when WebSocket connection is unavailable (V16.39.4 Section 176)."""
         logger.info("Starting REST fallback loop...")
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            while self.transport_state in ("DEGRADED", "CONNECTING", "DISCONNECTED") and self._running:
-                try:
-                    params = {"symbol": self.symbol, "productType": "USDT-FUTURES"}
-                    resp = await client.get(BITGET_REST_TICKER_URL, params=params)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        if data.get("code") == "00000" and data.get("data"):
-                            item = data["data"][0]
-                            now_ms = int(time.time() * 1000)
-                            # Authoritative quote timestamp from item.ts
-                            ex_ts = int(item.get("ts")) if item.get("ts") is not None else None
-                            raw = {
-                                "symbol": self.symbol,
-                                "bid": item.get("bidPr"),
-                                "ask": item.get("askPr"),
-                                "last": item.get("lastPr"),
-                                "mark_price": item.get("markPrice"),
-                                "exchange_ts_ms": ex_ts,
-                                "received_at_ms": now_ms
-                            }
-                            quote = QuoteValidator.validate_canonical(
-                                raw,
-                                source="REST_FALLBACK",
-                                connection_epoch=self.connection_epoch
-                            )
-                            if quote.is_valid:
-                                self.feed_source = "REST_FALLBACK"
-                                self._dispatch_quote(quote)
-                except Exception as e:
-                    logger.debug(f"REST fallback tick error: {e}")
+        try:
+            async with httpx.AsyncClient(timeout=5.0, trust_env=False) as client:
+                while self.transport_state in ("DEGRADED", "CONNECTING", "DISCONNECTED") and self._running:
+                    try:
+                        params = {"symbol": self.symbol, "productType": "USDT-FUTURES"}
+                        resp = await client.get(BITGET_REST_TICKER_URL, params=params)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            if data.get("code") == "00000" and data.get("data"):
+                                item = data["data"][0]
+                                now_ms = int(time.time() * 1000)
+                                # Authoritative quote timestamp from item.ts
+                                ex_ts = int(item.get("ts")) if item.get("ts") is not None else None
+                                raw = {
+                                    "symbol": self.symbol,
+                                    "bid": item.get("bidPr"),
+                                    "ask": item.get("askPr"),
+                                    "last": item.get("lastPr"),
+                                    "mark_price": item.get("markPrice"),
+                                    "exchange_ts_ms": ex_ts,
+                                    "received_at_ms": now_ms
+                                }
+                                quote = QuoteValidator.validate_canonical(
+                                    raw,
+                                    source="REST_FALLBACK",
+                                    connection_epoch=self.connection_epoch
+                                )
+                                if quote.is_valid:
+                                    self.feed_source = "REST_FALLBACK"
+                                    self._dispatch_quote(quote)
+                    except asyncio.CancelledError:
+                        break
+                    except Exception as e:
+                        logger.debug(f"REST fallback tick error: {e}")
 
-                await asyncio.sleep(2.5)
-        logger.info("REST fallback loop exited.")
+                    try:
+                        await asyncio.sleep(2.5)
+                    except asyncio.CancelledError:
+                        break
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.debug(f"REST fallback client error: {e}")
+        finally:
+            logger.info("REST fallback loop exited.")
 
     async def _heartbeat_loop(self, ws, ping_interval: float = 25.0, pong_timeout: float = 10.0):
         """

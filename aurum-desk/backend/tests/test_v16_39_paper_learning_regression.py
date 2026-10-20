@@ -348,6 +348,7 @@ class TestGovernedLessonClassification:
             loss_classification=LossClassification.STRATEGY_VALID_LOSS.value,
             outcome_status="LOSS",
         )
+        t_cutoff = 1700000000000
         entry_snap = {
             "symbol": "XAUUSDT",
             "direction": "LONG",
@@ -355,10 +356,11 @@ class TestGovernedLessonClassification:
             "planned_sl": 2645.0,
             "planned_tp": 2660.0,
             "compliance_verified": True,
+            "decision_as_of_ms": t_cutoff,
             "evidence": [
-                {"id": "ev_poi", "kind": "POI"},
-                {"id": "ev_swp", "kind": "SWEEP"},
-                {"id": "ev_1", "kind": "CHOCH"},
+                {"id": "ev_poi", "kind": "POI", "known_at_ms": t_cutoff - 5000, "occurred_at_ms": t_cutoff - 5000},
+                {"id": "ev_swp", "kind": "SWEEP", "known_at_ms": t_cutoff - 3000, "occurred_at_ms": t_cutoff - 3000},
+                {"id": "ev_1", "kind": "CHOCH", "known_at_ms": t_cutoff - 1000, "occurred_at_ms": t_cutoff - 1000},
             ],
         }
         classification = classify_post_trade_lesson(rev, entry_snapshot=entry_snap)

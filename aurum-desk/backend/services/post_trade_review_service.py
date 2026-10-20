@@ -685,6 +685,39 @@ def build_entry_review_context(db: Session, order: Any) -> Dict[str, Any]:
     }
 
 
+def classify_review_provenance_issues(issues: Sequence[str]) -> Tuple[bool, List[str]]:
+    """
+    V16.39.4 Section 086:
+    Classifies provenance issues into hard verification-blocking conflicts vs informational warnings.
+    Hard conflicts:
+    - INSTANCE_MISMATCH
+    - SNAPSHOT_ID_MISMATCH
+    - SYMBOL_MISMATCH
+    - DIRECTION_MISMATCH
+    - MODEL_MISMATCH
+    - CORRUPT_BOUND_SCENARIO
+    - BOUND_SCENARIO_NOT_FOUND
+    - PROVENANCE_CONFLICT
+    """
+    hard_conflict_prefixes = (
+        "INSTANCE_MISMATCH",
+        "SNAPSHOT_ID_MISMATCH",
+        "SYMBOL_MISMATCH",
+        "DIRECTION_MISMATCH",
+        "MODEL_MISMATCH",
+        "CORRUPT_BOUND_SCENARIO",
+        "BOUND_SCENARIO_NOT_FOUND",
+        "PROVENANCE_CONFLICT",
+    )
+    conflicts = []
+    for issue in issues or ():
+        issue_str = str(issue).strip()
+        if any(p in issue_str for p in hard_conflict_prefixes):
+            conflicts.append(issue_str)
+    has_hard_conflict = len(conflicts) > 0
+    return has_hard_conflict, conflicts
+
+
 def assess_entry_compliance_for_review(
     order: Any = None,
     entry_snapshot: Optional[Dict[str, Any]] = None,
@@ -692,9 +725,11 @@ def assess_entry_compliance_for_review(
     audit: Optional[Any] = None,
     model_requirements: Optional[Dict[str, Any]] = None,
     decision_as_of_ms: Optional[int] = None,
+    provenance_issues: Optional[List[str]] = None,
+    review_context: Optional[Dict[str, Any]] = None,
 ) -> EntryComplianceResult:
     """
-    V16.39.3 Sections 041 - 080:
+    V16.39.3 / V16.39.4 Sections 041 - 088, 094, 101 - 108:
     Assesses entry and fill compliance against model requirements, causal timeline, and geometry.
     Filters out future nodes, wrong-symbol nodes, and direction-contradicting nodes.
     Validates trigger chain references against strictly valid factual nodes.
@@ -705,12 +740,33 @@ def assess_entry_compliance_for_review(
     missing: List[str] = []
     refs: List[str] = []
 
+    # Read and classify all provenance issues (Section 029, 084 - 088, 165)
+    raw_provenance = list(provenance_issues or [])
+    if review_context and isinstance(review_context, dict):
+        raw_provenance.extend(review_context.get("provenance_issues") or [])
+    if entry_snapshot and isinstance(entry_snapshot, dict):
+        raw_provenance.extend(entry_snapshot.get("provenance_issues") or [])
+    raw_provenance = list(dict.fromkeys(raw_provenance))
+
+    has_hard_conflict, hard_conflicts = classify_review_provenance_issues(raw_provenance)
+    if has_hard_conflict:
+        return EntryComplianceResult(
+            status="UNVERIFIABLE",
+            reason=f"Phát hiện xung đột nguồn dữ liệu (provenance conflict): {', '.join(hard_conflicts)}.",
+            missing_evidence=["RESOLVED_PROVENANCE"],
+            checks_passed=passed,
+            checks_failed=["PROVENANCE_INTEGRITY"],
+            provenance_issues=raw_provenance,
+            decision_time_ms=decision_as_of_ms or (getattr(order, "armed_at", None) if order else None),
+        )
+
     # If neither entry_snapshot nor audit nor order is provided, it is UNVERIFIABLE
     if entry_snapshot is None and audit is None and order is None:
         return EntryComplianceResult(
             status="UNVERIFIABLE",
             reason="Thiếu entry snapshot và compliance audit.",
             missing_evidence=["ENTRY_SNAPSHOT", "COMPLIANCE_AUDIT"],
+            provenance_issues=raw_provenance,
         )
 
     # 1. Audit validation
@@ -722,6 +778,7 @@ def assess_entry_compliance_for_review(
                     reason=str(audit.get("reason") or "Audit phát hiện vi phạm quy tắc thực thi."),
                     violation_code="AUDIT_POLICY_VIOLATION",
                     checks_failed=["AUDIT_COMPLIANCE"],
+                    provenance_issues=raw_provenance,
                 )
             if audit.get("risk_violated"):
                 return EntryComplianceResult(
@@ -729,6 +786,7 @@ def assess_entry_compliance_for_review(
                     reason="Vượt hạn mức rủi ro theo audit.",
                     violation_code="RISK_BUDGET_VIOLATION",
                     checks_failed=["RISK_BUDGET"],
+                    provenance_issues=raw_provenance,
                 )
             if audit.get("compliance_verified") is True:
                 passed.append("AUDIT_COMPLIANCE_VERIFIED")
@@ -739,9 +797,10 @@ def assess_entry_compliance_for_review(
             status="UNVERIFIABLE",
             reason="Thiếu entry snapshot để xác minh bằng chứng và điều kiện vào lệnh.",
             missing_evidence=["ENTRY_SNAPSHOT"],
+            provenance_issues=raw_provenance,
         )
 
-    # Resolve decision cutoff timestamp (Section 043 - 046)
+    # Resolve decision cutoff timestamp (Section 031, 043 - 046, 101 - 105, 162)
     decision_time = (
         decision_as_of_ms
         or entry_snapshot.get("decision_as_of_ms")
@@ -749,6 +808,9 @@ def assess_entry_compliance_for_review(
         or entry_snapshot.get("as_of_ms")
         or (getattr(order, "armed_at", None) if order else None)
     )
+
+    if decision_time is None:
+        missing.append("DECISION_CUTOFF")
 
     # Resolve candidate symbol and direction
     ord_sym = (
@@ -764,7 +826,7 @@ def assess_entry_compliance_for_review(
     if s_dir:
         s_dir_norm = "LONG" if str(s_dir).upper() in ("LONG", "BUY") else ("SHORT" if str(s_dir).upper() in ("SHORT", "SELL") else None)
 
-    # Geometry verification in snapshot (Section 052, 076, 077)
+    # Geometry verification in snapshot (Section 030, 052, 076, 094, 161)
     s_entry = entry_snapshot.get("planned_entry", entry_snapshot.get("entry_price"))
     s_sl = entry_snapshot.get("planned_sl", entry_snapshot.get("stop_loss"))
     s_tp = entry_snapshot.get("planned_tp", entry_snapshot.get("take_profit"))
@@ -783,6 +845,8 @@ def assess_entry_compliance_for_review(
                     reason=f"Hình học lệnh vi phạm: SL ({s_sl:.2f}) >= Entry ({s_entry:.2f}) cho LONG",
                     violation_code="GEOMETRY_VIOLATION",
                     checks_failed=["SNAPSHOT_GEOMETRY"],
+                    provenance_issues=raw_provenance,
+                    decision_time_ms=decision_time,
                 )
             elif s_dir_norm == "SHORT" and s_sl <= s_entry:
                 return EntryComplianceResult(
@@ -790,28 +854,34 @@ def assess_entry_compliance_for_review(
                     reason=f"Hình học lệnh vi phạm: SL ({s_sl:.2f}) <= Entry ({s_entry:.2f}) cho SHORT",
                     violation_code="GEOMETRY_VIOLATION",
                     checks_failed=["SNAPSHOT_GEOMETRY"],
+                    provenance_issues=raw_provenance,
+                    decision_time_ms=decision_time,
                 )
+            elif s_tp is None:
+                # Section 030, 094, 161: Complete PRICE_GEOMETRY requires direction, entry, SL, AND TP!
+                missing.append("PLANNED_TP")
             else:
-                if s_tp is not None:
-                    s_tp = float(s_tp)
-                    if not math.isfinite(s_tp) or s_tp <= 0:
-                        missing.append("NUMERIC_GEOMETRY")
-                    elif s_dir_norm == "LONG" and s_tp <= s_entry:
-                        return EntryComplianceResult(
-                            status="VERIFIED_VIOLATION",
-                            reason=f"Hình học lệnh vi phạm: TP ({s_tp:.2f}) <= Entry ({s_entry:.2f}) cho LONG",
-                            violation_code="GEOMETRY_VIOLATION",
-                            checks_failed=["SNAPSHOT_GEOMETRY"],
-                        )
-                    elif s_dir_norm == "SHORT" and s_tp >= s_entry:
-                        return EntryComplianceResult(
-                            status="VERIFIED_VIOLATION",
-                            reason=f"Hình học lệnh vi phạm: TP ({s_tp:.2f}) >= Entry ({s_entry:.2f}) cho SHORT",
-                            violation_code="GEOMETRY_VIOLATION",
-                            checks_failed=["SNAPSHOT_GEOMETRY"],
-                        )
-                    else:
-                        passed.append("PRICE_GEOMETRY")
+                s_tp = float(s_tp)
+                if not math.isfinite(s_tp) or s_tp <= 0:
+                    missing.append("NUMERIC_GEOMETRY")
+                elif s_dir_norm == "LONG" and s_tp <= s_entry:
+                    return EntryComplianceResult(
+                        status="VERIFIED_VIOLATION",
+                        reason=f"Hình học lệnh vi phạm: TP ({s_tp:.2f}) <= Entry ({s_entry:.2f}) cho LONG",
+                        violation_code="GEOMETRY_VIOLATION",
+                        checks_failed=["SNAPSHOT_GEOMETRY"],
+                        provenance_issues=raw_provenance,
+                        decision_time_ms=decision_time,
+                    )
+                elif s_dir_norm == "SHORT" and s_tp >= s_entry:
+                    return EntryComplianceResult(
+                        status="VERIFIED_VIOLATION",
+                        reason=f"Hình học lệnh vi phạm: TP ({s_tp:.2f}) >= Entry ({s_entry:.2f}) cho SHORT",
+                        violation_code="GEOMETRY_VIOLATION",
+                        checks_failed=["SNAPSHOT_GEOMETRY"],
+                        provenance_issues=raw_provenance,
+                        decision_time_ms=decision_time,
+                    )
                 else:
                     passed.append("PRICE_GEOMETRY")
         except (ValueError, TypeError):
@@ -867,17 +937,13 @@ def assess_entry_compliance_for_review(
             node_issues.append("NODE_MISSING_ID_OR_KIND")
             continue
 
-        # Validate timestamps (Section 052, 156)
+        # Validate timestamps (Section 052, 102, 156, 162, 163)
         if isinstance(knw, bool) or isinstance(occ, bool):
             node_issues.append(f"NODE_{nid}_INVALID_TIMESTAMP")
             continue
         if knw is None:
-            if decision_time is not None:
-                node_issues.append(f"NODE_{nid}_INVALID_TIMESTAMP")
-                continue
-            else:
-                knw = 1000
-                occ = 1000
+            node_issues.append(f"NODE_{nid}_MISSING_TIMESTAMP")
+            continue
         if occ is None:
             occ = knw
         try:
@@ -895,8 +961,11 @@ def assess_entry_compliance_for_review(
             node_issues.append(f"NODE_{nid}_INVERTED_TIMELINE")
             continue
 
-        # Causality check: must be known at or before decision time! (Section 043, 046, 148)
-        if decision_time is not None and knw_int > int(decision_time):
+        # Causality check: must be known at or before decision time! (Section 043, 046, 106, 148, 164)
+        if decision_time is None:
+            node_issues.append(f"NODE_{nid}_MISSING_DECISION_CUTOFF")
+            continue
+        if knw_int > int(decision_time):
             node_issues.append(f"NODE_{nid}_FUTURE_TIMESTAMP")
             continue
 
@@ -940,6 +1009,8 @@ def assess_entry_compliance_for_review(
                     reason=f"Trigger chain model '{tc_model}' không khớp với model lệnh '{can_model}'.",
                     missing_evidence=["MODEL_TRIGGER_MATCH"],
                     checks_failed=failed,
+                    provenance_issues=list(dict.fromkeys(raw_provenance + node_issues)),
+                    decision_time_ms=decision_time,
                 )
 
             tc_nodes = list(tc.get("node_ids") or [])
@@ -1016,16 +1087,22 @@ def assess_entry_compliance_for_review(
     has_empty_chain = "TRIGGER_CHAIN_EMPTY_REFS" in failed
     has_seq_failures = any("INVALID_TEMPORAL_SEQUENCE" in f for f in failed)
 
-    if missing_req or "NUMERIC_GEOMETRY" in missing or has_ref_failures or has_empty_chain or has_seq_failures:
+    all_issues = list(dict.fromkeys(raw_provenance + node_issues))
+
+    if "DECISION_CUTOFF" in missing or missing_req or "NUMERIC_GEOMETRY" in missing or "PLANNED_TP" in missing or has_ref_failures or has_empty_chain or has_seq_failures:
         missing.extend(missing_req)
+        if "DECISION_CUTOFF" in missing:
+            fail_reason = "Thiếu mốc thời gian quyết định (decision cutoff) để xác minh tính nhân quả của bằng chứng."
+        else:
+            fail_reason = f"Thiếu hoặc không xác minh được bằng chứng bắt buộc cho mô hình {model_id}: {', '.join(missing_req or failed or missing)}."
         return EntryComplianceResult(
             status="UNVERIFIABLE",
-            reason=f"Thiếu hoặc không xác minh được bằng chứng bắt buộc cho mô hình {model_id}: {', '.join(missing_req or failed or missing)}.",
+            reason=fail_reason,
             missing_evidence=list(dict.fromkeys(missing)),
             checks_passed=passed,
-            checks_failed=failed + missing_req,
+            checks_failed=list(dict.fromkeys(failed + missing_req)),
             evidence_refs=refs,
-            provenance_issues=node_issues,
+            provenance_issues=all_issues,
             decision_time_ms=decision_time,
         )
 
@@ -1035,7 +1112,7 @@ def assess_entry_compliance_for_review(
         reason=f"Entry snapshot và audit tuân thủ mô hình {model_id} đã xác minh đầy đủ.",
         checks_passed=passed or ["COMPLIANCE_VERIFIED"],
         evidence_refs=refs,
-        provenance_issues=node_issues,
+        provenance_issues=all_issues,
         decision_time_ms=decision_time,
     )
 
@@ -1079,14 +1156,14 @@ def classify_post_trade_lesson(
     # 1. Full geometry verification (Section 103)
     is_wrong_geometry = False
     if review.direction in ("LONG", "BUY"):
-        if review.planned_entry <= review.planned_sl:
+        if review.planned_entry is not None and review.planned_sl is not None and review.planned_entry <= review.planned_sl:
             is_wrong_geometry = True
-        elif review.planned_tp > 0 and review.planned_tp <= review.planned_entry:
+        elif review.planned_tp is not None and review.planned_entry is not None and review.planned_tp > 0 and review.planned_tp <= review.planned_entry:
             is_wrong_geometry = True
     elif review.direction in ("SHORT", "SELL"):
-        if review.planned_entry >= review.planned_sl:
+        if review.planned_entry is not None and review.planned_sl is not None and review.planned_entry >= review.planned_sl:
             is_wrong_geometry = True
-        elif review.planned_tp > 0 and review.planned_tp >= review.planned_entry:
+        elif review.planned_tp is not None and review.planned_entry is not None and review.planned_tp > 0 and review.planned_tp >= review.planned_entry:
             is_wrong_geometry = True
     elif review.direction not in ("LONG", "BUY", "SHORT", "SELL"):
         is_wrong_geometry = True
