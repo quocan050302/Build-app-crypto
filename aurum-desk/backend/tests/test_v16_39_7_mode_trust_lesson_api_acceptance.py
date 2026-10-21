@@ -526,18 +526,20 @@ def test_023_api_approve_and_activate_success_200(client, isolated_db):
 
 
 # ==============================================================================
-# GROUP 4: ACTIVE LESSON EFFECT ON SCORER & ORCHESTRATOR THRESHOLD CROSSING (Rules 141 - 164)
+# GROUP 4: ACTIVE LESSON EFFECT ON SCORER COMPONENT THRESHOLD CROSSING (Rules 042, 043, 141 - 164)
 # ==============================================================================
 
-def test_030_orchestrator_lesson_effect_threshold_crossing(client, isolated_db):
+def test_030_scorer_component_lesson_effect_threshold_crossing(client, isolated_db):
     """
-    Rules 141 - 164:
+    Component-level test (Scorer & LessonRuleService):
     1. Baseline candidate has base score = 72.5 (>= 70.0 threshold) -> ELIGIBLE_BY_SCORE.
     2. Pending lesson has lesson_delta = 0.0 -> no effect.
     3. HTTP approve-and-activate activates penalty rule (-5.0).
     4. Evaluated through production scorer and rule service: applied_delta = -5.0.
     5. Final score = 72.5 - 5.0 = 67.5 < 70.0 -> decision crosses to BELOW_THRESHOLD!
     6. HTTP disable endpoint restores decision to ELIGIBLE_BY_SCORE.
+    Note: Full production integration through orchestrator evaluate_cycle -> _arm_paper_candidate
+    is officially tested in test_v16_39_8_production_lesson_arm_acceptance.py.
     """
     now_ms = 1700000000000
 
@@ -680,6 +682,10 @@ def test_030_orchestrator_lesson_effect_threshold_crossing(client, isolated_db):
     )
     assert as_restored.final_score == 72.5
     assert as_restored.decision == "ELIGIBLE_BY_SCORE"
+
+
+# Backward-compatible alias for existing test runners
+test_030_orchestrator_lesson_effect_threshold_crossing = test_030_scorer_component_lesson_effect_threshold_crossing
 
 
 def test_031_scope_negative_tests(isolated_db):
