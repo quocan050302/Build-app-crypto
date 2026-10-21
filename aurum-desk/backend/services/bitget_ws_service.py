@@ -228,7 +228,7 @@ class BitgetWSService:
         finally:
             logger.info("REST fallback loop exited.")
 
-    async def _heartbeat_loop(self, ws, ping_interval: float = 25.0, pong_timeout: float = 10.0):
+    async def _heartbeat_loop(self, ws, ping_interval: float = 25.0, pong_timeout: float = 15.0):
         """
         Bitget public WS heartbeat: sends text 'ping' every ping_interval.
         Expects text 'pong' within pong_timeout.
@@ -249,10 +249,11 @@ class BitgetWSService:
                 if not self._running:
                     break
 
-                # If no pong received since ping was sent
-                if self.last_pong_time < self.last_ping_time:
+                # If no pong received since ping was sent AND no recent live data (within 30s)
+                recent_data = (time.time() * 1000 - self.last_success_time) < 30000
+                if self.last_pong_time < self.last_ping_time and not recent_data:
                     logger.warning(
-                        f"Bitget WS pong timeout: no pong received within {pong_timeout}s. Closing socket to reconnect."
+                        f"Bitget WS pong timeout: no pong received within {pong_timeout}s and no recent data. Closing socket to reconnect."
                     )
                     self.last_error = "PONG_TIMEOUT"
                     await ws.close()
@@ -286,7 +287,8 @@ class BitgetWSService:
                     self.ws_url,
                     ssl=ssl_ctx,
                     ping_interval=None,  # We manage Bitget's application-level text ping
-                    close_timeout=5.0
+                    close_timeout=5.0,
+                    open_timeout=15.0,
                 ) as ws:
                     self._ws_client = ws
 
@@ -348,6 +350,8 @@ class BitgetWSService:
                                 )
                                 self.transport_state = "CONNECTED"
                                 self.feed_source = "WS"
+                                self.last_success_time = int(time.time() * 1000)
+                                self.last_heartbeat_time = int(time.time() * 1000)
                                 attempt = 0
 
                     finally:

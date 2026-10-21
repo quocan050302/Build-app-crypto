@@ -51,13 +51,31 @@ def upsert_scenario_revision(db: Session, snapshot: ScenarioSnapshot, is_materia
                              ) -> Tuple[SMCScenario, Optional[SMCScenarioSnapshot], bool]:
     """Upserts the current-scenario pointer; if material also stores the immutable snapshot. Returns
     (scenario_row, snapshot_row_or_none, created_new_snapshot). Does NOT commit."""
-    payload_str = json.dumps(snapshot.to_dict(), ensure_ascii=False)
     scenario_row = db.query(SMCScenario).filter(SMCScenario.scenario_id == snapshot.scenario_id).first()
 
-    snapshot_row = save_immutable_scenario_snapshot(db, snapshot) if is_material_change else None
+    snapshot_row = None
+    if is_material_change:
+        # Check if this snapshot_id exists with a different digest, advance revision if needed
+        existing = db.query(SMCScenarioSnapshot).filter(SMCScenarioSnapshot.snapshot_id == snapshot.snapshot_id).first()
+        if existing is not None and existing.evidence_digest != snapshot.evidence_digest:
+            max_rev_row = db.query(SMCScenarioSnapshot).filter(
+                SMCScenarioSnapshot.instance_id == snapshot.instance_id
+            ).order_by(SMCScenarioSnapshot.revision.desc()).first()
+            if max_rev_row:
+                if max_rev_row.evidence_digest == snapshot.evidence_digest:
+                    snapshot_row = max_rev_row
+                else:
+                    snapshot.revision = max_rev_row.revision + 1
+                    snapshot_row = save_immutable_scenario_snapshot(db, snapshot)
+            else:
+                snapshot_row = save_immutable_scenario_snapshot(db, snapshot)
+        else:
+            snapshot_row = save_immutable_scenario_snapshot(db, snapshot)
+
     current_snapshot_id = snapshot_row.snapshot_id if snapshot_row else (
         scenario_row.current_snapshot_id if scenario_row else snapshot.snapshot_id)
 
+    payload_str = json.dumps(snapshot.to_dict(), ensure_ascii=False)
     fields = dict(
         instance_id=snapshot.instance_id, revision=snapshot.revision, direction=snapshot.direction,
         state=_state_str(snapshot), as_of_ms=snapshot.as_of_ms, anchor_level_id=snapshot.anchor_level_id,
@@ -96,13 +114,37 @@ def snapshot_from_row(row: SMCScenarioSnapshot) -> ScenarioSnapshot:
 
 
 def get_previous_scenarios(db: Session, symbol: str, limit: int = 40) -> List[ScenarioSnapshot]:
-    """Latest persisted revision of each scenario of `symbol` (current pointer rows), as canonical snapshots.
-    Rows of a legacy schema are skipped (they can neither be resurrected nor continued)."""
+    """Latest persisted revision of each scenario of `symbol` (current pointer rows and recent snapshots),
+    as canonical snapshots. Rows of a legacy schema are skipped (they can neither be resurrected nor continued)."""
     out: List[ScenarioSnapshot] = []
+    by_instance: dict[str, ScenarioSnapshot] = {}
+
     rows = db.query(SMCScenario).filter(SMCScenario.symbol == symbol).order_by(SMCScenario.updated_at.desc()).limit(limit).all()
     for r in rows:
         try:
-            out.append(ScenarioSnapshot.from_dict(json.loads(r.payload)))
+            snap = ScenarioSnapshot.from_dict(json.loads(r.payload))
+            out.append(snap)
+            if snap.instance_id not in by_instance or snap.revision > by_instance[snap.instance_id].revision:
+                by_instance[snap.instance_id] = snap
         except (ValueError, KeyError, TypeError):
             logger.info('Skipping legacy/malformed scenario row %s', r.scenario_id)
+
+    # Also inspect recent snapshots from SMCScenarioSnapshot so non-current/historical instances
+    # retain their highest revision and do not collide if an anchor re-appears.
+    snap_rows = db.query(SMCScenarioSnapshot).filter(
+        SMCScenarioSnapshot.symbol == symbol
+    ).order_by(SMCScenarioSnapshot.created_at.desc()).limit(limit * 2).all()
+    for sr in snap_rows:
+        try:
+            snap = ScenarioSnapshot.from_dict(json.loads(sr.payload))
+            if snap.instance_id not in by_instance:
+                out.append(snap)
+                by_instance[snap.instance_id] = snap
+            elif snap.revision > by_instance[snap.instance_id].revision:
+                out = [s for s in out if s.instance_id != snap.instance_id]
+                out.append(snap)
+                by_instance[snap.instance_id] = snap
+        except Exception:
+            pass
+
     return out
