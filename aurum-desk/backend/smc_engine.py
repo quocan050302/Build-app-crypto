@@ -6,16 +6,26 @@ from domain_calculator import calculate_risk_reward, CalculationResult, CostAssu
 
 TIMEFRAME_MS = {
     "1M": 60 * 1000,
+    "M1": 60 * 1000,
+    "3M": 180 * 1000,
+    "M3": 180 * 1000,
     "5M": 5 * 60 * 1000,
+    "M5": 5 * 60 * 1000,
     "15M": 15 * 60 * 1000,
+    "M15": 15 * 60 * 1000,
+    "30M": 30 * 60 * 1000,
+    "M30": 30 * 60 * 1000,
     "1H": 60 * 60 * 1000,
+    "H1": 60 * 60 * 1000,
     "4H": 4 * 60 * 60 * 1000,
+    "H4": 4 * 60 * 60 * 1000,
     "D": 24 * 60 * 60 * 1000,
+    "1D": 24 * 60 * 60 * 1000,
 }
 
 def get_candle_close_time(timestamp: int, timeframe: str) -> int:
     """Return candle closing timestamp in epoch ms based on timeframe cadence."""
-    duration = TIMEFRAME_MS.get(timeframe, 15 * 60 * 1000)
+    duration = TIMEFRAME_MS.get(str(timeframe or "15M").upper(), 15 * 60 * 1000)
     return timestamp + duration
 
 def compute_atr(candles: list, period: int = 14) -> float:

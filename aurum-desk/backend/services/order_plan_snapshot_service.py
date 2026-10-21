@@ -185,6 +185,8 @@ def extract_immutable_entry_metadata(arm_snapshot: Optional[Dict[str, Any]]) -> 
         "signal_id",
         "idempotency_key",
         "min_net_rr_at_arm",
+        "entry_mode",
+        "order_type",
     )
 
     out = {}

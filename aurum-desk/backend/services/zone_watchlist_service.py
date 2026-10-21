@@ -106,13 +106,35 @@ class ZoneWatchlistService:
         Never synthesizes fake rectangles or future bars.
         Preserves detector timestamps, unique deterministic zone IDs, and mitigation lifecycle.
         """
-        if len(candles) < 3:
+        if isinstance(as_of_ms, bool) or as_of_ms is None:
+            return []
+        try:
+            as_of_int = int(as_of_ms)
+            if as_of_int < 0:
+                return []
+        except (ValueError, TypeError):
             return []
 
-        calc_atr = atr or smc_engine.compute_atr(candles, period=14)
+        # Rule 061 - 075: Causal prefix filtering. All detectors, ATR, and mitigation
+        # must operate strictly on candles confirmed and closed at or before as_of_int.
+        if as_of_int > 0:
+            from services.cg01_context_adapter import select_closed_candles
+            closed_candles = select_closed_candles(
+                candles,
+                timeframe=timeframe,
+                as_of_ms=as_of_int,
+                symbol=symbol,
+            )
+        else:
+            closed_candles = list(candles)
+
+        if len(closed_candles) < 3:
+            return []
+
+        calc_atr = atr or smc_engine.compute_atr(closed_candles, period=14)
         min_size = max(0.15 * calc_atr, 0.50) if calc_atr > 0 else 0.50
 
-        fvgs = smc_engine.detect_fvgs(candles, timeframe=timeframe)
+        fvgs = smc_engine.detect_fvgs(closed_candles, timeframe=timeframe)
         zones: List[WatchedZone] = []
 
         for fvg in fvgs:
@@ -128,7 +150,7 @@ class ZoneWatchlistService:
 
             # Rule 032, 033, 141: Respect as_of_ms cutoff.
             # Zone is not knowable or executable before its confirmation closes.
-            if as_of_ms > 0 and confirmed_ts > as_of_ms:
+            if as_of_int > 0 and confirmed_ts > as_of_int:
                 continue
 
             direction = "BULLISH" if "BULL" in fvg.get("type", "") else "BEARISH"
@@ -177,22 +199,22 @@ class ZoneWatchlistService:
                 invalidation_level=round(inv_lvl, 2),
                 model_version=model_version,
                 state=ZoneState.WATCHING.value,
-                last_evaluated_at=as_of_ms,
+                last_evaluated_at=as_of_int,
             ))
 
-        # Extract Order Blocks (SECTIONS 028, 041 - 064)
+        # Extract Order Blocks (SECTIONS 028, 041 - 064, Rule 080 - 082)
         from services.liquidity_scenario_service import detect_order_blocks, identify_confirmed_swings
         sh_list, sl_list = identify_confirmed_swings(
-            candles,
+            closed_candles,
             timeframe=timeframe,
             left_bars=2,
             right_bars=2,
             symbol=symbol,
-            as_of_ms=as_of_ms,
+            as_of_ms=as_of_int,
         )
         swings = sh_list + sl_list
         ob_zones = detect_order_blocks(
-            candles, swings, timeframe=timeframe, symbol=symbol, as_of_ms=as_of_ms
+            closed_candles, swings, timeframe=timeframe, symbol=symbol, as_of_ms=as_of_int
         )
         zones.extend(ob_zones)
 

@@ -843,12 +843,17 @@ def test_153_167_full_paper_lifecycle_long_and_short(test_db):
     assert score_long.final_score >= 70.0
     assert score_long.decision == "ELIGIBLE_BY_SCORE"
 
+    # Persist bound scenario snapshot (Rule 026 - 028)
+    from services.smc_scenario_repository import save_immutable_scenario_snapshot
+    save_immutable_scenario_snapshot(test_db, snap_long)
+
     # Persist ARM PaperOrder
     order_long = PaperOrder(
         id="po_adaptive_long_1",
         instrument="XAUUSDT",
         direction="LONG",
         state="armed",
+        order_type="LIMIT",
         quantity=calc_long.quantity,
         planned_entry=2652.0,
         stop_loss=2647.0,
@@ -869,19 +874,32 @@ def test_153_167_full_paper_lifecycle_long_and_short(test_db):
     assert queried.state == "armed"
     assert queried.direction == "LONG"
 
-    # Evaluate fill via coordinator logic
-    queried.state = "paper_open"
-    queried.actual_entry = 2652.0
-    queried.opened_at = now_ms + 10_000
-    test_db.commit()
+    # Evaluate fill via real production lifecycle (Rule 097, 115)
+    from services.trade_lifecycle_service import TradeLifecycleService
+    filled = TradeLifecycleService.execute_fill(
+        test_db,
+        order=queried,
+        fill_price=2652.0,
+        calc_result=calc_long,
+        now_ms=now_ms + 10_000,
+    )
+    assert filled is not None
+    assert filled.state == "paper_open"
+    assert filled.actual_entry == 2652.0
 
-    # Close at TP
-    queried.state = "closed"
-    queried.actual_exit = 2665.0
-    queried.closed_at = now_ms + 60_000
-    queried.realized_pnl_net = round((2665.0 - 2652.0) * queried.quantity, 2)
-    queried.exit_cause = "TP_HIT"
-    test_db.commit()
+    # Close at TP via real production exit tick (Rule 097, 119)
+    closed = TradeLifecycleService.process_exit_tick(
+        test_db,
+        current_bid=2665.5,
+        current_ask=2665.7,
+        now_ms=now_ms + 60_000,
+    )
+    assert closed is not None
+    assert closed.state == "closed"
+    assert closed.actual_exit == 2665.0
+    assert closed.exit_cause in ("TP_HIT", "TAKE_PROFIT")
+    assert closed.realized_pnl_net > 0.0
+    test_db.refresh(queried)
 
     # Assess post-trade review compliance
     snap_dict = snap_long.to_dict()
@@ -893,6 +911,17 @@ def test_153_167_full_paper_lifecycle_long_and_short(test_db):
     assert comp_res.status == "VERIFIED_COMPLIANT"
     assert "TRIGGER_CHAIN_VERIFIED" in comp_res.checks_passed
     assert "PRICE_GEOMETRY" in comp_res.checks_passed
+
+    # Verify lesson persisted with entry_mode and order_type (Rule 127)
+    import json
+    lesson = test_db.query(Lesson).filter_by(related_trade_id=queried.id).first()
+    assert lesson is not None
+    assert lesson.status == "PENDING_REVIEW"
+    assert lesson.is_approved is False
+    assert lesson.enabled is False
+    facts = json.loads(lesson.facts_snapshot)
+    assert facts.get("entry_mode") == "LIMIT_AT_CE_AFTER_CONFIRMATION"
+    assert facts.get("order_type") == "LIMIT"
 
 
 def test_171_175_approved_lesson_rule_deduction_and_scope(test_db):

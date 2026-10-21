@@ -2069,6 +2069,15 @@ class ScalpWatcherOrchestrator:
         arm_snap["session"] = session_tag
         arm_snap["analysis_session"] = session_tag
         arm_snap["session_policy_version"] = getattr(session_context, "policy_version", 1) if session_context else 1
+        arm_snap["order_type"] = resolved_order_type
+        # V16.39.6 Rule 026 - 028: Freeze entry_mode in arm snapshot
+        resolved_entry_mode = (
+            getattr(cand, "entry_mode", None)
+            or (cand.entry_intent.get("entry_mode") if isinstance(getattr(cand, "entry_intent", None), dict) else None)
+            or ((getattr(cand.snapshot, "plan", None) or {}).get("entry_mode") if cand.snapshot and hasattr(cand.snapshot, "plan") else None)
+            or ("CONFIRMED_RETEST_MARKET" if resolved_order_type == "MARKET" else "LIMIT_AT_CE_AFTER_CONFIRMATION")
+        )
+        arm_snap["entry_mode"] = resolved_entry_mode
         if hasattr(cand, "regime_snapshot") and cand.regime_snapshot:
             arm_snap["regime_snapshot"] = cand.regime_snapshot
         if hasattr(cand, "sr_evidence") and cand.sr_evidence:

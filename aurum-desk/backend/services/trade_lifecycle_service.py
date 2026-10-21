@@ -733,6 +733,16 @@ class TradeLifecycleService:
             "trigger_chain": tc,
             "model_id": family,
             "strategy_family": family,
+            "entry_mode": ctx.get("entry_mode"),
+            "order_type": ctx.get("order_type"),
+            "plan": scenario_evidence.get("plan") or {
+                "entry_mode": ctx.get("entry_mode"),
+                "order_type": ctx.get("order_type"),
+                "entry": order.planned_entry,
+                "stop_loss": order.stop_loss,
+                "take_profit": order.take_profit,
+            },
+            "historical_entry_mode": ctx.get("historical_entry_mode"),
             "provenance_issues": ctx.get("provenance_issues", []),
         }
 
@@ -875,6 +885,9 @@ class TradeLifecycleService:
             facts_snapshot=json.dumps({
                 "family": family,
                 "direction": order.direction,
+                "entry_mode": ctx.get("entry_mode"),
+                "order_type": ctx.get("order_type"),
+                "entry_mode_source": (ctx.get("historical_entry_mode") or {}).get("source"),
                 "actual_entry": order.actual_entry,
                 "actual_exit": order.actual_exit,
                 "pnl": pnl,
