@@ -138,7 +138,10 @@ def evaluate_setup_eligibility(
     if getattr(setup, "strategy_family", "STANDARD_SMC") == "NY_QUOTA_PAPER":
         effective_risk_pct = min(effective_risk_pct, getattr(policy, "ny_fallback_risk_pct_cap", 0.10) or 0.10)
 
-    min_rr = getattr(policy, "min_net_rr", 2.0) or 2.0
+    from services.rr_policy_service import resolve_effective_rr_policy
+    rr_ctx = resolve_effective_rr_policy(db)
+    min_rr = rr_ctx.min_net_rr
+
     calc_res = calculate_risk_reward(
         direction=setup.direction,
         planned_entry=entry,
@@ -281,6 +284,9 @@ def evaluate_setup_eligibility(
         "ny_fill_count": policy_eval.get("ny_fills", 0),
         "ny_quota_status": policy_eval.get("quota_state", "NOT_STARTED"),
         "reserved_slots": policy_eval.get("reserved_slots", 0),
+        "min_net_rr": min_rr,
+        "rr_policy_source": rr_ctx.source,
+        "rr_policy_fingerprint": rr_ctx.fingerprint,
         "effective_financial_snapshot": {
             "entry": round(entry, 2) if entry is not None else None,
             "sl": round(sl, 2) if sl is not None else None,

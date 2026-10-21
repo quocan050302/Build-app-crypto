@@ -79,6 +79,7 @@ export interface ClientCalcResult {
   grossRR: number;
   estimatedNetRR: number;
   meetsMinRR: boolean;
+  minNetRR: number;
   effectiveRiskPct: number;
   notionalUsdt: number;
   feesTotalUsdt: number;
@@ -235,6 +236,7 @@ export function calculateClientRiskReward(
       grossRR: 0,
       estimatedNetRR: 0,
       meetsMinRR: false,
+      minNetRR,
       effectiveRiskPct: 0,
       notionalUsdt: 0,
       feesTotalUsdt: 0,
@@ -281,6 +283,7 @@ export function calculateClientRiskReward(
       grossRR: 0,
       estimatedNetRR: 0,
       meetsMinRR: false,
+      minNetRR,
       effectiveRiskPct: 0,
       notionalUsdt: 0,
       feesTotalUsdt: 0,
@@ -479,6 +482,7 @@ export function calculateClientRiskReward(
     grossRR: Number(grossRR.toFixed(4)),
     estimatedNetRR: Number(netRR.toFixed(4)),
     meetsMinRR,
+    minNetRR,
     effectiveRiskPct: Number(effectiveRiskPct.toFixed(4)),
     notionalUsdt: Number(notional.toFixed(2)),
     feesTotalUsdt: Number((entryFeeTotal + slExitFeeTotal).toFixed(3)),

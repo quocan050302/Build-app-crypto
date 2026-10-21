@@ -63,6 +63,9 @@ export interface ChartComponentProps {
   selectedLoading?: boolean;
   selectedError?: string | null;
   selectedCandidateScore?: any;
+  effectiveMinNetRR?: number;
+  rrPolicySource?: string;
+  rrPolicyFingerprint?: string;
 }
 
 interface CandleData {
@@ -126,6 +129,9 @@ export function ChartComponent({
   selectedLoading,
   selectedError,
   selectedCandidateScore,
+  effectiveMinNetRR = 2.0,
+  rrPolicySource,
+  rrPolicyFingerprint,
 }: ChartComponentProps) {
   const lastFocusNonceRef = useRef<number>(0);
   const draftBaseOverlayRef = useRef<RiskRewardData | null | undefined>(activeOverlay);
@@ -878,7 +884,7 @@ export function ChartComponent({
         tp,
         accountEquity,
         riskPct,
-        2.0,
+        effectiveMinNetRR,
         undefined,
         leverage,
         marginMode
@@ -891,6 +897,9 @@ export function ChartComponent({
         plannedEntry: entry,
         stopLoss: sl,
         takeProfit: tp,
+        minNetRR: effectiveMinNetRR,
+        rrPolicySource,
+        rrPolicyFingerprint,
         quantity: calc.quantity,
         initialRiskUsdt: calc.netRiskUsdt,
         grossLossUsdt: calc.grossLossUsdt,
@@ -934,7 +943,7 @@ export function ChartComponent({
         rrPrimitiveRef.current = null;
       }
     }
-  }, [activeOverlay, showOverlay, draftMode, draftDirection, smcLevels, accountEquity, riskPct, leverage, marginMode]);
+  }, [activeOverlay, showOverlay, draftMode, draftDirection, smcLevels, accountEquity, riskPct, leverage, marginMode, effectiveMinNetRR, rrPolicySource, rrPolicyFingerprint]);
 
   // 5. Interactive Pointer Drag Handlers (DRAFT only; armed/open/closed/observation are read-only)
   const isReadOnlyOverlay = (d: RiskRewardData) =>
@@ -1065,6 +1074,7 @@ export function ChartComponent({
     // Direction is fixed by the draft: dragging a SHORT stop below entry yields an invalid-geometry warning,
     // it never flips the trade or silently re-sorts the levels.
     const direction = drag.initialData.direction;
+    const effMinRR = drag.initialData.minNetRR ?? effectiveMinNetRR;
     const calc = calculateClientRiskReward(
       direction,
       newEntry,
@@ -1072,7 +1082,7 @@ export function ChartComponent({
       newTp,
       accountEquity,
       drag.initialData.riskPct || riskPct,
-      2.0,
+      effMinRR,
       drag.initialData.quantity,
       drag.initialData.leverage || leverage,
       drag.initialData.marginMode || marginMode
@@ -1080,6 +1090,7 @@ export function ChartComponent({
 
     scheduleDragPaint({
       ...drag.initialData,
+      minNetRR: effMinRR,
       plannedEntry: newEntry,
       stopLoss: newSl,
       takeProfit: newTp,

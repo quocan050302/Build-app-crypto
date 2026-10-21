@@ -1018,6 +1018,10 @@ def manual_arm_setup(
     acc_state = crud.get_account_status(db)
     equity = acc_state.get("current_equity", 1000.0) if acc_state else 1000.0
 
+    from services.rr_policy_service import resolve_effective_rr_policy
+    rr_ctx = resolve_effective_rr_policy(db)
+    effective_min_rr = rr_ctx.min_net_rr
+
     calc_res = calculate_risk_reward(
         direction=watch_setup.direction,
         planned_entry=entry,
@@ -1025,6 +1029,7 @@ def manual_arm_setup(
         take_profit=tp,
         capital_usdt=equity,
         risk_pct=watch_setup.risk_pct or 0.25,
+        min_net_rr=effective_min_rr,
         leverage=watch_setup.leverage or 5,
         margin_mode=watch_setup.margin_mode or "ISOLATED"
     )
@@ -1078,6 +1083,7 @@ def manual_arm_setup(
         now_ms=now_ms,
         policy_config_version=elig.get("policy_config_version", 1),
         risk_config_version=watch_setup.config_version or 1,
+        min_net_rr=effective_min_rr,
     )
 
     new_order = models.PaperOrder(
@@ -2818,9 +2824,23 @@ def reconcile_offline_positions_endpoint(db: Session = Depends(get_db)):
 
 @app.get("/api/v1/policy/trading", response_model=schemas.TradingPolicyResponse)
 def get_trading_policy_endpoint(symbol: str = "XAUUSDT", db: Session = Depends(get_db)):
-    """Retrieve active Trading Policy."""
+    """Retrieve active Trading Policy (Read-only, does not commit rows on GET, projects effective RR)."""
     from services.trading_policy_service import TradingPolicyService
-    return TradingPolicyService.get_active_policy(db, symbol)
+    from services.rr_policy_service import resolve_effective_rr_policy
+    policy = TradingPolicyService.get_policy(db)
+    if not policy:
+        policy = TradingPolicyService.get_default_policy()
+    rr_ctx = resolve_effective_rr_policy(db)
+    policy_dict = {
+        c.name: getattr(policy, c.name)
+        for c in models.TradingPolicy.__table__.columns
+        if hasattr(policy, c.name)
+    }
+    policy_dict["min_net_rr"] = rr_ctx.min_net_rr
+    policy_dict["effective_min_net_rr"] = rr_ctx.min_net_rr
+    policy_dict["rr_policy_source"] = rr_ctx.source
+    policy_dict["rr_policy_fingerprint"] = rr_ctx.fingerprint
+    return policy_dict
 
 
 @app.post("/api/v1/policy/trading", response_model=schemas.TradingPolicyResponse)
@@ -3047,6 +3067,10 @@ async def preview_setup_quality(
     effective_leverage = req.leverage if req.leverage is not None else settings.requested_leverage
     effective_margin = req.margin_mode if req.margin_mode is not None else settings.margin_mode
     effective_risk = req.risk_pct if req.risk_pct is not None else settings.risk_pct
+    from services.rr_policy_service import resolve_effective_rr_policy
+    rr_ctx = resolve_effective_rr_policy(db)
+    effective_min_rr = rr_ctx.min_net_rr
+
     calc = calculate_risk_reward(
         direction=req.direction,
         entry=req.entry_price,
@@ -3058,7 +3082,7 @@ async def preview_setup_quality(
         costs=costs,
         leverage=effective_leverage,
         margin_mode=effective_margin,
-        min_net_rr=2.0
+        min_net_rr=effective_min_rr,
     )
 
     plan_dict = {
@@ -3083,7 +3107,8 @@ async def preview_setup_quality(
         "eligibility": {"eligible": True, "reasons": []},
         "quote_view": {"is_valid": True, "price": req.entry_price},
         "news_view": {"is_blackout": False},
-        "calc": {"net_rr": calc.net_rr}
+        "calc": {"net_rr": calc.net_rr},
+        "profile": {"min_net_rr": effective_min_rr},
     }
 
     assessment, related_ev = assess_setup_quality(q_context)
@@ -3473,8 +3498,10 @@ def get_order_post_trade_review_endpoint(order_id: str, db: Session = Depends(ge
 def get_scalp_config_endpoint(db: Session = Depends(get_db)):
     from services.scalp_m1_types import load_effective_scalp_config
     from services.trading_policy_service import resolve_effective_daily_policy
+    from services.rr_policy_service import resolve_effective_rr_policy
     cfg = load_effective_scalp_config(db)
     eff_policy = resolve_effective_daily_policy(db)
+    rr_ctx = resolve_effective_rr_policy(db)
     config_data = {
         "scalp_m1_enabled": (cfg.scalp_m1_mode != "OFF"),
         "scalp_m1_mode": cfg.scalp_m1_mode,
@@ -3482,7 +3509,10 @@ def get_scalp_config_endpoint(db: Session = Depends(get_db)):
         "daily_ny_research_enabled": cfg.daily_ny_research_enabled,
         "min_closed_m1_bars": cfg.min_closed_m1_bars,
         "displacement_body_atr_min": cfg.displacement_body_atr_min,
-        "min_net_rr": cfg.min_net_rr,
+        "min_net_rr": rr_ctx.min_net_rr,
+        "effective_min_net_rr": rr_ctx.min_net_rr,
+        "rr_policy_source": rr_ctx.source,
+        "rr_policy_fingerprint": rr_ctx.fingerprint,
         "fallback_risk_pct": cfg.fallback_risk_pct,
         "near_zone_enter_atr": cfg.near_zone_enter_atr,
         "near_zone_exit_atr": cfg.near_zone_exit_atr,
@@ -3697,25 +3727,24 @@ def update_scalp_config_endpoint(
             db.add(models.SystemConfig(key="adaptive_model_allowlist", value=al_json, updated_at=now_ms))
 
     if "min_net_rr" in payload:
+        from services.rr_policy_service import stage_min_net_rr_update, RrPolicyConfigError
         try:
-            rr_val = float(payload["min_net_rr"])
-            if rr_val <= 0 or not math.isfinite(rr_val):
-                raise ValueError()
-            cfg_rr = db.query(models.SystemConfig).filter(models.SystemConfig.key == "min_net_rr").first()
-            if cfg_rr:
-                cfg_rr.value = str(rr_val)
-                cfg_rr.updated_at = now_ms
-            else:
-                db.add(models.SystemConfig(key="min_net_rr", value=str(rr_val), updated_at=now_ms))
-        except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="INVALID_VALUE: min_net_rr must be a positive number")
+            stage_min_net_rr_update(db, payload["min_net_rr"], now_ms=now_ms)
+        except RrPolicyConfigError as e:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=f"{e.code}: {e.message}")
+        except (ValueError, TypeError) as e:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=f"INVALID_VALUE: {e}")
 
     if "timing_profile" in payload:
         tp_input = payload["timing_profile"]
         if not isinstance(tp_input, str):
+            db.rollback()
             raise HTTPException(status_code=400, detail="INVALID_TIMING_PROFILE: must be a string")
         tp_val = tp_input.strip().upper()
         if tp_val not in ("SILVER_BULLET_LONDON_NY", "CG01_NY_PAPER_EXPANDED"):
+            db.rollback()
             raise HTTPException(
                 status_code=400,
                 detail="INVALID_TIMING_PROFILE: must be SILVER_BULLET_LONDON_NY or CG01_NY_PAPER_EXPANDED"
@@ -3739,6 +3768,7 @@ def update_scalp_config_endpoint(
             else:
                 db.add(models.SystemConfig(key="max_trigger_age_ms", value=str(ttl_val), updated_at=now_ms))
         except (ValueError, TypeError):
+            db.rollback()
             raise HTTPException(status_code=400, detail="INVALID_VALUE: max_trigger_age_ms must be a positive integer")
 
     if "max_entry_distance_atr" in payload:
@@ -3753,6 +3783,7 @@ def update_scalp_config_endpoint(
             else:
                 db.add(models.SystemConfig(key="max_entry_distance_atr", value=str(dist_val), updated_at=now_ms))
         except (ValueError, TypeError):
+            db.rollback()
             raise HTTPException(status_code=400, detail="INVALID_VALUE: max_entry_distance_atr must be a positive number")
 
     # Quality Scoring configuration (Sections 033 - 035, 061, 126, 127, 128)
@@ -3829,6 +3860,8 @@ def update_scalp_config_endpoint(
 
     effective_cfg = load_effective_scalp_config(db)
     synced_policy = resolve_effective_daily_policy(db)
+    from services.rr_policy_service import resolve_effective_rr_policy
+    rr_ctx = resolve_effective_rr_policy(db)
     out_config = {
         "scalp_m1_enabled": (effective_cfg.scalp_m1_mode != "OFF"),
         "scalp_m1_mode": effective_cfg.scalp_m1_mode,
@@ -3836,7 +3869,10 @@ def update_scalp_config_endpoint(
         "daily_ny_research_enabled": effective_cfg.daily_ny_research_enabled,
         "min_closed_m1_bars": effective_cfg.min_closed_m1_bars,
         "displacement_body_atr_min": effective_cfg.displacement_body_atr_min,
-        "min_net_rr": effective_cfg.min_net_rr,
+        "min_net_rr": rr_ctx.min_net_rr,
+        "effective_min_net_rr": rr_ctx.min_net_rr,
+        "rr_policy_source": rr_ctx.source,
+        "rr_policy_fingerprint": rr_ctx.fingerprint,
         "fallback_risk_pct": effective_cfg.fallback_risk_pct,
         "max_trigger_age_ms": effective_cfg.max_trigger_age_ms,
         "max_entry_distance_atr": effective_cfg.max_entry_distance_atr,

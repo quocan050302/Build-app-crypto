@@ -1,5 +1,5 @@
 import math
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
 from typing import List, Optional, Dict, Any, Union, Literal
 
 # Candle Schemas
@@ -1061,9 +1061,18 @@ class TradingPolicyUpdate(BaseModel):
     ny_fallback_enabled: Optional[bool] = True
     ny_fallback_start: Optional[str] = "10:30"
     ny_fallback_risk_pct_cap: Optional[float] = 0.10
-    min_net_rr: Optional[float] = 2.0
+    min_net_rr: Optional[float] = None
     max_open_positions: Optional[int] = 1
     max_armed_orders: Optional[int] = 1
+
+    @field_validator("min_net_rr", mode="before")
+    @classmethod
+    def validate_min_net_rr_input(cls, v: Any) -> Any:
+        if v is None:
+            raise ValueError("Min Net R:R không được để trống (null).")
+        if isinstance(v, bool):
+            raise ValueError("Min Net R:R phải là số hữu hạn, không được truyền giá trị boolean.")
+        return v
 
 class TradingPolicyResponse(BaseModel):
     id: str = "default"
@@ -1083,6 +1092,9 @@ class TradingPolicyResponse(BaseModel):
     ny_fallback_start: str = "10:30"
     ny_fallback_risk_pct_cap: float = 0.10
     min_net_rr: float = 2.0
+    effective_min_net_rr: Optional[float] = None
+    rr_policy_source: Optional[str] = None
+    rr_policy_fingerprint: Optional[str] = None
     max_open_positions: int = 1
     max_armed_orders: int = 1
     created_at: Optional[int] = None

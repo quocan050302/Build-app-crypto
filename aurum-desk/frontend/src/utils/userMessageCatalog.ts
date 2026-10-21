@@ -230,6 +230,30 @@ export const USER_MESSAGE_CATALOG: Record<string, CatalogTemplate> = {
     defaultAction: { type: 'OPEN_SETTINGS', label: 'Kiểm Tra Cài Đặt R:R' },
   },
 
+  NET_RR_TOO_LOW: {
+    code: 'NET_RR_TOO_LOW',
+    title: 'Tỷ lệ Net R:R chưa đạt ngưỡng tối thiểu',
+    summary: (p) => {
+      const netRR = p?.net_rr != null ? `1:${Number(p.net_rr).toFixed(2)}` : 'chưa đạt';
+      const minRR =
+        p?.required_rr != null
+          ? `1:${Number(p.required_rr).toFixed(2)}`
+          : p?.min_net_rr != null
+          ? `1:${Number(p.min_net_rr).toFixed(2)}`
+          : p?.required_min_net_rr != null
+          ? `1:${Number(p.required_min_net_rr).toFixed(2)}`
+          : '1:1.50';
+      return `Tỷ lệ Net R:R (${netRR}) sau phí chưa đạt mức tối thiểu yêu cầu (${minRR}).`;
+    },
+    explanation:
+      'Net R:R đã trừ phí và trượt giá; tỷ lệ này đo lường biên độ lợi nhuận ròng trên rủi ro, không đại diện cho xác suất thắng.',
+    impact: 'Lệnh bị chặn an toàn để đảm bảo kỳ vọng toán học của tài khoản.',
+    next_steps: 'Chờ thiết lập giá tốt hơn hoặc điều chỉnh cấu hình Min Net R:R trong phần cài đặt nếu phù hợp.',
+    defaultSeverity: 'warning',
+    defaultCertainty: 'confirmed',
+    defaultAction: { type: 'OPEN_SETTINGS', label: 'Xem Cài Đặt R:R' },
+  },
+
   INVALID_PRICE_GEOMETRY: {
     code: 'INVALID_PRICE_GEOMETRY',
     title: 'Giá vào, cắt lỗ và chốt lời chưa hợp lệ',

@@ -584,10 +584,15 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
             if config_map.get("execution_profile") == ExecutionProfile.PAPER_ADAPTIVE_SMC.value:
                 overrides["adaptive_model_allowlist"] = ()
 
+    # Authoritative RR policy resolution (V16.39.15 Rules 026, 050, 052)
+    from services.rr_policy_service import resolve_effective_rr_policy, RrPolicySource
+    rr_ctx = resolve_effective_rr_policy(db)
+    if rr_ctx.source != RrPolicySource.DEFAULT.value:
+        overrides["min_net_rr"] = rr_ctx.min_net_rr
+
     for num_key, typ in [
         ("min_closed_m1_bars", int),
         ("displacement_body_atr_min", float),
-        ("min_net_rr", float),
         ("fallback_risk_pct", float),
         ("near_zone_enter_atr", float),
         ("near_zone_exit_atr", float),

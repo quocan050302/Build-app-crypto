@@ -104,10 +104,10 @@ def validate_trading_policy_update(
     if isinstance(max_daily, bool) or not isinstance(max_daily, int) or max_daily != 3:
         raise ValueError("Chính sách yêu cầu max_daily_fills cố định là 3 (nguyên tắc an toàn vốn UTC+7).")
 
-    # 2. Min net R:R
+    # 2. Min net R:R (V16.39.15: floor 1.5 in PAPER mode)
     min_rr = _val("min_net_rr", 2.0)
-    if isinstance(min_rr, bool) or not isinstance(min_rr, (int, float)) or not math.isfinite(min_rr) or float(min_rr) < 2.0:
-        raise ValueError("min_net_rr không được thấp hơn 2.0 theo quy tắc chuẩn SMC/ICT.")
+    if isinstance(min_rr, bool) or not isinstance(min_rr, (int, float)) or not math.isfinite(min_rr) or float(min_rr) < 1.5:
+        raise ValueError("Min Net R:R phải là số hữu hạn từ 1.5 trở lên trong chế độ PAPER hiện tại.")
 
     # 3. Fallback risk cap
     fb_cap = _val("ny_fallback_risk_pct_cap", 0.10)

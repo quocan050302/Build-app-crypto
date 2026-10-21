@@ -162,6 +162,10 @@ class StrategyService:
 
             fallback_sl = round(current_p - max(atr * 2.0, 5.0), 2) if direction == "LONG" else round(current_p + max(atr * 2.0, 5.0), 2)
 
+            from services.rr_policy_service import resolve_effective_rr_policy
+            effective_rr_ctx = resolve_effective_rr_policy(db)
+            effective_min_rr = effective_rr_ctx.min_net_rr
+
             if sig:
                 provisional_entry = sig.get("planned_entry", current_p)
                 provisional_sl = sig.get("stop_loss", fallback_sl)
@@ -176,6 +180,7 @@ class StrategyService:
                         take_profit=provisional_tp,
                         capital_usdt=capital,
                         risk_pct=risk_pct,
+                        min_net_rr=effective_min_rr,
                         leverage=leverage,
                         margin_mode=margin_mode
                     )
@@ -188,6 +193,7 @@ class StrategyService:
                         take_profit=0.0,
                         capital_usdt=capital,
                         risk_pct=risk_pct,
+                        min_net_rr=effective_min_rr,
                         leverage=leverage,
                         margin_mode=margin_mode
                     )
@@ -205,7 +211,7 @@ class StrategyService:
                         "risk_pct": risk_pct,
                         "leverage": leverage,
                         "margin_mode": margin_mode,
-                        "min_net_rr": 2.0
+                        "min_net_rr": effective_min_rr
                     },
                     causal_candles=candles
                 )
@@ -221,6 +227,7 @@ class StrategyService:
                         take_profit=0.0,
                         capital_usdt=capital,
                         risk_pct=risk_pct,
+                        min_net_rr=effective_min_rr,
                         leverage=leverage,
                         margin_mode=margin_mode
                     )
@@ -813,8 +820,9 @@ class StrategyService:
             return _no(["INVALID_PRICE_GEOMETRY"], plan.get("error_message"))
         plan_entry, plan_sl, plan_tp = plan["entry"], plan["stop_loss"], plan["take_profit"]
 
-        policy_obj = policy_eval.get("policy")
-        min_rr = getattr(policy_obj, "min_net_rr", None) or 2.0
+        from services.rr_policy_service import resolve_effective_rr_policy
+        rr_ctx = resolve_effective_rr_policy(db)
+        min_rr = rr_ctx.min_net_rr
         calc_res = calculate_risk_reward(
             direction=watch_setup.direction,
             planned_entry=plan_entry,
@@ -930,6 +938,7 @@ class StrategyService:
             now_ms=now_ms,
             policy_config_version=getattr(policy_eval.get("policy"), "version", 1) if policy_eval.get("policy") else 1,
             risk_config_version=watch_setup.config_version or 1,
+            min_net_rr=min_rr,
         )
 
         order_id = f"order-{uuid.uuid4().hex[:8]}"

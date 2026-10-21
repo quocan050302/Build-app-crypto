@@ -46,7 +46,8 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
   } = displayState;
 
   const [selectedPolicy, setSelectedPolicy] = useState<string>(directionPolicy || 'LEGACY_H1');
-  const [selectedMinNetRr, setSelectedMinNetRr] = useState<number>(1.5);
+  const [savedMinNetRr, setSavedMinNetRr] = useState<number>(2.0);
+  const [rawInputRr, setRawInputRr] = useState<string>('2.0');
   const [selectedTimingProfile, setSelectedTimingProfile] = useState<string>('SILVER_BULLET_LONDON_NY');
   const [saveStatus, setSaveStatus] = useState<{ type: 'idle' | 'saving' | 'success' | 'error'; message?: string }>({ type: 'idle' });
 
@@ -61,7 +62,11 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data) {
-          if (data.min_net_rr != null) setSelectedMinNetRr(Number(data.min_net_rr));
+          if (data.min_net_rr != null) {
+            const num = Number(data.min_net_rr);
+            setSavedMinNetRr(num);
+            setRawInputRr(String(num));
+          }
           if (data.timing_profile) setSelectedTimingProfile(data.timing_profile);
           if (data.cg01_direction_policy) setSelectedPolicy(data.cg01_direction_policy);
         }
@@ -70,6 +75,11 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
   }, []);
 
   const handleSavePolicy = async () => {
+    const val = parseFloat(rawInputRr);
+    if (isNaN(val) || val < 1.5) {
+      setSaveStatus({ type: 'error', message: 'Min Net R:R phải là số từ 1.5 trở lên trong chế độ PAPER' });
+      return;
+    }
     setSaveStatus({ type: 'saving' });
     try {
       const res = await fetch('/api/scalp/config', {
@@ -77,7 +87,7 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cg01_direction_policy: selectedPolicy,
-          min_net_rr: Number(selectedMinNetRr),
+          min_net_rr: val,
           timing_profile: selectedTimingProfile,
         }),
       });
@@ -88,7 +98,11 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
       const respData = await res.json().catch(() => ({}));
       if (respData && respData.effective_config) {
         const eff = respData.effective_config;
-        if (eff.min_net_rr != null) setSelectedMinNetRr(Number(eff.min_net_rr));
+        if (eff.min_net_rr != null) {
+          const effNum = Number(eff.min_net_rr);
+          setSavedMinNetRr(effNum);
+          setRawInputRr(String(effNum));
+        }
         if (eff.timing_profile) setSelectedTimingProfile(eff.timing_profile);
         if (eff.cg01_direction_policy) setSelectedPolicy(eff.cg01_direction_policy);
       }
@@ -236,16 +250,17 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
           <div className="grid grid-cols-2 gap-2 pt-1 border-t border-charcoal-800">
             <div>
               <label className="block text-[10px] text-gray-300 font-medium mb-0.5">
-                Min Net R:R
+                Min Net R:R (sau phí) · 1:{savedMinNetRr.toFixed(1)}
+                {rawInputRr !== String(savedMinNetRr) && <span className="text-amber-400 ml-1">(Chưa lưu)</span>}
               </label>
               <input
                 type="number"
                 step="0.1"
-                min="1.0"
+                min="1.5"
                 max="5.0"
                 data-testid="cg01-min-net-rr-input"
-                value={selectedMinNetRr}
-                onChange={(e) => setSelectedMinNetRr(parseFloat(e.target.value) || 1.5)}
+                value={rawInputRr}
+                onChange={(e) => setRawInputRr(e.target.value)}
                 className="w-full bg-charcoal-800 border border-charcoal-700 text-gray-200 rounded px-1.5 py-1 text-[11px] focus:outline-none focus:border-cyan-500"
               />
             </div>

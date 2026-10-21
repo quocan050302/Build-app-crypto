@@ -34,6 +34,8 @@ class PlanFinancialContext:
     cost_version: str
     instrument_version: str
     min_net_rr: float
+    rr_policy_source: Optional[str] = None
+    rr_policy_fingerprint: Optional[str] = None
 
     def validate(self) -> None:
         if (
@@ -89,9 +91,12 @@ def load_plan_financial_context(
     risk_config_version = int(settings.config_version) if settings.config_version is not None else 1
     instrument_ver = str(settings.metadata_version or "XAUUSDT-paper-v1")
 
-    # Read policy min_net_rr
-    policy = db.query(models.TradingPolicy).filter(models.TradingPolicy.id == "default").first()
-    min_net_rr = float(policy.min_net_rr) if policy and policy.min_net_rr is not None else 2.0
+    # V16.39.15 Authoritative RR Policy Resolution (Rule 057)
+    from services.rr_policy_service import resolve_effective_rr_policy
+    rr_ctx = resolve_effective_rr_policy(db)
+    min_net_rr = rr_ctx.min_net_rr
+    rr_policy_source = rr_ctx.source
+    rr_policy_fingerprint = rr_ctx.fingerprint
 
     slip_row = db.query(models.SystemConfig).filter(models.SystemConfig.key.in_(["default_slippage", "slippage", "slippage_usd"])).first()
     custom_slippage = float(slip_row.value) if (slip_row and slip_row.value is not None) else None
@@ -113,6 +118,8 @@ def load_plan_financial_context(
         cost_version=cost_version,
         instrument_version=instrument_ver,
         min_net_rr=min_net_rr,
+        rr_policy_source=rr_policy_source,
+        rr_policy_fingerprint=rr_policy_fingerprint,
     )
     ctx.validate()
     return ctx

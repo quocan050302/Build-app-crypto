@@ -841,6 +841,21 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                   <span className="text-gray-400">R:R sau chi phí (Net R:R):</span>
                   <span className="font-mono text-aurum-400 font-bold">1:{selectedIntent?.estimatedNetRR?.toFixed(2) || '--'}</span>
                 </div>
+                <div className="flex justify-between text-[11px] text-gray-400 pt-0.5">
+                  <span>Ngưỡng tối thiểu áp dụng:</span>
+                  <span className="font-mono text-gray-300">
+                    {selectedIntent?.minNetRR != null
+                      ? `1:${selectedIntent.minNetRR.toFixed(1)}${selectedIntent.rrPolicySource === 'ORDER_SNAPSHOT' ? ' (Lúc ARM)' : ''}`
+                      : selectedIntent?.source === 'OPEN_POSITION'
+                      ? 'Chưa lưu ngưỡng lúc ARM'
+                      : policy?.min_net_rr != null
+                      ? `1:${policy.min_net_rr.toFixed(1)} (Hiện hành)`
+                      : '1:2.0 (Mặc định)'}
+                  </span>
+                </div>
+                <div className="text-[10px] text-gray-500 italic pt-0.5">
+                  Net R:R đã trừ phí sàn và trượt giá; ngưỡng không phải là xác suất thắng.
+                </div>
                 {liqEst && (
                   <div className="flex justify-between border-t border-charcoal-750 pt-2">
                     <span className="text-gray-400">Giá thanh lý ước tính (Isolated):</span>

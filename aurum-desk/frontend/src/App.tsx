@@ -117,6 +117,11 @@ export interface SelectedTradeIntent {
 
   // V16.39.11 Candidate Quality Score
   candidate_score_summary?: CandidateScoreSummary | null;
+
+  // V16.39.15 RR Policy Unification
+  minNetRR?: number;
+  rrPolicySource?: string;
+  rrPolicyFingerprint?: string;
 }
 
 
@@ -1702,6 +1707,9 @@ function AppContent() {
                 marginMode={marginMode}
                 rvolData={rvolData}
                 activeOverlay={activeOverlay}
+                effectiveMinNetRR={tradingPolicy?.min_net_rr ?? 2.0}
+                rrPolicySource={tradingPolicy?.rr_policy_source}
+                rrPolicyFingerprint={tradingPolicy?.rr_policy_fingerprint}
                 onOverlayChange={(updated) => {
                   if (updated) {
                     if (selectedIntentRef.current?.source === 'OPEN_POSITION' || updated.readOnly) return;

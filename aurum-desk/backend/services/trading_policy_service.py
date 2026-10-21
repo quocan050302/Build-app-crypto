@@ -422,16 +422,26 @@ class TradingPolicyService:
         # Centralized validation
         validated = validate_trading_policy_update(policy, update_data)
 
-        # Update attributes
-        for k, v in validated.items():
-            if hasattr(policy, k) and k not in ("id", "version", "updated_at"):
-                setattr(policy, k, v)
+        try:
+            # V16.39.15: If min_net_rr is present, stage canonical SystemConfig and compatibility TradingPolicy atomically (Rules 033, 035, 044, 045)
+            if "min_net_rr" in validated:
+                from services.rr_policy_service import stage_min_net_rr_update
+                stage_min_net_rr_update(db, validated["min_net_rr"], now_ms=now_ms)
+                policy = TradingPolicyService.get_policy(db)
 
-        policy.version = (policy.version or 1) + 1
-        policy.updated_at = now_ms
-        db.commit()
-        db.refresh(policy)
-        return policy
+            # Update other attributes
+            for k, v in validated.items():
+                if k != "min_net_rr" and hasattr(policy, k) and k not in ("id", "version", "updated_at"):
+                    setattr(policy, k, v)
+
+            policy.version = (policy.version or 1) + 1
+            policy.updated_at = now_ms
+            db.commit()
+            db.refresh(policy)
+            return policy
+        except Exception:
+            db.rollback()
+            raise
 
     @staticmethod
     def get_ny_session_window(

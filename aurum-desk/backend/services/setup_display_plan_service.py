@@ -384,6 +384,9 @@ def build_setup_display_plan(
             stored_tp_exit_slip = frozen_snapshot.get("tp_exit_slippage_usdt")
             stored_cost_source = frozen_snapshot.get("cost_source", "FROZEN_ORDER_SNAPSHOT")
             stored_equity_as_of = frozen_snapshot.get("equity_as_of_ms", updated_at)
+            stored_min_net_rr = frozen_snapshot.get("min_net_rr_at_arm") or frozen_snapshot.get("min_net_rr")
+            stored_rr_source = frozen_snapshot.get("rr_policy_source") or "ORDER_SNAPSHOT"
+            stored_rr_fp = frozen_snapshot.get("rr_policy_fingerprint")
         else:
             stored_gross_rr = _get("gross_rr")
             stored_net_rr = _get("net_rr")
@@ -419,6 +422,17 @@ def build_setup_display_plan(
                     stored_tp_exit_slip = raw_cs.get("tp_exit_slippage_usdt")
                     stored_cost_source = raw_cs.get("cost_source", "FROZEN_ORDER_SNAPSHOT")
                     stored_equity_as_of = raw_cs.get("equity_as_of_ms", updated_at)
+                    stored_min_net_rr = raw_cs.get("min_net_rr_at_arm") or raw_cs.get("min_net_rr")
+                    stored_rr_source = raw_cs.get("rr_policy_source") or "ORDER_SNAPSHOT" if stored_min_net_rr is not None else None
+                    stored_rr_fp = raw_cs.get("rr_policy_fingerprint")
+                else:
+                    stored_min_net_rr = None
+                    stored_rr_source = None
+                    stored_rr_fp = None
+            else:
+                stored_min_net_rr = None
+                stored_rr_source = None
+                stored_rr_fp = None
 
         has_complete_metrics = (
             financial_value_is_known(stored_net_rr)
@@ -430,7 +444,14 @@ def build_setup_display_plan(
             status = "FROZEN_ORDER"
             reason_code = "ORDER_FROZEN"
             reason_msg = "Lệnh đã kích hoạt; thông số tài chính được bảo toàn"
-            meets_min_rr = float(stored_net_rr) >= 2.0
+            if stored_min_net_rr is not None and financial_value_is_known(stored_min_net_rr) and float(stored_min_net_rr) > 0:
+                eff_snap_min_rr = float(stored_min_net_rr)
+                meets_min_rr = float(stored_net_rr) >= eff_snap_min_rr
+                eff_rr_source = stored_rr_source or "ORDER_SNAPSHOT"
+            else:
+                eff_snap_min_rr = 2.0
+                meets_min_rr = float(stored_net_rr) >= 2.0
+                eff_rr_source = None
             financial_dto = {
                 "gross_rr": round(float(stored_gross_rr), 4) if financial_value_is_known(stored_gross_rr) else None,
                 "net_rr": round(float(stored_net_rr), 4),
@@ -452,6 +473,9 @@ def build_setup_display_plan(
                 "tp_exit_slippage_usdt": round(float(stored_tp_exit_slip), 4) if financial_value_is_known(stored_tp_exit_slip) else None,
                 "estimated_liquidation": round(float(stored_liq), 2) if financial_value_is_known(stored_liq) else None,
                 "meets_min_rr": meets_min_rr,
+                "min_net_rr": eff_snap_min_rr,
+                "rr_policy_source": eff_rr_source,
+                "rr_policy_fingerprint": stored_rr_fp,
                 "equity_usdt": float(stored_eq) if financial_value_is_known(stored_eq) else None,
                 "equity_basis": "FROZEN_SNAPSHOT",
                 "equity_as_of_ms": stored_equity_as_of,
@@ -543,6 +567,9 @@ def build_setup_display_plan(
                 "tp_exit_slippage_usdt": round(float(getattr(calc, "tp_exit_slippage_usdt", 0.0)), 4),
                 "estimated_liquidation": round(float(est_liq), 2) if financial_value_is_known(est_liq) else None,
                 "meets_min_rr": meets_min_rr,
+                "min_net_rr": financial_context.min_net_rr,
+                "rr_policy_source": getattr(financial_context, "rr_policy_source", None),
+                "rr_policy_fingerprint": getattr(financial_context, "rr_policy_fingerprint", None),
                 "equity_usdt": financial_context.equity_usdt,
                 "equity_basis": financial_context.equity_basis,
                 "equity_as_of_ms": financial_context.equity_as_of_ms,
@@ -597,6 +624,8 @@ def build_setup_display_plan(
                 "tp_exit_slippage_usdt": None,
                 "estimated_liquidation": round(float(stored_liq), 2) if financial_value_is_known(stored_liq) else None,
                 "meets_min_rr": meets_min_rr,
+                "min_net_rr": 2.0,
+                "rr_policy_source": "STORED_LEGACY",
                 "equity_usdt": None,
                 "equity_basis": "STORED_LEGACY",
                 "equity_as_of_ms": updated_at,

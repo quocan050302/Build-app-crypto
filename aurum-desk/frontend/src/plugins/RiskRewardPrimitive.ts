@@ -32,6 +32,8 @@ export interface RiskRewardData {
   invalidReason?: string;
   readOnly?: boolean;
   minNetRR?: number;
+  rrPolicySource?: string;
+  rrPolicyFingerprint?: string;
   canExecute?: boolean;
   executionReason?: string;
   realizedPnlNet?: number;
@@ -57,6 +59,49 @@ export interface RiskRewardData {
   entrySlippageUsdt?: number;
   slExitSlippageUsdt?: number;
   tpExitSlippageUsdt?: number;
+}
+
+export interface PrimitiveRrStatus {
+  hasKnownThreshold: boolean;
+  meetsMinRR: boolean;
+  rrPassText: string;
+  isPass: boolean;
+  strokeColor: string;
+  textColor: string;
+}
+
+export function resolvePrimitiveRrStatus(d: RiskRewardData): PrimitiveRrStatus {
+  const effectiveEntry = d.actualEntry ?? d.plannedEntry;
+  const nonPositiveReward = d.direction === 'LONG' ? d.takeProfit <= effectiveEntry : d.takeProfit >= effectiveEntry;
+  if (nonPositiveReward) {
+    return {
+      hasKnownThreshold: true,
+      meetsMinRR: false,
+      rrPassText: ' · TP không bù chi phí',
+      isPass: false,
+      strokeColor: '#eab308',
+      textColor: '#fef08a',
+    };
+  }
+  if (d.minNetRR === undefined || d.minNetRR === null || !Number.isFinite(d.minNetRR) || d.minNetRR <= 0) {
+    return {
+      hasKnownThreshold: false,
+      meetsMinRR: false,
+      rrPassText: ' · Ngưỡng chưa xác định',
+      isPass: false,
+      strokeColor: '#a1a1aa',
+      textColor: '#d4d4d8',
+    };
+  }
+  const meets = d.estimatedNetRR >= d.minNetRR;
+  return {
+    hasKnownThreshold: true,
+    meetsMinRR: meets,
+    rrPassText: meets ? '' : ' · Chưa đạt R:R',
+    isPass: meets,
+    strokeColor: meets ? (d.direction === 'LONG' ? '#26a69a' : '#ef5350') : '#eab308',
+    textColor: meets ? '#f4f4f5' : '#fef08a',
+  };
 }
 
 export type DragTargetPart = 'entry' | 'sl' | 'tp' | 'body' | 'right_edge';
@@ -299,8 +344,8 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
 
       // 5. Central Badge Pill
       const badgeY = entryY;
-      const rrPassText = nonPositiveReward ? ' · TP không bù chi phí' : (d.estimatedNetRR >= (d.minNetRR ?? 2.0) ? '' : ' · Chưa đạt R:R');
-      const badgeText = `${d.direction} · Gross ${formatRR(d.grossRR)} · Net ${formatRR(d.estimatedNetRR)}${rrPassText} · ${d.state.toUpperCase()}`;
+      const rrStatus = resolvePrimitiveRrStatus(d);
+      const badgeText = `${d.direction} · Gross ${formatRR(d.grossRR)} · Net ${formatRR(d.estimatedNetRR)}${rrStatus.rrPassText} · ${d.state.toUpperCase()}`;
       ctx.font = 'bold 11px Inter, sans-serif';
       const textMetrics = ctx.measureText(badgeText);
       const badgeWidth = textMetrics.width + 24;
@@ -309,14 +354,14 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
 
       // Badge background pill
       ctx.fillStyle = '#18181b';
-      ctx.strokeStyle = d.estimatedNetRR >= 2.0 ? (d.direction === 'LONG' ? '#26a69a' : '#ef5350') : '#eab308';
+      ctx.strokeStyle = rrStatus.strokeColor;
       ctx.lineWidth = 1.5;
       this._roundRect(ctx, badgeX, badgeY - badgeHeight / 2, badgeWidth, badgeHeight, 11);
       ctx.fill();
       ctx.stroke();
 
       // Badge text
-      ctx.fillStyle = d.estimatedNetRR >= 2.0 ? '#f4f4f5' : '#fef08a';
+      ctx.fillStyle = rrStatus.textColor;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY);
@@ -547,10 +592,8 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
     // 5. Central Badge Pill at entryY
     const d = this._data;
     const width = Math.max(endX - startX, 40);
-    const effectiveEntry = d.actualEntry ?? d.plannedEntry;
-    const nonPositiveReward = d.direction === 'LONG' ? d.takeProfit <= effectiveEntry : d.takeProfit >= effectiveEntry;
-    const rrPassText = nonPositiveReward ? ' · TP không bù chi phí' : (d.estimatedNetRR >= (d.minNetRR ?? 2.0) ? '' : ' · Chưa đạt R:R');
-    const badgeText = `${d.direction} · Gross ${formatRR(d.grossRR)} · Net ${formatRR(d.estimatedNetRR)}${rrPassText} · ${d.state.toUpperCase()}`;
+    const rrStatus = resolvePrimitiveRrStatus(d);
+    const badgeText = `${d.direction} · Gross ${formatRR(d.grossRR)} · Net ${formatRR(d.estimatedNetRR)}${rrStatus.rrPassText} · ${d.state.toUpperCase()}`;
     const badgeWidth = measureBadgeTextWidth(badgeText) + 24;
     const badgeHeight = 22;
     const badgeX = startX + (width - badgeWidth) / 2;
