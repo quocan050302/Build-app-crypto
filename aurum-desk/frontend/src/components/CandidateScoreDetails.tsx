@@ -8,6 +8,9 @@ export interface CandidateScoreDetailsProps {
   detail?: CandidateScoreDetail | null;
   orderId?: string;
   className?: string;
+  loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 export const CandidateScoreDetails: React.FC<CandidateScoreDetailsProps> = ({
@@ -15,6 +18,9 @@ export const CandidateScoreDetails: React.FC<CandidateScoreDetailsProps> = ({
   detail,
   orderId,
   className = '',
+  loading = false,
+  error = null,
+  onRetry,
 }) => {
   const activeData: CandidateScoreSummary | null = detail || summary || null;
 
@@ -54,7 +60,12 @@ export const CandidateScoreDetails: React.FC<CandidateScoreDetailsProps> = ({
   const lessonDelta = activeData.lesson_delta;
   const threshold = activeData.threshold;
   const decisionText = translateDecision(activeData.decision);
-  const isEligible = activeData.decision === 'ELIGIBLE' || (threshold !== null && finalScore !== null && finalScore >= threshold);
+  const isBlocked = Boolean(activeData.decision?.startsWith('BLOCKED'));
+  const isEligible = !isBlocked && (
+    activeData.decision === 'ELIGIBLE' ||
+    activeData.decision === 'ELIGIBLE_BY_SCORE' ||
+    (threshold !== null && finalScore !== null && finalScore >= threshold)
+  );
 
   const factors = detail?.factors || [];
   const blockers = detail?.blockers || [];
@@ -79,7 +90,9 @@ export const CandidateScoreDetails: React.FC<CandidateScoreDetailsProps> = ({
 
         <span
           className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-            isEligible
+            isBlocked
+              ? 'bg-rose-950 text-rose-300 border-rose-700'
+              : isEligible
               ? 'bg-cyan-950 text-cyan-300 border-cyan-700'
               : 'bg-amber-950 text-amber-300 border-amber-700'
           }`}
@@ -108,7 +121,7 @@ export const CandidateScoreDetails: React.FC<CandidateScoreDetailsProps> = ({
                 : 'text-gray-300'
             }`}
           >
-            {lessonDelta !== null ? `${lessonDelta > 0 ? '+' : ''}${lessonDelta}` : '0'}
+            {lessonDelta !== null ? `${lessonDelta > 0 ? '+' : ''}${lessonDelta}` : '—'}
           </span>
         </div>
 
@@ -127,6 +140,29 @@ export const CandidateScoreDetails: React.FC<CandidateScoreDetailsProps> = ({
         </div>
       </div>
 
+      {/* Loading state */}
+      {loading && !detail && (
+        <div className="p-2 text-[11px] text-gray-400 italic bg-charcoal-900/60 rounded border border-charcoal-750">
+          Đang tải chi tiết tiêu chí đánh giá...
+        </div>
+      )}
+
+      {/* Error state with retry (Rule 082) */}
+      {error && !detail && (
+        <div className="p-2 rounded bg-amber-950/40 border border-amber-800 text-[11px] text-amber-300 flex items-center justify-between gap-2">
+          <span>Chưa tải được chi tiết điểm: {error}</span>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="px-2 py-0.5 text-[10px] bg-charcoal-800 hover:bg-charcoal-700 text-gray-200 rounded border border-charcoal-650 shrink-0"
+            >
+              Thử lại
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Factors list if available */}
       {factors.length > 0 && (
         <div className="space-y-1.5 pt-1">
@@ -134,29 +170,38 @@ export const CandidateScoreDetails: React.FC<CandidateScoreDetailsProps> = ({
             Tiêu Chí Thành Phần ({factors.length}):
           </span>
           <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-            {factors.map((f, idx) => (
-              <div
-                key={idx}
-                className="p-1.5 rounded bg-charcoal-900/80 border border-charcoal-750 flex items-center justify-between text-[11px]"
-              >
-                <div className="flex items-center gap-1.5">
-                  {f.status === 'PASS' || f.score ? (
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  ) : (
-                    <XCircle className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-                  )}
-                  <span className="text-gray-200">{f.name || f.code}</span>
-                  {f.explanation_vi && (
-                    <span className="text-gray-400 text-[10px]">({f.explanation_vi})</span>
+            {factors.map((f, idx) => {
+              const earnedVal = f.earned_points !== undefined ? f.earned_points : f.score;
+              const maxVal = f.max_points !== undefined ? f.max_points : f.max_score;
+              const isFull = f.status === 'FULL' || f.status === 'PASS' || (earnedVal !== undefined && maxVal !== undefined && earnedVal >= maxVal && earnedVal > 0);
+              const isPartial = f.status === 'PARTIAL' || (earnedVal !== undefined && earnedVal > 0 && maxVal !== undefined && earnedVal < maxVal);
+
+              return (
+                <div
+                  key={idx}
+                  className="p-1.5 rounded bg-charcoal-900/80 border border-charcoal-750 flex items-center justify-between text-[11px]"
+                >
+                  <div className="flex items-center gap-1.5">
+                    {isFull ? (
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    ) : isPartial ? (
+                      <Info className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    ) : (
+                      <XCircle className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                    )}
+                    <span className="text-gray-200">{f.name || f.code}</span>
+                    {f.explanation_vi && (
+                      <span className="text-gray-400 text-[10px]">({f.explanation_vi})</span>
+                    )}
+                  </div>
+                  {earnedVal !== undefined && (
+                    <span className="font-mono text-gray-300">
+                      {`+${earnedVal}${maxVal !== undefined ? `/${maxVal}` : ''}`}
+                    </span>
                   )}
                 </div>
-                {f.score !== undefined && (
-                  <span className="font-mono text-gray-300">
-                    +{f.score}{f.max_score ? `/${f.max_score}` : ''}
-                  </span>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

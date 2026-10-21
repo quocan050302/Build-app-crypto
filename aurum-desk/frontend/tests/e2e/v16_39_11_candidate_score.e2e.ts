@@ -1,32 +1,39 @@
 /**
  * frontend/tests/e2e/v16_39_11_candidate_score.e2e.ts
- * V16.39.11 Candidate Quality Score Display E2E Browser Test
+ * V16.39.12 Candidate Quality Score Display E2E Browser Test
  *
- * Rules 174, 175:
- * - Desktop: Verify setup list, position, journal, and chart header badges display "78/100".
- * - Identity: Selected SHORT vs LONG chart binding preserves score identity.
- * - Mobile (390x844): Badges visible, chart/details accessible, no horizontal blowout.
+ * Rules 151-164:
+ * - Seed route /__e2e/seed_order must return 200/201 and valid body (no silent catch).
+ * - Pre-verify production endpoint /api/v1/orders/{id}/quality-score before browser opens.
+ * - Seed distinct Order A (LONG 78/100) and Order B (SHORT 64/100).
+ * - Verify exact score text "78/100" and order identity, not merely any visible badge.
+ * - Mobile (390x844): compact badge visible, no layout overflow blowout.
  */
 
 import { test, expect } from '@playwright/test';
 
 const API_PORT = process.env.AURUM_E2E_API_PORT ?? '8765';
 
-test.describe('V16.39.11 Candidate Quality Score UI Verification', () => {
+test.describe('V16.39.12 Candidate Quality Score UI & Exact Identity Verification', () => {
   test.beforeEach(async ({ page, request }) => {
     await page.goto('about:blank');
-    await request.post(`http://127.0.0.1:${API_PORT}/__e2e/reset`);
+    const resetRes = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/reset`);
+    expect(resetRes.ok()).toBeTruthy();
   });
 
-  test('E11-1: Desktop displays CandidateScoreBadge on setup, journal, and chart header', async ({ page, request }) => {
-    // 1. Seed order with valid candidate score assessment (78/100)
-    await request.post(`http://127.0.0.1:${API_PORT}/__e2e/seed_order`, {
+  test('E12-1: Seed distinct orders and verify exact 78/100 and 64/100 scores via API and UI', async ({
+    page,
+    request,
+  }) => {
+    // 1. Seed Order A: LONG, 78/100, ELIGIBLE_BY_SCORE with canonical factors (as active paper_open position)
+    const seedResA = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/seed_order`, {
       data: {
+        order_id: 'e2e_ord_long_78',
         direction: 'LONG',
         planned_entry: 2650.0,
         stop_loss: 2640.0,
         take_profit: 2675.0,
-        state: 'ARMED',
+        state: 'paper_open',
         cost_snapshot: {
           schema_version: '2.0',
           quality_assessment: {
@@ -34,24 +41,126 @@ test.describe('V16.39.11 Candidate Quality Score UI Verification', () => {
             base_score: 83.0,
             lesson_delta: -5.0,
             threshold: 70.0,
-            decision: 'ELIGIBLE',
-            as_of_ms: Date.now() - 60000,
-            assessment_id: 'assess-seed-01',
+            decision: 'ELIGIBLE_BY_SCORE',
+            as_of_ms: 1776510000000,
+            assessment_id: 'assess_long_78',
             candidate_key: 'XAUUSDT:15M:LONG:2650.0',
+            factors: [
+              {
+                code: 'FVG_ALIGNMENT',
+                group: 'STRUCTURE',
+                earned_points: 18.0,
+                max_points: 20.0,
+                status: 'FULL',
+                explanation_vi: 'Khối FVG tăng M15 đồng pha hợp lệ',
+              },
+            ],
           },
         },
       },
-    }).catch(() => {});
+    });
+    expect(seedResA.status()).toBe(200);
+    const bodyA = await seedResA.json();
+    expect(bodyA.order_id).toBe('e2e_ord_long_78');
+    expect(bodyA.assessment_id).toBe('assess_long_78');
 
-    // 2. Open dashboard
+    // 2. Seed Order B: SHORT, 64/100, BELOW_THRESHOLD
+    const seedResB = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/seed_order`, {
+      data: {
+        order_id: 'e2e_ord_short_64',
+        direction: 'SHORT',
+        planned_entry: 2655.0,
+        stop_loss: 2665.0,
+        take_profit: 2630.0,
+        state: 'closed',
+        cost_snapshot: {
+          schema_version: '2.0',
+          quality_assessment: {
+            final_score: 64.0,
+            base_score: 64.0,
+            lesson_delta: 0.0,
+            threshold: 70.0,
+            decision: 'BELOW_THRESHOLD',
+            as_of_ms: 1776510010000,
+            assessment_id: 'assess_short_64',
+            candidate_key: 'XAUUSDT:15M:SHORT:2655.0',
+            factors: [
+              {
+                code: 'FVG_ALIGNMENT',
+                group: 'STRUCTURE',
+                earned_points: 8.0,
+                max_points: 20.0,
+                status: 'PARTIAL',
+                explanation_vi: 'FVG giảm chưa đủ biên độ chuẩn',
+              },
+            ],
+          },
+        },
+      },
+    });
+    expect(seedResB.status()).toBe(200);
+    const bodyB = await seedResB.json();
+    expect(bodyB.order_id).toBe('e2e_ord_short_64');
+    expect(bodyB.assessment_id).toBe('assess_short_64');
+
+    // 3. Pre-verify production quality-score endpoint directly for Order A
+    const verifyApiA = await request.get(
+      `http://127.0.0.1:${API_PORT}/api/v1/orders/e2e_ord_long_78/quality-score`
+    );
+    expect(verifyApiA.status()).toBe(200);
+    const scoreDataA = await verifyApiA.json();
+    expect(scoreDataA.status).toBe('SUCCESS');
+    expect(scoreDataA.detail.score).toBe(78.0);
+    expect(scoreDataA.detail.status).toBe('AVAILABLE');
+    expect(scoreDataA.detail.factors[0].code).toBe('FVG_ALIGNMENT');
+    expect(scoreDataA.detail.factors[0].earned_points).toBe(18.0);
+
+    // 4. Pre-verify production quality-score endpoint directly for Order B
+    const verifyApiB = await request.get(
+      `http://127.0.0.1:${API_PORT}/api/v1/orders/e2e_ord_short_64/quality-score`
+    );
+    expect(verifyApiB.status()).toBe(200);
+    const scoreDataB = await verifyApiB.json();
+    expect(scoreDataB.status).toBe('SUCCESS');
+    expect(scoreDataB.detail.score).toBe(64.0);
+    expect(scoreDataB.detail.status).toBe('AVAILABLE');
+    expect(scoreDataB.detail.factors[0].code).toBe('FVG_ALIGNMENT');
+    expect(scoreDataB.detail.factors[0].earned_points).toBe(8.0);
+
+    // 5. Open dashboard and verify badge rendering with exact identity
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 
-    // 3. Verify CandidateScoreBadge is rendered in QuickDecisionSidebar or Upcoming
-    const badge = page.locator('[data-testid="candidate-score-badge"]').first();
-    await expect(badge).toBeVisible({ timeout: 10000 });
+    // Verify badge exists and carries exact score text 78/100
+    const badgeA = page.locator('[data-testid="candidate-score-badge"]:has-text("78/100")');
+    await expect(badgeA.first()).toBeVisible({ timeout: 10000 });
   });
 
-  test('E11-2: Mobile viewport (390x844) displays compact badges without layout overflow', async ({ page }) => {
+  test('E12-2: Mobile viewport (390x844) displays compact badges without layout overflow', async ({
+    page,
+    request,
+  }) => {
+    // Seed an active position so the mobile view has a badge
+    const seedRes = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/seed_order`, {
+      data: {
+        order_id: 'e2e_ord_mobile_78',
+        direction: 'LONG',
+        planned_entry: 2650.0,
+        stop_loss: 2640.0,
+        take_profit: 2675.0,
+        state: 'paper_open',
+        cost_snapshot: {
+          schema_version: '2.0',
+          quality_assessment: {
+            final_score: 78.0,
+            threshold: 70.0,
+            decision: 'ELIGIBLE_BY_SCORE',
+            as_of_ms: 1776510000000,
+          },
+        },
+      },
+    });
+    expect(seedRes.status()).toBe(200);
+
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/', { waitUntil: 'domcontentloaded' });
 

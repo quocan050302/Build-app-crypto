@@ -519,6 +519,101 @@ async def e2e_broadcast_cg01_eval(body: dict = Body(...)):
     return {"ok": True, "timestamp": int(time.time() * 1000)}
 
 
+@app.post("/__e2e/seed_order")
+def e2e_seed_order(body: dict = Body(...)):
+    """
+    V16.39.12 Test-only endpoint to seed a PaperOrder with cost_snapshot / quality_assessment.
+    Rules 151-153:
+    - Lives ONLY in e2e_server.py (not in production main.py).
+    - Seeds into the test-only temp SQLite DB.
+    - Returns order_id, setup_instance_id, assessment_id, state, direction, planned_entry.
+    """
+    import json
+    import uuid
+    db = SessionLocal()
+    try:
+        direction = str(body.get("direction", "LONG")).upper()
+        order_id = body.get("order_id") or f"e2e_ord_{uuid.uuid4().hex[:8]}"
+        raw_state = str(body.get("state", "ARMED")).lower()
+        if raw_state not in ("draft", "candidate", "armed", "paper_open", "closed", "expired", "invalidated", "cancelled"):
+            raw_state = "armed"
+
+        planned_entry = float(body.get("planned_entry", 2650.0))
+        stop_loss = float(body.get("stop_loss", 2640.0 if direction == "LONG" else 2660.0))
+        take_profit = float(body.get("take_profit", 2675.0 if direction == "LONG" else 2625.0))
+        quantity = float(body.get("quantity", 0.01))
+        initial_risk = float(body.get("initial_risk_usdt", 5.0))
+        cost_snapshot = body.get("cost_snapshot")
+        if cost_snapshot is not None and not isinstance(cost_snapshot, str):
+            cost_snapshot_str = json.dumps(cost_snapshot)
+        else:
+            cost_snapshot_str = cost_snapshot
+
+        now_ms = live_clock.now_ms()
+        created_at = int(body.get("created_at") or (now_ms - 60000))
+
+        assessment_id = None
+        candidate_key = None
+        if isinstance(cost_snapshot, dict):
+            qa = cost_snapshot.get("quality_assessment")
+            if isinstance(qa, dict):
+                assessment_id = qa.get("assessment_id")
+                candidate_key = qa.get("candidate_key")
+        elif isinstance(cost_snapshot_str, str):
+            try:
+                parsed_cs = json.loads(cost_snapshot_str)
+                if isinstance(parsed_cs, dict):
+                    qa = parsed_cs.get("quality_assessment")
+                    if isinstance(qa, dict):
+                        assessment_id = qa.get("assessment_id")
+                        candidate_key = qa.get("candidate_key")
+            except Exception:
+                pass
+
+        setup_id = body.get("setup_id") or f"setup_{order_id}"
+        setup_instance_id = body.get("setup_instance_id") or candidate_key or setup_id
+
+        order = models.PaperOrder(
+            id=order_id,
+            setup_id=setup_id,
+            setup_instance_id=setup_instance_id,
+            instrument=body.get("symbol", "XAUUSDT"),
+            direction=direction,
+            state=raw_state,
+            order_type=body.get("order_type", "LIMIT"),
+            planned_entry=planned_entry,
+            actual_entry=planned_entry if raw_state in ("paper_open", "closed") else None,
+            stop_loss=stop_loss,
+            take_profit=take_profit,
+            quantity=quantity,
+            initial_risk_usdt=initial_risk,
+            cost_snapshot=cost_snapshot_str,
+            created_at=created_at,
+            armed_at=created_at if raw_state in ("armed", "paper_open", "closed") else None,
+            opened_at=now_ms if raw_state in ("paper_open", "closed") else None,
+            closed_at=(now_ms + 60000) if raw_state == "closed" else None,
+            realized_pnl_net=float(body.get("realized_pnl_net", 10.0)) if raw_state == "closed" else None,
+        )
+        db.add(order)
+        db.commit()
+        db.refresh(order)
+
+        return {
+            "status": "SUCCESS",
+            "order_id": order.id,
+            "setup_id": order.setup_id,
+            "setup_instance_id": order.setup_instance_id,
+            "assessment_id": assessment_id,
+            "state": order.state,
+            "direction": order.direction,
+            "planned_entry": order.planned_entry,
+            "stop_loss": order.stop_loss,
+            "take_profit": order.take_profit,
+        }
+    finally:
+        db.close()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8765)

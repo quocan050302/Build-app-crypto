@@ -372,6 +372,53 @@ def compute_window_opening_equity(
     }
 
 
+def compute_position_state_view(
+    orders: Sequence[Dict[str, Any]],
+    requested_as_of_ms: Optional[int] = None,
+    observed_at_ms: Optional[int] = None,
+    view_mode: str = "CURRENT_PERSISTED",
+) -> Dict[str, Any]:
+    """
+    Rules 101-104, 107, V16.39.12: Computes position state view distinguishing CURRENT_PERSISTED
+    from HISTORICAL_AS_OF.
+    Pure function without side-effects or synthetic event backfilling.
+    """
+    if view_mode == "CURRENT_PERSISTED":
+        open_positions = 0
+        armed_orders = 0
+        for o in orders:
+            c_at = o.get("created_at")
+            if requested_as_of_ms is not None and c_at is not None and c_at >= requested_as_of_ms:
+                continue
+            st = str(o.get("state", "")).lower()
+            if st in ("open", "paper_open"):
+                open_positions += 1
+            elif st in ("armed", "paper_armed"):
+                armed_orders += 1
+
+        return {
+            "state_view": "CURRENT_PERSISTED",
+            "open_positions_count": open_positions,
+            "armed_orders_count": armed_orders,
+            "historical_state_available": True,
+            "state_as_of_ms": observed_at_ms or requested_as_of_ms,
+            "state_observed_at_ms": observed_at_ms or requested_as_of_ms,
+            "reason": "CURRENT_DB_STATE",
+        }
+    else:
+        # HISTORICAL_AS_OF: Without transition logs, reconstructing past active states
+        # cannot be guaranteed without ambiguity (cancellations, expirations, recovery).
+        return {
+            "state_view": "HISTORICAL_AS_OF",
+            "open_positions_count": None,
+            "armed_orders_count": None,
+            "historical_state_available": False,
+            "state_as_of_ms": requested_as_of_ms,
+            "state_observed_at_ms": observed_at_ms,
+            "reason": "HISTORICAL_TRANSITIONS_UNAVAILABLE",
+        }
+
+
 def compute_financial_metrics(
     orders: Sequence[Dict[str, Any]],
     *,
@@ -379,11 +426,14 @@ def compute_financial_metrics(
     start_ms: Optional[int] = None,
     end_ms: Optional[int] = None,
     state_as_of_ms: Optional[int] = None,
+    now_ms: Optional[int] = None,
+    view_mode: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Rules 029-041, 071-090: Computes pure post-fee financial metrics for the window [start_ms, end_ms).
+    Rules 029-041, 071-090, 101-115, V16.39.12: Computes pure post-fee financial metrics for the window [start_ms, end_ms).
     Start is inclusive, end is exclusive.
-    Returns verified outcomes, expectancy, winrate, and peak closed equity drawdown.
+    Returns verified outcomes, expectancy, winrate, peak closed equity drawdown,
+    and rigorous position state view.
     """
     cap = float(initial_capital) if (initial_capital is not None and initial_capital > 0) else 1000.0
     cap_valid = (initial_capital is not None and initial_capital > 0)
@@ -496,18 +546,30 @@ def compute_financial_metrics(
         max_dd_usd = 0.0
         max_dd_pct = 0.0 if (window_opening_eq is not None or (start_ms is None and cap_valid)) else None
 
-    # Count open positions as-of window end: exclude orders created after window end (Rule 034)
-    open_positions = 0
-    armed_orders = 0
-    for o in orders:
-        c_at = o.get("created_at")
-        if end_ms is not None and c_at is not None and c_at >= end_ms:
-            continue
-        st = str(o.get("state", "")).lower()
-        if st in ("open", "paper_open"):
-            open_positions += 1
-        elif st in ("armed", "paper_armed"):
-            armed_orders += 1
+    # Derive position state view mode (Rules 101-106)
+    effective_view_mode = view_mode
+    if effective_view_mode is None:
+        if state_as_of_ms is not None:
+            if now_ms is not None and state_as_of_ms < now_ms:
+                effective_view_mode = "HISTORICAL_AS_OF"
+            elif now_ms is None:
+                effective_view_mode = "HISTORICAL_AS_OF"
+            else:
+                effective_view_mode = "CURRENT_PERSISTED"
+        elif end_ms is not None and start_ms is not None:
+            if now_ms is not None and end_ms < now_ms:
+                effective_view_mode = "HISTORICAL_AS_OF"
+            else:
+                effective_view_mode = "CURRENT_PERSISTED"
+        else:
+            effective_view_mode = "CURRENT_PERSISTED"
+
+    pos_state = compute_position_state_view(
+        orders,
+        requested_as_of_ms=state_as_of_ms or end_ms,
+        observed_at_ms=now_ms or state_as_of_ms or end_ms,
+        view_mode=effective_view_mode,
+    )
 
     return {
         "orders_count": len(orders_created_in_window),
@@ -520,8 +582,13 @@ def compute_financial_metrics(
         "wins_count": wins,
         "losses_count": losses,
         "breakevens_count": breakevens,
-        "open_positions_count": open_positions,
-        "armed_orders_count": armed_orders,
+        "open_positions_count": pos_state["open_positions_count"],
+        "armed_orders_count": pos_state["armed_orders_count"],
+        "historical_state_available": pos_state["historical_state_available"],
+        "state_view": pos_state["state_view"],
+        "state_as_of_ms": pos_state["state_as_of_ms"],
+        "state_observed_at_ms": pos_state["state_observed_at_ms"],
+        "state_reason": pos_state["reason"],
         "net_realized_pnl_usd": net_realized_pnl,
         "verified_net_pnl_subtotal_usd": verified_net_pnl_subtotal,
         "winrate_pct": winrate_pct,
@@ -872,12 +939,18 @@ def build_paper_runtime_snapshot(
         )
         funnel_summary = aggregate_funnel_readonly(funnel_records)
 
+        now_ms = ctx["now_ms"]
+        calc_view_mode = "HISTORICAL_AS_OF" if (eff_end is not None and eff_end < now_ms) else "CURRENT_PERSISTED"
+
         # Financial Metrics
         fin_metrics = compute_financial_metrics(
             linked_orders,
             initial_capital=initial_cap,
             start_ms=eff_start,
             end_ms=eff_end,
+            state_as_of_ms=eff_end,
+            now_ms=now_ms,
+            view_mode=calc_view_mode,
         )
     else:
         # Rules 021-024: Run not resolved or mismatch. NEVER calculate financial metrics or leak funnel!
@@ -900,8 +973,13 @@ def build_paper_runtime_snapshot(
             "max_drawdown_pct": None,
             "drawdown_type": "CLOSED_EQUITY_DRAWDOWN",
             "drawdown_scope": "WINDOW",
-            "open_positions_count": 0,
-            "armed_orders_count": 0,
+            "open_positions_count": None,
+            "armed_orders_count": None,
+            "historical_state_available": False,
+            "state_view": "UNAVAILABLE",
+            "state_as_of_ms": eff_end,
+            "state_observed_at_ms": ctx["now_ms"],
+            "state_reason": "RUN_NOT_RESOLVED",
         }
 
         if resolution_status == "NOT_FOUND":
@@ -944,6 +1022,11 @@ def build_paper_runtime_snapshot(
         "state_counts": fin_metrics["state_counts"],
         "open_positions_count": fin_metrics["open_positions_count"],
         "armed_orders_count": fin_metrics["armed_orders_count"],
+        "historical_state_available": fin_metrics.get("historical_state_available", False),
+        "state_view": fin_metrics.get("state_view", "CURRENT_PERSISTED"),
+        "state_as_of_ms": fin_metrics.get("state_as_of_ms"),
+        "state_observed_at_ms": fin_metrics.get("state_observed_at_ms"),
+        "state_reason": fin_metrics.get("state_reason"),
         "closed_trades_count": fin_metrics["closed_trades_count"],
         "verified_closed_count": fin_metrics.get("verified_closed_count", fin_metrics["closed_trades_count"]),
         "unresolved_closed_count": fin_metrics["unresolved_closed_count"],
@@ -1072,6 +1155,10 @@ def render_markdown(snapshot: Dict[str, Any]) -> str:
     dd_pct = metrics.get('max_drawdown_pct')
     dd_pct_str = f"{dd_pct:.2f}%" if dd_pct is not None else "Chưa xác minh"
 
+    # Null-safe historical open positions display (Rule 113)
+    open_pos = metrics.get('open_positions_count')
+    open_pos_str = str(open_pos) if open_pos is not None else "Chưa đủ lịch sử xác minh"
+
     md = f"""# Báo Cáo Quan Sát Vận Hành PAPER (V16.39.11)
 
 > {beginner_summary}
@@ -1092,7 +1179,7 @@ def render_markdown(snapshot: Dict[str, Any]) -> str:
 - Kế hoạch hợp lệ (Plans Valid): **{funnel.get('plans_valid', 0)}**
 - Lệnh đã đặt chờ (ARMED): **{funnel.get('armed', 0)}**
 - Lệnh đã khớp (FILLED): **{funnel.get('filled', 0)}**
-- Vị thế đang mở (Open Positions): **{metrics.get('open_positions_count', 0)}**
+- Vị thế đang mở (Open Positions): **{open_pos_str}**
 
 ### Lý do chặn/bỏ lỡ chính:
 {chr(10).join(reasons_table)}

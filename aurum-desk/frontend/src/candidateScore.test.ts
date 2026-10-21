@@ -11,7 +11,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { normalizeCandidateScore, formatCandidateScore, translateDecision } from './utils/candidateScore';
+import {
+  normalizeCandidateScore,
+  formatCandidateScore,
+  translateDecision,
+  getSelectedScoreTarget,
+} from './utils/candidateScore';
 
 describe('V16.39.11 Candidate Score Normalization (Rules 102, 168)', () => {
   it('normalizes valid ARM snapshot assessment (78/100, base 83, delta -5, threshold 70)', () => {
@@ -113,7 +118,7 @@ describe('V16.39.11 Candidate Score Formatting & Labels (Rules 103, 104, 130, 16
 
     const fmt = formatCandidateScore(raw);
     expect(fmt.displayText).toBe('69.90/100');
-    expect(fmt.tooltipText).toContain('Dưới ngưỡng yêu cầu');
+    expect(fmt.tooltipText).toContain('Dưới ngưỡng điểm');
   });
 
   it('formats zero score as "0/100"', () => {
@@ -153,11 +158,14 @@ describe('V16.39.11 Candidate Score Formatting & Labels (Rules 103, 104, 130, 16
   });
 });
 
-describe('V16.39.11 Decision Translation & Disclaimers (Rules 133, 170)', () => {
+describe('V16.39.11 / V16.39.12 Decision Translation & Disclaimers (Rules 064, 133, 170)', () => {
   it('translates decision codes accurately into Vietnamese', () => {
-    expect(translateDecision('ELIGIBLE')).toBe('Đủ điều kiện (Đạt ngưỡng)');
-    expect(translateDecision('BELOW_THRESHOLD')).toBe('Dưới ngưỡng yêu cầu');
+    expect(translateDecision('ELIGIBLE_BY_SCORE')).toBe('Đạt ngưỡng điểm');
+    expect(translateDecision('ELIGIBLE')).toBe('Đạt ngưỡng điểm');
+    expect(translateDecision('BELOW_THRESHOLD')).toBe('Dưới ngưỡng điểm');
     expect(translateDecision('BLOCKED')).toBe('Bị chặn bởi điều kiện bảo vệ');
+    expect(translateDecision('BLOCKED_REQUIRED')).toBe('Thiếu điều kiện bắt buộc');
+    expect(translateDecision('BLOCKED_GUARD')).toBe('Bị chặn bởi bộ lọc bảo vệ');
     expect(translateDecision('ERROR')).toBe('Lỗi đánh giá');
     expect(translateDecision('UNKNOWN_CODE')).toBe('UNKNOWN_CODE');
   });
@@ -282,5 +290,113 @@ describe('V16.39.11 Component Rendering Tests (Rules 169, 170)', () => {
     expect(html).not.toContain('undefined');
     expect(html).not.toContain('NaN');
     expect(html).not.toContain('null');
+  });
+
+  it('renders CandidateScoreDetails with canonical factors (FVG 18/20, Vietnamese explanation)', () => {
+    const detail = {
+      status: 'AVAILABLE' as const,
+      score: 78,
+      max_score: 100,
+      base_score: null,
+      lesson_delta: null,
+      threshold: null,
+      decision: 'ELIGIBLE_BY_SCORE',
+      as_of_ms: 1700000000000,
+      source: 'ARM_SNAPSHOT' as const,
+      frozen: true,
+      assessment_id: 'assess-123',
+      candidate_key: 'XAUUSDT:15M:LONG:2650.0',
+      disclaimer: 'Điểm chất lượng setup theo tiêu chuẩn CG-01, không phải xác suất thắng.',
+      factors: [
+        {
+          code: 'FVG_ALIGNMENT',
+          group: 'STRUCTURE',
+          earned_points: 18,
+          max_points: 20,
+          status: 'FULL',
+          explanation_vi: 'Khối FVG tăng M15 đồng pha hợp lệ',
+        },
+      ],
+      blockers: [],
+      missing_data: [],
+    };
+
+    const html = renderToString(React.createElement(CandidateScoreDetails, { detail, orderId: 'ord-test-456' }));
+    expect(html).toContain('FVG_ALIGNMENT');
+    expect(html).toContain('Khối FVG tăng M15 đồng pha hợp lệ');
+    expect(html).toContain('18/20');
+    // Threshold and base score should render '—' when missing (no fabricated 70 or 78)
+    expect(html).toContain('—');
+  });
+
+  it('renders inline error with retry button when detail fails to load (Rule 082)', () => {
+    const summary = {
+      status: 'AVAILABLE' as const,
+      score: 78,
+      max_score: 100,
+      base_score: 83,
+      lesson_delta: -5,
+      threshold: 70,
+      decision: 'ELIGIBLE',
+      as_of_ms: 1700000000000,
+      source: 'ARM_SNAPSHOT' as const,
+      frozen: true,
+      assessment_id: 'assess-123',
+      candidate_key: 'XAUUSDT:15M:LONG:2650.0',
+      disclaimer: 'Điểm chất lượng setup theo tiêu chuẩn CG-01, không phải xác suất thắng.',
+    };
+
+    const html = renderToString(
+      React.createElement(CandidateScoreDetails, {
+        summary,
+        error: 'Network connection failed',
+        onRetry: () => {},
+      })
+    );
+    expect(html).toContain('Chưa tải được chi tiết điểm:');
+    expect(html).toContain('Network connection failed');
+    expect(html).toContain('Thử lại');
+  });
+});
+
+describe('V16.39.12 Target Resolver (Rules 075, 076)', () => {
+  it('resolves ORDER kind when binding is ORDER', () => {
+    const target = getSelectedScoreTarget(
+      { kind: 'ORDER', id: 'ord-123' },
+      { source: 'OPEN_POSITION', setup_id: 'ord-123', candidate_score_summary: { assessment_id: 'assess-1' } }
+    );
+    expect(target).toEqual({
+      kind: 'ORDER',
+      id: 'ord-123',
+      assessmentId: 'assess-1',
+    });
+  });
+
+  it('resolves SETUP kind when selectedIntent is WATCH_SETUP', () => {
+    const target = getSelectedScoreTarget(
+      null,
+      { source: 'WATCH_SETUP', setup_id: 'setup-456', candidate_score_summary: { assessment_id: 'assess-2' } }
+    );
+    expect(target).toEqual({
+      kind: 'SETUP',
+      id: 'setup-456',
+      assessmentId: 'assess-2',
+    });
+  });
+
+  it('resolves ORDER kind when selectedIntent is OPEN_POSITION without binding', () => {
+    const target = getSelectedScoreTarget(
+      null,
+      { source: 'OPEN_POSITION', setup_id: 'trade-789', candidate_score_summary: { assessment_id: null } }
+    );
+    expect(target).toEqual({
+      kind: 'ORDER',
+      id: 'trade-789',
+      assessmentId: null,
+    });
+  });
+
+  it('returns null when neither binding nor selectedIntent is available', () => {
+    expect(getSelectedScoreTarget(null, null)).toBeNull();
   });
 });

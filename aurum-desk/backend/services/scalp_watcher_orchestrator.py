@@ -232,31 +232,46 @@ class ScalpWatcherOrchestrator:
         assessment: Any,
     ) -> None:
         """
-        Rules 083-085: Caches volatile candidate quality display for setups before ARM.
-        Bounded cardinality (max 500), exact binding key (symbol, setup_id, candidate_key, direction).
-        Does not mutate trade decisions.
+        Rules 021-030, 083-085, V16.39.12:
+        Caches volatile candidate quality display for setups before ARM.
+        Bounded cardinality (max 500), exact structured key (CandidateQualityDisplayKey).
+        Never splits strings by ':' or bleeds identity across setup instances.
         """
         if not assessment or not hasattr(assessment, "to_dict"):
             return
 
         import copy
-        key = f"{symbol}:{setup_id or '*'}:{candidate_key or setup_instance_id or '*'}:{direction}"
-        assessment_dict = copy.deepcopy(assessment.to_dict())
+        from services.order_quality_display_service import (
+            CandidateQualityDisplayKey,
+            make_candidate_quality_display_key,
+            CandidateScoreDisplay,
+        )
 
-        from services.order_quality_display_service import CandidateScoreDisplay
+        assessment_dict = copy.deepcopy(assessment.to_dict())
+        assessed_cand_key = assessment_dict.get("candidate_key")
+        effective_cand_key = candidate_key or assessed_cand_key or setup_instance_id
+
+        key = make_candidate_quality_display_key(
+            symbol=symbol,
+            setup_id=setup_id,
+            setup_instance_id=setup_instance_id or effective_cand_key,
+            candidate_key=effective_cand_key,
+            direction=direction,
+        )
+
         display = CandidateScoreDisplay(
             status="AVAILABLE",
             score=assessment_dict["final_score"],
             max_score=100.0,
-            base_score=assessment_dict["base_score"],
-            lesson_delta=assessment_dict["lesson_delta"],
-            threshold=assessment_dict["threshold"],
-            decision=assessment_dict["decision"],
-            as_of_ms=assessment_dict["as_of_ms"],
+            base_score=assessment_dict.get("base_score"),
+            lesson_delta=assessment_dict.get("lesson_delta"),
+            threshold=assessment_dict.get("threshold"),
+            decision=assessment_dict.get("decision"),
+            as_of_ms=assessment_dict.get("as_of_ms"),
             source="VOLATILE_LATEST_EVALUATION",
             frozen=False,
-            assessment_id=assessment_dict["assessment_id"],
-            candidate_key=assessment_dict["candidate_key"],
+            assessment_id=assessment_dict.get("assessment_id"),
+            candidate_key=effective_cand_key,
             model_id=assessment_dict.get("model_id"),
             profile_version=assessment_dict.get("profile_version"),
             config_fingerprint=assessment_dict.get("config_fingerprint"),
@@ -264,10 +279,11 @@ class ScalpWatcherOrchestrator:
         )
 
         with self._lock:
-            if len(self._latest_candidate_quality_display) >= 500:
+            # Rule 029: Bounded cache (max 500). If key already exists, update without evicting.
+            if key not in self._latest_candidate_quality_display and len(self._latest_candidate_quality_display) >= 500:
                 oldest_k = next(iter(self._latest_candidate_quality_display))
                 self._latest_candidate_quality_display.pop(oldest_k, None)
-            self._latest_candidate_quality_display[key] = display.to_dict()
+            self._latest_candidate_quality_display[key] = copy.deepcopy(display.to_dict())
 
     def get_candidate_quality_display(
         self,
@@ -279,25 +295,61 @@ class ScalpWatcherOrchestrator:
         direction: str = "LONG",
     ) -> Optional[Dict[str, Any]]:
         """
-        Rule 086: Reads volatile pre-ARM candidate quality display matching exact binding.
+        Rules 023-024, 086, V16.39.12:
+        Reads volatile pre-ARM candidate quality display matching exact binding.
+        Exact-only: Never bleeds scores across distinct setup instances or setup IDs.
         """
-        with self._lock:
-            cand_k = candidate_key or setup_instance_id or "*"
-            exact_key = f"{symbol}:{setup_id or '*'}:{cand_k}:{direction}"
-            if exact_key in self._latest_candidate_quality_display:
-                return dict(self._latest_candidate_quality_display[exact_key])
+        import copy
+        from services.order_quality_display_service import make_candidate_quality_display_key
 
+        query_key = make_candidate_quality_display_key(
+            symbol=symbol,
+            setup_id=setup_id,
+            setup_instance_id=setup_instance_id,
+            candidate_key=candidate_key,
+            direction=direction,
+        )
+
+        with self._lock:
+            # 1. Direct exact key lookup
+            if query_key in self._latest_candidate_quality_display:
+                return copy.deepcopy(self._latest_candidate_quality_display[query_key])
+
+            # 2. Iterate backwards for exact matching across alias fields (candidate_key / setup_instance_id)
             for k, val in reversed(list(self._latest_candidate_quality_display.items())):
-                parts = k.split(":")
-                if len(parts) == 4:
-                    k_sym, k_sid, k_cid, k_dir = parts
-                    if k_sym == symbol and k_dir == direction:
-                        if setup_id and k_sid == setup_id:
-                            return dict(val)
-                        if setup_instance_id and k_cid == setup_instance_id:
-                            return dict(val)
+                # Must match symbol and direction
+                if k.symbol != query_key.symbol or k.direction != query_key.direction:
+                    continue
+
+                # If query specified setup_instance_id: MUST match key's setup_instance_id or candidate_key
+                if query_key.setup_instance_id is not None:
+                    k_inst = k.setup_instance_id or k.candidate_key
+                    if k_inst != query_key.setup_instance_id:
+                        continue
+
+                # If query specified candidate_key: MUST match key's candidate_key or setup_instance_id
+                if query_key.candidate_key is not None:
+                    k_ck = k.candidate_key or k.setup_instance_id
+                    if k_ck != query_key.candidate_key:
+                        continue
+
+                # If query specified setup_id: if key has setup_id, it must match
+                if query_key.setup_id is not None:
+                    if k.setup_id is not None and k.setup_id != query_key.setup_id:
+                        continue
+
+                # Rule 023: If query had NEITHER setup_instance_id nor candidate_key,
+                # do NOT return an entry that belongs to a specific instance!
+                if query_key.setup_instance_id is None and query_key.candidate_key is None:
+                    if k.setup_instance_id is not None or k.candidate_key is not None:
+                        continue
+                    if query_key.setup_id is not None and k.setup_id != query_key.setup_id:
+                        continue
+
+                return copy.deepcopy(val)
 
         return None
+
 
     def get_latest_cg01_evaluation(self, symbol: str = "XAUUSDT") -> Dict[str, Any]:
         with self._lock:

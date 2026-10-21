@@ -45,19 +45,28 @@ export interface CandidateScoreSummary {
 export interface CandidateScoreFactor {
   code: string;
   name?: string;
+  group?: string;
+  earned_points?: number;
+  max_points?: number;
   score?: number;
   max_score?: number;
   weight?: number;
   status?: string;
   importance?: string;
   explanation_vi?: string;
+  evidence_ids?: string[];
+  known_at_ms?: number | null;
+  measurement?: any;
+  rule_version?: string;
   observed?: any;
   expected?: any;
+  reason?: string;
 }
 
 export interface CandidateScoreDetail extends CandidateScoreSummary {
+  order_id?: string | null;
   factors: CandidateScoreFactor[];
-  group_scores: Record<string, Record<string, number>>;
-  missing_data: string[];
-  blockers: string[];
+  group_scores?: Record<string, Record<string, number>>;
+  missing_data?: string[];
+  blockers?: string[];
 }

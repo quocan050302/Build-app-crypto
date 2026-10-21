@@ -30,6 +30,7 @@ import {
 import { wsClient } from './services/wsClient';
 import { CandidateScoreBadge } from './components/CandidateScoreBadge';
 import { CandidateScoreDetails } from './components/CandidateScoreDetails';
+import { useCandidateScoreDetail } from './hooks/useCandidateScoreDetail';
 
 interface JournalTabProps {
   onFocusChart?: (trade: any) => void;
@@ -70,6 +71,13 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
   // Selected trade for drawer
   const [selectedTrade, setSelectedTrade] = useState<any | null>(null);
   const [activeDrawerTab, setActiveDrawerTab] = useState<'facts' | 'hypotheses' | 'review'>('facts');
+
+  // V16.39.12 Candidate Quality Score Detail hook for selected trade
+  const { detail: selectedScoreDetail } = useCandidateScoreDetail({
+    orderId: selectedTrade?.id,
+    expectedAssessmentId: selectedTrade?.candidate_score_summary?.assessment_id,
+    enabled: Boolean(selectedTrade?.id),
+  });
 
   // Trade review form state
   const [reviewData, setReviewData] = useState<TradeReviewData | null>(null);
@@ -1409,6 +1417,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                   {/* V16.39.11 Candidate Quality Score Snapshot Linked to Trade */}
                   <CandidateScoreDetails
                     summary={selectedTrade.candidate_score_summary}
+                    detail={selectedScoreDetail}
                     orderId={selectedTrade.id}
                   />
 

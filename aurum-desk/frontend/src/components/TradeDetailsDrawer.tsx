@@ -20,6 +20,8 @@ import { normalizeLessonItem, type NormalizedLessonItem } from '../types/lesson'
 
 import { EvidenceAccordion } from './EvidenceAccordion';
 import { CandidateScoreDetails } from './CandidateScoreDetails';
+import { useCandidateScoreDetail } from '../hooks/useCandidateScoreDetail';
+import { getSelectedScoreTarget } from '../utils/candidateScore';
 import type { ChartBinding, ChartEvidenceBundleV144 } from '../types/smcScenario';
 import type { ReturnedBinding } from '../hooks/useSelectedChart';
 
@@ -178,6 +180,30 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // V16.39.12 Candidate Quality Score Detail resolution
+  // Rules 074-076: Prioritize verified detail from selectedRawBundle.
+  // If missing and target is an order, use pure hook fallback.
+  const scoreTarget = getSelectedScoreTarget(
+    selectedBinding ? { source: selectedBinding.source, id: selectedBinding.id } : null,
+    selectedIntent
+  );
+
+  const bundleDetail = (selectedRawBundle as any)?.candidate_score_detail || null;
+  const isScoreNeeded = Boolean(isOpen && activeSection === 'quality' && !bundleDetail && scoreTarget?.kind === 'ORDER');
+
+  const {
+    detail: fallbackScoreDetail,
+    loading: isScoreLoading,
+    error: scoreDetailError,
+    refetch: refetchScoreDetail,
+  } = useCandidateScoreDetail({
+    orderId: isScoreNeeded ? scoreTarget?.id : null,
+    expectedAssessmentId: scoreTarget?.assessmentId,
+    enabled: isScoreNeeded,
+  });
+
+  const effectiveScoreDetail = bundleDetail || fallbackScoreDetail;
+
   if (!isOpen) return null;
 
   // Matching watch setup from list
@@ -317,11 +343,14 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                 error={selectedEvidenceError}
               />
 
-              {/* V16.39.11 CG-01 Candidate Quality Score Details */}
+              {/* V16.39.11 / V16.39.12 CG-01 Candidate Quality Score Details */}
               <CandidateScoreDetails
                 summary={selectedIntent?.candidate_score_summary || (selectedRawBundle as any)?.candidate_score_summary || null}
-                detail={(selectedRawBundle as any)?.candidate_score_detail || null}
-                orderId={selectedIntent?.setup_id}
+                detail={effectiveScoreDetail}
+                orderId={scoreTarget?.kind === 'ORDER' ? scoreTarget.id : undefined}
+                loading={isScoreLoading}
+                error={scoreDetailError}
+                onRetry={refetchScoreDetail}
               />
 
               {selectedQualityLoading && (

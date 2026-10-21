@@ -128,14 +128,23 @@ export function formatCandidateScore(
 
     const accessibleLabel = `${prefix}: ${formattedNum} trên ${summary.max_score}${summary.threshold !== null ? `, ngưỡng ${summary.threshold}` : ''}, không phải xác suất thắng`;
 
-    // Badge styling based on decision / eligibility
+    // Badge styling based on decision / eligibility (Rule 065: precedence to blocked/error/insufficient)
     let badgeStyle = 'bg-charcoal-800 text-gray-300 border-charcoal-700';
-    if (summary.decision === 'ELIGIBLE' || (summary.threshold !== null && scoreVal >= summary.threshold)) {
-      badgeStyle = 'bg-cyan-950/80 text-cyan-300 border-cyan-700/80';
-    } else if (summary.decision === 'BELOW_THRESHOLD' || (summary.threshold !== null && scoreVal < summary.threshold)) {
-      badgeStyle = 'bg-amber-950/80 text-amber-300 border-amber-700/80';
-    } else if (summary.decision === 'BLOCKED') {
+    if (summary.decision?.startsWith('BLOCKED')) {
       badgeStyle = 'bg-rose-950/80 text-rose-300 border-rose-700/80';
+    } else if (summary.decision === 'INSUFFICIENT_DATA' || summary.decision === 'ERROR') {
+      badgeStyle = 'bg-amber-950/80 text-amber-300 border-amber-700/80';
+    } else if (
+      summary.decision === 'ELIGIBLE_BY_SCORE' ||
+      summary.decision === 'ELIGIBLE' ||
+      (summary.threshold !== null && scoreVal >= summary.threshold)
+    ) {
+      badgeStyle = 'bg-cyan-950/80 text-cyan-300 border-cyan-700/80';
+    } else if (
+      summary.decision === 'BELOW_THRESHOLD' ||
+      (summary.threshold !== null && scoreVal < summary.threshold)
+    ) {
+      badgeStyle = 'bg-amber-950/80 text-amber-300 border-amber-700/80';
     }
 
     return {
@@ -174,19 +183,69 @@ export function formatCandidateScore(
 }
 
 /**
- * Translates assessment decision codes into user-friendly Vietnamese text.
+ * Rules 064, 095: Translates assessment decision codes into user-friendly Vietnamese text.
  */
 export function translateDecision(decision?: string | null): string {
   switch (decision) {
+    case 'ELIGIBLE_BY_SCORE':
     case 'ELIGIBLE':
-      return 'Đủ điều kiện (Đạt ngưỡng)';
+      return 'Đạt ngưỡng điểm';
     case 'BELOW_THRESHOLD':
-      return 'Dưới ngưỡng yêu cầu';
+      return 'Dưới ngưỡng điểm';
+    case 'BLOCKED_REQUIRED':
+      return 'Thiếu điều kiện bắt buộc';
+    case 'BLOCKED_GUARD':
+      return 'Bị chặn bởi bộ lọc bảo vệ';
     case 'BLOCKED':
       return 'Bị chặn bởi điều kiện bảo vệ';
+    case 'INSUFFICIENT_DATA':
+      return 'Dữ liệu chưa đầy đủ';
     case 'ERROR':
       return 'Lỗi đánh giá';
     default:
       return decision || 'Đang quan sát';
   }
+}
+
+export interface ScoreTarget {
+  kind: 'ORDER' | 'SETUP';
+  id: string;
+  assessmentId?: string | null;
+}
+
+/**
+ * Rules 075-076: Pure resolver distinguishing ORDER from SETUP score targets.
+ * Prevents requesting /orders/{setupId}/quality-score when selectedIntent is a setup.
+ */
+export function getSelectedScoreTarget(
+  binding?: { kind?: string; source?: string; id: string } | null,
+  selectedIntent?: { source: string; setup_id?: string; candidate_score_summary?: { assessment_id?: string | null } | null } | null
+): ScoreTarget | null {
+  const bindingKind = binding?.kind || binding?.source;
+  if (binding && bindingKind === 'ORDER' && binding.id) {
+    return {
+      kind: 'ORDER',
+      id: binding.id,
+      assessmentId: selectedIntent?.candidate_score_summary?.assessment_id ?? null,
+    };
+  }
+
+  if (selectedIntent) {
+    if (selectedIntent.source === 'OPEN_POSITION' && selectedIntent.setup_id) {
+      return {
+        kind: 'ORDER',
+        id: selectedIntent.setup_id,
+        assessmentId: selectedIntent.candidate_score_summary?.assessment_id ?? null,
+      };
+    }
+    if (selectedIntent.source === 'WATCH_SETUP' && selectedIntent.setup_id) {
+      return {
+        kind: 'SETUP',
+        id: selectedIntent.setup_id,
+        assessmentId: selectedIntent.candidate_score_summary?.assessment_id ?? null,
+      };
+    }
+  }
+
+  return null;
 }
