@@ -72,11 +72,17 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
   const [selectedTrade, setSelectedTrade] = useState<any | null>(null);
   const [activeDrawerTab, setActiveDrawerTab] = useState<'facts' | 'hypotheses' | 'review'>('facts');
 
-  // V16.39.12 Candidate Quality Score Detail hook for selected trade
-  const { detail: selectedScoreDetail } = useCandidateScoreDetail({
-    orderId: selectedTrade?.id,
+  // V16.39.12/13 Candidate Quality Score Detail hook for selected trade
+  const isJournalDrawerOpen = Boolean(selectedTrade?.id);
+  const {
+    detail: selectedScoreDetail,
+    loading: isScoreDetailLoading,
+    error: scoreDetailError,
+    refetch: refetchScoreDetail,
+  } = useCandidateScoreDetail({
+    orderId: isJournalDrawerOpen ? selectedTrade?.id : null,
     expectedAssessmentId: selectedTrade?.candidate_score_summary?.assessment_id,
-    enabled: Boolean(selectedTrade?.id),
+    enabled: isJournalDrawerOpen,
   });
 
   // Trade review form state
@@ -1380,7 +1386,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                         }`}
                       >
                         ${selectedTrade.realized_pnl_net?.toFixed(2) ?? '—'} (
-                        {selectedTrade.realized_r !== null ? `${selectedTrade.realized_r.toFixed(2)}R` : '—'})
+                        {selectedTrade.realized_r != null ? `${selectedTrade.realized_r.toFixed(2)}R` : '—'})
                       </span>
                     </div>
                   </div>
@@ -1414,11 +1420,14 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                     )}
                   </div>
 
-                  {/* V16.39.11 Candidate Quality Score Snapshot Linked to Trade */}
+                  {/* V16.39.11/13 Candidate Quality Score Snapshot Linked to Trade */}
                   <CandidateScoreDetails
                     summary={selectedTrade.candidate_score_summary}
                     detail={selectedScoreDetail}
                     orderId={selectedTrade.id}
+                    loading={isScoreDetailLoading}
+                    error={scoreDetailError}
+                    onRetry={refetchScoreDetail}
                   />
 
                   {/* V10: Lesson Rules Snapshot Linked to Trade */}

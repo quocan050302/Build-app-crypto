@@ -38,6 +38,7 @@ export interface ResearchReportItem {
 
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
+import type { QualityScoreResponse } from '../types/candidateScore';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '';
 
@@ -679,8 +680,8 @@ export const api = {
     return res.data;
   },
 
-  getOrderQualityScore: async (orderId: string, signal?: AbortSignal) => {
-    const res = await apiClient.get(`/api/v1/orders/${encodeURIComponent(orderId)}/quality-score`, {
+  getOrderQualityScore: async (orderId: string, signal?: AbortSignal): Promise<QualityScoreResponse> => {
+    const res = await apiClient.get<QualityScoreResponse>(`/api/v1/orders/${encodeURIComponent(orderId)}/quality-score`, {
       signal,
     });
     return res.data;

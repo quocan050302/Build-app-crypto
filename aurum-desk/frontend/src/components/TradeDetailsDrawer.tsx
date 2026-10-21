@@ -141,7 +141,7 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
   onClose,
   selectedIntent,
   activePosition,
-  upcomingSetups,
+  upcomingSetups = [],
   onFocusSetupOnChart,
   onRefreshUpcoming,
   nySession,

@@ -70,3 +70,31 @@ export interface CandidateScoreDetail extends CandidateScoreSummary {
   missing_data?: string[];
   blockers?: string[];
 }
+
+export interface QualityScoreResponse {
+  status: 'SUCCESS' | string;
+  order_id?: string;
+  detail?: CandidateScoreDetail | null;
+}
+
+export type QualityScoreErrorCode =
+  | 'DETAIL_BINDING_MISSING'
+  | 'DETAIL_BINDING_MISMATCH'
+  | 'DETAIL_ASSESSMENT_MISSING'
+  | 'DETAIL_ASSESSMENT_MISMATCH'
+  | 'INVALID_DETAIL_PAYLOAD'
+  | 'FAILED_TO_LOAD_DETAIL';
+
+export interface ValidatedScoreDetailResult {
+  valid: true;
+  detail: CandidateScoreDetail;
+  orderId: string;
+}
+
+export interface InvalidScoreDetailResult {
+  valid: false;
+  errorCode: QualityScoreErrorCode;
+  errorMessage: string;
+}
+
+export type ScoreDetailValidationResult = ValidatedScoreDetailResult | InvalidScoreDetailResult;

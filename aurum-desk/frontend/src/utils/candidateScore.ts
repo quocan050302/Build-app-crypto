@@ -5,7 +5,13 @@
  * Rules 102-104: Pure normalization, formatting, and translation functions.
  */
 
-import type { CandidateScoreSummary, CandidateScoreStatus, CandidateScoreSource } from '../types/candidateScore';
+import type {
+  CandidateScoreSummary,
+  CandidateScoreDetail,
+  CandidateScoreStatus,
+  CandidateScoreSource,
+  ScoreDetailValidationResult,
+} from '../types/candidateScore';
 
 /**
  * Normalizes raw API response into a strict, validated CandidateScoreSummary model.
@@ -231,12 +237,15 @@ export function getSelectedScoreTarget(
   }
 
   if (selectedIntent) {
-    if (selectedIntent.source === 'OPEN_POSITION' && selectedIntent.setup_id) {
-      return {
-        kind: 'ORDER',
-        id: selectedIntent.setup_id,
-        assessmentId: selectedIntent.candidate_score_summary?.assessment_id ?? null,
-      };
+    if (selectedIntent.source === 'OPEN_POSITION') {
+      const targetOrderId = (selectedIntent as any).order_id || (selectedIntent as any).id || selectedIntent.setup_id;
+      if (targetOrderId) {
+        return {
+          kind: 'ORDER',
+          id: targetOrderId,
+          assessmentId: selectedIntent.candidate_score_summary?.assessment_id ?? null,
+        };
+      }
     }
     if (selectedIntent.source === 'WATCH_SETUP' && selectedIntent.setup_id) {
       return {
@@ -248,4 +257,129 @@ export function getSelectedScoreTarget(
   }
 
   return null;
+}
+
+/**
+ * Rules 021-023 (V16.39.13): Encodes stable structured target key.
+ * Prevents string delimiter collision and returns null when target is invalid.
+ */
+export function makeScoreRequestKey(orderId?: string | null, expectedAssessmentId?: string | null): string | null {
+  if (!orderId || typeof orderId !== 'string' || orderId.trim() === '') {
+    return null;
+  }
+  return JSON.stringify([orderId.trim(), expectedAssessmentId ? expectedAssessmentId.trim() : null]);
+}
+
+/**
+ * Rules 076, 187 (V16.39.13): User-friendly Vietnamese translation for error codes.
+ */
+export function translateQualityScoreError(code?: string | null): string {
+  switch (code) {
+    case 'DETAIL_BINDING_MISSING':
+      return 'Dữ liệu phản hồi thiếu mã lệnh xác minh.';
+    case 'DETAIL_BINDING_MISMATCH':
+      return 'Mã lệnh phản hồi không khớp với lệnh yêu cầu.';
+    case 'DETAIL_ASSESSMENT_MISSING':
+      return 'Dữ liệu phản hồi thiếu mã đánh giá tiêu chí.';
+    case 'DETAIL_ASSESSMENT_MISMATCH':
+      return 'Mã đánh giá tiêu chí không khớp với bản ghi lúc ARM.';
+    case 'INVALID_DETAIL_PAYLOAD':
+      return 'Cấu trúc dữ liệu chi tiết điểm không hợp lệ.';
+    case 'FAILED_TO_LOAD_DETAIL':
+    default:
+      return code || 'Chưa tải được chi tiết điểm của lệnh này.';
+  }
+}
+
+/**
+ * Rules 062-075, 138-139 (V16.39.13):
+ * Strict pure validator for GET /api/v1/orders/{id}/quality-score response.
+ * - Envelope must be object with status === 'SUCCESS'
+ * - order_id must be non-empty string and EXACTLY match expected orderId (no fallback!)
+ * - detail must be object
+ * - If expectedAssessmentId is provided, detail.assessment_id must be non-empty string and EXACTLY match
+ * - If detail.status === 'AVAILABLE', score must be finite and within 0..100
+ */
+export function validateQualityScoreResponse(
+  raw: unknown,
+  expected: { orderId: string; expectedAssessmentId?: string | null }
+): ScoreDetailValidationResult {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {
+      valid: false,
+      errorCode: 'INVALID_DETAIL_PAYLOAD',
+      errorMessage: translateQualityScoreError('INVALID_DETAIL_PAYLOAD'),
+    };
+  }
+
+  const envelope = raw as Record<string, any>;
+  if (envelope.status !== 'SUCCESS') {
+    return {
+      valid: false,
+      errorCode: 'INVALID_DETAIL_PAYLOAD',
+      errorMessage: translateQualityScoreError('INVALID_DETAIL_PAYLOAD'),
+    };
+  }
+
+  // Rule 066: Order ID is strictly mandatory and must match expected
+  if (!envelope.order_id || typeof envelope.order_id !== 'string' || envelope.order_id.trim() === '') {
+    return {
+      valid: false,
+      errorCode: 'DETAIL_BINDING_MISSING',
+      errorMessage: translateQualityScoreError('DETAIL_BINDING_MISSING'),
+    };
+  }
+
+  if (envelope.order_id.trim() !== expected.orderId.trim()) {
+    return {
+      valid: false,
+      errorCode: 'DETAIL_BINDING_MISMATCH',
+      errorMessage: translateQualityScoreError('DETAIL_BINDING_MISMATCH'),
+    };
+  }
+
+  // Detail payload must be a non-null object
+  const detail = envelope.detail;
+  if (!detail || typeof detail !== 'object' || Array.isArray(detail)) {
+    return {
+      valid: false,
+      errorCode: 'INVALID_DETAIL_PAYLOAD',
+      errorMessage: translateQualityScoreError('INVALID_DETAIL_PAYLOAD'),
+    };
+  }
+
+  // Rule 068: If expectedAssessmentId is specified, detail.assessment_id is mandatory and must match
+  if (expected.expectedAssessmentId && expected.expectedAssessmentId.trim() !== '') {
+    if (!detail.assessment_id || typeof detail.assessment_id !== 'string' || detail.assessment_id.trim() === '') {
+      return {
+        valid: false,
+        errorCode: 'DETAIL_ASSESSMENT_MISSING',
+        errorMessage: translateQualityScoreError('DETAIL_ASSESSMENT_MISSING'),
+      };
+    }
+    if (detail.assessment_id.trim() !== expected.expectedAssessmentId.trim()) {
+      return {
+        valid: false,
+        errorCode: 'DETAIL_ASSESSMENT_MISMATCH',
+        errorMessage: translateQualityScoreError('DETAIL_ASSESSMENT_MISMATCH'),
+      };
+    }
+  }
+
+  // Rule 071: Score finite range check when AVAILABLE
+  if (detail.status === 'AVAILABLE') {
+    if (typeof detail.score !== 'number' || !Number.isFinite(detail.score) || detail.score < 0 || detail.score > 100) {
+      return {
+        valid: false,
+        errorCode: 'INVALID_DETAIL_PAYLOAD',
+        errorMessage: translateQualityScoreError('INVALID_DETAIL_PAYLOAD'),
+      };
+    }
+  }
+
+  return {
+    valid: true,
+    detail: detail as CandidateScoreDetail,
+    orderId: envelope.order_id.trim(),
+  };
 }

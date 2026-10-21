@@ -1,17 +1,19 @@
 /**
  * frontend/src/hooks/useCandidateScoreDetail.ts
- * V16.39.12 Candidate Quality Score Detail Hook
+ * V16.39.13 Candidate Quality Score Detail Hook
  *
- * Rules 071-083:
- * - Single owner for fetching candidate score details.
- * - Prevents race conditions with generation ref and AbortController.
- * - Verifies returned orderId and expectedAssessmentId against requested target.
- * - Immediately clears detail on target change (Rule 078).
+ * Rules 021-047, 061-075, 077-083, 111-137:
+ * - Single owner for fetching candidate score details with AbortController and strict generation tracking.
+ * - Stable structured targetKey prevents delimiter collisions and eliminates stale target bleed.
+ * - Invalidation increments generation on disabled, unmount, target switch, clear, and retry.
+ * - Zero fallback to requested orderId or unverified assessmentId (strict validation).
+ * - Immediate visible state reset on target key switch, avoiding 1-frame factor flashes.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../api/client';
 import type { CandidateScoreDetail } from '../types/candidateScore';
+import { makeScoreRequestKey, validateQualityScoreResponse } from '../utils/candidateScore';
 
 export interface UseCandidateScoreDetailOptions {
   orderId?: string | null;
@@ -27,108 +29,152 @@ export interface UseCandidateScoreDetailResult {
   refetch: () => void;
 }
 
+interface DataState {
+  targetKey: string | null;
+  detail: CandidateScoreDetail | null;
+  returnedOrderId: string | null;
+  error: string | null;
+}
+
 export function useCandidateScoreDetail({
   orderId,
   expectedAssessmentId,
   enabled = true,
 }: UseCandidateScoreDetailOptions): UseCandidateScoreDetailResult {
-  const [detail, setDetail] = useState<CandidateScoreDetail | null>(null);
+  // Rules 021-023: Stable request key. Null when disabled or orderId is empty/null.
+  const currentTargetKey = enabled ? makeScoreRequestKey(orderId, expectedAssessmentId) : null;
+
+  const [dataState, setDataState] = useState<DataState>({
+    targetKey: null,
+    detail: null,
+    returnedOrderId: null,
+    error: null,
+  });
   const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [returnedOrderId, setReturnedOrderId] = useState<string | null>(null);
+  const [retryRevision, setRetryRevision] = useState<number>(0);
 
-  const reqGenRef = useRef(0);
+  // Rules 024, 027-029: Single owner ref tracking generation, active controller, and target key
+  const activeRequestRef = useRef<{
+    generation: number;
+    controller: AbortController | null;
+    targetKey: string | null;
+  }>({
+    generation: 0,
+    controller: null,
+    targetKey: null,
+  });
 
-  const fetchData = useCallback(
-    async (signal?: AbortSignal) => {
-      if (!enabled || !orderId) {
-        setDetail(null);
-        setLoading(false);
-        setError(null);
-        setReturnedOrderId(null);
-        return;
-      }
+  const invalidateActiveRequest = useCallback(() => {
+    activeRequestRef.current.generation += 1;
+    if (activeRequestRef.current.controller) {
+      activeRequestRef.current.controller.abort();
+      activeRequestRef.current.controller = null;
+    }
+    activeRequestRef.current.targetKey = null;
+  }, []);
 
-      const currentGen = ++reqGenRef.current;
-      setLoading(true);
-      setError(null);
-      // Rule 078: Clear immediately on selection change so factors from previous order don't linger
-      setDetail(null);
-
-      try {
-        const res = await api.getOrderQualityScore(orderId, signal);
-        if (reqGenRef.current !== currentGen) return; // Stale request, ignore
-
-        // Some endpoints return { status: 'SUCCESS', order_id, detail: CandidateScoreDetail }
-        // while direct detail object might also be returned or mocked:
-        const returnedDetail: CandidateScoreDetail | null =
-          res?.detail && typeof res.detail === 'object'
-            ? res.detail
-            : res && typeof res === 'object' && ('score' in res || 'status' in res)
-              ? (res as CandidateScoreDetail)
-              : null;
-
-        const returnedOrderId = res?.order_id || returnedDetail?.order_id || orderId;
-
-        // Rule 079, 138: Verify returned order_id matches requested
-        if (returnedOrderId && returnedOrderId !== orderId) {
-          setError('DETAIL_BINDING_MISMATCH');
-          setLoading(false);
-          return;
-        }
-
-        // Rule 079, 139: Verify returned assessment_id matches expected if specified
-        if (
-          expectedAssessmentId &&
-          returnedDetail?.assessment_id &&
-          returnedDetail.assessment_id !== expectedAssessmentId
-        ) {
-          setError('DETAIL_ASSESSMENT_MISMATCH');
-          setLoading(false);
-          return;
-        }
-
-        if (!returnedDetail && res?.status !== 'SUCCESS') {
-          setError(typeof res?.detail === 'string' ? res.detail : 'FAILED_TO_LOAD_DETAIL');
-          setLoading(false);
-          return;
-        }
-
-        setDetail(returnedDetail);
-        setReturnedOrderId(returnedOrderId);
-        setLoading(false);
-      } catch (err: any) {
-        if (signal?.aborted || err?.name === 'AbortError' || err?.name === 'CanceledError') {
-          return;
-        }
-        if (reqGenRef.current === currentGen) {
-          setError(err?.response?.data?.detail || err?.message || 'FAILED_TO_LOAD_DETAIL');
-          setLoading(false);
-        }
-      }
-    },
-    [orderId, expectedAssessmentId, enabled]
-  );
-
+  // Rules 025, 030-034: Effect is the single initiator of network requests
   useEffect(() => {
+    // Invalidate any in-flight request from previous render
+    invalidateActiveRequest();
+
+    if (!currentTargetKey || !orderId) {
+      setLoading(false);
+      setDataState({
+        targetKey: null,
+        detail: null,
+        returnedOrderId: null,
+        error: null,
+      });
+      return;
+    }
+
+    const currentGen = activeRequestRef.current.generation;
     const controller = new AbortController();
-    fetchData(controller.signal);
+    activeRequestRef.current.controller = controller;
+    activeRequestRef.current.targetKey = currentTargetKey;
+
+    setLoading(true);
+    // Rule 078: Reset detail immediately for new target
+    setDataState({
+      targetKey: currentTargetKey,
+      detail: null,
+      returnedOrderId: null,
+      error: null,
+    });
+
+    const runFetch = async () => {
+      try {
+        const res = await api.getOrderQualityScore(orderId, controller.signal);
+
+        // Rule 030-032: Strict post-await guards
+        if (controller.signal.aborted) return;
+        if (activeRequestRef.current.generation !== currentGen) return;
+        if (activeRequestRef.current.targetKey !== currentTargetKey) return;
+
+        // Rules 062-075: Pure validation against expected orderId and expectedAssessmentId
+        const validation = validateQualityScoreResponse(res, {
+          orderId,
+          expectedAssessmentId,
+        });
+
+        if (!validation.valid) {
+          setLoading(false);
+          setDataState({
+            targetKey: currentTargetKey,
+            detail: null,
+            returnedOrderId: null,
+            error: validation.errorCode,
+          });
+          return;
+        }
+
+        setLoading(false);
+        setDataState({
+          targetKey: currentTargetKey,
+          detail: validation.detail,
+          returnedOrderId: validation.orderId,
+          error: null,
+        });
+      } catch (err: any) {
+        if (controller.signal.aborted || err?.name === 'AbortError' || err?.name === 'CanceledError') {
+          return;
+        }
+        if (activeRequestRef.current.generation !== currentGen) return;
+
+        setLoading(false);
+        setDataState({
+          targetKey: currentTargetKey,
+          detail: null,
+          returnedOrderId: null,
+          error: err?.response?.data?.detail || err?.message || 'FAILED_TO_LOAD_DETAIL',
+        });
+      }
+    };
+
+    void runFetch();
 
     return () => {
-      controller.abort();
+      if (activeRequestRef.current.generation === currentGen) {
+        invalidateActiveRequest();
+      }
     };
-  }, [fetchData]);
+  }, [currentTargetKey, orderId, expectedAssessmentId, retryRevision, invalidateActiveRequest]);
 
+  // Rules 025, 026, 039: refetch only increments retryRevision for current target
   const refetch = useCallback(() => {
-    const controller = new AbortController();
-    fetchData(controller.signal);
-  }, [fetchData]);
+    if (!currentTargetKey) return;
+    setRetryRevision((prev) => prev + 1);
+  }, [currentTargetKey]);
+
+  // Rule 034: Derive visible result: if state.targetKey differs from currentTargetKey, project null immediately
+  const isKeyMatching = Boolean(currentTargetKey && dataState.targetKey === currentTargetKey);
 
   return {
-    detail,
-    loading,
-    error,
-    returnedOrderId,
+    detail: isKeyMatching ? dataState.detail : null,
+    loading: Boolean(currentTargetKey && loading),
+    error: isKeyMatching ? dataState.error : null,
+    returnedOrderId: isKeyMatching ? dataState.returnedOrderId : null,
     refetch,
   };
 }

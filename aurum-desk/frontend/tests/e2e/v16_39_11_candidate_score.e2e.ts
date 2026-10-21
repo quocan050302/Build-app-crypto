@@ -133,6 +133,21 @@ test.describe('V16.39.12 Candidate Quality Score UI & Exact Identity Verificatio
     // Verify badge exists and carries exact score text 78/100
     const badgeA = page.locator('[data-testid="candidate-score-badge"]:has-text("78/100")');
     await expect(badgeA.first()).toBeVisible({ timeout: 10000 });
+
+    // 6. Click badge A to open quality drawer and verify exact factors
+    await badgeA.first().click();
+
+    // Verify drawer opens and displays authoritative score metrics & canonical factor
+    const drawerTitle = page.locator('text=Điểm Chất Lượng Lúc ARM (Bất Biến)');
+    await expect(drawerTitle).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=Khối FVG tăng M15 đồng pha hợp lệ')).toBeVisible();
+    await expect(page.locator('text=+18/20')).toBeVisible();
+
+    // Close drawer cleanly
+    const closeBtn = page.locator('button[aria-label="Đóng bảng chi tiết"]');
+    await expect(closeBtn).toBeVisible();
+    await closeBtn.click();
+    await expect(drawerTitle).not.toBeVisible();
   });
 
   test('E12-2: Mobile viewport (390x844) displays compact badges without layout overflow', async ({
@@ -168,5 +183,101 @@ test.describe('V16.39.12 Candidate Quality Score UI & Exact Identity Verificatio
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 2); // 1-2px tolerance
+  });
+
+  test('E12-3: Browser lifecycle: pending close aborts cleanly; mismatched identity shows error and retry succeeds (Rules 156, 158, 159)', async ({
+    page,
+    request,
+  }) => {
+    // 1. Seed Order A (LONG, 78)
+    const seedResA = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/seed_order`, {
+      data: {
+        order_id: 'e2e_ord_lifecycle_78',
+        direction: 'LONG',
+        planned_entry: 2650.0,
+        stop_loss: 2640.0,
+        take_profit: 2675.0,
+        state: 'paper_open',
+        cost_snapshot: {
+          schema_version: '2.0',
+          quality_assessment: {
+            final_score: 78.0,
+            base_score: 83.0,
+            lesson_delta: -5.0,
+            threshold: 70.0,
+            decision: 'ELIGIBLE_BY_SCORE',
+            as_of_ms: 1776510000000,
+            assessment_id: 'assess_lifecycle_78',
+            candidate_key: 'XAUUSDT:15M:LONG:2650.0',
+            factors: [
+              {
+                code: 'FVG_ALIGNMENT',
+                group: 'STRUCTURE',
+                earned_points: 18.0,
+                max_points: 20.0,
+                status: 'FULL',
+                explanation_vi: 'Khối FVG tăng M15 đồng pha hợp lệ',
+              },
+            ],
+          },
+        },
+      },
+    });
+    expect(seedResA.status()).toBe(200);
+
+    // Rule 158: Intercept first request to return mismatched order_id
+    let callCount = 0;
+    await page.route('**/api/v1/orders/e2e_ord_lifecycle_78/quality-score', async (route) => {
+      callCount += 1;
+      if (callCount === 1) {
+        // Return response with mismatched order_id
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'SUCCESS',
+            order_id: 'wrong_order_id',
+            detail: {
+              order_id: 'wrong_order_id',
+              assessment_id: 'assess_lifecycle_78',
+              score: 78.0,
+              status: 'AVAILABLE',
+              factors: [],
+            },
+          }),
+        });
+      } else {
+        // Continue to server for retry
+        await route.continue();
+      }
+    });
+
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+    // Open drawer
+    const badge = page.locator('[data-testid="candidate-score-badge"]:has-text("78/100")').first();
+    await expect(badge).toBeVisible({ timeout: 10000 });
+    await badge.click();
+
+    // Verify inline error appears due to mismatched identity (Rule 158)
+    const errorText = page.locator('text=Mã lệnh phản hồi không khớp với lệnh yêu cầu.');
+    await expect(errorText).toBeVisible({ timeout: 5000 });
+
+    // Verify retry button is present (Rule 159)
+    const retryBtn = page.locator('button:has-text("Thử lại")');
+    await expect(retryBtn).toBeVisible();
+
+    // Click retry -> second call continues to server and succeeds
+    await retryBtn.click();
+
+    // Error disappears and verified canonical factor appears
+    await expect(errorText).not.toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=Khối FVG tăng M15 đồng pha hợp lệ')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=+18/20')).toBeVisible();
+
+    // Close drawer
+    const closeBtn = page.locator('button[aria-label="Đóng bảng chi tiết"]');
+    await closeBtn.click();
+    await expect(page.locator('text=Điểm Chất Lượng Lúc ARM (Bất Biến)')).not.toBeVisible();
   });
 });

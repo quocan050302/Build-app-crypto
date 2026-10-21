@@ -325,8 +325,8 @@ describe('V16.39.11 Component Rendering Tests (Rules 169, 170)', () => {
     expect(html).toContain('FVG_ALIGNMENT');
     expect(html).toContain('Khối FVG tăng M15 đồng pha hợp lệ');
     expect(html).toContain('18/20');
-    // Threshold and base score should render '—' when missing (no fabricated 70 or 78)
-    expect(html).toContain('—');
+    // Rules 072, 107: Threshold and base score should render 'Chưa lưu' when missing (no fabricated 70 or 78)
+    expect(html).toContain('Chưa lưu');
   });
 
   it('renders inline error with retry button when detail fails to load (Rule 082)', () => {

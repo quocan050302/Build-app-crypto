@@ -1,6 +1,6 @@
 import React from 'react';
 import type { CandidateScoreSummary, CandidateScoreDetail } from '../types/candidateScore';
-import { translateDecision } from '../utils/candidateScore';
+import { translateDecision, translateQualityScoreError } from '../utils/candidateScore';
 import { Award, ShieldAlert, CheckCircle, XCircle, Info, Lock } from 'lucide-react';
 
 export interface CandidateScoreDetailsProps {
@@ -25,6 +25,49 @@ export const CandidateScoreDetails: React.FC<CandidateScoreDetailsProps> = ({
   const activeData: CandidateScoreSummary | null = detail || summary || null;
 
   if (!activeData || activeData.status === 'NOT_ASSESSED' || activeData.status === 'UNAVAILABLE') {
+    // Rule 097: Ensure in-flight loading or network error is not hidden when summary is absent/unavailable
+    if (loading && !detail) {
+      return (
+        <div className={`p-3 rounded-lg bg-charcoal-850 border border-charcoal-750 text-xs text-gray-400 ${className}`}>
+          <div className="flex items-center gap-2 text-gray-300 font-semibold mb-1">
+            <Award className="w-4 h-4 text-cyan-400" />
+            <span>Điểm Chất Lượng CG-01</span>
+          </div>
+          <div className="p-2 text-[11px] text-gray-400 italic bg-charcoal-900/60 rounded border border-charcoal-750">
+            Đang tải chi tiết tiêu chí đánh giá...
+          </div>
+        </div>
+      );
+    }
+
+    if (error && !detail) {
+      return (
+        <div className={`p-3 rounded-lg bg-charcoal-850 border border-charcoal-750 text-xs text-gray-400 ${className}`}>
+          <div className="flex items-center gap-2 text-gray-300 font-semibold mb-1">
+            <Award className="w-4 h-4 text-gray-400" />
+            <span>Điểm Chất Lượng CG-01</span>
+          </div>
+          <div className="p-2 rounded bg-amber-950/40 border border-amber-800 text-[11px] text-amber-300 flex items-center justify-between gap-2">
+            <span>
+              {error.startsWith('DETAIL_') || error.startsWith('INVALID_') || error.startsWith('FAILED_')
+                ? translateQualityScoreError(error)
+                : `Chưa tải được chi tiết điểm: ${error}`}
+            </span>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                disabled={loading}
+                className="px-2 py-0.5 text-[10px] bg-charcoal-800 hover:bg-charcoal-700 text-gray-200 rounded border border-charcoal-650 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Thử lại
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     const isLegacy = activeData?.reason_code === 'LEGACY_NO_SCORE' || activeData?.status === 'UNAVAILABLE';
     return (
       <div className={`p-3 rounded-lg bg-charcoal-850 border border-charcoal-750 text-xs text-gray-400 ${className}`}>
@@ -106,7 +149,7 @@ export const CandidateScoreDetails: React.FC<CandidateScoreDetailsProps> = ({
         <div className="p-2 rounded bg-charcoal-900 border border-charcoal-750">
           <span className="text-[10px] text-gray-400 block font-sans">Điểm Gốc (Base):</span>
           <span className="text-sm font-bold text-gray-200">
-            {baseScore !== null ? baseScore : '—'}
+            {baseScore !== null ? baseScore : 'Chưa lưu'}
           </span>
         </div>
 
@@ -121,7 +164,7 @@ export const CandidateScoreDetails: React.FC<CandidateScoreDetailsProps> = ({
                 : 'text-gray-300'
             }`}
           >
-            {lessonDelta !== null ? `${lessonDelta > 0 ? '+' : ''}${lessonDelta}` : '—'}
+            {lessonDelta !== null ? `${lessonDelta > 0 ? '+' : ''}${lessonDelta}` : 'Chưa lưu'}
           </span>
         </div>
 
@@ -135,7 +178,7 @@ export const CandidateScoreDetails: React.FC<CandidateScoreDetailsProps> = ({
         <div className="p-2 rounded bg-charcoal-900 border border-charcoal-750">
           <span className="text-[10px] text-gray-400 block font-sans">Ngưỡng Lúc Đánh Giá:</span>
           <span className="text-sm font-bold text-gray-300">
-            {threshold !== null ? threshold : '—'}
+            {threshold !== null ? threshold : 'Chưa lưu'}
           </span>
         </div>
       </div>
@@ -147,15 +190,20 @@ export const CandidateScoreDetails: React.FC<CandidateScoreDetailsProps> = ({
         </div>
       )}
 
-      {/* Error state with retry (Rule 082) */}
+      {/* Error state with retry (Rule 082, 098) */}
       {error && !detail && (
         <div className="p-2 rounded bg-amber-950/40 border border-amber-800 text-[11px] text-amber-300 flex items-center justify-between gap-2">
-          <span>Chưa tải được chi tiết điểm: {error}</span>
+          <span>
+            {error.startsWith('DETAIL_') || error.startsWith('INVALID_') || error.startsWith('FAILED_')
+              ? translateQualityScoreError(error)
+              : `Chưa tải được chi tiết điểm: ${error}`}
+          </span>
           {onRetry && (
             <button
               type="button"
               onClick={onRetry}
-              className="px-2 py-0.5 text-[10px] bg-charcoal-800 hover:bg-charcoal-700 text-gray-200 rounded border border-charcoal-650 shrink-0"
+              disabled={loading}
+              className="px-2 py-0.5 text-[10px] bg-charcoal-800 hover:bg-charcoal-700 text-gray-200 rounded border border-charcoal-650 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Thử lại
             </button>

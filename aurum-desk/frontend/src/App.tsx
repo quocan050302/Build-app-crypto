@@ -380,7 +380,9 @@ function AppContent() {
           setActiveOverlay(overlay);
           setSelectedIntent({
             source: 'OPEN_POSITION',
-            setup_id: p.setup_id,
+            id: p.id,
+            order_id: p.id,
+            setup_id: p.id,
             setup_instance_id: p.setup_instance_id,
             symbol: p.instrument || 'XAUUSDT',
             timeframe: p.timeframe || timeframe,
