@@ -3,6 +3,7 @@ import type { SelectedTradeIntent } from '../App';
 import { SMCScenarioCard } from './SMCScenarioCard';
 import { SMCSessionForecastCard } from './SMCSessionForecastCard';
 import { CG01DiagnosticCard } from './CG01DiagnosticCard';
+import { CandidateScoreBadge } from './CandidateScoreBadge';
 import { useCG01RealtimeState } from '../hooks/useCG01RealtimeState';
 import type { SMCScenarioView } from '../types/smcScenario';
 import {
@@ -417,9 +418,17 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                 >
                   {pos.direction} XAUUSDT
                 </span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-charcoal-800 text-gray-300 border border-charcoal-700 font-mono">
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-charcoal-800 text-gray-300 border border-charcoal-750 font-mono">
                   PAPER
                 </span>
+                {pos.candidate_score_summary && (
+                  <CandidateScoreBadge
+                    summary={pos.candidate_score_summary}
+                    compact
+                    labelPrefix="Điểm lúc ARM"
+                    onOpenDetails={() => onOpenDetailsDrawer('quality')}
+                  />
+                )}
               </div>
 
               <div className="flex items-center gap-1 font-mono text-xs font-bold">
@@ -572,17 +581,25 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                   </span>
                 </div>
 
-                <span
-                  className={`text-[11px] font-mono px-1.5 py-0.2 rounded font-semibold ${
-                    selectedIntent.status === 'READY'
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                      : selectedIntent.status === 'ARMED'
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                      : 'bg-charcoal-800 text-gray-400 border border-charcoal-700'
-                  }`}
-                >
-                  {getVietnameseStatus(selectedIntent.status)}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <CandidateScoreBadge
+                    summary={selectedIntent.candidate_score_summary}
+                    compact
+                    labelPrefix={selectedIntent.status === 'ARMED' ? 'Điểm lúc ARM' : 'Điểm đánh giá'}
+                    onOpenDetails={() => onOpenDetailsDrawer('quality')}
+                  />
+                  <span
+                    className={`text-[11px] font-mono px-1.5 py-0.2 rounded font-semibold ${
+                      selectedIntent.status === 'READY'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        : selectedIntent.status === 'ARMED'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                        : 'bg-charcoal-800 text-gray-400 border border-charcoal-700'
+                    }`}
+                  >
+                    {getVietnameseStatus(selectedIntent.status)}
+                  </span>
+                </div>
               </div>
 
               {/* Distance to Entry */}

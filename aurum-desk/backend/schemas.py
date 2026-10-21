@@ -112,6 +112,7 @@ class PaperOrderResponse(PaperOrderBase):
     quality_snapshot_id: Optional[str] = None
     evidence_snapshot_id: Optional[str] = None
     setup_instance_id: Optional[str] = None
+    candidate_score_summary: Optional[Dict[str, Any]] = None
     model_config = ConfigDict(from_attributes=True)
 
 # Risk/Reward Position Overlay schema for Chart
@@ -1347,3 +1348,5 @@ class ChartEvidenceDTO(BaseModel):
     provenance: Optional[Dict[str, Any]] = None
     entry_explanation: Optional[Dict[str, Any]] = None
     htf_context: Optional[Dict[str, Any]] = None
+    candidate_score_summary: Optional[Dict[str, Any]] = None
+    candidate_score_detail: Optional[Dict[str, Any]] = None

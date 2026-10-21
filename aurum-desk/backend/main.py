@@ -730,6 +730,34 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
                 pricing_mode=pricing_mode,
                 frozen_snapshot=frozen_snap
             )
+
+            # Rules 081-086: Resolve candidate_score_summary
+            candidate_score = None
+            if bound_order and is_frozen:
+                candidate_score = getattr(bound_order, "candidate_score_summary", None)
+            else:
+                try:
+                    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+                    candidate_score = scalp_watcher_orchestrator.get_candidate_quality_display(
+                        symbol="XAUUSDT",
+                        setup_id=s.id,
+                        setup_instance_id=s.setup_instance_id,
+                        direction=s.direction,
+                    )
+                except Exception:
+                    candidate_score = None
+
+            if not candidate_score:
+                candidate_score = {
+                    "status": "NOT_ASSESSED",
+                    "score": None,
+                    "max_score": 100.0,
+                    "source": "VOLATILE_LATEST_EVALUATION" if not is_frozen else "NONE",
+                    "frozen": False,
+                    "reason_code": "NOT_YET_EVALUATED",
+                    "disclaimer": "Điểm chất lượng setup theo tiêu chuẩn CG-01, không phải xác suất thắng.",
+                }
+
             setup_items.append({
                 "id": s.id,
                 "version": s.version,
@@ -770,6 +798,7 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
                 "eligibility": eligibility,
                 "quality_summary": quality_sum,
                 "quality_snapshot_id": quality_snap_id,
+                "candidate_score_summary": candidate_score,
                 "resolved_display_plan": resolved_plan
             })
         except Exception as exc:
@@ -817,6 +846,15 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
                 "eligibility": None,
                 "quality_summary": None,
                 "quality_snapshot_id": None,
+                "candidate_score_summary": {
+                    "status": "UNAVAILABLE",
+                    "score": None,
+                    "max_score": 100.0,
+                    "source": "NONE",
+                    "frozen": False,
+                    "reason_code": "SETUP_PROCESSING_ERROR",
+                    "disclaimer": "Điểm chất lượng setup theo tiêu chuẩn CG-01, không phải xác suất thắng.",
+                },
                 "resolved_display_plan": degraded_setup_plan(s_id, s_dir, "DEGRADED_PROCESSING"),
             })
 
@@ -3356,16 +3394,26 @@ def get_order_chart_evidence(
         bundle = build_selected_chart_bundle(snap, source_type="ORDER", binding_id=order_id, order_data=order_plan)
         bundle["binding"]["order_state"] = order.state
         bundle["provenance"] = read_snapshot_provenance(snap.to_dict(), active_scenario_config)
+        from services.order_quality_display_service import build_order_score_display, build_order_score_detail
+        bundle["candidate_score_summary"] = build_order_score_display(order).to_dict()
+        bundle["candidate_score_detail"] = build_order_score_detail(order).to_dict()
         return schemas.ChartEvidenceDTO(**bundle)
+
+    from services.order_quality_display_service import build_order_score_display, build_order_score_detail
+    order_score_sum = build_order_score_display(order).to_dict()
+    order_score_det = build_order_score_detail(order).to_dict()
 
     qid = getattr(order, "quality_snapshot_id", None)
     if qid:
         from services.setup_quality_repository import setup_quality_repository
         legacy_snap = setup_quality_repository.get_snapshot_by_id(db, qid)
         if legacy_snap:
-            return schemas.ChartEvidenceDTO(**adapt_legacy_quality_snapshot(legacy_snap, order_data=order_plan))
+            legacy_dict = adapt_legacy_quality_snapshot(legacy_snap, order_data=order_plan)
+            legacy_dict["candidate_score_summary"] = order_score_sum
+            legacy_dict["candidate_score_detail"] = order_score_det
+            return schemas.ChartEvidenceDTO(**legacy_dict)
 
-    return _empty_chart_bundle(
+    empty_bundle = _empty_chart_bundle(
         source="ORDER", obj_id=order_id, instance_id=order.setup_instance_id, revision=1,
         symbol=order.instrument or "XAUUSDT", direction=order.direction,
         state=order.state.upper() if order.state else "CLOSED",
@@ -3373,6 +3421,32 @@ def get_order_chart_evidence(
         family=order.strategy_family,
         summary=f"Lệnh {order.direction} ({order.state}). Không có bằng chứng được lưu lúc đặt lệnh (lệnh cũ).",
         plan=order_plan, invalidation_price=order.stop_loss, warnings=["LEGACY_ORDER_NO_EVIDENCE"])
+    if isinstance(empty_bundle, dict):
+        empty_bundle["candidate_score_summary"] = order_score_sum
+        empty_bundle["candidate_score_detail"] = order_score_det
+        return schemas.ChartEvidenceDTO(**empty_bundle)
+    elif hasattr(empty_bundle, "candidate_score_summary"):
+        empty_bundle.candidate_score_summary = order_score_sum
+        empty_bundle.candidate_score_detail = order_score_det
+    return empty_bundle
+
+
+@app.get("/api/v1/orders/{order_id}/quality-score")
+def get_order_quality_score_endpoint(order_id: str, db: Session = Depends(get_db)):
+    """
+    Rules 092, 095: Returns frozen candidate quality score breakdown for an order.
+    """
+    order = db.query(models.PaperOrder).filter(models.PaperOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="ORDER_NOT_FOUND")
+
+    from services.order_quality_display_service import build_order_score_detail
+    detail = build_order_score_detail(order)
+    return {
+        "status": "SUCCESS",
+        "order_id": order_id,
+        "detail": detail.to_dict(),
+    }
 
 
 @app.get("/api/v1/orders/{order_id}/review")

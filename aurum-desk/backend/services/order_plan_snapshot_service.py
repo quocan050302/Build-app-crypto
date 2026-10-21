@@ -187,12 +187,17 @@ def extract_immutable_entry_metadata(arm_snapshot: Optional[Dict[str, Any]]) -> 
         "min_net_rr_at_arm",
         "entry_mode",
         "order_type",
+        "quality_assessment",
     )
 
     out = {}
     for k in whitelist_keys:
         if k in arm_snapshot and arm_snapshot[k] is not None:
-            out[k] = arm_snapshot[k]
+            if k == "quality_assessment":
+                import copy
+                out[k] = copy.deepcopy(arm_snapshot[k])
+            else:
+                out[k] = arm_snapshot[k]
 
     # Ensure canonical session mapping
     session_val = arm_snapshot.get("entry_session") or arm_snapshot.get("analysis_session") or arm_snapshot.get("session")

@@ -219,6 +219,85 @@ class ScalpWatcherOrchestrator:
         self._latest_cycle_outcome: Dict[str, Dict[str, Any]] = {}
         self._arm_rejections: Dict[str, Any] = {}
         self._latest_cg01_evaluation: Dict[str, Dict[str, Any]] = {}
+        self._latest_candidate_quality_display: Dict[str, Dict[str, Any]] = {}
+
+    def record_candidate_quality_display(
+        self,
+        *,
+        symbol: str,
+        setup_id: Optional[str],
+        setup_instance_id: Optional[str],
+        candidate_key: Optional[str],
+        direction: str,
+        assessment: Any,
+    ) -> None:
+        """
+        Rules 083-085: Caches volatile candidate quality display for setups before ARM.
+        Bounded cardinality (max 500), exact binding key (symbol, setup_id, candidate_key, direction).
+        Does not mutate trade decisions.
+        """
+        if not assessment or not hasattr(assessment, "to_dict"):
+            return
+
+        import copy
+        key = f"{symbol}:{setup_id or '*'}:{candidate_key or setup_instance_id or '*'}:{direction}"
+        assessment_dict = copy.deepcopy(assessment.to_dict())
+
+        from services.order_quality_display_service import CandidateScoreDisplay
+        display = CandidateScoreDisplay(
+            status="AVAILABLE",
+            score=assessment_dict["final_score"],
+            max_score=100.0,
+            base_score=assessment_dict["base_score"],
+            lesson_delta=assessment_dict["lesson_delta"],
+            threshold=assessment_dict["threshold"],
+            decision=assessment_dict["decision"],
+            as_of_ms=assessment_dict["as_of_ms"],
+            source="VOLATILE_LATEST_EVALUATION",
+            frozen=False,
+            assessment_id=assessment_dict["assessment_id"],
+            candidate_key=assessment_dict["candidate_key"],
+            model_id=assessment_dict.get("model_id"),
+            profile_version=assessment_dict.get("profile_version"),
+            config_fingerprint=assessment_dict.get("config_fingerprint"),
+            reason_code=None,
+        )
+
+        with self._lock:
+            if len(self._latest_candidate_quality_display) >= 500:
+                oldest_k = next(iter(self._latest_candidate_quality_display))
+                self._latest_candidate_quality_display.pop(oldest_k, None)
+            self._latest_candidate_quality_display[key] = display.to_dict()
+
+    def get_candidate_quality_display(
+        self,
+        *,
+        symbol: str = "XAUUSDT",
+        setup_id: Optional[str] = None,
+        setup_instance_id: Optional[str] = None,
+        candidate_key: Optional[str] = None,
+        direction: str = "LONG",
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Rule 086: Reads volatile pre-ARM candidate quality display matching exact binding.
+        """
+        with self._lock:
+            cand_k = candidate_key or setup_instance_id or "*"
+            exact_key = f"{symbol}:{setup_id or '*'}:{cand_k}:{direction}"
+            if exact_key in self._latest_candidate_quality_display:
+                return dict(self._latest_candidate_quality_display[exact_key])
+
+            for k, val in reversed(list(self._latest_candidate_quality_display.items())):
+                parts = k.split(":")
+                if len(parts) == 4:
+                    k_sym, k_sid, k_cid, k_dir = parts
+                    if k_sym == symbol and k_dir == direction:
+                        if setup_id and k_sid == setup_id:
+                            return dict(val)
+                        if setup_instance_id and k_cid == setup_instance_id:
+                            return dict(val)
+
+        return None
 
     def get_latest_cg01_evaluation(self, symbol: str = "XAUUSDT") -> Dict[str, Any]:
         with self._lock:
@@ -1919,6 +1998,14 @@ class ScalpWatcherOrchestrator:
                 lesson_delta=lesson_delta,
             )
             quality_assessment = assessment
+            self.record_candidate_quality_display(
+                symbol=cand.symbol,
+                setup_id=ws.id if ws else None,
+                setup_instance_id=cand.candidate_key,
+                candidate_key=cand.candidate_key,
+                direction=cand.direction,
+                assessment=assessment,
+            )
 
             if assessment.decision != "ELIGIBLE_BY_SCORE":
                 logger.info(

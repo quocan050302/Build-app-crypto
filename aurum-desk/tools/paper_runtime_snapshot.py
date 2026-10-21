@@ -117,18 +117,28 @@ def open_snapshot_session(db_path: Path) -> Generator[Session, None, None]:
 
 def parse_http_snapshot(payload: Any) -> Dict[str, Any]:
     """
-    Rules 108: Validates schema and integrity of HTTP snapshot response.
-    Rejects invalid HTML, arrays, or corrupted schemas.
+    Rules 044, 108: Validates schema and integrity of HTTP snapshot response.
+    Rejects invalid HTML, arrays, corrupted schemas, or payloads missing required fields.
     """
     if not isinstance(payload, dict):
         raise ValueError("Invalid snapshot payload: expected JSON object")
 
     schema_ver = payload.get("schema_version")
-    if schema_ver not in ("2.0", "1.0"):
-        raise ValueError(f"Unsupported schema_version: {schema_ver}")
+    if schema_ver != "2.0":
+        raise ValueError(f"Unsupported schema_version: {schema_ver}. Expected '2.0'")
 
-    if "metrics" not in payload or not isinstance(payload["metrics"], dict):
+    required_top_keys = ("status", "metrics", "time_window", "effective_config", "worker_health")
+    for k in required_top_keys:
+        if k not in payload:
+            raise ValueError(f"Invalid snapshot payload: missing required field '{k}'")
+
+    if not isinstance(payload["metrics"], dict):
         raise ValueError("Invalid snapshot payload: missing or malformed metrics")
+
+    required_metric_keys = ("duration_minutes", "closed_trades_count", "orders_count", "open_positions_count")
+    for mk in required_metric_keys:
+        if mk not in payload["metrics"]:
+            raise ValueError(f"Invalid snapshot payload: missing required metric '{mk}'")
 
     validate_finite_metrics(payload["metrics"])
     return payload
@@ -321,16 +331,24 @@ def build_runtime_snapshot(
         if "snapshot" in sources:
             return sources["snapshot"]
 
-        # Support simulated HTTP test source structures
         if sources.get("status") == "CONNECTED":
             h_data = sources.get("data", {}).get("health", {})
-            worker_status = h_data.get("status", "STOPPED")
-            worker_running = bool(h_data.get("running", False))
+            worker_status = h_data.get("status", "UNKNOWN")
+            worker_running = h_data.get("running")
+            is_stopped = worker_status == "STOPPED" or worker_running is False
+
+            limitations = [
+                "UNSUPPORTED_LEGACY_SOURCE: Cấu trúc test giả lập không còn được hỗ trợ; yêu cầu snapshot HTTP chuẩn."
+            ]
+            if is_stopped:
+                limitations.append("WORKER_STOPPED: Evaluation worker is currently STOPPED.")
 
             return {
                 "schema_version": SCHEMA_VERSION,
-                "status": "STOPPED" if worker_status == "STOPPED" else "SNAPSHOT_READY",
+                "status": "STOPPED" if is_stopped else "NOT_CONFIGURED",
                 "source_mode": "HTTP",
+                "error": "UNSUPPORTED_LEGACY_SOURCE",
+                "detail": "Connected HTTP source did not yield canonical validated snapshot payload.",
                 "worker_health": {
                     "status": worker_status,
                     "running": worker_running,
@@ -340,24 +358,20 @@ def build_runtime_snapshot(
                     "closed_trades_count": 0,
                     "winrate_pct": None,
                     "expectancy_usd_per_trade": None,
-                    "net_realized_pnl_usd": 0.0,
+                    "net_realized_pnl_usd": None,
                     "orders_count": 0,
                     "duration_minutes": 0.0,
                     "opportunities_count": 0,
                     "open_positions_count": 0,
                     "armed_orders_count": 0,
                     "max_drawdown_usd": 0.0,
-                    "max_drawdown_pct": 0.0,
+                    "max_drawdown_pct": None,
                     "drawdown_type": "CLOSED_EQUITY_DRAWDOWN",
                 },
                 "run_summary": {"status": "NONE", "run_id": run_id or "NONE"},
                 "funnel_summary": aggregate_funnel_readonly([]),
                 "effective_config": {"auto_enabled": None},
-                "limitations": [
-                    "WORKER_STOPPED: Evaluation worker is currently STOPPED."
-                    if worker_status == "STOPPED"
-                    else "RUNTIME_OBSERVED_VIA_HTTP"
-                ],
+                "limitations": limitations,
             }
 
         # Backend unreachable

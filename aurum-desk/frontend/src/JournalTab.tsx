@@ -28,6 +28,8 @@ import {
   type JournalQueryParams,
 } from './api/client';
 import { wsClient } from './services/wsClient';
+import { CandidateScoreBadge } from './components/CandidateScoreBadge';
+import { CandidateScoreDetails } from './components/CandidateScoreDetails';
 
 interface JournalTabProps {
   onFocusChart?: (trade: any) => void;
@@ -782,15 +784,22 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                         </span>
                       </td>
                       <td className="py-2.5 px-2">
-                        <span
-                          className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                            t.direction === 'LONG'
-                              ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
-                              : 'bg-rose-950 text-rose-300 border border-rose-700'
-                          }`}
-                        >
-                          {t.direction}
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span
+                            className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                              t.direction === 'LONG'
+                                ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                                : 'bg-rose-950 text-rose-300 border border-rose-700'
+                            }`}
+                          >
+                            {t.direction}
+                          </span>
+                          <CandidateScoreBadge
+                            summary={t.candidate_score_summary}
+                            compact
+                            onOpenDetails={() => handleOpenDrawer(t)}
+                          />
+                        </div>
                       </td>
                       <td className="py-2.5 px-2 whitespace-nowrap">
                         {formatOutcomeBadge(t)}
@@ -1396,6 +1405,12 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                       </div>
                     )}
                   </div>
+
+                  {/* V16.39.11 Candidate Quality Score Snapshot Linked to Trade */}
+                  <CandidateScoreDetails
+                    summary={selectedTrade.candidate_score_summary}
+                    orderId={selectedTrade.id}
+                  />
 
                   {/* V10: Lesson Rules Snapshot Linked to Trade */}
                   <div className="bg-charcoal-850 p-3 rounded border border-charcoal-750 space-y-2 text-[11px]">

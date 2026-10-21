@@ -127,6 +127,12 @@ class PaperOrder(Base):
         from services.order_plan_snapshot_service import parse_order_plan_snapshot
         return parse_order_plan_snapshot(self.cost_snapshot)
 
+    @property
+    def candidate_score_summary(self):
+        from services.order_quality_display_service import build_order_score_display
+        display = build_order_score_display(self)
+        return display.to_dict() if hasattr(display, "to_dict") else display
+
 
 
 class DayAudit(Base):

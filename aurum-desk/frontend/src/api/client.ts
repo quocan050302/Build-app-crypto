@@ -679,6 +679,13 @@ export const api = {
     return res.data;
   },
 
+  getOrderQualityScore: async (orderId: string, signal?: AbortSignal) => {
+    const res = await apiClient.get(`/api/v1/orders/${encodeURIComponent(orderId)}/quality-score`, {
+      signal,
+    });
+    return res.data;
+  },
+
   // Setup Quality & Evidence API (V14)
   getSetupQuality: async (
     setupId: string,

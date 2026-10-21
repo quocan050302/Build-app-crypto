@@ -56,6 +56,8 @@ import type { ChartBinding } from './types/smcScenario';
 import { useSMCScenarios } from './hooks/useSMCScenarios';
 import type { SMCScenarioView } from './types/smcScenario';
 import type { SemanticActionType } from './types/userMessage';
+import type { CandidateScoreSummary } from './types/candidateScore';
+import { CandidateScoreBadge } from './components/CandidateScoreBadge';
 
 export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION' | 'SCENARIO';
 
@@ -108,6 +110,9 @@ export interface SelectedTradeIntent {
   plan_kind?: 'PROVISIONAL' | 'CONFIRMED' | 'DRAFT' | 'ORDER';
   plan_fingerprint?: string | null;
   risk_config_version?: number | null;
+
+  // V16.39.11 Candidate Quality Score
+  candidate_score_summary?: CandidateScoreSummary | null;
 }
 
 
@@ -393,6 +398,7 @@ function AppContent() {
             estimatedLiquidation: p.estimated_liquidation,
             status: 'paper_open',
             snapshotAt: Date.now(),
+            candidate_score_summary: p.candidate_score_summary || null,
           });
         }
       } else {
@@ -1041,6 +1047,7 @@ function AppContent() {
       quality_status: setup.quality_summary?.status || (setup.quality_snapshot_id ? undefined : 'NOT_ASSESSED'),
       quality_snapshot_id: setup.quality_snapshot_id,
       quality_summary: setup.quality_summary,
+      candidate_score_summary: setup.candidate_score_summary || null,
     });
 
     // V14 Generation-scoped Quality Snapshot Fetch (Prevents Race Conditions)
@@ -1318,6 +1325,7 @@ function AppContent() {
       status: trade.state,
       snapshotAt: Date.now(),
       quality_status: trade.quality_snapshot_id ? undefined : 'NOT_ASSESSED',
+      candidate_score_summary: trade.candidate_score_summary || null,
     });
 
     setSelectedQualitySnapshot(null);
@@ -1766,6 +1774,7 @@ function AppContent() {
                 selectedRawBundle={selectedChart.rawBundle}
                 selectedLoading={selectedChart.isLoading}
                 selectedError={selectedChart.error}
+                selectedCandidateScore={selectedIntent?.candidate_score_summary || null}
                 evidenceMode={evidenceMode}
                 focusRequest={focusRequest}
                 onEvidenceModeChange={setEvidenceMode}
@@ -1925,6 +1934,14 @@ function AppContent() {
                           </div>
 
                           <div className="flex items-center gap-2">
+                            <CandidateScoreBadge
+                              summary={s.candidate_score_summary}
+                              labelPrefix={s.state === 'ARMED' ? 'Điểm lúc ARM' : 'Điểm đánh giá'}
+                              onOpenDetails={() => {
+                                handleFocusSetupOnChart(s);
+                                handleOpenDrawer('quality');
+                              }}
+                            />
                             <span
                               className={`px-2.5 py-0.5 rounded font-bold text-[11px] font-mono tracking-wider ${
                                 s.state === 'READY'

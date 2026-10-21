@@ -62,6 +62,7 @@ export interface ChartComponentProps {
   onOpenSelectionDetails?: () => void;
   selectedLoading?: boolean;
   selectedError?: string | null;
+  selectedCandidateScore?: any;
 }
 
 interface CandleData {
@@ -124,6 +125,7 @@ export function ChartComponent({
   onOpenSelectionDetails,
   selectedLoading,
   selectedError,
+  selectedCandidateScore,
 }: ChartComponentProps) {
   const lastFocusNonceRef = useRef<number>(0);
   const draftBaseOverlayRef = useRef<RiskRewardData | null | undefined>(activeOverlay);
@@ -1286,6 +1288,7 @@ export function ChartComponent({
           state={selectedEvidence?.state}
           plan={selectedEvidence?.riskRewardPlan}
           summaryVi={selectedSummaryVi}
+          candidateScore={selectedCandidateScore ?? (selectedRawBundle as any)?.candidate_score_summary ?? null}
           onClear={onClearSelection}
           onOpenDetails={onOpenSelectionDetails}
         />

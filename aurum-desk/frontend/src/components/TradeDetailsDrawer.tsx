@@ -19,6 +19,7 @@ import {
 import { normalizeLessonItem, type NormalizedLessonItem } from '../types/lesson';
 
 import { EvidenceAccordion } from './EvidenceAccordion';
+import { CandidateScoreDetails } from './CandidateScoreDetails';
 import type { ChartBinding, ChartEvidenceBundleV144 } from '../types/smcScenario';
 import type { ReturnedBinding } from '../hooks/useSelectedChart';
 
@@ -314,6 +315,13 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                 htfContext={selectedRawBundle?.htf_context}
                 loading={selectedEvidenceLoading}
                 error={selectedEvidenceError}
+              />
+
+              {/* V16.39.11 CG-01 Candidate Quality Score Details */}
+              <CandidateScoreDetails
+                summary={selectedIntent?.candidate_score_summary || (selectedRawBundle as any)?.candidate_score_summary || null}
+                detail={(selectedRawBundle as any)?.candidate_score_detail || null}
+                orderId={selectedIntent?.setup_id}
               />
 
               {selectedQualityLoading && (

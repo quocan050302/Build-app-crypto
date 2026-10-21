@@ -222,9 +222,9 @@ def find_existing_observation_run(
     scope: str = DEFAULT_SCOPE,
 ) -> Tuple[Optional[models.PaperResearchRunRecord], str]:
     """
-    Rules 047-050: Locate existing observation run without creating new runs or falling back erroneously.
+    Rules 021-026, 047-050: Locate existing observation run without creating new runs or falling back erroneously.
     Returns (run_record, resolution_status).
-    resolution_status in {"FOUND", "NOT_FOUND", "RUN_SCOPE_MISMATCH", "UNAVAILABLE"}.
+    resolution_status in {"FOUND", "NOT_FOUND", "RUN_SCOPE_MISMATCH", "RUN_SCOPE_UNVERIFIED", "UNAVAILABLE"}.
     """
     if run_id:
         run = db.query(models.PaperResearchRunRecord).filter(
@@ -232,7 +232,9 @@ def find_existing_observation_run(
         ).first()
         if not run:
             return None, "NOT_FOUND"
-        if (run.symbol and run.symbol != symbol) or (run.scope and run.scope != scope):
+        if not run.scope:
+            return run, "RUN_SCOPE_UNVERIFIED"
+        if run.scope != scope or (run.symbol and run.symbol != symbol):
             return run, "RUN_SCOPE_MISMATCH"
         return run, "FOUND"
 
@@ -250,19 +252,7 @@ def find_existing_observation_run(
     if run:
         return run, "FOUND"
 
-    # Fallback to latest run regardless of state if no active run found
-    latest = (
-        db.query(models.PaperResearchRunRecord)
-        .filter(
-            models.PaperResearchRunRecord.scope == scope,
-            models.PaperResearchRunRecord.symbol == symbol,
-        )
-        .order_by(models.PaperResearchRunRecord.started_at_ms.desc())
-        .first()
-    )
-    if latest:
-        return latest, "FOUND"
-
+    # Do not silently fall back to completed runs without explicit run_id (Rule 025)
     return None, "NOT_FOUND"
 
 
@@ -327,6 +317,61 @@ def read_linked_orders(
     return clean_orders, metadata
 
 
+def compute_window_opening_equity(
+    orders: Sequence[Dict[str, Any]],
+    initial_capital: Optional[float],
+    start_ms: Optional[int],
+) -> Dict[str, Any]:
+    """
+    Rules 029, 030, 032: Computes verified opening equity for a sub-window starting at start_ms.
+    Accumulates verified closed outcomes strictly prior to start_ms (closed_at < start_ms).
+    If any closed outcome before start_ms lacks verified PnL, completeness is UNVERIFIED
+    and opening equity is None (sub-window drawdown % must be null).
+    """
+    cap = float(initial_capital) if (initial_capital is not None and initial_capital > 0) else 1000.0
+    cap_valid = (initial_capital is not None and initial_capital > 0)
+
+    if start_ms is None:
+        return {
+            "opening_equity": cap if cap_valid else None,
+            "completeness": "COMPLETE" if cap_valid else "INVALID_CAPITAL",
+            "accumulated_pnl_usd": 0.0,
+            "prior_trades_count": 0,
+        }
+
+    accumulated_pnl = 0.0
+    prior_trades_count = 0
+    unverified_prior = False
+
+    for o in orders:
+        st = str(o.get("state", "")).lower()
+        if st in ("closed", "paper_closed"):
+            cl_at = o.get("closed_at")
+            if cl_at is not None and cl_at < start_ms:
+                pnl = o.get("realized_pnl_net")
+                if pnl is not None and not math.isnan(pnl) and not math.isinf(pnl):
+                    accumulated_pnl += float(pnl)
+                    prior_trades_count += 1
+                else:
+                    unverified_prior = True
+
+    if unverified_prior or not cap_valid:
+        return {
+            "opening_equity": None,
+            "completeness": "UNVERIFIED" if unverified_prior else "INVALID_CAPITAL",
+            "accumulated_pnl_usd": round(accumulated_pnl, 2),
+            "prior_trades_count": prior_trades_count,
+        }
+
+    opening_equity = round(cap + accumulated_pnl, 2)
+    return {
+        "opening_equity": opening_equity,
+        "completeness": "COMPLETE",
+        "accumulated_pnl_usd": round(accumulated_pnl, 2),
+        "prior_trades_count": prior_trades_count,
+    }
+
+
 def compute_financial_metrics(
     orders: Sequence[Dict[str, Any]],
     *,
@@ -336,7 +381,7 @@ def compute_financial_metrics(
     state_as_of_ms: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
-    Rules 071-090: Computes pure post-fee financial metrics for the window [start_ms, end_ms).
+    Rules 029-041, 071-090: Computes pure post-fee financial metrics for the window [start_ms, end_ms).
     Start is inclusive, end is exclusive.
     Returns verified outcomes, expectancy, winrate, and peak closed equity drawdown.
     """
@@ -366,16 +411,22 @@ def compute_financial_metrics(
     # 2. Closed outcomes falling within window [start_ms, end_ms)
     verified_closed: List[Dict[str, Any]] = []
     unresolved_closed_count = 0
+    unresolved_timestamp_count = 0
 
     for o in orders:
-        st = o.get("state", "").lower()
+        st = str(o.get("state", "")).lower()
         if st in ("closed", "paper_closed"):
-            cl_at = o.get("closed_at") or o.get("created_at")
-            if cl_at is not None:
-                if start_ms is not None and cl_at < start_ms:
-                    continue
-                if end_ms is not None and cl_at >= end_ms:
-                    continue
+            cl_at = o.get("closed_at")
+            if cl_at is None:
+                # Rule 036: Missing closed_at is unresolved timestamp, never silently fall back to created_at
+                unresolved_timestamp_count += 1
+                unresolved_closed_count += 1
+                continue
+
+            if start_ms is not None and cl_at < start_ms:
+                continue
+            if end_ms is not None and cl_at >= end_ms:
+                continue
 
             pnl = o.get("realized_pnl_net")
             if pnl is not None and not math.isnan(pnl) and not math.isinf(pnl):
@@ -402,48 +453,86 @@ def compute_financial_metrics(
         else:
             breakevens += 1
 
-    net_realized_pnl = round(sum(pnl_stream), 2) if pnl_stream else 0.0
+    verified_net_pnl_subtotal = round(sum(pnl_stream), 2) if pnl_stream else 0.0
 
+    # Rules 037, 038, 039: Accounting status & Winrate
+    verified_winrate_pct: Optional[float] = None
     winrate_pct: Optional[float] = None
     expectancy_usd: Optional[float] = None
+    net_realized_pnl: Optional[float] = None
 
     if closed_count > 0:
-        winrate_pct = round((wins / closed_count) * 100.0, 2)
-        # Note Rule 075, 086: Expectancy is 0.0 on net=0, NOT None!
-        expectancy_usd = round(net_realized_pnl / closed_count, 2)
+        verified_winrate_pct = round((wins / closed_count) * 100.0, 2)
 
-    # Calculate closed equity drawdown
+    if unresolved_closed_count > 0:
+        accounting_status = "PARTIAL"
+        net_realized_pnl = None  # Total PnL cannot be claimed verified when outcomes are missing
+        winrate_pct = None      # Do not show 100% winrate as total when outcomes are unresolved
+        expectancy_usd = None
+    else:
+        accounting_status = "COMPLETE"
+        net_realized_pnl = verified_net_pnl_subtotal
+        winrate_pct = verified_winrate_pct
+        if closed_count > 0:
+            expectancy_usd = round(net_realized_pnl / closed_count, 2)
+
+    # Calculate opening equity for sub-window (Rule 029-032)
+    opening_eq_info = compute_window_opening_equity(orders, initial_capital=initial_capital, start_ms=start_ms)
+    window_opening_eq = opening_eq_info.get("opening_equity")
+
     max_dd_usd = 0.0
     max_dd_pct: Optional[float] = 0.0
+
     if closed_count > 0:
-        dd_usd, dd_pct = calculate_running_peak_drawdown(pnl_stream, initial_capital=cap)
-        max_dd_usd = dd_usd
-        max_dd_pct = dd_pct if cap_valid else None
+        if window_opening_eq is not None and window_opening_eq > 0:
+            dd_usd, dd_pct = calculate_running_peak_drawdown(pnl_stream, initial_capital=window_opening_eq)
+            max_dd_usd = dd_usd
+            max_dd_pct = dd_pct
+        else:
+            dd_usd, _ = calculate_running_peak_drawdown(pnl_stream, initial_capital=cap)
+            max_dd_usd = dd_usd
+            max_dd_pct = None  # Unverified opening equity means window dd % is null
     else:
         max_dd_usd = 0.0
-        max_dd_pct = 0.0 if cap_valid else None
+        max_dd_pct = 0.0 if (window_opening_eq is not None or (start_ms is None and cap_valid)) else None
 
-    # Count open positions as-of current / end
-    open_positions = sum(1 for o in orders if o.get("state") in ("open", "paper_open"))
-    armed_orders = sum(1 for o in orders if o.get("state") in ("armed", "paper_armed"))
+    # Count open positions as-of window end: exclude orders created after window end (Rule 034)
+    open_positions = 0
+    armed_orders = 0
+    for o in orders:
+        c_at = o.get("created_at")
+        if end_ms is not None and c_at is not None and c_at >= end_ms:
+            continue
+        st = str(o.get("state", "")).lower()
+        if st in ("open", "paper_open"):
+            open_positions += 1
+        elif st in ("armed", "paper_armed"):
+            armed_orders += 1
 
     return {
         "orders_count": len(orders_created_in_window),
         "state_counts": state_counts,
         "closed_trades_count": closed_count,
+        "verified_closed_count": closed_count,
         "unresolved_closed_count": unresolved_closed_count,
+        "unresolved_timestamp_count": unresolved_timestamp_count,
+        "accounting_status": accounting_status,
         "wins_count": wins,
         "losses_count": losses,
         "breakevens_count": breakevens,
         "open_positions_count": open_positions,
         "armed_orders_count": armed_orders,
-        "net_realized_pnl_usd": net_realized_pnl if (closed_count > 0 or len(orders) == 0) else None,
+        "net_realized_pnl_usd": net_realized_pnl,
+        "verified_net_pnl_subtotal_usd": verified_net_pnl_subtotal,
         "winrate_pct": winrate_pct,
+        "verified_winrate_pct": verified_winrate_pct,
         "expectancy_usd_per_trade": expectancy_usd,
         "max_drawdown_usd": max_dd_usd,
         "max_drawdown_pct": max_dd_pct,
         "drawdown_type": "CLOSED_EQUITY_DRAWDOWN",
+        "drawdown_scope": "WINDOW",
         "initial_capital_usdt": cap if cap_valid else None,
+        "window_opening_equity_usdt": window_opening_eq,
     }
 
 
@@ -456,20 +545,20 @@ def read_run_funnel_records(
     end_ms: Optional[int] = None,
 ) -> List[models.OpportunityFunnelRecord]:
     """
-    Rules 062-066: Reads OpportunityFunnelRecord strictly isolated by run_id, symbol, and window.
-    Never spills across runs or unlinked opportunities.
+    Rules 023-024, 062-066: Reads OpportunityFunnelRecord strictly isolated by explicit run_id.
+    Never spills across runs or unlinked opportunities when run_id is missing or None.
     """
+    if not run_id:
+        return []
+
     query = db.query(models.OpportunityFunnelRecord).filter(
-        models.OpportunityFunnelRecord.symbol == symbol
+        models.OpportunityFunnelRecord.symbol == symbol,
+        (models.OpportunityFunnelRecord.run_id == run_id)
+        | (
+            (models.OpportunityFunnelRecord.run_id.is_(None))
+            & (models.OpportunityFunnelRecord.session_id == run_id)
+        ),
     )
-    if run_id:
-        query = query.filter(
-            (models.OpportunityFunnelRecord.run_id == run_id)
-            | (
-                (models.OpportunityFunnelRecord.run_id.is_(None))
-                & (models.OpportunityFunnelRecord.session_id == run_id)
-            )
-        )
     if start_ms is not None:
         query = query.filter(models.OpportunityFunnelRecord.as_of_ms >= start_ms)
     if end_ms is not None:
@@ -480,8 +569,9 @@ def read_run_funnel_records(
 
 def aggregate_funnel_readonly(records: Sequence[Any]) -> Dict[str, Any]:
     """
-    Rules 066-069: Pure, non-mutating aggregation of OpportunityFunnelRecords.
+    Rules 027, 066-069: Pure, non-mutating aggregation of OpportunityFunnelRecords.
     Differentiates unique opportunities from stage event occurrences.
+    Supports canonical OpportunityStage.PLAN_VALID enum value while outputting plans_valid.
     """
     unique_opps: Set[str] = set()
     stage_counts: Dict[str, int] = {
@@ -489,6 +579,7 @@ def aggregate_funnel_readonly(records: Sequence[Any]) -> Dict[str, Any]:
         "ZONE_WATCHED": 0,
         "ZONE_TOUCHED": 0,
         "TRIGGER_CONFIRMED": 0,
+        "PLAN_VALID": 0,
         "PLANS_VALID": 0,
         "GUARD_BLOCKED": 0,
         "ARMED": 0,
@@ -571,7 +662,7 @@ def aggregate_funnel_readonly(records: Sequence[Any]) -> Dict[str, Any]:
         "zones_watched": stage_counts["ZONE_WATCHED"],
         "zones_touched": stage_counts["ZONE_TOUCHED"],
         "trigger_confirmed": stage_counts["TRIGGER_CONFIRMED"],
-        "plans_valid": stage_counts["PLANS_VALID"],
+        "plans_valid": stage_counts["PLAN_VALID"] + stage_counts["PLANS_VALID"],
         "guard_blocked": stage_counts["GUARD_BLOCKED"],
         "armed": stage_counts["ARMED"],
         "filled": stage_counts["FILLED"],
@@ -748,9 +839,9 @@ def build_paper_runtime_snapshot(
     }
 
     linked_orders: List[Dict[str, Any]] = []
-    initial_cap = 1000.0
+    initial_cap: Optional[float] = 1000.0
 
-    if run_record:
+    if run_record and resolution_status == "FOUND":
         run_summary.update({
             "started_at_ms": run_record.started_at_ms,
             "ended_at_ms": run_record.ended_at_ms,
@@ -763,7 +854,6 @@ def build_paper_runtime_snapshot(
         if run_record.initial_capital_usdt:
             initial_cap = float(run_record.initial_capital_usdt)
 
-        # Start defaults to run started_at_ms if not specified
         eff_start = ctx["start_ms"] if ctx["start_ms"] is not None else run_record.started_at_ms
         eff_end = ctx["end_ms"]
         if run_record.ended_at_ms and ctx["end_ms"] > run_record.ended_at_ms:
@@ -771,32 +861,63 @@ def build_paper_runtime_snapshot(
 
         linked_orders, assoc_meta = read_linked_orders(db, run_id=run_record.run_id, symbol=ctx["symbol"])
         run_summary["association_metadata"] = assoc_meta
+
+        # Funnel strictly for resolved run
+        funnel_records = read_run_funnel_records(
+            db,
+            run_id=run_record.run_id,
+            symbol=ctx["symbol"],
+            start_ms=eff_start,
+            end_ms=eff_end,
+        )
+        funnel_summary = aggregate_funnel_readonly(funnel_records)
+
+        # Financial Metrics
+        fin_metrics = compute_financial_metrics(
+            linked_orders,
+            initial_capital=initial_cap,
+            start_ms=eff_start,
+            end_ms=eff_end,
+        )
     else:
+        # Rules 021-024: Run not resolved or mismatch. NEVER calculate financial metrics or leak funnel!
         eff_start = ctx["start_ms"]
         eff_end = ctx["end_ms"]
+        funnel_summary = aggregate_funnel_readonly([])
+        fin_metrics = {
+            "orders_count": 0,
+            "state_counts": {},
+            "closed_trades_count": 0,
+            "verified_closed_count": 0,
+            "unresolved_closed_count": 0,
+            "accounting_status": "UNAVAILABLE",
+            "net_realized_pnl_usd": None,
+            "verified_net_pnl_subtotal_usd": 0.0,
+            "winrate_pct": None,
+            "verified_winrate_pct": None,
+            "expectancy_usd_per_trade": None,
+            "max_drawdown_usd": 0.0,
+            "max_drawdown_pct": None,
+            "drawdown_type": "CLOSED_EQUITY_DRAWDOWN",
+            "drawdown_scope": "WINDOW",
+            "open_positions_count": 0,
+            "armed_orders_count": 0,
+        }
+
         if resolution_status == "NOT_FOUND":
             limitations.append(f"RUN_NOT_FOUND: Không tìm thấy phiên quan sát phù hợp (run_id={ctx['requested_run_id']}).")
         elif resolution_status == "RUN_SCOPE_MISMATCH":
             limitations.append(f"RUN_SCOPE_MISMATCH: Phiên {ctx['requested_run_id']} không thuộc symbol {ctx['symbol']} / scope {ctx['scope']}.")
-
-    # 4. Funnel
-    eff_run_id = run_record.run_id if run_record else None
-    funnel_records = read_run_funnel_records(
-        db,
-        run_id=eff_run_id,
-        symbol=ctx["symbol"],
-        start_ms=eff_start,
-        end_ms=eff_end,
-    )
-    funnel_summary = aggregate_funnel_readonly(funnel_records)
-
-    # 5. Financial Metrics
-    fin_metrics = compute_financial_metrics(
-        linked_orders,
-        initial_capital=initial_cap,
-        start_ms=eff_start,
-        end_ms=eff_end,
-    )
+            if run_record:
+                run_summary.update({
+                    "started_at_ms": run_record.started_at_ms,
+                    "ended_at_ms": run_record.ended_at_ms,
+                    "status": run_record.status,
+                    "actual_scope": run_record.scope,
+                    "actual_symbol": run_record.symbol,
+                })
+        elif resolution_status == "RUN_SCOPE_UNVERIFIED":
+            limitations.append(f"RUN_SCOPE_UNVERIFIED: Phiên {ctx['requested_run_id']} không có scope được ghi nhận.")
 
     # Calculate observed duration
     duration_min = 0.0
@@ -807,7 +928,7 @@ def build_paper_runtime_snapshot(
         limitations.append("INSUFFICIENT_SAMPLE: 0 lệnh đóng đã xác nhận. Tỷ lệ thắng và kỳ vọng là N/A.")
 
     # 6. Overall Status Determination (Rules 028, 031)
-    if resolution_status in ("NOT_FOUND", "RUN_SCOPE_MISMATCH"):
+    if resolution_status in ("NOT_FOUND", "RUN_SCOPE_MISMATCH", "RUN_SCOPE_UNVERIFIED"):
         overall_status = "NOT_CONFIGURED"
     elif worker_health["status"] == "STOPPED":
         overall_status = "STOPPED"
@@ -824,13 +945,18 @@ def build_paper_runtime_snapshot(
         "open_positions_count": fin_metrics["open_positions_count"],
         "armed_orders_count": fin_metrics["armed_orders_count"],
         "closed_trades_count": fin_metrics["closed_trades_count"],
+        "verified_closed_count": fin_metrics.get("verified_closed_count", fin_metrics["closed_trades_count"]),
         "unresolved_closed_count": fin_metrics["unresolved_closed_count"],
+        "accounting_status": fin_metrics.get("accounting_status", "COMPLETE"),
         "net_realized_pnl_usd": fin_metrics["net_realized_pnl_usd"],
+        "verified_net_pnl_subtotal_usd": fin_metrics.get("verified_net_pnl_subtotal_usd", 0.0),
         "winrate_pct": fin_metrics["winrate_pct"],
+        "verified_winrate_pct": fin_metrics.get("verified_winrate_pct"),
         "expectancy_usd_per_trade": fin_metrics["expectancy_usd_per_trade"],
         "max_drawdown_usd": fin_metrics["max_drawdown_usd"],
         "max_drawdown_pct": fin_metrics["max_drawdown_pct"],
         "drawdown_type": fin_metrics["drawdown_type"],
+        "drawdown_scope": fin_metrics.get("drawdown_scope", "WINDOW"),
     }
 
     validate_finite_metrics(metrics_payload)
@@ -878,10 +1004,25 @@ def render_markdown(snapshot: Dict[str, Any]) -> str:
     orders = metrics.get("orders_count", 0)
 
     pnl = metrics.get("net_realized_pnl_usd")
-    pnl_str = f"{pnl:+.2f} USD" if pnl is not None else "Chưa có dữ liệu xác minh"
+    unresolved_c = metrics.get("unresolved_closed_count", 0)
+    verified_subtotal = metrics.get("verified_net_pnl_subtotal_usd", 0.0)
+    v_closed_c = metrics.get("verified_closed_count", metrics.get("closed_trades_count", 0))
+
+    if pnl is not None:
+        pnl_str = f"{pnl:+.2f} USD"
+    elif unresolved_c > 0 and v_closed_c > 0:
+        pnl_str = f"Chưa xác minh toàn bộ (Phần đã xác nhận: {verified_subtotal:+.2f} USD trên {v_closed_c} lệnh; {unresolved_c} lệnh chưa rõ)"
+    else:
+        pnl_str = "Chưa có dữ liệu xác minh"
 
     winrate = metrics.get("winrate_pct")
-    winrate_str = f"{winrate}%" if winrate is not None else "N/A (chưa đủ mẫu lệnh đóng)"
+    verified_wr = metrics.get("verified_winrate_pct")
+    if winrate is not None:
+        winrate_str = f"{winrate}%"
+    elif verified_wr is not None and unresolved_c > 0:
+        winrate_str = f"{verified_wr}% (trên {v_closed_c} kết quả đã xác nhận; {unresolved_c} chưa rõ)"
+    else:
+        winrate_str = "N/A (chưa đủ mẫu lệnh đóng)"
 
     exp = metrics.get("expectancy_usd_per_trade")
     exp_str = f"{exp:+.2f} USD/lệnh" if exp is not None else "N/A (chưa đủ mẫu lệnh đóng)"
@@ -927,7 +1068,11 @@ def render_markdown(snapshot: Dict[str, Any]) -> str:
 
     commit_short = str(snapshot.get("runtime_commit", "UNKNOWN"))[:12]
 
-    md = f"""# Báo Cáo Quan Sát Vận Hành PAPER (V16.39.10)
+    dd_usd = metrics.get('max_drawdown_usd', 0.0)
+    dd_pct = metrics.get('max_drawdown_pct')
+    dd_pct_str = f"{dd_pct:.2f}%" if dd_pct is not None else "Chưa xác minh"
+
+    md = f"""# Báo Cáo Quan Sát Vận Hành PAPER (V16.39.11)
 
 > {beginner_summary}
 
@@ -957,7 +1102,7 @@ def render_markdown(snapshot: Dict[str, Any]) -> str:
 - **Lợi nhuận ròng (Net Realized PnL)**: `{pnl_str}`
 - **Tỷ lệ thắng (Winrate)**: `{winrate_str}`
 - **Kỳ vọng bình quân (Expectancy)**: `{exp_str}`
-- **Sụt giảm vốn đỉnh (Max Drawdown)**: `{metrics.get('max_drawdown_usd', 0.0):.2f} USD ({metrics.get('max_drawdown_pct') or 0.0:.2f}%)`
+- **Sụt giảm vốn đỉnh (Max Drawdown)**: `{dd_usd:.2f} USD ({dd_pct_str})`
 
 ## 4. Hạn Chế & Lưu Ý Nghiệm Thu (Limitations)
 {limitations_list}

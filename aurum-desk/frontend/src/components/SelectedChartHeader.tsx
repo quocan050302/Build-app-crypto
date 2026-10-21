@@ -1,11 +1,14 @@
 import React from 'react';
 import type { ChartBinding } from '../types/smcScenario';
+import type { CandidateScoreSummary } from '../types/candidateScore';
+import { CandidateScoreBadge } from './CandidateScoreBadge';
 
 interface Props {
   binding: ChartBinding | null;
   state?: string;
   summaryVi?: string;
   plan?: any;
+  candidateScore?: CandidateScoreSummary | null;
   onClear?: () => void;
   onOpenDetails?: () => void;
 }
@@ -15,6 +18,7 @@ export const SelectedChartHeader: React.FC<Props> = ({
   state,
   summaryVi: _summaryVi,
   plan,
+  candidateScore,
   onClear,
   onOpenDetails,
 }) => {
@@ -57,6 +61,13 @@ export const SelectedChartHeader: React.FC<Props> = ({
         <span className="text-gray-400 font-mono hidden sm:inline">
           {binding.symbol}
         </span>
+        {candidateScore && (
+          <CandidateScoreBadge
+            summary={candidateScore}
+            compact
+            onOpenDetails={onOpenDetails}
+          />
+        )}
       </div>
 
       {plan && (plan.planned_entry || plan.actual_entry) && (
