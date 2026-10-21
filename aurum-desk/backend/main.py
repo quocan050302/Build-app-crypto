@@ -2311,8 +2311,7 @@ def approve_and_activate_lesson(
     from services.lesson_rule_service import LessonRuleService
     is_valid, msg, report = LessonRuleService.validate_rule_behavior(lesson)
     if not is_valid:
-        lesson.validation_status = report.get("status", "INVALID")
-        lesson.validation_report = json.dumps(report)
+        db.rollback()
         raise HTTPException(
             status_code=422,
             detail={

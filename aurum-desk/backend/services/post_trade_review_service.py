@@ -451,196 +451,306 @@ def normalize_historical_entry_mode(raw_mode: Optional[str]) -> Tuple[Optional[s
     return mode_str, None, False
 
 
-def resolve_historical_entry_mode(
-    order: Any,
+@dataclass
+class HistoricalEntryModeSourceDescriptor:
+    """
+    V16.39.7 Rule 045:
+    Structured descriptor for an individual historical entry mode source.
+    """
+    source_name: str  # "SCENARIO_SNAPSHOT", "ARM_SNAPSHOT", "FILL_SNAPSHOT", "ORDER_METADATA"
+    raw_mode: Optional[str] = None
+    raw_order_type: Optional[str] = None
+    canon_mode: Optional[str] = None
+    expected_order_type: Optional[str] = None
+    is_valid_mode: bool = True
+    has_mode: bool = False
+    has_order_type: bool = False
+    canon_order_type: Optional[str] = None
+    provenance: Optional[str] = None
+    issues: List[str] = field(default_factory=list)
+
+
+def collect_historical_entry_mode_sources(
+    order: Any = None,
     scenario_snapshot: Optional[Any] = None,
     arm_snapshot: Optional[Dict[str, Any]] = None,
     fill_snapshot: Optional[Dict[str, Any]] = None,
-) -> HistoricalEntryModeResolution:
+) -> List[HistoricalEntryModeSourceDescriptor]:
     """
-    V16.39.6 Rules 026 - 037:
-    Resolves historical entry mode and order type strictly from frozen snapshot / bound intent.
-    Never reads live current strategy config to explain past trades.
-    Cross-checks against order_type to detect provenance conflicts.
-    Rejects unknown mode strings fail-closed as INVALID_MODE without raising exceptions.
+    V16.39.7 Rules 041 - 060:
+    Collects entry mode and order type descriptors from all available historical frozen sources:
+    - Bound scenario snapshot (plan or root)
+    - ARM snapshot
+    - Fill snapshot
+    - Order metadata
+    Performs intra-source validation and canonical normalization.
     """
-    ord_ot = getattr(order, "order_type", None) or (order.get("order_type") if isinstance(order, dict) else None)
-    ord_mode = getattr(order, "entry_mode", None) or (order.get("entry_mode") if isinstance(order, dict) else None)
+    descriptors: List[HistoricalEntryModeSourceDescriptor] = []
 
-    # 1. Inspect scenario_snapshot (highest authority: frozen decision snapshot)
-    scen_mode = None
-    scen_ot = None
+    # 1. SCENARIO_SNAPSHOT (frozen bound scenario decision)
     if scenario_snapshot is not None:
-        plan = getattr(scenario_snapshot, "plan", None) or (scenario_snapshot.get("plan") if isinstance(scenario_snapshot, dict) else None)
+        scen_mode = None
+        scen_ot = None
+        plan = getattr(scenario_snapshot, "plan", None) or (
+            scenario_snapshot.get("plan") if isinstance(scenario_snapshot, dict) else None
+        )
         if isinstance(plan, dict):
             scen_mode = plan.get("entry_mode")
             scen_ot = plan.get("order_type")
         elif isinstance(scenario_snapshot, dict):
             scen_mode = scenario_snapshot.get("entry_mode")
             scen_ot = scenario_snapshot.get("order_type")
+        else:
+            scen_mode = getattr(scenario_snapshot, "entry_mode", None)
+            scen_ot = getattr(scenario_snapshot, "order_type", None)
 
-    if scen_mode:
-        canon_mode, exp_ot, is_valid = normalize_historical_entry_mode(scen_mode)
-        if not is_valid:
-            return HistoricalEntryModeResolution(
-                entry_mode=scen_mode,
-                order_type=None,
-                source="SCENARIO_SNAPSHOT",
-                verification_status="INVALID_MODE",
-                issues=[f"INVALID_ENTRY_MODE: {scen_mode}"],
+        if scen_mode is not None or scen_ot is not None:
+            canon_m, exp_ot, is_val = normalize_historical_entry_mode(scen_mode)
+            canon_ot = str(scen_ot).strip().upper() if scen_ot is not None and str(scen_ot).strip() else None
+            issues = []
+            if not is_val and scen_mode:
+                issues.append(f"INVALID_ENTRY_MODE: {scen_mode}")
+            elif canon_m and canon_ot and exp_ot and canon_ot != exp_ot:
+                issues.append(f"INTRA_SOURCE_CONFLICT: SCENARIO_SNAPSHOT mode {canon_m} expects {exp_ot} but has order_type {canon_ot}")
+
+            descriptors.append(
+                HistoricalEntryModeSourceDescriptor(
+                    source_name="SCENARIO_SNAPSHOT",
+                    raw_mode=scen_mode,
+                    raw_order_type=scen_ot,
+                    canon_mode=canon_m,
+                    expected_order_type=exp_ot,
+                    is_valid_mode=is_val,
+                    has_mode=(scen_mode is not None),
+                    has_order_type=(scen_ot is not None),
+                    canon_order_type=canon_ot,
+                    provenance=f"scenario_snapshot:{getattr(scenario_snapshot, 'scenario_id', getattr(scenario_snapshot, 'id', 'bound'))}",
+                    issues=issues,
+                )
             )
 
-        issues: List[str] = []
-        effective_ot = scen_ot or exp_ot
-
-        # Cross-check with order_type (Rule 035)
-        if ord_ot:
-            ord_ot_upper = str(ord_ot).upper()
-            if exp_ot and ord_ot_upper != exp_ot:
-                issues.append(f"PROVENANCE_CONFLICT_ORDER_TYPE: scenario_mode={canon_mode} expects {exp_ot} but order.order_type={ord_ot_upper}")
-                return HistoricalEntryModeResolution(
-                    entry_mode=canon_mode,
-                    order_type=ord_ot_upper,
-                    source="SCENARIO_SNAPSHOT",
-                    verification_status="PROVENANCE_CONFLICT",
-                    issues=issues,
-                )
-            effective_ot = ord_ot_upper or effective_ot
-
-        # Cross-check with arm_snapshot if present (Rule 034)
-        arm_m = (arm_snapshot or {}).get("entry_mode") if isinstance(arm_snapshot, dict) else None
-        if arm_m:
-            canon_arm, _, _ = normalize_historical_entry_mode(arm_m)
-            if canon_arm and canon_arm != canon_mode:
-                issues.append(f"PROVENANCE_CONFLICT_ENTRY_MODE: scenario={canon_mode} vs arm={canon_arm}")
-                return HistoricalEntryModeResolution(
-                    entry_mode=canon_mode,
-                    order_type=effective_ot,
-                    source="SCENARIO_SNAPSHOT",
-                    verification_status="PROVENANCE_CONFLICT",
-                    issues=issues,
-                )
-
-        # Cross-check with order metadata if present
-        if ord_mode:
-            canon_ord, _, _ = normalize_historical_entry_mode(ord_mode)
-            if canon_ord and canon_ord != canon_mode:
-                issues.append(f"PROVENANCE_CONFLICT_ENTRY_MODE: scenario={canon_mode} vs order={canon_ord}")
-                return HistoricalEntryModeResolution(
-                    entry_mode=canon_mode,
-                    order_type=effective_ot,
-                    source="SCENARIO_SNAPSHOT",
-                    verification_status="PROVENANCE_CONFLICT",
-                    issues=issues,
-                )
-
-        return HistoricalEntryModeResolution(
-            entry_mode=canon_mode,
-            order_type=effective_ot,
-            source="SCENARIO_SNAPSHOT",
-            verification_status="VERIFIED",
-            issues=[],
-        )
-
-    # 2. Inspect arm_snapshot
+    # 2. ARM_SNAPSHOT
     if isinstance(arm_snapshot, dict):
         arm_m = arm_snapshot.get("entry_mode") or (arm_snapshot.get("plan") or {}).get("entry_mode")
-        if arm_m:
-            canon_mode, exp_ot, is_valid = normalize_historical_entry_mode(arm_m)
-            if not is_valid:
-                return HistoricalEntryModeResolution(
-                    entry_mode=arm_m,
-                    order_type=None,
-                    source="ARM_SNAPSHOT",
-                    verification_status="INVALID_MODE",
-                    issues=[f"INVALID_ENTRY_MODE: {arm_m}"],
+        arm_ot = arm_snapshot.get("order_type") or (arm_snapshot.get("plan") or {}).get("order_type")
+        if arm_m is not None or arm_ot is not None:
+            canon_m, exp_ot, is_val = normalize_historical_entry_mode(arm_m)
+            canon_ot = str(arm_ot).strip().upper() if arm_ot is not None and str(arm_ot).strip() else None
+            issues = []
+            if not is_val and arm_m:
+                issues.append(f"INVALID_ENTRY_MODE: {arm_m}")
+            elif canon_m and canon_ot and exp_ot and canon_ot != exp_ot:
+                issues.append(f"INTRA_SOURCE_CONFLICT: ARM_SNAPSHOT mode {canon_m} expects {exp_ot} but has order_type {canon_ot}")
+
+            descriptors.append(
+                HistoricalEntryModeSourceDescriptor(
+                    source_name="ARM_SNAPSHOT",
+                    raw_mode=arm_m,
+                    raw_order_type=arm_ot,
+                    canon_mode=canon_m,
+                    expected_order_type=exp_ot,
+                    is_valid_mode=is_val,
+                    has_mode=(arm_m is not None),
+                    has_order_type=(arm_ot is not None),
+                    canon_order_type=canon_ot,
+                    provenance="arm_decision_snapshot",
+                    issues=issues,
                 )
-            effective_ot = arm_snapshot.get("order_type") or exp_ot
-            if ord_ot:
-                ord_ot_upper = str(ord_ot).upper()
-                if exp_ot and ord_ot_upper != exp_ot:
-                    return HistoricalEntryModeResolution(
-                        entry_mode=canon_mode,
-                        order_type=ord_ot_upper,
-                        source="ARM_SNAPSHOT",
-                        verification_status="PROVENANCE_CONFLICT",
-                        issues=[f"PROVENANCE_CONFLICT_ORDER_TYPE: arm_mode={canon_mode} expects {exp_ot} but order.order_type={ord_ot_upper}"],
-                    )
-                effective_ot = ord_ot_upper or effective_ot
-            return HistoricalEntryModeResolution(
-                entry_mode=canon_mode,
-                order_type=effective_ot,
-                source="ARM_SNAPSHOT",
-                verification_status="VERIFIED",
-                issues=[],
             )
 
-    # 3. Inspect fill_snapshot
+    # 3. FILL_SNAPSHOT
     if isinstance(fill_snapshot, dict):
-        fill_m = fill_snapshot.get("entry_mode")
-        if fill_m:
-            canon_mode, exp_ot, is_valid = normalize_historical_entry_mode(fill_m)
-            if not is_valid:
-                return HistoricalEntryModeResolution(
-                    entry_mode=fill_m,
-                    order_type=None,
-                    source="FILL_SNAPSHOT",
-                    verification_status="INVALID_MODE",
-                    issues=[f"INVALID_ENTRY_MODE: {fill_m}"],
+        fill_m = fill_snapshot.get("entry_mode") or (fill_snapshot.get("plan") or {}).get("entry_mode")
+        fill_ot = fill_snapshot.get("order_type") or (fill_snapshot.get("plan") or {}).get("order_type")
+        if fill_m is not None or fill_ot is not None:
+            canon_m, exp_ot, is_val = normalize_historical_entry_mode(fill_m)
+            canon_ot = str(fill_ot).strip().upper() if fill_ot is not None and str(fill_ot).strip() else None
+            issues = []
+            if not is_val and fill_m:
+                issues.append(f"INVALID_ENTRY_MODE: {fill_m}")
+            elif canon_m and canon_ot and exp_ot and canon_ot != exp_ot:
+                issues.append(f"INTRA_SOURCE_CONFLICT: FILL_SNAPSHOT mode {canon_m} expects {exp_ot} but has order_type {canon_ot}")
+
+            descriptors.append(
+                HistoricalEntryModeSourceDescriptor(
+                    source_name="FILL_SNAPSHOT",
+                    raw_mode=fill_m,
+                    raw_order_type=fill_ot,
+                    canon_mode=canon_m,
+                    expected_order_type=exp_ot,
+                    is_valid_mode=is_val,
+                    has_mode=(fill_m is not None),
+                    has_order_type=(fill_ot is not None),
+                    canon_order_type=canon_ot,
+                    provenance="fill_snapshot",
+                    issues=issues,
                 )
-            effective_ot = exp_ot or (str(ord_ot).upper() if ord_ot else None)
-            return HistoricalEntryModeResolution(
-                entry_mode=canon_mode,
-                order_type=effective_ot,
-                source="FILL_SNAPSHOT",
-                verification_status="VERIFIED",
-                issues=[],
             )
 
-    # 4. Inspect direct order metadata
-    if ord_mode:
-        canon_mode, exp_ot, is_valid = normalize_historical_entry_mode(ord_mode)
-        if not is_valid:
-            return HistoricalEntryModeResolution(
-                entry_mode=ord_mode,
-                order_type=None,
-                source="ORDER_METADATA",
-                verification_status="INVALID_MODE",
-                issues=[f"INVALID_ENTRY_MODE: {ord_mode}"],
+    # 4. ORDER_METADATA
+    ord_ot = getattr(order, "order_type", None) or (order.get("order_type") if isinstance(order, dict) else None)
+    ord_mode = getattr(order, "entry_mode", None) or (order.get("entry_mode") if isinstance(order, dict) else None)
+    if ord_mode is not None or ord_ot is not None:
+        canon_m, exp_ot, is_val = normalize_historical_entry_mode(ord_mode)
+        canon_ot = str(ord_ot).strip().upper() if ord_ot is not None and str(ord_ot).strip() else None
+        issues = []
+        if not is_val and ord_mode:
+            issues.append(f"INVALID_ENTRY_MODE: {ord_mode}")
+        elif canon_m and canon_ot and exp_ot and canon_ot != exp_ot:
+            issues.append(f"PROVENANCE_CONFLICT_ORDER_TYPE: order entry_mode={canon_m} expects {exp_ot} but order.order_type={canon_ot}")
+
+        descriptors.append(
+            HistoricalEntryModeSourceDescriptor(
+                source_name="ORDER_METADATA",
+                raw_mode=ord_mode,
+                raw_order_type=ord_ot,
+                canon_mode=canon_m,
+                expected_order_type=exp_ot,
+                is_valid_mode=is_val,
+                has_mode=(ord_mode is not None),
+                has_order_type=(ord_ot is not None),
+                canon_order_type=canon_ot,
+                provenance=f"order:{getattr(order, 'id', getattr(order, 'order_id', 'direct'))}",
+                issues=issues,
             )
-        effective_ot = exp_ot or (str(ord_ot).upper() if ord_ot else None)
+        )
+
+    return descriptors
+
+
+def resolve_historical_entry_mode(
+    order: Any = None,
+    scenario_snapshot: Optional[Any] = None,
+    arm_snapshot: Optional[Dict[str, Any]] = None,
+    fill_snapshot: Optional[Dict[str, Any]] = None,
+) -> HistoricalEntryModeResolution:
+    """
+    V16.39.6 / V16.39.7 Rules 021 - 070:
+    Resolves historical entry mode and order type strictly from frozen snapshot / bound intent.
+    Never reads live current strategy config to explain past trades.
+    Cross-checks all available sources (scenario, ARM, fill, order) before returning.
+    Detects intra-source conflicts, cross-source mode mismatches, and mode-vs-order_type conflicts.
+    Rejects unknown mode strings fail-closed as INVALID_MODE without raising exceptions.
+    """
+    descriptors = collect_historical_entry_mode_sources(
+        order=order,
+        scenario_snapshot=scenario_snapshot,
+        arm_snapshot=arm_snapshot,
+        fill_snapshot=fill_snapshot,
+    )
+
+    conflicts: List[str] = []
+    invalid_issues: List[str] = []
+
+    # 1. Collect intra-source issues
+    for d in descriptors:
+        for iss in d.issues:
+            if "INVALID_ENTRY_MODE" in iss:
+                invalid_issues.append(iss)
+            elif "CONFLICT" in iss:
+                conflicts.append(iss)
+
+    # 2. Cross-source mode comparison across all pairs of mode-bearing sources
+    mode_descs = [d for d in descriptors if d.has_mode and d.canon_mode]
+    for i in range(len(mode_descs)):
+        for j in range(i + 1, len(mode_descs)):
+            d1 = mode_descs[i]
+            d2 = mode_descs[j]
+            if d1.canon_mode != d2.canon_mode:
+                name1 = d1.source_name.lower().replace("_snapshot", "").replace("_metadata", "")
+                name2 = d2.source_name.lower().replace("_snapshot", "").replace("_metadata", "")
+                conflicts.append(f"PROVENANCE_CONFLICT_ENTRY_MODE: {name1}={d1.canon_mode} vs {name2}={d2.canon_mode}")
+
+    # 3. Cross-source check: expected_order_type from each mode source vs order.order_type
+    ord_desc = next((d for d in descriptors if d.source_name == "ORDER_METADATA"), None)
+    ord_ot_upper = ord_desc.canon_order_type if ord_desc else None
+
+    if ord_ot_upper:
+        for d in mode_descs:
+            if d.source_name != "ORDER_METADATA" and d.expected_order_type and d.expected_order_type != ord_ot_upper:
+                name = d.source_name.lower().replace("_snapshot", "").replace("_metadata", "")
+                conflicts.append(
+                    f"PROVENANCE_CONFLICT_ORDER_TYPE: {name}_mode={d.canon_mode} expects {d.expected_order_type} but order.order_type={ord_ot_upper}"
+                )
+
+    # 4. Cross-source check: order_type between snapshot sources (e.g. scenario vs fill)
+    ot_descs = [d for d in descriptors if d.has_order_type and d.canon_order_type]
+    for i in range(len(ot_descs)):
+        for j in range(i + 1, len(ot_descs)):
+            d1 = ot_descs[i]
+            d2 = ot_descs[j]
+            if d1.canon_order_type != d2.canon_order_type:
+                conflicts.append(
+                    f"PROVENANCE_CONFLICT_ORDER_TYPE: {d1.source_name} order_type={d1.canon_order_type} vs {d2.source_name} order_type={d2.canon_order_type}"
+                )
+
+    # Determine primary source descriptor by priority
+    source_priority = ["SCENARIO_SNAPSHOT", "ARM_SNAPSHOT", "FILL_SNAPSHOT", "ORDER_METADATA"]
+    primary_desc = None
+    for s_name in source_priority:
+        found = next((d for d in descriptors if d.source_name == s_name and d.has_mode), None)
+        if found:
+            primary_desc = found
+            break
+
+    if not primary_desc:
+        for s_name in source_priority:
+            found = next((d for d in descriptors if d.source_name == s_name and d.has_order_type), None)
+            if found:
+                primary_desc = found
+                break
+
+    # Invalid mode check (Rule 064: Highest priority frozen source invalid cannot be silently bypassed)
+    invalid_desc = next((d for d in descriptors if not d.is_valid_mode), None)
+    if invalid_desc:
+        effective_ot = invalid_desc.canon_order_type or ord_ot_upper
         return HistoricalEntryModeResolution(
-            entry_mode=canon_mode,
+            entry_mode=invalid_desc.raw_mode,
             order_type=effective_ot,
-            source="ORDER_METADATA",
+            source=invalid_desc.source_name,
+            verification_status="INVALID_MODE",
+            issues=list(dict.fromkeys(invalid_issues or [f"INVALID_ENTRY_MODE: {invalid_desc.raw_mode}"])),
+        )
+
+    # Conflicts check (Rules 026, 027, 035, 051 - 057)
+    if conflicts:
+        effective_src = primary_desc.source_name if primary_desc else (descriptors[0].source_name if descriptors else "UNKNOWN")
+        effective_mode = primary_desc.canon_mode if primary_desc else None
+        effective_ot = ord_ot_upper or (primary_desc.canon_order_type if primary_desc else None) or (primary_desc.expected_order_type if primary_desc else None)
+        return HistoricalEntryModeResolution(
+            entry_mode=effective_mode,
+            order_type=effective_ot,
+            source=effective_src,
+            verification_status="PROVENANCE_CONFLICT",
+            issues=list(dict.fromkeys(conflicts)),
+        )
+
+    # Valid mode from priority sources (Rule 033, 058)
+    if primary_desc and primary_desc.has_mode and primary_desc.canon_mode:
+        effective_ot = ord_ot_upper or primary_desc.canon_order_type or primary_desc.expected_order_type
+        return HistoricalEntryModeResolution(
+            entry_mode=primary_desc.canon_mode,
+            order_type=effective_ot,
+            source=primary_desc.source_name,
             verification_status="VERIFIED",
             issues=[],
         )
 
-    # 5. Legacy fallback from order.order_type (Rule 036)
-    if ord_ot:
-        ot_upper = str(ord_ot).upper()
-        if ot_upper == "LIMIT":
-            return HistoricalEntryModeResolution(
-                entry_mode="LIMIT_AT_CE_AFTER_CONFIRMATION",
-                order_type="LIMIT",
-                source="FALLBACK_ORDER_TYPE",
-                verification_status="UNVERIFIED",
-                issues=["FALLBACK_MODE_FROM_ORDER_TYPE"],
-            )
-        elif ot_upper == "MARKET":
-            return HistoricalEntryModeResolution(
-                entry_mode="CONFIRMED_RETEST_MARKET",
-                order_type="MARKET",
-                source="FALLBACK_ORDER_TYPE",
-                verification_status="UNVERIFIED",
-                issues=["FALLBACK_MODE_FROM_ORDER_TYPE"],
-            )
+    # Legacy fallback from order.order_type (Rules 025, 034, 061, 062)
+    if ord_ot_upper in ("LIMIT", "MARKET"):
+        inferred_mode = "LIMIT_AT_CE_AFTER_CONFIRMATION" if ord_ot_upper == "LIMIT" else "CONFIRMED_RETEST_MARKET"
+        return HistoricalEntryModeResolution(
+            entry_mode=inferred_mode,
+            order_type=ord_ot_upper,
+            source="FALLBACK_ORDER_TYPE",
+            verification_status="UNVERIFIED",
+            issues=["FALLBACK_MODE_FROM_ORDER_TYPE"],
+        )
 
-    # 6. Completely missing mode (Rule 031: never guess)
+    # Completely missing mode (Rule 039, 063)
     return HistoricalEntryModeResolution(
         entry_mode=None,
-        order_type=None,
+        order_type=ord_ot_upper,
         source="UNKNOWN",
         verification_status="UNVERIFIED",
         issues=["MISSING_HISTORICAL_ENTRY_MODE"],
@@ -1207,9 +1317,31 @@ def assess_entry_compliance_for_review(
         or (getattr(order, "strategy_family", None) if order else None)
         or "STANDARD_SMC"
     ).upper()
+    has_mode_context = bool(
+        (review_context and isinstance(review_context, dict) and "historical_entry_mode" in review_context)
+        or (entry_snapshot and isinstance(entry_snapshot, dict) and (
+            "historical_entry_mode" in entry_snapshot
+            or "plan" in entry_snapshot
+            or "entry_mode" in entry_snapshot
+            or "order_type" in entry_snapshot
+        ))
+        or (order is not None)
+    )
+
     hist_mode_dict = None
-    if review_context and isinstance(review_context, dict):
-        hist_mode_dict = review_context.get("historical_entry_mode")
+    if has_mode_context:
+        if review_context and isinstance(review_context, dict):
+            hist_mode_dict = review_context.get("historical_entry_mode")
+        if not hist_mode_dict and entry_snapshot and isinstance(entry_snapshot, dict):
+            hist_mode_dict = entry_snapshot.get("historical_entry_mode")
+
+        if not hist_mode_dict:
+            res_obj = resolve_historical_entry_mode(
+                order=order,
+                scenario_snapshot=entry_snapshot,
+                fill_snapshot=fill_snapshot,
+            )
+            hist_mode_dict = res_obj.to_dict()
 
     entry_mode = (
         (hist_mode_dict.get("entry_mode") if isinstance(hist_mode_dict, dict) else None)
@@ -1438,26 +1570,74 @@ def assess_entry_compliance_for_review(
 
     all_issues = list(dict.fromkeys(raw_provenance + node_issues))
 
+    # V16.39.7 Rules 025, 071 - 085: Historical Entry Mode Verification Gate
+    # Mode-verification gate strictly applies when the model contract requires entry mode (e.g. CG01).
     if "DECISION_CUTOFF" in missing or missing_req or "NUMERIC_GEOMETRY" in missing or "PLANNED_TP" in missing or has_ref_failures or has_empty_chain or has_seq_failures:
         missing.extend(missing_req)
+        combined_failed = list(dict.fromkeys(failed + missing_req))
+        combined_missing = list(dict.fromkeys(missing))
+
         if "DECISION_CUTOFF" in missing:
             fail_reason = "Thiếu mốc thời gian quyết định (decision cutoff) để xác minh tính nhân quả của bằng chứng."
+        elif has_mode_context and can_model == "CG01" and (hist_mode_dict or {}).get("verification_status") != "VERIFIED":
+            # V16.39.7 Rule 082: Missing mode does NOT mean missing MARKET retest
+            verif_status = (hist_mode_dict or {}).get("verification_status") or "UNVERIFIED"
+            if verif_status == "PROVENANCE_CONFLICT":
+                fail_reason = "Mode trong snapshot và dữ liệu khớp lệnh không thống nhất."
+                mode_chk = "HISTORICAL_ENTRY_MODE_CONFLICT"
+            elif verif_status == "INVALID_MODE":
+                bad_m = (hist_mode_dict or {}).get("entry_mode")
+                fail_reason = f"Chế độ vào lệnh lịch sử không hợp lệ: {bad_m}."
+                mode_chk = "HISTORICAL_ENTRY_MODE_INVALID"
+            else:
+                fail_reason = "Chưa đủ dữ liệu xác minh chế độ vào lệnh lịch sử."
+                mode_chk = "HISTORICAL_ENTRY_MODE_UNVERIFIED"
+            combined_failed.append(mode_chk)
+            combined_missing.append("HISTORICAL_ENTRY_MODE_VERIFICATION")
         elif "REQUIRED_NODE_RETEST" in missing_req:
             fail_reason = f"Mô hình {model_id} chế độ MARKET thiếu retest xác nhận trước thời điểm vào lệnh."
         elif "MISSING_HISTORICAL_ENTRY_MODE" in all_issues:
             fail_reason = "Chưa đủ dữ liệu xác định chế độ vào lệnh lịch sử."
         else:
             fail_reason = f"Thiếu hoặc không xác minh được bằng chứng bắt buộc cho mô hình {model_id}: {', '.join(missing_req or failed or missing)}."
+
         return EntryComplianceResult(
             status="UNVERIFIABLE",
             reason=fail_reason,
-            missing_evidence=list(dict.fromkeys(missing)),
+            missing_evidence=list(dict.fromkeys(combined_missing)),
             checks_passed=passed,
-            checks_failed=list(dict.fromkeys(failed + missing_req)),
+            checks_failed=list(dict.fromkeys(combined_failed)),
             evidence_refs=refs,
             provenance_issues=all_issues,
             decision_time_ms=decision_time,
         )
+
+    # V16.39.7 Rules 025, 071 - 085: Historical Entry Mode Verification Gate
+    # When all evidence nodes passed, if CG01 mode is not verified, fail closed as UNVERIFIABLE!
+    if has_mode_context and can_model == "CG01":
+        verif_status = (hist_mode_dict or {}).get("verification_status") or "UNVERIFIED"
+        if verif_status != "VERIFIED":
+            if verif_status == "PROVENANCE_CONFLICT":
+                fail_reason = "Mode trong snapshot và dữ liệu khớp lệnh không thống nhất."
+                mode_chk = "HISTORICAL_ENTRY_MODE_CONFLICT"
+            elif verif_status == "INVALID_MODE":
+                bad_m = (hist_mode_dict or {}).get("entry_mode")
+                fail_reason = f"Chế độ vào lệnh lịch sử không hợp lệ: {bad_m}."
+                mode_chk = "HISTORICAL_ENTRY_MODE_INVALID"
+            else:
+                fail_reason = "Chưa đủ dữ liệu xác minh chế độ vào lệnh lịch sử."
+                mode_chk = "HISTORICAL_ENTRY_MODE_UNVERIFIED"
+
+            return EntryComplianceResult(
+                status="UNVERIFIABLE",
+                reason=fail_reason,
+                missing_evidence=list(dict.fromkeys(missing + ["HISTORICAL_ENTRY_MODE_VERIFICATION"])),
+                checks_passed=passed,
+                checks_failed=list(dict.fromkeys(failed + [mode_chk])),
+                evidence_refs=refs,
+                provenance_issues=all_issues,
+                decision_time_ms=decision_time,
+            )
 
     passed.append("MODEL_REQUIREMENTS_VERIFIED")
     if entry_mode in ("LIMIT_AT_CE_AFTER_CONFIRMATION", "LIMIT"):

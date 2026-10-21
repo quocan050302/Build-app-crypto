@@ -888,6 +888,7 @@ class TradeLifecycleService:
                 "entry_mode": ctx.get("entry_mode"),
                 "order_type": ctx.get("order_type"),
                 "entry_mode_source": (ctx.get("historical_entry_mode") or {}).get("source"),
+                "verification_status": (ctx.get("historical_entry_mode") or {}).get("verification_status"),
                 "actual_entry": order.actual_entry,
                 "actual_exit": order.actual_exit,
                 "pnl": pnl,
