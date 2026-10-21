@@ -18,7 +18,7 @@ interface NYSessionPanelProps {
   nySession: NYSessionStatus | null;
   policy: TradingPolicy | null;
   autoPaperActive: boolean;
-  appliedMinNetRR?: number;
+  appliedMinNetRR?: number | null;
   onRefresh?: () => void;
   onOpenSessionDrawer?: () => void;
 }

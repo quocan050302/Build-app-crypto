@@ -31,9 +31,11 @@ export interface RiskRewardData {
   isValid?: boolean;
   invalidReason?: string;
   readOnly?: boolean;
-  minNetRR?: number;
+  minNetRR?: number | null;
   rrPolicySource?: string;
   rrPolicyFingerprint?: string;
+  rrPolicyStatus?: 'KNOWN' | 'MISSING' | 'INVALID';
+  rrPolicyReason?: string;
   canExecute?: boolean;
   executionReason?: string;
   realizedPnlNet?: number;

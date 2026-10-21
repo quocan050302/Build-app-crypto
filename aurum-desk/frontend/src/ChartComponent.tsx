@@ -63,7 +63,7 @@ export interface ChartComponentProps {
   selectedLoading?: boolean;
   selectedError?: string | null;
   selectedCandidateScore?: any;
-  effectiveMinNetRR?: number;
+  effectiveMinNetRR?: number | null;
   rrPolicySource?: string;
   rrPolicyFingerprint?: string;
 }
@@ -129,7 +129,7 @@ export function ChartComponent({
   selectedLoading,
   selectedError,
   selectedCandidateScore,
-  effectiveMinNetRR = 2.0,
+  effectiveMinNetRR,
   rrPolicySource,
   rrPolicyFingerprint,
 }: ChartComponentProps) {

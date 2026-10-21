@@ -60,7 +60,7 @@ export interface TradeDetailsDrawerProps {
   onRefreshUpcoming?: () => void;
   nySession: NYSessionStatus | null;
   policy: TradingPolicy | null;
-  appliedMinNetRR?: number;
+  appliedMinNetRR?: number | null;
   leverage: number;
   marginMode: string;
   analysis: any;

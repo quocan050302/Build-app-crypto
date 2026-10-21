@@ -128,6 +128,9 @@ def resolve_canonical_cg01_config(
             rr_ctx = resolve_effective_rr_policy(db)
             min_net_rr = rr_ctx.min_net_rr
         except Exception as e:
+            from services.rr_policy_service import RrPolicyConfigError
+            if isinstance(e, RrPolicyConfigError):
+                raise
             logger.debug(f"CG01 min_net_rr resolution from DB skipped: {e}")
             min_net_rr = 2.0
     min_net_rr = float(min_net_rr if min_net_rr is not None else 2.0)

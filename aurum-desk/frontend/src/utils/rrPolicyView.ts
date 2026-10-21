@@ -1,11 +1,13 @@
 /**
  * frontend/src/utils/rrPolicyView.ts
- * Aurum V16.39.16 — Unified RR Policy View & Order Snapshot Adapter
+ * Aurum V16.39.18 — Unified RR Policy View & Order Snapshot Adapter
  *
  * Responsibilities:
  * - Normalize server responses from /api/scalp/config and /api/v1/policy/trading.
- * - Resolve immutable order RR threshold from PaperOrder / Trade DTOs.
- * - Strict tri-state classification: KNOWN | MISSING | INVALID.
+ * - Resolve immutable order RR threshold from PaperOrder / Trade DTOs (raw snake_case)
+ *   and SelectedTradeIntent (mapped camelCase).
+ * - Strict tri-state / quadri-state classification: KNOWN | MISSING | INVALID | UNKNOWN.
+ * - Full-precision decision comparison in compareNetRr (never round diff before meetsMin).
  * - Never fabricate 2.0 or current policy for missing historical order thresholds.
  */
 
@@ -26,7 +28,7 @@ export interface NormalizedRrPolicyResponse {
 
 /**
  * Validates and normalizes server response from GET / POST scalp config or trading policy.
- * Only returns status: 'READY' when the value is a finite number >= 1.5.
+ * Only returns status: 'READY' when the value is a finite number >= 1.20.
  */
 export function normalizeRrPolicyResponse(raw: any): NormalizedRrPolicyResponse {
   if (!raw || typeof raw !== 'object') {
@@ -96,12 +98,8 @@ function safeJsonParse(raw: unknown): Record<string, any> | null {
 }
 
 /**
- * Extracts and resolves the immutable historical RR threshold from an order or trade DTO.
- * Precedence:
- * 1. orderDto.financial (if resolved display plan is already bound)
- * 2. orderDto.cost_snapshot (JSON or object) -> min_net_rr_at_arm, then min_net_rr
- * 3. orderDto.arm_decision_snapshot (JSON or object) -> min_net_rr_at_arm, then min_net_rr
- * 4. orderDto top-level min_net_rr_at_arm, then min_net_rr
+ * Extracts and resolves the immutable historical RR threshold from a raw order or trade DTO.
+ * Input contract: Raw snake_case DTO (cost_snapshot, arm_decision_snapshot, min_net_rr_at_arm, financial).
  *
  * Rules:
  * - Preserves historical valid > 0 (does not force 1.5 floor on old orders).
@@ -194,13 +192,14 @@ export function resolveOrderRrView(orderDto: any): RrView {
 
 /**
  * Convenient extractor for RiskRewardData and SelectedTradeIntent.
- * Returns undefined for missing/invalid thresholds so that downstream
- * primitive renderers and inspectors treat it as unknown/historical.
+ * Carries forward explicit KNOWN, MISSING, or INVALID status.
  */
 export function getOrderRrFields(orderDto: any): {
   minNetRR?: number;
   rrPolicySource?: string;
   rrPolicyFingerprint?: string;
+  rrPolicyStatus?: 'KNOWN' | 'MISSING' | 'INVALID';
+  rrPolicyReason?: string;
 } {
   const view = resolveOrderRrView(orderDto);
   if (view.status === 'KNOWN') {
@@ -208,17 +207,98 @@ export function getOrderRrFields(orderDto: any): {
       minNetRR: view.minNetRR,
       rrPolicySource: view.source,
       rrPolicyFingerprint: view.fingerprint,
+      rrPolicyStatus: 'KNOWN',
+    };
+  }
+  if (view.status === 'INVALID') {
+    return {
+      minNetRR: undefined,
+      rrPolicySource: view.source ?? undefined,
+      rrPolicyFingerprint: undefined,
+      rrPolicyStatus: 'INVALID',
+      rrPolicyReason: view.reason,
     };
   }
   return {
     minNetRR: undefined,
     rrPolicySource: view.source ?? undefined,
     rrPolicyFingerprint: undefined,
+    rrPolicyStatus: 'MISSING',
+    rrPolicyReason: view.reason,
+  };
+}
+
+/**
+ * Resolves RR view from a mapped SelectedTradeIntent or overlay projection.
+ * Distinguishes KNOWN, MISSING, and INVALID without re-parsing raw snake_case snapshots
+ * when mapped fields are already present.
+ */
+export function resolveMappedOrderRrView(mapped: any): RrView {
+  if (!mapped || typeof mapped !== 'object') {
+    return { status: 'MISSING', minNetRR: null, source: 'UNKNOWN_HISTORICAL' };
+  }
+
+  // Precedence 1: If raw snapshot fields are present (e.g. raw DTO passed), use authoritative raw parser
+  if (mapped.cost_snapshot || mapped.arm_decision_snapshot || mapped.financial || mapped.min_net_rr_at_arm) {
+    return resolveOrderRrView(mapped);
+  }
+
+  // Precedence 2: Explicit mapped status
+  if (mapped.rrPolicyStatus === 'INVALID') {
+    return {
+      status: 'INVALID',
+      minNetRR: null,
+      source: mapped.rrPolicySource || 'ORDER_SNAPSHOT',
+      reason: mapped.rrPolicyReason || 'Historical snapshot threshold is invalid',
+    };
+  }
+
+  if (mapped.rrPolicyStatus === 'MISSING') {
+    return {
+      status: 'MISSING',
+      minNetRR: null,
+      source: mapped.rrPolicySource || 'UNKNOWN_HISTORICAL',
+      reason: mapped.rrPolicyReason,
+    };
+  }
+
+  // Precedence 3: Mapped camelCase minNetRR
+  const rawVal = mapped.minNetRR;
+  if (rawVal !== undefined && rawVal !== null) {
+    if (typeof rawVal === 'boolean') {
+      return {
+        status: 'INVALID',
+        minNetRR: null,
+        source: mapped.rrPolicySource || 'ORDER_SNAPSHOT',
+        reason: 'Boolean is not a valid RR threshold',
+      };
+    }
+    const num = Number(rawVal);
+    if (Number.isFinite(num) && num > 0) {
+      return {
+        status: 'KNOWN',
+        minNetRR: num,
+        source: mapped.rrPolicySource || 'ORDER_SNAPSHOT',
+        fingerprint: mapped.rrPolicyFingerprint,
+      };
+    }
+    return {
+      status: 'INVALID',
+      minNetRR: null,
+      source: mapped.rrPolicySource || 'ORDER_SNAPSHOT',
+      reason: `Value ${String(rawVal)} is not a valid positive number`,
+    };
+  }
+
+  return {
+    status: 'MISSING',
+    minNetRR: null,
+    source: mapped.rrPolicySource || 'UNKNOWN_HISTORICAL',
   };
 }
 
 // ============================================================================
-// Aurum V16.39.17 — Unified Selection & Comparison Helpers (Phần 051–056, 071)
+// Aurum V16.39.18 — Unified Selection & Comparison Helpers
 // ============================================================================
 
 export type SelectionRrPolicyKind = 'CURRENT' | 'ORDER_SNAPSHOT' | 'UNKNOWN' | 'INVALID';
@@ -227,7 +307,7 @@ export type SelectionRrPolicyView =
   | {
       kind: 'CURRENT';
       status: 'READY' | 'LOADING' | 'ERROR';
-      minNetRR: number;
+      minNetRR: number | null;
       source: string;
       fingerprint?: string;
       isAuthoritative: boolean;
@@ -260,6 +340,7 @@ export interface CurrentPolicyContext {
   source?: string;
   fingerprint?: string;
   status?: string;
+  isConfirmed?: boolean;
 }
 
 /**
@@ -276,15 +357,36 @@ export function resolveSelectionRrPolicy(
   intent: any | null | undefined,
   currentPolicy?: CurrentPolicyContext | null
 ): SelectionRrPolicyView {
+  const isExplicitlyUnconfirmed = Boolean(
+    !currentPolicy ||
+    currentPolicy.value == null ||
+    !Number.isFinite(currentPolicy.value) ||
+    currentPolicy.value < 1.0 ||
+    currentPolicy.isConfirmed === false ||
+    currentPolicy.status === 'loading' ||
+    currentPolicy.status === 'LOADING' ||
+    currentPolicy.source === 'UNCONFIRMED'
+  );
+  const isCurrentConfirmed = !isExplicitlyUnconfirmed;
+
   if (!intent) {
-    if (currentPolicy?.value != null && Number.isFinite(currentPolicy.value) && currentPolicy.value >= 1.5) {
+    if (isCurrentConfirmed) {
       return {
         kind: 'CURRENT',
-        status: (currentPolicy.status as any) || 'READY',
-        minNetRR: currentPolicy.value,
-        source: currentPolicy.source || 'SYSTEM_CONFIG',
-        fingerprint: currentPolicy.fingerprint,
+        status: 'READY',
+        minNetRR: currentPolicy!.value,
+        source: currentPolicy!.source || 'SYSTEM_CONFIG',
+        fingerprint: currentPolicy!.fingerprint,
         isAuthoritative: true,
+      };
+    }
+    if (currentPolicy?.status === 'loading' || currentPolicy?.status === 'LOADING') {
+      return {
+        kind: 'CURRENT',
+        status: 'LOADING',
+        minNetRR: null,
+        source: currentPolicy?.source || 'UNCONFIRMED',
+        isAuthoritative: false,
       };
     }
     return {
@@ -298,7 +400,7 @@ export function resolveSelectionRrPolicy(
 
   // 1. FROZEN ORDER SNAPSHOT (source === 'OPEN_POSITION' or canonical order identification)
   if (intent.source === 'OPEN_POSITION' || (intent.order_id && intent.source !== 'DRAFT')) {
-    const orderView = resolveOrderRrView(intent);
+    const orderView = resolveMappedOrderRrView(intent);
     if (orderView.status === 'KNOWN') {
       return {
         kind: 'ORDER_SNAPSHOT',
@@ -323,31 +425,30 @@ export function resolveSelectionRrPolicy(
       kind: 'ORDER_SNAPSHOT',
       status: 'MISSING',
       minNetRR: null,
-      source: 'UNKNOWN_HISTORICAL',
+      source: orderView.source || 'UNKNOWN_HISTORICAL',
       fingerprint: undefined,
       orderId: intent.order_id || intent.id,
     };
   }
 
   // 2. CURRENT EVALUATION (DRAFT, LIVE_CANDIDATE, WATCH_SETUP, SCENARIO)
-  const currentVal = currentPolicy?.value ?? intent.minNetRR;
-  if (currentVal != null && Number.isFinite(currentVal) && currentVal >= 1.5) {
+  if (isCurrentConfirmed) {
     return {
       kind: 'CURRENT',
-      status: (currentPolicy?.status as any) || 'READY',
-      minNetRR: currentVal,
-      source: currentPolicy?.source || intent.rrPolicySource || 'SYSTEM_CONFIG',
-      fingerprint: currentPolicy?.fingerprint || intent.rrPolicyFingerprint,
-      isAuthoritative: true,
+      status: 'READY',
+      minNetRR: currentPolicy!.value,
+      source: currentPolicy!.source || intent.rrPolicySource || 'SYSTEM_CONFIG',
+      fingerprint: currentPolicy!.fingerprint || intent.rrPolicyFingerprint,
+      isAuthoritative: currentPolicy?.isConfirmed !== false,
     };
   }
 
-  if (currentPolicy?.status === 'loading' || currentPolicy?.value === null) {
+  if (currentPolicy?.status === 'loading' || currentPolicy?.status === 'LOADING' || currentPolicy?.isConfirmed === false || currentPolicy?.value == null) {
     return {
       kind: 'CURRENT',
       status: 'LOADING',
-      minNetRR: 2.0, // fallback reference only while loading
-      source: 'UNCONFIRMED',
+      minNetRR: null,
+      source: currentPolicy?.source || 'UNCONFIRMED',
       isAuthoritative: false,
     };
   }
@@ -356,7 +457,7 @@ export function resolveSelectionRrPolicy(
     kind: 'UNKNOWN',
     status: 'MISSING',
     minNetRR: null,
-    source: 'UNKNOWN_CURRENT',
+    source: currentPolicy?.source || 'UNKNOWN_CURRENT',
     reason: 'Chưa xác nhận cấu hình R:R hiện hành',
   };
 }
@@ -376,7 +477,7 @@ export interface NetRrComparisonResult {
 
 /**
  * Compares an actual Net R:R against the resolved selection policy view.
- * Returns strict tri-state / quadri-state result without guessing thresholds.
+ * Performs direct full-precision comparison without rounding diff before decision.
  */
 export function compareNetRr(
   actualNetRR: number | null | undefined,
@@ -399,21 +500,63 @@ export function compareNetRr(
     };
   }
 
-  // If order snapshot threshold is missing, compliance is strictly UNKNOWN
-  if (kind === 'ORDER_SNAPSHOT' && (minRR === null || policyView.status === 'MISSING')) {
-    return {
-      status: 'UNKNOWN',
-      actualNetRR: actual,
-      requiredMinNetRR: null,
-      diff: null,
-      policyKind: 'ORDER_SNAPSHOT',
-      source: 'UNKNOWN_HISTORICAL',
-      label: 'Chưa lưu ngưỡng lúc ARM',
-      meetsMin: false,
-    };
+  // If order snapshot threshold is missing or invalid
+  if (kind === 'ORDER_SNAPSHOT') {
+    if (policyView.status === 'MISSING' || minRR === null) {
+      return {
+        status: 'UNKNOWN',
+        actualNetRR: actual,
+        requiredMinNetRR: null,
+        diff: null,
+        policyKind: 'ORDER_SNAPSHOT',
+        source: policyView.source || 'UNKNOWN_HISTORICAL',
+        label: 'Chưa lưu ngưỡng lúc ARM',
+        meetsMin: false,
+      };
+    }
+    if (policyView.status === 'INVALID') {
+      return {
+        status: 'INVALID',
+        actualNetRR: actual,
+        requiredMinNetRR: null,
+        diff: null,
+        policyKind: 'ORDER_SNAPSHOT',
+        source: policyView.source || 'ORDER_SNAPSHOT',
+        label: 'Ngưỡng snapshot lúc ARM không hợp lệ',
+        meetsMin: false,
+      };
+    }
   }
 
-  if (minRR === null || !Number.isFinite(minRR) || minRR <= 0) {
+  // If current policy is unconfirmed or loading
+  if (kind === 'CURRENT') {
+    if (policyView.status === 'LOADING' || !policyView.isAuthoritative || minRR === null) {
+      return {
+        status: 'UNKNOWN',
+        actualNetRR: actual,
+        requiredMinNetRR: null,
+        diff: null,
+        policyKind: 'CURRENT',
+        source: policyView.source || 'UNCONFIRMED',
+        label: policyView.status === 'LOADING' ? 'Đang tải cấu hình R:R...' : 'Chưa xác nhận cấu hình R:R',
+        meetsMin: false,
+      };
+    }
+    if (policyView.status === 'ERROR') {
+      return {
+        status: 'UNKNOWN',
+        actualNetRR: actual,
+        requiredMinNetRR: null,
+        diff: null,
+        policyKind: 'CURRENT',
+        source: policyView.source || 'UNCONFIRMED',
+        label: 'Lỗi cấu hình R:R',
+        meetsMin: false,
+      };
+    }
+  }
+
+  if (kind === 'UNKNOWN' || minRR === null || !Number.isFinite(minRR) || minRR <= 0) {
     return {
       status: 'UNKNOWN',
       actualNetRR: actual,
@@ -426,9 +569,23 @@ export function compareNetRr(
     };
   }
 
-  const diff = Number((actual - minRR).toFixed(4));
-  // Actual ratio >= minRR - 1e-6 (floating point tolerance)
-  const meets = diff >= -1e-6;
+  if (kind === 'INVALID' || policyView.status === 'INVALID') {
+    return {
+      status: 'INVALID',
+      actualNetRR: actual,
+      requiredMinNetRR: null,
+      diff: null,
+      policyKind: kind,
+      source: 'source' in policyView ? policyView.source : undefined,
+      label: 'Cấu hình R:R không hợp lệ',
+      meetsMin: false,
+    };
+  }
+
+  // Strict full-precision decision comparison: NO rounding before meetsMin
+  const meets = actual >= minRR;
+  const rawDiff = actual - minRR;
+  const diff = Number(rawDiff.toFixed(4)); // diagnostic diff only
 
   return {
     status: meets ? 'MET' : 'NOT_MET',
@@ -455,17 +612,22 @@ export function rebaseDraftRrPolicy(
     accountEquity?: number;
     riskPct?: number;
     leverage?: number;
-    marginMode?: 'ISOLATED' | 'CROSS' | string;
+    marginMode?: 'ISOLATED' | 'CROSS';
   },
-  calcFn?: typeof import('./calculator').calculateClientRiskReward
+  calcFn?: any
 ): any {
-  if (!draft) return draft;
+  if (!draft || typeof draft !== 'object') return draft;
+  if (draft.state !== 'draft') return draft;
 
-  const nextMinNetRR = currentPolicy.value ?? draft.minNetRR ?? 2.0;
+  const nextMinNetRR = currentPolicy.value;
+  if (nextMinNetRR == null || !Number.isFinite(nextMinNetRR) || nextMinNetRR < 1.2) {
+    return draft;
+  }
+
   const nextSource = currentPolicy.source || 'SYSTEM_CONFIG';
   const nextFingerprint = currentPolicy.fingerprint;
 
-  const entry = draft.actualEntry ?? draft.plannedEntry;
+  const entry = draft.plannedEntry ?? draft.entry;
   const sl = draft.stopLoss;
   const tp = draft.takeProfit;
   const direction = draft.direction;
@@ -518,14 +680,6 @@ export function rebaseDraftRrPolicy(
       grossRR: calcResult.grossRR,
       estimatedNetRR: calcResult.estimatedNetRR,
       canExecute: calcResult.canExecute,
-      executionReason: calcResult.skipReason,
-      isValid: calcResult.isValid,
-      invalidReason: calcResult.invalidReason,
-      leverage: calcResult.leverage,
-      marginMode: calcResult.marginMode,
-      estimatedLiquidation: calcResult.estimatedLiquidation,
-      initialMargin: calcResult.initialMarginUsdt,
-      tier: calcResult.tier,
     };
   }
 
@@ -539,7 +693,7 @@ export function rebaseDraftRrPolicy(
 
 /**
  * Re-evaluates a SelectedTradeIntent if it represents a DRAFT.
- * Preserves historical orders or watch setups without fabricating values.
+ * Preserves entry/SL/TP coordinates while updating financial metrics and compliance.
  */
 export function rebaseTradeIntentRrPolicy(
   intent: any,
@@ -548,15 +702,18 @@ export function rebaseTradeIntentRrPolicy(
     accountEquity?: number;
     riskPct?: number;
     leverage?: number;
-    marginMode?: 'ISOLATED' | 'CROSS' | string;
+    marginMode?: 'ISOLATED' | 'CROSS';
   },
-  calcFn?: typeof import('./calculator').calculateClientRiskReward
+  calcFn?: any
 ): any {
-  if (!intent || intent.source !== 'DRAFT') {
+  if (!intent || typeof intent !== 'object') return intent;
+  if (intent.source !== 'DRAFT') return intent;
+
+  const nextMinNetRR = currentPolicy.value;
+  if (nextMinNetRR == null || !Number.isFinite(nextMinNetRR) || nextMinNetRR < 1.2) {
     return intent;
   }
 
-  const nextMinNetRR = currentPolicy.value ?? intent.minNetRR ?? 2.0;
   const nextSource = currentPolicy.source || 'SYSTEM_CONFIG';
   const nextFingerprint = currentPolicy.fingerprint;
 
@@ -575,10 +732,10 @@ export function rebaseTradeIntentRrPolicy(
   }
 
   const compute = calcFn || calculateClientRiskReward;
-  const equity = financialContext?.accountEquity ?? 1000.0;
-  const rPct = 0.25;
-  const lev = intent.leverage || 5;
-  const mm = (intent.marginMode || 'ISOLATED') as 'ISOLATED' | 'CROSS';
+  const equity = financialContext?.accountEquity ?? intent.accountEquity ?? 1000.0;
+  const rPct = financialContext?.riskPct ?? intent.riskPct ?? 0.25;
+  const lev = financialContext?.leverage ?? intent.leverage ?? 5;
+  const mm = (financialContext?.marginMode ?? intent.marginMode ?? 'ISOLATED') as 'ISOLATED' | 'CROSS';
 
   let calcResult: any = null;
   try {

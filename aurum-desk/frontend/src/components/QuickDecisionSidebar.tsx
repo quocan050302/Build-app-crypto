@@ -65,6 +65,9 @@ export interface QuickDecisionSidebarProps {
   onFocusTradeOnChart?: (trade: any) => void;
   appliedMinNetRR?: number;
   rrPolicySource?: string;
+  rrPolicyFingerprint?: string;
+  rrPolicyStatus?: string;
+  isRrPolicyConfirmed?: boolean;
   onOpenRrSettings?: () => void;
 }
 
@@ -95,6 +98,9 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
   onSelectScenario,
   appliedMinNetRR,
   rrPolicySource,
+  rrPolicyFingerprint,
+  rrPolicyStatus,
+  isRrPolicyConfirmed,
   onOpenRrSettings,
 }) => {
   // Realtime CG-01 diagnostics state (V16.29)
@@ -187,6 +193,9 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
     const selectionPolicyView = resolveSelectionRrPolicy(selectedIntent, {
       value: appliedMinNetRR ?? null,
       source: rrPolicySource,
+      fingerprint: rrPolicyFingerprint,
+      status: rrPolicyStatus,
+      isConfirmed: isRrPolicyConfirmed,
     });
     const rrComparison = compareNetRr(currentNetRR, selectionPolicyView);
 
@@ -208,10 +217,16 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
           ? tmpl.summary({ net_rr: currentNetRR, required_rr: rrComparison.requiredMinNetRR })
           : `Tỷ lệ Lợi nhuận/Rủi ro ròng ${actualStr} thấp hơn yêu cầu tối thiểu ${reqStr}.`,
       });
-    } else if (selectionPolicyView.kind === 'CURRENT' && (selectionPolicyView.status === 'LOADING' || selectionPolicyView.status === 'ERROR')) {
+    } else if (
+      selectionPolicyView.kind === 'CURRENT' &&
+      (selectionPolicyView.status === 'LOADING' ||
+        selectionPolicyView.status === 'ERROR' ||
+        !selectionPolicyView.isAuthoritative ||
+        selectionPolicyView.minNetRR === null)
+    ) {
       blockers.push({
         code: 'POLICY_GATE',
-        title: 'Đang đồng bộ cấu hình R:R',
+        title: 'Chưa xác nhận cấu hình R:R',
         summary: 'Hệ thống đang tải hoặc xác thực ngưỡng R:R áp dụng trước khi cho phép kích hoạt lệnh.',
       });
     }
@@ -544,6 +559,8 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
           displayState={cg01State.displayState}
           appliedMinNetRR={appliedMinNetRR}
           rrPolicySource={rrPolicySource}
+          isRrPolicyConfirmed={isRrPolicyConfirmed}
+          rrPolicyStatus={rrPolicyStatus}
           onOpenRrSettings={onOpenRrSettings}
         />
 
@@ -725,6 +742,9 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                       const selView = resolveSelectionRrPolicy(selectedIntent, {
                         value: appliedMinNetRR ?? null,
                         source: rrPolicySource,
+                        fingerprint: rrPolicyFingerprint,
+                        status: rrPolicyStatus,
+                        isConfirmed: isRrPolicyConfirmed,
                       });
                       const comp = compareNetRr(netRR, selView);
                       return (

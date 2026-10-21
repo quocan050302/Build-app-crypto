@@ -18,8 +18,10 @@ import type { CG01DisplayState } from '../utils/cg01DisplayState';
 export interface CG01DiagnosticCardProps {
   displayState: CG01DisplayState;
   className?: string;
-  appliedMinNetRR?: number;
+  appliedMinNetRR?: number | null;
   rrPolicySource?: string;
+  isRrPolicyConfirmed?: boolean;
+  rrPolicyStatus?: string;
   onOpenRrSettings?: () => void;
 }
 
@@ -28,6 +30,8 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
   className = '',
   appliedMinNetRR,
   rrPolicySource,
+  isRrPolicyConfirmed,
+  rrPolicyStatus,
   onOpenRrSettings,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -246,7 +250,9 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
                   data-testid="cg01-applied-rr-badge"
                   title={rrPolicySource ? `Nguồn chính sách: ${rrPolicySource}` : undefined}
                 >
-                  1:{(appliedMinNetRR ?? 2.0).toFixed(2)}
+                  {appliedMinNetRR != null && isRrPolicyConfirmed !== false && rrPolicyStatus !== 'LOADING'
+                    ? `1:${appliedMinNetRR.toFixed(2)}`
+                    : 'Đang tải...'}
                 </span>
                 {onOpenRrSettings && (
                   <button

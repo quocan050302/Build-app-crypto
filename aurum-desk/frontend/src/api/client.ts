@@ -216,8 +216,8 @@ export interface TradingPolicy {
   ny_fallback_enabled: boolean;
   ny_fallback_start: string;
   ny_fallback_risk_pct_cap: number;
-  min_net_rr: number;
-  effective_min_net_rr?: number;
+  min_net_rr: number | null;
+  effective_min_net_rr?: number | null;
   rr_policy_source?: string;
   rr_policy_fingerprint?: string;
   max_open_positions: number;

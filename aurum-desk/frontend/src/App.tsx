@@ -60,7 +60,7 @@ import type { CandidateScoreSummary } from './types/candidateScore';
 import { CandidateScoreBadge } from './components/CandidateScoreBadge';
 import { useRrPolicySettings } from './hooks/useRrPolicySettings';
 import { RrPolicySettingsCard } from './components/RrPolicySettingsCard';
-import { getOrderRrFields, rebaseDraftRrPolicy, rebaseTradeIntentRrPolicy } from './utils/rrPolicyView';
+import { getOrderRrFields, rebaseDraftRrPolicy, rebaseTradeIntentRrPolicy, type CurrentPolicyContext } from './utils/rrPolicyView';
 
 export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION' | 'SCENARIO';
 
@@ -121,10 +121,12 @@ export interface SelectedTradeIntent {
   // V16.39.11 Candidate Quality Score
   candidate_score_summary?: CandidateScoreSummary | null;
 
-  // V16.39.15 RR Policy Unification
-  minNetRR?: number;
+  // V16.39.15/18 RR Policy Unification
+  minNetRR?: number | null;
   rrPolicySource?: string;
   rrPolicyFingerprint?: string;
+  rrPolicyStatus?: 'KNOWN' | 'MISSING' | 'INVALID';
+  rrPolicyReason?: string;
 }
 
 
@@ -389,6 +391,8 @@ function AppContent() {
             minNetRR: pRr.minNetRR,
             rrPolicySource: pRr.rrPolicySource,
             rrPolicyFingerprint: pRr.rrPolicyFingerprint,
+            rrPolicyStatus: pRr.rrPolicyStatus,
+            rrPolicyReason: pRr.rrPolicyReason,
             leverage: p.leverage,
             marginMode: p.margin_mode,
             estimatedLiquidation: p.estimated_liquidation,
@@ -414,6 +418,8 @@ function AppContent() {
             minNetRR: pRr.minNetRR,
             rrPolicySource: pRr.rrPolicySource,
             rrPolicyFingerprint: pRr.rrPolicyFingerprint,
+            rrPolicyStatus: pRr.rrPolicyStatus,
+            rrPolicyReason: pRr.rrPolicyReason,
             leverage: p.leverage,
             marginMode: p.margin_mode,
             estimatedLiquidation: p.estimated_liquidation,
@@ -431,14 +437,51 @@ function AppContent() {
     }
   }, [timeframe]);
 
-  // V16.39.16/17 Centralized Min Net R:R Settings Hook & Orchestrator
+  // V16.39.16/17/18 Centralized Min Net R:R Settings Hook & Orchestrator
   const onRrPolicySavedRef = useRef<((saved: any) => void) | null>(null);
   const rrPolicy = useRrPolicySettings({
     onSaveSuccess: (saved) => {
       onRrPolicySavedRef.current?.(saved);
     },
   });
-  const currentEffectiveMinNetRR = rrPolicy.saved.value ?? tradingPolicy?.effective_min_net_rr ?? 2.0;
+
+  const currentPolicyContext: CurrentPolicyContext = useMemo(() => {
+    if (
+      rrPolicy.saved.isConfirmed &&
+      rrPolicy.saved.value != null &&
+      Number.isFinite(rrPolicy.saved.value) &&
+      rrPolicy.saved.value >= 1.2
+    ) {
+      return {
+        value: rrPolicy.saved.value,
+        source: rrPolicy.saved.source || 'SYSTEM_CONFIG',
+        fingerprint: rrPolicy.saved.fingerprint,
+        status: 'READY',
+        isConfirmed: true,
+      };
+    }
+    if (
+      tradingPolicy?.effective_min_net_rr != null &&
+      Number.isFinite(tradingPolicy.effective_min_net_rr) &&
+      tradingPolicy.effective_min_net_rr >= 1.2
+    ) {
+      return {
+        value: tradingPolicy.effective_min_net_rr,
+        source: tradingPolicy.rr_policy_source || 'SYSTEM_CONFIG',
+        fingerprint: tradingPolicy.rr_policy_fingerprint,
+        status: 'READY',
+        isConfirmed: true,
+      };
+    }
+    return {
+      value: null,
+      source: 'UNCONFIRMED',
+      status: rrPolicy.status === 'loading' ? 'LOADING' : 'UNCONFIRMED',
+      isConfirmed: false,
+    };
+  }, [rrPolicy.saved, rrPolicy.status, tradingPolicy]);
+
+  const currentEffectiveMinNetRR: number | null = currentPolicyContext.value;
 
   const handleOpenRrSettings = useCallback(() => {
     setActiveTab('paper');
@@ -1413,6 +1456,8 @@ function AppContent() {
       minNetRR: tradeRr.minNetRR,
       rrPolicySource: tradeRr.rrPolicySource,
       rrPolicyFingerprint: tradeRr.rrPolicyFingerprint,
+      rrPolicyStatus: tradeRr.rrPolicyStatus,
+      rrPolicyReason: tradeRr.rrPolicyReason,
       realizedPnlNet: trade.realized_pnl_net,
       realizedR: trade.realized_r,
       leverage: trade.leverage || leverage,
@@ -1440,6 +1485,8 @@ function AppContent() {
       minNetRR: tradeRr.minNetRR,
       rrPolicySource: tradeRr.rrPolicySource,
       rrPolicyFingerprint: tradeRr.rrPolicyFingerprint,
+      rrPolicyStatus: tradeRr.rrPolicyStatus,
+      rrPolicyReason: tradeRr.rrPolicyReason,
       leverage: trade.leverage || leverage,
       marginMode: trade.margin_mode || marginMode,
       estimatedLiquidation: trade.estimated_liquidation,
@@ -2013,7 +2060,7 @@ function AppContent() {
                       </span>
                     </div>
                     <p className="text-gray-300 text-[11px] leading-relaxed">
-                      {upcomingData.scenarios?.no_trade?.condition || `Cửa sổ Blackout tin tức USD High Impact, thị trường chop hoặc Net R:R < ${currentEffectiveMinNetRR.toFixed(1)}.`}
+                      {upcomingData.scenarios?.no_trade?.condition || `Cửa sổ Blackout tin tức USD High Impact, thị trường chop hoặc Net R:R < ${currentEffectiveMinNetRR != null ? currentEffectiveMinNetRR.toFixed(1) : '2.0'}.`}
                     </p>
                     <div className="text-[10px] text-gray-400 mt-auto pt-2 border-t border-charcoal-750 space-y-1">
                       <p className="text-amber-300/90"><span className="text-gray-300 font-medium">Hành động:</span> {upcomingData.scenarios?.no_trade?.action || 'Không mở lệnh. Giữ nguyên vốn và quota 3 lệnh.'}</p>
@@ -3324,8 +3371,11 @@ function AppContent() {
                   <QuickDecisionSidebar
                     selectedIntent={selectedIntent}
                     activePosition={activePosition}
-                    appliedMinNetRR={currentEffectiveMinNetRR}
-                    rrPolicySource={rrPolicy.saved.source}
+                    appliedMinNetRR={currentPolicyContext.value ?? undefined}
+                    rrPolicySource={currentPolicyContext.source}
+                    rrPolicyFingerprint={currentPolicyContext.fingerprint}
+                    rrPolicyStatus={currentPolicyContext.status}
+                    isRrPolicyConfirmed={currentPolicyContext.isConfirmed}
                     onOpenRrSettings={handleOpenRrSettings}
                     hasArmedOrder={Boolean(
                       (accountStatus && (accountStatus.armed_orders_count ?? 0) > 0) ||
@@ -3365,8 +3415,11 @@ function AppContent() {
             <QuickDecisionSidebar
               selectedIntent={selectedIntent}
               activePosition={activePosition}
-              appliedMinNetRR={currentEffectiveMinNetRR}
-              rrPolicySource={rrPolicy.saved.source}
+              appliedMinNetRR={currentPolicyContext.value ?? undefined}
+              rrPolicySource={currentPolicyContext.source}
+              rrPolicyFingerprint={currentPolicyContext.fingerprint}
+              rrPolicyStatus={currentPolicyContext.status}
+              isRrPolicyConfirmed={currentPolicyContext.isConfirmed}
               onOpenRrSettings={handleOpenRrSettings}
               hasArmedOrder={Boolean(
                 (accountStatus && (accountStatus.armed_orders_count ?? 0) > 0) ||

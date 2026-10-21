@@ -363,11 +363,14 @@ def create_forward_paper_session(
     default_min_rr = 2.0
     if db is not None:
         try:
-            from services.rr_policy_service import resolve_effective_rr_policy
+            from services.rr_policy_service import resolve_effective_rr_policy, RrPolicyConfigError
             rr_ctx = resolve_effective_rr_policy(db)
             if rr_ctx and rr_ctx.min_net_rr is not None and rr_ctx.min_net_rr >= 1.5:
                 default_min_rr = float(rr_ctx.min_net_rr)
-        except Exception:
+        except Exception as e:
+            from services.rr_policy_service import RrPolicyConfigError
+            if isinstance(e, RrPolicyConfigError):
+                raise
             pass
 
     default_risk = {
@@ -381,6 +384,11 @@ def create_forward_paper_session(
         frozen_risk = {**default_risk, **risk_config}
         if "min_net_rr" not in risk_config or risk_config["min_net_rr"] is None:
             frozen_risk["min_net_rr"] = default_min_rr
+        else:
+            override_val = risk_config["min_net_rr"]
+            if isinstance(override_val, bool) or not isinstance(override_val, (int, float)) or not math.isfinite(override_val) or override_val < 1.0:
+                raise ValueError(f"Giá trị min_net_rr không hợp lệ trong risk_config: {override_val!r}")
+            frozen_risk["min_net_rr"] = round(float(override_val), 4)
     else:
         frozen_risk = default_risk
 
