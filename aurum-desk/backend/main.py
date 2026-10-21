@@ -3931,3 +3931,40 @@ def get_scalp_zone_assessment_endpoint(zone_id: str, symbol: str = "XAUUSDT"):
     if not assessment:
         raise HTTPException(status_code=404, detail="ZONE_NOT_FOUND: zone not active or does not exist")
     return assessment
+
+
+@app.get("/api/v1/paper/runtime-snapshot")
+def get_paper_runtime_snapshot_endpoint(
+    run_id: Optional[str] = None,
+    symbol: str = "XAUUSDT",
+    scope: str = "CG01",
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V16.39.10: Canonical forward paper runtime observation endpoint (Rules 101-105).
+    Strictly read-only, zero side-effects, does not create runs, policy, or checkpoints.
+    """
+    if start_ms is not None and end_ms is not None and end_ms <= start_ms:
+        raise HTTPException(
+            status_code=422,
+            detail=f"end_ms ({end_ms}) must be strictly greater than start_ms ({start_ms})",
+        )
+
+    db.autoflush = False
+    from services.cg01_scheduler_service import cg01_evaluation_scheduler
+    from services.paper_runtime_snapshot_service import build_paper_runtime_snapshot
+
+    providers = {"scheduler": cg01_evaluation_scheduler}
+    snapshot = build_paper_runtime_snapshot(
+        db,
+        run_id=run_id,
+        symbol=symbol,
+        scope=scope,
+        start_ms=start_ms,
+        end_ms=end_ms,
+        runtime_providers=providers,
+        source_mode="HTTP",
+    )
+    return snapshot

@@ -171,3 +171,19 @@ Kết quả sẽ được ghi vào `reports/runtime_snapshot/paper_runtime_snaps
    - Công cụ snapshot không tự ý bật chế độ Auto. Quyền giao dịch hoàn toàn do người dùng kiểm soát.
 3. **Không Ép Lệnh (No Forced Trades):**
    - Chỉ tiêu ngày (Daily Goal) trong chính sách là mục tiêu định hướng quan sát; các bộ lọc an toàn (News, Spread, Score >= 70.0, Net RR >= 1.5, Max Cap = 3) luôn có quyền ưu tiên tối thượng để bảo toàn vốn.
+
+---
+
+## 7. Ghi Chú Kiểm Chứng Bổ Sung (V16.39.10 Audit Addendum)
+> [!NOTE]
+> Kiểm tra độc lập tại thời điểm V16.39.10 cho thấy:
+> - **Phần Coordinator & Policy (Đầu việc 2):** Đã được kiểm chứng hoàn toàn chính xác và toàn vẹn qua 39 tests baseline và 311 tests hồi quy mở rộng.
+> - **Phần Snapshot (Đầu việc 3):** Phiên bản V16.39.9 tiền khai có một số giới hạn và thiếu hụt coverage kỹ thuật:
+>   1. `load_runtime_sources` trong nhánh HTTP gọi `/api/scalp/daily-status` (có side-effect gọi `get_or_create_today_audit` tạo `DayAudit`) và gọi `/api/scalp/cg01/evaluation` thay vì endpoint snapshot chuyên biệt.
+>   2. `resolve_effective_daily_policy` trong nhánh offline gọi `get_or_create_policy`, có khả năng commit `TradingPolicy` mặc định trên database trống.
+>   3. `build_cg01_paper_run_summary` gọi `projection_worker.get_health_status(db)`, hàm này có nhánh `get_or_create_checkpoint` sinh checkpoint mới.
+>   4. Schema payload giữa HTTP và offline bị lệch trường (`trades.total_trades_count` vs `total_closed_trades`), dẫn đến `orders_count` hiển thị 0.
+>   5. `auto_enabled` missing bị ép thành `False` (hiển thị TẮT thay vì CHƯA XÁC MINH), và worker health suy luận từ `/health` bị gán `False` vì thiếu trường `running`.
+>   6. Đường dẫn DB mặc định tìm `backend/data/trading.db` không tồn tại thay vì `backend/aurum_desk.db`.
+>
+> Toàn bộ các hạn chế trên đã được khắc phục triệt để, tái hiện qua regression test đỏ và kiểm chứng nghiêm ngặt trong **V16.39.10** với `backend/services/paper_runtime_snapshot_service.py`, endpoint `GET /api/v1/paper/runtime-snapshot`, và 3 file test mới.
