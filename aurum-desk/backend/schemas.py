@@ -113,6 +113,7 @@ class PaperOrderResponse(PaperOrderBase):
     evidence_snapshot_id: Optional[str] = None
     setup_instance_id: Optional[str] = None
     candidate_score_summary: Optional[Dict[str, Any]] = None
+    cost_snapshot: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 # Risk/Reward Position Overlay schema for Chart

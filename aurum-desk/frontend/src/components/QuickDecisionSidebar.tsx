@@ -62,6 +62,9 @@ export interface QuickDecisionSidebarProps {
   scenarios?: SMCScenarioView[];
   onSelectScenario?: (scenario: SMCScenarioView) => void;
   onFocusTradeOnChart?: (trade: any) => void;
+  appliedMinNetRR?: number;
+  rrPolicySource?: string;
+  onOpenRrSettings?: () => void;
 }
 
 export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
@@ -89,6 +92,9 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
   onFocusOnChart,
   scenarios,
   onSelectScenario,
+  appliedMinNetRR,
+  rrPolicySource,
+  onOpenRrSettings,
 }) => {
   // Realtime CG-01 diagnostics state (V16.29)
   const cg01State = useCG01RealtimeState({ symbol: 'XAUUSDT' });
@@ -515,7 +521,12 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
         )}
 
         {/* CG-01 REALTIME CANDIDATE DIAGNOSTICS (V16.29) */}
-        <CG01DiagnosticCard displayState={cg01State.displayState} />
+        <CG01DiagnosticCard
+          displayState={cg01State.displayState}
+          appliedMinNetRR={appliedMinNetRR}
+          rrPolicySource={rrPolicySource}
+          onOpenRrSettings={onOpenRrSettings}
+        />
 
         {/* THREE-SESSION CONDITIONAL FORECAST V14.4.1 (read-only, cached) */}
         <SMCSessionForecastCard

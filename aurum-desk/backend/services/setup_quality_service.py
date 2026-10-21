@@ -303,6 +303,60 @@ def build_quality_snapshot(
 
 # ==================== EVALUATION LOGIC (APPENDIX A3, A4) ====================
 
+def resolve_quality_rr_threshold(context: Dict[str, Any]) -> Tuple[Optional[float], str]:
+    """
+    Pure resolver for Min Net R:R threshold used by setup quality evaluation.
+    Checks explicit decision/profile context without performing DB queries:
+      1. context['profile']['min_net_rr']
+      2. context['min_net_rr']
+      3. context['calc']['min_net_rr']
+      4. context['plan']['min_net_rr']
+    If an explicit key is present:
+      - Valid finite float > 0: returns (val, "EXPLICIT_THRESHOLD")
+      - Invalid/malformed/negative/boolean: returns (None, "INVALID_EXPLICIT_THRESHOLD")
+    If no explicit key is present in context:
+      - Returns (2.0, "LEGACY_DEFAULT")
+    """
+    if not isinstance(context, dict):
+        return (2.0, "LEGACY_DEFAULT")
+
+    raw_candidates = []
+
+    # 1. profile dict
+    profile = context.get("profile")
+    if isinstance(profile, dict) and "min_net_rr" in profile:
+        raw_candidates.append(profile["min_net_rr"])
+
+    # 2. top-level context
+    if "min_net_rr" in context:
+        raw_candidates.append(context["min_net_rr"])
+
+    # 3. calc dict
+    calc = context.get("calc")
+    if isinstance(calc, dict) and "min_net_rr" in calc:
+        raw_candidates.append(calc["min_net_rr"])
+
+    # 4. plan dict
+    plan = context.get("plan")
+    if isinstance(plan, dict) and "min_net_rr" in plan:
+        raw_candidates.append(plan["min_net_rr"])
+
+    if not raw_candidates:
+        return (2.0, "LEGACY_DEFAULT")
+
+    raw_val = raw_candidates[0]
+    if raw_val is None or isinstance(raw_val, bool):
+        return (None, "INVALID_EXPLICIT_THRESHOLD")
+
+    try:
+        val = float(raw_val)
+        if math.isfinite(val) and val > 0:
+            return (val, "EXPLICIT_THRESHOLD")
+        return (None, "INVALID_EXPLICIT_THRESHOLD")
+    except (ValueError, TypeError):
+        return (None, "INVALID_EXPLICIT_THRESHOLD")
+
+
 def evaluate_quality_checks(context: Dict[str, Any]) -> Tuple[Tuple[QualityCheck, ...], Tuple[str, ...]]:
     """
     Evaluates checklist based on context facts:
@@ -316,7 +370,7 @@ def evaluate_quality_checks(context: Dict[str, Any]) -> Tuple[Tuple[QualityCheck
     8. TARGET_PATH: Clear path to take profit without major opposing obstacles
     9. QUOTE_VALIDITY: Live/recent quote available and not crossed
     10. NEWS_CLEAR: No high-impact news blackout window active
-    11. RISK_REWARD_NET: Net R:R >= 2.0R under realistic fees & slippage
+    11. RISK_REWARD_NET: Net R:R >= min_net_rr under realistic fees & slippage
     """
     direction = context.get("direction", "LONG")
     now_ms = context.get("as_of_ms", 0)
@@ -541,34 +595,57 @@ def evaluate_quality_checks(context: Dict[str, Any]) -> Tuple[Tuple[QualityCheck
         ))
 
     # 8. RISK_REWARD_NET (REQUIRED)
-    net_rr = float(plan.get("net_rr", calc.get("net_rr", 0.0)) or 0.0)
-    if net_rr >= 2.0:
+    threshold, threshold_source = resolve_quality_rr_threshold(context)
+
+    raw_net_rr = plan.get("net_rr", calc.get("net_rr", 0.0))
+    net_rr: Optional[float] = None
+    if raw_net_rr is not None and not isinstance(raw_net_rr, bool):
+        try:
+            parsed = float(raw_net_rr)
+            if math.isfinite(parsed):
+                net_rr = parsed
+        except (ValueError, TypeError):
+            pass
+
+    if threshold is None:
         checks.append(QualityCheck(
             code="NET_RR_COMPLIANT",
-            status="MET",
+            status="UNKNOWN",
             importance="REQUIRED",
-            explanation_vi=f"Tỷ lệ Lợi nhuận/Rủi ro sau phí đạt {net_rr:.2f}R (chuẩn >= 2.0R).",
-            observed=f"{net_rr:.2f}R",
-            expected=">= 2.00R",
+            explanation_vi="Ngưỡng Min Net R:R cấu hình không hợp lệ.",
+            observed=f"{net_rr:.2f}R" if net_rr is not None and net_rr > 0 else "N/A",
+            expected="Valid threshold >= 1.50R",
             measured_at_ms=now_ms
         ))
-    elif net_rr > 0:
-        checks.append(QualityCheck(
-            code="NET_RR_COMPLIANT",
-            status="NOT_MET",
-            importance="REQUIRED",
-            explanation_vi=f"Tỷ lệ Lợi nhuận/Rủi ro sau phí chỉ đạt {net_rr:.2f}R (< 2.0R).",
-            observed=f"{net_rr:.2f}R",
-            expected=">= 2.00R",
-            measured_at_ms=now_ms
-        ))
-    else:
+    elif net_rr is None or net_rr <= 0:
         checks.append(QualityCheck(
             code="NET_RR_COMPLIANT",
             status="UNKNOWN",
             importance="REQUIRED",
             explanation_vi="Chưa tính toán được tỷ lệ Net R:R sau chi phí sàn.",
-            expected=">= 2.00R",
+            observed="N/A",
+            expected=f">= {threshold:.2f}R",
+            measured_at_ms=now_ms
+        ))
+    elif net_rr >= threshold:
+        # Comparison uses unrounded actual net_rr vs threshold
+        checks.append(QualityCheck(
+            code="NET_RR_COMPLIANT",
+            status="MET",
+            importance="REQUIRED",
+            explanation_vi=f"Tỷ lệ Lợi nhuận/Rủi ro sau phí đạt {net_rr:.2f}R (chuẩn >= {threshold:.2f}R).",
+            observed=f"{net_rr:.2f}R",
+            expected=f">= {threshold:.2f}R",
+            measured_at_ms=now_ms
+        ))
+    else:
+        checks.append(QualityCheck(
+            code="NET_RR_COMPLIANT",
+            status="NOT_MET",
+            importance="REQUIRED",
+            explanation_vi=f"Tỷ lệ Lợi nhuận/Rủi ro sau phí chỉ đạt {net_rr:.2f}R (< {threshold:.2f}R).",
+            observed=f"{net_rr:.2f}R",
+            expected=f">= {threshold:.2f}R",
             measured_at_ms=now_ms
         ))
 

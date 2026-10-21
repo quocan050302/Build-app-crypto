@@ -253,6 +253,43 @@ def build_degraded_display_plan(
     }
 
 
+def read_frozen_rr_threshold(source_dict: Any) -> Tuple[str, Optional[float], Optional[str], Optional[str]]:
+    """
+    V16.39.16 Section 108: Pure extractor for historical order RR threshold snapshots.
+    Returns: (status, min_net_rr, source, fingerprint)
+    status: 'KNOWN' | 'MISSING' | 'INVALID'
+    Rule: Preserves historical valid > 0 without applying current 1.5 floor.
+    Does NOT or-chain fallback invalid numbers to defaults.
+    """
+    if not isinstance(source_dict, dict):
+        return ("MISSING", None, None, None)
+
+    raw_val = None
+    has_key = False
+    if "min_net_rr_at_arm" in source_dict:
+        has_key = True
+        raw_val = source_dict["min_net_rr_at_arm"]
+    elif "min_net_rr" in source_dict:
+        has_key = True
+        raw_val = source_dict["min_net_rr"]
+
+    if not has_key or raw_val is None:
+        return ("MISSING", None, None, None)
+
+    if isinstance(raw_val, bool):
+        return ("INVALID", None, None, None)
+
+    try:
+        val = float(raw_val)
+        if math.isfinite(val) and val > 0:
+            source = source_dict.get("rr_policy_source") or "ORDER_SNAPSHOT"
+            fp = source_dict.get("rr_policy_fingerprint")
+            return ("KNOWN", val, source, fp)
+        return ("INVALID", None, None, None)
+    except (ValueError, TypeError):
+        return ("INVALID", None, None, None)
+
+
 def build_setup_display_plan(
     setup: Any,
     quality_summary: Optional[str] = None,
@@ -384,9 +421,7 @@ def build_setup_display_plan(
             stored_tp_exit_slip = frozen_snapshot.get("tp_exit_slippage_usdt")
             stored_cost_source = frozen_snapshot.get("cost_source", "FROZEN_ORDER_SNAPSHOT")
             stored_equity_as_of = frozen_snapshot.get("equity_as_of_ms", updated_at)
-            stored_min_net_rr = frozen_snapshot.get("min_net_rr_at_arm") or frozen_snapshot.get("min_net_rr")
-            stored_rr_source = frozen_snapshot.get("rr_policy_source") or "ORDER_SNAPSHOT"
-            stored_rr_fp = frozen_snapshot.get("rr_policy_fingerprint")
+            snap_status, stored_min_net_rr, stored_rr_source, stored_rr_fp = read_frozen_rr_threshold(frozen_snapshot)
         else:
             stored_gross_rr = _get("gross_rr")
             stored_net_rr = _get("net_rr")
@@ -422,17 +457,11 @@ def build_setup_display_plan(
                     stored_tp_exit_slip = raw_cs.get("tp_exit_slippage_usdt")
                     stored_cost_source = raw_cs.get("cost_source", "FROZEN_ORDER_SNAPSHOT")
                     stored_equity_as_of = raw_cs.get("equity_as_of_ms", updated_at)
-                    stored_min_net_rr = raw_cs.get("min_net_rr_at_arm") or raw_cs.get("min_net_rr")
-                    stored_rr_source = raw_cs.get("rr_policy_source") or "ORDER_SNAPSHOT" if stored_min_net_rr is not None else None
-                    stored_rr_fp = raw_cs.get("rr_policy_fingerprint")
+                    snap_status, stored_min_net_rr, stored_rr_source, stored_rr_fp = read_frozen_rr_threshold(raw_cs)
                 else:
-                    stored_min_net_rr = None
-                    stored_rr_source = None
-                    stored_rr_fp = None
+                    snap_status, stored_min_net_rr, stored_rr_source, stored_rr_fp = ("MISSING", None, None, None)
             else:
-                stored_min_net_rr = None
-                stored_rr_source = None
-                stored_rr_fp = None
+                snap_status, stored_min_net_rr, stored_rr_source, stored_rr_fp = ("MISSING", None, None, None)
 
         has_complete_metrics = (
             financial_value_is_known(stored_net_rr)
@@ -444,14 +473,21 @@ def build_setup_display_plan(
             status = "FROZEN_ORDER"
             reason_code = "ORDER_FROZEN"
             reason_msg = "Lệnh đã kích hoạt; thông số tài chính được bảo toàn"
-            if stored_min_net_rr is not None and financial_value_is_known(stored_min_net_rr) and float(stored_min_net_rr) > 0:
+            if snap_status == "KNOWN" and stored_min_net_rr is not None and stored_min_net_rr > 0:
                 eff_snap_min_rr = float(stored_min_net_rr)
                 meets_min_rr = float(stored_net_rr) >= eff_snap_min_rr
                 eff_rr_source = stored_rr_source or "ORDER_SNAPSHOT"
+                compliance_status = "MET" if meets_min_rr else "NOT_MET"
+            elif snap_status == "INVALID":
+                eff_snap_min_rr = None
+                meets_min_rr = None
+                eff_rr_source = stored_rr_source or "INVALID_HISTORICAL"
+                compliance_status = "INVALID"
             else:
-                eff_snap_min_rr = 2.0
-                meets_min_rr = float(stored_net_rr) >= 2.0
+                eff_snap_min_rr = None
+                meets_min_rr = None
                 eff_rr_source = None
+                compliance_status = "UNKNOWN"
             financial_dto = {
                 "gross_rr": round(float(stored_gross_rr), 4) if financial_value_is_known(stored_gross_rr) else None,
                 "net_rr": round(float(stored_net_rr), 4),
@@ -476,6 +512,7 @@ def build_setup_display_plan(
                 "min_net_rr": eff_snap_min_rr,
                 "rr_policy_source": eff_rr_source,
                 "rr_policy_fingerprint": stored_rr_fp,
+                "rr_compliance_status": compliance_status,
                 "equity_usdt": float(stored_eq) if financial_value_is_known(stored_eq) else None,
                 "equity_basis": "FROZEN_SNAPSHOT",
                 "equity_as_of_ms": stored_equity_as_of,
@@ -597,12 +634,24 @@ def build_setup_display_plan(
         stored_liq = _get("estimated_liquidation")
 
         if financial_value_is_known(stored_net_rr) and financial_value_is_known(stored_qty) and stored_qty > 0 and stored_net_rr > 0:
-            meets_min_rr = stored_net_rr >= 2.0
-            status = "AVAILABLE" if meets_min_rr else "AVAILABLE_BLOCKED"
-            if level_source == "confirmed":
-                status = "CONFIRMED"
-            reason_code = "PLAN_VALID" if meets_min_rr else "NET_RR_TOO_LOW"
-            reason_msg = "Kế hoạch giá hợp lệ" if meets_min_rr else f"Tỷ lệ Net R:R 1:{stored_net_rr:.2f} chưa đạt ngưỡng tối thiểu 1:2.0"
+            stored_min_net_rr = _get("min_net_rr")
+            leg_status, leg_min_rr, leg_source, leg_fp = read_frozen_rr_threshold({"min_net_rr": stored_min_net_rr})
+            if leg_status == "KNOWN" and leg_min_rr is not None and leg_min_rr > 0:
+                eff_leg_min_rr = leg_min_rr
+                meets_min_rr = stored_net_rr >= eff_leg_min_rr
+                compliance_status = "MET" if meets_min_rr else "NOT_MET"
+                status = "AVAILABLE" if meets_min_rr else "AVAILABLE_BLOCKED"
+                if level_source == "confirmed":
+                    status = "CONFIRMED"
+                reason_code = "PLAN_VALID" if meets_min_rr else "NET_RR_TOO_LOW"
+                reason_msg = "Kế hoạch giá hợp lệ" if meets_min_rr else f"Tỷ lệ Net R:R 1:{stored_net_rr:.2f} chưa đạt ngưỡng tối thiểu 1:{eff_leg_min_rr:.2f}"
+            else:
+                eff_leg_min_rr = None
+                meets_min_rr = None
+                compliance_status = "UNKNOWN"
+                status = "CONFIRMED" if level_source == "confirmed" else "AVAILABLE"
+                reason_code = "PLAN_VALID"
+                reason_msg = "Kế hoạch giá hợp lệ (ngưỡng R:R lịch sử chưa xác định)"
             financial_dto = {
                 "gross_rr": round(float(stored_gross_rr), 4) if financial_value_is_known(stored_gross_rr) else None,
                 "net_rr": round(float(stored_net_rr), 4),
@@ -624,8 +673,9 @@ def build_setup_display_plan(
                 "tp_exit_slippage_usdt": None,
                 "estimated_liquidation": round(float(stored_liq), 2) if financial_value_is_known(stored_liq) else None,
                 "meets_min_rr": meets_min_rr,
-                "min_net_rr": 2.0,
+                "min_net_rr": eff_leg_min_rr,
                 "rr_policy_source": "STORED_LEGACY",
+                "rr_compliance_status": compliance_status,
                 "equity_usdt": None,
                 "equity_basis": "STORED_LEGACY",
                 "equity_as_of_ms": updated_at,
@@ -635,7 +685,7 @@ def build_setup_display_plan(
                 "risk_config_version": None,
                 "calculator_version": "v10.4_canonical_calculator",
                 "pricing_mode": "STORED_PREVIEW",
-                "financial_status": "AVAILABLE" if meets_min_rr else "AVAILABLE_BLOCKED",
+                "financial_status": "AVAILABLE" if (meets_min_rr is not False) else "AVAILABLE_BLOCKED",
             }
         else:
             status = "CONTEXT_UNAVAILABLE"

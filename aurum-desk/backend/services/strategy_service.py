@@ -1099,6 +1099,10 @@ class StrategyService:
                 "risk_usdt": watch_setup.risk_usdt,
             }
 
+            from services.rr_policy_service import resolve_effective_rr_policy
+            rr_ctx = resolve_effective_rr_policy(db)
+            effective_min_rr = rr_ctx.min_net_rr
+
             q_context = {
                 "symbol": "XAUUSDT",
                 "timeframe": watch_setup.timeframe or "15M",
@@ -1109,7 +1113,8 @@ class StrategyService:
                 "eligibility": {"eligible": bool(resolved_p.get("is_valid")), "reasons": []},
                 "quote_view": {"is_valid": quote_valid, "price": curr_p},
                 "news_view": {"is_blackout": is_news_blackout, "reason": news_blackout_reason},
-                "calc": {"net_rr": watch_setup.net_rr or 0.0}
+                "calc": {"net_rr": watch_setup.net_rr or 0.0},
+                "profile": {"min_net_rr": effective_min_rr},
             }
 
             assessment, rel_ev = assess_setup_quality(q_context)

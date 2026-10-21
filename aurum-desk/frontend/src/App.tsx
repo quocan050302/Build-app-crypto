@@ -58,6 +58,9 @@ import type { SMCScenarioView } from './types/smcScenario';
 import type { SemanticActionType } from './types/userMessage';
 import type { CandidateScoreSummary } from './types/candidateScore';
 import { CandidateScoreBadge } from './components/CandidateScoreBadge';
+import { useRrPolicySettings } from './hooks/useRrPolicySettings';
+import { RrPolicySettingsCard } from './components/RrPolicySettingsCard';
+import { getOrderRrFields } from './utils/rrPolicyView';
 
 export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION' | 'SCENARIO';
 
@@ -369,6 +372,7 @@ function AppContent() {
         const currentSource = selectedIntentRef.current?.source;
         if (!currentSource || currentSource === 'OPEN_POSITION') {
           const p = posData.position;
+          const pRr = getOrderRrFields(p);
           const overlay: RiskRewardData = {
             id: p.id,
             direction: p.direction,
@@ -382,6 +386,9 @@ function AppContent() {
             riskPct: p.risk_pct,
             grossRR: p.gross_rr,
             estimatedNetRR: p.estimated_net_rr,
+            minNetRR: pRr.minNetRR,
+            rrPolicySource: pRr.rrPolicySource,
+            rrPolicyFingerprint: pRr.rrPolicyFingerprint,
             leverage: p.leverage,
             marginMode: p.margin_mode,
             estimatedLiquidation: p.estimated_liquidation,
@@ -404,6 +411,9 @@ function AppContent() {
             initialRiskUsdt: p.initial_risk_usdt,
             grossRR: p.gross_rr,
             estimatedNetRR: p.estimated_net_rr,
+            minNetRR: pRr.minNetRR,
+            rrPolicySource: pRr.rrPolicySource,
+            rrPolicyFingerprint: pRr.rrPolicyFingerprint,
             leverage: p.leverage,
             marginMode: p.margin_mode,
             estimatedLiquidation: p.estimated_liquidation,
@@ -420,6 +430,23 @@ function AppContent() {
       console.warn('Health check error:', err);
     }
   }, [timeframe]);
+
+  // V16.39.16 Centralized Min Net R:R Settings Hook
+  const rrPolicy = useRrPolicySettings({
+    onSaveSuccess: () => {
+      refreshAccountAndHealth();
+    },
+  });
+
+  const handleOpenRrSettings = useCallback(() => {
+    setActiveTab('paper');
+    setTimeout(() => {
+      document.getElementById('rr-policy-settings-card')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 60);
+  }, []);
 
   const handleToggleAutoPaper = async () => {
     const nextState = !autoPaperActive;
@@ -1041,6 +1068,9 @@ function AppContent() {
       tpExitSlippageUsdt: overlay.tpExitSlippageUsdt,
       grossRR: overlay.grossRR,
       estimatedNetRR: overlay.estimatedNetRR,
+      minNetRR: overlay.minNetRR,
+      rrPolicySource: overlay.rrPolicySource,
+      rrPolicyFingerprint: overlay.rrPolicyFingerprint,
       leverage: overlay.leverage || leverage,
       marginMode: overlay.marginMode || marginMode,
       estimatedLiquidation: overlay.estimatedLiquidation,
@@ -1119,8 +1149,17 @@ function AppContent() {
     setSelectedQualityError(null);
     const draftId = `draft-${Date.now()}`;
     const overlay = planToOverlay(setup, resolution, { isDraft: true, draftId });
+    const draftMinNetRR = overlay.minNetRR ?? rrPolicy.saved.value;
+    const draftRrSource = overlay.rrPolicySource ?? rrPolicy.saved.source;
+    const draftRrFingerprint = overlay.rrPolicyFingerprint ?? rrPolicy.saved.fingerprint;
 
-    setActiveOverlay(overlay);
+    const overlayWithRr: RiskRewardData = {
+      ...overlay,
+      minNetRR: draftMinNetRR,
+      rrPolicySource: draftRrSource,
+      rrPolicyFingerprint: draftRrFingerprint,
+    };
+    setActiveOverlay(overlayWithRr);
     setSelectedIntent({
       source: 'DRAFT',
       setup_id: draftId,
@@ -1145,6 +1184,9 @@ function AppContent() {
       tpExitSlippageUsdt: overlay.tpExitSlippageUsdt,
       grossRR: overlay.grossRR,
       estimatedNetRR: overlay.estimatedNetRR,
+      minNetRR: draftMinNetRR,
+      rrPolicySource: draftRrSource,
+      rrPolicyFingerprint: draftRrFingerprint,
       leverage: overlay.leverage || leverage,
       marginMode: overlay.marginMode || marginMode,
       estimatedLiquidation: overlay.estimatedLiquidation,
@@ -1294,6 +1336,7 @@ function AppContent() {
       tradeStateLower === 'armed' ? 'armed' :
       tradeStateLower === 'invalidated' ? 'invalidated' :
       'paper_open';
+    const tradeRr = getOrderRrFields(trade);
     const overlay: RiskRewardData = {
       id: trade.id,
       direction: trade.direction,
@@ -1308,6 +1351,9 @@ function AppContent() {
       riskPct: trade.risk_pct,
       grossRR: trade.gross_rr,
       estimatedNetRR: trade.estimated_net_rr,
+      minNetRR: tradeRr.minNetRR,
+      rrPolicySource: tradeRr.rrPolicySource,
+      rrPolicyFingerprint: tradeRr.rrPolicyFingerprint,
       realizedPnlNet: trade.realized_pnl_net,
       realizedR: trade.realized_r,
       leverage: trade.leverage || leverage,
@@ -1332,6 +1378,9 @@ function AppContent() {
       initialRiskUsdt: trade.initial_risk_usdt,
       grossRR: trade.gross_rr || 0,
       estimatedNetRR: trade.estimated_net_rr || 0,
+      minNetRR: tradeRr.minNetRR,
+      rrPolicySource: tradeRr.rrPolicySource,
+      rrPolicyFingerprint: tradeRr.rrPolicyFingerprint,
       leverage: trade.leverage || leverage,
       marginMode: trade.margin_mode || marginMode,
       estimatedLiquidation: trade.estimated_liquidation,
@@ -1537,7 +1586,12 @@ function AppContent() {
         onFocusSetupOnChart={handleFocusSetupOnChart}
         onRefreshUpcoming={refreshUpcoming}
         nySession={nySession}
-        policy={tradingPolicy}
+        policy={tradingPolicy ? {
+          ...tradingPolicy,
+          min_net_rr: rrPolicy.saved.value,
+          rr_policy_source: rrPolicy.saved.source,
+          rr_policy_fingerprint: rrPolicy.saved.fingerprint,
+        } : null}
         leverage={leverage}
         marginMode={marginMode}
         analysis={analysis}
@@ -1707,9 +1761,9 @@ function AppContent() {
                 marginMode={marginMode}
                 rvolData={rvolData}
                 activeOverlay={activeOverlay}
-                effectiveMinNetRR={tradingPolicy?.min_net_rr ?? 2.0}
-                rrPolicySource={tradingPolicy?.rr_policy_source}
-                rrPolicyFingerprint={tradingPolicy?.rr_policy_fingerprint}
+                effectiveMinNetRR={rrPolicy.saved.value}
+                rrPolicySource={rrPolicy.saved.source}
+                rrPolicyFingerprint={rrPolicy.saved.fingerprint}
                 onOverlayChange={(updated) => {
                   if (updated) {
                     if (selectedIntentRef.current?.source === 'OPEN_POSITION' || updated.readOnly) return;
@@ -1719,7 +1773,16 @@ function AppContent() {
                     setSelectedQualitySnapshot(null);
                     setSelectedQualityLoading(false);
                     setSelectedQualityError(null);
-                    setActiveOverlay({ ...updated, state: 'draft' });
+                    const updatedMinNetRR = updated.minNetRR ?? rrPolicy.saved.value;
+                    const updatedRrSource = updated.rrPolicySource ?? rrPolicy.saved.source;
+                    const updatedRrFingerprint = updated.rrPolicyFingerprint ?? rrPolicy.saved.fingerprint;
+                    setActiveOverlay({
+                      ...updated,
+                      state: 'draft',
+                      minNetRR: updatedMinNetRR,
+                      rrPolicySource: updatedRrSource,
+                      rrPolicyFingerprint: updatedRrFingerprint,
+                    });
 
                     setSelectedIntent((prev) => ({
                       source: 'DRAFT',
@@ -1741,6 +1804,9 @@ function AppContent() {
                       multiplier: updated.multiplier,
                       grossRR: updated.grossRR,
                       estimatedNetRR: updated.estimatedNetRR,
+                      minNetRR: updatedMinNetRR,
+                      rrPolicySource: updatedRrSource,
+                      rrPolicyFingerprint: updatedRrFingerprint,
                       leverage: updated.leverage || leverage,
                       marginMode: updated.marginMode || marginMode,
                       estimatedLiquidation: updated.estimatedLiquidation,
@@ -2660,6 +2726,22 @@ function AppContent() {
                 );
               })()}
 
+              {/* V16.39.16 Centralized Min Net R:R Settings Card */}
+              <RrPolicySettingsCard
+                id="rr-policy-settings-card"
+                saved={rrPolicy.saved}
+                draftText={rrPolicy.draftText}
+                status={rrPolicy.status}
+                error={rrPolicy.error}
+                isDirty={rrPolicy.isDirty}
+                successMessage={rrPolicy.successMessage}
+                onDraftChange={rrPolicy.setDraftText}
+                onSelectPreset={rrPolicy.setPreset}
+                onSave={rrPolicy.save}
+                onReset={rrPolicy.resetDraft}
+                onRetry={rrPolicy.refresh}
+              />
+
               {/* Liquidation safety rules */}
               <div className="p-3.5 bg-charcoal-850 rounded-lg border border-charcoal-700 text-xs space-y-2">
                 <span className="font-bold text-gray-200 block flex items-center gap-1.5">
@@ -3172,6 +3254,9 @@ function AppContent() {
                   <QuickDecisionSidebar
                     selectedIntent={selectedIntent}
                     activePosition={activePosition}
+                    appliedMinNetRR={rrPolicy.saved.value}
+                    rrPolicySource={rrPolicy.saved.source}
+                    onOpenRrSettings={handleOpenRrSettings}
                     hasArmedOrder={Boolean(
                       (accountStatus && (accountStatus.armed_orders_count ?? 0) > 0) ||
                       (upcomingData?.setups && upcomingData.setups.some((s: any) => s.state === 'ARMED'))
@@ -3210,6 +3295,9 @@ function AppContent() {
             <QuickDecisionSidebar
               selectedIntent={selectedIntent}
               activePosition={activePosition}
+              appliedMinNetRR={rrPolicy.saved.value}
+              rrPolicySource={rrPolicy.saved.source}
+              onOpenRrSettings={handleOpenRrSettings}
               hasArmedOrder={Boolean(
                 (accountStatus && (accountStatus.armed_orders_count ?? 0) > 0) ||
                 (upcomingData?.setups && upcomingData.setups.some((s: any) => s.state === 'ARMED'))

@@ -83,7 +83,11 @@ export interface ResolvedDisplayPlan {
     leverage: number;
     margin_mode: string;
     estimated_liquidation: number | null;
-    meets_min_rr: boolean;
+    meets_min_rr: boolean | null;
+    min_net_rr?: number | null;
+    rr_policy_source?: string | null;
+    rr_policy_fingerprint?: string | null;
+    rr_compliance_status?: 'MET' | 'NOT_MET' | 'UNKNOWN' | 'INVALID' | string | null;
     gross_loss_usdt?: number | null;
     gross_reward_usdt?: number | null;
     net_reward_usdt?: number | null;

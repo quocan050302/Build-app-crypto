@@ -867,15 +867,30 @@ export function ChartComponent({
     let targetOverlay: RiskRewardData | null = null;
 
     if (draftMode && activeOverlay === draftBaseOverlayRef.current) {
-      // Build draft overlay initialized with authentic calculation from current close
+      // Check if an existing draft overlay was already configured/dragged on chart to preserve its geometry
+      const existingData = rrPrimitiveRef.current?.getData();
+      const isExistingDraft =
+        existingData &&
+        existingData.state === 'draft' &&
+        existingData.direction === draftDirection &&
+        existingData.plannedEntry > 0 &&
+        existingData.stopLoss > 0 &&
+        existingData.takeProfit > 0;
+
       const currP = latestClosePriceRef.current;
-      const entry = currP;
-      const sl = draftDirection === 'LONG'
-        ? (smcLevels?.swingLow && smcLevels.swingLow < entry ? smcLevels.swingLow : Number((entry - 8.0).toFixed(2)))
-        : (smcLevels?.swingHigh && smcLevels.swingHigh > entry ? smcLevels.swingHigh : Number((entry + 8.0).toFixed(2)));
-      const tp = draftDirection === 'LONG'
-        ? (smcLevels?.swingHigh && smcLevels.swingHigh > entry ? smcLevels.swingHigh : Number((entry + 20.0).toFixed(2)))
-        : (smcLevels?.swingLow && smcLevels.swingLow < entry ? smcLevels.swingLow : Number((entry - 20.0).toFixed(2)));
+      const entry = isExistingDraft ? existingData.plannedEntry : currP;
+      const sl = isExistingDraft
+        ? existingData.stopLoss
+        : (draftDirection === 'LONG'
+          ? (smcLevels?.swingLow && smcLevels.swingLow < entry ? smcLevels.swingLow : Number((entry - 8.0).toFixed(2)))
+          : (smcLevels?.swingHigh && smcLevels.swingHigh > entry ? smcLevels.swingHigh : Number((entry + 8.0).toFixed(2))));
+      const tp = isExistingDraft
+        ? existingData.takeProfit
+        : (draftDirection === 'LONG'
+          ? (smcLevels?.swingHigh && smcLevels.swingHigh > entry ? smcLevels.swingHigh : Number((entry + 20.0).toFixed(2)))
+          : (smcLevels?.swingLow && smcLevels.swingLow < entry ? smcLevels.swingLow : Number((entry - 20.0).toFixed(2))));
+      const bars = isExistingDraft && existingData.projectedBars ? existingData.projectedBars : 25;
+      const qtyOverride = isExistingDraft ? existingData.quantity : undefined;
 
       const calc = calculateClientRiskReward(
         draftDirection,
@@ -885,13 +900,13 @@ export function ChartComponent({
         accountEquity,
         riskPct,
         effectiveMinNetRR,
-        undefined,
+        qtyOverride,
         leverage,
         marginMode
       );
 
       targetOverlay = {
-        id: 'draft-trade',
+        id: isExistingDraft ? existingData.id : 'draft-trade',
         direction: draftDirection,
         state: 'draft',
         plannedEntry: entry,
@@ -918,7 +933,7 @@ export function ChartComponent({
         estimatedLiquidation: calc.estimatedLiquidation,
         initialMargin: calc.initialMarginUsdt,
         tier: calc.tier,
-        projectedBars: 25,
+        projectedBars: bars,
       };
     } else if (activeOverlay) {
       targetOverlay = activeOverlay;
@@ -1074,7 +1089,7 @@ export function ChartComponent({
     // Direction is fixed by the draft: dragging a SHORT stop below entry yields an invalid-geometry warning,
     // it never flips the trade or silently re-sorts the levels.
     const direction = drag.initialData.direction;
-    const effMinRR = drag.initialData.minNetRR ?? effectiveMinNetRR;
+    const effMinRR = drag.initialData.state === 'draft' ? effectiveMinNetRR : (drag.initialData.minNetRR ?? effectiveMinNetRR);
     const calc = calculateClientRiskReward(
       direction,
       newEntry,
