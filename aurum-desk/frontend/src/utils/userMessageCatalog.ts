@@ -217,8 +217,10 @@ export const USER_MESSAGE_CATALOG: Record<string, CatalogTemplate> = {
           ? `1:${Number(p.required_rr).toFixed(2)}`
           : p?.min_net_rr != null
           ? `1:${Number(p.min_net_rr).toFixed(2)}`
-          : '1:2.00';
-      return `Tỷ lệ Lợi nhuận/Rủi ro ròng (${netRR}) sau khi trừ phí và trượt giá chưa đạt mức tối thiểu yêu cầu (${minRR}).`;
+          : null;
+      return minRR
+        ? `Tỷ lệ Lợi nhuận/Rủi ro ròng (${netRR}) sau khi trừ phí và trượt giá chưa đạt mức tối thiểu yêu cầu (${minRR}).`
+        : `Tỷ lệ Lợi nhuận/Rủi ro ròng (${netRR}) sau khi trừ phí và trượt giá chưa đạt mức tối thiểu yêu cầu.`;
     },
     explanation:
       'Net R:R là tỷ lệ thực tế bạn nhận được sau khi đã tính toán phí sàn và trượt giá 2 chiều. Nếu tỷ lệ này quá thấp, xác suất tạo lợi nhuận dài hạn sẽ bị bào mòn bởi chi phí.',
@@ -242,8 +244,10 @@ export const USER_MESSAGE_CATALOG: Record<string, CatalogTemplate> = {
           ? `1:${Number(p.min_net_rr).toFixed(2)}`
           : p?.required_min_net_rr != null
           ? `1:${Number(p.required_min_net_rr).toFixed(2)}`
-          : '1:1.50';
-      return `Tỷ lệ Net R:R (${netRR}) sau phí chưa đạt mức tối thiểu yêu cầu (${minRR}).`;
+          : null;
+      return minRR
+        ? `Tỷ lệ Net R:R (${netRR}) sau phí chưa đạt mức tối thiểu yêu cầu (${minRR}).`
+        : `Tỷ lệ Net R:R (${netRR}) sau phí chưa đạt mức tối thiểu xác nhận.`;
     },
     explanation:
       'Net R:R đã trừ phí và trượt giá; tỷ lệ này đo lường biên độ lợi nhuận ròng trên rủi ro, không đại diện cho xác suất thắng.',

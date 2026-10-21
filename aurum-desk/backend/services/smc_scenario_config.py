@@ -76,6 +76,18 @@ def get_scenario_config(**overrides: Any) -> ScenarioConfig:
     return ScenarioConfig(**base_dict)
 
 
+def build_current_scenario_config(
+    base: ScenarioConfig = active_scenario_config,
+    min_net_rr: float | None = None,
+) -> ScenarioConfig:
+    """Build a cycle copy of scenario config with effective min_net_rr without mutating global state.
+    Preserves immutable base config for tests and replay (V16.39.17)."""
+    if min_net_rr is None or min_net_rr <= 0:
+        return base
+    import dataclasses
+    return dataclasses.replace(base, min_net_rr=float(min_net_rr))
+
+
 def describe_model_requirements(config: ScenarioConfig) -> dict[str, Any]:
     """
     Returns a pure descriptor of the current causal SMC requirements.

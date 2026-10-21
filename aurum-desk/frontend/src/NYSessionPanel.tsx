@@ -18,6 +18,7 @@ interface NYSessionPanelProps {
   nySession: NYSessionStatus | null;
   policy: TradingPolicy | null;
   autoPaperActive: boolean;
+  appliedMinNetRR?: number;
   onRefresh?: () => void;
   onOpenSessionDrawer?: () => void;
 }
@@ -26,6 +27,7 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
   nySession,
   policy,
   autoPaperActive,
+  appliedMinNetRR,
   onOpenSessionDrawer,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
@@ -117,7 +119,9 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
       return nyReasonLine(nySession);
     }
     if (fallbackSearching) {
-      return 'Đang quét tìm cơ hội fallback PAPER (risk cap <= 0.10%, Net RR >= 2.0). Đảm bảo phân loại trung thực NY_QUOTA_PAPER.';
+      const effMinRR = appliedMinNetRR ?? policy?.effective_min_net_rr ?? policy?.min_net_rr;
+      const minText = effMinRR != null && Number.isFinite(effMinRR) ? `Net RR >= 1:${effMinRR.toFixed(2)}` : 'Net RR đạt chuẩn';
+      return `Đang quét tìm cơ hội fallback PAPER (risk cap <= 0.10%, ${minText}). Đảm bảo phân loại trung thực NY_QUOTA_PAPER.`;
     }
     if (quota_state === 'SEEKING_STANDARD') {
       if (nySession.quota_reason) return nySession.quota_reason;

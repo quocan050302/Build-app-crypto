@@ -121,7 +121,16 @@ def resolve_canonical_cg01_config(
             resolved_profile_mode = CG01ProfileMode.PAPER_EXECUTION.value if cg01_enabled else CG01ProfileMode.OFF.value
 
     # Extract strategy parameters from scalp_cfg
-    min_net_rr = float(getattr(scalp_cfg, "min_net_rr", 2.0))
+    min_net_rr = getattr(scalp_cfg, "min_net_rr", None)
+    if min_net_rr is None and db is not None:
+        try:
+            from services.rr_policy_service import resolve_effective_rr_policy
+            rr_ctx = resolve_effective_rr_policy(db)
+            min_net_rr = rr_ctx.min_net_rr
+        except Exception as e:
+            logger.debug(f"CG01 min_net_rr resolution from DB skipped: {e}")
+            min_net_rr = 2.0
+    min_net_rr = float(min_net_rr if min_net_rr is not None else 2.0)
     displacement_body_atr_min = float(getattr(scalp_cfg, "displacement_body_atr_min", 0.80))
     daily_min_goal = int(getattr(scalp_cfg, "daily_min_goal", 2))
     daily_max_cap = int(getattr(scalp_cfg, "daily_max_cap", 3))

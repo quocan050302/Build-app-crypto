@@ -9,6 +9,8 @@
  * - Never fabricate 2.0 or current policy for missing historical order thresholds.
  */
 
+import { calculateClientRiskReward } from './calculator';
+
 export type RrView =
   | { status: 'KNOWN'; minNetRR: number; source: string; fingerprint?: string }
   | { status: 'MISSING'; minNetRR: null; source?: string; reason?: string }
@@ -212,5 +214,409 @@ export function getOrderRrFields(orderDto: any): {
     minNetRR: undefined,
     rrPolicySource: view.source ?? undefined,
     rrPolicyFingerprint: undefined,
+  };
+}
+
+// ============================================================================
+// Aurum V16.39.17 — Unified Selection & Comparison Helpers (Phần 051–056, 071)
+// ============================================================================
+
+export type SelectionRrPolicyKind = 'CURRENT' | 'ORDER_SNAPSHOT' | 'UNKNOWN' | 'INVALID';
+
+export type SelectionRrPolicyView =
+  | {
+      kind: 'CURRENT';
+      status: 'READY' | 'LOADING' | 'ERROR';
+      minNetRR: number;
+      source: string;
+      fingerprint?: string;
+      isAuthoritative: boolean;
+    }
+  | {
+      kind: 'ORDER_SNAPSHOT';
+      status: 'KNOWN' | 'MISSING' | 'INVALID';
+      minNetRR: number | null;
+      source: string;
+      fingerprint?: string;
+      orderId?: string;
+    }
+  | {
+      kind: 'UNKNOWN';
+      status: 'MISSING';
+      minNetRR: null;
+      source: string;
+      reason?: string;
+    }
+  | {
+      kind: 'INVALID';
+      status: 'INVALID';
+      minNetRR: null;
+      source: string;
+      reason?: string;
+    };
+
+export interface CurrentPolicyContext {
+  value: number | null;
+  source?: string;
+  fingerprint?: string;
+  status?: string;
+}
+
+/**
+ * Resolves whether the currently inspected trade intent is a CURRENT evaluation or
+ * a FROZEN historical order snapshot.
+ *
+ * Rules:
+ * - intent.source === 'OPEN_POSITION' -> strictly inspects immutable order snapshot fields.
+ * - intent.source in ['DRAFT', 'LIVE_CANDIDATE', 'WATCH_SETUP', 'SCENARIO'] -> current evaluation,
+ *   bound to current verified Settings policy.
+ * - Missing current policy never guesses 2.0 or 1.5; sets status to LOADING or MISSING.
+ */
+export function resolveSelectionRrPolicy(
+  intent: any | null | undefined,
+  currentPolicy?: CurrentPolicyContext | null
+): SelectionRrPolicyView {
+  if (!intent) {
+    if (currentPolicy?.value != null && Number.isFinite(currentPolicy.value) && currentPolicy.value >= 1.5) {
+      return {
+        kind: 'CURRENT',
+        status: (currentPolicy.status as any) || 'READY',
+        minNetRR: currentPolicy.value,
+        source: currentPolicy.source || 'SYSTEM_CONFIG',
+        fingerprint: currentPolicy.fingerprint,
+        isAuthoritative: true,
+      };
+    }
+    return {
+      kind: 'UNKNOWN',
+      status: 'MISSING',
+      minNetRR: null,
+      source: currentPolicy?.source || 'UNCONFIRMED',
+      reason: 'Chưa có cấu hình chính sách R:R',
+    };
+  }
+
+  // 1. FROZEN ORDER SNAPSHOT (source === 'OPEN_POSITION' or canonical order identification)
+  if (intent.source === 'OPEN_POSITION' || (intent.order_id && intent.source !== 'DRAFT')) {
+    const orderView = resolveOrderRrView(intent);
+    if (orderView.status === 'KNOWN') {
+      return {
+        kind: 'ORDER_SNAPSHOT',
+        status: 'KNOWN',
+        minNetRR: orderView.minNetRR,
+        source: orderView.source,
+        fingerprint: orderView.fingerprint,
+        orderId: intent.order_id || intent.id,
+      };
+    }
+    if (orderView.status === 'INVALID') {
+      return {
+        kind: 'ORDER_SNAPSHOT',
+        status: 'INVALID',
+        minNetRR: null,
+        source: orderView.source || 'ORDER_SNAPSHOT',
+        fingerprint: undefined,
+        orderId: intent.order_id || intent.id,
+      };
+    }
+    return {
+      kind: 'ORDER_SNAPSHOT',
+      status: 'MISSING',
+      minNetRR: null,
+      source: 'UNKNOWN_HISTORICAL',
+      fingerprint: undefined,
+      orderId: intent.order_id || intent.id,
+    };
+  }
+
+  // 2. CURRENT EVALUATION (DRAFT, LIVE_CANDIDATE, WATCH_SETUP, SCENARIO)
+  const currentVal = currentPolicy?.value ?? intent.minNetRR;
+  if (currentVal != null && Number.isFinite(currentVal) && currentVal >= 1.5) {
+    return {
+      kind: 'CURRENT',
+      status: (currentPolicy?.status as any) || 'READY',
+      minNetRR: currentVal,
+      source: currentPolicy?.source || intent.rrPolicySource || 'SYSTEM_CONFIG',
+      fingerprint: currentPolicy?.fingerprint || intent.rrPolicyFingerprint,
+      isAuthoritative: true,
+    };
+  }
+
+  if (currentPolicy?.status === 'loading' || currentPolicy?.value === null) {
+    return {
+      kind: 'CURRENT',
+      status: 'LOADING',
+      minNetRR: 2.0, // fallback reference only while loading
+      source: 'UNCONFIRMED',
+      isAuthoritative: false,
+    };
+  }
+
+  return {
+    kind: 'UNKNOWN',
+    status: 'MISSING',
+    minNetRR: null,
+    source: 'UNKNOWN_CURRENT',
+    reason: 'Chưa xác nhận cấu hình R:R hiện hành',
+  };
+}
+
+export type NetRrComparisonStatus = 'MET' | 'NOT_MET' | 'UNKNOWN' | 'INVALID';
+
+export interface NetRrComparisonResult {
+  status: NetRrComparisonStatus;
+  actualNetRR: number | null;
+  requiredMinNetRR: number | null;
+  diff: number | null;
+  policyKind: SelectionRrPolicyKind;
+  source?: string;
+  label: string;
+  meetsMin: boolean;
+}
+
+/**
+ * Compares an actual Net R:R against the resolved selection policy view.
+ * Returns strict tri-state / quadri-state result without guessing thresholds.
+ */
+export function compareNetRr(
+  actualNetRR: number | null | undefined,
+  policyView: SelectionRrPolicyView
+): NetRrComparisonResult {
+  const actual = typeof actualNetRR === 'number' && Number.isFinite(actualNetRR) ? actualNetRR : null;
+  const kind = policyView.kind;
+  const minRR = policyView.minNetRR;
+
+  if (actual === null || !Number.isFinite(actual)) {
+    return {
+      status: 'INVALID',
+      actualNetRR: null,
+      requiredMinNetRR: minRR,
+      diff: null,
+      policyKind: kind,
+      source: 'source' in policyView ? policyView.source : undefined,
+      label: 'R:R không hợp lệ',
+      meetsMin: false,
+    };
+  }
+
+  // If order snapshot threshold is missing, compliance is strictly UNKNOWN
+  if (kind === 'ORDER_SNAPSHOT' && (minRR === null || policyView.status === 'MISSING')) {
+    return {
+      status: 'UNKNOWN',
+      actualNetRR: actual,
+      requiredMinNetRR: null,
+      diff: null,
+      policyKind: 'ORDER_SNAPSHOT',
+      source: 'UNKNOWN_HISTORICAL',
+      label: 'Chưa lưu ngưỡng lúc ARM',
+      meetsMin: false,
+    };
+  }
+
+  if (minRR === null || !Number.isFinite(minRR) || minRR <= 0) {
+    return {
+      status: 'UNKNOWN',
+      actualNetRR: actual,
+      requiredMinNetRR: null,
+      diff: null,
+      policyKind: kind,
+      source: 'source' in policyView ? policyView.source : undefined,
+      label: 'Chưa có ngưỡng xác nhận',
+      meetsMin: false,
+    };
+  }
+
+  const diff = Number((actual - minRR).toFixed(4));
+  // Actual ratio >= minRR - 1e-6 (floating point tolerance)
+  const meets = diff >= -1e-6;
+
+  return {
+    status: meets ? 'MET' : 'NOT_MET',
+    actualNetRR: actual,
+    requiredMinNetRR: minRR,
+    diff,
+    policyKind: kind,
+    source: 'source' in policyView ? policyView.source : undefined,
+    label: meets
+      ? `Đạt yêu cầu (1:${actual.toFixed(2)} >= 1:${minRR.toFixed(2)})`
+      : `Chưa đạt yêu cầu (1:${actual.toFixed(2)} < 1:${minRR.toFixed(2)})`,
+    meetsMin: meets,
+  };
+}
+
+/**
+ * Re-evaluates an active chart DRAFT overlay under newly saved RR settings,
+ * preserving exact geometry (entry, stopLoss, takeProfit, projectedBars, id, direction).
+ */
+export function rebaseDraftRrPolicy(
+  draft: any,
+  currentPolicy: CurrentPolicyContext,
+  financialContext?: {
+    accountEquity?: number;
+    riskPct?: number;
+    leverage?: number;
+    marginMode?: 'ISOLATED' | 'CROSS' | string;
+  },
+  calcFn?: typeof import('./calculator').calculateClientRiskReward
+): any {
+  if (!draft) return draft;
+
+  const nextMinNetRR = currentPolicy.value ?? draft.minNetRR ?? 2.0;
+  const nextSource = currentPolicy.source || 'SYSTEM_CONFIG';
+  const nextFingerprint = currentPolicy.fingerprint;
+
+  const entry = draft.actualEntry ?? draft.plannedEntry;
+  const sl = draft.stopLoss;
+  const tp = draft.takeProfit;
+  const direction = draft.direction;
+
+  if (entry == null || sl == null || tp == null) {
+    return {
+      ...draft,
+      minNetRR: nextMinNetRR,
+      rrPolicySource: nextSource,
+      rrPolicyFingerprint: nextFingerprint,
+    };
+  }
+
+  const compute = calcFn || calculateClientRiskReward;
+  const equity = financialContext?.accountEquity ?? 1000.0;
+  const rPct = financialContext?.riskPct ?? draft.riskPct ?? 0.25;
+  const lev = financialContext?.leverage ?? draft.leverage ?? 5;
+  const mm = (financialContext?.marginMode ?? draft.marginMode ?? 'ISOLATED') as 'ISOLATED' | 'CROSS';
+
+  let calcResult: any = null;
+  try {
+    calcResult = compute(
+      direction,
+      entry,
+      sl,
+      tp,
+      equity,
+      rPct,
+      nextMinNetRR,
+      draft.quantity,
+      lev,
+      mm
+    );
+  } catch {
+    // If calculator throws on invalid inputs, fallback cleanly
+  }
+
+  if (calcResult) {
+    return {
+      ...draft,
+      minNetRR: nextMinNetRR,
+      rrPolicySource: nextSource,
+      rrPolicyFingerprint: nextFingerprint,
+      quantity: calcResult.quantity,
+      initialRiskUsdt: calcResult.netRiskUsdt,
+      grossRewardUsdt: calcResult.grossRewardUsdt,
+      grossLossUsdt: calcResult.grossLossUsdt,
+      netRewardUsdt: calcResult.netRewardUsdt,
+      multiplier: calcResult.multiplier,
+      grossRR: calcResult.grossRR,
+      estimatedNetRR: calcResult.estimatedNetRR,
+      canExecute: calcResult.canExecute,
+      executionReason: calcResult.skipReason,
+      isValid: calcResult.isValid,
+      invalidReason: calcResult.invalidReason,
+      leverage: calcResult.leverage,
+      marginMode: calcResult.marginMode,
+      estimatedLiquidation: calcResult.estimatedLiquidation,
+      initialMargin: calcResult.initialMarginUsdt,
+      tier: calcResult.tier,
+    };
+  }
+
+  return {
+    ...draft,
+    minNetRR: nextMinNetRR,
+    rrPolicySource: nextSource,
+    rrPolicyFingerprint: nextFingerprint,
+  };
+}
+
+/**
+ * Re-evaluates a SelectedTradeIntent if it represents a DRAFT.
+ * Preserves historical orders or watch setups without fabricating values.
+ */
+export function rebaseTradeIntentRrPolicy(
+  intent: any,
+  currentPolicy: CurrentPolicyContext,
+  financialContext?: {
+    accountEquity?: number;
+    riskPct?: number;
+    leverage?: number;
+    marginMode?: 'ISOLATED' | 'CROSS' | string;
+  },
+  calcFn?: typeof import('./calculator').calculateClientRiskReward
+): any {
+  if (!intent || intent.source !== 'DRAFT') {
+    return intent;
+  }
+
+  const nextMinNetRR = currentPolicy.value ?? intent.minNetRR ?? 2.0;
+  const nextSource = currentPolicy.source || 'SYSTEM_CONFIG';
+  const nextFingerprint = currentPolicy.fingerprint;
+
+  const entry = intent.plannedEntry;
+  const sl = intent.stopLoss;
+  const tp = intent.takeProfit;
+  const direction = intent.direction;
+
+  if (entry == null || sl == null || tp == null) {
+    return {
+      ...intent,
+      minNetRR: nextMinNetRR,
+      rrPolicySource: nextSource,
+      rrPolicyFingerprint: nextFingerprint,
+    };
+  }
+
+  const compute = calcFn || calculateClientRiskReward;
+  const equity = financialContext?.accountEquity ?? 1000.0;
+  const rPct = 0.25;
+  const lev = intent.leverage || 5;
+  const mm = (intent.marginMode || 'ISOLATED') as 'ISOLATED' | 'CROSS';
+
+  let calcResult: any = null;
+  try {
+    calcResult = compute(
+      direction,
+      entry,
+      sl,
+      tp,
+      equity,
+      rPct,
+      nextMinNetRR,
+      intent.quantity,
+      lev,
+      mm
+    );
+  } catch {}
+
+  if (calcResult) {
+    return {
+      ...intent,
+      minNetRR: nextMinNetRR,
+      rrPolicySource: nextSource,
+      rrPolicyFingerprint: nextFingerprint,
+      quantity: calcResult.quantity,
+      initialRiskUsdt: calcResult.netRiskUsdt,
+      grossRewardUsdt: calcResult.grossRewardUsdt,
+      grossLossUsdt: calcResult.grossLossUsdt,
+      netRewardUsdt: calcResult.netRewardUsdt,
+      multiplier: calcResult.multiplier,
+      grossRR: calcResult.grossRR,
+      estimatedNetRR: calcResult.estimatedNetRR,
+    };
+  }
+
+  return {
+    ...intent,
+    minNetRR: nextMinNetRR,
+    rrPolicySource: nextSource,
+    rrPolicyFingerprint: nextFingerprint,
   };
 }

@@ -360,13 +360,30 @@ def create_forward_paper_session(
 
     resolved_commit = commit_sha or _resolve_runtime_commit()
 
-    frozen_risk = risk_config or {
+    default_min_rr = 2.0
+    if db is not None:
+        try:
+            from services.rr_policy_service import resolve_effective_rr_policy
+            rr_ctx = resolve_effective_rr_policy(db)
+            if rr_ctx and rr_ctx.min_net_rr is not None and rr_ctx.min_net_rr >= 1.5:
+                default_min_rr = float(rr_ctx.min_net_rr)
+        except Exception:
+            pass
+
+    default_risk = {
         "risk_pct": 0.25,
         "max_daily_fills": 3,
-        "min_net_rr": 2.0,
+        "min_net_rr": default_min_rr,
         "leverage": 5,
         "margin_mode": "ISOLATED",
     }
+    if risk_config:
+        frozen_risk = {**default_risk, **risk_config}
+        if "min_net_rr" not in risk_config or risk_config["min_net_rr"] is None:
+            frozen_risk["min_net_rr"] = default_min_rr
+    else:
+        frozen_risk = default_risk
+
     frozen_costs = cost_assumptions or {
         "fees_pct": 0.10,
         "slippage_pct": 0.10,

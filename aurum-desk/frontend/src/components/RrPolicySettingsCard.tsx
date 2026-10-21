@@ -80,7 +80,7 @@ export const RrPolicySettingsCard: React.FC<RrPolicySettingsCardProps> = ({
 
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-gray-400">Đang áp dụng:</span>
-          {isLoading ? (
+          {isLoading || saved.value === null ? (
             <span className="px-2 py-0.5 rounded bg-charcoal-800 border border-charcoal-700 text-gray-400 font-mono animate-pulse">
               Đang tải...
             </span>
@@ -98,7 +98,7 @@ export const RrPolicySettingsCard: React.FC<RrPolicySettingsCardProps> = ({
           <div className="flex items-center gap-2">
             <Info className="w-4 h-4 text-amber-400 shrink-0" />
             <span>
-              <strong>Bản Nháp Chưa Lưu:</strong> Ngưỡng dự kiến <strong>1:{parsedVal.toFixed(2)}</strong>. Giá trị này <em>chưa được lưu</em> vào backend và chart/ARM vẫn đang dùng <strong>1:{saved.value.toFixed(2)}</strong>.
+              <strong>Bản Nháp Chưa Lưu:</strong> Ngưỡng dự kiến <strong>1:{parsedVal.toFixed(2)}</strong>. Giá trị này <em>chưa được lưu</em> vào backend và chart/ARM vẫn đang dùng <strong>{saved.value != null ? `1:${saved.value.toFixed(2)}` : 'chưa xác nhận'}</strong>.
             </span>
           </div>
           <button
@@ -254,8 +254,10 @@ export const RrPolicySettingsCard: React.FC<RrPolicySettingsCardProps> = ({
               </>
             ) : isDirty ? (
               `Lưu R:R (1:${isValid ? parsedVal.toFixed(2) : draftText})`
-            ) : (
+            ) : saved.value != null ? (
               `R:R Đã Đồng Bộ (1:${saved.value.toFixed(2)})`
+            ) : (
+              'Đang Tải Cấu Hình R:R...'
             )}
           </button>
         </div>

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import type { SelectedTradeIntent } from '../App';
 import type { DrawerSectionType } from './QuickDecisionSidebar';
 import type { NYSessionStatus, TradingPolicy } from '../api/client';
+import { resolveSelectionRrPolicy } from '../utils/rrPolicyView';
 import { NYQuotaDiagnosticsCard } from './NYQuotaDiagnosticsCard';
 import {
   X,
@@ -59,6 +60,7 @@ export interface TradeDetailsDrawerProps {
   onRefreshUpcoming?: () => void;
   nySession: NYSessionStatus | null;
   policy: TradingPolicy | null;
+  appliedMinNetRR?: number;
   leverage: number;
   marginMode: string;
   analysis: any;
@@ -146,6 +148,7 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
   onRefreshUpcoming,
   nySession,
   policy,
+  appliedMinNetRR,
   leverage,
   marginMode,
   analysis,
@@ -844,13 +847,23 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                 <div className="flex justify-between text-[11px] text-gray-400 pt-0.5">
                   <span>Ngưỡng tối thiểu áp dụng:</span>
                   <span className="font-mono text-gray-300">
-                    {selectedIntent?.minNetRR != null
-                      ? `1:${selectedIntent.minNetRR.toFixed(1)}${selectedIntent.rrPolicySource === 'ORDER_SNAPSHOT' ? ' (Lúc ARM)' : ''}`
-                      : selectedIntent?.source === 'OPEN_POSITION'
-                      ? 'Chưa lưu ngưỡng lúc ARM'
-                      : policy?.min_net_rr != null
-                      ? `1:${policy.min_net_rr.toFixed(1)} (Hiện hành)`
-                      : '1:2.0 (Mặc định)'}
+                    {(() => {
+                      const selView = resolveSelectionRrPolicy(selectedIntent, {
+                        value: appliedMinNetRR ?? policy?.effective_min_net_rr ?? policy?.min_net_rr ?? null,
+                        source: policy?.rr_policy_source,
+                        fingerprint: policy?.rr_policy_fingerprint,
+                      });
+                      if (selView.kind === 'ORDER_SNAPSHOT') {
+                        if (selView.status === 'KNOWN' && selView.minNetRR != null) {
+                          return `1:${selView.minNetRR.toFixed(2)} (Lúc ARM)`;
+                        }
+                        return 'Chưa lưu ngưỡng lúc ARM';
+                      }
+                      if (selView.kind === 'CURRENT' && selView.minNetRR != null) {
+                        return `1:${selView.minNetRR.toFixed(2)} (Hiện hành)`;
+                      }
+                      return 'Chưa xác định';
+                    })()}
                   </span>
                 </div>
                 <div className="text-[10px] text-gray-500 italic pt-0.5">

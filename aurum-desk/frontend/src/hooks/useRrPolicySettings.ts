@@ -14,9 +14,10 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { normalizeRrPolicyResponse } from '../utils/rrPolicyView';
 
 export interface RrPolicySaved {
-  value: number;
+  value: number | null;
   source: string;
   fingerprint?: string;
+  isConfirmed: boolean;
 }
 
 export type RrPolicyStatus = 'loading' | 'ready' | 'saving' | 'error';
@@ -36,59 +37,65 @@ export interface UseRrPolicySettingsReturn {
 }
 
 export interface UseRrPolicySettingsOptions {
-  onSaveSuccess?: (value: number) => void;
+  onSaveSuccess?: (saved: RrPolicySaved) => void;
 }
 
 export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRrPolicySettingsReturn {
   const [saved, setSaved] = useState<RrPolicySaved>({
-    value: 2.0,
-    source: 'DEFAULT',
+    value: null,
+    source: 'UNCONFIRMED',
+    isConfirmed: false,
   });
   const [draftText, setDraftTextState] = useState<string>('2.00');
   const [status, setStatus] = useState<RrPolicyStatus>('loading');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const isUserEditedRef = useRef<boolean>(false);
   const isDirtyRef = useRef<boolean>(false);
   const draftTextRef = useRef<string>(draftText);
   const savedRef = useRef<RrPolicySaved>(saved);
   const requestGenRef = useRef<number>(0);
   const isSavingRef = useRef<boolean>(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   draftTextRef.current = draftText;
   savedRef.current = saved;
 
-  const parsedDraft = parseFloat(draftText);
-  const isDraftValid = Number.isFinite(parsedDraft) && parsedDraft >= 1.5;
-  const isDirty =
-    Boolean(draftText.trim()) &&
-    isDraftValid &&
-    Math.abs(parsedDraft - saved.value) > 1e-4;
+  const parsedDraft = Number(draftText.trim());
+  const isDirty = isUserEditedRef.current && (
+    saved.value === null ||
+    !Number.isFinite(parsedDraft) ||
+    Math.abs(parsedDraft - saved.value) > 1e-4
+  );
   isDirtyRef.current = isDirty;
 
   const setDraftText = useCallback((val: string) => {
+    isUserEditedRef.current = true;
     setDraftTextState(val);
     setError(null);
     setSuccessMessage(null);
   }, []);
 
   const setPreset = useCallback((val: number) => {
+    isUserEditedRef.current = true;
     setDraftTextState(val.toFixed(2));
     setError(null);
     setSuccessMessage(null);
   }, []);
 
   const resetDraft = useCallback(() => {
-    setDraftTextState(savedRef.current.value.toFixed(2));
+    isUserEditedRef.current = false;
+    setDraftTextState(savedRef.current.value != null ? savedRef.current.value.toFixed(2) : '2.00');
     setError(null);
     setSuccessMessage(null);
   }, []);
 
-  const fetchPolicy = useCallback(async () => {
+  const fetchPolicy = useCallback(async (signal?: AbortSignal) => {
     const currentGen = ++requestGenRef.current;
     setStatus((prev) => (prev === 'loading' ? 'loading' : prev));
     try {
-      const res = await fetch('/api/scalp/config');
+      const res = await fetch('/api/scalp/config', { signal });
       if (currentGen !== requestGenRef.current) return;
       if (!res.ok) {
         throw new Error(`Máy chủ trả về mã lỗi HTTP ${res.status}`);
@@ -102,6 +109,7 @@ export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRr
           value: norm.value,
           source: norm.source,
           fingerprint: norm.fingerprint,
+          isConfirmed: true,
         };
         setSaved(nextSaved);
         savedRef.current = nextSaved;
@@ -109,7 +117,7 @@ export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRr
         setError(null);
 
         // Only sync draft if user is NOT currently editing an unsaved draft
-        if (!isDirtyRef.current) {
+        if (!isUserEditedRef.current) {
           setDraftTextState(norm.value.toFixed(2));
         }
       } else {
@@ -117,6 +125,7 @@ export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRr
         setError(norm.error || 'Cấu hình R:R không hợp lệ');
       }
     } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       if (currentGen !== requestGenRef.current) return;
       setStatus('error');
       setError(err?.message || 'Không thể tải cấu hình R:R');
@@ -124,13 +133,20 @@ export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRr
   }, []);
 
   useEffect(() => {
-    fetchPolicy();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    fetchPolicy(controller.signal);
+    return () => {
+      ++requestGenRef.current;
+      controller.abort();
+    };
   }, [fetchPolicy]);
 
   const save = useCallback(async (): Promise<boolean> => {
     if (isSavingRef.current) return false;
 
-    const val = parseFloat(draftTextRef.current);
+    const trimmed = draftTextRef.current.trim();
+    const val = Number(trimmed);
     if (!Number.isFinite(val) || val < 1.5) {
       setError('Ngưỡng Min Net R:R phải là số hợp lệ từ 1.50 trở lên');
       return false;
@@ -152,7 +168,6 @@ export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRr
       });
 
       if (saveGen !== requestGenRef.current) {
-        // Obsoleted by another newer operation
         isSavingRef.current = false;
         return false;
       }
@@ -174,18 +189,23 @@ export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRr
           value: norm.value,
           source: norm.source,
           fingerprint: norm.fingerprint,
+          isConfirmed: true,
         };
         setSaved(newSaved);
         savedRef.current = newSaved;
         setStatus('ready');
         setSuccessMessage(`Đã lưu ngưỡng tối thiểu 1:${norm.value.toFixed(2)} (áp dụng cho đánh giá mới)`);
 
-        // If user didn't continue typing during the request, update draft
+        isUserEditedRef.current = false;
         if (draftTextRef.current === capturedDraft) {
           setDraftTextState(norm.value.toFixed(2));
         }
 
-        options?.onSaveSuccess?.(norm.value);
+        try {
+          options?.onSaveSuccess?.(newSaved);
+        } catch (callbackErr) {
+          console.warn('Post-save callback error (isolated from save success):', callbackErr);
+        }
         isSavingRef.current = false;
         return true;
       } else {
@@ -212,6 +232,6 @@ export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRr
     setPreset,
     resetDraft,
     save,
-    refresh: fetchPolicy,
+    refresh: () => fetchPolicy(),
   };
 }

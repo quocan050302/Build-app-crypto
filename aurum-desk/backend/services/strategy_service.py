@@ -510,7 +510,10 @@ class StrategyService:
         """Scenario cycle: persist material revisions (commit), publish events AFTER the commit, promote at most
         ONE confirmed scenario with a valid atomic plan to the WatchSetup table, then (auto only) hand it to
         `_auto_arm_candidate` - the same guarded arm used by every other family. Never raises."""
-        from services.smc_scenario_config import active_scenario_config as cfg
+        from services.smc_scenario_config import active_scenario_config, build_current_scenario_config
+        from services.rr_policy_service import resolve_effective_rr_policy
+        rr_ctx = resolve_effective_rr_policy(db)
+        cfg = build_current_scenario_config(active_scenario_config, min_net_rr=rr_ctx.min_net_rr)
         if not cfg.scenario_explain_enabled:
             self.last_market_reading = {"status": "DISABLED_BY_FLAG", "as_of_ms": now_ms}
             return self.last_market_reading

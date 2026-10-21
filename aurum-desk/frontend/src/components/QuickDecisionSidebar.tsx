@@ -20,6 +20,7 @@ import {
 import { quoteStore } from '../services/quoteStore';
 import { getCatalogTemplate } from '../utils/userMessageCatalog';
 import { normalizeLessonItem } from '../types/lesson';
+import { resolveSelectionRrPolicy, compareNetRr } from '../utils/rrPolicyView';
 import {
   deriveEntryDecisionView,
   getEntryDistanceLabel,
@@ -182,6 +183,13 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
     const currentNetRRRaw = selectedIntent.estimatedNetRR ?? currentSetup?.net_rr;
     const currentNetRR = typeof currentNetRRRaw === 'number' && Number.isFinite(currentNetRRRaw) ? currentNetRRRaw : null;
     const netRewardUsdt = selectedIntent.netRewardUsdt;
+
+    const selectionPolicyView = resolveSelectionRrPolicy(selectedIntent, {
+      value: appliedMinNetRR ?? null,
+      source: rrPolicySource,
+    });
+    const rrComparison = compareNetRr(currentNetRR, selectionPolicyView);
+
     if (typeof netRewardUsdt === 'number' && Number.isFinite(netRewardUsdt) && netRewardUsdt <= 0) {
       const tmpl = getCatalogTemplate('NET_REWARD_NON_POSITIVE');
       blockers.push({
@@ -189,11 +197,22 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
         title: tmpl.title,
         summary: typeof tmpl.summary === 'function' ? tmpl.summary({ net_reward_usdt: netRewardUsdt }) : tmpl.summary,
       });
-    } else if (currentNetRR !== null && currentNetRR < 2.0) {
+    } else if (selectionPolicyView.kind === 'CURRENT' && rrComparison.status === 'NOT_MET') {
+      const reqStr = rrComparison.requiredMinNetRR != null ? `1:${rrComparison.requiredMinNetRR.toFixed(2)}` : 'yêu cầu';
+      const actualStr = currentNetRR !== null ? `1:${currentNetRR.toFixed(2)}` : '—';
+      const tmpl = getCatalogTemplate('NET_RR_TOO_LOW');
       blockers.push({
         code: 'NET_RR_TOO_LOW',
-        title: `Net R:R 1:${currentNetRR.toFixed(2)} chưa đạt yêu cầu 1:2.00`,
-        summary: `Tỷ lệ Lợi nhuận/Rủi ro ròng 1:${currentNetRR.toFixed(2)} thấp hơn yêu cầu tối thiểu 1:2.00.`,
+        title: `Net R:R ${actualStr} chưa đạt yêu cầu ${reqStr}`,
+        summary: typeof tmpl.summary === 'function'
+          ? tmpl.summary({ net_rr: currentNetRR, required_rr: rrComparison.requiredMinNetRR })
+          : `Tỷ lệ Lợi nhuận/Rủi ro ròng ${actualStr} thấp hơn yêu cầu tối thiểu ${reqStr}.`,
+      });
+    } else if (selectionPolicyView.kind === 'CURRENT' && (selectionPolicyView.status === 'LOADING' || selectionPolicyView.status === 'ERROR')) {
+      blockers.push({
+        code: 'POLICY_GATE',
+        title: 'Đang đồng bộ cấu hình R:R',
+        summary: 'Hệ thống đang tải hoặc xác thực ngưỡng R:R áp dụng trước khi cho phép kích hoạt lệnh.',
       });
     }
 
@@ -702,12 +721,33 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                 <div className="flex items-center justify-between">
                   <span>R:R sau chi phí (Net):</span>
                   <span className="font-mono font-bold">
-                    <span className={netRR >= 2.0 ? 'text-aurum-400' : 'text-rose-400'}>
-                      {Number.isFinite(netRR) ? `1:${netRR.toFixed(2)}` : '—'}
-                    </span>
-                    {netRR > 0 && netRR < 2.0 && (
-                      <span className="text-[10px] text-rose-400 font-normal ml-1">(chưa đạt 1:2.0)</span>
-                    )}
+                    {(() => {
+                      const selView = resolveSelectionRrPolicy(selectedIntent, {
+                        value: appliedMinNetRR ?? null,
+                        source: rrPolicySource,
+                      });
+                      const comp = compareNetRr(netRR, selView);
+                      return (
+                        <>
+                          <span
+                            className={
+                              comp.status === 'MET'
+                                ? 'text-aurum-400'
+                                : comp.status === 'NOT_MET'
+                                ? 'text-rose-400'
+                                : 'text-gray-300'
+                            }
+                          >
+                            {Number.isFinite(netRR) ? `1:${netRR.toFixed(2)}` : '—'}
+                          </span>
+                          {comp.status === 'NOT_MET' && comp.requiredMinNetRR != null && (
+                            <span className="text-[10px] text-rose-400 font-normal ml-1">
+                              (chưa đạt 1:{comp.requiredMinNetRR.toFixed(2)})
+                            </span>
+                          )}
+                        </>
+                      );
+                    })()}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">

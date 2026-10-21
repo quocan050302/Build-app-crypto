@@ -60,7 +60,7 @@ import type { CandidateScoreSummary } from './types/candidateScore';
 import { CandidateScoreBadge } from './components/CandidateScoreBadge';
 import { useRrPolicySettings } from './hooks/useRrPolicySettings';
 import { RrPolicySettingsCard } from './components/RrPolicySettingsCard';
-import { getOrderRrFields } from './utils/rrPolicyView';
+import { getOrderRrFields, rebaseDraftRrPolicy, rebaseTradeIntentRrPolicy } from './utils/rrPolicyView';
 
 export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION' | 'SCENARIO';
 
@@ -431,12 +431,14 @@ function AppContent() {
     }
   }, [timeframe]);
 
-  // V16.39.16 Centralized Min Net R:R Settings Hook
+  // V16.39.16/17 Centralized Min Net R:R Settings Hook & Orchestrator
+  const onRrPolicySavedRef = useRef<((saved: any) => void) | null>(null);
   const rrPolicy = useRrPolicySettings({
-    onSaveSuccess: () => {
-      refreshAccountAndHealth();
+    onSaveSuccess: (saved) => {
+      onRrPolicySavedRef.current?.(saved);
     },
   });
+  const currentEffectiveMinNetRR = rrPolicy.saved.value ?? tradingPolicy?.effective_min_net_rr ?? 2.0;
 
   const handleOpenRrSettings = useCallback(() => {
     setActiveTab('paper');
@@ -559,6 +561,64 @@ function AppContent() {
       refreshUpcoming();
     }, 300);
   }, [refreshUpcoming]);
+
+  // V16.39.17 Centralized Post-Save Orchestrator (Phần 041, 042, 071)
+  const handleRrPolicySaved = useCallback(
+    async (savedContext: any) => {
+      // 1. Update local tradingPolicy state immediately so all panels see the new effective RR
+      setTradingPolicy((prev: any) =>
+        prev
+          ? {
+              ...prev,
+              min_net_rr: savedContext.value,
+              effective_min_net_rr: savedContext.value,
+              rr_policy_source: savedContext.source,
+              rr_policy_fingerprint: savedContext.fingerprint,
+            }
+          : prev
+      );
+
+      const currentEquity = accountStatus?.current_equity ?? 1000;
+
+      // 2. Rebase active draft overlay if one exists on chart
+      setActiveOverlay((prevOverlay: any) => {
+        if (prevOverlay && prevOverlay.state === 'draft') {
+          return rebaseDraftRrPolicy(prevOverlay, savedContext, {
+            accountEquity: currentEquity,
+            riskPct,
+            leverage,
+            marginMode,
+          });
+        }
+        return prevOverlay;
+      });
+
+      // 3. Rebase selected trade intent if it is a draft
+      setSelectedIntent((prevIntent: any) => {
+        if (prevIntent && prevIntent.source === 'DRAFT') {
+          return rebaseTradeIntentRrPolicy(prevIntent, savedContext, {
+            accountEquity: currentEquity,
+            riskPct,
+            leverage,
+            marginMode,
+          });
+        }
+        return prevIntent;
+      });
+
+      // 4. Concurrently refresh all dependents (account, upcoming setups, and analysis)
+      await Promise.allSettled([
+        refreshAccountAndHealth(),
+        refreshUpcoming(),
+        refreshAnalysis(),
+      ]);
+    },
+    [accountStatus?.current_equity, riskPct, leverage, marginMode, refreshAccountAndHealth, refreshUpcoming, refreshAnalysis]
+  );
+
+  useEffect(() => {
+    onRrPolicySavedRef.current = handleRrPolicySaved;
+  }, [handleRrPolicySaved]);
 
   // Register semantic actions handler from notifications
   useEffect(() => {
@@ -1149,47 +1209,46 @@ function AppContent() {
     setSelectedQualityError(null);
     const draftId = `draft-${Date.now()}`;
     const overlay = planToOverlay(setup, resolution, { isDraft: true, draftId });
-    const draftMinNetRR = overlay.minNetRR ?? rrPolicy.saved.value;
-    const draftRrSource = overlay.rrPolicySource ?? rrPolicy.saved.source;
-    const draftRrFingerprint = overlay.rrPolicyFingerprint ?? rrPolicy.saved.fingerprint;
+    const draftMinNetRR = currentEffectiveMinNetRR;
+    const draftRrSource = rrPolicy.saved.source || 'SYSTEM_CONFIG';
+    const draftRrFingerprint = rrPolicy.saved.fingerprint;
 
-    const overlayWithRr: RiskRewardData = {
-      ...overlay,
-      minNetRR: draftMinNetRR,
-      rrPolicySource: draftRrSource,
-      rrPolicyFingerprint: draftRrFingerprint,
-    };
+    const overlayWithRr: RiskRewardData = rebaseDraftRrPolicy(
+      { ...overlay, id: draftId },
+      { value: draftMinNetRR, source: draftRrSource, fingerprint: draftRrFingerprint },
+      { accountEquity: accountStatus?.current_equity ?? 1000, riskPct, leverage, marginMode }
+    );
     setActiveOverlay(overlayWithRr);
     setSelectedIntent({
       source: 'DRAFT',
       setup_id: draftId,
       symbol: 'XAUUSDT',
       timeframe: setup.timeframe || '15M',
-      direction: overlay.direction,
-      plannedEntry: overlay.plannedEntry,
-      stopLoss: overlay.stopLoss,
-      takeProfit: overlay.takeProfit,
+      direction: overlayWithRr.direction,
+      plannedEntry: overlayWithRr.plannedEntry,
+      stopLoss: overlayWithRr.stopLoss,
+      takeProfit: overlayWithRr.takeProfit,
       orderType: 'LIMIT',
-      quantity: overlay.quantity,
-      initialRiskUsdt: overlay.initialRiskUsdt,
-      grossRewardUsdt: overlay.grossRewardUsdt,
-      grossLossUsdt: overlay.grossLossUsdt,
-      netRewardUsdt: overlay.netRewardUsdt,
-      multiplier: overlay.multiplier || 1.0,
-      entryFeeUsdt: overlay.entryFeeUsdt,
-      slExitFeeUsdt: overlay.slExitFeeUsdt,
-      tpExitFeeUsdt: overlay.tpExitFeeUsdt,
-      entrySlippageUsdt: overlay.entrySlippageUsdt,
-      slExitSlippageUsdt: overlay.slExitSlippageUsdt,
-      tpExitSlippageUsdt: overlay.tpExitSlippageUsdt,
-      grossRR: overlay.grossRR,
-      estimatedNetRR: overlay.estimatedNetRR,
+      quantity: overlayWithRr.quantity,
+      initialRiskUsdt: overlayWithRr.initialRiskUsdt,
+      grossRewardUsdt: overlayWithRr.grossRewardUsdt,
+      grossLossUsdt: overlayWithRr.grossLossUsdt,
+      netRewardUsdt: overlayWithRr.netRewardUsdt,
+      multiplier: overlayWithRr.multiplier || 1.0,
+      entryFeeUsdt: overlayWithRr.entryFeeUsdt,
+      slExitFeeUsdt: overlayWithRr.slExitFeeUsdt,
+      tpExitFeeUsdt: overlayWithRr.tpExitFeeUsdt,
+      entrySlippageUsdt: overlayWithRr.entrySlippageUsdt,
+      slExitSlippageUsdt: overlayWithRr.slExitSlippageUsdt,
+      tpExitSlippageUsdt: overlayWithRr.tpExitSlippageUsdt,
+      grossRR: overlayWithRr.grossRR,
+      estimatedNetRR: overlayWithRr.estimatedNetRR,
       minNetRR: draftMinNetRR,
       rrPolicySource: draftRrSource,
       rrPolicyFingerprint: draftRrFingerprint,
-      leverage: overlay.leverage || leverage,
-      marginMode: overlay.marginMode || marginMode,
-      estimatedLiquidation: overlay.estimatedLiquidation,
+      leverage: overlayWithRr.leverage || leverage,
+      marginMode: overlayWithRr.marginMode || marginMode,
+      estimatedLiquidation: overlayWithRr.estimatedLiquidation,
       status: 'draft',
       snapshotAt: Date.now(),
     });
@@ -1588,10 +1647,12 @@ function AppContent() {
         nySession={nySession}
         policy={tradingPolicy ? {
           ...tradingPolicy,
-          min_net_rr: rrPolicy.saved.value,
+          min_net_rr: currentEffectiveMinNetRR,
+          effective_min_net_rr: currentEffectiveMinNetRR,
           rr_policy_source: rrPolicy.saved.source,
           rr_policy_fingerprint: rrPolicy.saved.fingerprint,
         } : null}
+        appliedMinNetRR={currentEffectiveMinNetRR}
         leverage={leverage}
         marginMode={marginMode}
         analysis={analysis}
@@ -1740,7 +1801,12 @@ function AppContent() {
       {/* V7 BẢNG PHIÊN MỸ & MỤC TIÊU PAPER */}
       <NYSessionPanel
         nySession={nySession}
-        policy={tradingPolicy}
+        policy={tradingPolicy ? {
+          ...tradingPolicy,
+          min_net_rr: currentEffectiveMinNetRR,
+          effective_min_net_rr: currentEffectiveMinNetRR,
+        } : null}
+        appliedMinNetRR={currentEffectiveMinNetRR}
         autoPaperActive={autoPaperActive}
         onRefresh={refreshAccountAndHealth}
         onOpenSessionDrawer={() => handleOpenDrawer('session')}
@@ -1761,7 +1827,7 @@ function AppContent() {
                 marginMode={marginMode}
                 rvolData={rvolData}
                 activeOverlay={activeOverlay}
-                effectiveMinNetRR={rrPolicy.saved.value}
+                effectiveMinNetRR={currentEffectiveMinNetRR}
                 rrPolicySource={rrPolicy.saved.source}
                 rrPolicyFingerprint={rrPolicy.saved.fingerprint}
                 onOverlayChange={(updated) => {
@@ -1773,9 +1839,9 @@ function AppContent() {
                     setSelectedQualitySnapshot(null);
                     setSelectedQualityLoading(false);
                     setSelectedQualityError(null);
-                    const updatedMinNetRR = updated.minNetRR ?? rrPolicy.saved.value;
-                    const updatedRrSource = updated.rrPolicySource ?? rrPolicy.saved.source;
-                    const updatedRrFingerprint = updated.rrPolicyFingerprint ?? rrPolicy.saved.fingerprint;
+                    const updatedMinNetRR = updated.state === 'draft' ? currentEffectiveMinNetRR : (updated.minNetRR ?? currentEffectiveMinNetRR);
+                    const updatedRrSource = updated.state === 'draft' ? (rrPolicy.saved.source || 'SYSTEM_CONFIG') : (updated.rrPolicySource ?? rrPolicy.saved.source);
+                    const updatedRrFingerprint = updated.state === 'draft' ? rrPolicy.saved.fingerprint : (updated.rrPolicyFingerprint ?? rrPolicy.saved.fingerprint);
                     setActiveOverlay({
                       ...updated,
                       state: 'draft',
@@ -1947,7 +2013,7 @@ function AppContent() {
                       </span>
                     </div>
                     <p className="text-gray-300 text-[11px] leading-relaxed">
-                      {upcomingData.scenarios?.no_trade?.condition || 'Cửa sổ Blackout tin tức USD High Impact, thị trường chop hoặc Net R:R < 2.0.'}
+                      {upcomingData.scenarios?.no_trade?.condition || `Cửa sổ Blackout tin tức USD High Impact, thị trường chop hoặc Net R:R < ${currentEffectiveMinNetRR.toFixed(1)}.`}
                     </p>
                     <div className="text-[10px] text-gray-400 mt-auto pt-2 border-t border-charcoal-750 space-y-1">
                       <p className="text-amber-300/90"><span className="text-gray-300 font-medium">Hành động:</span> {upcomingData.scenarios?.no_trade?.action || 'Không mở lệnh. Giữ nguyên vốn và quota 3 lệnh.'}</p>
@@ -2060,7 +2126,8 @@ function AppContent() {
                                       net_rr: s.net_rr,
                                       quantity: s.quantity,
                                       net_risk_usdt: s.risk_usdt ?? 0,
-                                      meets_min_rr: s.net_rr >= 2.0
+                                      min_net_rr: s.min_net_rr ?? currentEffectiveMinNetRR,
+                                      meets_min_rr: s.net_rr >= (s.min_net_rr ?? currentEffectiveMinNetRR)
                                     }
                                   : null
                               };
@@ -2112,7 +2179,10 @@ function AppContent() {
                                     <>
                                       <span
                                         className={`font-bold text-sm ${
-                                          displayPlan.financial.net_rr >= 2.0 ? 'text-emerald-400' : 'text-amber-400'
+                                          displayPlan.financial.meets_min_rr !== false &&
+                                          displayPlan.financial.net_rr >= (displayPlan.financial.min_net_rr ?? currentEffectiveMinNetRR)
+                                            ? 'text-emerald-400'
+                                            : 'text-amber-400'
                                         }`}
                                       >
                                         1:{displayPlan.financial.net_rr.toFixed(2)} Net
@@ -3254,7 +3324,7 @@ function AppContent() {
                   <QuickDecisionSidebar
                     selectedIntent={selectedIntent}
                     activePosition={activePosition}
-                    appliedMinNetRR={rrPolicy.saved.value}
+                    appliedMinNetRR={currentEffectiveMinNetRR}
                     rrPolicySource={rrPolicy.saved.source}
                     onOpenRrSettings={handleOpenRrSettings}
                     hasArmedOrder={Boolean(
@@ -3295,7 +3365,7 @@ function AppContent() {
             <QuickDecisionSidebar
               selectedIntent={selectedIntent}
               activePosition={activePosition}
-              appliedMinNetRR={rrPolicy.saved.value}
+              appliedMinNetRR={currentEffectiveMinNetRR}
               rrPolicySource={rrPolicy.saved.source}
               onOpenRrSettings={handleOpenRrSettings}
               hasArmedOrder={Boolean(

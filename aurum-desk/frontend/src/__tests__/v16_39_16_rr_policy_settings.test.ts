@@ -16,7 +16,7 @@ import {
   resolveOrderRrView,
   getOrderRrFields,
 } from '../utils/rrPolicyView';
-import { planToOverlay, type DisplayPlanResolution } from '../utils/planLevels';
+import { planToOverlay, type PlanResolution } from '../utils/planLevels';
 
 describe('V16.39.16 Min Net R:R Policy Normalization & Validation', () => {
   it('1.1: normalizeRrPolicyResponse parses effective_config with user override', () => {
@@ -228,13 +228,14 @@ describe('V16.39.16 planToOverlay Propagation & Contract', () => {
       },
     };
 
-    const resolution = {
+    const resolution: PlanResolution = {
       isValid: true,
       plan: {
         entry: 2700,
         stopLoss: 2690,
         takeProfit: 2725,
-        direction: 'LONG' as const,
+        direction: 'LONG',
+        levelSource: 'confirmed',
       },
     };
 
@@ -267,13 +268,14 @@ describe('V16.39.16 planToOverlay Propagation & Contract', () => {
       },
     };
 
-    const resolution = {
+    const resolution: PlanResolution = {
       isValid: true,
       plan: {
         entry: 2700,
         stopLoss: 2690,
         takeProfit: 2725,
-        direction: 'LONG' as const,
+        direction: 'LONG',
+        levelSource: 'confirmed',
       },
     };
 
