@@ -225,7 +225,13 @@ export interface ScoreTarget {
  */
 export function getSelectedScoreTarget(
   binding?: { kind?: string; source?: string; id: string } | null,
-  selectedIntent?: { source: string; setup_id?: string; candidate_score_summary?: { assessment_id?: string | null } | null } | null
+  selectedIntent?: {
+    source: string;
+    id?: string;
+    order_id?: string;
+    setup_id?: string;
+    candidate_score_summary?: { assessment_id?: string | null } | null;
+  } | null
 ): ScoreTarget | null {
   const bindingKind = binding?.kind || binding?.source;
   if (binding && bindingKind === 'ORDER' && binding.id) {
@@ -238,7 +244,7 @@ export function getSelectedScoreTarget(
 
   if (selectedIntent) {
     if (selectedIntent.source === 'OPEN_POSITION') {
-      const targetOrderId = (selectedIntent as any).order_id || (selectedIntent as any).id || selectedIntent.setup_id;
+      const targetOrderId = selectedIntent.order_id || selectedIntent.id || selectedIntent.setup_id;
       if (targetOrderId) {
         return {
           kind: 'ORDER',

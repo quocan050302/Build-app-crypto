@@ -63,6 +63,10 @@ export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN
 
 export interface SelectedTradeIntent {
   source: SelectionSource;
+  /** Canonical PaperOrder identifier when source === 'OPEN_POSITION' (V16.39.14) */
+  order_id?: string;
+  /** Legacy alias for order selection (V16.39.14) */
+  id?: string;
   setup_id?: string;
   setup_instance_id?: string;
   revision?: number;
@@ -1309,6 +1313,8 @@ function AppContent() {
     setActiveOverlay(overlay);
     setSelectedIntent({
       source: 'OPEN_POSITION',
+      id: trade.id,
+      order_id: trade.id,
       setup_id: trade.id,
       symbol: 'XAUUSDT',
       timeframe: trade.timeframe || '15M',

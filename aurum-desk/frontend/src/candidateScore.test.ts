@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import type { SelectedTradeIntent } from './App';
 import {
   normalizeCandidateScore,
   formatCandidateScore,
@@ -398,5 +399,122 @@ describe('V16.39.12 Target Resolver (Rules 075, 076)', () => {
 
   it('returns null when neither binding nor selectedIntent is available', () => {
     expect(getSelectedScoreTarget(null, null)).toBeNull();
+  });
+});
+
+describe('V16.39.14 Typed Target Resolver Invariants (Rules 061-070, 121-123)', () => {
+  it('prioritizes canonical order_id over id and legacy setup_id in OPEN_POSITION', () => {
+    const intent: SelectedTradeIntent = {
+      source: 'OPEN_POSITION',
+      order_id: 'ord-canonical-101',
+      id: 'ord-alias-102',
+      setup_id: 'setup-legacy-103',
+      symbol: 'XAUUSDT',
+      timeframe: '15M',
+      direction: 'LONG',
+      plannedEntry: 2650,
+      stopLoss: 2640,
+      takeProfit: 2680,
+      orderType: 'MARKET',
+      quantity: 0.1,
+      initialRiskUsdt: 2.5,
+      grossRR: 3,
+      estimatedNetRR: 2.5,
+      leverage: 20,
+      marginMode: 'ISOLATED',
+      status: 'paper_open',
+      snapshotAt: Date.now(),
+      candidate_score_summary: { assessment_id: 'assess-ord-101' } as any,
+    };
+
+    const target = getSelectedScoreTarget(null, intent);
+    expect(target).toEqual({
+      kind: 'ORDER',
+      id: 'ord-canonical-101',
+      assessmentId: 'assess-ord-101',
+    });
+  });
+
+  it('falls back to legacy id when order_id is not provided in OPEN_POSITION', () => {
+    const intent = {
+      source: 'OPEN_POSITION',
+      id: 'ord-legacy-id-202',
+      setup_id: 'setup-fallback-203',
+      candidate_score_summary: { assessment_id: 'assess-202' },
+    };
+
+    const target = getSelectedScoreTarget(null, intent);
+    expect(target).toEqual({
+      kind: 'ORDER',
+      id: 'ord-legacy-id-202',
+      assessmentId: 'assess-202',
+    });
+  });
+
+  it('falls back to legacy setup_id when neither order_id nor id is provided in OPEN_POSITION', () => {
+    const intent = {
+      source: 'OPEN_POSITION',
+      setup_id: 'trade-legacy-setup-303',
+      candidate_score_summary: { assessment_id: null },
+    };
+
+    const target = getSelectedScoreTarget(null, intent);
+    expect(target).toEqual({
+      kind: 'ORDER',
+      id: 'trade-legacy-setup-303',
+      assessmentId: null,
+    });
+  });
+
+  it('prioritizes binding ORDER over selection aliases', () => {
+    const binding = { kind: 'ORDER', id: 'ord-binding-999' };
+    const intent = {
+      source: 'OPEN_POSITION',
+      order_id: 'ord-intent-888',
+      candidate_score_summary: { assessment_id: 'assess-999' },
+    };
+
+    const target = getSelectedScoreTarget(binding, intent);
+    expect(target).toEqual({
+      kind: 'ORDER',
+      id: 'ord-binding-999',
+      assessmentId: 'assess-999',
+    });
+  });
+
+  it('resolves WATCH_SETUP to SETUP kind and never ORDER', () => {
+    const intent = {
+      source: 'WATCH_SETUP',
+      setup_id: 'setup-watch-505',
+      candidate_score_summary: { assessment_id: 'assess-setup-505' },
+    };
+
+    const target = getSelectedScoreTarget(null, intent);
+    expect(target).toEqual({
+      kind: 'SETUP',
+      id: 'setup-watch-505',
+      assessmentId: 'assess-setup-505',
+    });
+  });
+
+  it('returns null for non-order non-setup sources such as SCENARIO or DRAFT', () => {
+    const scenarioIntent = {
+      source: 'SCENARIO',
+      setup_id: 'scenario-01',
+    };
+    expect(getSelectedScoreTarget(null, scenarioIntent)).toBeNull();
+
+    const draftIntent = {
+      source: 'DRAFT',
+      setup_id: 'draft-01',
+    };
+    expect(getSelectedScoreTarget(null, draftIntent)).toBeNull();
+  });
+
+  it('returns null when OPEN_POSITION has no valid identity fields', () => {
+    const emptyIntent = {
+      source: 'OPEN_POSITION',
+    };
+    expect(getSelectedScoreTarget(null, emptyIntent)).toBeNull();
   });
 });

@@ -120,7 +120,8 @@
 - **Lệnh Lint**: `npm --prefix frontend run lint`
   - **Kết quả**: **0 errors**, 41 warnings (cảnh báo cấu hình fast-refresh và biến chưa dùng tồn tại từ baseline).
 - **Lệnh Build**: `npm --prefix frontend run build`
-  - **Kết quả**: **Thành công** (`tsc -b && vite build` hoàn thành trong 957ms, Exit Code: 0).
+  - **Đính chính nghiệm thu (Erratum V16.39.14)**: Tại baseline `aa9a300`, lệnh `npm run build` (`tsc -b && vite build`) gặp lỗi biên dịch `src/App.tsx:383:13 - error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'SelectedTradeIntent'`. Nguyên nhân do `setSelectedIntent` truyền `id: p.id` và `order_id: p.id` nhưng interface `SelectedTradeIntent` chưa khai báo hai trường này. Lỗi đã được sửa dứt điểm trong **V16.39.14** (bổ sung typed `order_id?: string; id?: string;` và đồng bộ resolver `getSelectedScoreTarget`), đưa `npm run build` trở lại trạng thái thành công hoàn toàn (0 errors).
+
 
 ### 4.3 Playwright Browser E2E Tests (Google Chrome Thực Tế)
 - **Lệnh thực thi**: `AURUM_E2E_REPORT=../logs/acceptance/v16_39_13/playwright_report.json npm --prefix frontend run test:e2e -- tests/e2e/v16_39_11_candidate_score.e2e.ts`
