@@ -684,8 +684,8 @@ def test_030_scorer_component_lesson_effect_threshold_crossing(client, isolated_
     assert as_restored.decision == "ELIGIBLE_BY_SCORE"
 
 
-# Backward-compatible alias for existing test runners
-test_030_orchestrator_lesson_effect_threshold_crossing = test_030_scorer_component_lesson_effect_threshold_crossing
+# Compatibility alias without test_ prefix to avoid duplicate pytest collection (Rule 025, 026)
+orchestrator_lesson_effect_threshold_crossing = test_030_scorer_component_lesson_effect_threshold_crossing
 
 
 def test_031_scope_negative_tests(isolated_db):
