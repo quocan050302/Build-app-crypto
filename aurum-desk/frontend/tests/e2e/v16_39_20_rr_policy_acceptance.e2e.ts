@@ -5,7 +5,7 @@
  * Covers Checklist 121-150, Appendix E:
  * 1. Single navigation (No-Reload): Window marker token verified across all transitions.
  * 2. Real UI interaction: Form save 1.50 -> POST -> response verification -> card/badge update.
- * 3. CURRENT setup evaluation with actual Net R:R ~1.75:
+ * 3. CURRENT setup evaluation with actual Net R:R ~1.77:
  *    - At minimum 1.50: R:R guard is MET.
  *    - Drawer shows "1:1.50 (Hiện hành)".
  * 4. Dual-direction Save 2.50 in same document:
@@ -24,7 +24,8 @@ const API_PORT = process.env.AURUM_E2E_API_PORT ?? '8765';
 test.describe('Aurum V16.39.20 — RR Policy Full Acceptance Suite', () => {
   test.beforeEach(async ({ page, request }) => {
     await page.goto('about:blank');
-    await request.post(`http://127.0.0.1:${API_PORT}/__e2e/reset`);
+    const resetRes = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/reset`);
+    expect(resetRes.ok()).toBe(true);
   });
 
   test('E01-V20-ACCEPTANCE: Full Propagation, Guard Check & Snapshot Isolation without Reload', async ({
@@ -45,7 +46,7 @@ test.describe('Aurum V16.39.20 — RR Policy Full Acceptance Suite', () => {
     await request.post(`http://127.0.0.1:${API_PORT}/__e2e/cg01_evaluation`, { data: initialEval });
 
     // Seed frozen historical order with snapshot min_net_rr_at_arm = 2.00
-    await request.post(`http://127.0.0.1:${API_PORT}/__e2e/seed_order`, {
+    const seedRes = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/seed_order`, {
       data: {
         order_id: 'ord-frozen-v20',
         setup_id: 'setup_ord_frozen_v20',
@@ -53,7 +54,7 @@ test.describe('Aurum V16.39.20 — RR Policy Full Acceptance Suite', () => {
         direction: 'LONG',
         planned_entry: 2650.0,
         stop_loss: 2640.0,
-        take_profit: 2675.0,
+        take_profit: 2674.0,
         cost_snapshot: {
           min_net_rr_at_arm: 2.0,
           rr_policy_source: 'ORDER_SNAPSHOT',
@@ -61,6 +62,7 @@ test.describe('Aurum V16.39.20 — RR Policy Full Acceptance Suite', () => {
         },
       },
     });
+    expect(seedRes.ok()).toBe(true);
 
     // 2. Single Page Navigation
     await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -121,31 +123,36 @@ test.describe('Aurum V16.39.20 — RR Policy Full Acceptance Suite', () => {
     expect(token1).toBe(runMarkerToken);
 
     // =========================================================================
-    // STEP 2: CHECK UPCOMING SETUP WITH ACTUAL NET RR ~1.75 UNDER 1.50 THRESHOLD
+    // STEP 2: CHECK UPCOMING SETUP WITH ACTUAL NET RR ~1.77 UNDER 1.50 THRESHOLD
     // =========================================================================
     const upcomingTabBtn = page.locator('[data-tab-id="upcoming"]');
     await upcomingTabBtn.click();
 
     // Locate the seeded setup "e2e-mid-long"
-    const setupCard = page.locator('[data-setup-id="e2e-mid-long"]').first();
-    if (await setupCard.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await setupCard.click();
-    }
+    const setupCard = page.locator('[data-setup-id="e2e-mid-long"]');
+    await expect(setupCard).toBeVisible({ timeout: 10000 });
+    await setupCard.getByTestId('focus-setup-chart').click();
 
     // Verify window marker verification after navigation to upcoming
     const tokenAfterUpcoming = await page.evaluate(() => Reflect.get(window, '__RR_V20_DOC__'));
     expect(tokenAfterUpcoming).toBe(runMarkerToken);
 
     // Open TradeDetailsDrawer to verify risk section threshold
-    const openDrawerBtn = page.locator('[data-testid="open-trade-details-drawer-btn"], #open-details-drawer-btn').first();
-    if (await openDrawerBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await openDrawerBtn.click();
-      const drawer = page.locator('[data-testid="trade-details-drawer"]');
-      if (await drawer.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await expect(drawer).toContainText('1:1.50');
-        await expect(drawer).toContainText('(Hiện hành)');
-      }
-    }
+    const openDrawerBtn = page.getByTestId('sidebar-open-trade-details');
+    await expect(openDrawerBtn).toBeVisible({ timeout: 5000 });
+    await openDrawerBtn.click();
+
+    const drawer = page.getByRole('dialog', { name: 'Bảng chi tiết giao dịch và phân tích' });
+    await expect(drawer).toBeVisible({ timeout: 5000 });
+    await drawer.getByRole('button', { name: 'Rủi Ro', exact: true }).click();
+
+    const thresholdVal1 = drawer.locator('[data-testid="rr-policy-threshold-value"]');
+    await expect(thresholdVal1).toBeVisible();
+    await expect(thresholdVal1).toContainText('1:1.50 (Hiện hành)');
+
+    const closeBtn = drawer.getByRole('button', { name: 'Đóng bảng chi tiết' });
+    await closeBtn.click();
+    await expect(drawer).toBeHidden();
 
     // =========================================================================
     // STEP 3: SECOND SAVE 2.50 VIA FORM ON SAME DOCUMENT
@@ -185,18 +192,22 @@ test.describe('Aurum V16.39.20 — RR Policy Full Acceptance Suite', () => {
     const tokenJournal = await page.evaluate(() => Reflect.get(window, '__RR_V20_DOC__'));
     expect(tokenJournal).toBe(runMarkerToken);
 
-    // Locate frozen order in journal
-    const frozenRow = page.locator('text=ord-frozen-v20').first();
-    if (await frozenRow.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await frozenRow.click();
+    // Locate frozen order in journal and focus on chart
+    const chartBtn = page.locator('[data-testid="journal-focus-chart"][data-order-id="ord-frozen-v20"]');
+    await expect(chartBtn).toBeVisible({ timeout: 10000 });
+    await chartBtn.click();
 
-      // If drawer opens or can be opened for frozen order:
-      const drawer = page.locator('[data-testid="trade-details-drawer"]');
-      if (await drawer.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await expect(drawer).toContainText('1:2.00');
-        await expect(drawer).toContainText('(Lúc ARM)');
-      }
-    }
+    // Open drawer to verify snapshot
+    await openDrawerBtn.click();
+    await expect(drawer).toBeVisible({ timeout: 5000 });
+    await drawer.getByRole('button', { name: 'Rủi Ro', exact: true }).click();
+
+    const thresholdFrozen = drawer.locator('[data-testid="rr-policy-threshold-value"]');
+    await expect(thresholdFrozen).toBeVisible();
+    await expect(thresholdFrozen).toContainText('1:2.00 (Lúc ARM)');
+
+    await closeBtn.click();
+    await expect(drawer).toBeHidden();
 
     // =========================================================================
     // STEP 5: FINAL WINDOW TOKEN VERIFICATION

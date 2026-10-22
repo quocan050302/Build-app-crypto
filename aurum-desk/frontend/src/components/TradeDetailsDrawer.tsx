@@ -882,7 +882,7 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                 </div>
                 <div className="flex justify-between text-[11px] text-gray-400 pt-0.5">
                   <span>Ngưỡng tối thiểu áp dụng:</span>
-                  <span className="font-mono text-gray-300">
+                  <span data-testid="rr-policy-threshold-value" className="font-mono text-gray-300">
                     {(() => {
                       const selView = resolveSelectionRrPolicy(
                         selectedIntent,

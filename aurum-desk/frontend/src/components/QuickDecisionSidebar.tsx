@@ -625,7 +625,12 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
         {selectedIntent ? (
           <div className="space-y-2.5">
             {/* Setup Header & Distance */}
-            <div className="p-2.5 rounded-lg bg-charcoal-850 border border-charcoal-700 space-y-2">
+            <div
+              data-testid="sidebar-selected-setup"
+              data-selected-id={selectedIntent.id || selectedIntent.setup_id}
+              data-selected-direction={selectedIntent.direction}
+              className="p-2.5 rounded-lg bg-charcoal-850 border border-charcoal-700 space-y-2"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span
@@ -673,19 +678,19 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
               <div className="grid grid-cols-3 gap-1.5 bg-charcoal-900/90 p-2 rounded border border-charcoal-750 text-center font-mono">
                 <div>
                   <span className="text-gray-500 text-[10px] block">Entry:</span>
-                  <span className="text-gray-200 font-bold text-xs sm:text-sm">
+                  <span data-testid="sidebar-entry-price" className="text-gray-200 font-bold text-xs sm:text-sm">
                     ${selectedIntent.plannedEntry}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-500 text-[10px] block">SL:</span>
-                  <span className="text-rose-400 font-bold text-xs sm:text-sm">
+                  <span data-testid="sidebar-sl-price" className="text-rose-400 font-bold text-xs sm:text-sm">
                     ${selectedIntent.stopLoss}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-500 text-[10px] block">TP:</span>
-                  <span className="text-emerald-400 font-bold text-xs sm:text-sm">
+                  <span data-testid="sidebar-tp-price" className="text-emerald-400 font-bold text-xs sm:text-sm">
                     {selectedIntent.takeProfit ? `$${selectedIntent.takeProfit}` : '—'}
                   </span>
                 </div>
@@ -722,6 +727,7 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                 <div className="flex items-center justify-between pt-1 border-t border-charcoal-750 text-[11px]">
                   <button
                     type="button"
+                    data-testid="sidebar-open-trade-details"
                     onClick={() => onOpenDetailsDrawer('quality')}
                     className="text-aurum-400 hover:text-aurum-300 font-semibold flex items-center gap-1 transition"
                   >
@@ -749,41 +755,46 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                     1:{grossRR > 0 ? grossRR.toFixed(2) : '--'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>R:R sau chi phí (Net):</span>
-                  <span className="font-mono font-bold">
-                    {(() => {
-                      const selView = resolveSelectionRrPolicy(selectedIntent, {
-                        value: appliedMinNetRR ?? null,
-                        source: rrPolicySource,
-                        fingerprint: rrPolicyFingerprint,
-                        status: rrPolicyStatus,
-                        isConfirmed: isRrPolicyConfirmed,
-                      });
-                      const comp = compareNetRr(netRR, selView);
-                      return (
-                        <>
-                          <span
-                            className={
-                              comp.status === 'MET'
-                                ? 'text-aurum-400'
-                                : comp.status === 'NOT_MET'
-                                ? 'text-rose-400'
-                                : 'text-gray-300'
-                            }
-                          >
-                            {Number.isFinite(netRR) ? `1:${netRR.toFixed(2)}` : '—'}
+                {(() => {
+                  const selView = resolveSelectionRrPolicy(selectedIntent, {
+                    value: appliedMinNetRR ?? null,
+                    source: rrPolicySource,
+                    fingerprint: rrPolicyFingerprint,
+                    status: rrPolicyStatus,
+                    isConfirmed: isRrPolicyConfirmed,
+                  });
+                  const comp = compareNetRr(netRR, selView);
+                  return (
+                    <div
+                      data-testid="sidebar-net-rr-row"
+                      data-rr-status={comp.status}
+                      data-rr-actual={comp.actualNetRR ?? undefined}
+                      data-rr-required={comp.requiredMinNetRR ?? undefined}
+                      className="flex items-center justify-between"
+                    >
+                      <span>R:R sau chi phí (Net):</span>
+                      <span className="font-mono font-bold">
+                        <span
+                          className={
+                            comp.status === 'MET'
+                              ? 'text-aurum-400'
+                              : comp.status === 'NOT_MET'
+                              ? 'text-rose-400'
+                              : 'text-gray-300'
+                          }
+                        >
+                          {Number.isFinite(netRR) ? `1:${netRR.toFixed(2)}` : '—'}
+                        </span>
+                        {comp.status === 'NOT_MET' && comp.requiredMinNetRR != null && (
+                          <span className="text-[10px] text-rose-400 font-normal ml-1">
+                            (chưa đạt 1:{comp.requiredMinNetRR.toFixed(2)})
                           </span>
-                          {comp.status === 'NOT_MET' && comp.requiredMinNetRR != null && (
-                            <span className="text-[10px] text-rose-400 font-normal ml-1">
-                              (chưa đạt 1:{comp.requiredMinNetRR.toFixed(2)})
-                            </span>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </span>
-                </div>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })()}
+
                 <div className="flex items-center justify-between">
                   <span>SL (Lỗ ròng / Lỗ giá):</span>
                   <span className="text-gray-200 font-mono">

@@ -39,6 +39,7 @@ from main import app  # noqa: E402
 from services.clock import FakeClock, VN_TZ, live_clock  # noqa: E402
 from services.collector_service import collector_service  # noqa: E402
 from services.execution_coordinator import execution_coordinator  # noqa: E402
+from e2e_financial_helper import _calculate_e2e_plan_financials  # noqa: E402
 
 # ---- V14.3: injectable launcher clock (TEST LAUNCHER ONLY - production main.py has no such backdoor) ----
 # `None` = real time (V14.2 scenarios). The NY scenarios pin the process clock to a NY wall time so the
@@ -55,8 +56,9 @@ PLANS = {
     "SHORT": dict(entry=2650.0, sl=2660.0, tp=2615.0),
     # the "photo" shape (risk 5, reward 0.29) scaled to the seeded candle range
     "TIGHT_SHORT": dict(entry=2650.29, sl=2655.29, tp=2650.00),
-    # V20 acceptance setup: actual net RR ~1.75 (between 1.50 and 2.50)
-    "MID_LONG": dict(entry=2650.0, sl=2640.0, tp=2668.0),
+    # Canonical acceptance setups: actual net RR ~1.77 (between 1.50 and 2.50)
+    "MID_LONG": dict(entry=2650.0, sl=2640.0, tp=2674.0),
+    "MID_SHORT": dict(entry=2650.0, sl=2660.0, tp=2626.0),
 }
 
 
@@ -126,10 +128,19 @@ def _upsert_setup(db, sid, direction, state, entry, sl, tp, plan_kind="CONFIRMED
     row.provisional_sl = row.confirmed_sl = sl
     row.provisional_tp = row.confirmed_tp = tp
     row.invalidation_price = sl
-    risk = abs(entry - sl)
-    reward = abs(tp - entry)
-    row.gross_rr = round(reward / risk, 2) if risk > 0 else 0.0
-    row.net_rr = round(row.gross_rr - 0.05, 2) if row.gross_rr > 0 else 0.0
+    financial = _calculate_e2e_plan_financials(
+        direction=direction,
+        entry=entry,
+        sl=sl,
+        tp=tp,
+        capital=1000.0,
+        risk_pct=0.25,
+        min_net_rr=1.5,
+        leverage=5,
+        margin_mode="ISOLATED",
+    )
+    row.gross_rr = financial.gross_rr
+    row.net_rr = financial.net_rr
     row.leverage = 5
     row.margin_mode = "ISOLATED"
     row.risk_pct = 0.25
@@ -156,6 +167,7 @@ def _reset(db):
     _upsert_setup(db, "e2e-short", "SHORT", "READY", **PLANS["SHORT"])
     _upsert_setup(db, "e2e-tight-short", "SHORT", "READY", **PLANS["TIGHT_SHORT"], plan_kind="PROVISIONAL")
     _upsert_setup(db, "e2e-mid-long", "LONG", "READY", **PLANS["MID_LONG"])
+    _upsert_setup(db, "e2e-mid-short", "SHORT", "READY", **PLANS["MID_SHORT"])
 
 
 def _state(db):
