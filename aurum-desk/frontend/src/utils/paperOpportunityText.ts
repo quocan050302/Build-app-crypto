@@ -226,6 +226,165 @@ export function buildMonitorTimeWindow(
   return { startMs, endMs, start_ms: startMs, end_ms: endMs };
 }
 
+import { getCanonicalSetupPlan } from './planLevels';
+import type {
+  BoundMonitorQuery,
+  MonitorResolution,
+  MonitorQueryParams,
+  OpportunityMonitorSummary,
+} from '../types/paperOpportunityMonitor';
+
+/**
+ * Phần 011 - 020, B2: Pure resolution of authoritative query scope and bound context from Summary response.
+ */
+export function asResolvedMonitorQuery(
+  summary: OpportunityMonitorSummary | null | undefined,
+  requested?: MonitorQueryParams
+): MonitorResolution {
+  if (!summary || typeof summary !== 'object') {
+    return {
+      status: 'UNAVAILABLE',
+      reason: 'MISSING_SUMMARY',
+      message_vi: 'Chưa nhận được phản hồi tóm tắt từ máy chủ.',
+    };
+  }
+
+  const qs = summary.query_scope || {};
+  const effectiveRunId =
+    (typeof qs.run_id === 'string' && qs.run_id.trim() ? qs.run_id.trim() : null) ||
+    (typeof summary.coverage?.run_id === 'string' && summary.coverage.run_id.trim()
+      ? summary.coverage.run_id.trim()
+      : null) ||
+    (typeof summary.run_id === 'string' && summary.run_id.trim() ? summary.run_id.trim() : null) ||
+    (typeof requested?.run_id === 'string' && requested.run_id.trim() ? requested.run_id.trim() : null);
+
+  if (!effectiveRunId) {
+    return {
+      status: 'UNAVAILABLE',
+      reason: summary.status === 'NOT_CONFIGURED' ? 'NOT_CONFIGURED' : 'NO_ACTIVE_RUN',
+      message_vi:
+        summary.status === 'NOT_CONFIGURED'
+          ? 'Chưa cấu hình phiên quan sát phù hợp.'
+          : 'Chưa có phiên quan sát phù hợp.',
+    };
+  }
+
+  const queryKey =
+    typeof summary.query_key === 'string' && summary.query_key.trim()
+      ? summary.query_key.trim()
+      : null;
+
+  const startMs =
+    typeof qs.start_ms === 'number' && Number.isFinite(qs.start_ms)
+      ? qs.start_ms
+      : typeof requested?.start_ms === 'number' && Number.isFinite(requested.start_ms)
+      ? requested.start_ms
+      : null;
+
+  const endMs =
+    typeof qs.end_ms === 'number' && Number.isFinite(qs.end_ms)
+      ? qs.end_ms
+      : typeof requested?.end_ms === 'number' && Number.isFinite(requested.end_ms)
+      ? requested.end_ms
+      : null;
+
+  if (startMs == null || endMs == null || startMs >= endMs) {
+    return {
+      status: 'UNAVAILABLE',
+      reason: 'INVALID_TIME_WINDOW',
+      message_vi: 'Khoảng thời gian hiệu lực từ máy chủ không hợp lệ.',
+    };
+  }
+
+  const symbol = (qs.symbol || requested?.symbol || 'XAUUSDT').toUpperCase();
+  const scope = (qs.scope || requested?.scope || 'CG01').toUpperCase();
+
+  const bound: BoundMonitorQuery = {
+    symbol,
+    scope,
+    run_id: effectiveRunId,
+    model_id: qs.model_id ?? (requested?.model_id ?? null),
+    session_id: qs.session_id ?? (requested?.session_id ?? null),
+    start_ms: startMs,
+    end_ms: endMs,
+    query_key: queryKey || '',
+  };
+
+  if (summary.status === 'EMPTY') {
+    return { status: 'EMPTY', query: bound };
+  }
+
+  return { status: 'RESOLVED', query: bound };
+}
+
+/**
+ * Phần 013, B1: Pure adapter creating exact request params from bound query.
+ */
+export function toMonitorRequestParams(q: BoundMonitorQuery): MonitorQueryParams {
+  return {
+    symbol: q.symbol,
+    scope: q.scope,
+    run_id: q.run_id,
+    model_id: q.model_id ?? undefined,
+    session_id: q.session_id ?? undefined,
+    start_ms: q.start_ms,
+    end_ms: q.end_ms,
+  };
+}
+
+/**
+ * Phần 017, B5: Verifies response envelope belongs to the pinned bound context.
+ */
+export function assertMonitorResponseContext(
+  response: any,
+  bound: BoundMonitorQuery,
+  resourceKind: 'LIST' | 'DETAIL' | 'FOCUS'
+): void {
+  if (!response || typeof response !== 'object') {
+    throw new Error(`MALFORMED_RESPONSE: Phản hồi ${resourceKind} rỗng hoặc không đúng định dạng.`);
+  }
+
+  if (response.query_key && response.query_key !== bound.query_key) {
+    throw new Error(
+      `SCOPE_MISMATCH: Khóa truy vấn của ${resourceKind} (${response.query_key}) không khớp với phiên đã liên kết (${bound.query_key}).`
+    );
+  }
+
+  if (resourceKind === 'LIST') {
+    if (response.run_id && response.run_id !== bound.run_id) {
+      throw new Error(
+        `RUN_MISMATCH: Danh sách thuộc phiên '${response.run_id}', không khớp với phiên quan sát '${bound.run_id}'.`
+      );
+    }
+  } else if (resourceKind === 'DETAIL') {
+    if (response.item?.run_id && response.item.run_id !== bound.run_id) {
+      throw new Error(
+        `RUN_MISMATCH: Cơ hội thuộc phiên '${response.item.run_id}', không khớp với phiên đang xem '${bound.run_id}'.`
+      );
+    }
+  }
+}
+
+/**
+ * Phần 093, G3: Pure filename formatter respecting local Asia/Ho_Chi_Minh calendar boundaries.
+ */
+export function formatMonitorReportFilename(
+  bound: { symbol: string; start_ms: number; end_ms: number },
+  timezone: string = 'Asia/Ho_Chi_Minh'
+): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const startDateStr = formatter.format(new Date(bound.start_ms));
+  // End timestamp is half-open (start of next day); subtract 1ms for the calendar label of the end day
+  const endDateStr = formatter.format(new Date(Math.max(bound.start_ms, bound.end_ms - 1)));
+  const dateTag = startDateStr === endDateStr ? startDateStr : `${startDateStr}_to_${endDateStr}`;
+  return `aurum-opportunity-report-${bound.symbol}-${dateTag}.md`;
+}
+
 /**
  * Phần 095, C7: Pure client-side validation of canonical chart focus context.
  * Enforces identity, geometry, finite prices, and discriminated kind.
@@ -271,6 +430,18 @@ export function validateMonitorChartFocusContext(
     };
   }
 
+  // 1. Query Key Check
+  if (expected?.queryKey && result.query_key && result.query_key !== expected.queryKey) {
+    return {
+      status: 'SCOPE_MISMATCH',
+      query_key: result.query_key,
+      opportunity_id: result.opportunity_id || '',
+      reason_code: 'QUERY_KEY_MISMATCH',
+      message_vi: 'Khóa truy vấn không khớp với phiên quan sát hiện tại.',
+    };
+  }
+
+  // 2. Opportunity ID Check
   const expOppId = expected?.expectedOpportunityId || expected?.opportunityId;
   if (expOppId && result.opportunity_id !== expOppId) {
     return {
@@ -282,6 +453,7 @@ export function validateMonitorChartFocusContext(
     };
   }
 
+  // 3. Target ID Check
   const expTargetId = expected?.expectedTargetId || expected?.targetId;
   if (expTargetId && result.target_id !== expTargetId) {
     return {
@@ -293,6 +465,7 @@ export function validateMonitorChartFocusContext(
     };
   }
 
+  // 4. Kind Check
   const expKind = expected?.expectedKind || expected?.kind;
   if (expKind && result.kind !== expKind) {
     return {
@@ -315,8 +488,30 @@ export function validateMonitorChartFocusContext(
     };
   }
 
+  // 5. DTO ID Check
+  if (expTargetId && dto.id && dto.id !== expTargetId) {
+    return {
+      status: 'SCOPE_MISMATCH',
+      query_key: result.query_key ?? null,
+      opportunity_id: result.opportunity_id || '',
+      reason_code: 'DTO_ID_MISMATCH',
+      message_vi: 'Mã định danh DTO không khớp với mục tiêu yêu cầu.',
+    };
+  }
+
   // Validate ORDER
   if (result.kind === 'ORDER') {
+    const expSymbol = expected?.expectedSymbol || expected?.symbol;
+    if (expSymbol && dto.instrument && dto.instrument.toUpperCase() !== expSymbol.toUpperCase()) {
+      return {
+        status: 'SCOPE_MISMATCH',
+        query_key: result.query_key ?? null,
+        opportunity_id: result.opportunity_id || '',
+        reason_code: 'SYMBOL_MISMATCH',
+        message_vi: `Mã sản phẩm của lệnh (${dto.instrument}) không khớp với (${expSymbol}).`,
+      };
+    }
+
     const isFiniteNum = (v: any) => typeof v === 'number' && Number.isFinite(v) && v > 0;
     if (!isFiniteNum(dto.planned_entry) || !isFiniteNum(dto.stop_loss) || !isFiniteNum(dto.take_profit)) {
       return {
@@ -367,10 +562,43 @@ export function validateMonitorChartFocusContext(
 
   // Validate SETUP
   if (result.kind === 'SETUP') {
+    // Check expected revision
+    if (expected?.revision != null && dto.version != null && dto.version !== expected.revision) {
+      return {
+        status: 'STALE_TARGET',
+        query_key: result.query_key ?? null,
+        opportunity_id: result.opportunity_id || '',
+        reason_code: 'SETUP_REVISION_MISMATCH',
+        message_vi: `Phiên bản kế hoạch hiện tại (v${dto.version}) đã khác thời điểm ghi nhận (v${expected.revision}).`,
+      };
+    }
+
+    // Atomic price resolution & resolved_display_plan precedence via canonical helper
+    const setupDto =
+      dto.resolved_display_plan &&
+      dto.resolved_display_plan.is_valid === undefined &&
+      dto.resolved_display_plan.entry != null
+        ? {
+            ...dto,
+            resolved_display_plan: {
+              ...dto.resolved_display_plan,
+              is_valid: true,
+            },
+          }
+        : dto;
+    const planRes = getCanonicalSetupPlan(setupDto);
+    if (!planRes.isValid) {
+      return {
+        status: 'UNAVAILABLE',
+        query_key: result.query_key ?? null,
+        opportunity_id: result.opportunity_id || '',
+        reason_code: 'INVALID_PRICES',
+        message_vi: planRes.reason,
+      };
+    }
+
+    const { entry, stopLoss: sl, takeProfit: tp, direction } = planRes.plan;
     const isFiniteNum = (v: any) => typeof v === 'number' && Number.isFinite(v) && v > 0;
-    const entry = dto.confirmed_entry || dto.provisional_entry || dto.planned_entry;
-    const sl = dto.confirmed_sl || dto.provisional_sl || dto.stop_loss;
-    const tp = dto.confirmed_tp || dto.provisional_tp || dto.take_profit;
 
     if (!isFiniteNum(entry) || !isFiniteNum(sl) || !isFiniteNum(tp)) {
       return {
@@ -381,7 +609,7 @@ export function validateMonitorChartFocusContext(
         message_vi: 'Kế hoạch thiếu thông số giá Entry / SL / TP hợp lệ.',
       };
     }
-    if (dto.direction !== 'LONG' && dto.direction !== 'SHORT') {
+    if (direction !== 'LONG' && direction !== 'SHORT') {
       return {
         status: 'UNAVAILABLE',
         query_key: result.query_key ?? null,
@@ -390,7 +618,7 @@ export function validateMonitorChartFocusContext(
         message_vi: 'Hướng kế hoạch không xác định.',
       };
     }
-    if (dto.direction === 'LONG' && (sl >= entry || tp <= entry)) {
+    if (direction === 'LONG' && (sl >= entry || tp <= entry)) {
       return {
         status: 'UNAVAILABLE',
         query_key: result.query_key ?? null,
@@ -399,7 +627,7 @@ export function validateMonitorChartFocusContext(
         message_vi: 'Cấu trúc giá kế hoạch LONG không hợp lệ (SL >= Entry hoặc TP <= Entry).',
       };
     }
-    if (dto.direction === 'SHORT' && (sl <= entry || tp >= entry)) {
+    if (direction === 'SHORT' && (sl <= entry || tp >= entry)) {
       return {
         status: 'UNAVAILABLE',
         query_key: result.query_key ?? null,

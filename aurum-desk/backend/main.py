@@ -4326,6 +4326,7 @@ def get_opportunity_monitor_report_endpoint(
         build_opportunity_monitor_summary,
         list_monitor_opportunities,
         make_monitor_query_context,
+        resolve_monitor_query_context,
         render_opportunity_monitor_markdown,
     )
 
@@ -4350,8 +4351,16 @@ def get_opportunity_monitor_report_endpoint(
     except ValueError as ve:
         raise HTTPException(status_code=422, detail=str(ve))
 
-    summary = build_opportunity_monitor_summary(db, ctx)
-    page = list_monitor_opportunities(db, ctx)
-    md_text = render_opportunity_monitor_markdown(summary, page.items)
+    # Resolve context once to bind effective run_id and window across summary and list
+    resolved = resolve_monitor_query_context(db, ctx)
+    effective_ctx = resolved.query if (resolved.resolution_status == "FOUND" and resolved.query) else ctx
+    summary = build_opportunity_monitor_summary(db, effective_ctx)
+    page = list_monitor_opportunities(db, effective_ctx)
+    md_text = render_opportunity_monitor_markdown(
+        summary,
+        page.items,
+        total_count=page.total,
+        has_more=page.has_more,
+    )
 
     return PlainTextResponse(content=md_text, media_type="text/markdown; charset=utf-8")

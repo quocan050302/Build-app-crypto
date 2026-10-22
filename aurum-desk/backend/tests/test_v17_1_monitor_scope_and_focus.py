@@ -405,7 +405,20 @@ class TestV171MonitorScopeAndFocus:
             assert data_stale["status"] == "STALE_TARGET"
             assert data_stale["reason_code"] == "SETUP_REVISION_MISMATCH"
 
-            # Query without revision restriction -> AVAILABLE with full DTO
+            # Query without revision restriction -> Server self-protects recorded revision 1 vs DB version 2 -> STALE_TARGET
+            res_no_param = client.get(
+                f"/api/v1/paper/opportunity-monitor/opportunities/opp-with-setup/chart-target"
+                f"?run_id=run-setup-focus&symbol=XAUUSDT"
+            )
+            assert res_no_param.status_code == 200
+            data_no_param = res_no_param.json()
+            assert data_no_param["status"] == "STALE_TARGET"
+            assert data_no_param["reason_code"] == "SETUP_REVISION_MISMATCH"
+
+            # When recorded revision in DB matches persisted version (v2), it returns AVAILABLE with full DTO
+            opp.payload_json = json.dumps({"watch_setup_id": "watch-setup-canonical-1", "revision": 2})
+            db_session.commit()
+
             res_ok = client.get(
                 f"/api/v1/paper/opportunity-monitor/opportunities/opp-with-setup/chart-target"
                 f"?run_id=run-setup-focus&symbol=XAUUSDT"

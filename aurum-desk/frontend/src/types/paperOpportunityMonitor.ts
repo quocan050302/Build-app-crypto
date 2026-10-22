@@ -221,6 +221,21 @@ export interface ResolvedMonitorQuery {
   query_key: string | null;
 }
 
+export type BoundMonitorQuery = Omit<
+  ResolvedMonitorQuery,
+  'run_id' | 'start_ms' | 'end_ms' | 'query_key'
+> & {
+  run_id: string;
+  start_ms: number;
+  end_ms: number;
+  query_key: string;
+};
+
+export type MonitorResolution =
+  | { status: 'RESOLVED'; query: BoundMonitorQuery }
+  | { status: 'EMPTY'; query: BoundMonitorQuery }
+  | { status: 'UNAVAILABLE'; reason: string; message_vi: string };
+
 export interface CanonicalPaperOrderDTO {
   id: string;
   setup_id?: string | null;

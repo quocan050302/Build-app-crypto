@@ -36,6 +36,7 @@ import { OpportunityTimeline } from './OpportunityTimeline';
 import {
   formatMonitorTime,
   formatMonitorDateTime,
+  formatMonitorReportFilename,
   validateMonitorChartFocusContext,
 } from '../utils/paperOpportunityText';
 import type { CG01DisplayState } from '../utils/cg01DisplayState';
@@ -69,8 +70,13 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
   const [focusError, setFocusError] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
+  const mountedRef = useRef(true);
   const focusAbortControllerRef = useRef<AbortController | null>(null);
   const focusGenerationRef = useRef(0);
+  const focusInFlightRef = useRef(false);
+
+  const exportAbortControllerRef = useRef<AbortController | null>(null);
+  const exportGenerationRef = useRef(0);
 
   // Filters state
   const [filters, setFilters] = useState<MonitorFilterState>({
@@ -101,45 +107,90 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
     selectedOpportunityId,
   });
 
-  // Handle Escape key to close
+  const invalidateFocusRequest = useCallback(() => {
+    focusGenerationRef.current += 1;
+    if (focusAbortControllerRef.current) {
+      focusAbortControllerRef.current.abort();
+      focusAbortControllerRef.current = null;
+    }
+    focusInFlightRef.current = false;
+    if (mountedRef.current) {
+      setIsFocusing(false);
+    }
+  }, []);
+
+  const invalidateExportRequest = useCallback(() => {
+    exportGenerationRef.current += 1;
+    if (exportAbortControllerRef.current) {
+      exportAbortControllerRef.current.abort();
+      exportAbortControllerRef.current = null;
+    }
+    if (mountedRef.current) {
+      setIsExporting(false);
+    }
+  }, []);
+
+  const requestCloseMonitor = useCallback(() => {
+    invalidateFocusRequest();
+    invalidateExportRequest();
+    setSelectedOpportunityId(null);
+    selectOpportunity(null);
+    setShowTechAccordion(false);
+    setFocusError(null);
+    setExportError(null);
+    onClose();
+  }, [invalidateFocusRequest, invalidateExportRequest, selectOpportunity, onClose]);
+
+  // Handle Escape key to close or back
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (selectedOpportunityId) {
           // If in detail view, go back to list first
+          invalidateFocusRequest();
           setSelectedOpportunityId(null);
           selectOpportunity(null);
           setFocusError(null);
         } else {
-          onClose();
+          requestCloseMonitor();
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, selectedOpportunityId, onClose, selectOpportunity]);
+  }, [open, selectedOpportunityId, invalidateFocusRequest, selectOpportunity, requestCloseMonitor]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      invalidateFocusRequest();
+      invalidateExportRequest();
+    };
+  }, [invalidateFocusRequest, invalidateExportRequest]);
 
   useEffect(() => {
     if (!open) {
+      invalidateFocusRequest();
+      invalidateExportRequest();
       setSelectedOpportunityId(null);
       selectOpportunity(null);
       setShowTechAccordion(false);
       setFocusError(null);
       setExportError(null);
-      if (focusAbortControllerRef.current) {
-        focusAbortControllerRef.current.abort();
-      }
     }
-  }, [open, selectOpportunity]);
+  }, [open, invalidateFocusRequest, invalidateExportRequest, selectOpportunity]);
 
   const handleSelectRow = (item: OpportunityMonitorListItem) => {
+    invalidateFocusRequest();
     setSelectedOpportunityId(item.opportunity_id);
     selectOpportunity(item.opportunity_id);
     setFocusError(null);
   };
 
   const handleBackToList = () => {
+    invalidateFocusRequest();
     setSelectedOpportunityId(null);
     selectOpportunity(null);
     setShowTechAccordion(false);
@@ -149,44 +200,68 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
   // Focus chart handler (Fetch canonical DTO -> validate -> close drawer -> delegate)
   const handleFocusChart = useCallback(async () => {
     if (!detail?.item?.chart_target?.verified || !selectedOpportunityId) return;
+    if (focusInFlightRef.current) return;
 
     const target = detail.item.chart_target;
+    const captured = {
+      opportunityId: selectedOpportunityId,
+      targetId: target.id,
+      kind: target.kind,
+      revision: target.revision ?? null,
+      setupInstanceId: target.setup_instance_id ?? null,
+      queryKey: resolvedQuery?.query_key ?? summary?.query_key ?? null,
+      runId: resolvedQuery?.run_id || summary?.coverage?.run_id || undefined,
+      startMs: resolvedQuery?.start_ms ?? undefined,
+      endMs: resolvedQuery?.end_ms ?? undefined,
+      sessionId: resolvedQuery?.session_id ?? (filters.session !== 'all' ? filters.session : undefined),
+      modelId: resolvedQuery?.model_id ?? undefined,
+    };
+
+    invalidateFocusRequest();
+    focusInFlightRef.current = true;
     setIsFocusing(true);
     setFocusError(null);
 
-    if (focusAbortControllerRef.current) {
-      focusAbortControllerRef.current.abort();
-    }
     const controller = new AbortController();
     focusAbortControllerRef.current = controller;
-    const currentGen = ++focusGenerationRef.current;
+    const currentGen = focusGenerationRef.current;
 
     try {
       const result = await api.getOpportunityMonitorChartTarget(
-        selectedOpportunityId,
+        captured.opportunityId,
         {
           symbol,
           scope: initialScope,
-          run_id: resolvedQuery?.run_id || summary?.coverage?.run_id || undefined,
-          start_ms: resolvedQuery?.start_ms ?? undefined,
-          end_ms: resolvedQuery?.end_ms ?? undefined,
-          session_id: resolvedQuery?.session_id ?? (filters.session !== 'all' ? filters.session : undefined),
-          model_id: resolvedQuery?.model_id ?? undefined,
-          expected_target_id: target.id,
-          expected_kind: target.kind,
+          run_id: captured.runId,
+          start_ms: captured.startMs,
+          end_ms: captured.endMs,
+          session_id: captured.sessionId,
+          model_id: captured.modelId,
+          expected_target_id: captured.targetId,
+          expected_kind: captured.kind,
+          ...(captured.kind === 'SETUP' && captured.revision != null
+            ? { expected_revision: captured.revision }
+            : {}),
         },
         controller.signal
       );
 
-      if (controller.signal.aborted || currentGen !== focusGenerationRef.current) {
+      if (
+        !mountedRef.current ||
+        controller.signal.aborted ||
+        currentGen !== focusGenerationRef.current ||
+        selectedOpportunityId !== captured.opportunityId
+      ) {
         return;
       }
 
       const validated = validateMonitorChartFocusContext(result, {
-        expectedKind: target.kind,
-        expectedTargetId: target.id,
-        expectedOpportunityId: selectedOpportunityId,
+        queryKey: captured.queryKey,
+        expectedKind: captured.kind,
+        expectedTargetId: captured.targetId,
+        expectedOpportunityId: captured.opportunityId,
         expectedSymbol: symbol,
+        revision: captured.revision ?? undefined,
       });
 
       if (validated.status !== 'AVAILABLE') {
@@ -194,74 +269,117 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
         return;
       }
 
-      // Validated successfully: close drawer and delegate full DTO
+      const callback = validated.kind === 'ORDER' ? onFocusTradeOnChart : onFocusSetupOnChart;
+      if (!callback) {
+        setFocusError('Chưa thể mở đối tượng này trên biểu đồ. Vui lòng tải lại giao diện.');
+        return;
+      }
+
+      if (
+        !mountedRef.current ||
+        controller.signal.aborted ||
+        currentGen !== focusGenerationRef.current
+      ) {
+        return;
+      }
+
+      // Validated successfully: invalidate pending focus tokens, close drawer, and invoke callback
+      invalidateFocusRequest();
       setSelectedOpportunityId(null);
       selectOpportunity(null);
       onClose();
 
-      if (validated.kind === 'ORDER' && onFocusTradeOnChart) {
-        onFocusTradeOnChart(validated.dto);
-      } else if (validated.kind === 'SETUP' && onFocusSetupOnChart) {
-        onFocusSetupOnChart(validated.dto);
-      }
+      callback(validated.dto);
     } catch (err: any) {
-      if (!controller.signal.aborted && currentGen === focusGenerationRef.current) {
+      if (
+        mountedRef.current &&
+        !controller.signal.aborted &&
+        currentGen === focusGenerationRef.current
+      ) {
         setFocusError(err?.message || 'Không thể tải bằng chứng chart canonical');
       }
     } finally {
-      if (currentGen === focusGenerationRef.current) {
+      if (mountedRef.current && currentGen === focusGenerationRef.current) {
+        focusInFlightRef.current = false;
         setIsFocusing(false);
       }
     }
   }, [
     detail,
     selectedOpportunityId,
-    symbol,
-    initialScope,
     resolvedQuery,
     summary,
+    symbol,
+    initialScope,
     filters.session,
-    onClose,
-    onFocusSetupOnChart,
-    onFocusTradeOnChart,
+    invalidateFocusRequest,
     selectOpportunity,
+    onClose,
+    onFocusTradeOnChart,
+    onFocusSetupOnChart,
   ]);
 
   // Markdown Report Download
   const handleDownloadReport = async () => {
+    invalidateExportRequest();
+    setIsExporting(true);
+    setExportError(null);
+
+    const controller = new AbortController();
+    exportAbortControllerRef.current = controller;
+    const currentGen = exportGenerationRef.current;
+
+    const capturedBound = {
+      symbol,
+      scope: initialScope,
+      run_id: resolvedQuery?.run_id || summary?.coverage?.run_id || undefined,
+      start_ms: resolvedQuery?.start_ms ?? summary?.query_scope?.start_ms ?? undefined,
+      end_ms: resolvedQuery?.end_ms ?? summary?.query_scope?.end_ms ?? undefined,
+      session_id: resolvedQuery?.session_id ?? (filters.session !== 'all' ? filters.session : undefined),
+      model_id: resolvedQuery?.model_id ?? undefined,
+    };
+
+    let objectUrl: string | null = null;
     try {
-      setIsExporting(true);
-      setExportError(null);
-      const md = await api.getOpportunityMonitorReportMarkdown({
-        symbol,
-        scope: initialScope,
-        run_id: resolvedQuery?.run_id || summary?.coverage?.run_id || undefined,
-        start_ms: resolvedQuery?.start_ms ?? undefined,
-        end_ms: resolvedQuery?.end_ms ?? undefined,
-        session_id: resolvedQuery?.session_id ?? (filters.session !== 'all' ? filters.session : undefined),
-        model_id: resolvedQuery?.model_id ?? undefined,
-      });
+      const md = await api.getOpportunityMonitorReportMarkdown(
+        capturedBound,
+        controller.signal
+      );
+
+      if (!mountedRef.current || controller.signal.aborted || currentGen !== exportGenerationRef.current) {
+        return;
+      }
 
       const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
+      objectUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      const dateTag =
-        resolvedQuery?.start_ms && resolvedQuery?.end_ms
-          ? `${new Date(resolvedQuery.start_ms).toISOString().slice(0, 10)}_to_${new Date(
-              resolvedQuery.end_ms
-            ).toISOString().slice(0, 10)}`
-          : new Date().toISOString().slice(0, 10);
-      a.download = `aurum-opportunity-report-${symbol}-${dateTag}.md`;
+      a.href = objectUrl;
+
+      if (capturedBound.start_ms && capturedBound.end_ms) {
+        a.download = formatMonitorReportFilename({
+          symbol,
+          start_ms: capturedBound.start_ms,
+          end_ms: capturedBound.end_ms,
+        });
+      } else {
+        a.download = `aurum-opportunity-report-${symbol}-${new Date().toISOString().slice(0, 10)}.md`;
+      }
+
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
     } catch (err: any) {
-      console.error('Failed to download report:', err);
-      setExportError(err?.message || 'Không thể tải báo cáo Markdown');
+      if (mountedRef.current && !controller.signal.aborted && currentGen === exportGenerationRef.current) {
+        console.error('Failed to download report:', err);
+        setExportError(err?.message || 'Không thể tải báo cáo Markdown');
+      }
     } finally {
-      setIsExporting(false);
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+      if (mountedRef.current && currentGen === exportGenerationRef.current) {
+        setIsExporting(false);
+      }
     }
   };
 
@@ -276,7 +394,7 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
       data-testid="paper-opportunity-monitor-drawer"
     >
       {/* Backdrop click closes */}
-      <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0" onClick={requestCloseMonitor} aria-hidden="true" />
 
       {/* Drawer Container: 560-640px on Desktop, Fullscreen on Mobile */}
       <div className="relative w-full sm:w-[580px] lg:w-[620px] h-full bg-charcoal-900 border-l border-charcoal-750 shadow-2xl flex flex-col z-10 overflow-hidden text-gray-200">
@@ -326,7 +444,7 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
             <button
               type="button"
               data-testid="monitor-close-btn"
-              onClick={onClose}
+              onClick={requestCloseMonitor}
               className="p-1.5 rounded text-gray-400 hover:text-gray-200 hover:bg-charcoal-750 transition cursor-pointer"
               title="Đóng bảng quan sát"
               aria-label="Close monitor drawer"

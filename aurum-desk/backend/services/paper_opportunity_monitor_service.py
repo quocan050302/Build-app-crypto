@@ -38,6 +38,7 @@ import models
 import schemas
 from services.cg01_missed_audit_service import CG01MissedOpportunityAuditService
 from services.ny_quota_helpers import classify_reason
+from services.plan_resolver import resolve_plan_levels
 from services.paper_runtime_snapshot_service import (
     DEFAULT_SCOPE,
     DEFAULT_SYMBOL,
@@ -430,7 +431,13 @@ def resolve_monitor_query_context(
         else:
             effective_start = max(0, requested.end_ms - MAX_WINDOW_MS)
     if effective_start >= requested.end_ms:
-        effective_start = max(0, requested.end_ms - 86400000)
+        return ResolvedMonitorContext(
+            resolution_status="SCOPE_MISMATCH",
+            query=None,
+            effective_run_id=run.run_id,
+            query_key=None,
+            limitation=f"Khoảng thời gian yêu cầu kết thúc ({requested.end_ms}) trước hoặc bằng thời điểm phiên bắt đầu ({effective_start}).",
+        )
 
     effective = replace(
         requested,
@@ -689,6 +696,7 @@ def link_monitor_order_evidence(
 def group_monitor_opportunities(
     stages: Sequence[NormalizedMonitorStage],
     order_data: Optional[Dict[str, Tuple[Optional[MonitorChartTarget], List[Dict[str, Any]]]]] = None,
+    end_ms: Optional[int] = None,
 ) -> List[OpportunityMonitorListItem]:
     """
     Phần 034 - 040, B5: Pure function grouping stage snapshots by canonical opportunity identity.
@@ -738,13 +746,16 @@ def group_monitor_opportunities(
             if verified_orders:
                 latest_order = verified_orders[0]
                 st = str(latest_order.get("state", "")).lower()
-                if st in ("closed", "paper_closed"):
+                c_at = latest_order.get("closed_at")
+                is_future_closed = bool(end_ms is not None and c_at is not None and c_at >= end_ms)
+
+                if st in ("closed", "paper_closed") and not is_future_closed:
                     curr_stage = "CLOSED"
                     primary_reason_vi = f"Lệnh đã đóng ({latest_order.get('exit_cause') or 'hoàn tất'})"
-                elif st in ("open", "paper_open"):
+                elif st in ("open", "paper_open") or (is_future_closed and latest_order.get("opened_at") and (end_ms is None or latest_order.get("opened_at") < end_ms)):
                     curr_stage = "OPEN"
-                    primary_reason_vi = "Đang mở vị thế trong phiên"
-                elif st in ("armed", "paper_armed"):
+                    primary_reason_vi = "Đang mở vị thế trong phiên" if not is_future_closed else "Đang mở vị thế trong khoảng xem (đã đóng sau mốc quan sát)"
+                elif st in ("armed", "paper_armed") or is_future_closed:
                     if curr_stage not in ("INVALIDATED", "EXPIRED", "CLOSED"):
                         curr_stage = "ARMED"
                         primary_reason_vi = "Lệnh đã đặt chờ khớp"
@@ -927,7 +938,7 @@ def list_monitor_opportunities(db: Session, query: MonitorQueryContext) -> Monit
 
     # 5. Normalize and group
     normalized_stages = [normalize_monitor_stage_row(r) for r in stage_rows]
-    grouped_items = group_monitor_opportunities(normalized_stages, order_data=order_data)
+    grouped_items = group_monitor_opportunities(normalized_stages, order_data=order_data, end_ms=effective_query.end_ms)
 
     # Maintain deterministic ordering matching page_ids
     id_to_item = {item.opportunity_id: item for item in grouped_items}
@@ -979,6 +990,7 @@ def build_opportunity_monitor_detail(
         return None
 
     normalized_stages = [normalize_monitor_stage_row(r) for r in stage_rows]
+    normalized_stages.sort(key=lambda s: (s.as_of_ms, s.updated_at_ms, s.created_at_ms, s.stage))
 
     # Query order associations strictly for effective run
     order_data = link_monitor_order_evidence(
@@ -989,7 +1001,7 @@ def build_opportunity_monitor_detail(
     )
 
     # Group to get ListItem
-    list_items = group_monitor_opportunities(normalized_stages, order_data=order_data)
+    list_items = group_monitor_opportunities(normalized_stages, order_data=order_data, end_ms=effective_query.end_ms)
     if not list_items:
         return None
     list_item = list_items[0]
@@ -1023,7 +1035,7 @@ def build_opportunity_monitor_detail(
             )
         )
 
-    # 2. Committed order milestones (strictly for effective run)
+    # 2. Committed order milestones (strictly bounded to effective run and [start_ms, end_ms))
     for o in linked_outcomes:
         oid = o["order_id"]
         order_milestones = (
@@ -1031,8 +1043,13 @@ def build_opportunity_monitor_detail(
             .filter(
                 models.PaperResearchOrderMilestone.order_id == oid,
                 models.PaperResearchOrderMilestone.run_id == effective_query.run_id,
+                models.PaperResearchOrderMilestone.timestamp_ms >= effective_query.start_ms,
+                models.PaperResearchOrderMilestone.timestamp_ms < effective_query.end_ms,
             )
-            .order_by(models.PaperResearchOrderMilestone.timestamp_ms.asc())
+            .order_by(
+                models.PaperResearchOrderMilestone.timestamp_ms.asc(),
+                models.PaperResearchOrderMilestone.id.asc(),
+            )
             .all()
         )
         for om in order_milestones:
@@ -1055,15 +1072,14 @@ def build_opportunity_monitor_detail(
                 )
             )
 
-    # 3. Traces (strictly bounded to effective run or explicit candidate match)
+    # 3. Traces (strictly bounded to effective run, candidate match, and [start_ms, end_ms))
     traces = (
         db.query(models.CG01TraceRecord)
         .filter(
             models.CG01TraceRecord.symbol == effective_query.symbol,
-            (
-                (models.CG01TraceRecord.run_id == effective_query.run_id)
-                | (models.CG01TraceRecord.run_id.is_(None))
-            ),
+            models.CG01TraceRecord.run_id == effective_query.run_id,
+            models.CG01TraceRecord.created_at_ms >= effective_query.start_ms,
+            models.CG01TraceRecord.created_at_ms < effective_query.end_ms,
             (
                 (models.CG01TraceRecord.candidate_key == clean_opp_id)
                 | (models.CG01TraceRecord.candidate_key == f"cand_{clean_opp_id}")
@@ -1387,6 +1403,9 @@ def render_opportunity_monitor_markdown(
     summary: OpportunityMonitorSummary,
     items: Sequence[OpportunityMonitorListItem],
     limitations: Optional[List[str]] = None,
+    *,
+    total_count: Optional[int] = None,
+    has_more: bool = False,
 ) -> str:
     """
     Phần 100, 141 - 150, B9: Pure markdown report renderer for opportunity monitor.
@@ -1450,6 +1469,7 @@ def render_opportunity_monitor_markdown(
     lines.append("")
 
     lines.append("## 4. Danh Sách Cơ Hội Đã Quan Sát")
+    tot = total_count if total_count is not None else len(items)
     if items:
         lines.append("| Thời gian ghi nhận | Hướng | Trạng thái hiện tại | Lý do chính | Điểm | Vùng theo dõi |")
         lines.append("| :--- | :--- | :--- | :--- | :--- | :--- |")
@@ -1461,8 +1481,9 @@ def render_opportunity_monitor_markdown(
             score_str = f"{it.score:.0f}" if it.score is not None else "-"
             zone_str = it.zone_label or "-"
             lines.append(f"| {t_str} | **{it.direction}** | {it.stage_label_vi} | {it.primary_reason_vi} | {score_str} | `{zone_str}` |")
-        if len(items) > 50:
-            lines.append(f"\n*(Đã giới hạn hiển thị 50 / {len(items)} cơ hội)*")
+        if has_more or tot > len(items) or len(items) > 50:
+            shown_count = min(len(items), 50)
+            lines.append(f"\n*(Đang hiển thị {shown_count}/{tot} cơ hội; báo cáo giới hạn 50 dòng)*")
     else:
         lines.append("*(Không có cơ hội nào phù hợp bộ lọc)*")
     lines.append("")
@@ -1536,6 +1557,7 @@ def build_monitor_chart_focus_context(
         }
 
     normalized_stages = [normalize_monitor_stage_row(r) for r in stage_rows]
+    normalized_stages.sort(key=lambda s: (s.as_of_ms, s.updated_at_ms, s.created_at_ms, s.stage))
 
     # 2. Check linked order evidence
     order_data = link_monitor_order_evidence(
@@ -1548,16 +1570,24 @@ def build_monitor_chart_focus_context(
 
     # Fallback to setup target if no order target
     if chart_target is None:
-        last_rec = normalized_stages[-1]
-        watch_id = last_rec.payload.get("watch_setup_id") or last_rec.payload.get("setup_id")
-        if watch_id:
-            chart_target = MonitorChartTarget(
-                kind="SETUP",
-                id=str(watch_id),
-                setup_instance_id=str(last_rec.payload.get("setup_instance_id") or watch_id),
-                revision=last_rec.payload.get("revision") or last_rec.payload.get("version"),
-                verified=True,
-            )
+        for s in reversed(normalized_stages):
+            watch_id = s.payload.get("watch_setup_id") or s.payload.get("setup_id")
+            if watch_id:
+                rev = s.payload.get("revision")
+                if rev is None:
+                    rev = s.payload.get("version")
+                try:
+                    eff_rev = int(rev) if rev is not None else None
+                except (ValueError, TypeError):
+                    eff_rev = None
+                chart_target = MonitorChartTarget(
+                    kind="SETUP",
+                    id=str(watch_id),
+                    setup_instance_id=str(s.payload.get("setup_instance_id") or watch_id),
+                    revision=eff_rev,
+                    verified=True,
+                )
+                break
 
     if chart_target is None:
         return {
@@ -1600,6 +1630,16 @@ def build_monitor_chart_focus_context(
                 "message_vi": f"Lệnh '{chart_target.id}' không tồn tại trong cơ sở dữ liệu.",
             }
 
+        # Check instrument matches effective scope
+        if getattr(order_row, "instrument", None) != effective_query.symbol:
+            return {
+                "status": "SCOPE_MISMATCH",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "SYMBOL_MISMATCH",
+                "message_vi": f"Sản phẩm của lệnh ({getattr(order_row, 'instrument', None)}) không khớp với bộ lọc ({effective_query.symbol}).",
+            }
+
         # Validate geometry
         pe = getattr(order_row, "planned_entry", None)
         sl = getattr(order_row, "stop_loss", None)
@@ -1613,6 +1653,43 @@ def build_monitor_chart_focus_context(
                 "opportunity_id": clean_opp_id,
                 "reason_code": "INVALID_ORDER_GEOMETRY",
                 "message_vi": "Dữ liệu lệnh thiếu thông số giá (Entry/SL/TP) hoặc hướng lệnh không xác định.",
+            }
+
+        try:
+            f_pe, f_sl, f_tp = float(pe), float(sl), float(tp)
+        except (ValueError, TypeError):
+            return {
+                "status": "UNAVAILABLE",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "INVALID_ORDER_GEOMETRY",
+                "message_vi": "Giá trị Entry/SL/TP không phải là số hợp lệ.",
+            }
+
+        if not (math.isfinite(f_pe) and math.isfinite(f_sl) and math.isfinite(f_tp) and f_pe > 0 and f_sl > 0 and f_tp > 0):
+            return {
+                "status": "UNAVAILABLE",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "INVALID_ORDER_GEOMETRY",
+                "message_vi": "Giá trị Entry/SL/TP phải là số thực dương hữu hạn.",
+            }
+
+        if direction == "LONG" and not (f_sl < f_pe < f_tp):
+            return {
+                "status": "UNAVAILABLE",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "INVALID_LONG_GEOMETRY",
+                "message_vi": "Cấu trúc giá lệnh LONG không thỏa mãn SL < Entry < TP.",
+            }
+        elif direction == "SHORT" and not (f_tp < f_pe < f_sl):
+            return {
+                "status": "UNAVAILABLE",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "INVALID_SHORT_GEOMETRY",
+                "message_vi": "Cấu trúc giá lệnh SHORT không thỏa mãn TP < Entry < SL.",
             }
 
         dto = schemas.PaperOrderResponse.model_validate(order_row).model_dump()
@@ -1636,21 +1713,61 @@ def build_monitor_chart_focus_context(
                 "message_vi": f"Kế hoạch '{chart_target.id}' không tồn tại trong cơ sở dữ liệu.",
             }
 
-        # Check revision
-        if expected_revision is not None and getattr(setup_row, "version", None) != expected_revision:
+        # Check symbol if available on setup
+        if getattr(setup_row, "symbol", None) and setup_row.symbol != effective_query.symbol:
+            return {
+                "status": "SCOPE_MISMATCH",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "SYMBOL_MISMATCH",
+                "message_vi": f"Sản phẩm của kế hoạch ({setup_row.symbol}) không khớp với bộ lọc ({effective_query.symbol}).",
+            }
+
+        # Check revision provenance
+        recorded_rev = chart_target.revision
+        if recorded_rev is None:
+            return {
+                "status": "UNAVAILABLE",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "SETUP_REVISION_UNVERIFIED",
+                "message_vi": "Kế hoạch lịch sử không có thông tin phiên bản ghi nhận (revision unverified).",
+            }
+
+        if expected_revision is not None and expected_revision != recorded_rev:
+            return {
+                "status": "SCOPE_MISMATCH",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "REQUESTED_RECORDED_REVISION_MISMATCH",
+                "message_vi": f"Phiên bản yêu cầu (v{expected_revision}) không khớp với phiên bản ghi nhận tại mốc cơ hội (v{recorded_rev}).",
+            }
+
+        current_version = getattr(setup_row, "version", None)
+        if current_version != recorded_rev:
             return {
                 "status": "STALE_TARGET",
                 "query_key": resolved.query_key,
                 "opportunity_id": clean_opp_id,
                 "reason_code": "SETUP_REVISION_MISMATCH",
-                "message_vi": f"Phiên bản kế hoạch hiện tại (v{setup_row.version}) đã khác thời điểm ghi nhận (v{expected_revision}).",
+                "message_vi": f"Phiên bản kế hoạch hiện tại (v{current_version}) đã khác thời điểm ghi nhận cơ hội (v{recorded_rev}).",
             }
 
-        # Validate geometry
-        entry_val = setup_row.confirmed_entry or setup_row.provisional_entry
-        sl_val = setup_row.confirmed_sl or setup_row.provisional_sl
-        tp_val = setup_row.confirmed_tp or setup_row.provisional_tp
-        s_dir = setup_row.direction
+        # Validate geometry via resolve_plan_levels
+        plan = resolve_plan_levels(setup=setup_row, raise_on_error=False)
+        if not plan.get("is_valid", False):
+            return {
+                "status": "UNAVAILABLE",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": plan.get("error_code") or "INVALID_SETUP_GEOMETRY",
+                "message_vi": plan.get("error_message") or "Kế hoạch không thỏa mãn quy tắc cấu trúc giá hợp lệ.",
+            }
+
+        entry_val = plan.get("entry")
+        sl_val = plan.get("stop_loss")
+        tp_val = plan.get("take_profit")
+        s_dir = plan.get("direction")
 
         if not (entry_val and sl_val and tp_val and s_dir in ("LONG", "SHORT")):
             return {
@@ -1661,8 +1778,28 @@ def build_monitor_chart_focus_context(
                 "message_vi": "Kế hoạch thiếu thông số giá hoặc hướng giao dịch không hợp lệ.",
             }
 
+        try:
+            f_entry, f_sl, f_tp = float(entry_val), float(sl_val), float(tp_val)
+        except (ValueError, TypeError):
+            return {
+                "status": "UNAVAILABLE",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "INVALID_SETUP_GEOMETRY",
+                "message_vi": "Giá trị Entry/SL/TP của kế hoạch không phải là số hợp lệ.",
+            }
+
+        if not (math.isfinite(f_entry) and math.isfinite(f_sl) and math.isfinite(f_tp) and f_entry > 0 and f_sl > 0 and f_tp > 0):
+            return {
+                "status": "UNAVAILABLE",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "INVALID_SETUP_GEOMETRY",
+                "message_vi": "Giá trị Entry/SL/TP của kế hoạch phải là số thực dương hữu hạn.",
+            }
+
         # Long: sl < entry < tp ; Short: tp < entry < sl
-        if s_dir == "LONG" and not (sl_val < entry_val < tp_val):
+        if s_dir == "LONG" and not (f_sl < f_entry < f_tp):
             return {
                 "status": "UNAVAILABLE",
                 "query_key": resolved.query_key,
@@ -1670,7 +1807,7 @@ def build_monitor_chart_focus_context(
                 "reason_code": "INVALID_LONG_GEOMETRY",
                 "message_vi": "Cấu trúc giá LONG không thỏa mãn SL < Entry < TP.",
             }
-        elif s_dir == "SHORT" and not (tp_val < entry_val < sl_val):
+        elif s_dir == "SHORT" and not (f_tp < f_entry < f_sl):
             return {
                 "status": "UNAVAILABLE",
                 "query_key": resolved.query_key,

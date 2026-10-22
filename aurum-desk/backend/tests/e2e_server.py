@@ -673,6 +673,8 @@ def e2e_seed_monitor(body: dict = Body(default={})):
             metrics_json=json.dumps({"quality_score": 79.5}),
             payload_json=json.dumps({
                 "watch_setup_id": "setup_opp_e2e_001",
+                "setup_instance_id": "setup_opp_e2e_001",
+                "revision": 1,
                 "planned_entry": 2650.0,
                 "stop_loss": 2640.0,
                 "take_profit": 2685.0,
