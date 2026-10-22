@@ -446,6 +446,21 @@ function AppContent() {
   });
 
   const currentPolicyContext: CurrentPolicyContext = useMemo(() => {
+    // 1. Policy read/verification error: context is explicitly ERROR (non-authoritative for new orders)
+    if (rrPolicy.policyReadStatus === 'ERROR') {
+      return {
+        value: rrPolicy.saved.value, // keep lastKnown if present for reference
+        source: rrPolicy.saved.source || 'SYSTEM_CONFIG',
+        fingerprint: rrPolicy.saved.fingerprint,
+        status: 'ERROR',
+        isConfirmed: false,
+        policyReadStatus: 'ERROR',
+        errorOrigin: 'READ',
+        readError: rrPolicy.readError,
+      };
+    }
+
+    // 2. Confirmed saved policy from owner hook
     if (
       rrPolicy.saved.isConfirmed &&
       rrPolicy.saved.value != null &&
@@ -458,8 +473,11 @@ function AppContent() {
         fingerprint: rrPolicy.saved.fingerprint,
         status: 'READY',
         isConfirmed: true,
+        policyReadStatus: 'READY',
       };
     }
+
+    // 3. Fallback to tradingPolicy if verified
     if (
       tradingPolicy?.effective_min_net_rr != null &&
       Number.isFinite(tradingPolicy.effective_min_net_rr) &&
@@ -471,15 +489,19 @@ function AppContent() {
         fingerprint: tradingPolicy.rr_policy_fingerprint,
         status: 'READY',
         isConfirmed: true,
+        policyReadStatus: 'READY',
       };
     }
+
+    // 4. Loading or unconfirmed
     return {
       value: null,
       source: 'UNCONFIRMED',
-      status: rrPolicy.status === 'loading' ? 'LOADING' : 'UNCONFIRMED',
+      status: rrPolicy.policyReadStatus === 'LOADING' || rrPolicy.status === 'loading' ? 'LOADING' : 'UNCONFIRMED',
       isConfirmed: false,
+      policyReadStatus: rrPolicy.policyReadStatus || 'UNCONFIRMED',
     };
-  }, [rrPolicy.saved, rrPolicy.status, tradingPolicy]);
+  }, [rrPolicy.saved, rrPolicy.status, rrPolicy.policyReadStatus, rrPolicy.readError, tradingPolicy]);
 
   const currentEffectiveMinNetRR: number | null = currentPolicyContext.value;
 

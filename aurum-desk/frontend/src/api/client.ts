@@ -220,6 +220,7 @@ export interface TradingPolicy {
   effective_min_net_rr?: number | null;
   rr_policy_source?: string;
   rr_policy_fingerprint?: string;
+  rr_policy_status?: string;
   max_open_positions: number;
   max_armed_orders: number;
   created_at?: number;

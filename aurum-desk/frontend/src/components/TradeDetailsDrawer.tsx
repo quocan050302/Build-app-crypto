@@ -852,15 +852,27 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                         value: appliedMinNetRR ?? policy?.effective_min_net_rr ?? policy?.min_net_rr ?? null,
                         source: policy?.rr_policy_source,
                         fingerprint: policy?.rr_policy_fingerprint,
+                        status: policy?.rr_policy_status,
                       });
                       if (selView.kind === 'ORDER_SNAPSHOT') {
                         if (selView.status === 'KNOWN' && selView.minNetRR != null) {
                           return `1:${selView.minNetRR.toFixed(2)} (Lúc ARM)`;
                         }
+                        if (selView.status === 'INVALID') {
+                          return 'Ngưỡng snapshot lúc ARM không hợp lệ';
+                        }
                         return 'Chưa lưu ngưỡng lúc ARM';
                       }
-                      if (selView.kind === 'CURRENT' && selView.minNetRR != null) {
-                        return `1:${selView.minNetRR.toFixed(2)} (Hiện hành)`;
+                      if (selView.kind === 'CURRENT') {
+                        if (selView.status === 'ERROR') {
+                          return 'Lỗi cấu hình R:R';
+                        }
+                        if (selView.minNetRR != null) {
+                          return `1:${selView.minNetRR.toFixed(2)} (Hiện hành)`;
+                        }
+                      }
+                      if (selView.kind === 'INVALID') {
+                        return 'Cấu hình R:R không hợp lệ';
                       }
                       return 'Chưa xác định';
                     })()}

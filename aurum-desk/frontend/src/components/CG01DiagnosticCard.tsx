@@ -250,7 +250,9 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
                   data-testid="cg01-applied-rr-badge"
                   title={rrPolicySource ? `Nguồn chính sách: ${rrPolicySource}` : undefined}
                 >
-                  {appliedMinNetRR != null && isRrPolicyConfirmed !== false && rrPolicyStatus !== 'LOADING'
+                  {rrPolicyStatus?.toUpperCase() === 'ERROR'
+                    ? 'Lỗi tải cấu hình'
+                    : appliedMinNetRR != null && isRrPolicyConfirmed !== false && rrPolicyStatus !== 'LOADING'
                     ? `1:${appliedMinNetRR.toFixed(2)}`
                     : 'Đang tải...'}
                 </span>

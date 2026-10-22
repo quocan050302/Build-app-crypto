@@ -224,10 +224,24 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
         !selectionPolicyView.isAuthoritative ||
         selectionPolicyView.minNetRR === null)
     ) {
+      const isErr = selectionPolicyView.status === 'ERROR' || rrComparison.label === 'Lỗi cấu hình R:R';
       blockers.push({
         code: 'POLICY_GATE',
-        title: 'Chưa xác nhận cấu hình R:R',
-        summary: 'Hệ thống đang tải hoặc xác thực ngưỡng R:R áp dụng trước khi cho phép kích hoạt lệnh.',
+        title: isErr ? 'Lỗi cấu hình R:R' : 'Chưa xác nhận cấu hình R:R',
+        summary: isErr
+          ? 'Không thể tải hoặc xác minh chính sách R:R từ máy chủ. Vui lòng kiểm tra lại kết nối hoặc cài đặt.'
+          : 'Hệ thống đang tải hoặc xác thực ngưỡng R:R áp dụng trước khi cho phép kích hoạt lệnh.',
+      });
+    } else if (
+      selectionPolicyView.kind === 'INVALID' ||
+      rrComparison.status === 'INVALID'
+    ) {
+      blockers.push({
+        code: 'POLICY_GATE',
+        title: 'Cấu hình R:R không hợp lệ',
+        summary: selectionPolicyView.kind === 'ORDER_SNAPSHOT'
+          ? 'Ngưỡng snapshot lúc ARM của lệnh không hợp lệ.'
+          : 'Dữ liệu hoặc tỷ lệ R:R không hợp lệ.',
       });
     }
 

@@ -21,6 +21,8 @@ export interface RrPolicySaved {
 }
 
 export type RrPolicyStatus = 'loading' | 'ready' | 'saving' | 'error';
+export type PolicyReadStatus = 'READY' | 'LOADING' | 'ERROR' | 'UNCONFIRMED';
+export type ErrorOrigin = 'READ' | 'SAVE' | null;
 
 export interface UseRrPolicySettingsReturn {
   saved: RrPolicySaved;
@@ -34,10 +36,14 @@ export interface UseRrPolicySettingsReturn {
   resetDraft: () => void;
   save: () => Promise<boolean>;
   refresh: () => Promise<void>;
+  policyReadStatus: PolicyReadStatus;
+  errorOrigin: ErrorOrigin;
+  saveError: string | null;
+  readError: string | null;
 }
 
 export interface UseRrPolicySettingsOptions {
-  onSaveSuccess?: (saved: RrPolicySaved) => void;
+  onSaveSuccess?: (saved: RrPolicySaved) => void | Promise<void>;
 }
 
 export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRrPolicySettingsReturn {
@@ -48,7 +54,11 @@ export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRr
   });
   const [draftText, setDraftTextState] = useState<string>('2.00');
   const [status, setStatus] = useState<RrPolicyStatus>('loading');
+  const [policyReadStatus, setPolicyReadStatus] = useState<PolicyReadStatus>('LOADING');
+  const [errorOrigin, setErrorOrigin] = useState<ErrorOrigin>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [readError, setReadError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const isUserEditedRef = useRef<boolean>(false);
@@ -94,6 +104,7 @@ export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRr
   const fetchPolicy = useCallback(async (signal?: AbortSignal) => {
     const currentGen = ++requestGenRef.current;
     setStatus((prev) => (prev === 'loading' ? 'loading' : prev));
+    setPolicyReadStatus((prev) => (prev === 'LOADING' ? 'LOADING' : prev));
     try {
       const res = await fetch('/api/scalp/config', { signal });
       if (currentGen !== requestGenRef.current) return;
@@ -114,21 +125,32 @@ export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRr
         setSaved(nextSaved);
         savedRef.current = nextSaved;
         setStatus('ready');
+        setPolicyReadStatus('READY');
+        setErrorOrigin(null);
         setError(null);
+        setReadError(null);
 
         // Only sync draft if user is NOT currently editing an unsaved draft
         if (!isUserEditedRef.current) {
           setDraftTextState(norm.value.toFixed(2));
         }
       } else {
+        const errMsg = norm.error || 'Cấu hình R:R không hợp lệ';
         setStatus('error');
-        setError(norm.error || 'Cấu hình R:R không hợp lệ');
+        setPolicyReadStatus('ERROR');
+        setErrorOrigin('READ');
+        setReadError(errMsg);
+        setError(errMsg);
       }
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
       if (currentGen !== requestGenRef.current) return;
+      const errMsg = err?.message || 'Không thể tải cấu hình R:R';
       setStatus('error');
-      setError(err?.message || 'Không thể tải cấu hình R:R');
+      setPolicyReadStatus('ERROR');
+      setErrorOrigin('READ');
+      setReadError(errMsg);
+      setError(errMsg);
     }
   }, []);
 
@@ -155,6 +177,7 @@ export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRr
     isSavingRef.current = true;
     setStatus('saving');
     setError(null);
+    setSaveError(null);
     setSuccessMessage(null);
 
     const saveGen = ++requestGenRef.current;
@@ -194,6 +217,11 @@ export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRr
         setSaved(newSaved);
         savedRef.current = newSaved;
         setStatus('ready');
+        setPolicyReadStatus('READY');
+        setErrorOrigin(null);
+        setSaveError(null);
+        setReadError(null);
+        setError(null);
         setSuccessMessage(`Đã lưu ngưỡng tối thiểu 1:${norm.value.toFixed(2)} (áp dụng cho đánh giá mới)`);
 
         isUserEditedRef.current = false;
@@ -202,7 +230,7 @@ export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRr
         }
 
         try {
-          options?.onSaveSuccess?.(newSaved);
+          await Promise.resolve(options?.onSaveSuccess?.(newSaved));
         } catch (callbackErr) {
           console.warn('Post-save callback error (isolated from save success):', callbackErr);
         }
@@ -213,8 +241,11 @@ export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRr
       }
     } catch (err: any) {
       if (saveGen === requestGenRef.current) {
+        const errMsg = err?.message || 'Lưu cài đặt R:R thất bại';
         setStatus('error');
-        setError(err?.message || 'Lưu cài đặt R:R thất bại');
+        setErrorOrigin('SAVE');
+        setSaveError(errMsg);
+        setError(errMsg);
       }
       isSavingRef.current = false;
       return false;
@@ -233,5 +264,9 @@ export function useRrPolicySettings(options?: UseRrPolicySettingsOptions): UseRr
     resetDraft,
     save,
     refresh: () => fetchPolicy(),
+    policyReadStatus,
+    errorOrigin,
+    saveError,
+    readError,
   };
 }

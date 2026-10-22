@@ -297,9 +297,20 @@ export function resolveMappedOrderRrView(mapped: any): RrView {
   };
 }
 
-// ============================================================================
-// Aurum V16.39.18 — Unified Selection & Comparison Helpers
-// ============================================================================
+export type CurrentPolicyReadStatus = 'READY' | 'LOADING' | 'ERROR' | 'UNCONFIRMED';
+
+/**
+ * Normalizes policy read status across case variants (lower/upper) using whitelist semantics.
+ * Unknown or non-string inputs are cleanly classified as 'UNCONFIRMED'.
+ */
+export function normalizeCurrentPolicyReadStatus(status?: string | null): CurrentPolicyReadStatus {
+  if (!status || typeof status !== 'string') return 'UNCONFIRMED';
+  const upper = status.trim().toUpperCase();
+  if (upper === 'READY') return 'READY';
+  if (upper === 'LOADING' || upper === 'SAVING') return 'LOADING';
+  if (upper === 'ERROR') return 'ERROR';
+  return 'UNCONFIRMED';
+}
 
 export type SelectionRrPolicyKind = 'CURRENT' | 'ORDER_SNAPSHOT' | 'UNKNOWN' | 'INVALID';
 
@@ -311,6 +322,7 @@ export type SelectionRrPolicyView =
       source: string;
       fingerprint?: string;
       isAuthoritative: boolean;
+      reason?: string;
     }
   | {
       kind: 'ORDER_SNAPSHOT';
@@ -319,6 +331,7 @@ export type SelectionRrPolicyView =
       source: string;
       fingerprint?: string;
       orderId?: string;
+      reason?: string;
     }
   | {
       kind: 'UNKNOWN';
@@ -341,6 +354,10 @@ export interface CurrentPolicyContext {
   fingerprint?: string;
   status?: string;
   isConfirmed?: boolean;
+  policyReadStatus?: CurrentPolicyReadStatus | string;
+  errorOrigin?: 'READ' | 'SAVE' | null;
+  readError?: string | null;
+  saveError?: string | null;
 }
 
 /**
@@ -357,49 +374,9 @@ export function resolveSelectionRrPolicy(
   intent: any | null | undefined,
   currentPolicy?: CurrentPolicyContext | null
 ): SelectionRrPolicyView {
-  const isExplicitlyUnconfirmed = Boolean(
-    !currentPolicy ||
-    currentPolicy.value == null ||
-    !Number.isFinite(currentPolicy.value) ||
-    currentPolicy.value < 1.0 ||
-    currentPolicy.isConfirmed === false ||
-    currentPolicy.status === 'loading' ||
-    currentPolicy.status === 'LOADING' ||
-    currentPolicy.source === 'UNCONFIRMED'
-  );
-  const isCurrentConfirmed = !isExplicitlyUnconfirmed;
-
-  if (!intent) {
-    if (isCurrentConfirmed) {
-      return {
-        kind: 'CURRENT',
-        status: 'READY',
-        minNetRR: currentPolicy!.value,
-        source: currentPolicy!.source || 'SYSTEM_CONFIG',
-        fingerprint: currentPolicy!.fingerprint,
-        isAuthoritative: true,
-      };
-    }
-    if (currentPolicy?.status === 'loading' || currentPolicy?.status === 'LOADING') {
-      return {
-        kind: 'CURRENT',
-        status: 'LOADING',
-        minNetRR: null,
-        source: currentPolicy?.source || 'UNCONFIRMED',
-        isAuthoritative: false,
-      };
-    }
-    return {
-      kind: 'UNKNOWN',
-      status: 'MISSING',
-      minNetRR: null,
-      source: currentPolicy?.source || 'UNCONFIRMED',
-      reason: 'Chưa có cấu hình chính sách R:R',
-    };
-  }
-
   // 1. FROZEN ORDER SNAPSHOT (source === 'OPEN_POSITION' or canonical order identification)
-  if (intent.source === 'OPEN_POSITION' || (intent.order_id && intent.source !== 'DRAFT')) {
+  // Has absolute precedence over current policy errors when inspecting an existing order.
+  if (intent && (intent.source === 'OPEN_POSITION' || (intent.order_id && intent.source !== 'DRAFT'))) {
     const orderView = resolveMappedOrderRrView(intent);
     if (orderView.status === 'KNOWN') {
       return {
@@ -419,6 +396,7 @@ export function resolveSelectionRrPolicy(
         source: orderView.source || 'ORDER_SNAPSHOT',
         fingerprint: undefined,
         orderId: intent.order_id || intent.id,
+        reason: orderView.reason || 'Historical snapshot threshold is invalid',
       };
     }
     return {
@@ -428,10 +406,71 @@ export function resolveSelectionRrPolicy(
       source: orderView.source || 'UNKNOWN_HISTORICAL',
       fingerprint: undefined,
       orderId: intent.order_id || intent.id,
+      reason: orderView.reason,
     };
   }
 
-  // 2. CURRENT EVALUATION (DRAFT, LIVE_CANDIDATE, WATCH_SETUP, SCENARIO)
+  // 2. CURRENT EVALUATION (DRAFT, LIVE_CANDIDATE, WATCH_SETUP, SCENARIO, or no intent)
+  const readStatus = normalizeCurrentPolicyReadStatus(
+    currentPolicy?.policyReadStatus ?? currentPolicy?.status
+  );
+  const isExplicitError = readStatus === 'ERROR' || currentPolicy?.status?.toUpperCase() === 'ERROR';
+
+  // Rule 012 & Failure A: Explicit ERROR beats existing finite value or old isConfirmed: true!
+  if (isExplicitError) {
+    return {
+      kind: 'CURRENT',
+      status: 'ERROR',
+      minNetRR: null,
+      source: currentPolicy?.source || 'SYSTEM_CONFIG',
+      fingerprint: currentPolicy?.fingerprint,
+      isAuthoritative: false,
+      reason: 'Lỗi cấu hình R:R',
+    };
+  }
+
+  const isExplicitlyUnconfirmed = Boolean(
+    !currentPolicy ||
+    currentPolicy.value == null ||
+    !Number.isFinite(currentPolicy.value) ||
+    currentPolicy.value < 1.0 ||
+    currentPolicy.isConfirmed === false ||
+    readStatus === 'LOADING' ||
+    currentPolicy.status === 'loading' ||
+    currentPolicy.status === 'LOADING' ||
+    currentPolicy.source === 'UNCONFIRMED'
+  );
+  const isCurrentConfirmed = !isExplicitlyUnconfirmed;
+
+  if (!intent) {
+    if (isCurrentConfirmed) {
+      return {
+        kind: 'CURRENT',
+        status: 'READY',
+        minNetRR: currentPolicy!.value,
+        source: currentPolicy!.source || 'SYSTEM_CONFIG',
+        fingerprint: currentPolicy!.fingerprint,
+        isAuthoritative: true,
+      };
+    }
+    if (readStatus === 'LOADING' || currentPolicy?.status === 'loading' || currentPolicy?.status === 'LOADING') {
+      return {
+        kind: 'CURRENT',
+        status: 'LOADING',
+        minNetRR: null,
+        source: currentPolicy?.source || 'UNCONFIRMED',
+        isAuthoritative: false,
+      };
+    }
+    return {
+      kind: 'UNKNOWN',
+      status: 'MISSING',
+      minNetRR: null,
+      source: currentPolicy?.source || 'UNCONFIRMED',
+      reason: 'Chưa có cấu hình chính sách R:R',
+    };
+  }
+
   if (isCurrentConfirmed) {
     return {
       kind: 'CURRENT',
@@ -439,11 +478,11 @@ export function resolveSelectionRrPolicy(
       minNetRR: currentPolicy!.value,
       source: currentPolicy!.source || intent.rrPolicySource || 'SYSTEM_CONFIG',
       fingerprint: currentPolicy!.fingerprint || intent.rrPolicyFingerprint,
-      isAuthoritative: currentPolicy?.isConfirmed !== false,
+      isAuthoritative: true,
     };
   }
 
-  if (currentPolicy?.status === 'loading' || currentPolicy?.status === 'LOADING' || currentPolicy?.isConfirmed === false || currentPolicy?.value == null) {
+  if (readStatus === 'LOADING' || currentPolicy?.status === 'loading' || currentPolicy?.status === 'LOADING' || currentPolicy?.isConfirmed === false || currentPolicy?.value == null) {
     return {
       kind: 'CURRENT',
       status: 'LOADING',
@@ -487,6 +526,7 @@ export function compareNetRr(
   const kind = policyView.kind;
   const minRR = policyView.minNetRR;
 
+  // Rule 035: Invalid actual ratio
   if (actual === null || !Number.isFinite(actual)) {
     return {
       status: 'INVALID',
@@ -500,20 +540,9 @@ export function compareNetRr(
     };
   }
 
-  // If order snapshot threshold is missing or invalid
+  // 1. ORDER_SNAPSHOT branch
+  // Rule 031 & Failure B: Check explicit INVALID before generic null / MISSING!
   if (kind === 'ORDER_SNAPSHOT') {
-    if (policyView.status === 'MISSING' || minRR === null) {
-      return {
-        status: 'UNKNOWN',
-        actualNetRR: actual,
-        requiredMinNetRR: null,
-        diff: null,
-        policyKind: 'ORDER_SNAPSHOT',
-        source: policyView.source || 'UNKNOWN_HISTORICAL',
-        label: 'Chưa lưu ngưỡng lúc ARM',
-        meetsMin: false,
-      };
-    }
     if (policyView.status === 'INVALID') {
       return {
         status: 'INVALID',
@@ -526,22 +555,23 @@ export function compareNetRr(
         meetsMin: false,
       };
     }
-  }
-
-  // If current policy is unconfirmed or loading
-  if (kind === 'CURRENT') {
-    if (policyView.status === 'LOADING' || !policyView.isAuthoritative || minRR === null) {
+    if (policyView.status === 'MISSING' || minRR === null) {
       return {
         status: 'UNKNOWN',
         actualNetRR: actual,
         requiredMinNetRR: null,
         diff: null,
-        policyKind: 'CURRENT',
-        source: policyView.source || 'UNCONFIRMED',
-        label: policyView.status === 'LOADING' ? 'Đang tải cấu hình R:R...' : 'Chưa xác nhận cấu hình R:R',
+        policyKind: 'ORDER_SNAPSHOT',
+        source: policyView.source || 'UNKNOWN_HISTORICAL',
+        label: 'Chưa lưu ngưỡng lúc ARM',
         meetsMin: false,
       };
     }
+  }
+
+  // 2. CURRENT policy branch
+  // Rule 033 & Failure A: CURRENT ERROR yields UNKNOWN comparison with non-authoritative policy
+  if (kind === 'CURRENT') {
     if (policyView.status === 'ERROR') {
       return {
         status: 'UNKNOWN',
@@ -554,21 +584,21 @@ export function compareNetRr(
         meetsMin: false,
       };
     }
+    if (policyView.status === 'LOADING' || !policyView.isAuthoritative || minRR === null) {
+      return {
+        status: 'UNKNOWN',
+        actualNetRR: actual,
+        requiredMinNetRR: null,
+        diff: null,
+        policyKind: 'CURRENT',
+        source: policyView.source || 'UNCONFIRMED',
+        label: policyView.status === 'LOADING' ? 'Đang tải cấu hình R:R...' : 'Chưa xác nhận cấu hình R:R',
+        meetsMin: false,
+      };
+    }
   }
 
-  if (kind === 'UNKNOWN' || minRR === null || !Number.isFinite(minRR) || minRR <= 0) {
-    return {
-      status: 'UNKNOWN',
-      actualNetRR: actual,
-      requiredMinNetRR: null,
-      diff: null,
-      policyKind: kind,
-      source: 'source' in policyView ? policyView.source : undefined,
-      label: 'Chưa có ngưỡng xác nhận',
-      meetsMin: false,
-    };
-  }
-
+  // 3. Explicit INVALID fallthrough
   if (kind === 'INVALID' || policyView.status === 'INVALID') {
     return {
       status: 'INVALID',
@@ -582,7 +612,21 @@ export function compareNetRr(
     };
   }
 
-  // Strict full-precision decision comparison: NO rounding before meetsMin
+  // 4. Missing or non-positive required threshold
+  if (kind === 'UNKNOWN' || minRR === null || !Number.isFinite(minRR) || minRR <= 0) {
+    return {
+      status: 'UNKNOWN',
+      actualNetRR: actual,
+      requiredMinNetRR: null,
+      diff: null,
+      policyKind: kind,
+      source: 'source' in policyView ? policyView.source : undefined,
+      label: 'Chưa có ngưỡng xác nhận',
+      meetsMin: false,
+    };
+  }
+
+  // 5. Strict full-precision decision comparison: NO rounding before meetsMin
   const meets = actual >= minRR;
   const rawDiff = actual - minRR;
   const diff = Number(rawDiff.toFixed(4)); // diagnostic diff only
