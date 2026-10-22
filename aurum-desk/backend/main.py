@@ -4078,3 +4078,195 @@ def get_paper_runtime_snapshot_endpoint(
         source_mode="HTTP",
     )
     return snapshot
+
+
+# ---------------------------------------------------------------------------
+# V17.0 Paper Opportunity Monitor Endpoints (Phần 091 - 100)
+# Strictly Read-Only (zero side-effects, zero mutations, db.autoflush=False)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/paper/opportunity-monitor/summary")
+def get_opportunity_monitor_summary_endpoint(
+    symbol: str = "XAUUSDT",
+    scope: str = "CG01",
+    run_id: Optional[str] = None,
+    model_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.0 Read-only summary aggregating unique opportunities, funnel stage progression,
+    unique-opportunity top rejection reasons, financial metrics (reused from snapshot service),
+    and latency metrics.
+    """
+    if start_ms is not None and end_ms is not None and end_ms <= start_ms:
+        raise HTTPException(
+            status_code=422,
+            detail=f"end_ms ({end_ms}) must be strictly greater than start_ms ({start_ms})",
+        )
+    if start_ms is not None and end_ms is not None and (end_ms - start_ms) > 31 * 86400 * 1000:
+        raise HTTPException(
+            status_code=422,
+            detail="Query window cannot exceed 31 days",
+        )
+
+    db.autoflush = False
+    from services.paper_opportunity_monitor_service import (
+        build_opportunity_monitor_summary,
+        make_monitor_query_context,
+    )
+
+    try:
+        ctx = make_monitor_query_context(
+            symbol=symbol,
+            scope=scope,
+            run_id=run_id,
+            model_id=model_id,
+            session_id=session_id,
+            start_ms=start_ms,
+            end_ms=end_ms,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
+
+    summary = build_opportunity_monitor_summary(db, ctx)
+    return summary.to_dict()
+
+
+@app.get("/api/v1/paper/opportunity-monitor/opportunities")
+def list_opportunity_monitor_endpoint(
+    symbol: str = "XAUUSDT",
+    scope: str = "CG01",
+    run_id: Optional[str] = None,
+    model_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    limit: int = 20,
+    cursor: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.0 Read-only paginated list of distinct canonical opportunities,
+    batching links/milestones to eliminate N+1 queries.
+    """
+    if limit < 1 or limit > 50:
+        raise HTTPException(status_code=422, detail="limit must be between 1 and 50")
+    if start_ms is not None and end_ms is not None and end_ms <= start_ms:
+        raise HTTPException(
+            status_code=422,
+            detail=f"end_ms ({end_ms}) must be strictly greater than start_ms ({start_ms})",
+        )
+    if start_ms is not None and end_ms is not None and (end_ms - start_ms) > 31 * 86400 * 1000:
+        raise HTTPException(
+            status_code=422,
+            detail="Query window cannot exceed 31 days",
+        )
+
+    db.autoflush = False
+    from services.paper_opportunity_monitor_service import (
+        list_monitor_opportunities,
+        make_monitor_query_context,
+    )
+
+    try:
+        ctx = make_monitor_query_context(
+            symbol=symbol,
+            scope=scope,
+            run_id=run_id,
+            model_id=model_id,
+            session_id=session_id,
+            start_ms=start_ms,
+            end_ms=end_ms,
+            limit=limit,
+            cursor=cursor,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
+
+    page = list_monitor_opportunities(db, ctx)
+    return page.to_dict()
+
+
+@app.get("/api/v1/paper/opportunity-monitor/opportunities/{opportunity_id}")
+def get_opportunity_monitor_detail_endpoint(
+    opportunity_id: str,
+    symbol: str = "XAUUSDT",
+    scope: str = "CG01",
+    run_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.0 Read-only detail for a single canonical opportunity including
+    observed milestones (with provenance), plan, classifier audit, and latency.
+    """
+    db.autoflush = False
+    from services.paper_opportunity_monitor_service import (
+        build_opportunity_monitor_detail,
+        make_monitor_query_context,
+    )
+
+    ctx = make_monitor_query_context(
+        symbol=symbol,
+        scope=scope,
+        run_id=run_id,
+    )
+    detail = build_opportunity_monitor_detail(db, opportunity_id, ctx)
+    if not detail:
+        raise HTTPException(
+            status_code=404,
+            detail=f"OPPORTUNITY_NOT_FOUND: Cơ hội '{opportunity_id}' không tồn tại trong phạm vi được yêu cầu.",
+        )
+    return detail.to_dict()
+
+
+@app.get("/api/v1/paper/opportunity-monitor/report.md")
+def get_opportunity_monitor_report_endpoint(
+    symbol: str = "XAUUSDT",
+    scope: str = "CG01",
+    run_id: Optional[str] = None,
+    model_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.0 Server-side sanitized Markdown report generation for opportunity monitoring.
+    """
+    from fastapi.responses import PlainTextResponse
+    from services.paper_opportunity_monitor_service import (
+        build_opportunity_monitor_summary,
+        list_monitor_opportunities,
+        make_monitor_query_context,
+        render_opportunity_monitor_markdown,
+    )
+
+    if start_ms is not None and end_ms is not None and end_ms <= start_ms:
+        raise HTTPException(
+            status_code=422,
+            detail=f"end_ms ({end_ms}) must be strictly greater than start_ms ({start_ms})",
+        )
+
+    db.autoflush = False
+    try:
+        ctx = make_monitor_query_context(
+            symbol=symbol,
+            scope=scope,
+            run_id=run_id,
+            model_id=model_id,
+            session_id=session_id,
+            start_ms=start_ms,
+            end_ms=end_ms,
+            limit=50,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
+
+    summary = build_opportunity_monitor_summary(db, ctx)
+    page = list_monitor_opportunities(db, ctx)
+    md_text = render_opportunity_monitor_markdown(summary, page.items)
+
+    return PlainTextResponse(content=md_text, media_type="text/markdown; charset=utf-8")

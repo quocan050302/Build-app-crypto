@@ -41,6 +41,7 @@ import {
 import { NYSessionPanel } from './NYSessionPanel';
 import { QuickDecisionSidebar, type DrawerSectionType } from './components/QuickDecisionSidebar';
 import { TradeDetailsDrawer } from './components/TradeDetailsDrawer';
+import { PaperOpportunityMonitorDrawer } from './components/PaperOpportunityMonitorDrawer';
 import { TelegramTab } from './TelegramTab';
 import { JournalTab } from './JournalTab';
 import type { TradingPolicy, NYSessionStatus } from './api/client';
@@ -284,6 +285,8 @@ function AppContent() {
 
   // V10.3 Trade Details Drawer State
   const [isDetailsDrawerOpen, setIsDetailsDrawerOpen] = useState(false);
+  // V17.0 Paper Opportunity Monitor Drawer State
+  const [isOpportunityMonitorOpen, setIsOpportunityMonitorOpen] = useState(false);
   // V13.1 Research Tab Plan Drawer State (collapses sidebar on research tab)
   const [isResearchPlanDrawerOpen, setIsResearchPlanDrawerOpen] = useState(false);
   const [drawerSection, setDrawerSection] = useState<DrawerSectionType>('conditions');
@@ -1787,6 +1790,16 @@ function AppContent() {
         selectedReturnedBinding={selectedChart.returnedBinding}
         selectedEvidenceLoading={selectedChart.isLoading}
         selectedEvidenceError={selectedChart.error}
+      />
+
+      {/* V17.0 Paper Opportunity Monitor Drawer */}
+      <PaperOpportunityMonitorDrawer
+        open={isOpportunityMonitorOpen}
+        onClose={() => setIsOpportunityMonitorOpen(false)}
+        symbol="XAUUSDT"
+        initialScope="CG01"
+        onFocusSetupOnChart={handleFocusSetupOnChart}
+        onFocusTradeOnChart={handleFocusTradeOnChart}
       />
 
       {/* 1. Global Header Bar */}
@@ -3468,6 +3481,7 @@ function AppContent() {
                     upcomingSetups={upcomingData?.setups || []}
                     stalePlanNotice={stalePlanNotice}
                     onClearStalePlanNotice={() => setStalePlanNotice(null)}
+                    onOpenOpportunityMonitor={() => setIsOpportunityMonitorOpen(true)}
                     onFocusSetupOnChart={handleFocusSetupOnChart}
                     onArmSetup={handleArmWatchSetup}
                     onCancelSetup={handleCancelWatchSetup}
@@ -3512,6 +3526,7 @@ function AppContent() {
               upcomingSetups={upcomingData?.setups || []}
               stalePlanNotice={stalePlanNotice}
               onClearStalePlanNotice={() => setStalePlanNotice(null)}
+              onOpenOpportunityMonitor={() => setIsOpportunityMonitorOpen(true)}
               onFocusSetupOnChart={handleFocusSetupOnChart}
               onFocusTradeOnChart={handleFocusTradeOnChart}
               onArmSetup={handleArmWatchSetup}

@@ -14,6 +14,7 @@ import {
   Settings,
 } from 'lucide-react';
 import type { CG01DisplayState } from '../utils/cg01DisplayState';
+import { deriveBotWaitingSummary } from '../utils/paperOpportunityText';
 
 export interface CG01DiagnosticCardProps {
   displayState: CG01DisplayState;
@@ -23,6 +24,7 @@ export interface CG01DiagnosticCardProps {
   isRrPolicyConfirmed?: boolean;
   rrPolicyStatus?: string;
   onOpenRrSettings?: () => void;
+  onOpenOpportunityMonitor?: () => void;
 }
 
 export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
@@ -33,9 +35,11 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
   isRrPolicyConfirmed,
   rrPolicyStatus,
   onOpenRrSettings,
+  onOpenOpportunityMonitor,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const botWaitingSummary = deriveBotWaitingSummary(displayState);
 
   const {
     stageLabel,
@@ -390,13 +394,27 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
         </span>
       </div>
 
-      {/* Primary Description Sentence (One sentence max - Rule 089) */}
-      <p
-        data-testid="cg01-description-text"
-        className="text-[11px] text-gray-300 leading-snug line-clamp-2 bg-charcoal-900/40 p-1.5 rounded border border-charcoal-800/80"
-      >
-        {description}
-      </p>
+      {/* Primary Description Sentence (One sentence max - Rule 089) with Monitor CTA */}
+      <div className="flex items-center justify-between gap-1.5 bg-charcoal-900/40 p-1.5 rounded border border-charcoal-800/80">
+        <p
+          data-testid="cg01-description-text"
+          className="text-[11px] text-gray-300 leading-snug line-clamp-2 min-w-0"
+        >
+          <span className="text-gray-400 font-medium">{botWaitingSummary.headline} • </span>
+          {description || botWaitingSummary.detail}
+        </p>
+        {onOpenOpportunityMonitor && (
+          <button
+            type="button"
+            data-testid="cg01-open-monitor-btn"
+            onClick={onOpenOpportunityMonitor}
+            className="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-800/80 transition shrink-0 cursor-pointer"
+            aria-label="Xem cơ hội"
+          >
+            Xem cơ hội
+          </button>
+        )}
+      </div>
 
       {/* Expandable Technical Details (Rules 088, 118, 151, 152) */}
       {isExpanded && (

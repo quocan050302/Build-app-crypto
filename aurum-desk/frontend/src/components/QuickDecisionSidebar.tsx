@@ -69,6 +69,7 @@ export interface QuickDecisionSidebarProps {
   rrPolicyStatus?: string;
   isRrPolicyConfirmed?: boolean;
   onOpenRrSettings?: () => void;
+  onOpenOpportunityMonitor?: () => void;
 }
 
 export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
@@ -102,6 +103,7 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
   rrPolicyStatus,
   isRrPolicyConfirmed,
   onOpenRrSettings,
+  onOpenOpportunityMonitor,
 }) => {
   // Realtime CG-01 diagnostics state (V16.29)
   const cg01State = useCG01RealtimeState({ symbol: 'XAUUSDT' });
@@ -576,6 +578,7 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
           isRrPolicyConfirmed={isRrPolicyConfirmed}
           rrPolicyStatus={rrPolicyStatus}
           onOpenRrSettings={onOpenRrSettings}
+          onOpenOpportunityMonitor={onOpenOpportunityMonitor}
         />
 
         {/* THREE-SESSION CONDITIONAL FORECAST V14.4.1 (read-only, cached) */}

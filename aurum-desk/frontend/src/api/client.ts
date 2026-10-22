@@ -39,6 +39,11 @@ export interface ResearchReportItem {
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 import type { QualityScoreResponse } from '../types/candidateScore';
+import type {
+  OpportunityMonitorSummary,
+  MonitorListPage,
+  OpportunityMonitorDetail,
+} from '../types/paperOpportunityMonitor';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '';
 
@@ -559,6 +564,83 @@ export const api = {
 
   getCG01Evaluation: async (symbol: string = 'XAUUSDT') => {
     const res = await apiClient.get('/api/scalp/cg01/evaluation', { params: { symbol } });
+    return res.data;
+  },
+
+  getOpportunityMonitorSummary: async (
+    params?: {
+      symbol?: string;
+      scope?: string;
+      run_id?: string | null;
+      model_id?: string | null;
+      session_id?: string | null;
+      start_ms?: number | null;
+      end_ms?: number | null;
+    },
+    signal?: AbortSignal
+  ): Promise<OpportunityMonitorSummary> => {
+    const res = await apiClient.get('/api/v1/paper/opportunity-monitor/summary', {
+      params,
+      signal,
+    });
+    return res.data;
+  },
+
+  getOpportunityMonitorOpportunities: async (
+    params?: {
+      symbol?: string;
+      scope?: string;
+      run_id?: string | null;
+      model_id?: string | null;
+      session_id?: string | null;
+      start_ms?: number | null;
+      end_ms?: number | null;
+      limit?: number;
+      cursor?: string | null;
+    },
+    signal?: AbortSignal
+  ): Promise<MonitorListPage> => {
+    const res = await apiClient.get('/api/v1/paper/opportunity-monitor/opportunities', {
+      params,
+      signal,
+    });
+    return res.data;
+  },
+
+  getOpportunityMonitorDetail: async (
+    opportunityId: string,
+    params?: {
+      symbol?: string;
+      scope?: string;
+      run_id?: string | null;
+    },
+    signal?: AbortSignal
+  ): Promise<OpportunityMonitorDetail> => {
+    const encodedId = encodeURIComponent(opportunityId);
+    const res = await apiClient.get(`/api/v1/paper/opportunity-monitor/opportunities/${encodedId}`, {
+      params,
+      signal,
+    });
+    return res.data;
+  },
+
+  getOpportunityMonitorReportMarkdown: async (
+    params?: {
+      symbol?: string;
+      scope?: string;
+      run_id?: string | null;
+      model_id?: string | null;
+      session_id?: string | null;
+      start_ms?: number | null;
+      end_ms?: number | null;
+    },
+    signal?: AbortSignal
+  ): Promise<string> => {
+    const res = await apiClient.get('/api/v1/paper/opportunity-monitor/report.md', {
+      params,
+      signal,
+      responseType: 'text',
+    });
     return res.data;
   },
 

@@ -633,6 +633,160 @@ def e2e_seed_order(body: dict = Body(...)):
         db.close()
 
 
+@app.post("/__e2e/seed_monitor")
+def e2e_seed_monitor(body: dict = Body(default={})):
+    import json
+    db = SessionLocal()
+    try:
+        now_ms = int(time.time() * 1000)
+        run_id = body.get("run_id", "run_e2e_monitor")
+        symbol = body.get("symbol", "XAUUSDT")
+        scope = body.get("scope", "CG01")
+
+        run = db.query(models.PaperResearchRunRecord).filter(models.PaperResearchRunRecord.run_id == run_id).first()
+        if not run:
+            run = models.PaperResearchRunRecord(
+                run_id=run_id,
+                scope=scope,
+                symbol=symbol,
+                status="COLLECTING",
+                started_at_ms=now_ms - 3600_000,
+                created_at_ms=now_ms - 3600_000,
+                updated_at_ms=now_ms,
+            )
+            db.add(run)
+
+        opp1_id = "opp_e2e_001"
+        db.query(models.OpportunityFunnelRecord).filter(models.OpportunityFunnelRecord.opportunity_id == opp1_id).delete()
+        f1 = models.OpportunityFunnelRecord(
+            opportunity_id=opp1_id,
+            symbol=symbol,
+            model_id="CG01_SWEEP_MSS_FVG",
+            direction="LONG",
+            session_id="NY",
+            run_id=run_id,
+            zone_id="poi_e2e_demand_m5",
+            as_of_ms=now_ms - 1800_000,
+            stage="ZONE_DETECTED",
+            reason_codes_json=json.dumps(["WAITING_M1_MSS"]),
+            evidence_ids_json=json.dumps(["fvg_e2e_101"]),
+            metrics_json=json.dumps({"quality_score": 79.5}),
+            payload_json=json.dumps({
+                "watch_setup_id": "setup_opp_e2e_001",
+                "planned_entry": 2650.0,
+                "stop_loss": 2640.0,
+                "take_profit": 2685.0,
+                "direction": "LONG",
+                "score": 79.5,
+                "zone_label": "M5 FVG Demand",
+                "poi_id": "poi_e2e_demand_m5",
+            }),
+            created_at=now_ms - 1800_000,
+            updated_at=now_ms - 1800_000,
+        )
+        db.add(f1)
+
+        _upsert_setup(db, "setup_opp_e2e_001", "LONG", "READY", 2650.0, 2640.0, 2685.0)
+
+        opp2_id = "opp_e2e_002"
+        db.query(models.OpportunityFunnelRecord).filter(models.OpportunityFunnelRecord.opportunity_id == opp2_id).delete()
+        f2 = models.OpportunityFunnelRecord(
+            opportunity_id=opp2_id,
+            symbol=symbol,
+            model_id="CG01_SWEEP_MSS_FVG",
+            direction="SHORT",
+            session_id="NY",
+            run_id=run_id,
+            zone_id="poi_e2e_supply_m15",
+            as_of_ms=now_ms - 900_000,
+            stage="GUARD_BLOCKED",
+            reason_codes_json=json.dumps(["GUARD_NEWS_HIGH_IMPACT"]),
+            evidence_ids_json=json.dumps([]),
+            metrics_json=json.dumps({"quality_score": 83.0}),
+            payload_json=json.dumps({
+                "planned_entry": 2655.0,
+                "stop_loss": 2665.0,
+                "take_profit": 2630.0,
+                "direction": "SHORT",
+                "score": 83.0,
+                "zone_label": "M15 Supply OB",
+                "guard_summary": {"blocked_reason": "Tin mạnh CPI sắp công bố"},
+            }),
+            created_at=now_ms - 900_000,
+            updated_at=now_ms - 900_000,
+        )
+        db.add(f2)
+
+        opp3_id = "opp_e2e_003"
+        order3_id = "order_e2e_003"
+        db.query(models.OpportunityFunnelRecord).filter(models.OpportunityFunnelRecord.opportunity_id == opp3_id).delete()
+        f3 = models.OpportunityFunnelRecord(
+            opportunity_id=opp3_id,
+            symbol=symbol,
+            model_id="CG01_SWEEP_MSS_FVG",
+            direction="LONG",
+            session_id="NY",
+            run_id=run_id,
+            zone_id="poi_e2e_demand_m1",
+            as_of_ms=now_ms - 300_000,
+            stage="ARMED",
+            reason_codes_json=json.dumps(["ARMED_WAITING_FILL"]),
+            evidence_ids_json=json.dumps([]),
+            metrics_json=json.dumps({"quality_score": 88.0}),
+            payload_json=json.dumps({
+                "order_id": order3_id,
+                "planned_entry": 2650.0,
+                "stop_loss": 2640.0,
+                "take_profit": 2685.0,
+                "direction": "LONG",
+                "score": 88.0,
+            }),
+            created_at=now_ms - 300_000,
+            updated_at=now_ms - 300_000,
+        )
+        db.add(f3)
+
+        db.query(models.PaperResearchOrderLink).filter(models.PaperResearchOrderLink.order_id == order3_id).delete()
+        db.add(models.PaperResearchOrderLink(
+            run_id=run_id,
+            order_id=order3_id,
+            opportunity_id=opp3_id,
+            linked_at_ms=now_ms - 300_000,
+        ))
+
+        db.query(models.PaperOrder).filter(models.PaperOrder.id == order3_id).delete()
+        db.add(models.PaperOrder(
+            id=order3_id,
+            setup_id="setup_opp_e2e_003",
+            setup_instance_id="setup_opp_e2e_003",
+            instrument=symbol,
+            direction="LONG",
+            state="closed",
+            order_type="LIMIT",
+            planned_entry=2650.0,
+            actual_entry=2650.0,
+            stop_loss=2640.0,
+            take_profit=2685.0,
+            quantity=0.01,
+            initial_risk_usdt=10.0,
+            created_at=now_ms - 300_000,
+            armed_at=now_ms - 300_000,
+            opened_at=now_ms - 250_000,
+            closed_at=now_ms - 100_000,
+            realized_pnl_net=15.5,
+            exit_cause="TAKE_PROFIT",
+        ))
+
+        db.commit()
+        return {
+            "status": "SUCCESS",
+            "run_id": run_id,
+            "opportunities": [opp1_id, opp2_id, opp3_id],
+        }
+    finally:
+        db.close()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8765)
