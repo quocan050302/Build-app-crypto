@@ -43,6 +43,7 @@ import type {
   OpportunityMonitorSummary,
   MonitorListPage,
   OpportunityMonitorDetail,
+  MonitorChartFocusContext,
 } from '../types/paperOpportunityMonitor';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '';
@@ -613,11 +614,39 @@ export const api = {
       symbol?: string;
       scope?: string;
       run_id?: string | null;
+      model_id?: string | null;
+      session_id?: string | null;
+      start_ms?: number | null;
+      end_ms?: number | null;
     },
     signal?: AbortSignal
   ): Promise<OpportunityMonitorDetail> => {
     const encodedId = encodeURIComponent(opportunityId);
     const res = await apiClient.get(`/api/v1/paper/opportunity-monitor/opportunities/${encodedId}`, {
+      params,
+      signal,
+    });
+    return res.data;
+  },
+
+  getOpportunityMonitorChartTarget: async (
+    opportunityId: string,
+    params?: {
+      symbol?: string;
+      scope?: string;
+      run_id?: string | null;
+      model_id?: string | null;
+      session_id?: string | null;
+      start_ms?: number | null;
+      end_ms?: number | null;
+      expected_target_id?: string;
+      expected_kind?: string;
+      expected_revision?: number;
+    },
+    signal?: AbortSignal
+  ): Promise<MonitorChartFocusContext> => {
+    const encodedId = encodeURIComponent(opportunityId);
+    const res = await apiClient.get(`/api/v1/paper/opportunity-monitor/opportunities/${encodedId}/chart-target`, {
       params,
       signal,
     });

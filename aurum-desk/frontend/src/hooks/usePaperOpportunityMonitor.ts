@@ -12,11 +12,13 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api, extractErrorMessage } from '../api/client';
+import { buildMonitorTimeWindow } from '../utils/paperOpportunityText';
 import type {
   OpportunityMonitorSummary,
   MonitorListPage,
   OpportunityMonitorDetail,
   MonitorFilterState,
+  ResolvedMonitorQuery,
 } from '../types/paperOpportunityMonitor';
 
 export interface UsePaperOpportunityMonitorOptions {
@@ -32,6 +34,7 @@ export interface UsePaperOpportunityMonitorResult {
   summary: OpportunityMonitorSummary | null;
   page: MonitorListPage | null;
   detail: OpportunityMonitorDetail | null;
+  resolvedQuery: ResolvedMonitorQuery | null;
   isSummaryLoading: boolean;
   isListLoading: boolean;
   isDetailLoading: boolean;
@@ -54,6 +57,7 @@ export function usePaperOpportunityMonitor({
   const [summary, setSummary] = useState<OpportunityMonitorSummary | null>(null);
   const [page, setPage] = useState<MonitorListPage | null>(null);
   const [detail, setDetail] = useState<OpportunityMonitorDetail | null>(null);
+  const [resolvedQuery, setResolvedQuery] = useState<ResolvedMonitorQuery | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
 
@@ -74,45 +78,24 @@ export function usePaperOpportunityMonitor({
   const generationRef = useRef(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const detailAbortControllerRef = useRef<AbortController | null>(null);
-
-  // Derive time window from filters
-  const computeTimeWindow = useCallback(() => {
-    const now = Date.now();
-    let startMs: number | null = null;
-    let endMs: number | null = null;
-
-    if (filters.period === 'today') {
-      // Start of today in Asia/Ho_Chi_Minh
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      startMs = d.getTime();
-      endMs = now;
-    } else if (filters.period === '7d') {
-      startMs = now - 7 * 24 * 60 * 60 * 1000;
-      endMs = now;
-    } else if (filters.period === 'custom' && filters.customStartDate) {
-      startMs = new Date(filters.customStartDate).getTime();
-      if (filters.customEndDate) {
-        endMs = new Date(filters.customEndDate).getTime() + 24 * 60 * 60 * 1000 - 1;
-      }
-    }
-
-    return { startMs, endMs };
-  }, [filters.period, filters.customStartDate, filters.customEndDate]);
+  const pageAbortControllerRef = useRef<AbortController | null>(null);
 
   // Fetch Summary and List (Page 1)
   const fetchOverviewData = useCallback(async () => {
     if (!open) return;
 
-    // Abort previous overview requests
+    // Abort previous overview and page requests
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
+    }
+    if (pageAbortControllerRef.current) {
+      pageAbortControllerRef.current.abort();
     }
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     const currentGen = ++generationRef.current;
-    const { startMs, endMs } = computeTimeWindow();
+    const { start_ms: startMs, end_ms: endMs } = buildMonitorTimeWindow(filters, 'Asia/Ho_Chi_Minh');
 
     setIsSummaryLoading(true);
     setIsListLoading(true);
@@ -155,9 +138,29 @@ export function usePaperOpportunityMonitor({
       if (currentGen === generationRef.current && !controller.signal.aborted) {
         if (sumRes) setSummary(sumRes);
         if (listRes) setPage(listRes);
+
+        const effectiveRunId =
+          sumRes?.run_id ||
+          listRes?.run_id ||
+          (sumRes?.coverage?.run_id ?? null) ||
+          runId ||
+          null;
+        const effectiveQueryKey = sumRes?.query_key || listRes?.query_key || null;
+
+        const resolved: ResolvedMonitorQuery = {
+          symbol,
+          scope,
+          run_id: effectiveRunId,
+          start_ms: startMs,
+          end_ms: endMs,
+          session_id: filters.session !== 'all' ? filters.session : null,
+          model_id: null,
+          query_key: effectiveQueryKey,
+        };
+        setResolvedQuery(resolved);
       }
     } catch (err: any) {
-      if (!controller.signal.aborted) {
+      if (!controller.signal.aborted && currentGen === generationRef.current) {
         setListError(extractErrorMessage(err));
       }
     } finally {
@@ -166,80 +169,104 @@ export function usePaperOpportunityMonitor({
         setIsListLoading(false);
       }
     }
-  }, [open, symbol, scope, runId, filters.session, computeTimeWindow]);
+  }, [open, symbol, scope, runId, filters]);
 
   // Load next page
   const loadNextPage = useCallback(async () => {
     if (!open || !page?.has_more || !page?.next_cursor || isListLoading) return;
 
+    if (pageAbortControllerRef.current) {
+      pageAbortControllerRef.current.abort();
+    }
     const controller = new AbortController();
-    const { startMs, endMs } = computeTimeWindow();
+    pageAbortControllerRef.current = controller;
 
+    const currentGen = generationRef.current;
     setIsListLoading(true);
+
     try {
       const nextPage = await api.getOpportunityMonitorOpportunities(
         {
           symbol,
           scope,
-          run_id: runId || undefined,
-          start_ms: startMs || undefined,
-          end_ms: endMs || undefined,
-          session_id: filters.session !== 'all' ? filters.session : undefined,
+          run_id: resolvedQuery?.run_id || runId || undefined,
+          start_ms: resolvedQuery?.start_ms ?? undefined,
+          end_ms: resolvedQuery?.end_ms ?? undefined,
+          session_id: resolvedQuery?.session_id ?? (filters.session !== 'all' ? filters.session : undefined),
+          model_id: resolvedQuery?.model_id ?? undefined,
           limit: 20,
           cursor: page.next_cursor,
         },
         controller.signal
       );
 
-      setPage((prev) => {
-        if (!prev) return nextPage;
-        return {
-          ...nextPage,
-          items: [...prev.items, ...nextPage.items],
-        };
-      });
+      if (currentGen === generationRef.current && !controller.signal.aborted) {
+        setPage((prev) => {
+          if (!prev) return nextPage;
+          const existingIds = new Set(prev.items.map((i) => i.opportunity_id));
+          const freshItems = nextPage.items.filter((i) => !existingIds.has(i.opportunity_id));
+          return {
+            ...nextPage,
+            items: [...prev.items, ...freshItems],
+          };
+        });
+      }
     } catch (err: any) {
-      setListError(extractErrorMessage(err, 'Lỗi tải trang tiếp theo'));
+      if (!controller.signal.aborted && currentGen === generationRef.current) {
+        setListError(extractErrorMessage(err, 'Lỗi tải trang tiếp theo'));
+      }
     } finally {
-      setIsListLoading(false);
+      if (currentGen === generationRef.current) {
+        setIsListLoading(false);
+      }
     }
-  }, [open, page, isListLoading, symbol, scope, runId, filters.session, computeTimeWindow]);
+  }, [open, page, isListLoading, symbol, scope, runId, filters.session, resolvedQuery]);
 
   // Fetch detail for selected opportunity
-  const fetchDetail = useCallback(async (id: string) => {
-    if (!open || !id) return;
+  const fetchDetail = useCallback(
+    async (id: string) => {
+      if (!open || !id) return;
 
-    if (detailAbortControllerRef.current) {
-      detailAbortControllerRef.current.abort();
-    }
-    const controller = new AbortController();
-    detailAbortControllerRef.current = controller;
-
-    setIsDetailLoading(true);
-    setDetailError(null);
-
-    try {
-      const res = await api.getOpportunityMonitorDetail(
-        id,
-        {
-          symbol,
-          scope,
-          run_id: runId || undefined,
-        },
-        controller.signal
-      );
-
-      if (!controller.signal.aborted) {
-        setDetail(res);
+      if (detailAbortControllerRef.current) {
+        detailAbortControllerRef.current.abort();
       }
-    } catch (err: any) {
-      if (!controller.signal.aborted) {
-        setDetailError(extractErrorMessage(err, 'Lỗi tải chi tiết cơ hội'));
+      const controller = new AbortController();
+      detailAbortControllerRef.current = controller;
+
+      const currentGen = generationRef.current;
+      setIsDetailLoading(true);
+      setDetailError(null);
+
+      try {
+        const res = await api.getOpportunityMonitorDetail(
+          id,
+          {
+            symbol,
+            scope,
+            run_id: resolvedQuery?.run_id || runId || undefined,
+            start_ms: resolvedQuery?.start_ms ?? undefined,
+            end_ms: resolvedQuery?.end_ms ?? undefined,
+            session_id: resolvedQuery?.session_id ?? (filters.session !== 'all' ? filters.session : undefined),
+            model_id: resolvedQuery?.model_id ?? undefined,
+          },
+          controller.signal
+        );
+
+        if (!controller.signal.aborted && currentGen === generationRef.current) {
+          setDetail(res);
+        }
+      } catch (err: any) {
+        if (!controller.signal.aborted && currentGen === generationRef.current) {
+          setDetailError(extractErrorMessage(err, 'Lỗi tải chi tiết cơ hội'));
+        }
+      } finally {
+        if (currentGen === generationRef.current) {
+          setIsDetailLoading(false);
+        }
       }
-    } finally {
-      setIsDetailLoading(false);
-    }
-  }, [open, symbol, scope, runId]);
+    },
+    [open, symbol, scope, runId, filters.session, resolvedQuery]
+  );
 
   // Trigger overview fetch on open or filter change
   useEffect(() => {
@@ -249,7 +276,9 @@ export function usePaperOpportunityMonitor({
       // Abort when closed
       if (abortControllerRef.current) abortControllerRef.current.abort();
       if (detailAbortControllerRef.current) detailAbortControllerRef.current.abort();
+      if (pageAbortControllerRef.current) pageAbortControllerRef.current.abort();
       setDetail(null);
+      setResolvedQuery(null);
     }
   }, [open, fetchOverviewData]);
 
@@ -283,6 +312,7 @@ export function usePaperOpportunityMonitor({
     summary,
     page,
     detail,
+    resolvedQuery,
     isSummaryLoading,
     isListLoading,
     isDetailLoading,

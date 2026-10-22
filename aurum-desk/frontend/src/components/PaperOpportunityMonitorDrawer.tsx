@@ -13,7 +13,7 @@
  * - Markdown report download on-demand (no automated Telegram spam).
  */
 
-import React, { useState, useEffect, useCallback, useId } from 'react';
+import React, { useState, useEffect, useCallback, useId, useRef } from 'react';
 import {
   X,
   ArrowLeft,
@@ -33,7 +33,11 @@ import {
 
 import { usePaperOpportunityMonitor } from '../hooks/usePaperOpportunityMonitor';
 import { OpportunityTimeline } from './OpportunityTimeline';
-import { formatMonitorTime, formatMonitorDateTime } from '../utils/paperOpportunityText';
+import {
+  formatMonitorTime,
+  formatMonitorDateTime,
+  validateMonitorChartFocusContext,
+} from '../utils/paperOpportunityText';
 import type { CG01DisplayState } from '../utils/cg01DisplayState';
 import type { MonitorFilterState, OpportunityMonitorListItem } from '../types/paperOpportunityMonitor';
 import { api } from '../api/client';
@@ -61,6 +65,12 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(null);
   const [showTechAccordion, setShowTechAccordion] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isFocusing, setIsFocusing] = useState(false);
+  const [focusError, setFocusError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const focusAbortControllerRef = useRef<AbortController | null>(null);
+  const focusGenerationRef = useRef(0);
 
   // Filters state
   const [filters, setFilters] = useState<MonitorFilterState>({
@@ -73,6 +83,7 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
     summary,
     page,
     detail,
+    resolvedQuery,
     isSummaryLoading,
     isListLoading,
     isDetailLoading,
@@ -99,6 +110,7 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
           // If in detail view, go back to list first
           setSelectedOpportunityId(null);
           selectOpportunity(null);
+          setFocusError(null);
         } else {
           onClose();
         }
@@ -113,73 +125,141 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
       setSelectedOpportunityId(null);
       selectOpportunity(null);
       setShowTechAccordion(false);
+      setFocusError(null);
+      setExportError(null);
+      if (focusAbortControllerRef.current) {
+        focusAbortControllerRef.current.abort();
+      }
     }
   }, [open, selectOpportunity]);
 
   const handleSelectRow = (item: OpportunityMonitorListItem) => {
     setSelectedOpportunityId(item.opportunity_id);
     selectOpportunity(item.opportunity_id);
+    setFocusError(null);
   };
 
   const handleBackToList = () => {
     setSelectedOpportunityId(null);
     selectOpportunity(null);
     setShowTechAccordion(false);
+    setFocusError(null);
   };
 
-  // Focus chart handler (Closes drawer first, then delegates)
-  const handleFocusChart = useCallback(() => {
-    if (!detail?.item?.chart_target?.verified) return;
+  // Focus chart handler (Fetch canonical DTO -> validate -> close drawer -> delegate)
+  const handleFocusChart = useCallback(async () => {
+    if (!detail?.item?.chart_target?.verified || !selectedOpportunityId) return;
 
     const target = detail.item.chart_target;
-    setSelectedOpportunityId(null);
-    selectOpportunity(null);
-    onClose();
+    setIsFocusing(true);
+    setFocusError(null);
 
-    if (target.kind === 'ORDER' && onFocusTradeOnChart) {
-      onFocusTradeOnChart({
-        id: target.id,
-        order_id: target.id,
-        instrument: symbol,
-        direction: detail.item.direction,
-      });
-    } else if (target.kind === 'SETUP' && onFocusSetupOnChart) {
-      onFocusSetupOnChart({
-        id: target.id,
-        setup_id: target.id,
-        symbol,
-        direction: detail.item.direction,
-        provisional_entry: detail.plan?.entry,
-        provisional_sl: detail.plan?.stop_loss,
-        provisional_tp: detail.plan?.take_profit,
-        planned_entry: detail.plan?.entry,
-        stop_loss: detail.plan?.stop_loss,
-        take_profit: detail.plan?.take_profit,
-      });
+    if (focusAbortControllerRef.current) {
+      focusAbortControllerRef.current.abort();
     }
-  }, [detail, symbol, onClose, onFocusSetupOnChart, onFocusTradeOnChart]);
+    const controller = new AbortController();
+    focusAbortControllerRef.current = controller;
+    const currentGen = ++focusGenerationRef.current;
+
+    try {
+      const result = await api.getOpportunityMonitorChartTarget(
+        selectedOpportunityId,
+        {
+          symbol,
+          scope: initialScope,
+          run_id: resolvedQuery?.run_id || summary?.coverage?.run_id || undefined,
+          start_ms: resolvedQuery?.start_ms ?? undefined,
+          end_ms: resolvedQuery?.end_ms ?? undefined,
+          session_id: resolvedQuery?.session_id ?? (filters.session !== 'all' ? filters.session : undefined),
+          model_id: resolvedQuery?.model_id ?? undefined,
+          expected_target_id: target.id,
+          expected_kind: target.kind,
+        },
+        controller.signal
+      );
+
+      if (controller.signal.aborted || currentGen !== focusGenerationRef.current) {
+        return;
+      }
+
+      const validated = validateMonitorChartFocusContext(result, {
+        expectedKind: target.kind,
+        expectedTargetId: target.id,
+        expectedOpportunityId: selectedOpportunityId,
+        expectedSymbol: symbol,
+      });
+
+      if (validated.status !== 'AVAILABLE') {
+        setFocusError(validated.message_vi);
+        return;
+      }
+
+      // Validated successfully: close drawer and delegate full DTO
+      setSelectedOpportunityId(null);
+      selectOpportunity(null);
+      onClose();
+
+      if (validated.kind === 'ORDER' && onFocusTradeOnChart) {
+        onFocusTradeOnChart(validated.dto);
+      } else if (validated.kind === 'SETUP' && onFocusSetupOnChart) {
+        onFocusSetupOnChart(validated.dto);
+      }
+    } catch (err: any) {
+      if (!controller.signal.aborted && currentGen === focusGenerationRef.current) {
+        setFocusError(err?.message || 'Không thể tải bằng chứng chart canonical');
+      }
+    } finally {
+      if (currentGen === focusGenerationRef.current) {
+        setIsFocusing(false);
+      }
+    }
+  }, [
+    detail,
+    selectedOpportunityId,
+    symbol,
+    initialScope,
+    resolvedQuery,
+    summary,
+    filters.session,
+    onClose,
+    onFocusSetupOnChart,
+    onFocusTradeOnChart,
+    selectOpportunity,
+  ]);
 
   // Markdown Report Download
   const handleDownloadReport = async () => {
     try {
       setIsExporting(true);
+      setExportError(null);
       const md = await api.getOpportunityMonitorReportMarkdown({
         symbol,
         scope: initialScope,
-        run_id: summary?.coverage?.run_id || undefined,
+        run_id: resolvedQuery?.run_id || summary?.coverage?.run_id || undefined,
+        start_ms: resolvedQuery?.start_ms ?? undefined,
+        end_ms: resolvedQuery?.end_ms ?? undefined,
+        session_id: resolvedQuery?.session_id ?? (filters.session !== 'all' ? filters.session : undefined),
+        model_id: resolvedQuery?.model_id ?? undefined,
       });
 
       const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `aurum-opportunity-report-${symbol}-${new Date().toISOString().slice(0, 10)}.md`;
+      const dateTag =
+        resolvedQuery?.start_ms && resolvedQuery?.end_ms
+          ? `${new Date(resolvedQuery.start_ms).toISOString().slice(0, 10)}_to_${new Date(
+              resolvedQuery.end_ms
+            ).toISOString().slice(0, 10)}`
+          : new Date().toISOString().slice(0, 10);
+      a.download = `aurum-opportunity-report-${symbol}-${dateTag}.md`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err: any) {
       console.error('Failed to download report:', err);
+      setExportError(err?.message || 'Không thể tải báo cáo Markdown');
     } finally {
       setIsExporting(false);
     }
@@ -500,20 +580,27 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
               </div>
 
               {/* Bottom Actions */}
-              <div className="pt-2 border-t border-charcoal-750 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  data-testid="monitor-download-report-btn"
-                  onClick={handleDownloadReport}
-                  disabled={isExporting}
-                  className="px-3 py-1.5 rounded bg-charcoal-800 hover:bg-charcoal-750 text-gray-200 text-xs font-medium border border-charcoal-700 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <Download className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>{isExporting ? 'Đang xuất...' : 'Tải Báo Cáo (.md)'}</span>
-                </button>
-                <span className="text-[10px] text-gray-500">
-                  Dữ liệu quan sát thực tế • Không có lệnh giả lập
-                </span>
+              <div className="pt-2 border-t border-charcoal-750 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    data-testid="monitor-download-report-btn"
+                    onClick={handleDownloadReport}
+                    disabled={isExporting}
+                    className="px-3 py-1.5 rounded bg-charcoal-800 hover:bg-charcoal-750 text-gray-200 text-xs font-medium border border-charcoal-700 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Download className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>{isExporting ? 'Đang xuất...' : 'Tải Báo Cáo (.md)'}</span>
+                  </button>
+                  <span className="text-[10px] text-gray-500">
+                    Dữ liệu quan sát thực tế • Không có lệnh giả lập
+                  </span>
+                </div>
+                {exportError && (
+                  <span className="text-[11px] text-rose-400" data-testid="monitor-export-error">
+                    {exportError}
+                  </span>
+                )}
               </div>
             </>
           ) : (
@@ -587,15 +674,31 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
 
                   {/* Action: Focus on Chart */}
                   {detail.item.chart_target?.verified && (
-                    <button
-                      type="button"
-                      data-testid="monitor-focus-chart-btn"
-                      onClick={handleFocusChart}
-                      className="w-full py-2 bg-cyan-600 hover:bg-cyan-500 text-charcoal-950 font-bold text-xs rounded-lg transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Xem Vị Trí Trên Biểu Đồ</span>
-                    </button>
+                    <div className="space-y-1.5">
+                      <button
+                        type="button"
+                        data-testid="monitor-focus-chart-btn"
+                        onClick={handleFocusChart}
+                        disabled={isFocusing}
+                        className="w-full py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-charcoal-950 font-bold text-xs rounded-lg transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        {isFocusing ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        )}
+                        <span>{isFocusing ? 'Đang tải bằng chứng...' : 'Xem Vị Trí Trên Biểu Đồ'}</span>
+                      </button>
+                      {focusError && (
+                        <div
+                          data-testid="monitor-focus-error"
+                          className="p-2 rounded bg-rose-950/60 border border-rose-800 text-rose-300 text-xs flex items-center gap-1.5"
+                        >
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                          <span>{focusError}</span>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {/* Timeline */}

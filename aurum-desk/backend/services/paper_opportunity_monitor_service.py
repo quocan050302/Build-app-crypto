@@ -26,7 +26,7 @@ import json
 import logging
 import math
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from zoneinfo import ZoneInfo
@@ -35,6 +35,7 @@ from sqlalchemy import distinct, func
 from sqlalchemy.orm import Session
 
 import models
+import schemas
 from services.cg01_missed_audit_service import CG01MissedOpportunityAuditService
 from services.ny_quota_helpers import classify_reason
 from services.paper_runtime_snapshot_service import (
@@ -166,6 +167,15 @@ class ObservedMilestone:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class ResolvedMonitorContext:
+    resolution_status: str  # 'FOUND' | 'NOT_FOUND' | 'NOT_CONFIGURED' | 'RUN_SCOPE_MISMATCH' | 'RUN_SCOPE_UNVERIFIED'
+    query: Optional[MonitorQueryContext]
+    effective_run_id: Optional[str]
+    query_key: Optional[str]
+    limitation: Optional[str] = None
+
+
 @dataclass
 class OpportunityMonitorListItem:
     key: str  # Canonical identity composite key
@@ -189,11 +199,13 @@ class OpportunityMonitorListItem:
     zone_label: Optional[str] = None
     chart_target: Optional[MonitorChartTarget] = None
     limitations: List[str] = field(default_factory=list)
+    query_key: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         res = asdict(self)
         if self.chart_target:
             res["chart_target"] = self.chart_target.to_dict()
+        res["query_key"] = self.query_key
         return res
 
 
@@ -207,11 +219,13 @@ class OpportunityMonitorDetail:
     classifier_result: Optional[Dict[str, Any]] = None
     truncated: bool = False
     limitations: List[str] = field(default_factory=list)
+    query_key: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         res = asdict(self)
         res["item"] = self.item.to_dict()
         res["milestones"] = [m.to_dict() for m in self.milestones]
+        res["query_key"] = self.query_key
         return res
 
 
@@ -227,9 +241,12 @@ class OpportunityMonitorSummary:
     coverage: Dict[str, Any]
     latency: Optional[Dict[str, Any]] = None
     limitations: List[str] = field(default_factory=list)
+    query_key: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        res = asdict(self)
+        res["query_key"] = self.query_key
+        return res
 
 
 @dataclass
@@ -240,6 +257,8 @@ class MonitorListPage:
     next_cursor: Optional[str]
     snapshot_as_of_ms: int
     limitations: List[str] = field(default_factory=list)
+    query_key: Optional[str] = None
+    run_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -249,6 +268,8 @@ class MonitorListPage:
             "next_cursor": self.next_cursor,
             "snapshot_as_of_ms": self.snapshot_as_of_ms,
             "limitations": self.limitations,
+            "query_key": self.query_key,
+            "run_id": self.run_id,
         }
 
 
@@ -356,6 +377,105 @@ def make_monitor_query_context(
         limit=eff_limit,
         cursor=cursor,
     )
+
+
+def make_monitor_query_fingerprint(query: MonitorQueryContext) -> str:
+    """
+    Phần 029: Deterministic fingerprint of resolved query context without cursor.
+    """
+    raw = (
+        f"symbol={query.symbol}|scope={query.scope}|run_id={query.run_id or ''}|"
+        f"model_id={query.model_id or ''}|session_id={query.session_id or ''}|"
+        f"start_ms={query.start_ms or ''}|end_ms={query.end_ms}"
+    )
+    return base64.urlsafe_b64encode(raw.encode("utf-8")).decode("ascii")
+
+
+def resolve_monitor_query_context(
+    db: Session,
+    requested: MonitorQueryContext,
+) -> ResolvedMonitorContext:
+    """
+    Phần 011 - 020, A1: Unifies requested query with active or explicit observation run.
+    Binds effective run_id and start_ms once, ensuring identical data scope across
+    summary, list, detail, export, and chart focus.
+    """
+    run, status = find_existing_observation_run(
+        db,
+        run_id=requested.run_id,
+        symbol=requested.symbol,
+        scope=requested.scope,
+    )
+
+    if status != "FOUND" or run is None:
+        eff_status = "NOT_CONFIGURED" if requested.run_id is None else status
+        limitation_msg = (
+            "Chưa có phiên quan sát phù hợp hoặc scope chưa xác minh"
+            if requested.run_id is None
+            else f"Phiên quan sát '{requested.run_id}' không hợp lệ hoặc không tồn tại (trạng thái: {status})"
+        )
+        return ResolvedMonitorContext(
+            resolution_status=eff_status,
+            query=None,
+            effective_run_id=requested.run_id,
+            query_key=None,
+            limitation=limitation_msg,
+        )
+
+    # Pin effective start_ms
+    effective_start = requested.start_ms
+    if effective_start is None:
+        if run.started_at_ms is not None:
+            effective_start = run.started_at_ms
+        else:
+            effective_start = max(0, requested.end_ms - MAX_WINDOW_MS)
+    if effective_start >= requested.end_ms:
+        effective_start = max(0, requested.end_ms - 86400000)
+
+    effective = replace(
+        requested,
+        run_id=run.run_id,
+        start_ms=effective_start,
+    )
+
+    fingerprint = make_monitor_query_fingerprint(effective)
+    return ResolvedMonitorContext(
+        resolution_status="FOUND",
+        query=effective,
+        effective_run_id=run.run_id,
+        query_key=fingerprint,
+    )
+
+
+def build_monitor_scope_predicates(query: MonitorQueryContext) -> List[Any]:
+    """
+    Phần 031 - 040, A2: Pure helper building SQL filter predicates strictly bound
+    to the resolved effective run and query window.
+    """
+    if not query.run_id:
+        raise ValueError("MONITOR_RUN_NOT_RESOLVED: run_id must be resolved before building predicates")
+
+    conditions = [
+        models.OpportunityFunnelRecord.symbol == query.symbol,
+        (
+            (models.OpportunityFunnelRecord.run_id == query.run_id)
+            | (
+                models.OpportunityFunnelRecord.run_id.is_(None)
+                & (models.OpportunityFunnelRecord.session_id == query.run_id)
+            )
+        ),
+    ]
+
+    if query.model_id:
+        conditions.append(models.OpportunityFunnelRecord.model_id == query.model_id)
+    if query.session_id:
+        conditions.append(models.OpportunityFunnelRecord.session_id == query.session_id)
+    if query.start_ms is not None:
+        conditions.append(models.OpportunityFunnelRecord.as_of_ms >= query.start_ms)
+    if query.end_ms is not None:
+        conditions.append(models.OpportunityFunnelRecord.as_of_ms < query.end_ms)
+
+    return conditions
 
 
 def normalize_monitor_stage_row(row: Any) -> NormalizedMonitorStage:
@@ -523,6 +643,9 @@ def link_monitor_order_evidence(
     result: Dict[str, Tuple[Optional[MonitorChartTarget], List[Dict[str, Any]]]] = {}
     for oid in opportunity_ids:
         orders = opp_to_orders.get(oid, [])
+        # Deterministic sorting: newest created_at first, tie-break by id
+        orders.sort(key=lambda o: (int(getattr(o, "created_at", 0) or 0), str(o.id)), reverse=True)
+
         outcomes: List[Dict[str, Any]] = []
         target: Optional[MonitorChartTarget] = None
 
@@ -550,10 +673,11 @@ def link_monitor_order_evidence(
             })
 
             if target is None and is_valid_sym:
+                eff_setup_inst = getattr(o, "setup_instance_id", None) or getattr(o, "setup_id", None)
                 target = MonitorChartTarget(
                     kind="ORDER",
                     id=o.id,
-                    setup_instance_id=getattr(o, "setup_id", None),
+                    setup_instance_id=eff_setup_inst,
                     verified=True,
                 )
 
@@ -607,20 +731,23 @@ def group_monitor_opportunities(
                 limitations.append("UPSERT_SNAPSHOT_OVERWRITE: Mốc được cập nhật snapshot mới, không giữ reason cũ")
                 break
 
-        # Authoritative order state precedence if closed or open
+        # Authoritative order state precedence if closed or open (Rule 041: must be verified)
         if linked_outcomes:
-            latest_order = linked_outcomes[-1]
-            st = str(latest_order.get("state", "")).lower()
-            if st in ("closed", "paper_closed"):
-                curr_stage = "CLOSED"
-                primary_reason_vi = f"Lệnh đã đóng ({latest_order.get('exit_cause') or 'hoàn tất'})"
-            elif st in ("open", "paper_open"):
-                curr_stage = "OPEN"
-                primary_reason_vi = "Đang mở vị thế trong phiên"
-            elif st in ("armed", "paper_armed"):
-                if curr_stage not in ("INVALIDATED", "EXPIRED", "CLOSED"):
-                    curr_stage = "ARMED"
-                    primary_reason_vi = "Lệnh đã đặt chờ khớp"
+            # Outcomes were sorted newest-first in link_monitor_order_evidence
+            verified_orders = [o for o in linked_outcomes if o.get("is_verified")]
+            if verified_orders:
+                latest_order = verified_orders[0]
+                st = str(latest_order.get("state", "")).lower()
+                if st in ("closed", "paper_closed"):
+                    curr_stage = "CLOSED"
+                    primary_reason_vi = f"Lệnh đã đóng ({latest_order.get('exit_cause') or 'hoàn tất'})"
+                elif st in ("open", "paper_open"):
+                    curr_stage = "OPEN"
+                    primary_reason_vi = "Đang mở vị thế trong phiên"
+                elif st in ("armed", "paper_armed"):
+                    if curr_stage not in ("INVALIDATED", "EXPIRED", "CLOSED"):
+                        curr_stage = "ARMED"
+                        primary_reason_vi = "Lệnh đã đặt chờ khớp"
 
         # Direction: find non-unknown direction if available
         eff_dir = "UNKNOWN"
@@ -655,7 +782,8 @@ def group_monitor_opportunities(
                 chart_target = MonitorChartTarget(
                     kind="SETUP",
                     id=str(watch_id),
-                    setup_instance_id=str(watch_id),
+                    setup_instance_id=str(last_stage_rec.payload.get("setup_instance_id") or watch_id),
+                    revision=last_stage_rec.payload.get("revision") or last_stage_rec.payload.get("version"),
                     verified=True,
                 )
 
@@ -694,26 +822,23 @@ def list_monitor_opportunities(db: Session, query: MonitorQueryContext) -> Monit
     """
     Phần 031 - 040, B4: Read-only query for paginated monitor opportunities.
     Uses grouped distinct canonical IDs, avoiding N+1 via batch fetching.
+    Strictly enforces effective resolved run scope.
     """
-    # Build filter criteria
-    conds = [models.OpportunityFunnelRecord.symbol == query.symbol]
-
-    if query.run_id:
-        conds.append(
-            (models.OpportunityFunnelRecord.run_id == query.run_id)
-            | (
-                models.OpportunityFunnelRecord.run_id.is_(None)
-                & (models.OpportunityFunnelRecord.session_id == query.run_id)
-            )
+    resolved = resolve_monitor_query_context(db, query)
+    if resolved.resolution_status != "FOUND" or resolved.query is None:
+        return MonitorListPage(
+            items=[],
+            total=0,
+            has_more=False,
+            next_cursor=None,
+            snapshot_as_of_ms=query.now_ms,
+            limitations=[resolved.limitation or "Chưa có phiên quan sát phù hợp"],
+            query_key=resolved.query_key,
+            run_id=resolved.effective_run_id,
         )
-    if query.model_id:
-        conds.append(models.OpportunityFunnelRecord.model_id == query.model_id)
-    if query.session_id:
-        conds.append(models.OpportunityFunnelRecord.session_id == query.session_id)
-    if query.start_ms is not None:
-        conds.append(models.OpportunityFunnelRecord.as_of_ms >= query.start_ms)
-    if query.end_ms is not None:
-        conds.append(models.OpportunityFunnelRecord.as_of_ms < query.end_ms)
+
+    effective_query = resolved.query
+    conds = build_monitor_scope_predicates(effective_query)
 
     # 1. Total distinct canonical opportunities count
     total_count = (
@@ -731,6 +856,8 @@ def list_monitor_opportunities(db: Session, query: MonitorQueryContext) -> Monit
             next_cursor=None,
             snapshot_as_of_ms=query.now_ms,
             limitations=[],
+            query_key=resolved.query_key,
+            run_id=effective_query.run_id,
         )
 
     # 2. Distinct opportunities with max(as_of_ms) for deterministic pagination
@@ -776,6 +903,8 @@ def list_monitor_opportunities(db: Session, query: MonitorQueryContext) -> Monit
             next_cursor=None,
             snapshot_as_of_ms=query.now_ms,
             limitations=[],
+            query_key=resolved.query_key,
+            run_id=effective_query.run_id,
         )
 
     # 3. Batch fetch all stage records for page_ids
@@ -788,12 +917,12 @@ def list_monitor_opportunities(db: Session, query: MonitorQueryContext) -> Monit
         .all()
     )
 
-    # 4. Batch fetch order links
+    # 4. Batch fetch order links bound to resolved effective run_id
     order_data = link_monitor_order_evidence(
         db,
-        run_id=query.run_id,
+        run_id=effective_query.run_id,
         opportunity_ids=page_ids,
-        symbol=query.symbol,
+        symbol=effective_query.symbol,
     )
 
     # 5. Normalize and group
@@ -811,6 +940,8 @@ def list_monitor_opportunities(db: Session, query: MonitorQueryContext) -> Monit
         next_cursor=next_cursor,
         snapshot_as_of_ms=query.now_ms,
         limitations=["UPSERT_STAGE_SNAPSHOTS: Bảng lưu theo mốc cập nhật cuối của mỗi stage, không phải log từng giây."],
+        query_key=resolved.query_key,
+        run_id=effective_query.run_id,
     )
 
 
@@ -822,36 +953,39 @@ def build_opportunity_monitor_detail(
     """
     Phần 041 - 050, B7: Retrieves detailed observation milestones, plan levels,
     order outcomes, classifier result, and latency metrics for one opportunity.
+    Strictly filters by resolved run scope and [start_ms, end_ms) window.
     """
     clean_opp_id = str(opportunity_id).strip()
     if not clean_opp_id:
         return None
 
-    # Query stages for this opportunity
-    stage_query = db.query(models.OpportunityFunnelRecord).filter(
-        models.OpportunityFunnelRecord.opportunity_id == clean_opp_id,
-        models.OpportunityFunnelRecord.symbol == query.symbol,
-    )
-    if query.run_id:
-        stage_query = stage_query.filter(
-            (models.OpportunityFunnelRecord.run_id == query.run_id)
-            | (
-                models.OpportunityFunnelRecord.run_id.is_(None)
-                & (models.OpportunityFunnelRecord.session_id == query.run_id)
-            )
+    resolved = resolve_monitor_query_context(db, query)
+    if resolved.resolution_status != "FOUND" or resolved.query is None:
+        return None
+
+    effective_query = resolved.query
+    conds = build_monitor_scope_predicates(effective_query)
+
+    # Query stages for this opportunity strictly inside effective scope
+    stage_rows = (
+        db.query(models.OpportunityFunnelRecord)
+        .filter(
+            models.OpportunityFunnelRecord.opportunity_id == clean_opp_id,
+            *conds,
         )
-    stage_rows = stage_query.all()
+        .all()
+    )
     if not stage_rows:
         return None
 
     normalized_stages = [normalize_monitor_stage_row(r) for r in stage_rows]
 
-    # Query order associations
+    # Query order associations strictly for effective run
     order_data = link_monitor_order_evidence(
         db,
-        run_id=query.run_id,
+        run_id=effective_query.run_id,
         opportunity_ids=[clean_opp_id],
-        symbol=query.symbol,
+        symbol=effective_query.symbol,
     )
 
     # Group to get ListItem
@@ -889,12 +1023,15 @@ def build_opportunity_monitor_detail(
             )
         )
 
-    # 2. Committed order milestones
+    # 2. Committed order milestones (strictly for effective run)
     for o in linked_outcomes:
         oid = o["order_id"]
         order_milestones = (
             db.query(models.PaperResearchOrderMilestone)
-            .filter(models.PaperResearchOrderMilestone.order_id == oid)
+            .filter(
+                models.PaperResearchOrderMilestone.order_id == oid,
+                models.PaperResearchOrderMilestone.run_id == effective_query.run_id,
+            )
             .order_by(models.PaperResearchOrderMilestone.timestamp_ms.asc())
             .all()
         )
@@ -918,13 +1055,19 @@ def build_opportunity_monitor_detail(
                 )
             )
 
-    # 3. Traces (bounded)
+    # 3. Traces (strictly bounded to effective run or explicit candidate match)
     traces = (
         db.query(models.CG01TraceRecord)
         .filter(
-            (models.CG01TraceRecord.candidate_key == clean_opp_id)
-            | (models.CG01TraceRecord.candidate_key == f"cand_{clean_opp_id}")
-            | (models.CG01TraceRecord.symbol == query.symbol)
+            models.CG01TraceRecord.symbol == effective_query.symbol,
+            (
+                (models.CG01TraceRecord.run_id == effective_query.run_id)
+                | (models.CG01TraceRecord.run_id.is_(None))
+            ),
+            (
+                (models.CG01TraceRecord.candidate_key == clean_opp_id)
+                | (models.CG01TraceRecord.candidate_key == f"cand_{clean_opp_id}")
+            ),
         )
         .order_by(models.CG01TraceRecord.created_at_ms.desc())
         .limit(20)
@@ -1001,6 +1144,7 @@ def build_opportunity_monitor_detail(
         classifier_result=classifier_res,
         truncated=False,
         limitations=limitations,
+        query_key=resolved.query_key,
     )
 
 
@@ -1012,25 +1156,60 @@ def build_opportunity_monitor_summary(
     Phần 071 - 090, B8: Read-only summary aggregating distinct opportunities,
     funnel stage counts, top unique-opportunity reasons, financial metrics (reused from snapshot service),
     and latency metrics.
+    Strictly binds counts and financial metrics to the same resolved run scope.
     """
-    # 1. Base conditions for funnel records
-    conds = [models.OpportunityFunnelRecord.symbol == query.symbol]
-    if query.run_id:
-        conds.append(
-            (models.OpportunityFunnelRecord.run_id == query.run_id)
-            | (
-                models.OpportunityFunnelRecord.run_id.is_(None)
-                & (models.OpportunityFunnelRecord.session_id == query.run_id)
-            )
+    resolved = resolve_monitor_query_context(db, query)
+    if resolved.resolution_status != "FOUND" or resolved.query is None:
+        coverage = {
+            "run_id": resolved.effective_run_id,
+            "run_status": resolved.resolution_status,
+            "symbol": query.symbol,
+            "scope": query.scope,
+        }
+        empty_counts = {
+            "total_unique_opportunities": 0,
+            "zones_detected": 0,
+            "zones_watched": 0,
+            "zones_touched": 0,
+            "trigger_confirmed": 0,
+            "plans_valid": 0,
+            "guard_blocked": 0,
+            "armed": 0,
+            "filled": 0,
+            "expired": 0,
+            "invalidated": 0,
+        }
+        empty_financial = {
+            "metric_scope": "RUN_WINDOW",
+            "description_vi": "Số liệu tài chính theo toàn bộ lệnh của phiên quan sát trong khoảng thời gian, không lọc theo model.",
+            "orders_count": 0,
+            "closed_trades_count": 0,
+            "verified_closed_count": 0,
+            "wins_count": 0,
+            "losses_count": 0,
+            "breakevens_count": 0,
+            "net_realized_pnl_usd": None,
+            "verified_net_pnl_subtotal_usd": 0.0,
+            "winrate_pct": None,
+            "expectancy_usd_per_trade": None,
+            "accounting_status": "COMPLETE",
+        }
+        return OpportunityMonitorSummary(
+            schema_version=MONITOR_SCHEMA_VERSION,
+            generated_at_ms=query.now_ms,
+            query_scope=query.to_dict(),
+            status="EMPTY",
+            counts=empty_counts,
+            top_reasons=[],
+            financial=empty_financial,
+            coverage=coverage,
+            latency={"sample_count": 0, "median_ms": None, "p95_ms": None, "source": "FUNNEL_EVALUATION_METRICS"},
+            limitations=[resolved.limitation or "Chưa có phiên quan sát phù hợp"],
+            query_key=resolved.query_key,
         )
-    if query.model_id:
-        conds.append(models.OpportunityFunnelRecord.model_id == query.model_id)
-    if query.session_id:
-        conds.append(models.OpportunityFunnelRecord.session_id == query.session_id)
-    if query.start_ms is not None:
-        conds.append(models.OpportunityFunnelRecord.as_of_ms >= query.start_ms)
-    if query.end_ms is not None:
-        conds.append(models.OpportunityFunnelRecord.as_of_ms < query.end_ms)
+
+    effective_query = resolved.query
+    conds = build_monitor_scope_predicates(effective_query)
 
     records = db.query(models.OpportunityFunnelRecord).filter(*conds).all()
 
@@ -1115,12 +1294,12 @@ def build_opportunity_monitor_summary(
         "source": "FUNNEL_EVALUATION_METRICS",
     }
 
-    # Financial Metrics (Reused from snapshot service)
+    # Financial Metrics (strictly using the resolved effective run!)
     run_record, _ = find_existing_observation_run(
         db,
-        run_id=query.run_id,
-        symbol=query.symbol,
-        scope=query.scope,
+        run_id=effective_query.run_id,
+        symbol=effective_query.symbol,
+        scope=effective_query.scope,
     )
     financial_data: Dict[str, Any] = {
         "metric_scope": "RUN_WINDOW",
@@ -1139,13 +1318,13 @@ def build_opportunity_monitor_summary(
     }
 
     if run_record:
-        linked_orders, _ = read_linked_orders(db, run_id=run_record.run_id, symbol=query.symbol)
+        linked_orders, _ = read_linked_orders(db, run_id=run_record.run_id, symbol=effective_query.symbol)
         fin = compute_financial_metrics(
             linked_orders,
             initial_capital=float(run_record.initial_capital_usdt or 1000.0),
-            start_ms=query.start_ms,
-            end_ms=query.end_ms,
-            now_ms=query.now_ms,
+            start_ms=effective_query.start_ms,
+            end_ms=effective_query.end_ms,
+            now_ms=effective_query.now_ms,
         )
         financial_data.update({
             "orders_count": fin.get("orders_count", 0),
@@ -1178,10 +1357,10 @@ def build_opportunity_monitor_summary(
     }
 
     coverage = {
-        "run_id": run_record.run_id if run_record else None,
+        "run_id": run_record.run_id if run_record else effective_query.run_id,
         "run_status": run_record.status if run_record else "NOT_FOUND",
-        "symbol": query.symbol,
-        "scope": query.scope,
+        "symbol": effective_query.symbol,
+        "scope": effective_query.scope,
     }
 
     limitations = [
@@ -1191,8 +1370,8 @@ def build_opportunity_monitor_summary(
 
     return OpportunityMonitorSummary(
         schema_version=MONITOR_SCHEMA_VERSION,
-        generated_at_ms=query.now_ms,
-        query_scope=query.to_dict(),
+        generated_at_ms=effective_query.now_ms,
+        query_scope=effective_query.to_dict(),
         status=status,
         counts=counts,
         top_reasons=top_reasons_list,
@@ -1200,6 +1379,7 @@ def build_opportunity_monitor_summary(
         coverage=coverage,
         latency=latency_summary,
         limitations=limitations,
+        query_key=resolved.query_key,
     )
 
 
@@ -1211,12 +1391,26 @@ def render_opportunity_monitor_markdown(
     """
     Phần 100, 141 - 150, B9: Pure markdown report renderer for opportunity monitor.
     Safe, redacted, strictly formatted with clear data dictionary and limitations.
+    Reflects the exact resolved query filters (window, model, session).
     """
     lines: List[str] = []
-    lines.append("# BÁO CÁO THEO DÕI CƠ HỘI PAPER & LÝ DO CHƯA VÀO LỆNH (V17.0)")
+    lines.append("# BÁO CÁO THEO DÕI CƠ HỘI PAPER & LÝ DO CHƯA VÀO LỆNH (V17.1)")
     lines.append(f"- **Mã sản phẩm:** `{summary.query_scope.get('symbol', DEFAULT_SYMBOL)}`")
     lines.append(f"- **Phạm vi quan sát:** `{summary.query_scope.get('scope', DEFAULT_SCOPE)}`")
     lines.append(f"- **Phiên quan sát (Run ID):** `{summary.coverage.get('run_id') or 'Không chỉ định'}`")
+
+    if summary.query_scope.get("model_id"):
+        lines.append(f"- **Mô hình lọc (Model):** `{summary.query_scope['model_id']}`")
+    if summary.query_scope.get("session_id"):
+        lines.append(f"- **Phiên lọc (Session):** `{summary.query_scope['session_id']}`")
+
+    start_ms = summary.query_scope.get("start_ms")
+    end_ms = summary.query_scope.get("end_ms")
+    if start_ms and end_ms:
+        dt_start = datetime.fromtimestamp(start_ms / 1000.0, tz=ZoneInfo("Asia/Ho_Chi_Minh"))
+        dt_end = datetime.fromtimestamp(end_ms / 1000.0, tz=ZoneInfo("Asia/Ho_Chi_Minh"))
+        lines.append(f"- **Khoảng thời gian (Asia/Ho_Chi_Minh):** {dt_start.strftime('%d/%m/%Y %H:%M:%S')} → {dt_end.strftime('%d/%m/%Y %H:%M:%S')}")
+
     dt_gen = datetime.fromtimestamp(summary.generated_at_ms / 1000.0, tz=ZoneInfo("Asia/Ho_Chi_Minh"))
     lines.append(f"- **Thời điểm lập báo cáo:** {dt_gen.strftime('%d/%m/%Y %H:%M:%S (Asia/Ho_Chi_Minh)')}")
     lines.append("")
@@ -1287,3 +1481,218 @@ def render_opportunity_monitor_markdown(
         lines.append("")
 
     return redact_sensitive_text("\n".join(lines))
+
+
+def build_monitor_chart_focus_context(
+    db: Session,
+    opportunity_id: str,
+    requested_query: MonitorQueryContext,
+    *,
+    expected_target_id: Optional[str] = None,
+    expected_kind: Optional[str] = None,
+    expected_revision: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    Phần 081 - 090, B3: Canonical Chart Focus Context Reader (Strictly Read-Only).
+    Hydrates canonical PaperOrderResponse or WatchSetupItem DTO with full geometry,
+    prices, and snapshots. Zero mutations (db.autoflush=False).
+    """
+    clean_opp_id = str(opportunity_id).strip()
+    if not clean_opp_id:
+        return {
+            "status": "UNAVAILABLE",
+            "query_key": None,
+            "opportunity_id": "",
+            "reason_code": "EMPTY_OPPORTUNITY_ID",
+            "message_vi": "Mã cơ hội không hợp lệ.",
+        }
+
+    resolved = resolve_monitor_query_context(db, requested_query)
+    if resolved.resolution_status != "FOUND" or resolved.query is None:
+        return {
+            "status": "UNAVAILABLE",
+            "query_key": resolved.query_key,
+            "opportunity_id": clean_opp_id,
+            "reason_code": resolved.resolution_status,
+            "message_vi": resolved.limitation or "Chưa có phiên quan sát phù hợp để định vị biểu đồ.",
+        }
+
+    effective_query = resolved.query
+    conds = build_monitor_scope_predicates(effective_query)
+
+    # 1. Verify opportunity exists in resolved scope and window
+    stage_rows = (
+        db.query(models.OpportunityFunnelRecord)
+        .filter(models.OpportunityFunnelRecord.opportunity_id == clean_opp_id, *conds)
+        .all()
+    )
+    if not stage_rows:
+        return {
+            "status": "UNAVAILABLE",
+            "query_key": resolved.query_key,
+            "opportunity_id": clean_opp_id,
+            "reason_code": "OPPORTUNITY_OUTSIDE_SCOPE",
+            "message_vi": f"Cơ hội '{clean_opp_id}' không tồn tại trong khoảng thời gian hoặc phiên quan sát đã chọn.",
+        }
+
+    normalized_stages = [normalize_monitor_stage_row(r) for r in stage_rows]
+
+    # 2. Check linked order evidence
+    order_data = link_monitor_order_evidence(
+        db,
+        run_id=effective_query.run_id,
+        opportunity_ids=[clean_opp_id],
+        symbol=effective_query.symbol,
+    )
+    chart_target, linked_outcomes = order_data.get(clean_opp_id, (None, []))
+
+    # Fallback to setup target if no order target
+    if chart_target is None:
+        last_rec = normalized_stages[-1]
+        watch_id = last_rec.payload.get("watch_setup_id") or last_rec.payload.get("setup_id")
+        if watch_id:
+            chart_target = MonitorChartTarget(
+                kind="SETUP",
+                id=str(watch_id),
+                setup_instance_id=str(last_rec.payload.get("setup_instance_id") or watch_id),
+                revision=last_rec.payload.get("revision") or last_rec.payload.get("version"),
+                verified=True,
+            )
+
+    if chart_target is None:
+        return {
+            "status": "UNAVAILABLE",
+            "query_key": resolved.query_key,
+            "opportunity_id": clean_opp_id,
+            "reason_code": "NO_CHART_TARGET",
+            "message_vi": "Cơ hội này chưa có lệnh hoặc kế hoạch hợp lệ để hiển thị trên biểu đồ.",
+        }
+
+    # Validate kind if requested
+    if expected_kind and chart_target.kind != expected_kind:
+        return {
+            "status": "SCOPE_MISMATCH",
+            "query_key": resolved.query_key,
+            "opportunity_id": clean_opp_id,
+            "reason_code": "KIND_MISMATCH",
+            "message_vi": f"Mục tiêu biểu đồ ({chart_target.kind}) không khớp với loại yêu cầu ({expected_kind}).",
+        }
+
+    # Validate target_id if requested
+    if expected_target_id and chart_target.id != expected_target_id:
+        return {
+            "status": "SCOPE_MISMATCH",
+            "query_key": resolved.query_key,
+            "opportunity_id": clean_opp_id,
+            "reason_code": "ID_MISMATCH",
+            "message_vi": f"Mã mục tiêu ({chart_target.id}) không khớp với ID yêu cầu ({expected_target_id}).",
+        }
+
+    # 3. Hydrate Canonical DTO
+    if chart_target.kind == "ORDER":
+        order_row = db.query(models.PaperOrder).filter(models.PaperOrder.id == chart_target.id).first()
+        if not order_row:
+            return {
+                "status": "UNAVAILABLE",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "ORDER_NOT_FOUND",
+                "message_vi": f"Lệnh '{chart_target.id}' không tồn tại trong cơ sở dữ liệu.",
+            }
+
+        # Validate geometry
+        pe = getattr(order_row, "planned_entry", None)
+        sl = getattr(order_row, "stop_loss", None)
+        tp = getattr(order_row, "take_profit", None)
+        direction = getattr(order_row, "direction", None)
+
+        if pe is None or sl is None or tp is None or direction not in ("LONG", "SHORT"):
+            return {
+                "status": "UNAVAILABLE",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "INVALID_ORDER_GEOMETRY",
+                "message_vi": "Dữ liệu lệnh thiếu thông số giá (Entry/SL/TP) hoặc hướng lệnh không xác định.",
+            }
+
+        dto = schemas.PaperOrderResponse.model_validate(order_row).model_dump()
+        return {
+            "status": "AVAILABLE",
+            "kind": "ORDER",
+            "query_key": resolved.query_key,
+            "opportunity_id": clean_opp_id,
+            "target_id": order_row.id,
+            "dto": dto,
+        }
+
+    elif chart_target.kind == "SETUP":
+        setup_row = db.query(models.WatchSetup).filter(models.WatchSetup.id == chart_target.id).first()
+        if not setup_row:
+            return {
+                "status": "UNAVAILABLE",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "SETUP_NOT_FOUND",
+                "message_vi": f"Kế hoạch '{chart_target.id}' không tồn tại trong cơ sở dữ liệu.",
+            }
+
+        # Check revision
+        if expected_revision is not None and getattr(setup_row, "version", None) != expected_revision:
+            return {
+                "status": "STALE_TARGET",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "SETUP_REVISION_MISMATCH",
+                "message_vi": f"Phiên bản kế hoạch hiện tại (v{setup_row.version}) đã khác thời điểm ghi nhận (v{expected_revision}).",
+            }
+
+        # Validate geometry
+        entry_val = setup_row.confirmed_entry or setup_row.provisional_entry
+        sl_val = setup_row.confirmed_sl or setup_row.provisional_sl
+        tp_val = setup_row.confirmed_tp or setup_row.provisional_tp
+        s_dir = setup_row.direction
+
+        if not (entry_val and sl_val and tp_val and s_dir in ("LONG", "SHORT")):
+            return {
+                "status": "UNAVAILABLE",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "INVALID_SETUP_GEOMETRY",
+                "message_vi": "Kế hoạch thiếu thông số giá hoặc hướng giao dịch không hợp lệ.",
+            }
+
+        # Long: sl < entry < tp ; Short: tp < entry < sl
+        if s_dir == "LONG" and not (sl_val < entry_val < tp_val):
+            return {
+                "status": "UNAVAILABLE",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "INVALID_LONG_GEOMETRY",
+                "message_vi": "Cấu trúc giá LONG không thỏa mãn SL < Entry < TP.",
+            }
+        elif s_dir == "SHORT" and not (tp_val < entry_val < sl_val):
+            return {
+                "status": "UNAVAILABLE",
+                "query_key": resolved.query_key,
+                "opportunity_id": clean_opp_id,
+                "reason_code": "INVALID_SHORT_GEOMETRY",
+                "message_vi": "Cấu trúc giá SHORT không thỏa mãn TP < Entry < SL.",
+            }
+
+        dto = schemas.WatchSetupItem.model_validate(setup_row).model_dump()
+        return {
+            "status": "AVAILABLE",
+            "kind": "SETUP",
+            "query_key": resolved.query_key,
+            "opportunity_id": clean_opp_id,
+            "target_id": setup_row.id,
+            "dto": dto,
+        }
+
+    return {
+        "status": "UNAVAILABLE",
+        "query_key": resolved.query_key,
+        "opportunity_id": clean_opp_id,
+        "reason_code": "UNKNOWN_KIND",
+        "message_vi": f"Loại mục tiêu không được hỗ trợ: {chart_target.kind}",
+    }

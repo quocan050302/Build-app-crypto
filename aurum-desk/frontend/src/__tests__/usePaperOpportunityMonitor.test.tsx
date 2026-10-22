@@ -204,8 +204,24 @@ describe('Aurum V17.0 — usePaperOpportunityMonitor Hook', () => {
 
     expect(api.getOpportunityMonitorDetail).toHaveBeenCalledWith(
       'opp-1',
-      expect.objectContaining({ symbol: 'XAUUSDT', scope: 'CG01' }),
+      expect.objectContaining({
+        symbol: 'XAUUSDT',
+        scope: 'CG01',
+        run_id: 'run-1',
+        start_ms: expect.any(Number),
+        end_ms: expect.any(Number),
+      }),
       expect.any(AbortSignal)
+    );
+
+    expect(latestHookRes.resolvedQuery).toEqual(
+      expect.objectContaining({
+        symbol: 'XAUUSDT',
+        scope: 'CG01',
+        run_id: 'run-1',
+        start_ms: expect.any(Number),
+        end_ms: expect.any(Number),
+      })
     );
   });
 });

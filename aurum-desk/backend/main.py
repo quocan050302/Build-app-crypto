@@ -4196,23 +4196,47 @@ def get_opportunity_monitor_detail_endpoint(
     symbol: str = "XAUUSDT",
     scope: str = "CG01",
     run_id: Optional[str] = None,
+    model_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
     """
-    V17.0 Read-only detail for a single canonical opportunity including
+    V17.1 Read-only detail for a single canonical opportunity including
     observed milestones (with provenance), plan, classifier audit, and latency.
+    Strictly filters by resolved run and [start_ms, end_ms) window.
     """
+    if start_ms is not None and end_ms is not None and end_ms <= start_ms:
+        raise HTTPException(
+            status_code=422,
+            detail=f"end_ms ({end_ms}) must be strictly greater than start_ms ({start_ms})",
+        )
+    if start_ms is not None and end_ms is not None and (end_ms - start_ms) > 31 * 86400 * 1000:
+        raise HTTPException(
+            status_code=422,
+            detail="Query window cannot exceed 31 days",
+        )
+
     db.autoflush = False
     from services.paper_opportunity_monitor_service import (
         build_opportunity_monitor_detail,
         make_monitor_query_context,
     )
 
-    ctx = make_monitor_query_context(
-        symbol=symbol,
-        scope=scope,
-        run_id=run_id,
-    )
+    try:
+        ctx = make_monitor_query_context(
+            symbol=symbol,
+            scope=scope,
+            run_id=run_id,
+            model_id=model_id,
+            session_id=session_id,
+            start_ms=start_ms,
+            end_ms=end_ms,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
+
     detail = build_opportunity_monitor_detail(db, opportunity_id, ctx)
     if not detail:
         raise HTTPException(
@@ -4220,6 +4244,67 @@ def get_opportunity_monitor_detail_endpoint(
             detail=f"OPPORTUNITY_NOT_FOUND: Cơ hội '{opportunity_id}' không tồn tại trong phạm vi được yêu cầu.",
         )
     return detail.to_dict()
+
+
+@app.get("/api/v1/paper/opportunity-monitor/opportunities/{opportunity_id}/chart-target")
+def get_opportunity_monitor_chart_target_endpoint(
+    opportunity_id: str,
+    symbol: str = "XAUUSDT",
+    scope: str = "CG01",
+    run_id: Optional[str] = None,
+    model_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    expected_target_id: Optional[str] = None,
+    expected_kind: Optional[str] = None,
+    expected_revision: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.1 Read-only canonical chart target hydrator for an opportunity.
+    Returns full canonical PaperOrderResponse or WatchSetupItem DTO with geometry,
+    prices, and cost snapshots. Zero writes (db.autoflush=False).
+    """
+    if start_ms is not None and end_ms is not None and end_ms <= start_ms:
+        raise HTTPException(
+            status_code=422,
+            detail=f"end_ms ({end_ms}) must be strictly greater than start_ms ({start_ms})",
+        )
+    if start_ms is not None and end_ms is not None and (end_ms - start_ms) > 31 * 86400 * 1000:
+        raise HTTPException(
+            status_code=422,
+            detail="Query window cannot exceed 31 days",
+        )
+
+    db.autoflush = False
+    from services.paper_opportunity_monitor_service import (
+        build_monitor_chart_focus_context,
+        make_monitor_query_context,
+    )
+
+    try:
+        ctx = make_monitor_query_context(
+            symbol=symbol,
+            scope=scope,
+            run_id=run_id,
+            model_id=model_id,
+            session_id=session_id,
+            start_ms=start_ms,
+            end_ms=end_ms,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
+
+    focus_context = build_monitor_chart_focus_context(
+        db,
+        opportunity_id=opportunity_id,
+        requested_query=ctx,
+        expected_target_id=expected_target_id,
+        expected_kind=expected_kind,
+        expected_revision=expected_revision,
+    )
+    return focus_context
 
 
 @app.get("/api/v1/paper/opportunity-monitor/report.md")

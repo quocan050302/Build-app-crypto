@@ -18,6 +18,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 
 import { PaperOpportunityMonitorDrawer } from '../components/PaperOpportunityMonitorDrawer';
+import { api } from '../api/client';
 import type {
   OpportunityMonitorSummary,
   MonitorListPage,
@@ -201,11 +202,65 @@ vi.mock('../api/client', async (importOriginal) => {
     getOpportunityMonitorOpportunities: vi.fn().mockImplementation(async () => mockListPage),
     getOpportunityMonitorDetail: vi.fn().mockImplementation(async () => mockDetail),
     getOpportunityMonitorReportMarkdown: vi.fn().mockResolvedValue('# Mock Report'),
+    getOpportunityMonitorChartTarget: vi.fn().mockImplementation(async () => ({
+      status: 'AVAILABLE',
+      kind: 'SETUP',
+      query_key: 'qk-test',
+      opportunity_id: 'opp-101',
+      target_id: 'setup-101',
+      dto: {
+        id: 'setup-101',
+        setup_id: 'setup-101',
+        setup_instance_id: 'inst-1',
+        symbol: 'XAUUSDT',
+        direction: 'LONG',
+        provisional_entry: 2650.5,
+        provisional_sl: 2645.0,
+        provisional_tp: 2665.0,
+        planned_entry: 2650.5,
+        stop_loss: 2645.0,
+        take_profit: 2665.0,
+        version: 1,
+        resolved_display_plan: {
+          entry: 2650.5,
+          stop_loss: 2645.0,
+          take_profit: 2665.0,
+          direction: 'LONG',
+        },
+      },
+    })),
     api: {
       getOpportunityMonitorSummary: vi.fn().mockImplementation(async () => mockSummary),
       getOpportunityMonitorOpportunities: vi.fn().mockImplementation(async () => mockListPage),
       getOpportunityMonitorDetail: vi.fn().mockImplementation(async () => mockDetail),
       getOpportunityMonitorReportMarkdown: vi.fn().mockResolvedValue('# Mock Report'),
+      getOpportunityMonitorChartTarget: vi.fn().mockImplementation(async () => ({
+        status: 'AVAILABLE',
+        kind: 'SETUP',
+        query_key: 'qk-test',
+        opportunity_id: 'opp-101',
+        target_id: 'setup-101',
+        dto: {
+          id: 'setup-101',
+          setup_id: 'setup-101',
+          setup_instance_id: 'inst-1',
+          symbol: 'XAUUSDT',
+          direction: 'LONG',
+          provisional_entry: 2650.5,
+          provisional_sl: 2645.0,
+          provisional_tp: 2665.0,
+          planned_entry: 2650.5,
+          stop_loss: 2645.0,
+          take_profit: 2665.0,
+          version: 1,
+          resolved_display_plan: {
+            entry: 2650.5,
+            stop_loss: 2645.0,
+            take_profit: 2665.0,
+            direction: 'LONG',
+          },
+        },
+      })),
     },
   };
 });
@@ -406,17 +461,163 @@ describe('Aurum V17.0 — PaperOpportunityMonitorDrawer Component Tests', () => 
 
     // Must close drawer first then trigger chart focus
     expect(handleClose).toHaveBeenCalledTimes(1);
-    expect(handleFocusSetup).toHaveBeenCalledWith({
-      id: 'setup-101',
-      setup_id: 'setup-101',
-      symbol: 'XAUUSDT',
-      direction: 'LONG',
-      provisional_entry: 2650.5,
-      provisional_sl: 2645.0,
-      provisional_tp: 2665.0,
-      planned_entry: 2650.5,
-      stop_loss: 2645.0,
-      take_profit: 2665.0,
+    expect(handleFocusSetup).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'setup-101',
+        setup_id: 'setup-101',
+        setup_instance_id: 'inst-1',
+        symbol: 'XAUUSDT',
+        direction: 'LONG',
+        planned_entry: 2650.5,
+        stop_loss: 2645.0,
+        take_profit: 2665.0,
+      })
+    );
+  });
+
+  it('Failure M3 Regression: invokes onFocusTradeOnChart with full canonical ORDER DTO (planned_entry, stop_loss, cost_snapshot)', async () => {
+    const handleClose = vi.fn();
+    const handleFocusTrade = vi.fn();
+
+    // Mock detail to have an ORDER chart_target
+    const orderDetail: OpportunityMonitorDetail = {
+      ...mockDetail,
+      item: {
+        ...mockDetail.item,
+        chart_target: {
+          kind: 'ORDER',
+          id: 'ord-101',
+          setup_instance_id: 'inst-1',
+          revision: 1,
+          evidence_snapshot_id: 'snap-1',
+          verified: true,
+        },
+      },
+    };
+
+    vi.mocked(api.getOpportunityMonitorDetail).mockImplementationOnce(async () => orderDetail);
+    vi.mocked(api.getOpportunityMonitorChartTarget).mockImplementationOnce(async () => ({
+      status: 'AVAILABLE',
+      kind: 'ORDER',
+      query_key: 'qk-test',
+      opportunity_id: 'opp-101',
+      target_id: 'ord-101',
+      dto: {
+        id: 'ord-101',
+        order_id: 'ord-101',
+        setup_id: 'setup-101',
+        instrument: 'XAUUSDT',
+        direction: 'LONG',
+        state: 'FILLED',
+        order_type: 'LIMIT',
+        timeframe: 'M5',
+        planned_entry: 2650.5,
+        actual_entry: 2650.5,
+        stop_loss: 2645.0,
+        take_profit: 2665.0,
+        quantity: 0.1,
+        cost_snapshot: {
+          minimum_snapshot_rr: 2.0,
+        },
+      },
+    }));
+
+    await act(async () => {
+      root?.render(
+        <PaperOpportunityMonitorDrawer
+          open={true}
+          onClose={handleClose}
+          onFocusTradeOnChart={handleFocusTrade}
+        />
+      );
     });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+
+    const row = container?.querySelector('[data-testid="monitor-row-opp-101"]') as HTMLElement;
+    await act(async () => {
+      row.click();
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+
+    const focusBtn = container?.querySelector('[data-testid="monitor-focus-chart-btn"]') as HTMLButtonElement;
+    expect(focusBtn).not.toBeNull();
+
+    await act(async () => {
+      focusBtn.click();
+    });
+
+    // Drawer closes and full canonical ORDER DTO is passed
+    expect(handleClose).toHaveBeenCalledTimes(1);
+    expect(handleFocusTrade).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'ord-101',
+        order_id: 'ord-101',
+        instrument: 'XAUUSDT',
+        direction: 'LONG',
+        state: 'FILLED',
+        planned_entry: 2650.5,
+        stop_loss: 2645.0,
+        take_profit: 2665.0,
+        cost_snapshot: {
+          minimum_snapshot_rr: 2.0,
+        },
+      })
+    );
+  });
+
+  it('handles stale or unavailable target by displaying inline error and keeping drawer open', async () => {
+    const handleClose = vi.fn();
+    const handleFocusSetup = vi.fn();
+
+    vi.mocked(api.getOpportunityMonitorChartTarget).mockImplementationOnce(async () => ({
+      status: 'STALE_TARGET',
+      query_key: 'qk-test',
+      opportunity_id: 'opp-101',
+      reason_code: 'SETUP_REVISION_STALE',
+      message_vi: 'Kế hoạch đã thay đổi phiên bản mới',
+    }));
+
+    await act(async () => {
+      root?.render(
+        <PaperOpportunityMonitorDrawer
+          open={true}
+          onClose={handleClose}
+          onFocusSetupOnChart={handleFocusSetup}
+        />
+      );
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+
+    const row = container?.querySelector('[data-testid="monitor-row-opp-101"]') as HTMLElement;
+    await act(async () => {
+      row.click();
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+
+    const focusBtn = container?.querySelector('[data-testid="monitor-focus-chart-btn"]') as HTMLButtonElement;
+    await act(async () => {
+      focusBtn.click();
+    });
+
+    // Drawer should NOT close and handlers should NOT be invoked
+    expect(handleClose).not.toHaveBeenCalled();
+    expect(handleFocusSetup).not.toHaveBeenCalled();
+
+    // Inline error displayed
+    const errorEl = container?.querySelector('[data-testid="monitor-focus-error"]');
+    expect(errorEl).not.toBeNull();
+    expect(errorEl?.textContent).toContain('Kế hoạch đã thay đổi');
   });
 });

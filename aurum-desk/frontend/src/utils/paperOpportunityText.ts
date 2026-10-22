@@ -177,3 +177,252 @@ export function formatMonitorDateTime(epochMs: number | null | undefined): strin
   const d = new Date(epochMs);
   return `${d.toLocaleDateString('vi-VN')} ${d.toLocaleTimeString('vi-VN', { hour12: false })}`;
 }
+
+/**
+ * Phần 052 - 055, C2: Pure helper converting filter selections into exact half-open [startMs, endMs) UTC timestamps.
+ * Guarantees consistent Asia/Ho_Chi_Minh boundary interpretation regardless of browser local timezone.
+ */
+export function buildMonitorTimeWindow(
+  filters: { period: 'today' | '7d' | 'custom'; customStartDate?: string; customEndDate?: string },
+  timezone: string = 'Asia/Ho_Chi_Minh',
+  nowMs: number = Date.now()
+): { startMs: number | null; endMs: number; start_ms: number | null; end_ms: number } {
+  let startMs: number | null = null;
+  let endMs: number = nowMs;
+
+  if (filters.period === 'today') {
+    // Determine start of today at 00:00:00 in Vietnam timezone (+07:00)
+    try {
+      const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+      const dateStr = formatter.format(new Date(nowMs)); // "YYYY-MM-DD"
+      startMs = new Date(`${dateStr}T00:00:00+07:00`).getTime();
+    } catch {
+      // Fallback
+      const d = new Date(nowMs);
+      d.setHours(0, 0, 0, 0);
+      startMs = d.getTime();
+    }
+    endMs = nowMs;
+  } else if (filters.period === '7d') {
+    startMs = nowMs - 7 * 24 * 60 * 60 * 1000;
+    endMs = nowMs;
+  } else if (filters.period === 'custom') {
+    if (filters.customStartDate) {
+      startMs = new Date(`${filters.customStartDate}T00:00:00+07:00`).getTime();
+    }
+    if (filters.customEndDate) {
+      // Half-open: exclusive end is the start of the next calendar day
+      endMs = new Date(`${filters.customEndDate}T00:00:00+07:00`).getTime() + 24 * 60 * 60 * 1000;
+    } else if (startMs !== null) {
+      endMs = startMs + 24 * 60 * 60 * 1000;
+    }
+  }
+
+  return { startMs, endMs, start_ms: startMs, end_ms: endMs };
+}
+
+/**
+ * Phần 095, C7: Pure client-side validation of canonical chart focus context.
+ * Enforces identity, geometry, finite prices, and discriminated kind.
+ */
+export function validateMonitorChartFocusContext(
+  result: any,
+  expected?: {
+    queryKey?: string | null;
+    opportunityId?: string;
+    expectedOpportunityId?: string;
+    targetId?: string;
+    expectedTargetId?: string;
+    kind?: string;
+    expectedKind?: string;
+    symbol?: string;
+    expectedSymbol?: string;
+    revision?: number;
+  }
+): import('../types/paperOpportunityMonitor').MonitorChartFocusContext {
+  if (!result || typeof result !== 'object') {
+    return {
+      status: 'UNAVAILABLE',
+      query_key: null,
+      opportunity_id: expected?.expectedOpportunityId || expected?.opportunityId || '',
+      reason_code: 'MALFORMED_RESPONSE',
+      message_vi: 'Phản hồi từ máy chủ không hợp lệ.',
+    };
+  }
+
+  if (result.status !== 'AVAILABLE') {
+    const st =
+      result.status === 'STALE_TARGET'
+        ? 'STALE_TARGET'
+        : result.status === 'SCOPE_MISMATCH'
+        ? 'SCOPE_MISMATCH'
+        : 'UNAVAILABLE';
+    return {
+      status: st,
+      query_key: result.query_key ?? null,
+      opportunity_id: result.opportunity_id || expected?.expectedOpportunityId || expected?.opportunityId || '',
+      reason_code: result.reason_code || 'UNAVAILABLE',
+      message_vi: result.message_vi || 'Mục tiêu biểu đồ không khả dụng.',
+    };
+  }
+
+  const expOppId = expected?.expectedOpportunityId || expected?.opportunityId;
+  if (expOppId && result.opportunity_id !== expOppId) {
+    return {
+      status: 'SCOPE_MISMATCH',
+      query_key: result.query_key ?? null,
+      opportunity_id: result.opportunity_id || '',
+      reason_code: 'OPPORTUNITY_MISMATCH',
+      message_vi: 'Mã cơ hội trả về không khớp với lựa chọn hiện tại.',
+    };
+  }
+
+  const expTargetId = expected?.expectedTargetId || expected?.targetId;
+  if (expTargetId && result.target_id !== expTargetId) {
+    return {
+      status: 'SCOPE_MISMATCH',
+      query_key: result.query_key ?? null,
+      opportunity_id: result.opportunity_id || '',
+      reason_code: 'TARGET_MISMATCH',
+      message_vi: 'Mã mục tiêu không khớp với bằng chứng yêu cầu.',
+    };
+  }
+
+  const expKind = expected?.expectedKind || expected?.kind;
+  if (expKind && result.kind !== expKind) {
+    return {
+      status: 'SCOPE_MISMATCH',
+      query_key: result.query_key ?? null,
+      opportunity_id: result.opportunity_id || '',
+      reason_code: 'KIND_MISMATCH',
+      message_vi: `Loại mục tiêu (${result.kind}) không khớp với yêu cầu (${expKind}).`,
+    };
+  }
+
+  const dto = result.dto;
+  if (!dto || typeof dto !== 'object') {
+    return {
+      status: 'UNAVAILABLE',
+      query_key: result.query_key ?? null,
+      opportunity_id: result.opportunity_id || '',
+      reason_code: 'MISSING_DTO',
+      message_vi: 'Không có dữ liệu DTO chi tiết từ máy chủ.',
+    };
+  }
+
+  // Validate ORDER
+  if (result.kind === 'ORDER') {
+    const isFiniteNum = (v: any) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+    if (!isFiniteNum(dto.planned_entry) || !isFiniteNum(dto.stop_loss) || !isFiniteNum(dto.take_profit)) {
+      return {
+        status: 'UNAVAILABLE',
+        query_key: result.query_key ?? null,
+        opportunity_id: result.opportunity_id || '',
+        reason_code: 'INVALID_PRICES',
+        message_vi: 'Dữ liệu giá lệnh không hợp lệ hoặc thiếu giá trị.',
+      };
+    }
+    if (dto.direction !== 'LONG' && dto.direction !== 'SHORT') {
+      return {
+        status: 'UNAVAILABLE',
+        query_key: result.query_key ?? null,
+        opportunity_id: result.opportunity_id || '',
+        reason_code: 'INVALID_DIRECTION',
+        message_vi: 'Hướng lệnh không xác định.',
+      };
+    }
+    // Geometry check
+    if (dto.direction === 'LONG' && (dto.stop_loss >= dto.planned_entry || dto.take_profit <= dto.planned_entry)) {
+      return {
+        status: 'UNAVAILABLE',
+        query_key: result.query_key ?? null,
+        opportunity_id: result.opportunity_id || '',
+        reason_code: 'INVALID_GEOMETRY',
+        message_vi: 'Cấu trúc giá lệnh LONG không hợp lệ (SL >= Entry hoặc TP <= Entry).',
+      };
+    }
+    if (dto.direction === 'SHORT' && (dto.stop_loss <= dto.planned_entry || dto.take_profit >= dto.planned_entry)) {
+      return {
+        status: 'UNAVAILABLE',
+        query_key: result.query_key ?? null,
+        opportunity_id: result.opportunity_id || '',
+        reason_code: 'INVALID_GEOMETRY',
+        message_vi: 'Cấu trúc giá lệnh SHORT không hợp lệ (SL <= Entry hoặc TP >= Entry).',
+      };
+    }
+    return {
+      status: 'AVAILABLE',
+      kind: 'ORDER',
+      query_key: result.query_key,
+      opportunity_id: result.opportunity_id,
+      target_id: result.target_id,
+      dto: dto,
+    };
+  }
+
+  // Validate SETUP
+  if (result.kind === 'SETUP') {
+    const isFiniteNum = (v: any) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+    const entry = dto.confirmed_entry || dto.provisional_entry || dto.planned_entry;
+    const sl = dto.confirmed_sl || dto.provisional_sl || dto.stop_loss;
+    const tp = dto.confirmed_tp || dto.provisional_tp || dto.take_profit;
+
+    if (!isFiniteNum(entry) || !isFiniteNum(sl) || !isFiniteNum(tp)) {
+      return {
+        status: 'UNAVAILABLE',
+        query_key: result.query_key ?? null,
+        opportunity_id: result.opportunity_id || '',
+        reason_code: 'INVALID_PRICES',
+        message_vi: 'Kế hoạch thiếu thông số giá Entry / SL / TP hợp lệ.',
+      };
+    }
+    if (dto.direction !== 'LONG' && dto.direction !== 'SHORT') {
+      return {
+        status: 'UNAVAILABLE',
+        query_key: result.query_key ?? null,
+        opportunity_id: result.opportunity_id || '',
+        reason_code: 'INVALID_DIRECTION',
+        message_vi: 'Hướng kế hoạch không xác định.',
+      };
+    }
+    if (dto.direction === 'LONG' && (sl >= entry || tp <= entry)) {
+      return {
+        status: 'UNAVAILABLE',
+        query_key: result.query_key ?? null,
+        opportunity_id: result.opportunity_id || '',
+        reason_code: 'INVALID_GEOMETRY',
+        message_vi: 'Cấu trúc giá kế hoạch LONG không hợp lệ (SL >= Entry hoặc TP <= Entry).',
+      };
+    }
+    if (dto.direction === 'SHORT' && (sl <= entry || tp >= entry)) {
+      return {
+        status: 'UNAVAILABLE',
+        query_key: result.query_key ?? null,
+        opportunity_id: result.opportunity_id || '',
+        reason_code: 'INVALID_GEOMETRY',
+        message_vi: 'Cấu trúc giá kế hoạch SHORT không hợp lệ (SL <= Entry hoặc TP >= Entry).',
+      };
+    }
+    return {
+      status: 'AVAILABLE',
+      kind: 'SETUP',
+      query_key: result.query_key,
+      opportunity_id: result.opportunity_id,
+      target_id: result.target_id,
+      dto: dto,
+    };
+  }
+
+  return {
+    status: 'UNAVAILABLE',
+    query_key: result.query_key ?? null,
+    opportunity_id: result.opportunity_id || '',
+    reason_code: 'UNSUPPORTED_KIND',
+    message_vi: `Loại mục tiêu không được hỗ trợ: ${result.kind}`,
+  };
+}
