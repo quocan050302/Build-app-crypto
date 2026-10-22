@@ -4,7 +4,16 @@
  */
 import type { CG01DisplayState } from './cg01DisplayState';
 import { getCG01ReasonDescription } from './cg01ReasonText';
-import type { BotWaitingSummary } from '../types/paperOpportunityMonitor';
+import { getCanonicalSetupPlan } from './planLevels';
+import type {
+  BotWaitingSummary,
+  BoundMonitorQuery,
+  MonitorResolution,
+  MonitorQueryParams,
+  OpportunityMonitorSummary,
+  MonitorContextSnapshot,
+  MonitorRequestLease,
+} from '../types/paperOpportunityMonitor';
 
 /**
  * Derives a human-friendly, accurate explanation of what the bot is currently doing / waiting for.
@@ -226,14 +235,6 @@ export function buildMonitorTimeWindow(
   return { startMs, endMs, start_ms: startMs, end_ms: endMs };
 }
 
-import { getCanonicalSetupPlan } from './planLevels';
-import type {
-  BoundMonitorQuery,
-  MonitorResolution,
-  MonitorQueryParams,
-  OpportunityMonitorSummary,
-} from '../types/paperOpportunityMonitor';
-
 /**
  * Phần 011 - 020, B2: Pure resolution of authoritative query scope and bound context from Summary response.
  */
@@ -344,9 +345,9 @@ export function assertMonitorResponseContext(
     throw new Error(`MALFORMED_RESPONSE: Phản hồi ${resourceKind} rỗng hoặc không đúng định dạng.`);
   }
 
-  if (response.query_key && response.query_key !== bound.query_key) {
+  if (!response.query_key || response.query_key !== bound.query_key) {
     throw new Error(
-      `SCOPE_MISMATCH: Khóa truy vấn của ${resourceKind} (${response.query_key}) không khớp với phiên đã liên kết (${bound.query_key}).`
+      `SCOPE_MISMATCH: Khóa truy vấn của ${resourceKind} (${response.query_key || 'THIẾU'}) không khớp với phiên đã liên kết (${bound.query_key}).`
     );
   }
 
@@ -363,6 +364,72 @@ export function assertMonitorResponseContext(
       );
     }
   }
+}
+
+/**
+ * Phần 028, B2: Pure detail identity assertion ensuring returned item matches requested opportunityId and run.
+ */
+export function assertMonitorDetailIdentity(
+  detail: any,
+  bound: BoundMonitorQuery,
+  expectedOpportunityId: string
+): void {
+  if (!detail || typeof detail !== 'object' || !detail.item) {
+    throw new Error('MALFORMED_DETAIL: Dữ liệu chi tiết rỗng hoặc không đúng định dạng.');
+  }
+  const item = detail.item;
+  if (item.opportunity_id !== expectedOpportunityId) {
+    throw new Error(
+      `ID_MISMATCH: Dữ liệu chi tiết trả về (${item.opportunity_id}) không khớp với cơ hội đang chọn (${expectedOpportunityId}). Vui lòng tải lại.`
+    );
+  }
+  if (item.run_id && item.run_id !== bound.run_id) {
+    throw new Error(
+      `RUN_MISMATCH: Cơ hội thuộc phiên '${item.run_id}', không khớp với phiên đang xem '${bound.run_id}'.`
+    );
+  }
+}
+
+/**
+ * Phần 024, B1: Captures an immutable lease token from a verified READY context snapshot.
+ */
+export function captureMonitorRequestLease(
+  snapshot: MonitorContextSnapshot
+): MonitorRequestLease | null {
+  if (snapshot.status !== 'READY') return null;
+  const q = snapshot.query;
+  if (
+    !q.run_id?.trim() ||
+    !q.query_key?.trim() ||
+    !Number.isFinite(q.start_ms) ||
+    !Number.isFinite(q.end_ms) ||
+    q.start_ms >= q.end_ms
+  ) {
+    return null;
+  }
+  return { epoch: snapshot.epoch, query: { ...q } };
+}
+
+/**
+ * Phần 025, B1: Pure freshness assertion checking whether current context snapshot still matches captured lease.
+ */
+export function isMonitorRequestCurrent(
+  snapshot: MonitorContextSnapshot,
+  lease: MonitorRequestLease
+): boolean {
+  if (snapshot.status !== 'READY' || snapshot.epoch !== lease.epoch) return false;
+  const a = snapshot.query;
+  const b = lease.query;
+  return (
+    a.query_key === b.query_key &&
+    a.run_id === b.run_id &&
+    a.symbol === b.symbol &&
+    a.scope === b.scope &&
+    a.start_ms === b.start_ms &&
+    a.end_ms === b.end_ms &&
+    (a.session_id ?? null) === (b.session_id ?? null) &&
+    (a.model_id ?? null) === (b.model_id ?? null)
+  );
 }
 
 /**

@@ -38,6 +38,11 @@ import {
   formatMonitorDateTime,
   formatMonitorReportFilename,
   validateMonitorChartFocusContext,
+  captureMonitorRequestLease,
+  isMonitorRequestCurrent,
+  assertMonitorResponseContext,
+  assertMonitorDetailIdentity,
+  toMonitorRequestParams,
 } from '../utils/paperOpportunityText';
 import type { CG01DisplayState } from '../utils/cg01DisplayState';
 import type { MonitorFilterState, OpportunityMonitorListItem } from '../types/paperOpportunityMonitor';
@@ -89,7 +94,6 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
     summary,
     page,
     detail,
-    resolvedQuery,
     isSummaryLoading,
     isListLoading,
     isDetailLoading,
@@ -99,6 +103,8 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
     refresh,
     loadNextPage,
     selectOpportunity,
+    monitorContext,
+    getCurrentMonitorContext,
   } = usePaperOpportunityMonitor({
     open,
     symbol,
@@ -129,6 +135,28 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
       setIsExporting(false);
     }
   }, []);
+
+  // Action wrappers invalidating in-flight actions before triggering new context
+  const handleRefreshMonitor = useCallback(() => {
+    invalidateFocusRequest();
+    invalidateExportRequest();
+    void refresh();
+  }, [invalidateFocusRequest, invalidateExportRequest, refresh]);
+
+  const handleFiltersChange = useCallback(
+    (update: React.SetStateAction<MonitorFilterState>) => {
+      invalidateFocusRequest();
+      invalidateExportRequest();
+      setFilters(update);
+    },
+    [invalidateFocusRequest, invalidateExportRequest]
+  );
+
+  // Invalidate in-flight actions whenever context epoch increments or status is not READY
+  useEffect(() => {
+    invalidateFocusRequest();
+    invalidateExportRequest();
+  }, [monitorContext.epoch, monitorContext.status, invalidateFocusRequest, invalidateExportRequest]);
 
   const requestCloseMonitor = useCallback(() => {
     invalidateFocusRequest();
@@ -197,24 +225,22 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
     setFocusError(null);
   };
 
-  // Focus chart handler (Fetch canonical DTO -> validate -> close drawer -> delegate)
+  // Focus chart handler (Fetch canonical DTO -> validate freshness -> close drawer -> delegate)
   const handleFocusChart = useCallback(async () => {
-    if (!detail?.item?.chart_target?.verified || !selectedOpportunityId) return;
+    const lease = captureMonitorRequestLease(getCurrentMonitorContext());
+    if (!lease || !selectedOpportunityId || !detail?.item?.chart_target?.verified) return;
     if (focusInFlightRef.current) return;
 
+    assertMonitorResponseContext(detail, lease.query, 'DETAIL');
+    assertMonitorDetailIdentity(detail, lease.query, selectedOpportunityId);
+
     const target = detail.item.chart_target;
-    const captured = {
-      opportunityId: selectedOpportunityId,
-      targetId: target.id,
+    const capturedId = selectedOpportunityId;
+    const capturedTarget = {
+      id: target.id,
       kind: target.kind,
       revision: target.revision ?? null,
       setupInstanceId: target.setup_instance_id ?? null,
-      queryKey: resolvedQuery?.query_key ?? summary?.query_key ?? null,
-      runId: resolvedQuery?.run_id || summary?.coverage?.run_id || undefined,
-      startMs: resolvedQuery?.start_ms ?? undefined,
-      endMs: resolvedQuery?.end_ms ?? undefined,
-      sessionId: resolvedQuery?.session_id ?? (filters.session !== 'all' ? filters.session : undefined),
-      modelId: resolvedQuery?.model_id ?? undefined,
     };
 
     invalidateFocusRequest();
@@ -226,43 +252,42 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
     focusAbortControllerRef.current = controller;
     const currentGen = focusGenerationRef.current;
 
+    const isCurrent = () =>
+      mountedRef.current &&
+      !controller.signal.aborted &&
+      currentGen === focusGenerationRef.current &&
+      isMonitorRequestCurrent(getCurrentMonitorContext(), lease);
+
     try {
       const result = await api.getOpportunityMonitorChartTarget(
-        captured.opportunityId,
+        capturedId,
         {
-          symbol,
-          scope: initialScope,
-          run_id: captured.runId,
-          start_ms: captured.startMs,
-          end_ms: captured.endMs,
-          session_id: captured.sessionId,
-          model_id: captured.modelId,
-          expected_target_id: captured.targetId,
-          expected_kind: captured.kind,
-          ...(captured.kind === 'SETUP' && captured.revision != null
-            ? { expected_revision: captured.revision }
+          ...toMonitorRequestParams(lease.query),
+          expected_target_id: capturedTarget.id,
+          expected_kind: capturedTarget.kind,
+          ...(capturedTarget.kind === 'SETUP' && capturedTarget.revision != null
+            ? { expected_revision: capturedTarget.revision }
             : {}),
         },
         controller.signal
       );
 
-      if (
-        !mountedRef.current ||
-        controller.signal.aborted ||
-        currentGen !== focusGenerationRef.current ||
-        selectedOpportunityId !== captured.opportunityId
-      ) {
-        return;
+      if (!isCurrent()) return;
+
+      if (result.status === 'AVAILABLE') {
+        assertMonitorResponseContext(result, lease.query, 'FOCUS');
       }
 
       const validated = validateMonitorChartFocusContext(result, {
-        queryKey: captured.queryKey,
-        expectedKind: captured.kind,
-        expectedTargetId: captured.targetId,
-        expectedOpportunityId: captured.opportunityId,
-        expectedSymbol: symbol,
-        revision: captured.revision ?? undefined,
+        queryKey: lease.query.query_key,
+        expectedKind: capturedTarget.kind,
+        expectedTargetId: capturedTarget.id,
+        expectedOpportunityId: capturedId,
+        expectedSymbol: lease.query.symbol,
+        revision: capturedTarget.revision ?? undefined,
       });
+
+      if (!isCurrent()) return;
 
       if (validated.status !== 'AVAILABLE') {
         setFocusError(validated.message_vi);
@@ -275,13 +300,7 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
         return;
       }
 
-      if (
-        !mountedRef.current ||
-        controller.signal.aborted ||
-        currentGen !== focusGenerationRef.current
-      ) {
-        return;
-      }
+      if (!isCurrent()) return;
 
       // Validated successfully: invalidate pending focus tokens, close drawer, and invoke callback
       invalidateFocusRequest();
@@ -291,27 +310,22 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
 
       callback(validated.dto);
     } catch (err: any) {
-      if (
-        mountedRef.current &&
-        !controller.signal.aborted &&
-        currentGen === focusGenerationRef.current
-      ) {
+      if (isCurrent()) {
         setFocusError(err?.message || 'Không thể tải bằng chứng chart canonical');
       }
     } finally {
-      if (mountedRef.current && currentGen === focusGenerationRef.current) {
+      if (isCurrent()) {
         focusInFlightRef.current = false;
         setIsFocusing(false);
+      }
+      if (focusAbortControllerRef.current === controller) {
+        focusAbortControllerRef.current = null;
       }
     }
   }, [
     detail,
     selectedOpportunityId,
-    resolvedQuery,
-    summary,
-    symbol,
-    initialScope,
-    filters.session,
+    getCurrentMonitorContext,
     invalidateFocusRequest,
     selectOpportunity,
     onClose,
@@ -321,6 +335,9 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
 
   // Markdown Report Download
   const handleDownloadReport = async () => {
+    const lease = captureMonitorRequestLease(getCurrentMonitorContext());
+    if (!lease) return;
+
     invalidateExportRequest();
     setIsExporting(true);
     setExportError(null);
@@ -329,56 +346,45 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
     exportAbortControllerRef.current = controller;
     const currentGen = exportGenerationRef.current;
 
-    const capturedBound = {
-      symbol,
-      scope: initialScope,
-      run_id: resolvedQuery?.run_id || summary?.coverage?.run_id || undefined,
-      start_ms: resolvedQuery?.start_ms ?? summary?.query_scope?.start_ms ?? undefined,
-      end_ms: resolvedQuery?.end_ms ?? summary?.query_scope?.end_ms ?? undefined,
-      session_id: resolvedQuery?.session_id ?? (filters.session !== 'all' ? filters.session : undefined),
-      model_id: resolvedQuery?.model_id ?? undefined,
-    };
+    const isCurrent = () =>
+      mountedRef.current &&
+      !controller.signal.aborted &&
+      currentGen === exportGenerationRef.current &&
+      isMonitorRequestCurrent(getCurrentMonitorContext(), lease);
 
     let objectUrl: string | null = null;
+    let anchor: HTMLAnchorElement | null = null;
     try {
       const md = await api.getOpportunityMonitorReportMarkdown(
-        capturedBound,
+        toMonitorRequestParams(lease.query),
         controller.signal
       );
 
-      if (!mountedRef.current || controller.signal.aborted || currentGen !== exportGenerationRef.current) {
-        return;
-      }
+      if (!isCurrent()) return;
 
       const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
       objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
+      anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = formatMonitorReportFilename(lease.query);
 
-      if (capturedBound.start_ms && capturedBound.end_ms) {
-        a.download = formatMonitorReportFilename({
-          symbol,
-          start_ms: capturedBound.start_ms,
-          end_ms: capturedBound.end_ms,
-        });
-      } else {
-        a.download = `aurum-opportunity-report-${symbol}-${new Date().toISOString().slice(0, 10)}.md`;
-      }
-
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      document.body.appendChild(anchor);
+      anchor.click();
     } catch (err: any) {
-      if (mountedRef.current && !controller.signal.aborted && currentGen === exportGenerationRef.current) {
+      if (isCurrent()) {
         console.error('Failed to download report:', err);
         setExportError(err?.message || 'Không thể tải báo cáo Markdown');
       }
     } finally {
+      anchor?.remove();
       if (objectUrl) {
         URL.revokeObjectURL(objectUrl);
       }
-      if (mountedRef.current && currentGen === exportGenerationRef.current) {
+      if (isCurrent()) {
         setIsExporting(false);
+      }
+      if (exportAbortControllerRef.current === controller) {
+        exportAbortControllerRef.current = null;
       }
     }
   };
@@ -433,7 +439,7 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
             <button
               type="button"
               data-testid="monitor-refresh-btn"
-              onClick={() => refresh()}
+              onClick={handleRefreshMonitor}
               disabled={isSummaryLoading || isListLoading}
               className="p-1.5 rounded text-gray-400 hover:text-gray-200 hover:bg-charcoal-750 transition cursor-pointer disabled:opacity-50"
               title="Làm mới dữ liệu"
@@ -474,7 +480,7 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
                   <button
                     type="button"
                     data-testid="filter-period-today"
-                    onClick={() => setFilters((f) => ({ ...f, period: 'today' }))}
+                    onClick={() => handleFiltersChange((f) => ({ ...f, period: 'today' }))}
                     className={`py-1 rounded font-medium transition ${
                       filters.period === 'today'
                         ? 'bg-charcoal-750 text-cyan-300 font-semibold'
@@ -486,7 +492,7 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
                   <button
                     type="button"
                     data-testid="filter-period-7d"
-                    onClick={() => setFilters((f) => ({ ...f, period: '7d' }))}
+                    onClick={() => handleFiltersChange((f) => ({ ...f, period: '7d' }))}
                     className={`py-1 rounded font-medium transition ${
                       filters.period === '7d'
                         ? 'bg-charcoal-750 text-cyan-300 font-semibold'
@@ -498,7 +504,7 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
                   <button
                     type="button"
                     data-testid="filter-period-custom"
-                    onClick={() => setFilters((f) => ({ ...f, period: 'custom' }))}
+                    onClick={() => handleFiltersChange((f) => ({ ...f, period: 'custom' }))}
                     className={`py-1 rounded font-medium transition ${
                       filters.period === 'custom'
                         ? 'bg-charcoal-750 text-cyan-300 font-semibold'
@@ -517,7 +523,10 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
                       <input
                         type="date"
                         value={filters.customStartDate || ''}
-                        onChange={(e) => setFilters((f) => ({ ...f, customStartDate: e.target.value }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          handleFiltersChange((f) => ({ ...f, customStartDate: val }));
+                        }}
                         className="w-full bg-charcoal-900 border border-charcoal-700 text-gray-200 rounded px-1.5 py-1 text-[11px]"
                       />
                     </div>
@@ -526,7 +535,10 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
                       <input
                         type="date"
                         value={filters.customEndDate || ''}
-                        onChange={(e) => setFilters((f) => ({ ...f, customEndDate: e.target.value }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          handleFiltersChange((f) => ({ ...f, customEndDate: val }));
+                        }}
                         className="w-full bg-charcoal-900 border border-charcoal-700 text-gray-200 rounded px-1.5 py-1 text-[11px]"
                       />
                     </div>
@@ -704,7 +716,7 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
                     type="button"
                     data-testid="monitor-download-report-btn"
                     onClick={handleDownloadReport}
-                    disabled={isExporting}
+                    disabled={isExporting || monitorContext.status !== 'READY'}
                     className="px-3 py-1.5 rounded bg-charcoal-800 hover:bg-charcoal-750 text-gray-200 text-xs font-medium border border-charcoal-700 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     <Download className="w-3.5 h-3.5 text-cyan-400" />
@@ -797,7 +809,7 @@ export const PaperOpportunityMonitorDrawer: React.FC<PaperOpportunityMonitorDraw
                         type="button"
                         data-testid="monitor-focus-chart-btn"
                         onClick={handleFocusChart}
-                        disabled={isFocusing}
+                        disabled={isFocusing || monitorContext.status !== 'READY'}
                         className="w-full py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-charcoal-950 font-bold text-xs rounded-lg transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
                       >
                         {isFocusing ? (

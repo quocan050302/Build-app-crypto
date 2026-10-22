@@ -51,6 +51,7 @@ describe('Aurum V17.0 — usePaperOpportunityMonitor Hook', () => {
     },
     coverage: { run_id: 'run-1', run_status: 'COLLECTING', symbol: 'XAUUSDT', scope: 'CG01' },
     limitations: [],
+    query_key: 'qk-run-1',
   };
 
   const mockPage = {
@@ -84,6 +85,8 @@ describe('Aurum V17.0 — usePaperOpportunityMonitor Hook', () => {
     next_cursor: null,
     snapshot_as_of_ms: 1700000000000,
     limitations: [],
+    query_key: 'qk-run-1',
+    run_id: 'run-1',
   };
 
   beforeEach(() => {
@@ -173,6 +176,7 @@ describe('Aurum V17.0 — usePaperOpportunityMonitor Hook', () => {
       order_outcomes: [],
       truncated: false,
       limitations: [],
+      query_key: 'qk-run-1',
     };
     vi.spyOn(api, 'getOpportunityMonitorDetail').mockResolvedValue(mockDetail as any);
 

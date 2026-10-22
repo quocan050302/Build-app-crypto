@@ -1,10 +1,12 @@
 /**
  * frontend/src/hooks/usePaperOpportunityMonitor.ts
- * Aurum V17.2 — Fetch lifecycle hook for Paper Opportunity Monitor.
+ * Aurum V17.3 — Fetch lifecycle hook for Paper Opportunity Monitor.
  *
  * Rules & Contracts:
+ * - Single Context Owner: Hook owns current context snapshot (epoch, status, bound query).
  * - Sequential Overview Bootstrap: summary bootstrap -> pin context -> list with explicit run/window -> verify -> publish pair.
- * - Independent generations and abort controllers for overview, detail, and page pagination.
+ * - Strict Response & Identity Validation: detail response must match bound context and requested opportunity_id.
+ * - Immediate Action Invalidation: changing filters, refreshing, or closing invalidates action contexts.
  * - Selection cancellation immediately aborts detail and resets detail loading/error.
  * - Only fetches when open is true; unmount cleanly cancels all in-flight work.
  * - Cadence refresh (30s) strictly bounded to today, open, and document visible.
@@ -17,6 +19,9 @@ import {
   asResolvedMonitorQuery,
   toMonitorRequestParams,
   assertMonitorResponseContext,
+  assertMonitorDetailIdentity,
+  captureMonitorRequestLease,
+  isMonitorRequestCurrent,
 } from '../utils/paperOpportunityText';
 import type {
   OpportunityMonitorSummary,
@@ -25,6 +30,7 @@ import type {
   MonitorFilterState,
   ResolvedMonitorQuery,
   MonitorQueryParams,
+  MonitorContextSnapshot,
 } from '../types/paperOpportunityMonitor';
 
 export interface UsePaperOpportunityMonitorOptions {
@@ -50,6 +56,8 @@ export interface UsePaperOpportunityMonitorResult {
   refresh: () => Promise<void>;
   loadNextPage: () => Promise<void>;
   selectOpportunity: (id: string | null) => void;
+  monitorContext: MonitorContextSnapshot;
+  getCurrentMonitorContext: () => MonitorContextSnapshot;
 }
 
 export function usePaperOpportunityMonitor({
@@ -92,10 +100,62 @@ export function usePaperOpportunityMonitor({
   const detailAbortControllerRef = useRef<AbortController | null>(null);
   const pageAbortControllerRef = useRef<AbortController | null>(null);
 
+  // Single Context Owner (Phần 011 - 020, C1 - C5)
+  const initialContext: MonitorContextSnapshot = { status: 'CLOSED', epoch: 0, query: null };
+  const contextRef = useRef<MonitorContextSnapshot>(initialContext);
+  const [monitorContext, setMonitorContext] = useState<MonitorContextSnapshot>(initialContext);
+
+  const getCurrentMonitorContext = useCallback(() => contextRef.current, []);
+
+  const publishMonitorContext = useCallback((next: MonitorContextSnapshot) => {
+    contextRef.current = next;
+    if (mountedRef.current) {
+      setMonitorContext(next);
+    }
+  }, []);
+
+  const invalidateMonitorContext = useCallback(
+    (status: 'LOADING' | 'UNAVAILABLE' | 'ERROR' | 'CLOSED', reason?: string) => {
+      const nextEpoch = contextRef.current.epoch + 1;
+      const nextSnapshot: MonitorContextSnapshot = {
+        status,
+        epoch: nextEpoch,
+        query: null,
+        reason,
+      };
+      contextRef.current = nextSnapshot;
+      if (mountedRef.current) {
+        setMonitorContext(nextSnapshot);
+      }
+
+      // Invalidate detail in-flight
+      detailSequenceRef.current += 1;
+      if (detailAbortControllerRef.current) {
+        detailAbortControllerRef.current.abort();
+        detailAbortControllerRef.current = null;
+      }
+      setDetail(null);
+      setDetailError(null);
+      setIsDetailLoading(false);
+
+      // Invalidate page in-flight
+      pageSequenceRef.current += 1;
+      if (pageAbortControllerRef.current) {
+        pageAbortControllerRef.current.abort();
+        pageAbortControllerRef.current = null;
+      }
+      setIsListLoading(false);
+
+      return nextEpoch;
+    },
+    []
+  );
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      contextRef.current = { status: 'CLOSED', epoch: contextRef.current.epoch + 1, query: null };
       overviewAbortRef.current?.abort();
       detailAbortControllerRef.current?.abort();
       pageAbortControllerRef.current?.abort();
@@ -106,17 +166,16 @@ export function usePaperOpportunityMonitor({
   const fetchOverviewData = useCallback(async () => {
     if (!open) return;
 
-    // Abort previous overview and page requests
+    // Abort previous overview request
     if (overviewAbortRef.current) {
       overviewAbortRef.current.abort();
-    }
-    if (pageAbortControllerRef.current) {
-      pageAbortControllerRef.current.abort();
     }
     const controller = new AbortController();
     overviewAbortRef.current = controller;
 
     const currentGen = ++overviewSequenceRef.current;
+    const epoch = invalidateMonitorContext('LOADING');
+
     const { start_ms: startMs, end_ms: endMs } = buildMonitorTimeWindow(filters, 'Asia/Ho_Chi_Minh');
 
     setIsSummaryLoading(true);
@@ -127,7 +186,8 @@ export function usePaperOpportunityMonitor({
     const isCurrent = () =>
       mountedRef.current &&
       !controller.signal.aborted &&
-      currentGen === overviewSequenceRef.current;
+      currentGen === overviewSequenceRef.current &&
+      contextRef.current.epoch === epoch;
 
     const requestedParams: MonitorQueryParams = {
       symbol,
@@ -153,13 +213,18 @@ export function usePaperOpportunityMonitor({
         setPage(null);
         setResolvedQuery(null);
         setSummaryError(resolution.message_vi);
+        publishMonitorContext({ status: 'UNAVAILABLE', epoch, query: null, reason: resolution.reason });
         return;
       }
 
+      const q = resolution.query;
+      const readyCandidate: MonitorContextSnapshot = { status: 'READY', epoch, query: q };
+      if (!captureMonitorRequestLease(readyCandidate)) {
+        throw new Error('Phạm vi dữ liệu chưa được xác minh đầy đủ. Vui lòng tải lại.');
+      }
+
       if (resolution.status === 'EMPTY') {
-        const q = resolution.query;
-        setSummary(nextSummary);
-        setPage({
+        const emptyPage: MonitorListPage = {
           items: [],
           total: 0,
           has_more: false,
@@ -168,13 +233,15 @@ export function usePaperOpportunityMonitor({
           limitations: [],
           query_key: q.query_key,
           run_id: q.run_id,
-        });
+        };
+        setSummary(nextSummary);
+        setPage(emptyPage);
         setResolvedQuery(q);
+        publishMonitorContext(readyCandidate);
         return;
       }
 
       // Step 3: Fetch page 1 with pinned run & window
-      const q = resolution.query;
       const listParams = {
         ...toMonitorRequestParams(q),
         limit: 20,
@@ -191,10 +258,12 @@ export function usePaperOpportunityMonitor({
       setResolvedQuery(q);
       setSummaryError(null);
       setListError(null);
+      publishMonitorContext(readyCandidate);
     } catch (err: any) {
       if (isCurrent()) {
         const msg = extractErrorMessage(err, 'Lỗi tải dữ liệu cơ hội');
         setListError(msg);
+        publishMonitorContext({ status: 'ERROR', epoch, query: null, reason: msg });
       }
     } finally {
       if (isCurrent()) {
@@ -202,11 +271,12 @@ export function usePaperOpportunityMonitor({
         setIsListLoading(false);
       }
     }
-  }, [open, symbol, scope, runId, filters]);
+  }, [open, symbol, scope, runId, filters, invalidateMonitorContext, publishMonitorContext]);
 
   // Load next page
   const loadNextPage = useCallback(async () => {
-    if (!open || !page?.has_more || !page?.next_cursor || isListLoading || !resolvedQuery) return;
+    const lease = captureMonitorRequestLease(contextRef.current);
+    if (!open || !page?.has_more || !page?.next_cursor || isListLoading || !lease) return;
 
     if (pageAbortControllerRef.current) {
       pageAbortControllerRef.current.abort();
@@ -215,69 +285,56 @@ export function usePaperOpportunityMonitor({
     pageAbortControllerRef.current = controller;
 
     const currentGen = ++pageSequenceRef.current;
-    const capturedQueryKey = resolvedQuery.query_key;
     setIsListLoading(true);
+
+    const isCurrent = () =>
+      mountedRef.current &&
+      !controller.signal.aborted &&
+      currentGen === pageSequenceRef.current &&
+      isMonitorRequestCurrent(contextRef.current, lease);
 
     try {
       const nextPage = await api.getOpportunityMonitorOpportunities(
         {
-          ...toMonitorRequestParams({
-            ...resolvedQuery,
-            run_id: resolvedQuery.run_id || '',
-            start_ms: resolvedQuery.start_ms || 0,
-            end_ms: resolvedQuery.end_ms || 0,
-            query_key: resolvedQuery.query_key || '',
-          }),
+          ...toMonitorRequestParams(lease.query),
           limit: 20,
           cursor: page.next_cursor,
         },
         controller.signal
       );
 
-      if (
-        mountedRef.current &&
-        !controller.signal.aborted &&
-        currentGen === pageSequenceRef.current &&
-        resolvedQuery.query_key === capturedQueryKey
-      ) {
-        if (resolvedQuery.run_id) {
-          assertMonitorResponseContext(
-            nextPage,
-            {
-              ...resolvedQuery,
-              run_id: resolvedQuery.run_id,
-              start_ms: resolvedQuery.start_ms || 0,
-              end_ms: resolvedQuery.end_ms || 0,
-              query_key: resolvedQuery.query_key || '',
-            },
-            'LIST'
-          );
-        }
-        setPage((prev) => {
-          if (!prev) return nextPage;
-          const existingIds = new Set(prev.items.map((i) => i.opportunity_id));
-          const freshItems = nextPage.items.filter((i) => !existingIds.has(i.opportunity_id));
-          return {
-            ...nextPage,
-            items: [...prev.items, ...freshItems],
-          };
-        });
-      }
+      if (!isCurrent()) return;
+
+      assertMonitorResponseContext(nextPage, lease.query, 'LIST');
+
+      setPage((prev) => {
+        if (!prev) return nextPage;
+        const existingIds = new Set(prev.items.map((i) => i.opportunity_id));
+        const freshItems = nextPage.items.filter((i) => !existingIds.has(i.opportunity_id));
+        return {
+          ...nextPage,
+          items: [...prev.items, ...freshItems],
+        };
+      });
     } catch (err: any) {
-      if (mountedRef.current && !controller.signal.aborted && currentGen === pageSequenceRef.current) {
+      if (isCurrent()) {
         setListError(extractErrorMessage(err, 'Lỗi tải trang tiếp theo'));
       }
     } finally {
-      if (mountedRef.current && currentGen === pageSequenceRef.current) {
+      if (isCurrent()) {
         setIsListLoading(false);
       }
+      if (pageAbortControllerRef.current === controller) {
+        pageAbortControllerRef.current = null;
+      }
     }
-  }, [open, page, isListLoading, resolvedQuery]);
+  }, [open, page, isListLoading]);
 
-  // Fetch detail for selected opportunity
+  // Fetch detail for selected opportunity (Phần 041 - 050, D1)
   const fetchDetail = useCallback(
     async (id: string) => {
-      if (!open || !id) return;
+      const lease = captureMonitorRequestLease(contextRef.current);
+      if (!open || !id || !lease || id !== selectedIdRef.current) return;
 
       if (detailAbortControllerRef.current) {
         detailAbortControllerRef.current.abort();
@@ -285,51 +342,50 @@ export function usePaperOpportunityMonitor({
       const controller = new AbortController();
       detailAbortControllerRef.current = controller;
 
-      const currentGen = ++detailSequenceRef.current;
-      setIsDetailLoading(true);
+      const sequence = ++detailSequenceRef.current;
+      const capturedId = id;
+
+      const isCurrent = () =>
+        mountedRef.current &&
+        !controller.signal.aborted &&
+        sequence === detailSequenceRef.current &&
+        selectedIdRef.current === capturedId &&
+        isMonitorRequestCurrent(contextRef.current, lease);
+
+      setDetail(null);
       setDetailError(null);
+      setIsDetailLoading(true);
 
       try {
-        const detailParams: MonitorQueryParams = {
-          symbol,
-          scope,
-          run_id: resolvedQuery?.run_id || runId || undefined,
-          start_ms: resolvedQuery?.start_ms ?? undefined,
-          end_ms: resolvedQuery?.end_ms ?? undefined,
-          session_id: resolvedQuery?.session_id ?? (filters.session !== 'all' ? filters.session : undefined),
-          model_id: resolvedQuery?.model_id ?? undefined,
-        };
+        const res = await api.getOpportunityMonitorDetail(
+          capturedId,
+          toMonitorRequestParams(lease.query),
+          controller.signal
+        );
 
-        const res = await api.getOpportunityMonitorDetail(id, detailParams, controller.signal);
+        if (!isCurrent()) return;
 
-        if (
-          mountedRef.current &&
-          !controller.signal.aborted &&
-          currentGen === detailSequenceRef.current &&
-          id === selectedIdRef.current
-        ) {
-          setDetail(res);
-        }
+        assertMonitorResponseContext(res, lease.query, 'DETAIL');
+        assertMonitorDetailIdentity(res, lease.query, capturedId);
+
+        if (!isCurrent()) return;
+
+        setDetail(res);
       } catch (err: any) {
-        if (
-          mountedRef.current &&
-          !controller.signal.aborted &&
-          currentGen === detailSequenceRef.current &&
-          id === selectedIdRef.current
-        ) {
-          setDetailError(extractErrorMessage(err, 'Lỗi tải chi tiết cơ hội'));
+        if (isCurrent()) {
+          setDetail(null);
+          setDetailError(extractErrorMessage(err, 'Dữ liệu không khớp cơ hội đang chọn. Vui lòng tải lại.'));
         }
       } finally {
-        if (
-          mountedRef.current &&
-          currentGen === detailSequenceRef.current &&
-          id === selectedIdRef.current
-        ) {
+        if (isCurrent()) {
           setIsDetailLoading(false);
+        }
+        if (detailAbortControllerRef.current === controller) {
+          detailAbortControllerRef.current = null;
         }
       }
     },
-    [open, symbol, scope, runId, filters.session, resolvedQuery]
+    [open]
   );
 
   // Trigger overview fetch on open or filter change
@@ -337,24 +393,23 @@ export function usePaperOpportunityMonitor({
     if (open) {
       fetchOverviewData();
     } else {
-      // Abort when closed
+      invalidateMonitorContext('CLOSED');
       if (overviewAbortRef.current) overviewAbortRef.current.abort();
-      if (detailAbortControllerRef.current) detailAbortControllerRef.current.abort();
-      if (pageAbortControllerRef.current) pageAbortControllerRef.current.abort();
-      setDetail(null);
+      setSummary(null);
+      setPage(null);
       setResolvedQuery(null);
     }
-  }, [open, fetchOverviewData]);
+  }, [open, fetchOverviewData, invalidateMonitorContext]);
 
-  // Trigger detail fetch when selectedId changes
+  // Trigger detail fetch when selectedId changes or new context becomes READY
   useEffect(() => {
-    if (open && selectedId) {
+    if (open && selectedId && monitorContext.status === 'READY') {
       fetchDetail(selectedId);
-    } else {
+    } else if (!selectedId) {
       setDetail(null);
       setDetailError(null);
     }
-  }, [open, selectedId, fetchDetail]);
+  }, [open, selectedId, monitorContext.status, monitorContext.epoch, fetchDetail]);
 
   // Controlled 30-second cadence refresh ONLY when open, visible, and viewing today
   useEffect(() => {
@@ -397,5 +452,7 @@ export function usePaperOpportunityMonitor({
     refresh: fetchOverviewData,
     loadNextPage,
     selectOpportunity,
+    monitorContext,
+    getCurrentMonitorContext,
   };
 }

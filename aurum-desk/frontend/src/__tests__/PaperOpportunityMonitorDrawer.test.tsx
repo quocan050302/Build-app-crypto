@@ -90,6 +90,7 @@ const mockSummary: OpportunityMonitorSummary = {
     source: 'TELEMETRY_TRACES',
   },
   limitations: ['STAGE_UPSERT_COARSE'],
+  query_key: 'qk-test',
 };
 
 const mockListPage: MonitorListPage = {
@@ -153,6 +154,8 @@ const mockListPage: MonitorListPage = {
   next_cursor: null,
   snapshot_as_of_ms: 1700000000000,
   limitations: [],
+  query_key: 'qk-test',
+  run_id: 'run-alpha',
 };
 
 const mockDetail: OpportunityMonitorDetail = {
@@ -192,6 +195,7 @@ const mockDetail: OpportunityMonitorDetail = {
   classifier_result: null,
   truncated: false,
   limitations: ['STAGE_UPSERT_COARSE'],
+  query_key: 'qk-test',
 };
 
 vi.mock('../api/client', async (importOriginal) => {

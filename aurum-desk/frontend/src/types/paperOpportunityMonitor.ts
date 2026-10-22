@@ -236,6 +236,20 @@ export type MonitorResolution =
   | { status: 'EMPTY'; query: BoundMonitorQuery }
   | { status: 'UNAVAILABLE'; reason: string; message_vi: string };
 
+export type MonitorContextSnapshot =
+  | { status: 'READY'; epoch: number; query: BoundMonitorQuery }
+  | {
+      status: 'CLOSED' | 'LOADING' | 'UNAVAILABLE' | 'ERROR';
+      epoch: number;
+      query: null;
+      reason?: string;
+    };
+
+export interface MonitorRequestLease {
+  readonly epoch: number;
+  readonly query: Readonly<BoundMonitorQuery>;
+}
+
 export interface CanonicalPaperOrderDTO {
   id: string;
   setup_id?: string | null;
