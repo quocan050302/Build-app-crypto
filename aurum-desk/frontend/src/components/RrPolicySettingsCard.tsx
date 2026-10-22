@@ -15,7 +15,14 @@
 
 import React from 'react';
 import { Target, Check, AlertTriangle, RefreshCw, RotateCcw, Info } from 'lucide-react';
-import type { RrPolicySaved, RrPolicyStatus } from '../hooks/useRrPolicySettings';
+import type {
+  RrPolicySaved,
+  RrPolicyStatus,
+  PolicyReadStatus,
+  ErrorOrigin,
+} from '../hooks/useRrPolicySettings';
+
+export type EvaluationSyncStatus = 'IDLE' | 'PENDING' | 'READY' | 'ERROR';
 
 export interface RrPolicySettingsCardProps {
   id?: string;
@@ -25,11 +32,79 @@ export interface RrPolicySettingsCardProps {
   status: RrPolicyStatus;
   error: string | null;
   successMessage: string | null;
+  policyReadStatus?: PolicyReadStatus;
+  errorOrigin?: ErrorOrigin;
+  readError?: string | null;
+  saveError?: string | null;
+  evaluationSyncStatus?: EvaluationSyncStatus;
+  evaluationSyncError?: string | null;
   onDraftChange: (text: string) => void;
   onSelectPreset: (val: number) => void;
   onReset: () => void;
   onSave: () => void;
   onRetry?: () => void;
+  onRetryRead?: () => void;
+  onRetrySave?: () => void;
+  onRetrySync?: () => void;
+}
+
+export type SettingsRrDisplayMode = 'LOADING' | 'READY' | 'READ_ERROR' | 'UNCONFIRMED';
+
+export interface SettingsRrDisplay {
+  mode: SettingsRrDisplayMode;
+  heading: string;
+  valueText: string | null;
+  detail: string;
+  canClaimSynchronized: boolean;
+}
+
+export function deriveSettingsRrDisplay(input: {
+  saved: RrPolicySaved;
+  policyReadStatus?: PolicyReadStatus;
+}): SettingsRrDisplay {
+  const normStatus = input.policyReadStatus ? input.policyReadStatus.toUpperCase() : 'READY';
+  const hasLastKnown =
+    input.saved.value !== null &&
+    Number.isFinite(input.saved.value) &&
+    input.saved.value > 0;
+
+  if (normStatus === 'ERROR') {
+    return {
+      mode: 'READ_ERROR',
+      heading: hasLastKnown ? 'Cấu hình gần nhất' : 'Chưa xác minh cấu hình',
+      valueText: hasLastKnown ? `1:${input.saved.value!.toFixed(2)}` : null,
+      detail: 'Chưa xác minh lại từ máy chủ. Hãy tải lại cấu hình.',
+      canClaimSynchronized: false,
+    };
+  }
+
+  if (normStatus === 'LOADING') {
+    return {
+      mode: 'LOADING',
+      heading: 'Đang tải cấu hình R:R',
+      valueText: null,
+      detail: '',
+      canClaimSynchronized: false,
+    };
+  }
+
+  if (normStatus === 'READY' && input.saved.isConfirmed && hasLastKnown) {
+    return {
+      mode: 'READY',
+      heading: 'Đang áp dụng',
+      valueText: `1:${input.saved.value!.toFixed(2)} (${input.saved.source})`,
+      detail: '',
+      canClaimSynchronized: true,
+    };
+  }
+
+  return {
+    mode: 'UNCONFIRMED',
+    heading: 'Chưa xác nhận cấu hình R:R',
+    valueText: null,
+    detail: '',
+    canClaimSynchronized: false,
+  };
 }
 
 const PRESETS = [1.5, 2.0, 2.5, 3.0];
@@ -42,16 +117,26 @@ export const RrPolicySettingsCard: React.FC<RrPolicySettingsCardProps> = ({
   status,
   error,
   successMessage,
+  policyReadStatus,
+  errorOrigin,
+  readError,
+  saveError,
+  evaluationSyncStatus,
+  evaluationSyncError,
   onDraftChange,
   onSelectPreset,
   onReset,
   onSave,
   onRetry,
+  onRetryRead,
+  onRetrySync,
 }) => {
   const parsedVal = parseFloat(draftText);
   const isValid = Number.isFinite(parsedVal) && parsedVal >= 1.5;
   const isSaving = status === 'saving';
   const isLoading = status === 'loading';
+
+  const displayInfo = deriveSettingsRrDisplay({ saved, policyReadStatus });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,15 +164,40 @@ export const RrPolicySettingsCard: React.FC<RrPolicySettingsCardProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-gray-400">Đang áp dụng:</span>
-          {isLoading || saved.value === null ? (
-            <span className="px-2 py-0.5 rounded bg-charcoal-800 border border-charcoal-700 text-gray-400 font-mono animate-pulse">
-              Đang tải...
-            </span>
+          {displayInfo.mode === 'READ_ERROR' ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-amber-400 font-medium">{displayInfo.heading}:</span>
+              {displayInfo.valueText ? (
+                <span className="px-2 py-0.5 rounded bg-charcoal-800 border border-amber-500/40 text-amber-300 font-mono text-xs">
+                  {displayInfo.valueText} — Chưa xác minh lại
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded bg-charcoal-800 border border-rose-500/40 text-rose-300 font-mono text-xs">
+                  Lỗi kết nối
+                </span>
+              )}
+            </div>
+          ) : displayInfo.mode === 'LOADING' || saved.value === null ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-gray-400">Đang tải:</span>
+              <span className="px-2 py-0.5 rounded bg-charcoal-800 border border-charcoal-700 text-gray-400 font-mono animate-pulse">
+                Đang tải...
+              </span>
+            </div>
+          ) : displayInfo.mode === 'READY' ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-gray-400">Đang áp dụng:</span>
+              <span className="px-2.5 py-0.5 rounded bg-charcoal-800 border border-aurum-500/40 text-aurum-300 font-mono font-bold text-xs">
+                {displayInfo.valueText}
+              </span>
+            </div>
           ) : (
-            <span className="px-2.5 py-0.5 rounded bg-charcoal-800 border border-aurum-500/40 text-aurum-300 font-mono font-bold text-xs">
-              1:{saved.value.toFixed(2)} ({saved.source})
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-gray-400">Trạng thái:</span>
+              <span className="px-2 py-0.5 rounded bg-charcoal-800 border border-charcoal-700 text-gray-400 font-mono text-xs">
+                {displayInfo.heading}
+              </span>
+            </div>
           )}
         </div>
       </div>
@@ -207,19 +317,46 @@ export const RrPolicySettingsCard: React.FC<RrPolicySettingsCardProps> = ({
           </div>
         )}
 
+        {/* Dependent evaluation sync warning */}
+        {evaluationSyncStatus === 'ERROR' && (
+          <div className="p-2.5 rounded bg-amber-950/60 border border-amber-600/70 text-amber-200 text-xs flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                <strong>Đánh giá phụ thuộc chưa đồng bộ:</strong> {evaluationSyncError || 'Một phần dữ liệu phụ thuộc chưa được cập nhật sau khi lưu.'}
+              </span>
+            </div>
+            {onRetrySync && (
+              <button
+                type="button"
+                onClick={onRetrySync}
+                className="px-2.5 py-1 bg-amber-900/60 hover:bg-amber-800 text-amber-200 rounded border border-amber-700 text-[11px] font-semibold transition shrink-0"
+              >
+                Thử Lại Đồng Bộ
+              </button>
+            )}
+          </div>
+        )}
+
         {error && (
           <div className="p-2.5 rounded bg-rose-950/80 border border-rose-700 text-rose-300 text-xs flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-              <span>{error}</span>
+              <span>
+                {errorOrigin === 'SAVE'
+                  ? `Lưu cấu hình thất bại: ${saveError || error}. Bản nháp được giữ nguyên.`
+                  : errorOrigin === 'READ' || policyReadStatus === 'ERROR'
+                  ? `Không thể tải hoặc xác minh cấu hình R:R: ${readError || error}.`
+                  : error}
+              </span>
             </div>
-            {onRetry && (
+            {(onRetryRead || onRetry) && (errorOrigin === 'READ' || policyReadStatus === 'ERROR') && (
               <button
                 type="button"
-                onClick={onRetry}
+                onClick={onRetryRead || onRetry}
                 className="px-2.5 py-1 bg-rose-900/60 hover:bg-rose-800 text-rose-200 rounded border border-rose-700 text-[11px] font-semibold transition"
               >
-                Thử Lại
+                Tải Lại Cấu Hình
               </button>
             )}
           </div>
@@ -240,11 +377,16 @@ export const RrPolicySettingsCard: React.FC<RrPolicySettingsCardProps> = ({
 
           <button
             type="submit"
-            disabled={isSaving || !isDirty || !isValid || isLoading}
+            disabled={
+              isSaving ||
+              !isValid ||
+              isLoading ||
+              (isDirty ? false : !displayInfo.canClaimSynchronized)
+            }
             className={`flex items-center gap-1.5 px-4 py-2 rounded text-xs font-bold transition shadow-sm ${
-              isDirty && isValid && !isSaving && !isLoading
-                ? 'bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 shadow-aurum-500/20'
-                : 'bg-charcoal-800 text-gray-500 border border-charcoal-700 cursor-not-allowed'
+              isSaving || !isValid || isLoading || (!isDirty && !displayInfo.canClaimSynchronized)
+                ? 'bg-charcoal-800 text-gray-500 border border-charcoal-700 cursor-not-allowed'
+                : 'bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 shadow-aurum-500/20'
             }`}
           >
             {isSaving ? (
@@ -254,6 +396,12 @@ export const RrPolicySettingsCard: React.FC<RrPolicySettingsCardProps> = ({
               </>
             ) : isDirty ? (
               `Lưu R:R (1:${isValid ? parsedVal.toFixed(2) : draftText})`
+            ) : displayInfo.mode === 'READ_ERROR' || displayInfo.mode === 'UNCONFIRMED' ? (
+              'Chưa xác minh cấu hình'
+            ) : evaluationSyncStatus === 'PENDING' ? (
+              'Đã lưu — đang cập nhật đánh giá...'
+            ) : evaluationSyncStatus === 'ERROR' ? (
+              'Đã lưu — một phần đánh giá chưa cập nhật'
             ) : saved.value != null ? (
               `R:R Đã Đồng Bộ (1:${saved.value.toFixed(2)})`
             ) : (

@@ -2,7 +2,11 @@ import React, { useEffect, useRef } from 'react';
 import type { SelectedTradeIntent } from '../App';
 import type { DrawerSectionType } from './QuickDecisionSidebar';
 import type { NYSessionStatus, TradingPolicy } from '../api/client';
-import { resolveSelectionRrPolicy } from '../utils/rrPolicyView';
+import {
+  resolveSelectionRrPolicy,
+  type CurrentPolicyContext,
+  type SelectionRrPolicyView,
+} from '../utils/rrPolicyView';
 import { NYQuotaDiagnosticsCard } from './NYQuotaDiagnosticsCard';
 import {
   X,
@@ -61,6 +65,7 @@ export interface TradeDetailsDrawerProps {
   nySession: NYSessionStatus | null;
   policy: TradingPolicy | null;
   appliedMinNetRR?: number | null;
+  currentPolicyContext?: CurrentPolicyContext | null;
   leverage: number;
   marginMode: string;
   analysis: any;
@@ -136,6 +141,36 @@ export const SnapshotProvenance: React.FC<{
   );
 };
 
+export function formatDrawerRrPolicyThreshold(view: SelectionRrPolicyView): string {
+  if (view.kind === 'ORDER_SNAPSHOT') {
+    if (view.status === 'KNOWN' && view.minNetRR !== null) {
+      return `1:${view.minNetRR.toFixed(2)} (Lúc ARM)`;
+    }
+    if (view.status === 'INVALID') {
+      return 'Ngưỡng snapshot lúc ARM không hợp lệ';
+    }
+    return 'Chưa lưu ngưỡng lúc ARM';
+  }
+
+  if (view.kind === 'CURRENT') {
+    if (view.status === 'ERROR') {
+      return 'Chưa xác minh lại cấu hình R:R';
+    }
+    if (view.status === 'READY' && view.isAuthoritative && view.minNetRR !== null) {
+      return `1:${view.minNetRR.toFixed(2)} (Hiện hành)`;
+    }
+    if (view.status === 'LOADING') {
+      return 'Đang tải cấu hình R:R...';
+    }
+    return 'Chưa xác nhận cấu hình R:R';
+  }
+
+  if (view.kind === 'INVALID') {
+    return 'Cấu hình R:R không hợp lệ';
+  }
+  return 'Chưa xác định';
+}
+
 export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
   isOpen,
   activeSection,
@@ -149,6 +184,7 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
   nySession,
   policy,
   appliedMinNetRR,
+  currentPolicyContext,
   leverage,
   marginMode,
   analysis,
@@ -848,33 +884,18 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                   <span>Ngưỡng tối thiểu áp dụng:</span>
                   <span className="font-mono text-gray-300">
                     {(() => {
-                      const selView = resolveSelectionRrPolicy(selectedIntent, {
-                        value: appliedMinNetRR ?? policy?.effective_min_net_rr ?? policy?.min_net_rr ?? null,
-                        source: policy?.rr_policy_source,
-                        fingerprint: policy?.rr_policy_fingerprint,
-                        status: policy?.rr_policy_status,
-                      });
-                      if (selView.kind === 'ORDER_SNAPSHOT') {
-                        if (selView.status === 'KNOWN' && selView.minNetRR != null) {
-                          return `1:${selView.minNetRR.toFixed(2)} (Lúc ARM)`;
-                        }
-                        if (selView.status === 'INVALID') {
-                          return 'Ngưỡng snapshot lúc ARM không hợp lệ';
-                        }
-                        return 'Chưa lưu ngưỡng lúc ARM';
-                      }
-                      if (selView.kind === 'CURRENT') {
-                        if (selView.status === 'ERROR') {
-                          return 'Lỗi cấu hình R:R';
-                        }
-                        if (selView.minNetRR != null) {
-                          return `1:${selView.minNetRR.toFixed(2)} (Hiện hành)`;
-                        }
-                      }
-                      if (selView.kind === 'INVALID') {
-                        return 'Cấu hình R:R không hợp lệ';
-                      }
-                      return 'Chưa xác định';
+                      const selView = resolveSelectionRrPolicy(
+                        selectedIntent,
+                        currentPolicyContext !== undefined
+                          ? currentPolicyContext
+                          : {
+                              value: appliedMinNetRR ?? policy?.effective_min_net_rr ?? policy?.min_net_rr ?? null,
+                              source: policy?.rr_policy_source,
+                              fingerprint: policy?.rr_policy_fingerprint,
+                              status: policy?.rr_policy_status,
+                            }
+                      );
+                      return formatDrawerRrPolicyThreshold(selView);
                     })()}
                   </span>
                 </div>

@@ -55,6 +55,8 @@ PLANS = {
     "SHORT": dict(entry=2650.0, sl=2660.0, tp=2615.0),
     # the "photo" shape (risk 5, reward 0.29) scaled to the seeded candle range
     "TIGHT_SHORT": dict(entry=2650.29, sl=2655.29, tp=2650.00),
+    # V20 acceptance setup: actual net RR ~1.75 (between 1.50 and 2.50)
+    "MID_LONG": dict(entry=2650.0, sl=2640.0, tp=2668.0),
 }
 
 
@@ -124,6 +126,10 @@ def _upsert_setup(db, sid, direction, state, entry, sl, tp, plan_kind="CONFIRMED
     row.provisional_sl = row.confirmed_sl = sl
     row.provisional_tp = row.confirmed_tp = tp
     row.invalidation_price = sl
+    risk = abs(entry - sl)
+    reward = abs(tp - entry)
+    row.gross_rr = round(reward / risk, 2) if risk > 0 else 0.0
+    row.net_rr = round(row.gross_rr - 0.05, 2) if row.gross_rr > 0 else 0.0
     row.leverage = 5
     row.margin_mode = "ISOLATED"
     row.risk_pct = 0.25
@@ -149,6 +155,7 @@ def _reset(db):
     _upsert_setup(db, "e2e-long", "LONG", "READY", **PLANS["LONG"])
     _upsert_setup(db, "e2e-short", "SHORT", "READY", **PLANS["SHORT"])
     _upsert_setup(db, "e2e-tight-short", "SHORT", "READY", **PLANS["TIGHT_SHORT"], plan_kind="PROVISIONAL")
+    _upsert_setup(db, "e2e-mid-long", "LONG", "READY", **PLANS["MID_LONG"])
 
 
 def _state(db):

@@ -58,7 +58,7 @@ import type { SMCScenarioView } from './types/smcScenario';
 import type { SemanticActionType } from './types/userMessage';
 import type { CandidateScoreSummary } from './types/candidateScore';
 import { CandidateScoreBadge } from './components/CandidateScoreBadge';
-import { useRrPolicySettings } from './hooks/useRrPolicySettings';
+import { useRrPolicySettings, type RrPolicySaved } from './hooks/useRrPolicySettings';
 import { RrPolicySettingsCard } from './components/RrPolicySettingsCard';
 import { getOrderRrFields, rebaseDraftRrPolicy, rebaseTradeIntentRrPolicy, type CurrentPolicyContext } from './utils/rrPolicyView';
 
@@ -314,7 +314,7 @@ function AppContent() {
   }, [notify]);
 
   // 1. Fetch System Health & Account Status
-  const refreshAccountAndHealth = useCallback(async () => {
+  const refreshAccountAndHealth = useCallback(async (): Promise<{ ok: boolean; reason?: string }> => {
     const seq = ++pollSequenceRef.current;
     try {
       const [healthData, accData, posData, autoData, metaData, nyData, policyData] = await Promise.all([
@@ -329,7 +329,7 @@ function AppContent() {
 
       if (seq < pollSequenceRef.current) {
         // Discard stale in-flight response
-        return;
+        return { ok: true };
       }
 
       setHealth(healthData);
@@ -432,16 +432,21 @@ function AppContent() {
         setActivePosition(null);
         setSelectedIntent((prev) => (prev?.source === 'OPEN_POSITION' ? null : prev));
       }
-    } catch (err) {
+      return { ok: true };
+    } catch (err: any) {
       console.warn('Health check error:', err);
+      return { ok: false, reason: err?.message || 'Health check error' };
     }
   }, [timeframe]);
 
-  // V16.39.16/17/18 Centralized Min Net R:R Settings Hook & Orchestrator
-  const onRrPolicySavedRef = useRef<((saved: any) => void) | null>(null);
+  // V16.39.16/17/18/20 Centralized Min Net R:R Settings Hook & Orchestrator
+  const [evaluationSyncStatus, setEvaluationSyncStatus] = useState<'IDLE' | 'PENDING' | 'READY' | 'ERROR'>('IDLE');
+  const [evaluationSyncError, setEvaluationSyncError] = useState<string | null>(null);
+
+  const onRrPolicySavedRef = useRef<((saved: RrPolicySaved) => void | Promise<void>) | null>(null);
   const rrPolicy = useRrPolicySettings({
     onSaveSuccess: (saved) => {
-      onRrPolicySavedRef.current?.(saved);
+      return onRrPolicySavedRef.current?.(saved);
     },
   });
 
@@ -595,18 +600,22 @@ function AppContent() {
           };
         });
       }
-    } catch (err) {
+      return { ok: true };
+    } catch (err: any) {
       console.warn('SMC analysis error:', err);
+      return { ok: false, reason: err?.message || 'SMC analysis error' };
     }
   }, [timeframe, activePosition, leverage, marginMode]);
 
   // 3. Fetch Upcoming Setups
-  const refreshUpcoming = useCallback(async () => {
+  const refreshUpcoming = useCallback(async (): Promise<{ ok: boolean; reason?: string }> => {
     try {
       const data = await api.getUpcomingSetups();
       setUpcomingData(data);
-    } catch (err) {
+      return { ok: true };
+    } catch (err: any) {
       console.warn('Upcoming setups fetch error:', err);
+      return { ok: false, reason: err?.message || 'Upcoming setups fetch error' };
     }
   }, []);
 
@@ -672,14 +681,58 @@ function AppContent() {
       });
 
       // 4. Concurrently refresh all dependents (account, upcoming setups, and analysis)
-      await Promise.allSettled([
+      setEvaluationSyncStatus('PENDING');
+      setEvaluationSyncError(null);
+      const results = await Promise.allSettled([
         refreshAccountAndHealth(),
         refreshUpcoming(),
         refreshAnalysis(),
       ]);
+
+      const failedItem = results.find(
+        (item) => item.status === 'rejected' || (item.status === 'fulfilled' && !item.value?.ok)
+      );
+
+      if (failedItem) {
+        const reason =
+          failedItem.status === 'rejected'
+            ? String((failedItem as PromiseRejectedResult).reason)
+            : (failedItem as PromiseFulfilledResult<{ ok: boolean; reason?: string }>).value.reason || 'Một phần đánh giá chưa cập nhật';
+        setEvaluationSyncStatus('ERROR');
+        setEvaluationSyncError(reason);
+      } else {
+        setEvaluationSyncStatus('READY');
+        setEvaluationSyncError(null);
+      }
     },
     [accountStatus?.current_equity, riskPct, leverage, marginMode, refreshAccountAndHealth, refreshUpcoming, refreshAnalysis]
   );
+
+  const handleRetrySync = useCallback(async () => {
+    setEvaluationSyncStatus('PENDING');
+    setEvaluationSyncError(null);
+    const results = await Promise.allSettled([
+      refreshAccountAndHealth(),
+      refreshUpcoming(),
+      refreshAnalysis(),
+    ]);
+
+    const failedItem = results.find(
+      (item) => item.status === 'rejected' || (item.status === 'fulfilled' && !item.value?.ok)
+    );
+
+    if (failedItem) {
+      const reason =
+        failedItem.status === 'rejected'
+          ? String((failedItem as PromiseRejectedResult).reason)
+          : (failedItem as PromiseFulfilledResult<{ ok: boolean; reason?: string }>).value.reason || 'Một phần đánh giá chưa cập nhật';
+      setEvaluationSyncStatus('ERROR');
+      setEvaluationSyncError(reason);
+    } else {
+      setEvaluationSyncStatus('READY');
+      setEvaluationSyncError(null);
+    }
+  }, [refreshAccountAndHealth, refreshUpcoming, refreshAnalysis]);
 
   useEffect(() => {
     onRrPolicySavedRef.current = handleRrPolicySaved;
@@ -1714,6 +1767,7 @@ function AppContent() {
         onFocusSetupOnChart={handleFocusSetupOnChart}
         onRefreshUpcoming={refreshUpcoming}
         nySession={nySession}
+        currentPolicyContext={currentPolicyContext}
         policy={tradingPolicy ? {
           ...tradingPolicy,
           min_net_rr: currentEffectiveMinNetRR,
@@ -2874,11 +2928,19 @@ function AppContent() {
                 error={rrPolicy.error}
                 isDirty={rrPolicy.isDirty}
                 successMessage={rrPolicy.successMessage}
+                policyReadStatus={rrPolicy.policyReadStatus}
+                errorOrigin={rrPolicy.errorOrigin}
+                readError={rrPolicy.readError}
+                saveError={rrPolicy.saveError}
+                evaluationSyncStatus={evaluationSyncStatus}
+                evaluationSyncError={evaluationSyncError}
                 onDraftChange={rrPolicy.setDraftText}
                 onSelectPreset={rrPolicy.setPreset}
                 onSave={rrPolicy.save}
                 onReset={rrPolicy.resetDraft}
                 onRetry={rrPolicy.refresh}
+                onRetryRead={rrPolicy.refresh}
+                onRetrySync={handleRetrySync}
               />
 
               {/* Liquidation safety rules */}
