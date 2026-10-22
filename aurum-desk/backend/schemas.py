@@ -103,7 +103,7 @@ class PaperOrderResponse(PaperOrderBase):
     recovery_status: Optional[str] = None
     recovery_run_id: Optional[str] = None
     last_recovery_attempt: Optional[int] = None
-    resolved_through: Optional[str] = None
+    resolved_through: Optional[Union[int, str]] = None
     recovery_confidence: Optional[str] = None
     discovered_at: Optional[int] = None
     occurred_at: Optional[int] = None
