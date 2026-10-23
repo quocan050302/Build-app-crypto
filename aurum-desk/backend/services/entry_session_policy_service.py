@@ -18,7 +18,7 @@ import json
 import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
-from sqlalchemy import update
+from sqlalchemy import update, select
 from sqlalchemy.orm import Session
 
 import models
@@ -277,25 +277,68 @@ def apply_entry_session_update_plan(
     # Bootstrap default policy in current transaction if not created yet
     TradingPolicyService.get_or_create_policy(db, commit=False)
 
-    # Check for no-op if version matches and state is already identical (PHẦN 073, 095)
-    curr_policy = db.query(models.TradingPolicy).filter(models.TradingPolicy.id == plan.policy_id).first()
-    timing_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == "timing_profile").first()
-    curr_timing = timing_row.value if timing_row and timing_row.value else "SILVER_BULLET_LONDON_NY"
+    # Acquire database version fence via conditional same-value UPDATE (PHẦN 064, Phụ lục B)
+    stmt_fence = (
+        update(models.TradingPolicy)
+        .where(
+            models.TradingPolicy.id == plan.policy_id,
+            models.TradingPolicy.version == plan.expected_version,
+        )
+        .values(version=models.TradingPolicy.version)
+        .execution_options(synchronize_session=False)
+    )
+    fence_result = db.execute(stmt_fence)
+
+    if fence_result.rowcount != 1:
+        # Version mismatch in authoritative database - stale version error
+        db.rollback()
+        fresh_v = db.execute(
+            select(models.TradingPolicy.version).where(models.TradingPolicy.id == plan.policy_id)
+        ).scalar()
+        raise StalePolicyVersionError(
+            f"STALE_POLICY_VERSION: Cấu hình đã bị thay đổi ở nơi khác (phiên bản hiện tại: {fresh_v}, kỳ vọng: {plan.expected_version}).",
+            code="STALE_POLICY_VERSION",
+            current_version=fresh_v if fresh_v is not None else 1,
+            expected_version=plan.expected_version,
+        )
+
+    # Fence matched! Read fresh scalar/mapping columns directly from DB without identity map bias
+    fresh_policy = db.execute(
+        select(
+            models.TradingPolicy.id,
+            models.TradingPolicy.version,
+            models.TradingPolicy.entry_session_policy,
+            models.TradingPolicy.ny_min_fills,
+            models.TradingPolicy.reserve_ny_slot,
+            models.TradingPolicy.ny_fallback_enabled,
+        ).where(models.TradingPolicy.id == plan.policy_id)
+    ).mappings().one()
+
+    timing_val = db.execute(
+        select(models.SystemConfig.value).where(models.SystemConfig.key == "timing_profile")
+    ).scalar() or "SILVER_BULLET_LONDON_NY"
+
+    goal_val = db.execute(
+        select(models.SystemConfig.value).where(models.SystemConfig.key == "daily_ny_goal")
+    ).scalar()
 
     is_noop = (
-        curr_policy is not None
-        and curr_policy.version == plan.expected_version
-        and curr_policy.entry_session_policy == plan.mode
-        and curr_timing == plan.timing_profile
-        and curr_policy.ny_min_fills == plan.ny_goal
-        and bool(curr_policy.reserve_ny_slot) == plan.reserve_ny_slot
-        and bool(curr_policy.ny_fallback_enabled) == plan.ny_fallback_enabled
+        fresh_policy["entry_session_policy"] == plan.mode
+        and timing_val == plan.timing_profile
+        and fresh_policy["ny_min_fills"] == plan.ny_goal
+        and (goal_val is None or str(goal_val).strip() == str(plan.ny_goal))
+        and bool(fresh_policy["reserve_ny_slot"]) == plan.reserve_ny_slot
+        and bool(fresh_policy["ny_fallback_enabled"]) == plan.ny_fallback_enabled
     )
     if is_noop:
-        return curr_policy, plan.timing_profile, False
+        curr_policy = db.query(models.TradingPolicy).filter(models.TradingPolicy.id == plan.policy_id).first()
+        if curr_policy is not None:
+            db.expire(curr_policy)
+        refreshed_policy = db.query(models.TradingPolicy).filter(models.TradingPolicy.id == plan.policy_id).first()
+        return refreshed_policy, plan.timing_profile, False
 
-    # Execute authoritative CAS conditional update
-    stmt = (
+    # Execute authoritative mutating CAS update (PHẦN 069, 082)
+    stmt_mutate = (
         update(models.TradingPolicy)
         .where(
             models.TradingPolicy.id == plan.policy_id,
@@ -311,12 +354,13 @@ def apply_entry_session_update_plan(
         )
         .execution_options(synchronize_session=False)
     )
-    result = db.execute(stmt)
+    result_mutate = db.execute(stmt_mutate)
 
-    if result.rowcount != 1:
-        # CAS failed due to version mismatch in database
+    if result_mutate.rowcount != 1:
         db.rollback()
-        fresh_v = db.query(models.TradingPolicy.version).filter(models.TradingPolicy.id == plan.policy_id).scalar()
+        fresh_v = db.execute(
+            select(models.TradingPolicy.version).where(models.TradingPolicy.id == plan.policy_id)
+        ).scalar()
         raise StalePolicyVersionError(
             f"STALE_POLICY_VERSION: Cấu hình đã bị thay đổi ở nơi khác (phiên bản hiện tại: {fresh_v}, kỳ vọng: {plan.expected_version}).",
             code="STALE_POLICY_VERSION",
@@ -351,6 +395,7 @@ def apply_entry_session_update_plan(
 
     # Flush pending updates and expire cached policy ORM object so it reloads CAS state
     db.flush()
+    curr_policy = db.query(models.TradingPolicy).filter(models.TradingPolicy.id == plan.policy_id).first()
     if curr_policy is not None:
         db.expire(curr_policy)
     updated = db.query(models.TradingPolicy).filter(models.TradingPolicy.id == plan.policy_id).first()

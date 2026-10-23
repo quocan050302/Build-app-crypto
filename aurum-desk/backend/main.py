@@ -3656,19 +3656,50 @@ def update_scalp_config_endpoint(
             detail=f"INVALID_BOOLEAN: {field_name} must be a strict boolean (true/false)"
         )
 
-    # 1. Atomic validation of all daily goal parameters first (Rules 025, 026, 027)
+    # 1. Atomic validation of all daily goal parameters first (Rules 025, 026, 027, PHẦN 121, Phụ lục D)
     cur_policy = resolve_effective_daily_policy(db)
+    pol_row = db.query(models.TradingPolicy).filter(models.TradingPolicy.id == "default").first()
+    curr_session_pol = pol_row.entry_session_policy if pol_row else "ALL_SESSIONS_WITH_NY_RESERVE"
+
+    from services.entry_session_policy_service import resolve_server_execution_scope
+    server_scope = resolve_server_execution_scope(db)
+
+    tp_input = payload.get("timing_profile")
+    tp_val = None
+    if tp_input is not None:
+        if not isinstance(tp_input, str):
+            raise HTTPException(status_code=400, detail="INVALID_TIMING_PROFILE: must be a string")
+        tp_val = tp_input.strip().upper()
+        if tp_val not in ("SILVER_BULLET_LONDON_NY", "CG01_NY_PAPER_EXPANDED", "CG01_ALL_SESSIONS_PAPER"):
+            raise HTTPException(
+                status_code=400,
+                detail="INVALID_TIMING_PROFILE: must be SILVER_BULLET_LONDON_NY, CG01_NY_PAPER_EXPANDED, or CG01_ALL_SESSIONS_PAPER"
+            )
+        if tp_val == "CG01_ALL_SESSIONS_PAPER" and server_scope != "PAPER":
+            raise HTTPException(
+                status_code=400,
+                detail=f"PAPER_ONLY_PROFILE_VIOLATION: CG01_ALL_SESSIONS_PAPER chỉ được phép chạy trên phạm vi PAPER; máy chủ hiện tại là {server_scope}."
+            )
+
+    target_is_setup_first = (tp_val == "CG01_ALL_SESSIONS_PAPER") or (tp_val is None and curr_session_pol == "ALL_SESSIONS_SETUP_FIRST")
+
     has_daily_update = any(k in payload for k in ("daily_min_goal", "daily_max_cap", "daily_ny_goal"))
     min_g = cur_policy.min_goal
     max_c = cur_policy.max_fills
-    ny_g = cur_policy.ny_goal
+    ny_g = 0 if target_is_setup_first else cur_policy.ny_goal
 
     if "daily_min_goal" in payload:
         min_g = _parse_strict_int(payload["daily_min_goal"], "daily_min_goal")
     if "daily_max_cap" in payload:
         max_c = _parse_strict_int(payload["daily_max_cap"], "daily_max_cap")
     if "daily_ny_goal" in payload:
-        ny_g = _parse_strict_int(payload["daily_ny_goal"], "daily_ny_goal")
+        explicit_ny_g = _parse_strict_int(payload["daily_ny_goal"], "daily_ny_goal")
+        if target_is_setup_first and explicit_ny_g != 0:
+            raise HTTPException(
+                status_code=400,
+                detail="ENTRY_SESSION_CONFIG_CONFLICT: Chế độ mọi phiên không đặt mục tiêu riêng cho Mỹ; daily_ny_goal phải bằng 0."
+            )
+        ny_g = 0 if target_is_setup_first else explicit_ny_g
 
     if has_daily_update:
         if not (0 <= min_g <= max_c):
@@ -3936,13 +3967,14 @@ def update_scalp_config_endpoint(
     # Persist validated daily frequency goals to both TradingPolicy and SystemConfig
     if has_daily_update:
         pol = TradingPolicyService.get_or_create_policy(db)
+        eff_ny_g = 0 if pol.entry_session_policy == "ALL_SESSIONS_SETUP_FIRST" else ny_g
         pol.max_daily_fills = max_c
-        pol.ny_min_fills = ny_g
+        pol.ny_min_fills = eff_ny_g
         pol.daily_min_goal = min_g
         pol.version = (pol.version or 1) + 1
         pol.updated_at = now_ms
 
-        for d_key, d_val in (("daily_min_goal", min_g), ("daily_max_cap", max_c), ("daily_ny_goal", ny_g)):
+        for d_key, d_val in (("daily_min_goal", min_g), ("daily_max_cap", max_c), ("daily_ny_goal", eff_ny_g)):
             d_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == d_key).first()
             if d_row:
                 d_row.value = str(d_val)

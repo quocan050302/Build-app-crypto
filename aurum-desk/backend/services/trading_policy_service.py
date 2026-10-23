@@ -474,6 +474,15 @@ class TradingPolicyService:
             db.add(policy)
             db.flush()
 
+        # Check server execution scope if setting ALL_SESSIONS_SETUP_FIRST (PHẦN 104, 106, Phụ lục C)
+        if update_data.get("entry_session_policy") == "ALL_SESSIONS_SETUP_FIRST":
+            from services.entry_session_policy_service import resolve_server_execution_scope
+            server_scope = resolve_server_execution_scope(db)
+            if server_scope != "PAPER":
+                raise ValueError(
+                    f"PAPER_ONLY_SESSION_PROFILE: Chế độ ALL_SESSIONS_SETUP_FIRST chỉ cho phép áp dụng trên scope PAPER; máy chủ hiện tại là {server_scope}."
+                )
+
         # Centralized validation
         validated = validate_trading_policy_update(policy, update_data)
 

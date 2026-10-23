@@ -139,21 +139,24 @@ def validate_trading_policy_update(
             f"Cho phép: {', '.join(VALID_ENTRY_SESSION_POLICIES)}."
         )
 
-    # 5b. NY quota & reservation validation (Parts 027, 028)
-    default_ny_min = 0 if session_pol == ALL_SESSIONS_SETUP_FIRST else 1
-    ny_min = _val("ny_min_fills", default_ny_min)
-    if isinstance(ny_min, bool) or not isinstance(ny_min, int) or ny_min < 0:
-        raise ValueError(f"ny_min_fills phải là số nguyên không âm, nhận được {ny_min!r}.")
-    if ny_min > max_daily:
-        raise ValueError(f"ny_min_fills ({ny_min}) không được vượt quá max_daily_fills ({max_daily}).")
-
+    # 5b. NY quota & reservation validation (Parts 027, 028, PHẦN 103, 109)
     if session_pol == ALL_SESSIONS_SETUP_FIRST:
-        if ny_min != 0:
-            raise ValueError("Trong chế độ ALL_SESSIONS_SETUP_FIRST, ny_min_fills bắt buộc phải là 0.")
-        if _val("reserve_ny_slot", False) is True:
-            raise ValueError("Trong chế độ ALL_SESSIONS_SETUP_FIRST, reserve_ny_slot không được bật (phải là False).")
-        if _val("ny_fallback_enabled", False) is True:
-            raise ValueError("Trong chế độ ALL_SESSIONS_SETUP_FIRST, ny_fallback_enabled không được bật (phải là False).")
+        # If omitted from patch, normalize to 0 / False; if explicit contradiction, reject
+        ny_min = patch["ny_min_fills"] if "ny_min_fills" in patch else 0
+        if isinstance(ny_min, bool) or not isinstance(ny_min, int) or ny_min != 0:
+            raise ValueError("ENTRY_SESSION_CONFIG_CONFLICT: Trong chế độ ALL_SESSIONS_SETUP_FIRST, ny_min_fills bắt buộc phải là 0.")
+        reserve = patch["reserve_ny_slot"] if "reserve_ny_slot" in patch else False
+        if bool(reserve) is True:
+            raise ValueError("ENTRY_SESSION_CONFIG_CONFLICT: Trong chế độ ALL_SESSIONS_SETUP_FIRST, reserve_ny_slot không được bật (phải là False).")
+        fallback = patch["ny_fallback_enabled"] if "ny_fallback_enabled" in patch else False
+        if bool(fallback) is True:
+            raise ValueError("ENTRY_SESSION_CONFIG_CONFLICT: Trong chế độ ALL_SESSIONS_SETUP_FIRST, ny_fallback_enabled không được bật (phải là False).")
+    else:
+        ny_min = _val("ny_min_fills", 1)
+        if isinstance(ny_min, bool) or not isinstance(ny_min, int) or ny_min < 0:
+            raise ValueError(f"ny_min_fills phải là số nguyên không âm, nhận được {ny_min!r}.")
+        if ny_min > max_daily:
+            raise ValueError(f"ny_min_fills ({ny_min}) không được vượt quá max_daily_fills ({max_daily}).")
 
     # 6. Timezones
     ny_tz = _val("ny_timezone", "America/New_York")

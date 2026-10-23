@@ -1,6 +1,6 @@
 import math
 import time
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, Union
 from dataclasses import dataclass
 
 @dataclass
@@ -78,7 +78,7 @@ class QuoteValidator:
     @classmethod
     def validate_ticker(
         cls,
-        ticker: Optional[Dict[str, Any]],
+        ticker: Optional[Union[Dict[str, Any], "ValidatedQuote"]],
         now_ms: Optional[int] = None,
         max_age_sec: Optional[float] = None
     ) -> ValidatedQuote:
@@ -101,11 +101,55 @@ class QuoteValidator:
             )
 
         if isinstance(ticker, ValidatedQuote):
-            return ticker
-
-        raw_bid = ticker.get("bid")
-        raw_ask = ticker.get("ask")
-        raw_last = ticker.get("last", raw_bid)
+            if ticker.rejection_code == "FEED_DISCONNECTED":
+                return ValidatedQuote(
+                    is_valid=False,
+                    bid=0.0,
+                    ask=0.0,
+                    last=0.0,
+                    spread=0.0,
+                    exchange_time=None,
+                    observed_at=now,
+                    freshness_sec=9999.0,
+                    is_stale=True,
+                    rejection_code="FEED_DISCONNECTED",
+                    rejection_detail=ticker.rejection_detail or "Không có dữ liệu ticker từ collector feed",
+                )
+            is_provenance_error = ticker.rejection_code in ("TIME_UNAVAILABLE", "MALFORMED_TIMESTAMP")
+            raw_bid = ticker.bid
+            raw_ask = ticker.ask
+            raw_last = ticker.last
+            raw_ex = ticker.exchange_time
+            raw_obs = None if is_provenance_error else ticker.observed_at
+        elif isinstance(ticker, dict):
+            raw_bid = ticker.get("bid")
+            raw_ask = ticker.get("ask")
+            raw_last = ticker.get("last", raw_bid)
+            raw_ex = (
+                ticker.get("server_time")
+                or ticker.get("server_time_ms")
+                or ticker.get("exchange_time")
+                or ticker.get("exchange_ts_ms")
+                or ticker.get("timestamp")
+            )
+            raw_obs = (
+                ticker.get("observed_at")
+                or ticker.get("received_at_ms")
+            )
+        else:
+            return ValidatedQuote(
+                is_valid=False,
+                bid=0.0,
+                ask=0.0,
+                last=0.0,
+                spread=0.0,
+                exchange_time=None,
+                observed_at=now,
+                freshness_sec=9999.0,
+                is_stale=True,
+                rejection_code="MALFORMED_QUOTE",
+                rejection_detail=f"Loại dữ liệu quote không được hỗ trợ: {type(ticker)}",
+            )
 
         # Check numeric finite
         try:
@@ -173,17 +217,8 @@ class QuoteValidator:
             )
 
         # Timestamps
-        raw_ex = (
-            ticker.get("server_time")
-            or ticker.get("server_time_ms")
-            or ticker.get("exchange_time")
-            or ticker.get("exchange_ts_ms")
-            or ticker.get("timestamp")
-        )
-        raw_obs = (
-            ticker.get("observed_at")
-            or ticker.get("received_at_ms")
-        )
+        raw_ex = raw_ex
+        raw_obs = raw_obs
 
         def _parse_ts(val: Any) -> Tuple[Optional[int], bool]:
             if val is None:
