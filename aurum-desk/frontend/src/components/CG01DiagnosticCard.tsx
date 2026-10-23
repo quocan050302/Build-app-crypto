@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { CG01DisplayState } from '../utils/cg01DisplayState';
 import { deriveBotWaitingSummary } from '../utils/paperOpportunityText';
+import { useEntrySessionSettings } from '../hooks/useEntrySessionSettings';
 
 export interface CG01DiagnosticCardProps {
   displayState: CG01DisplayState;
@@ -59,9 +60,24 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
     dailyBiasSummary,
   } = displayState;
 
+  // V17.4.1 Hook integration (Part 041)
+  const {
+    settings: sessionSettings,
+    draftTiming,
+    setDraftTiming,
+    setDraftPolicy,
+    isSaving: isSavingSession,
+    isLoading: isLoadingSession,
+    saveStatus: sessionSaveStatus,
+    saveSettings: saveSessionSettings,
+  } = useEntrySessionSettings('XAUUSDT');
+
   const [selectedPolicy, setSelectedPolicy] = useState<string>(directionPolicy || 'LEGACY_H1');
-  const [selectedTimingProfile, setSelectedTimingProfile] = useState<string>('SILVER_BULLET_LONDON_NY');
-  const [saveStatus, setSaveStatus] = useState<{ type: 'idle' | 'saving' | 'success' | 'error'; message?: string }>({ type: 'idle' });
+  const [isSavingDirection, setIsSavingDirection] = useState<boolean>(false);
+  const [directionSaveStatus, setDirectionSaveStatus] = useState<{
+    type: 'idle' | 'saving' | 'success' | 'error';
+    message?: string;
+  }>({ type: 'idle' });
 
   useEffect(() => {
     if (directionPolicy) {
@@ -69,74 +85,49 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
     }
   }, [directionPolicy]);
 
+  // Direction config fetch on mount only (Part 042: no duplicate session GET)
   useEffect(() => {
-    fetch('/api/v1/policy/entry-session?symbol=XAUUSDT')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data && data.timing_profile) {
-          setSelectedTimingProfile(data.timing_profile);
-        }
-      })
-      .catch(() => {});
-
     fetch('/api/scalp/config')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data) {
-          if (data.timing_profile && !selectedTimingProfile) setSelectedTimingProfile(data.timing_profile);
-          if (data.cg01_direction_policy) setSelectedPolicy(data.cg01_direction_policy);
+        if (data && data.cg01_direction_policy) {
+          setSelectedPolicy(data.cg01_direction_policy);
         }
       })
       .catch(() => {});
   }, []);
 
+  // Save session settings exclusively (Part 045: 1 PUT, 0 POST direction)
   const handleSavePolicy = async () => {
-    setSaveStatus({ type: 'saving' });
-    try {
-      // 1. Save entry session policy & timing profile via coordinated endpoint (PHẦN 083, 123, 125)
-      const isAllSession = selectedTimingProfile === 'CG01_ALL_SESSIONS_PAPER';
-      const targetSessionPol = isAllSession ? 'ALL_SESSIONS_SETUP_FIRST' : 'ALL_SESSIONS_WITH_NY_RESERVE';
+    await saveSessionSettings();
+  };
 
-      const sessionRes = await fetch('/api/v1/policy/entry-session', {
-        method: 'PUT',
+  // Save direction policy separately (Part 046, 047: own owner, no swallowed errors)
+  const handleSaveDirection = async () => {
+    setIsSavingDirection(true);
+    setDirectionSaveStatus({ type: 'saving', message: 'Đang lưu hướng...' });
+    try {
+      const res = await fetch('/api/scalp/config', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          entry_session_policy: targetSessionPol,
-          timing_profile: selectedTimingProfile,
-          symbol: 'XAUUSDT',
-          execution_scope: 'PAPER',
+          cg01_direction_policy: selectedPolicy,
         }),
       });
-      if (!sessionRes.ok) {
-        const errData = await sessionRes.json().catch(() => ({}));
-        throw new Error(errData.detail || `Lỗi lưu phiên (${sessionRes.status})`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Lỗi lưu hướng (${res.status})`);
       }
-      const confirmedSession = await sessionRes.json().catch(() => ({}));
-      if (confirmedSession && confirmedSession.timing_profile) {
-        setSelectedTimingProfile(confirmedSession.timing_profile);
+      const data = await res.json().catch(() => ({}));
+      if (data?.effective_config?.cg01_direction_policy) {
+        setSelectedPolicy(data.effective_config.cg01_direction_policy);
       }
-
-      // 2. Save direction policy separately via /api/scalp/config (PHẦN 125)
-      if (selectedPolicy) {
-        const scalpRes = await fetch('/api/scalp/config', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            cg01_direction_policy: selectedPolicy,
-          }),
-        });
-        if (scalpRes.ok) {
-          const respData = await scalpRes.json().catch(() => ({}));
-          if (respData && respData.effective_config && respData.effective_config.cg01_direction_policy) {
-            setSelectedPolicy(respData.effective_config.cg01_direction_policy);
-          }
-        }
-      }
-
-      setSaveStatus({ type: 'success', message: 'Đã lưu cấu hình!' });
-      setTimeout(() => setSaveStatus({ type: 'idle' }), 3000);
+      setDirectionSaveStatus({ type: 'success', message: 'Đã lưu hướng thành công!' });
+      setTimeout(() => setDirectionSaveStatus({ type: 'idle' }), 3000);
     } catch (err: any) {
-      setSaveStatus({ type: 'error', message: err.message || 'Lưu thất bại' });
+      setDirectionSaveStatus({ type: 'error', message: err.message || 'Lỗi lưu hướng' });
+    } finally {
+      setIsSavingDirection(false);
     }
   };
 
@@ -178,7 +169,9 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
       >
         <span className="font-semibold text-indigo-200">PAPER</span>
         <span className="text-aurum-300 font-medium">
-          {selectedTimingProfile === 'CG01_ALL_SESSIONS_PAPER' ? 'Mọi phiên' : 'Điểm tối thiểu 70/100'}
+          {sessionSettings?.status === 'CONFIRMED' && sessionSettings?.entry_session_policy === 'ALL_SESSIONS_SETUP_FIRST'
+            ? 'Mọi phiên'
+            : 'Điểm tối thiểu 70/100'}
         </span>
         <span className="text-gray-400">Tối đa 3 lệnh/ngày</span>
       </div>
@@ -256,16 +249,35 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
             <span className="text-[10px] text-gray-400 font-mono">Direction Policy</span>
           </div>
           <div className="space-y-1">
-            <select
-              data-testid="cg01-policy-select"
-              value={selectedPolicy}
-              onChange={(e) => setSelectedPolicy(e.target.value)}
-              className="w-full bg-charcoal-800 border border-charcoal-700 text-gray-200 rounded px-1.5 py-1 text-[11px] focus:outline-none focus:border-cyan-500"
-            >
-              <option value="LEGACY_H1">LEGACY_H1: H1 chọn hướng</option>
-              <option value="DAILY_BIAS_SHADOW">DAILY_BIAS_SHADOW: Quan sát bias, entry theo H1</option>
-              <option value="DAILY_BIAS_PRIMARY">DAILY_BIAS_PRIMARY: Bias ngày chọn hướng</option>
-            </select>
+            <div className="flex items-center gap-1.5">
+              <select
+                data-testid="cg01-policy-select"
+                value={selectedPolicy}
+                onChange={(e) => setSelectedPolicy(e.target.value)}
+                className="flex-1 bg-charcoal-800 border border-charcoal-700 text-gray-200 rounded px-1.5 py-1 text-[11px] focus:outline-none focus:border-cyan-500"
+              >
+                <option value="LEGACY_H1">LEGACY_H1: H1 chọn hướng</option>
+                <option value="DAILY_BIAS_SHADOW">DAILY_BIAS_SHADOW: Quan sát bias, entry theo H1</option>
+                <option value="DAILY_BIAS_PRIMARY">DAILY_BIAS_PRIMARY: Bias ngày chọn hướng</option>
+              </select>
+              <button
+                type="button"
+                data-testid="cg01-save-direction-btn"
+                disabled={isSavingDirection}
+                onClick={handleSaveDirection}
+                className="px-2 py-1 bg-charcoal-700 hover:bg-charcoal-600 disabled:opacity-40 text-gray-200 rounded text-[10px] font-medium transition shrink-0"
+              >
+                {isSavingDirection ? 'Đang lưu...' : 'Lưu hướng'}
+              </button>
+            </div>
+            {directionSaveStatus.message && (
+              <span
+                data-testid="cg01-direction-save-feedback"
+                className={`text-[10px] font-mono block ${directionSaveStatus.type === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}
+              >
+                {directionSaveStatus.message}
+              </span>
+            )}
             <p className="text-[10px] text-gray-400 italic">
               {selectedPolicy === 'DAILY_BIAS_PRIMARY'
                 ? 'PRIMARY: bias ngày chọn hướng, trigger/guards vẫn bắt buộc.'
@@ -312,8 +324,16 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
               </label>
               <select
                 data-testid="cg01-timing-profile-select"
-                value={selectedTimingProfile}
-                onChange={(e) => setSelectedTimingProfile(e.target.value)}
+                value={draftTiming}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setDraftTiming(val);
+                  if (val === 'CG01_ALL_SESSIONS_PAPER') {
+                    setDraftPolicy('ALL_SESSIONS_SETUP_FIRST');
+                  } else {
+                    setDraftPolicy('ALL_SESSIONS_WITH_NY_RESERVE');
+                  }
+                }}
                 className="w-full bg-charcoal-800 border border-charcoal-700 text-gray-200 rounded px-1.5 py-1 text-[11px] focus:outline-none focus:border-cyan-500"
               >
                 <option value="CG01_ALL_SESSIONS_PAPER">Mọi phiên — chỉ vào khi đủ setup (PAPER)</option>
@@ -323,9 +343,9 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
             </div>
           </div>
           <p className="text-[10px] text-cyan-400/90 italic">
-            {selectedTimingProfile === 'CG01_ALL_SESSIONS_PAPER'
+            {draftTiming === 'CG01_ALL_SESSIONS_PAPER'
               ? 'Mọi phiên: Cho phép xét setup PAPER ở cả ba phiên (Á, Âu, Mỹ); giữ nguyên điều kiện cấu trúc và bảo vệ rủi ro.'
-              : selectedTimingProfile === 'CG01_NY_PAPER_EXPANDED'
+              : draftTiming === 'CG01_NY_PAPER_EXPANDED'
               ? 'NY Mở Rộng: 08:00–11:00 NY (19:00–22:00 VN). Chỉ áp dụng PAPER, giữ nguyên CG-01 triggers & guards.'
               : 'Gốc: London 03:00–04:00 NY & NY 10:00–11:00 NY (21:00–22:00 VN).'}
           </p>
@@ -333,18 +353,18 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
             <button
               type="button"
               data-testid="cg01-save-policy-btn"
-              disabled={saveStatus.type === 'saving'}
+              disabled={isSavingSession || isLoadingSession || !sessionSettings?.policy_version}
               onClick={handleSavePolicy}
               className="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-700 text-white rounded text-[10px] font-medium transition"
             >
-              {saveStatus.type === 'saving' ? 'Đang lưu...' : 'Lưu cấu hình'}
+              {isSavingSession ? 'Đang lưu...' : 'Lưu cấu hình'}
             </button>
-            {saveStatus.message && (
+            {sessionSaveStatus.message && (
               <span
                 data-testid="cg01-policy-save-feedback"
-                className={`text-[10px] font-mono ${saveStatus.type === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}
+                className={`text-[10px] font-mono ${sessionSaveStatus.type === 'error' ? 'text-rose-400' : 'text-emerald-400'}`}
               >
-                {saveStatus.message}
+                {sessionSaveStatus.message}
               </span>
             )}
           </div>

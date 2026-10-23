@@ -100,6 +100,9 @@ class QuoteValidator:
                 rejection_detail="Không có dữ liệu ticker từ collector feed"
             )
 
+        if isinstance(ticker, ValidatedQuote):
+            return ticker
+
         raw_bid = ticker.get("bid")
         raw_ask = ticker.get("ask")
         raw_last = ticker.get("last", raw_bid)

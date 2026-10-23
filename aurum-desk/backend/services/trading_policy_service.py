@@ -298,11 +298,17 @@ class TradingPolicyService:
         if not policy:
             policy = TradingPolicyService.get_default_policy()
             db.add(policy)
-            if commit:
-                db.commit()
-                db.refresh(policy)
-            else:
-                db.flush()
+            try:
+                if commit:
+                    db.commit()
+                    db.refresh(policy)
+                else:
+                    db.flush()
+            except IntegrityError:
+                db.rollback()
+                policy = db.query(models.TradingPolicy).filter(models.TradingPolicy.id == "default").first()
+                if not policy:
+                    raise
         return policy
 
     @staticmethod
@@ -675,6 +681,19 @@ class TradingPolicyService:
         p = policy or TradingPolicyService.get_policy(db) or TradingPolicyService.get_default_policy()
         quota = TradingPolicyService.get_or_create_session_quota(db, p, now_ms=current_time, clock=c)
         window = TradingPolicyService.get_ny_session_window(p, now_ms=current_time, clock=c)
+
+        # Early branch for ALL_SESSIONS_SETUP_FIRST: NY quota is not required / not applicable (Parts 013, 074, 107)
+        if getattr(p, "entry_session_policy", "") == "ALL_SESSIONS_SETUP_FIRST":
+            quota.quota_status = "NOT_APPLICABLE"
+            quota.last_status_reason = "Không đặt chỉ tiêu riêng cho phiên Mỹ (ALL_SESSIONS_SETUP_FIRST)"
+            quota.last_evaluated_at = current_time
+            quota.updated_at = current_time
+            try:
+                db.commit()
+            except Exception as exc:
+                db.rollback()
+                logger.warning(f"Failed to commit quota lifecycle transition: {exc}")
+            return quota
 
         # 1. If quota already fulfilled
         if quota.total_fills >= quota.target_fills:

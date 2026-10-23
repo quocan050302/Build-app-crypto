@@ -1,5 +1,5 @@
 import math
-from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator, field_validator
 from typing import List, Optional, Dict, Any, Union, Literal
 
 # Candle Schemas
@@ -1104,10 +1104,11 @@ class TradingPolicyResponse(BaseModel):
 
 
 class EntrySessionSettingsUpdate(BaseModel):
-    """V17.4: Coordinated atomic settings update for entry session policy and timing profile."""
+    """V17.4.1: Coordinated atomic settings update for entry session policy and timing profile."""
+    model_config = ConfigDict(extra="forbid")
     entry_session_policy: str
     timing_profile: Optional[str] = None
-    expected_version: Optional[int] = None
+    expected_version: StrictInt = Field(ge=1)
     symbol: Optional[str] = "XAUUSDT"
     execution_scope: Optional[str] = "PAPER"
 

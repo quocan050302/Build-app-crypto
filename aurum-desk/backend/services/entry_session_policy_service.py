@@ -1,20 +1,24 @@
 """
 backend/services/entry_session_policy_service.py
-V17.4: Coordinated Entry Session Policy & Timing Profile Service.
+V17.4.1: Coordinated Entry Session Policy & Timing Profile Service with Atomic Database CAS.
 
-Implements Parts 023-040, 081-084, 091-094, 100:
-- Pure resolver: resolve_entry_session_settings(policy, scalp_config, execution_scope)
-- Staging helper: stage_entry_session_settings (pure DB staging, NO commit)
-- Atomic coordinator: update_entry_session_settings (commits exactly once in a single transaction)
+Implements Parts 023-040, 063, 081-084, 091-095, 100-106:
+- Authoritative server execution scope resolution (never trusts client body over DB).
+- Immutable plan: build_entry_session_update_plan.
+- Authoritative database CAS: apply_entry_session_update_plan via conditional SQL UPDATE.
+- Optimistic concurrency control (409 StalePolicyVersionError with fresh DB version).
+- Pure resolver: resolve_entry_session_settings.
+- Staging helper: stage_entry_session_settings (pure DB staging, NO commit).
+- Atomic coordinator: update_entry_session_settings (single commit, rollback on failure).
 - Strictly preserves user Auto authority, direction policies, capital, leverage, risk, and open positions.
-- Strictly validates PAPER scope: rejects LIVE execution scope attempts.
 """
 from __future__ import annotations
 
 import json
 import logging
-import time
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 import models
@@ -28,6 +32,8 @@ from services.cg01_types import CG01TimingProfile
 from services.clock import IClock, live_clock
 
 logger = logging.getLogger("entry_session_policy_service")
+
+SUPPORTED_NON_LIVE_SCOPES = ("PAPER", "PAPER_EXECUTION", "PAPER_SHADOW", "SHADOW", "SIMULATION")
 
 
 class SessionPolicyConfigError(ValueError):
@@ -54,6 +60,33 @@ class StalePolicyVersionError(ValueError):
         self.expected_version = expected_version
 
 
+@dataclass(frozen=True)
+class EntrySessionUpdatePlan:
+    """Immutable validated plan for entry session settings update."""
+    policy_id: str
+    expected_version: int
+    symbol: str
+    mode: str
+    timing_profile: str
+    ny_goal: int
+    reserve_ny_slot: bool
+    ny_fallback_enabled: bool
+    server_scope: str
+    updated_at_ms: int
+
+
+def resolve_server_execution_scope(db: Session) -> str:
+    """
+    PHẦN 011, 063, 101: Authoritative server execution scope.
+    Reads SystemConfig 'execution_scope' directly from database.
+    Never trusts or accepts client body execution_scope as authority.
+    """
+    row = db.query(models.SystemConfig).filter(models.SystemConfig.key == "execution_scope").first()
+    if row and row.value and str(row.value).strip():
+        return str(row.value).strip().upper()
+    return "PAPER"
+
+
 def resolve_entry_session_settings(
     policy: Optional[models.TradingPolicy],
     scalp_config: Optional[Any],
@@ -71,9 +104,7 @@ def resolve_entry_session_settings(
     reason_codes: List[str] = []
     config_conflict = False
 
-    is_paper_scope = str(execution_scope).upper() in (
-        "PAPER", "PAPER_EXECUTION", "PAPER_SHADOW", "SHADOW", "SIMULATION"
-    )
+    is_paper_scope = str(execution_scope).upper() in SUPPORTED_NON_LIVE_SCOPES
 
     if pol_mode == ALL_SESSIONS_SETUP_FIRST:
         if not is_paper_scope:
@@ -81,6 +112,16 @@ def resolve_entry_session_settings(
             config_conflict = True
         if timing_prof != CG01TimingProfile.CG01_ALL_SESSIONS_PAPER.value:
             reason_codes.append("ENTRY_SESSION_CONFIG_CONFLICT")
+            config_conflict = True
+        persisted_goal = getattr(policy, "ny_min_fills", None)
+        if persisted_goal is not None and int(persisted_goal) != 0:
+            reason_codes.append("NON_ZERO_GOAL_UNDER_SETUP_FIRST")
+            config_conflict = True
+        if bool(getattr(policy, "reserve_ny_slot", False)):
+            reason_codes.append("RESERVE_ACTIVE_UNDER_SETUP_FIRST")
+            config_conflict = True
+        if bool(getattr(policy, "ny_fallback_enabled", False)):
+            reason_codes.append("FALLBACK_ACTIVE_UNDER_SETUP_FIRST")
             config_conflict = True
         effective_ny_goal = 0
         effective_reserve = False
@@ -107,6 +148,7 @@ def resolve_entry_session_settings(
         effective_fallback = False
 
     return {
+        "status": "CONFLICT" if config_conflict else "CONFIRMED",
         "entry_session_policy": pol_mode,
         "timing_profile": timing_prof,
         "effective_ny_goal": effective_ny_goal,
@@ -129,23 +171,23 @@ def _upsert_system_config_no_commit(db: Session, key: str, value: str, now_ms: i
         db.add(models.SystemConfig(key=key, value=value, updated_at=now_ms))
 
 
-def stage_entry_session_settings(
+def build_entry_session_update_plan(
     db: Session,
     patch: Any,
-    current_policy: models.TradingPolicy,
-    current_scalp_config: Optional[Any],
     now_ms: int,
-    execution_scope: str = "PAPER",
-) -> Tuple[models.TradingPolicy, str]:
+    expected_version: Optional[int] = None,
+    symbol: str = "XAUUSDT",
+) -> EntrySessionUpdatePlan:
     """
-    PHẦN 081: Stages TradingPolicy and SystemConfig paired updates in the existing session.
-    Does NOT commit. Caller owns commit / rollback.
+    PHẦN 081: Validates and normalizes request into an immutable EntrySessionUpdatePlan.
+    Does NOT mutate database or stage objects.
     """
     patch_dict = (
         patch.model_dump(exclude_unset=False)
         if hasattr(patch, "model_dump")
         else (patch.dict() if hasattr(patch, "dict") else dict(patch))
     )
+
     desired_mode = str(patch_dict.get("entry_session_policy", "")).strip().upper()
     if desired_mode not in VALID_ENTRY_SESSION_POLICIES:
         raise SessionPolicyConfigError(
@@ -153,26 +195,12 @@ def stage_entry_session_settings(
             code="UNSUPPORTED_SESSION_POLICY",
         )
 
-    # Concurrency control: check expected version if supplied (PHẦN 093, 145)
-    expected_ver = patch_dict.get("expected_version")
-    current_ver = int(current_policy.version or 1)
-    if expected_ver is not None:
-        if isinstance(expected_ver, bool) or not isinstance(expected_ver, int):
-            raise SessionPolicyConfigError("expected_version must be an integer", code="INVALID_VERSION_TYPE")
-        if current_ver != expected_ver:
-            raise StalePolicyVersionError(
-                f"STALE_POLICY_VERSION: Cấu hình đã được thay đổi ở nơi khác (phiên bản hiện tại: {current_ver}, gửi lên: {expected_ver}).",
-                code="STALE_POLICY_VERSION",
-                current_version=current_ver,
-                expected_version=expected_ver,
-            )
-
-    # Scope verification (PHẦN 016, 042, 153)
-    req_scope = str(patch_dict.get("execution_scope", execution_scope)).strip().upper()
-    is_paper = req_scope in ("PAPER", "PAPER_EXECUTION", "PAPER_SHADOW", "SHADOW", "SIMULATION")
+    # Server execution scope is authoritative (PHẦN 011, 062, 063, 101)
+    server_scope = resolve_server_execution_scope(db)
+    is_paper_scope = server_scope in SUPPORTED_NON_LIVE_SCOPES
 
     if desired_mode == ALL_SESSIONS_SETUP_FIRST:
-        if not is_paper:
+        if not is_paper_scope:
             raise SessionPolicyConfigError(
                 "PAPER_ONLY_SESSION_PROFILE: Chế độ ALL_SESSIONS_SETUP_FIRST chỉ cho phép áp dụng trên scope PAPER.",
                 code="PAPER_ONLY_SESSION_PROFILE",
@@ -183,18 +211,10 @@ def stage_entry_session_settings(
                 f"ENTRY_SESSION_CONFIG_CONFLICT: Chế độ ALL_SESSIONS_SETUP_FIRST bắt buộc đi cùng timing {CG01TimingProfile.CG01_ALL_SESSIONS_PAPER.value}.",
                 code="ENTRY_SESSION_CONFIG_CONFLICT",
             )
-
-        # Stage TradingPolicy changes
-        current_policy.entry_session_policy = ALL_SESSIONS_SETUP_FIRST
-        current_policy.ny_min_fills = 0
-        current_policy.reserve_ny_slot = False
-        current_policy.ny_fallback_enabled = False
-
-        # Stage paired SystemConfig changes (PHẦN 091)
-        _upsert_system_config_no_commit(db, "timing_profile", CG01TimingProfile.CG01_ALL_SESSIONS_PAPER.value, now_ms)
-        _upsert_system_config_no_commit(db, "daily_ny_goal", "0", now_ms)
-        staged_timing = CG01TimingProfile.CG01_ALL_SESSIONS_PAPER.value
-
+        ny_goal = 0
+        reserve_ny_slot = False
+        ny_fallback_enabled = False
+        timing_profile = CG01TimingProfile.CG01_ALL_SESSIONS_PAPER.value
     elif desired_mode in (ALL_SESSIONS_WITH_NY_RESERVE, NY_ONLY):
         desired_timing = patch_dict.get("timing_profile")
         if not desired_timing or desired_timing == CG01TimingProfile.CG01_ALL_SESSIONS_PAPER.value:
@@ -204,43 +224,155 @@ def stage_entry_session_settings(
                 f"timing_profile không hợp lệ cho chế độ legacy: {desired_timing}.",
                 code="INVALID_TIMING_PROFILE",
             )
-
-        current_policy.entry_session_policy = desired_mode
+        timing_profile = desired_timing
         ny_min = patch_dict.get("ny_min_fills")
-        current_policy.ny_min_fills = 1 if (ny_min is None or ny_min <= 0) else int(ny_min)
-        current_policy.reserve_ny_slot = bool(patch_dict.get("reserve_ny_slot", True))
-        current_policy.ny_fallback_enabled = bool(patch_dict.get("ny_fallback_enabled", True))
+        ny_goal = 1 if (ny_min is None or ny_min <= 0) else int(ny_min)
+        reserve_ny_slot = bool(patch_dict.get("reserve_ny_slot", True))
+        ny_fallback_enabled = bool(patch_dict.get("ny_fallback_enabled", True))
+    else:
+        raise SessionPolicyConfigError(
+            f"Unsupported entry_session_policy: {desired_mode}",
+            code="UNSUPPORTED_SESSION_POLICY",
+        )
 
-        _upsert_system_config_no_commit(db, "timing_profile", desired_timing, now_ms)
-        _upsert_system_config_no_commit(db, "daily_ny_goal", str(current_policy.ny_min_fills), now_ms)
-        staged_timing = desired_timing
+    # Determine expected version (strict integer)
+    ev = expected_version if expected_version is not None else patch_dict.get("expected_version")
+    if ev is not None:
+        if isinstance(ev, bool) or not isinstance(ev, int) or ev < 1:
+            raise SessionPolicyConfigError("expected_version must be a positive integer", code="INVALID_VERSION_TYPE")
+        exp_v = ev
+    else:
+        # Fall back to reading DB current version if omitted
+        curr_row = db.query(models.TradingPolicy.version).filter(models.TradingPolicy.id == "default").first()
+        exp_v = int(curr_row[0] if curr_row else 1)
 
-    # Increment version atomically once
-    current_policy.version = current_ver + 1
-    current_policy.updated_at = now_ms
+    target_symbol = str(patch_dict.get("symbol", symbol) or "XAUUSDT").strip().upper()
+    if target_symbol != "XAUUSDT":
+        raise SessionPolicyConfigError(f"Unsupported symbol: {target_symbol}. Aurum only supports XAUUSDT.", code="UNSUPPORTED_SYMBOL")
 
-    # Audit event in same transaction (PHẦN 099)
+    return EntrySessionUpdatePlan(
+        policy_id="default",
+        expected_version=exp_v,
+        symbol=target_symbol,
+        mode=desired_mode,
+        timing_profile=timing_profile,
+        ny_goal=ny_goal,
+        reserve_ny_slot=reserve_ny_slot,
+        ny_fallback_enabled=ny_fallback_enabled,
+        server_scope=server_scope,
+        updated_at_ms=now_ms,
+    )
+
+
+def apply_entry_session_update_plan(
+    db: Session, plan: EntrySessionUpdatePlan
+) -> Tuple[models.TradingPolicy, str, bool]:
+    """
+    PHẦN 082, 083: Authoritative Database CAS Update.
+    Executes conditional UPDATE TradingPolicy SET ... WHERE id = :id AND version = :expected_version.
+    Only proceeds if rowcount == 1, ensuring zero lost updates across concurrent sessions.
+    """
+    from services.trading_policy_service import TradingPolicyService
+
+    # Bootstrap default policy in current transaction if not created yet
+    TradingPolicyService.get_or_create_policy(db, commit=False)
+
+    # Check for no-op if version matches and state is already identical (PHẦN 073, 095)
+    curr_policy = db.query(models.TradingPolicy).filter(models.TradingPolicy.id == plan.policy_id).first()
+    timing_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == "timing_profile").first()
+    curr_timing = timing_row.value if timing_row and timing_row.value else "SILVER_BULLET_LONDON_NY"
+
+    is_noop = (
+        curr_policy is not None
+        and curr_policy.version == plan.expected_version
+        and curr_policy.entry_session_policy == plan.mode
+        and curr_timing == plan.timing_profile
+        and curr_policy.ny_min_fills == plan.ny_goal
+        and bool(curr_policy.reserve_ny_slot) == plan.reserve_ny_slot
+        and bool(curr_policy.ny_fallback_enabled) == plan.ny_fallback_enabled
+    )
+    if is_noop:
+        return curr_policy, plan.timing_profile, False
+
+    # Execute authoritative CAS conditional update
+    stmt = (
+        update(models.TradingPolicy)
+        .where(
+            models.TradingPolicy.id == plan.policy_id,
+            models.TradingPolicy.version == plan.expected_version,
+        )
+        .values(
+            entry_session_policy=plan.mode,
+            ny_min_fills=plan.ny_goal,
+            reserve_ny_slot=plan.reserve_ny_slot,
+            ny_fallback_enabled=plan.ny_fallback_enabled,
+            version=plan.expected_version + 1,
+            updated_at=plan.updated_at_ms,
+        )
+        .execution_options(synchronize_session=False)
+    )
+    result = db.execute(stmt)
+
+    if result.rowcount != 1:
+        # CAS failed due to version mismatch in database
+        db.rollback()
+        fresh_v = db.query(models.TradingPolicy.version).filter(models.TradingPolicy.id == plan.policy_id).scalar()
+        raise StalePolicyVersionError(
+            f"STALE_POLICY_VERSION: Cấu hình đã bị thay đổi ở nơi khác (phiên bản hiện tại: {fresh_v}, kỳ vọng: {plan.expected_version}).",
+            code="STALE_POLICY_VERSION",
+            current_version=fresh_v if fresh_v is not None else 1,
+            expected_version=plan.expected_version,
+        )
+
+    # Stage paired SystemConfig updates in the same transaction
+    _upsert_system_config_no_commit(db, "timing_profile", plan.timing_profile, plan.updated_at_ms)
+    _upsert_system_config_no_commit(db, "daily_ny_goal", str(plan.ny_goal), plan.updated_at_ms)
+
+    # Stage audit DomainEvent in the same transaction
     audit_event = models.DomainEvent(
-        event_id=f"entry_session_upd_{int(now_ms)}_{current_policy.version}",
-        sequence=int(now_ms),
+        event_id=f"entry_session_upd_{int(plan.updated_at_ms)}_{plan.expected_version + 1}",
+        sequence=int(plan.updated_at_ms),
         event_type="entry_session_policy.updated",
-        aggregate_id=current_policy.id,
-        occurred_at=int(now_ms),
-        published_at=int(now_ms),
+        aggregate_id=plan.policy_id,
+        occurred_at=int(plan.updated_at_ms),
+        published_at=int(plan.updated_at_ms),
         payload=json.dumps({
-            "entry_session_policy": current_policy.entry_session_policy,
-            "timing_profile": staged_timing,
-            "ny_min_fills": current_policy.ny_min_fills,
-            "reserve_ny_slot": current_policy.reserve_ny_slot,
-            "ny_fallback_enabled": current_policy.ny_fallback_enabled,
-            "before_version": current_ver,
-            "after_version": current_policy.version,
-            "execution_scope": req_scope,
+            "entry_session_policy": plan.mode,
+            "timing_profile": plan.timing_profile,
+            "ny_min_fills": plan.ny_goal,
+            "reserve_ny_slot": plan.reserve_ny_slot,
+            "ny_fallback_enabled": plan.ny_fallback_enabled,
+            "before_version": plan.expected_version,
+            "after_version": plan.expected_version + 1,
+            "execution_scope": plan.server_scope,
         }),
     )
     db.add(audit_event)
 
-    return current_policy, staged_timing
+    # Flush pending updates and expire cached policy ORM object so it reloads CAS state
+    db.flush()
+    if curr_policy is not None:
+        db.expire(curr_policy)
+    updated = db.query(models.TradingPolicy).filter(models.TradingPolicy.id == plan.policy_id).first()
+    return updated, plan.timing_profile, True
+
+
+def stage_entry_session_settings(
+    db: Session,
+    patch: Any,
+    current_policy: Optional[models.TradingPolicy] = None,
+    current_scalp_config: Optional[Any] = None,
+    now_ms: Optional[int] = None,
+    execution_scope: str = "PAPER",
+) -> Tuple[models.TradingPolicy, str]:
+    """
+    PHẦN 081: Stages TradingPolicy and SystemConfig paired updates in the active session.
+    Delegates to plan + CAS. Does NOT commit. Caller owns commit / rollback.
+    """
+    t_now = now_ms if now_ms is not None else int(time.time() * 1000)
+    plan = build_entry_session_update_plan(db, patch, now_ms=t_now)
+    updated, staged_timing, _ = apply_entry_session_update_plan(db, plan)
+    return updated, staged_timing
 
 
 def update_entry_session_settings(
@@ -251,35 +383,19 @@ def update_entry_session_settings(
 ) -> Any:
     """
     PHẦN 082: Coordinated atomic update service.
-    Loads current policy & config, stages paired fields, increments version,
-    and commits exactly once in a single transaction.
+    Normalizes request into immutable plan, executes DB CAS, commits once.
+    On failure rolls back transaction completely.
     """
     c = clock or live_clock
     t_now = now_ms if now_ms is not None else c.now_ms()
 
-    from services.trading_policy_service import TradingPolicyService
-    from services.scalp_m1_types import load_effective_scalp_config
     from services.strategy_service import strategy_service
     from schemas import EntrySessionSettingsResponse
 
-    patch_dict = (
-        patch.model_dump(exclude_unset=False)
-        if hasattr(patch, "model_dump")
-        else (patch.dict() if hasattr(patch, "dict") else dict(patch))
-    )
-
-    policy = TradingPolicyService.get_or_create_policy(db)
-    scalp_cfg = load_effective_scalp_config(db)
-
-    # Resolve execution scope
-    db_scope_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == "execution_scope").first()
-    eff_scope = db_scope_row.value.strip().upper() if db_scope_row and db_scope_row.value else "PAPER"
-    req_scope = str(patch_dict.get("execution_scope", eff_scope)).strip().upper()
+    plan = build_entry_session_update_plan(db, patch, now_ms=t_now)
 
     try:
-        updated_policy, applied_timing = stage_entry_session_settings(
-            db, patch_dict, policy, scalp_cfg, now_ms=t_now, execution_scope=req_scope
-        )
+        updated_policy, applied_timing, modified = apply_entry_session_update_plan(db, plan)
         db.commit()
         db.refresh(updated_policy)
     except Exception:
@@ -302,7 +418,7 @@ def update_entry_session_settings(
         max_daily_fills=int(updated_policy.max_daily_fills or 3),
         daily_timezone=updated_policy.daily_timezone or "Asia/Ho_Chi_Minh",
         policy_version=int(updated_policy.version or 1),
-        execution_scope=req_scope,
+        execution_scope=plan.server_scope,
         auto_execution_enabled=auto_enabled,
         source="PERSISTED",
         reason_codes=[],

@@ -1218,14 +1218,39 @@ export const api = {
   },
 
   /** V17.4: Coordinated atomic entry session policy and timing settings */
-  getEntrySessionSettings: async (symbol: string = 'XAUUSDT'): Promise<EntrySessionSettingsResponse> => {
-    const res = await apiClient.get('/api/v1/policy/entry-session', { params: { symbol } });
-    return res.data;
+  getEntrySessionSettings: async (symbol: string = 'XAUUSDT', signal?: AbortSignal): Promise<EntrySessionSettingsResponse> => {
+    const url = symbol && symbol !== 'XAUUSDT'
+      ? `/api/v1/policy/entry-session?symbol=${encodeURIComponent(symbol)}`
+      : '/api/v1/policy/entry-session';
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const error: any = new Error(err.detail || `HTTP ${res.status}`);
+      error.status = res.status;
+      error.detail = err.detail;
+      throw error;
+    }
+    return res.json();
   },
 
   updateEntrySessionSettings: async (payload: EntrySessionSettingsUpdate): Promise<EntrySessionSettingsResponse> => {
-    const res = await apiClient.put('/api/v1/policy/entry-session', payload);
-    return res.data;
+    const res = await fetch('/api/v1/policy/entry-session', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const error: any = new Error(err.detail || `HTTP ${res.status}`);
+      error.status = res.status;
+      error.detail = err.detail;
+      throw error;
+    }
+    return res.json();
   },
 };
 

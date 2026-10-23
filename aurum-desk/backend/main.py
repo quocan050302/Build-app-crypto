@@ -2875,15 +2875,16 @@ def get_entry_session_settings_endpoint(
     """
     from services.trading_policy_service import TradingPolicyService
     from services.scalp_m1_types import load_effective_scalp_config
-    from services.entry_session_policy_service import resolve_entry_session_settings
+    from services.entry_session_policy_service import (
+        resolve_entry_session_settings,
+        resolve_server_execution_scope,
+    )
     from services.strategy_service import strategy_service
 
     policy = TradingPolicyService.get_policy(db) or TradingPolicyService.get_default_policy()
     scalp_cfg = load_effective_scalp_config(db)
 
-    db_scope_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == "execution_scope").first()
-    eff_scope = db_scope_row.value.strip().upper() if db_scope_row and db_scope_row.value else "PAPER"
-
+    eff_scope = resolve_server_execution_scope(db)
     resolved = resolve_entry_session_settings(policy, scalp_cfg, execution_scope=eff_scope)
 
     auto_enabled = False
@@ -2893,7 +2894,7 @@ def get_entry_session_settings_endpoint(
         auto_enabled = False
 
     return schemas.EntrySessionSettingsResponse(
-        status="CONFIRMED",
+        status=resolved.get("status", "CONFIRMED"),
         entry_session_policy=resolved["entry_session_policy"],
         timing_profile=resolved["timing_profile"],
         effective_ny_goal=resolved["effective_ny_goal"],
