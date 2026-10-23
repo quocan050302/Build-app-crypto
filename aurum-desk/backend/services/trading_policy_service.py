@@ -498,30 +498,33 @@ class TradingPolicyService:
                 if k != "min_net_rr" and hasattr(policy, k) and k not in ("id", "version", "updated_at"):
                     setattr(policy, k, v)
 
-            # V17.4: Synchronize SystemConfig timing and NY goal when entry_session_policy is updated
-            if "entry_session_policy" in validated:
-                new_session_pol = validated["entry_session_policy"]
+            # V17.4.3: Synchronize SystemConfig timing and NY goal when session attributes change (PHẦN 041 - 050, Phụ lục B2)
+            touches_session = (
+                "entry_session_policy" in validated
+                or "ny_min_fills" in validated
+            )
+            if touches_session:
+                new_session_pol = policy.entry_session_policy
                 if new_session_pol == "ALL_SESSIONS_SETUP_FIRST":
                     policy.ny_min_fills = 0
                     policy.reserve_ny_slot = False
                     policy.ny_fallback_enabled = False
+                    final_timing = "CG01_ALL_SESSIONS_PAPER"
+                else:
+                    # Legacy modes: ALL_SESSIONS_WITH_NY_RESERVE, NY_ONLY
                     row_tp = db.query(models.SystemConfig).filter(models.SystemConfig.key == "timing_profile").first()
-                    if row_tp:
-                        row_tp.value = "CG01_ALL_SESSIONS_PAPER"
-                        row_tp.updated_at = now_ms
+                    if row_tp and row_tp.value and row_tp.value != "CG01_ALL_SESSIONS_PAPER":
+                        final_timing = row_tp.value
                     else:
-                        db.add(models.SystemConfig(key="timing_profile", value="CG01_ALL_SESSIONS_PAPER", updated_at=now_ms))
-                    row_ny = db.query(models.SystemConfig).filter(models.SystemConfig.key == "daily_ny_goal").first()
-                    if row_ny:
-                        row_ny.value = "0"
-                        row_ny.updated_at = now_ms
-                    else:
-                        db.add(models.SystemConfig(key="daily_ny_goal", value="0", updated_at=now_ms))
-                elif new_session_pol in ("ALL_SESSIONS_WITH_NY_RESERVE", "NY_ONLY"):
-                    row_tp = db.query(models.SystemConfig).filter(models.SystemConfig.key == "timing_profile").first()
-                    if row_tp and row_tp.value == "CG01_ALL_SESSIONS_PAPER":
-                        row_tp.value = "SILVER_BULLET_LONDON_NY"
-                        row_tp.updated_at = now_ms
+                        final_timing = "SILVER_BULLET_LONDON_NY"
+
+                from services.entry_session_policy_service import stage_entry_session_config_mirrors
+                stage_entry_session_config_mirrors(
+                    db,
+                    timing_profile=final_timing,
+                    ny_goal=policy.ny_min_fills,
+                    now_ms=now_ms,
+                )
 
             policy.version = (policy.version or 1) + 1
             policy.updated_at = now_ms

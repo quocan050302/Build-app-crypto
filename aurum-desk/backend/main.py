@@ -3865,12 +3865,6 @@ def update_scalp_config_endpoint(
             cur_pol.ny_fallback_enabled = False
             cur_pol.version = (cur_pol.version or 1) + 1
             cur_pol.updated_at = now_ms
-            cfg_ny = db.query(models.SystemConfig).filter(models.SystemConfig.key == "daily_ny_goal").first()
-            if cfg_ny:
-                cfg_ny.value = "0"
-                cfg_ny.updated_at = now_ms
-            else:
-                db.add(models.SystemConfig(key="daily_ny_goal", value="0", updated_at=now_ms))
         elif cur_pol.entry_session_policy == "ALL_SESSIONS_SETUP_FIRST" and tp_val != "CG01_ALL_SESSIONS_PAPER":
             cur_pol.entry_session_policy = "ALL_SESSIONS_WITH_NY_RESERVE"
             cur_pol.ny_min_fills = 1
@@ -3878,13 +3872,6 @@ def update_scalp_config_endpoint(
             cur_pol.ny_fallback_enabled = True
             cur_pol.version = (cur_pol.version or 1) + 1
             cur_pol.updated_at = now_ms
-
-        cfg_tp = db.query(models.SystemConfig).filter(models.SystemConfig.key == "timing_profile").first()
-        if cfg_tp:
-            cfg_tp.value = tp_val
-            cfg_tp.updated_at = now_ms
-        else:
-            db.add(models.SystemConfig(key="timing_profile", value=tp_val, updated_at=now_ms))
 
     if "max_trigger_age_ms" in payload:
         try:
@@ -3974,13 +3961,32 @@ def update_scalp_config_endpoint(
         pol.version = (pol.version or 1) + 1
         pol.updated_at = now_ms
 
-        for d_key, d_val in (("daily_min_goal", min_g), ("daily_max_cap", max_c), ("daily_ny_goal", eff_ny_g)):
+        for d_key, d_val in (("daily_min_goal", min_g), ("daily_max_cap", max_c)):
             d_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == d_key).first()
             if d_row:
                 d_row.value = str(d_val)
                 d_row.updated_at = now_ms
             else:
                 db.add(models.SystemConfig(key=d_key, value=str(d_val), updated_at=now_ms))
+
+    # Synchronize timing_profile and daily_ny_goal mirrors atomically (PHẦN 051 - 060, Phụ lục B3)
+    if "timing_profile" in payload or has_daily_update:
+        from services.entry_session_policy_service import stage_entry_session_config_mirrors
+        final_pol = TradingPolicyService.get_or_create_policy(db)
+        if "timing_profile" in payload:
+            final_tp = tp_val
+        else:
+            row_tp_curr = db.query(models.SystemConfig).filter(models.SystemConfig.key == "timing_profile").first()
+            final_tp = row_tp_curr.value if (row_tp_curr and row_tp_curr.value) else (
+                "CG01_ALL_SESSIONS_PAPER" if final_pol.entry_session_policy == "ALL_SESSIONS_SETUP_FIRST" else "SILVER_BULLET_LONDON_NY"
+            )
+
+        stage_entry_session_config_mirrors(
+            db,
+            timing_profile=final_tp,
+            ny_goal=final_pol.ny_min_fills,
+            now_ms=now_ms,
+        )
 
     try:
         db.commit()

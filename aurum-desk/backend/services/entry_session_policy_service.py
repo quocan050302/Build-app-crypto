@@ -163,12 +163,47 @@ def resolve_entry_session_settings(
 
 def _upsert_system_config_no_commit(db: Session, key: str, value: str, now_ms: int) -> None:
     """Helper to stage SystemConfig updates in the active transaction without committing."""
-    row = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
-    if row:
+    pending = next(
+        (obj for obj in db.new if isinstance(obj, models.SystemConfig) and obj.key == key),
+        None,
+    )
+    row = pending
+    if row is None:
+        row = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+    if row is None:
+        db.add(models.SystemConfig(key=key, value=value, updated_at=now_ms))
+    else:
         row.value = value
         row.updated_at = now_ms
-    else:
-        db.add(models.SystemConfig(key=key, value=value, updated_at=now_ms))
+
+
+def stage_entry_session_config_mirrors(
+    db: Session,
+    *,
+    timing_profile: str,
+    ny_goal: int,
+    now_ms: int,
+) -> None:
+    """
+    PHẦN 031 - 040 (Appendix A): Stages timing_profile and daily_ny_goal SystemConfig mirrors.
+    Validates all inputs before staging. Does NOT commit, rollback, bump version, or mutate TradingPolicy.
+    """
+    from services.cg01_types import CG01TimingProfile
+
+    valid_timing = {member.value for member in CG01TimingProfile}
+    if not isinstance(timing_profile, str) or timing_profile not in valid_timing:
+        raise SessionPolicyConfigError(
+            f"Timing profile không hợp lệ: {timing_profile}.",
+            code="ENTRY_SESSION_CONFIG_CONFLICT",
+        )
+    if type(ny_goal) is not int or ny_goal < 0:
+        raise SessionPolicyConfigError(
+            f"Mục tiêu NY phải là số nguyên không âm: {ny_goal}.",
+            code="ENTRY_SESSION_CONFIG_CONFLICT",
+        )
+
+    _upsert_system_config_no_commit(db, "timing_profile", timing_profile, now_ms)
+    _upsert_system_config_no_commit(db, "daily_ny_goal", str(ny_goal), now_ms)
 
 
 def build_entry_session_update_plan(
@@ -368,9 +403,13 @@ def apply_entry_session_update_plan(
             expected_version=plan.expected_version,
         )
 
-    # Stage paired SystemConfig updates in the same transaction
-    _upsert_system_config_no_commit(db, "timing_profile", plan.timing_profile, plan.updated_at_ms)
-    _upsert_system_config_no_commit(db, "daily_ny_goal", str(plan.ny_goal), plan.updated_at_ms)
+    # Stage paired SystemConfig updates in the same transaction (PHẦN 061, Phụ lục B1)
+    stage_entry_session_config_mirrors(
+        db,
+        timing_profile=plan.timing_profile,
+        ny_goal=plan.ny_goal,
+        now_ms=plan.updated_at_ms,
+    )
 
     # Stage audit DomainEvent in the same transaction
     audit_event = models.DomainEvent(
