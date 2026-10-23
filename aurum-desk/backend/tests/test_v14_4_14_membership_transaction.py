@@ -57,6 +57,9 @@ class FakeClock(IClock):
     def now_dt(self) -> datetime:
         return self.now_datetime()
 
+    def monotonic_s(self) -> float:
+        return self._now_ms / 1000.0
+
 
 def _seed_open_order(
     db: Session,

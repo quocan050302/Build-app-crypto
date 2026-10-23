@@ -1009,7 +1009,9 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                   <div className="flex justify-between border-t border-charcoal-750 pt-2">
                     <span className="text-gray-400">Chính sách phiên:</span>
                     <span className="text-emerald-400 font-medium">
-                      {policy?.entry_session_policy === 'ALL_SESSIONS_WITH_NY_RESERVE'
+                      {policy?.entry_session_policy === 'ALL_SESSIONS_SETUP_FIRST'
+                        ? 'Mọi phiên — Setup-first (Không ưu tiên phiên Mỹ)'
+                        : policy?.entry_session_policy === 'ALL_SESSIONS_WITH_NY_RESERVE'
                         ? 'Tất cả phiên (giữ slot Mỹ)'
                         : 'Chỉ Phiên Mỹ (NY_ONLY)'}
                     </span>

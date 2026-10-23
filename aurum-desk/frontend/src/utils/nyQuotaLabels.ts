@@ -23,10 +23,14 @@ export function isFallbackDisabledInWindow(s: NYSessionView): boolean {
 }
 
 export function nyCounterText(s: Pick<NYSessionView, 'ny_fills' | 'ny_min_fills'>): string {
+  if (s.ny_min_fills === 0) return 'Không đặt chỉ tiêu NY';
   return `${s.ny_fills}/${s.ny_min_fills}`;
 }
 
 export function nyStatusLabel(s: NYSessionView): string {
+  if (s.ny_min_fills === 0 && s.quota_state !== 'ARMED_PENDING_FILL') {
+    return 'KHÔNG ĐẶT CHỈ TIÊU PHIÊN MỸ';
+  }
   if (s.quota_state === 'SEEKING_FALLBACK') {
     return isFallbackSearching(s) ? 'ĐANG TÌM FALLBACK (10:30+)' : 'FALLBACK ĐANG TẮT';
   }
@@ -42,6 +46,8 @@ export function nyStatusLabel(s: NYSessionView): string {
       return 'KẾT THÚC CỬA SỔ — KHÔNG CÓ LỆNH';
     case 'NOT_STARTED':
       return 'CHƯA TỚI CỬA SỔ';
+    case 'NOT_APPLICABLE':
+      return 'KHÔNG ÁP DỤNG CHỈ TIÊU PHIÊN MỸ';
     default:
       return s.quota_state;
   }

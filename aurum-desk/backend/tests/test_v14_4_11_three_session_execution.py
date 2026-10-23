@@ -41,6 +41,9 @@ class MockClock(IClock):
     def now_datetime(self, tz=None):
         return self._dt.astimezone(tz) if tz else self._dt
 
+    def monotonic_s(self) -> float:
+        return self._dt.timestamp()
+
 
 NY_TZ = ZoneInfo("America/New_York")
 

@@ -34,6 +34,9 @@ class MockClock(IClock):
         dt = datetime.fromtimestamp(self._now_ms / 1000.0, tz=timezone.utc)
         return dt.astimezone(tz) if tz else dt
 
+    def monotonic_s(self) -> float:
+        return self._now_ms / 1000.0
+
 
 def test_repro_fresh_database_has_all_sessions_ny_reserve():
     """PHẦN 006: Fresh DB via migration/startup must produce ALL_SESSIONS_WITH_NY_RESERVE default."""
@@ -90,9 +93,9 @@ def test_centralized_policy_validator_rejects_invalid_values():
     with pytest.raises(ValueError, match="max_daily_fills"):
         validate_trading_policy_update(current, {"max_daily_fills": 99})
 
-    # Reject min_net_rr < 2.0
+    # Reject min_net_rr < 1.5
     with pytest.raises(ValueError, match="min_net_rr"):
-        validate_trading_policy_update(current, {"min_net_rr": 1.5})
+        validate_trading_policy_update(current, {"min_net_rr": 1.2})
 
     # Reject ny_fallback_risk_pct_cap > 0.10
     with pytest.raises(ValueError, match="ny_fallback_risk_pct_cap"):

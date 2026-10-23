@@ -455,8 +455,8 @@ class M1ScalpConfig:
             raise ValueError("INVALID_CONFIG: min_net_rr must be > 0")
         if self.max_active_zones <= 0:
             raise ValueError("INVALID_CONFIG: max_active_zones must be > 0")
-        if self.timing_profile not in ("SILVER_BULLET_LONDON_NY", "CG01_NY_PAPER_EXPANDED"):
-            raise ValueError(f"INVALID_TIMING_PROFILE: timing_profile must be SILVER_BULLET_LONDON_NY or CG01_NY_PAPER_EXPANDED, got {self.timing_profile}")
+        if self.timing_profile not in ("SILVER_BULLET_LONDON_NY", "CG01_NY_PAPER_EXPANDED", "CG01_ALL_SESSIONS_PAPER"):
+            raise ValueError(f"INVALID_TIMING_PROFILE: timing_profile must be SILVER_BULLET_LONDON_NY, CG01_NY_PAPER_EXPANDED, or CG01_ALL_SESSIONS_PAPER, got {self.timing_profile}")
         if self.execution_profile not in (ExecutionProfile.BASELINE.value, ExecutionProfile.CG01.value, ExecutionProfile.PAPER_ADAPTIVE_SMC.value):
             raise ValueError(f"INVALID_EXECUTION_PROFILE: {self.execution_profile}")
         if self.adaptive_model_allowlist is not None:
@@ -565,7 +565,7 @@ def load_effective_scalp_config(db: Any = None) -> M1ScalpConfig:
             s_val = str(config_map[str_key]).strip()
             if str_key == "timing_profile":
                 tp_clean = s_val.upper()
-                if tp_clean in ("SILVER_BULLET_LONDON_NY", "CG01_NY_PAPER_EXPANDED"):
+                if tp_clean in ("SILVER_BULLET_LONDON_NY", "CG01_NY_PAPER_EXPANDED", "CG01_ALL_SESSIONS_PAPER"):
                     overrides["timing_profile"] = tp_clean
             elif str_key == "execution_profile":
                 ep_clean = s_val.upper()

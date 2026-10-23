@@ -70,11 +70,20 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
   }, [directionPolicy]);
 
   useEffect(() => {
+    fetch('/api/v1/policy/entry-session?symbol=XAUUSDT')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.timing_profile) {
+          setSelectedTimingProfile(data.timing_profile);
+        }
+      })
+      .catch(() => {});
+
     fetch('/api/scalp/config')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data) {
-          if (data.timing_profile) setSelectedTimingProfile(data.timing_profile);
+          if (data.timing_profile && !selectedTimingProfile) setSelectedTimingProfile(data.timing_profile);
           if (data.cg01_direction_policy) setSelectedPolicy(data.cg01_direction_policy);
         }
       })
@@ -84,24 +93,46 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
   const handleSavePolicy = async () => {
     setSaveStatus({ type: 'saving' });
     try {
-      const res = await fetch('/api/scalp/config', {
-        method: 'POST',
+      // 1. Save entry session policy & timing profile via coordinated endpoint (PHẦN 083, 123, 125)
+      const isAllSession = selectedTimingProfile === 'CG01_ALL_SESSIONS_PAPER';
+      const targetSessionPol = isAllSession ? 'ALL_SESSIONS_SETUP_FIRST' : 'ALL_SESSIONS_WITH_NY_RESERVE';
+
+      const sessionRes = await fetch('/api/v1/policy/entry-session', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cg01_direction_policy: selectedPolicy,
+          entry_session_policy: targetSessionPol,
           timing_profile: selectedTimingProfile,
+          symbol: 'XAUUSDT',
+          execution_scope: 'PAPER',
         }),
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || `Lỗi máy chủ (${res.status})`);
+      if (!sessionRes.ok) {
+        const errData = await sessionRes.json().catch(() => ({}));
+        throw new Error(errData.detail || `Lỗi lưu phiên (${sessionRes.status})`);
       }
-      const respData = await res.json().catch(() => ({}));
-      if (respData && respData.effective_config) {
-        const eff = respData.effective_config;
-        if (eff.timing_profile) setSelectedTimingProfile(eff.timing_profile);
-        if (eff.cg01_direction_policy) setSelectedPolicy(eff.cg01_direction_policy);
+      const confirmedSession = await sessionRes.json().catch(() => ({}));
+      if (confirmedSession && confirmedSession.timing_profile) {
+        setSelectedTimingProfile(confirmedSession.timing_profile);
       }
+
+      // 2. Save direction policy separately via /api/scalp/config (PHẦN 125)
+      if (selectedPolicy) {
+        const scalpRes = await fetch('/api/scalp/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cg01_direction_policy: selectedPolicy,
+          }),
+        });
+        if (scalpRes.ok) {
+          const respData = await scalpRes.json().catch(() => ({}));
+          if (respData && respData.effective_config && respData.effective_config.cg01_direction_policy) {
+            setSelectedPolicy(respData.effective_config.cg01_direction_policy);
+          }
+        }
+      }
+
       setSaveStatus({ type: 'success', message: 'Đã lưu cấu hình!' });
       setTimeout(() => setSaveStatus({ type: 'idle' }), 3000);
     } catch (err: any) {
@@ -140,13 +171,15 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
       data-testid="cg01-diagnostic-card"
       className={`rounded-lg bg-charcoal-850 border border-charcoal-750 p-2.5 space-y-2 text-xs transition-all shadow-sm ${className}`}
     >
-      {/* V16.39 Experiment Banner (Section 141) */}
+      {/* V16.39 Experiment Banner / V17.4 Part 126 Applied Summary */}
       <div
         data-testid="v1639-paper-experiment-banner"
         className="flex items-center justify-between text-[10px] font-mono px-2 py-1 rounded bg-indigo-950/70 text-indigo-300 border border-indigo-800/80"
       >
         <span className="font-semibold text-indigo-200">PAPER</span>
-        <span className="text-aurum-300 font-medium">Điểm tối thiểu 70/100</span>
+        <span className="text-aurum-300 font-medium">
+          {selectedTimingProfile === 'CG01_ALL_SESSIONS_PAPER' ? 'Mọi phiên' : 'Điểm tối thiểu 70/100'}
+        </span>
         <span className="text-gray-400">Tối đa 3 lệnh/ngày</span>
       </div>
 
@@ -283,13 +316,16 @@ export const CG01DiagnosticCard: React.FC<CG01DiagnosticCardProps> = ({
                 onChange={(e) => setSelectedTimingProfile(e.target.value)}
                 className="w-full bg-charcoal-800 border border-charcoal-700 text-gray-200 rounded px-1.5 py-1 text-[11px] focus:outline-none focus:border-cyan-500"
               >
+                <option value="CG01_ALL_SESSIONS_PAPER">Mọi phiên — chỉ vào khi đủ setup (PAPER)</option>
                 <option value="SILVER_BULLET_LONDON_NY">Gốc (NY 10-11h)</option>
                 <option value="CG01_NY_PAPER_EXPANDED">Mỹ Mở Rộng (08-11h)</option>
               </select>
             </div>
           </div>
           <p className="text-[10px] text-cyan-400/90 italic">
-            {selectedTimingProfile === 'CG01_NY_PAPER_EXPANDED'
+            {selectedTimingProfile === 'CG01_ALL_SESSIONS_PAPER'
+              ? 'Mọi phiên: Cho phép xét setup PAPER ở cả ba phiên (Á, Âu, Mỹ); giữ nguyên điều kiện cấu trúc và bảo vệ rủi ro.'
+              : selectedTimingProfile === 'CG01_NY_PAPER_EXPANDED'
               ? 'NY Mở Rộng: 08:00–11:00 NY (19:00–22:00 VN). Chỉ áp dụng PAPER, giữ nguyên CG-01 triggers & guards.'
               : 'Gốc: London 03:00–04:00 NY & NY 10:00–11:00 NY (21:00–22:00 VN).'}
           </p>

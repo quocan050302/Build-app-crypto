@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 def _fallback_search_allowed(policy, window, quota, now_ms: int) -> bool:
     """Single official 'may we SEARCH for a fallback?' condition (V14.3). Not an arm/fill permission."""
+    if getattr(policy, "entry_session_policy", "") == "ALL_SESSIONS_SETUP_FIRST":
+        return False
     from services.ny_quota_helpers import should_search_ny_fallback
     return should_search_ny_fallback(
         policy_active=bool(getattr(policy, "is_active", True)),
@@ -95,10 +97,7 @@ def resolve_entry_session_context(
     ny_start = int(ny_win.get("window_start_ms", 0))
     ny_end = int(ny_win.get("window_end_ms", 0))
 
-    if family in ("NY_QUOTA_PAPER", "NY_DAILY_RESEARCH"):
-        restriction = (ny_start, ny_end)
-        expiry_cap = ny_end
-    elif family in (
+    standard_families = (
         "STANDARD_SMC",
         "SMC_M1_REVERSAL",
         "SMC_M1_CONTINUATION",
@@ -106,11 +105,20 @@ def resolve_entry_session_context(
         "SMC_M1_SWEEP_RECLAIM",
         "SCALP_M1_REVERSAL",
         "SCALP_M1_CONTINUATION",
-    ):
+        "CG01_SWEEP_MSS_FVG",
+    )
+
+    if family in ("NY_QUOTA_PAPER", "NY_DAILY_RESEARCH"):
+        restriction = (ny_start, ny_end)
+        expiry_cap = ny_end
+    elif family in standard_families:
         if pol_mode == "NY_ONLY":
             restriction = (ny_start, ny_end)
             expiry_cap = ny_end
         elif pol_mode == "ALL_SESSIONS_WITH_NY_RESERVE":
+            restriction = None
+            expiry_cap = None
+        elif pol_mode == "ALL_SESSIONS_SETUP_FIRST":
             restriction = None
             expiry_cap = None
         else:
@@ -118,8 +126,9 @@ def resolve_entry_session_context(
             expiry_cap = current_time
             reason_codes.append("UNSUPPORTED_SESSION_POLICY")
     else:
-        restriction = (ny_start, ny_end)
-        expiry_cap = ny_end
+        restriction = (0, 0)
+        expiry_cap = current_time
+        reason_codes.append("UNKNOWN_STRATEGY_FAMILY")
 
     return EntrySessionContext(
         policy_mode=pol_mode,
@@ -222,7 +231,9 @@ def resolve_effective_daily_policy(db: Session, account_scope: str = "default") 
         policy.max_daily_fills = max_fills
 
     # 2. ny_goal (canonical source: policy.ny_min_fills)
-    if policy.ny_min_fills is not None:
+    if getattr(policy, "entry_session_policy", "") == "ALL_SESSIONS_SETUP_FIRST":
+        ny_goal = 0
+    elif policy.ny_min_fills is not None:
         ny_goal = int(policy.ny_min_fills)
     else:
         sys_ny = db.query(models.SystemConfig).filter(models.SystemConfig.key == "daily_ny_goal").first()
@@ -240,7 +251,10 @@ def resolve_effective_daily_policy(db: Session, account_scope: str = "default") 
         except Exception:
             pass
 
-    reserve_ny = bool(policy.reserve_ny_slot) if policy.reserve_ny_slot is not None else True
+    if getattr(policy, "entry_session_policy", "") == "ALL_SESSIONS_SETUP_FIRST":
+        reserve_ny = False
+    else:
+        reserve_ny = bool(policy.reserve_ny_slot) if policy.reserve_ny_slot is not None else True
     tz = getattr(policy, "daily_timezone", "Asia/Ho_Chi_Minh") or "Asia/Ho_Chi_Minh"
     ver = int(policy.version or 1)
 
@@ -279,13 +293,16 @@ class TradingPolicyService:
         return db.query(models.TradingPolicy).filter(models.TradingPolicy.id == "default").first()
 
     @staticmethod
-    def get_or_create_policy(db: Session) -> models.TradingPolicy:
+    def get_or_create_policy(db: Session, commit: bool = True) -> models.TradingPolicy:
         policy = db.query(models.TradingPolicy).filter(models.TradingPolicy.id == "default").first()
         if not policy:
             policy = TradingPolicyService.get_default_policy()
             db.add(policy)
-            db.commit()
-            db.refresh(policy)
+            if commit:
+                db.commit()
+                db.refresh(policy)
+            else:
+                db.flush()
         return policy
 
     @staticmethod
@@ -323,6 +340,38 @@ class TradingPolicyService:
                 "marker": migration_id,
                 "audit_id": None,
                 "status": "ALREADY_APPLIED",
+            }
+
+        if old_mode == "ALL_SESSIONS_SETUP_FIRST":
+            # Guard explicit user choice of ALL_SESSIONS_SETUP_FIRST (PHẦN 078, 149)
+            if not existing_marker:
+                marker_row = models.SystemConfig(
+                    key=marker_key,
+                    value=json.dumps({
+                        "migration_id": migration_id,
+                        "status": "SKIPPED_USER_MODE",
+                        "applied_at": int(now),
+                        "target_symbol": target_symbol,
+                        "old_mode": old_mode,
+                        "new_mode": old_mode,
+                        "before_version": before_version,
+                        "after_version": before_version,
+                    }),
+                )
+                db.add(marker_row)
+                try:
+                    db.commit()
+                except Exception:
+                    db.rollback()
+            return {
+                "changed": False,
+                "before_version": before_version,
+                "after_version": before_version,
+                "old_mode": old_mode,
+                "new_mode": old_mode,
+                "marker": migration_id,
+                "audit_id": None,
+                "status": "PRESERVED_ALL_SESSIONS_SETUP_FIRST",
             }
 
         if old_mode != desired_mode:
@@ -434,6 +483,31 @@ class TradingPolicyService:
                 if k != "min_net_rr" and hasattr(policy, k) and k not in ("id", "version", "updated_at"):
                     setattr(policy, k, v)
 
+            # V17.4: Synchronize SystemConfig timing and NY goal when entry_session_policy is updated
+            if "entry_session_policy" in validated:
+                new_session_pol = validated["entry_session_policy"]
+                if new_session_pol == "ALL_SESSIONS_SETUP_FIRST":
+                    policy.ny_min_fills = 0
+                    policy.reserve_ny_slot = False
+                    policy.ny_fallback_enabled = False
+                    row_tp = db.query(models.SystemConfig).filter(models.SystemConfig.key == "timing_profile").first()
+                    if row_tp:
+                        row_tp.value = "CG01_ALL_SESSIONS_PAPER"
+                        row_tp.updated_at = now_ms
+                    else:
+                        db.add(models.SystemConfig(key="timing_profile", value="CG01_ALL_SESSIONS_PAPER", updated_at=now_ms))
+                    row_ny = db.query(models.SystemConfig).filter(models.SystemConfig.key == "daily_ny_goal").first()
+                    if row_ny:
+                        row_ny.value = "0"
+                        row_ny.updated_at = now_ms
+                    else:
+                        db.add(models.SystemConfig(key="daily_ny_goal", value="0", updated_at=now_ms))
+                elif new_session_pol in ("ALL_SESSIONS_WITH_NY_RESERVE", "NY_ONLY"):
+                    row_tp = db.query(models.SystemConfig).filter(models.SystemConfig.key == "timing_profile").first()
+                    if row_tp and row_tp.value == "CG01_ALL_SESSIONS_PAPER":
+                        row_tp.value = "SILVER_BULLET_LONDON_NY"
+                        row_tp.updated_at = now_ms
+
             policy.version = (policy.version or 1) + 1
             policy.updated_at = now_ms
             db.commit()
@@ -540,7 +614,7 @@ class TradingPolicyService:
                 window_start_ms=window["window_start_ms"],
                 window_end_ms=window["window_end_ms"],
                 fallback_start_ms=window["fallback_start_ms"],
-                target_fills=p.ny_min_fills or 1,
+                target_fills=0 if getattr(p, "entry_session_policy", "") == "ALL_SESSIONS_SETUP_FIRST" else (int(p.ny_min_fills) if p.ny_min_fills is not None else 1),
                 standard_fills=0,
                 fallback_fills=0,
                 total_fills=0,
@@ -673,6 +747,13 @@ class TradingPolicyService:
         elif window["phase"] == "IN_FALLBACK_WINDOW" and not getattr(p, "ny_fallback_enabled", False):
             quota.quota_status = "SEEKING_STANDARD"
             quota.last_status_reason = "Fallback đang tắt — chỉ quét cơ hội SMC chuẩn"
+        elif getattr(p, "entry_session_policy", "") == "ALL_SESSIONS_SETUP_FIRST":
+            if quota.total_fills > 0:
+                quota.quota_status = "FULFILLED"
+                quota.last_status_reason = f"Đã ghi nhận {quota.total_fills} lệnh khớp phiên Mỹ (analytics)"
+            else:
+                quota.quota_status = "NOT_APPLICABLE"
+                quota.last_status_reason = "Không đặt chỉ tiêu riêng cho phiên Mỹ"
         else:
             quota.quota_status = "SEEKING_STANDARD"
             quota.last_status_reason = "Đang quét cơ hội SMC chuẩn trong phiên Mỹ"
@@ -825,11 +906,12 @@ class TradingPolicyService:
             except Exception:
                 d_fills = 0
 
+            target_ny = int(getattr(policy, "ny_min_fills", 1)) if getattr(policy, "ny_min_fills", None) is not None else 1
             cap = compute_reserved_capacity(
                 max_fills=int(getattr(policy, "max_daily_fills", 3) or 3),
                 daily_fills=d_fills,
                 ny_fills=q_fills,
-                target=int(getattr(policy, "ny_min_fills", 1) or 1),
+                target=target_ny,
                 reserve_enabled=bool(getattr(policy, "reserve_ny_slot", True)),
             )
             if not window["is_in_window"] and cap["available_outside_ny"] == 0 and cap["remaining"] > 0:
@@ -837,19 +919,30 @@ class TradingPolicyService:
                 reason_codes.append("NY_SLOT_RESERVED")
                 block_reasons.append(
                     f"NY_SLOT_RESERVED: Đã sử dụng {d_fills} slot giao dịch trong ngày. "
-                    f"Slot còn lại bắt buộc được dự trữ cho mục tiêu {getattr(policy, 'ny_min_fills', 1)} lệnh phiên Mỹ."
+                    f"Slot còn lại bắt buộc được dự trữ cho mục tiêu {target_ny} lệnh phiên Mỹ."
                 )
+        elif policy.entry_session_policy == "ALL_SESSIONS_SETUP_FIRST":
+            # No NY window restriction, no NY reservation, no NY quota requirement (Parts 064, 065)
+            pass
+        else:
+            can_enter = False
+            reason_codes.append("UNSUPPORTED_SESSION_POLICY")
+            block_reasons.append(f"Chính sách session không được hỗ trợ: {policy.entry_session_policy}")
 
         # 3b. V14.3: a NY quota fallback entry exists only inside the NY entry window, whatever the
         # session policy (ALL_SESSIONS_WITH_NY_RESERVE would otherwise let it fill at/after window end).
-        if strategy_family == "NY_QUOTA_PAPER" and not window["is_in_window"] \
-                and "OUTSIDE_ENTRY_WINDOW" not in reason_codes:
-            can_enter = False
-            reason_codes.append("OUTSIDE_ENTRY_WINDOW")
-            block_reasons.append(
-                f"OUTSIDE_ENTRY_WINDOW: Lệnh fallback phiên Mỹ chỉ được mở trong cửa sổ {window['ny_window_str']} "
-                f"({window['vn_window_str']}); cửa sổ đã đóng."
-            )
+        if strategy_family == "NY_QUOTA_PAPER":
+            if policy.entry_session_policy == "ALL_SESSIONS_SETUP_FIRST":
+                can_enter = False
+                reason_codes.append("FALLBACK_DISABLED")
+                block_reasons.append("Chế độ ALL_SESSIONS_SETUP_FIRST không áp dụng NY quota fallback.")
+            elif not window["is_in_window"] and "OUTSIDE_ENTRY_WINDOW" not in reason_codes:
+                can_enter = False
+                reason_codes.append("OUTSIDE_ENTRY_WINDOW")
+                block_reasons.append(
+                    f"OUTSIDE_ENTRY_WINDOW: Lệnh fallback phiên Mỹ chỉ được mở trong cửa sổ {window['ny_window_str']} "
+                    f"({window['vn_window_str']}); cửa sổ đã đóng."
+                )
 
         # 4. News blackout (V14.2): actual allowed=False, independent of quota_status.
         if news_gate["blocked"]:
@@ -862,7 +955,11 @@ class TradingPolicyService:
             quota_fills = getattr(quota, "total_fills", 0) or 0
         except Exception:
             quota_fills = 0
-        reserved_slots = 1 if (policy.reserve_ny_slot and quota_fills == 0 and remaining_daily_slots > 0) else 0
+
+        if policy.entry_session_policy == "ALL_SESSIONS_SETUP_FIRST":
+            reserved_slots = 0
+        else:
+            reserved_slots = 1 if (policy.reserve_ny_slot and quota_fills == 0 and remaining_daily_slots > 0) else 0
 
         # Minutes calculations
         min_to_start = None
@@ -1056,8 +1153,19 @@ class TradingPolicyService:
             else:
                 reason_vi = f"Đã đạt mục tiêu tối thiểu {target_min_goal} lệnh và sử dụng hết hạn ngạch ngày."
         elif window.get("phase") == "AFTER_WINDOW" and d_fills < target_min_goal:
-            status = "SHORTFALL"
-            reason_vi = f"Kết thúc ngày chưa đạt mục tiêu tối thiểu: {d_fills}/{target_min_goal} lệnh (DAILY_GOAL_SHORTFALL)."
+            if getattr(policy, "entry_session_policy", "") == "ALL_SESSIONS_SETUP_FIRST":
+                # For ALL_SESSIONS_SETUP_FIRST, the trading day ends by daily_timezone bounds, not NY window end (Part 071)
+                daily_tz_name = getattr(eff_policy, "trading_day_timezone", "Asia/Ho_Chi_Minh") or "Asia/Ho_Chi_Minh"
+                _, _, trade_day_end_ms = resolve_trade_day_bounds(current_time, daily_tz_name)
+                if current_time >= trade_day_end_ms:
+                    status = "SHORTFALL"
+                    reason_vi = f"Kết thúc ngày chưa đạt mục tiêu tối thiểu: {d_fills}/{target_min_goal} lệnh (DAILY_GOAL_SHORTFALL)."
+                else:
+                    status = "SEARCHING"
+                    reason_vi = f"Đang tìm kiếm cơ hội đủ chuẩn (hiện có {d_fills}/{target_min_goal} lệnh, phiên Mỹ đã đóng nhưng ngày giao dịch vẫn tiếp diễn)."
+            else:
+                status = "SHORTFALL"
+                reason_vi = f"Kết thúc ngày chưa đạt mục tiêu tối thiểu: {d_fills}/{target_min_goal} lệnh (DAILY_GOAL_SHORTFALL)."
         else:
             status = "SEARCHING"
             reserve_note = " (1 slot đang được bảo lưu cho phiên Mỹ)" if ny_reserve_active else ""

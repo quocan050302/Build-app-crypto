@@ -400,6 +400,7 @@ def _check_strategy(req: EntryGuardRequest) -> EntryCheck:
                 return EntryCheck("UNCONFIRMED_STRUCTURE_CHAIN", "BLOCK",
                                   "Chuỗi cấu trúc SMC chưa được xác nhận đầy đủ (thiếu sweep, break MSS hoặc FVG).",
                                   "Chờ cấu trúc hoàn thành các bước xác nhận.")
+            return _ok("strategy", "LEGACY_UNCERTIFIED: chế độ cũ, chưa xác minh chuỗi SMC.")
 
         # V16.38 Rules 082, 083: Apply DAILY_BIAS_PRIMARY direction validation across all SMC families
         if req.strategy_family in ("CG01_SWEEP_MSS_FVG", "SMC_M1_REVERSAL", "SMC_M1_CONTINUATION", "SMC_M1_FVG_CONTINUATION", "SMC_M1_SWEEP_RECLAIM"):

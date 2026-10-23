@@ -584,6 +584,7 @@ class TradeLifecycleService:
                 )
         except Exception as e:
             db.rollback()
+            db.expire_all()
             logger.error(f"execute_close aborted due to membership staging failure for order {order.id}: {e}")
             return None
 
@@ -850,7 +851,7 @@ class TradeLifecycleService:
             entry_ts = getattr(order, "armed_at", None) or getattr(order, "created_at", None) or now_ms
             try:
                 from services.trading_policy_service import TradingPolicyService, resolve_entry_session_context
-                pol = TradingPolicyService.get_or_create_policy(db)
+                pol = TradingPolicyService.get_or_create_policy(db, commit=False)
                 s_ctx = resolve_entry_session_context(pol, family, now_ms=entry_ts)
                 entry_session = s_ctx.analysis_session
             except Exception:

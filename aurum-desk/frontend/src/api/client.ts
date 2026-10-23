@@ -233,6 +233,31 @@ export interface TradingPolicy {
   updated_at?: number;
 }
 
+export interface EntrySessionSettingsUpdate {
+  entry_session_policy: string;
+  timing_profile?: string;
+  expected_version?: number;
+  symbol?: string;
+  execution_scope?: string;
+}
+
+export interface EntrySessionSettingsResponse {
+  status: string;
+  entry_session_policy: string;
+  timing_profile: string;
+  effective_ny_goal: number;
+  reserve_ny_slot: boolean;
+  ny_fallback_enabled: boolean;
+  max_daily_fills: number;
+  daily_timezone: string;
+  policy_version: number;
+  execution_scope: string;
+  auto_execution_enabled: boolean;
+  source: string;
+  reason_codes: string[];
+  message?: string | null;
+}
+
 export interface NYSessionStatus {
   session_instance_id: string;
   symbol: string;
@@ -1189,6 +1214,17 @@ export const api = {
   /** V14.3 read-only diagnostics (GET): never creates orders / quota rows / notifications. */
   getNYQuotaDiagnostics: async (symbol: string = 'XAUUSDT', date?: string): Promise<NYQuotaDiagnostics> => {
     const res = await apiClient.get('/api/v1/ny-quota/diagnostics', { params: date ? { symbol, date } : { symbol } });
+    return res.data;
+  },
+
+  /** V17.4: Coordinated atomic entry session policy and timing settings */
+  getEntrySessionSettings: async (symbol: string = 'XAUUSDT'): Promise<EntrySessionSettingsResponse> => {
+    const res = await apiClient.get('/api/v1/policy/entry-session', { params: { symbol } });
+    return res.data;
+  },
+
+  updateEntrySessionSettings: async (payload: EntrySessionSettingsUpdate): Promise<EntrySessionSettingsResponse> => {
+    const res = await apiClient.put('/api/v1/policy/entry-session', payload);
     return res.data;
   },
 };

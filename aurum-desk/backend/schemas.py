@@ -1053,7 +1053,7 @@ class TradingPolicyUpdate(BaseModel):
     symbol: Optional[str] = "XAUUSDT"
     max_daily_fills: Optional[int] = 3
     daily_timezone: Optional[str] = "Asia/Ho_Chi_Minh"
-    entry_session_policy: Optional[str] = "ALL_SESSIONS_WITH_NY_RESERVE"  # NY_ONLY, ALL_SESSIONS_WITH_NY_RESERVE
+    entry_session_policy: Optional[str] = "ALL_SESSIONS_WITH_NY_RESERVE"  # NY_ONLY, ALL_SESSIONS_WITH_NY_RESERVE, ALL_SESSIONS_SETUP_FIRST
     ny_timezone: Optional[str] = "America/New_York"
     ny_entry_start: Optional[str] = "08:00"
     ny_entry_end: Optional[str] = "11:00"
@@ -1101,6 +1101,33 @@ class TradingPolicyResponse(BaseModel):
     created_at: Optional[int] = None
     updated_at: int
     model_config = ConfigDict(from_attributes=True)
+
+
+class EntrySessionSettingsUpdate(BaseModel):
+    """V17.4: Coordinated atomic settings update for entry session policy and timing profile."""
+    entry_session_policy: str
+    timing_profile: Optional[str] = None
+    expected_version: Optional[int] = None
+    symbol: Optional[str] = "XAUUSDT"
+    execution_scope: Optional[str] = "PAPER"
+
+
+class EntrySessionSettingsResponse(BaseModel):
+    """V17.4: Authoritative effective entry session configuration response."""
+    status: str = "CONFIRMED"
+    entry_session_policy: str
+    timing_profile: str
+    effective_ny_goal: int
+    reserve_ny_slot: bool
+    ny_fallback_enabled: bool
+    max_daily_fills: int
+    daily_timezone: str
+    policy_version: int
+    execution_scope: str
+    auto_execution_enabled: bool
+    source: str = "PERSISTED"
+    reason_codes: List[str] = Field(default_factory=list)
+    message: Optional[str] = None
 
 class NYSessionStatusResponse(BaseModel):
     session_instance_id: str

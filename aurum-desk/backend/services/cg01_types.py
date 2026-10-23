@@ -61,9 +61,10 @@ class CG01EntryMode(str, Enum):
 
 
 class CG01TimingProfile(str, Enum):
-    """Rules 037 - 043: CG-01 Timing Window Profiles."""
+    """Rules 037 - 043, V17.4: CG-01 Timing Window Profiles."""
     SILVER_BULLET_LONDON_NY = "SILVER_BULLET_LONDON_NY"
     CG01_NY_PAPER_EXPANDED = "CG01_NY_PAPER_EXPANDED"
+    CG01_ALL_SESSIONS_PAPER = "CG01_ALL_SESSIONS_PAPER"
 
 
 # Rule 033: Parameter Origin Attribution
@@ -431,9 +432,10 @@ def resolve_candidate_order_expiry(
     legacy_default_hours: float = 2.0,
 ) -> int:
     """
-    Rule 031: Authoritative expiry resolver for paper candidates.
+    Rule 031, 035, 101: Authoritative expiry resolver for paper candidates.
     For CG-01: extracts valid_until_ms from candidate or entry_intent.
-    If session_context has window_end_ms, ensures order does not outlive window.
+    Reads EntrySessionContext.expiry_cap_ms as authoritative cap (falling back to window_end_ms with conflict check).
+    If cap is provided (> 0), min(candidate_expiry, cap). If cap is None, preserves candidate expiry.
     For legacy models: now_ms + legacy_default_hours.
     """
     model_id = getattr(cand, "model_id", "")
@@ -445,8 +447,17 @@ def resolve_candidate_order_expiry(
                 exp = intent.get("valid_until")
         if exp is not None and int(exp) > 0:
             res_exp = int(exp)
-            if session_context and hasattr(session_context, "window_end_ms") and session_context.window_end_ms:
-                res_exp = min(res_exp, int(session_context.window_end_ms))
+            cap = None
+            if session_context is not None:
+                expiry_cap = getattr(session_context, "expiry_cap_ms", None)
+                window_end = getattr(session_context, "window_end_ms", None)
+                if expiry_cap is not None and window_end is not None and expiry_cap != window_end:
+                    raise ValueError(
+                        f"SESSION_CONTEXT_EXPIRY_CONFLICT: expiry_cap_ms ({expiry_cap}) != window_end_ms ({window_end})"
+                    )
+                cap = expiry_cap if expiry_cap is not None else window_end
+            if cap is not None and int(cap) > 0:
+                res_exp = min(res_exp, int(cap))
             return res_exp
         raise ValueError("CG01_CANDIDATE_MISSING_EXPIRY: CG-01 candidate must define valid_until_ms")
     return int(now_ms + (legacy_default_hours * 3600 * 1000))

@@ -81,11 +81,18 @@ def resolve_cg01_windows_for_profile(
     """
     cur_hm = (dt_ny.hour, dt_ny.minute)
 
-    # Scope verification: CG01_NY_PAPER_EXPANDED is strictly PAPER-only (Rule 041)
+    # Scope verification: CG01_NY_PAPER_EXPANDED and CG01_ALL_SESSIONS_PAPER are strictly PAPER-only (Rules 041, V17.4 Parts 041-044)
     effective_profile = profile
     is_paper_scope = execution_scope.upper() in (
         "PAPER", "PAPER_EXECUTION", "PAPER_SHADOW", "SHADOW", "SIMULATION"
     )
+
+    if profile == "CG01_ALL_SESSIONS_PAPER":
+        if not is_paper_scope:
+            # LIVE / REAL / LIVE_EXECUTION cannot receive ALL_SESSIONS_PAPER permission (Parts 016, 042, 153)
+            return None, None, None, "SILVER_BULLET_LONDON_NY"
+        return "ALL_SESSIONS_PAPER", None, None, profile
+
     if profile == "CG01_NY_PAPER_EXPANDED" and not is_paper_scope:
         effective_profile = "SILVER_BULLET_LONDON_NY"
 
@@ -131,9 +138,10 @@ def resolve_cg01_time_context(
     config: Optional[CG01Config] = None,
 ) -> CG01TimeContext:
     """
-    Rules 051 - 060: Deterministic time context resolver in America/New_York.
+    Rules 051 - 060, V17.4 Parts 041-045: Deterministic time context resolver in America/New_York.
     Supports London Silver Bullet (03:00 - 04:00 NY), NY AM (10:00 - 11:00 NY),
-    and CG01_NY_PAPER_EXPANDED (08:00 - 11:00 NY, PAPER only).
+    CG01_NY_PAPER_EXPANDED (08:00 - 11:00 NY, PAPER only), and
+    CG01_ALL_SESSIONS_PAPER (all sessions setup-first, PAPER only).
     """
     tz_name = config.ny_timezone if config else "America/New_York"
     try:
@@ -161,7 +169,9 @@ def resolve_cg01_time_context(
     )
 
     is_in_window = (active_window_id is not None)
-    if is_in_window:
+    if active_window_id == "ALL_SESSIONS_PAPER":
+        permission_reason = "Cho phép xét setup PAPER ở mọi phiên; vẫn kiểm tra cấu trúc và bảo vệ rủi ro"
+    elif is_in_window:
         permission_reason = f"Trong cửa sổ giao dịch CG-01: {active_window_id} ({dt_ny.strftime('%H:%M')} NY)."
     else:
         permission_reason = "Đang ngoài cửa sổ CG-01; tiếp tục theo dõi vùng giá."

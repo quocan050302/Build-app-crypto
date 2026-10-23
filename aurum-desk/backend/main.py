@@ -2864,6 +2864,80 @@ def update_trading_policy_endpoint(
         raise HTTPException(status_code=400, detail=str(ve))
 
 
+@app.get("/api/v1/policy/entry-session", response_model=schemas.EntrySessionSettingsResponse)
+def get_entry_session_settings_endpoint(
+    symbol: str = "XAUUSDT",
+    db: Session = Depends(get_db)
+):
+    """
+    PHẦN 083, 147: Read-only endpoint for entry session settings and effective paired state.
+    Never creates or modifies database rows or triggers trading orders.
+    """
+    from services.trading_policy_service import TradingPolicyService
+    from services.scalp_m1_types import load_effective_scalp_config
+    from services.entry_session_policy_service import resolve_entry_session_settings
+    from services.strategy_service import strategy_service
+
+    policy = TradingPolicyService.get_policy(db) or TradingPolicyService.get_default_policy()
+    scalp_cfg = load_effective_scalp_config(db)
+
+    db_scope_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == "execution_scope").first()
+    eff_scope = db_scope_row.value.strip().upper() if db_scope_row and db_scope_row.value else "PAPER"
+
+    resolved = resolve_entry_session_settings(policy, scalp_cfg, execution_scope=eff_scope)
+
+    auto_enabled = False
+    try:
+        auto_enabled = bool(strategy_service.get_auto_state(db))
+    except Exception:
+        auto_enabled = False
+
+    return schemas.EntrySessionSettingsResponse(
+        status="CONFIRMED",
+        entry_session_policy=resolved["entry_session_policy"],
+        timing_profile=resolved["timing_profile"],
+        effective_ny_goal=resolved["effective_ny_goal"],
+        reserve_ny_slot=resolved["reserve_ny_slot"],
+        ny_fallback_enabled=resolved["ny_fallback_enabled"],
+        max_daily_fills=int(getattr(policy, "max_daily_fills", 3) or 3),
+        daily_timezone=getattr(policy, "daily_timezone", "Asia/Ho_Chi_Minh") or "Asia/Ho_Chi_Minh",
+        policy_version=resolved["policy_version"],
+        execution_scope=eff_scope,
+        auto_execution_enabled=auto_enabled,
+        source="PERSISTED",
+        reason_codes=resolved["reason_codes"],
+        message=None,
+    )
+
+
+@app.put("/api/v1/policy/entry-session", response_model=schemas.EntrySessionSettingsResponse)
+def update_entry_session_settings_endpoint(
+    req: schemas.EntrySessionSettingsUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    PHẦN 082, 083: Coordinated atomic settings update for entry session policy and timing profile.
+    Single transaction commit guaranteeing policy, timing, reservation, and quota stay synchronized.
+    """
+    from services.entry_session_policy_service import (
+        update_entry_session_settings,
+        SessionPolicyConfigError,
+        StalePolicyVersionError,
+    )
+    from services.clock import live_clock
+
+    patch = req.model_dump(exclude_unset=True)
+    try:
+        res = update_entry_session_settings(db, patch, clock=live_clock)
+        return res
+    except StalePolicyVersionError as sve:
+        raise HTTPException(status_code=409, detail=sve.message)
+    except SessionPolicyConfigError as spe:
+        raise HTTPException(status_code=400, detail=spe.message)
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+
+
 @app.get("/api/v1/policy/ny-session", response_model=schemas.NYSessionStatusResponse)
 def get_ny_session_status_endpoint(
     symbol: str = "XAUUSDT",
@@ -3743,12 +3817,36 @@ def update_scalp_config_endpoint(
             db.rollback()
             raise HTTPException(status_code=400, detail="INVALID_TIMING_PROFILE: must be a string")
         tp_val = tp_input.strip().upper()
-        if tp_val not in ("SILVER_BULLET_LONDON_NY", "CG01_NY_PAPER_EXPANDED"):
+        if tp_val not in ("SILVER_BULLET_LONDON_NY", "CG01_NY_PAPER_EXPANDED", "CG01_ALL_SESSIONS_PAPER"):
             db.rollback()
             raise HTTPException(
                 status_code=400,
-                detail="INVALID_TIMING_PROFILE: must be SILVER_BULLET_LONDON_NY or CG01_NY_PAPER_EXPANDED"
+                detail="INVALID_TIMING_PROFILE: must be SILVER_BULLET_LONDON_NY, CG01_NY_PAPER_EXPANDED, or CG01_ALL_SESSIONS_PAPER"
             )
+
+        # Synchronize TradingPolicy in same transaction to prevent split-brain (PHẦN 085, 146)
+        cur_pol = TradingPolicyService.get_or_create_policy(db)
+        if tp_val == "CG01_ALL_SESSIONS_PAPER":
+            cur_pol.entry_session_policy = "ALL_SESSIONS_SETUP_FIRST"
+            cur_pol.ny_min_fills = 0
+            cur_pol.reserve_ny_slot = False
+            cur_pol.ny_fallback_enabled = False
+            cur_pol.version = (cur_pol.version or 1) + 1
+            cur_pol.updated_at = now_ms
+            cfg_ny = db.query(models.SystemConfig).filter(models.SystemConfig.key == "daily_ny_goal").first()
+            if cfg_ny:
+                cfg_ny.value = "0"
+                cfg_ny.updated_at = now_ms
+            else:
+                db.add(models.SystemConfig(key="daily_ny_goal", value="0", updated_at=now_ms))
+        elif cur_pol.entry_session_policy == "ALL_SESSIONS_SETUP_FIRST" and tp_val != "CG01_ALL_SESSIONS_PAPER":
+            cur_pol.entry_session_policy = "ALL_SESSIONS_WITH_NY_RESERVE"
+            cur_pol.ny_min_fills = 1
+            cur_pol.reserve_ny_slot = True
+            cur_pol.ny_fallback_enabled = True
+            cur_pol.version = (cur_pol.version or 1) + 1
+            cur_pol.updated_at = now_ms
+
         cfg_tp = db.query(models.SystemConfig).filter(models.SystemConfig.key == "timing_profile").first()
         if cfg_tp:
             cfg_tp.value = tp_val

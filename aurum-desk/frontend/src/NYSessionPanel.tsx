@@ -154,7 +154,9 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
             <span className="text-gray-500">•</span>
             <span className="font-mono text-gray-300">{daily_fills}/{max_daily_fills} hôm nay</span>
             <span className="text-gray-500">•</span>
-            <span className="font-mono text-gray-300">Mỹ {ny_fills}/{ny_min_fills}</span>
+            <span className="font-mono text-gray-300">
+              {ny_min_fills === 0 ? 'Không chỉ tiêu NY' : `Mỹ ${ny_fills}/${ny_min_fills}`}
+            </span>
             <span className="text-gray-500">•</span>
             <span className={autoPaperActive ? 'text-emerald-400 font-semibold' : 'text-gray-400'}>
               Auto {autoPaperActive ? 'bật' : 'tắt'}
@@ -218,7 +220,14 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
 
           <div className="hidden sm:flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-charcoal-800 text-gray-400 border border-charcoal-700">
             <Shield className="w-3 h-3 text-emerald-400" />
-            <span>Policy: {policy?.entry_session_policy === 'ALL_SESSIONS_WITH_NY_RESERVE' ? 'Tất cả phiên (giữ slot Mỹ)' : 'Chỉ Phiên Mỹ (NY_ONLY)'}</span>
+            <span>
+              Policy:{' '}
+              {policy?.entry_session_policy === 'ALL_SESSIONS_SETUP_FIRST'
+                ? 'Không ưu tiên phiên Mỹ (ALL_SESSIONS_SETUP_FIRST)'
+                : policy?.entry_session_policy === 'ALL_SESSIONS_WITH_NY_RESERVE'
+                ? 'Tất cả phiên (giữ slot Mỹ)'
+                : 'Chỉ Phiên Mỹ (NY_ONLY)'}
+            </span>
           </div>
         </div>
 
@@ -237,11 +246,17 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
           <div data-testid="ny-quota-counter" className="flex items-center gap-1.5 bg-charcoal-850 px-2.5 py-1 rounded border border-charcoal-700 text-xs">
             <Target className="w-3.5 h-3.5 text-aurum-400" />
             <span className="text-gray-400">Mục Tiêu Phiên Mỹ:</span>
-            <span className={`font-bold font-mono ${ny_fills >= ny_min_fills ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {ny_fills} / {ny_min_fills}
-            </span>
-            {ny_fills >= ny_min_fills && (
-              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+            {ny_min_fills === 0 ? (
+              <span className="font-mono text-gray-400 font-medium">Không đặt chỉ tiêu NY</span>
+            ) : (
+              <>
+                <span className={`font-bold font-mono ${ny_fills >= ny_min_fills ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {ny_fills} / {ny_min_fills}
+                </span>
+                {ny_fills >= ny_min_fills && (
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                )}
+              </>
             )}
           </div>
 
