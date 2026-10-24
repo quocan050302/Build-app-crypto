@@ -1,0 +1,330 @@
+{
+  "version": "V17.6.2",
+  "verdict": "ACCEPTED",
+  "timestamp_utc": "2026-10-24T17:58:46Z",
+  "git": {
+    "branch": "fix/v14-1-rr-flow",
+    "sha": "e40a5b9dde816bd6f5e608e5cd9284092916298d",
+    "is_dirty": false,
+    "diff_hash": "e3b0c44298fc1c14",
+    "status_lines": [],
+    "dirty_tracked": [],
+    "dirty_untracked": []
+  },
+  "summary": {
+    "backend_tests_total": 172,
+    "backend_tests_passed": 172,
+    "backend_tests_failed": 0,
+    "soak_status": "PASS",
+    "vitest_status": "PASS",
+    "build_status": "PASS",
+    "lint_status": "PASS",
+    "playwright_status": "PASS"
+  },
+  "gates": {
+    "gate_v17_6_2_transaction_ownership": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_2_transaction_ownership.py",
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "duration_sec": 1.94,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_2_transaction_ownership.log"
+    },
+    "gate_v17_6_2_coverage_intervals": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_2_coverage_intervals.py",
+      "tests": 8,
+      "passed": 8,
+      "failed": 0,
+      "duration_sec": 1.38,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_2_coverage_intervals.log"
+    },
+    "gate_v17_6_2_financial_isolation": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_2_financial_run_isolation.py",
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "duration_sec": 1.5,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_2_financial_isolation.log"
+    },
+    "gate_v17_6_2_defects_reproduction": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_2_defects_reproduction.py",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "duration_sec": 1.68,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_2_defects_reproduction.log"
+    },
+    "gate_v17_6_2_feed_authority": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_2_feed_authority.py",
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "duration_sec": 1.02,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_2_feed_authority.log"
+    },
+    "gate_v17_6_2_decision_pagination": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_2_decision_pagination.py",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "duration_sec": 1.12,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_2_decision_pagination.log"
+    },
+    "gate_v17_6_2_cycle_durability": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_2_cycle_durability.py",
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "duration_sec": 1.58,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_2_cycle_durability.log"
+    },
+    "gate_v17_6_2_acceptance_runner": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_2_acceptance_runner.py",
+      "tests": 12,
+      "passed": 12,
+      "failed": 0,
+      "duration_sec": 1.1,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_2_acceptance_runner.log"
+    },
+    "gate_v17_5_9_financial_parity": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_5_9_financial_parity.py",
+      "tests": 14,
+      "passed": 14,
+      "failed": 0,
+      "duration_sec": 1.15,
+      "log": "artifacts/v17_6_2/logs/gate_v17_5_9_financial_parity.log"
+    },
+    "gate_v17_5_9_reference_source": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_5_9_reference_source_authority.py",
+      "tests": 10,
+      "passed": 10,
+      "failed": 0,
+      "duration_sec": 1.07,
+      "log": "artifacts/v17_6_2/logs/gate_v17_5_9_reference_source.log"
+    },
+    "gate_v17_5_9_break_source": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_5_9_break_source_authority.py",
+      "tests": 12,
+      "passed": 12,
+      "failed": 0,
+      "duration_sec": 1.13,
+      "log": "artifacts/v17_6_2/logs/gate_v17_5_9_break_source.log"
+    },
+    "gate_v17_5_9_arm_wiring": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_5_9_arm_production_wiring.py",
+      "tests": 13,
+      "passed": 13,
+      "failed": 0,
+      "duration_sec": 1.67,
+      "log": "artifacts/v17_6_2/logs/gate_v17_5_9_arm_wiring.log"
+    },
+    "gate_v17_5_9_cost_fail_closed": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_5_9_cost_fail_closed.py",
+      "tests": 10,
+      "passed": 10,
+      "failed": 0,
+      "duration_sec": 1.28,
+      "log": "artifacts/v17_6_2/logs/gate_v17_5_9_cost_fail_closed.log"
+    },
+    "gate_v17_5_9_real_cycle": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_5_9_real_cycle_regression.py",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "duration_sec": 1.51,
+      "log": "artifacts/v17_6_2/logs/gate_v17_5_9_real_cycle.log"
+    },
+    "gate_v17_5_9_runner_self_test": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_5_9_acceptance_runner_self_test.py",
+      "tests": 9,
+      "passed": 9,
+      "failed": 0,
+      "duration_sec": 2.09,
+      "log": "artifacts/v17_6_2/logs/gate_v17_5_9_runner_self_test.log"
+    },
+    "gate_v17_6_engine_heartbeat": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_engine_heartbeat.py",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "duration_sec": 1.17,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_engine_heartbeat.log"
+    },
+    "gate_v17_6_market_freshness": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_market_freshness.py",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "duration_sec": 1.09,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_market_freshness.log"
+    },
+    "gate_v17_6_cycle_telemetry": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_cycle_telemetry.py",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "duration_sec": 1.49,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_cycle_telemetry.log"
+    },
+    "gate_v17_6_decision_timeline": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_decision_timeline.py",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "duration_sec": 1.3,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_decision_timeline.log"
+    },
+    "gate_v17_6_observation_run": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_observation_run.py",
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "duration_sec": 1.23,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_observation_run.log"
+    },
+    "gate_v17_6_financial_summary": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_financial_summary.py",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "duration_sec": 1.31,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_financial_summary.log"
+    },
+    "gate_v17_6_api_contracts": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_api_contract.py",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "duration_sec": 1.54,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_api_contracts.log"
+    },
+    "gate_v17_6_recovery": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_recovery.py",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "duration_sec": 1.3,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_recovery.log"
+    },
+    "gate_v17_6_decision_parity": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_decision_parity.py",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "duration_sec": 1.84,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_decision_parity.log"
+    },
+    "gate_v17_6_soak_test": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_soak.py",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "duration_sec": 1.53,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_soak_test.log"
+    },
+    "gate_v17_6_1_quote_timestamps": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_1_quote_timestamps.py",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "duration_sec": 0.96,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_1_quote_timestamps.log"
+    },
+    "gate_v17_6_1_market_hours_dst": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_1_market_hours_dst.py",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "duration_sec": 0.99,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_1_market_hours_dst.log"
+    },
+    "gate_v17_6_1_run_isolation": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_1_run_isolation.py",
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "duration_sec": 1.22,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_1_run_isolation.log"
+    },
+    "gate_v17_6_1_telemetry_resilience": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_1_telemetry_resilience.py",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "duration_sec": 1.18,
+      "log": "artifacts/v17_6_2/logs/gate_v17_6_1_telemetry_resilience.log"
+    },
+    "gate_soak_cli": {
+      "status": "PASS",
+      "duration_sec": 1.34
+    },
+    "gate_frontend_vitest": {
+      "status": "PASS",
+      "duration_sec": 7.37
+    },
+    "gate_frontend_build": {
+      "status": "PASS",
+      "duration_sec": 7.63
+    },
+    "gate_frontend_lint": {
+      "status": "PASS",
+      "duration_sec": 0.4
+    },
+    "gate_playwright_e2e": {
+      "status": "PASS",
+      "duration_sec": 6.59
+    }
+  },
+  "source_fingerprints": {
+    "docs/V17_6_2_DEFECT_REGISTER.md": "fa7e8ecdfb6a2347",
+    "docs/V17_6_2_IMPLEMENTATION_MAP.md": "c7f24327d9b58fee",
+    "docs/V17_6_2_TRANSACTION_AUDIT.md": "5dd17d5bb8c9a0ba",
+    "docs/V17_6_2_OBSERVATION_EVIDENCE_CONTRACT.md": "ead15b7b6ef88551",
+    "docs/V17_6_2_FINAL_ACCEPTANCE_REPORT.md": "75465742204a146d",
+    "backend/models.py": "ef9acb70bc31ee9c",
+    "backend/database.py": "1bc1a1c91431fc38",
+    "backend/services/engine_observability_service.py": "a1b9cec5af00a344",
+    "backend/services/scalp_watcher_orchestrator.py": "f0155a696d50a55d",
+    "backend/services/scalp_m1_types.py": "7f43e7fd6af58aec",
+    "backend/services/opportunity_funnel_service.py": "b6dc27e8f53641f5",
+    "backend/services/bitget_ws_service.py": "10288de111dc7d08",
+    "backend/services/quote_validator.py": "f7fa210bd9d07175",
+    "backend/main.py": "df9b9588d2d07c13",
+    "frontend/src/types/observation.ts": "975e05ee128f4c09",
+    "frontend/src/api/client.ts": "9ce7380ebdcf4249",
+    "frontend/src/hooks/useObservationDashboard.ts": "9b96674e74e6d05e",
+    "frontend/src/components/ObservationDashboard.tsx": "b6509499d2f23298",
+    "frontend/src/__tests__/v17_6_2_observation_events.test.ts": "7d0f7592279fbda6",
+    "frontend/tests/e2e/v17_6_observation.e2e.ts": "bcb886a1c37fa9ec",
+    "tools/run_v17_6_2_acceptance.py": "69a5b1e83b1d1bb3"
+  }
+}
