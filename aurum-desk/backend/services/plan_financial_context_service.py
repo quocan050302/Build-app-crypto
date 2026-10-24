@@ -726,27 +726,215 @@ def assert_order_financial_parity(
     tolerance: float = 1e-4,
 ) -> Dict[str, Any]:
     """
-    AURUM V17.5.8 (Part 049):
-    Reconciles financial assumptions across candidate calculation,
-    comparison plan, frozen order snapshot, and execution fill.
+    AURUM V17.5.9 (D05, Section 07):
+    Full financial parity reconciler across plan, snapshot, comparison plan,
+    and execution fill.
+    Reconciles: direction, planned_entry, stop_loss, take_profit, quantity,
+    risk_budget, gross_rr, net_rr, entry_slippage, sl_slippage, maker_fee_rate,
+    taker_fee_rate.
+    Missing mandatory fields are flagged as INCOMPLETE / MISMATCH, never fabricated.
     """
-    mismatches = []
+    mismatches: List[str] = []
+    missing_fields: List[str] = []
+    compared_fields: List[str] = []
+
+    if order_snapshot is None and candidate_calc is None and comparison_plan is None:
+        return {
+            "status": "INCOMPLETE",
+            "is_parity": False,
+            "compared_fields": [],
+            "mismatches": ["No financial records provided for reconciliation"],
+            "missing_fields": ["order_snapshot"],
+            "source_versions": {},
+        }
+
     snap = order_snapshot or {}
-    snap_costs = snap.get("resolved_execution_costs") or {}
-    snap_slip = float(snap.get("slippage_usd", snap_costs.get("entry_slippage_usd", 0.10)))
+    snap_costs = snap.get("resolved_execution_costs") or snap.get("cost_snapshot") or {}
 
-    if comparison_plan:
-        comp_costs = comparison_plan.get("cost_snapshot") or {}
-        comp_slip = float(comp_costs.get("entry_slippage_usd", 0.10))
-        if abs(snap_slip - comp_slip) > tolerance:
-            mismatches.append(f"Slippage mismatch: snap={snap_slip} vs comp={comp_slip}")
+    def _safe_float(val: Any) -> Optional[float]:
+        if val is None or isinstance(val, bool):
+            return None
+        try:
+            f = float(val)
+            return f if math.isfinite(f) else None
+        except (ValueError, TypeError):
+            return None
 
+    # Helper to extract slippage from snapshot
+    snap_slip_raw = (
+        snap.get("slippage_usd")
+        if snap.get("slippage_usd") is not None
+        else (snap_costs.get("entry_slippage_usd") if snap_costs.get("entry_slippage_usd") is not None else snap.get("slippage"))
+    )
+    snap_slip = _safe_float(snap_slip_raw)
+
+    snap_maker_raw = snap_costs.get("maker_fee_rate") if snap_costs.get("maker_fee_rate") is not None else snap.get("maker_fee_rate")
+    snap_maker = _safe_float(snap_maker_raw)
+
+    snap_taker_raw = snap_costs.get("taker_fee_rate") if snap_costs.get("taker_fee_rate") is not None else snap.get("taker_fee_rate")
+    snap_taker = _safe_float(snap_taker_raw)
+
+    # 1. Reconcile order_snapshot vs comparison_plan
+    if comparison_plan is not None:
+        comp = comparison_plan
+        comp_costs = comp.get("cost_snapshot") or comp.get("resolved_execution_costs") or {}
+
+        # Direction
+        snap_dir = snap.get("direction")
+        comp_dir = comp.get("direction")
+        if snap_dir is not None and comp_dir is not None:
+            compared_fields.append("direction")
+            if str(snap_dir).upper() != str(comp_dir).upper():
+                mismatches.append(f"Direction mismatch: snap={snap_dir} vs comp={comp_dir}")
+
+        # Slippage: missing != matching (Part 057)
+        comp_slip_raw = comp_costs.get("entry_slippage_usd") if comp_costs.get("entry_slippage_usd") is not None else comp.get("slippage_usd")
+        comp_slip = _safe_float(comp_slip_raw)
+        if snap_slip is None and comp_slip is not None:
+            missing_fields.append("order_snapshot.entry_slippage_usd")
+            mismatches.append("Missing entry slippage in order snapshot")
+        elif snap_slip is not None and comp_slip is None:
+            missing_fields.append("comparison_plan.entry_slippage_usd")
+            mismatches.append("Missing entry slippage in comparison plan")
+        elif snap_slip is not None and comp_slip is not None:
+            compared_fields.append("entry_slippage_usd")
+            if abs(snap_slip - comp_slip) > tolerance:
+                mismatches.append(f"Slippage mismatch: snap={snap_slip} vs comp={comp_slip}")
+
+        # Maker fee rate
+        comp_maker_raw = comp_costs.get("maker_fee_rate") if comp_costs.get("maker_fee_rate") is not None else comp.get("maker_fee_rate")
+        comp_maker = _safe_float(comp_maker_raw)
+        if snap_maker is not None and comp_maker is not None:
+            compared_fields.append("maker_fee_rate")
+            if abs(snap_maker - comp_maker) > tolerance:
+                mismatches.append(f"Maker fee mismatch: snap={snap_maker} vs comp={comp_maker}")
+        elif snap_maker is not None and comp_maker_raw is not None and comp_maker is None:
+            mismatches.append("Invalid maker fee in comparison plan")
+
+        # Taker fee rate
+        comp_taker_raw = comp_costs.get("taker_fee_rate") if comp_costs.get("taker_fee_rate") is not None else comp.get("taker_fee_rate")
+        comp_taker = _safe_float(comp_taker_raw)
+        if snap_taker is not None and comp_taker is not None:
+            compared_fields.append("taker_fee_rate")
+            if abs(snap_taker - comp_taker) > tolerance:
+                mismatches.append(f"Taker fee mismatch: snap={snap_taker} vs comp={comp_taker}")
+
+        # Numeric fields: planned_entry, stop_loss, take_profit, quantity
+        for field in ("planned_entry", "stop_loss", "take_profit", "quantity"):
+            s_val = _safe_float(snap.get(field))
+            c_val = _safe_float(comp.get(field) or comp.get(field.replace("planned_", "")))
+            if s_val is not None and c_val is not None:
+                compared_fields.append(field)
+                if abs(s_val - c_val) > tolerance:
+                    mismatches.append(f"{field} mismatch: snap={s_val} vs comp={c_val}")
+
+        # Net R:R
+        s_nrr = _safe_float(snap.get("estimated_net_rr") or snap.get("net_rr"))
+        c_nrr = _safe_float(comp.get("estimated_net_rr") or comp.get("net_rr"))
+        if s_nrr is not None and c_nrr is not None:
+            compared_fields.append("net_rr")
+            if abs(s_nrr - c_nrr) > tolerance:
+                mismatches.append(f"Net R:R mismatch: snap={s_nrr} vs comp={c_nrr}")
+
+        # Risk budget
+        s_rb = _safe_float(snap.get("target_risk_budget") or snap.get("initial_risk_usdt") or snap.get("risk_budget"))
+        c_rb = _safe_float(comp.get("target_risk_budget") or comp.get("initial_risk_usdt") or comp.get("risk_budget"))
+        if s_rb is not None and c_rb is not None:
+            compared_fields.append("risk_budget")
+            if abs(s_rb - c_rb) > tolerance:
+                mismatches.append(f"Risk budget mismatch: snap={s_rb} vs comp={c_rb}")
+
+    # 2. Reconcile order_snapshot vs candidate_calc
+    if candidate_calc is not None:
+        c_qty = _safe_float(getattr(candidate_calc, "quantity", None))
+        s_qty = _safe_float(snap.get("quantity"))
+        if s_qty is not None and c_qty is not None:
+            compared_fields.append("calc_quantity")
+            if abs(s_qty - c_qty) > tolerance:
+                mismatches.append(f"Quantity mismatch: snap={s_qty} vs calc={c_qty}")
+
+        c_sl = _safe_float(getattr(candidate_calc, "stop_loss", None))
+        s_sl = _safe_float(snap.get("stop_loss"))
+        if s_sl is not None and c_sl is not None:
+            compared_fields.append("calc_stop_loss")
+            if abs(s_sl - c_sl) > tolerance:
+                mismatches.append(f"Stop loss mismatch: snap={s_sl} vs calc={c_sl}")
+
+        c_entry = _safe_float(getattr(candidate_calc, "entry", getattr(candidate_calc, "planned_entry", None)))
+        s_entry = _safe_float(snap.get("planned_entry"))
+        if s_entry is not None and c_entry is not None:
+            compared_fields.append("calc_entry")
+            if abs(s_entry - c_entry) > tolerance:
+                mismatches.append(f"Planned entry mismatch: snap={s_entry} vs calc={c_entry}")
+
+        c_tp = _safe_float(getattr(candidate_calc, "take_profit", None))
+        s_tp = _safe_float(snap.get("take_profit"))
+        if s_tp is not None and c_tp is not None:
+            compared_fields.append("calc_take_profit")
+            if abs(s_tp - c_tp) > tolerance:
+                mismatches.append(f"Take profit mismatch: snap={s_tp} vs calc={c_tp}")
+
+        c_risk = _safe_float(getattr(candidate_calc, "net_risk_usdt", getattr(candidate_calc, "risk_budget", None)))
+        s_risk = _safe_float(snap.get("target_risk_budget") or snap.get("initial_risk_usdt") or snap.get("risk_budget"))
+        if s_risk is not None and c_risk is not None:
+            compared_fields.append("calc_risk_budget")
+            if abs(s_risk - c_risk) > tolerance:
+                mismatches.append(f"Risk budget mismatch: snap={s_risk} vs calc={c_risk}")
+
+        c_net_rr = _safe_float(getattr(candidate_calc, "net_rr", None))
+        s_net_rr = _safe_float(snap.get("estimated_net_rr") or snap.get("net_rr"))
+        if s_net_rr is not None and c_net_rr is not None:
+            compared_fields.append("calc_net_rr")
+            if abs(s_net_rr - c_net_rr) > tolerance:
+                mismatches.append(f"Net R:R mismatch: snap={s_net_rr} vs calc={c_net_rr}")
+
+        c_gross_rr = _safe_float(getattr(candidate_calc, "gross_rr", None))
+        s_gross_rr = _safe_float(snap.get("gross_rr"))
+        if s_gross_rr is not None and c_gross_rr is not None:
+            compared_fields.append("calc_gross_rr")
+            if abs(s_gross_rr - c_gross_rr) > tolerance:
+                mismatches.append(f"Gross R:R mismatch: snap={s_gross_rr} vs calc={c_gross_rr}")
+
+    # Geometry check if planned_entry, stop_loss, take_profit and direction present
+    s_dir = str(snap.get("direction", "")).upper()
+    s_entry = _safe_float(snap.get("planned_entry"))
+    s_sl = _safe_float(snap.get("stop_loss"))
+    s_tp = _safe_float(snap.get("take_profit"))
+    if s_dir and s_entry and s_sl and s_tp:
+        compared_fields.append("geometry")
+        if s_dir in ("SHORT", "SELL"):
+            if not (s_tp < s_entry < s_sl):
+                mismatches.append(f"Incorrect SHORT geometry: tp={s_tp} entry={s_entry} sl={s_sl}")
+        elif s_dir in ("LONG", "BUY"):
+            if not (s_sl < s_entry < s_tp):
+                mismatches.append(f"Incorrect LONG geometry: sl={s_sl} entry={s_entry} tp={s_tp}")
+
+    # 3. Reconcile fill_result
     if fill_result:
-        realized_slip = fill_result.get("realized_slippage", fill_result.get("slippage"))
-        if realized_slip is not None and abs(float(realized_slip) - snap_slip) > tolerance:
-            mismatches.append(f"Fill slippage mismatch: snap={snap_slip} vs fill={realized_slip}")
+        realized_slip = _safe_float(fill_result.get("realized_slippage", fill_result.get("slippage")))
+        if realized_slip is not None:
+            compared_fields.append("realized_slippage")
+            if snap_slip is not None and abs(realized_slip - snap_slip) > tolerance:
+                mismatches.append(f"Fill slippage mismatch: snap={snap_slip} vs fill={realized_slip}")
+
+    # Check for missing mandatory fields if snapshot is being verified
+    if order_snapshot is not None:
+        mandatory = ("planned_entry", "stop_loss", "take_profit", "quantity")
+        for m in mandatory:
+            if m in snap and snap.get(m) is None:
+                missing_fields.append(m)
+
+    is_parity = (len(mismatches) == 0 and len(missing_fields) == 0)
+    status = "PASS" if is_parity else ("INCOMPLETE" if len(missing_fields) > 0 else "MISMATCH")
 
     return {
-        "is_parity": len(mismatches) == 0,
+        "status": status,
+        "is_parity": is_parity,
+        "compared_fields": list(dict.fromkeys(compared_fields)),
         "mismatches": mismatches,
+        "missing_fields": missing_fields,
+        "source_versions": {
+            "snapshot_version": snap.get("policy_config_version", snap.get("version", 1)),
+            "comparison_version": (comparison_plan or {}).get("policy_config_version", (comparison_plan or {}).get("version", 1)),
+        },
     }

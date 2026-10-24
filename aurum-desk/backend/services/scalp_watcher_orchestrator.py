@@ -212,18 +212,49 @@ def validate_arm_invariants(
     active_armed_count: int = 0,
 ) -> Tuple[bool, Optional[str]]:
     """
-    AURUM V17.5.8 (Part 052):
+    AURUM V17.5.9 (D03, Section 05 Parts 034-035):
     Pure validator checking ARM gate invariants before persistence.
+    Rejects unsupported direction, non-finite or invalid numeric geometry,
+    stale/invalid quotes, and capacity violations.
     """
+    direction = str(getattr(candidate, "direction", "") or "").upper()
+    if direction not in ("SHORT", "SELL", "LONG", "BUY"):
+        return False, "INVALID_DIRECTION"
+
     if calculation is None or not getattr(calculation, "is_valid", False) or not getattr(calculation, "can_execute", False):
         return False, "CALCULATION_INVALID"
 
-    qty = float(getattr(calculation, "quantity", 0.0))
-    if qty <= 0 or not math.isfinite(qty):
+    try:
+        raw_qty = getattr(calculation, "quantity", 0.0)
+        if isinstance(raw_qty, bool) or raw_qty is None:
+            return False, "INVALID_QUANTITY"
+        qty = float(raw_qty)
+        if qty <= 0 or not math.isfinite(qty):
+            return False, "INVALID_QUANTITY"
+    except (ValueError, TypeError, OverflowError):
         return False, "INVALID_QUANTITY"
 
-    cand_sl = float(getattr(candidate, "stop_loss", 0.0))
-    calc_sl = float(getattr(calculation, "stop_loss", cand_sl))
+    try:
+        raw_cand_sl = getattr(candidate, "stop_loss", 0.0)
+        raw_entry = getattr(candidate, "planned_entry", 0.0)
+        raw_tp = getattr(candidate, "take_profit", 0.0)
+        raw_calc_sl = getattr(calculation, "stop_loss", raw_cand_sl)
+
+        if any(isinstance(x, bool) or x is None for x in (raw_cand_sl, raw_entry, raw_tp, raw_calc_sl)):
+            return False, "INVALID_PRICE_GEOMETRY"
+
+        cand_sl = float(raw_cand_sl)
+        calc_sl = float(raw_calc_sl)
+        entry = float(raw_entry)
+        tp = float(raw_tp)
+
+        if not (math.isfinite(cand_sl) and math.isfinite(calc_sl) and math.isfinite(entry) and math.isfinite(tp)):
+            return False, "INVALID_PRICE_GEOMETRY"
+        if cand_sl <= 0 or calc_sl <= 0 or entry <= 0 or tp <= 0:
+            return False, "INVALID_PRICE_GEOMETRY"
+    except (ValueError, TypeError, OverflowError):
+        return False, "INVALID_PRICE_GEOMETRY"
+
     if abs(cand_sl - calc_sl) > 1e-4:
         return False, "STOP_PLAN_MISMATCH"
 
@@ -233,12 +264,14 @@ def validate_arm_invariants(
     if quote is None or not getattr(quote, "is_valid", False) or getattr(quote, "is_stale", False):
         return False, "QUOTE_INVALID_OR_STALE"
 
-    if expires_at_ms is not None and now_ms >= expires_at_ms:
-        return False, "TRIGGER_EXPIRED"
+    if expires_at_ms is not None:
+        try:
+            exp_ms = int(expires_at_ms)
+            if now_ms >= exp_ms:
+                return False, "TRIGGER_EXPIRED"
+        except (ValueError, TypeError):
+            return False, "TRIGGER_EXPIRED"
 
-    direction = str(getattr(candidate, "direction", "")).upper()
-    entry = float(getattr(candidate, "planned_entry", 0.0))
-    tp = float(getattr(candidate, "take_profit", 0.0))
     if direction in ("SHORT", "SELL"):
         if not (tp < entry < cand_sl):
             return False, "INVALID_PRICE_GEOMETRY"
@@ -249,22 +282,80 @@ def validate_arm_invariants(
     return True, None
 
 
-def get_system_config_cost_value(db: Session, ordered_keys: Sequence[str]) -> Optional[float]:
+def resolve_ordered_cost_setting(
+    db: Session,
+    ordered_keys: Sequence[str],
+    *,
+    setting_name: str = "cost_setting",
+) -> Dict[str, Any]:
     """
-    AURUM V17.5.8 (Part 045):
-    Retrieves system config value with deterministic key precedence.
-    Validates finite non-negative numbers, eliminating ambiguous row ordering.
+    AURUM V17.5.9 (D04, Section 06 Part 048):
+    Differentiates missing vs invalid settings under deterministic key precedence.
+    If an authoritative higher-priority key is present but invalid, fails closed
+    with status='INVALID' rather than silently falling back to lower-priority keys.
     """
     rows = db.query(models.SystemConfig).filter(models.SystemConfig.key.in_(ordered_keys)).all()
-    row_map = {r.key: r.value for r in rows if r and r.value is not None}
+    row_map = {r.key: r.value for r in rows if r and r.key is not None}
     for k in ordered_keys:
         if k in row_map:
-            try:
-                v = float(row_map[k])
-                if math.isfinite(v) and v >= 0.0:
-                    return v
-            except (ValueError, TypeError):
+            raw_val = row_map[k]
+            if raw_val is None:
                 continue
+            if isinstance(raw_val, bool):
+                return {
+                    "status": "INVALID",
+                    "key": k,
+                    "value": None,
+                    "reason": f"INVALID_{setting_name.upper()}_BOOLEAN",
+                }
+            try:
+                f_val = float(raw_val)
+                if not math.isfinite(f_val):
+                    return {
+                        "status": "INVALID",
+                        "key": k,
+                        "value": None,
+                        "reason": f"INVALID_{setting_name.upper()}_NON_FINITE",
+                    }
+                if f_val < 0.0:
+                    return {
+                        "status": "INVALID",
+                        "key": k,
+                        "value": None,
+                        "reason": f"INVALID_{setting_name.upper()}_NEGATIVE",
+                    }
+                return {
+                    "status": "VALID",
+                    "key": k,
+                    "value": f_val,
+                    "reason": None,
+                }
+            except (ValueError, TypeError, OverflowError):
+                return {
+                    "status": "INVALID",
+                    "key": k,
+                    "value": None,
+                    "reason": f"INVALID_{setting_name.upper()}_FORMAT",
+                }
+
+    return {
+        "status": "NOT_CONFIGURED",
+        "key": None,
+        "value": None,
+        "reason": f"NOT_CONFIGURED_{setting_name.upper()}",
+    }
+
+
+def get_system_config_cost_value(db: Session, ordered_keys: Sequence[str]) -> Optional[float]:
+    """
+    AURUM V17.5.9 (D04, Section 06 Part 048):
+    Compatibility adapter around resolve_ordered_cost_setting.
+    Returns finite non-negative float if valid, or None if not configured or invalid.
+    Does NOT silently fall back if an authoritative key has an invalid value.
+    """
+    res = resolve_ordered_cost_setting(db, ordered_keys)
+    if res["status"] == "VALID":
+        return res["value"]
     return None
 
 
@@ -1130,20 +1221,33 @@ class ScalpWatcherOrchestrator:
             if hasattr(execution_financial_context, "costs") and execution_financial_context.costs is not None:
                 cost_overrides["costs"] = execution_financial_context.costs
 
+        cost_config_errors = []
         if "slippage_usd" not in cost_overrides:
-            val = get_system_config_cost_value(db, ["slippage_usd", "slippage", "default_slippage"])
-            if val is not None:
-                cost_overrides["slippage_usd"] = val
+            res_slip = resolve_ordered_cost_setting(db, ["slippage_usd", "slippage", "default_slippage"], setting_name="slippage")
+            if res_slip["status"] == "VALID":
+                cost_overrides["slippage_usd"] = res_slip["value"]
+            elif res_slip["status"] == "INVALID":
+                cost_config_errors.append(f"Invalid slippage setting: {res_slip['reason']} on key {res_slip['key']}")
 
         if "maker_fee_rate" not in cost_overrides:
-            val = get_system_config_cost_value(db, ["maker_fee_rate", "default_maker_fee_rate"])
-            if val is not None:
-                cost_overrides["maker_fee_rate"] = val
+            res_maker = resolve_ordered_cost_setting(db, ["maker_fee_rate", "default_maker_fee_rate"], setting_name="maker_fee")
+            if res_maker["status"] == "VALID":
+                cost_overrides["maker_fee_rate"] = res_maker["value"]
+            elif res_maker["status"] == "INVALID":
+                cost_config_errors.append(f"Invalid maker fee setting: {res_maker['reason']} on key {res_maker['key']}")
 
         if "taker_fee_rate" not in cost_overrides:
-            val = get_system_config_cost_value(db, ["taker_fee_rate", "default_taker_fee_rate"])
-            if val is not None:
-                cost_overrides["taker_fee_rate"] = val
+            res_taker = resolve_ordered_cost_setting(db, ["taker_fee_rate", "default_taker_fee_rate"], setting_name="taker_fee")
+            if res_taker["status"] == "VALID":
+                cost_overrides["taker_fee_rate"] = res_taker["value"]
+            elif res_taker["status"] == "INVALID":
+                cost_config_errors.append(f"Invalid taker fee setting: {res_taker['reason']} on key {res_taker['key']}")
+
+        if cost_config_errors:
+            policy_dict["cost_config_error"] = "; ".join(cost_config_errors)
+            policy_dict["costs_valid"] = False
+        else:
+            policy_dict["costs_valid"] = True
 
         policy_dict.update(cost_overrides)
         from domain_calculator import CostAssumptions
@@ -1881,6 +1985,31 @@ class ScalpWatcherOrchestrator:
             logger.info(f"Invalid calculator quantity: {qty}")
             return None
 
+        # Cost configuration integrity check (D04, Section 06 Part 052)
+        if policy_settings.get("costs_valid") is False or policy_settings.get("cost_config_error"):
+            cost_err = policy_settings.get("cost_config_error") or "INVALID_COST_CONFIGURATION"
+            logger.warning(f"Cost configuration error, refusing to arm candidate {cand.candidate_key}: {cost_err}")
+            OpportunityFunnelService.record_opportunity_transition(
+                db,
+                OpportunityEvaluation(
+                    opportunity_id=f"opp_{cand.candidate_key}",
+                    symbol=cand.symbol,
+                    model_id=cand.model_id,
+                    direction=cand.direction,
+                    zone_id=cand.zone_id,
+                    as_of_ms=now_ms,
+                    stage=OpportunityStage.GUARD_BLOCKED.value,
+                    reason_codes=("INVALID_COST_CONFIGURATION",),
+                    planned_entry=cand.planned_entry,
+                    stop_loss=cand.stop_loss,
+                    take_profit=cand.take_profit,
+                    net_rr=cand.net_rr,
+                    details={"error": cost_err},
+                ),
+                now_ms=now_ms,
+            )
+            return None
+
         # 0. Critical section auto check (PHẦN 024, 025, 026)
         if auto_enabled is not None:
             is_auto = bool(auto_enabled)
@@ -2441,6 +2570,42 @@ class ScalpWatcherOrchestrator:
         arm_snap["stop_mode_at_arm"] = getattr(sp, "mode", current_sp_policy.mode) if sp is not None else current_sp_policy.mode
         arm_snap["stop_policy_version"] = getattr(sp, "policy_version", current_sp_policy.version) if sp is not None else current_sp_policy.version
         arm_snap["applied_variant"] = getattr(sp, "applied_variant", "A") if sp is not None else "A"
+
+        # V17.5.9 (D03, Section 05 Part 037): Final shared ARM invariant barrier before order persistence
+        is_arm_valid, arm_inv_reason = validate_arm_invariants(
+            candidate=cand,
+            calculation=calc,
+            quote=v_quote,
+            now_ms=now_ms,
+            expires_at_ms=resolved_expires_at,
+            daily_fills_count=audit.fills_count,
+            daily_max_cap=effective_max_cap,
+            active_armed_count=armed_open_count,
+        )
+        if not is_arm_valid:
+            logger.warning(
+                f"ARM_INVARIANTS_REJECTED: candidate {cand.candidate_key} failed invariant check: {arm_inv_reason}"
+            )
+            OpportunityFunnelService.record_opportunity_transition(
+                db,
+                OpportunityEvaluation(
+                    opportunity_id=f"opp_{cand.candidate_key}",
+                    symbol=cand.symbol,
+                    model_id=cand.model_id,
+                    direction=cand.direction,
+                    zone_id=cand.zone_id,
+                    as_of_ms=now_ms,
+                    stage=OpportunityStage.GUARD_BLOCKED.value,
+                    reason_codes=(arm_inv_reason or "ARM_INVARIANTS_FAILED",),
+                    planned_entry=cand.planned_entry,
+                    stop_loss=cand.stop_loss,
+                    take_profit=cand.take_profit,
+                    net_rr=cand.net_rr,
+                    details={"arm_invariant_reason": arm_inv_reason},
+                ),
+                now_ms=now_ms,
+            )
+            return None
 
         order_id = f"ord_{cand.model_id}_{cand.candidate_key}"
         order = models.PaperOrder(
