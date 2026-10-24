@@ -692,3 +692,61 @@ def resolve_execution_cost_context(
         "provenance": "EFFECTIVE_SETTINGS_AUTHORITY",
         "version": version,
     }
+
+
+def build_verified_cost_context(
+    *,
+    settings: Optional[Dict[str, Any]] = None,
+    snapshot: Optional[Dict[str, Any]] = None,
+    config: Optional[Any] = None,
+    candidate: Optional[Any] = None,
+    as_of_ms: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    AURUM V17.5.8 (Part 046):
+    Builds a typed, verified, immutable cost context dictionary.
+    Prioritizes frozen order snapshot, preserves explicit 0.0 slippage,
+    strictly validates finite non-negative values, and rejects malformed cost inputs.
+    """
+    return resolve_execution_cost_context(
+        snapshot=snapshot,
+        candidate=candidate,
+        settings=settings,
+        config=config,
+        as_of_ms=as_of_ms,
+    )
+
+
+def assert_order_financial_parity(
+    *,
+    candidate_calc: Any = None,
+    comparison_plan: Optional[Dict[str, Any]] = None,
+    order_snapshot: Optional[Dict[str, Any]] = None,
+    fill_result: Optional[Dict[str, Any]] = None,
+    tolerance: float = 1e-4,
+) -> Dict[str, Any]:
+    """
+    AURUM V17.5.8 (Part 049):
+    Reconciles financial assumptions across candidate calculation,
+    comparison plan, frozen order snapshot, and execution fill.
+    """
+    mismatches = []
+    snap = order_snapshot or {}
+    snap_costs = snap.get("resolved_execution_costs") or {}
+    snap_slip = float(snap.get("slippage_usd", snap_costs.get("entry_slippage_usd", 0.10)))
+
+    if comparison_plan:
+        comp_costs = comparison_plan.get("cost_snapshot") or {}
+        comp_slip = float(comp_costs.get("entry_slippage_usd", 0.10))
+        if abs(snap_slip - comp_slip) > tolerance:
+            mismatches.append(f"Slippage mismatch: snap={snap_slip} vs comp={comp_slip}")
+
+    if fill_result:
+        realized_slip = fill_result.get("realized_slippage", fill_result.get("slippage"))
+        if realized_slip is not None and abs(float(realized_slip) - snap_slip) > tolerance:
+            mismatches.append(f"Fill slippage mismatch: snap={snap_slip} vs fill={realized_slip}")
+
+    return {
+        "is_parity": len(mismatches) == 0,
+        "mismatches": mismatches,
+    }

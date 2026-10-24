@@ -620,6 +620,417 @@ def build_sweep_stop_descriptor(
         "known_at_ms": int(known_at_ms),
         "source_leg_id": str(sweep.get("episode_id") or sweep.get("sweep_id") or "sweep_leg"),
     }
+def validate_episode_interval(
+    *,
+    ref_occurred_at_ms: int,
+    break_open_ms: int,
+    episode_start_ms: int,
+    episode_end_ms: int,
+) -> Tuple[bool, Optional[str]]:
+    """
+    AURUM V17.5.8 (Part 020):
+    Validates structural episode interval consistency.
+    """
+    if ref_occurred_at_ms <= 0 or break_open_ms <= 0 or episode_start_ms <= 0 or episode_end_ms <= 0:
+        return False, "INVALID_TIMESTAMPS"
+    if episode_start_ms < ref_occurred_at_ms:
+        return False, "EPISODE_START_BEFORE_REFERENCE"
+    if episode_start_ms >= episode_end_ms:
+        return False, "EPISODE_START_AFTER_END"
+    if episode_end_ms > break_open_ms:
+        return False, "EPISODE_END_AFTER_BREAK"
+    return True, None
+
+
+def resolve_verified_reference_node(
+    *,
+    selected_reference: Optional[Dict[str, Any]],
+    confirmed_swings: Optional[Tuple[Sequence[Dict[str, Any]], Sequence[Dict[str, Any]]]],
+    closed_bars: Sequence[Any],
+    model_id: str,
+    direction: str,
+    decision_cutoff_ms: int = 0,
+    break_open_ms: Optional[int] = None,
+    tick_size: float = 0.01,
+    timeframe_ms: int = 60_000,
+) -> Dict[str, Any]:
+    """
+    AURUM V17.5.8 (Parts 013-017):
+    Resolves and verifies the causal reference node with stable identity,
+    non-ambiguous price matching, occurrence and confirmation timestamps,
+    and source candle provenance.
+    """
+    if not selected_reference:
+        return {
+            "status": "UNAVAILABLE",
+            "reasons": ("MISSING_REFERENCE_DATA",),
+            "ref_id": None,
+            "ref_price": None,
+            "ref_occurred_at_ms": None,
+            "ref_known_at_ms": None,
+        }
+
+    norm_dir = direction.upper()
+    tol = float(tick_size) if tick_size > 0 else 0.01
+    sh_list: Sequence[Dict[str, Any]] = ()
+    sl_list: Sequence[Dict[str, Any]] = ()
+    if confirmed_swings:
+        sh_list, sl_list = confirmed_swings
+
+    ref_swings = sl_list if norm_dir in ("SHORT", "SELL") else sh_list
+
+    ref_id = selected_reference.get("id") or selected_reference.get("swing_ref_id")
+    p = selected_reference.get("price") if selected_reference.get("price") is not None else selected_reference.get("level")
+    ref_price: Optional[float] = None
+    if p is not None:
+        try:
+            f = float(p)
+            if math.isfinite(f) and f > 0:
+                ref_price = f
+        except (ValueError, TypeError):
+            ref_price = None
+
+    ref_occ: Optional[int] = None
+    ref_known: Optional[int] = None
+    ref_occ_raw = selected_reference.get("occurred_at_ms") or selected_reference.get("timestamp")
+    if ref_occ_raw is not None:
+        try:
+            ref_occ = int(ref_occ_raw)
+        except (ValueError, TypeError):
+            ref_occ = None
+
+    ref_known_raw = selected_reference.get("known_at_ms") or selected_reference.get("confirmed_at")
+    if ref_known_raw is not None:
+        try:
+            ref_known = int(ref_known_raw)
+        except (ValueError, TypeError):
+            ref_known = None
+
+    # Resolve from confirmed swings if possible
+    if ref_id:
+        matched_by_id = [s for s in ref_swings if str(s.get("id", "")) == str(ref_id)]
+        if matched_by_id:
+            s_node = matched_by_id[0]
+            s_occ = int(s_node.get("occurred_at_ms", 0) or s_node.get("timestamp", 0))
+            if ref_occ is None:
+                ref_occ = s_occ
+            if ref_known is None:
+                ref_known = int(s_node.get("known_at_ms", 0) or s_node.get("confirmed_at", 0) or (s_occ + timeframe_ms))
+            if ref_price is None:
+                try:
+                    ref_price = float(s_node.get("price", 0.0))
+                except (ValueError, TypeError):
+                    pass
+
+    # If only price is available, check for ambiguity in confirmed swings (Part 014)
+    if ref_occ is None and ref_price is not None:
+        matched_price = [
+            s for s in ref_swings
+            if abs(float(s.get("price", 0.0)) - ref_price) <= (tol / 2.0 + 1e-6)
+        ]
+        if len(matched_price) > 1:
+            distinct_times = set(int(s.get("occurred_at_ms", 0) or s.get("timestamp", 0)) for s in matched_price)
+            if len(distinct_times) > 1:
+                return {
+                    "status": "UNAVAILABLE",
+                    "reasons": ("AMBIGUOUS_REFERENCE_PRICE",),
+                    "ref_id": str(ref_id) if ref_id else None,
+                    "ref_price": ref_price,
+                    "ref_occurred_at_ms": None,
+                    "ref_known_at_ms": None,
+                }
+            else:
+                s_node = matched_price[0]
+                ref_id = ref_id or s_node.get("id")
+                ref_occ = int(s_node.get("occurred_at_ms", 0) or s_node.get("timestamp", 0))
+                ref_known = int(s_node.get("known_at_ms", 0) or s_node.get("confirmed_at", 0) or (ref_occ + timeframe_ms))
+        elif len(matched_price) == 1:
+            s_node = matched_price[0]
+            ref_id = ref_id or s_node.get("id")
+            ref_occ = int(s_node.get("occurred_at_ms", 0) or s_node.get("timestamp", 0))
+            ref_known = int(s_node.get("known_at_ms", 0) or s_node.get("confirmed_at", 0) or (ref_occ + timeframe_ms))
+
+    # Match in closed_bars if not found in swings
+    if ref_occ is None and ref_price is not None and closed_bars and break_open_ms is not None:
+        matching_bars = []
+        for b in reversed(closed_bars):
+            t_b = _candle_open_ms(b)
+            if t_b < break_open_ms:
+                try:
+                    _, h, l, c = _candle_ohlc(b)
+                    if (norm_dir in ("SHORT", "SELL") and (abs(l - ref_price) < tol or abs(c - ref_price) < tol)) or \
+                       (norm_dir in ("LONG", "BUY") and (abs(h - ref_price) < tol or abs(c - ref_price) < tol)):
+                        matching_bars.append(t_b)
+                except Exception:
+                    continue
+        if len(matching_bars) == 1:
+            ref_occ = matching_bars[0]
+        elif len(matching_bars) > 1:
+            ref_occ = matching_bars[0]
+
+    if ref_occ is None:
+        return {
+            "status": "UNAVAILABLE",
+            "reasons": ("MISSING_REFERENCE_SOURCE",),
+            "ref_id": str(ref_id) if ref_id else None,
+            "ref_price": ref_price,
+            "ref_occurred_at_ms": None,
+            "ref_known_at_ms": None,
+        }
+
+    if ref_known is None:
+        ref_known = ref_occ + timeframe_ms
+
+    if ref_occ <= 0 or ref_known <= 0 or ref_known < ref_occ:
+        return {
+            "status": "UNAVAILABLE",
+            "reasons": ("INVALID_REFERENCE_TIMESTAMPS",),
+            "ref_id": str(ref_id) if ref_id else None,
+            "ref_price": ref_price,
+            "ref_occurred_at_ms": ref_occ,
+            "ref_known_at_ms": ref_known,
+        }
+
+    if break_open_ms is not None and ref_occ >= break_open_ms:
+        return {
+            "status": "UNAVAILABLE",
+            "reasons": ("REFERENCE_AFTER_BREAK",),
+            "ref_id": str(ref_id) if ref_id else None,
+            "ref_price": ref_price,
+            "ref_occurred_at_ms": ref_occ,
+            "ref_known_at_ms": ref_known,
+        }
+
+    if decision_cutoff_ms > 0 and ref_known > decision_cutoff_ms:
+        return {
+            "status": "UNAVAILABLE",
+            "reasons": ("REFERENCE_KNOWN_AFTER_DECISION",),
+            "ref_id": str(ref_id) if ref_id else None,
+            "ref_price": ref_price,
+            "ref_occurred_at_ms": ref_occ,
+            "ref_known_at_ms": ref_known,
+        }
+
+    # Verify reference candle provenance if candle exists in closed_bars
+    if closed_bars:
+        ref_bar = next((b for b in closed_bars if _candle_open_ms(b) == ref_occ), None)
+        if ref_bar is not None and ref_price is not None:
+            try:
+                _, h, l, c = _candle_ohlc(ref_bar)
+                if ref_price < (l - tol) or ref_price > (h + tol):
+                    return {
+                        "status": "UNAVAILABLE",
+                        "reasons": ("REFERENCE_PRICE_MISMATCH",),
+                        "ref_id": str(ref_id) if ref_id else None,
+                        "ref_price": ref_price,
+                        "ref_occurred_at_ms": ref_occ,
+                        "ref_known_at_ms": ref_known,
+                    }
+            except Exception:
+                return {
+                    "status": "UNAVAILABLE",
+                    "reasons": ("REFERENCE_CANDLE_READ_ERROR",),
+                    "ref_id": str(ref_id) if ref_id else None,
+                    "ref_price": ref_price,
+                    "ref_occurred_at_ms": ref_occ,
+                    "ref_known_at_ms": ref_known,
+                }
+
+    return {
+        "status": "AVAILABLE",
+        "reasons": (),
+        "ref_id": str(ref_id) if ref_id else f"ref_{ref_occ}",
+        "ref_price": ref_price,
+        "ref_occurred_at_ms": ref_occ,
+        "ref_known_at_ms": ref_known,
+    }
+
+
+def resolve_verified_break_candle(
+    *,
+    selected_break: Any,
+    reference_price: Optional[float],
+    closed_bars: Sequence[Any],
+    direction: str,
+    decision_cutoff_ms: int = 0,
+    timeframe_ms: int = 60_000,
+) -> Dict[str, Any]:
+    """
+    AURUM V17.5.8 (Parts 021-027):
+    Resolves and verifies the break candle from closed_bars.
+    Eliminates permissive exception paths and enforces strict close-through.
+    """
+    if selected_break is None:
+        return {
+            "status": "UNAVAILABLE",
+            "reasons": ("MISSING_BREAK_DATA",),
+            "break_open_ms": None,
+            "break_known_at_ms": None,
+            "break_bar_id": None,
+            "break_bar": None,
+        }
+
+    b_open = None
+    break_known_ms = None
+    break_bar_id = None
+    supplied_bar = None
+
+    if isinstance(selected_break, dict):
+        supplied_bar = selected_break.get("bar")
+        b_open = selected_break.get("break_open_ms")
+        if b_open is None:
+            b_open = selected_break.get("open_ms")
+        if b_open is None and supplied_bar:
+            b_open = _candle_open_ms(supplied_bar)
+        if b_open is None:
+            b_open = selected_break.get("broken_at_ms") or selected_break.get("break_time_ms") or selected_break.get("timestamp")
+
+        b_known_raw = selected_break.get("known_at_ms")
+        if b_known_raw is not None:
+            break_known_ms = int(b_known_raw)
+        elif selected_break.get("broken_at_ms") and int(selected_break["broken_at_ms"]) > int(b_open or 0):
+            break_known_ms = int(selected_break["broken_at_ms"])
+        elif b_open is not None:
+            break_known_ms = int(b_open) + timeframe_ms
+
+        break_bar_id = selected_break.get("id") or selected_break.get("break_bar_id")
+    else:
+        supplied_bar = selected_break
+        b_open = _candle_open_ms(selected_break)
+        if b_open is not None:
+            break_known_ms = int(b_open) + timeframe_ms
+
+    if b_open is None or int(b_open) <= 0:
+        return {
+            "status": "UNAVAILABLE",
+            "reasons": ("MISSING_BREAK_TIME",),
+            "break_open_ms": None,
+            "break_known_at_ms": None,
+            "break_bar_id": None,
+            "break_bar": None,
+        }
+
+    b_open_ms = int(b_open)
+    if break_known_ms is None:
+        break_known_ms = b_open_ms + timeframe_ms
+
+    # Locate source candle in closed_bars (Part 022)
+    source_bar = None
+    if closed_bars:
+        source_bar = next((b for b in closed_bars if _candle_open_ms(b) == b_open_ms), None)
+
+    if source_bar is None:
+        if supplied_bar is not None and _candle_open_ms(supplied_bar) == b_open_ms:
+            source_bar = supplied_bar
+        else:
+            return {
+                "status": "UNAVAILABLE",
+                "reasons": ("MISSING_BREAK_SOURCE_CANDLE",),
+                "break_open_ms": b_open_ms,
+                "break_known_at_ms": break_known_ms,
+                "break_bar_id": str(break_bar_id) if break_bar_id else f"break_{b_open_ms}",
+                "break_bar": None,
+            }
+
+    # Strict OHLC validation without permissive exception handling (Part 024)
+    try:
+        bo, bh, bl, bc = _candle_ohlc(source_bar)
+        if not all(math.isfinite(x) and x > 0 for x in (bo, bh, bl, bc)):
+            return {
+                "status": "UNAVAILABLE",
+                "reasons": ("BREAK_CANDLE_INVALID",),
+                "break_open_ms": b_open_ms,
+                "break_known_at_ms": break_known_ms,
+                "break_bar_id": str(break_bar_id) if break_bar_id else f"break_{b_open_ms}",
+                "break_bar": source_bar,
+            }
+        if not (bl <= min(bo, bc) <= max(bo, bc) <= bh and bh >= bl):
+            return {
+                "status": "UNAVAILABLE",
+                "reasons": ("BREAK_CANDLE_INVALID",),
+                "break_open_ms": b_open_ms,
+                "break_known_at_ms": break_known_ms,
+                "break_bar_id": str(break_bar_id) if break_bar_id else f"break_{b_open_ms}",
+                "break_bar": source_bar,
+            }
+    except Exception:
+        return {
+            "status": "UNAVAILABLE",
+            "reasons": ("BREAK_CANDLE_INVALID",),
+            "break_open_ms": b_open_ms,
+            "break_known_at_ms": break_known_ms,
+            "break_bar_id": str(break_bar_id) if break_bar_id else f"break_{b_open_ms}",
+            "break_bar": source_bar,
+        }
+
+    # If both supplied_bar and source_bar exist and are distinct, compare them (Part 026)
+    if supplied_bar is not None and supplied_bar is not source_bar:
+        try:
+            s_bo, s_bh, s_bl, s_bc = _candle_ohlc(supplied_bar)
+            if abs(s_bo - bo) > 1e-4 or abs(s_bh - bh) > 1e-4 or abs(s_bl - bl) > 1e-4 or abs(s_bc - bc) > 1e-4:
+                return {
+                    "status": "UNAVAILABLE",
+                    "reasons": ("BREAK_CANDLE_MISMATCH",),
+                    "break_open_ms": b_open_ms,
+                    "break_known_at_ms": break_known_ms,
+                    "break_bar_id": str(break_bar_id) if break_bar_id else f"break_{b_open_ms}",
+                    "break_bar": source_bar,
+                }
+        except Exception:
+            return {
+                "status": "UNAVAILABLE",
+                "reasons": ("BREAK_CANDLE_INVALID",),
+                "break_open_ms": b_open_ms,
+                "break_known_at_ms": break_known_ms,
+                "break_bar_id": str(break_bar_id) if break_bar_id else f"break_{b_open_ms}",
+                "break_bar": source_bar,
+            }
+
+    # Confirmation cutoff validation (Part 025)
+    if decision_cutoff_ms > 0:
+        if b_open_ms > decision_cutoff_ms or break_known_ms > decision_cutoff_ms:
+            return {
+                "status": "UNAVAILABLE",
+                "reasons": ("BREAK_AFTER_DECISION_CUTOFF",),
+                "break_open_ms": b_open_ms,
+                "break_known_at_ms": break_known_ms,
+                "break_bar_id": str(break_bar_id) if break_bar_id else f"break_{b_open_ms}",
+                "break_bar": source_bar,
+            }
+
+    # Strict close-through check (Part 023)
+    norm_dir = direction.upper()
+    if reference_price is not None:
+        if norm_dir in ("SHORT", "SELL") and bc >= reference_price:
+            return {
+                "status": "UNAVAILABLE",
+                "reasons": ("BREAK_NOT_CLOSED_THROUGH_REFERENCE",),
+                "break_open_ms": b_open_ms,
+                "break_known_at_ms": break_known_ms,
+                "break_bar_id": str(break_bar_id) if break_bar_id else f"break_{b_open_ms}",
+                "break_bar": source_bar,
+                "b_close": bc,
+            }
+        elif norm_dir in ("LONG", "BUY") and bc <= reference_price:
+            return {
+                "status": "UNAVAILABLE",
+                "reasons": ("BREAK_NOT_CLOSED_THROUGH_REFERENCE",),
+                "break_open_ms": b_open_ms,
+                "break_known_at_ms": break_known_ms,
+                "break_bar_id": str(break_bar_id) if break_bar_id else f"break_{b_open_ms}",
+                "break_bar": source_bar,
+                "b_close": bc,
+            }
+
+    return {
+        "status": "AVAILABLE",
+        "reasons": (),
+        "break_open_ms": b_open_ms,
+        "break_known_at_ms": break_known_ms,
+        "break_bar_id": str(break_bar_id) if break_bar_id else f"break_{b_open_ms}",
+        "break_bar": source_bar,
+        "b_close": bc,
+    }
 
 
 def validate_protected_origin_binding(
@@ -634,7 +1045,7 @@ def validate_protected_origin_binding(
     episode_end_ms: Optional[int] = None,
 ) -> Tuple[bool, Optional[str]]:
     """
-    AURUM V17.5.6/V17.5.7 (Appendix A4, C5):
+    AURUM V17.5.6/V17.5.7/V17.5.8 (Parts 031-036):
     Pure validation helper verifying pivot source candle, extreme price,
     time boundaries, and episode membership.
     """
@@ -645,7 +1056,16 @@ def validate_protected_origin_binding(
     tol = float(tick_size) if tick_size > 0 else 0.01
     p_occ = int(origin.get("occurred_at_ms", 0) or origin.get("timestamp", 0))
     p_known = int(origin.get("known_at_ms", origin.get("confirmed_at", p_occ)))
-    p_px = float(origin.get("price", 0.0))
+
+    try:
+        p_px = float(origin.get("price", 0.0))
+        if not (math.isfinite(p_px) and p_px > 0):
+            return False, "INVALID_ORIGIN_PRICE"
+    except (ValueError, TypeError):
+        return False, "INVALID_ORIGIN_PRICE"
+
+    if p_known < p_occ:
+        return False, "INVALID_ORIGIN_TIMESTAMPS"
 
     if p_occ >= break_open_ms:
         return False, "ORIGIN_NOT_BEFORE_BREAK"
@@ -688,9 +1108,11 @@ def resolve_episode_membership_from_structure(
     confirmed_swings: Optional[Tuple[Sequence[Dict[str, Any]], Sequence[Dict[str, Any]]]] = None,
     closed_bars: Sequence[Any] = (),
     decision_cutoff_ms: int = 0,
+    timeframe_ms: int = 60_000,
+    tick_size: float = 0.01,
 ) -> Dict[str, Any]:
     """
-    AURUM V17.5.7 (Appendix A4, C1-C3):
+    AURUM V17.5.7/V17.5.8 (Parts 012-020):
     Pure structural helper resolving episode boundaries from reference and break nodes
     without requiring caller to self-inject episode_start_ms.
     """
@@ -700,10 +1122,12 @@ def resolve_episode_membership_from_structure(
     if confirmed_swings:
         sh_list, sl_list = confirmed_swings
 
+    ref_swings = sl_list if norm_dir in ("SHORT", "SELL") else sh_list
+
     # 1. Resolve break open time
     b_open = None
     if isinstance(selected_break, dict):
-        b_open = selected_break.get("break_open_ms")
+        b_open = selected_break.get("break_open_ms") or selected_break.get("open_ms")
         if b_open is None and selected_break.get("bar"):
             b_open = _candle_open_ms(selected_break["bar"])
         if b_open is None:
@@ -721,52 +1145,30 @@ def resolve_episode_membership_from_structure(
         }
     b_open_ms = int(b_open)
 
-    # 2. Resolve reference source details
-    ref_occ = None
-    ref_price = None
-    ref_id = None
-    if selected_reference:
-        ref_id = selected_reference.get("id") or selected_reference.get("swing_ref_id")
-        p = selected_reference.get("price") if selected_reference.get("price") is not None else selected_reference.get("level")
-        if p is not None:
-            try:
-                ref_price = float(p)
-            except (ValueError, TypeError):
-                ref_price = None
-        ref_occ_raw = selected_reference.get("occurred_at_ms") or selected_reference.get("timestamp")
-        if ref_occ_raw is not None:
-            ref_occ = int(ref_occ_raw)
-
-    ref_swings = sl_list if norm_dir in ("SHORT", "SELL") else sh_list
-    if ref_occ is None and ref_id:
-        matched_ref = next((s for s in ref_swings if str(s.get("id", "")) == str(ref_id)), None)
-        if matched_ref:
-            ref_occ = int(matched_ref.get("occurred_at_ms", 0) or matched_ref.get("timestamp", 0))
-            if ref_price is None:
-                ref_price = float(matched_ref.get("price", 0.0))
-
-    if ref_occ is None and ref_price is not None:
-        matched_ref = next((s for s in ref_swings if abs(float(s.get("price", 0.0)) - ref_price) < 1e-4), None)
-        if matched_ref:
-            ref_occ = int(matched_ref.get("occurred_at_ms", 0) or matched_ref.get("timestamp", 0))
-
-    if ref_occ is None and ref_price is not None:
-        for b in reversed(closed_bars):
-            t_b = _candle_open_ms(b)
-            if t_b < b_open_ms:
-                _, h, l, _ = _candle_ohlc(b)
-                if (norm_dir in ("SHORT", "SELL") and abs(l - ref_price) < 0.05) or (norm_dir in ("LONG", "BUY") and abs(h - ref_price) < 0.05):
-                    ref_occ = t_b
-                    break
-
-    if ref_occ is None:
+    # 2. Resolve verified reference node
+    ref_res = resolve_verified_reference_node(
+        selected_reference=selected_reference,
+        confirmed_swings=confirmed_swings,
+        closed_bars=closed_bars,
+        model_id=model_id,
+        direction=norm_dir,
+        decision_cutoff_ms=decision_cutoff_ms,
+        break_open_ms=b_open_ms,
+        tick_size=tick_size,
+        timeframe_ms=timeframe_ms,
+    )
+    if ref_res["status"] != "AVAILABLE":
         return {
             "status": "UNAVAILABLE",
-            "reasons": ("MISSING_REFERENCE_SOURCE",),
+            "reasons": ref_res["reasons"],
             "episode_start_ms": None,
             "episode_end_ms": None,
             "boundary_source": "UNAVAILABLE",
         }
+
+    ref_occ = ref_res["ref_occurred_at_ms"]
+    ref_price = ref_res["ref_price"]
+    ref_id = ref_res["ref_id"]
 
     episode_start_ms = ref_occ
     episode_end_ms = b_open_ms
@@ -780,14 +1182,32 @@ def resolve_episode_membership_from_structure(
     if subsequent_refs:
         episode_end_ms = min(b_open_ms, min(subsequent_refs))
 
+    is_int_valid, int_err = validate_episode_interval(
+        ref_occurred_at_ms=ref_occ,
+        break_open_ms=b_open_ms,
+        episode_start_ms=episode_start_ms,
+        episode_end_ms=episode_end_ms,
+    )
+    if not is_int_valid:
+        return {
+            "status": "UNAVAILABLE",
+            "reasons": (int_err or "INVALID_EPISODE_INTERVAL",),
+            "episode_start_ms": None,
+            "episode_end_ms": None,
+            "boundary_source": "UNAVAILABLE",
+        }
+
     return {
         "status": "AVAILABLE",
         "reasons": (),
         "episode_start_ms": episode_start_ms,
         "episode_end_ms": episode_end_ms,
         "ref_occurred_at_ms": ref_occ,
+        "ref_known_at_ms": ref_res.get("ref_known_at_ms"),
         "ref_price": ref_price,
+        "ref_id": ref_id,
         "boundary_source": "CONFIRMED_STRUCTURE_NODES",
+        "derivation_version": 1,
     }
 
 
@@ -804,10 +1224,10 @@ def derive_protected_leg_episode(
     tick_size: float = 0.01,
 ) -> Any:
     """
-    AURUM V17.5.6 (Appendix C1-C3):
+    AURUM V17.5.8 (Parts 011-040):
     Derives the displacement break episode that created the opportunity.
-    Enforces independent reference/break boundaries, source candle verification,
-    and returns eligible origin IDs within the leg.
+    Enforces independent reference/break boundaries, verified break candle,
+    source candle verification, and returns eligible origin IDs within the leg.
     """
     from services.stop_placement_types import ProtectedLegEpisode
 
@@ -833,139 +1253,7 @@ def derive_protected_leg_episode(
             reasons=("MISSING_BREAK_DATA",),
         )
 
-    # 1. Resolve break bar and timestamps
-    break_bar = None
-    b_open = None
-    break_known_ms = None
-    break_bar_id = None
-
-    if isinstance(selected_break, dict):
-        break_bar = selected_break.get("bar")
-        b_open = selected_break.get("break_open_ms")
-        if b_open is None and break_bar:
-            b_open = _candle_open_ms(break_bar)
-        if b_open is None:
-            b_open = selected_break.get("broken_at_ms") or selected_break.get("break_time_ms") or selected_break.get("timestamp")
-
-        b_known_raw = selected_break.get("known_at_ms")
-        if b_known_raw is not None:
-            break_known_ms = int(b_known_raw)
-        elif selected_break.get("broken_at_ms") and int(selected_break["broken_at_ms"]) > int(b_open or 0):
-            break_known_ms = int(selected_break["broken_at_ms"])
-        else:
-            break_known_ms = int(b_open or 0) + timeframe_ms
-
-        break_bar_id = selected_break.get("id") or selected_break.get("break_bar_id")
-    else:
-        break_bar = selected_break
-        b_open = _candle_open_ms(selected_break)
-        break_known_ms = int(b_open or 0) + timeframe_ms
-
-    if b_open is None or int(b_open) <= 0:
-        return ProtectedLegEpisode(
-            status="UNAVAILABLE",
-            model_id=model_id,
-            direction=norm_dir,
-            decision_cutoff_ms=cutoff,
-            reasons=("MISSING_BREAK_TIME",),
-        )
-
-    b_open_ms = int(b_open)
-
-    if cutoff > 0:
-        if b_open_ms > cutoff or break_known_ms > cutoff:
-            return ProtectedLegEpisode(
-                status="UNAVAILABLE",
-                model_id=model_id,
-                direction=norm_dir,
-                break_open_ms=b_open_ms,
-                break_known_at_ms=break_known_ms,
-                decision_cutoff_ms=cutoff,
-                reasons=("BREAK_AFTER_DECISION_CUTOFF",),
-            )
-
-    # 2. Reference validation and strict close-through
-    ref_id = None
-    ref_price = None
-    ref_occ = None
-    ref_known = None
-    if selected_reference:
-        ref_id = selected_reference.get("id") or selected_reference.get("swing_ref_id")
-        p = selected_reference.get("price") if selected_reference.get("price") is not None else selected_reference.get("level")
-        if p is not None:
-            try:
-                ref_price = float(p)
-            except (ValueError, TypeError):
-                ref_price = None
-        ref_occ = selected_reference.get("occurred_at_ms") or selected_reference.get("timestamp")
-        ref_known = selected_reference.get("known_at_ms") or selected_reference.get("confirmed_at")
-
-        if ref_occ is not None and int(ref_occ) > b_open_ms:
-            return ProtectedLegEpisode(
-                status="UNAVAILABLE",
-                model_id=model_id,
-                direction=norm_dir,
-                reference_id=str(ref_id) if ref_id else None,
-                break_open_ms=b_open_ms,
-                decision_cutoff_ms=cutoff,
-                reasons=("REFERENCE_AFTER_BREAK",),
-            )
-        if ref_known is not None and cutoff > 0 and int(ref_known) > cutoff:
-            return ProtectedLegEpisode(
-                status="UNAVAILABLE",
-                model_id=model_id,
-                direction=norm_dir,
-                reference_id=str(ref_id) if ref_id else None,
-                decision_cutoff_ms=cutoff,
-                reasons=("REFERENCE_KNOWN_AFTER_DECISION",),
-            )
-
-        # Strict close-through check (no equality, no wick-only)
-        if break_bar and ref_price is not None:
-            try:
-                _, _, _, b_close = _candle_ohlc(break_bar)
-                if norm_dir in ("SHORT", "SELL") and b_close >= ref_price:
-                    return ProtectedLegEpisode(
-                        status="UNAVAILABLE",
-                        model_id=model_id,
-                        direction=norm_dir,
-                        reference_id=str(ref_id) if ref_id else None,
-                        reference_price=ref_price,
-                        break_open_ms=b_open_ms,
-                        decision_cutoff_ms=cutoff,
-                        reasons=("BREAK_NOT_CLOSED_THROUGH_REFERENCE",),
-                    )
-                elif norm_dir in ("LONG", "BUY") and b_close <= ref_price:
-                    return ProtectedLegEpisode(
-                        status="UNAVAILABLE",
-                        model_id=model_id,
-                        direction=norm_dir,
-                        reference_id=str(ref_id) if ref_id else None,
-                        reference_price=ref_price,
-                        break_open_ms=b_open_ms,
-                        decision_cutoff_ms=cutoff,
-                        reasons=("BREAK_NOT_CLOSED_THROUGH_REFERENCE",),
-                    )
-            except Exception:
-                pass
-
-    # 3. Determine episode bounds and eligible origin candidates
-    sh_list: Sequence[Dict[str, Any]] = ()
-    sl_list: Sequence[Dict[str, Any]] = ()
-    if confirmed_swings:
-        sh_list, sl_list = confirmed_swings
-
-    pivots = sh_list if norm_dir in ("SHORT", "SELL") else sl_list
-
-    specified_id = None
-    if isinstance(selected_break, dict):
-        specified_id = (
-            selected_break.get("origin_pivot_id")
-            or selected_break.get("origin_id")
-            or selected_break.get("target_origin_id")
-        )
-
-    # Derive leg membership and boundaries from structure
+    # 1. Structural membership and reference resolution
     struct_res = resolve_episode_membership_from_structure(
         model_id=model_id,
         direction=norm_dir,
@@ -974,7 +1262,44 @@ def derive_protected_leg_episode(
         confirmed_swings=confirmed_swings,
         closed_bars=closed_bars,
         decision_cutoff_ms=cutoff,
+        timeframe_ms=timeframe_ms,
+        tick_size=tol,
     )
+
+    ref_id = struct_res.get("ref_id")
+    ref_price = struct_res.get("ref_price")
+    ref_occ = struct_res.get("ref_occurred_at_ms")
+    ref_known = struct_res.get("ref_known_at_ms")
+
+    # 2. Break validation and strict close-through
+    break_res = resolve_verified_break_candle(
+        selected_break=selected_break,
+        reference_price=ref_price,
+        closed_bars=closed_bars,
+        direction=norm_dir,
+        decision_cutoff_ms=cutoff,
+        timeframe_ms=timeframe_ms,
+    )
+
+    b_open_ms = break_res.get("break_open_ms")
+    break_known_ms = break_res.get("break_known_at_ms")
+    break_bar_id = break_res.get("break_bar_id")
+
+    if break_res["status"] != "AVAILABLE":
+        return ProtectedLegEpisode(
+            status="UNAVAILABLE",
+            model_id=model_id,
+            direction=norm_dir,
+            reference_id=str(ref_id) if ref_id else None,
+            reference_price=ref_price,
+            reference_occurred_at_ms=ref_occ,
+            reference_known_at_ms=ref_known,
+            break_bar_id=str(break_bar_id) if break_bar_id else (f"break_{b_open_ms}" if b_open_ms else None),
+            break_open_ms=b_open_ms,
+            break_known_at_ms=break_known_ms,
+            decision_cutoff_ms=cutoff,
+            reasons=break_res["reasons"],
+        )
 
     if struct_res["status"] != "AVAILABLE":
         return ProtectedLegEpisode(
@@ -983,8 +1308,8 @@ def derive_protected_leg_episode(
             direction=norm_dir,
             reference_id=str(ref_id) if ref_id else None,
             reference_price=ref_price,
-            reference_occurred_at_ms=int(ref_occ) if ref_occ is not None else None,
-            reference_known_at_ms=int(ref_known) if ref_known is not None else None,
+            reference_occurred_at_ms=ref_occ,
+            reference_known_at_ms=ref_known,
             break_bar_id=str(break_bar_id) if break_bar_id else f"break_{b_open_ms}",
             break_open_ms=b_open_ms,
             break_known_at_ms=break_known_ms,
@@ -995,17 +1320,22 @@ def derive_protected_leg_episode(
     derived_start = struct_res["episode_start_ms"]
     derived_end = struct_res["episode_end_ms"]
 
-    # If caller supplied episode_start_ms, verify provenance with source candle
-    supplied_start = None
-    if isinstance(selected_break, dict) and selected_break.get("episode_start_ms"):
-        supplied_start = int(selected_break["episode_start_ms"])
-    elif selected_reference and selected_reference.get("episode_start_ms"):
-        supplied_start = int(selected_reference["episode_start_ms"])
+    # PART 019: Caller-supplied boundary cannot overwrite derived structural boundary
+    # derived_start is authoritative.
 
-    if supplied_start is not None:
-        has_candle = any(_candle_open_ms(b) == supplied_start for b in closed_bars)
-        if has_candle and derived_start <= supplied_start < b_open_ms:
-            derived_start = supplied_start
+    sh_list: Sequence[Dict[str, Any]] = ()
+    sl_list: Sequence[Dict[str, Any]] = ()
+    if confirmed_swings:
+        sh_list, sl_list = confirmed_swings
+    pivots = sh_list if norm_dir in ("SHORT", "SELL") else sl_list
+
+    specified_id = None
+    if isinstance(selected_break, dict):
+        specified_id = (
+            selected_break.get("origin_pivot_id")
+            or selected_break.get("origin_id")
+            or selected_break.get("target_origin_id")
+        )
 
     eligible = []
     for p in pivots:
@@ -1038,8 +1368,8 @@ def derive_protected_leg_episode(
                 direction=norm_dir,
                 reference_id=str(ref_id) if ref_id else None,
                 reference_price=ref_price,
-                reference_occurred_at_ms=int(ref_occ) if ref_occ is not None else None,
-                reference_known_at_ms=int(ref_known) if ref_known is not None else None,
+                reference_occurred_at_ms=ref_occ,
+                reference_known_at_ms=ref_known,
                 break_bar_id=str(break_bar_id) if break_bar_id else f"break_{b_open_ms}",
                 break_open_ms=b_open_ms,
                 break_known_at_ms=break_known_ms,
@@ -1055,8 +1385,8 @@ def derive_protected_leg_episode(
             direction=norm_dir,
             reference_id=str(ref_id) if ref_id else None,
             reference_price=ref_price,
-            reference_occurred_at_ms=int(ref_occ) if ref_occ is not None else None,
-            reference_known_at_ms=int(ref_known) if ref_known is not None else None,
+            reference_occurred_at_ms=ref_occ,
+            reference_known_at_ms=ref_known,
             break_bar_id=str(break_bar_id) if break_bar_id else f"break_{b_open_ms}",
             break_open_ms=b_open_ms,
             break_known_at_ms=break_known_ms,
@@ -1064,10 +1394,7 @@ def derive_protected_leg_episode(
             reasons=("NO_VALID_PROTECTED_ORIGIN_IN_EPISODE",),
         )
 
-    # Sort deterministically:
-    # SHORT: extreme high first
-    # LONG: extreme low first
-    # Tie-break: closest before break (occurred_at_ms descending), then known_at, then id
+    # Sort deterministically
     if norm_dir in ("SHORT", "SELL"):
         eligible.sort(
             key=lambda c: (
@@ -1091,7 +1418,6 @@ def derive_protected_leg_episode(
 
     best = eligible[0]
     best_occ = int(best.get("occurred_at_ms", 0) or best.get("timestamp", 0))
-
     source_ids = [str(_candle_open_ms(b)) for b in closed_bars if _candle_open_ms(b) in (best_occ, b_open_ms)]
 
     return ProtectedLegEpisode(
@@ -1100,15 +1426,15 @@ def derive_protected_leg_episode(
         direction=norm_dir,
         reference_id=str(ref_id) if ref_id else None,
         reference_price=ref_price,
-        reference_occurred_at_ms=int(ref_occ) if ref_occ is not None else None,
-        reference_known_at_ms=int(ref_known) if ref_known is not None else None,
+        reference_occurred_at_ms=ref_occ,
+        reference_known_at_ms=ref_known,
         break_bar_id=str(break_bar_id) if break_bar_id else f"break_{b_open_ms}",
         break_open_ms=b_open_ms,
         break_known_at_ms=break_known_ms,
         decision_cutoff_ms=cutoff,
         episode_start_ms=derived_start,
         episode_end_ms=derived_end,
-        eligible_origin_ids=tuple(str(p.get("id", "")) for p in eligible),
+        eligible_origin_ids=tuple(str(p.get("id", "")) for p in eligible if p.get("id")),
         source_bar_ids=tuple(source_ids),
         boundary_source="CONFIRMED_STRUCTURE_NODES",
         derivation_version=1,

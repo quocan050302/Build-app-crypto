@@ -1,0 +1,167 @@
+{
+  "version": "V17.5.8",
+  "verdict": "ACCEPTED",
+  "timestamp_utc": "2026-10-24T15:21:40Z",
+  "tested_git_sha": "90fe2e368083476c303393522943c243db0b8f74",
+  "git_branch": "fix/v14-1-rr-flow",
+  "is_dirty": true,
+  "summary": {
+    "backend_tests_total": 242,
+    "backend_tests_passed": 242,
+    "backend_tests_failed": 0,
+    "frontend_tests_passed": 501,
+    "frontend_files": 48,
+    "browser_e2e_passed": 6,
+    "build_status": "PASS",
+    "lint_status": "PASS"
+  },
+  "gates": {
+    "gate0_v17_5_8_core": {
+      "status": "PASS",
+      "counts": {
+        "tests": 34,
+        "passed": 34,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "duration_sec": 1.647
+    },
+    "gate1_v17_5_7_core": {
+      "status": "PASS",
+      "counts": {
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "duration_sec": 1.433
+    },
+    "gate2_v17_5_6_core": {
+      "status": "PASS",
+      "counts": {
+        "tests": 37,
+        "passed": 37,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "duration_sec": 1.316
+    },
+    "gate3_v17_5_5_core": {
+      "status": "PASS",
+      "counts": {
+        "tests": 23,
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "duration_sec": 1.317
+    },
+    "gate4_v17_5_4": {
+      "status": "PASS",
+      "counts": {
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "duration_sec": 1.249
+    },
+    "gate5_v17_5_3": {
+      "status": "PASS",
+      "counts": {
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "duration_sec": 1.331
+    },
+    "gate6_v17_5_2": {
+      "status": "PASS",
+      "counts": {
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "duration_sec": 1.403
+    },
+    "gate7_v17_5_1": {
+      "status": "PASS",
+      "counts": {
+        "tests": 26,
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "duration_sec": 1.809
+    },
+    "gate8_v17_5": {
+      "status": "PASS",
+      "counts": {
+        "tests": 31,
+        "passed": 31,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "duration_sec": 1.252
+    },
+    "gate9_prior_regressions": {
+      "status": "PASS",
+      "counts": {
+        "tests": 35,
+        "passed": 35,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "duration_sec": 3.208
+    },
+    "gate10_frontend_vitest": {
+      "status": "PASS",
+      "passed": 501,
+      "duration_sec": 3.501
+    },
+    "gate11_frontend_build": {
+      "status": "PASS",
+      "duration_sec": 5.89
+    },
+    "gate12_frontend_lint": {
+      "status": "PASS",
+      "duration_sec": 0.331
+    },
+    "gate13_playwright_e2e": {
+      "status": "PASS",
+      "passed": 6,
+      "duration_sec": 12.569
+    }
+  },
+  "source_fingerprints": {
+    "backend/services/stop_placement_types.py": "e3f3c85785743a74",
+    "backend/services/stop_placement_service.py": "00b94b4b72e87ee8",
+    "backend/services/plan_financial_context_service.py": "19b9a4a25063c83e",
+    "backend/services/scalp_m1_model_service.py": "17c8b45404e4c8a2",
+    "backend/services/scalp_watcher_orchestrator.py": "f1b57e27a72f5b98",
+    "backend/services/execution_coordinator.py": "70822705200ad6d4",
+    "backend/services/order_plan_snapshot_service.py": "2a17b38b516739a3",
+    "frontend/src/ChartComponent.tsx": "9ce3dbf5e40c48c7",
+    "backend/tests/test_v17_5_8_reference_provenance.py": "216286f4e815bc40",
+    "backend/tests/test_v17_5_8_break_fail_closed.py": "39de7335321658d6",
+    "backend/tests/test_v17_5_8_episode_authority.py": "df6770667a988759",
+    "backend/tests/test_v17_5_8_cost_authority.py": "bd0c1c25678e755f",
+    "backend/tests/test_v17_5_8_full_cycle.py": "339374c6dbf398bd",
+    "backend/tests/test_v17_5_7_episode_derivation.py": "deaf5f6deb51dea9",
+    "backend/tests/test_v17_5_7_true_cycle_cost_parity.py": "93bb941fbfbf03e7",
+    "frontend/tests/e2e/v17_5_6_chart_evidence.e2e.ts": "9080334f70f30664",
+    "tools/run_v17_5_8_acceptance.py": "7f030c822fb57ee9"
+  }
+}

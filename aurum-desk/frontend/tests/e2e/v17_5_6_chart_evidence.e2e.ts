@@ -281,4 +281,70 @@ test.describe('V17.5.6 Mandatory Chart Geometry & Test Mode Verification', () =>
     const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 2);
   });
+
+  test('P06: Persisted financial parity on focused chart order retains frozen SL/TP without UI drift', async ({ page, request }) => {
+    const costSnap = {
+      slippage_usd: 0.27,
+      maker_fee_rate: 0.0002,
+      taker_fee_rate: 0.0004,
+      cost_provenance: 'FROZEN_ORDER_SNAPSHOT',
+      stop_placement: {
+        status: 'VALID',
+        mode: 'PAPER_STRUCTURAL',
+        policy_version: 1,
+        applied_variant: 'C',
+        anchor: {
+          id: 'anc_v17_5_8_parity',
+          kind: 'PROTECTED_LEG_HIGH',
+          price: 2658.0,
+          timeframe: '1M',
+          occurred_at_ms: Date.now() - 120000,
+          known_at_ms: Date.now() - 60000,
+          price_basis: 'CANDLE_LAST',
+        },
+        buffer: {
+          buffer_price: 2.0,
+          dominant_source: 'atr_m1',
+        },
+      },
+      stop_mode_at_arm: 'PAPER_STRUCTURAL',
+      stop_policy_version: 1,
+      applied_variant: 'C',
+    };
+
+    const seedRes = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/seed_order`, {
+      data: {
+        order_id: 'ord_v17_5_8_parity',
+        direction: 'SHORT',
+        state: 'paper_open',
+        planned_entry: 2650.0,
+        stop_loss: 2660.0,
+        take_profit: 2625.0,
+        cost_snapshot: costSnap,
+      },
+    });
+    expect(seedRes.status()).toBe(200);
+
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    const journalTab = page.locator('[data-tab-id="journal"]');
+    await expect(journalTab).toBeVisible({ timeout: 10000 });
+    await journalTab.click();
+
+    const focusBtn = page.locator('button[data-testid="journal-focus-chart"][data-order-id="ord_v17_5_8_parity"]');
+    await expect(focusBtn).toBeVisible({ timeout: 10000 });
+    await focusBtn.click();
+
+    const chartTab = page.locator('[data-tab-id="chart"]');
+    if (await chartTab.isVisible()) {
+      await chartTab.click();
+    }
+
+    const diag = await waitForReadyOverlayGeometry(page, 'ord_v17_5_8_parity');
+    expect(diag.data.id).toBe('ord_v17_5_8_parity');
+    expect(diag.data.plannedEntry).toBe(2650.0);
+    expect(diag.data.stopLoss).toBe(2660.0);
+    expect(diag.data.takeProfit).toBe(2625.0);
+    expect(diag.geometry.tpY).toBeGreaterThan(diag.geometry.entryY);
+    expect(diag.geometry.entryY).toBeGreaterThan(diag.geometry.slY);
+  });
 });

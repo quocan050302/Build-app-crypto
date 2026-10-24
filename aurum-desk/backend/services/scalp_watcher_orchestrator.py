@@ -200,6 +200,74 @@ def serialize_cg01_evaluation(
     }
 
 
+def validate_arm_invariants(
+    *,
+    candidate: Any,
+    calculation: Any,
+    quote: Any,
+    now_ms: int,
+    expires_at_ms: Optional[int] = None,
+    daily_fills_count: int = 0,
+    daily_max_cap: int = 3,
+    active_armed_count: int = 0,
+) -> Tuple[bool, Optional[str]]:
+    """
+    AURUM V17.5.8 (Part 052):
+    Pure validator checking ARM gate invariants before persistence.
+    """
+    if calculation is None or not getattr(calculation, "is_valid", False) or not getattr(calculation, "can_execute", False):
+        return False, "CALCULATION_INVALID"
+
+    qty = float(getattr(calculation, "quantity", 0.0))
+    if qty <= 0 or not math.isfinite(qty):
+        return False, "INVALID_QUANTITY"
+
+    cand_sl = float(getattr(candidate, "stop_loss", 0.0))
+    calc_sl = float(getattr(calculation, "stop_loss", cand_sl))
+    if abs(cand_sl - calc_sl) > 1e-4:
+        return False, "STOP_PLAN_MISMATCH"
+
+    if (daily_fills_count + active_armed_count) >= daily_max_cap:
+        return False, "DAILY_CAP_REACHED"
+
+    if quote is None or not getattr(quote, "is_valid", False) or getattr(quote, "is_stale", False):
+        return False, "QUOTE_INVALID_OR_STALE"
+
+    if expires_at_ms is not None and now_ms >= expires_at_ms:
+        return False, "TRIGGER_EXPIRED"
+
+    direction = str(getattr(candidate, "direction", "")).upper()
+    entry = float(getattr(candidate, "planned_entry", 0.0))
+    tp = float(getattr(candidate, "take_profit", 0.0))
+    if direction in ("SHORT", "SELL"):
+        if not (tp < entry < cand_sl):
+            return False, "INVALID_PRICE_GEOMETRY"
+    elif direction in ("LONG", "BUY"):
+        if not (cand_sl < entry < tp):
+            return False, "INVALID_PRICE_GEOMETRY"
+
+    return True, None
+
+
+def get_system_config_cost_value(db: Session, ordered_keys: Sequence[str]) -> Optional[float]:
+    """
+    AURUM V17.5.8 (Part 045):
+    Retrieves system config value with deterministic key precedence.
+    Validates finite non-negative numbers, eliminating ambiguous row ordering.
+    """
+    rows = db.query(models.SystemConfig).filter(models.SystemConfig.key.in_(ordered_keys)).all()
+    row_map = {r.key: r.value for r in rows if r and r.value is not None}
+    for k in ordered_keys:
+        if k in row_map:
+            try:
+                v = float(row_map[k])
+                if math.isfinite(v) and v >= 0.0:
+                    return v
+            except (ValueError, TypeError):
+                continue
+    return None
+
+
 class ScalpWatcherOrchestrator:
     def __init__(self):
         self._lock = threading.RLock()
@@ -1063,28 +1131,19 @@ class ScalpWatcherOrchestrator:
                 cost_overrides["costs"] = execution_financial_context.costs
 
         if "slippage_usd" not in cost_overrides:
-            slip_row = db.query(models.SystemConfig).filter(models.SystemConfig.key.in_(["default_slippage", "slippage", "slippage_usd"])).first()
-            if slip_row and slip_row.value is not None:
-                try:
-                    cost_overrides["slippage_usd"] = float(slip_row.value)
-                except (ValueError, TypeError):
-                    pass
+            val = get_system_config_cost_value(db, ["slippage_usd", "slippage", "default_slippage"])
+            if val is not None:
+                cost_overrides["slippage_usd"] = val
 
         if "maker_fee_rate" not in cost_overrides:
-            maker_row = db.query(models.SystemConfig).filter(models.SystemConfig.key.in_(["default_maker_fee_rate", "maker_fee_rate"])).first()
-            if maker_row and maker_row.value is not None:
-                try:
-                    cost_overrides["maker_fee_rate"] = float(maker_row.value)
-                except (ValueError, TypeError):
-                    pass
+            val = get_system_config_cost_value(db, ["maker_fee_rate", "default_maker_fee_rate"])
+            if val is not None:
+                cost_overrides["maker_fee_rate"] = val
 
         if "taker_fee_rate" not in cost_overrides:
-            taker_row = db.query(models.SystemConfig).filter(models.SystemConfig.key.in_(["default_taker_fee_rate", "taker_fee_rate"])).first()
-            if taker_row and taker_row.value is not None:
-                try:
-                    cost_overrides["taker_fee_rate"] = float(taker_row.value)
-                except (ValueError, TypeError):
-                    pass
+            val = get_system_config_cost_value(db, ["taker_fee_rate", "default_taker_fee_rate"])
+            if val is not None:
+                cost_overrides["taker_fee_rate"] = val
 
         policy_dict.update(cost_overrides)
         from domain_calculator import CostAssumptions
@@ -2296,9 +2355,29 @@ class ScalpWatcherOrchestrator:
             config=cfg,
             as_of_ms=now_ms,
         )
-        cand_slip = cost_ctx["entry_slippage_usd"] if cost_ctx.get("available") else getattr(calc, "slippage_usd", None)
-        if cand_slip is None and getattr(cfg, "cg01_config", None):
-            cand_slip = getattr(cfg.cg01_config, "slippage_usd", None)
+        if not cost_ctx.get("available", False):
+            logger.info(f"Cost context unavailable at arm boundary: {cost_ctx.get('reason')}")
+            OpportunityFunnelService.record_opportunity_transition(
+                db,
+                OpportunityEvaluation(
+                    opportunity_id=f"opp_{cand.candidate_key}",
+                    symbol=cand.symbol,
+                    model_id=cand.model_id,
+                    direction=cand.direction,
+                    zone_id=cand.zone_id,
+                    as_of_ms=now_ms,
+                    stage=OpportunityStage.GUARD_BLOCKED.value,
+                    reason_codes=("COST_CONTEXT_UNAVAILABLE",),
+                    planned_entry=cand.planned_entry,
+                    stop_loss=cand.stop_loss,
+                    take_profit=cand.take_profit,
+                    net_rr=cand.net_rr,
+                    details={"cost_reason": cost_ctx.get("reason")},
+                ),
+                now_ms=now_ms,
+            )
+            return None
+        cand_slip = cost_ctx["entry_slippage_usd"]
         effective_risk = policy_settings.get("risk_pct") if policy_settings.get("risk_pct") is not None else float(getattr(calc, "effective_risk_pct", cfg.fallback_risk_pct))
         target_capital = float(policy_settings.get("capital_usdt", 1000.0))
         configured_risk_pct = float(effective_risk)
@@ -2349,9 +2428,9 @@ class ScalpWatcherOrchestrator:
         if quality_assessment:
             arm_snap["quality_assessment"] = quality_assessment.to_dict()
 
-        # V17.5: Stop Placement additive metadata in arm_snap (PHẦN 085, 086)
-        if getattr(cand, "stop_placement", None) is not None:
-            sp = cand.stop_placement
+        # V17.5/V17.5.8: Stop Placement additive metadata in arm_snap
+        sp = getattr(cand, "stop_placement", None)
+        if sp is not None:
             arm_snap["stop_placement"] = sp.to_dict() if hasattr(sp, "to_dict") else sp
         if getattr(cand, "stop_comparison", None) is not None:
             sc = cand.stop_comparison
@@ -2359,9 +2438,9 @@ class ScalpWatcherOrchestrator:
             arm_snap["stop_comparison"] = sc.to_dict() if hasattr(sc, "to_dict") else sc
         from services.stop_placement_policy_service import resolve_stop_placement_policy
         current_sp_policy = resolve_stop_placement_policy(db)
-        arm_snap["stop_mode_at_arm"] = getattr(sp, "mode", current_sp_policy.mode) if getattr(cand, "stop_placement", None) else current_sp_policy.mode
-        arm_snap["stop_policy_version"] = getattr(sp, "policy_version", current_sp_policy.version) if getattr(cand, "stop_placement", None) else current_sp_policy.version
-        arm_snap["applied_variant"] = getattr(sp, "applied_variant", "A") if getattr(cand, "stop_placement", None) else "A"
+        arm_snap["stop_mode_at_arm"] = getattr(sp, "mode", current_sp_policy.mode) if sp is not None else current_sp_policy.mode
+        arm_snap["stop_policy_version"] = getattr(sp, "policy_version", current_sp_policy.version) if sp is not None else current_sp_policy.version
+        arm_snap["applied_variant"] = getattr(sp, "applied_variant", "A") if sp is not None else "A"
 
         order_id = f"ord_{cand.model_id}_{cand.candidate_key}"
         order = models.PaperOrder(
