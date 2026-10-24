@@ -1910,13 +1910,22 @@ class ScalpM1ModelService:
         # V17.5: Stop Placement & Paired Research resolution
         anchor_res = None
         if stop_policy is not None:
-            from services.stop_placement_service import resolve_stop_anchor
+            from services.stop_placement_service import resolve_stop_anchor, build_selected_break_descriptor
+            ref_swing = last_sh if direction == "LONG" else last_sl
+            selected_break_desc = build_selected_break_descriptor(
+                break_bar=breaking_bars[-1],
+                broken_reference=ref_swing,
+                timeframe_ms=60_000,
+                decision_cutoff_ms=now_ms,
+                model_id=model_id,
+                direction=direction,
+            )
             anchor_res = resolve_stop_anchor(
                 model_id=model_id,
                 direction=direction,
                 closed_bars=closed_1m,
                 as_of_ms=now_ms,
-                selected_break={"id": f"bos_{break_bar_open}", "bar": breaking_bars[-1]},
+                selected_break=selected_break_desc,
                 confirmed_swings=(sh_list, sl_list),
             )
 
@@ -2284,14 +2293,35 @@ class ScalpM1ModelService:
         candidate_key = f"fvg_cont_{direction}_{fvg_id}_{retest_open_ms}"
         anchor_res = None
         if stop_policy is not None:
-            from services.stop_placement_service import resolve_stop_anchor
+            from services.stop_placement_service import resolve_stop_anchor, build_selected_break_descriptor
+            selected_break_desc = build_selected_break_descriptor(
+                break_bar=break_res.get("bar"),
+                broken_reference={
+                    "id": break_res.get("swing_ref_id"),
+                    "price": break_res.get("swing_ref_price"),
+                },
+                timeframe_ms=60_000,
+                decision_cutoff_ms=now_ms,
+                model_id=model_id,
+                direction=direction,
+            )
+            fvg_mid_ms = int(selected_fvg.get("timestamp") or selected_fvg.get("middle_bar_ms") or 0)
+            fvg_conf_ms = int(selected_fvg.get("confirmed_at") or 0)
+            selected_fvg_desc = {
+                "id": fvg_id,
+                "top": fvg_top,
+                "bottom": fvg_bot,
+                "middle_bar_ms": fvg_mid_ms,
+                "timestamp": fvg_mid_ms,
+                "confirmed_at": fvg_conf_ms,
+            }
             anchor_res = resolve_stop_anchor(
                 model_id=model_id,
                 direction=direction,
                 closed_bars=closed_1m,
                 as_of_ms=now_ms,
-                selected_break={"id": f"break_{break_res['broken_at_ms']}", "bar": break_res.get("bar")},
-                selected_fvg={"id": fvg_id, "top": fvg_top, "bottom": fvg_bot, "start_ms": selected_fvg.get("start_ms")},
+                selected_break=selected_break_desc,
+                selected_fvg=selected_fvg_desc,
                 confirmed_swings=(sh_list, sl_list),
             )
 

@@ -119,7 +119,8 @@ class ExecutionConsumer:
         db: Session,
         quote: CanonicalQuote,
         clock: Optional[IClock] = None,
-        now_ms: Optional[int] = None
+        now_ms: Optional[int] = None,
+        skip_research: bool = False,
     ) -> Dict[str, Any]:
         """
         Synchronous evaluation of active position exits and pending armed orders for a single quote.
@@ -156,11 +157,12 @@ class ExecutionConsumer:
                 result["exit_cause"] = closed_order.exit_cause
 
             # Research comparisons continue even when active position exists or closes
-            try:
-                from services.stop_placement_research_service import advance_active_stop_comparisons
-                advance_active_stop_comparisons(db, quote, as_of_ms=proc_now_ms)
-            except Exception as r_err:
-                logger.debug(f"Research advance skipped: {r_err}")
+            if not skip_research:
+                try:
+                    from services.stop_placement_research_service import advance_active_stop_comparisons
+                    advance_active_stop_comparisons(db, quote, as_of_ms=proc_now_ms)
+                except Exception as r_err:
+                    logger.debug(f"Research advance skipped: {r_err}")
 
             return result
 
@@ -182,11 +184,12 @@ class ExecutionConsumer:
                 result["rejection_reason"] = "EXECUTION_GAP_ACTIVE"
 
         # Dispatch research comparisons when no active position
-        try:
-            from services.stop_placement_research_service import advance_active_stop_comparisons
-            advance_active_stop_comparisons(db, quote, as_of_ms=proc_now_ms)
-        except Exception as r_err:
-            logger.debug(f"Research advance skipped: {r_err}")
+        if not skip_research:
+            try:
+                from services.stop_placement_research_service import advance_active_stop_comparisons
+                advance_active_stop_comparisons(db, quote, as_of_ms=proc_now_ms)
+            except Exception as r_err:
+                logger.debug(f"Research advance skipped: {r_err}")
 
         return result
 
@@ -194,11 +197,12 @@ class ExecutionConsumer:
         """
         Executes inside a dedicated worker thread via asyncio.to_thread.
         Manages thread-local SessionLocal() cleanly and measures monotonic db_work_ms.
+        Commits research updates independently via dedicated durable transaction owner.
         """
         t0 = time.perf_counter()
         db: Session = SessionLocal()
         try:
-            res = self.evaluate_quote_sync(db, quote, clock=clock)
+            res = self.evaluate_quote_sync(db, quote, clock=clock, skip_research=True)
             return res
         except Exception as e:
             db.rollback()
@@ -206,6 +210,19 @@ class ExecutionConsumer:
         finally:
             db.close()
             self.db_work_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+
+            # Dedicated durable research advance with independent session ownership
+            try:
+                from services.stop_placement_research_service import advance_stop_comparisons_durable
+                c = clock or live_clock
+                now_ms = c.now_ms() if hasattr(c, "now_ms") else int(time.time() * 1000)
+                advance_stop_comparisons_durable(
+                    session_factory=SessionLocal,
+                    quote=quote,
+                    as_of_ms=now_ms,
+                )
+            except Exception as r_err:
+                logger.debug(f"Durable research advance failed: {r_err}")
 
     async def stop(self, timeout: float = 3.0) -> Dict[str, Any]:
         """

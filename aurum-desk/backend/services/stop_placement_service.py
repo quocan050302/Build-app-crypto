@@ -321,8 +321,6 @@ def resolve_stop_anchor(
     # 2. FVG Continuation: Structural origin of the displacement leg
     if selected_fvg is not None:
         fvg_id = str(selected_fvg.get("id") or f"fvg_{as_of_ms}")
-        origin_price = selected_fvg.get("origin_price") or selected_fvg.get("leg_origin_price")
-        break_id = selected_break.get("id") if selected_break else None
 
         leg_cutoff_ms = None
         if selected_break:
@@ -332,78 +330,63 @@ def resolve_stop_anchor(
                 or selected_break.get("timestamp")
                 or selected_break.get("break_open_ms")
             )
+            if leg_cutoff_ms is None and "bar" in selected_break:
+                leg_cutoff_ms = _candle_open_ms(selected_break["bar"])
         if leg_cutoff_ms is None and selected_fvg:
             leg_cutoff_ms = (
-                selected_fvg.get("start_ms")
-                or selected_fvg.get("formation_time_ms")
+                selected_fvg.get("middle_bar_ms")
                 or selected_fvg.get("timestamp")
+                or selected_fvg.get("time_ms")
+                or selected_fvg.get("start_ms")
+                or selected_fvg.get("formation_time_ms")
+                or selected_fvg.get("confirmed_at")
             )
-        if leg_cutoff_ms is not None:
-            leg_cutoff_ms = int(leg_cutoff_ms)
+        if leg_cutoff_ms is None:
+            leg_cutoff_ms = as_of_ms
+        leg_cutoff_ms = int(leg_cutoff_ms)
 
-        if origin_price is None and confirmed_swings:
+        if confirmed_swings:
             sh_list, sl_list = confirmed_swings
-            if norm_dir == "SHORT" and sh_list:
-                eligible_sh = [
-                    s for s in sh_list
-                    if int(s.get("known_at_ms") or s.get("occurred_at_ms", 0)) <= as_of_ms
-                    and (leg_cutoff_ms is None or int(s.get("occurred_at_ms", 0)) <= leg_cutoff_ms)
-                ]
-                if eligible_sh:
-                    eligible_sh.sort(key=lambda s: (int(s.get("occurred_at_ms", 0)), int(s.get("known_at_ms", 0)), str(s.get("id", ""))))
-                    chosen_sh = eligible_sh[-1]
-                    origin_price = float(chosen_sh["price"])
-                    anchor = StopAnchor(
-                        id=f"anc_fvg_sh_{chosen_sh.get('id', as_of_ms)}",
-                        kind=StopAnchorKind.PROTECTED_LEG_HIGH.value,
-                        price=origin_price,
-                        timeframe="1M",
-                        occurred_at_ms=int(chosen_sh.get("occurred_at_ms", as_of_ms)),
-                        known_at_ms=int(chosen_sh.get("known_at_ms", as_of_ms)),
-                        source_leg_id=fvg_id,
-                        source_break_id=break_id,
-                        price_basis=PriceBasis.CANDLE_LAST.value,
-                    )
-                    if not validate_anchor_not_invalidated(anchor, closed_bars, norm_dir, as_of_ms):
-                        return StopAnchorResult(
-                            status="INVALID_DATA",
-                            anchor=None,
-                            reasons=("ANCHOR_ALREADY_INVALIDATED",),
-                        )
-                    return StopAnchorResult(status="AVAILABLE", anchor=anchor)
-            elif norm_dir == "LONG" and sl_list:
-                eligible_sl = [
-                    s for s in sl_list
-                    if int(s.get("known_at_ms") or s.get("occurred_at_ms", 0)) <= as_of_ms
-                    and (leg_cutoff_ms is None or int(s.get("occurred_at_ms", 0)) <= leg_cutoff_ms)
-                ]
-                if eligible_sl:
-                    eligible_sl.sort(key=lambda s: (int(s.get("occurred_at_ms", 0)), int(s.get("known_at_ms", 0)), str(s.get("id", ""))))
-                    chosen_sl = eligible_sl[-1]
-                    origin_price = float(chosen_sl["price"])
-                    anchor = StopAnchor(
-                        id=f"anc_fvg_sl_{chosen_sl.get('id', as_of_ms)}",
-                        kind=StopAnchorKind.PROTECTED_LEG_LOW.value,
-                        price=origin_price,
-                        timeframe="1M",
-                        occurred_at_ms=int(chosen_sl.get("occurred_at_ms", as_of_ms)),
-                        known_at_ms=int(chosen_sl.get("known_at_ms", as_of_ms)),
-                        source_leg_id=fvg_id,
-                        source_break_id=break_id,
-                        price_basis=PriceBasis.CANDLE_LAST.value,
-                    )
-                    if not validate_anchor_not_invalidated(anchor, closed_bars, norm_dir, as_of_ms):
-                        return StopAnchorResult(
-                            status="INVALID_DATA",
-                            anchor=None,
-                            reasons=("ANCHOR_ALREADY_INVALIDATED",),
-                        )
-                    return StopAnchorResult(status="AVAILABLE", anchor=anchor)
+            pivots = sh_list if norm_dir == "SHORT" else sl_list
+            bound_leg = resolve_bound_stop_leg(
+                model_id=model_id,
+                direction=norm_dir,
+                closed_bars=closed_bars,
+                selected_break=selected_break,
+                selected_fvg=selected_fvg,
+                candidate_pivots=pivots,
+                decision_cutoff_ms=as_of_ms,
+                as_of_ms=as_of_ms,
+            )
+            if bound_leg is None:
+                return StopAnchorResult(
+                    status="WAITING_EVIDENCE",
+                    anchor=None,
+                    reasons=("STRUCTURAL_ANCHOR_NOT_FOUND",),
+                )
+
+            anchor = StopAnchor(
+                id=f"anc_fvg_{'sh' if norm_dir == 'SHORT' else 'sl'}_{bound_leg.origin_pivot_id}",
+                kind=StopAnchorKind.PROTECTED_LEG_HIGH.value if norm_dir == "SHORT" else StopAnchorKind.PROTECTED_LEG_LOW.value,
+                price=bound_leg.origin_price,
+                timeframe="1M",
+                occurred_at_ms=bound_leg.origin_occurred_at_ms,
+                known_at_ms=bound_leg.origin_known_at_ms,
+                source_leg_id=bound_leg.leg_id,
+                source_break_id=bound_leg.break_bar_id,
+                price_basis=PriceBasis.CANDLE_LAST.value,
+            )
+            if not validate_anchor_not_invalidated(anchor, closed_bars, norm_dir, as_of_ms):
+                return StopAnchorResult(
+                    status="INVALID_DATA",
+                    anchor=None,
+                    reasons=("ANCHOR_ALREADY_INVALIDATED",),
+                )
+            return StopAnchorResult(status="AVAILABLE", anchor=anchor)
 
     # 3. Continuation (M1 Trend BOS)
     if confirmed_swings:
         sh_list, sl_list = confirmed_swings
-        break_id = selected_break.get("id") if selected_break else None
         leg_cutoff_ms = None
         if selected_break:
             leg_cutoff_ms = (
@@ -412,63 +395,53 @@ def resolve_stop_anchor(
                 or selected_break.get("timestamp")
                 or selected_break.get("break_open_ms")
             )
-        if leg_cutoff_ms is not None:
-            leg_cutoff_ms = int(leg_cutoff_ms)
+            if leg_cutoff_ms is None and "bar" in selected_break:
+                leg_cutoff_ms = _candle_open_ms(selected_break["bar"])
+            if leg_cutoff_ms is None:
+                return StopAnchorResult(
+                    status="WAITING_EVIDENCE",
+                    anchor=None,
+                    reasons=("MISSING_BREAK_TIMELOG",),
+                )
+        else:
+            leg_cutoff_ms = as_of_ms
+        leg_cutoff_ms = int(leg_cutoff_ms)
 
-        if norm_dir == "SHORT":
-            eligible_sh = [
-                s for s in sh_list
-                if int(s.get("known_at_ms") or s.get("occurred_at_ms", 0)) <= as_of_ms
-                and (leg_cutoff_ms is None or int(s.get("occurred_at_ms", 0)) <= leg_cutoff_ms)
-            ]
-            if eligible_sh:
-                eligible_sh.sort(key=lambda s: (int(s.get("occurred_at_ms", 0)), int(s.get("known_at_ms", 0)), str(s.get("id", ""))))
-                chosen_sh = eligible_sh[-1]
-                anchor = StopAnchor(
-                    id=f"anc_cont_sh_{chosen_sh.get('id', as_of_ms)}",
-                    kind=StopAnchorKind.PROTECTED_LEG_HIGH.value,
-                    price=float(chosen_sh["price"]),
-                    timeframe="1M",
-                    occurred_at_ms=int(chosen_sh.get("occurred_at_ms", as_of_ms)),
-                    known_at_ms=int(chosen_sh.get("known_at_ms", as_of_ms)),
-                    source_leg_id=chosen_sh.get("id", f"leg_{as_of_ms}"),
-                    source_break_id=break_id,
-                    price_basis=PriceBasis.CANDLE_LAST.value,
-                )
-                if not validate_anchor_not_invalidated(anchor, closed_bars, norm_dir, as_of_ms):
-                    return StopAnchorResult(
-                        status="INVALID_DATA",
-                        anchor=None,
-                        reasons=("ANCHOR_ALREADY_INVALIDATED",),
-                    )
-                return StopAnchorResult(status="AVAILABLE", anchor=anchor)
-        elif norm_dir == "LONG":
-            eligible_sl = [
-                s for s in sl_list
-                if int(s.get("known_at_ms") or s.get("occurred_at_ms", 0)) <= as_of_ms
-                and (leg_cutoff_ms is None or int(s.get("occurred_at_ms", 0)) <= leg_cutoff_ms)
-            ]
-            if eligible_sl:
-                eligible_sl.sort(key=lambda s: (int(s.get("occurred_at_ms", 0)), int(s.get("known_at_ms", 0)), str(s.get("id", ""))))
-                chosen_sl = eligible_sl[-1]
-                anchor = StopAnchor(
-                    id=f"anc_cont_sl_{chosen_sl.get('id', as_of_ms)}",
-                    kind=StopAnchorKind.PROTECTED_LEG_LOW.value,
-                    price=float(chosen_sl["price"]),
-                    timeframe="1M",
-                    occurred_at_ms=int(chosen_sl.get("occurred_at_ms", as_of_ms)),
-                    known_at_ms=int(chosen_sl.get("known_at_ms", as_of_ms)),
-                    source_leg_id=chosen_sl.get("id", f"leg_{as_of_ms}"),
-                    source_break_id=break_id,
-                    price_basis=PriceBasis.CANDLE_LAST.value,
-                )
-                if not validate_anchor_not_invalidated(anchor, closed_bars, norm_dir, as_of_ms):
-                    return StopAnchorResult(
-                        status="INVALID_DATA",
-                        anchor=None,
-                        reasons=("ANCHOR_ALREADY_INVALIDATED",),
-                    )
-                return StopAnchorResult(status="AVAILABLE", anchor=anchor)
+        pivots = sh_list if norm_dir == "SHORT" else sl_list
+        bound_leg = resolve_bound_stop_leg(
+            model_id=model_id,
+            direction=norm_dir,
+            closed_bars=closed_bars,
+            selected_break=selected_break,
+            candidate_pivots=pivots,
+            decision_cutoff_ms=as_of_ms,
+            as_of_ms=as_of_ms,
+        )
+        if bound_leg is None:
+            return StopAnchorResult(
+                status="WAITING_EVIDENCE",
+                anchor=None,
+                reasons=("STRUCTURAL_ANCHOR_NOT_FOUND",),
+            )
+
+        anchor = StopAnchor(
+            id=f"anc_cont_{'sh' if norm_dir == 'SHORT' else 'sl'}_{bound_leg.origin_pivot_id}",
+            kind=StopAnchorKind.PROTECTED_LEG_HIGH.value if norm_dir == "SHORT" else StopAnchorKind.PROTECTED_LEG_LOW.value,
+            price=bound_leg.origin_price,
+            timeframe="1M",
+            occurred_at_ms=bound_leg.origin_occurred_at_ms,
+            known_at_ms=bound_leg.origin_known_at_ms,
+            source_leg_id=bound_leg.leg_id,
+            source_break_id=bound_leg.break_bar_id,
+            price_basis=PriceBasis.CANDLE_LAST.value,
+        )
+        if not validate_anchor_not_invalidated(anchor, closed_bars, norm_dir, as_of_ms):
+            return StopAnchorResult(
+                status="INVALID_DATA",
+                anchor=None,
+                reasons=("ANCHOR_ALREADY_INVALIDATED",),
+            )
+        return StopAnchorResult(status="AVAILABLE", anchor=anchor)
 
     return StopAnchorResult(
         status="WAITING_EVIDENCE",
@@ -642,6 +615,58 @@ def build_sweep_stop_descriptor(
     }
 
 
+def build_selected_break_descriptor(
+    *,
+    break_bar: Any,
+    broken_reference: Optional[Dict[str, Any]] = None,
+    timeframe_ms: int = 60_000,
+    decision_cutoff_ms: int = 0,
+    model_id: str = "",
+    instance_id: str = "default",
+    direction: str = "",
+) -> Dict[str, Any]:
+    """
+    Builds a complete, normalized SelectedBreak descriptor from actual detector break bar
+    and broken structure reference.
+    Guarantees break_open_ms, broken_at_ms, known_at_ms, broken_reference_id, and reference_price.
+    """
+    if break_bar is None:
+        return {}
+
+    b_open = _candle_open_ms(break_bar)
+    b_close = b_open + timeframe_ms
+
+    ref_id = None
+    ref_price = None
+    if broken_reference:
+        ref_id = broken_reference.get("id") or broken_reference.get("swing_ref_id")
+        p = (
+            broken_reference.get("price")
+            if broken_reference.get("price") is not None
+            else broken_reference.get("swing_ref_price")
+        )
+        if p is not None:
+            try:
+                ref_price = float(p)
+            except (ValueError, TypeError):
+                ref_price = None
+
+    return {
+        "id": f"break_{b_open}",
+        "break_open_ms": b_open,
+        "broken_at_ms": b_open,
+        "known_at_ms": b_close,
+        "break_time_ms": b_open,
+        "broken_reference_id": str(ref_id) if ref_id else None,
+        "broken_price": ref_price,
+        "reference_price": ref_price,
+        "bar": break_bar,
+        "model_id": model_id,
+        "instance_id": instance_id,
+        "direction": direction,
+    }
+
+
 def resolve_bound_stop_leg(
     *,
     model_id: str,
@@ -659,27 +684,51 @@ def resolve_bound_stop_leg(
     """
     Verifies and constructs a SelectedStopLeg descriptor binding the protective pivot
     to the exact leg and break bar that created the opportunity.
+    Enforces that:
+    1. Origin pivot occurred strictly before break bar open/cutoff.
+    2. Origin pivot was known before or at decision cutoff.
+    3. Origin pivot price matches the candle extreme within tick tolerance (when closed bars available).
+    4. Break bar actually closed through the reference price (when reference & bar available).
     """
     from services.stop_placement_types import SelectedStopLeg
 
-    if not selected_break:
+    if not selected_break and not break_bar and not selected_fvg:
         return None
 
     cutoff = decision_cutoff_ms or as_of_ms or 0
-    break_time = int(
-        selected_break.get("broken_at_ms")
-        or selected_break.get("break_time_ms")
-        or selected_break.get("timestamp")
-        or selected_break.get("break_open_ms")
-        or (break_bar.open_time if break_bar and hasattr(break_bar, "open_time") else cutoff)
-    )
+    b_time = None
+    if selected_break:
+        b_time = (
+            selected_break.get("broken_at_ms")
+            or selected_break.get("break_time_ms")
+            or selected_break.get("timestamp")
+            or selected_break.get("break_open_ms")
+        )
+        if b_time is None and "bar" in selected_break:
+            b_time = _candle_open_ms(selected_break["bar"])
+    if b_time is None and break_bar:
+        b_time = _candle_open_ms(break_bar)
+    if b_time is None and selected_fvg:
+        b_time = (
+            selected_fvg.get("middle_bar_ms")
+            or selected_fvg.get("timestamp")
+            or selected_fvg.get("time_ms")
+            or selected_fvg.get("start_ms")
+            or selected_fvg.get("formation_time_ms")
+            or selected_fvg.get("confirmed_at")
+        )
+    if b_time is None:
+        b_time = cutoff
+
+    break_time = int(b_time)
+    norm_dir = direction.upper()
 
     if candidate_pivots and not candidate_pivot:
         valid_candidates = []
         for p in candidate_pivots:
             p_occ = int(p.get("occurred_at_ms", 0))
             p_known = int(p.get("known_at_ms", p_occ))
-            if p_occ <= break_time and (cutoff == 0 or p_known <= cutoff):
+            if p_occ < break_time and (cutoff == 0 or p_known <= cutoff):
                 valid_candidates.append(p)
         if valid_candidates:
             # Deterministic selection: closest before break, tie-break known_at, then id
@@ -695,33 +744,78 @@ def resolve_bound_stop_leg(
     pivot_occ = int(candidate_pivot.get("occurred_at_ms", 0))
     pivot_known = int(candidate_pivot.get("known_at_ms", pivot_occ))
 
-    # Invariant: Origin pivot must occur before the break
-    if pivot_occ > break_time or (cutoff > 0 and pivot_known > cutoff):
+    # Invariant: Origin pivot must occur strictly before the break bar
+    if pivot_occ >= break_time or (cutoff > 0 and pivot_known > cutoff):
         return None
 
-    broken_ref_price = (
-        selected_break.get("broken_price")
-        if selected_break.get("broken_price") is not None
-        else selected_break.get("reference_price")
+    pivot_px = float(candidate_pivot.get("price", 0.0))
+
+    # Verify pivot price matches candle extreme if closed_bars provided
+    if closed_bars:
+        for b in closed_bars:
+            if _candle_open_ms(b) == pivot_occ:
+                _, h, l, _ = _candle_ohlc(b)
+                if norm_dir == "SHORT" and abs(pivot_px - h) > 0.05:
+                    return None
+                elif norm_dir == "LONG" and abs(pivot_px - l) > 0.05:
+                    return None
+                break
+
+    broken_ref_price = None
+    if selected_break:
+        broken_ref_price = (
+            selected_break.get("broken_price")
+            if selected_break.get("broken_price") is not None
+            else selected_break.get("reference_price")
+        )
+
+    # Verify break bar close through reference if available
+    b_bar = break_bar or (selected_break.get("bar") if selected_break else None)
+    if b_bar and broken_ref_price is not None:
+        try:
+            _, _, _, b_close = _candle_ohlc(b_bar)
+            ref_px = float(broken_ref_price)
+            if norm_dir == "SHORT" and b_close > ref_px:
+                return None
+            elif norm_dir == "LONG" and b_close < ref_px:
+                return None
+        except Exception:
+            pass
+
+    break_id = str(selected_break.get("id") if selected_break else f"brk_{break_time}")
+    break_known = (
+        selected_break.get("known_at_ms")
+        if selected_break
+        else break_time + 60_000
+    ) or (break_time + 60_000)
+
+    fvg_id = selected_fvg.get("id") if selected_fvg else None
+    fvg_mid = (
+        selected_fvg.get("middle_bar_ms") or selected_fvg.get("timestamp")
+        if selected_fvg else None
+    )
+    fvg_conf = (
+        selected_fvg.get("confirmed_at") or selected_fvg.get("confirmed_at_ms")
+        if selected_fvg else None
     )
 
     return SelectedStopLeg(
         model_id=model_id,
-        direction=direction,
+        direction=norm_dir,
         instance_id=instance_id,
-        leg_id=str(selected_break.get("id") or f"leg_{break_time}"),
+        leg_id=str((selected_break and selected_break.get("id")) or f"leg_{break_time}"),
         origin_pivot_id=str(candidate_pivot.get("id", "")),
-        origin_price=float(candidate_pivot.get("price", 0.0)),
+        origin_price=pivot_px,
         origin_occurred_at_ms=pivot_occ,
         origin_known_at_ms=pivot_known,
-        broken_reference_id=selected_break.get("broken_reference_id"),
+        broken_reference_id=selected_break.get("broken_reference_id") if selected_break else None,
         broken_reference_price=float(broken_ref_price) if broken_ref_price is not None else None,
-        break_bar_id=str(selected_break.get("id", "")),
+        break_bar_id=break_id,
         break_open_ms=break_time,
-        break_known_at_ms=int(selected_break.get("known_at_ms", break_time)),
-        fvg_id=selected_fvg.get("id") if selected_fvg else None,
-        fvg_middle_bar_ms=selected_fvg.get("middle_bar_ms") if selected_fvg else None,
-        fvg_confirmed_at_ms=selected_fvg.get("confirmed_at") if selected_fvg else None,
+        break_known_at_ms=int(break_known),
+        fvg_id=str(fvg_id) if fvg_id else None,
+        fvg_middle_bar_ms=int(fvg_mid) if fvg_mid else None,
+        fvg_confirmed_at_ms=int(fvg_conf) if fvg_conf else None,
         decision_cutoff_ms=cutoff,
     )
 

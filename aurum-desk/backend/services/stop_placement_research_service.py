@@ -289,6 +289,39 @@ def advance_stop_comparison(
         # Invalid or empty quote cannot transition state or compute excursions
         return updated
 
+    # Causal timeline gate (P3): Quote timestamp and processing clock must not be strictly before plan cutoff
+    quote_ts = (
+        market_evidence.get("exchange_ts_ms")
+        or market_evidence.get("timestamp")
+        or market_evidence.get("exchange_time")
+        or getattr(market_evidence, "exchange_ts_ms", None)
+        or getattr(market_evidence, "timestamp", None)
+    )
+    if quote_ts is not None:
+        try:
+            quote_ts = int(quote_ts)
+        except (ValueError, TypeError):
+            quote_ts = None
+
+    plan_cutoff = (
+        updated.get("decision_cutoff_ms")
+        or updated.get("plan_cutoff_ms")
+        or updated.get("as_of_ms")
+        or updated.get("created_at_ms")
+        or updated.get("now_ms")
+    )
+    if plan_cutoff is not None:
+        try:
+            plan_cutoff = int(plan_cutoff)
+        except (ValueError, TypeError):
+            plan_cutoff = None
+
+    if plan_cutoff is not None:
+        if quote_ts is not None and quote_ts < plan_cutoff:
+            return updated
+        if as_of_ms < plan_cutoff:
+            return updated
+
     # Compute excursion for the evidence quote
     excursion = compute_stop_excursions(direction, planned_entry, market_evidence)
     curr_excursions = updated.setdefault("excursions", {"max_adverse": 0.0, "max_favorable": 0.0})
@@ -298,7 +331,14 @@ def advance_stop_comparison(
     # Advance each variant independently
     for v_key in ("variant_a", "variant_b", "variant_c"):
         v_data = updated.get(v_key)
-        if not v_data or not v_data.get("can_execute"):
+        if not v_data:
+            continue
+
+        # Eligibility gate (P4): variant must be valid, executable, and meet minimum R:R
+        is_valid = v_data.get("is_valid", True)
+        can_execute = v_data.get("can_execute", False)
+        meets_min_rr = v_data.get("meets_min_rr", True)
+        if not (is_valid and can_execute and meets_min_rr):
             continue
 
         v_state = v_data.setdefault("execution_state", "WAIT_ENTRY")
@@ -399,12 +439,37 @@ def advance_active_stop_comparisons(
             continue
 
     if updated_count > 0:
-        try:
-            db.flush()
-        except Exception:
-            pass
+        db.flush()
 
     return updated_count
+
+
+def advance_stop_comparisons_durable(
+    *,
+    session_factory: Any,
+    quote: Any,
+    as_of_ms: int,
+    namespace: str = "STOP_PLACEMENT_V1",
+) -> Dict[str, Any]:
+    """
+    Dedicated transaction owner for research comparison durability.
+    Opens an isolated session from session_factory, advances in-flight plans,
+    commits on changes, rolls back on error, and ensures clean closure.
+    """
+    research_db = session_factory()
+    try:
+        changed = advance_active_stop_comparisons(
+            research_db, quote, as_of_ms=as_of_ms, namespace=namespace
+        )
+        if changed > 0:
+            research_db.commit()
+        return {"status": "COMMITTED", "changed": changed}
+    except Exception as e:
+        research_db.rollback()
+        logger.warning(f"Research durability transaction failed: {e}")
+        return {"status": "ERROR", "error": str(e), "changed": 0}
+    finally:
+        research_db.close()
 
 
 def serialize_stop_comparison_for_ui(plan_or_dict: Any) -> Dict[str, Any]:
