@@ -1445,10 +1445,22 @@ class ScalpWatcherOrchestrator:
             effective_scalp_mode = ScalpMode.SHADOW.value
 
         for cand in candidates:
-            # V17.5: Persist paired research stop comparison plan (PHẦN 101, 102, 112)
+            # V17.5.4 Appendix A3: bind execution context to comparison plan before persistence
             if getattr(cand, "stop_comparison", None) is not None:
                 try:
-                    from services.stop_placement_research_service import persist_stop_comparison
+                    from services.stop_placement_research_service import (
+                        persist_stop_comparison,
+                        resolve_stop_comparison_execution_context,
+                        bind_stop_comparison_execution_context,
+                    )
+                    ctx = resolve_stop_comparison_execution_context(
+                        cand=cand,
+                        policy_settings=policy_dict,
+                        decision_as_of_ms=t_recv,
+                        session_context=session_ctx,
+                        cfg=cfg,
+                    )
+                    cand.stop_comparison = bind_stop_comparison_execution_context(cand.stop_comparison, ctx)
                     persist_stop_comparison(db, cand.stop_comparison, now_ms=t_recv)
                 except Exception as e:
                     logger.warning(f"Error persisting stop comparison for {cand.candidate_key}: {e}")

@@ -1,6 +1,6 @@
 /**
  * frontend/tests/e2e/v17_5_3_stop_browser.e2e.ts
- * AURUM V17.5.3 — Playwright Browser Verification
+ * AURUM V17.5.3 — Playwright Browser Verification (Hardened in V17.5.4)
  * Covers Parts 151–160:
  * - SHORT order geometry (TP < Entry < SL) & structural anchor high in drawer.
  * - LONG order geometry (SL < Entry < TP) & structural anchor low in drawer.
@@ -15,7 +15,8 @@ const API_PORT = process.env.AURUM_E2E_API_PORT ?? '8765';
 test.describe('V17.5.3 Stop Placement & Geometry Browser Verification', () => {
   test.beforeEach(async ({ page, request }) => {
     await page.goto('about:blank');
-    await request.post(`http://127.0.0.1:${API_PORT}/__e2e/reset`);
+    const resetRes = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/reset`);
+    expect(resetRes.ok()).toBe(true);
   });
 
   test('P01: SHORT order renders correct geometry (TP < Entry < SL) and structural anchor', async ({ page, request }) => {
@@ -49,7 +50,7 @@ test.describe('V17.5.3 Stop Placement & Geometry Browser Verification', () => {
     };
 
     // Seed SHORT order: planned_entry 2650.0, SL 2660.0, TP 2625.0
-    await request.post(`http://127.0.0.1:${API_PORT}/__e2e/seed_order`, {
+    const seedRes = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/seed_order`, {
       data: {
         order_id: 'ord_v17_5_3_short',
         direction: 'SHORT',
@@ -60,12 +61,35 @@ test.describe('V17.5.3 Stop Placement & Geometry Browser Verification', () => {
         cost_snapshot: shortCostSnap,
       },
     });
+    expect(seedRes.status()).toBe(200);
 
+    // API assertion
+    const evRes = await request.get(`http://127.0.0.1:${API_PORT}/api/v1/orders/ord_v17_5_3_short/stop-evidence`);
+    expect(evRes.status()).toBe(200);
+    const evData = await evRes.json();
+    expect(evData.status).toBe('AVAILABLE');
+    expect(evData.take_profit).toBeLessThan(evData.actual_entry);
+    expect(evData.actual_entry).toBeLessThan(evData.actual_sl);
+
+    // UI Drawer verification
     await page.goto('/', { waitUntil: 'domcontentloaded' });
+    const journalTab = page.locator('[data-tab-id="journal"]');
+    await expect(journalTab).toBeVisible({ timeout: 10000 });
+    await journalTab.click();
 
-    // Open orders or inspection view if available
-    const pageContent = await page.content();
-    expect(pageContent).toBeTruthy();
+    const orderRow = page.locator('tr[data-order-id="ord_v17_5_3_short"]');
+    await expect(orderRow).toBeVisible({ timeout: 10000 });
+    await orderRow.getByRole('button', { name: /Chi Tiết & Note/i }).click();
+
+    // Tab B: "B. Giả Thuyết & SMC"
+    const tabB = page.locator('button', { hasText: 'B. Giả Thuyết & SMC' });
+    await expect(tabB).toBeVisible({ timeout: 5000 });
+    await tabB.click();
+
+    await expect(page.locator('text=Chi Tiết Điểm Dừng Lỗ (SL)')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=2660.00')).toBeVisible();
+    await expect(page.locator('text=PROTECTED_LEG_HIGH tại 2658.00 (1M)')).toBeVisible();
+    await expect(page.locator('text=Xác minh cấu trúc (C)')).toBeVisible();
   });
 
   test('P02: LONG order renders correct geometry (SL < Entry < TP)', async ({ page, request }) => {
@@ -98,7 +122,7 @@ test.describe('V17.5.3 Stop Placement & Geometry Browser Verification', () => {
     };
 
     // Seed LONG order: planned_entry 2650.0, SL 2640.0, TP 2675.0
-    await request.post(`http://127.0.0.1:${API_PORT}/__e2e/seed_order`, {
+    const seedRes = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/seed_order`, {
       data: {
         order_id: 'ord_v17_5_3_long',
         direction: 'LONG',
@@ -109,10 +133,35 @@ test.describe('V17.5.3 Stop Placement & Geometry Browser Verification', () => {
         cost_snapshot: longCostSnap,
       },
     });
+    expect(seedRes.status()).toBe(200);
 
+    // API assertion
+    const evRes = await request.get(`http://127.0.0.1:${API_PORT}/api/v1/orders/ord_v17_5_3_long/stop-evidence`);
+    expect(evRes.status()).toBe(200);
+    const evData = await evRes.json();
+    expect(evData.status).toBe('AVAILABLE');
+    expect(evData.actual_sl).toBeLessThan(evData.actual_entry);
+    expect(evData.actual_entry).toBeLessThan(evData.take_profit);
+
+    // UI Drawer verification
     await page.goto('/', { waitUntil: 'domcontentloaded' });
-    const pageContent = await page.content();
-    expect(pageContent).toBeTruthy();
+    const journalTab = page.locator('[data-tab-id="journal"]');
+    await expect(journalTab).toBeVisible({ timeout: 10000 });
+    await journalTab.click();
+
+    const orderRow = page.locator('tr[data-order-id="ord_v17_5_3_long"]');
+    await expect(orderRow).toBeVisible({ timeout: 10000 });
+    await orderRow.getByRole('button', { name: /Chi Tiết & Note/i }).click();
+
+    // Tab B: "B. Giả Thuyết & SMC"
+    const tabB = page.locator('button', { hasText: 'B. Giả Thuyết & SMC' });
+    await expect(tabB).toBeVisible({ timeout: 5000 });
+    await tabB.click();
+
+    await expect(page.locator('text=Chi Tiết Điểm Dừng Lỗ (SL)')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=2640.00')).toBeVisible();
+    await expect(page.locator('text=PROTECTED_LEG_LOW tại 2642.00 (1M)')).toBeVisible();
+    await expect(page.locator('text=Xác minh cấu trúc (C)')).toBeVisible();
   });
 
   test('P03: Mobile viewport (390x844) renders without horizontal scroll overflow', async ({ page }) => {

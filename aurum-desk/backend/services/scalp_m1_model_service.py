@@ -390,6 +390,11 @@ def apply_stop_placement_to_candidate(
     atr_1m_val: float,
     bid: float,
     ask: float,
+    entry_intent: str = "MARKET",
+    order_type: Optional[str] = None,
+    decision_cutoff_ms: int = 0,
+    expires_at_ms: Optional[int] = None,
+    cost_snapshot: Optional[Dict[str, Any]] = None,
 ) -> StopApplicationResult:
     """
     Applies V17.5.1 Stop Placement policy and returns StopApplicationResult.
@@ -473,6 +478,11 @@ def apply_stop_placement_to_candidate(
         spread=max(0.0, ask - bid),
         policy_version=stop_policy.version,
         now_ms=now_ms,
+        entry_intent=entry_intent,
+        order_type=order_type,
+        decision_cutoff_ms=decision_cutoff_ms or now_ms,
+        expires_at_ms=expires_at_ms,
+        cost_snapshot=cost_snapshot,
     )
 
     mode = getattr(stop_policy, "mode", "SHADOW_COMPARE")

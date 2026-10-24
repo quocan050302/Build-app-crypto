@@ -107,6 +107,34 @@ class PostTradeReview:
         }
 
 
+def build_trade_outcome_from_order(order: Any) -> Dict[str, Any]:
+    """
+    Pure helper (V17.5.4 Appendix D4):
+    Derives canonical outcome dictionary from persisted PaperOrder accounting without hardcoded values.
+    """
+    direction = getattr(order, "direction", "LONG")
+    dir_mult = 1.0 if direction in ("LONG", "BUY") else -1.0
+    actual_entry = float(getattr(order, "actual_entry", None) or getattr(order, "planned_entry", 0.0) or 0.0)
+    actual_exit = float(getattr(order, "actual_exit", None) or getattr(order, "take_profit", 0.0) or 0.0)
+    quantity = float(getattr(order, "quantity", 0.0) or 0.0)
+
+    gross_pnl = round((actual_exit - actual_entry) * quantity * dir_mult, 2)
+    net_pnl = float(getattr(order, "realized_pnl_net", None) if getattr(order, "realized_pnl_net", None) is not None else gross_pnl)
+
+    return {
+        "order_id": getattr(order, "id", ""),
+        "symbol": getattr(order, "instrument", "XAUUSDT"),
+        "direction": direction,
+        "entry_price": actual_entry,
+        "exit_price": actual_exit,
+        "exit_cause": getattr(order, "exit_cause", "TP_HIT"),
+        "gross_pnl": gross_pnl,
+        "net_pnl": round(net_pnl, 2),
+        "realized_r": float(getattr(order, "realized_r", 0.0) or 0.0),
+        "closed_at_ms": getattr(order, "closed_at", None),
+    }
+
+
 def build_post_trade_review(
     order: Any,
     outcome: Optional[Dict[str, Any]] = None,
@@ -118,7 +146,10 @@ def build_post_trade_review(
     Builds empirical post-trade review from immutable order, outcome, and entry snapshot.
     Does NOT invent causes; distinguishes valid strategy loss from slippage or data anomalies.
     """
-    outcome = outcome or {}
+    if not outcome and order is not None:
+        outcome = build_trade_outcome_from_order(order)
+    else:
+        outcome = outcome or {}
     ev = entry_evidence or {}
     order_id = str(getattr(order, "id", "") or outcome.get("order_id", ""))
     symbol = getattr(order, "instrument", getattr(order, "symbol", outcome.get("symbol", "XAUUSDT")))
@@ -132,7 +163,15 @@ def build_post_trade_review(
 
     exit_price = float(outcome.get("exit_price", getattr(order, "actual_exit", None)) or getattr(order, "actual_exit", None) or actual_entry)
     exit_cause = str(outcome.get("exit_cause", getattr(order, "exit_cause", "UNKNOWN")) or getattr(order, "exit_cause", "UNKNOWN"))
-    gross_pnl = round(float(outcome.get("gross_pnl", 0.0)), 2)
+    if "gross_pnl" in outcome:
+        gross_pnl = round(float(outcome["gross_pnl"]), 2)
+    elif actual_entry > 0 and exit_price > 0 and getattr(order, "quantity", None) is not None:
+        qty = float(getattr(order, "quantity", 0.0) or 0.0)
+        direction_mult = 1.0 if direction in ("LONG", "BUY") else -1.0
+        gross_pnl = round((exit_price - actual_entry) * qty * direction_mult, 2)
+    else:
+        gross_pnl = round(float(outcome.get("gross_pnl", 0.0)), 2)
+
     net_pnl = round(float(outcome.get("net_pnl", getattr(order, "realized_pnl_net", gross_pnl)) or 0.0), 2)
 
     # Accounting Realized R (Rule 124)

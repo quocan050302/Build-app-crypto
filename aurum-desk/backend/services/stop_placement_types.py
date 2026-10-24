@@ -80,12 +80,14 @@ class StopAnchorResult:
     """Result of structural anchor resolution."""
     status: str  # "AVAILABLE" or reason code
     anchor: Optional[StopAnchor] = None
+    bound_leg: Optional[Any] = None
     reasons: Tuple[str, ...] = ()
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "status": self.status,
             "anchor": self.anchor.to_dict() if self.anchor else None,
+            "bound_leg": self.bound_leg.to_dict() if (self.bound_leg and hasattr(self.bound_leg, "to_dict")) else None,
             "reasons": list(self.reasons),
         }
 
@@ -230,6 +232,7 @@ class StopPlacementDecision:
     status: str  # StopStatus value
     selected_sl: Optional[float] = None
     anchor: Optional[StopAnchor] = None
+    bound_leg: Optional[Any] = None
     buffer: Optional[StopBufferResult] = None
     metrics: Optional[StopMetrics] = None
     reasons: Tuple[str, ...] = ()
@@ -244,6 +247,7 @@ class StopPlacementDecision:
             "status": self.status,
             "selected_sl": round(self.selected_sl, 2) if self.selected_sl is not None else None,
             "anchor": self.anchor.to_dict() if self.anchor else None,
+            "bound_leg": self.bound_leg.to_dict() if (self.bound_leg and hasattr(self.bound_leg, "to_dict")) else None,
             "buffer": self.buffer.to_dict() if self.buffer else None,
             "metrics": self.metrics.to_dict() if self.metrics else None,
             "reasons": list(self.reasons),
@@ -364,6 +368,9 @@ class StopComparisonPlan:
     decision_cutoff_ms: int = 0
     expires_at_ms: Optional[int] = None
     cost_snapshot: Optional[Dict[str, Any]] = None
+    context_status: str = "CONTEXT_INCOMPLETE"
+    context_reason: Optional[str] = None
+    provenance: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -387,6 +394,9 @@ class StopComparisonPlan:
             "decision_cutoff_ms": self.decision_cutoff_ms,
             "expires_at_ms": self.expires_at_ms,
             "cost_snapshot": self.cost_snapshot,
+            "context_status": self.context_status,
+            "context_reason": self.context_reason,
+            "provenance": self.provenance,
         }
 
 

@@ -11,7 +11,7 @@ import hashlib
 import json
 import logging
 import math
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 from sqlalchemy.orm import Session
 
 import models
@@ -58,6 +58,9 @@ def build_stop_comparison_plan(
     decision_cutoff_ms: int = 0,
     expires_at_ms: Optional[int] = None,
     cost_snapshot: Optional[Dict[str, Any]] = None,
+    context_status: Optional[str] = None,
+    context_reason: Optional[str] = None,
+    provenance: Optional[str] = None,
 ) -> StopComparisonPlan:
     """
     Constructs a paired StopComparisonPlan comparing Variants A, B, and C
@@ -156,6 +159,17 @@ def build_stop_comparison_plan(
             dominant_buffer=c_dom,
         )
 
+    if context_status is None:
+        if expires_at_ms is not None and cost_snapshot is not None:
+            c_status = "VERIFIED"
+            c_reason = None
+        else:
+            c_status = "CONTEXT_INCOMPLETE"
+            c_reason = "MISSING_EXPIRY_OR_COST"
+    else:
+        c_status = context_status
+        c_reason = context_reason
+
     return StopComparisonPlan(
         opportunity_key=opportunity_key,
         model_id=model_id,
@@ -177,6 +191,9 @@ def build_stop_comparison_plan(
         decision_cutoff_ms=decision_cutoff_ms,
         expires_at_ms=expires_at_ms,
         cost_snapshot=cost_snapshot,
+        context_status=c_status,
+        context_reason=c_reason,
+        provenance=provenance,
     )
 
 
@@ -209,6 +226,194 @@ def persist_stop_comparison(
             payload_json=payload_str,
         )
         db.add(row)
+    else:
+        try:
+            existing_data = json.loads(row.payload_json)
+            if existing_data.get("context_status") == "CONTEXT_INCOMPLETE" and plan_data.get("context_status") == "VERIFIED":
+                row.payload_json = payload_str
+                row.as_of_ms = now_ms
+        except Exception:
+            row.payload_json = payload_str
+
+
+def resolve_stop_comparison_execution_context(
+    cand: Any,
+    policy_settings: Optional[Dict[str, Any]] = None,
+    decision_as_of_ms: int = 0,
+    session_context: Optional[Any] = None,
+    cfg: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """
+    Pure helper (V17.5.4 Appendix A2):
+    Resolves authoritative execution context from production candidate for research comparison.
+    Extracts order_type, absolute expires_at_ms, decision_cutoff_ms, cost_snapshot, and provenance.
+    """
+    from services.cg01_types import candidate_execution_order_type, resolve_candidate_order_expiry, resolve_slippage_usd
+
+    settings = policy_settings or {}
+    as_of = int(decision_as_of_ms or getattr(cand, "as_of_ms", 0) or 0)
+
+    # 1. Authoritative order type
+    resolved_order_type = candidate_execution_order_type(cand, legacy_default="MARKET")
+
+    # 2. Authoritative absolute expiry
+    resolved_expires_at = None
+    try:
+        resolved_expires_at = resolve_candidate_order_expiry(
+            cand, now_ms=as_of, session_context=session_context
+        )
+    except Exception:
+        resolved_expires_at = None
+
+    # 3. Cost snapshot & slippage
+    calc = getattr(cand, "calculation", None)
+    cand_slip = None
+    if calc is not None:
+        cand_slip = getattr(calc, "slippage_usd", None)
+    if cand_slip is None and cfg is not None and getattr(cfg, "cg01_config", None):
+        cand_slip = getattr(cfg.cg01_config, "slippage_usd", None)
+    if cand_slip is None and "slippage_usd" in settings:
+        cand_slip = settings.get("slippage_usd")
+
+    slip_val = resolve_slippage_usd(cand_slip, default=0.10) if cand_slip is not None else 0.10
+
+    costs_obj = settings.get("costs")
+    maker_fee = getattr(costs_obj, "maker_fee_rate", 0.0002) if costs_obj else 0.0002
+    taker_fee = getattr(costs_obj, "taker_fee_rate", 0.0006) if costs_obj else 0.0006
+
+    cost_snapshot = {
+        "entry_slippage_usd": slip_val,
+        "tp_slippage_usd": 0.0,
+        "sl_slippage_usd": slip_val,
+        "maker_fee_rate": maker_fee,
+        "taker_fee_rate": taker_fee,
+        "version": int(settings.get("config_version") or getattr(cfg, "config_version", 1)),
+    }
+
+    # Provenance
+    model_id = str(getattr(cand, "model_id", "UNKNOWN"))
+    cand_key = str(getattr(cand, "candidate_key", "UNKNOWN"))
+    provenance = f"{model_id}:{cand_key}:decision@{as_of}"
+
+    # Status determination: VERIFIED if order_type and expires_at are valid
+    if resolved_order_type and resolved_expires_at is not None and resolved_expires_at > 0:
+        status = "VERIFIED"
+        reason = None
+    else:
+        status = "CONTEXT_INCOMPLETE"
+        reason = "MISSING_EXPIRY_OR_INTENT"
+
+    return {
+        "status": status,
+        "reason": reason,
+        "order_type": resolved_order_type,
+        "entry_intent": resolved_order_type,
+        "decision_cutoff_ms": as_of,
+        "expires_at_ms": resolved_expires_at,
+        "cost_snapshot": cost_snapshot,
+        "provenance": provenance,
+    }
+
+
+def bind_stop_comparison_execution_context(
+    plan: Union[StopComparisonPlan, Dict[str, Any]],
+    context: Dict[str, Any],
+) -> Union[StopComparisonPlan, Dict[str, Any]]:
+    """
+    Pure helper (V17.5.4 Appendix A3):
+    Binds resolved execution context to a StopComparisonPlan without mutating original.
+    """
+    import copy
+
+    if isinstance(plan, StopComparisonPlan):
+        plan_dict = plan.to_dict()
+    else:
+        plan_dict = copy.deepcopy(plan)
+
+    plan_dict["order_type"] = context.get("order_type", plan_dict.get("order_type", "MARKET"))
+    plan_dict["entry_intent"] = context.get("entry_intent", plan_dict.get("entry_intent", "MARKET"))
+    plan_dict["decision_cutoff_ms"] = int(context.get("decision_cutoff_ms", plan_dict.get("decision_cutoff_ms", 0)))
+    plan_dict["expires_at_ms"] = context.get("expires_at_ms", plan_dict.get("expires_at_ms"))
+    plan_dict["cost_snapshot"] = context.get("cost_snapshot", plan_dict.get("cost_snapshot"))
+    plan_dict["context_status"] = context.get("status", "VERIFIED")
+    plan_dict["context_reason"] = context.get("reason")
+    plan_dict["provenance"] = context.get("provenance")
+
+    if isinstance(plan, StopComparisonPlan):
+        return StopComparisonPlan(
+            opportunity_key=plan_dict["opportunity_key"],
+            model_id=plan_dict["model_id"],
+            symbol=plan_dict["symbol"],
+            direction=plan_dict["direction"],
+            planned_entry=plan_dict["planned_entry"],
+            take_profit=plan_dict["take_profit"],
+            as_of_ms=plan_dict["as_of_ms"],
+            variant_a=plan.variant_a,
+            variant_b=plan.variant_b,
+            variant_c=plan.variant_c,
+            anchor=plan.anchor,
+            atr_m1=plan.atr_m1,
+            atr_m5=plan.atr_m5,
+            spread=plan.spread,
+            policy_version=plan.policy_version,
+            entry_intent=plan_dict["entry_intent"],
+            order_type=plan_dict["order_type"],
+            decision_cutoff_ms=plan_dict["decision_cutoff_ms"],
+            expires_at_ms=plan_dict["expires_at_ms"],
+            cost_snapshot=plan_dict["cost_snapshot"],
+            context_status=plan_dict["context_status"],
+            context_reason=plan_dict["context_reason"],
+            provenance=plan_dict["provenance"],
+        )
+    return plan_dict
+
+
+def read_verified_comparison_cost_snapshot(
+    plan: Union[StopComparisonPlan, Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Pure helper (V17.5.4 Appendix B1 & B2):
+    Reads verified cost snapshot from comparison plan.
+    Distinguishes explicit 0.0 slippage from missing snapshot.
+    """
+    plan_dict = plan.to_dict() if hasattr(plan, "to_dict") else plan
+    snapshot = plan_dict.get("cost_snapshot")
+    if not isinstance(snapshot, dict):
+        return {
+            "available": False,
+            "reason": "MISSING_COST_SNAPSHOT",
+            "entry_slippage_usd": 0.0,
+            "tp_slippage_usd": 0.0,
+            "sl_slippage_usd": 0.0,
+            "maker_fee_rate": 0.0002,
+            "taker_fee_rate": 0.0006,
+        }
+
+    entry_slip = snapshot.get("entry_slippage_usd")
+    if entry_slip is None:
+        entry_slip = snapshot.get("slippage_usd")
+
+    if entry_slip is None:
+        return {
+            "available": False,
+            "reason": "MISSING_ENTRY_SLIPPAGE",
+            "entry_slippage_usd": 0.0,
+            "tp_slippage_usd": 0.0,
+            "sl_slippage_usd": 0.0,
+            "maker_fee_rate": 0.0002,
+            "taker_fee_rate": 0.0006,
+        }
+
+    return {
+        "available": True,
+        "reason": None,
+        "entry_slippage_usd": float(entry_slip),
+        "tp_slippage_usd": float(snapshot.get("tp_slippage_usd", 0.0)),
+        "sl_slippage_usd": float(snapshot.get("sl_slippage_usd", entry_slip)),
+        "maker_fee_rate": float(snapshot.get("maker_fee_rate", 0.0002)),
+        "taker_fee_rate": float(snapshot.get("taker_fee_rate", 0.0006)),
+        "version": snapshot.get("version", 1),
+    }
 
 
 def compute_stop_excursions(
@@ -413,11 +618,15 @@ def advance_stop_comparison(
         or (quote_age > 15000)
     )
 
-    # Compute excursion for the evidence quote
-    excursion = compute_stop_excursions(direction, planned_entry, market_evidence)
-    curr_excursions = updated.setdefault("excursions", {"max_adverse": 0.0, "max_favorable": 0.0})
-    curr_excursions["max_adverse"] = max(curr_excursions.get("max_adverse", 0.0), excursion["adverse_price"])
-    curr_excursions["max_favorable"] = max(curr_excursions.get("max_favorable", 0.0), excursion["favorable_price"])
+    # Compute observation-level excursion for the evidence quote (Appendix B6)
+    obs_excursion = compute_stop_excursions(direction, planned_entry, market_evidence)
+    curr_excursions = updated.setdefault("observation_excursions", {"max_adverse": 0.0, "max_favorable": 0.0})
+    curr_excursions["max_adverse"] = max(curr_excursions.get("max_adverse", 0.0), obs_excursion["adverse_price"])
+    curr_excursions["max_favorable"] = max(curr_excursions.get("max_favorable", 0.0), obs_excursion["favorable_price"])
+    updated["excursions"] = curr_excursions
+
+    # Read verified cost snapshot for execution parity (Appendix B1 & B2)
+    costs = read_verified_comparison_cost_snapshot(updated)
 
     # Advance each variant independently
     for v_key in ("variant_a", "variant_b", "variant_c"):
@@ -451,7 +660,7 @@ def advance_stop_comparison(
             if not (is_valid and can_execute and meets_min_rr):
                 continue
 
-            # Intent-aware entry trigger evaluation (R4)
+            # Intent-aware entry trigger evaluation with slippage parity (Appendix B1-B3)
             order_type = (
                 v_data.get("order_type")
                 or v_data.get("entry_intent")
@@ -459,12 +668,14 @@ def advance_stop_comparison(
                 or updated.get("entry_intent")
                 or "MARKET"
             )
+            order_slip = costs["entry_slippage_usd"] if costs["available"] else 0.0
             triggered, supported, fill_price, entry_reason = evaluate_comparison_entry(
                 direction=direction,
                 planned_entry=planned_entry,
                 order_type=order_type,
                 bid=bid,
                 ask=ask,
+                order_slip=order_slip,
             )
             if not (supported and triggered):
                 v_data["wait_reason"] = entry_reason
@@ -474,16 +685,31 @@ def advance_stop_comparison(
             v_data["execution_state"] = "OPEN"
             v_data["opened_at_ms"] = as_of_ms
             v_data["actual_entry"] = fill_price
+            v_data["excursions"] = {"max_adverse": 0.0, "max_favorable": 0.0}
             v_data.pop("wait_reason", None)
 
         if v_data.get("execution_state") == "OPEN":
             actual_entry_px = float(v_data.get("actual_entry", planned_entry))
+
+            # Excursion tracking for OPEN variant based on actual entry (Appendix B6)
+            var_exc = v_data.setdefault("excursions", {"max_adverse": 0.0, "max_favorable": 0.0})
+            trade_exc = compute_stop_excursions(direction, actual_entry_px, market_evidence)
+            var_exc["max_adverse"] = max(var_exc.get("max_adverse", 0.0), trade_exc["adverse_price"])
+            var_exc["max_favorable"] = max(var_exc.get("max_favorable", 0.0), trade_exc["favorable_price"])
+
+            # Exit evaluation with full cost snapshot (Appendix B4)
+            full_cost_snap = {
+                "tp_slippage_usd": costs.get("tp_slippage_usd", 0.0),
+                "sl_slippage_usd": costs.get("sl_slippage_usd", costs.get("entry_slippage_usd", 0.0)),
+                "maker_fee_rate": costs.get("maker_fee_rate", 0.0002),
+                "taker_fee_rate": costs.get("taker_fee_rate", 0.0006),
+            }
             mock_order = {
                 "direction": direction,
                 "planned_entry": actual_entry_px,
                 "stop_loss": sl_price,
                 "take_profit": take_profit,
-                "cost_snapshot": json.dumps({"tp_slippage_usd": 0.0}),
+                "cost_snapshot": json.dumps(full_cost_snap),
             }
             exit_dec = evaluate_order_exit(mock_order, market_evidence)
             if exit_dec.triggered:

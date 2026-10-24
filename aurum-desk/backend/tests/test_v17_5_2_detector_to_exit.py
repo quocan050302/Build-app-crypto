@@ -218,31 +218,14 @@ def test_full_detector_to_exit_short_continuation(detector_env):
     db.commit()
 
     # 5. ACTUAL POST-TRADE REVIEW CLASSIFICATION
-    from services.post_trade_review_service import PostTradeReview, EntryComplianceResult
-    rev = PostTradeReview(
-        order_id=order.id,
-        symbol="XAUUSDT",
-        model_id="M1_CONTINUATION",
-        direction="SHORT",
-        planned_entry=order.planned_entry,
-        actual_entry=order.actual_entry,
-        planned_sl=order.stop_loss,
-        planned_tp=order.take_profit,
-        exit_price=order.take_profit,
-        exit_cause="TP_HIT",
-        gross_pnl=5.0,
-        net_pnl=4.5,
-        realized_rr=2.0,
-        hold_time_ms=10000,
-        entry_slippage_usd=0.0,
-        loss_classification=None,
-        outcome_status="WIN",
-    )
+    from services.post_trade_review_service import build_post_trade_review, EntryComplianceResult
+    rev = build_post_trade_review(order=closed)
     comp = EntryComplianceResult(status="VERIFIED_COMPLIANT", reason="Kế hoạch hợp lệ", missing_evidence=[])
-    entry_snap = json.loads(order.cost_snapshot) if order.cost_snapshot else {}
+    entry_snap = json.loads(closed.cost_snapshot) if closed.cost_snapshot else {}
     classification = classify_post_trade_lesson(review=rev, entry_snapshot=entry_snap, compliance_result=comp)
     assert classification is not None
     assert classification.suggested_color == "GREEN"
+    assert rev.gross_pnl > 0.0
 
 
 def test_full_detector_to_exit_long_continuation(detector_env):

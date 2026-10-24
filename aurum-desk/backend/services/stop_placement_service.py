@@ -278,6 +278,7 @@ def resolve_stop_anchor(
     selected_fvg: Optional[Dict[str, Any]] = None,
     selected_sweep: Optional[Dict[str, Any]] = None,
     confirmed_swings: Optional[Tuple[Sequence[Dict[str, Any]], Sequence[Dict[str, Any]]]] = None,
+    tick_size: float = 0.01,
 ) -> StopAnchorResult:
     """
     Identifies the model-specific structural protective anchor.
@@ -357,6 +358,7 @@ def resolve_stop_anchor(
                 candidate_pivots=pivots,
                 decision_cutoff_ms=as_of_ms,
                 as_of_ms=as_of_ms,
+                tick_size=tick_size,
             )
             if bound_leg is None:
                 return StopAnchorResult(
@@ -382,7 +384,7 @@ def resolve_stop_anchor(
                     anchor=None,
                     reasons=("ANCHOR_ALREADY_INVALIDATED",),
                 )
-            return StopAnchorResult(status="AVAILABLE", anchor=anchor)
+            return StopAnchorResult(status="AVAILABLE", anchor=anchor, bound_leg=bound_leg)
 
     # 3. Continuation (M1 Trend BOS)
     if confirmed_swings:
@@ -416,6 +418,7 @@ def resolve_stop_anchor(
             candidate_pivots=pivots,
             decision_cutoff_ms=as_of_ms,
             as_of_ms=as_of_ms,
+            tick_size=tick_size,
         )
         if bound_leg is None:
             return StopAnchorResult(
@@ -441,7 +444,7 @@ def resolve_stop_anchor(
                 anchor=None,
                 reasons=("ANCHOR_ALREADY_INVALIDATED",),
             )
-        return StopAnchorResult(status="AVAILABLE", anchor=anchor)
+        return StopAnchorResult(status="AVAILABLE", anchor=anchor, bound_leg=bound_leg)
 
     return StopAnchorResult(
         status="WAITING_EVIDENCE",
@@ -477,6 +480,7 @@ def plan_structural_stop(
             status=StopStatus.VALID.value,
             selected_sl=legacy_sl,
             anchor=None,
+            bound_leg=None,
             buffer=None,
             metrics=StopMetrics(
                 price_distance=dist,
@@ -497,6 +501,7 @@ def plan_structural_stop(
             status=StopStatus.WAITING_EVIDENCE.value,
             selected_sl=sel_sl,
             anchor=None,
+            bound_leg=None,
             buffer=buffer_result,
             metrics=StopMetrics(
                 price_distance=dist,
@@ -533,6 +538,7 @@ def plan_structural_stop(
             status=StopStatus.REJECTED_GEOMETRY.value,
             selected_sl=sel_sl,
             anchor=anchor,
+            bound_leg=getattr(anchor_result, "bound_leg", None),
             buffer=buffer_result,
             metrics=StopMetrics(
                 price_distance=dist,
@@ -566,6 +572,7 @@ def plan_structural_stop(
         status=StopStatus.VALID.value,
         selected_sl=selected_sl,
         anchor=anchor,
+        bound_leg=getattr(anchor_result, "bound_leg", None),
         buffer=buffer_result,
         metrics=metrics,
         reasons=(),
@@ -686,6 +693,8 @@ def resolve_bound_stop_leg(
     break_bar: Optional[Any] = None,
     decision_cutoff_ms: int = 0,
     as_of_ms: int = 0,
+    tolerance_tick: Optional[float] = None,
+    tick_size: float = 0.01,
 ) -> Optional[Any]:
     """
     Verifies and constructs a SelectedStopLeg descriptor binding the protective pivot
@@ -694,8 +703,9 @@ def resolve_bound_stop_leg(
     1. Origin pivot occurred strictly before break bar open/cutoff.
     2. Origin pivot was known before or at decision cutoff.
     3. Break bar occurred and was known at or before decision cutoff.
-    4. Origin pivot price matches the candle extreme within tick tolerance (when closed bars available).
-    5. Break bar actually closed through the reference price (when reference & bar available).
+    4. Origin pivot price matches the candle extreme within instrument tick tolerance.
+       Source candle MUST exist in closed_bars if closed_bars are provided.
+    5. Break bar actually closed strictly through the reference price (no equality, no wick-only).
     """
     from services.stop_placement_types import SelectedStopLeg
 
@@ -751,44 +761,93 @@ def resolve_bound_stop_leg(
         return None
     norm_dir = direction.upper()
 
-    if candidate_pivots and not candidate_pivot:
+    tolerance = float(tolerance_tick if tolerance_tick is not None else tick_size)
+    if tolerance <= 0:
+        tolerance = 0.01
+
+    def _verify_pivot_source_and_extreme(p: Dict[str, Any]) -> bool:
+        if not closed_bars:
+            return True
+        p_occ = int(p.get("occurred_at_ms", 0))
+        p_px = float(p.get("price", 0.0))
+        matched = False
+        for b in closed_bars:
+            if _candle_open_ms(b) == p_occ:
+                matched = True
+                try:
+                    _, h, l, _ = _candle_ohlc(b)
+                except Exception:
+                    return False
+                if norm_dir == "SHORT" and abs(p_px - h) > tolerance:
+                    return False
+                elif norm_dir == "LONG" and abs(p_px - l) > tolerance:
+                    return False
+                break
+        return matched  # Missing source candle in closed_bars fails validation
+
+    target_origin_id = None
+    episode_start_ms = None
+    if selected_break:
+        target_origin_id = (
+            selected_break.get("origin_pivot_id")
+            or selected_break.get("origin_id")
+            or selected_break.get("target_origin_id")
+        )
+        episode_start_ms = (
+            selected_break.get("episode_start_ms")
+            or selected_break.get("leg_start_ms")
+            or selected_break.get("origin_occurred_at_ms")
+        )
+
+    all_pivots = list(candidate_pivots) if candidate_pivots else ([] if candidate_pivot is None else [candidate_pivot])
+
+    chosen_pivot = None
+    if all_pivots:
         valid_candidates = []
-        for p in candidate_pivots:
+        for p in all_pivots:
             p_occ = int(p.get("occurred_at_ms", 0))
             p_known = int(p.get("known_at_ms", p_occ))
             if p_occ < break_time and (cutoff == 0 or p_known <= cutoff):
+                if episode_start_ms is not None and p_occ < int(episode_start_ms):
+                    continue
                 valid_candidates.append(p)
-        if valid_candidates:
-            # Deterministic selection: closest before break, tie-break known_at, then id
-            valid_candidates.sort(
-                key=lambda p: (int(p.get("occurred_at_ms", 0)), int(p.get("known_at_ms", 0)), str(p.get("id", ""))),
-                reverse=True,
-            )
-            candidate_pivot = valid_candidates[0]
 
-    if not candidate_pivot:
+        if valid_candidates:
+            # 1. If target_origin_id specified by selected_break/detector, verify and prioritize it
+            if target_origin_id:
+                for p in valid_candidates:
+                    if str(p.get("id", "")) == str(target_origin_id):
+                        if _verify_pivot_source_and_extreme(p):
+                            chosen_pivot = p
+                            break
+
+            # 2. Otherwise sort deterministically: closest before break, tie-break known_at, then id
+            if chosen_pivot is None:
+                valid_candidates.sort(
+                    key=lambda p: (
+                        int(p.get("occurred_at_ms", 0)),
+                        int(p.get("known_at_ms", 0)),
+                        str(p.get("id", "")),
+                    ),
+                    reverse=True,
+                )
+                for p in valid_candidates:
+                    if _verify_pivot_source_and_extreme(p):
+                        chosen_pivot = p
+                        break
+
+    if not chosen_pivot:
         return None
 
-    pivot_occ = int(candidate_pivot.get("occurred_at_ms", 0))
-    pivot_known = int(candidate_pivot.get("known_at_ms", pivot_occ))
+    pivot_occ = int(chosen_pivot.get("occurred_at_ms", 0))
+    pivot_known = int(chosen_pivot.get("known_at_ms", pivot_occ))
+    pivot_px = float(chosen_pivot.get("price", 0.0))
 
     # Invariant: Origin pivot must occur strictly before the break bar
     if pivot_occ >= break_time or (cutoff > 0 and pivot_known > cutoff):
         return None
 
-    pivot_px = float(candidate_pivot.get("price", 0.0))
-
-    # Verify pivot price matches candle extreme if closed_bars provided
-    if closed_bars:
-        for b in closed_bars:
-            if _candle_open_ms(b) == pivot_occ:
-                _, h, l, _ = _candle_ohlc(b)
-                if norm_dir == "SHORT" and abs(pivot_px - h) > 0.05:
-                    return None
-                elif norm_dir == "LONG" and abs(pivot_px - l) > 0.05:
-                    return None
-                break
-
+    # Verify break bar close through reference if available (strict close-through: no equality)
     broken_ref_price = None
     if selected_break:
         broken_ref_price = (
@@ -797,18 +856,17 @@ def resolve_bound_stop_leg(
             else selected_break.get("reference_price")
         )
 
-    # Verify break bar close through reference if available
     b_bar = break_bar or (selected_break.get("bar") if selected_break else None)
     if b_bar and broken_ref_price is not None:
         try:
             _, _, _, b_close = _candle_ohlc(b_bar)
             ref_px = float(broken_ref_price)
-            if norm_dir == "SHORT" and b_close > ref_px:
+            if norm_dir == "SHORT" and b_close >= ref_px:
                 return None
-            elif norm_dir == "LONG" and b_close < ref_px:
+            elif norm_dir == "LONG" and b_close <= ref_px:
                 return None
         except Exception:
-            pass
+            return None
 
     break_id = str(selected_break.get("id") if selected_break else f"brk_{break_time}")
     break_known = (
@@ -832,7 +890,7 @@ def resolve_bound_stop_leg(
         direction=norm_dir,
         instance_id=instance_id,
         leg_id=str((selected_break and selected_break.get("id")) or f"leg_{break_time}"),
-        origin_pivot_id=str(candidate_pivot.get("id", "")),
+        origin_pivot_id=str(chosen_pivot.get("id", "")),
         origin_price=pivot_px,
         origin_occurred_at_ms=pivot_occ,
         origin_known_at_ms=pivot_known,
