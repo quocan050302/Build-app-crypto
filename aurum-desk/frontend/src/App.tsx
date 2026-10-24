@@ -61,6 +61,7 @@ import type { CandidateScoreSummary } from './types/candidateScore';
 import { CandidateScoreBadge } from './components/CandidateScoreBadge';
 import { useRrPolicySettings, type RrPolicySaved } from './hooks/useRrPolicySettings';
 import { RrPolicySettingsCard } from './components/RrPolicySettingsCard';
+import { StopPlacementSettings } from './components/StopPlacementSettings';
 import { getOrderRrFields, rebaseDraftRrPolicy, rebaseTradeIntentRrPolicy, type CurrentPolicyContext } from './utils/rrPolicyView';
 
 export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION' | 'SCENARIO';
@@ -2955,6 +2956,9 @@ function AppContent() {
                 onRetryRead={rrPolicy.refresh}
                 onRetrySync={handleRetrySync}
               />
+
+              {/* V17.5 Stop Placement Policy Settings Card */}
+              <StopPlacementSettings />
 
               {/* Liquidation safety rules */}
               <div className="p-3.5 bg-charcoal-850 rounded-lg border border-charcoal-700 text-xs space-y-2">

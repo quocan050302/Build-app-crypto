@@ -1814,7 +1814,18 @@ def classify_post_trade_lesson(
         reason = f"Xanh vì giao dịch tuân thủ kế hoạch đã xác minh và đóng hòa vốn ({review.net_pnl:+.2f} USDT)."
         code = "PLAN_COMPLIANT_BREAKEVEN"
     elif review.loss_classification == LossClassification.STRATEGY_VALID_LOSS.value or review.exit_cause in ("SL_HIT", "STOP_LOSS"):
-        reason = "Xanh vì dừng lỗ hợp lệ theo đúng cấu trúc và tuân thủ kế hoạch đã xác minh; tiếp tục thu thập mẫu dữ liệu."
+        has_stop_evidence = False
+        if entry_snapshot and isinstance(entry_snapshot, dict):
+            cost_snap = entry_snapshot.get("cost_snapshot")
+            has_stop_evidence = bool(
+                entry_snapshot.get("stop_placement")
+                or (isinstance(cost_snap, dict) and cost_snap.get("stop_placement"))
+                or (isinstance(cost_snap, str) and "stop_placement" in cost_snap)
+            )
+        if has_stop_evidence:
+            reason = "Xanh vì dừng lỗ hợp lệ theo đúng cấu trúc và tuân thủ kế hoạch đã xác minh; tiếp tục thu thập mẫu dữ liệu."
+        else:
+            reason = "Xanh vì thực thi đúng kế hoạch; chất lượng điểm SL chưa được kiểm chứng do thiếu bằng chứng cấu trúc."
         code = "PLAN_COMPLIANT_VALID_LOSS"
     else:
         reason = "Xanh vì kế hoạch thực thi đạt chuẩn tuân thủ đã xác minh; ghi nhận quan sát cho các chu kỳ tiếp theo."

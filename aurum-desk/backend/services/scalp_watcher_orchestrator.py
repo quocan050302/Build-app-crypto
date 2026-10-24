@@ -568,6 +568,35 @@ class ScalpWatcherOrchestrator:
         if atr_15m <= 0:
             atr_15m = 2.0
 
+        # V17.5: Stop Placement Policy & Volatility Context resolved once per cycle (PHẦN 021, 029, 081)
+        from services.stop_placement_policy_service import resolve_stop_placement_policy
+        from services.stop_placement_service import compute_stop_atr
+        stop_policy = resolve_stop_placement_policy(db)
+
+        atr_m1_obj = None
+        atr_m5_obj = None
+        if c_1m:
+            try:
+                c1m_closed = closed_candles_at(c_1m, now_ms=t_recv, duration_ms=60_000)
+                if c1m_closed:
+                    atr_m1_obj = compute_stop_atr(c1m_closed, period=stop_policy.atr_period, timeframe="1M", as_of_ms=t_recv)
+            except Exception:
+                pass
+        if c_5m:
+            try:
+                c5m_closed = closed_candles_at(c_5m, now_ms=t_recv, duration_ms=300_000)
+                if c5m_closed:
+                    atr_m5_obj = compute_stop_atr(c5m_closed, period=stop_policy.atr_period, timeframe="5M", as_of_ms=t_recv)
+            except Exception:
+                pass
+
+        stop_context = {
+            "atr_m1": atr_m1_obj,
+            "atr_m5": atr_m5_obj,
+            "bid": bid,
+            "ask": ask,
+        }
+
         # Rules 105 - 108: Causal HTF Resolution for evaluate_cycle
         from services.smc_regime_service import build_htf_context, h1_alignment_from
 
@@ -1159,7 +1188,8 @@ class ScalpWatcherOrchestrator:
                         continue
 
                     cand = ScalpM1ModelService.evaluate_m1_reversal_candidate(
-                        z, c_1m, q, policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels
+                        z, c_1m, q, policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels,
+                        stop_policy=stop_policy, stop_context=stop_context,
                     )
                     if cand.is_eligible:
                         cand.hypothesis_id = zone_hyp.hypothesis_id
@@ -1205,7 +1235,8 @@ class ScalpWatcherOrchestrator:
         }
         if run_cont:
             cand_cont = ScalpM1ModelService.evaluate_m1_continuation_candidate(
-                c_1m, c_5m, q, bias, align, policy_dict, now_ms=t_recv, config=cfg
+                c_1m, c_5m, q, bias, align, policy_dict, now_ms=t_recv, config=cfg,
+                stop_policy=stop_policy, stop_context=stop_context,
             )
             if cand_cont.is_eligible:
                 cand_cont.regime_snapshot = regime_snapshot
@@ -1235,7 +1266,8 @@ class ScalpWatcherOrchestrator:
         if run_fvg:
             cand_fvg_cont = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
                 closed_1m=c_1m, closed_5m=c_5m, quote=q, htf_bias=bias, h1_alignment=align,
-                policy_settings=policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels
+                policy_settings=policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels,
+                stop_policy=stop_policy, stop_context=stop_context,
             )
             if cand_fvg_cont.is_eligible:
                 cand_fvg_cont.regime_snapshot = regime_snapshot
@@ -1271,7 +1303,8 @@ class ScalpWatcherOrchestrator:
                 if getattr(cluster, "state", "") in ("SWEPT", "RECLAIMED"):
                     cand_sr = ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate(
                         closed_1m=c_1m, cluster=cluster, quote=q, policy_settings=policy_dict,
-                        now_ms=t_recv, config=cfg, context_levels=liq_levels
+                        now_ms=t_recv, config=cfg, context_levels=liq_levels,
+                        stop_policy=stop_policy, stop_context=stop_context,
                     )
                     if cand_sr.is_eligible:
                         cand_sr.regime_snapshot = regime_snapshot
@@ -1341,6 +1374,7 @@ class ScalpWatcherOrchestrator:
                 closed_ctx, q, config=cg01_cfg, now_ms=t_recv,
                 capital=policy_dict["capital_usdt"], risk_pct=policy_dict["risk_pct"],
                 costs=costs_to_pass,
+                stop_policy=stop_policy, stop_context=stop_context,
             )
             if cg01_dec and getattr(cg01_dec, "daily_bias", None):
                 publish_current_cg01_bias_authority(
@@ -1411,6 +1445,14 @@ class ScalpWatcherOrchestrator:
             effective_scalp_mode = ScalpMode.SHADOW.value
 
         for cand in candidates:
+            # V17.5: Persist paired research stop comparison plan (PHẦN 101, 102, 112)
+            if getattr(cand, "stop_comparison", None) is not None:
+                try:
+                    from services.stop_placement_research_service import persist_stop_comparison
+                    persist_stop_comparison(db, cand.stop_comparison, now_ms=t_recv)
+                except Exception as e:
+                    logger.warning(f"Error persisting stop comparison for {cand.candidate_key}: {e}")
+
             opp_eval = OpportunityEvaluation(
                 opportunity_id=f"opp_{cand.candidate_key}",
                 symbol=symbol,
@@ -1698,6 +1740,13 @@ class ScalpWatcherOrchestrator:
         # Validate calculation output (PHẦN 026, 037)
         if calc is None or not getattr(calc, "is_valid", False) or not getattr(calc, "can_execute", False):
             logger.info(f"Candidate calculation is invalid or cannot execute: {getattr(calc, 'skip_reason', None) or getattr(calc, 'invalid_reason', None)}")
+            return None
+
+        # PHẦN 084: Invariant validation between cand.stop_loss and calc.stop_loss (STOP_PLAN_MISMATCH)
+        cand_sl = float(getattr(cand, "stop_loss", 0.0))
+        calc_sl = float(getattr(calc, "stop_loss", cand_sl))
+        if abs(cand_sl - calc_sl) > 1e-4:
+            logger.error(f"STOP_PLAN_MISMATCH: cand.stop_loss ({cand_sl}) != calc.stop_loss ({calc_sl})")
             return None
 
         qty = float(getattr(calc, "quantity", 0.0))
@@ -2223,6 +2272,19 @@ class ScalpWatcherOrchestrator:
             arm_snap["sr_evidence"] = cand.sr_evidence
         if quality_assessment:
             arm_snap["quality_assessment"] = quality_assessment.to_dict()
+
+        # V17.5: Stop Placement additive metadata in arm_snap (PHẦN 085, 086)
+        if getattr(cand, "stop_placement", None) is not None:
+            sp = cand.stop_placement
+            arm_snap["stop_placement"] = sp.to_dict() if hasattr(sp, "to_dict") else sp
+        if getattr(cand, "stop_comparison", None) is not None:
+            sc = cand.stop_comparison
+            arm_snap["stop_comparison_plan_id"] = getattr(sc, "opportunity_key", None) or getattr(sc, "id", None)
+            arm_snap["stop_comparison"] = sc.to_dict() if hasattr(sc, "to_dict") else sc
+        from services.stop_placement_policy_service import resolve_stop_placement_policy
+        current_sp_policy = resolve_stop_placement_policy(db)
+        arm_snap["stop_mode_at_arm"] = current_sp_policy.mode
+        arm_snap["stop_policy_version"] = current_sp_policy.version
 
         order_id = f"ord_{cand.model_id}_{cand.candidate_key}"
         order = models.PaperOrder(

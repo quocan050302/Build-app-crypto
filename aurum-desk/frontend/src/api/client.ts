@@ -1420,4 +1420,48 @@ export interface PaginatedNotificationHistoryResponse {
   page_size: number;
 }
 
+// V17.5: Stop Placement & Paired Research API
+export interface StopPlacementPolicyDTO {
+  mode: string;
+  version: number;
+  atr_period: number;
+  atr_method: string;
+  min_buffer_ticks: number;
+  atr_m1_multiplier: number;
+  atr_m5_multiplier: number;
+  spread_multiplier: number;
+  application_scope: string;
+  summary_vi: string;
+}
+
+export interface StopPlacementPolicyUpdatePayload {
+  mode?: string;
+  expected_version: number;
+  atr_period?: number;
+  atr_method?: string;
+  min_buffer_ticks?: number;
+  atr_m1_multiplier?: number;
+  atr_m5_multiplier?: number;
+  spread_multiplier?: number;
+}
+
+export async function getStopPlacementPolicy(): Promise<StopPlacementPolicyDTO> {
+  const res = await apiClient.get<StopPlacementPolicyDTO>('/api/v1/policy/stop-placement');
+  return res.data;
+}
+
+export async function updateStopPlacementPolicy(payload: StopPlacementPolicyUpdatePayload): Promise<StopPlacementPolicyDTO> {
+  const res = await apiClient.put<StopPlacementPolicyDTO>('/api/v1/policy/stop-placement', payload);
+  return res.data;
+}
+
+export async function getStopPlacementSummary(params?: Record<string, any>): Promise<any> {
+  const res = await apiClient.get('/api/v1/research/stop-placement/summary', { params });
+  return res.data;
+}
+
+export async function getOrderStopEvidence(orderId: string): Promise<any> {
+  const res = await apiClient.get(`/api/v1/orders/${orderId}/stop-evidence`);
+  return res.data;
+}
 

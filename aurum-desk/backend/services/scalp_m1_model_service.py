@@ -367,6 +367,123 @@ class ScalpCandidate:
     sr_evidence: Optional[List[Dict[str, Any]]] = None
     authority_binding: Optional[Dict[str, Any]] = None
     selection_reason: Optional[str] = None
+    stop_placement: Optional[Any] = None
+    stop_comparison: Optional[Any] = None
+
+
+def apply_stop_placement_to_candidate(
+    *,
+    model_id: str,
+    direction: str,
+    entry_price: float,
+    baseline_sl: float,
+    baseline_target: float,
+    closed_1m: Sequence[Any],
+    now_ms: int,
+    cfg: Any,
+    policy_settings: Dict[str, Any],
+    stop_policy: Optional[Any],
+    stop_context: Optional[Dict[str, Any]],
+    candidate_key: str,
+    anchor_result: Any,
+    atr_1m_val: float,
+    bid: float,
+    ask: float,
+) -> Tuple[float, float, Any, Optional[Any], Optional[Any]]:
+    """
+    Applies V17.5 Stop Placement policy and returns:
+    (final_sl, final_target, calc_res, stop_decision, stop_comparison_plan)
+    CRITICAL: baseline_target is FROZEN and NEVER recalculated from proposed stop!
+    """
+    capital = float(policy_settings.get("capital_usdt", 1000.0))
+    risk_pct = float(policy_settings.get("risk_pct", getattr(cfg, "fallback_risk_pct", 0.1)))
+    lev = int(policy_settings.get("leverage", 50))
+    margin_mode = str(policy_settings.get("margin_mode", "ISOLATED"))
+    min_net_rr = float(getattr(cfg, "min_net_rr", 1.5))
+    tick_sz = float(getattr(cfg, "tick_size", 0.01))
+
+    if stop_policy is None:
+        calc = calculate_risk_reward(
+            direction=direction,
+            planned_entry=entry_price,
+            stop_loss=baseline_sl,
+            take_profit=baseline_target,
+            capital_usdt=capital,
+            risk_pct=risk_pct,
+            leverage=lev,
+            margin_mode=margin_mode,
+            min_net_rr=min_net_rr,
+        )
+        return baseline_sl, baseline_target, calc, None, None
+
+    from services.stop_placement_service import compute_stop_atr, compute_stop_buffer, plan_structural_stop
+    from services.stop_placement_research_service import build_stop_comparison_plan
+
+    atr_m1_obj = (stop_context or {}).get("atr_m1")
+    atr_m5_obj = (stop_context or {}).get("atr_m5")
+    if atr_m1_obj is None and closed_1m:
+        atr_m1_obj = compute_stop_atr(closed_1m, period=stop_policy.atr_period, timeframe="1M", as_of_ms=now_ms)
+
+    buffer_res = compute_stop_buffer(
+        policy=stop_policy,
+        tick_size=tick_sz,
+        atr_m1=atr_m1_obj,
+        atr_m5=atr_m5_obj,
+        bid=bid,
+        ask=ask,
+    )
+
+    stop_dec = plan_structural_stop(
+        direction=direction,
+        planned_entry=entry_price,
+        take_profit=baseline_target,
+        legacy_sl=baseline_sl,
+        anchor_result=anchor_result,
+        buffer_result=buffer_res,
+        policy=stop_policy,
+        as_of_ms=now_ms,
+        tick_size=tick_sz,
+        atr_m1_val=atr_1m_val,
+    )
+
+    comp_plan = build_stop_comparison_plan(
+        opportunity_key=candidate_key,
+        model_id=model_id,
+        symbol="XAUUSDT",
+        direction=direction,
+        planned_entry=entry_price,
+        take_profit=baseline_target,
+        legacy_sl=baseline_sl,
+        anchor=anchor_result.anchor if (anchor_result and hasattr(anchor_result, "anchor")) else None,
+        buffer_result=buffer_res,
+        policy_settings=policy_settings,
+        tick_size=tick_sz,
+        min_net_rr=min_net_rr,
+        atr_m1=atr_m1_obj.value if atr_m1_obj else None,
+        atr_m5=atr_m5_obj.value if atr_m5_obj else None,
+        spread=max(0.0, ask - bid),
+        policy_version=stop_policy.version,
+        now_ms=now_ms,
+    )
+
+    if getattr(stop_policy, "mode", "") == "PAPER_STRUCTURAL" and getattr(stop_dec, "status", "") == "VALID":
+        selected_sl = stop_dec.selected_sl
+    else:
+        selected_sl = baseline_sl
+
+    calc = calculate_risk_reward(
+        direction=direction,
+        planned_entry=entry_price,
+        stop_loss=selected_sl,
+        take_profit=baseline_target,
+        capital_usdt=capital,
+        risk_pct=risk_pct,
+        leverage=lev,
+        margin_mode=margin_mode,
+        min_net_rr=min_net_rr,
+    )
+
+    return selected_sl, baseline_target, calc, stop_dec, comp_plan
 
 
 def candle_open_ms(bar: Any) -> Optional[int]:
@@ -960,6 +1077,8 @@ class ScalpM1ModelService:
         now_ms: int,
         config: Optional[M1ScalpConfig] = None,
         context_levels: Optional[Sequence[Any]] = None,
+        stop_policy: Optional[Any] = None,
+        stop_context: Optional[Dict[str, Any]] = None,
     ) -> ScalpCandidate:
         """
         Evaluate M1 Reversal Candidate (PHẦN 040 - 050).
@@ -1336,32 +1455,51 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms, zone_id=zone.zone_id,
             )
 
-        # Price geometry check
+        # V17.5: Stop Placement & Paired Research resolution
+        anchor_res = None
+        if stop_policy is not None:
+            from services.stop_placement_service import resolve_stop_anchor
+            anchor_res = resolve_stop_anchor(
+                model_id=model_id,
+                direction=direction,
+                closed_bars=closed_1m,
+                as_of_ms=now_ms,
+                selected_sweep={
+                    "id": f"rev_sweep_{sweep_ts}",
+                    "price": sweep_price,
+                    "occurred_at_ms": sweep_ts,
+                    "known_at_ms": sweep_ts + 60_000,
+                },
+            )
+
+        sl_price, target_price, calc_res, stop_dec, comp_plan = apply_stop_placement_to_candidate(
+            model_id=model_id,
+            direction=direction,
+            entry_price=entry_price,
+            baseline_sl=sl_price,
+            baseline_target=target_price,
+            closed_1m=closed_1m,
+            now_ms=now_ms,
+            cfg=cfg,
+            policy_settings=policy_settings,
+            stop_policy=stop_policy,
+            stop_context=stop_context,
+            candidate_key=candidate_key,
+            anchor_result=anchor_res,
+            atr_1m_val=atr_1m,
+            bid=bid,
+            ask=ask,
+        )
+
         is_geom, geom_err = validate_price_geometry(direction, entry_price, sl_price, target_price)
         if not is_geom:
             return ScalpCandidate(
                 is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
                 reason_code="INVALID_GEOMETRY", missing_conditions=[f"Sai hình học giá: {geom_err}"],
                 as_of_ms=now_ms, zone_id=zone.zone_id,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
-
-        # Net RR calculation via canonical calculator (PHẦN 037, 038)
-        capital = float(policy_settings.get("capital_usdt", 1000.0))
-        risk_pct = float(policy_settings.get("risk_pct", cfg.fallback_risk_pct))
-        lev = int(policy_settings.get("leverage", 50))
-        margin_mode = str(policy_settings.get("margin_mode", "ISOLATED"))
-
-        calc_res = calculate_risk_reward(
-            direction=direction,
-            planned_entry=entry_price,
-            stop_loss=sl_price,
-            take_profit=target_price,
-            capital_usdt=capital,
-            risk_pct=risk_pct,
-            leverage=lev,
-            margin_mode=margin_mode,
-            min_net_rr=cfg.min_net_rr,
-        )
 
         if not calc_res.is_valid:
             return ScalpCandidate(
@@ -1370,6 +1508,8 @@ class ScalpM1ModelService:
                 reason_code="CALCULATOR_INVALID",
                 missing_conditions=[f"Kế hoạch tính toán không hợp lệ: {calc_res.invalid_reason}"],
                 as_of_ms=now_ms, zone_id=zone.zone_id,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
 
         if not calc_res.can_execute:
@@ -1379,6 +1519,8 @@ class ScalpM1ModelService:
                 reason_code="CANNOT_EXECUTE",
                 missing_conditions=[f"Không đủ điều kiện thực thi: {calc_res.skip_reason}"],
                 as_of_ms=now_ms, zone_id=zone.zone_id,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
 
         if not calc_res.meets_min_rr:
@@ -1389,6 +1531,8 @@ class ScalpM1ModelService:
                 reason_code=OpportunityReasonCode.INSUFFICIENT_NET_REWARD.value,
                 missing_conditions=[f"Net R:R không đạt ngưỡng tối thiểu ({calc_res.net_rr:.2f} < {cfg.min_net_rr:.2f})"],
                 as_of_ms=now_ms, zone_id=zone.zone_id,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
 
         # Build evidence nodes including retest node with exact causal timestamps (PHẦN 042, 112, Rules 041-044)
@@ -1501,6 +1645,7 @@ class ScalpM1ModelService:
                 "take_profit": target_price,
                 "net_rr": calc_res.net_rr,
                 "gross_rr": calc_res.gross_rr,
+                **({"stop_placement": stop_dec.to_dict() if hasattr(stop_dec, "to_dict") else stop_dec} if stop_dec is not None else {}),
             },
             evidence=ev_nodes,
         )
@@ -1522,6 +1667,8 @@ class ScalpM1ModelService:
             snapshot=snap,
             as_of_ms=now_ms,
             zone_id=zone.zone_id,
+            stop_placement=stop_dec,
+            stop_comparison=comp_plan,
         )
 
     @staticmethod
@@ -1536,6 +1683,8 @@ class ScalpM1ModelService:
         now_ms: int,
         config: Optional[M1ScalpConfig] = None,
         context_levels: Optional[Sequence[Any]] = None,
+        stop_policy: Optional[Any] = None,
+        stop_context: Optional[Dict[str, Any]] = None,
     ) -> ScalpCandidate:
         """
         Evaluate M1 Continuation Candidate (PHẦN 051).
@@ -1671,30 +1820,47 @@ class ScalpM1ModelService:
             risk_dist = sl_price - entry_price
             target_price = round(entry_price - max(risk_dist * 2.5, 3.0 * atr_1m), 2)
 
+        # V17.5: Stop Placement & Paired Research resolution
+        anchor_res = None
+        if stop_policy is not None:
+            from services.stop_placement_service import resolve_stop_anchor
+            anchor_res = resolve_stop_anchor(
+                model_id=model_id,
+                direction=direction,
+                closed_bars=closed_1m,
+                as_of_ms=now_ms,
+                selected_break={"id": f"bos_{break_bar_open}", "bar": breaking_bars[-1]},
+                confirmed_swings=(sh_list, sl_list),
+            )
+
+        sl_price, target_price, calc_res, stop_dec, comp_plan = apply_stop_placement_to_candidate(
+            model_id=model_id,
+            direction=direction,
+            entry_price=entry_price,
+            baseline_sl=sl_price,
+            baseline_target=target_price,
+            closed_1m=closed_1m,
+            now_ms=now_ms,
+            cfg=cfg,
+            policy_settings=policy_settings,
+            stop_policy=stop_policy,
+            stop_context=stop_context,
+            candidate_key=candidate_key,
+            anchor_result=anchor_res,
+            atr_1m_val=atr_1m,
+            bid=bid,
+            ask=ask,
+        )
+
         is_geom, geom_err = validate_price_geometry(direction, entry_price, sl_price, target_price)
         if not is_geom:
             return ScalpCandidate(
                 is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
                 reason_code="INVALID_GEOMETRY", missing_conditions=[f"Sai hình học giá: {geom_err}"],
                 as_of_ms=now_ms,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
-
-        capital = float(policy_settings.get("capital_usdt", 1000.0))
-        risk_pct = float(policy_settings.get("risk_pct", cfg.fallback_risk_pct))
-        lev = int(policy_settings.get("leverage", 50))
-        margin_mode = str(policy_settings.get("margin_mode", "ISOLATED"))
-
-        calc_res = calculate_risk_reward(
-            direction=direction,
-            planned_entry=entry_price,
-            stop_loss=sl_price,
-            take_profit=target_price,
-            capital_usdt=capital,
-            risk_pct=risk_pct,
-            leverage=lev,
-            margin_mode=margin_mode,
-            min_net_rr=cfg.min_net_rr,
-        )
 
         if not calc_res.is_valid:
             return ScalpCandidate(
@@ -1703,6 +1869,8 @@ class ScalpM1ModelService:
                 reason_code="CALCULATOR_INVALID",
                 missing_conditions=[f"Kế hoạch tính toán không hợp lệ: {calc_res.invalid_reason}"],
                 as_of_ms=now_ms,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
 
         if not calc_res.can_execute:
@@ -1712,6 +1880,8 @@ class ScalpM1ModelService:
                 reason_code="CANNOT_EXECUTE",
                 missing_conditions=[f"Không đủ điều kiện thực thi: {calc_res.skip_reason}"],
                 as_of_ms=now_ms,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
 
         if not calc_res.meets_min_rr:
@@ -1722,15 +1892,20 @@ class ScalpM1ModelService:
                 reason_code=OpportunityReasonCode.INSUFFICIENT_NET_REWARD.value,
                 missing_conditions=[f"Net R:R không đạt ngưỡng tối thiểu ({calc_res.net_rr:.2f} < {cfg.min_net_rr:.2f})"],
                 as_of_ms=now_ms,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
 
-        bos_bar_open_ms = candle_open_ms(closed_1m[-1])
+        bos_bar = breaking_bars[-1] if breaking_bars else closed_1m[-1]
+        bos_bar_open_ms = candle_open_ms(bos_bar) or candle_open_ms(closed_1m[-1])
         if bos_bar_open_ms is None or bos_bar_open_ms <= 0:
             return ScalpCandidate(
                 is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
                 reason_code=OpportunityReasonCode.DATA_INCOMPLETE.value,
                 missing_conditions=["Thiếu thời điểm nến tiếp diễn BOS hợp lệ"],
                 as_of_ms=now_ms,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
 
         ev_nodes = [
@@ -1777,6 +1952,7 @@ class ScalpM1ModelService:
                 "take_profit": target_price,
                 "net_rr": calc_res.net_rr,
                 "gross_rr": calc_res.gross_rr,
+                "stop_placement": stop_dec.to_dict() if stop_dec else None,
             },
             evidence=ev_nodes,
         )
@@ -1797,6 +1973,8 @@ class ScalpM1ModelService:
             trigger_chain=trigger_chain,
             snapshot=snap,
             as_of_ms=now_ms,
+            stop_placement=stop_dec,
+            stop_comparison=comp_plan,
         )
 
     @staticmethod
@@ -1810,6 +1988,8 @@ class ScalpM1ModelService:
         now_ms: int,
         config: Optional[M1ScalpConfig] = None,
         context_levels: Optional[Sequence[Any]] = None,
+        stop_policy: Optional[Any] = None,
+        stop_context: Optional[Dict[str, Any]] = None,
     ) -> ScalpCandidate:
         """
         V16.1 SMC M1 FVG Continuation Model (Rules 046 - 060).
@@ -1868,6 +2048,9 @@ class ScalpM1ModelService:
         swing_ref = resolve_confirmed_structure_reference(
             closed_1m, direction, as_of_ms=now_ms,
             left_bars=cfg.pivot_left_bars, right_bars=cfg.pivot_right_bars,
+        )
+        sh_list, sl_list = identify_confirmed_swings(
+            closed_1m, left_bars=cfg.pivot_left_bars, right_bars=cfg.pivot_right_bars, as_of_ms=now_ms
         )
         if swing_ref is None:
             return ScalpCandidate(
@@ -2010,26 +2193,49 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms,
             )
 
+        # V17.5: Stop Placement & Paired Research resolution
+        candidate_key = f"fvg_cont_{direction}_{fvg_id}_{retest_open_ms}"
+        anchor_res = None
+        if stop_policy is not None:
+            from services.stop_placement_service import resolve_stop_anchor
+            anchor_res = resolve_stop_anchor(
+                model_id=model_id,
+                direction=direction,
+                closed_bars=closed_1m,
+                as_of_ms=now_ms,
+                selected_break={"id": f"break_{break_res['broken_at_ms']}", "bar": break_res.get("bar")},
+                selected_fvg={"id": fvg_id, "top": fvg_top, "bottom": fvg_bot, "start_ms": selected_fvg.get("start_ms")},
+                confirmed_swings=(sh_list, sl_list),
+            )
+
+        sl_price, target_price, calc_res, stop_dec, comp_plan = apply_stop_placement_to_candidate(
+            model_id=model_id,
+            direction=direction,
+            entry_price=entry_price,
+            baseline_sl=sl_price,
+            baseline_target=target_price,
+            closed_1m=closed_1m,
+            now_ms=now_ms,
+            cfg=cfg,
+            policy_settings=policy_settings,
+            stop_policy=stop_policy,
+            stop_context=stop_context,
+            candidate_key=candidate_key,
+            anchor_result=anchor_res,
+            atr_1m_val=atr_1m,
+            bid=bid,
+            ask=ask,
+        )
+
         is_geom, geom_err = validate_price_geometry(direction, entry_price, sl_price, target_price)
         if not is_geom:
             return ScalpCandidate(
-                is_eligible=False, model_id=model_id, direction=direction,
+                is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
                 reason_code="INVALID_GEOMETRY", missing_conditions=[f"Sai hình học giá: {geom_err}"],
                 as_of_ms=now_ms,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
-
-        # 10. Net RR calculation
-        capital = float(policy_settings.get("capital_usdt", 1000.0))
-        risk_pct = float(policy_settings.get("risk_pct", cfg.fallback_risk_pct))
-        lev = int(policy_settings.get("leverage", 50))
-        margin_mode = str(policy_settings.get("margin_mode", "ISOLATED"))
-
-        calc_res = calculate_risk_reward(
-            direction=direction, planned_entry=entry_price, stop_loss=sl_price, take_profit=target_price,
-            capital_usdt=capital, risk_pct=risk_pct, leverage=lev, margin_mode=margin_mode, min_net_rr=cfg.min_net_rr,
-        )
-
-        candidate_key = f"fvg_cont_{direction}_{fvg_id}_{retest_open_ms}"
 
         if not calc_res.is_valid:
             return ScalpCandidate(
@@ -2038,6 +2244,8 @@ class ScalpM1ModelService:
                 reason_code="CALCULATOR_INVALID",
                 missing_conditions=[f"Kế hoạch tính toán không hợp lệ: {calc_res.invalid_reason}"],
                 as_of_ms=now_ms,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
         if not calc_res.can_execute:
             return ScalpCandidate(
@@ -2046,6 +2254,8 @@ class ScalpM1ModelService:
                 reason_code="CANNOT_EXECUTE",
                 missing_conditions=[f"Không đủ điều kiện thực thi: {calc_res.skip_reason}"],
                 as_of_ms=now_ms,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
         if not calc_res.meets_min_rr:
             return ScalpCandidate(
@@ -2055,6 +2265,8 @@ class ScalpM1ModelService:
                 reason_code=OpportunityReasonCode.INSUFFICIENT_NET_REWARD.value,
                 missing_conditions=[f"Net R:R không đạt ngưỡng tối thiểu ({calc_res.net_rr:.2f} < {cfg.min_net_rr:.2f})"],
                 as_of_ms=now_ms,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
 
         # 11. Full causal evidence chain (Rule 060)
@@ -2145,6 +2357,7 @@ class ScalpM1ModelService:
                 "take_profit": target_price,
                 "net_rr": calc_res.net_rr,
                 "gross_rr": calc_res.gross_rr,
+                **({"stop_placement": stop_dec.to_dict() if hasattr(stop_dec, "to_dict") else stop_dec} if stop_dec is not None else {}),
             },
             evidence=ev_nodes,
         )
@@ -2169,6 +2382,8 @@ class ScalpM1ModelService:
             evidence_ids=tuple(n["id"] for n in ev_nodes),
             valid_until_ms=now_ms + cfg.max_trigger_age_ms,
             model_version="v16.1",
+            stop_placement=stop_dec,
+            stop_comparison=comp_plan,
         )
 
     @staticmethod
@@ -2373,26 +2588,54 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms,
             )
 
+        # V17.5: Stop Placement & Paired Research resolution
+        candidate_key = f"sweep_rec_{direction}_{getattr(cluster, 'id', 'cid')}_{reclaim_open_ms}"
+        stop_policy = kwargs.get("stop_policy")
+        stop_context = kwargs.get("stop_context")
+        anchor_res = None
+        if stop_policy is not None:
+            from services.stop_placement_service import resolve_stop_anchor
+            anchor_res = resolve_stop_anchor(
+                model_id=model_id,
+                direction=direction,
+                closed_bars=closed_1m,
+                as_of_ms=now_ms,
+                selected_sweep={
+                    "id": f"sweep_{swept_open_ms}",
+                    "price": swept_extreme,
+                    "occurred_at_ms": swept_open_ms,
+                    "known_at_ms": reclaim_open_ms,
+                },
+            )
+
+        sl_price, target_price, calc_res, stop_dec, comp_plan = apply_stop_placement_to_candidate(
+            model_id=model_id,
+            direction=direction,
+            entry_price=entry_price,
+            baseline_sl=sl_price,
+            baseline_target=target_price,
+            closed_1m=closed_1m,
+            now_ms=now_ms,
+            cfg=cfg,
+            policy_settings=policy_dict,
+            stop_policy=stop_policy,
+            stop_context=stop_context,
+            candidate_key=candidate_key,
+            anchor_result=anchor_res,
+            atr_1m_val=atr_1m,
+            bid=bid,
+            ask=ask,
+        )
+
         is_geom, geom_err = validate_price_geometry(direction, entry_price, sl_price, target_price)
         if not is_geom:
             return ScalpCandidate(
-                is_eligible=False, model_id=model_id, direction=direction,
+                is_eligible=False, model_id=model_id, direction=direction, candidate_key=candidate_key,
                 reason_code="INVALID_GEOMETRY", missing_conditions=[f"Sai hình học giá: {geom_err}"],
                 as_of_ms=now_ms,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
-
-        # 9. Net RR calculation
-        capital = float(policy_dict.get("capital_usdt", 1000.0))
-        risk_pct = float(policy_dict.get("risk_pct", cfg.fallback_risk_pct))
-        lev = int(policy_dict.get("leverage", 50))
-        margin_mode = str(policy_dict.get("margin_mode", "ISOLATED"))
-
-        calc_res = calculate_risk_reward(
-            direction=direction, planned_entry=entry_price, stop_loss=sl_price, take_profit=target_price,
-            capital_usdt=capital, risk_pct=risk_pct, leverage=lev, margin_mode=margin_mode, min_net_rr=cfg.min_net_rr,
-        )
-
-        candidate_key = f"sweep_rec_{direction}_{getattr(cluster, 'id', 'cid')}_{reclaim_open_ms}"
 
         if not calc_res.is_valid:
             return ScalpCandidate(
@@ -2401,6 +2644,8 @@ class ScalpM1ModelService:
                 reason_code="CALCULATOR_INVALID",
                 missing_conditions=[f"Kế hoạch tính toán không hợp lệ: {calc_res.invalid_reason}"],
                 as_of_ms=now_ms,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
         if not calc_res.can_execute:
             return ScalpCandidate(
@@ -2409,6 +2654,8 @@ class ScalpM1ModelService:
                 reason_code="CANNOT_EXECUTE",
                 missing_conditions=[f"Không đủ điều kiện thực thi: {calc_res.skip_reason}"],
                 as_of_ms=now_ms,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
         if not calc_res.meets_min_rr:
             return ScalpCandidate(
@@ -2418,6 +2665,8 @@ class ScalpM1ModelService:
                 reason_code=OpportunityReasonCode.INSUFFICIENT_NET_REWARD.value,
                 missing_conditions=[f"Net R:R không đạt ngưỡng tối thiểu ({calc_res.net_rr:.2f} < {cfg.min_net_rr:.2f})"],
                 as_of_ms=now_ms,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
 
         # 10. Causal Evidence Chain (Rule 071)
@@ -2497,6 +2746,7 @@ class ScalpM1ModelService:
                 "take_profit": target_price,
                 "net_rr": calc_res.net_rr,
                 "gross_rr": calc_res.gross_rr,
+                **({"stop_placement": stop_dec.to_dict() if hasattr(stop_dec, "to_dict") else stop_dec} if stop_dec is not None else {}),
             },
             evidence=ev_nodes,
         )
@@ -2522,6 +2772,8 @@ class ScalpM1ModelService:
             evidence_ids=tuple(n["id"] for n in ev_nodes),
             valid_until_ms=now_ms + cfg.max_trigger_age_ms,
             model_version="v16.1",
+            stop_placement=stop_dec,
+            stop_comparison=comp_plan,
         )
 
 

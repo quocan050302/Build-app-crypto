@@ -411,7 +411,8 @@ class TradeLifecycleService:
         clock: Optional[IClock] = None,
         date_str: Optional[str] = None,
         session_tag: str = "LIVE_PAPER",
-        recovery_metadata: Optional[Dict[str, Any]] = None
+        recovery_metadata: Optional[Dict[str, Any]] = None,
+        exit_evidence: Optional[Dict[str, Any]] = None,
     ) -> Optional[models.PaperOrder]:
         """
         Atomic Unit of Work: Close Open Position.
@@ -497,6 +498,15 @@ class TradeLifecycleService:
 
         # Update DayAudit in same transaction
         crud.record_trade_close_audit(db, net_pnl, commit=False, date_str=date_str, clock=clock, now_ms=current_time)
+
+        # V17.5: Persist exit evidence in cost_snapshot (PHẦN 095, 096, 097)
+        if exit_evidence and getattr(order, 'cost_snapshot', None):
+            try:
+                snap_dict = json.loads(order.cost_snapshot)
+                snap_dict["exit_evidence"] = exit_evidence
+                order.cost_snapshot = json.dumps(snap_dict)
+            except Exception as e:
+                logger.warning(f"Failed to persist exit evidence into cost_snapshot: {e}")
 
         # Update associated WatchSetup if present
         if order.setup_id:
@@ -668,6 +678,16 @@ class TradeLifecycleService:
         decision = evaluate_order_exit(active_pos, executable_quote)
 
         if decision.triggered:
+            exit_evidence = {
+                "basis": decision.price_basis,
+                "evidence_reference": decision.evidence_reference,
+                "trigger_level": decision.trigger_level,
+                "applied_exit_price": decision.applied_exit_price,
+                "quote_timestamp": tick_timestamp or now_ms or candle_timestamp,
+                "is_candle_eval": is_candle_eval,
+                "candle_high": candle_high if is_candle_eval else None,
+                "candle_low": candle_low if is_candle_eval else None,
+            }
             return TradeLifecycleService.execute_close(
                 db=db,
                 order_id=active_pos.id,
@@ -676,6 +696,7 @@ class TradeLifecycleService:
                 occurred_at=tick_timestamp or now_ms or candle_timestamp,
                 clock=clock,
                 session_tag=session_tag,
+                exit_evidence=exit_evidence,
             )
 
         return None

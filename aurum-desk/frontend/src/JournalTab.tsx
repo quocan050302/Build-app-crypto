@@ -31,6 +31,7 @@ import { wsClient } from './services/wsClient';
 import { CandidateScoreBadge } from './components/CandidateScoreBadge';
 import { CandidateScoreDetails } from './components/CandidateScoreDetails';
 import { useCandidateScoreDetail } from './hooks/useCandidateScoreDetail';
+import { StopPlacementDetails } from './components/StopPlacementDetails';
 
 interface JournalTabProps {
   onFocusChart?: (trade: any) => void;
@@ -1532,6 +1533,9 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                       )}
                     </div>
                   </div>
+
+                  {/* V17.5: Stop Placement details card for selected trade */}
+                  <StopPlacementDetails order={selectedTrade} />
 
                   <div className="bg-charcoal-850 p-3.5 rounded border border-charcoal-750 text-[11px] text-gray-300 space-y-2">
                     <h4 className="font-bold text-gray-200">Nguyên Tắc Đánh Giá Khách Quan:</h4>

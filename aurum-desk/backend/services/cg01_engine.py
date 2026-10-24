@@ -989,6 +989,9 @@ def evaluate_cg01_candidate(
     capital: float = 1000.0,
     risk_pct: float = 0.25,
     costs: Optional[CostAssumptions] = None,
+    *,
+    stop_policy: Optional[Any] = None,
+    stop_context: Optional[Dict[str, Any]] = None,
 ) -> CG01Decision:
     """
     Rules 121 - 124: Main pure evaluator for CG01_SWEEP_MSS_FVG model.
@@ -1202,9 +1205,58 @@ def evaluate_cg01_candidate(
             tick_size = cfg.tick_size
 
             if direction == "LONG":
-                sl = round(sweep_extreme - (buffer_ticks * tick_size), 2)
+                sl_legacy = round(sweep_extreme - (buffer_ticks * tick_size), 2)
             else:
-                sl = round(sweep_extreme + (buffer_ticks * tick_size), 2)
+                sl_legacy = round(sweep_extreme + (buffer_ticks * tick_size), 2)
+
+            # V17.5: Structural Stop resolution prior to leg FVG and retest
+            anchor_res = None
+            buffer_res = None
+            stop_dec = None
+            comp_plan = None
+            atr_m1_obj = None
+            atr_m5_obj = None
+            sl = sl_legacy
+
+            if stop_policy is not None:
+                from services.stop_placement_service import resolve_stop_anchor, compute_stop_buffer, quantize_stop_outward
+                anchor_res = resolve_stop_anchor(
+                    model_id=ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+                    direction=direction,
+                    closed_bars=c_1m,
+                    as_of_ms=t_now,
+                    selected_sweep={
+                        "id": sweep.get("sweep_id"),
+                        "price": sweep_extreme,
+                        "occurred_at_ms": sweep.get("timestamp", t_now),
+                        "known_at_ms": sweep.get("timestamp", t_now),
+                    },
+                )
+                atr_m1_obj = (stop_context or {}).get("atr_m1")
+                atr_m5_obj = (stop_context or {}).get("atr_m5")
+                if atr_m1_obj is None and c_1m:
+                    from services.stop_placement_service import compute_stop_atr
+                    atr_m1_obj = compute_stop_atr(c_1m, period=stop_policy.atr_period, timeframe="1M", as_of_ms=t_now)
+
+                buffer_res = compute_stop_buffer(
+                    policy=stop_policy,
+                    tick_size=tick_size,
+                    atr_m1=atr_m1_obj,
+                    atr_m5=atr_m5_obj,
+                    bid=bid,
+                    ask=ask,
+                )
+
+                if getattr(stop_policy, "mode", "") == "PAPER_STRUCTURAL" and anchor_res.status == "AVAILABLE" and anchor_res.anchor:
+                    try:
+                        sl = quantize_stop_outward(
+                            anchor_price=anchor_res.anchor.price,
+                            buffer_price=buffer_res.buffer_price,
+                            direction=direction,
+                            tick_size=tick_size,
+                        )
+                    except Exception:
+                        sl = sl_legacy
 
             # 6. Leg FVG & 50% CE with lifecycle validation and rejection diagnostics
             fvg, fvg_rejections = select_cg01_leg_fvg_with_diagnostics(
@@ -1308,6 +1360,47 @@ def evaluate_cg01_candidate(
             if not tp:
                 rejection_diagnostics.append((CG01Stage.WAIT_ENTRY, "TARGET_UNAVAILABLE"))
                 continue
+
+            # V17.5: Stop Placement & Paired Research resolution
+            if stop_policy is not None and buffer_res is not None:
+                from services.stop_placement_service import plan_structural_stop
+                from services.stop_placement_research_service import build_stop_comparison_plan
+                stop_dec = plan_structural_stop(
+                    direction=direction,
+                    planned_entry=planned_entry,
+                    take_profit=tp,
+                    legacy_sl=sl_legacy,
+                    anchor_result=anchor_res,
+                    buffer_result=buffer_res,
+                    policy=stop_policy,
+                    as_of_ms=t_now,
+                    tick_size=tick_size,
+                    atr_m1_val=(
+                        atr_m1_obj.value
+                        if (atr_m1_obj and atr_m1_obj.status == "AVAILABLE")
+                        else (float(atr_series.iloc[-1]) if hasattr(atr_series, "iloc") and len(atr_series) > 0 else 1.0)
+                    ),
+                )
+                cand_key_temp = f"cg01_{direction}_{poi.zone_id}_{sweep['reference_id']}_{fvg['fvg_id']}"
+                comp_plan = build_stop_comparison_plan(
+                    opportunity_key=cand_key_temp,
+                    model_id=ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+                    symbol="XAUUSDT",
+                    direction=direction,
+                    planned_entry=planned_entry,
+                    take_profit=tp,
+                    legacy_sl=sl_legacy,
+                    anchor=anchor_res.anchor if anchor_res else None,
+                    buffer_result=buffer_res,
+                    policy_settings={"capital_usdt": capital, "risk_pct": risk_pct},
+                    tick_size=tick_size,
+                    min_net_rr=cfg.min_net_rr,
+                    atr_m1=atr_m1_obj.value if atr_m1_obj else None,
+                    atr_m5=atr_m5_obj.value if atr_m5_obj else None,
+                    spread=max(0.0, ask - bid),
+                    policy_version=stop_policy.version,
+                    now_ms=t_now,
+                )
 
             # Rule 118: Validate price geometry (LONG: SL < entry < TP; SHORT: TP < entry < SL)
             geom_ok, geom_err = validate_price_geometry(direction, planned_entry, sl, tp)
@@ -1420,6 +1513,9 @@ def evaluate_cg01_candidate(
                 htf_data=htf_data,
             )
 
+            if snap and hasattr(snap, "plan") and isinstance(snap.plan, dict) and stop_dec is not None:
+                snap.plan["stop_placement"] = stop_dec.to_dict() if hasattr(stop_dec, "to_dict") else stop_dec
+
             # Rule 153 & V16.11: Six short sentences for newbie drawer
             h4_bias_label = htf_data.get("h4_bias", "UNKNOWN")
             rel_label = htf_data.get("relation", "ALIGNED")
@@ -1462,6 +1558,8 @@ def evaluate_cg01_candidate(
                 order_type=order_type,
                 entry_intent=intent.to_dict(),
                 reference_ce=ce_price,
+                stop_placement=stop_dec,
+                stop_comparison=comp_plan,
             )
 
             decision = CG01Decision(

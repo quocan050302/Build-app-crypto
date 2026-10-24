@@ -2938,6 +2938,139 @@ def update_entry_session_settings_endpoint(
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
 
+@app.get("/api/v1/policy/stop-placement", response_model=schemas.StopPlacementPolicyResponse)
+def get_stop_placement_policy_endpoint(db: Session = Depends(get_db)):
+    """
+    V17.5: Read-only query for authoritative Stop Placement policy (SystemConfig namespace stop_placement_v1.*).
+    Defaults to SHADOW_COMPARE if not configured. Pure read operation with zero DB writes.
+    """
+    from services.stop_placement_policy_service import resolve_stop_placement_policy
+    from services.entry_session_policy_service import resolve_server_execution_scope
+
+    policy = resolve_stop_placement_policy(db)
+    server_scope = resolve_server_execution_scope(db)
+    summary_vi = (
+        f"Chế độ hiện tại: {policy.mode} (v{policy.version}). "
+        f"Buffer M1={policy.atr_m1_multiplier:.2f}*ATR, M5={policy.atr_m5_multiplier:.2f}*ATR, "
+        f"Spread={policy.spread_multiplier:.2f}*Spread. Áp dụng cho lệnh PAPER mới."
+    )
+    return schemas.StopPlacementPolicyResponse(
+        status="CONFIRMED",
+        mode=policy.mode,
+        version=policy.version,
+        atr_period=policy.atr_period,
+        atr_method=policy.atr_method,
+        min_buffer_ticks=policy.min_buffer_ticks,
+        atr_m1_multiplier=policy.atr_m1_multiplier,
+        atr_m5_multiplier=policy.atr_m5_multiplier,
+        spread_multiplier=policy.spread_multiplier,
+        application_scope=policy.application_scope,
+        execution_scope=server_scope,
+        summary_vi=summary_vi,
+        reason_codes=[],
+    )
+
+
+@app.put("/api/v1/policy/stop-placement", response_model=schemas.StopPlacementPolicyResponse)
+def update_stop_placement_policy_endpoint(
+    req: schemas.StopPlacementPolicyUpdate,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.5: Atomic CAS update for Stop Placement configuration.
+    Requires matching expected_version. True no-op preserves version without timestamp mutation.
+    """
+    from services.stop_placement_policy_service import update_stop_placement_policy
+    from services.entry_session_policy_service import resolve_server_execution_scope
+
+    patch = req.model_dump(exclude_unset=True)
+    expected_v = req.expected_version
+    try:
+        updated, is_mutation = update_stop_placement_policy(db, patch, expected_version=expected_v)
+    except ValueError as ve:
+        err_str = str(ve)
+        if "không khớp" in err_str or "version" in err_str.lower():
+            raise HTTPException(status_code=409, detail=err_str)
+        raise HTTPException(status_code=400, detail=err_str)
+
+    server_scope = resolve_server_execution_scope(db)
+    summary_vi = (
+        f"Đã cập nhật chế độ: {updated.mode} (v{updated.version}). "
+        f"Áp dụng cho lệnh PAPER mới."
+    )
+    return schemas.StopPlacementPolicyResponse(
+        status="CONFIRMED",
+        mode=updated.mode,
+        version=updated.version,
+        atr_period=updated.atr_period,
+        atr_method=updated.atr_method,
+        min_buffer_ticks=updated.min_buffer_ticks,
+        atr_m1_multiplier=updated.atr_m1_multiplier,
+        atr_m5_multiplier=updated.atr_m5_multiplier,
+        spread_multiplier=updated.spread_multiplier,
+        application_scope=updated.application_scope,
+        execution_scope=server_scope,
+        summary_vi=summary_vi,
+        reason_codes=[],
+    )
+
+
+@app.get("/api/v1/research/stop-placement/summary", response_model=schemas.StopComparisonSummaryResponse)
+def get_stop_placement_research_summary_endpoint(
+    symbol: str = "XAUUSDT",
+    db: Session = Depends(get_db),
+):
+    """
+    V17.5: Paired research summary aggregating Variants A, B, and C across recorded opportunities.
+    """
+    from services.stop_placement_research_service import resume_stop_comparisons, build_stop_comparison_summary
+    import time
+    now_ms = int(time.time() * 1000)
+    plans = resume_stop_comparisons(db, namespace="STOP_PLACEMENT_V1", as_of_ms=now_ms)
+    summary = build_stop_comparison_summary(plans, as_of_ms=now_ms)
+    return schemas.StopComparisonSummaryResponse(**summary)
+
+
+@app.get("/api/v1/orders/{order_id}/stop-evidence")
+def get_order_stop_evidence_endpoint(
+    order_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.5: Retrieves frozen stop placement evidence for a specific order.
+    Returns UNAVAILABLE_LEGACY for historical orders without stop placement metadata.
+    """
+    order = db.query(models.PaperOrder).filter(models.PaperOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="ORDER_NOT_FOUND")
+
+    cost_dict = {}
+    if order.cost_snapshot:
+        try:
+            cost_dict = json.loads(order.cost_snapshot) if isinstance(order.cost_snapshot, str) else dict(order.cost_snapshot)
+        except Exception:
+            cost_dict = {}
+
+    stop_placement = cost_dict.get("stop_placement")
+    if not stop_placement:
+        return {
+            "status": "UNAVAILABLE_LEGACY",
+            "order_id": order.id,
+            "message": "Không có dữ liệu bằng chứng stop loss cấu trúc cho lệnh cũ này.",
+        }
+    return {
+        "status": "AVAILABLE",
+        "order_id": order.id,
+        "stop_placement": stop_placement,
+        "stop_mode_at_arm": cost_dict.get("stop_mode_at_arm", "SHADOW_COMPARE"),
+        "stop_policy_version": cost_dict.get("stop_policy_version", 1),
+        "stop_comparison_plan_id": cost_dict.get("stop_comparison_plan_id"),
+        "actual_sl": order.stop_loss,
+        "actual_entry": order.actual_entry or order.planned_entry,
+        "take_profit": order.take_profit,
+        "direction": order.direction,
+    }
+
 
 @app.get("/api/v1/policy/ny-session", response_model=schemas.NYSessionStatusResponse)
 def get_ny_session_status_endpoint(
@@ -3497,6 +3630,10 @@ def get_order_chart_evidence(
         from services.order_quality_display_service import build_order_score_display, build_order_score_detail
         bundle["candidate_score_summary"] = build_order_score_display(order).to_dict()
         bundle["candidate_score_detail"] = build_order_score_detail(order).to_dict()
+        if "stop_placement" in cost_dict:
+            bundle["stop_placement"] = cost_dict["stop_placement"]
+        if "stop_comparison_plan_id" in cost_dict:
+            bundle["stop_comparison"] = {"plan_id": cost_dict["stop_comparison_plan_id"]}
         return schemas.ChartEvidenceDTO(**bundle)
 
     from services.order_quality_display_service import build_order_score_display, build_order_score_detail
@@ -3511,6 +3648,8 @@ def get_order_chart_evidence(
             legacy_dict = adapt_legacy_quality_snapshot(legacy_snap, order_data=order_plan)
             legacy_dict["candidate_score_summary"] = order_score_sum
             legacy_dict["candidate_score_detail"] = order_score_det
+            if "stop_placement" in cost_dict:
+                legacy_dict["stop_placement"] = cost_dict["stop_placement"]
             return schemas.ChartEvidenceDTO(**legacy_dict)
 
     empty_bundle = _empty_chart_bundle(
@@ -3524,6 +3663,8 @@ def get_order_chart_evidence(
     if isinstance(empty_bundle, dict):
         empty_bundle["candidate_score_summary"] = order_score_sum
         empty_bundle["candidate_score_detail"] = order_score_det
+        if "stop_placement" in cost_dict:
+            empty_bundle["stop_placement"] = cost_dict["stop_placement"]
         return schemas.ChartEvidenceDTO(**empty_bundle)
     elif hasattr(empty_bundle, "candidate_score_summary"):
         empty_bundle.candidate_score_summary = order_score_sum

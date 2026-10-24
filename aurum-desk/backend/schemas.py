@@ -1391,3 +1391,41 @@ class ChartEvidenceDTO(BaseModel):
     htf_context: Optional[Dict[str, Any]] = None
     candidate_score_summary: Optional[Dict[str, Any]] = None
     candidate_score_detail: Optional[Dict[str, Any]] = None
+    stop_placement: Optional[Dict[str, Any]] = None
+    stop_comparison: Optional[Dict[str, Any]] = None
+
+
+class StopPlacementPolicyResponse(BaseModel):
+    status: str = "CONFIRMED"
+    mode: str
+    version: int
+    atr_period: int = 14
+    atr_method: str = "SMA_TR_V1"
+    min_buffer_ticks: int = 5
+    atr_m1_multiplier: float = 0.25
+    atr_m5_multiplier: float = 0.10
+    spread_multiplier: float = 1.50
+    application_scope: str = "NEW_PAPER_ORDERS"
+    execution_scope: str = "PAPER"
+    summary_vi: str = ""
+    reason_codes: List[str] = Field(default_factory=list)
+
+
+class StopPlacementPolicyUpdate(BaseModel):
+    mode: Optional[str] = None
+    expected_version: int
+    atr_period: Optional[int] = None
+    min_buffer_ticks: Optional[int] = None
+    atr_m1_multiplier: Optional[float] = None
+    atr_m5_multiplier: Optional[float] = None
+    spread_multiplier: Optional[float] = None
+
+
+class StopComparisonSummaryResponse(BaseModel):
+    as_of_ms: int
+    total_opportunities_recorded: int
+    variant_a_legacy: Dict[str, Any]
+    variant_b_anchor_ticks: Dict[str, Any]
+    variant_c_structural_dynamic: Dict[str, Any]
+    status: str = "EMPIRICAL_UNPROVEN"
+    summary_vi: str
