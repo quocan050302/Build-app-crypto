@@ -45,7 +45,10 @@ export default defineConfig({
       url: `http://127.0.0.1:${WEB_PORT}`,
       reuseExistingServer: false,
       timeout: 60_000,
-      env: { AURUM_API_TARGET: `http://127.0.0.1:${API_PORT}` },
+      env: {
+        AURUM_API_TARGET: `http://127.0.0.1:${API_PORT}`,
+        VITE_ENABLE_CHART_DIAGNOSTICS: 'true',
+      },
     },
   ],
 })

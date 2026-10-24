@@ -2246,7 +2246,14 @@ class ScalpWatcherOrchestrator:
             return None
 
         from services.order_plan_snapshot_service import build_arm_plan_snapshot
-        cand_slip = getattr(calc, "slippage_usd", None)
+        from services.plan_financial_context_service import resolve_execution_cost_context
+        cost_ctx = resolve_execution_cost_context(
+            candidate=cand,
+            settings=policy_settings,
+            config=cfg,
+            as_of_ms=now_ms,
+        )
+        cand_slip = cost_ctx["entry_slippage_usd"] if cost_ctx.get("available") else getattr(calc, "slippage_usd", None)
         if cand_slip is None and getattr(cfg, "cg01_config", None):
             cand_slip = getattr(cfg.cg01_config, "slippage_usd", None)
         effective_risk = policy_settings.get("risk_pct") if policy_settings.get("risk_pct") is not None else float(getattr(calc, "effective_risk_pct", cfg.fallback_risk_pct))
@@ -2276,6 +2283,7 @@ class ScalpWatcherOrchestrator:
             target_capital=target_capital,
             target_risk_budget=target_budget,
             min_net_rr=cfg.min_net_rr,
+            resolved_execution_costs=cost_ctx if cost_ctx.get("available") else None,
         )
         arm_snap["expires_at"] = resolved_expires_at
         arm_snap["execution_profile"] = getattr(cfg, "execution_profile", "BASELINE")

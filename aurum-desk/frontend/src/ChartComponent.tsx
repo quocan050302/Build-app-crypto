@@ -105,6 +105,22 @@ function mergeCandles(current: CandleData[], incoming: CandleData[]): CandleData
   for (const c of current) byTime.set(c.time as number, c);
   return [...byTime.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
 }
+/** Check if chart overlay diagnostics hook is explicitly enabled in test environment */
+export function isChartDiagnosticsEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if ((import.meta as any).env?.VITE_ENABLE_CHART_DIAGNOSTICS === 'true' || (import.meta as any).env?.VITE_ENABLE_CHART_DIAGNOSTICS === true) {
+      return true;
+    }
+  } catch {
+    // env not available
+  }
+  if ((window as any).__AURUM_ENABLE_CHART_DIAGNOSTICS__ === true) {
+    return true;
+  }
+  return false;
+}
+
 export function ChartComponent({
   symbol,
   timeframe,
@@ -133,6 +149,7 @@ export function ChartComponent({
   rrPolicySource,
   rrPolicyFingerprint,
 }: ChartComponentProps) {
+  const chartInstanceIdRef = useRef<string>(`chart_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
   const lastFocusNonceRef = useRef<number>(0);
   const draftBaseOverlayRef = useRef<RiskRewardData | null | undefined>(activeOverlay);
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -959,16 +976,24 @@ export function ChartComponent({
       }
     }
   }, [activeOverlay, showOverlay, draftMode, draftDirection, smcLevels, accountEquity, riskPct, leverage, marginMode, effectiveMinNetRR, rrPolicySource, rrPolicyFingerprint]);
-
-  // V17.5.5: Expose read-only overlay diagnostics for browser verification (Appendix D2)
+  // V17.5.6: Expose read-only overlay diagnostics ONLY in test mode (Parts 051-060, Appendix D1)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    (window as any).__AURUM_CHART_OVERLAY_DIAGNOSTICS__ = () => {
+    if (!isChartDiagnosticsEnabled()) {
+      return;
+    }
+    const instanceId = chartInstanceIdRef.current;
+    const diagFn = () => {
       const primitive = rrPrimitiveRef.current;
       const data = primitive ? primitive.getData() : null;
       const geom = primitive ? primitive.getGeometry() : null;
+      const isGeomReady = !!geom && [geom.entryY, geom.slY, geom.tpY].every(v => typeof v === 'number' && Number.isFinite(v));
+      const geomReason = !primitive ? "NO_PRIMITIVE" : (!geom ? "NO_GEOMETRY" : (!isGeomReady ? "COORDINATES_NON_FINITE" : "READY"));
+
       return {
         hasPrimitive: !!primitive,
+        instanceId,
+        geometryStatus: isGeomReady ? "READY" : "NOT_READY",
+        geometryReason: geomReason,
         selectionKey,
         selectedBinding: selectedBinding ? {
           source: selectedBinding.source,
@@ -981,6 +1006,7 @@ export function ChartComponent({
           direction: data.direction,
           state: data.state,
           plannedEntry: data.plannedEntry,
+          actualEntry: data.actualEntry,
           stopLoss: data.stopLoss,
           takeProfit: data.takeProfit,
           quantity: data.quantity,
@@ -995,14 +1021,20 @@ export function ChartComponent({
           lpY: geom.lpY,
           startX: geom.startX,
           endX: geom.endX,
+          isFinite: isGeomReady,
         } : null,
         timestamp: Date.now(),
       };
     };
+    (diagFn as any).__instanceId = instanceId;
+    (window as any).__AURUM_CHART_OVERLAY_DIAGNOSTICS__ = diagFn;
 
     return () => {
       if (typeof window !== 'undefined') {
-        delete (window as any).__AURUM_CHART_OVERLAY_DIAGNOSTICS__;
+        const currentFn = (window as any).__AURUM_CHART_OVERLAY_DIAGNOSTICS__;
+        if (currentFn && currentFn.__instanceId === instanceId) {
+          delete (window as any).__AURUM_CHART_OVERLAY_DIAGNOSTICS__;
+        }
       }
     };
   }, [selectionKey, selectedBinding]);

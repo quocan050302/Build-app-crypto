@@ -486,23 +486,38 @@ def resolve_execution_cost_context(
 
     # 1. Prioritize explicit frozen snapshot if provided
     if snapshot is not None:
-        if not isinstance(snapshot, dict):
-            return {
-                "available": False,
-                "reason": "INVALID_SNAPSHOT_TYPE",
-                "entry_slippage_usd": 0.0,
-                "tp_slippage_usd": 0.0,
-                "sl_slippage_usd": 0.0,
-                "maker_fee_rate": 0.0002,
-                "taker_fee_rate": 0.0004,
-                "provenance": "SNAPSHOT_ERROR",
-                "version": 1,
-            }
+        if isinstance(snapshot, dict):
+            snap_dict = snapshot
+        elif hasattr(snapshot, "to_dict") and callable(snapshot.to_dict):
+            snap_dict = snapshot.to_dict()
+        elif hasattr(snapshot, "__dict__"):
+            snap_dict = {k: v for k, v in snapshot.__dict__.items() if not k.startswith("_")}
+        else:
+            try:
+                snap_dict = dict(snapshot)
+            except Exception:
+                return {
+                    "available": False,
+                    "reason": "INVALID_SNAPSHOT_TYPE",
+                    "entry_slippage_usd": 0.0,
+                    "tp_slippage_usd": 0.0,
+                    "sl_slippage_usd": 0.0,
+                    "maker_fee_rate": 0.0002,
+                    "taker_fee_rate": 0.0004,
+                    "provenance": "SNAPSHOT_ERROR",
+                    "version": 1,
+                }
+
+        raw_version = snap_dict.get("version", 1)
+        try:
+            ver = int(raw_version) if raw_version is not None else 1
+        except (ValueError, TypeError):
+            ver = 1
 
         raw_slip = (
-            snapshot.get("entry_slippage_usd")
-            if snapshot.get("entry_slippage_usd") is not None
-            else (snapshot.get("slippage_usd") if snapshot.get("slippage_usd") is not None else snapshot.get("slippage"))
+            snap_dict.get("entry_slippage_usd")
+            if snap_dict.get("entry_slippage_usd") is not None
+            else (snap_dict.get("slippage_usd") if snap_dict.get("slippage_usd") is not None else snap_dict.get("slippage"))
         )
         if raw_slip is None:
             return {
@@ -514,7 +529,7 @@ def resolve_execution_cost_context(
                 "maker_fee_rate": 0.0002,
                 "taker_fee_rate": 0.0004,
                 "provenance": "SNAPSHOT_MISSING_SLIP",
-                "version": int(snapshot.get("version", 1)),
+                "version": ver,
             }
 
         if not _is_finite_non_negative(raw_slip):
@@ -527,11 +542,11 @@ def resolve_execution_cost_context(
                 "maker_fee_rate": 0.0002,
                 "taker_fee_rate": 0.0004,
                 "provenance": "SNAPSHOT_INVALID_SLIP",
-                "version": int(snapshot.get("version", 1)),
+                "version": ver,
             }
 
-        maker_rate = snapshot.get("maker_fee_rate", 0.0002)
-        taker_rate = snapshot.get("taker_fee_rate", 0.0004)
+        maker_rate = snap_dict.get("maker_fee_rate", 0.0002)
+        taker_rate = snap_dict.get("taker_fee_rate", 0.0004)
         if not _is_finite_non_negative(maker_rate) or not _is_finite_non_negative(taker_rate):
             return {
                 "available": False,
@@ -542,11 +557,11 @@ def resolve_execution_cost_context(
                 "maker_fee_rate": 0.0002,
                 "taker_fee_rate": 0.0004,
                 "provenance": "SNAPSHOT_INVALID_FEES",
-                "version": int(snapshot.get("version", 1)),
+                "version": ver,
             }
 
-        tp_slip = snapshot.get("tp_slippage_usd", 0.0)
-        sl_slip = snapshot.get("sl_slippage_usd", raw_slip)
+        tp_slip = snap_dict.get("tp_slippage_usd", 0.0)
+        sl_slip = snap_dict.get("sl_slippage_usd", raw_slip)
         if not _is_finite_non_negative(tp_slip) or not _is_finite_non_negative(sl_slip):
             return {
                 "available": False,
@@ -557,7 +572,7 @@ def resolve_execution_cost_context(
                 "maker_fee_rate": float(maker_rate),
                 "taker_fee_rate": float(taker_rate),
                 "provenance": "SNAPSHOT_INVALID_EXIT_SLIP",
-                "version": int(snapshot.get("version", 1)),
+                "version": ver,
             }
 
         return {
@@ -569,7 +584,7 @@ def resolve_execution_cost_context(
             "maker_fee_rate": float(maker_rate),
             "taker_fee_rate": float(taker_rate),
             "provenance": "FROZEN_ORDER_SNAPSHOT",
-            "version": int(snapshot.get("version", 1)),
+            "version": ver,
         }
 
     # If no snapshot and no candidate/settings/config, cannot fabricate costs
@@ -597,6 +612,12 @@ def resolve_execution_cost_context(
         cand_slip = getattr(config.cg01_config, "slippage_usd", None)
     if cand_slip is None and "slippage_usd" in st:
         cand_slip = st.get("slippage_usd")
+    if cand_slip is None and "costs" in st:
+        costs_candidate = st.get("costs")
+        if isinstance(costs_candidate, dict):
+            cand_slip = costs_candidate.get("entry_slippage_usd") if "entry_slippage_usd" in costs_candidate else costs_candidate.get("slippage_usd")
+        elif costs_candidate is not None:
+            cand_slip = getattr(costs_candidate, "entry_slippage_usd", getattr(costs_candidate, "slippage_usd", None))
 
     slip_val = 0.10
     if cand_slip is not None:
@@ -614,16 +635,38 @@ def resolve_execution_cost_context(
             }
         slip_val = float(cand_slip)
 
-    # Fee resolution (unified 0.0002 maker / 0.0004 taker)
+    # Fee resolution (unified 0.0002 maker / 0.0004 taker default)
     costs_obj = st.get("costs")
-    maker_rate = 0.0002
-    taker_rate = 0.0004
+    maker_rate = None
+    taker_rate = None
+
     if calc is not None:
-        maker_rate = getattr(calc, "maker_fee_rate", 0.0002)
-        taker_rate = getattr(calc, "taker_fee_rate", 0.0004)
-    elif costs_obj is not None:
-        maker_rate = getattr(costs_obj, "maker_fee_rate", 0.0002)
-        taker_rate = getattr(costs_obj, "taker_fee_rate", 0.0004)
+        maker_rate = getattr(calc, "maker_fee_rate", None)
+        taker_rate = getattr(calc, "taker_fee_rate", None)
+
+    if maker_rate is None and costs_obj is not None:
+        if isinstance(costs_obj, dict):
+            maker_rate = costs_obj.get("maker_fee_rate")
+            taker_rate = costs_obj.get("taker_fee_rate")
+        else:
+            maker_rate = getattr(costs_obj, "maker_fee_rate", None)
+            taker_rate = getattr(costs_obj, "taker_fee_rate", None)
+
+    if maker_rate is None and "maker_fee_rate" in st:
+        maker_rate = st.get("maker_fee_rate")
+    if taker_rate is None and "taker_fee_rate" in st:
+        taker_rate = st.get("taker_fee_rate")
+
+    if maker_rate is None:
+        maker_rate = 0.0002
+    if taker_rate is None:
+        taker_rate = 0.0004
+
+    raw_ver = st.get("config_version") or getattr(config, "config_version", 1)
+    try:
+        version = int(raw_ver) if raw_ver is not None else 1
+    except (ValueError, TypeError):
+        version = 1
 
     if not _is_finite_non_negative(maker_rate) or not _is_finite_non_negative(taker_rate):
         return {
@@ -635,10 +678,8 @@ def resolve_execution_cost_context(
             "maker_fee_rate": 0.0002,
             "taker_fee_rate": 0.0004,
             "provenance": "CONFIG_ERROR",
-            "version": 1,
+            "version": version,
         }
-
-    version = int(st.get("config_version") or getattr(config, "config_version", 1))
 
     return {
         "available": True,

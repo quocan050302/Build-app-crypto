@@ -257,16 +257,25 @@ class ExecutionCoordinator:
                     )
                     continue
 
-            raw_order_slip = order_cost_snap.get("slippage_usd")
-            if raw_order_slip is not None:
-                order_slip = resolve_slippage_usd(raw_order_slip, default=0.10)
-            elif slippage != 0.10:
-                order_slip = resolve_slippage_usd(slippage, default=0.10)
-            else:
-                order_slip = resolve_slippage_usd(getattr(global_settings, "slippage_usd", 0.10), default=0.10)
+            from services.plan_financial_context_service import resolve_execution_cost_context
+            verified_cost_ctx = resolve_execution_cost_context(snapshot=order_cost_snap) if order_cost_snap else {"available": False}
 
-            order_maker_fee = float(order_cost_snap.get("maker_fee_rate", 0.0002))
-            order_taker_fee = float(order_cost_snap.get("taker_fee_rate", 0.0004))
+            if verified_cost_ctx.get("available"):
+                order_slip = float(verified_cost_ctx["entry_slippage_usd"])
+                order_maker_fee = float(verified_cost_ctx["maker_fee_rate"])
+                order_taker_fee = float(verified_cost_ctx["taker_fee_rate"])
+            else:
+                raw_order_slip = order_cost_snap.get("slippage_usd") if order_cost_snap else None
+                if raw_order_slip is not None:
+                    order_slip = resolve_slippage_usd(raw_order_slip, default=0.10)
+                elif slippage != 0.10:
+                    order_slip = resolve_slippage_usd(slippage, default=0.10)
+                else:
+                    order_slip = resolve_slippage_usd(getattr(global_settings, "slippage_usd", 0.10), default=0.10)
+
+                order_maker_fee = float(order_cost_snap.get("maker_fee_rate", 0.0002)) if order_cost_snap else 0.0002
+                order_taker_fee = float(order_cost_snap.get("taker_fee_rate", 0.0004)) if order_cost_snap else 0.0004
+
             order_costs = CostAssumptions(
                 maker_fee_rate=order_maker_fee,
                 taker_fee_rate=order_taker_fee,

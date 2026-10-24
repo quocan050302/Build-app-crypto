@@ -227,6 +227,51 @@ class SelectedStopLeg:
 
 
 @dataclass(frozen=True)
+class ProtectedLegEpisode:
+    """
+    AURUM V17.5.6 (Appendix C1):
+    Typed structural displacement episode proof binding the selected reference, break bar,
+    and eligible protective origin candidates.
+    """
+    status: str  # "AVAILABLE" or failure reason code
+    model_id: str
+    direction: str
+    reference_id: Optional[str] = None
+    reference_price: Optional[float] = None
+    reference_occurred_at_ms: Optional[int] = None
+    reference_known_at_ms: Optional[int] = None
+    break_bar_id: Optional[str] = None
+    break_open_ms: Optional[int] = None
+    break_known_at_ms: Optional[int] = None
+    decision_cutoff_ms: int = 0
+    episode_start_ms: Optional[int] = None
+    episode_end_ms: Optional[int] = None
+    eligible_origin_ids: Tuple[str, ...] = ()
+    source_bar_ids: Tuple[str, ...] = ()
+    reasons: Tuple[str, ...] = ()
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "status": self.status,
+            "model_id": self.model_id,
+            "direction": self.direction,
+            "reference_id": self.reference_id,
+            "reference_price": round(self.reference_price, 4) if self.reference_price is not None else None,
+            "reference_occurred_at_ms": self.reference_occurred_at_ms,
+            "reference_known_at_ms": self.reference_known_at_ms,
+            "break_bar_id": self.break_bar_id,
+            "break_open_ms": self.break_open_ms,
+            "break_known_at_ms": self.break_known_at_ms,
+            "decision_cutoff_ms": self.decision_cutoff_ms,
+            "episode_start_ms": self.episode_start_ms,
+            "episode_end_ms": self.episode_end_ms,
+            "eligible_origin_ids": list(self.eligible_origin_ids),
+            "source_bar_ids": list(self.source_bar_ids),
+            "reasons": list(self.reasons),
+        }
+
+
+@dataclass(frozen=True)
 class StopPlacementDecision:
     """Complete, self-contained stop placement decision for a candidate opportunity."""
     status: str  # StopStatus value

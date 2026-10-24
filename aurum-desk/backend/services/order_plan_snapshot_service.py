@@ -78,11 +78,40 @@ def build_arm_plan_snapshot(
     target_capital: Optional[float] = None,
     target_risk_budget: Optional[float] = None,
     min_net_rr: Optional[float] = None,
+    resolved_execution_costs: Optional[Dict[str, Any]] = None,
 ) -> OrderPlanSnapshot:
     """Builds canonical frozen financial snapshot at ARM stage."""
     from services.cg01_types import resolve_slippage_usd
-    raw_arm_slip = slippage_usd if slippage_usd is not None else getattr(calc_res, "slippage_usd", None)
-    resolved_arm_slip = resolve_slippage_usd(raw_arm_slip, default=0.10)
+
+    arm_cost_provenance = "LEGACY_ARM_FALLBACK"
+    cost_version = policy_config_version
+    tp_slip = 0.0
+    sl_slip = None
+
+    if resolved_execution_costs is not None and isinstance(resolved_execution_costs, dict):
+        if resolved_execution_costs.get("available"):
+            resolved_arm_slip = float(resolved_execution_costs.get("entry_slippage_usd", 0.10))
+            maker_fee_rate = float(resolved_execution_costs.get("maker_fee_rate", 0.0002))
+            taker_fee_rate = float(resolved_execution_costs.get("taker_fee_rate", 0.0004))
+            tp_slip = float(resolved_execution_costs.get("tp_slippage_usd", 0.0))
+            sl_slip = float(resolved_execution_costs.get("sl_slippage_usd", resolved_arm_slip))
+            arm_cost_provenance = str(resolved_execution_costs.get("provenance", "VERIFIED_COST_AUTHORITY"))
+            cost_version = resolved_execution_costs.get("version", policy_config_version)
+        else:
+            raw_arm_slip = slippage_usd if slippage_usd is not None else getattr(calc_res, "slippage_usd", None)
+            resolved_arm_slip = resolve_slippage_usd(raw_arm_slip, default=0.10)
+            maker_fee_rate = getattr(calc_res, "maker_fee_rate", 0.0002)
+            taker_fee_rate = getattr(calc_res, "taker_fee_rate", 0.0004)
+            arm_cost_provenance = "ARM_UNVERIFIED_COST_FALLBACK"
+    else:
+        raw_arm_slip = slippage_usd if slippage_usd is not None else getattr(calc_res, "slippage_usd", None)
+        resolved_arm_slip = resolve_slippage_usd(raw_arm_slip, default=0.10)
+        maker_fee_rate = getattr(calc_res, "maker_fee_rate", 0.0002)
+        taker_fee_rate = getattr(calc_res, "taker_fee_rate", 0.0004)
+
+    if sl_slip is None:
+        sl_slip = resolved_arm_slip
+
     qty = getattr(calc_res, "quantity", 0.0)
     multiplier = getattr(calc_res, "multiplier", 1.0)
     net_rr = getattr(calc_res, "net_rr", None)
@@ -100,9 +129,6 @@ def build_arm_plan_snapshot(
     tp_exit_slip = getattr(calc_res, "tp_exit_slippage_usdt", 0.0)
     fees_total = getattr(calc_res, "fees_total_usdt", entry_fee + sl_exit_fee + tp_exit_fee)
     slip_total = getattr(calc_res, "slippage_total_usdt", entry_slip + sl_exit_slip + tp_exit_slip)
-
-    maker_fee_rate = getattr(calc_res, "maker_fee_rate", 0.0002)
-    taker_fee_rate = getattr(calc_res, "taker_fee_rate", 0.0004)
 
     return OrderPlanSnapshot({
         "phase": "ARMED_ESTIMATE",
@@ -135,6 +161,9 @@ def build_arm_plan_snapshot(
         "taker_fee_rate": taker_fee_rate,
         "slippage": resolved_arm_slip,
         "slippage_usd": resolved_arm_slip,
+        "entry_slippage_usd": resolved_arm_slip,
+        "tp_slippage_usd": tp_slip,
+        "sl_slippage_usd": sl_slip,
         "multiplier": multiplier,
         "capital_usdt": capital_usdt,
         "equity_usdt": capital_usdt,
@@ -145,7 +174,9 @@ def build_arm_plan_snapshot(
         "estimated_liquidation": getattr(calc_res, "estimated_liquidation", None),
         "cost_source": cost_source,
         "policy_config_version": policy_config_version,
-        "cost_version": policy_config_version,
+        "cost_version": cost_version,
+        "cost_provenance": arm_cost_provenance,
+        "resolved_execution_costs": resolved_execution_costs,
         "risk_config_version": risk_config_version,
         "calculated_at": now_ms,
         "equity_as_of_ms": now_ms,

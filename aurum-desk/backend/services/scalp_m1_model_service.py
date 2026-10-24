@@ -1926,13 +1926,16 @@ class ScalpM1ModelService:
                 select_protected_origin_for_break,
             )
             ref_swing = last_sh if direction == "LONG" else last_sl
-            break_bar_ts = int(getattr(breaking_bars[-1], "open_time", None) or getattr(breaking_bars[-1], "timestamp", 0))
+            break_bar = breaking_bars[-1]
+            break_bar_ts = int(getattr(break_bar, "open_time", None) or getattr(break_bar, "timestamp", 0))
             origin_binding = select_protected_origin_for_break(
                 model_id=model_id,
                 direction=direction,
                 selected_break={
-                    "bar": breaking_bars[-1],
-                    "broken_at_ms": break_bar_ts + 60_000,
+                    "bar": break_bar,
+                    "break_open_ms": break_bar_ts,
+                    "broken_at_ms": break_bar_ts,
+                    "known_at_ms": break_bar_ts + 60_000,
                 },
                 selected_reference=ref_swing,
                 confirmed_swings=(sh_list, sl_list),
@@ -2335,12 +2338,16 @@ class ScalpM1ModelService:
                 "id": break_res.get("swing_ref_id"),
                 "price": break_res.get("swing_ref_price"),
             }
+            break_bar = break_res.get("bar")
+            break_bar_ts = int(break_res.get("broken_at_ms") or 0)
             origin_binding = select_protected_origin_for_break(
                 model_id=model_id,
                 direction=direction,
                 selected_break={
-                    "bar": break_res.get("bar"),
-                    "broken_at_ms": int(break_res.get("broken_at_ms") or 0),
+                    "bar": break_bar,
+                    "break_open_ms": break_bar_ts,
+                    "broken_at_ms": break_bar_ts,
+                    "known_at_ms": break_bar_ts + 60_000,
                 },
                 selected_reference=ref_dict,
                 confirmed_swings=(sh_list, sl_list),
