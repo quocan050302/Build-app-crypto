@@ -808,9 +808,83 @@ def run_migration(db_path=None, *, backup_dir=None):
     cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_funnel_as_of_ms ON opportunity_funnel_records(as_of_ms);")
     cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_funnel_stage ON opportunity_funnel_records(stage);")
 
+    # V17.6 Engine Observability Tables
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS engine_heartbeats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            engine_instance_id VARCHAR(80) NOT NULL UNIQUE,
+            symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+            run_id VARCHAR(80),
+            state VARCHAR(30) DEFAULT 'IDLE',
+            last_process_heartbeat_at_ms BIGINT NOT NULL,
+            last_evaluation_started_at_ms BIGINT,
+            last_evaluation_completed_at_ms BIGINT,
+            last_successful_evaluation_at_ms BIGINT,
+            last_cycle_id VARCHAR(80),
+            cycles_count INTEGER DEFAULT 0,
+            failed_cycles_count INTEGER DEFAULT 0,
+            cadence_sec INTEGER DEFAULT 15,
+            metadata_json TEXT,
+            updated_at_ms BIGINT NOT NULL
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_engine_hb_instance ON engine_heartbeats (engine_instance_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_engine_hb_symbol ON engine_heartbeats (symbol);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_engine_hb_run_id ON engine_heartbeats (run_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_engine_hb_state ON engine_heartbeats (state);")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS opportunity_decision_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id VARCHAR(80) NOT NULL UNIQUE,
+            event_version INTEGER DEFAULT 1,
+            run_id VARCHAR(80),
+            cycle_id VARCHAR(80),
+            opportunity_id VARCHAR(80) NOT NULL,
+            model_id VARCHAR(40) NOT NULL,
+            direction VARCHAR(10) NOT NULL,
+            stage VARCHAR(30) NOT NULL,
+            primary_reason_code VARCHAR(80),
+            reason_category VARCHAR(40),
+            reason_codes_json TEXT,
+            evidence_ids_json TEXT,
+            waiting_conditions_json TEXT,
+            payload_json TEXT,
+            occurred_at_ms BIGINT NOT NULL,
+            created_at_ms BIGINT NOT NULL
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_event_id ON opportunity_decision_events (event_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_opp_id ON opportunity_decision_events (opportunity_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_model_id ON opportunity_decision_events (model_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_stage ON opportunity_decision_events (stage);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_run_id ON opportunity_decision_events (run_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_occurred ON opportunity_decision_events (occurred_at_ms);")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS engine_incidents (
+            id VARCHAR(80) PRIMARY KEY,
+            severity VARCHAR(20) NOT NULL,
+            component VARCHAR(40) NOT NULL,
+            engine_instance_id VARCHAR(80),
+            run_id VARCHAR(80),
+            cycle_id VARCHAR(80),
+            opportunity_id VARCHAR(80),
+            order_id VARCHAR(36),
+            reason_code VARCHAR(80),
+            message TEXT NOT NULL,
+            status VARCHAR(20) DEFAULT 'ACTIVE',
+            created_at_ms BIGINT NOT NULL,
+            recovered_at_ms BIGINT,
+            payload_json TEXT
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_engine_incidents_status ON engine_incidents (status);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_engine_incidents_created ON engine_incidents (created_at_ms);")
+
     conn.commit()
     conn.close()
-    print("[+] V7/V15 migration completed successfully with full historical preservation!")
+    print("[+] V7/V15/V17.6 migration completed successfully with full historical preservation!")
 
 if __name__ == "__main__":
     run_migration()

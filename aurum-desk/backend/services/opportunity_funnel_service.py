@@ -91,6 +91,23 @@ class OpportunityFunnelService:
                     row.metrics_json = metrics_str
                     row.payload_json = payload_str
                 db.flush()
+
+                try:
+                    from services.engine_observability_service import engine_observability_service
+                    engine_observability_service.record_decision_event(
+                        db,
+                        opportunity_id=eval_data.opportunity_id,
+                        model_id=eval_data.model_id,
+                        direction=eval_data.direction,
+                        stage=eval_data.stage,
+                        run_id=eff_run_id,
+                        reason_codes=eval_data.reason_codes,
+                        evidence_ids=eval_data.evidence_ids,
+                        payload=eval_data.to_dict(),
+                        occurred_at_ms=t_now,
+                    )
+                except Exception as dec_err:
+                    logger.debug(f"Error recording decision event in OpportunityFunnelService: {dec_err}")
             except Exception as e:
                 logger.warning(f"Error persisting OpportunityFunnelRecord: {e}")
 

@@ -4645,3 +4645,156 @@ def get_opportunity_monitor_report_endpoint(
     )
 
     return PlainTextResponse(content=md_text, media_type="text/markdown; charset=utf-8")
+
+
+# ---------------------------------------------------------------------------
+# V17.6 Observation API Endpoints (Phần 101 - 110)
+# Strictly Read-Only (zero side-effects, zero mutations, db.autoflush=False)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/observation/status")
+def get_observation_status_endpoint(
+    symbol: str = "XAUUSDT",
+    now_ms: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.6 Read-only status snapshot: engine liveness, market feed freshness,
+    resolved active run, active incidents, and latest cycle telemetry.
+    """
+    db.autoflush = False
+    from services.engine_observability_service import engine_observability_service
+    from services.paper_research_run_service import resolve_active_observation_run
+
+    t_now = int(now_ms if now_ms is not None else int(time.time() * 1000))
+    engine_health = engine_observability_service.build_engine_health_snapshot(db, symbol=symbol, now_ms=t_now)
+    feed_health = engine_observability_service.build_market_feed_health_snapshot(symbol=symbol, now_ms=t_now)
+    active_run = resolve_active_observation_run(db, symbol=symbol)
+
+    return {
+        "status": "OK",
+        "symbol": symbol,
+        "now_ms": t_now,
+        "engine": engine_health,
+        "feed": feed_health,
+        "active_run": active_run.to_dict() if active_run else None,
+        "latest_cycle": engine_observability_service.get_latest_cycle_diagnostic(),
+        "recent_cycles": engine_observability_service.get_recent_cycles(limit=10),
+    }
+
+
+@app.get("/api/v1/observation/summary")
+def get_observation_summary_endpoint(
+    symbol: str = "XAUUSDT",
+    scope: str = "CG01",
+    run_id: Optional[str] = None,
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    now_ms: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.6 Aggregated Observation Dashboard Snapshot:
+    Tiers 1, 2, and 3 combined (Engine, Feed, Funnel, Waiting conditions, Blocked categories,
+    truthful post-fee accounting, and observation coverage).
+    """
+    if start_ms is not None and end_ms is not None and end_ms <= start_ms:
+        raise HTTPException(
+            status_code=422,
+            detail=f"end_ms ({end_ms}) must be strictly greater than start_ms ({start_ms})",
+        )
+    if start_ms is not None and end_ms is not None and (end_ms - start_ms) > 31 * 86400 * 1000:
+        raise HTTPException(
+            status_code=422,
+            detail="Query window cannot exceed 31 days",
+        )
+
+    db.autoflush = False
+    from services.engine_observability_service import engine_observability_service
+
+    snapshot = engine_observability_service.build_observation_dashboard_snapshot(
+        db,
+        symbol=symbol,
+        scope=scope,
+        run_id=run_id,
+        start_ms=start_ms,
+        end_ms=end_ms,
+        now_ms=now_ms,
+    )
+    return snapshot
+
+
+@app.get("/api/v1/observation/decisions")
+def get_observation_decisions_endpoint(
+    symbol: str = "XAUUSDT",
+    run_id: Optional[str] = None,
+    limit: int = 20,
+    cursor: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.6 Paginated recent decision events with stable ordering, primary reason categorization,
+    and Vietnamese localization.
+    """
+    if limit < 1 or limit > 50:
+        raise HTTPException(status_code=422, detail="limit must be between 1 and 50")
+
+    db.autoflush = False
+    from services.engine_observability_service import engine_observability_service
+
+    return engine_observability_service.list_recent_decisions(
+        db,
+        run_id=run_id,
+        symbol=symbol,
+        limit=limit,
+        cursor=cursor,
+    )
+
+
+@app.get("/api/v1/observation/runs/{run_id}")
+def get_observation_run_detail_endpoint(
+    run_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.6 Single observation run detail with duration, post-fee PnL, and truthful coverage.
+    """
+    db.autoflush = False
+    from services.paper_research_run_service import PaperResearchRunService, build_cg01_paper_run_summary
+    from services.engine_observability_service import engine_observability_service
+
+    run = PaperResearchRunService.get_or_create_run(run_id, db=db, create_if_missing=False)
+    if not run:
+        raise HTTPException(status_code=404, detail=f"Observation run '{run_id}' not found.")
+
+    summary = build_cg01_paper_run_summary(run_id, db=db)
+    t_now = int(time.time() * 1000)
+    coverage = engine_observability_service.calculate_observation_coverage(
+        db,
+        run_id=run_id,
+        start_ms=run.started_at_ms,
+        end_ms=run.ended_at_ms or t_now,
+    )
+
+    return {
+        "run": run.to_dict(),
+        "summary": summary,
+        "coverage": coverage,
+    }
+
+
+@app.get("/api/v1/observation/runs/{run_id}/report")
+def get_observation_run_report_endpoint(
+    run_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.6 Server-generated Markdown observation report for a specific run.
+    """
+    from fastapi.responses import PlainTextResponse
+    from services.engine_observability_service import engine_observability_service
+
+    db.autoflush = False
+    report_md = engine_observability_service.generate_run_report_markdown(db, run_id=run_id)
+    return PlainTextResponse(content=report_md, media_type="text/markdown; charset=utf-8")
+

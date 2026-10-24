@@ -42,6 +42,7 @@ import { NYSessionPanel } from './NYSessionPanel';
 import { QuickDecisionSidebar, type DrawerSectionType } from './components/QuickDecisionSidebar';
 import { TradeDetailsDrawer } from './components/TradeDetailsDrawer';
 import { PaperOpportunityMonitorDrawer } from './components/PaperOpportunityMonitorDrawer';
+import { ObservationDashboard } from './components/ObservationDashboard';
 import { TelegramTab } from './TelegramTab';
 import { JournalTab } from './JournalTab';
 import type { TradingPolicy, NYSessionStatus } from './api/client';
@@ -135,7 +136,7 @@ export interface SelectedTradeIntent {
 function AppContent() {
   // Navigation & Timeframe
   const [activeTab, setActiveTab] = useState<
-    'chart' | 'upcoming' | 'smc' | 'paper' | 'lab' | 'reports' | 'news' | 'journal' | 'telegram' | 'education'
+    'chart' | 'upcoming' | 'observation' | 'smc' | 'paper' | 'lab' | 'reports' | 'news' | 'journal' | 'telegram' | 'education'
   >('chart');
   const [timeframe, setTimeframe] = useState<string>('15M');
   const timeframes = [
@@ -1809,7 +1810,7 @@ function AppContent() {
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-aurum-500 animate-pulse" />
             <h1 className="text-lg font-bold text-aurum-400 tracking-wider">
-              AURUM DESK <span className="text-xs font-mono text-gray-400">v4.0</span>
+              AURUM DESK <span className="text-xs font-mono text-aurum-400 font-bold bg-charcoal-800 px-1.5 py-0.5 rounded border border-charcoal-700">V17.6</span>
             </h1>
             <span className="text-[10px] uppercase font-semibold tracking-wider bg-charcoal-800 text-gray-400 px-2 py-0.5 rounded border border-charcoal-700">
               BITGET XAUUSDT PERPETUAL · PAPER TRADING
@@ -1901,6 +1902,7 @@ function AppContent() {
         {[
           { id: 'chart', label: 'Chart & Vị Thế R:R', icon: TrendingUp },
           { id: 'upcoming', label: 'Kế Hoạch & Lệnh Dự Kiến', icon: ListOrdered },
+          { id: 'observation', label: 'Quan Sát Bot (Telemetry)', icon: Eye },
           { id: 'smc', label: 'Phân Tích SMC & Ma Trận', icon: Layers },
           { id: 'paper', label: 'Quản Trị Vốn & Ký Quỹ', icon: ShieldAlert },
           { id: 'lab', label: 'Phòng Kiểm Thử Rủi Ro', icon: FlaskConical },
@@ -2512,6 +2514,20 @@ function AppContent() {
             </div>
           )}
 
+          {/* TAB: QUAN SÁT BOT & TRÍ TUỆ QUYẾT ĐỊNH (V17.6) */}
+          {activeTab === 'observation' && (
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <ObservationDashboard
+                symbol="XAUUSDT"
+                scope="CG01"
+                autoPaperActive={autoPaperActive}
+                onToggleAutoPaper={handleToggleAutoPaper}
+                onFocusSetupOnChart={handleFocusSetupOnChart}
+                onFocusTradeOnChart={handleFocusTradeOnChart}
+              />
+            </div>
+          )}
+
           {/* TAB: PHÂN TÍCH SMC/ICT & MA TRẬN ĐA KHUNG */}
           {activeTab === 'smc' && (
             <div className="bg-charcoal-900 border border-charcoal-750 rounded-lg p-5 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
@@ -2662,7 +2678,7 @@ function AppContent() {
                 <div className="bg-charcoal-850 p-3 rounded border border-charcoal-700">
                   <span className="text-gray-400 block">Vốn Hiện Tại (Equity)</span>
                   <span className="text-lg font-bold text-emerald-400">
-                    ${accountStatus?.current_equity?.toFixed(2) || '1,000.00'}
+                    {accountStatus?.current_equity != null ? `$${accountStatus.current_equity.toFixed(2)}` : 'N/A'}
                   </span>
                 </div>
                 <div className="bg-charcoal-850 p-3 rounded border border-charcoal-700">
@@ -2675,16 +2691,16 @@ function AppContent() {
                   <span className="text-gray-400 block">PnL Realized Hôm Nay</span>
                   <span
                     className={`text-lg font-bold ${
-                      accountStatus?.realized_pnl_today >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                      (accountStatus?.realized_pnl_today ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
                     }`}
                   >
-                    ${accountStatus?.realized_pnl_today?.toFixed(2) || '0.00'}
+                    {accountStatus?.realized_pnl_today != null ? `$${accountStatus.realized_pnl_today.toFixed(2)}` : 'N/A'}
                   </span>
                 </div>
                 <div className="bg-charcoal-850 p-3 rounded border border-charcoal-700">
                   <span className="text-gray-400 block">Giới Hạn Lỗ Ngày (1.5%)</span>
                   <span className="text-lg font-bold text-rose-400">
-                    ${accountStatus?.daily_loss_limit_usdt?.toFixed(2) || '15.00'}
+                    {accountStatus?.daily_loss_limit_usdt != null ? `$${accountStatus.daily_loss_limit_usdt.toFixed(2)}` : 'N/A'}
                   </span>
                 </div>
               </div>

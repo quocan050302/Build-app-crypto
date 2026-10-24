@@ -45,6 +45,10 @@ import type {
   OpportunityMonitorDetail,
   MonitorChartFocusContext,
 } from '../types/paperOpportunityMonitor';
+import type {
+  ObservationDashboardSnapshot,
+  DecisionsListPage,
+} from '../types/observation';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '';
 
@@ -692,6 +696,69 @@ export const api = {
   ): Promise<string> => {
     const res = await apiClient.get('/api/v1/paper/opportunity-monitor/report.md', {
       params,
+      signal,
+      responseType: 'text',
+    });
+    return res.data;
+  },
+
+  getObservationStatus: async (
+    params?: { symbol?: string; now_ms?: number | null },
+    signal?: AbortSignal
+  ): Promise<any> => {
+    const res = await apiClient.get('/api/v1/observation/status', { params, signal });
+    return res.data;
+  },
+
+  getObservationSummary: async (
+    params?: {
+      symbol?: string;
+      scope?: string;
+      run_id?: string | null;
+      start_ms?: number | null;
+      end_ms?: number | null;
+      now_ms?: number | null;
+    },
+    signal?: AbortSignal
+  ): Promise<ObservationDashboardSnapshot> => {
+    const res = await apiClient.get<ObservationDashboardSnapshot>('/api/v1/observation/summary', {
+      params,
+      signal,
+    });
+    return res.data;
+  },
+
+  getObservationDecisions: async (
+    params?: {
+      symbol?: string;
+      run_id?: string | null;
+      limit?: number;
+      cursor?: string | null;
+    },
+    signal?: AbortSignal
+  ): Promise<DecisionsListPage> => {
+    const res = await apiClient.get<DecisionsListPage>('/api/v1/observation/decisions', {
+      params,
+      signal,
+    });
+    return res.data;
+  },
+
+  getObservationRunDetail: async (
+    runId: string,
+    signal?: AbortSignal
+  ): Promise<any> => {
+    const encodedId = encodeURIComponent(runId);
+    const res = await apiClient.get(`/api/v1/observation/runs/${encodedId}`, { signal });
+    return res.data;
+  },
+
+  getObservationRunReport: async (
+    runId: string,
+    signal?: AbortSignal
+  ): Promise<string> => {
+    const encodedId = encodeURIComponent(runId);
+    const res = await apiClient.get(`/api/v1/observation/runs/${encodedId}/report`, {
       signal,
       responseType: 'text',
     });

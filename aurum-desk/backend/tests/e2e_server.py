@@ -39,6 +39,7 @@ from main import app  # noqa: E402
 from services.clock import FakeClock, VN_TZ, live_clock  # noqa: E402
 from services.collector_service import collector_service  # noqa: E402
 from services.execution_coordinator import execution_coordinator  # noqa: E402
+from services.engine_observability_service import engine_observability_service  # noqa: E402
 from e2e_financial_helper import _calculate_e2e_plan_financials  # noqa: E402
 
 # ---- V14.3: injectable launcher clock (TEST LAUNCHER ONLY - production main.py has no such backdoor) ----
@@ -785,6 +786,82 @@ def e2e_seed_monitor(body: dict = Body(default={})):
             "run_id": run_id,
             "opportunities": [opp1_id, opp2_id, opp3_id],
         }
+    finally:
+        db.close()
+
+
+@app.post("/__e2e/seed_observation")
+def e2e_seed_observation(payload: dict = Body(default={})):
+    """Seed observation engine heartbeats, evaluation cycles, and decisions for V17.6."""
+    run_id = payload.get("run_id", "run_e2e_obs")
+    symbol = payload.get("symbol", "XAUUSDT")
+    scope = payload.get("scope", "CG01")
+    now_ms = live_clock.now_ms()
+
+    db = SessionLocal()
+    try:
+        run = db.query(models.PaperResearchRunRecord).filter(models.PaperResearchRunRecord.run_id == run_id).first()
+        if not run:
+            run = models.PaperResearchRunRecord(
+                run_id=run_id,
+                scope=scope,
+                symbol=symbol,
+                status="COLLECTING",
+                started_at_ms=now_ms - 3600_000,
+                created_at_ms=now_ms - 3600_000,
+                updated_at_ms=now_ms,
+            )
+            db.add(run)
+            db.commit()
+
+        # Engine heartbeat
+        engine_observability_service.record_engine_heartbeat(
+            db=db,
+            symbol=symbol,
+            run_id=run_id,
+            heartbeat_at_ms=now_ms,
+        )
+
+        # Evaluation cycle
+        engine_observability_service.record_evaluation_cycle(
+            db=db,
+            symbol=symbol,
+            cycle_id=f"cycle-e2e-{now_ms}",
+            started_at_ms=now_ms - 50,
+            completed_at_ms=now_ms,
+            duration_ms=50.0,
+            status="COMPLETED",
+            decision_status="ARMED",
+            opportunities_detected=1,
+        )
+
+        # Decision events
+        engine_observability_service.record_decision_event(
+            db=db,
+            opportunity_id="opp_e2e_obs_01",
+            model_id="CG01_SWEEP_MSS_FVG",
+            direction="SHORT",
+            stage="ARMED",
+            reason_codes=["ARMED_WAITING_FILL"],
+            payload={"order_id": "order_e2e_obs_01", "net_rr": 3.1},
+            occurred_at_ms=now_ms - 10_000,
+            run_id=run_id,
+        )
+
+        engine_observability_service.record_decision_event(
+            db=db,
+            opportunity_id="opp_e2e_obs_02",
+            model_id="CG01_SWEEP_MSS_FVG",
+            direction="LONG",
+            stage="BLOCKED",
+            reason_codes=["RR_BELOW_MINIMUM"],
+            payload={"net_rr": 1.45},
+            occurred_at_ms=now_ms - 5_000,
+            run_id=run_id,
+        )
+
+        db.commit()
+        return {"status": "SUCCESS", "run_id": run_id}
     finally:
         db.close()
 

@@ -20,6 +20,7 @@ import math
 import threading
 import time
 from typing import Any, Dict, List, Optional, Sequence
+import uuid
 from sqlalchemy.orm import Session
 
 import crud
@@ -623,7 +624,22 @@ class ScalpWatcherOrchestrator:
         """
         t_recv = int(now_ms if now_ms is not None else int(time.time() * 1000))
         t_start = int(time.time() * 1000)
+        t_perf_start = time.perf_counter()
+        cycle_id = f"cycle-{t_recv}-{uuid.uuid4().hex[:8]}"
         cfg = config if config is not None else load_effective_scalp_config(db)
+
+        try:
+            from services.engine_observability_service import engine_observability_service
+            engine_observability_service.record_engine_heartbeat(
+                db,
+                symbol=symbol,
+                state="RUNNING",
+                heartbeat_at_ms=t_recv,
+                last_cycle_id=cycle_id,
+                evaluation_started_at_ms=t_recv,
+            )
+        except Exception:
+            pass
 
         # Global auto stop policy check (PHẦN 024)
         if auto_enabled is None:
@@ -637,11 +653,30 @@ class ScalpWatcherOrchestrator:
 
         # Check feature flag
         scalp_mode = cfg.scalp_m1_mode
-        if scalp_mode == ScalpMode.OFF.value and not cfg.daily_ny_research_enabled and not getattr(cfg, "cg01_enabled", False):
+        if (scalp_mode == ScalpMode.OFF.value or not cfg.scalp_m1_enabled) and not cfg.daily_ny_research_enabled and not getattr(cfg, "cg01_enabled", False):
             cg01_eval = serialize_cg01_evaluation(None, enabled=False, evaluated=False, skip_reason="MODEL_DISABLED", as_of_ms=t_recv)
             self._record_and_broadcast_cg01_evaluation(symbol, cg01_eval)
+            dur_ms = max(0.0, (time.perf_counter() - t_perf_start) * 1000)
+            t_done = (t_recv + int(dur_ms)) if now_ms is not None else int(time.time() * 1000)
+            try:
+                from services.engine_observability_service import engine_observability_service
+                engine_observability_service.record_evaluation_cycle(
+                    db,
+                    cycle_id=cycle_id,
+                    started_at_ms=t_recv,
+                    completed_at_ms=t_done,
+                    status="SKIPPED",
+                    symbol=symbol,
+                    duration_ms=dur_ms,
+                    skip_reason="SCALP_AUTO_PAPER_DISABLED" if not getattr(cfg, "scalp_m1_enabled", True) else "MODEL_DISABLED",
+                    decision_status="SKIPPED",
+                )
+            except Exception:
+                pass
             return {
+                "cycle_id": cycle_id,
                 "status": "DISABLED",
+                "decision_status": "SKIPPED",
                 "scalp_mode": scalp_mode,
                 "as_of_ms": t_recv,
                 "zones_count": 0,
@@ -674,8 +709,27 @@ class ScalpWatcherOrchestrator:
         if not is_q_valid:
             cg01_eval = serialize_cg01_evaluation(None, enabled=bool(getattr(cfg, "cg01_enabled", True)), evaluated=False, skip_reason="NO_QUOTE", as_of_ms=t_recv)
             self._record_and_broadcast_cg01_evaluation(symbol, cg01_eval)
+            dur_ms = max(0.0, (time.perf_counter() - t_perf_start) * 1000)
+            t_done = (t_recv + int(dur_ms)) if now_ms is not None else int(time.time() * 1000)
+            try:
+                from services.engine_observability_service import engine_observability_service
+                engine_observability_service.record_evaluation_cycle(
+                    db,
+                    cycle_id=cycle_id,
+                    started_at_ms=t_recv,
+                    completed_at_ms=t_done,
+                    status="SKIPPED",
+                    symbol=symbol,
+                    duration_ms=dur_ms,
+                    skip_reason="NO_VALID_QUOTE",
+                    decision_status="SKIPPED",
+                )
+            except Exception:
+                pass
             return {
+                "cycle_id": cycle_id,
                 "status": "NO_QUOTE",
+                "decision_status": "SKIPPED",
                 "as_of_ms": t_recv,
                 "zones_count": 0,
                 "candidates_count": 0,
@@ -1073,6 +1127,8 @@ class ScalpWatcherOrchestrator:
                 hypotheses_count=len(hypotheses),
                 regime=regime,
                 liq_levels_count=len(liq_levels),
+                cycle_id=cycle_id,
+                t_perf_start=t_perf_start,
             )
 
         # Ensure any durable hypothesis past its expiry deadline transitions to EXPIRED (SECTIONS 116 - 120)
@@ -1122,6 +1178,8 @@ class ScalpWatcherOrchestrator:
                 hypotheses_count=len(hypotheses),
                 regime=regime,
                 liq_levels_count=len(liq_levels),
+                cycle_id=cycle_id,
+                t_perf_start=t_perf_start,
             )
 
         # Compute cycle write_status
@@ -1830,7 +1888,39 @@ class ScalpWatcherOrchestrator:
         cg01_final = cg01_eval_data or serialize_cg01_evaluation(None, enabled=False, evaluated=False, as_of_ms=t_recv)
         self._record_and_broadcast_cg01_evaluation(symbol, cg01_final)
 
+        # V17.6 Observability Telemetry Recording
+        cycle_dur_ms = max(0.0, (time.perf_counter() - t_perf_start) * 1000)
+        t_cycle_done = (t_recv + int(cycle_dur_ms)) if now_ms is not None else int(time.time() * 1000)
+        if armed_order and commit_ok:
+            cycle_decision_status = "ARMED"
+        elif len(candidates) > 0 and commit_ok:
+            cycle_decision_status = "BLOCKED"
+        else:
+            cycle_decision_status = "NO_SETUP"
+
+        try:
+            from services.engine_observability_service import engine_observability_service
+            engine_observability_service.record_evaluation_cycle(
+                db,
+                cycle_id=cycle_id,
+                started_at_ms=t_recv,
+                completed_at_ms=t_cycle_done,
+                status="COMPLETED" if commit_ok else "DEGRADED",
+                symbol=symbol,
+                duration_ms=cycle_dur_ms,
+                opportunities_detected=len(candidates) if commit_ok else 0,
+                opportunities_qualified=len(entry_authorized_hypotheses) if commit_ok else 0,
+                opportunities_blocked=(len(candidates) - (1 if armed_order else 0)) if commit_ok else 0,
+                armed_order_id=armed_order.id if armed_order and commit_ok else None,
+                decision_status=cycle_decision_status,
+                market_regime=regime,
+            )
+        except Exception as tel_err:
+            logger.debug(f"Error recording cycle observability telemetry: {tel_err}")
+
         return {
+            "cycle_id": cycle_id,
+            "decision_status": cycle_decision_status,
             "status": cycle_status if commit_ok else "DEGRADED",
             "lifecycle_read_status": batch_result.read_status,
             "lifecycle_write_status": cycle_authority.write_status,
@@ -1865,6 +1955,8 @@ class ScalpWatcherOrchestrator:
         hypotheses_count: int = 0,
         regime: str = "UNKNOWN",
         liq_levels_count: int = 0,
+        cycle_id: Optional[str] = None,
+        t_perf_start: Optional[float] = None,
     ) -> Dict[str, Any]:
         """
         Failure finalization helper for aborted/failed cycle transactions (V15.8 PROMPT 049-056).
@@ -1896,10 +1988,35 @@ class ScalpWatcherOrchestrator:
             }
 
         t_cycle_done = int(time.time() * 1000)
+        eff_dur_ms = max(0.0, (time.perf_counter() - t_perf_start) * 1000) if t_perf_start else max(0, t_cycle_done - t_start)
+        eff_cycle_id = cycle_id or f"failed-{t_recv}"
+
+        try:
+            from services.engine_observability_service import engine_observability_service
+            engine_observability_service.record_evaluation_cycle(
+                db,
+                cycle_id=eff_cycle_id,
+                started_at_ms=t_recv,
+                completed_at_ms=t_cycle_done,
+                status="FAILED",
+                symbol=symbol,
+                duration_ms=eff_dur_ms,
+                opportunities_detected=0,
+                opportunities_qualified=0,
+                opportunities_blocked=0,
+                decision_status="FAILED",
+                failure_reason="TRANSACTION_FAILED",
+                market_regime=regime,
+            )
+        except Exception as tel_err:
+            logger.debug(f"Error recording failed cycle telemetry: {tel_err}")
+
         cg01_failed = serialize_cg01_evaluation(None, enabled=True, evaluated=False, skip_reason="CYCLE_FAILED", as_of_ms=t_recv)
         self._record_and_broadcast_cg01_evaluation(symbol, cg01_failed)
 
         return {
+            "cycle_id": eff_cycle_id,
+            "decision_status": "FAILED",
             "status": "DEGRADED",
             "lifecycle_read_status": getattr(batch_result, "read_status", "UNKNOWN"),
             "lifecycle_write_status": "FAILED",
@@ -2754,6 +2871,18 @@ class ScalpWatcherOrchestrator:
                         )
                         # Rules 014, 024, 025, 051-055: Use effective owner arbitration instead of raw is_owner
                         owner_info = resolve_entry_execution_owner(cg01_evaluation_scheduler, db=db)
+
+                        # V17.6 Heartbeat observation
+                        try:
+                            from services.engine_observability_service import engine_observability_service
+                            engine_observability_service.record_engine_heartbeat(
+                                db,
+                                symbol="XAUUSDT",
+                                state="RUNNING" if owner_info.get("can_execute") else "IDLE",
+                            )
+                        except Exception:
+                            pass
+
                         if owner_info["execution_owner"] == "SCHEDULER":
                             # Rule 055: Scheduler is active execution owner; watcher acts strictly as watchdog
                             # and does not run competing mutable production evaluation cycles.

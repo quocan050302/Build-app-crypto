@@ -951,3 +951,68 @@ class PaperObservationInterval(Base):
     heartbeats_count = Column(Integer, default=1)
     created_at_ms = Column(BigInteger, nullable=False)
 
+
+# ---------------------------------------------------------------------------
+# V17.6 Engine Observability, Decision Intelligence & Operational Alerts
+# ---------------------------------------------------------------------------
+class EngineHeartbeatRecord(Base):
+    __tablename__ = "engine_heartbeats"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    engine_instance_id = Column(String(80), nullable=False, unique=True, index=True)
+    symbol = Column(String(20), default="XAUUSDT", index=True)
+    run_id = Column(String(80), nullable=True, index=True)
+    state = Column(String(30), nullable=False, default="IDLE", index=True)  # RUNNING, IDLE, WAITING_MARKET, PAUSED, DEGRADED, STALLED, STOPPED, UNKNOWN
+    last_process_heartbeat_at_ms = Column(BigInteger, nullable=False)
+    last_evaluation_started_at_ms = Column(BigInteger, nullable=True)
+    last_evaluation_completed_at_ms = Column(BigInteger, nullable=True)
+    last_successful_evaluation_at_ms = Column(BigInteger, nullable=True)
+    last_cycle_id = Column(String(80), nullable=True)
+    cycles_count = Column(Integer, default=0)
+    failed_cycles_count = Column(Integer, default=0)
+    cadence_sec = Column(Integer, default=15)
+    metadata_json = Column(Text, nullable=True)
+    updated_at_ms = Column(BigInteger, nullable=False)
+
+
+class OpportunityDecisionEvent(Base):
+    __tablename__ = "opportunity_decision_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    event_id = Column(String(80), nullable=False, unique=True, index=True)
+    event_version = Column(Integer, default=1)
+    run_id = Column(String(80), nullable=True, index=True)
+    cycle_id = Column(String(80), nullable=True, index=True)
+    opportunity_id = Column(String(80), nullable=False, index=True)
+    model_id = Column(String(40), nullable=False, index=True)
+    direction = Column(String(10), nullable=False)
+    stage = Column(String(30), nullable=False, index=True)
+    primary_reason_code = Column(String(80), nullable=True)
+    reason_category = Column(String(40), nullable=True)  # STRUCTURE, MARKET_DATA, RISK, NET_RR, NEWS, SESSION, CAPITAL, EXECUTION, CONFIGURATION, SYSTEM
+    reason_codes_json = Column(Text, nullable=True)
+    evidence_ids_json = Column(Text, nullable=True)
+    waiting_conditions_json = Column(Text, nullable=True)
+    payload_json = Column(Text, nullable=True)
+    occurred_at_ms = Column(BigInteger, nullable=False, index=True)
+    created_at_ms = Column(BigInteger, nullable=False)
+
+
+class EngineIncidentRecord(Base):
+    __tablename__ = "engine_incidents"
+
+    id = Column(String(80), primary_key=True)
+    severity = Column(String(20), nullable=False)  # INFO, WARNING, CRITICAL, RECOVERED
+    component = Column(String(40), nullable=False)
+    engine_instance_id = Column(String(80), nullable=True)
+    run_id = Column(String(80), nullable=True)
+    cycle_id = Column(String(80), nullable=True)
+    opportunity_id = Column(String(80), nullable=True)
+    order_id = Column(String(36), nullable=True)
+    reason_code = Column(String(80), nullable=True)
+    message = Column(Text, nullable=False)
+    status = Column(String(20), default="ACTIVE", index=True)  # ACTIVE, RECOVERED
+    created_at_ms = Column(BigInteger, nullable=False, index=True)
+    recovered_at_ms = Column(BigInteger, nullable=True)
+    payload_json = Column(Text, nullable=True)
+
+
