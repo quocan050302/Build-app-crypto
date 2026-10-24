@@ -155,25 +155,70 @@ export function useObservationDashboard({
     return () => clearInterval(interval);
   }, [enabled, pollingIntervalMs, fetchSnapshot]);
 
-  // Subscribe to real-time events via wsClient
+  // Debounced snapshot refresh for real-time WebSocket events (OBS-08)
+  const debounceTimerRef = useRef<any>(null);
+
   useEffect(() => {
     if (!enabled) return;
 
+    const extractEventType = (raw: any): string | null => {
+      if (!raw || typeof raw !== 'object') return null;
+      const candidates = [
+        raw.type,
+        raw.event_type,
+        raw.event?.event_type,
+        raw.event?.type,
+        raw.payload?.event_type,
+        raw.payload?.type,
+        raw.data?.event_type,
+        raw.data?.type,
+      ];
+      for (const c of candidates) {
+        if (typeof c === 'string' && c.trim().length > 0) {
+          return c.trim();
+        }
+      }
+      return null;
+    };
+
+    const isRelevantObservationEvent = (eventType: string | null): boolean => {
+      if (!eventType) return false;
+      const lower = eventType.toLowerCase();
+      const upper = eventType.toUpperCase();
+      return (
+        lower.startsWith('order.') ||
+        lower.startsWith('cycle.') ||
+        lower.startsWith('opportunity.') ||
+        lower.startsWith('feed.') ||
+        lower.startsWith('trade.') ||
+        upper === 'CG01_EVALUATION' ||
+        upper === 'CANDLE_CLOSED' ||
+        upper.startsWith('ORDER_') ||
+        upper.startsWith('CYCLE_') ||
+        upper.startsWith('OPPORTUNITY_') ||
+        upper.startsWith('FEED_') ||
+        upper.startsWith('TRADE_')
+      );
+    };
+
     const unsubscribe = wsClient.subscribe((event: any) => {
-      const eventType = event?.type || event?.event_type;
-      if (
-        eventType &&
-        (eventType.startsWith('order.') ||
-          eventType.startsWith('cycle.') ||
-          eventType.startsWith('opportunity.') ||
-          eventType.startsWith('feed.'))
-      ) {
-        // Trigger non-intrusive refresh
-        fetchSnapshot(false);
+      const eventType = extractEventType(event);
+      if (isRelevantObservationEvent(eventType)) {
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+        }
+        debounceTimerRef.current = setTimeout(() => {
+          if (isMountedRef.current) {
+            fetchSnapshot(false);
+          }
+        }, 300);
       }
     });
 
     return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
       if (typeof unsubscribe === 'function') {
         unsubscribe();
       }

@@ -117,6 +117,8 @@ class OpportunityFunnelService:
     def summarize_opportunity_funnel(
         db: Optional[Session],
         *,
+        symbol: Optional[str] = None,
+        run_id: Optional[str] = None,
         start_ms: Optional[int] = None,
         end_ms: Optional[int] = None,
         model_id: Optional[str] = None,
@@ -124,17 +126,26 @@ class OpportunityFunnelService:
         records: Optional[Sequence[OpportunityEvaluation]] = None,
     ) -> Dict[str, Any]:
         """
-        Pure and database-backed funnel summary (PHẦN 032).
+        Pure and database-backed funnel summary (PHẦN 032 & OBS-05).
         Returns counts for zones detected, touched, confirmed, blocked, armed, filled,
-        top rejection reasons, and latency percentiles.
+        top rejection reasons, and latency percentiles, strictly isolated by run_id/symbol.
         """
         raw_items: List[Dict[str, Any]] = []
 
         if records:
             for r in records:
-                raw_items.append(r.to_dict())
+                d = r.to_dict()
+                if symbol is not None and getattr(r, "symbol", None) and r.symbol != symbol:
+                    continue
+                if run_id is not None and getattr(r, "run_id", None) and r.run_id != run_id:
+                    continue
+                raw_items.append(d)
         elif db is not None:
             query = db.query(models.OpportunityFunnelRecord)
+            if symbol is not None:
+                query = query.filter(models.OpportunityFunnelRecord.symbol == symbol)
+            if run_id is not None:
+                query = query.filter(models.OpportunityFunnelRecord.run_id == run_id)
             if start_ms is not None:
                 query = query.filter(models.OpportunityFunnelRecord.as_of_ms >= start_ms)
             if end_ms is not None:

@@ -79,23 +79,206 @@ def get_tz(name: str) -> ZoneInfo:
         return ZoneInfo("UTC")
 
 
-def is_xauusdt_weekend_break(timestamp_ms: int) -> bool:
+def resolve_canonical_quote_timestamps(
+    quote: Any,
+    *,
+    now_ms: int,
+) -> Dict[str, Any]:
     """
-    Checks if a given UTC timestamp falls during the standard Gold/XAU weekend closure:
-    Closes Friday ~21:00 UTC (or 22:00 UTC depending on DST), opens Sunday ~22:00 UTC.
-    Conservative window: Friday 21:00 UTC to Sunday 22:00 UTC.
+    OBS-01: Canonical market quote timestamp authority.
+    Extracts and strictly validates exchange_ts_ms and received_at_ms.
+    Calculates exchange_age_ms, receive_age_ms, and transport_delay_ms.
+    Fails closed on missing, malformed, negative, or clock-skewed timestamps.
     """
-    dt_utc = datetime.fromtimestamp(timestamp_ms / 1000.0, tz=timezone.utc)
-    weekday = dt_utc.weekday()  # Monday is 0, Sunday is 6
-    hour = dt_utc.hour
+    if quote is None:
+        return {
+            "status": "UNAVAILABLE",
+            "exchange_ts_ms": None,
+            "received_at_ms": None,
+            "exchange_age_ms": None,
+            "receive_age_ms": None,
+            "transport_delay_ms": None,
+            "bid": None,
+            "ask": None,
+            "last": None,
+            "reason_codes": ["QUOTE_IS_NONE"],
+        }
 
-    if weekday == 4 and hour >= 21:  # Friday evening
-        return True
-    if weekday == 5:  # Saturday full day
-        return True
-    if weekday == 6 and hour < 22:  # Sunday before open
-        return True
-    return False
+    # Extract raw attributes whether dict, CanonicalQuote, or legacy object
+    raw_exch = None
+    raw_recv = None
+    bid = None
+    ask = None
+    last = None
+
+    if isinstance(quote, dict):
+        bid = quote.get("bid")
+        ask = quote.get("ask")
+        last = quote.get("last")
+        raw_exch = quote.get("exchange_ts_ms") or quote.get("ts")
+        raw_recv = quote.get("received_at_ms") or quote.get("observed_at")
+        if raw_exch is None:
+            raw_exch = quote.get("timestamp") or quote.get("time")
+    else:
+        # Check canonical attributes without triggering mock auto-generation
+        for attr in ("exchange_ts_ms", "ts"):
+            if hasattr(quote, attr):
+                val = getattr(quote, attr)
+                if not hasattr(val, "_mock_name"):
+                    raw_exch = val
+                    break
+        for attr in ("received_at_ms", "observed_at"):
+            if hasattr(quote, attr):
+                val = getattr(quote, attr)
+                if not hasattr(val, "_mock_name"):
+                    raw_recv = val
+                    break
+        # Legacy attributes fallback
+        if raw_exch is None:
+            for attr in ("timestamp", "time"):
+                if hasattr(quote, attr):
+                    val = getattr(quote, attr)
+                    if not hasattr(val, "_mock_name"):
+                        raw_exch = val
+                        break
+
+        for attr in ("bid", "ask", "last"):
+            if hasattr(quote, attr):
+                val = getattr(quote, attr)
+                if not hasattr(val, "_mock_name"):
+                    if attr == "bid":
+                        bid = val
+                    elif attr == "ask":
+                        ask = val
+                    elif attr == "last":
+                        last = val
+
+    def _validate_ts(val: Any) -> Optional[int]:
+        if val is None or isinstance(val, bool) or hasattr(val, "_mock_name"):
+            return None
+        if isinstance(val, (int, float)):
+            if not math.isfinite(val):
+                return None
+            val_int = int(val)
+        elif isinstance(val, str) and val.strip().isdigit():
+            val_int = int(val.strip())
+        else:
+            return None
+
+        # Millisecond timestamp must be reasonable (e.g. > 1_000_000_000_000, i.e., year 2001+)
+        # and not absurdly in future (> now_ms + 60_000)
+        if val_int < 1_000_000_000_000 or val_int > (now_ms + 60_000):
+            return None
+        return val_int
+
+    valid_exch = _validate_ts(raw_exch)
+    valid_recv = _validate_ts(raw_recv)
+
+    reason_codes: List[str] = []
+    if valid_exch is None and raw_exch is not None:
+        reason_codes.append("INVALID_EXCHANGE_TS")
+    if valid_recv is None and raw_recv is not None:
+        reason_codes.append("INVALID_RECEIVE_TS")
+
+    exchange_age_ms = max(0, now_ms - valid_exch) if valid_exch is not None else None
+    receive_age_ms = max(0, now_ms - valid_recv) if valid_recv is not None else None
+
+    transport_delay_ms = None
+    if valid_exch is not None and valid_recv is not None:
+        transport_delay_ms = max(0, valid_recv - valid_exch)
+
+    if valid_exch is not None:
+        status = "VALID"
+    elif valid_recv is not None:
+        status = "UNVERIFIED_EXCHANGE"
+        reason_codes.append("EXCHANGE_TS_MISSING_FALLBACK_TO_RECEIVE")
+    else:
+        status = "UNAVAILABLE"
+        reason_codes.append("ALL_TIMESTAMPS_MISSING")
+
+    def _to_float(v: Any) -> Optional[float]:
+        if v is None or isinstance(v, bool) or hasattr(v, "_mock_name"):
+            return None
+        try:
+            fv = float(v)
+            return fv if math.isfinite(fv) and fv > 0 else None
+        except (ValueError, TypeError):
+            return None
+
+    return {
+        "status": status,
+        "exchange_ts_ms": valid_exch,
+        "received_at_ms": valid_recv,
+        "exchange_age_ms": exchange_age_ms,
+        "receive_age_ms": receive_age_ms,
+        "transport_delay_ms": transport_delay_ms,
+        "bid": _to_float(bid),
+        "ask": _to_float(ask),
+        "last": _to_float(last),
+        "reason_codes": reason_codes,
+    }
+
+
+def is_xauusdt_market_closed(timestamp_ms: int) -> Tuple[bool, str]:
+    """
+    OBS-07: Authoritative XAUUSDT market hours with New York wall-clock DST awareness.
+    Returns: (is_closed: bool, reason: "WEEKEND_BREAK" | "DAILY_MAINTENANCE" | "OPEN")
+    Schedule:
+    - Weekend break: Friday 17:00 NY to Sunday 18:00 NY.
+    - Daily maintenance: Monday-Thursday 17:00 to 18:00 NY.
+    """
+    tz_ny = get_tz("America/New_York")
+    dt_ny = datetime.fromtimestamp(timestamp_ms / 1000.0, tz=tz_ny)
+    weekday = dt_ny.weekday()  # 0 = Monday, ..., 4 = Friday, 5 = Saturday, 6 = Sunday
+    hour = dt_ny.hour
+
+    # Friday after 17:00 NY -> Weekend break
+    if weekday == 4 and hour >= 17:
+        return True, "WEEKEND_BREAK"
+    # Saturday -> All day weekend break
+    if weekday == 5:
+        return True, "WEEKEND_BREAK"
+    # Sunday before 18:00 NY -> Weekend break
+    if weekday == 6 and hour < 18:
+        return True, "WEEKEND_BREAK"
+    # Mon-Thu daily break: 17:00 to 18:00 NY
+    if weekday in (0, 1, 2, 3) and hour == 17:
+        return True, "DAILY_MAINTENANCE"
+
+    return False, "OPEN"
+
+
+def is_xauusdt_weekend_break(timestamp_ms: int) -> bool:
+    """Convenience wrapper for weekend break checks."""
+    is_closed, reason = is_xauusdt_market_closed(timestamp_ms)
+    return is_closed and reason == "WEEKEND_BREAK"
+
+
+def calculate_market_open_duration_ms(start_ms: int, end_ms: int, step_minutes: int = 15) -> int:
+    """
+    OBS-06/07: Calculates exact duration (in ms) that XAUUSDT market is open
+    between start_ms and end_ms, respecting NY wall-clock weekend breaks and daily maintenance.
+    """
+    if end_ms <= start_ms:
+        return 0
+
+    total_ms = end_ms - start_ms
+    step_ms = step_minutes * 60 * 1000
+
+    if total_ms < 30 * 60 * 1000:
+        step_ms = 60 * 1000
+
+    open_ms = 0
+    curr = start_ms
+    while curr < end_ms:
+        next_curr = min(curr + step_ms, end_ms)
+        mid_point = curr + (next_curr - curr) // 2
+        is_closed, _ = is_xauusdt_market_closed(mid_point)
+        if not is_closed:
+            open_ms += (next_curr - curr)
+        curr = next_curr
+
+    return open_ms
 
 
 # ---------------------------------------------------------------------------
@@ -337,9 +520,19 @@ class EngineObservabilityService:
             "updated_at_ms": t_now,
         }
 
-        if db is not None:
+        close_session = False
+        target_db = db
+        if target_db is None:
             try:
-                row = db.query(models.EngineHeartbeatRecord).filter(
+                from database import SessionLocal
+                target_db = SessionLocal()
+                close_session = True
+            except Exception as e:
+                logger.warning(f"Could not open fallback SessionLocal for heartbeat: {e}")
+
+        if target_db is not None:
+            try:
+                row = target_db.query(models.EngineHeartbeatRecord).filter(
                     models.EngineHeartbeatRecord.engine_instance_id == inst_id
                 ).first()
 
@@ -360,7 +553,7 @@ class EngineObservabilityService:
                         metadata_json=json.dumps(metadata or {}, ensure_ascii=False),
                         updated_at_ms=t_now,
                     )
-                    db.add(row)
+                    target_db.add(row)
                 else:
                     row.state = state
                     row.last_process_heartbeat_at_ms = t_now
@@ -381,9 +574,14 @@ class EngineObservabilityService:
                         row.metadata_json = json.dumps(metadata, ensure_ascii=False)
                     row.updated_at_ms = t_now
 
-                db.flush()
+                target_db.commit()
             except Exception as e:
+                if close_session:
+                    target_db.rollback()
                 logger.warning(f"Error persisting EngineHeartbeatRecord: {e}")
+            finally:
+                if close_session:
+                    target_db.close()
 
         return record_data
 
@@ -396,7 +594,7 @@ class EngineObservabilityService:
     ) -> Tuple[bool, str]:
         """
         Determines if engine is stalled based on true runtime evidence.
-        Distinguishes between valid market waiting, weekend break, and genuine engine hang.
+        Distinguishes between valid market waiting, weekend break, maintenance, and genuine engine hang.
         """
         if heartbeat_record is None:
             return True, "NO_HEARTBEAT_RECORD"
@@ -408,14 +606,20 @@ class EngineObservabilityService:
         cadence = getattr(heartbeat_record, "cadence_sec", ENGINE_CADENCE_DEFAULT_SEC) or ENGINE_CADENCE_DEFAULT_SEC
         stall_threshold_ms = cadence * STALLED_CADENCE_MULTIPLIER * 1000
 
-        # Check market closure first to prevent false alarms during weekend
+        # 1. Weekend break: entire exchange closed, engine is expected to wait
         if is_xauusdt_weekend_break(now_ms):
             return False, "MARKET_WEEKEND_BREAK"
 
+        # 2. Check process heartbeat age
         last_hb = getattr(heartbeat_record, "last_process_heartbeat_at_ms", 0) or 0
         hb_age = now_ms - last_hb
         if hb_age > stall_threshold_ms:
             return True, f"HEARTBEAT_STALE_AGE_{int(hb_age / 1000)}s"
+
+        # 3. Check daily maintenance for evaluation cycle stall
+        is_market_closed, close_reason = is_xauusdt_market_closed(now_ms)
+        if is_market_closed:
+            return False, f"MARKET_{close_reason}"
 
         # Check if feed is disconnected or degraded
         if feed_health and feed_health.get("freshness_state") in ("DISCONNECTED", "UNKNOWN"):
@@ -424,7 +628,7 @@ class EngineObservabilityService:
         last_eval_done = getattr(heartbeat_record, "last_evaluation_completed_at_ms", 0) or 0
         if last_eval_done > 0:
             eval_age = now_ms - last_eval_done
-            # If healthy feed and open market, cycle should complete within 3 * cadence
+            # If healthy feed and open market, cycle should complete within 2 * stall threshold
             if eval_age > stall_threshold_ms * 2:
                 return True, f"EVALUATION_CYCLE_STALLED_AGE_{int(eval_age / 1000)}s"
 
@@ -439,15 +643,21 @@ class EngineObservabilityService:
     ) -> Dict[str, Any]:
         """
         Builds authoritative engine health snapshot from DB and in-memory state.
+        Prioritizes active worker instance ID, then latest record for symbol.
         """
         t_now = int(now_ms if now_ms is not None else int(time.time() * 1000))
         latest_hb = None
 
         if db is not None:
             try:
+                # Prioritize current instance ID if recorded
                 latest_hb = db.query(models.EngineHeartbeatRecord).filter(
-                    models.EngineHeartbeatRecord.symbol == symbol
-                ).order_by(models.EngineHeartbeatRecord.updated_at_ms.desc()).first()
+                    models.EngineHeartbeatRecord.engine_instance_id == self._current_instance_id
+                ).first()
+                if not latest_hb:
+                    latest_hb = db.query(models.EngineHeartbeatRecord).filter(
+                        models.EngineHeartbeatRecord.symbol == symbol
+                    ).order_by(models.EngineHeartbeatRecord.updated_at_ms.desc()).first()
             except Exception:
                 latest_hb = None
 
@@ -464,7 +674,8 @@ class EngineObservabilityService:
                 current_state = "STALLED"
             else:
                 base_state = getattr(latest_hb, "state", "RUNNING")
-                if is_xauusdt_weekend_break(t_now):
+                is_closed, _ = is_xauusdt_market_closed(t_now)
+                if is_closed:
                     current_state = "WAITING_MARKET"
                 elif feed_health.get("freshness_state") in ("DISCONNECTED", "CONNECTED_STALE"):
                     current_state = "DEGRADED"
@@ -498,7 +709,7 @@ class EngineObservabilityService:
         }
 
     # -----------------------------------------------------------------------
-    # 2. Market Feed & Candle Freshness (Phase C)
+    # 2. Market Feed & Candle Freshness (Phase C - OBS-01 & OBS-02)
     # -----------------------------------------------------------------------
     def build_market_feed_health_snapshot(
         self,
@@ -509,27 +720,27 @@ class EngineObservabilityService:
         """
         Examines Bitget WebSocket adapter, latest quote, and multi-timeframe candles.
         Distinguishes connection state from quote freshness.
+        Implements OBS-01 canonical quote authority and OBS-02 closed-candle verification.
         """
         t_now = int(now_ms if now_ms is not None else int(time.time() * 1000))
         from services.bitget_ws_service import bitget_ws_service
 
         transport_state = getattr(bitget_ws_service, "transport_state", "DISCONNECTED")
         feed_source = getattr(bitget_ws_service, "feed_source", "WS")
-        quote = getattr(bitget_ws_service, "latest_quote", None)
 
-        quote_ts = None
-        bid = None
-        ask = None
-        quote_age_ms = None
-        quote_age_sec = None
+        # Resolve quote authority (OBS-01)
+        raw_quote = getattr(bitget_ws_service, "latest_quote", None)
+        if raw_quote is None or not getattr(raw_quote, "is_valid", True):
+            raw_quote = getattr(collector_service, "latest_ticker", None)
 
-        if quote is not None:
-            quote_ts = getattr(quote, "timestamp", None) or getattr(quote, "time", None)
-            bid = getattr(quote, "bid", None)
-            ask = getattr(quote, "ask", None)
-            if quote_ts and quote_ts > 0:
-                quote_age_ms = max(0, t_now - quote_ts)
-                quote_age_sec = round(quote_age_ms / 1000.0, 2)
+        quote_res = resolve_canonical_quote_timestamps(raw_quote, now_ms=t_now)
+
+        quote_ts = quote_res["exchange_ts_ms"] or quote_res["received_at_ms"]
+        bid = quote_res["bid"]
+        ask = quote_res["ask"]
+        exchange_age_sec = round(quote_res["exchange_age_ms"] / 1000.0, 2) if quote_res["exchange_age_ms"] is not None else None
+        receive_age_sec = round(quote_res["receive_age_ms"] / 1000.0, 2) if quote_res["receive_age_ms"] is not None else None
+        quote_age_sec = exchange_age_sec if exchange_age_sec is not None else receive_age_sec
 
         # Freshness determination
         freshness_state = "UNKNOWN"
@@ -545,27 +756,57 @@ class EngineObservabilityService:
         else:
             freshness_state = "DISCONNECTED"
 
-        # Multi-timeframe closed candle health
+        # Multi-timeframe closed candle health (OBS-02)
         timeframe_health = {}
+        data_gaps_detected = False
+
         for tf in ["1M", "5M", "15M", "1H", "4H", "D"]:
             candles = candle_cache_service._cache.get((symbol, tf), [])
-            closed_ts = None
-            if candles:
-                closed_ts = candles[-1].timestamp
             expected_interval_ms = TF_MS.get(tf, 60_000)
-            tf_age_sec = round(max(0, t_now - closed_ts) / 1000.0, 1) if closed_ts else None
             max_thresh_sec = FRESHNESS_THRESHOLDS_SEC.get(tf, 300)
+
+            latest_closed_ts = None
+            tf_age_sec = None
+
+            if candles:
+                # Find the most recent strictly closed candle (OBS-02)
+                for c in reversed(candles):
+                    c_ts = getattr(c, "timestamp", 0) if hasattr(c, "timestamp") else (c.get("timestamp") or c.get("time") or 0)
+                    is_explicitly_closed = getattr(c, "is_closed", False) if hasattr(c, "is_closed") else c.get("is_closed", False)
+
+                    # A candle is closed if marked so or if its interval has elapsed
+                    if is_explicitly_closed or (c_ts + expected_interval_ms <= t_now):
+                        latest_closed_ts = c_ts + expected_interval_ms
+                        tf_age_sec = round(max(0, t_now - latest_closed_ts) / 1000.0, 1)
+                        break
+
+                # Gap check on the last 5 candles if available
+                if len(candles) >= 2:
+                    for i in range(len(candles) - 1, max(0, len(candles) - 5), -1):
+                        prev_c = candles[i - 1]
+                        curr_c = candles[i]
+                        prev_ts = getattr(prev_c, "timestamp", 0) if hasattr(prev_c, "timestamp") else (prev_c.get("timestamp") or 0)
+                        curr_ts = getattr(curr_c, "timestamp", 0) if hasattr(curr_c, "timestamp") else (curr_c.get("timestamp") or 0)
+                        if curr_ts - prev_ts > expected_interval_ms:
+                            # Check if gap is due to market closure
+                            mid_gap = prev_ts + expected_interval_ms
+                            if not is_xauusdt_market_closed(mid_gap)[0]:
+                                data_gaps_detected = True
+                                break
+
             is_tf_stale = (tf_age_sec is None) or (tf_age_sec > max_thresh_sec)
 
             timeframe_health[tf] = {
-                "latest_closed_candle_ts": closed_ts,
+                "latest_closed_candle_ts": latest_closed_ts,
                 "candle_age_sec": tf_age_sec,
                 "expected_interval_ms": expected_interval_ms,
                 "is_stale": is_tf_stale,
                 "freshness_state": "STALE" if is_tf_stale else "FRESH",
             }
 
-        is_weekend = is_xauusdt_weekend_break(t_now)
+        is_market_closed, market_close_reason = is_xauusdt_market_closed(t_now)
+        is_weekend = is_market_closed and market_close_reason == "WEEKEND_BREAK"
+        is_maintenance = is_market_closed and market_close_reason == "DAILY_MAINTENANCE"
 
         return {
             "symbol": symbol,
@@ -574,13 +815,22 @@ class EngineObservabilityService:
             "freshness_state": freshness_state,
             "is_fresh": freshness_state == "CONNECTED_FRESH",
             "is_weekend_break": is_weekend,
+            "is_market_closed": is_market_closed,
+            "market_close_reason": market_close_reason,
             "last_quote_at_ms": quote_ts,
+            "exchange_ts_ms": quote_res["exchange_ts_ms"],
+            "received_at_ms": quote_res["received_at_ms"],
+            "exchange_age_sec": exchange_age_sec,
+            "receive_age_sec": receive_age_sec,
             "quote_age_sec": quote_age_sec,
+            "transport_delay_ms": quote_res["transport_delay_ms"],
+            "timestamp_status": quote_res["status"],
+            "timestamp_reason_codes": quote_res["reason_codes"],
             "bid": bid,
             "ask": ask,
             "mid": round((bid + ask) / 2.0, 2) if (bid is not None and ask is not None) else None,
             "timeframe_health": timeframe_health,
-            "has_gap": getattr(candle_cache_service, "has_candle_gap", False),
+            "has_gap": data_gaps_detected or getattr(candle_cache_service, "has_candle_gap", False),
             "reconnect_count": getattr(bitget_ws_service, "reconnect_count", 0),
             "last_success_time": getattr(bitget_ws_service, "last_success_time", 0),
             "now_ms": t_now,
@@ -876,7 +1126,17 @@ class EngineObservabilityService:
         with self._lock:
             self._active_incidents[inc_id] = inc_data
 
-        if db is not None:
+        close_session = False
+        target_db = db
+        if target_db is None:
+            try:
+                from database import SessionLocal
+                target_db = SessionLocal()
+                close_session = True
+            except Exception as e:
+                logger.warning(f"Could not open fallback SessionLocal for incident: {e}")
+
+        if target_db is not None:
             try:
                 row = models.EngineIncidentRecord(
                     id=inc_id,
@@ -892,12 +1152,20 @@ class EngineObservabilityService:
                     status="ACTIVE",
                     created_at_ms=t_now,
                 )
-                db.add(row)
-                db.flush()
+                target_db.add(row)
+                target_db.commit()
             except Exception as e:
+                if close_session:
+                    target_db.rollback()
                 logger.warning(f"Error persisting EngineIncidentRecord: {e}")
+            finally:
+                if close_session:
+                    target_db.close()
 
         return inc_data
+
+    # Alias for API compatibility
+    raise_engine_incident = record_engine_incident
 
     def resolve_engine_incident(
         self,
@@ -905,29 +1173,115 @@ class EngineObservabilityService:
         incident_id: str,
         now_ms: Optional[int] = None,
     ) -> bool:
-        """Marks an active incident as RECOVERED."""
+        """Marks an active incident as RECOVERED with durable DB commit."""
         t_now = int(now_ms if now_ms is not None else int(time.time() * 1000))
         with self._lock:
             if incident_id in self._active_incidents:
                 self._active_incidents[incident_id]["status"] = "RECOVERED"
                 self._active_incidents[incident_id]["recovered_at_ms"] = t_now
 
-        if db is not None:
+        close_session = False
+        target_db = db
+        if target_db is None:
             try:
-                row = db.query(models.EngineIncidentRecord).filter(
+                from database import SessionLocal
+                target_db = SessionLocal()
+                close_session = True
+            except Exception as e:
+                logger.warning(f"Could not open fallback SessionLocal for incident resolution: {e}")
+
+        if target_db is not None:
+            try:
+                row = target_db.query(models.EngineIncidentRecord).filter(
                     models.EngineIncidentRecord.id == incident_id
                 ).first()
                 if row:
                     row.status = "RECOVERED"
                     row.recovered_at_ms = t_now
-                    db.flush()
+                    target_db.commit()
                     return True
             except Exception as e:
+                if close_session:
+                    target_db.rollback()
                 logger.warning(f"Error resolving EngineIncidentRecord: {e}")
+            finally:
+                if close_session:
+                    target_db.close()
         return False
 
+    def resolve_active_incidents(
+        self,
+        db: Optional[Session] = None,
+        *,
+        component: Optional[str] = None,
+        reason_code: Optional[str] = None,
+        run_id: Optional[str] = None,
+        now_ms: Optional[int] = None,
+    ) -> int:
+        """
+        Auto-recovers active incidents matching component, reason_code, or run_id (OBS-12).
+        Returns the number of resolved incidents.
+        """
+        t_now = int(now_ms if now_ms is not None else int(time.time() * 1000))
+        resolved_count = 0
+        resolved_ids = []
+
+        with self._lock:
+            for inc_id, inc in list(self._active_incidents.items()):
+                if inc.get("status") == "ACTIVE":
+                    match = True
+                    if component and inc.get("component") != component:
+                        match = False
+                    if reason_code and inc.get("reason_code") != reason_code:
+                        match = False
+                    if run_id and inc.get("run_id") != run_id:
+                        match = False
+                    if match:
+                        inc["status"] = "RECOVERED"
+                        inc["recovered_at_ms"] = t_now
+                        resolved_ids.append(inc_id)
+                        resolved_count += 1
+
+        close_session = False
+        target_db = db
+        if target_db is None:
+            try:
+                from database import SessionLocal
+                target_db = SessionLocal()
+                close_session = True
+            except Exception as e:
+                logger.warning(f"Could not open fallback SessionLocal for bulk incident resolution: {e}")
+
+        if target_db is not None:
+            try:
+                q = target_db.query(models.EngineIncidentRecord).filter(
+                    models.EngineIncidentRecord.status == "ACTIVE"
+                )
+                if component:
+                    q = q.filter(models.EngineIncidentRecord.component == component)
+                if reason_code:
+                    q = q.filter(models.EngineIncidentRecord.reason_code == reason_code)
+                if run_id:
+                    q = q.filter(models.EngineIncidentRecord.run_id == run_id)
+                rows = q.all()
+                for r in rows:
+                    r.status = "RECOVERED"
+                    r.recovered_at_ms = t_now
+                    if r.id not in resolved_ids:
+                        resolved_count += 1
+                target_db.commit()
+            except Exception as e:
+                if close_session:
+                    target_db.rollback()
+                logger.warning(f"Error persisting bulk incident resolution: {e}")
+            finally:
+                if close_session:
+                    target_db.close()
+
+        return resolved_count
+
     # -----------------------------------------------------------------------
-    # 6. Truthful Coverage & Uptime Denominator (Phase F)
+    # 6. Truthful Coverage & Uptime Denominator (Phase F - OBS-06 & OBS-07)
     # -----------------------------------------------------------------------
     def calculate_observation_coverage(
         self,
@@ -939,9 +1293,36 @@ class EngineObservabilityService:
     ) -> Dict[str, Any]:
         """
         Calculates trustworthy observation coverage.
-        Excludes scheduled weekend closures from denominator.
+        Excludes scheduled weekend and maintenance closures from denominator.
+        Clips to actual run boundaries if run_id is supplied.
         """
-        total_span_ms = max(1, end_ms - start_ms)
+        effective_start = start_ms
+        effective_end = end_ms
+
+        if run_id and db is not None:
+            try:
+                run = db.query(models.PaperResearchRunRecord).filter(
+                    models.PaperResearchRunRecord.run_id == run_id
+                ).first()
+                if run:
+                    r_start = getattr(run, "started_at_ms", None) or getattr(run, "created_at_ms", None)
+                    r_end = getattr(run, "ended_at_ms", None)
+                    if r_start:
+                        effective_start = max(start_ms, r_start)
+                    if r_end:
+                        effective_end = min(end_ms, r_end)
+                    elif effective_end < effective_start:
+                        effective_end = effective_start
+            except Exception:
+                pass
+
+        if effective_end <= effective_start:
+            effective_end = effective_start + 1
+
+        total_span_ms = effective_end - effective_start
+        market_open_ms = calculate_market_open_duration_ms(effective_start, effective_end)
+        denominator_ms = market_open_ms if market_open_ms > 0 else total_span_ms
+
         observed_intervals_ms = 0
         known_downtime_ms = 0
 
@@ -949,8 +1330,8 @@ class EngineObservabilityService:
         if db is not None:
             try:
                 q = db.query(models.PaperObservationInterval).filter(
-                    models.PaperObservationInterval.start_ms >= start_ms,
-                    models.PaperObservationInterval.end_ms <= end_ms,
+                    models.PaperObservationInterval.start_ms >= effective_start,
+                    models.PaperObservationInterval.end_ms <= effective_end,
                 )
                 if run_id:
                     q = q.filter(models.PaperObservationInterval.run_id == run_id)
@@ -965,25 +1346,29 @@ class EngineObservabilityService:
             except Exception:
                 pass
 
-        # If no explicit intervals, calculate from engine heartbeats
+        # If no explicit intervals, calculate from engine heartbeats cycles
         if observed_intervals_ms == 0 and db is not None:
             try:
                 hb = db.query(models.EngineHeartbeatRecord).filter(
-                    models.EngineHeartbeatRecord.updated_at_ms >= start_ms,
-                    models.EngineHeartbeatRecord.updated_at_ms <= end_ms,
+                    models.EngineHeartbeatRecord.updated_at_ms >= effective_start,
+                    models.EngineHeartbeatRecord.updated_at_ms <= effective_end,
                 ).first()
-                if hb and hb.last_process_heartbeat_at_ms:
-                    observed_intervals_ms = min(total_span_ms, 3600_000)
+                if hb:
+                    cadence = getattr(hb, "cadence_sec", 15) or 15
+                    cycles = getattr(hb, "cycles_count", 0) or 0
+                    observed_intervals_ms = min(denominator_ms, cycles * cadence * 1000)
             except Exception:
                 pass
 
-        coverage_pct = round((observed_intervals_ms / total_span_ms) * 100.0, 1) if total_span_ms > 0 else 0.0
+        coverage_pct = round((observed_intervals_ms / denominator_ms) * 100.0, 1) if denominator_ms > 0 else 0.0
 
         return {
             "total_span_hours": round(total_span_ms / 3600_000.0, 2),
+            "market_open_hours": round(market_open_ms / 3600_000.0, 2),
+            "weekend_closed_hours": round(max(0, total_span_ms - market_open_ms) / 3600_000.0, 2),
             "observed_healthy_hours": round(observed_intervals_ms / 3600_000.0, 2),
             "known_downtime_hours": round(known_downtime_ms / 3600_000.0, 2),
-            "coverage_pct": min(100.0, coverage_pct),
+            "coverage_pct": min(100.0, max(0.0, coverage_pct)),
             "coverage_state": "FULL" if coverage_pct >= 95.0 else ("PARTIAL" if coverage_pct >= 50.0 else "LOW"),
             "evidence_type": "LIVE_PAPER_FORWARD_OBSERVATION",
         }
@@ -1005,6 +1390,7 @@ class EngineObservabilityService:
         """
         Builds complete Tier 1 + Tier 2 + Tier 3 Observation Snapshot.
         Strictly Read-Only (db.autoflush = False).
+        Implements OBS-05 strict run and symbol isolation.
         """
         db.autoflush = False
         t_now = int(now_ms if now_ms is not None else int(time.time() * 1000))
@@ -1036,21 +1422,26 @@ class EngineObservabilityService:
             end_ms=t_end,
         )
 
-        # 5. Opportunity Funnel Breakdown (Tier 2)
+        # 5. Opportunity Funnel Breakdown (Tier 2 - OBS-05 Isolated)
         from services.opportunity_funnel_service import OpportunityFunnelService
         funnel_summary = OpportunityFunnelService.summarize_opportunity_funnel(
             db,
+            symbol=symbol,
+            run_id=target_run_id,
             start_ms=t_start,
             end_ms=t_end,
         )
 
-        # 6. Recent Decisions & Waiting Setups (Tier 2)
+        # 6. Recent Decisions & Waiting Setups (Tier 2 - OBS-05 Isolated)
         recent_decisions = self.list_recent_decisions(db, run_id=target_run_id, symbol=symbol, limit=20)
 
         # Query waiting candidates
-        waiting_setups_rows = db.query(models.OpportunityDecisionEvent).filter(
+        q_waiting = db.query(models.OpportunityDecisionEvent).filter(
             models.OpportunityDecisionEvent.stage.in_(["WAITING", "WATCHING"])
-        ).order_by(models.OpportunityDecisionEvent.occurred_at_ms.desc()).limit(10).all()
+        )
+        if target_run_id:
+            q_waiting = q_waiting.filter(models.OpportunityDecisionEvent.run_id == target_run_id)
+        waiting_setups_rows = q_waiting.order_by(models.OpportunityDecisionEvent.occurred_at_ms.desc()).limit(10).all()
 
         waiting_conditions_list = []
         for w in waiting_setups_rows:
@@ -1069,14 +1460,17 @@ class EngineObservabilityService:
             })
 
         # Top Blocked Categories
-        blocked_events = db.query(
+        q_blocked = db.query(
             models.OpportunityDecisionEvent.reason_category,
             func.count(models.OpportunityDecisionEvent.id).label("cnt")
         ).filter(
             models.OpportunityDecisionEvent.stage.in_(["BLOCKED", "GUARD_BLOCKED"]),
             models.OpportunityDecisionEvent.occurred_at_ms >= t_start,
             models.OpportunityDecisionEvent.occurred_at_ms <= t_end,
-        ).group_by(models.OpportunityDecisionEvent.reason_category).all()
+        )
+        if target_run_id:
+            q_blocked = q_blocked.filter(models.OpportunityDecisionEvent.run_id == target_run_id)
+        blocked_events = q_blocked.group_by(models.OpportunityDecisionEvent.reason_category).all()
 
         blocked_categories_summary = [
             {
@@ -1178,6 +1572,7 @@ class EngineObservabilityService:
             "decisions": recent_decisions,
             "waiting_setups": waiting_conditions_list,
             "blocked_categories": blocked_categories_summary,
+            "top_blocked_categories": blocked_categories_summary,
             "financial": financial_summary,
             "incidents": active_incidents_list,
             "latest_cycle": self.get_latest_cycle_diagnostic(),

@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="0.276" timestamp="2026-10-25T00:22:57.157240+07:00" hostname="Macbook-Poppa.local"><testcase classname="backend.tests.test_v17_6_decision_parity" name="test_parity_short_cycle_execution" time="0.170" /></testsuite></testsuites>

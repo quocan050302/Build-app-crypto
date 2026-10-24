@@ -70,7 +70,7 @@ test.describe('Aurum V17.6 — Autonomous Observation & Telemetry Acceptance Tes
 
     // 2. Verify Header and Version Tag
     await expect(page.locator('text=Quan Sát & Trí Tuệ Quyết Định Bot')).toBeVisible();
-    await expect(page.locator('text=V17.6 LIVE TELEMETRY')).toBeVisible();
+    await expect(page.locator('text=V17.6.1 OBSERVABILITY & DECISION TELEMETRY')).toBeVisible();
 
     // 3. Verify 5 Executive Health Cards
     // Card 1: Engine Health
