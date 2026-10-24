@@ -601,23 +601,23 @@ def resolve_execution_cost_context(
             "version": 1,
         }
 
-    # 2. Derive from candidate calculation or effective settings / config
+    # 2. Derive from effective settings / config or candidate calculation
     st = settings or {}
     calc = getattr(candidate, "calculation", None) if candidate is not None else None
 
     cand_slip = None
-    if calc is not None:
-        cand_slip = getattr(calc, "slippage_usd", None)
-    if cand_slip is None and config is not None and getattr(config, "cg01_config", None):
-        cand_slip = getattr(config.cg01_config, "slippage_usd", None)
-    if cand_slip is None and "slippage_usd" in st:
+    if "slippage_usd" in st and st.get("slippage_usd") is not None:
         cand_slip = st.get("slippage_usd")
-    if cand_slip is None and "costs" in st:
+    elif "costs" in st and st.get("costs") is not None:
         costs_candidate = st.get("costs")
         if isinstance(costs_candidate, dict):
             cand_slip = costs_candidate.get("entry_slippage_usd") if "entry_slippage_usd" in costs_candidate else costs_candidate.get("slippage_usd")
         elif costs_candidate is not None:
             cand_slip = getattr(costs_candidate, "entry_slippage_usd", getattr(costs_candidate, "slippage_usd", None))
+    elif calc is not None and getattr(calc, "slippage_usd", None) is not None:
+        cand_slip = getattr(calc, "slippage_usd", None)
+    elif config is not None and getattr(config, "cg01_config", None):
+        cand_slip = getattr(config.cg01_config, "slippage_usd", None)
 
     slip_val = 0.10
     if cand_slip is not None:
@@ -640,22 +640,22 @@ def resolve_execution_cost_context(
     maker_rate = None
     taker_rate = None
 
-    if calc is not None:
-        maker_rate = getattr(calc, "maker_fee_rate", None)
-        taker_rate = getattr(calc, "taker_fee_rate", None)
-
-    if maker_rate is None and costs_obj is not None:
-        if isinstance(costs_obj, dict):
-            maker_rate = costs_obj.get("maker_fee_rate")
-            taker_rate = costs_obj.get("taker_fee_rate")
-        else:
-            maker_rate = getattr(costs_obj, "maker_fee_rate", None)
-            taker_rate = getattr(costs_obj, "taker_fee_rate", None)
-
-    if maker_rate is None and "maker_fee_rate" in st:
+    if "maker_fee_rate" in st and st.get("maker_fee_rate") is not None:
         maker_rate = st.get("maker_fee_rate")
-    if taker_rate is None and "taker_fee_rate" in st:
+    if "taker_fee_rate" in st and st.get("taker_fee_rate") is not None:
         taker_rate = st.get("taker_fee_rate")
+
+    if (maker_rate is None or taker_rate is None) and costs_obj is not None:
+        if isinstance(costs_obj, dict):
+            maker_rate = maker_rate if maker_rate is not None else costs_obj.get("maker_fee_rate")
+            taker_rate = taker_rate if taker_rate is not None else costs_obj.get("taker_fee_rate")
+        else:
+            maker_rate = maker_rate if maker_rate is not None else getattr(costs_obj, "maker_fee_rate", None)
+            taker_rate = taker_rate if taker_rate is not None else getattr(costs_obj, "taker_fee_rate", None)
+
+    if (maker_rate is None or taker_rate is None) and calc is not None:
+        maker_rate = maker_rate if maker_rate is not None else getattr(calc, "maker_fee_rate", None)
+        taker_rate = taker_rate if taker_rate is not None else getattr(calc, "taker_fee_rate", None)
 
     if maker_rate is None:
         maker_rate = 0.0002

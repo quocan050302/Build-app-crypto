@@ -1050,6 +1050,49 @@ class ScalpWatcherOrchestrator:
             "config_version": getattr(g_settings, "config_version", 1),
         }
 
+        # V17.5.7: Load effective costs (slippage, maker/taker fees) into policy_dict for full cycle cost parity
+        cost_overrides: Dict[str, Any] = {}
+        if execution_financial_context is not None:
+            if hasattr(execution_financial_context, "slippage_usd") and execution_financial_context.slippage_usd is not None:
+                cost_overrides["slippage_usd"] = float(execution_financial_context.slippage_usd)
+            if hasattr(execution_financial_context, "maker_fee_rate") and execution_financial_context.maker_fee_rate is not None:
+                cost_overrides["maker_fee_rate"] = float(execution_financial_context.maker_fee_rate)
+            if hasattr(execution_financial_context, "taker_fee_rate") and execution_financial_context.taker_fee_rate is not None:
+                cost_overrides["taker_fee_rate"] = float(execution_financial_context.taker_fee_rate)
+            if hasattr(execution_financial_context, "costs") and execution_financial_context.costs is not None:
+                cost_overrides["costs"] = execution_financial_context.costs
+
+        if "slippage_usd" not in cost_overrides:
+            slip_row = db.query(models.SystemConfig).filter(models.SystemConfig.key.in_(["default_slippage", "slippage", "slippage_usd"])).first()
+            if slip_row and slip_row.value is not None:
+                try:
+                    cost_overrides["slippage_usd"] = float(slip_row.value)
+                except (ValueError, TypeError):
+                    pass
+
+        if "maker_fee_rate" not in cost_overrides:
+            maker_row = db.query(models.SystemConfig).filter(models.SystemConfig.key.in_(["default_maker_fee_rate", "maker_fee_rate"])).first()
+            if maker_row and maker_row.value is not None:
+                try:
+                    cost_overrides["maker_fee_rate"] = float(maker_row.value)
+                except (ValueError, TypeError):
+                    pass
+
+        if "taker_fee_rate" not in cost_overrides:
+            taker_row = db.query(models.SystemConfig).filter(models.SystemConfig.key.in_(["default_taker_fee_rate", "taker_fee_rate"])).first()
+            if taker_row and taker_row.value is not None:
+                try:
+                    cost_overrides["taker_fee_rate"] = float(taker_row.value)
+                except (ValueError, TypeError):
+                    pass
+
+        policy_dict.update(cost_overrides)
+        from domain_calculator import CostAssumptions
+        slip_val = float(policy_dict.get("slippage_usd", 0.10)) if policy_dict.get("slippage_usd") is not None else 0.10
+        maker_val = float(policy_dict.get("maker_fee_rate", 0.0002)) if policy_dict.get("maker_fee_rate") is not None else 0.0002
+        taker_val = float(policy_dict.get("taker_fee_rate", 0.0004)) if policy_dict.get("taker_fee_rate") is not None else 0.0004
+        policy_dict["costs"] = CostAssumptions(slippage_usd=slip_val, maker_fee_rate=maker_val, taker_fee_rate=taker_val)
+
         # 4. Independent Peer Model Evaluations (V16.39 Sections 016, 017, 030)
         exec_profile = getattr(cfg, "execution_profile", "BASELINE")
         adaptive_regime_models = None

@@ -408,6 +408,14 @@ def apply_stop_placement_to_candidate(
     min_net_rr = float(getattr(cfg, "min_net_rr", 1.5))
     tick_sz = float(getattr(cfg, "tick_size", 0.01))
 
+    from domain_calculator import CostAssumptions
+    costs_arg = policy_settings.get("costs")
+    if not isinstance(costs_arg, CostAssumptions):
+        slip_val = float(policy_settings.get("slippage_usd", 0.10)) if policy_settings.get("slippage_usd") is not None else 0.10
+        maker_val = float(policy_settings.get("maker_fee_rate", 0.0002)) if policy_settings.get("maker_fee_rate") is not None else 0.0002
+        taker_val = float(policy_settings.get("taker_fee_rate", 0.0004)) if policy_settings.get("taker_fee_rate") is not None else 0.0004
+        costs_arg = CostAssumptions(slippage_usd=slip_val, maker_fee_rate=maker_val, taker_fee_rate=taker_val)
+
     if stop_policy is None:
         calc = calculate_risk_reward(
             direction=direction,
@@ -419,6 +427,7 @@ def apply_stop_placement_to_candidate(
             leverage=lev,
             margin_mode=margin_mode,
             min_net_rr=min_net_rr,
+            costs=costs_arg,
         )
         return StopApplicationResult(
             allowed=calc.can_execute,
@@ -508,6 +517,7 @@ def apply_stop_placement_to_candidate(
                 leverage=lev,
                 margin_mode=margin_mode,
                 min_net_rr=min_net_rr,
+                costs=costs_arg,
             )
             reasons = stop_dec.reasons if (stop_dec and stop_dec.reasons) else ((stop_dec.status,) if stop_dec else ("STRUCTURAL_STOP_INVALID",))
             calc = calc.model_copy(update={
@@ -535,6 +545,7 @@ def apply_stop_placement_to_candidate(
             leverage=lev,
             margin_mode=margin_mode,
             min_net_rr=min_net_rr,
+            costs=costs_arg,
         )
         if not (calc.is_valid and calc.can_execute and calc.meets_min_rr):
             reasons = (calc.skip_reason or calc.invalid_reason or "REJECTED_COST_RR",)
@@ -570,6 +581,7 @@ def apply_stop_placement_to_candidate(
         leverage=lev,
         margin_mode=margin_mode,
         min_net_rr=min_net_rr,
+        costs=costs_arg,
     )
     allowed = bool(calc.can_execute and calc.meets_min_rr and calc.is_valid)
     return StopApplicationResult(
@@ -2334,7 +2346,7 @@ class ScalpM1ModelService:
                 build_selected_break_descriptor,
                 select_protected_origin_for_break,
             )
-            ref_dict = {
+            ref_dict = dict(swing_ref) if isinstance(swing_ref, dict) else {
                 "id": break_res.get("swing_ref_id"),
                 "price": break_res.get("swing_ref_price"),
             }

@@ -248,6 +248,8 @@ class ProtectedLegEpisode:
     episode_end_ms: Optional[int] = None
     eligible_origin_ids: Tuple[str, ...] = ()
     source_bar_ids: Tuple[str, ...] = ()
+    boundary_source: Optional[str] = "CONFIRMED_STRUCTURE_NODES"
+    derivation_version: int = 1
     reasons: Tuple[str, ...] = ()
 
     def to_dict(self) -> Dict[str, Any]:
@@ -267,6 +269,8 @@ class ProtectedLegEpisode:
             "episode_end_ms": self.episode_end_ms,
             "eligible_origin_ids": list(self.eligible_origin_ids),
             "source_bar_ids": list(self.source_bar_ids),
+            "boundary_source": self.boundary_source,
+            "derivation_version": self.derivation_version,
             "reasons": list(self.reasons),
         }
 
