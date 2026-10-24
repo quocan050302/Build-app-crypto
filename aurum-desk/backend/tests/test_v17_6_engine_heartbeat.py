@@ -185,7 +185,14 @@ def test_h06_build_engine_health_snapshot(db_session):
     assert snapshot["cycles_count"] == 1
     assert snapshot["failed_cycles_count"] == 0
 
-    # Also test weekend market state: Saturday 12:00 UTC -> 1792843200000
+    # Also test weekend market state for active worker: Saturday 12:00 UTC -> 1792843200000
     t_weekend = 1792843200000
+    svc.record_engine_heartbeat(
+        db_session,
+        engine_instance_id=svc.current_instance_id,
+        symbol="XAUUSDT",
+        state="RUNNING",
+        heartbeat_at_ms=t_weekend,
+    )
     snap_weekend = svc.build_engine_health_snapshot(db_session, symbol="XAUUSDT", now_ms=t_weekend)
     assert snap_weekend["state"] == "WAITING_MARKET"

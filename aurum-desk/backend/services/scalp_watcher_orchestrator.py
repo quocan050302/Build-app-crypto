@@ -653,7 +653,7 @@ class ScalpWatcherOrchestrator:
 
         # Check feature flag
         scalp_mode = cfg.scalp_m1_mode
-        if (scalp_mode == ScalpMode.OFF.value or not cfg.scalp_m1_enabled) and not cfg.daily_ny_research_enabled and not getattr(cfg, "cg01_enabled", False):
+        if (scalp_mode == ScalpMode.OFF.value or not getattr(cfg, "scalp_m1_enabled", True)) and not cfg.daily_ny_research_enabled and not getattr(cfg, "cg01_enabled", False):
             cg01_eval = serialize_cg01_evaluation(None, enabled=False, evaluated=False, skip_reason="MODEL_DISABLED", as_of_ms=t_recv)
             self._record_and_broadcast_cg01_evaluation(symbol, cg01_eval)
             dur_ms = max(0.0, (time.perf_counter() - t_perf_start) * 1000)

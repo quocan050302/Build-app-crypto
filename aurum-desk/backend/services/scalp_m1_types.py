@@ -390,7 +390,7 @@ def validate_daily_frequency_config(config: Any) -> None:
 @dataclass(frozen=True)
 class M1ScalpConfig:
     """Configuration and thresholds for M1 Scalp & Watcher (PHẦN 050)."""
-    scalp_m1_enabled: bool = False
+    scalp_m1_enabled: bool = True
     scalp_m1_mode: str = ScalpMode.OFF.value
     daily_ny_research_enabled: bool = False
 

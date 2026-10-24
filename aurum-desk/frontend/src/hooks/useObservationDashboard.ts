@@ -40,6 +40,84 @@ export interface UseObservationDashboardResult {
   formatTimestamp: (ts?: number | null) => string;
 }
 
+/**
+ * Calculates Unix timestamp for 00:00:00 today in the target timezone (FIX-11 & PART 100-105).
+ * DST-aware for America/New_York; strictly 00:00:00 local time for Asia/Ho_Chi_Minh.
+ */
+export function getTodayMidnightMs(nowMs: number, tz: ObservationTimezone): number {
+  const timeZone = tz === 'VN' ? 'Asia/Ho_Chi_Minh' : 'America/New_York';
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(new Date(nowMs));
+  let hour = 0;
+  let minute = 0;
+  let second = 0;
+  for (const part of parts) {
+    if (part.type === 'hour') hour = parseInt(part.value, 10) % 24;
+    if (part.type === 'minute') minute = parseInt(part.value, 10);
+    if (part.type === 'second') second = parseInt(part.value, 10);
+  }
+
+  const msElapsedToday = (hour * 3600 + minute * 60 + second) * 1000 + (nowMs % 1000);
+  return nowMs - msElapsedToday;
+}
+
+/**
+ * Unpacks the true semantic event type from direct and nested envelopes like DOMAIN_EVENT (FIX-05 & PART 094).
+ */
+export function extractObservationEventType(raw: unknown): string | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const obj = raw as Record<string, any>;
+
+  // 1. Detect known envelopes (DOMAIN_EVENT, MESSAGE, EVENT) and inspect nested fields first
+  const envelopeType = typeof obj.type === 'string' ? obj.type.trim() : null;
+  const isEnvelope = envelopeType === 'DOMAIN_EVENT' || envelopeType === 'MESSAGE' || envelopeType === 'EVENT';
+
+  if (isEnvelope) {
+    const nested =
+      obj.event?.event_type ||
+      obj.event?.type ||
+      obj.payload?.event_type ||
+      obj.payload?.type ||
+      obj.data?.event_type ||
+      obj.data?.type;
+    if (typeof nested === 'string' && nested.trim().length > 0) {
+      return nested.trim();
+    }
+  }
+
+  // 2. Direct nested candidates
+  const nestedCandidate =
+    obj.event?.event_type ||
+    obj.event?.type ||
+    obj.payload?.event_type ||
+    obj.payload?.type ||
+    obj.data?.event_type ||
+    obj.data?.type;
+  if (typeof nestedCandidate === 'string' && nestedCandidate.trim().length > 0) {
+    return nestedCandidate.trim();
+  }
+
+  // 3. Fall back to top-level event_type or type
+  if (typeof obj.event_type === 'string' && obj.event_type.trim().length > 0) {
+    return obj.event_type.trim();
+  }
+  if (typeof obj.type === 'string' && obj.type.trim().length > 0) {
+    return obj.type.trim();
+  }
+
+  return null;
+}
+
 export function useObservationDashboard({
   symbol = 'XAUUSDT',
   scope = 'CG01',
@@ -57,28 +135,30 @@ export function useObservationDashboard({
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const isMountedRef = useRef<boolean>(true);
+  const requestSeqRef = useRef<number>(0);
 
-  // Calculate window start_ms based on timeRange
-  const getWindowTimestamps = useCallback((range: ObservationTimeRange): { startMs: number; endMs: number } => {
-    const now = Date.now();
-    let startMs = now - 24 * 3600 * 1000;
+  // Calculate window start_ms based on timeRange and timezone (FIX-11)
+  const getWindowTimestamps = useCallback(
+    (range: ObservationTimeRange, tz: ObservationTimezone): { startMs: number; endMs: number } => {
+      const now = Date.now();
+      let startMs = now - 24 * 3600 * 1000;
 
-    if (range === 'TODAY') {
-      const d = new Date(now);
-      d.setHours(0, 0, 0, 0);
-      startMs = d.getTime();
-    } else if (range === '7D') {
-      startMs = now - 7 * 24 * 3600 * 1000;
-    } else if (range === '14D') {
-      startMs = now - 14 * 24 * 3600 * 1000;
-    } else if (range === '30D') {
-      startMs = now - 30 * 24 * 3600 * 1000;
-    }
+      if (range === 'TODAY') {
+        startMs = getTodayMidnightMs(now, tz);
+      } else if (range === '7D') {
+        startMs = now - 7 * 24 * 3600 * 1000;
+      } else if (range === '14D') {
+        startMs = now - 14 * 24 * 3600 * 1000;
+      } else if (range === '30D') {
+        startMs = now - 30 * 24 * 3600 * 1000;
+      }
 
-    return { startMs, endMs: now };
-  }, []);
+      return { startMs, endMs: now };
+    },
+    []
+  );
 
-  // Fetch Snapshot
+  // Fetch Snapshot with sequence guard (FIX-16)
   const fetchSnapshot = useCallback(
     async (isManualRefresh = false) => {
       if (!enabled) return;
@@ -88,13 +168,14 @@ export function useObservationDashboard({
       }
       const controller = new AbortController();
       abortControllerRef.current = controller;
+      const seq = ++requestSeqRef.current;
 
       if (isManualRefresh) {
         setRefreshing(true);
       }
 
       try {
-        const { startMs, endMs } = getWindowTimestamps(timeRange);
+        const { startMs, endMs } = getWindowTimestamps(timeRange, timezone);
         const data = await api.getObservationSummary(
           {
             symbol,
@@ -107,7 +188,7 @@ export function useObservationDashboard({
           controller.signal
         );
 
-        if (isMountedRef.current) {
+        if (isMountedRef.current && seq === requestSeqRef.current) {
           setSnapshot(data);
           setError(null);
           setLastUpdatedMs(Date.now());
@@ -118,14 +199,14 @@ export function useObservationDashboard({
         if (err?.name === 'CanceledError' || err?.name === 'AbortError') {
           return;
         }
-        if (isMountedRef.current) {
+        if (isMountedRef.current && seq === requestSeqRef.current) {
           setError(extractErrorMessage(err));
           setLoading(false);
           setRefreshing(false);
         }
       }
     },
-    [enabled, symbol, scope, runId, timeRange, getWindowTimestamps]
+    [enabled, symbol, scope, runId, timeRange, timezone, getWindowTimestamps]
   );
 
   // Initial fetch and on parameter changes
@@ -161,26 +242,6 @@ export function useObservationDashboard({
   useEffect(() => {
     if (!enabled) return;
 
-    const extractEventType = (raw: any): string | null => {
-      if (!raw || typeof raw !== 'object') return null;
-      const candidates = [
-        raw.type,
-        raw.event_type,
-        raw.event?.event_type,
-        raw.event?.type,
-        raw.payload?.event_type,
-        raw.payload?.type,
-        raw.data?.event_type,
-        raw.data?.type,
-      ];
-      for (const c of candidates) {
-        if (typeof c === 'string' && c.trim().length > 0) {
-          return c.trim();
-        }
-      }
-      return null;
-    };
-
     const isRelevantObservationEvent = (eventType: string | null): boolean => {
       if (!eventType) return false;
       const lower = eventType.toLowerCase();
@@ -202,8 +263,22 @@ export function useObservationDashboard({
     };
 
     const unsubscribe = wsClient.subscribe((event: any) => {
-      const eventType = extractEventType(event);
+      const eventType = extractObservationEventType(event);
       if (isRelevantObservationEvent(eventType)) {
+        // Run-aware filtering (FIX-05 & PART 097):
+        // If event specifies a run_id and current dashboard is scoped to a different runId,
+        // ignore non-global events.
+        const eventRunId = event?.run_id || event?.event?.run_id || event?.payload?.run_id;
+        if (runId && eventRunId && eventRunId !== runId) {
+          const isGlobal =
+            eventType!.startsWith('feed.') ||
+            eventType!.startsWith('FEED_') ||
+            eventType === 'CANDLE_CLOSED';
+          if (!isGlobal) {
+            return;
+          }
+        }
+
         if (debounceTimerRef.current) {
           clearTimeout(debounceTimerRef.current);
         }

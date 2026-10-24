@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import distinct, func, text, desc
+from sqlalchemy import distinct, func, text, desc, and_
 from sqlalchemy.orm import Session
 
 import crud
@@ -466,6 +466,65 @@ def inspect_waiting_conditions(
 
 
 # ---------------------------------------------------------------------------
+# Pure Coverage & Cursor Helpers
+# ---------------------------------------------------------------------------
+def clip_interval(start_ms: int, end_ms: int, win_start_ms: int, win_end_ms: int) -> Optional[Tuple[int, int]]:
+    """Clips an interval [start_ms, end_ms] to [win_start_ms, win_end_ms] (FIX-02 & PART 040)."""
+    s = max(start_ms, win_start_ms)
+    e = min(end_ms, win_end_ms)
+    return (s, e) if e > s else None
+
+
+def merge_time_intervals(intervals: List[Tuple[int, int]]) -> int:
+    """Merges overlapping intervals and returns total non-overlapping duration in ms (FIX-02 & PART 041)."""
+    if not intervals:
+        return 0
+    sorted_invs = sorted(intervals, key=lambda x: x[0])
+    merged: List[Tuple[int, int]] = []
+    cur_start, cur_end = sorted_invs[0]
+    for s, e in sorted_invs[1:]:
+        if s <= cur_end:
+            cur_end = max(cur_end, e)
+        else:
+            merged.append((cur_start, cur_end))
+            cur_start, cur_end = s, e
+    merged.append((cur_start, cur_end))
+    return sum(e - s for s, e in merged)
+
+
+def decode_observation_cursor(
+    cursor_str: str,
+    expected_run_id: Optional[str] = None,
+    expected_symbol: Optional[str] = None,
+) -> Tuple[int, int]:
+    """
+    Decodes and strictly validates pagination cursor (FIX-09 & PART 069-070).
+    Raises HTTPException(422) on corrupted or invalid cursors.
+    """
+    from fastapi import HTTPException
+    try:
+        raw = base64.b64decode(cursor_str.strip()).decode("utf-8")
+        parts = raw.split("_")
+        if len(parts) < 2:
+            raise ValueError("Insufficient cursor segments")
+        ts_part = int(parts[0])
+        id_part = int(parts[1])
+        if ts_part <= 0 or id_part <= 0:
+            raise ValueError("Non-positive timestamp or id")
+        # Check run_id mismatch if encoded in cursor (parts[2])
+        if len(parts) >= 3 and expected_run_id and parts[2] and parts[2] != expected_run_id:
+            raise ValueError(f"Cursor run_id mismatch: expected {expected_run_id}, got {parts[2]}")
+        # Check symbol mismatch if encoded in cursor (parts[3])
+        if len(parts) >= 4 and expected_symbol and parts[3] and parts[3] != expected_symbol:
+            raise ValueError(f"Cursor symbol mismatch: expected {expected_symbol}, got {parts[3]}")
+        return ts_part, id_part
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Invalid pagination cursor: {e}")
+
+
+# ---------------------------------------------------------------------------
 # Engine Observability Service Class
 # ---------------------------------------------------------------------------
 class EngineObservabilityService:
@@ -574,7 +633,10 @@ class EngineObservabilityService:
                         row.metadata_json = json.dumps(metadata, ensure_ascii=False)
                     row.updated_at_ms = t_now
 
-                target_db.commit()
+                if close_session:
+                    target_db.commit()
+                else:
+                    target_db.flush()
             except Exception as e:
                 if close_session:
                     target_db.rollback()
@@ -584,6 +646,14 @@ class EngineObservabilityService:
                     target_db.close()
 
         return record_data
+
+    def persist_engine_heartbeat(self, **kwargs) -> Dict[str, Any]:
+        """
+        Durable isolated writer (FIX-01 & PART 015):
+        Persists heartbeat using an owned session that commits independently.
+        """
+        return self.record_engine_heartbeat(db=None, **kwargs)
+
 
     def detect_stalled_engine(
         self,
@@ -606,15 +676,16 @@ class EngineObservabilityService:
         cadence = getattr(heartbeat_record, "cadence_sec", ENGINE_CADENCE_DEFAULT_SEC) or ENGINE_CADENCE_DEFAULT_SEC
         stall_threshold_ms = cadence * STALLED_CADENCE_MULTIPLIER * 1000
 
-        # 1. Weekend break: entire exchange closed, engine is expected to wait
-        if is_xauusdt_weekend_break(now_ms):
-            return False, "MARKET_WEEKEND_BREAK"
-
-        # 2. Check process heartbeat age
+        # 1. Process heartbeat liveness first (FIX-06 & PART 074):
+        # A dead worker process is STALLED regardless of whether the market is open or closed!
         last_hb = getattr(heartbeat_record, "last_process_heartbeat_at_ms", 0) or 0
         hb_age = now_ms - last_hb
         if hb_age > stall_threshold_ms:
             return True, f"HEARTBEAT_STALE_AGE_{int(hb_age / 1000)}s"
+
+        # 2. Weekend break: exchange closed, engine legitimately waits
+        if is_xauusdt_weekend_break(now_ms):
+            return False, "MARKET_WEEKEND_BREAK"
 
         # 3. Check daily maintenance for evaluation cycle stall
         is_market_closed, close_reason = is_xauusdt_market_closed(now_ms)
@@ -728,10 +799,12 @@ class EngineObservabilityService:
         transport_state = getattr(bitget_ws_service, "transport_state", "DISCONNECTED")
         feed_source = getattr(bitget_ws_service, "feed_source", "WS")
 
-        # Resolve quote authority (OBS-01)
+        # Resolve quote authority (OBS-01 & FIX-07)
         raw_quote = getattr(bitget_ws_service, "latest_quote", None)
+        quote_source = "WS"
         if raw_quote is None or not getattr(raw_quote, "is_valid", True):
             raw_quote = getattr(collector_service, "latest_ticker", None)
+            quote_source = "REST_FALLBACK" if raw_quote is not None else "NONE"
 
         quote_res = resolve_canonical_quote_timestamps(raw_quote, now_ms=t_now)
 
@@ -742,21 +815,57 @@ class EngineObservabilityService:
         receive_age_sec = round(quote_res["receive_age_ms"] / 1000.0, 2) if quote_res["receive_age_ms"] is not None else None
         quote_age_sec = exchange_age_sec if exchange_age_sec is not None else receive_age_sec
 
+        # Quote validity inspection (FIX-07 & PART 081-085)
+        is_quote_structurally_valid = True
+        quote_validation_reasons = []
+
+        if raw_quote is not None:
+            if not getattr(raw_quote, "is_valid", True):
+                is_quote_structurally_valid = False
+                quote_validation_reasons.append("QUOTE_NOT_VALID")
+            if getattr(raw_quote, "status", "OK") in ("INVALID", "MALFORMED"):
+                is_quote_structurally_valid = False
+                quote_validation_reasons.append(f"STATUS_{getattr(raw_quote, 'status')}")
+
+        if bid is None or ask is None:
+            is_quote_structurally_valid = False
+            quote_validation_reasons.append("BID_OR_ASK_NONE")
+        else:
+            try:
+                bid_f = float(bid)
+                ask_f = float(ask)
+                if not (math.isfinite(bid_f) and math.isfinite(ask_f)):
+                    is_quote_structurally_valid = False
+                    quote_validation_reasons.append("NON_FINITE_BID_OR_ASK")
+                elif bid_f <= 0:
+                    is_quote_structurally_valid = False
+                    quote_validation_reasons.append("NON_POSITIVE_BID")
+                elif ask_f < bid_f:
+                    is_quote_structurally_valid = False
+                    quote_validation_reasons.append("INVERTED_SPREAD")
+            except (ValueError, TypeError):
+                is_quote_structurally_valid = False
+                quote_validation_reasons.append("INVALID_PRICE_FORMAT")
+
         # Freshness determination
         freshness_state = "UNKNOWN"
-        if transport_state in ("CONNECTED", "DEGRADED"):
+        if transport_state == "CONNECTING":
+            freshness_state = "RECONNECTING"
+        elif transport_state == "DISCONNECTED" or raw_quote is None:
+            freshness_state = "DISCONNECTED"
+        elif not is_quote_structurally_valid:
+            freshness_state = "INVALID_QUOTE"
+        elif transport_state in ("CONNECTED", "DEGRADED"):
             if quote_age_sec is not None and quote_age_sec <= QUOTE_FRESHNESS_THRESHOLD_SEC:
                 freshness_state = "CONNECTED_FRESH"
             elif quote_age_sec is not None:
                 freshness_state = "CONNECTED_STALE"
             else:
                 freshness_state = "CONNECTED_STALE"
-        elif transport_state == "CONNECTING":
-            freshness_state = "RECONNECTING"
         else:
             freshness_state = "DISCONNECTED"
 
-        # Multi-timeframe closed candle health (OBS-02)
+        # Multi-timeframe closed candle health (OBS-02 & FIX-14)
         timeframe_health = {}
         data_gaps_detected = False
 
@@ -769,22 +878,28 @@ class EngineObservabilityService:
             tf_age_sec = None
 
             if candles:
-                # Find the most recent strictly closed candle (OBS-02)
-                for c in reversed(candles):
+                # Sort candles chronologically by timestamp ascending (FIX-14)
+                sorted_candles = sorted(
+                    candles,
+                    key=lambda c: getattr(c, "timestamp", 0) if hasattr(c, "timestamp") else (c.get("timestamp") or c.get("time") or 0)
+                )
+                # Find the most recent strictly closed candle
+                for c in reversed(sorted_candles):
                     c_ts = getattr(c, "timestamp", 0) if hasattr(c, "timestamp") else (c.get("timestamp") or c.get("time") or 0)
                     is_explicitly_closed = getattr(c, "is_closed", False) if hasattr(c, "is_closed") else c.get("is_closed", False)
 
-                    # A candle is closed if marked so or if its interval has elapsed
-                    if is_explicitly_closed or (c_ts + expected_interval_ms <= t_now):
-                        latest_closed_ts = c_ts + expected_interval_ms
+                    # Ensure closed candle boundary does not exceed current time (FIX-14)
+                    close_boundary = c_ts + expected_interval_ms
+                    if close_boundary <= t_now + 5000 and (is_explicitly_closed or close_boundary <= t_now):
+                        latest_closed_ts = close_boundary
                         tf_age_sec = round(max(0, t_now - latest_closed_ts) / 1000.0, 1)
                         break
 
                 # Gap check on the last 5 candles if available
-                if len(candles) >= 2:
-                    for i in range(len(candles) - 1, max(0, len(candles) - 5), -1):
-                        prev_c = candles[i - 1]
-                        curr_c = candles[i]
+                if len(sorted_candles) >= 2:
+                    for i in range(len(sorted_candles) - 1, max(0, len(sorted_candles) - 5), -1):
+                        prev_c = sorted_candles[i - 1]
+                        curr_c = sorted_candles[i]
                         prev_ts = getattr(prev_c, "timestamp", 0) if hasattr(prev_c, "timestamp") else (prev_c.get("timestamp") or 0)
                         curr_ts = getattr(curr_c, "timestamp", 0) if hasattr(curr_c, "timestamp") else (curr_c.get("timestamp") or 0)
                         if curr_ts - prev_ts > expected_interval_ms:
@@ -808,10 +923,20 @@ class EngineObservabilityService:
         is_weekend = is_market_closed and market_close_reason == "WEEKEND_BREAK"
         is_maintenance = is_market_closed and market_close_reason == "DAILY_MAINTENANCE"
 
+        can_calc_mid = (
+            is_quote_structurally_valid
+            and bid is not None
+            and ask is not None
+            and ask >= bid
+        )
+
         return {
             "symbol": symbol,
             "transport_state": transport_state,
             "feed_source": feed_source,
+            "quote_source": quote_source,
+            "is_quote_valid": is_quote_structurally_valid,
+            "quote_validation_reasons": quote_validation_reasons,
             "freshness_state": freshness_state,
             "is_fresh": freshness_state == "CONNECTED_FRESH",
             "is_weekend_break": is_weekend,
@@ -828,7 +953,7 @@ class EngineObservabilityService:
             "timestamp_reason_codes": quote_res["reason_codes"],
             "bid": bid,
             "ask": ask,
-            "mid": round((bid + ask) / 2.0, 2) if (bid is not None and ask is not None) else None,
+            "mid": round((bid + ask) / 2.0, 2) if can_calc_mid else None,
             "timeframe_health": timeframe_health,
             "has_gap": data_gaps_detected or getattr(candle_cache_service, "has_candle_gap", False),
             "reconnect_count": getattr(bitget_ws_service, "reconnect_count", 0),
@@ -849,6 +974,7 @@ class EngineObservabilityService:
         completed_at_ms: int,
         status: str,  # STARTED, COMPLETED, SKIPPED, FAILED, ABORTED
         symbol: str = "XAUUSDT",
+        run_id: Optional[str] = None,
         duration_ms: float = 0.0,
         opportunities_detected: int = 0,
         opportunities_qualified: int = 0,
@@ -861,12 +987,14 @@ class EngineObservabilityService:
         market_regime: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Records single cycle evaluation metrics into in-memory ring buffer and heartbeat.
+        Records single cycle evaluation metrics into in-memory ring buffer,
+        persists into EngineEvaluationCycleRecord (FIX-13), and updates engine heartbeat (FIX-01).
         """
         inst_id = engine_instance_id or self._current_instance_id
         entry = {
             "cycle_id": cycle_id,
             "engine_instance_id": inst_id,
+            "run_id": run_id,
             "symbol": symbol,
             "started_at_ms": started_at_ms,
             "completed_at_ms": completed_at_ms,
@@ -883,16 +1011,80 @@ class EngineObservabilityService:
             "market_regime": market_regime or "UNKNOWN",
         }
 
+        # Idempotency check: if cycle already exists in memory or DB, avoid duplicate accounting (FIX-13)
         with self._lock:
+            existing = [c for c in self._recent_cycles_buffer if c.get("cycle_id") == cycle_id]
+            if existing and existing[0].get("status") in ("COMPLETED", status):
+                res = dict(existing[0])
+                res["deduplicated"] = True
+                return res
+
             self._recent_cycles_buffer.append(entry)
             if len(self._recent_cycles_buffer) > self._max_recent_cycles:
                 self._recent_cycles_buffer.pop(0)
             self._latest_cycle_diagnostic = entry
 
-        # Update engine heartbeat
+        # Persist into EngineEvaluationCycleRecord (FIX-13)
+        close_session = False
+        target_db = db
+        if target_db is None:
+            try:
+                from database import SessionLocal
+                target_db = SessionLocal()
+                close_session = True
+            except Exception as e:
+                logger.warning(f"Could not open fallback SessionLocal for cycle persistence: {e}")
+
+        if target_db is not None:
+            try:
+                existing_row = target_db.query(models.EngineEvaluationCycleRecord).filter(
+                    models.EngineEvaluationCycleRecord.cycle_id == cycle_id
+                ).first()
+                if existing_row is not None:
+                    res = dict(entry)
+                    res["deduplicated"] = True
+                    return res
+                else:
+                    cycle_row = models.EngineEvaluationCycleRecord(
+                        cycle_id=cycle_id,
+                        engine_instance_id=inst_id,
+                        run_id=run_id,
+                        symbol=symbol,
+                        status=status,
+                        started_at_ms=started_at_ms,
+                        completed_at_ms=completed_at_ms,
+                        duration_ms=max(0.0, round(duration_ms, 2)),
+                        decision_status=decision_status,
+                        skip_reason=skip_reason,
+                        failure_reason=failure_reason,
+                        opportunities_detected=opportunities_detected,
+                        opportunities_qualified=opportunities_qualified,
+                        opportunities_blocked=opportunities_blocked,
+                        armed_order_id=armed_order_id,
+                        metadata_json=json.dumps({
+                            "models_evaluated": models_evaluated or [],
+                            "market_regime": market_regime or "UNKNOWN",
+                        }, ensure_ascii=False),
+                        created_at_ms=completed_at_ms or int(time.time() * 1000),
+                    )
+                    target_db.add(cycle_row)
+                    if close_session:
+                        target_db.commit()
+                    else:
+                        target_db.flush()
+            except Exception as e:
+                if close_session:
+                    target_db.rollback()
+                logger.warning(f"Error persisting EngineEvaluationCycleRecord: {e}")
+            finally:
+                if close_session:
+                    target_db.close()
+
+        # Update engine heartbeat (respects borrowed session ownership)
         self.record_engine_heartbeat(
             db,
             engine_instance_id=inst_id,
+            run_id=run_id,
             symbol=symbol,
             state="RUNNING" if status == "COMPLETED" else ("DEGRADED" if status == "FAILED" else "IDLE"),
             heartbeat_at_ms=completed_at_ms,
@@ -913,6 +1105,48 @@ class EngineObservabilityService:
         with self._lock:
             return dict(self._latest_cycle_diagnostic) if self._latest_cycle_diagnostic else None
 
+    def get_latest_persisted_cycle(
+        self,
+        db: Optional[Session],
+        symbol: str = "XAUUSDT",
+        run_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Reconstructs latest cycle from database after restart (FIX-13 & PART 036)."""
+        diag = self.get_latest_cycle_diagnostic()
+        if diag:
+            return diag
+        if db is None:
+            return None
+        try:
+            q = db.query(models.EngineEvaluationCycleRecord).filter(
+                models.EngineEvaluationCycleRecord.symbol == symbol
+            )
+            if run_id:
+                q = q.filter(models.EngineEvaluationCycleRecord.run_id == run_id)
+            row = q.order_by(models.EngineEvaluationCycleRecord.completed_at_ms.desc()).first()
+            if row:
+                return {
+                    "cycle_id": row.cycle_id,
+                    "engine_instance_id": row.engine_instance_id,
+                    "run_id": row.run_id,
+                    "symbol": row.symbol,
+                    "started_at_ms": row.started_at_ms,
+                    "completed_at_ms": row.completed_at_ms,
+                    "status": row.status,
+                    "duration_ms": row.duration_ms,
+                    "opportunities_detected": row.opportunities_detected,
+                    "opportunities_qualified": row.opportunities_qualified,
+                    "opportunities_blocked": row.opportunities_blocked,
+                    "armed_order_id": row.armed_order_id,
+                    "decision_status": row.decision_status,
+                    "skip_reason": row.skip_reason,
+                    "failure_reason": row.failure_reason,
+                }
+        except Exception as e:
+            logger.warning(f"Error querying persisted cycle: {e}")
+        return None
+
+
     # -----------------------------------------------------------------------
     # 4. Decision Intelligence & Opportunity Timeline (Phase E)
     # -----------------------------------------------------------------------
@@ -924,6 +1158,7 @@ class EngineObservabilityService:
         model_id: str,
         direction: str,
         stage: str,
+        symbol: str = "XAUUSDT",
         event_id: Optional[str] = None,
         run_id: Optional[str] = None,
         cycle_id: Optional[str] = None,
@@ -970,6 +1205,7 @@ class EngineObservabilityService:
                     run_id=run_id,
                     cycle_id=cycle_id,
                     opportunity_id=opportunity_id,
+                    symbol=symbol,
                     model_id=model_id,
                     direction=direction,
                     stage=stage,
@@ -1009,6 +1245,7 @@ class EngineObservabilityService:
     ) -> Dict[str, Any]:
         """
         Fetches paginated decision events with stable ordering (occurred_at_ms DESC, id DESC).
+        Validates cursor strictly (FIX-09) and enforces symbol provenance.
         """
         db.autoflush = False
         query = db.query(models.OpportunityDecisionEvent)
@@ -1016,20 +1253,21 @@ class EngineObservabilityService:
         if run_id:
             query = query.filter(models.OpportunityDecisionEvent.run_id == run_id)
 
+        if symbol:
+            query = query.filter(
+                (models.OpportunityDecisionEvent.symbol == symbol) |
+                (models.OpportunityDecisionEvent.symbol == None)
+            )
+
         if cursor:
-            try:
-                # cursor = base64(f"{ts}_{id}")
-                decoded = base64.b64decode(cursor).decode("utf-8")
-                ts_part, id_part = decoded.split("_")
-                query = query.filter(
-                    (models.OpportunityDecisionEvent.occurred_at_ms < int(ts_part)) |
-                    (
-                        (models.OpportunityDecisionEvent.occurred_at_ms == int(ts_part)) &
-                        (models.OpportunityDecisionEvent.id < int(id_part))
-                    )
+            ts_part, id_part = decode_observation_cursor(cursor, expected_run_id=run_id, expected_symbol=symbol)
+            query = query.filter(
+                (models.OpportunityDecisionEvent.occurred_at_ms < ts_part) |
+                (
+                    (models.OpportunityDecisionEvent.occurred_at_ms == ts_part) &
+                    (models.OpportunityDecisionEvent.id < id_part)
                 )
-            except Exception:
-                pass
+            )
 
         rows = query.order_by(
             models.OpportunityDecisionEvent.occurred_at_ms.desc(),
@@ -1042,7 +1280,7 @@ class EngineObservabilityService:
         next_cursor = None
         if has_more and result_rows:
             last = result_rows[-1]
-            raw_c = f"{last.occurred_at_ms}_{last.id}"
+            raw_c = f"{last.occurred_at_ms}_{last.id}_{run_id or ''}_{symbol or ''}"
             next_cursor = base64.b64encode(raw_c.encode("utf-8")).decode("utf-8")
 
         items = []
@@ -1153,7 +1391,10 @@ class EngineObservabilityService:
                     created_at_ms=t_now,
                 )
                 target_db.add(row)
-                target_db.commit()
+                if close_session:
+                    target_db.commit()
+                else:
+                    target_db.flush()
             except Exception as e:
                 if close_session:
                     target_db.rollback()
@@ -1167,13 +1408,17 @@ class EngineObservabilityService:
     # Alias for API compatibility
     raise_engine_incident = record_engine_incident
 
+    def persist_engine_incident(self, **kwargs) -> Dict[str, Any]:
+        """Durable isolated incident writer using owned session (FIX-01)."""
+        return self.record_engine_incident(db=None, **kwargs)
+
     def resolve_engine_incident(
         self,
         db: Optional[Session],
         incident_id: str,
         now_ms: Optional[int] = None,
     ) -> bool:
-        """Marks an active incident as RECOVERED with durable DB commit."""
+        """Marks an active incident as RECOVERED without committing borrowed session (FIX-01)."""
         t_now = int(now_ms if now_ms is not None else int(time.time() * 1000))
         with self._lock:
             if incident_id in self._active_incidents:
@@ -1198,7 +1443,10 @@ class EngineObservabilityService:
                 if row:
                     row.status = "RECOVERED"
                     row.recovered_at_ms = t_now
-                    target_db.commit()
+                    if close_session:
+                        target_db.commit()
+                    else:
+                        target_db.flush()
                     return True
             except Exception as e:
                 if close_session:
@@ -1219,7 +1467,8 @@ class EngineObservabilityService:
         now_ms: Optional[int] = None,
     ) -> int:
         """
-        Auto-recovers active incidents matching component, reason_code, or run_id (OBS-12).
+        Auto-recovers active incidents matching component, reason_code, or run_id (OBS-12 & FIX-01).
+        Respects transaction boundaries: flushes borrowed sessions, commits owned sessions.
         Returns the number of resolved incidents.
         """
         t_now = int(now_ms if now_ms is not None else int(time.time() * 1000))
@@ -1269,7 +1518,10 @@ class EngineObservabilityService:
                     r.recovered_at_ms = t_now
                     if r.id not in resolved_ids:
                         resolved_count += 1
-                target_db.commit()
+                if close_session:
+                    target_db.commit()
+                else:
+                    target_db.flush()
             except Exception as e:
                 if close_session:
                     target_db.rollback()
@@ -1280,8 +1532,58 @@ class EngineObservabilityService:
 
         return resolved_count
 
+    def list_active_engine_incidents(
+        self,
+        db: Optional[Session],
+        *,
+        run_id: Optional[str] = None,
+        symbol: Optional[str] = None,
+        scope: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Queries authoritative active engine incidents from persistent DB and memory (FIX-10 & PART 106-107).
+        """
+        active_dict: Dict[str, Dict[str, Any]] = {}
+        if db is not None:
+            try:
+                q = db.query(models.EngineIncidentRecord).filter(
+                    models.EngineIncidentRecord.status == "ACTIVE"
+                )
+                if run_id:
+                    q = q.filter(
+                        (models.EngineIncidentRecord.run_id == run_id) |
+                        (models.EngineIncidentRecord.run_id == None)
+                    )
+                for r in q.all():
+                    active_dict[r.id] = {
+                        "id": r.id,
+                        "component": r.component,
+                        "severity": r.severity,
+                        "message": r.message,
+                        "reason_code": r.reason_code,
+                        "engine_instance_id": r.engine_instance_id,
+                        "run_id": r.run_id,
+                        "cycle_id": r.cycle_id,
+                        "opportunity_id": r.opportunity_id,
+                        "order_id": r.order_id,
+                        "status": r.status,
+                        "created_at_ms": r.created_at_ms,
+                        "recovered_at_ms": r.recovered_at_ms,
+                    }
+            except Exception as e:
+                logger.warning(f"Error querying active incidents in list_active_engine_incidents: {e}")
+
+        with self._lock:
+            for inc_id, inc in self._active_incidents.items():
+                if inc.get("status") == "ACTIVE":
+                    if run_id and inc.get("run_id") and inc.get("run_id") != run_id:
+                        continue
+                    active_dict[inc_id] = inc
+
+        return list(active_dict.values())
+
     # -----------------------------------------------------------------------
-    # 6. Truthful Coverage & Uptime Denominator (Phase F - OBS-06 & OBS-07)
+    # 6. Truthful Coverage & Uptime Denominator (Phase F - OBS-06 & FIX-02)
     # -----------------------------------------------------------------------
     def calculate_observation_coverage(
         self,
@@ -1292,9 +1594,9 @@ class EngineObservabilityService:
         end_ms: int,
     ) -> Dict[str, Any]:
         """
-        Calculates trustworthy observation coverage.
+        Calculates trustworthy observation coverage based strictly on durable evidence (FIX-02).
         Excludes scheduled weekend and maintenance closures from denominator.
-        Clips to actual run boundaries if run_id is supplied.
+        Clips to actual run boundaries and non-overlapping merged intervals.
         """
         effective_start = start_ms
         effective_end = end_ms
@@ -1321,55 +1623,54 @@ class EngineObservabilityService:
 
         total_span_ms = effective_end - effective_start
         market_open_ms = calculate_market_open_duration_ms(effective_start, effective_end)
-        denominator_ms = market_open_ms if market_open_ms > 0 else total_span_ms
 
-        observed_intervals_ms = 0
-        known_downtime_ms = 0
+        good_intervals: List[Tuple[int, int]] = []
+        downtime_intervals: List[Tuple[int, int]] = []
 
-        # Check recorded observation intervals
+        # Check recorded observation intervals using overlap query (FIX-02 & PART 039)
         if db is not None:
             try:
                 q = db.query(models.PaperObservationInterval).filter(
-                    models.PaperObservationInterval.start_ms >= effective_start,
-                    models.PaperObservationInterval.end_ms <= effective_end,
+                    models.PaperObservationInterval.end_ms > effective_start,
+                    models.PaperObservationInterval.start_ms < effective_end,
                 )
                 if run_id:
                     q = q.filter(models.PaperObservationInterval.run_id == run_id)
                 intervals = q.all()
 
                 for inv in intervals:
-                    dur = max(0, inv.end_ms - inv.start_ms)
-                    if inv.data_quality == "GOOD":
-                        observed_intervals_ms += dur
-                    else:
-                        known_downtime_ms += dur
+                    clipped = clip_interval(inv.start_ms, inv.end_ms, effective_start, effective_end)
+                    if clipped is not None:
+                        if getattr(inv, "data_quality", "GOOD") == "GOOD":
+                            good_intervals.append(clipped)
+                        else:
+                            downtime_intervals.append(clipped)
             except Exception:
                 pass
 
-        # If no explicit intervals, calculate from engine heartbeats cycles
-        if observed_intervals_ms == 0 and db is not None:
-            try:
-                hb = db.query(models.EngineHeartbeatRecord).filter(
-                    models.EngineHeartbeatRecord.updated_at_ms >= effective_start,
-                    models.EngineHeartbeatRecord.updated_at_ms <= effective_end,
-                ).first()
-                if hb:
-                    cadence = getattr(hb, "cadence_sec", 15) or 15
-                    cycles = getattr(hb, "cycles_count", 0) or 0
-                    observed_intervals_ms = min(denominator_ms, cycles * cadence * 1000)
-            except Exception:
-                pass
+        observed_intervals_ms = merge_time_intervals(good_intervals)
+        known_downtime_ms = merge_time_intervals(downtime_intervals)
 
-        coverage_pct = round((observed_intervals_ms / denominator_ms) * 100.0, 1) if denominator_ms > 0 else 0.0
+        # Removed synthetic cycles * cadence fallback (FIX-02 & PART 042)
+        if market_open_ms > 0:
+            observed_intervals_ms = min(observed_intervals_ms, market_open_ms)
+            coverage_pct = round((observed_intervals_ms / market_open_ms) * 100.0, 1)
+            coverage_state = "FULL" if coverage_pct >= 95.0 else ("PARTIAL" if coverage_pct >= 50.0 else "LOW")
+        else:
+            # Entire window was during market closure (FIX-02 & PART 047)
+            coverage_pct = None
+            coverage_state = "MARKET_CLOSED"
 
         return {
             "total_span_hours": round(total_span_ms / 3600_000.0, 2),
             "market_open_hours": round(market_open_ms / 3600_000.0, 2),
+            "expected_market_open_ms": market_open_ms,
+            "observed_intervals_ms": observed_intervals_ms,
             "weekend_closed_hours": round(max(0, total_span_ms - market_open_ms) / 3600_000.0, 2),
             "observed_healthy_hours": round(observed_intervals_ms / 3600_000.0, 2),
             "known_downtime_hours": round(known_downtime_ms / 3600_000.0, 2),
-            "coverage_pct": min(100.0, max(0.0, coverage_pct)),
-            "coverage_state": "FULL" if coverage_pct >= 95.0 else ("PARTIAL" if coverage_pct >= 50.0 else "LOW"),
+            "coverage_pct": coverage_pct,
+            "coverage_state": coverage_state,
             "evidence_type": "LIVE_PAPER_FORWARD_OBSERVATION",
         }
 
@@ -1435,13 +1736,32 @@ class EngineObservabilityService:
         # 6. Recent Decisions & Waiting Setups (Tier 2 - OBS-05 Isolated)
         recent_decisions = self.list_recent_decisions(db, run_id=target_run_id, symbol=symbol, limit=20)
 
-        # Query waiting candidates
-        q_waiting = db.query(models.OpportunityDecisionEvent).filter(
-            models.OpportunityDecisionEvent.stage.in_(["WAITING", "WATCHING"])
+        # Query waiting candidates - strictly latest stage per opportunity (FIX-08 & PART 062-064)
+        subq = db.query(
+            models.OpportunityDecisionEvent.opportunity_id,
+            func.max(models.OpportunityDecisionEvent.id).label("max_id")
+        ).filter(
+            models.OpportunityDecisionEvent.opportunity_id != None,
+            models.OpportunityDecisionEvent.opportunity_id != "",
         )
         if target_run_id:
-            q_waiting = q_waiting.filter(models.OpportunityDecisionEvent.run_id == target_run_id)
-        waiting_setups_rows = q_waiting.order_by(models.OpportunityDecisionEvent.occurred_at_ms.desc()).limit(10).all()
+            subq = subq.filter(models.OpportunityDecisionEvent.run_id == target_run_id)
+        if symbol:
+            subq = subq.filter(
+                (models.OpportunityDecisionEvent.symbol == symbol) |
+                (models.OpportunityDecisionEvent.symbol == None)
+            )
+        subq = subq.group_by(models.OpportunityDecisionEvent.opportunity_id).subquery()
+
+        waiting_setups_rows = db.query(models.OpportunityDecisionEvent).join(
+            subq,
+            and_(
+                models.OpportunityDecisionEvent.opportunity_id == subq.c.opportunity_id,
+                models.OpportunityDecisionEvent.id == subq.c.max_id,
+            )
+        ).filter(
+            models.OpportunityDecisionEvent.stage.in_(["WAITING", "WATCHING"])
+        ).order_by(models.OpportunityDecisionEvent.occurred_at_ms.desc()).limit(10).all()
 
         waiting_conditions_list = []
         for w in waiting_setups_rows:
@@ -1481,7 +1801,7 @@ class EngineObservabilityService:
             for r in blocked_events
         ]
 
-        # 7. Truthful Financial Metrics (Tier 3)
+        # 7. Truthful Financial Metrics (Tier 3 - Strict Run Isolation FIX-03 & PART 053-060)
         financial_summary = None
         if target_run_id:
             run_summary = build_cg01_paper_run_summary(target_run_id, db=db)
@@ -1506,54 +1826,32 @@ class EngineObservabilityService:
                     "initial_capital_usdt": init_cap,
                     "current_equity_usdt": round(init_cap + net_pnl, 2),
                 }
+            else:
+                financial_summary = {
+                    "status": "NOT_FOUND",
+                    "run_id": target_run_id,
+                    "closed_trades": 0,
+                    "open_trades": 0,
+                    "armed_orders": 0,
+                    "wins": 0,
+                    "losses": 0,
+                    "breakevens": 0,
+                    "winrate_pct": None,
+                    "net_pnl_usd": 0.0,
+                    "net_expectancy": 0.0,
+                    "max_drawdown_usd": 0.0,
+                    "max_drawdown_pct": 0.0,
+                    "initial_capital_usdt": 1000.0,
+                    "current_equity_usdt": 1000.0,
+                }
 
-        # If run summary not available, query paper_orders directly
-        if financial_summary is None:
-            orders = db.query(models.PaperOrder).filter(
-                models.PaperOrder.instrument == symbol,
-                models.PaperOrder.created_at >= t_start,
-                models.PaperOrder.created_at <= t_end,
-            ).all()
-
-            closed_orders = [o for o in orders if str(o.state).lower() == "closed"]
-            armed_orders = [o for o in orders if str(o.state).lower() == "armed"]
-            open_orders = [o for o in orders if str(o.state).lower() in ("paper_open", "open", "filled")]
-
-            wins = 0
-            losses = 0
-            breakevens = 0
-            net_pnl_total = 0.0
-            for o in closed_orders:
-                pnl = float(o.realized_pnl_net or 0.0)
-                net_pnl_total += pnl
-                if pnl > 0:
-                    wins += 1
-                elif pnl < 0:
-                    losses += 1
-                else:
-                    breakevens += 1
-
-            total_closed = len(closed_orders)
-            financial_summary = {
-                "closed_trades": total_closed,
-                "open_trades": len(open_orders),
-                "armed_orders": len(armed_orders),
-                "wins": wins,
-                "losses": losses,
-                "breakevens": breakevens,
-                "winrate_pct": round((wins / total_closed * 100.0), 2) if total_closed > 0 else None,
-                "net_pnl_usd": round(net_pnl_total, 2),
-                "net_expectancy": round(net_pnl_total / total_closed, 2) if total_closed > 0 else 0.0,
-                "max_drawdown_usd": 0.0,
-                "max_drawdown_pct": 0.0,
-                "initial_capital_usdt": 1000.0,
-                "current_equity_usdt": round(1000.0 + net_pnl_total, 2),
-            }
-
-        # 8. Active Incidents (Tier 1)
-        active_incidents_list = [
-            inc for inc in self._active_incidents.values() if inc.get("status") == "ACTIVE"
-        ]
+        # 8. Active Incidents (Tier 1 - Persisted DB + RAM cache - FIX-10 & PART 106-107)
+        active_incidents_list = self.list_active_engine_incidents(
+            db,
+            run_id=target_run_id,
+            symbol=symbol,
+            scope=scope,
+        )
 
         return {
             "schema_version": OBSERVATION_SCHEMA_VERSION,

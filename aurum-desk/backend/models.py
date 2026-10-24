@@ -984,6 +984,7 @@ class OpportunityDecisionEvent(Base):
     run_id = Column(String(80), nullable=True, index=True)
     cycle_id = Column(String(80), nullable=True, index=True)
     opportunity_id = Column(String(80), nullable=False, index=True)
+    symbol = Column(String(20), default="XAUUSDT", nullable=True, index=True)
     model_id = Column(String(40), nullable=False, index=True)
     direction = Column(String(10), nullable=False)
     stage = Column(String(30), nullable=False, index=True)
@@ -1014,5 +1015,29 @@ class EngineIncidentRecord(Base):
     created_at_ms = Column(BigInteger, nullable=False, index=True)
     recovered_at_ms = Column(BigInteger, nullable=True)
     payload_json = Column(Text, nullable=True)
+
+
+class EngineEvaluationCycleRecord(Base):
+    __tablename__ = "engine_evaluation_cycles"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    cycle_id = Column(String(80), nullable=False, unique=True, index=True)
+    engine_instance_id = Column(String(80), nullable=False, index=True)
+    run_id = Column(String(80), nullable=True, index=True)
+    symbol = Column(String(20), default="XAUUSDT", index=True)
+    status = Column(String(30), nullable=False, index=True)  # COMPLETED, FAILED, SKIPPED, ABORTED
+    started_at_ms = Column(BigInteger, nullable=False)
+    completed_at_ms = Column(BigInteger, nullable=False)
+    duration_ms = Column(Float, default=0.0)
+    decision_status = Column(String(30), nullable=True)  # NO_SETUP, BLOCKED, ARMED, WAITING, SKIPPED, FAILED
+    skip_reason = Column(String(80), nullable=True)
+    failure_reason = Column(Text, nullable=True)
+    opportunities_detected = Column(Integer, default=0)
+    opportunities_qualified = Column(Integer, default=0)
+    opportunities_blocked = Column(Integer, default=0)
+    armed_order_id = Column(String(36), nullable=True)
+    metadata_json = Column(Text, nullable=True)
+    created_at_ms = Column(BigInteger, nullable=False)
+
 
 
