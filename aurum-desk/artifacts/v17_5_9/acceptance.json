@@ -1,0 +1,208 @@
+{
+  "version": "V17.5.9",
+  "verdict": "ACCEPTED",
+  "timestamp_utc": "2026-10-24T15:56:52Z",
+  "tested_git_sha": "55ecbd7754872d8ef811f7cdc4c31196f5b61881",
+  "git_branch": "fix/v14-1-rr-flow",
+  "is_dirty": false,
+  "dirty_tracked": [],
+  "summary": {
+    "backend_tests_total": 313,
+    "backend_tests_passed": 313,
+    "backend_tests_failed": 0,
+    "frontend_tests_passed": 501,
+    "frontend_files": 48,
+    "browser_e2e_passed": 6,
+    "build_status": "PASS",
+    "lint_status": "PASS"
+  },
+  "gates": {
+    "gate0_v17_5_9_core": {
+      "status": "PASS",
+      "counts": {
+        "status": "PASS",
+        "tests": 71,
+        "passed": 71,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "reason": null
+      },
+      "duration_sec": 3.269
+    },
+    "gate1_v17_5_8_core": {
+      "status": "PASS",
+      "counts": {
+        "status": "PASS",
+        "tests": 34,
+        "passed": 34,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "reason": null
+      },
+      "duration_sec": 1.331
+    },
+    "gate2_v17_5_7_core": {
+      "status": "PASS",
+      "counts": {
+        "status": "PASS",
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "reason": null
+      },
+      "duration_sec": 1.463
+    },
+    "gate3_v17_5_6_core": {
+      "status": "PASS",
+      "counts": {
+        "status": "PASS",
+        "tests": 37,
+        "passed": 37,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "reason": null
+      },
+      "duration_sec": 1.421
+    },
+    "gate4_v17_5_5_core": {
+      "status": "PASS",
+      "counts": {
+        "status": "PASS",
+        "tests": 23,
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "reason": null
+      },
+      "duration_sec": 1.128
+    },
+    "gate5_v17_5_4": {
+      "status": "PASS",
+      "counts": {
+        "status": "PASS",
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "reason": null
+      },
+      "duration_sec": 1.223
+    },
+    "gate6_v17_5_3": {
+      "status": "PASS",
+      "counts": {
+        "status": "PASS",
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "reason": null
+      },
+      "duration_sec": 1.469
+    },
+    "gate7_v17_5_2": {
+      "status": "PASS",
+      "counts": {
+        "status": "PASS",
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "reason": null
+      },
+      "duration_sec": 1.345
+    },
+    "gate8_v17_5_1": {
+      "status": "PASS",
+      "counts": {
+        "status": "PASS",
+        "tests": 26,
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "reason": null
+      },
+      "duration_sec": 1.731
+    },
+    "gate9_v17_5": {
+      "status": "PASS",
+      "counts": {
+        "status": "PASS",
+        "tests": 31,
+        "passed": 31,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "reason": null
+      },
+      "duration_sec": 1.327
+    },
+    "gate10_prior_regressions": {
+      "status": "PASS",
+      "counts": {
+        "status": "PASS",
+        "tests": 35,
+        "passed": 35,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0,
+        "reason": null
+      },
+      "duration_sec": 3.362
+    },
+    "gate11_frontend_vitest": {
+      "status": "PASS",
+      "passed": 501,
+      "duration_sec": 4.285
+    },
+    "gate12_frontend_build": {
+      "status": "PASS",
+      "duration_sec": 6.879
+    },
+    "gate13_frontend_lint": {
+      "status": "PASS",
+      "duration_sec": 0.339
+    },
+    "gate14_playwright_e2e": {
+      "status": "PASS",
+      "passed": 6,
+      "duration_sec": 12.593
+    }
+  },
+  "source_fingerprints": {
+    "backend/services/stop_placement_types.py": "e3f3c85785743a74",
+    "backend/services/stop_placement_service.py": "43dc30d8c616ee14",
+    "backend/services/plan_financial_context_service.py": "63056b4fd4826634",
+    "backend/services/scalp_m1_model_service.py": "17c8b45404e4c8a2",
+    "backend/services/scalp_watcher_orchestrator.py": "f1b5835fb6f0e168",
+    "backend/services/execution_coordinator.py": "70822705200ad6d4",
+    "backend/services/order_plan_snapshot_service.py": "2a17b38b516739a3",
+    "frontend/src/ChartComponent.tsx": "9ce3dbf5e40c48c7",
+    "backend/tests/test_v17_5_9_reference_source_authority.py": "2648e46ce986dc2b",
+    "backend/tests/test_v17_5_9_break_source_authority.py": "f17b31c388ee3873",
+    "backend/tests/test_v17_5_9_arm_production_wiring.py": "432bafbcb767b6e2",
+    "backend/tests/test_v17_5_9_cost_fail_closed.py": "ff9f78f101e85102",
+    "backend/tests/test_v17_5_9_financial_parity.py": "370041b4a45a0c37",
+    "backend/tests/test_v17_5_9_real_cycle_regression.py": "fa8f2058426a8550",
+    "backend/tests/test_v17_5_9_acceptance_runner_self_test.py": "ef5fa248161e5844",
+    "backend/tests/test_v17_5_8_reference_provenance.py": "216286f4e815bc40",
+    "backend/tests/test_v17_5_8_break_fail_closed.py": "39de7335321658d6",
+    "backend/tests/test_v17_5_8_episode_authority.py": "df6770667a988759",
+    "backend/tests/test_v17_5_8_cost_authority.py": "bd0c1c25678e755f",
+    "backend/tests/test_v17_5_8_full_cycle.py": "339374c6dbf398bd",
+    "backend/tests/test_v17_5_7_episode_derivation.py": "deaf5f6deb51dea9",
+    "backend/tests/test_v17_5_7_true_cycle_cost_parity.py": "93bb941fbfbf03e7",
+    "frontend/tests/e2e/v17_5_6_chart_evidence.e2e.ts": "9080334f70f30664",
+    "tools/run_v17_5_9_acceptance.py": "b78b9f6db932f7cc"
+  }
+}
