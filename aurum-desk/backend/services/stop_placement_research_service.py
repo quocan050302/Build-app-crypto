@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 import models
 from domain_calculator import calculate_risk_reward, CostAssumptions
 from services.stop_placement_types import (
+    ComparisonEntryGateResult,
     StopAnchor,
     StopBufferResult,
     StopComparisonPlan,
@@ -25,6 +26,109 @@ from services.stop_placement_types import (
 from services.stop_placement_service import quantize_stop_outward
 
 logger = logging.getLogger(__name__)
+
+
+def evaluate_stop_comparison_entry_gate(
+    *,
+    plan: Union[StopComparisonPlan, Dict[str, Any]],
+    variant: Dict[str, Any],
+    quote: Union[Dict[str, Any], Any],
+    as_of_ms: int,
+    cost_result: Dict[str, Any],
+) -> ComparisonEntryGateResult:
+    """
+    AURUM V17.5.5 (Appendix A2):
+    Pure evaluation gate enforcing strict context and cost verification before
+    a research comparison variant can transition to OPEN or evaluate triggers.
+
+    Evaluation hierarchy:
+    1. Context status: Must be VERIFIED. (CONTEXT_INCOMPLETE or unverified plans blocked).
+    2. Cost availability: Cost snapshot must be available with finite non-negative values.
+    3. Expiry: Plan must not have expired.
+    4. Variant eligibility: is_valid, can_execute, and meets_min_rr must be True.
+    """
+    plan_dict = plan.to_dict() if hasattr(plan, "to_dict") else plan
+    context_status = plan_dict.get("context_status")
+    cost_available = bool(cost_result.get("available", False)) if isinstance(cost_result, dict) else False
+
+    # 1. Context verification
+    if context_status != "VERIFIED":
+        return ComparisonEntryGateResult(
+            allowed=False,
+            reason_code="CONTEXT_INCOMPLETE",
+            explanation=f"Research comparison plan context is {context_status or 'UNSPECIFIED'}, expected VERIFIED",
+            context_status=context_status,
+            cost_available=cost_available,
+        )
+
+    # 2. Cost verification
+    if not cost_available or not isinstance(cost_result, dict):
+        reason = cost_result.get("reason") if isinstance(cost_result, dict) else None
+        return ComparisonEntryGateResult(
+            allowed=False,
+            reason_code="COST_UNAVAILABLE",
+            explanation=f"Cost snapshot is unavailable: {reason or 'MISSING_COST_SNAPSHOT'}",
+            context_status=context_status,
+            cost_available=False,
+        )
+
+    entry_slip = cost_result.get("entry_slippage_usd")
+    maker_fee = cost_result.get("maker_fee_rate")
+    taker_fee = cost_result.get("taker_fee_rate")
+
+    def _is_valid_num(v: Any) -> bool:
+        return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and v >= 0
+
+    if not (_is_valid_num(entry_slip) and _is_valid_num(maker_fee) and _is_valid_num(taker_fee)):
+        return ComparisonEntryGateResult(
+            allowed=False,
+            reason_code="INVALID_COST",
+            explanation="Cost snapshot contains non-finite, negative, or invalid fee/slippage values",
+            context_status=context_status,
+            cost_available=False,
+        )
+
+    # 3. Plan expiry verification
+    expires_at_ms = (
+        plan_dict.get("expires_at_ms")
+        or plan_dict.get("order_expiry_ms")
+        or plan_dict.get("expiry_at_ms")
+    )
+    if expires_at_ms is not None:
+        try:
+            exp_val = int(expires_at_ms)
+            if exp_val > 0 and as_of_ms >= exp_val:
+                return ComparisonEntryGateResult(
+                    allowed=False,
+                    reason_code="EXPIRED",
+                    explanation=f"Plan expired at {exp_val} <= as_of {as_of_ms}",
+                    context_status=context_status,
+                    cost_available=True,
+                )
+        except (ValueError, TypeError):
+            pass
+
+    # 4. Variant eligibility
+    is_valid = variant.get("is_valid", True)
+    can_execute = variant.get("can_execute", False)
+    meets_min_rr = variant.get("meets_min_rr", True)
+    if not (is_valid and can_execute and meets_min_rr):
+        reason = variant.get("rejection_reason") or "VARIANT_INELIGIBLE"
+        return ComparisonEntryGateResult(
+            allowed=False,
+            reason_code=reason,
+            explanation=f"Variant is ineligible: valid={is_valid}, can_execute={can_execute}, meets_min_rr={meets_min_rr}",
+            context_status=context_status,
+            cost_available=True,
+        )
+
+    return ComparisonEntryGateResult(
+        allowed=True,
+        reason_code="READY",
+        explanation="Variant satisfies all context, cost, and eligibility gates",
+        context_status=context_status,
+        cost_available=True,
+    )
 
 
 def make_opportunity_hash_id(prefix: str, opportunity_key: str, length: int = 70) -> str:
@@ -244,11 +348,14 @@ def resolve_stop_comparison_execution_context(
     cfg: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
-    Pure helper (V17.5.4 Appendix A2):
+    Pure helper (V17.5.4 Appendix A2, updated V17.5.5):
     Resolves authoritative execution context from production candidate for research comparison.
     Extracts order_type, absolute expires_at_ms, decision_cutoff_ms, cost_snapshot, and provenance.
+    Enforces unified cost authority via resolve_execution_cost_context.
+    Status is VERIFIED only if intent, expiry, AND cost are valid.
     """
-    from services.cg01_types import candidate_execution_order_type, resolve_candidate_order_expiry, resolve_slippage_usd
+    from services.cg01_types import candidate_execution_order_type, resolve_candidate_order_expiry
+    from services.plan_financial_context_service import resolve_execution_cost_context
 
     settings = policy_settings or {}
     as_of = int(decision_as_of_ms or getattr(cand, "as_of_ms", 0) or 0)
@@ -265,43 +372,42 @@ def resolve_stop_comparison_execution_context(
     except Exception:
         resolved_expires_at = None
 
-    # 3. Cost snapshot & slippage
-    calc = getattr(cand, "calculation", None)
-    cand_slip = None
-    if calc is not None:
-        cand_slip = getattr(calc, "slippage_usd", None)
-    if cand_slip is None and cfg is not None and getattr(cfg, "cg01_config", None):
-        cand_slip = getattr(cfg.cg01_config, "slippage_usd", None)
-    if cand_slip is None and "slippage_usd" in settings:
-        cand_slip = settings.get("slippage_usd")
-
-    slip_val = resolve_slippage_usd(cand_slip, default=0.10) if cand_slip is not None else 0.10
-
-    costs_obj = settings.get("costs")
-    maker_fee = getattr(costs_obj, "maker_fee_rate", 0.0002) if costs_obj else 0.0002
-    taker_fee = getattr(costs_obj, "taker_fee_rate", 0.0006) if costs_obj else 0.0006
+    # 3. Unified Cost Authority (V17.5.5 Appendix B)
+    cost_res = resolve_execution_cost_context(
+        candidate=cand,
+        settings=settings,
+        config=cfg,
+        as_of_ms=as_of,
+    )
 
     cost_snapshot = {
-        "entry_slippage_usd": slip_val,
-        "tp_slippage_usd": 0.0,
-        "sl_slippage_usd": slip_val,
-        "maker_fee_rate": maker_fee,
-        "taker_fee_rate": taker_fee,
-        "version": int(settings.get("config_version") or getattr(cfg, "config_version", 1)),
+        "entry_slippage_usd": cost_res["entry_slippage_usd"],
+        "tp_slippage_usd": cost_res["tp_slippage_usd"],
+        "sl_slippage_usd": cost_res["sl_slippage_usd"],
+        "maker_fee_rate": cost_res["maker_fee_rate"],
+        "taker_fee_rate": cost_res["taker_fee_rate"],
+        "version": cost_res["version"],
+        "provenance": cost_res["provenance"],
+        "available": cost_res["available"],
     }
+    if not cost_res["available"]:
+        cost_snapshot["reason"] = cost_res.get("reason")
 
     # Provenance
     model_id = str(getattr(cand, "model_id", "UNKNOWN"))
     cand_key = str(getattr(cand, "candidate_key", "UNKNOWN"))
     provenance = f"{model_id}:{cand_key}:decision@{as_of}"
 
-    # Status determination: VERIFIED if order_type and expires_at are valid
-    if resolved_order_type and resolved_expires_at is not None and resolved_expires_at > 0:
-        status = "VERIFIED"
-        reason = None
-    else:
+    # Status determination: VERIFIED only if order_type, expires_at, AND cost are valid
+    if not (resolved_order_type and resolved_expires_at is not None and resolved_expires_at > 0):
         status = "CONTEXT_INCOMPLETE"
         reason = "MISSING_EXPIRY_OR_INTENT"
+    elif not cost_res.get("available", False):
+        status = "CONTEXT_INCOMPLETE"
+        reason = cost_res.get("reason") or "COST_UNAVAILABLE"
+    else:
+        status = "VERIFIED"
+        reason = None
 
     return {
         "status": status,
@@ -372,12 +478,14 @@ def read_verified_comparison_cost_snapshot(
     plan: Union[StopComparisonPlan, Dict[str, Any]],
 ) -> Dict[str, Any]:
     """
-    Pure helper (V17.5.4 Appendix B1 & B2):
-    Reads verified cost snapshot from comparison plan.
+    Pure helper (V17.5.4 Appendix B1 & B2, updated V17.5.5):
+    Reads verified cost snapshot from comparison plan via unified cost authority.
     Distinguishes explicit 0.0 slippage from missing snapshot.
     """
+    from services.plan_financial_context_service import resolve_execution_cost_context
+
     plan_dict = plan.to_dict() if hasattr(plan, "to_dict") else plan
-    snapshot = plan_dict.get("cost_snapshot")
+    snapshot = plan_dict.get("cost_snapshot") if isinstance(plan_dict, dict) else None
     if not isinstance(snapshot, dict):
         return {
             "available": False,
@@ -386,34 +494,11 @@ def read_verified_comparison_cost_snapshot(
             "tp_slippage_usd": 0.0,
             "sl_slippage_usd": 0.0,
             "maker_fee_rate": 0.0002,
-            "taker_fee_rate": 0.0006,
+            "taker_fee_rate": 0.0004,
+            "provenance": "MISSING_SNAPSHOT",
+            "version": 1,
         }
-
-    entry_slip = snapshot.get("entry_slippage_usd")
-    if entry_slip is None:
-        entry_slip = snapshot.get("slippage_usd")
-
-    if entry_slip is None:
-        return {
-            "available": False,
-            "reason": "MISSING_ENTRY_SLIPPAGE",
-            "entry_slippage_usd": 0.0,
-            "tp_slippage_usd": 0.0,
-            "sl_slippage_usd": 0.0,
-            "maker_fee_rate": 0.0002,
-            "taker_fee_rate": 0.0006,
-        }
-
-    return {
-        "available": True,
-        "reason": None,
-        "entry_slippage_usd": float(entry_slip),
-        "tp_slippage_usd": float(snapshot.get("tp_slippage_usd", 0.0)),
-        "sl_slippage_usd": float(snapshot.get("sl_slippage_usd", entry_slip)),
-        "maker_fee_rate": float(snapshot.get("maker_fee_rate", 0.0002)),
-        "taker_fee_rate": float(snapshot.get("taker_fee_rate", 0.0006)),
-        "version": snapshot.get("version", 1),
-    }
+    return resolve_execution_cost_context(snapshot=snapshot)
 
 
 def compute_stop_excursions(
@@ -653,11 +738,17 @@ def advance_stop_comparison(
                 v_data["wait_reason"] = "STALE_QUOTE_BACKLOG"
                 continue
 
-            # Eligibility gate (P4): variant must be valid, executable, and meet minimum R:R
-            is_valid = v_data.get("is_valid", True)
-            can_execute = v_data.get("can_execute", False)
-            meets_min_rr = v_data.get("meets_min_rr", True)
-            if not (is_valid and can_execute and meets_min_rr):
+            # Strict V17.5.5 Entry Context & Cost Gate (Appendix A3)
+            gate = evaluate_stop_comparison_entry_gate(
+                plan=updated,
+                variant=v_data,
+                quote=market_evidence,
+                as_of_ms=as_of_ms,
+                cost_result=costs,
+            )
+            if not gate.allowed:
+                v_data["wait_reason"] = gate.reason_code
+                v_data["gate_explanation"] = gate.explanation
                 continue
 
             # Intent-aware entry trigger evaluation with slippage parity (Appendix B1-B3)
@@ -668,7 +759,7 @@ def advance_stop_comparison(
                 or updated.get("entry_intent")
                 or "MARKET"
             )
-            order_slip = costs["entry_slippage_usd"] if costs["available"] else 0.0
+            order_slip = costs["entry_slippage_usd"]
             triggered, supported, fill_price, entry_reason = evaluate_comparison_entry(
                 direction=direction,
                 planned_entry=planned_entry,
@@ -687,6 +778,7 @@ def advance_stop_comparison(
             v_data["actual_entry"] = fill_price
             v_data["excursions"] = {"max_adverse": 0.0, "max_favorable": 0.0}
             v_data.pop("wait_reason", None)
+            v_data.pop("gate_explanation", None)
 
         if v_data.get("execution_state") == "OPEN":
             actual_entry_px = float(v_data.get("actual_entry", planned_entry))

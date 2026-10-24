@@ -32,6 +32,15 @@ def test_research_advances_through_execution_consumer_without_active_order(test_
         "take_profit": 1980.0,
         "as_of_ms": now_ms,
         "plan_cutoff_ms": now_ms,
+        "context_status": "VERIFIED",
+        "cost_snapshot": {
+            "entry_slippage_usd": 0.0,
+            "tp_slippage_usd": 0.0,
+            "sl_slippage_usd": 0.0,
+            "maker_fee_rate": 0.0002,
+            "taker_fee_rate": 0.0004,
+            "available": True,
+        },
         "variant_a": {
             "can_execute": True,
             "meets_min_rr": True,

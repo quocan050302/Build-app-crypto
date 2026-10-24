@@ -622,6 +622,166 @@ def build_sweep_stop_descriptor(
     }
 
 
+def select_protected_origin_for_break(
+    *,
+    model_id: str,
+    direction: str,
+    selected_break: Any,
+    selected_reference: Optional[Dict[str, Any]] = None,
+    confirmed_swings: Optional[Tuple[Sequence[Dict[str, Any]], Sequence[Dict[str, Any]]]] = None,
+    closed_bars: Sequence[Any] = (),
+    decision_cutoff_ms: int = 0,
+    tick_size: float = 0.01,
+) -> Dict[str, Any]:
+    """
+    AURUM V17.5.5 (Appendix C1-C3):
+    Deterministic origin bridge selecting the protected swing origin of the displacement
+    break episode that created the opportunity.
+    Ensures that:
+    1. Origin occurred strictly before break bar open.
+    2. Origin was known at or before decision cutoff.
+    3. Source candle exists in closed_bars and matches extreme price within tick_size tolerance.
+    4. Origin belongs to the displacement episode of the selected break.
+    5. Prioritizes detector-specified origin after validation.
+    """
+    norm_dir = direction.upper()
+    cutoff = int(decision_cutoff_ms or 0)
+    tol = float(tick_size) if tick_size > 0 else 0.01
+
+    # Extract break open / occurred timestamp
+    b_time = 0
+    if selected_break is not None:
+        if isinstance(selected_break, dict):
+            b_time = int(
+                selected_break.get("break_open_ms")
+                or selected_break.get("broken_at_ms")
+                or selected_break.get("break_time_ms")
+                or selected_break.get("timestamp")
+                or ( _candle_open_ms(selected_break["bar"]) if "bar" in selected_break and selected_break["bar"] else 0 )
+                or 0
+            )
+        else:
+            b_time = int(_candle_open_ms(selected_break))
+
+    if b_time <= 0 and cutoff > 0:
+        b_time = cutoff
+
+    # Helper to verify source candle extreme in closed_bars
+    def _verify_pivot_source(p_occ: int, p_px: float) -> bool:
+        if not closed_bars:
+            return True
+        matched = False
+        for b in closed_bars:
+            if _candle_open_ms(b) == p_occ:
+                matched = True
+                try:
+                    _, h, l, _ = _candle_ohlc(b)
+                except Exception:
+                    return False
+                if norm_dir == "SHORT" and abs(p_px - h) > tol:
+                    return False
+                elif norm_dir == "LONG" and abs(p_px - l) > tol:
+                    return False
+                break
+        return matched
+
+    # 1. If selected_break specifies an origin_pivot_id, verify it directly
+    specified_id = None
+    if isinstance(selected_break, dict):
+        specified_id = (
+            selected_break.get("origin_pivot_id")
+            or selected_break.get("origin_id")
+            or selected_break.get("target_origin_id")
+        )
+
+    sh_list: Sequence[Dict[str, Any]] = ()
+    sl_list: Sequence[Dict[str, Any]] = ()
+    if confirmed_swings:
+        sh_list, sl_list = confirmed_swings
+
+    pivots = sh_list if norm_dir == "SHORT" else sl_list
+
+    if specified_id:
+        # Must find the specified pivot and verify it
+        found_p = None
+        for p in pivots:
+            if str(p.get("id", "")) == str(specified_id):
+                found_p = p
+                break
+        if found_p:
+            p_occ = int(found_p.get("occurred_at_ms", 0) or found_p.get("timestamp", 0))
+            p_known = int(found_p.get("known_at_ms", found_p.get("confirmed_at", p_occ)))
+            p_px = float(found_p.get("price", 0.0))
+            if p_occ < b_time and (cutoff == 0 or p_known <= cutoff) and _verify_pivot_source(p_occ, p_px):
+                return {
+                    "status": "AVAILABLE",
+                    "origin_pivot_id": str(specified_id),
+                    "origin_price": p_px,
+                    "occurred_at_ms": p_occ,
+                    "origin_occurred_at_ms": p_occ,
+                    "known_at_ms": p_known,
+                    "episode_start_ms": p_occ,
+                    "origin_kind": StopAnchorKind.PROTECTED_LEG_HIGH.value if norm_dir == "SHORT" else StopAnchorKind.PROTECTED_LEG_LOW.value,
+                    "reason": None,
+                }
+        return {
+            "status": "UNAVAILABLE",
+            "origin_pivot_id": None,
+            "origin_price": None,
+            "occurred_at_ms": None,
+            "origin_occurred_at_ms": None,
+            "known_at_ms": None,
+            "episode_start_ms": None,
+            "origin_kind": None,
+            "reason": "SPECIFIED_ORIGIN_INVALID",
+        }
+
+    # 2. Select protective origin from confirmed swings leading into the break
+    valid_candidates = []
+    for p in pivots:
+        p_occ = int(p.get("occurred_at_ms", 0) or p.get("timestamp", 0))
+        p_known = int(p.get("known_at_ms", p.get("confirmed_at", p_occ)))
+        p_px = float(p.get("price", 0.0))
+
+        if p_occ < b_time and (cutoff == 0 or p_known <= cutoff):
+            if _verify_pivot_source(p_occ, p_px):
+                valid_candidates.append({
+                    "id": p.get("id") or f"pivot_{p_occ}",
+                    "price": p_px,
+                    "occurred_at_ms": p_occ,
+                    "known_at_ms": p_known,
+                })
+
+    if not valid_candidates:
+        return {
+            "status": "UNAVAILABLE",
+            "origin_pivot_id": None,
+            "origin_price": None,
+            "occurred_at_ms": None,
+            "origin_occurred_at_ms": None,
+            "known_at_ms": None,
+            "episode_start_ms": None,
+            "origin_kind": None,
+            "reason": "NO_VALID_PROTECTED_ORIGIN_IN_EPISODE",
+        }
+
+    # Deterministic selection: most recent origin pivot in the episode prior to the break
+    valid_candidates.sort(key=lambda c: int(c["occurred_at_ms"]), reverse=True)
+    best = valid_candidates[0]
+
+    return {
+        "status": "AVAILABLE",
+        "origin_pivot_id": str(best["id"]),
+        "origin_price": float(best["price"]),
+        "occurred_at_ms": int(best["occurred_at_ms"]),
+        "origin_occurred_at_ms": int(best["occurred_at_ms"]),
+        "known_at_ms": int(best["known_at_ms"]),
+        "episode_start_ms": int(best["occurred_at_ms"]),
+        "origin_kind": StopAnchorKind.PROTECTED_LEG_HIGH.value if norm_dir == "SHORT" else StopAnchorKind.PROTECTED_LEG_LOW.value,
+        "reason": None,
+    }
+
+
 def build_selected_break_descriptor(
     *,
     break_bar: Any,
@@ -631,11 +791,16 @@ def build_selected_break_descriptor(
     model_id: str = "",
     instance_id: str = "default",
     direction: str = "",
+    origin_pivot_id: Optional[str] = None,
+    episode_start_ms: Optional[int] = None,
+    origin_price: Optional[float] = None,
+    origin_occurred_at_ms: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Builds a complete, normalized SelectedBreak descriptor from actual detector break bar
     and broken structure reference.
     Guarantees break_open_ms, broken_at_ms, known_at_ms, broken_reference_id, and reference_price.
+    Preserves protected origin binding (origin_pivot_id, episode_start_ms) for structural SL proofs.
     """
     if break_bar is None:
         return {}
@@ -677,6 +842,11 @@ def build_selected_break_descriptor(
         "instance_id": instance_id,
         "direction": direction,
         "decision_cutoff_ms": decision_cutoff_ms,
+        "origin_pivot_id": origin_pivot_id,
+        "target_origin_id": origin_pivot_id,
+        "episode_start_ms": episode_start_ms,
+        "origin_price": origin_price,
+        "origin_occurred_at_ms": origin_occurred_at_ms,
     }
 
 

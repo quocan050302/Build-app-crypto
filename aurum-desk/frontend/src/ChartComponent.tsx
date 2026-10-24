@@ -960,6 +960,53 @@ export function ChartComponent({
     }
   }, [activeOverlay, showOverlay, draftMode, draftDirection, smcLevels, accountEquity, riskPct, leverage, marginMode, effectiveMinNetRR, rrPolicySource, rrPolicyFingerprint]);
 
+  // V17.5.5: Expose read-only overlay diagnostics for browser verification (Appendix D2)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    (window as any).__AURUM_CHART_OVERLAY_DIAGNOSTICS__ = () => {
+      const primitive = rrPrimitiveRef.current;
+      const data = primitive ? primitive.getData() : null;
+      const geom = primitive ? primitive.getGeometry() : null;
+      return {
+        hasPrimitive: !!primitive,
+        selectionKey,
+        selectedBinding: selectedBinding ? {
+          source: selectedBinding.source,
+          id: selectedBinding.id,
+          orderId: (selectedBinding as any).order_id || (selectedBinding as any).orderId,
+          setupId: (selectedBinding as any).setup_id,
+        } : null,
+        data: data ? {
+          id: data.id,
+          direction: data.direction,
+          state: data.state,
+          plannedEntry: data.plannedEntry,
+          stopLoss: data.stopLoss,
+          takeProfit: data.takeProfit,
+          quantity: data.quantity,
+          netRewardUsdt: data.netRewardUsdt,
+          initialRiskUsdt: data.initialRiskUsdt,
+          readOnly: data.readOnly,
+        } : null,
+        geometry: geom ? {
+          entryY: geom.entryY,
+          slY: geom.slY,
+          tpY: geom.tpY,
+          lpY: geom.lpY,
+          startX: geom.startX,
+          endX: geom.endX,
+        } : null,
+        timestamp: Date.now(),
+      };
+    };
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete (window as any).__AURUM_CHART_OVERLAY_DIAGNOSTICS__;
+      }
+    };
+  }, [selectionKey, selectedBinding]);
+
   // 5. Interactive Pointer Drag Handlers (DRAFT only; armed/open/closed/observation are read-only)
   const isReadOnlyOverlay = (d: RiskRewardData) =>
     d.readOnly === true || d.state === 'armed' || d.state === 'paper_open' || d.state === 'closed' || d.state === 'invalidated';

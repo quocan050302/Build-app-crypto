@@ -84,6 +84,15 @@ def test_probe_p2_worker_durability(tmp_path, monkeypatch):
         "plan_cutoff_ms": 10000,
         "decision_cutoff_ms": 10000,
         "as_of_ms": 10000,
+        "context_status": "VERIFIED",
+        "cost_snapshot": {
+            "entry_slippage_usd": 0.05,
+            "tp_slippage_usd": 0.05,
+            "sl_slippage_usd": 0.05,
+            "maker_fee_rate": 0.0002,
+            "taker_fee_rate": 0.0004,
+            "available": True,
+        },
         "variant_a": {
             "is_valid": True,
             "can_execute": True,

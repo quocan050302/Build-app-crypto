@@ -1920,8 +1920,26 @@ class ScalpM1ModelService:
         # V17.5: Stop Placement & Paired Research resolution
         anchor_res = None
         if stop_policy is not None:
-            from services.stop_placement_service import resolve_stop_anchor, build_selected_break_descriptor
+            from services.stop_placement_service import (
+                resolve_stop_anchor,
+                build_selected_break_descriptor,
+                select_protected_origin_for_break,
+            )
             ref_swing = last_sh if direction == "LONG" else last_sl
+            break_bar_ts = int(getattr(breaking_bars[-1], "open_time", None) or getattr(breaking_bars[-1], "timestamp", 0))
+            origin_binding = select_protected_origin_for_break(
+                model_id=model_id,
+                direction=direction,
+                selected_break={
+                    "bar": breaking_bars[-1],
+                    "broken_at_ms": break_bar_ts + 60_000,
+                },
+                selected_reference=ref_swing,
+                confirmed_swings=(sh_list, sl_list),
+                closed_bars=closed_1m,
+                decision_cutoff_ms=now_ms,
+                tick_size=getattr(cfg, "tick_size", 0.01),
+            )
             selected_break_desc = build_selected_break_descriptor(
                 break_bar=breaking_bars[-1],
                 broken_reference=ref_swing,
@@ -1929,6 +1947,10 @@ class ScalpM1ModelService:
                 decision_cutoff_ms=now_ms,
                 model_id=model_id,
                 direction=direction,
+                origin_pivot_id=origin_binding.get("origin_pivot_id"),
+                episode_start_ms=origin_binding.get("episode_start_ms"),
+                origin_price=origin_binding.get("origin_price"),
+                origin_occurred_at_ms=origin_binding.get("origin_occurred_at_ms"),
             )
             anchor_res = resolve_stop_anchor(
                 model_id=model_id,
@@ -1937,6 +1959,7 @@ class ScalpM1ModelService:
                 as_of_ms=now_ms,
                 selected_break=selected_break_desc,
                 confirmed_swings=(sh_list, sl_list),
+                tick_size=getattr(cfg, "tick_size", 0.01),
             )
 
         sl_price, target_price, calc_res, stop_dec, comp_plan = apply_stop_placement_to_candidate(
@@ -2303,17 +2326,39 @@ class ScalpM1ModelService:
         candidate_key = f"fvg_cont_{direction}_{fvg_id}_{retest_open_ms}"
         anchor_res = None
         if stop_policy is not None:
-            from services.stop_placement_service import resolve_stop_anchor, build_selected_break_descriptor
+            from services.stop_placement_service import (
+                resolve_stop_anchor,
+                build_selected_break_descriptor,
+                select_protected_origin_for_break,
+            )
+            ref_dict = {
+                "id": break_res.get("swing_ref_id"),
+                "price": break_res.get("swing_ref_price"),
+            }
+            origin_binding = select_protected_origin_for_break(
+                model_id=model_id,
+                direction=direction,
+                selected_break={
+                    "bar": break_res.get("bar"),
+                    "broken_at_ms": int(break_res.get("broken_at_ms") or 0),
+                },
+                selected_reference=ref_dict,
+                confirmed_swings=(sh_list, sl_list),
+                closed_bars=closed_1m,
+                decision_cutoff_ms=now_ms,
+                tick_size=getattr(cfg, "tick_size", 0.01),
+            )
             selected_break_desc = build_selected_break_descriptor(
                 break_bar=break_res.get("bar"),
-                broken_reference={
-                    "id": break_res.get("swing_ref_id"),
-                    "price": break_res.get("swing_ref_price"),
-                },
+                broken_reference=ref_dict,
                 timeframe_ms=60_000,
                 decision_cutoff_ms=now_ms,
                 model_id=model_id,
                 direction=direction,
+                origin_pivot_id=origin_binding.get("origin_pivot_id"),
+                episode_start_ms=origin_binding.get("episode_start_ms"),
+                origin_price=origin_binding.get("origin_price"),
+                origin_occurred_at_ms=origin_binding.get("origin_occurred_at_ms"),
             )
             fvg_mid_ms = int(selected_fvg.get("timestamp") or selected_fvg.get("middle_bar_ms") or 0)
             fvg_conf_ms = int(selected_fvg.get("confirmed_at") or 0)
@@ -2333,6 +2378,7 @@ class ScalpM1ModelService:
                 selected_break=selected_break_desc,
                 selected_fvg=selected_fvg_desc,
                 confirmed_swings=(sh_list, sl_list),
+                tick_size=getattr(cfg, "tick_size", 0.01),
             )
 
         sl_price, target_price, calc_res, stop_dec, comp_plan = apply_stop_placement_to_candidate(

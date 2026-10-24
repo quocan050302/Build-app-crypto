@@ -457,3 +457,197 @@ def resolve_replay_financial_config(
         contract_multiplier=float(contract_multiplier or 1.0),
         execution_model=model_str,
     )
+
+
+def resolve_execution_cost_context(
+    *,
+    snapshot: Optional[Dict[str, Any]] = None,
+    candidate: Optional[Any] = None,
+    settings: Optional[Dict[str, Any]] = None,
+    config: Optional[Any] = None,
+    as_of_ms: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    AURUM V17.5.5 (Appendix B1 & B2):
+    Shared cost authority across production orders and research comparison plans.
+    Guarantees parity in maker/taker fee rates (0.0002 / 0.0004) and slippage resolution.
+    Preserves explicit 0.0 values and distinguishes unavailable/invalid costs.
+    """
+    import math
+
+    def _is_finite_non_negative(val: Any) -> bool:
+        if val is None or isinstance(val, bool):
+            return False
+        try:
+            f = float(val)
+            return math.isfinite(f) and f >= 0.0
+        except (ValueError, TypeError):
+            return False
+
+    # 1. Prioritize explicit frozen snapshot if provided
+    if snapshot is not None:
+        if not isinstance(snapshot, dict):
+            return {
+                "available": False,
+                "reason": "INVALID_SNAPSHOT_TYPE",
+                "entry_slippage_usd": 0.0,
+                "tp_slippage_usd": 0.0,
+                "sl_slippage_usd": 0.0,
+                "maker_fee_rate": 0.0002,
+                "taker_fee_rate": 0.0004,
+                "provenance": "SNAPSHOT_ERROR",
+                "version": 1,
+            }
+
+        raw_slip = (
+            snapshot.get("entry_slippage_usd")
+            if snapshot.get("entry_slippage_usd") is not None
+            else (snapshot.get("slippage_usd") if snapshot.get("slippage_usd") is not None else snapshot.get("slippage"))
+        )
+        if raw_slip is None:
+            return {
+                "available": False,
+                "reason": "MISSING_ENTRY_SLIPPAGE",
+                "entry_slippage_usd": 0.0,
+                "tp_slippage_usd": 0.0,
+                "sl_slippage_usd": 0.0,
+                "maker_fee_rate": 0.0002,
+                "taker_fee_rate": 0.0004,
+                "provenance": "SNAPSHOT_MISSING_SLIP",
+                "version": int(snapshot.get("version", 1)),
+            }
+
+        if not _is_finite_non_negative(raw_slip):
+            return {
+                "available": False,
+                "reason": "INVALID_SLIPPAGE_VALUE",
+                "entry_slippage_usd": 0.0,
+                "tp_slippage_usd": 0.0,
+                "sl_slippage_usd": 0.0,
+                "maker_fee_rate": 0.0002,
+                "taker_fee_rate": 0.0004,
+                "provenance": "SNAPSHOT_INVALID_SLIP",
+                "version": int(snapshot.get("version", 1)),
+            }
+
+        maker_rate = snapshot.get("maker_fee_rate", 0.0002)
+        taker_rate = snapshot.get("taker_fee_rate", 0.0004)
+        if not _is_finite_non_negative(maker_rate) or not _is_finite_non_negative(taker_rate):
+            return {
+                "available": False,
+                "reason": "INVALID_FEE_RATES",
+                "entry_slippage_usd": float(raw_slip),
+                "tp_slippage_usd": 0.0,
+                "sl_slippage_usd": float(raw_slip),
+                "maker_fee_rate": 0.0002,
+                "taker_fee_rate": 0.0004,
+                "provenance": "SNAPSHOT_INVALID_FEES",
+                "version": int(snapshot.get("version", 1)),
+            }
+
+        tp_slip = snapshot.get("tp_slippage_usd", 0.0)
+        sl_slip = snapshot.get("sl_slippage_usd", raw_slip)
+        if not _is_finite_non_negative(tp_slip) or not _is_finite_non_negative(sl_slip):
+            return {
+                "available": False,
+                "reason": "INVALID_EXIT_SLIPPAGE",
+                "entry_slippage_usd": float(raw_slip),
+                "tp_slippage_usd": 0.0,
+                "sl_slippage_usd": float(raw_slip),
+                "maker_fee_rate": float(maker_rate),
+                "taker_fee_rate": float(taker_rate),
+                "provenance": "SNAPSHOT_INVALID_EXIT_SLIP",
+                "version": int(snapshot.get("version", 1)),
+            }
+
+        return {
+            "available": True,
+            "reason": None,
+            "entry_slippage_usd": float(raw_slip),
+            "tp_slippage_usd": float(tp_slip),
+            "sl_slippage_usd": float(sl_slip),
+            "maker_fee_rate": float(maker_rate),
+            "taker_fee_rate": float(taker_rate),
+            "provenance": "FROZEN_ORDER_SNAPSHOT",
+            "version": int(snapshot.get("version", 1)),
+        }
+
+    # If no snapshot and no candidate/settings/config, cannot fabricate costs
+    if candidate is None and not settings and config is None:
+        return {
+            "available": False,
+            "reason": "MISSING_COST_SNAPSHOT",
+            "entry_slippage_usd": 0.0,
+            "tp_slippage_usd": 0.0,
+            "sl_slippage_usd": 0.0,
+            "maker_fee_rate": 0.0002,
+            "taker_fee_rate": 0.0004,
+            "provenance": "MISSING_COST_DATA",
+            "version": 1,
+        }
+
+    # 2. Derive from candidate calculation or effective settings / config
+    st = settings or {}
+    calc = getattr(candidate, "calculation", None) if candidate is not None else None
+
+    cand_slip = None
+    if calc is not None:
+        cand_slip = getattr(calc, "slippage_usd", None)
+    if cand_slip is None and config is not None and getattr(config, "cg01_config", None):
+        cand_slip = getattr(config.cg01_config, "slippage_usd", None)
+    if cand_slip is None and "slippage_usd" in st:
+        cand_slip = st.get("slippage_usd")
+
+    slip_val = 0.10
+    if cand_slip is not None:
+        if not _is_finite_non_negative(cand_slip):
+            return {
+                "available": False,
+                "reason": "INVALID_CANDIDATE_SLIPPAGE",
+                "entry_slippage_usd": 0.0,
+                "tp_slippage_usd": 0.0,
+                "sl_slippage_usd": 0.0,
+                "maker_fee_rate": 0.0002,
+                "taker_fee_rate": 0.0004,
+                "provenance": "CONFIG_ERROR",
+                "version": 1,
+            }
+        slip_val = float(cand_slip)
+
+    # Fee resolution (unified 0.0002 maker / 0.0004 taker)
+    costs_obj = st.get("costs")
+    maker_rate = 0.0002
+    taker_rate = 0.0004
+    if calc is not None:
+        maker_rate = getattr(calc, "maker_fee_rate", 0.0002)
+        taker_rate = getattr(calc, "taker_fee_rate", 0.0004)
+    elif costs_obj is not None:
+        maker_rate = getattr(costs_obj, "maker_fee_rate", 0.0002)
+        taker_rate = getattr(costs_obj, "taker_fee_rate", 0.0004)
+
+    if not _is_finite_non_negative(maker_rate) or not _is_finite_non_negative(taker_rate):
+        return {
+            "available": False,
+            "reason": "INVALID_CONFIG_FEES",
+            "entry_slippage_usd": slip_val,
+            "tp_slippage_usd": 0.0,
+            "sl_slippage_usd": slip_val,
+            "maker_fee_rate": 0.0002,
+            "taker_fee_rate": 0.0004,
+            "provenance": "CONFIG_ERROR",
+            "version": 1,
+        }
+
+    version = int(st.get("config_version") or getattr(config, "config_version", 1))
+
+    return {
+        "available": True,
+        "reason": None,
+        "entry_slippage_usd": float(slip_val),
+        "tp_slippage_usd": 0.0,
+        "sl_slippage_usd": float(slip_val),
+        "maker_fee_rate": float(maker_rate),
+        "taker_fee_rate": float(taker_rate),
+        "provenance": "EFFECTIVE_SETTINGS_AUTHORITY",
+        "version": version,
+    }

@@ -29,6 +29,15 @@ def plan(**kw):
         "entry_intent": "LIMIT",
         "order_type": "LIMIT",
         "expires_at_ms": 7000,
+        "context_status": "VERIFIED",
+        "cost_snapshot": {
+            "entry_slippage_usd": 0.05,
+            "tp_slippage_usd": 0.05,
+            "sl_slippage_usd": 0.05,
+            "maker_fee_rate": 0.0002,
+            "taker_fee_rate": 0.0004,
+            "available": True,
+        },
         "variant_c": {
             "is_valid": True,
             "can_execute": True,

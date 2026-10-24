@@ -421,3 +421,26 @@ class StopExitEvidence:
             "is_gap": self.is_gap,
             "gap_amount": round(self.gap_amount, 4),
         }
+
+
+@dataclass(frozen=True)
+class ComparisonEntryGateResult:
+    """
+    AURUM V17.5.5 (Appendix A1):
+    Strict immutable decision returned by evaluate_stop_comparison_entry_gate.
+    Ensures research variants cannot transition to OPEN without verified context and costs.
+    """
+    allowed: bool
+    reason_code: str
+    explanation: str
+    context_status: Optional[str] = None
+    cost_available: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "allowed": self.allowed,
+            "reason_code": self.reason_code,
+            "explanation": self.explanation,
+            "context_status": self.context_status,
+            "cost_available": self.cost_available,
+        }
