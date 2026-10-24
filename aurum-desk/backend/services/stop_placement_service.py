@@ -636,6 +636,11 @@ def build_selected_break_descriptor(
     b_open = _candle_open_ms(break_bar)
     b_close = b_open + timeframe_ms
 
+    # Causal validation: break must open and close at or before decision cutoff
+    if decision_cutoff_ms > 0:
+        if b_open > decision_cutoff_ms or b_close > decision_cutoff_ms:
+            return {}
+
     ref_id = None
     ref_price = None
     if broken_reference:
@@ -664,6 +669,7 @@ def build_selected_break_descriptor(
         "model_id": model_id,
         "instance_id": instance_id,
         "direction": direction,
+        "decision_cutoff_ms": decision_cutoff_ms,
     }
 
 
@@ -687,8 +693,9 @@ def resolve_bound_stop_leg(
     Enforces that:
     1. Origin pivot occurred strictly before break bar open/cutoff.
     2. Origin pivot was known before or at decision cutoff.
-    3. Origin pivot price matches the candle extreme within tick tolerance (when closed bars available).
-    4. Break bar actually closed through the reference price (when reference & bar available).
+    3. Break bar occurred and was known at or before decision cutoff.
+    4. Origin pivot price matches the candle extreme within tick tolerance (when closed bars available).
+    5. Break bar actually closed through the reference price (when reference & bar available).
     """
     from services.stop_placement_types import SelectedStopLeg
 
@@ -696,6 +703,25 @@ def resolve_bound_stop_leg(
         return None
 
     cutoff = decision_cutoff_ms or as_of_ms or 0
+
+    # Causal validation: break bar and known time cannot be in the future relative to cutoff
+    if cutoff > 0:
+        if selected_break:
+            b_known = selected_break.get("known_at_ms")
+            if b_known is not None and int(b_known) > cutoff:
+                return None
+            b_opened = (
+                selected_break.get("break_open_ms")
+                or selected_break.get("broken_at_ms")
+                or selected_break.get("break_time_ms")
+            )
+            if b_opened is not None and int(b_opened) > cutoff:
+                return None
+        if break_bar:
+            bar_open = _candle_open_ms(break_bar)
+            if bar_open > cutoff:
+                return None
+
     b_time = None
     if selected_break:
         b_time = (
@@ -721,6 +747,8 @@ def resolve_bound_stop_leg(
         b_time = cutoff
 
     break_time = int(b_time)
+    if cutoff > 0 and break_time > cutoff:
+        return None
     norm_dir = direction.upper()
 
     if candidate_pivots and not candidate_pivot:

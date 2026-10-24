@@ -359,6 +359,11 @@ class StopComparisonPlan:
     atr_m5: Optional[float] = None
     spread: Optional[float] = None
     policy_version: int = 1
+    entry_intent: str = "MARKET"
+    order_type: str = "MARKET"
+    decision_cutoff_ms: int = 0
+    expires_at_ms: Optional[int] = None
+    cost_snapshot: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -377,6 +382,11 @@ class StopComparisonPlan:
             "atr_m5": round(self.atr_m5, 4) if self.atr_m5 is not None else None,
             "spread": round(self.spread, 4) if self.spread is not None else None,
             "policy_version": self.policy_version,
+            "entry_intent": self.entry_intent,
+            "order_type": self.order_type,
+            "decision_cutoff_ms": self.decision_cutoff_ms,
+            "expires_at_ms": self.expires_at_ms,
+            "cost_snapshot": self.cost_snapshot,
         }
 
 

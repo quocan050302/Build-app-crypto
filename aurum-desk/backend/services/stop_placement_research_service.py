@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from sqlalchemy.orm import Session
 
 import models
@@ -22,6 +23,8 @@ from services.stop_placement_types import (
     VariantPlan,
 )
 from services.stop_placement_service import quantize_stop_outward
+
+logger = logging.getLogger(__name__)
 
 
 def make_opportunity_hash_id(prefix: str, opportunity_key: str, length: int = 70) -> str:
@@ -50,6 +53,11 @@ def build_stop_comparison_plan(
     spread: Optional[float] = None,
     policy_version: int = 1,
     now_ms: int = 0,
+    entry_intent: str = "MARKET",
+    order_type: Optional[str] = None,
+    decision_cutoff_ms: int = 0,
+    expires_at_ms: Optional[int] = None,
+    cost_snapshot: Optional[Dict[str, Any]] = None,
 ) -> StopComparisonPlan:
     """
     Constructs a paired StopComparisonPlan comparing Variants A, B, and C
@@ -164,6 +172,11 @@ def build_stop_comparison_plan(
         atr_m5=atr_m5,
         spread=spread,
         policy_version=policy_version,
+        entry_intent=entry_intent,
+        order_type=order_type or entry_intent,
+        decision_cutoff_ms=decision_cutoff_ms,
+        expires_at_ms=expires_at_ms,
+        cost_snapshot=cost_snapshot,
     )
 
 
@@ -259,6 +272,56 @@ def build_stop_comparison_summary(
     }
 
 
+def evaluate_comparison_entry(
+    *,
+    direction: str,
+    planned_entry: float,
+    order_type: str,
+    bid: float,
+    ask: float,
+    order_slip: float = 0.0,
+) -> Tuple[bool, bool, Optional[float], str]:
+    """
+    Evaluates entry trigger and fill price with strict parity to ExecutionCoordinator.evaluate_orders_sync.
+    Returns (triggered, supported, fill_price, reason).
+    """
+    norm_type = (order_type or "MARKET").upper()
+    norm_dir = (direction or "SHORT").upper()
+
+    if norm_type == "MARKET":
+        # Immediate market trigger: Ask for LONG, Bid for SHORT + directional slippage
+        fill = round(ask + order_slip, 2) if norm_dir == "LONG" else round(bid - order_slip, 2)
+        return True, True, fill, "MARKET_TRIGGERED"
+
+    elif norm_type == "LIMIT":
+        if norm_dir == "LONG":
+            # BUY LIMIT: Ask <= limit
+            if ask <= planned_entry:
+                return True, True, planned_entry, "BUY_LIMIT_TOUCHED"
+            return False, True, None, "BUY_LIMIT_WAITING_ASK"
+        else:
+            # SELL LIMIT: Bid >= limit
+            if bid >= planned_entry:
+                return True, True, planned_entry, "SELL_LIMIT_TOUCHED"
+            return False, True, None, "SELL_LIMIT_WAITING_BID"
+
+    elif norm_type == "STOP":
+        if norm_dir == "LONG":
+            # BUY STOP: Ask >= stop
+            if ask >= planned_entry:
+                fill = round(ask + order_slip, 2)
+                return True, True, fill, "BUY_STOP_BREAKOUT"
+            return False, True, None, "BUY_STOP_WAITING_ASK"
+        else:
+            # SELL STOP: Bid <= stop
+            if bid <= planned_entry:
+                fill = round(bid - order_slip, 2)
+                return True, True, fill, "SELL_STOP_BREAKOUT"
+            return False, True, None, "SELL_STOP_WAITING_BID"
+
+    return False, False, None, f"UNSUPPORTED_ORDER_TYPE_{norm_type}"
+
+
 def advance_stop_comparison(
     plan_state: Dict[str, Any],
     market_evidence: Dict[str, Any],
@@ -289,7 +352,7 @@ def advance_stop_comparison(
         # Invalid or empty quote cannot transition state or compute excursions
         return updated
 
-    # Causal timeline gate (P3): Quote timestamp and processing clock must not be strictly before plan cutoff
+    # Source quote timestamp check (R1): Must have a valid, finite positive timestamp
     quote_ts = (
         market_evidence.get("exchange_ts_ms")
         or market_evidence.get("timestamp")
@@ -297,12 +360,21 @@ def advance_stop_comparison(
         or getattr(market_evidence, "exchange_ts_ms", None)
         or getattr(market_evidence, "timestamp", None)
     )
-    if quote_ts is not None:
-        try:
-            quote_ts = int(quote_ts)
-        except (ValueError, TypeError):
-            quote_ts = None
+    if quote_ts is None:
+        # Quote missing source timestamp cannot transition state or open variants
+        return updated
+    try:
+        quote_ts = int(quote_ts)
+        if quote_ts <= 0:
+            return updated
+    except (ValueError, TypeError):
+        return updated
 
+    # Causal timeline gate (R2): Quote timestamp must not be far in the future relative to processing clock
+    if quote_ts > as_of_ms + 5000:
+        return updated
+
+    # Causal timeline gate (P3): Quote timestamp and processing clock must not be strictly before plan cutoff
     plan_cutoff = (
         updated.get("decision_cutoff_ms")
         or updated.get("plan_cutoff_ms")
@@ -313,14 +385,33 @@ def advance_stop_comparison(
     if plan_cutoff is not None:
         try:
             plan_cutoff = int(plan_cutoff)
+            if quote_ts < plan_cutoff or as_of_ms < plan_cutoff:
+                return updated
         except (ValueError, TypeError):
-            plan_cutoff = None
+            pass
 
-    if plan_cutoff is not None:
-        if quote_ts is not None and quote_ts < plan_cutoff:
-            return updated
-        if as_of_ms < plan_cutoff:
-            return updated
+    # Expiry check (R3): Pending plans that reached deadline expire cleanly
+    expires_at_ms = (
+        updated.get("expires_at_ms")
+        or updated.get("order_expiry_ms")
+        or updated.get("expiry_at_ms")
+    )
+    is_expired = False
+    if expires_at_ms is not None:
+        try:
+            exp_val = int(expires_at_ms)
+            if as_of_ms >= exp_val or quote_ts >= exp_val:
+                is_expired = True
+        except (ValueError, TypeError):
+            pass
+
+    # Backlog quote freshness check (R7)
+    quote_age = as_of_ms - quote_ts
+    is_quote_stale = bool(
+        market_evidence.get("is_stale", False)
+        or getattr(market_evidence, "is_stale", False)
+        or (quote_age > 15000)
+    )
 
     # Compute excursion for the evidence quote
     excursion = compute_stop_excursions(direction, planned_entry, market_evidence)
@@ -334,26 +425,62 @@ def advance_stop_comparison(
         if not v_data:
             continue
 
-        # Eligibility gate (P4): variant must be valid, executable, and meet minimum R:R
-        is_valid = v_data.get("is_valid", True)
-        can_execute = v_data.get("can_execute", False)
-        meets_min_rr = v_data.get("meets_min_rr", True)
-        if not (is_valid and can_execute and meets_min_rr):
+        v_state = v_data.setdefault("execution_state", "WAIT_ENTRY")
+        if v_state in ("CLOSED", "EXPIRED", "CENSORED"):
             continue
 
-        v_state = v_data.setdefault("execution_state", "WAIT_ENTRY")
+        # Expiry: Pending plans that exceeded lifetime expire cleanly (R3)
+        if is_expired and v_state == "WAIT_ENTRY":
+            v_data["execution_state"] = "EXPIRED"
+            v_data["expired_at_ms"] = as_of_ms
+            v_data["rejection_reason"] = "PLAN_EXPIRED"
+            continue
+
         sl_price = float(v_data.get("stop_loss", 0.0))
 
         if v_state == "WAIT_ENTRY":
-            # Activated on first valid quote >= plan creation time
+            # Stale backlog quotes cannot open new entries (R7)
+            if is_quote_stale:
+                v_data["wait_reason"] = "STALE_QUOTE_BACKLOG"
+                continue
+
+            # Eligibility gate (P4): variant must be valid, executable, and meet minimum R:R
+            is_valid = v_data.get("is_valid", True)
+            can_execute = v_data.get("can_execute", False)
+            meets_min_rr = v_data.get("meets_min_rr", True)
+            if not (is_valid and can_execute and meets_min_rr):
+                continue
+
+            # Intent-aware entry trigger evaluation (R4)
+            order_type = (
+                v_data.get("order_type")
+                or v_data.get("entry_intent")
+                or updated.get("order_type")
+                or updated.get("entry_intent")
+                or "MARKET"
+            )
+            triggered, supported, fill_price, entry_reason = evaluate_comparison_entry(
+                direction=direction,
+                planned_entry=planned_entry,
+                order_type=order_type,
+                bid=bid,
+                ask=ask,
+            )
+            if not (supported and triggered):
+                v_data["wait_reason"] = entry_reason
+                continue
+
+            # Activated on valid market fill trigger
             v_data["execution_state"] = "OPEN"
             v_data["opened_at_ms"] = as_of_ms
-            v_data["actual_entry"] = planned_entry
+            v_data["actual_entry"] = fill_price
+            v_data.pop("wait_reason", None)
 
         if v_data.get("execution_state") == "OPEN":
+            actual_entry_px = float(v_data.get("actual_entry", planned_entry))
             mock_order = {
                 "direction": direction,
-                "planned_entry": planned_entry,
+                "planned_entry": actual_entry_px,
                 "stop_loss": sl_price,
                 "take_profit": take_profit,
                 "cost_snapshot": json.dumps({"tp_slippage_usd": 0.0}),
@@ -456,7 +583,13 @@ def advance_stop_comparisons_durable(
     Opens an isolated session from session_factory, advances in-flight plans,
     commits on changes, rolls back on error, and ensures clean closure.
     """
-    research_db = session_factory()
+    research_db = None
+    try:
+        research_db = session_factory()
+    except Exception as init_err:
+        logger.warning(f"Failed to create research DB session: {init_err}")
+        return {"status": "ERROR", "error": str(init_err), "changed": 0}
+
     try:
         changed = advance_active_stop_comparisons(
             research_db, quote, as_of_ms=as_of_ms, namespace=namespace
@@ -465,11 +598,19 @@ def advance_stop_comparisons_durable(
             research_db.commit()
         return {"status": "COMMITTED", "changed": changed}
     except Exception as e:
-        research_db.rollback()
+        if research_db is not None and hasattr(research_db, "rollback"):
+            try:
+                research_db.rollback()
+            except Exception:
+                pass
         logger.warning(f"Research durability transaction failed: {e}")
         return {"status": "ERROR", "error": str(e), "changed": 0}
     finally:
-        research_db.close()
+        if research_db is not None and hasattr(research_db, "close"):
+            try:
+                research_db.close()
+            except Exception:
+                pass
 
 
 def serialize_stop_comparison_for_ui(plan_or_dict: Any) -> Dict[str, Any]:

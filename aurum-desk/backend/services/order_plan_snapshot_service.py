@@ -188,12 +188,18 @@ def extract_immutable_entry_metadata(arm_snapshot: Optional[Dict[str, Any]]) -> 
         "entry_mode",
         "order_type",
         "quality_assessment",
+        "stop_placement",
+        "stop_comparison",
+        "stop_comparison_plan_id",
+        "stop_mode_at_arm",
+        "stop_policy_version",
+        "applied_variant",
     )
 
     out = {}
     for k in whitelist_keys:
         if k in arm_snapshot and arm_snapshot[k] is not None:
-            if k == "quality_assessment":
+            if k in ("quality_assessment", "stop_placement", "stop_comparison"):
                 import copy
                 out[k] = copy.deepcopy(arm_snapshot[k])
             else:
