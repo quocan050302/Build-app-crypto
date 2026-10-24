@@ -14,16 +14,54 @@ import models
 from services.stop_placement_types import StopPlacementMode, StopPlacementPolicy
 
 
+class StopPolicyConflictError(ValueError):
+    """Raised when expected_version does not match current version at DB fence."""
+    code = "STALE_STOP_POLICY_VERSION"
+
+    def __init__(self, message: str, fresh_version: Optional[int] = None):
+        super().__init__(message)
+        self.fresh_version = fresh_version
+
+
+class StopPolicyValidationError(ValueError):
+    """Raised when payload fields fail validation."""
+    code = "INVALID_STOP_POLICY_PAYLOAD"
+
+
+def ensure_stop_policy_version_row(db: Session, now_ms: int) -> None:
+    """Ensures version row exists for conditional SQL fences without committing."""
+    from sqlalchemy import select
+    res = db.execute(
+        select(models.SystemConfig.value)
+        .where(models.SystemConfig.key == "stop_placement_v1.version")
+    ).scalar_one_or_none()
+    if res is None:
+        try:
+            db.execute(
+                models.SystemConfig.__table__.insert().values(
+                    key="stop_placement_v1.version",
+                    value="1",
+                    updated_at=now_ms,
+                )
+            )
+            db.flush()
+        except Exception:
+            pass
+
+
 def resolve_stop_placement_policy(db: Session) -> StopPlacementPolicy:
     """
     Reads authoritative stop placement policy from SystemConfig.
+    Queries fresh scalar fields directly to bypass stale ORM entity identity maps.
     Pure read operation: does NOT commit, modify, or insert default rows on GET.
     Defaults to SHADOW_COMPARE (version 1) if keys are not yet configured.
     """
-    rows = db.query(models.SystemConfig).filter(
+    from sqlalchemy import select
+    stmt = select(models.SystemConfig.key, models.SystemConfig.value).where(
         models.SystemConfig.key.like("stop_placement_v1.%")
-    ).all()
-    config_map = {r.key: r.value for r in rows}
+    )
+    rows = db.execute(stmt).fetchall()
+    config_map = {r[0]: r[1] for r in rows}
 
     mode = config_map.get("stop_placement_v1.mode", StopPlacementMode.SHADOW_COMPARE.value)
     if mode not in (StopPlacementMode.LEGACY.value, StopPlacementMode.SHADOW_COMPARE.value, StopPlacementMode.PAPER_STRUCTURAL.value):
@@ -86,7 +124,7 @@ def validate_stop_placement_policy(
         mode_val = payload["mode"]
         valid_modes = {m.value for m in StopPlacementMode}
         if mode_val not in valid_modes:
-            raise ValueError(f"Chế độ đặt SL không hợp lệ: {mode_val}. Hợp lệ: {valid_modes}")
+            raise StopPolicyValidationError(f"Chế độ đặt SL không hợp lệ: {mode_val}. Hợp lệ: {valid_modes}")
         validated["mode"] = mode_val
     else:
         validated["mode"] = current.mode
@@ -94,7 +132,7 @@ def validate_stop_placement_policy(
     if "min_buffer_ticks" in payload:
         raw = payload["min_buffer_ticks"]
         if type(raw) is not int or raw < 0:
-            raise ValueError("min_buffer_ticks phải là số nguyên không âm.")
+            raise StopPolicyValidationError("min_buffer_ticks phải là số nguyên không âm.")
         validated["min_buffer_ticks"] = raw
     else:
         validated["min_buffer_ticks"] = current.min_buffer_ticks
@@ -102,7 +140,7 @@ def validate_stop_placement_policy(
     if "atr_period" in payload:
         raw = payload["atr_period"]
         if type(raw) is not int or raw <= 0:
-            raise ValueError("atr_period phải là số nguyên dương (> 0).")
+            raise StopPolicyValidationError("atr_period phải là số nguyên dương (> 0).")
         validated["atr_period"] = raw
     else:
         validated["atr_period"] = current.atr_period
@@ -115,30 +153,15 @@ def validate_stop_placement_policy(
         if f_name in payload:
             raw = payload[f_name]
             if type(raw) is bool or not isinstance(raw, (int, float)):
-                raise ValueError(f"{f_name} phải là số thực không âm.")
+                raise StopPolicyValidationError(f"{f_name} phải là số thực không âm.")
             val = float(raw)
             if not math.isfinite(val) or val < 0.0:
-                raise ValueError(f"{f_name} phải là số thực hữu hạn không âm.")
+                raise StopPolicyValidationError(f"{f_name} phải là số thực hữu hạn không âm.")
             validated[f_name] = val
         else:
             validated[f_name] = cur_val
 
     return validated
-
-
-def _upsert_system_config_no_commit(db: Session, key: str, value: str, now_ms: int) -> None:
-    pending = next(
-        (obj for obj in db.new if isinstance(obj, models.SystemConfig) and obj.key == key),
-        None,
-    )
-    row = pending
-    if row is None:
-        row = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
-    if row is None:
-        db.add(models.SystemConfig(key=key, value=value, updated_at=now_ms))
-    else:
-        row.value = value
-        row.updated_at = now_ms
 
 
 def update_stop_placement_policy(
@@ -150,31 +173,53 @@ def update_stop_placement_policy(
     server_scope: Optional[str] = None,
 ) -> Tuple[StopPlacementPolicy, bool]:
     """
-    Atomically updates stop placement policy with CAS version fence.
+    Atomically updates stop placement policy with CAS version fence at the DB level.
     Returns (updated_policy, is_mutation).
     True no-op returns (current_policy, False) without incrementing version or updating timestamps.
     """
     import time
+    from sqlalchemy import select, update
     from services.entry_session_policy_service import resolve_server_execution_scope
 
     t_now = now_ms if now_ms is not None else int(time.time() * 1000)
-    current = resolve_stop_placement_policy(db)
 
-    # Validate version strictly
-    if type(expected_version) is not int:
-        raise ValueError("expected_version phải là số nguyên.")
-    if expected_version != current.version:
-        raise ValueError(
-            f"Phiên bản cấu hình không khớp: hiện tại là {current.version}, client gửi {expected_version}."
+    # Validate version argument strictly
+    if type(expected_version) is not int or expected_version < 1:
+        raise StopPolicyValidationError("expected_version phải là số nguyên dương (>= 1).")
+
+    # Bootstrap version row if absent
+    ensure_stop_policy_version_row(db, t_now)
+
+    # 1. Acquire DB CAS fence: conditional UPDATE where key and value match expected_version
+    fence_res = db.execute(
+        update(models.SystemConfig)
+        .where(models.SystemConfig.key == "stop_placement_v1.version")
+        .where(models.SystemConfig.value == str(expected_version))
+        .values(value=str(expected_version))  # Fence touches row atomically without changing value
+        .execution_options(synchronize_session=False)
+    )
+    if fence_res.rowcount != 1:
+        # Conflict! Read authoritative DB scalar bypassing any session cache
+        actual_row = db.execute(
+            select(models.SystemConfig.value)
+            .where(models.SystemConfig.key == "stop_placement_v1.version")
+        ).scalar_one_or_none()
+        actual_ver = actual_row if actual_row is not None else "1"
+        fresh_v = int(actual_ver) if str(actual_ver).isdigit() else 1
+        raise StopPolicyConflictError(
+            f"Phiên bản cấu hình không khớp: hiện tại tại DB là {actual_ver}, client gửi {expected_version}.",
+            fresh_version=fresh_v,
         )
 
+    # Read current state freshly from DB scalars
+    current = resolve_stop_placement_policy(db)
     validated = validate_stop_placement_policy(payload, current)
 
     # Server execution scope gate
     if validated["mode"] == StopPlacementMode.PAPER_STRUCTURAL.value:
         effective_scope = server_scope if server_scope is not None else resolve_server_execution_scope(db)
         if effective_scope == "LIVE":
-            raise ValueError(
+            raise StopPolicyValidationError(
                 "Chế độ PAPER_STRUCTURAL chỉ được phép áp dụng trên môi trường PAPER (máy chủ hiện là LIVE)."
             )
 
@@ -191,13 +236,30 @@ def update_stop_placement_policy(
         return current, False
 
     new_version = current.version + 1
-    _upsert_system_config_no_commit(db, "stop_placement_v1.mode", validated["mode"], t_now)
-    _upsert_system_config_no_commit(db, "stop_placement_v1.version", str(new_version), t_now)
-    _upsert_system_config_no_commit(db, "stop_placement_v1.min_buffer_ticks", str(validated["min_buffer_ticks"]), t_now)
-    _upsert_system_config_no_commit(db, "stop_placement_v1.atr_period", str(validated["atr_period"]), t_now)
-    _upsert_system_config_no_commit(db, "stop_placement_v1.atr_m1_multiplier", str(validated["atr_m1_multiplier"]), t_now)
-    _upsert_system_config_no_commit(db, "stop_placement_v1.atr_m5_multiplier", str(validated["atr_m5_multiplier"]), t_now)
-    _upsert_system_config_no_commit(db, "stop_placement_v1.spread_multiplier", str(validated["spread_multiplier"]), t_now)
+
+    def _upsert_scalar(k: str, val: str):
+        res = db.execute(
+            update(models.SystemConfig)
+            .where(models.SystemConfig.key == k)
+            .values(value=val, updated_at=t_now)
+            .execution_options(synchronize_session=False)
+        )
+        if res.rowcount == 0:
+            db.execute(
+                models.SystemConfig.__table__.insert().values(
+                    key=k,
+                    value=val,
+                    updated_at=t_now,
+                )
+            )
+
+    _upsert_scalar("stop_placement_v1.mode", validated["mode"])
+    _upsert_scalar("stop_placement_v1.version", str(new_version))
+    _upsert_scalar("stop_placement_v1.min_buffer_ticks", str(validated["min_buffer_ticks"]))
+    _upsert_scalar("stop_placement_v1.atr_period", str(validated["atr_period"]))
+    _upsert_scalar("stop_placement_v1.atr_m1_multiplier", str(validated["atr_m1_multiplier"]))
+    _upsert_scalar("stop_placement_v1.atr_m5_multiplier", str(validated["atr_m5_multiplier"]))
+    _upsert_scalar("stop_placement_v1.spread_multiplier", str(validated["spread_multiplier"]))
 
     try:
         db.commit()

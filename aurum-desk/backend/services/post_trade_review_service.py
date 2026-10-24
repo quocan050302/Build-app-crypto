@@ -1814,16 +1814,31 @@ def classify_post_trade_lesson(
         reason = f"Xanh vì giao dịch tuân thủ kế hoạch đã xác minh và đóng hòa vốn ({review.net_pnl:+.2f} USDT)."
         code = "PLAN_COMPLIANT_BREAKEVEN"
     elif review.loss_classification == LossClassification.STRATEGY_VALID_LOSS.value or review.exit_cause in ("SL_HIT", "STOP_LOSS"):
-        has_stop_evidence = False
+        is_structural_verified = False
+        sp_data = None
         if entry_snapshot and isinstance(entry_snapshot, dict):
-            cost_snap = entry_snapshot.get("cost_snapshot")
-            has_stop_evidence = bool(
-                entry_snapshot.get("stop_placement")
-                or (isinstance(cost_snap, dict) and cost_snap.get("stop_placement"))
-                or (isinstance(cost_snap, str) and "stop_placement" in cost_snap)
-            )
-        if has_stop_evidence:
-            reason = "Xanh vì dừng lỗ hợp lệ theo đúng cấu trúc và tuân thủ kế hoạch đã xác minh; tiếp tục thu thập mẫu dữ liệu."
+            sp_data = entry_snapshot.get("stop_placement")
+            if not sp_data:
+                cost_snap = entry_snapshot.get("cost_snapshot")
+                if isinstance(cost_snap, dict):
+                    sp_data = cost_snap.get("stop_placement")
+                elif isinstance(cost_snap, str):
+                    try:
+                        sp_data = json.loads(cost_snap).get("stop_placement")
+                    except Exception:
+                        sp_data = None
+
+        if sp_data and isinstance(sp_data, dict):
+            st = sp_data.get("status")
+            var = sp_data.get("applied_variant")
+            anc = sp_data.get("anchor")
+            if st == "VALID" and var == "C" and anc is not None:
+                is_structural_verified = True
+
+        if is_structural_verified:
+            reason = "Xanh vì dừng lỗ theo đúng cấu trúc (Biến thể C) và tuân thủ kế hoạch đã xác minh; tiếp tục theo dõi thống kê."
+        elif sp_data:
+            reason = "Xanh vì thực thi đúng kế hoạch; điểm dừng lỗ áp dụng theo legacy/chưa có bằng chứng cấu trúc đầy đủ."
         else:
             reason = "Xanh vì thực thi đúng kế hoạch; chất lượng điểm SL chưa được kiểm chứng do thiếu bằng chứng cấu trúc."
         code = "PLAN_COMPLIANT_VALID_LOSS"

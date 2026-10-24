@@ -154,6 +154,14 @@ class ExecutionConsumer:
                 result["exit_processed"] = True
                 result["closed_order_id"] = closed_order.id
                 result["exit_cause"] = closed_order.exit_cause
+
+            # Research comparisons continue even when active position exists or closes
+            try:
+                from services.stop_placement_research_service import advance_active_stop_comparisons
+                advance_active_stop_comparisons(db, quote, as_of_ms=proc_now_ms)
+            except Exception as r_err:
+                logger.debug(f"Research advance skipped: {r_err}")
+
             return result
 
         # 2. Evaluate armed orders if no active position exists, not lagging, no gap, and quote is fresh
@@ -172,6 +180,13 @@ class ExecutionConsumer:
                 result["rejection_reason"] = f"BACKLOG_QUOTE_STALE ({quote_age_ms}ms > 15000ms)"
             elif self.has_execution_gap or self.is_lagging:
                 result["rejection_reason"] = "EXECUTION_GAP_ACTIVE"
+
+        # Dispatch research comparisons when no active position
+        try:
+            from services.stop_placement_research_service import advance_active_stop_comparisons
+            advance_active_stop_comparisons(db, quote, as_of_ms=proc_now_ms)
+        except Exception as r_err:
+            logger.debug(f"Research advance skipped: {r_err}")
 
         return result
 

@@ -175,11 +175,14 @@ def persist_stop_comparison(
 ) -> None:
     """
     Saves or updates a StopComparisonPlan in the PaperObservation table.
+    Preserves immutable plan payload once written to avoid resetting state.
     Does NOT call db.commit() to preserve caller transaction ownership.
     """
-    obs_id = make_opportunity_hash_id("stop_plan", plan.opportunity_key, length=75)
+    opp_key = getattr(plan, "opportunity_key", None) or (plan.get("opportunity_key") if isinstance(plan, dict) else "unknown_opp")
+    obs_id = make_opportunity_hash_id("stop_plan", str(opp_key), length=75)
     row = db.query(models.PaperObservation).filter(models.PaperObservation.id == obs_id).first()
-    payload_str = json.dumps(plan.to_dict(), ensure_ascii=False)
+    plan_data = plan.to_dict() if hasattr(plan, "to_dict") else dict(plan)
+    payload_str = json.dumps(plan_data, ensure_ascii=False)
 
     if row is None:
         row = models.PaperObservation(
@@ -193,9 +196,6 @@ def persist_stop_comparison(
             payload_json=payload_str,
         )
         db.add(row)
-    else:
-        row.payload_json = payload_str
-        row.as_of_ms = now_ms
 
 
 def compute_stop_excursions(
@@ -267,15 +267,27 @@ def advance_stop_comparison(
 ) -> Dict[str, Any]:
     """
     Pure state advancement for a paired stop comparison plan.
-    Evaluates quotes or candle extremes against Variants A, B, and C.
+    Guarantees strict purity (deepcopy) without mutating caller inputs.
+    Validates quotes before state transitions (empty/invalid quotes cannot open positions).
     Tracks MAE/MFE, fill triggers, and stop/target outcomes.
     """
+    import copy
     from services.shared_exit_evaluator import evaluate_order_exit
 
-    updated = dict(plan_state)
+    updated = copy.deepcopy(plan_state)
     direction = updated.get("direction", "SHORT")
     planned_entry = float(updated.get("planned_entry", 0.0))
     take_profit = float(updated.get("take_profit", 0.0))
+
+    # Validate market quote evidence strictly
+    bid = float(market_evidence.get("bid", 0.0) or getattr(market_evidence, "bid", 0.0) or 0.0)
+    ask = float(market_evidence.get("ask", 0.0) or getattr(market_evidence, "ask", 0.0) or 0.0)
+    is_quote_valid = (
+        math.isfinite(bid) and math.isfinite(ask) and bid > 0 and ask >= bid
+    )
+    if not is_quote_valid:
+        # Invalid or empty quote cannot transition state or compute excursions
+        return updated
 
     # Compute excursion for the evidence quote
     excursion = compute_stop_excursions(direction, planned_entry, market_evidence)
@@ -293,9 +305,10 @@ def advance_stop_comparison(
         sl_price = float(v_data.get("stop_loss", 0.0))
 
         if v_state == "WAIT_ENTRY":
-            # For paper research, entry is activated on valid quote after plan creation
+            # Activated on first valid quote >= plan creation time
             v_data["execution_state"] = "OPEN"
             v_data["opened_at_ms"] = as_of_ms
+            v_data["actual_entry"] = planned_entry
 
         if v_data.get("execution_state") == "OPEN":
             mock_order = {
@@ -340,4 +353,85 @@ def resume_stop_comparisons(
         except Exception:
             continue
     return plans
+
+
+def advance_active_stop_comparisons(
+    db: Session,
+    quote: Any,
+    *,
+    as_of_ms: int,
+    namespace: str = "STOP_PLACEMENT_V1",
+) -> int:
+    """
+    Production runtime caller: advances in-flight comparison plans with incoming quotes.
+    Preserves isolation so research tracking does not block or fail live trading.
+    """
+    quote_dict = quote if isinstance(quote, dict) else (quote.to_dict() if hasattr(quote, "to_dict") else {})
+    if not quote_dict:
+        return 0
+
+    rows = db.query(models.PaperObservation).filter(
+        models.PaperObservation.namespace == namespace,
+        models.PaperObservation.event_kind == "COMPARISON_PLAN",
+    ).all()
+    if not rows:
+        return 0
+
+    updated_count = 0
+    for r in rows:
+        try:
+            data = json.loads(r.payload_json)
+            all_closed = True
+            for v_key in ("variant_a", "variant_b", "variant_c"):
+                v = data.get(v_key, {})
+                if v.get("can_execute") and v.get("execution_state") not in ("CLOSED", "EXPIRED", "CENSORED"):
+                    all_closed = False
+                    break
+            if all_closed:
+                continue
+
+            advanced = advance_stop_comparison(data, quote_dict, as_of_ms=as_of_ms)
+            if advanced != data:
+                r.payload_json = json.dumps(advanced, ensure_ascii=False)
+                r.as_of_ms = as_of_ms
+                updated_count += 1
+        except Exception:
+            continue
+
+    if updated_count > 0:
+        try:
+            db.flush()
+        except Exception:
+            pass
+
+    return updated_count
+
+
+def serialize_stop_comparison_for_ui(plan_or_dict: Any) -> Dict[str, Any]:
+    """
+    Canonical serializer providing a unified shape v1 for frontend consumers.
+    Supports both variants.A/B/C and variant_a/b/c representations simultaneously.
+    """
+    import copy
+    if hasattr(plan_or_dict, "to_dict"):
+        d = plan_or_dict.to_dict()
+    elif isinstance(plan_or_dict, dict):
+        d = copy.deepcopy(plan_or_dict)
+    else:
+        return {}
+
+    va = d.get("variant_a") or {}
+    vb = d.get("variant_b") or {}
+    vc = d.get("variant_c") or {}
+
+    d["schema_version"] = "stop-comparison.v1"
+    d["variants"] = {
+        "A": va,
+        "B": vb,
+        "C": vc,
+        "A_LEGACY": va,
+        "B_STRUCTURAL_TICK": vb,
+        "C_STRUCTURAL_DYNAMIC": vc,
+    }
+    return d
 

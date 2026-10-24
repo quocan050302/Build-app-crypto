@@ -1749,6 +1749,19 @@ class ScalpWatcherOrchestrator:
             logger.error(f"STOP_PLAN_MISMATCH: cand.stop_loss ({cand_sl}) != calc.stop_loss ({calc_sl})")
             return None
 
+        # V17.5.1 Fail-closed stop placement barrier at ARM boundary (PHẦN 011, 020, 071, 073)
+        from services.stop_placement_policy_service import resolve_stop_placement_policy
+        from services.stop_placement_service import validate_applied_stop_decision
+        current_sp_policy = resolve_stop_placement_policy(db)
+        is_sp_valid, sp_err = validate_applied_stop_decision(
+            candidate=cand,
+            current_policy=current_sp_policy,
+            tolerance_tick=float(getattr(cfg, "tick_size", 0.01)),
+        )
+        if not is_sp_valid:
+            logger.error(f"ARM_BARRIER_REJECTED: {sp_err}")
+            return None
+
         qty = float(getattr(calc, "quantity", 0.0))
         if qty <= 0 or not math.isfinite(qty):
             logger.info(f"Invalid calculator quantity: {qty}")
@@ -2283,8 +2296,9 @@ class ScalpWatcherOrchestrator:
             arm_snap["stop_comparison"] = sc.to_dict() if hasattr(sc, "to_dict") else sc
         from services.stop_placement_policy_service import resolve_stop_placement_policy
         current_sp_policy = resolve_stop_placement_policy(db)
-        arm_snap["stop_mode_at_arm"] = current_sp_policy.mode
-        arm_snap["stop_policy_version"] = current_sp_policy.version
+        arm_snap["stop_mode_at_arm"] = getattr(sp, "mode", current_sp_policy.mode) if getattr(cand, "stop_placement", None) else current_sp_policy.mode
+        arm_snap["stop_policy_version"] = getattr(sp, "policy_version", current_sp_policy.version) if getattr(cand, "stop_placement", None) else current_sp_policy.version
+        arm_snap["applied_variant"] = getattr(sp, "applied_variant", "A") if getattr(cand, "stop_placement", None) else "A"
 
         order_id = f"ord_{cand.model_id}_{cand.candidate_key}"
         order = models.PaperOrder(

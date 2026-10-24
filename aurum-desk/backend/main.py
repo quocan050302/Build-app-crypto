@@ -2980,18 +2980,21 @@ def update_stop_placement_policy_endpoint(
     V17.5: Atomic CAS update for Stop Placement configuration.
     Requires matching expected_version. True no-op preserves version without timestamp mutation.
     """
-    from services.stop_placement_policy_service import update_stop_placement_policy
+    from services.stop_placement_policy_service import (
+        update_stop_placement_policy,
+        StopPolicyConflictError,
+        StopPolicyValidationError,
+    )
     from services.entry_session_policy_service import resolve_server_execution_scope
 
     patch = req.model_dump(exclude_unset=True)
     expected_v = req.expected_version
     try:
         updated, is_mutation = update_stop_placement_policy(db, patch, expected_version=expected_v)
-    except ValueError as ve:
-        err_str = str(ve)
-        if "không khớp" in err_str or "version" in err_str.lower():
-            raise HTTPException(status_code=409, detail=err_str)
-        raise HTTPException(status_code=400, detail=err_str)
+    except StopPolicyConflictError as ce:
+        raise HTTPException(status_code=409, detail=str(ce))
+    except (StopPolicyValidationError, ValueError) as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
 
     server_scope = resolve_server_execution_scope(db)
     summary_vi = (

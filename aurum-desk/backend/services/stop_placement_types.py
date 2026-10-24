@@ -178,10 +178,57 @@ class StopMetrics:
 
 
 @dataclass(frozen=True)
+class SelectedStopLeg:
+    """Descriptor capturing the exact structural leg and break linkage for protective stop placement."""
+    model_id: str
+    direction: str
+    instance_id: str
+    leg_id: str
+    origin_pivot_id: Optional[str] = None
+    origin_price: Optional[float] = None
+    origin_occurred_at_ms: Optional[int] = None
+    origin_known_at_ms: Optional[int] = None
+    broken_reference_id: Optional[str] = None
+    broken_reference_price: Optional[float] = None
+    break_bar_id: Optional[str] = None
+    break_open_ms: Optional[int] = None
+    break_known_at_ms: Optional[int] = None
+    fvg_id: Optional[str] = None
+    fvg_middle_bar_ms: Optional[int] = None
+    fvg_confirmed_at_ms: Optional[int] = None
+    source_bar_ids: Tuple[str, ...] = ()
+    decision_cutoff_ms: int = 0
+    price_basis: str = PriceBasis.CANDLE_LAST.value
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "model_id": self.model_id,
+            "direction": self.direction,
+            "instance_id": self.instance_id,
+            "leg_id": self.leg_id,
+            "origin_pivot_id": self.origin_pivot_id,
+            "origin_price": self.origin_price,
+            "origin_occurred_at_ms": self.origin_occurred_at_ms,
+            "origin_known_at_ms": self.origin_known_at_ms,
+            "broken_reference_id": self.broken_reference_id,
+            "broken_reference_price": self.broken_reference_price,
+            "break_bar_id": self.break_bar_id,
+            "break_open_ms": self.break_open_ms,
+            "break_known_at_ms": self.break_known_at_ms,
+            "fvg_id": self.fvg_id,
+            "fvg_middle_bar_ms": self.fvg_middle_bar_ms,
+            "fvg_confirmed_at_ms": self.fvg_confirmed_at_ms,
+            "source_bar_ids": list(self.source_bar_ids),
+            "decision_cutoff_ms": self.decision_cutoff_ms,
+            "price_basis": self.price_basis,
+        }
+
+
+@dataclass(frozen=True)
 class StopPlacementDecision:
     """Complete, self-contained stop placement decision for a candidate opportunity."""
     status: str  # StopStatus value
-    selected_sl: float
+    selected_sl: Optional[float] = None
     anchor: Optional[StopAnchor] = None
     buffer: Optional[StopBufferResult] = None
     metrics: Optional[StopMetrics] = None
@@ -190,11 +237,12 @@ class StopPlacementDecision:
     mode: str = StopPlacementMode.SHADOW_COMPARE.value
     decision_cutoff_ms: int = 0
     applied_variant: str = "A"  # "A" (legacy), "B" (anchor+tick), "C" (structural dynamic)
+    volatility_context: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "status": self.status,
-            "selected_sl": round(self.selected_sl, 2),
+            "selected_sl": round(self.selected_sl, 2) if self.selected_sl is not None else None,
             "anchor": self.anchor.to_dict() if self.anchor else None,
             "buffer": self.buffer.to_dict() if self.buffer else None,
             "metrics": self.metrics.to_dict() if self.metrics else None,
@@ -203,6 +251,60 @@ class StopPlacementDecision:
             "mode": self.mode,
             "decision_cutoff_ms": self.decision_cutoff_ms,
             "applied_variant": self.applied_variant,
+            "volatility_context": self.volatility_context,
+        }
+
+
+@dataclass(frozen=True)
+class StopApplicationResult:
+    """Typed result of applying stop placement policy to a trading candidate."""
+    allowed: bool
+    selected_sl: Optional[float]
+    target: float
+    calculation: Optional[Any]
+    decision: StopPlacementDecision
+    comparison: Optional[StopComparisonPlan]
+    reason_codes: Tuple[str, ...] = ()
+
+    def __iter__(self):
+        yield self.selected_sl
+        yield self.target
+        yield self.calculation
+        yield self.decision
+        yield self.comparison
+
+    def __getitem__(self, idx: int) -> Any:
+        return (self.selected_sl, self.target, self.calculation, self.decision, self.comparison)[idx]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "allowed": self.allowed,
+            "selected_sl": round(self.selected_sl, 2) if self.selected_sl is not None else None,
+            "target": round(self.target, 2),
+            "decision": self.decision.to_dict() if self.decision else None,
+            "comparison": self.comparison.to_dict() if self.comparison else None,
+            "reason_codes": list(self.reason_codes),
+        }
+
+
+@dataclass(frozen=True)
+class StopComparisonState:
+    """Mutable runtime research state tracked separately from the immutable plan."""
+    plan_id: str
+    opportunity_key: str
+    status: str = "WAIT_ENTRY"  # WAIT_ENTRY, OPEN, CLOSED, EXPIRED, CENSORED, GAP
+    last_event_key: Optional[str] = None
+    variant_states: Dict[str, Any] = field(default_factory=dict)
+    as_of_ms: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "plan_id": self.plan_id,
+            "opportunity_key": self.opportunity_key,
+            "status": self.status,
+            "last_event_key": self.last_event_key,
+            "variant_states": self.variant_states,
+            "as_of_ms": self.as_of_ms,
         }
 
 

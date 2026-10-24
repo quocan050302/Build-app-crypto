@@ -16,9 +16,9 @@ export const StopComparisonModal: React.FC<StopComparisonModalProps> = ({
   if (!isOpen) return null;
 
   const variants = stopComparison?.variants || {};
-  const varA = variants['A_LEGACY'] || variants['A'] || null;
-  const varB = variants['B_STRUCTURAL_TICK'] || variants['B'] || null;
-  const varC = variants['C_STRUCTURAL_DYNAMIC'] || variants['C'] || null;
+  const varA = variants['A_LEGACY'] || variants['A'] || stopComparison?.variant_a || null;
+  const varB = variants['B_STRUCTURAL_TICK'] || variants['B'] || stopComparison?.variant_b || null;
+  const varC = variants['C_STRUCTURAL_DYNAMIC'] || variants['C'] || stopComparison?.variant_c || null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">

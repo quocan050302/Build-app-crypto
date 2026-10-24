@@ -43,10 +43,20 @@ export const StopPlacementDetails: React.FC<StopPlacementDetailsProps> = ({ orde
     ? Number(stopPlacement.volatility_context.atr_m1.value).toFixed(2)
     : '—';
 
-  const riskUsdt = metrics?.risk_usdt != null ? Number(metrics.risk_usdt).toFixed(2) : '—';
-  const netRr = order?.net_rr != null ? Number(order.net_rr).toFixed(2) : '—';
+  const riskUsdt = metrics?.risk_usdt != null
+    ? Number(metrics.risk_usdt).toFixed(2)
+    : order?.initial_risk_usdt != null
+    ? Number(order.initial_risk_usdt).toFixed(2)
+    : '—';
+  const netRr = order?.estimated_net_rr != null
+    ? Number(order.estimated_net_rr).toFixed(2)
+    : order?.net_rr != null
+    ? Number(order.net_rr).toFixed(2)
+    : '—';
 
   const status = stopPlacement?.status || (order?.stop_loss ? 'LEGACY_FIXED' : 'UNAVAILABLE');
+  const appliedVariant = stopPlacement?.applied_variant || (mode === 'PAPER_STRUCTURAL' ? 'C' : 'A');
+  const isStructuralVerified = status === 'VALID' && !!anchor && appliedVariant === 'C';
 
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs">
@@ -92,14 +102,22 @@ export const StopPlacementDetails: React.FC<StopPlacementDetailsProps> = ({ orde
           <span className="text-slate-400">6. Đánh giá:</span>
           <span
             className={`font-medium text-[11px] ${
-              status === 'VALID'
+              isStructuralVerified
                 ? 'text-emerald-400'
-                : status === 'LEGACY_FIXED'
+                : status === 'VALID' || status === 'LEGACY_FIXED' || status === 'WAITING_EVIDENCE'
                 ? 'text-amber-400'
                 : 'text-slate-400'
             }`}
           >
-            {status === 'VALID' ? 'Xác minh cấu trúc' : status === 'LEGACY_FIXED' ? 'SL cố định legacy' : 'Thiếu dữ liệu'}
+            {isStructuralVerified
+              ? 'Xác minh cấu trúc (C)'
+              : status === 'VALID' && appliedVariant === 'A'
+              ? 'SL Legacy hợp lệ (A)'
+              : status === 'WAITING_EVIDENCE'
+              ? 'Chờ bằng chứng cấu trúc'
+              : status === 'LEGACY_FIXED'
+              ? 'SL cố định legacy'
+              : 'Thiếu dữ liệu'}
           </span>
         </div>
       </div>
@@ -124,7 +142,7 @@ export const StopPlacementDetails: React.FC<StopPlacementDetailsProps> = ({ orde
       {/* Technical Accordion */}
       {showTechnical && (
         <div className="mt-2.5 rounded bg-slate-950 p-2 text-[10px] font-mono text-slate-400 space-y-1 border border-slate-800/80">
-          <div>ATR Method: {stopPlacement?.volatility_context?.atr_m1?.method || 'SMA_TR_V1'}</div>
+          <div>ATR Method: {stopPlacement?.volatility_context?.atr_m1?.method || (atrM1 !== '—' ? 'SMA_TR_V1' : 'Chưa có dữ liệu ATR')}</div>
           <div>Basis: {anchor?.price_basis || 'UNKNOWN'}</div>
           <div>Occurred at: {anchor?.occurred_at_ms ? new Date(anchor.occurred_at_ms).toLocaleTimeString() : '—'}</div>
           <div>Known at: {anchor?.known_at_ms ? new Date(anchor.known_at_ms).toLocaleTimeString() : '—'}</div>

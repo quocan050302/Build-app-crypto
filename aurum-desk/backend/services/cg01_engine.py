@@ -1219,18 +1219,24 @@ def evaluate_cg01_candidate(
             sl = sl_legacy
 
             if stop_policy is not None:
-                from services.stop_placement_service import resolve_stop_anchor, compute_stop_buffer, quantize_stop_outward
+                from services.stop_placement_service import (
+                    resolve_stop_anchor,
+                    compute_stop_buffer,
+                    quantize_stop_outward,
+                    build_sweep_stop_descriptor,
+                )
+                sweep_desc = build_sweep_stop_descriptor(sweep, c_1m) or {
+                    "id": sweep.get("sweep_id"),
+                    "price": sweep_extreme,
+                    "occurred_at_ms": sweep.get("sweep_time_ms") or sweep.get("timestamp", t_now),
+                    "known_at_ms": sweep.get("timestamp", t_now),
+                }
                 anchor_res = resolve_stop_anchor(
                     model_id=ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
                     direction=direction,
                     closed_bars=c_1m,
                     as_of_ms=t_now,
-                    selected_sweep={
-                        "id": sweep.get("sweep_id"),
-                        "price": sweep_extreme,
-                        "occurred_at_ms": sweep.get("timestamp", t_now),
-                        "known_at_ms": sweep.get("timestamp", t_now),
-                    },
+                    selected_sweep=sweep_desc,
                 )
                 atr_m1_obj = (stop_context or {}).get("atr_m1")
                 atr_m5_obj = (stop_context or {}).get("atr_m5")
@@ -1247,7 +1253,21 @@ def evaluate_cg01_candidate(
                     ask=ask,
                 )
 
-                if getattr(stop_policy, "mode", "") == "PAPER_STRUCTURAL" and anchor_res.status == "AVAILABLE" and anchor_res.anchor:
+                if getattr(stop_policy, "mode", "") == "PAPER_STRUCTURAL":
+                    if not (anchor_res and anchor_res.status == "AVAILABLE" and anchor_res.anchor and buffer_res):
+                        progress_diagnostics.append(
+                            CG01CandidateDiagnostic(
+                                poi_id=poi.zone_id,
+                                direction=direction,
+                                stage=CG01Stage.WAIT_STOP_EVIDENCE,
+                                reason="STRUCTURAL_STOP_WAITING_EVIDENCE",
+                                evaluated_at_ms=t_now,
+                                progress_rank=4,
+                                missing_condition="STRUCTURAL_STOP_ANCHOR_OR_BUFFER_UNAVAILABLE",
+                                ui_summary_vi=f"POI {poi.zone_id}: Đang chờ dữ liệu cấu trúc dừng lỗ hợp lệ (anchor/ATR).",
+                            )
+                        )
+                        continue
                     try:
                         sl = quantize_stop_outward(
                             anchor_price=anchor_res.anchor.price,
@@ -1255,8 +1275,20 @@ def evaluate_cg01_candidate(
                             direction=direction,
                             tick_size=tick_size,
                         )
-                    except Exception:
-                        sl = sl_legacy
+                    except Exception as e:
+                        progress_diagnostics.append(
+                            CG01CandidateDiagnostic(
+                                poi_id=poi.zone_id,
+                                direction=direction,
+                                stage=CG01Stage.WAIT_STOP_EVIDENCE,
+                                reason="STRUCTURAL_STOP_QUANTIZE_FAILED",
+                                evaluated_at_ms=t_now,
+                                progress_rank=4,
+                                missing_condition=f"Lỗi làm tròn dừng lỗ: {e}",
+                                ui_summary_vi=f"POI {poi.zone_id}: Lỗi hình học dừng lỗ cấu trúc.",
+                            )
+                        )
+                        continue
 
             # 6. Leg FVG & 50% CE with lifecycle validation and rejection diagnostics
             fvg, fvg_rejections = select_cg01_leg_fvg_with_diagnostics(

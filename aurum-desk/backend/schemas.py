@@ -1413,9 +1413,9 @@ class StopPlacementPolicyResponse(BaseModel):
 
 class StopPlacementPolicyUpdate(BaseModel):
     mode: Optional[str] = None
-    expected_version: int
-    atr_period: Optional[int] = None
-    min_buffer_ticks: Optional[int] = None
+    expected_version: StrictInt = Field(ge=1)
+    atr_period: Optional[StrictInt] = Field(default=None, ge=1, le=200)
+    min_buffer_ticks: Optional[StrictInt] = Field(default=None, ge=0, le=1000)
     atr_m1_multiplier: Optional[float] = None
     atr_m5_multiplier: Optional[float] = None
     spread_multiplier: Optional[float] = None

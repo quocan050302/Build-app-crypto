@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import smc_engine
 from domain_calculator import CalculationResult, calculate_risk_reward, validate_price_geometry
+from services.stop_placement_types import StopApplicationResult
 from services.liquidity_scenario_service import confirm_liquidity_sweep, identify_confirmed_swings
 from services.ny_quota_helpers import closed_candles_at, validate_candle_ohlc
 from services.scalp_m1_types import (
@@ -389,11 +390,11 @@ def apply_stop_placement_to_candidate(
     atr_1m_val: float,
     bid: float,
     ask: float,
-) -> Tuple[float, float, Any, Optional[Any], Optional[Any]]:
+) -> StopApplicationResult:
     """
-    Applies V17.5 Stop Placement policy and returns:
-    (final_sl, final_target, calc_res, stop_decision, stop_comparison_plan)
+    Applies V17.5.1 Stop Placement policy and returns StopApplicationResult.
     CRITICAL: baseline_target is FROZEN and NEVER recalculated from proposed stop!
+    In PAPER_STRUCTURAL mode, fails closed if Variant C is missing, waiting, or invalid.
     """
     capital = float(policy_settings.get("capital_usdt", 1000.0))
     risk_pct = float(policy_settings.get("risk_pct", getattr(cfg, "fallback_risk_pct", 0.1)))
@@ -414,7 +415,15 @@ def apply_stop_placement_to_candidate(
             margin_mode=margin_mode,
             min_net_rr=min_net_rr,
         )
-        return baseline_sl, baseline_target, calc, None, None
+        return StopApplicationResult(
+            allowed=calc.can_execute,
+            selected_sl=baseline_sl,
+            target=baseline_target,
+            calculation=calc,
+            decision=None,
+            comparison=None,
+            reason_codes=() if calc.can_execute else (calc.skip_reason or "CANNOT_EXECUTE",),
+        )
 
     from services.stop_placement_service import compute_stop_atr, compute_stop_buffer, plan_structural_stop
     from services.stop_placement_research_service import build_stop_comparison_plan
@@ -466,11 +475,81 @@ def apply_stop_placement_to_candidate(
         now_ms=now_ms,
     )
 
-    if getattr(stop_policy, "mode", "") == "PAPER_STRUCTURAL" and getattr(stop_dec, "status", "") == "VALID":
-        selected_sl = stop_dec.selected_sl
-    else:
-        selected_sl = baseline_sl
+    mode = getattr(stop_policy, "mode", "SHADOW_COMPARE")
+    if mode == "PAPER_STRUCTURAL":
+        is_structural_valid = (
+            stop_dec is not None
+            and stop_dec.status == "VALID"
+            and stop_dec.applied_variant == "C"
+            and stop_dec.anchor is not None
+            and stop_dec.selected_sl is not None
+            and atr_m1_obj is not None
+            and atr_m1_obj.status == "AVAILABLE"
+        )
+        if not is_structural_valid:
+            # DO NOT produce executable legacy calculation
+            calc = calculate_risk_reward(
+                direction=direction,
+                planned_entry=entry_price,
+                stop_loss=baseline_sl,
+                take_profit=baseline_target,
+                capital_usdt=capital,
+                risk_pct=risk_pct,
+                leverage=lev,
+                margin_mode=margin_mode,
+                min_net_rr=min_net_rr,
+            )
+            reasons = stop_dec.reasons if (stop_dec and stop_dec.reasons) else ((stop_dec.status,) if stop_dec else ("STRUCTURAL_STOP_INVALID",))
+            calc = calc.model_copy(update={
+                "can_execute": False,
+                "skip_reason": f"STRUCTURAL_STOP_NOT_VALID: {', '.join(reasons)}"
+            })
+            return StopApplicationResult(
+                allowed=False,
+                selected_sl=stop_dec.selected_sl if (stop_dec and stop_dec.selected_sl is not None) else None,
+                target=baseline_target,
+                calculation=calc,
+                decision=stop_dec,
+                comparison=comp_plan,
+                reason_codes=reasons,
+            )
 
+        selected_sl = stop_dec.selected_sl
+        calc = calculate_risk_reward(
+            direction=direction,
+            planned_entry=entry_price,
+            stop_loss=selected_sl,
+            take_profit=baseline_target,
+            capital_usdt=capital,
+            risk_pct=risk_pct,
+            leverage=lev,
+            margin_mode=margin_mode,
+            min_net_rr=min_net_rr,
+        )
+        if not (calc.is_valid and calc.can_execute and calc.meets_min_rr):
+            reasons = (calc.skip_reason or calc.invalid_reason or "REJECTED_COST_RR",)
+            return StopApplicationResult(
+                allowed=False,
+                selected_sl=selected_sl,
+                target=baseline_target,
+                calculation=calc,
+                decision=stop_dec,
+                comparison=comp_plan,
+                reason_codes=reasons,
+            )
+
+        return StopApplicationResult(
+            allowed=True,
+            selected_sl=selected_sl,
+            target=baseline_target,
+            calculation=calc,
+            decision=stop_dec,
+            comparison=comp_plan,
+            reason_codes=(),
+        )
+
+    # LEGACY and SHADOW_COMPARE: execute Variant A (baseline_sl)
+    selected_sl = baseline_sl
     calc = calculate_risk_reward(
         direction=direction,
         planned_entry=entry_price,
@@ -482,8 +561,16 @@ def apply_stop_placement_to_candidate(
         margin_mode=margin_mode,
         min_net_rr=min_net_rr,
     )
-
-    return selected_sl, baseline_target, calc, stop_dec, comp_plan
+    allowed = bool(calc.can_execute and calc.meets_min_rr and calc.is_valid)
+    return StopApplicationResult(
+        allowed=allowed,
+        selected_sl=selected_sl,
+        target=baseline_target,
+        calculation=calc,
+        decision=stop_dec,
+        comparison=comp_plan,
+        reason_codes=() if allowed else (calc.skip_reason or "CANNOT_EXECUTE",),
+    )
 
 
 def candle_open_ms(bar: Any) -> Optional[int]:

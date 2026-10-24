@@ -38,49 +38,100 @@ def _candle_ohlc(c: Any) -> Tuple[float, float, float, float]:
     return float(c.open), float(c.high), float(c.low), float(c.close)
 
 
+TIMEFRAME_MS: Dict[str, int] = {
+    "1M": 60_000,
+    "5M": 300_000,
+    "15M": 900_000,
+    "1H": 3_600_000,
+}
+
+
 def compute_stop_atr(
     closed_bars: Sequence[Any],
     *,
     period: int = 14,
     timeframe: str = "1M",
     as_of_ms: Optional[int] = None,
-    bar_duration_ms: int = 60_000,
+    bar_duration_ms: Optional[int] = None,
 ) -> StopATRResult:
     """
     Computes strict True Range Mean (SMA_TR_V1) for stop loss buffer sizing.
     Requires at least `period + 1` continuous, finite closed bars.
     Excludes any unclosed bars or future bars after as_of_ms.
+    Strictly synchronizes bar_duration_ms with timeframe.
     """
-    if period <= 0:
-        return StopATRResult(
-            status="UNAVAILABLE", value=0.0, period=period, timeframe=timeframe,
-            method="SMA_TR_V1", last_closed_at_ms=0, bars_count=0
-        )
-
-    # Filter bars strictly closed at or before as_of_ms
-    valid_bars: List[Any] = []
-    for b in closed_bars:
-        try:
-            o, h, l, c = _candle_ohlc(b)
-            if not all(math.isfinite(x) and x > 0 for x in (o, h, l, c)):
-                continue
-            t_open = _candle_open_ms(b)
-            if as_of_ms is not None:
-                t_close = t_open + bar_duration_ms
-                if t_close > as_of_ms:
-                    continue
-            valid_bars.append(b)
-        except Exception:
-            continue
-
-    if len(valid_bars) < period + 1:
+    norm_tf = timeframe.upper()
+    expected_duration = TIMEFRAME_MS.get(norm_tf)
+    if expected_duration is None:
         return StopATRResult(
             status="UNAVAILABLE",
             value=0.0,
             period=period,
             timeframe=timeframe,
             method="SMA_TR_V1",
-            last_closed_at_ms=_candle_open_ms(valid_bars[-1]) + bar_duration_ms if valid_bars else 0,
+            last_closed_at_ms=0,
+            bars_count=0,
+            reason_code="UNSUPPORTED_TIMEFRAME",
+        )
+
+    if bar_duration_ms is not None and bar_duration_ms != expected_duration:
+        return StopATRResult(
+            status="UNAVAILABLE",
+            value=0.0,
+            period=period,
+            timeframe=timeframe,
+            method="SMA_TR_V1",
+            last_closed_at_ms=0,
+            bars_count=0,
+            reason_code="TIMEFRAME_DURATION_MISMATCH",
+        )
+
+    duration = expected_duration
+
+    if period <= 0:
+        return StopATRResult(
+            status="UNAVAILABLE",
+            value=0.0,
+            period=period,
+            timeframe=timeframe,
+            method="SMA_TR_V1",
+            last_closed_at_ms=0,
+            bars_count=0,
+            reason_code="INVALID_PERIOD",
+        )
+
+    # Filter bars strictly closed at or before as_of_ms with increasing timestamps and valid OHLC
+    valid_bars: List[Any] = []
+    last_ts = -1
+    for b in closed_bars:
+        try:
+            o, h, l, c = _candle_ohlc(b)
+            if not all(math.isfinite(x) and x > 0 for x in (o, h, l, c)):
+                continue
+            if not (l <= min(o, c) <= max(o, c) <= h and h >= l):
+                continue
+            t_open = _candle_open_ms(b)
+            if t_open <= last_ts:
+                # Disallow duplicate or out-of-order timestamps in active window
+                continue
+            if as_of_ms is not None:
+                t_close = t_open + duration
+                if t_close > as_of_ms:
+                    continue
+            last_ts = t_open
+            valid_bars.append(b)
+        except Exception:
+            continue
+
+    if len(valid_bars) < period + 1:
+        last_ms = _candle_open_ms(valid_bars[-1]) + duration if valid_bars else 0
+        return StopATRResult(
+            status="UNAVAILABLE",
+            value=0.0,
+            period=period,
+            timeframe=timeframe,
+            method="SMA_TR_V1",
+            last_closed_at_ms=last_ms,
             bars_count=len(valid_bars),
             reason_code="INSUFFICIENT_BARS",
         )
@@ -98,7 +149,7 @@ def compute_stop_atr(
     atr_val = sum(target_tr) / float(period)
 
     last_bar_open = _candle_open_ms(valid_bars[-1])
-    last_closed_ms = last_bar_open + bar_duration_ms
+    last_closed_ms = last_bar_open + duration
 
     return StopATRResult(
         status="AVAILABLE",
@@ -273,11 +324,33 @@ def resolve_stop_anchor(
         origin_price = selected_fvg.get("origin_price") or selected_fvg.get("leg_origin_price")
         break_id = selected_break.get("id") if selected_break else None
 
+        leg_cutoff_ms = None
+        if selected_break:
+            leg_cutoff_ms = (
+                selected_break.get("broken_at_ms")
+                or selected_break.get("break_time_ms")
+                or selected_break.get("timestamp")
+                or selected_break.get("break_open_ms")
+            )
+        if leg_cutoff_ms is None and selected_fvg:
+            leg_cutoff_ms = (
+                selected_fvg.get("start_ms")
+                or selected_fvg.get("formation_time_ms")
+                or selected_fvg.get("timestamp")
+            )
+        if leg_cutoff_ms is not None:
+            leg_cutoff_ms = int(leg_cutoff_ms)
+
         if origin_price is None and confirmed_swings:
             sh_list, sl_list = confirmed_swings
             if norm_dir == "SHORT" and sh_list:
-                eligible_sh = [s for s in sh_list if int(s.get("known_at_ms") or s.get("occurred_at_ms", 0)) <= as_of_ms]
+                eligible_sh = [
+                    s for s in sh_list
+                    if int(s.get("known_at_ms") or s.get("occurred_at_ms", 0)) <= as_of_ms
+                    and (leg_cutoff_ms is None or int(s.get("occurred_at_ms", 0)) <= leg_cutoff_ms)
+                ]
                 if eligible_sh:
+                    eligible_sh.sort(key=lambda s: (int(s.get("occurred_at_ms", 0)), int(s.get("known_at_ms", 0)), str(s.get("id", ""))))
                     chosen_sh = eligible_sh[-1]
                     origin_price = float(chosen_sh["price"])
                     anchor = StopAnchor(
@@ -299,8 +372,13 @@ def resolve_stop_anchor(
                         )
                     return StopAnchorResult(status="AVAILABLE", anchor=anchor)
             elif norm_dir == "LONG" and sl_list:
-                eligible_sl = [s for s in sl_list if int(s.get("known_at_ms") or s.get("occurred_at_ms", 0)) <= as_of_ms]
+                eligible_sl = [
+                    s for s in sl_list
+                    if int(s.get("known_at_ms") or s.get("occurred_at_ms", 0)) <= as_of_ms
+                    and (leg_cutoff_ms is None or int(s.get("occurred_at_ms", 0)) <= leg_cutoff_ms)
+                ]
                 if eligible_sl:
+                    eligible_sl.sort(key=lambda s: (int(s.get("occurred_at_ms", 0)), int(s.get("known_at_ms", 0)), str(s.get("id", ""))))
                     chosen_sl = eligible_sl[-1]
                     origin_price = float(chosen_sl["price"])
                     anchor = StopAnchor(
@@ -326,9 +404,25 @@ def resolve_stop_anchor(
     if confirmed_swings:
         sh_list, sl_list = confirmed_swings
         break_id = selected_break.get("id") if selected_break else None
+        leg_cutoff_ms = None
+        if selected_break:
+            leg_cutoff_ms = (
+                selected_break.get("broken_at_ms")
+                or selected_break.get("break_time_ms")
+                or selected_break.get("timestamp")
+                or selected_break.get("break_open_ms")
+            )
+        if leg_cutoff_ms is not None:
+            leg_cutoff_ms = int(leg_cutoff_ms)
+
         if norm_dir == "SHORT":
-            eligible_sh = [s for s in sh_list if int(s.get("known_at_ms") or s.get("occurred_at_ms", 0)) <= as_of_ms]
+            eligible_sh = [
+                s for s in sh_list
+                if int(s.get("known_at_ms") or s.get("occurred_at_ms", 0)) <= as_of_ms
+                and (leg_cutoff_ms is None or int(s.get("occurred_at_ms", 0)) <= leg_cutoff_ms)
+            ]
             if eligible_sh:
+                eligible_sh.sort(key=lambda s: (int(s.get("occurred_at_ms", 0)), int(s.get("known_at_ms", 0)), str(s.get("id", ""))))
                 chosen_sh = eligible_sh[-1]
                 anchor = StopAnchor(
                     id=f"anc_cont_sh_{chosen_sh.get('id', as_of_ms)}",
@@ -349,8 +443,13 @@ def resolve_stop_anchor(
                     )
                 return StopAnchorResult(status="AVAILABLE", anchor=anchor)
         elif norm_dir == "LONG":
-            eligible_sl = [s for s in sl_list if int(s.get("known_at_ms") or s.get("occurred_at_ms", 0)) <= as_of_ms]
+            eligible_sl = [
+                s for s in sl_list
+                if int(s.get("known_at_ms") or s.get("occurred_at_ms", 0)) <= as_of_ms
+                and (leg_cutoff_ms is None or int(s.get("occurred_at_ms", 0)) <= leg_cutoff_ms)
+            ]
             if eligible_sl:
+                eligible_sl.sort(key=lambda s: (int(s.get("occurred_at_ms", 0)), int(s.get("known_at_ms", 0)), str(s.get("id", ""))))
                 chosen_sl = eligible_sl[-1]
                 anchor = StopAnchor(
                     id=f"anc_cont_sl_{chosen_sl.get('id', as_of_ms)}",
@@ -420,9 +519,10 @@ def plan_structural_stop(
 
     if anchor_result.status != "AVAILABLE" or anchor_result.anchor is None:
         dist = abs(planned_entry - legacy_sl)
+        sel_sl = None if mode == StopPlacementMode.PAPER_STRUCTURAL.value else legacy_sl
         return StopPlacementDecision(
             status=StopStatus.WAITING_EVIDENCE.value,
-            selected_sl=legacy_sl,
+            selected_sl=sel_sl,
             anchor=None,
             buffer=buffer_result,
             metrics=StopMetrics(
@@ -455,9 +555,10 @@ def plan_structural_stop(
 
     if not geom_valid:
         dist = abs(planned_entry - legacy_sl)
+        sel_sl = None if mode == StopPlacementMode.PAPER_STRUCTURAL.value else legacy_sl
         return StopPlacementDecision(
             status=StopStatus.REJECTED_GEOMETRY.value,
-            selected_sl=legacy_sl,
+            selected_sl=sel_sl,
             anchor=anchor,
             buffer=buffer_result,
             metrics=StopMetrics(
@@ -500,3 +601,163 @@ def plan_structural_stop(
         decision_cutoff_ms=as_of_ms,
         applied_variant=applied_variant,
     )
+
+
+def build_sweep_stop_descriptor(
+    sweep: Dict[str, Any],
+    closed_bars: Sequence[Any],
+    bar_duration_ms: int = 60_000,
+) -> Optional[Dict[str, Any]]:
+    """
+    Translates raw sweep detector output into a causal StopAnchor input descriptor.
+    Extracts sweep_time_ms and derives known_at_ms from the closing time of reclaim_bar_idx.
+    """
+    sweep_time = sweep.get("sweep_time_ms") or sweep.get("timestamp")
+    sweep_extreme = sweep.get("sweep_extreme") or sweep.get("price")
+    if sweep_time is None or sweep_extreme is None:
+        return None
+
+    # Derive known_at_ms from reclaim_bar_idx if available
+    reclaim_idx = sweep.get("reclaim_bar_idx")
+    known_at_ms = None
+    if reclaim_idx is not None and isinstance(reclaim_idx, int) and 0 <= reclaim_idx < len(closed_bars):
+        c_open = _candle_open_ms(closed_bars[reclaim_idx])
+        known_at_ms = c_open + bar_duration_ms
+    elif "sweep_bar_idx" in sweep and isinstance(sweep["sweep_bar_idx"], int) and 0 <= sweep["sweep_bar_idx"] < len(closed_bars):
+        c_open = _candle_open_ms(closed_bars[sweep["sweep_bar_idx"]])
+        known_at_ms = c_open + bar_duration_ms
+    else:
+        known_at_ms = int(sweep_time) + bar_duration_ms
+
+    return {
+        "id": sweep.get("sweep_id") or sweep.get("episode_id") or f"sweep_{sweep_time}",
+        "sweep_id": sweep.get("sweep_id"),
+        "episode_id": sweep.get("episode_id"),
+        "reference_id": sweep.get("reference_id"),
+        "sweep_extreme": float(sweep_extreme),
+        "price": float(sweep_extreme),
+        "occurred_at_ms": int(sweep_time),
+        "known_at_ms": int(known_at_ms),
+        "source_leg_id": str(sweep.get("episode_id") or sweep.get("sweep_id") or "sweep_leg"),
+    }
+
+
+def resolve_bound_stop_leg(
+    *,
+    model_id: str,
+    direction: str,
+    instance_id: str = "default",
+    closed_bars: Sequence[Any] = (),
+    selected_break: Optional[Dict[str, Any]] = None,
+    selected_fvg: Optional[Dict[str, Any]] = None,
+    candidate_pivot: Optional[Dict[str, Any]] = None,
+    candidate_pivots: Optional[Sequence[Dict[str, Any]]] = None,
+    break_bar: Optional[Any] = None,
+    decision_cutoff_ms: int = 0,
+    as_of_ms: int = 0,
+) -> Optional[Any]:
+    """
+    Verifies and constructs a SelectedStopLeg descriptor binding the protective pivot
+    to the exact leg and break bar that created the opportunity.
+    """
+    from services.stop_placement_types import SelectedStopLeg
+
+    if not selected_break:
+        return None
+
+    cutoff = decision_cutoff_ms or as_of_ms or 0
+    break_time = int(
+        selected_break.get("broken_at_ms")
+        or selected_break.get("break_time_ms")
+        or selected_break.get("timestamp")
+        or selected_break.get("break_open_ms")
+        or (break_bar.open_time if break_bar and hasattr(break_bar, "open_time") else cutoff)
+    )
+
+    if candidate_pivots and not candidate_pivot:
+        valid_candidates = []
+        for p in candidate_pivots:
+            p_occ = int(p.get("occurred_at_ms", 0))
+            p_known = int(p.get("known_at_ms", p_occ))
+            if p_occ <= break_time and (cutoff == 0 or p_known <= cutoff):
+                valid_candidates.append(p)
+        if valid_candidates:
+            # Deterministic selection: closest before break, tie-break known_at, then id
+            valid_candidates.sort(
+                key=lambda p: (int(p.get("occurred_at_ms", 0)), int(p.get("known_at_ms", 0)), str(p.get("id", ""))),
+                reverse=True,
+            )
+            candidate_pivot = valid_candidates[0]
+
+    if not candidate_pivot:
+        return None
+
+    pivot_occ = int(candidate_pivot.get("occurred_at_ms", 0))
+    pivot_known = int(candidate_pivot.get("known_at_ms", pivot_occ))
+
+    # Invariant: Origin pivot must occur before the break
+    if pivot_occ > break_time or (cutoff > 0 and pivot_known > cutoff):
+        return None
+
+    broken_ref_price = (
+        selected_break.get("broken_price")
+        if selected_break.get("broken_price") is not None
+        else selected_break.get("reference_price")
+    )
+
+    return SelectedStopLeg(
+        model_id=model_id,
+        direction=direction,
+        instance_id=instance_id,
+        leg_id=str(selected_break.get("id") or f"leg_{break_time}"),
+        origin_pivot_id=str(candidate_pivot.get("id", "")),
+        origin_price=float(candidate_pivot.get("price", 0.0)),
+        origin_occurred_at_ms=pivot_occ,
+        origin_known_at_ms=pivot_known,
+        broken_reference_id=selected_break.get("broken_reference_id"),
+        broken_reference_price=float(broken_ref_price) if broken_ref_price is not None else None,
+        break_bar_id=str(selected_break.get("id", "")),
+        break_open_ms=break_time,
+        break_known_at_ms=int(selected_break.get("known_at_ms", break_time)),
+        fvg_id=selected_fvg.get("id") if selected_fvg else None,
+        fvg_middle_bar_ms=selected_fvg.get("middle_bar_ms") if selected_fvg else None,
+        fvg_confirmed_at_ms=selected_fvg.get("confirmed_at") if selected_fvg else None,
+        decision_cutoff_ms=cutoff,
+    )
+
+
+def validate_applied_stop_decision(
+    *,
+    candidate: Any,
+    current_policy: StopPlacementPolicy,
+    tolerance_tick: float = 0.01,
+) -> Tuple[bool, str]:
+    """
+    Fail-closed barrier invoked at evaluator completion and ARM critical section.
+    Rejects any trade whose stop loss does not satisfy current policy requirements.
+    """
+    cand_sl = getattr(candidate, "stop_loss", None)
+    calc = getattr(candidate, "calculation", None)
+    sp = getattr(candidate, "stop_placement", None)
+
+    if current_policy.mode == StopPlacementMode.PAPER_STRUCTURAL.value:
+        if sp is None:
+            return False, "MISSING_STOP_PLACEMENT_DECISION"
+        if getattr(sp, "status", "") != StopStatus.VALID.value:
+            return False, f"STRUCTURAL_STOP_STATUS_INVALID: {getattr(sp, 'status', '')}"
+        if getattr(sp, "applied_variant", "") != "C":
+            return False, f"STRUCTURAL_MODE_EXPECTS_VARIANT_C_GOT_{getattr(sp, 'applied_variant', '')}"
+        if getattr(sp, "anchor", None) is None:
+            return False, "MISSING_STRUCTURAL_ANCHOR"
+        if getattr(sp, "selected_sl", None) is None:
+            return False, "MISSING_SELECTED_STRUCTURAL_SL"
+        if cand_sl is None or abs(float(cand_sl) - float(sp.selected_sl)) > tolerance_tick:
+            return False, f"CANDIDATE_SL_MISMATCH_WITH_DECISION: {cand_sl} vs {sp.selected_sl}"
+        if calc is not None:
+            calc_sl = getattr(calc, "stop_loss", None)
+            if calc_sl is None or abs(float(calc_sl) - float(sp.selected_sl)) > tolerance_tick:
+                return False, f"CALC_SL_MISMATCH_WITH_DECISION: {calc_sl} vs {sp.selected_sl}"
+            if not getattr(calc, "can_execute", False):
+                return False, f"CALC_CANNOT_EXECUTE: {getattr(calc, 'skip_reason', '')}"
+
+    return True, "VALID"
