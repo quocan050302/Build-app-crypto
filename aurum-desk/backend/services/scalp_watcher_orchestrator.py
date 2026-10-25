@@ -14,6 +14,7 @@ Coordinates:
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 import json
 import logging
 import math
@@ -56,6 +57,192 @@ from services.trading_policy_service import TradingPolicyService, resolve_entry_
 from services.zone_watchlist_service import ZoneWatchlistService
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ObservationProvenance:
+    symbol: str
+    bid: float
+    ask: float
+    exchange_ts_ms: Optional[int]
+    received_at_ms: Optional[int]
+    evaluated_at_ms: int
+    quote_source: str
+    transport_state: str
+    connection_epoch: Optional[int]
+    quote_valid: bool
+    quote_stale: bool
+    reason_code: Optional[str] = None
+    is_authoritative_for_epoch: bool = True
+
+    def to_snapshot_dict(self) -> Dict[str, Any]:
+        age_sec = None
+        if self.exchange_ts_ms is not None:
+            age_sec = round(max(0.0, (self.evaluated_at_ms - self.exchange_ts_ms) / 1000.0), 3)
+        elif self.received_at_ms is not None:
+            age_sec = round(max(0.0, (self.evaluated_at_ms - self.received_at_ms) / 1000.0), 3)
+
+        status = "VALID"
+        if not self.quote_valid or self.reason_code in ("QUOTE_TIMESTAMP_UNVERIFIED", "QUOTE_MISSING_BID_OR_ASK"):
+            status = "UNVERIFIED"
+        elif self.quote_stale:
+            status = "STALE"
+        elif not self.is_authoritative_for_epoch:
+            status = "DEGRADED"
+
+        return {
+            "symbol": self.symbol,
+            "bid": self.bid,
+            "ask": self.ask,
+            "quote_source": self.quote_source,
+            "transport_state": self.transport_state,
+            "last_quote_at_ms": self.exchange_ts_ms or self.received_at_ms,
+            "exchange_ts_ms": self.exchange_ts_ms,
+            "received_at_ms": self.received_at_ms,
+            "quote_age_sec": age_sec,
+            "connection_epoch": self.connection_epoch,
+            "is_authoritative_for_epoch": self.is_authoritative_for_epoch,
+            "status": status,
+            "freshness_state": "CONNECTED_FRESH" if (status == "VALID" and not self.quote_stale) else status,
+            "reason_code": self.reason_code,
+        }
+
+
+def resolve_watcher_observation_provenance(
+    *,
+    raw_quote: Any,
+    validated_quote: Optional[ValidatedQuote],
+    feed_adapter_state: Optional[Any] = None,
+    evaluated_at_ms: int,
+) -> ObservationProvenance:
+    """
+    V17.6.4.3b CFP-01..CFP-04: Authoritative resolution of market data feed provenance.
+    Guarantees:
+    - Never replaces missing exchange timestamp with evaluation time (CFP-01).
+    - Preserves exchange_ts_ms, received_at_ms, and evaluated_at_ms as distinct values.
+    - Never defaults missing quote source to "WS" (CFP-02).
+    - Never coerces DISCONNECTED, RECONNECTING, DEGRADED, or UNKNOWN transport to CONNECTED (CFP-03).
+    - Validates connection_epoch: quotes from prior connection epochs fail authority (CFP-04, Part 033-034).
+    """
+    sym = "XAUUSDT"
+    if raw_quote is not None:
+        sym = getattr(raw_quote, "symbol", None) or (raw_quote.get("symbol") if isinstance(raw_quote, dict) else None) or "XAUUSDT"
+
+    # Prices & validity
+    v_valid = False
+    v_stale = False
+    v_reason = None
+    bid = 0.0
+    ask = 0.0
+
+    if validated_quote is not None:
+        bid = float(getattr(validated_quote, "bid", 0.0))
+        ask = float(getattr(validated_quote, "ask", 0.0))
+        v_valid = getattr(validated_quote, "is_valid", False)
+        v_stale = getattr(validated_quote, "is_stale", False)
+        v_reason = getattr(validated_quote, "rejection_code", None)
+    elif raw_quote is not None:
+        bid = float(getattr(raw_quote, "bid", 0.0) if hasattr(raw_quote, "bid") else (raw_quote.get("bid", 0.0) if isinstance(raw_quote, dict) else 0.0))
+        ask = float(getattr(raw_quote, "ask", 0.0) if hasattr(raw_quote, "ask") else (raw_quote.get("ask", 0.0) if isinstance(raw_quote, dict) else 0.0))
+        v_valid = (bid > 0 and ask >= bid)
+        v_stale = False
+        v_reason = None
+    else:
+        bid, ask, v_valid, v_stale, v_reason = 0.0, 0.0, False, True, "QUOTE_UNAVAILABLE"
+
+    # Separate Timestamps: exchange_ts_ms vs received_at_ms (CFP-01)
+    exch_ts = None
+    recv_ts = None
+    if raw_quote is not None:
+        exch_ts = getattr(raw_quote, "exchange_ts_ms", None)
+        if exch_ts is None:
+            exch_ts = getattr(raw_quote, "exchange_time", None)
+        if exch_ts is None and isinstance(raw_quote, dict):
+            exch_ts = raw_quote.get("exchange_ts_ms") or raw_quote.get("exchange_time") or raw_quote.get("timestamp_ms") or raw_quote.get("timestamp")
+
+        recv_ts = getattr(raw_quote, "received_at_ms", None)
+        if recv_ts is None and isinstance(raw_quote, dict):
+            recv_ts = raw_quote.get("received_at_ms") or raw_quote.get("observed_at")
+
+    # If both missing: never synthesize with evaluated_at_ms!
+    if exch_ts is None and recv_ts is None:
+        v_valid = False
+        if not v_reason:
+            v_reason = "QUOTE_TIMESTAMP_UNVERIFIED"
+    elif exch_ts is not None:
+        if exch_ts > evaluated_at_ms + 5_000:
+            v_valid = False
+            v_reason = "QUOTE_FUTURE_CLOCK_SKEW"
+        elif (evaluated_at_ms - exch_ts) > 15_000:
+            v_stale = True
+            if not v_reason:
+                v_reason = "QUOTE_STALE"
+
+    # Transport state (CFP-03)
+    t_state = None
+    if isinstance(raw_quote, dict):
+        t_state = raw_quote.get("transport_state")
+    elif hasattr(raw_quote, "transport_state"):
+        t_state = getattr(raw_quote, "transport_state")
+    if t_state is None and feed_adapter_state is not None:
+        t_state = getattr(feed_adapter_state, "transport_state", None)
+
+    if not t_state or t_state in ("UNKNOWN", "TRANSPORT_UNKNOWN"):
+        transport_state = "UNKNOWN"
+    elif t_state in ("CONNECTED", "DISCONNECTED", "RECONNECTING", "DEGRADED", "CONNECTING"):
+        transport_state = t_state
+    else:
+        transport_state = "UNKNOWN"
+
+    # Quote source (CFP-02)
+    raw_src = None
+    if raw_quote is not None:
+        raw_src = getattr(raw_quote, "source", None) or getattr(raw_quote, "quote_source", None)
+        if raw_src is None and isinstance(raw_quote, dict):
+            raw_src = raw_quote.get("quote_source") or raw_quote.get("source")
+
+    if raw_src is None and feed_adapter_state is not None:
+        raw_src = getattr(feed_adapter_state, "feed_source", None)
+
+    if raw_src in ("WS", "WEBSOCKET"):
+        quote_source = "WS"
+    elif raw_src in ("REST_FALLBACK", "REST"):
+        quote_source = "REST_FALLBACK"
+    elif raw_src:
+        quote_source = str(raw_src)
+    else:
+        quote_source = "UNKNOWN"
+
+    # Connection epoch (CFP-04, Part 033-034)
+    adapter_epoch = getattr(feed_adapter_state, "connection_epoch", None) if feed_adapter_state is not None else None
+    quote_epoch = None
+    if raw_quote is not None:
+        quote_epoch = getattr(raw_quote, "connection_epoch", None)
+        if quote_epoch is None and isinstance(raw_quote, dict):
+            quote_epoch = raw_quote.get("connection_epoch") or raw_quote.get("epoch")
+
+    is_authoritative_for_epoch = True
+    if quote_epoch is not None and adapter_epoch is not None:
+        if quote_epoch != adapter_epoch:
+            is_authoritative_for_epoch = False
+            v_reason = "CONNECTION_EPOCH_MISMATCH"
+            v_valid = False
+
+    return ObservationProvenance(
+        symbol=sym,
+        bid=bid,
+        ask=ask,
+        exchange_ts_ms=exch_ts,
+        received_at_ms=recv_ts,
+        evaluated_at_ms=evaluated_at_ms,
+        quote_source=quote_source,
+        transport_state=transport_state,
+        connection_epoch=quote_epoch if quote_epoch is not None else adapter_epoch,
+        quote_valid=v_valid,
+        quote_stale=v_stale,
+        reason_code=v_reason,
+        is_authoritative_for_epoch=is_authoritative_for_epoch,
+    )
 
 
 def resolve_regime_inputs(
@@ -662,24 +849,25 @@ class ScalpWatcherOrchestrator:
             and bid_val > 0
             and ask_val >= bid_val
         )
-        initial_coverage_quality = "GOOD" if is_fresh_quote else "DEGRADED"
-
-        canonical_quote_snap = None
-        if q_init is not None and is_fresh_quote:
-            from services.bitget_ws_service import bitget_ws_service
-            q_ts = getattr(q_init, "timestamp_ms", None) or getattr(q_init, "server_time", None) or getattr(q_init, "exchange_time", None) or t_recv
-            q_src = getattr(q_init, "quote_source", None) or "WS"
-            ws_trans = getattr(bitget_ws_service, "transport_state", "CONNECTED")
-            canonical_quote_snap = {
-                "symbol": symbol,
-                "bid": bid_val,
-                "ask": ask_val,
-                "quote_source": q_src if q_src in ("WS", "WEBSOCKET") else "WS",
-                "transport_state": ws_trans if ws_trans in ("CONNECTED", "RECONNECTING_OK") else "CONNECTED",
-                "last_quote_at_ms": q_ts,
-                "quote_age_sec": round(max(0.0, (t_recv - q_ts) / 1000.0), 3),
-                "status": "VALID",
-            }
+        from services.bitget_ws_service import bitget_ws_service
+        raw_source_quote = quote if quote is not None else (ticker if ticker is not None else collector_service.latest_ticker)
+        prov = resolve_watcher_observation_provenance(
+            raw_quote=raw_source_quote,
+            validated_quote=q_init,
+            feed_adapter_state=bitget_ws_service,
+            evaluated_at_ms=t_recv,
+        )
+        canonical_quote_snap = prov.to_snapshot_dict()
+        is_feed_authoritative = (
+            prov.quote_valid
+            and not prov.quote_stale
+            and prov.transport_state == "CONNECTED"
+            and prov.quote_source == "WS"
+            and prov.is_authoritative_for_epoch
+        )
+        initial_coverage_quality = "GOOD" if is_feed_authoritative else (
+            "DOWN" if prov.transport_state in ("DISCONNECTED", "DOWN") else "DEGRADED"
+        )
 
         try:
             from services.engine_observability_service import engine_observability_service
@@ -697,15 +885,15 @@ class ScalpWatcherOrchestrator:
                     "evaluation_origin": eff_evidence_origin,
                     "evidence_origin": eff_evidence_origin,
                     "coverage_quality": initial_coverage_quality,
-                    "is_feed_healthy": is_fresh_quote,
+                    "is_feed_healthy": is_feed_authoritative,
                     "is_quote_fresh": is_fresh_quote,
                     "canonical_quote": canonical_quote_snap,
                     "scope": execution_scope or "CG01",
                     "mode": "PAPER",
                 },
             )
-        except Exception:
-            pass
+        except Exception as hb_err:
+            logger.warning(f"Error recording watcher heartbeat telemetry: {hb_err}")
 
         # Global auto stop policy check (PHẦN 024)
         if auto_enabled is None:

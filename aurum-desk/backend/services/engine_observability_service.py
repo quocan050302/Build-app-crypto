@@ -118,19 +118,24 @@ def resolve_observation_evidence_origin(
 def resolve_observation_evidence_quality(
     feed_health: Optional[Dict[str, Any]] = None,
     *,
+    feed: Optional[Dict[str, Any]] = None,
     process_heartbeat: str = "RUNNING",
     quote_health: Optional[Dict[str, Any]] = None,
     execution_owner: Optional[str] = None,
     evidence_origin: Optional[str] = None,
     symbol: str = "XAUUSDT",
     now_ms: Optional[int] = None,
+    t_now: Optional[int] = None,
 ) -> ObservationEvidenceQuality:
     """
     EVID-01: Fail-closed authoritative market feed quality evaluation contract.
     A process heartbeat without verified fresh quote evidence MUST NEVER produce GOOD coverage.
     """
-    t_now = int(now_ms if now_ms is not None else int(time.time() * 1000))
-    if feed_health is None and quote_health is None:
+    effective_feed = feed_health if feed_health is not None else feed
+    effective_now = now_ms if now_ms is not None else t_now
+    t_now_val = int(effective_now if effective_now is not None else int(time.time() * 1000))
+    t_now = t_now_val
+    if effective_feed is None and quote_health is None:
         return ObservationEvidenceQuality(
             quality="UNVERIFIED",
             reason_code="FEED_EVIDENCE_UNAVAILABLE",
@@ -138,10 +143,10 @@ def resolve_observation_evidence_quality(
             quote_age_ms=None,
             quote_valid=False,
             transport_state="UNKNOWN",
-            evidence_timestamp_ms=t_now,
+            evidence_timestamp_ms=t_now_val,
         )
 
-    feed = dict(feed_health or {})
+    feed = dict(effective_feed or {})
     if quote_health:
         feed.update(quote_health)
 
@@ -153,6 +158,18 @@ def resolve_observation_evidence_quality(
     last_quote_at_ms = feed.get("last_quote_at_ms")
     feed_symbol = feed.get("symbol")
 
+    # 0. Connection epoch validation (Part 033-034, CFP-04)
+    if feed.get("is_authoritative_for_epoch") is False:
+        return ObservationEvidenceQuality(
+            quality="DEGRADED",
+            reason_code=feed.get("reason_code") or "CONNECTION_EPOCH_MISMATCH",
+            feed_source=quote_source,
+            quote_age_ms=None,
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now_val,
+        )
+
     # 1. Symbol validation
     if feed_symbol and str(feed_symbol).upper() != symbol.upper():
         return ObservationEvidenceQuality(
@@ -161,7 +178,7 @@ def resolve_observation_evidence_quality(
             feed_source=quote_source,
             quote_valid=False,
             transport_state=transport_state,
-            evidence_timestamp_ms=t_now,
+            evidence_timestamp_ms=t_now_val,
         )
 
     # 2. Transport state authority (ECI-02 Part 052)
@@ -176,8 +193,8 @@ def resolve_observation_evidence_quality(
             evidence_timestamp_ms=t_now,
         )
 
-    if transport_state in ("DISCONNECTED", "DOWN", "RECONNECTING"):
-        if quote_source == "REST_FALLBACK" and feed.get("freshness_state") == "CONNECTED_FRESH" and bid is not None and ask is not None:
+    if transport_state in ("DISCONNECTED", "DOWN", "RECONNECTING", "DEGRADED"):
+        if quote_source == "REST_FALLBACK" and (feed.get("freshness_state") in ("CONNECTED_FRESH", "FRESH") or feed.get("status") in ("VALID", "FRESH")) and bid is not None and ask is not None:
             return ObservationEvidenceQuality(
                 quality="DEGRADED",
                 reason_code="REST_FALLBACK_ACTIVE_TRANSPORT_DISCONNECTED",
@@ -1415,12 +1432,28 @@ class EngineObservabilityService:
         transport_state = getattr(bitget_ws_service, "transport_state", "DISCONNECTED")
         feed_source = getattr(bitget_ws_service, "feed_source", "WS")
 
-        # Resolve quote authority (OBS-01 & FIX-07)
+        # Resolve quote authority (OBS-01, FIX-07, CFP-02)
         raw_quote = getattr(bitget_ws_service, "latest_quote", None)
-        quote_source = "WS"
+        is_from_ws = True
         if raw_quote is None or not getattr(raw_quote, "is_valid", True):
             raw_quote = getattr(collector_service, "latest_ticker", None)
-            quote_source = "REST_FALLBACK" if raw_quote is not None else "NONE"
+            is_from_ws = False
+
+        quote_source = "UNKNOWN"
+        if raw_quote is not None:
+            raw_src = getattr(raw_quote, "source", None) or getattr(raw_quote, "quote_source", None)
+            if raw_src is None and isinstance(raw_quote, dict):
+                raw_src = raw_quote.get("source") or raw_quote.get("quote_source")
+            if isinstance(raw_src, str) and raw_src:
+                quote_source = raw_src
+            elif not is_from_ws:
+                quote_source = "REST_FALLBACK"
+            elif hasattr(bitget_ws_service, "feed_source") and isinstance(bitget_ws_service.feed_source, str):
+                quote_source = bitget_ws_service.feed_source
+            else:
+                quote_source = "WS"
+        else:
+            quote_source = "NONE"
 
         quote_res = resolve_canonical_quote_timestamps(raw_quote, now_ms=t_now)
 
@@ -2723,6 +2756,8 @@ class EngineObservabilityService:
                     current_observation_evidence_health = "DOWN"
                 elif feed_qual == "DEGRADED":
                     current_observation_evidence_health = "DEGRADED"
+                elif feed_qual != "GOOD":
+                    current_observation_evidence_health = "UNVERIFIED"
                 elif last_verified_interval_end_ms is not None and (t_now - last_verified_interval_end_ms) > 90_000:
                     current_observation_evidence_health = "STALLED"
                     unverified_gap_ms = max(0, t_now - last_verified_interval_end_ms)

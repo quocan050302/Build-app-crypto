@@ -101,8 +101,8 @@ def compute_interval_identity(data: Dict[str, Any]) -> str:
         f"{str(data.get('engine_instance_id') or '')}|"
         f"{str(data.get('evidence_origin', 'LIVE_FORWARD')).upper()}|"
         f"{str(data.get('mode', 'PAPER')).upper()}|"
-        f"{int(data.get('start_ms', 0))}|"
-        f"{int(data.get('end_ms', 0))}|"
+        f"{int(data.get('start_ms') or 0)}|"
+        f"{int(data.get('end_ms') or 0)}|"
         f"{str(data.get('data_quality', 'UNVERIFIED')).upper()}"
     )
     return hashlib.sha256(canonical_str.encode("utf-8")).hexdigest()
@@ -208,14 +208,19 @@ class ObservationIntervalService:
         self._last_persist_error: Optional[str] = None
         self._last_successful_interval_commit_ms: Optional[int] = None
 
-    def _resolve_session(self, db: Optional[Session]) -> Tuple[Optional[Session], bool]:
+    def _resolve_session(self, db: Optional[Any], borrow_session: bool = False) -> Tuple[Optional[Session], bool]:
         """Resolves an owned session bound to the caller's database engine (Phase E, DBEA-09)."""
+        if borrow_session and db is not None:
+            return db, False
         bind = None
         if db is not None:
-            try:
-                bind = db.get_bind()
-            except Exception:
-                pass
+            if hasattr(db, "connect") and not hasattr(db, "query"):
+                bind = db
+            else:
+                try:
+                    bind = db.get_bind()
+                except Exception:
+                    pass
 
         if bind is not None:
             try:
@@ -547,16 +552,25 @@ class ObservationIntervalService:
 
         # Persist sealed pending intervals for target DB outside the lock (ECI-01 Part 027, DBEA-01)
         flush_res = self.persist_pending_intervals(db)
-        if flush_res.committed > 0 or flush_res.already_exists > 0:
-            return {"status": "COMMITTED", "flushed_count": flush_res.committed + flush_res.already_exists}
+        if flush_res is not None:
+            c = getattr(flush_res, "committed", None)
+            if c is None and isinstance(flush_res, int):
+                c = flush_res
+            c = c or 0
+            ae = getattr(flush_res, "already_exists", 0) or 0
+            if c > 0 or ae > 0:
+                return {"status": "COMMITTED", "flushed_count": c + ae}
         return None
 
-    def _persist_interval_record(self, db: Optional[Session], data: Dict[str, Any]) -> IntervalPersistenceResult:
+    def _persist_interval_record(self, db: Optional[Any], data: Dict[str, Any], borrow_session: bool = False) -> IntervalPersistenceResult:
         """
         Persists a closed interval record to the database with retry and rollback (EVID-03, ECI-01, ECI-12, DBEA-01, DBEA-05, DBEA-06).
         Enforces complete logical identity, deterministic interval hash, and database isolation.
         """
-        target_db, close_session = self._resolve_session(db)
+        try:
+            target_db, close_session = self._resolve_session(db, borrow_session=borrow_session)
+        except TypeError:
+            target_db, close_session = self._resolve_session(db)
         if target_db is None:
             return IntervalPersistenceResult(status="PERMANENT_FAILURE", error_code="NO_DB_SESSION")
 
@@ -672,7 +686,30 @@ class ObservationIntervalService:
                             if existing_after is not None:
                                 return IntervalPersistenceResult(status="ALREADY_EXISTS", interval_id=existing_after.id)
                         else:
-                            return IntervalPersistenceResult(status="ALREADY_EXISTS")
+                            # AC43B-01 (CFP-07): Borrowed session uniqueness conflict requires independent durability proof
+                            try:
+                                bind = target_db.get_bind()
+                                if bind is not None:
+                                    ProbeSession = sessionmaker(bind=bind, autoflush=False)
+                                    probe_db = ProbeSession()
+                                    try:
+                                        committed_row = probe_db.query(models.PaperObservationInterval).filter(
+                                            models.PaperObservationInterval.interval_identity == interval_ident
+                                        ).first()
+                                        if committed_row is not None:
+                                            return IntervalPersistenceResult(status="ALREADY_EXISTS", interval_id=committed_row.id)
+                                    finally:
+                                        probe_db.close()
+                            except Exception as probe_err:
+                                logger.debug(f"Independent durability probe failed: {probe_err}")
+
+                            # If independent durability probe cannot verify a committed duplicate, return RETRYABLE_FAILURE
+                            # so that the interval remains in the pending queue and is not falsely acknowledged
+                            return IntervalPersistenceResult(
+                                status="RETRYABLE_FAILURE",
+                                error_code="UNVERIFIED_UNIQUE_CONFLICT",
+                                retryable=True,
+                            )
 
                     is_locked = "locked" in err_msg or "busy" in err_msg
                     if attempt < 2 and is_locked:

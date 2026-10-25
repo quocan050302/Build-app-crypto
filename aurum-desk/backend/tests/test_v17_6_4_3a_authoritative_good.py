@@ -327,6 +327,7 @@ def test_ag14_valid_real_watcher_integration(db_session):
         "is_valid": True,
         "is_stale": False,
         "quote_source": "WS",
+        "transport_state": "CONNECTED",
     }
 
     # Execute real watcher cycle twice to cover interval span
@@ -388,6 +389,7 @@ def test_ag15_valid_real_scheduler_integration(db_session):
         "is_valid": True,
         "is_stale": False,
         "quote_source": "WS",
+        "transport_state": "CONNECTED",
     }
     scalp_watcher_orchestrator.evaluate_cycle(
         db=db_session,
