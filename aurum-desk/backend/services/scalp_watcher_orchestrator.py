@@ -631,7 +631,7 @@ class ScalpWatcherOrchestrator:
         try:
             from services.engine_observability_service import engine_observability_service
             engine_observability_service.record_engine_heartbeat(
-                db,
+                None,
                 symbol=symbol,
                 state="RUNNING",
                 heartbeat_at_ms=t_recv,
@@ -661,7 +661,7 @@ class ScalpWatcherOrchestrator:
             try:
                 from services.engine_observability_service import engine_observability_service
                 engine_observability_service.record_evaluation_cycle(
-                    db,
+                    None,
                     cycle_id=cycle_id,
                     started_at_ms=t_recv,
                     completed_at_ms=t_done,
@@ -714,7 +714,7 @@ class ScalpWatcherOrchestrator:
             try:
                 from services.engine_observability_service import engine_observability_service
                 engine_observability_service.record_evaluation_cycle(
-                    db,
+                    None,
                     cycle_id=cycle_id,
                     started_at_ms=t_recv,
                     completed_at_ms=t_done,
@@ -1901,7 +1901,7 @@ class ScalpWatcherOrchestrator:
         try:
             from services.engine_observability_service import engine_observability_service
             engine_observability_service.record_evaluation_cycle(
-                db,
+                None,
                 cycle_id=cycle_id,
                 started_at_ms=t_recv,
                 completed_at_ms=t_cycle_done,
@@ -1994,7 +1994,7 @@ class ScalpWatcherOrchestrator:
         try:
             from services.engine_observability_service import engine_observability_service
             engine_observability_service.record_evaluation_cycle(
-                db,
+                None,
                 cycle_id=eff_cycle_id,
                 started_at_ms=t_recv,
                 completed_at_ms=t_cycle_done,
@@ -2876,7 +2876,7 @@ class ScalpWatcherOrchestrator:
                         try:
                             from services.engine_observability_service import engine_observability_service
                             engine_observability_service.record_engine_heartbeat(
-                                db,
+                                None,
                                 symbol="XAUUSDT",
                                 state="RUNNING" if owner_info.get("can_execute") else "IDLE",
                             )
