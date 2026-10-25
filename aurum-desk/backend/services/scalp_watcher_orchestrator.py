@@ -628,15 +628,36 @@ class ScalpWatcherOrchestrator:
         cycle_id = f"cycle-{t_recv}-{uuid.uuid4().hex[:8]}"
         cfg = config if config is not None else load_effective_scalp_config(db)
 
+        # Resolve effective observation run identity (Phase D, PART 043-050)
+        effective_run_id = None
+        if research_context is not None and getattr(research_context, "run_id", None):
+            effective_run_id = research_context.run_id
+        elif db is not None:
+            try:
+                from services.paper_research_run_service import resolve_active_observation_run
+                active_run = resolve_active_observation_run(db, scope=execution_scope or "CG01", symbol=symbol)
+                if active_run:
+                    effective_run_id = active_run.run_id
+            except Exception:
+                pass
+
         try:
             from services.engine_observability_service import engine_observability_service
             engine_observability_service.record_engine_heartbeat(
-                None,
+                db,
                 symbol=symbol,
+                run_id=effective_run_id,
                 state="RUNNING",
                 heartbeat_at_ms=t_recv,
                 last_cycle_id=cycle_id,
                 evaluation_started_at_ms=t_recv,
+                metadata={
+                    "worker_role": "EVALUATION_OWNER",
+                    "caller_identity": caller_identity or "ORCHESTRATOR",
+                    "evaluation_origin": evaluation_origin or "LIVE_FORWARD",
+                    "scope": execution_scope or "CG01",
+                    "mode": "PAPER",
+                },
             )
         except Exception:
             pass
@@ -661,8 +682,9 @@ class ScalpWatcherOrchestrator:
             try:
                 from services.engine_observability_service import engine_observability_service
                 engine_observability_service.record_evaluation_cycle(
-                    None,
+                    db,
                     cycle_id=cycle_id,
+                    run_id=effective_run_id,
                     started_at_ms=t_recv,
                     completed_at_ms=t_done,
                     status="SKIPPED",
@@ -714,8 +736,9 @@ class ScalpWatcherOrchestrator:
             try:
                 from services.engine_observability_service import engine_observability_service
                 engine_observability_service.record_evaluation_cycle(
-                    None,
+                    db,
                     cycle_id=cycle_id,
+                    run_id=effective_run_id,
                     started_at_ms=t_recv,
                     completed_at_ms=t_done,
                     status="SKIPPED",
@@ -1129,6 +1152,7 @@ class ScalpWatcherOrchestrator:
                 liq_levels_count=len(liq_levels),
                 cycle_id=cycle_id,
                 t_perf_start=t_perf_start,
+                effective_run_id=effective_run_id,
             )
 
         # Ensure any durable hypothesis past its expiry deadline transitions to EXPIRED (SECTIONS 116 - 120)
@@ -1180,6 +1204,7 @@ class ScalpWatcherOrchestrator:
                 liq_levels_count=len(liq_levels),
                 cycle_id=cycle_id,
                 t_perf_start=t_perf_start,
+                effective_run_id=effective_run_id,
             )
 
         # Compute cycle write_status
@@ -1901,8 +1926,9 @@ class ScalpWatcherOrchestrator:
         try:
             from services.engine_observability_service import engine_observability_service
             engine_observability_service.record_evaluation_cycle(
-                None,
+                db,
                 cycle_id=cycle_id,
+                run_id=effective_run_id,
                 started_at_ms=t_recv,
                 completed_at_ms=t_cycle_done,
                 status="COMPLETED" if commit_ok else "DEGRADED",
@@ -1957,6 +1983,7 @@ class ScalpWatcherOrchestrator:
         liq_levels_count: int = 0,
         cycle_id: Optional[str] = None,
         t_perf_start: Optional[float] = None,
+        effective_run_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Failure finalization helper for aborted/failed cycle transactions (V15.8 PROMPT 049-056).
@@ -1994,8 +2021,9 @@ class ScalpWatcherOrchestrator:
         try:
             from services.engine_observability_service import engine_observability_service
             engine_observability_service.record_evaluation_cycle(
-                None,
+                db,
                 cycle_id=eff_cycle_id,
+                run_id=effective_run_id,
                 started_at_ms=t_recv,
                 completed_at_ms=t_cycle_done,
                 status="FAILED",
@@ -2876,9 +2904,16 @@ class ScalpWatcherOrchestrator:
                         try:
                             from services.engine_observability_service import engine_observability_service
                             engine_observability_service.record_engine_heartbeat(
-                                None,
+                                db,
                                 symbol="XAUUSDT",
                                 state="RUNNING" if owner_info.get("can_execute") else "IDLE",
+                                metadata={
+                                    "worker_role": "WATCHER_PROCESS",
+                                    "execution_owner": owner_info.get("execution_owner", "UNKNOWN"),
+                                    "can_execute": owner_info.get("can_execute", False),
+                                    "scope": "CG01",
+                                    "mode": "PAPER",
+                                },
                             )
                         except Exception:
                             pass

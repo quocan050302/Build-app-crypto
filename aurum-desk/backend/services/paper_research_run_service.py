@@ -896,6 +896,8 @@ def generate_runtime_paper_report_content(
 
     total_closed = tr.get("total_closed_trades", 0)
     winrate_disp = f"{tr.get('winrate_pct')}%" if tr.get('winrate_pct') is not None else "N/A (0 closed trades)"
+    cov_uptime = cov.get("uptime_pct")
+    uptime_disp = f"{cov_uptime}%" if cov_uptime is not None else "N/A"
 
     lines = [
         f"# {run.software_version or 'V16.18'} CG-01 Paper Run Status & Measurement Report",
@@ -913,7 +915,7 @@ def generate_runtime_paper_report_content(
         "## 2. Forward Data Collection Status",
         f"- {obs_notice}",
         f"- Observed duration: {summary.get('duration_hours', 0.0)} hours",
-        f"- Uptime: {cov.get('uptime_pct', 'N/A')}% | Data gaps: {cov.get('data_gaps_count', 0)}",
+        f"- Uptime: {uptime_disp} | Data gaps: {cov.get('data_gaps_count', 0)}",
         f"- Verified closed trades: {total_closed}",
         f"- Open positions: {tr.get('open_trades_count', 0)} | Armed orders: {tr.get('armed_orders_count', 0)}",
         "",

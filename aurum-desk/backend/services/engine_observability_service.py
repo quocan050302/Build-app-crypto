@@ -551,25 +551,35 @@ def subtract_interval_ranges(
     return result
 
 
-def build_market_open_interval_ranges(start_ms: int, end_ms: int) -> List[Tuple[int, int]]:
+def build_market_open_interval_ranges(
+    start_ms: int,
+    end_ms: int,
+    calendar_type: Optional[str] = None,
+) -> List[Tuple[int, int]]:
     """
-    Segment the configured New York market schedule by absolute UTC-hour boundaries.
-    All current weekly/daily closure transitions occur on NY whole-hour boundaries;
-    NY DST changes also occur on UTC-hour boundaries. This is the configured schedule,
-    not proof of exchange holiday availability.
+    Segment the market schedule by absolute UTC-hour boundaries.
+    For Bitget XAUUSDT Perpetual (USDT-FUTURES), the contract trades 24/7 (Phase C, PART 033).
+    For TRADITIONAL_GOLD_REFERENCE, segments by traditional CME New York whole-hour schedule.
     """
     if end_ms <= start_ms:
         return []
-    hour_ms = 3_600_000
-    intervals: List[Tuple[int, int]] = []
-    cursor = start_ms
-    while cursor < end_ms:
-        boundary = min(end_ms, ((cursor // hour_ms) + 1) * hour_ms)
-        midpoint = cursor + (boundary - cursor) // 2
-        if not is_xauusdt_market_closed(midpoint)[0]:
-            intervals.append((cursor, boundary))
-        cursor = boundary
-    return normalize_interval_ranges(intervals)
+
+    from services.market_calendar_service import (
+        MarketCalendarType,
+        build_contract_eligible_interval_ranges,
+        build_underlying_gold_reference_interval_ranges,
+    )
+
+    if calendar_type in (
+        MarketCalendarType.TRADITIONAL_GOLD_REFERENCE.value,
+        "TRADITIONAL_GOLD_REFERENCE",
+        "CME_REFERENCE",
+    ):
+        return build_underlying_gold_reference_interval_ranges(start_ms, end_ms)
+
+    return build_contract_eligible_interval_ranges(
+        start_ms, end_ms, MarketCalendarType.BITGET_XAUUSDT_PERPETUAL
+    )
 
 
 def decode_observation_cursor(
@@ -621,6 +631,31 @@ class EngineObservabilityService:
     def current_instance_id(self) -> str:
         return self._current_instance_id
 
+    @staticmethod
+    def _resolve_target_session(db: Optional[Session]) -> Tuple[Optional[Session], bool]:
+        """
+        Resolves an owned session bound to the caller's database engine (Phase E, PART 063-068).
+        If db is passed, binds a new Session to db.get_bind() so telemetry commits independently
+        to the caller's database without borrowing or committing the caller's session.
+        If db is None, falls back to SessionLocal().
+        Returns: (session, should_close_and_commit)
+        """
+        if db is not None:
+            try:
+                bind = db.get_bind()
+                from sqlalchemy.orm import sessionmaker
+                OwnedSession = sessionmaker(bind=bind, autoflush=False)
+                return OwnedSession(), True
+            except Exception as e:
+                logger.warning(f"Could not bind owned session to caller db: {e}")
+                return db, False
+        try:
+            from database import SessionLocal
+            return SessionLocal(), True
+        except Exception as e:
+            logger.warning(f"Could not open fallback SessionLocal: {e}")
+            return None, False
+
     # -----------------------------------------------------------------------
     # 1. Engine Heartbeat & Liveness (Phase B)
     # -----------------------------------------------------------------------
@@ -659,64 +694,64 @@ class EngineObservabilityService:
             "updated_at_ms": t_now,
         }
 
-        close_session = False
-        target_db = db
-        if target_db is None:
-            try:
-                from database import SessionLocal
-                target_db = SessionLocal()
-                close_session = True
-            except Exception as e:
-                logger.warning(f"Could not open fallback SessionLocal for heartbeat: {e}")
+        target_db, close_session = self._resolve_target_session(db)
 
         if target_db is not None:
             try:
-                row = target_db.query(models.EngineHeartbeatRecord).filter(
-                    models.EngineHeartbeatRecord.engine_instance_id == inst_id
-                ).first()
+                for attempt in range(3):
+                    try:
+                        row = target_db.query(models.EngineHeartbeatRecord).filter(
+                            models.EngineHeartbeatRecord.engine_instance_id == inst_id
+                        ).first()
 
-                if row is None:
-                    row = models.EngineHeartbeatRecord(
-                        engine_instance_id=inst_id,
-                        symbol=symbol,
-                        run_id=run_id,
-                        state=state,
-                        last_process_heartbeat_at_ms=t_now,
-                        last_evaluation_started_at_ms=evaluation_started_at_ms,
-                        last_evaluation_completed_at_ms=evaluation_completed_at_ms,
-                        last_successful_evaluation_at_ms=t_now if successful_cycle else None,
-                        last_cycle_id=last_cycle_id,
-                        cycles_count=1 if successful_cycle or cycle_failed else 0,
-                        failed_cycles_count=1 if cycle_failed else 0,
-                        cadence_sec=cadence_sec,
-                        metadata_json=json.dumps(metadata or {}, ensure_ascii=False),
-                        updated_at_ms=t_now,
-                    )
-                    target_db.add(row)
-                else:
-                    row.state = state
-                    row.last_process_heartbeat_at_ms = t_now
-                    if run_id:
-                        row.run_id = run_id
-                    if last_cycle_id:
-                        row.last_cycle_id = last_cycle_id
-                    if evaluation_started_at_ms:
-                        row.last_evaluation_started_at_ms = evaluation_started_at_ms
-                    if evaluation_completed_at_ms:
-                        row.last_evaluation_completed_at_ms = evaluation_completed_at_ms
-                    if successful_cycle:
-                        row.last_successful_evaluation_at_ms = evaluation_completed_at_ms or t_now
-                        row.cycles_count = (row.cycles_count or 0) + 1
-                    if cycle_failed:
-                        row.failed_cycles_count = (row.failed_cycles_count or 0) + 1
-                    if metadata:
-                        row.metadata_json = json.dumps(metadata, ensure_ascii=False)
-                    row.updated_at_ms = t_now
+                        if row is None:
+                            row = models.EngineHeartbeatRecord(
+                                engine_instance_id=inst_id,
+                                symbol=symbol,
+                                run_id=run_id,
+                                state=state,
+                                last_process_heartbeat_at_ms=t_now,
+                                last_evaluation_started_at_ms=evaluation_started_at_ms,
+                                last_evaluation_completed_at_ms=evaluation_completed_at_ms,
+                                last_successful_evaluation_at_ms=t_now if successful_cycle else None,
+                                last_cycle_id=last_cycle_id,
+                                cycles_count=1 if successful_cycle or cycle_failed else 0,
+                                failed_cycles_count=1 if cycle_failed else 0,
+                                cadence_sec=cadence_sec,
+                                metadata_json=json.dumps(metadata or {}, ensure_ascii=False),
+                                updated_at_ms=t_now,
+                            )
+                            target_db.add(row)
+                        else:
+                            row.state = state
+                            row.last_process_heartbeat_at_ms = t_now
+                            if run_id:
+                                row.run_id = run_id
+                            if last_cycle_id:
+                                row.last_cycle_id = last_cycle_id
+                            if evaluation_started_at_ms:
+                                row.last_evaluation_started_at_ms = evaluation_started_at_ms
+                            if evaluation_completed_at_ms:
+                                row.last_evaluation_completed_at_ms = evaluation_completed_at_ms
+                            if successful_cycle:
+                                row.last_successful_evaluation_at_ms = evaluation_completed_at_ms or t_now
+                                row.cycles_count = (row.cycles_count or 0) + 1
+                            if cycle_failed:
+                                row.failed_cycles_count = (row.failed_cycles_count or 0) + 1
+                            if metadata:
+                                row.metadata_json = json.dumps(metadata, ensure_ascii=False)
+                            row.updated_at_ms = t_now
 
-                if close_session:
-                    target_db.commit()
-                else:
-                    target_db.flush()
+                        if close_session:
+                            target_db.commit()
+                        else:
+                            target_db.flush()
+                        break
+                    except Exception as e:
+                        if attempt < 2 and ("locked" in str(e).lower() or "busy" in str(e).lower()):
+                            time.sleep(0.05 * (attempt + 1))
+                            continue
+                        raise
             except Exception as e:
                 if close_session:
                     target_db.rollback()
@@ -724,6 +759,34 @@ class EngineObservabilityService:
             finally:
                 if close_session:
                     target_db.close()
+
+        # Wire into authoritative observation interval producer (Phase F, PART 081-100)
+        try:
+            from services.observation_interval_service import observation_interval_service
+            is_feed_ok = True
+            is_quote_ok = True
+            if metadata:
+                is_feed_ok = metadata.get("is_feed_healthy", True)
+                is_quote_ok = metadata.get("is_quote_fresh", True)
+            worker_role = "WATCHER_PROCESS"
+            if metadata and "worker_role" in metadata:
+                worker_role = metadata["worker_role"]
+
+            observation_interval_service.record_heartbeat_event(
+                db=db,
+                run_id=run_id,
+                symbol=symbol,
+                scope=metadata.get("scope", "CG01") if metadata else "CG01",
+                worker_role=worker_role,
+                mode=metadata.get("mode", "PAPER") if metadata else "PAPER",
+                timestamp_ms=t_now,
+                is_feed_healthy=is_feed_ok,
+                is_quote_fresh=is_quote_ok,
+                engine_instance_id=inst_id,
+                evidence_origin=metadata.get("evidence_origin", "LIVE_FORWARD") if metadata else "LIVE_FORWARD",
+            )
+        except Exception as e:
+            logger.warning(f"Error recording heartbeat event to observation interval service: {e}")
 
         return record_data
 
@@ -999,9 +1062,28 @@ class EngineObservabilityService:
                 "freshness_state": "STALE" if is_tf_stale else "FRESH",
             }
 
-        is_market_closed, market_close_reason = is_xauusdt_market_closed(t_now)
-        is_weekend = is_market_closed and market_close_reason == "WEEKEND_BREAK"
-        is_maintenance = is_market_closed and market_close_reason == "DAILY_MAINTENANCE"
+        from services.market_calendar_service import (
+            get_contract_trading_availability,
+            get_underlying_reference_session,
+            get_strategy_execution_session,
+        )
+        contract_info = get_contract_trading_availability(
+            symbol=symbol,
+            venue="BITGET",
+            product_type="USDT-FUTURES",
+            now_ms=t_now,
+        )
+        ref_info = get_underlying_reference_session(symbol=symbol, now_ms=t_now)
+        strat_info = get_strategy_execution_session(strategy_id="AURUM_SMC_ICT", now_ms=t_now)
+
+        contract_operational_state = (
+            "OPEN" if (contract_info.get("scheduled_open", True) and freshness_state != "DISCONNECTED")
+            else ("DISCONNECTED" if freshness_state == "DISCONNECTED" else "UNKNOWN")
+        )
+
+        is_market_closed = not contract_info.get("scheduled_open", True)
+        is_weekend = ref_info.get("is_weekend_break", False)
+        market_close_reason = contract_info.get("close_reason") or ref_info.get("close_reason")
 
         can_calc_mid = (
             is_quote_structurally_valid
@@ -1015,6 +1097,11 @@ class EngineObservabilityService:
             "transport_state": transport_state,
             "feed_source": feed_source,
             "quote_source": quote_source,
+            "contract_schedule": contract_info.get("trading_schedule", "24_7"),
+            "contract_operational_state": contract_operational_state,
+            "underlying_reference_state": ref_info.get("session_state", "UNKNOWN"),
+            "strategy_session_state": strat_info.get("session_state", "UNKNOWN"),
+            "quote_freshness_state": freshness_state,
             "is_quote_valid": is_quote_structurally_valid,
             "quote_validation_reasons": quote_validation_reasons,
             "freshness_state": freshness_state,
@@ -1104,54 +1191,54 @@ class EngineObservabilityService:
                 self._recent_cycles_buffer.pop(0)
             self._latest_cycle_diagnostic = entry
 
-        # Persist into EngineEvaluationCycleRecord (FIX-13)
-        close_session = False
-        target_db = db
-        if target_db is None:
-            try:
-                from database import SessionLocal
-                target_db = SessionLocal()
-                close_session = True
-            except Exception as e:
-                logger.warning(f"Could not open fallback SessionLocal for cycle persistence: {e}")
+        # Persist into EngineEvaluationCycleRecord (FIX-13 & Phase E)
+        target_db, close_session = self._resolve_target_session(db)
 
         if target_db is not None:
             try:
-                existing_row = target_db.query(models.EngineEvaluationCycleRecord).filter(
-                    models.EngineEvaluationCycleRecord.cycle_id == cycle_id
-                ).first()
-                if existing_row is not None:
-                    res = dict(entry)
-                    res["deduplicated"] = True
-                    return res
-                else:
-                    cycle_row = models.EngineEvaluationCycleRecord(
-                        cycle_id=cycle_id,
-                        engine_instance_id=inst_id,
-                        run_id=run_id,
-                        symbol=symbol,
-                        status=status,
-                        started_at_ms=started_at_ms,
-                        completed_at_ms=completed_at_ms,
-                        duration_ms=max(0.0, round(duration_ms, 2)),
-                        decision_status=decision_status,
-                        skip_reason=skip_reason,
-                        failure_reason=failure_reason,
-                        opportunities_detected=opportunities_detected,
-                        opportunities_qualified=opportunities_qualified,
-                        opportunities_blocked=opportunities_blocked,
-                        armed_order_id=armed_order_id,
-                        metadata_json=json.dumps({
-                            "models_evaluated": models_evaluated or [],
-                            "market_regime": market_regime or "UNKNOWN",
-                        }, ensure_ascii=False),
-                        created_at_ms=completed_at_ms or int(time.time() * 1000),
-                    )
-                    target_db.add(cycle_row)
-                    if close_session:
-                        target_db.commit()
-                    else:
-                        target_db.flush()
+                for attempt in range(3):
+                    try:
+                        existing_row = target_db.query(models.EngineEvaluationCycleRecord).filter(
+                            models.EngineEvaluationCycleRecord.cycle_id == cycle_id
+                        ).first()
+                        if existing_row is not None:
+                            res = dict(entry)
+                            res["deduplicated"] = True
+                            return res
+                        else:
+                            cycle_row = models.EngineEvaluationCycleRecord(
+                                cycle_id=cycle_id,
+                                engine_instance_id=inst_id,
+                                run_id=run_id,
+                                symbol=symbol,
+                                status=status,
+                                started_at_ms=started_at_ms,
+                                completed_at_ms=completed_at_ms,
+                                duration_ms=max(0.0, round(duration_ms, 2)),
+                                decision_status=decision_status,
+                                skip_reason=skip_reason,
+                                failure_reason=failure_reason,
+                                opportunities_detected=opportunities_detected,
+                                opportunities_qualified=opportunities_qualified,
+                                opportunities_blocked=opportunities_blocked,
+                                armed_order_id=armed_order_id,
+                                metadata_json=json.dumps({
+                                    "models_evaluated": models_evaluated or [],
+                                    "market_regime": market_regime or "UNKNOWN",
+                                }, ensure_ascii=False),
+                                created_at_ms=completed_at_ms or int(time.time() * 1000),
+                            )
+                            target_db.add(cycle_row)
+                            if close_session:
+                                target_db.commit()
+                            else:
+                                target_db.flush()
+                        break
+                    except Exception as e:
+                        if attempt < 2 and ("locked" in str(e).lower() or "busy" in str(e).lower()):
+                            time.sleep(0.05 * (attempt + 1))
+                            continue
+                        raise
             except Exception as e:
                 if close_session:
                     target_db.rollback()
@@ -1160,7 +1247,7 @@ class EngineObservabilityService:
                 if close_session:
                     target_db.close()
 
-        # Update engine heartbeat (respects borrowed session ownership)
+        # Update engine heartbeat (Phase E: uses isolated target session)
         self.record_engine_heartbeat(
             db,
             engine_instance_id=inst_id,
@@ -1173,6 +1260,12 @@ class EngineObservabilityService:
             evaluation_completed_at_ms=completed_at_ms,
             successful_cycle=(status == "COMPLETED"),
             cycle_failed=(status == "FAILED"),
+            metadata={
+                "worker_role": "EVALUATION_OWNER",
+                "scope": "CG01",
+                "mode": "PAPER",
+                "evidence_origin": "LIVE_FORWARD",
+            },
         )
 
         return entry
@@ -1191,41 +1284,52 @@ class EngineObservabilityService:
         symbol: str = "XAUUSDT",
         run_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
-        """Reconstructs latest cycle from database after restart (FIX-13 & PART 036)."""
+        """
+        Reconstructs latest cycle with DB-over-memory precedence (PART 054-055).
+        Authoritative persisted record is strictly preferred over in-memory diagnostic.
+        """
+        if db is not None:
+            try:
+                q = db.query(models.EngineEvaluationCycleRecord).filter(
+                    models.EngineEvaluationCycleRecord.symbol == symbol
+                )
+                if run_id:
+                    q = q.filter(models.EngineEvaluationCycleRecord.run_id == run_id)
+                row = q.order_by(models.EngineEvaluationCycleRecord.completed_at_ms.desc()).first()
+                if row:
+                    meta = {}
+                    if row.metadata_json:
+                        try:
+                            meta = json.loads(row.metadata_json)
+                        except Exception:
+                            meta = {}
+                    return {
+                        "cycle_id": row.cycle_id,
+                        "engine_instance_id": row.engine_instance_id,
+                        "run_id": row.run_id,
+                        "symbol": row.symbol,
+                        "started_at_ms": row.started_at_ms,
+                        "completed_at_ms": row.completed_at_ms,
+                        "status": row.status,
+                        "duration_ms": row.duration_ms,
+                        "opportunities_detected": row.opportunities_detected,
+                        "opportunities_qualified": row.opportunities_qualified,
+                        "opportunities_blocked": row.opportunities_blocked,
+                        "armed_order_id": row.armed_order_id,
+                        "decision_status": row.decision_status,
+                        "skip_reason": row.skip_reason,
+                        "failure_reason": row.failure_reason,
+                        "market_regime": meta.get("market_regime", "UNKNOWN"),
+                        "models_evaluated": meta.get("models_evaluated", []),
+                    }
+            except Exception as e:
+                logger.warning(f"Error querying persisted cycle: {e}")
+
         diag = self.get_latest_cycle_diagnostic()
         if diag and diag.get("symbol") == symbol and (
             run_id is None or diag.get("run_id") == run_id
         ):
             return diag
-        if db is None:
-            return None
-        try:
-            q = db.query(models.EngineEvaluationCycleRecord).filter(
-                models.EngineEvaluationCycleRecord.symbol == symbol
-            )
-            if run_id:
-                q = q.filter(models.EngineEvaluationCycleRecord.run_id == run_id)
-            row = q.order_by(models.EngineEvaluationCycleRecord.completed_at_ms.desc()).first()
-            if row:
-                return {
-                    "cycle_id": row.cycle_id,
-                    "engine_instance_id": row.engine_instance_id,
-                    "run_id": row.run_id,
-                    "symbol": row.symbol,
-                    "started_at_ms": row.started_at_ms,
-                    "completed_at_ms": row.completed_at_ms,
-                    "status": row.status,
-                    "duration_ms": row.duration_ms,
-                    "opportunities_detected": row.opportunities_detected,
-                    "opportunities_qualified": row.opportunities_qualified,
-                    "opportunities_blocked": row.opportunities_blocked,
-                    "armed_order_id": row.armed_order_id,
-                    "decision_status": row.decision_status,
-                    "skip_reason": row.skip_reason,
-                    "failure_reason": row.failure_reason,
-                }
-        except Exception as e:
-            logger.warning(f"Error querying persisted cycle: {e}")
         return None
 
 
@@ -1674,6 +1778,7 @@ class EngineObservabilityService:
         run_id: Optional[str] = None,
         start_ms: int,
         end_ms: int,
+        calendar_type: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Calculate GOOD coverage only inside eligible market-open intervals.
@@ -1687,19 +1792,73 @@ class EngineObservabilityService:
                 run = db.query(models.PaperResearchRunRecord).filter(
                     models.PaperResearchRunRecord.run_id == run_id
                 ).first()
-                if run is not None:
-                    run_start = getattr(run, "started_at_ms", None) or getattr(run, "created_at_ms", None)
-                    run_end = getattr(run, "ended_at_ms", None)
-                    if run_start is not None:
-                        effective_start = max(effective_start, int(run_start))
-                    if run_end is not None:
-                        effective_end = min(effective_end, int(run_end))
+                if run is None:
+                    # Check if there is any telemetry recorded for this run_id
+                    has_telemetry = (
+                        db.query(models.PaperObservationInterval.id).filter(
+                            models.PaperObservationInterval.run_id == run_id
+                        ).first() is not None or
+                        db.query(models.EngineEvaluationCycleRecord.id).filter(
+                            models.EngineEvaluationCycleRecord.run_id == run_id
+                        ).first() is not None or
+                        db.query(models.EngineHeartbeatRecord.id).filter(
+                            models.EngineHeartbeatRecord.run_id == run_id
+                        ).first() is not None
+                    )
+                    if not has_telemetry:
+                        # Check if the requested window itself has 0 market open ms
+                        market_open_check = build_market_open_interval_ranges(
+                            effective_start, effective_end, calendar_type=calendar_type
+                        )
+                        if merge_time_intervals(market_open_check) == 0:
+                            return {
+                                "total_span_hours": round((effective_end - effective_start) / 3_600_000.0, 2),
+                                "market_open_hours": 0.0,
+                                "expected_market_open_ms": 0,
+                                "observed_intervals_ms": 0,
+                                "weekend_closed_hours": round((effective_end - effective_start) / 3_600_000.0, 2),
+                                "observed_healthy_hours": 0.0,
+                                "known_downtime_hours": 0.0,
+                                "degraded_hours": 0.0,
+                                "down_hours": 0.0,
+                                "unverified_hours": 0.0,
+                                "coverage_pct": None,
+                                "coverage_state": "MARKET_CLOSED",
+                                "evidence_type": "LIVE_PAPER_FORWARD_OBSERVATION",
+                                "coverage_policy_version": "V17.6.4_BITGET_PERPETUAL_24_7",
+                                "schedule_source": "TRADITIONAL_CME_REFERENCE" if calendar_type else "BITGET_PRODUCT_SPEC",
+                            }
+                        return {
+                            "total_span_hours": 0.0,
+                            "market_open_hours": 0.0,
+                            "expected_market_open_ms": 0,
+                            "observed_intervals_ms": 0,
+                            "weekend_closed_hours": 0.0,
+                            "observed_healthy_hours": 0.0,
+                            "known_downtime_hours": 0.0,
+                            "degraded_hours": 0.0,
+                            "down_hours": 0.0,
+                            "unverified_hours": 0.0,
+                            "coverage_pct": None,
+                            "coverage_state": "RUN_NOT_FOUND",
+                            "evidence_type": "LIVE_PAPER_FORWARD_OBSERVATION",
+                            "coverage_policy_version": "V17.6.4_BITGET_PERPETUAL_24_7",
+                            "schedule_source": "BITGET_PRODUCT_SPEC",
+                        }
+                run_start = getattr(run, "started_at_ms", None) or getattr(run, "created_at_ms", None)
+                run_end = getattr(run, "ended_at_ms", None)
+                if run_start is not None:
+                    effective_start = max(effective_start, int(run_start))
+                if run_end is not None:
+                    effective_end = min(effective_end, int(run_end))
             except Exception as exc:
                 logger.warning("Cannot verify observation run boundary for %s: %s", run_id, exc)
                 return {
                     "coverage_pct": None, "coverage_state": "UNVERIFIABLE",
                     "expected_market_open_ms": None, "observed_intervals_ms": None,
                     "reason_code": "RUN_BOUNDARY_LOOKUP_FAILED",
+                    "coverage_policy_version": "V17.6.4_BITGET_PERPETUAL_24_7",
+                    "schedule_source": "BITGET_PRODUCT_SPEC",
                 }
 
         if effective_end <= effective_start:
@@ -1717,10 +1876,12 @@ class EngineObservabilityService:
                 "coverage_pct": None,
                 "coverage_state": "NO_ELIGIBLE_WINDOW",
                 "evidence_type": "LIVE_PAPER_FORWARD_OBSERVATION",
+                "coverage_policy_version": "V17.6.4_BITGET_PERPETUAL_24_7",
+                "schedule_source": "BITGET_PRODUCT_SPEC",
             }
 
         total_span_ms = effective_end - effective_start
-        market_open = build_market_open_interval_ranges(effective_start, effective_end)
+        market_open = build_market_open_interval_ranges(effective_start, effective_end, calendar_type=calendar_type)
         market_open_ms = merge_time_intervals(market_open)
         observed_by_quality: Dict[str, List[Tuple[int, int]]] = {
             "GOOD": [], "DEGRADED": [], "DOWN": [],
@@ -1755,6 +1916,8 @@ class EngineObservabilityService:
                     "coverage_pct": None, "coverage_state": "UNVERIFIABLE",
                     "expected_market_open_ms": market_open_ms, "observed_intervals_ms": None,
                     "reason_code": "OBSERVATION_INTERVAL_QUERY_FAILED",
+                    "coverage_policy_version": "V17.6.4_BITGET_PERPETUAL_24_7",
+                    "schedule_source": "BITGET_PRODUCT_SPEC",
                 }
 
         down = intersect_interval_ranges(observed_by_quality["DOWN"], market_open)
@@ -1795,6 +1958,10 @@ class EngineObservabilityService:
             "coverage_pct": coverage_pct,
             "coverage_state": coverage_state,
             "evidence_type": "LIVE_PAPER_FORWARD_OBSERVATION",
+            "coverage_policy_version": "V17.6.4_BITGET_PERPETUAL_24_7",
+            "schedule_source": "BITGET_PRODUCT_SPEC",
+            "measurement_window": {"start_ms": effective_start, "end_ms": effective_end},
+            "calculation_timestamp": int(time.time() * 1000),
         }
 
     # -----------------------------------------------------------------------

@@ -44,7 +44,7 @@ async def test_rt06_worker_dbslow_eventloop_responsive():
     # Mock evaluate_quote_sync to simulate 50ms slow database query
     original_eval = consumer.evaluate_quote_sync
 
-    def slow_eval(db, quote, clock=None, now_ms=None):
+    def slow_eval(db, quote, clock=None, now_ms=None, **kwargs):
         time.sleep(0.05)  # Blocking sleep in worker thread
         return {"exit_processed": False, "entry_processed": False, "is_stale": False}
 

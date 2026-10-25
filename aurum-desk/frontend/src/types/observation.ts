@@ -38,6 +38,11 @@ export interface MarketFeedHealthSnapshot {
   freshness_state: 'CONNECTED_FRESH' | 'CONNECTED_STALE' | 'DISCONNECTED' | 'RECONNECTING' | 'UNKNOWN';
   is_fresh: boolean;
   is_weekend_break: boolean;
+  contract_schedule?: string | null;
+  contract_operational_state?: string | null;
+  underlying_reference_state?: string | null;
+  strategy_session_state?: string | null;
+  quote_freshness_state?: string | null;
   last_quote_at_ms?: number | null;
   quote_age_sec?: number | null;
   bid?: number | null;
@@ -54,9 +59,11 @@ export interface ObservationCoverage {
   total_span_hours: number;
   observed_healthy_hours: number;
   known_downtime_hours: number;
-  coverage_pct: number;
-  coverage_state: 'FULL' | 'PARTIAL' | 'LOW' | 'UNKNOWN';
+  coverage_pct?: number | null;
+  coverage_state: 'FULL' | 'PARTIAL' | 'LOW' | 'UNKNOWN' | 'RUN_NOT_FOUND' | 'MARKET_CLOSED' | 'NO_ELIGIBLE_WINDOW' | 'UNVERIFIABLE';
   evidence_type: 'LIVE_PAPER_FORWARD_OBSERVATION' | 'SIMULATED_SOAK';
+  coverage_policy_version?: string | null;
+  schedule_source?: string | null;
 }
 
 export interface WaitingConditionItem {
@@ -83,19 +90,21 @@ export interface BlockedCategoryItem {
 }
 
 export interface ObservationFinancialSummary {
-  closed_trades: number;
-  open_trades: number;
-  armed_orders: number;
-  wins: number;
-  losses: number;
-  breakevens: number;
+  status?: string | null;
+  run_id?: string | null;
+  closed_trades?: number | null;
+  open_trades?: number | null;
+  armed_orders?: number | null;
+  wins?: number | null;
+  losses?: number | null;
+  breakevens?: number | null;
   winrate_pct?: number | null;
-  net_pnl_usd: number;
-  net_expectancy: number;
-  max_drawdown_usd: number;
-  max_drawdown_pct: number;
-  initial_capital_usdt: number;
-  current_equity_usdt: number;
+  net_pnl_usd?: number | null;
+  net_expectancy?: number | null;
+  max_drawdown_usd?: number | null;
+  max_drawdown_pct?: number | null;
+  initial_capital_usdt?: number | null;
+  current_equity_usdt?: number | null;
 }
 
 export interface DecisionEventItem {

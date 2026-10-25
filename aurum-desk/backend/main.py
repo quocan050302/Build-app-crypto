@@ -4678,7 +4678,9 @@ def get_observation_status_endpoint(
         "engine": engine_health,
         "feed": feed_health,
         "active_run": active_run.to_dict() if active_run else None,
-        "latest_cycle": engine_observability_service.get_latest_cycle_diagnostic(),
+        "latest_cycle": engine_observability_service.get_latest_persisted_cycle(
+            db, symbol=symbol, run_id=active_run.run_id if active_run else None
+        ),
         "recent_cycles": engine_observability_service.get_recent_cycles(limit=10),
     }
 

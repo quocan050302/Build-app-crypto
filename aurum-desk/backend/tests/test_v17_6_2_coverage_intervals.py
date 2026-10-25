@@ -77,6 +77,7 @@ def test_cv07_zero_market_open_returns_market_closed(tmp_path):
             run_id="run-sat-01",
             start_ms=sat_start,
             end_ms=sat_end,
+            calendar_type="TRADITIONAL_GOLD_REFERENCE",
         )
 
         assert cov["expected_market_open_ms"] == 0

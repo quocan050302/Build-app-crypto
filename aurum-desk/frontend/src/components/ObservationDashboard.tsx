@@ -253,6 +253,38 @@ export const ObservationDashboard: React.FC<ObservationDashboardProps> = ({
                 {feed?.bid != null && feed?.ask != null ? `${feed.bid.toFixed(2)} / ${feed.ask.toFixed(2)}` : 'N/A'}
               </span>
             </div>
+            {feed?.contract_schedule && (
+              <div className="flex justify-between">
+                <span className="text-gray-400">Lịch HĐ:</span>
+                <span className="font-mono text-emerald-400 font-semibold">
+                  {feed.contract_schedule === '24_7' ? '24/7 (Bitget)' : feed.contract_schedule}
+                </span>
+              </div>
+            )}
+            {feed?.contract_operational_state && (
+              <div className="flex justify-between">
+                <span className="text-gray-400">Trạng thái HĐ:</span>
+                <span className="font-mono text-gray-200">
+                  Contract: {feed.contract_operational_state}
+                </span>
+              </div>
+            )}
+            {feed?.underlying_reference_state && (
+              <div className="flex justify-between">
+                <span className="text-gray-400">Thị trường tham chiếu:</span>
+                <span className="font-mono text-gray-300">
+                  Ref Market: {feed.underlying_reference_state}
+                </span>
+              </div>
+            )}
+            {feed?.strategy_session_state && (
+              <div className="flex justify-between">
+                <span className="text-gray-400">Cửa sổ chiến lược:</span>
+                <span className="font-mono text-gray-300">
+                  Strategy: {feed.strategy_session_state}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between items-center pt-1 border-t border-charcoal-800">
               <span className="text-gray-400">Độ mới nến (TF):</span>
               <div className="flex gap-1.5 font-mono text-[10px]">
@@ -286,10 +318,18 @@ export const ObservationDashboard: React.FC<ObservationDashboardProps> = ({
               3. Đánh Giá SMC/ICT
             </span>
             <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded border bg-purple-950/50 text-purple-300 border-purple-800">
-              {snapshot?.latest_cycle?.decision_status || 'NO_SETUP'}
+              {snapshot?.latest_cycle?.decision_status || 'NOT_EVALUATED'}
             </span>
           </div>
           <div className="mt-1 flex flex-col gap-1 text-xs">
+            {snapshot?.latest_cycle?.cycle_id && (
+              <div className="flex justify-between">
+                <span className="text-gray-400">Mã chu kỳ:</span>
+                <span className="font-mono text-gray-300 truncate max-w-[140px]" title={snapshot.latest_cycle.cycle_id}>
+                  {snapshot.latest_cycle.cycle_id}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-gray-400">Thời gian chu kỳ:</span>
               <span className="font-mono text-gray-200">
@@ -299,13 +339,13 @@ export const ObservationDashboard: React.FC<ObservationDashboardProps> = ({
             <div className="flex justify-between">
               <span className="text-gray-400">Cơ hội phát hiện:</span>
               <span className="font-mono text-gray-200">
-                {snapshot?.latest_cycle?.opportunities_detected ?? 0}
+                {snapshot?.latest_cycle != null ? (snapshot.latest_cycle.opportunities_detected ?? 0) : 'N/A'}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Market Regime:</span>
               <span className="font-mono text-aurum-400 font-semibold">
-                {snapshot?.latest_cycle?.market_regime || 'NORMAL'}
+                {snapshot?.latest_cycle?.market_regime || 'UNKNOWN'}
               </span>
             </div>
             <div className="flex justify-between">
@@ -338,19 +378,19 @@ export const ObservationDashboard: React.FC<ObservationDashboardProps> = ({
             <div className="flex justify-between">
               <span className="text-gray-400">Lệnh đang ARM:</span>
               <span className="font-mono text-aurum-400 font-bold">
-                {financial != null ? financial.armed_orders : 'N/A'}
+                {financial != null && financial.status !== 'NOT_FOUND' && financial.armed_orders != null ? financial.armed_orders : 'N/A'}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Vị thế đang mở:</span>
               <span className="font-mono text-emerald-400 font-bold">
-                {financial != null ? financial.open_trades : 'N/A'}
+                {financial != null && financial.status !== 'NOT_FOUND' && financial.open_trades != null ? financial.open_trades : 'N/A'}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Lệnh đã khớp hôm nay:</span>
               <span className="font-mono text-gray-200">
-                {financial != null ? `${(financial.closed_trades ?? 0) + (financial.open_trades ?? 0)} / 3 lệnh` : 'N/A'}
+                {financial != null && financial.status !== 'NOT_FOUND' && financial.closed_trades != null ? `${(financial.closed_trades ?? 0) + (financial.open_trades ?? 0)} / 3 lệnh` : 'N/A'}
               </span>
             </div>
             <div className="flex justify-between">
@@ -540,7 +580,9 @@ export const ObservationDashboard: React.FC<ObservationDashboardProps> = ({
             </h3>
           </div>
           <span className="text-xs text-gray-400 font-mono">
-            Vốn Khởi Điểm: {financial?.initial_capital_usdt != null ? `$${financial.initial_capital_usdt.toFixed(2)} USDT` : 'N/A'}
+            {financial?.status === 'NOT_FOUND'
+              ? 'Run not found'
+              : `Vốn Khởi Điểm: ${financial?.initial_capital_usdt != null ? `$${financial.initial_capital_usdt.toFixed(2)} USDT` : 'N/A'}`}
           </span>
         </div>
 
@@ -549,40 +591,50 @@ export const ObservationDashboard: React.FC<ObservationDashboardProps> = ({
             <span className="text-gray-400">Lợi Nhuận Ròng (Net PnL):</span>
             <span
               className={`text-lg font-bold font-mono ${
-                (financial?.net_pnl_usd ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                financial?.net_pnl_usd != null && financial.status !== 'NOT_FOUND'
+                  ? (financial.net_pnl_usd >= 0 ? 'text-emerald-400' : 'text-rose-400')
+                  : 'text-gray-400'
               }`}
             >
-              {financial?.net_pnl_usd != null ? `$${financial.net_pnl_usd.toFixed(2)} USD` : 'N/A'}
+              {financial != null && financial.status !== 'NOT_FOUND' && financial.net_pnl_usd != null
+                ? `$${financial.net_pnl_usd.toFixed(2)} USD`
+                : 'N/A'}
             </span>
           </div>
 
           <div className="p-3 rounded-lg bg-charcoal-950 border border-charcoal-800 flex flex-col gap-1">
             <span className="text-gray-400">Lệnh Đã Đóng:</span>
             <span className="text-lg font-bold font-mono text-gray-200">
-              {financial?.closed_trades != null ? `${financial.closed_trades} Lệnh` : 'N/A'}
+              {financial != null && financial.status !== 'NOT_FOUND' && financial.closed_trades != null
+                ? `${financial.closed_trades} Lệnh`
+                : 'N/A'}
             </span>
           </div>
 
           <div className="p-3 rounded-lg bg-charcoal-950 border border-charcoal-800 flex flex-col gap-1">
             <span className="text-gray-400">Tỷ Lệ Thắng (Winrate):</span>
             <span className="text-lg font-bold font-mono text-aurum-400">
-              {financial?.closed_trades === 0 || financial?.winrate_pct == null
-                ? 'N/A (0 lệnh)'
-                : `${financial.winrate_pct.toFixed(1)}%`}
+              {financial == null || financial.status === 'NOT_FOUND'
+                ? 'N/A'
+                : (financial.closed_trades === 0 || (financial.winrate_pct ?? (financial as any).win_rate_pct) == null
+                  ? 'N/A (0 lệnh)'
+                  : `${((financial.winrate_pct ?? (financial as any).win_rate_pct) as number).toFixed(1)}%`)}
             </span>
           </div>
 
           <div className="p-3 rounded-lg bg-charcoal-950 border border-charcoal-800 flex flex-col gap-1">
             <span className="text-gray-400">Thắng / Thua / Hòa:</span>
             <span className="text-lg font-bold font-mono text-gray-300">
-              {financial != null ? `${financial.wins ?? 0} / ${financial.losses ?? 0} / ${financial.breakevens ?? 0}` : 'N/A'}
+              {financial != null && financial.status !== 'NOT_FOUND' && (financial.wins != null || (financial as any).winning_trades != null)
+                ? `${financial.wins ?? (financial as any).winning_trades ?? 0} / ${financial.losses ?? (financial as any).losing_trades ?? 0} / ${financial.breakevens ?? (financial as any).break_even_trades ?? 0}`
+                : 'N/A'}
             </span>
           </div>
 
           <div className="p-3 rounded-lg bg-charcoal-950 border border-charcoal-800 flex flex-col gap-1">
             <span className="text-gray-400">Drawdown Lớn Nhất:</span>
             <span className="text-lg font-bold font-mono text-rose-400">
-              {financial?.max_drawdown_usd != null
+              {financial != null && financial.status !== 'NOT_FOUND' && financial.max_drawdown_usd != null
                 ? `$${financial.max_drawdown_usd.toFixed(2)} (${financial.max_drawdown_pct?.toFixed(2) || '0.00'}%)`
                 : 'N/A'}
             </span>
@@ -591,7 +643,9 @@ export const ObservationDashboard: React.FC<ObservationDashboardProps> = ({
           <div className="p-3 rounded-lg bg-charcoal-950 border border-charcoal-800 flex flex-col gap-1">
             <span className="text-gray-400">Vốn Hiện Tại (Equity):</span>
             <span className="text-lg font-bold font-mono text-emerald-400">
-              {financial?.current_equity_usdt != null ? `$${financial.current_equity_usdt.toFixed(2)} USDT` : 'N/A'}
+              {financial != null && financial.status !== 'NOT_FOUND' && financial.current_equity_usdt != null
+                ? `$${financial.current_equity_usdt.toFixed(2)} USDT`
+                : 'N/A'}
             </span>
           </div>
         </div>
