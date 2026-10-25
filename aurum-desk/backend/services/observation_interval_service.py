@@ -601,7 +601,35 @@ class ObservationIntervalService:
                 ).first()
 
             if existing is not None:
-                return IntervalPersistenceResult(status="ALREADY_EXISTS", interval_id=existing.id)
+                if close_session:
+                    return IntervalPersistenceResult(status="ALREADY_EXISTS", interval_id=existing.id)
+                else:
+                    # AC43A-01: Borrowed session. Verify if row is genuinely committed outside this transaction.
+                    bind = None
+                    try:
+                        bind = target_db.get_bind()
+                    except Exception:
+                        pass
+                    is_durable = False
+                    if bind is not None:
+                        try:
+                            ProbeSession = sessionmaker(bind=bind, autoflush=False)
+                            probe = ProbeSession()
+                            try:
+                                durable_row = probe.query(models.PaperObservationInterval).filter(
+                                    models.PaperObservationInterval.interval_identity == interval_ident
+                                ).first()
+                                if durable_row is not None:
+                                    is_durable = True
+                            finally:
+                                probe.close()
+                        except Exception:
+                            pass
+                    if is_durable:
+                        return IntervalPersistenceResult(status="ALREADY_EXISTS", interval_id=existing.id)
+                    else:
+                        # Row exists in current uncommitted borrowed transaction
+                        return IntervalPersistenceResult(status="PENDING_COMMIT", interval_id=existing.id)
 
             for attempt in range(3):
                 try:
@@ -626,8 +654,8 @@ class ObservationIntervalService:
                         return IntervalPersistenceResult(status="COMMITTED", interval_id=record.id)
                     else:
                         target_db.flush()
-                        # DBEA-09: Borrowed session flushes without owned transaction commit
-                        return IntervalPersistenceResult(status="COMMITTED", interval_id=record.id)
+                        # AC43A-01: Borrowed session flushes without owned transaction commit
+                        return IntervalPersistenceResult(status="PENDING_COMMIT", interval_id=record.id)
                 except Exception as e:
                     if close_session:
                         try:
@@ -637,11 +665,14 @@ class ObservationIntervalService:
                     err_msg = str(e).lower()
                     if "unique" in err_msg or "integrity" in err_msg:
                         # Database-enforced uniqueness caught race condition
-                        existing_after = target_db.query(models.PaperObservationInterval).filter(
-                            models.PaperObservationInterval.interval_identity == interval_ident
-                        ).first()
-                        if existing_after is not None:
-                            return IntervalPersistenceResult(status="ALREADY_EXISTS", interval_id=existing_after.id)
+                        if close_session:
+                            existing_after = target_db.query(models.PaperObservationInterval).filter(
+                                models.PaperObservationInterval.interval_identity == interval_ident
+                            ).first()
+                            if existing_after is not None:
+                                return IntervalPersistenceResult(status="ALREADY_EXISTS", interval_id=existing_after.id)
+                        else:
+                            return IntervalPersistenceResult(status="ALREADY_EXISTS")
 
                     is_locked = "locked" in err_msg or "busy" in err_msg
                     if attempt < 2 and is_locked:

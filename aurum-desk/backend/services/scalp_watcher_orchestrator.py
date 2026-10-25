@@ -664,6 +664,23 @@ class ScalpWatcherOrchestrator:
         )
         initial_coverage_quality = "GOOD" if is_fresh_quote else "DEGRADED"
 
+        canonical_quote_snap = None
+        if q_init is not None and is_fresh_quote:
+            from services.bitget_ws_service import bitget_ws_service
+            q_ts = getattr(q_init, "timestamp_ms", None) or getattr(q_init, "server_time", None) or getattr(q_init, "exchange_time", None) or t_recv
+            q_src = getattr(q_init, "quote_source", None) or "WS"
+            ws_trans = getattr(bitget_ws_service, "transport_state", "CONNECTED")
+            canonical_quote_snap = {
+                "symbol": symbol,
+                "bid": bid_val,
+                "ask": ask_val,
+                "quote_source": q_src if q_src in ("WS", "WEBSOCKET") else "WS",
+                "transport_state": ws_trans if ws_trans in ("CONNECTED", "RECONNECTING_OK") else "CONNECTED",
+                "last_quote_at_ms": q_ts,
+                "quote_age_sec": round(max(0.0, (t_recv - q_ts) / 1000.0), 3),
+                "status": "VALID",
+            }
+
         try:
             from services.engine_observability_service import engine_observability_service
             engine_observability_service.record_engine_heartbeat(
@@ -682,6 +699,7 @@ class ScalpWatcherOrchestrator:
                     "coverage_quality": initial_coverage_quality,
                     "is_feed_healthy": is_fresh_quote,
                     "is_quote_fresh": is_fresh_quote,
+                    "canonical_quote": canonical_quote_snap,
                     "scope": execution_scope or "CG01",
                     "mode": "PAPER",
                 },
@@ -720,6 +738,7 @@ class ScalpWatcherOrchestrator:
                     skip_reason="SCALP_AUTO_PAPER_DISABLED" if not getattr(cfg, "scalp_m1_enabled", True) else "MODEL_DISABLED",
                     decision_status="SKIPPED",
                     evidence_origin=eff_evidence_origin,
+                    canonical_quote=canonical_quote_snap,
                 )
             except Exception:
                 pass
@@ -1970,6 +1989,7 @@ class ScalpWatcherOrchestrator:
                 decision_status=cycle_decision_status,
                 market_regime=regime,
                 evidence_origin=eff_evidence_origin,
+                canonical_quote=canonical_quote_snap,
             )
         except Exception as tel_err:
             logger.debug(f"Error recording cycle observability telemetry: {tel_err}")
@@ -2957,6 +2977,8 @@ class ScalpWatcherOrchestrator:
                                     "mode": "PAPER",
                                     "evidence_origin": "LIVE_FORWARD",
                                     "evaluation_origin": "LIVE_FORWARD",
+                                    "feed_health": feed_health_snap,
+                                    "canonical_quote": feed_health_snap,
                                     "coverage_quality": feed_quality.quality,
                                     "is_feed_healthy": feed_quality.quote_valid,
                                     "is_quote_fresh": feed_quality.quality == "GOOD",

@@ -1169,46 +1169,31 @@ class EngineObservabilityService:
                     elif any(k in metadata for k in ("bid", "ask", "transport_state", "quote_age_sec", "last_quote_at_ms")):
                         feed_data = dict(metadata)
 
-                    if feed_data and "quote_source" not in feed_data and "feed_source" not in feed_data:
-                        if metadata.get("worker_role") in ("WATCHER_PROCESS", "SCHEDULER_LIVE", "SCHEDULER") and metadata.get("transport_state") == "CONNECTED":
-                            feed_data["quote_source"] = "WS"
-
-                # Rule 3: Authoritative quote validation
+                # Rule 3: Authoritative quote validation (AC43A-03, AC43A-04)
+                # Positive GOOD coverage requires authoritative quote validation with verified canonical quote data.
+                # No typed dataclass or metadata label may bypass canonical quote validation.
                 if feed_data:
                     q_res = resolve_observation_evidence_quality(feed_data, symbol=symbol, now_ms=t_now)
                     coverage_quality = q_res.quality
                 else:
-                    # Check if an authoritative structured ObservationEvidenceQuality with valid quote proofs is attached (MB03 / EA03)
-                    raw_ev = metadata.get("evidence_quality") if metadata else None
-                    if (
-                        isinstance(raw_ev, ObservationEvidenceQuality)
-                        and raw_ev.quality == "GOOD"
-                        and raw_ev.quote_valid is True
-                        and raw_ev.owner_verified is True
-                        and raw_ev.transport_state in ("CONNECTED", "RECONNECTING_OK")
-                        and raw_ev.feed_source in ("WS", "WEBSOCKET")
-                        and raw_ev.quote_age_ms is not None
-                        and 0 <= raw_ev.quote_age_ms <= 3_000
-                        and raw_ev.evidence_timestamp_ms is not None
-                        and abs(t_now - raw_ev.evidence_timestamp_ms) <= 60_000
-                    ):
-                        coverage_quality = "GOOD"
-                    else:
-                        # Negative caller states (DOWN, DEGRADED) can be accepted if trusted negative state is provided (Part 078)
-                        raw_requested = None
-                        if metadata:
-                            if isinstance(raw_ev, ObservationEvidenceQuality):
-                                raw_requested = raw_ev.quality
-                            elif isinstance(raw_ev, dict):
-                                raw_requested = raw_ev.get("quality")
-                            elif "coverage_quality" in metadata:
-                                raw_requested = metadata.get("coverage_quality")
+                    coverage_quality = "UNVERIFIED"
 
-                        if raw_requested in ("DEGRADED", "DOWN", "UNVERIFIED"):
-                            coverage_quality = str(raw_requested).upper()
-                        else:
-                            # Caller attempted to claim GOOD without authoritative quote evidence -> FAIL CLOSED to UNVERIFIED!
-                            coverage_quality = "UNVERIFIED"
+                # Negative caller states (DOWN, DEGRADED) can be accepted if trusted negative state is provided (Part 046)
+                if coverage_quality != "GOOD":
+                    raw_requested = None
+                    if metadata:
+                        raw_ev = metadata.get("evidence_quality")
+                        if isinstance(raw_ev, ObservationEvidenceQuality):
+                            raw_requested = raw_ev.quality
+                        elif isinstance(raw_ev, dict):
+                            raw_requested = raw_ev.get("quality")
+                        elif "coverage_quality" in metadata:
+                            raw_requested = metadata.get("coverage_quality")
+
+                    if raw_requested in ("DEGRADED", "DOWN", "UNVERIFIED"):
+                        coverage_quality = str(raw_requested).upper()
+                    else:
+                        coverage_quality = "UNVERIFIED"
 
             worker_role = "WATCHER_PROCESS"
             if metadata and "worker_role" in metadata:
@@ -1383,7 +1368,7 @@ class EngineObservabilityService:
             evidence_persistence_status = "UNKNOWN"
         else:
             from services.observation_interval_service import observation_interval_service
-            pending_metrics = observation_interval_service.get_pending_metrics(run_id=getattr(latest_hb, "run_id", None))
+            pending_metrics = observation_interval_service.get_pending_metrics(db=db, run_id=getattr(latest_hb, "run_id", None))
             if pending_metrics.get("pending_count", 0) > 0 or pending_metrics.get("last_persist_error"):
                 evidence_persistence_status = "DEGRADED"
             else:
@@ -1644,6 +1629,8 @@ class EngineObservabilityService:
         market_regime: Optional[str] = None,
         evidence_origin: Optional[Any] = None,
         borrow_session: bool = False,
+        canonical_quote: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Records single cycle evaluation metrics into in-memory ring buffer,
@@ -1759,6 +1746,20 @@ class EngineObservabilityService:
 
         # Update engine heartbeat (Phase E: uses isolated target session)
         try:
+            hb_meta = {
+                "worker_role": "EVALUATION_OWNER",
+                "scope": "CG01",
+                "mode": "PAPER",
+                "evidence_origin": eff_origin.value,
+                "evaluation_origin": eff_origin.value,
+            }
+            if canonical_quote:
+                hb_meta["canonical_quote"] = canonical_quote
+            elif metadata and "canonical_quote" in metadata:
+                hb_meta["canonical_quote"] = metadata["canonical_quote"]
+            elif metadata and "feed_health" in metadata:
+                hb_meta["feed_health"] = metadata["feed_health"]
+
             self.record_engine_heartbeat(
                 db,
                 engine_instance_id=inst_id,
@@ -1771,13 +1772,7 @@ class EngineObservabilityService:
                 evaluation_completed_at_ms=completed_at_ms,
                 successful_cycle=(status == "COMPLETED" and persistence_succeeded),
                 cycle_failed=(status == "FAILED"),
-                metadata={
-                    "worker_role": "EVALUATION_OWNER",
-                    "scope": "CG01",
-                    "mode": "PAPER",
-                    "evidence_origin": eff_origin.value,
-                    "evaluation_origin": eff_origin.value,
-                },
+                metadata=hb_meta,
                 borrow_session=borrow_session,
             )
         except Exception as hb_err:

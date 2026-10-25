@@ -68,8 +68,8 @@ def test_tx01_tx02_borrowed_session_flush_and_rollback(test_db):
 
     try:
         res = service._persist_interval_record(session, data)
-        # Flush occurred, but transaction not committed by telemetry service
-        assert res.status == "COMMITTED"  # recorded in pending session flush
+        # AC43A-01: Flush occurred, transaction not committed by telemetry service -> PENDING_COMMIT
+        assert res.status == "PENDING_COMMIT"
 
         # TX02: Caller encounters business error and rolls back transaction
         session.rollback()
