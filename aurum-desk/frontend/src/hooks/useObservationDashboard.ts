@@ -49,26 +49,45 @@ export function getTodayMidnightMs(nowMs: number, tz: ObservationTimezone): numb
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone,
     year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    second: 'numeric',
-    hour12: false,
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
   });
 
-  const parts = formatter.formatToParts(new Date(nowMs));
-  let hour = 0;
-  let minute = 0;
-  let second = 0;
-  for (const part of parts) {
-    if (part.type === 'hour') hour = parseInt(part.value, 10) % 24;
-    if (part.type === 'minute') minute = parseInt(part.value, 10);
-    if (part.type === 'second') second = parseInt(part.value, 10);
-  }
+  const localParts = (instantMs: number) => {
+    const parts = formatter.formatToParts(new Date(instantMs));
+    const numbers: Record<string, number> = {};
+    for (const part of parts) {
+      if (['year', 'month', 'day', 'hour', 'minute', 'second'].includes(part.type)) {
+        numbers[part.type] = Number(part.value);
+      }
+    }
+    return numbers;
+  };
 
-  const msElapsedToday = (hour * 3600 + minute * 60 + second) * 1000 + (nowMs % 1000);
-  return nowMs - msElapsedToday;
+  const currentLocalDate = localParts(nowMs);
+  // Interpret the selected local date at midnight, not the elapsed wall-clock
+  // seconds since midnight (a DST-transition day can be 23 or 25 hours long).
+  const targetWallUtcMs = Date.UTC(
+    currentLocalDate.year,
+    currentLocalDate.month - 1,
+    currentLocalDate.day,
+  );
+  let estimate = targetWallUtcMs;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const wall = localParts(estimate);
+    const actualWallAsUtcMs = Date.UTC(
+      wall.year, wall.month - 1, wall.day, wall.hour % 24,
+      wall.minute, wall.second,
+    );
+    const correction = targetWallUtcMs - actualWallAsUtcMs;
+    if (correction === 0) return estimate;
+    estimate += correction;
+  }
+  return estimate;
 }
 
 /**
