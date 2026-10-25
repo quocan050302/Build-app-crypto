@@ -108,6 +108,178 @@ class ObservationProvenance:
         }
 
 
+@dataclass(frozen=True)
+class TimestampAuthorityResult:
+    is_valid: bool
+    is_stale: bool
+    exchange_ts_ms: Optional[int]
+    received_at_ms: Optional[int]
+    reason_code: Optional[str] = None
+
+
+def validate_observation_timestamp_authority(
+    *,
+    exchange_ts_ms: Optional[Any],
+    received_at_ms: Optional[Any],
+    evaluated_at_ms: int,
+    source: Optional[str] = None,
+    connection_epoch: Optional[int] = None,
+) -> TimestampAuthorityResult:
+    """
+    V17.6.4.3c CPA-03 (Section 04): Strict exchange vs receive timestamp authority policy.
+    Primary Bitget WebSocket GOOD requires a valid exchange timestamp and a trusted receive timestamp.
+    """
+    if exchange_ts_ms is None and received_at_ms is None:
+        return TimestampAuthorityResult(
+            is_valid=False,
+            is_stale=False,
+            exchange_ts_ms=None,
+            received_at_ms=None,
+            reason_code="QUOTE_TIMESTAMP_UNVERIFIED",
+        )
+    if exchange_ts_ms is None:
+        recv_val = None
+        try:
+            if received_at_ms is not None:
+                rf = float(received_at_ms)
+                if math.isfinite(rf):
+                    recv_val = int(rf)
+        except (TypeError, ValueError):
+            pass
+        return TimestampAuthorityResult(
+            is_valid=False,
+            is_stale=False,
+            exchange_ts_ms=None,
+            received_at_ms=recv_val,
+            reason_code="EXCHANGE_TIMESTAMP_UNVERIFIED",
+        )
+    if received_at_ms is None:
+        exch_val = None
+        try:
+            if exchange_ts_ms is not None:
+                ef = float(exchange_ts_ms)
+                if math.isfinite(ef):
+                    exch_val = int(ef)
+        except (TypeError, ValueError):
+            pass
+        return TimestampAuthorityResult(
+            is_valid=False,
+            is_stale=False,
+            exchange_ts_ms=exch_val,
+            received_at_ms=None,
+            reason_code="RECEIVE_TIMESTAMP_UNVERIFIED",
+        )
+
+    # Validate numbers
+    try:
+        exch_f = float(exchange_ts_ms)
+        if not math.isfinite(exch_f) or exch_f <= 0:
+            return TimestampAuthorityResult(False, False, None, None, "INVALID_EXCHANGE_TIMESTAMP")
+    except (TypeError, ValueError):
+        return TimestampAuthorityResult(False, False, None, None, "INVALID_EXCHANGE_TIMESTAMP")
+
+    try:
+        recv_f = float(received_at_ms)
+        if not math.isfinite(recv_f) or recv_f <= 0:
+            return TimestampAuthorityResult(False, False, int(exch_f), None, "INVALID_RECEIVE_TIMESTAMP")
+    except (TypeError, ValueError):
+        return TimestampAuthorityResult(False, False, int(exch_f), None, "INVALID_RECEIVE_TIMESTAMP")
+
+    # Units check: must be milliseconds (> 10_000_000_000)
+    if exch_f < 10_000_000_000 or recv_f < 10_000_000_000:
+        return TimestampAuthorityResult(False, False, int(exch_f), int(recv_f), "TIMESTAMP_UNIT_INVALID")
+
+    exch_ts = int(exch_f)
+    recv_ts = int(recv_f)
+
+    # Future timestamps (> +5s)
+    if exch_ts > evaluated_at_ms + 5_000 or recv_ts > evaluated_at_ms + 5_000:
+        return TimestampAuthorityResult(False, False, exch_ts, recv_ts, "QUOTE_FUTURE_CLOCK_SKEW")
+
+    # Contradictory ordering: received earlier than exchange by > 1s
+    if recv_ts < exch_ts - 1_000:
+        return TimestampAuthorityResult(False, False, exch_ts, recv_ts, "QUOTE_TIMESTAMP_CONTRADICTORY")
+
+    # Staleness (> 15s)
+    if (evaluated_at_ms - exch_ts) > 15_000 or (evaluated_at_ms - recv_ts) > 15_000:
+        return TimestampAuthorityResult(True, True, exch_ts, recv_ts, "QUOTE_STALE")
+
+    return TimestampAuthorityResult(True, False, exch_ts, recv_ts, None)
+
+
+@dataclass(frozen=True)
+class TransportAuthorityResult:
+    transport_state: str
+    is_verified: bool
+    reason_code: Optional[str] = None
+
+
+def resolve_authoritative_transport_state(
+    *,
+    feed_adapter_state: Optional[Any],
+    quote_metadata: Optional[Any] = None,
+) -> TransportAuthorityResult:
+    """
+    V17.6.4.3c CPA-01 (Section 02): Trusted feed adapter authority hierarchy.
+    Raw quote metadata cannot override trusted adapter state.
+    """
+    if feed_adapter_state is None:
+        return TransportAuthorityResult(
+            transport_state="UNKNOWN",
+            is_verified=False,
+            reason_code="ADAPTER_STATE_UNAVAILABLE",
+        )
+
+    adapter_t = getattr(feed_adapter_state, "transport_state", None)
+    raw_t = None
+    if isinstance(quote_metadata, dict):
+        raw_t = quote_metadata.get("transport_state")
+    elif hasattr(quote_metadata, "transport_state"):
+        raw_t = getattr(quote_metadata, "transport_state")
+
+    if not adapter_t or adapter_t in ("UNKNOWN", "TRANSPORT_UNKNOWN"):
+        return TransportAuthorityResult(
+            transport_state="UNKNOWN",
+            is_verified=False,
+            reason_code="TRANSPORT_STATE_UNKNOWN",
+        )
+
+    if adapter_t in ("DISCONNECTED", "DOWN"):
+        code = "TRANSPORT_AUTHORITY_CONFLICT" if raw_t == "CONNECTED" else f"ADAPTER_{adapter_t}"
+        return TransportAuthorityResult(
+            transport_state="DISCONNECTED",
+            is_verified=False,
+            reason_code=code,
+        )
+
+    if adapter_t in ("RECONNECTING", "CONNECTING", "DEGRADED"):
+        code = "TRANSPORT_AUTHORITY_CONFLICT" if raw_t == "CONNECTED" else f"ADAPTER_{adapter_t}"
+        return TransportAuthorityResult(
+            transport_state=adapter_t,
+            is_verified=False,
+            reason_code=code,
+        )
+
+    if adapter_t == "CONNECTED":
+        if raw_t in ("DISCONNECTED", "DOWN"):
+            return TransportAuthorityResult(
+                transport_state="DISCONNECTED",
+                is_verified=False,
+                reason_code="TRANSPORT_AUTHORITY_CONFLICT",
+            )
+        return TransportAuthorityResult(
+            transport_state="CONNECTED",
+            is_verified=True,
+            reason_code=None,
+        )
+
+    return TransportAuthorityResult(
+        transport_state="UNKNOWN",
+        is_verified=False,
+        reason_code=f"UNKNOWN_ADAPTER_STATE_{adapter_t}",
+    )
+
+
 def resolve_watcher_observation_provenance(
     *,
     raw_quote: Any,
@@ -116,13 +288,13 @@ def resolve_watcher_observation_provenance(
     evaluated_at_ms: int,
 ) -> ObservationProvenance:
     """
-    V17.6.4.3b CFP-01..CFP-04: Authoritative resolution of market data feed provenance.
+    V17.6.4.3c CPA-01..CPA-04: Authoritative resolution of market data feed provenance.
     Guarantees:
-    - Never replaces missing exchange timestamp with evaluation time (CFP-01).
+    - Never replaces missing exchange timestamp with evaluation time (CFP-01 / CPA-03).
     - Preserves exchange_ts_ms, received_at_ms, and evaluated_at_ms as distinct values.
-    - Never defaults missing quote source to "WS" (CFP-02).
-    - Never coerces DISCONNECTED, RECONNECTING, DEGRADED, or UNKNOWN transport to CONNECTED (CFP-03).
-    - Validates connection_epoch: quotes from prior connection epochs fail authority (CFP-04, Part 033-034).
+    - Never allows raw quote metadata to self-authorize WS or override adapter transport (CPA-01, CPA-02).
+    - Requires valid exchange and receive timestamps for primary WS GOOD (CPA-03).
+    - Validates connection_epoch: quotes from prior or missing epochs fail authority (CPA-04).
     """
     sym = "XAUUSDT"
     if raw_quote is not None:
@@ -150,70 +322,89 @@ def resolve_watcher_observation_provenance(
     else:
         bid, ask, v_valid, v_stale, v_reason = 0.0, 0.0, False, True, "QUOTE_UNAVAILABLE"
 
-    # Separate Timestamps: exchange_ts_ms vs received_at_ms (CFP-01)
-    exch_ts = None
-    recv_ts = None
+    # Extract raw timestamps (CPA-03)
+    raw_exch_ts = None
+    raw_recv_ts = None
     if raw_quote is not None:
-        exch_ts = getattr(raw_quote, "exchange_ts_ms", None)
-        if exch_ts is None:
-            exch_ts = getattr(raw_quote, "exchange_time", None)
-        if exch_ts is None and isinstance(raw_quote, dict):
-            exch_ts = raw_quote.get("exchange_ts_ms") or raw_quote.get("exchange_time") or raw_quote.get("timestamp_ms") or raw_quote.get("timestamp")
+        raw_exch_ts = getattr(raw_quote, "exchange_ts_ms", None)
+        if raw_exch_ts is None:
+            raw_exch_ts = getattr(raw_quote, "exchange_time", None)
+        if raw_exch_ts is None and isinstance(raw_quote, dict):
+            raw_exch_ts = raw_quote.get("exchange_ts_ms") or raw_quote.get("exchange_time") or raw_quote.get("timestamp_ms") or raw_quote.get("timestamp")
 
-        recv_ts = getattr(raw_quote, "received_at_ms", None)
-        if recv_ts is None and isinstance(raw_quote, dict):
-            recv_ts = raw_quote.get("received_at_ms") or raw_quote.get("observed_at")
+        raw_recv_ts = getattr(raw_quote, "received_at_ms", None)
+        if raw_recv_ts is None and isinstance(raw_quote, dict):
+            raw_recv_ts = raw_quote.get("received_at_ms") or raw_quote.get("observed_at")
 
-    # If both missing: never synthesize with evaluated_at_ms!
-    if exch_ts is None and recv_ts is None:
+    ts_res = validate_observation_timestamp_authority(
+        exchange_ts_ms=raw_exch_ts,
+        received_at_ms=raw_recv_ts,
+        evaluated_at_ms=evaluated_at_ms,
+    )
+    exch_ts = ts_res.exchange_ts_ms
+    recv_ts = ts_res.received_at_ms
+    if not ts_res.is_valid:
         v_valid = False
         if not v_reason:
-            v_reason = "QUOTE_TIMESTAMP_UNVERIFIED"
-    elif exch_ts is not None:
-        if exch_ts > evaluated_at_ms + 5_000:
-            v_valid = False
-            v_reason = "QUOTE_FUTURE_CLOCK_SKEW"
-        elif (evaluated_at_ms - exch_ts) > 15_000:
-            v_stale = True
-            if not v_reason:
-                v_reason = "QUOTE_STALE"
+            v_reason = ts_res.reason_code
+    if ts_res.is_stale:
+        v_stale = True
+        if not v_reason:
+            v_reason = ts_res.reason_code
 
-    # Transport state (CFP-03)
-    t_state = None
-    if isinstance(raw_quote, dict):
-        t_state = raw_quote.get("transport_state")
-    elif hasattr(raw_quote, "transport_state"):
-        t_state = getattr(raw_quote, "transport_state")
-    if t_state is None and feed_adapter_state is not None:
-        t_state = getattr(feed_adapter_state, "transport_state", None)
+    # Authoritative Transport State (CPA-01)
+    trans_res = resolve_authoritative_transport_state(
+        feed_adapter_state=feed_adapter_state,
+        quote_metadata=raw_quote,
+    )
+    transport_state = trans_res.transport_state
+    if not trans_res.is_verified:
+        v_valid = False
+        if not v_reason:
+            v_reason = trans_res.reason_code
 
-    if not t_state or t_state in ("UNKNOWN", "TRANSPORT_UNKNOWN"):
-        transport_state = "UNKNOWN"
-    elif t_state in ("CONNECTED", "DISCONNECTED", "RECONNECTING", "DEGRADED", "CONNECTING"):
-        transport_state = t_state
-    else:
-        transport_state = "UNKNOWN"
-
-    # Quote source (CFP-02)
+    # Authoritative Quote Source (CPA-02)
     raw_src = None
     if raw_quote is not None:
         raw_src = getattr(raw_quote, "source", None) or getattr(raw_quote, "quote_source", None)
         if raw_src is None and isinstance(raw_quote, dict):
             raw_src = raw_quote.get("quote_source") or raw_quote.get("source")
 
-    if raw_src is None and feed_adapter_state is not None:
-        raw_src = getattr(feed_adapter_state, "feed_source", None)
-
-    if raw_src in ("WS", "WEBSOCKET"):
-        quote_source = "WS"
-    elif raw_src in ("REST_FALLBACK", "REST"):
-        quote_source = "REST_FALLBACK"
-    elif raw_src:
-        quote_source = str(raw_src)
+    if feed_adapter_state is not None:
+        adapter_src = getattr(feed_adapter_state, "feed_source", None)
+        if adapter_src in ("REST_FALLBACK", "REST"):
+            quote_source = "REST_FALLBACK"
+            if raw_src in ("WS", "WEBSOCKET"):
+                v_valid = False
+                v_reason = "SOURCE_AUTHORITY_CONFLICT"
+            elif raw_src in ("REST_FALLBACK", "REST", None) and ts_res.is_valid and not ts_res.is_stale and bid > 0 and ask >= bid:
+                # Genuine REST fallback quote with valid timestamps and prices is valid
+                v_valid = True
+                v_reason = None
+        elif adapter_src in ("WS", "WEBSOCKET") and trans_res.transport_state == "CONNECTED":
+            if raw_src in ("REST_FALLBACK", "REST"):
+                quote_source = "REST_FALLBACK"
+                v_valid = False
+                if not v_reason:
+                    v_reason = "SOURCE_AUTHORITY_CONFLICT"
+            elif raw_src in ("WS", "WEBSOCKET") or raw_src is None:
+                quote_source = "WS"
+            else:
+                quote_source = str(raw_src)
+        elif adapter_src:
+            quote_source = str(adapter_src)
+        else:
+            quote_source = "UNKNOWN"
+            v_valid = False
+            if not v_reason:
+                v_reason = "QUOTE_SOURCE_UNKNOWN"
     else:
         quote_source = "UNKNOWN"
+        v_valid = False
+        if not v_reason:
+            v_reason = "ADAPTER_STATE_UNAVAILABLE"
 
-    # Connection epoch (CFP-04, Part 033-034)
+    # Connection Epoch Authority (CPA-04)
     adapter_epoch = getattr(feed_adapter_state, "connection_epoch", None) if feed_adapter_state is not None else None
     quote_epoch = None
     if raw_quote is not None:
@@ -221,12 +412,28 @@ def resolve_watcher_observation_provenance(
         if quote_epoch is None and isinstance(raw_quote, dict):
             quote_epoch = raw_quote.get("connection_epoch") or raw_quote.get("epoch")
 
-    is_authoritative_for_epoch = True
-    if quote_epoch is not None and adapter_epoch is not None:
-        if quote_epoch != adapter_epoch:
-            is_authoritative_for_epoch = False
-            v_reason = "CONNECTION_EPOCH_MISMATCH"
-            v_valid = False
+    if quote_source == "REST_FALLBACK":
+        is_authoritative_for_epoch = True
+    elif adapter_epoch is not None and quote_epoch is not None and adapter_epoch == quote_epoch:
+        is_authoritative_for_epoch = True
+    else:
+        is_authoritative_for_epoch = False
+        v_valid = False
+        if not v_reason:
+            if quote_epoch is not None and adapter_epoch is not None:
+                v_reason = "CONNECTION_EPOCH_MISMATCH"
+            else:
+                v_reason = "CONNECTION_EPOCH_UNVERIFIED"
+
+    # Symbol match
+    raw_sym = getattr(raw_quote, "symbol", None) if raw_quote is not None else None
+    if raw_sym is None and isinstance(raw_quote, dict):
+        raw_sym = raw_quote.get("symbol")
+    adapter_sym = getattr(feed_adapter_state, "symbol", None) if feed_adapter_state is not None else None
+    if raw_sym and adapter_sym and str(raw_sym).upper() != str(adapter_sym).upper():
+        v_valid = False
+        if not v_reason:
+            v_reason = f"SYMBOL_MISMATCH_{raw_sym}_VS_{adapter_sym}"
 
     return ObservationProvenance(
         symbol=sym,

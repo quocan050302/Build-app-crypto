@@ -119,9 +119,9 @@ def validated_quote_to_cg01_snapshot(
     raw_meta: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    V16.21 Rule 042: Pure converter from ValidatedQuote to CG01 quote snapshot dictionary.
+    V16.21 Rule 042 / V17.6.4.3c: Pure converter from ValidatedQuote to CG01 quote snapshot dictionary.
     Preserves exact bid, ask, last (distinct from mid), spread, exchange_time, observed_at,
-    is_valid, is_stale, and rejection reason without mutating input.
+    is_valid, is_stale, connection_epoch, and rejection reason without mutating input.
     """
     bid = float(getattr(q, "bid", 0.0))
     ask = float(getattr(q, "ask", 0.0))
@@ -137,14 +137,21 @@ def validated_quote_to_cg01_snapshot(
     rejection_code = getattr(q, "rejection_code", None) or ("QUOTE_STALE" if is_stale else ("QUOTE_UNAVAILABLE" if not is_valid else None))
     rejection_detail = getattr(q, "rejection_detail", None)
 
-    exchange_time = getattr(q, "exchange_time", None)
-    observed_at = int(getattr(q, "observed_at", 0))
+    exchange_time = getattr(q, "exchange_time", None) or getattr(q, "exchange_ts_ms", None)
+    observed_at = int(getattr(q, "observed_at", 0) or getattr(q, "received_at_ms", 0))
     freshness_sec = float(getattr(q, "freshness_sec", 9999.0))
 
     meta = raw_meta or {}
-    epoch = meta.get("connection_epoch") or meta.get("epoch")
-    sequence = meta.get("sequence")
-    source = meta.get("source", "COLLECTOR_TICKER")
+    epoch = None
+    if isinstance(meta, dict):
+        epoch = meta.get("connection_epoch") or meta.get("epoch")
+    elif hasattr(meta, "connection_epoch"):
+        epoch = getattr(meta, "connection_epoch", None)
+    if epoch is None:
+        epoch = getattr(q, "connection_epoch", None)
+
+    sequence = meta.get("sequence") if isinstance(meta, dict) else getattr(meta, "sequence", None)
+    source = (meta.get("source") if isinstance(meta, dict) else getattr(meta, "source", None)) or "COLLECTOR_TICKER"
 
     return {
         "symbol": symbol,
@@ -155,33 +162,38 @@ def validated_quote_to_cg01_snapshot(
         "price": mid,
         "spread": spread,
         "exchange_time": exchange_time,
+        "exchange_ts_ms": exchange_time,
         "observed_at": observed_at,
+        "received_at_ms": observed_at,
         "timestamp": exchange_time or observed_at,
         "freshness_sec": freshness_sec,
         "is_valid": is_valid,
+        "is_quote_valid": is_valid,
         "is_stale": is_stale,
         "rejection_code": rejection_code,
         "rejection_detail": rejection_detail,
         "source": source,
+        "quote_source": source,
+        "connection_epoch": epoch,
         "epoch": epoch,
         "sequence": sequence,
     }
 
 
 def capture_cg01_quote_snapshot(
-    symbol: str = "XAUUSDT",
+    symbol: Any = "XAUUSDT",
     as_of_ms: Optional[int] = None,
     execution_now_ms: Optional[int] = None,
     clock: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
-    V16.21 / V16.24 Rules 014, 015, 031-046: Capture authoritative immutable quote snapshot from collector service.
+    V16.21 / V16.24 / V17.6.4.3c: Capture authoritative immutable quote snapshot from collector service or quote object.
     Normalizes quote with canonical execution quote validator without synthesizing artificial quotes.
     Freshness is strictly evaluated against execution_now_ms (current clock), not candle close time.
     Handles ValidatedQuote contract strictly: exchange_time, observed_at, last != mid.
     """
     from services.collector_service import collector_service
-    from services.quote_validator import normalize_execution_quote
+    from services.quote_validator import ValidatedQuote, normalize_execution_quote
 
     if execution_now_ms is not None:
         now_ms = execution_now_ms
@@ -191,10 +203,19 @@ def capture_cg01_quote_snapshot(
         now_ms = clock.now_ms()
     else:
         now_ms = int(time.time() * 1000)
-    raw_t = collector_service.latest_ticker
+
+    # Allow direct quote object or symbol string
+    target_symbol = "XAUUSDT"
+    if isinstance(symbol, str):
+        target_symbol = symbol
+        raw_t = collector_service.latest_ticker
+    else:
+        raw_t = symbol
+        target_symbol = getattr(raw_t, "symbol", None) or (raw_t.get("symbol") if isinstance(raw_t, dict) else "XAUUSDT") or "XAUUSDT"
+
     if not raw_t:
         return {
-            "symbol": symbol,
+            "symbol": target_symbol,
             "bid": 0.0,
             "ask": 0.0,
             "last": 0.0,
@@ -202,23 +223,28 @@ def capture_cg01_quote_snapshot(
             "mid": 0.0,
             "price": 0.0,
             "exchange_time": None,
+            "exchange_ts_ms": None,
             "observed_at": now_ms,
+            "received_at_ms": now_ms,
             "timestamp": now_ms,
             "freshness_sec": 9999.0,
             "is_valid": False,
+            "is_quote_valid": False,
             "is_stale": True,
             "rejection_code": "QUOTE_UNAVAILABLE",
             "rejection_detail": "Không có dữ liệu ticker từ collector feed",
             "source": "COLLECTOR_TICKER",
+            "quote_source": "COLLECTOR_TICKER",
+            "connection_epoch": None,
             "epoch": None,
             "sequence": None,
         }
 
     # Rule 040: Verify symbol matching
     raw_sym = raw_t.get("symbol") if isinstance(raw_t, dict) else getattr(raw_t, "symbol", None)
-    if raw_sym and str(raw_sym).upper() != str(symbol).upper():
+    if raw_sym and str(raw_sym).upper() != str(target_symbol).upper():
         return {
-            "symbol": symbol,
+            "symbol": target_symbol,
             "bid": 0.0,
             "ask": 0.0,
             "last": 0.0,
@@ -226,21 +252,43 @@ def capture_cg01_quote_snapshot(
             "mid": 0.0,
             "price": 0.0,
             "exchange_time": None,
+            "exchange_ts_ms": None,
             "observed_at": now_ms,
+            "received_at_ms": now_ms,
             "timestamp": now_ms,
             "freshness_sec": 9999.0,
             "is_valid": False,
+            "is_quote_valid": False,
             "is_stale": True,
             "rejection_code": "SYMBOL_MISMATCH",
-            "rejection_detail": f"Ticker symbol {raw_sym} does not match requested symbol {symbol}",
+            "rejection_detail": f"Ticker symbol {raw_sym} does not match requested symbol {target_symbol}",
             "source": "COLLECTOR_TICKER",
+            "quote_source": "COLLECTOR_TICKER",
+            "connection_epoch": None,
             "epoch": None,
             "sequence": None,
         }
 
+    if hasattr(raw_t, "bid") and hasattr(raw_t, "ask") and not isinstance(raw_t, (dict, ValidatedQuote)):
+        raw_dict = {
+            "symbol": target_symbol,
+            "bid": float(getattr(raw_t, "bid", 0.0)),
+            "ask": float(getattr(raw_t, "ask", 0.0)),
+            "last": float(getattr(raw_t, "last", 0.0)),
+            "exchange_ts_ms": getattr(raw_t, "exchange_ts_ms", None),
+            "received_at_ms": getattr(raw_t, "received_at_ms", None),
+            "timestamp_ms": getattr(raw_t, "exchange_ts_ms", None) or getattr(raw_t, "timestamp_ms", None),
+            "source": getattr(raw_t, "source", "WS"),
+            "quote_source": getattr(raw_t, "source", "WS"),
+            "connection_epoch": getattr(raw_t, "connection_epoch", None),
+            "status": str(getattr(raw_t, "status", "VALID")),
+            "is_valid": bool(getattr(raw_t, "is_valid", True)),
+        }
+        raw_t = raw_dict
+
     q = normalize_execution_quote(raw_t, now_ms=now_ms)
-    raw_meta = raw_t if isinstance(raw_t, dict) else {}
-    return validated_quote_to_cg01_snapshot(q, symbol=symbol, raw_meta=raw_meta)
+    raw_meta = raw_t if isinstance(raw_t, dict) else (raw_t.__dict__ if hasattr(raw_t, "__dict__") else {})
+    return validated_quote_to_cg01_snapshot(q, symbol=target_symbol, raw_meta=raw_meta)
 
 
 def resolve_cg01_financial_context(

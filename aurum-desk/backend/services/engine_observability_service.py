@@ -158,19 +158,7 @@ def resolve_observation_evidence_quality(
     last_quote_at_ms = feed.get("last_quote_at_ms")
     feed_symbol = feed.get("symbol")
 
-    # 0. Connection epoch validation (Part 033-034, CFP-04)
-    if feed.get("is_authoritative_for_epoch") is False:
-        return ObservationEvidenceQuality(
-            quality="DEGRADED",
-            reason_code=feed.get("reason_code") or "CONNECTION_EPOCH_MISMATCH",
-            feed_source=quote_source,
-            quote_age_ms=None,
-            quote_valid=False,
-            transport_state=transport_state,
-            evidence_timestamp_ms=t_now_val,
-        )
-
-    # 1. Symbol validation
+    # 0. Symbol validation
     if feed_symbol and str(feed_symbol).upper() != symbol.upper():
         return ObservationEvidenceQuality(
             quality="UNVERIFIED",
@@ -181,19 +169,8 @@ def resolve_observation_evidence_quality(
             evidence_timestamp_ms=t_now_val,
         )
 
-    # 2. Transport state authority (ECI-02 Part 052)
-    if not transport_state or transport_state == "UNKNOWN":
-        return ObservationEvidenceQuality(
-            quality="UNVERIFIED",
-            reason_code="TRANSPORT_STATE_UNKNOWN",
-            feed_source=quote_source,
-            quote_age_ms=None,
-            quote_valid=False,
-            transport_state="UNKNOWN",
-            evidence_timestamp_ms=t_now,
-        )
-
-    if transport_state in ("DISCONNECTED", "DOWN", "RECONNECTING", "DEGRADED"):
+    # 1. Transport down authority (DISCONNECTED / DOWN -> DOWN unless active REST fallback)
+    if transport_state in ("DISCONNECTED", "DOWN"):
         if quote_source == "REST_FALLBACK" and (feed.get("freshness_state") in ("CONNECTED_FRESH", "FRESH") or feed.get("status") in ("VALID", "FRESH")) and bid is not None and ask is not None:
             return ObservationEvidenceQuality(
                 quality="DEGRADED",
@@ -205,7 +182,42 @@ def resolve_observation_evidence_quality(
                 evidence_timestamp_ms=last_quote_at_ms or t_now,
             )
         return ObservationEvidenceQuality(
-            quality="DOWN" if transport_state == "DISCONNECTED" else "DEGRADED",
+            quality="DOWN",
+            reason_code=f"TRANSPORT_{transport_state}",
+            feed_source=quote_source,
+            quote_age_ms=None,
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now,
+        )
+
+    # 2. Connection epoch validation (Part 033-034, CFP-04)
+    if feed.get("is_authoritative_for_epoch") is False:
+        return ObservationEvidenceQuality(
+            quality="DEGRADED",
+            reason_code=feed.get("reason_code") or "CONNECTION_EPOCH_MISMATCH",
+            feed_source=quote_source,
+            quote_age_ms=None,
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now_val,
+        )
+
+    # 3. Transport state authority (ECI-02 Part 052)
+    if not transport_state or transport_state == "UNKNOWN":
+        return ObservationEvidenceQuality(
+            quality="UNVERIFIED",
+            reason_code="TRANSPORT_STATE_UNKNOWN",
+            feed_source=quote_source,
+            quote_age_ms=None,
+            quote_valid=False,
+            transport_state="UNKNOWN",
+            evidence_timestamp_ms=t_now,
+        )
+
+    if transport_state in ("RECONNECTING", "DEGRADED"):
+        return ObservationEvidenceQuality(
+            quality="DEGRADED",
             reason_code=f"TRANSPORT_{transport_state}",
             feed_source=quote_source,
             quote_age_ms=None,

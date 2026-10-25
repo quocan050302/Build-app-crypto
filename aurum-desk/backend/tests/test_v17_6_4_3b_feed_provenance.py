@@ -410,29 +410,35 @@ def test_fp14_validated_quote_lacks_source_authority():
 def test_fp15_rest_fallback_must_not_be_labeled_ws():
     """FP15: REST fallback must not be labeled WS, evaluating to DEGRADED."""
     t_eval = 1700000000000
-    bitget_ws_service.transport_state = "DISCONNECTED"
-    bitget_ws_service.feed_source = "REST_FALLBACK"
+    orig_transport = getattr(bitget_ws_service, "transport_state", "CONNECTED")
+    orig_source = getattr(bitget_ws_service, "feed_source", "WS")
+    try:
+        bitget_ws_service.transport_state = "DISCONNECTED"
+        bitget_ws_service.feed_source = "REST_FALLBACK"
 
-    quote = {
-        "symbol": "XAUUSDT",
-        "bid": 2650.0,
-        "ask": 2650.5,
-        "exchange_ts_ms": t_eval - 500,
-        "received_at_ms": t_eval - 400,
-        "quote_source": "REST_FALLBACK",
-        "freshness_state": "CONNECTED_FRESH",
-    }
+        quote = {
+            "symbol": "XAUUSDT",
+            "bid": 2650.0,
+            "ask": 2650.5,
+            "exchange_ts_ms": t_eval - 500,
+            "received_at_ms": t_eval - 400,
+            "quote_source": "REST_FALLBACK",
+            "freshness_state": "CONNECTED_FRESH",
+        }
 
-    from services.scalp_watcher_orchestrator import resolve_watcher_observation_provenance
-    prov = resolve_watcher_observation_provenance(
-        raw_quote=quote,
-        validated_quote=normalize_execution_quote(quote, now_ms=t_eval),
-        feed_adapter_state=bitget_ws_service,
-        evaluated_at_ms=t_eval,
-    )
-    assert prov.quote_source == "REST_FALLBACK"
-    qual = resolve_observation_evidence_quality(symbol="XAUUSDT", feed=prov.to_snapshot_dict(), t_now=t_eval)
-    assert qual.quality == "DEGRADED"
+        from services.scalp_watcher_orchestrator import resolve_watcher_observation_provenance
+        prov = resolve_watcher_observation_provenance(
+            raw_quote=quote,
+            validated_quote=normalize_execution_quote(quote, now_ms=t_eval),
+            feed_adapter_state=bitget_ws_service,
+            evaluated_at_ms=t_eval,
+        )
+        assert prov.quote_source == "REST_FALLBACK"
+        qual = resolve_observation_evidence_quality(symbol="XAUUSDT", feed=prov.to_snapshot_dict(), t_now=t_eval)
+        assert qual.quality == "DEGRADED"
+    finally:
+        bitget_ws_service.transport_state = orig_transport
+        bitget_ws_service.feed_source = orig_source
 
 
 def test_fp16_cached_quote_after_disconnect(isolated_dbs):
