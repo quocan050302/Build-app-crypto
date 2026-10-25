@@ -1193,7 +1193,9 @@ class EngineObservabilityService:
     ) -> Optional[Dict[str, Any]]:
         """Reconstructs latest cycle from database after restart (FIX-13 & PART 036)."""
         diag = self.get_latest_cycle_diagnostic()
-        if diag:
+        if diag and diag.get("symbol") == symbol and (
+            run_id is None or diag.get("run_id") == run_id
+        ):
             return diag
         if db is None:
             return None
@@ -1951,19 +1953,19 @@ class EngineObservabilityService:
                 financial_summary = {
                     "status": "NOT_FOUND",
                     "run_id": target_run_id,
-                    "closed_trades": 0,
-                    "open_trades": 0,
-                    "armed_orders": 0,
-                    "wins": 0,
-                    "losses": 0,
-                    "breakevens": 0,
+                    "closed_trades": None,
+                    "open_trades": None,
+                    "armed_orders": None,
+                    "wins": None,
+                    "losses": None,
+                    "breakevens": None,
                     "winrate_pct": None,
-                    "net_pnl_usd": 0.0,
-                    "net_expectancy": 0.0,
-                    "max_drawdown_usd": 0.0,
-                    "max_drawdown_pct": 0.0,
-                    "initial_capital_usdt": 1000.0,
-                    "current_equity_usdt": 1000.0,
+                    "net_pnl_usd": None,
+                    "net_expectancy": None,
+                    "max_drawdown_usd": None,
+                    "max_drawdown_pct": None,
+                    "initial_capital_usdt": None,
+                    "current_equity_usdt": None,
                 }
 
         # 8. Active Incidents (Tier 1 - Persisted DB + RAM cache - FIX-10 & PART 106-107)
@@ -1994,7 +1996,7 @@ class EngineObservabilityService:
             "top_blocked_categories": blocked_categories_summary,
             "financial": financial_summary,
             "incidents": active_incidents_list,
-            "latest_cycle": self.get_latest_cycle_diagnostic(),
+            "latest_cycle": self.get_latest_persisted_cycle(db, symbol=symbol, run_id=target_run_id),
         }
 
     def generate_run_report_markdown(
