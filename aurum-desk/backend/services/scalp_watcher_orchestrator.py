@@ -634,8 +634,10 @@ class ScalpWatcherOrchestrator:
             effective_run_id = research_context.run_id
         elif db is not None:
             try:
+                from contextlib import nullcontext
                 from services.paper_research_run_service import resolve_active_observation_run
-                active_run = resolve_active_observation_run(db, scope=execution_scope or "CG01", symbol=symbol)
+                with getattr(db, "no_autoflush", nullcontext()):
+                    active_run = resolve_active_observation_run(db, scope=execution_scope or "CG01", symbol=symbol)
                 if active_run:
                     effective_run_id = active_run.run_id
             except Exception:

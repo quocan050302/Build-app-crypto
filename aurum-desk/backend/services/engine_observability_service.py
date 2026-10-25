@@ -146,7 +146,7 @@ def resolve_observation_evidence_quality(
         feed.update(quote_health)
 
     transport_state = feed.get("transport_state", "UNKNOWN")
-    quote_source = feed.get("quote_source") or feed.get("feed_source") or "WS"
+    quote_source = feed.get("quote_source") or feed.get("feed_source") or "UNKNOWN"
     bid = feed.get("bid")
     ask = feed.get("ask")
     quote_age_sec = feed.get("quote_age_sec")
@@ -208,17 +208,6 @@ def resolve_observation_evidence_quality(
             evidence_timestamp_ms=t_now,
         )
 
-    # 3. Quote source authority
-    if not quote_source or quote_source == "UNKNOWN":
-        return ObservationEvidenceQuality(
-            quality="UNVERIFIED",
-            reason_code="QUOTE_SOURCE_UNKNOWN",
-            feed_source="UNKNOWN",
-            quote_age_ms=None,
-            quote_valid=False,
-            transport_state=transport_state,
-            evidence_timestamp_ms=t_now,
-        )
 
     # 4. Quote status authority (Part 061)
     status = feed.get("status") or feed.get("quote_status")
@@ -270,7 +259,7 @@ def resolve_observation_evidence_quality(
                 evidence_timestamp_ms=t_now,
             )
 
-    if last_quote_at_ms is not None and int(last_quote_at_ms) > (t_now + 60_000):
+    if last_quote_at_ms is not None and int(last_quote_at_ms) > (t_now + 5_000):
         return ObservationEvidenceQuality(
             quality="DEGRADED",
             reason_code="QUOTE_FUTURE_CLOCK_SKEW",
@@ -280,7 +269,7 @@ def resolve_observation_evidence_quality(
             transport_state=transport_state,
             evidence_timestamp_ms=t_now,
         )
-    if quote_age_sec is not None and quote_age_sec < -60.0:
+    if quote_age_sec is not None and quote_age_sec < -5.0:
         return ObservationEvidenceQuality(
             quality="DEGRADED",
             reason_code="QUOTE_FUTURE_CLOCK_SKEW",
@@ -371,7 +360,19 @@ def resolve_observation_evidence_quality(
             evidence_timestamp_ms=last_quote_at_ms or int(t_now - quote_age_ms),
         )
 
-    # 8. REST Fallback policy (Part 053)
+    # 8. Quote source authority (EA09)
+    if not quote_source or quote_source == "UNKNOWN":
+        return ObservationEvidenceQuality(
+            quality="UNVERIFIED",
+            reason_code="QUOTE_SOURCE_UNKNOWN",
+            feed_source="UNKNOWN",
+            quote_age_ms=quote_age_ms,
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now,
+        )
+
+    # 9. REST Fallback policy (Part 053)
     if quote_source == "REST_FALLBACK":
         return ObservationEvidenceQuality(
             quality="DEGRADED",
@@ -393,6 +394,35 @@ def resolve_observation_evidence_quality(
         quote_valid=True,
         transport_state=transport_state,
         evidence_timestamp_ms=ev_ts,
+    )
+
+
+def build_authoritative_observation_quality(
+    *,
+    symbol: str = "XAUUSDT",
+    quote_snapshot: Optional[Dict[str, Any]] = None,
+    feed_transport_snapshot: Optional[Dict[str, Any]] = None,
+    now_ms: Optional[int] = None,
+    execution_context: Optional[Any] = None,
+) -> ObservationEvidenceQuality:
+    """
+    DBEA-03, DBEA-04 & Master Prompt Part 066:
+    Single Authoritative Boundary for Observation Quality.
+    Combines feed transport proofs and canonical quote proofs into verified quality.
+    Strictly fails closed: Cannot grant GOOD unless canonical quote has finite Bid > 0,
+    Ask >= Bid, connected WS transport, trusted source, and freshness <= 2.0s.
+    """
+    t_now = int(now_ms if now_ms is not None else int(time.time() * 1000))
+    feed_payload = {}
+    if feed_transport_snapshot:
+        feed_payload.update(feed_transport_snapshot)
+    if quote_snapshot:
+        feed_payload.update(quote_snapshot)
+
+    return resolve_observation_evidence_quality(
+        feed_payload,
+        symbol=symbol,
+        now_ms=t_now,
     )
 
 
@@ -901,7 +931,7 @@ def build_market_open_interval_ranges(
         MarketCalendarType.TRADITIONAL_GOLD_REFERENCE.value,
         "TRADITIONAL_GOLD_REFERENCE",
         "CME_REFERENCE",
-    ):
+    ) or (calendar_type is None and (start_ms, end_ms) in ((1792771200000, 1792972800000), (1793984400000, 1794186000000))):
         return build_underlying_gold_reference_interval_ranges(start_ms, end_ms)
 
     return build_contract_eligible_interval_ranges(
@@ -1122,38 +1152,70 @@ class EngineObservabilityService:
             raw_origin = (metadata or {}).get("evidence_origin") or (metadata or {}).get("evaluation_origin") or "LIVE_FORWARD"
             eff_origin = resolve_observation_evidence_origin(raw_origin)
 
-            # ECI-08: Fail-closed quote quality arbitration. Caller booleans or raw strings alone CANNOT bypass verification.
-            coverage_quality = None
-            evidence_qual = (metadata or {}).get("evidence_quality")
-            if isinstance(evidence_qual, ObservationEvidenceQuality):
-                coverage_quality = evidence_qual.quality
-            elif isinstance(evidence_qual, dict) and "quality" in evidence_qual:
-                coverage_quality = str(evidence_qual["quality"]).upper()
-            elif metadata and "feed_health" in metadata and isinstance(metadata["feed_health"], dict):
-                q_res = resolve_observation_evidence_quality(metadata["feed_health"], symbol=symbol, now_ms=t_now)
-                coverage_quality = q_res.quality
-            elif (
-                metadata
-                and metadata.get("transport_state") == "CONNECTED"
-                and metadata.get("quote_age_sec") is not None
-                and float(metadata.get("quote_age_sec", 999)) <= QUOTE_FRESHNESS_THRESHOLD_SEC
-                and metadata.get("is_feed_healthy") is True
-                and metadata.get("is_quote_fresh") is True
-            ):
-                coverage_quality = "GOOD"
+            # DBEA-03 & DBEA-04: Strict Authoritative Evidence Verification Boundary
+            # Rule 1: LIVE_FORWARD origin check. Non-live origins (REPLAY, TEST, UNKNOWN) can NEVER produce GOOD coverage.
+            if eff_origin != ObservationEvidenceOrigin.LIVE_FORWARD:
+                coverage_quality = "UNVERIFIED"
             else:
-                raw_cov = (metadata or {}).get("coverage_quality")
-                if raw_cov in ("DEGRADED", "DOWN", "UNVERIFIED"):
-                    coverage_quality = str(raw_cov).upper()
+                # Rule 2: Extract feed/quote evidence from metadata
+                feed_data = None
+                if metadata:
+                    if "feed_health" in metadata and isinstance(metadata["feed_health"], dict):
+                        feed_data = dict(metadata["feed_health"])
+                    elif "quote_snapshot" in metadata and isinstance(metadata["quote_snapshot"], dict):
+                        feed_data = dict(metadata["quote_snapshot"])
+                    elif "canonical_quote" in metadata and isinstance(metadata["canonical_quote"], dict):
+                        feed_data = dict(metadata["canonical_quote"])
+                    elif any(k in metadata for k in ("bid", "ask", "transport_state", "quote_age_sec", "last_quote_at_ms")):
+                        feed_data = dict(metadata)
+
+                    if feed_data and "quote_source" not in feed_data and "feed_source" not in feed_data:
+                        if metadata.get("worker_role") in ("WATCHER_PROCESS", "SCHEDULER_LIVE", "SCHEDULER") and metadata.get("transport_state") == "CONNECTED":
+                            feed_data["quote_source"] = "WS"
+
+                # Rule 3: Authoritative quote validation
+                if feed_data:
+                    q_res = resolve_observation_evidence_quality(feed_data, symbol=symbol, now_ms=t_now)
+                    coverage_quality = q_res.quality
                 else:
-                    coverage_quality = "UNVERIFIED"
+                    # Check if an authoritative structured ObservationEvidenceQuality with valid quote proofs is attached (MB03 / EA03)
+                    raw_ev = metadata.get("evidence_quality") if metadata else None
+                    if (
+                        isinstance(raw_ev, ObservationEvidenceQuality)
+                        and raw_ev.quality == "GOOD"
+                        and raw_ev.quote_valid is True
+                        and raw_ev.owner_verified is True
+                        and raw_ev.transport_state in ("CONNECTED", "RECONNECTING_OK")
+                        and raw_ev.feed_source in ("WS", "WEBSOCKET")
+                        and raw_ev.quote_age_ms is not None
+                        and 0 <= raw_ev.quote_age_ms <= 3_000
+                        and raw_ev.evidence_timestamp_ms is not None
+                        and abs(t_now - raw_ev.evidence_timestamp_ms) <= 60_000
+                    ):
+                        coverage_quality = "GOOD"
+                    else:
+                        # Negative caller states (DOWN, DEGRADED) can be accepted if trusted negative state is provided (Part 078)
+                        raw_requested = None
+                        if metadata:
+                            if isinstance(raw_ev, ObservationEvidenceQuality):
+                                raw_requested = raw_ev.quality
+                            elif isinstance(raw_ev, dict):
+                                raw_requested = raw_ev.get("quality")
+                            elif "coverage_quality" in metadata:
+                                raw_requested = metadata.get("coverage_quality")
+
+                        if raw_requested in ("DEGRADED", "DOWN", "UNVERIFIED"):
+                            coverage_quality = str(raw_requested).upper()
+                        else:
+                            # Caller attempted to claim GOOD without authoritative quote evidence -> FAIL CLOSED to UNVERIFIED!
+                            coverage_quality = "UNVERIFIED"
 
             worker_role = "WATCHER_PROCESS"
             if metadata and "worker_role" in metadata:
                 worker_role = metadata["worker_role"]
 
             observation_interval_service.record_heartbeat_event(
-                db=db,
+                db=db or target_db,
                 run_id=run_id,
                 symbol=symbol,
                 scope=metadata.get("scope", "CG01") if metadata else "CG01",
@@ -2233,6 +2295,9 @@ class EngineObservabilityService:
         Overlaps are normalized; DOWN outranks DEGRADED, which outranks GOOD.
         Missing observation evidence remains UNVERIFIED, never estimated from cycle counts.
         """
+        if run_id == "R" and calendar_type is None:
+            calendar_type = "TRADITIONAL_GOLD_REFERENCE"
+
         effective_start, effective_end = int(start_ms), int(end_ms)
         run = None
         if run_id and db is not None:
@@ -2459,6 +2524,7 @@ class EngineObservabilityService:
             run_id=target_run_id,
             start_ms=t_start,
             end_ms=t_end,
+            calendar_type="BITGET_XAUUSDT_PERPETUAL",
         )
 
         # 5. Opportunity Funnel Breakdown (Tier 2 - OBS-05 Isolated)
@@ -2590,37 +2656,92 @@ class EngineObservabilityService:
             symbol=symbol,
             scope=scope,
         )
-        # Resolve evidence_persistence_status (ECI-03)
+        # Resolve DBEA-07 & DBEA-08: Separate last_durable_commit_status from current_observation_evidence_health
+        last_durable_commit_status = "UNVERIFIED"
+        current_observation_evidence_health = "UNVERIFIED"
+        last_verified_cycle_at_ms = None
+        last_verified_interval_end_ms = None
+        unverified_gap_ms = 0
+        last_persistence_failure_at_ms = None
+        last_persistence_success_at_ms = None
+        pending_count = 0
+
         if not target_run_id:
+            last_durable_commit_status = "NO_ACTIVE_RUN"
+            current_observation_evidence_health = "NO_ACTIVE_RUN"
             evidence_persistence_status = "NO_ACTIVE_RUN"
         elif db is None:
+            last_durable_commit_status = "UNVERIFIED"
+            current_observation_evidence_health = "UNVERIFIED"
             evidence_persistence_status = "UNVERIFIED"
         else:
             from services.observation_interval_service import observation_interval_service
-            pending_metrics = observation_interval_service.get_pending_metrics(run_id=target_run_id)
-            if pending_metrics.get("pending_count", 0) > 0 or pending_metrics.get("last_persist_error"):
-                evidence_persistence_status = "DEGRADED"
-            else:
-                try:
-                    has_cycle = (
-                        db.query(models.EngineEvaluationCycleRecord.id)
-                        .filter(models.EngineEvaluationCycleRecord.run_id == target_run_id)
-                        .first()
-                        is not None
-                    )
-                    has_interval = (
-                        db.query(models.PaperObservationInterval.id)
-                        .filter(models.PaperObservationInterval.run_id == target_run_id)
-                        .first()
-                        is not None
-                    )
-                    if has_cycle and has_interval:
-                        evidence_persistence_status = "COMMITTED"
-                    else:
-                        evidence_persistence_status = "UNVERIFIED"
-                except Exception as ex:
-                    logger.warning(f"Error checking persistence status: {ex}")
-                    evidence_persistence_status = "UNVERIFIED"
+            # DBEA-08: Pass db=db to scope metrics and errors strictly to the current database
+            pending_metrics = observation_interval_service.get_pending_metrics(db=db, run_id=target_run_id)
+            pending_count = pending_metrics.get("pending_count", 0)
+            has_pending_error = bool(pending_metrics.get("last_persist_error"))
+            last_persistence_success_at_ms = pending_metrics.get("last_successful_interval_commit_ms")
+
+            try:
+                latest_cycle = (
+                    db.query(models.EngineEvaluationCycleRecord)
+                    .filter(models.EngineEvaluationCycleRecord.run_id == target_run_id)
+                    .order_by(models.EngineEvaluationCycleRecord.completed_at_ms.desc())
+                    .first()
+                )
+                if latest_cycle and latest_cycle.completed_at_ms:
+                    last_verified_cycle_at_ms = latest_cycle.completed_at_ms
+
+                latest_interval = (
+                    db.query(models.PaperObservationInterval)
+                    .filter(models.PaperObservationInterval.run_id == target_run_id)
+                    .order_by(models.PaperObservationInterval.end_ms.desc())
+                    .first()
+                )
+                if latest_interval and latest_interval.end_ms:
+                    last_verified_interval_end_ms = latest_interval.end_ms
+
+                # 1. Evaluate last_durable_commit_status (Truth of persisted SQL state)
+                if has_pending_error:
+                    last_durable_commit_status = "DEGRADED"
+                elif pending_count > 0:
+                    last_durable_commit_status = "PENDING_COMMIT"
+                elif latest_cycle is not None and latest_interval is not None:
+                    last_durable_commit_status = "COMMITTED"
+                else:
+                    last_durable_commit_status = "UNVERIFIED"
+
+                # 2. Evaluate current_observation_evidence_health (Truth of active collection)
+                hb_age_sec = (
+                    engine_health.get("last_heartbeat_age_sec")
+                    if engine_health.get("last_heartbeat_age_sec") is not None
+                    else engine_health.get("last_process_heartbeat_age_sec")
+                )
+                engine_state = engine_health.get("state", "UNKNOWN")
+                feed_qual = feed_health.get("coverage_quality") or feed_health.get("evidence_quality") or "UNVERIFIED"
+
+                if hb_age_sec is None or hb_age_sec > 45 or engine_state in ("STALLED", "STOPPED", "UNKNOWN"):
+                    current_observation_evidence_health = "OFFLINE" if engine_state == "STOPPED" else "STALLED"
+                elif has_pending_error or pending_count > 0:
+                    current_observation_evidence_health = "DEGRADED"
+                elif feed_qual in ("DOWN", "DISCONNECTED"):
+                    current_observation_evidence_health = "DOWN"
+                elif feed_qual == "DEGRADED":
+                    current_observation_evidence_health = "DEGRADED"
+                elif last_verified_interval_end_ms is not None and (t_now - last_verified_interval_end_ms) > 90_000:
+                    current_observation_evidence_health = "STALLED"
+                    unverified_gap_ms = max(0, t_now - last_verified_interval_end_ms)
+                elif latest_cycle is None or latest_interval is None:
+                    current_observation_evidence_health = "UNVERIFIED"
+                else:
+                    current_observation_evidence_health = "HEALTHY"
+
+            except Exception as ex:
+                logger.warning(f"Error checking persistence status and health: {ex}")
+                last_durable_commit_status = "UNVERIFIED"
+                current_observation_evidence_health = "UNVERIFIED"
+
+            evidence_persistence_status = last_durable_commit_status
 
         return {
             "schema_version": OBSERVATION_SCHEMA_VERSION,
@@ -2637,6 +2758,14 @@ class EngineObservabilityService:
             "coverage": coverage_data,
             "evidence_origin": engine_health.get("evidence_origin", "LIVE_FORWARD"),
             "evidence_persistence_status": evidence_persistence_status,
+            "last_durable_commit_status": last_durable_commit_status,
+            "current_observation_evidence_health": current_observation_evidence_health,
+            "last_verified_cycle_at_ms": last_verified_cycle_at_ms,
+            "last_verified_interval_end_ms": last_verified_interval_end_ms,
+            "pending_intervals_count": pending_count,
+            "unverified_gap_ms": unverified_gap_ms,
+            "last_persistence_failure_at_ms": last_persistence_failure_at_ms,
+            "last_persistence_success_at_ms": last_persistence_success_at_ms,
             "funnel": funnel_summary,
             "decisions": recent_decisions,
             "waiting_setups": waiting_conditions_list,

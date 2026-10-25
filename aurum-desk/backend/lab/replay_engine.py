@@ -1608,35 +1608,35 @@ class ReplayEngine:
                                     pending_orders.append(p_order)
                                     trade_id = p_order.order_id
 
-                                # Record comprehensive Factor Audit Snapshot for this filled trade
-                                time_str_vn = clock.now_datetime().strftime("%Y-%m-%d %H:%M:%S")
-                                factor_definitions = [
-                                    ("HTF_D_Bias", d_bias if 'd_bias' in locals() else "BULLISH", "BULLISH / BEARISH", "PASS", "D", "Định hướng xu hướng khung Ngày"),
-                                    ("HTF_4H_Bias", h4_bias if 'h4_bias' in locals() else "BULLISH", "BULLISH / BEARISH", "PASS", "4H", "Định hướng cấu trúc khung 4 Giờ"),
-                                    ("H1_Alignment", h1_align, "ALIGNED / NEUTRAL", "PASS", "1H", "Sự đồng thuận khung 1 Giờ"),
-                                    ("Liquidity_Sweep", "CONFIRMED", "Quét thanh khoản đỉnh/đáy", "PASS", "15M", "Đã quét thanh khoản đối ứng"),
-                                    ("MSS_Displacement", "CONFIRMED", "Đảo chiều cấu trúc mạnh", "PASS", "15M", "Xác nhận phá vỡ cấu trúc có lực nến"),
-                                    ("FVG_Retracement", "CONFIRMED", "Hồi quy vào vùng mất cân bằng", "PASS", "15M", "Chạm vùng vào lệnh kế hoạch"),
-                                    ("Net_RR_Calculated", f"{calc.net_rr:.2f}R", ">= 2.0R (unrounded)", "PASS", "15M", "Tỷ lệ R:R sau phí và trượt giá"),
-                                    ("Day_Fill_Quota", f"{daily_fills}/3", "<= 3 fills/day", "PASS", "SYSTEM", "Hạn ngạch số lệnh trong ngày"),
-                                    ("Loss_Budget_Status", f"${today_realized_pnl:.2f} / -${daily_loss_budget:.2f}", "PnL > -1.5% Vốn", "PASS", "RISK", "Ngân sách rủi ro tối đa trong ngày"),
-                                    ("Execution_Spread_Freshness", f"${spread_usd:.2f}", "<= 0.35$", "PASS", "TICKER", "Độ giãn spread thị trường cho phép")
-                                ]
-                                for fname, fval, fexp, fstat, fframe, frat in factor_definitions:
-                                    factor_audit_rows.append({
-                                        "decision_id": f"dec-{trade_id}-{fname}",
-                                        "trade_id": trade_id,
-                                        "setup_id": sig.get("setup_id", f"smc-{i}"),
-                                        "time_vn": time_str_vn,
-                                        "available_at_ms": sim_time,
-                                        "stage": "FILL",
-                                        "factor_name": fname,
-                                        "factor_value": fval,
-                                        "expected": fexp,
-                                        "status": fstat,
-                                        "timeframe": fframe,
-                                        "rationale": frat
-                                    })
+                                    # Record comprehensive Factor Audit Snapshot for this filled trade
+                                    time_str_vn = clock.now_datetime().strftime("%Y-%m-%d %H:%M:%S")
+                                    factor_definitions = [
+                                        ("HTF_D_Bias", d_bias if 'd_bias' in locals() else "BULLISH", "BULLISH / BEARISH", "PASS", "D", "Định hướng xu hướng khung Ngày"),
+                                        ("HTF_4H_Bias", h4_bias if 'h4_bias' in locals() else "BULLISH", "BULLISH / BEARISH", "PASS", "4H", "Định hướng cấu trúc khung 4 Giờ"),
+                                        ("H1_Alignment", h1_align, "ALIGNED / NEUTRAL", "PASS", "1H", "Sự đồng thuận khung 1 Giờ"),
+                                        ("Liquidity_Sweep", "CONFIRMED", "Quét thanh khoản đỉnh/đáy", "PASS", "15M", "Đã quét thanh khoản đối ứng"),
+                                        ("MSS_Displacement", "CONFIRMED", "Đảo chiều cấu trúc mạnh", "PASS", "15M", "Xác nhận phá vỡ cấu trúc có lực nến"),
+                                        ("FVG_Retracement", "CONFIRMED", "Hồi quy vào vùng mất cân bằng", "PASS", "15M", "Chạm vùng vào lệnh kế hoạch"),
+                                        ("Net_RR_Calculated", f"{calc.net_rr:.2f}R", ">= 2.0R (unrounded)", "PASS", "15M", "Tỷ lệ R:R sau phí và trượt giá"),
+                                        ("Day_Fill_Quota", f"{daily_fills}/3", "<= 3 fills/day", "PASS", "SYSTEM", "Hạn ngạch số lệnh trong ngày"),
+                                        ("Loss_Budget_Status", f"${today_realized_pnl:.2f} / -${daily_loss_budget:.2f}", "PnL > -1.5% Vốn", "PASS", "RISK", "Ngân sách rủi ro tối đa trong ngày"),
+                                        ("Execution_Spread_Freshness", f"${spread_usd:.2f}", "<= 0.35$", "PASS", "TICKER", "Độ giãn spread thị trường cho phép")
+                                    ]
+                                    for fname, fval, fexp, fstat, fframe, frat in factor_definitions:
+                                        factor_audit_rows.append({
+                                            "decision_id": f"dec-{trade_id}-{fname}",
+                                            "trade_id": trade_id,
+                                            "setup_id": sig.get("setup_id", f"smc-{i}"),
+                                            "time_vn": time_str_vn,
+                                            "available_at_ms": sim_time,
+                                            "stage": "FILL",
+                                            "factor_name": fname,
+                                            "factor_value": fval,
+                                            "expected": fexp,
+                                            "status": fstat,
+                                            "timeframe": fframe,
+                                            "rationale": frat
+                                        })
 
                     # 4.2.1. NY_ADAPTIVE Setups (B1 and B2)
                     if not active_trade and strategy_variant in ("NY_ADAPTIVE", "NY_DAILY_PAPER_RESEARCH"):

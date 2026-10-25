@@ -1879,7 +1879,7 @@ def classify_post_trade_lesson(
         elif sp_data:
             reason = "Xanh vì thực thi đúng kế hoạch; điểm dừng lỗ áp dụng theo legacy/chưa có bằng chứng cấu trúc đầy đủ."
         else:
-            reason = "Xanh vì thực thi đúng kế hoạch; chất lượng điểm SL chưa được kiểm chứng do thiếu bằng chứng cấu trúc."
+            reason = "Xanh vì thực thi đúng kế hoạch (dừng lỗ hợp lệ); chất lượng điểm SL chưa được kiểm chứng do thiếu bằng chứng cấu trúc."
         code = "PLAN_COMPLIANT_VALID_LOSS"
     else:
         reason = "Xanh vì kế hoạch thực thi đạt chuẩn tuân thủ đã xác minh; ghi nhận quan sát cho các chu kỳ tiếp theo."

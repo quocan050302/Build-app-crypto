@@ -318,7 +318,10 @@ def run_schema_migrations(target_engine=None):
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenario_snapshots_scenario_id ON smc_scenario_snapshots (scenario_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenario_snapshots_instance_id ON smc_scenario_snapshots (instance_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenario_snapshots_as_of_ms ON smc_scenario_snapshots (as_of_ms);"))
-            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_sqs_setup_created ON setup_quality_snapshots (setup_id, created_at DESC);"))
+            try:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_sqs_setup_created ON setup_quality_snapshots (setup_id, created_at DESC);"))
+            except Exception:
+                pass
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS paper_observations (
                     id VARCHAR(80) PRIMARY KEY,
@@ -514,7 +517,7 @@ def run_schema_migrations(target_engine=None):
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pending_proj_order ON paper_research_pending_projections (order_id);"))
             conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_pending_proj_event_scope ON paper_research_pending_projections (event_id, scope);"))
 
-            # V16.18: Observation Intervals Table
+            # V16.18 & V17.6.4.3: Observation Intervals Table
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS paper_observation_intervals (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -527,11 +530,28 @@ def run_schema_migrations(target_engine=None):
                     end_ms BIGINT NOT NULL,
                     data_quality VARCHAR(30) DEFAULT 'GOOD',
                     heartbeats_count INTEGER DEFAULT 1,
-                    created_at_ms BIGINT NOT NULL
+                    created_at_ms BIGINT NOT NULL,
+                    engine_instance_id VARCHAR(80),
+                    evidence_origin VARCHAR(40) DEFAULT 'LIVE_FORWARD',
+                    interval_identity VARCHAR(128) UNIQUE
                 );
             """))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_obs_interval_run ON paper_observation_intervals (run_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_obs_interval_scope ON paper_observation_intervals (scope);"))
+
+            # V17.6.4.3: Additive column migration and unique index for paper_observation_intervals (DBEA-05, DBEA-06)
+            poi_res = conn.execute(text("PRAGMA table_info(paper_observation_intervals)"))
+            poi_cols = {row[1] for row in poi_res.fetchall()}
+            if poi_cols:
+                if "engine_instance_id" not in poi_cols:
+                    conn.execute(text("ALTER TABLE paper_observation_intervals ADD COLUMN engine_instance_id VARCHAR(80);"))
+                if "evidence_origin" not in poi_cols:
+                    conn.execute(text("ALTER TABLE paper_observation_intervals ADD COLUMN evidence_origin VARCHAR(40) DEFAULT 'LEGACY_UNKNOWN';"))
+                if "interval_identity" not in poi_cols:
+                    conn.execute(text("ALTER TABLE paper_observation_intervals ADD COLUMN interval_identity VARCHAR(128);"))
+                conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_paper_obs_interval_identity ON paper_observation_intervals (interval_identity);"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_obs_engine_instance ON paper_observation_intervals (engine_instance_id);"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_obs_evidence_origin ON paper_observation_intervals (evidence_origin);"))
 
             # V16.39: Post Trade Reviews Table (Section 078 - 080)
             conn.execute(text("""
@@ -609,6 +629,7 @@ def run_schema_migrations(target_engine=None):
                     run_id VARCHAR(80),
                     cycle_id VARCHAR(80),
                     opportunity_id VARCHAR(80) NOT NULL,
+                    symbol VARCHAR(20) DEFAULT 'XAUUSDT',
                     model_id VARCHAR(40) NOT NULL,
                     direction VARCHAR(10) NOT NULL,
                     stage VARCHAR(30) NOT NULL,
@@ -624,10 +645,18 @@ def run_schema_migrations(target_engine=None):
             """))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_event_id ON opportunity_decision_events (event_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_opp_id ON opportunity_decision_events (opportunity_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_symbol ON opportunity_decision_events (symbol);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_model_id ON opportunity_decision_events (model_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_stage ON opportunity_decision_events (stage);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_run_id ON opportunity_decision_events (run_id);"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_occurred ON opportunity_decision_events (occurred_at_ms);"))
+
+            # Additive migration check for existing opportunity_decision_events table
+            ode_res = conn.execute(text("PRAGMA table_info(opportunity_decision_events)"))
+            ode_cols = {row[1] for row in ode_res.fetchall()}
+            if ode_cols and "symbol" not in ode_cols:
+                conn.execute(text("ALTER TABLE opportunity_decision_events ADD COLUMN symbol VARCHAR(20) DEFAULT 'XAUUSDT';"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_symbol ON opportunity_decision_events (symbol);"))
 
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS engine_incidents (

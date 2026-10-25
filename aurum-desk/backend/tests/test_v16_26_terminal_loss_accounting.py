@@ -24,7 +24,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 # Rule 024: Ensure test DB isolation
-os.environ["AURUM_DB_PATH"] = ":memory:"
+os.environ.setdefault("AURUM_DB_PATH", ":memory:")
 
 from database import SessionLocal, engine
 from models import Base

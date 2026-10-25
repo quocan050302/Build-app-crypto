@@ -305,6 +305,8 @@ def test_fe11_watcher_heartbeat_integration(test_db):
             "quote_age_sec": 0.4,
             "transport_state": "CONNECTED",
             "coverage_quality": "GOOD",
+            "bid": 2650.0,
+            "ask": 2650.5,
         },
     )
     from services.observation_interval_service import observation_interval_service

@@ -841,6 +841,7 @@ def run_migration(db_path=None, *, backup_dir=None):
             run_id VARCHAR(80),
             cycle_id VARCHAR(80),
             opportunity_id VARCHAR(80) NOT NULL,
+            symbol VARCHAR(20) DEFAULT 'XAUUSDT',
             model_id VARCHAR(40) NOT NULL,
             direction VARCHAR(10) NOT NULL,
             stage VARCHAR(30) NOT NULL,
@@ -856,10 +857,18 @@ def run_migration(db_path=None, *, backup_dir=None):
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_event_id ON opportunity_decision_events (event_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_opp_id ON opportunity_decision_events (opportunity_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_symbol ON opportunity_decision_events (symbol);")
     cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_model_id ON opportunity_decision_events (model_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_stage ON opportunity_decision_events (stage);")
     cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_run_id ON opportunity_decision_events (run_id);")
     cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_occurred ON opportunity_decision_events (occurred_at_ms);")
+
+    # Additive migration check for existing opportunity_decision_events table
+    cur.execute("PRAGMA table_info(opportunity_decision_events);")
+    ode_cols = {row[1] for row in cur.fetchall()}
+    if ode_cols and "symbol" not in ode_cols:
+        cur.execute("ALTER TABLE opportunity_decision_events ADD COLUMN symbol VARCHAR(20) DEFAULT 'XAUUSDT';")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_symbol ON opportunity_decision_events (symbol);")
 
     cur.execute("""
         CREATE TABLE IF NOT EXISTS engine_incidents (

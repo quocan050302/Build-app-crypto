@@ -16,10 +16,9 @@ class IClock(ABC):
         """Returns current timezone-aware datetime in Asia/Ho_Chi_Minh (UTC+7)"""
         pass
 
-    @abstractmethod
     def monotonic_s(self) -> float:
         """Returns monotonic time in seconds for duration calculation"""
-        pass
+        return float(self.now_ms()) / 1000.0
 
     def get_today_str_vn(self) -> str:
         """Returns YYYY-MM-DD string in Asia/Ho_Chi_Minh timezone"""

@@ -16,6 +16,9 @@ from services.clock import live_clock, IClock
 from services.entry_guard_service import serialize_entry_mutation
 from services.scalp_m1_types import load_effective_scalp_config
 
+# Production Safety Invariant: Absolute zero live exchange order submissions allowed
+LIVE_EXCHANGE_ORDERS_SENT: int = 0
+
 
 def _validate_threshold(val: Any) -> Optional[float]:
     """Rule 029: Validate that threshold is a numeric, finite, positive float (> 0)."""

@@ -240,6 +240,9 @@ def test_red_026_effective_config_parity(db: Session):
     import services.scalp_m1_types as smt
     orig_config = smt.active_scalp_config
 
+    db.query(models.TradingPolicy).delete()
+    db.commit()
+
     try:
         smt.active_scalp_config = smt.get_scalp_config(min_net_rr=3.5, displacement_body_atr_min=1.25)
 

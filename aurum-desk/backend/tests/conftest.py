@@ -130,3 +130,28 @@ def fresh_ticker():
         yield _set
     finally:
         collector_service.latest_ticker = previous
+
+
+@pytest.fixture(autouse=True)
+def reset_execution_consumer():
+    """V17.6.4.3: Ensure execution_consumer, bitget_ws_service, and collector_service do not leak state across test boundaries."""
+    from services.execution_consumer import execution_consumer
+    from services.collector_service import collector_service
+    from services.bitget_ws_service import bitget_ws_service
+
+    execution_consumer.has_execution_gap = False
+    execution_consumer.is_lagging = False
+    execution_consumer.dropped_count = 0
+    collector_service.latest_ticker = None
+    bitget_ws_service.latest_quote = None
+    bitget_ws_service.transport_state = "DISCONNECTED"
+
+    yield
+
+    execution_consumer.has_execution_gap = False
+    execution_consumer.is_lagging = False
+    execution_consumer.dropped_count = 0
+    collector_service.latest_ticker = None
+    bitget_ws_service.latest_quote = None
+    bitget_ws_service.transport_state = "DISCONNECTED"
+

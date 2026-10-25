@@ -950,6 +950,10 @@ class PaperObservationInterval(Base):
     data_quality = Column(String(30), default="GOOD")
     heartbeats_count = Column(Integer, default=1)
     created_at_ms = Column(BigInteger, nullable=False)
+    # V17.6.4.3: Additive durable identity and provenance fields (DBEA-05, DBEA-06)
+    engine_instance_id = Column(String(80), nullable=True, index=True)
+    evidence_origin = Column(String(40), default="LIVE_FORWARD", index=True)
+    interval_identity = Column(String(128), nullable=True, unique=True, index=True)
 
 
 # ---------------------------------------------------------------------------
