@@ -492,6 +492,86 @@ def merge_time_intervals(intervals: List[Tuple[int, int]]) -> int:
     return sum(e - s for s, e in merged)
 
 
+
+def normalize_interval_ranges(intervals: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    """Return a sorted, non-overlapping union of positive-length half-open intervals."""
+    intervals = sorted((int(s), int(e)) for s, e in intervals if e > s)
+    merged: List[Tuple[int, int]] = []
+    for start, end in intervals:
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
+def intersect_interval_ranges(
+    left: List[Tuple[int, int]], right: List[Tuple[int, int]]
+) -> List[Tuple[int, int]]:
+    """Intersection of two interval sets, with no double counting."""
+    a = normalize_interval_ranges(left)
+    b = normalize_interval_ranges(right)
+    i = j = 0
+    result: List[Tuple[int, int]] = []
+    while i < len(a) and j < len(b):
+        start = max(a[i][0], b[j][0])
+        end = min(a[i][1], b[j][1])
+        if end > start:
+            result.append((start, end))
+        if a[i][1] <= b[j][1]:
+            i += 1
+        else:
+            j += 1
+    return result
+
+
+def subtract_interval_ranges(
+    source: List[Tuple[int, int]], excluded: List[Tuple[int, int]]
+) -> List[Tuple[int, int]]:
+    """Subtract a union of excluded intervals from a union of source intervals."""
+    base = normalize_interval_ranges(source)
+    removal = normalize_interval_ranges(excluded)
+    result: List[Tuple[int, int]] = []
+    j = 0
+    for start, end in base:
+        cursor = start
+        while j < len(removal) and removal[j][1] <= cursor:
+            j += 1
+        k = j
+        while k < len(removal) and removal[k][0] < end:
+            cut_start, cut_end = removal[k]
+            if cut_start > cursor:
+                result.append((cursor, min(cut_start, end)))
+            cursor = max(cursor, cut_end)
+            if cursor >= end:
+                break
+            k += 1
+        if cursor < end:
+            result.append((cursor, end))
+    return result
+
+
+def build_market_open_interval_ranges(start_ms: int, end_ms: int) -> List[Tuple[int, int]]:
+    """
+    Segment the configured New York market schedule by absolute UTC-hour boundaries.
+    All current weekly/daily closure transitions occur on NY whole-hour boundaries;
+    NY DST changes also occur on UTC-hour boundaries. This is the configured schedule,
+    not proof of exchange holiday availability.
+    """
+    if end_ms <= start_ms:
+        return []
+    hour_ms = 3_600_000
+    intervals: List[Tuple[int, int]] = []
+    cursor = start_ms
+    while cursor < end_ms:
+        boundary = min(end_ms, ((cursor // hour_ms) + 1) * hour_ms)
+        midpoint = cursor + (boundary - cursor) // 2
+        if not is_xauusdt_market_closed(midpoint)[0]:
+            intervals.append((cursor, boundary))
+        cursor = boundary
+    return normalize_interval_ranges(intervals)
+
+
 def decode_observation_cursor(
     cursor_str: str,
     expected_run_id: Optional[str] = None,
@@ -1594,81 +1674,122 @@ class EngineObservabilityService:
         end_ms: int,
     ) -> Dict[str, Any]:
         """
-        Calculates trustworthy observation coverage based strictly on durable evidence (FIX-02).
-        Excludes scheduled weekend and maintenance closures from denominator.
-        Clips to actual run boundaries and non-overlapping merged intervals.
+        Calculate GOOD coverage only inside eligible market-open intervals.
+        Overlaps are normalized; DOWN outranks DEGRADED, which outranks GOOD.
+        Missing observation evidence remains UNVERIFIED, never estimated from cycle counts.
         """
-        effective_start = start_ms
-        effective_end = end_ms
-
+        effective_start, effective_end = int(start_ms), int(end_ms)
+        run = None
         if run_id and db is not None:
             try:
                 run = db.query(models.PaperResearchRunRecord).filter(
                     models.PaperResearchRunRecord.run_id == run_id
                 ).first()
-                if run:
-                    r_start = getattr(run, "started_at_ms", None) or getattr(run, "created_at_ms", None)
-                    r_end = getattr(run, "ended_at_ms", None)
-                    if r_start:
-                        effective_start = max(start_ms, r_start)
-                    if r_end:
-                        effective_end = min(end_ms, r_end)
-                    elif effective_end < effective_start:
-                        effective_end = effective_start
-            except Exception:
-                pass
+                if run is not None:
+                    run_start = getattr(run, "started_at_ms", None) or getattr(run, "created_at_ms", None)
+                    run_end = getattr(run, "ended_at_ms", None)
+                    if run_start is not None:
+                        effective_start = max(effective_start, int(run_start))
+                    if run_end is not None:
+                        effective_end = min(effective_end, int(run_end))
+            except Exception as exc:
+                logger.warning("Cannot verify observation run boundary for %s: %s", run_id, exc)
+                return {
+                    "coverage_pct": None, "coverage_state": "UNVERIFIABLE",
+                    "expected_market_open_ms": None, "observed_intervals_ms": None,
+                    "reason_code": "RUN_BOUNDARY_LOOKUP_FAILED",
+                }
 
         if effective_end <= effective_start:
-            effective_end = effective_start + 1
+            return {
+                "total_span_hours": 0.0,
+                "market_open_hours": 0.0,
+                "expected_market_open_ms": 0,
+                "observed_intervals_ms": 0,
+                "weekend_closed_hours": 0.0,
+                "observed_healthy_hours": 0.0,
+                "known_downtime_hours": 0.0,
+                "degraded_hours": 0.0,
+                "down_hours": 0.0,
+                "unverified_hours": 0.0,
+                "coverage_pct": None,
+                "coverage_state": "NO_ELIGIBLE_WINDOW",
+                "evidence_type": "LIVE_PAPER_FORWARD_OBSERVATION",
+            }
 
         total_span_ms = effective_end - effective_start
-        market_open_ms = calculate_market_open_duration_ms(effective_start, effective_end)
-
-        good_intervals: List[Tuple[int, int]] = []
-        downtime_intervals: List[Tuple[int, int]] = []
-
-        # Check recorded observation intervals using overlap query (FIX-02 & PART 039)
+        market_open = build_market_open_interval_ranges(effective_start, effective_end)
+        market_open_ms = merge_time_intervals(market_open)
+        observed_by_quality: Dict[str, List[Tuple[int, int]]] = {
+            "GOOD": [], "DEGRADED": [], "DOWN": [],
+        }
         if db is not None:
             try:
-                q = db.query(models.PaperObservationInterval).filter(
+                query = db.query(models.PaperObservationInterval).filter(
                     models.PaperObservationInterval.end_ms > effective_start,
                     models.PaperObservationInterval.start_ms < effective_end,
                 )
                 if run_id:
-                    q = q.filter(models.PaperObservationInterval.run_id == run_id)
-                intervals = q.all()
+                    query = query.filter(models.PaperObservationInterval.run_id == run_id)
+                if run is not None and getattr(run, "symbol", None):
+                    query = query.filter(models.PaperObservationInterval.symbol == run.symbol)
+                if run is not None and getattr(run, "scope", None):
+                    query = query.filter(models.PaperObservationInterval.scope == run.scope)
+                for interval in query.all():
+                    clipped = clip_interval(
+                        interval.start_ms, interval.end_ms, effective_start, effective_end
+                    )
+                    if clipped is None:
+                        continue
+                    quality = str(getattr(interval, "data_quality", "UNVERIFIED") or "UNVERIFIED").upper()
+                    if quality in observed_by_quality:
+                        observed_by_quality[quality].append(clipped)
+                    elif quality not in ("UNKNOWN", "UNVERIFIED"):
+                        # Non-GOOD degradation codes cannot be counted as healthy.
+                        observed_by_quality["DEGRADED"].append(clipped)
+            except Exception as exc:
+                logger.warning("Observation interval query failed: %s", exc)
+                return {
+                    "coverage_pct": None, "coverage_state": "UNVERIFIABLE",
+                    "expected_market_open_ms": market_open_ms, "observed_intervals_ms": None,
+                    "reason_code": "OBSERVATION_INTERVAL_QUERY_FAILED",
+                }
 
-                for inv in intervals:
-                    clipped = clip_interval(inv.start_ms, inv.end_ms, effective_start, effective_end)
-                    if clipped is not None:
-                        if getattr(inv, "data_quality", "GOOD") == "GOOD":
-                            good_intervals.append(clipped)
-                        else:
-                            downtime_intervals.append(clipped)
-            except Exception:
-                pass
+        down = intersect_interval_ranges(observed_by_quality["DOWN"], market_open)
+        degraded = subtract_interval_ranges(
+            intersect_interval_ranges(observed_by_quality["DEGRADED"], market_open), down
+        )
+        healthy = subtract_interval_ranges(
+            subtract_interval_ranges(
+                intersect_interval_ranges(observed_by_quality["GOOD"], market_open), down
+            ), degraded
+        )
 
-        observed_intervals_ms = merge_time_intervals(good_intervals)
-        known_downtime_ms = merge_time_intervals(downtime_intervals)
+        down_ms = merge_time_intervals(down)
+        degraded_ms = merge_time_intervals(degraded)
+        good_ms = merge_time_intervals(healthy)
+        unverified_ms = max(0, market_open_ms - good_ms - degraded_ms - down_ms)
 
-        # Removed synthetic cycles * cadence fallback (FIX-02 & PART 042)
-        if market_open_ms > 0:
-            observed_intervals_ms = min(observed_intervals_ms, market_open_ms)
-            coverage_pct = round((observed_intervals_ms / market_open_ms) * 100.0, 1)
-            coverage_state = "FULL" if coverage_pct >= 95.0 else ("PARTIAL" if coverage_pct >= 50.0 else "LOW")
-        else:
-            # Entire window was during market closure (FIX-02 & PART 047)
+        if market_open_ms == 0:
             coverage_pct = None
             coverage_state = "MARKET_CLOSED"
+        else:
+            coverage_pct = round((good_ms / market_open_ms) * 100.0, 1)
+            coverage_state = "FULL" if coverage_pct >= 95.0 else (
+                "PARTIAL" if coverage_pct >= 50.0 else "LOW"
+            )
 
         return {
-            "total_span_hours": round(total_span_ms / 3600_000.0, 2),
-            "market_open_hours": round(market_open_ms / 3600_000.0, 2),
+            "total_span_hours": round(total_span_ms / 3_600_000.0, 2),
+            "market_open_hours": round(market_open_ms / 3_600_000.0, 2),
             "expected_market_open_ms": market_open_ms,
-            "observed_intervals_ms": observed_intervals_ms,
-            "weekend_closed_hours": round(max(0, total_span_ms - market_open_ms) / 3600_000.0, 2),
-            "observed_healthy_hours": round(observed_intervals_ms / 3600_000.0, 2),
-            "known_downtime_hours": round(known_downtime_ms / 3600_000.0, 2),
+            "observed_intervals_ms": good_ms,
+            "weekend_closed_hours": round((total_span_ms - market_open_ms) / 3_600_000.0, 2),
+            "observed_healthy_hours": round(good_ms / 3_600_000.0, 2),
+            "known_downtime_hours": round((down_ms + degraded_ms) / 3_600_000.0, 2),
+            "degraded_hours": round(degraded_ms / 3_600_000.0, 2),
+            "down_hours": round(down_ms / 3_600_000.0, 2),
+            "unverified_hours": round(unverified_ms / 3_600_000.0, 2),
             "coverage_pct": coverage_pct,
             "coverage_state": coverage_state,
             "evidence_type": "LIVE_PAPER_FORWARD_OBSERVATION",
