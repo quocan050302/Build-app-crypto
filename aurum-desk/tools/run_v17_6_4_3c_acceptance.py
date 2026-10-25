@@ -382,10 +382,12 @@ def main(argv=None):
     env = dict(os.environ)
     env["PYTHONPATH"] = str(BACKEND)
     env["TESTING"] = "1"
+    env["AURUM_E2E_REPORT"] = str(out_dir / "playwright_report.json")
 
     python = str(BACKEND / "venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python"))
     if not Path(python).exists():
         python = sys.executable
+    env["AURUM_E2E_PYTHON"] = python
 
     gates = {}
 

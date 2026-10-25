@@ -317,17 +317,25 @@ def test_ag13_valid_canonical_ws_quote_accepted(db_session):
 def test_ag14_valid_real_watcher_integration(db_session):
     """AG14: ScalpWatcherOrchestrator.evaluate_cycle with valid canonical quote persists GOOD telemetry."""
     now_ms = 1700000000000
+    from services.bitget_ws_service import bitget_ws_service
+    bitget_ws_service.transport_state = "CONNECTED"
+    bitget_ws_service.feed_source = "WS"
+    bitget_ws_service.connection_epoch = 1
+
     quote1 = {
         "symbol": "XAUUSDT",
         "bid": 2650.0,
         "ask": 2650.5,
         "last": 2650.25,
+        "exchange_ts_ms": now_ms - 50,
+        "received_at_ms": now_ms - 40,
         "timestamp": now_ms,
         "observed_at": now_ms,
         "is_valid": True,
         "is_stale": False,
         "quote_source": "WS",
         "transport_state": "CONNECTED",
+        "connection_epoch": 1,
     }
 
     # Execute real watcher cycle twice to cover interval span
@@ -340,6 +348,8 @@ def test_ag14_valid_real_watcher_integration(db_session):
     )
 
     quote2 = dict(quote1)
+    quote2["exchange_ts_ms"] = now_ms + 4950
+    quote2["received_at_ms"] = now_ms + 4960
     quote2["timestamp"] = now_ms + 5000
     quote2["observed_at"] = now_ms + 5000
     scalp_watcher_orchestrator.evaluate_cycle(
@@ -369,6 +379,10 @@ def test_ag15_valid_real_scheduler_integration(db_session):
     """AG15: Real scheduler execution cadence records verified telemetry."""
     now_ms = 1700000000000
     from services.cg01_scheduler_service import ensure_observation_run_started
+    from services.bitget_ws_service import bitget_ws_service
+    bitget_ws_service.transport_state = "CONNECTED"
+    bitget_ws_service.feed_source = "WS"
+    bitget_ws_service.connection_epoch = 1
 
     run = ensure_observation_run_started(
         symbol="XAUUSDT",
@@ -384,12 +398,15 @@ def test_ag15_valid_real_scheduler_integration(db_session):
         "bid": 2650.0,
         "ask": 2650.5,
         "last": 2650.25,
+        "exchange_ts_ms": now_ms - 50,
+        "received_at_ms": now_ms - 40,
         "timestamp": now_ms,
         "observed_at": now_ms,
         "is_valid": True,
         "is_stale": False,
         "quote_source": "WS",
         "transport_state": "CONNECTED",
+        "connection_epoch": 1,
     }
     scalp_watcher_orchestrator.evaluate_cycle(
         db=db_session,
@@ -399,6 +416,8 @@ def test_ag15_valid_real_scheduler_integration(db_session):
         execution_scope="CG01",
     )
     quote2 = dict(quote1)
+    quote2["exchange_ts_ms"] = now_ms + 4950
+    quote2["received_at_ms"] = now_ms + 4960
     quote2["timestamp"] = now_ms + 5000
     quote2["observed_at"] = now_ms + 5000
     scalp_watcher_orchestrator.evaluate_cycle(
