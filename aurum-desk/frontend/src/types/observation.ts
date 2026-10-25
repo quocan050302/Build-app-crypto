@@ -21,6 +21,10 @@ export interface EngineHealthSnapshot {
   failed_cycles_count: number;
   cadence_sec: number;
   now_ms: number;
+  process_liveness?: string | null;
+  evaluation_health?: string | null;
+  evidence_origin?: string | null;
+  evidence_persistence_status?: string | null;
 }
 
 export interface TimeframeCandleHealth {
@@ -38,6 +42,7 @@ export interface MarketFeedHealthSnapshot {
   freshness_state: 'CONNECTED_FRESH' | 'CONNECTED_STALE' | 'DISCONNECTED' | 'RECONNECTING' | 'UNKNOWN';
   is_fresh: boolean;
   is_weekend_break: boolean;
+  coverage_quality?: 'GOOD' | 'DEGRADED' | 'UNVERIFIED' | string | null;
   contract_schedule?: string | null;
   contract_operational_state?: string | null;
   underlying_reference_state?: string | null;
@@ -144,6 +149,8 @@ export interface ObservationDashboardSnapshot {
   engine: EngineHealthSnapshot;
   feed: MarketFeedHealthSnapshot;
   coverage: ObservationCoverage;
+  evidence_origin?: string | null;
+  evidence_persistence_status?: string | null;
   funnel: any;
   decisions: DecisionsListPage;
   waiting_setups: WaitingSetupItem[];

@@ -55,6 +55,8 @@ ENGINE_CADENCE_DEFAULT_SEC = 15
 QUOTE_FRESHNESS_THRESHOLD_SEC = 15.0
 STALLED_CADENCE_MULTIPLIER = 3
 
+from enum import Enum
+
 REASON_CATEGORIES = {
     "STRUCTURE": "Cấu trúc thị trường",
     "MARKET_DATA": "Dữ liệu thị trường",
@@ -67,6 +69,229 @@ REASON_CATEGORIES = {
     "CONFIGURATION": "Cấu hình chiến lược",
     "SYSTEM": "Hệ thống vận hành",
 }
+
+
+class ObservationEvidenceOrigin(str, Enum):
+    LIVE_FORWARD = "LIVE_FORWARD"
+    REPLAY = "REPLAY"
+    TEST = "TEST"
+    UNKNOWN = "UNKNOWN"
+
+
+@dataclass(frozen=True)
+class ObservationEvidenceQuality:
+    quality: str  # "GOOD", "DEGRADED", "DOWN", "UNVERIFIED"
+    reason_code: str
+    feed_source: Optional[str] = None
+    quote_age_ms: Optional[int] = None
+    quote_valid: bool = False
+    transport_state: str = "UNKNOWN"
+    owner_verified: bool = True
+    evidence_timestamp_ms: Optional[int] = None
+
+
+def resolve_observation_evidence_origin(
+    origin: Optional[Any] = None,
+    *,
+    default: ObservationEvidenceOrigin = ObservationEvidenceOrigin.LIVE_FORWARD,
+) -> ObservationEvidenceOrigin:
+    """
+    EVID-02 / EVID-11: Authoritative evidence origin arbitration.
+    Replay and test evaluations are strictly isolated from live forward coverage.
+    """
+    if origin is None:
+        return default
+    if isinstance(origin, ObservationEvidenceOrigin):
+        return origin
+    clean = str(origin).strip().upper()
+    if clean in ("LIVE_FORWARD", "LIVE", "LIVE_PAPER", "FORWARD"):
+        return ObservationEvidenceOrigin.LIVE_FORWARD
+    elif clean in ("REPLAY", "HISTORICAL_REPLAY", "BACKTEST"):
+        return ObservationEvidenceOrigin.REPLAY
+    elif clean in ("TEST", "TESTING", "MOCK"):
+        return ObservationEvidenceOrigin.TEST
+    elif default is not None and default != ObservationEvidenceOrigin.UNKNOWN and clean in ("SCHEDULER_LIVE", "ORCHESTRATOR"):
+        return ObservationEvidenceOrigin.LIVE_FORWARD
+    return ObservationEvidenceOrigin.UNKNOWN
+
+
+def resolve_observation_evidence_quality(
+    feed_health: Optional[Dict[str, Any]] = None,
+    *,
+    process_heartbeat: str = "RUNNING",
+    quote_health: Optional[Dict[str, Any]] = None,
+    execution_owner: Optional[str] = None,
+    evidence_origin: Optional[str] = None,
+    symbol: str = "XAUUSDT",
+    now_ms: Optional[int] = None,
+) -> ObservationEvidenceQuality:
+    """
+    EVID-01: Fail-closed authoritative market feed quality evaluation contract.
+    A process heartbeat without verified fresh quote evidence MUST NEVER produce GOOD coverage.
+    """
+    t_now = int(now_ms if now_ms is not None else int(time.time() * 1000))
+    if feed_health is None and quote_health is None:
+        return ObservationEvidenceQuality(
+            quality="UNVERIFIED",
+            reason_code="FEED_EVIDENCE_UNAVAILABLE",
+            feed_source="UNKNOWN",
+            quote_age_ms=None,
+            quote_valid=False,
+            transport_state="UNKNOWN",
+            evidence_timestamp_ms=t_now,
+        )
+
+    feed = dict(feed_health or {})
+    if quote_health:
+        feed.update(quote_health)
+
+    transport_state = feed.get("transport_state", "UNKNOWN")
+    quote_source = feed.get("quote_source") or feed.get("feed_source") or "WS"
+    bid = feed.get("bid")
+    ask = feed.get("ask")
+    quote_age_sec = feed.get("quote_age_sec")
+    last_quote_at_ms = feed.get("last_quote_at_ms")
+    feed_symbol = feed.get("symbol")
+
+    # 1. Symbol validation
+    if feed_symbol and str(feed_symbol).upper() != symbol.upper():
+        return ObservationEvidenceQuality(
+            quality="UNVERIFIED",
+            reason_code=f"SYMBOL_MISMATCH_{feed_symbol}",
+            feed_source=quote_source,
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now,
+        )
+
+    # 2. Quote timestamps and clock skew
+    quote_age_ms = None
+    if last_quote_at_ms is not None:
+        if last_quote_at_ms > (t_now + 60_000):
+            return ObservationEvidenceQuality(
+                quality="DEGRADED",
+                reason_code="QUOTE_FUTURE_CLOCK_SKEW",
+                feed_source=quote_source,
+                quote_age_ms=-int(last_quote_at_ms - t_now),
+                quote_valid=False,
+                transport_state=transport_state,
+                evidence_timestamp_ms=t_now,
+            )
+        quote_age_ms = max(0, t_now - int(last_quote_at_ms))
+    elif quote_age_sec is not None:
+        if quote_age_sec < -60.0:
+            return ObservationEvidenceQuality(
+                quality="DEGRADED",
+                reason_code="QUOTE_FUTURE_CLOCK_SKEW",
+                feed_source=quote_source,
+                quote_valid=False,
+                transport_state=transport_state,
+                evidence_timestamp_ms=t_now,
+            )
+        quote_age_ms = int(max(0.0, quote_age_sec) * 1000)
+
+    # 3. Transport state
+    if transport_state in ("DISCONNECTED", "DOWN", "RECONNECTING"):
+        if quote_source == "REST_FALLBACK" and feed.get("freshness_state") == "CONNECTED_FRESH" and bid is not None and ask is not None:
+            return ObservationEvidenceQuality(
+                quality="DEGRADED",
+                reason_code="REST_FALLBACK_ACTIVE_TRANSPORT_DISCONNECTED",
+                feed_source="REST_FALLBACK",
+                quote_age_ms=quote_age_ms,
+                quote_valid=True,
+                transport_state=transport_state,
+                evidence_timestamp_ms=last_quote_at_ms or t_now,
+            )
+        return ObservationEvidenceQuality(
+            quality="DOWN" if transport_state == "DISCONNECTED" else "DEGRADED",
+            reason_code=f"TRANSPORT_{transport_state}",
+            feed_source=quote_source,
+            quote_age_ms=quote_age_ms,
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now,
+        )
+
+    # 4. Structural quote verification
+    if bid is None or ask is None:
+        return ObservationEvidenceQuality(
+            quality="UNVERIFIED" if transport_state == "CONNECTING" else "DEGRADED",
+            reason_code="QUOTE_MISSING_BID_OR_ASK",
+            feed_source=quote_source,
+            quote_age_ms=quote_age_ms,
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now,
+        )
+
+    try:
+        bid_f = float(bid)
+        ask_f = float(ask)
+    except (ValueError, TypeError):
+        return ObservationEvidenceQuality(
+            quality="DEGRADED",
+            reason_code="QUOTE_MALFORMED_NON_NUMERIC",
+            feed_source=quote_source,
+            quote_age_ms=quote_age_ms,
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now,
+        )
+
+    if not (math.isfinite(bid_f) and math.isfinite(ask_f)) or bid_f <= 0:
+        return ObservationEvidenceQuality(
+            quality="DEGRADED",
+            reason_code="QUOTE_INVALID_NON_POSITIVE_BID",
+            feed_source=quote_source,
+            quote_age_ms=quote_age_ms,
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now,
+        )
+
+    if ask_f < bid_f:
+        return ObservationEvidenceQuality(
+            quality="DEGRADED",
+            reason_code="QUOTE_CROSSED_BOOK_ASK_LESS_THAN_BID",
+            feed_source=quote_source,
+            quote_age_ms=quote_age_ms,
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now,
+        )
+
+    # 5. Freshness threshold
+    if quote_age_sec is not None and quote_age_sec > QUOTE_FRESHNESS_THRESHOLD_SEC:
+        return ObservationEvidenceQuality(
+            quality="DEGRADED",
+            reason_code=f"QUOTE_STALE_AGE_{quote_age_sec}S",
+            feed_source=quote_source,
+            quote_age_ms=quote_age_ms,
+            quote_valid=True,
+            transport_state=transport_state,
+            evidence_timestamp_ms=last_quote_at_ms or t_now,
+        )
+
+    if quote_source == "REST_FALLBACK":
+        return ObservationEvidenceQuality(
+            quality="DEGRADED",
+            reason_code="REST_FALLBACK_VALID",
+            feed_source="REST_FALLBACK",
+            quote_age_ms=quote_age_ms,
+            quote_valid=True,
+            transport_state=transport_state,
+            evidence_timestamp_ms=last_quote_at_ms or t_now,
+        )
+
+    return ObservationEvidenceQuality(
+        quality="GOOD",
+        reason_code="FEED_VERIFIED_FRESH",
+        feed_source=quote_source,
+        quote_age_ms=quote_age_ms,
+        quote_valid=True,
+        transport_state=transport_state,
+        evidence_timestamp_ms=last_quote_at_ms or t_now,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -760,14 +985,24 @@ class EngineObservabilityService:
                 if close_session:
                     target_db.close()
 
-        # Wire into authoritative observation interval producer (Phase F, PART 081-100)
+        # Wire into authoritative observation interval producer (EVID-01, EVID-02, EVID-11)
         try:
             from services.observation_interval_service import observation_interval_service
-            is_feed_ok = True
-            is_quote_ok = True
-            if metadata:
-                is_feed_ok = metadata.get("is_feed_healthy", True)
-                is_quote_ok = metadata.get("is_quote_fresh", True)
+            raw_origin = (metadata or {}).get("evidence_origin") or (metadata or {}).get("evaluation_origin") or "LIVE_FORWARD"
+            eff_origin = resolve_observation_evidence_origin(raw_origin)
+
+            coverage_quality = (metadata or {}).get("coverage_quality")
+            if coverage_quality is None:
+                if metadata and ("is_feed_healthy" in metadata or "is_quote_fresh" in metadata):
+                    is_feed_ok = metadata.get("is_feed_healthy", False)
+                    is_quote_ok = metadata.get("is_quote_fresh", False)
+                    if is_feed_ok and is_quote_ok:
+                        coverage_quality = "GOOD"
+                    else:
+                        coverage_quality = "DEGRADED"
+                else:
+                    coverage_quality = "UNVERIFIED"
+
             worker_role = "WATCHER_PROCESS"
             if metadata and "worker_role" in metadata:
                 worker_role = metadata["worker_role"]
@@ -780,10 +1015,11 @@ class EngineObservabilityService:
                 worker_role=worker_role,
                 mode=metadata.get("mode", "PAPER") if metadata else "PAPER",
                 timestamp_ms=t_now,
-                is_feed_healthy=is_feed_ok,
-                is_quote_fresh=is_quote_ok,
+                is_feed_healthy=(coverage_quality == "GOOD"),
+                is_quote_fresh=(coverage_quality == "GOOD"),
                 engine_instance_id=inst_id,
-                evidence_origin=metadata.get("evidence_origin", "LIVE_FORWARD") if metadata else "LIVE_FORWARD",
+                evidence_origin=eff_origin.value,
+                coverage_quality=coverage_quality,
             )
         except Exception as e:
             logger.warning(f"Error recording heartbeat event to observation interval service: {e}")
@@ -804,6 +1040,7 @@ class EngineObservabilityService:
         heartbeat_record: Optional[Any],
         now_ms: int,
         feed_health: Optional[Dict[str, Any]] = None,
+        symbol: str = "XAUUSDT",
     ) -> Tuple[bool, str]:
         """
         Determines if engine is stalled based on true runtime evidence.
@@ -819,21 +1056,26 @@ class EngineObservabilityService:
         cadence = getattr(heartbeat_record, "cadence_sec", ENGINE_CADENCE_DEFAULT_SEC) or ENGINE_CADENCE_DEFAULT_SEC
         stall_threshold_ms = cadence * STALLED_CADENCE_MULTIPLIER * 1000
 
+        # Check clock skew for future timestamps (EM08)
+        last_hb = getattr(heartbeat_record, "last_process_heartbeat_at_ms", 0) or 0
+        if last_hb > (now_ms + 60_000):
+            return True, f"HEARTBEAT_CLOCK_SKEW_FUTURE_{int((last_hb - now_ms) / 1000)}s"
+
         # 1. Process heartbeat liveness first (FIX-06 & PART 074):
         # A dead worker process is STALLED regardless of whether the market is open or closed!
-        last_hb = getattr(heartbeat_record, "last_process_heartbeat_at_ms", 0) or 0
         hb_age = now_ms - last_hb
         if hb_age > stall_threshold_ms:
             return True, f"HEARTBEAT_STALE_AGE_{int(hb_age / 1000)}s"
 
-        # 2. Weekend break: exchange closed, engine legitimately waits
-        if is_xauusdt_weekend_break(now_ms):
-            return False, "MARKET_WEEKEND_BREAK"
-
-        # 3. Check daily maintenance for evaluation cycle stall
-        is_market_closed, close_reason = is_xauusdt_market_closed(now_ms)
-        if is_market_closed:
-            return False, f"MARKET_{close_reason}"
+        # Check contract calendar (EVID-07: Bitget 24/7 perpetual does not close on CME weekends)
+        from services.market_calendar_service import get_contract_trading_availability
+        contract_avail = get_contract_trading_availability(symbol=symbol, now_ms=now_ms)
+        if not contract_avail.get("scheduled_open", True):
+            if is_xauusdt_weekend_break(now_ms):
+                return False, "MARKET_WEEKEND_BREAK"
+            is_market_closed, close_reason = is_xauusdt_market_closed(now_ms)
+            if is_market_closed:
+                return False, f"MARKET_{close_reason}"
 
         # Check if feed is disconnected or degraded
         if feed_health and feed_health.get("freshness_state") in ("DISCONNECTED", "UNKNOWN"):
@@ -844,6 +1086,9 @@ class EngineObservabilityService:
             eval_age = now_ms - last_eval_done
             # If healthy feed and open market, cycle should complete within 2 * stall threshold
             if eval_age > stall_threshold_ms * 2:
+                is_closed, close_reason = is_xauusdt_market_closed(now_ms)
+                if is_closed and close_reason == "DAILY_MAINTENANCE":
+                    return False, f"MARKET_{close_reason}"
                 return True, f"EVALUATION_CYCLE_STALLED_AGE_{int(eval_age / 1000)}s"
 
         return False, "HEALTHY"
@@ -852,8 +1097,10 @@ class EngineObservabilityService:
         self,
         db: Optional[Session],
         *,
+        engine_instance_id: Optional[str] = None,
         symbol: str = "XAUUSDT",
         now_ms: Optional[int] = None,
+        feed_health: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Builds authoritative engine health snapshot from DB and in-memory state.
@@ -861,25 +1108,33 @@ class EngineObservabilityService:
         """
         t_now = int(now_ms if now_ms is not None else int(time.time() * 1000))
         latest_hb = None
+        target_inst_id = engine_instance_id or self._current_instance_id
 
         if db is not None:
             try:
-                # Prioritize current instance ID if recorded
-                latest_hb = db.query(models.EngineHeartbeatRecord).filter(
-                    models.EngineHeartbeatRecord.engine_instance_id == self._current_instance_id
-                ).first()
-                if not latest_hb:
+                if engine_instance_id:
                     latest_hb = db.query(models.EngineHeartbeatRecord).filter(
-                        models.EngineHeartbeatRecord.symbol == symbol
-                    ).order_by(models.EngineHeartbeatRecord.updated_at_ms.desc()).first()
+                        models.EngineHeartbeatRecord.engine_instance_id == engine_instance_id
+                    ).first()
+                else:
+                    latest_hb = db.query(models.EngineHeartbeatRecord).filter(
+                        models.EngineHeartbeatRecord.engine_instance_id == target_inst_id
+                    ).first()
+                    if not latest_hb:
+                        latest_hb = db.query(models.EngineHeartbeatRecord).filter(
+                            models.EngineHeartbeatRecord.symbol == symbol
+                        ).order_by(models.EngineHeartbeatRecord.updated_at_ms.desc()).first()
             except Exception:
                 latest_hb = None
 
-        feed_health = self.build_market_feed_health_snapshot(symbol=symbol, now_ms=t_now)
+        if feed_health is None:
+            feed_health = self.build_market_feed_health_snapshot(symbol=symbol, now_ms=t_now)
+
         is_stalled, stall_reason = self.detect_stalled_engine(
             heartbeat_record=latest_hb,
             now_ms=t_now,
             feed_health=feed_health,
+            symbol=symbol,
         )
 
         current_state = "UNKNOWN"
@@ -888,15 +1143,28 @@ class EngineObservabilityService:
                 current_state = "STALLED"
             else:
                 base_state = getattr(latest_hb, "state", "RUNNING")
-                is_closed, _ = is_xauusdt_market_closed(t_now)
-                if is_closed:
-                    current_state = "WAITING_MARKET"
-                elif feed_health.get("freshness_state") in ("DISCONNECTED", "CONNECTED_STALE"):
-                    current_state = "DEGRADED"
+                from services.market_calendar_service import get_contract_trading_availability
+                contract_avail = get_contract_trading_availability(symbol=symbol, now_ms=t_now)
+                if not contract_avail.get("scheduled_open", True):
+                    is_closed, _ = is_xauusdt_market_closed(t_now)
+                    if is_closed:
+                        current_state = "WAITING_MARKET"
+                    elif feed_health.get("freshness_state") in ("DISCONNECTED", "CONNECTED_STALE"):
+                        current_state = "DEGRADED"
+                    else:
+                        current_state = base_state
                 else:
-                    current_state = base_state
+                    if feed_health.get("freshness_state") in ("DISCONNECTED", "CONNECTED_STALE"):
+                        current_state = "DEGRADED"
+                    else:
+                        current_state = base_state
 
-        last_eval_ms = getattr(latest_hb, "last_successful_evaluation_at_ms", None) if latest_hb else None
+        last_eval_ms = (
+            getattr(latest_hb, "last_successful_evaluation_at_ms", None)
+            or getattr(latest_hb, "last_evaluation_completed_at_ms", None)
+            if latest_hb
+            else None
+        )
         last_eval_age_sec = round((t_now - last_eval_ms) / 1000.0, 1) if last_eval_ms else None
 
         last_hb_ms = getattr(latest_hb, "last_process_heartbeat_at_ms", None) if latest_hb else None
@@ -1092,7 +1360,7 @@ class EngineObservabilityService:
             and ask >= bid
         )
 
-        return {
+        feed_snapshot_res = {
             "symbol": symbol,
             "transport_state": transport_state,
             "feed_source": feed_source,
@@ -1127,6 +1395,8 @@ class EngineObservabilityService:
             "last_success_time": getattr(bitget_ws_service, "last_success_time", 0),
             "now_ms": t_now,
         }
+        feed_snapshot_res["coverage_quality"] = resolve_observation_evidence_quality(feed_snapshot_res, now_ms=t_now).quality
+        return feed_snapshot_res
 
     # -----------------------------------------------------------------------
     # 3. Evaluation Cycle Telemetry (Phase D)
@@ -1152,12 +1422,19 @@ class EngineObservabilityService:
         failure_reason: Optional[str] = None,
         models_evaluated: Optional[List[str]] = None,
         market_regime: Optional[str] = None,
+        evidence_origin: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """
         Records single cycle evaluation metrics into in-memory ring buffer,
         persists into EngineEvaluationCycleRecord (FIX-13), and updates engine heartbeat (FIX-01).
+        Propagates authoritative evidence_origin (EVID-02, EVID-11).
         """
-        inst_id = engine_instance_id or self._current_instance_id
+        eff_origin = resolve_observation_evidence_origin(evidence_origin)
+        if eff_origin == ObservationEvidenceOrigin.REPLAY:
+            inst_id = engine_instance_id or f"REPLAY_{run_id or 'RUN'}"
+        else:
+            inst_id = engine_instance_id or self._current_instance_id
+
         entry = {
             "cycle_id": cycle_id,
             "engine_instance_id": inst_id,
@@ -1176,6 +1453,8 @@ class EngineObservabilityService:
             "failure_reason": failure_reason,
             "models_evaluated": models_evaluated or [],
             "market_regime": market_regime or "UNKNOWN",
+            "evidence_origin": eff_origin.value,
+            "persistence_status": "PENDING",
         }
 
         # Idempotency check: if cycle already exists in memory or DB, avoid duplicate accounting (FIX-13)
@@ -1186,14 +1465,16 @@ class EngineObservabilityService:
                 res["deduplicated"] = True
                 return res
 
-            self._recent_cycles_buffer.append(entry)
-            if len(self._recent_cycles_buffer) > self._max_recent_cycles:
-                self._recent_cycles_buffer.pop(0)
-            self._latest_cycle_diagnostic = entry
+            if eff_origin != ObservationEvidenceOrigin.REPLAY:
+                self._recent_cycles_buffer.append(entry)
+                if len(self._recent_cycles_buffer) > self._max_recent_cycles:
+                    self._recent_cycles_buffer.pop(0)
+                self._latest_cycle_diagnostic = entry
 
         # Persist into EngineEvaluationCycleRecord (FIX-13 & Phase E)
         target_db, close_session = self._resolve_target_session(db)
 
+        persistence_succeeded = False
         if target_db is not None:
             try:
                 for attempt in range(3):
@@ -1225,6 +1506,7 @@ class EngineObservabilityService:
                                 metadata_json=json.dumps({
                                     "models_evaluated": models_evaluated or [],
                                     "market_regime": market_regime or "UNKNOWN",
+                                    "evidence_origin": eff_origin.value,
                                 }, ensure_ascii=False),
                                 created_at_ms=completed_at_ms or int(time.time() * 1000),
                             )
@@ -1233,6 +1515,7 @@ class EngineObservabilityService:
                                 target_db.commit()
                             else:
                                 target_db.flush()
+                            persistence_succeeded = True
                         break
                     except Exception as e:
                         if attempt < 2 and ("locked" in str(e).lower() or "busy" in str(e).lower()):
@@ -1247,26 +1530,32 @@ class EngineObservabilityService:
                 if close_session:
                     target_db.close()
 
+        entry["persistence_status"] = "COMMITTED" if persistence_succeeded else "FAILED"
+
         # Update engine heartbeat (Phase E: uses isolated target session)
-        self.record_engine_heartbeat(
-            db,
-            engine_instance_id=inst_id,
-            run_id=run_id,
-            symbol=symbol,
-            state="RUNNING" if status == "COMPLETED" else ("DEGRADED" if status == "FAILED" else "IDLE"),
-            heartbeat_at_ms=completed_at_ms,
-            last_cycle_id=cycle_id,
-            evaluation_started_at_ms=started_at_ms,
-            evaluation_completed_at_ms=completed_at_ms,
-            successful_cycle=(status == "COMPLETED"),
-            cycle_failed=(status == "FAILED"),
-            metadata={
-                "worker_role": "EVALUATION_OWNER",
-                "scope": "CG01",
-                "mode": "PAPER",
-                "evidence_origin": "LIVE_FORWARD",
-            },
-        )
+        try:
+            self.record_engine_heartbeat(
+                db,
+                engine_instance_id=inst_id,
+                run_id=run_id,
+                symbol=symbol,
+                state="RUNNING" if status == "COMPLETED" else ("DEGRADED" if status == "FAILED" else "IDLE"),
+                heartbeat_at_ms=completed_at_ms,
+                last_cycle_id=cycle_id,
+                evaluation_started_at_ms=started_at_ms,
+                evaluation_completed_at_ms=completed_at_ms,
+                successful_cycle=(status == "COMPLETED" and persistence_succeeded),
+                cycle_failed=(status == "FAILED"),
+                metadata={
+                    "worker_role": "EVALUATION_OWNER",
+                    "scope": "CG01",
+                    "mode": "PAPER",
+                    "evidence_origin": eff_origin.value,
+                    "evaluation_origin": eff_origin.value,
+                },
+            )
+        except Exception as hb_err:
+            logger.warning(f"Error updating heartbeat in record_evaluation_cycle: {hb_err}")
 
         return entry
 
@@ -2156,6 +2445,8 @@ class EngineObservabilityService:
             "engine": engine_health,
             "feed": feed_health,
             "coverage": coverage_data,
+            "evidence_origin": engine_health.get("evidence_origin", "LIVE_FORWARD"),
+            "evidence_persistence_status": engine_health.get("evidence_persistence_status", "COMMITTED"),
             "funnel": funnel_summary,
             "decisions": recent_decisions,
             "waiting_setups": waiting_conditions_list,

@@ -869,7 +869,7 @@ class CG01EvaluationScheduler:
                     auto_enabled=effective_auto,
                     research_context=research_ctx,
                     caller_identity="SCHEDULER",
-                    evaluation_origin="SCHEDULER",
+                    evaluation_origin="LIVE_FORWARD",
                 )
                 span_engine.finish()
             trace.total_runtime_ms = span_engine.duration_ms

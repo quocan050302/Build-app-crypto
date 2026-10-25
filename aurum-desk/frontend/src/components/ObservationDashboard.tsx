@@ -103,8 +103,25 @@ export const ObservationDashboard: React.FC<ObservationDashboardProps> = ({
     }
   };
 
+  // Helper for Evidence Quality color
+  const getEvidenceQualityBadge = (quality?: string | null) => {
+    switch (quality) {
+      case 'GOOD':
+        return { label: 'CHỨNG CỨ TỐT (GOOD)', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' };
+      case 'DEGRADED':
+        return { label: 'SUY GIẢM (DEGRADED)', color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' };
+      case 'UNVERIFIED':
+        return { label: 'CHƯA XÁC MINH (UNVERIFIED)', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' };
+      default:
+        return { label: 'CHƯA CÓ BẰNG CHỨNG', color: 'bg-charcoal-800 text-gray-400 border-charcoal-700' };
+    }
+  };
+
   const engineBadge = getEngineStateBadge(engine?.state);
   const feedBadge = getFeedFreshnessBadge(feed?.freshness_state);
+  const isPersistenceDegraded =
+    snapshot?.evidence_persistence_status === 'DEGRADED' ||
+    engine?.evidence_persistence_status === 'DEGRADED';
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 bg-charcoal-950 text-gray-200 min-h-screen">
@@ -188,6 +205,19 @@ export const ObservationDashboard: React.FC<ObservationDashboardProps> = ({
         </div>
       )}
 
+      {isPersistenceDegraded && (
+        <div
+          data-testid="persistence-degraded-banner"
+          className="flex items-center gap-3 p-3.5 rounded-lg bg-amber-950/40 border border-amber-600/80 text-amber-300 text-xs shadow-md"
+        >
+          <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+          <div className="flex flex-col">
+            <span className="font-semibold">CẢNH BÁO LƯU TRỮ CHỨNG CỨ (PERSISTENCE DEGRADED):</span>
+            <span>Hệ thống ghi nhận trạng thái lưu trữ bằng chứng đang bị suy giảm. Một số khoảng thời gian quan sát đang được giữ trong bộ nhớ tạm để thử lưu lại vào cơ sở dữ liệu.</span>
+          </div>
+        </div>
+      )}
+
       {/* 2. Five Executive Health Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Card 1: Bot Engine */}
@@ -226,6 +256,38 @@ export const ObservationDashboard: React.FC<ObservationDashboardProps> = ({
                 {engine?.failed_cycles_count ?? 0}
               </span>
             </div>
+            {engine?.process_liveness && (
+              <div className="flex justify-between">
+                <span className="text-gray-400">Tiến trình (Process):</span>
+                <span className={`font-mono font-semibold ${engine.process_liveness === 'ALIVE' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {engine.process_liveness}
+                </span>
+              </div>
+            )}
+            {engine?.evaluation_health && (
+              <div className="flex justify-between">
+                <span className="text-gray-400">Đánh giá (Health):</span>
+                <span className={`font-mono font-semibold ${engine.evaluation_health === 'HEALTHY' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {engine.evaluation_health}
+                </span>
+              </div>
+            )}
+            {engine?.evidence_origin && (
+              <div className="flex justify-between">
+                <span className="text-gray-400">Nguồn chứng cứ:</span>
+                <span className="font-mono text-gray-200">
+                  {engine.evidence_origin}
+                </span>
+              </div>
+            )}
+            {engine?.evidence_persistence_status && (
+              <div className="flex justify-between">
+                <span className="text-gray-400">Lưu trữ chứng cứ:</span>
+                <span className={`font-mono font-semibold ${engine.evidence_persistence_status === 'COMMITTED' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {engine.evidence_persistence_status}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -241,6 +303,14 @@ export const ObservationDashboard: React.FC<ObservationDashboardProps> = ({
             </span>
           </div>
           <div className="mt-1 flex flex-col gap-1 text-xs">
+            {feed?.coverage_quality && (
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Chứng cứ dữ liệu:</span>
+                <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border ${getEvidenceQualityBadge(feed.coverage_quality).color}`}>
+                  {getEvidenceQualityBadge(feed.coverage_quality).label}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-gray-400">Độ trễ báo giá:</span>
               <span className="font-mono text-gray-200">

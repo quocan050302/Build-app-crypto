@@ -4677,6 +4677,8 @@ def get_observation_status_endpoint(
         "now_ms": t_now,
         "engine": engine_health,
         "feed": feed_health,
+        "evidence_origin": engine_health.get("evidence_origin", "LIVE_FORWARD"),
+        "evidence_persistence_status": engine_health.get("evidence_persistence_status", "COMMITTED"),
         "active_run": active_run.to_dict() if active_run else None,
         "latest_cycle": engine_observability_service.get_latest_persisted_cycle(
             db, symbol=symbol, run_id=active_run.run_id if active_run else None

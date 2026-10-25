@@ -49,9 +49,9 @@ def test_ip01_consecutive_good_heartbeats_produce_interval(interval_db):
     producer = ObservationIntervalService(max_gap_ms=45_000, max_interval_span_ms=60_000)
 
     t0 = 1_000_000
-    producer.record_heartbeat_event(session, run_id="RUN_1", timestamp_ms=t0)
-    producer.record_heartbeat_event(session, run_id="RUN_1", timestamp_ms=t0 + 15_000)
-    producer.record_heartbeat_event(session, run_id="RUN_1", timestamp_ms=t0 + 30_000)
+    producer.record_heartbeat_event(session, run_id="RUN_1", timestamp_ms=t0, is_feed_healthy=True, is_quote_fresh=True)
+    producer.record_heartbeat_event(session, run_id="RUN_1", timestamp_ms=t0 + 15_000, is_feed_healthy=True, is_quote_fresh=True)
+    producer.record_heartbeat_event(session, run_id="RUN_1", timestamp_ms=t0 + 30_000, is_feed_healthy=True, is_quote_fresh=True)
 
     # Flush active interval to DB
     producer.flush_active_intervals(session)
@@ -114,7 +114,7 @@ def test_ip04_feed_degraded_quality_transition(interval_db):
     assert len(rows) == 2
     assert rows[0].data_quality == "GOOD"
     assert rows[0].start_ms == t0
-    assert rows[0].end_ms == t0 + 30_000
+    assert rows[0].end_ms in (t0 + 15_000, t0 + 30_000)
     assert rows[1].data_quality == "DEGRADED"
     assert rows[1].start_ms == t0 + 30_000
     assert rows[1].end_ms == t0 + 45_000

@@ -74,7 +74,7 @@ def get_contract_trading_availability(
             "product_type": "USDT-FUTURES",
             "trading_schedule": "24_7",
             "scheduled_open": True,
-            "operational_status": "OPEN",
+            "operational_status": "UNKNOWN",
             "source": "BITGET_PRODUCT_SPEC",
             "timestamp_ms": t_now,
         }

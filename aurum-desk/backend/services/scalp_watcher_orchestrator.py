@@ -641,6 +641,27 @@ class ScalpWatcherOrchestrator:
             except Exception:
                 pass
 
+        eff_evidence_origin = evaluation_origin or "LIVE_FORWARD"
+
+        # Validate quote & price for initial cycle heartbeat quality (EVID-01, EVID-32)
+        q_init = None
+        if quote is not None:
+            q_init = normalize_execution_quote(quote, now_ms=t_recv)
+        else:
+            raw_t = ticker if ticker is not None else collector_service.latest_ticker
+            q_init = normalize_execution_quote(raw_t, now_ms=t_recv) if raw_t else None
+
+        bid_val = float(getattr(q_init, "bid", 0.0) if hasattr(q_init, "bid") else (q_init or {}).get("bid", 0.0))
+        ask_val = float(getattr(q_init, "ask", 0.0) if hasattr(q_init, "ask") else (q_init or {}).get("ask", 0.0))
+        is_fresh_quote = bool(
+            q_init is not None
+            and getattr(q_init, "is_valid", False)
+            and not getattr(q_init, "is_stale", False)
+            and bid_val > 0
+            and ask_val >= bid_val
+        )
+        initial_coverage_quality = "GOOD" if is_fresh_quote else "DEGRADED"
+
         try:
             from services.engine_observability_service import engine_observability_service
             engine_observability_service.record_engine_heartbeat(
@@ -654,7 +675,11 @@ class ScalpWatcherOrchestrator:
                 metadata={
                     "worker_role": "EVALUATION_OWNER",
                     "caller_identity": caller_identity or "ORCHESTRATOR",
-                    "evaluation_origin": evaluation_origin or "LIVE_FORWARD",
+                    "evaluation_origin": eff_evidence_origin,
+                    "evidence_origin": eff_evidence_origin,
+                    "coverage_quality": initial_coverage_quality,
+                    "is_feed_healthy": is_fresh_quote,
+                    "is_quote_fresh": is_fresh_quote,
                     "scope": execution_scope or "CG01",
                     "mode": "PAPER",
                 },
@@ -692,6 +717,7 @@ class ScalpWatcherOrchestrator:
                     duration_ms=dur_ms,
                     skip_reason="SCALP_AUTO_PAPER_DISABLED" if not getattr(cfg, "scalp_m1_enabled", True) else "MODEL_DISABLED",
                     decision_status="SKIPPED",
+                    evidence_origin=eff_evidence_origin,
                 )
             except Exception:
                 pass
@@ -746,6 +772,7 @@ class ScalpWatcherOrchestrator:
                     duration_ms=dur_ms,
                     skip_reason="NO_VALID_QUOTE",
                     decision_status="SKIPPED",
+                    evidence_origin=eff_evidence_origin,
                 )
             except Exception:
                 pass
@@ -1940,6 +1967,7 @@ class ScalpWatcherOrchestrator:
                 armed_order_id=armed_order.id if armed_order and commit_ok else None,
                 decision_status=cycle_decision_status,
                 market_regime=regime,
+                evidence_origin=eff_evidence_origin,
             )
         except Exception as tel_err:
             logger.debug(f"Error recording cycle observability telemetry: {tel_err}")
@@ -1984,6 +2012,7 @@ class ScalpWatcherOrchestrator:
         cycle_id: Optional[str] = None,
         t_perf_start: Optional[float] = None,
         effective_run_id: Optional[str] = None,
+        evidence_origin: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Failure finalization helper for aborted/failed cycle transactions (V15.8 PROMPT 049-056).
@@ -2017,6 +2046,7 @@ class ScalpWatcherOrchestrator:
         t_cycle_done = int(time.time() * 1000)
         eff_dur_ms = max(0.0, (time.perf_counter() - t_perf_start) * 1000) if t_perf_start else max(0, t_cycle_done - t_start)
         eff_cycle_id = cycle_id or f"failed-{t_recv}"
+        eff_evidence_origin = evidence_origin or getattr(self, "evidence_origin", None) or "LIVE_FORWARD"
 
         try:
             from services.engine_observability_service import engine_observability_service
@@ -2035,6 +2065,7 @@ class ScalpWatcherOrchestrator:
                 decision_status="FAILED",
                 failure_reason="TRANSACTION_FAILED",
                 market_regime=regime,
+                evidence_origin=eff_evidence_origin,
             )
         except Exception as tel_err:
             logger.debug(f"Error recording failed cycle telemetry: {tel_err}")
@@ -2900,9 +2931,18 @@ class ScalpWatcherOrchestrator:
                         # Rules 014, 024, 025, 051-055: Use effective owner arbitration instead of raw is_owner
                         owner_info = resolve_entry_execution_owner(cg01_evaluation_scheduler, db=db)
 
-                        # V17.6 Heartbeat observation
+                        # V17.6 Heartbeat observation (EVID-01, EVID-31)
                         try:
-                            from services.engine_observability_service import engine_observability_service
+                            from services.engine_observability_service import (
+                                engine_observability_service,
+                                resolve_observation_evidence_quality,
+                            )
+                            feed_health_snap = engine_observability_service.build_market_feed_health_snapshot(symbol="XAUUSDT")
+                            feed_quality = resolve_observation_evidence_quality(
+                                process_heartbeat="RUNNING" if owner_info.get("can_execute") else "IDLE",
+                                feed_health=feed_health_snap,
+                                symbol="XAUUSDT",
+                            )
                             engine_observability_service.record_engine_heartbeat(
                                 db,
                                 symbol="XAUUSDT",
@@ -2913,6 +2953,13 @@ class ScalpWatcherOrchestrator:
                                     "can_execute": owner_info.get("can_execute", False),
                                     "scope": "CG01",
                                     "mode": "PAPER",
+                                    "evidence_origin": "LIVE_FORWARD",
+                                    "evaluation_origin": "LIVE_FORWARD",
+                                    "coverage_quality": feed_quality.quality,
+                                    "is_feed_healthy": feed_quality.quote_valid,
+                                    "is_quote_fresh": feed_quality.quality == "GOOD",
+                                    "transport_state": feed_quality.transport_state,
+                                    "quote_age_sec": round((feed_quality.quote_age_ms or 0) / 1000.0, 2) if feed_quality.quote_age_ms else None,
                                 },
                             )
                         except Exception:
@@ -2928,7 +2975,7 @@ class ScalpWatcherOrchestrator:
                             "XAUUSDT",
                             auto_enabled=owner_info["can_execute"],
                             caller_identity="WATCHER",
-                            evaluation_origin="WATCHER",
+                            evaluation_origin="LIVE_FORWARD",
                         )
                     finally:
                         db.close()
