@@ -102,6 +102,7 @@ def test_fe02_ws_connected_quote_missing_not_good():
 
 def test_fe03_ws_connected_quote_stale():
     """FE03: WS connected but quote age > threshold -> resolves to DEGRADED."""
+    now_ms = 1_700_000_045_000
     q_res = resolve_observation_evidence_quality(
         process_heartbeat="RUNNING",
         feed_health={
@@ -112,6 +113,7 @@ def test_fe03_ws_connected_quote_stale():
             "bid": 2000.0,
             "ask": 2000.5,
         },
+        now_ms=now_ms,
         symbol="XAUUSDT",
     )
     assert q_res.quality == "DEGRADED"
@@ -168,6 +170,7 @@ def test_fe05_structurally_invalid_quote():
 
 def test_fe06_valid_fresh_canonical_quote():
     """FE06: Connected WS + fresh valid quote -> resolves to GOOD candidate."""
+    now_ms = 1_700_000_000_500
     q_res = resolve_observation_evidence_quality(
         process_heartbeat="RUNNING",
         feed_health={
@@ -179,6 +182,7 @@ def test_fe06_valid_fresh_canonical_quote():
             "ask": 2050.25,
             "last_quote_at_ms": 1_700_000_000_000,
         },
+        now_ms=now_ms,
         symbol="XAUUSDT",
         evidence_origin="LIVE_FORWARD",
     )

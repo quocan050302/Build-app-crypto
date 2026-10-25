@@ -228,7 +228,7 @@ def main(argv=None):
         print("Skipping G26 (skip-e2e specified)...")
         gates["G26_playwright_e2e"] = {
             "gate": "G26_playwright_e2e",
-            "status": "PASS",
+            "status": "SKIPPED",
             "reason": "SKIPPED_BY_FLAG",
             "elapsed_sec": 0.0,
         }

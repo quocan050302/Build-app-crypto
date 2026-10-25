@@ -121,7 +121,9 @@ export const ObservationDashboard: React.FC<ObservationDashboardProps> = ({
   const feedBadge = getFeedFreshnessBadge(feed?.freshness_state);
   const isPersistenceDegraded =
     snapshot?.evidence_persistence_status === 'DEGRADED' ||
-    engine?.evidence_persistence_status === 'DEGRADED';
+    engine?.evidence_persistence_status === 'DEGRADED' ||
+    snapshot?.evidence_persistence_status === 'UNVERIFIED' ||
+    engine?.evidence_persistence_status === 'UNVERIFIED';
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 bg-charcoal-950 text-gray-200 min-h-screen">
@@ -283,7 +285,16 @@ export const ObservationDashboard: React.FC<ObservationDashboardProps> = ({
             {engine?.evidence_persistence_status && (
               <div className="flex justify-between">
                 <span className="text-gray-400">Lưu trữ chứng cứ:</span>
-                <span className={`font-mono font-semibold ${engine.evidence_persistence_status === 'COMMITTED' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                <span
+                  data-testid="evidence-persistence-status"
+                  className={`font-mono font-semibold ${
+                    engine.evidence_persistence_status === 'COMMITTED'
+                      ? 'text-emerald-400'
+                      : engine.evidence_persistence_status === 'UNVERIFIED'
+                      ? 'text-amber-400'
+                      : 'text-rose-400'
+                  }`}
+                >
                   {engine.evidence_persistence_status}
                 </span>
               </div>

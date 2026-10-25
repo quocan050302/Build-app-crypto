@@ -164,40 +164,25 @@ def resolve_observation_evidence_quality(
             evidence_timestamp_ms=t_now,
         )
 
-    # 2. Quote timestamps and clock skew
-    quote_age_ms = None
-    if last_quote_at_ms is not None:
-        if last_quote_at_ms > (t_now + 60_000):
-            return ObservationEvidenceQuality(
-                quality="DEGRADED",
-                reason_code="QUOTE_FUTURE_CLOCK_SKEW",
-                feed_source=quote_source,
-                quote_age_ms=-int(last_quote_at_ms - t_now),
-                quote_valid=False,
-                transport_state=transport_state,
-                evidence_timestamp_ms=t_now,
-            )
-        quote_age_ms = max(0, t_now - int(last_quote_at_ms))
-    elif quote_age_sec is not None:
-        if quote_age_sec < -60.0:
-            return ObservationEvidenceQuality(
-                quality="DEGRADED",
-                reason_code="QUOTE_FUTURE_CLOCK_SKEW",
-                feed_source=quote_source,
-                quote_valid=False,
-                transport_state=transport_state,
-                evidence_timestamp_ms=t_now,
-            )
-        quote_age_ms = int(max(0.0, quote_age_sec) * 1000)
+    # 2. Transport state authority (ECI-02 Part 052)
+    if not transport_state or transport_state == "UNKNOWN":
+        return ObservationEvidenceQuality(
+            quality="UNVERIFIED",
+            reason_code="TRANSPORT_STATE_UNKNOWN",
+            feed_source=quote_source,
+            quote_age_ms=None,
+            quote_valid=False,
+            transport_state="UNKNOWN",
+            evidence_timestamp_ms=t_now,
+        )
 
-    # 3. Transport state
     if transport_state in ("DISCONNECTED", "DOWN", "RECONNECTING"):
         if quote_source == "REST_FALLBACK" and feed.get("freshness_state") == "CONNECTED_FRESH" and bid is not None and ask is not None:
             return ObservationEvidenceQuality(
                 quality="DEGRADED",
                 reason_code="REST_FALLBACK_ACTIVE_TRANSPORT_DISCONNECTED",
                 feed_source="REST_FALLBACK",
-                quote_age_ms=quote_age_ms,
+                quote_age_ms=None,
                 quote_valid=True,
                 transport_state=transport_state,
                 evidence_timestamp_ms=last_quote_at_ms or t_now,
@@ -206,11 +191,125 @@ def resolve_observation_evidence_quality(
             quality="DOWN" if transport_state == "DISCONNECTED" else "DEGRADED",
             reason_code=f"TRANSPORT_{transport_state}",
             feed_source=quote_source,
-            quote_age_ms=quote_age_ms,
+            quote_age_ms=None,
             quote_valid=False,
             transport_state=transport_state,
             evidence_timestamp_ms=t_now,
         )
+
+    if transport_state != "CONNECTED":
+        return ObservationEvidenceQuality(
+            quality="UNVERIFIED",
+            reason_code=f"TRANSPORT_STATE_{transport_state}",
+            feed_source=quote_source,
+            quote_age_ms=None,
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now,
+        )
+
+    # 3. Quote source authority
+    if not quote_source or quote_source == "UNKNOWN":
+        return ObservationEvidenceQuality(
+            quality="UNVERIFIED",
+            reason_code="QUOTE_SOURCE_UNKNOWN",
+            feed_source="UNKNOWN",
+            quote_age_ms=None,
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now,
+        )
+
+    # 4. Quote status authority (Part 061)
+    status = feed.get("status") or feed.get("quote_status")
+    if status is not None and str(status).upper() not in ("VALID", "FRESH", "CONNECTED_FRESH", "OK"):
+        return ObservationEvidenceQuality(
+            quality="DEGRADED",
+            reason_code=f"QUOTE_STATUS_{str(status).upper()}",
+            feed_source=quote_source,
+            quote_age_ms=None,
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now,
+        )
+
+    # 5. Authoritative timestamps and finite quote age (ECI-02 Parts 049, 054-057)
+    if last_quote_at_ms is None and quote_age_sec is None:
+        return ObservationEvidenceQuality(
+            quality="UNVERIFIED",
+            reason_code="QUOTE_TIMESTAMP_AND_AGE_MISSING",
+            feed_source=quote_source,
+            quote_age_ms=None,
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now,
+        )
+
+    if quote_age_sec is not None:
+        try:
+            qa_f = float(quote_age_sec)
+            if not math.isfinite(qa_f):
+                return ObservationEvidenceQuality(
+                    quality="DEGRADED",
+                    reason_code="QUOTE_AGE_NON_FINITE",
+                    feed_source=quote_source,
+                    quote_age_ms=None,
+                    quote_valid=False,
+                    transport_state=transport_state,
+                    evidence_timestamp_ms=t_now,
+                )
+            quote_age_sec = qa_f
+        except (ValueError, TypeError):
+            return ObservationEvidenceQuality(
+                quality="DEGRADED",
+                reason_code="QUOTE_AGE_INVALID",
+                feed_source=quote_source,
+                quote_age_ms=None,
+                quote_valid=False,
+                transport_state=transport_state,
+                evidence_timestamp_ms=t_now,
+            )
+
+    if last_quote_at_ms is not None and int(last_quote_at_ms) > (t_now + 60_000):
+        return ObservationEvidenceQuality(
+            quality="DEGRADED",
+            reason_code="QUOTE_FUTURE_CLOCK_SKEW",
+            feed_source=quote_source,
+            quote_age_ms=-int(int(last_quote_at_ms) - t_now),
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now,
+        )
+    if quote_age_sec is not None and quote_age_sec < -60.0:
+        return ObservationEvidenceQuality(
+            quality="DEGRADED",
+            reason_code="QUOTE_FUTURE_CLOCK_SKEW",
+            feed_source=quote_source,
+            quote_age_ms=int(quote_age_sec * 1000),
+            quote_valid=False,
+            transport_state=transport_state,
+            evidence_timestamp_ms=t_now,
+        )
+
+    if last_quote_at_ms is not None and quote_age_sec is not None:
+        calc_age_ms = t_now - int(last_quote_at_ms)
+        reported_age_ms = int(max(0.0, quote_age_sec) * 1000)
+        if abs(calc_age_ms - reported_age_ms) > 5000:
+            return ObservationEvidenceQuality(
+                quality="DEGRADED",
+                reason_code=f"QUOTE_AGE_CONFLICT_{reported_age_ms}MS_VS_{calc_age_ms}MS",
+                feed_source=quote_source,
+                quote_age_ms=max(calc_age_ms, reported_age_ms),
+                quote_valid=False,
+                transport_state=transport_state,
+                evidence_timestamp_ms=int(last_quote_at_ms),
+            )
+
+    if quote_age_sec is not None:
+        effective_age_sec = float(quote_age_sec)
+    else:
+        effective_age_sec = max(0.0, (t_now - int(last_quote_at_ms)) / 1000.0)
+    quote_age_ms = int(effective_age_sec * 1000)
 
     # 4. Structural quote verification
     if bid is None or ask is None:
@@ -260,18 +359,19 @@ def resolve_observation_evidence_quality(
             evidence_timestamp_ms=t_now,
         )
 
-    # 5. Freshness threshold
-    if quote_age_sec is not None and quote_age_sec > QUOTE_FRESHNESS_THRESHOLD_SEC:
+    # 7. Freshness threshold
+    if effective_age_sec > QUOTE_FRESHNESS_THRESHOLD_SEC:
         return ObservationEvidenceQuality(
             quality="DEGRADED",
-            reason_code=f"QUOTE_STALE_AGE_{quote_age_sec}S",
+            reason_code=f"QUOTE_STALE_AGE_{round(effective_age_sec, 1)}S",
             feed_source=quote_source,
             quote_age_ms=quote_age_ms,
             quote_valid=True,
             transport_state=transport_state,
-            evidence_timestamp_ms=last_quote_at_ms or t_now,
+            evidence_timestamp_ms=last_quote_at_ms or int(t_now - quote_age_ms),
         )
 
+    # 8. REST Fallback policy (Part 053)
     if quote_source == "REST_FALLBACK":
         return ObservationEvidenceQuality(
             quality="DEGRADED",
@@ -280,8 +380,10 @@ def resolve_observation_evidence_quality(
             quote_age_ms=quote_age_ms,
             quote_valid=True,
             transport_state=transport_state,
-            evidence_timestamp_ms=last_quote_at_ms or t_now,
+            evidence_timestamp_ms=last_quote_at_ms or int(t_now - quote_age_ms),
         )
+
+    ev_ts = int(last_quote_at_ms) if last_quote_at_ms is not None else int(t_now - quote_age_ms)
 
     return ObservationEvidenceQuality(
         quality="GOOD",
@@ -290,7 +392,7 @@ def resolve_observation_evidence_quality(
         quote_age_ms=quote_age_ms,
         quote_valid=True,
         transport_state=transport_state,
-        evidence_timestamp_ms=last_quote_at_ms or t_now,
+        evidence_timestamp_ms=ev_ts,
     )
 
 
@@ -839,6 +941,24 @@ def decode_observation_cursor(
         raise HTTPException(status_code=422, detail=f"Invalid pagination cursor: {e}")
 
 
+def _serialize_heartbeat_metadata(meta: Optional[Dict[str, Any]]) -> str:
+    if not meta:
+        return "{}"
+    clean = {}
+    for k, v in meta.items():
+        if hasattr(v, "__dataclass_fields__"):
+            clean[k] = asdict(v)
+        elif hasattr(v, "value"):
+            clean[k] = v.value
+        else:
+            try:
+                json.dumps(v)
+                clean[k] = v
+            except Exception:
+                clean[k] = str(v)
+    return json.dumps(clean, ensure_ascii=False)
+
+
 # ---------------------------------------------------------------------------
 # Engine Observability Service Class
 # ---------------------------------------------------------------------------
@@ -857,15 +977,23 @@ class EngineObservabilityService:
         return self._current_instance_id
 
     @staticmethod
-    def _resolve_target_session(db: Optional[Session]) -> Tuple[Optional[Session], bool]:
+    def _resolve_target_session(
+        db: Optional[Session],
+        *,
+        borrow_session: bool = False,
+    ) -> Tuple[Optional[Session], bool]:
         """
-        Resolves an owned session bound to the caller's database engine (Phase E, PART 063-068).
-        If db is passed, binds a new Session to db.get_bind() so telemetry commits independently
-        to the caller's database without borrowing or committing the caller's session.
-        If db is None, falls back to SessionLocal().
+        Resolves session for telemetry writes (ECI-07, Part 016 & Part 096).
+        - If borrow_session=True: borrows caller's session (close_session=False),
+          flushes without committing. Transaction remains under caller's ownership.
+        - If borrow_session=False and db is provided: binds an independent owned session to db.get_bind()
+          (close_session=True), commits independently without interfering with caller's transaction.
+        - If db is None: opens fallback SessionLocal() (close_session=True) and commits independently.
         Returns: (session, should_close_and_commit)
         """
         if db is not None:
+            if borrow_session:
+                return db, False
             try:
                 bind = db.get_bind()
                 from sqlalchemy.orm import sessionmaker
@@ -874,9 +1002,11 @@ class EngineObservabilityService:
             except Exception as e:
                 logger.warning(f"Could not bind owned session to caller db: {e}")
                 return db, False
+
         try:
-            from database import SessionLocal
-            return SessionLocal(), True
+            import database
+            session_factory = getattr(database, "SessionLocal", SessionLocal)
+            return session_factory(), True
         except Exception as e:
             logger.warning(f"Could not open fallback SessionLocal: {e}")
             return None, False
@@ -900,6 +1030,7 @@ class EngineObservabilityService:
         cycle_failed: bool = False,
         cadence_sec: int = ENGINE_CADENCE_DEFAULT_SEC,
         metadata: Optional[Dict[str, Any]] = None,
+        borrow_session: bool = False,
     ) -> Dict[str, Any]:
         """
         Durable UPSERT into engine_heartbeats table.
@@ -919,7 +1050,7 @@ class EngineObservabilityService:
             "updated_at_ms": t_now,
         }
 
-        target_db, close_session = self._resolve_target_session(db)
+        target_db, close_session = self._resolve_target_session(db, borrow_session=borrow_session)
 
         if target_db is not None:
             try:
@@ -943,7 +1074,7 @@ class EngineObservabilityService:
                                 cycles_count=1 if successful_cycle or cycle_failed else 0,
                                 failed_cycles_count=1 if cycle_failed else 0,
                                 cadence_sec=cadence_sec,
-                                metadata_json=json.dumps(metadata or {}, ensure_ascii=False),
+                                metadata_json=_serialize_heartbeat_metadata(metadata),
                                 updated_at_ms=t_now,
                             )
                             target_db.add(row)
@@ -964,7 +1095,7 @@ class EngineObservabilityService:
                             if cycle_failed:
                                 row.failed_cycles_count = (row.failed_cycles_count or 0) + 1
                             if metadata:
-                                row.metadata_json = json.dumps(metadata, ensure_ascii=False)
+                                row.metadata_json = _serialize_heartbeat_metadata(metadata)
                             row.updated_at_ms = t_now
 
                         if close_session:
@@ -991,15 +1122,29 @@ class EngineObservabilityService:
             raw_origin = (metadata or {}).get("evidence_origin") or (metadata or {}).get("evaluation_origin") or "LIVE_FORWARD"
             eff_origin = resolve_observation_evidence_origin(raw_origin)
 
-            coverage_quality = (metadata or {}).get("coverage_quality")
-            if coverage_quality is None:
-                if metadata and ("is_feed_healthy" in metadata or "is_quote_fresh" in metadata):
-                    is_feed_ok = metadata.get("is_feed_healthy", False)
-                    is_quote_ok = metadata.get("is_quote_fresh", False)
-                    if is_feed_ok and is_quote_ok:
-                        coverage_quality = "GOOD"
-                    else:
-                        coverage_quality = "DEGRADED"
+            # ECI-08: Fail-closed quote quality arbitration. Caller booleans or raw strings alone CANNOT bypass verification.
+            coverage_quality = None
+            evidence_qual = (metadata or {}).get("evidence_quality")
+            if isinstance(evidence_qual, ObservationEvidenceQuality):
+                coverage_quality = evidence_qual.quality
+            elif isinstance(evidence_qual, dict) and "quality" in evidence_qual:
+                coverage_quality = str(evidence_qual["quality"]).upper()
+            elif metadata and "feed_health" in metadata and isinstance(metadata["feed_health"], dict):
+                q_res = resolve_observation_evidence_quality(metadata["feed_health"], symbol=symbol, now_ms=t_now)
+                coverage_quality = q_res.quality
+            elif (
+                metadata
+                and metadata.get("transport_state") == "CONNECTED"
+                and metadata.get("quote_age_sec") is not None
+                and float(metadata.get("quote_age_sec", 999)) <= QUOTE_FRESHNESS_THRESHOLD_SEC
+                and metadata.get("is_feed_healthy") is True
+                and metadata.get("is_quote_fresh") is True
+            ):
+                coverage_quality = "GOOD"
+            else:
+                raw_cov = (metadata or {}).get("coverage_quality")
+                if raw_cov in ("DEGRADED", "DOWN", "UNVERIFIED"):
+                    coverage_quality = str(raw_cov).upper()
                 else:
                     coverage_quality = "UNVERIFIED"
 
@@ -1170,6 +1315,18 @@ class EngineObservabilityService:
         last_hb_ms = getattr(latest_hb, "last_process_heartbeat_at_ms", None) if latest_hb else None
         last_hb_age_sec = round((t_now - last_hb_ms) / 1000.0, 1) if last_hb_ms else None
 
+        if db is None:
+            evidence_persistence_status = "UNVERIFIED"
+        elif latest_hb is None:
+            evidence_persistence_status = "UNKNOWN"
+        else:
+            from services.observation_interval_service import observation_interval_service
+            pending_metrics = observation_interval_service.get_pending_metrics(run_id=getattr(latest_hb, "run_id", None))
+            if pending_metrics.get("pending_count", 0) > 0 or pending_metrics.get("last_persist_error"):
+                evidence_persistence_status = "DEGRADED"
+            else:
+                evidence_persistence_status = "COMMITTED"
+
         return {
             "engine_instance_id": getattr(latest_hb, "engine_instance_id", self._current_instance_id),
             "symbol": symbol,
@@ -1177,6 +1334,7 @@ class EngineObservabilityService:
             "state": current_state,
             "is_stalled": is_stalled,
             "stalled_reason": stall_reason if is_stalled else None,
+            "evidence_persistence_status": evidence_persistence_status,
             "last_process_heartbeat_at_ms": last_hb_ms,
             "last_heartbeat_age_sec": last_hb_age_sec,
             "last_evaluation_started_at_ms": getattr(latest_hb, "last_evaluation_started_at_ms", None),
@@ -1423,6 +1581,7 @@ class EngineObservabilityService:
         models_evaluated: Optional[List[str]] = None,
         market_regime: Optional[str] = None,
         evidence_origin: Optional[Any] = None,
+        borrow_session: bool = False,
     ) -> Dict[str, Any]:
         """
         Records single cycle evaluation metrics into in-memory ring buffer,
@@ -1472,7 +1631,7 @@ class EngineObservabilityService:
                 self._latest_cycle_diagnostic = entry
 
         # Persist into EngineEvaluationCycleRecord (FIX-13 & Phase E)
-        target_db, close_session = self._resolve_target_session(db)
+        target_db, close_session = self._resolve_target_session(db, borrow_session=borrow_session)
 
         persistence_succeeded = False
         if target_db is not None:
@@ -1485,6 +1644,7 @@ class EngineObservabilityService:
                         if existing_row is not None:
                             res = dict(entry)
                             res["deduplicated"] = True
+                            res["persistence_status"] = "COMMITTED"
                             return res
                         else:
                             cycle_row = models.EngineEvaluationCycleRecord(
@@ -1530,7 +1690,10 @@ class EngineObservabilityService:
                 if close_session:
                     target_db.close()
 
-        entry["persistence_status"] = "COMMITTED" if persistence_succeeded else "FAILED"
+        if persistence_succeeded:
+            entry["persistence_status"] = "COMMITTED" if close_session else "PENDING_COMMIT"
+        else:
+            entry["persistence_status"] = "FAILED"
 
         # Update engine heartbeat (Phase E: uses isolated target session)
         try:
@@ -1553,6 +1716,7 @@ class EngineObservabilityService:
                     "evidence_origin": eff_origin.value,
                     "evaluation_origin": eff_origin.value,
                 },
+                borrow_session=borrow_session,
             )
         except Exception as hb_err:
             logger.warning(f"Error updating heartbeat in record_evaluation_cycle: {hb_err}")
@@ -1614,11 +1778,6 @@ class EngineObservabilityService:
             except Exception as e:
                 logger.warning(f"Error querying persisted cycle: {e}")
 
-        diag = self.get_latest_cycle_diagnostic()
-        if diag and diag.get("symbol") == symbol and (
-            run_id is None or diag.get("run_id") == run_id
-        ):
-            return diag
         return None
 
 
@@ -2431,6 +2590,37 @@ class EngineObservabilityService:
             symbol=symbol,
             scope=scope,
         )
+        # Resolve evidence_persistence_status (ECI-03)
+        if not target_run_id:
+            evidence_persistence_status = "NO_ACTIVE_RUN"
+        elif db is None:
+            evidence_persistence_status = "UNVERIFIED"
+        else:
+            from services.observation_interval_service import observation_interval_service
+            pending_metrics = observation_interval_service.get_pending_metrics(run_id=target_run_id)
+            if pending_metrics.get("pending_count", 0) > 0 or pending_metrics.get("last_persist_error"):
+                evidence_persistence_status = "DEGRADED"
+            else:
+                try:
+                    has_cycle = (
+                        db.query(models.EngineEvaluationCycleRecord.id)
+                        .filter(models.EngineEvaluationCycleRecord.run_id == target_run_id)
+                        .first()
+                        is not None
+                    )
+                    has_interval = (
+                        db.query(models.PaperObservationInterval.id)
+                        .filter(models.PaperObservationInterval.run_id == target_run_id)
+                        .first()
+                        is not None
+                    )
+                    if has_cycle and has_interval:
+                        evidence_persistence_status = "COMMITTED"
+                    else:
+                        evidence_persistence_status = "UNVERIFIED"
+                except Exception as ex:
+                    logger.warning(f"Error checking persistence status: {ex}")
+                    evidence_persistence_status = "UNVERIFIED"
 
         return {
             "schema_version": OBSERVATION_SCHEMA_VERSION,
@@ -2446,7 +2636,7 @@ class EngineObservabilityService:
             "feed": feed_health,
             "coverage": coverage_data,
             "evidence_origin": engine_health.get("evidence_origin", "LIVE_FORWARD"),
-            "evidence_persistence_status": engine_health.get("evidence_persistence_status", "COMMITTED"),
+            "evidence_persistence_status": evidence_persistence_status,
             "funnel": funnel_summary,
             "decisions": recent_decisions,
             "waiting_setups": waiting_conditions_list,

@@ -162,13 +162,34 @@ class TestAcceptanceRunnerSelfVerification:
             mock_drift.return_value = (True, [])
 
             with tempfile.TemporaryDirectory() as tmp_dir:
-                res = runner.main(["--out-dir", tmp_dir, "--skip-e2e"])
+                res = runner.main(["--out-dir", tmp_dir])
                 assert res == 0
                 report_file = Path(tmp_dir) / "acceptance_v17_6_4_1.json"
                 report = json.loads(report_file.read_text(encoding="utf-8"))
                 assert report["verdict"] == "ACCEPTED"
                 assert report["passed_gates"] == 30
                 assert report["total_gates"] == 30
+
+    def test_ac13_skip_e2e_cannot_accept(self):
+        """AC13: --skip-e2e sets G26 to SKIPPED and causes REJECTED verdict."""
+        with patch.object(runner, "git") as mock_git, \
+             patch.object(runner, "run_cmd") as mock_cmd, \
+             patch.object(runner, "verify_zero_live_execution") as mock_live, \
+             patch.object(runner, "verify_zero_strategy_drift") as mock_drift:
+            mock_git.side_effect = lambda *args: "fix/v14-1-rr-flow" if args[0] == "branch" else ("" if args[0] == "status" else "sha123")
+            mock_cmd.side_effect = lambda name, cmd, cwd, env, out_dir, timeout=600: {
+                "gate": name, "exit_code": 0, "status": "PASS", "elapsed_sec": 0.1, "log": "log", "output_tail": "ok"
+            }
+            mock_live.return_value = (True, [])
+            mock_drift.return_value = (True, [])
+
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                res = runner.main(["--out-dir", tmp_dir, "--skip-e2e"])
+                assert res == 1
+                report_file = Path(tmp_dir) / "acceptance_v17_6_4_1.json"
+                report = json.loads(report_file.read_text(encoding="utf-8"))
+                assert report["verdict"] == "REJECTED"
+                assert report["gates"]["G26_playwright_e2e"]["status"] == "SKIPPED"
 
     def test_ac10_rejected_verdict_when_any_gate_fails(self):
         """AC10: Runner verdict is REJECTED when any gate fails."""
