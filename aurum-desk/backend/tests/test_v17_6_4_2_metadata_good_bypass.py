@@ -124,6 +124,17 @@ class TestMetadataGoodBypassPrevention:
             evidence_timestamp_ms=t0,
         )
 
+        canonical_quote = {
+            "symbol": "XAUUSDT",
+            "bid": 2650.0,
+            "ask": 2650.5,
+            "quote_source": "WS",
+            "transport_state": "CONNECTED",
+            "last_quote_at_ms": t0,
+            "quote_age_sec": 0.2,
+            "status": "VALID",
+        }
+
         obs_svc.record_engine_heartbeat(
             session,
             symbol="XAUUSDT",
@@ -132,9 +143,21 @@ class TestMetadataGoodBypassPrevention:
             heartbeat_at_ms=t0,
             metadata={
                 "evidence_quality": verified_quality,
+                "canonical_quote": canonical_quote,
                 "worker_role": "WATCHER_PROCESS",
             },
         )
+        canonical_quote_2 = {
+            "symbol": "XAUUSDT",
+            "bid": 2650.0,
+            "ask": 2650.5,
+            "quote_source": "WS",
+            "transport_state": "CONNECTED",
+            "last_quote_at_ms": t0 + 15_000,
+            "quote_age_sec": 0.2,
+            "status": "VALID",
+        }
+
         obs_svc.record_engine_heartbeat(
             session,
             symbol="XAUUSDT",
@@ -143,12 +166,14 @@ class TestMetadataGoodBypassPrevention:
             heartbeat_at_ms=t0 + 15_000,
             metadata={
                 "evidence_quality": verified_quality,
+                "canonical_quote": canonical_quote_2,
                 "worker_role": "WATCHER_PROCESS",
             },
         )
 
         from services.observation_interval_service import observation_interval_service
         observation_interval_service.flush_active_intervals(session)
+        session.commit()
 
         rows = session.query(models.PaperObservationInterval).filter_by(run_id="RUN_MB03").all()
         assert len(rows) >= 1

@@ -305,6 +305,7 @@ def test_fe11_watcher_heartbeat_integration(test_db):
             "quote_age_sec": 0.4,
             "transport_state": "CONNECTED",
             "coverage_quality": "GOOD",
+            "quote_source": "WS",
             "bid": 2650.0,
             "ask": 2650.5,
         },
