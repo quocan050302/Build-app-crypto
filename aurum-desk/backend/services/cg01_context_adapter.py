@@ -282,19 +282,19 @@ def adapt_cg01_quote(q: Any) -> CanonicalQuote:
 
     bid = float(getattr(q, "bid", 0.0) if hasattr(q, "bid") else (q.get("bid", 0.0) if isinstance(q, dict) else 0.0))
     ask = float(getattr(q, "ask", 0.0) if hasattr(q, "ask") else (q.get("ask", 0.0) if isinstance(q, dict) else 0.0))
-    is_valid = bool(getattr(q, "is_valid", False) if hasattr(q, "is_valid") else (q.get("is_valid", False) if isinstance(q, dict) else False))
+    has_is_valid = ("is_valid" in q) if isinstance(q, dict) else hasattr(q, "is_valid")
+    if has_is_valid:
+        is_valid = bool(getattr(q, "is_valid", False) if hasattr(q, "is_valid") else q.get("is_valid", False))
+    else:
+        is_valid = True
+
     is_stale = bool(getattr(q, "is_stale", False) if hasattr(q, "is_stale") else (q.get("is_stale", False) if isinstance(q, dict) else False))
     ts = int(getattr(q, "timestamp", 0) if hasattr(q, "timestamp") else (q.get("timestamp", 0) if isinstance(q, dict) else 0))
 
-    if bid > 0 and ask <= 0:
-        ask = bid
-    elif ask > 0 and bid <= 0:
-        bid = ask
-
-    if is_valid and (bid <= 0 or ask < bid or not math.isfinite(bid) or not math.isfinite(ask)):
+    if bid <= 0 or ask <= 0 or ask < bid or not math.isfinite(bid) or not math.isfinite(ask):
         is_valid = False
 
-    spread = round(ask - bid, 4) if (bid > 0 and ask >= bid) else 0.0
+    spread = round(ask - bid, 4) if (math.isfinite(bid) and math.isfinite(ask)) else 0.0
     mid = round((bid + ask) / 2.0, 4) if (bid > 0 and ask > 0) else bid
 
     return CanonicalQuote(

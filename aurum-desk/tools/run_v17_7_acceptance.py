@@ -1,21 +1,10 @@
 #!/usr/bin/env python3
 """
-AURUM DESK V17.7.1 — EVIDENCE-BASED MASTER ACCEPTANCE RUNNER
+AURUM DESK V17.7.2 — EVIDENCE-BASED MASTER ACCEPTANCE RUNNER
 ============================================================
-Enforces all required release gates for V17.7.1 Structural SL Runtime Integrity
-& Evidence-Based Acceptance on branch `feat/v17-7-adaptive-structural-stop-loss`.
-
-Mandatory checks:
-1. Git branch integrity (feat/v17-7-adaptive-structural-stop-loss).
-2. Documentation completeness (7 required V17.7.1 reports + updated calibration report).
-3. Zero live order safety invariant verified via actual network boundary instrumentation.
-4. Dedicated V17.7.1 suite execution (80 gates: SL-01..SL-60 + DSL-01..DSL-20).
-5. V17.5 regression test suite execution (test_v17_5*.py).
-6. V17.6 regression test suite execution (test_v17_6*.py).
-7. Frontend Vitest unit & contract test suite execution.
-8. Frontend production build and linting.
-9. Database transaction and isolation verification.
-10. Authentic test count extraction and JSON artifact recording.
+Enforces all 23 release gates (G01 to G23) for V17.7.2:
+Causal SL Evidence, True Runtime E2E & Fail-Closed Acceptance Repair.
+Branch: feat/v17-7-adaptive-structural-stop-loss
 """
 
 import os
@@ -32,16 +21,20 @@ ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
 ARTIFACTS_DIR = ROOT / "docs" / "artifacts"
+PYTHON_BIN = str(BACKEND / "venv" / "bin" / "python") if (BACKEND / "venv" / "bin" / "python").exists() else sys.executable
+PYTEST_BIN = str(BACKEND / "venv" / "bin" / "pytest") if (BACKEND / "venv" / "bin" / "pytest").exists() else "pytest"
 
 
 def run_cmd(cmd, cwd=ROOT, env=None):
     merged_env = os.environ.copy()
+    merged_env["PYTHONPATH"] = f"{BACKEND}:{BACKEND / 'tests'}"
+    merged_env["TESTING"] = "1"
     if env:
         merged_env.update(env)
     start_t = time.time()
     res = subprocess.run(cmd, shell=isinstance(cmd, str), cwd=cwd, env=merged_env, capture_output=True, text=True)
-    duration = round(time.time() - start_t, 2)
-    return res.returncode, res.stdout, res.stderr, duration
+    duration_ms = int((time.time() - start_t) * 1000)
+    return res.returncode, res.stdout, res.stderr, duration_ms
 
 
 def parse_pytest_counts(output: str):
@@ -72,10 +65,7 @@ def parse_vitest_counts(output: str):
 
 
 def verify_live_order_safety_boundary():
-    """
-    Instruments actual outbound network boundaries with active spy,
-    asserting 0 calls and ensuring no live order placement methods exist on PaperBroker.
-    """
+    """Instruments network boundaries with active spy asserting 0 calls and clean PaperBroker API."""
     sys.path.insert(0, str(BACKEND))
     try:
         from paper_broker import PaperBroker
@@ -102,49 +92,438 @@ def verify_live_order_safety_boundary():
 
 def main():
     print("=" * 80)
-    print("AURUM DESK V17.7.1 — EVIDENCE-BASED MASTER ACCEPTANCE RUNNER")
+    print("AURUM DESK V17.7.2 — EVIDENCE-BASED MASTER ACCEPTANCE RUNNER")
     print("=" * 80)
 
     results = {
-        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "runner_version": "17.7.2",
+        "branch": "",
+        "source_sha": "",
         "gates": {},
         "verdict": "BLOCKED",
     }
     all_gates_passed = True
 
     # --------------------------------------------------------------------------
-    # GATE 01: Branch Verification
+    # GATE 01: Branch & Source Integrity
     # --------------------------------------------------------------------------
-    print("\n[GATE 01] Verifying Working Git Branch...")
-    code, stdout, _, _ = run_cmd("git branch --show-current")
+    print("\n[GATE 01] Verifying Working Git Branch & Source Integrity...")
+    code, stdout, _, dur = run_cmd("git branch --show-current")
     branch = stdout.strip()
+    results["branch"] = branch
     expected_branch = "feat/v17-7-adaptive-structural-stop-loss"
-    if branch == expected_branch:
-        print(f"  -> PASS: Verified on expected branch '{branch}'")
-        results["gates"]["G01_BRANCH"] = {"status": "PASS", "branch": branch}
-    else:
-        print(f"  -> BLOCKER: Expected '{expected_branch}', found '{branch}'")
-        results["gates"]["G01_BRANCH"] = {"status": "FAIL", "branch": branch, "expected": expected_branch}
-        all_gates_passed = False
 
-    code, sha_out, _, _ = run_cmd("git rev-parse HEAD")
+    code_sha, sha_out, _, _ = run_cmd("git rev-parse HEAD")
     current_sha = sha_out.strip()
     results["source_sha"] = current_sha
-    print(f"  -> HEAD SHA: {current_sha}")
+
+    if branch == expected_branch:
+        print(f"  -> PASS: Verified branch '{branch}' (HEAD: {current_sha})")
+        results["gates"]["G01_BRANCH_INTEGRITY"] = {
+            "status": "PASS", "branch": branch, "sha": current_sha, "duration_ms": dur
+        }
+    else:
+        print(f"  -> BLOCKER: Expected branch '{expected_branch}', got '{branch}'")
+        results["gates"]["G01_BRANCH_INTEGRITY"] = {
+            "status": "FAIL", "branch": branch, "expected": expected_branch, "duration_ms": dur
+        }
+        all_gates_passed = False
 
     # --------------------------------------------------------------------------
-    # GATE 02: Documentation Completeness
+    # GATE 02: Test Environment / Database Isolation
     # --------------------------------------------------------------------------
-    print("\n[GATE 02] Verifying V17.7.1 Documentation Completeness...")
+    print("\n[GATE 02] Verifying Test Environment & Database Isolation...")
+    cmd_g02 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_ce_17'"
+    code, out, err, dur = run_cmd(cmd_g02)
+    counts = parse_pytest_counts(out)
+    if code == 0 and counts["passed"] >= 1 and counts["failed"] == 0:
+        print(f"  -> PASS: Database isolation verified (runtime DB protected, temp DB enforced)")
+        results["gates"]["G02_DATABASE_ISOLATION"] = {
+            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: Database isolation test failed:\n{out}\n{err}")
+        results["gates"]["G02_DATABASE_ISOLATION"] = {
+            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 03: Causal Market Data & Required ATR
+    # --------------------------------------------------------------------------
+    print("\n[GATE 03] Verifying Causal Market Data & Required ATR Fail-Closed...")
+    cmd_g03 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_ce_01 or test_ce_02 or test_ce_03 or test_ce_04 or test_ce_05 or test_dsl_10'"
+    code, out, err, dur = run_cmd(cmd_g03)
+    counts = parse_pytest_counts(out)
+    if code == 0 and counts["passed"] >= 5 and counts["failed"] == 0:
+        print(f"  -> PASS: {counts['passed']} causal ATR and volatility barrier tests passed")
+        results["gates"]["G03_CAUSAL_ATR_EVIDENCE"] = {
+            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: Causal ATR tests failed:\n{out}\n{err}")
+        results["gates"]["G03_CAUSAL_ATR_EVIDENCE"] = {
+            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 04: Structural Anchor & Invalidation
+    # --------------------------------------------------------------------------
+    print("\n[GATE 04] Verifying Structural Anchor Causal Ordering & Invalidation...")
+    cmd_g04 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_ce_06 or test_ce_07 or test_ce_08 or test_sl_58'"
+    code, out, err, dur = run_cmd(cmd_g04)
+    counts = parse_pytest_counts(out)
+    if code == 0 and counts["passed"] >= 4 and counts["failed"] == 0:
+        print(f"  -> PASS: {counts['passed']} anchor causality & invalidation tests passed")
+        results["gates"]["G04_STRUCTURAL_ANCHOR_AUTHORITY"] = {
+            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: Anchor authority tests failed:\n{out}\n{err}")
+        results["gates"]["G04_STRUCTURAL_ANCHOR_AUTHORITY"] = {
+            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 05: Distant SL Financial Integrity
+    # --------------------------------------------------------------------------
+    print("\n[GATE 05] Verifying Distant SL (>4x ATR) Financial Integrity...")
+    cmd_g05 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_dsl_01 or test_dsl_02 or test_dsl_07 or test_ce_11'"
+    code, out, err, dur = run_cmd(cmd_g05)
+    counts = parse_pytest_counts(out)
+    if code == 0 and counts["passed"] >= 4 and counts["failed"] == 0:
+        print(f"  -> PASS: {counts['passed']} distant SL financial integrity tests passed")
+        results["gates"]["G05_DISTANT_SL_FINANCIAL_INTEGRITY"] = {
+            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: Distant SL financial tests failed:\n{out}\n{err}")
+        results["gates"]["G05_DISTANT_SL_FINANCIAL_INTEGRITY"] = {
+            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 06: CG01 Real Evaluator Integration
+    # --------------------------------------------------------------------------
+    print("\n[GATE 06] Verifying CG01 Real Evaluator Integration...")
+    cmd_g06 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_sl_36 or test_ce_10 or test_ce_11'"
+    code, out, err, dur = run_cmd(cmd_g06)
+    counts = parse_pytest_counts(out)
+    if code == 0 and counts["passed"] >= 3 and counts["failed"] == 0:
+        print(f"  -> PASS: {counts['passed']} real CG01 evaluator integration tests passed")
+        results["gates"]["G06_CG01_REAL_INTEGRATION"] = {
+            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: CG01 integration tests failed:\n{out}\n{err}")
+        results["gates"]["G06_CG01_REAL_INTEGRATION"] = {
+            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 07: M1 Model Real Evaluator Integration
+    # --------------------------------------------------------------------------
+    print("\n[GATE 07] Verifying Scalp M1 Models Real Evaluator Integration...")
+    cmd_g07 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_sl_37 or test_sl_38 or test_sl_39 or test_sl_40 or test_ce_12'"
+    code, out, err, dur = run_cmd(cmd_g07)
+    counts = parse_pytest_counts(out)
+    if code == 0 and counts["passed"] >= 5 and counts["failed"] == 0:
+        print(f"  -> PASS: {counts['passed']} real M1 model evaluator integration tests passed")
+        results["gates"]["G07_M1_MODELS_REAL_INTEGRATION"] = {
+            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: M1 model integration tests failed:\n{out}\n{err}")
+        results["gates"]["G07_M1_MODELS_REAL_INTEGRATION"] = {
+            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 08: Orchestrator / Actual ARM Boundary
+    # --------------------------------------------------------------------------
+    print("\n[GATE 08] Verifying Orchestrator Actual ARM Boundary...")
+    cmd_g08 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_sl_43 or test_ce_13'"
+    code, out, err, dur = run_cmd(cmd_g08)
+    counts = parse_pytest_counts(out)
+    if code == 0 and counts["passed"] >= 2 and counts["failed"] == 0:
+        print(f"  -> PASS: {counts['passed']} production orchestrator ARM tests passed")
+        results["gates"]["G08_ORCHESTRATOR_ACTUAL_ARM"] = {
+            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: Orchestrator ARM tests failed:\n{out}\n{err}")
+        results["gates"]["G08_ORCHESTRATOR_ACTUAL_ARM"] = {
+            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 09: Real Execution Coordinator / FILL Sizing
+    # --------------------------------------------------------------------------
+    print("\n[GATE 09] Verifying Real Execution Coordinator / Fill Sizing Preservation...")
+    cmd_g09 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_sl_46 or test_ce_14'"
+    code, out, err, dur = run_cmd(cmd_g09)
+    counts = parse_pytest_counts(out)
+    if code == 0 and counts["passed"] >= 2 and counts["failed"] == 0:
+        print(f"  -> PASS: {counts['passed']} fill sizing preservation tests passed")
+        results["gates"]["G09_EXECUTION_FILL_SIZING"] = {
+            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: Fill sizing tests failed:\n{out}\n{err}")
+        results["gates"]["G09_EXECUTION_FILL_SIZING"] = {
+            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 10: Exit / CLOSED / Persistence
+    # --------------------------------------------------------------------------
+    print("\n[GATE 10] Verifying Exit, CLOSED State & Durable Persistence...")
+    cmd_g10 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_sl_47 or test_sl_48 or test_sl_60 or test_ce_15'"
+    code, out, err, dur = run_cmd(cmd_g10)
+    counts = parse_pytest_counts(out)
+    if code == 0 and counts["passed"] >= 4 and counts["failed"] == 0:
+        print(f"  -> PASS: {counts['passed']} exit and persistence lifecycle tests passed")
+        results["gates"]["G10_EXIT_PERSISTENCE"] = {
+            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: Exit and persistence tests failed:\n{out}\n{err}")
+        results["gates"]["G10_EXIT_PERSISTENCE"] = {
+            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 11: Concurrent ARM & Idempotency Races
+    # --------------------------------------------------------------------------
+    print("\n[GATE 11] Verifying Multi-Threaded Concurrent ARM & Idempotency...")
+    cmd_g11 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_sl_57 or test_dsl_18 or test_ce_16'"
+    code, out, err, dur = run_cmd(cmd_g11)
+    counts = parse_pytest_counts(out)
+    if code == 0 and counts["passed"] >= 3 and counts["failed"] == 0:
+        print(f"  -> PASS: {counts['passed']} multi-threaded concurrency race tests passed")
+        results["gates"]["G11_CONCURRENCY_IDEMPOTENCY"] = {
+            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: Concurrency tests failed:\n{out}\n{err}")
+        results["gates"]["G11_CONCURRENCY_IDEMPOTENCY"] = {
+            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 12: Actual Live-Order Dispatch Safety & Negative Control
+    # --------------------------------------------------------------------------
+    print("\n[GATE 12] Verifying Live-Order Dispatch Safety & Negative Control...")
+    safety_ok, safety_msg = verify_live_order_safety_boundary()
+    cmd_g12 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_sl_50 or test_dsl_19 or test_ce_18'"
+    code, out, err, dur = run_cmd(cmd_g12)
+    counts = parse_pytest_counts(out)
+    if safety_ok and code == 0 and counts["passed"] >= 3 and counts["failed"] == 0:
+        print(f"  -> PASS: {safety_msg}")
+        print(f"  -> PASS: {counts['passed']} live-order safety & negative control tests passed")
+        results["gates"]["G12_LIVE_ORDER_SAFETY"] = {
+            "status": "PASS", "details": safety_msg, "counts": counts, "duration_ms": dur
+        }
+    else:
+        print(f"  -> FAIL: Live-order safety verification failed: {safety_msg}\n{out}\n{err}")
+        results["gates"]["G12_LIVE_ORDER_SAFETY"] = {
+            "status": "FAIL", "details": safety_msg, "counts": counts, "duration_ms": dur
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 13: Dedicated V17.7.2 Suite (100 Gates: SL-01..60 + DSL-01..20 + CE-01..20)
+    # --------------------------------------------------------------------------
+    print("\n[GATE 13] Executing Complete Dedicated V17.7.2 Test Suite (100 Gates)...")
+    cmd_g13 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -v"
+    code, out, err, dur = run_cmd(cmd_g13)
+    counts_g13 = parse_pytest_counts(out)
+    if code == 0 and counts_g13["passed"] == 100 and counts_g13["failed"] == 0:
+        print(f"  -> PASS: All 100 dedicated gates passed in {dur/1000:.2f}s!")
+        results["gates"]["G13_V17_7_2_DEDICATED"] = {
+            "status": "PASS", "counts": counts_g13, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: Dedicated suite failed (code {code}, passed {counts_g13['passed']}/100):\n{out}\n{err}")
+        results["gates"]["G13_V17_7_2_DEDICATED"] = {
+            "status": "FAIL", "counts": counts_g13, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 14: V17.5 Regression Suite
+    # --------------------------------------------------------------------------
+    print("\n[GATE 14] Executing V17.5 Regression Suite...")
+    cmd_g14 = f"{PYTEST_BIN} backend/tests/test_v17_5*.py -q"
+    code, out, err, dur = run_cmd(cmd_g14)
+    counts_g14 = parse_pytest_counts(out)
+    if code == 0 and counts_g14["failed"] == 0 and counts_g14["passed"] > 0:
+        print(f"  -> PASS: V17.5 regression passed ({counts_g14['passed']} tests) in {dur/1000:.2f}s")
+        results["gates"]["G14_V17_5_REGRESSION"] = {
+            "status": "PASS", "counts": counts_g14, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: V17.5 regression failed:\n{out}\n{err}")
+        results["gates"]["G14_V17_5_REGRESSION"] = {
+            "status": "FAIL", "counts": counts_g14, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 15: V17.6 Regression Suite
+    # --------------------------------------------------------------------------
+    print("\n[GATE 15] Executing V17.6 Regression Suite (incl. V17.6.4.3d)...")
+    cmd_g15 = f"{PYTEST_BIN} backend/tests/test_v17_6*.py -q"
+    code, out, err, dur = run_cmd(cmd_g15)
+    counts_g15 = parse_pytest_counts(out)
+    if code == 0 and counts_g15["failed"] == 0 and counts_g15["passed"] > 0:
+        print(f"  -> PASS: V17.6 regression passed ({counts_g15['passed']} tests) in {dur/1000:.2f}s")
+        results["gates"]["G15_V17_6_REGRESSION"] = {
+            "status": "PASS", "counts": counts_g15, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: V17.6 regression failed:\n{out}\n{err}")
+        results["gates"]["G15_V17_6_REGRESSION"] = {
+            "status": "FAIL", "counts": counts_g15, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 16: Full Backend Test Suite
+    # --------------------------------------------------------------------------
+    print("\n[GATE 16] Executing Backend Core Integration Tests...")
+    cmd_g16 = f"{PYTEST_BIN} backend/tests/test_v17_*.py -q"
+    code, out, err, dur = run_cmd(cmd_g16)
+    counts_g16 = parse_pytest_counts(out)
+    if code == 0 and counts_g16["failed"] == 0 and counts_g16["passed"] > 0:
+        print(f"  -> PASS: Backend core suite passed ({counts_g16['passed']} tests) in {dur/1000:.2f}s")
+        results["gates"]["G16_BACKEND_FULL_PYTEST"] = {
+            "status": "PASS", "counts": counts_g16, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: Backend core suite failed:\n{out}\n{err}")
+        results["gates"]["G16_BACKEND_FULL_PYTEST"] = {
+            "status": "FAIL", "counts": counts_g16, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 17: Frontend Vitest Unit & Contract Suite
+    # --------------------------------------------------------------------------
+    print("\n[GATE 17] Executing Frontend Vitest Suite...")
+    cmd_g17 = "npm test -- --run"
+    code, out, err, dur = run_cmd(cmd_g17, cwd=FRONTEND)
+    vitest_counts = parse_vitest_counts(out)
+    if code == 0 and vitest_counts["tests_passed"] > 0:
+        print(f"  -> PASS: Frontend Vitest passed ({vitest_counts['tests_passed']} tests in {vitest_counts['test_files_passed']} files) in {dur/1000:.2f}s")
+        results["gates"]["G17_FRONTEND_VITEST"] = {
+            "status": "PASS", "counts": vitest_counts, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: Frontend Vitest failed:\n{out}\n{err}")
+        results["gates"]["G17_FRONTEND_VITEST"] = {
+            "status": "FAIL", "counts": vitest_counts, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 18: Frontend Production Build
+    # --------------------------------------------------------------------------
+    print("\n[GATE 18] Executing Frontend Production Build...")
+    cmd_g18 = "npm run build"
+    code, out, err, dur = run_cmd(cmd_g18, cwd=FRONTEND)
+    if code == 0:
+        print(f"  -> PASS: Frontend production build succeeded in {dur/1000:.2f}s")
+        results["gates"]["G18_FRONTEND_BUILD"] = {
+            "status": "PASS", "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: Frontend build failed:\n{out}\n{err}")
+        results["gates"]["G18_FRONTEND_BUILD"] = {
+            "status": "FAIL", "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 19: Frontend Lint
+    # --------------------------------------------------------------------------
+    print("\n[GATE 19] Executing Frontend Oxlint...")
+    cmd_g19 = "npx oxlint"
+    code, out, err, dur = run_cmd(cmd_g19, cwd=FRONTEND)
+    if code == 0:
+        print(f"  -> PASS: Oxlint verified 0 errors in {dur/1000:.2f}s")
+        results["gates"]["G19_FRONTEND_LINT"] = {
+            "status": "PASS", "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: Frontend lint failed:\n{out}\n{err}")
+        results["gates"]["G19_FRONTEND_LINT"] = {
+            "status": "FAIL", "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 20: Playwright E2E Suite
+    # --------------------------------------------------------------------------
+    print("\n[GATE 20] Executing Playwright E2E Suite...")
+    cmd_g20 = f"AURUM_E2E_PYTHON={PYTHON_BIN} npx playwright test tests/e2e/v17_5_3_stop_browser.e2e.ts"
+    code, out, err, dur = run_cmd(cmd_g20, cwd=FRONTEND)
+    if code == 0 and "passed" in out:
+        print(f"  -> PASS: Playwright E2E verified in {dur/1000:.2f}s with actual browser")
+        results["gates"]["G20_PLAYWRIGHT_E2E"] = {
+            "status": "PASS", "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: Playwright E2E failed:\n{out}\n{err}")
+        results["gates"]["G20_PLAYWRIGHT_E2E"] = {
+            "status": "FAIL", "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 21: Replay Determinism
+    # --------------------------------------------------------------------------
+    print("\n[GATE 21] Verifying Replay Determinism...")
+    cmd_g21 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_sl_53 or test_dsl_15'"
+    code, out, err, dur = run_cmd(cmd_g21)
+    counts = parse_pytest_counts(out)
+    if code == 0 and counts["passed"] >= 2 and counts["failed"] == 0:
+        print(f"  -> PASS: {counts['passed']} replay determinism tests passed")
+        results["gates"]["G21_REPLAY_DETERMINISM"] = {
+            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+    else:
+        print(f"  -> FAIL: Replay determinism tests failed:\n{out}\n{err}")
+        results["gates"]["G21_REPLAY_DETERMINISM"] = {
+            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
+        }
+        all_gates_passed = False
+
+    # --------------------------------------------------------------------------
+    # GATE 22: Evidence & Documentation Completeness
+    # --------------------------------------------------------------------------
+    print("\n[GATE 22] Verifying V17.7.2 Documentation Completeness...")
     req_docs = [
-        "docs/V17_7_1_STRUCTURAL_SL_RUNTIME_AUDIT.md",
-        "docs/V17_7_1_EVIDENCE_BASED_DISTANCE_POLICY.md",
-        "docs/V17_7_1_REAL_INTEGRATION_TEST_REPORT.md",
-        "docs/V17_7_1_FULL_REGRESSION_REPORT.md",
-        "docs/V17_7_1_ACCEPTANCE_REPORT.md",
-        "docs/V17_7_1_DEFECT_REGISTER.md",
-        "docs/V17_7_1_FUNCTION_CHANGE_MAP.md",
-        "docs/V17_7_STOP_LOSS_CALIBRATION_REPORT.md",
+        "docs/V17_7_2_SOURCE_AUDIT.md",
+        "docs/V17_7_2_ATR_CAUSALITY_AND_SL_ELIGIBILITY.md",
+        "docs/V17_7_2_CG01_M1_RUNTIME_INTEGRATION.md",
+        "docs/V17_7_2_TRUE_ARM_FILL_EXIT_E2E.md",
+        "docs/V17_7_2_DATABASE_ISOLATION_AND_CONCURRENCY.md",
+        "docs/V17_7_2_LIVE_ORDER_SAFETY_PROOF.md",
+        "docs/V17_7_2_FULL_REGRESSION_REPORT.md",
+        "docs/V17_7_2_ACCEPTANCE_REPORT.md",
+        "docs/V17_7_2_DEFECT_REGISTER.md",
+        "docs/V17_7_2_FUNCTION_CHANGE_MAP.md",
     ]
     missing_docs = []
     for doc in req_docs:
@@ -156,144 +535,38 @@ def main():
             print(f"  -> PASS: Verified doc exists ({p.stat().st_size} bytes): {doc}")
 
     if not missing_docs:
-        results["gates"]["G02_DOCS"] = {"status": "PASS", "verified_docs": len(req_docs)}
+        results["gates"]["G22_DOCS_INTEGRITY"] = {"status": "PASS", "verified_docs": len(req_docs)}
     else:
-        results["gates"]["G02_DOCS"] = {"status": "FAIL", "missing_docs": missing_docs}
+        results["gates"]["G22_DOCS_INTEGRITY"] = {"status": "FAIL", "missing_docs": missing_docs}
         all_gates_passed = False
 
     # --------------------------------------------------------------------------
-    # GATE 03: Live Exchange Order Safety Boundary (Instrumented)
+    # GATE 23: Acceptance Source SHA Consistency
     # --------------------------------------------------------------------------
-    print("\n[GATE 03] Verifying Live Exchange Order Safety Boundary (Real HTTP Spy)...")
-    safety_ok, safety_msg = verify_live_order_safety_boundary()
-    if safety_ok:
-        print(f"  -> PASS: {safety_msg}")
-        results["gates"]["G03_SAFETY"] = {"status": "PASS", "details": safety_msg}
-    else:
-        print(f"  -> FAIL: Safety boundary check failed: {safety_msg}")
-        results["gates"]["G03_SAFETY"] = {"status": "FAIL", "details": safety_msg}
-        all_gates_passed = False
-
-    # --------------------------------------------------------------------------
-    # GATE 04: Dedicated V17.7.1 Test Suite (80 Gates: SL-01..60 + DSL-01..20)
-    # --------------------------------------------------------------------------
-    print("\n[GATE 04] Executing Dedicated V17.7.1 Test Suite (SL-01..SL-60 + DSL-01..DSL-20)...")
-    cmd_v17_7 = "python3 -m pytest backend/tests/test_v17_7_adaptive_stop_loss.py -v"
-    code, out, err, dur = run_cmd(cmd_v17_7, env={"PYTHONPATH": str(BACKEND)})
-    counts_v17_7 = parse_pytest_counts(out)
-    if code == 0 and counts_v17_7["passed"] >= 80 and counts_v17_7["failed"] == 0:
-        print(f"  -> PASS: All {counts_v17_7['passed']} dedicated gates passed in {dur}s!")
-        results["gates"]["G04_V17_7_1_DEDICATED"] = {
-            "status": "PASS", "counts": counts_v17_7, "duration_s": dur, "exit_code": code
+    print("\n[GATE 23] Reconciling Acceptance Source SHA Consistency...")
+    cmd_g23 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_ce_20'"
+    code, out, err, dur = run_cmd(cmd_g23)
+    counts = parse_pytest_counts(out)
+    if code == 0 and counts["passed"] >= 1 and counts["failed"] == 0:
+        print(f"  -> PASS: Tested commit SHA ({current_sha[:8]}) verified consistent")
+        results["gates"]["G23_SOURCE_SHA_CONSISTENCY"] = {
+            "status": "PASS", "sha": current_sha, "duration_ms": dur
         }
     else:
-        print(f"  -> FAIL: Dedicated suite failed (exit code {code}, {counts_v17_7['failed']} failed):\n{out}\n{err}")
-        results["gates"]["G04_V17_7_1_DEDICATED"] = {
-            "status": "FAIL", "counts": counts_v17_7, "duration_s": dur, "exit_code": code
+        print(f"  -> FAIL: Source SHA consistency check failed:\n{out}\n{err}")
+        results["gates"]["G23_SOURCE_SHA_CONSISTENCY"] = {
+            "status": "FAIL", "sha": current_sha, "duration_ms": dur
         }
         all_gates_passed = False
 
     # --------------------------------------------------------------------------
-    # GATE 05: Existing V17.5 Regression Suite
-    # --------------------------------------------------------------------------
-    print("\n[GATE 05] Executing Existing V17.5 Regression Suite...")
-    cmd_v17_5 = "python3 -m pytest backend/tests/test_v17_5*.py -q"
-    code, out, err, dur = run_cmd(cmd_v17_5, env={"PYTHONPATH": str(BACKEND)})
-    counts_v17_5 = parse_pytest_counts(out)
-    if code == 0 and counts_v17_5["failed"] == 0 and counts_v17_5["passed"] > 0:
-        print(f"  -> PASS: V17.5 regression passed ({counts_v17_5['passed']} passed) in {dur}s!")
-        results["gates"]["G05_V17_5_REGRESSION"] = {
-            "status": "PASS", "counts": counts_v17_5, "duration_s": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: V17.5 regression failed:\n{out}\n{err}")
-        results["gates"]["G05_V17_5_REGRESSION"] = {
-            "status": "FAIL", "counts": counts_v17_5, "duration_s": dur, "exit_code": code
-        }
-        all_gates_passed = False
-
-    # --------------------------------------------------------------------------
-    # GATE 06: Existing V17.6 Regression Suite
-    # --------------------------------------------------------------------------
-    print("\n[GATE 06] Executing Existing V17.6 Regression Suite...")
-    cmd_v17_6 = "python3 -m pytest backend/tests/test_v17_6*.py -q"
-    code, out, err, dur = run_cmd(cmd_v17_6, env={"PYTHONPATH": str(BACKEND)})
-    counts_v17_6 = parse_pytest_counts(out)
-    if code == 0 and counts_v17_6["failed"] == 0 and counts_v17_6["passed"] > 0:
-        print(f"  -> PASS: V17.6 regression passed ({counts_v17_6['passed']} passed) in {dur}s!")
-        results["gates"]["G06_V17_6_REGRESSION"] = {
-            "status": "PASS", "counts": counts_v17_6, "duration_s": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: V17.6 regression failed:\n{out}\n{err}")
-        results["gates"]["G06_V17_6_REGRESSION"] = {
-            "status": "FAIL", "counts": counts_v17_6, "duration_s": dur, "exit_code": code
-        }
-        all_gates_passed = False
-
-    # --------------------------------------------------------------------------
-    # GATE 07: Frontend Vitest Unit & Contract Suite
-    # --------------------------------------------------------------------------
-    print("\n[GATE 07] Executing Frontend Vitest Suite...")
-    cmd_vitest = "npm test -- --run"
-    code, out, err, dur = run_cmd(cmd_vitest, cwd=FRONTEND)
-    vitest_counts = parse_vitest_counts(out)
-    if code == 0 and vitest_counts["tests_passed"] > 0:
-        print(f"  -> PASS: Frontend Vitest passed ({vitest_counts['tests_passed']} tests in {vitest_counts['test_files_passed']} files) in {dur}s!")
-        results["gates"]["G07_FRONTEND_VITEST"] = {
-            "status": "PASS", "counts": vitest_counts, "duration_s": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Frontend Vitest failed:\n{out}\n{err}")
-        results["gates"]["G07_FRONTEND_VITEST"] = {
-            "status": "FAIL", "counts": vitest_counts, "duration_s": dur, "exit_code": code
-        }
-        all_gates_passed = False
-
-    # --------------------------------------------------------------------------
-    # GATE 08: Frontend Production Build & Oxlint
-    # --------------------------------------------------------------------------
-    print("\n[GATE 08] Executing Frontend Production Build & Oxlint...")
-    cmd_build = "npm run build && npx oxlint"
-    code, out, err, dur = run_cmd(cmd_build, cwd=FRONTEND)
-    if code == 0:
-        print(f"  -> PASS: Frontend build and oxlint completed with 0 errors in {dur}s!")
-        results["gates"]["G08_FRONTEND_BUILD_LINT"] = {
-            "status": "PASS", "duration_s": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Frontend build or lint failed:\n{out}\n{err}")
-        results["gates"]["G08_FRONTEND_BUILD_LINT"] = {
-            "status": "FAIL", "duration_s": dur, "exit_code": code
-        }
-        all_gates_passed = False
-
-    # --------------------------------------------------------------------------
-    # GATE 09: Playwright E2E Verification
-    # --------------------------------------------------------------------------
-    print("\n[GATE 09] Checking Playwright E2E Suite...")
-    # Playwright requires running Vite dev server + e2e backend server; check environment
-    playwright_spec = FRONTEND / "tests" / "e2e" / "v17_5_3_stop_browser.e2e.ts"
-    if playwright_spec.exists():
-        print(f"  -> NOTE: Playwright spec {playwright_spec.name} is available for manual visual review.")
-        results["gates"]["G09_PLAYWRIGHT_E2E"] = {
-            "status": "SKIPPED_WITH_REASON",
-            "reason": "Playwright requires background dev server; headless contract verified via Vitest."
-        }
-    else:
-        results["gates"]["G09_PLAYWRIGHT_E2E"] = {
-            "status": "UNVERIFIED_ENVIRONMENT_BLOCKER",
-            "reason": "Playwright spec not found."
-        }
-
-    # --------------------------------------------------------------------------
-    # FINAL VERDICT CALCULATION
+    # FINAL VERDICT
     # --------------------------------------------------------------------------
     print("\n" + "=" * 80)
     if all_gates_passed:
         final_verdict = "ACCEPTED_FOR_PAPER_OPT_IN"
         print(f"FINAL ACCEPTANCE VERDICT: {final_verdict}")
-        print("All mandatory structural integrity, financial safety, zero-live-order, and regression gates passed!")
+        print("All 23 release gates successfully passed with verified machine evidence!")
     else:
         final_verdict = "BLOCKED"
         print(f"FINAL ACCEPTANCE VERDICT: {final_verdict}")
@@ -302,12 +575,16 @@ def main():
     results["verdict"] = final_verdict
     print("=" * 80)
 
-    # Persist JSON Artifact
+    # Persist JSON Artifacts
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
-    out_file = ARTIFACTS_DIR / "v17_7_1_acceptance_results.json"
+    out_file = ARTIFACTS_DIR / "v17_7_2_acceptance_results.json"
     with open(out_file, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
     print(f"Acceptance artifact saved to: {out_file}\n")
+
+    out_file_compat = ARTIFACTS_DIR / "v17_7_1_acceptance_results.json"
+    with open(out_file_compat, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2)
 
     return 0 if all_gates_passed else 1
 

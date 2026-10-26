@@ -466,9 +466,11 @@ def apply_stop_placement_to_candidate(
         policy=stop_policy,
         as_of_ms=now_ms,
         tick_size=tick_sz,
-        atr_m1_val=atr_1m_val,
-        atr_m5_val=atr_m5_obj.value if atr_m5_obj else None,
-        spread=max(0.0, ask - bid) if (bid is not None and ask is not None) else None,
+        atr_m1_obj=atr_m1_obj,
+        atr_m5_obj=atr_m5_obj,
+        atr_m1_val=atr_1m_val if (atr_1m_val is not None) else (atr_m1_obj.value if (atr_m1_obj and getattr(atr_m1_obj, "status", "") == "AVAILABLE") else None),
+        atr_m5_val=atr_m5_obj.value if (atr_m5_obj and getattr(atr_m5_obj, "status", "") == "AVAILABLE") else None,
+        spread=(ask - bid) if (bid is not None and ask is not None) else None,
     )
 
     comp_plan = build_stop_comparison_plan(
@@ -484,9 +486,9 @@ def apply_stop_placement_to_candidate(
         policy_settings=policy_settings,
         tick_size=tick_sz,
         min_net_rr=min_net_rr,
-        atr_m1=atr_m1_obj.value if atr_m1_obj else None,
-        atr_m5=atr_m5_obj.value if atr_m5_obj else None,
-        spread=max(0.0, ask - bid),
+        atr_m1=atr_m1_obj.value if (atr_m1_obj and getattr(atr_m1_obj, "status", "") == "AVAILABLE") else None,
+        atr_m5=atr_m5_obj.value if (atr_m5_obj and getattr(atr_m5_obj, "status", "") == "AVAILABLE") else None,
+        spread=(ask - bid),
         policy_version=stop_policy.version,
         now_ms=now_ms,
         entry_intent=entry_intent,

@@ -1,13 +1,13 @@
 {
   "config": {
     "argv": [
-      "C:\\Program Files\\nodejs\\node.exe",
-      "D:\\build app-crypto\\aurum-desk\\frontend\\node_modules\\@playwright\\test\\cli.js",
+      "/Users/macbook/.nvm/versions/node/v22.22.3/bin/node",
+      "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/node_modules/.bin/playwright",
       "test",
-      "tests/e2e/v16_29_cg01_realtime.e2e.ts"
+      "tests/e2e/v17_5_3_stop_browser.e2e.ts"
     ],
-    "configFile": "D:\\build app-crypto\\aurum-desk\\frontend\\playwright.config.ts",
-    "rootDir": "D:/build app-crypto/aurum-desk/frontend/tests/e2e",
+    "configFile": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/playwright.config.ts",
+    "rootDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
     "failOnFlakyTests": false,
     "forbidOnly": false,
     "fullyParallel": false,
@@ -23,7 +23,7 @@
     "preserveOutput": "always",
     "projects": [
       {
-        "outputDir": "D:/build app-crypto/aurum-desk/frontend/test-results",
+        "outputDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
@@ -31,7 +31,7 @@
         },
         "id": "",
         "name": "",
-        "testDir": "D:/build app-crypto/aurum-desk/frontend/tests/e2e",
+        "testDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.e2e.ts"
@@ -43,15 +43,15 @@
       {
         "grep": {},
         "grepInvert": null,
-        "outputDir": "D:\\build app-crypto\\aurum-desk\\frontend\\test-results",
+        "outputDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
           "actualWorkers": 1
         },
         "name": "",
-        "testDir": "D:\\build app-crypto\\aurum-desk\\frontend\\tests\\e2e",
-        "snapshotDir": "D:\\build app-crypto\\aurum-desk\\frontend\\tests\\e2e",
+        "testDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
+        "snapshotDir": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/frontend/tests/e2e",
         "testIgnore": [],
         "testMatch": "**/*.e2e.ts",
         "timeout": 60000,
@@ -97,20 +97,20 @@
   },
   "suites": [
     {
-      "title": "v16_29_cg01_realtime.e2e.ts",
-      "file": "v16_29_cg01_realtime.e2e.ts",
+      "title": "v17_5_3_stop_browser.e2e.ts",
+      "file": "v17_5_3_stop_browser.e2e.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "V16.29 CG-01 Realtime UI Closure",
-          "file": "v16_29_cg01_realtime.e2e.ts",
-          "line": 11,
+          "title": "V17.5.3 Stop Placement & Geometry Browser Verification",
+          "file": "v17_5_3_stop_browser.e2e.ts",
+          "line": 15,
           "column": 6,
           "specs": [
             {
-              "title": "E01: CG-01 status card renders stage, direction, compact POI and Vietnamese reason",
+              "title": "P01: SHORT order renders correct geometry (TP < Entry < SL) and structural anchor",
               "ok": true,
               "tags": [],
               "tests": [
@@ -125,12 +125,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2911,
+                      "duration": 2826,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-19T02:04:10.271Z",
+                      "startTime": "2026-10-26T15:29:42.780Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -138,13 +138,13 @@
                   "status": "expected"
                 }
               ],
-              "id": "c36dc5943a01ee73a763-c0eb254b4e1dc58cc159",
-              "file": "v16_29_cg01_realtime.e2e.ts",
-              "line": 17,
+              "id": "e310093638213a097b7f-cc6ab5664cc1f731f2c6",
+              "file": "v17_5_3_stop_browser.e2e.ts",
+              "line": 22,
               "column": 3
             },
             {
-              "title": "E02: CG-01 dynamically updates on live WS ARMED broadcast without page reload",
+              "title": "P02: LONG order renders correct geometry (SL < Entry < TP)",
               "ok": true,
               "tags": [],
               "tests": [
@@ -159,12 +159,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 1405,
+                      "duration": 2106,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-19T02:04:13.724Z",
+                      "startTime": "2026-10-26T15:29:46.775Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -172,13 +172,13 @@
                   "status": "expected"
                 }
               ],
-              "id": "c36dc5943a01ee73a763-c050ce9762a90c2f0d69",
-              "file": "v16_29_cg01_realtime.e2e.ts",
-              "line": 61,
+              "id": "e310093638213a097b7f-58095e663537c6a76065",
+              "file": "v17_5_3_stop_browser.e2e.ts",
+              "line": 95,
               "column": 3
             },
             {
-              "title": "E03: Compact rendering on mobile viewport without overflow",
+              "title": "P03: Mobile viewport (390x844) renders without horizontal scroll overflow",
               "ok": true,
               "tags": [],
               "tests": [
@@ -193,12 +193,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2005,
+                      "duration": 1419,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-10-19T02:04:15.157Z",
+                      "startTime": "2026-10-26T15:29:48.896Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -206,9 +206,9 @@
                   "status": "expected"
                 }
               ],
-              "id": "c36dc5943a01ee73a763-6133fcd05eaadd096736",
-              "file": "v16_29_cg01_realtime.e2e.ts",
-              "line": 115,
+              "id": "e310093638213a097b7f-d869c34a734a49e7b6c4",
+              "file": "v17_5_3_stop_browser.e2e.ts",
+              "line": 167,
               "column": 3
             }
           ]
@@ -218,8 +218,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-19T02:04:01.788Z",
-    "duration": 16589.477000000003,
+    "startTime": "2026-10-26T15:29:39.715Z",
+    "duration": 12138.373,
     "expected": 3,
     "skipped": 0,
     "unexpected": 0,

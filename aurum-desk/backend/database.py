@@ -9,16 +9,31 @@ from sqlalchemy.pool import NullPool
 BASE_DIR = Path(__file__).resolve().parent
 RUNTIME_DEFAULT_DB_PATH = str(BASE_DIR / "aurum_desk.db")
 
-# Strict Test Isolation Guard:
-# If running under pytest and AURUM_DB_PATH is not explicitly set,
-# use an isolated temp DB path so tests NEVER touch the runtime database!
+# Strict Test Isolation Guard (V17.7.2 P0-04):
+# If running under pytest or testing environment, tests must NEVER touch the runtime database!
 is_pytest = "pytest" in sys.modules or os.getenv("PYTEST_CURRENT_TEST") is not None or os.getenv("TESTING") == "1"
 
-if is_pytest and not os.getenv("AURUM_DB_PATH"):
-    import tempfile
-    DB_PATH = os.path.join(tempfile.gettempdir(), f"aurum_isolated_test_{os.getpid()}.db")
+if is_pytest:
+    # Under test, NEVER touch RUNTIME_DEFAULT_DB_PATH or any file named aurum_desk.db!
+    custom_test_db = os.getenv("AURUM_TEST_DB_PATH") or os.getenv("AURUM_DB_PATH")
+    if custom_test_db and Path(custom_test_db).resolve() != Path(RUNTIME_DEFAULT_DB_PATH).resolve() and "aurum_desk.db" not in Path(custom_test_db).name:
+        DB_PATH = str(Path(custom_test_db).resolve())
+    else:
+        import tempfile
+        DB_PATH = os.path.join(tempfile.gettempdir(), f"aurum_isolated_test_{os.getpid()}.db")
 else:
     DB_PATH = os.getenv("AURUM_DB_PATH", RUNTIME_DEFAULT_DB_PATH)
+
+def assert_test_database_isolated(db_path: str = None) -> bool:
+    """Fail-closed guard: Asserts that target DB is strictly isolated from runtime DB."""
+    target = db_path or DB_PATH
+    t_path = Path(target).resolve()
+    r_path = Path(RUNTIME_DEFAULT_DB_PATH).resolve()
+    if t_path == r_path:
+        raise RuntimeError(f"CRITICAL SAFETY HAZARD: Test database targets runtime database at {r_path}!")
+    if "aurum_desk.db" in t_path.name:
+        raise RuntimeError(f"CRITICAL SAFETY HAZARD: Test database cannot be named aurum_desk.db ({t_path})!")
+    return True
 
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 

@@ -264,7 +264,14 @@ def compute_stop_buffer(
     if atr_m1 and atr_m1.status == "AVAILABLE" and atr_m1.value > 0:
         components["atr_m1"] = float(policy.atr_m1_multiplier) * float(atr_m1.value)
 
-    spread = max(0.0, float(ask) - float(bid))
+    f_bid = float(bid)
+    f_ask = float(ask)
+    if not (math.isfinite(f_bid) and math.isfinite(f_ask) and f_bid > 0 and f_ask > 0):
+        raise ValueError("INVALID_BID_ASK")
+    if f_ask < f_bid:
+        raise ValueError("INVERTED_QUOTE")
+
+    spread = f_ask - f_bid
     if spread > 0:
         components["spread"] = float(policy.spread_multiplier) * spread
 
@@ -661,7 +668,7 @@ def plan_structural_stop(
                 return StopPlacementDecision(
                     status=StopStatus.INVALID_DATA.value,
                     selected_sl=None,
-                    reasons=("INVALID_SPREAD",),
+                    reasons=("INVALID_SPREAD", "INVERTED_QUOTE" if f_spread < 0.0 else "NON_FINITE_SPREAD"),
                     policy_version=policy_ver,
                     mode=mode,
                     decision_cutoff_ms=as_of_ms,
@@ -749,6 +756,53 @@ def plan_structural_stop(
         )
 
     anchor = anchor_result.anchor
+
+    # 4b. Causal Timestamp and Decision Cutoff Verification (CE-06)
+    occ_ms = getattr(anchor, "occurred_at_ms", None)
+    known_ms = getattr(anchor, "known_at_ms", None)
+    if occ_ms is not None and known_ms is not None and occ_ms > known_ms:
+        dist = abs(planned_entry - legacy_sl)
+        sel_sl = None if mode == StopPlacementMode.PAPER_STRUCTURAL.value else legacy_sl
+        return StopPlacementDecision(
+            status=StopStatus.INVALID_DATA.value,
+            selected_sl=sel_sl,
+            anchor=anchor,
+            bound_leg=getattr(anchor_result, "bound_leg", None),
+            buffer=buffer_result,
+            metrics=StopMetrics(
+                price_distance=dist,
+                distance_ticks=int(round(dist / tick_size)),
+                distance_atr=(dist / atr_m1_val) if atr_m1_val and atr_m1_val > 0 else None,
+            ),
+            reasons=("CAUSAL_ORDERING_VIOLATION", "OCCURRED_AFTER_KNOWN"),
+            policy_version=policy_ver,
+            mode=mode,
+            decision_cutoff_ms=as_of_ms,
+            applied_variant="A",
+            algorithm_version=algo_ver,
+        )
+
+    if as_of_ms is not None and known_ms is not None and known_ms > as_of_ms:
+        dist = abs(planned_entry - legacy_sl)
+        sel_sl = None if mode == StopPlacementMode.PAPER_STRUCTURAL.value else legacy_sl
+        return StopPlacementDecision(
+            status=StopStatus.INVALID_DATA.value,
+            selected_sl=sel_sl,
+            anchor=anchor,
+            bound_leg=getattr(anchor_result, "bound_leg", None),
+            buffer=buffer_result,
+            metrics=StopMetrics(
+                price_distance=dist,
+                distance_ticks=int(round(dist / tick_size)),
+                distance_atr=(dist / atr_m1_val) if atr_m1_val and atr_m1_val > 0 else None,
+            ),
+            reasons=("CAUSAL_ORDERING_VIOLATION", "ANCHOR_KNOWN_AFTER_DECISION_CUTOFF"),
+            policy_version=policy_ver,
+            mode=mode,
+            decision_cutoff_ms=as_of_ms,
+            applied_variant="A",
+            algorithm_version=algo_ver,
+        )
 
     # 5. Directional Anchor Relationship (SL-01, SL-02, SL-11)
     if norm_dir in ("LONG", "BUY") and anchor.price >= planned_entry:
@@ -857,27 +911,98 @@ def plan_structural_stop(
     # We record non-blocking diagnostic classification: DISTANCE_NORMAL, DISTANCE_ELEVATED,
     # DISTANCE_EXTREME, DISTANCE_ATR_UNAVAILABLE.
     final_dist = abs(planned_entry - variant_c_sl)
-    eff_m1 = atr_m1_val if (atr_m1_val is not None and atr_m1_val > 0) else None
-    if eff_m1 is None and atr_m1_obj and getattr(atr_m1_obj, "status", "") == "AVAILABLE" and getattr(atr_m1_obj, "value", 0.0) > 0:
-        eff_m1 = atr_m1_obj.value
 
-    eff_m5 = atr_m5_val if (atr_m5_val is not None and atr_m5_val > 0) else None
-    if eff_m5 is None and atr_m5_obj and getattr(atr_m5_obj, "status", "") == "AVAILABLE" and getattr(atr_m5_obj, "value", 0.0) > 0:
-        eff_m5 = atr_m5_obj.value
+    eff_m1 = None
+    if atr_m1_obj and getattr(atr_m1_obj, "status", "") == "AVAILABLE":
+        v = getattr(atr_m1_obj, "value", None)
+        if v is not None:
+            try:
+                fv = float(v)
+                if math.isfinite(fv) and fv > 0.0:
+                    eff_m1 = fv
+            except (ValueError, TypeError):
+                pass
+    elif atr_m1_val is not None:
+        try:
+            fv = float(atr_m1_val)
+            if math.isfinite(fv) and fv > 0.0:
+                eff_m1 = fv
+        except (ValueError, TypeError):
+            pass
+    elif buffer_result and getattr(buffer_result, "components", None):
+        c_atr = buffer_result.components.get("atr_m1")
+        if c_atr is not None:
+            try:
+                fv = float(c_atr)
+                if math.isfinite(fv) and fv > 0.0:
+                    eff_m1 = fv
+            except (ValueError, TypeError):
+                pass
+
+    eff_m5 = None
+    if atr_m5_obj and getattr(atr_m5_obj, "status", "") == "AVAILABLE":
+        v5 = getattr(atr_m5_obj, "value", None)
+        if v5 is not None:
+            try:
+                fv5 = float(v5)
+                if math.isfinite(fv5) and fv5 > 0.0:
+                    eff_m5 = fv5
+            except (ValueError, TypeError):
+                pass
+    elif atr_m5_val is not None:
+        try:
+            fv5 = float(atr_m5_val)
+            if math.isfinite(fv5) and fv5 > 0.0:
+                eff_m5 = fv5
+        except (ValueError, TypeError):
+            pass
 
     dist_ticks = int(round(final_dist / tick_size))
     dist_atr_m1 = (final_dist / eff_m1) if (eff_m1 is not None and eff_m1 > 0) else None
     dist_atr_m5 = (final_dist / eff_m5) if (eff_m5 is not None and eff_m5 > 0) else None
 
     ref_elevated = float(getattr(policy, "max_stop_distance_atr", 4.0))
-    if eff_m1 is None or eff_m1 <= 0:
+    if eff_m1 is None or eff_m1 <= 0.0:
         distance_assessment = "DISTANCE_ATR_UNAVAILABLE"
-    elif dist_atr_m1 <= 2.5:
+    elif dist_atr_m1 is not None and dist_atr_m1 <= 2.5:
         distance_assessment = "DISTANCE_NORMAL"
-    elif dist_atr_m1 <= ref_elevated:
+    elif dist_atr_m1 is not None and dist_atr_m1 <= ref_elevated:
         distance_assessment = "DISTANCE_ELEVATED"
     else:
         distance_assessment = "DISTANCE_EXTREME"
+
+    # CRITICAL P0-01 FAIL-CLOSED: Missing required M1 ATR blocks PAPER_STRUCTURAL
+    if mode == StopPlacementMode.PAPER_STRUCTURAL.value and (eff_m1 is None or eff_m1 <= 0.0 or not math.isfinite(eff_m1)):
+        dist = abs(planned_entry - legacy_sl)
+        return StopPlacementDecision(
+            status=StopStatus.WAITING_VOLATILITY_EVIDENCE.value,
+            selected_sl=None,
+            anchor=anchor,
+            bound_leg=getattr(anchor_result, "bound_leg", None),
+            buffer=buffer_result,
+            metrics=StopMetrics(
+                price_distance=dist,
+                distance_ticks=int(round(dist / tick_size)),
+                distance_atr=None,
+            ),
+            reasons=("WAITING_VOLATILITY_EVIDENCE", "REQUIRED_M1_ATR_UNAVAILABLE"),
+            policy_version=policy_ver,
+            mode=mode,
+            decision_cutoff_ms=as_of_ms,
+            applied_variant="NONE",
+            protective_distance=min_prot_dist,
+            expansion_applied=expansion_applied,
+            distance_assessment="DISTANCE_ATR_UNAVAILABLE",
+            algorithm_version=algo_ver,
+            volatility_context={
+                "atr_m1": None,
+                "atr_m5": eff_m5,
+                "atr_m1_status": "UNAVAILABLE",
+                "volatility_gate_status": "FAIL_CLOSED",
+                "volatility_gate_reason": "REQUIRED_M1_ATR_UNAVAILABLE",
+                "distance_assessment": "DISTANCE_ATR_UNAVAILABLE",
+            },
+        )
 
     # 9. Geometry validation for Variant C (SL-03)
     if norm_dir in ("SHORT", "SELL"):

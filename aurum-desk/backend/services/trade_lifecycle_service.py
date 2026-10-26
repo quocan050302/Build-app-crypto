@@ -167,10 +167,17 @@ class TradeLifecycleService:
                   SELECT 1 FROM paper_orders WHERE state = 'paper_open' AND id != :order_id
               )
         """)
+        # Enforce Section 10.3 & Gate SL-46/CE-14: final_quantity <= armed_quantity (preserve or downsize, never increase)
+        effective_fill_qty = (
+            min(float(calc_result.quantity), float(order.quantity))
+            if (order.quantity is not None and float(order.quantity) > 0)
+            else float(calc_result.quantity)
+        )
+
         res = db.execute(stmt, {
             "fill_price": fill_price,
             "opened_at": current_time,
-            "quantity": calc_result.quantity,
+            "quantity": effective_fill_qty,
             "initial_risk_usdt": calc_result.net_risk_usdt,
             "gross_rr": calc_result.gross_rr,
             "estimated_net_rr": calc_result.net_rr,
