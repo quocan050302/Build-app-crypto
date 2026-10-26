@@ -1,5 +1,8 @@
+import json
 import os
 import sys
+import tempfile
+import time
 from pathlib import Path
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
@@ -9,31 +12,121 @@ from sqlalchemy.pool import NullPool
 BASE_DIR = Path(__file__).resolve().parent
 RUNTIME_DEFAULT_DB_PATH = str(BASE_DIR / "aurum_desk.db")
 
-# Strict Test Isolation Guard (V17.7.2 P0-04):
+TEST_ROOT_MARKER = ".aurum_test_owned"
+_ACTIVE_TEST_ROOT: Path | None = None
+
+def get_or_create_test_root() -> Path:
+    """Returns canonical test-owned root directory with verified ownership marker (V17.7.3 P0-01)."""
+    global _ACTIVE_TEST_ROOT
+    env_root = os.getenv("AURUM_TEST_ROOT")
+    if env_root:
+        candidate = Path(env_root).resolve()
+        marker = candidate / TEST_ROOT_MARKER
+        if candidate.is_dir() and marker.is_file():
+            _ACTIVE_TEST_ROOT = candidate
+            return candidate
+
+    if _ACTIVE_TEST_ROOT and _ACTIVE_TEST_ROOT.is_dir() and (_ACTIVE_TEST_ROOT / TEST_ROOT_MARKER).is_file():
+        return _ACTIVE_TEST_ROOT
+
+    # Create new isolated test-owned root directory
+    tmp_dir = tempfile.mkdtemp(prefix="aurum_test_root_")
+    root_path = Path(tmp_dir).resolve()
+    marker_path = root_path / TEST_ROOT_MARKER
+    metadata = {
+        "pid": os.getpid(),
+        "created_at": time.time(),
+        "test_owner": "aurum_test_framework",
+    }
+    marker_path.write_text(json.dumps(metadata), encoding="utf-8")
+    os.environ["AURUM_TEST_ROOT"] = str(root_path)
+    _ACTIVE_TEST_ROOT = root_path
+    return root_path
+
+_TRUSTED_TEST_ROOTS: set = set()
+
+def register_trusted_test_root(root_path) -> None:
+    """Registers an additional verified test-owned root directory (e.g. pytest session basetemp)."""
+    r = Path(root_path).resolve()
+    marker = r / TEST_ROOT_MARKER
+    if r.is_dir() and marker.is_file():
+        _TRUSTED_TEST_ROOTS.add(r)
+
+def assert_test_database_isolated(db_path: str = None) -> bool:
+    """Fail-closed guard (V17.7.3 P0-01):
+    Asserts that target DB is strictly contained within a verified test-owned root directory,
+    and is never the runtime database or an arbitrary external database.
+    """
+    target = db_path or DB_PATH
+    if not target:
+        raise RuntimeError("CRITICAL SAFETY HAZARD: Database path is empty or unspecified!")
+
+    # Normalize target path (strip URI schemes if provided)
+    clean_target = str(target)
+    if clean_target.startswith("sqlite:///"):
+        clean_target = clean_target[10:]
+    elif clean_target.startswith("file://"):
+        clean_target = clean_target[7:]
+
+    t_path = Path(clean_target).resolve()
+    r_path = Path(RUNTIME_DEFAULT_DB_PATH).resolve()
+
+    # 1. Direct collision with runtime DB
+    if t_path == r_path:
+        raise RuntimeError(f"CRITICAL SAFETY HAZARD: Test database targets runtime database at {r_path}!")
+
+    # 2. Basename protection against aurum_desk.db
+    if "aurum_desk.db" in t_path.name:
+        raise RuntimeError(f"CRITICAL SAFETY HAZARD: Test database cannot be named aurum_desk.db ({t_path})!")
+
+    # 3. Strict containment in verified test-owned root
+    test_root = get_or_create_test_root()
+    valid_roots = [test_root] + list(_TRUSTED_TEST_ROOTS)
+
+    is_contained = False
+    for root in valid_roots:
+        marker = root / TEST_ROOT_MARKER
+        if root.is_dir() and marker.is_file():
+            try:
+                if t_path.is_relative_to(root):
+                    is_contained = True
+                    break
+            except AttributeError:
+                try:
+                    t_path.relative_to(root)
+                    is_contained = True
+                    break
+                except ValueError:
+                    pass
+
+    if not is_contained:
+        raise RuntimeError(
+            f"CRITICAL SAFETY HAZARD: Database path {t_path} is not within verified test-owned root {test_root}!"
+        )
+
+    return True
+
+# Strict Test Isolation Guard (V17.7.3 P0-01):
 # If running under pytest or testing environment, tests must NEVER touch the runtime database!
 is_pytest = "pytest" in sys.modules or os.getenv("PYTEST_CURRENT_TEST") is not None or os.getenv("TESTING") == "1"
 
 if is_pytest:
-    # Under test, NEVER touch RUNTIME_DEFAULT_DB_PATH or any file named aurum_desk.db!
+    test_root = get_or_create_test_root()
     custom_test_db = os.getenv("AURUM_TEST_DB_PATH") or os.getenv("AURUM_DB_PATH")
-    if custom_test_db and Path(custom_test_db).resolve() != Path(RUNTIME_DEFAULT_DB_PATH).resolve() and "aurum_desk.db" not in Path(custom_test_db).name:
-        DB_PATH = str(Path(custom_test_db).resolve())
+    if custom_test_db:
+        clean_custom = str(custom_test_db)
+        if clean_custom.startswith("sqlite:///"):
+            clean_custom = clean_custom[10:]
+        elif clean_custom.startswith("file://"):
+            clean_custom = clean_custom[7:]
+        resolved_custom = Path(clean_custom).resolve()
+        # V173-P0-01 / Section 4.4: Reject rather than silently switch!
+        assert_test_database_isolated(str(resolved_custom))
+        DB_PATH = str(resolved_custom)
     else:
-        import tempfile
-        DB_PATH = os.path.join(tempfile.gettempdir(), f"aurum_isolated_test_{os.getpid()}.db")
+        DB_PATH = str(test_root / f"aurum_isolated_test_{os.getpid()}.db")
 else:
     DB_PATH = os.getenv("AURUM_DB_PATH", RUNTIME_DEFAULT_DB_PATH)
-
-def assert_test_database_isolated(db_path: str = None) -> bool:
-    """Fail-closed guard: Asserts that target DB is strictly isolated from runtime DB."""
-    target = db_path or DB_PATH
-    t_path = Path(target).resolve()
-    r_path = Path(RUNTIME_DEFAULT_DB_PATH).resolve()
-    if t_path == r_path:
-        raise RuntimeError(f"CRITICAL SAFETY HAZARD: Test database targets runtime database at {r_path}!")
-    if "aurum_desk.db" in t_path.name:
-        raise RuntimeError(f"CRITICAL SAFETY HAZARD: Test database cannot be named aurum_desk.db ({t_path})!")
-    return True
 
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
@@ -55,6 +148,14 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 def run_schema_migrations(target_engine=None):
     """Safely adds missing V6.1 and V7 columns and tables to SQLite without dropping data."""
     eng = target_engine or engine
+    if is_pytest:
+        try:
+            db_file = str(eng.url.database) if eng.url.database else None
+            if db_file and db_file != ":memory:":
+                assert_test_database_isolated(db_file)
+        except Exception as e:
+            if isinstance(e, RuntimeError):
+                raise
     try:
         with eng.connect() as conn:
             # 1. paper_orders

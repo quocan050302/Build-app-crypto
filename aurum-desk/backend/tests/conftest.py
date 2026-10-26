@@ -1,6 +1,8 @@
+import json
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
 import pytest
 from sqlalchemy import create_engine
@@ -9,11 +11,26 @@ from sqlalchemy.pool import StaticPool
 
 # Setup isolated DB path in environment BEFORE any backend module is imported
 BACKEND_DIR = Path(__file__).resolve().parent.parent
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+TESTS_DIR = Path(__file__).resolve().parent
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+
 RUNTIME_DB_PATH = BACKEND_DIR / "aurum_desk.db"
 
-# Force environment variable for test isolation
-temp_dir = tempfile.mkdtemp(prefix="aurum_test_suite_")
-TEST_DB_PATH = os.path.join(temp_dir, "test_aurum.db")
+# Force environment variable for test isolation inside trusted test-owned root (V17.7.3 P0-01)
+test_root_env = os.getenv("AURUM_TEST_ROOT")
+if test_root_env and Path(test_root_env).is_dir() and (Path(test_root_env) / ".aurum_test_owned").is_file():
+    test_root_path = Path(test_root_env).resolve()
+else:
+    temp_dir = tempfile.mkdtemp(prefix="aurum_test_root_")
+    test_root_path = Path(temp_dir).resolve()
+    marker = test_root_path / ".aurum_test_owned"
+    marker.write_text(json.dumps({"pid": os.getpid(), "created_at": time.time(), "owner": "conftest"}), encoding="utf-8")
+    os.environ["AURUM_TEST_ROOT"] = str(test_root_path)
+
+TEST_DB_PATH = str(test_root_path / "test_aurum.db")
 os.environ["AURUM_DB_PATH"] = TEST_DB_PATH
 os.environ["TESTING"] = "1"
 
@@ -67,6 +84,39 @@ def entry_certification_mode(request):
 def pytest_configure(config):
     config.addinivalue_line("markers", "certified_entry: force certified STANDARD_SMC entry (V14.4.1)")
     config.addinivalue_line("markers", "legacy_entry: force LEGACY_UNCERTIFIED entry mode")
+
+    # V17.7.3 P0-01: Register pytest's session basetemp as an authorized test root
+    try:
+        tmp_factory = getattr(config, "_tmp_path_factory", None)
+        if tmp_factory:
+            basetemp = tmp_factory.getbasetemp()
+            if basetemp:
+                bt_path = Path(str(basetemp)).resolve()
+                marker = bt_path / ".aurum_test_owned"
+                if not marker.exists():
+                    marker.write_text(json.dumps({"pid": os.getpid(), "owner": "pytest_basetemp"}), encoding="utf-8")
+                from database import register_trusted_test_root
+                register_trusted_test_root(bt_path)
+    except Exception:
+        pass
+
+
+@pytest.fixture(autouse=True)
+def register_test_tmp_path_root(request):
+    """V17.7.3 P0-01: Ensure pytest's session basetemp is registered as a trusted test root with marker."""
+    try:
+        tmp_factory = getattr(request.config, "_tmp_path_factory", None)
+        if tmp_factory:
+            basetemp = tmp_factory.getbasetemp()
+            if basetemp:
+                bt_path = Path(str(basetemp)).resolve()
+                marker = bt_path / ".aurum_test_owned"
+                if not marker.exists():
+                    marker.write_text(json.dumps({"pid": os.getpid(), "owner": "pytest_basetemp"}), encoding="utf-8")
+                from database import register_trusted_test_root
+                register_trusted_test_root(bt_path)
+    except Exception:
+        pass
 
 
 @pytest.fixture

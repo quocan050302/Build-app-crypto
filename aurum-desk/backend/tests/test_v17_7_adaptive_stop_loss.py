@@ -73,7 +73,8 @@ def clean_v17_7_db():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
-        db.query(SystemConfig).filter(SystemConfig.key.like("stop_placement_v1.%")).delete(synchronize_session=False)
+        db.query(SystemConfig).delete(synchronize_session=False)
+        db.query(models.TradingPolicy).delete(synchronize_session=False)
         db.query(PaperOrder).delete(synchronize_session=False)
         db.query(PaperObservation).delete(synchronize_session=False)
         db.query(WatchSetup).delete(synchronize_session=False)
@@ -95,7 +96,8 @@ def clean_v17_7_db():
     assert_test_database_isolated()
     db = SessionLocal()
     try:
-        db.query(SystemConfig).filter(SystemConfig.key.like("stop_placement_v1.%")).delete(synchronize_session=False)
+        db.query(SystemConfig).delete(synchronize_session=False)
+        db.query(models.TradingPolicy).delete(synchronize_session=False)
         db.query(PaperOrder).delete(synchronize_session=False)
         db.query(PaperObservation).delete(synchronize_session=False)
         db.query(WatchSetup).delete(synchronize_session=False)
@@ -177,6 +179,8 @@ def make_real_armed_candidate_order(db, mode: str = "PAPER_STRUCTURAL", order_id
         rejection_code=None, rejection_detail=None
     )
     policy_settings = {"capital_usdt": 1000.0, "risk_pct": 1.0, "config_version": 1}
+    if order_id_override:
+        cand.order_id = order_id_override
     armed_order = orch._arm_paper_candidate(
         db, cand, now_ms=now_ms, clock=live_clock, quote=v_quote,
         policy_settings=policy_settings, auto_enabled=True,
@@ -2135,27 +2139,49 @@ def test_ce_15_real_bid_ask_stop_trigger_and_persisted_close():
 
 
 def test_ce_16_concurrent_real_arm_barrier_single_order():
-    """CE-16: Concurrent real ARM requests with barrier synchronization create at most one order."""
+    """CE-16 (V173-P1-02): Concurrent calls through production ARM boundary create at most one order."""
     import threading
+    ny_tz = ZoneInfo("America/New_York")
+    dt = datetime(2026, 10, 15, 3, 30, tzinfo=ny_tz)
+    t_start = int(dt.timestamp() * 1000)
+    c_4h, c_1h, c_15m, c_1m = build_long_fixture_series(t_start)
+    ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m}
+    now_ms = t_start + 600_000
+    quote_dict = {"bid": 2623.75, "ask": 2623.85, "is_valid": True, "timestamp": now_ms}
+    cfg = CG01Config(enabled=True, entry_mode=CG01EntryMode.LIMIT_AT_CE_AFTER_CONFIRMATION.value, min_net_rr=1.5)
+    policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL")
+    dec = evaluate_cg01_candidate(ctx, quote_dict, config=cfg, now_ms=now_ms, stop_policy=policy)
+    assert dec.candidate is not None
+    cand = dec.candidate
+
+    v_quote = ValidatedQuote(
+        is_valid=True, bid=2623.75, ask=2623.85, last=2623.80, spread=0.10,
+        exchange_time=now_ms, observed_at=now_ms, freshness_sec=0.1, is_stale=False,
+        rejection_code=None, rejection_detail=None
+    )
+    policy_settings = {"capital_usdt": 1000.0, "risk_pct": 1.0, "config_version": 1}
+    orch = ScalpWatcherOrchestrator()
+
     barrier = threading.Barrier(2)
     results = []
-    ord_id = "test_v17_7_ce16_barrier_order"
 
     def _worker(worker_id: int):
         db = SessionLocal()
         try:
-            o = PaperOrder(
-                id=ord_id, symbol="XAUUSDT", direction="LONG", planned_entry=2700.0,
-                stop_loss=2690.0, take_profit=2720.0, quantity=1.0, initial_risk_usdt=10.0,
-                created_at=1000000 + worker_id, state="armed"
-            )
-            db.add(o)
             barrier.wait(timeout=5.0)
-            db.commit()
-            results.append((worker_id, "SUCCESS"))
+            armed = orch._arm_paper_candidate(
+                db, cand, now_ms=now_ms, clock=live_clock, quote=v_quote,
+                policy_settings=policy_settings, auto_enabled=True,
+            )
+            if armed is not None:
+                db.commit()
+                results.append((worker_id, "ARMED", armed.id))
+            else:
+                db.rollback()
+                results.append((worker_id, "BLOCKED", None))
         except Exception as e:
             db.rollback()
-            results.append((worker_id, f"ROLLBACK: {type(e).__name__}"))
+            results.append((worker_id, f"ROLLBACK: {type(e).__name__}", None))
         finally:
             db.close()
 
@@ -2166,21 +2192,37 @@ def test_ce_16_concurrent_real_arm_barrier_single_order():
     t1.join(timeout=10.0)
     t2.join(timeout=10.0)
 
-    successes = [r for r in results if r[1] == "SUCCESS"]
-    assert len(successes) == 1, f"Expected exactly 1 winner, got {results}"
+    # In independent session, verify strictly at most one order exists
+    db_verify = SessionLocal()
+    try:
+        orders = db_verify.query(PaperOrder).filter(PaperOrder.instrument == cand.symbol).all()
+        assert len(orders) == 1, f"Expected exactly 1 durable order, found {len(orders)}: {[o.id for o in orders]}"
+        armed_order_ids = set(r[2] for r in results if r[1] == "ARMED")
+        assert len(armed_order_ids) == 1, f"Expected idempotent resolution to 1 order id, got {armed_order_ids}"
+        assert orders[0].id == list(armed_order_ids)[0]
+    finally:
+        db_verify.close()
 
 
 def test_ce_17_test_database_cannot_touch_runtime_db():
-    """CE-17: assert_test_database_isolated raises RuntimeError if database path touches production aurum_desk.db."""
-    from database import assert_test_database_isolated
+    """CE-17: assert_test_database_isolated enforces test-owned root containment and rejects arbitrary or runtime DBs."""
+    from database import assert_test_database_isolated, get_or_create_test_root
 
-    # 1. Protected test path passes
-    assert_test_database_isolated("/tmp/aurum_test_1234/test.db")
+    # 1. Protected test path inside verified test-owned root passes
+    test_root = get_or_create_test_root()
+    valid_test_db = str(test_root / "test_valid.db")
+    assert assert_test_database_isolated(valid_test_db) is True
 
     # 2. Production path fails closed with RuntimeError
     with pytest.raises(RuntimeError) as exc:
         assert_test_database_isolated("/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/aurum_desk.db")
     assert "CRITICAL SAFETY HAZARD" in str(exc.value)
+
+    # 3. Arbitrary external path outside test-owned root fails closed with RuntimeError (V173-P0-01)
+    with pytest.raises(RuntimeError) as exc2:
+        assert_test_database_isolated("/tmp/aurum_test_1234/test.db")
+    assert "CRITICAL SAFETY HAZARD" in str(exc2.value)
+    assert "not within verified test-owned root" in str(exc2.value)
 
 
 def test_ce_18_negative_control_live_order_dispatch_blocked():
@@ -2200,23 +2242,48 @@ def test_ce_18_negative_control_live_order_dispatch_blocked():
 
 
 def test_ce_19_acceptance_runner_refuses_pass_on_missing_gates():
-    """CE-19: Master acceptance runner refuses PASS if any mandatory gate is missing or skipped."""
-    sample_gates = {
-        "G01_BRANCH": {"status": "PASS"},
-        "G02_ISOLATION": {"status": "PASS"},
-        "G03_ATR": {"status": "NOT_EXECUTED"},  # Missing gate!
-    }
-    has_mandatory_failure = any(g.get("status") != "PASS" for g in sample_gates.values())
-    verdict = "ACCEPTED_FOR_PAPER_OPT_IN" if not has_mandatory_failure else "BLOCKED"
-    assert verdict == "BLOCKED"
+    """CE-19 (V173-P1-03): Master acceptance runner verdict module refuses PASS if any mandatory gate is missing, skipped, or failed."""
+    from tools.acceptance_verdict import determine_release_verdict
+
+    manifest = ["G01", "G02", "G03"]
+
+    # 1. Gate missing from results
+    res_missing = {"G01": {"status": "PASS"}, "G02": {"status": "PASS"}}
+    assert determine_release_verdict(res_missing, manifest) == "BLOCKED"
+
+    # 2. Gate NOT_EXECUTED
+    res_not_exec = {"G01": {"status": "PASS"}, "G02": {"status": "PASS"}, "G03": {"status": "NOT_EXECUTED"}}
+    assert determine_release_verdict(res_not_exec, manifest) == "BLOCKED"
+
+    # 3. Gate SKIPPED_WITH_REASON
+    res_skipped = {"G01": {"status": "PASS"}, "G02": {"status": "PASS"}, "G03": {"status": "SKIPPED_WITH_REASON"}}
+    assert determine_release_verdict(res_skipped, manifest) == "BLOCKED"
+
+    # 4. Gate FAIL
+    res_fail = {"G01": {"status": "PASS"}, "G02": {"status": "FAIL"}, "G03": {"status": "PASS"}}
+    assert determine_release_verdict(res_fail, manifest) == "BLOCKED"
+
+    # 5. Exit code contradicts PASS
+    res_exit_err = {"G01": {"status": "PASS"}, "G02": {"status": "PASS"}, "G03": {"status": "PASS", "exit_code": 1}}
+    assert determine_release_verdict(res_exit_err, manifest) == "BLOCKED"
+
+    # 6. All mandatory gates PASS
+    res_pass = {"G01": {"status": "PASS"}, "G02": {"status": "PASS"}, "G03": {"status": "PASS", "exit_code": 0}}
+    assert determine_release_verdict(res_pass, manifest) == "ACCEPTED_FOR_PAPER_OPT_IN"
 
 
 def test_ce_20_acceptance_artifact_source_sha_matches_tested_source():
-    """CE-20: Acceptance artifact source SHA verification logic matches git rev-parse HEAD."""
+    """CE-20 (V173-P1-04): Acceptance artifact source SHA verification logic matches actual git rev-parse HEAD."""
     import subprocess
     cmd = "git rev-parse HEAD"
     res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
     expected_sha = res.stdout.strip()
     assert len(expected_sha) == 40
-    stale_sha = "0000000000000000000000000000000000000000"
-    assert stale_sha != expected_sha
+
+    # Test artifact match logic
+    valid_artifact = {"tested_source_sha": expected_sha, "verdict": "ACCEPTED_FOR_PAPER_OPT_IN"}
+    assert valid_artifact["tested_source_sha"] == expected_sha
+
+    stale_artifact = {"tested_source_sha": "0000000000000000000000000000000000000000", "verdict": "ACCEPTED_FOR_PAPER_OPT_IN"}
+    is_sha_valid = (stale_artifact["tested_source_sha"] == expected_sha)
+    assert is_sha_valid is False

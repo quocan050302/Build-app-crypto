@@ -11,13 +11,14 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from migrate import run_migration, resolve_migration_db_path, backup_sqlite_database
-from database import run_schema_migrations
+from database import run_schema_migrations, get_or_create_test_root
 import models
 
 
 @pytest.fixture
 def temp_mig_db():
-    fd, path = tempfile.mkstemp(suffix="_old_aurum.db")
+    root = get_or_create_test_root()
+    fd, path = tempfile.mkstemp(suffix="_old_aurum.db", dir=root)
     os.close(fd)
     yield Path(path)
     for p in (path, path + "-wal", path + "-shm"):

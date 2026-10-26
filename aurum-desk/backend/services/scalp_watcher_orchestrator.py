@@ -3331,6 +3331,13 @@ class ScalpWatcherOrchestrator:
             occurred_at=now_ms,
         )
 
+        try:
+            db.commit()
+        except Exception as c_err:
+            logger.error(f"[_arm_paper_candidate] Failed to commit armed order {order.id}: {c_err}")
+            db.rollback()
+            return None
+
         return order
     async def run_watcher_loop(self):
         """Periodic background evaluation loop for autonomous scalp watcher (Rules 011, 070, 165)."""

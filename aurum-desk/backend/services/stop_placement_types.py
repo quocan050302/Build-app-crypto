@@ -153,7 +153,7 @@ class StopPlacementPolicy:
 
 @dataclass(frozen=True)
 class StopATRResult:
-    """ATR measurement specifically computed for stop loss buffer sizing."""
+    """ATR measurement specifically computed for stop loss buffer sizing (V17.7.3 P1-01)."""
     status: str  # "AVAILABLE" or "UNAVAILABLE"
     value: float = 0.0
     period: int = 14
@@ -162,6 +162,12 @@ class StopATRResult:
     last_closed_at_ms: int = 0
     bars_count: int = 0
     reason_code: Optional[str] = None
+    symbol: Optional[str] = None
+    source: str = "CANDLE_CLOSED"
+    source_candle_count: int = 0
+    last_closed_candle_timestamp: int = 0
+    calculated_as_of: int = 0
+    decision_cutoff: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -172,8 +178,17 @@ class StopATRResult:
             "method": self.method,
             "last_closed_at_ms": self.last_closed_at_ms,
             "bars_count": self.bars_count,
+            "reason_code": self.reason_code,
+            "symbol": self.symbol,
+            "source": self.source,
+            "source_candle_count": self.source_candle_count or self.bars_count,
+            "last_closed_candle_timestamp": self.last_closed_candle_timestamp or self.last_closed_at_ms,
+            "calculated_as_of": self.calculated_as_of,
+            "decision_cutoff": self.decision_cutoff,
         }
 
+
+_UNSET = object()
 
 @dataclass(frozen=True)
 class StopBufferResult:
@@ -182,6 +197,16 @@ class StopBufferResult:
     components: Dict[str, float]
     dominant_source: str
     tick_size: float
+    raw_atr_m1: Optional[float] = _UNSET
+    raw_atr_m5: Optional[float] = _UNSET
+
+    def __post_init__(self):
+        if self.raw_atr_m1 is _UNSET:
+            val = self.components.get("atr_m1") if self.components else None
+            object.__setattr__(self, "raw_atr_m1", val)
+        if self.raw_atr_m5 is _UNSET:
+            val = self.components.get("atr_m5") if self.components else None
+            object.__setattr__(self, "raw_atr_m5", val)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -189,6 +214,8 @@ class StopBufferResult:
             "components": {k: round(v, 4) for k, v in self.components.items()},
             "dominant_source": self.dominant_source,
             "tick_size": self.tick_size,
+            "raw_atr_m1": round(self.raw_atr_m1, 4) if (self.raw_atr_m1 is not None and self.raw_atr_m1 is not _UNSET) else None,
+            "raw_atr_m5": round(self.raw_atr_m5, 4) if (self.raw_atr_m5 is not None and self.raw_atr_m5 is not _UNSET) else None,
         }
 
 

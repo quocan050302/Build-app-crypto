@@ -94,12 +94,14 @@ def compute_stop_atr(
     timeframe: str = "1M",
     as_of_ms: Optional[int] = None,
     bar_duration_ms: Optional[int] = None,
+    symbol: Optional[str] = None,
 ) -> StopATRResult:
     """
-    Computes strict True Range Mean (SMA_TR_V1) for stop loss buffer sizing.
+    Computes strict True Range Mean (SMA_TR_V1) for stop loss buffer sizing (V17.7.3 P1-01).
     Requires at least `period + 1` continuous, finite closed bars.
     Excludes any unclosed bars or future bars after as_of_ms.
     Strictly synchronizes bar_duration_ms with timeframe.
+    Validates symbol consistency, candle closure, and positive finite prices.
     """
     norm_tf = timeframe.upper()
     expected_duration = TIMEFRAME_MS.get(norm_tf)
@@ -113,6 +115,9 @@ def compute_stop_atr(
             last_closed_at_ms=0,
             bars_count=0,
             reason_code="UNSUPPORTED_TIMEFRAME",
+            symbol=symbol,
+            calculated_as_of=as_of_ms or 0,
+            decision_cutoff=as_of_ms or 0,
         )
 
     if bar_duration_ms is not None and bar_duration_ms != expected_duration:
@@ -125,6 +130,9 @@ def compute_stop_atr(
             last_closed_at_ms=0,
             bars_count=0,
             reason_code="TIMEFRAME_DURATION_MISMATCH",
+            symbol=symbol,
+            calculated_as_of=as_of_ms or 0,
+            decision_cutoff=as_of_ms or 0,
         )
 
     duration = expected_duration
@@ -139,6 +147,9 @@ def compute_stop_atr(
             last_closed_at_ms=0,
             bars_count=0,
             reason_code="INVALID_PERIOD",
+            symbol=symbol,
+            calculated_as_of=as_of_ms or 0,
+            decision_cutoff=as_of_ms or 0,
         )
 
     # Filter bars strictly closed at or before as_of_ms with increasing timestamps and valid OHLC
@@ -146,6 +157,28 @@ def compute_stop_atr(
     last_ts = -1
     for b in closed_bars:
         try:
+            # Check symbol if present on bar
+            b_sym = getattr(b, "symbol", None) or (b.get("symbol") if isinstance(b, dict) else None)
+            if symbol is not None and b_sym is not None and str(b_sym).upper() != str(symbol).upper():
+                return StopATRResult(
+                    status="UNAVAILABLE",
+                    value=0.0,
+                    period=period,
+                    timeframe=timeframe,
+                    method="SMA_TR_V1",
+                    last_closed_at_ms=0,
+                    bars_count=0,
+                    reason_code="SYMBOL_MISMATCH",
+                    symbol=symbol,
+                    calculated_as_of=as_of_ms or 0,
+                    decision_cutoff=as_of_ms or 0,
+                )
+
+            # Check unclosed candle status if indicated on bar
+            is_closed = getattr(b, "is_closed", None) or (b.get("is_closed") if isinstance(b, dict) else None)
+            if is_closed is False:
+                continue
+
             o, h, l, c = _candle_ohlc(b)
             if not all(math.isfinite(x) and x > 0 for x in (o, h, l, c)):
                 continue
@@ -175,6 +208,9 @@ def compute_stop_atr(
             last_closed_at_ms=last_ms,
             bars_count=len(valid_bars),
             reason_code="INSUFFICIENT_BARS",
+            symbol=symbol,
+            calculated_as_of=as_of_ms or 0,
+            decision_cutoff=as_of_ms or 0,
         )
 
     # Compute True Range across the slice
@@ -192,6 +228,21 @@ def compute_stop_atr(
     last_bar_open = _candle_open_ms(valid_bars[-1])
     last_closed_ms = last_bar_open + duration
 
+    if not math.isfinite(atr_val) or atr_val < 0:
+        return StopATRResult(
+            status="UNAVAILABLE",
+            value=0.0,
+            period=period,
+            timeframe=timeframe,
+            method="SMA_TR_V1",
+            last_closed_at_ms=last_closed_ms,
+            bars_count=len(valid_bars),
+            reason_code="NON_POSITIVE_OR_NON_FINITE_ATR",
+            symbol=symbol,
+            calculated_as_of=as_of_ms or 0,
+            decision_cutoff=as_of_ms or 0,
+        )
+
     return StopATRResult(
         status="AVAILABLE",
         value=float(atr_val),
@@ -200,6 +251,12 @@ def compute_stop_atr(
         method="SMA_TR_V1",
         last_closed_at_ms=last_closed_ms,
         bars_count=len(valid_bars),
+        symbol=symbol,
+        source="CANDLE_CLOSED",
+        source_candle_count=len(valid_bars),
+        last_closed_candle_timestamp=last_closed_ms,
+        calculated_as_of=as_of_ms or 0,
+        decision_cutoff=as_of_ms or 0,
     )
 
 
@@ -254,15 +311,17 @@ def compute_stop_buffer(
     """
     Computes candidate dynamic buffer components according to StopPlacementPolicy:
     buffer = max(tick_floor, k_m1*ATR_M1, k_m5*ATR_M5 (if available), k_spread*(ask-bid))
-    Records individual component values and identifies the dominant source.
+    Records individual component values, preserves raw ATRs, and identifies the dominant source.
     """
     tick_floor = float(policy.min_buffer_ticks) * float(tick_size)
     components: Dict[str, float] = {
         "tick_floor": tick_floor,
     }
 
-    if atr_m1 and atr_m1.status == "AVAILABLE" and atr_m1.value > 0:
-        components["atr_m1"] = float(policy.atr_m1_multiplier) * float(atr_m1.value)
+    raw_m1 = None
+    if atr_m1 and getattr(atr_m1, "status", "") == "AVAILABLE" and getattr(atr_m1, "value", 0.0) > 0 and math.isfinite(atr_m1.value):
+        raw_m1 = float(atr_m1.value)
+        components["atr_m1"] = float(policy.atr_m1_multiplier) * raw_m1
 
     f_bid = float(bid)
     f_ask = float(ask)
@@ -275,8 +334,10 @@ def compute_stop_buffer(
     if spread > 0:
         components["spread"] = float(policy.spread_multiplier) * spread
 
-    if atr_m5 and atr_m5.status == "AVAILABLE" and atr_m5.value > 0:
-        components["atr_m5"] = float(policy.atr_m5_multiplier) * float(atr_m5.value)
+    raw_m5 = None
+    if atr_m5 and getattr(atr_m5, "status", "") == "AVAILABLE" and getattr(atr_m5, "value", 0.0) > 0 and math.isfinite(atr_m5.value):
+        raw_m5 = float(atr_m5.value)
+        components["atr_m5"] = float(policy.atr_m5_multiplier) * raw_m5
 
     max_buf = max(components.values())
     dominant = max(components, key=components.get)
@@ -286,6 +347,8 @@ def compute_stop_buffer(
         components=components,
         dominant_source=dominant,
         tick_size=tick_size,
+        raw_atr_m1=raw_m1,
+        raw_atr_m5=raw_m5,
     )
 
 
@@ -316,13 +379,25 @@ def compute_min_protective_distance(
         "min_tick_floor": tick_floor,
     }
 
-    m1_val = atr_m1.value if (atr_m1 and getattr(atr_m1, "status", "") == "AVAILABLE" and getattr(atr_m1, "value", 0.0) > 0) else atr_m1_val
-    if m1_val is not None and math.isfinite(float(m1_val)) and float(m1_val) > 0:
+    m1_val = None
+    if atr_m1 is not None:
+        if getattr(atr_m1, "status", "") == "AVAILABLE" and getattr(atr_m1, "value", 0.0) > 0 and math.isfinite(atr_m1.value):
+            m1_val = float(atr_m1.value)
+    elif atr_m1_val is not None and math.isfinite(float(atr_m1_val)) and float(atr_m1_val) > 0:
+        m1_val = float(atr_m1_val)
+
+    if m1_val is not None:
         mult_m1 = getattr(policy, "min_distance_atr_m1_mult", 0.50)
         components["min_atr_m1"] = float(mult_m1) * float(m1_val)
 
-    m5_val = atr_m5.value if (atr_m5 and getattr(atr_m5, "status", "") == "AVAILABLE" and getattr(atr_m5, "value", 0.0) > 0) else atr_m5_val
-    if m5_val is not None and math.isfinite(float(m5_val)) and float(m5_val) > 0:
+    m5_val = None
+    if atr_m5 is not None:
+        if getattr(atr_m5, "status", "") == "AVAILABLE" and getattr(atr_m5, "value", 0.0) > 0 and math.isfinite(atr_m5.value):
+            m5_val = float(atr_m5.value)
+    elif atr_m5_val is not None and math.isfinite(float(atr_m5_val)) and float(atr_m5_val) > 0:
+        m5_val = float(atr_m5_val)
+
+    if m5_val is not None:
         mult_m5 = getattr(policy, "min_distance_atr_m5_mult", 0.20)
         components["min_atr_m5"] = float(mult_m5) * float(m5_val)
 
@@ -912,16 +987,23 @@ def plan_structural_stop(
     # DISTANCE_EXTREME, DISTANCE_ATR_UNAVAILABLE.
     final_dist = abs(planned_entry - variant_c_sl)
 
+    # 5. Volatility / ATR and distance metrics (V17.7.3 P1-01 Provenance Authority)
     eff_m1 = None
-    if atr_m1_obj and getattr(atr_m1_obj, "status", "") == "AVAILABLE":
-        v = getattr(atr_m1_obj, "value", None)
-        if v is not None:
-            try:
-                fv = float(v)
-                if math.isfinite(fv) and fv > 0.0:
-                    eff_m1 = fv
-            except (ValueError, TypeError):
-                pass
+    if atr_m1_obj is not None:
+        # Authoritative StopATRResult supplied: inspect status and value strictly
+        if getattr(atr_m1_obj, "status", "") == "AVAILABLE":
+            v = getattr(atr_m1_obj, "value", None)
+            if v is not None:
+                try:
+                    fv = float(v)
+                    if math.isfinite(fv) and fv > 0.0:
+                        eff_m1 = fv
+                except (ValueError, TypeError):
+                    pass
+        else:
+            # Rule 5.5: If an authoritative StopATRResult is supplied with status=UNAVAILABLE,
+            # a separate scalar or buffer component must NOT override it!
+            eff_m1 = None
     elif atr_m1_val is not None:
         try:
             fv = float(atr_m1_val)
@@ -929,29 +1011,38 @@ def plan_structural_stop(
                 eff_m1 = fv
         except (ValueError, TypeError):
             pass
-    elif buffer_result and getattr(buffer_result, "components", None):
-        c_atr = buffer_result.components.get("atr_m1")
-        if c_atr is not None:
-            try:
-                fv = float(c_atr)
-                if math.isfinite(fv) and fv > 0.0:
-                    eff_m1 = fv
-            except (ValueError, TypeError):
-                pass
+    elif buffer_result and getattr(buffer_result, "raw_atr_m1", None) is not None:
+        try:
+            fv = float(buffer_result.raw_atr_m1)
+            if math.isfinite(fv) and fv > 0.0:
+                eff_m1 = fv
+        except (ValueError, TypeError):
+            pass
+    # CRITICAL: buffer_result.components["atr_m1"] is NEVER treated as raw ATR!
 
     eff_m5 = None
-    if atr_m5_obj and getattr(atr_m5_obj, "status", "") == "AVAILABLE":
-        v5 = getattr(atr_m5_obj, "value", None)
-        if v5 is not None:
-            try:
-                fv5 = float(v5)
-                if math.isfinite(fv5) and fv5 > 0.0:
-                    eff_m5 = fv5
-            except (ValueError, TypeError):
-                pass
+    if atr_m5_obj is not None:
+        if getattr(atr_m5_obj, "status", "") == "AVAILABLE":
+            v5 = getattr(atr_m5_obj, "value", None)
+            if v5 is not None:
+                try:
+                    fv5 = float(v5)
+                    if math.isfinite(fv5) and fv5 > 0.0:
+                        eff_m5 = fv5
+                except (ValueError, TypeError):
+                    pass
+        else:
+            eff_m5 = None
     elif atr_m5_val is not None:
         try:
             fv5 = float(atr_m5_val)
+            if math.isfinite(fv5) and fv5 > 0.0:
+                eff_m5 = fv5
+        except (ValueError, TypeError):
+            pass
+    elif buffer_result and getattr(buffer_result, "raw_atr_m5", None) is not None:
+        try:
+            fv5 = float(buffer_result.raw_atr_m5)
             if math.isfinite(fv5) and fv5 > 0.0:
                 eff_m5 = fv5
         except (ValueError, TypeError):
