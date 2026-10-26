@@ -1,0 +1,19 @@
+{
+  "run_id": "v16_1_acceptance_1792118290",
+  "git_commit": "dbd1e3a5142488a4dd8d30eebad4f35af47f30c4",
+  "timestamp_iso": "2026-10-16T02:39:34.827748+00:00",
+  "python_path": "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+  "dataset_hash": "7595e15dd5197577c1390c59377c4568791f795bf2c588be685c04a9f482dd26",
+  "dataset_path": "D:\\build app-crypto\\aurum-desk\\backend\\lab\\data\\XAUUSDT_5m_1783789200000_1791793667634.json",
+  "sample_start_iso": "2026-09-28T08:25:00+00:00",
+  "sample_end_iso": "2026-10-12T08:25:00+00:00",
+  "v16_1_config": {
+    "v16_profile_enabled": true,
+    "fvg_continuation_enabled": true,
+    "sweep_reclaim_enabled": true,
+    "multi_zone_hypotheses_enabled": true,
+    "daily_min_goal": 2,
+    "daily_max_cap": 3,
+    "daily_ny_goal": 1
+  }
+}

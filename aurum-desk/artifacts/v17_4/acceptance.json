@@ -1,0 +1,92 @@
+{
+  "suite": "AURUM_V17_4_ACCEPTANCE",
+  "timestamp_utc": "2026-10-23T04:31:13.671123+00:00",
+  "base_sha": "4977a21deb475bafb0cd8cac6af87a4a0191d15a",
+  "current_sha": "4977a21deb475bafb0cd8cac6af87a4a0191d15a",
+  "branch": "fix/v14-1-rr-flow",
+  "environment": {
+    "os": "win32",
+    "python_executable": "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+    "node_cwd": "D:\\build app-crypto\\aurum-desk\\frontend"
+  },
+  "gates": {
+    "gate_1_backend_v17_4": {
+      "name": "Backend V17.4 Suite",
+      "command": "\"D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\" -m pytest \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v17_4_api.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v17_4_concurrency.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v17_4_config_transaction.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v17_4_contracts.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v17_4_entry_session_policy.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v17_4_expiry.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v17_4_frequency.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v17_4_guard_regression.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v17_4_production_flow.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v17_4_startup.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v17_4_timing_profiles.py\" -q",
+      "exit_code": 0,
+      "duration_s": 17.077189499992528,
+      "status": "PASS",
+      "summary": [
+        "",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "59 passed, 1 warning in 13.50s"
+      ]
+    },
+    "gate_2_backend_v14_4_regression": {
+      "name": "Backend V14.4 Regression Suite",
+      "command": "\"D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\" -m pytest \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_10_frozen_context.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_10_three_session_entry.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_11_reconciliation_authority.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_11_three_session_execution.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_12_forward_paper_session.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_12_reconciliation_fair_review.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_13_drawdown.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_13_forward_membership.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_13_outcome_authority.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_13_review_resolution.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_14_membership_transaction.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_14_outcome_authority.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_15_membership_repair.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_15_terminal_event_authority.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_16_repair_provenance.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_16_repair_runtime.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_16_strict_report_authority.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_17_repair_provenance.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_18_repair_source_conflicts.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_19_repair_self_proof.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_1_contracts.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_1_entry_guards.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_1_probability.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_1_production_pipeline.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_1_repository.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_1_scenario_fail_closed.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_1_session_forecasts.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_20_copied_repair_provenance.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_2_acceptance_runner.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_2_entry_regression.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_2_financial_context_regression.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_2_forecast_requirements.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_2_provisional_plan_regression.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_2_requirements.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_4_canonical_plan_runtime.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_4_forecast_runtime.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_4_metric_gate.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_4_ny_quota_pipeline.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_4_policy_consistency.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_4_reconciliation_runtime.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_5_acceptance_identity.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_5_forecast_production.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_5_frozen_legacy_sources.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_5_policy_startup.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_5_reconciliation_window.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_6_flow_preservation.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_6_forecast_state_transitions.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_6_pagination_replay.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_6_strict_proof_producer.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_7_coordinator_pagination.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_7_proof_fail_closed.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_8_reconciliation_accumulator.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_9_reconciliation_integrity.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_entry_guards.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_liquidity.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_quote_provenance.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_repository.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_scenario_causality.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_scenario_pipeline.py\" \"D:\\build app-crypto\\aurum-desk\\backend\\tests\\test_v14_4_sessions.py\" -q",
+      "exit_code": 0,
+      "duration_s": 44.49496609999915,
+      "status": "PASS",
+      "summary": [
+        "",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "493 passed, 1 warning in 41.01s"
+      ]
+    },
+    "gate_3_frontend_vitest": {
+      "name": "Frontend Vitest Suite",
+      "command": "npm test -- --run",
+      "exit_code": 0,
+      "duration_s": 8.210356499999762,
+      "status": "PASS",
+      "summary": [
+        "\u001b[2m   Duration \u001b[22m 6.98s\u001b[2m (environment 39%, import 23%, transform 19%, tests 18%, worker 1%)\u001b[22m",
+        "",
+        "\u001b[2m    Isolate \u001b[22m \u001b[33m45 workers spawned\u001b[39m\u001b[2m · ~924ms startup each (spawn + environment, per file)\u001b[22m",
+        "\u001b[2m            \u001b[22m \u001b[2mat least ~2.86s faster with \u001b[22m\u001b[33misolate: false\u001b[39m\u001b[2m — reuses workers across files instead of one per file\u001b[22m",
+        ""
+      ]
+    },
+    "gate_4_frontend_build": {
+      "name": "Frontend Production Build",
+      "command": "npm run build",
+      "exit_code": 0,
+      "duration_s": 12.31683900000644,
+      "status": "PASS",
+      "summary": [
+        "- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting",
+        "- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\u001b[39m",
+        "\u001b[32m✓ built in 1.98s\u001b[39m"
+      ]
+    },
+    "gate_5_frontend_lint": {
+      "name": "Frontend Oxlint",
+      "command": "npm run lint",
+      "exit_code": 0,
+      "duration_s": 1.0514770000008866,
+      "status": "PASS",
+      "summary": [
+        "",
+        "Found 57 warnings and 0 errors.",
+        "Finished in 365ms on 144 files with 116 rules using 12 threads."
+      ]
+    },
+    "gate_6_playwright_browser": {
+      "name": "Playwright E2E Browser Acceptance",
+      "command": "npx playwright test tests/e2e/v17_4_entry_sessions.e2e.ts tests/e2e/v17_3_monitor_context.e2e.ts",
+      "exit_code": 0,
+      "duration_s": 25.440958299994236,
+      "status": "PASS",
+      "summary": [
+        "  ok 4 tests\\e2e\\v17_4_entry_sessions.e2e.ts:15:3 › Aurum V17.4 — Entry Sessions UI & Settings Coordinated Flow › V17.4 Gate 1: Save All-Sessions Paper and verify server confirmation badge (1.6s)",
+        "  ok 5 tests\\e2e\\v17_4_entry_sessions.e2e.ts:97:3 › Aurum V17.4 — Entry Sessions UI & Settings Coordinated Flow › V17.4 Gate 2: Stale Expected Version (409) displays conflict error message (1.5s)",
+        "  ok 6 tests\\e2e\\v17_4_entry_sessions.e2e.ts:144:3 › Aurum V17.4 — Entry Sessions UI & Settings Coordinated Flow › V17.4 Gate 3: Mobile Viewport 390x844 responsive layout check (1.4s)",
+        "",
+        "  6 passed (23.1s)"
+      ]
+    }
+  },
+  "overall_status": "IMPLEMENTED_AND_VERIFIED",
+  "completed_at_utc": "2026-10-23T04:33:02.265366+00:00"
+}

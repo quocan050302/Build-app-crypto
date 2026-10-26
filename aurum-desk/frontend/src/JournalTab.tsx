@@ -28,6 +28,10 @@ import {
   type JournalQueryParams,
 } from './api/client';
 import { wsClient } from './services/wsClient';
+import { CandidateScoreBadge } from './components/CandidateScoreBadge';
+import { CandidateScoreDetails } from './components/CandidateScoreDetails';
+import { useCandidateScoreDetail } from './hooks/useCandidateScoreDetail';
+import { StopPlacementDetails } from './components/StopPlacementDetails';
 
 interface JournalTabProps {
   onFocusChart?: (trade: any) => void;
@@ -68,6 +72,19 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
   // Selected trade for drawer
   const [selectedTrade, setSelectedTrade] = useState<any | null>(null);
   const [activeDrawerTab, setActiveDrawerTab] = useState<'facts' | 'hypotheses' | 'review'>('facts');
+
+  // V16.39.12/13 Candidate Quality Score Detail hook for selected trade
+  const isJournalDrawerOpen = Boolean(selectedTrade?.id);
+  const {
+    detail: selectedScoreDetail,
+    loading: isScoreDetailLoading,
+    error: scoreDetailError,
+    refetch: refetchScoreDetail,
+  } = useCandidateScoreDetail({
+    orderId: isJournalDrawerOpen ? selectedTrade?.id : null,
+    expectedAssessmentId: selectedTrade?.candidate_score_summary?.assessment_id,
+    enabled: isJournalDrawerOpen,
+  });
 
   // Trade review form state
   const [reviewData, setReviewData] = useState<TradeReviewData | null>(null);
@@ -272,6 +289,30 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
     } catch (err) {
       if (showToast) {
         showToast('Bài Học', extractErrorMessage(err, 'Lỗi khi duyệt bài học'), 'warn');
+      }
+    } finally {
+      setIsUpdatingLesson(false);
+    }
+  };
+
+  const handleApproveAndActivateLesson = async (lesson: LessonItem) => {
+    setIsUpdatingLesson(true);
+    try {
+      await api.approveAndActivateLesson(lesson.id, {
+        expected_revision: lesson.revision || 0,
+        selected_severity: lesson.severity,
+        selected_effect: lesson.effect,
+        scope: lesson.scope,
+        predicate: lesson.predicate,
+        activate: true,
+      });
+      if (showToast) {
+        showToast('Bài Học', 'Đã duyệt và áp dụng quy tắc thành công!', 'success');
+      }
+      loadLessons();
+    } catch (err) {
+      if (showToast) {
+        showToast('Bài Học', extractErrorMessage(err, 'Lỗi khi duyệt và áp dụng bài học'), 'warn');
       }
     } finally {
       setIsUpdatingLesson(false);
@@ -737,14 +778,14 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                   <th className="py-2.5 px-2">Realized R</th>
                   <th className="py-2.5 px-2">Lý Do Đóng</th>
                   <th className="py-2.5 px-2">Đánh Giá</th>
-                  <th className="py-2.5 px-2 text-right">Thao Tác</th>
+                  <th className="py-2.5 px-2 text-right sticky right-0 bg-charcoal-850 z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.3)]">Thao Tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-charcoal-800 text-[11px]">
                 {trades.map((t) => {
                   const hasReview = Boolean(t.has_review || t.user_notes);
                   return (
-                    <tr key={t.id} className="hover:bg-charcoal-800/40 transition">
+                    <tr key={t.id} data-order-id={t.id} className="hover:bg-charcoal-800/40 transition">
                       <td className="py-2.5 px-2 font-mono text-gray-300">
                         <span className="font-semibold block">{t.id}</span>
                         {t.order_type && (
@@ -758,15 +799,22 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                         </span>
                       </td>
                       <td className="py-2.5 px-2">
-                        <span
-                          className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                            t.direction === 'LONG'
-                              ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
-                              : 'bg-rose-950 text-rose-300 border border-rose-700'
-                          }`}
-                        >
-                          {t.direction}
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span
+                            className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                              t.direction === 'LONG'
+                                ? 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                                : 'bg-rose-950 text-rose-300 border border-rose-700'
+                            }`}
+                          >
+                            {t.direction}
+                          </span>
+                          <CandidateScoreBadge
+                            summary={t.candidate_score_summary}
+                            compact
+                            onOpenDetails={() => handleOpenDrawer(t)}
+                          />
+                        </div>
                       </td>
                       <td className="py-2.5 px-2 whitespace-nowrap">
                         {formatOutcomeBadge(t)}
@@ -817,7 +865,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                           </span>
                         )}
                       </td>
-                      <td className="py-2.5 px-2 text-right whitespace-nowrap">
+                      <td className="py-2.5 px-2 text-right whitespace-nowrap sticky right-0 bg-charcoal-850 z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.3)]">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
@@ -830,6 +878,8 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                           {onFocusChart && (
                             <button
                               type="button"
+                              data-testid="journal-focus-chart"
+                              data-order-id={t.id}
                               onClick={() => onFocusChart(t)}
                               className="px-2 py-1 rounded bg-aurum-500 hover:bg-aurum-400 text-charcoal-950 text-[10px] font-bold transition flex items-center gap-1"
                               title="Xem snapshot trên chart"
@@ -938,7 +988,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-bold text-gray-200 text-xs">{ls.title}</span>
 
-                      {/* 3-Color Badge */}
+                      {/* 3-Color Badge with Governed V16.39 Safety Status (Section 092, 106, 152) */}
                       {isCritical ? (
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 ${
@@ -954,12 +1004,12 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                           <ShieldAlert className="w-3 h-3 text-rose-400" />
                           <span>
                             {isApproved && ls.enabled && isValid
-                              ? 'ĐỎ: ĐANG CHẶN ENTRY'
+                              ? 'ĐỎ: ĐANG ÁP DỤNG (CHẶN ENTRY)'
                               : isApproved && ls.enabled && !isValid
                               ? 'ĐỎ: CHƯA THỂ ÁP DỤNG'
                               : isApproved && !ls.enabled
-                              ? 'ĐỎ: ĐÃ TẮT CHẶN'
-                              : 'ĐỎ: QUY TẮC HẠN CHẾ'}
+                              ? 'ĐỎ: ĐÃ TẮT'
+                              : 'ĐỎ: Chờ duyệt — chưa ảnh hưởng lệnh mới'}
                           </span>
                         </span>
                       ) : isWarning ? (
@@ -975,22 +1025,30 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                           <AlertTriangle className="w-3 h-3 text-amber-400" />
                           <span>
                             {isApproved && ls.enabled
-                              ? 'VÀNG: ĐANG CẢNH BÁO'
+                              ? 'VÀNG: ĐANG ÁP DỤNG (CẢNH BÁO)'
                               : isApproved && !ls.enabled
-                              ? 'VÀNG: ĐÃ TẮT CẢNH BÁO'
-                              : 'VÀNG: CẢNH BÁO ENTRY'}
+                              ? 'VÀNG: ĐÃ TẮT'
+                              : 'VÀNG: Chờ duyệt — chưa ảnh hưởng lệnh mới'}
                           </span>
                         </span>
                       ) : (
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 ${
-                            isApproved
+                            isApproved && ls.enabled
                               ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
+                              : isApproved && !ls.enabled
+                              ? 'bg-charcoal-800 text-emerald-400/60 border-charcoal-700'
                               : 'bg-charcoal-800 text-emerald-400/70 border-charcoal-700'
                           }`}
                         >
                           <Info className="w-3 h-3 text-emerald-400" />
-                          <span>{isApproved ? 'XANH: CHỈ THAM KHẢO' : 'XANH: THAM KHẢO'}</span>
+                          <span>
+                            {isApproved && ls.enabled
+                              ? 'XANH: ĐANG ÁP DỤNG'
+                              : isApproved && !ls.enabled
+                              ? 'XANH: ĐÃ TẮT'
+                              : 'XANH: Chờ duyệt — chưa ảnh hưởng lệnh mới'}
+                          </span>
                         </span>
                       )}
 
@@ -1053,9 +1111,12 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                   </div>
 
                   {ls.hypothesis && (
-                    <p className="text-[11px] text-gray-400">
-                      <strong className="text-gray-300">Giả thuyết phân tích:</strong> {ls.hypothesis}
-                    </p>
+                    <div className="bg-charcoal-850 p-2.5 rounded border border-charcoal-750 text-[11px] space-y-1">
+                      <span className="font-semibold text-aurum-400 block">
+                        Vì sao bot chọn màu này? (Section 106, 149)
+                      </span>
+                      <p className="text-gray-300 leading-relaxed">{ls.hypothesis}</p>
+                    </div>
                   )}
 
                   {/* Predicate & Scope preview if configured */}
@@ -1134,7 +1195,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                     )}
                   </div>
 
-                  {/* Governance buttons */}
+                  {/* Governance buttons (Section 109 - 111) */}
                   <div className="flex flex-wrap justify-between items-center gap-2 pt-1 border-t border-charcoal-800">
                     <button
                       type="button"
@@ -1145,17 +1206,30 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                       <span>Cấu Hình Quy Tắc (V10)</span>
                     </button>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {ls.status !== 'APPROVED' && (
-                        <button
-                          type="button"
-                          onClick={() => handleApproveLesson(ls.id)}
-                          disabled={isUpdatingLesson}
-                          className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-semibold transition"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Duyệt Bài Học</span>
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleApproveLesson(ls.id)}
+                            disabled={isUpdatingLesson}
+                            className="flex items-center gap-1 px-2.5 py-1 bg-charcoal-800 hover:bg-charcoal-750 text-emerald-300 border border-emerald-700/60 rounded text-[11px] font-semibold transition"
+                            title="Duyệt lưu lại để tham khảo; chưa kích hoạt quy tắc chặn hoặc trừ điểm"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Duyệt Lưu Tham Khảo</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleApproveAndActivateLesson(ls)}
+                            disabled={isUpdatingLesson}
+                            className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-semibold transition shadow-sm"
+                            title="Duyệt và kích hoạt quy tắc có hiệu lực ngay cho các lệnh tiếp theo"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Duyệt & Áp Dụng</span>
+                          </button>
+                        </>
                       )}
                       {ls.status !== 'REJECTED' && (
                         <button
@@ -1191,7 +1265,13 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
 
       {/* Trade Detail & Psychology Review Drawer (Modal) */}
       {selectedTrade && (
-        <div className="fixed inset-0 z-50 bg-black/75 flex justify-end backdrop-blur-sm transition-all animate-fadeIn">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Chi Tiết Lệnh & Ghi Chú Tâm Lý"
+          data-testid="journal-trade-drawer"
+          className="fixed inset-0 z-50 bg-black/75 flex justify-end backdrop-blur-sm transition-all animate-fadeIn"
+        >
           <div className="w-full max-w-2xl bg-charcoal-900 border-l border-charcoal-750 h-full flex flex-col shadow-2xl overflow-hidden">
             {/* Drawer Header */}
             <div className="p-4 bg-charcoal-850 border-b border-charcoal-750 flex justify-between items-center">
@@ -1210,6 +1290,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
               </div>
               <button
                 type="button"
+                aria-label="Đóng bảng chi tiết"
                 onClick={() => setSelectedTrade(null)}
                 className="p-1 rounded hover:bg-charcoal-700 text-gray-400 hover:text-gray-200 transition"
               >
@@ -1306,7 +1387,7 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                         }`}
                       >
                         ${selectedTrade.realized_pnl_net?.toFixed(2) ?? '—'} (
-                        {selectedTrade.realized_r !== null ? `${selectedTrade.realized_r.toFixed(2)}R` : '—'})
+                        {selectedTrade.realized_r != null ? `${selectedTrade.realized_r.toFixed(2)}R` : '—'})
                       </span>
                     </div>
                   </div>
@@ -1339,6 +1420,16 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                       </div>
                     )}
                   </div>
+
+                  {/* V16.39.11/13 Candidate Quality Score Snapshot Linked to Trade */}
+                  <CandidateScoreDetails
+                    summary={selectedTrade.candidate_score_summary}
+                    detail={selectedScoreDetail}
+                    orderId={selectedTrade.id}
+                    loading={isScoreDetailLoading}
+                    error={scoreDetailError}
+                    onRetry={refetchScoreDetail}
+                  />
 
                   {/* V10: Lesson Rules Snapshot Linked to Trade */}
                   <div className="bg-charcoal-850 p-3 rounded border border-charcoal-750 space-y-2 text-[11px]">
@@ -1442,6 +1533,9 @@ export const JournalTab: React.FC<JournalTabProps> = ({ onFocusChart, showToast 
                       )}
                     </div>
                   </div>
+
+                  {/* V17.5: Stop Placement details card for selected trade */}
+                  <StopPlacementDetails order={selectedTrade} />
 
                   <div className="bg-charcoal-850 p-3.5 rounded border border-charcoal-750 text-[11px] text-gray-300 space-y-2">
                     <h4 className="font-bold text-gray-200">Nguyên Tắc Đánh Giá Khách Quan:</h4>

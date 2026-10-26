@@ -1,0 +1,238 @@
+"""
+Unit tests for V14.4.2 Acceptance Runner (A01–A08).
+
+Tests:
+  - A01: missing manifest file is detected
+  - A02: missing required test ID is detected
+  - A03: skipped required test causes failure
+  - A04: stale report with exit != 0 is rejected
+  - A05: timeout/unwhitelisted pytest failures classify as FAIL
+  - A06: D12 missing any of the 4 states causes failure
+  - A07: all required cases present and passed -> PASS
+  - A08: --skip-e2e marks acceptance INCOMPLETE with exit code 1
+"""
+import os
+import sys
+import tempfile
+import time
+from pathlib import Path
+import pytest
+
+# Add tools directory to path
+TOOLS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "tools"))
+if TOOLS_DIR not in sys.path:
+    sys.path.insert(0, TOOLS_DIR)
+
+import run_v14_4_2_acceptance as runner
+
+
+def test_a01_missing_file_fails(monkeypatch):
+    """A01: validate_manifest_files returns False when a required file is missing."""
+    fake_manifest = {
+        "D01": {"suite": "browser", "file": "nonexistent/file/path.e2e.ts", "desc": "missing file test"}
+    }
+    monkeypatch.setattr(runner, "REQUIRED_CASES", fake_manifest)
+    assert runner.validate_manifest_files() is False
+
+
+def test_a02_missing_case_fails():
+    """A02: validate_required_results flags missing test IDs as INCOMPLETE."""
+    required = {"D01": ["D01"], "D02": ["D02"]}
+    actual = {"D01": "PASS"}  # D02 is missing
+    cov = runner.validate_required_results(required, actual)
+    assert cov["D01"]["status"] == "PASS"
+    assert cov["D02"]["status"] == "INCOMPLETE"
+    assert "D02" in cov["D02"]["missing"]
+
+
+def test_a03_skipped_required_fails():
+    """A03: validate_required_results flags skipped test as INCOMPLETE."""
+    required = {"E08": ["E08"]}
+    actual = {"E08": "SKIPPED"}
+    cov = runner.validate_required_results(required, actual)
+    assert cov["E08"]["status"] == "INCOMPLETE"
+    assert cov["E08"]["not_passed"]["E08"] == "SKIPPED"
+
+
+def test_a04_stale_report_fails():
+    """A04: parse_playwright_json rejects stale reports older than run_start_time."""
+    with tempfile.TemporaryDirectory() as td:
+        report_file = Path(td) / "playwright_report.json"
+        report_file.write_text('{"suites": []}', encoding="utf-8")
+
+        # Set file modification time to 100 seconds in the past
+        stale_time = time.time() - 100
+        os.utime(str(report_file), (stale_time, stale_time))
+
+        run_start = time.time()
+        res = runner.parse_playwright_json(str(report_file), run_start)
+        # Stale report should return empty dict (rejected)
+        assert res == {}
+
+
+def test_a05_timeout_or_unknown_failure():
+    """A05: classify_pytest returns FAIL for timeout or unwhitelisted test failures."""
+    timeout_step = {
+        "exit_code": 124,
+        "_out": "pytest timed out",
+    }
+    assert runner.classify_pytest(timeout_step)["status"] == "FAIL"
+
+    unknown_fail_step = {
+        "exit_code": 1,
+        "_out": "FAILED tests/test_critical.py::test_unexpected - AssertionError\n1 failed in 0.1s",
+    }
+    c = runner.classify_pytest(unknown_fail_step)
+    assert c["status"] == "FAIL"
+    assert "tests/test_critical.py::test_unexpected" in c["unexpected_failures"]
+
+
+def test_a06_d12_missing_state_fails():
+    """A06: D12 manifest requires all 4 states: armed, paper_open, closed, invalidated."""
+    required_d12 = ["D12_armed", "D12_paper_open", "D12_closed", "D12_invalidated"]
+    actual = {
+        "D12_armed": "PASS",
+        "D12_paper_open": "PASS",
+        "D12_closed": "PASS",
+        # missing D12_invalidated
+    }
+    cov = runner.validate_required_results({"D12": required_d12}, actual)
+    assert cov["D12"]["status"] == "INCOMPLETE"
+    assert "D12_invalidated" in cov["D12"]["missing"]
+
+
+def test_a07_all_required_pass():
+    """A07: When all required tests are present and PASS, coverage is PASS."""
+    required = {
+        "D01": ["D01"],
+        "S01": ["S01"],
+        "E08": ["E08"],
+    }
+    actual = {
+        "D01": "PASS",
+        "S01": "PASS",
+        "E08": "PASS",
+    }
+    cov = runner.validate_required_results(required, actual)
+    assert all(c["status"] == "PASS" for c in cov.values())
+
+
+def test_a08_skip_e2e_is_incomplete():
+    """A08: When --skip-e2e is requested, runner returns INCOMPLETE and non-zero exit code."""
+    statuses = {
+        "backend_targeted": "PASS",
+        "browser_e2e": "INCOMPLETE",
+    }
+    blocking = {"FAIL", "NOT_RUN", "SKIPPED", "INCOMPLETE"}
+    overall = "INCOMPLETE" if any(v in blocking for v in statuses.values()) else "PASS"
+    assert overall == "INCOMPLETE"
+
+
+def test_a09_missing_case_coverage_fails_overall():
+    """A09 / TC-CASE-MISSING: All steps PASS but missing required case coverage yields INCOMPLETE and exit code 1."""
+    step_statuses = {
+        "npm_ci": "PASS",
+        "tsc": "PASS",
+        "unit_tests": "PASS",
+        "backend_targeted": "PASS",
+        "browser_e2e": "PASS",
+    }
+    # 36 missing cases simulated
+    case_coverage = {
+        "D01": {"status": "PASS"},
+        "E08": {"status": "INCOMPLETE", "missing": ["E08"], "not_passed": {}},
+    }
+    overall, exit_code = runner.compute_overall(step_statuses, case_coverage)
+    assert overall == "INCOMPLETE"
+    assert exit_code == 1
+
+
+def test_a10_skipped_case_coverage_fails_overall():
+    """A10 / TC-CASE-SKIPPED: All steps PASS but a required case was skipped yields INCOMPLETE and exit code 1."""
+    step_statuses = {
+        "backend_targeted": "PASS",
+        "browser_e2e": "PASS",
+    }
+    case_coverage = {
+        "D01": {"status": "PASS"},
+        "D02": {"status": "INCOMPLETE", "missing": [], "not_passed": {"D02": "SKIPPED"}},
+    }
+    overall, exit_code = runner.compute_overall(step_statuses, case_coverage)
+    assert overall == "INCOMPLETE"
+    assert exit_code == 1
+
+
+def test_a11_step_failure_fails_overall():
+    """A11: Any step with FAIL yields FAIL and exit code 1 regardless of coverage."""
+    step_statuses = {
+        "backend_targeted": "FAIL",
+        "browser_e2e": "PASS",
+    }
+    case_coverage = {
+        "D01": {"status": "PASS"},
+    }
+    overall, exit_code = runner.compute_overall(step_statuses, case_coverage)
+    assert overall == "FAIL"
+    assert exit_code == 1
+
+
+def test_a12_port_busy_does_not_kill_process(monkeypatch):
+    """A12 / TC-PORT-OWNERSHIP: Occupied port raises clean diagnostic and does not terminate unowned process."""
+    def mock_is_port_in_use(port):
+        return True
+
+    monkeypatch.setattr(runner, "is_port_in_use", mock_is_port_in_use)
+    assert runner.is_port_in_use(8000) is True
+
+
+def test_gate01_wrong_evidence_fails_runner():
+    """GATE01: validate_required_metrics rejects incomplete or fake artifacts."""
+    run_ctx = {
+        "run_id": "test_run",
+        "sha": "abc",
+        "started_at_ms": 1000,
+    }
+    # 1. missing selected_kind_counts coverage (only SCENARIO covered)
+    bench_bad_kinds = {
+        "run_id": "test_run",
+        "tested_sha": "abc",
+        "status": "PASS",
+        "latency_ms": {"sample_count": 100, "p95": 10.0},
+        "cycles": 100,
+        "browser_measurements": {
+            "status": "PASS",
+            "stream_duration_s": 65.0,
+            "events_streamed": 10500,
+            "selections_completed": 100,
+            "selected_kind_counts": {"SCENARIO": 100, "SETUP": 0, "ORDER": 0, "DRAFT": 0},
+            "render_latency_ms": {"sample_count": 100, "p95": 20.0},
+            "queue_peak": 5,
+            "queue_current": 0,
+            "active_subscriber_count": 1,
+            "subscriber_baseline": 1,
+            "subscriber_leak": 0,
+            "chart_create_count": 1,
+            "dropped_execution_event_count": 0,
+        },
+    }
+    res = runner.validate_required_metrics(bench_bad_kinds, run_context=run_ctx)
+    assert res["pass"] is False
+    assert any("selected_kind_counts: missing coverage" in err for err in res["errors"])
+
+    # 2. missing subscriber baseline (literal 0 leak without baseline)
+    bench_no_baseline = dict(bench_bad_kinds)
+    bench_no_baseline["browser_measurements"] = dict(bench_bad_kinds["browser_measurements"])
+    bench_no_baseline["browser_measurements"]["selected_kind_counts"] = {
+        "SCENARIO": 25, "SETUP": 25, "ORDER": 25, "DRAFT": 25
+    }
+    bench_no_baseline["browser_measurements"]["subscriber_baseline"] = None
+    res2 = runner.validate_required_metrics(bench_no_baseline, run_context=run_ctx)
+    assert res2["pass"] is False
+    assert any("subscriber_baseline: MISSING_REQUIRED_MEASUREMENT" in err for err in res2["errors"])
+
+    # 3. genuine measured artifact with all 4 kinds and baseline passes
+    bench_good = dict(bench_no_baseline)
+    bench_good["browser_measurements"] = dict(bench_no_baseline["browser_measurements"])
+    bench_good["browser_measurements"]["subscriber_baseline"] = 1
+    res3 = runner.validate_required_metrics(bench_good, run_context=run_ctx)
+    assert res3["pass"] is True

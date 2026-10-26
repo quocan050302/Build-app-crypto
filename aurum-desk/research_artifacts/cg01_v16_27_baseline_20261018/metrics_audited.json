@@ -1,0 +1,186 @@
+{
+  "document_type": "AUDITED_BASELINE_METRICS",
+  "audit_version": "1.1",
+  "supersedes": "metrics_partial.json",
+  "audit_timestamp_utc": "2026-10-18T12:45:00Z",
+  "audit_status": "AUDIT_CLOSED_WITH_LIMITATIONS",
+  "performance_status": "PERFORMANCE_UNVERIFIED",
+  "git_provenance": {
+    "remote": "https://github.com/quocan050302/Build-app-crypto.git",
+    "branch": "fix/v14-1-rr-flow",
+    "strategy_baseline_commit_sha": "33dcd791f2ccfba8e3b3c19e5a44318cdf295ad8",
+    "audit_reference_commit_sha": "470fbcba24d0016830babc403d14ab59cbd9302d",
+    "is_production_source_frozen": true,
+    "production_backend_modified_files_count": 0
+  },
+  "runtime_execution_audit": {
+    "run_label": "30-Day Replay (Interrupted)",
+    "execution_status": "INTERRUPTED_BEFORE_FINALIZE",
+    "interruption_reason": "USER_CONTROLLED_STOP",
+    "process_pid": 19136,
+    "start_time_utc": "2026-10-18T04:59:24.420Z",
+    "interrupted_time_utc": "2026-10-18T11:36:11Z",
+    "wall_clock_elapsed_seconds": 23806.58,
+    "wall_clock_elapsed_formatted": "6h 36m 47s",
+    "reported_cpu_time_seconds": 20303.18,
+    "reported_cpu_time_formatted": "338m 23s",
+    "reported_cpu_verification_status": "REPORTED_NOT_VERIFIED",
+    "exit_code": 0,
+    "exit_signal": "SIGINT / KeyboardInterrupt",
+    "verified_interruption_stack": "ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate -> detect_confirmed_continuation_break (task_execution.log:L43-46)",
+    "processed_candles_count": null,
+    "processed_candles_reason": "IN_MEMORY_STATE_LOST_ON_SIGINT",
+    "last_processed_timestamp_ms": null,
+    "last_processed_timestamp_reason": "IN_MEMORY_STATE_LOST_ON_SIGINT"
+  },
+  "dataset_audit": {
+    "target_dataset_days": 30,
+    "dataset_file": "data/xauusdt_m1_30d.json",
+    "dataset_total_candles": 42986,
+    "dataset_start_utc": "2026-09-18T00:00:00Z",
+    "dataset_end_exclusive_utc": "2026-10-18T00:00:00Z",
+    "gaps_count": 214,
+    "gap_periodicity_minutes": 201,
+    "gap_root_cause": "PAGINATION_HYPOTHESIS_CONFIRMED_IN_TESTS",
+    "gap_root_cause_details": "Downloader pagination tested via mock client simulating close-time upper boundary semantics (close_time <= endTime). Setting current_end = earliest eliminates 120s gaps across page boundaries in unit tests. Live exchange semantics remain unverified by live probe. Previous claim attributing 214 gaps to weekend closures was invalid.",
+    "dataset_coverage_pct": 99.5,
+    "logical_candles_sha256": "51060062620a518a856d4fef507d2f6d748241723196274fd468745788a521a1",
+    "conflicting_duplicates": 0,
+    "identical_duplicates": 0
+  },
+  "accounting_corrections": {
+    "closed_trades_count": {
+      "reported_previously": 0,
+      "audited_value": null,
+      "status": "UNVERIFIED",
+      "reason": "Run was interrupted before finalize_run; in-memory SQLite database was not checkpointed. No verified closed-trade ledger exists."
+    },
+    "wins": {
+      "reported_previously": 0,
+      "audited_value": null,
+      "status": "UNVERIFIED",
+      "reason": "Sample size unverified."
+    },
+    "losses": {
+      "reported_previously": 0,
+      "audited_value": null,
+      "status": "UNVERIFIED",
+      "reason": "Sample size unverified."
+    },
+    "breakevens": {
+      "reported_previously": 0,
+      "audited_value": null,
+      "status": "UNVERIFIED",
+      "reason": "Sample size unverified."
+    },
+    "winrate_pct": {
+      "reported_previously": null,
+      "audited_value": null,
+      "status": "NOT_APPLICABLE",
+      "reason": "UNVERIFIED_EXECUTION_RESULTS"
+    },
+    "net_realized_pnl_usd": {
+      "reported_previously": 0.0,
+      "audited_value": null,
+      "status": "UNVERIFIED",
+      "reason": "Cannot confirm 0.00 realized PnL without completed run ledger."
+    },
+    "expectancy_net_usd": {
+      "reported_previously": null,
+      "audited_value": null,
+      "status": "NOT_APPLICABLE",
+      "reason": "INSUFFICIENT_SAMPLE"
+    },
+    "profit_factor": {
+      "reported_previously": null,
+      "audited_value": null,
+      "status": "NOT_APPLICABLE",
+      "reason": "UNVERIFIED_EXECUTION_RESULTS"
+    },
+    "open_positions_count": {
+      "reported_previously": 0,
+      "audited_value": null,
+      "status": "UNVERIFIED",
+      "reason": "Final open positions snapshot not preserved on SIGINT."
+    },
+    "pending_orders_count": {
+      "reported_previously": 0,
+      "audited_value": null,
+      "status": "UNVERIFIED",
+      "reason": "Final pending orders snapshot not preserved on SIGINT."
+    },
+    "closed_equity_drawdown_pct": {
+      "reported_previously": 0.0,
+      "audited_value": null,
+      "status": "UNVERIFIED",
+      "reason": "Drawdown series unverified due to interrupted execution."
+    },
+    "m1_mtm_drawdown_pct": {
+      "reported_previously": 0.0,
+      "audited_value": null,
+      "status": "UNVERIFIED",
+      "reason": "MTM series unverified due to interrupted execution."
+    }
+  },
+  "runtime_patches_audit": {
+    "patched_functions": [
+      {
+        "module": "lab.cg01_replay_driver",
+        "function": "aggregate_closed_bars",
+        "replacement": "fast_aggregate_closed_bars",
+        "parity_status": "VERIFIED_ACROSS_M15_H1_H4_PREFIXES_BOUNDARIES",
+        "test_evidence": "tools/test_baseline_research_tools.py"
+      },
+      {
+        "module": "lab.cg01_replay_driver",
+        "function": "select_closed_candles",
+        "replacement": "fast_select_closed_candles",
+        "parity_status": "VERIFIED_FOR_1M_CLOSED_BARS",
+        "test_evidence": "tools/test_baseline_research_tools.py"
+      }
+    ],
+    "scope_fix": "Converted from global monkeypatch to scoped fast_aggregation_context() ensuring teardown in finally block."
+  },
+  "strategy_configuration_audit": {
+    "intended_profile_mode": "PAPER_EXECUTION",
+    "intended_entry_mode": "LIMIT_AT_CE_AFTER_CONFIRMATION",
+    "effective_entry_mode": "UNVERIFIED",
+    "intended_initial_capital_usdt": 1000.0,
+    "intended_risk_pct": 0.25,
+    "maker_fee_rate": 0.0002,
+    "taker_fee_rate": 0.0004,
+    "slippage_usd": 0.10,
+    "multiplier": 1.0,
+    "trading_day_timezone": "Asia/Ho_Chi_Minh"
+  },
+  "claim_corrections": [
+    {
+      "claim": "Đã kiểm tra 30 ngày lịch",
+      "correction": "Dataset mục tiêu bao phủ 30 ngày lịch, nhưng quá trình thực thi bị gián đoạn trước khi hoàn tất (execution coverage chưa xác minh)."
+    },
+    {
+      "claim": "0 lệnh đã được xác minh",
+      "correction": "Số lệnh là UNVERIFIED vì DB in-memory không được ghi ra đĩa khi tiến trình bị dừng."
+    },
+    {
+      "claim": "214 khoảng gaps do đóng cửa cuối tuần",
+      "correction": "214 gaps có chu kỳ lặp 201 phút (cách nhau đúng 120s), bắt nguồn từ lỗi phân trang downloader (current_end = earliest - 1), không phải do đóng cửa cuối tuần."
+    },
+    {
+      "claim": "Semantics phân trang Bitget được xác nhận bằng probe trực tiếp (VERIFIED_BY_PROBE)",
+      "correction": "Semantics phân trang close_time <= endTime được kiểm chứng qua mock test suite; exchange live semantics chưa được probe trực tiếp trong patch này do không gọi external exchange."
+    },
+    {
+      "claim": "14/14 tests parity tuyệt đối",
+      "correction": "Bộ test suite hiện có 31 tests phân định rõ: 5 validator tests, 8 genuine downloader pagination/error tests, 7 parity/cache tests, 2 export tests, và 9 canonical trade mapping tests."
+    },
+    {
+      "claim": "Ba lỗi cốt lõi đã dập tắt toàn bộ setup",
+      "correction": "Ba khuyết tật mã nguồn (ATR 1M, FVG mitigation pass, early return) là các lỗi logic đã được kiểm chứng trong code, nhưng mối quan hệ nhân quả tuyệt đối với kết quả 0 lệnh cần được kiểm chứng đối chứng trong V16.28."
+    },
+    {
+      "claim": "Thời gian chạy sẽ giảm xuống dưới 3 phút sau khi cắt lịch sử",
+      "correction": "Cam kết thời gian dưới 3 phút là ước tính chưa được đo đạc chính thức; đã bị loại bỏ khỏi kết luận."
+    }
+  ]
+}

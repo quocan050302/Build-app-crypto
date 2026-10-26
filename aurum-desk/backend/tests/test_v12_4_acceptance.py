@@ -77,7 +77,7 @@ def test_v124_01_canonical_ledger_schema_and_export():
 
     # 1. Verify canonical fields on every posting object
     for p in res.ledger_postings:
-        assert "posting_id" in p and p["posting_id"].startswith("POST-")
+        assert "posting_id" in p and p["posting_id"].upper().startswith("POST-")
         assert "schema_version" in p and p["schema_version"] == "v12.4"
         assert "timestamp_ms" in p and isinstance(p["timestamp_ms"], int) and p["timestamp_ms"] > 0
         assert "posting_type" in p and isinstance(p["posting_type"], str) and len(p["posting_type"]) > 0

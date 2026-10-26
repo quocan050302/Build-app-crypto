@@ -1,0 +1,4 @@
+{
+  "lifespan_detects_worker_start_failure_test": "test_red_029_lifespan_detects_worker_start_failure",
+  "lifespan_detects_worker_stop_timeout_test": "test_red_030_lifespan_detects_worker_stop_timeout"
+}

@@ -1,0 +1,35 @@
+[
+  {
+    "case_name": "SEQUENCE_WITHOUT_BREAK_REJECTED",
+    "description": "Bullish sequence formed post-invalidation, but candle close (2545) is below reference high (2560)",
+    "as_of_ms": 1700028800000,
+    "baseline_behavior": "False CHOCH emitted (bar_close >= l2 used instead of high break)",
+    "corrected_bias": "UNKNOWN",
+    "phase": "INSUFFICIENT_DATA",
+    "last_confirmed_bias": "UNKNOWN",
+    "latest_event_type": null,
+    "evidence_reason": "No structural break event emitted because candle close 2545 did not break reference 2560 + buffer."
+  },
+  {
+    "case_name": "PRE_INVALIDATION_PIVOT_TIMING_REJECTED",
+    "description": "Swing formed before invalidation cutoff but confirmed known after cutoff",
+    "as_of_ms": 1700021600000,
+    "baseline_behavior": "Known_at > cutoff alone accepted pre-invalidation pivot as new structure",
+    "corrected_bias": "UNKNOWN",
+    "phase": "TRANSITION",
+    "evidence_reason": "Swings must have occurred_at_ms >= invalidation_cutoff_ms to be causal post-invalidation structure."
+  },
+  {
+    "case_name": "VALID_CLOSE_BREAK_CONFIRMED",
+    "description": "Candle closes at 2565 breaking reference 2560 by > buffer",
+    "as_of_ms": 1700032400000,
+    "baseline_behavior": "N/A",
+    "corrected_bias": "UNKNOWN",
+    "phase": "INSUFFICIENT_DATA",
+    "last_confirmed_bias": "UNKNOWN",
+    "latest_event_type": null,
+    "reference_price": null,
+    "close_price": null,
+    "evidence_reason": "Candle close 2565 strictly exceeds reference 2560, confirming ESTABLISHED BULLISH structure."
+  }
+]

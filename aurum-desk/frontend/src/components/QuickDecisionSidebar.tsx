@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import type { SelectedTradeIntent } from '../App';
+import { SMCScenarioCard } from './SMCScenarioCard';
+import { SMCSessionForecastCard } from './SMCSessionForecastCard';
+import { CG01DiagnosticCard } from './CG01DiagnosticCard';
+import { CandidateScoreBadge } from './CandidateScoreBadge';
+import { useCG01RealtimeState } from '../hooks/useCG01RealtimeState';
+import type { SMCScenarioView } from '../types/smcScenario';
 import {
   ShieldAlert,
   PlayCircle,
@@ -14,6 +20,13 @@ import {
 import { quoteStore } from '../services/quoteStore';
 import { getCatalogTemplate } from '../utils/userMessageCatalog';
 import { normalizeLessonItem } from '../types/lesson';
+import { resolveSelectionRrPolicy, compareNetRr } from '../utils/rrPolicyView';
+import {
+  deriveEntryDecisionView,
+  getEntryDistanceLabel,
+  isEligibilityBoundToIntent,
+} from '../utils/entryGate';
+import type { EntryEligibility, PlanKind } from '../utils/entryGate';
 
 export interface StalePlanNoticeData {
   setupId: string;
@@ -47,6 +60,16 @@ export interface QuickDecisionSidebarProps {
   selectedQualityLoading?: boolean;
   selectedQualityError?: string | null;
   onFocusOnChart?: () => void;
+  scenarios?: SMCScenarioView[];
+  onSelectScenario?: (scenario: SMCScenarioView) => void;
+  onFocusTradeOnChart?: (trade: any) => void;
+  appliedMinNetRR?: number;
+  rrPolicySource?: string;
+  rrPolicyFingerprint?: string;
+  rrPolicyStatus?: string;
+  isRrPolicyConfirmed?: boolean;
+  onOpenRrSettings?: () => void;
+  onOpenOpportunityMonitor?: () => void;
 }
 
 export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
@@ -57,6 +80,7 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
   stalePlanNotice,
   onClearStalePlanNotice,
   onFocusSetupOnChart,
+  onFocusTradeOnChart,
   onArmSetup,
   onCancelSetup,
   onClosePosition,
@@ -71,15 +95,37 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
   selectedQualityLoading = false,
   selectedQualityError: _selectedQualityError,
   onFocusOnChart,
+  scenarios,
+  onSelectScenario,
+  appliedMinNetRR,
+  rrPolicySource,
+  rrPolicyFingerprint,
+  rrPolicyStatus,
+  isRrPolicyConfirmed,
+  onOpenRrSettings,
+  onOpenOpportunityMonitor,
 }) => {
+  // Realtime CG-01 diagnostics state (V16.29)
+  const cg01State = useCG01RealtimeState({ symbol: 'XAUUSDT' });
+
   // Realtime quote subscriber for live distance & freshness
   const [currentQuote, setCurrentQuote] = useState(() => quoteStore.getQuote('XAUUSDT'));
 
+  // Coarse clock used only for quote freshness labels (no extra WS connection, no refetch).
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
   useEffect(() => {
     const unsub = quoteStore.subscribe('XAUUSDT', (q) => {
-      if (q) setCurrentQuote(q);
+      if (q) {
+        setCurrentQuote(q);
+        setNowMs(Date.now());
+      }
     });
-    return unsub;
+    const timer = setInterval(() => setNowMs(Date.now()), 5000);
+    return () => {
+      unsub();
+      clearInterval(timer);
+    };
   }, []);
 
   const hasActivePos = Boolean(activePosition?.has_active_position && activePosition?.position);
@@ -90,7 +136,20 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
     ? upcomingSetups.find((s: any) => s.id === selectedIntent.setup_id)
     : null;
 
-  const eligibility = selectedIntent?.eligibility || currentSetup?.eligibility;
+  // V14.2: cached eligibility is only valid for the exact plan it was computed for.
+  // A newer server setup (other version/direction/prices) or a dragged draft is NOT bound -> stale.
+  const intentEligibility = selectedIntent?.eligibility as EntryEligibility | undefined;
+  const serverEligibility = currentSetup?.eligibility as EntryEligibility | undefined;
+  const eligibility: EntryEligibility | undefined = isEligibilityBoundToIntent(intentEligibility, selectedIntent)
+    ? intentEligibility
+    : isEligibilityBoundToIntent(serverEligibility, selectedIntent)
+    ? serverEligibility
+    : undefined;
+  const isEligibilityStale = Boolean(
+    selectedIntent && selectedIntent.source === 'WATCH_SETUP' && selectedIntent.status !== 'ARMED' && !eligibility,
+  );
+  const planKind: PlanKind = (selectedIntent?.plan_kind as PlanKind | undefined) ?? 'CONFIRMED';
+  const isQuoteFresh = Boolean(currentQuote && nowMs - (currentQuote.updatedAt || 0) <= 15000);
 
   // Geometry Validation
   const tp = selectedIntent?.takeProfit;
@@ -105,7 +164,7 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
   const isCrossBlocked = marginMode === 'CROSS' || selectedIntent?.marginMode === 'CROSS';
   const isBlockedByActive = hasActivePos;
   const isBlockedByArmed = hasArmedOrder && selectedIntent?.status !== 'ARMED';
-  const isEligibilityBlocked = Boolean(eligibility && eligibility.eligible === false);
+  const isEligibilityBlocked = Boolean(eligibility && (eligibility.can_arm === false || eligibility.eligible === false));
 
   const blockers: Array<{ code: string; title: string; summary: string }> = [];
 
@@ -128,12 +187,81 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
       });
     }
 
-    const currentNetRR = selectedIntent.estimatedNetRR || currentSetup?.net_rr || 0;
-    if (currentNetRR > 0 && currentNetRR < 2.0) {
+    // Signed R:R: zero and negative values are real results (never hidden by `||`/`> 0`).
+    const currentNetRRRaw = selectedIntent.estimatedNetRR ?? currentSetup?.net_rr;
+    const currentNetRR = typeof currentNetRRRaw === 'number' && Number.isFinite(currentNetRRRaw) ? currentNetRRRaw : null;
+    const netRewardUsdt = selectedIntent.netRewardUsdt;
+
+    const selectionPolicyView = resolveSelectionRrPolicy(selectedIntent, {
+      value: appliedMinNetRR ?? null,
+      source: rrPolicySource,
+      fingerprint: rrPolicyFingerprint,
+      status: rrPolicyStatus,
+      isConfirmed: isRrPolicyConfirmed,
+    });
+    const rrComparison = compareNetRr(currentNetRR, selectionPolicyView);
+
+    if (typeof netRewardUsdt === 'number' && Number.isFinite(netRewardUsdt) && netRewardUsdt <= 0) {
+      const tmpl = getCatalogTemplate('NET_REWARD_NON_POSITIVE');
+      blockers.push({
+        code: 'NET_REWARD_NON_POSITIVE',
+        title: tmpl.title,
+        summary: typeof tmpl.summary === 'function' ? tmpl.summary({ net_reward_usdt: netRewardUsdt }) : tmpl.summary,
+      });
+    } else if (selectionPolicyView.kind === 'CURRENT' && rrComparison.status === 'NOT_MET') {
+      const reqStr = rrComparison.requiredMinNetRR != null ? `1:${rrComparison.requiredMinNetRR.toFixed(2)}` : 'yêu cầu';
+      const actualStr = currentNetRR !== null ? `1:${currentNetRR.toFixed(2)}` : '—';
+      const tmpl = getCatalogTemplate('NET_RR_TOO_LOW');
       blockers.push({
         code: 'NET_RR_TOO_LOW',
-        title: `Net R:R 1:${currentNetRR.toFixed(2)} chưa đạt yêu cầu 1:2.00`,
-        summary: `Tỷ lệ Lợi nhuận/Rủi ro ròng 1:${currentNetRR.toFixed(2)} thấp hơn yêu cầu tối thiểu 1:2.00.`,
+        title: `Net R:R ${actualStr} chưa đạt yêu cầu ${reqStr}`,
+        summary: typeof tmpl.summary === 'function'
+          ? tmpl.summary({ net_rr: currentNetRR, required_rr: rrComparison.requiredMinNetRR })
+          : `Tỷ lệ Lợi nhuận/Rủi ro ròng ${actualStr} thấp hơn yêu cầu tối thiểu ${reqStr}.`,
+      });
+    } else if (
+      selectionPolicyView.kind === 'CURRENT' &&
+      (selectionPolicyView.status === 'LOADING' ||
+        selectionPolicyView.status === 'ERROR' ||
+        !selectionPolicyView.isAuthoritative ||
+        selectionPolicyView.minNetRR === null)
+    ) {
+      const isErr = selectionPolicyView.status === 'ERROR' || rrComparison.label === 'Lỗi cấu hình R:R';
+      blockers.push({
+        code: 'POLICY_GATE',
+        title: isErr ? 'Lỗi cấu hình R:R' : 'Chưa xác nhận cấu hình R:R',
+        summary: isErr
+          ? 'Không thể tải hoặc xác minh chính sách R:R từ máy chủ. Vui lòng kiểm tra lại kết nối hoặc cài đặt.'
+          : 'Hệ thống đang tải hoặc xác thực ngưỡng R:R áp dụng trước khi cho phép kích hoạt lệnh.',
+      });
+    } else if (
+      selectionPolicyView.kind === 'INVALID' ||
+      rrComparison.status === 'INVALID'
+    ) {
+      blockers.push({
+        code: 'POLICY_GATE',
+        title: 'Cấu hình R:R không hợp lệ',
+        summary: selectionPolicyView.kind === 'ORDER_SNAPSHOT'
+          ? 'Ngưỡng snapshot lúc ARM của lệnh không hợp lệ.'
+          : 'Dữ liệu hoặc tỷ lệ R:R không hợp lệ.',
+      });
+    }
+
+    if (planKind === 'PROVISIONAL') {
+      const tmpl = getCatalogTemplate('UNCONFIRMED_ENTRY');
+      blockers.push({
+        code: 'UNCONFIRMED_ENTRY',
+        title: tmpl.title,
+        summary: typeof tmpl.summary === 'function' ? tmpl.summary({}) : tmpl.summary,
+      });
+    }
+
+    if (isEligibilityStale) {
+      const tmpl = getCatalogTemplate('STALE_ELIGIBILITY');
+      blockers.push({
+        code: 'STALE_ELIGIBILITY',
+        title: tmpl.title,
+        summary: typeof tmpl.summary === 'function' ? tmpl.summary({}) : tmpl.summary,
       });
     }
 
@@ -164,29 +292,34 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
       });
     }
 
-    if (isEligibilityBlocked) {
-      const rCodes = eligibility.reason_codes || [];
+    if (isEligibilityBlocked && eligibility) {
+      const el: EntryEligibility = eligibility;
+      const rCodes = el.reason_codes || [];
       for (const code of rCodes) {
         if (!blockers.some((b) => b.code === code)) {
           const tmpl = getCatalogTemplate(code);
+          const nv = el.news_view;
+          const params: Record<string, unknown> = code === 'NEWS_BLACKOUT' && nv
+            ? { ...el, event_title: nv.title, impact: nv.impact }
+            : { ...el };
           blockers.push({
             code,
             title: tmpl.title,
-            summary: typeof tmpl.summary === 'function' ? tmpl.summary(eligibility) : tmpl.summary,
+            summary: typeof tmpl.summary === 'function' ? tmpl.summary(params) : tmpl.summary,
           });
         }
       }
-      if (blockers.length === 0 && eligibility.block_reasons?.length > 0) {
+      if (blockers.length === 0 && (el.block_reasons?.length ?? 0) > 0) {
         blockers.push({
           code: 'POLICY_GATE',
           title: 'Chưa đủ điều kiện kích hoạt lệnh',
-          summary: eligibility.block_reasons[0],
+          summary: el.block_reasons?.[0] ?? 'Chưa đủ điều kiện kích hoạt lệnh',
         });
       }
     }
 
     // Normalized lesson rules (V10.2)
-    const normalizedBlockers = (eligibility?.lesson_blockers || []).map(normalizeLessonItem);
+    const normalizedBlockers = (eligibility?.lesson_blockers || []).map((raw) => normalizeLessonItem(raw));
     for (const lb of normalizedBlockers) {
       const code = lb.reason_code || (lb.rule_id ? `LESSON_RULE_${lb.rule_id}` : 'LESSON_RULE_BLOCKED');
       if (!blockers.some((b) => b.code === code || b.code === 'LESSON_RULE_BLOCKED')) {
@@ -204,14 +337,14 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
 
   // V14 Quality Status Derivation
   const qualityStatus: string = selectedQualitySnapshot?.assessment?.status || selectedIntent?.quality_status || (selectedIntent ? 'NOT_ASSESSED' : 'NOT_ASSESSED');
-  const requiredMetCount: number = selectedQualitySnapshot?.assessment?.required_met_count ?? selectedIntent?.quality_summary?.required_met_count ?? 0;
-  const requiredTotalCount: number = selectedQualitySnapshot?.assessment?.required_total_count ?? selectedIntent?.quality_summary?.required_total_count ?? 0;
-  const primaryReason: string = selectedQualitySnapshot?.assessment?.summary?.primary_reason_vi || selectedIntent?.quality_summary?.primary_reason_vi || 'Đang quan sát cấu trúc SMC phiên Mỹ';
+  const requiredMetCount: number = selectedQualitySnapshot?.assessment?.summary?.required_met ?? selectedIntent?.quality_summary?.required_met ?? 0;
+  const requiredTotalCount: number = selectedQualitySnapshot?.assessment?.summary?.required_total ?? selectedIntent?.quality_summary?.required_total ?? 0;
+  const primaryReason: string = selectedQualitySnapshot?.assessment?.summary?.headline_vi || selectedIntent?.quality_summary?.headline_vi || 'Đang quan sát cấu trúc SMC phiên Mỹ';
   const cautionOrNext: string = selectedQualitySnapshot?.assessment?.summary?.next_condition_vi || selectedQualitySnapshot?.assessment?.summary?.caution_vi || 'Chờ cấu trúc xác nhận (EXPLAIN_ONLY)';
 
   const getQualityBadgeLabel = (status: string) => {
     switch (status) {
-      case 'SATISFIED': return 'Đủ checklist';
+      case 'SATISFIED': return 'Đủ checklist phân tích';
       case 'PARTIAL': return 'Đang chờ xác nhận';
       case 'INSUFFICIENT_DATA': return 'Thiếu dữ liệu';
       case 'BLOCKED_EXISTING': return 'Đang bị chặn';
@@ -243,13 +376,32 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
   const totalConditions = conditionsMet.length + conditionsRemaining.length;
 
   // Distance to entry
+  // Provisional/unconfirmed entry never shows a fake "0.00 to Entry"; stale feed shows a wait label.
   let distanceDisplay = '-- / chưa có dữ liệu';
-  if (selectedIntent && currentQuote && Number.isFinite(currentQuote.last) && currentQuote.last > 0 && selectedIntent.plannedEntry > 0) {
-    const dist = Math.abs(currentQuote.last - selectedIntent.plannedEntry);
-    distanceDisplay = `${dist.toFixed(2)} USDT`;
-  } else if (currentSetup?.distance_to_entry_usdt != null && currentSetup.distance_to_entry_usdt > 0) {
-    distanceDisplay = `${Number(currentSetup.distance_to_entry_usdt).toFixed(2)} USDT`;
+  if (selectedIntent) {
+    distanceDisplay = getEntryDistanceLabel({
+      planKind,
+      isQuoteFresh,
+      last: currentQuote?.last,
+      entry: selectedIntent.plannedEntry,
+    });
+    if (distanceDisplay === 'Chưa có dữ liệu khoảng cách' && currentSetup?.distance_to_entry_usdt != null && currentSetup.distance_to_entry_usdt > 0 && planKind !== 'PROVISIONAL') {
+      distanceDisplay = `${Number(currentSetup.distance_to_entry_usdt).toFixed(2)} USDT`;
+    }
   }
+
+  // Concise decision view derived from the bound backend decision (never from quality score).
+  const decisionView = deriveEntryDecisionView({
+    hasOpenPosition: hasActivePos,
+    hasArmedOrderForIntent: selectedIntent?.status === 'ARMED',
+    hasIntent: Boolean(selectedIntent),
+    planKind,
+    strategyState: selectedIntent?.status,
+    isQuoteFresh,
+    eligibility,
+    intent: selectedIntent,
+  });
+  const newsView = eligibility?.news_view;
 
   // Margin calculation
   const calculatedMarginUsdt = selectedIntent
@@ -259,8 +411,8 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
       ).toFixed(2)
     : '0.00';
 
-  const grossRR = selectedIntent?.grossRR || currentSetup?.gross_rr || 0;
-  const netRR = selectedIntent?.estimatedNetRR || currentSetup?.net_rr || 0;
+  const grossRR = selectedIntent?.grossRR ?? currentSetup?.gross_rr ?? 0;
+  const netRR = selectedIntent?.estimatedNetRR ?? currentSetup?.net_rr ?? 0;
 
   // Vietnamese status label
   const getVietnameseStatus = (status?: string): string => {
@@ -322,9 +474,17 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                 >
                   {pos.direction} XAUUSDT
                 </span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-charcoal-800 text-gray-300 border border-charcoal-700 font-mono">
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-charcoal-800 text-gray-300 border border-charcoal-750 font-mono">
                   PAPER
                 </span>
+                {pos.candidate_score_summary && (
+                  <CandidateScoreBadge
+                    summary={pos.candidate_score_summary}
+                    compact
+                    labelPrefix="Điểm lúc ARM"
+                    onOpenDetails={() => onOpenDetailsDrawer('quality')}
+                  />
+                )}
               </div>
 
               <div className="flex items-center gap-1 font-mono text-xs font-bold">
@@ -356,6 +516,18 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
               <span>Đòn bẩy: {pos.leverage || leverage}x</span>
               <span className="text-emerald-300/90 font-medium">ExitMonitor đang giám sát</span>
             </div>
+
+            {/* Focus active order on chart */}
+            {onFocusTradeOnChart && (
+              <button
+                type="button"
+                data-testid="sidebar-focus-order"
+                onClick={() => onFocusTradeOnChart(pos)}
+                className="w-full py-1 text-center bg-charcoal-800 hover:bg-charcoal-750 text-emerald-400 rounded text-xs border border-charcoal-700 font-semibold transition"
+              >
+                Xem Lệnh Trên Chart
+              </button>
+            )}
 
             {/* Quick close position button */}
             <button
@@ -398,11 +570,70 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
           </div>
         )}
 
+        {/* CG-01 REALTIME CANDIDATE DIAGNOSTICS (V16.29) */}
+        <CG01DiagnosticCard
+          displayState={cg01State.displayState}
+          appliedMinNetRR={appliedMinNetRR}
+          rrPolicySource={rrPolicySource}
+          isRrPolicyConfirmed={isRrPolicyConfirmed}
+          rrPolicyStatus={rrPolicyStatus}
+          onOpenRrSettings={onOpenRrSettings}
+          onOpenOpportunityMonitor={onOpenOpportunityMonitor}
+        />
+
+        {/* THREE-SESSION CONDITIONAL FORECAST V14.4.1 (read-only, cached) */}
+        <SMCSessionForecastCard
+          symbol="XAUUSDT"
+          refreshKey={(scenarios || []).reduce((acc, s) => acc + (s.revision || 0), 0)}
+        />
+
+        {/* REALTIME SMC SCENARIOS V14.4 */}
+        {scenarios && scenarios.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs px-1">
+              <span className="font-semibold text-gray-300 flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                Kịch Bản SMC Realtime ({scenarios.length})
+              </span>
+              <span className="text-[10px] text-gray-500 font-mono">Phiên hiện tại</span>
+            </div>
+            {scenarios.map((sc, idx) => (
+              <SMCScenarioCard
+                key={sc.scenario_id}
+                scenario={sc}
+                isPrimary={idx === 0}
+                onSelect={onSelectScenario}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* UPCOMING SETUPS SHORTCUT CARD */}
+        {upcomingSetups && upcomingSetups.length > 0 && onFocusSetupOnChart && (
+          <div className="p-2.5 rounded-lg bg-charcoal-850 border border-charcoal-750 space-y-1.5">
+            <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block">Setup Tiềm Năng</span>
+            <button
+              type="button"
+              data-testid="sidebar-focus-setup"
+              onClick={() => onFocusSetupOnChart(upcomingSetups[0])}
+              className="w-full py-1.5 px-2 bg-charcoal-800 hover:bg-charcoal-750 text-indigo-300 rounded text-xs border border-charcoal-700 font-semibold transition flex items-center justify-between"
+            >
+              <span>{upcomingSetups[0].direction} {upcomingSetups[0].symbol || 'XAUUSDT'}</span>
+              <span className="text-gray-400 text-[10px]">Xem trên chart →</span>
+            </button>
+          </div>
+        )}
+
         {/* SELECTED SETUP CARD */}
         {selectedIntent ? (
           <div className="space-y-2.5">
             {/* Setup Header & Distance */}
-            <div className="p-2.5 rounded-lg bg-charcoal-850 border border-charcoal-700 space-y-2">
+            <div
+              data-testid="sidebar-selected-setup"
+              data-selected-id={selectedIntent.id || selectedIntent.setup_id}
+              data-selected-direction={selectedIntent.direction}
+              className="p-2.5 rounded-lg bg-charcoal-850 border border-charcoal-700 space-y-2"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <span
@@ -419,17 +650,25 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                   </span>
                 </div>
 
-                <span
-                  className={`text-[11px] font-mono px-1.5 py-0.2 rounded font-semibold ${
-                    selectedIntent.status === 'READY'
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                      : selectedIntent.status === 'ARMED'
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                      : 'bg-charcoal-800 text-gray-400 border border-charcoal-700'
-                  }`}
-                >
-                  {getVietnameseStatus(selectedIntent.status)}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <CandidateScoreBadge
+                    summary={selectedIntent.candidate_score_summary}
+                    compact
+                    labelPrefix={selectedIntent.status === 'ARMED' ? 'Điểm lúc ARM' : 'Điểm đánh giá'}
+                    onOpenDetails={() => onOpenDetailsDrawer('quality')}
+                  />
+                  <span
+                    className={`text-[11px] font-mono px-1.5 py-0.2 rounded font-semibold ${
+                      selectedIntent.status === 'READY'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        : selectedIntent.status === 'ARMED'
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                        : 'bg-charcoal-800 text-gray-400 border border-charcoal-700'
+                    }`}
+                  >
+                    {getVietnameseStatus(selectedIntent.status)}
+                  </span>
+                </div>
               </div>
 
               {/* Distance to Entry */}
@@ -442,19 +681,19 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
               <div className="grid grid-cols-3 gap-1.5 bg-charcoal-900/90 p-2 rounded border border-charcoal-750 text-center font-mono">
                 <div>
                   <span className="text-gray-500 text-[10px] block">Entry:</span>
-                  <span className="text-gray-200 font-bold text-xs sm:text-sm">
+                  <span data-testid="sidebar-entry-price" className="text-gray-200 font-bold text-xs sm:text-sm">
                     ${selectedIntent.plannedEntry}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-500 text-[10px] block">SL:</span>
-                  <span className="text-rose-400 font-bold text-xs sm:text-sm">
+                  <span data-testid="sidebar-sl-price" className="text-rose-400 font-bold text-xs sm:text-sm">
                     ${selectedIntent.stopLoss}
                   </span>
                 </div>
                 <div>
                   <span className="text-gray-500 text-[10px] block">TP:</span>
-                  <span className="text-emerald-400 font-bold text-xs sm:text-sm">
+                  <span data-testid="sidebar-tp-price" className="text-emerald-400 font-bold text-xs sm:text-sm">
                     {selectedIntent.takeProfit ? `$${selectedIntent.takeProfit}` : '—'}
                   </span>
                 </div>
@@ -491,6 +730,7 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                 <div className="flex items-center justify-between pt-1 border-t border-charcoal-750 text-[11px]">
                   <button
                     type="button"
+                    data-testid="sidebar-open-trade-details"
                     onClick={() => onOpenDetailsDrawer('quality')}
                     className="text-aurum-400 hover:text-aurum-300 font-semibold flex items-center gap-1 transition"
                   >
@@ -518,22 +758,51 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                     1:{grossRR > 0 ? grossRR.toFixed(2) : '--'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>R:R sau chi phí (Net):</span>
-                  <span className="font-mono font-bold">
-                    <span className={netRR >= 2.0 ? 'text-aurum-400' : 'text-rose-400'}>
-                      1:{netRR > 0 ? netRR.toFixed(2) : '--'}
-                    </span>
-                    {netRR > 0 && netRR < 2.0 && (
-                      <span className="text-[10px] text-rose-400 font-normal ml-1">(chưa đạt 1:2.0)</span>
-                    )}
-                  </span>
-                </div>
+                {(() => {
+                  const selView = resolveSelectionRrPolicy(selectedIntent, {
+                    value: appliedMinNetRR ?? null,
+                    source: rrPolicySource,
+                    fingerprint: rrPolicyFingerprint,
+                    status: rrPolicyStatus,
+                    isConfirmed: isRrPolicyConfirmed,
+                  });
+                  const comp = compareNetRr(netRR, selView);
+                  return (
+                    <div
+                      data-testid="sidebar-net-rr-row"
+                      data-rr-status={comp.status}
+                      data-rr-actual={comp.actualNetRR ?? undefined}
+                      data-rr-required={comp.requiredMinNetRR ?? undefined}
+                      className="flex items-center justify-between"
+                    >
+                      <span>R:R sau chi phí (Net):</span>
+                      <span className="font-mono font-bold">
+                        <span
+                          className={
+                            comp.status === 'MET'
+                              ? 'text-aurum-400'
+                              : comp.status === 'NOT_MET'
+                              ? 'text-rose-400'
+                              : 'text-gray-300'
+                          }
+                        >
+                          {Number.isFinite(netRR) ? `1:${netRR.toFixed(2)}` : '—'}
+                        </span>
+                        {comp.status === 'NOT_MET' && comp.requiredMinNetRR != null && (
+                          <span className="text-[10px] text-rose-400 font-normal ml-1">
+                            (chưa đạt 1:{comp.requiredMinNetRR.toFixed(2)})
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })()}
+
                 <div className="flex items-center justify-between">
                   <span>SL (Lỗ ròng / Lỗ giá):</span>
                   <span className="text-gray-200 font-mono">
                     <span className="text-rose-400 font-bold">${selectedIntent.initialRiskUsdt?.toFixed(2) || '2.50'}</span>
-                    {selectedIntent.grossLossUsdt !== undefined && (
+                    {selectedIntent.grossLossUsdt != null && Number.isFinite(selectedIntent.grossLossUsdt) && (
                       <span className="text-gray-400 text-[10px] ml-1">/ ${selectedIntent.grossLossUsdt.toFixed(2)}</span>
                     )}
                   </span>
@@ -541,10 +810,10 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                 <div className="flex items-center justify-between">
                   <span>TP (Lãi ròng / Lãi giá):</span>
                   <span className="text-gray-200 font-mono">
-                    <span className={selectedIntent.netRewardUsdt !== undefined && selectedIntent.netRewardUsdt < 0 ? 'text-rose-400' : 'text-emerald-400 font-bold'}>
-                      ${selectedIntent.netRewardUsdt !== undefined ? selectedIntent.netRewardUsdt.toFixed(2) : (netRR > 0 ? (selectedIntent.initialRiskUsdt * netRR).toFixed(2) : '--')}
+                    <span className={selectedIntent.netRewardUsdt != null && Number.isFinite(selectedIntent.netRewardUsdt) && selectedIntent.netRewardUsdt < 0 ? 'text-rose-400' : 'text-emerald-400 font-bold'}>
+                      ${selectedIntent.netRewardUsdt != null && Number.isFinite(selectedIntent.netRewardUsdt) ? selectedIntent.netRewardUsdt.toFixed(2) : (netRR > 0 ? (selectedIntent.initialRiskUsdt * netRR).toFixed(2) : '--')}
                     </span>
-                    {selectedIntent.grossRewardUsdt !== undefined && (
+                    {selectedIntent.grossRewardUsdt != null && Number.isFinite(selectedIntent.grossRewardUsdt) && (
                       <span className="text-gray-400 text-[10px] ml-1">/ ${selectedIntent.grossRewardUsdt.toFixed(2)}</span>
                     )}
                   </span>
@@ -556,6 +825,53 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* V14.2 concise decision row: structural status + effective decision (never merged into one boolean) */}
+            <div className="flex items-center gap-1.5 flex-wrap text-[10px]" id="entry-decision-row">
+              <span
+                id="entry-decision-status"
+                className={`px-1.5 py-0.5 rounded font-bold border ${
+                  decisionView.status === 'CAN_ARM'
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    : decisionView.status === 'BLOCKED'
+                    ? 'bg-rose-500/15 text-rose-300 border-rose-500/40'
+                    : decisionView.status === 'WAITING'
+                    ? 'bg-charcoal-800 text-gray-300 border-charcoal-700'
+                    : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                }`}
+              >
+                {decisionView.label}
+              </span>
+              {newsView?.is_blackout ? (
+                <button
+                  type="button"
+                  id="entry-news-chip"
+                  onClick={() => onOpenDetailsDrawer('upcoming')}
+                  className="px-1.5 py-0.5 rounded bg-amber-950/70 border border-amber-700/70 text-amber-300 hover:text-amber-200"
+                >
+                  Tạm dừng vào lệnh{newsView.remaining_minutes ? ` · còn ~${newsView.remaining_minutes}p` : ''}
+                </button>
+              ) : newsView?.upcoming_title ? (
+                <button
+                  type="button"
+                  id="entry-news-chip"
+                  onClick={() => onOpenDetailsDrawer('upcoming')}
+                  className="px-1.5 py-0.5 rounded bg-charcoal-800 border border-charcoal-700 text-gray-300 hover:text-white"
+                >
+                  Sắp có tin
+                </button>
+              ) : null}
+              {redCount > 0 && (
+                <button
+                  type="button"
+                  id="entry-lesson-chip"
+                  onClick={() => onOpenDetailsDrawer('lessons')}
+                  className="px-1.5 py-0.5 rounded bg-rose-950/70 border border-rose-700/70 text-rose-300 hover:text-rose-200"
+                >
+                  Bài học đỏ: {redCount}
+                </button>
+              )}
             </div>
 
             {/* Primary Blocker Banner if cannot arm */}
@@ -691,8 +1007,10 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                 selectedIntent.revision
               )
             }
-            disabled={cannotArm || isActionLoading}
-            aria-label={cannotArm && primaryBlocker ? `Không thể arm: ${primaryBlocker.title}` : `Arm ${selectedIntent.direction} PAPER`}
+            id="entry-submit-cta"
+            data-can-submit={String(!cannotArm && decisionView.canSubmit)}
+            disabled={cannotArm || !decisionView.canSubmit || isActionLoading}
+            aria-label={cannotArm && primaryBlocker ? `Không thể arm: ${primaryBlocker.title}` : !decisionView.canSubmit ? `Chưa thể đặt lệnh: ${decisionView.primaryReason ?? ''}` : `Arm ${selectedIntent.direction} PAPER`}
             className="w-full py-2.5 bg-gradient-to-r from-aurum-500 to-aurum-600 hover:from-aurum-400 hover:to-aurum-500 text-charcoal-950 font-bold rounded text-xs transition shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
           >
             <PlayCircle className="w-4 h-4" />
@@ -701,6 +1019,10 @@ export const QuickDecisionSidebar: React.FC<QuickDecisionSidebarProps> = ({
                 ? 'Đang xử lý...'
                 : cannotArm && primaryBlocker
                 ? primaryBlocker.title
+                : !decisionView.canSubmit
+                ? decisionView.primaryReason ?? 'Đang kiểm tra điều kiện'
+                : decisionView.ctaKind === 'ARM_PENDING'
+                ? `Đặt lệnh chờ ${selectedIntent.direction} — PAPER`
                 : `Arm ${selectedIntent.direction} — PAPER`}
             </span>
           </button>

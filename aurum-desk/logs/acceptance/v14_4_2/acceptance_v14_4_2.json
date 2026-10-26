@@ -1,0 +1,1556 @@
+{
+  "overall": "FAIL",
+  "run_context": {
+    "run_id": "run_1791982417147",
+    "sha": "73e43edeccaab615d1b39c82750b86d8910a4747",
+    "tested_sha": "73e43edeccaab615d1b39c82750b86d8910a4747",
+    "tree_fingerprint": "fa9a89510fa378dcc11c8223bc11c5e50da54f69",
+    "started_at_ms": 1791982417147,
+    "environment": "mac",
+    "required_schema": "1.0.0"
+  },
+  "required_cases_count": 256,
+  "case_coverage": {
+    "D01": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "D01"
+      ],
+      "not_passed": {}
+    },
+    "D02": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "D02"
+      ],
+      "not_passed": {}
+    },
+    "D03": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "D03"
+      ],
+      "not_passed": {}
+    },
+    "D04": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "D04"
+      ],
+      "not_passed": {}
+    },
+    "D05": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "D05"
+      ],
+      "not_passed": {}
+    },
+    "D06": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "D06"
+      ],
+      "not_passed": {}
+    },
+    "D07": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "D07"
+      ],
+      "not_passed": {}
+    },
+    "D08": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "D08"
+      ],
+      "not_passed": {}
+    },
+    "D09": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "D09"
+      ],
+      "not_passed": {}
+    },
+    "D10": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "D10"
+      ],
+      "not_passed": {}
+    },
+    "D11": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "D11"
+      ],
+      "not_passed": {}
+    },
+    "D12": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "D12"
+      ],
+      "not_passed": {}
+    },
+    "R01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "R02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "R03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "R04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "R05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "R06": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "R06"
+      ],
+      "not_passed": {}
+    },
+    "M01": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "M01"
+      ],
+      "not_passed": {}
+    },
+    "M02": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "M02"
+      ],
+      "not_passed": {}
+    },
+    "M03": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "M03"
+      ],
+      "not_passed": {}
+    },
+    "M04": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "M04"
+      ],
+      "not_passed": {}
+    },
+    "E01": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "E01"
+      ],
+      "not_passed": {}
+    },
+    "E02": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "E02"
+      ],
+      "not_passed": {}
+    },
+    "E03": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "E03"
+      ],
+      "not_passed": {}
+    },
+    "E04": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "E04"
+      ],
+      "not_passed": {}
+    },
+    "E05": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "E05"
+      ],
+      "not_passed": {}
+    },
+    "E06": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "E06"
+      ],
+      "not_passed": {}
+    },
+    "E07": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "E07"
+      ],
+      "not_passed": {}
+    },
+    "E08": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "E08"
+      ],
+      "not_passed": {}
+    },
+    "E09": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "E09"
+      ],
+      "not_passed": {}
+    },
+    "S01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "S02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "S03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "S04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "S05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "S06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "T01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "T02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "T03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "T04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "T05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "T06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "T07": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "T08": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "T09": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "T10": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "T11": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "T11"
+      ],
+      "not_passed": {}
+    },
+    "T12": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "T12"
+      ],
+      "not_passed": {}
+    },
+    "T13": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "T13"
+      ],
+      "not_passed": {}
+    },
+    "T14": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "T14"
+      ],
+      "not_passed": {}
+    },
+    "T15": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "T15"
+      ],
+      "not_passed": {}
+    },
+    "T16": {
+      "status": "INCOMPLETE",
+      "missing": [
+        "T16"
+      ],
+      "not_passed": {}
+    },
+    "T17": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "T18": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "T19": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "T20": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FIN01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FIN02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FIN03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FIN04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FIN05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "LIQ01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "LIQ02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "LIQ03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "RT01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "RT02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "RT03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "RT04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "RT05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "RT06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "RT07": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "RT08": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "RT09": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FC01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FC02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FC03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FC04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FC05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FC06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FC07": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FC08": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FC09": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FC10": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FC11": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FC12": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REPRO01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REPRO02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REPRO03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REPRO04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REPRO05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FCT01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FCT02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "OBS01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "INT01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ORDARM01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ORDFILL01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ORDCHAIN01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ORDCHAIN02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FREEZE01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "LATBUF01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "LATBUF02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "STLEASE01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "STQUEUE01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "STCANDLE01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "TIMELINE01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "GEOMSRC01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "BINDNULL01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "INVCLOSED01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "COHORT01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "CHRONO01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "CHRONO02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "CHRONO03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "CHRONO04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "CHRONO05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PLANSRC01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PLANSRC02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PLANSRC03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PLANSRC04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PLANSRC05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FCPROOF01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FCPROOF02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FCPROOF03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FCPROOF04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FCPROOF05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FCPROOF06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "SMC01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "SMC02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "SMC03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "SMC04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "STATE01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "STATE02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "LEGACY01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PAGE01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PAGE02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PAGE03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FLOW01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "FLOW02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "GATE01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PROOF01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PROOF02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PROOF03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "PROOF04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "WINDOW01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "WINDOW02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EVIDENCE01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EVIDENCE02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EVIDENCE03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EVIDENCE04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ACC01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ACC02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ACC03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ACC04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ACC05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ACC06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "BUDGET01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "SCHED01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "SCHED02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "SCHED03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "DURABLE01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REPLAY01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "CLOSE01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "V01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "V02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "V03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "V04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "V05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "V06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "V07": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "V08": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "B01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "B02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "B03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "B04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "B05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ENTRY01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ENTRY02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ENTRY03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ENTRY04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ENTRY05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ENTRY06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ENTRY07": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ENTRY08": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ENTRY09": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "ENTRY10": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "C01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "C02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "C03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "C04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "C05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "C06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "C07": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "C08": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "C09": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "C10": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "A01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "A02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "A03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "A04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "A05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "A06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC07": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC08": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC09": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EXEC10": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "Q01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "Q02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "Q03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "Q04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "Q05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "Q06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "Q07": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "F01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "F02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "F03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "F04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "MBR01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "MBR02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "MBR03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "AUTH01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "AUTH02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "DD01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REC01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REC02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REC03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REC04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "TXN01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "TXN02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "TXN03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "TXN04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "TXN05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "AUTH03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "AUTH04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "AUTH05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "AUTH06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "AUTH07": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EVTAUTH01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EVTAUTH02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EVTAUTH03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EVTAUTH04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EVTAUTH05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "EVTAUTH06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REP01": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REP02": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REP03": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REP04": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REP05": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REP06": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REP07": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    },
+    "REP08": {
+      "status": "PASS",
+      "missing": [],
+      "not_passed": {}
+    }
+  },
+  "statuses": {
+    "backend_targeted": "PASS",
+    "frontend_typecheck": "PASS",
+    "frontend_lint": "PASS",
+    "frontend_vitest": "PASS",
+    "frontend_build": "PASS",
+    "browser_e2e": "INCOMPLETE",
+    "benchmark": "FAIL",
+    "git_diff_check": "PASS"
+  },
+  "steps": {
+    "backend_targeted": {
+      "status": "PASS",
+      "summary": "508 passed, 2 warnings in 18.12s",
+      "failed": [],
+      "unexpected_failures": [],
+      "exit_code": 0,
+      "duration_s": 20.18,
+      "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/backend_targeted.log",
+      "argv": [
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
+        "-m",
+        "pytest",
+        "tests/test_v14_4_2_financial_context_regression.py",
+        "tests/test_v14_4_2_provisional_plan_regression.py",
+        "tests/test_v14_4_2_requirements.py",
+        "tests/test_v14_4_2_forecast_requirements.py",
+        "tests/test_v14_4_2_entry_regression.py",
+        "tests/test_v14_4_2_acceptance_runner.py",
+        "tests/test_v14_4_1_production_pipeline.py",
+        "tests/test_v14_4_1_contracts.py",
+        "tests/test_v14_3_ny_quota.py",
+        "tests/test_v14_3_frequency_audit.py",
+        "tests/test_realtime_source_ordering.py",
+        "tests/test_realtime_execution_worker.py",
+        "tests/test_forecast_forward_observation.py",
+        "tests/test_migration_runtime_upgrade.py",
+        "tests/test_forecast_causal_closure.py",
+        "tests/test_entry_intent_closure.py",
+        "tests/test_order_snapshot_closure.py",
+        "tests/test_realtime_closure.py",
+        "tests/test_late_source_chronology.py",
+        "tests/test_order_geometry_parity.py",
+        "tests/test_order_binding_integrity.py",
+        "tests/test_final_reconciliation_chronology.py",
+        "tests/test_final_display_plan_sources.py",
+        "tests/test_final_forecast_proof_pipeline.py",
+        "tests/test_v14_4_4_policy_consistency.py",
+        "tests/test_v14_4_4_ny_quota_pipeline.py",
+        "tests/test_v14_4_4_reconciliation_runtime.py",
+        "tests/test_v14_4_4_canonical_plan_runtime.py",
+        "tests/test_v14_4_4_forecast_runtime.py",
+        "tests/test_v14_4_4_metric_gate.py",
+        "tests/test_v14_4_5_policy_startup.py",
+        "tests/test_v14_4_5_reconciliation_window.py",
+        "tests/test_v14_4_5_frozen_legacy_sources.py",
+        "tests/test_v14_4_5_forecast_production.py",
+        "tests/test_v14_4_5_acceptance_identity.py",
+        "tests/test_v14_4_6_strict_proof_producer.py",
+        "tests/test_v14_4_6_forecast_state_transitions.py",
+        "tests/test_v14_4_6_pagination_replay.py",
+        "tests/test_v14_4_6_flow_preservation.py",
+        "tests/test_v14_4_7_proof_fail_closed.py",
+        "tests/test_v14_4_7_coordinator_pagination.py",
+        "tests/test_v14_4_8_reconciliation_accumulator.py",
+        "tests/test_v14_4_9_reconciliation_integrity.py",
+        "tests/test_v14_4_10_three_session_entry.py",
+        "tests/test_v14_4_10_frozen_context.py",
+        "tests/test_v14_4_11_reconciliation_authority.py",
+        "tests/test_v14_4_11_three_session_execution.py",
+        "tests/test_v14_4_12_reconciliation_fair_review.py",
+        "tests/test_v14_4_12_forward_paper_session.py",
+        "tests/test_v14_4_13_forward_membership.py",
+        "tests/test_v14_4_13_outcome_authority.py",
+        "tests/test_v14_4_13_drawdown.py",
+        "tests/test_v14_4_13_review_resolution.py",
+        "tests/test_v14_4_14_membership_transaction.py",
+        "tests/test_v14_4_14_outcome_authority.py",
+        "tests/test_v14_4_15_terminal_event_authority.py",
+        "tests/test_v14_4_15_membership_repair.py",
+        "-q",
+        "-p",
+        "no:cacheprovider",
+        "--junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/backend_junit.xml"
+      ]
+    },
+    "frontend_typecheck": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 4.93,
+      "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_typecheck.log",
+      "argv": [
+        "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npx",
+        "tsc",
+        "-b"
+      ]
+    },
+    "frontend_lint": {
+      "status": "PASS",
+      "warnings": 29,
+      "errors": 0,
+      "exit_code": 0,
+      "duration_s": 0.37,
+      "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_lint.log",
+      "argv": [
+        "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npx",
+        "oxlint"
+      ]
+    },
+    "frontend_vitest": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 1.53,
+      "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_vitest.log",
+      "argv": [
+        "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npx",
+        "vitest",
+        "run",
+        "--reporter=default",
+        "--reporter=junit",
+        "--outputFile.junit=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/vitest_junit.xml"
+      ]
+    },
+    "frontend_build": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 4.48,
+      "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/frontend_build.log",
+      "argv": [
+        "/Users/macbook/.nvm/versions/node/v22.22.3/bin/npm",
+        "run",
+        "build"
+      ]
+    },
+    "browser_e2e": {
+      "status": "INCOMPLETE",
+      "reason": "--skip-e2e specified; acceptance requires full browser run"
+    },
+    "benchmark": {
+      "status": "FAIL",
+      "latency_ms": {
+        "p50": 7.345,
+        "p95": 10.568,
+        "max": 234.115,
+        "sample_count": 600
+      },
+      "not_measured": [],
+      "metric_validation": {
+        "pass": false,
+        "status": "FAIL",
+        "errors": [
+          "STALE_BROWSER_ARTIFACT: file mtime 1791980342843 < run start 1791982417147",
+          "Tested SHA mismatch in browser artifact: expected 73e43edeccaab615d1b39c82750b86d8910a4747, got e5d51ab5bd39fb8fa9dbfd5e32b08c56ee0fa003"
+        ],
+        "p95_ms": 10.568,
+        "cycles": 600,
+        "browser_p95_ms": 21.5,
+        "browser_events": 10060
+      },
+      "exit_code": 0,
+      "duration_s": 5.7,
+      "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/benchmark.log",
+      "argv": [
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python3",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/tools/run_v14_4_chart_acceptance.py",
+        "--cycles",
+        "600",
+        "--run-id",
+        "run_1791982417147",
+        "--tested-sha",
+        "73e43edeccaab615d1b39c82750b86d8910a4747",
+        "--out",
+        "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/benchmark.json"
+      ]
+    },
+    "git_diff_check": {
+      "status": "PASS",
+      "exit_code": 0,
+      "duration_s": 0.02,
+      "log": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/logs/acceptance/v14_4_2/git_diff_check.log",
+      "argv": [
+        "git",
+        "diff",
+        "--check",
+        "--",
+        ":!logs",
+        ":!*/logs/*"
+      ]
+    }
+  },
+  "baseline_failures_declared": [
+    "tests/test_v11_historical_replay.py::test_s01_and_s02_soak_burst_and_fault_injection",
+    "tests/test_v12_4_acceptance.py::test_v124_01_canonical_ledger_schema_and_export",
+    "tests/test_v13_5_integrity_acceptance.py::test_01_integrity_pass_on_valid_inputs"
+  ],
+  "probability_research": "NOT_VERIFIED (no real out-of-sample dataset; metrics are null, not 0)",
+  "timestamp": "2026-10-14 19:54:14"
+}

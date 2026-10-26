@@ -38,6 +38,42 @@ def guard_runtime_database():
         # Ensure inode / canonical file was not replaced or wiped
         assert current_stat.st_ino == baseline_stat.st_ino, "CRITICAL: Runtime DB file replaced!"
 
+@pytest.fixture(autouse=True)
+def entry_certification_mode(request):
+    """V14.4.1: certified STANDARD_SMC entry is ON by default and blocks READY without a verified chain.
+
+    Suites written before V14.4.1 (news/RR/lesson/fill/telegram behaviour) seed chain-less READY setups.
+    They run in the explicit LEGACY_UNCERTIFIED mode (flag OFF) so that they keep testing what they were
+    written for. Suites named test_v14_4* always run certified (flag ON) and must prove a real chain;
+    a test may force either mode with @pytest.mark.certified_entry / @pytest.mark.legacy_entry.
+    """
+    import dataclasses
+    import services.smc_scenario_config as scfg
+    name = request.module.__name__.split(".")[-1]
+    if request.node.get_closest_marker("certified_entry"):
+        certified = True
+    elif request.node.get_closest_marker("legacy_entry"):
+        certified = False
+    else:
+        certified = name.startswith("test_v14_4")
+    previous = scfg.active_scenario_config
+    scfg.active_scenario_config = dataclasses.replace(previous, certified_smc_entry_enabled=certified)
+    try:
+        yield
+    finally:
+        scfg.active_scenario_config = previous
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "certified_entry: force certified STANDARD_SMC entry (V14.4.1)")
+    config.addinivalue_line("markers", "legacy_entry: force LEGACY_UNCERTIFIED entry mode")
+
+
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
+
+
 @pytest.fixture
 def isolated_db():
     """Provides a fresh isolated in-memory or temp SQLite session for each test function."""
@@ -68,3 +104,54 @@ def client(isolated_db):
         yield test_client
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture
+def fresh_ticker():
+    """
+    V14.2: entry guards require a valid, fresh quote (stale/missing quotes block entry).
+    Provides a fresh XAUUSDT ticker on the collector singleton and restores the previous value.
+    Tests that arm/fill orders must use this (or inject a validated quote explicitly).
+    """
+    import time as _time
+    from services.collector_service import collector_service
+
+    previous = collector_service.latest_ticker
+
+    def _set(bid=2650.0, ask=2650.2, now_ms=None):
+        ts = now_ms if now_ms is not None else int(_time.time() * 1000)
+        collector_service.latest_ticker = {
+            "symbol": "XAUUSDT", "bid": bid, "ask": ask, "last": bid, "timestamp": ts, "observed_at": ts,
+        }
+        return collector_service.latest_ticker
+
+    _set()
+    try:
+        yield _set
+    finally:
+        collector_service.latest_ticker = previous
+
+
+@pytest.fixture(autouse=True)
+def reset_execution_consumer():
+    """V17.6.4.3: Ensure execution_consumer, bitget_ws_service, and collector_service do not leak state across test boundaries."""
+    from services.execution_consumer import execution_consumer
+    from services.collector_service import collector_service
+    from services.bitget_ws_service import bitget_ws_service
+
+    execution_consumer.has_execution_gap = False
+    execution_consumer.is_lagging = False
+    execution_consumer.dropped_count = 0
+    collector_service.latest_ticker = None
+    bitget_ws_service.latest_quote = None
+    bitget_ws_service.transport_state = "DISCONNECTED"
+
+    yield
+
+    execution_consumer.has_execution_gap = False
+    execution_consumer.is_lagging = False
+    execution_consumer.dropped_count = 0
+    collector_service.latest_ticker = None
+    bitget_ws_service.latest_quote = None
+    bitget_ws_service.transport_state = "DISCONNECTED"
+

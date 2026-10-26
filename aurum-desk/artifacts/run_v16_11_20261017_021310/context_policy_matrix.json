@@ -1,0 +1,52 @@
+{
+  "policy_version": "v16.11",
+  "primary_execution_timeframe": "1H",
+  "higher_context_timeframe": "4H",
+  "dealing_range_timeframe": "15M",
+  "entry_timeframe": "1M",
+  "matrix": [
+    {
+      "h4_bias": "BULLISH",
+      "h1_bias": "BULLISH",
+      "relation": "ALIGNED",
+      "directions_to_evaluate": [
+        "LONG"
+      ],
+      "reason": "Trend thu\u1eadn ho\u00e0n to\u00e0n H4 & H1."
+    },
+    {
+      "h4_bias": "BULLISH",
+      "h1_bias": "BEARISH",
+      "relation": "DIVERGENT",
+      "directions_to_evaluate": [
+        "SHORT"
+      ],
+      "reason": "H1 l\u00e0 primary execution context; H1 gi\u1ea3m trong H4 t\u0103ng \u0111\u01b0\u1ee3c di\u1ec5n gi\u1ea3i l\u00e0 pullback/counter-context."
+    },
+    {
+      "h4_bias": "BEARISH",
+      "h1_bias": "BULLISH",
+      "relation": "DIVERGENT",
+      "directions_to_evaluate": [
+        "LONG"
+      ],
+      "reason": "H1 l\u00e0 primary execution context; H1 t\u0103ng trong H4 gi\u1ea3m \u0111\u01b0\u1ee3c di\u1ec5n gi\u1ea3i l\u00e0 pullback/counter-context."
+    },
+    {
+      "h4_bias": "BEARISH",
+      "h1_bias": "BEARISH",
+      "relation": "ALIGNED",
+      "directions_to_evaluate": [
+        "SHORT"
+      ],
+      "reason": "Trend thu\u1eadn ho\u00e0n to\u00e0n H4 & H1."
+    },
+    {
+      "h4_bias": "ANY",
+      "h1_bias": "UNKNOWN",
+      "relation": "UNKNOWN",
+      "directions_to_evaluate": [],
+      "reason": "Ch\u01b0a \u0111\u1ee7 b\u1eb1ng ch\u1ee9ng c\u1ea5u tr\u00fac; quan s\u00e1t an to\u00e0n, kh\u00f4ng m\u1edf l\u1ec7nh hai chi\u1ec1u b\u1eeba b\u00e3i."
+    }
+  ]
+}

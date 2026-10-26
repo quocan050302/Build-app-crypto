@@ -1,0 +1,11 @@
+{
+  "run_id": "run_v16_3_1792126319",
+  "commit_sha": "a2b4c1005f169a8328c16c3aac79ee55d640f159",
+  "timestamp_iso": "2026-10-16T04:51:59.600228+00:00",
+  "technical_acceptance": "PASS",
+  "replay_validity": "BLOCKED_DATA",
+  "strategy_performance": "NOT_EVALUATED",
+  "replay_reason": "Thi\u1ebfu t\u1ec7p d\u1eef li\u1ec7u M1 n\u1ebfn \u0111\u00f3ng chu\u1ea9n (Rules 013, 163, 195). Kh\u00f4ng d\u00f9ng n\u1ebfn 5M/15M gi\u1ea3 l\u1eadp M1.",
+  "total_fills": 0,
+  "metrics": {}
+}

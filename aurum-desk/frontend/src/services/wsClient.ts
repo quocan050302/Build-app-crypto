@@ -5,17 +5,21 @@
  * - Exponential backoff auto-reconnect with jitter and 30s cap.
  * - Clean subscriber registry; eliminates duplicate connections and zombie sockets.
  */
+import { telemetryBridge } from './telemetryBridge';
 
 type MessageHandler = (data: any) => void;
 
 class SharedWSClient {
   private ws: WebSocket | null = null;
   private subscribers: Set<MessageHandler> = new Set();
+  private statusSubscribers: Set<(open: boolean) => void> = new Set();
   private pingInterval: any = null;
   private reconnectTimeout: any = null;
   private attempt: number = 0;
   private isDisposed: boolean = false;
   private isConnecting: boolean = false;
+
+  private generation: number = 0;
 
   constructor() {
     // Lazily initialized on first subscription or explicit start
@@ -40,11 +44,16 @@ class SharedWSClient {
     const wsUrl = this.getWsUrl();
 
     try {
-      this.ws = new WebSocket(wsUrl);
+      const localWs = new WebSocket(wsUrl);
+      this.ws = localWs;
+      this.generation++;
+      telemetryBridge.recordReconnect();
 
-      this.ws.onopen = () => {
+      localWs.onopen = () => {
+        if (this.ws !== localWs) return;
         this.isConnecting = false;
         this.attempt = 0;
+        this.notifyStatus(true);
 
         // Clear existing ping interval
         if (this.pingInterval) clearInterval(this.pingInterval);
@@ -55,11 +64,16 @@ class SharedWSClient {
         }, 25000);
       };
 
-      this.ws.onmessage = (event: MessageEvent) => {
+      localWs.onmessage = (event: MessageEvent) => {
+        if (this.ws !== localWs) return;
         if (event.data === 'pong') return;
 
         try {
           const msg = JSON.parse(event.data);
+          const transportReceivedAt = telemetryBridge.acceptTransportFrame();
+          if (msg && typeof msg === 'object') {
+            msg._transportReceivedAt = transportReceivedAt;
+          }
           for (const handler of this.subscribers) {
             try {
               handler(msg);
@@ -72,13 +86,16 @@ class SharedWSClient {
         }
       };
 
-      this.ws.onclose = () => {
+      localWs.onclose = () => {
+        if (this.ws !== localWs) return;
         this.isConnecting = false;
         this.cleanupHeartbeat();
+        this.notifyStatus(false);
         this.scheduleReconnect();
       };
 
-      this.ws.onerror = () => {
+      localWs.onerror = () => {
+        if (this.ws !== localWs) return;
         this.isConnecting = false;
         this.cleanupHeartbeat();
         // onclose will be triggered
@@ -87,6 +104,29 @@ class SharedWSClient {
       this.isConnecting = false;
       this.scheduleReconnect();
     }
+  }
+
+  private notifyStatus(open: boolean): void {
+    for (const cb of this.statusSubscribers) {
+      try {
+        cb(open);
+      } catch (err) {
+        console.error('WS status handler error:', err);
+      }
+    }
+  }
+
+  /** True only while the socket is OPEN (used to decide whether polling fallback is needed). */
+  public isOpen(): boolean {
+    return typeof WebSocket !== 'undefined' && !!this.ws && this.ws.readyState === WebSocket.OPEN;
+  }
+
+  /** Connection open/close notifications; the callback receives `true` on every (re)connect. */
+  public subscribeStatus(cb: (open: boolean) => void): () => void {
+    this.statusSubscribers.add(cb);
+    return () => {
+      this.statusSubscribers.delete(cb);
+    };
   }
 
   private cleanupHeartbeat(): void {
@@ -98,17 +138,22 @@ class SharedWSClient {
 
   private scheduleReconnect(): void {
     if (this.isDisposed || this.subscribers.size === 0) return;
-    if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
 
     this.attempt++;
     const delay = Math.min(30000, 1000 * Math.pow(1.8, Math.min(this.attempt, 5))) + Math.random() * 500;
     this.reconnectTimeout = setTimeout(() => {
+      this.reconnectTimeout = null;
       this.connect();
     }, delay);
   }
 
   public subscribe(handler: MessageHandler): () => void {
     this.subscribers.add(handler);
+    telemetryBridge.setActiveSubscribers(this.subscribers.size);
 
     // If socket not active, start connection
     if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
@@ -117,11 +162,16 @@ class SharedWSClient {
 
     return () => {
       this.subscribers.delete(handler);
+      telemetryBridge.setActiveSubscribers(this.subscribers.size);
       // If no subscribers left after grace period, could disconnect or keep warm
     };
   }
 
   public dispatchForTesting(data: any): void {
+    const transportReceivedAt = telemetryBridge.acceptTransportFrame();
+    if (data && typeof data === 'object') {
+      data._transportReceivedAt = transportReceivedAt;
+    }
     for (const handler of this.subscribers) {
       try {
         handler(data);
@@ -131,10 +181,31 @@ class SharedWSClient {
     }
   }
 
+  public closeForTesting(): void {
+    if (this.ws) {
+      this.ws.close();
+    }
+  }
+
+  public getDiagnostics() {
+    return {
+      isOpen: this.isOpen(),
+      isConnecting: this.isConnecting,
+      subscriberCount: this.subscribers.size,
+      statusSubscriberCount: this.statusSubscribers.size,
+      attempt: this.attempt,
+      isDisposed: this.isDisposed,
+      generation: this.generation,
+    };
+  }
+
   public dispose(): void {
     this.isDisposed = true;
     this.cleanupHeartbeat();
-    if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
     if (this.ws) {
       this.ws.onclose = null;
       this.ws.onerror = null;
@@ -142,7 +213,12 @@ class SharedWSClient {
       this.ws = null;
     }
     this.subscribers.clear();
+    this.statusSubscribers.clear();
   }
 }
 
 export const wsClient = new SharedWSClient();
+
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  (window as any).__AURUM_WS_CLIENT__ = wsClient;
+}

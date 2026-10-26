@@ -6,16 +6,26 @@ from domain_calculator import calculate_risk_reward, CalculationResult, CostAssu
 
 TIMEFRAME_MS = {
     "1M": 60 * 1000,
+    "M1": 60 * 1000,
+    "3M": 180 * 1000,
+    "M3": 180 * 1000,
     "5M": 5 * 60 * 1000,
+    "M5": 5 * 60 * 1000,
     "15M": 15 * 60 * 1000,
+    "M15": 15 * 60 * 1000,
+    "30M": 30 * 60 * 1000,
+    "M30": 30 * 60 * 1000,
     "1H": 60 * 60 * 1000,
+    "H1": 60 * 60 * 1000,
     "4H": 4 * 60 * 60 * 1000,
+    "H4": 4 * 60 * 60 * 1000,
     "D": 24 * 60 * 60 * 1000,
+    "1D": 24 * 60 * 60 * 1000,
 }
 
 def get_candle_close_time(timestamp: int, timeframe: str) -> int:
     """Return candle closing timestamp in epoch ms based on timeframe cadence."""
-    duration = TIMEFRAME_MS.get(timeframe, 15 * 60 * 1000)
+    duration = TIMEFRAME_MS.get(str(timeframe or "15M").upper(), 15 * 60 * 1000)
     return timestamp + duration
 
 def compute_atr(candles: list, period: int = 14) -> float:
@@ -97,15 +107,18 @@ def identify_pivots(candles: list, timeframe: str = "15M") -> Tuple[List[Dict[st
     return swing_highs, swing_lows
 
 
-def _label_swings(swings: List[Dict[str, Any]], kind: str):
-    """Assign HH/LH or HL/LL labels sequentially based on previous confirmed swings."""
+def _label_swings(swings: List[Dict[str, Any]], kind: str, tick_size: float = 0.01):
+    """Assign HH/LH or HL/LL labels sequentially based on previous confirmed swings, with EQH/EQL tolerance."""
     for i in range(len(swings)):
         if i == 0:
             swings[i]["label"] = "HIGH" if kind == "HIGH" else "LOW"
         else:
             prev_p = swings[i - 1]["price"]
             curr_p = swings[i]["price"]
-            if kind == "HIGH":
+            diff = curr_p - prev_p
+            if abs(diff) <= tick_size + 1e-6:
+                swings[i]["label"] = "EQH" if kind == "HIGH" else "EQL"
+            elif kind == "HIGH":
                 swings[i]["label"] = "HH" if curr_p > prev_p else "LH"
             else:
                 swings[i]["label"] = "HL" if curr_p > prev_p else "LL"
@@ -122,6 +135,8 @@ def determine_causal_trend_at(
     Determine market structure trend strictly at time current_time:
     Only considers swings confirmed at or before current_time.
     No future bias or end-of-series lookahead.
+    V16.11: Checks if protected level was broken before returning BULLISH/BEARISH.
+    Does not use SMA fallback as market structure evidence.
     """
     avail_sh = [s for s in swing_highs if s.get("confirmed_at", s.get("timestamp", 0)) <= current_time]
     avail_sl = [s for s in swing_lows if s.get("confirmed_at", s.get("timestamp", 0)) <= current_time]
@@ -129,37 +144,50 @@ def determine_causal_trend_at(
     if len(avail_sh) >= 2 and len(avail_sl) >= 2:
         sh1, sh2 = avail_sh[-2]["price"], avail_sh[-1]["price"]
         sl1, sl2 = avail_sl[-2]["price"], avail_sl[-1]["price"]
+        curr_close = candles[candle_idx].close
 
         if sh2 > sh1 and sl2 > sl1:
+            # Bullish sequence: verify protected low sl2 was not broken by closed candle
+            if curr_close < sl2:
+                return "RANGING"  # Transition / Invalidation of bullish structure
             return "BULLISH"
         elif sh2 < sh1 and sl2 < sl1:
+            # Bearish sequence: verify protected high sh2 was not broken by closed candle
+            if curr_close > sh2:
+                return "RANGING"  # Transition / Invalidation of bearish structure
             return "BEARISH"
-        elif candles[candle_idx].close > sh2:
+        elif curr_close > sh2:
             return "BULLISH"
-        elif candles[candle_idx].close < sl2:
+        elif curr_close < sl2:
             return "BEARISH"
         else:
             return "RANGING"
 
-    # Fallback to 20 SMA of past closed bars
-    start_idx = max(0, candle_idx - 19)
-    sub = candles[start_idx:candle_idx + 1]
-    if len(sub) >= 5:
-        ma = sum(c.close for c in sub) / len(sub)
-        return "BULLISH" if candles[candle_idx].close >= ma else "BEARISH"
+    # V16.11: Insufficient confirmed swings -> UNKNOWN (no SMA fallback for market structure)
     return "UNKNOWN"
 
 
-def determine_trend(candles: list, swing_highs: list, swing_lows: list) -> str:
-    """Convenience helper for backward compatibility."""
+def determine_trend(
+    candles: list,
+    swing_highs: list,
+    swing_lows: list,
+    as_of_ms: Optional[int] = None,
+    timeframe: str = "15M",
+) -> str:
+    """Convenience helper for backward compatibility without fake future timestamp."""
     if not candles:
         return "UNKNOWN"
+    if as_of_ms is not None:
+        eval_time = as_of_ms
+    else:
+        dur = TIMEFRAME_MS.get(timeframe.upper(), 900_000)
+        eval_time = candles[-1].timestamp + dur
     return determine_causal_trend_at(
         candles,
         len(candles) - 1,
         swing_highs,
         swing_lows,
-        candles[-1].timestamp + 100000000
+        eval_time,
     )
 
 
@@ -521,12 +549,68 @@ def evaluate_smc_setup(
     all_fvgs = detect_fvgs(candles, timeframe)
     active_fvgs = [f for f in all_fvgs if not f["mitigated"]][-4:]
 
-    liquidity_levels = [
-        {"price": last_sh, "type": "SWING_HIGH", "timestamp": swing_highs[-1]["timestamp"] if swing_highs else now_ms, "status": "active"},
-        {"price": last_sl, "type": "SWING_LOW", "timestamp": swing_lows[-1]["timestamp"] if swing_lows else now_ms, "status": "active"},
-        {"price": dealing_high, "type": "DEALING_HIGH", "timestamp": now_ms, "status": "active"},
-        {"price": dealing_low, "type": "DEALING_LOW", "timestamp": now_ms, "status": "active"}
-    ]
+    # Enrich liquidity levels from confirmed pivots with full causal metadata
+    liquidity_levels = []
+    for sh in swing_highs:
+        liquidity_levels.append({
+            "id": sh["id"],
+            "price": sh["price"],
+            "type": "SWING_HIGH",
+            "kind": "HIGH",
+            "side": "BUY_SIDE",
+            "timestamp": sh["timestamp"],
+            "pivot_at": sh.get("pivot_at", sh["timestamp"]),
+            "confirmed_at": sh.get("confirmed_at"),
+            "known_at_ms": sh.get("confirmed_at"),
+            "is_confirmed": sh.get("is_confirmed", True),
+            "consumed": sh.get("consumed", False),
+            "state": "CONSUMED" if sh.get("consumed") else "UNTOUCHED",
+            "status": "consumed" if sh.get("consumed") else "active",
+            "source_timeframe": timeframe,
+        })
+    for sl in swing_lows:
+        liquidity_levels.append({
+            "id": sl["id"],
+            "price": sl["price"],
+            "type": "SWING_LOW",
+            "kind": "LOW",
+            "side": "SELL_SIDE",
+            "timestamp": sl["timestamp"],
+            "pivot_at": sl.get("pivot_at", sl["timestamp"]),
+            "confirmed_at": sl.get("confirmed_at"),
+            "known_at_ms": sl.get("confirmed_at"),
+            "is_confirmed": sl.get("is_confirmed", True),
+            "consumed": sl.get("consumed", False),
+            "state": "CONSUMED" if sl.get("consumed") else "UNTOUCHED",
+            "status": "consumed" if sl.get("consumed") else "active",
+            "source_timeframe": timeframe,
+        })
+
+    # Dealing range boundaries (unconfirmed bounds, without fake confirmation)
+    if dealing_high > 0:
+        liquidity_levels.append({
+            "id": f"dh-{timeframe}-{now_ms}",
+            "price": dealing_high,
+            "type": "DEALING_HIGH",
+            "kind": "DEALING_HIGH",
+            "side": "BUY_SIDE",
+            "timestamp": now_ms,
+            "is_confirmed": False,
+            "status": "active",
+            "source_timeframe": timeframe,
+        })
+    if dealing_low > 0:
+        liquidity_levels.append({
+            "id": f"dl-{timeframe}-{now_ms}",
+            "price": dealing_low,
+            "type": "DEALING_LOW",
+            "kind": "DEALING_LOW",
+            "side": "SELL_SIDE",
+            "timestamp": now_ms,
+            "is_confirmed": False,
+            "status": "active",
+            "source_timeframe": timeframe,
+        })
 
     # 4. Strict Setup v1 Sequential Verification
     setup_direction = None

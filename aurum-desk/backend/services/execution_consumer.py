@@ -11,6 +11,8 @@ from services.clock import live_clock, IClock
 
 logger = logging.getLogger(__name__)
 
+import concurrent.futures
+
 class ExecutionConsumer:
     """
     Ordered Execution Consumer (V7.1):
@@ -28,16 +30,29 @@ class ExecutionConsumer:
     def __init__(self, max_queue_size: int = 500):
         self.queue: asyncio.Queue[CanonicalQuote] = asyncio.Queue(maxsize=max_queue_size)
         self._running = False
+        self._stopping = False
+        self._inflight = False
+        self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
+        self._active_worker_future: Optional[concurrent.futures.Future] = None
         self.processed_count = 0
         self.dropped_count = 0
         self.last_processed_quote_ts = 0
         self.last_eval_duration_ms = 0.0
         self.last_queue_wait_ms = 0.0
+        self.db_work_ms = 0.0
+        self.accepted_source_watermark: Optional[int] = None
+        self.last_processed_source_at: Optional[int] = None
+        self.last_completed_processing_at: Optional[int] = None
         self.is_lagging = False
         self.has_execution_gap = False
         self.gap_start_ms: Optional[int] = None
         self.gap_end_ms: Optional[int] = None
         self.last_lag_warn_ts = 0
+
+    def _ensure_executor(self) -> concurrent.futures.ThreadPoolExecutor:
+        if self._executor is None or getattr(self._executor, "_shutdown", False):
+            self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="exec_consumer")
+        return self._executor
 
     @property
     def queue_depth(self) -> int:
@@ -49,6 +64,27 @@ class ExecutionConsumer:
         self.gap_start_ms = None
         self.gap_end_ms = None
         self.is_lagging = False
+
+    def get_health_metrics(self) -> Dict[str, Any]:
+        """Provides monotonic duration and source watermark health telemetry."""
+        return {
+            "queue_depth": self.queue.qsize(),
+            "queue_wait_ms": self.last_queue_wait_ms,
+            "db_work_ms": self.db_work_ms,
+            "eval_duration_ms": self.last_eval_duration_ms,
+            "processed_count": self.processed_count,
+            "dropped_count": self.dropped_count,
+            "is_lagging": self.is_lagging,
+            "has_execution_gap": self.has_execution_gap,
+            "gap_start_ms": self.gap_start_ms,
+            "gap_end_ms": self.gap_end_ms,
+            "accepted_source_watermark": self.accepted_source_watermark,
+            "last_processed_source_at": self.last_processed_source_at,
+            "last_completed_processing_at": self.last_completed_processing_at,
+            "is_running": self._running,
+            "is_stopping": self._stopping,
+            "is_inflight": self._inflight,
+        }
 
     def enqueue_quote(self, quote: CanonicalQuote) -> bool:
         """
@@ -83,7 +119,8 @@ class ExecutionConsumer:
         db: Session,
         quote: CanonicalQuote,
         clock: Optional[IClock] = None,
-        now_ms: Optional[int] = None
+        now_ms: Optional[int] = None,
+        skip_research: bool = False,
     ) -> Dict[str, Any]:
         """
         Synchronous evaluation of active position exits and pending armed orders for a single quote.
@@ -111,12 +148,22 @@ class ExecutionConsumer:
                 current_bid=quote.bid,
                 current_ask=quote.ask,
                 now_ms=proc_now_ms,
-                clock=c
+                clock=c,
+                tick_timestamp=quote.exchange_ts_ms,
             )
             if closed_order:
                 result["exit_processed"] = True
                 result["closed_order_id"] = closed_order.id
                 result["exit_cause"] = closed_order.exit_cause
+
+            # Research comparisons continue even when active position exists or closes
+            if not skip_research:
+                try:
+                    from services.stop_placement_research_service import advance_active_stop_comparisons
+                    advance_active_stop_comparisons(db, quote, as_of_ms=proc_now_ms)
+                except Exception as r_err:
+                    logger.debug(f"Research advance skipped: {r_err}")
+
             return result
 
         # 2. Evaluate armed orders if no active position exists, not lagging, no gap, and quote is fresh
@@ -136,47 +183,150 @@ class ExecutionConsumer:
             elif self.has_execution_gap or self.is_lagging:
                 result["rejection_reason"] = "EXECUTION_GAP_ACTIVE"
 
+        # Dispatch research comparisons when no active position
+        if not skip_research:
+            try:
+                from services.stop_placement_research_service import advance_active_stop_comparisons
+                advance_active_stop_comparisons(db, quote, as_of_ms=proc_now_ms)
+            except Exception as r_err:
+                logger.debug(f"Research advance skipped: {r_err}")
+
         return result
+
+    def _process_quote_worker(self, quote: CanonicalQuote, clock: Optional[IClock] = None) -> Dict[str, Any]:
+        """
+        Executes inside a dedicated worker thread via asyncio.to_thread.
+        Manages thread-local SessionLocal() cleanly and measures monotonic db_work_ms.
+        Commits research updates independently via dedicated durable transaction owner.
+        """
+        t0 = time.perf_counter()
+        db: Session = SessionLocal()
+        try:
+            res = self.evaluate_quote_sync(db, quote, clock=clock, skip_research=True)
+            return res
+        except Exception as e:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+            self.db_work_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+
+            # Dedicated durable research advance with independent session ownership
+            try:
+                from services.stop_placement_research_service import advance_stop_comparisons_durable
+                c = clock or live_clock
+                now_ms = c.now_ms() if hasattr(c, "now_ms") else int(time.time() * 1000)
+                advance_stop_comparisons_durable(
+                    session_factory=SessionLocal,
+                    quote=quote,
+                    as_of_ms=now_ms,
+                )
+            except Exception as r_err:
+                logger.debug(f"Durable research advance failed: {r_err}")
+
+    async def stop(self, timeout: float = 3.0) -> Dict[str, Any]:
+        """
+        Gracefully terminates consumer loop, awaiting completion of any in-flight worker execution.
+        Returns StopResult: {"status": "COMPLETE" | "TIMED_OUT", "inflight_done": bool, "unprocessed_count": int, "has_gap": bool}.
+        """
+        self._stopping = True
+        start = time.perf_counter()
+        while time.perf_counter() - start < timeout:
+            future_done = (self._active_worker_future is None or self._active_worker_future.done())
+            if future_done and not self._inflight and self.queue.empty():
+                break
+            await asyncio.sleep(0.01)
+
+        self._running = False
+        future_done = (self._active_worker_future is None or self._active_worker_future.done())
+        inflight_done = future_done and not self._inflight
+        unprocessed = self.queue.qsize()
+
+        # Unblock worker waiting on queue.get() if queue is empty
+        try:
+            self.queue.put_nowait(None)
+        except (asyncio.QueueFull, AttributeError):
+            pass
+
+        timed_out = (not inflight_done) or (unprocessed > 0)
+        if timed_out:
+            self.has_execution_gap = True
+            reason = "WORKER_INFLIGHT_TIMEOUT" if not inflight_done else "QUEUE_DRAIN_TIMEOUT"
+            logger.warning(
+                f"ExecutionConsumer stop timed out (inflight_done={inflight_done}, unprocessed={unprocessed}). Marked execution gap ({reason})."
+            )
+            return {
+                "status": "TIMED_OUT",
+                "inflight_done": inflight_done,
+                "unprocessed_count": unprocessed,
+                "has_gap": True,
+                "reason": reason,
+            }
+
+        logger.info("ExecutionConsumer stopped gracefully.")
+        return {
+            "status": "COMPLETE",
+            "inflight_done": True,
+            "unprocessed_count": 0,
+            "has_gap": self.has_execution_gap,
+        }
 
     async def run_consumer_loop(self):
         """
-        Main execution loop. Processes quotes sequentially with dedicated database sessions.
+        Main execution loop. Processes quotes sequentially in dedicated worker thread.
+        Never blocks the asyncio event loop with synchronous SQLite queries.
         """
         self._running = True
+        self._stopping = False
+        executor = self._ensure_executor()
         logger.info("ExecutionConsumer loop started.")
 
         while self._running:
             try:
                 quote = await self.queue.get()
-                t0 = time.perf_counter()
+                if quote is None or not self._running or self._stopping:
+                    self.queue.task_done()
+                    break
 
-                # Process quote
-                db: Session = SessionLocal()
+                self._inflight = True
+                t0 = time.perf_counter()
                 try:
-                    self.evaluate_quote_sync(db, quote)
+                    self._active_worker_future = executor.submit(self._process_quote_worker, quote)
+                    await asyncio.wrap_future(self._active_worker_future)
                 except Exception as e:
-                    logger.error(f"Error evaluating quote {quote.symbol}: {e}", exc_info=True)
+                    logger.error(f"Error evaluating quote in worker {quote.symbol}: {e}", exc_info=True)
+                    self.has_execution_gap = True
+                    self.is_lagging = True
                 finally:
-                    db.close()
+                    self._inflight = False
                     self.queue.task_done()
 
                 t_diff = (time.perf_counter() - t0) * 1000.0
                 self.last_eval_duration_ms = round(t_diff, 2)
-                self.last_processed_quote_ts = int(time.time() * 1000)
+                now_epoch = int(time.time() * 1000)
+                self.last_processed_quote_ts = now_epoch
+                self.last_completed_processing_at = now_epoch
+                if quote.exchange_ts_ms:
+                    self.last_processed_source_at = quote.exchange_ts_ms
+                    if self.accepted_source_watermark is None or quote.exchange_ts_ms > self.accepted_source_watermark:
+                        self.accepted_source_watermark = quote.exchange_ts_ms
                 self.processed_count += 1
 
                 # Update lag status
                 q_size = self.queue.qsize()
                 if q_size > 350:
                     self.is_lagging = True
-                elif q_size < 50:
+                elif q_size < 50 and not self.has_execution_gap:
                     self.is_lagging = False
 
             except asyncio.CancelledError:
                 self._running = False
+                if self._active_worker_future and not self._active_worker_future.done():
+                    logger.warning("ExecutionConsumer cancelled while worker thread still active; holding lease.")
                 break
             except Exception as e:
                 logger.error(f"ExecutionConsumer loop error: {e}", exc_info=True)
+                await asyncio.sleep(0.1)
                 await asyncio.sleep(0.1)
 
         logger.info("ExecutionConsumer loop terminated.")

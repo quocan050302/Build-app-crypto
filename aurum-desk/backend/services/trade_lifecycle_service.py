@@ -10,6 +10,7 @@ import models, crud
 from domain_calculator import CalculationResult, calculate_risk_reward
 from services.event_bus import event_bus
 from services.clock import live_clock, IClock
+from services.shared_exit_evaluator import evaluate_order_exit
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,8 @@ class TradeLifecycleService:
         source: str = "AUTO",
         now_ms: Optional[int] = None,
         clock: Optional[IClock] = None,
-        date_str: Optional[str] = None
+        date_str: Optional[str] = None,
+        sizing_context: Optional[Dict[str, Any]] = None,
     ) -> models.PaperOrder:
         """
         Atomic Unit of Work: Fill Armed or Market Order.
@@ -76,24 +78,69 @@ class TradeLifecycleService:
                 db.commit()
                 return order
 
+        # 1.6. Rules 055, 056, 059, 066, 079, 080: Verify daily bias validity for PRIMARY pending orders before fill
+        if getattr(order, "arm_decision_snapshot", None):
+            try:
+                raw_snap = order.arm_decision_snapshot
+                arm_snap = json.loads(raw_snap) if isinstance(raw_snap, str) else raw_snap
+                binding = arm_snap.get("binding") or {}
+                if binding.get("direction_policy") == "DAILY_BIAS_PRIMARY":
+                    from services.cg01_config_factory import resolve_canonical_cg01_config
+                    from services.cg01_daily_bias_service import (
+                        resolve_current_cg01_bias_authority,
+                        validate_cg01_bias_authority_binding,
+                    )
+                    eff_cfg, eff_fp, _ = resolve_canonical_cg01_config(
+                        db=db,
+                        symbol=order.instrument or "XAUUSDT",
+                    )
+                    binding_fp = binding.get("config_fingerprint")
+
+                    # Rules 044, 061, 062, 063: Query resolver strictly using effective execution config.
+                    # sizing_context NEVER overrides authoritative resolver.
+                    res_auth = resolve_current_cg01_bias_authority(
+                        symbol=order.instrument or "XAUUSDT",
+                        now_ms=current_time,
+                        config=eff_cfg,
+                        config_fingerprint=eff_fp,
+                        clock=clock,
+                    )
+
+                    valid, code, msg_vi, action = validate_cg01_bias_authority_binding(
+                        candidate_bias=binding,
+                        current_authority=res_auth,
+                        order_direction=order.direction,
+                        symbol=order.instrument or "XAUUSDT",
+                        effective_fingerprint=eff_fp,
+                        is_persisted_binding=True,
+                    )
+
+                    if not valid:
+                        if action == "INVALIDATE":
+                            order.state = "invalidated"
+                            reason_prefix = "DAILY_BIAS_INVALIDATED" if code in ("INVALIDATED", "DAILY_BIAS_CURRENT_INVALIDATED", "DAILY_BIAS_INVALIDATED") else code
+                            order.invalidation_reason = f"{reason_prefix}: {msg_vi}"
+                            order.closed_at = current_time
+                            db.commit()
+                            return order
+                        else:  # DEFER or BLOCK
+                            logger.info(f"Cannot fill order {order.id}: {code} - {msg_vi}; keeping pending.")
+                            return order
+            except Exception as e:
+                # Rules 069, 070, 082: Fail-closed on exception for PRIMARY - do NOT fill!
+                logger.error(f"Error checking pending bias binding at fill time for {order.id}: {e}")
+                return order
+
         # 2. Invariant: Max 1 active position enforced atomically at DB level
-        cost_snap = json.dumps({
-            "phase": "FILLED_ESTIMATE",
-            "maker_fee_rate": getattr(calc_result, "maker_fee_rate", 0.0002),
-            "taker_fee_rate": getattr(calc_result, "taker_fee_rate", 0.0004),
-            "slippage_usd": 0.10,
-            "tp_slippage_usd": getattr(calc_result, "tp_exit_slippage_usdt", 0.0) / (calc_result.quantity * getattr(calc_result, "multiplier", 1.0)) if (calc_result.quantity > 0 and getattr(calc_result, "multiplier", 1.0) > 0) else 0.0,
-            "multiplier": getattr(calc_result, "multiplier", 1.0),
-            "entry_fee_usdt": getattr(calc_result, "entry_fee_usdt", 0.0),
-            "sl_exit_fee_usdt": getattr(calc_result, "sl_exit_fee_usdt", 0.0),
-            "tp_exit_fee_usdt": getattr(calc_result, "tp_exit_fee_usdt", 0.0),
-            "entry_slippage_usdt": getattr(calc_result, "entry_slippage_usdt", 0.0),
-            "sl_exit_slippage_usdt": getattr(calc_result, "sl_exit_slippage_usdt", 0.0),
-            "tp_exit_slippage_usdt": getattr(calc_result, "tp_exit_slippage_usdt", 0.0),
-            "fees_total_usdt": calc_result.fees_total_usdt,
-            "slippage_total_usdt": calc_result.slippage_total_usdt,
-            "source": "BITGET_PAPER_MODEL_V10_4"
-        })
+        from services.order_plan_snapshot_service import build_fill_plan_snapshot
+        cost_snap_dict = build_fill_plan_snapshot(
+            calc_result=calc_result,
+            order=order,
+            fill_price=fill_price,
+            now_ms=current_time,
+            sizing_context=sizing_context,
+        )
+        cost_snap = json.dumps(cost_snap_dict, ensure_ascii=False)
 
         stmt = text("""
             UPDATE paper_orders
@@ -149,8 +196,13 @@ class TradeLifecycleService:
                 order.state = "rejected"
                 order.invalidation_reason = "Đã có vị thế đang mở (giới hạn tối đa 1 vị thế)"
                 order.closed_at = current_time
-                db.commit()
-                return order
+                try:
+                    db.commit()
+                    return order
+                except Exception as e:
+                    db.rollback()
+                    logger.error(f"Commit failed rejecting fill for {order.id}: {e}")
+                    return None
             else:
                 db.refresh(order)
                 return order
@@ -226,10 +278,56 @@ class TradeLifecycleService:
             occurred_at=current_time
         )
 
-        # 7. Commit atomically at boundary
-        db.commit()
-        db.refresh(order)
-        return order
+        # V14.4.15: Stage forward session membership status update to FILLED if bound
+        from services.forward_paper_service import stage_forward_membership_status, stage_forward_repair_task
+        try:
+            stage_res = stage_forward_membership_status(db, order.id, "FILLED", now_ms=current_time)
+            if stage_res.tracking_repair_needed:
+                logger.warning(
+                    f"Forward membership tracking repair needed for order {order.id}: {stage_res.reason_codes}"
+                )
+                stage_forward_repair_task(
+                    db=db,
+                    order_id=order.id,
+                    forward_session_id=stage_res.forward_session_id,
+                    target_status="FILLED",
+                    reason_codes=stage_res.reason_codes,
+                    now_ms=current_time,
+                )
+        except Exception as e:
+            db.rollback()
+            logger.error(f"execute_fill aborted due to membership staging failure for order {order.id}: {e}")
+            return None
+
+        # V16.16: Record FILLED milestone for linked research runs (Rules 028, 093, 095)
+        # V16.17: Wrapped in nested savepoint (db.begin_nested) to prevent research failure from aborting fill
+        try:
+            with db.begin_nested():
+                from services.paper_research_run_service import record_committed_order_milestone
+                run_links = db.query(models.PaperResearchOrderLink).filter(
+                    models.PaperResearchOrderLink.order_id == order.id
+                ).all()
+                for rlink in run_links:
+                    record_committed_order_milestone(
+                        db=db,
+                        run_id=rlink.run_id,
+                        order_id=order.id,
+                        milestone="FILLED",
+                        timestamp_ms=current_time,
+                        payload={"fill_price": fill_price, "quantity": order.quantity},
+                    )
+        except Exception as ms_err:
+            logger.warning(f"Failed to record FILLED milestone for order {order.id}: {ms_err}")
+
+        # 7. Commit atomically at boundary (owner transaction)
+        try:
+            db.commit()
+            db.refresh(order)
+            return order
+        except Exception as e:
+            db.rollback()
+            logger.error(f"execute_fill failed to commit for order {order.id}: {e}", exc_info=True)
+            return None
 
     @staticmethod
     def execute_reject(
@@ -272,9 +370,35 @@ class TradeLifecycleService:
                 watch_setup.invalidation_reason = reason
                 watch_setup.updated_at = current_time
 
-        db.commit()
-        db.refresh(order)
-        return order
+        # V14.4.15: Stage forward session membership status to REJECTED if bound
+        from services.forward_paper_service import stage_forward_membership_status, stage_forward_repair_task
+        try:
+            stage_res = stage_forward_membership_status(db, order.id, "REJECTED", now_ms=current_time)
+            if stage_res.tracking_repair_needed:
+                logger.warning(
+                    f"Forward membership tracking repair needed for order {order.id}: {stage_res.reason_codes}"
+                )
+                stage_forward_repair_task(
+                    db=db,
+                    order_id=order.id,
+                    forward_session_id=stage_res.forward_session_id,
+                    target_status="REJECTED",
+                    reason_codes=stage_res.reason_codes,
+                    now_ms=current_time,
+                )
+        except Exception as e:
+            db.rollback()
+            logger.error(f"execute_reject aborted due to membership staging failure for order {order.id}: {e}")
+            return None
+
+        try:
+            db.commit()
+            db.refresh(order)
+            return order
+        except Exception as e:
+            db.rollback()
+            logger.error(f"execute_reject failed to commit for order {order.id}: {e}", exc_info=True)
+            return None
 
     @staticmethod
     def execute_close(
@@ -287,7 +411,8 @@ class TradeLifecycleService:
         clock: Optional[IClock] = None,
         date_str: Optional[str] = None,
         session_tag: str = "LIVE_PAPER",
-        recovery_metadata: Optional[Dict[str, Any]] = None
+        recovery_metadata: Optional[Dict[str, Any]] = None,
+        exit_evidence: Optional[Dict[str, Any]] = None,
     ) -> Optional[models.PaperOrder]:
         """
         Atomic Unit of Work: Close Open Position.
@@ -374,6 +499,15 @@ class TradeLifecycleService:
         # Update DayAudit in same transaction
         crud.record_trade_close_audit(db, net_pnl, commit=False, date_str=date_str, clock=clock, now_ms=current_time)
 
+        # V17.5: Persist exit evidence in cost_snapshot (PHẦN 095, 096, 097)
+        if exit_evidence and getattr(order, 'cost_snapshot', None):
+            try:
+                snap_dict = json.loads(order.cost_snapshot)
+                snap_dict["exit_evidence"] = exit_evidence
+                order.cost_snapshot = json.dumps(snap_dict)
+            except Exception as e:
+                logger.warning(f"Failed to persist exit evidence into cost_snapshot: {e}")
+
         # Update associated WatchSetup if present
         if order.setup_id:
             watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == order.setup_id).first()
@@ -381,8 +515,41 @@ class TradeLifecycleService:
                 watch_setup.state = "CLOSED"
                 watch_setup.updated_at = current_time
 
-        # Create structured Lesson
-        TradeLifecycleService._create_lesson(db, order, current_time, session_tag=session_tag)
+        # V16.39.1 Section 116: Build & persist canonical post-trade review first
+        review_obj = None
+        try:
+            from services.post_trade_review_service import build_post_trade_review, save_post_trade_review
+            outcome_dict = {
+                "order_id": order.id,
+                "exit_price": exit_price,
+                "exit_cause": exit_cause,
+                "gross_pnl": gross_pnl,
+                "net_pnl": net_pnl,
+                "realized_r": realized_r,
+                "closed_at_ms": current_time,
+            }
+            raw_arm_snap = getattr(order, "arm_decision_snapshot", None)
+            arm_evidence = json.loads(raw_arm_snap) if isinstance(raw_arm_snap, str) else (raw_arm_snap or {})
+            review_obj = build_post_trade_review(order, outcome_dict, entry_evidence=arm_evidence, now_ms=current_time)
+            save_post_trade_review(db, review_obj)
+        except Exception as rev_err:
+            logger.warning(f"Post-trade review generation/persistence failed for order {order.id}: {rev_err}")
+
+        # Create structured Lesson using canonical review (Section 116, 122, 123)
+        try:
+            lesson_res = TradeLifecycleService._create_lesson(db, order, current_time, session_tag=session_tag, review_obj=review_obj)
+            if lesson_res:
+                TradeLifecycleService._resolve_lesson_repair_task(db, order.id, current_time)
+        except Exception as l_err:
+            logger.warning(f"Lesson creation failed for order {order.id}: {l_err}")
+            TradeLifecycleService._record_lesson_repair_task(db, order.id, str(l_err), current_time)
+
+        # Record persistent paper observation for closed trade outcome
+        try:
+            from services.smc_observation_service import record_closed_outcome
+            record_closed_outcome(db, order, as_of_ms=current_time)
+        except Exception as obs_err:
+            logger.warning(f"Failed to record closed outcome observation for {order.id}: {obs_err}")
 
         # Create Domain Event & Notification Outbox in same transaction
         event_type = "trade.liquidated" if exit_cause == "LIQUIDATED" else "trade.closed"
@@ -409,9 +576,56 @@ class TradeLifecycleService:
             occurred_at=current_time
         )
 
-        db.commit()
-        db.refresh(order)
-        return order
+        # V14.4.15: Stage forward session membership status to CLOSED if bound
+        from services.forward_paper_service import stage_forward_membership_status, stage_forward_repair_task
+        try:
+            stage_res = stage_forward_membership_status(db, order.id, "CLOSED", now_ms=current_time)
+            if stage_res.tracking_repair_needed:
+                logger.warning(
+                    f"Forward membership tracking repair needed for order {order.id}: {stage_res.reason_codes}"
+                )
+                stage_forward_repair_task(
+                    db=db,
+                    order_id=order.id,
+                    forward_session_id=stage_res.forward_session_id,
+                    target_status="CLOSED",
+                    reason_codes=stage_res.reason_codes,
+                    now_ms=current_time,
+                )
+        except Exception as e:
+            db.rollback()
+            db.expire_all()
+            logger.error(f"execute_close aborted due to membership staging failure for order {order.id}: {e}")
+            return None
+
+        # V16.16: Record CLOSED milestone for linked research runs (Rules 028, 094, 095)
+        # V16.17: Wrapped in nested savepoint (db.begin_nested) to prevent research failure from aborting close
+        try:
+            with db.begin_nested():
+                from services.paper_research_run_service import record_committed_order_milestone
+                run_links = db.query(models.PaperResearchOrderLink).filter(
+                    models.PaperResearchOrderLink.order_id == order.id
+                ).all()
+                for rlink in run_links:
+                    record_committed_order_milestone(
+                        db=db,
+                        run_id=rlink.run_id,
+                        order_id=order.id,
+                        milestone="CLOSED",
+                        timestamp_ms=current_time,
+                        payload={"exit_price": exit_price, "exit_cause": exit_cause, "realized_pnl_net": net_pnl},
+                    )
+        except Exception as ms_err:
+            logger.warning(f"Failed to record CLOSED milestone for order {order.id}: {ms_err}")
+
+        try:
+            db.commit()
+            db.refresh(order)
+            return order
+        except Exception as e:
+            db.rollback()
+            logger.error(f"execute_close failed to commit for order {order.id}: {e}", exc_info=True)
+            return None
 
     @staticmethod
     def process_exit_tick(
@@ -424,7 +638,8 @@ class TradeLifecycleService:
         bar_duration_ms: int = 15 * 60 * 1000,
         now_ms: Optional[int] = None,
         clock: Optional[IClock] = None,
-        session_tag: str = "LIVE_PAPER"
+        session_tag: str = "LIVE_PAPER",
+        tick_timestamp: Optional[int] = None,
     ) -> Optional[models.PaperOrder]:
         """
         Unified exit evaluator for both ExitMonitor and candles/sync.
@@ -434,6 +649,10 @@ class TradeLifecycleService:
             return None
 
         opened_at = active_pos.opened_at or 0
+
+        # Guard: Check tick timing relative to opened_at (late tick cannot retroactively exit)
+        if tick_timestamp is not None and opened_at > 0 and tick_timestamp < opened_at:
+            return None
 
         # Guard: Check candle timing relative to opened_at
         is_candle_eval = candle_high is not None and candle_low is not None
@@ -447,127 +666,37 @@ class TradeLifecycleService:
             if bar_start <= opened_at < bar_end:
                 is_candle_eval = False
 
-        exit_triggered = False
-        exit_price = 0.0
-        exit_cause = ""
-        lp = active_pos.estimated_liquidation
+        executable_quote: Dict[str, Any] = {
+            "bid": current_bid,
+            "ask": current_ask,
+            "evidence_id": f"tick_{tick_timestamp or now_ms}",
+        }
+        if is_candle_eval:
+            executable_quote["high"] = candle_high
+            executable_quote["low"] = candle_low
 
-        if not is_candle_eval:
-            # TICK-ONLY EVALUATION
-            if active_pos.direction == "LONG":
-                if lp is not None and current_bid <= lp:
-                    exit_triggered = True
-                    exit_price = current_bid
-                    exit_cause = "LIQUIDATED"
-                elif current_bid <= active_pos.stop_loss:
-                    exit_triggered = True
-                    exit_price = current_bid
-                    exit_cause = "SL_HIT"
-                elif current_bid >= active_pos.take_profit:
-                    exit_triggered = True
-                    tp_slip = 0.0
-                    if getattr(active_pos, 'cost_snapshot', None):
-                        try:
-                            snap = json.loads(active_pos.cost_snapshot)
-                            tp_slip = float(snap.get("tp_slippage_usd", 0.0))
-                        except Exception:
-                            tp_slip = 0.0
-                    exit_price = round(active_pos.take_profit - tp_slip, 2)
-                    exit_cause = "TP_HIT"
+        decision = evaluate_order_exit(active_pos, executable_quote)
 
-            elif active_pos.direction == "SHORT":
-                if lp is not None and current_ask >= lp:
-                    exit_triggered = True
-                    exit_price = current_ask
-                    exit_cause = "LIQUIDATED"
-                elif current_ask >= active_pos.stop_loss:
-                    exit_triggered = True
-                    exit_price = current_ask
-                    exit_cause = "SL_HIT"
-                elif current_ask <= active_pos.take_profit:
-                    exit_triggered = True
-                    tp_slip = 0.0
-                    if getattr(active_pos, 'cost_snapshot', None):
-                        try:
-                            snap = json.loads(active_pos.cost_snapshot)
-                            tp_slip = float(snap.get("tp_slippage_usd", 0.0))
-                        except Exception:
-                            tp_slip = 0.0
-                    exit_price = round(active_pos.take_profit + tp_slip, 2)
-                    exit_cause = "TP_HIT"
-
-        else:
-            # CANDLE OHLC EVALUATION
-            high_val = candle_high
-            low_val = candle_low
-
-            if active_pos.direction == "LONG":
-                hit_sl = low_val <= active_pos.stop_loss
-                hit_tp = high_val >= active_pos.take_profit
-                hit_liq = (lp is not None and low_val <= lp)
-
-                if hit_sl and hit_tp:
-                    exit_triggered = True
-                    exit_price = active_pos.stop_loss
-                    exit_cause = "AMBIGUOUS_BAR_SL_FIRST"
-                elif hit_liq and not hit_tp:
-                    exit_triggered = True
-                    exit_price = lp
-                    exit_cause = "LIQUIDATED"
-                elif hit_sl:
-                    exit_triggered = True
-                    exit_price = min(active_pos.stop_loss, low_val)
-                    exit_cause = "SL_HIT"
-                elif hit_tp:
-                    exit_triggered = True
-                    tp_slip = 0.0
-                    if getattr(active_pos, 'cost_snapshot', None):
-                        try:
-                            snap = json.loads(active_pos.cost_snapshot)
-                            tp_slip = float(snap.get("tp_slippage_usd", 0.0))
-                        except Exception:
-                            tp_slip = 0.0
-                    exit_price = round(active_pos.take_profit - tp_slip, 2)
-                    exit_cause = "TP_HIT"
-
-            elif active_pos.direction == "SHORT":
-                hit_sl = high_val >= active_pos.stop_loss
-                hit_tp = low_val <= active_pos.take_profit
-                hit_liq = (lp is not None and high_val >= lp)
-
-                if hit_sl and hit_tp:
-                    exit_triggered = True
-                    exit_price = active_pos.stop_loss
-                    exit_cause = "AMBIGUOUS_BAR_SL_FIRST"
-                elif hit_liq and not hit_tp:
-                    exit_triggered = True
-                    exit_price = lp
-                    exit_cause = "LIQUIDATED"
-                elif hit_sl:
-                    exit_triggered = True
-                    exit_price = max(active_pos.stop_loss, high_val)
-                    exit_cause = "SL_HIT"
-                elif hit_tp:
-                    exit_triggered = True
-                    tp_slip = 0.0
-                    if getattr(active_pos, 'cost_snapshot', None):
-                        try:
-                            snap = json.loads(active_pos.cost_snapshot)
-                            tp_slip = float(snap.get("tp_slippage_usd", 0.0))
-                        except Exception:
-                            tp_slip = 0.0
-                    exit_price = round(active_pos.take_profit + tp_slip, 2)
-                    exit_cause = "TP_HIT"
-
-        if exit_triggered:
+        if decision.triggered:
+            exit_evidence = {
+                "basis": decision.price_basis,
+                "evidence_reference": decision.evidence_reference,
+                "trigger_level": decision.trigger_level,
+                "applied_exit_price": decision.applied_exit_price,
+                "quote_timestamp": tick_timestamp or now_ms or candle_timestamp,
+                "is_candle_eval": is_candle_eval,
+                "candle_high": candle_high if is_candle_eval else None,
+                "candle_low": candle_low if is_candle_eval else None,
+            }
             return TradeLifecycleService.execute_close(
                 db=db,
                 order_id=active_pos.id,
-                exit_price=exit_price,
-                exit_cause=exit_cause,
-                occurred_at=candle_timestamp or now_ms,
+                exit_price=decision.applied_exit_price,
+                exit_cause=decision.cause,
+                occurred_at=tick_timestamp or now_ms or candle_timestamp,
                 clock=clock,
-                session_tag=session_tag
+                session_tag=session_tag,
+                exit_evidence=exit_evidence,
             )
 
         return None
@@ -577,15 +706,18 @@ class TradeLifecycleService:
         db: Session,
         order: models.PaperOrder,
         now_ms: int,
-        session_tag: str = "LIVE_PAPER"
-    ):
+        session_tag: str = "LIVE_PAPER",
+        review_obj: Optional[Any] = None,
+    ) -> Optional[models.Lesson]:
         """
-        Create factual, evidence-based Lesson.
+        V16.39.2 Sections 011, 016, 021 - 045:
+        Create factual, evidence-based Lesson linked directly to closed order.
         Separates trading outcome from execution quality:
-        A win does not prove rules were followed; a loss does not prove rules were wrong.
-        Does NOT fake Sweep/FVG when unverified.
+        - Planned entry reads order.planned_entry (NEVER order.entry_price).
+        - Idempotent: returns existing lesson if one exists for the order.
+        - Uses build_entry_review_context and assess_entry_compliance_for_review.
         """
-        # Check idempotency: do not create duplicate lessons for the same trade
+        # Check idempotency: do not create duplicate lessons for the same trade (Section 034, 124)
         existing_lesson = db.query(models.Lesson).filter(models.Lesson.related_trade_id == order.id).first()
         if existing_lesson:
             return existing_lesson
@@ -596,32 +728,57 @@ class TradeLifecycleService:
         opened_at = order.opened_at or now_ms
         hold_time_ms = max(0, now_ms - opened_at)
 
-        # Retrieve evidence
-        evidence = {}
-        if getattr(order, "evidence_snapshot_id", None):
-            ev_row = db.query(models.StrategyEvidence).filter(models.StrategyEvidence.id == order.evidence_snapshot_id).first()
-            if ev_row and ev_row.evidence_json:
-                try:
-                    evidence = json.loads(ev_row.evidence_json)
-                except Exception:
-                    evidence = {}
+        # Build entry review context from historical artifacts (Section 021)
+        from services.post_trade_review_service import (
+            build_entry_review_context,
+            assess_entry_compliance_for_review,
+            classify_post_trade_lesson,
+            get_post_trade_review,
+            build_post_trade_review,
+            resolve_model_review_requirements,
+        )
+        ctx = build_entry_review_context(db, order)
+        scenario_evidence = ctx.get("scenario_evidence") or {}
+        raw_ev = scenario_evidence.get("evidence")
+        tc = scenario_evidence.get("trigger_chain")
+        guard_audit = ctx.get("guard_audit")
+        model_reqs = ctx.get("model_requirements")
 
-        has_sweep = bool(evidence.get("sweep_id") or evidence.get("sweep_level"))
-        has_fvg = bool(evidence.get("fvg_id") or evidence.get("fvg_zone"))
-        has_displacement = bool(evidence.get("is_displacement"))
+        entry_snap_dict = {
+            "symbol": order.symbol,
+            "direction": order.direction,
+            "planned_entry": order.planned_entry,  # Section 011 & 016: Planned entry, NEVER order.entry_price!
+            "actual_entry": order.actual_entry,
+            "planned_sl": order.stop_loss,
+            "planned_tp": order.take_profit,
+            "evidence": raw_ev,
+            "trigger_chain": tc,
+            "model_id": family,
+            "strategy_family": family,
+            "entry_mode": ctx.get("entry_mode"),
+            "order_type": ctx.get("order_type"),
+            "plan": scenario_evidence.get("plan") or {
+                "entry_mode": ctx.get("entry_mode"),
+                "order_type": ctx.get("order_type"),
+                "entry": order.planned_entry,
+                "stop_loss": order.stop_loss,
+                "take_profit": order.take_profit,
+            },
+            "historical_entry_mode": ctx.get("historical_entry_mode"),
+            "provenance_issues": ctx.get("provenance_issues", []),
+        }
 
-        if family == "NY_QUOTA_PAPER":
-            compliance_status = "PARTIAL_FALLBACK"
-            compliance_detail = "Lệnh NY Quota Fallback: Khung 5M retest POI, không yêu cầu Liquidity Sweep đầy đủ."
-            invalidation_basis = f"Thủng vùng POI tại SL {order.stop_loss:.2f}"
-        elif has_sweep and has_fvg and has_displacement:
-            compliance_status = "FULL_COMPLIANCE"
-            compliance_detail = "Chuỗi SMC đầy đủ: Sweep + Displacement + MSS + FVG Retest có bằng chứng."
-            invalidation_basis = f"Invalidation cấu trúc tại SL {order.stop_loss:.2f}"
-        else:
-            compliance_status = "INCOMPLETE_EVIDENCE"
-            compliance_detail = "Thiếu bằng chứng chuỗi SMC đầy đủ tại thời điểm vào lệnh."
-            invalidation_basis = f"Stop Loss tại {order.stop_loss:.2f}"
+        # Compliance assessment (Section 097, V16.39.3 / V16.39.4 Sections 041 - 088)
+        comp_res = assess_entry_compliance_for_review(
+            order=order,
+            entry_snapshot=entry_snap_dict,
+            fill_snapshot=ctx.get("fill_snapshot"),
+            audit=guard_audit,
+            model_requirements=model_reqs,
+            decision_as_of_ms=ctx.get("decision_as_of_ms"),
+            provenance_issues=ctx.get("provenance_issues"),
+            review_context=ctx,
+        )
 
         cause = str(order.exit_cause or "").upper()
         exit_p = order.actual_exit or 0.0
@@ -637,29 +794,95 @@ class TradeLifecycleService:
         elif cause in ("MANUAL_CLOSE", "USER_EXIT", "MANUAL_CLOSED"):
             if pnl >= 0:
                 title = f"Đóng chủ động (Có lãi) {family} {order.direction} +{r_mult:.2f}R (+${pnl:.2f}) tại {exit_p:.2f}"
-                reflection = f"Lệnh {order.direction} ({family}) được đóng chủ động từ Dashboard khi đang có lãi (+${pnl:.2f}). {compliance_detail}"
+                reflection = f"Lệnh {order.direction} ({family}) được đóng chủ động từ Dashboard khi đang có lãi (+${pnl:.2f}). {comp_res.reason}"
             else:
                 title = f"Đóng chủ động (Cắt lỗ) {family} {order.direction} {r_mult:.2f}R (-${abs(pnl):.2f}) tại {exit_p:.2f}"
-                reflection = f"Lệnh {order.direction} ({family}) được đóng chủ động từ Dashboard khi đang bị lỗ (-${abs(pnl):.2f}). {compliance_detail}"
+                reflection = f"Lệnh {order.direction} ({family}) được đóng chủ động từ Dashboard khi đang bị lỗ (-${abs(pnl):.2f}). {comp_res.reason}"
             action_rule = "Ghi nhận lý do đóng lệnh trước kế hoạch vào phần Đánh giá tâm lý để rà soát kỷ luật."
         elif cause == "TP_HIT":
             if pnl >= 0:
                 title = f"Thắng {family} {order.direction} +{r_mult:.2f}R (+${pnl:.2f}) tại {exit_p:.2f}"
-                reflection = f"Lệnh {order.direction} ({family}) đạt Take Profit. {compliance_detail}"
+                reflection = f"Lệnh {order.direction} ({family}) đạt Take Profit. {comp_res.reason}"
                 action_rule = "Tiếp tục thu thập dữ liệu; không nới lỏng quy tắc dựa trên kết quả đơn lẻ."
             else:
                 title = f"Đạt TP nhưng lỗ ròng {family} {order.direction} {r_mult:.2f}R (${pnl:.2f}) tại {exit_p:.2f}"
-                reflection = f"Lệnh {order.direction} chạm giá Take Profit nhưng PnL ròng âm sau khi trừ chi phí. {compliance_detail}"
+                reflection = f"Lệnh {order.direction} chạm giá Take Profit nhưng PnL ròng âm sau khi trừ chi phí. {comp_res.reason}"
                 action_rule = "Kiểm tra lại biên độ lợi nhuận tối thiểu so với chi phí spread và phí sàn."
         elif cause == "SL_HIT":
             title = f"Dừng lỗ {family} {order.direction} {r_mult:.2f}R (-${abs(pnl):.2f}) tại {exit_p:.2f}"
-            reflection = f"Lệnh {order.direction} chạm SL ({order.exit_cause}). {compliance_detail}"
+            reflection = f"Lệnh {order.direction} chạm SL ({order.exit_cause}). {comp_res.reason}"
             action_rule = "Kiểm tra lại biên độ buffer ATR và cấu trúc bảo vệ; ghi nhận số liệu mẫu để nghiên cứu."
         else:
             sign = "+" if pnl >= 0 else "-"
             title = f"Đóng vị thế ({cause or 'CLOSED'}) {family} {order.direction} {sign}${abs(pnl):.2f} tại {exit_p:.2f}"
-            reflection = f"Lệnh {order.direction} ({family}) kết thúc với nguyên nhân {cause or 'CLOSED'}. {compliance_detail}"
+            reflection = f"Lệnh {order.direction} ({family}) kết thúc với nguyên nhân {cause or 'CLOSED'}. {comp_res.reason}"
             action_rule = "Ghi nhận dữ liệu thực tế vào Journal để phân tích thêm."
+
+        # Canonical post-trade review
+        rev = review_obj
+        if rev is None:
+            rev = get_post_trade_review(db, order.id)
+            if rev is None:
+                outcome_dict = {
+                    "order_id": order.id,
+                    "exit_price": exit_p,
+                    "exit_cause": cause,
+                    "gross_pnl": getattr(order, "realized_pnl_gross", None) or 0.0,
+                    "net_pnl": pnl,
+                    "realized_r": r_mult,
+                    "closed_at_ms": now_ms,
+                }
+                raw_arm_snap = getattr(order, "arm_decision_snapshot", None)
+                arm_evidence = json.loads(raw_arm_snap) if isinstance(raw_arm_snap, str) else (raw_arm_snap or {})
+                rev = build_post_trade_review(order, outcome_dict, entry_evidence=arm_evidence, now_ms=now_ms)
+
+        classification = classify_post_trade_lesson(
+            rev,
+            entry_snapshot=entry_snap_dict,
+            audit=guard_audit,
+            compliance_result=comp_res,
+        )
+
+        hold_time_val = None
+        close_ts = getattr(order, "closed_at", None) or now_ms
+        if opened_at is not None and close_ts >= opened_at:
+            hold_time_val = close_ts - opened_at
+
+        # Resolve real entry session (V16.39.4 Sections 027, 033, 034, 061-065, 071, 078)
+        entry_session = None
+        raw_cost = getattr(order, "cost_snapshot", None)
+        if raw_cost:
+            try:
+                parsed_cost = json.loads(raw_cost) if isinstance(raw_cost, str) else raw_cost
+                if isinstance(parsed_cost, dict):
+                    entry_session = parsed_cost.get("entry_session") or parsed_cost.get("analysis_session") or parsed_cost.get("session")
+            except Exception:
+                pass
+
+        if not entry_session and getattr(order, "arm_decision_snapshot", None):
+            try:
+                raw_arm = order.arm_decision_snapshot
+                parsed_arm = json.loads(raw_arm) if isinstance(raw_arm, str) else raw_arm
+                if isinstance(parsed_arm, dict):
+                    entry_session = parsed_arm.get("entry_session") or parsed_arm.get("analysis_session") or parsed_arm.get("session")
+            except Exception:
+                pass
+
+        if not entry_session:
+            entry_ts = getattr(order, "armed_at", None) or getattr(order, "created_at", None) or now_ms
+            try:
+                from services.trading_policy_service import TradingPolicyService, resolve_entry_session_context
+                pol = TradingPolicyService.get_or_create_policy(db, commit=False)
+                s_ctx = resolve_entry_session_context(pol, family, now_ms=entry_ts)
+                entry_session = s_ctx.analysis_session
+            except Exception:
+                entry_session = "ALL"
+
+        effective_session = entry_session or "ALL"
+
+        # Determine processing origin
+        execution_origin = session_tag if session_tag in ("LIVE_PAPER", "REPAIR", "OFFLINE_RECOVERY", "LATE_RECONCILIATION") else ("REPAIR" if session_tag == "REPAIR" else "NORMAL")
+        is_repair = (execution_origin == "REPAIR")
 
         db_lesson = models.Lesson(
             created_at=now_ms,
@@ -667,30 +890,151 @@ class TradeLifecycleService:
             category="EXECUTION",
             related_trade_id=order.id,
             setup_type=family,
-            session=session_tag,
+            session=effective_session,
             reflection=reflection,
             action_rule=action_rule,
             is_hard_filter=False,
-            is_approved=False,  # Lessons require human review/validation, never auto-approved
+            is_approved=False,  # Section 101: Never auto-approved
+            enabled=False,      # Section 101: Never auto-enabled
+            status="PENDING_REVIEW",  # Section 101
+            validation_status="UNVALIDATED",
+            severity=classification.canonical_severity,  # INFO, WARNING, CRITICAL
+            effect=classification.proposed_effect,        # ANNOTATE, WARN_ENTRY, BLOCK_ENTRY
+            hypothesis=classification.reason_vi,         # "Vì sao bot chọn màu này?" (Section 106)
+            scope=json.dumps(classification.suggested_scope),
+            action_candidate=json.dumps(classification.to_dict()),
             strategy_family=family,
             facts_snapshot=json.dumps({
                 "family": family,
                 "direction": order.direction,
+                "entry_mode": ctx.get("entry_mode"),
+                "order_type": ctx.get("order_type"),
+                "entry_mode_source": (ctx.get("historical_entry_mode") or {}).get("source"),
+                "verification_status": (ctx.get("historical_entry_mode") or {}).get("verification_status"),
                 "actual_entry": order.actual_entry,
                 "actual_exit": order.actual_exit,
                 "pnl": pnl,
                 "realized_r": r_mult,
-                "exit_cause": order.exit_cause
+                "exit_cause": order.exit_cause,
+                "suggested_color": classification.suggested_color,
+                "classification_code": classification.classification_code,
+                "origin": execution_origin,
+                "execution_origin": execution_origin,
+                "processing_origin": execution_origin,
+                "entry_session": effective_session,
+                "session_source": "FROZEN_ENTRY_CONTEXT" if (raw_cost and ("session" in str(raw_cost))) else "RESOLVER_FALLBACK",
             }),
-            compliance_snapshot=json.dumps({
-                "compliance_status": compliance_status,
-                "compliance_detail": compliance_detail,
-                "invalidation_basis": invalidation_basis
-            }),
+            compliance_snapshot=json.dumps(comp_res.to_dict()),
             mfe_mae_snapshot=json.dumps({
-                "hold_time_ms": hold_time_ms
+                "hold_time_ms": hold_time_val
             })
         )
         db.add(db_lesson)
         db.flush()
         return db_lesson
+
+    @staticmethod
+    def _record_lesson_repair_task(db: Session, order_id: str, error_msg: str, now_ms: int) -> None:
+        """Section 039: Records durable repair task so missing lesson is recovered."""
+        try:
+            task = db.query(models.LessonRepairTask).filter(models.LessonRepairTask.order_id == order_id).first()
+            if not task:
+                task = models.LessonRepairTask(
+                    id=f"rep_{order_id}",
+                    order_id=order_id,
+                    artifact_type="LESSON",
+                    status="PENDING",
+                    retry_count=1,
+                    last_error=error_msg[:1000] if error_msg else None,
+                    created_at=now_ms,
+                    updated_at=now_ms,
+                )
+                db.add(task)
+            else:
+                task.retry_count = (task.retry_count or 0) + 1
+                task.last_error = error_msg[:1000] if error_msg else None
+                task.status = "PENDING"
+                task.updated_at = now_ms
+            db.flush()
+        except Exception as e:
+            logger.error(f"Failed to record lesson repair task for {order_id}: {e}")
+
+    @staticmethod
+    def _resolve_lesson_repair_task(db: Session, order_id: str, now_ms: int) -> None:
+        """Section 041: Marks lesson repair task COMPLETED when lesson creation succeeds."""
+        try:
+            task = db.query(models.LessonRepairTask).filter(models.LessonRepairTask.order_id == order_id).first()
+            if task and task.status != "COMPLETED":
+                task.status = "COMPLETED"
+                task.updated_at = now_ms
+                db.flush()
+        except Exception:
+            pass
+
+    @classmethod
+    def repair_pending_lessons(cls, db: Session, now_ms: Optional[int] = None, limit: int = 20) -> Dict[str, Any]:
+        """
+        V16.39.2 / V16.39.3 Sections 039 - 042, 101 - 123:
+        Durable repair mechanism for pending/failed lessons.
+        Loads pending tasks bounded by limit, ordered by created_at.
+        Idempotent: verifies if lesson already exists before creation.
+        Never calls execute_close() or mutates accounting/DayAudit.
+        """
+        current_time = now_ms or int(time.time() * 1000)
+        pending_tasks = db.query(models.LessonRepairTask).filter(
+            models.LessonRepairTask.status == "PENDING"
+        ).order_by(models.LessonRepairTask.created_at.asc()).limit(limit).all()
+
+        repaired_count = 0
+        failed_count = 0
+        results = []
+
+        for task in pending_tasks:
+            order = db.query(models.PaperOrder).filter(models.PaperOrder.id == task.order_id).first()
+            if not order or order.state != "closed":
+                task.last_error = f"Order {task.order_id} not found or not in closed state"
+                task.updated_at = current_time
+                failed_count += 1
+                results.append({"order_id": task.order_id, "status": "FAILED", "reason": task.last_error})
+                continue
+
+            # Idempotency check: see if root lesson already exists (Section 041, 112, 123)
+            existing_lesson = db.query(models.Lesson).filter(models.Lesson.related_trade_id == task.order_id).first()
+            if existing_lesson:
+                task.status = "COMPLETED"
+                task.updated_at = current_time
+                repaired_count += 1
+                results.append({"order_id": task.order_id, "status": "ALREADY_EXISTS", "lesson_id": existing_lesson.id})
+                continue
+
+            try:
+                lesson = cls._create_lesson(db, order, current_time, session_tag="REPAIR")
+                if lesson:
+                    task.status = "COMPLETED"
+                    task.updated_at = current_time
+                    repaired_count += 1
+                    results.append({"order_id": task.order_id, "status": "COMPLETED", "lesson_id": lesson.id})
+                else:
+                    task.retry_count = (task.retry_count or 0) + 1
+                    task.last_error = "Lesson creation returned None"
+                    task.updated_at = current_time
+                    if task.retry_count >= 5:
+                        task.status = "FAILED"
+                    failed_count += 1
+                    results.append({"order_id": task.order_id, "status": "FAILED", "reason": task.last_error})
+            except Exception as err:
+                task.retry_count = (task.retry_count or 0) + 1
+                task.last_error = str(err)
+                task.updated_at = current_time
+                if task.retry_count >= 5:
+                    task.status = "FAILED"
+                failed_count += 1
+                results.append({"order_id": task.order_id, "status": "FAILED", "reason": str(err)})
+
+        db.flush()
+        return {
+            "repaired_count": repaired_count,
+            "failed_count": failed_count,
+            "total_processed": len(pending_tasks),
+            "tasks": results,
+        }

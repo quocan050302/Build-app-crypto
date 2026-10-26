@@ -3,7 +3,7 @@ import { ChartComponent } from './ChartComponent';
 import { api, extractErrorMessage } from './api/client';
 import { wsClient } from './services/wsClient';
 import { quoteStore } from './services/quoteStore';
-import { calculateClientRiskReward } from './utils/calculator';
+import { resolveSetupPriceLevels, getCanonicalSetupPlan, planToOverlay } from './utils/planLevels';
 import type { RiskRewardData } from './plugins/RiskRewardPrimitive';
 import { TestingLabComponent } from './TestingLabComponent';
 import { ResearchTab } from './ResearchTab';
@@ -41,6 +41,8 @@ import {
 import { NYSessionPanel } from './NYSessionPanel';
 import { QuickDecisionSidebar, type DrawerSectionType } from './components/QuickDecisionSidebar';
 import { TradeDetailsDrawer } from './components/TradeDetailsDrawer';
+import { PaperOpportunityMonitorDrawer } from './components/PaperOpportunityMonitorDrawer';
+import { ObservationDashboard } from './components/ObservationDashboard';
 import { TelegramTab } from './TelegramTab';
 import { JournalTab } from './JournalTab';
 import type { TradingPolicy, NYSessionStatus } from './api/client';
@@ -50,13 +52,27 @@ import { NotificationCenterDrawer } from './components/NotificationCenterDrawer'
 import { UserMessageDetailsModal } from './components/UserMessageDetailsModal';
 import { buildTradeEventMessage } from './utils/normalizeAppError';
 import type { QualitySnapshot } from './types/setupQuality';
-import { buildChartEvidenceBundle } from './utils/chartEvidence';
+import { createOrderSelection, createScenarioSelection, createSetupSelection } from './utils/selectedChartContext';
+import { useSelectedChart } from './hooks/useSelectedChart';
+import type { ChartBinding } from './types/smcScenario';
+import { useSMCScenarios } from './hooks/useSMCScenarios';
+import type { SMCScenarioView } from './types/smcScenario';
 import type { SemanticActionType } from './types/userMessage';
+import type { CandidateScoreSummary } from './types/candidateScore';
+import { CandidateScoreBadge } from './components/CandidateScoreBadge';
+import { useRrPolicySettings, type RrPolicySaved } from './hooks/useRrPolicySettings';
+import { RrPolicySettingsCard } from './components/RrPolicySettingsCard';
+import { StopPlacementSettings } from './components/StopPlacementSettings';
+import { getOrderRrFields, rebaseDraftRrPolicy, rebaseTradeIntentRrPolicy, type CurrentPolicyContext } from './utils/rrPolicyView';
 
-export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION';
+export type SelectionSource = 'LIVE_CANDIDATE' | 'WATCH_SETUP' | 'DRAFT' | 'OPEN_POSITION' | 'SCENARIO';
 
 export interface SelectedTradeIntent {
   source: SelectionSource;
+  /** Canonical PaperOrder identifier when source === 'OPEN_POSITION' (V16.39.14) */
+  order_id?: string;
+  /** Legacy alias for order selection (V16.39.14) */
+  id?: string;
   setup_id?: string;
   setup_instance_id?: string;
   revision?: number;
@@ -99,13 +115,28 @@ export interface SelectedTradeIntent {
   quality_status?: string;
   quality_snapshot_id?: string;
   quality_summary?: any;
+
+  // V14.2 binding & plan provenance (additive)
+  plan_kind?: 'PROVISIONAL' | 'CONFIRMED' | 'DRAFT' | 'ORDER';
+  plan_fingerprint?: string | null;
+  risk_config_version?: number | null;
+
+  // V16.39.11 Candidate Quality Score
+  candidate_score_summary?: CandidateScoreSummary | null;
+
+  // V16.39.15/18 RR Policy Unification
+  minNetRR?: number | null;
+  rrPolicySource?: string;
+  rrPolicyFingerprint?: string;
+  rrPolicyStatus?: 'KNOWN' | 'MISSING' | 'INVALID';
+  rrPolicyReason?: string;
 }
 
 
 function AppContent() {
   // Navigation & Timeframe
   const [activeTab, setActiveTab] = useState<
-    'chart' | 'upcoming' | 'smc' | 'paper' | 'lab' | 'reports' | 'news' | 'journal' | 'telegram' | 'education'
+    'chart' | 'upcoming' | 'observation' | 'smc' | 'paper' | 'lab' | 'reports' | 'news' | 'journal' | 'telegram' | 'education'
   >('chart');
   const [timeframe, setTimeframe] = useState<string>('15M');
   const timeframes = [
@@ -133,14 +164,49 @@ function AppContent() {
   const [selectedQualityLoading, setSelectedQualityLoading] = useState<boolean>(false);
   const [selectedQualityError, setSelectedQualityError] = useState<string | null>(null);
   const [evidenceMode, setEvidenceMode] = useState<'SELECTED' | 'ALL' | 'NONE'>('SELECTED');
-  const [focusRequest, setFocusRequest] = useState<{ nonce: number } | null>(null);
+  const [focusRequest, setFocusRequest] = useState<{
+    nonce: number;
+    minPrice?: number;
+    maxPrice?: number;
+    targetTime?: number;
+    startAnchorMs?: number;
+    endAnchorMs?: number;
+    mode?: 'LIVE' | 'SELECTION';
+  } | null>(null);
   const qualityGenRef = useRef<number>(0);
   const qualityAbortControllerRef = useRef<AbortController | null>(null);
+  useEffect(() => () => {
+    ++qualityGenRef.current;
+    qualityAbortControllerRef.current?.abort();
+  }, []);
 
-  const chartEvidenceBundle = useMemo(() => {
-    if (!selectedQualitySnapshot) return null;
-    return buildChartEvidenceBundle(selectedQualitySnapshot, timeframe);
-  }, [selectedQualitySnapshot, timeframe]);
+  // Realtime SMC Scenarios V14.4
+  const { scenarios: smcScenarios, summaryVi: smcScenarioSummaryVi } = useSMCScenarios('XAUUSDT');
+
+  // One selection owner for chart evidence (scenario / setup / order): bundle validated against the request.
+  const selectedChart = useSelectedChart();
+  const chartEvidenceBundle = selectedChart.bundle;
+
+  const selectedBinding: ChartBinding | null = useMemo(() => {
+    if (!selectedIntent) return selectedChart.binding;
+    const source: ChartBinding['source'] =
+      selectedIntent.source === 'SCENARIO' ? 'SCENARIO'
+        : selectedIntent.source === 'OPEN_POSITION' ? 'ORDER'
+        : selectedIntent.source === 'DRAFT' ? 'DRAFT'
+        : 'SETUP';
+    const returned = selectedChart.returnedBinding;
+    return {
+      source,
+      id: selectedIntent.setup_id || '',
+      instanceId: selectedIntent.setup_instance_id || null,
+      revision: selectedIntent.revision ?? null,
+      symbol: selectedIntent.symbol || 'XAUUSDT',
+      direction: selectedIntent.direction || null,
+      // Bound from what the SERVER verified, never from the client's own request.
+      planFingerprint: returned?.plan_fingerprint ?? null,
+      snapshotId: returned?.snapshot_id ?? null,
+    };
+  }, [selectedIntent, selectedChart.binding, selectedChart.returnedBinding]);
   const [stalePlanNotice, setStalePlanNotice] = useState<{
     setupId: string;
     oldRevision: number;
@@ -221,6 +287,8 @@ function AppContent() {
 
   // V10.3 Trade Details Drawer State
   const [isDetailsDrawerOpen, setIsDetailsDrawerOpen] = useState(false);
+  // V17.0 Paper Opportunity Monitor Drawer State
+  const [isOpportunityMonitorOpen, setIsOpportunityMonitorOpen] = useState(false);
   // V13.1 Research Tab Plan Drawer State (collapses sidebar on research tab)
   const [isResearchPlanDrawerOpen, setIsResearchPlanDrawerOpen] = useState(false);
   const [drawerSection, setDrawerSection] = useState<DrawerSectionType>('conditions');
@@ -251,7 +319,7 @@ function AppContent() {
   }, [notify]);
 
   // 1. Fetch System Health & Account Status
-  const refreshAccountAndHealth = useCallback(async () => {
+  const refreshAccountAndHealth = useCallback(async (): Promise<{ ok: boolean; reason?: string }> => {
     const seq = ++pollSequenceRef.current;
     try {
       const [healthData, accData, posData, autoData, metaData, nyData, policyData] = await Promise.all([
@@ -266,7 +334,7 @@ function AppContent() {
 
       if (seq < pollSequenceRef.current) {
         // Discard stale in-flight response
-        return;
+        return { ok: true };
       }
 
       setHealth(healthData);
@@ -307,54 +375,155 @@ function AppContent() {
       }
       if (posData?.has_active_position) {
         setActivePosition(posData);
-        const p = posData.position;
-        const overlay: RiskRewardData = {
-          id: p.id,
-          direction: p.direction,
-          state: 'paper_open',
-          plannedEntry: p.planned_entry,
-          actualEntry: p.actual_entry || p.planned_entry,
-          stopLoss: p.stop_loss,
-          takeProfit: p.take_profit,
-          quantity: p.quantity,
-          initialRiskUsdt: p.initial_risk_usdt,
-          riskPct: p.risk_pct,
-          grossRR: p.gross_rr,
-          estimatedNetRR: p.estimated_net_rr,
-          leverage: p.leverage,
-          marginMode: p.margin_mode,
-          estimatedLiquidation: p.estimated_liquidation,
-        };
-        setActiveOverlay(overlay);
-        setSelectedIntent({
-          source: 'OPEN_POSITION',
-          setup_id: p.setup_id,
-          setup_instance_id: p.setup_instance_id,
-          symbol: p.instrument || 'XAUUSDT',
-          timeframe: p.timeframe || timeframe,
-          direction: p.direction,
-          plannedEntry: p.actual_entry || p.planned_entry,
-          stopLoss: p.stop_loss,
-          takeProfit: p.take_profit,
-          orderType: p.order_type || 'MARKET',
-          quantity: p.quantity,
-          initialRiskUsdt: p.initial_risk_usdt,
-          grossRR: p.gross_rr,
-          estimatedNetRR: p.estimated_net_rr,
-          leverage: p.leverage,
-          marginMode: p.margin_mode,
-          estimatedLiquidation: p.estimated_liquidation,
-          status: 'paper_open',
-          snapshotAt: Date.now(),
-        });
+        // Do not overwrite user's actively selected setup, scenario, or draft on chart
+        const currentSource = selectedIntentRef.current?.source;
+        if (!currentSource || currentSource === 'OPEN_POSITION') {
+          const p = posData.position;
+          const pRr = getOrderRrFields(p);
+          const overlay: RiskRewardData = {
+            id: p.id,
+            direction: p.direction,
+            state: 'paper_open',
+            plannedEntry: p.planned_entry,
+            actualEntry: p.actual_entry || p.planned_entry,
+            stopLoss: p.stop_loss,
+            takeProfit: p.take_profit,
+            quantity: p.quantity,
+            initialRiskUsdt: p.initial_risk_usdt,
+            riskPct: p.risk_pct,
+            grossRR: p.gross_rr,
+            estimatedNetRR: p.estimated_net_rr,
+            minNetRR: pRr.minNetRR,
+            rrPolicySource: pRr.rrPolicySource,
+            rrPolicyFingerprint: pRr.rrPolicyFingerprint,
+            rrPolicyStatus: pRr.rrPolicyStatus,
+            rrPolicyReason: pRr.rrPolicyReason,
+            leverage: p.leverage,
+            marginMode: p.margin_mode,
+            estimatedLiquidation: p.estimated_liquidation,
+          };
+          setActiveOverlay(overlay);
+          setSelectedIntent({
+            source: 'OPEN_POSITION',
+            id: p.id,
+            order_id: p.id,
+            setup_id: p.id,
+            setup_instance_id: p.setup_instance_id,
+            symbol: p.instrument || 'XAUUSDT',
+            timeframe: p.timeframe || timeframe,
+            direction: p.direction,
+            plannedEntry: p.actual_entry || p.planned_entry,
+            stopLoss: p.stop_loss,
+            takeProfit: p.take_profit,
+            orderType: p.order_type || 'MARKET',
+            quantity: p.quantity,
+            initialRiskUsdt: p.initial_risk_usdt,
+            grossRR: p.gross_rr,
+            estimatedNetRR: p.estimated_net_rr,
+            minNetRR: pRr.minNetRR,
+            rrPolicySource: pRr.rrPolicySource,
+            rrPolicyFingerprint: pRr.rrPolicyFingerprint,
+            rrPolicyStatus: pRr.rrPolicyStatus,
+            rrPolicyReason: pRr.rrPolicyReason,
+            leverage: p.leverage,
+            marginMode: p.margin_mode,
+            estimatedLiquidation: p.estimated_liquidation,
+            status: 'paper_open',
+            snapshotAt: Date.now(),
+            candidate_score_summary: p.candidate_score_summary || null,
+          });
+        }
       } else {
         setActivePosition(null);
         setSelectedIntent((prev) => (prev?.source === 'OPEN_POSITION' ? null : prev));
       }
-    } catch (err) {
+      return { ok: true };
+    } catch (err: any) {
       console.warn('Health check error:', err);
+      return { ok: false, reason: err?.message || 'Health check error' };
     }
   }, [timeframe]);
+
+  // V16.39.16/17/18/20 Centralized Min Net R:R Settings Hook & Orchestrator
+  const [evaluationSyncStatus, setEvaluationSyncStatus] = useState<'IDLE' | 'PENDING' | 'READY' | 'ERROR'>('IDLE');
+  const [evaluationSyncError, setEvaluationSyncError] = useState<string | null>(null);
+
+  const onRrPolicySavedRef = useRef<((saved: RrPolicySaved) => void | Promise<void>) | null>(null);
+  const rrPolicy = useRrPolicySettings({
+    onSaveSuccess: (saved) => {
+      return onRrPolicySavedRef.current?.(saved);
+    },
+  });
+
+  const currentPolicyContext: CurrentPolicyContext = useMemo(() => {
+    // 1. Policy read/verification error: context is explicitly ERROR (non-authoritative for new orders)
+    if (rrPolicy.policyReadStatus === 'ERROR') {
+      return {
+        value: rrPolicy.saved.value, // keep lastKnown if present for reference
+        source: rrPolicy.saved.source || 'SYSTEM_CONFIG',
+        fingerprint: rrPolicy.saved.fingerprint,
+        status: 'ERROR',
+        isConfirmed: false,
+        policyReadStatus: 'ERROR',
+        errorOrigin: 'READ',
+        readError: rrPolicy.readError,
+      };
+    }
+
+    // 2. Confirmed saved policy from owner hook
+    if (
+      rrPolicy.saved.isConfirmed &&
+      rrPolicy.saved.value != null &&
+      Number.isFinite(rrPolicy.saved.value) &&
+      rrPolicy.saved.value >= 1.2
+    ) {
+      return {
+        value: rrPolicy.saved.value,
+        source: rrPolicy.saved.source || 'SYSTEM_CONFIG',
+        fingerprint: rrPolicy.saved.fingerprint,
+        status: 'READY',
+        isConfirmed: true,
+        policyReadStatus: 'READY',
+      };
+    }
+
+    // 3. Fallback to tradingPolicy if verified
+    if (
+      tradingPolicy?.effective_min_net_rr != null &&
+      Number.isFinite(tradingPolicy.effective_min_net_rr) &&
+      tradingPolicy.effective_min_net_rr >= 1.2
+    ) {
+      return {
+        value: tradingPolicy.effective_min_net_rr,
+        source: tradingPolicy.rr_policy_source || 'SYSTEM_CONFIG',
+        fingerprint: tradingPolicy.rr_policy_fingerprint,
+        status: 'READY',
+        isConfirmed: true,
+        policyReadStatus: 'READY',
+      };
+    }
+
+    // 4. Loading or unconfirmed
+    return {
+      value: null,
+      source: 'UNCONFIRMED',
+      status: rrPolicy.policyReadStatus === 'LOADING' || rrPolicy.status === 'loading' ? 'LOADING' : 'UNCONFIRMED',
+      isConfirmed: false,
+      policyReadStatus: rrPolicy.policyReadStatus || 'UNCONFIRMED',
+    };
+  }, [rrPolicy.saved, rrPolicy.status, rrPolicy.policyReadStatus, rrPolicy.readError, tradingPolicy]);
+
+  const currentEffectiveMinNetRR: number | null = currentPolicyContext.value;
+
+  const handleOpenRrSettings = useCallback(() => {
+    setActiveTab('paper');
+    setTimeout(() => {
+      document.getElementById('rr-policy-settings-card')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 60);
+  }, []);
 
   const handleToggleAutoPaper = async () => {
     const nextState = !autoPaperActive;
@@ -387,8 +556,8 @@ function AppContent() {
       // Only update candidate overlay if there's no open position AND user hasn't selected a watch setup or draft!
       if (!activePosition && analysisData?.active_signal) {
         setSelectedIntent((prev) => {
-          // If user actively selected a watch setup or draft, DO NOT OVERWRITE!
-          if (prev && (prev.source === 'WATCH_SETUP' || prev.source === 'DRAFT')) {
+          // If user actively selected a watch setup, scenario, or draft, DO NOT OVERWRITE!
+          if (prev && (prev.source === 'WATCH_SETUP' || prev.source === 'DRAFT' || prev.source === 'SCENARIO')) {
             return prev;
           }
           const sig = analysisData.active_signal;
@@ -436,18 +605,22 @@ function AppContent() {
           };
         });
       }
-    } catch (err) {
+      return { ok: true };
+    } catch (err: any) {
       console.warn('SMC analysis error:', err);
+      return { ok: false, reason: err?.message || 'SMC analysis error' };
     }
   }, [timeframe, activePosition, leverage, marginMode]);
 
   // 3. Fetch Upcoming Setups
-  const refreshUpcoming = useCallback(async () => {
+  const refreshUpcoming = useCallback(async (): Promise<{ ok: boolean; reason?: string }> => {
     try {
       const data = await api.getUpcomingSetups();
       setUpcomingData(data);
-    } catch (err) {
+      return { ok: true };
+    } catch (err: any) {
       console.warn('Upcoming setups fetch error:', err);
+      return { ok: false, reason: err?.message || 'Upcoming setups fetch error' };
     }
   }, []);
 
@@ -467,6 +640,108 @@ function AppContent() {
       refreshUpcoming();
     }, 300);
   }, [refreshUpcoming]);
+
+  // V16.39.17 Centralized Post-Save Orchestrator (Phần 041, 042, 071)
+  const handleRrPolicySaved = useCallback(
+    async (savedContext: any) => {
+      // 1. Update local tradingPolicy state immediately so all panels see the new effective RR
+      setTradingPolicy((prev: any) =>
+        prev
+          ? {
+              ...prev,
+              min_net_rr: savedContext.value,
+              effective_min_net_rr: savedContext.value,
+              rr_policy_source: savedContext.source,
+              rr_policy_fingerprint: savedContext.fingerprint,
+            }
+          : prev
+      );
+
+      const currentEquity = accountStatus?.current_equity ?? 1000;
+
+      // 2. Rebase active draft overlay if one exists on chart
+      setActiveOverlay((prevOverlay: any) => {
+        if (prevOverlay && prevOverlay.state === 'draft') {
+          return rebaseDraftRrPolicy(prevOverlay, savedContext, {
+            accountEquity: currentEquity,
+            riskPct,
+            leverage,
+            marginMode,
+          });
+        }
+        return prevOverlay;
+      });
+
+      // 3. Rebase selected trade intent if it is a draft
+      setSelectedIntent((prevIntent: any) => {
+        if (prevIntent && prevIntent.source === 'DRAFT') {
+          return rebaseTradeIntentRrPolicy(prevIntent, savedContext, {
+            accountEquity: currentEquity,
+            riskPct,
+            leverage,
+            marginMode,
+          });
+        }
+        return prevIntent;
+      });
+
+      // 4. Concurrently refresh all dependents (account, upcoming setups, and analysis)
+      setEvaluationSyncStatus('PENDING');
+      setEvaluationSyncError(null);
+      const results = await Promise.allSettled([
+        refreshAccountAndHealth(),
+        refreshUpcoming(),
+        refreshAnalysis(),
+      ]);
+
+      const failedItem = results.find(
+        (item) => item.status === 'rejected' || (item.status === 'fulfilled' && !item.value?.ok)
+      );
+
+      if (failedItem) {
+        const reason =
+          failedItem.status === 'rejected'
+            ? String((failedItem as PromiseRejectedResult).reason)
+            : (failedItem as PromiseFulfilledResult<{ ok: boolean; reason?: string }>).value.reason || 'Một phần đánh giá chưa cập nhật';
+        setEvaluationSyncStatus('ERROR');
+        setEvaluationSyncError(reason);
+      } else {
+        setEvaluationSyncStatus('READY');
+        setEvaluationSyncError(null);
+      }
+    },
+    [accountStatus?.current_equity, riskPct, leverage, marginMode, refreshAccountAndHealth, refreshUpcoming, refreshAnalysis]
+  );
+
+  const handleRetrySync = useCallback(async () => {
+    setEvaluationSyncStatus('PENDING');
+    setEvaluationSyncError(null);
+    const results = await Promise.allSettled([
+      refreshAccountAndHealth(),
+      refreshUpcoming(),
+      refreshAnalysis(),
+    ]);
+
+    const failedItem = results.find(
+      (item) => item.status === 'rejected' || (item.status === 'fulfilled' && !item.value?.ok)
+    );
+
+    if (failedItem) {
+      const reason =
+        failedItem.status === 'rejected'
+          ? String((failedItem as PromiseRejectedResult).reason)
+          : (failedItem as PromiseFulfilledResult<{ ok: boolean; reason?: string }>).value.reason || 'Một phần đánh giá chưa cập nhật';
+      setEvaluationSyncStatus('ERROR');
+      setEvaluationSyncError(reason);
+    } else {
+      setEvaluationSyncStatus('READY');
+      setEvaluationSyncError(null);
+    }
+  }, [refreshAccountAndHealth, refreshUpcoming, refreshAnalysis]);
+
+  useEffect(() => {
+    onRrPolicySavedRef.current = handleRrPolicySaved;
+  }, [handleRrPolicySaved]);
 
   // Register semantic actions handler from notifications
   useEffect(() => {
@@ -617,6 +892,11 @@ function AppContent() {
 
   // Action Handlers
   const handleFollowLatestSignal = () => {
+    ++qualityGenRef.current;
+    qualityAbortControllerRef.current?.abort();
+    setSelectedQualitySnapshot(null);
+    setSelectedQualityLoading(false);
+    setSelectedQualityError(null);
     if (analysis?.active_signal) {
       const sig = analysis.active_signal;
       const targetPrice = sig.targets?.[0]?.price ?? sig.take_profit;
@@ -861,91 +1141,89 @@ function AppContent() {
     }
   };
 
-  const handleFocusSetupOnChart = (setup: any) => {
-    setTimeframe(setup.timeframe || '15M');
+  const handleSelectScenarioOnChart = (sc: SMCScenarioView) => {
     setActiveTab('chart');
-    const entry = setup.confirmed_entry || setup.provisional_entry;
-    const sl = setup.confirmed_sl || setup.provisional_sl;
-    const tp = setup.confirmed_tp || setup.provisional_tp;
+    setEvidenceMode('SELECTED');
+    ++qualityGenRef.current;
+    qualityAbortControllerRef.current?.abort();
+    setSelectedQualitySnapshot(null);
+    setSelectedQualityLoading(false);
+    setSelectedQualityError(null);
 
-    const currentCapital = accountStatus?.current_equity ?? 1000.0;
-    const effectiveRiskPct = riskPct ?? 0.25;
+    // Canonical ScenarioPlan keys (planned_entry / net_risk_usdt ...). A plan that is not valid is not drawn.
+    const plan = sc.payload?.plan;
+    const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
+    const hasPlan = Boolean(plan && plan.is_valid !== false && finite(plan.planned_entry) && finite(plan.stop_loss) && finite(plan.take_profit));
+    const direction: 'LONG' | 'SHORT' | null = sc.direction === 'LONG' || sc.direction === 'SHORT' ? sc.direction : null;
 
-    let grossRR = 0.0;
-    let netRR = 0.0;
-    let isValid = true;
-    let invalidReason: string | undefined = undefined;
-    let initialRiskUsdt = setup.risk_usdt || 2.5;
-    let grossRewardUsdt: number | undefined = undefined;
-    let grossLossUsdt: number | undefined = undefined;
-    let netRewardUsdt: number | undefined = undefined;
-    let calcQty = setup.quantity || 0.05;
-    let entryFeeUsdt = 0;
-    let slExitFeeUsdt = 0;
-    let tpExitFeeUsdt = 0;
-    let entrySlippageUsdt = 0;
-    let slExitSlippageUsdt = 0;
-    let tpExitSlippageUsdt = 0;
-    let multiplier = 1.0;
+    // An observation without a direction has no trade intent (nothing to arm); its binding comes from the
+    // chart-evidence owner so the header can still show it as QUAN SÁT.
+    setSelectedIntent(direction === null ? null : {
+      source: 'SCENARIO',
+      setup_id: sc.scenario_id,
+      setup_instance_id: sc.instance_id,
+      revision: sc.revision,
+      symbol: sc.symbol,
+      timeframe: sc.timeframe,
+      direction: direction as 'LONG' | 'SHORT',
+      plannedEntry: hasPlan ? plan.planned_entry : 0,
+      stopLoss: hasPlan ? plan.stop_loss : 0,
+      takeProfit: hasPlan ? plan.take_profit : undefined,
+      orderType: 'LIMIT',
+      quantity: hasPlan ? plan.quantity : undefined,
+      initialRiskUsdt: hasPlan ? plan.net_risk_usdt : undefined,
+      grossRR: hasPlan ? plan.gross_rr : 0,
+      estimatedNetRR: hasPlan ? plan.net_rr : 0,
+      leverage: leverage,
+      marginMode: marginMode,
+      status: sc.state,
+      snapshotAt: sc.as_of_ms,
+      quality_status: sc.state === 'STRUCTURE_CONFIRMED' ? 'SATISFIED' : 'PARTIAL',
+    });
 
-    if (entry && sl && tp) {
-      const calc = calculateClientRiskReward(
-        setup.direction,
-        entry,
-        sl,
-        tp,
-        currentCapital,
-        effectiveRiskPct,
-        2.0,
-        setup.quantity || 0.05,
-        setup.leverage || leverage,
-        setup.margin_mode || marginMode
-      );
-      isValid = calc.isValid;
-      invalidReason = calc.invalidReason;
-      if (calc.isValid) {
-        grossRR = calc.grossRR;
-        netRR = calc.estimatedNetRR;
-        initialRiskUsdt = calc.netRiskUsdt;
-        grossRewardUsdt = calc.grossRewardUsdt;
-        grossLossUsdt = calc.grossLossUsdt;
-        netRewardUsdt = calc.netRewardUsdt;
-        calcQty = calc.quantity;
-        entryFeeUsdt = calc.entryFeeUsdt;
-        slExitFeeUsdt = calc.slExitFeeUsdt;
-        tpExitFeeUsdt = calc.tpExitFeeUsdt;
-        entrySlippageUsdt = calc.entrySlippageUsdt;
-        slExitSlippageUsdt = calc.slExitSlippageUsdt;
-        tpExitSlippageUsdt = calc.tpExitSlippageUsdt;
-        multiplier = calc.multiplier;
-      } else {
-        grossRR = 0;
-        netRR = 0;
-      }
+    if (hasPlan && direction) {
+      setActiveOverlay({
+        id: sc.scenario_id,
+        direction,
+        state: 'candidate', // an observation is NOT a draft: read-only until the user copies it into a DRAFT
+        readOnly: true,
+        plannedEntry: plan.planned_entry,
+        stopLoss: plan.stop_loss,
+        takeProfit: plan.take_profit,
+        quantity: plan.quantity,
+        initialRiskUsdt: plan.net_risk_usdt,
+        riskPct: riskPct,
+        grossRR: plan.gross_rr,
+        estimatedNetRR: plan.net_rr,
+      });
+    } else {
+      setActiveOverlay(null);
     }
 
-    const overlay: RiskRewardData = {
-      id: setup.id,
-      direction: setup.direction,
-      state: setup.state === 'READY' || setup.state === 'ARMED' ? 'candidate' : 'draft',
-      plannedEntry: entry,
-      stopLoss: sl,
-      takeProfit: tp,
-      quantity: calcQty,
-      initialRiskUsdt: initialRiskUsdt,
-      grossRewardUsdt: grossRewardUsdt,
-      grossLossUsdt: grossLossUsdt,
-      netRewardUsdt: netRewardUsdt,
-      multiplier: multiplier,
-      riskPct: effectiveRiskPct,
-      grossRR: grossRR,
-      estimatedNetRR: netRR,
-      isValid: isValid,
-      invalidReason: invalidReason,
-      leverage: setup.leverage || leverage,
-      marginMode: setup.margin_mode || marginMode,
-      estimatedLiquidation: setup.estimated_liquidation,
-    };
+    // Show the scenario on its own model timeframe so the evidence lines up with real bars.
+    if (typeof sc.timeframe === 'string' && sc.timeframe) setTimeframe(sc.timeframe);
+    // Typed chart adapter of exactly this scenario snapshot (not the raw snapshot payload).
+    selectedChart.selectContext(createScenarioSelection({ ...sc, payload: sc.payload }));
+
+    setFocusRequest({ nonce: Date.now(), targetTime: sc.as_of_ms, mode: 'SELECTION' });
+  };
+
+  const handleFocusSetupOnChart = (setup: any) => {
+    const resolution = getCanonicalSetupPlan(setup);
+    if (!resolution.isValid) {
+      showToast('Không thể hiển thị kế hoạch', resolution.reason, 'warn');
+      return;
+    }
+    setTimeframe(setup.timeframe || '15M');
+    setActiveTab('chart');
+    setEvidenceMode('SELECTED');
+    ++qualityGenRef.current;
+    qualityAbortControllerRef.current?.abort();
+    setSelectedQualitySnapshot(null);
+    setSelectedQualityLoading(false);
+    setSelectedQualityError(null);
+
+    const overlay = planToOverlay(setup, resolution, { isDraft: false });
     setActiveOverlay(overlay);
     setSelectedIntent({
       source: 'WATCH_SETUP',
@@ -954,39 +1232,46 @@ function AppContent() {
       revision: setup.version || 1,
       symbol: 'XAUUSDT',
       timeframe: setup.timeframe || '15M',
-      direction: setup.direction,
-      plannedEntry: entry,
-      stopLoss: sl,
-      takeProfit: tp,
+      direction: overlay.direction,
+      plannedEntry: overlay.plannedEntry,
+      stopLoss: overlay.stopLoss,
+      takeProfit: overlay.takeProfit,
       orderType: setup.state === 'READY' ? 'MARKET' : 'LIMIT',
-      quantity: calcQty,
-      initialRiskUsdt: initialRiskUsdt,
-      grossRewardUsdt: grossRewardUsdt,
-      grossLossUsdt: grossLossUsdt,
-      netRewardUsdt: netRewardUsdt,
-      multiplier: multiplier,
-      entryFeeUsdt: entryFeeUsdt,
-      slExitFeeUsdt: slExitFeeUsdt,
-      tpExitFeeUsdt: tpExitFeeUsdt,
-      entrySlippageUsdt: entrySlippageUsdt,
-      slExitSlippageUsdt: slExitSlippageUsdt,
-      tpExitSlippageUsdt: tpExitSlippageUsdt,
-      grossRR: grossRR,
-      estimatedNetRR: netRR,
-      leverage: setup.leverage || leverage,
-      marginMode: setup.margin_mode || marginMode,
-      estimatedLiquidation: setup.estimated_liquidation,
+      quantity: overlay.quantity,
+      initialRiskUsdt: overlay.initialRiskUsdt,
+      grossRewardUsdt: overlay.grossRewardUsdt,
+      grossLossUsdt: overlay.grossLossUsdt,
+      netRewardUsdt: overlay.netRewardUsdt,
+      multiplier: overlay.multiplier || 1.0,
+      entryFeeUsdt: overlay.entryFeeUsdt,
+      slExitFeeUsdt: overlay.slExitFeeUsdt,
+      tpExitFeeUsdt: overlay.tpExitFeeUsdt,
+      entrySlippageUsdt: overlay.entrySlippageUsdt,
+      slExitSlippageUsdt: overlay.slExitSlippageUsdt,
+      tpExitSlippageUsdt: overlay.tpExitSlippageUsdt,
+      grossRR: overlay.grossRR,
+      estimatedNetRR: overlay.estimatedNetRR,
+      minNetRR: overlay.minNetRR,
+      rrPolicySource: overlay.rrPolicySource,
+      rrPolicyFingerprint: overlay.rrPolicyFingerprint,
+      leverage: overlay.leverage || leverage,
+      marginMode: overlay.marginMode || marginMode,
+      estimatedLiquidation: overlay.estimatedLiquidation,
       status: setup.state,
       invalidationReason: setup.invalidation_reason,
       eligibility: setup.eligibility,
+      plan_kind: setup.eligibility?.plan_kind,
+      plan_fingerprint: setup.eligibility?.plan_fingerprint ?? null,
+      risk_config_version: setup.eligibility?.risk_config_version ?? null,
       conditions_met: setup.conditions_met,
       conditions_remaining: setup.conditions_remaining,
       distance_to_entry_usdt: setup.distance_to_entry_usdt,
       distance_to_entry_atr: setup.distance_to_entry_atr,
       snapshotAt: Date.now(),
-      quality_status: setup.quality_summary?.quality_status || (setup.quality_snapshot_id ? undefined : 'NOT_ASSESSED'),
+      quality_status: setup.quality_summary?.status || (setup.quality_snapshot_id ? undefined : 'NOT_ASSESSED'),
       quality_snapshot_id: setup.quality_snapshot_id,
       quality_summary: setup.quality_summary,
+      candidate_score_summary: setup.candidate_score_summary || null,
     });
 
     // V14 Generation-scoped Quality Snapshot Fetch (Prevents Race Conditions)
@@ -1018,7 +1303,11 @@ function AppContent() {
       setSelectedQualityError(err?.message || 'Chưa thể tải đánh giá chất lượng');
     });
 
-    setFocusRequest({ nonce: Date.now() });
+    // Chart evidence: exact identity (id + instance + revision), verified server-side. The guard's eligibility
+    // fingerprint is a different hash and is intentionally not part of this request.
+    selectedChart.selectContext(createSetupSelection(setup, null));
+    setFocusRequest({ nonce: Date.now(), targetTime: setup.signal_time || setup.created_at, mode: 'SELECTION' });
+    setActiveTab('chart');
 
     showToast(
       `Đã Chọn Setup ${setup.direction}`,
@@ -1028,78 +1317,61 @@ function AppContent() {
   };
 
   const handleCopySetupToDraft = (setup: any) => {
+    const resolution = getCanonicalSetupPlan(setup);
+    if (!resolution.isValid) {
+      showToast('Không thể hiển thị kế hoạch', resolution.reason, 'warn');
+      return;
+    }
     setTimeframe(setup.timeframe || '15M');
     setActiveTab('chart');
-    const entry = setup.confirmed_entry || setup.provisional_entry;
-    const sl = setup.confirmed_sl || setup.provisional_sl;
-    const tp = setup.confirmed_tp || setup.provisional_tp;
+    selectedChart.clearSelection(); // a draft copy never inherits certified evidence
+    ++qualityGenRef.current;
+    qualityAbortControllerRef.current?.abort();
+    setSelectedQualitySnapshot(null);
+    setSelectedQualityLoading(false);
+    setSelectedQualityError(null);
     const draftId = `draft-${Date.now()}`;
-    const currentCapital = accountStatus?.current_equity ?? 1000.0;
-    const effectiveRiskPct = riskPct ?? 0.25;
+    const overlay = planToOverlay(setup, resolution, { isDraft: true, draftId });
+    const draftMinNetRR = currentEffectiveMinNetRR;
+    const draftRrSource = rrPolicy.saved.source || 'SYSTEM_CONFIG';
+    const draftRrFingerprint = rrPolicy.saved.fingerprint;
 
-    const calc = calculateClientRiskReward(
-      setup.direction,
-      entry,
-      sl,
-      tp,
-      currentCapital,
-      effectiveRiskPct,
-      2.0,
-      setup.quantity || 0.05,
-      setup.leverage || leverage,
-      setup.margin_mode || marginMode
+    const overlayWithRr: RiskRewardData = rebaseDraftRrPolicy(
+      { ...overlay, id: draftId },
+      { value: draftMinNetRR, source: draftRrSource, fingerprint: draftRrFingerprint },
+      { accountEquity: accountStatus?.current_equity ?? 1000, riskPct, leverage, marginMode }
     );
-
-    const overlay: RiskRewardData = {
-      id: draftId,
-      direction: setup.direction,
-      state: 'draft',
-      plannedEntry: entry,
-      stopLoss: sl,
-      takeProfit: tp,
-      quantity: calc.isValid ? calc.quantity : (setup.quantity || 0.05),
-      initialRiskUsdt: calc.isValid ? calc.netRiskUsdt : (setup.risk_usdt || 2.5),
-      grossRewardUsdt: calc.isValid ? calc.grossRewardUsdt : undefined,
-      grossLossUsdt: calc.isValid ? calc.grossLossUsdt : undefined,
-      netRewardUsdt: calc.isValid ? calc.netRewardUsdt : undefined,
-      multiplier: calc.multiplier,
-      riskPct: effectiveRiskPct,
-      grossRR: calc.isValid ? calc.grossRR : 0,
-      estimatedNetRR: calc.isValid ? calc.estimatedNetRR : 0,
-      isValid: calc.isValid,
-      invalidReason: calc.invalidReason,
-      leverage: setup.leverage || leverage,
-      marginMode: setup.margin_mode || marginMode,
-      estimatedLiquidation: calc.isValid ? calc.estimatedLiquidation : setup.estimated_liquidation,
-    };
-    setActiveOverlay(overlay);
+    setActiveOverlay(overlayWithRr);
     setSelectedIntent({
       source: 'DRAFT',
       setup_id: draftId,
       symbol: 'XAUUSDT',
       timeframe: setup.timeframe || '15M',
-      direction: setup.direction,
-      plannedEntry: entry,
-      stopLoss: sl,
-      takeProfit: tp,
+      direction: overlayWithRr.direction,
+      plannedEntry: overlayWithRr.plannedEntry,
+      stopLoss: overlayWithRr.stopLoss,
+      takeProfit: overlayWithRr.takeProfit,
       orderType: 'LIMIT',
-      quantity: calc.isValid ? calc.quantity : (setup.quantity || 0.05),
-      initialRiskUsdt: calc.isValid ? calc.netRiskUsdt : (setup.risk_usdt || 2.5),
-      grossRewardUsdt: calc.isValid ? calc.grossRewardUsdt : undefined,
-      grossLossUsdt: calc.isValid ? calc.grossLossUsdt : undefined,
-      netRewardUsdt: calc.isValid ? calc.netRewardUsdt : undefined,
-      multiplier: calc.multiplier,
-      entryFeeUsdt: calc.entryFeeUsdt,
-      slExitFeeUsdt: calc.slExitFeeUsdt,
-      tpExitFeeUsdt: calc.tpExitFeeUsdt,
-      entrySlippageUsdt: calc.entrySlippageUsdt,
-      slExitSlippageUsdt: calc.slExitSlippageUsdt,
-      tpExitSlippageUsdt: calc.tpExitSlippageUsdt,
-      grossRR: calc.isValid ? calc.grossRR : 0,
-      estimatedNetRR: calc.isValid ? calc.estimatedNetRR : 0,
-      leverage: setup.leverage || leverage,
-      marginMode: setup.margin_mode || marginMode,
-      estimatedLiquidation: calc.isValid ? calc.estimatedLiquidation : setup.estimated_liquidation,
+      quantity: overlayWithRr.quantity,
+      initialRiskUsdt: overlayWithRr.initialRiskUsdt,
+      grossRewardUsdt: overlayWithRr.grossRewardUsdt,
+      grossLossUsdt: overlayWithRr.grossLossUsdt,
+      netRewardUsdt: overlayWithRr.netRewardUsdt,
+      multiplier: overlayWithRr.multiplier || 1.0,
+      entryFeeUsdt: overlayWithRr.entryFeeUsdt,
+      slExitFeeUsdt: overlayWithRr.slExitFeeUsdt,
+      tpExitFeeUsdt: overlayWithRr.tpExitFeeUsdt,
+      entrySlippageUsdt: overlayWithRr.entrySlippageUsdt,
+      slExitSlippageUsdt: overlayWithRr.slExitSlippageUsdt,
+      tpExitSlippageUsdt: overlayWithRr.tpExitSlippageUsdt,
+      grossRR: overlayWithRr.grossRR,
+      estimatedNetRR: overlayWithRr.estimatedNetRR,
+      minNetRR: draftMinNetRR,
+      rrPolicySource: draftRrSource,
+      rrPolicyFingerprint: draftRrFingerprint,
+      leverage: overlayWithRr.leverage || leverage,
+      marginMode: overlayWithRr.marginMode || marginMode,
+      estimatedLiquidation: overlayWithRr.estimatedLiquidation,
       status: 'draft',
       snapshotAt: Date.now(),
     });
@@ -1233,12 +1505,25 @@ function AppContent() {
   };
 
   const handleFocusTradeOnChart = (trade: any) => {
+    ++qualityGenRef.current;
+    qualityAbortControllerRef.current?.abort();
+    setSelectedQualityLoading(false);
     setTimeframe(trade.timeframe || '15M');
     setActiveTab('chart');
+    setEvidenceMode('SELECTED');
+    const tradeEntryTime = trade.opened_at ? Math.floor(trade.opened_at / 1000) : (trade.armed_at ? Math.floor(trade.armed_at / 1000) : (trade.created_at ? Math.floor(trade.created_at / 1000) : undefined));
+    const tradeStateLower = String(trade.state || '').toLowerCase();
+    const mappedTradeState: RiskRewardData['state'] =
+      tradeStateLower === 'closed' ? 'closed' :
+      tradeStateLower === 'armed' ? 'armed' :
+      tradeStateLower === 'invalidated' ? 'invalidated' :
+      'paper_open';
+    const tradeRr = getOrderRrFields(trade);
     const overlay: RiskRewardData = {
       id: trade.id,
       direction: trade.direction,
-      state: trade.state,
+      state: mappedTradeState,
+      readOnly: true,
       plannedEntry: trade.planned_entry,
       actualEntry: trade.actual_entry,
       stopLoss: trade.stop_loss,
@@ -1248,15 +1533,23 @@ function AppContent() {
       riskPct: trade.risk_pct,
       grossRR: trade.gross_rr,
       estimatedNetRR: trade.estimated_net_rr,
+      minNetRR: tradeRr.minNetRR,
+      rrPolicySource: tradeRr.rrPolicySource,
+      rrPolicyFingerprint: tradeRr.rrPolicyFingerprint,
+      rrPolicyStatus: tradeRr.rrPolicyStatus,
+      rrPolicyReason: tradeRr.rrPolicyReason,
       realizedPnlNet: trade.realized_pnl_net,
       realizedR: trade.realized_r,
       leverage: trade.leverage || leverage,
       marginMode: trade.margin_mode || marginMode,
       estimatedLiquidation: trade.estimated_liquidation,
+      entryTime: tradeEntryTime,
     };
     setActiveOverlay(overlay);
     setSelectedIntent({
       source: 'OPEN_POSITION',
+      id: trade.id,
+      order_id: trade.id,
       setup_id: trade.id,
       symbol: 'XAUUSDT',
       timeframe: trade.timeframe || '15M',
@@ -1269,16 +1562,28 @@ function AppContent() {
       initialRiskUsdt: trade.initial_risk_usdt,
       grossRR: trade.gross_rr || 0,
       estimatedNetRR: trade.estimated_net_rr || 0,
+      minNetRR: tradeRr.minNetRR,
+      rrPolicySource: tradeRr.rrPolicySource,
+      rrPolicyFingerprint: tradeRr.rrPolicyFingerprint,
+      rrPolicyStatus: tradeRr.rrPolicyStatus,
+      rrPolicyReason: tradeRr.rrPolicyReason,
       leverage: trade.leverage || leverage,
       marginMode: trade.margin_mode || marginMode,
       estimatedLiquidation: trade.estimated_liquidation,
       status: trade.state,
       snapshotAt: Date.now(),
       quality_status: trade.quality_snapshot_id ? undefined : 'NOT_ASSESSED',
+      candidate_score_summary: trade.candidate_score_summary || null,
     });
 
     setSelectedQualitySnapshot(null);
     setSelectedQualityError(null);
+
+    // Chart evidence: the endpoint returns the whole bundle at the top level, frozen at arm time.
+    // One selection owner (useSelectedChart) validates it against this order before anything is drawn.
+    if (trade.id) selectedChart.selectContext(createOrderSelection(trade));
+
+    // The quality panel (drawer) reads its own table by its own id; it never feeds the chart.
     if (trade.quality_snapshot_id) {
       const gen = ++qualityGenRef.current;
       setSelectedQualityLoading(true);
@@ -1292,7 +1597,7 @@ function AppContent() {
       });
     }
 
-    setFocusRequest({ nonce: Date.now() });
+    setFocusRequest({ nonce: Date.now(), targetTime: trade.opened_at || trade.created_at, mode: 'SELECTION' });
   };
 
   // News CSV Import & Research Modal states
@@ -1467,13 +1772,36 @@ function AppContent() {
         onFocusSetupOnChart={handleFocusSetupOnChart}
         onRefreshUpcoming={refreshUpcoming}
         nySession={nySession}
-        policy={tradingPolicy}
+        currentPolicyContext={currentPolicyContext}
+        policy={tradingPolicy ? {
+          ...tradingPolicy,
+          min_net_rr: currentEffectiveMinNetRR,
+          effective_min_net_rr: currentEffectiveMinNetRR,
+          rr_policy_source: rrPolicy.saved.source,
+          rr_policy_fingerprint: rrPolicy.saved.fingerprint,
+        } : null}
+        appliedMinNetRR={currentEffectiveMinNetRR}
         leverage={leverage}
         marginMode={marginMode}
         analysis={analysis}
         selectedQualitySnapshot={selectedQualitySnapshot}
         selectedQualityLoading={selectedQualityLoading}
         selectedQualityError={selectedQualityError}
+        selectedRawBundle={selectedChart.rawBundle}
+        selectedBinding={selectedChart.binding}
+        selectedReturnedBinding={selectedChart.returnedBinding}
+        selectedEvidenceLoading={selectedChart.isLoading}
+        selectedEvidenceError={selectedChart.error}
+      />
+
+      {/* V17.0 Paper Opportunity Monitor Drawer */}
+      <PaperOpportunityMonitorDrawer
+        open={isOpportunityMonitorOpen}
+        onClose={() => setIsOpportunityMonitorOpen(false)}
+        symbol="XAUUSDT"
+        initialScope="CG01"
+        onFocusSetupOnChart={handleFocusSetupOnChart}
+        onFocusTradeOnChart={handleFocusTradeOnChart}
       />
 
       {/* 1. Global Header Bar */}
@@ -1482,7 +1810,7 @@ function AppContent() {
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-aurum-500 animate-pulse" />
             <h1 className="text-lg font-bold text-aurum-400 tracking-wider">
-              AURUM DESK <span className="text-xs font-mono text-gray-400">v4.0</span>
+              AURUM DESK <span className="text-xs font-mono text-aurum-400 font-bold bg-charcoal-800 px-1.5 py-0.5 rounded border border-charcoal-700">V17.6</span>
             </h1>
             <span className="text-[10px] uppercase font-semibold tracking-wider bg-charcoal-800 text-gray-400 px-2 py-0.5 rounded border border-charcoal-700">
               BITGET XAUUSDT PERPETUAL · PAPER TRADING
@@ -1523,11 +1851,11 @@ function AppContent() {
             <span>Auto Paper: {autoPaperActive ? 'BẬT' : 'TẠM DỪNG'}</span>
           </button>
 
-          <div className="flex items-center gap-1.5 bg-charcoal-850 px-2.5 py-1 rounded border border-charcoal-700">
-            <Activity className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="flex items-center gap-1.5 bg-charcoal-850 px-2.5 py-1 rounded border border-charcoal-700" title={health?.data_freshness_sec != null ? `Báo giá nhận cách đây ${health.data_freshness_sec}s` : 'Chưa có báo giá'}>
+            <Activity className={`w-3.5 h-3.5 ${health?.feed_connected ? 'text-emerald-400' : 'text-rose-400'}`} />
             <span className="text-gray-400">Feed:</span>
             <span className={health?.feed_connected ? 'text-emerald-400 font-medium' : 'text-rose-400'}>
-              {health?.feed_connected ? `Live (${health.data_freshness_sec}s)` : 'Mất kết nối'}
+              {health?.feed_connected ? (health.data_freshness_sec != null ? `Live (${health.data_freshness_sec}s)` : 'Live') : 'Mất kết nối'}
             </span>
           </div>
 
@@ -1574,6 +1902,7 @@ function AppContent() {
         {[
           { id: 'chart', label: 'Chart & Vị Thế R:R', icon: TrendingUp },
           { id: 'upcoming', label: 'Kế Hoạch & Lệnh Dự Kiến', icon: ListOrdered },
+          { id: 'observation', label: 'Quan Sát Bot (Telemetry)', icon: Eye },
           { id: 'smc', label: 'Phân Tích SMC & Ma Trận', icon: Layers },
           { id: 'paper', label: 'Quản Trị Vốn & Ký Quỹ', icon: ShieldAlert },
           { id: 'lab', label: 'Phòng Kiểm Thử Rủi Ro', icon: FlaskConical },
@@ -1588,6 +1917,7 @@ function AppContent() {
           return (
             <button
               key={tab.id}
+              data-tab-id={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-1.5 px-3 py-2.5 font-medium border-b-2 transition whitespace-nowrap ${
                 isActive
@@ -1610,16 +1940,21 @@ function AppContent() {
       {/* V7 BẢNG PHIÊN MỸ & MỤC TIÊU PAPER */}
       <NYSessionPanel
         nySession={nySession}
-        policy={tradingPolicy}
+        policy={tradingPolicy ? {
+          ...tradingPolicy,
+          min_net_rr: currentEffectiveMinNetRR,
+          effective_min_net_rr: currentEffectiveMinNetRR,
+        } : null}
+        appliedMinNetRR={currentEffectiveMinNetRR}
         autoPaperActive={autoPaperActive}
         onRefresh={refreshAccountAndHealth}
         onOpenSessionDrawer={() => handleOpenDrawer('session')}
       />
 
       {/* 3. Main Workspace Content */}
-      <main className="flex-1 min-h-0 p-3 flex flex-col lg:flex-row gap-3 overflow-hidden">
+      <main className="flex-1 min-h-0 p-3 flex flex-col lg:flex-row gap-3 overflow-y-auto lg:overflow-hidden">
         {/* Left Area: Interactive Chart or Full Tab Pages */}
-        <div className="flex-1 min-w-0 min-h-0 flex flex-col h-full overflow-hidden">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col h-[80dvh] min-h-[480px] shrink-0 lg:shrink lg:h-full lg:min-h-0 overflow-hidden">
           {activeTab === 'chart' && (
             <div className="flex-1 min-h-0 flex flex-col h-full">
               <ChartComponent
@@ -1631,11 +1966,28 @@ function AppContent() {
                 marginMode={marginMode}
                 rvolData={rvolData}
                 activeOverlay={activeOverlay}
+                effectiveMinNetRR={currentEffectiveMinNetRR}
+                rrPolicySource={rrPolicy.saved.source}
+                rrPolicyFingerprint={rrPolicy.saved.fingerprint}
                 onOverlayChange={(updated) => {
-                  setActiveOverlay(updated);
                   if (updated) {
-                    const isReadOnly = selectedIntentRef.current?.source === 'OPEN_POSITION';
-                    if (isReadOnly) return;
+                    if (selectedIntentRef.current?.source === 'OPEN_POSITION' || updated.readOnly) return;
+                    selectedChart.clearSelection(); // an edited DRAFT never inherits certified evidence
+                    ++qualityGenRef.current;
+                    qualityAbortControllerRef.current?.abort();
+                    setSelectedQualitySnapshot(null);
+                    setSelectedQualityLoading(false);
+                    setSelectedQualityError(null);
+                    const updatedMinNetRR = updated.state === 'draft' ? currentEffectiveMinNetRR : (updated.minNetRR ?? currentEffectiveMinNetRR);
+                    const updatedRrSource = updated.state === 'draft' ? (rrPolicy.saved.source || 'SYSTEM_CONFIG') : (updated.rrPolicySource ?? rrPolicy.saved.source);
+                    const updatedRrFingerprint = updated.state === 'draft' ? rrPolicy.saved.fingerprint : (updated.rrPolicyFingerprint ?? rrPolicy.saved.fingerprint);
+                    setActiveOverlay({
+                      ...updated,
+                      state: 'draft',
+                      minNetRR: updatedMinNetRR,
+                      rrPolicySource: updatedRrSource,
+                      rrPolicyFingerprint: updatedRrFingerprint,
+                    });
 
                     setSelectedIntent((prev) => ({
                       source: 'DRAFT',
@@ -1651,17 +2003,27 @@ function AppContent() {
                       orderType: 'LIMIT',
                       quantity: updated.quantity,
                       initialRiskUsdt: updated.initialRiskUsdt,
+                      grossLossUsdt: updated.grossLossUsdt,
+                      grossRewardUsdt: updated.grossRewardUsdt,
+                      netRewardUsdt: updated.netRewardUsdt,
+                      multiplier: updated.multiplier,
                       grossRR: updated.grossRR,
                       estimatedNetRR: updated.estimatedNetRR,
+                      minNetRR: updatedMinNetRR,
+                      rrPolicySource: updatedRrSource,
+                      rrPolicyFingerprint: updatedRrFingerprint,
                       leverage: updated.leverage || leverage,
                       marginMode: updated.marginMode || marginMode,
                       estimatedLiquidation: updated.estimatedLiquidation,
                       status: 'draft',
                       snapshotAt: Date.now(),
-                      quality_status: 'PARTIAL',
+                      quality_status: 'NOT_ASSESSED',
                     }));
 
                     if (updated.plannedEntry > 0 && updated.stopLoss > 0 && updated.takeProfit && updated.takeProfit > 0) {
+                      const previewGeneration = qualityGenRef.current;
+                      const previewController = new AbortController();
+                      qualityAbortControllerRef.current = previewController;
                       api.previewSetupQuality({
                         symbol: 'XAUUSDT',
                         timeframe: timeframe,
@@ -1672,9 +2034,15 @@ function AppContent() {
                         quantity: updated.quantity,
                         leverage: updated.leverage || leverage,
                         margin_mode: updated.marginMode || marginMode,
-                      }).then((res: any) => {
-                        if (res && res.snapshot) {
-                          setSelectedQualitySnapshot(res.snapshot);
+                      }, { signal: previewController.signal }).then((res: any) => {
+                        if (previewController.signal.aborted || previewGeneration !== qualityGenRef.current) return;
+                        // Preview has no immutable snapshot. Never reuse server evidence for edited prices.
+                        if (res?.assessment && selectedIntentRef.current?.source === 'DRAFT') {
+                          setSelectedIntent(prev => prev?.source === 'DRAFT' ? {
+                            ...prev, quality_status: 'NOT_ASSESSED',
+                            quality_summary: { status: 'NOT_ASSESSED', required_met: 0, required_total: 0,
+                              headline_vi: 'Bản nháp đã đổi giá; bằng chứng SMC cần được đánh giá lại' },
+                          } : prev);
                         }
                       }).catch(() => {});
                     }
@@ -1690,9 +2058,22 @@ function AppContent() {
                   structureEvents: analysis?.structure_events || [],
                 }}
                 selectedEvidence={chartEvidenceBundle}
+                selectedRawBundle={selectedChart.rawBundle}
+                selectedLoading={selectedChart.isLoading}
+                selectedError={selectedChart.error}
+                selectedCandidateScore={selectedIntent?.candidate_score_summary || null}
                 evidenceMode={evidenceMode}
                 focusRequest={focusRequest}
                 onEvidenceModeChange={setEvidenceMode}
+                selectedBinding={selectedBinding}
+                selectedSummaryVi={chartEvidenceBundle?.summaryVi || (selectedQualitySnapshot as any)?.summary_vi || smcScenarioSummaryVi}
+                onClearSelection={() => {
+                  selectedChart.clearSelection();
+                  setSelectedIntent(null);
+                  setActiveOverlay(null);
+                  setSelectedQualitySnapshot(null);
+                }}
+                onOpenSelectionDetails={() => handleOpenDrawer('quality')}
               />
             </div>
           )}
@@ -1771,7 +2152,7 @@ function AppContent() {
                       </span>
                     </div>
                     <p className="text-gray-300 text-[11px] leading-relaxed">
-                      {upcomingData.scenarios?.no_trade?.condition || 'Cửa sổ Blackout tin tức USD High Impact, thị trường chop hoặc Net R:R < 2.0.'}
+                      {upcomingData.scenarios?.no_trade?.condition || `Cửa sổ Blackout tin tức USD High Impact, thị trường chop hoặc Net R:R < ${currentEffectiveMinNetRR != null ? currentEffectiveMinNetRR.toFixed(1) : '2.0'}.`}
                     </p>
                     <div className="text-[10px] text-gray-400 mt-auto pt-2 border-t border-charcoal-750 space-y-1">
                       <p className="text-amber-300/90"><span className="text-gray-300 font-medium">Hành động:</span> {upcomingData.scenarios?.no_trade?.action || 'Không mở lệnh. Giữ nguyên vốn và quota 3 lệnh.'}</p>
@@ -1813,6 +2194,7 @@ function AppContent() {
                     {filteredSetups.map((s) => (
                       <div
                         key={s.id}
+                        data-setup-id={s.id}
                         className={`p-4 rounded-lg border text-xs flex flex-col gap-3 transition ${
                           s.state === 'READY'
                             ? 'bg-emerald-950/20 border-emerald-500/50 shadow-emerald-950/30'
@@ -1839,6 +2221,14 @@ function AppContent() {
                           </div>
 
                           <div className="flex items-center gap-2">
+                            <CandidateScoreBadge
+                              summary={s.candidate_score_summary}
+                              labelPrefix={s.state === 'ARMED' ? 'Điểm lúc ARM' : 'Điểm đánh giá'}
+                              onOpenDetails={() => {
+                                handleFocusSetupOnChart(s);
+                                handleOpenDrawer('quality');
+                              }}
+                            />
                             <span
                               className={`px-2.5 py-0.5 rounded font-bold text-[11px] font-mono tracking-wider ${
                                 s.state === 'READY'
@@ -1856,39 +2246,105 @@ function AppContent() {
                         </div>
 
                         {/* Mid row: Planned Levels, R:R, Distance */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-charcoal-900/60 p-2.5 rounded border border-charcoal-750">
-                          <div>
-                            <span className="text-gray-400 text-[10px] block">Entry (Dự kiến):</span>
-                            <span className="font-bold text-gray-200 text-sm">
-                              ${s.confirmed_entry || s.provisional_entry || 'Chưa xác định'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400 text-[10px] block">Stop Loss (SL):</span>
-                            <span className="font-bold text-rose-400 text-sm">
-                              ${s.confirmed_sl || s.provisional_sl || 'Chưa xác định'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400 text-[10px] block">Take Profit (TP):</span>
-                            <span className="font-bold text-emerald-400 text-sm">
-                              ${s.confirmed_tp || s.provisional_tp || 'Chưa xác định'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-400 text-[10px] block">Net R:R & Kích thước:</span>
-                            <span
-                              className={`font-bold text-sm ${
-                                s.net_rr >= 2.0 ? 'text-emerald-400' : 'text-amber-400'
-                              }`}
-                            >
-                              1:{s.net_rr?.toFixed(2) || '2.00'} Net
-                            </span>
-                            <span className="text-gray-400 text-[10px] block">
-                              {s.quantity || 0.05} oz (${s.risk_usdt || 2.5} Risk)
-                            </span>
-                          </div>
-                        </div>
+                        {(() => {
+                          const displayPlan = s.resolved_display_plan ?? (() => {
+                            const res = resolveSetupPriceLevels(s);
+                            if (res.isValid) {
+                              return {
+                                status: s.state,
+                                is_valid: true,
+                                reason_code: 'PLAN_VALID',
+                                reason_message: '',
+                                direction: res.plan.direction,
+                                level_source: res.plan.levelSource,
+                                entry: res.plan.entry,
+                                stop_loss: res.plan.stopLoss,
+                                take_profit: res.plan.takeProfit,
+                                financial: (s.net_rr != null && s.net_rr > 0 && s.quantity != null && s.quantity > 0)
+                                  ? {
+                                      net_rr: s.net_rr,
+                                      quantity: s.quantity,
+                                      net_risk_usdt: s.risk_usdt ?? 0,
+                                      min_net_rr: s.min_net_rr ?? currentEffectiveMinNetRR,
+                                      meets_min_rr: s.net_rr >= (s.min_net_rr ?? currentEffectiveMinNetRR)
+                                    }
+                                  : null
+                              };
+                            }
+                            return {
+                              status: 'INVALID_GEOMETRY',
+                              is_valid: false,
+                              reason_code: 'INVALID_GEOMETRY',
+                              reason_message: res.reason,
+                              direction: s.direction,
+                              level_source: 'invalid',
+                              entry: s.confirmed_entry ?? s.provisional_entry ?? null,
+                              stop_loss: s.confirmed_sl ?? s.provisional_sl ?? null,
+                              take_profit: null,
+                              financial: null
+                            };
+                          })();
+
+                          return (
+                            <>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-charcoal-900/60 p-2.5 rounded border border-charcoal-750">
+                                <div>
+                                  <span className="text-gray-400 text-[10px] block">Entry (Dự kiến):</span>
+                                  <span className="font-bold text-gray-200 text-sm">
+                                    {displayPlan.entry != null ? `$${displayPlan.entry.toFixed(2)}` : 'Chưa xác định'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-400 text-[10px] block">Stop Loss (SL):</span>
+                                  <span className="font-bold text-rose-400 text-sm">
+                                    {displayPlan.stop_loss != null ? `$${displayPlan.stop_loss.toFixed(2)}` : 'Chưa xác định'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-400 text-[10px] block">Take Profit (TP):</span>
+                                  <span
+                                    className={`font-bold text-sm ${
+                                      displayPlan.take_profit != null ? 'text-emerald-400' : 'text-amber-400'
+                                    }`}
+                                  >
+                                    {displayPlan.take_profit != null
+                                      ? `$${displayPlan.take_profit.toFixed(2)}`
+                                      : (displayPlan.is_valid ? 'Chưa xác định' : 'Chưa có kế hoạch hợp lệ')}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-gray-400 text-[10px] block">Net R:R & Kích thước:</span>
+                                  {displayPlan.financial ? (
+                                    <>
+                                      <span
+                                        className={`font-bold text-sm ${
+                                          displayPlan.financial.meets_min_rr !== false &&
+                                          displayPlan.financial.net_rr >= (displayPlan.financial.min_net_rr ?? currentEffectiveMinNetRR)
+                                            ? 'text-emerald-400'
+                                            : 'text-amber-400'
+                                        }`}
+                                      >
+                                        1:{displayPlan.financial.net_rr.toFixed(2)} Net
+                                      </span>
+                                      <span className="text-gray-400 text-[10px] block">
+                                        {displayPlan.financial.quantity.toFixed(2)} oz (${displayPlan.financial.net_risk_usdt.toFixed(2)} Risk)
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="text-amber-400 text-xs block font-semibold mt-1">
+                                      Chưa có kế hoạch hợp lệ
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {!displayPlan.is_valid && (
+                                <div className="text-[11px] text-amber-400 mt-1 font-mono">
+                                  ⚠️ {displayPlan.reason_message || 'TP chưa hợp lệ; chưa thể thực thi'}
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
 
                         {/* Distance to zone & Estimated Liquidation */}
                         <div className="flex flex-wrap justify-between items-center gap-3 text-[11px] text-gray-400">
@@ -1985,6 +2441,7 @@ function AppContent() {
                         <div className="flex flex-wrap justify-between items-center gap-2 pt-2 border-t border-charcoal-750">
                           <div className="flex gap-2">
                             <button
+                              data-testid="focus-setup-chart"
                               onClick={() => handleFocusSetupOnChart(s)}
                               className="flex items-center gap-1 px-3 py-1.5 bg-charcoal-800 hover:bg-charcoal-750 text-gray-200 rounded text-xs border border-charcoal-700 transition"
                             >
@@ -1992,6 +2449,7 @@ function AppContent() {
                               <span>Xem Trên Chart</span>
                             </button>
                             <button
+                              data-testid="copy-setup-to-draft"
                               onClick={() => handleCopySetupToDraft(s)}
                               className="flex items-center gap-1 px-3 py-1.5 bg-charcoal-800 hover:bg-charcoal-750 text-gray-200 rounded text-xs border border-charcoal-700 transition"
                             >
@@ -2053,6 +2511,20 @@ function AppContent() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* TAB: QUAN SÁT BOT & TRÍ TUỆ QUYẾT ĐỊNH (V17.6) */}
+          {activeTab === 'observation' && (
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <ObservationDashboard
+                symbol="XAUUSDT"
+                scope="CG01"
+                autoPaperActive={autoPaperActive}
+                onToggleAutoPaper={handleToggleAutoPaper}
+                onFocusSetupOnChart={handleFocusSetupOnChart}
+                onFocusTradeOnChart={handleFocusTradeOnChart}
+              />
             </div>
           )}
 
@@ -2206,7 +2678,7 @@ function AppContent() {
                 <div className="bg-charcoal-850 p-3 rounded border border-charcoal-700">
                   <span className="text-gray-400 block">Vốn Hiện Tại (Equity)</span>
                   <span className="text-lg font-bold text-emerald-400">
-                    ${accountStatus?.current_equity?.toFixed(2) || '1,000.00'}
+                    {accountStatus?.current_equity != null ? `$${accountStatus.current_equity.toFixed(2)}` : 'N/A'}
                   </span>
                 </div>
                 <div className="bg-charcoal-850 p-3 rounded border border-charcoal-700">
@@ -2219,16 +2691,16 @@ function AppContent() {
                   <span className="text-gray-400 block">PnL Realized Hôm Nay</span>
                   <span
                     className={`text-lg font-bold ${
-                      accountStatus?.realized_pnl_today >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                      (accountStatus?.realized_pnl_today ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
                     }`}
                   >
-                    ${accountStatus?.realized_pnl_today?.toFixed(2) || '0.00'}
+                    {accountStatus?.realized_pnl_today != null ? `$${accountStatus.realized_pnl_today.toFixed(2)}` : 'N/A'}
                   </span>
                 </div>
                 <div className="bg-charcoal-850 p-3 rounded border border-charcoal-700">
                   <span className="text-gray-400 block">Giới Hạn Lỗ Ngày (1.5%)</span>
                   <span className="text-lg font-bold text-rose-400">
-                    ${accountStatus?.daily_loss_limit_usdt?.toFixed(2) || '15.00'}
+                    {accountStatus?.daily_loss_limit_usdt != null ? `$${accountStatus.daily_loss_limit_usdt.toFixed(2)}` : 'N/A'}
                   </span>
                 </div>
               </div>
@@ -2476,6 +2948,33 @@ function AppContent() {
                   </div>
                 );
               })()}
+
+              {/* V16.39.16 Centralized Min Net R:R Settings Card */}
+              <RrPolicySettingsCard
+                id="rr-policy-settings-card"
+                saved={rrPolicy.saved}
+                draftText={rrPolicy.draftText}
+                status={rrPolicy.status}
+                error={rrPolicy.error}
+                isDirty={rrPolicy.isDirty}
+                successMessage={rrPolicy.successMessage}
+                policyReadStatus={rrPolicy.policyReadStatus}
+                errorOrigin={rrPolicy.errorOrigin}
+                readError={rrPolicy.readError}
+                saveError={rrPolicy.saveError}
+                evaluationSyncStatus={evaluationSyncStatus}
+                evaluationSyncError={evaluationSyncError}
+                onDraftChange={rrPolicy.setDraftText}
+                onSelectPreset={rrPolicy.setPreset}
+                onSave={rrPolicy.save}
+                onReset={rrPolicy.resetDraft}
+                onRetry={rrPolicy.refresh}
+                onRetryRead={rrPolicy.refresh}
+                onRetrySync={handleRetrySync}
+              />
+
+              {/* V17.5 Stop Placement Policy Settings Card */}
+              <StopPlacementSettings />
 
               {/* Liquidation safety rules */}
               <div className="p-3.5 bg-charcoal-850 rounded-lg border border-charcoal-700 text-xs space-y-2">
@@ -2989,6 +3488,12 @@ function AppContent() {
                   <QuickDecisionSidebar
                     selectedIntent={selectedIntent}
                     activePosition={activePosition}
+                    appliedMinNetRR={currentPolicyContext.value ?? undefined}
+                    rrPolicySource={currentPolicyContext.source}
+                    rrPolicyFingerprint={currentPolicyContext.fingerprint}
+                    rrPolicyStatus={currentPolicyContext.status}
+                    isRrPolicyConfirmed={currentPolicyContext.isConfirmed}
+                    onOpenRrSettings={handleOpenRrSettings}
                     hasArmedOrder={Boolean(
                       (accountStatus && (accountStatus.armed_orders_count ?? 0) > 0) ||
                       (upcomingData?.setups && upcomingData.setups.some((s: any) => s.state === 'ARMED'))
@@ -2996,6 +3501,7 @@ function AppContent() {
                     upcomingSetups={upcomingData?.setups || []}
                     stalePlanNotice={stalePlanNotice}
                     onClearStalePlanNotice={() => setStalePlanNotice(null)}
+                    onOpenOpportunityMonitor={() => setIsOpportunityMonitorOpen(true)}
                     onFocusSetupOnChart={handleFocusSetupOnChart}
                     onArmSetup={handleArmWatchSetup}
                     onCancelSetup={handleCancelWatchSetup}
@@ -3014,16 +3520,25 @@ function AppContent() {
                     selectedQualityLoading={selectedQualityLoading}
                     selectedQualityError={selectedQualityError}
                     onFocusOnChart={() => setFocusRequest({ nonce: Date.now() })}
+                    scenarios={smcScenarios}
+                    onSelectScenario={handleSelectScenarioOnChart}
+                    onFocusTradeOnChart={handleFocusTradeOnChart}
                   />
                 </div>
               </div>
             </div>
           )
         ) : (
-          <div className="w-full lg:w-[360px] xl:w-[380px] shrink-0 h-full flex flex-col min-h-0">
+          <div className="w-full lg:w-[360px] xl:w-[380px] shrink-0 lg:h-full min-h-[480px] lg:min-h-0 flex flex-col">
             <QuickDecisionSidebar
               selectedIntent={selectedIntent}
               activePosition={activePosition}
+              appliedMinNetRR={currentPolicyContext.value ?? undefined}
+              rrPolicySource={currentPolicyContext.source}
+              rrPolicyFingerprint={currentPolicyContext.fingerprint}
+              rrPolicyStatus={currentPolicyContext.status}
+              isRrPolicyConfirmed={currentPolicyContext.isConfirmed}
+              onOpenRrSettings={handleOpenRrSettings}
               hasArmedOrder={Boolean(
                 (accountStatus && (accountStatus.armed_orders_count ?? 0) > 0) ||
                 (upcomingData?.setups && upcomingData.setups.some((s: any) => s.state === 'ARMED'))
@@ -3031,7 +3546,9 @@ function AppContent() {
               upcomingSetups={upcomingData?.setups || []}
               stalePlanNotice={stalePlanNotice}
               onClearStalePlanNotice={() => setStalePlanNotice(null)}
+              onOpenOpportunityMonitor={() => setIsOpportunityMonitorOpen(true)}
               onFocusSetupOnChart={handleFocusSetupOnChart}
+              onFocusTradeOnChart={handleFocusTradeOnChart}
               onArmSetup={handleArmWatchSetup}
               onCancelSetup={handleCancelWatchSetup}
               onClosePosition={() => {
@@ -3045,6 +3562,8 @@ function AppContent() {
               analysis={analysis}
               leverage={leverage}
               marginMode={marginMode}
+              scenarios={smcScenarios}
+              onSelectScenario={handleSelectScenarioOnChart}
             />
           </div>
         )}

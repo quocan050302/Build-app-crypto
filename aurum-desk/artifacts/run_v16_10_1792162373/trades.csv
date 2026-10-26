@@ -1,0 +1,2 @@
+trade_id,direction,entry_time,entry_price,exit_time,exit_price,quantity,net_pnl_usd,exit_cause,intrabar_ambiguous
+ord_demo_guarded_fill,LONG,1792071945000,100.0,OPEN,OPEN,0.49,UNREALIZED,OPEN,False

@@ -26,6 +26,85 @@ def escape_markdown(text: Any) -> str:
     return s
 
 
+
+def _fmt_price(val: Any, prefix: str = "$", suffix: str = "") -> str:
+    """Format a price value safely. Returns 'Chưa xác định' for None/NaN/Inf/0 sentinel."""
+    import math as _math
+    if val is None:
+        return "Chưa xác định"
+    try:
+        f = float(val)
+    except (TypeError, ValueError):
+        return "Chưa xác định"
+    if not _math.isfinite(f):
+        return "Chưa xác định"
+    return f"{prefix}{f:.2f}{suffix}"
+
+
+def _fmt_rr(val: Any) -> str:
+    """Format a net R:R value safely. Returns 'Chưa xác định' for None/NaN/Inf."""
+    import math as _math
+    if val is None:
+        return "Chưa xác định"
+    try:
+        f = float(val)
+    except (TypeError, ValueError):
+        return "Chưa xác định"
+    if not _math.isfinite(f) or f <= 0:
+        return "Chưa xác định"
+    return f"1:{f:.2f}"
+
+
+def _normalize_direction(direction_val: Any) -> str:
+    """Rules 054 - 055: Canonical direction normalization (BULLISH <-> LONG, BEARISH <-> SHORT)."""
+    if not direction_val or not isinstance(direction_val, str):
+        return "Chưa xác định"
+    d = direction_val.strip().upper()
+    if d in ("LONG", "BULLISH"):
+        return "LONG"
+    if d in ("SHORT", "BEARISH"):
+        return "SHORT"
+    return "Chưa xác định"
+
+
+def _has_valid_plan(data: dict) -> bool:
+    """
+    Rule 059: Return True if data contains a real executable plan with geometrically valid entry, SL, and TP.
+    Does NOT accept positive numbers alone if geometry is broken.
+    """
+    import math as _math
+    sl = data.get("stop_loss")
+    tp = data.get("take_profit")
+    entry = data.get("planned_entry") or data.get("entry_target") or data.get("reference_price")
+    raw_dir = data.get("direction")
+    direction = _normalize_direction(raw_dir)
+    if direction not in ("LONG", "SHORT"):
+        return False
+
+    for v in (sl, tp, entry):
+        if v is None:
+            return False
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return False
+        if not _math.isfinite(f) or f <= 0:
+            return False
+
+    f_sl = float(sl)
+    f_tp = float(tp)
+    f_entry = float(entry)
+
+    if direction == "LONG":
+        if not (f_sl < f_entry < f_tp):
+            return False
+    elif direction == "SHORT":
+        if not (f_tp < f_entry < f_sl):
+            return False
+
+    return True
+
+
 def get_formatted_time(epoch_ms: Optional[int], timezone_str: str = "Asia/Ho_Chi_Minh") -> str:
     """Format epoch milliseconds to Vietnam local time string."""
     try:
@@ -66,37 +145,101 @@ def format_telegram_message(
     event_time_vn = get_formatted_time(occurred_at, timezone_str)
 
     if item_type == "NEAR_ENTRY":
-        direction = data.get("direction", "Chưa có dữ liệu")
-        setup_id = escape_markdown(data.get("setup_instance_id") or data.get("setup_id", "N/A"))
-        ref_side = data.get("executable_side", "ASK" if direction == "LONG" else "BID")
+        raw_dir = data.get("direction")
+        direction = _normalize_direction(raw_dir)
+        setup_id = escape_markdown(str(data.get("setup_instance_id") or data.get("setup_id", "N/A")))
+
+        # Rules 054, 055: Price basis & executable side distinction
+        price_basis = str(data.get("price_basis", "")).upper()
+        if price_basis == "MID":
+            ref_side_label = "Giá MID"
+        else:
+            ref_side = data.get("executable_side")
+            if not ref_side:
+                if direction == "LONG":
+                    ref_side = "ASK"
+                elif direction == "SHORT":
+                    ref_side = "BID"
+                else:
+                    ref_side = "MID"
+            ref_side_label = f"Khớp theo {ref_side}" if ref_side in ("ASK", "BID") else "Giá tham chiếu"
+
         ref_p = data.get("reference_price", 0.0)
         z_low = data.get("entry_zone_low", 0.0)
         z_high = data.get("entry_zone_high", 0.0)
         target = data.get("entry_target", 0.0)
-        dist_price = data.get("distance_price", 0.0)
-        dist_atr = data.get("distance_atr", 0.0)
-        atr = data.get("atr", 0.0)
-        sl = data.get("stop_loss", 0.0)
-        tp = data.get("take_profit", 0.0)
-        net_rr = data.get("net_rr", 0.0)
-        risk = data.get("risk_usdt", 0.0)
+        dist_price = data.get("distance_price")
+        dist_atr_raw = data.get("distance_atr")
+        atr_raw = data.get("atr", 0.0)
+        atr_effective = data.get("atr_effective_floor_used", False)
         auto_str = "Đang BẬT" if data.get("auto_paper_enabled") else "Đang TẮT"
+
+        # Distance formatting: label effective-ATR if a floor was applied; 0.00 is inside zone
+        if dist_price is not None:
+            try:
+                import math as _math
+                _dp = float(dist_price)
+                if not _math.isfinite(_dp):
+                    dist_price_str = "Chưa xác định"
+                elif _dp == 0.0:
+                    dist_price_str = "0.00 USDT (Đang trong vùng)"
+                else:
+                    dist_price_str = f"{_fmt_price(_dp)} USDT"
+            except (TypeError, ValueError):
+                dist_price_str = "Chưa xác định"
+        else:
+            dist_price_str = "Chưa xác định"
+
+        if dist_atr_raw is not None:
+            try:
+                import math as _math
+                _da = float(dist_atr_raw)
+                if not _math.isfinite(_da):
+                    dist_atr_str = "Chưa xác định"
+                else:
+                    dist_atr_str = f"{_da:.2f} ATR{'*' if atr_effective else ''}"
+            except (TypeError, ValueError):
+                dist_atr_str = "Chưa xác định"
+        else:
+            dist_atr_str = "Chưa xác định"
+
+        atr_label = _fmt_price(atr_raw) + ("*" if atr_effective else "")
 
         cond_met = data.get("conditions_met", [])
         cond_rem = data.get("conditions_remaining", [])
-        met_str = "\n".join([f"  ✓ {escape_markdown(c)}" for c in cond_met[:3]]) if cond_met else "  ✓ Đang theo dõi cấu trúc"
-        rem_str = "\n".join([f"  ⏳ {escape_markdown(c)}" for c in cond_rem[:2]]) if cond_rem else "  ⏳ Chờ nến xác nhận chạm vùng"
+        # Rule 054, 060: Real conditions & reasons
+        met_str = "\n".join([f"  ✓ {escape_markdown(c)}" for c in cond_met[:3]]) if cond_met else "  (Chưa có dữ liệu xác nhận trigger cho vùng này)"
+        rem_str = "\n".join([f"  ⏳ {escape_markdown(c)}" for c in cond_rem[:2]]) if cond_rem else "  (Đang chờ trigger)"
+
+        # Rule 050/059/076: Zone-only vs plan-with-SL/TP
+        if _has_valid_plan(data):
+            sl_str = _fmt_price(data.get("stop_loss"))
+            tp_str = _fmt_price(data.get("take_profit"))
+            rr_str = _fmt_rr(data.get("net_rr"))
+            min_rr_val = data.get("min_net_rr")
+            min_rr_str = f" (Min: {_fmt_rr(min_rr_val)})" if min_rr_val else ""
+            risk_raw = data.get("risk_usdt")
+            risk_str = _fmt_price(risk_raw, prefix="$", suffix=" USDT") if risk_raw is not None else "Chưa xác định"
+            model_name = escape_markdown(str(data.get("model") or data.get("model_id") or "CG-01"))
+            plan_lines = (
+                f"• *Mô hình:* `{model_name}`\n"
+                f"• *SL dự kiến:* `{sl_str}` | *TP dự kiến:* `{tp_str}`\n"
+                f"• *Net R:R:* `{rr_str}`{min_rr_str} | *Rủi ro tài khoản:* `{risk_str}`\n"
+            )
+        else:
+            plan_lines = (
+                "• *SL/TP:* Chưa xác định — đây là vùng theo dõi, chưa có kế hoạch thực thi.\n"
+            )
 
         return (
             f"🔔 *AURUM DESK — SẮP TIẾP CẬN VÙNG ENTRY (PAPER)*\n\n"
             f"• *Kế hoạch:* {direction} XAUUSDT\n"
             f"• *Setup Instance:* `{setup_id}`\n"
-            f"• *Giá tham chiếu:* `${ref_p:.2f}` (Khớp theo {ref_side})\n"
-            f"• *Vùng Entry:* `${z_low:.2f} — ${z_high:.2f}` (Mục tiêu: `${target:.2f}`)\n"
-            f"• *Khoảng cách tới vùng:* `${dist_price:.2f} USDT` (`{dist_atr:.2f} ATR`)\n"
-            f"• *ATR 15M xác nhận:* `${atr:.2f}`\n"
-            f"• *SL dự kiến:* `${sl:.2f}` | *TP dự kiến:* `${tp:.2f}`\n"
-            f"• *Net R:R:* `1:{net_rr:.2f}` | *Rủi ro tài khoản:* `${risk:.2f} USDT`\n"
+            f"• *Giá tham chiếu:* `{_fmt_price(ref_p)}` ({ref_side_label})\n"
+            f"• *Vùng Entry:* `{_fmt_price(z_low)} — {_fmt_price(z_high)}` (Mục tiêu: `{_fmt_price(target)}`)\n"
+            f"• *Khoảng cách tới vùng:* `{dist_price_str}` (`{dist_atr_str}`)\n"
+            f"• *ATR 15M:* `{atr_label}`\n"
+            f"{plan_lines}"
             f"• *Điều kiện đã đạt:*\n{met_str}\n"
             f"• *Điều kiện còn thiếu:*\n{rem_str}\n"
             f"• *Auto Paper:* {auto_str}\n"
@@ -124,6 +267,27 @@ def format_telegram_message(
             f"• *Net R:R:* `1:{net_rr:.2f}` | *Rủi ro:* `${risk:.2f} USDT`\n"
             f"• *Vùng POI:* {poi}\n"
             f"• *Trạng thái:* Đã đủ chuỗi xác nhận SMC. Sẵn sàng Arm lệnh Paper.\n\n"
+            f"⏱ _{event_time_vn} (UTC+7)_"
+        )
+
+    elif item_type in ("TRIGGER_CONFIRMED", "SCALP_TRIGGER"):
+        model_id = escape_markdown(data.get("model_id", "SMC_M1_SCALP"))
+        mode_label = escape_markdown(data.get("mode", "PAPER"))
+        direction = data.get("direction", "Chưa có dữ liệu")
+        entry = data.get("planned_entry", 0.0)
+        sl = data.get("stop_loss", 0.0)
+        tp = data.get("take_profit", 0.0)
+        net_rr = data.get("net_rr", 0.0)
+        zone_id = escape_markdown(data.get("zone_id", "N/A"))
+
+        return (
+            f"⚡ *AURUM DESK — XÁC NHẬN TRIGGER ({mode_label})*\n\n"
+            f"• *Mô hình:* `{model_id}`\n"
+            f"• *Vùng liên kết:* `{zone_id}`\n"
+            f"• *Hướng:* {direction} XAUUSDT\n"
+            f"• *Entry:* `${entry:.2f}` | *SL:* `${sl:.2f}` | *TP:* `${tp:.2f}`\n"
+            f"• *Net R:R:* `1:{net_rr:.2f}`\n"
+            f"• *Trạng thái:* Đã xác nhận nến M1 đóng phá vỡ cấu trúc và xung lực.\n\n"
             f"⏱ _{event_time_vn} (UTC+7)_"
         )
 
@@ -631,6 +795,37 @@ async def send_telegram_direct(
             error_code="INTERNAL_ERROR",
             error_message=f"Lỗi nội bộ khi gửi tin Telegram: {type(e).__name__}"
         )
+
+
+def queue_telegram_notification(
+    db: Session,
+    item_type: str,
+    data: Dict[str, Any],
+    occurred_at: Optional[int] = None,
+    dedupe_key: Optional[str] = None,
+) -> Optional[models.NotificationOutbox]:
+    """Helper to safely queue telegram notification into NotificationOutbox table."""
+    now_ms = occurred_at or int(time.time() * 1000)
+    tg_cfg = db.query(models.TelegramConfig).first()
+    chat_id = tg_cfg.chat_id if tg_cfg else None
+    dkey = dedupe_key or f"{item_type}_{data.get('setup_id', now_ms)}_{now_ms}"
+    existing = db.query(models.NotificationOutbox).filter(models.NotificationOutbox.dedupe_key == dkey).first()
+    if existing:
+        return existing
+    entry = models.NotificationOutbox(
+        channel="TELEGRAM",
+        recipient=chat_id,
+        message_type=item_type,
+        dedupe_key=dkey,
+        payload=json.dumps({"notif_type": item_type, "data": data, "occurred_at": now_ms}),
+        status="PENDING",
+        priority="STANDARD",
+        created_at=now_ms,
+        occurred_at=now_ms,
+    )
+    db.add(entry)
+    db.flush()
+    return entry
 
 
 async def process_notification_outbox(run_once: bool = False):

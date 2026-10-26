@@ -29,6 +29,9 @@ class VirtualSoakClock(IClock):
     def advance_ms(self, delta_ms: int):
         self._now_ms += delta_ms
 
+    def monotonic_s(self) -> float:
+        return self._now_ms / 1000.0
+
 
 class SoakStabilityTester:
     """

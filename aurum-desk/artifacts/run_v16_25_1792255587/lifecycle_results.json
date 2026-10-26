@@ -1,0 +1,8 @@
+{
+  "long_tp_flow": "test_v16_25_flow_scenario_1_long_tp_with_queue_receipt_ack",
+  "short_sl_flow": "test_v16_25_flow_scenario_2_short_sl_with_queue_receipt_ack",
+  "shadow_observation_flow": "test_v16_25_flow_scenario_3_shadow_candidate_trace_persisted",
+  "auto_off_guard_flow": "test_v16_25_flow_scenario_4_auto_off_guard",
+  "telemetry_retry_failure_isolation": "test_v16_25_flow_scenario_5_telemetry_retry_failure_isolation",
+  "restart_durability_and_exact_query": "test_v16_25_flow_scenario_6_restart_durability_and_exact_query"
+}

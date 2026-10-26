@@ -2,10 +2,14 @@ import time
 import json
 import uuid
 import asyncio
+import math
+import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import List, Optional, Dict, Any
 from contextlib import asynccontextmanager
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query, Body, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,6 +31,7 @@ from services.proximity_service import proximity_service
 from services.trade_lifecycle_service import TradeLifecycleService
 from domain_calculator import calculate_risk_reward
 from services.quote_validator import QuoteValidator
+from services.entry_guard_service import serialize_entry_mutation
 from services.eligibility_service import evaluate_setup_eligibility
 from lab.scenario_runner import ScenarioRunner
 from lab.replay_engine import ReplayEngine
@@ -75,9 +80,65 @@ def reconcile_stuck_orders():
         if count > 0:
             db.commit()
             print(f"Reconciled {count} stuck setups.")
+
+        # V14.4.1+: Reconcile SMC scenarios with their highest immutable snapshot
+        scenarios = db.query(models.SMCScenario).all()
+        scen_count = 0
+        for s in scenarios:
+            max_snap = db.query(models.SMCScenarioSnapshot).filter(
+                models.SMCScenarioSnapshot.scenario_id == s.scenario_id
+            ).order_by(
+                models.SMCScenarioSnapshot.revision.desc(),
+                models.SMCScenarioSnapshot.created_at.desc()
+            ).first()
+            if max_snap and max_snap.revision > s.revision:
+                s.revision = max_snap.revision
+                s.state = max_snap.state
+                s.current_snapshot_id = max_snap.snapshot_id
+                s.instance_id = max_snap.instance_id
+                s.payload = max_snap.payload
+                s.updated_at = max_snap.created_at
+                scen_count += 1
+        if scen_count > 0:
+            db.commit()
+            print(f"Reconciled {scen_count} desynchronized SMC scenarios to latest snapshot.")
     finally:
         db.close()
 
+_LIFESPAN_STARTUP_RESULT: Dict[str, Any] = {}
+_LIFESPAN_SHUTDOWN_RESULT: Dict[str, Any] = {}
+
+
+def get_last_startup_result() -> Dict[str, Any]:
+    """Return the structured result of the most recent lifespan startup sequence."""
+    return dict(_LIFESPAN_STARTUP_RESULT)
+
+
+def get_lifespan_startup_result() -> Dict[str, Any]:
+    """Alias for get_last_startup_result."""
+    return dict(_LIFESPAN_STARTUP_RESULT)
+
+
+def get_last_shutdown_result() -> Dict[str, Any]:
+    """Return the structured result of the most recent lifespan shutdown sequence."""
+    return dict(_LIFESPAN_SHUTDOWN_RESULT)
+
+
+def get_lifespan_shutdown_result() -> Dict[str, Any]:
+    """Alias for get_last_shutdown_result."""
+    return dict(_LIFESPAN_SHUTDOWN_RESULT)
+
+
+def _apply_lifespan_shutdown_status(new_status: str) -> None:
+    """Apply shutdown status adhering to Rule 096 precedence: FAILED > TIMED_OUT > COMPLETED_WITH_LOSS > COMPLETED."""
+    global _LIFESPAN_SHUTDOWN_RESULT
+    precedence = {"FAILED": 4, "TIMED_OUT": 3, "COMPLETED_WITH_LOSS": 2, "COMPLETED": 1}
+    curr_status = _LIFESPAN_SHUTDOWN_RESULT.get("status", "COMPLETED")
+    if precedence.get(new_status, 0) > precedence.get(curr_status, 0):
+        _LIFESPAN_SHUTDOWN_RESULT["status"] = new_status
+
+
+@asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     FastAPI Lifespan:
@@ -86,6 +147,25 @@ async def lifespan(app: FastAPI):
     """
     # 0. Sync broken DB states before starting loops
     reconcile_stuck_orders()
+
+    global _LIFESPAN_STARTUP_RESULT
+    _LIFESPAN_STARTUP_RESULT = {
+        "status": "STARTING",
+        "telemetry_worker_ready": False,
+        "errors": [],
+    }
+
+    # PHẦN 007, 008, 010, 084: Apply runtime contract upgrades (policy session upgrade to ALL_SESSIONS_WITH_NY_RESERVE)
+    db_upgrade = SessionLocal()
+    try:
+        from services.trading_policy_service import apply_runtime_contract_upgrades
+        upgrade_summary = apply_runtime_contract_upgrades(db_upgrade, deployment_scope="XAUUSDT")
+        logger.info(f"Runtime contract upgrade completed: {upgrade_summary}")
+    except Exception as e:
+        logger.error(f"Fatal error during runtime contract upgrade at startup: {e}")
+        raise
+    finally:
+        db_upgrade.close()
 
     # V6.1 Offline Position Recovery: check if any open position needs historical reconciliation
     db_rec = SessionLocal()
@@ -108,6 +188,37 @@ async def lifespan(app: FastAPI):
     # Wire WS quote broadcaster to market_broadcaster
     bitget_ws_service.register_broadcaster(market_broadcaster.broadcast_quote)
 
+    from services.market_reconciliation_service import market_reconciliation_service
+    from services.forward_repair_worker import forward_repair_worker
+    from services.lesson_repair_worker import lesson_repair_worker
+    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+    from services.cg01_scheduler_service import cg01_evaluation_scheduler
+    from services.cg01_projection_worker import cg01_projection_worker
+    from services.cg01_telemetry_service import (
+        run_trace_persistence_worker,
+        start_trace_persistence_worker,
+        stop_trace_persistence_worker,
+        wait_trace_persistence_worker_stopped,
+        get_trace_worker_stop_error,
+        flush_pending_traces,
+        drain_trace_persistence,
+    )
+
+    try:
+        worker_ready = await start_trace_persistence_worker(timeout_s=3.0)
+        if worker_ready:
+            _LIFESPAN_STARTUP_RESULT["status"] = "HEALTHY"
+            _LIFESPAN_STARTUP_RESULT["telemetry_worker_ready"] = True
+        else:
+            logger.warning("Telemetry persistence worker failed ready handshake; operating degraded.")
+            _LIFESPAN_STARTUP_RESULT["status"] = "STARTUP_DEGRADED"
+            _LIFESPAN_STARTUP_RESULT["telemetry_worker_ready"] = False
+    except Exception as we:
+        logger.error(f"Error starting telemetry persistence worker: {we}")
+        _LIFESPAN_STARTUP_RESULT["status"] = "FAILED"
+        _LIFESPAN_STARTUP_RESULT["telemetry_worker_ready"] = False
+        _LIFESPAN_STARTUP_RESULT["errors"].append(str(we))
+
     tasks = [
         asyncio.create_task(bitget_ws_service.run_ws_loop()),
         asyncio.create_task(execution_consumer.run_consumer_loop()),
@@ -117,14 +228,123 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(proximity_service.run_proximity_loop()),
         asyncio.create_task(execution_coordinator.run_coordinator_loop()),
         asyncio.create_task(exit_monitor.run_exit_monitor_loop()),
-        asyncio.create_task(process_notification_outbox())
+        asyncio.create_task(market_reconciliation_service.run_late_reconciliation_loop()),
+        asyncio.create_task(process_notification_outbox()),
+        asyncio.create_task(forward_repair_worker.run_repair_loop()),
+        asyncio.create_task(lesson_repair_worker.run_repair_loop()),
+        asyncio.create_task(scalp_watcher_orchestrator.run_watcher_loop()),
+        asyncio.create_task(cg01_evaluation_scheduler.run()),
+        asyncio.create_task(cg01_projection_worker.run()),
     ]
     yield
-    # Graceful shutdown
+    # Graceful shutdown: orderly stop of worker loops before cancelling (V16.22 / V16.23 / V16.24 Rules 086-100)
+    global _LIFESPAN_SHUTDOWN_RESULT
+    _LIFESPAN_SHUTDOWN_RESULT = {
+        "status": "COMPLETED",
+        "scheduler_drained": True,
+        "telemetry_drain": {},
+        "websocket_drain": {},
+        "worker_stopped": True,
+        "errors": [],
+    }
+
     bitget_ws_service.stop()
+    forward_repair_worker.stop()
+    lesson_repair_worker.stop()
+    scalp_watcher_orchestrator.stop()
+    cg01_evaluation_scheduler.stop()
+
+    sched_ok = False
+    try:
+        sched_ok = await cg01_evaluation_scheduler.wait_evaluations_drained(timeout_s=3.0)
+        if not sched_ok:
+            logger.warning("CG01 evaluation scheduler did not drain all evaluations within timeout.")
+            _LIFESPAN_SHUTDOWN_RESULT["scheduler_drained"] = False
+            _apply_lifespan_shutdown_status("TIMED_OUT")
+    except Exception as se:
+        logger.error(f"Error waiting for scheduler evaluations: {se}")
+        _LIFESPAN_SHUTDOWN_RESULT["errors"].append(str(se))
+        _apply_lifespan_shutdown_status("FAILED")
+
+    cg01_projection_worker.stop()
+
+    drain_res = {}
+    try:
+        drain_res = await drain_trace_persistence(timeout_s=5.0)
+        _LIFESPAN_SHUTDOWN_RESULT["telemetry_drain"] = drain_res
+        d_status = drain_res.get("status", "")
+        if d_status in ("TIMED_OUT", "FAILED", "COMPLETED_WITH_LOSS"):
+            logger.warning(f"Telemetry drain incomplete or degraded on shutdown: status={d_status}, details={drain_res}")
+            _apply_lifespan_shutdown_status(d_status)
+    except Exception as te:
+        logger.error(f"Error draining traces on shutdown: {te}")
+        _LIFESPAN_SHUTDOWN_RESULT["errors"].append(str(te))
+        _apply_lifespan_shutdown_status("FAILED")
+
+    stop_trace_persistence_worker()
+    worker_stopped = False
+    try:
+        worker_stopped = await wait_trace_persistence_worker_stopped(timeout_s=2.0)
+        _LIFESPAN_SHUTDOWN_RESULT["worker_stopped"] = bool(worker_stopped)
+        if not worker_stopped:
+            logger.warning("Telemetry persistence worker did not stop cleanly within timeout.")
+            _apply_lifespan_shutdown_status("TIMED_OUT")
+        stop_err = get_trace_worker_stop_error()
+        if stop_err:
+            _LIFESPAN_SHUTDOWN_RESULT["errors"].append(f"Worker task error: {stop_err}")
+            _apply_lifespan_shutdown_status("FAILED")
+    except Exception as stop_e:
+        logger.error(f"Error waiting for worker stop on shutdown: {stop_e}")
+        _LIFESPAN_SHUTDOWN_RESULT["errors"].append(str(stop_e))
+        _apply_lifespan_shutdown_status("FAILED")
+
+    try:
+        rep_res = await forward_repair_worker.shutdown(timeout_s=5.0)
+        if rep_res and getattr(rep_res, "status", "") == "TIMED_OUT":
+            logger.warning(f"Forward repair worker shutdown timed out: {rep_res}")
+    except Exception as rep_err:
+        logger.error(f"Error during forward repair worker shutdown: {rep_err}")
+    try:
+        l_rep_res = await lesson_repair_worker.shutdown(timeout_s=5.0)
+        if l_rep_res and getattr(l_rep_res, "status", "") == "TIMED_OUT":
+            logger.warning(f"Lesson repair worker shutdown timed out: {l_rep_res}")
+    except Exception as l_rep_err:
+        logger.error(f"Error during lesson repair worker shutdown: {l_rep_err}")
+    try:
+        recon_res = await market_reconciliation_service.shutdown(timeout_s=5.0)
+        if recon_res and recon_res.status == "TIMED_OUT":
+            logger.warning(f"Market reconciliation shutdown timed out: {recon_res}")
+    except Exception as re_err:
+        logger.error(f"Error during market reconciliation shutdown: {re_err}")
+    try:
+        res_ec = await execution_consumer.stop(timeout=2.0)
+        if res_ec and res_ec.get("status") == "TIMED_OUT":
+            logger.warning(f"Execution consumer stop timed out: {res_ec}")
+    except Exception as ce:
+        logger.error(f"Error stopping execution consumer: {ce}")
+    try:
+        res_cw = await candle_cache_service.stop_persistence_worker(timeout=2.0)
+        if res_cw and res_cw.get("status") == "TIMED_OUT":
+            logger.warning(f"Candle persistence worker stop timed out: {res_cw}")
+    except Exception as cwe:
+        logger.error(f"Error stopping candle persistence worker: {cwe}")
     for t in tasks:
         t.cancel()
     await asyncio.gather(*tasks, return_exceptions=True)
+
+    try:
+        event_bus.begin_dispatch_shutdown()
+        ws_drain = await event_bus.drain_websocket_broadcasts(timeout_s=3.0)
+        _LIFESPAN_SHUTDOWN_RESULT["websocket_drain"] = ws_drain
+        if ws_drain.get("status") == "TIMED_OUT":
+            logger.warning(f"WebSocket broadcast drain timed out on shutdown: {ws_drain}")
+            _apply_lifespan_shutdown_status("TIMED_OUT")
+    except Exception as dwe:
+        logger.error(f"Error draining websocket broadcasts on shutdown: {dwe}")
+        _LIFESPAN_SHUTDOWN_RESULT["errors"].append(str(dwe))
+        _apply_lifespan_shutdown_status("FAILED")
+    finally:
+        event_bus.unbind_main_loop()
 
 app = FastAPI(
     title="Aurum Desk API",
@@ -268,10 +488,24 @@ def get_candles_endpoint(
     symbol: str = "XAUUSDT",
     timeframe: str = "15M",
     limit: int = Query(150, ge=10, le=300),
+    start_ms: Optional[int] = Query(None, gt=0),
+    end_ms: Optional[int] = Query(None, gt=0),
     db: Session = Depends(get_db)
 ):
     from services.candle_cache_service import candle_cache_service
     now_ms = int(time.time() * 1000)
+    if (start_ms is None) != (end_ms is None):
+        raise HTTPException(status_code=422, detail="START_AND_END_REQUIRED_TOGETHER")
+    if start_ms is not None and end_ms is not None:
+        # Historical selection window: bounded DB read, independent from the live cache.
+        if end_ms < start_ms or end_ms > now_ms + 86_400_000:
+            raise HTTPException(status_code=422, detail="INVALID_WINDOW")
+        window_rows = crud.get_candles_in_range(db, symbol, timeframe, start_ms, end_ms, limit=500)
+        window_models = [schemas.Candle.model_validate(c) for c in window_rows]
+        window_last = window_models[-1].timestamp if window_models else None
+        return schemas.CandleListResponse(
+            symbol=symbol, timeframe=timeframe, candles=window_models, count=len(window_models),
+            is_stale=False, last_candle_time=window_last, server_time=now_ms)
     cached_candles = candle_cache_service.get_candles(symbol, timeframe, limit=limit)
     if not cached_candles:
         candles = crud.get_candles(db, symbol, timeframe, limit=limit, ascending=True)
@@ -445,53 +679,184 @@ def get_upcoming_setups(db: Session = Depends(get_db)):
     """Retrieve all watch setups, daily scenarios, and execution candidates."""
     setups = db.query(models.WatchSetup).order_by(models.WatchSetup.updated_at.desc()).all()
     from services.setup_quality_repository import setup_quality_repository
+    from services.setup_display_plan_service import build_setup_display_plan
+    from services.plan_financial_context_service import load_plan_financial_context, degraded_setup_plan
+
+    fin_context = None
+    try:
+        fin_context = load_plan_financial_context(db)
+    except Exception as exc:
+        logger.warning(f"Could not load plan financial context: {exc}")
+
     quality_map = setup_quality_repository.get_snapshots_batch(db, [s.id for s in setups])
+
+    # Batch load bound orders to wire frozen order financial snapshots
+    from services.order_plan_snapshot_service import select_bound_order_for_setup, resolve_order_display_snapshot
+
+    setup_ids = [s.id for s in setups]
+    bound_orders = (
+        db.query(models.PaperOrder)
+        .filter(models.PaperOrder.setup_id.in_(setup_ids))
+        .order_by(models.PaperOrder.created_at.desc())
+        .all()
+    ) if setup_ids else []
+
+    orders_by_setup: Dict[str, List[Any]] = {}
+    for o in bound_orders:
+        orders_by_setup.setdefault(o.setup_id, []).append(o)
+
     setup_items = []
     for s in setups:
-        cond_met = json.loads(s.conditions_met) if s.conditions_met else []
-        cond_rem = json.loads(s.conditions_remaining) if s.conditions_remaining else []
-        eligibility = evaluate_setup_eligibility(db, s)
-        setup_items.append({
-            "id": s.id,
-            "version": s.version,
-            "strategy": s.strategy,
-            "direction": s.direction,
-            "timeframe": s.timeframe,
-            "state": s.state,
-            "htf_bias": s.htf_bias,
-            "h1_alignment": s.h1_alignment,
-            "trigger_mode": s.trigger_mode,
-            "provisional_entry": s.provisional_entry,
-            "provisional_sl": s.provisional_sl,
-            "provisional_tp": s.provisional_tp,
-            "confirmed_entry": s.confirmed_entry,
-            "confirmed_sl": s.confirmed_sl,
-            "confirmed_tp": s.confirmed_tp,
-            "invalidation_price": s.invalidation_price,
-            "invalidation_reason": s.invalidation_reason,
-            "gross_rr": s.gross_rr,
-            "net_rr": s.net_rr,
-            "risk_usdt": s.risk_usdt,
-            "quantity": s.quantity,
-            "leverage": s.leverage,
-            "margin_mode": s.margin_mode,
-            "estimated_liquidation": s.estimated_liquidation,
-            "conditions_met": cond_met,
-            "conditions_remaining": cond_rem,
-            "distance_to_entry_atr": s.distance_to_entry_atr,
-            "distance_to_entry_usdt": s.distance_to_entry_usdt,
-            "setup_instance_id": s.setup_instance_id,
-            "near_entry_alerted_at": s.near_entry_alerted_at,
-            "near_entry_distance_price": s.near_entry_distance_price,
-            "near_entry_distance_atr": s.near_entry_distance_atr,
-            "entry_zone_low": s.entry_zone_low or s.provisional_entry,
-            "entry_zone_high": s.entry_zone_high or s.provisional_entry,
-            "created_at": s.created_at,
-            "updated_at": s.updated_at,
-            "eligibility": eligibility,
-            "quality_summary": quality_map.get(s.id, {}).get("assessment", {}).get("summary"),
-            "quality_snapshot_id": quality_map.get(s.id, {}).get("snapshot_id")
-        })
+        try:
+            cond_met = json.loads(s.conditions_met) if s.conditions_met else []
+            cond_rem = json.loads(s.conditions_remaining) if s.conditions_remaining else []
+            eligibility = evaluate_setup_eligibility(db, s)
+            quality_sum = quality_map.get(s.id, {}).get("assessment", {}).get("summary")
+            quality_snap_id = quality_map.get(s.id, {}).get("snapshot_id")
+
+            candidates = orders_by_setup.get(s.id, [])
+            bound_order = select_bound_order_for_setup(s, candidates)
+            frozen_snap = None
+            pricing_mode = "CURRENT_PREVIEW"
+            is_frozen = str(s.state).upper() in ("ARMED", "PAPER_OPEN", "CLOSED") or (bound_order and bound_order.state in ("armed", "paper_open"))
+            if bound_order and is_frozen:
+                frozen_snap = resolve_order_display_snapshot(bound_order)
+                pricing_mode = "FROZEN_ORDER"
+
+            resolved_plan = build_setup_display_plan(
+                s,
+                quality_sum,
+                financial_context=fin_context,
+                pricing_mode=pricing_mode,
+                frozen_snapshot=frozen_snap
+            )
+
+            # Rules 081-086: Resolve candidate_score_summary
+            candidate_score = None
+            if bound_order and is_frozen:
+                candidate_score = getattr(bound_order, "candidate_score_summary", None)
+            else:
+                try:
+                    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+                    candidate_score = scalp_watcher_orchestrator.get_candidate_quality_display(
+                        symbol="XAUUSDT",
+                        setup_id=s.id,
+                        setup_instance_id=s.setup_instance_id,
+                        direction=s.direction,
+                    )
+                except Exception:
+                    candidate_score = None
+
+            if not candidate_score:
+                candidate_score = {
+                    "status": "NOT_ASSESSED",
+                    "score": None,
+                    "max_score": 100.0,
+                    "source": "VOLATILE_LATEST_EVALUATION" if not is_frozen else "NONE",
+                    "frozen": False,
+                    "reason_code": "NOT_YET_EVALUATED",
+                    "disclaimer": "Điểm chất lượng setup theo tiêu chuẩn CG-01, không phải xác suất thắng.",
+                }
+
+            setup_items.append({
+                "id": s.id,
+                "version": s.version,
+                "strategy": s.strategy,
+                "direction": s.direction,
+                "timeframe": s.timeframe,
+                "state": s.state,
+                "htf_bias": s.htf_bias,
+                "h1_alignment": s.h1_alignment,
+                "trigger_mode": s.trigger_mode,
+                "provisional_entry": s.provisional_entry,
+                "provisional_sl": s.provisional_sl,
+                "provisional_tp": s.provisional_tp,
+                "confirmed_entry": s.confirmed_entry,
+                "confirmed_sl": s.confirmed_sl,
+                "confirmed_tp": s.confirmed_tp,
+                "invalidation_price": s.invalidation_price,
+                "invalidation_reason": s.invalidation_reason,
+                "gross_rr": s.gross_rr,
+                "net_rr": s.net_rr,
+                "risk_usdt": s.risk_usdt,
+                "quantity": s.quantity,
+                "leverage": s.leverage,
+                "margin_mode": s.margin_mode,
+                "estimated_liquidation": s.estimated_liquidation,
+                "conditions_met": cond_met,
+                "conditions_remaining": cond_rem,
+                "distance_to_entry_atr": s.distance_to_entry_atr,
+                "distance_to_entry_usdt": s.distance_to_entry_usdt,
+                "setup_instance_id": s.setup_instance_id,
+                "near_entry_alerted_at": s.near_entry_alerted_at,
+                "near_entry_distance_price": s.near_entry_distance_price,
+                "near_entry_distance_atr": s.near_entry_distance_atr,
+                "entry_zone_low": s.entry_zone_low or s.provisional_entry,
+                "entry_zone_high": s.entry_zone_high or s.provisional_entry,
+                "created_at": s.created_at,
+                "updated_at": s.updated_at,
+                "eligibility": eligibility,
+                "quality_summary": quality_sum,
+                "quality_snapshot_id": quality_snap_id,
+                "candidate_score_summary": candidate_score,
+                "resolved_display_plan": resolved_plan
+            })
+        except Exception as exc:
+            s_dict = getattr(s, "__dict__", {}) if hasattr(s, "__dict__") else {}
+            s_id = s_dict.get("id", "unknown")
+            s_dir = s_dict.get("direction", "SHORT")
+            logger.warning(f"Error building setup item {s_id}: {exc}")
+            setup_items.append({
+                "id": s_id,
+                "version": s_dict.get("version", 1),
+                "strategy": s_dict.get("strategy", "SMC_V1"),
+                "direction": s_dir,
+                "timeframe": s_dict.get("timeframe", "15M"),
+                "state": s_dict.get("state", "WATCHING"),
+                "htf_bias": s_dict.get("htf_bias", "UNKNOWN"),
+                "h1_alignment": s_dict.get("h1_alignment", "UNKNOWN"),
+                "trigger_mode": s_dict.get("trigger_mode", "CONFIRMED_CLOSE"),
+                "provisional_entry": s_dict.get("provisional_entry", None),
+                "provisional_sl": s_dict.get("provisional_sl", None),
+                "provisional_tp": s_dict.get("provisional_tp", None),
+                "confirmed_entry": s_dict.get("confirmed_entry", None),
+                "confirmed_sl": s_dict.get("confirmed_sl", None),
+                "confirmed_tp": s_dict.get("confirmed_tp", None),
+                "invalidation_price": s_dict.get("invalidation_price", None),
+                "invalidation_reason": s_dict.get("invalidation_reason", None),
+                "gross_rr": s_dict.get("gross_rr", None),
+                "net_rr": s_dict.get("net_rr", None),
+                "risk_usdt": s_dict.get("risk_usdt", None),
+                "quantity": s_dict.get("quantity", None),
+                "leverage": s_dict.get("leverage", 5),
+                "margin_mode": s_dict.get("margin_mode", "ISOLATED"),
+                "estimated_liquidation": s_dict.get("estimated_liquidation", None),
+                "conditions_met": [],
+                "conditions_remaining": [],
+                "distance_to_entry_atr": s_dict.get("distance_to_entry_atr", None),
+                "distance_to_entry_usdt": s_dict.get("distance_to_entry_usdt", None),
+                "setup_instance_id": s_dict.get("setup_instance_id", None),
+                "near_entry_alerted_at": s_dict.get("near_entry_alerted_at", None),
+                "near_entry_distance_price": s_dict.get("near_entry_distance_price", None),
+                "near_entry_distance_atr": s_dict.get("near_entry_distance_atr", None),
+                "entry_zone_low": s_dict.get("entry_zone_low", None),
+                "entry_zone_high": s_dict.get("entry_zone_high", None),
+                "created_at": s_dict.get("created_at", None),
+                "updated_at": s_dict.get("updated_at", None),
+                "eligibility": None,
+                "quality_summary": None,
+                "quality_snapshot_id": None,
+                "candidate_score_summary": {
+                    "status": "UNAVAILABLE",
+                    "score": None,
+                    "max_score": 100.0,
+                    "source": "NONE",
+                    "frozen": False,
+                    "reason_code": "SETUP_PROCESSING_ERROR",
+                    "disclaimer": "Điểm chất lượng setup theo tiêu chuẩn CG-01, không phải xác suất thắng.",
+                },
+                "resolved_display_plan": degraded_setup_plan(s_id, s_dir, "DEGRADED_PROCESSING"),
+            })
 
     # Generate Daily Scenarios
     scenarios = {
@@ -532,6 +897,7 @@ def get_setup_eligibility(setup_id: str, db: Session = Depends(get_db)):
 
 @app.post("/api/v1/setups/arm/{setup_id}")
 @app.post("/api/v1/setups/arm")
+@serialize_entry_mutation
 def manual_arm_setup(
     setup_id: Optional[str] = None,
     req_body: Optional[schemas.ArmSetupRequest] = None,
@@ -652,6 +1018,10 @@ def manual_arm_setup(
     acc_state = crud.get_account_status(db)
     equity = acc_state.get("current_equity", 1000.0) if acc_state else 1000.0
 
+    from services.rr_policy_service import resolve_effective_rr_policy
+    rr_ctx = resolve_effective_rr_policy(db)
+    effective_min_rr = rr_ctx.min_net_rr
+
     calc_res = calculate_risk_reward(
         direction=watch_setup.direction,
         planned_entry=entry,
@@ -659,6 +1029,7 @@ def manual_arm_setup(
         take_profit=tp,
         capital_usdt=equity,
         risk_pct=watch_setup.risk_pct or 0.25,
+        min_net_rr=effective_min_rr,
         leverage=watch_setup.leverage or 5,
         margin_mode=watch_setup.margin_mode or "ISOLATED"
     )
@@ -697,6 +1068,24 @@ def manual_arm_setup(
     eff_risk_pct = min(watch_setup.risk_pct or 0.25, 0.10) if is_quota else (watch_setup.risk_pct or 0.25)
     risk_profile = "QUOTA" if is_quota else "STANDARD"
 
+    from services.order_plan_snapshot_service import build_arm_plan_snapshot
+    arm_snap = build_arm_plan_snapshot(
+        calc_res,
+        order_type=order_type,
+        direction=watch_setup.direction,
+        planned_entry=entry,
+        stop_loss=sl,
+        take_profit=tp,
+        capital_usdt=equity,
+        risk_pct=eff_risk_pct,
+        leverage=calc_res.leverage,
+        margin_mode=calc_res.margin_mode,
+        now_ms=now_ms,
+        policy_config_version=elig.get("policy_config_version", 1),
+        risk_config_version=watch_setup.config_version or 1,
+        min_net_rr=effective_min_rr,
+    )
+
     new_order = models.PaperOrder(
         id=order_id,
         setup_id=watch_setup.id,
@@ -732,7 +1121,8 @@ def manual_arm_setup(
         origin="MANUAL_WEB",
         execution_mode="MANUAL",
         arm_decision_snapshot=json.dumps(elig.get("lesson_evaluations", [])),
-        lessons_retrieved=json.dumps(elig.get("lessons_retrieved_snapshot", []))
+        lessons_retrieved=json.dumps(elig.get("lessons_retrieved_snapshot", [])),
+        cost_snapshot=json.dumps(arm_snap, ensure_ascii=False)
     )
     db.add(new_order)
     watch_setup.confirmed_entry = entry
@@ -1020,11 +1410,14 @@ def create_paper_order(order: schemas.PaperOrderCreate, db: Session = Depends(ge
         )
 
     try:
+        # Use the canonical (validated, finite, normalised) bid/ask, never the raw ticker strings.
         created_order = PaperBroker.execute_market_order(
             db=db,
             order_create=order,
-            current_bid=ticker["bid"],
-            current_ask=ticker["ask"]
+            current_bid=validation.bid,
+            current_ask=validation.ask,
+            validated_quote=validation,
+            now_ms=now_ms,
         )
         return {
             "status": "success",
@@ -1824,6 +2217,186 @@ def approve_lesson(lesson_id: int, db: Session = Depends(get_db)):
     return schemas.LessonItem.model_validate(lesson)
 
 
+@app.post("/api/v1/lessons/{lesson_id}/approve-and-activate", response_model=schemas.LessonItem)
+def approve_and_activate_lesson(
+    lesson_id: int,
+    req: schemas.LessonApproveAndActivateRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    V16.39.1 Section 086 - 095: Atomic Approve and Activate contract.
+    Validates optimistic revision, predicate & scope, activates rule atomically,
+    sets effective_at=now_ms, increments revision, records audit trail, and invalidates cache.
+    """
+    lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail={"code": "LESSON_NOT_FOUND", "message": f"Không tìm thấy bài học #{lesson_id}"})
+
+    cur_rev = getattr(lesson, "revision", 1) or 1
+    if req.expected_revision != cur_rev:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "REVISION_MISMATCH",
+                "message": f"Bài học đã được cập nhật bởi thao tác khác (phiên bản hiện tại: {cur_rev}, yêu cầu: {req.expected_revision}). Vui lòng tải lại trang.",
+            },
+        )
+
+    now_ms = int(time.time() * 1000)
+
+    # 1. Validate severity enum (Section 087)
+    target_severity = lesson.severity
+    if req.selected_severity:
+        sev = str(req.selected_severity).upper()
+        if sev in ("GREEN", "INFO"):
+            target_severity = "INFO"
+        elif sev in ("YELLOW", "WARNING", "WARN"):
+            target_severity = "WARNING"
+        elif sev in ("RED", "CRITICAL"):
+            target_severity = "CRITICAL"
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_SEVERITY", "message": f"Unsupported severity: {req.selected_severity}. Allowed: GREEN, YELLOW, RED, INFO, WARNING, CRITICAL."}
+            )
+
+    # 2. Validate effect enum (Section 088)
+    target_effect = lesson.effect
+    if req.selected_effect:
+        eff = str(req.selected_effect).upper()
+        allowed_effects = ("ANNOTATE", "WARN_ENTRY", "BLOCK_ENTRY", "ADD_SCORE", "DEDUCT_SCORE", "PROPOSE_PLAN_ADJUSTMENT")
+        if eff not in allowed_effects:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_EFFECT", "message": f"Unsupported effect: {req.selected_effect}. Allowed: {allowed_effects}."}
+            )
+        target_effect = eff
+
+    # 3. Validate scope object (Section 089)
+    target_scope = lesson.scope
+    if req.scope is not None:
+        if isinstance(req.scope, dict):
+            target_scope = json.dumps(req.scope)
+        elif isinstance(req.scope, str):
+            try:
+                parsed_sc = json.loads(req.scope)
+                if not isinstance(parsed_sc, dict):
+                    raise ValueError()
+                target_scope = json.dumps(parsed_sc)
+            except Exception:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"code": "INVALID_SCOPE", "message": "Scope must be a valid JSON object dictionary."}
+                )
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_SCOPE", "message": "Scope must be a dictionary object."}
+            )
+
+    # 4. Validate predicate and delta (Section 090)
+    target_predicate = lesson.predicate
+    if req.predicate is not None:
+        if isinstance(req.predicate, dict):
+            target_predicate = json.dumps(req.predicate)
+        elif isinstance(req.predicate, str):
+            try:
+                parsed_pred = json.loads(req.predicate)
+                if not isinstance(parsed_pred, dict):
+                    raise ValueError()
+                target_predicate = json.dumps(parsed_pred)
+            except Exception:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"code": "INVALID_PREDICATE", "message": "Predicate must be a valid JSON object dictionary."}
+                )
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_PREDICATE", "message": "Predicate must be a dictionary object."}
+            )
+
+    if req.score_delta is not None:
+        if isinstance(req.score_delta, bool) or not isinstance(req.score_delta, (int, float)) or not math.isfinite(req.score_delta):
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_DELTA", "message": "score_delta must be a finite numeric value."}
+            )
+        try:
+            pred_obj = json.loads(target_predicate) if target_predicate else {}
+        except Exception:
+            pred_obj = {}
+        pred_obj["score_delta"] = float(req.score_delta)
+        target_predicate = json.dumps(pred_obj)
+
+    if target_effect in ("ADD_SCORE", "DEDUCT_SCORE"):
+        try:
+            p_check = json.loads(target_predicate) if target_predicate else {}
+        except Exception:
+            p_check = {}
+        sd_check = p_check.get("score_delta")
+        if sd_check is None or isinstance(sd_check, bool) or not math.isfinite(float(sd_check)):
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_SCORE_RULE", "message": "Score adjustment rule must have an explicit finite score_delta."}
+            )
+        if not p_check.get("metric") or not p_check.get("operator"):
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_SCORE_RULE", "message": "Score adjustment rule must configure a typed predicate with metric and operator."}
+            )
+
+    # Mutate ORM object only after all input validation succeeds (Section 091)
+    lesson.severity = target_severity
+    lesson.effect = target_effect
+    lesson.scope = target_scope
+    lesson.predicate = target_predicate
+
+    from services.lesson_rule_service import LessonRuleService
+    is_valid, msg, report = LessonRuleService.validate_rule_behavior(lesson)
+    if not is_valid:
+        db.rollback()
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "RULE_VALIDATION_FAILED",
+                "message": msg or "Quy tắc không vượt qua kiểm tra cấu trúc.",
+                "report": report,
+            },
+        )
+
+    lesson.is_approved = True
+    lesson.status = "APPROVED"
+    lesson.enabled = bool(req.activate)
+    lesson.validation_status = "VALID"
+    lesson.validated_at = now_ms
+    lesson.validation_report = json.dumps(report)
+    lesson.reviewed_at = now_ms
+    lesson.effective_at = now_ms
+    lesson.revision = cur_rev + 1
+
+    trail = []
+    if lesson.audit_trail:
+        try:
+            trail = json.loads(lesson.audit_trail)
+        except Exception:
+            trail = [lesson.audit_trail]
+    trail.append({
+        "action": "APPROVED_AND_ACTIVATED" if req.activate else "APPROVED",
+        "timestamp": now_ms,
+        "actor": "USER",
+        "note": req.review_note,
+        "revision": lesson.revision,
+    })
+    lesson.audit_trail = json.dumps(trail)
+
+    db.commit()
+    db.refresh(lesson)
+    LessonRuleService.invalidate_cache()
+    LessonRuleService.invalidate_cache()
+    return schemas.LessonItem.model_validate(lesson)
+
+
 @app.post("/api/v1/lessons/{lesson_id}/reject", response_model=schemas.LessonItem)
 def reject_lesson(lesson_id: int, db: Session = Depends(get_db)):
     lesson = db.query(models.Lesson).filter(models.Lesson.id == lesson_id).first()
@@ -1970,6 +2543,12 @@ def update_lesson_policy(update: schemas.LessonPolicyUpdate, db: Session = Depen
 def get_system_capabilities():
     from services.lesson_policy_service import LessonPolicyService
     return LessonPolicyService.get_runtime_capabilities()
+
+
+@app.get("/api/v1/lessons/repair/status")
+def get_lesson_repair_status(db: Session = Depends(get_db)):
+    from services.lesson_repair_worker import lesson_repair_worker
+    return lesson_repair_worker.get_status(db=db)
 
 
 @app.put("/api/v1/lessons/{lesson_id}", response_model=schemas.LessonItem)
@@ -2245,9 +2824,23 @@ def reconcile_offline_positions_endpoint(db: Session = Depends(get_db)):
 
 @app.get("/api/v1/policy/trading", response_model=schemas.TradingPolicyResponse)
 def get_trading_policy_endpoint(symbol: str = "XAUUSDT", db: Session = Depends(get_db)):
-    """Retrieve active Trading Policy."""
+    """Retrieve active Trading Policy (Read-only, does not commit rows on GET, projects effective RR)."""
     from services.trading_policy_service import TradingPolicyService
-    return TradingPolicyService.get_active_policy(db, symbol)
+    from services.rr_policy_service import resolve_effective_rr_policy
+    policy = TradingPolicyService.get_policy(db)
+    if not policy:
+        policy = TradingPolicyService.get_default_policy()
+    rr_ctx = resolve_effective_rr_policy(db)
+    policy_dict = {
+        c.name: getattr(policy, c.name)
+        for c in models.TradingPolicy.__table__.columns
+        if hasattr(policy, c.name)
+    }
+    policy_dict["min_net_rr"] = rr_ctx.min_net_rr
+    policy_dict["effective_min_net_rr"] = rr_ctx.min_net_rr
+    policy_dict["rr_policy_source"] = rr_ctx.source
+    policy_dict["rr_policy_fingerprint"] = rr_ctx.fingerprint
+    return policy_dict
 
 
 @app.post("/api/v1/policy/trading", response_model=schemas.TradingPolicyResponse)
@@ -2256,46 +2849,230 @@ def update_trading_policy_endpoint(
     db: Session = Depends(get_db)
 ):
     """
-    Update or customize Trading Policy.
-    Strict validation:
-    - max_daily_fills >= 1
-    - min_net_rr >= 1.5
-    - Cross-midnight window validation: start must be earlier than end.
+    PHẦN 010, 011, 098: Update or customize Trading Policy.
+    Uses centralized TradingPolicyService.update_policy which delegates
+    to validate_trading_policy_update. Bypassing validation via HTTP is strictly prevented.
     """
     from services.trading_policy_service import TradingPolicyService
-    symbol = req.symbol or "XAUUSDT"
-    policy = TradingPolicyService.get_active_policy(db, symbol)
+    from services.clock import live_clock
 
-    # Validation
-    if req.max_daily_fills is not None and req.max_daily_fills < 1:
-        raise HTTPException(status_code=400, detail="max_daily_fills phải lớn hơn hoặc bằng 1")
-    if req.min_net_rr is not None and req.min_net_rr < 1.0:
-        raise HTTPException(status_code=400, detail="min_net_rr phải lớn hơn hoặc bằng 1.0")
-
-    # Time validation
-    start_str = req.ny_entry_start or policy.ny_entry_start
-    end_str = req.ny_entry_end or policy.ny_entry_end
+    patch = req.model_dump(exclude_unset=True)
     try:
-        sh, sm = map(int, start_str.split(":"))
-        eh, em = map(int, end_str.split(":"))
-        if (sh * 60 + sm) >= (eh * 60 + em):
-            raise HTTPException(
-                status_code=400,
-                detail="Cửa sổ phiên giao dịch qua nửa đêm (start >= end) chưa được hỗ trợ, vui lòng cấu hình start < end."
-            )
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Định dạng giờ không hợp lệ, yêu cầu HH:MM")
+        updated = TradingPolicyService.update_policy(db, patch, clock=live_clock)
+        return updated
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
 
+
+@app.get("/api/v1/policy/entry-session", response_model=schemas.EntrySessionSettingsResponse)
+def get_entry_session_settings_endpoint(
+    symbol: str = "XAUUSDT",
+    db: Session = Depends(get_db)
+):
+    """
+    PHẦN 083, 147: Read-only endpoint for entry session settings and effective paired state.
+    Never creates or modifies database rows or triggers trading orders.
+    """
+    from services.trading_policy_service import TradingPolicyService
+    from services.scalp_m1_types import load_effective_scalp_config
+    from services.entry_session_policy_service import (
+        resolve_entry_session_settings,
+        resolve_server_execution_scope,
+    )
+    from services.strategy_service import strategy_service
+
+    policy = TradingPolicyService.get_policy(db) or TradingPolicyService.get_default_policy()
+    scalp_cfg = load_effective_scalp_config(db)
+
+    eff_scope = resolve_server_execution_scope(db)
+    resolved = resolve_entry_session_settings(policy, scalp_cfg, execution_scope=eff_scope)
+
+    auto_enabled = False
+    try:
+        auto_enabled = bool(strategy_service.get_auto_state(db))
+    except Exception:
+        auto_enabled = False
+
+    return schemas.EntrySessionSettingsResponse(
+        status=resolved.get("status", "CONFIRMED"),
+        entry_session_policy=resolved["entry_session_policy"],
+        timing_profile=resolved["timing_profile"],
+        effective_ny_goal=resolved["effective_ny_goal"],
+        reserve_ny_slot=resolved["reserve_ny_slot"],
+        ny_fallback_enabled=resolved["ny_fallback_enabled"],
+        max_daily_fills=int(getattr(policy, "max_daily_fills", 3) or 3),
+        daily_timezone=getattr(policy, "daily_timezone", "Asia/Ho_Chi_Minh") or "Asia/Ho_Chi_Minh",
+        policy_version=resolved["policy_version"],
+        execution_scope=eff_scope,
+        auto_execution_enabled=auto_enabled,
+        source="PERSISTED",
+        reason_codes=resolved["reason_codes"],
+        message=None,
+    )
+
+
+@app.put("/api/v1/policy/entry-session", response_model=schemas.EntrySessionSettingsResponse)
+def update_entry_session_settings_endpoint(
+    req: schemas.EntrySessionSettingsUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    PHẦN 082, 083: Coordinated atomic settings update for entry session policy and timing profile.
+    Single transaction commit guaranteeing policy, timing, reservation, and quota stay synchronized.
+    """
+    from services.entry_session_policy_service import (
+        update_entry_session_settings,
+        SessionPolicyConfigError,
+        StalePolicyVersionError,
+    )
+    from services.clock import live_clock
+
+    patch = req.model_dump(exclude_unset=True)
+    try:
+        res = update_entry_session_settings(db, patch, clock=live_clock)
+        return res
+    except StalePolicyVersionError as sve:
+        raise HTTPException(status_code=409, detail=sve.message)
+    except SessionPolicyConfigError as spe:
+        raise HTTPException(status_code=400, detail=spe.message)
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+
+@app.get("/api/v1/policy/stop-placement", response_model=schemas.StopPlacementPolicyResponse)
+def get_stop_placement_policy_endpoint(db: Session = Depends(get_db)):
+    """
+    V17.5: Read-only query for authoritative Stop Placement policy (SystemConfig namespace stop_placement_v1.*).
+    Defaults to SHADOW_COMPARE if not configured. Pure read operation with zero DB writes.
+    """
+    from services.stop_placement_policy_service import resolve_stop_placement_policy
+    from services.entry_session_policy_service import resolve_server_execution_scope
+
+    policy = resolve_stop_placement_policy(db)
+    server_scope = resolve_server_execution_scope(db)
+    summary_vi = (
+        f"Chế độ hiện tại: {policy.mode} (v{policy.version}). "
+        f"Buffer M1={policy.atr_m1_multiplier:.2f}*ATR, M5={policy.atr_m5_multiplier:.2f}*ATR, "
+        f"Spread={policy.spread_multiplier:.2f}*Spread. Áp dụng cho lệnh PAPER mới."
+    )
+    return schemas.StopPlacementPolicyResponse(
+        status="CONFIRMED",
+        mode=policy.mode,
+        version=policy.version,
+        atr_period=policy.atr_period,
+        atr_method=policy.atr_method,
+        min_buffer_ticks=policy.min_buffer_ticks,
+        atr_m1_multiplier=policy.atr_m1_multiplier,
+        atr_m5_multiplier=policy.atr_m5_multiplier,
+        spread_multiplier=policy.spread_multiplier,
+        application_scope=policy.application_scope,
+        execution_scope=server_scope,
+        summary_vi=summary_vi,
+        reason_codes=[],
+    )
+
+
+@app.put("/api/v1/policy/stop-placement", response_model=schemas.StopPlacementPolicyResponse)
+def update_stop_placement_policy_endpoint(
+    req: schemas.StopPlacementPolicyUpdate,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.5: Atomic CAS update for Stop Placement configuration.
+    Requires matching expected_version. True no-op preserves version without timestamp mutation.
+    """
+    from services.stop_placement_policy_service import (
+        update_stop_placement_policy,
+        StopPolicyConflictError,
+        StopPolicyValidationError,
+    )
+    from services.entry_session_policy_service import resolve_server_execution_scope
+
+    patch = req.model_dump(exclude_unset=True)
+    expected_v = req.expected_version
+    try:
+        updated, is_mutation = update_stop_placement_policy(db, patch, expected_version=expected_v)
+    except StopPolicyConflictError as ce:
+        raise HTTPException(status_code=409, detail=str(ce))
+    except (StopPolicyValidationError, ValueError) as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+
+    server_scope = resolve_server_execution_scope(db)
+    summary_vi = (
+        f"Đã cập nhật chế độ: {updated.mode} (v{updated.version}). "
+        f"Áp dụng cho lệnh PAPER mới."
+    )
+    return schemas.StopPlacementPolicyResponse(
+        status="CONFIRMED",
+        mode=updated.mode,
+        version=updated.version,
+        atr_period=updated.atr_period,
+        atr_method=updated.atr_method,
+        min_buffer_ticks=updated.min_buffer_ticks,
+        atr_m1_multiplier=updated.atr_m1_multiplier,
+        atr_m5_multiplier=updated.atr_m5_multiplier,
+        spread_multiplier=updated.spread_multiplier,
+        application_scope=updated.application_scope,
+        execution_scope=server_scope,
+        summary_vi=summary_vi,
+        reason_codes=[],
+    )
+
+
+@app.get("/api/v1/research/stop-placement/summary", response_model=schemas.StopComparisonSummaryResponse)
+def get_stop_placement_research_summary_endpoint(
+    symbol: str = "XAUUSDT",
+    db: Session = Depends(get_db),
+):
+    """
+    V17.5: Paired research summary aggregating Variants A, B, and C across recorded opportunities.
+    """
+    from services.stop_placement_research_service import resume_stop_comparisons, build_stop_comparison_summary
+    import time
     now_ms = int(time.time() * 1000)
-    for field, val in req.model_dump(exclude_unset=True).items():
-        if hasattr(policy, field):
-            setattr(policy, field, val)
+    plans = resume_stop_comparisons(db, namespace="STOP_PLACEMENT_V1", as_of_ms=now_ms)
+    summary = build_stop_comparison_summary(plans, as_of_ms=now_ms)
+    return schemas.StopComparisonSummaryResponse(**summary)
 
-    policy.version = (policy.version or 1) + 1
-    policy.updated_at = now_ms
-    db.commit()
-    db.refresh(policy)
-    return policy
+
+@app.get("/api/v1/orders/{order_id}/stop-evidence")
+def get_order_stop_evidence_endpoint(
+    order_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.5: Retrieves frozen stop placement evidence for a specific order.
+    Returns UNAVAILABLE_LEGACY for historical orders without stop placement metadata.
+    """
+    order = db.query(models.PaperOrder).filter(models.PaperOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="ORDER_NOT_FOUND")
+
+    cost_dict = {}
+    if order.cost_snapshot:
+        try:
+            cost_dict = json.loads(order.cost_snapshot) if isinstance(order.cost_snapshot, str) else dict(order.cost_snapshot)
+        except Exception:
+            cost_dict = {}
+
+    stop_placement = cost_dict.get("stop_placement")
+    if not stop_placement:
+        return {
+            "status": "UNAVAILABLE_LEGACY",
+            "order_id": order.id,
+            "message": "Không có dữ liệu bằng chứng stop loss cấu trúc cho lệnh cũ này.",
+        }
+    return {
+        "status": "AVAILABLE",
+        "order_id": order.id,
+        "stop_placement": stop_placement,
+        "stop_mode_at_arm": cost_dict.get("stop_mode_at_arm", "SHADOW_COMPARE"),
+        "stop_policy_version": cost_dict.get("stop_policy_version", 1),
+        "stop_comparison_plan_id": cost_dict.get("stop_comparison_plan_id"),
+        "actual_sl": order.stop_loss,
+        "actual_entry": order.actual_entry or order.planned_entry,
+        "take_profit": order.take_profit,
+        "direction": order.direction,
+    }
 
 
 @app.get("/api/v1/policy/ny-session", response_model=schemas.NYSessionStatusResponse)
@@ -2308,8 +3085,10 @@ def get_ny_session_status_endpoint(
     local times in NY & VN, countdown, and slot reservation.
     """
     from services.trading_policy_service import TradingPolicyService
+    from services.clock import live_clock
     from datetime import datetime, timezone
-    now_dt = datetime.now(timezone.utc)
+    # V14.3: one injectable clock source (live_clock) instead of a direct wall-clock read.
+    now_dt = datetime.fromtimestamp(live_clock.now_ms() / 1000.0, tz=timezone.utc)
     eval_res = TradingPolicyService.evaluate_entry_policy(db, symbol, now_dt)
 
     return schemas.NYSessionStatusResponse(
@@ -2333,8 +3112,71 @@ def get_ny_session_status_endpoint(
         minutes_to_window_end=eval_res.get("minutes_to_window_end"),
         allowed=eval_res.get("allowed", False),
         reason_code=eval_res.get("reason_code"),
-        reason_message=eval_res.get("reason_message")
+        reason_message=eval_res.get("reason_message"),
+        fallback_enabled=(bool(getattr(eval_res.get("policy"), "ny_fallback_enabled", False))
+                          if eval_res.get("policy") is not None else None),
+        fallback_start_ny=(getattr(eval_res.get("policy"), "ny_fallback_start", None)
+                           if eval_res.get("policy") is not None else None),
+        window_end_ny=(getattr(eval_res.get("policy"), "ny_entry_end", None)
+                       if eval_res.get("policy") is not None else None),
+        quota_reason=eval_res.get("quota_reason"),
+        target_fills=eval_res.get("ny_target_fills"),
     )
+
+
+@app.get("/api/v1/ny-quota/diagnostics", response_model=schemas.NYQuotaDiagnosticsResponse)
+def get_ny_quota_diagnostics_endpoint(
+    symbol: str = "XAUUSDT",
+    date: Optional[str] = Query(None, description="NY session date YYYY-MM-DD (default: current NY session)"),
+    db: Session = Depends(get_db)
+):
+    """
+    V14.3 read model: why a NY session did / did not produce PAPER fills (scan coverage, unique candidates,
+    funnel, typed blockers, one missed summary). GET only: never creates orders, quota rows or notifications.
+    Sessions without an audit return availability=UNAVAILABLE and null counts (never fake zeros).
+    """
+    from datetime import datetime as _dt
+    from services.trading_policy_service import TradingPolicyService
+    from services.ny_opportunity_audit_service import NYOpportunityAuditService
+    from services.ny_quota_helpers import classify_reason
+    from services.clock import live_clock
+    ny_tz = ZoneInfo("America/New_York")
+    now_ms = live_clock.now_ms()
+    policy = TradingPolicyService.get_policy(db) or TradingPolicyService.get_default_policy()
+    today_ny = _dt.fromtimestamp(now_ms / 1000.0, tz=ny_tz).strftime("%Y-%m-%d")
+    if date is None:
+        date = today_ny
+    try:
+        day = _dt.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=422, detail="date phải có dạng YYYY-MM-DD (ngày phiên New York)")
+    # window of THAT NY date (pure computation, no DB write)
+    probe_ms = int(_dt(day.year, day.month, day.day, 12, 0, tzinfo=ny_tz).timestamp() * 1000)
+    window = TradingPolicyService.get_ny_session_window(policy, now_ms=probe_ms)
+    is_today = date == today_ny
+    window_view = {
+        "ny_window": window["ny_window_str"], "vn_window": window["vn_window_str"],
+        "window_start_ms": window["window_start_ms"], "window_end_ms": window["window_end_ms"],
+        "fallback_start_ms": window["fallback_start_ms"],
+        "fallback_enabled": bool(getattr(policy, "ny_fallback_enabled", False)),
+        "phase": TradingPolicyService.get_ny_session_window(policy, now_ms=now_ms)["phase"] if is_today else None,
+    }
+    base = dict(session_instance_id=window["session_instance_id"], session_date_ny=window["session_date_ny"],
+                session_date_vn=window["session_date_vn"], symbol=symbol, is_today=is_today,
+                window=window_view, generated_at=now_ms)
+    if date > today_ny:
+        return schemas.NYQuotaDiagnosticsResponse(availability="NOT_STARTED", **base)
+    diag = NYOpportunityAuditService.build_diagnostics(
+        db, session_instance_id=window["session_instance_id"], session_date_ny=window["session_date_ny"])
+    msg = classify_reason(diag["primary_missed_reason"])[1] if diag.get("primary_missed_reason") else None
+    return schemas.NYQuotaDiagnosticsResponse(
+        **base, availability=diag["availability"], quota=diag["quota"], scans=diag["scans"],
+        unique_candidates=diag["unique_candidates"], financially_eligible=diag["financially_eligible"],
+        armed=diag["armed"], filled=diag["filled"], top_blockers=diag["top_blockers"],
+        primary_missed_reason=diag["primary_missed_reason"], primary_missed_message_vi=msg,
+        missed_category=diag["missed_category"], last_system_error=diag["last_system_error"],
+        summary_written=diag["summary_written"], coverage=diag["coverage"], freshness=diag["freshness"],
+        candidates=diag["candidates"])
 
 
 
@@ -2428,17 +3270,30 @@ async def preview_setup_quality(
 
     now_ms = int(time.time() * 1000)
     costs = CostAssumptions()
+    from services.risk_settings_service import risk_settings_service
+    settings = risk_settings_service.get_settings(db)
+    # Read the latest account balance without creating an audit row on preview.
+    latest_audit = db.query(models.DayAudit).order_by(models.DayAudit.id.desc()).first()
+    capital = latest_audit.current_equity if latest_audit else 1000.0
+    effective_leverage = req.leverage if req.leverage is not None else settings.requested_leverage
+    effective_margin = req.margin_mode if req.margin_mode is not None else settings.margin_mode
+    effective_risk = req.risk_pct if req.risk_pct is not None else settings.risk_pct
+    from services.rr_policy_service import resolve_effective_rr_policy
+    rr_ctx = resolve_effective_rr_policy(db)
+    effective_min_rr = rr_ctx.min_net_rr
+
     calc = calculate_risk_reward(
         direction=req.direction,
         entry=req.entry_price,
         sl=req.stop_loss,
         tp=req.take_profit,
-        capital=1000.0,
-        risk_pct=req.risk_pct or 0.25,
+        capital=capital,
+        risk_pct=effective_risk,
+        quantity_override=req.quantity,
         costs=costs,
-        leverage=req.leverage or 5,
-        margin_mode=req.margin_mode or "ISOLATED",
-        min_net_rr=2.0
+        leverage=effective_leverage,
+        margin_mode=effective_margin,
+        min_net_rr=effective_min_rr,
     )
 
     plan_dict = {
@@ -2446,9 +3301,9 @@ async def preview_setup_quality(
         "entry_price": req.entry_price,
         "stop_loss": req.stop_loss,
         "take_profit": req.take_profit,
-        "quantity": req.quantity or 0.05,
-        "leverage": req.leverage or 5,
-        "margin_mode": req.margin_mode or "ISOLATED",
+        "quantity": calc.quantity,
+        "leverage": effective_leverage,
+        "margin_mode": effective_margin,
         "net_rr": calc.net_rr,
         "risk_usdt": calc.net_risk_usdt,
     }
@@ -2463,7 +3318,8 @@ async def preview_setup_quality(
         "eligibility": {"eligible": True, "reasons": []},
         "quote_view": {"is_valid": True, "price": req.entry_price},
         "news_view": {"is_blackout": False},
-        "calc": {"net_rr": calc.net_rr}
+        "calc": {"net_rr": calc.net_rr},
+        "profile": {"min_net_rr": effective_min_rr},
     }
 
     assessment, related_ev = assess_setup_quality(q_context)
@@ -2475,6 +3331,7 @@ async def preview_setup_quality(
         "assessment": assessment.to_dict(),
         "evidence": [e.to_dict() for e in related_ev],
         "calc": {
+            **calc.model_dump(),
             "gross_rr": calc.gross_rr,
             "net_rr": calc.net_rr,
             "net_risk_usdt": calc.net_risk_usdt,
@@ -2484,3 +3341,1464 @@ async def preview_setup_quality(
             "is_valid": calc.is_valid,
         }
     }
+
+
+# ==================== V14.4 SMC SCENARIO & EVIDENCE ENDPOINTS ====================
+
+@app.get("/api/v1/smc/session-forecasts", response_model=schemas.SessionForecastsDTO)
+def get_session_forecasts(symbol: str = "XAUUSDT", day: Optional[str] = None):
+    """
+    V14.4.1: cached Asia/Europe/NY conditional forecasts as-of the last market-reading cycle.
+    Read-only: this GET never runs the scenario engine, creates an order or trains a model. A `day` that is not
+    the cached NY session date returns NOT_CACHED (never a recomputation, never a future as-of).
+    """
+    import re
+    from datetime import datetime as _dt
+    if not re.fullmatch(r"[A-Z0-9]{3,20}", symbol or ""):
+        raise HTTPException(status_code=422, detail="INVALID_SYMBOL")
+    if day is not None:
+        try:
+            _dt.strptime(day, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=422, detail="INVALID_DAY")
+    cached = strategy_service.session_forecasts_cache.get(symbol)
+    if not cached:
+        return schemas.SessionForecastsDTO(symbol=symbol, status="NOT_READY", day=day, forecasts={}, coverage={},
+                                          data_issues=[])
+    if day is not None and cached.get("day") != day:
+        return schemas.SessionForecastsDTO(symbol=symbol, status="NOT_CACHED", day=day, as_of_ms=cached.get("as_of_ms"),
+                                          forecasts={}, coverage={}, data_issues=[])
+    return schemas.SessionForecastsDTO(
+        symbol=symbol, status="ERROR" if cached.get("error") else "OK", day=cached.get("day"),
+        as_of_ms=cached.get("as_of_ms"), forecasts=cached.get("forecasts") or {}, coverage=cached.get("coverage") or {},
+        data_issues=cached.get("data_issues") or [])
+
+
+@app.get("/api/v1/smc/forecast-observations/summary")
+def get_forecast_observations_summary(
+    symbol: str = "XAUUSDT",
+    session: Optional[str] = None,
+    from_ms: Optional[int] = None,
+    to_ms: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    V14.4.2: Readonly summary of causal forward forecast outcomes. Does not trigger background jobs or DB writes.
+    """
+    import re
+    if not re.fullmatch(r"[A-Z0-9]{3,20}", symbol or ""):
+        raise HTTPException(status_code=422, detail="INVALID_SYMBOL")
+    from services.smc_forecast_observation_service import summarize_forecast_observations
+    return summarize_forecast_observations(
+        db=db,
+        session=session,
+        symbol=symbol,
+        from_ms=from_ms,
+        to_ms=to_ms
+    )
+
+
+
+@app.get("/api/v1/smc/scenarios", response_model=List[schemas.ScenarioDTO])
+def get_smc_scenarios(
+    symbol: str = "XAUUSDT",
+    limit: int = 5,
+    db: Session = Depends(get_db)
+):
+    """
+    PHẦN 059: Read-only endpoint returning current primary and alternative scenarios.
+    """
+    from services.smc_scenario_repository import get_active_scenarios
+    import json
+    rows = get_active_scenarios(db, symbol=symbol, limit=limit)
+    results = []
+    for r in rows:
+        payload_dict = None
+        if r.payload:
+            try:
+                payload_dict = json.loads(r.payload)
+            except Exception:
+                payload_dict = None
+        results.append(schemas.ScenarioDTO(
+            scenario_id=r.scenario_id,
+            instance_id=r.instance_id,
+            revision=r.revision,
+            symbol=r.symbol,
+            timeframe=r.timeframe,
+            strategy_family=r.strategy_family,
+            direction=r.direction,
+            state=r.state,
+            as_of_ms=r.as_of_ms,
+            summary_vi=r.summary_vi,
+            current_snapshot_id=r.current_snapshot_id,
+            anchor_level_id=r.anchor_level_id,
+            target_level_id=r.target_level_id,
+            payload=payload_dict,
+        ))
+    return results
+
+
+@app.get("/api/v1/smc/scenarios/{scenario_id}/snapshots/{snapshot_id}")
+def get_scenario_snapshot(
+    scenario_id: str,
+    snapshot_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    PHẦN 060: Retrieve exact immutable scenario snapshot by snapshot_id and scenario_id.
+    """
+    from services.smc_scenario_repository import get_scenario_snapshot as repo_get_snapshot
+    import json
+    row = repo_get_snapshot(db, snapshot_id)
+    if not row or row.scenario_id != scenario_id:
+        raise HTTPException(status_code=404, detail="SCENARIO_SNAPSHOT_NOT_FOUND")
+    try:
+        return json.loads(row.payload)
+    except Exception:
+        raise HTTPException(status_code=500, detail="SNAPSHOT_PAYLOAD_CORRUPT")
+
+
+@app.get("/api/v1/smc/scenarios/{scenario_id}/chart-evidence", response_model=schemas.ChartEvidenceDTO)
+def get_scenario_chart_evidence(
+    scenario_id: str,
+    snapshot_id: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    V14.4.1: typed chart bundle of ONE scenario (exact snapshot when `snapshot_id` is given, otherwise the
+    scenario's current snapshot). The raw snapshot endpoint above is not a chart payload.
+    """
+    from services.chart_evidence_service import build_selected_chart_bundle
+    from services.smc_scenario_repository import get_scenario, get_scenario_snapshot as repo_get_snapshot, snapshot_from_row
+    scenario = get_scenario(db, scenario_id)
+    if scenario is None:
+        raise HTTPException(status_code=404, detail="SCENARIO_NOT_FOUND")
+    wanted = snapshot_id or scenario.current_snapshot_id
+    row = repo_get_snapshot(db, wanted) if wanted else None
+    if row is None:
+        raise HTTPException(status_code=404, detail="SCENARIO_SNAPSHOT_NOT_FOUND")
+    if row.scenario_id != scenario_id:
+        raise HTTPException(status_code=409, detail="SCENARIO_SNAPSHOT_MISMATCH")
+    try:
+        snap = snapshot_from_row(row)
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as e:
+        logger.warning(f"Scenario snapshot parse error for {scenario_id} snapshot {wanted}: {e}")
+        raise HTTPException(status_code=409, detail="LEGACY_SNAPSHOT_SCHEMA")
+    try:
+        bundle = build_selected_chart_bundle(snap, source_type="SCENARIO", binding_id=scenario_id)
+        return schemas.ChartEvidenceDTO(**bundle)
+    except Exception as exc:
+        req_id = f"req-{int(time.time()*1000)}"
+        logger.exception(f"[{req_id}] Unexpected error building scenario chart evidence for {scenario_id}: {exc}")
+        raise HTTPException(status_code=500, detail=f"INTERNAL_EVIDENCE_ERROR:{req_id}")
+
+
+def _empty_chart_bundle(*, source: str, obj_id: str, instance_id, revision, symbol, direction, state, as_of_ms,
+                        family, summary, plan, invalidation_price, warnings):
+    return schemas.ChartEvidenceDTO(
+        binding={"source": source, "id": obj_id, "instance_id": instance_id, "revision": revision, "symbol": symbol,
+                 "direction": direction, "plan_fingerprint": None, "snapshot_id": None},
+        as_of_ms=as_of_ms, evidence_cutoff_ms=as_of_ms, strategy_family=family or "STANDARD_SMC", state=state,
+        summary_vi=summary, risk_reward_plan=plan, invalidation_price=invalidation_price, warnings=warnings,
+        is_empty=True, chain={"verified": False, "reasons": warnings, "advisories": []})
+
+
+@app.get("/api/v1/setups/{setup_id}/chart-evidence", response_model=schemas.ChartEvidenceDTO)
+def get_setup_chart_evidence(
+    setup_id: str,
+    setup_instance_id: Optional[str] = None,
+    expected_revision: Optional[int] = None,
+    plan_fingerprint: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    V14.4.1: exact chart evidence of a selected setup. The requested identity (instance/revision/fingerprint)
+    is compared with what the server loaded; any mismatch is a 409 - never a "latest" fallback, and the
+    requested fingerprint is never echoed back as if the server had verified it.
+    """
+    watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == setup_id).first()
+    if not watch_setup:
+        raise HTTPException(status_code=404, detail="SETUP_NOT_FOUND")
+    if expected_revision is not None and watch_setup.version != expected_revision:
+        raise HTTPException(status_code=409,
+                            detail=f"SETUP_REVISION_MISMATCH: expected {expected_revision}, current {watch_setup.version}")
+    if setup_instance_id is not None and watch_setup.setup_instance_id != setup_instance_id:
+        raise HTTPException(status_code=409, detail="SETUP_INSTANCE_MISMATCH")
+
+    from services.chart_evidence_service import build_selected_chart_bundle, adapt_legacy_quality_snapshot
+    from services.smc_scenario_repository import get_scenario_snapshot as repo_get_snapshot, snapshot_from_row
+    from services.plan_resolver import resolve_plan_levels
+    plan_resolved = resolve_plan_levels(watch_setup)
+
+    if getattr(watch_setup, "scenario_snapshot_id", None):
+        snap_row = repo_get_snapshot(db, watch_setup.scenario_snapshot_id)
+        if snap_row is None:
+            raise HTTPException(status_code=409, detail="SETUP_SNAPSHOT_MISSING")
+        try:
+            snap = snapshot_from_row(snap_row)
+        except ValueError:
+            raise HTTPException(status_code=409, detail="LEGACY_SNAPSHOT_SCHEMA")
+        if (snap.instance_id != watch_setup.setup_instance_id or snap.direction != watch_setup.direction
+                or snap.symbol != (getattr(watch_setup, "instrument", None) or "XAUUSDT")):
+            raise HTTPException(status_code=409, detail="SETUP_SNAPSHOT_MISMATCH")
+        if plan_fingerprint is not None and plan_fingerprint != snap.plan_fingerprint:
+            raise HTTPException(status_code=409, detail="SETUP_PLAN_FINGERPRINT_MISMATCH")
+        bundle = build_selected_chart_bundle(snap, source_type="SETUP", binding_id=setup_id)
+        bundle["binding"]["revision"] = watch_setup.version
+        return schemas.ChartEvidenceDTO(**bundle)
+
+    # Legacy: exact quality snapshot ref (never "latest for setup"), uncertified label.
+    qid = getattr(watch_setup, "quality_snapshot_id", None)
+    if qid:
+        from services.setup_quality_repository import setup_quality_repository
+        legacy_snap = setup_quality_repository.get_snapshot_by_id(db, qid)
+        if legacy_snap:
+            return schemas.ChartEvidenceDTO(**adapt_legacy_quality_snapshot(legacy_snap, plan_data=plan_resolved))
+
+    return _empty_chart_bundle(
+        source="SETUP", obj_id=setup_id, instance_id=watch_setup.setup_instance_id, revision=watch_setup.version,
+        symbol="XAUUSDT", direction=watch_setup.direction, state=watch_setup.state or "WATCHING",
+        as_of_ms=watch_setup.updated_at or watch_setup.created_at, family=watch_setup.strategy_family,
+        summary="Chưa có bằng chứng cấu trúc đã xác nhận cho setup này (chưa được đánh giá).",
+        plan=plan_resolved if plan_resolved.get("is_valid") else None,
+        invalidation_price=watch_setup.invalidation_price, warnings=["NO_EVIDENCE_FOR_SETUP"])
+
+
+@app.get("/api/v1/orders/{order_id}/chart-evidence", response_model=schemas.ChartEvidenceDTO)
+def get_order_chart_evidence(
+    order_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    V14.4.1: ACTUAL order geometry + the evidence frozen at arm time (exact refs on the order row).
+    The scenario plan never overrides the order's own entry/SL/TP, and "latest" structure is never used.
+    """
+    order = db.query(models.PaperOrder).filter(models.PaperOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="ORDER_NOT_FOUND")
+
+    from services.chart_evidence_service import build_selected_chart_bundle, adapt_legacy_quality_snapshot
+    from services.smc_scenario_repository import get_scenario_snapshot as repo_get_snapshot, snapshot_from_row
+
+    stamp = order.opened_at or order.armed_at or order.created_at
+    net_reward = None
+    cost_dict = {}
+    if order.cost_snapshot:
+        try:
+            cost_dict = json.loads(order.cost_snapshot) if isinstance(order.cost_snapshot, str) else dict(order.cost_snapshot)
+            net_reward = cost_dict.get("net_reward_usdt")
+        except Exception:
+            cost_dict = {}
+
+    order_plan = {
+        "is_valid": True, "id": order.id, "direction": order.direction, "state": order.state,
+        "planned_entry": order.planned_entry, "actual_entry": order.actual_entry, "actual_exit": order.actual_exit,
+        "stop_loss": order.stop_loss, "take_profit": order.take_profit, "invalidation_price": order.stop_loss,
+        "gross_rr": order.gross_rr, "net_rr": order.estimated_net_rr, "quantity": order.quantity,
+        "net_risk_usdt": order.initial_risk_usdt,
+        "net_reward_usdt": net_reward,
+        "realized_pnl_net": order.realized_pnl_net, "realized_r": order.realized_r,
+        "opened_at": order.opened_at, "closed_at": order.closed_at,
+        "entry_time": (stamp // 1000) if stamp else None, "entry_time_ms": stamp,
+        "exit_time_ms": order.closed_at,
+        "fees": {
+            "entry_fee_usdt": cost_dict.get("entry_fee_usdt"),
+            "sl_exit_fee_usdt": cost_dict.get("sl_exit_fee_usdt"),
+            "tp_exit_fee_usdt": cost_dict.get("tp_exit_fee_usdt"),
+            "entry_slippage_usdt": cost_dict.get("entry_slippage_usdt"),
+            "sl_exit_slippage_usdt": cost_dict.get("sl_exit_slippage_usdt"),
+            "tp_exit_slippage_usdt": cost_dict.get("tp_exit_slippage_usdt"),
+        } if cost_dict else None,
+    }
+
+    if getattr(order, "scenario_snapshot_id", None):
+        snap_row = repo_get_snapshot(db, order.scenario_snapshot_id)
+        if snap_row is None:
+            raise HTTPException(status_code=409, detail="ORDER_SNAPSHOT_MISSING")
+        try:
+            snap = snapshot_from_row(snap_row)
+        except ValueError:
+            raise HTTPException(status_code=409, detail="LEGACY_SNAPSHOT_SCHEMA")
+        if order.setup_instance_id and snap.instance_id != order.setup_instance_id:
+            raise HTTPException(status_code=409, detail="ORDER_SNAPSHOT_MISMATCH")
+        if snap.direction != order.direction:
+            raise HTTPException(status_code=409, detail="ORDER_SNAPSHOT_DIRECTION_MISMATCH")
+        
+        from services.smc_scenario_config import active_scenario_config
+        from services.chart_evidence_service import read_snapshot_provenance
+        
+        bundle = build_selected_chart_bundle(snap, source_type="ORDER", binding_id=order_id, order_data=order_plan)
+        bundle["binding"]["order_state"] = order.state
+        bundle["provenance"] = read_snapshot_provenance(snap.to_dict(), active_scenario_config)
+        from services.order_quality_display_service import build_order_score_display, build_order_score_detail
+        bundle["candidate_score_summary"] = build_order_score_display(order).to_dict()
+        bundle["candidate_score_detail"] = build_order_score_detail(order).to_dict()
+        if "stop_placement" in cost_dict:
+            bundle["stop_placement"] = cost_dict["stop_placement"]
+        if "stop_comparison_plan_id" in cost_dict:
+            bundle["stop_comparison"] = {"plan_id": cost_dict["stop_comparison_plan_id"]}
+        return schemas.ChartEvidenceDTO(**bundle)
+
+    from services.order_quality_display_service import build_order_score_display, build_order_score_detail
+    order_score_sum = build_order_score_display(order).to_dict()
+    order_score_det = build_order_score_detail(order).to_dict()
+
+    qid = getattr(order, "quality_snapshot_id", None)
+    if qid:
+        from services.setup_quality_repository import setup_quality_repository
+        legacy_snap = setup_quality_repository.get_snapshot_by_id(db, qid)
+        if legacy_snap:
+            legacy_dict = adapt_legacy_quality_snapshot(legacy_snap, order_data=order_plan)
+            legacy_dict["candidate_score_summary"] = order_score_sum
+            legacy_dict["candidate_score_detail"] = order_score_det
+            if "stop_placement" in cost_dict:
+                legacy_dict["stop_placement"] = cost_dict["stop_placement"]
+            return schemas.ChartEvidenceDTO(**legacy_dict)
+
+    empty_bundle = _empty_chart_bundle(
+        source="ORDER", obj_id=order_id, instance_id=order.setup_instance_id, revision=1,
+        symbol=order.instrument or "XAUUSDT", direction=order.direction,
+        state=order.state.upper() if order.state else "CLOSED",
+        as_of_ms=order.closed_at or order.opened_at or order.armed_at or order.created_at,
+        family=order.strategy_family,
+        summary=f"Lệnh {order.direction} ({order.state}). Không có bằng chứng được lưu lúc đặt lệnh (lệnh cũ).",
+        plan=order_plan, invalidation_price=order.stop_loss, warnings=["LEGACY_ORDER_NO_EVIDENCE"])
+    if isinstance(empty_bundle, dict):
+        empty_bundle["candidate_score_summary"] = order_score_sum
+        empty_bundle["candidate_score_detail"] = order_score_det
+        if "stop_placement" in cost_dict:
+            empty_bundle["stop_placement"] = cost_dict["stop_placement"]
+        return schemas.ChartEvidenceDTO(**empty_bundle)
+    elif hasattr(empty_bundle, "candidate_score_summary"):
+        empty_bundle.candidate_score_summary = order_score_sum
+        empty_bundle.candidate_score_detail = order_score_det
+    return empty_bundle
+
+
+@app.get("/api/v1/orders/{order_id}/quality-score")
+def get_order_quality_score_endpoint(order_id: str, db: Session = Depends(get_db)):
+    """
+    Rules 092, 095: Returns frozen candidate quality score breakdown for an order.
+    """
+    order = db.query(models.PaperOrder).filter(models.PaperOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="ORDER_NOT_FOUND")
+
+    from services.order_quality_display_service import build_order_score_detail
+    detail = build_order_score_detail(order)
+    return {
+        "status": "SUCCESS",
+        "order_id": order_id,
+        "detail": detail.to_dict(),
+    }
+
+
+@app.get("/api/v1/orders/{order_id}/review")
+def get_order_post_trade_review_endpoint(order_id: str, db: Session = Depends(get_db)):
+    """
+    V16.39 Section 078 - 080: Returns persisted post-trade review audit record for an order.
+    """
+    from services.post_trade_review_service import get_post_trade_review
+    rev = get_post_trade_review(db, order_id)
+    if not rev:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "REVIEW_NOT_FOUND", "message": f"Chưa có đánh giá sau giao dịch cho lệnh #{order_id}"}
+        )
+    return {
+        "status": "SUCCESS",
+        "review": rev.to_dict(),
+    }
+
+
+# ==================== V15.0 SCALP WATCHER & OPPORTUNITY FUNNEL ====================
+
+@app.get("/api/scalp/config")
+def get_scalp_config_endpoint(db: Session = Depends(get_db)):
+    from services.scalp_m1_types import load_effective_scalp_config
+    from services.trading_policy_service import resolve_effective_daily_policy
+    from services.rr_policy_service import resolve_effective_rr_policy
+    cfg = load_effective_scalp_config(db)
+    eff_policy = resolve_effective_daily_policy(db)
+    rr_ctx = resolve_effective_rr_policy(db)
+    config_data = {
+        "scalp_m1_enabled": (cfg.scalp_m1_mode != "OFF"),
+        "scalp_m1_mode": cfg.scalp_m1_mode,
+        "mode": cfg.scalp_m1_mode,
+        "daily_ny_research_enabled": cfg.daily_ny_research_enabled,
+        "min_closed_m1_bars": cfg.min_closed_m1_bars,
+        "displacement_body_atr_min": cfg.displacement_body_atr_min,
+        "min_net_rr": rr_ctx.min_net_rr,
+        "effective_min_net_rr": rr_ctx.min_net_rr,
+        "rr_policy_source": rr_ctx.source,
+        "rr_policy_fingerprint": rr_ctx.fingerprint,
+        "fallback_risk_pct": cfg.fallback_risk_pct,
+        "near_zone_enter_atr": cfg.near_zone_enter_atr,
+        "near_zone_exit_atr": cfg.near_zone_exit_atr,
+        "max_trigger_age_ms": cfg.max_trigger_age_ms,
+        "max_entry_distance_atr": cfg.max_entry_distance_atr,
+        "max_active_zones": cfg.max_active_zones,
+        "config_version": cfg.config_version,
+        "v16_profile_enabled": cfg.v16_profile_enabled,
+        "fvg_continuation_enabled": cfg.fvg_continuation_enabled,
+        "sweep_reclaim_enabled": cfg.sweep_reclaim_enabled,
+        "multi_zone_hypotheses_enabled": cfg.multi_zone_hypotheses_enabled,
+        "orderflow_shadow_enabled": cfg.orderflow_shadow_enabled,
+        "daily_min_goal": eff_policy.min_goal,
+        "daily_max_cap": eff_policy.max_fills,
+        "daily_ny_goal": eff_policy.ny_goal,
+        "policy_version": eff_policy.policy_version,
+        "cg01_enabled": getattr(cfg, "cg01_enabled", False),
+        "cg01_profile_mode": getattr(cfg, "cg01_profile_mode", "OFF"),
+        "execution_profile": getattr(cfg, "execution_profile", "BASELINE"),
+        "adaptive_model_allowlist": list(getattr(cfg, "adaptive_model_allowlist", ())),
+        "cg01_direction_policy": getattr(cfg, "cg01_direction_policy", "LEGACY_H1"),
+        "timing_profile": getattr(cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),
+        "effective_timing_profile": getattr(cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),
+        "quality_scoring_enabled": getattr(cfg, "quality_scoring_enabled", False),
+        "quality_arm_threshold": getattr(cfg, "quality_arm_threshold", 70.0),
+        "quality_profile_version": getattr(cfg, "quality_profile_version", "v16.39"),
+        "lesson_score_adjustment_enabled": getattr(cfg, "lesson_score_adjustment_enabled", False),
+    }
+    return {
+        "status": "SUCCESS",
+        "effective_config": config_data,
+        **config_data,
+    }
+
+
+@app.post("/api/scalp/config")
+def update_scalp_config_endpoint(
+    payload: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db),
+):
+    from services.scalp_m1_types import ScalpMode, load_effective_scalp_config
+    from services.trading_policy_service import resolve_effective_daily_policy, TradingPolicyService
+    now_ms = int(time.time() * 1000)
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="INVALID_PAYLOAD: JSON object required")
+
+    def _parse_strict_int(val: Any, field_name: str) -> int:
+        if isinstance(val, bool):
+            raise HTTPException(status_code=400, detail=f"INVALID_TYPE: {field_name} must be a strict integer, not a boolean")
+        if not isinstance(val, int):
+            raise HTTPException(status_code=400, detail=f"INVALID_TYPE: {field_name} must be an integer")
+        return int(val)
+
+    def _parse_strict_bool(val: Any, field_name: str) -> bool:
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, str):
+            v_low = val.strip().lower()
+            if v_low == "true":
+                return True
+            if v_low == "false":
+                return False
+        raise HTTPException(
+            status_code=400,
+            detail=f"INVALID_BOOLEAN: {field_name} must be a strict boolean (true/false)"
+        )
+
+    # 1. Atomic validation of all daily goal parameters first (Rules 025, 026, 027, PHẦN 121, Phụ lục D)
+    cur_policy = resolve_effective_daily_policy(db)
+    pol_row = db.query(models.TradingPolicy).filter(models.TradingPolicy.id == "default").first()
+    curr_session_pol = pol_row.entry_session_policy if pol_row else "ALL_SESSIONS_WITH_NY_RESERVE"
+
+    from services.entry_session_policy_service import resolve_server_execution_scope
+    server_scope = resolve_server_execution_scope(db)
+
+    tp_input = payload.get("timing_profile")
+    tp_val = None
+    if tp_input is not None:
+        if not isinstance(tp_input, str):
+            raise HTTPException(status_code=400, detail="INVALID_TIMING_PROFILE: must be a string")
+        tp_val = tp_input.strip().upper()
+        if tp_val not in ("SILVER_BULLET_LONDON_NY", "CG01_NY_PAPER_EXPANDED", "CG01_ALL_SESSIONS_PAPER"):
+            raise HTTPException(
+                status_code=400,
+                detail="INVALID_TIMING_PROFILE: must be SILVER_BULLET_LONDON_NY, CG01_NY_PAPER_EXPANDED, or CG01_ALL_SESSIONS_PAPER"
+            )
+        if tp_val == "CG01_ALL_SESSIONS_PAPER" and server_scope != "PAPER":
+            raise HTTPException(
+                status_code=400,
+                detail=f"PAPER_ONLY_PROFILE_VIOLATION: CG01_ALL_SESSIONS_PAPER chỉ được phép chạy trên phạm vi PAPER; máy chủ hiện tại là {server_scope}."
+            )
+
+    target_is_setup_first = (tp_val == "CG01_ALL_SESSIONS_PAPER") or (tp_val is None and curr_session_pol == "ALL_SESSIONS_SETUP_FIRST")
+
+    has_daily_update = any(k in payload for k in ("daily_min_goal", "daily_max_cap", "daily_ny_goal"))
+    min_g = cur_policy.min_goal
+    max_c = cur_policy.max_fills
+    ny_g = 0 if target_is_setup_first else cur_policy.ny_goal
+
+    if "daily_min_goal" in payload:
+        min_g = _parse_strict_int(payload["daily_min_goal"], "daily_min_goal")
+    if "daily_max_cap" in payload:
+        max_c = _parse_strict_int(payload["daily_max_cap"], "daily_max_cap")
+    if "daily_ny_goal" in payload:
+        explicit_ny_g = _parse_strict_int(payload["daily_ny_goal"], "daily_ny_goal")
+        if target_is_setup_first and explicit_ny_g != 0:
+            raise HTTPException(
+                status_code=400,
+                detail="ENTRY_SESSION_CONFIG_CONFLICT: Chế độ mọi phiên không đặt mục tiêu riêng cho Mỹ; daily_ny_goal phải bằng 0."
+            )
+        ny_g = 0 if target_is_setup_first else explicit_ny_g
+
+    if has_daily_update:
+        if not (0 <= min_g <= max_c):
+            raise HTTPException(
+                status_code=400,
+                detail=f"INVALID_DAILY_GOAL_CONFIG: daily_min_goal ({min_g}) must be between 0 and daily_max_cap ({max_c})"
+            )
+        if not (0 <= ny_g <= max_c):
+            raise HTTPException(
+                status_code=400,
+                detail=f"INVALID_DAILY_NY_GOAL_CONFIG: daily_ny_goal ({ny_g}) must be between 0 and daily_max_cap ({max_c})"
+            )
+
+    mode = payload.get("scalp_m1_mode")
+    if mode is None and "mode" in payload:
+        mode = payload.get("mode")
+
+    if mode is not None:
+        if not isinstance(mode, str):
+            raise HTTPException(status_code=400, detail="INVALID_SCALP_MODE: must be a string")
+        mode_clean = mode.strip().upper()
+        if mode_clean not in (ScalpMode.OFF.value, ScalpMode.SHADOW.value, ScalpMode.PAPER.value):
+            raise HTTPException(status_code=400, detail="INVALID_SCALP_MODE: must be OFF, SHADOW, or PAPER")
+        cfg_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == "scalp_m1_mode").first()
+        if cfg_row:
+            cfg_row.value = mode_clean
+            cfg_row.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="scalp_m1_mode", value=mode_clean, updated_at=now_ms))
+
+    for bool_field in (
+        "daily_ny_research_enabled",
+        "v16_profile_enabled",
+        "fvg_continuation_enabled",
+        "sweep_reclaim_enabled",
+        "multi_zone_hypotheses_enabled",
+        "orderflow_shadow_enabled",
+        "cg01_enabled",
+    ):
+        if bool_field in payload:
+            b_val = payload[bool_field]
+            if isinstance(b_val, bool):
+                val_bool = b_val
+            elif isinstance(b_val, str) and b_val.strip().lower() in ("true", "false"):
+                val_bool = (b_val.strip().lower() == "true")
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"INVALID_BOOLEAN: {bool_field} must be a strict boolean (true/false)"
+                )
+            val_str = "true" if val_bool else "false"
+            row = db.query(models.SystemConfig).filter(models.SystemConfig.key == bool_field).first()
+            if row:
+                row.value = val_str
+                row.updated_at = now_ms
+            else:
+                db.add(models.SystemConfig(key=bool_field, value=val_str, updated_at=now_ms))
+
+    policy_input = payload.get("cg01_direction_policy") or payload.get("direction_policy")
+    if policy_input is not None:
+        if not isinstance(policy_input, str):
+            raise HTTPException(status_code=400, detail="INVALID_DIRECTION_POLICY: must be a string")
+        pol_clean = policy_input.strip().upper()
+        if pol_clean not in ("LEGACY_H1", "DAILY_BIAS_SHADOW", "DAILY_BIAS_PRIMARY"):
+            raise HTTPException(status_code=400, detail="INVALID_DIRECTION_POLICY: must be LEGACY_H1, DAILY_BIAS_SHADOW, or DAILY_BIAS_PRIMARY")
+        cfg_pol = db.query(models.SystemConfig).filter(models.SystemConfig.key == "cg01_direction_policy").first()
+        if cfg_pol:
+            cfg_pol.value = pol_clean
+            cfg_pol.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="cg01_direction_policy", value=pol_clean, updated_at=now_ms))
+
+    if "cg01_profile_mode" in payload:
+        pm_val = str(payload["cg01_profile_mode"]).strip().upper()
+        if pm_val not in ("OFF", "SHADOW", "PAPER_SHADOW", "PAPER_EXECUTION"):
+            raise HTTPException(status_code=400, detail="INVALID_CG01_PROFILE_MODE: must be OFF, SHADOW, or PAPER_EXECUTION")
+        cfg_pm = db.query(models.SystemConfig).filter(models.SystemConfig.key == "cg01_profile_mode").first()
+        if cfg_pm:
+            cfg_pm.value = pm_val
+            cfg_pm.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="cg01_profile_mode", value=pm_val, updated_at=now_ms))
+
+    if "execution_profile" in payload:
+        from services.scalp_m1_types import ExecutionProfile
+        ep_raw = payload["execution_profile"]
+        if not isinstance(ep_raw, str):
+            raise HTTPException(
+                status_code=400,
+                detail="INVALID_EXECUTION_PROFILE: Chế độ giao dịch không được hỗ trợ."
+            )
+        ep_val = ep_raw.strip().upper()
+        if ep_val not in (ExecutionProfile.BASELINE.value, ExecutionProfile.CG01.value, ExecutionProfile.PAPER_ADAPTIVE_SMC.value):
+            raise HTTPException(
+                status_code=400,
+                detail="INVALID_EXECUTION_PROFILE: Chế độ giao dịch không được hỗ trợ."
+            )
+
+        # Rule 027: Paper-only profile guard
+        db_scope_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == "execution_scope").first()
+        effective_scope = db_scope_row.value.strip().upper() if db_scope_row and db_scope_row.value else "PAPER"
+        req_scope = str(payload.get("execution_scope", payload.get("scope", effective_scope))).strip().upper()
+        if ep_val == ExecutionProfile.PAPER_ADAPTIVE_SMC.value and (req_scope == "LIVE" or effective_scope == "LIVE"):
+            raise HTTPException(
+                status_code=400,
+                detail="PAPER_ONLY_PROFILE_VIOLATION: PAPER_ADAPTIVE_SMC chỉ được phép chạy trong môi trường PAPER."
+            )
+
+        cfg_ep = db.query(models.SystemConfig).filter(models.SystemConfig.key == "execution_profile").first()
+        if cfg_ep:
+            cfg_ep.value = ep_val
+            cfg_ep.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="execution_profile", value=ep_val, updated_at=now_ms))
+
+    if "adaptive_model_allowlist" in payload:
+        from services.scalp_m1_types import normalize_adaptive_model_allowlist
+        raw_al = payload["adaptive_model_allowlist"]
+        try:
+            norm_allowlist = normalize_adaptive_model_allowlist(raw_al)
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=f"INVALID_ADAPTIVE_ALLOWLIST: {ve}")
+
+        import json
+        al_json = json.dumps(list(norm_allowlist))
+        cfg_al = db.query(models.SystemConfig).filter(models.SystemConfig.key == "adaptive_model_allowlist").first()
+        if cfg_al:
+            cfg_al.value = al_json
+            cfg_al.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="adaptive_model_allowlist", value=al_json, updated_at=now_ms))
+
+    if "min_net_rr" in payload:
+        from services.rr_policy_service import stage_min_net_rr_update, RrPolicyConfigError
+        try:
+            stage_min_net_rr_update(db, payload["min_net_rr"], now_ms=now_ms)
+        except RrPolicyConfigError as e:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=f"{e.code}: {e.message}")
+        except (ValueError, TypeError) as e:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=f"INVALID_VALUE: {e}")
+
+    if "timing_profile" in payload:
+        tp_input = payload["timing_profile"]
+        if not isinstance(tp_input, str):
+            db.rollback()
+            raise HTTPException(status_code=400, detail="INVALID_TIMING_PROFILE: must be a string")
+        tp_val = tp_input.strip().upper()
+        if tp_val not in ("SILVER_BULLET_LONDON_NY", "CG01_NY_PAPER_EXPANDED", "CG01_ALL_SESSIONS_PAPER"):
+            db.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail="INVALID_TIMING_PROFILE: must be SILVER_BULLET_LONDON_NY, CG01_NY_PAPER_EXPANDED, or CG01_ALL_SESSIONS_PAPER"
+            )
+
+        # Synchronize TradingPolicy in same transaction to prevent split-brain (PHẦN 085, 146)
+        cur_pol = TradingPolicyService.get_or_create_policy(db)
+        if tp_val == "CG01_ALL_SESSIONS_PAPER":
+            cur_pol.entry_session_policy = "ALL_SESSIONS_SETUP_FIRST"
+            cur_pol.ny_min_fills = 0
+            cur_pol.reserve_ny_slot = False
+            cur_pol.ny_fallback_enabled = False
+            cur_pol.version = (cur_pol.version or 1) + 1
+            cur_pol.updated_at = now_ms
+        elif cur_pol.entry_session_policy == "ALL_SESSIONS_SETUP_FIRST" and tp_val != "CG01_ALL_SESSIONS_PAPER":
+            cur_pol.entry_session_policy = "ALL_SESSIONS_WITH_NY_RESERVE"
+            cur_pol.ny_min_fills = 1
+            cur_pol.reserve_ny_slot = True
+            cur_pol.ny_fallback_enabled = True
+            cur_pol.version = (cur_pol.version or 1) + 1
+            cur_pol.updated_at = now_ms
+
+    if "max_trigger_age_ms" in payload:
+        try:
+            ttl_val = int(payload["max_trigger_age_ms"])
+            if ttl_val <= 0:
+                raise ValueError()
+            cfg_ttl = db.query(models.SystemConfig).filter(models.SystemConfig.key == "max_trigger_age_ms").first()
+            if cfg_ttl:
+                cfg_ttl.value = str(ttl_val)
+                cfg_ttl.updated_at = now_ms
+            else:
+                db.add(models.SystemConfig(key="max_trigger_age_ms", value=str(ttl_val), updated_at=now_ms))
+        except (ValueError, TypeError):
+            db.rollback()
+            raise HTTPException(status_code=400, detail="INVALID_VALUE: max_trigger_age_ms must be a positive integer")
+
+    if "max_entry_distance_atr" in payload:
+        try:
+            dist_val = float(payload["max_entry_distance_atr"])
+            if dist_val <= 0 or not math.isfinite(dist_val):
+                raise ValueError()
+            cfg_dist = db.query(models.SystemConfig).filter(models.SystemConfig.key == "max_entry_distance_atr").first()
+            if cfg_dist:
+                cfg_dist.value = str(dist_val)
+                cfg_dist.updated_at = now_ms
+            else:
+                db.add(models.SystemConfig(key="max_entry_distance_atr", value=str(dist_val), updated_at=now_ms))
+        except (ValueError, TypeError):
+            db.rollback()
+            raise HTTPException(status_code=400, detail="INVALID_VALUE: max_entry_distance_atr must be a positive number")
+
+    # Quality Scoring configuration (Sections 033 - 035, 061, 126, 127, 128)
+    if "quality_scoring_enabled" in payload:
+        q_en = _parse_strict_bool(payload["quality_scoring_enabled"], "quality_scoring_enabled")
+        cfg_q_en = db.query(models.SystemConfig).filter(models.SystemConfig.key == "quality_scoring_enabled").first()
+        if cfg_q_en:
+            cfg_q_en.value = "1" if q_en else "0"
+            cfg_q_en.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="quality_scoring_enabled", value="1" if q_en else "0", updated_at=now_ms))
+
+    if "quality_arm_threshold" in payload:
+        raw_th = payload["quality_arm_threshold"]
+        if isinstance(raw_th, bool) or not isinstance(raw_th, (int, float)) or not math.isfinite(raw_th):
+            raise HTTPException(status_code=400, detail="INVALID_VALUE: quality_arm_threshold must be a finite number")
+        th_val = float(raw_th)
+        if th_val < 0.0 or th_val > 100.0:
+            raise HTTPException(status_code=400, detail="INVALID_VALUE: quality_arm_threshold must be between 0 and 100")
+        cfg_th = db.query(models.SystemConfig).filter(models.SystemConfig.key == "quality_arm_threshold").first()
+        if cfg_th:
+            cfg_th.value = str(th_val)
+            cfg_th.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="quality_arm_threshold", value=str(th_val), updated_at=now_ms))
+
+    if "quality_profile_version" in payload:
+        raw_ver = payload["quality_profile_version"]
+        if not isinstance(raw_ver, str) or not raw_ver.strip():
+            raise HTTPException(status_code=400, detail="CONFIG_INVALID: quality_profile_version must be a non-empty string")
+        q_ver = raw_ver.strip()
+        allowed_profiles = {"v16.39", "v16.39.1", "default", "conservative", "aggressive"}
+        if q_ver not in allowed_profiles:
+            raise HTTPException(status_code=400, detail=f"CONFIG_INVALID: Unknown quality_profile_version '{q_ver}'. Allowed: {sorted(list(allowed_profiles))}")
+        cfg_q_ver = db.query(models.SystemConfig).filter(models.SystemConfig.key == "quality_profile_version").first()
+        if cfg_q_ver:
+            cfg_q_ver.value = q_ver
+            cfg_q_ver.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="quality_profile_version", value=q_ver, updated_at=now_ms))
+
+    if "lesson_score_adjustment_enabled" in payload:
+        l_adj = _parse_strict_bool(payload["lesson_score_adjustment_enabled"], "lesson_score_adjustment_enabled")
+        cfg_l_adj = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lesson_score_adjustment_enabled").first()
+        if cfg_l_adj:
+            cfg_l_adj.value = "1" if l_adj else "0"
+            cfg_l_adj.updated_at = now_ms
+        else:
+            db.add(models.SystemConfig(key="lesson_score_adjustment_enabled", value="1" if l_adj else "0", updated_at=now_ms))
+
+    # Persist validated daily frequency goals to both TradingPolicy and SystemConfig
+    if has_daily_update:
+        pol = TradingPolicyService.get_or_create_policy(db)
+        eff_ny_g = 0 if pol.entry_session_policy == "ALL_SESSIONS_SETUP_FIRST" else ny_g
+        pol.max_daily_fills = max_c
+        pol.ny_min_fills = eff_ny_g
+        pol.daily_min_goal = min_g
+        pol.version = (pol.version or 1) + 1
+        pol.updated_at = now_ms
+
+        for d_key, d_val in (("daily_min_goal", min_g), ("daily_max_cap", max_c)):
+            d_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == d_key).first()
+            if d_row:
+                d_row.value = str(d_val)
+                d_row.updated_at = now_ms
+            else:
+                db.add(models.SystemConfig(key=d_key, value=str(d_val), updated_at=now_ms))
+
+    # Synchronize timing_profile and daily_ny_goal mirrors atomically (PHẦN 051 - 060, Phụ lục B3)
+    if "timing_profile" in payload or has_daily_update:
+        from services.entry_session_policy_service import stage_entry_session_config_mirrors
+        final_pol = TradingPolicyService.get_or_create_policy(db)
+        if "timing_profile" in payload:
+            final_tp = tp_val
+        else:
+            row_tp_curr = db.query(models.SystemConfig).filter(models.SystemConfig.key == "timing_profile").first()
+            final_tp = row_tp_curr.value if (row_tp_curr and row_tp_curr.value) else (
+                "CG01_ALL_SESSIONS_PAPER" if final_pol.entry_session_policy == "ALL_SESSIONS_SETUP_FIRST" else "SILVER_BULLET_LONDON_NY"
+            )
+
+        stage_entry_session_config_mirrors(
+            db,
+            timing_profile=final_tp,
+            ny_goal=final_pol.ny_min_fills,
+            now_ms=now_ms,
+        )
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to persist scalp config: {e}")
+        raise HTTPException(status_code=500, detail="DATABASE_ERROR: failed to persist config")
+
+    effective_cfg = load_effective_scalp_config(db)
+    synced_policy = resolve_effective_daily_policy(db)
+    from services.rr_policy_service import resolve_effective_rr_policy
+    rr_ctx = resolve_effective_rr_policy(db)
+    out_config = {
+        "scalp_m1_enabled": (effective_cfg.scalp_m1_mode != "OFF"),
+        "scalp_m1_mode": effective_cfg.scalp_m1_mode,
+        "mode": effective_cfg.scalp_m1_mode,
+        "daily_ny_research_enabled": effective_cfg.daily_ny_research_enabled,
+        "min_closed_m1_bars": effective_cfg.min_closed_m1_bars,
+        "displacement_body_atr_min": effective_cfg.displacement_body_atr_min,
+        "min_net_rr": rr_ctx.min_net_rr,
+        "effective_min_net_rr": rr_ctx.min_net_rr,
+        "rr_policy_source": rr_ctx.source,
+        "rr_policy_fingerprint": rr_ctx.fingerprint,
+        "fallback_risk_pct": effective_cfg.fallback_risk_pct,
+        "max_trigger_age_ms": effective_cfg.max_trigger_age_ms,
+        "max_entry_distance_atr": effective_cfg.max_entry_distance_atr,
+        "config_version": effective_cfg.config_version,
+        "v16_profile_enabled": effective_cfg.v16_profile_enabled,
+        "fvg_continuation_enabled": effective_cfg.fvg_continuation_enabled,
+        "sweep_reclaim_enabled": effective_cfg.sweep_reclaim_enabled,
+        "multi_zone_hypotheses_enabled": effective_cfg.multi_zone_hypotheses_enabled,
+        "orderflow_shadow_enabled": effective_cfg.orderflow_shadow_enabled,
+        "daily_min_goal": synced_policy.min_goal,
+        "daily_max_cap": synced_policy.max_fills,
+        "daily_ny_goal": synced_policy.ny_goal,
+        "policy_version": synced_policy.policy_version,
+        "cg01_enabled": getattr(effective_cfg, "cg01_enabled", False),
+        "cg01_profile_mode": getattr(effective_cfg, "cg01_profile_mode", "OFF"),
+        "execution_profile": getattr(effective_cfg, "execution_profile", "BASELINE"),
+        "adaptive_model_allowlist": list(getattr(effective_cfg, "adaptive_model_allowlist", ())),
+        "cg01_direction_policy": getattr(effective_cfg, "cg01_direction_policy", "LEGACY_H1"),
+        "timing_profile": getattr(effective_cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),
+        "effective_timing_profile": getattr(effective_cfg, "timing_profile", "SILVER_BULLET_LONDON_NY"),
+        "quality_scoring_enabled": getattr(effective_cfg, "quality_scoring_enabled", False),
+        "quality_arm_threshold": getattr(effective_cfg, "quality_arm_threshold", 70.0),
+        "quality_profile_version": getattr(effective_cfg, "quality_profile_version", "v16.39"),
+        "lesson_score_adjustment_enabled": getattr(effective_cfg, "lesson_score_adjustment_enabled", False),
+    }
+    return {
+        "status": "SUCCESS",
+        "updated_at": now_ms,
+        "effective_config": out_config,
+        **out_config,
+    }
+
+
+@app.get("/api/scalp/daily-status")
+@app.get("/api/v1/policy/daily-status")
+def get_scalp_daily_status_endpoint(db: Session = Depends(get_db)):
+    """
+    V16.1 Rule 138, V16.2 Rules 021-028: Canonical daily status API.
+    Returns trading_day_id, fills_count, min_goal, cap, ny_fills, reservation_state, search_state, primary_reason.
+    """
+    from services.trading_policy_service import TradingPolicyService, resolve_effective_daily_policy
+    eff_policy = resolve_effective_daily_policy(db)
+    now_ms = int(time.time() * 1000)
+    day_audit = crud.get_or_create_today_audit(db)
+    goal_eval = TradingPolicyService.evaluate_daily_frequency_goal(
+        db, now_ms=now_ms, effective_policy=eff_policy
+    )
+    return {
+        "status": "SUCCESS",
+        "trading_day_id": day_audit.date_str,
+        "fills_count": goal_eval.daily_fills,
+        "min_goal": eff_policy.min_goal,
+        "cap": eff_policy.max_fills,
+        "ny_fills": goal_eval.ny_fills,
+        "ny_goal": eff_policy.ny_goal,
+        "policy_version": eff_policy.policy_version,
+        "reservation_state": "RESERVED" if goal_eval.ny_reserve_active else "NONE",
+        "search_state": goal_eval.status,
+        "primary_reason": goal_eval.reason_vi,
+        "shortfall_breakdown": goal_eval.shortfall_breakdown or {},
+    }
+
+
+@app.get("/api/scalp/watchlist")
+def get_scalp_watchlist_endpoint(symbol: str = "XAUUSDT"):
+    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+    zones = scalp_watcher_orchestrator.get_active_zones(symbol)
+    return {
+        "symbol": symbol,
+        "count": len(zones),
+        "zones": [z.to_dict() for z in zones],
+    }
+
+
+@app.get("/api/scalp/cg01/evaluation")
+def get_scalp_cg01_evaluation_endpoint(symbol: str = "XAUUSDT"):
+    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+    return scalp_watcher_orchestrator.get_latest_cg01_evaluation(symbol)
+
+
+@app.get("/api/scalp/funnel")
+def get_scalp_funnel_endpoint(
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    model_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    from services.opportunity_funnel_service import OpportunityFunnelService
+    summary = OpportunityFunnelService.summarize_opportunity_funnel(
+        db, start_ms=start_ms, end_ms=end_ms, model_id=model_id, session_id=session_id
+    )
+    return summary
+
+
+@app.get("/api/scalp/comparison")
+def get_scalp_comparison_endpoint(
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    from services.model_comparison_service import ModelComparisonService
+    report = ModelComparisonService.generate_comparison_report(
+        db, start_ms=start_ms, end_ms=end_ms
+    )
+    return report
+
+
+@app.get("/api/scalp/liquidity-map")
+def get_scalp_liquidity_map_endpoint(symbol: str = "XAUUSDT"):
+    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+    levels = scalp_watcher_orchestrator.get_active_liquidity_levels(symbol)
+    return {
+        "symbol": symbol,
+        "count": len(levels),
+        "levels": [
+            {
+                "id": l.id,
+                "price": l.price,
+                "side": l.side,
+                "source_kind": l.source_kind,
+                "state": l.state,
+                "label_vi": l.label_vi,
+                "is_partial": getattr(l, "is_partial", False),
+                "known_at_ms": l.known_at_ms,
+            }
+            for l in levels
+        ],
+    }
+
+
+@app.get("/api/scalp/hypotheses")
+def get_scalp_hypotheses_endpoint(symbol: str = "XAUUSDT"):
+    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+    hyps = scalp_watcher_orchestrator.get_active_hypotheses(symbol)
+    batch_res = scalp_watcher_orchestrator.get_latest_hypothesis_batch_result(symbol)
+    authority = scalp_watcher_orchestrator.get_latest_hypothesis_authority(symbol)
+    outcome = scalp_watcher_orchestrator.get_latest_cycle_outcome(symbol)
+    data_quality = "HEALTHY"
+    issues_count = 0
+    if batch_res is not None:
+        data_quality = "DEGRADED" if batch_res.read_status != "COMPLETE" else "HEALTHY"
+        issues_count = len(batch_res.issues)
+    if authority is not None:
+        if authority.has_write_failures:
+            data_quality = "DEGRADED"
+        elif authority.has_write_blocks and data_quality != "DEGRADED":
+            data_quality = "PARTIAL"
+        issues_count += authority.write_issues_count
+    if outcome is not None and outcome.get("status") == "DEGRADED":
+        data_quality = "DEGRADED"
+        issues_count = max(issues_count, 1)
+    return {
+        "symbol": symbol,
+        "count": len(hyps),
+        "data_quality": data_quality,
+        "issues_count": issues_count,
+        "hypotheses": [h.to_dict() if hasattr(h, "to_dict") else h for h in hyps],
+    }
+
+
+@app.get("/api/scalp/zone-assessment/{zone_id}")
+def get_scalp_zone_assessment_endpoint(zone_id: str, symbol: str = "XAUUSDT"):
+    from services.scalp_watcher_orchestrator import scalp_watcher_orchestrator
+    assessment = scalp_watcher_orchestrator.get_zone_assessment_explanation(symbol, zone_id)
+    if not assessment:
+        raise HTTPException(status_code=404, detail="ZONE_NOT_FOUND: zone not active or does not exist")
+    return assessment
+
+
+@app.get("/api/v1/paper/runtime-snapshot")
+def get_paper_runtime_snapshot_endpoint(
+    run_id: Optional[str] = None,
+    symbol: str = "XAUUSDT",
+    scope: str = "CG01",
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V16.39.10: Canonical forward paper runtime observation endpoint (Rules 101-105).
+    Strictly read-only, zero side-effects, does not create runs, policy, or checkpoints.
+    """
+    if start_ms is not None and end_ms is not None and end_ms <= start_ms:
+        raise HTTPException(
+            status_code=422,
+            detail=f"end_ms ({end_ms}) must be strictly greater than start_ms ({start_ms})",
+        )
+
+    db.autoflush = False
+    from services.cg01_scheduler_service import cg01_evaluation_scheduler
+    from services.paper_runtime_snapshot_service import build_paper_runtime_snapshot
+
+    providers = {"scheduler": cg01_evaluation_scheduler}
+    snapshot = build_paper_runtime_snapshot(
+        db,
+        run_id=run_id,
+        symbol=symbol,
+        scope=scope,
+        start_ms=start_ms,
+        end_ms=end_ms,
+        runtime_providers=providers,
+        source_mode="HTTP",
+    )
+    return snapshot
+
+
+# ---------------------------------------------------------------------------
+# V17.0 Paper Opportunity Monitor Endpoints (Phần 091 - 100)
+# Strictly Read-Only (zero side-effects, zero mutations, db.autoflush=False)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/paper/opportunity-monitor/summary")
+def get_opportunity_monitor_summary_endpoint(
+    symbol: str = "XAUUSDT",
+    scope: str = "CG01",
+    run_id: Optional[str] = None,
+    model_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.0 Read-only summary aggregating unique opportunities, funnel stage progression,
+    unique-opportunity top rejection reasons, financial metrics (reused from snapshot service),
+    and latency metrics.
+    """
+    if start_ms is not None and end_ms is not None and end_ms <= start_ms:
+        raise HTTPException(
+            status_code=422,
+            detail=f"end_ms ({end_ms}) must be strictly greater than start_ms ({start_ms})",
+        )
+    if start_ms is not None and end_ms is not None and (end_ms - start_ms) > 31 * 86400 * 1000:
+        raise HTTPException(
+            status_code=422,
+            detail="Query window cannot exceed 31 days",
+        )
+
+    db.autoflush = False
+    from services.paper_opportunity_monitor_service import (
+        build_opportunity_monitor_summary,
+        make_monitor_query_context,
+    )
+
+    try:
+        ctx = make_monitor_query_context(
+            symbol=symbol,
+            scope=scope,
+            run_id=run_id,
+            model_id=model_id,
+            session_id=session_id,
+            start_ms=start_ms,
+            end_ms=end_ms,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
+
+    summary = build_opportunity_monitor_summary(db, ctx)
+    return summary.to_dict()
+
+
+@app.get("/api/v1/paper/opportunity-monitor/opportunities")
+def list_opportunity_monitor_endpoint(
+    symbol: str = "XAUUSDT",
+    scope: str = "CG01",
+    run_id: Optional[str] = None,
+    model_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    limit: int = 20,
+    cursor: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.0 Read-only paginated list of distinct canonical opportunities,
+    batching links/milestones to eliminate N+1 queries.
+    """
+    if limit < 1 or limit > 50:
+        raise HTTPException(status_code=422, detail="limit must be between 1 and 50")
+    if start_ms is not None and end_ms is not None and end_ms <= start_ms:
+        raise HTTPException(
+            status_code=422,
+            detail=f"end_ms ({end_ms}) must be strictly greater than start_ms ({start_ms})",
+        )
+    if start_ms is not None and end_ms is not None and (end_ms - start_ms) > 31 * 86400 * 1000:
+        raise HTTPException(
+            status_code=422,
+            detail="Query window cannot exceed 31 days",
+        )
+
+    db.autoflush = False
+    from services.paper_opportunity_monitor_service import (
+        list_monitor_opportunities,
+        make_monitor_query_context,
+    )
+
+    try:
+        ctx = make_monitor_query_context(
+            symbol=symbol,
+            scope=scope,
+            run_id=run_id,
+            model_id=model_id,
+            session_id=session_id,
+            start_ms=start_ms,
+            end_ms=end_ms,
+            limit=limit,
+            cursor=cursor,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
+
+    page = list_monitor_opportunities(db, ctx)
+    return page.to_dict()
+
+
+@app.get("/api/v1/paper/opportunity-monitor/opportunities/{opportunity_id}")
+def get_opportunity_monitor_detail_endpoint(
+    opportunity_id: str,
+    symbol: str = "XAUUSDT",
+    scope: str = "CG01",
+    run_id: Optional[str] = None,
+    model_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.1 Read-only detail for a single canonical opportunity including
+    observed milestones (with provenance), plan, classifier audit, and latency.
+    Strictly filters by resolved run and [start_ms, end_ms) window.
+    """
+    if start_ms is not None and end_ms is not None and end_ms <= start_ms:
+        raise HTTPException(
+            status_code=422,
+            detail=f"end_ms ({end_ms}) must be strictly greater than start_ms ({start_ms})",
+        )
+    if start_ms is not None and end_ms is not None and (end_ms - start_ms) > 31 * 86400 * 1000:
+        raise HTTPException(
+            status_code=422,
+            detail="Query window cannot exceed 31 days",
+        )
+
+    db.autoflush = False
+    from services.paper_opportunity_monitor_service import (
+        build_opportunity_monitor_detail,
+        make_monitor_query_context,
+    )
+
+    try:
+        ctx = make_monitor_query_context(
+            symbol=symbol,
+            scope=scope,
+            run_id=run_id,
+            model_id=model_id,
+            session_id=session_id,
+            start_ms=start_ms,
+            end_ms=end_ms,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
+
+    detail = build_opportunity_monitor_detail(db, opportunity_id, ctx)
+    if not detail:
+        raise HTTPException(
+            status_code=404,
+            detail=f"OPPORTUNITY_NOT_FOUND: Cơ hội '{opportunity_id}' không tồn tại trong phạm vi được yêu cầu.",
+        )
+    return detail.to_dict()
+
+
+@app.get("/api/v1/paper/opportunity-monitor/opportunities/{opportunity_id}/chart-target")
+def get_opportunity_monitor_chart_target_endpoint(
+    opportunity_id: str,
+    symbol: str = "XAUUSDT",
+    scope: str = "CG01",
+    run_id: Optional[str] = None,
+    model_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    expected_target_id: Optional[str] = None,
+    expected_kind: Optional[str] = None,
+    expected_revision: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.1 Read-only canonical chart target hydrator for an opportunity.
+    Returns full canonical PaperOrderResponse or WatchSetupItem DTO with geometry,
+    prices, and cost snapshots. Zero writes (db.autoflush=False).
+    """
+    if start_ms is not None and end_ms is not None and end_ms <= start_ms:
+        raise HTTPException(
+            status_code=422,
+            detail=f"end_ms ({end_ms}) must be strictly greater than start_ms ({start_ms})",
+        )
+    if start_ms is not None and end_ms is not None and (end_ms - start_ms) > 31 * 86400 * 1000:
+        raise HTTPException(
+            status_code=422,
+            detail="Query window cannot exceed 31 days",
+        )
+
+    db.autoflush = False
+    from services.paper_opportunity_monitor_service import (
+        build_monitor_chart_focus_context,
+        make_monitor_query_context,
+    )
+
+    try:
+        ctx = make_monitor_query_context(
+            symbol=symbol,
+            scope=scope,
+            run_id=run_id,
+            model_id=model_id,
+            session_id=session_id,
+            start_ms=start_ms,
+            end_ms=end_ms,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
+
+    focus_context = build_monitor_chart_focus_context(
+        db,
+        opportunity_id=opportunity_id,
+        requested_query=ctx,
+        expected_target_id=expected_target_id,
+        expected_kind=expected_kind,
+        expected_revision=expected_revision,
+    )
+    return focus_context
+
+
+@app.get("/api/v1/paper/opportunity-monitor/report.md")
+def get_opportunity_monitor_report_endpoint(
+    symbol: str = "XAUUSDT",
+    scope: str = "CG01",
+    run_id: Optional[str] = None,
+    model_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.0 Server-side sanitized Markdown report generation for opportunity monitoring.
+    """
+    from fastapi.responses import PlainTextResponse
+    from services.paper_opportunity_monitor_service import (
+        build_opportunity_monitor_summary,
+        list_monitor_opportunities,
+        make_monitor_query_context,
+        resolve_monitor_query_context,
+        render_opportunity_monitor_markdown,
+    )
+
+    if start_ms is not None and end_ms is not None and end_ms <= start_ms:
+        raise HTTPException(
+            status_code=422,
+            detail=f"end_ms ({end_ms}) must be strictly greater than start_ms ({start_ms})",
+        )
+
+    db.autoflush = False
+    try:
+        ctx = make_monitor_query_context(
+            symbol=symbol,
+            scope=scope,
+            run_id=run_id,
+            model_id=model_id,
+            session_id=session_id,
+            start_ms=start_ms,
+            end_ms=end_ms,
+            limit=50,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=str(ve))
+
+    # Resolve context once to bind effective run_id and window across summary and list
+    resolved = resolve_monitor_query_context(db, ctx)
+    effective_ctx = resolved.query if (resolved.resolution_status == "FOUND" and resolved.query) else ctx
+    summary = build_opportunity_monitor_summary(db, effective_ctx)
+    page = list_monitor_opportunities(db, effective_ctx)
+    md_text = render_opportunity_monitor_markdown(
+        summary,
+        page.items,
+        total_count=page.total,
+        has_more=page.has_more,
+    )
+
+    return PlainTextResponse(content=md_text, media_type="text/markdown; charset=utf-8")
+
+
+# ---------------------------------------------------------------------------
+# V17.6 Observation API Endpoints (Phần 101 - 110)
+# Strictly Read-Only (zero side-effects, zero mutations, db.autoflush=False)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/observation/status")
+def get_observation_status_endpoint(
+    symbol: str = "XAUUSDT",
+    now_ms: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.6 Read-only status snapshot: engine liveness, market feed freshness,
+    resolved active run, active incidents, and latest cycle telemetry.
+    """
+    db.autoflush = False
+    from services.engine_observability_service import engine_observability_service
+    from services.paper_research_run_service import resolve_active_observation_run
+
+    t_now = int(now_ms if now_ms is not None else int(time.time() * 1000))
+    engine_health = engine_observability_service.build_engine_health_snapshot(db, symbol=symbol, now_ms=t_now)
+    feed_health = engine_observability_service.build_market_feed_health_snapshot(symbol=symbol, now_ms=t_now)
+    active_run = resolve_active_observation_run(db, symbol=symbol)
+
+    return {
+        "status": "OK",
+        "symbol": symbol,
+        "now_ms": t_now,
+        "engine": engine_health,
+        "feed": feed_health,
+        "evidence_origin": engine_health.get("evidence_origin", "LIVE_FORWARD"),
+        "evidence_persistence_status": engine_health.get("evidence_persistence_status", "COMMITTED"),
+        "active_run": active_run.to_dict() if active_run else None,
+        "latest_cycle": engine_observability_service.get_latest_persisted_cycle(
+            db, symbol=symbol, run_id=active_run.run_id if active_run else None
+        ),
+        "recent_cycles": engine_observability_service.get_recent_cycles(limit=10),
+    }
+
+
+@app.get("/api/v1/observation/summary")
+def get_observation_summary_endpoint(
+    symbol: str = "XAUUSDT",
+    scope: str = "CG01",
+    run_id: Optional[str] = None,
+    start_ms: Optional[int] = None,
+    end_ms: Optional[int] = None,
+    now_ms: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.6 Aggregated Observation Dashboard Snapshot:
+    Tiers 1, 2, and 3 combined (Engine, Feed, Funnel, Waiting conditions, Blocked categories,
+    truthful post-fee accounting, and observation coverage).
+    """
+    if start_ms is not None and end_ms is not None and end_ms <= start_ms:
+        raise HTTPException(
+            status_code=422,
+            detail=f"end_ms ({end_ms}) must be strictly greater than start_ms ({start_ms})",
+        )
+    if start_ms is not None and end_ms is not None and (end_ms - start_ms) > 31 * 86400 * 1000:
+        raise HTTPException(
+            status_code=422,
+            detail="Query window cannot exceed 31 days",
+        )
+
+    db.autoflush = False
+    from services.engine_observability_service import engine_observability_service
+
+    snapshot = engine_observability_service.build_observation_dashboard_snapshot(
+        db,
+        symbol=symbol,
+        scope=scope,
+        run_id=run_id,
+        start_ms=start_ms,
+        end_ms=end_ms,
+        now_ms=now_ms,
+    )
+    return snapshot
+
+
+@app.get("/api/v1/observation/decisions")
+def get_observation_decisions_endpoint(
+    symbol: str = "XAUUSDT",
+    run_id: Optional[str] = None,
+    limit: int = 20,
+    cursor: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.6 Paginated recent decision events with stable ordering, primary reason categorization,
+    and Vietnamese localization.
+    """
+    if limit < 1 or limit > 50:
+        raise HTTPException(status_code=422, detail="limit must be between 1 and 50")
+
+    db.autoflush = False
+    from services.engine_observability_service import engine_observability_service
+
+    return engine_observability_service.list_recent_decisions(
+        db,
+        run_id=run_id,
+        symbol=symbol,
+        limit=limit,
+        cursor=cursor,
+    )
+
+
+@app.get("/api/v1/observation/runs/{run_id}")
+def get_observation_run_detail_endpoint(
+    run_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.6 Single observation run detail with duration, post-fee PnL, and truthful coverage.
+    """
+    db.autoflush = False
+    from services.paper_research_run_service import PaperResearchRunService, build_cg01_paper_run_summary
+    from services.engine_observability_service import engine_observability_service
+
+    run = PaperResearchRunService.get_or_create_run(run_id, db=db, create_if_missing=False)
+    if not run:
+        raise HTTPException(status_code=404, detail=f"Observation run '{run_id}' not found.")
+
+    summary = build_cg01_paper_run_summary(run_id, db=db)
+    t_now = int(time.time() * 1000)
+    coverage = engine_observability_service.calculate_observation_coverage(
+        db,
+        run_id=run_id,
+        start_ms=run.started_at_ms,
+        end_ms=run.ended_at_ms or t_now,
+    )
+
+    return {
+        "run": run.to_dict(),
+        "summary": summary,
+        "coverage": coverage,
+    }
+
+
+@app.get("/api/v1/observation/runs/{run_id}/report")
+def get_observation_run_report_endpoint(
+    run_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    V17.6 Server-generated Markdown observation report for a specific run.
+    """
+    from fastapi.responses import PlainTextResponse
+    from services.engine_observability_service import engine_observability_service
+
+    db.autoflush = False
+    report_md = engine_observability_service.generate_run_report_markdown(db, run_id=run_id)
+    return PlainTextResponse(content=report_md, media_type="text/markdown; charset=utf-8")
+

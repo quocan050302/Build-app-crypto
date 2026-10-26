@@ -79,6 +79,7 @@ export interface ClientCalcResult {
   grossRR: number;
   estimatedNetRR: number;
   meetsMinRR: boolean;
+  minNetRR: number | null;
   effectiveRiskPct: number;
   notionalUsdt: number;
   feesTotalUsdt: number;
@@ -200,7 +201,7 @@ export function calculateClientRiskReward(
   tp: number,
   capital: number = 1000.0,
   riskPct: number = 0.25,
-  minNetRR: number = 2.0,
+  minNetRR: number | null = 2.0,
   quantityOverride?: number,
   leverage: number = 5,
   marginMode: 'ISOLATED' | 'CROSS' = 'ISOLATED',
@@ -235,6 +236,7 @@ export function calculateClientRiskReward(
       grossRR: 0,
       estimatedNetRR: 0,
       meetsMinRR: false,
+      minNetRR,
       effectiveRiskPct: 0,
       notionalUsdt: 0,
       feesTotalUsdt: 0,
@@ -281,6 +283,7 @@ export function calculateClientRiskReward(
       grossRR: 0,
       estimatedNetRR: 0,
       meetsMinRR: false,
+      minNetRR,
       effectiveRiskPct: 0,
       notionalUsdt: 0,
       feesTotalUsdt: 0,
@@ -400,11 +403,16 @@ export function calculateClientRiskReward(
   }
 
   // Strict unrounded threshold check
-  const meetsMinRR = netRR >= minNetRR;
+  const meetsMinRR = minNetRR != null && minNetRR > 0 ? netRR >= minNetRR : false;
   if (!meetsMinRR && canExecute) {
     canExecute = false;
-    skipReason = `NET_RR_TOO_LOW: Net R:R 1:${netRR.toFixed(4)} chưa đạt ngưỡng tối thiểu 1:${minNetRR.toFixed(1)}`;
-    blockers.push('NET_RR_TOO_LOW');
+    if (minNetRR == null) {
+      skipReason = 'POLICY_UNCONFIRMED: Ngưỡng R:R hiện hành chưa được xác thực từ máy chủ';
+      blockers.push('POLICY_UNCONFIRMED');
+    } else {
+      skipReason = `NET_RR_TOO_LOW: Net R:R 1:${netRR.toFixed(4)} chưa đạt ngưỡng tối thiểu 1:${minNetRR.toFixed(1)}`;
+      blockers.push('NET_RR_TOO_LOW');
+    }
   }
 
   const effectiveRiskPct = capital > 0 ? (netRisk / capital) * 100.0 : 0;
@@ -479,6 +487,7 @@ export function calculateClientRiskReward(
     grossRR: Number(grossRR.toFixed(4)),
     estimatedNetRR: Number(netRR.toFixed(4)),
     meetsMinRR,
+    minNetRR,
     effectiveRiskPct: Number(effectiveRiskPct.toFixed(4)),
     notionalUsdt: Number(notional.toFixed(2)),
     feesTotalUsdt: Number((entryFeeTotal + slExitFeeTotal).toFixed(3)),

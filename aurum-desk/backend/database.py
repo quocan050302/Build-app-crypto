@@ -24,7 +24,7 @@ SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False, "timeout": 15},
+    connect_args={"check_same_thread": False, "timeout": 30},
     poolclass=NullPool
 )
 
@@ -34,7 +34,7 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
-    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.execute("PRAGMA busy_timeout=30000")
     cursor.close()
 
 def run_schema_migrations(target_engine=None):
@@ -72,7 +72,14 @@ def run_schema_migrations(target_engine=None):
                     ("arm_decision_snapshot", "TEXT"),
                     ("fill_decision_snapshot", "TEXT"),
                 ]
-                for col_name, col_type in (v6_cols + v7_cols + v10_1_cols):
+                v14_4_po_cols = [
+                    ("scenario_snapshot_id", "VARCHAR(80)"),
+                    ("quality_snapshot_id", "VARCHAR(80)"),
+                ]
+                v16_6_po_cols = [
+                    ("intrabar_ambiguous", "BOOLEAN DEFAULT 0"),
+                ]
+                for col_name, col_type in (v6_cols + v7_cols + v10_1_cols + v14_4_po_cols + v16_6_po_cols):
                     if col_name not in cols:
                         conn.execute(text(f"ALTER TABLE paper_orders ADD COLUMN {col_name} {col_type}"))
                 conn.commit()
@@ -89,6 +96,13 @@ def run_schema_migrations(target_engine=None):
                     ("effective_risk_pct", "FLOAT DEFAULT 0.25"),
                     ("risk_profile", "VARCHAR(30) DEFAULT 'STANDARD'"),
                     ("cost_snapshot", "TEXT"),
+                    # V14.2 additive plan provenance
+                    ("plan_kind", "VARCHAR(20)"),
+                    ("direction_source", "VARCHAR(20)"),
+                    # V14.3 additive: NY session id (NULL on legacy rows)
+                    ("session_instance_id", "VARCHAR(60)"),
+                    ("scenario_snapshot_id", "VARCHAR(80)"),
+                    ("quality_snapshot_id", "VARCHAR(80)"),
                 ]
                 for col_name, col_type in v7_ws_cols:
                     if col_name not in ws_cols:
@@ -196,8 +210,9 @@ def run_schema_migrations(target_engine=None):
                     mode VARCHAR(20) DEFAULT 'PAPER',
                     symbol VARCHAR(20) DEFAULT 'XAUUSDT',
                     max_daily_fills INTEGER DEFAULT 3,
+                    daily_min_goal INTEGER DEFAULT 2,
                     daily_timezone VARCHAR(50) DEFAULT 'Asia/Ho_Chi_Minh',
-                    entry_session_policy VARCHAR(40) DEFAULT 'NY_ONLY',
+                    entry_session_policy VARCHAR(40) DEFAULT 'ALL_SESSIONS_WITH_NY_RESERVE',
                     ny_timezone VARCHAR(50) DEFAULT 'America/New_York',
                     ny_entry_start VARCHAR(10) DEFAULT '08:00',
                     ny_entry_end VARCHAR(10) DEFAULT '11:00',
@@ -212,6 +227,11 @@ def run_schema_migrations(target_engine=None):
                     updated_at BIGINT NOT NULL
                 );
             """))
+            tp_res = conn.execute(text("PRAGMA table_info(trading_policies)"))
+            tp_cols = {row[1] for row in tp_res.fetchall()}
+            if tp_cols and "daily_min_goal" not in tp_cols:
+                conn.execute(text("ALTER TABLE trading_policies ADD COLUMN daily_min_goal INTEGER DEFAULT 2"))
+                conn.commit()
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS session_quotas (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -255,6 +275,410 @@ def run_schema_migrations(target_engine=None):
                     created_at BIGINT NOT NULL
                 );
             """))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS smc_scenarios (
+                    scenario_id VARCHAR(80) PRIMARY KEY,
+                    instance_id VARCHAR(100) NOT NULL,
+                    revision INTEGER DEFAULT 1,
+                    symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+                    timeframe VARCHAR(10) DEFAULT '5M',
+                    strategy_family VARCHAR(30) DEFAULT 'STANDARD_SMC',
+                    direction VARCHAR(10),
+                    state VARCHAR(30) DEFAULT 'OBSERVING',
+                    as_of_ms BIGINT NOT NULL,
+                    anchor_level_id VARCHAR(80),
+                    target_level_id VARCHAR(80),
+                    summary_vi TEXT,
+                    current_snapshot_id VARCHAR(80),
+                    payload TEXT NOT NULL,
+                    created_at BIGINT NOT NULL,
+                    updated_at BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS smc_scenario_snapshots (
+                    snapshot_id VARCHAR(80) PRIMARY KEY,
+                    scenario_id VARCHAR(80) NOT NULL,
+                    instance_id VARCHAR(100) NOT NULL,
+                    revision INTEGER DEFAULT 1,
+                    symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+                    timeframe VARCHAR(10) DEFAULT '5M',
+                    direction VARCHAR(10),
+                    state VARCHAR(30) NOT NULL,
+                    as_of_ms BIGINT NOT NULL,
+                    evidence_cutoff_ms BIGINT NOT NULL,
+                    evidence_digest VARCHAR(64) NOT NULL,
+                    plan_fingerprint VARCHAR(32),
+                    payload TEXT NOT NULL,
+                    created_at BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenarios_instance_id ON smc_scenarios (instance_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenarios_state ON smc_scenarios (state);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenario_snapshots_scenario_id ON smc_scenario_snapshots (scenario_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenario_snapshots_instance_id ON smc_scenario_snapshots (instance_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_smc_scenario_snapshots_as_of_ms ON smc_scenario_snapshots (as_of_ms);"))
+            try:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_sqs_setup_created ON setup_quality_snapshots (setup_id, created_at DESC);"))
+            except Exception:
+                pass
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS paper_observations (
+                    id VARCHAR(80) PRIMARY KEY,
+                    namespace VARCHAR(40) NOT NULL,
+                    event_kind VARCHAR(30) NOT NULL,
+                    snapshot_id VARCHAR(160),
+                    scenario_id VARCHAR(160),
+                    order_id VARCHAR(36),
+                    as_of_ms BIGINT NOT NULL,
+                    payload_json TEXT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_paper_observation_key ON paper_observations (namespace, event_kind, snapshot_id, order_id);"))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS forecast_observations (
+                    id VARCHAR(80) PRIMARY KEY,
+                    forecast_id VARCHAR(80) NOT NULL,
+                    revision INTEGER DEFAULT 1,
+                    symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+                    session VARCHAR(20) NOT NULL,
+                    session_id VARCHAR(80) NOT NULL,
+                    as_of_ms BIGINT NOT NULL,
+                    context_cutoff_ms BIGINT NOT NULL,
+                    content_digest VARCHAR(64) NOT NULL,
+                    hypothesis_type VARCHAR(50) NOT NULL,
+                    direction VARCHAR(10),
+                    target_price FLOAT,
+                    invalidation_price FLOAT,
+                    outcome_status VARCHAR(50) DEFAULT 'PENDING',
+                    outcome_at_ms BIGINT,
+                    outcome_details TEXT,
+                    verification_status VARCHAR(30) DEFAULT 'UNVERIFIED',
+                    invalidation_mode VARCHAR(30) DEFAULT 'CLOSED_PRICE',
+                    payload_json TEXT NOT NULL,
+                    created_at BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_forecast_session_digest ON forecast_observations (session_id, content_digest);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_forecast_observations_forecast_id ON forecast_observations (forecast_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_forecast_observations_session_id ON forecast_observations (session_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_forecast_observations_as_of_ms ON forecast_observations (as_of_ms);"))
+
+            # Column migration for forecast_observations
+            res_fc = conn.execute(text("PRAGMA table_info(forecast_observations)"))
+            fc_cols = {row[1] for row in res_fc.fetchall()}
+            if fc_cols:
+                if "verification_status" not in fc_cols:
+                    conn.execute(text("ALTER TABLE forecast_observations ADD COLUMN verification_status VARCHAR(30) DEFAULT 'UNVERIFIED';"))
+                if "invalidation_mode" not in fc_cols:
+                    conn.execute(text("ALTER TABLE forecast_observations ADD COLUMN invalidation_mode VARCHAR(30) DEFAULT 'CLOSED_PRICE';"))
+
+            # V14.4.4: Upgrade legacy default policy NY_ONLY to ALL_SESSIONS_WITH_NY_RESERVE
+            conn.execute(text("""
+                UPDATE trading_policies
+                SET entry_session_policy = 'ALL_SESSIONS_WITH_NY_RESERVE',
+                    version = version + 1
+                WHERE id = 'default' AND entry_session_policy = 'NY_ONLY';
+            """))
+
+            # V16.2: Ensure daily_min_goal in trading_policies
+            res_tp = conn.execute(text("PRAGMA table_info(trading_policies)"))
+            tp_cols = {row[1] for row in res_tp.fetchall()}
+            if tp_cols and "daily_min_goal" not in tp_cols:
+                conn.execute(text("ALTER TABLE trading_policies ADD COLUMN daily_min_goal INTEGER DEFAULT 2;"))
+
+            # V16.15: Ensure paper_research_run_records and paper_research_order_links exist
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS paper_research_run_records (
+                    run_id VARCHAR(80) PRIMARY KEY,
+                    symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+                    status VARCHAR(20) DEFAULT 'COLLECTING',
+                    started_at_ms BIGINT NOT NULL,
+                    ended_at_ms BIGINT,
+                    software_version VARCHAR(20) DEFAULT 'V16.15',
+                    config_fingerprint VARCHAR(80) DEFAULT 'DEFAULT',
+                    execution_mode VARCHAR(30) DEFAULT 'PAPER_SHADOW',
+                    initial_capital_usdt FLOAT DEFAULT 1000.0,
+                    current_capital_usdt FLOAT DEFAULT 1000.0,
+                    metadata_json TEXT,
+                    created_at_ms BIGINT NOT NULL,
+                    updated_at_ms BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_run_status ON paper_research_run_records (status);"))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS paper_research_order_links (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    run_id VARCHAR(80) NOT NULL,
+                    order_id VARCHAR(36) NOT NULL,
+                    opportunity_id VARCHAR(80),
+                    trace_id VARCHAR(80),
+                    linked_at_ms BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_run_order ON paper_research_order_links (run_id, order_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_order_run ON paper_research_order_links (run_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_order_order ON paper_research_order_links (order_id);"))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS paper_research_order_milestones (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    run_id VARCHAR(80) NOT NULL,
+                    order_id VARCHAR(36) NOT NULL,
+                    milestone VARCHAR(30) NOT NULL,
+                    timestamp_ms BIGINT NOT NULL,
+                    payload_json TEXT,
+                    created_at_ms BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_run_order_milestone ON paper_research_order_milestones (run_id, order_id, milestone);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_milestone_run ON paper_research_order_milestones (run_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_milestone_order ON paper_research_order_milestones (order_id);"))
+
+            # V16.17 Opportunity Funnel run_id column
+            opp_res = conn.execute(text("PRAGMA table_info(opportunity_funnel_records)"))
+            opp_cols = {row[1] for row in opp_res.fetchall()}
+            if opp_cols and "run_id" not in opp_cols:
+                conn.execute(text("ALTER TABLE opportunity_funnel_records ADD COLUMN run_id VARCHAR(80)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opportunity_funnel_run_id ON opportunity_funnel_records (run_id);"))
+
+            # V16.17 Durable CG-01 Trace Records Table
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS cg01_trace_records (
+                    trace_id VARCHAR(80) PRIMARY KEY,
+                    symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+                    run_id VARCHAR(80),
+                    source_event_id VARCHAR(120),
+                    input_version VARCHAR(80),
+                    evaluation_status VARCHAR(30) DEFAULT 'COMPLETED',
+                    candidate_key VARCHAR(80),
+                    armed_order_id VARCHAR(36),
+                    total_runtime_ms FLOAT,
+                    feed_delay_ms FLOAT,
+                    scheduler_delay_ms FLOAT,
+                    arm_delay_ms FLOAT,
+                    fill_delay_ms FLOAT,
+                    payload_json TEXT,
+                    created_at_ms BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cg01_trace_run_id ON cg01_trace_records (run_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cg01_trace_created ON cg01_trace_records (created_at_ms);"))
+
+            # V16.17 Paper Research Projection Checkpoints Table
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS paper_research_checkpoints (
+                    scope VARCHAR(50) PRIMARY KEY,
+                    last_event_id VARCHAR(80),
+                    last_event_time_ms BIGINT DEFAULT 0,
+                    last_sequence INTEGER DEFAULT 0,
+                    updated_at_ms BIGINT NOT NULL
+                );
+            """))
+            # V16.18: paper_research_run_records scope and observation_mode columns
+            run_res = conn.execute(text("PRAGMA table_info(paper_research_run_records)"))
+            run_cols = {row[1] for row in run_res.fetchall()}
+            if run_cols:
+                if "scope" not in run_cols:
+                    conn.execute(text("ALTER TABLE paper_research_run_records ADD COLUMN scope VARCHAR(50) DEFAULT 'CG01';"))
+                    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_research_run_scope ON paper_research_run_records (scope);"))
+                if "observation_mode" not in run_cols:
+                    conn.execute(text("ALTER TABLE paper_research_run_records ADD COLUMN observation_mode VARCHAR(30) DEFAULT 'SHADOW';"))
+
+            # V16.18: cg01_trace_records observation_mode column
+            trace_res = conn.execute(text("PRAGMA table_info(cg01_trace_records)"))
+            trace_cols = {row[1] for row in trace_res.fetchall()}
+            if trace_cols and "observation_mode" not in trace_cols:
+                conn.execute(text("ALTER TABLE cg01_trace_records ADD COLUMN observation_mode VARCHAR(30) DEFAULT 'SHADOW';"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_cg01_trace_mode ON cg01_trace_records (observation_mode);"))
+
+            # V16.18: Durable Pending Projections Table
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS paper_research_pending_projections (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_id VARCHAR(80) NOT NULL,
+                    scope VARCHAR(50) DEFAULT 'CG01',
+                    event_type VARCHAR(50) NOT NULL,
+                    aggregate_id VARCHAR(80),
+                    order_id VARCHAR(36),
+                    run_id VARCHAR(80),
+                    reason VARCHAR(100) NOT NULL,
+                    attempt_count INTEGER DEFAULT 0,
+                    next_retry_at_ms BIGINT DEFAULT 0,
+                    first_seen_at_ms BIGINT NOT NULL,
+                    last_error TEXT,
+                    status VARCHAR(30) DEFAULT 'PENDING',
+                    payload_json TEXT,
+                    created_at_ms BIGINT NOT NULL,
+                    updated_at_ms BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pending_proj_status ON paper_research_pending_projections (status);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pending_proj_event ON paper_research_pending_projections (event_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_pending_proj_order ON paper_research_pending_projections (order_id);"))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_pending_proj_event_scope ON paper_research_pending_projections (event_id, scope);"))
+
+            # V16.18 & V17.6.4.3: Observation Intervals Table
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS paper_observation_intervals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    scope VARCHAR(50) DEFAULT 'CG01',
+                    run_id VARCHAR(80),
+                    symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+                    worker_role VARCHAR(40) DEFAULT 'SCHEDULER',
+                    mode VARCHAR(30) DEFAULT 'SHADOW',
+                    start_ms BIGINT NOT NULL,
+                    end_ms BIGINT NOT NULL,
+                    data_quality VARCHAR(30) DEFAULT 'GOOD',
+                    heartbeats_count INTEGER DEFAULT 1,
+                    created_at_ms BIGINT NOT NULL,
+                    engine_instance_id VARCHAR(80),
+                    evidence_origin VARCHAR(40) DEFAULT 'LIVE_FORWARD',
+                    interval_identity VARCHAR(128) UNIQUE
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_obs_interval_run ON paper_observation_intervals (run_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_obs_interval_scope ON paper_observation_intervals (scope);"))
+
+            # V17.6.4.3: Additive column migration and unique index for paper_observation_intervals (DBEA-05, DBEA-06)
+            poi_res = conn.execute(text("PRAGMA table_info(paper_observation_intervals)"))
+            poi_cols = {row[1] for row in poi_res.fetchall()}
+            if poi_cols:
+                if "engine_instance_id" not in poi_cols:
+                    conn.execute(text("ALTER TABLE paper_observation_intervals ADD COLUMN engine_instance_id VARCHAR(80);"))
+                if "evidence_origin" not in poi_cols:
+                    conn.execute(text("ALTER TABLE paper_observation_intervals ADD COLUMN evidence_origin VARCHAR(40) DEFAULT 'LEGACY_UNKNOWN';"))
+                if "interval_identity" not in poi_cols:
+                    conn.execute(text("ALTER TABLE paper_observation_intervals ADD COLUMN interval_identity VARCHAR(128);"))
+                conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_paper_obs_interval_identity ON paper_observation_intervals (interval_identity);"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_obs_engine_instance ON paper_observation_intervals (engine_instance_id);"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_paper_obs_evidence_origin ON paper_observation_intervals (evidence_origin);"))
+
+            # V16.39: Post Trade Reviews Table (Section 078 - 080)
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS post_trade_reviews (
+                    id VARCHAR(36) PRIMARY KEY,
+                    order_id VARCHAR(36) NOT NULL UNIQUE,
+                    symbol VARCHAR(20) NOT NULL,
+                    model_id VARCHAR(50) NOT NULL,
+                    direction VARCHAR(10) NOT NULL,
+                    planned_entry FLOAT NOT NULL,
+                    actual_entry FLOAT NOT NULL,
+                    planned_sl FLOAT NOT NULL,
+                    planned_tp FLOAT NOT NULL,
+                    exit_price FLOAT NOT NULL,
+                    exit_cause VARCHAR(50) NOT NULL,
+                    gross_pnl FLOAT NOT NULL,
+                    net_pnl FLOAT NOT NULL,
+                    realized_rr FLOAT NOT NULL,
+                    outcome_status VARCHAR(20) NOT NULL,
+                    hold_time_ms BIGINT,
+                    entry_slippage_usd FLOAT NOT NULL,
+                    loss_classification VARCHAR(50) NOT NULL,
+                    review_json TEXT NOT NULL,
+                    created_at BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_post_trade_reviews_order ON post_trade_reviews (order_id);"))
+
+            # V16.39.2: Durable Lesson Repair Tasks Table (Section 039 - 042)
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS lesson_repair_tasks (
+                    id VARCHAR(36) PRIMARY KEY,
+                    order_id VARCHAR(36) NOT NULL UNIQUE,
+                    artifact_type VARCHAR(30) DEFAULT 'LESSON',
+                    status VARCHAR(20) DEFAULT 'PENDING',
+                    retry_count INTEGER DEFAULT 0,
+                    last_error TEXT,
+                    created_at BIGINT NOT NULL,
+                    updated_at BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_lesson_repair_tasks_order ON lesson_repair_tasks (order_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_lesson_repair_tasks_status ON lesson_repair_tasks (status);"))
+
+            # V17.6: Durable Engine Observability & Decision Intelligence Tables
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS engine_heartbeats (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    engine_instance_id VARCHAR(80) NOT NULL UNIQUE,
+                    symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+                    run_id VARCHAR(80),
+                    state VARCHAR(30) DEFAULT 'IDLE',
+                    last_process_heartbeat_at_ms BIGINT NOT NULL,
+                    last_evaluation_started_at_ms BIGINT,
+                    last_evaluation_completed_at_ms BIGINT,
+                    last_successful_evaluation_at_ms BIGINT,
+                    last_cycle_id VARCHAR(80),
+                    cycles_count INTEGER DEFAULT 0,
+                    failed_cycles_count INTEGER DEFAULT 0,
+                    cadence_sec INTEGER DEFAULT 15,
+                    metadata_json TEXT,
+                    updated_at_ms BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_engine_hb_instance ON engine_heartbeats (engine_instance_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_engine_hb_symbol ON engine_heartbeats (symbol);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_engine_hb_run_id ON engine_heartbeats (run_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_engine_hb_state ON engine_heartbeats (state);"))
+
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS opportunity_decision_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_id VARCHAR(80) NOT NULL UNIQUE,
+                    event_version INTEGER DEFAULT 1,
+                    run_id VARCHAR(80),
+                    cycle_id VARCHAR(80),
+                    opportunity_id VARCHAR(80) NOT NULL,
+                    symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+                    model_id VARCHAR(40) NOT NULL,
+                    direction VARCHAR(10) NOT NULL,
+                    stage VARCHAR(30) NOT NULL,
+                    primary_reason_code VARCHAR(80),
+                    reason_category VARCHAR(40),
+                    reason_codes_json TEXT,
+                    evidence_ids_json TEXT,
+                    waiting_conditions_json TEXT,
+                    payload_json TEXT,
+                    occurred_at_ms BIGINT NOT NULL,
+                    created_at_ms BIGINT NOT NULL
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_event_id ON opportunity_decision_events (event_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_opp_id ON opportunity_decision_events (opportunity_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_symbol ON opportunity_decision_events (symbol);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_model_id ON opportunity_decision_events (model_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_stage ON opportunity_decision_events (stage);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_run_id ON opportunity_decision_events (run_id);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_occurred ON opportunity_decision_events (occurred_at_ms);"))
+
+            # Additive migration check for existing opportunity_decision_events table
+            ode_res = conn.execute(text("PRAGMA table_info(opportunity_decision_events)"))
+            ode_cols = {row[1] for row in ode_res.fetchall()}
+            if ode_cols and "symbol" not in ode_cols:
+                conn.execute(text("ALTER TABLE opportunity_decision_events ADD COLUMN symbol VARCHAR(20) DEFAULT 'XAUUSDT';"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_opp_dec_symbol ON opportunity_decision_events (symbol);"))
+
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS engine_incidents (
+                    id VARCHAR(80) PRIMARY KEY,
+                    severity VARCHAR(20) NOT NULL,
+                    component VARCHAR(40) NOT NULL,
+                    engine_instance_id VARCHAR(80),
+                    run_id VARCHAR(80),
+                    cycle_id VARCHAR(80),
+                    opportunity_id VARCHAR(80),
+                    order_id VARCHAR(36),
+                    reason_code VARCHAR(80),
+                    message TEXT NOT NULL,
+                    status VARCHAR(20) DEFAULT 'ACTIVE',
+                    created_at_ms BIGINT NOT NULL,
+                    recovered_at_ms BIGINT,
+                    payload_json TEXT
+                );
+            """))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_engine_incidents_status ON engine_incidents (status);"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_engine_incidents_created ON engine_incidents (created_at_ms);"))
+
             conn.commit()
     except Exception:
         pass

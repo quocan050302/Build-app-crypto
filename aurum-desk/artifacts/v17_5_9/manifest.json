@@ -1,0 +1,20 @@
+{
+  "version": "V17.5.9",
+  "verdict": "ACCEPTED",
+  "generated_artifacts": [
+    "acceptance.json",
+    "manifest.json",
+    "junit/gate0_v17_5_9_core.xml",
+    "junit/gate1_v17_5_8_core.xml",
+    "junit/gate2_v17_5_7_core.xml",
+    "junit/gate3_v17_5_6_core.xml",
+    "junit/gate4_v17_5_5_core.xml",
+    "junit/gate5_v17_5_4.xml",
+    "junit/gate6_v17_5_3.xml",
+    "junit/gate7_v17_5_2.xml",
+    "junit/gate8_v17_5_1.xml",
+    "junit/gate9_v17_5.xml",
+    "junit/gate10_prior.xml"
+  ],
+  "source_files_hashed": 24
+}

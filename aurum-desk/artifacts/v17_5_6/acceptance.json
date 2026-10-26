@@ -1,0 +1,182 @@
+{
+  "release": "AURUM V17.5.6",
+  "description": "Real Order Cost Parity, Protected Leg Proof, Mandatory Finite Chart Geometry",
+  "verdict": "ACCEPTED",
+  "timestamp_utc": "2026-10-24T10:41:56Z",
+  "git": {
+    "branch": "fix/v14-1-rr-flow",
+    "sha": "a702460ccd4b7610e04b53921bd9b6296cf2af17",
+    "is_dirty": true,
+    "diff_hash": "56be1127d5d07470",
+    "status_lines": [
+      "M aurum-desk/backend/services/execution_coordinator.py",
+      " M aurum-desk/backend/services/order_plan_snapshot_service.py",
+      " M aurum-desk/backend/services/plan_financial_context_service.py",
+      " M aurum-desk/backend/services/scalp_m1_model_service.py",
+      " M aurum-desk/backend/services/scalp_watcher_orchestrator.py",
+      " M aurum-desk/backend/services/stop_placement_service.py",
+      " M aurum-desk/backend/services/stop_placement_types.py",
+      " M aurum-desk/frontend/playwright.config.ts",
+      " M aurum-desk/frontend/src/ChartComponent.tsx",
+      "?? aurum-desk/artifacts/v17_5_6/",
+      "?? aurum-desk/backend/tests/test_v17_5_6_actual_order_cost_parity.py",
+      "?? aurum-desk/backend/tests/test_v17_5_6_break_time_contract.py",
+      "?? aurum-desk/backend/tests/test_v17_5_6_cycle_regression.py",
+      "?? aurum-desk/backend/tests/test_v17_5_6_episode_origin_binding.py",
+      "?? aurum-desk/frontend/tests/e2e/v17_5_6_chart_evidence.e2e.ts",
+      "?? aurum-desk/tools/run_v17_5_6_acceptance.py"
+    ]
+  },
+  "environment": {
+    "os": "Darwin",
+    "os_release": "23.4.0",
+    "machine": "arm64",
+    "python": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python"
+  },
+  "gates": {
+    "gate0_v17_5_6_core": {
+      "status": "PASS",
+      "duration_sec": 3.271,
+      "counts": {
+        "tests": 37,
+        "passed": 37,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "command": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest tests/test_v17_5_6_actual_order_cost_parity.py tests/test_v17_5_6_episode_origin_binding.py tests/test_v17_5_6_break_time_contract.py tests/test_v17_5_6_cycle_regression.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/artifacts/v17_5_6/junit/gate0_v17_5_6_core.xml -v"
+    },
+    "gate1_v17_5_5_core": {
+      "status": "PASS",
+      "duration_sec": 3.831,
+      "counts": {
+        "tests": 23,
+        "passed": 23,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "command": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest tests/test_v17_5_5_entry_context_gate.py tests/test_v17_5_5_cost_authority.py tests/test_v17_5_5_origin_bridge.py tests/test_v17_5_5_cycle_to_chart_contract.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/artifacts/v17_5_6/junit/gate1_v17_5_5_core.xml -v"
+    },
+    "gate2_v17_5_4": {
+      "status": "PASS",
+      "duration_sec": 1.81,
+      "counts": {
+        "tests": 16,
+        "passed": 16,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "command": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest tests/test_v17_5_4_context_binding.py tests/test_v17_5_4_cost_parity.py tests/test_v17_5_4_anchor_proof.py tests/test_v17_5_4_cycle_reconciliation.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/artifacts/v17_5_6/junit/gate2_v17_5_4.xml -v"
+    },
+    "gate3_v17_5_3": {
+      "status": "PASS",
+      "duration_sec": 2.003,
+      "counts": {
+        "tests": 17,
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "command": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest tests/test_v17_5_3_boundary_probes.py tests/test_v17_5_3_cycle_to_review.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/artifacts/v17_5_6/junit/gate3_v17_5_3.xml -v"
+    },
+    "gate4_v17_5_2": {
+      "status": "PASS",
+      "duration_sec": 1.811,
+      "counts": {
+        "tests": 7,
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "command": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest tests/test_v17_5_2_boundary_probes.py tests/test_v17_5_2_detector_to_exit.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/artifacts/v17_5_6/junit/gate4_v17_5_2.xml -v"
+    },
+    "gate5_v17_5_1": {
+      "status": "PASS",
+      "duration_sec": 2.659,
+      "counts": {
+        "tests": 26,
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "command": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest tests/test_v17_5_1_red_probes.py tests/test_v17_5_1_anchor_leg.py tests/test_v17_5_1_structural_gate.py tests/test_v17_5_1_atr_timeframe.py tests/test_v17_5_1_policy_cas.py tests/test_v17_5_1_research_runtime.py tests/test_v17_5_1_production_flow.py tests/test_v17_5_1_guard_matrix.py tests/test_v17_5_1_stop_costs.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/artifacts/v17_5_6/junit/gate5_v17_5_1.xml -v"
+    },
+    "gate6_v17_5": {
+      "status": "PASS",
+      "duration_sec": 1.428,
+      "counts": {
+        "tests": 31,
+        "passed": 31,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "command": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest tests/test_v17_5_stop_placement.py tests/test_v17_5_anchor_binding.py tests/test_v17_5_risk_invariants.py tests/test_v17_5_policy_api.py tests/test_v17_5_exit_evidence.py tests/test_v17_5_model_integration.py tests/test_v17_5_production_flow.py tests/test_v17_5_stop_review.py tests/test_v17_5_stop_research.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/artifacts/v17_5_6/junit/gate6_v17_5.xml -v"
+    },
+    "gate7_prior": {
+      "status": "PASS",
+      "duration_sec": 5.788,
+      "counts": {
+        "tests": 35,
+        "passed": 35,
+        "failed": 0,
+        "skipped": 0,
+        "errors": 0
+      },
+      "command": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest tests/test_v16_2_cg01_long_short.py tests/test_v17_4_3_session_roundtrip.py tests/test_v17_4_3_atomic_mirrors.py tests/test_v17_4_2_baseline_probes.py tests/test_v17_4_2_noop_authority.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/artifacts/v17_5_6/junit/gate7_prior.xml -v"
+    },
+    "gate8_frontend_vitest": {
+      "status": "PASS",
+      "duration_sec": 5.588,
+      "test_files_passed": 48,
+      "tests_passed": 501,
+      "command": "npm test -- --run"
+    },
+    "gate9_frontend_build": {
+      "status": "PASS",
+      "duration_sec": 6.978,
+      "command": "npm run build"
+    },
+    "gate10_frontend_lint": {
+      "status": "PASS",
+      "duration_sec": 0.361,
+      "command": "npm run lint"
+    },
+    "gate11_playwright": {
+      "status": "PASS",
+      "duration_sec": 16.276,
+      "tests_passed": 5,
+      "command": "npm run test:e2e -- tests/e2e/v17_5_6_chart_evidence.e2e.ts"
+    }
+  },
+  "totals": {
+    "backend_suites_passed": 8,
+    "backend_tests_total": 192,
+    "backend_tests_passed": 192,
+    "backend_tests_failed": 0,
+    "frontend_unit_tests_passed": 501,
+    "browser_e2e_tests_passed": 5
+  },
+  "provenance": {
+    "key_file_hashes": {
+      "backend/services/stop_placement_types.py": "58ef6a82a3c87859",
+      "backend/services/plan_financial_context_service.py": "ab13af0d96f0e119",
+      "backend/services/stop_placement_service.py": "d76391746a5ac006",
+      "backend/services/scalp_m1_model_service.py": "2fc3986ddf471af2",
+      "backend/services/scalp_watcher_orchestrator.py": "689101365db1d4ad",
+      "backend/services/execution_coordinator.py": "70822705200ad6d4",
+      "backend/services/order_plan_snapshot_service.py": "2a17b38b516739a3",
+      "frontend/src/ChartComponent.tsx": "9ce3dbf5e40c48c7",
+      "backend/tests/test_v17_5_6_actual_order_cost_parity.py": "b59a4e39ab9d768f",
+      "backend/tests/test_v17_5_6_episode_origin_binding.py": "3b8914a2bc14e99d",
+      "backend/tests/test_v17_5_6_break_time_contract.py": "fe644dd007f65a5e",
+      "backend/tests/test_v17_5_6_cycle_regression.py": "4e32163cc4d3aafd",
+      "frontend/tests/e2e/v17_5_6_chart_evidence.e2e.ts": "033223e7553bfc7a"
+    }
+  }
+}

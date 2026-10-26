@@ -1,0 +1,230 @@
+{
+  "version": "V17.6.1",
+  "verdict": "ACCEPTED",
+  "timestamp_utc": "2026-10-24T17:23:20Z",
+  "git": {
+    "branch": "fix/v14-1-rr-flow",
+    "sha": "ac435bd4cf5f97de22a47673b519b46fd972f7de",
+    "is_dirty": true,
+    "diff_hash": "270cbafe7a460753",
+    "status_lines": [
+      "M aurum-desk/backend/services/engine_observability_service.py",
+      "M aurum-desk/backend/services/opportunity_funnel_service.py",
+      "M aurum-desk/frontend/src/components/ObservationDashboard.tsx",
+      "M aurum-desk/frontend/src/hooks/useObservationDashboard.ts",
+      "M aurum-desk/frontend/tests/e2e/v17_6_observation.e2e.ts",
+      "?? aurum-desk/artifacts/v17_6_1/",
+      "?? aurum-desk/backend/tests/test_v17_6_1_market_hours_dst.py",
+      "?? aurum-desk/backend/tests/test_v17_6_1_quote_timestamps.py",
+      "?? aurum-desk/backend/tests/test_v17_6_1_run_isolation.py",
+      "?? aurum-desk/backend/tests/test_v17_6_1_telemetry_resilience.py",
+      "?? aurum-desk/docs/V17_6_1_DEFECT_REGISTER.md",
+      "?? aurum-desk/docs/V17_6_1_FINAL_ACCEPTANCE_REPORT.md",
+      "?? aurum-desk/frontend/src/__tests__/v17_6_1_observability_ui.test.tsx",
+      "?? aurum-desk/tools/run_v17_6_1_acceptance.py"
+    ],
+    "dirty_tracked": [
+      "M aurum-desk/backend/services/engine_observability_service.py",
+      "M aurum-desk/backend/services/opportunity_funnel_service.py",
+      "M aurum-desk/frontend/src/components/ObservationDashboard.tsx",
+      "M aurum-desk/frontend/src/hooks/useObservationDashboard.ts",
+      "M aurum-desk/frontend/tests/e2e/v17_6_observation.e2e.ts",
+      "?? aurum-desk/artifacts/v17_6_1/",
+      "?? aurum-desk/backend/tests/test_v17_6_1_market_hours_dst.py",
+      "?? aurum-desk/backend/tests/test_v17_6_1_quote_timestamps.py",
+      "?? aurum-desk/backend/tests/test_v17_6_1_run_isolation.py",
+      "?? aurum-desk/backend/tests/test_v17_6_1_telemetry_resilience.py",
+      "?? aurum-desk/docs/V17_6_1_DEFECT_REGISTER.md",
+      "?? aurum-desk/docs/V17_6_1_FINAL_ACCEPTANCE_REPORT.md",
+      "?? aurum-desk/frontend/src/__tests__/v17_6_1_observability_ui.test.tsx",
+      "?? aurum-desk/tools/run_v17_6_1_acceptance.py"
+    ]
+  },
+  "summary": {
+    "backend_tests_total": 73,
+    "backend_tests_passed": 73,
+    "backend_tests_failed": 0,
+    "soak_status": "PASS",
+    "vitest_status": "PASS",
+    "build_status": "PASS",
+    "lint_status": "PASS",
+    "playwright_status": "PASS"
+  },
+  "gates": {
+    "gate2_schema_and_heartbeat": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_engine_heartbeat.py",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "duration_sec": 1.44,
+      "log": "artifacts/v17_6_1/logs/gate2_schema_and_heartbeat.log"
+    },
+    "gate4_feed_freshness": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_market_freshness.py",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "duration_sec": 1.0,
+      "log": "artifacts/v17_6_1/logs/gate4_feed_freshness.log"
+    },
+    "gate5_cycle_telemetry": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_cycle_telemetry.py",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "duration_sec": 1.13,
+      "log": "artifacts/v17_6_1/logs/gate5_cycle_telemetry.log"
+    },
+    "gate6_decision_timeline": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_decision_timeline.py",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "duration_sec": 1.07,
+      "log": "artifacts/v17_6_1/logs/gate6_decision_timeline.log"
+    },
+    "gate7_observation_run": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_observation_run.py",
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "duration_sec": 1.23,
+      "log": "artifacts/v17_6_1/logs/gate7_observation_run.log"
+    },
+    "gate8_financial_summary": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_financial_summary.py",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "duration_sec": 1.11,
+      "log": "artifacts/v17_6_1/logs/gate8_financial_summary.log"
+    },
+    "gate9_api_contracts": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_api_contract.py",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "duration_sec": 1.27,
+      "log": "artifacts/v17_6_1/logs/gate9_api_contracts.log"
+    },
+    "gate10_recovery_resilience": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_recovery.py",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "duration_sec": 0.99,
+      "log": "artifacts/v17_6_1/logs/gate10_recovery_resilience.log"
+    },
+    "gate11_decision_parity": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_decision_parity.py",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "duration_sec": 1.34,
+      "log": "artifacts/v17_6_1/logs/gate11_decision_parity.log"
+    },
+    "gate12_soak_test": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_soak.py",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "duration_sec": 1.29,
+      "log": "artifacts/v17_6_1/logs/gate12_soak_test.log"
+    },
+    "gate13_baseline_regression": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_5_9_financial_parity.py",
+      "tests": 14,
+      "passed": 14,
+      "failed": 0,
+      "duration_sec": 0.96,
+      "log": "artifacts/v17_6_1/logs/gate13_baseline_regression.log"
+    },
+    "gate17_quote_timestamps_v17_6_1": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_1_quote_timestamps.py",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "duration_sec": 0.96,
+      "log": "artifacts/v17_6_1/logs/gate17_quote_timestamps_v17_6_1.log"
+    },
+    "gate18_market_hours_dst_v17_6_1": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_1_market_hours_dst.py",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "duration_sec": 0.94,
+      "log": "artifacts/v17_6_1/logs/gate18_market_hours_dst_v17_6_1.log"
+    },
+    "gate19_run_isolation_v17_6_1": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_1_run_isolation.py",
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "duration_sec": 1.28,
+      "log": "artifacts/v17_6_1/logs/gate19_run_isolation_v17_6_1.log"
+    },
+    "gate20_telemetry_resilience_v17_6_1": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_1_telemetry_resilience.py",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "duration_sec": 0.95,
+      "log": "artifacts/v17_6_1/logs/gate20_telemetry_resilience_v17_6_1.log"
+    },
+    "gate12b_soak_cli": {
+      "status": "PASS",
+      "duration_sec": 0.79
+    },
+    "gate14_frontend_vitest": {
+      "status": "PASS",
+      "duration_sec": 4.44
+    },
+    "gate15a_frontend_build": {
+      "status": "PASS",
+      "duration_sec": 6.25
+    },
+    "gate15b_frontend_lint": {
+      "status": "PASS",
+      "duration_sec": 0.32
+    },
+    "gate16_playwright_e2e": {
+      "status": "PASS",
+      "duration_sec": 4.71
+    }
+  },
+  "source_fingerprints": {
+    "docs/V17_6_1_DEFECT_REGISTER.md": "f042d544c1ea2cc1",
+    "docs/V17_6_OBSERVABILITY_ARCHITECTURE.md": "df87820d8cc25399",
+    "docs/V17_6_IMPLEMENTATION_MAP.md": "a4a424025f0c0697",
+    "backend/models.py": "638bc1b2349d528f",
+    "backend/database.py": "1bc1a1c91431fc38",
+    "backend/services/engine_observability_service.py": "57668467376b3ed8",
+    "backend/services/scalp_watcher_orchestrator.py": "459012a23720bd7d",
+    "backend/services/opportunity_funnel_service.py": "b6dc27e8f53641f5",
+    "backend/services/bitget_ws_service.py": "10288de111dc7d08",
+    "backend/services/quote_validator.py": "f7fa210bd9d07175",
+    "backend/main.py": "df9b9588d2d07c13",
+    "frontend/src/types/observation.ts": "975e05ee128f4c09",
+    "frontend/src/api/client.ts": "9ce7380ebdcf4249",
+    "frontend/src/hooks/useObservationDashboard.ts": "9ebcdafe8575e43c",
+    "frontend/src/components/ObservationDashboard.tsx": "b6509499d2f23298",
+    "frontend/src/App.tsx": "12463544884a1da1",
+    "frontend/tests/e2e/v17_6_observation.e2e.ts": "bcb886a1c37fa9ec",
+    "tools/run_v17_6_observation_soak.py": "1ed26e8c74c3af9d"
+  }
+}

@@ -1,5 +1,7 @@
 import time
+import json
 import asyncio
+import math
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 from database import SessionLocal
@@ -11,6 +13,74 @@ from services.collector_service import collector_service
 from services.trade_lifecycle_service import TradeLifecycleService
 from services.quote_validator import QuoteValidator
 from services.clock import live_clock, IClock
+from services.entry_guard_service import serialize_entry_mutation
+from services.scalp_m1_types import load_effective_scalp_config
+
+# Production Safety Invariant: Absolute zero live exchange order submissions allowed
+LIVE_EXCHANGE_ORDERS_SENT: int = 0
+
+
+def _validate_threshold(val: Any) -> Optional[float]:
+    """Rule 029: Validate that threshold is a numeric, finite, positive float (> 0)."""
+    if val is None or isinstance(val, bool):
+        return None
+    try:
+        f = float(val)
+        if math.isfinite(f) and f > 0:
+            return f
+    except (TypeError, ValueError):
+        pass
+    return None
+
+
+def resolve_executable_sizing_context(
+    order: Any,
+    current_equity: float,
+    *,
+    capital_mode: Optional[str] = None,
+    order_cost_snap: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    V16.9 NHÓM 12, PHẦN 111 - 120: Resolve executable sizing context.
+    Distinguishes requested sizing target, account safety budget, and executable budget.
+    """
+    snap = order_cost_snap or {}
+    mode = capital_mode or snap.get("capital_mode") or "CURRENT_ACCOUNT_BALANCE"
+    risk_pct = float(order.risk_pct or snap.get("risk_pct") or 0.25)
+
+    if mode == "FIXED_INITIAL_CAPITAL":
+        target_capital = float(snap.get("target_capital") or snap.get("capital_usdt") or (order.initial_risk_usdt / (risk_pct / 100.0) if order.initial_risk_usdt else current_equity))
+        target_budget = round(target_capital * (risk_pct / 100.0), 4)
+
+        # Account safety constraint: cannot risk more than current equity allows
+        safety_max_risk = round(current_equity * (risk_pct / 100.0), 4)
+        if current_equity < target_capital and target_budget > safety_max_risk:
+            # Degraded account equity: cap target risk budget to safety budget
+            executable_budget = safety_max_risk
+            sizing_capital = current_equity
+            adjustment_reason = "ACCOUNT_SAFETY_CAP"
+        else:
+            executable_budget = target_budget
+            sizing_capital = target_capital
+            adjustment_reason = "NONE"
+    else:
+        # CURRENT_ACCOUNT_BALANCE: target basis is current equity
+        target_capital = current_equity
+        target_budget = round(current_equity * (risk_pct / 100.0), 4)
+        executable_budget = target_budget
+        sizing_capital = current_equity
+        adjustment_reason = "NONE"
+
+    return {
+        "capital_mode": mode,
+        "target_capital": target_capital,
+        "target_budget": target_budget,
+        "account_capital_at_fill": current_equity,
+        "executable_budget": executable_budget,
+        "sizing_capital": sizing_capital,
+        "adjustment_reason": adjustment_reason,
+    }
+
 
 class ExecutionCoordinator:
     """
@@ -32,6 +102,7 @@ class ExecutionCoordinator:
             self._lock = asyncio.Lock()
         return self._lock
 
+    @serialize_entry_mutation
     def evaluate_orders_sync(
         self,
         db: Session,
@@ -56,6 +127,34 @@ class ExecutionCoordinator:
         if not armed_orders:
             return
 
+        # Housekeeping: Expire pending armed orders that reached or exceeded deadline (Rules 036, 037, 038)
+        # Pending orders expire even if quote is invalid or an active position already exists.
+        remaining_armed = []
+        for order in armed_orders:
+            if order.expires_at and current_time >= order.expires_at:
+                order.state = "expired"
+                order.exit_cause = "EXPIRED"
+                order.closed_at = current_time
+                event_bus.publish_event(
+                    event_type="setup.expired",
+                    aggregate_id=order.id,
+                    payload={"order_id": order.id, "reason": "Hết hạn lệnh armed", "expires_at": order.expires_at},
+                    db=db,
+                    occurred_at=current_time
+                )
+                if order.setup_id:
+                    watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == order.setup_id).first()
+                    if watch_setup:
+                        watch_setup.state = "EXPIRED"
+                        watch_setup.invalidation_reason = "Order expired in armed state"
+                        watch_setup.updated_at = current_time
+                db.commit()
+            else:
+                remaining_armed.append(order)
+
+        if not remaining_armed:
+            return
+
         # 2. Check and validate ticker via authoritative QuoteValidator
         raw_ticker = ticker_override if ticker_override is not None else collector_service.latest_ticker
         quote = QuoteValidator.validate_ticker(raw_ticker, now_ms=current_time)
@@ -74,87 +173,29 @@ class ExecutionCoordinator:
 
         from services.risk_settings_service import risk_settings_service
         from domain_calculator import calculate_risk_reward, CostAssumptions
+        from services.cg01_types import resolve_slippage_usd
 
         global_settings = risk_settings_service.get_settings(db)
 
-        for order in armed_orders:
-            # Check expiry
-            if order.expires_at and current_time > order.expires_at:
-                order.state = "expired"
-                order.exit_cause = "EXPIRED"
-                order.closed_at = current_time
-                event_bus.publish_event(
-                    event_type="setup.expired",
-                    aggregate_id=order.id,
-                    payload={"order_id": order.id, "reason": "Hết hạn lệnh armed"},
+        for order in remaining_armed:
+            # V14.4.2: Invalidate pending armed order if config version changed (no silent repricing)
+            if getattr(order, 'config_version', 1) != global_settings.config_version:
+                curr_cfg = getattr(order, 'config_version', 1)
+                TradeLifecycleService.execute_reject(
                     db=db,
-                    occurred_at=current_time
+                    order=order,
+                    reason=f"CONFIG_VERSION_CHANGED: Cấu hình rủi ro đã thay đổi (v{curr_cfg} -> v{global_settings.config_version}). Lệnh chờ đã bị hủy để bảo đảm snapshot.",
+                    now_ms=current_time,
+                    clock=c
                 )
                 if order.setup_id:
                     watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == order.setup_id).first()
                     if watch_setup:
-                        watch_setup.state = "EXPIRED"
-                        watch_setup.invalidation_reason = "Order expired in armed state"
+                        watch_setup.state = "CANCELLED"
+                        watch_setup.invalidation_reason = "CONFIG_VERSION_CHANGED"
                         watch_setup.updated_at = current_time
                 db.commit()
                 continue
-
-            # Revalidate if config version changed
-            if getattr(order, 'config_version', 1) != global_settings.config_version:
-                account_state = crud.get_account_status(db, clock=c)
-                equity = account_state["current_equity"] if account_state else 1000.0
-
-                is_quota_order = (getattr(order, 'strategy_family', 'STANDARD_SMC') == "NY_QUOTA_PAPER") or (getattr(order, 'risk_profile', 'STANDARD') == "QUOTA")
-                eff_risk_pct = min(global_settings.risk_pct, 0.10) if is_quota_order else global_settings.risk_pct
-
-                calc_res = calculate_risk_reward(
-                    direction=order.direction,
-                    planned_entry=order.planned_entry,
-                    stop_loss=order.stop_loss,
-                    take_profit=order.take_profit,
-                    capital=equity,
-                    risk_pct=eff_risk_pct,
-                    leverage=global_settings.requested_leverage,
-                    margin_mode=global_settings.margin_mode
-                )
-
-                if not calc_res.can_execute:
-                    TradeLifecycleService.execute_reject(
-                        db=db,
-                        order=order,
-                        reason=f"RISK_SETTINGS_INVALIDATED: {calc_res.skip_reason or calc_res.invalid_reason}",
-                        now_ms=current_time,
-                        clock=c
-                    )
-                    continue
-
-                # Amend order
-                order.quantity = calc_res.quantity
-                order.leverage = calc_res.leverage
-                order.margin_mode = calc_res.margin_mode
-                order.risk_pct = calc_res.effective_risk_pct
-                order.initial_risk_usdt = calc_res.net_risk_usdt
-                order.gross_rr = calc_res.gross_rr
-                order.estimated_net_rr = calc_res.net_rr
-                order.estimated_liquidation = calc_res.estimated_liquidation
-                order.initial_margin = calc_res.initial_margin_usdt
-                order.config_version = global_settings.config_version
-
-                if getattr(order, 'setup_instance_id', None):
-                    watch = db.query(models.WatchSetup).filter(models.WatchSetup.setup_instance_id == order.setup_instance_id).first()
-                    if watch:
-                        watch.quantity = calc_res.quantity
-                        watch.leverage = calc_res.leverage
-                        watch.margin_mode = calc_res.margin_mode
-                        watch.risk_pct = calc_res.effective_risk_pct
-                        watch.risk_usdt = calc_res.net_risk_usdt
-                        watch.gross_rr = calc_res.gross_rr
-                        watch.net_rr = calc_res.net_rr
-                        watch.estimated_liquidation = calc_res.estimated_liquidation
-                        watch.config_version = global_settings.config_version
-                        watch.updated_at = current_time
-
-                db.commit()
 
             # V5.1 Authoritative Geometry Guard on armed order
             from domain_calculator import validate_price_geometry
@@ -169,6 +210,81 @@ class ExecutionCoordinator:
                 )
                 continue
 
+            # Resolve order slippage and costs from cost_snapshot (Rules 052, 060, 062)
+            order_cost_snap = {}
+            if order.cost_snapshot:
+                try:
+                    order_cost_snap = json.loads(order.cost_snapshot) if isinstance(order.cost_snapshot, str) else dict(order.cost_snapshot)
+                except Exception:
+                    order_cost_snap = {}
+
+            # Rule 014, 027 - 032, 070: Resolve effective min_net_rr for this fill.
+            # Priority: (1) min_net_rr_at_arm persisted in cost_snapshot at ARM time.
+            #               If present, must be valid (> 0, finite). If invalid, reject order.
+            #           (2) canonical scalp config from DB (honours user's /api/scalp/config setting).
+            #               If missing key in snapshot, resolve config. If resolution fails, reject order.
+            _rr_from_snap = order_cost_snap.get("min_net_rr_at_arm")
+            if _rr_from_snap is not None:
+                _valid_rr = _validate_threshold(_rr_from_snap)
+                if _valid_rr is None:
+                    TradeLifecycleService.execute_reject(
+                        db=db,
+                        order=order,
+                        reason=f"INVALID_ORDER_THRESHOLD: min_net_rr_at_arm in snapshot is invalid ({_rr_from_snap})",
+                        now_ms=current_time,
+                        clock=c,
+                    )
+                    continue
+                effective_fill_min_rr = _valid_rr
+            else:
+                try:
+                    _scalp_cfg = load_effective_scalp_config(db)
+                    _valid_cfg_rr = _validate_threshold(getattr(_scalp_cfg, "min_net_rr", None))
+                    if _valid_cfg_rr is None:
+                        TradeLifecycleService.execute_reject(
+                            db=db,
+                            order=order,
+                            reason="CONFIG_RESOLUTION_ERROR: effective scalp config returned invalid min_net_rr",
+                            now_ms=current_time,
+                            clock=c,
+                        )
+                        continue
+                    effective_fill_min_rr = _valid_cfg_rr
+                except Exception as e:
+                    TradeLifecycleService.execute_reject(
+                        db=db,
+                        order=order,
+                        reason=f"CONFIG_RESOLUTION_ERROR: failed to load scalp config for legacy order fallback ({e})",
+                        now_ms=current_time,
+                        clock=c,
+                    )
+                    continue
+
+            from services.plan_financial_context_service import resolve_execution_cost_context
+            verified_cost_ctx = resolve_execution_cost_context(snapshot=order_cost_snap) if order_cost_snap else {"available": False}
+
+            if verified_cost_ctx.get("available"):
+                order_slip = float(verified_cost_ctx["entry_slippage_usd"])
+                order_maker_fee = float(verified_cost_ctx["maker_fee_rate"])
+                order_taker_fee = float(verified_cost_ctx["taker_fee_rate"])
+            else:
+                raw_order_slip = order_cost_snap.get("slippage_usd") if order_cost_snap else None
+                if raw_order_slip is not None:
+                    order_slip = resolve_slippage_usd(raw_order_slip, default=0.10)
+                elif slippage != 0.10:
+                    order_slip = resolve_slippage_usd(slippage, default=0.10)
+                else:
+                    order_slip = resolve_slippage_usd(getattr(global_settings, "slippage_usd", 0.10), default=0.10)
+
+                order_maker_fee = float(order_cost_snap.get("maker_fee_rate", 0.0002)) if order_cost_snap else 0.0002
+                order_taker_fee = float(order_cost_snap.get("taker_fee_rate", 0.0004)) if order_cost_snap else 0.0004
+
+            order_costs = CostAssumptions(
+                maker_fee_rate=order_maker_fee,
+                taker_fee_rate=order_taker_fee,
+                slippage_usd=order_slip,
+            )
+
             # Evaluate entry trigger
             triggered = False
             fill_price = 0.0
@@ -177,7 +293,7 @@ class ExecutionCoordinator:
             if order_type == "MARKET":
                 # Immediate market trigger: Ask for LONG, Bid for SHORT + directional slippage
                 triggered = True
-                fill_price = round(current_ask + slippage, 2) if order.direction == "LONG" else round(current_bid - slippage, 2)
+                fill_price = round(current_ask + order_slip, 2) if order.direction == "LONG" else round(current_bid - order_slip, 2)
 
             elif order_type == "LIMIT":
                 if order.direction == "LONG":
@@ -196,12 +312,12 @@ class ExecutionCoordinator:
                     # BUY STOP: Ask >= stop (breakout)
                     if current_ask >= order.planned_entry:
                         triggered = True
-                        fill_price = round(current_ask + slippage, 2)
+                        fill_price = round(current_ask + order_slip, 2)
                 elif order.direction == "SHORT":
                     # SELL STOP: Bid <= stop (breakout)
                     if current_bid <= order.planned_entry:
                         triggered = True
-                        fill_price = round(current_bid - slippage, 2)
+                        fill_price = round(current_bid - order_slip, 2)
 
             else:
                 TradeLifecycleService.execute_reject(
@@ -219,8 +335,13 @@ class ExecutionCoordinator:
             # Re-verify trading policy (daily max 3 fills, NY window, slot reservation)
             from services.trading_policy_service import TradingPolicyService
             from datetime import datetime, timezone
-            current_dt = datetime.fromtimestamp(current_time / 1000.0, tz=timezone.utc)
-            policy_eval = TradingPolicyService.evaluate_entry_policy(db, order.instrument or "XAUUSDT", current_dt)
+            policy_eval = TradingPolicyService.evaluate_entry_policy(
+                db=db,
+                order_type_or_symbol=order.instrument or "XAUUSDT",
+                clock=c,
+                now_ms=current_time,
+                strategy_family=getattr(order, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC"
+            )
             if not policy_eval["allowed"]:
                 TradeLifecycleService.execute_reject(
                     db=db,
@@ -244,6 +365,13 @@ class ExecutionCoordinator:
                 )
                 continue
 
+            # V16.9 Resolve executable sizing context (target budget, safety cap, executable budget)
+            sizing_ctx = resolve_executable_sizing_context(
+                order=order,
+                current_equity=audit.current_equity,
+                order_cost_snap=order_cost_snap,
+            )
+
             # Authoritative execution re-check with actual fill price
             # Must preserve the armed quantity (no silent size increase) and validate against budget/netRR
             calc_budget = calculate_risk_reward(
@@ -251,9 +379,11 @@ class ExecutionCoordinator:
                 entry=fill_price,
                 sl=order.stop_loss,
                 tp=order.take_profit,
-                capital=audit.current_equity,
+                capital=sizing_ctx["sizing_capital"],
                 risk_pct=order.risk_pct or 0.25,
+                min_net_rr=effective_fill_min_rr,
                 entry_has_slippage=True,
+                costs=order_costs,
                 leverage=order.leverage or 5,
                 margin_mode=order.margin_mode or "ISOLATED",
                 phase="FILLED_ESTIMATE",
@@ -287,10 +417,12 @@ class ExecutionCoordinator:
                 entry=fill_price,
                 sl=order.stop_loss,
                 tp=order.take_profit,
-                capital=audit.current_equity,
+                capital=sizing_ctx["sizing_capital"],
                 risk_pct=order.risk_pct or 0.25,
+                min_net_rr=effective_fill_min_rr,
                 quantity_override=qty_to_use,
                 entry_has_slippage=True,
+                costs=order_costs,
                 leverage=order.leverage or 5,
                 margin_mode=order.margin_mode or "ISOLATED",
                 phase="FILLED_ESTIMATE",
@@ -310,33 +442,90 @@ class ExecutionCoordinator:
                 )
                 continue
 
-            # V10.1 Governed Lesson Rules Evaluation (BEFORE_FILL)
-            from services.entry_decision_service import EntryDecisionService
-            quote_age = getattr(quote, "age_ms", 0) or 0
-
-            fill_context = EntryDecisionService.build_context_from_order(
-                order=order,
-                stage="BEFORE_FILL",
-                fill_price=fill_price,
-                calc_result=calc,
-                now_ms=current_time,
-                current_bid=current_bid,
-                current_ask=current_ask,
-                quote_age_ms=quote_age
+            # V14.2 Common Entry Guard (stage FILL): re-checks news blackout, governed lessons
+            # (BEFORE_FILL), session policy, account, quote and feed with the CURRENT state, using the
+            # frozen order levels and the actual fill price. The order itself is excluded from
+            # armed-order checks (current_order_id) and the WatchSetup is NOT required to be READY.
+            from services.entry_guard_service import (
+                EntryGuardRequest, evaluate_entry_guard, DATA_UNAVAILABLE,
             )
-            fill_decision = EntryDecisionService.evaluate_entry_rules(db, fill_context)
-            EntryDecisionService.record_stage_decision(order, "BEFORE_FILL", fill_decision, now_ms=current_time)
+            from services.entry_decision_service import EntryDecisionService
+            from services.setup_quality_service import build_plan_fingerprint
 
-            if not fill_decision["can_proceed"]:
-                block_msg = fill_decision["blocking_reasons"][0] if fill_decision["blocking_reasons"] else "Quy tắc bài học chặn khớp lệnh"
+            try:
+                plan_fp = build_plan_fingerprint({
+                    "direction": order.direction, "planned_entry": order.planned_entry,
+                    "stop_loss": order.stop_loss, "take_profit": order.take_profit,
+                })
+            except Exception:
+                plan_fp = None
+
+            guard = evaluate_entry_guard(db, EntryGuardRequest(
+                stage="FILL",
+                now_ms=current_time,
+                symbol=order.instrument or "XAUUSDT",
+                direction=order.direction,
+                execution_mode=getattr(order, "execution_mode", None) or "AUTO",
+                origin=getattr(order, "origin", None) or "UNKNOWN",
+                planned_entry=fill_price,
+                stop_loss=order.stop_loss,
+                take_profit=order.take_profit,
+                calc_result=calc,
+                validated_quote=quote,
+                strategy_family=getattr(order, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC",
+                order_type=order_type,
+                timeframe=getattr(order, "timeframe", "15M"),
+                plan_kind="ORDER",
+                setup_id=order.setup_id,
+                setup_instance_id=getattr(order, "setup_instance_id", None),
+                plan_fingerprint=plan_fp,
+                risk_config_version=getattr(order, "config_version", None),
+                order_id=order.id,
+                current_order_id=order.id,
+                order_state=order.state,
+                order_expires_at_ms=order.expires_at,
+                trigger_hit=True,
+                session_instance_id=order.session_instance_id,
+                clock=c,
+            ))
+
+            if not guard.allowed:
+                transient_codes = {
+                    "QUOTE_STALE", "QUOTE_INVALID", "QUOTE_UNAVAILABLE",
+                    "EXECUTION_FEED_DEGRADED", "TRIGGER_NOT_HIT", DATA_UNAVAILABLE,
+                }
+                permanent = [
+                    b for b in guard.blockers if b["code"] not in transient_codes
+                ]
+                if not permanent:
+                    # Quote/feed/data not usable right now: do NOT fill, keep the order pending
+                    # (no event, no reject, no write) until the next valid tick or expiry.
+                    continue
+                first = permanent[0]
+                if first["code"].startswith("LESSON"):
+                    reject_reason = f"LESSON_RULE_BLOCKED: {first['message_vi']}"
+                elif first["code"] == "NEWS_BLACKOUT":
+                    reject_reason = f"NEWS_BLACKOUT: {first['message_vi']}"
+                else:
+                    reject_reason = f"ENTRY_GUARD_BLOCKED: {first['code']} - {first['message_vi']}"
+                gate_trace = dict(guard.lesson_result or {
+                    "can_proceed": False, "blocking_reasons": [first["message_vi"]],
+                    "warning_messages": [], "advisory_notes": [], "lessons_retrieved_snapshot": [],
+                })
+                gate_trace["entry_gate"] = guard.summary()
+                EntryDecisionService.record_stage_decision(order, "BEFORE_FILL", gate_trace, now_ms=current_time)
                 TradeLifecycleService.execute_reject(
                     db=db,
                     order=order,
-                    reason=f"LESSON_RULE_BLOCKED: {block_msg}",
+                    reason=reject_reason,
                     now_ms=current_time,
                     clock=c
                 )
                 continue
+
+            fill_trace = dict(guard.lesson_result or {"can_proceed": True})
+            fill_trace["entry_gate"] = guard.summary()
+            EntryDecisionService.record_stage_decision(order, "BEFORE_FILL", fill_trace, now_ms=current_time)
 
             # ATOMIC COMMIT: Open Position via unified lifecycle service (preserving original execution mode)
             effective_source = getattr(order, "execution_mode", "AUTO") or "AUTO"
@@ -347,7 +536,8 @@ class ExecutionCoordinator:
                 calc_result=calc,
                 source=effective_source,
                 now_ms=current_time,
-                clock=c
+                clock=c,
+                sizing_context=sizing_ctx,
             )
             # Max 1 position enforced, break after filling first triggered order
             break

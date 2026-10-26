@@ -10,6 +10,66 @@ from domain_calculator import validate_price_geometry, calculate_risk_reward
 from services.trading_policy_service import TradingPolicyService
 
 
+def _has_evidence(raw: Any) -> bool:
+    """True when an evidence JSON column carries real content (not null/empty)."""
+    if raw is None:
+        return False
+    if isinstance(raw, str):
+        txt = raw.strip()
+        if txt in ("", "null", "{}", "[]", "false"):
+            return False
+        try:
+            import json
+            parsed = json.loads(txt)
+        except Exception:
+            return True
+        return bool(parsed)
+    return bool(raw)
+
+
+def _risk_config_version(db: Session) -> Optional[int]:
+    try:
+        from services.risk_settings_service import risk_settings_service
+        return int(risk_settings_service.get_settings(db).config_version)
+    except Exception:
+        return None
+
+
+def _derive_plan_kind(setup, custom_entry, custom_sl, custom_tp, entry, sl, tp, level_source) -> str:
+    """
+    plan_kind comes from the SOURCE of the resolved levels, never from geometry or net R:R.
+    A custom triple identical to the setup's own resolved plan keeps that plan's kind;
+    any other custom triple is a DRAFT.
+    """
+    def _setup_kind() -> str:
+        stored = getattr(setup, "plan_kind", None)
+        if stored in ("PROVISIONAL", "CONFIRMED"):
+            return stored
+        # Legacy rows without provenance: structural state (not geometry / net R:R) decides.
+        if level_source == "confirmed" or getattr(setup, "state", None) in (
+            "READY", "WAITING_RETRACE", "ARMED", "PAPER_OPEN"
+        ):
+            return "CONFIRMED"
+        return "PROVISIONAL"
+
+    if level_source == "INVALID":
+        return "PROVISIONAL"
+    if custom_entry is None and custom_sl is None and custom_tp is None:
+        return _setup_kind()
+    try:
+        from services.plan_resolver import resolve_plan_levels
+        base = resolve_plan_levels(setup)
+        if base.get("is_valid") and all(
+            round(float(a), 2) == round(float(b), 2)
+            for a, b in ((base["entry"], entry), (base["stop_loss"], sl), (base["take_profit"], tp))
+        ):
+            return _setup_kind()
+    except Exception:
+        pass
+    return "DRAFT"
+
+
+
 def evaluate_setup_eligibility(
     db: Session,
     setup: models.WatchSetup,
@@ -17,7 +77,13 @@ def evaluate_setup_eligibility(
     custom_sl: Optional[float] = None,
     custom_tp: Optional[float] = None,
     custom_margin_mode: Optional[str] = None,
-    now_ms: Optional[int] = None
+    now_ms: Optional[int] = None,
+    execution_mode: str = "MANUAL",
+    origin: str = "MANUAL_WEB",
+    clock: Optional[Any] = None,
+    validated_quote: Optional[Any] = None,
+    feed_health: Optional[Dict[str, Any]] = None,
+    current_order_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Authoritative, shared V7 eligibility evaluator for upcoming setups, preview cards, and arm endpoints.
@@ -34,81 +100,13 @@ def evaluate_setup_eligibility(
     symbol = getattr(setup, "instrument", None) or getattr(setup, "symbol", None) or "XAUUSDT"
     policy = TradingPolicyService.get_active_policy(db, symbol)
 
-    # 1. Strategy State check
-    # WAITING_PRICE is general/unconfirmed, cannot arm.
-    # WAITING_RETRACE can be armed as pending order only if prior structural evidence is verified.
-    # READY can be armed and executed.
-    if setup.state in ("INVALIDATED", "CANCELLED", "EXPIRED", "CLOSED", "REJECTED"):
-        reason_codes.append("SETUP_TERMINAL")
-        block_reasons.append(f"Setup đã kết thúc ({setup.state})")
-    elif setup.state == "WAITING_PRICE":
-        reason_codes.append("WAITING_STRUCTURE")
-        block_reasons.append("Setup đang chờ điều kiện giá hình thành cấu trúc/sweep, chưa đủ bằng chứng để Arm.")
-    elif setup.state not in ("READY", "WAITING_RETRACE"):
-        reason_codes.append("STRATEGY_NOT_READY")
-        block_reasons.append(f"Setup đang ở trạng thái {setup.state}, chưa đủ bằng chứng để Arm.")
-
     # 2. Margin Mode check (Cross is unsupported for paper execution)
     effective_margin_mode = custom_margin_mode or setup.margin_mode or "ISOLATED"
     if effective_margin_mode.upper() == "CROSS":
         reason_codes.append("CROSS_MARGIN_UNSUPPORTED")
         block_reasons.append("CROSS_MARGIN_UNSUPPORTED: Chế độ Cross margin chưa được hỗ trợ thực thi trên tài khoản paper (Cần Isolated)")
 
-    # 3. Active Position check (Strict invariant: Max 1 open position)
-    active_pos = crud.get_active_position(db)
-    if active_pos:
-        reason_codes.append("ACTIVE_POSITION_EXISTS")
-        block_reasons.append("ACTIVE_POSITION_EXISTS: Đang có một vị thế mở, không thể Arm thêm lệnh mới (tối đa 1 vị thế)")
-
-    # 4. Armed Order check (Strict invariant: Max 1 armed order)
-    armed_order = db.query(models.PaperOrder).filter(models.PaperOrder.state == "armed").first()
-    if armed_order:
-        reason_codes.append("ARMED_ORDER_EXISTS")
-        block_reasons.append(f"ARMED_ORDER_EXISTS: Đã có một lệnh đang chờ khớp ({armed_order.id})")
-
-    # 5. Trading Policy Evaluation (Daily 3 cap, NY window, slot reservation)
-    policy_eval = TradingPolicyService.evaluate_entry_policy(db, symbol, current_dt)
-    if not policy_eval["allowed"]:
-        p_code = policy_eval["reason_code"]
-        if p_code not in reason_codes:
-            reason_codes.append(p_code)
-            if p_code == "MAX_DAILY_ENTRIES":
-                reason_codes.append("DAILY_FILL_CAP")
-            block_reasons.append(f"{p_code}: {policy_eval['reason_message']}")
-
-    # 6. Day Audit additional checks (consecutive losses, daily loss cap, cooldown)
-    day_audit = crud.get_or_create_today_audit(db)
-    if day_audit:
-        if day_audit.fills_count >= 3 and "DAILY_FILL_CAP" not in reason_codes:
-            reason_codes.append("DAILY_FILL_CAP")
-            if "MAX_DAILY_ENTRIES" not in reason_codes:
-                reason_codes.append("MAX_DAILY_ENTRIES")
-            block_reasons.append("DAILY_FILL_CAP: Đã đạt giới hạn tối đa 3 lệnh khớp/ngày")
-        if day_audit.consecutive_losses >= 2 and "MAX_CONSECUTIVE_LOSSES" not in reason_codes:
-            reason_codes.append("MAX_CONSECUTIVE_LOSSES")
-            block_reasons.append("MAX_CONSECUTIVE_LOSSES: Đã dừng giao dịch sau 2 lệnh lỗ liên tiếp")
-        elif day_audit.is_blocked and "DAY_BLOCKED" not in reason_codes:
-            reason_codes.append("DAY_BLOCKED")
-            block_reasons.append(f"DAY_BLOCKED: {day_audit.block_reason}")
-        elif day_audit.cooldown_until and current_time < day_audit.cooldown_until and "COOLDOWN_ACTIVE" not in reason_codes:
-            rem_sec = int((day_audit.cooldown_until - current_time) / 1000)
-            reason_codes.append("COOLDOWN_ACTIVE")
-            block_reasons.append(f"COOLDOWN_ACTIVE: Đang trong thời gian nghỉ cooldown ({rem_sec}s)")
-
-    # 7. News Blackout check
-    is_blackout, blackout_reason, _ = crud.check_news_blackout(db, current_time)
-    if is_blackout:
-        reason_codes.append("NEWS_BLACKOUT")
-        block_reasons.append(f"NEWS_BLACKOUT: {blackout_reason}")
-
-    # 7.5. Execution Feed & Overload Gap check
-    try:
-        from services.execution_consumer import execution_consumer
-        if execution_consumer.has_execution_gap or execution_consumer.is_lagging:
-            reason_codes.append("EXECUTION_FEED_DEGRADED")
-            block_reasons.append("EXECUTION_FEED_DEGRADED: Hàng đợi thực thi thị trường đang bị quá tải hoặc thiếu dữ liệu, tạm dừng Arm/vào lệnh mới.")
-    except Exception:
-        pass
+    day_audit = crud.get_or_create_today_audit(db, clock=clock)
 
     # 8. Authoritative Price Geometry & Financial snapshot validation (V10.2 Plan Resolver)
     from services.plan_resolver import resolve_plan_levels, PlanResolutionError
@@ -140,7 +138,10 @@ def evaluate_setup_eligibility(
     if getattr(setup, "strategy_family", "STANDARD_SMC") == "NY_QUOTA_PAPER":
         effective_risk_pct = min(effective_risk_pct, getattr(policy, "ny_fallback_risk_pct_cap", 0.10) or 0.10)
 
-    min_rr = getattr(policy, "min_net_rr", 2.0) or 2.0
+    from services.rr_policy_service import resolve_effective_rr_policy
+    rr_ctx = resolve_effective_rr_policy(db)
+    min_rr = rr_ctx.min_net_rr
+
     calc_res = calculate_risk_reward(
         direction=setup.direction,
         planned_entry=entry,
@@ -153,76 +154,90 @@ def evaluate_setup_eligibility(
         margin_mode=effective_margin_mode
     )
 
-    if not calc_res.is_valid:
-        reason_codes.append("CALCULATOR_INVALID")
-        block_reasons.append(f"CALCULATOR_INVALID: {calc_res.invalid_reason}")
-    elif not calc_res.meets_min_rr:
-        reason_codes.append("INSUFFICIENT_RR")
-        block_reasons.append(f"INSUFFICIENT_RR: Tỷ lệ Net R:R (1:{calc_res.net_rr:.2f}) không đạt ngưỡng tối thiểu {min_rr:.1f} (Yêu cầu >= {min_rr:.1f})")
-    elif not calc_res.can_execute and "CROSS_MARGIN_UNSUPPORTED" not in reason_codes:
-        reason_codes.append("CANNOT_EXECUTE")
-        block_reasons.append(calc_res.skip_reason or "Không đủ điều kiện thực thi")
+    # 9. V14.2 Common Entry Guard (stage ARM): state/evidence, quote, feed, account, session policy,
+    #    news blackout and governed lessons are collected by ONE orchestrator shared with auto-arm,
+    #    manual MARKET and pending fill. The calculator result above is reused (no second formula).
+    from services.entry_guard_service import EntryGuardRequest, evaluate_entry_guard
+    from services.quote_validator import QuoteValidator
+    from services.setup_quality_service import build_plan_fingerprint
 
-    # 9. V10.1 Governed Lesson Rules Evaluation (BEFORE_ARM)
-    from services.entry_decision_service import EntryDecisionService
-    ev_dict = {}
-    if getattr(setup, "evidence_snapshot_id", None):
+    ev_dict: Dict[str, Any] = {}
+    chain_verified: Optional[bool] = None
+    from services.smc_scenario_binding import verify_setup_structure
+    chain_verified, ev_dict, _binding = verify_setup_structure(
+        db, setup, symbol=symbol, now_ms=current_time,
+        plan_levels={"entry": entry, "stop_loss": sl, "take_profit": tp} if level_source != "INVALID" else None,
+    )
+
+    if validated_quote is None:
         try:
-            ev_row = db.query(models.StrategyEvidence).filter(models.StrategyEvidence.id == setup.evidence_snapshot_id).first()
-            if ev_row:
-                ev_dict = {
-                    "sweep_detected": bool(ev_row.sweep_evidence),
-                    "fvg_found": bool(ev_row.fvg_evidence),
-                    "structure_confirmed": (ev_row.h1_alignment == "ALIGNED")
-                }
+            from services.collector_service import collector_service
+            raw_ticker = collector_service.latest_ticker
+            # No ticker at all stays None (QUOTE_UNAVAILABLE) instead of a fabricated stale quote.
+            validated_quote = QuoteValidator.validate_ticker(raw_ticker, now_ms=current_time) if raw_ticker else None
         except Exception:
-            pass
+            validated_quote = None
 
-    cur_ask, cur_bid = None, None
-    try:
-        from services.collector_service import collector_service
-        ticker = collector_service.latest_ticker
-        if ticker and "ask" in ticker and "bid" in ticker:
-            cur_ask = float(ticker["ask"])
-            cur_bid = float(ticker["bid"])
-    except Exception:
-        pass
+    plan_kind = _derive_plan_kind(setup, custom_entry, custom_sl, custom_tp, entry, sl, tp, level_source)
+    fingerprint = None
+    if level_source != "INVALID":
+        try:
+            fingerprint = build_plan_fingerprint({
+                "direction": setup.direction, "planned_entry": entry, "stop_loss": sl, "take_profit": tp,
+            })
+        except Exception:
+            fingerprint = None
 
-    lesson_context = EntryDecisionService.build_context(
-        stage="BEFORE_ARM",
+    decision = evaluate_entry_guard(db, EntryGuardRequest(
+        stage="ARM",
+        now_ms=current_time,
         symbol=symbol,
         direction=setup.direction,
-        strategy_family=getattr(setup, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC",
-        timeframe=getattr(setup, "timeframe", "15M"),
-        execution_mode="MANUAL",
-        origin="MANUAL_WEB",
+        execution_mode=execution_mode,
+        origin=origin,
         planned_entry=entry,
         stop_loss=sl,
         take_profit=tp,
-        net_rr=calc_res.net_rr,
-        gross_rr=calc_res.gross_rr,
-        bid=cur_bid,
-        ask=cur_ask,
-        now_ms=current_time,
-        session_instance_id=policy_eval.get("session_instance_id"),
+        calc_result=calc_res,
+        validated_quote=validated_quote,
+        strategy_family=getattr(setup, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC",
+        order_type="MARKET" if setup.state == "READY" else "LIMIT",
+        timeframe=getattr(setup, "timeframe", "15M"),
+        plan_kind=plan_kind,
+        direction_source=getattr(setup, "direction_source", None),
+        setup_id=setup.id,
+        setup_instance_id=setup.setup_instance_id,
+        setup_version=setup.version,
+        setup_state=setup.state,
+        plan_fingerprint=fingerprint,
+        risk_config_version=_risk_config_version(db),
+        current_order_id=current_order_id,
+        structure_chain_verified=chain_verified,
+        min_net_rr=min_rr,
         evidence=ev_dict,
         distance_to_entry_atr=getattr(setup, "distance_to_entry_atr", None),
-        setup_id=setup.id
-    )
-
-    lesson_eval = EntryDecisionService.evaluate_entry_rules(db, lesson_context)
-    if not lesson_eval["can_proceed"]:
-        for b_msg in lesson_eval["blocking_reasons"]:
-            if "LESSON_RULE_DATA_UNAVAILABLE" in b_msg:
-                code = "LESSON_RULE_DATA_UNAVAILABLE"
-            elif "LESSON_EVALUATION_FAILED" in b_msg:
-                code = "LESSON_EVALUATION_FAILED"
-            else:
-                code = "LESSON_RULE_BLOCKED"
-
-            if code not in reason_codes:
-                reason_codes.append(code)
-            block_reasons.append(b_msg)
+        feed_health=feed_health,
+        clock=clock,
+    ))
+    policy_eval = dict(decision.policy_summary)
+    lesson_eval = decision.lesson_result or {
+        "can_proceed": False, "blocking_reasons": [], "warning_messages": [], "advisory_notes": [],
+        "evaluations": [], "lessons_retrieved_snapshot": [],
+    }
+    guard_codes = list(decision.reason_codes)
+    for blocker in decision.blockers:
+        code = blocker["code"]
+        if code == "CANNOT_EXECUTE" and "CROSS_MARGIN_UNSUPPORTED" in reason_codes:
+            continue
+        if code == "INVALID_PRICE_GEOMETRY" and "INVALID_PRICE_GEOMETRY" in reason_codes:
+            continue
+        if code not in reason_codes:
+            reason_codes.append(code)
+        if code == "MAX_DAILY_ENTRIES" and "DAILY_FILL_CAP" not in reason_codes:
+            reason_codes.append("DAILY_FILL_CAP")
+        block_reasons.append(blocker["message_vi"] if blocker["message_vi"].startswith(code) or code.startswith("LESSON") else f"{code}: {blocker['message_vi']}")
+    if "DAILY_FILL_CAP" in reason_codes and "MAX_DAILY_ENTRIES" not in reason_codes:
+        reason_codes.append("MAX_DAILY_ENTRIES")
 
     can_arm = len(reason_codes) == 0
     can_execute_now = can_arm and (setup.state == "READY") and calc_res.can_execute
@@ -232,8 +247,18 @@ def evaluate_setup_eligibility(
     return {
         "setup_id": setup.id,
         "setup_instance_id": setup.setup_instance_id,
-        "revision": getattr(setup, "revision", 1),
+        "revision": setup.version if setup.version is not None else 1,
         "version": setup.version,
+        "plan_kind": plan_kind,
+        "direction_source": getattr(setup, "direction_source", None),
+        "stage": "ARM",
+        "allowed": can_arm,
+        "blockers": decision.blockers,
+        "warnings": list(decision.warnings),
+        "news_view": decision.news_view,
+        "binding": dict(decision.binding),
+        "plan_fingerprint": fingerprint,
+        "entry_guard": decision.to_dict(),
         "direction": setup.direction,
         "strategy_state": setup.state,
         "strategy_family": getattr(setup, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC",
@@ -252,12 +277,16 @@ def evaluate_setup_eligibility(
         "all_block_reasons": block_reasons,
         "session_instance_id": policy_eval.get("session_instance_id"),
         "policy_config_version": getattr(policy, "version", 1),
-        "risk_config_version": 1,
+        "lesson_policy_version": decision.binding.get("lesson_policy_version"),
+        "risk_config_version": decision.settings_version if decision.settings_version is not None else 1,
         "daily_fill_count": policy_eval.get("daily_fills", 0),
         "remaining_daily_slots": policy_eval.get("remaining_daily_slots", 0),
         "ny_fill_count": policy_eval.get("ny_fills", 0),
         "ny_quota_status": policy_eval.get("quota_state", "NOT_STARTED"),
         "reserved_slots": policy_eval.get("reserved_slots", 0),
+        "min_net_rr": min_rr,
+        "rr_policy_source": rr_ctx.source,
+        "rr_policy_fingerprint": rr_ctx.fingerprint,
         "effective_financial_snapshot": {
             "entry": round(entry, 2) if entry is not None else None,
             "sl": round(sl, 2) if sl is not None else None,

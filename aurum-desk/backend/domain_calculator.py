@@ -94,6 +94,7 @@ class CalculationResult(BaseModel):
     tp_exit_slippage_usdt: float = 0.0
     maker_fee_rate: float = 0.0002
     taker_fee_rate: float = 0.0004
+    slippage_usd: float = 0.10
 
     # Leverage, Margin & Liquidation
     leverage: int = 5
@@ -562,6 +563,7 @@ def calculate_risk_reward(
         tp_exit_slippage_usdt=round(tp_slippage_total, 4),
         maker_fee_rate=costs.maker_fee_rate,
         taker_fee_rate=costs.taker_fee_rate,
+        slippage_usd=costs.slippage_usd,
         leverage=leverage,
         margin_mode=margin_mode,
         initial_margin_usdt=init_margin,

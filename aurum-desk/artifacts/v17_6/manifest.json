@@ -1,0 +1,20 @@
+{
+  "version": "V17.6",
+  "verdict": "ACCEPTED",
+  "generated_artifacts": [
+    "acceptance.json",
+    "manifest.json",
+    "junit/gate2_schema_and_heartbeat.xml",
+    "junit/gate4_feed_freshness.xml",
+    "junit/gate5_cycle_telemetry.xml",
+    "junit/gate6_decision_timeline.xml",
+    "junit/gate7_observation_run.xml",
+    "junit/gate8_financial_summary.xml",
+    "junit/gate9_api_contracts.xml",
+    "junit/gate10_recovery_resilience.xml",
+    "junit/gate11_decision_parity.xml",
+    "junit/gate12_soak_test.xml",
+    "junit/gate13_baseline_regression.xml"
+  ],
+  "source_files_hashed": 16
+}

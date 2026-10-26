@@ -1,0 +1,140 @@
+{
+  "suite": "AURUM_V17_4_1_EXECUTION_ACCEPTANCE",
+  "timestamp_utc": "2026-10-23T06:21:58.075058+00:00",
+  "base_sha": "b09077e6cd9f06636d82892de82dd0fd97dc28b6",
+  "current_sha": "b09077e6cd9f06636d82892de82dd0fd97dc28b6",
+  "branch": "fix/v14-1-rr-flow",
+  "tree_hash": "8998953ddc9c905be73c03c859c0c774a9f07401",
+  "diff_digest_vs_base": "a133089f5ecd82bb166284984001e8d57ebad44efb33c9ef26b68078ad38d813",
+  "environment": {
+    "os": "win32",
+    "python_executable": "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+    "node_cwd": "D:\\build app-crypto\\aurum-desk\\frontend"
+  },
+  "gates": {
+    "gate_1_probes_contracts": {
+      "name": "Gate 1: Baseline Probes & Contracts Strictness",
+      "command": "\"D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\" -m pytest backend/tests/test_v17_4_1_baseline_probes.py backend/tests/test_v17_4_1_contracts.py -v",
+      "exit_code": 0,
+      "duration_s": 10.81,
+      "status": "PASS",
+      "timed_out": false,
+      "log_file": "artifacts\\v17_4_1\\logs\\gate_1_probes_contracts.log",
+      "summary": [
+        "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.",
+        "from starlette.testclient import TestClient as TestClient  # noqa",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "======================== 9 passed, 1 warning in 9.28s ========================="
+      ]
+    },
+    "gate_2_cas_scope_quota": {
+      "name": "Gate 2: Database Atomic CAS, Scope & Quota",
+      "command": "\"D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\" -m pytest backend/tests/test_v17_4_1_atomic_cas.py backend/tests/test_v17_4_1_server_scope.py backend/tests/test_v17_4_1_quota_not_required.py -v",
+      "exit_code": 0,
+      "duration_s": 15.73,
+      "status": "PASS",
+      "timed_out": false,
+      "log_file": "artifacts\\v17_4_1\\logs\\gate_2_cas_scope_quota.log",
+      "summary": [
+        "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.",
+        "from starlette.testclient import TestClient as TestClient  # noqa",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "======================== 8 passed, 1 warning in 14.12s ========================"
+      ]
+    },
+    "gate_3_coordinator_guards": {
+      "name": "Gate 3: Execution Coordinator Causal Flows & Guards",
+      "command": "\"D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\" -m pytest backend/tests/test_v17_4_1_coordinator_flow.py backend/tests/test_v17_4_1_coordinator_guards.py -v",
+      "exit_code": 0,
+      "duration_s": 36.61,
+      "status": "PASS",
+      "timed_out": false,
+      "log_file": "artifacts\\v17_4_1\\logs\\gate_3_coordinator_guards.log",
+      "summary": [
+        "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.",
+        "from starlette.testclient import TestClient as TestClient  # noqa",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "======================= 20 passed, 1 warning in 35.04s ========================"
+      ]
+    },
+    "gate_4_regression_suite": {
+      "name": "Gate 4: Selected Baseline Regression Suite",
+      "command": "\"D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\" -m pytest backend/tests/test_v17_4_api.py backend/tests/test_v17_4_config_transaction.py backend/tests/test_v17_4_entry_session_policy.py backend/tests/test_v17_4_expiry.py backend/tests/test_v17_4_production_flow.py -v",
+      "exit_code": 0,
+      "duration_s": 9.85,
+      "status": "PASS",
+      "timed_out": false,
+      "log_file": "artifacts\\v17_4_1\\logs\\gate_4_regression_suite.log",
+      "summary": [
+        "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.",
+        "from starlette.testclient import TestClient as TestClient  # noqa",
+        "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+        "======================== 28 passed, 1 warning in 7.64s ========================"
+      ]
+    },
+    "gate_5_frontend_vitest": {
+      "name": "Gate 5: Frontend Vitest Unit & Component Suite",
+      "command": "npm test",
+      "exit_code": 0,
+      "duration_s": 6.04,
+      "status": "PASS",
+      "timed_out": false,
+      "log_file": "artifacts\\v17_4_1\\logs\\gate_5_frontend_vitest.log",
+      "summary": [
+        "\u001b[2m   Start at \u001b[22m 13:23:11",
+        "\u001b[2m   Duration \u001b[22m 5.24s\u001b[2m (environment 37%, import 26%, transform 19%, tests 17%, worker 1%)\u001b[22m",
+        "\u001b[2m    Isolate \u001b[22m \u001b[33m47 workers spawned\u001b[39m\u001b[2m · ~591ms startup each (spawn + environment, per file)\u001b[22m",
+        "\u001b[2m            \u001b[22m \u001b[2mat least ~1.93s faster with \u001b[22m\u001b[33misolate: false\u001b[39m\u001b[2m — reuses workers across files instead of one per file\u001b[22m"
+      ]
+    },
+    "gate_6_frontend_build": {
+      "name": "Gate 6: Frontend Production Build",
+      "command": "npm run build",
+      "exit_code": 0,
+      "duration_s": 8.05,
+      "status": "PASS",
+      "timed_out": false,
+      "log_file": "artifacts\\v17_4_1\\logs\\gate_6_frontend_build.log",
+      "summary": [
+        "- Using dynamic import() to code-split the application",
+        "- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting",
+        "- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.\u001b[39m",
+        "\u001b[32m✓ built in 1.36s\u001b[39m"
+      ]
+    },
+    "gate_7_frontend_lint": {
+      "name": "Gate 7: Frontend Lint Verification",
+      "command": "npm run lint",
+      "exit_code": 0,
+      "duration_s": 0.68,
+      "status": "PASS",
+      "timed_out": false,
+      "log_file": "artifacts\\v17_4_1\\logs\\gate_7_frontend_lint.log",
+      "summary": [
+        "help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.",
+        "note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect",
+        "Found 56 warnings and 0 errors.",
+        "Finished in 200ms on 147 files with 116 rules using 12 threads."
+      ]
+    },
+    "gate_8_playwright_e2e": {
+      "name": "Gate 8: Playwright Headless Browser Acceptance",
+      "command": "npx playwright test tests/e2e/v17_4_1_entry_sessions.e2e.ts tests/e2e/v17_4_entry_sessions.e2e.ts",
+      "exit_code": 0,
+      "duration_s": 20.24,
+      "status": "PASS",
+      "timed_out": false,
+      "log_file": "artifacts\\v17_4_1\\logs\\gate_8_playwright_e2e.log",
+      "summary": [
+        "ok 6 tests\\e2e\\v17_4_entry_sessions.e2e.ts:15:3 › Aurum V17.4 — Entry Sessions UI & Settings Coordinated Flow › V17.4 Gate 1: Save All-Sessions Paper and verify server confirmation badge (1.3s)",
+        "ok 7 tests\\e2e\\v17_4_entry_sessions.e2e.ts:97:3 › Aurum V17.4 — Entry Sessions UI & Settings Coordinated Flow › V17.4 Gate 2: Stale Expected Version (409) displays conflict error message (1.5s)",
+        "ok 8 tests\\e2e\\v17_4_entry_sessions.e2e.ts:144:3 › Aurum V17.4 — Entry Sessions UI & Settings Coordinated Flow › V17.4 Gate 3: Mobile Viewport 390x844 responsive layout check (1.2s)",
+        "8 passed (18.7s)"
+      ]
+    }
+  },
+  "overall_status": "IMPLEMENTED_AND_VERIFIED",
+  "completed_at_utc": "2026-10-23T06:23:46.108832+00:00",
+  "runtime_observed": false,
+  "cutover_status": "CUTOVER_NOT_OBSERVED"
+}

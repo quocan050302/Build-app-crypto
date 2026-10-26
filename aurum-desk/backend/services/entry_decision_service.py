@@ -267,6 +267,8 @@ class EntryDecisionService:
             "snapshot": eval_result.get("lessons_retrieved_snapshot", []),
             "warning_messages": eval_result.get("warning_messages", []),
             "blocking_reasons": eval_result.get("blocking_reasons", []),
+            # V14.2 additive trace of the common entry guard for this stage (arm/fill kept separate)
+            **({"entry_gate": eval_result["entry_gate"]} if eval_result.get("entry_gate") else {}),
         })
 
         order.lessons_retrieved = json.dumps(history)

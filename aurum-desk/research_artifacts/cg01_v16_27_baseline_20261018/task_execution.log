@@ -1,0 +1,46 @@
+Git verification: {'remote': 'https://github.com/quocan050302/Build-app-crypto.git', 'branch': 'fix/v14-1-rr-flow', 'commit_sha': '33dcd791f2ccfba8e3b3c19e5a44318cdf295ad8', 'is_working_tree_clean': False, 'status_porcelain': '?? aurum-desk/research_artifacts/\n?? aurum-desk/tools/download_v16_27_m1_dataset.py\n?? aurum-desk/tools/eval_cg01_v16_27_baseline.py'}
+
+=======================================================
+Starting 30-Day Replay...
+Dataset: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/research_artifacts/cg01_v16_27_baseline_20261018/data/xauusdt_m1_30d.json
+Initial Capital: 1000.0 USDT, Risk: 0.25%, Fees: 0.0002/0.0004
+=======================================================
+Traceback (most recent call last):
+  File "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/tools/eval_cg01_v16_27_baseline.py", line 659, in <module>
+    main()
+    ~~~~^^
+  File "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/tools/eval_cg01_v16_27_baseline.py", line 501, in main
+    raw_30d, metrics_30d = run_single_replay(
+                           ~~~~~~~~~~~~~~~~~^
+        m1_path=M1_30D_PATH,
+        ^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+        risk_pct=0.25,
+        ^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/tools/eval_cg01_v16_27_baseline.py", line 445, in run_single_replay
+    raw_res = driver.run()
+  File "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/lab/cg01_replay_driver.py", line 423, in run
+    cycle_res = adapter.on_bar_close(bar_event)
+  File "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/lab/cg01_replay_execution_adapter.py", line 274, in on_bar_close
+    res = self.orchestrator.evaluate_cycle(
+        db=self.db,
+    ...<16 lines>...
+        ),
+    )
+  File "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/services/scalp_watcher_orchestrator.py", line 894, in evaluate_cycle
+    cand_fvg_cont = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
+        closed_1m=c_1m, closed_5m=c_5m, quote=q, htf_bias=bias, h1_alignment=align,
+        policy_settings=policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels
+    )
+  File "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/services/scalp_m1_model_service.py", line 1761, in evaluate_m1_fvg_continuation_candidate
+    swing_ref = resolve_confirmed_structure_reference(
+        closed_1m, direction, as_of_ms=now_ms,
+        left_bars=cfg.pivot_left_bars, right_bars=cfg.pivot_right_bars,
+    )
+  File "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/services/scalp_m1_model_service.py", line 449, in resolve_confirmed_structure_reference
+    brk = detect_confirmed_continuation_break(bars, p, direction, as_of_ms=as_of_ms)
+  File "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/services/scalp_m1_model_service.py", line 509, in detect_confirmed_continuation_break
+    continue
+KeyboardInterrupt

@@ -30,6 +30,7 @@ class CollectorService:
         self.h4_bias = "UNKNOWN"
         self.d_4h_bias = "UNKNOWN"
         self.h1_alignment = "UNKNOWN"
+        self.htf_contexts: Dict[str, Any] = {}
         self._latest_ticker: Optional[Dict[str, Any]] = None
         self._was_degraded = False
         self._last_d_sync = 0
@@ -39,13 +40,17 @@ class CollectorService:
     @property
     def latest_ticker(self) -> Optional[Dict[str, Any]]:
         from services.bitget_ws_service import bitget_ws_service
-        if bitget_ws_service.latest_quote and bitget_ws_service.latest_quote.is_valid:
+        if bitget_ws_service.latest_quote and bitget_ws_service.latest_quote.is_valid and getattr(bitget_ws_service, "_running", False):
             return bitget_ws_service.latest_quote.to_dict()
         return self._latest_ticker
 
     @latest_ticker.setter
     def latest_ticker(self, val: Optional[Dict[str, Any]]):
         self._latest_ticker = val
+        if val is not None:
+            from services.bitget_ws_service import bitget_ws_service
+            if not getattr(bitget_ws_service, "_running", False):
+                bitget_ws_service.latest_quote = None
 
     @property
     def feed_connected(self) -> bool:
@@ -104,58 +109,90 @@ class CollectorService:
             self.last_error = f"{timeframe} sync error: {str(e)}"
             return False
 
-    def update_htf_context(self, symbol: str = "XAUUSDT"):
+    def set_effective_config(self, config: Optional[Any]):
+        """Sets effective structural CG01Config for collector service (Rules 026, 027)."""
+        self._effective_config = config
+
+    def update_htf_context(self, symbol: str = "XAUUSDT", config: Optional[Any] = None, as_of_ms: Optional[int] = None):
         """
         Calculate authentic, independent D & 4H bias and 1H alignment.
         No synthetic consensus or fake fallback.
+        V16.14: Supports explicit config and synchronized as_of_ms (Rules 026, 027).
         """
         db: Session = SessionLocal()
         try:
-            # 1. Independent Daily Context (D)
-            d_candles = crud.get_candles(db, symbol, "D", limit=50, ascending=True)
-            if len(d_candles) >= 15:
-                sh_d, sl_d = smc_engine.identify_pivots(d_candles, "D")
-                self.d_bias = smc_engine.determine_trend(d_candles, sh_d, sl_d)
-            else:
-                self.d_bias = "UNKNOWN"
+            import time
+            from services.smc_regime_service import build_htf_context
+            from services.cg01_types import CG01Config
 
-            # 2. Independent 4H Bias (4H)
-            h4_candles = crud.get_candles(db, symbol, "4H", limit=80, ascending=True)
-            if len(h4_candles) >= 15:
-                sh_h4, sl_h4 = smc_engine.identify_pivots(h4_candles, "4H")
-                self.h4_bias = smc_engine.determine_trend(h4_candles, sh_h4, sl_h4)
-            else:
-                self.h4_bias = "UNKNOWN"
+            if as_of_ms is None:
+                as_of_ms = int(time.time() * 1000)
+
+            # Load effective CG-01 / trading configuration if available (Rule 026, 086, 089)
+            cfg = config or getattr(self, "_effective_config", None)
+            if cfg is None:
+                try:
+                    from services.trading_policy_service import resolve_effective_daily_policy
+                    eff_daily = resolve_effective_daily_policy(db, "default")
+                    cfg = CG01Config(
+                        daily_min_goal=eff_daily.min_goal,
+                        daily_max_cap=eff_daily.max_fills,
+                        daily_ny_goal=eff_daily.ny_goal,
+                    )
+                except Exception:
+                    cfg = None
+
+            # 1. Independent Daily Context (D) - closed candles only
+            d_candles = crud.get_closed_candles(db, symbol, "D", limit=50, ascending=True)
+            d_ctx = build_htf_context(d_candles, "D", as_of_ms=as_of_ms, symbol=symbol, config=cfg)
+            d_bias = d_ctx.bias
+
+            # 2. Independent 4H Bias (4H) - closed candles only
+            h4_candles = crud.get_closed_candles(db, symbol, "4H", limit=80, ascending=True)
+            h4_ctx = build_htf_context(h4_candles, "4H", as_of_ms=as_of_ms, symbol=symbol, config=cfg)
+            h4_bias = h4_ctx.bias
 
             # 3. Synthesized HTF Context (Conflict aware)
-            if self.d_bias in ("BULLISH", "BEARISH") and self.h4_bias in ("BULLISH", "BEARISH"):
-                if self.d_bias == self.h4_bias:
-                    self.d_4h_bias = self.d_bias
+            if d_bias in ("BULLISH", "BEARISH") and h4_bias in ("BULLISH", "BEARISH"):
+                if d_bias == h4_bias:
+                    d_4h_bias = d_bias
                 else:
-                    self.d_4h_bias = "CONFLICT"
-            elif self.h4_bias in ("BULLISH", "BEARISH"):
-                self.d_4h_bias = self.h4_bias
-            elif self.d_bias in ("BULLISH", "BEARISH"):
-                self.d_4h_bias = self.d_bias
+                    d_4h_bias = "CONFLICT"
+            elif h4_bias in ("BULLISH", "BEARISH"):
+                d_4h_bias = h4_bias
+            elif d_bias in ("BULLISH", "BEARISH"):
+                d_4h_bias = d_bias
             else:
-                self.d_4h_bias = "UNKNOWN"
+                d_4h_bias = "UNKNOWN"
 
-            # 4. Independent 1H Alignment
-            h1_candles = crud.get_candles(db, symbol, "1H", limit=80, ascending=True)
-            if len(h1_candles) >= 15:
-                sh1, sl1 = smc_engine.identify_pivots(h1_candles, "1H")
-                h1_trend = smc_engine.determine_trend(h1_candles, sh1, sl1)
-                if self.d_4h_bias in ("BULLISH", "BEARISH"):
-                    if h1_trend == self.d_4h_bias:
-                        self.h1_alignment = "ALIGNED"
-                    elif h1_trend in ("BULLISH", "BEARISH"):
-                        self.h1_alignment = "OPPOSING"
-                    else:
-                        self.h1_alignment = "NEUTRAL"
+            # 4. Independent 1H Context & Alignment
+            h1_candles = crud.get_closed_candles(db, symbol, "1H", limit=80, ascending=True)
+            h1_ctx = build_htf_context(h1_candles, "1H", as_of_ms=as_of_ms, symbol=symbol, config=cfg)
+            h1_trend = h1_ctx.bias
+
+            if d_4h_bias in ("BULLISH", "BEARISH"):
+                if h1_trend == d_4h_bias:
+                    h1_alignment = "ALIGNED"
+                elif h1_trend in ("BULLISH", "BEARISH"):
+                    h1_alignment = "OPPOSING"
                 else:
-                    self.h1_alignment = "NEUTRAL" if h1_trend != "UNKNOWN" else "UNKNOWN"
+                    h1_alignment = "NEUTRAL"
             else:
-                self.h1_alignment = "UNKNOWN"
+                h1_alignment = "NEUTRAL" if h1_trend != "UNKNOWN" else "UNKNOWN"
+
+            # Store rich HTF contexts and projections atomically
+            bundle = {
+                "D": d_ctx.to_dict(),
+                "4H": h4_ctx.to_dict(),
+                "1H": h1_ctx.to_dict(),
+                "as_of_ms": as_of_ms,
+            }
+            self.d_bias = d_bias
+            self.h4_bias = h4_bias
+            self.d_4h_bias = d_4h_bias
+            self.h1_alignment = h1_alignment
+            self.htf_contexts = bundle
+            self._last_htf_update = time.time()
         finally:
             db.close()
 

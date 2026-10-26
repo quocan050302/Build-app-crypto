@@ -1,0 +1,21 @@
+
+Running 9 tests using 1 worker
+
+  ✓  1 tests/e2e/v14_2_entry_guard.e2e.ts:60:1 › focus LONG then SHORT switches direction/decision without any trading mutation (1.5s)
+[WebServer] 7:26:55 PM [vite] ws proxy error:
+[WebServer] Error: read ECONNRESET
+[WebServer]     at TCP.onStreamRead (node:internal/stream_base_commons:216:20)
+[WebServer] 7:26:55 PM [vite] ws proxy socket error:
+[WebServer] Error: read ECONNRESET
+[WebServer]     at TCP.onStreamRead (node:internal/stream_base_commons:216:20)
+  ✓  2 tests/e2e/v14_2_entry_guard.e2e.ts:78:1 › provisional tight-target SHORT is shown as unconfirmed/blocked with signed negative R:R and no CTA (1.1s)
+  ✓  3 tests/e2e/v14_2_entry_guard.e2e.ts:95:1 › red news blackout disables the CTA and shows the pause chip (1.6s)
+  ✓  4 tests/e2e/v14_2_entry_guard.e2e.ts:105:1 › news outside the window (or non-USD) does not disable a valid plan (2.2s)
+  ✓  5 tests/e2e/v14_2_entry_guard.e2e.ts:113:1 › copy to draft does not arm or create anything (1.8s)
+  ✓  6 tests/e2e/v14_2_entry_guard.e2e.ts:122:1 › a slow quality preview never lets a stale reply override the newly focused setup (3.4s)
+  ✓  7 tests/e2e/v14_2_entry_guard.e2e.ts:134:1 › sidebar stays usable after resizing to a low laptop viewport (1.1s)
+  ✓  8 tests/e2e/v14_2_entry_guard.e2e.ts:142:1 › arm from the UI then fill through the real coordinator opens exactly one position (2.0s)
+  ✓  9 tests/e2e/v14_2_entry_guard.e2e.ts:155:1 › news published after arming rejects the pending order once, before any fill (1.6s)
+
+  9 passed (19.5s)
+rc=0 duration=21s

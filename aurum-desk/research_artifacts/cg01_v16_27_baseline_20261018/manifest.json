@@ -1,0 +1,47 @@
+{
+  "manifest_version": "1.0",
+  "experiment_name": "CG01_V16_27_BASELINE_HISTORICAL_PAPER_REPLAY",
+  "status": "PARTIAL/INTERRUPTED",
+  "git_commit": "33dcd791f2ccfba8e3b3c19e5a44318cdf295ad8",
+  "branch": "fix/v14-1-rr-flow",
+  "remote": "https://github.com/quocan050302/Build-app-crypto.git",
+  "is_working_tree_clean": true,
+  "evaluation_start_utc": "2026-10-18T04:59:24.420Z",
+  "evaluation_stop_utc": "2026-10-18T11:36:11Z",
+  "execution_model": "ASSUMED_OHLC_PATH",
+  "capital_mode": "CURRENT_ACCOUNT_BALANCE",
+  "initial_capital_usdt": 1000.0,
+  "risk_pct": 0.25,
+  "costs": {
+    "maker_fee_rate": 0.0002,
+    "taker_fee_rate": 0.0004,
+    "slippage_usd": 0.10,
+    "multiplier": 1.0
+  },
+  "datasets": {
+    "30d": {
+      "file": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/research_artifacts/cg01_v16_27_baseline_20261018/data/xauusdt_m1_30d.json",
+      "start_utc": "2026-09-18T00:00:00Z",
+      "end_utc": "2026-10-18T00:00:00Z",
+      "candles": 42986,
+      "sha256": "51060062620a518a856d4fef507d2f6d748241723196274fd468745788a521a1"
+    },
+    "14d": {
+      "file": "/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/research_artifacts/cg01_v16_27_baseline_20261018/data/xauusdt_m1_14d.json",
+      "start_utc": "2026-10-04T00:00:00Z",
+      "end_utc": "2026-10-18T00:00:00Z",
+      "candles": 20060,
+      "sha256": "80d788dd94ebf3bd0bc617bebf7da88941b52a5cf8e114194eb346b89b060806"
+    }
+  },
+  "output_artifacts": [
+    "data/xauusdt_m1_30d.json",
+    "data/xauusdt_m1_14d.json",
+    "data/dataset_manifest.json",
+    "manifest.json",
+    "metrics_partial.json",
+    "metrics_audited.json",
+    "task_execution.log",
+    "CG01_V16_27_BASELINE_PERFORMANCE_REPORT.md"
+  ]
+}

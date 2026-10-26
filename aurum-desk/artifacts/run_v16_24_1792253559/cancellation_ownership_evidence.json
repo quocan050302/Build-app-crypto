@@ -1,0 +1,4 @@
+{
+  "cancelled_running_batch_retains_ownership_test": "test_red_027_cancelled_running_batch_retains_ownership",
+  "retry_group_cancellation_separates_active_test": "test_red_028_retry_group_cancellation_separates_active_from_unstarted"
+}

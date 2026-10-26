@@ -1,0 +1,19 @@
+{
+  "cycle_count": 3,
+  "unique_episode_count": 0,
+  "model_disabled_count": 0,
+  "no_quote_count": 0,
+  "wait_window_count": 0,
+  "wait_poi_count": 0,
+  "context_not_ready_count": 3,
+  "observing_waiting_trigger_count": 0,
+  "guard_blocked_count": 0,
+  "system_degraded_count": 0,
+  "cg01_observed_arms": 0,
+  "cg01_persisted_arms": 0,
+  "cg01_unique_armed_orders": [],
+  "cg01_unique_armed_count": 0,
+  "expired_before_fill_count": 0,
+  "cancelled_orders_count": 0,
+  "reconciliation_discrepancy": []
+}

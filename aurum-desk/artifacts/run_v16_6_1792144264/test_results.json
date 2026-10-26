@@ -1,0 +1,197 @@
+[
+  {
+    "name": "git_diff_check",
+    "cmd": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "cwd": "D:\\build app-crypto\\aurum-desk",
+    "exit_code": 0,
+    "duration_sec": 0.062,
+    "output": "warning: in the working copy of 'aurum-desk/backend/lab/cg01_replay_driver.py', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'aurum-desk/backend/lab/cg01_replay_execution_adapter.py', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'aurum-desk/backend/services/order_plan_snapshot_service.py', LF will be replaced by CRLF the next time Git touches it\n",
+    "status": "PASS"
+  },
+  {
+    "name": "test_v16_6_measurement_integrity",
+    "cmd": [
+      "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "tests/test_v16_6_measurement_integrity.py",
+      "-v"
+    ],
+    "cwd": "D:\\build app-crypto\\aurum-desk\\backend",
+    "exit_code": 0,
+    "duration_sec": 2.006,
+    "output": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\\backend\nplugins: anyio-4.15.1\ncollecting ... collected 6 items\n\ntests/test_v16_6_measurement_integrity.py::test_adapter_config_plumbing_exact_parity PASSED [ 16%]\ntests/test_v16_6_measurement_integrity.py::test_daily_stats_non_cumulative_fills_and_ny_session_count PASSED [ 33%]\ntests/test_v16_6_measurement_integrity.py::test_intrabar_limit_entry_wick_fill_without_close_touch PASSED [ 50%]\ntests/test_v16_6_measurement_integrity.py::test_intrabar_no_same_candle_retroactive_fill PASSED [ 66%]\ntests/test_v16_6_measurement_integrity.py::test_intrabar_ambiguous_candle_worst_case_sl_priority PASSED [ 83%]\ntests/test_v16_6_measurement_integrity.py::test_open_position_at_end_of_run_reports_valid_mtm_drawdown PASSED [100%]\n\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 6 passed, 1 warning in 0.57s =========================\n",
+    "status": "PASS"
+  },
+  {
+    "name": "test_v16_5_replay_shared_execution",
+    "cmd": [
+      "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "tests/test_v16_5_replay_shared_execution.py",
+      "-v"
+    ],
+    "cwd": "D:\\build app-crypto\\aurum-desk\\backend",
+    "exit_code": 0,
+    "duration_sec": 2.348,
+    "output": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\\backend\nplugins: anyio-4.15.1\ncollecting ... collected 6 items\n\ntests/test_v16_5_replay_shared_execution.py::test_rule_148_replay_long_positive_shared_pipeline PASSED [ 16%]\ntests/test_v16_5_replay_shared_execution.py::test_rule_149_replay_short_positive_shared_pipeline PASSED [ 33%]\ntests/test_v16_5_replay_shared_execution.py::test_rule_150_replay_expired_limit_not_filled PASSED [ 50%]\ntests/test_v16_5_replay_shared_execution.py::test_rule_151_replay_before_fill_news_block PASSED [ 66%]\ntests/test_v16_5_replay_shared_execution.py::test_rule_156_replay_cg01_off PASSED [ 83%]\ntests/test_v16_5_replay_shared_execution.py::test_rule_157_service_call_trace PASSED [100%]\n\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 6 passed, 1 warning in 0.87s =========================\n",
+    "status": "PASS"
+  },
+  {
+    "name": "test_v16_5_ledger_reconciliation",
+    "cmd": [
+      "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "tests/test_v16_5_ledger_reconciliation.py",
+      "-v"
+    ],
+    "cwd": "D:\\build app-crypto\\aurum-desk\\backend",
+    "exit_code": 0,
+    "duration_sec": 1.754,
+    "output": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\\backend\nplugins: anyio-4.15.1\ncollecting ... collected 6 items\n\ntests/test_v16_5_ledger_reconciliation.py::test_rule_122_123_fills_identity_and_status_breakdown PASSED [ 16%]\ntests/test_v16_5_ledger_reconciliation.py::test_rule_124_125_net_pnl_reconciliation_with_fees PASSED [ 33%]\ntests/test_v16_5_ledger_reconciliation.py::test_rule_127_128_project_replay_equity_and_drawdown PASSED [ 50%]\ntests/test_v16_5_ledger_reconciliation.py::test_rule_130_161_open_end_position_reporting PASSED [ 66%]\ntests/test_v16_5_ledger_reconciliation.py::test_rule_131_165_net_winrate_requires_positive_net_pnl PASSED [ 83%]\ntests/test_v16_5_ledger_reconciliation.py::test_rule_132_166_date_boundary_attribution PASSED [100%]\n\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 6 passed, 1 warning in 0.35s =========================\n",
+    "status": "PASS"
+  },
+  {
+    "name": "test_v16_5_cost_consistency",
+    "cmd": [
+      "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "tests/test_v16_5_cost_consistency.py",
+      "-v"
+    ],
+    "cwd": "D:\\build app-crypto\\aurum-desk\\backend",
+    "exit_code": 0,
+    "duration_sec": 1.63,
+    "output": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\\backend\nplugins: anyio-4.15.1\ncollecting ... collected 6 items\n\ntests/test_v16_5_cost_consistency.py::test_rule_052_resolve_slippage_usd PASSED [ 16%]\ntests/test_v16_5_cost_consistency.py::test_rule_057_058_market_entry_pricing_directional PASSED [ 33%]\ntests/test_v16_5_cost_consistency.py::test_rule_060_coordinator_zero_slippage_execution PASSED [ 50%]\ntests/test_v16_5_cost_consistency.py::test_rule_062_no_double_entry_slippage_in_calculator PASSED [ 66%]\ntests/test_v16_5_cost_consistency.py::test_rule_064_zero_slippage_retains_exchange_fees PASSED [ 83%]\ntests/test_v16_5_cost_consistency.py::test_rule_066_config_change_rejects_pending_order PASSED [100%]\n\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 6 passed, 1 warning in 0.23s =========================\n",
+    "status": "PASS"
+  },
+  {
+    "name": "test_v16_5_expiry_pipeline",
+    "cmd": [
+      "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "tests/test_v16_5_expiry_pipeline.py",
+      "-v"
+    ],
+    "cwd": "D:\\build app-crypto\\aurum-desk\\backend",
+    "exit_code": 0,
+    "duration_sec": 2.171,
+    "output": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\\backend\nplugins: anyio-4.15.1\ncollecting ... collected 7 items\n\ntests/test_v16_5_expiry_pipeline.py::test_rule_008_candidate_deadline_propagation PASSED [ 14%]\ntests/test_v16_5_expiry_pipeline.py::test_rule_028_evaluator_returns_expired_when_now_exceeds_deadline PASSED [ 28%]\ntests/test_v16_5_expiry_pipeline.py::test_rule_036_coordinator_exact_boundary PASSED [ 42%]\ntests/test_v16_5_expiry_pipeline.py::test_rule_037_expiry_housekeeping_on_stale_quote PASSED [ 57%]\ntests/test_v16_5_expiry_pipeline.py::test_rule_038_expiry_with_active_position PASSED [ 71%]\ntests/test_v16_5_expiry_pipeline.py::test_rule_040_restart_expiry_from_db PASSED [ 85%]\ntests/test_v16_5_expiry_pipeline.py::test_rule_042_open_position_survives_setup_ttl PASSED [100%]\n\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 7 passed, 1 warning in 0.61s =========================\n",
+    "status": "PASS"
+  },
+  {
+    "name": "test_v16_4_cg01_replay_ledger",
+    "cmd": [
+      "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "tests/test_v16_4_cg01_replay_ledger.py",
+      "-v"
+    ],
+    "cwd": "D:\\build app-crypto\\aurum-desk\\backend",
+    "exit_code": 0,
+    "duration_sec": 1.953,
+    "output": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\\backend\nplugins: anyio-4.15.1\ncollecting ... collected 10 items\n\ntests/test_v16_4_cg01_replay_ledger.py::test_rule_161_replay_service_parity PASSED [ 10%]\ntests/test_v16_4_cg01_replay_ledger.py::test_rule_162_replay_future_touch PASSED [ 20%]\ntests/test_v16_4_cg01_replay_ledger.py::test_rule_163_replay_missing_data PASSED [ 30%]\ntests/test_v16_4_cg01_replay_ledger.py::test_rule_164_aggregation_causal PASSED [ 40%]\ntests/test_v16_4_cg01_replay_ledger.py::test_rule_165_intrabar_ambiguity PASSED [ 50%]\ntests/test_v16_4_cg01_replay_ledger.py::test_rule_166_open_end_counts PASSED [ 60%]\ntests/test_v16_4_cg01_replay_ledger.py::test_rule_167_pending_end_counts PASSED [ 70%]\ntests/test_v16_4_cg01_replay_ledger.py::test_rule_168_fees_net_reconciliation PASSED [ 80%]\ntests/test_v16_4_cg01_replay_ledger.py::test_rule_169_mtm_drawdown PASSED [ 90%]\ntests/test_v16_4_cg01_replay_ledger.py::test_rule_170_winrate_net_fees PASSED [100%]\n\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 10 passed, 1 warning in 0.40s ========================\n",
+    "status": "PASS"
+  },
+  {
+    "name": "test_v16_4_cg01_broker_execution",
+    "cmd": [
+      "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "tests/test_v16_4_cg01_broker_execution.py",
+      "-v"
+    ],
+    "cwd": "D:\\build app-crypto\\aurum-desk\\backend",
+    "exit_code": 0,
+    "duration_sec": 2.761,
+    "output": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\\backend\nplugins: anyio-4.15.1\ncollecting ... collected 8 items\n\ntests/test_v16_4_cg01_broker_execution.py::test_rule_148_long_limit_touch_fill PASSED [ 12%]\ntests/test_v16_4_cg01_broker_execution.py::test_rule_149_short_limit_touch_fill PASSED [ 25%]\ntests/test_v16_4_cg01_broker_execution.py::test_rule_150_market_before_fill_reprice PASSED [ 37%]\ntests/test_v16_4_cg01_broker_execution.py::test_rule_153_long_tick_to_tp PASSED [ 50%]\ntests/test_v16_4_cg01_broker_execution.py::test_rule_154_short_tick_to_sl PASSED [ 62%]\ntests/test_v16_4_cg01_broker_execution.py::test_rule_155_guards_active_blocking PASSED [ 75%]\ntests/test_v16_4_cg01_broker_execution.py::test_rule_156_news_guard_between_arm_and_fill PASSED [ 87%]\ntests/test_v16_4_cg01_broker_execution.py::test_rule_160_restart_persistence PASSED [100%]\n\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 8 passed, 1 warning in 1.13s =========================\n",
+    "status": "PASS"
+  },
+  {
+    "name": "test_v16_4_cg01_causal_entry",
+    "cmd": [
+      "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "tests/test_v16_4_cg01_causal_entry.py",
+      "-v"
+    ],
+    "cwd": "D:\\build app-crypto\\aurum-desk\\backend",
+    "exit_code": 0,
+    "duration_sec": 1.779,
+    "output": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\\backend\nplugins: anyio-4.15.1\ncollecting ... collected 7 items\n\ntests/test_v16_4_cg01_causal_entry.py::test_rule_141_regression_retest_open_bar_not_executable PASSED [ 14%]\ntests/test_v16_4_cg01_causal_entry.py::test_rule_142_raw_filtered_parity PASSED [ 28%]\ntests/test_v16_4_cg01_causal_entry.py::test_rule_143_closed_flag_false_lookahead PASSED [ 42%]\ntests/test_v16_4_cg01_causal_entry.py::test_rule_145_market_price_long PASSED [ 57%]\ntests/test_v16_4_cg01_causal_entry.py::test_rule_146_market_price_short PASSED [ 71%]\ntests/test_v16_4_cg01_causal_entry.py::test_rule_147_limit_type_persistence PASSED [ 85%]\ntests/test_v16_4_cg01_causal_entry.py::test_rule_152_ttl_non_drifting PASSED [100%]\n\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 7 passed, 1 warning in 0.27s =========================\n",
+    "status": "PASS"
+  },
+  {
+    "name": "test_v16_3_cg01_replay",
+    "cmd": [
+      "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "tests/test_v16_3_cg01_replay.py",
+      "-v"
+    ],
+    "cwd": "D:\\build app-crypto\\aurum-desk\\backend",
+    "exit_code": 0,
+    "duration_sec": 1.45,
+    "output": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\\backend\nplugins: anyio-4.15.1\ncollecting ... collected 5 items\n\ntests/test_v16_3_cg01_replay.py::test_rule_179_dataset_missing_returns_blocked_data PASSED [ 20%]\ntests/test_v16_3_cg01_replay.py::test_rule_179_dataset_invalid_interval_returns_blocked_data PASSED [ 40%]\ntests/test_v16_3_cg01_replay.py::test_rule_176_compute_equity_mark PASSED [ 60%]\ntests/test_v16_3_cg01_replay.py::test_rule_169_pending_limit_future_touch_execution PASSED [ 80%]\ntests/test_v16_3_cg01_replay.py::test_rule_177_cost_reconciliation_net_vs_gross PASSED [100%]\n\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 5 passed, 1 warning in 0.08s =========================\n",
+    "status": "PASS"
+  },
+  {
+    "name": "test_v16_3_cg01_pipeline",
+    "cmd": [
+      "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "tests/test_v16_3_cg01_pipeline.py",
+      "-v"
+    ],
+    "cwd": "D:\\build app-crypto\\aurum-desk\\backend",
+    "exit_code": 0,
+    "duration_sec": 1.969,
+    "output": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\\backend\nplugins: anyio-4.15.1\ncollecting ... collected 6 items\n\ntests/test_v16_3_cg01_pipeline.py::test_rule_162_orchestrator_enabled_cg01_no_name_error PASSED [ 16%]\ntests/test_v16_3_cg01_pipeline.py::test_rule_166_end_to_end_long_pipeline PASSED [ 33%]\ntests/test_v16_3_cg01_pipeline.py::test_rule_167_end_to_end_short_pipeline PASSED [ 50%]\ntests/test_v16_3_cg01_pipeline.py::test_rule_168_confirmed_retest_market_mode PASSED [ 66%]\ntests/test_v16_3_cg01_pipeline.py::test_rule_170_shadow_hard_boundary PASSED [ 83%]\ntests/test_v16_3_cg01_pipeline.py::test_rule_171_off_mode_regression PASSED [100%]\n\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 6 passed, 1 warning in 0.48s =========================\n",
+    "status": "PASS"
+  },
+  {
+    "name": "test_v16_opportunity_engine",
+    "cmd": [
+      "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "tests/test_v16_opportunity_engine.py",
+      "-v"
+    ],
+    "cwd": "D:\\build app-crypto\\aurum-desk\\backend",
+    "exit_code": 0,
+    "duration_sec": 1.771,
+    "output": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\\backend\nplugins: anyio-4.15.1\ncollecting ... collected 16 items\n\ntests/test_v16_opportunity_engine.py::test_candle_open_ms_accessor PASSED [  6%]\ntests/test_v16_opportunity_engine.py::test_choch_and_bos_evidence_timestamps PASSED [ 12%]\ntests/test_v16_opportunity_engine.py::test_multi_zone_execution_hypotheses_authority PASSED [ 18%]\ntests/test_v16_opportunity_engine.py::test_liquidity_clusters_grouping_and_state_transitions PASSED [ 25%]\ntests/test_v16_opportunity_engine.py::test_m1_fvg_continuation_positive_and_negative PASSED [ 31%]\ntests/test_v16_opportunity_engine.py::test_m1_sweep_reclaim_positive_and_negative PASSED [ 37%]\ntests/test_v16_opportunity_engine.py::test_model_registry_fail_closed PASSED [ 43%]\ntests/test_v16_opportunity_engine.py::test_candidate_router_deduplication_and_conflict_resolution PASSED [ 50%]\ntests/test_v16_opportunity_engine.py::test_bitget_public_depth_validation PASSED [ 56%]\ntests/test_v16_opportunity_engine.py::test_daily_frequency_goal_progress PASSED [ 62%]\ntests/test_v16_opportunity_engine.py::test_v16_config_and_master_flag_isolation PASSED [ 68%]\ntests/test_v16_opportunity_engine.py::test_m1_fvg_continuation_negatives_comprehensive PASSED [ 75%]\ntests/test_v16_opportunity_engine.py::test_m1_sweep_reclaim_negatives_comprehensive PASSED [ 81%]\ntests/test_v16_opportunity_engine.py::test_daily_cap_atomic_protection PASSED [ 87%]\ntests/test_v16_opportunity_engine.py::test_daily_shortfall_summary_categories PASSED [ 93%]\ntests/test_v16_opportunity_engine.py::test_v16_daily_status_api PASSED   [100%]\n\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 16 passed, 1 warning in 0.33s ========================\n",
+    "status": "PASS"
+  },
+  {
+    "name": "v16_full_suite",
+    "cmd": [
+      "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "tests",
+      "-k",
+      "v16",
+      "-q"
+    ],
+    "cwd": "D:\\build app-crypto\\aurum-desk\\backend",
+    "exit_code": 0,
+    "duration_sec": 6.888,
+    "output": "........................................................................ [ 69%]\n................................                                         [100%]\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n104 passed, 1785 deselected, 1 warning in 4.83s\n",
+    "status": "PASS"
+  }
+]

@@ -7,7 +7,10 @@ import time
 from urllib.parse import urlparse
 from typing import Dict, Any, Optional, List, Tuple
 import httpx
-from bs4 import BeautifulSoup
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    BeautifulSoup = None
 import schemas
 
 logger = logging.getLogger(__name__)

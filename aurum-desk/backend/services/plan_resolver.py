@@ -86,8 +86,22 @@ def resolve_plan_levels(
     eff_c_sl = _extract("confirmed_sl", confirmed_sl)
     eff_c_tp = _extract("confirmed_tp", confirmed_tp)
     eff_p_entry = _extract("provisional_entry", provisional_entry)
+    if eff_p_entry is None and eff_c_entry is None:
+        eff_p_entry = _extract("planned_entry", None)
+        if eff_p_entry is None:
+            eff_p_entry = _extract("entry", None)
+
     eff_p_sl = _extract("provisional_sl", provisional_sl)
+    if eff_p_sl is None and eff_c_sl is None:
+        eff_p_sl = _extract("stop_loss", None)
+        if eff_p_sl is None:
+            eff_p_sl = _extract("sl", None)
+
     eff_p_tp = _extract("provisional_tp", provisional_tp)
+    if eff_p_tp is None and eff_c_tp is None:
+        eff_p_tp = _extract("take_profit", None)
+        if eff_p_tp is None:
+            eff_p_tp = _extract("tp", None)
 
     reset_stale = False
 

@@ -303,6 +303,60 @@ def build_quality_snapshot(
 
 # ==================== EVALUATION LOGIC (APPENDIX A3, A4) ====================
 
+def resolve_quality_rr_threshold(context: Dict[str, Any]) -> Tuple[Optional[float], str]:
+    """
+    Pure resolver for Min Net R:R threshold used by setup quality evaluation.
+    Checks explicit decision/profile context without performing DB queries:
+      1. context['profile']['min_net_rr']
+      2. context['min_net_rr']
+      3. context['calc']['min_net_rr']
+      4. context['plan']['min_net_rr']
+    If an explicit key is present:
+      - Valid finite float > 0: returns (val, "EXPLICIT_THRESHOLD")
+      - Invalid/malformed/negative/boolean: returns (None, "INVALID_EXPLICIT_THRESHOLD")
+    If no explicit key is present in context:
+      - Returns (2.0, "LEGACY_DEFAULT")
+    """
+    if not isinstance(context, dict):
+        return (2.0, "LEGACY_DEFAULT")
+
+    raw_candidates = []
+
+    # 1. profile dict
+    profile = context.get("profile")
+    if isinstance(profile, dict) and "min_net_rr" in profile:
+        raw_candidates.append(profile["min_net_rr"])
+
+    # 2. top-level context
+    if "min_net_rr" in context:
+        raw_candidates.append(context["min_net_rr"])
+
+    # 3. calc dict
+    calc = context.get("calc")
+    if isinstance(calc, dict) and "min_net_rr" in calc:
+        raw_candidates.append(calc["min_net_rr"])
+
+    # 4. plan dict
+    plan = context.get("plan")
+    if isinstance(plan, dict) and "min_net_rr" in plan:
+        raw_candidates.append(plan["min_net_rr"])
+
+    if not raw_candidates:
+        return (2.0, "LEGACY_DEFAULT")
+
+    raw_val = raw_candidates[0]
+    if raw_val is None or isinstance(raw_val, bool):
+        return (None, "INVALID_EXPLICIT_THRESHOLD")
+
+    try:
+        val = float(raw_val)
+        if math.isfinite(val) and val > 0:
+            return (val, "EXPLICIT_THRESHOLD")
+        return (None, "INVALID_EXPLICIT_THRESHOLD")
+    except (ValueError, TypeError):
+        return (None, "INVALID_EXPLICIT_THRESHOLD")
+
+
 def evaluate_quality_checks(context: Dict[str, Any]) -> Tuple[Tuple[QualityCheck, ...], Tuple[str, ...]]:
     """
     Evaluates checklist based on context facts:
@@ -316,7 +370,7 @@ def evaluate_quality_checks(context: Dict[str, Any]) -> Tuple[Tuple[QualityCheck
     8. TARGET_PATH: Clear path to take profit without major opposing obstacles
     9. QUOTE_VALIDITY: Live/recent quote available and not crossed
     10. NEWS_CLEAR: No high-impact news blackout window active
-    11. RISK_REWARD_NET: Net R:R >= 2.0R under realistic fees & slippage
+    11. RISK_REWARD_NET: Net R:R >= min_net_rr under realistic fees & slippage
     """
     direction = context.get("direction", "LONG")
     now_ms = context.get("as_of_ms", 0)
@@ -541,34 +595,57 @@ def evaluate_quality_checks(context: Dict[str, Any]) -> Tuple[Tuple[QualityCheck
         ))
 
     # 8. RISK_REWARD_NET (REQUIRED)
-    net_rr = float(plan.get("net_rr", calc.get("net_rr", 0.0)) or 0.0)
-    if net_rr >= 2.0:
+    threshold, threshold_source = resolve_quality_rr_threshold(context)
+
+    raw_net_rr = plan.get("net_rr", calc.get("net_rr", 0.0))
+    net_rr: Optional[float] = None
+    if raw_net_rr is not None and not isinstance(raw_net_rr, bool):
+        try:
+            parsed = float(raw_net_rr)
+            if math.isfinite(parsed):
+                net_rr = parsed
+        except (ValueError, TypeError):
+            pass
+
+    if threshold is None:
         checks.append(QualityCheck(
             code="NET_RR_COMPLIANT",
-            status="MET",
+            status="UNKNOWN",
             importance="REQUIRED",
-            explanation_vi=f"Tỷ lệ Lợi nhuận/Rủi ro sau phí đạt {net_rr:.2f}R (chuẩn >= 2.0R).",
-            observed=f"{net_rr:.2f}R",
-            expected=">= 2.00R",
+            explanation_vi="Ngưỡng Min Net R:R cấu hình không hợp lệ.",
+            observed=f"{net_rr:.2f}R" if net_rr is not None and net_rr > 0 else "N/A",
+            expected="Valid threshold >= 1.50R",
             measured_at_ms=now_ms
         ))
-    elif net_rr > 0:
-        checks.append(QualityCheck(
-            code="NET_RR_COMPLIANT",
-            status="NOT_MET",
-            importance="REQUIRED",
-            explanation_vi=f"Tỷ lệ Lợi nhuận/Rủi ro sau phí chỉ đạt {net_rr:.2f}R (< 2.0R).",
-            observed=f"{net_rr:.2f}R",
-            expected=">= 2.00R",
-            measured_at_ms=now_ms
-        ))
-    else:
+    elif net_rr is None or net_rr <= 0:
         checks.append(QualityCheck(
             code="NET_RR_COMPLIANT",
             status="UNKNOWN",
             importance="REQUIRED",
             explanation_vi="Chưa tính toán được tỷ lệ Net R:R sau chi phí sàn.",
-            expected=">= 2.00R",
+            observed="N/A",
+            expected=f">= {threshold:.2f}R",
+            measured_at_ms=now_ms
+        ))
+    elif net_rr >= threshold:
+        # Comparison uses unrounded actual net_rr vs threshold
+        checks.append(QualityCheck(
+            code="NET_RR_COMPLIANT",
+            status="MET",
+            importance="REQUIRED",
+            explanation_vi=f"Tỷ lệ Lợi nhuận/Rủi ro sau phí đạt {net_rr:.2f}R (chuẩn >= {threshold:.2f}R).",
+            observed=f"{net_rr:.2f}R",
+            expected=f">= {threshold:.2f}R",
+            measured_at_ms=now_ms
+        ))
+    else:
+        checks.append(QualityCheck(
+            code="NET_RR_COMPLIANT",
+            status="NOT_MET",
+            importance="REQUIRED",
+            explanation_vi=f"Tỷ lệ Lợi nhuận/Rủi ro sau phí chỉ đạt {net_rr:.2f}R (< {threshold:.2f}R).",
+            observed=f"{net_rr:.2f}R",
+            expected=f">= {threshold:.2f}R",
             measured_at_ms=now_ms
         ))
 
@@ -769,4 +846,1542 @@ def assess_setup_quality(context: Dict[str, Any]) -> Tuple[QualityAssessment, Se
     )
 
     return assessment, related_ev
+
+
+# ==============================================================================
+# V16.39 PURE CANDIDATE QUALITY SCORING ENGINE (SECTIONS 031 - 065)
+# ==============================================================================
+
+@dataclass(frozen=True)
+class QualityScoreFactor:
+    """
+    V16.39 Section 037: Structured Factor contract for explainable quality scoring.
+    Every factor has verifiable evidence, measurement, and earned vs max points.
+    """
+    code: str
+    group: str  # 'HTF_CONTEXT', 'POI_QUALITY', 'LIQUIDITY_SCENARIO', 'LTF_CONFIRMATION', 'EXECUTION_QUALITY'
+    earned_points: float
+    max_points: float
+    status: str  # 'FULL', 'PARTIAL', 'ZERO', 'UNKNOWN', 'NOT_APPLICABLE'
+    explanation_vi: str
+    evidence_ids: Tuple[str, ...] = ()
+    known_at_ms: Optional[int] = None
+    measurement: Optional[Dict[str, Any]] = None
+    rule_version: str = "v16.39"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "code": self.code,
+            "group": self.group,
+            "earned_points": round(self.earned_points, 2),
+            "max_points": round(self.max_points, 2),
+            "status": self.status,
+            "explanation_vi": self.explanation_vi,
+            "evidence_ids": list(self.evidence_ids),
+            "known_at_ms": self.known_at_ms,
+            "measurement": self.measurement,
+            "rule_version": self.rule_version,
+        }
+
+
+@dataclass(frozen=True)
+class CandidateQualityAssessment:
+    """
+    V16.39 Section 036: Complete immutable snapshot of candidate quality score.
+    Deterministic, JSON-serializable, with factor breakdown and governance traceability.
+    """
+    assessment_id: str
+    candidate_key: str
+    model_id: str
+    base_score: float
+    lesson_delta: float
+    final_score: float
+    threshold: float
+    decision: str  # ELIGIBLE_BY_SCORE, BELOW_THRESHOLD, BLOCKED_REQUIRED, BLOCKED_GUARD, INSUFFICIENT_DATA, ERROR
+    as_of_ms: int
+    profile_version: str
+    config_fingerprint: str
+    factors: Tuple[QualityScoreFactor, ...]
+    missing_data: Tuple[str, ...] = ()
+    blockers: Tuple[str, ...] = ()
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "assessment_id": self.assessment_id,
+            "candidate_key": self.candidate_key,
+            "model_id": self.model_id,
+            "base_score": round(self.base_score, 2),
+            "lesson_delta": round(self.lesson_delta, 2),
+            "final_score": round(self.final_score, 2),
+            "threshold": round(self.threshold, 2),
+            "decision": self.decision,
+            "as_of_ms": self.as_of_ms,
+            "profile_version": self.profile_version,
+            "config_fingerprint": self.config_fingerprint,
+            "factors": [f.to_dict() for f in self.factors],
+            "missing_data": list(self.missing_data),
+            "blockers": list(self.blockers),
+            "group_scores": self.group_scores(),
+        }
+
+    def group_scores(self) -> Dict[str, Dict[str, float]]:
+        res: Dict[str, Dict[str, float]] = {}
+        for f in self.factors:
+            if f.group not in res:
+                res[f.group] = {"earned": 0.0, "max": 0.0}
+            res[f.group]["earned"] = round(res[f.group]["earned"] + f.earned_points, 2)
+            res[f.group]["max"] = round(res[f.group]["max"] + f.max_points, 2)
+        return res
+
+
+@dataclass(frozen=True)
+class NormalizedEvidenceNode:
+    id: str
+    kind: str
+    symbol: str
+    timeframe: str
+    direction: Optional[str]
+    occurred_at_ms: int
+    known_at_ms: int
+    source_ids: Tuple[str, ...] = ()
+    level: Optional[float] = None
+    extra: Dict[str, Any] = field(default_factory=dict)
+    is_causal: bool = True
+    issues: Tuple[str, ...] = ()
+
+
+@dataclass
+class EvidenceIndex:
+    by_id: Dict[str, NormalizedEvidenceNode] = field(default_factory=dict)
+    by_kind: Dict[str, List[NormalizedEvidenceNode]] = field(default_factory=dict)
+    valid_nodes: List[NormalizedEvidenceNode] = field(default_factory=list)
+    invalid_nodes: List[NormalizedEvidenceNode] = field(default_factory=list)
+    future_nodes: List[NormalizedEvidenceNode] = field(default_factory=list)
+    latest_known_at: int = 0
+    issues: List[str] = field(default_factory=list)
+    trigger_chain_verified: bool = False
+    trigger_chain_model: Optional[str] = None
+    trigger_node_ids: List[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class ScoringProfileConfig:
+    """
+    V16.39.2 Section 034, 091: Strongly-typed immutable scoring profile configuration.
+    Contains weights, thresholds, budgets, and operational flags.
+    """
+    quality_profile_version: str = "v16.39"
+    quality_arm_threshold: float = 70.0
+    min_net_rr: float = 1.5
+    quality_scoring_enabled: bool = True
+    lesson_score_adjustment_enabled: bool = False
+    weights: Dict[str, float] = field(default_factory=lambda: {
+        "HTF_CONTEXT": 20.0,
+        "POI_QUALITY": 20.0,
+        "LIQUIDITY_SCENARIO": 15.0,
+        "LTF_CONFIRMATION": 25.0,
+        "EXECUTION_QUALITY": 20.0,
+    })
+    budgets: Dict[str, float] = field(default_factory=lambda: {
+        "max_spread_pips": 2.0,
+        "max_slippage_usd": 0.50,
+        "max_entry_distance_atr": 1.5,
+    })
+
+
+def resolve_scoring_profile(config: Any = None) -> ScoringProfileConfig:
+    """Resolves arbitrary config representation into a typed ScoringProfileConfig object."""
+    if isinstance(config, ScoringProfileConfig):
+        return config
+    if config is None:
+        return ScoringProfileConfig()
+    if isinstance(config, str):
+        return ScoringProfileConfig(quality_profile_version=config)
+    if isinstance(config, dict):
+        return ScoringProfileConfig(
+            quality_profile_version=str(config.get("quality_profile_version") or "v16.39"),
+            quality_arm_threshold=float(config.get("quality_arm_threshold", 70.0)),
+            min_net_rr=float(config.get("min_net_rr", 1.5)),
+            quality_scoring_enabled=bool(config.get("quality_scoring_enabled", True)),
+            lesson_score_adjustment_enabled=bool(config.get("lesson_score_adjustment_enabled", False)),
+        )
+    # Generic object (such as M1ScalpConfig)
+    return ScoringProfileConfig(
+        quality_profile_version=str(getattr(config, "quality_profile_version", "v16.39")),
+        quality_arm_threshold=float(getattr(config, "quality_arm_threshold", 70.0)),
+        min_net_rr=float(getattr(config, "min_net_rr", 1.5)),
+        quality_scoring_enabled=bool(getattr(config, "quality_scoring_enabled", True)),
+        lesson_score_adjustment_enabled=bool(getattr(config, "lesson_score_adjustment_enabled", False)),
+    )
+
+
+def normalize_candidate_evidence(
+    candidate: Any,
+    as_of_ms: int = 0,
+) -> EvidenceIndex:
+    """
+    V16.39.2 Sections 012, 016 - 024, 046 - 064:
+    Normalizes candidate evidence into typed, indexed, causally-verified evidence nodes.
+    Supports both production List[EvidenceNode.to_dict()] and legacy flag dictionaries.
+    Strictly checks known_at_ms <= as_of_ms (excluding future evidence).
+    NEVER synthesizes fake timestamps (Section 047) or fake displacement constants (Section 048).
+    Verifies trigger_chain with strict boolean and node reference integrity.
+    """
+    index = EvidenceIndex()
+    now_ms = int(as_of_ms or getattr(candidate, "as_of_ms", 0) or 0)
+    cand_sym = str(getattr(candidate, "symbol", "XAUUSDT") or "XAUUSDT").upper()
+    cand_dir = str(getattr(candidate, "direction", "") or "").upper() or None
+
+    raw_ev = getattr(candidate, "evidence", None)
+    snap = getattr(candidate, "snapshot", None)
+    if raw_ev is None and snap is not None:
+        raw_ev = getattr(snap, "evidence", None)
+
+    trigger_chain = getattr(candidate, "trigger_chain", None)
+    if trigger_chain is None and snap is not None:
+        trigger_chain = getattr(snap, "trigger_chain", None)
+
+    raw_items: List[Any] = []
+    if isinstance(raw_ev, (list, tuple)):
+        raw_items = list(raw_ev)
+    elif isinstance(raw_ev, dict):
+        if "items" in raw_ev and isinstance(raw_ev["items"], (list, tuple)):
+            raw_items = list(raw_ev["items"])
+        elif "ev_nodes" in raw_ev and isinstance(raw_ev["ev_nodes"], (list, tuple)):
+            raw_items = list(raw_ev["ev_nodes"])
+        elif "nodes" in raw_ev and isinstance(raw_ev["nodes"], (list, tuple)):
+            raw_items = list(raw_ev["nodes"])
+
+    # If raw_items is empty and raw_ev is a dict of legacy flags:
+    legacy_flags = raw_ev if isinstance(raw_ev, dict) and not raw_items else {}
+
+    # Legacy flags contract (Section 012, 047 - 049):
+    # Do NOT invent synthetic timestamps (now-60s, now-120s) or displacement constants (1.0/1.0)!
+    if not raw_items and legacy_flags:
+        if legacy_flags.get("has_sweep") or legacy_flags.get("sweep_detected") or legacy_flags.get("sweep_id"):
+            raw_items.append({
+                "id": str(legacy_flags.get("sweep_id") or "legacy_sweep"),
+                "kind": "SWEEP_LOW" if cand_dir == "LONG" else "SWEEP_HIGH",
+                "symbol": cand_sym,
+                "timeframe": "1M",
+                "direction": cand_dir,
+                "occurred_at_ms": int(legacy_flags.get("occurred_at_ms") or legacy_flags.get("sweep_occurred_at_ms") or 0),
+                "known_at_ms": int(legacy_flags.get("known_at_ms") or legacy_flags.get("sweep_known_at_ms") or 0),
+                "level": legacy_flags.get("sweep_level"),
+            })
+        if legacy_flags.get("poi_confirmed") or legacy_flags.get("zone_id") or legacy_flags.get("fvg_id"):
+            raw_items.append({
+                "id": str(legacy_flags.get("zone_id") or legacy_flags.get("fvg_id") or "legacy_poi"),
+                "kind": "POI",
+                "symbol": cand_sym,
+                "timeframe": "1M",
+                "direction": cand_dir,
+                "occurred_at_ms": int(legacy_flags.get("occurred_at_ms") or legacy_flags.get("poi_occurred_at_ms") or 0),
+                "known_at_ms": int(legacy_flags.get("known_at_ms") or legacy_flags.get("poi_known_at_ms") or 0),
+                "level": legacy_flags.get("zone_midpoint"),
+            })
+        if legacy_flags.get("has_trigger") or legacy_flags.get("mss_detected") or legacy_flags.get("choch_detected"):
+            extra_dict = {}
+            if "displacement_body" in legacy_flags:
+                extra_dict["displacement_body"] = legacy_flags["displacement_body"]
+            if "displacement_atr" in legacy_flags:
+                extra_dict["displacement_atr"] = legacy_flags["displacement_atr"]
+            raw_items.append({
+                "id": "legacy_trigger",
+                "kind": "CHOCH" if "REVERSAL" in str(getattr(candidate, "model_id", "")) else "BOS",
+                "symbol": cand_sym,
+                "timeframe": "1M",
+                "direction": cand_dir,
+                "occurred_at_ms": int(legacy_flags.get("occurred_at_ms") or legacy_flags.get("trigger_occurred_at_ms") or 0),
+                "known_at_ms": int(legacy_flags.get("known_at_ms") or legacy_flags.get("trigger_known_at_ms") or 0),
+                "extra": extra_dict,
+            })
+        if legacy_flags.get("retest_detected") or legacy_flags.get("fvg_retest"):
+            raw_items.append({
+                "id": "legacy_retest",
+                "kind": "RETEST",
+                "symbol": cand_sym,
+                "timeframe": "1M",
+                "direction": cand_dir,
+                "occurred_at_ms": int(legacy_flags.get("occurred_at_ms") or legacy_flags.get("retest_occurred_at_ms") or 0),
+                "known_at_ms": int(legacy_flags.get("known_at_ms") or legacy_flags.get("retest_known_at_ms") or 0),
+            })
+
+    latest_known = 0
+    for item in raw_items:
+        if hasattr(item, "to_dict"):
+            d = item.to_dict()
+        elif isinstance(item, dict):
+            d = dict(item)
+        else:
+            continue
+
+        nid = str(d.get("id") or "").strip()
+        kind = str(d.get("kind") or "").strip().upper()
+        sym = str(d.get("symbol") or cand_sym).strip().upper()
+        direction = str(d.get("direction") or "").strip().upper() or None
+        occ_ms = int(d.get("occurred_at_ms") or 0)
+        kn_ms = int(d.get("known_at_ms") or 0)
+        source_ids = tuple(str(x) for x in d.get("source_ids") or ())
+        level_raw = d.get("level")
+        level = float(level_raw) if level_raw is not None and math.isfinite(float(level_raw)) else None
+        extra = dict(d.get("extra") or {})
+
+        issues = []
+        if not nid:
+            issues.append("MISSING_NODE_ID")
+        if not kind:
+            issues.append("MISSING_NODE_KIND")
+
+        is_causal = True
+        if kn_ms <= 0:
+            issues.append("LEGACY_TIMESTAMP_UNAVAILABLE" if not kn_ms else "MISSING_KNOWN_AT")
+            is_causal = False
+        elif now_ms > 0 and kn_ms > now_ms:
+            is_causal = False
+            issues.append("FUTURE_EVIDENCE_EXCLUDED")
+
+        # Direction / symbol compatibility
+        if cand_sym and sym != cand_sym:
+            issues.append(f"SYMBOL_MISMATCH_{sym}")
+        if cand_dir and direction and direction in ("LONG", "SHORT", "BUY", "SELL"):
+            norm_cand_dir = "LONG" if cand_dir in ("LONG", "BUY") else "SHORT"
+            norm_node_dir = "LONG" if direction in ("LONG", "BUY") else "SHORT"
+            if norm_cand_dir != norm_node_dir:
+                issues.append(f"DIRECTION_MISMATCH_{direction}")
+
+        norm_node = NormalizedEvidenceNode(
+            id=nid or f"node_{len(index.valid_nodes)+len(index.invalid_nodes)+1}",
+            kind=kind,
+            symbol=sym,
+            timeframe=str(d.get("timeframe") or "1M"),
+            direction=direction,
+            occurred_at_ms=occ_ms,
+            known_at_ms=kn_ms,
+            source_ids=source_ids,
+            level=level,
+            extra=extra,
+            is_causal=is_causal,
+            issues=tuple(issues),
+        )
+
+        if not is_causal:
+            index.future_nodes.append(norm_node)
+            index.issues.append(f"NON_CAUSAL_NODE_{norm_node.id}")
+            index.issues.extend(issues)
+            continue
+
+        if issues:
+            index.invalid_nodes.append(norm_node)
+            index.issues.extend(issues)
+            continue
+
+        # Valid causal node
+        index.valid_nodes.append(norm_node)
+        index.by_id[norm_node.id] = norm_node
+        index.by_kind.setdefault(norm_node.kind, []).append(norm_node)
+        if norm_node.kind == "LIQUIDITY_SWEEP":
+            index.by_kind.setdefault("SWEEP", []).append(norm_node)
+            if cand_dir in ("LONG", "BUY"):
+                index.by_kind.setdefault("SWEEP_LOW", []).append(norm_node)
+            elif cand_dir in ("SHORT", "SELL"):
+                index.by_kind.setdefault("SWEEP_HIGH", []).append(norm_node)
+        elif norm_node.kind == "HTF_CONTEXT":
+            index.by_kind.setdefault("CONTEXT", []).append(norm_node)
+        if norm_node.known_at_ms > latest_known:
+            latest_known = norm_node.known_at_ms
+
+    index.latest_known_at = latest_known
+
+    # Trigger chain validation (Section 024, 061 - 064)
+    if isinstance(trigger_chain, dict):
+        verified = trigger_chain.get("verified") is True  # MUST BE STRICT True (Section 061)
+        t_model = trigger_chain.get("model_id")
+        t_node_ids = list(trigger_chain.get("node_ids") or ())
+        all_nodes_exist = bool(t_node_ids) and all(
+            nid in index.by_id and index.by_id[nid].is_causal for nid in t_node_ids
+        )
+        if verified and all_nodes_exist:
+            index.trigger_chain_verified = True
+            index.trigger_chain_model = t_model
+            index.trigger_node_ids = t_node_ids
+        else:
+            index.trigger_chain_verified = False
+            if not verified:
+                index.issues.append("TRIGGER_CHAIN_UNVERIFIED")
+            elif not all_nodes_exist:
+                index.issues.append("TRIGGER_CHAIN_NODES_MISSING_OR_FUTURE")
+    else:
+        index.trigger_chain_verified = False
+
+    return index
+
+
+def build_candidate_scoring_context(
+    candidate: Any,
+    normalized_evidence: Optional[EvidenceIndex] = None,
+    effective_config: Optional[Any] = None,
+    quote: Optional[Any] = None,
+    calculation: Optional[Any] = None,
+    market_context: Optional[Dict[str, Any]] = None,
+    as_of_ms: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    V16.39.1 Sections 031 - 046, V16.39.5:
+    Builds typed, pure scoring context containing empirical market facts.
+    Resolves canonical htf_bias, context_source, zone, dealing_range,
+    quote spread (without fake 0.15 default), slippage assumption,
+    ATR, and SR confluence.
+    """
+    m_ctx = market_context or {}
+    now_ms = int(as_of_ms or getattr(candidate, "as_of_ms", 0) or 0)
+    snap = getattr(candidate, "snapshot", None)
+    calc = calculation or getattr(candidate, "calculation", None)
+
+    # 1. Resolve htf_bias and h1_alignment (Section 032, 094, 095, V16.39.5 Rule 059 - 065)
+    htf_bias = m_ctx.get("htf_bias") or m_ctx.get("bias")
+    h1_align = m_ctx.get("h1_alignment")
+    snap_ctx = None
+    if (not htf_bias or str(htf_bias).upper() == "UNKNOWN") and snap is not None:
+        if isinstance(snap, dict):
+            snap_ctx = snap.get("context") or {}
+            htf_bias = snap_ctx.get("htf_bias") or snap.get("htf_bias")
+            h1_align = snap_ctx.get("h1_alignment") or snap.get("h1_alignment")
+        else:
+            snap_ctx = getattr(snap, "context", {})
+            if isinstance(snap_ctx, dict):
+                htf_bias = snap_ctx.get("htf_bias") or getattr(snap, "htf_bias", None)
+                h1_align = snap_ctx.get("h1_alignment") or getattr(snap, "h1_alignment", None)
+            else:
+                htf_bias = getattr(snap, "htf_bias", None)
+                h1_align = getattr(snap, "h1_alignment", None)
+
+        if isinstance(snap_ctx, dict) and (not htf_bias or str(htf_bias).upper() == "UNKNOWN"):
+            htf_ctx_dict = snap_ctx.get("htf_context") or {}
+            if isinstance(htf_ctx_dict, dict):
+                dir_ctx = htf_ctx_dict.get("direction_context") or {}
+                h1_snap = htf_ctx_dict.get("h1_snapshot") or {}
+                h4_snap = htf_ctx_dict.get("h4_snapshot") or {}
+                cand_bias = (
+                    dir_ctx.get("bias")
+                    or dir_ctx.get("h1_bias")
+                    or h1_snap.get("bias")
+                    or h4_snap.get("bias")
+                    or htf_ctx_dict.get("htf_bias")
+                )
+                if cand_bias and cand_bias != "UNKNOWN":
+                    htf_bias = cand_bias
+                if not h1_align or str(h1_align).upper() == "UNKNOWN":
+                    h1_align = dir_ctx.get("relation") or dir_ctx.get("h1_alignment")
+
+    if (not htf_bias or str(htf_bias).upper() == "UNKNOWN") and normalized_evidence:
+        bos_nodes = (
+            normalized_evidence.by_kind.get("BOS", [])
+            + normalized_evidence.by_kind.get("CONTEXT", [])
+            + normalized_evidence.by_kind.get("HTF_CONTEXT", [])
+        )
+        for bn in bos_nodes:
+            if getattr(bn, "is_causal", True) and bn.extra.get("htf_bias"):
+                b_val = str(bn.extra.get("htf_bias")).upper()
+                if b_val and b_val != "UNKNOWN":
+                    htf_bias = bn.extra.get("htf_bias")
+                    h1_align = bn.extra.get("h1_alignment")
+                    break
+
+    htf_bias_canonical = str(htf_bias).upper() if htf_bias else "UNKNOWN"
+    h1_align_canonical = str(h1_align).upper() if h1_align else "UNKNOWN"
+
+    # 2. Context source provenance (Section 037, V16.39.5 Rule 065, 100)
+    ctx_src = m_ctx.get("context_source")
+    if not ctx_src:
+        if isinstance(snap_ctx, dict) and isinstance(snap_ctx.get("htf_context"), dict):
+            ctx_src = snap_ctx["htf_context"].get("context_source") or "BOUND_SNAPSHOT"
+        elif snap is not None and htf_bias_canonical != "UNKNOWN":
+            ctx_src = "BOUND_SNAPSHOT"
+        elif htf_bias_canonical != "UNKNOWN":
+            ctx_src = "RUNTIME_CACHE"
+        else:
+            ctx_src = "UNAVAILABLE"
+
+    # 3. Zone context (Section 038, 098)
+    # Do NOT invent touch_count=1 or FRESH if not in extra
+    zone = m_ctx.get("zone")
+    zone_id = getattr(candidate, "zone_id", None)
+    if not zone and normalized_evidence and "POI" in normalized_evidence.by_kind:
+        poi_node = normalized_evidence.by_kind["POI"][0]
+        zone = {
+            "zone_id": poi_node.id,
+            "midpoint": poi_node.level,
+            "touch_count": poi_node.extra.get("touch_count"),
+            "freshness_state": poi_node.extra.get("freshness_state"),
+        }
+
+    # 4. Dealing range (Section 039, 096)
+    # DealingRange has range_high, range_low, equilibrium, known_at_ms, is_valid.
+    # Calculate position as (planned_entry - range_low) / (range_high - range_low)
+    dr = m_ctx.get("dealing_range")
+    if dr is None and snap is not None:
+        if isinstance(snap, dict):
+            snap_ctx = snap.get("context") or {}
+            dr = snap_ctx.get("dealing_range") or snap.get("dealing_range")
+        else:
+            snap_ctx = getattr(snap, "context", {})
+            if isinstance(snap_ctx, dict):
+                dr = snap_ctx.get("dealing_range") or getattr(snap, "dealing_range", None)
+            else:
+                dr = getattr(snap, "dealing_range", None)
+
+    dr_pos = None
+    p_entry = float(getattr(candidate, "planned_entry", 0.0) or 0.0)
+    if dr is not None:
+        if isinstance(dr, (int, float)):
+            dr_pos = float(dr)
+        elif hasattr(dr, "position") and getattr(dr, "position") is not None:
+            dr_pos = float(getattr(dr, "position"))
+        elif isinstance(dr, dict) and dr.get("position") is not None:
+            dr_pos = float(dr["position"])
+        else:
+            r_high = getattr(dr, "range_high", None) if hasattr(dr, "range_high") else (dr.get("range_high") if isinstance(dr, dict) else None)
+            r_low = getattr(dr, "range_low", None) if hasattr(dr, "range_low") else (dr.get("range_low") if isinstance(dr, dict) else None)
+            is_valid = getattr(dr, "is_valid", True) if hasattr(dr, "is_valid") else (dr.get("is_valid", True) if isinstance(dr, dict) else True)
+            dr_known = getattr(dr, "known_at_ms", 0) if hasattr(dr, "known_at_ms") else (dr.get("known_at_ms", 0) if isinstance(dr, dict) else 0)
+            is_causal = True
+            if now_ms > 0 and dr_known > now_ms:
+                is_causal = False
+            if is_valid and is_causal and r_high is not None and r_low is not None and p_entry > 0:
+                try:
+                    width = float(r_high) - float(r_low)
+                    if width > 0:
+                        dr_pos = (p_entry - float(r_low)) / width
+                except (ValueError, TypeError, ZeroDivisionError):
+                    dr_pos = None
+
+    # 5. Quote & Spread (Section 040, 042: NO fake 0.15 default!)
+    quote_obj = quote or m_ctx.get("quote")
+    bid = None
+    ask = None
+    spread = None
+    if quote_obj is not None:
+        b_val = getattr(quote_obj, "bid", None) if hasattr(quote_obj, "bid") else (quote_obj.get("bid") if isinstance(quote_obj, dict) else None)
+        a_val = getattr(quote_obj, "ask", None) if hasattr(quote_obj, "ask") else (quote_obj.get("ask") if isinstance(quote_obj, dict) else None)
+        if b_val is not None and a_val is not None:
+            try:
+                b_flt = float(b_val)
+                a_flt = float(a_val)
+                if a_flt >= b_flt > 0:
+                    bid = b_flt
+                    ask = a_flt
+                    spread = round(a_flt - b_flt, 3)
+            except (ValueError, TypeError):
+                pass
+
+    quote_dict = {"bid": bid, "ask": ask, "spread": spread} if bid is not None else None
+
+    # 6. Slippage assumption from calculator (Section 043: NO fake 0.10 default!)
+    slippage_usd = None
+    if calc is not None:
+        s_val = getattr(calc, "slippage_usd", None) if hasattr(calc, "slippage_usd") else (calc.get("slippage_usd") if isinstance(calc, dict) else None)
+        if s_val is not None:
+            try:
+                s_flt = float(s_val)
+                if s_flt >= 0 and math.isfinite(s_flt):
+                    slippage_usd = s_flt
+            except (ValueError, TypeError):
+                pass
+
+    calc_dict = {"slippage_usd": slippage_usd}
+
+    # 7. ATR for timeframe (Section 044: NO fake 2.0 default!)
+    atr_val = None
+    raw_atr = m_ctx.get("atr")
+    if raw_atr is not None:
+        try:
+            a_flt = float(raw_atr)
+            if a_flt > 0 and math.isfinite(a_flt):
+                atr_val = a_flt
+        except (ValueError, TypeError):
+            pass
+
+    # 8. SR confluence (Section 045: verify symbol, causal, active, proximity)
+    sr_zones = []
+    raw_sr = m_ctx.get("sr_zones") or getattr(candidate, "sr_evidence", None)
+    if isinstance(raw_sr, (list, tuple)):
+        cand_sym = str(getattr(candidate, "symbol", "XAUUSDT") or "XAUUSDT").upper()
+        p_entry = float(getattr(candidate, "planned_entry", 0.0) or 0.0)
+        for srz in raw_sr:
+            s_sym = getattr(srz, "symbol", None) or (srz.get("symbol") if isinstance(srz, dict) else cand_sym)
+            if str(s_sym).upper() != cand_sym:
+                continue
+            is_active = getattr(srz, "is_active", True) if hasattr(srz, "is_active") else srz.get("is_active", True)
+            if not is_active:
+                continue
+            mid = getattr(srz, "midpoint", None) or (srz.get("midpoint") if isinstance(srz, dict) else None)
+            if mid is not None and p_entry > 0:
+                dist = abs(float(mid) - p_entry)
+                max_dist = (atr_val * 3.0) if atr_val else 10.0
+                if dist > max_dist:
+                    continue  # SR zone too far away
+            sr_zones.append(srz)
+
+    return {
+        "symbol": str(getattr(candidate, "symbol", "XAUUSDT") or "XAUUSDT"),
+        "model_id": str(getattr(candidate, "model_id", "STANDARD_SMC")),
+        "direction": str(getattr(candidate, "direction", "LONG")).upper(),
+        "as_of_ms": now_ms,
+        "context_source": ctx_src,
+        "htf_bias": htf_bias_canonical,
+        "h1_alignment": h1_align_canonical,
+        "zone": zone,
+        "dealing_range_position": dr_pos,
+        "quote": quote_dict,
+        "spread": spread,
+        "quote_freshness_status": "FRESH" if quote_dict is not None else "UNKNOWN",
+        "calculation": calc_dict,
+        "slippage_usd": slippage_usd,
+        "atr": atr_val,
+        "sr_zones": sr_zones,
+        "normalized_evidence": normalized_evidence,
+    }
+
+
+def assess_candidate_quality(
+    candidate: Any,
+    context: Dict[str, Any],
+    profile: Optional[Any] = None,
+    as_of_ms: Optional[int] = None,
+    approved_rules: Optional[Sequence[Any]] = None,
+    threshold: Optional[float] = None,
+    lesson_delta: Optional[float] = None,
+) -> CandidateQualityAssessment:
+    """
+    V16.39.1 Sections 011 - 060: Pure, deterministic, evidence-based candidate quality evaluator.
+    No positive points are awarded without empirical evidence nodes or market data facts.
+    Evaluates 5 groups totaling exactly 100 points:
+      1. HTF/Context: 20 pts
+      2. POI Quality: 20 pts
+      3. Liquidity Scenario: 15 pts
+      4. LTF Confirmation: 25 pts
+      5. Execution Quality: 20 pts
+
+    Hard rule: Missing required trigger -> decision = BLOCKED_REQUIRED.
+    High score CANNOT compensate for missing structural trigger (Section 040).
+    """
+    now_ms = int(as_of_ms if as_of_ms is not None else getattr(candidate, "as_of_ms", 0) or 0)
+    cand_key = str(getattr(candidate, "candidate_key", "cand_unknown"))
+    model_id = str(getattr(candidate, "model_id", "STANDARD_SMC"))
+    direction = str(getattr(candidate, "direction", "LONG")).upper()
+    is_eligible = bool(getattr(candidate, "is_eligible", True))
+
+    calc = getattr(candidate, "calculation", None)
+    snap = getattr(candidate, "snapshot", None)
+
+    # Resolve normalized evidence index
+    norm_ev = context.get("normalized_evidence")
+    if norm_ev is None or not isinstance(norm_ev, EvidenceIndex):
+        norm_ev = normalize_candidate_evidence(candidate, as_of_ms=now_ms)
+
+    resolved_profile = resolve_scoring_profile(profile)
+    resolved_threshold = float(threshold if threshold is not None else resolved_profile.quality_arm_threshold)
+    profile_ver = resolved_profile.quality_profile_version
+    min_net_rr = float(resolved_profile.min_net_rr)
+    explicit_lesson_delta = lesson_delta
+
+    factors: List[QualityScoreFactor] = []
+    missing_data: List[str] = []
+    blockers: List[str] = []
+
+    # --------------------------------------------------------------------------
+    # GROUP 1: HTF / CONTEXT (20 points total: 10 + 5 + 5)
+    # --------------------------------------------------------------------------
+    ctx_src = str(context.get("context_source") or "UNAVAILABLE").upper()
+    htf_bias = str(context.get("htf_bias") or "UNKNOWN").upper()
+    if htf_bias == "UNKNOWN" and norm_ev:
+        ctx_nodes = norm_ev.by_kind.get("CONTEXT", []) + norm_ev.by_kind.get("BOS", []) + norm_ev.by_kind.get("HTF_CONTEXT", [])
+        for cn in ctx_nodes:
+            if cn.extra.get("htf_bias"):
+                htf_bias = str(cn.extra.get("htf_bias")).upper()
+                break
+
+    # Factor 1.1: Context Provenance (10 pts)
+    if ctx_src in ("INJECTED_REPLAY", "DATABASE_LOADED", "RUNTIME_CACHE", "BOUND_SNAPSHOT", "DECISION_CONTEXT") and htf_bias not in ("UNKNOWN", ""):
+        f_prov = QualityScoreFactor(
+            code="HTF_CONTEXT_PROVENANCE",
+            group="HTF_CONTEXT",
+            earned_points=10.0,
+            max_points=10.0,
+            status="FULL",
+            explanation_vi="Xu hướng HTF có dữ liệu nến xác thực từ nguồn chuẩn.",
+            known_at_ms=now_ms,
+            measurement={"source": ctx_src, "bias": htf_bias},
+        )
+    elif htf_bias not in ("UNKNOWN", ""):
+        f_prov = QualityScoreFactor(
+            code="HTF_CONTEXT_PROVENANCE",
+            group="HTF_CONTEXT",
+            earned_points=6.0,
+            max_points=10.0,
+            status="PARTIAL",
+            explanation_vi="Xu hướng HTF có dữ liệu nhưng chỉ từ một nguồn trực tiếp.",
+            known_at_ms=now_ms,
+            measurement={"source": ctx_src, "bias": htf_bias},
+        )
+    else:
+        missing_data.append("HTF_BIAS")
+        f_prov = QualityScoreFactor(
+            code="HTF_CONTEXT_PROVENANCE",
+            group="HTF_CONTEXT",
+            earned_points=0.0,
+            max_points=10.0,
+            status="UNKNOWN",
+            explanation_vi="Chưa xác định được xu hướng khung thời gian lớn HTF.",
+            known_at_ms=now_ms,
+            measurement={"source": ctx_src, "bias": "UNKNOWN"},
+        )
+    factors.append(f_prov)
+
+    # Factor 1.2: HTF / LTF Model Alignment (5 pts)
+    if htf_bias == "UNKNOWN":
+        f_align = QualityScoreFactor(
+            code="HTF_MODEL_ALIGNMENT",
+            group="HTF_CONTEXT",
+            earned_points=0.0,
+            max_points=5.0,
+            status="UNKNOWN",
+            explanation_vi="Không có đủ dữ liệu để so khớp hướng HTF.",
+            known_at_ms=now_ms,
+        )
+    else:
+        is_aligned = False
+        if "CONTINUATION" in model_id:
+            is_aligned = (direction == "LONG" and htf_bias == "BULLISH") or (direction == "SHORT" and htf_bias == "BEARISH")
+        elif "REVERSAL" in model_id or "SWEEP_RECLAIM" in model_id:
+            is_aligned = (htf_bias in ("RANGE", "UNCERTAIN")) or (direction == "LONG" and htf_bias in ("BEARISH", "BULLISH")) or (direction == "SHORT")
+        else:
+            is_aligned = (direction == "LONG" and htf_bias in ("BULLISH", "NEUTRAL")) or (direction == "SHORT" and htf_bias in ("BEARISH", "NEUTRAL"))
+
+        if is_aligned:
+            f_align = QualityScoreFactor(
+                code="HTF_MODEL_ALIGNMENT",
+                group="HTF_CONTEXT",
+                earned_points=5.0,
+                max_points=5.0,
+                status="FULL",
+                explanation_vi=f"Hướng {direction} phù hợp với xu hướng và mô hình {model_id}.",
+                known_at_ms=now_ms,
+                measurement={"direction": direction, "htf_bias": htf_bias},
+            )
+        else:
+            f_align = QualityScoreFactor(
+                code="HTF_MODEL_ALIGNMENT",
+                group="HTF_CONTEXT",
+                earned_points=2.5,
+                max_points=5.0,
+                status="PARTIAL",
+                explanation_vi=f"Hướng {direction} ngược một phần xu hướng HTF ({htf_bias}).",
+                known_at_ms=now_ms,
+                measurement={"direction": direction, "htf_bias": htf_bias},
+            )
+    factors.append(f_align)
+
+    # Factor 1.3: Dealing Range Position (5 pts)
+    dr_pos = context.get("dealing_range_position")
+    if dr_pos is not None and math.isfinite(dr_pos):
+        if (direction == "LONG" and dr_pos <= 0.50) or (direction == "SHORT" and dr_pos >= 0.50):
+            f_dr = QualityScoreFactor(
+                code="HTF_DEALING_RANGE_POSITION",
+                group="HTF_CONTEXT",
+                earned_points=5.0,
+                max_points=5.0,
+                status="FULL",
+                explanation_vi=f"Vị thế {direction} nằm trong vùng Discount/Premium thuận lợi (pos={dr_pos:.2f}).",
+                known_at_ms=now_ms,
+                measurement={"dr_position": dr_pos},
+            )
+        elif 0.40 <= dr_pos <= 0.60:
+            f_dr = QualityScoreFactor(
+                code="HTF_DEALING_RANGE_POSITION",
+                group="HTF_CONTEXT",
+                earned_points=3.0,
+                max_points=5.0,
+                status="PARTIAL",
+                explanation_vi=f"Vị thế nằm ở dải cân bằng Equilibrium (pos={dr_pos:.2f}).",
+                known_at_ms=now_ms,
+                measurement={"dr_position": dr_pos},
+            )
+        else:
+            f_dr = QualityScoreFactor(
+                code="HTF_DEALING_RANGE_POSITION",
+                group="HTF_CONTEXT",
+                earned_points=1.0,
+                max_points=5.0,
+                status="PARTIAL",
+                explanation_vi=f"Vị thế {direction} ở nửa bất lợi của Dealing Range (pos={dr_pos:.2f}).",
+                known_at_ms=now_ms,
+                measurement={"dr_position": dr_pos},
+            )
+    else:
+        missing_data.append("DEALING_RANGE")
+        f_dr = QualityScoreFactor(
+            code="HTF_DEALING_RANGE_POSITION",
+            group="HTF_CONTEXT",
+            earned_points=0.0,
+            max_points=5.0,
+            status="UNKNOWN",
+            explanation_vi="Dealing range chưa xác định, không có dữ liệu vùng giá chiết khấu.",
+            known_at_ms=now_ms,
+        )
+    factors.append(f_dr)
+
+    # --------------------------------------------------------------------------
+    # GROUP 2: POI QUALITY (20 points total: 5 + 5 + 5 + 5)
+    # --------------------------------------------------------------------------
+    zone = context.get("zone")
+    poi_nodes = norm_ev.by_kind.get("POI", []) + norm_ev.by_kind.get("FVG", [])
+    has_zone_source = bool(zone or poi_nodes or getattr(candidate, "zone_id", None))
+
+    # Factor 2.1: POI Source Confirmed (5 pts)
+    if has_zone_source:
+        f_poi_src = QualityScoreFactor(
+            code="POI_SOURCE_CONFIRMED",
+            group="POI_QUALITY",
+            earned_points=5.0,
+            max_points=5.0,
+            status="FULL",
+            explanation_vi="Vùng POI có nguồn gốc swing / FVG được xác nhận.",
+            known_at_ms=now_ms,
+            evidence_ids=tuple(n.id for n in poi_nodes),
+        )
+    else:
+        missing_data.append("POI_SOURCE")
+        f_poi_src = QualityScoreFactor(
+            code="POI_SOURCE_CONFIRMED",
+            group="POI_QUALITY",
+            earned_points=0.0,
+            max_points=5.0,
+            status="UNKNOWN",
+            explanation_vi="Không tìm thấy bằng chứng nguồn gốc POI hoặc FVG.",
+            known_at_ms=now_ms,
+        )
+    factors.append(f_poi_src)
+
+    # Factor 2.2: Freshness / Lifecycle (5 pts) - Section 098
+    raw_tc = zone.get("touch_count") if isinstance(zone, dict) else getattr(zone, "touch_count", None)
+    raw_fresh = zone.get("freshness_state") if isinstance(zone, dict) else getattr(zone, "freshness_state", None)
+    if zone is not None and raw_tc is not None and raw_fresh is not None:
+        try:
+            touch_count = int(raw_tc)
+            freshness = str(raw_fresh).upper()
+            if touch_count <= 1 and freshness not in ("OVER_MITIGATED", "EXPIRED", "MITIGATED"):
+                f_fresh = QualityScoreFactor(
+                    code="POI_FRESHNESS_LIFECYCLE",
+                    group="POI_QUALITY",
+                    earned_points=5.0,
+                    max_points=5.0,
+                    status="FULL",
+                    explanation_vi=f"Vùng POI tươi mới (số lần chạm: {touch_count}).",
+                    known_at_ms=now_ms,
+                    measurement={"touch_count": touch_count, "freshness": freshness},
+                )
+            elif touch_count == 2:
+                f_fresh = QualityScoreFactor(
+                    code="POI_FRESHNESS_LIFECYCLE",
+                    group="POI_QUALITY",
+                    earned_points=3.0,
+                    max_points=5.0,
+                    status="PARTIAL",
+                    explanation_vi=f"Vùng POI đã chạm {touch_count} lần, độ phản ứng giảm nhẹ.",
+                    known_at_ms=now_ms,
+                    measurement={"touch_count": touch_count, "freshness": freshness},
+                )
+            else:
+                f_fresh = QualityScoreFactor(
+                    code="POI_FRESHNESS_LIFECYCLE",
+                    group="POI_QUALITY",
+                    earned_points=1.0,
+                    max_points=5.0,
+                    status="PARTIAL",
+                    explanation_vi=f"Vùng POI đã chạm {touch_count} lần, nguy cơ bị thủng cao.",
+                    known_at_ms=now_ms,
+                    measurement={"touch_count": touch_count, "freshness": freshness},
+                )
+        except (ValueError, TypeError):
+            missing_data.append("POI_FRESHNESS")
+            f_fresh = QualityScoreFactor(
+                code="POI_FRESHNESS_LIFECYCLE",
+                group="POI_QUALITY",
+                earned_points=0.0,
+                max_points=5.0,
+                status="UNKNOWN",
+                explanation_vi="Chưa xác định được trạng thái vùng POI (dữ liệu không hợp lệ).",
+                known_at_ms=now_ms,
+            )
+    else:
+        missing_data.append("POI_FRESHNESS")
+        f_fresh = QualityScoreFactor(
+            code="POI_FRESHNESS_LIFECYCLE",
+            group="POI_QUALITY",
+            earned_points=0.0,
+            max_points=5.0,
+            status="UNKNOWN",
+            explanation_vi="Chưa xác định được trạng thái vùng POI (thiếu dữ liệu freshness).",
+            known_at_ms=now_ms,
+        )
+    factors.append(f_fresh)
+
+    # Factor 2.3: Reaction Quality at POI (5 pts)
+    reaction_nodes = (
+        norm_ev.by_kind.get("DISPLACEMENT", [])
+        + norm_ev.by_kind.get("CHOCH", [])
+        + norm_ev.by_kind.get("MSS", [])
+        + norm_ev.by_kind.get("BREAK", [])
+    )
+    if reaction_nodes:
+        f_react = QualityScoreFactor(
+            code="POI_REACTION_QUALITY",
+            group="POI_QUALITY",
+            earned_points=5.0,
+            max_points=5.0,
+            status="FULL",
+            explanation_vi="Có phản ứng từ chối giá và dịch chuyển rõ ràng tại POI.",
+            known_at_ms=now_ms,
+            evidence_ids=tuple(n.id for n in reaction_nodes),
+        )
+    else:
+        missing_data.append("POI_REACTION")
+        f_react = QualityScoreFactor(
+            code="POI_REACTION_QUALITY",
+            group="POI_QUALITY",
+            earned_points=0.0,
+            max_points=5.0,
+            status="UNKNOWN",
+            explanation_vi="Chưa có bằng chứng phản ứng dịch chuyển tại vùng POI.",
+            known_at_ms=now_ms,
+        )
+    factors.append(f_react)
+
+    # Factor 2.4: Confluence Non-overlapping (5 pts)
+    sr_zones = context.get("sr_zones") or []
+    if sr_zones:
+        f_conf = QualityScoreFactor(
+            code="POI_CONFLUENCE_NON_OVERLAPPING",
+            group="POI_QUALITY",
+            earned_points=5.0,
+            max_points=5.0,
+            status="FULL",
+            explanation_vi="Có hợp lưu với mốc hỗ trợ/kháng cự S/R mà không trùng lặp bằng chứng.",
+            known_at_ms=now_ms,
+        )
+    else:
+        f_conf = QualityScoreFactor(
+            code="POI_CONFLUENCE_NON_OVERLAPPING",
+            group="POI_QUALITY",
+            earned_points=0.0,
+            max_points=5.0,
+            status="UNKNOWN",
+            explanation_vi="Vùng POI đơn lẻ, không có hợp lưu S/R bổ sung.",
+            known_at_ms=now_ms,
+        )
+    factors.append(f_conf)
+
+    # --------------------------------------------------------------------------
+    # GROUP 3: LIQUIDITY SCENARIO (15 points total: 5 + 5 + 5)
+    # --------------------------------------------------------------------------
+    liq_nodes = (
+        norm_ev.by_kind.get("SWEEP_LOW", [])
+        + norm_ev.by_kind.get("SWEEP_HIGH", [])
+        + norm_ev.by_kind.get("SWEEP", [])
+        + norm_ev.by_kind.get("LIQUIDITY_SWEEP", [])
+        + norm_ev.by_kind.get("STRUCTURE_REFERENCE", [])
+    )
+    # Factor 3.1: Liquidity Reference Sourced (5 pts)
+    if liq_nodes:
+        f_liq_ref = QualityScoreFactor(
+            code="LIQ_REFERENCE_SOURCED",
+            group="LIQUIDITY_SCENARIO",
+            earned_points=5.0,
+            max_points=5.0,
+            status="FULL",
+            explanation_vi="Xác định rõ mốc thanh khoản quét hoặc tham chiếu.",
+            known_at_ms=now_ms,
+            evidence_ids=tuple(n.id for n in liq_nodes),
+        )
+    else:
+        missing_data.append("LIQ_REFERENCE")
+        f_liq_ref = QualityScoreFactor(
+            code="LIQ_REFERENCE_SOURCED",
+            group="LIQUIDITY_SCENARIO",
+            earned_points=0.0,
+            max_points=5.0,
+            status="UNKNOWN",
+            explanation_vi="Thiếu bằng chứng mốc thanh khoản tham chiếu.",
+            known_at_ms=now_ms,
+        )
+    factors.append(f_liq_ref)
+
+    # Factor 3.2: Target Validity (5 pts)
+    tp_val = float(getattr(candidate, "take_profit", None) or getattr(candidate, "tp", None) or 0.0)
+    planned_entry = float(getattr(candidate, "planned_entry", None) or getattr(candidate, "entry_price", None) or 0.0)
+    has_valid_target = (tp_val > 0.0 and planned_entry > 0.0) and (
+        (direction in ("LONG", "BUY") and tp_val > planned_entry)
+        or (direction in ("SHORT", "SELL") and tp_val < planned_entry)
+    )
+    if has_valid_target:
+        f_target = QualityScoreFactor(
+            code="LIQ_TARGET_VALIDITY",
+            group="LIQUIDITY_SCENARIO",
+            earned_points=5.0,
+            max_points=5.0,
+            status="FULL",
+            explanation_vi=f"Mục tiêu TP ({tp_val:.2f}) có cấu trúc hình học đúng hướng.",
+            known_at_ms=now_ms,
+            measurement={"tp": tp_val, "entry": planned_entry},
+        )
+    else:
+        blockers.append("INVALID_TARGET_GEOMETRY")
+        f_target = QualityScoreFactor(
+            code="LIQ_TARGET_VALIDITY",
+            group="LIQUIDITY_SCENARIO",
+            earned_points=0.0,
+            max_points=5.0,
+            status="ZERO",
+            explanation_vi="Mục tiêu TP không hợp lệ hoặc sai phía so với entry.",
+            known_at_ms=now_ms,
+            measurement={"tp": tp_val, "entry": planned_entry},
+        )
+    factors.append(f_target)
+
+    # Factor 3.3: Path and Obstacles (5 pts)
+    gross_rr = float(getattr(candidate, "gross_rr", 0.0) or (calc.gross_rr if calc and hasattr(calc, "gross_rr") else 0.0))
+    if gross_rr >= 1.5:
+        f_path = QualityScoreFactor(
+            code="LIQ_PATH_AND_OBSTACLES",
+            group="LIQUIDITY_SCENARIO",
+            earned_points=5.0,
+            max_points=5.0,
+            status="FULL",
+            explanation_vi=f"Biên độ tới mục tiêu đủ rộng (gross RR={gross_rr:.2f}).",
+            known_at_ms=now_ms,
+            measurement={"gross_rr": gross_rr},
+        )
+    elif gross_rr >= 1.2:
+        f_path = QualityScoreFactor(
+            code="LIQ_PATH_AND_OBSTACLES",
+            group="LIQUIDITY_SCENARIO",
+            earned_points=3.0,
+            max_points=5.0,
+            status="PARTIAL",
+            explanation_vi=f"Biên độ tới mục tiêu hẹp (gross RR={gross_rr:.2f}).",
+            known_at_ms=now_ms,
+            measurement={"gross_rr": gross_rr},
+        )
+    elif gross_rr > 0:
+        f_path = QualityScoreFactor(
+            code="LIQ_PATH_AND_OBSTACLES",
+            group="LIQUIDITY_SCENARIO",
+            earned_points=1.0,
+            max_points=5.0,
+            status="PARTIAL",
+            explanation_vi=f"Biên độ quá hẹp tới mục tiêu (gross RR={gross_rr:.2f}).",
+            known_at_ms=now_ms,
+            measurement={"gross_rr": gross_rr},
+        )
+    else:
+        missing_data.append("GROSS_RR")
+        f_path = QualityScoreFactor(
+            code="LIQ_PATH_AND_OBSTACLES",
+            group="LIQUIDITY_SCENARIO",
+            earned_points=0.0,
+            max_points=5.0,
+            status="UNKNOWN",
+            explanation_vi="Chưa xác định được biên độ giá tới mục tiêu.",
+            known_at_ms=now_ms,
+        )
+    factors.append(f_path)
+
+    # --------------------------------------------------------------------------
+    # GROUP 4: LTF CONFIRMATION QUALITY (25 points total: 10 + 5 + 5 + 5)
+    # --------------------------------------------------------------------------
+    # Factor 4.1: Timeline / Sequence Quality (10 pts) - Section 011 repair
+    if norm_ev.trigger_chain_verified:
+        f_seq = QualityScoreFactor(
+            code="LTF_TIMELINE_SEQUENCE",
+            group="LTF_CONFIRMATION",
+            earned_points=10.0,
+            max_points=10.0,
+            status="FULL",
+            explanation_vi="Trình tự chuỗi trigger M1 được xác nhận theo thứ tự nhân quả.",
+            known_at_ms=now_ms,
+            evidence_ids=tuple(norm_ev.trigger_node_ids),
+        )
+    elif is_eligible and norm_ev.valid_nodes:
+        f_seq = QualityScoreFactor(
+            code="LTF_TIMELINE_SEQUENCE",
+            group="LTF_CONFIRMATION",
+            earned_points=6.0,
+            max_points=10.0,
+            status="PARTIAL",
+            explanation_vi="Chuỗi trigger cơ bản hợp lệ theo model.",
+            known_at_ms=now_ms,
+            evidence_ids=tuple(n.id for n in norm_ev.valid_nodes),
+        )
+    else:
+        missing_data.append("LTF_SEQUENCE")
+        f_seq = QualityScoreFactor(
+            code="LTF_TIMELINE_SEQUENCE",
+            group="LTF_CONFIRMATION",
+            earned_points=0.0,
+            max_points=10.0,
+            status="ZERO",
+            explanation_vi="Thiếu trình tự xác nhận LTF bắt buộc.",
+            known_at_ms=now_ms,
+        )
+    factors.append(f_seq)
+
+    # Factor 4.2: Displacement Quality (5 pts)
+    disp_nodes = (
+        norm_ev.by_kind.get("DISPLACEMENT", [])
+        + norm_ev.by_kind.get("CHOCH", [])
+        + norm_ev.by_kind.get("BOS", [])
+    )
+    if disp_nodes:
+        dn = disp_nodes[0]
+        body = dn.extra.get("displacement_body")
+        atr = dn.extra.get("displacement_atr")
+        direct_ratio = dn.extra.get("displacement_ratio") or dn.extra.get("body_atr_ratio")
+        if body is not None and atr is not None and float(atr) > 0:
+            ratio = float(body) / float(atr)
+        elif direct_ratio is not None:
+            try:
+                r_val = float(direct_ratio)
+                ratio = r_val if math.isfinite(r_val) else None
+            except (ValueError, TypeError):
+                ratio = None
+        else:
+            ratio = None
+        if ratio is not None:
+            if ratio >= 0.70:
+                f_disp = QualityScoreFactor(
+                    code="LTF_DISPLACEMENT_QUALITY",
+                    group="LTF_CONFIRMATION",
+                    earned_points=5.0,
+                    max_points=5.0,
+                    status="FULL",
+                    explanation_vi=f"Thân nến phá vỡ/dịch chuyển dứt khoát ({ratio:.2f} ATR ≥ 0.70).",
+                    known_at_ms=now_ms,
+                    measurement={"displacement_body_atr": ratio},
+                    evidence_ids=(dn.id,),
+                )
+            elif ratio >= 0.40:
+                f_disp = QualityScoreFactor(
+                    code="LTF_DISPLACEMENT_QUALITY",
+                    group="LTF_CONFIRMATION",
+                    earned_points=3.0,
+                    max_points=5.0,
+                    status="PARTIAL",
+                    explanation_vi=f"Biên độ dịch chuyển ở mức vừa phải ({ratio:.2f} ATR).",
+                    known_at_ms=now_ms,
+                    measurement={"displacement_body_atr": ratio},
+                    evidence_ids=(dn.id,),
+                )
+            else:
+                f_disp = QualityScoreFactor(
+                    code="LTF_DISPLACEMENT_QUALITY",
+                    group="LTF_CONFIRMATION",
+                    earned_points=1.0,
+                    max_points=5.0,
+                    status="PARTIAL",
+                    explanation_vi=f"Biên độ dịch chuyển nhỏ ({ratio:.2f} ATR).",
+                    known_at_ms=now_ms,
+                    measurement={"displacement_body_atr": ratio},
+                    evidence_ids=(dn.id,),
+                )
+        else:
+            f_disp = QualityScoreFactor(
+                code="LTF_DISPLACEMENT_QUALITY",
+                group="LTF_CONFIRMATION",
+                earned_points=3.0,
+                max_points=5.0,
+                status="PARTIAL",
+                explanation_vi="Có nến phá vỡ nhưng thiếu thông số biên độ ATR chi tiết.",
+                known_at_ms=now_ms,
+                evidence_ids=(dn.id,),
+            )
+    else:
+        missing_data.append("LTF_DISPLACEMENT")
+        f_disp = QualityScoreFactor(
+            code="LTF_DISPLACEMENT_QUALITY",
+            group="LTF_CONFIRMATION",
+            earned_points=0.0,
+            max_points=5.0,
+            status="UNKNOWN",
+            explanation_vi="Thiếu bằng chứng nến dịch chuyển / bứt phá cấu trúc.",
+            known_at_ms=now_ms,
+        )
+    factors.append(f_disp)
+
+    # Factor 4.3: Retest / Reaction Quality (5 pts) - Section 013 & 047 repair
+    if "CONTINUATION" in model_id and "FVG" not in model_id:
+        # SMC_M1_CONTINUATION: evaluates BOS breakout facts (no retest required)
+        bos_nodes = norm_ev.by_kind.get("BOS", [])
+        if bos_nodes:
+            f_retest = QualityScoreFactor(
+                code="LTF_REACTION_RETEST",
+                group="LTF_CONFIRMATION",
+                earned_points=5.0,
+                max_points=5.0,
+                status="FULL",
+                explanation_vi="Xác nhận nến tiếp diễn BOS hợp lệ theo model continuation.",
+                known_at_ms=now_ms,
+                evidence_ids=tuple(n.id for n in bos_nodes),
+            )
+        else:
+            missing_data.append("BOS_CONTINUATION_FACT")
+            f_retest = QualityScoreFactor(
+                code="LTF_REACTION_RETEST",
+                group="LTF_CONFIRMATION",
+                earned_points=0.0,
+                max_points=5.0,
+                status="UNKNOWN",
+                explanation_vi="Thiếu bằng chứng nến phá vỡ tiếp diễn BOS của mô hình.",
+                known_at_ms=now_ms,
+            )
+    else:
+        # Reversal, FVG continuation, Sweep reclaim require explicit RETEST node
+        retest_nodes = norm_ev.by_kind.get("RETEST", [])
+        if retest_nodes:
+            f_retest = QualityScoreFactor(
+                code="LTF_REACTION_RETEST",
+                group="LTF_CONFIRMATION",
+                earned_points=5.0,
+                max_points=5.0,
+                status="FULL",
+                explanation_vi="Retest chính xác vào vùng giá kiểm tra trước khi kích hoạt.",
+                known_at_ms=now_ms,
+                evidence_ids=tuple(n.id for n in retest_nodes),
+            )
+        else:
+            missing_data.append("RETEST_EVIDENCE")
+            f_retest = QualityScoreFactor(
+                code="LTF_REACTION_RETEST",
+                group="LTF_CONFIRMATION",
+                earned_points=0.0,
+                max_points=5.0,
+                status="UNKNOWN",
+                explanation_vi="Chưa có bằng chứng retest kiểm tra vùng giá trước entry.",
+                known_at_ms=now_ms,
+            )
+    factors.append(f_retest)
+
+    # Factor 4.4: Trigger Freshness (5 pts) - Section 012 repair
+    trigger_known_at = norm_ev.latest_known_at
+    if trigger_known_at > 0:
+        trigger_age_ms = max(0, now_ms - trigger_known_at)
+        if trigger_age_ms <= 180_000:  # <= 3 minutes
+            f_fresh_trig = QualityScoreFactor(
+                code="LTF_TRIGGER_FRESHNESS",
+                group="LTF_CONFIRMATION",
+                earned_points=5.0,
+                max_points=5.0,
+                status="FULL",
+                explanation_vi=f"Tín hiệu xác nhận mới ({trigger_age_ms // 1000}s trước).",
+                known_at_ms=now_ms,
+                measurement={"age_ms": trigger_age_ms},
+            )
+        elif trigger_age_ms <= 360_000:  # <= 6 minutes
+            f_fresh_trig = QualityScoreFactor(
+                code="LTF_TRIGGER_FRESHNESS",
+                group="LTF_CONFIRMATION",
+                earned_points=3.0,
+                max_points=5.0,
+                status="PARTIAL",
+                explanation_vi=f"Tín hiệu xác nhận trong giới hạn cho phép ({trigger_age_ms // 1000}s).",
+                known_at_ms=now_ms,
+                measurement={"age_ms": trigger_age_ms},
+            )
+        else:
+            f_fresh_trig = QualityScoreFactor(
+                code="LTF_TRIGGER_FRESHNESS",
+                group="LTF_CONFIRMATION",
+                earned_points=1.0,
+                max_points=5.0,
+                status="PARTIAL",
+                explanation_vi=f"Tín hiệu đã xuất hiện lâu ({trigger_age_ms // 1000}s), độ trễ cao.",
+                known_at_ms=now_ms,
+                measurement={"age_ms": trigger_age_ms},
+            )
+    else:
+        missing_data.append("TRIGGER_TIMESTAMP")
+        f_fresh_trig = QualityScoreFactor(
+            code="LTF_TRIGGER_FRESHNESS",
+            group="LTF_CONFIRMATION",
+            earned_points=0.0,
+            max_points=5.0,
+            status="UNKNOWN",
+            explanation_vi="Chưa xác định thời điểm xuất hiện tín hiệu xác nhận (thiếu timestamp trigger).",
+            known_at_ms=now_ms,
+        )
+    factors.append(f_fresh_trig)
+
+    # --------------------------------------------------------------------------
+    # GROUP 5: EXECUTION QUALITY (20 points total: 5 + 5 + 5 + 5)
+    # --------------------------------------------------------------------------
+    quote = context.get("quote")
+    spread = quote.get("spread") if quote else None
+
+    # Factor 5.1: Spread vs Budget (5 pts) - Section 042 repair
+    if spread is not None and spread > 0:
+        if spread <= 0.20:
+            f_spread = QualityScoreFactor(
+                code="EXEC_SPREAD_BUDGET",
+                group="EXECUTION_QUALITY",
+                earned_points=5.0,
+                max_points=5.0,
+                status="FULL",
+                explanation_vi=f"Spread rất tốt ({spread:.2f} USD ≤ 0.20 USD).",
+                known_at_ms=now_ms,
+                measurement={"spread": spread},
+            )
+        elif spread <= 0.35:
+            f_spread = QualityScoreFactor(
+                code="EXEC_SPREAD_BUDGET",
+                group="EXECUTION_QUALITY",
+                earned_points=3.5,
+                max_points=5.0,
+                status="PARTIAL",
+                explanation_vi=f"Spread chấp nhận được ({spread:.2f} USD).",
+                known_at_ms=now_ms,
+                measurement={"spread": spread},
+            )
+        else:
+            f_spread = QualityScoreFactor(
+                code="EXEC_SPREAD_BUDGET",
+                group="EXECUTION_QUALITY",
+                earned_points=1.0,
+                max_points=5.0,
+                status="PARTIAL",
+                explanation_vi=f"Spread rộng ({spread:.2f} USD), tốn phí thực thi.",
+                known_at_ms=now_ms,
+                measurement={"spread": spread},
+            )
+    else:
+        missing_data.append("EXEC_SPREAD")
+        f_spread = QualityScoreFactor(
+            code="EXEC_SPREAD_BUDGET",
+            group="EXECUTION_QUALITY",
+            earned_points=0.0,
+            max_points=5.0,
+            status="UNKNOWN",
+            explanation_vi="Chưa có dữ liệu spread thực tế từ sổ lệnh.",
+            known_at_ms=now_ms,
+        )
+    factors.append(f_spread)
+
+    # Factor 5.2: Slippage Budget (5 pts) - Section 043 repair
+    calc_data = context.get("calculation") or {}
+    slip = calc_data.get("slippage_usd") if calc_data else None
+    if slip is not None and slip >= 0:
+        if slip <= 0.15:
+            f_slip = QualityScoreFactor(
+                code="EXEC_SLIPPAGE_BUDGET",
+                group="EXECUTION_QUALITY",
+                earned_points=5.0,
+                max_points=5.0,
+                status="FULL",
+                explanation_vi=f"Ước lượng trượt giá an toàn ({slip:.2f} USD).",
+                known_at_ms=now_ms,
+                measurement={"slippage_usd": slip},
+            )
+        elif slip <= 0.30:
+            f_slip = QualityScoreFactor(
+                code="EXEC_SLIPPAGE_BUDGET",
+                group="EXECUTION_QUALITY",
+                earned_points=3.0,
+                max_points=5.0,
+                status="PARTIAL",
+                explanation_vi=f"Trượt giá trong ngưỡng trung bình ({slip:.2f} USD).",
+                known_at_ms=now_ms,
+                measurement={"slippage_usd": slip},
+            )
+        else:
+            f_slip = QualityScoreFactor(
+                code="EXEC_SLIPPAGE_BUDGET",
+                group="EXECUTION_QUALITY",
+                earned_points=1.0,
+                max_points=5.0,
+                status="PARTIAL",
+                explanation_vi=f"Trượt giá ước lượng cao ({slip:.2f} USD).",
+                known_at_ms=now_ms,
+                measurement={"slippage_usd": slip},
+            )
+    else:
+        missing_data.append("EXEC_SLIPPAGE")
+        f_slip = QualityScoreFactor(
+            code="EXEC_SLIPPAGE_BUDGET",
+            group="EXECUTION_QUALITY",
+            earned_points=0.0,
+            max_points=5.0,
+            status="UNKNOWN",
+            explanation_vi="Chưa có ước tính trượt giá trong giả định chi phí.",
+            known_at_ms=now_ms,
+        )
+    factors.append(f_slip)
+
+    # Factor 5.3: Entry Distance / Chase Risk (5 pts) - Section 044 repair
+    atr_val = context.get("atr")
+    bid_val = quote.get("bid") if quote else None
+    ask_val = quote.get("ask") if quote else None
+    if atr_val is not None and atr_val > 0 and bid_val and ask_val and planned_entry > 0:
+        curr_px = (bid_val + ask_val) / 2.0
+        dist_price = abs(curr_px - planned_entry)
+        dist_atr = round(dist_price / atr_val, 2)
+        if dist_atr <= 0.40:
+            f_dist = QualityScoreFactor(
+                code="EXEC_ENTRY_DISTANCE",
+                group="EXECUTION_QUALITY",
+                earned_points=5.0,
+                max_points=5.0,
+                status="FULL",
+                explanation_vi=f"Giá hiện tại sát điểm vào lệnh ({dist_atr:.2f} ATR), không bị chase.",
+                known_at_ms=now_ms,
+                measurement={"distance_atr": dist_atr},
+            )
+        elif dist_atr <= 0.80:
+            f_dist = QualityScoreFactor(
+                code="EXEC_ENTRY_DISTANCE",
+                group="EXECUTION_QUALITY",
+                earned_points=3.0,
+                max_points=5.0,
+                status="PARTIAL",
+                explanation_vi=f"Khoảng cách vào lệnh vừa phải ({dist_atr:.2f} ATR).",
+                known_at_ms=now_ms,
+                measurement={"distance_atr": dist_atr},
+            )
+        else:
+            f_dist = QualityScoreFactor(
+                code="EXEC_ENTRY_DISTANCE",
+                group="EXECUTION_QUALITY",
+                earned_points=1.0,
+                max_points=5.0,
+                status="PARTIAL",
+                explanation_vi=f"Khoảng cách xa ({dist_atr:.2f} ATR), có nguy cơ đuổi giá.",
+                known_at_ms=now_ms,
+                measurement={"distance_atr": dist_atr},
+            )
+    else:
+        missing_data.append("EXEC_ENTRY_DISTANCE")
+        f_dist = QualityScoreFactor(
+            code="EXEC_ENTRY_DISTANCE",
+            group="EXECUTION_QUALITY",
+            earned_points=0.0,
+            max_points=5.0,
+            status="UNKNOWN",
+            explanation_vi="Thiếu dữ liệu quote thị trường hoặc ATR để đo khoảng cách vào lệnh.",
+            known_at_ms=now_ms,
+        )
+    factors.append(f_dist)
+
+    # Factor 5.4: Net Room and Clearance (5 pts)
+    net_rr = float(getattr(candidate, "net_rr", 0.0) or (calc.net_rr if calc and hasattr(calc, "net_rr") else 0.0))
+    if net_rr >= min_net_rr:
+        f_rr = QualityScoreFactor(
+            code="EXEC_NET_ROOM_CLEARANCE",
+            group="EXECUTION_QUALITY",
+            earned_points=5.0,
+            max_points=5.0,
+            status="FULL",
+            explanation_vi=f"R:R ròng đạt chuẩn yêu cầu ({net_rr:.2f}R ≥ {min_net_rr:.2f}R).",
+            known_at_ms=now_ms,
+            measurement={"net_rr": net_rr, "min_net_rr": min_net_rr},
+        )
+    elif net_rr >= 1.2:
+        f_rr = QualityScoreFactor(
+            code="EXEC_NET_ROOM_CLEARANCE",
+            group="EXECUTION_QUALITY",
+            earned_points=2.5,
+            max_points=5.0,
+            status="PARTIAL",
+            explanation_vi=f"R:R ròng ({net_rr:.2f}R) tiệm cận ngưỡng yêu cầu ({min_net_rr:.2f}R).",
+            known_at_ms=now_ms,
+            measurement={"net_rr": net_rr, "min_net_rr": min_net_rr},
+        )
+    else:
+        f_rr = QualityScoreFactor(
+            code="EXEC_NET_ROOM_CLEARANCE",
+            group="EXECUTION_QUALITY",
+            earned_points=0.0,
+            max_points=5.0,
+            status="ZERO",
+            explanation_vi=f"R:R ròng quá thấp sau chi phí ({net_rr:.2f}R < 1.2R).",
+            known_at_ms=now_ms,
+            measurement={"net_rr": net_rr, "min_net_rr": min_net_rr},
+        )
+    factors.append(f_rr)
+
+    # Compute base score
+    base_score = round(sum(f.earned_points for f in factors), 2)
+    # Ensure base score strictly within [0.0, 100.0]
+    base_score = max(0.0, min(100.0, base_score))
+
+    # Section 106: Single canonical rule evaluator decides adjustments; no duplicate +/-5 loop
+    if explicit_lesson_delta is not None:
+        try:
+            lesson_delta = float(explicit_lesson_delta)
+            if not math.isfinite(lesson_delta):
+                lesson_delta = 0.0
+        except (ValueError, TypeError):
+            lesson_delta = 0.0
+    else:
+        lesson_delta = 0.0
+
+    final_score = round(max(0.0, min(100.0, base_score + lesson_delta)), 2)
+
+    # Decision logic (SECTIONS 040, 053, 054, 102, 173, 174)
+    # 1. Hard structural trigger check: Score CANNOT bypass missing or unverified required trigger!
+    has_trigger_flag = True
+    raw_ev = getattr(candidate, "evidence", None)
+    if isinstance(raw_ev, dict) and "has_trigger" in raw_ev:
+        has_trigger_flag = bool(raw_ev["has_trigger"])
+    elif hasattr(candidate, "has_trigger"):
+        has_trigger_flag = bool(getattr(candidate, "has_trigger"))
+
+    trigger_chain_invalid = False
+    raw_tc = getattr(candidate, "trigger_chain", None) or (raw_ev.get("trigger_chain") if isinstance(raw_ev, dict) else None)
+    if raw_tc is not None:
+        if not norm_ev.trigger_chain_verified:
+            trigger_chain_invalid = True
+    elif not has_trigger_flag:
+        trigger_chain_invalid = True
+
+    if not is_eligible or getattr(candidate, "reason_code", None) in ("WAITING_M1_RETEST", "WAITING_M1_STRUCTURE", "TRIGGER_EXPIRED") or trigger_chain_invalid:
+        decision = "BLOCKED_REQUIRED"
+        blockers.append("MISSING_REQUIRED_TRIGGER")
+    elif blockers:
+        decision = "BLOCKED_GUARD"
+    elif final_score >= resolved_threshold:
+        decision = "ELIGIBLE_BY_SCORE"
+    else:
+        decision = "BELOW_THRESHOLD"
+
+    assessment_id = f"q_{cand_key}_{now_ms}"
+    # Section 055: Fingerprint from canonical scoring config, model profile, budgets, without output score
+    cfg_fp = hashlib.sha256(f"{profile_ver}_{resolved_threshold}_{model_id}_{min_net_rr}".encode()).hexdigest()[:12]
+
+    return CandidateQualityAssessment(
+        assessment_id=assessment_id,
+        candidate_key=cand_key,
+        model_id=model_id,
+        base_score=base_score,
+        lesson_delta=lesson_delta,
+        final_score=final_score,
+        threshold=resolved_threshold,
+        decision=decision,
+        as_of_ms=now_ms,
+        profile_version=profile_ver,
+        config_fingerprint=cfg_fp,
+        factors=tuple(factors),
+        missing_data=tuple(missing_data),
+        blockers=tuple(blockers),
+    )
+
+
 

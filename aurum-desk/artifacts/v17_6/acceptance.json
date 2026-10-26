@@ -1,0 +1,162 @@
+{
+  "version": "V17.6",
+  "verdict": "ACCEPTED",
+  "timestamp_utc": "2026-10-24T16:51:33Z",
+  "git": {
+    "branch": "fix/v14-1-rr-flow",
+    "sha": "46591e8eebbd7344d6b0a37e9c543860aef092fc",
+    "is_dirty": false,
+    "diff_hash": "e3b0c44298fc1c14",
+    "status_lines": [],
+    "dirty_tracked": []
+  },
+  "summary": {
+    "backend_tests_total": 53,
+    "backend_tests_passed": 53,
+    "backend_tests_failed": 0,
+    "soak_status": "PASS",
+    "vitest_status": "PASS",
+    "build_status": "PASS",
+    "lint_status": "PASS",
+    "playwright_status": "PASS"
+  },
+  "gates": {
+    "gate2_schema_and_heartbeat": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_engine_heartbeat.py",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "duration_sec": 1.75,
+      "log": "artifacts/v17_6/logs/gate2_schema_and_heartbeat.log"
+    },
+    "gate4_feed_freshness": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_market_freshness.py",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "duration_sec": 1.03,
+      "log": "artifacts/v17_6/logs/gate4_feed_freshness.log"
+    },
+    "gate5_cycle_telemetry": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_cycle_telemetry.py",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "duration_sec": 1.61,
+      "log": "artifacts/v17_6/logs/gate5_cycle_telemetry.log"
+    },
+    "gate6_decision_timeline": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_decision_timeline.py",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "duration_sec": 0.99,
+      "log": "artifacts/v17_6/logs/gate6_decision_timeline.log"
+    },
+    "gate7_observation_run": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_observation_run.py",
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "duration_sec": 0.96,
+      "log": "artifacts/v17_6/logs/gate7_observation_run.log"
+    },
+    "gate8_financial_summary": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_financial_summary.py",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "duration_sec": 1.01,
+      "log": "artifacts/v17_6/logs/gate8_financial_summary.log"
+    },
+    "gate9_api_contracts": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_api_contract.py",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "duration_sec": 1.11,
+      "log": "artifacts/v17_6/logs/gate9_api_contracts.log"
+    },
+    "gate10_recovery_resilience": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_recovery.py",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "duration_sec": 0.96,
+      "log": "artifacts/v17_6/logs/gate10_recovery_resilience.log"
+    },
+    "gate11_decision_parity": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_decision_parity.py",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "duration_sec": 1.06,
+      "log": "artifacts/v17_6/logs/gate11_decision_parity.log"
+    },
+    "gate12_soak_test": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_6_soak.py",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "duration_sec": 1.16,
+      "log": "artifacts/v17_6/logs/gate12_soak_test.log"
+    },
+    "gate13_baseline_regression": {
+      "status": "PASS",
+      "suite": "backend/tests/test_v17_5_9_financial_parity.py",
+      "tests": 14,
+      "passed": 14,
+      "failed": 0,
+      "duration_sec": 0.91,
+      "log": "artifacts/v17_6/logs/gate13_baseline_regression.log"
+    },
+    "gate12b_soak_cli": {
+      "status": "PASS",
+      "duration_sec": 0.752
+    },
+    "gate14_frontend_vitest": {
+      "status": "PASS",
+      "duration_sec": 3.634
+    },
+    "gate15a_frontend_build": {
+      "status": "PASS",
+      "duration_sec": 5.5
+    },
+    "gate15b_frontend_lint": {
+      "status": "PASS",
+      "duration_sec": 0.317
+    },
+    "gate16_playwright_e2e": {
+      "status": "PASS",
+      "duration_sec": 4.482
+    }
+  },
+  "source_fingerprints": {
+    "docs/V17_6_OBSERVABILITY_ARCHITECTURE.md": "df87820d8cc25399",
+    "docs/V17_6_IMPLEMENTATION_MAP.md": "a4a424025f0c0697",
+    "docs/V17_6_OBSERVATION_USER_GUIDE.md": "67257aa18b064ea6",
+    "backend/models.py": "638bc1b2349d528f",
+    "backend/database.py": "1bc1a1c91431fc38",
+    "backend/services/engine_observability_service.py": "213b873418a5bf46",
+    "backend/services/scalp_watcher_orchestrator.py": "459012a23720bd7d",
+    "backend/services/opportunity_funnel_service.py": "aacc6590a6a504c5",
+    "backend/main.py": "df9b9588d2d07c13",
+    "frontend/src/types/observation.ts": "975e05ee128f4c09",
+    "frontend/src/api/client.ts": "9ce7380ebdcf4249",
+    "frontend/src/hooks/useObservationDashboard.ts": "9521ec08a2167c03",
+    "frontend/src/components/ObservationDashboard.tsx": "cc87d2bfde925afd",
+    "frontend/src/App.tsx": "12463544884a1da1",
+    "frontend/tests/e2e/v17_6_observation.e2e.ts": "0a271c4ea1d08d45",
+    "tools/run_v17_6_observation_soak.py": "1ed26e8c74c3af9d"
+  }
+}

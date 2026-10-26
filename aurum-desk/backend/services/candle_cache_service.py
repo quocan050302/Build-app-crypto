@@ -31,19 +31,41 @@ FRESHNESS_THRESHOLDS_SEC = {
 
 def validate_candle_row(row: Any) -> Optional[Dict[str, Any]]:
     """
-    Validates a single candle row from Bitget WebSocket or REST.
-    Expected: [ts, open, high, low, close, base_vol, quote_vol, usdt_vol]
+    Validates a single candle row from Bitget WebSocket, REST, dict, or CandleCreate.
+    Expected array: [ts, open, high, low, close, base_vol, quote_vol, usdt_vol]
+    Expected dict: {"timestamp": ts, "open": o, "high": h, "low": l, "close": c, "volume": vol}
     """
-    if not isinstance(row, (list, tuple)) or len(row) < 5:
-        return None
-    try:
-        ts = int(row[0])
-        o = float(row[1])
-        h = float(row[2])
-        l = float(row[3])
-        c = float(row[4])
-        vol = float(row[5]) if len(row) > 5 and row[5] is not None and str(row[5]).strip() != "" else 0.0
-    except (ValueError, TypeError):
+    if isinstance(row, dict):
+        try:
+            ts = int(row.get("timestamp") or row.get("ts") or 0)
+            o = float(row.get("open") or row.get("o") or 0.0)
+            h = float(row.get("high") or row.get("h") or 0.0)
+            l = float(row.get("low") or row.get("l") or 0.0)
+            c = float(row.get("close") or row.get("c") or 0.0)
+            vol = float(row.get("volume") or row.get("vol") or row.get("v") or 0.0)
+        except (ValueError, TypeError):
+            return None
+    elif hasattr(row, "timestamp") and hasattr(row, "open") and hasattr(row, "close"):
+        try:
+            ts = int(row.timestamp)
+            o = float(row.open)
+            h = float(row.high)
+            l = float(row.low)
+            c = float(row.close)
+            vol = float(getattr(row, "volume", 0.0) or 0.0)
+        except (ValueError, TypeError):
+            return None
+    elif isinstance(row, (list, tuple)) and len(row) >= 5:
+        try:
+            ts = int(row[0])
+            o = float(row[1])
+            h = float(row[2])
+            l = float(row[3])
+            c = float(row[4])
+            vol = float(row[5]) if len(row) > 5 and row[5] is not None and str(row[5]).strip() != "" else 0.0
+        except (ValueError, TypeError):
+            return None
+    else:
         return None
 
     # Finite and positive checks
@@ -67,6 +89,8 @@ def validate_candle_row(row: Any) -> Optional[Dict[str, Any]]:
     }
 
 
+import concurrent.futures
+
 class CandleCacheService:
     """
     In-memory Sliding Window Candle Cache with Real Bitget OHLCV Streams (V7.2):
@@ -87,8 +111,19 @@ class CandleCacheService:
         self._watermarks: Dict[Tuple[str, str], int] = {}
         self._persist_queue: asyncio.Queue[schemas.CandleCreate] = asyncio.Queue(maxsize=2000)
         self._running = False
+        self._stopping = False
         self._bootstrapped = False
+        self._executor: Optional[concurrent.futures.ThreadPoolExecutor] = None
+        self._active_persist_future: Optional[concurrent.futures.Future] = None
         self.persistence_drops = 0
+        self.has_candle_gap = False
+        self.candle_gap_telemetry: Dict[Tuple[str, str], int] = {}
+        self.retry_buffer: List[schemas.CandleCreate] = []
+
+    def _ensure_executor(self) -> concurrent.futures.ThreadPoolExecutor:
+        if self._executor is None or getattr(self._executor, "_shutdown", False):
+            self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="candle_persist")
+        return self._executor
 
     def is_bootstrapped(self, symbol: str = "XAUUSDT", timeframe: str = "15M") -> bool:
         candles = self._cache.get((symbol, timeframe), [])
@@ -117,6 +152,26 @@ class CandleCacheService:
                 self._watermarks[(symbol, tf)] = models_list[-1].timestamp
         self._bootstrapped = True
         logger.info(f"CandleCacheService bootstrapped for {symbol}.")
+
+    def add_candle(self, symbol: str, timeframe: str, bar: Any) -> None:
+        """
+        V16.20 Rule 022: Ingest a single candle dict or CandleCreate object directly into cache.
+        """
+        if isinstance(bar, dict):
+            c = schemas.CandleCreate(
+                symbol=symbol,
+                timeframe=timeframe,
+                timestamp=int(bar.get("timestamp") or bar.get("time") or 0),
+                open=float(bar.get("open") or 0.0),
+                high=float(bar.get("high") or 0.0),
+                low=float(bar.get("low") or 0.0),
+                close=float(bar.get("close") or 0.0),
+                volume=float(bar.get("volume") or 0.0),
+                is_closed=bool(bar.get("is_closed", True)),
+            )
+        else:
+            c = bar
+        self.update_from_rest_sync(symbol, timeframe, [c])
 
     def get_candles(self, symbol: str, timeframe: str, limit: int = 150) -> List[schemas.CandleCreate]:
         candles = self._cache.get((symbol, timeframe), [])
@@ -274,7 +329,25 @@ class CandleCacheService:
             if len(bars) > self.max_bars:
                 self._cache[key] = bars[-self.max_bars:]
 
+        # V16.14 (Rule 061): Notify scheduler after batch cache mutation is fully consistent
+        if closed_bars:
+            try:
+                from services.cg01_scheduler_service import cg01_evaluation_scheduler
+                import time as _t
+                now_recv = int(_t.time() * 1000)
+                for cb in closed_bars:
+                    cg01_evaluation_scheduler.notify_market_change({
+                        "symbol": symbol,
+                        "timeframe": timeframe,
+                        "event_type": "CANDLE_CLOSED",
+                        "candle_timestamp": cb.timestamp,
+                        "received_at_ms": now_recv,
+                    })
+            except Exception as e:
+                logger.debug(f"CG01EvaluationScheduler notification error: {e}")
+
         return closed_bars
+
 
     def _enqueue_persist(self, bar: schemas.CandleCreate):
         try:
@@ -336,19 +409,35 @@ class CandleCacheService:
     async def run_persistence_worker(self):
         """Background worker that flushes closed candles in batches to SQLite with retry buffer."""
         self._running = True
+        self._stopping = False
+        try:
+            curr_loop = asyncio.get_running_loop()
+            q_loop = getattr(self._persist_queue, "_loop", None)
+            if q_loop is not None and q_loop is not curr_loop:
+                old_items = []
+                while not self._persist_queue.empty():
+                    try:
+                        old_items.append(self._persist_queue.get_nowait())
+                    except Exception:
+                        break
+                self._persist_queue = asyncio.Queue(maxsize=2000)
+                for item in old_items:
+                    self._persist_queue.put_nowait(item)
+        except Exception:
+            pass
         logger.info("Candle persistence worker started.")
-        retry_buffer: List[schemas.CandleCreate] = []
 
-        while self._running:
+        while self._running or (self._stopping and (not self._persist_queue.empty() or self.retry_buffer)):
             try:
                 batch: List[schemas.CandleCreate] = []
-                if retry_buffer:
-                    batch.extend(retry_buffer[:50])
-                    retry_buffer = retry_buffer[50:]
+                if self.retry_buffer:
+                    batch.extend(self.retry_buffer[:50])
+                    self.retry_buffer = self.retry_buffer[50:]
 
                 if len(batch) < 50:
                     try:
-                        bar = await asyncio.wait_for(self._persist_queue.get(), timeout=1.0)
+                        timeout_val = 0.2 if self._stopping else 1.0
+                        bar = await asyncio.wait_for(self._persist_queue.get(), timeout=timeout_val)
                         batch.append(bar)
                         while not self._persist_queue.empty() and len(batch) < 50:
                             try:
@@ -357,30 +446,61 @@ class CandleCacheService:
                                 break
                     except asyncio.TimeoutError:
                         if not batch:
+                            if self._stopping:
+                                break
                             continue
 
                 if not batch:
+                    if self._stopping:
+                        break
                     continue
 
-                db = SessionLocal()
-                success = False
+                def _persist_batch_sync(b: List[schemas.CandleCreate]) -> bool:
+                    db = SessionLocal()
+                    try:
+                        crud.bulk_upsert_candles(db, b)
+                        return True
+                    except Exception as e:
+                        db.rollback()
+                        logger.error(f"Error persisting candle batch to DB: {e}")
+                        return False
+                    finally:
+                        db.close()
+
+                executor = self._ensure_executor()
+                self._active_persist_future = executor.submit(_persist_batch_sync, batch)
                 try:
-                    crud.bulk_upsert_candles(db, batch)
-                    success = True
+                    success = await asyncio.wrap_future(self._active_persist_future)
                 except Exception as e:
-                    logger.error(f"Error persisting candle batch to DB: {e}")
-                    # Retain failed batch in retry buffer to prevent silent drops
-                    retry_buffer.extend(batch)
-                    if len(retry_buffer) > 500:
-                        retry_buffer = retry_buffer[-500:]
+                    logger.error(f"Error in candle persist future: {e}", exc_info=True)
+                    success = False
                 finally:
-                    db.close()
-                    if success:
-                        for _ in batch:
-                            try:
-                                self._persist_queue.task_done()
-                            except ValueError:
-                                pass
+                    self._active_persist_future = None
+
+                if not success:
+                    # Retain failed batch in retry buffer to prevent silent drops
+                    self.retry_buffer.extend(batch)
+                    if len(self.retry_buffer) > 500:
+                        dropped = self.retry_buffer[:-500]
+                        self.has_candle_gap = True
+                        for d in dropped:
+                            gap_key = (d.symbol, d.timeframe)
+                            self.candle_gap_telemetry[gap_key] = max(
+                                self.candle_gap_telemetry.get(gap_key, 0),
+                                d.timestamp
+                            )
+                        logger.warning(
+                            f"Candle persistence retry buffer overflow ({len(self.retry_buffer)} > 500), "
+                            f"dropped {len(dropped)} older items. Marked CLOSED_CONTEXT_INCOMPLETE / candle gap."
+                        )
+                        self.retry_buffer = self.retry_buffer[-500:]
+                    await asyncio.sleep(0.02)
+                else:
+                    for _ in batch:
+                        try:
+                            self._persist_queue.task_done()
+                        except ValueError:
+                            pass
 
             except asyncio.CancelledError:
                 self._running = False
@@ -388,6 +508,39 @@ class CandleCacheService:
             except Exception as e:
                 logger.error(f"Candle persistence worker error: {e}", exc_info=True)
                 await asyncio.sleep(1.0)
+
+    async def stop_persistence_worker(self, timeout: float = 3.0) -> Dict[str, Any]:
+        """Stops candle persistence worker, draining queue and flushing remaining items."""
+        self._stopping = True
+        start = time.perf_counter()
+        while time.perf_counter() - start < timeout:
+            persist_done = (self._active_persist_future is None or self._active_persist_future.done())
+            if persist_done and self._persist_queue.empty() and not self.retry_buffer:
+                break
+            await asyncio.sleep(0.02)
+
+        self._running = False
+        persist_done = (self._active_persist_future is None or self._active_persist_future.done())
+        remaining = self._persist_queue.qsize() + len(self.retry_buffer)
+        if not persist_done or remaining > 0:
+            self.has_candle_gap = True
+            logger.warning(
+                f"Candle persistence stop timed out (persist_done={persist_done}, remaining={remaining}). Marked candle gap."
+            )
+            return {
+                "status": "TIMED_OUT",
+                "persist_done": persist_done,
+                "remaining_count": remaining,
+                "has_gap": True,
+            }
+
+        logger.info("CandleCacheService persistence worker stopped.")
+        return {
+            "status": "COMPLETE",
+            "persist_done": True,
+            "remaining_count": 0,
+            "has_gap": self.has_candle_gap,
+        }
 
 
 candle_cache_service = CandleCacheService()

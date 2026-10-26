@@ -1,0 +1,5 @@
+{
+  "retry_batch_test": "test_red_029_batch_persistence_retry",
+  "in_flight_flush_test": "test_red_030_shutdown_in_flight_tracking",
+  "gate_4_status": "PASS"
+}

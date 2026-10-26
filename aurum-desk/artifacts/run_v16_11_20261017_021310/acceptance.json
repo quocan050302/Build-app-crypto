@@ -1,0 +1,22 @@
+{
+  "version": "v16.11",
+  "evaluated_at_utc": "2026-10-17T02:13:10.342318+00:00",
+  "commit_sha": "7a2f37c274167892f7737717517db708604d4343",
+  "overall_technical_status": "PASS",
+  "trading_performance_status": "NOT_EVALUATED",
+  "gates": {
+    "GATE_A_CLOSED_CANDLE_CAUSALITY": "PASS",
+    "GATE_B_SWING_STRUCTURE_STATE": "PASS",
+    "GATE_C_PROVENANCE_NO_SMA_FALLBACK": "PASS",
+    "GATE_D_COLLECTOR_CG01_CONSISTENCY": "PASS",
+    "GATE_E_POSITIVE_ENTRY_COMPATIBILITY": "PASS",
+    "GATE_F_LEGACY_V16_REGRESSION": "PASS"
+  },
+  "test_counts": {
+    "v16_11_passed": 15,
+    "v16_11_failed": 0,
+    "legacy_passed": 195,
+    "legacy_failed": 0,
+    "total_executed": 210
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "status": "PASS",
+  "failures": [],
+  "cycles": 600,
+  "confirmed_cycles": 600,
+  "total_s": 5.073,
+  "throughput_cycles_per_s": 118.3,
+  "latency_ms": {
+    "p50": 7.345,
+    "p95": 10.568,
+    "max": 234.115,
+    "sample_count": 600
+  },
+  "traced_memory_growth_mb": 0.107,
+  "progression_sample": [
+    {
+      "bars_back": 0,
+      "states": [
+        "STRUCTURE_CONFIRMED",
+        "WAITING_SWEEP"
+      ]
+    },
+    {
+      "bars_back": 2,
+      "states": [
+        "WAITING_RETEST",
+        "WAITING_SWEEP"
+      ]
+    },
+    {
+      "bars_back": 4,
+      "states": [
+        "WAITING_BREAK",
+        "WAITING_SWEEP"
+      ]
+    },
+    {
+      "bars_back": 6,
+      "states": [
+        "INVALIDATED",
+        "WAITING_SWEEP"
+      ]
+    },
+    {
+      "bars_back": 8,
+      "states": [
+        "INVALIDATED",
+        "WAITING_SWEEP"
+      ]
+    },
+    {
+      "bars_back": 10,
+      "states": [
+        "INVALIDATED",
+        "WAITING_SWEEP"
+      ]
+    }
+  ],
+  "thresholds": {
+    "p95_limit_ms": 250.0,
+    "mem_growth_limit_mb": 25.0,
+    "note": "configured hypotheses, not guarantees"
+  },
+  "environment": {
+    "python": "3.13.0",
+    "platform": "macOS-14.4.1-arm64-arm-64bit-Mach-O",
+    "processor": "arm",
+    "cpu_count": 8
+  },
+  "NOT_MEASURED": [],
+  "run_id": "run_1791982417147",
+  "tested_sha": "73e43edeccaab615d1b39c82750b86d8910a4747",
+  "browser_measurements": {
+    "status": "PASS",
+    "stream_duration_s": 60.6,
+    "events_streamed": 10060,
+    "selections_completed": 100,
+    "selected_kind_counts": {
+      "SCENARIO": 25,
+      "SETUP": 25,
+      "ORDER": 25,
+      "DRAFT": 25
+    },
+    "render_latency_ms": {
+      "p50": 3.8,
+      "p95": 21.5,
+      "p99": 28.2,
+      "max": 37.6,
+      "sample_count": 216
+    },
+    "queue_peak": 2,
+    "queue_current": 0,
+    "queue_drain_time_ms": 5,
+    "active_subscriber_count": 3,
+    "subscriber_baseline": 3,
+    "subscriber_leak": 0,
+    "chart_create_count": 0,
+    "chart_destroy_count": 0,
+    "dropped_execution_event_count": 0
+  }
+}

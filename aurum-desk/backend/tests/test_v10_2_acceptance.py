@@ -837,7 +837,7 @@ class TestRealtimeQuotesAndSync:
 # ---------------------------------------------------------------------------
 
 class TestEndToEndLifecycles:
-    def test_e01_short_setup_eligibility_e2e(self, isolated_db: Session):
+    def test_e01_short_setup_eligibility_e2e(self, isolated_db: Session, fresh_ticker):
         """E01: E2E SHORT setup generation -> eligibility check -> resolved levels match SHORT."""
         now_ms = int(time.time() * 1000)
         setup = models.WatchSetup(
@@ -867,7 +867,7 @@ class TestEndToEndLifecycles:
         assert elig["resolved_sl"] == 2055.0
         assert elig["resolved_tp"] == 2030.0
 
-    def test_e02_setup_direction_flip_arm_e2e(self, client: TestClient, isolated_db: Session):
+    def test_e02_setup_direction_flip_arm_e2e(self, client: TestClient, isolated_db: Session, fresh_ticker):
         """E02: E2E Setup direction flip: LONG armed -> market flip to SHORT -> confirmed reset -> armed with SHORT."""
         now_ms = int(time.time() * 1000)
         # 1. Initially LONG
@@ -940,7 +940,7 @@ class TestEndToEndLifecycles:
         assert setup.confirmed_sl == 2055.0
         assert setup.confirmed_tp == 2030.0
 
-    def test_e03_manual_arm_explicit_long_e2e(self, client: TestClient, isolated_db: Session):
+    def test_e03_manual_arm_explicit_long_e2e(self, client: TestClient, isolated_db: Session, fresh_ticker):
         """E03: E2E Manual arm with explicit LONG succeeds; arm with invalid direction is rejected."""
         now_ms = int(time.time() * 1000)
         setup = models.WatchSetup(
@@ -979,7 +979,7 @@ class TestEndToEndLifecycles:
         })
         assert res_ok.status_code == 200
 
-    def test_e04_manual_arm_explicit_short_e2e(self, client: TestClient, isolated_db: Session):
+    def test_e04_manual_arm_explicit_short_e2e(self, client: TestClient, isolated_db: Session, fresh_ticker):
         """E04: E2E Manual arm with explicit SHORT succeeds; arm with inverted levels is rejected."""
         now_ms = int(time.time() * 1000)
         setup = models.WatchSetup(

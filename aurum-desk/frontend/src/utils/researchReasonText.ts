@@ -39,7 +39,11 @@ export function getResearchReasonText(code?: string, _details?: any): string {
   }
 
   if (upper.includes('NO_VALID_STRUCTURAL_TARGET') || upper.includes('NET_RR_TOO_LOW') || upper.includes('NO_VALID_PRICE_PLAN')) {
-    return 'Chưa tìm được mục tiêu giá cấu trúc phù hợp đạt tỷ lệ Net R:R >= 2.0 sau khi trừ chi phí mô phỏng.';
+    const rawMin = _details?.min_net_rr ?? _details?.required_rr ?? _details?.minNetRR ?? _details?.effective_min_net_rr;
+    if (rawMin != null && Number.isFinite(Number(rawMin))) {
+      return `Chưa tìm được mục tiêu giá cấu trúc phù hợp đạt tỷ lệ Net R:R >= 1:${Number(rawMin).toFixed(2)} sau khi trừ chi phí mô phỏng.`;
+    }
+    return 'Chưa tìm được mục tiêu giá cấu trúc phù hợp đạt tỷ lệ Net R:R tối thiểu yêu cầu sau khi trừ chi phí mô phỏng.';
   }
 
   if (upper.includes('OPEN_POSITION')) {

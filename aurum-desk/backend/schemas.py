@@ -1,5 +1,5 @@
 import math
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator, field_validator
 from typing import List, Optional, Dict, Any, Union, Literal
 
 # Candle Schemas
@@ -103,10 +103,17 @@ class PaperOrderResponse(PaperOrderBase):
     recovery_status: Optional[str] = None
     recovery_run_id: Optional[str] = None
     last_recovery_attempt: Optional[int] = None
-    resolved_through: Optional[str] = None
+    resolved_through: Optional[Union[int, str]] = None
     recovery_confidence: Optional[str] = None
     discovered_at: Optional[int] = None
     occurred_at: Optional[int] = None
+    # V14.4.1 exact frozen refs (each into ITS OWN table). Null on legacy rows: never back-filled from "latest".
+    scenario_snapshot_id: Optional[str] = None
+    quality_snapshot_id: Optional[str] = None
+    evidence_snapshot_id: Optional[str] = None
+    setup_instance_id: Optional[str] = None
+    candidate_score_summary: Optional[Dict[str, Any]] = None
+    cost_snapshot: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 # Risk/Reward Position Overlay schema for Chart
@@ -179,6 +186,9 @@ class WatchSetupItem(BaseModel):
     distance_to_entry_usdt: Optional[float] = None
     quality_summary: Optional[Dict[str, Any]] = None
     quality_snapshot_id: Optional[str] = None
+    scenario_snapshot_id: Optional[str] = None
+    setup_instance_id: Optional[str] = None
+    strategy_family: Optional[str] = None
     created_at: int
     updated_at: int
     expires_at: Optional[int] = None
@@ -467,6 +477,16 @@ class LessonUpdate(BaseModel):
     scope: Optional[str] = None
     stage: Optional[str] = None
     revision: Optional[int] = None
+
+class LessonApproveAndActivateRequest(BaseModel):
+    expected_revision: int
+    selected_severity: Optional[str] = None
+    selected_effect: Optional[str] = None
+    scope: Optional[Union[Dict[str, Any], str]] = None
+    predicate: Optional[Union[Dict[str, Any], str]] = None
+    score_delta: Optional[float] = None
+    activate: bool = True
+    review_note: Optional[str] = None
 
 class RuleValidationRequest(BaseModel):
     predicate: Optional[Union[Dict[str, Any], str]] = None
@@ -1033,7 +1053,7 @@ class TradingPolicyUpdate(BaseModel):
     symbol: Optional[str] = "XAUUSDT"
     max_daily_fills: Optional[int] = 3
     daily_timezone: Optional[str] = "Asia/Ho_Chi_Minh"
-    entry_session_policy: Optional[str] = "NY_ONLY"  # NY_ONLY, ALL_SESSIONS_WITH_NY_RESERVE
+    entry_session_policy: Optional[str] = "ALL_SESSIONS_WITH_NY_RESERVE"  # NY_ONLY, ALL_SESSIONS_WITH_NY_RESERVE, ALL_SESSIONS_SETUP_FIRST
     ny_timezone: Optional[str] = "America/New_York"
     ny_entry_start: Optional[str] = "08:00"
     ny_entry_end: Optional[str] = "11:00"
@@ -1042,9 +1062,18 @@ class TradingPolicyUpdate(BaseModel):
     ny_fallback_enabled: Optional[bool] = True
     ny_fallback_start: Optional[str] = "10:30"
     ny_fallback_risk_pct_cap: Optional[float] = 0.10
-    min_net_rr: Optional[float] = 2.0
+    min_net_rr: Optional[float] = None
     max_open_positions: Optional[int] = 1
     max_armed_orders: Optional[int] = 1
+
+    @field_validator("min_net_rr", mode="before")
+    @classmethod
+    def validate_min_net_rr_input(cls, v: Any) -> Any:
+        if v is None:
+            raise ValueError("Min Net R:R không được để trống (null).")
+        if isinstance(v, bool):
+            raise ValueError("Min Net R:R phải là số hữu hạn, không được truyền giá trị boolean.")
+        return v
 
 class TradingPolicyResponse(BaseModel):
     id: str = "default"
@@ -1054,7 +1083,7 @@ class TradingPolicyResponse(BaseModel):
     is_active: bool = True
     max_daily_fills: int = 3
     daily_timezone: str = "Asia/Ho_Chi_Minh"
-    entry_session_policy: str = "NY_ONLY"
+    entry_session_policy: str = "ALL_SESSIONS_WITH_NY_RESERVE"
     ny_timezone: str = "America/New_York"
     ny_entry_start: str = "08:00"
     ny_entry_end: str = "11:00"
@@ -1064,11 +1093,42 @@ class TradingPolicyResponse(BaseModel):
     ny_fallback_start: str = "10:30"
     ny_fallback_risk_pct_cap: float = 0.10
     min_net_rr: float = 2.0
+    effective_min_net_rr: Optional[float] = None
+    rr_policy_source: Optional[str] = None
+    rr_policy_fingerprint: Optional[str] = None
     max_open_positions: int = 1
     max_armed_orders: int = 1
     created_at: Optional[int] = None
     updated_at: int
     model_config = ConfigDict(from_attributes=True)
+
+
+class EntrySessionSettingsUpdate(BaseModel):
+    """V17.4.1: Coordinated atomic settings update for entry session policy and timing profile."""
+    model_config = ConfigDict(extra="forbid")
+    entry_session_policy: str
+    timing_profile: Optional[str] = None
+    expected_version: StrictInt = Field(ge=1)
+    symbol: Optional[str] = "XAUUSDT"
+    execution_scope: Optional[str] = "PAPER"
+
+
+class EntrySessionSettingsResponse(BaseModel):
+    """V17.4: Authoritative effective entry session configuration response."""
+    status: str = "CONFIRMED"
+    entry_session_policy: str
+    timing_profile: str
+    effective_ny_goal: int
+    reserve_ny_slot: bool
+    ny_fallback_enabled: bool
+    max_daily_fills: int
+    daily_timezone: str
+    policy_version: int
+    execution_scope: str
+    auto_execution_enabled: bool
+    source: str = "PERSISTED"
+    reason_codes: List[str] = Field(default_factory=list)
+    message: Optional[str] = None
 
 class NYSessionStatusResponse(BaseModel):
     session_instance_id: str
@@ -1092,6 +1152,46 @@ class NYSessionStatusResponse(BaseModel):
     allowed: bool
     reason_code: Optional[str] = None
     reason_message: Optional[str] = None
+    # V14.3 additive: same flag/start/end the generator uses, and the real quota reason in Vietnamese.
+    fallback_enabled: Optional[bool] = None
+    fallback_start_ny: Optional[str] = None
+    window_end_ny: Optional[str] = None
+    quota_reason: Optional[str] = None
+    target_fills: Optional[int] = None
+
+
+class NYBlockerItem(BaseModel):
+    code: str
+    category: str                 # DATA | STRATEGY | SAFETY | EXECUTION | SYSTEM
+    message_vi: str
+    count: Optional[int] = None
+
+
+class NYQuotaDiagnosticsResponse(BaseModel):
+    """V14.3 read model. `availability` MEASURED means an audit exists; UNAVAILABLE keeps counts null (never 0)."""
+    session_instance_id: str
+    session_date_ny: str
+    session_date_vn: Optional[str] = None
+    symbol: str
+    availability: Literal["MEASURED", "UNAVAILABLE", "NOT_STARTED"]
+    is_today: bool = False
+    window: Dict[str, Any] = Field(default_factory=dict)
+    quota: Optional[Dict[str, Any]] = None
+    scans: Optional[int] = None
+    unique_candidates: Optional[int] = None
+    financially_eligible: Optional[int] = None
+    armed: Optional[int] = None
+    filled: Optional[int] = None
+    top_blockers: List[NYBlockerItem] = Field(default_factory=list)
+    primary_missed_reason: Optional[str] = None
+    primary_missed_message_vi: Optional[str] = None
+    missed_category: Optional[str] = None
+    last_system_error: Optional[str] = None
+    summary_written: bool = False
+    coverage: Optional[Dict[str, Any]] = None
+    freshness: Optional[Dict[str, Any]] = None
+    candidates: List[Dict[str, Any]] = Field(default_factory=list)
+    generated_at: int
 
 # V10.1 Governed Policy Config & Desired Enable State Schemas
 class LessonPolicyConfig(BaseModel):
@@ -1211,11 +1311,11 @@ class QualitySnapshotSchema(BaseModel):
 class DraftQualityPreviewRequest(BaseModel):
     symbol: str = "XAUUSDT"
     timeframe: str = "15M"
-    direction: str
-    entry_price: Optional[float] = None
-    entry: Optional[float] = None
-    stop_loss: float
-    take_profit: float
+    direction: Literal['LONG', 'SHORT']
+    entry_price: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    entry: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    stop_loss: float = Field(gt=0, allow_inf_nan=False)
+    take_profit: float = Field(gt=0, allow_inf_nan=False)
 
     @model_validator(mode='after')
     def validate_entry(self):
@@ -1224,7 +1324,108 @@ class DraftQualityPreviewRequest(BaseModel):
         if self.entry_price is None:
             raise ValueError("Either entry or entry_price is required")
         return self
-    quantity: Optional[float] = 0.05
-    leverage: Optional[int] = 5
-    margin_mode: Optional[str] = "ISOLATED"
-    risk_pct: Optional[float] = 0.25
+    quantity: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    leverage: Optional[int] = Field(default=None, ge=1)
+    margin_mode: Optional[Literal['ISOLATED', 'CROSS']] = None
+    risk_pct: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+
+
+# ==================== V14.4 SMC SCENARIO & EVIDENCE SCHEMAS ====================
+
+class ScenarioDTO(BaseModel):
+    scenario_id: str
+    instance_id: str
+    revision: int = 1
+    symbol: str = "XAUUSDT"
+    timeframe: str = "5M"
+    strategy_family: str = "STANDARD_SMC"
+    direction: Optional[str] = None
+    state: str = "OBSERVING"
+    as_of_ms: int
+    summary_vi: Optional[str] = None
+    current_snapshot_id: Optional[str] = None
+    anchor_level_id: Optional[str] = None
+    target_level_id: Optional[str] = None
+    payload: Optional[Dict[str, Any]] = None
+
+
+class SessionForecastsDTO(BaseModel):
+    """V14.4.1 cached three-session conditional forecasts. Not an order, not a probability."""
+    symbol: str
+    status: str                              # OK | NOT_READY | NOT_CACHED | ERROR
+    day: Optional[str] = None
+    as_of_ms: Optional[int] = None
+    forecasts: Dict[str, Dict[str, Any]] = Field(default_factory=dict)   # ASIA / LONDON / NY
+    coverage: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    data_issues: List[str] = Field(default_factory=list)
+    schema_version: str = "v14.4.1-forecast"
+
+
+class ChartEvidenceDTO(BaseModel):
+    bundle_version: str = "v14.4.1"
+    binding: Dict[str, Any]
+    as_of_ms: int
+    evidence_cutoff_ms: int
+    strategy_family: str = "STANDARD_SMC"
+    state: str = "OBSERVING"
+    summary_vi: Optional[str] = None
+    swings: List[Dict[str, Any]] = Field(default_factory=list)
+    structure_events: List[Dict[str, Any]] = Field(default_factory=list)
+    poi_zones: List[Dict[str, Any]] = Field(default_factory=list)
+    liquidity_levels: List[Dict[str, Any]] = Field(default_factory=list)
+    displacements: List[Dict[str, Any]] = Field(default_factory=list)
+    retests: List[Dict[str, Any]] = Field(default_factory=list)
+    displacement_annotation: Optional[Dict[str, Any]] = None
+    scenario_path: List[Dict[str, Any]] = Field(default_factory=list)
+    risk_reward_plan: Optional[Dict[str, Any]] = None
+    target: Optional[Dict[str, Any]] = None
+    invalidation: Optional[Dict[str, Any]] = None
+    invalidation_price: Optional[float] = None
+    chain: Optional[Dict[str, Any]] = None
+    probability: Optional[Dict[str, Any]] = None
+    blockers: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    is_empty: bool = False
+    provenance: Optional[Dict[str, Any]] = None
+    entry_explanation: Optional[Dict[str, Any]] = None
+    htf_context: Optional[Dict[str, Any]] = None
+    candidate_score_summary: Optional[Dict[str, Any]] = None
+    candidate_score_detail: Optional[Dict[str, Any]] = None
+    stop_placement: Optional[Dict[str, Any]] = None
+    stop_comparison: Optional[Dict[str, Any]] = None
+
+
+class StopPlacementPolicyResponse(BaseModel):
+    status: str = "CONFIRMED"
+    mode: str
+    version: int
+    atr_period: int = 14
+    atr_method: str = "SMA_TR_V1"
+    min_buffer_ticks: int = 5
+    atr_m1_multiplier: float = 0.25
+    atr_m5_multiplier: float = 0.10
+    spread_multiplier: float = 1.50
+    application_scope: str = "NEW_PAPER_ORDERS"
+    execution_scope: str = "PAPER"
+    summary_vi: str = ""
+    reason_codes: List[str] = Field(default_factory=list)
+
+
+class StopPlacementPolicyUpdate(BaseModel):
+    mode: Optional[str] = None
+    expected_version: StrictInt = Field(ge=1)
+    atr_period: Optional[StrictInt] = Field(default=None, ge=1, le=200)
+    min_buffer_ticks: Optional[StrictInt] = Field(default=None, ge=0, le=1000)
+    atr_m1_multiplier: Optional[float] = None
+    atr_m5_multiplier: Optional[float] = None
+    spread_multiplier: Optional[float] = None
+
+
+class StopComparisonSummaryResponse(BaseModel):
+    as_of_ms: int
+    total_opportunities_recorded: int
+    variant_a_legacy: Dict[str, Any]
+    variant_b_anchor_ticks: Dict[str, Any]
+    variant_c_structural_dynamic: Dict[str, Any]
+    status: str = "EMPIRICAL_UNPROVEN"
+    summary_vi: str

@@ -12,11 +12,13 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { getCatalogTemplate } from './utils/userMessageCatalog';
+import { isFallbackSearching, nyReasonLine, nyStatusLabel } from './utils/nyQuotaLabels';
 
 interface NYSessionPanelProps {
   nySession: NYSessionStatus | null;
   policy: TradingPolicy | null;
   autoPaperActive: boolean;
+  appliedMinNetRR?: number | null;
   onRefresh?: () => void;
   onOpenSessionDrawer?: () => void;
 }
@@ -25,6 +27,7 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
   nySession,
   policy,
   autoPaperActive,
+  appliedMinNetRR,
   onOpenSessionDrawer,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
@@ -42,7 +45,6 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
 
   const {
     is_in_ny_window,
-    is_fallback_active,
     quota_state,
     daily_fills,
     max_daily_fills,
@@ -61,6 +63,7 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
     reason_code,
     reason_message
   } = nySession;
+  const fallbackSearching = isFallbackSearching(nySession);
 
   // Determine badge styling based on quota_state
   const getBadgeStyle = () => {
@@ -70,7 +73,9 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
       case 'SEEKING_STANDARD':
         return 'bg-blue-950/80 border-blue-500 text-blue-300 font-semibold';
       case 'SEEKING_FALLBACK':
-        return 'bg-amber-950/80 border-amber-500 text-amber-300 font-semibold animate-pulse';
+        return fallbackSearching
+          ? 'bg-amber-950/80 border-amber-500 text-amber-300 font-semibold animate-pulse'
+          : 'bg-blue-950/80 border-blue-500 text-blue-300 font-semibold';
       case 'ARMED_PENDING_FILL':
         return 'bg-yellow-950/80 border-yellow-500 text-yellow-300 font-bold animate-pulse';
       case 'BLOCKED':
@@ -85,13 +90,10 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
   const getStatusLabel = () => {
     switch (quota_state) {
       case 'FULFILLED':
-        return 'ĐÃ HOÀN THÀNH CHỈ TIÊU (1/1)';
       case 'SEEKING_STANDARD':
-        return 'ƯU TIÊN SMC CHUẨN';
       case 'SEEKING_FALLBACK':
-        return 'TÌM LỆNH FALLBACK (10:30+)';
       case 'ARMED_PENDING_FILL':
-        return 'ĐÃ LÊN NÒNG — CHỜ KHỚP';
+        return nyStatusLabel(nySession);
       case 'BLOCKED': {
         if (reason_code) {
           const tmpl = getCatalogTemplate(reason_code);
@@ -102,9 +104,8 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
         return 'BỊ CHẶN BỞI BẢO VỆ AN TOÀN';
       }
       case 'MISSED':
-        return 'KẾT THÚC CỬA SỔ PHIÊN MỸ';
       case 'NOT_STARTED':
-        return 'CHƯA TỚI CỬA SỔ';
+        return nyStatusLabel(nySession);
       default:
         return quota_state;
     }
@@ -114,10 +115,16 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
     if (quota_state === 'FULFILLED') {
       return 'Đã hoàn thành mục tiêu 1 lệnh PAPER trong phiên Mỹ. Các lệnh tiếp theo (nếu có) phải đảm bảo chuẩn SMC và không vượt trần 3 lệnh.';
     }
-    if (quota_state === 'SEEKING_FALLBACK' || is_fallback_active) {
-      return 'Đang quét tìm cơ hội fallback PAPER (risk cap <= 0.10%, Net RR >= 2.0). Đảm bảo phân loại trung thực NY_QUOTA_PAPER.';
+    if (nySession.fallback_enabled === false && (quota_state === 'SEEKING_STANDARD' || quota_state === 'SEEKING_FALLBACK')) {
+      return nyReasonLine(nySession);
+    }
+    if (fallbackSearching) {
+      const effMinRR = appliedMinNetRR ?? policy?.effective_min_net_rr ?? policy?.min_net_rr;
+      const minText = effMinRR != null && Number.isFinite(effMinRR) ? `Net RR >= 1:${effMinRR.toFixed(2)}` : 'Net RR đạt chuẩn';
+      return `Đang quét tìm cơ hội fallback PAPER (risk cap <= 0.10%, ${minText}). Đảm bảo phân loại trung thực NY_QUOTA_PAPER.`;
     }
     if (quota_state === 'SEEKING_STANDARD') {
+      if (nySession.quota_reason) return nySession.quota_reason;
       return 'Đang quét tìm setup SMC chuẩn: HTF Aligned, Liquidity Sweep, Displacement CHOCH/BOS, và FVG Retest xác thực.';
     }
     if (quota_state === 'ARMED_PENDING_FILL') {
@@ -147,7 +154,9 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
             <span className="text-gray-500">•</span>
             <span className="font-mono text-gray-300">{daily_fills}/{max_daily_fills} hôm nay</span>
             <span className="text-gray-500">•</span>
-            <span className="font-mono text-gray-300">Mỹ {ny_fills}/{ny_min_fills}</span>
+            <span className="font-mono text-gray-300">
+              {ny_min_fills === 0 ? 'Không chỉ tiêu NY' : `Mỹ ${ny_fills}/${ny_min_fills}`}
+            </span>
             <span className="text-gray-500">•</span>
             <span className={autoPaperActive ? 'text-emerald-400 font-semibold' : 'text-gray-400'}>
               Auto {autoPaperActive ? 'bật' : 'tắt'}
@@ -211,7 +220,14 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
 
           <div className="hidden sm:flex items-center gap-1 text-[10px] px-2 py-0.5 rounded bg-charcoal-800 text-gray-400 border border-charcoal-700">
             <Shield className="w-3 h-3 text-emerald-400" />
-            <span>Policy: {policy?.entry_session_policy === 'ALL_SESSIONS_WITH_NY_RESERVE' ? 'Tất cả phiên (giữ slot Mỹ)' : 'Chỉ Phiên Mỹ (NY_ONLY)'}</span>
+            <span>
+              Policy:{' '}
+              {policy?.entry_session_policy === 'ALL_SESSIONS_SETUP_FIRST'
+                ? 'Không ưu tiên phiên Mỹ (ALL_SESSIONS_SETUP_FIRST)'
+                : policy?.entry_session_policy === 'ALL_SESSIONS_WITH_NY_RESERVE'
+                ? 'Tất cả phiên (giữ slot Mỹ)'
+                : 'Chỉ Phiên Mỹ (NY_ONLY)'}
+            </span>
           </div>
         </div>
 
@@ -227,14 +243,20 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
           </div>
 
           {/* Metric 2: NY Quota Target */}
-          <div className="flex items-center gap-1.5 bg-charcoal-850 px-2.5 py-1 rounded border border-charcoal-700 text-xs">
+          <div data-testid="ny-quota-counter" className="flex items-center gap-1.5 bg-charcoal-850 px-2.5 py-1 rounded border border-charcoal-700 text-xs">
             <Target className="w-3.5 h-3.5 text-aurum-400" />
             <span className="text-gray-400">Mục Tiêu Phiên Mỹ:</span>
-            <span className={`font-bold font-mono ${ny_fills >= ny_min_fills ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {ny_fills} / {ny_min_fills}
-            </span>
-            {ny_fills >= ny_min_fills && (
-              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+            {ny_min_fills === 0 ? (
+              <span className="font-mono text-gray-400 font-medium">Không đặt chỉ tiêu NY</span>
+            ) : (
+              <>
+                <span className={`font-bold font-mono ${ny_fills >= ny_min_fills ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {ny_fills} / {ny_min_fills}
+                </span>
+                {ny_fills >= ny_min_fills && (
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                )}
+              </>
             )}
           </div>
 
@@ -247,7 +269,7 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
           )}
 
           {/* Quota State Badge */}
-          <div className={`px-2.5 py-1 rounded border text-[11px] flex items-center gap-1.5 ${getBadgeStyle()}`}>
+          <div data-testid="ny-quota-status" className={`px-2.5 py-1 rounded border text-[11px] flex items-center gap-1.5 ${getBadgeStyle()}`}>
             <span>{getStatusLabel()}</span>
           </div>
 
@@ -279,9 +301,9 @@ export const NYSessionPanel: React.FC<NYSessionPanelProps> = ({
         <div className="flex items-center gap-2">
           <span className="font-semibold text-aurum-400 flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-aurum-400" />
-            {quota_state === 'SEEKING_FALLBACK' ? 'Chế độ Fallback:' : 'Định hướng:'}
+            {fallbackSearching ? 'Chế độ Fallback:' : 'Định hướng:'}
           </span>
-          <span className="text-gray-300">{getStrategyModeText()}</span>
+          <span data-testid="ny-quota-reason" className="text-gray-300">{getStrategyModeText()}</span>
         </div>
 
         {/* Countdown */}

@@ -1,0 +1,162 @@
+{
+  "timestamp_utc": "2026-10-17T04:21:21.859350+00:00",
+  "commit_sha": "e70c263e324ea72f3ddbe1a49148e006be3cb145",
+  "diff_hash": "5bfa699909b7d61cde6c7330533f69dcd6b035869bc02eca942bfeb4dc5af368",
+  "overall_status": "PASS",
+  "results": {
+    "gate_1_correctness": {
+      "command": "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe -m pytest tests/test_v16_14_htf_pullback_correctness.py tests/test_v16_11_htf_structure.py tests/test_v16_12_htf_state_machine.py tests/test_v16_13_htf_confirmation.py -v",
+      "returncode": 0,
+      "elapsed_sec": 1.84,
+      "stats": {
+        "passed": 41,
+        "failed": 0,
+        "skipped": 0,
+        "deselected": 0,
+        "warnings": 1
+      },
+      "passed_tests": [
+        "tests/test_v16_14_htf_pullback_correctness.py::test_bullish_internal_pullback_fallthrough_when_bos_unconfirmed",
+        "tests/test_v16_14_htf_pullback_correctness.py::test_bearish_internal_pullback_fallthrough_when_bos_unconfirmed",
+        "tests/test_v16_14_htf_pullback_correctness.py::test_protected_break_takes_strict_priority_over_pullback",
+        "tests/test_v16_14_htf_pullback_correctness.py::test_future_candle_with_explicit_is_closed_true_is_strictly_rejected",
+        "tests/test_v16_14_htf_pullback_correctness.py::test_collector_service_respects_custom_config_and_synchronizes",
+        "tests/test_v16_11_htf_structure.py::test_case_01_bullish_intact_internal_pullback",
+        "tests/test_v16_11_htf_structure.py::test_case_02_bullish_protected_low_broken_by_close",
+        "tests/test_v16_11_htf_structure.py::test_case_03_bearish_protected_high_broken_by_close",
+        "tests/test_v16_11_htf_structure.py::test_case_04_wick_sweep_rejection_keeps_structure",
+        "tests/test_v16_11_htf_structure.py::test_case_05_insufficient_swings_no_sma_fallback",
+        "tests/test_v16_11_htf_structure.py::test_case_06_equal_highs_lows_tick_tolerance",
+        "tests/test_v16_11_htf_structure.py::test_case_07_unclosed_candle_ignored_in_confirmed_structure",
+        "tests/test_v16_11_htf_structure.py::test_case_08_pivot_requires_two_right_bars",
+        "tests/test_v16_11_htf_structure.py::test_case_09_h4_bullish_h1_bearish_divergent_relation",
+        "tests/test_v16_11_htf_structure.py::test_case_10_replay_isolation_no_live_collector_bias",
+        "tests/test_v16_11_htf_structure.py::test_case_11_order_snapshot_immutability",
+        "tests/test_v16_11_htf_structure.py::test_case_12_prefix_invariance",
+        "tests/test_v16_11_htf_structure.py::test_case_13_collector_closed_only_query",
+        "tests/test_v16_11_htf_structure.py::test_case_14_cg01_positive_long_flow",
+        "tests/test_v16_11_htf_structure.py::test_case_15_cg01_positive_short_flow",
+        "tests/test_v16_12_htf_state_machine.py::test_reproduce_bullish_break_and_false_rebound",
+        "tests/test_v16_12_htf_state_machine.py::test_reproduce_bearish_break_and_false_recovery",
+        "tests/test_v16_12_htf_state_machine.py::test_reproduce_range_stuck_and_breakout",
+        "tests/test_v16_12_htf_state_machine.py::test_reproduce_min_bars_ignored",
+        "tests/test_v16_12_htf_state_machine.py::test_reproduce_relation_transition",
+        "tests/test_v16_12_htf_state_machine.py::test_valid_recovery_after_bullish_invalidation",
+        "tests/test_v16_12_htf_state_machine.py::test_range_breakdown_reentry_and_second_breakout",
+        "tests/test_v16_12_htf_state_machine.py::test_closed_boundary_exact",
+        "tests/test_v16_12_htf_state_machine.py::test_settings_resolution_and_overrides",
+        "tests/test_v16_12_htf_state_machine.py::test_relation_matrix[BULLISH-ESTABLISHED-BULLISH-ESTABLISHED-ALIGNED-READY-exp_dirs0]",
+        "tests/test_v16_12_htf_state_machine.py::test_relation_matrix[BEARISH-ESTABLISHED-BEARISH-ESTABLISHED-ALIGNED-READY-exp_dirs1]",
+        "tests/test_v16_12_htf_state_machine.py::test_relation_matrix[BEARISH-ESTABLISHED-BULLISH-ESTABLISHED-DIVERGENT-READY-exp_dirs2]",
+        "tests/test_v16_12_htf_state_machine.py::test_relation_matrix[BULLISH-ESTABLISHED-BEARISH-ESTABLISHED-DIVERGENT-READY-exp_dirs3]",
+        "tests/test_v16_12_htf_state_machine.py::test_relation_matrix[BULLISH-ESTABLISHED-RANGE-RANGE-MIXED-READY-exp_dirs4]",
+        "tests/test_v16_12_htf_state_machine.py::test_relation_matrix[BULLISH-ESTABLISHED-UNKNOWN-TRANSITION-TRANSITION-READY-exp_dirs5]",
+        "tests/test_v16_12_htf_state_machine.py::test_relation_matrix[UNKNOWN-INSUFFICIENT_DATA-UNKNOWN-INSUFFICIENT_DATA-UNKNOWN-NOT_READY-exp_dirs6]",
+        "tests/test_v16_13_htf_confirmation.py::test_reproduce_choch_bullish_without_actual_close_break",
+        "tests/test_v16_13_htf_confirmation.py::test_reproduce_choch_bearish_without_actual_close_break",
+        "tests/test_v16_13_htf_confirmation.py::test_reproduce_pivot_occurring_before_invalidation_cannot_be_post_invalidation_swing",
+        "tests/test_v16_13_htf_confirmation.py::test_reproduce_break_buffer_strictly_enforced",
+        "tests/test_v16_13_htf_confirmation.py::test_valid_close_break_confirms_structure"
+      ],
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\\backend\nplugins: anyio-4.15.1\ncollecting ... collected 41 items\n\ntests/test_v16_14_htf_pullback_correctness.py::test_bullish_internal_pullback_fallthrough_when_bos_unconfirmed PASSED [  2%]\ntests/test_v16_14_htf_pullback_correctness.py::test_bearish_internal_pullback_fallthrough_when_bos_unconfirmed PASSED [  4%]\ntests/test_v16_14_htf_pullback_correctness.py::test_protected_break_takes_strict_priority_over_pullback PASSED [  7%]\ntests/test_v16_14_htf_pullback_correctness.py::test_future_candle_with_explicit_is_closed_true_is_strictly_rejected PASSED [  9%]\ntests/test_v16_14_htf_pullback_correctness.py::test_collector_service_respects_custom_config_and_synchronizes PASSED [ 12%]\ntests/test_v16_11_htf_structure.py::test_case_01_bullish_intact_internal_pullback PASSED [ 14%]\ntests/test_v16_11_htf_structure.py::test_case_02_bullish_protected_low_broken_by_close PASSED [ 17%]\ntests/test_v16_11_htf_structure.py::test_case_03_bearish_protected_high_broken_by_close PASSED [ 19%]\ntests/test_v16_11_htf_structure.py::test_case_04_wick_sweep_rejection_keeps_structure PASSED [ 21%]\ntests/test_v16_11_htf_structure.py::test_case_05_insufficient_swings_no_sma_fallback PASSED [ 24%]\ntests/test_v16_11_htf_structure.py::test_case_06_equal_highs_lows_tick_tolerance PASSED [ 26%]\ntests/test_v16_11_htf_structure.py::test_case_07_unclosed_candle_ignored_in_confirmed_structure PASSED [ 29%]\ntests/test_v16_11_htf_structure.py::test_case_08_pivot_requires_two_right_bars PASSED [ 31%]\ntests/test_v16_11_htf_structure.py::test_case_09_h4_bullish_h1_bearish_divergent_relation PASSED [ 34%]\ntests/test_v16_11_htf_structure.py::test_case_10_replay_isolation_no_live_collector_bias PASSED [ 36%]\ntests/test_v16_11_htf_structure.py::test_case_11_order_snapshot_immutability PASSED [ 39%]\ntests/test_v16_11_htf_structure.py::test_case_12_prefix_invariance PASSED [ 41%]\ntests/test_v16_11_htf_structure.py::test_case_13_collector_closed_only_query PASSED [ 43%]\ntests/test_v16_11_htf_structure.py::test_case_14_cg01_positive_long_flow PASSED [ 46%]\ntests/test_v16_11_htf_structure.py::test_case_15_cg01_positive_short_flow PASSED [ 48%]\ntests/test_v16_12_htf_state_machine.py::test_reproduce_bullish_break_and_false_rebound PASSED [ 51%]\ntests/test_v16_12_htf_state_machine.py::test_reproduce_bearish_break_and_false_recovery PASSED [ 53%]\ntests/test_v16_12_htf_state_machine.py::test_reproduce_range_stuck_and_breakout PASSED [ 56%]\ntests/test_v16_12_htf_state_machine.py::test_reproduce_min_bars_ignored PASSED [ 58%]\ntests/test_v16_12_htf_state_machine.py::test_reproduce_relation_transition PASSED [ 60%]\ntests/test_v16_12_htf_state_machine.py::test_valid_recovery_after_bullish_invalidation PASSED [ 63%]\ntests/test_v16_12_htf_state_machine.py::test_range_breakdown_reentry_and_second_breakout PASSED [ 65%]\ntests/test_v16_12_htf_state_machine.py::test_closed_boundary_exact PASSED [ 68%]\ntests/test_v16_12_htf_state_machine.py::test_settings_resolution_and_overrides PASSED [ 70%]\ntests/test_v16_12_htf_state_machine.py::test_relation_matrix[BULLISH-ESTABLISHED-BULLISH-ESTABLISHED-ALIGNED-READY-exp_dirs0] PASSED [ 73%]\ntests/test_v16_12_htf_state_machine.py::test_relation_matrix[BEARISH-ESTABLISHED-BEARISH-ESTABLISHED-ALIGNED-READY-exp_dirs1] PASSED [ 75%]\ntests/test_v16_12_htf_state_machine.py::test_relation_matrix[BEARISH-ESTABLISHED-BULLISH-ESTABLISHED-DIVERGENT-READY-exp_dirs2] PASSED [ 78%]\ntests/test_v16_12_htf_state_machine.py::test_relation_matrix[BULLISH-ESTABLISHED-BEARISH-ESTABLISHED-DIVERGENT-READY-exp_dirs3] PASSED [ 80%]\ntests/test_v16_12_htf_state_machine.py::test_relation_matrix[BULLISH-ESTABLISHED-RANGE-RANGE-MIXED-READY-exp_dirs4] PASSED [ 82%]\ntests/test_v16_12_htf_state_machine.py::test_relation_matrix[BULLISH-ESTABLISHED-UNKNOWN-TRANSITION-TRANSITION-READY-exp_dirs5] PASSED [ 85%]\ntests/test_v16_12_htf_state_machine.py::test_relation_matrix[UNKNOWN-INSUFFICIENT_DATA-UNKNOWN-INSUFFICIENT_DATA-UNKNOWN-NOT_READY-exp_dirs6] PASSED [ 87%]\ntests/test_v16_13_htf_confirmation.py::test_reproduce_choch_bullish_without_actual_close_break PASSED [ 90%]\ntests/test_v16_13_htf_confirmation.py::test_reproduce_choch_bearish_without_actual_close_break PASSED [ 92%]\ntests/test_v16_13_htf_confirmation.py::test_reproduce_pivot_occurring_before_invalidation_cannot_be_post_invalidation_swing PASSED [ 95%]\ntests/test_v16_13_htf_confirmation.py::test_reproduce_break_buffer_strictly_enforced PASSED [ 97%]\ntests/test_v16_13_htf_confirmation.py::test_valid_close_break_confirms_structure PASSED [100%]\n\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 41 passed, 1 warning in 0.30s ========================\n",
+      "stderr": "",
+      "status": "PASS"
+    },
+    "gate_2_scheduler_telemetry": {
+      "command": "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe -m pytest tests/test_v16_14_cg01_scheduler_and_trace.py -v",
+      "returncode": 0,
+      "elapsed_sec": 1.52,
+      "stats": {
+        "passed": 7,
+        "failed": 0,
+        "skipped": 0,
+        "deselected": 0,
+        "warnings": 1
+      },
+      "passed_tests": [
+        "tests/test_v16_14_cg01_scheduler_and_trace.py::test_cg01_evaluation_trace_delays_and_null_handling",
+        "tests/test_v16_14_cg01_scheduler_and_trace.py::test_cg01_trace_recorder_percentiles_and_tail_latency",
+        "tests/test_v16_14_cg01_scheduler_and_trace.py::test_cg01_trace_recorder_bounded_ring_buffer_counts_drops",
+        "tests/test_v16_14_cg01_scheduler_and_trace.py::test_capture_cg01_input_bundle_immutability_and_causality",
+        "tests/test_v16_14_cg01_scheduler_and_trace.py::test_cg01_scheduler_deduplication_and_dirty_marking",
+        "tests/test_v16_14_cg01_scheduler_and_trace.py::test_cg01_scheduler_single_flight_per_symbol",
+        "tests/test_v16_14_cg01_scheduler_and_trace.py::test_cg01_scheduler_feature_flags_and_shadow_mode"
+      ],
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\\backend\nplugins: anyio-4.15.1\ncollecting ... collected 7 items\n\ntests/test_v16_14_cg01_scheduler_and_trace.py::test_cg01_evaluation_trace_delays_and_null_handling PASSED [ 14%]\ntests/test_v16_14_cg01_scheduler_and_trace.py::test_cg01_trace_recorder_percentiles_and_tail_latency PASSED [ 28%]\ntests/test_v16_14_cg01_scheduler_and_trace.py::test_cg01_trace_recorder_bounded_ring_buffer_counts_drops PASSED [ 42%]\ntests/test_v16_14_cg01_scheduler_and_trace.py::test_capture_cg01_input_bundle_immutability_and_causality PASSED [ 57%]\ntests/test_v16_14_cg01_scheduler_and_trace.py::test_cg01_scheduler_deduplication_and_dirty_marking PASSED [ 71%]\ntests/test_v16_14_cg01_scheduler_and_trace.py::test_cg01_scheduler_single_flight_per_symbol PASSED [ 85%]\ntests/test_v16_14_cg01_scheduler_and_trace.py::test_cg01_scheduler_feature_flags_and_shadow_mode PASSED [100%]\n\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 7 passed, 1 warning in 0.09s =========================\n",
+      "stderr": "",
+      "status": "PASS"
+    },
+    "gate_3_missed_funnel": {
+      "command": "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe -m pytest tests/test_v16_14_missed_opportunity_funnel.py -v",
+      "returncode": 0,
+      "elapsed_sec": 3.79,
+      "stats": {
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "deselected": 0,
+        "warnings": 1
+      },
+      "passed_tests": [
+        "tests/test_v16_14_missed_opportunity_funnel.py::test_opportunity_stages_progression_additive_values",
+        "tests/test_v16_14_missed_opportunity_funnel.py::test_classify_filled_opportunity",
+        "tests/test_v16_14_missed_opportunity_funnel.py::test_rule_094_policy_blocked_is_not_labeled_as_technical_miss",
+        "tests/test_v16_14_missed_opportunity_funnel.py::test_rule_097_entry_never_touched_classification",
+        "tests/test_v16_14_missed_opportunity_funnel.py::test_classify_latency_detection_late",
+        "tests/test_v16_14_missed_opportunity_funnel.py::test_cg01_missed_opportunity_audit_run_summary"
+      ],
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\\backend\nplugins: anyio-4.15.1\ncollecting ... collected 6 items\n\ntests/test_v16_14_missed_opportunity_funnel.py::test_opportunity_stages_progression_additive_values PASSED [ 16%]\ntests/test_v16_14_missed_opportunity_funnel.py::test_classify_filled_opportunity PASSED [ 33%]\ntests/test_v16_14_missed_opportunity_funnel.py::test_rule_094_policy_blocked_is_not_labeled_as_technical_miss PASSED [ 50%]\ntests/test_v16_14_missed_opportunity_funnel.py::test_rule_097_entry_never_touched_classification PASSED [ 66%]\ntests/test_v16_14_missed_opportunity_funnel.py::test_classify_latency_detection_late PASSED [ 83%]\ntests/test_v16_14_missed_opportunity_funnel.py::test_cg01_missed_opportunity_audit_run_summary PASSED [100%]\n\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 6 passed, 1 warning in 0.30s =========================\n",
+      "stderr": "",
+      "status": "PASS"
+    },
+    "gate_4_paper_accounting": {
+      "command": "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe -m pytest tests/test_v16_14_paper_run_and_accounting.py -v",
+      "returncode": 0,
+      "elapsed_sec": 2.93,
+      "stats": {
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "deselected": 0,
+        "warnings": 1
+      },
+      "passed_tests": [
+        "tests/test_v16_14_paper_run_and_accounting.py::test_paper_research_run_lifecycle_and_collecting_status",
+        "tests/test_v16_14_paper_run_and_accounting.py::test_point_in_time_running_peak_drawdown",
+        "tests/test_v16_14_paper_run_and_accounting.py::test_rule_176_long_and_short_tp_sl_post_fee_accounting",
+        "tests/test_v16_14_paper_run_and_accounting.py::test_export_paper_run_summary_markdown_and_csv"
+      ],
+      "stdout": "============================= test session starts =============================\nplatform win32 -- Python 3.11.9, pytest-9.1.1, pluggy-1.6.0 -- D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe\ncachedir: .pytest_cache\nrootdir: D:\\build app-crypto\\aurum-desk\\backend\nplugins: anyio-4.15.1\ncollecting ... collected 4 items\n\ntests/test_v16_14_paper_run_and_accounting.py::test_paper_research_run_lifecycle_and_collecting_status PASSED [ 25%]\ntests/test_v16_14_paper_run_and_accounting.py::test_point_in_time_running_peak_drawdown PASSED [ 50%]\ntests/test_v16_14_paper_run_and_accounting.py::test_rule_176_long_and_short_tp_sl_post_fee_accounting PASSED [ 75%]\ntests/test_v16_14_paper_run_and_accounting.py::test_export_paper_run_summary_markdown_and_csv PASSED [100%]\n\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n======================== 4 passed, 1 warning in 0.08s =========================\n",
+      "stderr": "",
+      "status": "PASS"
+    },
+    "gate_5_v16_regression": {
+      "command": "D:\\build app-crypto\\aurum-desk\\backend\\venv\\Scripts\\python.exe -m pytest -k v16 -q",
+      "returncode": 0,
+      "elapsed_sec": 12.49,
+      "stats": {
+        "passed": 255,
+        "failed": 0,
+        "skipped": 0,
+        "deselected": 1785,
+        "warnings": 1
+      },
+      "passed_tests": [],
+      "stdout": "........................................................................ [ 28%]\n........................................................................ [ 56%]\n........................................................................ [ 84%]\n.......................................                                  [100%]\n============================== warnings summary ===============================\nvenv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  D:\\build app-crypto\\aurum-desk\\backend\\venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n255 passed, 1785 deselected, 1 warning in 10.26s\n",
+      "stderr": "",
+      "status": "PASS"
+    },
+    "gate_6_frontend": {
+      "command": "npm.cmd test",
+      "returncode": 0,
+      "elapsed_sec": 2.64,
+      "stats": {
+        "passed": 232,
+        "failed": 0
+      },
+      "stdout": "\n> frontend@0.0.0 test\n> vitest run\n\n\n\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv5.0.3 \u001b[39m\u001b[90mD:/build app-crypto/aurum-desk/frontend\u001b[39m\n\n \u001b[32m✓\u001b[39m src/v13_research_tab.test.ts \u001b[2m(\u001b[22m\u001b[2m8 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 22\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v10_4_cost_and_rr.test.ts \u001b[2m(\u001b[22m\u001b[2m12 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 8\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v14_4_2_annotation_layout.test.ts \u001b[2m(\u001b[22m\u001b[2m13 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 12\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v10_2_acceptance.test.ts \u001b[2m(\u001b[22m\u001b[2m16 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 13\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v14_2_entry_gate.test.ts \u001b[2m(\u001b[22m\u001b[2m22 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 11\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v9_1_user_messages.test.ts \u001b[2m(\u001b[22m\u001b[2m19 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 43\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v10_3_ui_and_notifications.test.ts \u001b[2m(\u001b[22m\u001b[2m23 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 38\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v14_1_rr_flow.test.ts \u001b[2m(\u001b[22m\u001b[2m7 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 11\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v7_2_realtime.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 68\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v14_3_ny_quota_labels.test.ts \u001b[2m(\u001b[22m\u001b[2m7 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 9\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v14_chart_evidence.test.ts \u001b[2m(\u001b[22m\u001b[2m6 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 8\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v14_4_2_selection_ws.test.ts \u001b[2m(\u001b[22m\u001b[2m14 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 17\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v14_4_2_evidence_focus.test.ts \u001b[2m(\u001b[22m\u001b[2m6 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 8\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v8_tabs.test.ts \u001b[2m(\u001b[22m\u001b[2m5 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 10\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v12_4_lab_job.test.ts \u001b[2m(\u001b[22m\u001b[2m5 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 7\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v14_4_annotation_layout.test.ts \u001b[2m(\u001b[22m\u001b[2m4 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 7\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/selection_logic.test.ts \u001b[2m(\u001b[22m\u001b[2m5 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 7\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v14_4_1_pipeline.test.ts \u001b[2m(\u001b[22m\u001b[2m19 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 52\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v5_1_geometry_and_news.test.ts \u001b[2m(\u001b[22m\u001b[2m4 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 7\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v14_4_2_realtime_hook.test.ts \u001b[2m(\u001b[22m\u001b[2m6 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 8\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v13_5_research_acceptance.test.ts \u001b[2m(\u001b[22m\u001b[2m4 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 6\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v13_4_research_ui.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 6\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v16_13_htf_evidence.test.ts \u001b[2m(\u001b[22m\u001b[2m6 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 6\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v13_3_research_utils.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 5\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v14_4_chart_evidence.test.ts \u001b[2m(\u001b[22m\u001b[2m5 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 7\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/v7_1_realtime.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 3\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/extract_error.test.ts \u001b[2m(\u001b[22m\u001b[2m7 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m27 passed\u001b[39m\u001b[22m\u001b[90m (27)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m232 passed\u001b[39m\u001b[22m\u001b[90m (232)\u001b[39m\n\u001b[2m   Start at \u001b[22m 11:21:45\n\u001b[2m   Duration \u001b[22m 1.76s\u001b[2m (transform 53%, import 35%, tests 7%, worker 4%)\u001b[22m\n\n\u001b[2m  Transform \u001b[22m \u001b[33mtransforming modules took 2.94s\u001b[39m\u001b[2m · 53% of tracked time, re-done on every run\u001b[22m\n\u001b[2m            \u001b[22m \u001b[2mpersist transforms across runs with \u001b[22m\u001b[33mfsModuleCache: true\u001b[39m\n\u001b[2m            \u001b[22m \u001b[2mlearn more: https://vitest.dev/guide/improving-performance#caching-between-reruns\u001b[22m\n\n",
+      "stderr": "",
+      "status": "PASS"
+    }
+  }
+}

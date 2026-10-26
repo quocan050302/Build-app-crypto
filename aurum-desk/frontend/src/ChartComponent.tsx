@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
 import type { IChartApi, ISeriesApi, Time } from 'lightweight-charts';
 import { api, getNextRequestGeneration, isLatestGeneration } from './api/client';
@@ -6,10 +6,22 @@ import { wsClient } from './services/wsClient';
 import { RiskRewardPrimitive } from './plugins/RiskRewardPrimitive';
 import type { RiskRewardData, DragTargetPart } from './plugins/RiskRewardPrimitive';
 import { SMCStructurePrimitive } from './plugins/SMCStructurePrimitive';
+import type { SMCTimeAxis, SMCZone } from './plugins/SMCStructurePrimitive';
+import { projectMsToBar } from './utils/chartTimeProjection';
 import type { ChartEvidenceBundle } from './utils/chartEvidence';
+import { buildEvidenceAnchorIndex, computeEvidenceFocusRange, type EvidenceAnchor } from './utils/evidenceFocus';
+import { ChartLayerMenu } from './components/ChartLayerMenu';
+import { useChartLayers } from './hooks/useChartLayers';
+import { ChartEvidenceList } from './components/ChartEvidenceList';
+import { SelectedChartHeader } from './components/SelectedChartHeader';
+import { ChartEvidenceTooltip } from './components/ChartEvidenceTooltip';
+import type { SMCHitItem } from './plugins/SMCStructurePrimitive';
+import type { ChartBinding, ChartEvidenceBundleV144 } from './types/smcScenario';
+
 import { calculateClientRiskReward } from './utils/calculator';
 import { quoteStore } from './services/quoteStore';
-import { RefreshCw, AlertCircle, Eye, EyeOff, Crosshair, ArrowUpRight, ArrowDownRight, Layers, BarChart2 } from 'lucide-react';
+import { telemetryBridge } from './services/telemetryBridge';
+import { RefreshCw, AlertCircle, Eye, EyeOff, Crosshair, ArrowUpRight, ArrowDownRight, BarChart2, List } from 'lucide-react';
 
 export interface ChartComponentProps {
   symbol: string;
@@ -33,8 +45,27 @@ export interface ChartComponentProps {
   };
   selectedEvidence?: ChartEvidenceBundle | null;
   evidenceMode?: 'SELECTED' | 'ALL' | 'NONE';
-  focusRequest?: { nonce: number; minPrice?: number; maxPrice?: number } | null;
+  focusRequest?: {
+    nonce: number;
+    minPrice?: number;
+    maxPrice?: number;
+    targetTime?: number;
+    startAnchorMs?: number;
+    endAnchorMs?: number;
+    mode?: 'LIVE' | 'SELECTION';
+  } | null;
   onEvidenceModeChange?: (mode: 'SELECTED' | 'ALL' | 'NONE') => void;
+  selectedBinding?: ChartBinding | null;
+  selectedRawBundle?: ChartEvidenceBundleV144 | null;
+  selectedSummaryVi?: string;
+  onClearSelection?: () => void;
+  onOpenSelectionDetails?: () => void;
+  selectedLoading?: boolean;
+  selectedError?: string | null;
+  selectedCandidateScore?: any;
+  effectiveMinNetRR?: number | null;
+  rrPolicySource?: string;
+  rrPolicyFingerprint?: string;
 }
 
 interface CandleData {
@@ -43,6 +74,51 @@ interface CandleData {
   high: number;
   low: number;
   close: number;
+}
+
+const TF_MS: Record<string, number> = {
+  '1M': 60_000,
+  '5M': 300_000,
+  '15M': 900_000,
+  '1H': 3_600_000,
+  '4H': 14_400_000,
+  D: 86_400_000,
+};
+
+/** Closed/open candles from the API -> strictly ascending, de-duplicated, finite OHLC only. */
+function toCandleList(raw: any): CandleData[] {
+  if (!Array.isArray(raw)) return [];
+  const byTime = new Map<number, CandleData>();
+  for (const c of raw) {
+    const ts = Math.floor(Number(c?.timestamp) / 1000);
+    const vals = [c?.open, c?.high, c?.low, c?.close];
+    if (!Number.isSafeInteger(ts) || ts <= 0 || !vals.every((v) => typeof v === 'number' && Number.isFinite(v))) continue;
+    byTime.set(ts, { time: ts as Time, open: c.open, high: c.high, low: c.low, close: c.close });
+  }
+  return [...byTime.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+}
+
+/** History window is merged under the live window; on a time collision the NEWER (live) bar wins. */
+function mergeCandles(current: CandleData[], incoming: CandleData[]): CandleData[] {
+  const byTime = new Map<number, CandleData>();
+  for (const c of incoming) byTime.set(c.time as number, c);
+  for (const c of current) byTime.set(c.time as number, c);
+  return [...byTime.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+}
+/** Check if chart overlay diagnostics hook is explicitly enabled in test environment */
+export function isChartDiagnosticsEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if ((import.meta as any).env?.VITE_ENABLE_CHART_DIAGNOSTICS === 'true' || (import.meta as any).env?.VITE_ENABLE_CHART_DIAGNOSTICS === true) {
+      return true;
+    }
+  } catch {
+    // env not available
+  }
+  if ((window as any).__AURUM_ENABLE_CHART_DIAGNOSTICS__ === true) {
+    return true;
+  }
+  return false;
 }
 
 export function ChartComponent({
@@ -61,8 +137,21 @@ export function ChartComponent({
   evidenceMode = 'SELECTED',
   focusRequest,
   onEvidenceModeChange: _onEvidenceModeChange,
+  selectedBinding,
+  selectedRawBundle,
+  selectedSummaryVi,
+  onClearSelection,
+  onOpenSelectionDetails,
+  selectedLoading,
+  selectedError,
+  selectedCandidateScore,
+  effectiveMinNetRR,
+  rrPolicySource,
+  rrPolicyFingerprint,
 }: ChartComponentProps) {
+  const chartInstanceIdRef = useRef<string>(`chart_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
   const lastFocusNonceRef = useRef<number>(0);
+  const draftBaseOverlayRef = useRef<RiskRewardData | null | undefined>(activeOverlay);
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -75,14 +164,92 @@ export function ChartComponent({
   const [lastDataAt, setLastDataAt] = useState<string | null>(null);
   const [dataIsStale, setDataIsStale] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
-  const [showSMCLevels, setShowSMCLevels] = useState(true);
+  const [showSMCLevels] = useState(true);
   const [draftMode, setDraftMode] = useState(false);
+  const [layerSettings, setLayerSettings] = useChartLayers();
+  const [isEvidenceListOpen, setIsEvidenceListOpen] = useState(false);
+  const evidenceListTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [hoveredHitItem, setHoveredHitItem] = useState<SMCHitItem | null>(null);
   const [draftDirection, setDraftDirection] = useState<'LONG' | 'SHORT'>('LONG');
+
+  const anchorIndex = useMemo(() => buildEvidenceAnchorIndex(selectedRawBundle), [selectedRawBundle]);
+
+  const focusEvidence = useCallback((evidenceId: string) => {
+    const anchor = anchorIndex.get(evidenceId);
+    if (!anchor) {
+      // Fallback: check if hit item exists in smcPrimitive
+      const hits = smcPrimitiveRef.current?.getHitItems() || [];
+      const match = hits.find((h) => h.id === evidenceId || h.externalId === evidenceId);
+      if (match && chartRef.current && match.timeMs) {
+        const stepMs = TF_MS[timeframe] || 300_000;
+        const fakeAnchor: EvidenceAnchor = {
+          id: match.id,
+          kind: match.category,
+          occurredAtMs: match.timeMs,
+          knownAtMs: match.timeMs,
+          startAtMs: match.timeMs,
+          endAtMs: null,
+          price: match.price,
+          hasCoordinates: true,
+        };
+        const range = computeEvidenceFocusRange(fakeAnchor, stepMs, 16);
+        if (range && chartRef.current) {
+          chartRef.current.timeScale().setVisibleRange({
+            from: range.fromSec as unknown as Time,
+            to: range.toSec as unknown as Time,
+          });
+        }
+        smcPrimitiveRef.current?.setFocusedEvidenceId(evidenceId);
+        setHoveredHitItem(match);
+        setIsEvidenceListOpen(false);
+        return;
+      }
+      console.warn(`Evidence ${evidenceId} anchor not found in bundle index.`);
+      return;
+    }
+
+    if (!anchor.hasCoordinates) {
+      console.warn(`Evidence ${evidenceId} lacks coordinates: ${anchor.missingReason}`);
+      return;
+    }
+
+    const stepMs = TF_MS[timeframe] || 300_000;
+    const range = computeEvidenceFocusRange(anchor, stepMs, 16);
+    if (range && chartRef.current) {
+      chartRef.current.timeScale().setVisibleRange({
+        from: range.fromSec as unknown as Time,
+        to: range.toSec as unknown as Time,
+      });
+    }
+
+    if (smcPrimitiveRef.current) {
+      smcPrimitiveRef.current.setFocusedEvidenceId(evidenceId);
+    }
+    setIsEvidenceListOpen(false);
+  }, [anchorIndex, timeframe]);
+
+  const focusEvidenceRef = useRef(focusEvidence);
+  focusEvidenceRef.current = focusEvidence;
 
   const latestClosePriceRef = useRef<number>(4000.0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentGenRef = useRef<number>(0);
-
+  const candlesRef = useRef<CandleData[]>([]);
+  const timeAxisRef = useRef<SMCTimeAxis>({ startsMs: [], durationMs: 0 });
+  const focusGenRef = useRef<number>(0);
+  const focusAbortRef = useRef<AbortController | null>(null);
+  const pendingFocusRef = useRef<ChartComponentProps['focusRequest']>(null);
+  const liveReadyKeyRef = useRef<string>('');
+  const runFocusRef = useRef<((req: NonNullable<ChartComponentProps['focusRequest']>) => Promise<void>) | null>(null);
+  const loadCandlesRef = useRef<(() => Promise<void>) | null>(null);
+  const dragRafRef = useRef<number | null>(null);
+  const latestDragDataRef = useRef<RiskRewardData | null>(null);
+  const issueCountRef = useRef<number>(0);
+  const [candlesVersion, setCandlesVersion] = useState(0);
+  const [historyNotice, setHistoryNotice] = useState<string | null>(null);
+  const [, setHistoryMode] = useState(false);
+  const [awayFromLive, setAwayFromLive] = useState(false);
+  const [chartIssue, setChartIssue] = useState<{ code: string; count: number } | null>(null);
   // Drag interaction state
   const dragStateRef = useRef<{
     pointerId: number;
@@ -100,6 +267,7 @@ export function ChartComponent({
   // 1. Initialize Chart instance with React 19 / StrictMode safety
   useEffect(() => {
     if (!chartContainerRef.current) return;
+    telemetryBridge.recordChartCreate();
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -139,6 +307,39 @@ export function ChartComponent({
 
     chartRef.current = chart;
     seriesRef.current = candlestickSeries;
+
+    // Test-only read accessor. `import.meta.env.DEV` is false in production builds, so this block (and the
+    // global) is removed by the bundler: nothing here is reachable in a shipped app.
+    if (import.meta.env.DEV) {
+      (window as unknown as { __AURUM_CHART_TEST__?: unknown }).__AURUM_CHART_TEST__ = {
+        smcHits: () =>
+          (smcPrimitiveRef.current?.getHitItems() ?? []).map((h) => ({
+            id: h.id, category: h.category, title: h.title, price: h.price, timeMs: h.timeMs, x: h.x, y: h.y,
+          })),
+        rr: () => {
+          const p = rrPrimitiveRef.current;
+          return p ? { data: p.getData(), geometry: p.getGeometry() } : null;
+        },
+        reservedRects: () => rrPrimitiveRef.current?.getReservedRects() ?? [],
+        labelRects: () =>
+          (smcPrimitiveRef.current?.getPlacedLabels() ?? []).filter((p) => p.visible).map((p) => ({
+            id: p.id,
+            x: p.box.x,
+            y: p.box.y,
+            width: p.box.width,
+            height: p.box.height,
+          })),
+        placedLabels: () => smcPrimitiveRef.current?.getPlacedLabels() ?? [],
+        focusedEvidenceId: () => smcPrimitiveRef.current?.getFocusedEvidenceId() ?? null,
+        visibleRange: () => chartRef.current?.timeScale().getVisibleRange() ?? null,
+        candleCount: () => candlesRef.current.length,
+        firstCandleSec: () => (typeof candlesRef.current[0]?.time === 'number' ? (candlesRef.current[0]?.time as number) : null),
+        lastCandleSec: () => (typeof candlesRef.current[candlesRef.current.length - 1]?.time === 'number' ? (candlesRef.current[candlesRef.current.length - 1]?.time as number) : null),
+        firstCandleMs: () => (typeof candlesRef.current[0]?.time === 'number' ? (candlesRef.current[0]?.time as number) * 1000 : null),
+        lastCandleMs: () => (typeof candlesRef.current[candlesRef.current.length - 1]?.time === 'number' ? (candlesRef.current[candlesRef.current.length - 1]?.time as number) * 1000 : null),
+        focusEvidence: (id: string) => focusEvidenceRef.current(id),
+      };
+    }
 
     let animationFrameId: number | null = null;
 
@@ -191,6 +392,10 @@ export function ChartComponent({
         } catch {}
         smcPrimitiveRef.current = null;
       }
+      if (import.meta.env.DEV) {
+        delete (window as unknown as { __AURUM_CHART_TEST__?: unknown }).__AURUM_CHART_TEST__;
+      }
+      telemetryBridge.recordChartDestroy();
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -198,31 +403,62 @@ export function ChartComponent({
   }, []);
 
   const [currentPriceDisplay, setCurrentPriceDisplay] = useState<number>(4000.0);
+  const [displayedQuote, setDisplayedQuote] = useState<{ price: number; frameId: number | string; receivedAt: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!displayedQuote) return;
+    const marker = displayedQuote;
+    const raf = requestAnimationFrame(() => {
+      telemetryBridge.markVisualCommit(
+        marker.frameId,
+        'QUOTE_DOM_COMMIT_RAF_PROXY',
+        marker.receivedAt,
+        typeof performance !== 'undefined' ? performance.now() : Date.now()
+      );
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [displayedQuote]);
+
   const [staleNotice, setStaleNotice] = useState<string | null>(null);
+
+  const applyCandleList = useCallback((list: CandleData[]) => {
+    candlesRef.current = list;
+    timeAxisRef.current.startsMs = list.map((c) => (c.time as number) * 1000);
+    timeAxisRef.current.durationMs = TF_MS[timeframe] ?? 0;
+  }, [timeframe]);
+
+  // Bounded diagnostics: the badge shows a count, never an unbounded log.
+  const reportChartDataIssue = useCallback((code: string) => {
+    issueCountRef.current = Math.min(issueCountRef.current + 1, 999);
+    setChartIssue({ code, count: issueCountRef.current });
+    telemetryBridge.recordInvalidEvent();
+  }, []);
 
   // Define renderCandles before loadCandles for clean closure semantics
   const renderCandles = useCallback((data: any) => {
-    const formatted: CandleData[] = data.candles.map((c: any) => ({
-      time: Math.floor(c.timestamp / 1000) as Time,
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close,
-    }));
-
+    const formatted = toCandleList(data.candles);
+    applyCandleList(formatted);
     seriesRef.current?.setData(formatted);
 
-    if (data.candles.length > 0) {
-      const last = data.candles[data.candles.length - 1];
+    if (formatted.length > 0) {
+      const last = formatted[formatted.length - 1];
       latestClosePriceRef.current = last.close;
       setCurrentPriceDisplay(last.close);
-      setLastDataAt(new Date(last.timestamp).toLocaleTimeString('vi-VN'));
+      setLastDataAt(new Date((last.time as number) * 1000).toLocaleTimeString('vi-VN'));
     }
 
     setDataIsStale(Boolean(data.is_stale));
     setStaleNotice(data.is_stale ? 'Dữ liệu cũ' : null);
     setLoading(false);
-  }, []);
+    setHistoryMode(false);
+    setCandlesVersion((v) => v + 1);
+    liveReadyKeyRef.current = `${symbol}_${timeframe}`;
+    const pending = pendingFocusRef.current;
+    if (pending) {
+      pendingFocusRef.current = null;
+      void runFocusRef.current?.(pending);
+    }
+  }, [symbol, timeframe, applyCandleList]);
 
   // 2. Load Candles with AbortController & generation counter scoped per resource
   const loadCandles = useCallback(async () => {
@@ -286,6 +522,7 @@ export function ChartComponent({
     }
   }, [symbol, timeframe, renderCandles]);
 
+  loadCandlesRef.current = loadCandles;
   useEffect(() => {
     loadCandles();
   }, [loadCandles]);
@@ -294,14 +531,71 @@ export function ChartComponent({
   useEffect(() => {
     let disposed = false;
     let pendingRaf: number | null = null;
-    const pendingBarsQueue: CandleData[] = [];
+    let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+    interface QueuedBar {
+      bar: CandleData;
+      receiveTs: number;
+    }
+    const pendingBarsQueue: QueuedBar[] = [];
+    const MAX_QUEUE = 100;
+
+    // Gap / ordering problems are repaired from the API (debounced), never silently ignored.
+    const scheduleRecovery = () => {
+      if (recoveryTimer !== null || disposed) return;
+      recoveryTimer = setTimeout(() => {
+        recoveryTimer = null;
+        if (!disposed) void loadCandlesRef.current?.();
+      }, 2000);
+    };
+
+    const flushQueue = () => {
+      pendingRaf = null;
+      if (disposed || !seriesRef.current) return;
+      while (pendingBarsQueue.length > 0) {
+        const item = pendingBarsQueue.shift();
+        if (!item) continue;
+        const nextBar = item.bar;
+        const list = candlesRef.current;
+        const last = list[list.length - 1];
+        const t = nextBar.time as number;
+        if (last && t < (last.time as number)) {
+          reportChartDataIssue('OUT_OF_ORDER_BAR');
+          telemetryBridge.updateQueueDepth(pendingBarsQueue.length);
+          scheduleRecovery();
+          continue;
+        }
+        try {
+          seriesRef.current.update(nextBar);
+          telemetryBridge.recordRenderLatency(item.receiveTs);
+          telemetryBridge.updateQueueDepth(pendingBarsQueue.length);
+        } catch {
+          reportChartDataIssue('SERIES_UPDATE_REJECTED');
+          telemetryBridge.updateQueueDepth(pendingBarsQueue.length);
+          scheduleRecovery();
+          continue;
+        }
+        if (last && t === (last.time as number)) {
+          list[list.length - 1] = nextBar;
+        } else {
+          list.push(nextBar);
+          timeAxisRef.current.startsMs.push(t * 1000);
+        }
+      }
+      telemetryBridge.updateQueueDepth(pendingBarsQueue.length);
+    };
 
     const unsubscribe = wsClient.subscribe((msg: any) => {
       if (disposed) return;
       try {
         if (msg.type === 'CANDLE_UPDATE' || msg.type === 'CANDLE_CLOSED') {
           if (msg.symbol === symbol && msg.timeframe === timeframe && msg.payload) {
+            const receiveTs = msg._transportReceivedAt || (typeof performance !== 'undefined' ? performance.now() : Date.now());
             const p = msg.payload;
+            const finite = [p.open, p.high, p.low, p.close].every((v: unknown) => typeof v === 'number' && Number.isFinite(v));
+            if (!Number.isSafeInteger(p.time) || p.time <= 0 || !finite || p.high < p.low) {
+              reportChartDataIssue('MALFORMED_CANDLE');
+              return;
+            }
             const bar: CandleData = {
               time: p.time as Time,
               open: p.open,
@@ -310,122 +604,310 @@ export function ChartComponent({
               close: p.close,
             };
 
-            const candleTs = typeof p.time === 'number' ? p.time * 1000 : undefined;
+            const candleTs = p.time * 1000;
             quoteStore.updateFromCandle(symbol, p.close, candleTs);
 
             // R03: Do not overwrite ticker price with candle close if ticker is newer
-            if (!latestQuoteTsRef.current || !candleTs || candleTs >= latestQuoteTsRef.current) {
+            if (!latestQuoteTsRef.current || candleTs >= latestQuoteTsRef.current) {
               latestClosePriceRef.current = p.close;
               setCurrentPriceDisplay(p.close);
             }
             setDataIsStale(false);
             setStaleNotice(null);
 
-            // Queue bar so boundary transition (closed bar -> new open bar) is never lost
-            pendingBarsQueue.push(bar);
+            // Same-open updates coalesce; a closed bar followed by a NEW open bar keeps both (boundary preserved).
+            const tail = pendingBarsQueue[pendingBarsQueue.length - 1];
+            if (tail && (tail.bar.time as number) === p.time) {
+              pendingBarsQueue[pendingBarsQueue.length - 1] = { bar, receiveTs };
+            } else {
+              pendingBarsQueue.push({ bar, receiveTs });
+            }
+            telemetryBridge.updateQueueDepth(pendingBarsQueue.length);
+
+            if (pendingBarsQueue.length > MAX_QUEUE) {
+              pendingBarsQueue.splice(0, pendingBarsQueue.length - MAX_QUEUE);
+              reportChartDataIssue('QUEUE_OVERFLOW');
+              scheduleRecovery();
+            }
 
             if (pendingRaf === null) {
-              pendingRaf = requestAnimationFrame(() => {
-                if (seriesRef.current && !disposed && pendingBarsQueue.length > 0) {
-                  while (pendingBarsQueue.length > 0) {
-                    const nextBar = pendingBarsQueue.shift();
-                    if (nextBar) {
-                      seriesRef.current.update(nextBar);
-                    }
-                  }
-                }
-                pendingRaf = null;
-              });
+              pendingRaf = requestAnimationFrame(flushQueue);
             }
           }
         } else if (msg.type === 'QUOTE_UPDATE' && msg.payload?.last) {
+          const receiveTs = msg._transportReceivedAt || (typeof performance !== 'undefined' ? performance.now() : Date.now());
+          // Quotes are telemetry only: no setData, no scenario analysis in the browser.
           quoteStore.updateFromQuoteEnvelope(msg);
           if (msg.symbol === symbol) {
             const lastPrice = typeof msg.payload.last === 'number' ? msg.payload.last : parseFloat(msg.payload.last);
-            latestClosePriceRef.current = lastPrice;
-            latestQuoteTsRef.current = msg.exchange_ts_ms || msg.server_received_at_ms || Date.now();
-            setCurrentPriceDisplay(lastPrice);
+            if (Number.isFinite(lastPrice)) {
+              latestClosePriceRef.current = lastPrice;
+              latestQuoteTsRef.current = msg.exchange_ts_ms || msg.server_received_at_ms || Date.now();
+              setDisplayedQuote({
+                price: lastPrice,
+                frameId: msg.server_sequence || msg._frameId || Date.now(),
+                receivedAt: receiveTs,
+              });
+            }
           }
         }
-      } catch {}
+      } catch {
+        // A handler failure must be visible (bounded indicator), never swallowed silently.
+        reportChartDataIssue('WS_HANDLER_ERROR');
+      }
     });
 
     return () => {
       disposed = true;
       if (pendingRaf !== null) cancelAnimationFrame(pendingRaf);
+      if (recoveryTimer !== null) clearTimeout(recoveryTimer);
       unsubscribe();
     };
-  }, [symbol, timeframe]);
+  }, [symbol, timeframe, reportChartDataIssue]);
 
   // 3. Update SMC Primitive when props change (Supports focused selectedEvidence & global mode)
   useEffect(() => {
     if (!smcPrimitiveRef.current) return;
+    const emptyData = {
+      swings: [],
+      events: [],
+      zones: [],
+      liquidityLevels: [],
+      displacements: [],
+      retests: [],
+      timeAxis: timeAxisRef.current,
+      showSwings: false,
+      showEvents: false,
+      showZones: false,
+      showLiquidity: false,
+      showDisplacements: false,
+      showRetests: false,
+      showScenarioPath: false,
+    };
     if (!showSMCLevels || evidenceMode === 'NONE') {
-      smcPrimitiveRef.current.setData({
-        swings: [],
-        events: [],
-        zones: [],
-        showSwings: false,
-        showEvents: false,
-        showZones: false,
-      });
+      smcPrimitiveRef.current.setData(emptyData);
       return;
     }
 
-    if (evidenceMode === 'SELECTED' && selectedEvidence) {
+    if (evidenceMode === 'SELECTED') {
+      if (selectedEvidence) {
+        // Zones use the real FVG source times; a zone without them is UNANCHORED and is not drawn at all.
+        const mappedZones: SMCZone[] = [];
+        for (const z of selectedEvidence.poiZones || []) {
+          const startAt = z.startAtMs;
+          const endAt = z.endAtMs ?? selectedEvidence.asOfMs;
+          if (typeof startAt !== 'number' || typeof endAt !== 'number') continue;
+          mappedZones.push({
+            id: z.id || `zone-${mappedZones.length}`,
+            kind: (z.kind as SMCZone['kind']) || 'FVG',
+            top: z.top,
+            bottom: z.bottom,
+            start_at: startAt,
+            end_at: endAt,
+            direction: z.direction === 'LONG' ? 'BULLISH' : z.direction === 'SHORT' ? 'BEARISH' : undefined,
+            state: (z.state as SMCZone['state']) || 'ACTIVE',
+            label: z.label,
+          });
+        }
+
+        // Displacement candle extremes come from the LOADED candle at the measured time (real data only).
+        const dur = TF_MS[timeframe] ?? 0;
+        const displacements = (selectedEvidence.displacements || []).map((d) => {
+          const p = projectMsToBar(timeAxisRef.current.startsMs, dur, d.candle_time);
+          if (p && p.kind === 'IN') {
+            const bar = candlesRef.current[p.barIndex];
+            if (bar) return { ...d, high: bar.high, low: bar.low };
+          }
+          return d;
+        });
+
+        smcPrimitiveRef.current.setData({
+          swings: selectedEvidence.swings || [],
+          events: selectedEvidence.structureEvents || [],
+          zones: mappedZones,
+          liquidityLevels: selectedEvidence.liquidityLevels || [],
+          displacements,
+          retests: selectedEvidence.retests || [],
+          scenarioPath: selectedEvidence.scenarioPath,
+          timeAxis: timeAxisRef.current,
+          showSwings: layerSettings.showSwings,
+          showEvents: layerSettings.showBreaks,
+          showZones: layerSettings.showFvg,
+          showLiquidity: layerSettings.showLiquidity,
+          showDisplacements: layerSettings.showStructure,
+          showRetests: layerSettings.showStructure,
+          showScenarioPath: layerSettings.showScenarioPath,
+          annotationExclusions: rrPrimitiveRef.current?.getReservedRects() || [],
+        });
+      } else {
+        // Crucial fix: Never fall back to global structure when in SELECTED mode (loading/error included)!
+        smcPrimitiveRef.current.setData(emptyData);
+      }
+      return;
+    }
+
+    // ALL mode - explicit global market structure overview
+    if (evidenceMode === 'ALL') {
       smcPrimitiveRef.current.setData({
-        swings: selectedEvidence.swings || [],
-        events: selectedEvidence.structureEvents || [],
-        zones: (selectedEvidence.poiZones || []).map((z, idx) => ({
-          id: `poi-${idx}`,
-          kind: 'POI' as const,
-          top: z.top,
-          bottom: z.bottom,
-          start_at: Date.now() - 3600000,
-          end_at: Date.now() + 3600000,
-          label: z.label,
-        })),
-        showSwings: true,
-        showEvents: true,
-        showZones: true,
-      });
-    } else {
-      smcPrimitiveRef.current.setData({
+        ...emptyData,
         swings: smcStructure?.swings || [],
         events: smcStructure?.structureEvents || [],
-        zones: [],
-        showSwings: true,
-        showEvents: true,
-        showZones: false,
+        showSwings: layerSettings.showSwings,
+        showEvents: layerSettings.showBreaks,
+        showLiquidity: layerSettings.showLiquidity,
       });
     }
-  }, [smcStructure, showSMCLevels, evidenceMode, selectedEvidence]);
+  }, [smcStructure, showSMCLevels, evidenceMode, selectedEvidence, layerSettings, candlesVersion, timeframe]);
 
-  // Focus request handling
+  // Focus request handling: runs ONLY on an explicit click/focus (new nonce), never on quote ticks. The selected
+  // anchors may be far in the past, so a bounded window of real candles is loaded first (<=480 bars, generation-guarded).
+  const runFocus = async (req: NonNullable<ChartComponentProps['focusRequest']>) => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    focusAbortRef.current?.abort();
+    const controller = new AbortController();
+    focusAbortRef.current = controller;
+    const gen = ++focusGenRef.current;
+    const isValidMs = (v?: number): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v > 0;
+    const anchorStart = isValidMs(req.startAnchorMs) ? req.startAnchorMs : req.targetTime;
+    const anchorEnd = isValidMs(req.endAnchorMs) ? req.endAnchorMs : anchorStart;
+    if (!isValidMs(anchorStart) || !isValidMs(anchorEnd)) {
+      chart.priceScale('right').applyOptions({ autoScale: true });
+      chart.timeScale().scrollToPosition(3, false);
+      return;
+    }
+    const dur = TF_MS[timeframe] ?? 300_000;
+    const lastAnchor = Math.max(anchorStart, anchorEnd);
+    const padBefore = Math.max(30 * 60_000, 40 * dur);
+    const padAfter = Math.max(60 * 60_000, 40 * dur);
+    const startMs = anchorStart - padBefore;
+    const endMs = lastAnchor + padAfter;
+
+    const list = candlesRef.current;
+    const firstMs = list.length ? (list[0].time as number) * 1000 : Infinity;
+    const lastMs = list.length ? (list[list.length - 1].time as number) * 1000 + dur : -Infinity;
+    const covered = firstMs <= startMs && lastMs >= lastAnchor;
+    if (!covered) {
+      const maxSpan = 480 * dur;
+      const wEnd = Math.min(endMs, startMs + maxSpan);
+      try {
+        const data = await api.getCandles(symbol, timeframe, 300, { signal: controller.signal }, { startMs, endMs: wEnd });
+        if (gen !== focusGenRef.current) return;
+        const incoming = toCandleList(data?.candles);
+        if (!incoming.length) {
+          setHistoryNotice('Thiếu nến lịch sử quanh mục đã chọn — giá Entry/SL/TP vẫn đúng theo lệnh.');
+        } else {
+          const merged = mergeCandles(candlesRef.current, incoming);
+          applyCandleList(merged);
+          seriesRef.current?.setData(merged);
+          setHistoryNotice(null);
+          setCandlesVersion((v) => v + 1);
+        }
+        setHistoryMode(true);
+      } catch (err: any) {
+        if (controller.signal.aborted || err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
+        setHistoryNotice('Không tải được nến lịch sử quanh mục đã chọn.');
+      }
+    }
+    if (gen !== focusGenRef.current) return;
+    try {
+      chart.timeScale().setVisibleRange({
+        from: Math.floor(startMs / 1000) as unknown as Time,
+        to: Math.floor(endMs / 1000) as unknown as Time,
+      });
+    } catch {
+      try { chart.timeScale().scrollToPosition(3, false); } catch {}
+    }
+    chart.priceScale('right').applyOptions({ autoScale: true });
+    setAwayFromLive(true);
+  };
+  runFocusRef.current = runFocus;
+
   useEffect(() => {
     if (!focusRequest || focusRequest.nonce === lastFocusNonceRef.current) return;
     lastFocusNonceRef.current = focusRequest.nonce;
-    if (chartRef.current) {
-      chartRef.current.timeScale().scrollToPosition(3, false);
+    // A timeframe switch triggers a live reload that would overwrite the window: wait for it, then focus.
+    if (liveReadyKeyRef.current !== `${symbol}_${timeframe}`) {
+      pendingFocusRef.current = focusRequest;
+      return;
     }
-  }, [focusRequest]);
+    void runFocusRef.current?.(focusRequest);
+  }, [focusRequest, symbol, timeframe]);
+
+  useEffect(() => () => {
+    focusGenRef.current += 1;
+    focusAbortRef.current?.abort();
+    if (dragRafRef.current !== null) cancelAnimationFrame(dragRafRef.current);
+  }, []);
+
+  const goLive = () => {
+    focusGenRef.current += 1;
+    focusAbortRef.current?.abort();
+    pendingFocusRef.current = null;
+    setHistoryNotice(null);
+    setAwayFromLive(false);
+    void loadCandles().then(() => {
+      chartRef.current?.priceScale('right').applyOptions({ autoScale: true });
+      chartRef.current?.timeScale().scrollToRealTime();
+    });
+  };
 
   // 4. Attach / Update RiskRewardPrimitive Overlay using real equity and settings
+  const selectionKey = selectedBinding
+    ? `${selectedBinding.source}:${(selectedBinding as any).scenario_id || (selectedBinding as any).setup_id || (selectedBinding as any).order_id || selectedBinding.id}:${(selectedBinding as any).snapshotId || (selectedBinding as any).snapshot_id || ''}`
+    : 'NONE';
+
+  const prevSelectionKeyRef = useRef(selectionKey);
+
+  useEffect(() => {
+    if (selectionKey !== prevSelectionKeyRef.current) {
+      prevSelectionKeyRef.current = selectionKey;
+      setDraftMode(false);
+      draftBaseOverlayRef.current = null;
+      if (dragRafRef.current !== null) {
+        cancelAnimationFrame(dragRafRef.current);
+        dragRafRef.current = null;
+      }
+    }
+  }, [selectionKey]);
+
+  useEffect(() => {
+    if (activeOverlay !== draftBaseOverlayRef.current) {
+      setDraftMode(false);
+      draftBaseOverlayRef.current = activeOverlay;
+    }
+  }, [activeOverlay]);
+
   useEffect(() => {
     if (!seriesRef.current) return;
 
     let targetOverlay: RiskRewardData | null = null;
 
-    if (draftMode) {
-      // Build draft overlay initialized with authentic calculation from current close
+    if (draftMode && activeOverlay === draftBaseOverlayRef.current) {
+      // Check if an existing draft overlay was already configured/dragged on chart to preserve its geometry
+      const existingData = rrPrimitiveRef.current?.getData();
+      const isExistingDraft =
+        existingData &&
+        existingData.state === 'draft' &&
+        existingData.direction === draftDirection &&
+        existingData.plannedEntry > 0 &&
+        existingData.stopLoss > 0 &&
+        existingData.takeProfit > 0;
+
       const currP = latestClosePriceRef.current;
-      const entry = currP;
-      const sl = draftDirection === 'LONG'
-        ? (smcLevels?.swingLow && smcLevels.swingLow < entry ? smcLevels.swingLow : Number((entry - 8.0).toFixed(2)))
-        : (smcLevels?.swingHigh && smcLevels.swingHigh > entry ? smcLevels.swingHigh : Number((entry + 8.0).toFixed(2)));
-      const tp = draftDirection === 'LONG'
-        ? (smcLevels?.swingHigh && smcLevels.swingHigh > entry ? smcLevels.swingHigh : Number((entry + 20.0).toFixed(2)))
-        : (smcLevels?.swingLow && smcLevels.swingLow < entry ? smcLevels.swingLow : Number((entry - 20.0).toFixed(2)));
+      const entry = isExistingDraft ? existingData.plannedEntry : currP;
+      const sl = isExistingDraft
+        ? existingData.stopLoss
+        : (draftDirection === 'LONG'
+          ? (smcLevels?.swingLow && smcLevels.swingLow < entry ? smcLevels.swingLow : Number((entry - 8.0).toFixed(2)))
+          : (smcLevels?.swingHigh && smcLevels.swingHigh > entry ? smcLevels.swingHigh : Number((entry + 8.0).toFixed(2))));
+      const tp = isExistingDraft
+        ? existingData.takeProfit
+        : (draftDirection === 'LONG'
+          ? (smcLevels?.swingHigh && smcLevels.swingHigh > entry ? smcLevels.swingHigh : Number((entry + 20.0).toFixed(2)))
+          : (smcLevels?.swingLow && smcLevels.swingLow < entry ? smcLevels.swingLow : Number((entry - 20.0).toFixed(2))));
+      const bars = isExistingDraft && existingData.projectedBars ? existingData.projectedBars : 25;
+      const qtyOverride = isExistingDraft ? existingData.quantity : undefined;
 
       const calc = calculateClientRiskReward(
         draftDirection,
@@ -434,21 +916,30 @@ export function ChartComponent({
         tp,
         accountEquity,
         riskPct,
-        2.0,
-        undefined,
+        effectiveMinNetRR,
+        qtyOverride,
         leverage,
         marginMode
       );
 
       targetOverlay = {
-        id: 'draft-trade',
+        id: isExistingDraft ? existingData.id : 'draft-trade',
         direction: draftDirection,
         state: 'draft',
         plannedEntry: entry,
         stopLoss: sl,
         takeProfit: tp,
+        minNetRR: effectiveMinNetRR,
+        rrPolicySource,
+        rrPolicyFingerprint,
         quantity: calc.quantity,
         initialRiskUsdt: calc.netRiskUsdt,
+        grossLossUsdt: calc.grossLossUsdt,
+        grossRewardUsdt: calc.grossRewardUsdt,
+        netRewardUsdt: calc.netRewardUsdt,
+        multiplier: calc.multiplier,
+        canExecute: calc.canExecute,
+        executionReason: calc.skipReason,
         riskPct: riskPct,
         grossRR: calc.grossRR,
         estimatedNetRR: calc.estimatedNetRR,
@@ -459,7 +950,7 @@ export function ChartComponent({
         estimatedLiquidation: calc.estimatedLiquidation,
         initialMargin: calc.initialMarginUsdt,
         tier: calc.tier,
-        projectedBars: 25,
+        projectedBars: bars,
       };
     } else if (activeOverlay) {
       targetOverlay = activeOverlay;
@@ -484,9 +975,99 @@ export function ChartComponent({
         rrPrimitiveRef.current = null;
       }
     }
-  }, [activeOverlay, showOverlay, draftMode, draftDirection, smcLevels, accountEquity, riskPct, leverage, marginMode]);
+  }, [activeOverlay, showOverlay, draftMode, draftDirection, smcLevels, accountEquity, riskPct, leverage, marginMode, effectiveMinNetRR, rrPolicySource, rrPolicyFingerprint]);
+  // V17.5.6: Expose read-only overlay diagnostics ONLY in test mode (Parts 051-060, Appendix D1)
+  useEffect(() => {
+    if (!isChartDiagnosticsEnabled()) {
+      return;
+    }
+    const instanceId = chartInstanceIdRef.current;
+    const diagFn = () => {
+      const primitive = rrPrimitiveRef.current;
+      const data = primitive ? primitive.getData() : null;
+      const geom = primitive ? primitive.getGeometry() : null;
+      const isGeomReady = !!geom && [geom.entryY, geom.slY, geom.tpY].every(v => typeof v === 'number' && Number.isFinite(v));
+      const geomReason = !primitive ? "NO_PRIMITIVE" : (!geom ? "NO_GEOMETRY" : (!isGeomReady ? "COORDINATES_NON_FINITE" : "READY"));
 
-  // 5. Interactive Pointer Drag Handlers
+      return {
+        hasPrimitive: !!primitive,
+        instanceId,
+        geometryStatus: isGeomReady ? "READY" : "NOT_READY",
+        geometryReason: geomReason,
+        selectionKey,
+        selectedBinding: selectedBinding ? {
+          source: selectedBinding.source,
+          id: selectedBinding.id,
+          orderId: (selectedBinding as any).order_id || (selectedBinding as any).orderId,
+          setupId: (selectedBinding as any).setup_id,
+        } : null,
+        data: data ? {
+          id: data.id,
+          direction: data.direction,
+          state: data.state,
+          plannedEntry: data.plannedEntry,
+          actualEntry: data.actualEntry,
+          stopLoss: data.stopLoss,
+          takeProfit: data.takeProfit,
+          quantity: data.quantity,
+          netRewardUsdt: data.netRewardUsdt,
+          initialRiskUsdt: data.initialRiskUsdt,
+          readOnly: data.readOnly,
+        } : null,
+        geometry: geom ? {
+          entryY: geom.entryY,
+          slY: geom.slY,
+          tpY: geom.tpY,
+          lpY: geom.lpY,
+          startX: geom.startX,
+          endX: geom.endX,
+          isFinite: isGeomReady,
+        } : null,
+        timestamp: Date.now(),
+      };
+    };
+    (diagFn as any).__instanceId = instanceId;
+    (window as any).__AURUM_CHART_OVERLAY_DIAGNOSTICS__ = diagFn;
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        const currentFn = (window as any).__AURUM_CHART_OVERLAY_DIAGNOSTICS__;
+        if (currentFn && currentFn.__instanceId === instanceId) {
+          delete (window as any).__AURUM_CHART_OVERLAY_DIAGNOSTICS__;
+        }
+      }
+    };
+  }, [selectionKey, selectedBinding]);
+
+  // 5. Interactive Pointer Drag Handlers (DRAFT only; armed/open/closed/observation are read-only)
+  const isReadOnlyOverlay = (d: RiskRewardData) =>
+    d.readOnly === true || d.state === 'armed' || d.state === 'paper_open' || d.state === 'closed' || d.state === 'invalidated';
+
+  const restoreChartInteraction = () => {
+    chartRef.current?.applyOptions({ handleScroll: true, handleScale: true });
+  };
+
+  const cancelDragRaf = () => {
+    if (dragRafRef.current !== null) {
+      cancelAnimationFrame(dragRafRef.current);
+      dragRafRef.current = null;
+    }
+  };
+
+  // One pending RAF at most; it always paints the LATEST computed frame.
+  const scheduleDragPaint = (data: RiskRewardData) => {
+    latestDragDataRef.current = data;
+    if (dragRafRef.current !== null) return;
+    dragRafRef.current = requestAnimationFrame(() => {
+      dragRafRef.current = null;
+      if (latestDragDataRef.current) {
+        rrPrimitiveRef.current?.setData(latestDragDataRef.current);
+        const exclusions = rrPrimitiveRef.current?.getReservedRects() || [];
+        smcPrimitiveRef.current?.setExclusions(exclusions);
+      }
+    });
+  };
+
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!chartContainerRef.current || !rrPrimitiveRef.current || !seriesRef.current || !chartRef.current) return;
 
@@ -497,6 +1078,10 @@ export function ChartComponent({
     const hit = rrPrimitiveRef.current.hitTest(localX, localY);
     if (!hit) return;
 
+    // Confirmed setups / orders / observations never mutate through the chart.
+    const currentData = rrPrimitiveRef.current.getData();
+    if (isReadOnlyOverlay(currentData)) return;
+
     chartRef.current.applyOptions({
       handleScroll: false,
       handleScale: false,
@@ -506,9 +1091,9 @@ export function ChartComponent({
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {}
 
-    const currentData = rrPrimitiveRef.current.getData();
     const priceAtClick = seriesRef.current.coordinateToPrice(localY) ?? (currentData.actualEntry ?? currentData.plannedEntry);
 
+    latestDragDataRef.current = null;
     dragStateRef.current = {
       pointerId: e.pointerId,
       part: hit.part,
@@ -535,6 +1120,8 @@ export function ChartComponent({
       const hit = rrPrimitiveRef.current.hitTest(localX, localY);
       rrPrimitiveRef.current.setHoverPart(hit?.part || null);
       if (hit) {
+        // R:R handles have priority over SMC annotations; hovering never creates or cancels anything.
+        setHoveredHitItem(null);
         if (hit.part === 'entry' || hit.part === 'sl' || hit.part === 'tp') {
           chartContainerRef.current.style.cursor = 'ns-resize';
         } else if (hit.part === 'right_edge') {
@@ -543,7 +1130,9 @@ export function ChartComponent({
           chartContainerRef.current.style.cursor = 'move';
         }
       } else {
-        chartContainerRef.current.style.cursor = 'default';
+        const smcHit = smcPrimitiveRef.current?.hitTest(localX, localY) ?? null;
+        setHoveredHitItem((prev) => (prev?.id === smcHit?.id ? prev : smcHit));
+        chartContainerRef.current.style.cursor = smcHit ? 'pointer' : 'default';
       }
       return;
     }
@@ -572,19 +1161,14 @@ export function ChartComponent({
       const dx = localX - drag.startX;
       const barDelta = Math.round(dx / 12);
       newBars = Math.max(10, Math.min(100, drag.startBars + barDelta));
-
-      const updatedData: RiskRewardData = {
-        ...drag.initialData,
-        projectedBars: newBars,
-      };
-
-      requestAnimationFrame(() => {
-        rrPrimitiveRef.current?.setData(updatedData);
-      });
+      scheduleDragPaint({ ...drag.initialData, projectedBars: newBars });
       return;
     }
 
+    // Direction is fixed by the draft: dragging a SHORT stop below entry yields an invalid-geometry warning,
+    // it never flips the trade or silently re-sorts the levels.
     const direction = drag.initialData.direction;
+    const effMinRR = drag.initialData.state === 'draft' ? effectiveMinNetRR : (drag.initialData.minNetRR ?? effectiveMinNetRR);
     const calc = calculateClientRiskReward(
       direction,
       newEntry,
@@ -592,14 +1176,15 @@ export function ChartComponent({
       newTp,
       accountEquity,
       drag.initialData.riskPct || riskPct,
-      2.0,
+      effMinRR,
       drag.initialData.quantity,
-      leverage,
-      marginMode
+      drag.initialData.leverage || leverage,
+      drag.initialData.marginMode || marginMode
     );
 
-    const updatedData: RiskRewardData = {
+    scheduleDragPaint({
       ...drag.initialData,
+      minNetRR: effMinRR,
       plannedEntry: newEntry,
       stopLoss: newSl,
       takeProfit: newTp,
@@ -619,32 +1204,46 @@ export function ChartComponent({
       initialMargin: calc.initialMarginUsdt,
       tier: calc.tier,
       projectedBars: newBars,
-    };
-
-    requestAnimationFrame(() => {
-      rrPrimitiveRef.current?.setData(updatedData);
     });
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragStateRef.current || !chartRef.current) return;
 
-    chartRef.current.applyOptions({
-      handleScroll: true,
-      handleScale: true,
-    });
+    // Flush: the committed value is the last computed frame, never a stale painted one.
+    cancelDragRaf();
+    if (latestDragDataRef.current && rrPrimitiveRef.current) {
+      rrPrimitiveRef.current.setData(latestDragDataRef.current);
+    }
+
+    restoreChartInteraction();
 
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {}
 
-    if (rrPrimitiveRef.current) {
+    if (rrPrimitiveRef.current && latestDragDataRef.current) {
       const finalData = rrPrimitiveRef.current.getData();
       if (onOverlayChange) {
         onOverlayChange(finalData);
       }
     }
 
+    latestDragDataRef.current = null;
+    dragStateRef.current = null;
+  };
+
+  // PointerCancel / lost capture: roll back to the pre-drag geometry and restore pan/zoom.
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragStateRef.current;
+    if (!drag) return;
+    cancelDragRaf();
+    latestDragDataRef.current = null;
+    rrPrimitiveRef.current?.setData(drag.initialData);
+    restoreChartInteraction();
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
     dragStateRef.current = null;
   };
 
@@ -690,7 +1289,16 @@ export function ChartComponent({
         <div className="flex items-center space-x-2">
           {/* Toggle Draft Mode */}
           <button
-            onClick={() => setDraftMode(!draftMode)}
+            data-testid="toggle-draft-mode"
+            onClick={() => {
+              if (!draftMode && selectedBinding) {
+                draftBaseOverlayRef.current = null;
+                onClearSelection?.();
+              } else {
+                draftBaseOverlayRef.current = activeOverlay;
+              }
+              setDraftMode(!draftMode);
+            }}
             className={`flex items-center px-2.5 py-1 rounded font-medium transition-all ${
               draftMode
                 ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20'
@@ -704,6 +1312,7 @@ export function ChartComponent({
           {draftMode && (
             <div className="flex items-center bg-gray-900 rounded p-0.5 border border-gray-700">
               <button
+                data-testid="draft-direction-long"
                 onClick={() => setDraftDirection('LONG')}
                 className={`flex items-center px-2 py-0.5 rounded ${
                   draftDirection === 'LONG' ? 'bg-emerald-600 text-white' : 'text-gray-400'
@@ -712,6 +1321,7 @@ export function ChartComponent({
                 <ArrowUpRight className="w-3 h-3 mr-0.5" /> Mua
               </button>
               <button
+                data-testid="draft-direction-short"
                 onClick={() => setDraftDirection('SHORT')}
                 className={`flex items-center px-2 py-0.5 rounded ${
                   draftDirection === 'SHORT' ? 'bg-rose-600 text-white' : 'text-gray-400'
@@ -722,16 +1332,36 @@ export function ChartComponent({
             </div>
           )}
 
-          {/* Toggle SMC Structure Visuals */}
-          <button
-            onClick={() => setShowSMCLevels(!showSMCLevels)}
-            className={`p-1.5 rounded hover:bg-gray-800 ${
-              showSMCLevels ? 'text-indigo-400' : 'text-gray-500'
-            }`}
-            title="Bật/Tắt Cấu trúc SMC (Swings, Sweeps, BOS, CHoCH)"
-          >
-            <Layers className="w-4 h-4" />
-          </button>
+          {/* Layer Menu & Toggle */}
+          <ChartLayerMenu
+            settings={layerSettings}
+            onChange={setLayerSettings}
+            evidenceMode={evidenceMode}
+            onEvidenceModeChange={_onEvidenceModeChange}
+          />
+
+          {/* Evidence List Button */}
+          {selectedRawBundle && (
+            <button
+              ref={evidenceListTriggerRef}
+              type="button"
+              data-testid="open-evidence-list"
+              onClick={() => setIsEvidenceListOpen(true)}
+              className="p-1.5 rounded hover:bg-gray-800 text-aurum-400 flex items-center gap-1 border border-charcoal-700 bg-charcoal-850 text-xs"
+              title="Xem danh sách bằng chứng (Evidence List)"
+            >
+              <List className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Bằng chứng</span>
+            </button>
+          )}
+
+          <ChartEvidenceList
+            isOpen={isEvidenceListOpen}
+            onClose={() => setIsEvidenceListOpen(false)}
+            bundle={selectedRawBundle ?? null}
+            onFocusEvidence={focusEvidence}
+            triggerRef={evidenceListTriggerRef}
+          />
 
           {/* Toggle Risk/Reward Overlay */}
           <button
@@ -756,14 +1386,87 @@ export function ChartComponent({
         </div>
       </div>
 
+      {/* Selected Chart Header */}
+      {selectedBinding && (
+        <SelectedChartHeader
+          binding={selectedBinding}
+          state={selectedEvidence?.state}
+          plan={selectedEvidence?.riskRewardPlan}
+          summaryVi={selectedSummaryVi}
+          candidateScore={selectedCandidateScore ?? (selectedRawBundle as any)?.candidate_score_summary ?? null}
+          onClear={onClearSelection}
+          onOpenDetails={onOpenSelectionDetails}
+        />
+      )}
+
       {/* Main Chart Area */}
       <div
         ref={chartContainerRef}
+        data-testid="chart-pane"
         className="flex-1 w-full relative touch-none"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onLostPointerCapture={handlePointerCancel}
+        onPointerLeave={() => setHoveredHitItem(null)}
       >
+        {hoveredHitItem && (
+          <ChartEvidenceTooltip
+            data={{
+              kind: hoveredHitItem.title,
+              price: hoveredHitItem.price,
+              occurredAtMs: hoveredHitItem.timeMs,
+              detail: hoveredHitItem.detail,
+              x: hoveredHitItem.x,
+              y: hoveredHitItem.y,
+            }}
+            onClose={() => setHoveredHitItem(null)}
+          />
+        )}
+        {selectedBinding && selectedLoading && (
+          <div
+            data-testid="selection-loading"
+            className="absolute top-3 left-3 z-20 px-2.5 py-1 bg-gray-900/90 border border-cyan-800/70 rounded-md text-xs text-cyan-200"
+          >
+            Đang tải bằng chứng của mục đã chọn…
+          </div>
+        )}
+        {selectedBinding && selectedError && !selectedLoading && (
+          <div
+            data-testid="selection-error"
+            className="absolute top-3 left-3 z-20 px-2.5 py-1 bg-rose-950/80 border border-rose-800 rounded-md text-xs text-rose-200 max-w-[70%]"
+          >
+            {selectedError}
+          </div>
+        )}
+        {historyNotice && (
+          <div
+            data-testid="history-notice"
+            className="absolute bottom-3 left-3 z-20 px-2.5 py-1 bg-amber-950/80 border border-amber-800/80 rounded-md text-xs text-amber-200"
+          >
+            {historyNotice}
+          </div>
+        )}
+        {awayFromLive && (
+          <button
+            type="button"
+            data-testid="back-to-live"
+            onClick={goLive}
+            className="absolute bottom-3 right-16 z-20 px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 text-white text-xs font-medium rounded-md shadow-lg"
+          >
+            Về hiện tại
+          </button>
+        )}
+        {chartIssue && (
+          <div
+            data-testid="chart-data-issue"
+            title={`Mã lỗi: ${chartIssue.code}`}
+            className="absolute top-3 right-3 z-20 px-2 py-1 bg-amber-950/80 border border-amber-800/80 rounded-md text-[11px] text-amber-200"
+          >
+            Dữ liệu nến bất thường ({chartIssue.count})
+          </div>
+        )}
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-20 backdrop-blur-xs">
             <RefreshCw className="w-6 h-6 text-amber-500 animate-spin" />

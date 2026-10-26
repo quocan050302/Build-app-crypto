@@ -366,19 +366,28 @@ def test_a07_auto_arm_matched_red(db):
         predicate=json.dumps({"metric": "net_rr", "operator": ">=", "threshold": 2.5})
     )
 
+    # V14.2: the entry guard uses the authoritative calculator result (not the stored setup.net_rr).
+    # TP 2682 gives a real net R:R of ~2.42: it passes the 2.0 minimum but violates the rule's 2.5,
+    # so the block comes from the lesson rule itself and not from another gate.
     setup = make_setup(
         db, setup_id="setup-a07", direction="LONG", provisional_entry=2650.0,
-        provisional_sl=2640.0, provisional_tp=2685.0, net_rr=2.2, now_ms=now_ms
+        provisional_sl=2640.0, provisional_tp=2682.0, net_rr=2.2, now_ms=now_ms
     )
 
+    from services.collector_service import collector_service
+    collector_service.latest_ticker = {"symbol": "XAUUSDT", "bid": 2650.0, "ask": 2650.2, "timestamp": now_ms}
+
     sig = {"signal_id": "sig-a07"}
+    strategy_service._last_auto_block = None
     strategy_service._auto_arm_candidate(db, setup, sig, now_ms, now_dt)
 
     armed = db.query(models.PaperOrder).filter(models.PaperOrder.setup_id == "setup-a07").first()
     assert armed is None
+    assert strategy_service._last_auto_block is not None
+    assert "LESSON_RULE_BLOCKED" in strategy_service._last_auto_block[2]
 
 
-def test_a08_auto_yellow_no_pause(db):
+def test_a08_auto_yellow_no_pause(db, fresh_ticker):
     """A08: Auto yellow -> không pause Auto hoặc yêu cầu confirmation mới."""
     now_ms = int(time.time() * 1000)
     now_dt = datetime.fromtimestamp(now_ms / 1000.0, tz=timezone.utc)

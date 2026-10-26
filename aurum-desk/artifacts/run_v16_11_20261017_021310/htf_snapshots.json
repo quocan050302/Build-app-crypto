@@ -1,0 +1,82 @@
+[
+  {
+    "case_name": "CASE_1_BULLISH_INTACT",
+    "description": "Bullish sequence with protected low at 2520 intact",
+    "as_of_ms": 1700054000000,
+    "baseline_bias": "BULLISH",
+    "corrected_bias": "BULLISH",
+    "phase": "ESTABLISHED",
+    "protected_level": {
+      "id": "1h_sl_1700028800000",
+      "swing_id": "1h_sl_1700028800000",
+      "symbol": "XAUUSDT",
+      "timeframe": "1H",
+      "price": 2520.0,
+      "occurred_at_ms": 1700028800000,
+      "known_at_ms": 1700039600000,
+      "index": 8,
+      "kind": "LOW",
+      "label": "HL"
+    },
+    "provenance": "CONFIRMED_SWING_SEQUENCE",
+    "evidence_reason": "Protected low sl2 (2520.0) remains unbreached by closed candles."
+  },
+  {
+    "case_name": "CASE_2_BULLISH_PROTECTED_BREAK",
+    "description": "Bullish sequence where candle closes at 2515 below protected low 2520",
+    "as_of_ms": 1700057600000,
+    "baseline_bias": "BULLISH (Error: early return sh2>sh1 and sl2>sl1 hid the break)",
+    "corrected_bias": "UNKNOWN",
+    "phase": "TRANSITION",
+    "latest_event": {
+      "event_id": "evt_prot_low_break_1700057600000",
+      "event_type": "PROTECTED_LOW_BREAK",
+      "direction": "BEARISH",
+      "reference_swing_id": "1h_sl_1700028800000",
+      "reference_price": 2520.0,
+      "breaking_bar_open_ms": 1700054000000,
+      "breaking_bar_close_ms": 1700057600000,
+      "close_price": 2515.0,
+      "known_at_ms": 1700057600000,
+      "previous_bias": "BULLISH",
+      "new_bias": "UNKNOWN",
+      "previous_phase": "ESTABLISHED",
+      "new_phase": "TRANSITION"
+    },
+    "provenance": "TRANSITION_AFTER_PROTECTED_BREAK",
+    "evidence_reason": "Close price 2515.0 broke protected low 2520.0. Transition recorded; not falsely kept bullish."
+  },
+  {
+    "case_name": "CASE_5_INSUFFICIENT_SWINGS_NO_SMA_FALLBACK",
+    "description": "Candles without confirmed swings where price is above 20 SMA",
+    "as_of_ms": 1700072000000,
+    "baseline_bias": "BULLISH (Error: 20 SMA fallback masqueraded as market structure)",
+    "corrected_bias": "UNKNOWN",
+    "phase": "UNDETERMINED",
+    "indicator_bias": "BULLISH",
+    "provenance": "INSUFFICIENT_CONFIRMED_SWINGS",
+    "evidence_reason": "Structural bias returns UNKNOWN/UNDETERMINED; SMA is recorded strictly as indicator_bias."
+  },
+  {
+    "case_name": "CASE_4_WICK_SWEEP_REJECTION",
+    "description": "Wick breached 2520 to 2515 but closed at 2525 inside structure",
+    "as_of_ms": 1700057600000,
+    "baseline_bias": "BULLISH",
+    "corrected_bias": "BULLISH",
+    "phase": "ESTABLISHED",
+    "protected_level": {
+      "id": "1h_sl_1700028800000",
+      "swing_id": "1h_sl_1700028800000",
+      "symbol": "XAUUSDT",
+      "timeframe": "1H",
+      "price": 2520.0,
+      "occurred_at_ms": 1700028800000,
+      "known_at_ms": 1700039600000,
+      "index": 8,
+      "kind": "LOW",
+      "label": "HL"
+    },
+    "provenance": "CONFIRMED_SWING_SEQUENCE",
+    "evidence_reason": "Wick sweep does not invalidate structural level; external bias remains intact."
+  }
+]

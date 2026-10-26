@@ -61,6 +61,8 @@ export interface QualityAssessment {
 
 export interface QualitySnapshot {
   schema_version: 'v14.0';
+  config_version?: number;
+  detector_version?: string;
   snapshot_id: string;
   setup_id?: string;
   setup_instance_id?: string;

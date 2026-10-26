@@ -3,6 +3,12 @@ import type { SelectedTradeIntent } from '../App';
 import type { DrawerSectionType } from './QuickDecisionSidebar';
 import type { NYSessionStatus, TradingPolicy } from '../api/client';
 import {
+  resolveSelectionRrPolicy,
+  type CurrentPolicyContext,
+  type SelectionRrPolicyView,
+} from '../utils/rrPolicyView';
+import { NYQuotaDiagnosticsCard } from './NYQuotaDiagnosticsCard';
+import {
   X,
   CheckCircle2,
   XCircle,
@@ -17,6 +23,35 @@ import {
 } from 'lucide-react';
 import { normalizeLessonItem, type NormalizedLessonItem } from '../types/lesson';
 
+import { EvidenceAccordion } from './EvidenceAccordion';
+import { CandidateScoreDetails } from './CandidateScoreDetails';
+import { useCandidateScoreDetail } from '../hooks/useCandidateScoreDetail';
+import { getSelectedScoreTarget } from '../utils/candidateScore';
+import type { ChartBinding, ChartEvidenceBundleV144 } from '../types/smcScenario';
+import type { ReturnedBinding } from '../hooks/useSelectedChart';
+
+export function formatStrategyFamilyVi(family?: string): string {
+  switch (family) {
+    case 'SMC_M1_REVERSAL':
+    case 'SCALP_M1_REVERSAL':
+      return 'SMC Đảo chiều M1 (Reversal)';
+    case 'SMC_M1_CONTINUATION':
+    case 'SCALP_M1_CONTINUATION':
+      return 'SMC Tiếp diễn M1 (BOS)';
+    case 'SMC_M1_FVG_CONTINUATION':
+      return 'SMC Tiếp diễn FVG M1';
+    case 'SMC_M1_SWEEP_RECLAIM':
+      return 'SMC Quét & Reclaim M1';
+    case 'NY_DAILY_RESEARCH':
+    case 'NY_QUOTA_PAPER':
+      return 'Nghiên cứu phiên Mỹ (NY_DAILY_RESEARCH)';
+    case 'STANDARD_SMC':
+      return 'SMC Tiêu chuẩn';
+    default:
+      return family || 'SMC Tiêu chuẩn';
+  }
+}
+
 export interface TradeDetailsDrawerProps {
   isOpen: boolean;
   activeSection: DrawerSectionType;
@@ -29,12 +64,111 @@ export interface TradeDetailsDrawerProps {
   onRefreshUpcoming?: () => void;
   nySession: NYSessionStatus | null;
   policy: TradingPolicy | null;
+  appliedMinNetRR?: number | null;
+  currentPolicyContext?: CurrentPolicyContext | null;
   leverage: number;
   marginMode: string;
   analysis: any;
   selectedQualitySnapshot?: any;
   selectedQualityLoading?: boolean;
   selectedQualityError?: string | null;
+  selectedRawBundle?: ChartEvidenceBundleV144 | null;
+  selectedBinding?: ChartBinding | null;
+  selectedReturnedBinding?: ReturnedBinding | null;
+  selectedEvidenceLoading?: boolean;
+  selectedEvidenceError?: string | null;
+}
+
+export const SnapshotProvenance: React.FC<{
+  binding?: ChartBinding | null;
+  returnedBinding?: ReturnedBinding | null;
+  provenance?: any;
+  asOfMs?: number | null;
+}> = ({ binding, returnedBinding, provenance, asOfMs }) => {
+  const effectiveBinding = returnedBinding || binding;
+  if (!effectiveBinding && !provenance) return null;
+
+  const source = effectiveBinding?.source || 'UNKNOWN';
+  const snapshotId =
+    (effectiveBinding && ('snapshot_id' in effectiveBinding ? effectiveBinding.snapshot_id : (effectiveBinding as ChartBinding).snapshotId)) ||
+    provenance?.snapshot_id ||
+    '';
+  const id = effectiveBinding?.id || '';
+  const shortId = id.length > 12 ? `${id.slice(0, 8)}…` : id;
+  const shortSnap = snapshotId.length > 16 ? `${snapshotId.slice(0, 10)}…` : snapshotId;
+  const isOrder = source === 'ORDER';
+
+  return (
+    <div
+      data-testid="snapshot-provenance-badge"
+      className="p-2.5 rounded-lg bg-charcoal-850 border border-charcoal-750 flex flex-wrap items-center justify-between gap-2 text-[11px]"
+    >
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span
+          className={`px-1.5 py-0.5 rounded font-mono font-bold text-[9px] ${
+            isOrder
+              ? 'bg-purple-950 text-purple-300 border border-purple-800'
+              : 'bg-indigo-950 text-indigo-300 border border-indigo-800'
+          }`}
+        >
+          {isOrder ? 'LỊCH SỬ LỆNH (FROZEN)' : source}
+        </span>
+        {shortId && (
+          <span className="font-mono text-gray-300" title={id}>
+            ID: {shortId}
+          </span>
+        )}
+        {shortSnap && (
+          <span className="font-mono text-gray-400 text-[10px]" title={snapshotId}>
+            (Snap: {shortSnap})
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        {provenance?.version_label && (
+          <span className="px-1.5 py-0.2 rounded text-[9px] bg-charcoal-800 text-aurum-300 font-mono">
+            {provenance.version_label}
+          </span>
+        )}
+        {asOfMs && (
+          <span className="text-[10px] text-gray-500 font-mono">
+            {new Date(asOfMs).toLocaleTimeString('vi-VN')}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export function formatDrawerRrPolicyThreshold(view: SelectionRrPolicyView): string {
+  if (view.kind === 'ORDER_SNAPSHOT') {
+    if (view.status === 'KNOWN' && view.minNetRR !== null) {
+      return `1:${view.minNetRR.toFixed(2)} (Lúc ARM)`;
+    }
+    if (view.status === 'INVALID') {
+      return 'Ngưỡng snapshot lúc ARM không hợp lệ';
+    }
+    return 'Chưa lưu ngưỡng lúc ARM';
+  }
+
+  if (view.kind === 'CURRENT') {
+    if (view.status === 'ERROR') {
+      return 'Chưa xác minh lại cấu hình R:R';
+    }
+    if (view.status === 'READY' && view.isAuthoritative && view.minNetRR !== null) {
+      return `1:${view.minNetRR.toFixed(2)} (Hiện hành)`;
+    }
+    if (view.status === 'LOADING') {
+      return 'Đang tải cấu hình R:R...';
+    }
+    return 'Chưa xác nhận cấu hình R:R';
+  }
+
+  if (view.kind === 'INVALID') {
+    return 'Cấu hình R:R không hợp lệ';
+  }
+  return 'Chưa xác định';
 }
 
 export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
@@ -44,17 +178,24 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
   onClose,
   selectedIntent,
   activePosition,
-  upcomingSetups,
+  upcomingSetups = [],
   onFocusSetupOnChart,
   onRefreshUpcoming,
   nySession,
   policy,
+  appliedMinNetRR,
+  currentPolicyContext,
   leverage,
   marginMode,
   analysis,
   selectedQualitySnapshot,
   selectedQualityLoading = false,
   selectedQualityError,
+  selectedRawBundle,
+  selectedBinding,
+  selectedReturnedBinding,
+  selectedEvidenceLoading = false,
+  selectedEvidenceError,
 }) => {
   const drawerRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
@@ -77,6 +218,30 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
+
+  // V16.39.12 Candidate Quality Score Detail resolution
+  // Rules 074-076: Prioritize verified detail from selectedRawBundle.
+  // If missing and target is an order, use pure hook fallback.
+  const scoreTarget = getSelectedScoreTarget(
+    selectedBinding ? { source: selectedBinding.source, id: selectedBinding.id } : null,
+    selectedIntent
+  );
+
+  const bundleDetail = (selectedRawBundle as any)?.candidate_score_detail || null;
+  const isScoreNeeded = Boolean(isOpen && activeSection === 'quality' && !bundleDetail && scoreTarget?.kind === 'ORDER');
+
+  const {
+    detail: fallbackScoreDetail,
+    loading: isScoreLoading,
+    error: scoreDetailError,
+    refetch: refetchScoreDetail,
+  } = useCandidateScoreDetail({
+    orderId: isScoreNeeded ? scoreTarget?.id : null,
+    expectedAssessmentId: scoreTarget?.assessmentId,
+    enabled: isScoreNeeded,
+  });
+
+  const effectiveScoreDetail = bundleDetail || fallbackScoreDetail;
 
   if (!isOpen) return null;
 
@@ -181,6 +346,18 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
           })}
         </div>
 
+        {/* Snapshot Provenance Badge */}
+        {(selectedBinding || selectedReturnedBinding || selectedRawBundle?.provenance) && (
+          <div className="px-4 pt-3 shrink-0">
+            <SnapshotProvenance
+              binding={selectedBinding}
+              returnedBinding={selectedReturnedBinding}
+              provenance={selectedRawBundle?.provenance}
+              asOfMs={selectedRawBundle?.as_of_ms}
+            />
+          </div>
+        )}
+
         {/* 3. Section Content Body (flex-1 min-h-0 overflow-y-auto) */}
         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 text-xs text-gray-300">
           {/* SECTION: CHẤT LƯỢNG SMC (V14) */}
@@ -196,6 +373,25 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                 </p>
               </div>
 
+              {/* V14.4.2 Structured Evidence Accordion */}
+              <EvidenceAccordion
+                explanation={selectedRawBundle?.entry_explanation}
+                provenance={selectedRawBundle?.provenance}
+                htfContext={selectedRawBundle?.htf_context}
+                loading={selectedEvidenceLoading}
+                error={selectedEvidenceError}
+              />
+
+              {/* V16.39.11 / V16.39.12 CG-01 Candidate Quality Score Details */}
+              <CandidateScoreDetails
+                summary={selectedIntent?.candidate_score_summary || (selectedRawBundle as any)?.candidate_score_summary || null}
+                detail={effectiveScoreDetail}
+                orderId={scoreTarget?.kind === 'ORDER' ? scoreTarget.id : undefined}
+                loading={isScoreLoading}
+                error={scoreDetailError}
+                onRetry={refetchScoreDetail}
+              />
+
               {selectedQualityLoading && (
                 <div className="p-4 rounded-lg bg-charcoal-850 border border-charcoal-750 text-center text-xs text-gray-400">
                   Đang phân tích cấu trúc SMC theo snapshot lệnh...
@@ -207,6 +403,7 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                   {selectedQualityError}
                 </div>
               )}
+
 
               {!selectedQualityLoading && !selectedQualitySnapshot && (
                 <div className="p-4 rounded-lg bg-charcoal-850 border border-charcoal-750 text-xs text-gray-400 space-y-2">
@@ -248,7 +445,7 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">Chiến lược / Family:</span>
                       <span className="font-mono text-aurum-300 font-bold">
-                        {selectedQualitySnapshot.strategy_family || 'STANDARD_SMC'} ({selectedQualitySnapshot.direction})
+                        {formatStrategyFamilyVi(selectedQualitySnapshot.strategy_family)} ({selectedQualitySnapshot.direction})
                       </span>
                     </div>
 
@@ -259,6 +456,24 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                       </span>
                     </div>
                   </div>
+
+                  {/* V14.4 Realtime SMC Scenario Explanation */}
+                  {(selectedQualitySnapshot.summary_vi || selectedQualitySnapshot.payload?.summary_vi) && (
+                    <div className="p-3 rounded-lg bg-indigo-950/40 border border-indigo-700/60 space-y-2 text-xs">
+                      <div className="font-bold text-indigo-300 text-xs flex items-center gap-1.5 uppercase">
+                        <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                        Kịch Bản SMC Realtime (V14.4):
+                      </div>
+                      <div className="text-[11px] text-gray-200 whitespace-pre-line leading-relaxed font-sans">
+                        {selectedQualitySnapshot.summary_vi || selectedQualitySnapshot.payload?.summary_vi}
+                      </div>
+                      {(selectedQualitySnapshot.invalidation || selectedQualitySnapshot.payload?.invalidation) && (
+                        <div className="text-[11px] text-rose-300 bg-rose-950/50 p-2 rounded border border-rose-800/60">
+                          <strong>Điều kiện hủy:</strong> {(selectedQualitySnapshot.invalidation || selectedQualitySnapshot.payload?.invalidation).rule_description_vi || `Thủng mức ${(selectedQualitySnapshot.invalidation || selectedQualitySnapshot.payload?.invalidation).price}`}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Fact Summary */}
                   {selectedQualitySnapshot.assessment?.summary && (
@@ -643,7 +858,7 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                 </div>
                 <div className="flex justify-between border-t border-charcoal-750 pt-2">
                   <span className="text-gray-400">Lỗ theo giá tại SL (Gross Loss):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.grossLossUsdt !== undefined ? selectedIntent.grossLossUsdt.toFixed(2) : '--'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.grossLossUsdt != null && Number.isFinite(selectedIntent.grossLossUsdt) ? selectedIntent.grossLossUsdt.toFixed(2) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Rủi ro ròng tại SL (Net Risk):</span>
@@ -651,11 +866,11 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                 </div>
                 <div className="flex justify-between border-t border-charcoal-750 pt-2">
                   <span className="text-gray-400">Lãi theo giá tại TP (Gross Reward):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.grossRewardUsdt !== undefined ? selectedIntent.grossRewardUsdt.toFixed(2) : '--'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.grossRewardUsdt != null && Number.isFinite(selectedIntent.grossRewardUsdt) ? selectedIntent.grossRewardUsdt.toFixed(2) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Lợi nhuận ròng tại TP (Net Reward):</span>
-                  <span className="font-mono text-emerald-400 font-bold">${selectedIntent?.netRewardUsdt !== undefined ? selectedIntent.netRewardUsdt.toFixed(2) : '--'} USDT</span>
+                  <span className="font-mono text-emerald-400 font-bold">${selectedIntent?.netRewardUsdt != null && Number.isFinite(selectedIntent.netRewardUsdt) ? selectedIntent.netRewardUsdt.toFixed(2) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between border-t border-charcoal-750 pt-2">
                   <span className="text-gray-400">R:R theo giá (Gross R:R):</span>
@@ -664,6 +879,28 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                 <div className="flex justify-between">
                   <span className="text-gray-400">R:R sau chi phí (Net R:R):</span>
                   <span className="font-mono text-aurum-400 font-bold">1:{selectedIntent?.estimatedNetRR?.toFixed(2) || '--'}</span>
+                </div>
+                <div className="flex justify-between text-[11px] text-gray-400 pt-0.5">
+                  <span>Ngưỡng tối thiểu áp dụng:</span>
+                  <span data-testid="rr-policy-threshold-value" className="font-mono text-gray-300">
+                    {(() => {
+                      const selView = resolveSelectionRrPolicy(
+                        selectedIntent,
+                        currentPolicyContext !== undefined
+                          ? currentPolicyContext
+                          : {
+                              value: appliedMinNetRR ?? policy?.effective_min_net_rr ?? policy?.min_net_rr ?? null,
+                              source: policy?.rr_policy_source,
+                              fingerprint: policy?.rr_policy_fingerprint,
+                              status: policy?.rr_policy_status,
+                            }
+                      );
+                      return formatDrawerRrPolicyThreshold(selView);
+                    })()}
+                  </span>
+                </div>
+                <div className="text-[10px] text-gray-500 italic pt-0.5">
+                  Net R:R đã trừ phí sàn và trượt giá; ngưỡng không phải là xác suất thắng.
                 </div>
                 {liqEst && (
                   <div className="flex justify-between border-t border-charcoal-750 pt-2">
@@ -680,27 +917,27 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                 </span>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Phí mở lệnh (Entry Taker 0.04%):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.entryFeeUsdt !== undefined ? selectedIntent.entryFeeUsdt.toFixed(4) : '--'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.entryFeeUsdt != null && Number.isFinite(selectedIntent.entryFeeUsdt) ? selectedIntent.entryFeeUsdt.toFixed(4) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Phí đóng lệnh SL (SL Taker 0.04%):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.slExitFeeUsdt !== undefined ? selectedIntent.slExitFeeUsdt.toFixed(4) : '--'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.slExitFeeUsdt != null && Number.isFinite(selectedIntent.slExitFeeUsdt) ? selectedIntent.slExitFeeUsdt.toFixed(4) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Phí đóng lệnh TP (TP Exit):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.tpExitFeeUsdt !== undefined ? selectedIntent.tpExitFeeUsdt.toFixed(4) : '--'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.tpExitFeeUsdt != null && Number.isFinite(selectedIntent.tpExitFeeUsdt) ? selectedIntent.tpExitFeeUsdt.toFixed(4) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Trượt giá Entry ($0.10/đơn vị):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.entrySlippageUsdt !== undefined ? selectedIntent.entrySlippageUsdt.toFixed(4) : '--'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.entrySlippageUsdt != null && Number.isFinite(selectedIntent.entrySlippageUsdt) ? selectedIntent.entrySlippageUsdt.toFixed(4) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Trượt giá SL ($0.10/đơn vị):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.slExitSlippageUsdt !== undefined ? selectedIntent.slExitSlippageUsdt.toFixed(4) : '--'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.slExitSlippageUsdt != null && Number.isFinite(selectedIntent.slExitSlippageUsdt) ? selectedIntent.slExitSlippageUsdt.toFixed(4) : '--'} USDT</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-400">Trượt giá TP (thị trường):</span>
-                  <span className="font-mono text-gray-300">${selectedIntent?.tpExitSlippageUsdt !== undefined ? selectedIntent.tpExitSlippageUsdt.toFixed(4) : '$0.0000'} USDT</span>
+                  <span className="font-mono text-gray-300">${selectedIntent?.tpExitSlippageUsdt != null && Number.isFinite(selectedIntent.tpExitSlippageUsdt) ? selectedIntent.tpExitSlippageUsdt.toFixed(4) : '$0.0000'} USDT</span>
                 </div>
                 <div className="border-t border-charcoal-750 pt-1.5 space-y-1 text-[10px] text-gray-400">
                   <div className="flex justify-between">
@@ -772,13 +1009,16 @@ export const TradeDetailsDrawer: React.FC<TradeDetailsDrawerProps> = ({
                   <div className="flex justify-between border-t border-charcoal-750 pt-2">
                     <span className="text-gray-400">Chính sách phiên:</span>
                     <span className="text-emerald-400 font-medium">
-                      {policy?.entry_session_policy === 'ALL_SESSIONS_WITH_NY_RESERVE'
+                      {policy?.entry_session_policy === 'ALL_SESSIONS_SETUP_FIRST'
+                        ? 'Mọi phiên — Setup-first (Không ưu tiên phiên Mỹ)'
+                        : policy?.entry_session_policy === 'ALL_SESSIONS_WITH_NY_RESERVE'
                         ? 'Tất cả phiên (giữ slot Mỹ)'
                         : 'Chỉ Phiên Mỹ (NY_ONLY)'}
                     </span>
                   </div>
                 </div>
               )}
+              <NYQuotaDiagnosticsCard />
             </div>
           )}
         </div>

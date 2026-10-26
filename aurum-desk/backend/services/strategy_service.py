@@ -12,6 +12,7 @@ from services.collector_service import collector_service
 from services.event_bus import event_bus
 from services.trading_policy_service import TradingPolicyService
 from services.ny_fallback_service import NYFallbackService
+from services.entry_guard_service import serialize_entry_mutation
 
 logger = logging.getLogger(__name__)
 
@@ -44,22 +45,74 @@ class StrategyService:
         )
         return enabled
 
-    def evaluate_upcoming_setups(self, symbol: str = "XAUUSDT", timeframe: str = "15M"):
+    def evaluate_ny_quota_cycle(self, db: Session, symbol: str, context) -> Dict[str, Any]:
+        """V14.3 NY quota orchestration (fallback search -> dedicated upsert -> guarded auto-arm).
+
+        Only orchestrates; the standard SMC flow is untouched. `context` is a
+        `services.ny_quota_service.NYCycleContext` (injected clock/quote/data). The caller's DB session is
+        used as-is (no SessionLocal reopened). Search is NOT permission: arm re-runs the V14.2 entry guard.
+        """
+        from services.ny_quota_service import run_ny_quota_cycle
+        if context.auto_enabled is None:
+            context.auto_enabled = self.get_auto_state(db)
+        return run_ny_quota_cycle(db, symbol, context, arm_fn=self._auto_arm_candidate)
+
+    def evaluate_upcoming_setups(
+        self,
+        symbol: str = "XAUUSDT",
+        timeframe: str = "15M",
+        *,
+        db: Optional[Session] = None,
+        clock: Any = None,
+        ticker: Optional[Dict[str, Any]] = None,
+        quote: Any = None,
+        htf_bias: Optional[str] = None,
+        h1_alignment: Optional[str] = None,
+        feed_health: Optional[Dict[str, Any]] = None,
+        candles_5m: Optional[list] = None,
+        auto_enabled: Optional[bool] = None,
+    ):
         """
         Evaluate market conditions and maintain watch_setups progression:
         WATCHING -> WAITING_PRICE -> WAITING_SWEEP -> WAITING_MSS -> WAITING_RETRACE -> READY -> ARMED.
+
+        V14.3: keyword-only injection (db/clock/ticker/quote/bias/feed/candles/auto) makes the whole flow
+        deterministic for tests and the frequency audit. Live callers pass nothing and behave as before.
+        The NY quota cycle always runs (even when the 15M data is too short for the standard flow).
         """
-        db: Session = SessionLocal()
+        owns_db = db is None
+        if owns_db:
+            db = SessionLocal()
+        ny_ctx = None
+        ny_done = False
         try:
-            candles = crud.get_candles(db, symbol, timeframe, limit=150, ascending=True)
+            now_ms = clock.now_ms() if clock is not None else int(time.time() * 1000)
+            now_dt = datetime.fromtimestamp(now_ms / 1000.0, tz=timezone.utc)
+            raw_ticker = ticker if ticker is not None else collector_service.latest_ticker
+            from services.ny_quota_service import NYCycleContext
+            ny_ctx = NYCycleContext(
+                now_ms=now_ms, clock=clock, quote=quote, ticker=raw_ticker,
+                htf_bias=htf_bias if htf_bias is not None else collector_service.d_4h_bias,
+                h1_alignment=h1_alignment if h1_alignment is not None else collector_service.h1_alignment,
+                candles_5m=candles_5m, feed_health=feed_health, auto_enabled=auto_enabled,
+            )
+            # V14.4.1: market-reading cycle (scenarios -> certified setup -> guarded auto-arm). It is isolated:
+            # any failure is logged as SYSTEM_ERROR and never blocks the legacy flow, NY fallback or exits.
+            self.evaluate_market_reading_cycle(
+                db, symbol, now_ms=now_ms, now_dt=now_dt, clock=clock, quote=quote,
+                feed_health=feed_health, auto_enabled=auto_enabled, ticker=raw_ticker,
+            )
+            candles = crud.get_candles(db, symbol, timeframe, limit=150, ascending=True, cutoff_ms=now_ms)
             if len(candles) < 20:
+                # V14.3: do not return silently - the NY cycle still audits/searches with its own 5M data.
+                ny_ctx.standard_status = "STANDARD_DATA_MISSING"
+                self.evaluate_ny_quota_cycle(db, symbol, ny_ctx)
+                ny_done = True
                 return
 
-            now_ms = int(time.time() * 1000)
-            now_dt = datetime.fromtimestamp(now_ms / 1000.0, tz=timezone.utc)
-            ticker = collector_service.latest_ticker or {"bid": candles[-1].close, "ask": candles[-1].close, "last": candles[-1].close}
+            ticker = raw_ticker or {"bid": candles[-1].close, "ask": candles[-1].close, "last": candles[-1].close}
             is_blackout, blackout_reason, _ = crud.check_news_blackout(db, now_ms)
-            day_audit = crud.get_or_create_today_audit(db)
+            day_audit = crud.get_or_create_today_audit(db, clock=clock)
 
             from services.risk_settings_service import risk_settings_service
             global_settings = risk_settings_service.get_settings(db)
@@ -77,8 +130,8 @@ class StrategyService:
                 day_audit=day_audit,
                 is_news_blackout=is_blackout,
                 news_blackout_reason=blackout_reason,
-                htf_bias=collector_service.d_4h_bias,
-                h1_alignment=collector_service.h1_alignment,
+                htf_bias=ny_ctx.htf_bias,
+                h1_alignment=ny_ctx.h1_alignment,
                 leverage=leverage,
                 margin_mode=margin_mode,
                 risk_pct=risk_pct
@@ -94,29 +147,97 @@ class StrategyService:
             watch_setup = db.query(models.WatchSetup).filter(models.WatchSetup.id == setup_id).first()
 
             direction = sig.get("direction", "LONG" if analysis.get("trend") == "BULLISH" else "SHORT") if sig else ("LONG" if analysis.get("trend") == "BULLISH" else "SHORT")
-            provisional_entry = sig.get("planned_entry", current_p) if sig else current_p
+            # V14.2: provenance of the plan. Without an active signal the plan is only an observation
+            # (entry = current price). A trend that is neither BULLISH nor BEARISH defaults the DISPLAY
+            # direction to SHORT, which is NOT a confirmed SELL signal -> direction_source UNCONFIRMED.
+            plan_kind = "CONFIRMED" if sig else "PROVISIONAL"
+            if sig:
+                direction_source = "SIGNAL"
+            elif analysis.get("trend") in ("BULLISH", "BEARISH"):
+                direction_source = "TREND"
+            else:
+                direction_source = "UNCONFIRMED"
+            from domain_calculator import CalculationResult, calculate_risk_reward, validate_price_geometry
+            from services.provisional_plan_service import build_provisional_plan
 
-            # Real liquidity target levels
-            sh = analysis.get("swing_high", current_p + 10.0)
-            sl_val = analysis.get("swing_low", current_p - 10.0)
             fallback_sl = round(current_p - max(atr * 2.0, 5.0), 2) if direction == "LONG" else round(current_p + max(atr * 2.0, 5.0), 2)
-            fallback_tp = round(sh, 2) if direction == "LONG" else round(sl_val, 2)
 
-            provisional_sl = sig.get("stop_loss", fallback_sl) if sig else fallback_sl
-            provisional_tp = sig.get("targets", [{}])[0].get("price", fallback_tp) if sig and sig.get("targets") else fallback_tp
+            from services.rr_policy_service import resolve_effective_rr_policy
+            effective_rr_ctx = resolve_effective_rr_policy(db)
+            effective_min_rr = effective_rr_ctx.min_net_rr
 
-            # Calculate authoritative risk-reward for provisional setup using real equity
-            from domain_calculator import calculate_risk_reward, validate_price_geometry
-            calc_prov = calculate_risk_reward(
-                direction=direction,
-                planned_entry=provisional_entry,
-                stop_loss=provisional_sl,
-                take_profit=provisional_tp,
-                capital_usdt=capital,
-                risk_pct=risk_pct,
-                leverage=leverage,
-                margin_mode=margin_mode
-            )
+            if sig:
+                provisional_entry = sig.get("planned_entry", current_p)
+                provisional_sl = sig.get("stop_loss", fallback_sl)
+                sig_targets = sig.get("targets") or []
+                sig_tp = sig_targets[0].get("price") if sig_targets else None
+                if sig_tp is not None:
+                    provisional_tp = float(sig_tp)
+                    calc_prov = calculate_risk_reward(
+                        direction=direction,
+                        planned_entry=provisional_entry,
+                        stop_loss=provisional_sl,
+                        take_profit=provisional_tp,
+                        capital_usdt=capital,
+                        risk_pct=risk_pct,
+                        min_net_rr=effective_min_rr,
+                        leverage=leverage,
+                        margin_mode=margin_mode
+                    )
+                else:
+                    provisional_tp = 0.0
+                    calc_prov = calculate_risk_reward(
+                        direction=direction,
+                        planned_entry=provisional_entry,
+                        stop_loss=provisional_sl,
+                        take_profit=0.0,
+                        capital_usdt=capital,
+                        risk_pct=risk_pct,
+                        min_net_rr=effective_min_rr,
+                        leverage=leverage,
+                        margin_mode=margin_mode
+                    )
+            else:
+                provisional_entry = current_p
+                provisional_sl = fallback_sl
+                prov_plan = build_provisional_plan(
+                    direction=direction,
+                    entry=provisional_entry,
+                    stop_loss=provisional_sl,
+                    levels=analysis.get("liquidity_levels") or analysis.get("swings") or [],
+                    as_of_ms=now_ms,
+                    settings={
+                        "capital_usdt": capital,
+                        "risk_pct": risk_pct,
+                        "leverage": leverage,
+                        "margin_mode": margin_mode,
+                        "min_net_rr": effective_min_rr
+                    },
+                    causal_candles=candles
+                )
+                if prov_plan.take_profit is not None and prov_plan.calculation is not None:
+                    provisional_tp = prov_plan.take_profit
+                    calc_prov = prov_plan.calculation
+                else:
+                    provisional_tp = 0.0
+                    calc_prov = calculate_risk_reward(
+                        direction=direction,
+                        planned_entry=provisional_entry,
+                        stop_loss=provisional_sl,
+                        take_profit=0.0,
+                        capital_usdt=capital,
+                        risk_pct=risk_pct,
+                        min_net_rr=effective_min_rr,
+                        leverage=leverage,
+                        margin_mode=margin_mode
+                    )
+                    if prov_plan.status == "NO_TARGET":
+                        analysis["reason_code"] = "NO_VALID_TARGET"
+                        if setup_stage == "READY":
+                            setup_stage = "WATCHING"
+                    elif prov_plan.status == "INVALID_GEOMETRY":
+                        setup_stage = "INVALID_GEOMETRY"
+                        analysis["reason_code"] = prov_plan.reason_code or "INVALID_GEOMETRY"
 
             # Do NOT artificially inflate target by 2.8x. If Net RR is insufficient, report NET_RR_TOO_LOW
             if not calc_prov.meets_min_rr:
@@ -125,10 +246,14 @@ class StrategyService:
                     analysis["reason_code"] = "NET_RR_TOO_LOW"
 
             # Validate price geometry strictly (LONG: sl < entry < tp, SHORT: tp < entry < sl)
-            is_geom_valid, geom_err = validate_price_geometry(direction, provisional_entry, provisional_sl, provisional_tp)
-            if not is_geom_valid:
-                if setup_stage == "READY":
+            if provisional_tp > 0:
+                is_geom_valid, geom_err = validate_price_geometry(direction, provisional_entry, provisional_sl, provisional_tp)
+                if not is_geom_valid:
                     setup_stage = "INVALID_GEOMETRY"
+                    analysis["reason_code"] = geom_err
+            else:
+                if setup_stage == "READY":
+                    setup_stage = "WATCHING"
 
             invalidation_price = provisional_sl
             inval_reason = "Giá phá vỡ mức Stop Loss hoặc vi phạm cấu trúc đối diện"
@@ -146,6 +271,8 @@ class StrategyService:
                     version=1,
                     strategy="SMC_V1",
                     strategy_family="STANDARD_SMC",
+                    plan_kind=plan_kind,
+                    direction_source=direction_source,
                     direction=direction,
                     timeframe=timeframe,
                     state=setup_stage,
@@ -218,6 +345,8 @@ class StrategyService:
 
                         watch_setup.state = setup_stage
                         watch_setup.strategy_family = "STANDARD_SMC"
+                        watch_setup.plan_kind = plan_kind
+                        watch_setup.direction_source = direction_source
                         watch_setup.htf_bias = analysis.get("htf_bias", "UNKNOWN")
                         watch_setup.h1_alignment = analysis.get("h1_alignment", "UNKNOWN")
                         watch_setup.provisional_entry = provisional_entry
@@ -282,77 +411,205 @@ class StrategyService:
             )
 
             # Auto Arming if enabled and setup is READY
-            if setup_stage == "READY" and self.get_auto_state(db):
-                self._auto_arm_candidate(db, watch_setup, sig, now_ms, now_dt)
+            if auto_enabled is None:
+                ny_ctx.auto_enabled = self.get_auto_state(db)
+            if setup_stage == "READY" and ny_ctx.auto_enabled:
+                self._auto_arm_candidate(db, watch_setup, sig, now_ms, now_dt,
+                                         clock=clock, quote=quote, feed_health=feed_health)
 
             # ========================================================
-            # V7 New York Session Fallback Evaluation
+            # V7/V14.3 New York Session quota cycle (fallback search/upsert/arm + audit)
             # ========================================================
-            policy = TradingPolicyService.get_active_policy(db, symbol)
-            policy_eval = TradingPolicyService.evaluate_entry_policy(db, symbol, now_dt)
-            if policy_eval.get("quota_state") == "SEEKING_FALLBACK" and policy_eval.get("ny_fills", 0) == 0:
-                candles_5m = crud.get_candles(db, symbol, "5M", limit=60, ascending=True)
-                if len(candles_5m) >= 15:
-                    rem_budget = 15.0 # Max remaining risk budget
-                    fb_res = NYFallbackService.evaluate_fallback_setup(
-                        symbol=symbol,
-                        candles_5m=candles_5m,
-                        current_price=current_p,
-                        htf_bias=collector_service.d_4h_bias,
-                        h1_alignment=collector_service.h1_alignment,
-                        policy=policy,
-                        account_equity=capital,
-                        remaining_risk_allowance_usdt=rem_budget,
-                        leverage=leverage,
-                        margin_mode=margin_mode,
-                        ticker_data=ticker
-                    )
-                    if fb_res.get("is_eligible") and fb_res.get("candidate"):
-                        fb_cand = fb_res["candidate"]
-                        # Store fallback setup in watch setup or auto arm
-                        fb_setup_id = f"watch-{symbol}-5M-fallback"
-                        fb_watch = db.query(models.WatchSetup).filter(models.WatchSetup.id == fb_setup_id).first()
-                        if not fb_watch:
-                            fb_watch = models.WatchSetup(
-                                id=fb_setup_id,
-                                setup_instance_id=fb_cand["signal_id"],
-                                version=1,
-                                strategy="NY_FALLBACK_V1",
-                                strategy_family="NY_QUOTA_PAPER",
-                                direction=fb_cand["direction"],
-                                timeframe="5M",
-                                state="READY",
-                                htf_bias=collector_service.d_4h_bias,
-                                h1_alignment=collector_service.h1_alignment,
-                                provisional_entry=fb_cand["planned_entry"],
-                                provisional_sl=fb_cand["stop_loss"],
-                                provisional_tp=fb_cand["targets"][0]["price"],
-                                gross_rr=fb_cand["gross_rr"],
-                                net_rr=fb_cand["estimated_net_rr"],
-                                risk_usdt=fb_cand["initial_risk_usdt"],
-                                quantity=fb_cand["quantity"],
-                                leverage=fb_cand["leverage"],
-                                margin_mode=fb_cand["margin_mode"],
-                                risk_pct=fb_cand["effective_risk_pct"],
-                                requested_risk_pct=fb_cand["requested_risk_pct"],
-                                effective_risk_pct=fb_cand["effective_risk_pct"],
-                                risk_profile="QUOTA",
-                                config_version=config_version,
-                                estimated_liquidation=fb_cand["estimated_liquidation"],
-                                created_at=now_ms,
-                                updated_at=now_ms,
-                                expires_at=fb_cand["expires_at"]
-                            )
-                            db.add(fb_watch)
-                            db.commit()
-
-                        if self.get_auto_state(db):
-                            self._auto_arm_candidate(db, fb_watch, fb_cand, now_ms, now_dt)
+            self.evaluate_ny_quota_cycle(db, symbol, ny_ctx)
+            ny_done = True
 
         except Exception as e:
             logger.error(f"Error in evaluate_upcoming_setups: {str(e)}", exc_info=True)
+            if ny_ctx is not None and not ny_done:
+                # A standard-flow failure must not silence the NY quota diagnostics/search.
+                try:
+                    db.rollback()
+                    ny_ctx.standard_status = "STANDARD_SYSTEM_ERROR"
+                    self.evaluate_ny_quota_cycle(db, symbol, ny_ctx)
+                except Exception as e2:  # noqa: BLE001
+                    logger.error(f"NY quota cycle after standard failure also failed: {e2}", exc_info=True)
         finally:
-            db.close()
+            if owns_db:
+                db.close()
+
+
+    # ------------------------------------------------------------------ V14.4.1 market reading
+    last_market_reading: Dict[str, Any] = {}
+    # V14.4.1: cached three-session forecasts per symbol, filled ONLY by the cycle (GET never runs the engine).
+    session_forecasts_cache: Dict[str, Dict[str, Any]] = {}
+
+    def _cache_session_forecasts(self, symbol: str, candles_by_tf: Dict[str, list], now_ms: int, cfg: Any,
+                                 primary: Any, issues: Any, db: Optional[Session] = None) -> None:
+        try:
+            from services.smc_scenario_service import load_closed_context
+            from services.smc_session_forecast_service import evaluate_session_forecasts
+            ctx = load_closed_context(candles_by_tf, now_ms, cfg)
+            fc = evaluate_session_forecasts(symbol, ctx, now_ms, cfg, primary_scenario=primary)
+            self.session_forecasts_cache[symbol] = {
+                "symbol": symbol, "as_of_ms": now_ms, "day": next(iter(fc.values())).session_id.split(":")[-1],
+                "forecasts": {k: v.to_dict() for k, v in fc.items()},
+                "coverage": {k: {"data_status": v.data_status, "is_partial": v.is_partial,
+                                 **{f: (v.session_range or {}).get(f) for f in
+                                    ("coverage_status", "coverage_ratio", "bars_count", "expected_bars", "gap_bars")}}
+                             for k, v in fc.items()},
+                "data_issues": [getattr(i, "code", str(i)) for i in (issues or [])],
+            }
+            # Persist immutable forecast snapshots prior to future outcome
+            try:
+                from services.smc_forecast_observation_service import create_forecast_snapshot
+                target_db = db
+                should_close = False
+                if target_db is None:
+                    from database import SessionLocal
+                    target_db = SessionLocal()
+                    should_close = True
+                try:
+                    from services.smc_forecast_observation_service import create_forecast_snapshot, process_pending_forecasts
+                    for f_item in fc.values():
+                        create_forecast_snapshot(target_db, f_item, now_ms=now_ms)
+                    process_pending_forecasts(target_db, symbol=symbol, as_of_ms=now_ms)
+                    if should_close:
+                        target_db.commit()
+                except Exception as snap_e:
+                    if should_close:
+                        target_db.rollback()
+                    logger.warning(f"Error persisting forecast snapshots: {snap_e}")
+                finally:
+                    if should_close:
+                        target_db.close()
+            except Exception as persist_err:
+                logger.warning(f"Failed to initialize session for forecast snapshot: {persist_err}")
+        except Exception as exc:  # noqa: BLE001 - forecast is observation only
+            logger.error(f"SYSTEM_ERROR in session forecast: {exc}", exc_info=True)
+            self.session_forecasts_cache[symbol] = {
+                "symbol": symbol, "as_of_ms": now_ms, "day": None, "forecasts": {}, "coverage": {},
+                "data_issues": ["SYSTEM_ERROR"], "error": str(exc)}
+
+    def _load_scenario_candles(self, db: Session, symbol: str, now_ms: int) -> Dict[str, list]:
+        """Bounded window: M5/M15 from the previous NY day's Asia open to now; closed D/4H/1H history."""
+        from services.smc_session_context import scenario_history_start_ms
+        start = scenario_history_start_ms(now_ms)
+        return {
+            "5M": crud.get_candles(db, symbol, "5M", limit=900, ascending=True, cutoff_ms=now_ms, start_ms=start),
+            "15M": crud.get_candles(db, symbol, "15M", limit=300, ascending=True, cutoff_ms=now_ms, start_ms=start),
+            "1H": crud.get_candles(db, symbol, "1H", limit=80, ascending=True, cutoff_ms=now_ms),
+            "4H": crud.get_candles(db, symbol, "4H", limit=80, ascending=True, cutoff_ms=now_ms),
+            "D": crud.get_candles(db, symbol, "D", limit=12, ascending=True, cutoff_ms=now_ms),
+        }
+
+    def evaluate_market_reading_cycle(
+        self, db: Session, symbol: str, *, now_ms: int, now_dt: datetime, clock: Any = None, quote: Any = None,
+        feed_health: Optional[Dict[str, Any]] = None, auto_enabled: Optional[bool] = None,
+        ticker: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Scenario cycle: persist material revisions (commit), publish events AFTER the commit, promote at most
+        ONE confirmed scenario with a valid atomic plan to the WatchSetup table, then (auto only) hand it to
+        `_auto_arm_candidate` - the same guarded arm used by every other family. Never raises."""
+        from services.smc_scenario_config import active_scenario_config, build_current_scenario_config
+        from services.rr_policy_service import resolve_effective_rr_policy
+        rr_ctx = resolve_effective_rr_policy(db)
+        cfg = build_current_scenario_config(active_scenario_config, min_net_rr=rr_ctx.min_net_rr)
+        if not cfg.scenario_explain_enabled:
+            self.last_market_reading = {"status": "DISABLED_BY_FLAG", "as_of_ms": now_ms}
+            return self.last_market_reading
+        try:
+            from domain_calculator import CostAssumptions
+            from services.quote_validator import QuoteValidator
+            from services.risk_settings_service import risk_settings_service
+            from services.smc_scenario_binding import promote_confirmed_scenario
+            from services.smc_scenario_plan import FinancialSettings
+            from services.smc_scenario_service import evaluate_scenario_cycle, select_primary_scenario
+            from services.smc_scenario_types import ScenarioState
+
+            candles_by_tf = self._load_scenario_candles(db, symbol, now_ms)
+            g = risk_settings_service.get_settings(db)
+            audit = crud.get_or_create_today_audit(db, clock=clock)
+            settings = FinancialSettings(
+                capital_usdt=float(audit.current_equity), risk_pct=float(g.risk_pct),
+                leverage=int(g.requested_leverage), margin_mode=str(g.margin_mode), costs=CostAssumptions(),
+                instrument_version=str(getattr(g, "metadata_version", None) or "unknown"),
+            )
+            from services.trading_policy_service import (
+                TradingPolicyService,
+                resolve_entry_session_context,
+                compute_promoted_setup_expiry,
+            )
+            policy = TradingPolicyService.get_or_create_policy(db)
+            session_ctx = resolve_entry_session_context(policy, "STANDARD_SMC", now_ms=now_ms, clock=clock)
+            entry_window = session_ctx.standard_window_restriction
+            if quote is not None:
+                q = quote
+            else:
+                raw = ticker if ticker is not None else collector_service.latest_ticker
+                q = QuoteValidator.validate_ticker(raw, now_ms=now_ms) if raw else None
+
+            result = evaluate_scenario_cycle(
+                db, symbol, candles_by_tf, q, now_ms, config=cfg, settings=settings,
+                entry_window=entry_window, session_context=session_ctx)
+            self._cache_session_forecasts(symbol, candles_by_tf, now_ms, cfg, result.primary, result.issues, db=db)
+
+            from services.smc_observation_service import record_observation_snapshot
+            for s in result.changed:
+                try:
+                    record_observation_snapshot(db, s)
+                except Exception as obs_err:
+                    logger.warning(f"Could not record paper observation for {s.scenario_id}: {obs_err}")
+
+            promotable = [s for s in result.snapshots if s.state == ScenarioState.STRUCTURE_CONFIRMED
+                          and not s.blockers and (s.plan or {}).get("is_valid")]
+            winner = select_primary_scenario(promotable) if promotable else None
+            ws = None
+            if winner is not None:
+                promoted_expiry = compute_promoted_setup_expiry(
+                    now_ms, getattr(winner, "expires_at", None), cfg.scenario_ttl_ms, session_context=session_ctx
+                )
+                if promoted_expiry is not None:
+                    ws = promote_confirmed_scenario(
+                        db, winner, now_ms=now_ms, risk_config_version=int(g.config_version),
+                        leverage=settings.leverage, margin_mode=settings.margin_mode, risk_pct=settings.risk_pct,
+                        expires_at_ms=promoted_expiry)
+                if ws is not None and ws.state == "READY":
+                    self._assess_and_save_quality(
+                        db=db, watch_setup=ws,
+                        analysis={"htf_bias": ws.htf_bias, "h1_alignment": ws.h1_alignment, "setup_stage": "READY",
+                                  "conditions_met": json.loads(ws.conditions_met or "[]"), "missing_conditions": []},
+                        candles=candles_by_tf.get("5M") or [], ticker=ticker, now_ms=now_ms)
+            db.commit()   # persist FIRST ...
+
+            for s in result.changed + result.superseded:   # ... then publish (join + second commit)
+                event_bus.publish_event(
+                    event_type="scenario.updated", aggregate_id=s.instance_id, aggregate_version=s.revision,
+                    db=db, occurred_at=now_ms,
+                    payload={"scenario_id": s.scenario_id, "instance_id": s.instance_id, "snapshot_id": s.snapshot_id,
+                             "revision": s.revision, "symbol": s.symbol, "session_id": s.session_id,
+                             "state": s.state.value, "direction": s.direction, "digest": s.digest})
+            if result.changed or result.superseded:
+                db.commit()
+
+            armed = None
+            if ws is not None and ws.state == "READY":
+                auto = auto_enabled if auto_enabled is not None else self.get_auto_state(db)
+                if auto:
+                    armed = self._auto_arm_candidate(
+                        db, ws, {"signal_id": winner.instance_id}, now_ms, now_dt,
+                        clock=clock, quote=q, feed_health=feed_health)
+            self.last_market_reading = {
+                "status": "OK", "as_of_ms": now_ms, "scenarios": len(result.snapshots),
+                "changed": len(result.changed), "promoted": ws.id if ws is not None else None,
+                "armed": armed, "issues": [i.code for i in result.issues]}
+        except Exception as exc:  # noqa: BLE001 - observation must never stop exits / NY cycle
+            logger.error(f"SYSTEM_ERROR in market-reading cycle: {exc}", exc_info=True)
+            try:
+                db.rollback()
+            except Exception:  # noqa: BLE001
+                pass
+            self.last_market_reading = {"status": "SYSTEM_ERROR", "as_of_ms": now_ms, "error": str(exc)}
+        return self.last_market_reading
 
     def _upsert_watch_setup(self, db: Session, smc_data: Dict[str, Any]) -> models.WatchSetup:
         symbol = smc_data.get("symbol", "XAUUSDT")
@@ -466,30 +723,51 @@ class StrategyService:
 
         return watch_setup
 
+    @serialize_entry_mutation
     def _auto_arm_candidate(
         self,
         db: Session,
         watch_setup: models.WatchSetup,
         sig: Dict[str, Any],
         now_ms: int,
-        now_dt: datetime
-    ):
-        """Auto arm READY setup if all execution & policy guards pass."""
+        now_dt: datetime,
+        *,
+        clock: Any = None,
+        quote: Any = None,
+        feed_health: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Auto arm READY setup if all execution & policy guards pass.
+
+        V14.3: returns {"armed": bool, "codes": [...], "order_id": str|None, "message": str|None} so the NY
+        cycle can audit WHY an arm did not happen. `clock`/`quote`/`feed_health` are injected by the NY
+        cycle (historical determinism); live callers leave them None and keep the previous behaviour.
+        """
+        def _no(codes, message=None):
+            return {"armed": False, "codes": list(codes), "order_id": None, "message": message}
+
         # 1. Check if there is already an active position or armed order
         active_pos = crud.get_active_position(db)
         if active_pos:
-            return
+            return _no(["ACTIVE_POSITION_EXISTS"])
 
         armed_order = db.query(models.PaperOrder).filter(models.PaperOrder.state == "armed").first()
         if armed_order:
-            return
+            return _no(["ARMED_ORDER_EXISTS"])
 
         # 2. Check Trading Policy (Max 3 fills/day, NY window, reservation)
         symbol = getattr(watch_setup, "instrument", None) or "XAUUSDT"
-        policy_eval = TradingPolicyService.evaluate_entry_policy(db, symbol, now_dt)
+        policy_eval = TradingPolicyService.evaluate_entry_policy(
+            db, symbol, now_dt, clock=clock, now_ms=now_ms,
+            strategy_family=getattr(watch_setup, "strategy_family", None) or "STANDARD_SMC",
+        )
         if not policy_eval["allowed"]:
             logger.info(f"Auto-arm blocked by trading policy: {policy_eval['reason_code']}")
-            return
+            self._log_auto_arm_block(
+                watch_setup, [str(policy_eval.get("reason_code") or "POLICY_BLOCKED")],
+                policy_eval.get("message") or policy_eval.get("reason"),
+            )
+            return _no(policy_eval.get("reason_codes") or [str(policy_eval.get("reason_code") or "POLICY_BLOCKED")],
+                       policy_eval.get("reason_message"))
 
         # 3. Check price geometry strictly
         from domain_calculator import validate_price_geometry
@@ -500,14 +778,18 @@ class StrategyService:
             watch_setup.provisional_tp
         )
         if not is_geom_valid:
-            return
+            return _no(["INVALID_GEOMETRY"])
 
         # 4. Check Day Audit limits
-        audit = crud.get_or_create_today_audit(db)
-        if audit.is_blocked or audit.fills_count >= 3 or audit.consecutive_losses >= 2:
-            return
+        audit = crud.get_or_create_today_audit(db, clock=clock)
+        if audit.is_blocked:
+            return _no(["DAY_BLOCKED"])
+        if audit.fills_count >= 3:
+            return _no(["DAILY_FILL_CAP"])
+        if audit.consecutive_losses >= 2:
+            return _no(["MAX_CONSECUTIVE_LOSSES"])
         if audit.cooldown_until and now_ms < audit.cooldown_until:
-            return
+            return _no(["COOLDOWN_ACTIVE"])
 
         # 5. Effective risk determination (preserve 0.10% cap for fallback)
         family = getattr(watch_setup, "strategy_family", "STANDARD_SMC") or "STANDARD_SMC"
@@ -517,42 +799,161 @@ class StrategyService:
             eff_risk_pct = min(eff_risk_pct, 0.10)
             risk_profile = "QUOTA"
 
-        # 5.5 V10.1 Lesson Rules Evaluation (BEFORE_ARM for AUTO)
+        # 5.5 V14.2 Common Entry Guard (stage ARM, mode AUTO / origin AUTO_STRATEGY).
+        # Same orchestrator as manual arm / manual market / pending fill: structure state, atomic plan,
+        # real calculator result, account, session policy, news blackout, governed lessons, quote, feed.
         from services.entry_decision_service import EntryDecisionService
-        lesson_context = EntryDecisionService.build_context(
-            stage="BEFORE_ARM",
+        from services.entry_guard_service import EntryGuardRequest, evaluate_entry_guard
+        from services.plan_resolver import resolve_plan_levels
+        from services.quote_validator import QuoteValidator
+        from services.setup_quality_service import build_plan_fingerprint
+        from domain_calculator import calculate_risk_reward
+
+        # V14.3: a NY fallback candidate (same instance) is armed at most once. A rejected/expired/closed
+        # order of the same candidate identity is never retried "until it happens to fill".
+        if family == "NY_QUOTA_PAPER" and getattr(watch_setup, "setup_instance_id", None):
+            used = db.query(models.PaperOrder.id).filter(
+                models.PaperOrder.setup_instance_id == watch_setup.setup_instance_id).first()
+            if used is not None:
+                return _no(["CANDIDATE_ALREADY_USED"], "Ứng viên fallback này đã được dùng để đặt lệnh")
+
+        plan = resolve_plan_levels(watch_setup)
+        if not plan.get("is_valid"):
+            self._log_auto_arm_block(watch_setup, ["INVALID_PRICE_GEOMETRY"], plan.get("error_message"))
+            return _no(["INVALID_PRICE_GEOMETRY"], plan.get("error_message"))
+        plan_entry, plan_sl, plan_tp = plan["entry"], plan["stop_loss"], plan["take_profit"]
+
+        from services.rr_policy_service import resolve_effective_rr_policy
+        rr_ctx = resolve_effective_rr_policy(db)
+        min_rr = rr_ctx.min_net_rr
+        calc_res = calculate_risk_reward(
+            direction=watch_setup.direction,
+            planned_entry=plan_entry,
+            stop_loss=plan_sl,
+            take_profit=plan_tp,
+            capital_usdt=audit.current_equity,
+            risk_pct=eff_risk_pct,
+            min_net_rr=min_rr,
+            leverage=watch_setup.leverage or 5,
+            margin_mode=watch_setup.margin_mode or "ISOLATED",
+            now_ms=now_ms,
+        )
+
+        if quote is not None:
+            auto_quote = quote
+        else:
+            raw_ticker = collector_service.latest_ticker
+            auto_quote = QuoteValidator.validate_ticker(raw_ticker, now_ms=now_ms) if raw_ticker else None
+
+        # V14.4.1: certified verification = the SAME validator as manual arm. READY is never evidence:
+        # scenario ref -> exact snapshot binding; legacy StrategyEvidence -> measured validator; neither -> None
+        # (unknown), which the certified guard blocks. NY_QUOTA_PAPER keeps its own adapter (None here).
+        try:
+            from services.smc_scenario_binding import verify_setup_structure
+            scenario_verified, _ev_dict, _binding = verify_setup_structure(
+                db, watch_setup, symbol=symbol, now_ms=now_ms,
+                plan_levels={"entry": plan_entry, "stop_loss": plan_sl, "take_profit": plan_tp},
+            )
+        except Exception as exc:  # noqa: BLE001 - a verifier failure must block, never pass
+            logger.error(f"Structure verification failed for {watch_setup.id}: {exc}", exc_info=True)
+            scenario_verified = False
+
+        # V14.4.2: Resolve execution intent (RETEST_LIMIT vs CONFIRMATION_MARKET vs LEGACY_POLICY)
+        has_scenario_snapshot = bool(getattr(watch_setup, "scenario_snapshot_id", None))
+        if has_scenario_snapshot:
+            exec_mode = "RETEST_LIMIT" if family == "STANDARD_SMC" else "CONFIRMATION_MARKET"
+        else:
+            exec_mode = "LEGACY_POLICY"
+
+        from services.entry_execution_intent_service import resolve_entry_execution_intent
+        intent = resolve_entry_execution_intent(
+            watch_setup,
+            model_descriptor={
+                "execution_mode": exec_mode,
+                "model_id": "SMC_CERTIFIED_RETEST" if has_scenario_snapshot else "LEGACY_POLICY",
+            },
+            quote=auto_quote,
+            now_ms=now_ms,
+        )
+        if not intent.allowed:
+            self._log_auto_arm_block(watch_setup, [intent.reason_code], intent.message_vi)
+            return _no([intent.reason_code], intent.message_vi)
+        resolved_order_type = intent.order_type or "LIMIT"
+
+        guard = evaluate_entry_guard(db, EntryGuardRequest(
+            stage="ARM",
+            now_ms=now_ms,
             symbol=symbol,
             direction=watch_setup.direction,
-            strategy_family=family,
-            timeframe=watch_setup.timeframe,
             execution_mode="AUTO",
             origin="AUTO_STRATEGY",
-            planned_entry=watch_setup.provisional_entry,
-            stop_loss=watch_setup.provisional_sl,
-            take_profit=watch_setup.provisional_tp,
-            net_rr=watch_setup.net_rr,
-            now_ms=now_ms,
-            session_instance_id=policy_eval.get("session_instance_id"),
+            planned_entry=plan_entry,
+            stop_loss=plan_sl,
+            take_profit=plan_tp,
+            calc_result=calc_res,
+            validated_quote=auto_quote,
+            strategy_family=family,
+            order_type=resolved_order_type,
+            timeframe=watch_setup.timeframe,
+            plan_kind=getattr(watch_setup, "plan_kind", None) or "CONFIRMED",
+            direction_source=getattr(watch_setup, "direction_source", None),
+            setup_id=watch_setup.id,
+            setup_instance_id=watch_setup.setup_instance_id,
+            setup_version=watch_setup.version,
+            setup_state=watch_setup.state,
+            plan_fingerprint=build_plan_fingerprint({
+                "direction": watch_setup.direction, "planned_entry": plan_entry,
+                "stop_loss": plan_sl, "take_profit": plan_tp,
+            }),
+            risk_config_version=watch_setup.config_version,
+            min_net_rr=min_rr,
             distance_to_entry_atr=getattr(watch_setup, "distance_to_entry_atr", None),
-            setup_id=watch_setup.id
-        )
-        lesson_eval = EntryDecisionService.evaluate_entry_rules(db, lesson_context)
-        if not lesson_eval["can_proceed"]:
-            logger.info(f"Auto-arm blocked by lesson rule: {lesson_eval['blocking_reasons']}")
-            return
-        if lesson_eval["warning_messages"]:
+            session_instance_id=policy_eval.get("session_instance_id"),
+            structure_chain_verified=(scenario_verified if family != "NY_QUOTA_PAPER" else None),
+            clock=clock,
+            feed_health=feed_health,
+        ))
+        if not guard.allowed:
+            self._log_auto_arm_block(watch_setup, guard.reason_codes, (guard.primary_reason or {}).get("message_vi"))
+            return _no(guard.reason_codes, (guard.primary_reason or {}).get("message_vi"))
+        self._last_auto_block = None
+        lesson_eval = dict(guard.lesson_result or {
+            "can_proceed": True, "blocking_reasons": [], "warning_messages": [],
+            "advisory_notes": [], "lessons_retrieved_snapshot": [],
+        })
+        if lesson_eval.get("warning_messages"):
             logger.info(f"Auto-arm lesson warnings (non-blocking): {lesson_eval['warning_messages']}")
+        lesson_eval["entry_gate"] = guard.summary()
 
-        # 6. Create armed paper order with complete V7 metadata
+        # 6. Create armed paper order with complete V7 metadata and canonical financial snapshot
+        from services.order_plan_snapshot_service import build_arm_plan_snapshot
+        arm_snap = build_arm_plan_snapshot(
+            calc_res,
+            order_type=resolved_order_type,
+            direction=watch_setup.direction,
+            planned_entry=plan_entry,
+            stop_loss=plan_sl,
+            take_profit=plan_tp,
+            capital_usdt=audit.current_equity,
+            risk_pct=eff_risk_pct,
+            leverage=watch_setup.leverage or 5,
+            margin_mode=watch_setup.margin_mode or "ISOLATED",
+            now_ms=now_ms,
+            policy_config_version=getattr(policy_eval.get("policy"), "version", 1) if policy_eval.get("policy") else 1,
+            risk_config_version=watch_setup.config_version or 1,
+            min_net_rr=min_rr,
+        )
+
         order_id = f"order-{uuid.uuid4().hex[:8]}"
         new_order = models.PaperOrder(
             id=order_id,
             setup_id=watch_setup.id,
             signal_id=sig.get("signal_id", f"sig-{now_ms}"),
+            setup_instance_id=getattr(watch_setup, "setup_instance_id", None),
             instrument=symbol,
             direction=watch_setup.direction,
             state="armed",
-            order_type="MARKET",
+            order_type=resolved_order_type,
             timeframe=watch_setup.timeframe,
             strategy_family=family,
             strategy_version="7.0.0",
@@ -561,28 +962,53 @@ class StrategyService:
             requested_risk_pct=watch_setup.risk_pct,
             effective_risk_pct=eff_risk_pct,
             risk_profile=risk_profile,
-            planned_entry=watch_setup.provisional_entry,
-            stop_loss=watch_setup.provisional_sl,
-            take_profit=watch_setup.provisional_tp,
-            quantity=watch_setup.quantity,
-            initial_risk_usdt=watch_setup.risk_usdt,
+            planned_entry=plan_entry,
+            stop_loss=plan_sl,
+            take_profit=plan_tp,
+            quantity=calc_res.quantity or watch_setup.quantity,
+            initial_risk_usdt=calc_res.net_risk_usdt or watch_setup.risk_usdt,
             risk_pct=eff_risk_pct,
-            gross_rr=watch_setup.gross_rr,
-            estimated_net_rr=watch_setup.net_rr,
-            leverage=watch_setup.leverage,
-            margin_mode=watch_setup.margin_mode,
-            estimated_liquidation=watch_setup.estimated_liquidation,
+            gross_rr=calc_res.gross_rr or watch_setup.gross_rr,
+            estimated_net_rr=calc_res.net_rr or watch_setup.net_rr,
+            leverage=calc_res.leverage or watch_setup.leverage,
+            margin_mode=calc_res.margin_mode or watch_setup.margin_mode,
+            estimated_liquidation=calc_res.estimated_liquidation or watch_setup.estimated_liquidation,
+            config_version=watch_setup.config_version or 1,
             created_at=now_ms,
             armed_at=now_ms,
-            expires_at=now_ms + (2 * 3600 * 1000),
+            expires_at=(
+                min(now_ms + (2 * 3600 * 1000), watch_setup.expires_at)
+                if family == "NY_QUOTA_PAPER" and watch_setup.expires_at
+                else now_ms + (2 * 3600 * 1000)
+            ),
             origin="AUTO_STRATEGY",
             execution_mode="AUTO",
+            scenario_snapshot_id=getattr(watch_setup, "scenario_snapshot_id", None),
+            quality_snapshot_id=getattr(watch_setup, "quality_snapshot_id", None),
+            evidence_snapshot_id=getattr(watch_setup, "evidence_snapshot_id", None),
             arm_decision_snapshot=json.dumps(lesson_eval),
-            lessons_retrieved=json.dumps(lesson_eval.get("lessons_retrieved_snapshot", []))
+            lessons_retrieved=json.dumps(lesson_eval.get("lessons_retrieved_snapshot", [])),
+            cost_snapshot=json.dumps(arm_snap, ensure_ascii=False)
         )
         EntryDecisionService.record_stage_decision(new_order, "BEFORE_ARM", lesson_eval, now_ms=now_ms)
         db.add(new_order)
         watch_setup.state = "ARMED"
+
+        # V14.4.15: Stage armed order to active forward paper session if one is active
+        try:
+            from services.forward_paper_service import stage_order_to_active_forward_session, stage_forward_repair_task
+            stage_res = stage_order_to_active_forward_session(db, new_order, now_ms=now_ms)
+            if stage_res and stage_res.tracking_repair_needed:
+                stage_forward_repair_task(
+                    db=db,
+                    order_id=new_order.id,
+                    forward_session_id=stage_res.forward_session_id,
+                    target_status="ARMED",
+                    reason_codes=stage_res.reason_codes,
+                    now_ms=now_ms,
+                )
+        except Exception as _fwd_err:
+            logger.warning(f"Forward session binding warning for order {order_id}: {_fwd_err}")
 
         event_bus.publish_event(
             event_type="order.armed",
@@ -592,17 +1018,31 @@ class StrategyService:
                 "setup_id": watch_setup.id,
                 "direction": watch_setup.direction,
                 "strategy_family": family,
-                "order_type": "MARKET",
-                "planned_entry": watch_setup.provisional_entry,
-                "stop_loss": watch_setup.provisional_sl,
-                "take_profit": watch_setup.provisional_tp,
+                "order_type": resolved_order_type,
+                "planned_entry": plan_entry,
+                "stop_loss": plan_sl,
+                "take_profit": plan_tp,
                 "net_rr": watch_setup.net_rr,
                 "distance_usdt": watch_setup.distance_to_entry_usdt
             },
             db=db,
             occurred_at=now_ms
         )
-        db.commit()
+        try:
+            db.commit()
+            return {"armed": True, "codes": [], "order_id": order_id, "message": None}
+        except Exception as e:
+            db.rollback()
+            logger.error(f"_auto_arm_candidate failed to commit for order {order_id}: {e}", exc_info=True)
+            return {"armed": False, "codes": ["COMMIT_FAILED"], "order_id": None, "message": str(e)}
+
+    def _log_auto_arm_block(self, watch_setup, codes, message=None):
+        """Log an auto-arm block once per (setup, version, reasons); the 6s loop must not spam."""
+        signature = (watch_setup.id, watch_setup.version, tuple(codes))
+        if getattr(self, "_last_auto_block", None) == signature:
+            return
+        self._last_auto_block = signature
+        logger.info(f"Auto-arm blocked by entry guard: {list(codes)} {message or ''}".strip())
 
     async def run_strategy_loop(self):
         """Periodic background evaluation loop independent of browser activity."""
@@ -637,22 +1077,34 @@ class StrategyService:
             from services.setup_quality_service import assess_setup_quality, build_quality_snapshot
             from services.setup_quality_repository import setup_quality_repository
 
+            from services.plan_resolver import resolve_plan_levels
+            from services.quote_validator import QuoteValidator
+
+            resolved_p = resolve_plan_levels(watch_setup)
             curr_p = ticker.get("last", ticker.get("close", 0.0)) if ticker else (candles[-1].close if candles else 0.0)
-            entry_p = watch_setup.confirmed_entry or watch_setup.provisional_entry or curr_p
-            sl_p = watch_setup.confirmed_sl or watch_setup.provisional_sl or (curr_p - 10.0 if watch_setup.direction == "LONG" else curr_p + 10.0)
-            tp_p = watch_setup.confirmed_tp or watch_setup.provisional_tp or (curr_p + 20.0 if watch_setup.direction == "LONG" else curr_p - 20.0)
+            entry_p = resolved_p.get("entry") if resolved_p.get("is_valid") else (watch_setup.confirmed_entry or watch_setup.provisional_entry or curr_p)
+            # V14.4.1: an invalid plan is NOT repaired with SL/TP offsets or default size; unknown stays None.
+            sl_p = resolved_p.get("stop_loss") if resolved_p.get("is_valid") else (watch_setup.confirmed_sl or watch_setup.provisional_sl)
+            tp_p = resolved_p.get("take_profit") if resolved_p.get("is_valid") else (watch_setup.confirmed_tp or watch_setup.provisional_tp)
+
+            q_res = QuoteValidator.validate_ticker(ticker, now_ms=now_ms) if ticker else None
+            quote_valid = q_res.is_valid if q_res else False
 
             plan_dict = {
                 "direction": watch_setup.direction,
                 "entry_price": entry_p,
                 "stop_loss": sl_p,
                 "take_profit": tp_p,
-                "quantity": watch_setup.quantity or 0.05,
-                "leverage": watch_setup.leverage or 5,
-                "margin_mode": watch_setup.margin_mode or "ISOLATED",
-                "net_rr": watch_setup.net_rr or 0.0,
-                "risk_usdt": watch_setup.risk_usdt or 2.5,
+                "quantity": watch_setup.quantity,
+                "leverage": watch_setup.leverage,
+                "margin_mode": watch_setup.margin_mode,
+                "net_rr": watch_setup.net_rr,
+                "risk_usdt": watch_setup.risk_usdt,
             }
+
+            from services.rr_policy_service import resolve_effective_rr_policy
+            rr_ctx = resolve_effective_rr_policy(db)
+            effective_min_rr = rr_ctx.min_net_rr
 
             q_context = {
                 "symbol": "XAUUSDT",
@@ -661,10 +1113,11 @@ class StrategyService:
                 "as_of_ms": now_ms,
                 "analysis": analysis,
                 "plan": plan_dict,
-                "eligibility": {"eligible": True, "reasons": []},
-                "quote_view": {"is_valid": True, "price": curr_p},
+                "eligibility": {"eligible": bool(resolved_p.get("is_valid")), "reasons": []},
+                "quote_view": {"is_valid": quote_valid, "price": curr_p},
                 "news_view": {"is_blackout": is_news_blackout, "reason": news_blackout_reason},
-                "calc": {"net_rr": watch_setup.net_rr or 0.0}
+                "calc": {"net_rr": watch_setup.net_rr or 0.0},
+                "profile": {"min_net_rr": effective_min_rr},
             }
 
             assessment, rel_ev = assess_setup_quality(q_context)
@@ -683,7 +1136,9 @@ class StrategyService:
                 evidence_items=rel_ev
             )
 
-            setup_quality_repository.save_quality_snapshot(db, snapshot)
+            saved_id = setup_quality_repository.save_quality_snapshot(db, snapshot)
+            # V14.4.1: exact ref of THIS assessment (SetupQualitySnapshot table), not StrategyEvidence.
+            watch_setup.quality_snapshot_id = saved_id
             return snapshot
         except Exception as e:
             logger.warning(f"Error computing setup quality for {watch_setup.id}: {e}")

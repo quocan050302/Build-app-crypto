@@ -16,6 +16,7 @@ import {
 import { getCatalogTemplate } from './utils/userMessageCatalog';
 import { normalizeLessonItem, type NormalizedLessonItem } from './types/lesson';
 import { quoteStore } from './services/quoteStore';
+import { resolveSelectionRrPolicy, compareNetRr } from './utils/rrPolicyView';
 
 interface ExpectedEntryPanelProps {
   selectedIntent: SelectedTradeIntent;
@@ -24,6 +25,8 @@ interface ExpectedEntryPanelProps {
   hasArmedOrder: boolean;
   leverage: number;
   marginMode: string;
+  appliedMinNetRR?: number;
+  rrPolicySource?: string;
   onArmSetup: (setupId: string, direction: 'LONG' | 'SHORT', instanceId?: string, revision?: number) => void;
   onCancelSetup: (setupId: string) => void;
   onOpenMarket?: () => void;
@@ -36,6 +39,8 @@ export const ExpectedEntryPanel: React.FC<ExpectedEntryPanelProps> = ({
   hasArmedOrder,
   leverage,
   marginMode,
+  appliedMinNetRR,
+  rrPolicySource,
   onArmSetup,
   onCancelSetup,
 }) => {
@@ -219,9 +224,18 @@ export const ExpectedEntryPanel: React.FC<ExpectedEntryPanelProps> = ({
             className={`font-mono text-xs ${
               !isGeometryValid
                 ? 'text-rose-400 font-bold'
-                : netRR >= 2.0
-                ? 'text-aurum-400 font-bold'
-                : 'text-rose-400 font-medium'
+                : (() => {
+                    const selView = resolveSelectionRrPolicy(selectedIntent, {
+                      value: appliedMinNetRR ?? null,
+                      source: rrPolicySource,
+                    });
+                    const comp = compareNetRr(netRR, selView);
+                    return comp.status === 'MET'
+                      ? 'text-aurum-400 font-bold'
+                      : comp.status === 'NOT_MET'
+                      ? 'text-rose-400 font-medium'
+                      : 'text-gray-300';
+                  })()
             }`}
           >
             {!isGeometryValid

@@ -1,0 +1,27 @@
+{
+  "version": "v16.13",
+  "evaluated_at_utc": "2026-10-17T03:49:39.942992+00:00",
+  "commit_sha": "320bd3f90e1f4dfc1c97a7eb314e017a6fc2f02a",
+  "diff_hash": "1c497b294ed4de0ed6235d9768442429398f335f4ffb79b325ea955a0d9da612",
+  "overall_technical_status": "PASS",
+  "trading_performance_status": "NOT_EVALUATED",
+  "gates": {
+    "GATE_A_HTF_CONFIRMATION_CORRECTNESS": "PASS",
+    "GATE_B_CONFIG_PROPAGATION_FINGERPRINT": "PASS",
+    "GATE_C_FRONTEND_STRUCTURAL_REF_NAN_FIX": "PASS",
+    "GATE_D_REAL_PAPER_EXECUTION_AND_GUARDS": "PASS",
+    "GATE_E_LEGACY_V16_REGRESSION": "PASS",
+    "GATE_F_FRONTEND_BUILD_VERIFICATION": "PASS"
+  },
+  "test_counts": {
+    "v16_13_confirmation_passed": 5,
+    "v16_13_confirmation_failed": 0,
+    "v16_13_config_passed": 6,
+    "v16_13_config_failed": 0,
+    "v16_13_execution_passed": 6,
+    "v16_13_execution_failed": 0,
+    "v16_total_selected": 233,
+    "v16_total_failed": 0,
+    "note": "B\u1ed9 test -k v16 c\u00f3 233 test pass, bao g\u1ed3m t\u1ea5t c\u1ea3 c\u00e1c test HTF confirmation, config propagation, execution v\u00e0 regression. Kh\u00f4ng b\u00e1o tr\u00f9ng l\u1eb7p th\u00e0nh s\u1ed1 l\u01b0\u1ee3ng \u1ea3o."
+  }
+}

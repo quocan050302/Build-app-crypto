@@ -1,0 +1,190 @@
+{
+  "version": "V14.2",
+  "implementation_status": "COMPLETED",
+  "acceptance_status": "PASSED",
+  "base_head": "a47c35b9be95533bdb82a83908dd7d513935aa9f",
+  "target_branch": "fix/v14-1-rr-flow",
+  "tested_tree_hash": "db50462faa5da9c35028b38fb9624a3772aa0229",
+  "tested_tree_hash_note": "git write-tree of the staged index (sources, tests, docs, logs) taken before this JSON was added; the final commit SHA is reported at handover, not embedded here",
+  "commands": [
+    {
+      "cmd": "PYTHONPATH=backend backend/venv/bin/python -m pytest backend/tests -q --deselect <2 baseline failures>",
+      "cwd": "aurum-desk",
+      "result": "778 passed, 2 deselected (the 2 baseline failures), 197.35s, rc=0",
+      "log": "logs/acceptance/v14_2/final_backend_full.log"
+    },
+    {
+      "cmd": "PYTHONPATH=backend backend/venv/bin/python -m pytest backend/tests -q (baseline, clean worktree of a47c35b)",
+      "cwd": "aurum-desk",
+      "result": "2 failed, 646 passed, 4 skipped (a47c35b clean worktree, 238.82s, rc=1)",
+      "log": "logs/acceptance/v14_2/baseline_backend_full.log"
+    },
+    {
+      "cmd": "npm test",
+      "cwd": "aurum-desk/frontend",
+      "result": "152 passed (18 files), rc=0 (baseline 130)",
+      "log": "logs/acceptance/v14_2/final_frontend_test.log"
+    },
+    {
+      "cmd": "npm run lint",
+      "cwd": "aurum-desk/frontend",
+      "result": "15 warnings, 0 errors, rc=0 (same as baseline)",
+      "log": "logs/acceptance/v14_2/final_frontend_lint.log"
+    },
+    {
+      "cmd": "npx playwright test",
+      "cwd": "aurum-desk/frontend",
+      "result": "9 passed, rc=0 (Google Chrome, isolated backend)",
+      "log": "logs/acceptance/v14_2/final_e2e.log"
+    }
+  ],
+  "mandatory_matrix": [
+    {
+      "id": "M01",
+      "route": "manual_arm_setup",
+      "direction": "LONG/SHORT",
+      "expected": "valid plan arms frozen LIMIT; news / red lesson / stale quote / poor RR block with no order",
+      "test": "backend/tests/test_v14_2_entry_guard.py::test_manual_arm_*, test_tight_target_*",
+      "status": "PASS"
+    },
+    {
+      "id": "M02",
+      "route": "manual_arm_setup",
+      "direction": "LONG",
+      "expected": "WAITING_MSS/PRICE never arm; WAITING_RETRACE needs sweep+break+FVG and only creates LIMIT",
+      "test": "backend/tests/test_v14_2_entry_guard.py::test_waiting_*, test_waiting_retrace_*",
+      "status": "PASS"
+    },
+    {
+      "id": "M03",
+      "route": "_auto_arm_candidate",
+      "direction": "LONG/SHORT",
+      "expected": "AUTO scope; news/red lesson/RR/stale quote block; positive control arms; block log deduplicated",
+      "test": "backend/tests/test_v14_2_entry_guard.py::test_auto_arm_*",
+      "status": "PASS"
+    },
+    {
+      "id": "M04",
+      "route": "orders/paper + PaperBroker",
+      "direction": "LONG/SHORT",
+      "expected": "news/red lesson/invalid quote block with no orphan order; direct broker call guarded; positive control opens",
+      "test": "backend/tests/test_v14_2_entry_guard.py::test_market_*, test_direct_broker_call_*",
+      "status": "PASS"
+    },
+    {
+      "id": "M05",
+      "route": "coordinator MARKET/LIMIT/STOP",
+      "direction": "LONG/SHORT",
+      "expected": "positive fill; news after arm rejects once (1 order.rejected, 0 trade.opened, fills unchanged, repeat ticks idempotent)",
+      "test": "backend/tests/test_v14_2_entry_guard.py::test_pending_fill_positive_control, test_news_after_arm_*",
+      "status": "PASS"
+    },
+    {
+      "id": "M06",
+      "route": "coordinator",
+      "direction": "LONG/SHORT",
+      "expected": "stale quote / trigger not hit keeps order armed, no reject",
+      "test": "backend/tests/test_v14_2_entry_guard.py::test_stale_quote_*, test_trigger_not_hit_*",
+      "status": "PASS"
+    },
+    {
+      "id": "M07",
+      "route": "coordinator lessons",
+      "direction": "LONG/SHORT",
+      "expected": "red enabled after arm blocks with BEFORE_FILL trace; disabled/unapproved/archived/invalid/shadow/entry-rules-off do not block; yellow fills; direction/mode/family scope",
+      "test": "backend/tests/test_v14_2_entry_guard.py::test_red_rule_*, test_non_effective_rules_*, test_rule_*",
+      "status": "PASS"
+    },
+    {
+      "id": "M08",
+      "route": "execute_close / exit ticks",
+      "direction": "LONG/SHORT",
+      "expected": "blackout + red lesson do not stop SL exit nor manual close",
+      "test": "backend/tests/test_v14_2_entry_guard.py::test_open_position_still_exits_*, test_manual_close_*",
+      "status": "PASS"
+    },
+    {
+      "id": "M09",
+      "route": "policy",
+      "direction": "-",
+      "expected": "news blocks with inactive and active policy; safe positive control",
+      "test": "backend/tests/test_v14_2_entry_guard.py::test_policy_*",
+      "status": "PASS"
+    },
+    {
+      "id": "M10",
+      "route": "fail closed",
+      "direction": "LONG",
+      "expected": "news checker error blocks market entry and pending fill; lifecycle failure then retry gives one fill",
+      "test": "backend/tests/test_v14_2_entry_guard.py::test_news_checker_failure_*, test_lifecycle_failure_*",
+      "status": "PASS"
+    },
+    {
+      "id": "M11",
+      "route": "concurrency",
+      "direction": "LONG",
+      "expected": "two independent SQLite sessions: exactly one position/fill; two pending triggers fill one",
+      "test": "backend/tests/test_v14_2_entry_guard.py::test_concurrent_market_orders_*, test_two_pending_triggers_*",
+      "status": "PASS"
+    },
+    {
+      "id": "M12",
+      "route": "read-only endpoints",
+      "direction": "SHORT",
+      "expected": "eligibility/upcoming/preview do not change orders, counters, events, outbox",
+      "test": "backend/tests/test_v14_2_entry_guard.py::test_read_only_endpoints_*",
+      "status": "PASS"
+    },
+    {
+      "id": "M13",
+      "route": "news blackout",
+      "direction": "-",
+      "expected": "impact normalisation, USD scope, Fed word-boundary, known_at, overlap, +-1ms boundaries, tuple==DTO, CSV/JSON import",
+      "test": "backend/tests/test_v14_2_news_blackout.py",
+      "status": "PASS"
+    },
+    {
+      "id": "M14",
+      "route": "SHORT photo fixture",
+      "direction": "SHORT",
+      "expected": "geometry valid but not executable; gross 0.058, net reward -0.92, net RR -0.37; TP kept",
+      "test": "backend/tests/test_v14_2_entry_guard.py::test_short_photo_fixture_*",
+      "status": "PASS"
+    },
+    {
+      "id": "M15",
+      "route": "frontend helpers",
+      "direction": "LONG/SHORT",
+      "expected": "binding match/mismatch, provisional distance, signed RR, stale quote never green",
+      "test": "frontend/src/v14_2_entry_gate.test.ts",
+      "status": "PASS"
+    },
+    {
+      "id": "M16",
+      "route": "browser full App (Chrome)",
+      "direction": "LONG/SHORT",
+      "expected": "focus LONG->SHORT, tight provisional SHORT blocked with negative RR, news chip + disabled CTA, copy-to-draft, slow preview race, resize, UI arm + real fill, news after arm reject once",
+      "test": "frontend/tests/e2e/v14_2_entry_guard.e2e.ts",
+      "status": "PASS"
+    }
+  ],
+  "frontend_build": {
+    "cmd": "npm run build",
+    "result": "rc=0 (tsc -b && vite build; chunk-size warning only)",
+    "log": "logs/acceptance/v14_2/final_frontend_build.log"
+  },
+  "browser_status": "PASSED (9/9, real Google Chrome via Playwright channel 'chrome', isolated temp DB, no network/Telegram). Canvas drag of SL/TP handles NOT covered at full-App level.",
+  "baseline_failures": [
+    "backend/tests/test_v12_4_acceptance.py::test_v124_01_canonical_ledger_schema_and_export",
+    "backend/tests/test_v13_5_integrity_acceptance.py::test_01_integrity_pass_on_valid_inputs"
+  ],
+  "known_limitations": [
+    "entry_mutation_lock is process-local (single uvicorn worker); no DB-level invariant",
+    "drag of SL/TP on the canvas and opening the lessons/news drawer are not covered by the full-App browser tests",
+    "additive nullable columns watch_setups.plan_kind/direction_source are created by ALTER TABLE on import; not tested on a copy of the live DB",
+    "backend/lab runners seed orders directly and were not changed or re-verified",
+    "2 baseline backend failures are replay-related and unchanged",
+    "no winrate/profit claim"
+  ],
+  "push_status": "PENDING (updated in handover after git ls-remote verification)"
+}

@@ -86,17 +86,34 @@ class SetupQualityRepository:
 
     @staticmethod
     def get_snapshots_batch(db: Session, setup_ids: List[str]) -> Dict[str, Dict[str, Any]]:
-        """Batch loads latest snapshot for a list of setup_ids to prevent N+1 queries."""
+        """
+        V16.38 Rule 190: Bounded single batch query to retrieve latest snapshot
+        per setup_id without N+1 query loop.
+        """
         if not setup_ids:
             return {}
-        records = db.query(models.SetupQualitySnapshot).filter(
-            models.SetupQualitySnapshot.setup_id.in_(setup_ids)
-        ).order_by(models.SetupQualitySnapshot.created_at.desc()).all()
+        unique_ids = [s for s in dict.fromkeys(setup_ids) if s]
+        if not unique_ids:
+            return {}
 
-        out = {}
-        for r in records:
-            if r.setup_id not in out:
-                out[r.setup_id] = json.loads(r.payload_json)
+        records = (
+            db.query(models.SetupQualitySnapshot)
+            .filter(models.SetupQualitySnapshot.setup_id.in_(unique_ids))
+            .order_by(
+                models.SetupQualitySnapshot.setup_id,
+                models.SetupQualitySnapshot.created_at.desc(),
+                models.SetupQualitySnapshot.snapshot_id.desc(),
+            )
+            .all()
+        )
+
+        out: Dict[str, Dict[str, Any]] = {}
+        for rec in records:
+            if rec.setup_id not in out:
+                try:
+                    out[rec.setup_id] = json.loads(rec.payload_json)
+                except Exception as e:
+                    logger.warning(f"Failed to decode payload_json for snapshot {rec.snapshot_id}: {e}")
         return out
 
 

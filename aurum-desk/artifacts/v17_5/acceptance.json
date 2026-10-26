@@ -1,0 +1,24 @@
+{
+  "timestamp_ms": 1792810875301,
+  "git": {
+    "branch": "fix/v14-1-rr-flow",
+    "sha": "2c67c28dc9dfd2c869477fc7082a05a4671ba043",
+    "is_dirty": true
+  },
+  "technical_status": "IMPLEMENTATION_VERIFIED",
+  "empirical_status": "EMPIRICAL_UNPROVEN",
+  "v17_5_suite": {
+    "status": "PASS",
+    "exit_code": 0,
+    "duration_sec": 3.167
+  },
+  "regression_suite": {
+    "status": "PASS",
+    "exit_code": 0,
+    "duration_sec": 129.858
+  },
+  "frontend_build": {
+    "status": "PASS",
+    "duration_sec": 8.424
+  }
+}

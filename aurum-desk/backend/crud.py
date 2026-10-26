@@ -25,10 +25,13 @@ def get_candles(
     limit: int = 200,
     ascending: bool = True,
     cutoff_ms: Optional[int] = None,
-    start_ms: Optional[int] = None
+    start_ms: Optional[int] = None,
+    closed_only: bool = False,
 ) -> List[models.Candle]:
     """Retrieve candles from SQLite with optional cutoff_ms/start_ms, ordered chronologically if ascending=True"""
     query = db.query(models.Candle).filter(models.Candle.symbol == symbol, models.Candle.timeframe == timeframe)
+    if closed_only:
+        query = query.filter(models.Candle.is_closed.is_(True))
     if cutoff_ms is not None:
         query = query.filter(models.Candle.timestamp <= cutoff_ms)
     if start_ms is not None:
@@ -37,6 +40,28 @@ def get_candles(
     if ascending:
         candles.reverse()
     return candles
+
+
+def get_closed_candles(
+    db: Session,
+    symbol: str,
+    timeframe: str,
+    limit: int = 200,
+    ascending: bool = True,
+    cutoff_ms: Optional[int] = None,
+    start_ms: Optional[int] = None,
+) -> List[models.Candle]:
+    """Convenience helper to retrieve strictly closed candles for HTF analysis without modifying default get_candles."""
+    return get_candles(
+        db,
+        symbol=symbol,
+        timeframe=timeframe,
+        limit=limit,
+        ascending=ascending,
+        cutoff_ms=cutoff_ms,
+        start_ms=start_ms,
+        closed_only=True,
+    )
 
 
 def get_candles_in_range(
@@ -201,6 +226,7 @@ def get_or_create_today_audit(
 ) -> models.DayAudit:
     ds = date_str or get_today_str_vn(clock)
     audit = db.query(models.DayAudit).filter(models.DayAudit.date_str == ds).first()
+    now_ms = clock.now_ms() if clock and hasattr(clock, "now_ms") else int(time.time() * 1000)
     if not audit:
         # Check yesterday's current equity to roll over balance
         yesterday_audit = db.query(models.DayAudit).order_by(models.DayAudit.id.desc()).first()
@@ -213,6 +239,7 @@ def get_or_create_today_audit(
             fills_count=0,
             consecutive_losses=0,
             cooldown_until=None,
+            updated_at_ms=now_ms,
             is_blocked=False,
             block_reason=None
         )
@@ -255,6 +282,7 @@ def record_trade_close_audit(
     audit.current_equity += pnl
 
     c_now = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
+    audit.updated_at_ms = c_now
     # Set 30-minute cooldown
     audit.cooldown_until = c_now + (30 * 60 * 1000)
 
@@ -353,44 +381,17 @@ def check_news_blackout(db: Session, now_ms: Optional[int] = None) -> Tuple[bool
     - High impact USD news: 30 minutes before, 15 minutes after
     - FOMC rate decision / press conference: 60 minutes before, 30 minutes after
     Returns (is_blackout, event_title, remaining_minutes)
+
+    V14.2: legacy tuple contract preserved; the decision is computed by
+    services.news_blackout_service (single window formula, USD/Fed scope, causal filter).
     """
     if now_ms is None:
         now_ms = int(time.time() * 1000)
 
-    # Search window: events within +- 2 hours
-    window_start = now_ms - (90 * 60 * 1000)
-    window_end = now_ms + (90 * 60 * 1000)
-
-    events = (
-        db.query(models.EconomicNews)
-        .filter(
-            models.EconomicNews.scheduled_at >= window_start,
-            models.EconomicNews.scheduled_at <= window_end,
-            models.EconomicNews.impact.in_(["High", "high", "HIGH"])
-        )
-        .all()
-    )
-
-    for ev in events:
-        # Causal filtering: event must be known/received at or before now_ms
-        rec_at = getattr(ev, "received_at", None)
-        if rec_at is not None and now_ms < rec_at:
-            continue
-        k_at = getattr(ev, "known_at", None)
-        if k_at is not None and now_ms < k_at:
-            continue
-
-        is_fomc = "FOMC" in ev.title.upper() or "FED" in ev.title.upper() or "RATE DECISION" in ev.title.upper()
-        before_ms = (60 if is_fomc else 30) * 60 * 1000
-        after_ms = (30 if is_fomc else 15) * 60 * 1000
-
-        blackout_start = ev.scheduled_at - before_ms
-        blackout_end = ev.scheduled_at + after_ms
-
-        if blackout_start <= now_ms <= blackout_end:
-            remaining_min = max(1, int((blackout_end - now_ms) / (60 * 1000)))
-            return True, f"Tin High Impact: {ev.title} (Blackout -{before_ms//60000}m/+{after_ms//60000}m)", remaining_min
-
+    from services.news_blackout_service import evaluate_news_blackout
+    view = evaluate_news_blackout(db, now_ms)
+    if view.is_blackout:
+        return True, view.reason_text(), max(1, view.remaining_minutes)
     return False, None, 0
 
 # ==================== RESEARCH REPORTS & LESSONS ====================

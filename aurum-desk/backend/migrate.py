@@ -1,25 +1,74 @@
 import os
 import shutil
 import sqlite3
+import sys
 import time
 from pathlib import Path
 
-def run_migration():
-    base_dir = Path(__file__).resolve().parent
-    db_path = base_dir / "aurum_desk.db"
-    backup_path = base_dir / f"aurum_desk.db.bak.{int(time.time())}"
+def resolve_migration_db_path(
+    explicit_path=None,
+    env_path=None,
+    runtime_default=None,
+    testing_flag=None
+) -> Path:
+    """Resolves database path for migration with strict isolation rules:
+    1. Explicit path always wins.
+    2. Env path (e.g. AURUM_DB_PATH) wins next.
+    3. If testing (TESTING=1 or pytest) and no explicit/env path, NEVER touch live database; use temp DB.
+    4. Otherwise fallback to runtime_default or backend/aurum_desk.db.
+    """
+    if explicit_path is not None:
+        return Path(explicit_path).resolve()
 
-    print(f"[*] Starting idempotent V4 migration for {db_path}...")
-    if db_path.exists():
-        shutil.copy2(db_path, backup_path)
-        print(f"[+] Created consistent backup at {backup_path}")
+    env_val = env_path if env_path is not None else os.environ.get("AURUM_DB_PATH")
+    if env_val:
+        return Path(env_val).resolve()
 
-    conn = sqlite3.connect(str(db_path))
+    is_test = testing_flag if testing_flag is not None else (
+        os.environ.get("TESTING") == "1" or "pytest" in sys.modules or os.environ.get("PYTEST_CURRENT_TEST") is not None
+    )
+    if is_test:
+        import tempfile
+        return Path(tempfile.gettempdir()) / f"aurum_mig_isolated_{os.getpid()}.db"
+
+    if runtime_default is not None:
+        return Path(runtime_default).resolve()
+
+    return (Path(__file__).resolve().parent / "aurum_desk.db").resolve()
+
+
+def backup_sqlite_database(source_conn: sqlite3.Connection, backup_path: Path) -> None:
+    """Performs an atomic SQLite online backup that flushes WAL pages consistently."""
+    backup_path.parent.mkdir(parents=True, exist_ok=True)
+    bck_conn = sqlite3.connect(str(backup_path))
+    try:
+        source_conn.backup(bck_conn)
+    finally:
+        bck_conn.close()
+
+
+def run_migration(db_path=None, *, backup_dir=None):
+    target_path = resolve_migration_db_path(explicit_path=db_path)
+    base_dir = target_path.parent
+    bck_dir = Path(backup_dir).resolve() if backup_dir else base_dir
+    backup_path = bck_dir / f"{target_path.name}.bak.{int(time.time())}"
+
+    print(f"[*] Starting idempotent V4 migration for {target_path}...")
+    conn = sqlite3.connect(str(target_path))
     cur = conn.cursor()
 
     # Enable WAL & busy timeout
     cur.execute("PRAGMA journal_mode=WAL;")
     cur.execute("PRAGMA busy_timeout=5000;")
+
+    # Perform atomic online backup using SQLite backup API if target exists and has data
+    if target_path.exists() and target_path.stat().st_size > 0:
+        try:
+            backup_sqlite_database(conn, backup_path)
+            print(f"[+] Created consistent SQLite backup at {backup_path}")
+        except Exception as bck_err:
+            print(f"[!] Warning: online backup skipped/failed: {bck_err}")
+
 
     # 1. Candles table & unique constraint
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='candles';")
@@ -287,6 +336,9 @@ def run_migration():
     add_column_if_missing("watch_setups", "risk_pct", "FLOAT DEFAULT 0.25")
     add_column_if_missing("watch_setups", "config_version", "INTEGER DEFAULT 1")
     cur.execute("CREATE INDEX IF NOT EXISTS ix_watch_setups_instance ON watch_setups(setup_instance_id);")
+
+    # Day audits extensions
+    add_column_if_missing("day_audits", "updated_at_ms", "BIGINT")
 
     # Paper orders recovery & config extensions
     add_column_if_missing("paper_orders", "last_processed_market_timestamp", "BIGINT")
@@ -611,7 +663,7 @@ def run_migration():
             symbol VARCHAR(20) DEFAULT 'XAUUSDT',
             max_daily_fills INTEGER DEFAULT 3,
             daily_timezone VARCHAR(50) DEFAULT 'Asia/Ho_Chi_Minh',
-            entry_session_policy VARCHAR(40) DEFAULT 'NY_ONLY',
+            entry_session_policy VARCHAR(40) DEFAULT 'ALL_SESSIONS_WITH_NY_RESERVE',
             ny_timezone VARCHAR(50) DEFAULT 'America/New_York',
             ny_entry_start VARCHAR(10) DEFAULT '08:00',
             ny_entry_end VARCHAR(10) DEFAULT '11:00',
@@ -672,6 +724,43 @@ def run_migration():
         );
     """)
 
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS forecast_observations (
+            id VARCHAR(80) PRIMARY KEY,
+            forecast_id VARCHAR(80) NOT NULL,
+            revision INTEGER DEFAULT 1,
+            symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+            session VARCHAR(20) NOT NULL,
+            session_id VARCHAR(80) NOT NULL,
+            as_of_ms BIGINT NOT NULL,
+            context_cutoff_ms BIGINT NOT NULL,
+            content_digest VARCHAR(64) NOT NULL,
+            hypothesis_type VARCHAR(50) NOT NULL,
+            direction VARCHAR(10),
+            target_price FLOAT,
+            invalidation_price FLOAT,
+            outcome_status VARCHAR(50) DEFAULT 'PENDING',
+            outcome_at_ms BIGINT,
+            outcome_details TEXT,
+            verification_status VARCHAR(30) DEFAULT 'UNVERIFIED',
+            invalidation_mode VARCHAR(30) DEFAULT 'CLOSED_PRICE',
+            payload_json TEXT NOT NULL,
+            created_at BIGINT NOT NULL,
+            CONSTRAINT uq_forecast_session_digest UNIQUE (session_id, content_digest)
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_forecast_observations_forecast_id ON forecast_observations(forecast_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_forecast_observations_session_id ON forecast_observations(session_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_forecast_observations_as_of_ms ON forecast_observations(as_of_ms);")
+
+    # Column migration for forecast_observations if table existed
+    cur.execute("PRAGMA table_info(forecast_observations);")
+    fc_mig_cols = {row[1] for row in cur.fetchall()}
+    if "verification_status" not in fc_mig_cols:
+        cur.execute("ALTER TABLE forecast_observations ADD COLUMN verification_status VARCHAR(30) DEFAULT 'UNVERIFIED';")
+    if "invalidation_mode" not in fc_mig_cols:
+        cur.execute("ALTER TABLE forecast_observations ADD COLUMN invalidation_mode VARCHAR(30) DEFAULT 'CLOSED_PRICE';")
+
     # Seed default TradingPolicy if absent
     cur.execute("SELECT id FROM trading_policies WHERE id = 'default';")
     if not cur.fetchone():
@@ -684,16 +773,127 @@ def run_migration():
                 updated_at
             ) VALUES (
                 'default', 1, 'PAPER', 'XAUUSDT', 3, 'Asia/Ho_Chi_Minh',
-                'NY_ONLY', 'America/New_York', '08:00', '11:00',
+                'ALL_SESSIONS_WITH_NY_RESERVE', 'America/New_York', '08:00', '11:00',
                 1, 1, 1, '10:30',
                 0.10, 2.0, 1, 1,
                 ?
             );
         """, (now_ms,))
 
+    # V15.0 Opportunity Funnel Records table
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS opportunity_funnel_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            opportunity_id VARCHAR(80) NOT NULL,
+            symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+            model_id VARCHAR(40) NOT NULL,
+            model_version VARCHAR(20) DEFAULT 'v15.0',
+            direction VARCHAR(10) NOT NULL,
+            session_id VARCHAR(60) NOT NULL,
+            zone_id VARCHAR(80),
+            as_of_ms BIGINT NOT NULL,
+            stage VARCHAR(30) NOT NULL,
+            reason_codes_json TEXT,
+            evidence_ids_json TEXT,
+            metrics_json TEXT,
+            payload_json TEXT NOT NULL,
+            created_at BIGINT NOT NULL,
+            updated_at BIGINT NOT NULL,
+            CONSTRAINT uq_opportunity_stage UNIQUE (opportunity_id, stage)
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_funnel_opp_id ON opportunity_funnel_records(opportunity_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_funnel_model_id ON opportunity_funnel_records(model_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_funnel_session_id ON opportunity_funnel_records(session_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_funnel_as_of_ms ON opportunity_funnel_records(as_of_ms);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_funnel_stage ON opportunity_funnel_records(stage);")
+
+    # V17.6 Engine Observability Tables
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS engine_heartbeats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            engine_instance_id VARCHAR(80) NOT NULL UNIQUE,
+            symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+            run_id VARCHAR(80),
+            state VARCHAR(30) DEFAULT 'IDLE',
+            last_process_heartbeat_at_ms BIGINT NOT NULL,
+            last_evaluation_started_at_ms BIGINT,
+            last_evaluation_completed_at_ms BIGINT,
+            last_successful_evaluation_at_ms BIGINT,
+            last_cycle_id VARCHAR(80),
+            cycles_count INTEGER DEFAULT 0,
+            failed_cycles_count INTEGER DEFAULT 0,
+            cadence_sec INTEGER DEFAULT 15,
+            metadata_json TEXT,
+            updated_at_ms BIGINT NOT NULL
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_engine_hb_instance ON engine_heartbeats (engine_instance_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_engine_hb_symbol ON engine_heartbeats (symbol);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_engine_hb_run_id ON engine_heartbeats (run_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_engine_hb_state ON engine_heartbeats (state);")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS opportunity_decision_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id VARCHAR(80) NOT NULL UNIQUE,
+            event_version INTEGER DEFAULT 1,
+            run_id VARCHAR(80),
+            cycle_id VARCHAR(80),
+            opportunity_id VARCHAR(80) NOT NULL,
+            symbol VARCHAR(20) DEFAULT 'XAUUSDT',
+            model_id VARCHAR(40) NOT NULL,
+            direction VARCHAR(10) NOT NULL,
+            stage VARCHAR(30) NOT NULL,
+            primary_reason_code VARCHAR(80),
+            reason_category VARCHAR(40),
+            reason_codes_json TEXT,
+            evidence_ids_json TEXT,
+            waiting_conditions_json TEXT,
+            payload_json TEXT,
+            occurred_at_ms BIGINT NOT NULL,
+            created_at_ms BIGINT NOT NULL
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_event_id ON opportunity_decision_events (event_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_opp_id ON opportunity_decision_events (opportunity_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_symbol ON opportunity_decision_events (symbol);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_model_id ON opportunity_decision_events (model_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_stage ON opportunity_decision_events (stage);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_run_id ON opportunity_decision_events (run_id);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_occurred ON opportunity_decision_events (occurred_at_ms);")
+
+    # Additive migration check for existing opportunity_decision_events table
+    cur.execute("PRAGMA table_info(opportunity_decision_events);")
+    ode_cols = {row[1] for row in cur.fetchall()}
+    if ode_cols and "symbol" not in ode_cols:
+        cur.execute("ALTER TABLE opportunity_decision_events ADD COLUMN symbol VARCHAR(20) DEFAULT 'XAUUSDT';")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_opp_dec_symbol ON opportunity_decision_events (symbol);")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS engine_incidents (
+            id VARCHAR(80) PRIMARY KEY,
+            severity VARCHAR(20) NOT NULL,
+            component VARCHAR(40) NOT NULL,
+            engine_instance_id VARCHAR(80),
+            run_id VARCHAR(80),
+            cycle_id VARCHAR(80),
+            opportunity_id VARCHAR(80),
+            order_id VARCHAR(36),
+            reason_code VARCHAR(80),
+            message TEXT NOT NULL,
+            status VARCHAR(20) DEFAULT 'ACTIVE',
+            created_at_ms BIGINT NOT NULL,
+            recovered_at_ms BIGINT,
+            payload_json TEXT
+        );
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_engine_incidents_status ON engine_incidents (status);")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_engine_incidents_created ON engine_incidents (created_at_ms);")
+
     conn.commit()
     conn.close()
-    print("[+] V7 migration completed successfully with full historical preservation!")
+    print("[+] V7/V15/V17.6 migration completed successfully with full historical preservation!")
 
 if __name__ == "__main__":
     run_migration()

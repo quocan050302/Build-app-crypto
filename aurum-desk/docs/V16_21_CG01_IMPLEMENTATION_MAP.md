@@ -1,0 +1,13 @@
+# V16.21 CG-01 Implementation Map
+
+| File / Component | Function / Class | Changes Made | Transaction Owner | Side Effects | Verified In |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `backend/services/cg01_config_factory.py` | `resolve_canonical_cg01_config` | Canonical single config factory for both ACTIVE orchestrator and SHADOW scheduler; preserves explicit overrides, DB daily policy, and disables strategy when configured OFF. | Read-only | None | `test_red_023`, `test_red_024` |
+| `backend/services/cg01_config_factory.py` | `compute_cg01_config_fingerprint` | Generates stable MD5 hash across the 24 actual decision-affecting fields on `CG01Config`. | Pure computation | None | `test_red_023` |
+| `backend/services/cg01_scheduler_service.py` | `capture_cg01_quote_snapshot` | Unpacks `ValidatedQuote` attributes (`bid`, `ask`, `last`, `spread`, `exchange_time`, `observed_at`, `freshness_sec`, `is_valid`, `is_stale`); banishes `.get()` and `timestamp`. | Read-only | None | `test_red_021`, `test_red_022` |
+| `backend/services/cg01_scheduler_service.py` | `validated_quote_to_cg01_snapshot` | Pure converter mapping `ValidatedQuote` to CG-01 snapshot schema. | Pure computation | None | `test_red_021`, `test_red_022` |
+| `backend/services/cg01_scheduler_service.py` | `resolve_effective_cg01_config` | Delegated to `cg01_config_factory.resolve_canonical_cg01_config`. | Read-only session | None | `test_red_023` |
+| `backend/services/scalp_watcher_orchestrator.py` | `evaluate_cycle` | Replaced custom `CG01Config` construction with `resolve_canonical_cg01_config`; passes `config_version` to `PaperOrder` at arming. | Caller DB session | Emits candidate / arming | `test_red_023`, `test_v16_21_scenario_1`, `test_v16_21_scenario_2` |
+| `backend/services/cg01_telemetry_service.py` | `_persist_trace_batch_sync` | Moved `db = sf()` into `try:`; failed batches preserved in `_RETRY_BUFFER`; `persist_trace` returning `False` triggers rollback & retry; `_IN_FLIGHT_COUNT` safely decremented in `finally:`. | Dedicated session | Database commit / rollback | `test_red_025`, `test_red_026` |
+| `backend/services/cg01_telemetry_service.py` | `flush_pending_traces` | Uses `time.monotonic()`; acts as single consumer by waiting for worker thread if worker is running; drains queue without competing. | Worker thread / flush | Flushes traces to database | `test_red_027`, `test_red_028` |
+| `backend/services/candle_cache_service.py` | `validate_candle_row` | Extended to accept both `dict` and `CandleCreate` Pydantic models. | Pure validation | None | `test_red_029`, `test_v16_21_scenario_1` |

@@ -5,10 +5,13 @@ import type {
   IPrimitivePaneRenderer,
   ISeriesPrimitiveAxisView,
   PrimitiveHoveredItem,
+  AutoscaleInfo,
   Time,
   Logical,
 } from 'lightweight-charts';
 import type { CanvasRenderingTarget2D } from 'fancy-canvas';
+import { formatRR } from '../utils/planLevels';
+import type { Rect } from '../utils/chartAnnotationLayout';
 
 export interface RiskRewardData {
   id: string;
@@ -27,6 +30,14 @@ export interface RiskRewardData {
   estimatedNetRR: number;
   isValid?: boolean;
   invalidReason?: string;
+  readOnly?: boolean;
+  minNetRR?: number | null;
+  rrPolicySource?: string;
+  rrPolicyFingerprint?: string;
+  rrPolicyStatus?: 'KNOWN' | 'MISSING' | 'INVALID';
+  rrPolicyReason?: string;
+  canExecute?: boolean;
+  executionReason?: string;
   realizedPnlNet?: number;
   realizedR?: number;
   invalidationReason?: string;
@@ -44,6 +55,55 @@ export interface RiskRewardData {
   grossLossUsdt?: number;
   netRewardUsdt?: number;
   multiplier?: number;
+  entryFeeUsdt?: number;
+  slExitFeeUsdt?: number;
+  tpExitFeeUsdt?: number;
+  entrySlippageUsdt?: number;
+  slExitSlippageUsdt?: number;
+  tpExitSlippageUsdt?: number;
+}
+
+export interface PrimitiveRrStatus {
+  hasKnownThreshold: boolean;
+  meetsMinRR: boolean;
+  rrPassText: string;
+  isPass: boolean;
+  strokeColor: string;
+  textColor: string;
+}
+
+export function resolvePrimitiveRrStatus(d: RiskRewardData): PrimitiveRrStatus {
+  const effectiveEntry = d.actualEntry ?? d.plannedEntry;
+  const nonPositiveReward = d.direction === 'LONG' ? d.takeProfit <= effectiveEntry : d.takeProfit >= effectiveEntry;
+  if (nonPositiveReward) {
+    return {
+      hasKnownThreshold: true,
+      meetsMinRR: false,
+      rrPassText: ' · TP không bù chi phí',
+      isPass: false,
+      strokeColor: '#eab308',
+      textColor: '#fef08a',
+    };
+  }
+  if (d.minNetRR === undefined || d.minNetRR === null || !Number.isFinite(d.minNetRR) || d.minNetRR <= 0) {
+    return {
+      hasKnownThreshold: false,
+      meetsMinRR: false,
+      rrPassText: ' · Ngưỡng chưa xác định',
+      isPass: false,
+      strokeColor: '#a1a1aa',
+      textColor: '#d4d4d8',
+    };
+  }
+  const meets = d.estimatedNetRR >= d.minNetRR;
+  return {
+    hasKnownThreshold: true,
+    meetsMinRR: meets,
+    rrPassText: meets ? '' : ' · Chưa đạt R:R',
+    isPass: meets,
+    strokeColor: meets ? (d.direction === 'LONG' ? '#26a69a' : '#ef5350') : '#eab308',
+    textColor: meets ? '#f4f4f5' : '#fef08a',
+  };
 }
 
 export type DragTargetPart = 'entry' | 'sl' | 'tp' | 'body' | 'right_edge';
@@ -195,14 +255,18 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
         return;
       }
 
-      // 1. Profit Box (Green Zone)
+      // Price-target geometry stays unchanged; a net loss at TP is an amber warning.
+      const netTargetReward = d.netRewardUsdt ?? (d.initialRiskUsdt * d.estimatedNetRR);
+      const nonPositiveReward = Number.isFinite(netTargetReward) && netTargetReward <= 0;
+      const targetColor = nonPositiveReward ? '#eab308' : '#26a69a';
+      // 1. Price Target Box
       const profitTop = Math.min(entryY, tpY);
       const profitHeight = Math.abs(tpY - entryY);
-      ctx.fillStyle = isMuted ? 'rgba(38, 166, 154, 0.08)' : 'rgba(38, 166, 154, 0.22)';
+      ctx.fillStyle = nonPositiveReward ? 'rgba(234, 179, 8, 0.16)' : (isMuted ? 'rgba(38, 166, 154, 0.08)' : 'rgba(38, 166, 154, 0.22)');
       ctx.fillRect(startX, profitTop, width, profitHeight);
 
       // Profit Border
-      ctx.strokeStyle = isMuted ? 'rgba(38, 166, 154, 0.4)' : '#26a69a';
+      ctx.strokeStyle = isMuted ? 'rgba(38, 166, 154, 0.4)' : targetColor;
       ctx.lineWidth = this._hoverPart === 'tp' ? 3 : 1.5;
       if (isDashed) ctx.setLineDash([4, 4]);
       else ctx.setLineDash([]);
@@ -269,7 +333,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       }
 
       // Watermark for DRAFT state
-      if (d.state === 'draft') {
+      if (!d.readOnly && (d.state === 'draft' || d.state === 'candidate')) {
         ctx.save();
         ctx.font = '900 13px Inter, sans-serif';
         ctx.fillStyle = 'rgba(245, 158, 11, 0.22)';
@@ -282,8 +346,8 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
 
       // 5. Central Badge Pill
       const badgeY = entryY;
-      const rrPassText = d.estimatedNetRR >= 2.0 ? '' : ' · [FAIL Net < 2.0]';
-      const badgeText = `${d.direction} · R:R Gross 1:${d.grossRR.toFixed(2)} (Net 1:${d.estimatedNetRR.toFixed(2)})${rrPassText} · ${d.state.toUpperCase()}`;
+      const rrStatus = resolvePrimitiveRrStatus(d);
+      const badgeText = `${d.direction} · Gross ${formatRR(d.grossRR)} · Net ${formatRR(d.estimatedNetRR)}${rrStatus.rrPassText} · ${d.state.toUpperCase()}`;
       ctx.font = 'bold 11px Inter, sans-serif';
       const textMetrics = ctx.measureText(badgeText);
       const badgeWidth = textMetrics.width + 24;
@@ -292,14 +356,14 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
 
       // Badge background pill
       ctx.fillStyle = '#18181b';
-      ctx.strokeStyle = d.estimatedNetRR >= 2.0 ? (d.direction === 'LONG' ? '#26a69a' : '#ef5350') : '#eab308';
+      ctx.strokeStyle = rrStatus.strokeColor;
       ctx.lineWidth = 1.5;
       this._roundRect(ctx, badgeX, badgeY - badgeHeight / 2, badgeWidth, badgeHeight, 11);
       ctx.fill();
       ctx.stroke();
 
       // Badge text
-      ctx.fillStyle = d.estimatedNetRR >= 2.0 ? '#f4f4f5' : '#fef08a';
+      ctx.fillStyle = rrStatus.textColor;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(badgeText, badgeX + badgeWidth / 2, badgeY);
@@ -307,12 +371,12 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       // 6. Target Box Text (Reward info: explicit Gross vs Net)
       const tpTargetY = d.direction === 'LONG' ? profitTop + 14 : profitTop + profitHeight - 6;
       ctx.font = '10px Inter, sans-serif';
-      ctx.fillStyle = '#2dd4bf';
+      ctx.fillStyle = nonPositiveReward ? '#facc15' : '#2dd4bf';
       ctx.textAlign = 'left';
       const mult = d.multiplier || 1.0;
       const targetDist = Math.abs(d.takeProfit - effectiveEntry);
-      const grossReward = d.grossRewardUsdt !== undefined ? d.grossRewardUsdt : (d.quantity * mult * targetDist);
-      const netReward = d.netRewardUsdt !== undefined ? d.netRewardUsdt : (d.estimatedNetRR > 0 ? d.initialRiskUsdt * d.estimatedNetRR : grossReward);
+      const grossReward = d.grossRewardUsdt != null && Number.isFinite(d.grossRewardUsdt) ? d.grossRewardUsdt : (d.quantity * mult * targetDist);
+      const netReward = netTargetReward;
       const netRewardSign = netReward >= 0 ? '+' : '-';
       const rewardText = `TP: ${d.takeProfit.toFixed(2)} | Lãi theo giá: +$${grossReward.toFixed(2)} | Lãi ròng dự kiến: ${netRewardSign}$${Math.abs(netReward).toFixed(2)}`;
       ctx.fillText(rewardText, startX + 8, tpTargetY);
@@ -321,7 +385,7 @@ class RiskRewardPaneRenderer implements IPrimitivePaneRenderer {
       const slTargetY = d.direction === 'LONG' ? riskTop + riskHeight - 6 : riskTop + 14;
       ctx.fillStyle = '#f87171';
       const stopDist = Math.abs(effectiveEntry - d.stopLoss);
-      const grossLoss = d.grossLossUsdt !== undefined ? d.grossLossUsdt : (d.quantity * mult * stopDist);
+      const grossLoss = d.grossLossUsdt != null && Number.isFinite(d.grossLossUsdt) ? d.grossLossUsdt : (d.quantity * mult * stopDist);
       const netRisk = d.initialRiskUsdt;
       const riskText = `SL: ${d.stopLoss.toFixed(2)} | Lỗ theo giá: -$${grossLoss.toFixed(2)} | Lỗ ròng dự kiến: -$${netRisk.toFixed(2)} | KL: ${d.quantity} oz`;
       ctx.fillText(riskText, startX + 8, slTargetY);
@@ -410,6 +474,21 @@ class RiskRewardPaneView implements IPrimitivePaneView {
   }
 }
 
+let _measureCtx: CanvasRenderingContext2D | null = null;
+function measureBadgeTextWidth(text: string): number {
+  if (typeof document !== 'undefined') {
+    if (!_measureCtx) {
+      const c = document.createElement('canvas');
+      _measureCtx = c.getContext('2d');
+    }
+    if (_measureCtx) {
+      _measureCtx.font = 'bold 11px Inter, sans-serif';
+      return _measureCtx.measureText(text).width;
+    }
+  }
+  return text.length * 6.8;
+}
+
 /**
  * Main RiskRewardPrimitive implementing ISeriesPrimitive<Time>
  */
@@ -431,12 +510,20 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
   } = { entryY: null, slY: null, tpY: null, lpY: null, startX: 0, endX: 0 };
   private _hoverPart: DragTargetPart | null = null;
 
+  private _normalizeData(data: RiskRewardData): RiskRewardData {
+    const isOrderState = ['armed', 'paper_open', 'closed', 'invalidated'].includes(data.state);
+    return {
+      ...data,
+      readOnly: data.readOnly ?? (isOrderState ? true : false),
+    };
+  }
+
   constructor(data: RiskRewardData) {
-    this._data = data;
+    this._data = this._normalizeData(data);
   }
 
   setData(data: RiskRewardData) {
-    this._data = data;
+    this._data = this._normalizeData(data);
     this.updateAllViews();
     if (this._param) {
       this._param.requestUpdate();
@@ -459,6 +546,79 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
 
   getGeometry() {
     return this._currentGeometry;
+  }
+
+  getReservedRects(): readonly Rect[] {
+    const { entryY, slY, tpY, startX, endX } = this._currentGeometry;
+    if (entryY === null || slY === null || tpY === null || !Number.isFinite(startX) || !Number.isFinite(endX)) {
+      return [];
+    }
+
+    const rects: Rect[] = [];
+    const handleX = startX + 16;
+
+    // 1. Entry Badge / Handle (width 28, height 20)
+    rects.push({
+      x: handleX - 14,
+      y: entryY - 10,
+      width: 28,
+      height: 20,
+    });
+
+    // 2. Stop Loss Badge / Handle
+    rects.push({
+      x: handleX - 14,
+      y: slY - 10,
+      width: 28,
+      height: 20,
+    });
+
+    // 3. Take Profit Badge / Handle
+    rects.push({
+      x: handleX - 14,
+      y: tpY - 10,
+      width: 28,
+      height: 20,
+    });
+
+    // 4. Right Edge Handle
+    const minY = Math.min(entryY, slY, tpY);
+    const maxY = Math.max(entryY, slY, tpY);
+    rects.push({
+      x: endX - 6,
+      y: minY - 5,
+      width: 12,
+      height: Math.abs(maxY - minY) + 10,
+    });
+
+    // 5. Central Badge Pill at entryY
+    const d = this._data;
+    const width = Math.max(endX - startX, 40);
+    const rrStatus = resolvePrimitiveRrStatus(d);
+    const badgeText = `${d.direction} · Gross ${formatRR(d.grossRR)} · Net ${formatRR(d.estimatedNetRR)}${rrStatus.rrPassText} · ${d.state.toUpperCase()}`;
+    const badgeWidth = measureBadgeTextWidth(badgeText) + 24;
+    const badgeHeight = 22;
+    const badgeX = startX + (width - badgeWidth) / 2;
+    const badgeY = entryY;
+
+    rects.push({
+      x: badgeX,
+      y: badgeY - badgeHeight / 2,
+      width: badgeWidth,
+      height: badgeHeight,
+    });
+
+    return rects;
+  }
+
+  autoscaleInfo(): AutoscaleInfo | null {
+    // Only the attached R:R contributes. Liquidation is deliberately excluded.
+    const prices = [this._data.actualEntry ?? this._data.plannedEntry, this._data.stopLoss, this._data.takeProfit];
+    if (prices.some(price => !Number.isFinite(price) || price <= 0)) return null;
+    const low = Math.min(...prices);
+    const high = Math.max(...prices);
+    const padding = Math.max((high - low) * 0.08, 0.02);
+    return { priceRange: { minValue: low - padding, maxValue: high + padding } };
   }
 
   attached(param: SeriesAttachedParameter<Time>): void {
@@ -491,6 +651,20 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
       const coord = timeScale.timeToCoordinate(this._data.entryTime as Time);
       if (coord !== null) {
         startX = coord;
+      } else {
+        // Entry happened inside the still-forming bar (after the last loaded closed bar): project it onto the
+        // logical axis by bar count instead of falling back to a fake left-edge start.
+        const bars = series.data();
+        const n = bars.length;
+        if (n >= 2) {
+          const last = bars[n - 1].time as number;
+          const step = last - (bars[n - 2].time as number);
+          const t = this._data.entryTime as number;
+          if (step > 0 && t > last) {
+            const projected = timeScale.logicalToCoordinate((n - 1 + (t - last) / step) as unknown as Logical);
+            if (projected !== null) startX = projected;
+          }
+        }
       }
     } else {
       const visibleRange = timeScale.getVisibleLogicalRange();
@@ -518,25 +692,22 @@ export class RiskRewardPrimitive implements ISeriesPrimitive<Time> {
     this._paneView.update(this._data, entryY, slY, tpY, lpY, startX, endX, this._hoverPart);
 
     // Update Price Axis Views
-    if (entryY !== null) {
-      const entryColor = this._data.direction === 'LONG' ? '#2563eb' : '#d97706';
-      this._entryAxisView.update(entryY, `${entryPrice.toFixed(2)} [Entry]`, entryColor);
-    }
-    if (slY !== null) {
-      this._slAxisView.update(slY, `${this._data.stopLoss.toFixed(2)} [SL]`, '#dc2626');
-    }
-    if (tpY !== null) {
-      this._tpAxisView.update(tpY, `${this._data.takeProfit.toFixed(2)} [TP]`, '#16a34a');
-    }
-    if (lpY !== null && this._data.estimatedLiquidation && this._data.estimatedLiquidation > 0) {
-      this._lpAxisView.update(lpY, `${this._data.estimatedLiquidation.toFixed(2)} [LP]`, '#e11d48');
-    }
+    // Axis badges: a null coordinate (price outside the scale) or invalid data hides the badge instead of
+    // keeping the previous order's label alive.
+    const finiteData = [entryPrice, this._data.stopLoss, this._data.takeProfit].every((v) => Number.isFinite(v) && v > 0);
+    const entryColor = this._data.direction === 'LONG' ? '#2563eb' : '#d97706';
+    this._entryAxisView.update(entryY ?? -9999, `${entryPrice.toFixed(2)} [Entry]`, entryColor, '#ffffff', finiteData && entryY !== null);
+    this._slAxisView.update(slY ?? -9999, `${this._data.stopLoss.toFixed(2)} [SL]`, '#dc2626', '#ffffff', finiteData && slY !== null);
+    this._tpAxisView.update(tpY ?? -9999, `${this._data.takeProfit.toFixed(2)} [TP]`, '#16a34a', '#ffffff', finiteData && tpY !== null);
+    const hasLp = !!(this._data.estimatedLiquidation && this._data.estimatedLiquidation > 0);
+    this._lpAxisView.update(lpY ?? -9999, `${(this._data.estimatedLiquidation ?? 0).toFixed(2)} [LP]`, '#e11d48', '#ffffff', hasLp && lpY !== null);
   }
 
   /**
    * Hit test against handles, borders, right edge, and box body.
    */
   hitTest(x: number, y: number): DragHitResult | null {
+    if (this._data.readOnly || ['armed', 'paper_open', 'closed', 'invalidated'].includes(this._data.state)) return null;
     const { entryY, slY, tpY, startX, endX } = this._currentGeometry;
     if (entryY === null || slY === null || tpY === null) return null;
 

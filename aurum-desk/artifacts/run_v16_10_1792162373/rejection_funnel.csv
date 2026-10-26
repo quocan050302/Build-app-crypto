@@ -1,0 +1,12 @@
+category,count,description
+MODEL_DISABLED,0,CG-01 model disabled in configuration
+NO_QUOTE,0,Cycle received no valid quote data
+WAIT_WINDOW,0,Outside permitted session/schedule window
+WAIT_POI,0,Awaiting higher timeframe POI alignment
+CONTEXT_NOT_READY,3,HTF context or warmup insufficient for evaluation
+OBSERVING_WAITING_TRIGGER,0,Active observation awaiting valid sweep / displacement
+GUARD_BLOCKED,0,Candidate setup blocked by risk/news/account/cooldown guards
+SYSTEM_DEGRADED,0,System or database degraded during evaluation cycle
+ARMED_CANDIDATES,0,Setups successfully validated and armed for execution
+EXPIRED_BEFORE_FILL,0,Armed orders expired prior to reaching limit price
+CANCELLED_ORDERS,0,Armed orders cancelled prior to execution

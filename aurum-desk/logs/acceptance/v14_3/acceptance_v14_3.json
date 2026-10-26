@@ -1,0 +1,58 @@
+{
+  "version": "V14.3",
+  "branch": "fix/v14-1-rr-flow",
+  "base_commit": "e6bd319cebcda9f990dc55b9004b3eda05d48bdc",
+  "source_tree_hash_before_acceptance_files": "cb0a5573aa57f1ad7bbe50164e5c84b86dea7517",
+  "implementation_status": "IMPLEMENTED",
+  "acceptance_status": "PASS_SCOPED",
+  "acceptance_scope_note": "Scoped to NY quota/fallback flow + preserved V14.1/V14.2 flows. Two pre-existing replay baseline failures are deselected and out of scope; this is not a global-clean claim.",
+  "commands": [
+    {"cmd": "PYTHONPATH=backend backend/venv/bin/python -m pytest backend/tests/test_v7_trading_policy_quota.py backend/tests/test_v14_2_entry_guard.py -q", "rc": 0, "result": "100 passed"},
+    {"cmd": "PYTHONPATH=backend backend/venv/bin/python -m pytest backend/tests/test_v14_3_ny_quota.py backend/tests/test_v14_3_frequency_audit.py -q", "rc": 0, "result": "117 passed"},
+    {"cmd": "PYTHONPATH=backend backend/venv/bin/python -m pytest backend/tests -q --deselect <2 baseline ids>", "rc": 0, "result": "895 passed, 2 deselected", "log": "backend_full.log"},
+    {"cmd": "cd frontend && npm test", "rc": 0, "result": "159 passed", "log": "frontend_unit.log"},
+    {"cmd": "cd frontend && npm run build", "rc": 0, "log": "frontend_build.log"},
+    {"cmd": "cd frontend && npm run lint", "rc": 0, "result": "0 errors, 15 pre-existing warnings", "log": "frontend_lint.log"},
+    {"cmd": "cd frontend && AURUM_E2E_PYTHON=../backend/venv/bin/python npx playwright test", "rc": 0, "result": "15 passed (9 v14_2 + 6 v14_3), 3 consecutive stable runs", "log": "playwright_summary.log"}
+  ],
+  "deselected_baseline_failures": [
+    "backend/tests/test_v12_4_acceptance.py::test_v124_01_canonical_ledger_schema_and_export",
+    "backend/tests/test_v13_5_integrity_acceptance.py::test_01_integrity_pass_on_valid_inputs"
+  ],
+  "required_cases": {
+    "search_disabled_flag_false_no_generator": "PASS",
+    "not_null_invalidation_price_generator_upsert_commit": "PASS",
+    "existing_row_two_day_direction_flip_persisted": "PASS",
+    "closed_bars_no_lookahead": "PASS",
+    "budget_zero_no_minimum_trade": "PASS",
+    "fake_clock_dst_zoneinfo": "PASS",
+    "positive_full_pipeline_long": "PASS",
+    "positive_full_pipeline_short": "PASS",
+    "negative_news_lesson_quote_feed_account": "PASS",
+    "deadline_10_59_vs_11_00": "PASS",
+    "standard_vs_fallback_competition": "PASS",
+    "dedupe_100_scans_one_unique_restart": "PASS",
+    "calculator_rejection_no_attribute_error": "PASS",
+    "session_quota_creation_race": "PASS",
+    "migration_applied_twice": "PASS"
+  },
+  "browser_status": "PASS (real Chrome channel, isolated temp DB, launcher-only clock injection)",
+  "dataset_coverage": {
+    "frequency_audit_status": "NOT_VERIFIED",
+    "reason": "No >=3-month XAUUSDT M5 + HTF-bias dataset available in the repo/dev DB (15m research JSON and ~3.5 days of 5M only).",
+    "requested_days": 92,
+    "covered_days": 0,
+    "outputs": "frequency_audit/{daily_funnel.csv,sessions.csv,blockers.csv,summary.json} (all counters null; no synthetic data)"
+  },
+  "before_after_counts": {
+    "before_e6bd319": "Fallback could not create/update/fill: NOT NULL invalidation_price, stale row, flag-ignored search, AttributeError reason_code (reproduced in review, not re-run as a 3-month replay)",
+    "after_v14_3": "Fixture-proven: positive LONG and SHORT reach fill with quota 1/1; negatives keep 0/1 with reasons. Real-data trade counts: not measured."
+  },
+  "limitations": [
+    "Real 3-month frequency not measured (NOT_VERIFIED).",
+    "Standard SMC chain provenance / hard-coded quality score unchanged and not certified.",
+    "entry_mutation_lock is process-local.",
+    "No winrate/profit claim; forward live-paper observation not performed; no live DB/account/deploy."
+  ],
+  "push_status": "PENDING"
+}

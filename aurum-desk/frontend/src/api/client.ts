@@ -38,6 +38,17 @@ export interface ResearchReportItem {
 
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
+import type { QualityScoreResponse } from '../types/candidateScore';
+import type {
+  OpportunityMonitorSummary,
+  MonitorListPage,
+  OpportunityMonitorDetail,
+  MonitorChartFocusContext,
+} from '../types/paperOpportunityMonitor';
+import type {
+  ObservationDashboardSnapshot,
+  DecisionsListPage,
+} from '../types/observation';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '';
 
@@ -215,11 +226,40 @@ export interface TradingPolicy {
   ny_fallback_enabled: boolean;
   ny_fallback_start: string;
   ny_fallback_risk_pct_cap: number;
-  min_net_rr: number;
+  min_net_rr: number | null;
+  effective_min_net_rr?: number | null;
+  rr_policy_source?: string;
+  rr_policy_fingerprint?: string;
+  rr_policy_status?: string;
   max_open_positions: number;
   max_armed_orders: number;
   created_at?: number;
   updated_at?: number;
+}
+
+export interface EntrySessionSettingsUpdate {
+  entry_session_policy: string;
+  timing_profile?: string;
+  expected_version?: number;
+  symbol?: string;
+  execution_scope?: string;
+}
+
+export interface EntrySessionSettingsResponse {
+  status: string;
+  entry_session_policy: string;
+  timing_profile: string;
+  effective_ny_goal: number;
+  reserve_ny_slot: boolean;
+  ny_fallback_enabled: boolean;
+  max_daily_fills: number;
+  daily_timezone: string;
+  policy_version: number;
+  execution_scope: string;
+  auto_execution_enabled: boolean;
+  source: string;
+  reason_codes: string[];
+  message?: string | null;
 }
 
 export interface NYSessionStatus {
@@ -244,6 +284,46 @@ export interface NYSessionStatus {
   allowed: boolean;
   reason_code?: string | null;
   reason_message?: string | null;
+  // V14.3 additive (same flag/start/end the generator uses)
+  fallback_enabled?: boolean | null;
+  fallback_start_ny?: string | null;
+  window_end_ny?: string | null;
+  quota_reason?: string | null;
+  target_fills?: number | null;
+}
+
+export interface NYBlockerItem {
+  code: string;
+  category: 'DATA' | 'STRATEGY' | 'SAFETY' | 'EXECUTION' | 'SYSTEM' | string;
+  message_vi: string;
+  count?: number | null;
+}
+
+/** V14.3 read model: null counts = not measured (never fake zeros). */
+export interface NYQuotaDiagnostics {
+  session_instance_id: string;
+  session_date_ny: string;
+  session_date_vn?: string | null;
+  symbol: string;
+  availability: 'MEASURED' | 'UNAVAILABLE' | 'NOT_STARTED';
+  is_today: boolean;
+  window: Record<string, unknown>;
+  quota?: { status?: string; target?: number; total_fills?: number; standard_fills?: number; fallback_fills?: number; reason?: string | null } | null;
+  scans?: number | null;
+  unique_candidates?: number | null;
+  financially_eligible?: number | null;
+  armed?: number | null;
+  filled?: number | null;
+  top_blockers: NYBlockerItem[];
+  primary_missed_reason?: string | null;
+  primary_missed_message_vi?: string | null;
+  missed_category?: string | null;
+  last_system_error?: string | null;
+  summary_written: boolean;
+  coverage?: Record<string, unknown> | null;
+  freshness?: Record<string, unknown> | null;
+  candidates: Array<Record<string, unknown>>;
+  generated_at: number;
 }
 
 
@@ -512,14 +592,193 @@ export const api = {
     return res.data;
   },
 
+  getCG01Evaluation: async (symbol: string = 'XAUUSDT') => {
+    const res = await apiClient.get('/api/scalp/cg01/evaluation', { params: { symbol } });
+    return res.data;
+  },
+
+  getOpportunityMonitorSummary: async (
+    params?: {
+      symbol?: string;
+      scope?: string;
+      run_id?: string | null;
+      model_id?: string | null;
+      session_id?: string | null;
+      start_ms?: number | null;
+      end_ms?: number | null;
+    },
+    signal?: AbortSignal
+  ): Promise<OpportunityMonitorSummary> => {
+    const res = await apiClient.get('/api/v1/paper/opportunity-monitor/summary', {
+      params,
+      signal,
+    });
+    return res.data;
+  },
+
+  getOpportunityMonitorOpportunities: async (
+    params?: {
+      symbol?: string;
+      scope?: string;
+      run_id?: string | null;
+      model_id?: string | null;
+      session_id?: string | null;
+      start_ms?: number | null;
+      end_ms?: number | null;
+      limit?: number;
+      cursor?: string | null;
+    },
+    signal?: AbortSignal
+  ): Promise<MonitorListPage> => {
+    const res = await apiClient.get('/api/v1/paper/opportunity-monitor/opportunities', {
+      params,
+      signal,
+    });
+    return res.data;
+  },
+
+  getOpportunityMonitorDetail: async (
+    opportunityId: string,
+    params?: {
+      symbol?: string;
+      scope?: string;
+      run_id?: string | null;
+      model_id?: string | null;
+      session_id?: string | null;
+      start_ms?: number | null;
+      end_ms?: number | null;
+    },
+    signal?: AbortSignal
+  ): Promise<OpportunityMonitorDetail> => {
+    const encodedId = encodeURIComponent(opportunityId);
+    const res = await apiClient.get(`/api/v1/paper/opportunity-monitor/opportunities/${encodedId}`, {
+      params,
+      signal,
+    });
+    return res.data;
+  },
+
+  getOpportunityMonitorChartTarget: async (
+    opportunityId: string,
+    params?: {
+      symbol?: string;
+      scope?: string;
+      run_id?: string | null;
+      model_id?: string | null;
+      session_id?: string | null;
+      start_ms?: number | null;
+      end_ms?: number | null;
+      expected_target_id?: string;
+      expected_kind?: string;
+      expected_revision?: number;
+    },
+    signal?: AbortSignal
+  ): Promise<MonitorChartFocusContext> => {
+    const encodedId = encodeURIComponent(opportunityId);
+    const res = await apiClient.get(`/api/v1/paper/opportunity-monitor/opportunities/${encodedId}/chart-target`, {
+      params,
+      signal,
+    });
+    return res.data;
+  },
+
+  getOpportunityMonitorReportMarkdown: async (
+    params?: {
+      symbol?: string;
+      scope?: string;
+      run_id?: string | null;
+      model_id?: string | null;
+      session_id?: string | null;
+      start_ms?: number | null;
+      end_ms?: number | null;
+    },
+    signal?: AbortSignal
+  ): Promise<string> => {
+    const res = await apiClient.get('/api/v1/paper/opportunity-monitor/report.md', {
+      params,
+      signal,
+      responseType: 'text',
+    });
+    return res.data;
+  },
+
+  getObservationStatus: async (
+    params?: { symbol?: string; now_ms?: number | null },
+    signal?: AbortSignal
+  ): Promise<any> => {
+    const res = await apiClient.get('/api/v1/observation/status', { params, signal });
+    return res.data;
+  },
+
+  getObservationSummary: async (
+    params?: {
+      symbol?: string;
+      scope?: string;
+      run_id?: string | null;
+      start_ms?: number | null;
+      end_ms?: number | null;
+      now_ms?: number | null;
+    },
+    signal?: AbortSignal
+  ): Promise<ObservationDashboardSnapshot> => {
+    const res = await apiClient.get<ObservationDashboardSnapshot>('/api/v1/observation/summary', {
+      params,
+      signal,
+    });
+    return res.data;
+  },
+
+  getObservationDecisions: async (
+    params?: {
+      symbol?: string;
+      run_id?: string | null;
+      limit?: number;
+      cursor?: string | null;
+    },
+    signal?: AbortSignal
+  ): Promise<DecisionsListPage> => {
+    const res = await apiClient.get<DecisionsListPage>('/api/v1/observation/decisions', {
+      params,
+      signal,
+    });
+    return res.data;
+  },
+
+  getObservationRunDetail: async (
+    runId: string,
+    signal?: AbortSignal
+  ): Promise<any> => {
+    const encodedId = encodeURIComponent(runId);
+    const res = await apiClient.get(`/api/v1/observation/runs/${encodedId}`, { signal });
+    return res.data;
+  },
+
+  getObservationRunReport: async (
+    runId: string,
+    signal?: AbortSignal
+  ): Promise<string> => {
+    const encodedId = encodeURIComponent(runId);
+    const res = await apiClient.get(`/api/v1/observation/runs/${encodedId}/report`, {
+      signal,
+      responseType: 'text',
+    });
+    return res.data;
+  },
+
   getCandles: async (
     symbol: string,
     timeframe: string,
     limit: number = 150,
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
+    window?: { startMs: number; endMs: number }
   ) => {
+    const params: Record<string, number> = { limit };
+    if (window) {
+      params.start_ms = window.startMs;
+      params.end_ms = window.endMs;
+    }
     const res = await apiClient.get(`/api/v1/candles/${symbol}/${timeframe}`, {
-      params: { limit },
+      params,
       ...config,
     });
     return res.data;
@@ -564,6 +823,74 @@ export const api = {
 
   cancelSetup: async (setupId: string) => {
     const res = await apiClient.post(`/api/v1/setups/cancel/${setupId}`);
+    return res.data;
+  },
+
+  // SMC Scenario & Chart Evidence API (V14.4)
+  getScenarios: async (symbol: string = 'XAUUSDT', limit: number = 5, signal?: AbortSignal) => {
+    const res = await apiClient.get('/api/v1/smc/scenarios', {
+      params: { symbol, limit },
+      signal,
+    });
+    return res.data;
+  },
+
+  getScenarioSnapshot: async (scenarioId: string, snapshotId: string, signal?: AbortSignal) => {
+    const res = await apiClient.get(`/api/v1/smc/scenarios/${encodeURIComponent(scenarioId)}/snapshots/${encodeURIComponent(snapshotId)}`, {
+      signal,
+    });
+    return res.data;
+  },
+
+  /** V14.4.1: typed chart bundle of ONE scenario (exact snapshot when snapshotId is given). */
+  getScenarioChartEvidence: async (scenarioId: string, snapshotId?: string | null, signal?: AbortSignal) => {
+    const res = await apiClient.get(`/api/v1/smc/scenarios/${encodeURIComponent(scenarioId)}/chart-evidence`, {
+      params: snapshotId ? { snapshot_id: snapshotId } : {},
+      signal,
+    });
+    return res.data;
+  },
+
+  /** V14.4.1: cached Asia/Europe/NY forecasts (read-only; the GET never runs the engine). */
+  getSessionForecasts: async (symbol: string = 'XAUUSDT', day?: string, signal?: AbortSignal) => {
+    const res = await apiClient.get('/api/v1/smc/session-forecasts', {
+      params: day ? { symbol, day } : { symbol },
+      signal,
+    });
+    return res.data;
+  },
+
+  getSetupChartEvidence: async (
+    setupId: string,
+    options?: {
+      setup_instance_id?: string;
+      expected_revision?: number;
+      plan_fingerprint?: string;
+      signal?: AbortSignal;
+    }
+  ) => {
+    const params: Record<string, any> = {};
+    if (options?.setup_instance_id) params.setup_instance_id = options.setup_instance_id;
+    if (options?.expected_revision != null) params.expected_revision = options.expected_revision;
+    if (options?.plan_fingerprint) params.plan_fingerprint = options.plan_fingerprint;
+    const res = await apiClient.get(`/api/v1/setups/${encodeURIComponent(setupId)}/chart-evidence`, {
+      params,
+      signal: options?.signal,
+    });
+    return res.data;
+  },
+
+  getOrderChartEvidence: async (orderId: string, signal?: AbortSignal) => {
+    const res = await apiClient.get(`/api/v1/orders/${encodeURIComponent(orderId)}/chart-evidence`, {
+      signal,
+    });
+    return res.data;
+  },
+
+  getOrderQualityScore: async (orderId: string, signal?: AbortSignal): Promise<QualityScoreResponse> => {
+    const res = await apiClient.get<QualityScoreResponse>(`/api/v1/orders/${encodeURIComponent(orderId)}/quality-score`, {
+      signal,
+    });
     return res.data;
   },
 
@@ -794,6 +1121,23 @@ export const api = {
     return res.data;
   },
 
+  approveAndActivateLesson: async (
+    lessonId: number,
+    payload: {
+      expected_revision: number;
+      selected_severity?: string;
+      selected_effect?: string;
+      scope?: any;
+      predicate?: any;
+      score_delta?: number;
+      activate?: boolean;
+      review_note?: string;
+    }
+  ): Promise<LessonItem> => {
+    const res = await apiClient.post(`/api/v1/lessons/${lessonId}/approve-and-activate`, payload);
+    return res.data;
+  },
+
   rejectLesson: async (lessonId: number): Promise<LessonItem> => {
     const res = await apiClient.post(`/api/v1/lessons/${lessonId}/reject`);
     return res.data;
@@ -932,6 +1276,48 @@ export const api = {
   getNYSessionStatus: async (symbol: string = 'XAUUSDT'): Promise<NYSessionStatus> => {
     const res = await apiClient.get('/api/v1/policy/ny-session', { params: { symbol } });
     return res.data;
+  },
+
+  /** V14.3 read-only diagnostics (GET): never creates orders / quota rows / notifications. */
+  getNYQuotaDiagnostics: async (symbol: string = 'XAUUSDT', date?: string): Promise<NYQuotaDiagnostics> => {
+    const res = await apiClient.get('/api/v1/ny-quota/diagnostics', { params: date ? { symbol, date } : { symbol } });
+    return res.data;
+  },
+
+  /** V17.4: Coordinated atomic entry session policy and timing settings */
+  getEntrySessionSettings: async (symbol: string = 'XAUUSDT', signal?: AbortSignal): Promise<EntrySessionSettingsResponse> => {
+    const url = symbol && symbol !== 'XAUUSDT'
+      ? `/api/v1/policy/entry-session?symbol=${encodeURIComponent(symbol)}`
+      : '/api/v1/policy/entry-session';
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const error: any = new Error(err.detail || `HTTP ${res.status}`);
+      error.status = res.status;
+      error.detail = err.detail;
+      throw error;
+    }
+    return res.json();
+  },
+
+  updateEntrySessionSettings: async (payload: EntrySessionSettingsUpdate): Promise<EntrySessionSettingsResponse> => {
+    const res = await fetch('/api/v1/policy/entry-session', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const error: any = new Error(err.detail || `HTTP ${res.status}`);
+      error.status = res.status;
+      error.detail = err.detail;
+      throw error;
+    }
+    return res.json();
   },
 };
 
@@ -1101,4 +1487,48 @@ export interface PaginatedNotificationHistoryResponse {
   page_size: number;
 }
 
+// V17.5: Stop Placement & Paired Research API
+export interface StopPlacementPolicyDTO {
+  mode: string;
+  version: number;
+  atr_period: number;
+  atr_method: string;
+  min_buffer_ticks: number;
+  atr_m1_multiplier: number;
+  atr_m5_multiplier: number;
+  spread_multiplier: number;
+  application_scope: string;
+  summary_vi: string;
+}
+
+export interface StopPlacementPolicyUpdatePayload {
+  mode?: string;
+  expected_version: number;
+  atr_period?: number;
+  atr_method?: string;
+  min_buffer_ticks?: number;
+  atr_m1_multiplier?: number;
+  atr_m5_multiplier?: number;
+  spread_multiplier?: number;
+}
+
+export async function getStopPlacementPolicy(): Promise<StopPlacementPolicyDTO> {
+  const res = await apiClient.get<StopPlacementPolicyDTO>('/api/v1/policy/stop-placement');
+  return res.data;
+}
+
+export async function updateStopPlacementPolicy(payload: StopPlacementPolicyUpdatePayload): Promise<StopPlacementPolicyDTO> {
+  const res = await apiClient.put<StopPlacementPolicyDTO>('/api/v1/policy/stop-placement', payload);
+  return res.data;
+}
+
+export async function getStopPlacementSummary(params?: Record<string, any>): Promise<any> {
+  const res = await apiClient.get('/api/v1/research/stop-placement/summary', { params });
+  return res.data;
+}
+
+export async function getOrderStopEvidence(orderId: string): Promise<any> {
+  const res = await apiClient.get(`/api/v1/orders/${orderId}/stop-evidence`);
+  return res.data;
+}
 

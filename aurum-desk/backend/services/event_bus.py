@@ -3,7 +3,9 @@ import time
 import uuid
 import asyncio
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+import copy
+import threading
+from typing import List, Dict, Any, Optional, Tuple, Set
 from fastapi import WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 from database import SessionLocal
@@ -80,9 +82,48 @@ class EventBus:
         self._active_connections: List[WebSocket] = []
         self._lock: Optional[asyncio.Lock] = None
         self._main_loop: Optional[asyncio.AbstractEventLoop] = None
+        self._dispatch_lock = threading.Lock()
+        self._generation: int = 0
+        self._is_accepting: bool = True
+        self._pending_tokens: Set[str] = set()
+        self._active_tasks: Set[asyncio.Task] = set()
 
     def set_main_loop(self, loop: asyncio.AbstractEventLoop):
-        self._main_loop = loop
+        """Bind main loop and start a new lifecycle generation."""
+        with self._dispatch_lock:
+            self._main_loop = loop
+            self._generation += 1
+            self._is_accepting = True
+            logger.info("EventBus: main loop bound (generation=%d)", self._generation)
+
+    def begin_dispatch_shutdown(self):
+        """Stop accepting new dispatches, preserving accepted pending/active work."""
+        with self._dispatch_lock:
+            self._is_accepting = False
+            logger.info("EventBus: dispatch shutdown initiated (generation=%d)", self._generation)
+
+    def unbind_main_loop(self, expected_loop: Optional[asyncio.AbstractEventLoop] = None, expected_gen: Optional[int] = None):
+        """
+        Unbind main loop reference if it matches expected identity/generation.
+        Prevents stale shutdown from clearing a newly started lifecycle.
+        """
+        with self._dispatch_lock:
+            if expected_loop is not None and self._main_loop is not expected_loop:
+                return
+            if expected_gen is not None and self._generation != expected_gen:
+                return
+            self._main_loop = None
+            self._is_accepting = False
+            logger.info("EventBus: main loop unbound")
+
+    def reset_for_test(self):
+        """Test fixture helper to reset internal lifecycle cleanly."""
+        with self._dispatch_lock:
+            self._main_loop = None
+            self._generation += 1
+            self._is_accepting = True
+            self._pending_tokens.clear()
+            self._active_tasks.clear()
 
     @property
     def lock(self) -> asyncio.Lock:
@@ -166,8 +207,20 @@ class EventBus:
                 # Post-commit dispatch: guarantee event is ONLY broadcast after successful commit!
                 from sqlalchemy import event as sa_event
                 def on_after_commit(session):
+                    try:
+                        sa_event.remove(db, "after_rollback", on_after_rollback)
+                    except Exception:
+                        pass
                     self.dispatch_websocket_broadcast(event_dict)
+
+                def on_after_rollback(session):
+                    try:
+                        sa_event.remove(db, "after_commit", on_after_commit)
+                    except Exception:
+                        pass
+
                 sa_event.listen(db, "after_commit", on_after_commit, once=True)
+                sa_event.listen(db, "after_rollback", on_after_rollback, once=True)
 
             return domain_ev
 
@@ -249,22 +302,178 @@ class EventBus:
         )
         db.add(outbox_entry)
 
+    def _resolve_dispatch_loop(self) -> Tuple[Optional[asyncio.AbstractEventLoop], str]:
+        """
+        Determine target loop for dispatch without instantiating any coroutine.
+        Returns (target_loop, reason).
+        """
+        with self._dispatch_lock:
+            if not self._is_accepting:
+                return None, "SHUTDOWN_NOT_ACCEPTING"
+
+            if self._main_loop is not None:
+                if self._main_loop.is_closed():
+                    return None, "BOUND_LOOP_CLOSED"
+                if not self._main_loop.is_running():
+                    return None, "BOUND_LOOP_NOT_RUNNING"
+                return self._main_loop, "BOUND_MAIN_LOOP"
+
+        # Unbound legacy mode: check if current thread has a running loop
+        try:
+            curr = asyncio.get_running_loop()
+            if curr and not curr.is_closed() and curr.is_running():
+                return curr, "RUNNING_FALLBACK_LOOP"
+        except RuntimeError:
+            pass
+
+        return None, "NO_RUNNING_LOOP"
+
     def dispatch_websocket_broadcast(self, event_dict: Dict[str, Any]):
-        """Schedule non-blocking broadcast through market_broadcaster, thread-safe."""
-        from services.market_broadcaster import market_broadcaster
+        """Schedule non-blocking broadcast through market_broadcaster, thread-safe and coroutine-leak-free."""
+        loop, reason = self._resolve_dispatch_loop()
+        if loop is None:
+            logger.debug("Cannot dispatch domain event: target loop unavailable (%s)", reason)
+            return
+
+        # Snapshot payload for immutability
+        try:
+            payload_snapshot = copy.deepcopy(event_dict)
+        except Exception:
+            payload_snapshot = dict(event_dict)
+
+        token = str(uuid.uuid4())
+        with self._dispatch_lock:
+            if not self._is_accepting:
+                logger.debug("Cannot dispatch domain event: dispatch stopped")
+                return
+            current_gen = self._generation
+            self._pending_tokens.add(token)
+
+        def callback():
+            self._start_broadcast_on_loop(token, payload_snapshot, current_gen, loop)
 
         try:
-            current_loop = asyncio.get_running_loop()
-            if current_loop == self._main_loop or self._main_loop is None:
-                current_loop.create_task(market_broadcaster.broadcast_domain_event(event_dict))
+            loop.call_soon_threadsafe(callback)
+        except RuntimeError as e:
+            with self._dispatch_lock:
+                self._pending_tokens.discard(token)
+            logger.debug("Failed to schedule broadcast callback onto target loop (%s): %s", reason, e)
+
+    def _start_broadcast_on_loop(
+        self,
+        token: str,
+        payload: Dict[str, Any],
+        gen: int,
+        loop: asyncio.AbstractEventLoop
+    ):
+        """
+        Synchronous callback executed on the target event loop.
+        Validates lifecycle, creates coroutine and asyncio.Task,
+        and transitions ownership from pending to active.
+        """
+        with self._dispatch_lock:
+            # Rule 062: Obsolete generation callbacks must be dropped
+            if self._generation != gen:
+                self._pending_tokens.discard(token)
+                logger.debug("Dropping broadcast callback for obsolete generation (%d != %d)", gen, self._generation)
+                return
+
+        if loop.is_closed():
+            with self._dispatch_lock:
+                self._pending_tokens.discard(token)
+            return
+
+        from services.market_broadcaster import market_broadcaster
+
+        coro = market_broadcaster.broadcast_domain_event(payload)
+        if not asyncio.iscoroutine(coro):
+            with self._dispatch_lock:
+                self._pending_tokens.discard(token)
+            return
+
+        try:
+            task = loop.create_task(coro)
+        except RuntimeError as e:
+            coro.close()
+            with self._dispatch_lock:
+                self._pending_tokens.discard(token)
+            logger.debug("Failed to create task on target loop: %s", e)
+            return
+
+        with self._dispatch_lock:
+            self._pending_tokens.discard(token)
+            self._active_tasks.add(task)
+
+        def on_done(t: asyncio.Task):
+            self._on_broadcast_done(t, payload.get("event_id"))
+
+        task.add_done_callback(on_done)
+
+    def _on_broadcast_done(self, task: asyncio.Task, event_id: Optional[str]):
+        """Done callback for broadcast task. Cleans up active tasks and observes exceptions."""
+        with self._dispatch_lock:
+            self._active_tasks.discard(task)
+
+        if task.cancelled():
+            logger.debug("Domain event broadcast task cancelled (event_id=%s)", event_id)
+            return
+
+        try:
+            exc = task.exception()
+            if exc is not None:
+                logger.error("Domain event broadcast failed (event_id=%s): %s", event_id, exc)
+        except (asyncio.CancelledError, Exception) as e:
+            logger.debug("Error retrieving broadcast task exception: %s", e)
+
+    async def drain_websocket_broadcasts(self, timeout_s: float = 3.0) -> Dict[str, Any]:
+        """
+        Drain all accepted pending callbacks and active broadcast tasks.
+        Uses monotonic clock and does not block the event loop.
+        """
+        start_mono = time.monotonic()
+        deadline = start_mono + max(0.0, timeout_s)
+
+        while True:
+            with self._dispatch_lock:
+                pending_cnt = len(self._pending_tokens)
+                active_cnt = len(self._active_tasks)
+                tasks_snapshot = list(self._active_tasks)
+
+            if pending_cnt == 0 and active_cnt == 0:
+                elapsed_ms = int((time.monotonic() - start_mono) * 1000)
+                return {
+                    "status": "COMPLETED",
+                    "pending_count": 0,
+                    "active_task_count": 0,
+                    "elapsed_ms": elapsed_ms,
+                }
+
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                with self._dispatch_lock:
+                    to_cancel = list(self._active_tasks)
+                for t in to_cancel:
+                    t.cancel()
+                if to_cancel:
+                    await asyncio.gather(*to_cancel, return_exceptions=True)
+                return {
+                    "status": "TIMED_OUT",
+                    "pending_count": pending_cnt,
+                    "active_task_count": active_cnt,
+                    "elapsed_ms": int((time.monotonic() - start_mono) * 1000),
+                }
+
+            if tasks_snapshot:
+                try:
+                    done, _ = await asyncio.wait(
+                        tasks_snapshot,
+                        timeout=min(0.05, remaining),
+                        return_when=asyncio.FIRST_COMPLETED
+                    )
+                except Exception:
+                    await asyncio.sleep(min(0.01, remaining))
             else:
-                asyncio.run_coroutine_threadsafe(market_broadcaster.broadcast_domain_event(event_dict), self._main_loop)
-        except RuntimeError:
-            # Called from a worker thread or synchronous test without running loop
-            if self._main_loop and not self._main_loop.is_closed():
-                asyncio.run_coroutine_threadsafe(market_broadcaster.broadcast_domain_event(event_dict), self._main_loop)
-            else:
-                logger.debug("Cannot dispatch domain event: event loop not running or closed.")
+                await asyncio.sleep(min(0.01, remaining))
 
 
 # Global Singleton Event Bus

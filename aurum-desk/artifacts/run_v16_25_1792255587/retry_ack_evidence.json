@@ -1,0 +1,8 @@
+{
+  "queue_retry_acknowledges_original_task": "test_red_025_queue_retry_acknowledges_original_task",
+  "queue_join_completes_after_retry_success": "test_red_026_queue_join_completes_after_retry_success",
+  "terminal_failure_acknowledges_queue_task": "test_red_027_terminal_failure_acknowledges_queue_task",
+  "no_double_ack_on_duplicate_completion": "test_red_028_no_double_ack_on_duplicate_completion",
+  "duplicate_trace_id_enqueue_generates_distinct_receipts": "test_red_030_duplicate_trace_id_enqueue_generates_distinct_receipts",
+  "direct_write_does_not_touch_queue_receipts": "test_red_031_direct_write_does_not_touch_queue_receipts"
+}
