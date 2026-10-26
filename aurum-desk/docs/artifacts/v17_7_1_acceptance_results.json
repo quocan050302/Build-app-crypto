@@ -1,14 +1,14 @@
 {
-  "timestamp_utc": "2026-10-26T15:26:06Z",
+  "timestamp_utc": "2026-10-26T15:30:26Z",
   "runner_version": "17.7.2",
   "branch": "feat/v17-7-adaptive-structural-stop-loss",
-  "source_sha": "9aaaa5efc260f3009f905f5b709e2e0fe830ba32",
+  "source_sha": "88c459dcf2abb27a9625e9a7eccbc98fffdb2e3a",
   "gates": {
     "G01_BRANCH_INTEGRITY": {
       "status": "PASS",
       "branch": "feat/v17-7-adaptive-structural-stop-loss",
-      "sha": "9aaaa5efc260f3009f905f5b709e2e0fe830ba32",
-      "duration_ms": 17
+      "sha": "88c459dcf2abb27a9625e9a7eccbc98fffdb2e3a",
+      "duration_ms": 15
     },
     "G02_DATABASE_ISOLATION": {
       "status": "PASS",
@@ -18,7 +18,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 1540,
+      "duration_ms": 1413,
       "exit_code": 0
     },
     "G03_CAUSAL_ATR_EVIDENCE": {
@@ -29,7 +29,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 1610,
+      "duration_ms": 1424,
       "exit_code": 0
     },
     "G04_STRUCTURAL_ANCHOR_AUTHORITY": {
@@ -40,7 +40,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 1376,
+      "duration_ms": 1398,
       "exit_code": 0
     },
     "G05_DISTANT_SL_FINANCIAL_INTEGRITY": {
@@ -51,7 +51,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 3033,
+      "duration_ms": 1311,
       "exit_code": 0
     },
     "G06_CG01_REAL_INTEGRATION": {
@@ -62,7 +62,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 2462,
+      "duration_ms": 1360,
       "exit_code": 0
     },
     "G07_M1_MODELS_REAL_INTEGRATION": {
@@ -73,7 +73,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 1701,
+      "duration_ms": 1315,
       "exit_code": 0
     },
     "G08_ORCHESTRATOR_ACTUAL_ARM": {
@@ -84,7 +84,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 3168,
+      "duration_ms": 1393,
       "exit_code": 0
     },
     "G09_EXECUTION_FILL_SIZING": {
@@ -95,7 +95,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 3319,
+      "duration_ms": 1856,
       "exit_code": 0
     },
     "G10_EXIT_PERSISTENCE": {
@@ -106,7 +106,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 1880,
+      "duration_ms": 2531,
       "exit_code": 0
     },
     "G11_CONCURRENCY_IDEMPOTENCY": {
@@ -117,7 +117,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 1856,
+      "duration_ms": 1860,
       "exit_code": 0
     },
     "G12_LIVE_ORDER_SAFETY": {
@@ -129,7 +129,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 1747
+      "duration_ms": 1472
     },
     "G13_V17_7_2_DEDICATED": {
       "status": "PASS",
@@ -139,7 +139,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 4709,
+      "duration_ms": 4412,
       "exit_code": 0
     },
     "G14_V17_5_REGRESSION": {
@@ -150,7 +150,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 10468,
+      "duration_ms": 9601,
       "exit_code": 0
     },
     "G15_V17_6_REGRESSION": {
@@ -161,7 +161,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 64879,
+      "duration_ms": 46277,
       "exit_code": 0
     },
     "G16_BACKEND_FULL_PYTEST": {
@@ -172,7 +172,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 91645,
+      "duration_ms": 73350,
       "exit_code": 0
     },
     "G17_FRONTEND_VITEST": {
@@ -182,22 +182,22 @@
         "tests_passed": 548,
         "tests_total": 548
       },
-      "duration_ms": 7190,
+      "duration_ms": 5977,
       "exit_code": 0
     },
     "G18_FRONTEND_BUILD": {
       "status": "PASS",
-      "duration_ms": 8226,
+      "duration_ms": 12096,
       "exit_code": 0
     },
     "G19_FRONTEND_LINT": {
       "status": "PASS",
-      "duration_ms": 1131,
+      "duration_ms": 784,
       "exit_code": 0
     },
     "G20_PLAYWRIGHT_E2E": {
       "status": "PASS",
-      "duration_ms": 13090,
+      "duration_ms": 19978,
       "exit_code": 0
     },
     "G21_REPLAY_DETERMINISM": {
@@ -208,7 +208,7 @@
         "failed": 0,
         "skipped": 0
       },
-      "duration_ms": 1407,
+      "duration_ms": 1418,
       "exit_code": 0
     },
     "G22_DOCS_INTEGRITY": {
@@ -217,8 +217,8 @@
     },
     "G23_SOURCE_SHA_CONSISTENCY": {
       "status": "PASS",
-      "sha": "9aaaa5efc260f3009f905f5b709e2e0fe830ba32",
-      "duration_ms": 1288
+      "sha": "88c459dcf2abb27a9625e9a7eccbc98fffdb2e3a",
+      "duration_ms": 1290
     }
   },
   "verdict": "ACCEPTED_FOR_PAPER_OPT_IN"
