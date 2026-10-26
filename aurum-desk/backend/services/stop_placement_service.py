@@ -21,6 +21,7 @@ from services.stop_placement_types import (
     StopPlacementDecision,
     StopPlacementMode,
     StopPlacementPolicy,
+    StopProtectiveDistanceResult,
     StopStatus,
 )
 
@@ -281,6 +282,58 @@ def compute_stop_buffer(
     )
 
 
+def compute_min_protective_distance(
+    *,
+    policy: StopPlacementPolicy,
+    tick_size: float,
+    atr_m1: Optional[StopATRResult] = None,
+    atr_m5: Optional[StopATRResult] = None,
+    spread: Optional[float] = None,
+    atr_m1_val: Optional[float] = None,
+    atr_m5_val: Optional[float] = None,
+) -> StopProtectiveDistanceResult:
+    """
+    Computes candidate minimum entry-relative protective distance required
+    under StopPlacementPolicy V17.7:
+    min_dist = max(
+        min_protective_ticks * tick_size,
+        k1 * ATR_M1,
+        k5 * ATR_M5,
+        k_spread * spread,
+    )
+    Guarantees the selected stop is placed outside immediate market microstructure noise.
+    """
+    min_ticks = getattr(policy, "min_protective_ticks", 10)
+    tick_floor = float(min_ticks) * float(tick_size)
+    components: Dict[str, float] = {
+        "min_tick_floor": tick_floor,
+    }
+
+    m1_val = atr_m1.value if (atr_m1 and getattr(atr_m1, "status", "") == "AVAILABLE" and getattr(atr_m1, "value", 0.0) > 0) else atr_m1_val
+    if m1_val is not None and math.isfinite(float(m1_val)) and float(m1_val) > 0:
+        mult_m1 = getattr(policy, "min_distance_atr_m1_mult", 0.50)
+        components["min_atr_m1"] = float(mult_m1) * float(m1_val)
+
+    m5_val = atr_m5.value if (atr_m5 and getattr(atr_m5, "status", "") == "AVAILABLE" and getattr(atr_m5, "value", 0.0) > 0) else atr_m5_val
+    if m5_val is not None and math.isfinite(float(m5_val)) and float(m5_val) > 0:
+        mult_m5 = getattr(policy, "min_distance_atr_m5_mult", 0.20)
+        components["min_atr_m5"] = float(mult_m5) * float(m5_val)
+
+    if spread is not None and math.isfinite(float(spread)) and float(spread) > 0:
+        mult_spread = getattr(policy, "min_distance_spread_mult", 2.0)
+        components["min_spread"] = float(mult_spread) * float(spread)
+
+    max_dist = max(components.values())
+    dominant = max(components, key=components.get)
+
+    return StopProtectiveDistanceResult(
+        min_distance=max_dist,
+        components=components,
+        dominant_source=dominant,
+        tick_size=tick_size,
+    )
+
+
 def validate_anchor_not_invalidated(
     anchor: StopAnchor,
     closed_bars: Sequence[Any],
@@ -499,21 +552,156 @@ def plan_structural_stop(
     planned_entry: float,
     take_profit: float,
     legacy_sl: float,
-    anchor_result: StopAnchorResult,
-    buffer_result: StopBufferResult,
+    anchor_result: Optional[StopAnchorResult] = None,
+    buffer_result: Optional[StopBufferResult] = None,
     policy: StopPlacementPolicy,
     as_of_ms: int,
     tick_size: float = 0.01,
     atr_m1_val: Optional[float] = None,
+    atr_m5_val: Optional[float] = None,
+    spread: Optional[float] = None,
+    atr_m1_obj: Optional[StopATRResult] = None,
+    atr_m5_obj: Optional[StopATRResult] = None,
 ) -> StopPlacementDecision:
     """
-    Synthesizes the structural stop placement decision.
-    Calculates Variant B (anchor + tick floor) and Variant C (anchor + dynamic buffer).
-    Enforces strict price geometry and non-negative distance checks.
+    Synthesizes the V17.7 Adaptive Structural Stop Loss decision.
+    - Preserves structural invalidation anchor (protected swing/origin/sweep).
+    - Computes dynamic buffer beyond the anchor.
+    - Computes minimum entry-relative protective distance against microstructure noise.
+    - Applies defensive outward expansion if anchor buffer is closer than protective threshold.
+    - Rejects excessively wide stops (upper bound = max_stop_distance_atr * ATR_M1).
+    - Rejects abnormal spread / market shock conditions (spread > max_spread_usd).
+    - Enforces strict outward tick quantization (floor for LONG, ceil for SHORT).
+    - Fails closed in PAPER_STRUCTURAL mode when evidence is missing or invalid.
     """
-    norm_dir = direction.upper()
-    mode = policy.mode
+    norm_dir = direction.upper() if isinstance(direction, str) else "UNKNOWN"
+    mode = getattr(policy, "mode", StopPlacementMode.SHADOW_COMPARE.value)
+    policy_ver = getattr(policy, "version", 1)
+    algo_ver = getattr(policy, "algorithm_version", "V17_7")
 
+    # 1. Price positivity and finiteness (SL-16, SL-17)
+    for p_name, p_val in (
+        ("planned_entry", planned_entry),
+        ("take_profit", take_profit),
+        ("legacy_sl", legacy_sl),
+        ("tick_size", tick_size),
+    ):
+        try:
+            f_val = float(p_val)
+            if not math.isfinite(f_val):
+                return StopPlacementDecision(
+                    status=StopStatus.INVALID_DATA.value,
+                    selected_sl=None,
+                    anchor=None,
+                    bound_leg=None,
+                    buffer=buffer_result,
+                    metrics=None,
+                    reasons=("NON_FINITE_INPUT", f"{p_name.upper()}_NOT_FINITE"),
+                    policy_version=policy_ver,
+                    mode=mode,
+                    decision_cutoff_ms=as_of_ms,
+                    applied_variant="A",
+                    algorithm_version=algo_ver,
+                )
+            if f_val <= 0.0:
+                return StopPlacementDecision(
+                    status=StopStatus.INVALID_DATA.value,
+                    selected_sl=None,
+                    anchor=None,
+                    bound_leg=None,
+                    buffer=buffer_result,
+                    metrics=None,
+                    reasons=("ZERO_OR_NEGATIVE_PRICE", f"{p_name.upper()}_NON_POSITIVE"),
+                    policy_version=policy_ver,
+                    mode=mode,
+                    decision_cutoff_ms=as_of_ms,
+                    applied_variant="A",
+                    algorithm_version=algo_ver,
+                )
+        except (ValueError, TypeError):
+            return StopPlacementDecision(
+                status=StopStatus.INVALID_DATA.value,
+                selected_sl=None,
+                anchor=None,
+                bound_leg=None,
+                buffer=buffer_result,
+                metrics=None,
+                reasons=("INVALID_PRICE_INPUT",),
+                policy_version=policy_ver,
+                mode=mode,
+                decision_cutoff_ms=as_of_ms,
+                applied_variant="A",
+                algorithm_version=algo_ver,
+            )
+
+    if norm_dir not in ("LONG", "SHORT", "BUY", "SELL"):
+        return StopPlacementDecision(
+            status=StopStatus.INVALID_DATA.value,
+            selected_sl=None,
+            reasons=("INVALID_DIRECTION",),
+            policy_version=policy_ver,
+            mode=mode,
+            decision_cutoff_ms=as_of_ms,
+            applied_variant="A",
+            algorithm_version=algo_ver,
+        )
+
+    # 2. Spread and Volatility Shock checks (SL-13, SL-14, SL-18)
+    eff_spread = spread
+    if eff_spread is None and buffer_result and "spread" in buffer_result.components:
+        mult = getattr(policy, "spread_multiplier", 1.50)
+        if mult > 0:
+            eff_spread = buffer_result.components["spread"] / mult
+
+    if eff_spread is not None:
+        try:
+            f_spread = float(eff_spread)
+            if not math.isfinite(f_spread) or f_spread < 0.0:
+                return StopPlacementDecision(
+                    status=StopStatus.INVALID_DATA.value,
+                    selected_sl=None,
+                    reasons=("INVALID_SPREAD",),
+                    policy_version=policy_ver,
+                    mode=mode,
+                    decision_cutoff_ms=as_of_ms,
+                    applied_variant="A",
+                    algorithm_version=algo_ver,
+                )
+            max_spread = getattr(policy, "max_spread_usd", 2.0)
+            if f_spread > max_spread:
+                dist = abs(planned_entry - legacy_sl)
+                sel_sl = None if mode == StopPlacementMode.PAPER_STRUCTURAL.value else legacy_sl
+                return StopPlacementDecision(
+                    status=StopStatus.REJECTED_GEOMETRY.value,
+                    selected_sl=sel_sl,
+                    anchor=anchor_result.anchor if (anchor_result and hasattr(anchor_result, "anchor")) else None,
+                    bound_leg=getattr(anchor_result, "bound_leg", None),
+                    buffer=buffer_result,
+                    metrics=StopMetrics(
+                        price_distance=dist,
+                        distance_ticks=int(round(dist / tick_size)),
+                        distance_atr=(dist / atr_m1_val) if atr_m1_val and atr_m1_val > 0 else None,
+                    ),
+                    reasons=("EXCESSIVE_SPREAD", f"Spread {f_spread:.2f} > max {max_spread:.2f}"),
+                    policy_version=policy_ver,
+                    mode=mode,
+                    decision_cutoff_ms=as_of_ms,
+                    applied_variant="A",
+                    algorithm_version=algo_ver,
+                )
+        except (ValueError, TypeError):
+            return StopPlacementDecision(
+                status=StopStatus.INVALID_DATA.value,
+                selected_sl=None,
+                reasons=("INVALID_SPREAD",),
+                policy_version=policy_ver,
+                mode=mode,
+                decision_cutoff_ms=as_of_ms,
+                applied_variant="A",
+                algorithm_version=algo_ver,
+            )
+
+    # 3. LEGACY mode parity (SL-29)
     if mode == StopPlacementMode.LEGACY.value:
         dist = abs(planned_entry - legacy_sl)
         return StopPlacementDecision(
@@ -528,15 +716,18 @@ def plan_structural_stop(
                 distance_atr=(dist / atr_m1_val) if atr_m1_val and atr_m1_val > 0 else None,
             ),
             reasons=(),
-            policy_version=policy.version,
+            policy_version=policy_ver,
             mode=mode,
             decision_cutoff_ms=as_of_ms,
             applied_variant="A",
+            algorithm_version=algo_ver,
         )
 
-    if anchor_result.status != "AVAILABLE" or anchor_result.anchor is None:
+    # 4. Check Anchor Availability (SL-12, SL-32)
+    if anchor_result is None or anchor_result.status != "AVAILABLE" or anchor_result.anchor is None:
         dist = abs(planned_entry - legacy_sl)
         sel_sl = None if mode == StopPlacementMode.PAPER_STRUCTURAL.value else legacy_sl
+        reasons = anchor_result.reasons if (anchor_result and anchor_result.reasons) else ("MISSING_STRUCTURAL_ANCHOR",)
         return StopPlacementDecision(
             status=StopStatus.WAITING_EVIDENCE.value,
             selected_sl=sel_sl,
@@ -548,25 +739,152 @@ def plan_structural_stop(
                 distance_ticks=int(round(dist / tick_size)),
                 distance_atr=(dist / atr_m1_val) if atr_m1_val and atr_m1_val > 0 else None,
             ),
-            reasons=anchor_result.reasons or ("MISSING_STRUCTURAL_ANCHOR",),
-            policy_version=policy.version,
+            reasons=reasons,
+            policy_version=policy_ver,
             mode=mode,
             decision_cutoff_ms=as_of_ms,
             applied_variant="A",
+            algorithm_version=algo_ver,
         )
 
     anchor = anchor_result.anchor
 
-    # Variant C stop: anchor outward by full dynamic buffer
-    variant_c_sl = quantize_stop_outward(
+    # 5. Directional Anchor Relationship (SL-01, SL-02, SL-11)
+    if norm_dir in ("LONG", "BUY") and anchor.price >= planned_entry:
+        dist = abs(planned_entry - legacy_sl)
+        sel_sl = None if mode == StopPlacementMode.PAPER_STRUCTURAL.value else legacy_sl
+        return StopPlacementDecision(
+            status=StopStatus.REJECTED_GEOMETRY.value,
+            selected_sl=sel_sl,
+            anchor=anchor,
+            bound_leg=getattr(anchor_result, "bound_leg", None),
+            buffer=buffer_result,
+            metrics=StopMetrics(
+                price_distance=dist,
+                distance_ticks=int(round(dist / tick_size)),
+                distance_atr=(dist / atr_m1_val) if atr_m1_val and atr_m1_val > 0 else None,
+            ),
+            reasons=("INVALID_ANCHOR_RELATION", "LONG_ANCHOR_MUST_BE_BELOW_ENTRY"),
+            policy_version=policy_ver,
+            mode=mode,
+            decision_cutoff_ms=as_of_ms,
+            applied_variant="A",
+            algorithm_version=algo_ver,
+        )
+
+    if norm_dir in ("SHORT", "SELL") and anchor.price <= planned_entry:
+        dist = abs(planned_entry - legacy_sl)
+        sel_sl = None if mode == StopPlacementMode.PAPER_STRUCTURAL.value else legacy_sl
+        return StopPlacementDecision(
+            status=StopStatus.REJECTED_GEOMETRY.value,
+            selected_sl=sel_sl,
+            anchor=anchor,
+            bound_leg=getattr(anchor_result, "bound_leg", None),
+            buffer=buffer_result,
+            metrics=StopMetrics(
+                price_distance=dist,
+                distance_ticks=int(round(dist / tick_size)),
+                distance_atr=(dist / atr_m1_val) if atr_m1_val and atr_m1_val > 0 else None,
+            ),
+            reasons=("INVALID_ANCHOR_RELATION", "SHORT_ANCHOR_MUST_BE_ABOVE_ENTRY"),
+            policy_version=policy_ver,
+            mode=mode,
+            decision_cutoff_ms=as_of_ms,
+            applied_variant="A",
+            algorithm_version=algo_ver,
+        )
+
+    # 6. Anchor-relative preliminary stop
+    buf_price = buffer_result.buffer_price if buffer_result else (float(policy.min_buffer_ticks) * float(tick_size))
+    anchor_sl = quantize_stop_outward(
         anchor_price=anchor.price,
-        buffer_price=buffer_result.buffer_price,
+        buffer_price=buf_price,
         direction=norm_dir,
         tick_size=tick_size,
     )
 
-    # Geometry validation for Variant C
-    if norm_dir == "SHORT":
+    # 7. Minimum Entry-Relative Protective Distance & Outward Expansion (SL-19)
+    min_prot_res = compute_min_protective_distance(
+        policy=policy,
+        tick_size=tick_size,
+        atr_m1=atr_m1_obj,
+        atr_m5=atr_m5_obj,
+        spread=eff_spread,
+        atr_m1_val=atr_m1_val,
+        atr_m5_val=atr_m5_val,
+    )
+    min_prot_dist = min_prot_res.min_distance
+
+    expansion_applied = False
+    if norm_dir in ("LONG", "BUY"):
+        anchor_dist = planned_entry - anchor_sl
+        if anchor_dist < min_prot_dist:
+            expanded_sl = quantize_stop_outward(
+                anchor_price=planned_entry,
+                buffer_price=min_prot_dist,
+                direction=norm_dir,
+                tick_size=tick_size,
+            )
+            # Ensure expanded_sl remains strictly on protective side of anchor
+            if expanded_sl <= anchor.price:
+                variant_c_sl = expanded_sl
+                expansion_applied = True
+            else:
+                variant_c_sl = anchor_sl
+        else:
+            variant_c_sl = anchor_sl
+    else:  # SHORT, SELL
+        anchor_dist = anchor_sl - planned_entry
+        if anchor_dist < min_prot_dist:
+            expanded_sl = quantize_stop_outward(
+                anchor_price=planned_entry,
+                buffer_price=min_prot_dist,
+                direction=norm_dir,
+                tick_size=tick_size,
+            )
+            if expanded_sl >= anchor.price:
+                variant_c_sl = expanded_sl
+                expansion_applied = True
+            else:
+                variant_c_sl = anchor_sl
+        else:
+            variant_c_sl = anchor_sl
+
+    # 8. Maximum Allowable Stop Distance Guard (SL-20)
+    final_dist = abs(planned_entry - variant_c_sl)
+    eff_m1 = atr_m1_val if (atr_m1_val is not None and atr_m1_val > 0) else None
+    if eff_m1 is None and atr_m1_obj and getattr(atr_m1_obj, "status", "") == "AVAILABLE" and getattr(atr_m1_obj, "value", 0.0) > 0:
+        eff_m1 = atr_m1_obj.value
+
+    if eff_m1 is not None and eff_m1 > 0:
+        max_mult = getattr(policy, "max_stop_distance_atr", 4.0)
+        max_allowed_dist = float(max_mult) * float(eff_m1)
+        if final_dist > max_allowed_dist:
+            dist = abs(planned_entry - legacy_sl)
+            sel_sl = None if mode == StopPlacementMode.PAPER_STRUCTURAL.value else legacy_sl
+            return StopPlacementDecision(
+                status=StopStatus.REJECTED_GEOMETRY.value,
+                selected_sl=sel_sl,
+                anchor=anchor,
+                bound_leg=getattr(anchor_result, "bound_leg", None),
+                buffer=buffer_result,
+                metrics=StopMetrics(
+                    price_distance=dist,
+                    distance_ticks=int(round(dist / tick_size)),
+                    distance_atr=(dist / eff_m1) if eff_m1 > 0 else None,
+                ),
+                reasons=("EXCESSIVE_STOP_DISTANCE", f"Stop distance {final_dist:.2f} > max {max_allowed_dist:.2f}"),
+                policy_version=policy_ver,
+                mode=mode,
+                decision_cutoff_ms=as_of_ms,
+                applied_variant="A",
+                protective_distance=min_prot_dist,
+                expansion_applied=expansion_applied,
+                algorithm_version=algo_ver,
+            )
+
+    # 9. Geometry validation for Variant C (SL-03)
+    if norm_dir in ("SHORT", "SELL"):
         geom_valid = (take_profit < planned_entry < variant_c_sl)
     else:
         geom_valid = (variant_c_sl < planned_entry < take_profit)
@@ -586,13 +904,16 @@ def plan_structural_stop(
                 distance_atr=(dist / atr_m1_val) if atr_m1_val and atr_m1_val > 0 else None,
             ),
             reasons=("INVALID_PRICE_GEOMETRY_WITH_STRUCTURAL_SL",),
-            policy_version=policy.version,
+            policy_version=policy_ver,
             mode=mode,
             decision_cutoff_ms=as_of_ms,
             applied_variant="A",
+            protective_distance=min_prot_dist,
+            expansion_applied=expansion_applied,
+            algorithm_version=algo_ver,
         )
 
-    # Selected SL according to mode
+    # 10. Selected SL according to mode (SL-30, SL-31)
     if mode == StopPlacementMode.PAPER_STRUCTURAL.value:
         selected_sl = variant_c_sl
         applied_variant = "C"
@@ -604,9 +925,22 @@ def plan_structural_stop(
     metrics = StopMetrics(
         price_distance=dist,
         distance_ticks=int(round(dist / tick_size)),
-        distance_atr=(dist / atr_m1_val) if atr_m1_val and atr_m1_val > 0 else None,
+        distance_atr=(dist / eff_m1) if eff_m1 and eff_m1 > 0 else None,
         delta_vs_legacy_sl=abs(selected_sl - legacy_sl),
     )
+
+    vol_ctx = {
+        "anchor_buffer_price": buffer_result.buffer_price if buffer_result else 0.0,
+        "dominant_buffer_source": buffer_result.dominant_source if buffer_result else "tick_floor",
+        "min_protective_distance": min_prot_dist,
+        "dominant_protective_source": min_prot_res.dominant_source,
+        "protective_expansion_applied": expansion_applied,
+        "variant_c_sl": variant_c_sl,
+        "anchor_price": anchor.price,
+        "spread": eff_spread,
+        "atr_m1": eff_m1,
+        "algorithm_version": algo_ver,
+    }
 
     return StopPlacementDecision(
         status=StopStatus.VALID.value,
@@ -616,10 +950,14 @@ def plan_structural_stop(
         buffer=buffer_result,
         metrics=metrics,
         reasons=(),
-        policy_version=policy.version,
+        policy_version=policy_ver,
         mode=mode,
         decision_cutoff_ms=as_of_ms,
         applied_variant=applied_variant,
+        volatility_context=vol_ctx,
+        protective_distance=min_prot_dist,
+        expansion_applied=expansion_applied,
+        algorithm_version=algo_ver,
     )
 
 

@@ -1412,7 +1412,16 @@ def evaluate_cg01_candidate(
                         if (atr_m1_obj and atr_m1_obj.status == "AVAILABLE")
                         else (float(atr_series.iloc[-1]) if hasattr(atr_series, "iloc") and len(atr_series) > 0 else 1.0)
                     ),
+                    atr_m5_val=(atr_m5_obj.value if (atr_m5_obj and atr_m5_obj.status == "AVAILABLE") else None),
+                    spread=max(0.0, ask - bid) if (bid is not None and ask is not None) else None,
                 )
+                if getattr(stop_policy, "mode", "") == "PAPER_STRUCTURAL":
+                    if stop_dec is not None and stop_dec.status == "VALID" and stop_dec.selected_sl is not None:
+                        sl = stop_dec.selected_sl
+                    else:
+                        rej_code = stop_dec.reasons[0] if (stop_dec and stop_dec.reasons) else (stop_dec.status if stop_dec else "MISSING_STOP_PLACEMENT_DECISION")
+                        rejection_diagnostics.append((CG01Stage.WAIT_ENTRY, f"STRUCTURAL_STOP_INVALID: {rej_code}"))
+                        continue
                 cand_key_temp = f"cg01_{direction}_{poi.zone_id}_{sweep['reference_id']}_{fvg['fvg_id']}"
                 comp_plan = build_stop_comparison_plan(
                     opportunity_key=cand_key_temp,

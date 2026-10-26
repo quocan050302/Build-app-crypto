@@ -467,6 +467,8 @@ def apply_stop_placement_to_candidate(
         as_of_ms=now_ms,
         tick_size=tick_sz,
         atr_m1_val=atr_1m_val,
+        atr_m5_val=atr_m5_obj.value if atr_m5_obj else None,
+        spread=max(0.0, ask - bid) if (bid is not None and ask is not None) else None,
     )
 
     comp_plan = build_stop_comparison_plan(

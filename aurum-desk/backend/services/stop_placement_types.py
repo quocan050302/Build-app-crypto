@@ -93,6 +93,23 @@ class StopAnchorResult:
 
 
 @dataclass(frozen=True)
+class StopProtectiveDistanceResult:
+    """Breakdown of minimum entry-relative protective distance components (V17.7)."""
+    min_distance: float
+    components: Dict[str, float]
+    dominant_source: str
+    tick_size: float
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "min_distance": round(self.min_distance, 4),
+            "components": {k: round(v, 4) for k, v in self.components.items()},
+            "dominant_source": self.dominant_source,
+            "tick_size": self.tick_size,
+        }
+
+
+@dataclass(frozen=True)
 class StopPlacementPolicy:
     """Authoritative stop placement configuration."""
     mode: str = StopPlacementMode.SHADOW_COMPARE.value
@@ -104,6 +121,13 @@ class StopPlacementPolicy:
     atr_m5_multiplier: float = 0.10
     spread_multiplier: float = 1.50
     application_scope: str = "NEW_PAPER_ORDERS"
+    min_protective_ticks: int = 10
+    min_distance_atr_m1_mult: float = 0.50
+    min_distance_atr_m5_mult: float = 0.20
+    min_distance_spread_mult: float = 2.0
+    max_stop_distance_atr: float = 4.0
+    max_spread_usd: float = 2.0
+    algorithm_version: str = "V17_7"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -116,6 +140,13 @@ class StopPlacementPolicy:
             "atr_m5_multiplier": self.atr_m5_multiplier,
             "spread_multiplier": self.spread_multiplier,
             "application_scope": self.application_scope,
+            "min_protective_ticks": self.min_protective_ticks,
+            "min_distance_atr_m1_mult": self.min_distance_atr_m1_mult,
+            "min_distance_atr_m5_mult": self.min_distance_atr_m5_mult,
+            "min_distance_spread_mult": self.min_distance_spread_mult,
+            "max_stop_distance_atr": self.max_stop_distance_atr,
+            "max_spread_usd": self.max_spread_usd,
+            "algorithm_version": self.algorithm_version,
         }
 
 
@@ -290,6 +321,9 @@ class StopPlacementDecision:
     decision_cutoff_ms: int = 0
     applied_variant: str = "A"  # "A" (legacy), "B" (anchor+tick), "C" (structural dynamic)
     volatility_context: Optional[Dict[str, Any]] = None
+    protective_distance: Optional[float] = None
+    expansion_applied: bool = False
+    algorithm_version: str = "V17_7"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -305,6 +339,9 @@ class StopPlacementDecision:
             "decision_cutoff_ms": self.decision_cutoff_ms,
             "applied_variant": self.applied_variant,
             "volatility_context": self.volatility_context,
+            "protective_distance": round(self.protective_distance, 4) if self.protective_distance is not None else None,
+            "expansion_applied": self.expansion_applied,
+            "algorithm_version": self.algorithm_version,
         }
 
 
