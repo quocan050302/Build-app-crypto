@@ -127,7 +127,7 @@ class StopPlacementPolicy:
     min_distance_spread_mult: float = 2.0
     max_stop_distance_atr: float = 4.0
     max_spread_usd: float = 2.0
-    algorithm_version: str = "V17_7"
+    algorithm_version: str = "V17_7_1"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -323,7 +323,8 @@ class StopPlacementDecision:
     volatility_context: Optional[Dict[str, Any]] = None
     protective_distance: Optional[float] = None
     expansion_applied: bool = False
-    algorithm_version: str = "V17_7"
+    distance_assessment: Optional[str] = "DISTANCE_NORMAL"
+    algorithm_version: str = "V17_7_1"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -341,6 +342,7 @@ class StopPlacementDecision:
             "volatility_context": self.volatility_context,
             "protective_distance": round(self.protective_distance, 4) if self.protective_distance is not None else None,
             "expansion_applied": self.expansion_applied,
+            "distance_assessment": self.distance_assessment,
             "algorithm_version": self.algorithm_version,
         }
 

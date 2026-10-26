@@ -127,7 +127,7 @@ def resolve_stop_placement_policy(db: Session) -> StopPlacementPolicy:
     except (ValueError, TypeError):
         max_spread_usd = 2.0
 
-    algo_version = config_map.get("stop_placement_v1.algorithm_version", "V17_7")
+    algo_version = config_map.get("stop_placement_v1.algorithm_version", "V17_7_1")
 
     return StopPlacementPolicy(
         mode=mode,

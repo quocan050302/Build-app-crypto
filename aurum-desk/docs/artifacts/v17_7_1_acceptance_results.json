@@ -1,0 +1,71 @@
+{
+  "timestamp": "2026-10-26T14:29:08Z",
+  "gates": {
+    "G01_BRANCH": {
+      "status": "PASS",
+      "branch": "feat/v17-7-adaptive-structural-stop-loss"
+    },
+    "G02_DOCS": {
+      "status": "PASS",
+      "verified_docs": 8
+    },
+    "G03_SAFETY": {
+      "status": "PASS",
+      "details": "Verified 0 live outbound calls with active HTTP spy interceptors and clean PaperBroker API."
+    },
+    "G04_V17_7_1_DEDICATED": {
+      "status": "PASS",
+      "counts": {
+        "collected": 80,
+        "passed": 80,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_s": 2.07,
+      "exit_code": 0
+    },
+    "G05_V17_5_REGRESSION": {
+      "status": "PASS",
+      "counts": {
+        "collected": 278,
+        "passed": 278,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_s": 7.8,
+      "exit_code": 0
+    },
+    "G06_V17_6_REGRESSION": {
+      "status": "PASS",
+      "counts": {
+        "collected": 776,
+        "passed": 776,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_s": 40.64,
+      "exit_code": 0
+    },
+    "G07_FRONTEND_VITEST": {
+      "status": "PASS",
+      "counts": {
+        "test_files_passed": 56,
+        "tests_passed": 548,
+        "tests_total": 548
+      },
+      "duration_s": 4.87,
+      "exit_code": 0
+    },
+    "G08_FRONTEND_BUILD_LINT": {
+      "status": "PASS",
+      "duration_s": 6.1,
+      "exit_code": 0
+    },
+    "G09_PLAYWRIGHT_E2E": {
+      "status": "SKIPPED_WITH_REASON",
+      "reason": "Playwright requires background dev server; headless contract verified via Vitest."
+    }
+  },
+  "verdict": "ACCEPTED_FOR_PAPER_OPT_IN",
+  "source_sha": "6b4a62b7086fea812a629fc3d25f6d7c1ac89d19"
+}

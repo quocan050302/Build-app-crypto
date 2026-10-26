@@ -3078,7 +3078,7 @@ def get_order_stop_evidence_endpoint(
     vol_ctx = stop_placement.get("volatility_context", {}) if isinstance(stop_placement, dict) else {}
     min_prot_dist = stop_placement.get("protective_distance") or vol_ctx.get("min_protective_distance")
     expansion_applied = stop_placement.get("expansion_applied") or vol_ctx.get("protective_expansion_applied", False)
-    algo_ver = stop_placement.get("algorithm_version") or vol_ctx.get("algorithm_version", "V17_7")
+    algo_ver = stop_placement.get("algorithm_version") or vol_ctx.get("algorithm_version", "V17_7_1")
     anchor_info = stop_placement.get("anchor") or {}
     anchor_px = anchor_info.get("price") if isinstance(anchor_info, dict) else None
 

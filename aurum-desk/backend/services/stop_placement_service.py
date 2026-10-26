@@ -569,7 +569,8 @@ def plan_structural_stop(
     - Computes dynamic buffer beyond the anchor.
     - Computes minimum entry-relative protective distance against microstructure noise.
     - Applies defensive outward expansion if anchor buffer is closer than protective threshold.
-    - Rejects excessively wide stops (upper bound = max_stop_distance_atr * ATR_M1).
+    - Assesses stop distance relative to volatility (non-blocking diagnostic: DISTANCE_NORMAL, DISTANCE_ELEVATED, DISTANCE_EXTREME, DISTANCE_ATR_UNAVAILABLE).
+    - Never rejects solely because stop distance exceeds an arbitrary ATR multiple.
     - Rejects abnormal spread / market shock conditions (spread > max_spread_usd).
     - Enforces strict outward tick quantization (floor for LONG, ceil for SHORT).
     - Fails closed in PAPER_STRUCTURAL mode when evidence is missing or invalid.
@@ -577,7 +578,7 @@ def plan_structural_stop(
     norm_dir = direction.upper() if isinstance(direction, str) else "UNKNOWN"
     mode = getattr(policy, "mode", StopPlacementMode.SHADOW_COMPARE.value)
     policy_ver = getattr(policy, "version", 1)
-    algo_ver = getattr(policy, "algorithm_version", "V17_7")
+    algo_ver = getattr(policy, "algorithm_version", "V17_7_1")
 
     # 1. Price positivity and finiteness (SL-16, SL-17)
     for p_name, p_val in (
@@ -850,38 +851,33 @@ def plan_structural_stop(
         else:
             variant_c_sl = anchor_sl
 
-    # 8. Maximum Allowable Stop Distance Guard (SL-20)
+    # 8. Evidence-Based Stop Distance Assessment (V17.7.1 / DSL)
+    # A structurally valid Stop Loss is NEVER rejected solely because Stop Distance > 4.0 x ATR.
+    # ATR is a volatility measurement, not an absolute boundary for structural invalidation distance.
+    # We record non-blocking diagnostic classification: DISTANCE_NORMAL, DISTANCE_ELEVATED,
+    # DISTANCE_EXTREME, DISTANCE_ATR_UNAVAILABLE.
     final_dist = abs(planned_entry - variant_c_sl)
     eff_m1 = atr_m1_val if (atr_m1_val is not None and atr_m1_val > 0) else None
     if eff_m1 is None and atr_m1_obj and getattr(atr_m1_obj, "status", "") == "AVAILABLE" and getattr(atr_m1_obj, "value", 0.0) > 0:
         eff_m1 = atr_m1_obj.value
 
-    if eff_m1 is not None and eff_m1 > 0:
-        max_mult = getattr(policy, "max_stop_distance_atr", 4.0)
-        max_allowed_dist = float(max_mult) * float(eff_m1)
-        if final_dist > max_allowed_dist:
-            dist = abs(planned_entry - legacy_sl)
-            sel_sl = None if mode == StopPlacementMode.PAPER_STRUCTURAL.value else legacy_sl
-            return StopPlacementDecision(
-                status=StopStatus.REJECTED_GEOMETRY.value,
-                selected_sl=sel_sl,
-                anchor=anchor,
-                bound_leg=getattr(anchor_result, "bound_leg", None),
-                buffer=buffer_result,
-                metrics=StopMetrics(
-                    price_distance=dist,
-                    distance_ticks=int(round(dist / tick_size)),
-                    distance_atr=(dist / eff_m1) if eff_m1 > 0 else None,
-                ),
-                reasons=("EXCESSIVE_STOP_DISTANCE", f"Stop distance {final_dist:.2f} > max {max_allowed_dist:.2f}"),
-                policy_version=policy_ver,
-                mode=mode,
-                decision_cutoff_ms=as_of_ms,
-                applied_variant="A",
-                protective_distance=min_prot_dist,
-                expansion_applied=expansion_applied,
-                algorithm_version=algo_ver,
-            )
+    eff_m5 = atr_m5_val if (atr_m5_val is not None and atr_m5_val > 0) else None
+    if eff_m5 is None and atr_m5_obj and getattr(atr_m5_obj, "status", "") == "AVAILABLE" and getattr(atr_m5_obj, "value", 0.0) > 0:
+        eff_m5 = atr_m5_obj.value
+
+    dist_ticks = int(round(final_dist / tick_size))
+    dist_atr_m1 = (final_dist / eff_m1) if (eff_m1 is not None and eff_m1 > 0) else None
+    dist_atr_m5 = (final_dist / eff_m5) if (eff_m5 is not None and eff_m5 > 0) else None
+
+    ref_elevated = float(getattr(policy, "max_stop_distance_atr", 4.0))
+    if eff_m1 is None or eff_m1 <= 0:
+        distance_assessment = "DISTANCE_ATR_UNAVAILABLE"
+    elif dist_atr_m1 <= 2.5:
+        distance_assessment = "DISTANCE_NORMAL"
+    elif dist_atr_m1 <= ref_elevated:
+        distance_assessment = "DISTANCE_ELEVATED"
+    else:
+        distance_assessment = "DISTANCE_EXTREME"
 
     # 9. Geometry validation for Variant C (SL-03)
     if norm_dir in ("SHORT", "SELL"):
@@ -901,7 +897,7 @@ def plan_structural_stop(
             metrics=StopMetrics(
                 price_distance=dist,
                 distance_ticks=int(round(dist / tick_size)),
-                distance_atr=(dist / atr_m1_val) if atr_m1_val and atr_m1_val > 0 else None,
+                distance_atr=(dist / eff_m1) if eff_m1 and eff_m1 > 0 else None,
             ),
             reasons=("INVALID_PRICE_GEOMETRY_WITH_STRUCTURAL_SL",),
             policy_version=policy_ver,
@@ -910,6 +906,7 @@ def plan_structural_stop(
             applied_variant="A",
             protective_distance=min_prot_dist,
             expansion_applied=expansion_applied,
+            distance_assessment=distance_assessment,
             algorithm_version=algo_ver,
         )
 
@@ -929,6 +926,16 @@ def plan_structural_stop(
         delta_vs_legacy_sl=abs(selected_sl - legacy_sl),
     )
 
+    bound_leg = getattr(anchor_result, "bound_leg", None)
+    protected_ep_id = getattr(bound_leg, "episode_id", getattr(bound_leg, "id", None)) if bound_leg else None
+    anchor_inval_evidence = {
+        "anchor_id": getattr(anchor, "id", getattr(anchor, "anchor_id", None)) if anchor else None,
+        "anchor_price": getattr(anchor, "price", None) if anchor else None,
+        "occurred_at_ms": getattr(anchor, "occurred_at_ms", None) if anchor else None,
+        "known_at_ms": getattr(anchor, "known_at_ms", None) if anchor else None,
+        "source_leg_id": getattr(anchor, "source_leg_id", None) if anchor else None,
+    } if anchor else None
+
     vol_ctx = {
         "anchor_buffer_price": buffer_result.buffer_price if buffer_result else 0.0,
         "dominant_buffer_source": buffer_result.dominant_source if buffer_result else "tick_floor",
@@ -936,9 +943,19 @@ def plan_structural_stop(
         "dominant_protective_source": min_prot_res.dominant_source,
         "protective_expansion_applied": expansion_applied,
         "variant_c_sl": variant_c_sl,
-        "anchor_price": anchor.price,
+        "anchor_price": getattr(anchor, "price", None) if anchor else None,
         "spread": eff_spread,
         "atr_m1": eff_m1,
+        "atr_m5": eff_m5,
+        "stop_distance_price": final_dist,
+        "stop_distance_ticks": dist_ticks,
+        "stop_distance_atr_m1": dist_atr_m1,
+        "stop_distance_atr_m5": dist_atr_m5,
+        "structural_anchor_id": getattr(anchor, "id", getattr(anchor, "anchor_id", None)) if anchor else None,
+        "structural_anchor_kind": getattr(anchor, "kind", None) if anchor else None,
+        "protected_episode_id": protected_ep_id,
+        "anchor_invalidation_evidence": anchor_inval_evidence,
+        "distance_assessment": distance_assessment,
         "algorithm_version": algo_ver,
     }
 
@@ -946,7 +963,7 @@ def plan_structural_stop(
         status=StopStatus.VALID.value,
         selected_sl=selected_sl,
         anchor=anchor,
-        bound_leg=getattr(anchor_result, "bound_leg", None),
+        bound_leg=bound_leg,
         buffer=buffer_result,
         metrics=metrics,
         reasons=(),
@@ -957,6 +974,7 @@ def plan_structural_stop(
         volatility_context=vol_ctx,
         protective_distance=min_prot_dist,
         expansion_applied=expansion_applied,
+        distance_assessment=distance_assessment,
         algorithm_version=algo_ver,
     )
 

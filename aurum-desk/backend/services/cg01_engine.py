@@ -1410,7 +1410,7 @@ def evaluate_cg01_candidate(
                     atr_m1_val=(
                         atr_m1_obj.value
                         if (atr_m1_obj and atr_m1_obj.status == "AVAILABLE")
-                        else (float(atr_series.iloc[-1]) if hasattr(atr_series, "iloc") and len(atr_series) > 0 else 1.0)
+                        else (float(atr_series[max(atr_series.keys())]) if isinstance(atr_series, dict) and len(atr_series) > 0 else (float(atr_series.iloc[-1]) if hasattr(atr_series, "iloc") and len(atr_series) > 0 else None))
                     ),
                     atr_m5_val=(atr_m5_obj.value if (atr_m5_obj and atr_m5_obj.status == "AVAILABLE") else None),
                     spread=max(0.0, ask - bid) if (bid is not None and ask is not None) else None,
