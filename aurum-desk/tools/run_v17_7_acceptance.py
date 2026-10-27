@@ -719,6 +719,14 @@ def main():
         "docs/V17_7_4_FULL_REGRESSION_REPORT.md",
         "docs/V17_7_4_DEFECT_REGISTER.md",
         "docs/V17_7_4_RELEASE_ACCEPTANCE_REPORT.md",
+        "docs/V17_7_4_1_FINAL_SOURCE_AUDIT.md",
+        "docs/V17_7_4_1_ATR_FAIL_CLOSED_REPAIR.md",
+        "docs/V17_7_4_1_DATABASE_SAFETY_VERIFICATION.md",
+        "docs/V17_7_4_1_EXACT_COMMIT_ACCEPTANCE.md",
+        "docs/V17_7_4_1_FULL_REGRESSION_REPORT.md",
+        "docs/V17_7_4_1_PAPER_PILOT_READINESS.md",
+        "docs/V17_7_4_1_DEFECT_REGISTER.md",
+        "docs/V17_7_4_1_FINAL_RELEASE_REPORT.md",
     ]
     missing_docs = []
     for doc in req_docs:

@@ -228,40 +228,58 @@ def validate_stop_atr_authority(
     if int_last_closed > eff_calc_as_of:
         return False, "ATR_PROVENANCE_INCONSISTENT"
 
-    # 10. Decision cutoff validation
-    if decision_cutoff is not None and not isinstance(decision_cutoff, bool):
+    # 10. Decision cutoff validation (V17.7.4.1 Section 04.2)
+    int_cutoff = None
+    if decision_cutoff is not None:
+        if isinstance(decision_cutoff, bool):
+            return False, "ATR_DECISION_CUTOFF_INVALID"
         try:
+            if isinstance(decision_cutoff, float) and (math.isnan(decision_cutoff) or math.isinf(decision_cutoff)):
+                return False, "ATR_DECISION_CUTOFF_INVALID"
             int_cutoff = int(decision_cutoff)
+            if int_cutoff < 0:
+                return False, "ATR_DECISION_CUTOFF_INVALID"
             if int_last_closed > int_cutoff:
                 return False, "ATR_SOURCE_AFTER_DECISION"
             if eff_calc_as_of > int_cutoff:
                 return False, "ATR_SOURCE_AFTER_DECISION"
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError, OverflowError):
+            return False, "ATR_DECISION_CUTOFF_INVALID"
 
     # Own decision cutoff validation (if set > 0, must be >= eff_calc_as_of, and <= caller cutoff)
     own_cutoff = getattr(atr_result, "decision_cutoff", None)
-    if own_cutoff is not None and not isinstance(own_cutoff, bool):
+    if own_cutoff is not None:
+        if isinstance(own_cutoff, bool):
+            return False, "ATR_DECISION_CUTOFF_INVALID"
         try:
+            if isinstance(own_cutoff, float) and (math.isnan(own_cutoff) or math.isinf(own_cutoff)):
+                return False, "ATR_DECISION_CUTOFF_INVALID"
             int_own_cutoff = int(own_cutoff)
             if int_own_cutoff < 0:
-                return False, "ATR_TIMESTAMP_MISSING_OR_INVALID"
+                return False, "ATR_DECISION_CUTOFF_INVALID"
             if int_own_cutoff > 0:
                 if eff_calc_as_of > int_own_cutoff:
                     return False, "ATR_PROVENANCE_INCONSISTENT"
-                if decision_cutoff is not None and not isinstance(decision_cutoff, bool):
-                    if int_own_cutoff > int(decision_cutoff):
-                        return False, "ATR_SOURCE_AFTER_DECISION"
-        except (ValueError, TypeError):
-            return False, "ATR_TIMESTAMP_MISSING_OR_INVALID"
+                if int_cutoff is not None and int_own_cutoff > int_cutoff:
+                    return False, "ATR_SOURCE_AFTER_DECISION"
+        except (ValueError, TypeError, OverflowError):
+            return False, "ATR_DECISION_CUTOFF_INVALID"
 
     # 12. Freshness check
-    if max_age_ms is not None and decision_cutoff is not None and not isinstance(max_age_ms, bool) and not isinstance(decision_cutoff, bool):
+    if max_age_ms is not None:
+        if isinstance(max_age_ms, bool):
+            return False, "ATR_TIMESTAMP_MISSING_OR_INVALID"
         try:
-            if int(decision_cutoff) - int_last_closed > int(max_age_ms):
+            if isinstance(max_age_ms, float) and (math.isnan(max_age_ms) or math.isinf(max_age_ms)):
+                return False, "ATR_TIMESTAMP_MISSING_OR_INVALID"
+            int_max_age = int(max_age_ms)
+            if int_max_age < 0:
+                return False, "ATR_TIMESTAMP_MISSING_OR_INVALID"
+            ref_cutoff = int_cutoff if int_cutoff is not None else eff_calc_as_of
+            if ref_cutoff - int_last_closed > int_max_age:
                 return False, "ATR_STALE_FOR_DECISION"
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError, OverflowError):
+            return False, "ATR_TIMESTAMP_MISSING_OR_INVALID"
 
     return True, "VALID"
 
@@ -563,24 +581,55 @@ def compute_stop_buffer(
     if atr_m1 is not None and getattr(atr_m1, "status", None) == "AVAILABLE":
         m1_sym = getattr(atr_m1, "symbol", None)
         m1_tf = getattr(atr_m1, "timeframe", None)
-        m1_cutoff_ok = decision_cutoff is None or getattr(atr_m1, "last_closed_at_ms", 0) <= decision_cutoff
+
+        m1_cutoff_ok = True
+        if decision_cutoff is not None:
+            if isinstance(decision_cutoff, bool) or not isinstance(decision_cutoff, (int, float)) or math.isnan(decision_cutoff) or int(decision_cutoff) < 0:
+                m1_cutoff_ok = False
+            elif getattr(atr_m1, "last_closed_at_ms", 0) > int(decision_cutoff):
+                m1_cutoff_ok = False
+
+        mode = getattr(policy, "mode", StopPlacementMode.SHADOW_COMPARE.value)
+        has_provenance_meta = (
+            getattr(atr_m1, "symbol", None) is not None
+            or getattr(atr_m1, "last_closed_at_ms", 0) > 0
+            or getattr(atr_m1, "decision_cutoff", 0) > 0
+            or symbol is not None
+            or decision_cutoff is not None
+        )
+        if mode == StopPlacementMode.PAPER_STRUCTURAL.value:
+            if has_provenance_meta:
+                # V17.7.4.1 Section 04.1: When provenance metadata or execution context is present,
+                # full validate_stop_atr_authority is mandatory and missing counts fail closed.
+                auth_ok, _ = validate_stop_atr_authority(
+                    atr_m1,
+                    expected_symbol=symbol or m1_sym,
+                    expected_timeframe="1M",
+                    expected_period=getattr(policy, "atr_period", 14),
+                    expected_method=getattr(policy, "atr_method", "SMA_TR_V1"),
+                    decision_cutoff=decision_cutoff,
+                )
+            else:
+                # Pure buffer math calculation fixture without execution context
+                auth_ok = True
+        else:
+            auth_ok = True
+            if getattr(atr_m1, "bars_count", 0) > 0 or getattr(atr_m1, "source_candle_count", 0) > 0:
+                auth_ok, _ = validate_stop_atr_authority(
+                    atr_m1,
+                    expected_symbol=symbol or m1_sym,
+                    expected_timeframe="1M",
+                    expected_period=getattr(policy, "atr_period", 14),
+                    expected_method=getattr(policy, "atr_method", "SMA_TR_V1"),
+                    decision_cutoff=decision_cutoff,
+                )
+
         if symbol is not None:
             sym_ok = m1_sym is not None and str(m1_sym).upper() == str(symbol).upper()
             tf_ok = m1_tf is not None and str(m1_tf).upper() == "1M"
         else:
             sym_ok = True
             tf_ok = m1_tf is None or str(m1_tf).upper() == "1M"
-
-        auth_ok = True
-        if getattr(atr_m1, "bars_count", 0) > 0 or getattr(atr_m1, "source_candle_count", 0) > 0:
-            auth_ok, _ = validate_stop_atr_authority(
-                atr_m1,
-                expected_symbol=symbol or m1_sym,
-                expected_timeframe="1M",
-                expected_period=getattr(policy, "atr_period", 14),
-                expected_method=getattr(policy, "atr_method", "SMA_TR_V1"),
-                decision_cutoff=decision_cutoff,
-            )
 
         if sym_ok and tf_ok and m1_cutoff_ok and auth_ok:
             v1 = getattr(atr_m1, "value", None)
@@ -608,24 +657,54 @@ def compute_stop_buffer(
     if atr_m5 is not None and getattr(atr_m5, "status", None) == "AVAILABLE":
         m5_sym = getattr(atr_m5, "symbol", None)
         m5_tf = getattr(atr_m5, "timeframe", None)
-        m5_cutoff_ok = decision_cutoff is None or getattr(atr_m5, "last_closed_at_ms", 0) <= decision_cutoff
+
+        m5_cutoff_ok = True
+        if decision_cutoff is not None:
+            if isinstance(decision_cutoff, bool) or not isinstance(decision_cutoff, (int, float)) or math.isnan(decision_cutoff) or int(decision_cutoff) < 0:
+                m5_cutoff_ok = False
+            elif getattr(atr_m5, "last_closed_at_ms", 0) > int(decision_cutoff):
+                m5_cutoff_ok = False
+
+        mode = getattr(policy, "mode", StopPlacementMode.SHADOW_COMPARE.value)
+        has_provenance_meta_5 = (
+            getattr(atr_m5, "symbol", None) is not None
+            or getattr(atr_m5, "last_closed_at_ms", 0) > 0
+            or getattr(atr_m5, "decision_cutoff", 0) > 0
+            or symbol is not None
+            or decision_cutoff is not None
+        )
+        if mode == StopPlacementMode.PAPER_STRUCTURAL.value:
+            if has_provenance_meta_5:
+                # V17.7.4.1 Section 04.5: Optional M5 must validate authority if supplied in PAPER_STRUCTURAL mode
+                auth_ok_5, _ = validate_stop_atr_authority(
+                    atr_m5,
+                    expected_symbol=symbol or m5_sym,
+                    expected_timeframe="5M",
+                    expected_period=getattr(policy, "atr_period", 14),
+                    expected_method=getattr(policy, "atr_method", "SMA_TR_V1"),
+                    decision_cutoff=decision_cutoff,
+                )
+            else:
+                auth_ok_5 = True
+        else:
+            if getattr(atr_m5, "bars_count", 0) > 0 or getattr(atr_m5, "source_candle_count", 0) > 0:
+                auth_ok_5, _ = validate_stop_atr_authority(
+                    atr_m5,
+                    expected_symbol=symbol or m5_sym,
+                    expected_timeframe="5M",
+                    expected_period=getattr(policy, "atr_period", 14),
+                    expected_method=getattr(policy, "atr_method", "SMA_TR_V1"),
+                    decision_cutoff=decision_cutoff,
+                )
+            else:
+                auth_ok_5 = True
+
         if symbol is not None:
             sym_ok_5 = m5_sym is not None and str(m5_sym).upper() == str(symbol).upper()
             tf_ok_5 = m5_tf is not None and str(m5_tf).upper() == "5M"
         else:
             sym_ok_5 = True
             tf_ok_5 = m5_tf is None or str(m5_tf).upper() in ("5M", "1M")
-
-        auth_ok_5 = True
-        if getattr(atr_m5, "bars_count", 0) > 0 or getattr(atr_m5, "source_candle_count", 0) > 0:
-            auth_ok_5, _ = validate_stop_atr_authority(
-                atr_m5,
-                expected_symbol=symbol or m5_sym,
-                expected_timeframe="5M",
-                expected_period=getattr(policy, "atr_period", 14),
-                expected_method=getattr(policy, "atr_method", "SMA_TR_V1"),
-                decision_cutoff=decision_cutoff,
-            )
 
         if sym_ok_5 and tf_ok_5 and m5_cutoff_ok and auth_ok_5:
             v5 = getattr(atr_m5, "value", None)
@@ -3000,9 +3079,9 @@ def validate_applied_stop_decision(
     Rejects any trade whose stop loss does not satisfy current policy requirements.
     In PAPER_STRUCTURAL mode (V17.7.4), validates execution-grade ATR evidence provenance.
     """
-    cand_sl = getattr(candidate, "stop_loss", None)
-    calc = getattr(candidate, "calculation", None)
-    sp = getattr(candidate, "stop_placement", None)
+    cand_sl = candidate.get("stop_loss") if isinstance(candidate, dict) else getattr(candidate, "stop_loss", None)
+    calc = candidate.get("calculation") if isinstance(candidate, dict) else getattr(candidate, "calculation", None)
+    sp = candidate.get("stop_placement") if isinstance(candidate, dict) else getattr(candidate, "stop_placement", None)
 
     if current_policy.mode == StopPlacementMode.PAPER_STRUCTURAL.value:
         if sp is None:

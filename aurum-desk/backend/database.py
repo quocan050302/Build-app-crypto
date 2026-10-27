@@ -42,24 +42,24 @@ def _read_and_validate_marker(marker_path: Path, expected_run_id: str | None = N
     try:
         data = json.loads(marker_path.read_text(encoding="utf-8"))
     except Exception as e:
-        raise RuntimeError(f"MALFORMED_MARKER: {e}")
+        raise RuntimeError(f"MALFORMED_OWNERSHIP_MARKER (MALFORMED_MARKER): {e}")
     if not isinstance(data, dict):
-        raise RuntimeError("MALFORMED_MARKER: Expected JSON object")
+        raise RuntimeError("MALFORMED_OWNERSHIP_MARKER (MALFORMED_MARKER): Expected JSON object")
     if data.get("schema_version") != 1:
-        raise RuntimeError(f"UNSUPPORTED_MARKER_SCHEMA: {data.get('schema_version')}")
+        raise RuntimeError(f"MALFORMED_OWNERSHIP_MARKER (UNSUPPORTED_MARKER_SCHEMA): {data.get('schema_version')}")
     if data.get("test_owner") != "aurum_test_framework":
-        raise RuntimeError(f"INVALID_TEST_OWNER: {data.get('test_owner')}")
+        raise RuntimeError(f"MALFORMED_OWNERSHIP_MARKER (INVALID_TEST_OWNER): {data.get('test_owner')}")
     run_id = data.get("run_id")
     if not run_id or not isinstance(run_id, str):
-        raise RuntimeError("MISSING_RUN_ID_IN_MARKER")
+        raise RuntimeError("MALFORMED_OWNERSHIP_MARKER (MISSING_RUN_ID_IN_MARKER)")
     if expected_run_id and run_id != expected_run_id:
-        raise RuntimeError(f"STALE_RUN_MARKER: Expected run_id {expected_run_id}, got {run_id}")
+        raise RuntimeError(f"FOREIGN_RUN_OWNERSHIP_MARKER (STALE_RUN_MARKER): Expected run_id {expected_run_id}, got {run_id}")
 
     # Canonical root validation (V17.7.4 Section 08):
     # Marker must specify canonical_root matching its actual directory.
     canonical_str = data.get("canonical_root")
     if not canonical_str or not isinstance(canonical_str, str):
-        raise RuntimeError("MISSING_CANONICAL_ROOT_IN_MARKER")
+        raise RuntimeError("MALFORMED_OWNERSHIP_MARKER (MISSING_CANONICAL_ROOT_IN_MARKER)")
     marker_root = marker_path.parent.resolve()
     marker_canonical = Path(canonical_str).resolve()
     if marker_canonical != marker_root:
@@ -207,10 +207,11 @@ def assert_test_database_isolated(
     target_engine: Any = None,
     session: Any = None,
 ) -> bool:
-    """Fail-closed guard (V17.7.4 Section 08):
+    """Fail-closed guard (V17.7.4.1 Section 05):
     Asserts that target DB is strictly contained within a verified test-owned root directory,
     and is never the runtime database or an arbitrary external database.
     Can verify target from path, engine, or session bind.
+    Enforces file ownership, rejects external hardlinks and pre-existing files.
     """
     target = db_path
     if session is not None:
@@ -261,12 +262,27 @@ def assert_test_database_isolated(
         marker = root / TEST_ROOT_MARKER
         if root.is_dir() and marker.is_file():
             try:
-                _read_and_validate_marker(marker, expected_run_id=os.getenv("AURUM_TEST_RUN_ID"))
+                marker_data = _read_and_validate_marker(marker, expected_run_id=os.getenv("AURUM_TEST_RUN_ID"))
                 if t_path.is_relative_to(root):
+                    # V17.7.4.1: Verify actual file ownership, hardlink count and age
+                    if t_path.exists():
+                        t_stat = t_path.stat()
+                        # Reject hardlinks to any external files (link count > 1)
+                        if t_stat.st_nlink > 1:
+                            raise RuntimeError(
+                                f"CRITICAL SAFETY HAZARD: Database target {t_path} is a hardlink alias (nlink={t_stat.st_nlink}) to an external file!"
+                            )
+                        # Reject pre-existing external database files
+                        marker_created = float(marker_data.get("created_at") or marker.stat().st_mtime)
+                        if t_stat.st_mtime < marker_created - 0.5:
+                            raise RuntimeError(
+                                f"CRITICAL SAFETY HAZARD: Pre-existing database file {t_path.name} in test root was modified before test marker!"
+                            )
                     is_contained = True
                     break
-            except Exception:
-                pass
+            except Exception as e:
+                if isinstance(e, RuntimeError) and "CRITICAL SAFETY HAZARD" in str(e):
+                    raise
 
     if not is_contained:
         raise RuntimeError(

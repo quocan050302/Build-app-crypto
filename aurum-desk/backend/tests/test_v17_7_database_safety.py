@@ -422,3 +422,290 @@ def test_review_probe_6_test_root_canonical_mismatch_and_preexisting_data_reject
     with pytest.raises(RuntimeError) as exc_b:
         register_trusted_test_root(dir_b)
     assert "PRE_EXISTING_EXTERNAL_DATA" in str(exc_b.value)
+
+
+# ==============================================================================
+# AURUM DESK V17.7.4.1 — FINAL DATABASE SAFETY VERIFICATION (DB-FINAL-01..12)
+# ==============================================================================
+
+def test_db_final_01_fresh_test_owned_db_accepted():
+    """DB-FINAL-01: Fresh test-owned database within verified test root is accepted."""
+    test_root = get_or_create_test_root()
+    test_db = str(test_root / f"final_test_db_{os.getpid()}.db")
+    assert assert_test_database_isolated(test_db) is True
+
+
+def test_db_final_02_runtime_db_path_rejected():
+    """DB-FINAL-02: Runtime DB path (aurum_desk.db) is unconditionally rejected with RuntimeError."""
+    with pytest.raises(RuntimeError) as exc:
+        assert_test_database_isolated(RUNTIME_DEFAULT_DB_PATH)
+    assert "CRITICAL SAFETY HAZARD" in str(exc.value)
+    assert "targets runtime database" in str(exc.value)
+
+
+def test_db_final_03_arbitrary_external_db_path_rejected():
+    """DB-FINAL-03: Arbitrary external DB path outside test root is rejected."""
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+        ext_db = tmp.name
+    try:
+        with pytest.raises(RuntimeError) as exc:
+            assert_test_database_isolated(ext_db)
+        assert "CRITICAL SAFETY HAZARD" in str(exc.value)
+        assert "not within verified test-owned root" in str(exc.value)
+    finally:
+        if os.path.exists(ext_db):
+            os.remove(ext_db)
+
+
+def test_db_final_04_symlink_outside_test_root_rejected():
+    """DB-FINAL-04: Symlink inside test root pointing to external file is resolved and rejected."""
+    test_root = get_or_create_test_root()
+    with tempfile.NamedTemporaryFile(suffix="_real_ext.db", delete=False) as ext_f:
+        ext_target = ext_f.name
+
+    symlink_path = test_root / f"symlink_final_{os.getpid()}.db"
+    try:
+        if symlink_path.exists():
+            symlink_path.unlink()
+        try:
+            symlink_path.symlink_to(ext_target)
+        except OSError as e:
+            if getattr(e, "winerror", None) == 1314 or "privilege" in str(e).lower():
+                pytest.skip("Symlink creation requires elevated privilege on Windows")
+            raise
+
+        with pytest.raises(RuntimeError) as exc:
+            assert_test_database_isolated(str(symlink_path))
+        assert "CRITICAL SAFETY HAZARD" in str(exc.value)
+        assert "not within verified test-owned root" in str(exc.value)
+    finally:
+        if symlink_path.exists():
+            symlink_path.unlink()
+        if os.path.exists(ext_target):
+            os.remove(ext_target)
+
+
+def test_db_final_05_hardlink_alias_to_external_sentinel_rejected():
+    """DB-FINAL-05: Hardlink alias inside test root pointing to external sentinel DB is rejected."""
+    test_root = get_or_create_test_root()
+    with tempfile.NamedTemporaryFile(suffix="_sentinel_vault.db", delete=False) as sent_f:
+        ext_sentinel = sent_f.name
+
+    hardlink_path = test_root / f"hardlink_sentinel_{os.getpid()}.db"
+    if hardlink_path.exists():
+        hardlink_path.unlink()
+    try:
+        try:
+            os.link(str(ext_sentinel), str(hardlink_path))
+        except OSError as e:
+            pytest.skip(f"Hardlink creation not supported across volumes: {e}")
+
+        # Target file has st_nlink == 2, so it MUST be rejected by assert_test_database_isolated!
+        with pytest.raises(RuntimeError) as exc:
+            assert_test_database_isolated(str(hardlink_path))
+        assert "CRITICAL SAFETY HAZARD" in str(exc.value)
+        assert "hardlink" in str(exc.value).lower()
+    finally:
+        if hardlink_path.exists():
+            hardlink_path.unlink()
+        if os.path.exists(ext_sentinel):
+            os.remove(ext_sentinel)
+
+
+def test_db_final_06_preexisting_external_db_rejected(tmp_path):
+    """DB-FINAL-06: Pre-existing database file in candidate test root is rejected."""
+    from database import register_trusted_test_root, TEST_ROOT_MARKER
+    import time
+
+    old_env = os.environ.get("AURUM_TEST_RUN_ID")
+    cur_run = f"run_db_final_06_{int(time.time()*1000)}"
+    os.environ["AURUM_TEST_RUN_ID"] = cur_run
+
+    test_dir = tmp_path / "preexisting_root"
+    test_dir.mkdir(parents=True, exist_ok=True)
+    db_file = test_dir / "old_customer_data.db"
+    db_file.write_bytes(b"SQLite format 3\x00")
+    # Backdate mtime
+    old_ts = time.time() - 10.0
+    os.utime(str(db_file), (old_ts, old_ts))
+
+    time.sleep(0.05)
+    marker = test_dir / TEST_ROOT_MARKER
+    marker.write_text(json.dumps({
+        "schema_version": 1,
+        "test_owner": "aurum_test_framework",
+        "run_id": cur_run,
+        "canonical_root": str(test_dir.resolve()),
+        "created_at": time.time(),
+    }), encoding="utf-8")
+
+    try:
+        with pytest.raises(RuntimeError) as exc:
+            register_trusted_test_root(test_dir)
+        assert "PRE_EXISTING_EXTERNAL_DATA" in str(exc.value)
+    finally:
+        if old_env is not None:
+            os.environ["AURUM_TEST_RUN_ID"] = old_env
+        else:
+            os.environ.pop("AURUM_TEST_RUN_ID", None)
+
+
+def test_db_final_07_malformed_ownership_marker_rejected(tmp_path):
+    """DB-FINAL-07: Malformed ownership marker is rejected fail-closed."""
+    from database import register_trusted_test_root, TEST_ROOT_MARKER
+
+    old_env = os.environ.get("AURUM_TEST_RUN_ID")
+    cur_run = "run_db_final_07"
+    os.environ["AURUM_TEST_RUN_ID"] = cur_run
+
+    # Corrupted JSON marker
+    dir_corrupt = tmp_path / "dir_corrupt_marker"
+    dir_corrupt.mkdir(parents=True, exist_ok=True)
+    marker = dir_corrupt / TEST_ROOT_MARKER
+    marker.write_text("NOT_VALID_JSON{:::}", encoding="utf-8")
+
+    try:
+        with pytest.raises(RuntimeError) as exc:
+            register_trusted_test_root(dir_corrupt)
+        assert "MALFORMED_OWNERSHIP_MARKER" in str(exc.value)
+    finally:
+        if old_env is not None:
+            os.environ["AURUM_TEST_RUN_ID"] = old_env
+        else:
+            os.environ.pop("AURUM_TEST_RUN_ID", None)
+
+
+def test_db_final_08_foreign_run_ownership_marker_rejected(tmp_path):
+    """DB-FINAL-08: Foreign-run ownership marker from another test run is rejected."""
+    from database import register_trusted_test_root, TEST_ROOT_MARKER
+
+    old_env = os.environ.get("AURUM_TEST_RUN_ID")
+    os.environ["AURUM_TEST_RUN_ID"] = "current_run_alpha"
+
+    dir_foreign = tmp_path / "dir_foreign_marker"
+    dir_foreign.mkdir(parents=True, exist_ok=True)
+    marker = dir_foreign / TEST_ROOT_MARKER
+    marker.write_text(json.dumps({
+        "schema_version": 1,
+        "test_owner": "aurum_test_framework",
+        "run_id": "foreign_run_bravo_different",
+        "canonical_root": str(dir_foreign.resolve()),
+    }), encoding="utf-8")
+
+    try:
+        with pytest.raises(RuntimeError) as exc:
+            register_trusted_test_root(dir_foreign)
+        assert "FOREIGN_RUN_OWNERSHIP_MARKER" in str(exc.value)
+    finally:
+        if old_env is not None:
+            os.environ["AURUM_TEST_RUN_ID"] = old_env
+        else:
+            os.environ.pop("AURUM_TEST_RUN_ID", None)
+
+
+def test_db_final_09_destructive_fixture_cannot_target_external_db():
+    """DB-FINAL-09: Destructive operations refuse to execute when bound to external database."""
+    with tempfile.NamedTemporaryFile(suffix="_external_destructive.db", delete=False) as f:
+        ext_db = f.name
+
+    try:
+        ext_engine = create_engine(f"sqlite:///{ext_db}")
+        ExtSession = sessionmaker(bind=ext_engine)
+        session = ExtSession()
+        try:
+            with pytest.raises(RuntimeError) as exc1:
+                assert_test_database_isolated(session=session)
+            assert "CRITICAL SAFETY HAZARD" in str(exc1.value)
+
+            with pytest.raises(RuntimeError) as exc2:
+                assert_test_database_isolated(target_engine=ext_engine)
+            assert "CRITICAL SAFETY HAZARD" in str(exc2.value)
+
+            with pytest.raises(RuntimeError) as exc3:
+                run_schema_migrations(ext_engine)
+            assert "CRITICAL SAFETY HAZARD" in str(exc3.value)
+        finally:
+            session.close()
+    finally:
+        if os.path.exists(ext_db):
+            os.remove(ext_db)
+
+
+def test_db_final_10_runner_subprocess_uses_test_owned_db():
+    """DB-FINAL-10: Subprocess running under test configuration binds strictly inside test-owned root."""
+    test_root = get_or_create_test_root()
+    backend_dir = str(Path(__file__).resolve().parent.parent)
+    cur_run_id = os.getenv("AURUM_TEST_RUN_ID", "test_run_final_10")
+
+    script = (
+        "import os, sys\n"
+        "from database import DB_PATH, assert_test_database_isolated, get_or_create_test_root\n"
+        "assert_test_database_isolated(DB_PATH)\n"
+        "print(DB_PATH)\n"
+    )
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join([backend_dir, f"{backend_dir}/tests"])
+    env["TESTING"] = "1"
+    env["AURUM_TEST_RUN_ID"] = cur_run_id
+    env["AURUM_TEST_ROOT"] = str(test_root)
+
+    res = subprocess.run([sys.executable, "-c", script], env=env, capture_output=True, text=True)
+    assert res.returncode == 0, res.stderr
+    db_out = res.stdout.strip()
+    assert Path(db_out).parent == test_root
+
+
+def test_db_final_11_production_configuration_remains_unchanged():
+    """DB-FINAL-11: Normal production DB path resolution remains unchanged when TESTING is not set."""
+    backend_dir = str(Path(__file__).resolve().parent.parent)
+    expected_prod_path = str(Path(backend_dir) / "aurum_desk.db")
+
+    script = (
+        "import os, sys\n"
+        "os.environ.pop('TESTING', None)\n"
+        "os.environ.pop('PYTEST_CURRENT_TEST', None)\n"
+        "os.environ.pop('AURUM_DB_PATH', None)\n"
+        "os.environ['AURUM_SKIP_STARTUP_MIGRATIONS'] = '1'\n"
+        "import database\n"
+        "print(database.DB_PATH)\n"
+    )
+    res = subprocess.run([sys.executable, "-c", script], cwd=backend_dir, capture_output=True, text=True)
+    assert res.returncode == 0, res.stderr
+    assert res.stdout.strip() == expected_prod_path
+
+
+def test_db_final_12_sentinel_records_remain_unchanged():
+    """DB-FINAL-12: External sentinel records and byte-for-byte SHA256 checksum remain completely untouched."""
+    with tempfile.NamedTemporaryFile(suffix="_vault_sentinel.db", delete=False) as f:
+        sentinel_path = f.name
+
+    try:
+        conn = sqlite3.connect(sentinel_path)
+        conn.execute("CREATE TABLE sentinel_vault (id INT PRIMARY KEY, payload TEXT)")
+        conn.execute("INSERT INTO sentinel_vault VALUES (101, 'CRITICAL_PROD_PAYLOAD')")
+        conn.commit()
+        conn.close()
+
+        with open(sentinel_path, "rb") as sf:
+            pre_sha = hashlib.sha256(sf.read()).hexdigest()
+
+        # Attempt isolation assertion and migrations
+        with pytest.raises(RuntimeError):
+            assert_test_database_isolated(sentinel_path)
+
+        unsafe_engine = create_engine(f"sqlite:///{sentinel_path}")
+        with pytest.raises(RuntimeError):
+            run_schema_migrations(unsafe_engine)
+
+        with open(sentinel_path, "rb") as sf:
+            post_sha = hashlib.sha256(sf.read()).hexdigest()
+        assert pre_sha == post_sha, "Sentinel database was modified!"
+
+        conn2 = sqlite3.connect(sentinel_path)
+        cur = conn2.execute("SELECT payload FROM sentinel_vault WHERE id = 101")
+        val = cur.fetchone()[0]
+        conn2.close()
+        assert val == "CRITICAL_PROD_PAYLOAD"
+    finally:
+        if os.path.exists(sentinel_path):
+            os.remove(sentinel_path)

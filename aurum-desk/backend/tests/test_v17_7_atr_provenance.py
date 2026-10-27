@@ -8,6 +8,7 @@ causal timeframes, symbol validation, ratio precision, and model parity.
 
 import math
 from datetime import datetime
+from unittest.mock import Mock
 from zoneinfo import ZoneInfo
 import pytest
 
@@ -783,3 +784,311 @@ def test_review_probe_8_authority_validator_fail_closed_malformed_metadata():
     assert res.reason_code == "ZERO_OR_NEGATIVE_ATR"
 
 
+# ==============================================================================
+# AURUM DESK V17.7.4.1 — FINAL ATR PROVENANCE & SAFETY (ATR-FINAL-01..15)
+# ==============================================================================
+
+def test_atr_final_01_missing_source_counts_are_rejected():
+    """ATR-FINAL-01: ATR with missing source counts (bars_count=0, source_candle_count=0) is rejected."""
+    atr_obj = StopATRResult(
+        status="AVAILABLE", value=3.0, timeframe="1M", symbol="XAUUSDT",
+        bars_count=0, source_candle_count=0,
+        last_closed_at_ms=1_000_000, calculated_as_of=1_000_000,
+    )
+    ok, reason = validate_stop_atr_authority(atr_obj, expected_symbol="XAUUSDT", expected_timeframe="1M")
+    assert ok is False
+    assert "ATR_SOURCE_COUNT_INSUFFICIENT" in reason
+
+
+def test_atr_final_02_available_with_invalid_metadata_rejected():
+    """ATR-FINAL-02: AVAILABLE status with non-positive or non-finite value is rejected."""
+    for bad_val in (0.0, -1.5, float("nan"), float("inf"), True, False):
+        atr_obj = StopATRResult(
+            status="AVAILABLE", value=bad_val, timeframe="1M", symbol="XAUUSDT",  # type: ignore
+            bars_count=15, source_candle_count=15,
+            last_closed_at_ms=1_000_000, calculated_as_of=1_000_000,
+        )
+        ok, reason = validate_stop_atr_authority(atr_obj, expected_symbol="XAUUSDT", expected_timeframe="1M")
+        assert ok is False
+        assert "ATR_NON_POSITIVE_OR_NON_FINITE" in reason
+
+
+def test_atr_final_03_non_numeric_decision_cutoff_rejected():
+    """ATR-FINAL-03: Non-numeric or NaN decision cutoff results in explicit fail-closed rejection."""
+    valid_atr = StopATRResult(
+        status="AVAILABLE", value=3.0, timeframe="1M", symbol="XAUUSDT",
+        bars_count=15, source_candle_count=15,
+        last_closed_at_ms=1_000_000, calculated_as_of=1_000_000,
+    )
+    for bad_cutoff in ("invalid_cutoff", float("nan"), float("inf"), True):
+        ok, reason = validate_stop_atr_authority(valid_atr, expected_symbol="XAUUSDT", decision_cutoff=bad_cutoff)  # type: ignore
+        assert ok is False
+        assert "ATR_DECISION_CUTOFF_INVALID" in reason
+
+
+def test_atr_final_04_negative_decision_cutoff_rejected():
+    """ATR-FINAL-04: Negative decision cutoff is explicitly rejected."""
+    valid_atr = StopATRResult(
+        status="AVAILABLE", value=3.0, timeframe="1M", symbol="XAUUSDT",
+        bars_count=15, source_candle_count=15,
+        last_closed_at_ms=1_000_000, calculated_as_of=1_000_000,
+    )
+    ok, reason = validate_stop_atr_authority(valid_atr, expected_symbol="XAUUSDT", decision_cutoff=-100)
+    assert ok is False
+    assert "ATR_DECISION_CUTOFF_INVALID" in reason
+
+
+def test_atr_final_05_missing_required_timestamp_rejected():
+    """ATR-FINAL-05: Missing or non-positive last_closed_at timestamp is rejected."""
+    for bad_ts in (0, -1, None, True):
+        atr_obj = StopATRResult(
+            status="AVAILABLE", value=3.0, timeframe="1M", symbol="XAUUSDT",
+            bars_count=15, source_candle_count=15,
+            last_closed_at_ms=bad_ts,  # type: ignore
+            calculated_as_of=1_000_000,
+        )
+        ok, reason = validate_stop_atr_authority(atr_obj, expected_symbol="XAUUSDT")
+        assert ok is False
+        assert "ATR_TIMESTAMP_MISSING_OR_INVALID" in reason
+
+
+def test_atr_final_06_future_atr_source_rejected():
+    """ATR-FINAL-06: ATR source bar closed after decision cutoff is rejected."""
+    atr_obj = StopATRResult(
+        status="AVAILABLE", value=3.0, timeframe="1M", symbol="XAUUSDT",
+        bars_count=15, source_candle_count=15,
+        last_closed_at_ms=1_005_000, calculated_as_of=1_005_000,
+    )
+    ok, reason = validate_stop_atr_authority(atr_obj, expected_symbol="XAUUSDT", decision_cutoff=1_000_000)
+    assert ok is False
+    assert "ATR_SOURCE_AFTER_DECISION" in reason
+
+
+def test_atr_final_07_stale_required_atr_rejected():
+    """ATR-FINAL-07: ATR closed older than max_age_ms before decision cutoff is rejected."""
+    atr_obj = StopATRResult(
+        status="AVAILABLE", value=3.0, timeframe="1M", symbol="XAUUSDT",
+        bars_count=15, source_candle_count=15,
+        last_closed_at_ms=1_000_000, calculated_as_of=1_000_000,
+    )
+    # Cutoff is 1_200_000, max_age_ms is 60_000 -> age is 200_000 > 60_000
+    ok, reason = validate_stop_atr_authority(
+        atr_obj, expected_symbol="XAUUSDT", decision_cutoff=1_200_000, max_age_ms=60_000
+    )
+    assert ok is False
+    assert "ATR_STALE_FOR_DECISION" in reason
+
+
+def test_atr_final_08_invalid_optional_m5_never_changes_sl():
+    """ATR-FINAL-08: Invalid optional M5 is safely ignored and never alters the calculated Stop Loss."""
+    policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL", atr_m1_multiplier=0.25, atr_m5_multiplier=0.15)
+    anchor = StopAnchor(
+        id="anc_final_08", kind="SWING_LOW", price=2680.0, timeframe="1M",
+        occurred_at_ms=1_000_000, known_at_ms=1_050_000, source_leg_id="leg_08"
+    )
+    anchor_res = StopAnchorResult(status="AVAILABLE", anchor=anchor)
+
+    atr_m1 = StopATRResult(
+        status="AVAILABLE", value=3.0, timeframe="1M", symbol="XAUUSDT",
+        bars_count=15, source_candle_count=15,
+        last_closed_at_ms=1_050_000, calculated_as_of=1_050_000, decision_cutoff=1_050_000,
+    )
+
+    # 1. Run with M5 = None
+    buf_no_m5 = compute_stop_buffer(
+        policy=policy, tick_size=0.01, atr_m1=atr_m1, atr_m5=None, bid=2700.0, ask=2700.2, symbol="XAUUSDT", decision_cutoff=1_050_000
+    )
+    dec_no_m5 = plan_structural_stop(
+        direction="LONG", planned_entry=2700.0, take_profit=2740.0, legacy_sl=2685.0,
+        anchor_result=anchor_res, buffer_result=buf_no_m5, policy=policy, as_of_ms=1_050_000,
+        tick_size=0.01, atr_m1_obj=atr_m1, atr_m5_obj=None, symbol="XAUUSDT",
+    )
+
+    # 2. Run with malformed/invalid M5 (wrong symbol and negative value)
+    bad_m5 = StopATRResult(
+        status="AVAILABLE", value=-99.0, timeframe="5M", symbol="WRONG_SYMBOL",
+        bars_count=15, source_candle_count=15, last_closed_at_ms=1_050_000, calculated_as_of=1_050_000,
+    )
+    buf_with_bad_m5 = compute_stop_buffer(
+        policy=policy, tick_size=0.01, atr_m1=atr_m1, atr_m5=bad_m5, bid=2700.0, ask=2700.2, symbol="XAUUSDT", decision_cutoff=1_050_000
+    )
+    dec_with_bad_m5 = plan_structural_stop(
+        direction="LONG", planned_entry=2700.0, take_profit=2740.0, legacy_sl=2685.0,
+        anchor_result=anchor_res, buffer_result=buf_with_bad_m5, policy=policy, as_of_ms=1_050_000,
+        tick_size=0.01, atr_m1_obj=atr_m1, atr_m5_obj=bad_m5, symbol="XAUUSDT",
+    )
+
+    assert dec_no_m5.status == StopStatus.VALID.value
+    assert dec_with_bad_m5.status == StopStatus.VALID.value
+    assert dec_no_m5.selected_sl == dec_with_bad_m5.selected_sl
+    assert dec_no_m5.metrics.price_distance == dec_with_bad_m5.metrics.price_distance
+
+
+def test_atr_final_09_weighted_atr_buffer_cannot_impersonate_raw_atr():
+    """ATR-FINAL-09: Weighted buffer contribution (0.25*ATR = 0.75) cannot impersonate raw ATR (3.00)."""
+    raw_val = 3.00
+    atr_m1 = StopATRResult(
+        status="AVAILABLE", value=raw_val, timeframe="1M", symbol="XAUUSDT",
+        bars_count=15, source_candle_count=15, last_closed_at_ms=1000, calculated_as_of=1000,
+    )
+    policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL", atr_m1_multiplier=0.25)
+    buf = compute_stop_buffer(
+        policy=policy, tick_size=0.01, atr_m1=atr_m1, bid=2700.0, ask=2700.1, symbol="XAUUSDT", decision_cutoff=1000
+    )
+
+    assert buf.raw_atr_m1 == 3.00
+    assert buf.components["atr_m1"] == 0.75
+    assert buf.raw_atr_m1 != buf.components["atr_m1"]
+
+
+def test_atr_final_10_arm_rejects_scalar_only_atr_evidence():
+    """ATR-FINAL-10: Production ARM barrier rejects candidates carrying scalar-only ATR without provenance."""
+    from services.stop_placement_service import validate_applied_stop_decision
+
+    policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL")
+    # Fabricate candidate with missing provenance dict
+    cand = {
+        "symbol": "XAUUSDT",
+        "stop_loss": 2680.0,
+        "calculation": Mock(is_valid=True, can_execute=True, stop_loss=2680.0),
+        "stop_placement": Mock(
+            status="VALID",
+            applied_variant="C",
+            anchor=Mock(price=2685.0),
+            selected_sl=2680.0,
+            decision_cutoff_ms=1_000_000,
+            atr_m1_result=None,
+            volatility_context={
+                "volatility_gate_status": "AVAILABLE",
+                "atr_m1_status": "AVAILABLE",
+                "atr_m1": 3.0,
+                "atr_m1_provenance": None,  # Missing provenance!
+            },
+        ),
+    }
+    ok, reason = validate_applied_stop_decision(candidate=cand, current_policy=policy)
+    assert ok is False
+    assert "FORGED_STRUCTURAL_DECISION_MISSING_ATR_EVIDENCE" in reason
+
+
+def test_atr_final_11_arm_rejects_inconsistent_atr_provenance():
+    """ATR-FINAL-11: Production ARM barrier rejects mismatched provenance values vs volatility context."""
+    from services.stop_placement_service import validate_applied_stop_decision
+
+    policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL")
+    cand = {
+        "symbol": "XAUUSDT",
+        "stop_loss": 2680.0,
+        "calculation": Mock(is_valid=True, can_execute=True, stop_loss=2680.0),
+        "stop_placement": Mock(
+            status="VALID",
+            applied_variant="C",
+            anchor=Mock(price=2685.0),
+            selected_sl=2680.0,
+            decision_cutoff_ms=1_000_000,
+            atr_m1_result=None,
+            volatility_context={
+                "volatility_gate_status": "AVAILABLE",
+                "atr_m1_status": "AVAILABLE",
+                "atr_m1": 3.00,  # Context claims 3.00
+                "atr_m1_provenance": {
+                    "status": "AVAILABLE",
+                    "value": 5.50,  # Provenance object says 5.50 (inconsistent!)
+                    "timeframe": "1M",
+                    "symbol": "XAUUSDT",
+                    "period": 14,
+                    "method": "SMA_TR_V1",
+                    "bars_count": 15,
+                    "source_candle_count": 15,
+                    "last_closed_at_ms": 1_000_000,
+                    "calculated_as_of": 1_000_000,
+                    "decision_cutoff": 1_000_000,
+                },
+            },
+        ),
+    }
+    ok, reason = validate_applied_stop_decision(candidate=cand, current_policy=policy)
+    assert ok is False
+    assert "ATR_EVIDENCE_PROVENANCE_VALUE_MISMATCH" in reason
+
+
+def test_atr_final_12_valid_causal_atr_remains_accepted():
+    """ATR-FINAL-12: Valid causal ATR with full provenance is cleanly accepted."""
+    candles = make_dummy_candles(20, t_start=1_000_000, duration=60_000, symbol="XAUUSDT")
+    res = compute_stop_atr(candles, period=14, timeframe="1M", symbol="XAUUSDT", as_of_ms=2_500_000)
+    assert res.status == "AVAILABLE"
+    assert res.value > 0.0
+
+    ok, reason = validate_stop_atr_authority(res, expected_symbol="XAUUSDT", expected_timeframe="1M", decision_cutoff=2_500_000)
+    assert ok is True
+    assert reason == "VALID"
+
+
+def test_atr_final_13_valid_sl_beyond_4x_atr_remains_eligible():
+    """ATR-FINAL-13: Valid structural Stop Loss with distance > 4.0x ATR remains fully ELIGIBLE."""
+    policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL", max_stop_distance_atr=4.0)
+    anchor = StopAnchor(
+        id="anc_distant_13", kind="SWING_LOW", price=2678.0, timeframe="1M",
+        occurred_at_ms=1000, known_at_ms=1050, source_leg_id="leg_13"
+    )
+    anchor_res = StopAnchorResult(status="AVAILABLE", anchor=anchor)
+
+    atr_m1 = StopATRResult(
+        status="AVAILABLE", value=3.0, timeframe="1M", symbol="XAUUSDT",
+        bars_count=15, source_candle_count=15, last_closed_at_ms=1050, calculated_as_of=1050, decision_cutoff=1050,
+    )
+    buf = compute_stop_buffer(policy=policy, tick_size=0.01, atr_m1=atr_m1, bid=2700.0, ask=2700.2, symbol="XAUUSDT", decision_cutoff=1050)
+
+    # Planned entry 2700.00, anchor 2678.00, buffer 0.75 -> selected_sl 2677.25
+    # Final distance = 22.75 USD -> 22.75 / 3.0 = 7.58x ATR (> 4.0x ATR)
+    dec = plan_structural_stop(
+        direction="LONG", planned_entry=2700.0, take_profit=2760.0, legacy_sl=2685.0,
+        anchor_result=anchor_res, buffer_result=buf, policy=policy, as_of_ms=1050,
+        tick_size=0.01, atr_m1_obj=atr_m1, symbol="XAUUSDT",
+    )
+
+    assert dec.status == StopStatus.VALID.value
+    assert dec.selected_sl == 2677.25
+    assert dec.metrics.distance_atr > 4.0
+    assert dec.distance_assessment == "DISTANCE_EXTREME"
+
+
+def test_atr_final_14_invalid_financial_eligibility_remains_rejected():
+    """ATR-FINAL-14: Distant stop loss violating risk limits or minimum Net R:R is rejected for financial reasons."""
+    policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL")
+    anchor = StopAnchor(
+        id="anc_fail_14", kind="SWING_LOW", price=2600.0, timeframe="1M",
+        occurred_at_ms=1000, known_at_ms=1050, source_leg_id="leg_14"
+    )
+    anchor_res = StopAnchorResult(status="AVAILABLE", anchor=anchor)
+    atr_m1 = StopATRResult(
+        status="AVAILABLE", value=3.0, timeframe="1M", symbol="XAUUSDT",
+        bars_count=15, source_candle_count=15, last_closed_at_ms=1050, calculated_as_of=1050,
+    )
+    buf = compute_stop_buffer(policy=policy, tick_size=0.01, atr_m1=atr_m1, bid=2700.0, ask=2700.2, symbol="XAUUSDT")
+
+    # Inverted geometry: planned entry 2700.0, take_profit 2650.0 (below entry on a LONG!)
+    dec = plan_structural_stop(
+        direction="LONG", planned_entry=2700.0, take_profit=2650.0, legacy_sl=2685.0,
+        anchor_result=anchor_res, buffer_result=buf, policy=policy, as_of_ms=1050,
+        tick_size=0.01, atr_m1_obj=atr_m1, symbol="XAUUSDT",
+    )
+    assert dec.status == StopStatus.REJECTED_GEOMETRY.value
+    assert "INVALID_PRICE_GEOMETRY_WITH_STRUCTURAL_SL" in dec.reasons
+
+
+def test_atr_final_15_historical_replay_with_valid_timestamps_remains_compatible():
+    """ATR-FINAL-15: Historical replay timestamps (epoch ms from 2024) are validated without unit confusion."""
+    epoch_2024 = 1704067200000  # 2024-01-01 00:00:00 UTC in ms
+    candles = make_dummy_candles(20, t_start=epoch_2024, duration=60_000, symbol="XAUUSDT")
+    as_of = epoch_2024 + 20 * 60_000
+
+    atr_res = compute_stop_atr(candles, period=14, timeframe="1M", symbol="XAUUSDT", as_of_ms=as_of)
+    assert atr_res.status == "AVAILABLE"
+    assert atr_res.last_closed_at_ms == epoch_2024 + 20 * 60_000
+
+    ok, reason = validate_stop_atr_authority(
+        atr_res, expected_symbol="XAUUSDT", expected_timeframe="1M", decision_cutoff=as_of
+    )
+    assert ok is True
+    assert reason == "VALID"
