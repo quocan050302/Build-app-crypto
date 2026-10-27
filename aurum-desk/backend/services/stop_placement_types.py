@@ -188,25 +188,23 @@ class StopATRResult:
         }
 
 
-_UNSET = object()
-
 @dataclass(frozen=True)
 class StopBufferResult:
-    """Breakdown of dynamic buffer components."""
+    """Breakdown of dynamic buffer components (V17.7.4)."""
     buffer_price: float
     components: Dict[str, float]
     dominant_source: str
     tick_size: float
-    raw_atr_m1: Optional[float] = _UNSET
-    raw_atr_m5: Optional[float] = _UNSET
+    raw_atr_m1: Optional[float] = None
+    raw_atr_m5: Optional[float] = None
 
     def __post_init__(self):
-        if self.raw_atr_m1 is _UNSET:
-            val = self.components.get("atr_m1") if self.components else None
-            object.__setattr__(self, "raw_atr_m1", val)
-        if self.raw_atr_m5 is _UNSET:
-            val = self.components.get("atr_m5") if self.components else None
-            object.__setattr__(self, "raw_atr_m5", val)
+        # Strict V17.7.4: components dictionary stores WEIGHTED buffer contributions
+        # (e.g. k_m1 * raw_atr_m1), NOT authoritative raw ATR metrics.
+        # Raw ATR must NEVER be inferred or reverse-calculated from weighted components.
+        # If raw_atr_m1 or raw_atr_m5 is not explicitly provided as verified evidence,
+        # it remains strictly None.
+        pass
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -214,8 +212,8 @@ class StopBufferResult:
             "components": {k: round(v, 4) for k, v in self.components.items()},
             "dominant_source": self.dominant_source,
             "tick_size": self.tick_size,
-            "raw_atr_m1": round(self.raw_atr_m1, 4) if (self.raw_atr_m1 is not None and self.raw_atr_m1 is not _UNSET) else None,
-            "raw_atr_m5": round(self.raw_atr_m5, 4) if (self.raw_atr_m5 is not None and self.raw_atr_m5 is not _UNSET) else None,
+            "raw_atr_m1": round(self.raw_atr_m1, 4) if self.raw_atr_m1 is not None else None,
+            "raw_atr_m5": round(self.raw_atr_m5, 4) if self.raw_atr_m5 is not None else None,
         }
 
 

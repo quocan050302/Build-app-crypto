@@ -1278,11 +1278,18 @@ def evaluate_cg01_candidate(
                     as_of_ms=t_now,
                     selected_sweep=sweep_desc,
                 )
-                atr_m1_obj = (stop_context or {}).get("atr_m1")
-                atr_m5_obj = (stop_context or {}).get("atr_m5")
-                if atr_m1_obj is None and c_1m:
+                atr_m1_obj = None
+                atr_m5_obj = None
+                has_supplied_m1 = False
+                if stop_context is not None and "atr_m1" in stop_context:
+                    atr_m1_obj = stop_context["atr_m1"]
+                    has_supplied_m1 = True
+                if stop_context is not None and "atr_m5" in stop_context:
+                    atr_m5_obj = stop_context["atr_m5"]
+
+                if not has_supplied_m1 and c_1m:
                     from services.stop_placement_service import compute_stop_atr
-                    atr_m1_obj = compute_stop_atr(c_1m, period=stop_policy.atr_period, timeframe="1M", as_of_ms=t_now)
+                    atr_m1_obj = compute_stop_atr(c_1m, period=stop_policy.atr_period, timeframe="1M", as_of_ms=t_now, symbol="XAUUSDT")
 
                 buffer_res = compute_stop_buffer(
                     policy=stop_policy,
@@ -1291,6 +1298,7 @@ def evaluate_cg01_candidate(
                     atr_m5=atr_m5_obj,
                     bid=bid,
                     ask=ask,
+                    symbol="XAUUSDT",
                 )
 
                 if getattr(stop_policy, "mode", "") == "PAPER_STRUCTURAL":
@@ -1456,6 +1464,7 @@ def evaluate_cg01_candidate(
                     ),
                     atr_m5_val=(atr_m5_obj.value if (atr_m5_obj and getattr(atr_m5_obj, "status", "") == "AVAILABLE") else None),
                     spread=(ask - bid) if (bid is not None and ask is not None) else None,
+                    symbol="XAUUSDT",
                 )
                 if getattr(stop_policy, "mode", "") == "PAPER_STRUCTURAL":
                     if stop_dec is not None and stop_dec.status == "VALID" and stop_dec.selected_sl is not None:

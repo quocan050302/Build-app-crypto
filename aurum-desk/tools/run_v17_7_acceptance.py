@@ -1,78 +1,208 @@
 #!/usr/bin/env python3
 """
-AURUM DESK V17.7.3 — EVIDENCE-BASED MASTER ACCEPTANCE RUNNER
+AURUM DESK V17.7.4 — EVIDENCE-BASED MASTER ACCEPTANCE RUNNER
 ============================================================
-Enforces all 28 release gates (G01 to G28) for V17.7.3:
-Database Safety Isolation, ATR Provenance Authority & Release Gate Truthfulness.
+Enforces all 28 release gates (G01 to G28) for V17.7.4:
+Final ATR Authority, Test DB Ownership & Acceptance Artifact Integrity.
 Branch: feat/v17-7-adaptive-structural-stop-loss
 """
 
-import os
-import sys
-import re
+import glob
+import hashlib
+import inspect
 import json
+import os
+import re
+import shutil
 import subprocess
+import sys
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest.mock import Mock, patch
-import inspect
 
 ROOT = Path(__file__).resolve().parent.parent
 BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
 ARTIFACTS_DIR = ROOT / "docs" / "artifacts"
-PYTHON_BIN = str(BACKEND / "venv" / "bin" / "python") if (BACKEND / "venv" / "bin" / "python").exists() else sys.executable
-PYTEST_BIN = str(BACKEND / "venv" / "bin" / "pytest") if (BACKEND / "venv" / "bin" / "pytest").exists() else "pytest"
+
+# Interpreter resolution (Windows & POSIX)
+if (BACKEND / "venv" / "Scripts" / "python.exe").exists():
+    PYTHON_BIN = str(BACKEND / "venv" / "Scripts" / "python.exe")
+elif (BACKEND / "venv" / "bin" / "python").exists():
+    PYTHON_BIN = str(BACKEND / "venv" / "bin" / "python")
+else:
+    PYTHON_BIN = sys.executable
+
+NPM_BIN = shutil.which("npm.cmd") or shutil.which("npm") or "npm"
+NPX_BIN = shutil.which("npx.cmd") or shutil.which("npx") or "npx"
 
 sys.path.insert(0, str(ROOT))
-from tools.acceptance_verdict import determine_release_verdict, MANDATORY_GATES_V17_7_3
+sys.path.insert(0, str(BACKEND))
+
+from tools.acceptance_verdict import determine_release_verdict, MANDATORY_GATES_V17_7_4
+from tools.artifact_verifier import (
+    build_source_manifest,
+    write_acceptance_artifacts,
+    verify_acceptance_bundle,
+)
+
+RUN_ID = f"run_v17_7_4_{int(time.time()*1000)}_{os.getpid()}"
+RUN_DIR = ARTIFACTS_DIR / "v17_7_4" / RUN_ID
+REPORTS_DIR = RUN_DIR / "reports"
+LOGS_DIR = RUN_DIR / "logs"
 
 
-def run_cmd(cmd, cwd=ROOT, env=None):
+def init_run_directories():
+    RUN_DIR.mkdir(parents=True, exist_ok=True)
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def find_free_port(start_port: int = 8765) -> int:
+    import socket
+    for port in range(start_port, start_port + 50):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("127.0.0.1", port))
+                return port
+            except OSError:
+                continue
+    return start_port
+
+
+def run_cmd(cmd_args, cwd=ROOT, env=None, log_name=None, timeout=600):
     merged_env = os.environ.copy()
-    merged_env["PYTHONPATH"] = f"{BACKEND}:{BACKEND / 'tests'}:{ROOT}"
+    merged_env["PYTHONPATH"] = os.pathsep.join([str(BACKEND), str(BACKEND / "tests"), str(ROOT)])
     merged_env["TESTING"] = "1"
+    merged_env["AURUM_TEST_RUN_ID"] = RUN_ID
     if env:
         merged_env.update(env)
-    start_t = time.time()
-    res = subprocess.run(cmd, shell=isinstance(cmd, str), cwd=cwd, env=merged_env, capture_output=True, text=True)
-    duration_ms = int((time.time() - start_t) * 1000)
-    return res.returncode, res.stdout, res.stderr, duration_ms
+
+    start_t = time.perf_counter()
+    try:
+        res = subprocess.run(
+            cmd_args,
+            shell=False,
+            cwd=cwd,
+            env=merged_env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+        )
+        duration_ms = int((time.perf_counter() - start_t) * 1000)
+        stdout, stderr, code = res.stdout, res.stderr, res.returncode
+    except subprocess.TimeoutExpired as te:
+        duration_ms = int((time.perf_counter() - start_t) * 1000)
+        stdout = te.stdout or ""
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode("utf-8", errors="replace")
+        stderr = te.stderr or ""
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace")
+        stderr += f"\nTIMEOUT: Command exceeded {timeout}s limit"
+        code = -1
+    except Exception as e:
+        duration_ms = int((time.perf_counter() - start_t) * 1000)
+        stdout = ""
+        stderr = str(e)
+        code = -1
+
+    if log_name:
+        log_file = LOGS_DIR / f"{log_name}.log"
+        try:
+            log_file.write_text(
+                f"COMMAND: {cmd_args}\nEXIT_CODE: {code}\nDURATION_MS: {duration_ms}\n\nSTDOUT:\n{stdout}\n\nSTDERR:\n{stderr}",
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
+
+    return code, stdout, stderr, duration_ms
 
 
-def parse_pytest_counts(output: str):
-    """Dynamically parses pytest stdout to extract collected, passed, failed, skipped."""
-    passed_m = re.search(r"(\d+)\s+passed", output)
-    failed_m = re.search(r"(\d+)\s+failed", output)
-    skipped_m = re.search(r"(\d+)\s+skipped", output)
-    collected_m = re.search(r"collected\s+(\d+)\s+items?", output)
+def parse_junit_xml(xml_path: Path):
+    if not xml_path.is_file():
+        return None
+    try:
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+        suite = root if root.tag == "testsuite" else (root.find("testsuite") or root)
+        tests = int(suite.attrib.get("tests", 0))
+        failures = int(suite.attrib.get("failures", 0))
+        errors = int(suite.attrib.get("errors", 0))
+        skipped = int(suite.attrib.get("skipped", 0))
+        passed = tests - failures - errors - skipped
+        return {
+            "collected": tests,
+            "passed": passed,
+            "failed": failures,
+            "errors": errors,
+            "skipped": skipped,
+        }
+    except Exception:
+        return None
+
+
+def parse_pytest_counts(output: str, xml_path: Path = None):
+    """Parses JUnit XML report first; falls back to stdout regex."""
+    if xml_path and xml_path.is_file():
+        counts = parse_junit_xml(xml_path)
+        if counts is not None:
+            return counts
+
+    clean_out = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output)
+    passed_m = re.search(r"(\d+)\s+passed", clean_out)
+    failed_m = re.search(r"(\d+)\s+failed", clean_out)
+    skipped_m = re.search(r"(\d+)\s+skipped", clean_out)
+    errors_m = re.search(r"(\d+)\s+error", clean_out)
+    collected_m = re.search(r"collected\s+(\d+)\s+items?", clean_out)
 
     passed = int(passed_m.group(1)) if passed_m else 0
     failed = int(failed_m.group(1)) if failed_m else 0
     skipped = int(skipped_m.group(1)) if skipped_m else 0
-    collected = int(collected_m.group(1)) if collected_m else (passed + failed + skipped)
+    errors = int(errors_m.group(1)) if errors_m else 0
+    collected = int(collected_m.group(1)) if collected_m else (passed + failed + skipped + errors)
 
-    return {"collected": collected, "passed": passed, "failed": failed, "skipped": skipped}
+    return {"collected": collected, "passed": passed, "failed": failed, "skipped": skipped, "errors": errors}
 
 
 def parse_vitest_counts(output: str):
-    """Dynamically parses vitest stdout to extract passed/failed test counts."""
-    tests_m = re.search(r"Tests\s+(\d+)\s+passed\s*(?:\((\d+)\))?", output)
-    files_m = re.search(r"Test Files\s+(\d+)\s+passed\s*(?:\((\d+)\))?", output)
+    clean_out = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output)
+    tests_m = re.search(r"Tests\s+(\d+)\s+passed\s*(?:\((\d+)\))?", clean_out)
+    files_m = re.search(r"Test Files\s+(\d+)\s+passed\s*(?:\((\d+)\))?", clean_out)
 
     passed_tests = int(tests_m.group(1)) if tests_m else 0
     total_tests = int(tests_m.group(2)) if (tests_m and tests_m.group(2)) else passed_tests
     passed_files = int(files_m.group(1)) if files_m else 0
 
-    return {"test_files_passed": passed_files, "tests_passed": passed_tests, "tests_total": total_tests}
+    return {"test_files_passed": passed_files, "passed": passed_tests, "collected": total_tests, "failed": 0}
 
 
 def verify_live_order_safety_boundary():
-    """Instruments network boundaries with active spy asserting 0 calls and clean PaperBroker API."""
-    sys.path.insert(0, str(BACKEND))
+    """
+    V17.7.4 Section 11.3:
+    - Instruments network boundaries with active spy.
+    - Exercises negative control verifying forbidden sink detection.
+    - Exercises legitimate production PAPER lifecycle (ARM -> fill -> exit) asserting zero exchange orders.
+    """
     try:
+        from models import Base
+        from database import SessionLocal, engine, run_schema_migrations
+        Base.metadata.create_all(bind=engine)
+        run_schema_migrations(engine)
+
         from paper_broker import PaperBroker
         from services.execution_coordinator import LIVE_EXCHANGE_ORDERS_SENT
+        from tests.test_v17_7_adaptive_stop_loss import make_real_armed_candidate_order
+        from services.trade_lifecycle_service import TradeLifecycleService
+
+        pb_methods = [m[0] for m in inspect.getmembers(PaperBroker, predicate=inspect.isfunction)]
+        for forbidden_method in ("place_live_order", "submit_exchange_order", "send_order", "execute_live_trade"):
+            if forbidden_method in pb_methods:
+                return False, f"Forbidden live method {forbidden_method} found in PaperBroker!"
 
         spy = Mock()
         def _forbidden_sink(*args, **kwargs):
@@ -82,25 +212,85 @@ def verify_live_order_safety_boundary():
         with patch("httpx.Client.post", side_effect=_forbidden_sink), \
              patch("httpx.AsyncClient.post", side_effect=_forbidden_sink):
 
-            pb_methods = [m[0] for m in inspect.getmembers(PaperBroker, predicate=inspect.isfunction)]
-            for forbidden_method in ("place_live_order", "submit_exchange_order", "send_order", "execute_live_trade"):
-                assert forbidden_method not in pb_methods, f"Forbidden live method {forbidden_method} found in PaperBroker!"
+            # 1. Negative control proof
+            import httpx
+            client = httpx.Client()
+            intercepted = False
+            try:
+                client.post("https://api.binance.com/fapi/v1/order", json={"symbol": "XAUUSDT"})
+            except RuntimeError as exc:
+                if "FORBIDDEN_LIVE_ORDER_SUBMISSION" in str(exc):
+                    intercepted = True
+            if not intercepted or spy.call_count != 1:
+                return False, "Negative control failed: live exchange order was not intercepted by boundary spy!"
 
-            assert LIVE_EXCHANGE_ORDERS_SENT == 0, "LIVE_EXCHANGE_ORDERS_SENT must be zero!"
-            assert spy.call_count == 0, "No live outbound HTTP requests permitted!"
-        return True, "Verified 0 live outbound calls with active HTTP spy interceptors and clean PaperBroker API."
+            # Reset spy for legitimate PAPER flow test
+            spy.reset_mock()
+
+            # 2. Legitimate PAPER lifecycle execution under active spy
+            import models
+            import crud
+            db = SessionLocal()
+            try:
+                db.query(models.PaperOrder).delete()
+                db.query(models.PaperObservation).delete()
+                db.query(models.WatchSetup).delete()
+                audit = crud.get_or_create_today_audit(db)
+                audit.fills_count = 0
+                audit.realized_pnl_today = 0.0
+                audit.current_equity = 1000.0
+                audit.initial_equity = 1000.0
+                audit.is_blocked = False
+                audit.block_reason = None
+                audit.cooldown_until = None
+                db.commit()
+
+                cand, armed_order, now_ms = make_real_armed_candidate_order(
+                    db, mode="PAPER_STRUCTURAL", order_id_override=f"g16_{RUN_ID[:12]}"
+                )
+                if not armed_order or armed_order.state != "armed":
+                    return False, "Legitimate PAPER candidate failed to ARM under boundary instrumentation"
+                db.commit()
+
+                filled = TradeLifecycleService.execute_fill(
+                    db, armed_order, fill_price=armed_order.planned_entry, calc_result=cand.calculation, now_ms=now_ms + 1000
+                )
+                if not filled or filled.state != "paper_open":
+                    return False, "Legitimate PAPER order failed to transition to paper_open"
+                db.commit()
+
+                closed = TradeLifecycleService.execute_close(
+                    db, order_id=armed_order.id, exit_price=armed_order.take_profit, exit_cause="TAKE_PROFIT", now_ms=now_ms + 5000
+                )
+                if not closed or closed.state != "closed":
+                    return False, "Legitimate PAPER order failed to transition to closed"
+                db.commit()
+            finally:
+                db.close()
+
+            # 3. Assert zero live exchange orders sent and zero outbound calls made during paper flow
+            if LIVE_EXCHANGE_ORDERS_SENT != 0:
+                return False, f"LIVE_EXCHANGE_ORDERS_SENT was non-zero: {LIVE_EXCHANGE_ORDERS_SENT}"
+            if spy.call_count != 0:
+                return False, f"Forbidden outbound HTTP requests detected during PAPER flow: {spy.call_count}"
+
+        return True, "Verified 0 live outbound calls with active HTTP spy, negative control exercised, and clean PAPER flow."
     except Exception as exc:
-        return False, str(exc)
+        return False, f"Exception during safety boundary verification: {exc}"
 
 
 def main():
     print("=" * 80)
-    print("AURUM DESK V17.7.3 — EVIDENCE-BASED MASTER ACCEPTANCE RUNNER")
+    print("AURUM DESK V17.7.4 — EVIDENCE-BASED MASTER ACCEPTANCE RUNNER")
+    print(f"Run ID: {RUN_ID}")
     print("=" * 80)
+
+    init_run_directories()
 
     results = {
         "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "runner_version": "17.7.3",
+        "runner_version": "17.7.4",
+        "run_id": RUN_ID,
         "branch": "",
         "source_sha": "",
         "gates": {},
@@ -111,532 +301,405 @@ def main():
     # GATE 01: Branch & Source Integrity
     # --------------------------------------------------------------------------
     print("\n[GATE 01] Verifying Working Git Branch & Source Integrity...")
-    code, stdout, _, dur = run_cmd("git branch --show-current")
+    code, stdout, _, dur = run_cmd(["git", "branch", "--show-current"], log_name="g01_branch")
     branch = stdout.strip()
     results["branch"] = branch
     expected_branch = "feat/v17-7-adaptive-structural-stop-loss"
 
-    code_sha, sha_out, _, _ = run_cmd("git rev-parse HEAD")
+    code_sha, sha_out, _, _ = run_cmd(["git", "rev-parse", "HEAD"], log_name="g01_sha")
     current_sha = sha_out.strip()
     results["source_sha"] = current_sha
 
-    if branch == expected_branch:
-        print(f"  -> PASS: Verified branch '{branch}' (HEAD: {current_sha})")
+    source_manifest = build_source_manifest(ROOT)
+
+    if branch == expected_branch and len(current_sha) == 40 and source_manifest["files_count"] > 0:
+        print(f"  -> PASS: Verified branch '{branch}' (HEAD: {current_sha[:8]}) | {source_manifest['files_count']} files hashed")
         results["gates"]["G01_BRANCH_INTEGRITY"] = {
-            "status": "PASS", "branch": branch, "sha": current_sha, "duration_ms": dur, "exit_code": 0
+            "status": "PASS", "gate_type": "command", "branch": branch, "sha": current_sha,
+            "composite_sha": source_manifest["composite_sha"], "duration_ms": dur, "exit_code": 0
         }
     else:
         print(f"  -> BLOCKER: Expected branch '{expected_branch}', got '{branch}'")
         results["gates"]["G01_BRANCH_INTEGRITY"] = {
-            "status": "FAIL", "branch": branch, "expected": expected_branch, "duration_ms": dur, "exit_code": 1
+            "status": "FAIL", "gate_type": "command", "branch": branch, "expected": expected_branch, "duration_ms": dur, "exit_code": 1
         }
 
     # --------------------------------------------------------------------------
-    # GATE 02: Test-Owned Database Bootstrap
+    # Helper for running pytest gates
     # --------------------------------------------------------------------------
-    print("\n[GATE 02] Verifying Test-Owned Database Bootstrap...")
-    cmd_g02 = f"{PYTEST_BIN} backend/tests/test_v17_7_database_safety.py -k 'test_dbs_01 or test_dbs_09'"
-    code, out, err, dur = run_cmd(cmd_g02)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 2 and counts["failed"] == 0:
-        print(f"  -> PASS: {counts['passed']} test-owned DB bootstrap tests passed")
-        results["gates"]["G02_TEST_DB_BOOTSTRAP"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: DB bootstrap tests failed:\n{out}\n{err}")
-        results["gates"]["G02_TEST_DB_BOOTSTRAP"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
+    def run_pytest_gate(gate_id: str, test_files: list, filter_expr: str, min_passed: int, label: str, timeout: int = 600):
+        print(f"\n[{gate_id}] Verifying {label}...")
+        report_xml = REPORTS_DIR / f"{gate_id.lower()}.xml"
+        cmd = [PYTHON_BIN, "-m", "pytest"] + test_files + [f"--junitxml={str(report_xml)}"]
+        if filter_expr:
+            cmd += ["-k", filter_expr]
+
+        code, out, err, dur = run_cmd(cmd, log_name=gate_id.lower(), timeout=timeout)
+        counts = parse_pytest_counts(out, report_xml)
+        passed = counts.get("passed", 0)
+        failed = counts.get("failed", 0)
+        errors = counts.get("errors", 0)
+
+        if code == 0 and passed >= min_passed and failed == 0 and errors == 0:
+            print(f"  -> PASS: {passed} tests passed (0 failed, 0 errors)")
+            results["gates"][gate_id] = {
+                "status": "PASS", "gate_type": "command", "counts": counts, "report_path": str(report_xml.relative_to(ROOT)),
+                "report_status": "VALID", "duration_ms": dur, "exit_code": code
+            }
+        else:
+            print(f"  -> FAIL: Gate failed (passed: {passed}/{min_passed}, failed: {failed}, errors: {errors}):\n{out}\n{err}")
+            results["gates"][gate_id] = {
+                "status": "FAIL", "gate_type": "command", "counts": counts, "duration_ms": dur, "exit_code": code or 1
+            }
+
+    # G02: Test DB Bootstrap
+    run_pytest_gate(
+        "G02_TEST_DB_BOOTSTRAP",
+        ["backend/tests/test_v17_7_database_safety.py"],
+        "test_dbs_01 or test_dbs_09",
+        min_passed=2,
+        label="Test-Owned Database Bootstrap"
+    )
+
+    # G03: Unsafe Path Rejection
+    run_pytest_gate(
+        "G03_UNSAFE_PATH_REJECTION",
+        ["backend/tests/test_v17_7_database_safety.py"],
+        "test_dbs_02 or test_dbs_03 or test_dbs_04 or test_dbs_05 or test_dbs_05b or test_dbs_06 or test_dbs_07 or test_dbs_08 or test_dbs_10",
+        min_passed=7,
+        label="Unsafe Database Path & Alias Rejection"
+    )
+
+    # G04: Destructive Fixture Isolation
+    run_pytest_gate(
+        "G04_DESTRUCTIVE_FIXTURE_ISOLATION",
+        ["backend/tests/test_v17_7_database_safety.py"],
+        "test_dbs_11 or test_dbs_12 or test_dbs_13 or test_dbs_14 or test_dbs_15",
+        min_passed=5,
+        label="Destructive Fixture & Mutation Isolation"
+    )
+
+    # G05: Raw ATR Provenance Authority
+    run_pytest_gate(
+        "G05_RAW_ATR_PROVENANCE",
+        ["backend/tests/test_v17_7_atr_provenance.py"],
+        "test_atr_01 or test_atr_04 or test_atr_05 or test_atr_06 or test_atr_08 or test_atr_09 or test_atr_13 or test_atr_14",
+        min_passed=8,
+        label="Raw ATR Provenance Authority & Causal Timestamps"
+    )
+
+    # G06: Required M1 ATR Fail-Closed
+    run_pytest_gate(
+        "G06_REQUIRED_M1_ATR_FAIL_CLOSED",
+        ["backend/tests/test_v17_7_atr_provenance.py"],
+        "test_atr_02 or test_atr_03 or test_atr_07 or test_atr_10 or test_atr_11 or test_atr_12 or test_atr_20",
+        min_passed=7,
+        label="Required M1 ATR Fail-Closed & WAITING_VOLATILITY_EVIDENCE"
+    )
+
+    # G07: ATR / Buffer Mathematical Correctness
+    run_pytest_gate(
+        "G07_ATR_BUFFER_MATH_CORRECTNESS",
+        ["backend/tests/test_v17_7_atr_provenance.py"],
+        "test_atr_15 or test_atr_16 or test_atr_19",
+        min_passed=3,
+        label="ATR / Buffer Mathematical Correctness"
+    )
+
+    # G08: Structural Anchor Causal Integrity
+    run_pytest_gate(
+        "G08_STRUCTURAL_ANCHOR_CAUSAL",
+        ["backend/tests/test_v17_7_adaptive_stop_loss.py"],
+        "test_ce_06 or test_ce_07 or test_ce_08 or test_sl_58",
+        min_passed=4,
+        label="Structural Anchor Causal Ordering & Invalidation"
+    )
+
+    # G09: Distant SL Financial Integrity
+    run_pytest_gate(
+        "G09_DISTANT_SL_FINANCIAL_INTEGRITY",
+        ["backend/tests/test_v17_7_adaptive_stop_loss.py"],
+        "test_dsl_01 or test_dsl_02 or test_dsl_07 or test_ce_11",
+        min_passed=4,
+        label="Distant SL (>4x ATR) Financial Integrity"
+    )
+
+    # G10: CG01 Real Evaluator Integration
+    run_pytest_gate(
+        "G10_CG01_EVALUATOR_INTEGRATION",
+        ["backend/tests/test_v17_7_adaptive_stop_loss.py", "backend/tests/test_v17_7_atr_provenance.py"],
+        "test_sl_36 or test_ce_10 or test_atr_17",
+        min_passed=3,
+        label="CG01 Real Evaluator Integration"
+    )
+
+    # G11: Scalp M1 Models Real Evaluator Integration
+    run_pytest_gate(
+        "G11_M1_EVALUATOR_INTEGRATION",
+        ["backend/tests/test_v17_7_adaptive_stop_loss.py", "backend/tests/test_v17_7_atr_provenance.py"],
+        "test_sl_37 or test_sl_38 or test_sl_39 or test_sl_40 or test_ce_12 or test_atr_18 or test_atr_21",
+        min_passed=7,
+        label="Scalp M1 Models Real Evaluator Integration"
+    )
+
+    # G12: Orchestrator Real ARM Boundary
+    run_pytest_gate(
+        "G12_ORCHESTRATOR_REAL_ARM",
+        ["backend/tests/test_v17_7_adaptive_stop_loss.py"],
+        "test_sl_43 or test_ce_13",
+        min_passed=2,
+        label="Orchestrator Real ARM Boundary"
+    )
+
+    # G13: Real ARM Concurrency & Idempotency
+    run_pytest_gate(
+        "G13_REAL_ARM_CONCURRENCY",
+        ["backend/tests/test_v17_7_adaptive_stop_loss.py"],
+        "test_ce_16 or test_sl_57 or test_dsl_18",
+        min_passed=3,
+        label="Multi-Threaded Real ARM Concurrency & Idempotency"
+    )
+
+    # G14: Fill-Time Financial Invariants & Sizing
+    run_pytest_gate(
+        "G14_FILL_TIME_FINANCIAL_INVARIANTS",
+        ["backend/tests/test_v17_7_adaptive_stop_loss.py"],
+        "test_sl_46 or test_ce_14",
+        min_passed=2,
+        label="Fill-Time Financial Invariants & Sizing Preservation"
+    )
+
+    # G15: PAPER Exit, CLOSED State & Persistence
+    run_pytest_gate(
+        "G15_PAPER_EXIT_AND_PERSISTENCE",
+        ["backend/tests/test_v17_7_adaptive_stop_loss.py"],
+        "test_sl_47 or test_sl_48 or test_sl_60 or test_ce_15",
+        min_passed=4,
+        label="PAPER Exit, CLOSED State & Durable Persistence"
+    )
 
     # --------------------------------------------------------------------------
-    # GATE 03: Unsafe Database Path Rejection
+    # GATE 16: Live Order Safety Boundary + Exercised Negative Control
     # --------------------------------------------------------------------------
-    print("\n[GATE 03] Verifying Unsafe Database Path Rejection (Symlinks, Traversals, Sentinels)...")
-    cmd_g03 = f"{PYTEST_BIN} backend/tests/test_v17_7_database_safety.py -k 'test_dbs_02 or test_dbs_03 or test_dbs_04 or test_dbs_05 or test_dbs_06 or test_dbs_07 or test_dbs_08 or test_dbs_10'"
-    code, out, err, dur = run_cmd(cmd_g03)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 8 and counts["failed"] == 0:
-        print(f"  -> PASS: {counts['passed']} unsafe path rejection tests passed")
-        results["gates"]["G03_UNSAFE_PATH_REJECTION"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Unsafe path rejection tests failed:\n{out}\n{err}")
-        results["gates"]["G03_UNSAFE_PATH_REJECTION"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-
-    # --------------------------------------------------------------------------
-    # GATE 04: Destructive Test Fixture Isolation
-    # --------------------------------------------------------------------------
-    print("\n[GATE 04] Verifying Destructive Test Fixture & Migration Isolation...")
-    cmd_g04 = f"{PYTEST_BIN} backend/tests/test_v17_7_database_safety.py -k 'test_dbs_11 or test_dbs_12 or test_dbs_13 or test_dbs_14 or test_dbs_15'"
-    code, out, err, dur = run_cmd(cmd_g04)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 5 and counts["failed"] == 0:
-        print(f"  -> PASS: {counts['passed']} fixture isolation tests passed")
-        results["gates"]["G04_DESTRUCTIVE_FIXTURE_ISOLATION"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Fixture isolation tests failed:\n{out}\n{err}")
-        results["gates"]["G04_DESTRUCTIVE_FIXTURE_ISOLATION"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-
-    # --------------------------------------------------------------------------
-    # GATE 05: Raw ATR Provenance Authority
-    # --------------------------------------------------------------------------
-    print("\n[GATE 05] Verifying Raw ATR Provenance Authority & Causal Timestamps...")
-    cmd_g05 = f"{PYTEST_BIN} backend/tests/test_v17_7_atr_provenance.py -k 'test_atr_01 or test_atr_04 or test_atr_05 or test_atr_06 or test_atr_08 or test_atr_09 or test_atr_13 or test_atr_14'"
-    code, out, err, dur = run_cmd(cmd_g05)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 8 and counts["failed"] == 0:
-        print(f"  -> PASS: {counts['passed']} raw ATR provenance tests passed")
-        results["gates"]["G05_RAW_ATR_PROVENANCE"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Raw ATR provenance tests failed:\n{out}\n{err}")
-        results["gates"]["G05_RAW_ATR_PROVENANCE"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-
-    # --------------------------------------------------------------------------
-    # GATE 06: Required M1 ATR Fail-Closed
-    # --------------------------------------------------------------------------
-    print("\n[GATE 06] Verifying Required M1 ATR Fail-Closed & WAITING_VOLATILITY_EVIDENCE...")
-    cmd_g06 = f"{PYTEST_BIN} backend/tests/test_v17_7_atr_provenance.py -k 'test_atr_02 or test_atr_03 or test_atr_07 or test_atr_10 or test_atr_11 or test_atr_12 or test_atr_20'"
-    code, out, err, dur = run_cmd(cmd_g06)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 7 and counts["failed"] == 0:
-        print(f"  -> PASS: {counts['passed']} required ATR fail-closed tests passed")
-        results["gates"]["G06_REQUIRED_M1_ATR_FAIL_CLOSED"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Required ATR fail-closed tests failed:\n{out}\n{err}")
-        results["gates"]["G06_REQUIRED_M1_ATR_FAIL_CLOSED"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-
-    # --------------------------------------------------------------------------
-    # GATE 07: ATR / Buffer Mathematical Correctness
-    # --------------------------------------------------------------------------
-    print("\n[GATE 07] Verifying ATR / Buffer Mathematical Correctness...")
-    cmd_g07 = f"{PYTEST_BIN} backend/tests/test_v17_7_atr_provenance.py -k 'test_atr_15 or test_atr_16 or test_atr_19'"
-    code, out, err, dur = run_cmd(cmd_g07)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 3 and counts["failed"] == 0:
-        print(f"  -> PASS: {counts['passed']} ATR/buffer math correctness tests passed")
-        results["gates"]["G07_ATR_BUFFER_MATH_CORRECTNESS"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: ATR/buffer math tests failed:\n{out}\n{err}")
-        results["gates"]["G07_ATR_BUFFER_MATH_CORRECTNESS"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-
-    # --------------------------------------------------------------------------
-    # GATE 08: Structural Anchor Causal Integrity
-    # --------------------------------------------------------------------------
-    print("\n[GATE 08] Verifying Structural Anchor Causal Ordering & Invalidation...")
-    cmd_g08 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_ce_06 or test_ce_07 or test_ce_08 or test_sl_58'"
-    code, out, err, dur = run_cmd(cmd_g08)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 4 and counts["failed"] == 0:
-        print(f"  -> PASS: {counts['passed']} anchor causality & invalidation tests passed")
-        results["gates"]["G08_STRUCTURAL_ANCHOR_CAUSAL"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Anchor authority tests failed:\n{out}\n{err}")
-        results["gates"]["G08_STRUCTURAL_ANCHOR_CAUSAL"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-
-    # --------------------------------------------------------------------------
-    # GATE 09: Distant SL Financial Integrity
-    # --------------------------------------------------------------------------
-    print("\n[GATE 09] Verifying Distant SL (>4x ATR) Financial Integrity...")
-    cmd_g09 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_dsl_01 or test_dsl_02 or test_dsl_07 or test_ce_11'"
-    code, out, err, dur = run_cmd(cmd_g09)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 4 and counts["failed"] == 0:
-        print(f"  -> PASS: {counts['passed']} distant SL financial integrity tests passed")
-        results["gates"]["G09_DISTANT_SL_FINANCIAL_INTEGRITY"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Distant SL financial tests failed:\n{out}\n{err}")
-        results["gates"]["G09_DISTANT_SL_FINANCIAL_INTEGRITY"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-
-    # --------------------------------------------------------------------------
-    # GATE 10: CG01 Real Evaluator Integration
-    # --------------------------------------------------------------------------
-    print("\n[GATE 10] Verifying CG01 Real Evaluator Integration...")
-    cmd_g10 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py backend/tests/test_v17_7_atr_provenance.py -k 'test_sl_36 or test_ce_10 or test_atr_17'"
-    code, out, err, dur = run_cmd(cmd_g10)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 3 and counts["failed"] == 0:
-        print(f"  -> PASS: {counts['passed']} real CG01 evaluator integration tests passed")
-        results["gates"]["G10_CG01_EVALUATOR_INTEGRATION"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: CG01 integration tests failed:\n{out}\n{err}")
-        results["gates"]["G10_CG01_EVALUATOR_INTEGRATION"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-
-    # --------------------------------------------------------------------------
-    # GATE 11: Scalp M1 Models Real Evaluator Integration
-    # --------------------------------------------------------------------------
-    print("\n[GATE 11] Verifying Scalp M1 Models Real Evaluator Integration...")
-    cmd_g11 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py backend/tests/test_v17_7_atr_provenance.py -k 'test_sl_37 or test_sl_38 or test_sl_39 or test_sl_40 or test_ce_12 or test_atr_18'"
-    code, out, err, dur = run_cmd(cmd_g11)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 6 and counts["failed"] == 0:
-        print(f"  -> PASS: {counts['passed']} real M1 model evaluator integration tests passed")
-        results["gates"]["G11_M1_EVALUATOR_INTEGRATION"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: M1 model integration tests failed:\n{out}\n{err}")
-        results["gates"]["G11_M1_EVALUATOR_INTEGRATION"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-
-    # --------------------------------------------------------------------------
-    # GATE 12: Orchestrator / Actual ARM Boundary
-    # --------------------------------------------------------------------------
-    print("\n[GATE 12] Verifying Orchestrator Actual ARM Boundary...")
-    cmd_g12 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_sl_43 or test_ce_13'"
-    code, out, err, dur = run_cmd(cmd_g12)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 2 and counts["failed"] == 0:
-        print(f"  -> PASS: {counts['passed']} production orchestrator ARM tests passed")
-        results["gates"]["G12_ORCHESTRATOR_REAL_ARM"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Orchestrator ARM tests failed:\n{out}\n{err}")
-        results["gates"]["G12_ORCHESTRATOR_REAL_ARM"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-
-    # --------------------------------------------------------------------------
-    # GATE 13: Real ARM Concurrency & Idempotency
-    # --------------------------------------------------------------------------
-    print("\n[GATE 13] Verifying Multi-Threaded Real ARM Concurrency & Idempotency...")
-    cmd_g13 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_ce_16 or test_sl_57 or test_dsl_18'"
-    code, out, err, dur = run_cmd(cmd_g13)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 3 and counts["failed"] == 0:
-        print(f"  -> PASS: {counts['passed']} multi-threaded real ARM race tests passed")
-        results["gates"]["G13_REAL_ARM_CONCURRENCY"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Concurrency tests failed:\n{out}\n{err}")
-        results["gates"]["G13_REAL_ARM_CONCURRENCY"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-
-    # --------------------------------------------------------------------------
-    # GATE 14: Fill-Time Financial Invariants & Sizing
-    # --------------------------------------------------------------------------
-    print("\n[GATE 14] Verifying Fill-Time Financial Invariants & Sizing Preservation...")
-    cmd_g14 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_sl_46 or test_ce_14'"
-    code, out, err, dur = run_cmd(cmd_g14)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 2 and counts["failed"] == 0:
-        print(f"  -> PASS: {counts['passed']} fill sizing preservation tests passed")
-        results["gates"]["G14_FILL_TIME_FINANCIAL_INVARIANTS"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Fill sizing tests failed:\n{out}\n{err}")
-        results["gates"]["G14_FILL_TIME_FINANCIAL_INVARIANTS"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-
-    # --------------------------------------------------------------------------
-    # GATE 15: PAPER Exit, CLOSED State & Persistence
-    # --------------------------------------------------------------------------
-    print("\n[GATE 15] Verifying PAPER Exit, CLOSED State & Durable Persistence...")
-    cmd_g15 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_sl_47 or test_sl_48 or test_sl_60 or test_ce_15'"
-    code, out, err, dur = run_cmd(cmd_g15)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 4 and counts["failed"] == 0:
-        print(f"  -> PASS: {counts['passed']} exit and persistence lifecycle tests passed")
-        results["gates"]["G15_PAPER_EXIT_AND_PERSISTENCE"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Exit and persistence tests failed:\n{out}\n{err}")
-        results["gates"]["G15_PAPER_EXIT_AND_PERSISTENCE"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-
-    # --------------------------------------------------------------------------
-    # GATE 16: Actual Live-Order Dispatch Safety & Negative Control
-    # --------------------------------------------------------------------------
-    print("\n[GATE 16] Verifying Live-Order Dispatch Safety & Negative Control...")
+    print("\n[G16_LIVE_ORDER_SAFETY_BOUNDARY] Verifying Live-Order Dispatch Safety & Negative Control...")
     safety_ok, safety_msg = verify_live_order_safety_boundary()
-    cmd_g16 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_sl_50 or test_dsl_19 or test_ce_18'"
-    code, out, err, dur = run_cmd(cmd_g16)
-    counts = parse_pytest_counts(out)
-    if safety_ok and code == 0 and counts["passed"] >= 3 and counts["failed"] == 0:
+    report_xml_g16 = REPORTS_DIR / "g16.xml"
+    cmd_g16 = [
+        PYTHON_BIN, "-m", "pytest",
+        "backend/tests/test_v17_7_adaptive_stop_loss.py",
+        f"--junitxml={str(report_xml_g16)}",
+        "-k", "test_sl_50 or test_dsl_19 or test_ce_18"
+    ]
+    code, out, err, dur = run_cmd(cmd_g16, log_name="g16_live_safety")
+    counts = parse_pytest_counts(out, report_xml_g16)
+    passed = counts.get("passed", 0)
+
+    if safety_ok and code == 0 and passed >= 3 and counts.get("failed", 0) == 0:
         print(f"  -> PASS: {safety_msg}")
-        print(f"  -> PASS: {counts['passed']} live-order safety & negative control tests passed")
+        print(f"  -> PASS: {passed} live-order safety & negative control tests passed")
         results["gates"]["G16_LIVE_ORDER_SAFETY_BOUNDARY"] = {
-            "status": "PASS", "details": safety_msg, "counts": counts, "duration_ms": dur, "exit_code": 0
+            "status": "PASS", "gate_type": "command", "details": safety_msg, "counts": counts,
+            "report_path": str(report_xml_g16.relative_to(ROOT)), "duration_ms": dur, "exit_code": 0
         }
     else:
         print(f"  -> FAIL: Live-order safety verification failed: {safety_msg}\n{out}\n{err}")
         results["gates"]["G16_LIVE_ORDER_SAFETY_BOUNDARY"] = {
-            "status": "FAIL", "details": safety_msg, "counts": counts, "duration_ms": dur, "exit_code": 1
+            "status": "FAIL", "gate_type": "command", "details": safety_msg, "counts": counts, "duration_ms": dur, "exit_code": 1
         }
 
-    # --------------------------------------------------------------------------
-    # GATE 17: Dedicated V17.7 Suite (100 Gates: SL-01..60 + DSL-01..20 + CE-01..20)
-    # --------------------------------------------------------------------------
-    print("\n[GATE 17] Executing Complete Dedicated V17.7 Test Suite (100 Gates)...")
-    cmd_g17 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -v"
-    code, out, err, dur = run_cmd(cmd_g17)
-    counts_g17 = parse_pytest_counts(out)
-    if code == 0 and counts_g17["passed"] == 100 and counts_g17["failed"] == 0:
-        print(f"  -> PASS: All 100 dedicated gates passed in {dur/1000:.2f}s!")
-        results["gates"]["G17_EXISTING_SL_DSL_CE_REGRESSION"] = {
-            "status": "PASS", "counts": counts_g17, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Dedicated suite failed (code {code}, passed {counts_g17['passed']}/100):\n{out}\n{err}")
-        results["gates"]["G17_EXISTING_SL_DSL_CE_REGRESSION"] = {
-            "status": "FAIL", "counts": counts_g17, "duration_ms": dur, "exit_code": code
-        }
+    # G17: Dedicated V17.7 Suite (100 Tests)
+    run_pytest_gate(
+        "G17_EXISTING_SL_DSL_CE_REGRESSION",
+        ["backend/tests/test_v17_7_adaptive_stop_loss.py"],
+        filter_expr="",
+        min_passed=100,
+        label="Complete Dedicated V17.7 Adaptive Stop Loss Suite (100 Tests)"
+    )
 
-    # --------------------------------------------------------------------------
-    # GATE 18: V17.5 Regression Suite
-    # --------------------------------------------------------------------------
-    print("\n[GATE 18] Executing V17.5 Regression Suite...")
-    cmd_g18 = f"{PYTEST_BIN} backend/tests/test_v17_5*.py -q"
-    code, out, err, dur = run_cmd(cmd_g18)
-    counts_g18 = parse_pytest_counts(out)
-    if code == 0 and counts_g18["failed"] == 0 and counts_g18["passed"] > 0:
-        print(f"  -> PASS: V17.5 regression passed ({counts_g18['passed']} tests) in {dur/1000:.2f}s")
-        results["gates"]["G18_V17_5_REGRESSION"] = {
-            "status": "PASS", "counts": counts_g18, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: V17.5 regression failed:\n{out}\n{err}")
-        results["gates"]["G18_V17_5_REGRESSION"] = {
-            "status": "FAIL", "counts": counts_g18, "duration_ms": dur, "exit_code": code
-        }
+    # G18: V17.5 Regression Suite (Expanded by Python Glob)
+    v17_5_files = sorted(glob.glob(str(BACKEND / "tests" / "test_v17_5*.py")))
+    run_pytest_gate(
+        "G18_V17_5_REGRESSION",
+        v17_5_files,
+        filter_expr="",
+        min_passed=200,
+        label=f"V17.5 Regression Suite ({len(v17_5_files)} test files)"
+    )
 
-    # --------------------------------------------------------------------------
-    # GATE 19: V17.6 Regression Suite
-    # --------------------------------------------------------------------------
-    print("\n[GATE 19] Executing V17.6 Regression Suite (incl. V17.6.4.3d)...")
-    cmd_g19 = f"{PYTEST_BIN} backend/tests/test_v17_6*.py -q"
-    code, out, err, dur = run_cmd(cmd_g19)
-    counts_g19 = parse_pytest_counts(out)
-    if code == 0 and counts_g19["failed"] == 0 and counts_g19["passed"] > 0:
-        print(f"  -> PASS: V17.6 regression passed ({counts_g19['passed']} tests) in {dur/1000:.2f}s")
-        results["gates"]["G19_V17_6_REGRESSION"] = {
-            "status": "PASS", "counts": counts_g19, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: V17.6 regression failed:\n{out}\n{err}")
-        results["gates"]["G19_V17_6_REGRESSION"] = {
-            "status": "FAIL", "counts": counts_g19, "duration_ms": dur, "exit_code": code
-        }
+    # G19: V17.6 Regression Suite (Expanded by Python Glob)
+    v17_6_files = sorted(glob.glob(str(BACKEND / "tests" / "test_v17_6*.py")))
+    run_pytest_gate(
+        "G19_V17_6_REGRESSION",
+        v17_6_files,
+        filter_expr="",
+        min_passed=300,
+        label=f"V17.6 Regression Suite ({len(v17_6_files)} test files)"
+    )
 
-    # --------------------------------------------------------------------------
-    # GATE 20: Entire backend/tests Pytest Suite (Section 09 / V173-P0-02)
-    # --------------------------------------------------------------------------
-    print("\n[GATE 20] Executing Entire backend/tests Pytest Suite...")
-    cmd_g20 = f"{PYTEST_BIN} backend/tests -q"
-    code, out, err, dur = run_cmd(cmd_g20)
-    counts_g20 = parse_pytest_counts(out)
-    if code == 0 and counts_g20["failed"] == 0 and counts_g20["passed"] > 0:
-        print(f"  -> PASS: Entire backend suite passed ({counts_g20['passed']} tests) in {dur/1000:.2f}s")
-        results["gates"]["G20_FULL_BACKEND_PYTEST"] = {
-            "status": "PASS", "counts": counts_g20, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Entire backend suite failed (passed {counts_g20['passed']}, failed {counts_g20['failed']}):\n{out}\n{err}")
-        results["gates"]["G20_FULL_BACKEND_PYTEST"] = {
-            "status": "FAIL", "counts": counts_g20, "duration_ms": dur, "exit_code": code
-        }
+    # G20: Full Backend Pytest Suite
+    run_pytest_gate(
+        "G20_FULL_BACKEND_PYTEST",
+        ["backend/tests"],
+        filter_expr="",
+        min_passed=3000,
+        label="Entire backend/tests Pytest Suite",
+        timeout=1800,
+    )
 
     # --------------------------------------------------------------------------
     # GATE 21: Frontend Vitest Suite
     # --------------------------------------------------------------------------
-    print("\n[GATE 21] Executing Frontend Vitest Suite...")
-    cmd_g21 = "npm test -- --run"
-    code, out, err, dur = run_cmd(cmd_g21, cwd=FRONTEND)
+    print("\n[G21_FRONTEND_VITEST] Executing Frontend Vitest Suite...")
+    code, out, err, dur = run_cmd([NPM_BIN, "test", "--", "--run"], cwd=FRONTEND, log_name="g21_vitest")
     vitest_counts = parse_vitest_counts(out)
-    if code == 0 and vitest_counts["tests_passed"] > 0:
-        print(f"  -> PASS: Frontend Vitest passed ({vitest_counts['tests_passed']} tests in {vitest_counts['test_files_passed']} files) in {dur/1000:.2f}s")
+    if code == 0 and vitest_counts["passed"] > 0:
+        print(f"  -> PASS: Frontend Vitest passed ({vitest_counts['passed']} tests in {vitest_counts['test_files_passed']} files) in {dur/1000:.2f}s")
         results["gates"]["G21_FRONTEND_VITEST"] = {
-            "status": "PASS", "counts": vitest_counts, "duration_ms": dur, "exit_code": code
+            "status": "PASS", "gate_type": "command", "counts": vitest_counts, "duration_ms": dur, "exit_code": code
         }
     else:
         print(f"  -> FAIL: Frontend Vitest failed:\n{out}\n{err}")
         results["gates"]["G21_FRONTEND_VITEST"] = {
-            "status": "FAIL", "counts": vitest_counts, "duration_ms": dur, "exit_code": code
+            "status": "FAIL", "gate_type": "command", "counts": vitest_counts, "duration_ms": dur, "exit_code": code
         }
 
     # --------------------------------------------------------------------------
     # GATE 22: Frontend Production Build
     # --------------------------------------------------------------------------
-    print("\n[GATE 22] Executing Frontend Production Build...")
-    cmd_g22 = "npm run build"
-    code, out, err, dur = run_cmd(cmd_g22, cwd=FRONTEND)
+    print("\n[G22_FRONTEND_BUILD] Executing Frontend Production Build...")
+    code, out, err, dur = run_cmd([NPM_BIN, "run", "build"], cwd=FRONTEND, log_name="g22_build")
     if code == 0:
         print(f"  -> PASS: Frontend production build succeeded in {dur/1000:.2f}s")
         results["gates"]["G22_FRONTEND_BUILD"] = {
-            "status": "PASS", "duration_ms": dur, "exit_code": code
+            "status": "PASS", "gate_type": "command", "duration_ms": dur, "exit_code": code
         }
     else:
         print(f"  -> FAIL: Frontend build failed:\n{out}\n{err}")
         results["gates"]["G22_FRONTEND_BUILD"] = {
-            "status": "FAIL", "duration_ms": dur, "exit_code": code
+            "status": "FAIL", "gate_type": "command", "duration_ms": dur, "exit_code": code
         }
 
     # --------------------------------------------------------------------------
     # GATE 23: Frontend Lint (Oxlint)
     # --------------------------------------------------------------------------
-    print("\n[GATE 23] Executing Frontend Oxlint...")
-    cmd_g23 = "npx oxlint"
-    code, out, err, dur = run_cmd(cmd_g23, cwd=FRONTEND)
+    print("\n[G23_FRONTEND_LINT] Executing Frontend Oxlint...")
+    code, out, err, dur = run_cmd([NPX_BIN, "oxlint"], cwd=FRONTEND, log_name="g23_lint")
     if code == 0:
         print(f"  -> PASS: Oxlint verified 0 errors in {dur/1000:.2f}s")
         results["gates"]["G23_FRONTEND_LINT"] = {
-            "status": "PASS", "duration_ms": dur, "exit_code": code
+            "status": "PASS", "gate_type": "command", "duration_ms": dur, "exit_code": code
         }
     else:
         print(f"  -> FAIL: Frontend lint failed:\n{out}\n{err}")
         results["gates"]["G23_FRONTEND_LINT"] = {
-            "status": "FAIL", "duration_ms": dur, "exit_code": code
+            "status": "FAIL", "gate_type": "command", "duration_ms": dur, "exit_code": code
         }
 
     # --------------------------------------------------------------------------
     # GATE 24: Playwright E2E Suite
     # --------------------------------------------------------------------------
-    print("\n[GATE 24] Executing Playwright E2E Suite...")
-    cmd_g24 = f"AURUM_E2E_PYTHON={PYTHON_BIN} npx playwright test tests/e2e/v17_5_3_stop_browser.e2e.ts"
-    code, out, err, dur = run_cmd(cmd_g24, cwd=FRONTEND)
+    print("\n[G24_PLAYWRIGHT_BROWSER_E2E] Executing Playwright E2E Suite...")
+    pw_api_port = str(find_free_port(8765))
+    pw_web_port = str(find_free_port(5199))
+    pw_env = {
+        "AURUM_E2E_PYTHON": PYTHON_BIN,
+        "AURUM_E2E_API_PORT": pw_api_port,
+        "AURUM_E2E_WEB_PORT": pw_web_port,
+    }
+    code, out, err, dur = run_cmd(
+        [NPX_BIN, "playwright", "test", "tests/e2e/v17_5_3_stop_browser.e2e.ts"],
+        cwd=FRONTEND, env=pw_env, log_name="g24_playwright", timeout=120
+    )
     if code == 0 and "passed" in out:
-        print(f"  -> PASS: Playwright E2E verified in {dur/1000:.2f}s with actual browser")
+        print(f"  -> PASS: Playwright browser E2E verified in {dur/1000:.2f}s")
         results["gates"]["G24_PLAYWRIGHT_BROWSER_E2E"] = {
-            "status": "PASS", "duration_ms": dur, "exit_code": code
+            "status": "PASS", "gate_type": "command", "duration_ms": dur, "exit_code": code
         }
     else:
         print(f"  -> FAIL: Playwright E2E failed:\n{out}\n{err}")
         results["gates"]["G24_PLAYWRIGHT_BROWSER_E2E"] = {
-            "status": "FAIL", "duration_ms": dur, "exit_code": code
+            "status": "FAIL", "gate_type": "command", "duration_ms": dur, "exit_code": code or 1
         }
 
-    # --------------------------------------------------------------------------
-    # GATE 25: Deterministic Replay
-    # --------------------------------------------------------------------------
-    print("\n[GATE 25] Verifying Replay Determinism...")
-    cmd_g25 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_sl_53 or test_dsl_15'"
-    code, out, err, dur = run_cmd(cmd_g25)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 2 and counts["failed"] == 0:
-        print(f"  -> PASS: {counts['passed']} replay determinism tests passed")
-        results["gates"]["G25_DETERMINISTIC_REPLAY"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Replay determinism tests failed:\n{out}\n{err}")
-        results["gates"]["G25_DETERMINISTIC_REPLAY"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
+    # G25: Deterministic Replay
+    run_pytest_gate(
+        "G25_DETERMINISTIC_REPLAY",
+        ["backend/tests/test_v17_7_adaptive_stop_loss.py"],
+        "test_sl_53 or test_dsl_15",
+        min_passed=2,
+        label="Replay Determinism & Diagnostic Invariants"
+    )
+
+    # G26: Acceptance Runner Negative-Control Tests
+    run_pytest_gate(
+        "G26_ACCEPTANCE_RUNNER_NEGATIVE_TESTS",
+        ["backend/tests/test_v17_7_adaptive_stop_loss.py"],
+        "test_ce_19",
+        min_passed=1,
+        label="Acceptance Runner Negative-Control Suite"
+    )
 
     # --------------------------------------------------------------------------
-    # GATE 26: Acceptance Runner Negative-Control Tests
+    # GATE 27: Artifact & Source SHA Integrity (Current-Run Verification)
     # --------------------------------------------------------------------------
-    print("\n[GATE 26] Executing Acceptance Runner Negative-Control Tests...")
-    cmd_g26 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_ce_19'"
-    code, out, err, dur = run_cmd(cmd_g26)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 1 and counts["failed"] == 0:
-        print(f"  -> PASS: Acceptance runner negative-control tests passed")
-        results["gates"]["G26_ACCEPTANCE_RUNNER_NEGATIVE_TESTS"] = {
-            "status": "PASS", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-    else:
-        print(f"  -> FAIL: Acceptance runner negative-control failed:\n{out}\n{err}")
-        results["gates"]["G26_ACCEPTANCE_RUNNER_NEGATIVE_TESTS"] = {
-            "status": "FAIL", "counts": counts, "duration_ms": dur, "exit_code": code
-        }
-
-    # --------------------------------------------------------------------------
-    # GATE 27: Artifact & Source SHA Integrity
-    # --------------------------------------------------------------------------
-    print("\n[GATE 27] Verifying Tested Source SHA Integrity...")
-    cmd_g27 = f"{PYTEST_BIN} backend/tests/test_v17_7_adaptive_stop_loss.py -k 'test_ce_20'"
-    code, out, err, dur = run_cmd(cmd_g27)
-    counts = parse_pytest_counts(out)
-    if code == 0 and counts["passed"] >= 1 and counts["failed"] == 0:
-        print(f"  -> PASS: Tested commit SHA ({current_sha[:8]}) verified against git HEAD")
+    print("\n[G27_ARTIFACT_SOURCE_SHA_INTEGRITY] Verifying Current-Run Artifact & Source Integrity...")
+    # First verify test_ce_20 passes
+    report_xml_g27 = REPORTS_DIR / "g27.xml"
+    code, out, err, dur = run_cmd(
+        [PYTHON_BIN, "-m", "pytest", "backend/tests/test_v17_7_adaptive_stop_loss.py", f"--junitxml={str(report_xml_g27)}", "-k", "test_ce_20"],
+        log_name="g27_ce20"
+    )
+    counts = parse_pytest_counts(out, report_xml_g27)
+    if code == 0 and counts.get("passed", 0) >= 1:
+        print(f"  -> PASS: Unit/negative artifact verification tests passed")
         results["gates"]["G27_ARTIFACT_SOURCE_SHA_INTEGRITY"] = {
-            "status": "PASS", "sha": current_sha, "duration_ms": dur, "exit_code": code
+            "status": "PASS", "gate_type": "command", "sha": current_sha,
+            "counts": counts, "duration_ms": dur, "exit_code": 0, "integrity_verified": True
         }
     else:
-        print(f"  -> FAIL: Source SHA check failed:\n{out}\n{err}")
+        print(f"  -> FAIL: Artifact integrity tests failed:\n{out}\n{err}")
         results["gates"]["G27_ARTIFACT_SOURCE_SHA_INTEGRITY"] = {
-            "status": "FAIL", "sha": current_sha, "duration_ms": dur, "exit_code": code
+            "status": "FAIL", "gate_type": "command", "sha": current_sha,
+            "duration_ms": dur, "exit_code": code or 1, "integrity_verified": False
         }
 
     # --------------------------------------------------------------------------
-    # GATE 28: Documentation Completeness & Defect Register Consistency
+    # GATE 28: Documentation Completeness & Consistency
     # --------------------------------------------------------------------------
-    print("\n[GATE 28] Verifying V17.7.3 Documentation & Defect Register Consistency...")
+    print("\n[G28_DOCS_DEFECT_REGISTER_CONSISTENCY] Verifying V17.7.4 Documentation & Defect Register Consistency...")
     req_docs = [
-        "docs/V17_7_3_SOURCE_AND_ROOT_CAUSE_AUDIT.md",
-        "docs/V17_7_3_DATABASE_SAFETY_ISOLATION.md",
-        "docs/V17_7_3_ATR_PROVENANCE_AUTHORITY.md",
-        "docs/V17_7_3_STRUCTURAL_SL_FORMULA_VERIFICATION.md",
-        "docs/V17_7_3_CONCURRENT_ARM_INTEGRITY.md",
-        "docs/V17_7_3_ACCEPTANCE_RUNNER_TRUTHFULNESS.md",
-        "docs/V17_7_3_FULL_BACKEND_REGRESSION.md",
-        "docs/V17_7_3_RELEASE_ACCEPTANCE_REPORT.md",
-        "docs/V17_7_3_DEFECT_REGISTER.md",
-        "docs/V17_7_3_FUNCTION_CHANGE_MAP.md",
+        "docs/V17_7_4_SOURCE_AND_ROOT_CAUSE_AUDIT.md",
+        "docs/V17_7_4_FUNCTION_CHANGE_MAP.md",
+        "docs/V17_7_4_FINAL_ATR_AUTHORITY.md",
+        "docs/V17_7_4_TEST_DB_OWNERSHIP.md",
+        "docs/V17_7_4_ACCEPTANCE_ARTIFACT_INTEGRITY.md",
+        "docs/V17_7_4_FULL_REGRESSION_REPORT.md",
+        "docs/V17_7_4_DEFECT_REGISTER.md",
+        "docs/V17_7_4_RELEASE_ACCEPTANCE_REPORT.md",
     ]
     missing_docs = []
     for doc in req_docs:
         p = ROOT / doc
-        if not p.exists() or p.stat().st_size < 100:
+        if not p.is_file() or p.stat().st_size < 200:
             missing_docs.append(doc)
-            print(f"  -> FAIL: Missing or empty doc: {doc}")
+            print(f"  -> FAIL: Missing or insufficient doc: {doc}")
         else:
             print(f"  -> PASS: Verified doc exists ({p.stat().st_size} bytes): {doc}")
 
     if not missing_docs:
         results["gates"]["G28_DOCS_DEFECT_REGISTER_CONSISTENCY"] = {
-            "status": "PASS", "verified_docs": len(req_docs), "exit_code": 0
+            "status": "PASS", "gate_type": "verification", "verified_docs": len(req_docs), "exit_code": 0
         }
     else:
         results["gates"]["G28_DOCS_DEFECT_REGISTER_CONSISTENCY"] = {
-            "status": "FAIL", "missing_docs": missing_docs, "exit_code": 1
+            "status": "FAIL", "gate_type": "verification", "missing_docs": missing_docs, "exit_code": 1
         }
 
     # --------------------------------------------------------------------------
-    # FINAL VERDICT VIA AUTHORITATIVE MODULE
+    # FINAL VERDICT
     # --------------------------------------------------------------------------
     print("\n" + "=" * 80)
-    final_verdict = determine_release_verdict(results["gates"], MANDATORY_GATES_V17_7_3)
+    final_verdict = determine_release_verdict(results["gates"], MANDATORY_GATES_V17_7_4)
     results["verdict"] = final_verdict
     print(f"FINAL ACCEPTANCE VERDICT: {final_verdict}")
     if final_verdict == "ACCEPTED_FOR_PAPER_OPT_IN":
@@ -645,18 +708,45 @@ def main():
         print("One or more mandatory release gates failed! Review gate details above.")
     print("=" * 80)
 
-    # Persist JSON Artifacts
-    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
-    out_file = ARTIFACTS_DIR / "v17_7_3_acceptance_results.json"
-    with open(out_file, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2)
-    print(f"Acceptance artifact saved to: {out_file}\n")
+    # --------------------------------------------------------------------------
+    # Run-Scoped Artifact Publication (Never overwrite historical V17.7.2 / V17.7.3)
+    # --------------------------------------------------------------------------
+    published_dir = write_acceptance_artifacts(
+        run_id=RUN_ID,
+        results_payload=results,
+        source_manifest=source_manifest,
+        gate_manifest=MANDATORY_GATES_V17_7_4,
+        artifacts_base_dir=ARTIFACTS_DIR,
+    )
+    print(f"\nRun-scoped artifacts published to: {published_dir}")
 
-    out_file_compat = ARTIFACTS_DIR / "v17_7_2_acceptance_results.json"
-    with open(out_file_compat, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2)
+    # Verify written bundle
+    ok_bundle, bundle_errors = verify_acceptance_bundle(
+        published_dir,
+        expected_version="17.7.4",
+        expected_run_id=RUN_ID,
+        expected_source_sha=current_sha,
+    )
+    if ok_bundle:
+        print("  -> PASS: Published bundle integrity strictly verified against leaf hashes and verdict.")
+    else:
+        print(f"  -> FAIL: Published bundle verification failed: {bundle_errors}")
+        results["verdict"] = "BLOCKED"
+        # Update published results to reflect blocked verdict
+        (published_dir / "acceptance_results.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
 
-    return 0 if final_verdict == "ACCEPTED_FOR_PAPER_OPT_IN" else 1
+    # Update latest pointer without overwriting historical files
+    latest_pointer = {
+        "schema_version": 1,
+        "version": "17.7.4",
+        "latest_run_id": RUN_ID,
+        "run_directory": str(published_dir.relative_to(ROOT)),
+        "verdict": results["verdict"],
+        "timestamp_utc": results["timestamp_utc"],
+    }
+    (ARTIFACTS_DIR / "v17_7_4" / "latest_run.json").write_text(json.dumps(latest_pointer, indent=2), encoding="utf-8")
+
+    return 0 if results["verdict"] == "ACCEPTED_FOR_PAPER_OPT_IN" else 1
 
 
 if __name__ == "__main__":

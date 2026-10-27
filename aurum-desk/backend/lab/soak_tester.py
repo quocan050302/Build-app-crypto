@@ -1,6 +1,9 @@
 import time
 import os
-import resource
+try:
+    import resource
+except ImportError:
+    resource = None
 import logging
 from typing import Dict, Any, List, Optional
 from sqlalchemy import create_engine
@@ -54,10 +57,14 @@ class SoakStabilityTester:
         Executes a rapid soak & fault injection test.
         """
         start_wall_time = time.time()
-        start_rss_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        # On macOS ru_maxrss is in bytes, on Linux in KB
-        is_macos = os.uname().sysname == "Darwin"
-        start_rss_mb = (start_rss_kb / (1024 * 1024)) if is_macos else (start_rss_kb / 1024)
+        is_macos = hasattr(os, "uname") and os.uname().sysname == "Darwin"
+        start_rss_mb = 0.0
+        if resource:
+            try:
+                start_rss_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+                start_rss_mb = (start_rss_kb / (1024 * 1024)) if is_macos else (start_rss_kb / 1024)
+            except Exception:
+                pass
 
         # 1. Ephemeral isolated in-memory DB
         engine = create_engine(
@@ -169,8 +176,13 @@ class SoakStabilityTester:
 
         db.close()
         elapsed_sec = time.time() - start_wall_time
-        end_rss_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        end_rss_mb = (end_rss_kb / (1024 * 1024)) if is_macos else (end_rss_kb / 1024)
+        end_rss_mb = start_rss_mb
+        if resource:
+            try:
+                end_rss_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+                end_rss_mb = (end_rss_kb / (1024 * 1024)) if is_macos else (end_rss_kb / 1024)
+            except Exception:
+                pass
         rss_growth_mb = max(0.0, end_rss_mb - start_rss_mb)
 
         passed = (

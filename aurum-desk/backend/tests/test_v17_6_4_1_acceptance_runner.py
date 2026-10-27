@@ -142,7 +142,8 @@ class TestAcceptanceRunnerSelfVerification:
         """AC08: Runner writes test logs and final JSON report to the external output directory."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             out_dir = Path(tmp_dir)
-            cmd_res = runner.run_cmd("test_gate", ["echo", "hello"], ROOT, os.environ, out_dir)
+            echo_cmd = [sys.executable, "-c", "print('hello')"] if sys.platform == "win32" else ["echo", "hello"]
+            cmd_res = runner.run_cmd("test_gate", echo_cmd, ROOT, os.environ, out_dir)
             assert cmd_res["status"] == "PASS"
             log_path = Path(cmd_res["log"])
             assert log_path.exists()

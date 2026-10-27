@@ -5,6 +5,7 @@ from services.stop_placement_types import (
     StopStatus,
     StopAnchorResult,
     StopBufferResult,
+    StopATRResult,
 )
 from services.stop_placement_service import plan_structural_stop
 from services.scalp_m1_model_service import ScalpM1ModelService
@@ -65,6 +66,20 @@ def test_routing_modes_legacy_shadow_paper_structural():
 
     # 3. PAPER_STRUCTURAL
     policy_paper = StopPlacementPolicy(mode="PAPER_STRUCTURAL", version=1)
+    atr_m1 = StopATRResult(
+        value=2.0,
+        status="AVAILABLE",
+        bars_count=15,
+        source_candle_count=15,
+        timeframe="1M",
+        symbol="XAUUSDT",
+        last_closed_at_ms=900,
+        last_closed_candle_timestamp=900,
+        calculated_as_of=1000,
+        decision_cutoff=1000,
+        method="SMA_TR_V1",
+        period=14,
+    )
     dec_paper = plan_structural_stop(
         direction="SHORT",
         planned_entry=entry,
@@ -74,6 +89,8 @@ def test_routing_modes_legacy_shadow_paper_structural():
         buffer_result=buffer_res,
         policy=policy_paper,
         as_of_ms=1000,
+        atr_m1_obj=atr_m1,
+        symbol="XAUUSDT",
     )
     assert dec_paper.applied_variant == "C"
     # anchor 4008.0 + buffer 1.50 = 4009.50

@@ -442,10 +442,17 @@ def apply_stop_placement_to_candidate(
     from services.stop_placement_service import compute_stop_atr, compute_stop_buffer, plan_structural_stop
     from services.stop_placement_research_service import build_stop_comparison_plan
 
-    atr_m1_obj = (stop_context or {}).get("atr_m1")
-    atr_m5_obj = (stop_context or {}).get("atr_m5")
-    if atr_m1_obj is None and closed_1m:
-        atr_m1_obj = compute_stop_atr(closed_1m, period=stop_policy.atr_period, timeframe="1M", as_of_ms=now_ms)
+    atr_m1_obj = None
+    atr_m5_obj = None
+    has_supplied_m1 = False
+    if stop_context is not None and "atr_m1" in stop_context:
+        atr_m1_obj = stop_context["atr_m1"]
+        has_supplied_m1 = True
+    if stop_context is not None and "atr_m5" in stop_context:
+        atr_m5_obj = stop_context["atr_m5"]
+
+    if not has_supplied_m1 and closed_1m:
+        atr_m1_obj = compute_stop_atr(closed_1m, period=stop_policy.atr_period, timeframe="1M", as_of_ms=now_ms, symbol="XAUUSDT")
 
     buffer_res = compute_stop_buffer(
         policy=stop_policy,
@@ -454,6 +461,17 @@ def apply_stop_placement_to_candidate(
         atr_m5=atr_m5_obj,
         bid=bid,
         ask=ask,
+        symbol="XAUUSDT",
+    )
+
+    mode = getattr(stop_policy, "mode", "SHADOW_COMPARE")
+    eff_scalar_m1 = None if mode == "PAPER_STRUCTURAL" else (
+        atr_1m_val if (atr_1m_val is not None) else (
+            atr_m1_obj.value if (atr_m1_obj and getattr(atr_m1_obj, "status", "") == "AVAILABLE") else None
+        )
+    )
+    eff_scalar_m5 = None if mode == "PAPER_STRUCTURAL" else (
+        atr_m5_obj.value if (atr_m5_obj and getattr(atr_m5_obj, "status", "") == "AVAILABLE") else None
     )
 
     stop_dec = plan_structural_stop(
@@ -468,9 +486,10 @@ def apply_stop_placement_to_candidate(
         tick_size=tick_sz,
         atr_m1_obj=atr_m1_obj,
         atr_m5_obj=atr_m5_obj,
-        atr_m1_val=atr_1m_val if (atr_1m_val is not None) else (atr_m1_obj.value if (atr_m1_obj and getattr(atr_m1_obj, "status", "") == "AVAILABLE") else None),
-        atr_m5_val=atr_m5_obj.value if (atr_m5_obj and getattr(atr_m5_obj, "status", "") == "AVAILABLE") else None,
+        atr_m1_val=eff_scalar_m1,
+        atr_m5_val=eff_scalar_m5,
         spread=(ask - bid) if (bid is not None and ask is not None) else None,
+        symbol="XAUUSDT",
     )
 
     comp_plan = build_stop_comparison_plan(

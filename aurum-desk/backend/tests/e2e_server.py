@@ -106,6 +106,11 @@ def _feed():
 
 
 def _seed_candles(db):
+    try:
+        db.query(models.Candle).filter(models.Candle.symbol == "XAUUSDT", models.Candle.timeframe == "15M").delete()
+        db.commit()
+    except Exception:
+        db.rollback()
     now = int(time.time() * 1000)
     step = 15 * 60_000
     base = now - (now % step) - 150 * step

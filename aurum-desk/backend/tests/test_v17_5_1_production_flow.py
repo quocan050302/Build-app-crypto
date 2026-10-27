@@ -19,6 +19,7 @@ from services.stop_placement_types import (
     StopBufferResult,
     StopStatus,
     StopPlacementDecision,
+    StopATRResult,
 )
 from services.stop_placement_service import plan_structural_stop, validate_applied_stop_decision
 from services.execution_coordinator import ExecutionCoordinator
@@ -66,11 +67,26 @@ def test_production_flow_short_paper_structural(test_db):
             price_basis="CANDLE_LAST",
         ),
     )
+    atr_m1 = StopATRResult(
+        value=1.50,
+        status="AVAILABLE",
+        bars_count=15,
+        source_candle_count=15,
+        timeframe="1M",
+        symbol="XAUUSDT",
+        last_closed_at_ms=now_ms - 60000,
+        last_closed_candle_timestamp=now_ms - 60000,
+        calculated_as_of=now_ms,
+        decision_cutoff=now_ms,
+        method="SMA_TR_V1",
+        period=14,
+    )
     buffer_res = StopBufferResult(
         buffer_price=1.50,
         components={"tick_floor": 0.05, "atr_m1": 1.50},
         dominant_source="atr_m1",
         tick_size=0.01,
+        raw_atr_m1=1.50,
     )
 
     # 1. Plan structural stop (Variant C)
@@ -83,6 +99,8 @@ def test_production_flow_short_paper_structural(test_db):
         buffer_result=buffer_res,
         policy=policy,
         as_of_ms=now_ms,
+        atr_m1_obj=atr_m1,
+        symbol="XAUUSDT",
     )
     assert stop_dec.status == StopStatus.VALID.value
     assert stop_dec.applied_variant == "C"
@@ -232,11 +250,26 @@ def test_production_flow_long_paper_structural(test_db):
             price_basis="CANDLE_LAST",
         ),
     )
+    atr_m1 = StopATRResult(
+        value=1.50,
+        status="AVAILABLE",
+        bars_count=15,
+        source_candle_count=15,
+        timeframe="1M",
+        symbol="XAUUSDT",
+        last_closed_at_ms=now_ms - 60000,
+        last_closed_candle_timestamp=now_ms - 60000,
+        calculated_as_of=now_ms,
+        decision_cutoff=now_ms,
+        method="SMA_TR_V1",
+        period=14,
+    )
     buffer_res = StopBufferResult(
         buffer_price=1.50,
         components={"tick_floor": 0.05, "atr_m1": 1.50},
         dominant_source="atr_m1",
         tick_size=0.01,
+        raw_atr_m1=1.50,
     )
 
     # 1. Plan structural stop (Variant C)
@@ -249,6 +282,8 @@ def test_production_flow_long_paper_structural(test_db):
         buffer_result=buffer_res,
         policy=policy,
         as_of_ms=now_ms,
+        atr_m1_obj=atr_m1,
+        symbol="XAUUSDT",
     )
     assert stop_dec.status == StopStatus.VALID.value
     assert stop_dec.applied_variant == "C"

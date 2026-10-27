@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import sys
@@ -9,8 +10,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-# Setup isolated DB path in environment BEFORE any backend module is imported
+# Setup paths in environment BEFORE any backend module is imported
 BACKEND_DIR = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = BACKEND_DIR.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 TESTS_DIR = Path(__file__).resolve().parent
@@ -19,18 +23,56 @@ if str(TESTS_DIR) not in sys.path:
 
 RUNTIME_DB_PATH = BACKEND_DIR / "aurum_desk.db"
 
-# Force environment variable for test isolation inside trusted test-owned root (V17.7.3 P0-01)
+# V17.7.4 Section 09.1: Test run ownership bootstrap before module imports
+CURRENT_RUN_ID = os.getenv("AURUM_TEST_RUN_ID")
+if not CURRENT_RUN_ID:
+    CURRENT_RUN_ID = f"run_{int(time.time()*1000)}_{os.getpid()}"
+    os.environ["AURUM_TEST_RUN_ID"] = CURRENT_RUN_ID
+
+# Check inherited environment variables and detect conflicts
+test_db_override = os.getenv("AURUM_TEST_DB_PATH")
+db_path_override = os.getenv("AURUM_DB_PATH")
+if test_db_override and db_path_override and test_db_override != db_path_override:
+    raise RuntimeError(f"CONFLICTING_TEST_DB_TARGETS: AURUM_TEST_DB_PATH={test_db_override} vs AURUM_DB_PATH={db_path_override}")
+
+# Initialize canonical test-owned root with schema_version 1 marker
 test_root_env = os.getenv("AURUM_TEST_ROOT")
-if test_root_env and Path(test_root_env).is_dir() and (Path(test_root_env) / ".aurum_test_owned").is_file():
-    test_root_path = Path(test_root_env).resolve()
-else:
+test_root_path = None
+if test_root_env:
+    candidate = Path(test_root_env).resolve()
+    marker = candidate / ".aurum_test_owned"
+    if candidate.is_dir() and marker.is_file():
+        try:
+            m_data = json.loads(marker.read_text(encoding="utf-8"))
+            if m_data.get("schema_version") == 1 and m_data.get("test_owner") == "aurum_test_framework":
+                test_root_path = candidate
+        except Exception:
+            pass
+
+if not test_root_path:
     temp_dir = tempfile.mkdtemp(prefix="aurum_test_root_")
     test_root_path = Path(temp_dir).resolve()
     marker = test_root_path / ".aurum_test_owned"
-    marker.write_text(json.dumps({"pid": os.getpid(), "created_at": time.time(), "owner": "conftest"}), encoding="utf-8")
+    marker_data = {
+        "schema_version": 1,
+        "run_id": CURRENT_RUN_ID,
+        "canonical_root": str(test_root_path),
+        "test_owner": "aurum_test_framework",
+        "created_at": time.time(),
+        "pid": os.getpid(),
+    }
+    marker.write_text(json.dumps(marker_data), encoding="utf-8")
     os.environ["AURUM_TEST_ROOT"] = str(test_root_path)
 
-TEST_DB_PATH = str(test_root_path / "test_aurum.db")
+target_override = test_db_override or db_path_override
+if target_override:
+    # Fail closed before mutation if unsafe override
+    from database import assert_test_database_isolated
+    assert_test_database_isolated(target_override)
+    TEST_DB_PATH = target_override
+else:
+    TEST_DB_PATH = str(test_root_path / f"test_aurum_{CURRENT_RUN_ID}.db")
+
 os.environ["AURUM_DB_PATH"] = TEST_DB_PATH
 os.environ["TESTING"] = "1"
 
@@ -42,18 +84,43 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture(scope="session", autouse=True)
 def guard_runtime_database():
-    """Sentinel fixture: proves runtime database is never touched or truncated by test suites."""
-    # Capture runtime DB baseline if it exists
+    """Sentinel fixture: proves runtime database is never touched or truncated by test suites (V17.7.4 Section 09.3)."""
     runtime_exists = RUNTIME_DB_PATH.exists()
     baseline_stat = RUNTIME_DB_PATH.stat() if runtime_exists else None
+
+    # V17.7.4 Section 09.3: If runtime app is actively writing to DB, distinguish concurrent
+    # legitimate writes from test mutation; do not make unconditioned byte-equality claims.
+    is_actively_written = False
+    if runtime_exists:
+        try:
+            mtime_1 = RUNTIME_DB_PATH.stat().st_mtime
+            # If written within the last 30 seconds, it's actively maintained by a concurrent background process
+            if (time.time() - mtime_1) < 30.0:
+                is_actively_written = True
+        except Exception:
+            pass
+
+    baseline_hash = None
+    if runtime_exists and not is_actively_written:
+        try:
+            with open(RUNTIME_DB_PATH, "rb") as f:
+                baseline_hash = hashlib.sha256(f.read()).hexdigest()
+        except Exception:
+            pass
 
     yield
 
     if runtime_exists:
         assert RUNTIME_DB_PATH.exists(), "CRITICAL: Runtime database was deleted by tests!"
         current_stat = RUNTIME_DB_PATH.stat()
-        # Ensure inode / canonical file was not replaced or wiped
         assert current_stat.st_ino == baseline_stat.st_ino, "CRITICAL: Runtime DB file replaced!"
+        assert current_stat.st_size > 0, "CRITICAL: Runtime DB file was truncated!"
+        if baseline_hash is not None and not is_actively_written:
+            with open(RUNTIME_DB_PATH, "rb") as f:
+                current_hash = hashlib.sha256(f.read()).hexdigest()
+            assert current_hash == baseline_hash, "CRITICAL: Runtime database content was modified by tests!"
+    else:
+        assert not RUNTIME_DB_PATH.exists(), "CRITICAL: Tests created runtime database at RUNTIME_DB_PATH!"
 
 @pytest.fixture(autouse=True)
 def entry_certification_mode(request):
@@ -81,42 +148,44 @@ def entry_certification_mode(request):
         scfg.active_scenario_config = previous
 
 
+def _register_basetemp_root(basetemp_path: Path):
+    bt_path = basetemp_path.resolve()
+    marker = bt_path / ".aurum_test_owned"
+    current_run_id = os.getenv("AURUM_TEST_RUN_ID")
+    if not marker.exists():
+        marker_data = {
+            "schema_version": 1,
+            "run_id": current_run_id,
+            "canonical_root": str(bt_path),
+            "test_owner": "aurum_test_framework",
+            "created_at": time.time(),
+            "pid": os.getpid(),
+        }
+        marker.write_text(json.dumps(marker_data), encoding="utf-8")
+    from database import register_trusted_test_root
+    register_trusted_test_root(bt_path)
+
+
 def pytest_configure(config):
     config.addinivalue_line("markers", "certified_entry: force certified STANDARD_SMC entry (V14.4.1)")
     config.addinivalue_line("markers", "legacy_entry: force LEGACY_UNCERTIFIED entry mode")
 
-    # V17.7.3 P0-01: Register pytest's session basetemp as an authorized test root
-    try:
-        tmp_factory = getattr(config, "_tmp_path_factory", None)
-        if tmp_factory:
-            basetemp = tmp_factory.getbasetemp()
-            if basetemp:
-                bt_path = Path(str(basetemp)).resolve()
-                marker = bt_path / ".aurum_test_owned"
-                if not marker.exists():
-                    marker.write_text(json.dumps({"pid": os.getpid(), "owner": "pytest_basetemp"}), encoding="utf-8")
-                from database import register_trusted_test_root
-                register_trusted_test_root(bt_path)
-    except Exception:
-        pass
+    # V17.7.4 Section 09.2: Register pytest session basetemp with current run ownership
+    tmp_factory = getattr(config, "_tmp_path_factory", None)
+    if tmp_factory:
+        basetemp = tmp_factory.getbasetemp()
+        if basetemp:
+            _register_basetemp_root(Path(str(basetemp)))
 
 
 @pytest.fixture(autouse=True)
 def register_test_tmp_path_root(request):
-    """V17.7.3 P0-01: Ensure pytest's session basetemp is registered as a trusted test root with marker."""
-    try:
-        tmp_factory = getattr(request.config, "_tmp_path_factory", None)
-        if tmp_factory:
-            basetemp = tmp_factory.getbasetemp()
-            if basetemp:
-                bt_path = Path(str(basetemp)).resolve()
-                marker = bt_path / ".aurum_test_owned"
-                if not marker.exists():
-                    marker.write_text(json.dumps({"pid": os.getpid(), "owner": "pytest_basetemp"}), encoding="utf-8")
-                from database import register_trusted_test_root
-                register_trusted_test_root(bt_path)
-    except Exception:
-        pass
+    """V17.7.4 Section 09.2: Ensure pytest's session basetemp is registered as a trusted test root with marker."""
+    tmp_factory = getattr(request.config, "_tmp_path_factory", None)
+    if tmp_factory:
+        basetemp = tmp_factory.getbasetemp()
+        if basetemp:
+            _register_basetemp_root(Path(str(basetemp)))
 
 
 @pytest.fixture

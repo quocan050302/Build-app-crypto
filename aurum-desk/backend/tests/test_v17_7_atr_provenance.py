@@ -19,15 +19,18 @@ from services.stop_placement_types import (
     StopStatus,
     StopAnchor,
     StopAnchorResult,
+    StopPlacementDecision,
+    StopMetrics,
 )
 from services.stop_placement_service import (
     compute_stop_atr,
     compute_stop_buffer,
     plan_structural_stop,
+    validate_stop_atr_authority,
 )
 from services.cg01_engine import evaluate_cg01_candidate
 from services.cg01_types import CG01Config, CG01EntryMode
-from services.scalp_m1_model_service import ScalpM1ModelService
+from services.scalp_m1_model_service import ScalpM1ModelService, apply_stop_placement_to_candidate
 from tests.test_v16_3_cg01_pipeline import build_long_fixture_series
 
 
@@ -125,6 +128,27 @@ def test_atr_05_wrong_timeframe_fails():
     assert res.status == "UNAVAILABLE"
     assert res.reason_code == "UNSUPPORTED_TIMEFRAME"
 
+    # V17.7.4 Section 12.5: AVAILABLE object timeframe="5M" in M1 authority slot is rejected
+    atr_5m = StopATRResult(
+        status="AVAILABLE", value=2.5, timeframe="5M", symbol="XAUUSDT",
+        bars_count=15, source_candle_count=15, last_closed_at_ms=1000, last_closed_candle_timestamp=1000
+    )
+    is_valid, reason = validate_stop_atr_authority(atr_5m, expected_timeframe="1M")
+    assert is_valid is False
+    assert reason == "ATR_TIMEFRAME_MISMATCH"
+
+    # Also fails in plan_structural_stop when passed to atr_m1_obj
+    anchor = StopAnchor(id="anc_1", kind="SWING_LOW", price=2640.0, timeframe="1M", occurred_at_ms=1000, known_at_ms=1060, source_leg_id="leg_1")
+    dec = plan_structural_stop(
+        direction="LONG", planned_entry=2650.0, take_profit=2670.0, legacy_sl=2645.0,
+        anchor_result=StopAnchorResult(status="AVAILABLE", anchor=anchor),
+        policy=StopPlacementPolicy(mode="PAPER_STRUCTURAL"),
+        as_of_ms=2000, tick_size=0.01,
+        atr_m1_obj=atr_5m,
+    )
+    assert dec.status == StopStatus.WAITING_VOLATILITY_EVIDENCE.value
+    assert dec.selected_sl is None
+
 
 def test_atr_06_wrong_symbol_fails():
     """ATR-06: Candle series with symbol mismatch fails with UNAVAILABLE."""
@@ -153,13 +177,44 @@ def test_atr_08_future_candle_fails():
 
 
 def test_atr_09_unclosed_candle_fails():
-    """ATR-09: Unclosed candle in stream is excluded from ATR computation."""
+    """ATR-09 (V17.7.4 Section 05.B / A11, A12):
+    Unclosed candle in stream (dict or object) is strictly excluded without truthiness short-circuit.
+    Candles closing after cutoff are excluded; candles lacking flag are closed iff timestamp proves closed.
+    """
+    # 1. Dict is_closed=False
     candles = make_dummy_candles(15)
     candles[-1]["is_closed"] = False  # Last candle is still open
     res = compute_stop_atr(candles, period=14, timeframe="1M")
-    # 14 closed bars left, insufficient for period=14 (requires 15 closed bars)
     assert res.status == "UNAVAILABLE"
     assert res.reason_code == "INSUFFICIENT_BARS"
+
+    # 2. Object is_closed=False (A11)
+    class CandleObj:
+        def __init__(self, d):
+            for k, v in d.items():
+                setattr(self, k, v)
+
+    raw_candles = make_dummy_candles(15)
+    obj_candles = [CandleObj(c) for c in raw_candles]
+    obj_candles[-1].is_closed = False
+    res_obj = compute_stop_atr(obj_candles, period=14, timeframe="1M")
+    assert res_obj.status == "UNAVAILABLE"
+    assert res_obj.reason_code == "INSUFFICIENT_BARS"
+
+    # 3. No closure flag: timestamp proves closed before cutoff -> AVAILABLE
+    no_flag_candles = make_dummy_candles(20)
+    for c in no_flag_candles:
+        c.pop("is_closed", None)
+    res_no_flag = compute_stop_atr(no_flag_candles, period=14, timeframe="1M")
+    assert res_no_flag.status == "AVAILABLE"
+    assert res_no_flag.bars_count == 20
+
+    # 4. is_closed=True but t_open + duration > cutoff -> excluded as future
+    cutoff_ms = 1_000_000 + 14 * 60_000  # Only 14 bars closed at or before cutoff
+    candles_cutoff = make_dummy_candles(20, t_start=1_000_000)
+    res_cutoff = compute_stop_atr(candles_cutoff, period=14, timeframe="1M", as_of_ms=cutoff_ms)
+    assert res_cutoff.status == "UNAVAILABLE"
+    assert res_cutoff.reason_code == "INSUFFICIENT_BARS"
 
 
 def test_atr_10_nan_and_infinite_atr_fail():
@@ -177,9 +232,14 @@ def test_atr_11_zero_and_negative_atr_fail():
         t = 1_000_000 + i * 60_000
         # All flat at 2650.0
         candles.append({"timestamp": t, "open": 2650.0, "high": 2650.0, "low": 2650.0, "close": 2650.0, "is_closed": True})
-    res = compute_stop_atr(candles, period=14, timeframe="1M")
-    assert res.status == "AVAILABLE"
+    res = compute_stop_atr(candles, period=14, timeframe="1M", symbol="XAUUSDT", as_of_ms=1_000_000 + 20 * 60_000)
     assert res.value == 0.0
+    # Authority validator rejects 0 ATR for structural execution
+    is_valid, reason = validate_stop_atr_authority(
+        res, expected_symbol="XAUUSDT", expected_timeframe="1M", decision_cutoff=1_000_000 + 20 * 60_000
+    )
+    assert is_valid is False
+    assert reason == "ATR_NON_POSITIVE_OR_NON_FINITE"
 
     # Passed to plan_structural_stop -> fails closed with WAITING_VOLATILITY_EVIDENCE!
     anchor = StopAnchor(id="anc_1", kind="SWING_LOW", price=2640.0, timeframe="1M", occurred_at_ms=1000, known_at_ms=1060, source_leg_id="leg_1")
@@ -211,17 +271,19 @@ def test_atr_12_invalid_status_value_combination_fails():
 def test_atr_13_valid_m1_atr_succeeds():
     """ATR-13: Valid M1 ATR succeeds and enables valid stop placement decision."""
     candles = make_dummy_candles(20)
-    atr = compute_stop_atr(candles, period=14, timeframe="1M")
+    atr = compute_stop_atr(candles, period=14, timeframe="1M", symbol="XAUUSDT")
     assert atr.status == "AVAILABLE"
     assert atr.value > 0.0
 
-    anchor = StopAnchor(id="anc_1", kind="SWING_LOW", price=2640.0, timeframe="1M", occurred_at_ms=1000, known_at_ms=1060, source_leg_id="leg_1")
+    as_of = atr.last_closed_at_ms + 1000
+    anchor = StopAnchor(id="anc_1", kind="SWING_LOW", price=2640.0, timeframe="1M", occurred_at_ms=as_of-120000, known_at_ms=as_of-60000, source_leg_id="leg_1")
     dec = plan_structural_stop(
         direction="LONG", planned_entry=2650.0, take_profit=2670.0, legacy_sl=2645.0,
         anchor_result=StopAnchorResult(status="AVAILABLE", anchor=anchor),
         policy=StopPlacementPolicy(mode="PAPER_STRUCTURAL"),
-        as_of_ms=2000, tick_size=0.01,
+        as_of_ms=as_of, tick_size=0.01,
         atr_m1_obj=atr,
+        symbol="XAUUSDT",
     )
     assert dec.status == StopStatus.VALID.value
     assert dec.selected_sl is not None
@@ -245,16 +307,20 @@ def test_atr_14_optional_m5_handling_is_correct():
 def test_atr_15_correct_distance_raw_atr_ratio():
     """ATR-15: Stop distance to ATR ratio uses RAW ATR, never weighted buffer."""
     raw_atr = 3.00
-    atr_obj = StopATRResult(status="AVAILABLE", value=raw_atr)
+    as_of = 2000000
+    atr_obj = StopATRResult(
+        status="AVAILABLE", value=raw_atr, timeframe="1M", symbol="XAUUSDT",
+        bars_count=15, source_candle_count=15, last_closed_at_ms=as_of-60000, last_closed_candle_timestamp=as_of-60000
+    )
     policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL", atr_m1_multiplier=0.25)
-    buf = compute_stop_buffer(policy=policy, tick_size=0.01, atr_m1=atr_obj, bid=2700.0, ask=2700.1)
+    buf = compute_stop_buffer(policy=policy, tick_size=0.01, atr_m1=atr_obj, bid=2700.0, ask=2700.1, symbol="XAUUSDT")
     # Entry = 2700.00, anchor = 2678.00, buffer = 0.75, selected SL = 2677.25 -> final_dist = 22.75
-    anchor = StopAnchor(id="anc_1", kind="SWING_LOW", price=2678.0, timeframe="1M", occurred_at_ms=1000, known_at_ms=1060, source_leg_id="leg_1")
+    anchor = StopAnchor(id="anc_1", kind="SWING_LOW", price=2678.0, timeframe="1M", occurred_at_ms=as_of-120000, known_at_ms=as_of-60000, source_leg_id="leg_1")
     dec = plan_structural_stop(
         direction="LONG", planned_entry=2700.0, take_profit=2760.0, legacy_sl=2695.0,
         anchor_result=StopAnchorResult(status="AVAILABLE", anchor=anchor),
-        buffer_result=buf, policy=policy, as_of_ms=2000, tick_size=0.01,
-        atr_m1_obj=atr_obj,
+        buffer_result=buf, policy=policy, as_of_ms=as_of, tick_size=0.01,
+        atr_m1_obj=atr_obj, symbol="XAUUSDT",
     )
     assert dec.status == StopStatus.VALID.value
     expected_ratio = dec.metrics.price_distance / raw_atr
@@ -267,15 +333,19 @@ def test_atr_15_correct_distance_raw_atr_ratio():
 def test_atr_16_no_accidental_4x_atr_rejection():
     """ATR-16: Distant Stop Loss > 4x ATR is NOT rejected by geometry if structural evidence is valid."""
     raw_atr = 2.00
-    atr_obj = StopATRResult(status="AVAILABLE", value=raw_atr)
+    as_of = 2000000
+    atr_obj = StopATRResult(
+        status="AVAILABLE", value=raw_atr, timeframe="1M", symbol="XAUUSDT",
+        bars_count=15, source_candle_count=15, last_closed_at_ms=as_of-60000, last_closed_candle_timestamp=as_of-60000
+    )
     policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL", max_stop_distance_atr=4.0)
     # Distance = 20.00 -> 10x ATR!
-    anchor = StopAnchor(id="anc_1", kind="SWING_LOW", price=2680.0, timeframe="1M", occurred_at_ms=1000, known_at_ms=1060, source_leg_id="leg_1")
+    anchor = StopAnchor(id="anc_1", kind="SWING_LOW", price=2680.0, timeframe="1M", occurred_at_ms=as_of-120000, known_at_ms=as_of-60000, source_leg_id="leg_1")
     dec = plan_structural_stop(
         direction="LONG", planned_entry=2700.0, take_profit=2760.0, legacy_sl=2695.0,
         anchor_result=StopAnchorResult(status="AVAILABLE", anchor=anchor),
-        policy=policy, as_of_ms=2000, tick_size=0.01,
-        atr_m1_obj=atr_obj,
+        policy=policy, as_of_ms=as_of, tick_size=0.01,
+        atr_m1_obj=atr_obj, symbol="XAUUSDT",
     )
     assert dec.status == StopStatus.VALID.value
     assert dec.metrics.distance_atr > 4.0, f"Distance ATR is {dec.metrics.distance_atr}"
@@ -302,12 +372,71 @@ def test_atr_17_cg01_uses_verified_atr():
 
 
 def test_atr_18_m1_strategy_uses_verified_atr():
-    """ATR-18: M1 model evaluator uses verified ATR provenance."""
+    """ATR-18: Real M1 apply helper integrates verified ATR provenance into candidate decision."""
     candles = make_dummy_candles(30)
-    atr = compute_stop_atr(candles, period=14, timeframe="1M")
+    as_of = candles[-1]["timestamp"] + 60_000
+    atr = compute_stop_atr(candles, period=14, timeframe="1M", as_of_ms=as_of, symbol="XAUUSDT")
     assert atr.status == "AVAILABLE"
     assert atr.bars_count == 30
     assert atr.method == "SMA_TR_V1"
+
+    anchor = StopAnchor(id="anc_18", kind="SWING_LOW", price=2640.0, timeframe="1M", occurred_at_ms=as_of-120000, known_at_ms=as_of-60000, source_leg_id="leg_18")
+    anchor_res = StopAnchorResult(status="AVAILABLE", anchor=anchor)
+    policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL")
+
+    from dataclasses import dataclass
+    @dataclass
+    class DummyM1Cfg:
+        min_net_rr: float = 1.5
+        tick_size: float = 0.01
+        fallback_risk_pct: float = 0.01
+
+    res = apply_stop_placement_to_candidate(
+        model_id="M1_REVERSAL",
+        direction="LONG",
+        entry_price=2650.0,
+        baseline_sl=2645.0,
+        baseline_target=2670.0,
+        closed_1m=candles,
+        now_ms=as_of,
+        cfg=DummyM1Cfg(),
+        policy_settings={"capital_usdt": 1000.0, "risk_pct": 0.01, "leverage": 20},
+        stop_policy=policy,
+        stop_context={"atr_m1": atr},
+        candidate_key="cand_18",
+        anchor_result=anchor_res,
+        atr_1m_val=atr.value,
+        bid=2650.0,
+        ask=2650.1,
+    )
+    assert res.decision is not None
+    assert res.decision.status == StopStatus.VALID.value
+    assert res.decision.volatility_context["atr_m1"] == atr.value
+    assert res.decision.volatility_context["volatility_gate_status"] == "AVAILABLE"
+
+    # Negative control: unavailable ATR fails closed with WAITING_VOLATILITY_EVIDENCE
+    unavail_atr = StopATRResult(status="UNAVAILABLE", value=0.0, reason_code="INSUFFICIENT_BARS")
+    res_unavail = apply_stop_placement_to_candidate(
+        model_id="M1_REVERSAL",
+        direction="LONG",
+        entry_price=2650.0,
+        baseline_sl=2645.0,
+        baseline_target=2670.0,
+        closed_1m=candles,
+        now_ms=as_of,
+        cfg=DummyM1Cfg(),
+        policy_settings={"capital_usdt": 1000.0, "risk_pct": 0.01, "leverage": 20},
+        stop_policy=policy,
+        stop_context={"atr_m1": unavail_atr},
+        candidate_key="cand_18_bad",
+        anchor_result=anchor_res,
+        atr_1m_val=1.5,
+        bid=2650.0,
+        ask=2650.1,
+    )
+    assert res_unavail.allowed is False
+    assert res_unavail.decision is not None
+    assert res_unavail.decision.status == StopStatus.WAITING_VOLATILITY_EVIDENCE.value
 
 
 def test_atr_19_shadow_compare_remains_backward_compatible():
@@ -325,15 +454,171 @@ def test_atr_19_shadow_compare_remains_backward_compatible():
     assert dec.applied_variant == "A"
 
 
-def test_atr_20_paper_structural_cannot_arm_with_invalid_provenance():
+def test_atr_20_paper_structural_cannot_arm_with_invalid_provenance(isolated_db):
     """ATR-20: PAPER_STRUCTURAL mode cannot ARM when ATR provenance is invalid or missing."""
-    anchor = StopAnchor(id="anc_1", kind="SWING_LOW", price=2640.0, timeframe="1M", occurred_at_ms=1000, known_at_ms=1060, source_leg_id="leg_1")
+    from services.scalp_watcher_orchestrator import ScalpWatcherOrchestrator
+    from services.scalp_m1_model_service import ScalpCandidate
+    from services.scalp_m1_types import OpportunityStage
+    from services.quote_validator import ValidatedQuote
+    from services.clock import LiveClock
+    from services.stop_placement_service import validate_applied_stop_decision
+    import models
+
+    db = isolated_db
+    orch = ScalpWatcherOrchestrator()
+    now_ms = 2_000_000
+
+    # 1. Direct validation barrier test
+    class DummyCalc:
+        is_valid = True
+        can_execute = True
+        stop_loss = 2645.0
+        skip_reason = None
+        invalid_reason = None
+
+    class DummyCand:
+        candidate_key = "test_cand_atr_20"
+        symbol = "XAUUSDT"
+        model_id = "M1_REVERSAL"
+        direction = "LONG"
+        zone_id = "z_20"
+        planned_entry = 2650.0
+        stop_loss = 2645.0
+        take_profit = 2670.0
+        net_rr = 2.0
+        order_id = "ord_atr_20"
+        snapshot = None
+        calculation = DummyCalc()
+        stop_placement = StopPlacementDecision(
+            status=StopStatus.VALID.value,
+            selected_sl=2645.0,
+            anchor=StopAnchor(id="anc_20", kind="SWING_LOW", price=2640.0, timeframe="1M", occurred_at_ms=now_ms-120000, known_at_ms=now_ms-60000, source_leg_id="l1"),
+            bound_leg=None,
+            buffer=None,
+            metrics=StopMetrics(price_distance=5.0, distance_ticks=500, distance_atr=2.5),
+            reasons=(),
+            policy_version=1,
+            mode="PAPER_STRUCTURAL",
+            decision_cutoff_ms=now_ms,
+            applied_variant="C",
+            protective_distance=1.0,
+            expansion_applied=False,
+            distance_assessment="DISTANCE_NORMAL",
+            volatility_context={
+                "atr_m1": None,  # FORGED / MISSING ATR EVIDENCE!
+                "atr_m1_status": "UNAVAILABLE",
+                "volatility_gate_status": "FAIL_CLOSED",
+            },
+        )
+
+    cand = DummyCand()
     policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL")
-    dec = plan_structural_stop(
-        direction="LONG", planned_entry=2650.0, take_profit=2670.0, legacy_sl=2645.0,
-        anchor_result=StopAnchorResult(status="AVAILABLE", anchor=anchor),
-        policy=policy, as_of_ms=2000, tick_size=0.01,
-        atr_m1_obj=StopATRResult(status="UNAVAILABLE", value=0.0, reason_code="INVALID_PROVENANCE"),
+
+    ok, reason = validate_applied_stop_decision(candidate=cand, current_policy=policy, now_ms=now_ms)
+    assert ok is False
+    assert "FAIL_CLOSED" in reason or "ATR" in reason
+
+    # 2. Actual ARM boundary test through _arm_paper_candidate
+    from services.stop_placement_policy_service import resolve_stop_placement_policy
+    # Ensure current DB policy is PAPER_STRUCTURAL
+    existing_policy = db.query(models.SystemConfig).filter(models.SystemConfig.key == "stop_placement_v1.mode").first()
+    if existing_policy is None:
+        db.add(models.SystemConfig(key="stop_placement_v1.mode", value="PAPER_STRUCTURAL", updated_at=datetime.utcnow()))
+    else:
+        existing_policy.value = "PAPER_STRUCTURAL"
+        existing_policy.updated_at = datetime.utcnow()
+    db.commit()
+
+    v_quote = ValidatedQuote(
+        is_valid=True, bid=2650.0, ask=2650.1, last=2650.05, spread=0.10,
+        exchange_time=now_ms, observed_at=now_ms, freshness_sec=0.1, is_stale=False,
+        rejection_code=None, rejection_detail=None
     )
-    assert dec.status == StopStatus.WAITING_VOLATILITY_EVIDENCE.value
-    assert dec.selected_sl is None
+    armed_order = orch._arm_paper_candidate(
+        db,
+        cand,
+        now_ms=now_ms,
+        clock=LiveClock(),
+        quote=v_quote,
+        policy_settings={"capital_usdt": 1000.0, "risk_pct": 0.01, "leverage": 20},
+        auto_enabled=True,
+    )
+    assert armed_order is None, "ARM must reject forged/missing ATR candidate"
+    order_in_db = db.query(models.PaperOrder).filter(models.PaperOrder.id == "ord_atr_20").first()
+    assert order_in_db is None, "No PaperOrder may be persisted when ATR authority fails"
+
+
+def test_atr_21_four_m1_models_integrate_verified_authority():
+    """ATR-21 (V17.7.4 Section 07.3 / A22):
+    All four M1 models (M1_REVERSAL, M1_CONTINUATION, M1_FVG_CONTINUATION, M1_SWEEP_RECLAIM)
+    integrate through the authoritative ATR contract without scalar ambiguity.
+    """
+    candles = make_dummy_candles(30)
+    as_of = candles[-1]["timestamp"] + 60_000
+    atr = compute_stop_atr(candles, period=14, timeframe="1M", as_of_ms=as_of, symbol="XAUUSDT")
+    assert atr.status == "AVAILABLE"
+
+    anchor = StopAnchor(id="anc_21", kind="SWING_LOW", price=2640.0, timeframe="1M", occurred_at_ms=as_of-120000, known_at_ms=as_of-60000, source_leg_id="leg_21")
+    anchor_res = StopAnchorResult(status="AVAILABLE", anchor=anchor)
+    policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL")
+
+    from dataclasses import dataclass
+    @dataclass
+    class DummyM1Cfg:
+        min_net_rr: float = 1.5
+        tick_size: float = 0.01
+        fallback_risk_pct: float = 0.01
+
+    m1_models = [
+        "M1_REVERSAL",
+        "M1_CONTINUATION",
+        "M1_FVG_CONTINUATION",
+        "M1_SWEEP_RECLAIM",
+    ]
+
+    for mid in m1_models:
+        res = apply_stop_placement_to_candidate(
+            model_id=mid,
+            direction="LONG",
+            entry_price=2650.0,
+            baseline_sl=2645.0,
+            baseline_target=2670.0,
+            closed_1m=candles,
+            now_ms=as_of,
+            cfg=DummyM1Cfg(),
+            policy_settings={"capital_usdt": 1000.0, "risk_pct": 0.01, "leverage": 20},
+            stop_policy=policy,
+            stop_context={"atr_m1": atr},
+            candidate_key=f"cand_21_{mid}",
+            anchor_result=anchor_res,
+            atr_1m_val=None,  # No scalar fallback
+            bid=2650.0,
+            ask=2650.1,
+        )
+        assert res.decision is not None, f"Model {mid} decision was None"
+        assert res.decision.status == StopStatus.VALID.value, f"Model {mid} failed: {res.decision.reasons}"
+        assert res.decision.volatility_context["atr_m1"] == atr.value
+        assert res.decision.volatility_context["volatility_gate_status"] == "AVAILABLE"
+
+        # Negative control: missing ATR fails closed for every model even if scalar is present
+        res_fail = apply_stop_placement_to_candidate(
+            model_id=mid,
+            direction="LONG",
+            entry_price=2650.0,
+            baseline_sl=2645.0,
+            baseline_target=2670.0,
+            closed_1m=candles,
+            now_ms=as_of,
+            cfg=DummyM1Cfg(),
+            policy_settings={"capital_usdt": 1000.0, "risk_pct": 0.01, "leverage": 20},
+            stop_policy=policy,
+            stop_context={"atr_m1": None},
+            candidate_key=f"cand_21_fail_{mid}",
+            anchor_result=anchor_res,
+            atr_1m_val=3.0,  # Scalar must NOT override in PAPER_STRUCTURAL
+            bid=2650.0,
+            ask=2650.1,
+        )
+        assert res_fail.allowed is False
+        assert res_fail.decision.status == StopStatus.WAITING_VOLATILITY_EVIDENCE.value
+

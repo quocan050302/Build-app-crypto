@@ -68,10 +68,11 @@ from tests.test_v16_3_cg01_pipeline import build_long_fixture_series
 
 @pytest.fixture(autouse=True)
 def clean_v17_7_db():
-    assert_test_database_isolated()
+    assert_test_database_isolated(target_engine=engine)
     run_schema_migrations(engine)
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
+    assert_test_database_isolated(session=db)
     try:
         db.query(SystemConfig).delete(synchronize_session=False)
         db.query(models.TradingPolicy).delete(synchronize_session=False)
@@ -93,8 +94,9 @@ def clean_v17_7_db():
     finally:
         db.close()
     yield
-    assert_test_database_isolated()
+    assert_test_database_isolated(target_engine=engine)
     db = SessionLocal()
+    assert_test_database_isolated(session=db)
     try:
         db.query(SystemConfig).delete(synchronize_session=False)
         db.query(models.TradingPolicy).delete(synchronize_session=False)
@@ -115,6 +117,23 @@ def clean_v17_7_db():
         db.commit()
     finally:
         db.close()
+
+
+def make_test_atr(value: float, symbol: str = "XAUUSDT", timeframe: str = "1M", as_of: int = 1060000) -> StopATRResult:
+    """Helper creating valid execution-grade ATR evidence for test scenarios (V17.7.4 Section 04)."""
+    return StopATRResult(
+        symbol=symbol,
+        timeframe=timeframe,
+        period=14,
+        method="SMA_TR_V1",
+        value=float(value),
+        bars_count=15,
+        source_candle_count=15,
+        last_closed_at_ms=as_of - 10,
+        last_closed_candle_timestamp=as_of - 10,
+        calculated_as_of=as_of,
+        status="AVAILABLE",
+    )
 
 
 def make_dummy_candles(n: int = 30, base_price: float = 2700.0, step: float = 0.5, start_ts: int = 1000000, tf_ms: int = 60000):
@@ -205,7 +224,8 @@ def test_sl_01_long_structure_stop_below_protected_low():
     policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL", min_buffer_ticks=10)
     dec = plan_structural_stop(
         direction="LONG", planned_entry=2700.0, take_profit=2720.0, legacy_sl=2699.5,
-        anchor_result=anchor_res, policy=policy, as_of_ms=1060, tick_size=0.01, atr_m1_val=1.5,
+        anchor_result=anchor_res, policy=policy, as_of_ms=1060, tick_size=0.01,
+        atr_m1_val=1.5, atr_m1_obj=make_test_atr(1.5, as_of=1060),
     )
     assert dec.status == StopStatus.VALID.value
     assert dec.selected_sl is not None
@@ -223,7 +243,8 @@ def test_sl_02_short_structure_stop_above_protected_high():
     policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL", min_buffer_ticks=10)
     dec = plan_structural_stop(
         direction="SHORT", planned_entry=2700.0, take_profit=2680.0, legacy_sl=2700.5,
-        anchor_result=anchor_res, policy=policy, as_of_ms=1060, tick_size=0.01, atr_m1_val=1.5,
+        anchor_result=anchor_res, policy=policy, as_of_ms=1060, tick_size=0.01,
+        atr_m1_val=1.5, atr_m1_obj=make_test_atr(1.5, as_of=1060),
     )
     assert dec.status == StopStatus.VALID.value
     assert dec.selected_sl is not None
@@ -451,7 +472,8 @@ def test_sl_19_entry_relative_stop_distance_protection():
     )
     dec = plan_structural_stop(
         direction="LONG", planned_entry=2700.0, take_profit=2720.0, legacy_sl=2699.85,
-        anchor_result=anchor_res, policy=policy, as_of_ms=1060, tick_size=0.01, atr_m1_val=2.0,
+        anchor_result=anchor_res, policy=policy, as_of_ms=1060, tick_size=0.01,
+        atr_m1_val=2.0, atr_m1_obj=make_test_atr(2.0, as_of=1060),
     )
     assert dec.status == StopStatus.VALID.value
     dist = 2700.0 - dec.selected_sl
@@ -473,7 +495,8 @@ def test_sl_20_excessively_wide_stop_rejected():
     policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL", max_stop_distance_atr=4.0)
     dec = plan_structural_stop(
         direction="LONG", planned_entry=2700.0, take_profit=2750.0, legacy_sl=2695.0,
-        anchor_result=anchor_res, policy=policy, as_of_ms=1060, tick_size=0.01, atr_m1_val=2.0,
+        anchor_result=anchor_res, policy=policy, as_of_ms=1060, tick_size=0.01,
+        atr_m1_val=2.0, atr_m1_obj=make_test_atr(2.0, as_of=1060),
     )
     assert dec.status == StopStatus.VALID.value
     assert dec.distance_assessment == "DISTANCE_EXTREME"
@@ -616,7 +639,8 @@ def test_sl_31_paper_structural_valid_selection():
     anchor_res = StopAnchorResult(status="AVAILABLE", anchor=anchor)
     dec = plan_structural_stop(
         direction="LONG", planned_entry=2700.0, take_profit=2730.0, legacy_sl=2695.0,
-        anchor_result=anchor_res, policy=policy, as_of_ms=1060, atr_m1_val=1.5,
+        anchor_result=anchor_res, policy=policy, as_of_ms=1060,
+        atr_m1_val=1.5, atr_m1_obj=make_test_atr(1.5, as_of=1060),
     )
     assert dec.status == StopStatus.VALID.value
     assert dec.applied_variant == "C"
@@ -717,7 +741,8 @@ def test_sl_37_reversal_model_behavior():
     policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL")
     dec = plan_structural_stop(
         direction="LONG", planned_entry=2700.0, take_profit=2725.0, legacy_sl=2695.0,
-        anchor_result=res, policy=policy, as_of_ms=1060000, atr_m1_val=1.5
+        anchor_result=res, policy=policy, as_of_ms=1060000,
+        atr_m1_val=1.5, atr_m1_obj=make_test_atr(1.5, as_of=1060000),
     )
     assert dec.status == StopStatus.VALID.value
     assert dec.selected_sl < 2691.0
@@ -778,7 +803,8 @@ def test_sl_38_continuation_model_behavior():
     policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL")
     dec = plan_structural_stop(
         direction="SHORT", planned_entry=2690.0, take_profit=2650.0, legacy_sl=2705.0,
-        anchor_result=res, policy=policy, as_of_ms=as_of, atr_m1_val=1.5
+        anchor_result=res, policy=policy, as_of_ms=as_of,
+        atr_m1_val=1.5, atr_m1_obj=make_test_atr(1.5, as_of=as_of),
     )
     assert dec.status == StopStatus.VALID.value
     assert dec.selected_sl > px
@@ -824,7 +850,8 @@ def test_sl_39_fvg_continuation_behavior():
     policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL")
     dec = plan_structural_stop(
         direction="LONG", planned_entry=2705.0, take_profit=2735.0, legacy_sl=2695.0,
-        anchor_result=res, policy=policy, as_of_ms=as_of, atr_m1_val=1.5
+        anchor_result=res, policy=policy, as_of_ms=as_of,
+        atr_m1_val=1.5, atr_m1_obj=make_test_atr(1.5, as_of=as_of),
     )
     assert dec.status == StopStatus.VALID.value
     assert dec.selected_sl < px
@@ -890,7 +917,8 @@ def test_sl_40_sweep_reclaim_behavior():
     policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL")
     dec = plan_structural_stop(
         direction="SHORT", planned_entry=2700.0, take_profit=2670.0, legacy_sl=2708.0,
-        anchor_result=res, policy=policy, as_of_ms=1060000, atr_m1_val=1.5
+        anchor_result=res, policy=policy, as_of_ms=1060000,
+        atr_m1_val=1.5, atr_m1_obj=make_test_atr(1.5, as_of=1060000),
     )
     assert dec.status == StopStatus.VALID.value
     assert dec.selected_sl > 2716.5
@@ -1464,7 +1492,8 @@ def test_dsl_01_long_stop_greater_than_4_atr_accepted():
     # Planned entry: 2700.00, Anchor: 2678.00, SL ~ 2677.50, ATR: 3.00 -> distance 22.50 = 7.5x ATR!
     dec = plan_structural_stop(
         direction="LONG", planned_entry=2700.0, take_profit=2760.0, legacy_sl=2695.0,
-        anchor_result=anchor_res, policy=policy, as_of_ms=1060000, tick_size=0.01, atr_m1_val=3.0,
+        anchor_result=anchor_res, policy=policy, as_of_ms=1060000, tick_size=0.01,
+        atr_m1_val=3.0, atr_m1_obj=make_test_atr(3.0, as_of=1060000),
     )
     assert dec.status == StopStatus.VALID.value
     assert dec.distance_assessment == "DISTANCE_EXTREME"
@@ -1491,7 +1520,8 @@ def test_dsl_02_short_stop_greater_than_4_atr_accepted():
     # Planned entry: 2700.00, Anchor: 2724.00, SL ~ 2724.50, ATR: 3.00 -> distance 24.50 = 8.16x ATR!
     dec = plan_structural_stop(
         direction="SHORT", planned_entry=2700.0, take_profit=2640.0, legacy_sl=2705.0,
-        anchor_result=anchor_res, policy=policy, as_of_ms=1060000, tick_size=0.01, atr_m1_val=3.0,
+        anchor_result=anchor_res, policy=policy, as_of_ms=1060000, tick_size=0.01,
+        atr_m1_val=3.0, atr_m1_obj=make_test_atr(3.0, as_of=1060000),
     )
     assert dec.status == StopStatus.VALID.value
     assert dec.distance_assessment == "DISTANCE_EXTREME"
@@ -1577,7 +1607,8 @@ def test_dsl_08_historical_policy_and_evidence_compatibility():
     dec = plan_structural_stop(
         direction="LONG", planned_entry=2700.0, take_profit=2780.0, legacy_sl=2695.0,
         anchor_result=StopAnchorResult(status="AVAILABLE", anchor=anchor),
-        policy=policy, as_of_ms=1060, atr_m1_val=2.0
+        policy=policy, as_of_ms=1060,
+        atr_m1_val=2.0, atr_m1_obj=make_test_atr(2.0, as_of=1060),
     )
     assert dec.status == StopStatus.VALID.value
     assert dec.distance_assessment == "DISTANCE_EXTREME"
@@ -1683,11 +1714,13 @@ def test_dsl_15_deterministic_distant_sl_replay():
 
     d1 = plan_structural_stop(
         direction="LONG", planned_entry=2700.0, take_profit=2760.0, legacy_sl=2695.0,
-        anchor_result=anchor_res, policy=policy, as_of_ms=1060, atr_m1_val=3.0
+        anchor_result=anchor_res, policy=policy, as_of_ms=1060,
+        atr_m1_val=3.0, atr_m1_obj=make_test_atr(3.0, as_of=1060),
     )
     d2 = plan_structural_stop(
         direction="LONG", planned_entry=2700.0, take_profit=2760.0, legacy_sl=2695.0,
-        anchor_result=anchor_res, policy=policy, as_of_ms=1060, atr_m1_val=3.0
+        anchor_result=anchor_res, policy=policy, as_of_ms=1060,
+        atr_m1_val=3.0, atr_m1_obj=make_test_atr(3.0, as_of=1060),
     )
     assert d1.selected_sl == d2.selected_sl
     assert d1.distance_assessment == d2.distance_assessment == "DISTANCE_EXTREME"
@@ -1908,7 +1941,9 @@ def test_ce_05_optional_m5_missing_handled_per_policy():
     dec = plan_structural_stop(
         direction="LONG", planned_entry=2700.0, take_profit=2730.0, legacy_sl=2695.0,
         anchor_result=StopAnchorResult(status="AVAILABLE", anchor=anchor),
-        policy=policy, as_of_ms=1060, atr_m1_val=1.5, atr_m5_val=None, atr_m5_obj=None
+        policy=policy, as_of_ms=1060,
+        atr_m1_val=1.5, atr_m1_obj=make_test_atr(1.5, as_of=1060),
+        atr_m5_val=None, atr_m5_obj=None
     )
     assert dec.status == StopStatus.VALID.value
     assert dec.selected_sl is not None
@@ -2242,48 +2277,149 @@ def test_ce_18_negative_control_live_order_dispatch_blocked():
 
 
 def test_ce_19_acceptance_runner_refuses_pass_on_missing_gates():
-    """CE-19 (V173-P1-03): Master acceptance runner verdict module refuses PASS if any mandatory gate is missing, skipped, or failed."""
+    """CE-19 (V17.7.4 Section 12.2): Master acceptance runner verdict module refuses PASS under all fail-closed conditions."""
     from tools.acceptance_verdict import determine_release_verdict
 
     manifest = ["G01", "G02", "G03"]
 
     # 1. Gate missing from results
-    res_missing = {"G01": {"status": "PASS"}, "G02": {"status": "PASS"}}
-    assert determine_release_verdict(res_missing, manifest) == "BLOCKED"
+    assert determine_release_verdict({"G01": {"status": "PASS", "exit_code": 0}, "G02": {"status": "PASS", "exit_code": 0}}, manifest) == "BLOCKED"
 
     # 2. Gate NOT_EXECUTED
-    res_not_exec = {"G01": {"status": "PASS"}, "G02": {"status": "PASS"}, "G03": {"status": "NOT_EXECUTED"}}
-    assert determine_release_verdict(res_not_exec, manifest) == "BLOCKED"
+    assert determine_release_verdict({"G01": {"status": "PASS", "exit_code": 0}, "G02": {"status": "PASS", "exit_code": 0}, "G03": {"status": "NOT_EXECUTED"}}, manifest) == "BLOCKED"
 
     # 3. Gate SKIPPED_WITH_REASON
-    res_skipped = {"G01": {"status": "PASS"}, "G02": {"status": "PASS"}, "G03": {"status": "SKIPPED_WITH_REASON"}}
-    assert determine_release_verdict(res_skipped, manifest) == "BLOCKED"
+    assert determine_release_verdict({"G01": {"status": "PASS", "exit_code": 0}, "G02": {"status": "PASS", "exit_code": 0}, "G03": {"status": "SKIPPED_WITH_REASON"}}, manifest) == "BLOCKED"
 
     # 4. Gate FAIL
-    res_fail = {"G01": {"status": "PASS"}, "G02": {"status": "FAIL"}, "G03": {"status": "PASS"}}
-    assert determine_release_verdict(res_fail, manifest) == "BLOCKED"
+    assert determine_release_verdict({"G01": {"status": "PASS", "exit_code": 0}, "G02": {"status": "FAIL", "exit_code": 1}, "G03": {"status": "PASS", "exit_code": 0}}, manifest) == "BLOCKED"
 
-    # 5. Exit code contradicts PASS
-    res_exit_err = {"G01": {"status": "PASS"}, "G02": {"status": "PASS"}, "G03": {"status": "PASS", "exit_code": 1}}
-    assert determine_release_verdict(res_exit_err, manifest) == "BLOCKED"
+    # 5. Nonzero exit code contradicts PASS
+    assert determine_release_verdict({"G01": {"status": "PASS", "exit_code": 0}, "G02": {"status": "PASS", "exit_code": 0}, "G03": {"status": "PASS", "exit_code": 1}}, manifest) == "BLOCKED"
 
-    # 6. All mandatory gates PASS
-    res_pass = {"G01": {"status": "PASS"}, "G02": {"status": "PASS"}, "G03": {"status": "PASS", "exit_code": 0}}
+    # 6. Missing exit_code on command gate
+    assert determine_release_verdict({"G01": {"status": "PASS", "exit_code": 0}, "G02": {"status": "PASS", "exit_code": 0}, "G03": {"status": "PASS"}}, manifest) == "BLOCKED"
+
+    # 7. Boolean exit_code (e.g. exit_code=True)
+    assert determine_release_verdict({"G01": {"status": "PASS", "exit_code": 0}, "G02": {"status": "PASS", "exit_code": 0}, "G03": {"status": "PASS", "exit_code": True}}, manifest) == "BLOCKED"
+
+    # 8. Empty manifest
+    assert determine_release_verdict({"G01": {"status": "PASS", "exit_code": 0}}, []) == "BLOCKED"
+
+    # 9. Duplicate manifest items
+    assert determine_release_verdict({"G01": {"status": "PASS", "exit_code": 0}}, ["G01", "G01"]) == "BLOCKED"
+
+    # 10. Collection errors in counts
+    assert determine_release_verdict({"G01": {"status": "PASS", "exit_code": 0, "counts": {"collection_errors": 1}}, "G02": {"status": "PASS", "exit_code": 0}, "G03": {"status": "PASS", "exit_code": 0}}, manifest) == "BLOCKED"
+
+    # 11. All skipped suite (passed=0, collected=5, skipped=5)
+    assert determine_release_verdict({"G01": {"status": "PASS", "exit_code": 0, "counts": {"passed": 0, "collected": 5, "skipped": 5}}, "G02": {"status": "PASS", "exit_code": 0}, "G03": {"status": "PASS", "exit_code": 0}}, manifest) == "BLOCKED"
+
+    # 12. Negative test counts
+    assert determine_release_verdict({"G01": {"status": "PASS", "exit_code": 0, "counts": {"passed": -1}}, "G02": {"status": "PASS", "exit_code": 0}, "G03": {"status": "PASS", "exit_code": 0}}, manifest) == "BLOCKED"
+
+    # 13. Unverified integrity flag
+    assert determine_release_verdict({"G01": {"status": "PASS", "exit_code": 0, "integrity_verified": False}, "G02": {"status": "PASS", "exit_code": 0}, "G03": {"status": "PASS", "exit_code": 0}}, manifest) == "BLOCKED"
+
+    # 14. Positive control: All mandatory gates PASS with valid counts
+    res_pass = {
+        "G01": {"status": "PASS", "exit_code": 0, "counts": {"passed": 5, "failed": 0}},
+        "G02": {"status": "PASS", "exit_code": 0, "counts": {"passed": 10, "failed": 0}},
+        "G03": {"status": "PASS", "exit_code": 0, "counts": {"passed": 2, "failed": 0}},
+    }
     assert determine_release_verdict(res_pass, manifest) == "ACCEPTED_FOR_PAPER_OPT_IN"
 
 
-def test_ce_20_acceptance_artifact_source_sha_matches_tested_source():
-    """CE-20 (V173-P1-04): Acceptance artifact source SHA verification logic matches actual git rev-parse HEAD."""
+def test_ce_20_acceptance_artifact_source_sha_matches_tested_source(tmp_path):
+    """CE-20 (V17.7.4 Section 12.1): Acceptance artifact writer and verifier enforce on-disk bundle integrity and negative controls."""
+    from tools.acceptance_verdict import MANDATORY_GATES_V17_7_4
+    from tools.artifact_verifier import (
+        build_source_manifest,
+        write_acceptance_artifacts,
+        verify_acceptance_bundle,
+    )
     import subprocess
-    cmd = "git rev-parse HEAD"
-    res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    import sys
+
+    cmd = [sys.executable, "-c", "import subprocess; print(subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip())"]
+    res = subprocess.run(cmd, capture_output=True, text=True)
     expected_sha = res.stdout.strip()
     assert len(expected_sha) == 40
 
-    # Test artifact match logic
-    valid_artifact = {"tested_source_sha": expected_sha, "verdict": "ACCEPTED_FOR_PAPER_OPT_IN"}
-    assert valid_artifact["tested_source_sha"] == expected_sha
+    run_id = "test_run_ce20"
+    source_manifest = {"schema_version": 1, "files": {"backend/database.py": "abc123hash"}, "composite_sha": "comp_sha"}
+    gate_manifest = list(MANDATORY_GATES_V17_7_4)
 
-    stale_artifact = {"tested_source_sha": "0000000000000000000000000000000000000000", "verdict": "ACCEPTED_FOR_PAPER_OPT_IN"}
-    is_sha_valid = (stale_artifact["tested_source_sha"] == expected_sha)
-    assert is_sha_valid is False
+    # Build valid gates payload with all 28 gates
+    valid_gates = {}
+    for g in gate_manifest:
+        valid_gates[g] = {"status": "PASS", "exit_code": 0, "counts": {"passed": 1, "failed": 0}}
+
+    results_payload = {
+        "timestamp_utc": "2026-10-27T00:00:00Z",
+        "runner_version": "17.7.4",
+        "run_id": run_id,
+        "branch": "feat/v17-7-adaptive-structural-stop-loss",
+        "source_sha": expected_sha,
+        "gates": valid_gates,
+        "verdict": "ACCEPTED_FOR_PAPER_OPT_IN",
+    }
+
+    # 1. Write actual valid bundle to disk
+    run_dir = write_acceptance_artifacts(
+        run_id=run_id,
+        results_payload=results_payload,
+        source_manifest=source_manifest,
+        gate_manifest=gate_manifest,
+        artifacts_base_dir=tmp_path,
+    )
+
+    # 2. Positive control: valid bundle passes verification
+    ok, errors = verify_acceptance_bundle(run_dir, expected_version="17.7.4", expected_run_id=run_id, expected_source_sha=expected_sha)
+    assert ok is True, f"Positive control failed: {errors}"
+    assert len(errors) == 0
+
+    # 3. Negative control: Stale source SHA
+    ok_stale, errors_stale = verify_acceptance_bundle(run_dir, expected_source_sha="0000000000000000000000000000000000000000")
+    assert ok_stale is False
+    assert any("Source SHA mismatch" in e for e in errors_stale)
+
+    # 4. Negative control: Wrong runner version
+    ok_ver, errors_ver = verify_acceptance_bundle(run_dir, expected_version="17.7.3")
+    assert ok_ver is False
+    assert any("Version mismatch" in e for e in errors_ver)
+
+    # 5. Negative control: Cross-run ID reference
+    ok_run, errors_run = verify_acceptance_bundle(run_dir, expected_run_id="foreign_run_999")
+    assert ok_run is False
+    assert any("Run ID mismatch" in e for e in errors_run)
+
+    # 6. Negative control: Modified report bytes / Tampered content
+    res_file = run_dir / "acceptance_results.json"
+    orig_content = res_file.read_text(encoding="utf-8")
+    try:
+        res_file.write_text(orig_content.replace("17.7.4", "17.7.4_TAMPERED"), encoding="utf-8")
+        ok_tamp, errors_tamp = verify_acceptance_bundle(run_dir, expected_version="17.7.4")
+        assert ok_tamp is False
+        assert any("Integrity mismatch" in e for e in errors_tamp)
+    finally:
+        res_file.write_text(orig_content, encoding="utf-8")
+
+    # 7. Negative control: Missing required artifact
+    src_man_file = run_dir / "source_manifest.json"
+    src_man_backup = src_man_file.read_text(encoding="utf-8")
+    try:
+        src_man_file.unlink()
+        ok_miss, errors_miss = verify_acceptance_bundle(run_dir)
+        assert ok_miss is False
+        assert any("Missing required artifact" in e for e in errors_miss)
+    finally:
+        src_man_file.write_text(src_man_backup, encoding="utf-8")
+
+    # 8. Negative control: Malformed JSON
+    try:
+        res_file.write_text("{ MALFORMED_JSON_BYTES", encoding="utf-8")
+        ok_malf, errors_malf = verify_acceptance_bundle(run_dir)
+        assert ok_malf is False
+    finally:
+        res_file.write_text(orig_content, encoding="utf-8")
