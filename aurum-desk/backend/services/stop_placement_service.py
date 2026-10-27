@@ -115,6 +115,8 @@ def validate_stop_atr_authority(
     status = getattr(atr_result, "status", None)
     if status != "AVAILABLE":
         rc = getattr(atr_result, "reason_code", None)
+        if rc in ("ZERO_OR_NEGATIVE_ATR", "NON_POSITIVE_OR_NON_FINITE_ATR"):
+            return False, "ATR_NON_POSITIVE_OR_NON_FINITE"
         return False, f"ATR_STATUS_UNAVAILABLE: {rc}" if rc else "ATR_STATUS_UNAVAILABLE"
 
     # 3. Value check: finite, positive, NOT bool!
@@ -139,9 +141,14 @@ def validate_stop_atr_authority(
         if sym is None or str(sym).upper() != str(expected_symbol).upper():
             return False, "ATR_SYMBOL_MISMATCH"
 
-    # 6. Period check
+    # 6. Period check: defensive parsing
     prd = getattr(atr_result, "period", None)
-    if prd is None or isinstance(prd, bool) or int(prd) != int(expected_period):
+    if prd is None or isinstance(prd, bool):
+        return False, "ATR_PERIOD_MISMATCH"
+    try:
+        if int(prd) != int(expected_period):
+            return False, "ATR_PERIOD_MISMATCH"
+    except (ValueError, TypeError):
         return False, "ATR_PERIOD_MISMATCH"
 
     # 7. Method check
@@ -154,7 +161,12 @@ def validate_stop_atr_authority(
     source_candle_count = getattr(atr_result, "source_candle_count", None)
     min_count = expected_period + 1
     eff_count = bars_count if bars_count is not None else source_candle_count
-    if eff_count is None or isinstance(eff_count, bool) or int(eff_count) < min_count:
+    if eff_count is None or isinstance(eff_count, bool):
+        return False, "ATR_SOURCE_COUNT_INSUFFICIENT"
+    try:
+        if int(eff_count) < min_count:
+            return False, "ATR_SOURCE_COUNT_INSUFFICIENT"
+    except (ValueError, TypeError):
         return False, "ATR_SOURCE_COUNT_INSUFFICIENT"
 
     # 11. Duplicate metadata consistency
@@ -163,11 +175,14 @@ def validate_stop_atr_authority(
         and source_candle_count is not None
         and not isinstance(bars_count, bool)
         and not isinstance(source_candle_count, bool)
-        and int(bars_count) > 0
-        and int(source_candle_count) > 0
-        and int(bars_count) != int(source_candle_count)
     ):
-        return False, "ATR_PROVENANCE_INCONSISTENT"
+        try:
+            bc_int = int(bars_count)
+            sc_int = int(source_candle_count)
+            if bc_int > 0 and sc_int > 0 and bc_int != sc_int:
+                return False, "ATR_PROVENANCE_INCONSISTENT"
+        except (ValueError, TypeError):
+            return False, "ATR_PROVENANCE_INCONSISTENT"
 
     last_closed_at = getattr(atr_result, "last_closed_at_ms", None)
     last_closed_candle = getattr(atr_result, "last_closed_candle_timestamp", None)
@@ -176,30 +191,77 @@ def validate_stop_atr_authority(
         and last_closed_candle is not None
         and not isinstance(last_closed_at, bool)
         and not isinstance(last_closed_candle, bool)
-        and int(last_closed_at) > 0
-        and int(last_closed_candle) > 0
-        and int(last_closed_at) != int(last_closed_candle)
     ):
-        return False, "ATR_PROVENANCE_INCONSISTENT"
+        try:
+            lca_int = int(last_closed_at)
+            lcc_int = int(last_closed_candle)
+            if lca_int > 0 and lcc_int > 0 and lca_int != lcc_int:
+                return False, "ATR_PROVENANCE_INCONSISTENT"
+        except (ValueError, TypeError):
+            return False, "ATR_PROVENANCE_INCONSISTENT"
 
-    # 9. & 10. Causal timestamps <= decision_cutoff
+    # 9. Required timestamps: last_closed_at_ms or last_closed_candle_timestamp MUST be present, positive int > 0
     eff_last_closed = last_closed_at if last_closed_at is not None else last_closed_candle
-    if eff_last_closed is not None and not isinstance(eff_last_closed, bool):
-        eff_last_closed = int(eff_last_closed)
-        if eff_last_closed <= 0:
-            return False, "ATR_PROVENANCE_MISSING"
-        if decision_cutoff is not None and eff_last_closed > int(decision_cutoff):
-            return False, "ATR_SOURCE_AFTER_DECISION"
+    if eff_last_closed is None or isinstance(eff_last_closed, bool):
+        return False, "ATR_TIMESTAMP_MISSING_OR_INVALID"
+    try:
+        int_last_closed = int(eff_last_closed)
+        if int_last_closed <= 0:
+            return False, "ATR_TIMESTAMP_MISSING_OR_INVALID"
+    except (ValueError, TypeError):
+        return False, "ATR_TIMESTAMP_MISSING_OR_INVALID"
 
     calc_as_of = getattr(atr_result, "calculated_as_of", None)
-    if calc_as_of is not None and not isinstance(calc_as_of, bool) and int(calc_as_of) > 0:
-        if decision_cutoff is not None and int(calc_as_of) > int(decision_cutoff):
-            return False, "ATR_SOURCE_AFTER_DECISION"
+    if calc_as_of is None or isinstance(calc_as_of, bool):
+        return False, "ATR_TIMESTAMP_MISSING_OR_INVALID"
+    try:
+        int_calc_as_of = int(calc_as_of)
+        if int_calc_as_of < 0:
+            return False, "ATR_TIMESTAMP_MISSING_OR_INVALID"
+    except (ValueError, TypeError):
+        return False, "ATR_TIMESTAMP_MISSING_OR_INVALID"
+
+    # Effective calculated_as_of: if 0, defaults to int_last_closed
+    eff_calc_as_of = int_calc_as_of if int_calc_as_of > 0 else int_last_closed
+
+    # Causal ordering: last closed bar must have closed at or before calculation time
+    if int_last_closed > eff_calc_as_of:
+        return False, "ATR_PROVENANCE_INCONSISTENT"
+
+    # 10. Decision cutoff validation
+    if decision_cutoff is not None and not isinstance(decision_cutoff, bool):
+        try:
+            int_cutoff = int(decision_cutoff)
+            if int_last_closed > int_cutoff:
+                return False, "ATR_SOURCE_AFTER_DECISION"
+            if eff_calc_as_of > int_cutoff:
+                return False, "ATR_SOURCE_AFTER_DECISION"
+        except (ValueError, TypeError):
+            pass
+
+    # Own decision cutoff validation (if set > 0, must be >= eff_calc_as_of, and <= caller cutoff)
+    own_cutoff = getattr(atr_result, "decision_cutoff", None)
+    if own_cutoff is not None and not isinstance(own_cutoff, bool):
+        try:
+            int_own_cutoff = int(own_cutoff)
+            if int_own_cutoff < 0:
+                return False, "ATR_TIMESTAMP_MISSING_OR_INVALID"
+            if int_own_cutoff > 0:
+                if eff_calc_as_of > int_own_cutoff:
+                    return False, "ATR_PROVENANCE_INCONSISTENT"
+                if decision_cutoff is not None and not isinstance(decision_cutoff, bool):
+                    if int_own_cutoff > int(decision_cutoff):
+                        return False, "ATR_SOURCE_AFTER_DECISION"
+        except (ValueError, TypeError):
+            return False, "ATR_TIMESTAMP_MISSING_OR_INVALID"
 
     # 12. Freshness check
-    if max_age_ms is not None and decision_cutoff is not None and eff_last_closed is not None:
-        if int(decision_cutoff) - eff_last_closed > int(max_age_ms):
-            return False, "ATR_STALE_FOR_DECISION"
+    if max_age_ms is not None and decision_cutoff is not None and not isinstance(max_age_ms, bool) and not isinstance(decision_cutoff, bool):
+        try:
+            if int(decision_cutoff) - int_last_closed > int(max_age_ms):
+                return False, "ATR_STALE_FOR_DECISION"
+        except (ValueError, TypeError):
+            pass
 
     return True, "VALID"
 
@@ -255,12 +317,18 @@ def compute_stop_atr(
 
     duration = expected_duration
 
-    if period <= 0:
+    try:
+        if period is None or isinstance(period, bool):
+            raise ValueError("INVALID_PERIOD")
+        int_period = int(period)
+        if int_period <= 0:
+            raise ValueError("INVALID_PERIOD")
+    except (ValueError, TypeError):
         return StopATRResult(
             status="UNAVAILABLE",
             value=0.0,
-            period=period,
-            timeframe=timeframe,
+            period=0,
+            timeframe=timeframe if isinstance(timeframe, str) else "1M",
             method="SMA_TR_V1",
             last_closed_at_ms=0,
             bars_count=0,
@@ -269,6 +337,7 @@ def compute_stop_atr(
             calculated_as_of=as_of_ms or 0,
             decision_cutoff=as_of_ms or 0,
         )
+    period = int_period
 
     # Sort closed_bars by open timestamp to normalize ordering
     sorted_raw_bars: List[Any] = []
@@ -381,7 +450,7 @@ def compute_stop_atr(
     last_bar_open = _candle_open_ms(active_bars[-1])
     last_closed_ms = last_bar_open + duration
 
-    if not math.isfinite(atr_val) or atr_val < 0:
+    if not math.isfinite(atr_val) or atr_val <= 0.0:
         return StopATRResult(
             status="UNAVAILABLE",
             value=0.0,
@@ -390,10 +459,10 @@ def compute_stop_atr(
             method="SMA_TR_V1",
             last_closed_at_ms=last_closed_ms,
             bars_count=len(valid_bars),
-            reason_code="NON_POSITIVE_OR_NON_FINITE_ATR",
+            reason_code="ZERO_OR_NEGATIVE_ATR",
             symbol=symbol,
-            calculated_as_of=as_of_ms or 0,
-            decision_cutoff=as_of_ms or 0,
+            calculated_as_of=as_of_ms or last_closed_ms,
+            decision_cutoff=as_of_ms or last_closed_ms,
         )
 
     return StopATRResult(
@@ -408,8 +477,8 @@ def compute_stop_atr(
         source="CANDLE_CLOSED",
         source_candle_count=len(valid_bars),
         last_closed_candle_timestamp=last_closed_ms,
-        calculated_as_of=as_of_ms or 0,
-        decision_cutoff=as_of_ms or 0,
+        calculated_as_of=as_of_ms or last_closed_ms,
+        decision_cutoff=as_of_ms or last_closed_ms,
     )
 
 
@@ -461,6 +530,7 @@ def compute_stop_buffer(
     bid: float,
     ask: float,
     symbol: Optional[str] = None,
+    decision_cutoff: Optional[int] = None,
 ) -> StopBufferResult:
     """
     Computes candidate dynamic buffer components according to StopPlacementPolicy (V17.7.4):
@@ -491,15 +561,37 @@ def compute_stop_buffer(
 
     raw_m1 = None
     if atr_m1 is not None and getattr(atr_m1, "status", None) == "AVAILABLE":
-        v1 = getattr(atr_m1, "value", None)
-        if v1 is not None and not isinstance(v1, bool):
-            try:
-                fv1 = float(v1)
-                if math.isfinite(fv1) and fv1 > 0.0:
-                    raw_m1 = fv1
-                    components["atr_m1"] = k_m1 * fv1
-            except (ValueError, TypeError):
-                pass
+        m1_sym = getattr(atr_m1, "symbol", None)
+        m1_tf = getattr(atr_m1, "timeframe", None)
+        m1_cutoff_ok = decision_cutoff is None or getattr(atr_m1, "last_closed_at_ms", 0) <= decision_cutoff
+        if symbol is not None:
+            sym_ok = m1_sym is not None and str(m1_sym).upper() == str(symbol).upper()
+            tf_ok = m1_tf is not None and str(m1_tf).upper() == "1M"
+        else:
+            sym_ok = True
+            tf_ok = m1_tf is None or str(m1_tf).upper() == "1M"
+
+        auth_ok = True
+        if getattr(atr_m1, "bars_count", 0) > 0 or getattr(atr_m1, "source_candle_count", 0) > 0:
+            auth_ok, _ = validate_stop_atr_authority(
+                atr_m1,
+                expected_symbol=symbol or m1_sym,
+                expected_timeframe="1M",
+                expected_period=getattr(policy, "atr_period", 14),
+                expected_method=getattr(policy, "atr_method", "SMA_TR_V1"),
+                decision_cutoff=decision_cutoff,
+            )
+
+        if sym_ok and tf_ok and m1_cutoff_ok and auth_ok:
+            v1 = getattr(atr_m1, "value", None)
+            if v1 is not None and not isinstance(v1, bool):
+                try:
+                    fv1 = float(v1)
+                    if math.isfinite(fv1) and fv1 > 0.0:
+                        raw_m1 = fv1
+                        components["atr_m1"] = k_m1 * fv1
+                except (ValueError, TypeError):
+                    pass
 
     f_bid = float(bid)
     f_ask = float(ask)
@@ -514,15 +606,37 @@ def compute_stop_buffer(
 
     raw_m5 = None
     if atr_m5 is not None and getattr(atr_m5, "status", None) == "AVAILABLE":
-        v5 = getattr(atr_m5, "value", None)
-        if v5 is not None and not isinstance(v5, bool):
-            try:
-                fv5 = float(v5)
-                if math.isfinite(fv5) and fv5 > 0.0:
-                    raw_m5 = fv5
-                    components["atr_m5"] = k_m5 * fv5
-            except (ValueError, TypeError):
-                pass
+        m5_sym = getattr(atr_m5, "symbol", None)
+        m5_tf = getattr(atr_m5, "timeframe", None)
+        m5_cutoff_ok = decision_cutoff is None or getattr(atr_m5, "last_closed_at_ms", 0) <= decision_cutoff
+        if symbol is not None:
+            sym_ok_5 = m5_sym is not None and str(m5_sym).upper() == str(symbol).upper()
+            tf_ok_5 = m5_tf is not None and str(m5_tf).upper() == "5M"
+        else:
+            sym_ok_5 = True
+            tf_ok_5 = m5_tf is None or str(m5_tf).upper() in ("5M", "1M")
+
+        auth_ok_5 = True
+        if getattr(atr_m5, "bars_count", 0) > 0 or getattr(atr_m5, "source_candle_count", 0) > 0:
+            auth_ok_5, _ = validate_stop_atr_authority(
+                atr_m5,
+                expected_symbol=symbol or m5_sym,
+                expected_timeframe="5M",
+                expected_period=getattr(policy, "atr_period", 14),
+                expected_method=getattr(policy, "atr_method", "SMA_TR_V1"),
+                decision_cutoff=decision_cutoff,
+            )
+
+        if sym_ok_5 and tf_ok_5 and m5_cutoff_ok and auth_ok_5:
+            v5 = getattr(atr_m5, "value", None)
+            if v5 is not None and not isinstance(v5, bool):
+                try:
+                    fv5 = float(v5)
+                    if math.isfinite(fv5) and fv5 > 0.0:
+                        raw_m5 = fv5
+                        components["atr_m5"] = k_m5 * fv5
+                except (ValueError, TypeError):
+                    pass
 
     max_buf = max(components.values())
     dominant = max(components, key=components.get)
@@ -547,6 +661,7 @@ def compute_min_protective_distance(
     atr_m1_val: Optional[float] = None,
     atr_m5_val: Optional[float] = None,
     symbol: Optional[str] = None,
+    decision_cutoff: Optional[int] = None,
 ) -> StopProtectiveDistanceResult:
     """
     Computes candidate minimum entry-relative protective distance required
@@ -576,6 +691,7 @@ def compute_min_protective_distance(
             expected_timeframe="1M",
             expected_period=getattr(policy, "atr_period", 14),
             expected_method=getattr(policy, "atr_method", "SMA_TR_V1"),
+            decision_cutoff=decision_cutoff,
         )
         if is_valid:
             m1_val = float(atr_m1.value)
@@ -600,6 +716,7 @@ def compute_min_protective_distance(
             expected_timeframe="5M",
             expected_period=getattr(policy, "atr_period", 14),
             expected_method=getattr(policy, "atr_method", "SMA_TR_V1"),
+            decision_cutoff=decision_cutoff,
         )
         if is_valid_5:
             m5_val = float(atr_m5.value)
@@ -1185,8 +1302,45 @@ def plan_structural_stop(
             algorithm_version=algo_ver,
         )
 
-    # 6. Anchor-relative preliminary stop
-    buf_price = buffer_result.buffer_price if buffer_result else (float(policy.min_buffer_ticks) * float(tick_size))
+    # 6. Verify and sanitize buffer_result consistency against validated ATR inputs (SL-22 / V17.7.4)
+    effective_buffer = buffer_result
+    if effective_buffer is not None:
+        comps = dict(effective_buffer.components)
+        modified = False
+        raw_b_m1 = getattr(effective_buffer, "raw_atr_m1", None)
+        raw_b_m5 = getattr(effective_buffer, "raw_atr_m5", None)
+
+        if not is_m5_valid:
+            if "atr_m5" in comps:
+                comps.pop("atr_m5", None)
+                modified = True
+            if raw_b_m5 is not None:
+                raw_b_m5 = None
+                modified = True
+
+        if not is_m1_valid and mode == StopPlacementMode.PAPER_STRUCTURAL.value:
+            if "atr_m1" in comps:
+                comps.pop("atr_m1", None)
+                modified = True
+            if raw_b_m1 is not None:
+                raw_b_m1 = None
+                modified = True
+
+        if modified:
+            if not comps:
+                comps["tick_floor"] = float(policy.min_buffer_ticks) * float(tick_size)
+            new_buf_price = max(comps.values())
+            new_dominant = max(comps, key=comps.get)
+            effective_buffer = StopBufferResult(
+                buffer_price=new_buf_price,
+                components=comps,
+                dominant_source=new_dominant,
+                tick_size=tick_size,
+                raw_atr_m1=raw_b_m1,
+                raw_atr_m5=raw_b_m5,
+            )
+
+    buf_price = effective_buffer.buffer_price if effective_buffer else (float(policy.min_buffer_ticks) * float(tick_size))
     anchor_sl = quantize_stop_outward(
         anchor_price=anchor.price,
         buffer_price=buf_price,
@@ -1204,6 +1358,7 @@ def plan_structural_stop(
         atr_m1_val=eff_m1,
         atr_m5_val=eff_m5,
         symbol=symbol,
+        decision_cutoff=as_of_ms,
     )
     min_prot_dist = min_prot_res.min_distance
 
@@ -1277,7 +1432,7 @@ def plan_structural_stop(
             selected_sl=sel_sl,
             anchor=anchor,
             bound_leg=getattr(anchor_result, "bound_leg", None),
-            buffer=buffer_result,
+            buffer=effective_buffer,
             metrics=StopMetrics(
                 price_distance=dist,
                 distance_ticks=int(round(dist / tick_size)),
@@ -1302,7 +1457,7 @@ def plan_structural_stop(
             selected_sl=None,
             anchor=anchor,
             bound_leg=getattr(anchor_result, "bound_leg", None),
-            buffer=buffer_result,
+            buffer=effective_buffer,
             metrics=StopMetrics(
                 price_distance=dist,
                 distance_ticks=int(round(dist / tick_size)),
@@ -1320,6 +1475,8 @@ def plan_structural_stop(
             volatility_context={
                 "atr_m1": None,
                 "atr_m5": eff_m5,
+                "atr_m1_provenance": None,
+                "atr_m5_provenance": atr_m5_obj.to_dict() if (is_m5_valid and atr_m5_obj and hasattr(atr_m5_obj, "to_dict")) else None,
                 "atr_m1_status": "UNAVAILABLE",
                 "volatility_gate_status": "FAIL_CLOSED",
                 "volatility_gate_reason": m1_reason,
@@ -1354,8 +1511,8 @@ def plan_structural_stop(
     } if anchor else None
 
     vol_ctx = {
-        "anchor_buffer_price": buffer_result.buffer_price if buffer_result else 0.0,
-        "dominant_buffer_source": buffer_result.dominant_source if buffer_result else "tick_floor",
+        "anchor_buffer_price": effective_buffer.buffer_price if effective_buffer else 0.0,
+        "dominant_buffer_source": effective_buffer.dominant_source if effective_buffer else "tick_floor",
         "min_protective_distance": min_prot_dist,
         "dominant_protective_source": min_prot_res.dominant_source,
         "protective_expansion_applied": expansion_applied,
@@ -1364,6 +1521,8 @@ def plan_structural_stop(
         "spread": eff_spread,
         "atr_m1": eff_m1,
         "atr_m5": eff_m5,
+        "atr_m1_provenance": atr_m1_obj.to_dict() if (is_m1_valid and atr_m1_obj and hasattr(atr_m1_obj, "to_dict")) else (atr_m1_obj if is_m1_valid else None),
+        "atr_m5_provenance": atr_m5_obj.to_dict() if (is_m5_valid and atr_m5_obj and hasattr(atr_m5_obj, "to_dict")) else (atr_m5_obj if is_m5_valid else None),
         "stop_distance_price": final_dist,
         "stop_distance_ticks": dist_ticks,
         "stop_distance_atr_m1": dist_atr_m1,
@@ -1374,6 +1533,7 @@ def plan_structural_stop(
         "anchor_invalidation_evidence": anchor_inval_evidence,
         "distance_assessment": distance_assessment,
         "algorithm_version": algo_ver,
+        "symbol": symbol or (getattr(atr_m1_obj, "symbol", None) if atr_m1_obj else None),
         "volatility_gate_status": "AVAILABLE",
         "atr_m1_status": "AVAILABLE",
     }
@@ -1383,7 +1543,7 @@ def plan_structural_stop(
         selected_sl=selected_sl,
         anchor=anchor,
         bound_leg=bound_leg,
-        buffer=buffer_result,
+        buffer=effective_buffer,
         metrics=metrics,
         reasons=(),
         policy_version=policy_ver,
@@ -2869,11 +3029,13 @@ def validate_applied_stop_decision(
         if not isinstance(vol_ctx, dict):
             return False, "FORGED_STRUCTURAL_DECISION_MISSING_ATR_EVIDENCE: MISSING_VOLATILITY_CONTEXT"
 
-        if vol_ctx.get("volatility_gate_status") == "FAIL_CLOSED":
-            return False, f"VOLATILITY_GATE_FAIL_CLOSED: {vol_ctx.get('volatility_gate_reason', 'UNKNOWN')}"
+        gate_status = vol_ctx.get("volatility_gate_status")
+        if gate_status != "AVAILABLE":
+            gate_reason = vol_ctx.get("volatility_gate_reason") or gate_status or "FAIL_CLOSED"
+            return False, f"VOLATILITY_GATE_NOT_AVAILABLE: {gate_reason} (ATR_FAIL_CLOSED)"
 
-        if vol_ctx.get("atr_m1_status") == "UNAVAILABLE":
-            return False, "ATR_M1_UNAVAILABLE"
+        if vol_ctx.get("atr_m1_status") != "AVAILABLE":
+            return False, "ATR_M1_UNAVAILABLE (ATR_FAIL_CLOSED)"
 
         raw_m1 = vol_ctx.get("atr_m1")
         if raw_m1 is None or isinstance(raw_m1, bool):
@@ -2885,6 +3047,74 @@ def validate_applied_stop_decision(
         except (ValueError, TypeError):
             return False, "FORGED_STRUCTURAL_DECISION_MISSING_ATR_EVIDENCE: NON_NUMERIC_RAW_ATR"
 
+        # Revalidate execution-grade ATR authority and provenance at ARM boundary
+        atr_prov = vol_ctx.get("atr_m1_provenance")
+        if atr_prov is None:
+            atr_prov = getattr(sp, "atr_m1_result", None)
+
+        if atr_prov is None:
+            return False, "FORGED_STRUCTURAL_DECISION_MISSING_ATR_EVIDENCE: MISSING_ATR_PROVENANCE"
+
+        cand_symbol = (
+            getattr(candidate, "symbol", None)
+            or (candidate.get("symbol") if isinstance(candidate, dict) else None)
+            or vol_ctx.get("symbol")
+            or (atr_prov.get("symbol") if isinstance(atr_prov, dict) else getattr(atr_prov, "symbol", None))
+        )
+        if not cand_symbol:
+            return False, "MISSING_CANDIDATE_SYMBOL_FOR_ATR_VALIDATION"
+
+        if isinstance(atr_prov, dict):
+            try:
+                atr_obj = StopATRResult(**atr_prov)
+            except Exception as e:
+                return False, f"FORGED_STRUCTURAL_DECISION_INVALID_ATR_PROVENANCE_SCHEMA: {e}"
+        else:
+            atr_obj = atr_prov
+
+        cutoff = getattr(sp, "decision_cutoff_ms", now_ms)
+        is_auth_ok, auth_err = validate_stop_atr_authority(
+            atr_obj,
+            expected_symbol=cand_symbol,
+            expected_timeframe="1M",
+            expected_period=getattr(current_policy, "atr_period", 14),
+            expected_method=getattr(current_policy, "atr_method", "SMA_TR_V1"),
+            decision_cutoff=cutoff,
+            max_age_ms=getattr(current_policy, "max_atr_age_ms", None),
+        )
+        if not is_auth_ok:
+            return False, f"FORGED_STRUCTURAL_DECISION_INVALID_ATR_AUTHORITY: {auth_err}"
+
+        try:
+            prov_val = float(atr_obj.value)
+            if abs(prov_val - f_m1) > 1e-3 and abs(prov_val - round(f_m1, 4)) > 1e-4:
+                return False, f"ATR_EVIDENCE_PROVENANCE_VALUE_MISMATCH: provenance {prov_val} vs vol_ctx {f_m1}"
+        except (ValueError, TypeError):
+            return False, "FORGED_STRUCTURAL_DECISION_MISSING_ATR_EVIDENCE: NON_NUMERIC_PROVENANCE_VALUE"
+
+        # Check optional M5 provenance if present
+        atr_m5_prov = vol_ctx.get("atr_m5_provenance")
+        if atr_m5_prov is not None:
+            if isinstance(atr_m5_prov, dict):
+                try:
+                    atr_m5_obj = StopATRResult(**atr_m5_prov)
+                except Exception:
+                    atr_m5_obj = None
+            else:
+                atr_m5_obj = atr_m5_prov
+            if atr_m5_obj is not None:
+                is_m5_auth_ok, m5_auth_err = validate_stop_atr_authority(
+                    atr_m5_obj,
+                    expected_symbol=cand_symbol,
+                    expected_timeframe="5M",
+                    expected_period=getattr(current_policy, "atr_period", 14),
+                    expected_method=getattr(current_policy, "atr_method", "SMA_TR_V1"),
+                    decision_cutoff=cutoff,
+                    max_age_ms=getattr(current_policy, "max_atr_age_ms", None),
+                )
+                if not is_m5_auth_ok:
+                    return False, f"FORGED_STRUCTURAL_DECISION_INVALID_ATR_M5_AUTHORITY: {m5_auth_err}"
+
         # Check buffer raw ATR consistency if buffer is present
         buf = getattr(sp, "buffer", None)
         if buf is not None and getattr(buf, "raw_atr_m1", None) is not None:
@@ -2893,8 +3123,7 @@ def validate_applied_stop_decision(
                 return False, f"ATR_EVIDENCE_BUFFER_MISMATCH: buffer {buf_m1} vs vol_ctx {f_m1}"
 
         # Decision cutoff causal check
-        cutoff = getattr(sp, "decision_cutoff_ms", 0)
-        if now_ms is not None and cutoff > now_ms:
+        if now_ms is not None and cutoff is not None and cutoff > now_ms:
             return False, f"FUTURE_DECISION_CUTOFF_AT_ARM: cutoff {cutoff} > now {now_ms}"
 
     return True, "VALID"

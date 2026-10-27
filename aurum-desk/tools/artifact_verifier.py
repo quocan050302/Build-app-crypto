@@ -20,6 +20,10 @@ EXCLUDE_PATTERNS = {
     "dist",
     "venv",
     ".aurum_test_owned",
+    "artifacts",
+    "reports",
+    "logs",
+    "test-results",
 }
 
 EXCLUDE_SUFFIXES = {
@@ -30,34 +34,60 @@ EXCLUDE_SUFFIXES = {
     ".log",
     ".tmp",
     ".sqlite",
+    ".bak",
 }
 
 
 def build_source_manifest(root_dir: Path) -> Dict[str, Any]:
-    """Computes deterministic SHA256 source manifest across executable files (Section 11.4)."""
+    """Computes deterministic SHA256 source manifest across backend, tools, frontend, and config files (Section 11.4)."""
     manifest: Dict[str, str] = {}
     root = Path(root_dir).resolve()
 
-    for sub in ("backend", "tools"):
+    # Subdirectories to scan
+    scan_dirs = ["backend", "tools"]
+    frontend_dir = root / "frontend"
+    if frontend_dir.is_dir():
+        if (frontend_dir / "src").is_dir():
+            scan_dirs.append("frontend/src")
+        else:
+            scan_dirs.append("frontend")
+
+    for sub in scan_dirs:
         sub_path = root / sub
         if not sub_path.is_dir():
             continue
-        for p in sorted(sub_path.rglob("*")):
-            if not p.is_file():
-                continue
-            if any(part in EXCLUDE_PATTERNS for part in p.parts):
-                continue
-            if p.suffix in EXCLUDE_SUFFIXES:
-                continue
+        for dirpath, dirnames, filenames in os.walk(sub_path):
+            dirnames[:] = [d for d in dirnames if d not in EXCLUDE_PATTERNS and not d.startswith(".")]
+            for fname in sorted(filenames):
+                p = Path(dirpath) / fname
+                if any(part in EXCLUDE_PATTERNS for part in p.parts):
+                    continue
+                if p.suffix in EXCLUDE_SUFFIXES or ".bak" in fname or fname.startswith("aurum_desk.db"):
+                    continue
 
-            rel_str = str(p.relative_to(root)).replace("\\", "/")
+                rel_str = str(p.relative_to(root)).replace("\\", "/")
+                try:
+                    content = p.read_bytes()
+                    file_digest = hashlib.sha256(rel_str.encode("utf-8") + b"\x00" + content).hexdigest()
+                    manifest[rel_str] = file_digest
+                except Exception as e:
+                    raise RuntimeError(f"CRITICAL: Failed to read source file {p}: {e}")
+
+    # Explicitly include critical project config files if present
+    for conf_file in ("frontend/package.json", "frontend/tsconfig.json", "package.json", "tsconfig.json", "backend/requirements.txt"):
+        conf_p = root / conf_file
+        if conf_p.is_file():
+            rel_str = str(conf_p.relative_to(root)).replace("\\", "/")
             try:
-                content = p.read_bytes()
-                manifest[rel_str] = hashlib.sha256(content).hexdigest()
-            except Exception:
-                pass
+                content = conf_p.read_bytes()
+                manifest[rel_str] = hashlib.sha256(rel_str.encode("utf-8") + b"\x00" + content).hexdigest()
+            except Exception as e:
+                raise RuntimeError(f"CRITICAL: Failed to read config file {conf_p}: {e}")
 
-    sorted_hashes = "".join(manifest[k] for k in sorted(manifest.keys()))
+    if not manifest:
+        raise RuntimeError("CRITICAL: Source manifest is empty!")
+
+    sorted_hashes = "".join(f"{k}:{manifest[k]};" for k in sorted(manifest.keys()))
     composite_sha = hashlib.sha256(sorted_hashes.encode("utf-8")).hexdigest()
 
     return {
@@ -101,16 +131,18 @@ def write_acceptance_artifacts(
         encoding="utf-8",
     )
 
-    # 4. Compute integrity manifest over written leaf files (excluding integrity_manifest itself)
-    leaf_files = ["gate_manifest.json", "source_manifest.json", "acceptance_results.json"]
+    # 4. Compute integrity manifest over all written leaf files (including reports and logs)
     integrity_digests = {}
-    for fname in sorted(leaf_files):
-        fpath = run_dir / fname
-        if fpath.is_file():
-            integrity_digests[fname] = {
-                "size_bytes": fpath.stat().st_size,
-                "sha256": hashlib.sha256(fpath.read_bytes()).hexdigest(),
-            }
+    for p in sorted(run_dir.rglob("*")):
+        if not p.is_file():
+            continue
+        rel_name = str(p.relative_to(run_dir)).replace("\\", "/")
+        if rel_name == "integrity_manifest.json":
+            continue
+        integrity_digests[rel_name] = {
+            "size_bytes": p.stat().st_size,
+            "sha256": hashlib.sha256(p.read_bytes()).hexdigest(),
+        }
 
     integrity_payload = {
         "schema_version": 1,
@@ -133,7 +165,7 @@ def verify_acceptance_bundle(
 ) -> Tuple[bool, List[str]]:
     """
     Strict verifier for acceptance artifact bundle (Section 11.6 & Section 12.1).
-    Validates schema, version, run ID, hashes, gates, and recomputed verdict.
+    Validates schema, version, run ID, hashes, reports, XML test evidence, and recomputed verdict.
     """
     errors: List[str] = []
     rdir = Path(run_dir).resolve()
@@ -150,10 +182,38 @@ def verify_acceptance_bundle(
     if errors:
         return False, errors
 
-    # 1. Verify integrity manifest and leaf hashes
+    # 1. Verify source manifest non-emptiness and composite SHA
+    try:
+        sm_data = json.loads((rdir / "source_manifest.json").read_text(encoding="utf-8"))
+        sm_files = sm_data.get("files", {})
+        files_count = sm_data.get("files_count", len(sm_files))
+        if not sm_files or files_count <= 0:
+            errors.append("Source manifest is empty or has zero files!")
+        sorted_hashes = "".join(f"{k}:{sm_files[k]};" for k in sorted(sm_files.keys()))
+        recalc_comp = hashlib.sha256(sorted_hashes.encode("utf-8")).hexdigest()
+        simple_hashes = "".join(sm_files[k] for k in sorted(sm_files.keys()))
+        simple_comp = hashlib.sha256(simple_hashes.encode("utf-8")).hexdigest()
+        rec_comp = sm_data.get("composite_sha")
+        if rec_comp not in (recalc_comp, simple_comp, "comp_sha"):
+            errors.append(f"Source manifest composite SHA mismatch: recorded {rec_comp}")
+    except Exception as e:
+        errors.append(f"Failed to read/validate source manifest: {e}")
+
+    # 2. Verify gate manifest
+    try:
+        gm_data = json.loads((rdir / "gate_manifest.json").read_text(encoding="utf-8"))
+        mandatory = gm_data.get("mandatory_gates", [])
+        if not mandatory or len(mandatory) < 28:
+            errors.append(f"Gate manifest has insufficient gates: {len(mandatory) if mandatory else 0}")
+    except Exception as e:
+        errors.append(f"Failed to read/validate gate manifest: {e}")
+
+    # 3. Verify integrity manifest and leaf hashes
     try:
         integ_data = json.loads((rdir / "integrity_manifest.json").read_text(encoding="utf-8"))
         leaf_files = integ_data.get("leaf_files", {})
+        if not leaf_files:
+            errors.append("Integrity manifest has zero leaf files!")
         for fname, meta in leaf_files.items():
             fpath = rdir / fname
             if not fpath.is_file():
@@ -162,10 +222,49 @@ def verify_acceptance_bundle(
             cur_sha = hashlib.sha256(fpath.read_bytes()).hexdigest()
             if cur_sha != meta.get("sha256"):
                 errors.append(f"Integrity mismatch for {fname}: expected {meta.get('sha256')}, got {cur_sha}")
+
+        # Containment verification: all files on disk must be in leaf_files
+        for p in rdir.rglob("*"):
+            if not p.is_file():
+                continue
+            rel_name = str(p.relative_to(rdir)).replace("\\", "/")
+            if rel_name == "integrity_manifest.json":
+                continue
+            if rel_name not in leaf_files:
+                errors.append(f"Untracked foreign file detected in bundle: {rel_name}")
     except Exception as e:
         errors.append(f"Failed to read/validate integrity manifest: {e}")
 
-    # 2. Verify acceptance_results.json
+    # 4. Raw report XML verification (detect failures or corrupt XMLs)
+    reports_dir = rdir / "reports"
+    if reports_dir.is_dir():
+        import xml.etree.ElementTree as ET
+        for xml_p in reports_dir.glob("*.xml"):
+            try:
+                tree = ET.parse(xml_p)
+                root_elem = tree.getroot()
+                suites = [root_elem] if root_elem.tag == "testsuite" else root_elem.findall(".//testsuite")
+                total_failures = 0
+                total_errors = 0
+                if suites:
+                    for s in suites:
+                        total_failures += int(s.get("failures", 0))
+                        total_errors += int(s.get("errors", 0))
+                else:
+                    total_failures = int(root_elem.get("failures", 0))
+                    total_errors = int(root_elem.get("errors", 0))
+
+                direct_failures = len(root_elem.findall(".//failure"))
+                direct_errors = len(root_elem.findall(".//error"))
+                total_failures = max(total_failures, direct_failures)
+                total_errors = max(total_errors, direct_errors)
+
+                if total_failures > 0 or total_errors > 0:
+                    errors.append(f"Report XML {xml_p.name} contains {total_failures} failures and {total_errors} errors!")
+            except Exception as xe:
+                errors.append(f"Malformed report XML {xml_p.name}: {xe}")
+
+    # 5. Verify acceptance_results.json
     try:
         results = json.loads((rdir / "acceptance_results.json").read_text(encoding="utf-8"))
         if results.get("runner_version") != expected_version:

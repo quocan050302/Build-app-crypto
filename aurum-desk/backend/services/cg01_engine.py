@@ -1299,6 +1299,7 @@ def evaluate_cg01_candidate(
                     bid=bid,
                     ask=ask,
                     symbol="XAUUSDT",
+                    decision_cutoff=t_now,
                 )
 
                 if getattr(stop_policy, "mode", "") == "PAPER_STRUCTURAL":

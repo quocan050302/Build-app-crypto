@@ -159,7 +159,7 @@ test.describe('V17.5.3 Stop Placement & Geometry Browser Verification', () => {
     await tabB.click();
 
     await expect(page.locator('text=Chi Tiết Điểm Dừng Lỗ (SL)')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('text=2640.00')).toBeVisible();
+    await expect(page.getByTestId('journal-trade-drawer').getByText('2640.00')).toBeVisible();
     await expect(page.locator('text=PROTECTED_LEG_LOW tại 2642.00 (1M)')).toBeVisible();
     await expect(page.locator('text=Xác minh cấu trúc (C)')).toBeVisible();
   });

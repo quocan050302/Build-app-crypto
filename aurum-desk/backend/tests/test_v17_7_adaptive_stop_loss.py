@@ -2423,3 +2423,63 @@ def test_ce_20_acceptance_artifact_source_sha_matches_tested_source(tmp_path):
         assert ok_malf is False
     finally:
         res_file.write_text(orig_content, encoding="utf-8")
+
+
+def test_review_probe_4_bundle_verifier_rejects_failing_xml_and_untracked_files(tmp_path):
+    """Probe 4: Bundle verifier rejects failing report XMLs and untracked foreign files."""
+    from tools.acceptance_verdict import MANDATORY_GATES_V17_7_4
+    from tools.artifact_verifier import write_acceptance_artifacts, verify_acceptance_bundle
+
+    run_id = "probe_4_bundle_test"
+    gate_manifest = list(MANDATORY_GATES_V17_7_4)
+    valid_gates = {}
+    for g in gate_manifest:
+        valid_gates[g] = {"status": "PASS", "exit_code": 0, "counts": {"passed": 1, "failed": 0}}
+
+    source_manifest = {"schema_version": 1, "files": {"backend/database.py": "hash1"}, "files_count": 1, "composite_sha": "comp_sha"}
+    results_payload = {
+        "timestamp_utc": "2026-10-27T00:00:00Z",
+        "runner_version": "17.7.4",
+        "run_id": run_id,
+        "branch": "feat/v17-7-adaptive-structural-stop-loss",
+        "source_sha": "a" * 40,
+        "gates": valid_gates,
+        "verdict": "ACCEPTED_FOR_PAPER_OPT_IN",
+    }
+
+    run_dir = write_acceptance_artifacts(
+        run_id=run_id, results_payload=results_payload,
+        source_manifest=source_manifest, gate_manifest=gate_manifest,
+        artifacts_base_dir=tmp_path
+    )
+
+    # 1. Negative control: Add failing report XML into bundle
+    reports_dir = run_dir / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    failing_xml = reports_dir / "g20.xml"
+    failing_xml.write_text('<testsuites><testsuite name="g20" tests="10" failures="1" errors="0"><testcase name="test_x"><failure message="CRASH">trace</failure></testcase></testsuite></testsuites>', encoding="utf-8")
+
+    ok_xml, errors_xml = verify_acceptance_bundle(run_dir)
+    assert ok_xml is False
+    assert any("contains 1 failures" in e for e in errors_xml)
+
+    failing_xml.unlink()
+
+    # 2. Negative control: Add untracked foreign file into bundle
+    foreign_file = run_dir / "untracked_spy.bin"
+    foreign_file.write_bytes(b"UNTRACKED_PAYLOAD")
+    ok_foreign, errors_foreign = verify_acceptance_bundle(run_dir)
+    assert ok_foreign is False
+    assert any("Untracked foreign file" in e for e in errors_foreign)
+
+
+def test_review_probe_7_verdict_blocked_without_required_evidence():
+    """Probe 7: determine_release_verdict blocks when gates lack required counts/evidence (even if status=PASS, exit_code=0)."""
+    from tools.acceptance_verdict import determine_release_verdict, MANDATORY_GATES_V17_7_4
+
+    # 28 gates payload where every gate has only status=PASS and exit_code=0 (no counts, no integrity evidence)
+    scalar_gates = {g: {"status": "PASS", "exit_code": 0} for g in MANDATORY_GATES_V17_7_4}
+
+    verdict = determine_release_verdict(scalar_gates, MANDATORY_GATES_V17_7_4)
+    assert verdict == "BLOCKED"
+

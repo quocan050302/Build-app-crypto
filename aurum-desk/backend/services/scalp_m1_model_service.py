@@ -462,6 +462,7 @@ def apply_stop_placement_to_candidate(
         bid=bid,
         ask=ask,
         symbol="XAUUSDT",
+        decision_cutoff=now_ms,
     )
 
     mode = getattr(stop_policy, "mode", "SHADOW_COMPARE")

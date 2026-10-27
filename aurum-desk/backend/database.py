@@ -54,6 +54,19 @@ def _read_and_validate_marker(marker_path: Path, expected_run_id: str | None = N
         raise RuntimeError("MISSING_RUN_ID_IN_MARKER")
     if expected_run_id and run_id != expected_run_id:
         raise RuntimeError(f"STALE_RUN_MARKER: Expected run_id {expected_run_id}, got {run_id}")
+
+    # Canonical root validation (V17.7.4 Section 08):
+    # Marker must specify canonical_root matching its actual directory.
+    canonical_str = data.get("canonical_root")
+    if not canonical_str or not isinstance(canonical_str, str):
+        raise RuntimeError("MISSING_CANONICAL_ROOT_IN_MARKER")
+    marker_root = marker_path.parent.resolve()
+    marker_canonical = Path(canonical_str).resolve()
+    if marker_canonical != marker_root:
+        raise RuntimeError(
+            f"MISMATCHED_CANONICAL_ROOT: Marker specifies {marker_canonical} but is located in {marker_root}"
+        )
+
     return data
 
 
@@ -87,12 +100,13 @@ def get_or_create_test_root() -> Path:
     tmp_dir = tempfile.mkdtemp(prefix="aurum_test_root_")
     root_path = Path(tmp_dir).resolve()
     marker_path = root_path / TEST_ROOT_MARKER
+    now_ts = time.time()
     metadata = {
         "schema_version": 1,
         "run_id": current_run_id,
         "canonical_root": str(root_path),
         "test_owner": "aurum_test_framework",
-        "created_at": time.time(),
+        "created_at": now_ts,
         "pid": os.getpid(),
     }
     marker_path.write_text(json.dumps(metadata), encoding="utf-8")
@@ -113,7 +127,16 @@ def register_trusted_test_root(root_path: Path | str) -> None:
 
     marker = r / TEST_ROOT_MARKER
     current_run_id = os.getenv("AURUM_TEST_RUN_ID")
-    _read_and_validate_marker(marker, expected_run_id=current_run_id)
+    data = _read_and_validate_marker(marker, expected_run_id=current_run_id)
+
+    # V17.7.4: Rejects pre-existing external database files
+    marker_created = float(data.get("created_at") or marker.stat().st_mtime)
+    for db_candidate in r.glob("*.db"):
+        if db_candidate.stat().st_mtime < marker_created - 0.5:
+            raise RuntimeError(
+                f"PRE_EXISTING_EXTERNAL_DATA: Trusted test root {r} contains pre-existing database file {db_candidate.name}"
+            )
+
     _TRUSTED_TEST_ROOTS.add(r)
 
 

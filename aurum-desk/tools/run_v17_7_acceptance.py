@@ -40,6 +40,17 @@ NPX_BIN = shutil.which("npx.cmd") or shutil.which("npx") or "npx"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(BACKEND))
 
+RUN_ID = os.getenv("AURUM_TEST_RUN_ID") or f"run_v17_7_4_{int(time.time()*1000)}_{os.getpid()}"
+
+# P0 GUARD: Set testing environment flags in runner process BEFORE any backend import
+os.environ["TESTING"] = "1"
+os.environ["AURUM_TEST_RUN_ID"] = RUN_ID
+
+# Bootstrap test root in runner process and assert test DB is isolated
+import database
+test_root = database.get_or_create_test_root()
+database.assert_test_database_isolated(database.DB_PATH)
+
 from tools.acceptance_verdict import determine_release_verdict, MANDATORY_GATES_V17_7_4
 from tools.artifact_verifier import (
     build_source_manifest,
@@ -47,7 +58,6 @@ from tools.artifact_verifier import (
     verify_acceptance_bundle,
 )
 
-RUN_ID = f"run_v17_7_4_{int(time.time()*1000)}_{os.getpid()}"
 RUN_DIR = ARTIFACTS_DIR / "v17_7_4" / RUN_ID
 REPORTS_DIR = RUN_DIR / "reports"
 LOGS_DIR = RUN_DIR / "logs"
@@ -181,6 +191,23 @@ def parse_vitest_counts(output: str):
     return {"test_files_passed": passed_files, "passed": passed_tests, "collected": total_tests, "failed": 0}
 
 
+def parse_playwright_counts(output: str):
+    clean_out = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output)
+    passed_m = re.search(r"(\d+)\s+passed", clean_out)
+    failed_m = re.search(r"(\d+)\s+failed", clean_out)
+    skipped_m = re.search(r"(\d+)\s+skipped", clean_out)
+    passed = int(passed_m.group(1)) if passed_m else 0
+    failed = int(failed_m.group(1)) if failed_m else 0
+    skipped = int(skipped_m.group(1)) if skipped_m else 0
+    return {
+        "collected": passed + failed + skipped,
+        "passed": passed,
+        "failed": failed,
+        "skipped": skipped,
+        "errors": 0,
+    }
+
+
 def verify_live_order_safety_boundary():
     """
     V17.7.4 Section 11.3:
@@ -190,7 +217,9 @@ def verify_live_order_safety_boundary():
     """
     try:
         from models import Base
-        from database import SessionLocal, engine, run_schema_migrations
+        from database import SessionLocal, engine, run_schema_migrations, assert_test_database_isolated, DB_PATH
+        engine_target = getattr(engine.url, "database", None) or DB_PATH
+        assert_test_database_isolated(engine_target)
         Base.metadata.create_all(bind=engine)
         run_schema_migrations(engine)
 
@@ -232,6 +261,10 @@ def verify_live_order_safety_boundary():
             import crud
             db = SessionLocal()
             try:
+                session_bind = db.get_bind()
+                bind_target = getattr(session_bind.url, "database", None) if hasattr(session_bind, "url") else DB_PATH
+                assert_test_database_isolated(bind_target)
+
                 db.query(models.PaperOrder).delete()
                 db.query(models.PaperObservation).delete()
                 db.query(models.WatchSetup).delete()
@@ -482,7 +515,16 @@ def main():
     # GATE 16: Live Order Safety Boundary + Exercised Negative Control
     # --------------------------------------------------------------------------
     print("\n[G16_LIVE_ORDER_SAFETY_BOUNDARY] Verifying Live-Order Dispatch Safety & Negative Control...")
-    safety_ok, safety_msg = verify_live_order_safety_boundary()
+    g16_worker_script = (
+        "import sys\n"
+        "from tools.run_v17_7_acceptance import verify_live_order_safety_boundary\n"
+        "ok, msg = verify_live_order_safety_boundary()\n"
+        "print(msg)\n"
+        "sys.exit(0 if ok else 1)\n"
+    )
+    code_spy, out_spy, err_spy, dur_spy = run_cmd([PYTHON_BIN, "-c", g16_worker_script], log_name="g16_spy_worker")
+    safety_ok = (code_spy == 0)
+    safety_msg = out_spy.strip() or err_spy.strip()
     report_xml_g16 = REPORTS_DIR / "g16.xml"
     cmd_g16 = [
         PYTHON_BIN, "-m", "pytest",
@@ -610,15 +652,16 @@ def main():
         [NPX_BIN, "playwright", "test", "tests/e2e/v17_5_3_stop_browser.e2e.ts"],
         cwd=FRONTEND, env=pw_env, log_name="g24_playwright", timeout=120
     )
-    if code == 0 and "passed" in out:
-        print(f"  -> PASS: Playwright browser E2E verified in {dur/1000:.2f}s")
+    pw_counts = parse_playwright_counts(out)
+    if code == 0 and pw_counts["passed"] > 0 and pw_counts["failed"] == 0:
+        print(f"  -> PASS: Playwright browser E2E verified ({pw_counts['passed']} passed) in {dur/1000:.2f}s")
         results["gates"]["G24_PLAYWRIGHT_BROWSER_E2E"] = {
-            "status": "PASS", "gate_type": "command", "duration_ms": dur, "exit_code": code
+            "status": "PASS", "gate_type": "command", "counts": pw_counts, "duration_ms": dur, "exit_code": code
         }
     else:
         print(f"  -> FAIL: Playwright E2E failed:\n{out}\n{err}")
         results["gates"]["G24_PLAYWRIGHT_BROWSER_E2E"] = {
-            "status": "FAIL", "gate_type": "command", "duration_ms": dur, "exit_code": code or 1
+            "status": "FAIL", "gate_type": "command", "counts": pw_counts, "duration_ms": dur, "exit_code": code or 1
         }
 
     # G25: Deterministic Replay
@@ -653,13 +696,13 @@ def main():
     if code == 0 and counts.get("passed", 0) >= 1:
         print(f"  -> PASS: Unit/negative artifact verification tests passed")
         results["gates"]["G27_ARTIFACT_SOURCE_SHA_INTEGRITY"] = {
-            "status": "PASS", "gate_type": "command", "sha": current_sha,
+            "status": "PASS", "gate_type": "integrity", "sha": current_sha,
             "counts": counts, "duration_ms": dur, "exit_code": 0, "integrity_verified": True
         }
     else:
         print(f"  -> FAIL: Artifact integrity tests failed:\n{out}\n{err}")
         results["gates"]["G27_ARTIFACT_SOURCE_SHA_INTEGRITY"] = {
-            "status": "FAIL", "gate_type": "command", "sha": current_sha,
+            "status": "FAIL", "gate_type": "integrity", "sha": current_sha,
             "duration_ms": dur, "exit_code": code or 1, "integrity_verified": False
         }
 
@@ -696,9 +739,21 @@ def main():
         }
 
     # --------------------------------------------------------------------------
-    # FINAL VERDICT
+    # FINAL VERDICT RESOLUTION & INTEGRITY VERIFICATION
     # --------------------------------------------------------------------------
     print("\n" + "=" * 80)
+    # 1. Compare end-of-run source manifest to start-of-run source manifest (Finding 5)
+    end_source_manifest = build_source_manifest(ROOT)
+    if end_source_manifest["composite_sha"] != source_manifest["composite_sha"]:
+        print("CRITICAL SAFETY BLOCKER: Source files were modified during acceptance run!")
+        print(f"  Start Composite SHA: {source_manifest['composite_sha']}")
+        print(f"  End Composite SHA:   {end_source_manifest['composite_sha']}")
+        results["gates"]["G27_ARTIFACT_SOURCE_SHA_INTEGRITY"] = {
+            "status": "FAIL", "gate_type": "integrity", "sha": current_sha,
+            "duration_ms": 0, "exit_code": 1, "integrity_verified": False,
+            "error": "SOURCE_MUTATED_DURING_RUN"
+        }
+
     final_verdict = determine_release_verdict(results["gates"], MANDATORY_GATES_V17_7_4)
     results["verdict"] = final_verdict
     print(f"FINAL ACCEPTANCE VERDICT: {final_verdict}")
@@ -709,7 +764,7 @@ def main():
     print("=" * 80)
 
     # --------------------------------------------------------------------------
-    # Run-Scoped Artifact Publication (Never overwrite historical V17.7.2 / V17.7.3)
+    # Run-Scoped Artifact Publication & Atomic Verification (Finding 4)
     # --------------------------------------------------------------------------
     published_dir = write_acceptance_artifacts(
         run_id=RUN_ID,
@@ -720,20 +775,27 @@ def main():
     )
     print(f"\nRun-scoped artifacts published to: {published_dir}")
 
-    # Verify written bundle
+    # Verify written bundle strictly
     ok_bundle, bundle_errors = verify_acceptance_bundle(
         published_dir,
         expected_version="17.7.4",
         expected_run_id=RUN_ID,
         expected_source_sha=current_sha,
     )
-    if ok_bundle:
+    if ok_bundle and final_verdict == "ACCEPTED_FOR_PAPER_OPT_IN":
         print("  -> PASS: Published bundle integrity strictly verified against leaf hashes and verdict.")
     else:
         print(f"  -> FAIL: Published bundle verification failed: {bundle_errors}")
         results["verdict"] = "BLOCKED"
-        # Update published results to reflect blocked verdict
-        (published_dir / "acceptance_results.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
+        results["bundle_verification_errors"] = bundle_errors
+        # Atomically rewrite acceptance_results with BLOCKED verdict
+        write_acceptance_artifacts(
+            run_id=RUN_ID,
+            results_payload=results,
+            source_manifest=source_manifest,
+            gate_manifest=MANDATORY_GATES_V17_7_4,
+            artifacts_base_dir=ARTIFACTS_DIR,
+        )
 
     # Update latest pointer without overwriting historical files
     latest_pointer = {

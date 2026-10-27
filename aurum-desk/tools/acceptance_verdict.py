@@ -49,6 +49,44 @@ MANDATORY_GATES_V17_7_3 = [
 # The mandatory 28 gates for V17.7.4 release acceptance (Section 14)
 MANDATORY_GATES_V17_7_4 = list(MANDATORY_GATES_V17_7_3)
 
+# Authoritative gate taxonomy and requirements (V17.7.4 Section 10 / P1 finding 7)
+TEST_GATES = {
+    "G02_TEST_DB_BOOTSTRAP",
+    "G03_UNSAFE_PATH_REJECTION",
+    "G04_DESTRUCTIVE_FIXTURE_ISOLATION",
+    "G05_RAW_ATR_PROVENANCE",
+    "G06_REQUIRED_M1_ATR_FAIL_CLOSED",
+    "G07_ATR_BUFFER_MATH_CORRECTNESS",
+    "G08_STRUCTURAL_ANCHOR_CAUSAL",
+    "G09_DISTANT_SL_FINANCIAL_INTEGRITY",
+    "G10_CG01_EVALUATOR_INTEGRATION",
+    "G11_M1_EVALUATOR_INTEGRATION",
+    "G12_ORCHESTRATOR_REAL_ARM",
+    "G13_REAL_ARM_CONCURRENCY",
+    "G14_FILL_TIME_FINANCIAL_INVARIANTS",
+    "G15_PAPER_EXIT_AND_PERSISTENCE",
+    "G16_LIVE_ORDER_SAFETY_BOUNDARY",
+    "G17_EXISTING_SL_DSL_CE_REGRESSION",
+    "G18_V17_5_REGRESSION",
+    "G19_V17_6_REGRESSION",
+    "G20_FULL_BACKEND_PYTEST",
+    "G21_FRONTEND_VITEST",
+    "G24_PLAYWRIGHT_BROWSER_E2E",
+    "G25_DETERMINISTIC_REPLAY",
+    "G26_ACCEPTANCE_RUNNER_NEGATIVE_TESTS",
+}
+
+COMMAND_GATES = {
+    "G01_BRANCH_INTEGRITY",
+    "G22_FRONTEND_BUILD",
+    "G23_FRONTEND_LINT",
+    "G28_DOCS_DEFECT_REGISTER_CONSISTENCY",
+}
+
+INTEGRITY_GATES = {
+    "G27_ARTIFACT_SOURCE_SHA_INTEGRITY",
+}
+
 
 def determine_release_verdict(
     actual_gate_results: Dict[str, Any],
@@ -56,12 +94,12 @@ def determine_release_verdict(
 ) -> str:
     """
     Evaluates gate results against mandatory manifest with fail-closed semantics (V17.7.4 Section 10).
-    Returns:
-    - 'ACCEPTED_FOR_PAPER_OPT_IN': ALL mandatory gates are present and have status == 'PASS'
-      with valid exit_code == 0 (where applicable), verified counts, positive executed coverage,
-      and verified artifact integrity.
-    - 'BLOCKED': Any mandatory gate is missing, failed, skipped, blocked, malformed, empty manifest,
-      nonzero exit code, unverified integrity, or collection/execution errors.
+    Enforces authoritative typed gate requirements:
+    - Test gates MUST have exit_code==0, verified counts dict, positive executed coverage (passed >= 1),
+      and zero failures/errors.
+    - Build and doc gates MUST have exit_code==0 and status=='PASS'.
+    - Integrity gates MUST have verified artifact integrity (integrity_verified is True or verified test count).
+    - Missing required evidence blocks the release regardless of payload status.
     """
     manifest = mandatory_gate_manifest if mandatory_gate_manifest is not None else MANDATORY_GATES_V17_7_4
 
@@ -100,15 +138,19 @@ def determine_release_verdict(
             if exit_code != 0:
                 return "BLOCKED"
 
-        # For test/build command gates, exit_code is required
-        gate_type = gate_data.get("gate_type", "command")
-        if gate_type == "command" and "exit_code" not in gate_data:
+        # Check report parsing/status
+        if gate_data.get("report_status") in ("ERROR", "MISSING"):
             return "BLOCKED"
 
-        # Check counts if recorded
-        if "counts" in gate_data:
-            counts = gate_data["counts"]
-            if not isinstance(counts, dict):
+        # Authoritative Typed Gate Contract Checks
+        if gate_id in TEST_GATES:
+            # Test gates strictly require exit_code == 0
+            if "exit_code" not in gate_data:
+                return "BLOCKED"
+
+            # Test gates strictly require counts evidence
+            counts = gate_data.get("counts")
+            if not counts or not isinstance(counts, dict):
                 return "BLOCKED"
 
             for k in ("passed", "failed", "skipped", "errors", "collection_errors"):
@@ -117,6 +159,10 @@ def determine_release_verdict(
                     if isinstance(v, bool) or not isinstance(v, int) or v < 0:
                         return "BLOCKED"
 
+            passed = counts.get("passed", 0)
+            if not isinstance(passed, int) or isinstance(passed, bool) or passed <= 0:
+                return "BLOCKED"
+
             if counts.get("failed", 0) > 0:
                 return "BLOCKED"
             if counts.get("errors", 0) > 0:
@@ -124,19 +170,58 @@ def determine_release_verdict(
             if counts.get("collection_errors", 0) > 0:
                 return "BLOCKED"
 
-            # Suite with 0 passed and skipped > 0 is considered all-skipped (fail-closed)
-            passed = counts.get("passed", 0)
             collected = counts.get("collected", 0)
             skipped = counts.get("skipped", 0)
             if collected > 0 and passed == 0 and skipped == collected:
                 return "BLOCKED"
 
-        # Check report parsing/status
-        if gate_data.get("report_status") == "ERROR":
-            return "BLOCKED"
+        elif gate_id in COMMAND_GATES:
+            # Command gates strictly require exit_code == 0
+            if "exit_code" not in gate_data or gate_data["exit_code"] != 0:
+                return "BLOCKED"
 
-        # Check artifact / integrity result
-        if gate_data.get("integrity_verified") is False:
-            return "BLOCKED"
+        elif gate_id in INTEGRITY_GATES:
+            # Integrity gate strictly requires integrity verification evidence
+            has_integrity = gate_data.get("integrity_verified") is True
+            has_passed_count = (
+                isinstance(gate_data.get("counts"), dict)
+                and gate_data["counts"].get("passed", 0) > 0
+                and gate_data.get("integrity_verified") is not False
+            )
+            if not (has_integrity or has_passed_count):
+                return "BLOCKED"
+
+        else:
+            # Generic/Custom gates (e.g. unit test manifests)
+            gate_type = gate_data.get("gate_type", "command")
+            if gate_type == "command" and "exit_code" not in gate_data:
+                return "BLOCKED"
+
+            if "counts" in gate_data:
+                counts = gate_data["counts"]
+                if not isinstance(counts, dict):
+                    return "BLOCKED"
+
+                for k in ("passed", "failed", "skipped", "errors", "collection_errors"):
+                    if k in counts:
+                        v = counts[k]
+                        if isinstance(v, bool) or not isinstance(v, int) or v < 0:
+                            return "BLOCKED"
+
+                if counts.get("failed", 0) > 0:
+                    return "BLOCKED"
+                if counts.get("errors", 0) > 0:
+                    return "BLOCKED"
+                if counts.get("collection_errors", 0) > 0:
+                    return "BLOCKED"
+
+                passed = counts.get("passed", 0)
+                collected = counts.get("collected", 0)
+                skipped = counts.get("skipped", 0)
+                if collected > 0 and passed == 0 and skipped == collected:
+                    return "BLOCKED"
+
+            if gate_data.get("integrity_verified") is False:
+                return "BLOCKED"
 
     return "ACCEPTED_FOR_PAPER_OPT_IN"

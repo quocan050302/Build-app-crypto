@@ -622,3 +622,164 @@ def test_atr_21_four_m1_models_integrate_verified_authority():
         assert res_fail.allowed is False
         assert res_fail.decision.status == StopStatus.WAITING_VOLATILITY_EVIDENCE.value
 
+
+def test_review_probe_2_invalid_optional_m5_cannot_alter_structural_sl():
+    """Probe 2: Invalid optional M5 in slot cannot contribute to buffer or alter final structural SL."""
+    from services.stop_placement_service import plan_structural_stop, compute_stop_buffer
+    from services.stop_placement_types import StopPlacementPolicy, StopAnchorResult, StopAnchor, StopATRResult, StopStatus
+
+    as_of = 2_000_000
+    valid_m1 = StopATRResult(
+        status="AVAILABLE", value=3.0, timeframe="1M", symbol="XAUUSDT",
+        bars_count=15, source_candle_count=15, last_closed_at_ms=as_of-60_000, last_closed_candle_timestamp=as_of-60_000,
+        calculated_as_of=as_of-60_000, decision_cutoff=as_of
+    )
+    # Probe object: symbol BTCUSDT, timeframe 1M, value 1000 in M5 slot
+    invalid_m5 = StopATRResult(
+        status="AVAILABLE", value=1000.0, timeframe="1M", symbol="BTCUSDT",
+        bars_count=15, source_candle_count=15, last_closed_at_ms=as_of-60_000, last_closed_candle_timestamp=as_of-60_000,
+        calculated_as_of=as_of-60_000, decision_cutoff=as_of
+    )
+
+    policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL", atr_m1_multiplier=0.25, atr_m5_multiplier=0.10)
+    anchor = StopAnchor(id="anc_2", kind="SWING_LOW", price=2640.0, timeframe="1M", occurred_at_ms=as_of-120_000, known_at_ms=as_of-60_000, source_leg_id="leg_2")
+
+    # Baseline without M5
+    buf_base = compute_stop_buffer(
+        policy=policy, tick_size=0.01, atr_m1=valid_m1, atr_m5=None,
+        bid=2650.0, ask=2650.1, symbol="XAUUSDT", decision_cutoff=as_of
+    )
+    base_dec = plan_structural_stop(
+        direction="LONG", planned_entry=2650.0, take_profit=2670.0, legacy_sl=2645.0,
+        anchor_result=StopAnchorResult(status="AVAILABLE", anchor=anchor),
+        buffer_result=buf_base, policy=policy, as_of_ms=as_of, tick_size=0.01,
+        atr_m1_obj=valid_m1, atr_m5_obj=None, symbol="XAUUSDT"
+    )
+    assert base_dec.status == StopStatus.VALID.value
+    baseline_sl = base_dec.selected_sl
+
+    # Run with invalid M5 in M5 slot
+    buf_invalid = compute_stop_buffer(
+        policy=policy, tick_size=0.01, atr_m1=valid_m1, atr_m5=invalid_m5,
+        bid=2650.0, ask=2650.1, symbol="XAUUSDT", decision_cutoff=as_of
+    )
+    assert "atr_m5" not in buf_invalid.components
+    assert buf_invalid.raw_atr_m5 is None
+
+    dec_with_invalid = plan_structural_stop(
+        direction="LONG", planned_entry=2650.0, take_profit=2670.0, legacy_sl=2645.0,
+        anchor_result=StopAnchorResult(status="AVAILABLE", anchor=anchor),
+        buffer_result=buf_invalid, policy=policy, as_of_ms=as_of, tick_size=0.01,
+        atr_m1_obj=valid_m1, atr_m5_obj=invalid_m5, symbol="XAUUSDT"
+    )
+    assert dec_with_invalid.status == StopStatus.VALID.value
+    # Selected SL MUST be identical to baseline without M5! (Never 2540.0 from 1000*0.10)
+    assert dec_with_invalid.selected_sl == baseline_sl
+    assert dec_with_invalid.volatility_context.get("atr_m5") is None
+
+
+def test_review_probe_3_arm_barrier_rejects_scalar_only_evidence():
+    """Probe 3: ARM barrier refuses scalar-only context and enforces full ATR authority and provenance."""
+    from dataclasses import replace
+    from services.stop_placement_service import validate_applied_stop_decision
+    from services.stop_placement_types import StopPlacementPolicy, StopAnchor, StopMetrics, StopPlacementDecision, StopStatus
+
+    now_ms = 2_000_000
+    policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL")
+
+    class DummyCand:
+        candidate_key = "probe_3_cand"
+        symbol = "XAUUSDT"
+        model_id = "M1_REVERSAL"
+        direction = "LONG"
+        planned_entry = 2650.0
+        stop_loss = 2640.0
+        take_profit = 2670.0
+        calculation = None
+        stop_placement = StopPlacementDecision(
+            status=StopStatus.VALID.value,
+            selected_sl=2640.0,
+            anchor=StopAnchor(id="a3", kind="SWING_LOW", price=2638.0, timeframe="1M", occurred_at_ms=now_ms-120_000, known_at_ms=now_ms-60_000, source_leg_id="l1"),
+            bound_leg=None, buffer=None,
+            metrics=StopMetrics(price_distance=10.0, distance_ticks=1000, distance_atr=3.33),
+            reasons=(), policy_version=1, mode="PAPER_STRUCTURAL",
+            decision_cutoff_ms=now_ms, applied_variant="C", protective_distance=1.0, expansion_applied=False,
+            distance_assessment="DISTANCE_NORMAL",
+            volatility_context={"atr_m1": 3.0}  # Scalar only, missing status & provenance!
+        )
+
+    cand = DummyCand()
+    # 1. Scalar only is rejected
+    ok, reason = validate_applied_stop_decision(candidate=cand, current_policy=policy, now_ms=now_ms)
+    assert ok is False
+    assert "FAIL_CLOSED" in reason or "VOLATILITY_GATE_NOT_AVAILABLE" in reason or "ATR" in reason
+
+    # 2. Mutated symbol in provenance (e.g. BTCUSDT for XAUUSDT candidate) is rejected
+    cand.stop_placement = replace(
+        cand.stop_placement,
+        volatility_context={
+            "volatility_gate_status": "AVAILABLE",
+            "atr_m1_status": "AVAILABLE",
+            "atr_m1": 3.0,
+            "atr_m1_provenance": {
+                "status": "AVAILABLE", "value": 3.0, "timeframe": "1M", "symbol": "BTCUSDT",
+                "bars_count": 15, "source_candle_count": 15, "last_closed_at_ms": now_ms-60_000,
+                "calculated_as_of": now_ms-60_000, "decision_cutoff": now_ms
+            }
+        }
+    )
+    ok_sym, reason_sym = validate_applied_stop_decision(candidate=cand, current_policy=policy, now_ms=now_ms)
+    assert ok_sym is False
+    assert "SYMBOL_MISMATCH" in reason_sym
+
+    # 3. Lookahead cutoff in provenance is rejected
+    cand.stop_placement = replace(
+        cand.stop_placement,
+        volatility_context={
+            "volatility_gate_status": "AVAILABLE",
+            "atr_m1_status": "AVAILABLE",
+            "atr_m1": 3.0,
+            "atr_m1_provenance": {
+                "status": "AVAILABLE", "value": 3.0, "timeframe": "1M", "symbol": "XAUUSDT",
+                "bars_count": 15, "source_candle_count": 15, "last_closed_at_ms": now_ms + 60_000,
+                "calculated_as_of": now_ms + 60_000, "decision_cutoff": now_ms + 60_000
+            }
+        }
+    )
+    ok_la, reason_la = validate_applied_stop_decision(candidate=cand, current_policy=policy, now_ms=now_ms)
+    assert ok_la is False
+    assert "AFTER_DECISION" in reason_la or "LOOKAHEAD" in reason_la
+
+
+def test_review_probe_8_authority_validator_fail_closed_malformed_metadata():
+    """Probe 8: Authority validator fails closed on missing timestamps, lookahead cutoff, string period, and zero ATR."""
+    from services.stop_placement_service import validate_stop_atr_authority, compute_stop_atr
+    from services.stop_placement_types import StopATRResult
+
+    # 1. Missing closed candle timestamp and calc_as_of=0
+    bad_obj = StopATRResult(
+        status="AVAILABLE", value=3.0, timeframe="1M", symbol="XAUUSDT",
+        bars_count=15, source_candle_count=15,
+        last_closed_at_ms=0, last_closed_candle_timestamp=0, calculated_as_of=0,
+        decision_cutoff=9_000_000
+    )
+    ok, reason = validate_stop_atr_authority(bad_obj, expected_symbol="XAUUSDT", expected_timeframe="1M", decision_cutoff=2_000_000)
+    assert ok is False
+    assert "ATR_TIMESTAMP_MISSING_OR_INVALID" in reason
+
+    # 2. String period doesn't crash with ValueError and fails cleanly
+    ok_prd, reason_prd = validate_stop_atr_authority(
+        StopATRResult(status="AVAILABLE", value=3.0, timeframe="1M", symbol="XAUUSDT", period="invalid"),  # type: ignore
+        expected_symbol="XAUUSDT", expected_timeframe="1M"
+    )
+    assert ok_prd is False
+    assert "ATR_PERIOD_MISMATCH" in reason_prd
+
+    # 3. compute_stop_atr returns UNAVAILABLE / value=0.0 for completely flat bars
+    flat_candles = [{"timestamp": 1000 + i*60000, "open": 2650.0, "high": 2650.0, "low": 2650.0, "close": 2650.0, "is_closed": True} for i in range(20)]
+    res = compute_stop_atr(flat_candles, period=14, timeframe="1M", symbol="XAUUSDT")
+    assert res.status == "UNAVAILABLE"
+    assert res.value == 0.0
+    assert res.reason_code == "ZERO_OR_NEGATIVE_ATR"
+
+

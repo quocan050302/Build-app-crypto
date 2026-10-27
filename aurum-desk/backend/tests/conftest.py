@@ -274,3 +274,31 @@ def reset_execution_consumer():
     bitget_ws_service.latest_quote = None
     bitget_ws_service.transport_state = "DISCONNECTED"
 
+
+@pytest.fixture(autouse=True)
+def reset_daily_audit_isolation():
+    """Ensure DayAudit blocked state does not leak across test boundaries in the shared test database."""
+    from database import SessionLocal
+    def _clean():
+        try:
+            with SessionLocal() as db:
+                import models
+                audits = db.query(models.DayAudit).all()
+                modified = False
+                for a in audits:
+                    if a.is_blocked or (a.consecutive_losses and a.consecutive_losses > 0) or a.cooldown_until is not None:
+                        a.is_blocked = False
+                        a.block_reason = None
+                        a.consecutive_losses = 0
+                        a.cooldown_until = None
+                        modified = True
+                if modified:
+                    db.commit()
+        except Exception:
+            pass
+
+    _clean()
+    yield
+    _clean()
+
+

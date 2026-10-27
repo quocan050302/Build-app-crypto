@@ -261,7 +261,8 @@ def test_dbs_12_independent_sessions_share_intentionally_owned_test_db():
     
     # Direct SQLite test across two connections
     conn1 = sqlite3.connect(shared_db_path)
-    conn1.execute("CREATE TABLE shared_test (id INT PRIMARY KEY, val TEXT)")
+    conn1.execute("CREATE TABLE IF NOT EXISTS shared_test (id INT PRIMARY KEY, val TEXT)")
+    conn1.execute("DELETE FROM shared_test")
     conn1.execute("INSERT INTO shared_test VALUES (1, 'SESSION_1_COMMITTED')")
     conn1.commit()
     conn1.close()
@@ -331,3 +332,93 @@ def test_dbs_15_normal_production_database_configuration_remains_unchanged():
     assert res.returncode == 0
     actual_prod_path = res.stdout.strip()
     assert actual_prod_path == expected_prod_path, f"Expected {expected_prod_path}, got {actual_prod_path}"
+
+
+def test_review_probe_1_runner_g16_cannot_wipe_external_sentinel(tmp_path):
+    """Probe 1: G16 cannot wipe external database when run in normal environment with external AURUM_DB_PATH."""
+    sentinel_dir = tmp_path / "external_sentinel"
+    sentinel_dir.mkdir(parents=True, exist_ok=True)
+    sentinel_db = sentinel_dir / "customer_runtime.db"
+
+    # Pre-create sentinel DB with 1 record in a dummy table
+    conn = sqlite3.connect(str(sentinel_db))
+    conn.execute("CREATE TABLE sentinel_records (id INTEGER PRIMARY KEY, note TEXT);")
+    conn.execute("INSERT INTO sentinel_records (note) VALUES ('PROTECTED_DATA');")
+    conn.commit()
+    conn.close()
+
+    # Run helper in subprocess with TESTING unset and AURUM_DB_PATH pointing to external sentinel DB
+    backend_dir = str(Path(__file__).resolve().parent.parent)
+    test_script = (
+        "import os, sys\n"
+        "os.environ.pop('TESTING', None)\n"
+        "os.environ.pop('PYTEST_CURRENT_TEST', None)\n"
+        f"os.environ['AURUM_DB_PATH'] = r'{str(sentinel_db)}'\n"
+        "from database import engine, assert_test_database_isolated\n"
+        "try:\n"
+        "    assert_test_database_isolated(target_engine=engine)\n"
+        "    print('HAZARD: Assertion passed!')\n"
+        "    sys.exit(1)\n"
+        "except RuntimeError as exc:\n"
+        "    if 'CRITICAL SAFETY HAZARD' in str(exc):\n"
+        "        print('SUCCESS_ISOLATED')\n"
+        "        sys.exit(0)\n"
+        "    sys.exit(2)\n"
+    )
+    res = subprocess.run([sys.executable, "-c", test_script], cwd=backend_dir, capture_output=True, text=True)
+    assert res.returncode == 0
+    assert "SUCCESS_ISOLATED" in res.stdout
+
+    # Verify sentinel record count remains exactly 1
+    conn2 = sqlite3.connect(str(sentinel_db))
+    cur = conn2.execute("SELECT count(*) FROM sentinel_records;")
+    count = cur.fetchone()[0]
+    conn2.close()
+    assert count == 1, f"Expected 1 record remaining, got {count}"
+
+
+def test_review_probe_6_test_root_canonical_mismatch_and_preexisting_data_rejected(tmp_path):
+    """Probe 6: Marker with mismatched canonical_root or pre-existing *.db data cannot register as trusted root."""
+    from database import register_trusted_test_root, TEST_ROOT_MARKER
+    import time
+
+    cur_run = os.getenv("AURUM_TEST_RUN_ID", "test_run_probe6")
+    os.environ["AURUM_TEST_RUN_ID"] = cur_run
+
+    # Case A: Mismatched canonical_root
+    dir_a = tmp_path / "probe6_mismatched"
+    dir_a.mkdir(parents=True, exist_ok=True)
+    marker_a = dir_a / TEST_ROOT_MARKER
+    marker_a.write_text(json.dumps({
+        "schema_version": 1,
+        "test_owner": "aurum_test_framework",
+        "run_id": cur_run,
+        "canonical_root": str((tmp_path / "WRONG_ROOT_PATH").resolve()),
+    }), encoding="utf-8")
+
+    with pytest.raises(RuntimeError) as exc_a:
+        register_trusted_test_root(dir_a)
+    assert "MISMATCHED_CANONICAL_ROOT" in str(exc_a.value)
+
+    # Case B: Pre-existing *.db file before marker creation
+    dir_b = tmp_path / "probe6_preexisting"
+    dir_b.mkdir(parents=True, exist_ok=True)
+    db_file = dir_b / "existing_customer.db"
+    db_file.write_bytes(b"SQLite format 3\x00")
+    # Backdate db file modification time by 5 seconds
+    old_time = time.time() - 5.0
+    os.utime(str(db_file), (old_time, old_time))
+
+    time.sleep(0.1)
+    marker_b = dir_b / TEST_ROOT_MARKER
+    marker_b.write_text(json.dumps({
+        "schema_version": 1,
+        "test_owner": "aurum_test_framework",
+        "run_id": cur_run,
+        "canonical_root": str(dir_b.resolve()),
+        "created_at": time.time(),
+    }), encoding="utf-8")
+
+    with pytest.raises(RuntimeError) as exc_b:
+        register_trusted_test_root(dir_b)
+    assert "PRE_EXISTING_EXTERNAL_DATA" in str(exc_b.value)
