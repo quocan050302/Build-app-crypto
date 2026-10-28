@@ -477,11 +477,11 @@ def _check_geometry(req: EntryGuardRequest) -> EntryCheck:
         return EntryCheck("INVALID_PRICE_GEOMETRY", "BLOCK", f"{err}", "Kiểm tra lại hướng và bộ giá.")
 
     # V17.8: Quote-Distance Guard against immediate microstructure noise
-    if req.validated_quote is not None and getattr(req.validated_quote, "is_valid", False):
+    if req.validated_quote is not None and getattr(req.validated_quote, "is_valid", False) and req.min_protective_distance is not None and req.min_protective_distance > 0:
         bid = getattr(req.validated_quote, "bid", None)
         ask = getattr(req.validated_quote, "ask", None)
         norm_dir = req.direction.upper() if req.direction else "UNKNOWN"
-        min_dist = req.min_protective_distance or 0.0
+        min_dist = req.min_protective_distance
 
         if norm_dir in ("SHORT", "SELL") and ask is not None and _finite(ask):
             remaining = float(req.stop_loss) - float(ask)

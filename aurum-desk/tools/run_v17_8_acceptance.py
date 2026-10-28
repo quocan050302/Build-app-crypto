@@ -193,11 +193,12 @@ def parse_pytest_counts(output_text: str, report_xml: Path) -> dict:
 
 
 def parse_vitest_counts(output_text: str) -> dict:
-    tests_m = re.search(r"Tests\s+(\d+)\s+passed\s*(?:\((\d+)\))?", output_text)
-    files_m = re.search(r"Test Files\s+(\d+)\s+passed\s*(?:\((\d+)\))?", output_text)
+    clean_text = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output_text)
+    tests_m = re.search(r"Tests\s+(\d+)\s+passed\s*(?:\((\d+)\))?", clean_text)
+    files_m = re.search(r"Test Files\s+(\d+)\s+passed\s*(?:\((\d+)\))?", clean_text)
     passed_tests = int(tests_m.group(1)) if tests_m else 0
     passed_files = int(files_m.group(1)) if files_m else 0
-    failed_m = re.search(r"(\d+)\s+failed", output_text)
+    failed_m = re.search(r"(\d+)\s+failed", clean_text)
     failed = int(failed_m.group(1)) if failed_m else 0
     return {
         "collected": passed_tests + failed,
@@ -210,9 +211,10 @@ def parse_vitest_counts(output_text: str) -> dict:
 
 
 def parse_playwright_counts(output_text: str) -> dict:
-    passed_m = re.search(r"(\d+)\s+passed", output_text)
-    failed_m = re.search(r"(\d+)\s+failed", output_text)
-    skipped_m = re.search(r"(\d+)\s+skipped", output_text)
+    clean_text = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', output_text)
+    passed_m = re.search(r"(\d+)\s+passed", clean_text)
+    failed_m = re.search(r"(\d+)\s+failed", clean_text)
+    skipped_m = re.search(r"(\d+)\s+skipped", clean_text)
     passed = int(passed_m.group(1)) if passed_m else 0
     failed = int(failed_m.group(1)) if failed_m else 0
     skipped = int(skipped_m.group(1)) if skipped_m else 0
@@ -330,6 +332,11 @@ def verify_live_order_safety_boundary():
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     print("=" * 80)
     print("AURUM DESK V17.8 — EVIDENCE-BASED MASTER ACCEPTANCE RUNNER")
     print(f"Run ID: {RUN_ID}")

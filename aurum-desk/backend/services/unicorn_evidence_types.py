@@ -125,7 +125,6 @@ class UnicornEvidence:
         return self.validity_status in (
             UnicornSetupStatus.VALID.value,
             "CONFIRMED",
-            UnicornSetupStatus.WAITING_RETEST.value,
         )
 
     @property

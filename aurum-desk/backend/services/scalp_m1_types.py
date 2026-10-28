@@ -48,7 +48,6 @@ SUPPORTED_ADAPTIVE_MODELS: Tuple[str, ...] = (
     ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
     ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
     ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
-    ModelIdentifier.ICT_UNICORN.value,
 )
 
 
