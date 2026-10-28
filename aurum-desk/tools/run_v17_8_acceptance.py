@@ -767,7 +767,7 @@ def main():
     run_pytest_gate(
         "G29_UNICORN_BREAKER_DETECTION",
         ["backend/tests/test_v17_8_unicorn_evidence.py"],
-        "test_bullish_breaker_and_unicorn_detection or test_bearish_breaker_and_unicorn_detection",
+        "test_positive_bullish_unicorn_detection or test_positive_bearish_unicorn_detection",
         min_passed=2,
         label="ICT Unicorn Symmetrical Bullish & Bearish Breaker Detection"
     )
@@ -776,7 +776,7 @@ def main():
     run_pytest_gate(
         "G30_UNICORN_FVG_OVERLAP",
         ["backend/tests/test_v17_8_unicorn_evidence.py"],
-        "test_missing_fvg_rejects_unicorn or test_no_geometric_overlap_rejects_unicorn",
+        "test_negative_breaker_without_fvg or test_negative_no_geometric_overlap",
         min_passed=2,
         label="Breaker and FVG Geometric Overlap & Confluence Verification"
     )
@@ -785,7 +785,7 @@ def main():
     run_pytest_gate(
         "G31_CROSS_TIMEFRAME_CAUSALITY",
         ["backend/tests/test_v17_8_unicorn_evidence.py"],
-        "test_distal_breach_invalidates_unicorn or test_waiting_retest_status",
+        "test_negative_unicorn_invalidated_by_distal_breach or test_negative_waiting_retest",
         min_passed=2,
         label="Cross-Timeframe Closed Bar Causality & Distal Breach Invalidation"
     )
