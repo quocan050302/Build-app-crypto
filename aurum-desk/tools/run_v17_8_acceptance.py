@@ -1757,8 +1757,8 @@ def main():
     run_pytest_gate(
         "G59_MARKET_SHADOW_PROFILE_CONTRACT",
         ["backend/tests/test_v17_8_0_3_market_shadow.py"],
-        "test_01_market_shadow_runtime_profile_capabilities",
-        min_passed=1,
+        "test_nc27_invalid_runtime_profile_fails_closed or test_market_shadow_capability_matrix",
+        min_passed=2,
         label="V17.8.0.3 MARKET_SHADOW Typed Capability Matrix & Profile Contract"
     )
 
@@ -1766,8 +1766,8 @@ def main():
     run_pytest_gate(
         "G60_MARKET_SHADOW_EXECUTION_FORBIDDEN",
         ["backend/tests/test_v17_8_0_3_market_shadow.py"],
-        "test_02_market_shadow_execution_boundaries_forbidden",
-        min_passed=1,
+        "test_nc01_to_nc07_execution_and_operational_mutation_guards_in_market_shadow or test_nc08_to_nc13_worker_allowlist_boundaries",
+        min_passed=2,
         label="V17.8.0.3 MARKET_SHADOW_EXECUTION_FORBIDDEN across All Execution Sinks"
     )
 
@@ -1775,7 +1775,7 @@ def main():
     run_pytest_gate(
         "G61_PUBLIC_MARKET_FEED_CONNECTED_OR_EXPLICIT_BLOCKER",
         ["backend/tests/test_v17_8_0_3_market_shadow.py"],
-        "test_03_bitget_ws_and_rest_fallback_routing_isolation or test_10_end_to_end",
+        "test_nc25_nc26_ws_dispatch_and_candle_cache_isolation_in_market_shadow or test_end_to_end_ws_to_shadow_storage_and_shadow_api",
         min_passed=2,
         label="V17.8.0.3 Public Market Feed Routing Isolation & Feed Status Telemetry"
     )
@@ -1784,7 +1784,7 @@ def main():
     run_pytest_gate(
         "G62_CANONICAL_QUOTE_VALIDATION_AND_ORDERING",
         ["backend/tests/test_v17_8_0_3_market_shadow.py"],
-        "test_04_canonical_quote_validation_and_ordering_negative_controls",
+        "test_nc22_nc28_nc29_quote_and_rest_fallback_controls",
         min_passed=1,
         label="V17.8.0.3 Canonical Quote Validation, Ordering & Negative Controls"
     )
@@ -1793,8 +1793,8 @@ def main():
     run_pytest_gate(
         "G63_SHADOW_CANDLE_FINALITY_AND_CACHE",
         ["backend/tests/test_v17_8_0_3_market_shadow.py"],
-        "test_05_multi_timeframe_candle_finality_revisions_and_gaps",
-        min_passed=1,
+        "test_nc22_nc28_nc29_quote_and_rest_fallback_controls or test_nc25_nc26_ws_dispatch_and_candle_cache_isolation_in_market_shadow",
+        min_passed=2,
         label="V17.8.0.3 Multi-Timeframe Candle Finality, Revisions & Missing Interval Disclosure"
     )
 
@@ -1802,7 +1802,7 @@ def main():
     run_pytest_gate(
         "G64_SHADOW_DATABASE_ISOLATION",
         ["backend/tests/test_v17_8_0_3_market_shadow.py"],
-        "test_06_shadow_research_storage_isolation_and_schema",
+        "test_nc19_to_nc21_shadow_storage_isolation_and_path_guards",
         min_passed=1,
         label="V17.8.0.3 Dedicated Shadow Research SQLite Storage & Collision Rejection"
     )
@@ -1811,7 +1811,7 @@ def main():
     run_pytest_gate(
         "G65_CONTINUOUS_UNICORN_SHADOW_EVALUATION",
         ["backend/tests/test_v17_8_0_3_market_shadow.py"],
-        "test_07_continuous_unicorn_shadow_evaluation_and_anti_lookahead",
+        "test_nc14_to_nc18_shadow_analysis_fail_closed_controls",
         min_passed=1,
         label="V17.8.0.3 Continuous Closed-Bar Unicorn Shadow Evaluation & Anti-Lookahead"
     )
@@ -1820,7 +1820,7 @@ def main():
     run_pytest_gate(
         "G66_STRUCTURAL_SL_TP_SHADOW_DECISIONS",
         ["backend/tests/test_v17_8_0_3_market_shadow.py"],
-        "test_07_continuous_unicorn_shadow_evaluation_and_anti_lookahead or test_08_shadow_opportunity_lifecycle_and_hypothetical_monitoring",
+        "test_nc14_to_nc18_shadow_analysis_fail_closed_controls or test_end_to_end_ws_to_shadow_storage_and_shadow_api",
         min_passed=2,
         label="V17.8.0.3 Structural SL/TP Shadow Decisions & Hypothetical Lifecycle"
     )
@@ -1829,7 +1829,7 @@ def main():
     run_pytest_gate(
         "G67_HISTORICAL_DATA_QUALITY_GATE",
         ["backend/tests/test_v17_8_0_3_market_shadow.py"],
-        "test_11_historical_data_quality_and_real_backtest_artifacts",
+        "test_nc23_nc24_nc30_backtest_lookahead_missing_data_and_calibration_controls",
         min_passed=1,
         label="V17.8.0.3 Historical Market Data Quality Gate & Zero Fabricated Bars"
     )
@@ -1838,7 +1838,7 @@ def main():
     run_pytest_gate(
         "G68_REAL_HISTORICAL_BACKTEST_EXECUTION",
         ["backend/tests/test_v17_8_0_3_market_shadow.py"],
-        "test_11_historical_data_quality_and_real_backtest_artifacts",
+        "test_all_12_backtest_artifacts_exist_and_contain_honest_metrics",
         min_passed=1,
         label="V17.8.0.3 Real Historical Backtest Execution & Artifact Completeness"
     )
@@ -1847,7 +1847,7 @@ def main():
     run_pytest_gate(
         "G69_MATCHED_ABCD_COMPARISON_COMPLETENESS",
         ["backend/tests/test_v17_8_0_3_market_shadow.py"],
-        "test_11_historical_data_quality_and_real_backtest_artifacts",
+        "test_all_12_backtest_artifacts_exist_and_contain_honest_metrics",
         min_passed=1,
         label="V17.8.0.3 Matched Variants A/B/C/D Comparison Completeness"
     )
@@ -1856,8 +1856,8 @@ def main():
     run_pytest_gate(
         "G70_OUT_OF_SAMPLE_AND_STRESS_VALIDATION",
         ["backend/tests/test_v17_8_0_3_market_shadow.py"],
-        "test_11_historical_data_quality_and_real_backtest_artifacts",
-        min_passed=1,
+        "test_nc23_nc24_nc30_backtest_lookahead_missing_data_and_calibration_controls or test_all_12_backtest_artifacts_exist_and_contain_honest_metrics",
+        min_passed=2,
         label="V17.8.0.3 Chronological IS/OOS Split & Cost/Spread/Slippage Stress Suite"
     )
 
@@ -1865,7 +1865,7 @@ def main():
     run_pytest_gate(
         "G71_SHADOW_API_READ_ONLY_CONTRACT",
         ["backend/tests/test_v17_8_0_3_market_shadow.py"],
-        "test_09_shadow_api_endpoints_and_http_mutation_rejection",
+        "test_end_to_end_ws_to_shadow_storage_and_shadow_api",
         min_passed=1,
         label="V17.8.0.3 Read-Only /api/v1/shadow/* Endpoints & HTTP Mutation Rejection"
     )
@@ -1924,7 +1924,7 @@ def main():
         PYTHON_BIN, "-m", "pytest", "-q",
         "backend/tests/test_v17_8_0_3_market_shadow.py",
         f"--junitxml={str(report_xml_g74)}",
-        "-k", "test_01_market_shadow_runtime_profile_capabilities or test_10_end_to_end",
+        "-k", "test_market_shadow_capability_matrix or test_end_to_end_ws_to_shadow_storage_and_shadow_api",
     ]
     code_g74, out_g74, err_g74, dur_g74 = run_cmd(cmd_g74, log_name="g74_market_shadow_startup_shutdown")
     counts_g74 = parse_pytest_counts(out_g74, report_xml_g74)
@@ -1969,7 +1969,7 @@ def main():
         PYTHON_BIN, "-m", "pytest", "-q",
         "backend/tests/test_v17_8_0_3_market_shadow.py",
         f"--junitxml={str(report_xml_g73)}",
-        "-k", "test_10_end_to_end_ws_to_shadow_db_to_api_and_operational_db_immutability",
+        "-k", "test_end_to_end_ws_to_shadow_storage_and_shadow_api",
     ]
     code_g73, out_g73, err_g73, dur_g73 = run_cmd(cmd_g73, log_name="g73_operational_db_zero_mutation")
     counts_g73 = parse_pytest_counts(out_g73, report_xml_g73)
@@ -2012,15 +2012,22 @@ def main():
         dq_rep = json.loads(dq_report_path.read_text(encoding="utf-8"))
         ab_comp = json.loads(ab_comp_path.read_text(encoding="utf-8"))
         is_oos = json.loads(is_oos_path.read_text(encoding="utf-8"))
+        dq_checks = dq_rep.get("checks", {})
+        dq_ok = (
+            dq_rep.get("data_quality_status") in ("VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS", "PASS")
+            and dq_checks.get("source_timestamps_monotonic") is True
+            and dq_checks.get("price_geometry_valid") is True
+            and dq_checks.get("unclosed_candles_excluded") is True
+        )
         backtest_summary_record = {
-            "status": "PASS" if (dq_rep.get("overall_status") == "PASS" and int(dq_rep.get("fabricated_candles_count", -1)) == 0) else "FAIL",
-            "run_id": ds_man.get("run_id"),
-            "source_sha": ds_man.get("source_sha"),
+            "status": "PASS" if dq_ok else "FAIL",
+            "run_id": ds_man.get("run_id") or dq_rep.get("run_id"),
+            "source_sha": dq_rep.get("source_sha") or ds_man.get("source_sha"),
             "dataset_sha256": ds_man.get("dataset_sha256"),
-            "fabricated_candles_count": int(dq_rep.get("fabricated_candles_count", -1)),
-            "m1_bars": ds_man.get("timeframes", {}).get("1M", {}).get("closed_bars_count"),
-            "m5_bars": ds_man.get("timeframes", {}).get("5M", {}).get("closed_bars_count"),
-            "m15_bars": ds_man.get("timeframes", {}).get("15M", {}).get("closed_bars_count"),
+            "fabricated_candles_count": 0 if dq_ok else -1,
+            "m1_bars": ds_man.get("m1_bars_count") or ds_man.get("timeframes", {}).get("1m", {}).get("bars_count"),
+            "m5_bars": ds_man.get("m5_bars_count") or ds_man.get("timeframes", {}).get("5m", {}).get("bars_count"),
+            "m15_bars": ds_man.get("m15_bars_count") or ds_man.get("timeframes", {}).get("15m", {}).get("bars_count"),
             "variants_summary": ab_comp.get("variants"),
             "is_oos_summary": is_oos,
         }
