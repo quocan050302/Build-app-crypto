@@ -2006,8 +2006,8 @@ def main():
     try:
         ds_manifest_path = ROOT / "backtest" / "dataset_manifest.json"
         dq_report_path = ROOT / "backtest" / "data_quality_report.json"
-        ab_comp_path = ROOT / "backtest" / "variant_abcd_comparison.json"
-        is_oos_path = ROOT / "backtest" / "in_sample_vs_out_of_sample.json"
+        ab_comp_path = ROOT / "backtest" / "matched_comparison.json"
+        is_oos_path = ROOT / "backtest" / "out_of_sample_report.json"
         ds_man = json.loads(ds_manifest_path.read_text(encoding="utf-8"))
         dq_rep = json.loads(dq_report_path.read_text(encoding="utf-8"))
         ab_comp = json.loads(ab_comp_path.read_text(encoding="utf-8"))
