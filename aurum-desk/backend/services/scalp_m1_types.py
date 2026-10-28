@@ -39,6 +39,7 @@ class ModelIdentifier(str, Enum):
     SMC_M1_SWEEP_RECLAIM = "SMC_M1_SWEEP_RECLAIM"
     NY_DAILY_RESEARCH = "NY_DAILY_RESEARCH"
     CG01_SWEEP_MSS_FVG = "CG01_SWEEP_MSS_FVG"
+    ICT_UNICORN = "ICT_UNICORN"
 
 
 SUPPORTED_ADAPTIVE_MODELS: Tuple[str, ...] = (
@@ -47,6 +48,7 @@ SUPPORTED_ADAPTIVE_MODELS: Tuple[str, ...] = (
     ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
     ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
     ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+    ModelIdentifier.ICT_UNICORN.value,
 )
 
 

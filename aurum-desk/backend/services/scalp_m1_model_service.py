@@ -370,6 +370,7 @@ class ScalpCandidate:
     selection_reason: Optional[str] = None
     stop_placement: Optional[Any] = None
     stop_comparison: Optional[Any] = None
+    unicorn_evidence: Optional[Any] = None
 
 
 def apply_stop_placement_to_candidate(
@@ -395,6 +396,7 @@ def apply_stop_placement_to_candidate(
     decision_cutoff_ms: int = 0,
     expires_at_ms: Optional[int] = None,
     cost_snapshot: Optional[Dict[str, Any]] = None,
+    unicorn_evidence: Optional[Any] = None,
 ) -> StopApplicationResult:
     """
     Applies V17.5.1 Stop Placement policy and returns StopApplicationResult.
@@ -491,8 +493,10 @@ def apply_stop_placement_to_candidate(
         atr_m5_val=eff_scalar_m5,
         spread=(ask - bid) if (bid is not None and ask is not None) else None,
         symbol="XAUUSDT",
+        unicorn_evidence=unicorn_evidence,
     )
 
+    u_dict = unicorn_evidence.to_dict() if (unicorn_evidence and hasattr(unicorn_evidence, "to_dict")) else (unicorn_evidence if isinstance(unicorn_evidence, dict) else None)
     comp_plan = build_stop_comparison_plan(
         opportunity_key=candidate_key,
         model_id=model_id,
@@ -516,6 +520,7 @@ def apply_stop_placement_to_candidate(
         decision_cutoff_ms=decision_cutoff_ms or now_ms,
         expires_at_ms=expires_at_ms,
         cost_snapshot=cost_snapshot,
+        unicorn_evidence=u_dict,
     )
 
     mode = getattr(stop_policy, "mode", "SHADOW_COMPARE")
@@ -2413,6 +2418,19 @@ class ScalpM1ModelService:
                 "timestamp": fvg_mid_ms,
                 "confirmed_at": fvg_conf_ms,
             }
+            unicorn_ev = None
+            if stop_policy is not None and getattr(stop_policy, "v18_unicorn_detection_enabled", True):
+                from services.unicorn_evidence_service import detect_unicorn_evidence
+                unicorn_ev = detect_unicorn_evidence(
+                    symbol="XAUUSDT",
+                    direction=direction,
+                    closed_bars=closed_1m,
+                    as_of_ms=now_ms,
+                    selected_fvg=selected_fvg_desc,
+                    confirmed_swings=(sh_list, sl_list),
+                    tick_size=getattr(cfg, "tick_size", 0.01),
+                )
+
             anchor_res = resolve_stop_anchor(
                 model_id=model_id,
                 direction=direction,
@@ -2422,6 +2440,7 @@ class ScalpM1ModelService:
                 selected_fvg=selected_fvg_desc,
                 confirmed_swings=(sh_list, sl_list),
                 tick_size=getattr(cfg, "tick_size", 0.01),
+                unicorn_evidence=unicorn_ev,
             )
 
         sl_price, target_price, calc_res, stop_dec, comp_plan = apply_stop_placement_to_candidate(
@@ -2441,6 +2460,7 @@ class ScalpM1ModelService:
             atr_1m_val=atr_1m,
             bid=bid,
             ask=ask,
+            unicorn_evidence=unicorn_ev,
         )
 
         is_geom, geom_err = validate_price_geometry(direction, entry_price, sl_price, target_price)
@@ -2600,6 +2620,7 @@ class ScalpM1ModelService:
             model_version="v16.1",
             stop_placement=stop_dec,
             stop_comparison=comp_plan,
+            unicorn_evidence=unicorn_ev,
         )
 
     @staticmethod

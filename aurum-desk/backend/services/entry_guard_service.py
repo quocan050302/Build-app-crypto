@@ -126,6 +126,9 @@ class EntryGuardRequest:
     session_instance_id: Optional[str] = None
     feed_health: Optional[Mapping[str, Any]] = None  # injected in tests; None -> default reader
     clock: Optional[Any] = None
+    min_protective_distance: Optional[float] = None
+    unicorn_evidence: Optional[Any] = None
+    stop_decision: Optional[Any] = None
 
 
 @dataclass(frozen=True)
@@ -377,10 +380,10 @@ def _check_strategy(req: EntryGuardRequest) -> EntryCheck:
                           "Điểm vào chưa xác nhận: đây chỉ là kế hoạch tạm để quan sát, hướng chưa đủ cơ sở xác nhận.",
                           "Chờ hệ thống xác nhận phá vỡ cấu trúc.")
     if state == "READY":
-        if req.strategy_family not in ("STANDARD_SMC", "SMC_M1_REVERSAL", "SMC_M1_CONTINUATION", "SMC_M1_FVG_CONTINUATION", "SMC_M1_SWEEP_RECLAIM", "NY_DAILY_RESEARCH", "NY_QUOTA_PAPER", "CG01_SWEEP_MSS_FVG"):
+        if req.strategy_family not in ("STANDARD_SMC", "SMC_M1_REVERSAL", "SMC_M1_CONTINUATION", "SMC_M1_FVG_CONTINUATION", "SMC_M1_SWEEP_RECLAIM", "NY_DAILY_RESEARCH", "NY_QUOTA_PAPER", "CG01_SWEEP_MSS_FVG", "ICT_UNICORN", "SMC_M1_UNICORN"):
             return EntryCheck("UNKNOWN_STRATEGY_FAMILY", "BLOCK",
                               f"Chiến lược không được hỗ trợ ({req.strategy_family}).",
-                              "Chỉ hỗ trợ STANDARD_SMC, SMC_M1_REVERSAL, SMC_M1_CONTINUATION, SMC_M1_FVG_CONTINUATION, SMC_M1_SWEEP_RECLAIM, NY_DAILY_RESEARCH, NY_QUOTA_PAPER, CG01_SWEEP_MSS_FVG.")
+                              "Chỉ hỗ trợ STANDARD_SMC, SMC_M1_REVERSAL, SMC_M1_CONTINUATION, SMC_M1_FVG_CONTINUATION, SMC_M1_SWEEP_RECLAIM, NY_DAILY_RESEARCH, NY_QUOTA_PAPER, CG01_SWEEP_MSS_FVG, ICT_UNICORN, SMC_M1_UNICORN.")
         if req.strategy_family == "STANDARD_SMC":
             from services.smc_scenario_config import active_scenario_config
             if active_scenario_config.certified_smc_entry_enabled:
@@ -403,7 +406,7 @@ def _check_strategy(req: EntryGuardRequest) -> EntryCheck:
             return _ok("strategy", "LEGACY_UNCERTIFIED: chế độ cũ, chưa xác minh chuỗi SMC.")
 
         # V16.38 Rules 082, 083: Apply DAILY_BIAS_PRIMARY direction validation across all SMC families
-        if req.strategy_family in ("CG01_SWEEP_MSS_FVG", "SMC_M1_REVERSAL", "SMC_M1_CONTINUATION", "SMC_M1_FVG_CONTINUATION", "SMC_M1_SWEEP_RECLAIM"):
+        if req.strategy_family in ("CG01_SWEEP_MSS_FVG", "SMC_M1_REVERSAL", "SMC_M1_CONTINUATION", "SMC_M1_FVG_CONTINUATION", "SMC_M1_SWEEP_RECLAIM", "ICT_UNICORN", "SMC_M1_UNICORN"):
             bias_res = _validate_daily_bias_policy(req)
             if bias_res is not None:
                 return bias_res
@@ -472,6 +475,43 @@ def _check_geometry(req: EntryGuardRequest) -> EntryCheck:
     ok, err = validate_price_geometry(req.direction, float(req.planned_entry), float(req.stop_loss), float(req.take_profit))
     if not ok:
         return EntryCheck("INVALID_PRICE_GEOMETRY", "BLOCK", f"{err}", "Kiểm tra lại hướng và bộ giá.")
+
+    # V17.8: Quote-Distance Guard against immediate microstructure noise
+    if req.validated_quote is not None and getattr(req.validated_quote, "is_valid", False):
+        bid = getattr(req.validated_quote, "bid", None)
+        ask = getattr(req.validated_quote, "ask", None)
+        norm_dir = req.direction.upper() if req.direction else "UNKNOWN"
+        min_dist = req.min_protective_distance or 0.0
+
+        if norm_dir in ("SHORT", "SELL") and ask is not None and _finite(ask):
+            remaining = float(req.stop_loss) - float(ask)
+            if remaining <= 0:
+                return EntryCheck("INVALID_GEOMETRY_STOP_BREACHED", "BLOCK",
+                                  f"Giá Ask ({ask}) đã chạm hoặc vượt quá mức SL ({req.stop_loss}).",
+                                  "Không thể vào lệnh khi giá thị trường đã xuyên thủng điểm dừng lỗ.")
+            if min_dist > 0 and remaining < min_dist:
+                return EntryCheck("STOP_TOO_CLOSE_TO_EXECUTABLE_QUOTE", "BLOCK",
+                                  f"Khoảng cách còn lại tới SL ({remaining:.2f}) nhỏ hơn khoảng cách bảo vệ tối thiểu ({min_dist:.2f}).",
+                                  "Chờ điểm vào có khoảng đệm an toàn hơn trước khi thực thi.")
+        elif norm_dir in ("LONG", "BUY") and bid is not None and _finite(bid):
+            remaining = float(bid) - float(req.stop_loss)
+            if remaining <= 0:
+                return EntryCheck("INVALID_GEOMETRY_STOP_BREACHED", "BLOCK",
+                                  f"Giá Bid ({bid}) đã chạm hoặc rơi dưới mức SL ({req.stop_loss}).",
+                                  "Không thể vào lệnh khi giá thị trường đã xuyên thủng điểm dừng lỗ.")
+            if min_dist > 0 and remaining < min_dist:
+                return EntryCheck("STOP_TOO_CLOSE_TO_EXECUTABLE_QUOTE", "BLOCK",
+                                  f"Khoảng cách còn lại tới SL ({remaining:.2f}) nhỏ hơn khoảng cách bảo vệ tối thiểu ({min_dist:.2f}).",
+                                  "Chờ điểm vào có khoảng đệm an toàn hơn trước khi thực thi.")
+
+    # V17.8: Unicorn Invalidation Guard
+    if req.unicorn_evidence is not None:
+        u_valid = getattr(req.unicorn_evidence, "is_valid", None)
+        if u_valid is False or (isinstance(req.unicorn_evidence, dict) and req.unicorn_evidence.get("validity_status") in ("INVALIDATED", "BREACHED")):
+            return EntryCheck("UNICORN_INVALIDATED", "BLOCK",
+                              "Cấu trúc ICT Unicorn đã bị vi phạm hoặc không còn hiệu lực.",
+                              "Hủy bỏ hoặc chờ thiết lập cấu trúc mới.")
+
     return _ok("geometry")
 
 

@@ -864,14 +864,55 @@ def resolve_stop_anchor(
     selected_sweep: Optional[Dict[str, Any]] = None,
     confirmed_swings: Optional[Tuple[Sequence[Dict[str, Any]], Sequence[Dict[str, Any]]]] = None,
     tick_size: float = 0.01,
+    unicorn_evidence: Optional[Any] = None,
 ) -> StopAnchorResult:
     """
     Identifies the model-specific structural protective anchor.
+    - Unicorn: Verified Breaker distal boundary / invalidation price.
     - Continuation: Protective swing high (for SHORT) or low (for LONG) originating the break leg.
-    - FVG Continuation: Protected origin extreme of the leg producing the break and FVG.
+    - FVG Continuation: Protected origin extreme of the leg producing the break and FVG,
+      falling back to displacement origin swing prior to FVG formation if bound leg is stale/breached.
     - Sweep Reclaim / Reversal / CG01: True extreme of the swept episode.
     """
     norm_dir = direction.upper()
+
+    # 0. Unicorn Evidence: Breaker Distal Invalidation (V17.8)
+    if unicorn_evidence is not None:
+        u_valid = getattr(unicorn_evidence, "is_valid", False)
+        if not u_valid and isinstance(unicorn_evidence, dict):
+            u_valid = unicorn_evidence.get("validity_status") in ("CONFIRMED", "VALID", "WAITING_RETEST")
+        
+        inval_px = getattr(unicorn_evidence, "invalidation_price", None)
+        if inval_px is None and isinstance(unicorn_evidence, dict):
+            inval_px = unicorn_evidence.get("invalidation_price")
+            
+        if u_valid and inval_px is not None and math.isfinite(float(inval_px)):
+            breaker_id = getattr(unicorn_evidence, "breaker_id", None) or (unicorn_evidence.get("breaker_id") if isinstance(unicorn_evidence, dict) else f"brk_{as_of_ms}")
+            occ_ms = getattr(unicorn_evidence, "breaker_confirmed_at_ms", None) or (unicorn_evidence.get("breaker_confirmed_at_ms") if isinstance(unicorn_evidence, dict) else as_of_ms)
+            known_ms = getattr(unicorn_evidence, "known_at_ms", None) or (unicorn_evidence.get("known_at_ms") if isinstance(unicorn_evidence, dict) else occ_ms)
+            occ_ms = int(occ_ms or as_of_ms)
+            known_ms = int(known_ms or as_of_ms)
+            if known_ms <= as_of_ms:
+                u_id = getattr(unicorn_evidence, "unicorn_id", None) or (unicorn_evidence.get("unicorn_id") if isinstance(unicorn_evidence, dict) else f"uni_{as_of_ms}")
+                mss_id = getattr(unicorn_evidence, "mss_or_bos_id", None) or (unicorn_evidence.get("mss_or_bos_id") if isinstance(unicorn_evidence, dict) else None)
+                anchor = StopAnchor(
+                    id=f"anc_unicorn_{breaker_id}",
+                    kind=StopAnchorKind.BREAKER_DISTAL_BOUNDARY.value,
+                    price=float(inval_px),
+                    timeframe="1M",
+                    occurred_at_ms=occ_ms,
+                    known_at_ms=known_ms,
+                    source_leg_id=str(u_id),
+                    source_break_id=str(mss_id) if mss_id else None,
+                    price_basis=PriceBasis.CANDLE_LAST.value,
+                )
+                if not validate_anchor_not_invalidated(anchor, closed_bars, norm_dir, as_of_ms):
+                    return StopAnchorResult(
+                        status="INVALID_DATA",
+                        anchor=None,
+                        reasons=("ANCHOR_ALREADY_INVALIDATED", "UNICORN_DISTAL_BREACHED"),
+                    )
+                return StopAnchorResult(status="AVAILABLE", anchor=anchor)
 
     # 1. Sweep-based models: Reversal, Sweep Reclaim, CG01
     if selected_sweep is not None:
@@ -945,31 +986,65 @@ def resolve_stop_anchor(
                 as_of_ms=as_of_ms,
                 tick_size=tick_size,
             )
-            if bound_leg is None:
+            anchor = None
+            if bound_leg is not None:
+                cand_anchor = StopAnchor(
+                    id=f"anc_fvg_{'sh' if norm_dir == 'SHORT' else 'sl'}_{bound_leg.origin_pivot_id}",
+                    kind=StopAnchorKind.PROTECTED_LEG_HIGH.value if norm_dir == "SHORT" else StopAnchorKind.PROTECTED_LEG_LOW.value,
+                    price=bound_leg.origin_price,
+                    timeframe="1M",
+                    occurred_at_ms=bound_leg.origin_occurred_at_ms,
+                    known_at_ms=bound_leg.origin_known_at_ms,
+                    source_leg_id=bound_leg.leg_id,
+                    source_break_id=bound_leg.break_bar_id,
+                    price_basis=PriceBasis.CANDLE_LAST.value,
+                )
+                if validate_anchor_not_invalidated(cand_anchor, closed_bars, norm_dir, as_of_ms):
+                    anchor = cand_anchor
+
+            # V17.8 Fallback: If bound_leg is unavailable or already invalidated,
+            # bind to the true displacement origin extreme preceding the FVG formation
+            if anchor is None and pivots:
+                fvg_t = leg_cutoff_ms
+                eligible_pivots = [
+                    p for p in pivots
+                    if int(p.get("occurred_at_ms", 0)) < fvg_t
+                    and int(p.get("known_at_ms", p.get("occurred_at_ms", 0))) <= as_of_ms
+                ]
+                eligible_pivots.sort(key=lambda p: (int(p.get("occurred_at_ms", 0)), int(p.get("known_at_ms", 0))), reverse=True)
+                for ep in eligible_pivots:
+                    ep_px = float(ep.get("price", 0.0))
+                    ep_occ = int(ep.get("occurred_at_ms", 0))
+                    ep_known = int(ep.get("known_at_ms", ep_occ))
+                    cand = StopAnchor(
+                        id=f"anc_fvg_origin_{'sh' if norm_dir == 'SHORT' else 'sl'}_{ep.get('id', ep_occ)}",
+                        kind=StopAnchorKind.DISPLACEMENT_ORIGIN.value,
+                        price=ep_px,
+                        timeframe="1M",
+                        occurred_at_ms=ep_occ,
+                        known_at_ms=ep_known,
+                        source_leg_id=fvg_id,
+                        source_break_id=None,
+                        price_basis=PriceBasis.CANDLE_LAST.value,
+                    )
+                    if validate_anchor_not_invalidated(cand, closed_bars, norm_dir, as_of_ms):
+                        fvg_top = float(selected_fvg.get("top", 0.0)) if selected_fvg.get("top") is not None else 0.0
+                        fvg_bot = float(selected_fvg.get("bottom", 0.0)) if selected_fvg.get("bottom") is not None else 0.0
+                        if norm_dir == "SHORT" and ep_px >= fvg_top:
+                            anchor = cand
+                            break
+                        elif norm_dir == "LONG" and ep_px <= fvg_bot:
+                            anchor = cand
+                            break
+
+            if anchor is not None:
+                return StopAnchorResult(status="AVAILABLE", anchor=anchor, bound_leg=bound_leg)
+            else:
                 return StopAnchorResult(
                     status="WAITING_EVIDENCE",
                     anchor=None,
                     reasons=("STRUCTURAL_ANCHOR_NOT_FOUND",),
                 )
-
-            anchor = StopAnchor(
-                id=f"anc_fvg_{'sh' if norm_dir == 'SHORT' else 'sl'}_{bound_leg.origin_pivot_id}",
-                kind=StopAnchorKind.PROTECTED_LEG_HIGH.value if norm_dir == "SHORT" else StopAnchorKind.PROTECTED_LEG_LOW.value,
-                price=bound_leg.origin_price,
-                timeframe="1M",
-                occurred_at_ms=bound_leg.origin_occurred_at_ms,
-                known_at_ms=bound_leg.origin_known_at_ms,
-                source_leg_id=bound_leg.leg_id,
-                source_break_id=bound_leg.break_bar_id,
-                price_basis=PriceBasis.CANDLE_LAST.value,
-            )
-            if not validate_anchor_not_invalidated(anchor, closed_bars, norm_dir, as_of_ms):
-                return StopAnchorResult(
-                    status="INVALID_DATA",
-                    anchor=None,
-                    reasons=("ANCHOR_ALREADY_INVALIDATED",),
-                )
-            return StopAnchorResult(status="AVAILABLE", anchor=anchor, bound_leg=bound_leg)
 
     # 3. Continuation (M1 Trend BOS)
     if confirmed_swings:
@@ -1055,10 +1130,12 @@ def plan_structural_stop(
     atr_m1_obj: Optional[StopATRResult] = None,
     atr_m5_obj: Optional[StopATRResult] = None,
     symbol: Optional[str] = "XAUUSDT",
+    unicorn_evidence: Optional[Any] = None,
+    invalidation_authority: Optional[str] = None,
 ) -> StopPlacementDecision:
     """
-    Synthesizes the V17.7.4 Adaptive Structural Stop Loss decision.
-    - Preserves structural invalidation anchor (protected swing/origin/sweep).
+    Synthesizes the V17.8 Adaptive Structural Stop Loss decision.
+    - Preserves structural invalidation anchor (protected swing/origin/sweep/Unicorn breaker).
     - Single authoritative ATR resolution: PAPER_STRUCTURAL strictly requires validated raw ATR.
     - Computes dynamic buffer beyond the anchor from validated metrics.
     - Computes minimum entry-relative protective distance against microstructure noise.
@@ -1072,7 +1149,69 @@ def plan_structural_stop(
     norm_dir = direction.upper() if isinstance(direction, str) else "UNKNOWN"
     mode = getattr(policy, "mode", StopPlacementMode.SHADOW_COMPARE.value)
     policy_ver = getattr(policy, "version", 1)
-    algo_ver = getattr(policy, "algorithm_version", "V17_7_1")
+    algo_ver = getattr(policy, "algorithm_version", "V17_8_0")
+
+    u_dict = unicorn_evidence.to_dict() if (unicorn_evidence and hasattr(unicorn_evidence, "to_dict")) else (unicorn_evidence if isinstance(unicorn_evidence, dict) else None)
+    u_id = getattr(unicorn_evidence, "unicorn_id", None) or (unicorn_evidence.get("unicorn_id") if isinstance(unicorn_evidence, dict) else None)
+    u_inval = getattr(unicorn_evidence, "invalidation_price", None) or (unicorn_evidence.get("invalidation_price") if isinstance(unicorn_evidence, dict) else None)
+    unicorn_sl_cand = None
+    if u_inval is not None:
+        try:
+            fu_inval = float(u_inval)
+            if math.isfinite(fu_inval):
+                buf_p = buffer_result.buffer_price if buffer_result else (float(policy.min_buffer_ticks) * float(tick_size))
+                unicorn_sl_cand = quantize_stop_outward(
+                    anchor_price=fu_inval,
+                    buffer_price=buf_p,
+                    direction=norm_dir,
+                    tick_size=tick_size,
+                )
+        except (ValueError, TypeError):
+            pass
+
+    def _make_decision(
+        *,
+        status: str,
+        selected_sl: Optional[float] = None,
+        anchor: Optional[StopAnchor] = None,
+        bound_leg: Optional[Any] = None,
+        buffer: Optional[StopBufferResult] = None,
+        metrics: Optional[StopMetrics] = None,
+        reasons: Tuple[str, ...] = (),
+        applied_variant: str = "A",
+        volatility_context: Optional[Dict[str, Any]] = None,
+        protective_distance: Optional[float] = None,
+        expansion_applied: bool = False,
+        distance_assessment: Optional[str] = "DISTANCE_NORMAL",
+        structural_sl: Optional[float] = None,
+    ) -> StopPlacementDecision:
+        b_comps = buffer.components if buffer else (buffer_result.components if buffer_result else None)
+        inval_auth = invalidation_authority or (getattr(anchor, "kind", None) if anchor else None)
+        return StopPlacementDecision(
+            status=status,
+            selected_sl=selected_sl,
+            anchor=anchor,
+            bound_leg=bound_leg,
+            buffer=buffer,
+            metrics=metrics,
+            reasons=reasons,
+            policy_version=policy_ver,
+            mode=mode,
+            decision_cutoff_ms=as_of_ms,
+            applied_variant=applied_variant,
+            volatility_context=volatility_context,
+            protective_distance=protective_distance,
+            expansion_applied=expansion_applied,
+            distance_assessment=distance_assessment,
+            algorithm_version=algo_ver,
+            unicorn_evidence=u_dict,
+            unicorn_id=u_id,
+            invalidation_authority=inval_auth,
+            unicorn_sl_candidate=unicorn_sl_cand,
+            legacy_sl=legacy_sl,
+            structural_sl=structural_sl,
+            buffer_components=b_comps,
+        )
 
     # 0. Single Authoritative ATR Resolution (V17.7.4 Section 06)
     is_m1_valid, m1_reason = validate_stop_atr_authority(
@@ -1617,7 +1756,7 @@ def plan_structural_stop(
         "atr_m1_status": "AVAILABLE",
     }
 
-    return StopPlacementDecision(
+    return _make_decision(
         status=StopStatus.VALID.value,
         selected_sl=selected_sl,
         anchor=anchor,
@@ -1625,15 +1764,12 @@ def plan_structural_stop(
         buffer=effective_buffer,
         metrics=metrics,
         reasons=(),
-        policy_version=policy_ver,
-        mode=mode,
-        decision_cutoff_ms=as_of_ms,
         applied_variant=applied_variant,
         volatility_context=vol_ctx,
         protective_distance=min_prot_dist,
         expansion_applied=expansion_applied,
         distance_assessment=distance_assessment,
-        algorithm_version=algo_ver,
+        structural_sl=variant_c_sl,
     )
 
 

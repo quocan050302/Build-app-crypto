@@ -104,13 +104,14 @@ def write_acceptance_artifacts(
     source_manifest: Dict[str, Any],
     gate_manifest: List[str],
     artifacts_base_dir: Path,
+    version_dir: str = "v17_7_4",
 ) -> Path:
     """
-    Writes run-scoped acceptance artifacts under docs/artifacts/v17_7_4/<run_id>/ (Section 11.5).
-    Preserves historical v17_7_2 and v17_7_3 files without overwrite.
+    Writes run-scoped acceptance artifacts under docs/artifacts/<version_dir>/<run_id>/ (Section 11.5).
+    Preserves historical files without overwrite.
     """
     base_dir = Path(artifacts_base_dir).resolve()
-    run_dir = base_dir / "v17_7_4" / run_id
+    run_dir = base_dir / version_dir / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # 1. Write gate_manifest.json
@@ -162,6 +163,7 @@ def verify_acceptance_bundle(
     expected_version: str = "17.7.4",
     expected_run_id: Optional[str] = None,
     expected_source_sha: Optional[str] = None,
+    expected_gate_manifest: Optional[List[str]] = None,
 ) -> Tuple[bool, List[str]]:
     """
     Strict verifier for acceptance artifact bundle (Section 11.6 & Section 12.1).
@@ -278,7 +280,8 @@ def verify_acceptance_bundle(
 
         # Check recomputed verdict
         gates = results.get("gates", {})
-        recomputed = determine_release_verdict(gates, MANDATORY_GATES_V17_7_4)
+        eval_manifest = expected_gate_manifest if expected_gate_manifest is not None else MANDATORY_GATES_V17_7_4
+        recomputed = determine_release_verdict(gates, eval_manifest)
         recorded_verdict = results.get("verdict")
         if recorded_verdict != recomputed:
             errors.append(f"Verdict inconsistency: recorded '{recorded_verdict}', recomputed '{recomputed}'")

@@ -165,9 +165,11 @@ def build_stop_comparison_plan(
     context_status: Optional[str] = None,
     context_reason: Optional[str] = None,
     provenance: Optional[str] = None,
+    variant_d: Optional[VariantPlan] = None,
+    unicorn_evidence: Optional[Dict[str, Any]] = None,
 ) -> StopComparisonPlan:
     """
-    Constructs a paired StopComparisonPlan comparing Variants A, B, and C
+    Constructs a paired StopComparisonPlan comparing Variants A, B, C, and D
     evaluated on the exact same opportunity with identical entry and take profit.
     """
     capital = float(policy_settings.get("capital_usdt", 1000.0))
@@ -197,7 +199,7 @@ def build_stop_comparison_plan(
         dominant_buffer="legacy_ticks",
     )
 
-    # If anchor is unavailable, B and C mirror A with missing evidence
+    # If anchor is unavailable, B, C, D mirror A with missing evidence
     if anchor is None:
         plan_b = VariantPlan(
             variant_id="B", stop_loss=legacy_sl, take_profit=take_profit,
@@ -207,6 +209,12 @@ def build_stop_comparison_plan(
         )
         plan_c = VariantPlan(
             variant_id="C", stop_loss=legacy_sl, take_profit=take_profit,
+            quantity=plan_a.quantity, net_rr=plan_a.net_rr, gross_rr=plan_a.gross_rr,
+            is_valid=False, can_execute=False, meets_min_rr=False,
+            rejection_reason="MISSING_STRUCTURAL_ANCHOR", buffer_price=0.0, dominant_buffer="none",
+        )
+        plan_d = VariantPlan(
+            variant_id="D", stop_loss=legacy_sl, take_profit=take_profit,
             quantity=plan_a.quantity, net_rr=plan_a.net_rr, gross_rr=plan_a.gross_rr,
             is_valid=False, can_execute=False, meets_min_rr=False,
             rejection_reason="MISSING_STRUCTURAL_ANCHOR", buffer_price=0.0, dominant_buffer="none",
@@ -264,6 +272,32 @@ def build_stop_comparison_plan(
             dominant_buffer=c_dom,
         )
 
+        # Variant D: Structural stop with researched noise calibration (P90 noise buffer)
+        noise_mult = float(policy_settings.get("noise_calibrated_multiplier", 1.25))
+        d_buf = c_buf * noise_mult
+        d_sl = quantize_stop_outward(
+            anchor_price=anchor.price, buffer_price=d_buf, direction=direction, tick_size=tick_size,
+        )
+        calc_d = calculate_risk_reward(
+            direction=direction, planned_entry=planned_entry, stop_loss=d_sl, take_profit=take_profit,
+            capital_usdt=capital, risk_pct=risk_pct, leverage=lev, margin_mode=margin_mode, min_net_rr=min_net_rr,
+            costs=costs, now_ms=now_ms,
+        )
+        plan_d = VariantPlan(
+            variant_id="D",
+            stop_loss=d_sl,
+            take_profit=take_profit,
+            quantity=float(getattr(calc_d, "quantity", 0.0)),
+            net_rr=float(getattr(calc_d, "net_rr", 0.0)),
+            gross_rr=float(getattr(calc_d, "gross_rr", 0.0)),
+            is_valid=bool(getattr(calc_d, "is_valid", False)),
+            can_execute=bool(getattr(calc_d, "can_execute", False)),
+            meets_min_rr=bool(getattr(calc_d, "meets_min_rr", False)),
+            rejection_reason=getattr(calc_d, "skip_reason", None) or getattr(calc_d, "invalid_reason", None),
+            buffer_price=d_buf,
+            dominant_buffer=f"noise_calibrated_{c_dom}",
+        )
+
     if context_status is None:
         if expires_at_ms is not None and cost_snapshot is not None:
             c_status = "VERIFIED"
@@ -286,6 +320,8 @@ def build_stop_comparison_plan(
         variant_a=plan_a,
         variant_b=plan_b,
         variant_c=plan_c,
+        variant_d=variant_d or plan_d,
+        unicorn_evidence=unicorn_evidence,
         anchor=anchor,
         atr_m1=atr_m1,
         atr_m5=atr_m5,
@@ -458,6 +494,8 @@ def bind_stop_comparison_execution_context(
             variant_a=plan.variant_a,
             variant_b=plan.variant_b,
             variant_c=plan.variant_c,
+            variant_d=getattr(plan, "variant_d", None),
+            unicorn_evidence=getattr(plan, "unicorn_evidence", None),
             anchor=plan.anchor,
             atr_m1=plan.atr_m1,
             atr_m5=plan.atr_m5,

@@ -3057,6 +3057,9 @@ class ScalpWatcherOrchestrator:
             min_net_rr=cfg.min_net_rr,
             clock=clock,
             evidence=cand_evidence,
+            min_protective_distance=getattr(cand.stop_placement, "protective_distance", None) if cand.stop_placement else None,
+            unicorn_evidence=getattr(cand, "unicorn_evidence", None),
+            stop_decision=cand.stop_placement,
         )
 
         decision = evaluate_entry_guard(db, req)
