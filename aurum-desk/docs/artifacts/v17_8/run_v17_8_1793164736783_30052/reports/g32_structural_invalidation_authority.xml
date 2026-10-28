@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="6.326" timestamp="2026-10-28T12:56:37.378043+07:00" hostname="Lil-Poppa"><testcase classname="backend.tests.test_v17_8_structural_sl" name="test_unicorn_breaker_distal_invalidation_authority" time="6.181" /></testsuite></testsuites>
