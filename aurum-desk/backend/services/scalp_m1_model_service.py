@@ -2369,6 +2369,7 @@ class ScalpM1ModelService:
         # V17.5: Stop Placement & Paired Research resolution
         candidate_key = f"fvg_cont_{direction}_{fvg_id}_{retest_open_ms}"
         anchor_res = None
+        unicorn_ev = None
         if stop_policy is not None:
             from services.stop_placement_service import (
                 resolve_stop_anchor,

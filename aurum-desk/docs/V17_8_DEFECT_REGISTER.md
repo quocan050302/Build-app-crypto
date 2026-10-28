@@ -51,3 +51,12 @@ In accordance with Section 15 of the Master Execution Directive, this register d
 - **Source Repair:** Created `tools/run_v17_8_acceptance.py` and updated `tools/acceptance_verdict.py` with `MANDATORY_GATES_V17_8` (42 gates) and branch `feat/v17-8-unicorn-structural-sl-tp-intelligence`.
 - **Regression Test:** `backend/tests/test_v17_8_acceptance_runner.py` (6 tests)
 - **Status:** RESOLVED & VERIFIED
+
+### Defect DEF-178-06: UnboundLocalError for `unicorn_ev` When `stop_policy` Is None
+- **Severity:** Medium
+- **Affected Area:** `backend/services/scalp_m1_model_service.py` (`_evaluate_fvg_continuation_model`)
+- **Reproduction Steps:** When evaluating an FVG continuation candidate without a stop policy (`stop_policy is None`), `unicorn_ev` was not initialized before being passed to `apply_stop_placement_to_candidate`, raising `UnboundLocalError`.
+- **Root Cause:** `unicorn_ev` variable was scoped only inside `if stop_policy is not None:`.
+- **Source Repair:** Initialized `unicorn_ev = None` alongside `anchor_res = None` prior to the `if stop_policy is not None:` block.
+- **Regression Test:** `backend/tests/test_v17_7_adaptive_stop_loss.py::test_sl_39_fvg_continuation_behavior` (G11)
+- **Status:** RESOLVED & VERIFIED
