@@ -210,5 +210,64 @@ test.describe('V17.8.0.1 SL/TP Intelligence View Browser E2E Verification', () =
     await expect(legacyBanner.getByTestId('sltp-legacy-status-badge')).toHaveText('UNAVAILABLE_LEGACY');
     await expect(legacyBanner.getByTestId('sltp-not-recorded-badge')).toHaveText('NOT_RECORDED');
   });
+
+  test('P04: V17.8.0.3 MarketShadowPanel renders connected fresh feed, Unicorn opportunity, RESEARCH ONLY badge, and backtest results', async ({ page, request }) => {
+    const seedShadowRes = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/seed_market_shadow`, {
+      data: {
+        mode: 'FRESH',
+      },
+    });
+    expect(seedShadowRes.status()).toBe(200);
+
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    const obsTab = page.locator('[data-tab-id="observation"]');
+    await expect(obsTab).toBeVisible({ timeout: 10000 });
+    await obsTab.click();
+
+    const panel = page.getByTestId('market-shadow-panel');
+    await expect(panel).toBeVisible({ timeout: 10000 });
+    await expect(panel.getByTestId('shadow-research-only-badge')).toHaveText('RESEARCH ONLY — NO ORDER EXECUTED');
+    await expect(panel.getByTestId('shadow-trading-controls-badge')).toContainText('TRADING_CONTROLS_DISABLED');
+    await expect(panel.getByTestId('shadow-feed-status')).toHaveText('CONNECTED_FRESH');
+    await expect(panel.getByTestId('shadow-m1-status')).toHaveText('READY');
+    await expect(panel.getByTestId('shadow-m5-status')).toHaveText('READY');
+    await expect(panel.getByTestId('shadow-m15-status')).toHaveText('READY');
+    await expect(panel.getByTestId('shadow-opp-structural-sl').first()).toBeVisible();
+    await expect(panel.getByTestId('shadow-opp-tp').first()).toBeVisible();
+    await expect(panel.getByTestId('shadow-opp-research-badge').first()).toHaveText('RESEARCH ONLY — NO ORDER EXECUTED');
+    await expect(panel.getByTestId('shadow-backtest-availability')).toHaveText('BACKTEST_AVAILABLE');
+    await expect(panel.getByTestId('shadow-backtest-verdict')).toHaveText('REAL_HISTORICAL_BACKTEST_COMPLETED');
+  });
+
+  test('P05: V17.8.0.3 MarketShadowPanel renders DISCONNECTED feed and MISSING_BACKTEST_DATA honestly', async ({ page, request }) => {
+    const seedShadowRes = await request.post(`http://127.0.0.1:${API_PORT}/__e2e/seed_market_shadow`, {
+      data: {
+        mode: 'DISCONNECTED',
+        backtest_override: {
+          available: false,
+          backtest_verdict: 'REAL_HISTORICAL_BACKTEST_NOT_RUN',
+          dataset_coverage: null,
+        },
+      },
+    });
+    expect(seedShadowRes.status()).toBe(200);
+
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    const obsTab = page.locator('[data-tab-id="observation"]');
+    await expect(obsTab).toBeVisible({ timeout: 10000 });
+    await obsTab.click();
+
+    const panel = page.getByTestId('market-shadow-panel');
+    await expect(panel).toBeVisible({ timeout: 10000 });
+    await expect(panel.getByTestId('shadow-feed-status')).toHaveText('DISCONNECTED');
+    await expect(panel.getByTestId('shadow-opportunities-empty')).toBeVisible();
+    await expect(panel.getByTestId('shadow-backtest-availability')).toHaveText('MISSING_BACKTEST_DATA');
+    await expect(panel.getByTestId('shadow-backtest-verdict')).toHaveText('REAL_HISTORICAL_BACKTEST_NOT_RUN');
+
+    // Reset override
+    await request.post(`http://127.0.0.1:${API_PORT}/__e2e/seed_market_shadow`, {
+      data: { mode: 'DISCONNECTED', backtest_override: null },
+    });
+  });
 });
 

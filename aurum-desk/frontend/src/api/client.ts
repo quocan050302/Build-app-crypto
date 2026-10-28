@@ -1532,3 +1532,50 @@ export async function getOrderStopEvidence(orderId: string): Promise<any> {
   return res.data;
 }
 
+// V17.8.0.3: Safe Market Shadow Runtime, Unicorn Evidence & Historical Backtest API
+export async function getRuntimeProfile(): Promise<any> {
+  const res = await apiClient.get('/api/v1/runtime/profile');
+  return res.data;
+}
+
+export async function getShadowMarketStatus(): Promise<any> {
+  const res = await apiClient.get('/api/v1/shadow/market/status');
+  return res.data;
+}
+
+export async function getShadowQuotes(limit: number = 50): Promise<any> {
+  const res = await apiClient.get('/api/v1/shadow/market/quotes', { params: { limit } });
+  return res.data;
+}
+
+export async function getShadowCandles(timeframe: string = '1M', limit: number = 100): Promise<any> {
+  const res = await apiClient.get('/api/v1/shadow/market/candles', { params: { timeframe, limit } });
+  return res.data;
+}
+
+export async function getShadowOpportunities(params?: { limit?: number; eligibility_status?: string }): Promise<any> {
+  const res = await apiClient.get('/api/v1/shadow/opportunities', { params });
+  return res.data;
+}
+
+export async function getShadowOpportunityDetail(opportunityId: string): Promise<any> {
+  const res = await apiClient.get(`/api/v1/shadow/opportunities/${encodeURIComponent(opportunityId)}`);
+  return res.data;
+}
+
+export async function getShadowUnicornEvidence(params?: { limit?: number; validity_status?: string }): Promise<any> {
+  const res = await apiClient.get('/api/v1/shadow/unicorn/evidence', { params });
+  return res.data;
+}
+
+export async function getShadowBacktests(limit: number = 20): Promise<any> {
+  const res = await apiClient.get('/api/v1/shadow/research/backtests', { params: { limit } });
+  return res.data;
+}
+
+export async function getShadowBacktestDetail(runId: string): Promise<any> {
+  const res = await apiClient.get(`/api/v1/shadow/research/backtests/${encodeURIComponent(runId)}`);
+  return res.data;
+}
+
+

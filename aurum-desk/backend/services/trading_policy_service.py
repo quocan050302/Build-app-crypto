@@ -11,6 +11,7 @@ import models, crud
 from services.clock import live_clock, IClock
 from services.runtime_profile_service import (
     assert_not_observe_only,
+    is_non_trading_runtime,
     is_observe_only_runtime,
 )
 
@@ -301,7 +302,7 @@ class TradingPolicyService:
         policy = db.query(models.TradingPolicy).filter(models.TradingPolicy.id == "default").first()
         if not policy:
             policy = TradingPolicyService.get_default_policy()
-            if is_observe_only_runtime():
+            if is_non_trading_runtime():
                 return policy
             db.add(policy)
             try:
@@ -653,7 +654,7 @@ class TradingPolicyService:
                 created_at=current_time,
                 updated_at=current_time
             )
-            if is_observe_only_runtime():
+            if is_non_trading_runtime():
                 return quota
             db.add(quota)
             try:
@@ -668,7 +669,7 @@ class TradingPolicyService:
                     raise
                 return quota
             db.refresh(quota)
-        elif is_observe_only_runtime():
+        elif is_non_trading_runtime():
             try:
                 db.expunge(quota)
             except Exception:
@@ -718,7 +719,7 @@ class TradingPolicyService:
             quota.last_status_reason = "Không đặt chỉ tiêu riêng cho phiên Mỹ (ALL_SESSIONS_SETUP_FIRST)"
             quota.last_evaluated_at = current_time
             quota.updated_at = current_time
-            if not is_observe_only_runtime():
+            if not is_non_trading_runtime():
                 try:
                     db.commit()
                 except Exception as exc:
@@ -732,7 +733,7 @@ class TradingPolicyService:
             quota.last_status_reason = f"Đã hoàn thành chỉ tiêu phiên Mỹ: {quota.total_fills}/{quota.target_fills} lệnh khớp"
             quota.last_evaluated_at = current_time
             quota.updated_at = current_time
-            if not is_observe_only_runtime():
+            if not is_non_trading_runtime():
                 try:
                     db.commit()
                 except Exception as exc:
@@ -746,7 +747,7 @@ class TradingPolicyService:
             quota.last_status_reason = f"Chưa tới cửa sổ phiên Mỹ ({window['vn_window_str']})"
             quota.last_evaluated_at = current_time
             quota.updated_at = current_time
-            if not is_observe_only_runtime():
+            if not is_non_trading_runtime():
                 try:
                     db.commit()
                 except Exception as exc:
@@ -761,7 +762,7 @@ class TradingPolicyService:
                 quota.last_status_reason = TradingPolicyService._missed_reason_text(db, quota)
             quota.last_evaluated_at = current_time
             quota.updated_at = current_time
-            if not is_observe_only_runtime():
+            if not is_non_trading_runtime():
                 try:
                     db.commit()
                 except Exception as exc:
@@ -813,7 +814,7 @@ class TradingPolicyService:
 
         quota.last_evaluated_at = current_time
         quota.updated_at = current_time
-        if not is_observe_only_runtime():
+        if not is_non_trading_runtime():
             try:
                 db.commit()
             except Exception as exc:

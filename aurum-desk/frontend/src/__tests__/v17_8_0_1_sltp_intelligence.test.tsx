@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, afterEach, describe, it, expect } from 'vitest';
-import { SLTPIntelligenceView } from '../components/SLTPIntelligenceView';
+import { SLTPIntelligenceView, MarketShadowPanel } from '../components/SLTPIntelligenceView';
 
 describe('Aurum V17.8.0.1 — SLTPIntelligenceView Component Suite', () => {
   let host: HTMLDivElement;
@@ -173,6 +173,145 @@ describe('Aurum V17.8.0.1 — SLTPIntelligenceView Component Suite', () => {
     expect(host.textContent).toContain('UNAVAILABLE_LEGACY');
     expect(host.textContent).toContain('NOT_RECORDED');
     expect(host.textContent).toContain('ord_legacy_old');
+  });
+
+  it('V17.8.0.3: renders MarketShadowPanel with fresh feed, Unicorn shadow opportunity, backtest summary, and zero trading controls', async () => {
+    const freshStatus = {
+      symbol: 'XAUUSDT',
+      runtime_profile: { profile: 'MARKET_SHADOW' },
+      feed_status: 'CONNECTED_FRESH',
+      last_quote_timestamp: 1793196000000,
+      quote_freshness_sec: 0.42,
+      spread: 0.25,
+      m1_status: { status: 'READY' },
+      m5_status: { status: 'READY' },
+      m15_status: { status: 'READY' },
+      last_completed_analysis_cycle: { cycle_id: 'sh_cycle_XAUUSDT_1793196000000_1' },
+      summary_counts: {
+        detected_setups: 2,
+        confirmed_unicorn_opportunities: 1,
+        eligible_opportunities: 1,
+        rejected_opportunities: 1,
+      },
+      research_disclosure: 'RESEARCH ONLY — NO ORDER EXECUTED',
+    };
+
+    const shadowOpps = [
+      {
+        opportunity_id: 'shopp_SMC_M1_FVG_CONTINUATION_XAUUSDT_LONG_ep_1',
+        model_id: 'SMC_M1_FVG_CONTINUATION',
+        direction: 'LONG',
+        unicorn_validity: 'VALID',
+        source_breaker_id: 'brk_bull_1m_1793195880000',
+        structural_sl: 2641.20,
+        unicorn_sl_candidate: 2641.20,
+        target_price: 2658.40,
+        net_rr: 2.35,
+        shadow_eligibility_status: 'SHADOW_ELIGIBLE',
+        execution_status: 'NEVER_EXECUTED',
+        research_disclosure: 'RESEARCH ONLY — NO ORDER EXECUTED',
+      },
+    ];
+
+    const backtestSummary = {
+      available: true,
+      backtest_verdict: 'REAL_HISTORICAL_BACKTEST_COMPLETED',
+      dataset_coverage: {
+        m1_bars_count: 16645,
+        m5_bars_count: 32602,
+        m15_bars_count: 15509,
+        missing_intervals_count: 4968,
+      },
+    };
+
+    await act(async () => {
+      root.render(
+        <MarketShadowPanel
+          initialStatus={freshStatus}
+          initialOpportunities={shadowOpps}
+          initialBacktest={backtestSummary}
+          autoFetch={false}
+        />
+      );
+    });
+
+    expect(host.querySelector('[data-testid="market-shadow-panel"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="shadow-runtime-profile"]')?.textContent).toBe('MARKET_SHADOW');
+    expect(host.querySelector('[data-testid="shadow-research-only-badge"]')?.textContent).toBe(
+      'RESEARCH ONLY — NO ORDER EXECUTED'
+    );
+    expect(host.querySelector('[data-testid="shadow-trading-controls-badge"]')?.textContent).toContain(
+      'TRADING_CONTROLS_DISABLED'
+    );
+    expect(host.querySelector('[data-testid="shadow-feed-status"]')?.textContent).toBe('CONNECTED_FRESH');
+    expect(host.querySelector('[data-testid="shadow-quote-freshness"]')?.textContent).toBe('0.42s');
+    expect(host.querySelector('[data-testid="shadow-spread"]')?.textContent).toBe('0.25 USD');
+    expect(host.querySelector('[data-testid="shadow-m1-status"]')?.textContent).toBe('READY');
+    expect(host.querySelector('[data-testid="shadow-m5-status"]')?.textContent).toBe('READY');
+    expect(host.querySelector('[data-testid="shadow-m15-status"]')?.textContent).toBe('READY');
+    expect(host.querySelector('[data-testid="shadow-confirmed-unicorns"]')?.textContent).toBe('1');
+    expect(host.querySelector('[data-testid="shadow-eligible-opportunities"]')?.textContent).toBe('1');
+    expect(host.querySelector('[data-testid="shadow-opp-structural-sl"]')?.textContent).toBe('2641.20');
+    expect(host.querySelector('[data-testid="shadow-opp-tp"]')?.textContent).toBe('2658.40');
+    expect(host.querySelector('[data-testid="shadow-opp-research-badge"]')?.textContent).toBe(
+      'RESEARCH ONLY — NO ORDER EXECUTED'
+    );
+    expect(host.querySelector('[data-testid="shadow-backtest-availability"]')?.textContent).toBe('BACKTEST_AVAILABLE');
+    expect(host.querySelector('[data-testid="shadow-backtest-verdict"]')?.textContent).toBe(
+      'REAL_HISTORICAL_BACKTEST_COMPLETED'
+    );
+    expect(host.querySelector('[data-testid="shadow-dataset-coverage"]')?.textContent).toContain('16645');
+  });
+
+  it('V17.8.0.3: renders MarketShadowPanel with DISCONNECTED feed and MISSING_BACKTEST_DATA honestly', async () => {
+    const disconnectedStatus = {
+      symbol: 'XAUUSDT',
+      runtime_profile: { profile: 'MARKET_SHADOW' },
+      feed_status: 'DISCONNECTED',
+      last_quote_timestamp: null,
+      quote_freshness_sec: null,
+      spread: null,
+      m1_status: { status: 'EMPTY' },
+      m5_status: { status: 'EMPTY' },
+      m15_status: { status: 'EMPTY' },
+      last_completed_analysis_cycle: null,
+      summary_counts: {
+        detected_setups: 0,
+        confirmed_unicorn_opportunities: 0,
+        eligible_opportunities: 0,
+        rejected_opportunities: 0,
+      },
+    };
+
+    const missingBacktest = {
+      available: false,
+      backtest_verdict: 'REAL_HISTORICAL_BACKTEST_NOT_RUN',
+      dataset_coverage: null,
+    };
+
+    await act(async () => {
+      root.render(
+        <MarketShadowPanel
+          initialStatus={disconnectedStatus}
+          initialOpportunities={[]}
+          initialBacktest={missingBacktest}
+          autoFetch={false}
+        />
+      );
+    });
+
+    expect(host.querySelector('[data-testid="shadow-feed-status"]')?.textContent).toBe('DISCONNECTED');
+    expect(host.querySelector('[data-testid="shadow-last-quote-time"]')?.textContent).toBe('NO_QUOTE');
+    expect(host.querySelector('[data-testid="shadow-quote-freshness"]')?.textContent).toBe('STALE');
+    expect(host.querySelector('[data-testid="shadow-m1-status"]')?.textContent).toBe('EMPTY');
+    expect(host.querySelector('[data-testid="shadow-opportunities-empty"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="shadow-backtest-availability"]')?.textContent).toBe(
+      'MISSING_BACKTEST_DATA'
+    );
+    expect(host.querySelector('[data-testid="shadow-backtest-verdict"]')?.textContent).toBe(
+      'REAL_HISTORICAL_BACKTEST_NOT_RUN'
+    );
+    expect(host.querySelector('[data-testid="shadow-backtest-missing-msg"]')).not.toBeNull();
   });
 });
 

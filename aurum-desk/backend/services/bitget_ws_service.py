@@ -67,9 +67,23 @@ class BitgetWSService:
         self._rest_fallback_task: Optional[asyncio.Task] = None
         self._ws_client = None
         self._broadcaster_callback = None
+        self._shadow_sink = None
 
     def register_broadcaster(self, callback):
         self._broadcaster_callback = callback
+
+    def register_shadow_sink(self, shadow_sink):
+        """Injects an isolated MarketShadowService sink for MARKET_SHADOW routing."""
+        self._shadow_sink = shadow_sink
+
+    def _resolve_active_shadow_sink(self):
+        if self._shadow_sink is not None:
+            return self._shadow_sink
+        from services.runtime_profile_service import is_market_shadow_runtime
+        if is_market_shadow_runtime():
+            from services.market_shadow_service import market_shadow_service
+            return market_shadow_service
+        return None
 
     def is_channel_acked(self, channel: str) -> bool:
         return self.channel_registry.get(channel) == "ACKED"
@@ -143,6 +157,23 @@ class BitgetWSService:
         return canonical
 
     def _dispatch_quote(self, quote: CanonicalQuote):
+        shadow_sink = self._resolve_active_shadow_sink()
+        if shadow_sink is not None:
+            accepted, _reason, accepted_quote = shadow_sink.ingest_quote(quote)
+            if accepted and accepted_quote is not None:
+                self.latest_quote = accepted_quote
+                self.last_success_time = accepted_quote.received_at_ms
+                if self._broadcaster_callback:
+                    try:
+                        self._broadcaster_callback(accepted_quote)
+                    except Exception as e:
+                        logger.error(f"Broadcaster dispatch error: {e}")
+            return
+
+        from services.runtime_profile_service import is_observe_only_runtime
+        if is_observe_only_runtime():
+            return
+
         if not quote.is_valid:
             return
 
@@ -179,6 +210,93 @@ class BitgetWSService:
             except Exception as e:
                 logger.error(f"Broadcaster dispatch error: {e}")
 
+    def _dispatch_candle_payload(self, timeframe: str, data_rows: list, action: str = "update", epoch: int = 1):
+        shadow_sink = self._resolve_active_shadow_sink()
+        if shadow_sink is not None:
+            shadow_sink.ingest_candle_payload(
+                symbol=self.symbol,
+                timeframe=timeframe,
+                data_rows=data_rows,
+                action=action,
+                source="WS",
+                connection_epoch=epoch,
+            )
+            return
+
+        from services.runtime_profile_service import is_observe_only_runtime
+        if is_observe_only_runtime():
+            return
+
+        candle_cache_service.process_candle_payload(
+            symbol=self.symbol,
+            timeframe=timeframe,
+            data_rows=data_rows,
+            action=action,
+        )
+
+    async def process_ws_message(
+        self,
+        msg: Any,
+        epoch: Optional[int] = None,
+        *,
+        connection_epoch: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        Processes a single raw Bitget WebSocket message (pong, subscribe ack, ticker, or candle channel).
+        Accepts JSON string or pre-parsed dict and returns structured routing metadata.
+        """
+        eff_epoch = (
+            connection_epoch
+            if connection_epoch is not None
+            else (epoch if epoch is not None else max(1, self.connection_epoch))
+        )
+        shadow_sink = self._resolve_active_shadow_sink()
+        from services.runtime_profile_service import is_observe_only_runtime
+        route = "MARKET_SHADOW" if shadow_sink is not None else ("OBSERVE_ONLY" if is_observe_only_runtime() else "TRADING")
+
+        if msg == "pong":
+            self.last_pong_time = time.time()
+            self.last_heartbeat_time = int(time.time() * 1000)
+            return {"ok": True, "route": route, "channel": "pong"}
+
+        if isinstance(msg, dict):
+            payload = msg
+        else:
+            try:
+                payload = json.loads(msg)
+            except Exception:
+                return {"ok": False, "route": route, "error": "INVALID_JSON"}
+
+        if "event" in payload:
+            ok = self.handle_ack(payload)
+            return {"ok": ok, "route": route, "event": payload.get("event")}
+
+        arg = payload.get("arg", {})
+        ch = arg.get("channel")
+        action = payload.get("action", "update")
+        data = payload.get("data")
+
+        if ch == "ticker" and data:
+            quote = self._parse_ticker_payload(data, eff_epoch)
+            if quote is not None:
+                if quote.is_valid:
+                    self.transport_state = "CONNECTED"
+                    self.feed_source = "WS"
+                self._dispatch_quote(quote)
+                return {"ok": bool(quote.is_valid), "route": route, "channel": ch}
+            return {"ok": False, "route": route, "channel": ch}
+
+        if ch in CANDLE_CHANNELS and data:
+            tf = CANDLE_CHANNELS[ch]
+            self._dispatch_candle_payload(tf, data, action=action, epoch=eff_epoch)
+            self.transport_state = "CONNECTED"
+            self.feed_source = "WS"
+            self.last_success_time = int(time.time() * 1000)
+            self.last_heartbeat_time = int(time.time() * 1000)
+            return {"ok": True, "route": route, "channel": ch, "timeframe": tf}
+
+        return {"ok": False, "route": route, "channel": ch}
+
     async def _run_rest_fallback(self):
         """Controlled REST fallback when WebSocket connection is unavailable (V16.39.4 Section 176)."""
         logger.info("Starting REST fallback loop...")
@@ -211,6 +329,9 @@ class BitgetWSService:
                                 )
                                 if quote.is_valid:
                                     self.feed_source = "REST_FALLBACK"
+                                    shadow_sink = self._resolve_active_shadow_sink()
+                                    if shadow_sink is not None:
+                                        shadow_sink.rest_fallback_activations += 1
                                     self._dispatch_quote(quote)
                     except asyncio.CancelledError:
                         break
@@ -274,6 +395,9 @@ class BitgetWSService:
             epoch = self.connection_epoch
             self.transport_state = "CONNECTING"
             self._reset_registry()
+            shadow_sink = self._resolve_active_shadow_sink()
+            if shadow_sink is not None:
+                shadow_sink.on_ws_reconnect(epoch, "WS")
 
             # Start REST fallback if not running
             if not self._rest_fallback_task or self._rest_fallback_task.done():
@@ -342,17 +466,21 @@ class BitgetWSService:
 
                             elif ch in CANDLE_CHANNELS and data:
                                 tf = CANDLE_CHANNELS[ch]
-                                candle_cache_service.process_candle_payload(
-                                    symbol=self.symbol,
+                                self._dispatch_candle_payload(
                                     timeframe=tf,
                                     data_rows=data,
-                                    action=action
+                                    action=action,
+                                    epoch=epoch,
                                 )
                                 self.transport_state = "CONNECTED"
                                 self.feed_source = "WS"
                                 self.last_success_time = int(time.time() * 1000)
                                 self.last_heartbeat_time = int(time.time() * 1000)
                                 attempt = 0
+                                shadow_sink = self._resolve_active_shadow_sink()
+                                if shadow_sink is not None:
+                                    shadow_sink.transport_state = "CONNECTED"
+                                    shadow_sink.feed_source = "WS"
 
                     finally:
                         if heartbeat_task and not heartbeat_task.done():

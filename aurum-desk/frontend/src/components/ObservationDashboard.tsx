@@ -23,6 +23,7 @@ import {
   useObservationDashboard,
   type ObservationTimeRange,
 } from '../hooks/useObservationDashboard';
+import { MarketShadowPanel } from './SLTPIntelligenceView';
 
 export interface ObservationDashboardProps {
   symbol?: string;
@@ -520,6 +521,9 @@ export const ObservationDashboard: React.FC<ObservationDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* V17.8.0.3 Market Shadow & Continuous Unicorn Analysis Section */}
+      <MarketShadowPanel />
 
       {/* 3. Opportunity Funnel Section */}
       <div className="flex flex-col gap-3 p-4 rounded-xl bg-charcoal-900 border border-charcoal-750 shadow-md">

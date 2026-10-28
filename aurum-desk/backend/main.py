@@ -20,12 +20,16 @@ import models, schemas, crud, bitget_data, smc_engine
 from database import engine, get_db, SessionLocal
 from services.runtime_profile_service import (
     ALL_BACKGROUND_TRADING_WORKERS,
+    MARKET_SHADOW_ALLOWED_WORKERS,
     OBSERVE_ONLY_ALLOWED_WORKERS,
+    PROFILE_MARKET_SHADOW,
     PROFILE_OBSERVE_ONLY,
     PROFILE_TRADING,
     assert_not_observe_only,
     get_runtime_safety_snapshot,
     increment_safety_counter,
+    is_market_shadow_runtime,
+    is_non_trading_runtime,
     is_observe_only_runtime,
     resolve_be_runtime_profile,
 )
@@ -50,8 +54,8 @@ from lab.replay_engine import ReplayEngine
 from lab.stress_tester import StressTester
 from lab.job_manager import ReplayJobManager, ReplayQueueFullException
 
-# Ensure all tables exist (skipped in OBSERVE_ONLY runtime profile to preserve DB immutability)
-if not is_observe_only_runtime():
+# Ensure all tables exist (skipped in OBSERVE_ONLY and MARKET_SHADOW runtime profiles to preserve operational DB immutability)
+if not is_non_trading_runtime():
     models.Base.metadata.create_all(bind=engine)
 
 def reconcile_stuck_orders():
@@ -166,16 +170,19 @@ async def lifespan(app: FastAPI):
     global _LIFESPAN_STARTUP_RESULT, _LIFESPAN_SHUTDOWN_RESULT
     runtime_profile = resolve_be_runtime_profile()
     observe_only = runtime_profile == PROFILE_OBSERVE_ONLY
+    market_shadow = runtime_profile == PROFILE_MARKET_SHADOW
 
     if observe_only:
         _LIFESPAN_STARTUP_RESULT = {
             "status": "HEALTHY_OBSERVE_ONLY",
             "runtime_profile": PROFILE_OBSERVE_ONLY,
             "observe_only": True,
+            "market_shadow": False,
             "telemetry_worker_ready": False,
             "allowed_workers": list(OBSERVE_ONLY_ALLOWED_WORKERS),
             "blocked_trading_workers": list(ALL_BACKGROUND_TRADING_WORKERS),
             "background_trading_workers_started": 0,
+            "shadow_workers_started": 0,
             "errors": [],
         }
         logger.info("FastAPI started under OBSERVE_ONLY runtime profile; all background trading workers and startup DB mutations are suppressed.")
@@ -184,6 +191,7 @@ async def lifespan(app: FastAPI):
             "status": "COMPLETED",
             "runtime_profile": PROFILE_OBSERVE_ONLY,
             "observe_only": True,
+            "market_shadow": False,
             "scheduler_drained": True,
             "telemetry_drain": {"status": "SKIPPED_OBSERVE_ONLY"},
             "websocket_drain": {"status": "SKIPPED_OBSERVE_ONLY"},
@@ -191,6 +199,68 @@ async def lifespan(app: FastAPI):
             "active_background_tasks_remaining": 0,
             "errors": [],
         }
+        return
+
+    if market_shadow:
+        from services.bitget_ws_service import bitget_ws_service
+        from services.market_broadcaster import market_broadcaster
+        from services.market_shadow_service import market_shadow_service
+        from services.shadow_research_storage import shadow_research_storage
+
+        shadow_db_path = shadow_research_storage.initialize()
+        market_shadow_service.set_storage(shadow_research_storage)
+        event_bus.set_main_loop(asyncio.get_running_loop())
+        bitget_ws_service.register_shadow_sink(market_shadow_service)
+        bitget_ws_service.register_broadcaster(market_broadcaster.broadcast_quote)
+
+        shadow_tasks = [
+            asyncio.create_task(bitget_ws_service.run_ws_loop(), name="shadow_bitget_ws_loop"),
+            asyncio.create_task(market_shadow_service.run_shadow_loop(), name="shadow_evaluation_loop"),
+        ]
+        increment_safety_counter("SHADOW_WORKERS_STARTED", len(shadow_tasks))
+        _LIFESPAN_STARTUP_RESULT = {
+            "status": "HEALTHY_MARKET_SHADOW",
+            "runtime_profile": PROFILE_MARKET_SHADOW,
+            "observe_only": False,
+            "market_shadow": True,
+            "shadow_db_path": str(shadow_db_path),
+            "telemetry_worker_ready": False,
+            "allowed_workers": list(MARKET_SHADOW_ALLOWED_WORKERS),
+            "blocked_trading_workers": [
+                w for w in ALL_BACKGROUND_TRADING_WORKERS if w != "bitget_ws_service.run_ws_loop"
+            ],
+            "background_trading_workers_started": 0,
+            "shadow_workers_started": len(shadow_tasks),
+            "errors": [],
+        }
+        logger.info(
+            "FastAPI started under MARKET_SHADOW runtime profile (shadow_db=%s); trading workers and operational DB mutations are strictly forbidden.",
+            shadow_db_path,
+        )
+        try:
+            yield
+        finally:
+            bitget_ws_service.stop()
+            market_shadow_service.stop()
+            for st in shadow_tasks:
+                st.cancel()
+            await asyncio.gather(*shadow_tasks, return_exceptions=True)
+            bitget_ws_service.register_shadow_sink(None)
+            shadow_research_storage.shutdown()
+            event_bus.unbind_main_loop()
+            remaining = sum(1 for st in shadow_tasks if not st.done())
+            _LIFESPAN_SHUTDOWN_RESULT = {
+                "status": "COMPLETED" if remaining == 0 else "TIMED_OUT",
+                "runtime_profile": PROFILE_MARKET_SHADOW,
+                "observe_only": False,
+                "market_shadow": True,
+                "scheduler_drained": True,
+                "telemetry_drain": {"status": "SKIPPED_MARKET_SHADOW"},
+                "websocket_drain": {"status": "COMPLETED"},
+                "worker_stopped": remaining == 0,
+                "active_background_tasks_remaining": remaining,
+                "errors": [],
+            }
         return
 
     # 0. Sync broken DB states before starting loops
@@ -434,6 +504,21 @@ async def enforce_observe_only_http_boundary(request: Request, call_next):
                     }
                 },
             )
+    elif is_market_shadow_runtime():
+        method = request.method.upper()
+        path = request.url.path.rstrip("/") or "/"
+        if method in ("POST", "PUT", "PATCH", "DELETE") or path == "/api/v1/reports/generate":
+            increment_safety_counter("BLOCKED_HTTP_MUTATION_ATTEMPTS", 1)
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": {
+                        "code": "MARKET_SHADOW_EXECUTION_FORBIDDEN",
+                        "message": f"HTTP {method} {request.url.path} is prohibited when AURUM_BE_RUNTIME_PROFILE=MARKET_SHADOW.",
+                        "runtime_profile": PROFILE_MARKET_SHADOW,
+                    }
+                },
+            )
     return await call_next(request)
 
 
@@ -444,6 +529,131 @@ def get_runtime_profile_endpoint():
     snap["startup_result"] = get_last_startup_result()
     snap["shutdown_result"] = get_last_shutdown_result()
     return snap
+
+
+# ==================== MARKET SHADOW READ-ONLY ENDPOINTS (V17.8.0.3) ====================
+
+
+@app.get("/api/v1/shadow/market/status")
+def get_shadow_market_status():
+    """Read-only market shadow feed, multi-timeframe candle, and analysis status."""
+    from services.market_shadow_service import market_shadow_service
+    from services.v17_8_backtest_runner import get_latest_backtest_summary
+    status = market_shadow_service.get_market_status_snapshot()
+    status["latest_backtest"] = get_latest_backtest_summary()
+    return status
+
+
+@app.get("/api/v1/shadow/market/quotes")
+def get_shadow_market_quotes(limit: int = Query(50, ge=1, le=200)):
+    """Read-only recent validated canonical quotes observed in shadow mode."""
+    from services.market_shadow_service import market_shadow_service
+    quotes = market_shadow_service.get_recent_quotes(limit=limit)
+    return {
+        "symbol": market_shadow_service.symbol,
+        "count": len(quotes),
+        "quotes": quotes,
+        "research_disclosure": "RESEARCH ONLY — NO ORDER EXECUTED",
+    }
+
+
+@app.get("/api/v1/shadow/market/candles")
+def get_shadow_market_candles(
+    timeframe: str = Query("1M"),
+    limit: int = Query(100, ge=1, le=500),
+    include_provisional: bool = Query(True),
+):
+    """Read-only closed and provisional multi-timeframe candles in shadow mode."""
+    from services.market_shadow_service import market_shadow_service
+    snap = market_shadow_service.get_candles_snapshot(
+        timeframe=timeframe,
+        limit=limit,
+        include_provisional=include_provisional,
+    )
+    snap["research_disclosure"] = "RESEARCH ONLY — NO ORDER EXECUTED"
+    return snap
+
+
+@app.get("/api/v1/shadow/opportunities")
+def get_shadow_opportunities(
+    limit: int = Query(50, ge=1, le=200),
+    eligibility_status: Optional[str] = Query(None),
+):
+    """Read-only list of quantitative shadow opportunities (never executed)."""
+    from services.market_shadow_service import market_shadow_service
+    items = market_shadow_service.get_opportunities(
+        limit=limit,
+        eligibility_status=eligibility_status,
+    )
+    return {
+        "symbol": market_shadow_service.symbol,
+        "count": len(items),
+        "opportunities": items,
+        "research_disclosure": "RESEARCH ONLY — NO ORDER EXECUTED",
+    }
+
+
+@app.get("/api/v1/shadow/opportunities/{opportunity_id}")
+def get_shadow_opportunity_detail(opportunity_id: str):
+    """Read-only detail for a single quantitative shadow opportunity."""
+    from services.market_shadow_service import market_shadow_service
+    opp = market_shadow_service.get_opportunity_by_id(opportunity_id)
+    if opp is None:
+        raise HTTPException(status_code=404, detail="Shadow opportunity not found")
+    return opp
+
+
+@app.get("/api/v1/shadow/unicorn/evidence")
+def get_shadow_unicorn_evidence(
+    limit: int = Query(50, ge=1, le=200),
+    validity_status: Optional[str] = Query(None),
+):
+    """Read-only list of ICT Unicorn confluence evidence records."""
+    from services.market_shadow_service import market_shadow_service
+    items = market_shadow_service.get_unicorn_evidence_list(
+        limit=limit,
+        validity_status=validity_status,
+    )
+    return {
+        "symbol": market_shadow_service.symbol,
+        "count": len(items),
+        "unicorn_evidence": items,
+        "research_disclosure": "RESEARCH ONLY — NO ORDER EXECUTED",
+    }
+
+
+@app.get("/api/v1/shadow/research/backtests")
+def get_shadow_backtests_list(limit: int = Query(20, ge=1, le=100)):
+    """Read-only list of historical backtest runs and latest artifact summary."""
+    from services.market_shadow_service import market_shadow_service
+    from services.v17_8_backtest_runner import get_all_backtest_summaries, get_latest_backtest_summary
+    db_runs = market_shadow_service.get_backtests_list(limit=limit)
+    artifact_runs = get_all_backtest_summaries(limit=limit)
+    seen_ids = {r.get("run_id") for r in db_runs if r.get("run_id")}
+    merged = list(db_runs)
+    for ar in artifact_runs:
+        if ar.get("run_id") not in seen_ids:
+            merged.append(ar)
+    latest_bt = get_latest_backtest_summary()
+    return {
+        "count": len(merged),
+        "backtests": merged[:limit],
+        "latest_backtest": latest_bt,
+        "research_disclosure": "RESEARCH ONLY — NO ORDER EXECUTED",
+    }
+
+
+@app.get("/api/v1/shadow/research/backtests/{run_id}")
+def get_shadow_backtest_detail(run_id: str):
+    """Read-only detail for a specific historical backtest run."""
+    from services.market_shadow_service import market_shadow_service
+    from services.v17_8_backtest_runner import get_backtest_detail_by_run_id
+    res = market_shadow_service.get_backtest_by_run_id(run_id)
+    if res is None:
+        res = get_backtest_detail_by_run_id(run_id)
+    if res is None:
+        raise HTTPException(status_code=404, detail=f"Backtest run '{run_id}' not found")
+    return res
 
 # ==================== WEBSOCKET WITH DOMAIN EVENTS ====================
 

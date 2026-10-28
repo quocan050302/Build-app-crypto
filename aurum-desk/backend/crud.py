@@ -10,6 +10,7 @@ import models, schemas
 from services.clock import live_clock, IClock
 from services.runtime_profile_service import (
     assert_not_observe_only,
+    is_non_trading_runtime,
     is_observe_only_runtime,
 )
 
@@ -249,7 +250,7 @@ def get_or_create_today_audit(
             is_blocked=False,
             block_reason=None
         )
-        if is_observe_only_runtime():
+        if is_non_trading_runtime():
             return audit
         db.add(audit)
         if commit:

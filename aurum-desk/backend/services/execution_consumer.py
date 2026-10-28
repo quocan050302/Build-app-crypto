@@ -10,6 +10,8 @@ from services.trade_lifecycle_service import TradeLifecycleService
 from services.clock import live_clock, IClock
 from services.runtime_profile_service import (
     assert_not_observe_only,
+    increment_safety_counter,
+    is_non_trading_runtime,
     is_observe_only_runtime,
 )
 
@@ -95,7 +97,8 @@ class ExecutionConsumer:
         Enqueues a canonical quote into the ordered execution stream.
         If queue is full, enters DEGRADED state and marks execution gap.
         """
-        if is_observe_only_runtime():
+        if is_non_trading_runtime():
+            increment_safety_counter("BLOCKED_FILL_ATTEMPTS", 1)
             return False
         if not quote.is_valid:
             return False

@@ -91,9 +91,30 @@ MANDATORY_GATES_V17_8_0_2 = list(MANDATORY_GATES_V17_8_0_1) + [
     "G58_RELEASE_ARTIFACT_TRUTH_INTEGRITY",
 ]
 
-MANDATORY_GATES_V17_8 = list(MANDATORY_GATES_V17_8_0_2)
+# The mandatory 75 gates for V17.8.0.3 release acceptance (58 gates + 17 market shadow & backtest gates)
+MANDATORY_GATES_V17_8_0_3 = list(MANDATORY_GATES_V17_8_0_2) + [
+    "G59_MARKET_SHADOW_PROFILE_CONTRACT",
+    "G60_MARKET_SHADOW_EXECUTION_FORBIDDEN",
+    "G61_PUBLIC_MARKET_FEED_CONNECTED_OR_EXPLICIT_BLOCKER",
+    "G62_CANONICAL_QUOTE_VALIDATION_AND_ORDERING",
+    "G63_SHADOW_CANDLE_FINALITY_AND_CACHE",
+    "G64_SHADOW_DATABASE_ISOLATION",
+    "G65_CONTINUOUS_UNICORN_SHADOW_EVALUATION",
+    "G66_STRUCTURAL_SL_TP_SHADOW_DECISIONS",
+    "G67_HISTORICAL_DATA_QUALITY_GATE",
+    "G68_REAL_HISTORICAL_BACKTEST_EXECUTION",
+    "G69_MATCHED_ABCD_COMPARISON_COMPLETENESS",
+    "G70_OUT_OF_SAMPLE_AND_STRESS_VALIDATION",
+    "G71_SHADOW_API_READ_ONLY_CONTRACT",
+    "G72_FRONTEND_SHADOW_OBSERVATION_E2E",
+    "G73_OPERATIONAL_DB_ZERO_MUTATION",
+    "G74_MARKET_SHADOW_STARTUP_SHUTDOWN",
+    "G75_EXACT_COMMIT_AND_ARTIFACT_TRUTH_VERIFICATION",
+]
 
-# Authoritative gate taxonomy and requirements (V17.7.4 Section 10 / V17.8.0.1 DEF-178-15 / V17.8.0.2)
+MANDATORY_GATES_V17_8 = list(MANDATORY_GATES_V17_8_0_3)
+
+# Authoritative gate taxonomy and requirements (V17.7.4 Section 10 / V17.8.0.1 DEF-178-15 / V17.8.0.2 / V17.8.0.3)
 TEST_GATES = {
     "G02_TEST_DB_BOOTSTRAP",
     "G03_UNSAFE_PATH_REJECTION",
@@ -149,6 +170,23 @@ TEST_GATES = {
     "G55_ZERO_LIVE_EXCHANGE_DISPATCH",
     "G56_OBSERVATION_DATABASE_IMMUTABILITY",
     "G57_OBSERVATION_STARTUP_SHUTDOWN",
+    # V17.8.0.3 Market Shadow & Real Historical Backtesting Additions
+    "G59_MARKET_SHADOW_PROFILE_CONTRACT",
+    "G60_MARKET_SHADOW_EXECUTION_FORBIDDEN",
+    "G61_PUBLIC_MARKET_FEED_CONNECTED_OR_EXPLICIT_BLOCKER",
+    "G62_CANONICAL_QUOTE_VALIDATION_AND_ORDERING",
+    "G63_SHADOW_CANDLE_FINALITY_AND_CACHE",
+    "G64_SHADOW_DATABASE_ISOLATION",
+    "G65_CONTINUOUS_UNICORN_SHADOW_EVALUATION",
+    "G66_STRUCTURAL_SL_TP_SHADOW_DECISIONS",
+    "G67_HISTORICAL_DATA_QUALITY_GATE",
+    "G68_REAL_HISTORICAL_BACKTEST_EXECUTION",
+    "G69_MATCHED_ABCD_COMPARISON_COMPLETENESS",
+    "G70_OUT_OF_SAMPLE_AND_STRESS_VALIDATION",
+    "G71_SHADOW_API_READ_ONLY_CONTRACT",
+    "G72_FRONTEND_SHADOW_OBSERVATION_E2E",
+    "G73_OPERATIONAL_DB_ZERO_MUTATION",
+    "G74_MARKET_SHADOW_STARTUP_SHUTDOWN",
 }
 
 COMMAND_GATES = {
@@ -162,6 +200,7 @@ INTEGRITY_GATES = {
     "G27_ARTIFACT_SOURCE_SHA_INTEGRITY",
     "G42_EXACT_SOURCE_AND_ARTIFACT_INTEGRITY",
     "G58_RELEASE_ARTIFACT_TRUTH_INTEGRITY",
+    "G75_EXACT_COMMIT_AND_ARTIFACT_TRUTH_VERIFICATION",
 }
 
 
@@ -344,4 +383,75 @@ def determine_v17_8_0_2_release_verdict(
             return "V17_8_0_2_BLOCKED"
 
     return "V17_8_0_2_ACCEPTED_FOR_SAFE_OBSERVATION"
+
+
+def determine_v17_8_0_3_release_verdict(
+    actual_gate_results: Dict[str, Any],
+    mandatory_gate_manifest: Optional[List[str]] = None,
+    runtime_preflight: Optional[Dict[str, Any]] = None,
+    market_shadow_preflight: Optional[Dict[str, Any]] = None,
+    backtest_summary: Optional[Dict[str, Any]] = None,
+) -> str:
+    """
+    Resolves the V17.8.0.3 release verdict (Section 19):
+    Allowed values:
+    - V17_8_0_3_ACCEPTED_FOR_SAFE_MARKET_SHADOW_AND_BACKTEST
+    - V17_8_0_3_ACCEPTED_WITH_EXTERNAL_DATA_RESTRICTIONS
+    - V17_8_0_3_BLOCKED
+    - V17_8_0_3_NOT_ACCEPTED
+    """
+    manifest = mandatory_gate_manifest if mandatory_gate_manifest is not None else MANDATORY_GATES_V17_8_0_3
+    base_verdict = determine_release_verdict(actual_gate_results, manifest)
+    if base_verdict != "ACCEPTED_FOR_PAPER_OPT_IN":
+        return "V17_8_0_3_BLOCKED"
+
+    # Validate OBSERVE_ONLY preflight if provided
+    if runtime_preflight is not None:
+        if (
+            determine_v17_8_0_2_release_verdict(
+                actual_gate_results,
+                MANDATORY_GATES_V17_8_0_2,
+                runtime_preflight,
+            )
+            != "V17_8_0_2_ACCEPTED_FOR_SAFE_OBSERVATION"
+        ):
+            return "V17_8_0_3_BLOCKED"
+
+    # Validate MARKET_SHADOW preflight if provided
+    if market_shadow_preflight is not None:
+        if not isinstance(market_shadow_preflight, dict):
+            return "V17_8_0_3_BLOCKED"
+        if market_shadow_preflight.get("status") != "PASS":
+            return "V17_8_0_3_BLOCKED"
+        if market_shadow_preflight.get("runtime_profile") != "MARKET_SHADOW":
+            return "V17_8_0_3_BLOCKED"
+        if market_shadow_preflight.get("operational_db_sha256_before") != market_shadow_preflight.get("operational_db_sha256_after"):
+            return "V17_8_0_3_BLOCKED"
+        if market_shadow_preflight.get("operational_db_immutable") is not True:
+            return "V17_8_0_3_BLOCKED"
+        counters = market_shadow_preflight.get("counters", {})
+        for zero_key in (
+            "PAPER_ORDERS_CREATED",
+            "PAPER_ORDERS_FILLED",
+            "PAPER_POSITIONS_CLOSED",
+            "LIVE_EXCHANGE_ORDERS_SENT",
+            "UNAUTHORIZED_DB_WRITES",
+            "BACKGROUND_TRADING_WORKERS_STARTED",
+            "UNEXPECTED_RUNTIME_ERRORS",
+        ):
+            val = counters.get(zero_key)
+            if val is None or isinstance(val, bool) or not isinstance(val, int) or val != 0:
+                return "V17_8_0_3_BLOCKED"
+
+    # Validate backtest summary if provided
+    if backtest_summary is not None:
+        if not isinstance(backtest_summary, dict):
+            return "V17_8_0_3_BLOCKED"
+        if backtest_summary.get("status") != "PASS":
+            return "V17_8_0_3_BLOCKED"
+        if int(backtest_summary.get("fabricated_candles_count", -1)) != 0:
+            return "V17_8_0_3_BLOCKED"
+
+    return "V17_8_0_3_ACCEPTED_FOR_SAFE_MARKET_SHADOW_AND_BACKTEST"
+
 

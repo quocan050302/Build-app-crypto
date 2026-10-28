@@ -20,6 +20,7 @@ from tools.acceptance_verdict import (
     MANDATORY_GATES_V17_7_4,
     MANDATORY_GATES_V17_8,
     MANDATORY_GATES_V17_8_0_2,
+    MANDATORY_GATES_V17_8_0_3,
 )
 
 EXCLUDE_PATTERNS = {
@@ -206,7 +207,7 @@ def verify_acceptance_bundle(
         simple_hashes = "".join(sm_files[k] for k in sorted(sm_files.keys()))
         simple_comp = hashlib.sha256(simple_hashes.encode("utf-8")).hexdigest()
         rec_comp = sm_data.get("composite_sha")
-        if rec_comp not in (recalc_comp, simple_comp, "comp_sha"):
+        if rec_comp not in (recalc_comp, simple_comp):
             errors.append(f"Source manifest composite SHA mismatch: recorded {rec_comp}")
     except Exception as e:
         errors.append(f"Failed to read/validate source manifest: {e}")
@@ -313,7 +314,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             else:
                 target = (_ROOT_DIR / target).resolve()
     else:
-        latest_file = _ROOT_DIR / "docs" / "artifacts" / "v17_8_0_2" / "latest_run.json"
+        latest_file = _ROOT_DIR / "docs" / "artifacts" / "v17_8_0_3" / "latest_run.json"
+        if not latest_file.is_file():
+            latest_file = _ROOT_DIR / "docs" / "artifacts" / "v17_8_0_2" / "latest_run.json"
         if not latest_file.is_file():
             print(json.dumps({"status": "FAIL", "errors": [f"Missing latest_run.json: {latest_file}"]}, indent=2))
             return 1
@@ -328,10 +331,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     gm_path = target / "gate_manifest.json"
     integ_path = target / "integrity_manifest.json"
 
-    expected_ver = "17.8.0.2"
+    expected_ver = "17.8.0.3"
     expected_run = target.name
     expected_sha = None
-    expected_manifest = list(MANDATORY_GATES_V17_8_0_2)
+    expected_manifest = list(MANDATORY_GATES_V17_8_0_3)
 
     if res_path.is_file():
         try:

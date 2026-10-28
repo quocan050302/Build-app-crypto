@@ -1,10 +1,376 @@
-import React, { useState, useEffect } from 'react';
-import { getOrderStopEvidence } from '../api/client';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  getOrderStopEvidence,
+  getShadowMarketStatus,
+  getShadowOpportunities,
+  getShadowBacktests,
+} from '../api/client';
 
 export interface SLTPIntelligenceProps {
   orderId?: string;
   evidenceData?: any;
+  showShadowSection?: boolean;
+  shadowStatusData?: any;
+  shadowOpportunitiesData?: any[];
+  shadowBacktestData?: any;
 }
+
+export interface MarketShadowPanelProps {
+  initialStatus?: any;
+  initialOpportunities?: any[];
+  initialBacktest?: any;
+  autoFetch?: boolean;
+}
+
+export const MarketShadowPanel: React.FC<MarketShadowPanelProps> = ({
+  initialStatus = null,
+  initialOpportunities = undefined,
+  initialBacktest = undefined,
+  autoFetch = true,
+}) => {
+  const [statusData, setStatusData] = useState<any>(initialStatus);
+  const [opportunities, setOpportunities] = useState<any[]>(initialOpportunities ?? []);
+  const [backtestSummary, setBacktestSummary] = useState<any>(initialBacktest ?? null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const loadShadowData = useCallback(async () => {
+    setLoading(true);
+    setFetchError(null);
+    try {
+      const [stRes, oppRes, btRes] = await Promise.all([
+        getShadowMarketStatus(),
+        getShadowOpportunities({ limit: 20 }),
+        getShadowBacktests(5),
+      ]);
+      setStatusData(stRes);
+      setOpportunities(Array.isArray(oppRes?.opportunities) ? oppRes.opportunities : []);
+      setBacktestSummary(btRes?.latest_backtest || (Array.isArray(btRes?.backtests) && btRes.backtests[0]) || null);
+    } catch (err: any) {
+      setFetchError(err?.message || 'Unable to load Market Shadow telemetry');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (initialStatus !== null) setStatusData(initialStatus);
+  }, [initialStatus]);
+
+  useEffect(() => {
+    if (initialOpportunities !== undefined) setOpportunities(initialOpportunities);
+  }, [initialOpportunities]);
+
+  useEffect(() => {
+    if (initialBacktest !== undefined) setBacktestSummary(initialBacktest);
+  }, [initialBacktest]);
+
+  useEffect(() => {
+    if (!autoFetch || initialStatus !== null) return;
+    loadShadowData();
+  }, [autoFetch, initialStatus, loadShadowData]);
+
+  const runtimeProfile =
+    statusData?.runtime_profile?.profile ||
+    statusData?.runtime_profile ||
+    'MARKET_SHADOW';
+  const feedStatus = statusData?.feed_status || 'DISCONNECTED';
+  const lastQuoteTs = statusData?.last_quote_timestamp;
+  const quoteFreshnessSec = statusData?.quote_freshness_sec;
+  const spread = statusData?.spread;
+  const m1Status = statusData?.m1_status?.status || statusData?.m1_status || 'EMPTY';
+  const m5Status = statusData?.m5_status?.status || statusData?.m5_status || 'EMPTY';
+  const m15Status = statusData?.m15_status?.status || statusData?.m15_status || 'EMPTY';
+  const lastCycle = statusData?.last_completed_analysis_cycle;
+  const counts = statusData?.summary_counts || {};
+  const detectedSetups = counts.detected_setups ?? opportunities.length ?? 0;
+  const confirmedUnicorns = counts.confirmed_unicorn_opportunities ?? 0;
+  const eligibleCount = counts.eligible_opportunities ?? 0;
+  const rejectedCount = counts.rejected_opportunities ?? 0;
+
+  const btAvailable = Boolean(backtestSummary && backtestSummary.available !== false && backtestSummary.backtest_verdict === 'REAL_HISTORICAL_BACKTEST_COMPLETED');
+  const btVerdict = backtestSummary?.backtest_verdict || 'REAL_HISTORICAL_BACKTEST_NOT_RUN';
+  const btCoverage = backtestSummary?.dataset_coverage || null;
+
+  return (
+    <section
+      data-testid="market-shadow-panel"
+      style={{
+        contentVisibility: 'auto',
+        containIntrinsicSize: 'auto 320px auto 480px',
+      }}
+      className="rounded-xl border border-indigo-900/50 bg-slate-950/90 p-4 text-xs text-slate-200 space-y-4 shadow-md"
+    >
+      {/* Top Banner & Disclosure */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-sm font-bold text-indigo-300">
+            V17.8.0.3 Market Shadow & Continuous Unicorn Intelligence
+          </h3>
+          <span
+            data-testid="shadow-runtime-profile"
+            className="rounded bg-indigo-500/20 px-2 py-0.5 text-[10px] font-mono font-bold text-indigo-300 border border-indigo-500/40"
+          >
+            {String(runtimeProfile)}
+          </span>
+          <span
+            data-testid="shadow-research-only-badge"
+            className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-mono font-bold text-amber-300 border border-amber-500/40"
+          >
+            RESEARCH ONLY — NO ORDER EXECUTED
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span
+            data-testid="shadow-trading-controls-badge"
+            className="rounded bg-rose-950/70 px-2 py-0.5 text-[10px] font-mono text-rose-300 border border-rose-800/60"
+          >
+            TRADING_CONTROLS_DISABLED (ZERO ORDER EXECUTION)
+          </span>
+          {autoFetch && (
+            <button
+              type="button"
+              data-testid="shadow-refresh-btn"
+              onClick={loadShadowData}
+              disabled={loading}
+              className="rounded bg-slate-800 hover:bg-slate-700 px-2.5 py-1 text-[10px] font-medium text-slate-200 border border-slate-700"
+            >
+              {loading ? 'Refreshing...' : 'Refresh Shadow'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {fetchError && (
+        <div
+          data-testid="shadow-fetch-error"
+          className="rounded border border-rose-800/60 bg-rose-950/30 p-2.5 text-[11px] text-rose-300"
+        >
+          {fetchError}
+        </div>
+      )}
+
+      {/* Feed Connection, Freshness, Spread & Multi-TF Status Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+        <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-2.5">
+          <div className="text-[10px] text-slate-400">Feed Status</div>
+          <div
+            data-testid="shadow-feed-status"
+            className={`font-mono text-xs font-bold mt-0.5 ${
+              feedStatus === 'CONNECTED_FRESH'
+                ? 'text-emerald-400'
+                : feedStatus === 'DISCONNECTED' || feedStatus === 'DATA_GAP'
+                ? 'text-rose-400'
+                : 'text-amber-300'
+            }`}
+          >
+            {feedStatus}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-2.5">
+          <div className="text-[10px] text-slate-400">Last Quote Time</div>
+          <div data-testid="shadow-last-quote-time" className="font-mono text-xs text-slate-200 mt-0.5">
+            {lastQuoteTs != null ? String(lastQuoteTs) : 'NO_QUOTE'}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-2.5">
+          <div className="text-[10px] text-slate-400">Quote Freshness</div>
+          <div data-testid="shadow-quote-freshness" className="font-mono text-xs text-slate-200 mt-0.5">
+            {quoteFreshnessSec != null ? `${Number(quoteFreshnessSec).toFixed(2)}s` : 'STALE'}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-2.5">
+          <div className="text-[10px] text-slate-400">Executable Spread</div>
+          <div data-testid="shadow-spread" className="font-mono text-xs text-slate-200 mt-0.5">
+            {spread != null ? `${Number(spread).toFixed(2)} USD` : 'N/A'}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-2.5">
+          <div className="text-[10px] text-slate-400">M1 Candle Status</div>
+          <div data-testid="shadow-m1-status" className="font-mono text-xs font-semibold text-slate-200 mt-0.5">
+            {String(m1Status)}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-2.5">
+          <div className="text-[10px] text-slate-400">M5 Candle Status</div>
+          <div data-testid="shadow-m5-status" className="font-mono text-xs font-semibold text-slate-200 mt-0.5">
+            {String(m5Status)}
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-2.5">
+          <div className="text-[10px] text-slate-400">M15 Candle Status</div>
+          <div data-testid="shadow-m15-status" className="font-mono text-xs font-semibold text-slate-200 mt-0.5">
+            {String(m15Status)}
+          </div>
+        </div>
+      </div>
+
+      {/* Analysis Cycle & Opportunity Funnel Counts */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+        <div>
+          <span className="text-[10px] text-slate-400 block">Last Analysis Cycle</span>
+          <span data-testid="shadow-last-cycle" className="font-mono text-xs text-indigo-300 font-semibold">
+            {lastCycle?.cycle_id || 'NO_CYCLE_COMPLETED'}
+          </span>
+        </div>
+        <div>
+          <span className="text-[10px] text-slate-400 block">Detected Setups</span>
+          <span data-testid="shadow-detected-setups" className="font-mono text-xs text-slate-100 font-bold">
+            {detectedSetups}
+          </span>
+        </div>
+        <div>
+          <span className="text-[10px] text-slate-400 block">Confirmed Unicorns</span>
+          <span data-testid="shadow-confirmed-unicorns" className="font-mono text-xs text-emerald-400 font-bold">
+            {confirmedUnicorns}
+          </span>
+        </div>
+        <div>
+          <span className="text-[10px] text-slate-400 block">Shadow Eligible</span>
+          <span data-testid="shadow-eligible-opportunities" className="font-mono text-xs text-sky-400 font-bold">
+            {eligibleCount}
+          </span>
+        </div>
+        <div>
+          <span className="text-[10px] text-slate-400 block">Shadow Rejected</span>
+          <span data-testid="shadow-rejected-opportunities" className="font-mono text-xs text-amber-400 font-bold">
+            {rejectedCount}
+          </span>
+        </div>
+      </div>
+
+      {/* Shadow Opportunities Table (Accessible region + sticky headers per modern-web-guidance responsive-table) */}
+      <div
+        tabIndex={0}
+        role="region"
+        aria-labelledby="shadow-opportunities-caption"
+        className="overflow-x-auto rounded-lg border border-slate-800 max-h-72"
+      >
+        <table className="w-full text-left text-[11px] border-separate border-spacing-0">
+          <caption
+            id="shadow-opportunities-caption"
+            className="bg-slate-900/90 px-3 py-2 text-left text-xs font-semibold text-slate-200 border-b border-slate-800"
+          >
+            Shadow Opportunities & Unicorn Structural SL/TP Candidates (Research Only)
+          </caption>
+          <thead className="sticky top-0 z-10 bg-slate-950 text-slate-400 uppercase text-[10px]">
+            <tr>
+              <th scope="col" className="py-2 px-2.5 border-b border-slate-800">Opportunity</th>
+              <th scope="col" className="py-2 px-2.5 border-b border-slate-800">Model / Dir</th>
+              <th scope="col" className="py-2 px-2.5 border-b border-slate-800">Unicorn Status</th>
+              <th scope="col" className="py-2 px-2.5 border-b border-slate-800">Structural SL</th>
+              <th scope="col" className="py-2 px-2.5 border-b border-slate-800">Independent TP</th>
+              <th scope="col" className="py-2 px-2.5 border-b border-slate-800">Net R:R</th>
+              <th scope="col" className="py-2 px-2.5 border-b border-slate-800">Research Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800/60 font-mono">
+            {opportunities.length === 0 ? (
+              <tr>
+                <td colSpan={7} data-testid="shadow-opportunities-empty" className="py-4 px-3 text-center text-slate-400 font-sans">
+                  No shadow opportunities recorded yet. Waiting for closed M1/M5/M15 candles.
+                </td>
+              </tr>
+            ) : (
+              opportunities.map((opp) => {
+                const effSl = opp.unicorn_sl_candidate ?? opp.structural_sl ?? opp.legacy_sl;
+                return (
+                  <tr
+                    key={opp.opportunity_id}
+                    data-testid={`shadow-opportunity-row-${opp.opportunity_id}`}
+                    className="hover:bg-slate-900/60"
+                  >
+                    <th scope="row" className="sticky left-0 bg-slate-950 py-2 px-2.5 font-semibold text-slate-200">
+                      {opp.opportunity_id}
+                    </th>
+                    <td className="py-2 px-2.5 text-slate-300">
+                      {opp.model_id} · <span className="font-bold">{opp.direction}</span>
+                    </td>
+                    <td data-testid="shadow-opp-unicorn-validity" className="py-2 px-2.5 text-emerald-300">
+                      {opp.unicorn_validity || 'NOT_EVALUATED'}
+                      {opp.source_breaker_id ? ` (${opp.source_breaker_id})` : ''}
+                    </td>
+                    <td data-testid="shadow-opp-structural-sl" className="py-2 px-2.5 text-rose-300">
+                      {effSl != null ? Number(effSl).toFixed(2) : 'NONE'}
+                    </td>
+                    <td data-testid="shadow-opp-tp" className="py-2 px-2.5 text-emerald-400">
+                      {opp.target_price != null ? Number(opp.target_price).toFixed(2) : 'NO_VALID_TARGET'}
+                    </td>
+                    <td data-testid="shadow-opp-net-rr" className="py-2 px-2.5 text-sky-300">
+                      {opp.net_rr != null ? `${Number(opp.net_rr).toFixed(2)}R` : 'N/A'}
+                    </td>
+                    <td className="py-2 px-2.5">
+                      <span
+                        data-testid="shadow-opp-eligibility"
+                        className="mr-1.5 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-200"
+                      >
+                        {opp.shadow_eligibility_status}
+                      </span>
+                      <span
+                        data-testid="shadow-opp-research-badge"
+                        className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] text-amber-300 border border-amber-500/30"
+                      >
+                        {opp.research_disclosure || 'RESEARCH ONLY — NO ORDER EXECUTED'}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Real Historical Backtest Summary Section */}
+      <div
+        data-testid="shadow-backtest-section"
+        className="rounded-lg border border-slate-800 bg-slate-900/60 p-3 space-y-2"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-slate-200">Historical Backtest Evidence (A / B / C / D)</span>
+            <span
+              data-testid="shadow-backtest-availability"
+              className={`rounded px-1.5 py-0.5 text-[10px] font-mono font-bold ${
+                btAvailable
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+              }`}
+            >
+              {btAvailable ? 'BACKTEST_AVAILABLE' : 'MISSING_BACKTEST_DATA'}
+            </span>
+          </div>
+          <span
+            data-testid="shadow-backtest-verdict"
+            className="font-mono text-[11px] font-bold text-indigo-300"
+          >
+            {btVerdict}
+          </span>
+        </div>
+
+        {btAvailable && btCoverage ? (
+          <div data-testid="shadow-dataset-coverage" className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono text-slate-300">
+            <div>M1 Bars: <span className="text-slate-100 font-bold">{btCoverage.m1_bars_count ?? 0}</span></div>
+            <div>M5 Bars: <span className="text-slate-100 font-bold">{btCoverage.m5_bars_count ?? 0}</span></div>
+            <div>M15 Bars: <span className="text-slate-100 font-bold">{btCoverage.m15_bars_count ?? 0}</span></div>
+            <div>Missing Intervals: <span className="text-amber-300 font-bold">{btCoverage.missing_intervals_count ?? 0}</span></div>
+          </div>
+        ) : (
+          <div data-testid="shadow-backtest-missing-msg" className="text-[11px] text-slate-400">
+            No completed historical backtest dataset loaded ({btVerdict}).
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
 
 const extractMetricValue = (raw: any): number | null => {
   if (raw == null) return null;
@@ -16,7 +382,14 @@ const extractMetricValue = (raw: any): number | null => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
-export const SLTPIntelligenceView: React.FC<SLTPIntelligenceProps> = ({ orderId, evidenceData }) => {
+export const SLTPIntelligenceView: React.FC<SLTPIntelligenceProps> = ({
+  orderId,
+  evidenceData,
+  showShadowSection = false,
+  shadowStatusData = null,
+  shadowOpportunitiesData = undefined,
+  shadowBacktestData = undefined,
+}) => {
   const [data, setData] = useState<any>(evidenceData || null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +447,15 @@ export const SLTPIntelligenceView: React.FC<SLTPIntelligenceProps> = ({ orderId,
   }
 
   if (!data) {
+    if (showShadowSection || shadowStatusData != null) {
+      return (
+        <MarketShadowPanel
+          initialStatus={shadowStatusData}
+          initialOpportunities={shadowOpportunitiesData}
+          initialBacktest={shadowBacktestData}
+        />
+      );
+    }
     return (
       <div
         data-testid="sltp-intelligence-empty"
@@ -427,6 +809,14 @@ export const SLTPIntelligenceView: React.FC<SLTPIntelligenceProps> = ({ orderId,
         >
           {data.ui_explanation_vi}
         </div>
+      )}
+
+      {(showShadowSection || shadowStatusData != null) && (
+        <MarketShadowPanel
+          initialStatus={shadowStatusData}
+          initialOpportunities={shadowOpportunitiesData}
+          initialBacktest={shadowBacktestData}
+        />
       )}
     </div>
   );

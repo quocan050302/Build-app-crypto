@@ -12,9 +12,11 @@ from tools.acceptance_verdict import (
     MANDATORY_GATES_V17_8_0,
     MANDATORY_GATES_V17_8_0_1,
     MANDATORY_GATES_V17_8_0_2,
+    MANDATORY_GATES_V17_8_0_3,
     TEST_GATES,
     determine_release_verdict,
     determine_v17_8_0_2_release_verdict,
+    determine_v17_8_0_3_release_verdict,
 )
 
 
@@ -47,11 +49,12 @@ def _make_passing_gate_results(manifest=None) -> dict:
 
 
 def test_verdict_all_52_and_58_gates_pass():
-    """All 52 (V17.8.0.1) and 58 (V17.8.0.2) gates pass -> ACCEPTED_FOR_PAPER_OPT_IN and V17_8_0_2_ACCEPTED_FOR_SAFE_OBSERVATION."""
+    """All 52 (V17.8.0.1), 58 (V17.8.0.2), and 75 (V17.8.0.3) gates pass."""
     assert len(MANDATORY_GATES_V17_8_0) == 42
     assert len(MANDATORY_GATES_V17_8_0_1) == 52
     assert len(MANDATORY_GATES_V17_8_0_2) == 58
-    assert len(MANDATORY_GATES_V17_8) == 58
+    assert len(MANDATORY_GATES_V17_8_0_3) == 75
+    assert len(MANDATORY_GATES_V17_8) == 75
 
     gates_52 = _make_passing_gate_results(MANDATORY_GATES_V17_8_0_1)
     assert len(gates_52) == 52
@@ -59,7 +62,11 @@ def test_verdict_all_52_and_58_gates_pass():
 
     gates_58 = _make_passing_gate_results(MANDATORY_GATES_V17_8_0_2)
     assert len(gates_58) == 58
-    assert determine_release_verdict(gates_58, MANDATORY_GATES_V17_8) == "ACCEPTED_FOR_PAPER_OPT_IN"
+    assert determine_release_verdict(gates_58, MANDATORY_GATES_V17_8_0_2) == "ACCEPTED_FOR_PAPER_OPT_IN"
+
+    gates_75 = _make_passing_gate_results(MANDATORY_GATES_V17_8_0_3)
+    assert len(gates_75) == 75
+    assert determine_release_verdict(gates_75, MANDATORY_GATES_V17_8) == "ACCEPTED_FOR_PAPER_OPT_IN"
 
     valid_preflight = {
         "status": "PASS",
@@ -78,6 +85,48 @@ def test_verdict_all_52_and_58_gates_pass():
     assert (
         determine_v17_8_0_2_release_verdict(gates_58, MANDATORY_GATES_V17_8_0_2, valid_preflight)
         == "V17_8_0_2_ACCEPTED_FOR_SAFE_OBSERVATION"
+    )
+
+    valid_shadow_preflight = {
+        "status": "PASS",
+        "runtime_profile": "MARKET_SHADOW",
+        "operational_db_sha256_before": "op12345",
+        "operational_db_sha256_after": "op12345",
+        "operational_db_immutable": True,
+        "counters": {
+            "PAPER_ORDERS_CREATED": 0,
+            "PAPER_ORDERS_FILLED": 0,
+            "PAPER_POSITIONS_CLOSED": 0,
+            "LIVE_EXCHANGE_ORDERS_SENT": 0,
+            "UNAUTHORIZED_DB_WRITES": 0,
+            "BACKGROUND_TRADING_WORKERS_STARTED": 0,
+            "UNEXPECTED_RUNTIME_ERRORS": 0,
+        },
+    }
+    valid_backtest = {
+        "status": "PASS",
+        "fabricated_candles_count": 0,
+    }
+    assert (
+        determine_v17_8_0_3_release_verdict(
+            gates_75,
+            MANDATORY_GATES_V17_8_0_3,
+            valid_preflight,
+            valid_shadow_preflight,
+            valid_backtest,
+        )
+        == "V17_8_0_3_ACCEPTED_FOR_SAFE_MARKET_SHADOW_AND_BACKTEST"
+    )
+    bad_backtest = {"status": "PASS", "fabricated_candles_count": 1}
+    assert (
+        determine_v17_8_0_3_release_verdict(
+            gates_75,
+            MANDATORY_GATES_V17_8_0_3,
+            valid_preflight,
+            valid_shadow_preflight,
+            bad_backtest,
+        )
+        == "V17_8_0_3_BLOCKED"
     )
 
 

@@ -313,6 +313,12 @@ def update_stop_placement_policy(
     import time
     from sqlalchemy import select, update
     from services.entry_session_policy_service import resolve_server_execution_scope
+    from services.runtime_profile_service import assert_not_observe_only
+
+    assert_not_observe_only(
+        "update_stop_placement_policy",
+        counter_key="BLOCKED_POLICY_MUTATION_ATTEMPTS",
+    )
 
     t_now = now_ms if now_ms is not None else int(time.time() * 1000)
 
