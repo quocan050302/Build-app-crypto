@@ -1,22 +1,315 @@
+import json
 import os
 import sys
+import tempfile
+import time
+import urllib.parse
+import urllib.request
 from pathlib import Path
+from typing import Any, Tuple
 from sqlalchemy import create_engine, event, text
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 
 # Ensure absolute path to backend/aurum_desk.db
 BASE_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = BASE_DIR.parent
 RUNTIME_DEFAULT_DB_PATH = str(BASE_DIR / "aurum_desk.db")
 
-# Strict Test Isolation Guard:
-# If running under pytest and AURUM_DB_PATH is not explicitly set,
-# use an isolated temp DB path so tests NEVER touch the runtime database!
+TEST_ROOT_MARKER = ".aurum_test_owned"
+_ACTIVE_TEST_ROOT: Path | None = None
+_TRUSTED_TEST_ROOTS: set = set()
+
+FORBIDDEN_ROOTS = {
+    PROJECT_ROOT.resolve(),
+    BASE_DIR.resolve(),
+    Path.home().resolve(),
+    Path(tempfile.gettempdir()).resolve(),
+}
+for d_drive in ("C:\\", "D:\\", "E:\\", "/"):
+    try:
+        FORBIDDEN_ROOTS.add(Path(d_drive).resolve())
+    except Exception:
+        pass
+
+
+def _read_and_validate_marker(marker_path: Path, expected_run_id: str | None = None) -> dict:
+    if not marker_path.is_file():
+        raise RuntimeError(f"MARKER_NOT_FOUND: {marker_path}")
+    if marker_path.is_symlink():
+        raise RuntimeError(f"MARKER_IS_SYMLINK: {marker_path}")
+    try:
+        data = json.loads(marker_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        raise RuntimeError(f"MALFORMED_OWNERSHIP_MARKER (MALFORMED_MARKER): {e}")
+    if not isinstance(data, dict):
+        raise RuntimeError("MALFORMED_OWNERSHIP_MARKER (MALFORMED_MARKER): Expected JSON object")
+    if data.get("schema_version") != 1:
+        raise RuntimeError(f"MALFORMED_OWNERSHIP_MARKER (UNSUPPORTED_MARKER_SCHEMA): {data.get('schema_version')}")
+    if data.get("test_owner") != "aurum_test_framework":
+        raise RuntimeError(f"MALFORMED_OWNERSHIP_MARKER (INVALID_TEST_OWNER): {data.get('test_owner')}")
+    run_id = data.get("run_id")
+    if not run_id or not isinstance(run_id, str):
+        raise RuntimeError("MALFORMED_OWNERSHIP_MARKER (MISSING_RUN_ID_IN_MARKER)")
+    if expected_run_id and run_id != expected_run_id:
+        raise RuntimeError(f"FOREIGN_RUN_OWNERSHIP_MARKER (STALE_RUN_MARKER): Expected run_id {expected_run_id}, got {run_id}")
+
+    # Canonical root validation (V17.7.4 Section 08):
+    # Marker must specify canonical_root matching its actual directory.
+    canonical_str = data.get("canonical_root")
+    if not canonical_str or not isinstance(canonical_str, str):
+        raise RuntimeError("MALFORMED_OWNERSHIP_MARKER (MISSING_CANONICAL_ROOT_IN_MARKER)")
+    marker_root = marker_path.parent.resolve()
+    marker_canonical = Path(canonical_str).resolve()
+    if marker_canonical != marker_root:
+        raise RuntimeError(
+            f"MISMATCHED_CANONICAL_ROOT: Marker specifies {marker_canonical} but is located in {marker_root}"
+        )
+
+    return data
+
+
+def get_or_create_test_root() -> Path:
+    """Returns canonical test-owned root directory with verified current-run ownership marker (V17.7.4 Section 08)."""
+    global _ACTIVE_TEST_ROOT
+    current_run_id = os.getenv("AURUM_TEST_RUN_ID")
+    env_root = os.getenv("AURUM_TEST_ROOT")
+
+    if env_root:
+        candidate = Path(env_root).resolve()
+        if candidate in FORBIDDEN_ROOTS:
+            raise RuntimeError(f"FORBIDDEN_TEST_ROOT: Environment AURUM_TEST_ROOT cannot be system or project root ({candidate})")
+        marker = candidate / TEST_ROOT_MARKER
+        if candidate.is_dir() and marker.is_file():
+            _read_and_validate_marker(marker, expected_run_id=current_run_id)
+            _ACTIVE_TEST_ROOT = candidate
+            return candidate
+
+    if _ACTIVE_TEST_ROOT and _ACTIVE_TEST_ROOT.is_dir():
+        marker = _ACTIVE_TEST_ROOT / TEST_ROOT_MARKER
+        if marker.is_file():
+            _read_and_validate_marker(marker, expected_run_id=current_run_id)
+            return _ACTIVE_TEST_ROOT
+
+    # Allocate fresh root for current run
+    if not current_run_id:
+        current_run_id = f"run_{int(time.time()*1000)}_{os.getpid()}"
+        os.environ["AURUM_TEST_RUN_ID"] = current_run_id
+
+    tmp_dir = tempfile.mkdtemp(prefix="aurum_test_root_")
+    root_path = Path(tmp_dir).resolve()
+    marker_path = root_path / TEST_ROOT_MARKER
+    now_ts = time.time()
+    metadata = {
+        "schema_version": 1,
+        "run_id": current_run_id,
+        "canonical_root": str(root_path),
+        "test_owner": "aurum_test_framework",
+        "created_at": now_ts,
+        "pid": os.getpid(),
+    }
+    marker_path.write_text(json.dumps(metadata), encoding="utf-8")
+    os.environ["AURUM_TEST_ROOT"] = str(root_path)
+    _ACTIVE_TEST_ROOT = root_path
+    return root_path
+
+
+def register_trusted_test_root(root_path: Path | str) -> None:
+    """Registers an additional verified test-owned root directory (V17.7.4 Section 08.2). Raises on invalid."""
+    r = Path(root_path).resolve()
+    if r in FORBIDDEN_ROOTS:
+        raise RuntimeError(f"FORBIDDEN_TEST_ROOT: Cannot register system or project root ({r})")
+    if not r.is_dir():
+        raise RuntimeError(f"INVALID_TEST_ROOT: Directory does not exist ({r})")
+    if r.is_symlink():
+        raise RuntimeError(f"INVALID_TEST_ROOT: Test root cannot be a symlink ({r})")
+
+    marker = r / TEST_ROOT_MARKER
+    current_run_id = os.getenv("AURUM_TEST_RUN_ID")
+    data = _read_and_validate_marker(marker, expected_run_id=current_run_id)
+
+    # V17.7.4: Rejects pre-existing external database files
+    marker_created = float(data.get("created_at") or marker.stat().st_mtime)
+    for db_candidate in r.glob("*.db"):
+        if db_candidate.stat().st_mtime < marker_created - 0.5:
+            raise RuntimeError(
+                f"PRE_EXISTING_EXTERNAL_DATA: Trusted test root {r} contains pre-existing database file {db_candidate.name}"
+            )
+
+    _TRUSTED_TEST_ROOTS.add(r)
+
+
+def normalize_sqlite_database_target(target: Any) -> Tuple[str, Path | None]:
+    """
+    Normalizes database target into (target_type, canonical_path) per V17.7.4 Section 08.3.
+    target_type is 'memory' or 'file'.
+    Raises RuntimeError on unsupported schemes or invalid targets.
+    """
+    if target is None:
+        raise RuntimeError("CRITICAL SAFETY HAZARD: Database target is None or unspecified!")
+
+    # Check if target is SQLAlchemy Engine
+    if hasattr(target, "url"):
+        target = target.url
+
+    # Check if target is SQLAlchemy URL
+    if hasattr(target, "database") and hasattr(target, "drivername"):
+        if not target.drivername.startswith("sqlite"):
+            raise RuntimeError(f"UNSUPPORTED_SCHEME: Only SQLite databases are supported, got {target.drivername}")
+        db_name = target.database
+        if db_name in (None, "", ":memory:"):
+            return "memory", None
+        target = db_name
+
+    # Check string representation
+    clean = str(target).strip()
+    if clean in (":memory:", "sqlite:///:memory:"):
+        return "memory", None
+
+    # Handle SQLite file URI (file:///path or file:path)
+    if clean.startswith("file:"):
+        parsed = urllib.parse.urlparse(clean)
+        if parsed.query:
+            params = dict(qp.split("=", 1) for qp in parsed.query.split("&") if "=" in qp)
+            if params.get("mode") == "memory":
+                return "memory", None
+        clean = urllib.request.url2pathname(parsed.path)
+
+    # URL parsing via make_url if scheme exists
+    elif "://" in clean:
+        try:
+            url_obj = make_url(clean)
+            if not url_obj.drivername.startswith("sqlite"):
+                raise RuntimeError(f"UNSUPPORTED_SCHEME: Only SQLite databases are supported, got {url_obj.drivername}")
+            db_name = url_obj.database
+            if db_name in (None, "", ":memory:"):
+                return "memory", None
+            clean = db_name
+        except Exception as e:
+            if isinstance(e, RuntimeError):
+                raise
+            raise RuntimeError(f"INVALID_DATABASE_URL: {e}")
+
+    t_path = Path(clean).resolve()
+
+    # Reject target directories or marker files
+    if t_path.is_dir():
+        raise RuntimeError(f"CRITICAL SAFETY HAZARD: Database target cannot be a directory ({t_path})!")
+    if t_path.name == TEST_ROOT_MARKER:
+        raise RuntimeError(f"CRITICAL SAFETY HAZARD: Test marker cannot be targeted as database ({t_path})!")
+
+    return "file", t_path
+
+
+def assert_test_database_isolated(
+    db_path: Any = None,
+    target_engine: Any = None,
+    session: Any = None,
+) -> bool:
+    """Fail-closed guard (V17.7.4.1 Section 05):
+    Asserts that target DB is strictly contained within a verified test-owned root directory,
+    and is never the runtime database or an arbitrary external database.
+    Can verify target from path, engine, or session bind.
+    Enforces file ownership, rejects external hardlinks and pre-existing files.
+    """
+    target = db_path
+    if session is not None:
+        target = getattr(session, "bind", target)
+    if target_engine is not None:
+        target = target_engine
+    if target is None:
+        target = DB_PATH
+
+    target_type, t_path = normalize_sqlite_database_target(target)
+    if target_type == "memory":
+        return True
+
+    r_path = Path(RUNTIME_DEFAULT_DB_PATH).resolve()
+
+    # 1. Direct collision with runtime DB
+    if t_path == r_path:
+        raise RuntimeError(f"CRITICAL SAFETY HAZARD: Test database targets runtime database at {r_path}!")
+
+    # 2. Configured runtime DB collision
+    configured_runtime = os.getenv("AURUM_RUNTIME_DB_PATH")
+    if configured_runtime and t_path == Path(configured_runtime).resolve():
+        raise RuntimeError(f"CRITICAL SAFETY HAZARD: Test database targets configured runtime database at {t_path}!")
+
+    # 3. Basename protection against aurum_desk.db
+    if "aurum_desk.db" in t_path.name:
+        raise RuntimeError(f"CRITICAL SAFETY HAZARD: Test database cannot be named aurum_desk.db ({t_path})!")
+
+    # 4. Hardlink alias detection against runtime DB (Section 08.3 / B06)
+    if t_path.exists() and r_path.exists():
+        try:
+            t_stat = t_path.stat()
+            r_stat = r_path.stat()
+            if t_stat.st_ino != 0 and t_stat.st_ino == r_stat.st_ino:
+                raise RuntimeError(
+                    f"CRITICAL SAFETY HAZARD: Database target {t_path} is a hardlink to runtime database at {r_path}!"
+                )
+        except Exception as e:
+            if isinstance(e, RuntimeError):
+                raise
+
+    # 5. Strict containment in verified current-run test-owned root
+    test_root = get_or_create_test_root()
+    valid_roots = [test_root] + list(_TRUSTED_TEST_ROOTS)
+
+    is_contained = False
+    for root in valid_roots:
+        marker = root / TEST_ROOT_MARKER
+        if root.is_dir() and marker.is_file():
+            try:
+                marker_data = _read_and_validate_marker(marker, expected_run_id=os.getenv("AURUM_TEST_RUN_ID"))
+                if t_path.is_relative_to(root):
+                    # V17.7.4.1: Verify actual file ownership, hardlink count and age
+                    if t_path.exists():
+                        t_stat = t_path.stat()
+                        # Reject hardlinks to any external files (link count > 1)
+                        if t_stat.st_nlink > 1:
+                            raise RuntimeError(
+                                f"CRITICAL SAFETY HAZARD: Database target {t_path} is a hardlink alias (nlink={t_stat.st_nlink}) to an external file!"
+                            )
+                        # Reject pre-existing external database files
+                        marker_created = float(marker_data.get("created_at") or marker.stat().st_mtime)
+                        if t_stat.st_mtime < marker_created - 0.5:
+                            raise RuntimeError(
+                                f"CRITICAL SAFETY HAZARD: Pre-existing database file {t_path.name} in test root was modified before test marker!"
+                            )
+                    is_contained = True
+                    break
+            except Exception as e:
+                if isinstance(e, RuntimeError) and "CRITICAL SAFETY HAZARD" in str(e):
+                    raise
+
+    if not is_contained:
+        raise RuntimeError(
+            f"CRITICAL SAFETY HAZARD: Database path {t_path} is not within verified test-owned root {test_root}!"
+        )
+
+    return True
+
+
+# Strict Test Isolation Guard (V17.7.4 Section 08/09):
+# If running under pytest or testing environment, tests must NEVER touch the runtime database!
 is_pytest = "pytest" in sys.modules or os.getenv("PYTEST_CURRENT_TEST") is not None or os.getenv("TESTING") == "1"
 
-if is_pytest and not os.getenv("AURUM_DB_PATH"):
-    import tempfile
-    DB_PATH = os.path.join(tempfile.gettempdir(), f"aurum_isolated_test_{os.getpid()}.db")
+if is_pytest:
+    test_root = get_or_create_test_root()
+    test_db_override = os.getenv("AURUM_TEST_DB_PATH")
+    db_path_override = os.getenv("AURUM_DB_PATH")
+    if test_db_override and db_path_override and test_db_override != db_path_override:
+        raise RuntimeError(f"CONFLICTING_TEST_DB_TARGETS: AURUM_TEST_DB_PATH={test_db_override} vs AURUM_DB_PATH={db_path_override}")
+    custom_test_db = test_db_override or db_path_override
+    if custom_test_db:
+        # Preflight validation: fail closed before binding engine
+        assert_test_database_isolated(custom_test_db)
+        _, resolved_target = normalize_sqlite_database_target(custom_test_db)
+        DB_PATH = str(resolved_target) if resolved_target else ":memory:"
+    else:
+        DB_PATH = str(test_root / f"aurum_isolated_test_{os.getpid()}.db")
 else:
     DB_PATH = os.getenv("AURUM_DB_PATH", RUNTIME_DEFAULT_DB_PATH)
 
@@ -28,7 +321,6 @@ engine = create_engine(
     poolclass=NullPool
 )
 
-# Enable WAL mode and busy timeout for SQLite to prevent locking
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
@@ -38,8 +330,11 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor.close()
 
 def run_schema_migrations(target_engine=None):
-    """Safely adds missing V6.1 and V7 columns and tables to SQLite without dropping data."""
+    """Safely adds missing V6.1 and V7 columns and tables to SQLite without dropping data (V17.7.4 Section 08.4)."""
     eng = target_engine or engine
+    if is_pytest:
+        # Preflight: fail-closed before connection or DDL execution
+        assert_test_database_isolated(target_engine=eng)
     try:
         with eng.connect() as conn:
             # 1. paper_orders
@@ -683,7 +978,8 @@ def run_schema_migrations(target_engine=None):
     except Exception:
         pass
 
-run_schema_migrations(engine)
+if os.environ.get("AURUM_SKIP_STARTUP_MIGRATIONS") != "1":
+    run_schema_migrations(engine)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

@@ -1,0 +1,385 @@
+{
+  "timestamp_utc": "2026-10-27T06:13:09Z",
+  "runner_version": "17.7.4",
+  "run_id": "run_v17_7_4_1793081589776_1464",
+  "branch": "feat/v17-7-adaptive-structural-stop-loss",
+  "source_sha": "40f52d96f02b08ceaae6a2cfc9ff2673960dd949",
+  "gates": {
+    "G01_BRANCH_INTEGRITY": {
+      "status": "PASS",
+      "gate_type": "command",
+      "branch": "feat/v17-7-adaptive-structural-stop-loss",
+      "sha": "40f52d96f02b08ceaae6a2cfc9ff2673960dd949",
+      "composite_sha": "ce0a4d3420a14ebe17676db0769eea77eecf709b7dd25228dbd44e275c16bc63",
+      "duration_ms": 46,
+      "exit_code": 0
+    },
+    "G02_TEST_DB_BOOTSTRAP": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 2,
+        "passed": 2,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g02_test_db_bootstrap.xml",
+      "report_status": "VALID",
+      "duration_ms": 9940,
+      "exit_code": 0
+    },
+    "G03_UNSAFE_PATH_REJECTION": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 9,
+        "passed": 7,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 2
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g03_unsafe_path_rejection.xml",
+      "report_status": "VALID",
+      "duration_ms": 7581,
+      "exit_code": 0
+    },
+    "G04_DESTRUCTIVE_FIXTURE_ISOLATION": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 5,
+        "passed": 5,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g04_destructive_fixture_isolation.xml",
+      "report_status": "VALID",
+      "duration_ms": 8698,
+      "exit_code": 0
+    },
+    "G05_RAW_ATR_PROVENANCE": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 8,
+        "passed": 8,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g05_raw_atr_provenance.xml",
+      "report_status": "VALID",
+      "duration_ms": 8345,
+      "exit_code": 0
+    },
+    "G06_REQUIRED_M1_ATR_FAIL_CLOSED": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 7,
+        "passed": 7,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g06_required_m1_atr_fail_closed.xml",
+      "report_status": "VALID",
+      "duration_ms": 12512,
+      "exit_code": 0
+    },
+    "G07_ATR_BUFFER_MATH_CORRECTNESS": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 3,
+        "passed": 3,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g07_atr_buffer_math_correctness.xml",
+      "report_status": "VALID",
+      "duration_ms": 10264,
+      "exit_code": 0
+    },
+    "G08_STRUCTURAL_ANCHOR_CAUSAL": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 4,
+        "passed": 4,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g08_structural_anchor_causal.xml",
+      "report_status": "VALID",
+      "duration_ms": 9318,
+      "exit_code": 0
+    },
+    "G09_DISTANT_SL_FINANCIAL_INTEGRITY": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 4,
+        "passed": 4,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g09_distant_sl_financial_integrity.xml",
+      "report_status": "VALID",
+      "duration_ms": 10581,
+      "exit_code": 0
+    },
+    "G10_CG01_EVALUATOR_INTEGRATION": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 3,
+        "passed": 3,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g10_cg01_evaluator_integration.xml",
+      "report_status": "VALID",
+      "duration_ms": 11308,
+      "exit_code": 0
+    },
+    "G11_M1_EVALUATOR_INTEGRATION": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 7,
+        "passed": 7,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g11_m1_evaluator_integration.xml",
+      "report_status": "VALID",
+      "duration_ms": 10832,
+      "exit_code": 0
+    },
+    "G12_ORCHESTRATOR_REAL_ARM": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 2,
+        "passed": 2,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g12_orchestrator_real_arm.xml",
+      "report_status": "VALID",
+      "duration_ms": 9820,
+      "exit_code": 0
+    },
+    "G13_REAL_ARM_CONCURRENCY": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 3,
+        "passed": 3,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g13_real_arm_concurrency.xml",
+      "report_status": "VALID",
+      "duration_ms": 9373,
+      "exit_code": 0
+    },
+    "G14_FILL_TIME_FINANCIAL_INVARIANTS": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 2,
+        "passed": 2,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g14_fill_time_financial_invariants.xml",
+      "report_status": "VALID",
+      "duration_ms": 14953,
+      "exit_code": 0
+    },
+    "G15_PAPER_EXIT_AND_PERSISTENCE": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 4,
+        "passed": 4,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g15_paper_exit_and_persistence.xml",
+      "report_status": "VALID",
+      "duration_ms": 13630,
+      "exit_code": 0
+    },
+    "G16_LIVE_ORDER_SAFETY_BOUNDARY": {
+      "status": "PASS",
+      "gate_type": "command",
+      "details": "Verified 0 live outbound calls with active HTTP spy, negative control exercised, and clean PAPER flow.",
+      "counts": {
+        "collected": 3,
+        "passed": 3,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g16.xml",
+      "duration_ms": 2984,
+      "exit_code": 0
+    },
+    "G17_EXISTING_SL_DSL_CE_REGRESSION": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 100,
+        "passed": 100,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g17_existing_sl_dsl_ce_regression.xml",
+      "report_status": "VALID",
+      "duration_ms": 10666,
+      "exit_code": 0
+    },
+    "G18_V17_5_REGRESSION": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 278,
+        "passed": 278,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g18_v17_5_regression.xml",
+      "report_status": "VALID",
+      "duration_ms": 39938,
+      "exit_code": 0
+    },
+    "G19_V17_6_REGRESSION": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 776,
+        "passed": 776,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g19_v17_6_regression.xml",
+      "report_status": "VALID",
+      "duration_ms": 493467,
+      "exit_code": 0
+    },
+    "G20_FULL_BACKEND_PYTEST": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 4094,
+        "passed": 4087,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 7
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g20_full_backend_pytest.xml",
+      "report_status": "VALID",
+      "duration_ms": 1384285,
+      "exit_code": 0
+    },
+    "G21_FRONTEND_VITEST": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "test_files_passed": 56,
+        "passed": 548,
+        "collected": 548,
+        "failed": 0
+      },
+      "duration_ms": 8127,
+      "exit_code": 0
+    },
+    "G22_FRONTEND_BUILD": {
+      "status": "PASS",
+      "gate_type": "command",
+      "duration_ms": 9010,
+      "exit_code": 0
+    },
+    "G23_FRONTEND_LINT": {
+      "status": "PASS",
+      "gate_type": "command",
+      "duration_ms": 1301,
+      "exit_code": 0
+    },
+    "G24_PLAYWRIGHT_BROWSER_E2E": {
+      "status": "PASS",
+      "gate_type": "command",
+      "duration_ms": 15636,
+      "exit_code": 0
+    },
+    "G25_DETERMINISTIC_REPLAY": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 2,
+        "passed": 2,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g25_deterministic_replay.xml",
+      "report_status": "VALID",
+      "duration_ms": 10048,
+      "exit_code": 0
+    },
+    "G26_ACCEPTANCE_RUNNER_NEGATIVE_TESTS": {
+      "status": "PASS",
+      "gate_type": "command",
+      "counts": {
+        "collected": 1,
+        "passed": 1,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "report_path": "docs\\artifacts\\v17_7_4\\run_v17_7_4_1793081589776_1464\\reports\\g26_acceptance_runner_negative_tests.xml",
+      "report_status": "VALID",
+      "duration_ms": 7794,
+      "exit_code": 0
+    },
+    "G27_ARTIFACT_SOURCE_SHA_INTEGRITY": {
+      "status": "PASS",
+      "gate_type": "command",
+      "sha": "40f52d96f02b08ceaae6a2cfc9ff2673960dd949",
+      "counts": {
+        "collected": 1,
+        "passed": 1,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "duration_ms": 8235,
+      "exit_code": 0,
+      "integrity_verified": true
+    },
+    "G28_DOCS_DEFECT_REGISTER_CONSISTENCY": {
+      "status": "PASS",
+      "gate_type": "verification",
+      "verified_docs": 8,
+      "exit_code": 0
+    }
+  },
+  "verdict": "ACCEPTED_FOR_PAPER_OPT_IN"
+}

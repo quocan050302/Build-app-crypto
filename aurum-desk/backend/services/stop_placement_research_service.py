@@ -212,8 +212,9 @@ def build_stop_comparison_plan(
             rejection_reason="MISSING_STRUCTURAL_ANCHOR", buffer_price=0.0, dominant_buffer="none",
         )
     else:
-        # Variant B: Structural anchor + tick floor (5 ticks)
-        tick_floor_buf = 5.0 * tick_size
+        # Variant B: Structural anchor + tick floor (derived from policy min_buffer_ticks, default 5.0)
+        min_ticks = float(policy_settings.get("min_buffer_ticks", 5.0))
+        tick_floor_buf = min_ticks * tick_size
         b_sl = quantize_stop_outward(
             anchor_price=anchor.price, buffer_price=tick_floor_buf, direction=direction, tick_size=tick_size,
         )

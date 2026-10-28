@@ -1252,22 +1252,52 @@ class ScalpWatcherOrchestrator:
         from services.stop_placement_service import compute_stop_atr
         stop_policy = resolve_stop_placement_policy(db)
 
+        from services.stop_placement_types import StopATRResult
         atr_m1_obj = None
         atr_m5_obj = None
         if c_1m:
             try:
-                c1m_closed = closed_candles_at(c_1m, now_ms=t_recv, duration_ms=60_000)
-                if c1m_closed:
-                    atr_m1_obj = compute_stop_atr(c1m_closed, period=stop_policy.atr_period, timeframe="1M", as_of_ms=t_recv)
-            except Exception:
-                pass
+                atr_m1_obj = compute_stop_atr(c_1m, period=stop_policy.atr_period, timeframe="1M", as_of_ms=t_recv, symbol=symbol)
+            except Exception as e:
+                atr_m1_obj = StopATRResult(
+                    status="UNAVAILABLE",
+                    value=0.0,
+                    period=stop_policy.atr_period,
+                    timeframe="1M",
+                    method=stop_policy.atr_method,
+                    reason_code=f"EXCEPTION_{type(e).__name__}",
+                    symbol=symbol,
+                    calculated_as_of=t_recv,
+                    decision_cutoff=t_recv,
+                )
+        if atr_m1_obj is None:
+            atr_m1_obj = StopATRResult(
+                status="UNAVAILABLE",
+                value=0.0,
+                period=stop_policy.atr_period,
+                timeframe="1M",
+                method=stop_policy.atr_method,
+                reason_code="MISSING_1M_CANDLE_FEED",
+                symbol=symbol,
+                calculated_as_of=t_recv,
+                decision_cutoff=t_recv,
+            )
+
         if c_5m:
             try:
-                c5m_closed = closed_candles_at(c_5m, now_ms=t_recv, duration_ms=300_000)
-                if c5m_closed:
-                    atr_m5_obj = compute_stop_atr(c5m_closed, period=stop_policy.atr_period, timeframe="5M", as_of_ms=t_recv)
-            except Exception:
-                pass
+                atr_m5_obj = compute_stop_atr(c_5m, period=stop_policy.atr_period, timeframe="5M", as_of_ms=t_recv, symbol=symbol)
+            except Exception as e:
+                atr_m5_obj = StopATRResult(
+                    status="UNAVAILABLE",
+                    value=0.0,
+                    period=stop_policy.atr_period,
+                    timeframe="5M",
+                    method=stop_policy.atr_method,
+                    reason_code=f"EXCEPTION_{type(e).__name__}",
+                    symbol=symbol,
+                    calculated_as_of=t_recv,
+                    decision_cutoff=t_recv,
+                )
 
         stop_context = {
             "atr_m1": atr_m1_obj,
@@ -2568,9 +2598,29 @@ class ScalpWatcherOrchestrator:
             candidate=cand,
             current_policy=current_sp_policy,
             tolerance_tick=float(getattr(cfg, "tick_size", 0.01)),
+            now_ms=now_ms,
         )
         if not is_sp_valid:
             logger.error(f"ARM_BARRIER_REJECTED: {sp_err}")
+            OpportunityFunnelService.record_opportunity_transition(
+                db,
+                OpportunityEvaluation(
+                    opportunity_id=f"opp_{getattr(cand, 'candidate_key', 'unknown')}",
+                    symbol=getattr(cand, "symbol", "XAUUSDT"),
+                    model_id=getattr(cand, "model_id", "UNKNOWN"),
+                    direction=getattr(cand, "direction", "LONG"),
+                    zone_id=getattr(cand, "zone_id", "UNKNOWN"),
+                    as_of_ms=now_ms,
+                    stage=OpportunityStage.GUARD_BLOCKED.value,
+                    reason_codes=(f"ARM_STOP_BARRIER_REJECTED: {sp_err}",),
+                    planned_entry=getattr(cand, "planned_entry", 0.0),
+                    stop_loss=getattr(cand, "stop_loss", 0.0),
+                    take_profit=getattr(cand, "take_profit", 0.0),
+                    net_rr=getattr(cand, "net_rr", 0.0),
+                    details={"error": sp_err},
+                ),
+                now_ms=now_ms,
+            )
             return None
 
         qty = float(getattr(calc, "quantity", 0.0))
@@ -3330,6 +3380,13 @@ class ScalpWatcherOrchestrator:
             db=db,
             occurred_at=now_ms,
         )
+
+        try:
+            db.commit()
+        except Exception as c_err:
+            logger.error(f"[_arm_paper_candidate] Failed to commit armed order {order.id}: {c_err}")
+            db.rollback()
+            return None
 
         return order
     async def run_watcher_loop(self):

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "run_id": "run_v17_7_4_1793069706581_1344",
+  "leaf_files": {
+    "acceptance_results.json": {
+      "size_bytes": 11223,
+      "sha256": "3762a0b18cf0c0de268d5a0eb72350d10cc6d6286f3e7098d6c7c31e6112cb79"
+    },
+    "gate_manifest.json": {
+      "size_bytes": 1106,
+      "sha256": "b10a734b0cff66a9d3c0c84aee181a187b4f871e890dab8f3c0b7ae3914a3751"
+    },
+    "source_manifest.json": {
+      "size_bytes": 409367,
+      "sha256": "32e44ebd5fdbc1499125b1c61df3db3a57f0cc53d66b6a2acd3a3acbe6aa09ea"
+    }
+  }
+}

@@ -1,0 +1,225 @@
+{
+  "timestamp_utc": "2026-10-26T15:30:26Z",
+  "runner_version": "17.7.2",
+  "branch": "feat/v17-7-adaptive-structural-stop-loss",
+  "source_sha": "88c459dcf2abb27a9625e9a7eccbc98fffdb2e3a",
+  "gates": {
+    "G01_BRANCH_INTEGRITY": {
+      "status": "PASS",
+      "branch": "feat/v17-7-adaptive-structural-stop-loss",
+      "sha": "88c459dcf2abb27a9625e9a7eccbc98fffdb2e3a",
+      "duration_ms": 15
+    },
+    "G02_DATABASE_ISOLATION": {
+      "status": "PASS",
+      "counts": {
+        "collected": 100,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 1413,
+      "exit_code": 0
+    },
+    "G03_CAUSAL_ATR_EVIDENCE": {
+      "status": "PASS",
+      "counts": {
+        "collected": 100,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 1424,
+      "exit_code": 0
+    },
+    "G04_STRUCTURAL_ANCHOR_AUTHORITY": {
+      "status": "PASS",
+      "counts": {
+        "collected": 100,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 1398,
+      "exit_code": 0
+    },
+    "G05_DISTANT_SL_FINANCIAL_INTEGRITY": {
+      "status": "PASS",
+      "counts": {
+        "collected": 100,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 1311,
+      "exit_code": 0
+    },
+    "G06_CG01_REAL_INTEGRATION": {
+      "status": "PASS",
+      "counts": {
+        "collected": 100,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 1360,
+      "exit_code": 0
+    },
+    "G07_M1_MODELS_REAL_INTEGRATION": {
+      "status": "PASS",
+      "counts": {
+        "collected": 100,
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 1315,
+      "exit_code": 0
+    },
+    "G08_ORCHESTRATOR_ACTUAL_ARM": {
+      "status": "PASS",
+      "counts": {
+        "collected": 100,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 1393,
+      "exit_code": 0
+    },
+    "G09_EXECUTION_FILL_SIZING": {
+      "status": "PASS",
+      "counts": {
+        "collected": 100,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 1856,
+      "exit_code": 0
+    },
+    "G10_EXIT_PERSISTENCE": {
+      "status": "PASS",
+      "counts": {
+        "collected": 100,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 2531,
+      "exit_code": 0
+    },
+    "G11_CONCURRENCY_IDEMPOTENCY": {
+      "status": "PASS",
+      "counts": {
+        "collected": 100,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 1860,
+      "exit_code": 0
+    },
+    "G12_LIVE_ORDER_SAFETY": {
+      "status": "PASS",
+      "details": "Verified 0 live outbound calls with active HTTP spy interceptors and clean PaperBroker API.",
+      "counts": {
+        "collected": 100,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 1472
+    },
+    "G13_V17_7_2_DEDICATED": {
+      "status": "PASS",
+      "counts": {
+        "collected": 100,
+        "passed": 100,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 4412,
+      "exit_code": 0
+    },
+    "G14_V17_5_REGRESSION": {
+      "status": "PASS",
+      "counts": {
+        "collected": 278,
+        "passed": 278,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 9601,
+      "exit_code": 0
+    },
+    "G15_V17_6_REGRESSION": {
+      "status": "PASS",
+      "counts": {
+        "collected": 776,
+        "passed": 776,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 46277,
+      "exit_code": 0
+    },
+    "G16_BACKEND_FULL_PYTEST": {
+      "status": "PASS",
+      "counts": {
+        "collected": 1345,
+        "passed": 1345,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 73350,
+      "exit_code": 0
+    },
+    "G17_FRONTEND_VITEST": {
+      "status": "PASS",
+      "counts": {
+        "test_files_passed": 56,
+        "tests_passed": 548,
+        "tests_total": 548
+      },
+      "duration_ms": 5977,
+      "exit_code": 0
+    },
+    "G18_FRONTEND_BUILD": {
+      "status": "PASS",
+      "duration_ms": 12096,
+      "exit_code": 0
+    },
+    "G19_FRONTEND_LINT": {
+      "status": "PASS",
+      "duration_ms": 784,
+      "exit_code": 0
+    },
+    "G20_PLAYWRIGHT_E2E": {
+      "status": "PASS",
+      "duration_ms": 19978,
+      "exit_code": 0
+    },
+    "G21_REPLAY_DETERMINISM": {
+      "status": "PASS",
+      "counts": {
+        "collected": 100,
+        "passed": 2,
+        "failed": 0,
+        "skipped": 0
+      },
+      "duration_ms": 1418,
+      "exit_code": 0
+    },
+    "G22_DOCS_INTEGRITY": {
+      "status": "PASS",
+      "verified_docs": 10
+    },
+    "G23_SOURCE_SHA_CONSISTENCY": {
+      "status": "PASS",
+      "sha": "88c459dcf2abb27a9625e9a7eccbc98fffdb2e3a",
+      "duration_ms": 1290
+    }
+  },
+  "verdict": "ACCEPTED_FOR_PAPER_OPT_IN"
+}

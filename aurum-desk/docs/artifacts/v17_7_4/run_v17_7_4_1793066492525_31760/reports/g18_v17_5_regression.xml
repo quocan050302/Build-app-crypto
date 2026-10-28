@@ -1,0 +1,1354 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="22" skipped="0" tests="278" time="47.171" timestamp="2026-10-27T09:03:09.026231+07:00" hostname="Lil-Poppa"><testcase classname="backend.tests.test_v17_5_1_anchor_leg" name="test_resolve_bound_stop_leg_validates_pivot_occurred_before_break" time="0.010" /><testcase classname="backend.tests.test_v17_5_1_anchor_leg" name="test_resolve_bound_stop_leg_short_vs_long" time="0.002" /><testcase classname="backend.tests.test_v17_5_1_anchor_leg" name="test_build_sweep_stop_descriptor_extracts_real_fields" time="0.003" /><testcase classname="backend.tests.test_v17_5_1_anchor_leg" name="test_validate_anchor_not_invalidated_rejects_breached_origin" time="0.002" /><testcase classname="backend.tests.test_v17_5_1_atr_timeframe" name="test_compute_stop_atr_1m_and_5m_durations" time="0.002" /><testcase classname="backend.tests.test_v17_5_1_atr_timeframe" name="test_compute_stop_atr_rejects_timeframe_mismatch" time="0.001" /><testcase classname="backend.tests.test_v17_5_1_atr_timeframe" name="test_compute_stop_atr_insufficient_bars" time="0.001" /><testcase classname="backend.tests.test_v17_5_1_atr_timeframe" name="test_compute_stop_atr_flat_zero_is_available" time="0.001" /><testcase classname="backend.tests.test_v17_5_1_guard_matrix" name="test_guard_blocks_second_concurrent_position" time="2.035" /><testcase classname="backend.tests.test_v17_5_1_guard_matrix" name="test_guard_blocks_when_daily_quota_filled" time="2.202" /><testcase classname="backend.tests.test_v17_5_1_policy_cas" name="test_concurrent_sessions_lost_update_raises_conflict" time="1.880" /><testcase classname="backend.tests.test_v17_5_1_policy_cas" name="test_noop_update_preserves_version" time="1.930" /><testcase classname="backend.tests.test_v17_5_1_policy_cas" name="test_scope_validation_rejects_live_under_paper_mode" time="5.013" /><testcase classname="backend.tests.test_v17_5_1_production_flow" name="test_production_flow_short_paper_structural" time="3.911"><failure message="AssertionError: assert 'WAITING_VOLATILITY_EVIDENCE' == 'VALID'&#10;  &#10;  - VALID&#10;  + WAITING_VOLATILITY_EVIDENCE">test_db = sessionmaker(class_='Session', bind=Engine(sqlite:///C%3A%5CUsers%5CADMIN%5CAppData%5CLocal%5CTemp%5Cpytest-of-ADMIN%5Cpytest-167%5Ctest_production_flow_short_pap0%5Cprod_flow.db), autoflush=False, expire_on_commit=True)
+
+    def test_production_flow_short_paper_structural(test_db):
+        now_ms = 1700000000000
+        clock = ReplayClock(now_ms)
+        policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL", version=1)
+    
+        entry = 2000.0
+        legacy_sl = 2005.0
+        tp = 1975.0
+    
+        anchor_res = StopAnchorResult(
+            status="AVAILABLE",
+            anchor=StopAnchor(
+                id="anc_flow_sh_1",
+                kind="PROTECTED_LEG_HIGH",
+                price=2008.0,
+                timeframe="1M",
+                occurred_at_ms=now_ms - 60000,
+                known_at_ms=now_ms - 30000,
+                source_leg_id="leg_1",
+                price_basis="CANDLE_LAST",
+            ),
+        )
+        buffer_res = StopBufferResult(
+            buffer_price=1.50,
+            components={"tick_floor": 0.05, "atr_m1": 1.50},
+            dominant_source="atr_m1",
+            tick_size=0.01,
+        )
+    
+        # 1. Plan structural stop (Variant C)
+        stop_dec = plan_structural_stop(
+            direction="SHORT",
+            planned_entry=entry,
+            take_profit=tp,
+            legacy_sl=legacy_sl,
+            anchor_result=anchor_res,
+            buffer_result=buffer_res,
+            policy=policy,
+            as_of_ms=now_ms,
+        )
+&gt;       assert stop_dec.status == StopStatus.VALID.value
+E       AssertionError: assert 'WAITING_VOLATILITY_EVIDENCE' == 'VALID'
+E         
+E         - VALID
+E         + WAITING_VOLATILITY_EVIDENCE
+
+backend\tests\test_v17_5_1_production_flow.py:87: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_1_production_flow" name="test_production_flow_long_paper_structural" time="2.291"><failure message="AssertionError: assert 'WAITING_VOLATILITY_EVIDENCE' == 'VALID'&#10;  &#10;  - VALID&#10;  + WAITING_VOLATILITY_EVIDENCE">test_db = sessionmaker(class_='Session', bind=Engine(sqlite:///C%3A%5CUsers%5CADMIN%5CAppData%5CLocal%5CTemp%5Cpytest-of-ADMIN%5Cpytest-167%5Ctest_production_flow_long_pape0%5Cprod_flow.db), autoflush=False, expire_on_commit=True)
+
+    def test_production_flow_long_paper_structural(test_db):
+        now_ms = 1700000000000
+        clock = ReplayClock(now_ms)
+        policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL", version=1)
+    
+        entry = 2000.0
+        legacy_sl = 1995.0
+        tp = 2025.0
+    
+        anchor_res = StopAnchorResult(
+            status="AVAILABLE",
+            anchor=StopAnchor(
+                id="anc_flow_lg_1",
+                kind="PROTECTED_LEG_LOW",
+                price=1992.0,
+                timeframe="1M",
+                occurred_at_ms=now_ms - 60000,
+                known_at_ms=now_ms - 30000,
+                source_leg_id="leg_long_1",
+                price_basis="CANDLE_LAST",
+            ),
+        )
+        buffer_res = StopBufferResult(
+            buffer_price=1.50,
+            components={"tick_floor": 0.05, "atr_m1": 1.50},
+            dominant_source="atr_m1",
+            tick_size=0.01,
+        )
+    
+        # 1. Plan structural stop (Variant C)
+        stop_dec = plan_structural_stop(
+            direction="LONG",
+            planned_entry=entry,
+            take_profit=tp,
+            legacy_sl=legacy_sl,
+            anchor_result=anchor_res,
+            buffer_result=buffer_res,
+            policy=policy,
+            as_of_ms=now_ms,
+        )
+&gt;       assert stop_dec.status == StopStatus.VALID.value
+E       AssertionError: assert 'WAITING_VOLATILITY_EVIDENCE' == 'VALID'
+E         
+E         - VALID
+E         + WAITING_VOLATILITY_EVIDENCE
+
+backend\tests\test_v17_5_1_production_flow.py:253: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_1_red_probes" name="test_structural_missing_anchor_must_not_produce_executable_legacy_calc" time="0.003" /><testcase classname="backend.tests.test_v17_5_1_red_probes" name="test_fvg_anchor_cannot_be_a_pivot_after_selected_break" time="0.002" /><testcase classname="backend.tests.test_v17_5_1_red_probes" name="test_m5_atr_reports_true_close_time_after_production_prefilter" time="0.002" /><testcase classname="backend.tests.test_v17_5_1_red_probes" name="test_research_advance_is_pure" time="0.001" /><testcase classname="backend.tests.test_v17_5_1_red_probes" name="test_research_invalid_quote_cannot_open_position" time="0.002" /><testcase classname="backend.tests.test_v17_5_1_red_probes" name="test_policy_stale_cached_session_cannot_overwrite_current_version" time="4.050" /><testcase classname="backend.tests.test_v17_5_1_research_runtime" name="test_research_advances_through_execution_consumer_without_active_order" time="3.215" /><testcase classname="backend.tests.test_v17_5_1_stop_costs" name="test_wider_structural_stop_reduces_quantity_within_budget" time="0.002" /><testcase classname="backend.tests.test_v17_5_1_structural_gate" name="test_structural_gate_missing_anchor_blocks_paper_structural" time="0.002" /><testcase classname="backend.tests.test_v17_5_1_structural_gate" name="test_shadow_compare_allows_legacy_execution_even_if_c_missing" time="0.002" /><testcase classname="backend.tests.test_v17_5_1_structural_gate" name="test_validate_applied_stop_decision_rejects_tampered_candidate" time="0.002" /><testcase classname="backend.tests.test_v17_5_2_boundary_probes" name="test_probe_p1_caller_descriptor_shape_rejects_post_break_pivot" time="0.002" /><testcase classname="backend.tests.test_v17_5_2_boundary_probes" name="test_probe_p2_worker_durability" time="2.119" /><testcase classname="backend.tests.test_v17_5_2_boundary_probes" name="test_probe_p3_pre_plan_quote_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_2_boundary_probes" name="test_probe_p4_rejected_net_rr_cannot_open" time="0.002" /><testcase classname="backend.tests.test_v17_5_2_detector_to_exit" name="test_full_detector_to_exit_short_continuation" time="0.247" /><testcase classname="backend.tests.test_v17_5_2_detector_to_exit" name="test_full_detector_to_exit_long_continuation" time="0.130" /><testcase classname="backend.tests.test_v17_5_2_detector_to_exit" name="test_negative_full_flow_guards" time="0.042"><failure message="AttributeError: 'types.SimpleNamespace' object has no attribute 'symbol'">detector_env = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD5499D6D0&gt;, &lt;services.clock.ReplayClock object at 0x000001DD54F49B...ator object at 0x000001DD5499DE90&gt;, &lt;services.execution_coordinator.ExecutionCoordinator object at 0x000001DD54F4A510&gt;)
+
+    def test_negative_full_flow_guards(detector_env):
+        """
+        PHẦN 140: Negative verification:
+        - Auto OFF prevents arming.
+        - Missing structural decision in PAPER_STRUCTURAL mode prevents arming.
+        """
+        db, clock, orchestrator, coordinator = detector_env
+        t_now = 500_000
+    
+        cand = SimpleNamespace(
+            candidate_key="cand_negative_test",
+            direction="SHORT",
+            planned_entry=2000.0,
+            stop_loss=2010.0,
+            take_profit=1980.0,
+            calculation=SimpleNamespace(is_valid=True, can_execute=True, stop_loss=2010.0),
+            snapshot=None,
+            stop_placement=None,
+        )
+        quote = {"bid": 2000.0, "ask": 2000.10, "last": 2000.05, "timestamp": t_now, "is_valid": True, "is_stale": False}
+    
+        # 1. Auto disabled: must return None
+&gt;       res_auto_off = orchestrator._arm_paper_candidate(
+            db,
+            cand,
+            now_ms=t_now,
+            clock=clock,
+            quote=quote,
+            policy_settings={"capital_usdt": 5000.0, "risk_pct": 0.10},
+            auto_enabled=False,
+        )
+
+backend\tests\test_v17_5_2_detector_to_exit.py:386: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend\services\entry_guard_service.py:57: in _wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator object at 0x000001DD5499DE90&gt;
+db = &lt;sqlalchemy.orm.session.Session object at 0x000001DD5499D6D0&gt;
+cand = namespace(candidate_key='cand_negative_test', direction='SHORT', planned_entry=2000.0, stop_loss=2010.0, take_profit=1980.0, calculation=namespace(is_valid=True, can_execute=True, stop_loss=2010.0), snapshot=None, stop_placement=None)
+now_ms = 500000
+clock = &lt;services.clock.ReplayClock object at 0x000001DD54F49B90&gt;
+quote = {'bid': 2000.0, 'ask': 2000.1, 'last': 2000.05, 'timestamp': 500000, ...}
+policy_settings = {'capital_usdt': 5000.0, 'risk_pct': 0.1}, config = None
+feed_health = None, auto_enabled = False, authority_context = None
+session_context = None, research_context = None
+
+    @serialize_entry_mutation
+    def _arm_paper_candidate(
+        self,
+        db: Session,
+        cand: ScalpCandidate,
+        *,
+        now_ms: int,
+        clock: Any,
+        quote: Any,
+        policy_settings: Dict[str, Any],
+        config: Optional[M1ScalpConfig] = None,
+        feed_health: Optional[Dict[str, Any]] = None,
+        auto_enabled: Optional[bool] = None,
+        authority_context: Optional[Any] = None,
+        session_context: Optional[Any] = None,
+        research_context: Optional[Any] = None,
+    ) -&gt; Optional[models.PaperOrder]:
+        """
+        Guarded ARM path under entry_mutation_lock (PHẦN 025 - 033, 059).
+        Never bypasses entry guards or daily quotas.
+        """
+        cfg = config if config is not None else load_effective_scalp_config(db)
+        snap = cand.snapshot
+        calc = cand.calculation
+    
+        # Reason-aware repeated arm-rejection suppression (Rule 109)
+        suppression_ms = getattr(cfg, "arm_rejection_suppression_ms", 30_000)
+        with self._lock:
+            last_rej = self._arm_rejections.get(cand.candidate_key)
+            if last_rej:
+                last_ts, last_reason = last_rej
+                if (now_ms - last_ts) &lt; suppression_ms:
+                    logger.debug(f"Candidate {cand.candidate_key} suppressed due to repeated rejection ({last_reason})")
+                    return None
+    
+        # Validate calculation output (PHẦN 026, 037)
+        if calc is None or not getattr(calc, "is_valid", False) or not getattr(calc, "can_execute", False):
+            logger.info(f"Candidate calculation is invalid or cannot execute: {getattr(calc, 'skip_reason', None) or getattr(calc, 'invalid_reason', None)}")
+            return None
+    
+        # PHẦN 084: Invariant validation between cand.stop_loss and calc.stop_loss (STOP_PLAN_MISMATCH)
+        cand_sl = float(getattr(cand, "stop_loss", 0.0))
+        calc_sl = float(getattr(calc, "stop_loss", cand_sl))
+        if abs(cand_sl - calc_sl) &gt; 1e-4:
+            logger.error(f"STOP_PLAN_MISMATCH: cand.stop_loss ({cand_sl}) != calc.stop_loss ({calc_sl})")
+            return None
+    
+        # V17.5.1 Fail-closed stop placement barrier at ARM boundary (PHẦN 011, 020, 071, 073)
+        from services.stop_placement_policy_service import resolve_stop_placement_policy
+        from services.stop_placement_service import validate_applied_stop_decision
+        current_sp_policy = resolve_stop_placement_policy(db)
+        is_sp_valid, sp_err = validate_applied_stop_decision(
+            candidate=cand,
+            current_policy=current_sp_policy,
+            tolerance_tick=float(getattr(cfg, "tick_size", 0.01)),
+            now_ms=now_ms,
+        )
+        if not is_sp_valid:
+            logger.error(f"ARM_BARRIER_REJECTED: {sp_err}")
+            OpportunityFunnelService.record_opportunity_transition(
+                db,
+                OpportunityEvaluation(
+                    opportunity_id=f"opp_{cand.candidate_key}",
+&gt;                   symbol=cand.symbol,
+                           ^^^^^^^^^^^
+                    model_id=cand.model_id,
+                    direction=cand.direction,
+                    zone_id=cand.zone_id,
+                    as_of_ms=now_ms,
+                    stage=OpportunityStage.GUARD_BLOCKED.value,
+                    reason_codes=(f"ARM_STOP_BARRIER_REJECTED: {sp_err}",),
+                    planned_entry=cand.planned_entry,
+                    stop_loss=cand.stop_loss,
+                    take_profit=cand.take_profit,
+                    net_rr=getattr(cand, "net_rr", 0.0),
+                    details={"error": sp_err},
+                ),
+                now_ms=now_ms,
+            )
+E           AttributeError: 'types.SimpleNamespace' object has no attribute 'symbol'
+
+backend\services\scalp_watcher_orchestrator.py:2613: AttributeError</failure></testcase><testcase classname="backend.tests.test_v17_5_3_boundary_probes" name="test_r1_missing_quote_time_cannot_open" time="0.002" /><testcase classname="backend.tests.test_v17_5_3_boundary_probes" name="test_r1_positive_twin_valid_quote_time_opens" time="0.002" /><testcase classname="backend.tests.test_v17_5_3_boundary_probes" name="test_r2_future_quote_cannot_open" time="0.002" /><testcase classname="backend.tests.test_v17_5_3_boundary_probes" name="test_r2_positive_twin_synchronous_quote_opens" time="0.002" /><testcase classname="backend.tests.test_v17_5_3_boundary_probes" name="test_r3_expired_plan_cannot_open" time="0.002" /><testcase classname="backend.tests.test_v17_5_3_boundary_probes" name="test_r3_positive_twin_unexpired_plan_opens" time="0.002" /><testcase classname="backend.tests.test_v17_5_3_boundary_probes" name="test_r4_short_limit_away_from_entry_cannot_fill_at_planned_price" time="0.002" /><testcase classname="backend.tests.test_v17_5_3_boundary_probes" name="test_r4_positive_twin_short_limit_reached_fills" time="0.002" /><testcase classname="backend.tests.test_v17_5_3_boundary_probes" name="test_r5_future_break_cannot_bind_anchor" time="0.002" /><testcase classname="backend.tests.test_v17_5_3_boundary_probes" name="test_r5_positive_twin_causal_break_binds_anchor" time="0.002" /><testcase classname="backend.tests.test_v17_5_3_boundary_probes" name="test_r6_durable_error_returns_error_without_nameerror" time="0.001" /><testcase classname="backend.tests.test_v17_5_3_boundary_probes" name="test_r6_positive_twin_durable_success" time="0.001" /><testcase classname="backend.tests.test_v17_5_3_boundary_probes" name="test_r7_actual_worker_must_not_research_fill_stale_backlog" time="3.658" /><testcase classname="backend.tests.test_v17_5_3_boundary_probes" name="test_r7_positive_twin_actual_worker_fills_fresh_quote" time="2.411" /><testcase classname="backend.tests.test_v17_5_3_cycle_to_review" name="test_full_production_cycle_short_to_review_and_api" time="0.195"><failure message="AssertionError: evaluate_cycle failed to arm candidate: {'cycle_id': 'cycle-1540000-9be7e247', 'decision_status': 'NO_SETUP', 'status': 'OK', 'lifecycle_read_status': 'COMPLETE', 'lifecycle_write_status': 'OK', 'lifecycle_write_issues_count': 0, 'transaction_status': 'COMMITTED', 'rollback_status': 'NONE', 'as_of_ms': 1540000, 'zones_count': 0, 'candidates_count': 0, 'armed_order_id': None, 'evaluation_duration_ms': 0, 'hypotheses_count': 0, 'entry_authorized_hypotheses_count': 0, 'issues_count': 0, 'liquidity_levels_count': 3, 'market_regime': 'RANGE', 'daily_goal': {'daily_fills': 0, 'daily_min_goal': 2, 'daily_max_cap': 3, 'ny_fills': 0, 'ny_goal': 1, 'policy_version': 1, 'status': 'SHORTFALL', 'reason_vi': 'Kết thúc ngày chưa đạt mục tiêu tối thiểu: 0/2 lệnh (DAILY_GOAL_SHORTFALL).', 'is_blocked': False, 'remaining_daily_slots': 3, 'ny_reserve_active': False, 'shortfall_breakdown': {'data': 0, 'market_hours': 0, 'model_confirmation': 0, 'cost': 0, 'news': 0, 'lessons': 0, 'risk': 0, 'open_position': 0, 'execution_error': 0}}, 'cg01_evaluation': {'enabled': False, 'evaluated': False, 'as_of_ms': 1540000, 'stage': 'MODEL_DISABLED', 'eligible': False, 'reason_codes': ['MODEL_DISABLED'], 'candidate_key': None, 'episode_key': None, 'router_outcome': None, 'arm_outcome': None, 'armed_order_id': None, 'guard_summary': None, 'ui_summary_vi': None, 'poi_id': None, 'direction': None, 'daily_bias': None, 'direction_policy': None}, 'model_diagnostics': [{'model_id': 'SMC_M1_REVERSAL', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'SMC_M1_CONTINUATION', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'SMC_M1_FVG_CONTINUATION', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'SMC_M1_SWEEP_RECLAIM', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'CG01_SWEEP_MSS_FVG', 'evaluated': False, 'eligible': False, 'execution_action': 'DISABLED', 'reason': 'CG01_DISABLED'}]}&#10;assert None is not None">cycle_env = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD5499C850&gt;, &lt;services.clock.ReplayClock object at 0x000001DD552494...ator object at 0x000001DD5524A190&gt;, &lt;services.execution_coordinator.ExecutionCoordinator object at 0x000001DD55249190&gt;)
+
+    def test_full_production_cycle_short_to_review_and_api(cycle_env):
+        """
+        Test 1: Full SHORT cycle from evaluate_cycle -&gt; coordinator fill -&gt; close -&gt; review -&gt; API.
+        """
+        db, clock, orchestrator, coordinator = cycle_env
+        t_base = 100_000
+    
+        # Pattern candles: Warmup + Swing High at 2011, Support at 2002, Origin Pivot High at 2008, BOS close at 1999
+        warmup_prices = [(2004 + (i % 3), 2007, 2003, 2005) for i in range(10)]
+        pattern_prices = [
+            (2005, 2007, 2004, 2006),  # 10
+            (2006, 2009, 2005, 2008),  # 11
+            (2008, 2010, 2007, 2009),  # 12
+            (2009, 2011, 2008, 2010),  # 13: High 2011.0
+            (2010, 2010, 2006, 2007),  # 14
+            (2007, 2008, 2003, 2004),  # 15
+            (2004, 2005, 2001, 2002),  # 16: Low 2001.0, close 2002.0 (Swing Low reference)
+            (2002, 2006, 2002, 2005),  # 17
+            (2005, 2008, 2004, 2007),  # 18: High 2008.0 (Origin protective swing high)
+            (2007, 2007, 2003, 2004),  # 19
+            (2004, 2005, 2002, 2003),  # 20
+            (2003, 2004, 2001, 2002),  # 21
+            (2002, 2003, 1998, 1999),  # 22: BOS break bar closing at 1999.0 (&lt; 2002.0)
+            (1999, 2001, 1998, 2000),  # 23: Execution retest bar
+        ]
+        prices = warmup_prices + pattern_prices
+        candles = [CandleBar(t_base + i * 60_000, o, h, l, c) for i, (o, h, l, c) in enumerate(prices)]
+    
+        now_ms = t_base + len(prices) * 60_000
+        clock.set_time(now_ms)
+    
+        quote = CanonicalQuote(
+            symbol="XAUUSDT",
+            bid=2000.0,
+            ask=2000.10,
+            last=2000.05,
+            exchange_ts_ms=now_ms,
+            received_at_ms=now_ms,
+            status="VALID",
+        )
+    
+        cfg = M1ScalpConfig(
+            scalp_m1_mode="PAPER",
+            pivot_left_bars=2,
+            pivot_right_bars=2,
+            displacement_atr_period=7,
+            sl_buffer_ticks=10,
+            min_net_rr=1.2,
+        )
+    
+        # 1. EVALUATE_CYCLE: Real entry point
+        cycle_res = orchestrator.evaluate_cycle(
+            db,
+            symbol="XAUUSDT",
+            now_ms=now_ms,
+            clock=clock,
+            quote=quote,
+            candles_1m=candles,
+            htf_bias="BEARISH",
+            h1_alignment="ALIGNED",
+            config=cfg,
+            auto_enabled=True,
+        )
+    
+        armed_order_id = cycle_res.get("armed_order_id")
+&gt;       assert armed_order_id is not None, f"evaluate_cycle failed to arm candidate: {cycle_res}"
+E       AssertionError: evaluate_cycle failed to arm candidate: {'cycle_id': 'cycle-1540000-9be7e247', 'decision_status': 'NO_SETUP', 'status': 'OK', 'lifecycle_read_status': 'COMPLETE', 'lifecycle_write_status': 'OK', 'lifecycle_write_issues_count': 0, 'transaction_status': 'COMMITTED', 'rollback_status': 'NONE', 'as_of_ms': 1540000, 'zones_count': 0, 'candidates_count': 0, 'armed_order_id': None, 'evaluation_duration_ms': 0, 'hypotheses_count': 0, 'entry_authorized_hypotheses_count': 0, 'issues_count': 0, 'liquidity_levels_count': 3, 'market_regime': 'RANGE', 'daily_goal': {'daily_fills': 0, 'daily_min_goal': 2, 'daily_max_cap': 3, 'ny_fills': 0, 'ny_goal': 1, 'policy_version': 1, 'status': 'SHORTFALL', 'reason_vi': 'Kết thúc ngày chưa đạt mục tiêu tối thiểu: 0/2 lệnh (DAILY_GOAL_SHORTFALL).', 'is_blocked': False, 'remaining_daily_slots': 3, 'ny_reserve_active': False, 'shortfall_breakdown': {'data': 0, 'market_hours': 0, 'model_confirmation': 0, 'cost': 0, 'news': 0, 'lessons': 0, 'risk': 0, 'open_position': 0, 'execution_error': 0}}, 'cg01_evaluation': {'enabled': False, 'evaluated': False, 'as_of_ms': 1540000, 'stage': 'MODEL_DISABLED', 'eligible': False, 'reason_codes': ['MODEL_DISABLED'], 'candidate_key': None, 'episode_key': None, 'router_outcome': None, 'arm_outcome': None, 'armed_order_id': None, 'guard_summary': None, 'ui_summary_vi': None, 'poi_id': None, 'direction': None, 'daily_bias': None, 'direction_policy': None}, 'model_diagnostics': [{'model_id': 'SMC_M1_REVERSAL', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'SMC_M1_CONTINUATION', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'SMC_M1_FVG_CONTINUATION', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'SMC_M1_SWEEP_RECLAIM', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'CG01_SWEEP_MSS_FVG', 'evaluated': False, 'eligible': False, 'execution_action': 'DISABLED', 'reason': 'CG01_DISABLED'}]}
+E       assert None is not None
+
+backend\tests\test_v17_5_3_cycle_to_review.py:150: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_3_cycle_to_review" name="test_full_production_cycle_long_to_review_and_api" time="0.091"><failure message="AssertionError: evaluate_cycle failed to arm LONG candidate: {'cycle_id': 'cycle-1280000-6b02cbba', 'decision_status': 'NO_SETUP', 'status': 'OK', 'lifecycle_read_status': 'COMPLETE', 'lifecycle_write_status': 'OK', 'lifecycle_write_issues_count': 0, 'transaction_status': 'COMMITTED', 'rollback_status': 'NONE', 'as_of_ms': 1280000, 'zones_count': 0, 'candidates_count': 0, 'armed_order_id': None, 'evaluation_duration_ms': 0, 'hypotheses_count': 0, 'entry_authorized_hypotheses_count': 0, 'issues_count': 0, 'liquidity_levels_count': 2, 'market_regime': 'RANGE', 'daily_goal': {'daily_fills': 0, 'daily_min_goal': 2, 'daily_max_cap': 3, 'ny_fills': 0, 'ny_goal': 1, 'policy_version': 1, 'status': 'SHORTFALL', 'reason_vi': 'Kết thúc ngày chưa đạt mục tiêu tối thiểu: 0/2 lệnh (DAILY_GOAL_SHORTFALL).', 'is_blocked': False, 'remaining_daily_slots': 3, 'ny_reserve_active': False, 'shortfall_breakdown': {'data': 0, 'market_hours': 0, 'model_confirmation': 0, 'cost': 0, 'news': 0, 'lessons': 0, 'risk': 0, 'open_position': 0, 'execution_error': 0}}, 'cg01_evaluation': {'enabled': False, 'evaluated': False, 'as_of_ms': 1280000, 'stage': 'MODEL_DISABLED', 'eligible': False, 'reason_codes': ['MODEL_DISABLED'], 'candidate_key': None, 'episode_key': None, 'router_outcome': None, 'arm_outcome': None, 'armed_order_id': None, 'guard_summary': None, 'ui_summary_vi': None, 'poi_id': None, 'direction': None, 'daily_bias': None, 'direction_policy': None}, 'model_diagnostics': [{'model_id': 'SMC_M1_REVERSAL', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'SMC_M1_CONTINUATION', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'SMC_M1_FVG_CONTINUATION', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'SMC_M1_SWEEP_RECLAIM', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'CG01_SWEEP_MSS_FVG', 'evaluated': False, 'eligible': False, 'execution_action': 'DISABLED', 'reason': 'CG01_DISABLED'}]}&#10;assert None is not None">cycle_env = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD54F49590&gt;, &lt;services.clock.ReplayClock object at 0x000001DD552AAC...ator object at 0x000001DD55048050&gt;, &lt;services.execution_coordinator.ExecutionCoordinator object at 0x000001DD55049BD0&gt;)
+
+    def test_full_production_cycle_long_to_review_and_api(cycle_env):
+        """
+        Test 2: Full LONG cycle verifying symmetrical geometry SL &lt; entry &lt; TP.
+        """
+        db, clock, orchestrator, coordinator = cycle_env
+        t_base = 200_000
+    
+        # BULLISH pattern: Resistance at 2008, origin low at 2000, BOS close at 2010
+        warmup_prices = [(2004 + (i % 3), 2007, 2003, 2005) for i in range(10)]
+        pattern_prices = [
+            (2005, 2006, 2004, 2005),  # 10
+            (2005, 2008, 2004, 2008),  # 11: Resistance 2008
+            (2008, 2008, 2002, 2003),  # 12
+            (2003, 2004, 2000, 2001),  # 13: Origin Low 2000.0 (protective low)
+            (2001, 2006, 2001, 2005),  # 14
+            (2005, 2008, 2004, 2007),  # 15
+            (2007, 2011, 2006, 2010),  # 16: Breakout bar closing at 2010.0 (&gt; 2008.0)
+            (2010, 2012, 2009, 2011),  # 17: Retest/Execution bar
+        ]
+        prices = warmup_prices + pattern_prices
+        candles = [CandleBar(t_base + i * 60_000, o, h, l, c) for i, (o, h, l, c) in enumerate(prices)]
+    
+        now_ms = t_base + len(prices) * 60_000
+        clock.set_time(now_ms)
+    
+        quote = CanonicalQuote(
+            symbol="XAUUSDT",
+            bid=2010.5,
+            ask=2010.6,
+            last=2010.55,
+            exchange_ts_ms=now_ms,
+            received_at_ms=now_ms,
+            status="VALID",
+        )
+    
+        cfg = M1ScalpConfig(
+            scalp_m1_mode="PAPER",
+            pivot_left_bars=2,
+            pivot_right_bars=2,
+            displacement_atr_period=7,
+            sl_buffer_ticks=10,
+            min_net_rr=1.2,
+        )
+    
+        cycle_res = orchestrator.evaluate_cycle(
+            db,
+            symbol="XAUUSDT",
+            now_ms=now_ms,
+            clock=clock,
+            quote=quote,
+            candles_1m=candles,
+            htf_bias="BULLISH",
+            h1_alignment="ALIGNED",
+            config=cfg,
+            auto_enabled=True,
+        )
+    
+        armed_order_id = cycle_res.get("armed_order_id")
+&gt;       assert armed_order_id is not None, f"evaluate_cycle failed to arm LONG candidate: {cycle_res}"
+E       AssertionError: evaluate_cycle failed to arm LONG candidate: {'cycle_id': 'cycle-1280000-6b02cbba', 'decision_status': 'NO_SETUP', 'status': 'OK', 'lifecycle_read_status': 'COMPLETE', 'lifecycle_write_status': 'OK', 'lifecycle_write_issues_count': 0, 'transaction_status': 'COMMITTED', 'rollback_status': 'NONE', 'as_of_ms': 1280000, 'zones_count': 0, 'candidates_count': 0, 'armed_order_id': None, 'evaluation_duration_ms': 0, 'hypotheses_count': 0, 'entry_authorized_hypotheses_count': 0, 'issues_count': 0, 'liquidity_levels_count': 2, 'market_regime': 'RANGE', 'daily_goal': {'daily_fills': 0, 'daily_min_goal': 2, 'daily_max_cap': 3, 'ny_fills': 0, 'ny_goal': 1, 'policy_version': 1, 'status': 'SHORTFALL', 'reason_vi': 'Kết thúc ngày chưa đạt mục tiêu tối thiểu: 0/2 lệnh (DAILY_GOAL_SHORTFALL).', 'is_blocked': False, 'remaining_daily_slots': 3, 'ny_reserve_active': False, 'shortfall_breakdown': {'data': 0, 'market_hours': 0, 'model_confirmation': 0, 'cost': 0, 'news': 0, 'lessons': 0, 'risk': 0, 'open_position': 0, 'execution_error': 0}}, 'cg01_evaluation': {'enabled': False, 'evaluated': False, 'as_of_ms': 1280000, 'stage': 'MODEL_DISABLED', 'eligible': False, 'reason_codes': ['MODEL_DISABLED'], 'candidate_key': None, 'episode_key': None, 'router_outcome': None, 'arm_outcome': None, 'armed_order_id': None, 'guard_summary': None, 'ui_summary_vi': None, 'poi_id': None, 'direction': None, 'daily_bias': None, 'direction_policy': None}, 'model_diagnostics': [{'model_id': 'SMC_M1_REVERSAL', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'SMC_M1_CONTINUATION', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'SMC_M1_FVG_CONTINUATION', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'SMC_M1_SWEEP_RECLAIM', 'evaluated': True, 'eligible': False, 'execution_action': 'EVALUATE_AND_EXECUTE', 'reason': 'ELIGIBLE_FOR_EVALUATION'}, {'model_id': 'CG01_SWEEP_MSS_FVG', 'evaluated': False, 'eligible': False, 'execution_action': 'DISABLED', 'reason': 'CG01_DISABLED'}]}
+E       assert None is not None
+
+backend\tests\test_v17_5_3_cycle_to_review.py:303: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_3_cycle_to_review" name="test_production_cycle_guard_negatives" time="0.101" /><testcase classname="backend.tests.test_v17_5_4_anchor_proof" name="test_resolve_bound_stop_leg_missing_source_candle_fails" time="0.002" /><testcase classname="backend.tests.test_v17_5_4_anchor_proof" name="test_resolve_bound_stop_leg_tick_tolerance_from_instrument" time="0.004" /><testcase classname="backend.tests.test_v17_5_4_anchor_proof" name="test_resolve_bound_stop_leg_multiple_legs_and_noise_isolation" time="0.002" /><testcase classname="backend.tests.test_v17_5_4_anchor_proof" name="test_resolve_bound_stop_leg_strict_close_through" time="0.002" /><testcase classname="backend.tests.test_v17_5_4_context_binding" name="test_resolve_context_positive_verified" time="0.003" /><testcase classname="backend.tests.test_v17_5_4_context_binding" name="test_resolve_context_negative_incomplete_missing_expiry" time="0.002" /><testcase classname="backend.tests.test_v17_5_4_context_binding" name="test_bind_context_immutability_and_types" time="0.003" /><testcase classname="backend.tests.test_v17_5_4_context_binding" name="test_context_serialization_roundtrip" time="0.002" /><testcase classname="backend.tests.test_v17_5_4_context_binding" name="test_production_caller_evaluate_cycle_binds_context" time="0.174" /><testcase classname="backend.tests.test_v17_5_4_cost_parity" name="test_read_verified_comparison_cost_snapshot" time="0.006" /><testcase classname="backend.tests.test_v17_5_4_cost_parity" name="test_evaluate_comparison_entry_golden_values" time="0.002" /><testcase classname="backend.tests.test_v17_5_4_cost_parity" name="test_advance_stop_comparison_excursion_parity" time="0.003" /><testcase classname="backend.tests.test_v17_5_4_cost_parity" name="test_advance_stop_comparison_exit_with_costs" time="0.004" /><testcase classname="backend.tests.test_v17_5_4_cycle_reconciliation" name="test_full_cycle_production_reconciliation" time="0.175" /><testcase classname="backend.tests.test_v17_5_4_cycle_reconciliation" name="test_worker_durability_and_rollback" time="0.047" /><testcase classname="backend.tests.test_v17_5_4_cycle_reconciliation" name="test_guards_negative_matrix_without_false_confidence" time="0.054"><failure message="AttributeError: 'types.SimpleNamespace' object has no attribute 'zone_id'">cycle_env = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD550EE690&gt;, &lt;services.clock.ReplayClock object at 0x000001DD567379...54DBD610&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///%3Amemory%3A), autoflush=False, expire_on_commit=True))
+
+    def test_guards_negative_matrix_without_false_confidence(cycle_env):
+        """D7: Negative guards matrix — isolated changes fail closed without false confidence."""
+        db, clock, orchestrator, coordinator, Session = cycle_env
+        now_ms = 600_000
+    
+        cand = SimpleNamespace(
+            candidate_key="cand_guard_test",
+            model_id="M1_CONTINUATION",
+            symbol="XAUUSDT",
+            direction="SHORT",
+            planned_entry=2000.0,
+            stop_loss=2010.0,
+            take_profit=1980.0,
+            net_rr=2.0,
+            calculation=SimpleNamespace(is_valid=True, can_execute=True, stop_loss=2010.0, net_rr=2.0),
+            snapshot=None,
+            stop_placement=SimpleNamespace(status="VALID", applied_variant="C", anchor=SimpleNamespace(), selected_sl=2010.0),
+        )
+        quote = {"bid": 2000.0, "ask": 2000.10, "last": 2000.05, "timestamp": now_ms, "is_valid": True, "is_stale": False}
+    
+        # 1. Auto OFF: must reject ARM
+&gt;       res_auto_off = orchestrator._arm_paper_candidate(
+            db,
+            cand,
+            now_ms=now_ms,
+            clock=clock,
+            quote=quote,
+            policy_settings={"capital_usdt": 5000.0, "risk_pct": 0.10},
+            auto_enabled=False,
+        )
+
+backend\tests\test_v17_5_4_cycle_reconciliation.py:311: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+backend\services\entry_guard_service.py:57: in _wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;services.scalp_watcher_orchestrator.ScalpWatcherOrchestrator object at 0x000001DD54E38D50&gt;
+db = &lt;sqlalchemy.orm.session.Session object at 0x000001DD550EE690&gt;
+cand = namespace(candidate_key='cand_guard_test', model_id='M1_CONTINUATION', symbol='XAUUSDT', direction='SHORT', planned_en..., snapshot=None, stop_placement=namespace(status='VALID', applied_variant='C', anchor=namespace(), selected_sl=2010.0))
+now_ms = 600000
+clock = &lt;services.clock.ReplayClock object at 0x000001DD567379D0&gt;
+quote = {'bid': 2000.0, 'ask': 2000.1, 'last': 2000.05, 'timestamp': 600000, ...}
+policy_settings = {'capital_usdt': 5000.0, 'risk_pct': 0.1}, config = None
+feed_health = None, auto_enabled = False, authority_context = None
+session_context = None, research_context = None
+
+    @serialize_entry_mutation
+    def _arm_paper_candidate(
+        self,
+        db: Session,
+        cand: ScalpCandidate,
+        *,
+        now_ms: int,
+        clock: Any,
+        quote: Any,
+        policy_settings: Dict[str, Any],
+        config: Optional[M1ScalpConfig] = None,
+        feed_health: Optional[Dict[str, Any]] = None,
+        auto_enabled: Optional[bool] = None,
+        authority_context: Optional[Any] = None,
+        session_context: Optional[Any] = None,
+        research_context: Optional[Any] = None,
+    ) -&gt; Optional[models.PaperOrder]:
+        """
+        Guarded ARM path under entry_mutation_lock (PHẦN 025 - 033, 059).
+        Never bypasses entry guards or daily quotas.
+        """
+        cfg = config if config is not None else load_effective_scalp_config(db)
+        snap = cand.snapshot
+        calc = cand.calculation
+    
+        # Reason-aware repeated arm-rejection suppression (Rule 109)
+        suppression_ms = getattr(cfg, "arm_rejection_suppression_ms", 30_000)
+        with self._lock:
+            last_rej = self._arm_rejections.get(cand.candidate_key)
+            if last_rej:
+                last_ts, last_reason = last_rej
+                if (now_ms - last_ts) &lt; suppression_ms:
+                    logger.debug(f"Candidate {cand.candidate_key} suppressed due to repeated rejection ({last_reason})")
+                    return None
+    
+        # Validate calculation output (PHẦN 026, 037)
+        if calc is None or not getattr(calc, "is_valid", False) or not getattr(calc, "can_execute", False):
+            logger.info(f"Candidate calculation is invalid or cannot execute: {getattr(calc, 'skip_reason', None) or getattr(calc, 'invalid_reason', None)}")
+            return None
+    
+        # PHẦN 084: Invariant validation between cand.stop_loss and calc.stop_loss (STOP_PLAN_MISMATCH)
+        cand_sl = float(getattr(cand, "stop_loss", 0.0))
+        calc_sl = float(getattr(calc, "stop_loss", cand_sl))
+        if abs(cand_sl - calc_sl) &gt; 1e-4:
+            logger.error(f"STOP_PLAN_MISMATCH: cand.stop_loss ({cand_sl}) != calc.stop_loss ({calc_sl})")
+            return None
+    
+        # V17.5.1 Fail-closed stop placement barrier at ARM boundary (PHẦN 011, 020, 071, 073)
+        from services.stop_placement_policy_service import resolve_stop_placement_policy
+        from services.stop_placement_service import validate_applied_stop_decision
+        current_sp_policy = resolve_stop_placement_policy(db)
+        is_sp_valid, sp_err = validate_applied_stop_decision(
+            candidate=cand,
+            current_policy=current_sp_policy,
+            tolerance_tick=float(getattr(cfg, "tick_size", 0.01)),
+            now_ms=now_ms,
+        )
+        if not is_sp_valid:
+            logger.error(f"ARM_BARRIER_REJECTED: {sp_err}")
+            OpportunityFunnelService.record_opportunity_transition(
+                db,
+                OpportunityEvaluation(
+                    opportunity_id=f"opp_{cand.candidate_key}",
+                    symbol=cand.symbol,
+                    model_id=cand.model_id,
+                    direction=cand.direction,
+&gt;                   zone_id=cand.zone_id,
+                            ^^^^^^^^^^^^
+                    as_of_ms=now_ms,
+                    stage=OpportunityStage.GUARD_BLOCKED.value,
+                    reason_codes=(f"ARM_STOP_BARRIER_REJECTED: {sp_err}",),
+                    planned_entry=cand.planned_entry,
+                    stop_loss=cand.stop_loss,
+                    take_profit=cand.take_profit,
+                    net_rr=getattr(cand, "net_rr", 0.0),
+                    details={"error": sp_err},
+                ),
+                now_ms=now_ms,
+            )
+E           AttributeError: 'types.SimpleNamespace' object has no attribute 'zone_id'
+
+backend\services\scalp_watcher_orchestrator.py:2616: AttributeError</failure></testcase><testcase classname="backend.tests.test_v17_5_5_cost_authority" name="test_unified_default_fee_rates" time="0.002" /><testcase classname="backend.tests.test_v17_5_5_cost_authority" name="test_explicit_zero_slippage_preserved" time="0.002" /><testcase classname="backend.tests.test_v17_5_5_cost_authority" name="test_custom_slippage_override" time="0.002" /><testcase classname="backend.tests.test_v17_5_5_cost_authority" name="test_golden_fill_hand_check" time="0.003" /><testcase classname="backend.tests.test_v17_5_5_cost_authority" name="test_research_comparison_and_order_parity" time="0.002" /><testcase classname="backend.tests.test_v17_5_5_cost_authority" name="test_snapshot_immutability_against_settings_change" time="0.002" /><testcase classname="backend.tests.test_v17_5_5_cycle_to_chart_contract" name="test_full_cycle_detector_to_stop_evidence_contract" time="0.150" /><testcase classname="backend.tests.test_v17_5_5_cycle_to_chart_contract" name="test_cycle_negative_guards_fail_closed" time="0.048" /><testcase classname="backend.tests.test_v17_5_5_entry_context_gate" name="test_evaluate_stop_comparison_entry_gate_context_incomplete" time="0.002" /><testcase classname="backend.tests.test_v17_5_5_entry_context_gate" name="test_evaluate_stop_comparison_entry_gate_missing_cost_snapshot" time="0.002" /><testcase classname="backend.tests.test_v17_5_5_entry_context_gate" name="test_evaluate_stop_comparison_entry_gate_invalid_cost_values" time="0.003" /><testcase classname="backend.tests.test_v17_5_5_entry_context_gate" name="test_evaluate_stop_comparison_entry_gate_expired_plan" time="0.002" /><testcase classname="backend.tests.test_v17_5_5_entry_context_gate" name="test_evaluate_stop_comparison_entry_gate_ineligible_variant" time="0.002" /><testcase classname="backend.tests.test_v17_5_5_entry_context_gate" name="test_evaluate_stop_comparison_entry_gate_positive_twin" time="0.002" /><testcase classname="backend.tests.test_v17_5_5_entry_context_gate" name="test_advance_stop_comparison_blocks_context_incomplete" time="0.002" /><testcase classname="backend.tests.test_v17_5_5_entry_context_gate" name="test_advance_stop_comparison_blocks_missing_cost" time="0.002" /><testcase classname="backend.tests.test_v17_5_5_entry_context_gate" name="test_advance_stop_comparison_positive_twin_opens_position" time="0.002" /><testcase classname="backend.tests.test_v17_5_5_entry_context_gate" name="test_advance_stop_comparison_open_variant_not_blocked_on_exit" time="0.002" /><testcase classname="backend.tests.test_v17_5_5_origin_bridge" name="test_select_protected_origin_for_break_long" time="0.001" /><testcase classname="backend.tests.test_v17_5_5_origin_bridge" name="test_select_protected_origin_for_break_short" time="0.001" /><testcase classname="backend.tests.test_v17_5_5_origin_bridge" name="test_swings_after_break_or_cutoff_rejected" time="0.001" /><testcase classname="backend.tests.test_v17_5_5_origin_bridge" name="test_noise_swings_outside_episode_ignored" time="0.001" /><testcase classname="backend.tests.test_v17_5_5_origin_bridge" name="test_build_selected_break_descriptor_and_resolve_stop_anchor" time="0.001" /><testcase classname="backend.tests.test_v17_5_6_actual_order_cost_parity" name="test_p081_explicit_zero_slippage_in_actual_arm_and_fill" time="0.068" /><testcase classname="backend.tests.test_v17_5_6_actual_order_cost_parity" name="test_p082_custom_slippage_027_parity" time="0.076" /><testcase classname="backend.tests.test_v17_5_6_actual_order_cost_parity" name="test_p083_custom_fees_configured" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_actual_order_cost_parity" name="test_p084_snapshot_first_override_against_settings_change" time="0.077" /><testcase classname="backend.tests.test_v17_5_6_actual_order_cost_parity" name="test_p085_p086_dict_and_object_cost_normalization" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_actual_order_cost_parity" name="test_p087_p088_invalid_slippage_and_fees_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_actual_order_cost_parity" name="test_p089_p090_version_and_persistence_roundtrip" time="0.035" /><testcase classname="backend.tests.test_v17_5_6_actual_order_cost_parity" name="test_p091_p092_golden_market_fill_parity" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_actual_order_cost_parity" name="test_p093_p094_p095_limit_order_contract" time="0.097" /><testcase classname="backend.tests.test_v17_5_6_actual_order_cost_parity" name="test_p096_p097_stop_order_gap_fill" time="0.085" /><testcase classname="backend.tests.test_v17_5_6_actual_order_cost_parity" name="test_p098_net_rr_gate_rejects_insufficient_rr" time="0.224" /><testcase classname="backend.tests.test_v17_5_6_actual_order_cost_parity" name="test_p100_idempotent_duplicate_tick" time="0.072" /><testcase classname="backend.tests.test_v17_5_6_break_time_contract" name="test_p121_open_versus_known_time" time="0.001" /><testcase classname="backend.tests.test_v17_5_6_break_time_contract" name="test_p122_p123_pivot_at_or_after_break_open_rejected" time="0.001" /><testcase classname="backend.tests.test_v17_5_6_break_time_contract" name="test_p124_p125_known_time_boundaries" time="0.001" /><testcase classname="backend.tests.test_v17_5_6_break_time_contract" name="test_p126_break_future_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_break_time_contract" name="test_p127_p128_equality_and_wick_only_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_break_time_contract" name="test_p129_missing_break_timestamp_fails_closed" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_break_time_contract" name="test_p130_m1_versus_m5_timeframe_duration" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_break_time_contract" name="test_p131_p134_fvg_triple_and_bounds" time="0.001" /><testcase classname="backend.tests.test_v17_5_6_cycle_regression" name="test_p151_incomplete_context_stays_wait_entry" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_cycle_regression" name="test_p152_missing_cost_snapshot_stays_wait_entry" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_cycle_regression" name="test_p153_valid_explicit_zero_cost_transitions_to_open" time="0.003" /><testcase classname="backend.tests.test_v17_5_6_cycle_regression" name="test_p154_preplan_quote_ignored" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_cycle_regression" name="test_p157_expired_plan_transitions_to_expired" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_cycle_regression" name="test_p160_restart_open_idempotency" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_episode_origin_binding" name="test_p111_p112_multiple_legs_and_distant_extreme" time="0.001" /><testcase classname="backend.tests.test_v17_5_6_episode_origin_binding" name="test_p113_post_break_pivot_excluded" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_episode_origin_binding" name="test_p114_empty_closed_bars_returns_unavailable" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_episode_origin_binding" name="test_p115_missing_origin_source_in_bars" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_episode_origin_binding" name="test_p116_wrong_extreme_price_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_episode_origin_binding" name="test_p117_long_mirror_bullish_origin" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_episode_origin_binding" name="test_p118_specified_invalid_does_not_fallback" time="0.001" /><testcase classname="backend.tests.test_v17_5_6_episode_origin_binding" name="test_p141_p142_outward_tick_quantization" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_episode_origin_binding" name="test_p143_custom_instrument_tick" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_episode_origin_binding" name="test_p144_risk_budget_conservation" time="0.002" /><testcase classname="backend.tests.test_v17_5_6_episode_origin_binding" name="test_p148_invalid_geometry_rejected" time="0.001" /><testcase classname="backend.tests.test_v17_5_7_episode_derivation" name="test_p101_derive_episode_without_injected_boundary" time="0.002" /><testcase classname="backend.tests.test_v17_5_7_episode_derivation" name="test_p102_wrong_later_leg_excluded" time="0.001" /><testcase classname="backend.tests.test_v17_5_7_episode_derivation" name="test_p103_different_reference_changes_episode_and_origin" time="0.001" /><testcase classname="backend.tests.test_v17_5_7_episode_derivation" name="test_p104_lookback_noise_does_not_change_anchor" time="0.001" /><testcase classname="backend.tests.test_v17_5_7_episode_derivation" name="test_p105_missing_reference_source_fails_closed" time="0.001" /><testcase classname="backend.tests.test_v17_5_7_episode_derivation" name="test_p106_reference_known_after_decision_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_7_episode_derivation" name="test_p107_equality_or_wick_only_break_rejected" time="0.001" /><testcase classname="backend.tests.test_v17_5_7_episode_derivation" name="test_p108_arbitrary_supplied_boundary_without_provenance" time="0.001" /><testcase classname="backend.tests.test_v17_5_7_episode_derivation" name="test_p109_source_candle_mismatch_rejected" time="0.001" /><testcase classname="backend.tests.test_v17_5_7_episode_derivation" name="test_p110_actual_continuation_evaluator_without_injected_boundary" time="0.003" /><testcase classname="backend.tests.test_v17_5_7_episode_derivation" name="test_p111_actual_fvg_continuation_evaluator_with_full_reference" time="0.001" /><testcase classname="backend.tests.test_v17_5_7_true_cycle_cost_parity" name="test_p141_actual_cycle_long_custom_costs_match_comparison_order_and_fill" time="0.065"><failure message="AssertionError: evaluate_cycle must autonomously arm candidate&#10;assert None is not None">true_cycle_db = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD57DD32D0&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///%3Amemory%3A), autoflush=False, expire_on_commit=True))
+
+    def test_p141_actual_cycle_long_custom_costs_match_comparison_order_and_fill(true_cycle_db):
+        """
+        Phần 061-070, 141:
+        LONG cycle with custom slippage 0.27 and non-default fees.
+        evaluate_cycle creates PaperOrder via ARM without manual seeding.
+        Fresh session confirms cost snapshot on PaperOrder and StopComparisonPlan match.
+        Coordinator fills order at Ask + 0.27 exactly.
+        """
+        db, SessionFactory = true_cycle_db
+        now_ms = 1_300_000
+        clock = FakeClock(now_ms)
+        orch = ScalpWatcherOrchestrator()
+        coordinator = ExecutionCoordinator()
+    
+        # 1. Seed custom cost settings via SystemConfig (production-read source)
+        _set_system_config(db, "slippage_usd", "0.27", now_ms)
+        _set_system_config(db, "maker_fee_rate", "0.0003", now_ms)
+        _set_system_config(db, "taker_fee_rate", "0.0006", now_ms)
+    
+        # 2. Setup zone &amp; causal candles for LONG
+        zone = WatchedZone(
+            zone_id="z_true_cycle_long", symbol="XAUUSDT", timeframe="15M", zone_type="FVG",
+            direction="BULLISH", top=2620.0, bottom=2600.0, created_at=60_000, known_at=60_000,
+            state=ZoneState.WAITING_TRIGGER.value,
+        )
+        orch.set_active_zones("XAUUSDT", [zone])
+    
+        candles_1m = _make_causal_long_m1_candles()
+        fresh_cq = CanonicalQuote(
+            symbol="XAUUSDT",
+            bid=2622.0,
+            ask=2622.50,
+            last=2622.25,
+            status="VALID",
+            exchange_ts_ms=now_ms,
+            received_at_ms=now_ms,
+        )
+    
+        base_cfg = M1ScalpConfig(
+            scalp_m1_mode=ScalpMode.PAPER.value,
+            daily_ny_research_enabled=False,
+            min_closed_m1_bars=15,
+            displacement_body_atr_min=0.5,
+            min_net_rr=1.5,
+        )
+    
+        # 3. Call ACTUAL evaluate_cycle (Phần 063: NO manual seeding of PaperOrder)
+        res = orch.evaluate_cycle(
+            db, "XAUUSDT",
+            now_ms=now_ms, clock=clock, quote=fresh_cq,
+            candles_1m=candles_1m, candles_5m=[], candles_15m=[],
+            config=base_cfg, feed_health={"status": "CONNECTED", "latency_ms": 10}, auto_enabled=True,
+        )
+    
+        assert res["status"] == "OK"
+        armed_order_id = res.get("armed_order_id")
+&gt;       assert armed_order_id is not None, "evaluate_cycle must autonomously arm candidate"
+E       AssertionError: evaluate_cycle must autonomously arm candidate
+E       assert None is not None
+
+backend\tests\test_v17_5_7_true_cycle_cost_parity.py:136: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_7_true_cycle_cost_parity" name="test_p142_actual_cycle_short_custom_costs_match_comparison_order_and_fill" time="0.064"><failure message="assert None is not None">true_cycle_db = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD54940B90&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///%3Amemory%3A), autoflush=False, expire_on_commit=True))
+
+    def test_p142_actual_cycle_short_custom_costs_match_comparison_order_and_fill(true_cycle_db):
+        """
+        Phần 142:
+        SHORT cycle with custom slippage 0.27.
+        Coordinator fills order at Bid - 0.27 exactly.
+        """
+        db, SessionFactory = true_cycle_db
+        now_ms = 1_300_000
+        clock = FakeClock(now_ms)
+        orch = ScalpWatcherOrchestrator()
+        coordinator = ExecutionCoordinator()
+    
+        # Seed custom cost settings
+        _set_system_config(db, "slippage_usd", "0.27", now_ms)
+        _set_system_config(db, "maker_fee_rate", "0.00025", now_ms)
+        _set_system_config(db, "taker_fee_rate", "0.00055", now_ms)
+    
+        # Setup zone &amp; causal candles for SHORT
+        zone = WatchedZone(
+            zone_id="z_true_cycle_short", symbol="XAUUSDT", timeframe="15M", zone_type="FVG",
+            direction="BEARISH", top=2670.0, bottom=2650.0, created_at=60_000, known_at=60_000,
+            state=ZoneState.WAITING_TRIGGER.value,
+        )
+        orch.set_active_zones("XAUUSDT", [zone])
+    
+        candles_1m = _make_causal_short_m1_candles()
+        fresh_cq = CanonicalQuote(
+            symbol="XAUUSDT",
+            bid=2647.50,
+            ask=2648.00,
+            last=2647.75,
+            status="VALID",
+            exchange_ts_ms=now_ms,
+            received_at_ms=now_ms,
+        )
+    
+        base_cfg = M1ScalpConfig(
+            scalp_m1_mode=ScalpMode.PAPER.value,
+            daily_ny_research_enabled=False,
+            min_closed_m1_bars=15,
+            displacement_body_atr_min=0.5,
+            min_net_rr=1.5,
+        )
+    
+        res = orch.evaluate_cycle(
+            db, "XAUUSDT",
+            now_ms=now_ms, clock=clock, quote=fresh_cq,
+            candles_1m=candles_1m, candles_5m=[], candles_15m=[],
+            config=base_cfg, feed_health={"status": "CONNECTED", "latency_ms": 10}, auto_enabled=True,
+        )
+    
+        assert res["status"] == "OK"
+        armed_order_id = res.get("armed_order_id")
+&gt;       assert armed_order_id is not None
+E       assert None is not None
+
+backend\tests\test_v17_5_7_true_cycle_cost_parity.py:241: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_7_true_cycle_cost_parity" name="test_p143_actual_cycle_explicit_zero_slippage_not_falling_back" time="0.054"><failure message="assert None is not None">true_cycle_db = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD54AA72D0&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///%3Amemory%3A), autoflush=False, expire_on_commit=True))
+
+    def test_p143_actual_cycle_explicit_zero_slippage_not_falling_back(true_cycle_db):
+        """
+        Phần 143:
+        Cycle with explicit 0.0 slippage preserves 0.0 and does not fall back to 0.10.
+        LONG fills exactly at Ask.
+        """
+        db, SessionFactory = true_cycle_db
+        now_ms = 1_300_000
+        clock = FakeClock(now_ms)
+        orch = ScalpWatcherOrchestrator()
+        coordinator = ExecutionCoordinator()
+    
+        # Explicit 0.0 slippage
+        _set_system_config(db, "slippage_usd", "0.0", now_ms)
+    
+        zone = WatchedZone(
+            zone_id="z_true_cycle_zero", symbol="XAUUSDT", timeframe="15M", zone_type="FVG",
+            direction="BULLISH", top=2620.0, bottom=2600.0, created_at=60_000, known_at=60_000,
+            state=ZoneState.WAITING_TRIGGER.value,
+        )
+        orch.set_active_zones("XAUUSDT", [zone])
+    
+        candles_1m = _make_causal_long_m1_candles()
+        fresh_cq = CanonicalQuote(
+            symbol="XAUUSDT",
+            bid=2622.0,
+            ask=2622.50,
+            last=2622.25,
+            status="VALID",
+            exchange_ts_ms=now_ms,
+            received_at_ms=now_ms,
+        )
+    
+        base_cfg = M1ScalpConfig(
+            scalp_m1_mode=ScalpMode.PAPER.value,
+            daily_ny_research_enabled=False,
+            min_closed_m1_bars=15,
+            displacement_body_atr_min=0.5,
+            min_net_rr=1.5,
+        )
+    
+        res = orch.evaluate_cycle(
+            db, "XAUUSDT",
+            now_ms=now_ms, clock=clock, quote=fresh_cq,
+            candles_1m=candles_1m, candles_5m=[], candles_15m=[],
+            config=base_cfg, feed_health={"status": "CONNECTED", "latency_ms": 10}, auto_enabled=True,
+        )
+        assert res["status"] == "OK"
+        armed_order_id = res.get("armed_order_id")
+&gt;       assert armed_order_id is not None
+E       assert None is not None
+
+backend\tests\test_v17_5_7_true_cycle_cost_parity.py:319: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_7_true_cycle_cost_parity" name="test_p144_midcycle_settings_change_preserves_frozen_order" time="0.075"><failure message="AttributeError: 'NoneType' object has no attribute 'cost_snapshot'">true_cycle_db = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD4D751D50&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///%3Amemory%3A), autoflush=False, expire_on_commit=True))
+
+    def test_p144_midcycle_settings_change_preserves_frozen_order(true_cycle_db):
+        """
+        Phần 151, 153:
+        Order armed in Cycle 1 with slip 0.08 preserves its frozen cost snapshot even when
+        DB settings change to 0.35 in Cycle 2.
+        """
+        db, SessionFactory = true_cycle_db
+        now_ms = 1_300_000
+        clock = FakeClock(now_ms)
+        orch = ScalpWatcherOrchestrator()
+        coordinator = ExecutionCoordinator()
+    
+        # Initial settings
+        _set_system_config(db, "slippage_usd", "0.08", now_ms)
+    
+        zone = WatchedZone(
+            zone_id="z_cycle_midcycle", symbol="XAUUSDT", timeframe="15M", zone_type="FVG",
+            direction="BULLISH", top=2620.0, bottom=2600.0, created_at=60_000, known_at=60_000,
+            state=ZoneState.WAITING_TRIGGER.value,
+        )
+        orch.set_active_zones("XAUUSDT", [zone])
+    
+        candles_1m = _make_causal_long_m1_candles()
+        fresh_cq = CanonicalQuote(
+            symbol="XAUUSDT",
+            bid=2622.0,
+            ask=2622.50,
+            last=2622.25,
+            status="VALID",
+            exchange_ts_ms=now_ms,
+            received_at_ms=now_ms,
+        )
+    
+        base_cfg = M1ScalpConfig(
+            scalp_m1_mode=ScalpMode.PAPER.value,
+            daily_ny_research_enabled=False,
+            min_closed_m1_bars=15,
+            displacement_body_atr_min=0.5,
+            min_net_rr=1.5,
+        )
+    
+        res = orch.evaluate_cycle(
+            db, "XAUUSDT",
+            now_ms=now_ms, clock=clock, quote=fresh_cq,
+            candles_1m=candles_1m, candles_5m=[], candles_15m=[],
+            config=base_cfg, feed_health={"status": "CONNECTED", "latency_ms": 10}, auto_enabled=True,
+        )
+        armed_id = res["armed_order_id"]
+    
+        # Midcycle settings change in DB to 0.35
+        slip_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == "slippage_usd").first()
+        slip_row.value = "0.35"
+        db.commit()
+    
+        # Fresh session confirms armed order still has frozen 0.08
+        fresh_db = SessionFactory()
+        order = fresh_db.query(models.PaperOrder).filter(models.PaperOrder.id == armed_id).first()
+&gt;       cost_ctx = resolve_execution_cost_context(snapshot=json.loads(order.cost_snapshot))
+                                                                      ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'NoneType' object has no attribute 'cost_snapshot'
+
+backend\tests\test_v17_5_7_true_cycle_cost_parity.py:401: AttributeError</failure></testcase><testcase classname="backend.tests.test_v17_5_7_true_cycle_cost_parity" name="test_p170_auto_off_blocks_arm_without_seeding" time="0.078" /><testcase classname="backend.tests.test_v17_5_8_break_fail_closed" name="test_p083_wick_only_break_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_break_fail_closed" name="test_p083_break_equality_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_break_fail_closed" name="test_p083_malformed_ohlc_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_break_fail_closed" name="test_p083_missing_break_source_candle_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_break_fail_closed" name="test_p083_break_confirmed_after_cutoff_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_break_fail_closed" name="test_p083_contradictory_supplied_candle_rejected" time="0.001" /><testcase classname="backend.tests.test_v17_5_8_break_fail_closed" name="test_p083_positive_break_candle_verified" time="0.001" /><testcase classname="backend.tests.test_v17_5_8_break_fail_closed" name="test_p083_derive_protected_leg_episode_fails_closed_on_corrupt_break" time="0.001" /><testcase classname="backend.tests.test_v17_5_8_cost_authority" name="test_p086_custom_slippage_and_fees_preserved" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_cost_authority" name="test_p086_explicit_zero_slippage_preserved" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_cost_authority" name="test_p086_negative_slippage_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_cost_authority" name="test_p086_negative_fee_rates_rejected" time="0.003" /><testcase classname="backend.tests.test_v17_5_8_cost_authority" name="test_p086_nan_and_infinite_costs_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_cost_authority" name="test_p086_snapshot_precedence_post_arm" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_cost_authority" name="test_p086_deterministic_system_config_key_precedence" time="0.037" /><testcase classname="backend.tests.test_v17_5_8_cost_authority" name="test_p086_assert_order_financial_parity" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_episode_authority" name="test_p084_caller_injected_boundary_does_not_override_derived_structure" time="0.003" /><testcase classname="backend.tests.test_v17_5_8_episode_authority" name="test_p084_validate_episode_interval_enforces_causal_ordering" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_episode_authority" name="test_p084_multi_leg_boundary_isolates_newer_leg_pivot" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_episode_authority" name="test_p085_pivot_confirmed_after_cutoff_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_episode_authority" name="test_p085_older_extreme_noise_does_not_alter_selected_origin" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_episode_authority" name="test_p085_long_direction_selects_lowest_swing_low" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_full_cycle" name="test_p087_full_cycle_short_execution_with_verified_parity" time="0.094"><failure message="AssertionError: evaluate_cycle must autonomously arm candidate&#10;assert None is not None">isolated_full_cycle_db = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD58124850&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///%3Amemory%3A), autoflush=False, expire_on_commit=True))
+
+    def test_p087_full_cycle_short_execution_with_verified_parity(isolated_full_cycle_db):
+        """Part 087: Autonomous evaluate_cycle -&gt; ARM -&gt; ExecutionCoordinator fill for SHORT with 0.20 slippage."""
+        db, SessionFactory = isolated_full_cycle_db
+        now_ms = 1_300_000
+        clock = FakeClock(now_ms)
+        orch = ScalpWatcherOrchestrator()
+        coordinator = ExecutionCoordinator()
+    
+        _set_config(db, "slippage_usd", "0.20", now_ms)
+        _set_config(db, "maker_fee_rate", "0.0002", now_ms)
+        _set_config(db, "taker_fee_rate", "0.0004", now_ms)
+    
+        zone = WatchedZone(
+            zone_id="z_fc_short", symbol="XAUUSDT", timeframe="15M", zone_type="FVG",
+            direction="BEARISH", top=2670.0, bottom=2650.0, created_at=60_000, known_at=60_000,
+            state=ZoneState.WAITING_TRIGGER.value,
+        )
+        orch.set_active_zones("XAUUSDT", [zone])
+    
+        candles_1m = _make_causal_short_m1_candles()
+        fresh_cq = CanonicalQuote(
+            symbol="XAUUSDT",
+            bid=2647.50,
+            ask=2648.00,
+            last=2647.75,
+            status="VALID",
+            exchange_ts_ms=now_ms,
+            received_at_ms=now_ms,
+        )
+    
+        base_cfg = M1ScalpConfig(
+            scalp_m1_mode=ScalpMode.PAPER.value,
+            daily_ny_research_enabled=False,
+            min_closed_m1_bars=15,
+            displacement_body_atr_min=0.5,
+            min_net_rr=1.5,
+        )
+    
+        res = orch.evaluate_cycle(
+            db, "XAUUSDT",
+            now_ms=now_ms, clock=clock, quote=fresh_cq,
+            candles_1m=candles_1m, candles_5m=[], candles_15m=[],
+            config=base_cfg, feed_health={"status": "CONNECTED", "latency_ms": 10}, auto_enabled=True,
+        )
+    
+        assert res["status"] == "OK"
+        armed_order_id = res.get("armed_order_id")
+&gt;       assert armed_order_id is not None, "evaluate_cycle must autonomously arm candidate"
+E       AssertionError: evaluate_cycle must autonomously arm candidate
+E       assert None is not None
+
+backend\tests\test_v17_5_8_full_cycle.py:130: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_8_full_cycle" name="test_p088_negative_arm_trigger_expired" time="0.003" /><testcase classname="backend.tests.test_v17_5_8_full_cycle" name="test_p088_negative_arm_invalid_geometry" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_full_cycle" name="test_p088_negative_arm_stale_quote" time="0.056" /><testcase classname="backend.tests.test_v17_5_8_full_cycle" name="test_p089_arm_idempotency_prevents_duplicate_orders" time="0.073"><failure message="AssertionError: assert None is not None&#10; +  where None = &lt;built-in method get of dict object at 0x000001DD58326AC0&gt;('armed_order_id')&#10; +    where &lt;built-in method get of dict object at 0x000001DD58326AC0&gt; = {'cycle_id': 'cycle-1300000-9601954e', 'decision_status': 'NO_SETUP', 'status': 'OK', 'lifecycle_read_status': 'COMPLETE', ...}.get">isolated_full_cycle_db = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD581FFF50&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///%3Amemory%3A), autoflush=False, expire_on_commit=True))
+
+    def test_p089_arm_idempotency_prevents_duplicate_orders(isolated_full_cycle_db):
+        """Part 089: Repeated evaluate_cycle calls for same setup do not create duplicate orders."""
+        db, SessionFactory = isolated_full_cycle_db
+        now_ms = 1_300_000
+        clock = FakeClock(now_ms)
+        orch = ScalpWatcherOrchestrator()
+    
+        zone = WatchedZone(
+            zone_id="z_idem", symbol="XAUUSDT", timeframe="15M", zone_type="FVG",
+            direction="BEARISH", top=2670.0, bottom=2650.0, created_at=60_000, known_at=60_000,
+            state=ZoneState.WAITING_TRIGGER.value,
+        )
+        orch.set_active_zones("XAUUSDT", [zone])
+    
+        candles_1m = _make_causal_short_m1_candles()
+        fresh_cq = CanonicalQuote(
+            symbol="XAUUSDT",
+            bid=2647.50,
+            ask=2648.00,
+            last=2647.75,
+            status="VALID",
+            exchange_ts_ms=now_ms,
+            received_at_ms=now_ms,
+        )
+    
+        base_cfg = M1ScalpConfig(
+            scalp_m1_mode=ScalpMode.PAPER.value,
+            daily_ny_research_enabled=False,
+            min_closed_m1_bars=15,
+            displacement_body_atr_min=0.5,
+            min_net_rr=1.5,
+        )
+    
+        # First cycle
+        res1 = orch.evaluate_cycle(
+            db, "XAUUSDT",
+            now_ms=now_ms, clock=clock, quote=fresh_cq,
+            candles_1m=candles_1m, candles_5m=[], candles_15m=[],
+            config=base_cfg, feed_health={"status": "CONNECTED", "latency_ms": 10}, auto_enabled=True,
+        )
+&gt;       assert res1.get("armed_order_id") is not None
+E       AssertionError: assert None is not None
+E        +  where None = &lt;built-in method get of dict object at 0x000001DD58326AC0&gt;('armed_order_id')
+E        +    where &lt;built-in method get of dict object at 0x000001DD58326AC0&gt; = {'cycle_id': 'cycle-1300000-9601954e', 'decision_status': 'NO_SETUP', 'status': 'OK', 'lifecycle_read_status': 'COMPLETE', ...}.get
+
+backend\tests\test_v17_5_8_full_cycle.py:317: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_8_reference_provenance" name="test_p082_missing_reference_fails_closed" time="0.001" /><testcase classname="backend.tests.test_v17_5_8_reference_provenance" name="test_p082_ambiguous_reference_price_rejected" time="0.001" /><testcase classname="backend.tests.test_v17_5_8_reference_provenance" name="test_p082_reference_known_after_decision_cutoff_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_reference_provenance" name="test_p082_reference_after_break_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_reference_provenance" name="test_p082_reference_price_mismatch_with_candle_rejected" time="0.001" /><testcase classname="backend.tests.test_v17_5_8_reference_provenance" name="test_p082_invalid_timestamps_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_8_reference_provenance" name="test_p082_positive_verified_reference_provenance" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_acceptance_runner_self_test" name="test_t01_missing_junit_fails" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_acceptance_runner_self_test" name="test_t02_stale_junit_fails" time="0.004" /><testcase classname="backend.tests.test_v17_5_9_acceptance_runner_self_test" name="test_t03_zero_tests_fails" time="0.004" /><testcase classname="backend.tests.test_v17_5_9_acceptance_runner_self_test" name="test_t04_nonzero_exit_fails" time="0.039" /><testcase classname="backend.tests.test_v17_5_9_acceptance_runner_self_test" name="test_t05_timeout_fails" time="1.017" /><testcase classname="backend.tests.test_v17_5_9_acceptance_runner_self_test" name="test_t06_dirty_source_not_accepted" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_acceptance_runner_self_test" name="test_t07_missing_critical_file_fails" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_acceptance_runner_self_test" name="test_t08_invalid_manifest_or_corrupt_xml_fails" time="0.003" /><testcase classname="backend.tests.test_v17_5_9_acceptance_runner_self_test" name="test_t09_valid_clean_run_eligible_for_accepted" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_arm_production_wiring" name="test_a00_validate_arm_invariants_is_actively_invoked_in_production" time="0.074"><failure message="AssertionError: validate_arm_invariants MUST be invoked during production ARM pipeline&#10;assert 0 &gt;= 1&#10; +  where 0 = len([])">isolated_arm_db = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD5826A2D0&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///%3Amemory%3A), autoflush=False, expire_on_commit=True))
+
+    def test_a00_validate_arm_invariants_is_actively_invoked_in_production(isolated_arm_db):
+        """Part 074: Spy on validate_arm_invariants to prove it is called by _arm_paper_candidate in production flow."""
+        db, _ = isolated_arm_db
+        now_ms = 1_300_000
+        clock = FakeClock(now_ms)
+        orch = ScalpWatcherOrchestrator()
+    
+        _set_config(db, "slippage_usd", "0.20", now_ms)
+        _set_config(db, "maker_fee_rate", "0.0002", now_ms)
+        _set_config(db, "taker_fee_rate", "0.0004", now_ms)
+    
+        zone = WatchedZone(
+            zone_id="z_spy", symbol="XAUUSDT", timeframe="15M", zone_type="FVG",
+            direction="BEARISH", top=2670.0, bottom=2650.0, created_at=60_000, known_at=60_000,
+            state=ZoneState.WAITING_TRIGGER.value,
+        )
+        orch.set_active_zones("XAUUSDT", [zone])
+    
+        candles_1m = _make_causal_short_m1_candles()
+        fresh_cq = CanonicalQuote(
+            symbol="XAUUSDT",
+            bid=2647.50,
+            ask=2648.00,
+            last=2647.75,
+            status="VALID",
+            exchange_ts_ms=now_ms,
+            received_at_ms=now_ms,
+        )
+    
+        base_cfg = M1ScalpConfig(
+            scalp_m1_mode=ScalpMode.PAPER.value,
+            daily_ny_research_enabled=False,
+            min_closed_m1_bars=15,
+            displacement_body_atr_min=0.5,
+            min_net_rr=1.5,
+        )
+    
+        # Use patch.spy equivalent by wrapping validate_arm_invariants
+        call_log = []
+        real_fn = validate_arm_invariants
+    
+        def spy_validate_arm_invariants(*args, **kwargs):
+            res = real_fn(*args, **kwargs)
+            call_log.append((kwargs.get("now_ms"), res))
+            return res
+    
+        with patch("services.scalp_watcher_orchestrator.validate_arm_invariants", side_effect=spy_validate_arm_invariants):
+            res = orch.evaluate_cycle(
+                db, "XAUUSDT",
+                now_ms=now_ms, clock=clock, quote=fresh_cq,
+                candles_1m=candles_1m, candles_5m=[], candles_15m=[],
+                config=base_cfg, feed_health={"status": "CONNECTED", "latency_ms": 10}, auto_enabled=True,
+            )
+    
+&gt;       assert len(call_log) &gt;= 1, "validate_arm_invariants MUST be invoked during production ARM pipeline"
+E       AssertionError: validate_arm_invariants MUST be invoked during production ARM pipeline
+E       assert 0 &gt;= 1
+E        +  where 0 = len([])
+
+backend\tests\test_v17_5_9_arm_production_wiring.py:138: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_9_arm_production_wiring" name="test_a01_valid_candidate_reaches_arm" time="0.065"><failure message="AssertionError: assert None is not None&#10; +  where None = &lt;built-in method get of dict object at 0x000001DD57EC49C0&gt;('armed_order_id')&#10; +    where &lt;built-in method get of dict object at 0x000001DD57EC49C0&gt; = {'cycle_id': 'cycle-1300000-5f964784', 'decision_status': 'NO_SETUP', 'status': 'OK', 'lifecycle_read_status': 'COMPLETE', ...}.get">isolated_arm_db = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD58249290&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///%3Amemory%3A), autoflush=False, expire_on_commit=True))
+
+    def test_a01_valid_candidate_reaches_arm(isolated_arm_db):
+        """A01: Valid candidate passes all barriers and creates 1 armed PaperOrder."""
+        db, _ = isolated_arm_db
+        now_ms = 1_300_000
+        clock = FakeClock(now_ms)
+        orch = ScalpWatcherOrchestrator()
+    
+        zone = WatchedZone(
+            zone_id="z_a01", symbol="XAUUSDT", timeframe="15M", zone_type="FVG",
+            direction="BEARISH", top=2670.0, bottom=2650.0, created_at=60_000, known_at=60_000,
+            state=ZoneState.WAITING_TRIGGER.value,
+        )
+        orch.set_active_zones("XAUUSDT", [zone])
+    
+        candles_1m = _make_causal_short_m1_candles()
+        quote = CanonicalQuote(
+            symbol="XAUUSDT",
+            bid=2647.50, ask=2648.00, last=2647.75,
+            status="VALID", exchange_ts_ms=now_ms, received_at_ms=now_ms,
+        )
+    
+        base_cfg = M1ScalpConfig(
+            scalp_m1_mode=ScalpMode.PAPER.value,
+            daily_ny_research_enabled=False,
+            min_closed_m1_bars=15,
+            displacement_body_atr_min=0.5,
+            min_net_rr=1.5,
+        )
+    
+        res = orch.evaluate_cycle(
+            db, "XAUUSDT",
+            now_ms=now_ms, clock=clock, quote=quote,
+            candles_1m=candles_1m, candles_5m=[], candles_15m=[],
+            config=base_cfg, feed_health={"status": "CONNECTED", "latency_ms": 10}, auto_enabled=True,
+        )
+&gt;       assert res.get("armed_order_id") is not None
+E       AssertionError: assert None is not None
+E        +  where None = &lt;built-in method get of dict object at 0x000001DD57EC49C0&gt;('armed_order_id')
+E        +    where &lt;built-in method get of dict object at 0x000001DD57EC49C0&gt; = {'cycle_id': 'cycle-1300000-5f964784', 'decision_status': 'NO_SETUP', 'status': 'OK', 'lifecycle_read_status': 'COMPLETE', ...}.get
+
+backend\tests\test_v17_5_9_arm_production_wiring.py:178: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_9_arm_production_wiring" name="test_a02_invalid_direction_cannot_arm" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_arm_production_wiring" name="test_a03_missing_price_cannot_arm" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_arm_production_wiring" name="test_a04_nan_sl_cannot_arm" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_arm_production_wiring" name="test_a05_invalid_quantity_cannot_arm" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_arm_production_wiring" name="test_a06_expired_candidate_cannot_arm" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_arm_production_wiring" name="test_a07_stale_quote_cannot_arm" time="0.056" /><testcase classname="backend.tests.test_v17_5_9_arm_production_wiring" name="test_a08_daily_cap_cannot_be_bypassed" time="0.067" /><testcase classname="backend.tests.test_v17_5_9_arm_production_wiring" name="test_a09_existing_armed_position_blocks_further_arm_when_at_cap" time="0.040" /><testcase classname="backend.tests.test_v17_5_9_arm_production_wiring" name="test_a10_same_candidate_cannot_arm_twice" time="0.067"><failure message="AssertionError: assert None is not None&#10; +  where None = &lt;built-in method get of dict object at 0x000001DD57CB3400&gt;('armed_order_id')&#10; +    where &lt;built-in method get of dict object at 0x000001DD57CB3400&gt; = {'cycle_id': 'cycle-1300000-71701092', 'decision_status': 'NO_SETUP', 'status': 'OK', 'lifecycle_read_status': 'COMPLETE', ...}.get">isolated_arm_db = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD57B62790&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///%3Amemory%3A), autoflush=False, expire_on_commit=True))
+
+    def test_a10_same_candidate_cannot_arm_twice(isolated_arm_db):
+        """A10: Idempotency check prevents duplicate order persistence for same candidate."""
+        db, _ = isolated_arm_db
+        now_ms = 1_300_000
+        clock = FakeClock(now_ms)
+        orch = ScalpWatcherOrchestrator()
+    
+        zone = WatchedZone(
+            zone_id="z_a10", symbol="XAUUSDT", timeframe="15M", zone_type="FVG",
+            direction="BEARISH", top=2670.0, bottom=2650.0, created_at=60_000, known_at=60_000,
+            state=ZoneState.WAITING_TRIGGER.value,
+        )
+        orch.set_active_zones("XAUUSDT", [zone])
+    
+        candles_1m = _make_causal_short_m1_candles()
+        quote = CanonicalQuote(
+            symbol="XAUUSDT",
+            bid=2647.50, ask=2648.00, last=2647.75,
+            status="VALID", exchange_ts_ms=now_ms, received_at_ms=now_ms,
+        )
+    
+        base_cfg = M1ScalpConfig(
+            scalp_m1_mode=ScalpMode.PAPER.value,
+            daily_ny_research_enabled=False,
+            min_closed_m1_bars=15,
+            displacement_body_atr_min=0.5,
+            min_net_rr=1.5,
+        )
+    
+        res1 = orch.evaluate_cycle(
+            db, "XAUUSDT",
+            now_ms=now_ms, clock=clock, quote=quote,
+            candles_1m=candles_1m, candles_5m=[], candles_15m=[],
+            config=base_cfg, feed_health={"status": "CONNECTED", "latency_ms": 10}, auto_enabled=True,
+        )
+&gt;       assert res1.get("armed_order_id") is not None
+E       AssertionError: assert None is not None
+E        +  where None = &lt;built-in method get of dict object at 0x000001DD57CB3400&gt;('armed_order_id')
+E        +    where &lt;built-in method get of dict object at 0x000001DD57CB3400&gt; = {'cycle_id': 'cycle-1300000-71701092', 'decision_status': 'NO_SETUP', 'status': 'OK', 'lifecycle_read_status': 'COMPLETE', ...}.get
+
+backend\tests\test_v17_5_9_arm_production_wiring.py:482: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_9_arm_production_wiring" name="test_a11_stop_plan_mismatch_cannot_arm" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_arm_production_wiring" name="test_a12_invalid_cost_configuration_cannot_arm" time="0.065" /><testcase classname="backend.tests.test_v17_5_9_break_source_authority" name="test_b01_supplied_bar_without_canonical_proof" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_break_source_authority" name="test_b02_canonical_bar_exists_supplied_bar_conflicts" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_break_source_authority" name="test_b03_missing_break_time" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_break_source_authority" name="test_b04_invalid_break_time_string" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_break_source_authority" name="test_b05_nan_timestamp" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_break_source_authority" name="test_b06_negative_timestamp" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_break_source_authority" name="test_b07_confirmation_before_valid_candle_close" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_break_source_authority" name="test_b08_confirmation_after_decision_cutoff" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_break_source_authority" name="test_b09_wick_only_break_rejected" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_break_source_authority" name="test_b10_close_equal_reference_rejected" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_break_source_authority" name="test_b11_valid_confirmed_long_break" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_break_source_authority" name="test_b12_valid_confirmed_short_break" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_cost_fail_closed" name="test_c01_highest_priority_setting_valid" time="0.040" /><testcase classname="backend.tests.test_v17_5_9_cost_fail_closed" name="test_c02_highest_priority_missing_valid_fallback" time="0.037" /><testcase classname="backend.tests.test_v17_5_9_cost_fail_closed" name="test_c03_highest_priority_invalid_does_not_fall_through" time="0.038" /><testcase classname="backend.tests.test_v17_5_9_cost_fail_closed" name="test_c04_negative_slippage_rejected" time="0.049" /><testcase classname="backend.tests.test_v17_5_9_cost_fail_closed" name="test_c05_nan_slippage_rejected" time="0.037" /><testcase classname="backend.tests.test_v17_5_9_cost_fail_closed" name="test_c06_infinite_fee_rejected" time="0.042" /><testcase classname="backend.tests.test_v17_5_9_cost_fail_closed" name="test_c07_explicit_zero_slippage_preserved" time="0.040" /><testcase classname="backend.tests.test_v17_5_9_cost_fail_closed" name="test_c08_custom_maker_taker_fees_valid" time="0.043" /><testcase classname="backend.tests.test_v17_5_9_cost_fail_closed" name="test_c09_frozen_snapshot_unaffected_by_configuration_change" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_cost_fail_closed" name="test_c10_invalid_effective_costs_block_real_arm" time="0.200" /><testcase classname="backend.tests.test_v17_5_9_financial_parity" name="test_f01_all_plan_fields_agree" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_financial_parity" name="test_f02_entry_slippage_mismatch" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_financial_parity" name="test_f03_maker_fee_mismatch" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_financial_parity" name="test_f04_taker_fee_mismatch" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_financial_parity" name="test_f05_quantity_mismatch" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_financial_parity" name="test_f06_risk_budget_mismatch" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_financial_parity" name="test_f07_net_rr_mismatch" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_financial_parity" name="test_f08_incorrect_stop_loss_geometry" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_financial_parity" name="test_f09_missing_mandatory_snapshot_field" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_financial_parity" name="test_f10_explicit_zero_cost" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_financial_parity" name="test_f11_valid_long_full_cycle_fill" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_financial_parity" name="test_f12_valid_short_full_cycle_fill" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_financial_parity" name="test_f13_realized_slippage_deviation_reported_correctly" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_financial_parity" name="test_f14_frozen_assumptions_remain_stable_after_settings_update" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_real_cycle_regression" name="test_real_cycle_short_execution_and_financial_reconciliation" time="0.063"><failure message="AssertionError: Pipeline must autonomously produce an armed order&#10;assert None is not None">real_cycle_db = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD57839E50&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///%3Amemory%3A), autoflush=False, expire_on_commit=True))
+
+    def test_real_cycle_short_execution_and_financial_reconciliation(real_cycle_db):
+        """Full-cycle SHORT: candles -&gt; detector -&gt; verified nodes -&gt; ARM -&gt; fill -&gt; readback -&gt; parity."""
+        db, SessionFactory = real_cycle_db
+        now_ms = 1_300_000
+        clock = FakeClock(now_ms)
+        orch = ScalpWatcherOrchestrator()
+        coordinator = ExecutionCoordinator()
+    
+        _set_config(db, "slippage_usd", "0.20", now_ms)
+        _set_config(db, "maker_fee_rate", "0.0002", now_ms)
+        _set_config(db, "taker_fee_rate", "0.0004", now_ms)
+    
+        zone = WatchedZone(
+            zone_id="z_short_pipeline", symbol="XAUUSDT", timeframe="15M", zone_type="FVG",
+            direction="BEARISH", top=2670.0, bottom=2650.0, created_at=60_000, known_at=60_000,
+            state=ZoneState.WAITING_TRIGGER.value,
+        )
+        orch.set_active_zones("XAUUSDT", [zone])
+    
+        candles_1m = _make_causal_short_m1_candles()
+        quote = CanonicalQuote(
+            symbol="XAUUSDT",
+            bid=2647.50, ask=2648.00, last=2647.75,
+            status="VALID", exchange_ts_ms=now_ms, received_at_ms=now_ms,
+        )
+    
+        base_cfg = M1ScalpConfig(
+            scalp_m1_mode=ScalpMode.PAPER.value,
+            daily_ny_research_enabled=False,
+            min_closed_m1_bars=15,
+            displacement_body_atr_min=0.5,
+            min_net_rr=1.5,
+        )
+    
+        # 1. Pipeline evaluation and ARM
+        res = orch.evaluate_cycle(
+            db, "XAUUSDT",
+            now_ms=now_ms, clock=clock, quote=quote,
+            candles_1m=candles_1m, candles_5m=[], candles_15m=[],
+            config=base_cfg, feed_health={"status": "CONNECTED", "latency_ms": 10}, auto_enabled=True,
+        )
+        assert res["status"] == "OK"
+        armed_id = res.get("armed_order_id")
+&gt;       assert armed_id is not None, "Pipeline must autonomously produce an armed order"
+E       AssertionError: Pipeline must autonomously produce an armed order
+E       assert None is not None
+
+backend\tests\test_v17_5_9_real_cycle_regression.py:120: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_9_real_cycle_regression" name="test_real_cycle_long_execution_and_financial_reconciliation" time="0.065"><failure message="AssertionError: Pipeline must autonomously produce an armed LONG order&#10;assert None is not None">real_cycle_db = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD551A0D10&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///%3Amemory%3A), autoflush=False, expire_on_commit=True))
+
+    def test_real_cycle_long_execution_and_financial_reconciliation(real_cycle_db):
+        """Full-cycle LONG: candles -&gt; detector -&gt; verified nodes -&gt; ARM -&gt; fill -&gt; readback -&gt; parity."""
+        db, SessionFactory = real_cycle_db
+        now_ms = 1_300_000
+        clock = FakeClock(now_ms)
+        orch = ScalpWatcherOrchestrator()
+        coordinator = ExecutionCoordinator()
+    
+        _set_config(db, "slippage_usd", "0.25", now_ms)
+        _set_config(db, "maker_fee_rate", "0.0002", now_ms)
+        _set_config(db, "taker_fee_rate", "0.0004", now_ms)
+    
+        # Bullish zone
+        zone = WatchedZone(
+            zone_id="z_long_pipeline", symbol="XAUUSDT", timeframe="15M", zone_type="FVG",
+            direction="BULLISH", top=2620.0, bottom=2600.0, created_at=60_000, known_at=60_000,
+            state=ZoneState.WAITING_TRIGGER.value,
+        )
+        orch.set_active_zones("XAUUSDT", [zone])
+    
+        candles_1m = _make_causal_long_m1_candles()
+        quote = CanonicalQuote(
+            symbol="XAUUSDT",
+            bid=2622.00, ask=2622.50, last=2622.25,
+            status="VALID", exchange_ts_ms=now_ms, received_at_ms=now_ms,
+        )
+    
+        base_cfg = M1ScalpConfig(
+            scalp_m1_mode=ScalpMode.PAPER.value,
+            daily_ny_research_enabled=False,
+            min_closed_m1_bars=15,
+            displacement_body_atr_min=0.5,
+            min_net_rr=1.5,
+        )
+    
+        # 1. Pipeline evaluation and ARM
+        res = orch.evaluate_cycle(
+            db, "XAUUSDT",
+            now_ms=now_ms, clock=clock, quote=quote,
+            candles_1m=candles_1m, candles_5m=[], candles_15m=[],
+            config=base_cfg, feed_health={"status": "CONNECTED", "latency_ms": 10}, auto_enabled=True,
+        )
+        assert res["status"] == "OK"
+        armed_id = res.get("armed_order_id")
+&gt;       assert armed_id is not None, "Pipeline must autonomously produce an armed LONG order"
+E       AssertionError: Pipeline must autonomously produce an armed LONG order
+E       assert None is not None
+
+backend\tests\test_v17_5_9_real_cycle_regression.py:203: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_9_real_cycle_regression" name="test_concurrent_sessions_prevent_duplicate_arm" time="0.073"><failure message="AssertionError: assert None is not None&#10; +  where None = &lt;built-in method get of dict object at 0x000001DD5503EFC0&gt;('armed_order_id')&#10; +    where &lt;built-in method get of dict object at 0x000001DD5503EFC0&gt; = {'cycle_id': 'cycle-1300000-be003013', 'decision_status': 'NO_SETUP', 'status': 'OK', 'lifecycle_read_status': 'COMPLETE', ...}.get">real_cycle_db = (&lt;sqlalchemy.orm.session.Session object at 0x000001DD5790FC50&gt;, sessionmaker(class_='Session', bind=Engine(sqlite:///%3Amemory%3A), autoflush=False, expire_on_commit=True))
+
+    def test_concurrent_sessions_prevent_duplicate_arm(real_cycle_db):
+        """Part 079: Interleaved ARM evaluation using separate DB sessions prevents duplicate order persistence."""
+        _, SessionFactory = real_cycle_db
+        session_a = SessionFactory()
+        session_b = SessionFactory()
+        now_ms = 1_300_000
+        clock = FakeClock(now_ms)
+        orch = ScalpWatcherOrchestrator()
+    
+        zone = WatchedZone(
+            zone_id="z_concurrent", symbol="XAUUSDT", timeframe="15M", zone_type="FVG",
+            direction="BEARISH", top=2670.0, bottom=2650.0, created_at=60_000, known_at=60_000,
+            state=ZoneState.WAITING_TRIGGER.value,
+        )
+        orch.set_active_zones("XAUUSDT", [zone])
+    
+        candles_1m = _make_causal_short_m1_candles()
+        quote = CanonicalQuote(
+            symbol="XAUUSDT",
+            bid=2647.50, ask=2648.00, last=2647.75,
+            status="VALID", exchange_ts_ms=now_ms, received_at_ms=now_ms,
+        )
+    
+        base_cfg = M1ScalpConfig(
+            scalp_m1_mode=ScalpMode.PAPER.value,
+            daily_ny_research_enabled=False,
+            min_closed_m1_bars=15,
+            displacement_body_atr_min=0.5,
+            min_net_rr=1.5,
+        )
+    
+        # Session A executes cycle
+        res_a = orch.evaluate_cycle(
+            session_a, "XAUUSDT",
+            now_ms=now_ms, clock=clock, quote=quote,
+            candles_1m=candles_1m, candles_5m=[], candles_15m=[],
+            config=base_cfg, feed_health={"status": "CONNECTED", "latency_ms": 10}, auto_enabled=True,
+        )
+&gt;       assert res_a.get("armed_order_id") is not None
+E       AssertionError: assert None is not None
+E        +  where None = &lt;built-in method get of dict object at 0x000001DD5503EFC0&gt;('armed_order_id')
+E        +    where &lt;built-in method get of dict object at 0x000001DD5503EFC0&gt; = {'cycle_id': 'cycle-1300000-be003013', 'decision_status': 'NO_SETUP', 'status': 'OK', 'lifecycle_read_status': 'COMPLETE', ...}.get
+
+backend\tests\test_v17_5_9_real_cycle_regression.py:280: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_9_reference_source_authority" name="test_r01_reference_timestamp_without_authoritative_source_candle" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_reference_source_authority" name="test_r02_two_source_candles_match_same_price_ambiguous" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_reference_source_authority" name="test_r03_supplied_ref_id_conflicts_with_canonical_price" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_reference_source_authority" name="test_r04_supplied_ref_id_conflicts_with_canonical_time" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_reference_source_authority" name="test_r05_ref_price_inside_range_but_not_expected_swing_extreme" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_reference_source_authority" name="test_r06_future_confirmed_swing_rejected" time="0.002" /><testcase classname="backend.tests.test_v17_5_9_reference_source_authority" name="test_r07_nan_reference_price_rejected" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_reference_source_authority" name="test_r08_unsupported_direction_rejected" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_reference_source_authority" name="test_r09_valid_source_backed_short_reference" time="0.001" /><testcase classname="backend.tests.test_v17_5_9_reference_source_authority" name="test_r10_valid_source_backed_long_reference" time="0.001" /><testcase classname="backend.tests.test_v17_5_anchor_binding" name="test_short_broken_low_not_used_as_protective_anchor" time="0.002" /><testcase classname="backend.tests.test_v17_5_anchor_binding" name="test_long_continuation_protective_anchor" time="0.001" /><testcase classname="backend.tests.test_v17_5_anchor_binding" name="test_future_anchor_rejected" time="0.001" /><testcase classname="backend.tests.test_v17_5_anchor_binding" name="test_fvg_origin_distinct_from_fvg_edge" time="0.001" /><testcase classname="backend.tests.test_v17_5_anchor_binding" name="test_sweep_extreme_binding_multiple_episodes" time="0.002" /><testcase classname="backend.tests.test_v17_5_exit_evidence" name="test_short_exit_evaluated_against_ask" time="0.020" /><testcase classname="backend.tests.test_v17_5_exit_evidence" name="test_long_exit_evaluated_against_bid" time="0.016" /><testcase classname="backend.tests.test_v17_5_exit_evidence" name="test_execute_close_persists_exit_evidence" time="0.103" /><testcase classname="backend.tests.test_v17_5_model_integration" name="test_routing_modes_legacy_shadow_paper_structural" time="0.002"><failure message="AssertionError: assert 'NONE' == 'C'&#10;  &#10;  - C&#10;  + NONE">def test_routing_modes_legacy_shadow_paper_structural():
+        """
+        Tests routing across the 3 modes:
+        1. LEGACY: applies Variant A (legacy SL).
+        2. SHADOW_COMPARE: applies Variant A for execution, but attaches comparison plan for research.
+        3. PAPER_STRUCTURAL: applies Variant C (structural SL + dynamic buffer).
+        """
+        entry = 4000.0
+        legacy_sl = 4005.0  # dist 5.0
+        tp = 3980.0
+    
+        anchor_res = StopAnchorResult(
+            status="AVAILABLE",
+            anchor=type("Anchor", (), {"price": 4008.0, "kind": "PROTECTED_LEG_HIGH"})(),
+        )
+        buffer_res = StopBufferResult(
+            buffer_price=1.50,
+            components={"tick_floor": 0.05, "atr_m1": 1.50},
+            dominant_source="atr_m1",
+            tick_size=0.01,
+        )
+    
+        # 1. LEGACY
+        policy_legacy = StopPlacementPolicy(mode="LEGACY", version=1)
+        dec_legacy = plan_structural_stop(
+            direction="SHORT",
+            planned_entry=entry,
+            take_profit=tp,
+            legacy_sl=legacy_sl,
+            anchor_result=anchor_res,
+            buffer_result=buffer_res,
+            policy=policy_legacy,
+            as_of_ms=1000,
+        )
+        assert dec_legacy.applied_variant == "A"
+        assert dec_legacy.selected_sl == legacy_sl
+    
+        # 2. SHADOW_COMPARE
+        policy_shadow = StopPlacementPolicy(mode="SHADOW_COMPARE", version=1)
+        dec_shadow = plan_structural_stop(
+            direction="SHORT",
+            planned_entry=entry,
+            take_profit=tp,
+            legacy_sl=legacy_sl,
+            anchor_result=anchor_res,
+            buffer_result=buffer_res,
+            policy=policy_shadow,
+            as_of_ms=1000,
+        )
+        assert dec_shadow.applied_variant == "A"
+        assert dec_shadow.selected_sl == legacy_sl  # Production geometry uses A
+    
+        # 3. PAPER_STRUCTURAL
+        policy_paper = StopPlacementPolicy(mode="PAPER_STRUCTURAL", version=1)
+        dec_paper = plan_structural_stop(
+            direction="SHORT",
+            planned_entry=entry,
+            take_profit=tp,
+            legacy_sl=legacy_sl,
+            anchor_result=anchor_res,
+            buffer_result=buffer_res,
+            policy=policy_paper,
+            as_of_ms=1000,
+        )
+&gt;       assert dec_paper.applied_variant == "C"
+E       AssertionError: assert 'NONE' == 'C'
+E         
+E         - C
+E         + NONE
+
+backend\tests\test_v17_5_model_integration.py:78: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_model_integration" name="test_missing_evidence_does_not_block_shadow_but_waits_in_paper_structural" time="0.002" /><testcase classname="backend.tests.test_v17_5_policy_api" name="test_resolve_default_shadow_compare_readonly" time="0.025" /><testcase classname="backend.tests.test_v17_5_policy_api" name="test_update_policy_cas_and_versioning" time="0.064" /><testcase classname="backend.tests.test_v17_5_policy_api" name="test_update_policy_true_noop" time="0.059" /><testcase classname="backend.tests.test_v17_5_policy_api" name="test_validation_rejects_negative_or_invalid" time="0.018" /><testcase classname="backend.tests.test_v17_5_policy_api" name="test_server_scope_guard_blocks_live" time="0.023" /><testcase classname="backend.tests.test_v17_5_production_flow" name="test_production_flow_short_paper_structural" time="0.025"><failure message="AssertionError: assert 'NONE' == 'C'&#10;  &#10;  - C&#10;  + NONE">def test_production_flow_short_paper_structural():
+        """
+        End-to-End Production Flow for SHORT under PAPER_STRUCTURAL mode:
+        1. Plan structural stop (Variant C).
+        2. Sizing calculation with frozen baseline TP.
+        3. Invariant check: cand.stop_loss == calc.stop_loss.
+        4. PaperOrder creation with arm cost snapshot preserving stop_placement and stop_mode_at_arm.
+        5. Fill execution.
+        6. Exit execution with exit_evidence.
+        7. Verify order snapshot contains complete provenance.
+        """
+        db = SessionLocal()
+        now_ms = int(time.time() * 1000)
+        try:
+            policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL", version=1)
+            entry = 4000.0
+            legacy_sl = 4005.0
+            baseline_tp = 3970.0
+    
+            anchor_res = StopAnchorResult(
+                status="AVAILABLE",
+                anchor=StopAnchor(
+                    id="anc_flow_sh_1",
+                    kind=StopAnchorKind.PROTECTED_LEG_HIGH.value,
+                    price=4008.0,
+                    timeframe="1M",
+                    occurred_at_ms=now_ms - 60000,
+                    known_at_ms=now_ms - 30000,
+                    source_leg_id="leg_1",
+                    source_break_id="break_1",
+                    price_basis="CANDLE_LAST",
+                )
+            )
+            buffer_res = StopBufferResult(
+                buffer_price=1.50,
+                components={"tick_floor": 0.05, "atr_m1": 1.50},
+                dominant_source="atr_m1",
+                tick_size=0.01,
+            )
+    
+            # 1. Plan structural stop
+            stop_dec = plan_structural_stop(
+                direction="SHORT",
+                planned_entry=entry,
+                take_profit=baseline_tp,
+                legacy_sl=legacy_sl,
+                anchor_result=anchor_res,
+                buffer_result=buffer_res,
+                policy=policy,
+                as_of_ms=now_ms,
+            )
+&gt;           assert stop_dec.applied_variant == "C"
+E           AssertionError: assert 'NONE' == 'C'
+E             
+E             - C
+E             + NONE
+
+backend\tests\test_v17_5_production_flow.py:91: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_production_flow" name="test_production_flow_long_paper_structural" time="0.023"><failure message="AssertionError: assert 'NONE' == 'C'&#10;  &#10;  - C&#10;  + NONE">def test_production_flow_long_paper_structural():
+        """
+        End-to-End Production Flow for LONG under PAPER_STRUCTURAL mode.
+        """
+        db = SessionLocal()
+        now_ms = int(time.time() * 1000)
+        try:
+            policy = StopPlacementPolicy(mode="PAPER_STRUCTURAL", version=1)
+            entry = 4000.0
+            legacy_sl = 3995.0
+            baseline_tp = 4020.0
+    
+            anchor_res = StopAnchorResult(
+                status="AVAILABLE",
+                anchor=StopAnchor(
+                    id="anc_flow_lg_1",
+                    kind=StopAnchorKind.PROTECTED_LEG_LOW.value,
+                    price=3992.0,
+                    timeframe="1M",
+                    occurred_at_ms=now_ms - 60000,
+                    known_at_ms=now_ms - 30000,
+                    source_leg_id="leg_long_1",
+                    source_break_id="break_long_1",
+                    price_basis="CANDLE_LAST",
+                )
+            )
+            buffer_res = StopBufferResult(
+                buffer_price=1.20,
+                components={"tick_floor": 0.05, "atr_m1": 1.20},
+                dominant_source="atr_m1",
+                tick_size=0.01,
+            )
+    
+            stop_dec = plan_structural_stop(
+                direction="LONG",
+                planned_entry=entry,
+                take_profit=baseline_tp,
+                legacy_sl=legacy_sl,
+                anchor_result=anchor_res,
+                buffer_result=buffer_res,
+                policy=policy,
+                as_of_ms=now_ms,
+            )
+&gt;           assert stop_dec.applied_variant == "C"
+E           AssertionError: assert 'NONE' == 'C'
+E             
+E             - C
+E             + NONE
+
+backend\tests\test_v17_5_production_flow.py:203: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_risk_invariants" name="test_target_invariance_across_variants" time="0.003" /><testcase classname="backend.tests.test_v17_5_risk_invariants" name="test_screenshot_geometry_fixtures" time="0.002" /><testcase classname="backend.tests.test_v17_5_risk_invariants" name="test_net_rr_failure_rejection_without_clamping" time="0.002" /><testcase classname="backend.tests.test_v17_5_stop_placement" name="test_compute_stop_atr_golden" time="0.002" /><testcase classname="backend.tests.test_v17_5_stop_placement" name="test_compute_stop_atr_future_exclusion" time="0.002" /><testcase classname="backend.tests.test_v17_5_stop_placement" name="test_quantize_stop_outward_rounding" time="0.002" /><testcase classname="backend.tests.test_v17_5_stop_placement" name="test_compute_stop_buffer_dominant_source" time="0.002" /><testcase classname="backend.tests.test_v17_5_stop_placement" name="test_plan_structural_stop_hand_calculated_fixture" time="0.002"><failure message="AssertionError: assert 'WAITING_VOLATILITY_EVIDENCE' == 'VALID'&#10;  &#10;  - VALID&#10;  + WAITING_VOLATILITY_EVIDENCE">def test_plan_structural_stop_hand_calculated_fixture():
+        """
+        Appendix B Hand-calculated Fixture:
+        SHORT: entry 100, target 94, anchor 101, tick 0.01, ATR_M1=2, ATR_M5=4, spread 0.20
+        Tick floor 0.05, M1 0.50, M5 0.40, spread 0.30 -&gt; buffer 0.50 -&gt; C stop 101.50.
+        """
+        policy = StopPlacementPolicy(
+            mode="PAPER_STRUCTURAL",
+            version=1,
+            min_buffer_ticks=5,
+            atr_m1_multiplier=0.25,
+            atr_m5_multiplier=0.10,
+            spread_multiplier=1.50,
+        )
+        anchor = StopAnchor(
+            id="anc_short_1",
+            kind=StopAnchorKind.PROTECTED_LEG_HIGH.value,
+            price=101.0,
+            timeframe="1M",
+            occurred_at_ms=100_000,
+            known_at_ms=160_000,
+            source_leg_id="leg_1",
+            source_break_id="break_1",
+            price_basis=PriceBasis.CANDLE_LAST.value,
+        )
+        anchor_res = StopAnchorResult(status="AVAILABLE", anchor=anchor)
+    
+        atr_m1 = StopATRResult(value=2.0, status="AVAILABLE")
+        atr_m5 = StopATRResult(value=4.0, status="AVAILABLE")
+        buf_res = compute_stop_buffer(
+            policy=policy,
+            tick_size=0.01,
+            atr_m1=atr_m1,
+            atr_m5=atr_m5,
+            bid=100.0,
+            ask=100.20,
+        )
+    
+        decision = plan_structural_stop(
+            direction="SHORT",
+            planned_entry=100.0,
+            take_profit=94.0,
+            legacy_sl=100.15,
+            anchor_result=anchor_res,
+            buffer_result=buf_res,
+            policy=policy,
+            as_of_ms=200_000,
+            tick_size=0.01,
+            atr_m1_val=2.0,
+        )
+    
+&gt;       assert decision.status == "VALID"
+E       AssertionError: assert 'WAITING_VOLATILITY_EVIDENCE' == 'VALID'
+E         
+E         - VALID
+E         + WAITING_VOLATILITY_EVIDENCE
+
+backend\tests\test_v17_5_stop_placement.py:189: AssertionError</failure></testcase><testcase classname="backend.tests.test_v17_5_stop_placement" name="test_validate_anchor_not_invalidated" time="0.002" /><testcase classname="backend.tests.test_v17_5_stop_research" name="test_deterministic_opportunity_id_stability" time="0.002" /><testcase classname="backend.tests.test_v17_5_stop_research" name="test_build_stop_comparison_plan_three_variants" time="0.002" /><testcase classname="backend.tests.test_v17_5_stop_research" name="test_compute_stop_excursions_mae_mfe" time="0.002" /><testcase classname="backend.tests.test_v17_5_stop_review" name="test_compliant_loss_missing_stop_evidence_returns_factual_limitation" time="0.002" /><testcase classname="backend.tests.test_v17_5_stop_review" name="test_verified_violation_returns_red_lesson" time="0.002" /></testsuite></testsuites>

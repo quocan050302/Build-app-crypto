@@ -25,7 +25,10 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND_DIR))
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # tests dir: shared NY fixtures
 
-_tmp = tempfile.mkdtemp(prefix="aurum_e2e_")
+from database import get_or_create_test_root
+
+_test_root = get_or_create_test_root()
+_tmp = tempfile.mkdtemp(prefix="aurum_e2e_", dir=str(_test_root))
 os.environ["AURUM_DB_PATH"] = os.path.join(_tmp, "e2e_aurum.db")
 os.environ["TESTING"] = "1"
 
@@ -103,6 +106,11 @@ def _feed():
 
 
 def _seed_candles(db):
+    try:
+        db.query(models.Candle).filter(models.Candle.symbol == "XAUUSDT", models.Candle.timeframe == "15M").delete()
+        db.commit()
+    except Exception:
+        db.rollback()
     now = int(time.time() * 1000)
     step = 15 * 60_000
     base = now - (now % step) - 150 * step

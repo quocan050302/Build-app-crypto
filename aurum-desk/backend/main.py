@@ -2966,6 +2966,13 @@ def get_stop_placement_policy_endpoint(db: Session = Depends(get_db)):
         spread_multiplier=policy.spread_multiplier,
         application_scope=policy.application_scope,
         execution_scope=server_scope,
+        min_protective_ticks=policy.min_protective_ticks,
+        min_distance_atr_m1_mult=policy.min_distance_atr_m1_mult,
+        min_distance_atr_m5_mult=policy.min_distance_atr_m5_mult,
+        min_distance_spread_mult=policy.min_distance_spread_mult,
+        max_stop_distance_atr=policy.max_stop_distance_atr,
+        max_spread_usd=policy.max_spread_usd,
+        algorithm_version=policy.algorithm_version,
         summary_vi=summary_vi,
         reason_codes=[],
     )
@@ -3013,6 +3020,13 @@ def update_stop_placement_policy_endpoint(
         spread_multiplier=updated.spread_multiplier,
         application_scope=updated.application_scope,
         execution_scope=server_scope,
+        min_protective_ticks=updated.min_protective_ticks,
+        min_distance_atr_m1_mult=updated.min_distance_atr_m1_mult,
+        min_distance_atr_m5_mult=updated.min_distance_atr_m5_mult,
+        min_distance_spread_mult=updated.min_distance_spread_mult,
+        max_stop_distance_atr=updated.max_stop_distance_atr,
+        max_spread_usd=updated.max_spread_usd,
+        algorithm_version=updated.algorithm_version,
         summary_vi=summary_vi,
         reason_codes=[],
     )
@@ -3061,6 +3075,20 @@ def get_order_stop_evidence_endpoint(
             "order_id": order.id,
             "message": "Không có dữ liệu bằng chứng stop loss cấu trúc cho lệnh cũ này.",
         }
+    vol_ctx = stop_placement.get("volatility_context", {}) if isinstance(stop_placement, dict) else {}
+    min_prot_dist = stop_placement.get("protective_distance") or vol_ctx.get("min_protective_distance")
+    expansion_applied = stop_placement.get("expansion_applied") or vol_ctx.get("protective_expansion_applied", False)
+    algo_ver = stop_placement.get("algorithm_version") or vol_ctx.get("algorithm_version", "V17_7_1")
+    anchor_info = stop_placement.get("anchor") or {}
+    anchor_px = anchor_info.get("price") if isinstance(anchor_info, dict) else None
+
+    ui_explanation_vi = (
+        f"SL dựa trên swing low/high ({anchor_px if anchor_px is not None else 'N/A'}), "
+        f"ATR, spread và mức vô hiệu cấu trúc. "
+        f"Khoảng đệm bảo vệ: {min_prot_dist if min_prot_dist is not None else 'N/A'} USD"
+        f"{' (đã mở rộng bảo vệ)' if expansion_applied else ''}."
+    )
+
     return {
         "status": "AVAILABLE",
         "order_id": order.id,
@@ -3072,6 +3100,10 @@ def get_order_stop_evidence_endpoint(
         "actual_entry": order.actual_entry or order.planned_entry,
         "take_profit": order.take_profit,
         "direction": order.direction,
+        "algorithm_version": algo_ver,
+        "min_protective_distance": min_prot_dist,
+        "protective_expansion_applied": expansion_applied,
+        "ui_explanation_vi": ui_explanation_vi,
     }
 
 

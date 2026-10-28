@@ -41,11 +41,14 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-# The lab must never write to the runtime DB, even if `database` creates its engine at import time.
-os.environ.setdefault("AURUM_DB_PATH", os.path.join(tempfile.mkdtemp(prefix="aurum_lab_ny_"), "lab.db"))
 _BACKEND = Path(__file__).resolve().parent.parent
 if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
+
+from database import get_or_create_test_root
+test_root = get_or_create_test_root()
+# The lab must never write to the runtime DB, even if `database` creates its engine at import time.
+os.environ.setdefault("AURUM_DB_PATH", os.path.join(tempfile.mkdtemp(prefix="aurum_lab_ny_", dir=str(test_root)), "lab.db"))
 
 from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import sessionmaker  # noqa: E402

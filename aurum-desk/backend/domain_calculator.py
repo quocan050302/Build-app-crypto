@@ -110,10 +110,20 @@ class CalculationResult(BaseModel):
         return self.model_dump()
 
 
-def validate_price_geometry(direction: str, entry: float, sl: float, tp: float) -> Tuple[bool, Optional[str]]:
+def validate_price_geometry(direction: str, entry: Optional[float], sl: Optional[float], tp: Optional[float]) -> Tuple[bool, Optional[str]]:
     """Strictly validates price ordering without using abs() to mask invalid directions."""
-    if not (math.isfinite(entry) and math.isfinite(sl) and math.isfinite(tp)):
+    if entry is None or sl is None or tp is None:
+        return False, "PRICES_MUST_BE_NON_NULL: Mức giá không được là None"
+
+    try:
+        f_entry, f_sl, f_tp = float(entry), float(sl), float(tp)
+    except (ValueError, TypeError):
+        return False, "PRICES_NOT_NUMERIC: Mức giá phải là số thực"
+
+    if not (math.isfinite(f_entry) and math.isfinite(f_sl) and math.isfinite(f_tp)):
         return False, "PRICES_NOT_FINITE: Mức giá phải là số thực hợp lệ"
+
+    entry, sl, tp = f_entry, f_sl, f_tp
 
     if entry <= 0 or sl <= 0 or tp <= 0:
         return False, "PRICES_MUST_BE_POSITIVE: Mọi mức giá phải lớn hơn 0"

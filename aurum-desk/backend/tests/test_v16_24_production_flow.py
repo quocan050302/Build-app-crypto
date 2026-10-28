@@ -227,6 +227,11 @@ async def test_v16_24_flow_scenario_1_long_tp_event_driven_execution(db: Session
 
         # Verify trace provenance & clock separation (Rules 031-037)
         traces = cg01_trace_recorder.get_traces("XAUUSDT", limit=1)
+        for _ in range(20):
+            if traces:
+                break
+            await asyncio.sleep(0.05)
+            traces = cg01_trace_recorder.get_traces("XAUUSDT", limit=1)
         assert len(traces) > 0
         latest_trace = traces[0]
         assert latest_trace.evaluation_started_at == now_ms, (

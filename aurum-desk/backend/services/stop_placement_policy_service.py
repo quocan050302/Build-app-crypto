@@ -97,6 +97,38 @@ def resolve_stop_placement_policy(db: Session) -> StopPlacementPolicy:
     except (ValueError, TypeError):
         spread_mult = 1.50
 
+    try:
+        min_protective_ticks = int(config_map.get("stop_placement_v1.min_protective_ticks", "10"))
+    except (ValueError, TypeError):
+        min_protective_ticks = 10
+
+    try:
+        min_dist_m1_mult = float(config_map.get("stop_placement_v1.min_distance_atr_m1_mult", "0.50"))
+    except (ValueError, TypeError):
+        min_dist_m1_mult = 0.50
+
+    try:
+        min_dist_m5_mult = float(config_map.get("stop_placement_v1.min_distance_atr_m5_mult", "0.20"))
+    except (ValueError, TypeError):
+        min_dist_m5_mult = 0.20
+
+    try:
+        min_dist_spread_mult = float(config_map.get("stop_placement_v1.min_distance_spread_mult", "2.0"))
+    except (ValueError, TypeError):
+        min_dist_spread_mult = 2.0
+
+    try:
+        max_stop_dist_atr = float(config_map.get("stop_placement_v1.max_stop_distance_atr", "4.0"))
+    except (ValueError, TypeError):
+        max_stop_dist_atr = 4.0
+
+    try:
+        max_spread_usd = float(config_map.get("stop_placement_v1.max_spread_usd", "2.0"))
+    except (ValueError, TypeError):
+        max_spread_usd = 2.0
+
+    algo_version = config_map.get("stop_placement_v1.algorithm_version", "V17_7_1")
+
     return StopPlacementPolicy(
         mode=mode,
         version=version,
@@ -107,6 +139,13 @@ def resolve_stop_placement_policy(db: Session) -> StopPlacementPolicy:
         atr_m5_multiplier=atr_m5_mult,
         spread_multiplier=spread_mult,
         application_scope="NEW_PAPER_ORDERS",
+        min_protective_ticks=min_protective_ticks,
+        min_distance_atr_m1_mult=min_dist_m1_mult,
+        min_distance_atr_m5_mult=min_dist_m5_mult,
+        min_distance_spread_mult=min_dist_spread_mult,
+        max_stop_distance_atr=max_stop_dist_atr,
+        max_spread_usd=max_spread_usd,
+        algorithm_version=algo_version,
     )
 
 
@@ -137,6 +176,14 @@ def validate_stop_placement_policy(
     else:
         validated["min_buffer_ticks"] = current.min_buffer_ticks
 
+    if "min_protective_ticks" in payload:
+        raw = payload["min_protective_ticks"]
+        if type(raw) is not int or raw < 0:
+            raise StopPolicyValidationError("min_protective_ticks phải là số nguyên không âm.")
+        validated["min_protective_ticks"] = raw
+    else:
+        validated["min_protective_ticks"] = current.min_protective_ticks
+
     if "atr_period" in payload:
         raw = payload["atr_period"]
         if type(raw) is not int or raw <= 0:
@@ -149,6 +196,11 @@ def validate_stop_placement_policy(
         ("atr_m1_multiplier", current.atr_m1_multiplier),
         ("atr_m5_multiplier", current.atr_m5_multiplier),
         ("spread_multiplier", current.spread_multiplier),
+        ("min_distance_atr_m1_mult", current.min_distance_atr_m1_mult),
+        ("min_distance_atr_m5_mult", current.min_distance_atr_m5_mult),
+        ("min_distance_spread_mult", current.min_distance_spread_mult),
+        ("max_stop_distance_atr", current.max_stop_distance_atr),
+        ("max_spread_usd", current.max_spread_usd),
     ):
         if f_name in payload:
             raw = payload[f_name]
@@ -160,6 +212,11 @@ def validate_stop_placement_policy(
             validated[f_name] = val
         else:
             validated[f_name] = cur_val
+
+    if "algorithm_version" in payload:
+        validated["algorithm_version"] = str(payload["algorithm_version"])
+    else:
+        validated["algorithm_version"] = current.algorithm_version
 
     return validated
 
@@ -227,10 +284,17 @@ def update_stop_placement_policy(
     is_noop = (
         validated["mode"] == current.mode
         and validated["min_buffer_ticks"] == current.min_buffer_ticks
+        and validated["min_protective_ticks"] == current.min_protective_ticks
         and validated["atr_period"] == current.atr_period
         and abs(validated["atr_m1_multiplier"] - current.atr_m1_multiplier) < 1e-6
         and abs(validated["atr_m5_multiplier"] - current.atr_m5_multiplier) < 1e-6
         and abs(validated["spread_multiplier"] - current.spread_multiplier) < 1e-6
+        and abs(validated["min_distance_atr_m1_mult"] - current.min_distance_atr_m1_mult) < 1e-6
+        and abs(validated["min_distance_atr_m5_mult"] - current.min_distance_atr_m5_mult) < 1e-6
+        and abs(validated["min_distance_spread_mult"] - current.min_distance_spread_mult) < 1e-6
+        and abs(validated["max_stop_distance_atr"] - current.max_stop_distance_atr) < 1e-6
+        and abs(validated["max_spread_usd"] - current.max_spread_usd) < 1e-6
+        and validated["algorithm_version"] == current.algorithm_version
     )
     if is_noop:
         return current, False
@@ -256,10 +320,17 @@ def update_stop_placement_policy(
     _upsert_scalar("stop_placement_v1.mode", validated["mode"])
     _upsert_scalar("stop_placement_v1.version", str(new_version))
     _upsert_scalar("stop_placement_v1.min_buffer_ticks", str(validated["min_buffer_ticks"]))
+    _upsert_scalar("stop_placement_v1.min_protective_ticks", str(validated["min_protective_ticks"]))
     _upsert_scalar("stop_placement_v1.atr_period", str(validated["atr_period"]))
     _upsert_scalar("stop_placement_v1.atr_m1_multiplier", str(validated["atr_m1_multiplier"]))
     _upsert_scalar("stop_placement_v1.atr_m5_multiplier", str(validated["atr_m5_multiplier"]))
     _upsert_scalar("stop_placement_v1.spread_multiplier", str(validated["spread_multiplier"]))
+    _upsert_scalar("stop_placement_v1.min_distance_atr_m1_mult", str(validated["min_distance_atr_m1_mult"]))
+    _upsert_scalar("stop_placement_v1.min_distance_atr_m5_mult", str(validated["min_distance_atr_m5_mult"]))
+    _upsert_scalar("stop_placement_v1.min_distance_spread_mult", str(validated["min_distance_spread_mult"]))
+    _upsert_scalar("stop_placement_v1.max_stop_distance_atr", str(validated["max_stop_distance_atr"]))
+    _upsert_scalar("stop_placement_v1.max_spread_usd", str(validated["max_spread_usd"]))
+    _upsert_scalar("stop_placement_v1.algorithm_version", validated["algorithm_version"])
 
     try:
         db.commit()
@@ -277,5 +348,12 @@ def update_stop_placement_policy(
         atr_m5_multiplier=validated["atr_m5_multiplier"],
         spread_multiplier=validated["spread_multiplier"],
         application_scope="NEW_PAPER_ORDERS",
+        min_protective_ticks=validated["min_protective_ticks"],
+        min_distance_atr_m1_mult=validated["min_distance_atr_m1_mult"],
+        min_distance_atr_m5_mult=validated["min_distance_atr_m5_mult"],
+        min_distance_spread_mult=validated["min_distance_spread_mult"],
+        max_stop_distance_atr=validated["max_stop_distance_atr"],
+        max_spread_usd=validated["max_spread_usd"],
+        algorithm_version=validated["algorithm_version"],
     )
     return updated, True

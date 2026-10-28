@@ -162,8 +162,34 @@ def test_plan_structural_stop_hand_calculated_fixture():
     )
     anchor_res = StopAnchorResult(status="AVAILABLE", anchor=anchor)
 
-    atr_m1 = StopATRResult(value=2.0, status="AVAILABLE")
-    atr_m5 = StopATRResult(value=4.0, status="AVAILABLE")
+    atr_m1 = StopATRResult(
+        value=2.0,
+        status="AVAILABLE",
+        bars_count=15,
+        source_candle_count=15,
+        timeframe="1M",
+        symbol="XAUUSDT",
+        last_closed_at_ms=190_000,
+        last_closed_candle_timestamp=190_000,
+        calculated_as_of=200_000,
+        decision_cutoff=200_000,
+        method="SMA_TR_V1",
+        period=14,
+    )
+    atr_m5 = StopATRResult(
+        value=4.0,
+        status="AVAILABLE",
+        bars_count=15,
+        source_candle_count=15,
+        timeframe="5M",
+        symbol="XAUUSDT",
+        last_closed_at_ms=190_000,
+        last_closed_candle_timestamp=190_000,
+        calculated_as_of=200_000,
+        decision_cutoff=200_000,
+        method="SMA_TR_V1",
+        period=14,
+    )
     buf_res = compute_stop_buffer(
         policy=policy,
         tick_size=0.01,
@@ -183,7 +209,8 @@ def test_plan_structural_stop_hand_calculated_fixture():
         policy=policy,
         as_of_ms=200_000,
         tick_size=0.01,
-        atr_m1_val=2.0,
+        atr_m1_obj=atr_m1,
+        symbol="XAUUSDT",
     )
 
     assert decision.status == "VALID"

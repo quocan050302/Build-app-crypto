@@ -13,6 +13,7 @@ from services.stop_placement_types import (
     StopStatus,
     StopBufferResult,
     StopAnchorResult,
+    StopATRResult,
 )
 from services.stop_placement_service import plan_structural_stop
 from domain_calculator import calculate_risk_reward, CostAssumptions
@@ -70,11 +71,26 @@ def test_production_flow_short_paper_structural():
                 price_basis="CANDLE_LAST",
             )
         )
+        atr_m1 = StopATRResult(
+            value=1.50,
+            status="AVAILABLE",
+            bars_count=15,
+            source_candle_count=15,
+            timeframe="1M",
+            symbol="XAUUSDT",
+            last_closed_at_ms=now_ms - 60000,
+            last_closed_candle_timestamp=now_ms - 60000,
+            calculated_as_of=now_ms,
+            decision_cutoff=now_ms,
+            method="SMA_TR_V1",
+            period=14,
+        )
         buffer_res = StopBufferResult(
             buffer_price=1.50,
             components={"tick_floor": 0.05, "atr_m1": 1.50},
             dominant_source="atr_m1",
             tick_size=0.01,
+            raw_atr_m1=1.50,
         )
 
         # 1. Plan structural stop
@@ -87,6 +103,8 @@ def test_production_flow_short_paper_structural():
             buffer_result=buffer_res,
             policy=policy,
             as_of_ms=now_ms,
+            atr_m1_obj=atr_m1,
+            symbol="XAUUSDT",
         )
         assert stop_dec.applied_variant == "C"
         assert stop_dec.selected_sl == 4009.50
@@ -183,11 +201,26 @@ def test_production_flow_long_paper_structural():
                 price_basis="CANDLE_LAST",
             )
         )
+        atr_m1 = StopATRResult(
+            value=1.20,
+            status="AVAILABLE",
+            bars_count=15,
+            source_candle_count=15,
+            timeframe="1M",
+            symbol="XAUUSDT",
+            last_closed_at_ms=now_ms - 60000,
+            last_closed_candle_timestamp=now_ms - 60000,
+            calculated_as_of=now_ms,
+            decision_cutoff=now_ms,
+            method="SMA_TR_V1",
+            period=14,
+        )
         buffer_res = StopBufferResult(
             buffer_price=1.20,
             components={"tick_floor": 0.05, "atr_m1": 1.20},
             dominant_source="atr_m1",
             tick_size=0.01,
+            raw_atr_m1=1.20,
         )
 
         stop_dec = plan_structural_stop(
@@ -199,6 +232,8 @@ def test_production_flow_long_paper_structural():
             buffer_result=buffer_res,
             policy=policy,
             as_of_ms=now_ms,
+            atr_m1_obj=atr_m1,
+            symbol="XAUUSDT",
         )
         assert stop_dec.applied_variant == "C"
         # anchor 3992.0 - buffer 1.20 = 3990.80

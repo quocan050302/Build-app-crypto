@@ -1407,6 +1407,13 @@ class StopPlacementPolicyResponse(BaseModel):
     spread_multiplier: float = 1.50
     application_scope: str = "NEW_PAPER_ORDERS"
     execution_scope: str = "PAPER"
+    min_protective_ticks: int = 10
+    min_distance_atr_m1_mult: float = 0.50
+    min_distance_atr_m5_mult: float = 0.20
+    min_distance_spread_mult: float = 2.0
+    max_stop_distance_atr: float = 4.0
+    max_spread_usd: float = 2.0
+    algorithm_version: str = "V17_7"
     summary_vi: str = ""
     reason_codes: List[str] = Field(default_factory=list)
 
@@ -1416,9 +1423,16 @@ class StopPlacementPolicyUpdate(BaseModel):
     expected_version: StrictInt = Field(ge=1)
     atr_period: Optional[StrictInt] = Field(default=None, ge=1, le=200)
     min_buffer_ticks: Optional[StrictInt] = Field(default=None, ge=0, le=1000)
+    min_protective_ticks: Optional[StrictInt] = Field(default=None, ge=0, le=1000)
     atr_m1_multiplier: Optional[float] = None
     atr_m5_multiplier: Optional[float] = None
     spread_multiplier: Optional[float] = None
+    min_distance_atr_m1_mult: Optional[float] = None
+    min_distance_atr_m5_mult: Optional[float] = None
+    min_distance_spread_mult: Optional[float] = None
+    max_stop_distance_atr: Optional[float] = None
+    max_spread_usd: Optional[float] = None
+    algorithm_version: Optional[str] = None
 
 
 class StopComparisonSummaryResponse(BaseModel):

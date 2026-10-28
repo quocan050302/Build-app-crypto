@@ -54,10 +54,11 @@ def test_compute_stop_atr_insufficient_bars():
 
 def test_compute_stop_atr_flat_zero_is_available():
     # 15 completely flat bars (open=high=low=close=2000)
+    # V17.7.4: Zero ATR is fail-closed UNAVAILABLE per Section 11 / Review Finding 8
     bars = [
         SimpleNamespace(open_time=1000000 + i * 60000, open=2000.0, high=2000.0, low=2000.0, close=2000.0)
         for i in range(15)
     ]
     res = compute_stop_atr(bars, period=14, timeframe="1M", as_of_ms=1000000 + 15 * 60000)
-    assert res.status == "AVAILABLE"
-    assert res.value == 0.0
+    assert res.status == "UNAVAILABLE"
+    assert res.reason_code == "ZERO_OR_NEGATIVE_ATR"

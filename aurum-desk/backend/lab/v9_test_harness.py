@@ -235,8 +235,10 @@ class V9TestHarness:
         self.feed_driver = MockBitgetFeedDriver(self.clock)
 
         # 1. Setup isolated database
+        from database import get_or_create_test_root
+        test_root = get_or_create_test_root()
         suffix = db_name_suffix or uuid.uuid4().hex[:8]
-        self.temp_dir = tempfile.mkdtemp(prefix=f"aurum_v9_harness_{suffix}_")
+        self.temp_dir = tempfile.mkdtemp(prefix=f"aurum_v9_harness_{suffix}_", dir=str(test_root))
         self.db_path = os.path.join(self.temp_dir, f"aurum_v9_test_{suffix}.db")
 
         # Fail-closed invariant check

@@ -1006,6 +1006,46 @@ def evaluate_cg01_candidate(
     ask = q_adapted.ask
     current_price = q_adapted.mid
 
+    if not (bid > 0 and ask > 0 and math.isfinite(bid) and math.isfinite(ask)):
+        return CG01Decision(
+            stage=CG01Stage.OBSERVING,
+            is_eligible=False,
+            model_version=cfg.model_version,
+            config_version=cfg.config_version,
+            reason_codes=("INVALID_BID_ASK",),
+            missing_conditions=("QUOTE_INVALID_BID_ASK",),
+            as_of_ms=t_now,
+            time_context=resolve_cg01_time_context(t_now, cfg),
+            ui_summary_vi={"status": "Báo giá không hợp lệ (không dương hoặc không hữu hạn)."},
+            direction_policy=getattr(cfg, "direction_policy", "LEGACY_H1"),
+        )
+    if ask < bid:
+        return CG01Decision(
+            stage=CG01Stage.OBSERVING,
+            is_eligible=False,
+            model_version=cfg.model_version,
+            config_version=cfg.config_version,
+            reason_codes=("INVERTED_QUOTE",),
+            missing_conditions=("QUOTE_INVERTED_BID_ASK",),
+            as_of_ms=t_now,
+            time_context=resolve_cg01_time_context(t_now, cfg),
+            ui_summary_vi={"status": "Báo giá bị đảo ngược (ask < bid)."},
+            direction_policy=getattr(cfg, "direction_policy", "LEGACY_H1"),
+        )
+    if q_adapted.is_stale:
+        return CG01Decision(
+            stage=CG01Stage.OBSERVING,
+            is_eligible=False,
+            model_version=cfg.model_version,
+            config_version=cfg.config_version,
+            reason_codes=("STALE_QUOTE",),
+            missing_conditions=("QUOTE_STALE",),
+            as_of_ms=t_now,
+            time_context=resolve_cg01_time_context(t_now, cfg),
+            ui_summary_vi={"status": "Báo giá thị trường bị trễ/stale."},
+            direction_policy=getattr(cfg, "direction_policy", "LEGACY_H1"),
+        )
+
     # 1. Step 1: Timing Window Check (Rules 051 - 060)
     time_ctx = resolve_cg01_time_context(t_now, cfg)
 
@@ -1238,11 +1278,18 @@ def evaluate_cg01_candidate(
                     as_of_ms=t_now,
                     selected_sweep=sweep_desc,
                 )
-                atr_m1_obj = (stop_context or {}).get("atr_m1")
-                atr_m5_obj = (stop_context or {}).get("atr_m5")
-                if atr_m1_obj is None and c_1m:
+                atr_m1_obj = None
+                atr_m5_obj = None
+                has_supplied_m1 = False
+                if stop_context is not None and "atr_m1" in stop_context:
+                    atr_m1_obj = stop_context["atr_m1"]
+                    has_supplied_m1 = True
+                if stop_context is not None and "atr_m5" in stop_context:
+                    atr_m5_obj = stop_context["atr_m5"]
+
+                if not has_supplied_m1 and c_1m:
                     from services.stop_placement_service import compute_stop_atr
-                    atr_m1_obj = compute_stop_atr(c_1m, period=stop_policy.atr_period, timeframe="1M", as_of_ms=t_now)
+                    atr_m1_obj = compute_stop_atr(c_1m, period=stop_policy.atr_period, timeframe="1M", as_of_ms=t_now, symbol="XAUUSDT")
 
                 buffer_res = compute_stop_buffer(
                     policy=stop_policy,
@@ -1251,6 +1298,8 @@ def evaluate_cg01_candidate(
                     atr_m5=atr_m5_obj,
                     bid=bid,
                     ask=ask,
+                    symbol="XAUUSDT",
+                    decision_cutoff=t_now,
                 )
 
                 if getattr(stop_policy, "mode", "") == "PAPER_STRUCTURAL":
@@ -1407,12 +1456,24 @@ def evaluate_cg01_candidate(
                     policy=stop_policy,
                     as_of_ms=t_now,
                     tick_size=tick_size,
+                    atr_m1_obj=atr_m1_obj,
+                    atr_m5_obj=atr_m5_obj,
                     atr_m1_val=(
                         atr_m1_obj.value
-                        if (atr_m1_obj and atr_m1_obj.status == "AVAILABLE")
-                        else (float(atr_series.iloc[-1]) if hasattr(atr_series, "iloc") and len(atr_series) > 0 else 1.0)
+                        if (atr_m1_obj and getattr(atr_m1_obj, "status", "") == "AVAILABLE")
+                        else None
                     ),
+                    atr_m5_val=(atr_m5_obj.value if (atr_m5_obj and getattr(atr_m5_obj, "status", "") == "AVAILABLE") else None),
+                    spread=(ask - bid) if (bid is not None and ask is not None) else None,
+                    symbol="XAUUSDT",
                 )
+                if getattr(stop_policy, "mode", "") == "PAPER_STRUCTURAL":
+                    if stop_dec is not None and stop_dec.status == "VALID" and stop_dec.selected_sl is not None:
+                        sl = stop_dec.selected_sl
+                    else:
+                        rej_code = stop_dec.reasons[0] if (stop_dec and stop_dec.reasons) else (stop_dec.status if stop_dec else "MISSING_STOP_PLACEMENT_DECISION")
+                        rejection_diagnostics.append((CG01Stage.WAIT_ENTRY, f"STRUCTURAL_STOP_INVALID: {rej_code}"))
+                        continue
                 cand_key_temp = f"cg01_{direction}_{poi.zone_id}_{sweep['reference_id']}_{fvg['fvg_id']}"
                 comp_plan = build_stop_comparison_plan(
                     opportunity_key=cand_key_temp,
@@ -1427,9 +1488,9 @@ def evaluate_cg01_candidate(
                     policy_settings={"capital_usdt": capital, "risk_pct": risk_pct},
                     tick_size=tick_size,
                     min_net_rr=cfg.min_net_rr,
-                    atr_m1=atr_m1_obj.value if atr_m1_obj else None,
-                    atr_m5=atr_m5_obj.value if atr_m5_obj else None,
-                    spread=max(0.0, ask - bid),
+                    atr_m1=atr_m1_obj.value if (atr_m1_obj and getattr(atr_m1_obj, "status", "") == "AVAILABLE") else None,
+                    atr_m5=atr_m5_obj.value if (atr_m5_obj and getattr(atr_m5_obj, "status", "") == "AVAILABLE") else None,
+                    spread=(ask - bid),
                     policy_version=stop_policy.version,
                     now_ms=t_now,
                 )
