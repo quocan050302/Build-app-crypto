@@ -8,6 +8,10 @@ import models, crud
 from services.quote_validator import CanonicalQuote, QuoteValidator
 from services.trade_lifecycle_service import TradeLifecycleService
 from services.clock import live_clock, IClock
+from services.runtime_profile_service import (
+    assert_not_observe_only,
+    is_observe_only_runtime,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +95,8 @@ class ExecutionConsumer:
         Enqueues a canonical quote into the ordered execution stream.
         If queue is full, enters DEGRADED state and marks execution gap.
         """
+        if is_observe_only_runtime():
+            return False
         if not quote.is_valid:
             return False
 
@@ -127,6 +133,10 @@ class ExecutionConsumer:
         Re-validates quote freshness according to actual processing time (proc_now_ms),
         preventing stale backlog quotes from filling new entry orders.
         """
+        assert_not_observe_only(
+            "ExecutionConsumer.evaluate_quote_sync",
+            counter_key="BLOCKED_FILL_ATTEMPTS",
+        )
         c = clock or live_clock
         proc_now_ms = now_ms if now_ms is not None else c.now_ms()
         result = {"exit_processed": False, "entry_processed": False, "is_stale": False}
@@ -276,6 +286,10 @@ class ExecutionConsumer:
         Main execution loop. Processes quotes sequentially in dedicated worker thread.
         Never blocks the asyncio event loop with synchronous SQLite queries.
         """
+        assert_not_observe_only(
+            "ExecutionConsumer.run_consumer_loop",
+            counter_key="BLOCKED_WORKER_START_ATTEMPTS",
+        )
         self._running = True
         self._stopping = False
         executor = self._ensure_executor()

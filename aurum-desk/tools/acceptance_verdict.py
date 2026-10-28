@@ -67,7 +67,7 @@ MANDATORY_GATES_V17_8_0 = list(MANDATORY_GATES_V17_7_4) + [
     "G42_EXACT_SOURCE_AND_ARTIFACT_INTEGRITY",
 ]
 
-# The mandatory 52 gates for V17.8 / V17.8.0.1 release acceptance (DEF-178-15)
+# The mandatory 52 gates for V17.8.0.1 release acceptance (DEF-178-15)
 MANDATORY_GATES_V17_8_0_1 = list(MANDATORY_GATES_V17_8_0) + [
     "G43_UNICORN_RUNTIME_INTERFACE_CONTRACT",
     "G44_FEATURE_FLAG_PERSISTENCE_AND_RELOAD",
@@ -81,9 +81,19 @@ MANDATORY_GATES_V17_8_0_1 = list(MANDATORY_GATES_V17_8_0) + [
     "G52_HONEST_REPLAY_COMPARISON_DISCLOSURE",
 ]
 
-MANDATORY_GATES_V17_8 = list(MANDATORY_GATES_V17_8_0_1)
+# The mandatory 58 gates for V17.8.0.2 release acceptance (52 core gates + 6 observation safety gates)
+MANDATORY_GATES_V17_8_0_2 = list(MANDATORY_GATES_V17_8_0_1) + [
+    "G53_OBSERVE_ONLY_STARTUP_ISOLATION",
+    "G54_ZERO_BACKGROUND_ORDER_MUTATIONS",
+    "G55_ZERO_LIVE_EXCHANGE_DISPATCH",
+    "G56_OBSERVATION_DATABASE_IMMUTABILITY",
+    "G57_OBSERVATION_STARTUP_SHUTDOWN",
+    "G58_RELEASE_ARTIFACT_TRUTH_INTEGRITY",
+]
 
-# Authoritative gate taxonomy and requirements (V17.7.4 Section 10 / V17.8.0.1 DEF-178-15)
+MANDATORY_GATES_V17_8 = list(MANDATORY_GATES_V17_8_0_2)
+
+# Authoritative gate taxonomy and requirements (V17.7.4 Section 10 / V17.8.0.1 DEF-178-15 / V17.8.0.2)
 TEST_GATES = {
     "G02_TEST_DB_BOOTSTRAP",
     "G03_UNSAFE_PATH_REJECTION",
@@ -133,6 +143,12 @@ TEST_GATES = {
     "G50_FRONTEND_MOUNTED_SLTP_INTELLIGENCE_VIEW_E2E",
     "G51_FORENSIC_AUDIT_TRUTH_RECONCILIATION",
     "G52_HONEST_REPLAY_COMPARISON_DISCLOSURE",
+    # V17.8.0.2 Observation Safety Additions
+    "G53_OBSERVE_ONLY_STARTUP_ISOLATION",
+    "G54_ZERO_BACKGROUND_ORDER_MUTATIONS",
+    "G55_ZERO_LIVE_EXCHANGE_DISPATCH",
+    "G56_OBSERVATION_DATABASE_IMMUTABILITY",
+    "G57_OBSERVATION_STARTUP_SHUTDOWN",
 }
 
 COMMAND_GATES = {
@@ -145,6 +161,7 @@ COMMAND_GATES = {
 INTEGRITY_GATES = {
     "G27_ARTIFACT_SOURCE_SHA_INTEGRITY",
     "G42_EXACT_SOURCE_AND_ARTIFACT_INTEGRITY",
+    "G58_RELEASE_ARTIFACT_TRUTH_INTEGRITY",
 }
 
 
@@ -285,3 +302,46 @@ def determine_release_verdict(
                 return "BLOCKED"
 
     return "ACCEPTED_FOR_PAPER_OPT_IN"
+
+
+def determine_v17_8_0_2_release_verdict(
+    actual_gate_results: Dict[str, Any],
+    mandatory_gate_manifest: Optional[List[str]] = None,
+    runtime_preflight: Optional[Dict[str, Any]] = None,
+) -> str:
+    """
+    Resolves the V17.8.0.2 release verdict (Section 13):
+    Allowed values:
+    - V17_8_0_2_ACCEPTED_FOR_SAFE_OBSERVATION
+    - V17_8_0_2_ACCEPTED_WITH_RUNTIME_RESTRICTIONS
+    - V17_8_0_2_BLOCKED
+    - V17_8_0_2_NOT_ACCEPTED
+    """
+    manifest = mandatory_gate_manifest if mandatory_gate_manifest is not None else MANDATORY_GATES_V17_8_0_2
+    base_verdict = determine_release_verdict(actual_gate_results, manifest)
+    if base_verdict != "ACCEPTED_FOR_PAPER_OPT_IN":
+        return "V17_8_0_2_BLOCKED"
+
+    if runtime_preflight is not None:
+        if not isinstance(runtime_preflight, dict):
+            return "V17_8_0_2_BLOCKED"
+        if runtime_preflight.get("status") != "PASS":
+            return "V17_8_0_2_BLOCKED"
+        counters = runtime_preflight.get("counters", {})
+        for zero_key in (
+            "PAPER_ORDERS_CREATED",
+            "PAPER_ORDERS_FILLED",
+            "PAPER_POSITIONS_CLOSED",
+            "LIVE_EXCHANGE_ORDERS_SENT",
+            "UNAUTHORIZED_DB_WRITES",
+            "BACKGROUND_TRADING_WORKERS_STARTED",
+            "UNEXPECTED_RUNTIME_ERRORS",
+        ):
+            val = counters.get(zero_key)
+            if val is None or isinstance(val, bool) or not isinstance(val, int) or val != 0:
+                return "V17_8_0_2_BLOCKED"
+        if runtime_preflight.get("db_sha256_before") != runtime_preflight.get("db_sha256_after"):
+            return "V17_8_0_2_BLOCKED"
+
+    return "V17_8_0_2_ACCEPTED_FOR_SAFE_OBSERVATION"
+

@@ -1417,3 +1417,260 @@ def test_def_178_14_forensic_audit_truth_reconciliation():
     assert math.isclose(calc_struct_015_maker_tp.net_rr, 2.2738, abs_tol=0.02)
 
 
+def test_v17_8_0_2_missing_atr_frozen_sl_qty_and_bid_ask_exit_triggers():
+    """
+    V17.8.0.2 Phase B2 supplementary verification:
+    - Missing required ATR fails closed in PAPER_STRUCTURAL via plan_structural_stop.
+    - Frozen SL cannot be widened after ARM / OPEN.
+    - Position quantity cannot increase at FILL even if account equity increases after ARM.
+    - SHORT stop loss triggers strictly on executable Ask >= SL (not Bid) and persists PAPER close.
+    - LONG stop loss triggers strictly on executable Bid <= SL (not Ask) and persists PAPER close.
+    """
+    from paper_broker import PaperBroker
+    from services.risk_settings_service import risk_settings_service
+    from services.stop_placement_service import plan_structural_stop
+
+    now_ms = 1_761_595_200_000
+    sp_policy = StopPlacementPolicy(
+        mode="PAPER_STRUCTURAL",
+        version=5,
+        v18_structural_intelligence_enabled=True,
+        v18_unicorn_detection_enabled=True,
+        v18_noise_research_enabled=True,
+        v18_execution_policy_version=2,
+    )
+
+    # 1. Missing required ATR must fail closed in PAPER_STRUCTURAL
+    from services.stop_placement_types import StopAnchor, StopAnchorResult
+
+    valid_anchor_res = StopAnchorResult(
+        status="AVAILABLE",
+        anchor=StopAnchor(
+            id="anc_test_missing_atr",
+            kind="PROTECTED_SWING_LOW",
+            price=2615.0,
+            timeframe="1M",
+            occurred_at_ms=now_ms - 180_000,
+            known_at_ms=now_ms - 120_000,
+            source_leg_id="leg_1",
+        ),
+    )
+    dec_no_atr = plan_structural_stop(
+        direction="LONG",
+        planned_entry=2620.0,
+        take_profit=2655.0,
+        legacy_sl=2618.95,
+        anchor_result=valid_anchor_res,
+        policy=sp_policy,
+        as_of_ms=now_ms,
+        atr_m1_obj=None,
+        atr_m5_obj=None,
+        spread=0.20,
+    )
+    assert dec_no_atr.selected_sl is None
+    assert "REQUIRED_M1_ATR_UNAVAILABLE" in dec_no_atr.reasons
+
+    # 2. End-to-end: No SL widening, no quantity increase at FILL, and SHORT Ask / LONG Bid stop triggers
+    with patch(
+        "services.trading_policy_service.TradingPolicyService.evaluate_entry_policy",
+        return_value={"allowed": True, "reason_code": "OK", "reason_message": "OK"},
+    ):
+        db = SessionLocal()
+        try:
+            db.query(PaperOrder).delete()
+            audit = crud.get_or_create_today_audit(db)
+            audit.fills_count = 0
+            audit.realized_pnl_today = 0.0
+            audit.current_equity = 1000.0
+            audit.initial_equity = 1000.0
+            audit.is_blocked = False
+            audit.block_reason = None
+            audit.cooldown_until = None
+            db.commit()
+
+            global_settings = risk_settings_service.get_settings(db)
+            cfg_ver = getattr(global_settings, "config_version", 1) or 1
+            pol_init = resolve_stop_placement_policy(db)
+            pol_v18, _ = update_stop_placement_policy(
+                db,
+                payload={
+                    "mode": "PAPER_STRUCTURAL",
+                    "v18_structural_intelligence_enabled": True,
+                    "v18_unicorn_detection_enabled": True,
+                    "v18_noise_research_enabled": True,
+                    "v18_execution_policy_version": 2,
+                },
+                expected_version=pol_init.version,
+            )
+
+            cfg = M1ScalpConfig(scalp_m1_enabled=True, scalp_m1_mode="PAPER")
+            policy_settings = {"capital_usdt": 1000.0, "risk_pct": 0.50, "leverage": 50, "config_version": cfg_ver}
+
+            # 2a. Bearish setup: verify no quantity increase at FILL even if equity increases, and SHORT Ask SL trigger
+            s_bars, s_levels, s_quote_dict, s_now = build_bearish_m1_fvg_continuation_series(with_unicorn=True)
+            cand_short = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
+                s_bars,
+                s_bars,
+                s_quote_dict,
+                "BEARISH",
+                "BEARISH",
+                policy_settings,
+                now_ms=s_now,
+                config=cfg,
+                context_levels=s_levels,
+                stop_policy=pol_v18,
+            )
+            assert cand_short is not None and cand_short.is_eligible is True
+            armed_qty_short = cand_short.calculation.quantity
+            armed_sl_short = cand_short.stop_loss
+
+            v_quote_short = ValidatedQuote(
+                is_valid=True,
+                bid=cand_short.planned_entry,
+                ask=cand_short.planned_entry + 0.20,
+                last=cand_short.planned_entry,
+                spread=0.20,
+                exchange_time=s_now,
+                observed_at=s_now,
+                freshness_sec=0.1,
+                is_stale=False,
+                rejection_code=None,
+                rejection_detail=None,
+            )
+            orch = ScalpWatcherOrchestrator()
+            cand_short.order_id = "ord_v17802_short_exit"
+            armed_short = orch._arm_paper_candidate(
+                db,
+                cand_short,
+                now_ms=s_now,
+                clock=live_clock,
+                quote=v_quote_short,
+                policy_settings=policy_settings,
+                auto_enabled=True,
+            )
+            assert armed_short is not None
+            armed_short.id = "ord_v17802_short_exit"
+            db.commit()
+
+            # Increase account equity 5x before FILL -> quantity at FILL must NOT increase above armed_qty_short
+            audit = crud.get_or_create_today_audit(db)
+            audit.current_equity = 5000.0
+            db.commit()
+
+            coord = ExecutionCoordinator()
+            coord.evaluate_orders_sync(
+                db=db,
+                ticker_override={
+                    "bid": v_quote_short.bid,
+                    "ask": v_quote_short.ask,
+                    "last": v_quote_short.last,
+                    "timestamp": s_now + 1_000,
+                },
+                now_ms=s_now + 1_000,
+            )
+            db.commit()
+            open_short = db.query(PaperOrder).filter(PaperOrder.id == "ord_v17802_short_exit").first()
+            assert open_short is not None and open_short.state == "paper_open"
+            assert math.isclose(open_short.stop_loss, armed_sl_short, abs_tol=1e-4)
+            assert open_short.quantity <= armed_qty_short, "Quantity must never increase at FILL"
+
+            # Attempting to widen SL on open SHORT position must be rejected
+            with pytest.raises(ValueError):
+                PaperBroker.amend_open_position(
+                    db, open_short.id, new_sl=armed_sl_short + 5.0, new_tp=open_short.take_profit
+                )
+
+            # SHORT exit check: Ask below SL -> does NOT trigger
+            not_closed = TradeLifecycleService.process_exit_tick(
+                db=db,
+                current_bid=armed_sl_short - 0.50,
+                current_ask=armed_sl_short - 0.05,
+                now_ms=s_now + 2_000,
+                tick_timestamp=s_now + 2_000,
+            )
+            assert not_closed is None
+
+            # SHORT exit check: Executable Ask >= SL -> triggers SL_HIT and persists closed order
+            closed_short = TradeLifecycleService.process_exit_tick(
+                db=db,
+                current_bid=armed_sl_short - 0.15,
+                current_ask=armed_sl_short + 0.02,
+                now_ms=s_now + 3_000,
+                tick_timestamp=s_now + 3_000,
+            )
+            assert closed_short is not None
+            assert closed_short.state == "closed"
+            assert closed_short.exit_cause == "SL_HIT"
+            assert closed_short.realized_pnl_net is not None and closed_short.realized_pnl_net < 0
+
+            # Reset cooldown for LONG Bid exit trigger test
+            audit = crud.get_or_create_today_audit(db)
+            audit.cooldown_until = None
+            audit.is_blocked = False
+            audit.fills_count = 0
+            audit.current_equity = 1000.0
+            db.commit()
+
+            # 2b. Bullish setup: verify LONG Bid stop trigger
+            l_bars, l_levels, l_quote_dict, l_now = build_bullish_m1_fvg_continuation_series(
+                with_unicorn=True, t_offset_ms=3_600_000
+            )
+            cand_long = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
+                l_bars,
+                l_bars,
+                l_quote_dict,
+                "BULLISH",
+                "BULLISH",
+                policy_settings,
+                now_ms=l_now,
+                config=cfg,
+                context_levels=l_levels,
+                stop_policy=pol_v18,
+            )
+            assert cand_long is not None and cand_long.is_eligible is True
+            armed_sl_long = cand_long.stop_loss
+            v_quote_long = ValidatedQuote(
+                is_valid=True,
+                bid=cand_long.planned_entry - 0.20,
+                ask=cand_long.planned_entry,
+                last=cand_long.planned_entry,
+                spread=0.20,
+                exchange_time=l_now,
+                observed_at=l_now,
+                freshness_sec=0.1,
+                is_stale=False,
+                rejection_code=None,
+                rejection_detail=None,
+            )
+            _, _, open_long = _arm_and_fill_candidate(
+                db, cand_long, l_now, v_quote_long, v_quote_long, policy_settings, "ord_v17802_long_exit"
+            )
+            assert open_long is not None and open_long.state == "paper_open"
+
+            # LONG exit check: Bid above SL -> does NOT trigger
+            not_closed_long = TradeLifecycleService.process_exit_tick(
+                db=db,
+                current_bid=armed_sl_long + 0.05,
+                current_ask=armed_sl_long + 0.25,
+                now_ms=l_now + 2_000,
+                tick_timestamp=l_now + 2_000,
+            )
+            assert not_closed_long is None
+
+            # LONG exit check: Executable Bid <= SL -> triggers SL_HIT and persists closed order
+            closed_long = TradeLifecycleService.process_exit_tick(
+                db=db,
+                current_bid=armed_sl_long - 0.02,
+                current_ask=armed_sl_long + 0.18,
+                now_ms=l_now + 3_000,
+                tick_timestamp=l_now + 3_000,
+            )
+            assert closed_long is not None
+            assert closed_long.state == "closed"
+            assert closed_long.exit_cause == "SL_HIT"
+            assert closed_long.realized_pnl_net is not None and closed_long.realized_pnl_net < 0
+        finally:
+            db.close()
+
+
+

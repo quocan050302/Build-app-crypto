@@ -11,6 +11,7 @@ from domain_calculator import CalculationResult, calculate_risk_reward
 from services.event_bus import event_bus
 from services.clock import live_clock, IClock
 from services.shared_exit_evaluator import evaluate_order_exit
+from services.runtime_profile_service import assert_not_observe_only
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,10 @@ class TradeLifecycleService:
         - Commits order state 'paper_open', DayAudit increment, SessionQuota update, watch setup state,
           DomainEvent 'trade.opened', and NotificationOutbox 'FILLED' in a single transaction.
         """
+        assert_not_observe_only(
+            "TradeLifecycleService.execute_fill",
+            counter_key="BLOCKED_FILL_ATTEMPTS",
+        )
         current_time = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
         current_dt = datetime.fromtimestamp(current_time / 1000.0, tz=timezone.utc)
 
@@ -349,6 +354,10 @@ class TradeLifecycleService:
         Marks state 'rejected' without incrementing daily counters.
         Emits 'order.rejected' DomainEvent and 'REJECTED' NotificationOutbox.
         """
+        assert_not_observe_only(
+            "TradeLifecycleService.execute_reject",
+            counter_key="BLOCKED_CLOSE_ATTEMPTS",
+        )
         current_time = now_ms if now_ms is not None else (clock.now_ms() if clock else int(time.time() * 1000))
         order.state = "rejected"
         order.invalidation_reason = reason
@@ -430,6 +439,10 @@ class TradeLifecycleService:
         - Creates DomainEvent and NotificationOutbox (TP_HIT, SL_HIT, MANUAL_CLOSED, LIQUIDATED).
         - Commits in ONE single atomic transaction.
         """
+        assert_not_observe_only(
+            "TradeLifecycleService.execute_close",
+            counter_key="BLOCKED_CLOSE_ATTEMPTS",
+        )
         current_time = occurred_at or now_ms or (clock.now_ms() if clock else int(time.time() * 1000))
 
         order = db.query(models.PaperOrder).filter(
@@ -651,6 +664,10 @@ class TradeLifecycleService:
         """
         Unified exit evaluator for both ExitMonitor and candles/sync.
         """
+        assert_not_observe_only(
+            "TradeLifecycleService.process_exit_tick",
+            counter_key="BLOCKED_CLOSE_ATTEMPTS",
+        )
         active_pos = crud.get_active_position(db)
         if not active_pos or active_pos.state != "paper_open":
             return None

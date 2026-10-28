@@ -2564,6 +2564,11 @@ class ScalpWatcherOrchestrator:
         Guarded ARM path under entry_mutation_lock (PHẦN 025 - 033, 059).
         Never bypasses entry guards or daily quotas.
         """
+        from services.runtime_profile_service import assert_not_observe_only
+        assert_not_observe_only(
+            "ScalpWatcherOrchestrator._arm_paper_candidate",
+            counter_key="BLOCKED_ARM_ATTEMPTS",
+        )
         cfg = config if config is not None else load_effective_scalp_config(db)
         snap = cand.snapshot
         calc = cand.calculation
@@ -3435,6 +3440,11 @@ class ScalpWatcherOrchestrator:
         return order
     async def run_watcher_loop(self):
         """Periodic background evaluation loop for autonomous scalp watcher (Rules 011, 070, 165)."""
+        from services.runtime_profile_service import assert_not_observe_only
+        assert_not_observe_only(
+            "ScalpWatcherOrchestrator.run_watcher_loop",
+            counter_key="BLOCKED_WORKER_START_ATTEMPTS",
+        )
         self._running = True
         while self._running:
             try:

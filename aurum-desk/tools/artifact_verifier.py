@@ -7,10 +7,20 @@ Builds source manifests, writes atomic run-scoped acceptance artifacts, and stri
 import hashlib
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from tools.acceptance_verdict import determine_release_verdict, MANDATORY_GATES_V17_7_4
+_ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(_ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(_ROOT_DIR))
+
+from tools.acceptance_verdict import (
+    determine_release_verdict,
+    MANDATORY_GATES_V17_7_4,
+    MANDATORY_GATES_V17_8,
+    MANDATORY_GATES_V17_8_0_2,
+)
 
 EXCLUDE_PATTERNS = {
     "__pycache__",
@@ -291,3 +301,94 @@ def verify_acceptance_bundle(
         errors.append(f"Failed to parse/validate acceptance results: {e}")
 
     return len(errors) == 0, errors
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    args = argv if argv is not None else sys.argv[1:]
+    if args:
+        target = Path(args[0])
+        if not target.is_absolute():
+            if (Path.cwd() / target).exists():
+                target = (Path.cwd() / target).resolve()
+            else:
+                target = (_ROOT_DIR / target).resolve()
+    else:
+        latest_file = _ROOT_DIR / "docs" / "artifacts" / "v17_8_0_2" / "latest_run.json"
+        if not latest_file.is_file():
+            print(json.dumps({"status": "FAIL", "errors": [f"Missing latest_run.json: {latest_file}"]}, indent=2))
+            return 1
+        latest_data = json.loads(latest_file.read_text(encoding="utf-8"))
+        target = (_ROOT_DIR / latest_data["run_directory"]).resolve()
+
+    if not target.is_dir():
+        print(json.dumps({"status": "FAIL", "errors": [f"Run directory does not exist: {target}"]}, indent=2))
+        return 1
+
+    res_path = target / "acceptance_results.json"
+    gm_path = target / "gate_manifest.json"
+    integ_path = target / "integrity_manifest.json"
+
+    expected_ver = "17.8.0.2"
+    expected_run = target.name
+    expected_sha = None
+    expected_manifest = list(MANDATORY_GATES_V17_8_0_2)
+
+    if res_path.is_file():
+        try:
+            res_json = json.loads(res_path.read_text(encoding="utf-8"))
+            expected_ver = res_json.get("runner_version", expected_ver)
+            expected_run = res_json.get("run_id", expected_run)
+            expected_sha = res_json.get("tested_source_sha") or res_json.get("source_sha")
+        except Exception:
+            pass
+
+    if gm_path.is_file():
+        try:
+            gm_json = json.loads(gm_path.read_text(encoding="utf-8"))
+            if gm_json.get("mandatory_gates"):
+                expected_manifest = gm_json["mandatory_gates"]
+        except Exception:
+            pass
+
+    ok, errors = verify_acceptance_bundle(
+        target,
+        expected_version=expected_ver,
+        expected_run_id=expected_run,
+        expected_source_sha=expected_sha,
+        expected_gate_manifest=expected_manifest,
+    )
+
+    leaf_count = 0
+    if integ_path.is_file():
+        try:
+            integ_json = json.loads(integ_path.read_text(encoding="utf-8"))
+            leaf_count = len(integ_json.get("leaf_files", {}))
+        except Exception:
+            pass
+
+    release_verdict = None
+    if res_path.is_file():
+        try:
+            res_json = json.loads(res_path.read_text(encoding="utf-8"))
+            release_verdict = res_json.get("release_verdict") or res_json.get("verdict")
+        except Exception:
+            pass
+
+    report = {
+        "status": "PASS" if ok else "FAIL",
+        "bundle_directory": str(target),
+        "runner_version": expected_ver,
+        "run_id": expected_run,
+        "tested_source_sha": expected_sha,
+        "gates_verified": len(expected_manifest),
+        "leaf_files_verified": leaf_count,
+        "release_verdict": release_verdict,
+        "errors": errors,
+    }
+    print(json.dumps(report, indent=2))
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+

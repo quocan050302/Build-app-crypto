@@ -11,12 +11,24 @@ from contextlib import asynccontextmanager
 
 logger = logging.getLogger(__name__)
 
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query, Body, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query, Body, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 import models, schemas, crud, bitget_data, smc_engine
 from database import engine, get_db, SessionLocal
+from services.runtime_profile_service import (
+    ALL_BACKGROUND_TRADING_WORKERS,
+    OBSERVE_ONLY_ALLOWED_WORKERS,
+    PROFILE_OBSERVE_ONLY,
+    PROFILE_TRADING,
+    assert_not_observe_only,
+    get_runtime_safety_snapshot,
+    increment_safety_counter,
+    is_observe_only_runtime,
+    resolve_be_runtime_profile,
+)
 from paper_broker import PaperBroker
 from research_engine import generate_research_report, get_current_session_info
 import news_service
@@ -38,14 +50,19 @@ from lab.replay_engine import ReplayEngine
 from lab.stress_tester import StressTester
 from lab.job_manager import ReplayJobManager, ReplayQueueFullException
 
-# Ensure all tables exist
-models.Base.metadata.create_all(bind=engine)
+# Ensure all tables exist (skipped in OBSERVE_ONLY runtime profile to preserve DB immutability)
+if not is_observe_only_runtime():
+    models.Base.metadata.create_all(bind=engine)
 
 def reconcile_stuck_orders():
     """
     Reconciles legacy WatchSetup states that are stuck in 'ARMED' or 'PAPER_OPEN'
     when their associated PaperOrder is already in a terminal state.
     """
+    assert_not_observe_only(
+        "reconcile_stuck_orders",
+        counter_key="BLOCKED_STARTUP_MUTATION_ATTEMPTS",
+    )
     db = SessionLocal()
     try:
         # V5.3 Schema Migrations
@@ -144,14 +161,49 @@ async def lifespan(app: FastAPI):
     FastAPI Lifespan:
     Starts and manages background workers cleanly,
     cancels and awaits clean shutdown when stopped.
+    Enforces AURUM_BE_RUNTIME_PROFILE=OBSERVE_ONLY when configured.
     """
+    global _LIFESPAN_STARTUP_RESULT, _LIFESPAN_SHUTDOWN_RESULT
+    runtime_profile = resolve_be_runtime_profile()
+    observe_only = runtime_profile == PROFILE_OBSERVE_ONLY
+
+    if observe_only:
+        _LIFESPAN_STARTUP_RESULT = {
+            "status": "HEALTHY_OBSERVE_ONLY",
+            "runtime_profile": PROFILE_OBSERVE_ONLY,
+            "observe_only": True,
+            "telemetry_worker_ready": False,
+            "allowed_workers": list(OBSERVE_ONLY_ALLOWED_WORKERS),
+            "blocked_trading_workers": list(ALL_BACKGROUND_TRADING_WORKERS),
+            "background_trading_workers_started": 0,
+            "errors": [],
+        }
+        logger.info("FastAPI started under OBSERVE_ONLY runtime profile; all background trading workers and startup DB mutations are suppressed.")
+        yield
+        _LIFESPAN_SHUTDOWN_RESULT = {
+            "status": "COMPLETED",
+            "runtime_profile": PROFILE_OBSERVE_ONLY,
+            "observe_only": True,
+            "scheduler_drained": True,
+            "telemetry_drain": {"status": "SKIPPED_OBSERVE_ONLY"},
+            "websocket_drain": {"status": "SKIPPED_OBSERVE_ONLY"},
+            "worker_stopped": True,
+            "active_background_tasks_remaining": 0,
+            "errors": [],
+        }
+        return
+
     # 0. Sync broken DB states before starting loops
     reconcile_stuck_orders()
 
-    global _LIFESPAN_STARTUP_RESULT
     _LIFESPAN_STARTUP_RESULT = {
         "status": "STARTING",
+        "runtime_profile": PROFILE_TRADING,
+        "observe_only": False,
         "telemetry_worker_ready": False,
+        "allowed_workers": list(ALL_BACKGROUND_TRADING_WORKERS),
+        "blocked_trading_workers": [],
+        "background_trading_workers_started": 0,
         "errors": [],
     }
 
@@ -236,11 +288,14 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(cg01_evaluation_scheduler.run()),
         asyncio.create_task(cg01_projection_worker.run()),
     ]
+    _LIFESPAN_STARTUP_RESULT["background_trading_workers_started"] = len(tasks)
+    increment_safety_counter("BACKGROUND_TRADING_WORKERS_STARTED", len(tasks))
     yield
     # Graceful shutdown: orderly stop of worker loops before cancelling (V16.22 / V16.23 / V16.24 Rules 086-100)
-    global _LIFESPAN_SHUTDOWN_RESULT
     _LIFESPAN_SHUTDOWN_RESULT = {
         "status": "COMPLETED",
+        "runtime_profile": PROFILE_TRADING,
+        "observe_only": False,
         "scheduler_drained": True,
         "telemetry_drain": {},
         "websocket_drain": {},
@@ -360,6 +415,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def enforce_observe_only_http_boundary(request: Request, call_next):
+    if is_observe_only_runtime():
+        method = request.method.upper()
+        path = request.url.path.rstrip("/") or "/"
+        if method in ("POST", "PUT", "PATCH", "DELETE") or path == "/api/v1/reports/generate":
+            increment_safety_counter("BLOCKED_HTTP_MUTATION_ATTEMPTS", 1)
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": {
+                        "code": "OBSERVE_ONLY_MUTATION_BLOCKED",
+                        "message": f"HTTP {method} {request.url.path} is prohibited when AURUM_BE_RUNTIME_PROFILE=OBSERVE_ONLY.",
+                        "runtime_profile": PROFILE_OBSERVE_ONLY,
+                    }
+                },
+            )
+    return await call_next(request)
+
+
+@app.get("/api/v1/runtime/profile")
+def get_runtime_profile_endpoint():
+    """Read-only inspection of the active backend runtime profile, worker allowlist, and safety counters."""
+    snap = get_runtime_safety_snapshot()
+    snap["startup_result"] = get_last_startup_result()
+    snap["shutdown_result"] = get_last_shutdown_result()
+    return snap
 
 # ==================== WEBSOCKET WITH DOMAIN EVENTS ====================
 
@@ -2005,9 +2089,21 @@ def create_report(
 
 
 @app.get("/api/v1/journal")
+@app.get("/api/v1/paper/orders")
 def get_journal(limit: int = 50, db: Session = Depends(get_db)):
     orders = crud.list_paper_orders(db, limit)
     return [schemas.PaperOrderResponse.model_validate(o) for o in orders]
+
+
+@app.get("/api/v1/orders/pending")
+def get_pending_armed_orders(db: Session = Depends(get_db)):
+    armed_orders = (
+        db.query(models.PaperOrder)
+        .filter(models.PaperOrder.state == "armed")
+        .order_by(models.PaperOrder.created_at.desc())
+        .all()
+    )
+    return [schemas.PaperOrderResponse.model_validate(o) for o in armed_orders]
 
 
 @app.get("/api/v1/journal/paginated", response_model=schemas.PaginatedJournalResponse)
@@ -3177,6 +3273,7 @@ def get_order_stop_evidence_endpoint(
 
 
 @app.get("/api/v1/research/stop-placement/replay-comparison")
+@app.get("/api/v1/replay/stop-placement-comparison")
 def get_replay_comparison_summary_endpoint(
     symbol: str = "XAUUSDT",
     db: Session = Depends(get_db),

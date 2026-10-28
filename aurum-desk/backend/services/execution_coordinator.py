@@ -15,6 +15,7 @@ from services.quote_validator import QuoteValidator
 from services.clock import live_clock, IClock
 from services.entry_guard_service import serialize_entry_mutation
 from services.scalp_m1_types import load_effective_scalp_config
+from services.runtime_profile_service import assert_not_observe_only
 
 # Production Safety Invariant: Absolute zero live exchange order submissions allowed
 LIVE_EXCHANGE_ORDERS_SENT: int = 0
@@ -115,6 +116,10 @@ class ExecutionCoordinator:
         Synchronous evaluation of armed orders against quotes.
         Callable from background loop, synchronous test fixtures, and replay runner.
         """
+        assert_not_observe_only(
+            "ExecutionCoordinator.evaluate_orders_sync",
+            counter_key="BLOCKED_FILL_ATTEMPTS",
+        )
         c = clock or live_clock
         current_time = now_ms if now_ms is not None else c.now_ms()
 
@@ -622,6 +627,10 @@ class ExecutionCoordinator:
                 db.close()
 
     async def run_coordinator_loop(self):
+        assert_not_observe_only(
+            "ExecutionCoordinator.run_coordinator_loop",
+            counter_key="BLOCKED_WORKER_START_ATTEMPTS",
+        )
         self._running = True
         while self._running:
             try:

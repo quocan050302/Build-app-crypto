@@ -5,6 +5,7 @@ from database import SessionLocal
 import models, crud
 from services.collector_service import collector_service
 from services.trade_lifecycle_service import TradeLifecycleService
+from services.runtime_profile_service import assert_not_observe_only
 
 class ExitMonitor:
     """
@@ -18,6 +19,10 @@ class ExitMonitor:
         self._running = False
 
     async def check_active_position(self):
+        assert_not_observe_only(
+            "ExitMonitor.check_active_position",
+            counter_key="BLOCKED_CLOSE_ATTEMPTS",
+        )
         db: Session = SessionLocal()
         try:
             active_pos = crud.get_active_position(db)
@@ -37,6 +42,10 @@ class ExitMonitor:
             db.close()
 
     async def run_exit_monitor_loop(self):
+        assert_not_observe_only(
+            "ExitMonitor.run_exit_monitor_loop",
+            counter_key="BLOCKED_WORKER_START_ATTEMPTS",
+        )
         self._running = True
         while self._running:
             try:

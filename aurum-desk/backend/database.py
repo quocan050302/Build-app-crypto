@@ -8,9 +8,14 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Tuple
 from sqlalchemy import create_engine, event, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session as OrmSession, sessionmaker
 from sqlalchemy.pool import NullPool
+from services.runtime_profile_service import (
+    increment_safety_counter,
+    is_observe_only_runtime,
+)
 
 # Ensure absolute path to backend/aurum_desk.db
 BASE_DIR = Path(__file__).resolve().parent
@@ -311,7 +316,23 @@ if is_pytest:
     else:
         DB_PATH = str(test_root / f"aurum_isolated_test_{os.getpid()}.db")
 else:
-    DB_PATH = os.getenv("AURUM_DB_PATH", RUNTIME_DEFAULT_DB_PATH)
+    if is_observe_only_runtime():
+        obs_db_override = os.getenv("AURUM_DB_PATH")
+        if obs_db_override:
+            _, resolved_obs_target = normalize_sqlite_database_target(obs_db_override)
+            if resolved_obs_target and (
+                resolved_obs_target == Path(RUNTIME_DEFAULT_DB_PATH).resolve()
+                or "aurum_desk.db" in resolved_obs_target.name
+            ):
+                raise RuntimeError(
+                    f"CRITICAL SAFETY HAZARD: OBSERVE_ONLY runtime cannot target operational database ({resolved_obs_target})!"
+                )
+            DB_PATH = str(resolved_obs_target) if resolved_obs_target else ":memory:"
+        else:
+            obs_tmp_dir = Path(tempfile.mkdtemp(prefix="aurum_observe_only_")).resolve()
+            DB_PATH = str(obs_tmp_dir / f"aurum_observe_only_{os.getpid()}.db")
+    else:
+        DB_PATH = os.getenv("AURUM_DB_PATH", RUNTIME_DEFAULT_DB_PATH)
 
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
@@ -324,13 +345,78 @@ engine = create_engine(
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA synchronous=NORMAL")
-    cursor.execute("PRAGMA busy_timeout=30000")
+    if is_observe_only_runtime():
+        cursor.execute("PRAGMA query_only=ON")
+        cursor.execute("PRAGMA busy_timeout=30000")
+    else:
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
     cursor.close()
+
+
+_FORBIDDEN_OBSERVE_ONLY_SQL_PREFIXES = (
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "REPLACE",
+    "CREATE",
+    "ALTER",
+    "DROP",
+    "VACUUM",
+    "REINDEX",
+    "ATTACH",
+    "DETACH",
+)
+
+
+@event.listens_for(Engine, "before_cursor_execute")
+def _enforce_observe_only_sql_guard(conn, cursor, statement, parameters, context, executemany):
+    if not is_observe_only_runtime():
+        return
+    sql_clean = (statement or "").lstrip()
+    while sql_clean.startswith("--") or sql_clean.startswith("/*"):
+        if sql_clean.startswith("--"):
+            nl = sql_clean.find("\n")
+            sql_clean = sql_clean[nl + 1 :].lstrip() if nl != -1 else ""
+        elif sql_clean.startswith("/*"):
+            end_c = sql_clean.find("*/")
+            sql_clean = sql_clean[end_c + 2 :].lstrip() if end_c != -1 else ""
+    if not sql_clean:
+        return
+    first_token = sql_clean.split(None, 1)[0].upper()
+    if first_token in _FORBIDDEN_OBSERVE_ONLY_SQL_PREFIXES:
+        increment_safety_counter("BLOCKED_DB_WRITE_ATTEMPTS", 1)
+        raise RuntimeError(
+            f"OBSERVE_ONLY_DB_WRITE_BLOCKED: SQL write statement '{first_token}' is prohibited in OBSERVE_ONLY runtime profile."
+        )
+    if first_token == "PRAGMA" and "=" in sql_clean:
+        pragma_upper = sql_clean.upper().replace(" ", "")
+        if not (
+            pragma_upper.startswith("PRAGMAQUERY_ONLY=")
+            or pragma_upper.startswith("PRAGMABUSY_TIMEOUT=")
+        ):
+            increment_safety_counter("BLOCKED_DB_WRITE_ATTEMPTS", 1)
+            raise RuntimeError(
+                f"OBSERVE_ONLY_DB_WRITE_BLOCKED: Mutating PRAGMA '{sql_clean.strip()}' is prohibited in OBSERVE_ONLY runtime profile."
+            )
+
+
+@event.listens_for(OrmSession, "before_flush")
+def _enforce_observe_only_orm_flush_guard(session, flush_context, instances):
+    if not is_observe_only_runtime():
+        return
+    increment_safety_counter("BLOCKED_DB_WRITE_ATTEMPTS", 1)
+    raise RuntimeError(
+        "OBSERVE_ONLY_DB_WRITE_BLOCKED: ORM Session flush is prohibited in OBSERVE_ONLY runtime profile."
+    )
+
 
 def run_schema_migrations(target_engine=None):
     """Safely adds missing V6.1 and V7 columns and tables to SQLite without dropping data (V17.7.4 Section 08.4)."""
+    if is_observe_only_runtime():
+        increment_safety_counter("BLOCKED_STARTUP_MUTATION_ATTEMPTS", 1)
+        return False
     eng = target_engine or engine
     if is_pytest:
         # Preflight: fail-closed before connection or DDL execution
@@ -978,13 +1064,15 @@ def run_schema_migrations(target_engine=None):
     except Exception:
         pass
 
-if os.environ.get("AURUM_SKIP_STARTUP_MIGRATIONS") != "1":
+if os.environ.get("AURUM_SKIP_STARTUP_MIGRATIONS") != "1" and not is_observe_only_runtime():
     run_schema_migrations(engine)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
     db = SessionLocal()
+    if is_observe_only_runtime():
+        db.autoflush = False
     try:
         yield db
     finally:

@@ -9,6 +9,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 import models, crud
 from services.clock import live_clock, IClock
+from services.runtime_profile_service import (
+    assert_not_observe_only,
+    is_observe_only_runtime,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -297,6 +301,8 @@ class TradingPolicyService:
         policy = db.query(models.TradingPolicy).filter(models.TradingPolicy.id == "default").first()
         if not policy:
             policy = TradingPolicyService.get_default_policy()
+            if is_observe_only_runtime():
+                return policy
             db.add(policy)
             try:
                 if commit:
@@ -326,6 +332,10 @@ class TradingPolicyService:
         Gated by persisted SystemConfig migration marker: once applied, does NOT overwrite future explicit user NY_ONLY choices.
         Preserves custom capital/leverage/risk settings.
         """
+        assert_not_observe_only(
+            "TradingPolicyService.upgrade_session_policy_contract",
+            counter_key="BLOCKED_STARTUP_MUTATION_ATTEMPTS",
+        )
         now = now_ms if now_ms is not None else int(time.time() * 1000)
         marker_key = f"mig_marker:{migration_id}:{target_symbol}"[:50]
 
@@ -465,6 +475,7 @@ class TradingPolicyService:
 
     @staticmethod
     def update_policy(db: Session, update_data: Dict[str, Any], clock: Optional[IClock] = None) -> models.TradingPolicy:
+        assert_not_observe_only("TradingPolicyService.update_policy", counter_key="BLOCKED_HTTP_MUTATION_ATTEMPTS")
         from policy_constants import validate_trading_policy_update
         c = clock or live_clock
         now_ms = c.now_ms()
@@ -642,6 +653,8 @@ class TradingPolicyService:
                 created_at=current_time,
                 updated_at=current_time
             )
+            if is_observe_only_runtime():
+                return quota
             db.add(quota)
             try:
                 db.commit()
@@ -655,6 +668,11 @@ class TradingPolicyService:
                     raise
                 return quota
             db.refresh(quota)
+        elif is_observe_only_runtime():
+            try:
+                db.expunge(quota)
+            except Exception:
+                pass
         return quota
 
     @staticmethod
@@ -700,11 +718,12 @@ class TradingPolicyService:
             quota.last_status_reason = "Không đặt chỉ tiêu riêng cho phiên Mỹ (ALL_SESSIONS_SETUP_FIRST)"
             quota.last_evaluated_at = current_time
             quota.updated_at = current_time
-            try:
-                db.commit()
-            except Exception as exc:
-                db.rollback()
-                logger.warning(f"Failed to commit quota lifecycle transition: {exc}")
+            if not is_observe_only_runtime():
+                try:
+                    db.commit()
+                except Exception as exc:
+                    db.rollback()
+                    logger.warning(f"Failed to commit quota lifecycle transition: {exc}")
             return quota
 
         # 1. If quota already fulfilled
@@ -713,11 +732,12 @@ class TradingPolicyService:
             quota.last_status_reason = f"Đã hoàn thành chỉ tiêu phiên Mỹ: {quota.total_fills}/{quota.target_fills} lệnh khớp"
             quota.last_evaluated_at = current_time
             quota.updated_at = current_time
-            try:
-                db.commit()
-            except Exception as exc:
-                db.rollback()
-                logger.warning(f"Failed to commit quota lifecycle transition: {exc}")
+            if not is_observe_only_runtime():
+                try:
+                    db.commit()
+                except Exception as exc:
+                    db.rollback()
+                    logger.warning(f"Failed to commit quota lifecycle transition: {exc}")
             return quota
 
         # 2. Before entry window
@@ -726,11 +746,12 @@ class TradingPolicyService:
             quota.last_status_reason = f"Chưa tới cửa sổ phiên Mỹ ({window['vn_window_str']})"
             quota.last_evaluated_at = current_time
             quota.updated_at = current_time
-            try:
-                db.commit()
-            except Exception as exc:
-                db.rollback()
-                logger.warning(f"Failed to commit quota lifecycle transition: {exc}")
+            if not is_observe_only_runtime():
+                try:
+                    db.commit()
+                except Exception as exc:
+                    db.rollback()
+                    logger.warning(f"Failed to commit quota lifecycle transition: {exc}")
             return quota
 
         # 3. After entry window has closed
@@ -740,11 +761,12 @@ class TradingPolicyService:
                 quota.last_status_reason = TradingPolicyService._missed_reason_text(db, quota)
             quota.last_evaluated_at = current_time
             quota.updated_at = current_time
-            try:
-                db.commit()
-            except Exception as exc:
-                db.rollback()
-                logger.warning(f"Failed to commit quota lifecycle transition: {exc}")
+            if not is_observe_only_runtime():
+                try:
+                    db.commit()
+                except Exception as exc:
+                    db.rollback()
+                    logger.warning(f"Failed to commit quota lifecycle transition: {exc}")
             return quota
 
         # 4. In window (Standard or Fallback): check block conditions
@@ -791,11 +813,12 @@ class TradingPolicyService:
 
         quota.last_evaluated_at = current_time
         quota.updated_at = current_time
-        try:
-            db.commit()
-        except Exception as exc:
-            db.rollback()
-            logger.warning(f"Failed to commit quota lifecycle transition: {exc}")
+        if not is_observe_only_runtime():
+            try:
+                db.commit()
+            except Exception as exc:
+                db.rollback()
+                logger.warning(f"Failed to commit quota lifecycle transition: {exc}")
         return quota
 
     @staticmethod
@@ -1358,6 +1381,10 @@ def apply_runtime_contract_upgrades(
     """PHẦN 008, 083, 084: Bootstrap runtime contract upgrade for target deployment.
     Called before background workers start; idempotent with durable SystemConfig marker and audit.
     """
+    assert_not_observe_only(
+        "apply_runtime_contract_upgrades",
+        counter_key="BLOCKED_STARTUP_MUTATION_ATTEMPTS",
+    )
     res = TradingPolicyService.upgrade_session_policy_contract(
         db,
         target_symbol=deployment_scope,

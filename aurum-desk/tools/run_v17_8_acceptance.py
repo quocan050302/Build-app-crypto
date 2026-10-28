@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-AURUM DESK V17.8.0.1 — EVIDENCE-BASED MASTER ACCEPTANCE RUNNER
+AURUM DESK V17.8.0.2 — EVIDENCE-BASED MASTER ACCEPTANCE RUNNER
 ==============================================================
-Enforces all 52 release gates (G01 to G52) for V17.8.0.1:
-Runtime Integration Closure, Forensic Truth Repair & Honest Acceptance.
+Enforces all 52 core release gates (G01 to G52) plus 6 V17.8.0.2 observation
+safety gates (G53 to G58) = 58 mandatory release gates:
+Exact-Commit Acceptance, Backend Runtime Safety & Honest Regression Closure.
 Branch: feat/v17-8-unicorn-structural-sl-tp-intelligence
 """
 
@@ -40,7 +41,7 @@ NPX_BIN = shutil.which("npx.cmd") or shutil.which("npx") or "npx"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(BACKEND))
 
-RUN_ID = os.getenv("AURUM_TEST_RUN_ID") or f"run_v17_8_0_1_{int(time.time()*1000)}_{os.getpid()}"
+RUN_ID = os.getenv("AURUM_TEST_RUN_ID") or f"run_v17_8_0_2_{int(time.time()*1000)}_{os.getpid()}"
 
 # P0 GUARD: Set testing environment flags in runner process BEFORE any backend import
 os.environ["TESTING"] = "1"
@@ -51,24 +52,33 @@ import database
 test_root = database.get_or_create_test_root()
 database.assert_test_database_isolated(database.DB_PATH)
 
-from tools.acceptance_verdict import determine_release_verdict, MANDATORY_GATES_V17_8
+from tools.acceptance_verdict import (
+    determine_release_verdict,
+    determine_v17_8_0_2_release_verdict,
+    MANDATORY_GATES_V17_8,
+    MANDATORY_GATES_V17_8_0_2,
+)
 from tools.artifact_verifier import (
     build_source_manifest,
     write_acceptance_artifacts,
     verify_acceptance_bundle,
 )
 
-VERSION_SUBDIR = "v17_8_0_1"
-RUNNER_VERSION = "17.8.0.1"
+VERSION_SUBDIR = "v17_8_0_2"
+RUNNER_VERSION = "17.8.0.2"
 RUN_DIR = ARTIFACTS_DIR / VERSION_SUBDIR / RUN_ID
 REPORTS_DIR = RUN_DIR / "reports"
 LOGS_DIR = RUN_DIR / "logs"
+REPLAY_DIR = RUN_DIR / "replay"
+RUNTIME_DIR = RUN_DIR / "runtime"
 
 
 def init_run_directories():
     RUN_DIR.mkdir(parents=True, exist_ok=True)
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    REPLAY_DIR.mkdir(parents=True, exist_ok=True)
+    RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def find_free_port(start_port: int = 8765) -> int:
@@ -333,6 +343,277 @@ def verify_live_order_safety_boundary():
         return False, f"Exception during safety boundary verification: {exc}"
 
 
+def run_isolated_observe_only_backend_preflight(port: int) -> dict:
+    """
+    Phase G — Isolated Backend Safety Preflight:
+    1. Creates a disposable SQLite database inside test_root, checkpoints and switches journal_mode=DELETE,
+       and records db_sha256_before.
+    2. Starts a standalone Uvicorn subprocess (main:app) with AURUM_BE_RUNTIME_PROFILE=OBSERVE_ONLY
+       and AURUM_DB_PATH=<preflight_db_path>.
+    3. Exercises read-only endpoints (/health, /api/v1/runtime/profile, /api/v1/policy/stop-placement,
+       /api/v1/observation/status, /api/v1/paper/orders, /api/v1/orders/pending, /api/v1/replay/stop-placement-comparison)
+       and negative-control mutating endpoints (POST /api/v1/orders/paper, PUT /api/v1/policy/stop-placement -> 403).
+    4. Verifies db_sha256_during == db_sha256_before and all 7 safety counters == 0.
+    5. Cleanly terminates the Uvicorn subprocess and verifies db_sha256_after == db_sha256_before.
+    """
+    import sqlite3
+    import httpx
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.pool import NullPool
+    import models
+    from database import run_schema_migrations, assert_test_database_isolated
+
+    preflight_db_path = (test_root / f"observe_only_preflight_{RUN_ID[:16]}.db").resolve()
+    assert_test_database_isolated(preflight_db_path)
+
+    # Seed schema on disposable DB, then checkpoint and convert to single-file DELETE journal mode
+    seed_eng = create_engine(
+        f"sqlite:///{preflight_db_path}",
+        connect_args={"check_same_thread": False, "timeout": 30},
+        poolclass=NullPool,
+    )
+    models.Base.metadata.create_all(bind=seed_eng)
+    run_schema_migrations(seed_eng)
+    with seed_eng.connect() as conn:
+        conn.execute(text("PRAGMA wal_checkpoint(TRUNCATE)"))
+        conn.execute(text("PRAGMA journal_mode=DELETE"))
+        conn.commit()
+    seed_eng.dispose()
+
+    for suffix in ("-wal", "-shm"):
+        sidecar = Path(f"{preflight_db_path}{suffix}")
+        if sidecar.exists():
+            sidecar.unlink()
+
+    db_bytes_before = preflight_db_path.read_bytes()
+    db_sha256_before = hashlib.sha256(db_bytes_before).hexdigest()
+    db_size_before = len(db_bytes_before)
+
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join([str(BACKEND), str(ROOT)])
+    env["AURUM_BE_RUNTIME_PROFILE"] = "OBSERVE_ONLY"
+    env["AURUM_DB_PATH"] = str(preflight_db_path)
+    # Run standalone Uvicorn subprocess without TESTING flag so standalone OBSERVE_ONLY path is exercised
+    env.pop("TESTING", None)
+    env.pop("PYTEST_CURRENT_TEST", None)
+    env.pop("AURUM_TEST_DB_PATH", None)
+
+    cmd = [
+        PYTHON_BIN,
+        "-m",
+        "uvicorn",
+        "main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(port),
+    ]
+    start_t = time.perf_counter()
+    proc = subprocess.Popen(
+        cmd,
+        cwd=str(BACKEND),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+    base_url = f"http://127.0.0.1:{port}"
+    endpoints_checked = {}
+    negative_controls_checked = {}
+    final_profile_payload = {}
+    db_sha256_during = None
+    startup_ready = False
+    error_msg = None
+
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            for _ in range(40):
+                if proc.poll() is not None:
+                    break
+                try:
+                    r = client.get(f"{base_url}/health")
+                    if r.status_code == 200:
+                        startup_ready = True
+                        endpoints_checked["GET /health"] = {
+                            "status_code": r.status_code,
+                            "payload": r.json(),
+                        }
+                        break
+                except Exception:
+                    time.sleep(0.25)
+
+            if not startup_ready:
+                raise RuntimeError("Uvicorn OBSERVE_ONLY subprocess failed to become healthy within 10s")
+
+            for ep in (
+                "/api/v1/runtime/profile",
+                "/api/v1/policy/stop-placement",
+                "/api/v1/observation/status",
+                "/api/v1/paper/orders",
+                "/api/v1/orders/pending",
+                "/api/v1/research/stop-placement/replay-comparison",
+                "/api/v1/replay/stop-placement-comparison",
+            ):
+                resp = client.get(f"{base_url}{ep}")
+                endpoints_checked[f"GET {ep}"] = {
+                    "status_code": resp.status_code,
+                    "ok": resp.status_code == 200,
+                    "payload": resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {},
+                }
+                if resp.status_code != 200:
+                    raise RuntimeError(f"Expected 200 on GET {ep}, got {resp.status_code}: {resp.text}")
+
+            # Exercise negative controls (HTTP mutations must fail closed with 403)
+            r_post_order = client.post(
+                f"{base_url}/api/v1/orders/paper",
+                json={
+                    "id": "preflight_blocked_order",
+                    "symbol": "XAUUSDT",
+                    "side": "LONG",
+                    "quantity": 0.05,
+                    "planned_entry": 2650.0,
+                    "stop_loss": 2645.0,
+                    "take_profit": 2665.0,
+                },
+            )
+            negative_controls_checked["POST /api/v1/orders/paper"] = {
+                "status_code": r_post_order.status_code,
+                "blocked": r_post_order.status_code == 403,
+                "payload": r_post_order.json() if r_post_order.headers.get("content-type", "").startswith("application/json") else {},
+            }
+            if r_post_order.status_code != 403:
+                raise RuntimeError(f"Negative control POST /api/v1/orders/paper did not return 403 (got {r_post_order.status_code})")
+
+            r_put_pol = client.put(
+                f"{base_url}/api/v1/policy/stop-placement",
+                json={
+                    "mode": "PAPER_STRUCTURAL",
+                    "expected_version": 1,
+                    "reason": "preflight_blocked_policy_update",
+                    "changed_by": "preflight_auditor",
+                    "v18_structural_intelligence_enabled": True,
+                },
+            )
+            negative_controls_checked["PUT /api/v1/policy/stop-placement"] = {
+                "status_code": r_put_pol.status_code,
+                "blocked": r_put_pol.status_code == 403,
+                "payload": r_put_pol.json() if r_put_pol.headers.get("content-type", "").startswith("application/json") else {},
+            }
+            if r_put_pol.status_code != 403:
+                raise RuntimeError(f"Negative control PUT /api/v1/policy/stop-placement did not return 403 (got {r_put_pol.status_code})")
+
+            # Brief observation dwell to confirm zero background worker activity
+            time.sleep(1.5)
+
+            r_prof_final = client.get(f"{base_url}/api/v1/runtime/profile")
+            if r_prof_final.status_code != 200:
+                raise RuntimeError(f"Failed to query final /api/v1/runtime/profile: {r_prof_final.status_code}")
+            final_profile_payload = r_prof_final.json()
+
+            db_sha256_during = hashlib.sha256(preflight_db_path.read_bytes()).hexdigest()
+    except Exception as exc:
+        error_msg = str(exc)
+    finally:
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                out_str, err_str = proc.communicate(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                out_str, err_str = proc.communicate(timeout=5)
+        else:
+            out_str, err_str = proc.communicate(timeout=5)
+
+    duration_ms = int((time.perf_counter() - start_t) * 1000)
+
+    log_file = LOGS_DIR / "g57_observe_only_uvicorn_preflight.log"
+    with open(log_file, "w", encoding="utf-8") as lf:
+        lf.write(f"COMMAND: {' '.join(cmd)}\n")
+        lf.write(f"DURATION_MS: {duration_ms}\n")
+        lf.write(f"DB_PATH: {preflight_db_path}\n")
+        lf.write("--- STDOUT ---\n")
+        lf.write(out_str or "")
+        lf.write("\n--- STDERR ---\n")
+        lf.write(err_str or "")
+
+    db_bytes_after = preflight_db_path.read_bytes()
+    db_sha256_after = hashlib.sha256(db_bytes_after).hexdigest()
+    db_size_after = len(db_bytes_after)
+    wal_exists_after = Path(f"{preflight_db_path}-wal").exists()
+    shm_exists_after = Path(f"{preflight_db_path}-shm").exists()
+
+    # Check row counts inside disposable DB
+    conn_check = sqlite3.connect(f"file:{preflight_db_path}?mode=ro", uri=True)
+    try:
+        paper_orders_count = conn_check.execute("SELECT count(*) FROM paper_orders").fetchone()[0]
+    except Exception:
+        paper_orders_count = 0
+    finally:
+        conn_check.close()
+
+    counters = final_profile_payload.get("counters", {})
+    required_zero_counters = (
+        "PAPER_ORDERS_CREATED",
+        "PAPER_ORDERS_FILLED",
+        "PAPER_POSITIONS_CLOSED",
+        "LIVE_EXCHANGE_ORDERS_SENT",
+        "UNAUTHORIZED_DB_WRITES",
+        "BACKGROUND_TRADING_WORKERS_STARTED",
+        "UNEXPECTED_RUNTIME_ERRORS",
+    )
+    counters_all_zero = all(counters.get(k, -1) == 0 for k in required_zero_counters)
+    db_immutable = (
+        db_sha256_before == db_sha256_during == db_sha256_after
+        and db_size_before == db_size_after
+        and not wal_exists_after
+        and not shm_exists_after
+    )
+    resolved_prof = final_profile_payload.get("runtime_profile") or final_profile_payload.get("profile")
+    is_pass = (
+        error_msg is None
+        and startup_ready
+        and resolved_prof == "OBSERVE_ONLY"
+        and final_profile_payload.get("observe_only") is True
+        and counters_all_zero
+        and counters.get("BLOCKED_HTTP_MUTATION_ATTEMPTS", 0) >= 2
+        and db_immutable
+        and paper_orders_count == 0
+    )
+
+    preflight_report = {
+        "schema_version": 1,
+        "status": "PASS" if is_pass else "FAIL",
+        "error": error_msg,
+        "runtime_profile": resolved_prof,
+        "observe_only": final_profile_payload.get("observe_only"),
+        "port": port,
+        "duration_ms": duration_ms,
+        "isolated_db_path": str(preflight_db_path),
+        "db_size_bytes_before": db_size_before,
+        "db_size_bytes_after": db_size_after,
+        "db_sha256_before": db_sha256_before,
+        "db_sha256_during": db_sha256_during,
+        "db_sha256_after": db_sha256_after,
+        "db_immutable": db_immutable,
+        "wal_exists_after": wal_exists_after,
+        "shm_exists_after": shm_exists_after,
+        "paper_orders_row_count": paper_orders_count,
+        "counters": counters,
+        "lifespan_startup": final_profile_payload.get("startup_result") or final_profile_payload.get("lifespan_startup"),
+        "endpoints_checked": endpoints_checked,
+        "negative_controls_checked": negative_controls_checked,
+        "log_path": str(log_file.relative_to(ROOT)).replace("\\", "/"),
+    }
+    (RUNTIME_DIR / "observe_only_preflight.json").write_text(
+        json.dumps(preflight_report, indent=2),
+        encoding="utf-8",
+    )
+    return preflight_report
+
+
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -352,8 +633,10 @@ def main():
         "run_id": RUN_ID,
         "branch": "",
         "source_sha": "",
+        "tested_source_sha": "",
         "gates": {},
         "verdict": "BLOCKED",
+        "release_verdict": "V17_8_0_2_BLOCKED",
     }
 
     # --------------------------------------------------------------------------
@@ -368,6 +651,7 @@ def main():
     code_sha, sha_out, _, _ = run_cmd(["git", "rev-parse", "HEAD"], log_name="g01_sha")
     current_sha = sha_out.strip()
     results["source_sha"] = current_sha
+    results["tested_source_sha"] = current_sha
 
     # Verify ancestry from master
     code_base, base_out, _, _ = run_cmd(["git", "merge-base", "HEAD", "origin/master"], log_name="g01_base")
@@ -953,13 +1237,13 @@ def main():
         label="DEF-178-10 Anti-Lookahead, Unclosed HTF & Consumed FVG Rejection"
     )
 
-    # G49: End-to-End Runtime Integration (Scenarios 1-12)
+    # G49: End-to-End Runtime Integration (Scenarios 1-25)
     run_pytest_gate(
         "G49_END_TO_END_RUNTIME_INTEGRATION",
         ["backend/tests/test_v17_8_runtime_integration.py"],
-        "test_def_178_11",
-        min_passed=1,
-        label="DEF-178-11 Complete Scenarios 1-12 Runtime Integration Suite"
+        "test_def_178_11 or test_v17_8_0_2_missing_atr_frozen_sl_qty_and_bid_ask_exit_triggers",
+        min_passed=2,
+        label="DEF-178-11 & V17.8.0.2 Complete Runtime Integration Suite"
     )
 
     # G50: Frontend Mounted SLTPIntelligenceView E2E
@@ -1006,23 +1290,160 @@ def main():
         label="DEF-178-13 Honest Replay Comparison & Empirical P90 Calibration"
     )
 
-    # G42: Exact-Source & Artifact Integrity (runs after all test/command gates)
-    print("\n[G42_EXACT_SOURCE_AND_ARTIFACT_INTEGRITY] Verifying Exact Committed Source & Bundle Integrity...")
+    # Persist machine-readable replay comparison artifact inside bundle
+    try:
+        from services.stop_placement_research_service import calibrate_empirical_p90_noise_buffer
+        cal_sample = [
+            {"excursion_ticks": float(i), "completed_at_ms": 1_760_000_000_000 + i * 60_000}
+            for i in range(1, 21)
+        ]
+        cal_res = calibrate_empirical_p90_noise_buffer(cal_sample, decision_ms=1_760_010_000_000, min_sample_size=10)
+        replay_status_payload = {
+            "schema_version": 1,
+            "run_id": RUN_ID,
+            "calibration_verification": cal_res.to_dict() if hasattr(cal_res, "to_dict") else {"status": getattr(cal_res, "status", "UNKNOWN")},
+            "variants": {
+                "A": "LEGACY_FIXED_TICKS",
+                "B": "STRUCTURAL_TICK_FLOOR",
+                "C": "STRUCTURAL_DYNAMIC_BUFFER",
+                "D": "EXPERIMENTAL_FIXED_MULTIPLIER",
+            },
+        }
+    except Exception as rep_exc:
+        replay_status_payload = {"error": str(rep_exc)}
+    (REPLAY_DIR / "replay_comparison_status.json").write_text(
+        json.dumps(replay_status_payload, indent=2),
+        encoding="utf-8",
+    )
+
+    # ==========================================================================
+    # V17.8.0.2 SUPPLEMENTARY OBSERVATION SAFETY GATES (G53 to G58)
+    # ==========================================================================
+
+    # G53: Observe-Only Startup Isolation
+    run_pytest_gate(
+        "G53_OBSERVE_ONLY_STARTUP_ISOLATION",
+        ["backend/tests/test_v17_8_0_2_observe_only_runtime.py"],
+        "test_runtime_profile_resolution or test_observe_only_lifespan_startup",
+        min_passed=2,
+        label="V17.8.0.2 AURUM_BE_RUNTIME_PROFILE=OBSERVE_ONLY Startup & Worker Isolation"
+    )
+
+    # G54: Zero Background Order Mutations
+    run_pytest_gate(
+        "G54_ZERO_BACKGROUND_ORDER_MUTATIONS",
+        ["backend/tests/test_v17_8_0_2_observe_only_runtime.py"],
+        "test_observe_only_lifespan_startup or test_observe_only_blocks_worker",
+        min_passed=2,
+        label="V17.8.0.2 Zero Background Order Creation/Fill/Close Mutations"
+    )
+
+    # G55: Zero Live Exchange Dispatch
+    run_pytest_gate(
+        "G55_ZERO_LIVE_EXCHANGE_DISPATCH",
+        ["backend/tests/test_v17_8_0_2_observe_only_runtime.py"],
+        "test_observe_only_blocks_worker or test_observe_only_api_read_allowlist",
+        min_passed=2,
+        label="V17.8.0.2 Zero Live Exchange Dispatch in Observation Runtime"
+    )
+
+    # G56: Observation Database Immutability
+    run_pytest_gate(
+        "G56_OBSERVATION_DATABASE_IMMUTABILITY",
+        ["backend/tests/test_v17_8_0_2_observe_only_runtime.py"],
+        "test_observe_only_blocks_worker or test_observe_only_api_read_allowlist",
+        min_passed=2,
+        label="V17.8.0.2 Isolated Observation Database Byte-for-Byte Immutability"
+    )
+
+    # G57: Observation Startup & Clean Shutdown (Pytest + Live Isolated Uvicorn Subprocess Preflight)
+    print("\n[G57_OBSERVATION_STARTUP_SHUTDOWN] Executing Isolated Uvicorn OBSERVE_ONLY Subprocess Preflight & Lifecycle Suite...")
+    preflight_port = find_free_port(8815)
+    preflight_report = run_isolated_observe_only_backend_preflight(preflight_port)
+    results["runtime_preflight"] = preflight_report
+
+    report_xml_g57 = REPORTS_DIR / "g57_observation_startup_shutdown.xml"
+    cmd_g57 = [
+        PYTHON_BIN, "-m", "pytest", "-q",
+        "backend/tests/test_v17_8_0_2_observe_only_runtime.py",
+        f"--junitxml={str(report_xml_g57)}",
+        "-k", "test_observe_only_lifespan_startup or test_observe_only_api_read_allowlist"
+    ]
+    code_g57, out_g57, err_g57, dur_g57 = run_cmd(cmd_g57, log_name="g57_observation_startup_shutdown")
+    counts_g57 = parse_pytest_counts(out_g57, report_xml_g57)
+    if (
+        preflight_report.get("status") == "PASS"
+        and preflight_report.get("db_immutable") is True
+        and code_g57 == 0
+        and counts_g57.get("passed", 0) >= 1
+        and counts_g57.get("failed", 0) == 0
+    ):
+        print(
+            f"  -> PASS: Isolated Uvicorn OBSERVE_ONLY preflight passed on port {preflight_port} "
+            f"(DB SHA256 unchanged: {preflight_report['db_sha256_before'][:12]})"
+        )
+        results["gates"]["G57_OBSERVATION_STARTUP_SHUTDOWN"] = {
+            "status": "PASS",
+            "gate_type": "command",
+            "counts": counts_g57,
+            "preflight_status": preflight_report["status"],
+            "db_sha256_before": preflight_report["db_sha256_before"],
+            "db_sha256_after": preflight_report["db_sha256_after"],
+            "report_path": str(report_xml_g57.relative_to(ROOT)),
+            "report_status": "VALID",
+            "duration_ms": dur_g57 + preflight_report.get("duration_ms", 0),
+            "exit_code": 0,
+        }
+    else:
+        print(f"  -> FAIL: G57 Observation Startup/Shutdown preflight failed: {preflight_report}\n{out_g57}\n{err_g57}")
+        results["gates"]["G57_OBSERVATION_STARTUP_SHUTDOWN"] = {
+            "status": "FAIL",
+            "gate_type": "command",
+            "counts": counts_g57,
+            "preflight_status": preflight_report.get("status"),
+            "error": preflight_report.get("error"),
+            "duration_ms": dur_g57 + preflight_report.get("duration_ms", 0),
+            "exit_code": 1,
+        }
+
+    # G42 & G58: Exact-Source & Release Artifact Truth Integrity (runs after all test/command gates)
+    print("\n[G42 & G58] Verifying Exact Committed Source & Release Artifact Truth Integrity...")
     end_source_manifest = build_source_manifest(ROOT)
     source_clean = (end_source_manifest["composite_sha"] == source_manifest["composite_sha"])
 
-    if source_clean:
+    report_xml_g58 = REPORTS_DIR / "g58_release_artifact_truth.xml"
+    code_g58, out_g58, err_g58, dur_g58 = run_cmd(
+        [
+            PYTHON_BIN, "-m", "pytest", "-q",
+            "backend/tests/test_v17_8_acceptance_runner.py",
+            f"--junitxml={str(report_xml_g58)}",
+        ],
+        log_name="g58_release_artifact_truth",
+    )
+    counts_g58 = parse_pytest_counts(out_g58, report_xml_g58)
+
+    if source_clean and code_g58 == 0 and counts_g58.get("passed", 0) >= 7:
         print(f"  -> PASS: Source files unmutated during acceptance (SHA: {source_manifest['composite_sha'][:8]})")
         results["gates"]["G42_EXACT_SOURCE_AND_ARTIFACT_INTEGRITY"] = {
             "status": "PASS", "gate_type": "integrity", "sha": current_sha,
             "duration_ms": 0, "exit_code": 0, "integrity_verified": True
         }
+        results["gates"]["G58_RELEASE_ARTIFACT_TRUTH_INTEGRITY"] = {
+            "status": "PASS", "gate_type": "integrity", "sha": current_sha,
+            "tested_source_sha": current_sha, "counts": counts_g58,
+            "duration_ms": dur_g58, "exit_code": 0, "integrity_verified": True
+        }
     else:
-        print("CRITICAL SAFETY BLOCKER: Source files were modified during acceptance run!")
+        print("CRITICAL SAFETY BLOCKER: Source files were modified during acceptance run or G58 tests failed!")
         results["gates"]["G42_EXACT_SOURCE_AND_ARTIFACT_INTEGRITY"] = {
             "status": "FAIL", "gate_type": "integrity", "sha": current_sha,
             "duration_ms": 0, "exit_code": 1, "integrity_verified": False,
             "error": "SOURCE_MUTATED_DURING_RUN"
+        }
+        results["gates"]["G58_RELEASE_ARTIFACT_TRUTH_INTEGRITY"] = {
+            "status": "FAIL", "gate_type": "integrity", "sha": current_sha,
+            "tested_source_sha": current_sha, "counts": counts_g58,
+            "duration_ms": dur_g58, "exit_code": 1, "integrity_verified": False,
         }
 
     # --------------------------------------------------------------------------
@@ -1030,9 +1451,15 @@ def main():
     # --------------------------------------------------------------------------
     print("\n" + "=" * 80)
     final_verdict = determine_release_verdict(results["gates"], MANDATORY_GATES_V17_8)
+    v17_8_0_2_verdict = determine_v17_8_0_2_release_verdict(
+        results["gates"],
+        MANDATORY_GATES_V17_8_0_2,
+        results.get("runtime_preflight"),
+    )
     results["verdict"] = final_verdict
-    print(f"FINAL ACCEPTANCE VERDICT: {final_verdict}")
-    if final_verdict == "ACCEPTED_FOR_PAPER_OPT_IN":
+    results["release_verdict"] = v17_8_0_2_verdict
+    print(f"FINAL ACCEPTANCE VERDICT: {final_verdict} | RELEASE VERDICT: {v17_8_0_2_verdict}")
+    if final_verdict == "ACCEPTED_FOR_PAPER_OPT_IN" and v17_8_0_2_verdict == "V17_8_0_2_ACCEPTED_FOR_SAFE_OBSERVATION":
         print(f"All {len(MANDATORY_GATES_V17_8)} release gates successfully passed with verified machine evidence!")
     else:
         print("One or more mandatory release gates failed! Review gate details above.")
@@ -1059,11 +1486,16 @@ def main():
         expected_source_sha=current_sha,
         expected_gate_manifest=MANDATORY_GATES_V17_8,
     )
-    if ok_bundle and final_verdict == "ACCEPTED_FOR_PAPER_OPT_IN":
+    if (
+        ok_bundle
+        and final_verdict == "ACCEPTED_FOR_PAPER_OPT_IN"
+        and v17_8_0_2_verdict == "V17_8_0_2_ACCEPTED_FOR_SAFE_OBSERVATION"
+    ):
         print("  -> PASS: Published bundle integrity strictly verified against leaf hashes and verdict.")
     else:
         print(f"  -> FAIL: Published bundle verification failed: {bundle_errors}")
         results["verdict"] = "BLOCKED"
+        results["release_verdict"] = "V17_8_0_2_BLOCKED"
         results["bundle_verification_errors"] = bundle_errors
         write_acceptance_artifacts(
             run_id=RUN_ID,
@@ -1079,13 +1511,15 @@ def main():
         "schema_version": 1,
         "version": RUNNER_VERSION,
         "latest_run_id": RUN_ID,
-        "run_directory": str(published_dir.relative_to(ROOT)),
+        "run_directory": str(published_dir.relative_to(ROOT)).replace("\\", "/"),
+        "tested_source_sha": current_sha,
         "verdict": results["verdict"],
+        "release_verdict": results["release_verdict"],
         "timestamp_utc": results["timestamp_utc"],
     }
     (ARTIFACTS_DIR / VERSION_SUBDIR / "latest_run.json").write_text(json.dumps(latest_pointer, indent=2), encoding="utf-8")
 
-    return 0 if results["verdict"] == "ACCEPTED_FOR_PAPER_OPT_IN" else 1
+    return 0 if (results["verdict"] == "ACCEPTED_FOR_PAPER_OPT_IN" and results["release_verdict"] == "V17_8_0_2_ACCEPTED_FOR_SAFE_OBSERVATION") else 1
 
 
 if __name__ == "__main__":
