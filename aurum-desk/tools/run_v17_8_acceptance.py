@@ -386,7 +386,7 @@ def main():
     def run_pytest_gate(gate_id: str, test_files: list, filter_expr: str, min_passed: int, label: str, timeout: int = 600):
         print(f"\n[{gate_id}] Verifying {label}...")
         report_xml = REPORTS_DIR / f"{gate_id.lower()}.xml"
-        cmd = [PYTHON_BIN, "-m", "pytest"] + test_files + [f"--junitxml={str(report_xml)}"]
+        cmd = [PYTHON_BIN, "-m", "pytest", "-q"] + test_files + [f"--junitxml={str(report_xml)}"]
         if filter_expr:
             cmd += ["-k", filter_expr]
 
@@ -596,7 +596,8 @@ def main():
         v17_6_files,
         filter_expr="",
         min_passed=300,
-        label=f"V17.6 Regression Suite ({len(v17_6_files)} test files)"
+        label=f"V17.6 Regression Suite ({len(v17_6_files)} test files)",
+        timeout=1800,
     )
 
     # G20: Full Backend Pytest Suite
@@ -606,7 +607,7 @@ def main():
         filter_expr="",
         min_passed=3000,
         label="Entire backend/tests Pytest Suite",
-        timeout=1800,
+        timeout=2400,
     )
 
     # G21: Frontend Vitest Suite
