@@ -865,28 +865,55 @@ def resolve_stop_anchor(
     confirmed_swings: Optional[Tuple[Sequence[Dict[str, Any]], Sequence[Dict[str, Any]]]] = None,
     tick_size: float = 0.01,
     unicorn_evidence: Optional[Any] = None,
+    policy: Optional[StopPlacementPolicy] = None,
 ) -> StopAnchorResult:
     """
     Identifies the model-specific structural protective anchor.
-    - Unicorn: Verified Breaker distal boundary / invalidation price.
+    - Unicorn: Verified Breaker distal boundary / invalidation price (only when Unicorn is VALID
+      and V17.8 structural intelligence is enabled or directly invoked).
     - Continuation: Protective swing high (for SHORT) or low (for LONG) originating the break leg.
     - FVG Continuation: Protected origin extreme of the leg producing the break and FVG,
-      falling back to displacement origin swing prior to FVG formation if bound leg is stale/breached.
+      falling back to displacement origin swing prior to FVG formation if bound leg is stale/breached
+      (when V17.8 structural intelligence is enabled).
     - Sweep Reclaim / Reversal / CG01: True extreme of the swept episode.
     """
     norm_dir = direction.upper()
+    v18_enabled = (
+        policy is None
+        or getattr(policy, "v18_structural_intelligence_enabled", False) is True
+    )
 
-    # 0. Unicorn Evidence: Breaker Distal Invalidation (V17.8)
+    # 0. Unicorn Evidence: Breaker Distal Invalidation (V17.8.0.1)
     if unicorn_evidence is not None:
+        u_status = getattr(unicorn_evidence, "validity_status", None) or (
+            unicorn_evidence.get("validity_status") if isinstance(unicorn_evidence, dict) else None
+        )
         u_valid = getattr(unicorn_evidence, "is_valid", False)
         if not u_valid and isinstance(unicorn_evidence, dict):
-            u_valid = unicorn_evidence.get("validity_status") in ("CONFIRMED", "VALID", "WAITING_RETEST")
-        
+            u_valid = u_status in ("CONFIRMED", "VALID")
+
+        hard_invalid_statuses = {
+            "UNICORN_INVALIDATED",
+            "FUTURE_DATA_REJECTED",
+            "UNCLOSED_EVIDENCE_REJECTED",
+            "CONSUMED_OR_INVALIDATED_FVG",
+            "RETEST_BEFORE_CONFIRMATION",
+            "WRONG_DIRECTION_OVERLAP",
+            "EPISODE_MISMATCH",
+            "MISSING_CAUSAL_PROVENANCE",
+        }
+        if not u_valid and (model_id == "ICT_UNICORN" or str(u_status) in hard_invalid_statuses):
+            return StopAnchorResult(
+                status="INVALID_DATA",
+                anchor=None,
+                reasons=(str(u_status or "UNICORN_INVALID"),),
+            )
+
         inval_px = getattr(unicorn_evidence, "invalidation_price", None)
         if inval_px is None and isinstance(unicorn_evidence, dict):
             inval_px = unicorn_evidence.get("invalidation_price")
-            
-        if u_valid and inval_px is not None and math.isfinite(float(inval_px)):
+
+        if v18_enabled and u_valid and inval_px is not None and math.isfinite(float(inval_px)):
             breaker_id = getattr(unicorn_evidence, "breaker_id", None) or (unicorn_evidence.get("breaker_id") if isinstance(unicorn_evidence, dict) else f"brk_{as_of_ms}")
             occ_ms = getattr(unicorn_evidence, "breaker_confirmed_at_ms", None) or (unicorn_evidence.get("breaker_confirmed_at_ms") if isinstance(unicorn_evidence, dict) else as_of_ms)
             known_ms = getattr(unicorn_evidence, "known_at_ms", None) or (unicorn_evidence.get("known_at_ms") if isinstance(unicorn_evidence, dict) else occ_ms)
@@ -1004,7 +1031,7 @@ def resolve_stop_anchor(
 
             # V17.8 Fallback: If bound_leg is unavailable or already invalidated,
             # bind to the true displacement origin extreme preceding the FVG formation
-            if anchor is None and pivots:
+            if v18_enabled and anchor is None and pivots:
                 fvg_t = leg_cutoff_ms
                 eligible_pivots = [
                     p for p in pivots

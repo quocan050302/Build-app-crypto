@@ -472,16 +472,51 @@ def _check_geometry(req: EntryGuardRequest) -> EntryCheck:
         if not _finite(v) or float(v) <= 0:
             return EntryCheck("INVALID_PRICE_GEOMETRY", "BLOCK",
                               f"Mức giá {name} không hợp lệ ({v}).", "Kiểm tra lại bộ giá Entry/SL/TP.")
-    ok, err = validate_price_geometry(req.direction, float(req.planned_entry), float(req.stop_loss), float(req.take_profit))
-    if not ok:
-        return EntryCheck("INVALID_PRICE_GEOMETRY", "BLOCK", f"{err}", "Kiểm tra lại hướng và bộ giá.")
 
-    # V17.8: Quote-Distance Guard against immediate microstructure noise
-    if req.validated_quote is not None and getattr(req.validated_quote, "is_valid", False) and req.min_protective_distance is not None and req.min_protective_distance > 0:
+    # V17.8.0.1: Validate min_protective_distance integrity (fail closed on malformed values or missing V17.8 structural metadata)
+    min_dist: Optional[float] = None
+    if req.min_protective_distance is not None:
+        if isinstance(req.min_protective_distance, bool) or not _finite(req.min_protective_distance) or float(req.min_protective_distance) <= 0:
+            return EntryCheck(
+                "INVALID_PROTECTIVE_DISTANCE",
+                "BLOCK",
+                f"Khoảng cách bảo vệ tối thiểu không hợp lệ ({req.min_protective_distance}).",
+                "Kiểm tra lại dữ liệu bảo vệ SL của lệnh.",
+            )
+        min_dist = float(req.min_protective_distance)
+    else:
+        sd = req.stop_decision
+        sd_mode = getattr(sd, "mode", None) if sd is not None and not isinstance(sd, dict) else (sd.get("mode") if isinstance(sd, dict) else None)
+        sd_algo = getattr(sd, "algorithm_version", None) if sd is not None and not isinstance(sd, dict) else (sd.get("algorithm_version") if isinstance(sd, dict) else None)
+        sd_prot = getattr(sd, "protective_distance", None) if sd is not None and not isinstance(sd, dict) else (sd.get("protective_distance") if isinstance(sd, dict) else None)
+        ev_dict = req.evidence or {}
+        is_v18_struct = bool(
+            ev_dict.get("v18_structural_intelligence_enabled")
+            or (sd_mode == "PAPER_STRUCTURAL" and str(sd_algo or "").startswith("V17_8"))
+        )
+        if sd_prot is not None:
+            if isinstance(sd_prot, bool) or not _finite(sd_prot) or float(sd_prot) <= 0:
+                return EntryCheck(
+                    "INVALID_PROTECTIVE_DISTANCE",
+                    "BLOCK",
+                    f"Khoảng cách bảo vệ tối thiểu trong quyết định SL không hợp lệ ({sd_prot}).",
+                    "Kiểm tra lại dữ liệu bảo vệ SL của lệnh.",
+                )
+            min_dist = float(sd_prot)
+        elif is_v18_struct:
+            return EntryCheck(
+                "MISSING_PROTECTIVE_DISTANCE",
+                "BLOCK",
+                "Thiếu khoảng cách bảo vệ tối thiểu (min_protective_distance) cho lệnh cấu trúc V17.8.",
+                "Kiểm tra lại snapshot ARM hoặc đánh giá lại setup.",
+            )
+
+    # V17.8.0.1: Quote-Distance Guard against immediate microstructure noise & stop breach
+    # Evaluated BEFORE static entry-vs-SL check so a breached stop at FILL reports INVALID_GEOMETRY_STOP_BREACHED
+    if req.validated_quote is not None and getattr(req.validated_quote, "is_valid", False) and min_dist is not None and min_dist > 0:
         bid = getattr(req.validated_quote, "bid", None)
         ask = getattr(req.validated_quote, "ask", None)
         norm_dir = req.direction.upper() if req.direction else "UNKNOWN"
-        min_dist = req.min_protective_distance
 
         if norm_dir in ("SHORT", "SELL") and ask is not None and _finite(ask):
             remaining = float(req.stop_loss) - float(ask)
@@ -489,7 +524,7 @@ def _check_geometry(req: EntryGuardRequest) -> EntryCheck:
                 return EntryCheck("INVALID_GEOMETRY_STOP_BREACHED", "BLOCK",
                                   f"Giá Ask ({ask}) đã chạm hoặc vượt quá mức SL ({req.stop_loss}).",
                                   "Không thể vào lệnh khi giá thị trường đã xuyên thủng điểm dừng lỗ.")
-            if min_dist > 0 and remaining < min_dist:
+            if min_dist is not None and min_dist > 0 and remaining < min_dist:
                 return EntryCheck("STOP_TOO_CLOSE_TO_EXECUTABLE_QUOTE", "BLOCK",
                                   f"Khoảng cách còn lại tới SL ({remaining:.2f}) nhỏ hơn khoảng cách bảo vệ tối thiểu ({min_dist:.2f}).",
                                   "Chờ điểm vào có khoảng đệm an toàn hơn trước khi thực thi.")
@@ -499,15 +534,35 @@ def _check_geometry(req: EntryGuardRequest) -> EntryCheck:
                 return EntryCheck("INVALID_GEOMETRY_STOP_BREACHED", "BLOCK",
                                   f"Giá Bid ({bid}) đã chạm hoặc rơi dưới mức SL ({req.stop_loss}).",
                                   "Không thể vào lệnh khi giá thị trường đã xuyên thủng điểm dừng lỗ.")
-            if min_dist > 0 and remaining < min_dist:
+            if min_dist is not None and min_dist > 0 and remaining < min_dist:
                 return EntryCheck("STOP_TOO_CLOSE_TO_EXECUTABLE_QUOTE", "BLOCK",
                                   f"Khoảng cách còn lại tới SL ({remaining:.2f}) nhỏ hơn khoảng cách bảo vệ tối thiểu ({min_dist:.2f}).",
                                   "Chờ điểm vào có khoảng đệm an toàn hơn trước khi thực thi.")
 
+    ok, err = validate_price_geometry(req.direction, float(req.planned_entry), float(req.stop_loss), float(req.take_profit))
+    if not ok:
+        return EntryCheck("INVALID_PRICE_GEOMETRY", "BLOCK", f"{err}", "Kiểm tra lại hướng và bộ giá.")
+
     # V17.8: Unicorn Invalidation Guard
     if req.unicorn_evidence is not None:
         u_valid = getattr(req.unicorn_evidence, "is_valid", None)
-        if u_valid is False or (isinstance(req.unicorn_evidence, dict) and req.unicorn_evidence.get("validity_status") in ("INVALIDATED", "BREACHED")):
+        u_status = (
+            getattr(req.unicorn_evidence, "validity_status", None)
+            if not isinstance(req.unicorn_evidence, dict)
+            else req.unicorn_evidence.get("validity_status")
+        )
+        if u_valid is False or u_status in (
+            "INVALIDATED",
+            "BREACHED",
+            "UNICORN_INVALIDATED",
+            "FUTURE_DATA_REJECTED",
+            "UNCLOSED_EVIDENCE_REJECTED",
+            "CONSUMED_OR_INVALIDATED_FVG",
+            "RETEST_BEFORE_CONFIRMATION",
+            "WRONG_DIRECTION_OVERLAP",
+            "EPISODE_MISMATCH",
+            "MISSING_CAUSAL_PROVENANCE",
+        ):
             return EntryCheck("UNICORN_INVALIDATED", "BLOCK",
                               "Cấu trúc ICT Unicorn đã bị vi phạm hoặc không còn hiệu lực.",
                               "Hủy bỏ hoặc chờ thiết lập cấu trúc mới.")

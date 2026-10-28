@@ -37,13 +37,18 @@ All 42 release gates (G01 to G42) have been implemented, tested, and verified wi
 
 ---
 
-## 3. Forensic Audit of Real Historical Trade
+## 3. Forensic Audit of Real Historical Trade (Reconciled in V17.8.0.1)
+> **V17.8.0.1 Forensic Correction Notice (`DEF-178-14`):** Earlier summary text in this section contained narrative shorthand ("9 seconds", "0.20 spread", "0.15 oz -> $2.50 risk / +5.60R") that conflicted with `docs/V17_8_STOP_OUT_FORENSIC_AUDIT.md` and `domain_calculator.calculate_risk_reward`. The authoritative reconciled figures below are verified by `test_def_178_14_forensic_audit_truth_reconciliation` (see `docs/V17_8_0_1_FORENSIC_TRUTH_RECONCILIATION.md`).
+
 - **Order ID:** `ord_SMC_M1_FVG_CONTINUATION_fvg_cont_SHORT_fvg-bear-1M-1793102220000_1793102400000`
-- **Execution Mode:** `SHADOW_COMPARE` (Variant A executed, Variant C rejected due to `ANCHOR_ALREADY_INVALIDATED`).
-- **Planned Entry:** 4021.18 | **Actual Entry:** 4021.08 | **Original SL:** 4021.67 ($0.59 distance).
-- **M1 ATR:** 0.9814 | **M5 ATR:** 3.3836 | **Spread:** 0.20 USDT.
-- **Root Cause:** Stop loss placed inside the 1-minute microstructure volatility noise zone (`distance < ATR_M1`). Market Ask fluctuated to 4021.74 within 9 seconds of entry, stopping out the order, after which price dropped to 4001.00 (reaching TP at 4002.34).
-- **V17.8 Outcome:** Under V17.8, the Breaker distal high (4024.50) + buffer places SL at 4024.80 ($3.72 distance). Quantity downscales to 0.15 oz ($2.50 risk budget conserved). The position easily withstands the 4021.75 excursion and achieves a full profit target exit (+5.60R).
+- **Execution Mode:** `SHADOW_COMPARE` (Variant A executed at `0.64 oz`, Variant C rejected due to `ANCHOR_ALREADY_INVALIDATED`).
+- **Planned Entry:** `4021.18` | **Actual Entry:** `4021.08` | **Original SL:** `4021.67` (`$0.59` distance).
+- **Filled Timestamp:** `1793102463329` | **Closed Timestamp:** `1793102574926` | **Exact Hold Duration:** `111,597 ms` (`111.597 seconds`).
+- **M1 ATR:** `0.9814` | **M5 ATR:** `3.3836` | **Spread at ARM:** `0.01 USDT` (`Bid=4021.08, Ask=4021.09`).
+- **Root Cause:** Stop loss placed inside the 1-minute microstructure volatility noise zone (`distance 0.59 < ATR_M1 0.9814`). Market Ask ticked to `4021.74` after `111.597s`, stopping out the order (`realized_pnl_net = -2.48 USDT`), without breaching the episode displacement high (`4022.23`).
+- **V17.8.0.1 Reconciled Structural Outcome:**
+  - At structural `SL = 4024.80` (`$3.72` stop distance) auto-sized for the `$2.50 USDT` risk budget (`calculate_risk_reward`): `quantity = 0.35 oz`, `net_risk_usdt = 2.50 USDT`, `net_reward_usdt = 5.40 USDT` (`net_rr = 2.1617R` taker TP) or `5.68 USDT` (`net_rr = 2.2738R` maker TP).
+  - At fixed `0.15 oz` quantity (`quantity_override=0.15`): `net_risk_usdt = 1.07 USDT`, `net_reward_usdt = 2.31 USDT` (`net_rr = 2.1617R` taker TP) or `2.43 USDT` (`net_rr = 2.2738R` maker TP).
 
 ---
 

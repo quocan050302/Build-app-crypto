@@ -137,13 +137,16 @@ Stored in `cost_snapshot.exit_evidence`:
 **Stopped by real-time tick Ask.** An Ask quote of $4021.74 breached the $4021.67 trigger level at timestamp 1793102574926, filling with 0.07 slippage at $4021.74.
 
 ### Q11: Would an alternative structural SL have passed all financial guards?
-**Answer:** **YES.**  
-- **Alternative SL:** Displacement origin $4022.23 + dynamic buffer $0.34 = **$4022.57**.
-- **Distance from Entry (4021.08):** $1.49 USDT.
-- **Quantity Resizing:** Authorized quantity would resize from 0.64 down to `2.50 / (1.49 + 0.1 slippage + 0.04 fees) ≈ 0.25 units`.
-- **Take Profit Target:** $4002.34 (reward = $18.74 USDT).
-- **Net R:R:** `(18.74 * 0.25) / 2.50 ≈ 1.87R` (exceeding `min_net_rr = 1.5`).
-- **Financial Invariants:** Risk budget conserved ($2.50 USDT), liquidation price well above $4150, margin within bounds.
+**Answer:** **YES (Verified via Authoritative `domain_calculator.calculate_risk_reward`).**  
+- **Case A — Historical Displacement Origin SL (`4022.57` = `4022.23 + 0.34` buffer):**
+  - Distance from Entry (`4021.08`): `$1.49 USDT`.
+  - Authoritative `calculate_risk_reward` (`$2.50` risk budget): `quantity = 0.71 oz`, `net_risk_usdt = 2.49 USDT`, `net_reward_usdt = 10.97 USDT`, `net_rr = 4.4139R`.
+- **Case B — Wider Unicorn / Structural SL (`4024.80`):**
+  - Distance from Entry (`4021.08`): `$3.72 USDT`.
+  - Auto-sized for `$2.50` risk budget: `quantity = 0.35 oz`, `net_risk_usdt = 2.50 USDT`, `net_reward_usdt = 5.40 USDT` (`net_rr = 2.1617R` taker TP) or `5.68 USDT` (`net_rr = 2.2738R` maker TP).
+  - Fixed `0.15 oz` quantity: `net_risk_usdt = 1.07 USDT`, `net_reward_usdt = 2.31 USDT` (`net_rr = 2.1617R` taker TP) or `2.43 USDT` (`net_rr = 2.2738R` maker TP).
+- **Financial Invariants:** Risk budget conserved (`<= $2.50 USDT`), liquidation price well above `$4790`, margin within bounds (`can_execute = True`, `meets_min_rr = True`).
+- *(See `docs/V17_8_0_1_FORENSIC_TRUTH_RECONCILIATION.md` for complete V17.8.0.1 calculator reconciliation).*
 
 ### Q12: Was this a legitimate structural invalidation or a potential premature stop-out?
 **Answer:**  

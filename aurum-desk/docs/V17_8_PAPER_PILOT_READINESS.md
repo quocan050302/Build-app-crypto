@@ -4,11 +4,13 @@
 - **Release Version:** V17.8.0
 - **Execution Target:** Isolated PAPER Environment only.
 - **LIVE Dispatch Policy:** Permanently disabled (`LIVE_EXCHANGE_ORDERS_SENT == 0`).
-- **Feature Flag Initial State:**
+- **Feature Flag Initial State (Reconciled in V17.8.0.1 `DEF-178-08`):**
   - `v18_structural_intelligence_enabled = False` (default off)
-  - `v18_unicorn_detection_enabled = True` (Shadow comparison enabled)
-  - `v18_noise_research_enabled = True` (Research mode enabled)
+  - `v18_unicorn_detection_enabled = False` (default off; operator may enable for Shadow comparison)
+  - `v18_noise_research_enabled = False` (default off; operator may enable for Research mode)
+  - `v18_execution_policy_version = 1`
   - Default mode: `SHADOW_COMPARE`
+  - *(See `docs/V17_8_0_1_PAPER_PILOT_READINESS.md` for full V17.8.0.1 persisted flag lifecycle).*
 
 ---
 

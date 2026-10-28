@@ -3203,19 +3203,60 @@ class ScalpWatcherOrchestrator:
         if quality_assessment:
             arm_snap["quality_assessment"] = quality_assessment.to_dict()
 
-        # V17.5/V17.5.8: Stop Placement additive metadata in arm_snap
+        # V17.5/V17.8.0.1: Stop Placement & Unicorn additive metadata in arm_snap
         sp = getattr(cand, "stop_placement", None)
         if sp is not None:
             arm_snap["stop_placement"] = sp.to_dict() if hasattr(sp, "to_dict") else sp
+        uni_ev = getattr(cand, "unicorn_evidence", None)
+        if uni_ev is not None:
+            arm_snap["unicorn_evidence"] = uni_ev.to_dict() if hasattr(uni_ev, "to_dict") else uni_ev
+            arm_snap["unicorn_evidence_id"] = (
+                getattr(uni_ev, "unicorn_id", None)
+                if not isinstance(uni_ev, dict)
+                else uni_ev.get("unicorn_id")
+            )
+        else:
+            arm_snap["unicorn_evidence_id"] = getattr(sp, "unicorn_id", None) if sp is not None else None
         if getattr(cand, "stop_comparison", None) is not None:
             sc = cand.stop_comparison
             arm_snap["stop_comparison_plan_id"] = getattr(sc, "opportunity_key", None) or getattr(sc, "id", None)
             arm_snap["stop_comparison"] = sc.to_dict() if hasattr(sc, "to_dict") else sc
         from services.stop_placement_policy_service import resolve_stop_placement_policy
         current_sp_policy = resolve_stop_placement_policy(db)
+        arm_snap["selected_stop_loss"] = cand.stop_loss
+        arm_snap["selected_take_profit"] = cand.take_profit
+        arm_snap["min_protective_distance"] = (
+            getattr(sp, "protective_distance", None)
+            if sp is not None and not isinstance(sp, dict)
+            else (sp.get("protective_distance") if isinstance(sp, dict) else None)
+        )
         arm_snap["stop_mode_at_arm"] = getattr(sp, "mode", current_sp_policy.mode) if sp is not None else current_sp_policy.mode
         arm_snap["stop_policy_version"] = getattr(sp, "policy_version", current_sp_policy.version) if sp is not None else current_sp_policy.version
+        arm_snap["stop_algorithm_version"] = (
+            getattr(sp, "algorithm_version", current_sp_policy.algorithm_version)
+            if sp is not None
+            else current_sp_policy.algorithm_version
+        )
         arm_snap["applied_variant"] = getattr(sp, "applied_variant", "A") if sp is not None else "A"
+        sp_anchor = (
+            getattr(sp, "anchor", None)
+            if sp is not None and not isinstance(sp, dict)
+            else (sp.get("anchor") if isinstance(sp, dict) else None)
+        )
+        arm_snap["structural_anchor_id"] = (
+            getattr(sp_anchor, "id", None)
+            if sp_anchor is not None and not isinstance(sp_anchor, dict)
+            else (sp_anchor.get("id") if isinstance(sp_anchor, dict) else None)
+        )
+        arm_snap["quote_timestamp_at_arm"] = (
+            getattr(v_quote, "observed_at", None) or getattr(v_quote, "exchange_time", None) or now_ms
+            if v_quote is not None
+            else now_ms
+        )
+        arm_snap["v18_structural_intelligence_enabled"] = bool(current_sp_policy.v18_structural_intelligence_enabled)
+        arm_snap["v18_unicorn_detection_enabled"] = bool(current_sp_policy.v18_unicorn_detection_enabled)
+        arm_snap["v18_noise_research_enabled"] = bool(current_sp_policy.v18_noise_research_enabled)
+        arm_snap["v18_execution_policy_version"] = int(current_sp_policy.v18_execution_policy_version)
 
         # V17.5.9 (D03, Section 05 Part 037): Final shared ARM invariant barrier before order persistence
         is_arm_valid, arm_inv_reason = validate_arm_invariants(

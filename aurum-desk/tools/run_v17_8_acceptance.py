@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-AURUM DESK V17.8 — EVIDENCE-BASED MASTER ACCEPTANCE RUNNER
-============================================================
-Enforces all 42 release gates (G01 to G42) for V17.8:
-ICT Unicorn-Assisted Structural SL/TP & Market Noise Intelligence.
+AURUM DESK V17.8.0.1 — EVIDENCE-BASED MASTER ACCEPTANCE RUNNER
+==============================================================
+Enforces all 52 release gates (G01 to G52) for V17.8.0.1:
+Runtime Integration Closure, Forensic Truth Repair & Honest Acceptance.
 Branch: feat/v17-8-unicorn-structural-sl-tp-intelligence
 """
 
@@ -40,7 +40,7 @@ NPX_BIN = shutil.which("npx.cmd") or shutil.which("npx") or "npx"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(BACKEND))
 
-RUN_ID = os.getenv("AURUM_TEST_RUN_ID") or f"run_v17_8_{int(time.time()*1000)}_{os.getpid()}"
+RUN_ID = os.getenv("AURUM_TEST_RUN_ID") or f"run_v17_8_0_1_{int(time.time()*1000)}_{os.getpid()}"
 
 # P0 GUARD: Set testing environment flags in runner process BEFORE any backend import
 os.environ["TESTING"] = "1"
@@ -58,7 +58,9 @@ from tools.artifact_verifier import (
     verify_acceptance_bundle,
 )
 
-RUN_DIR = ARTIFACTS_DIR / "v17_8" / RUN_ID
+VERSION_SUBDIR = "v17_8_0_1"
+RUNNER_VERSION = "17.8.0.1"
+RUN_DIR = ARTIFACTS_DIR / VERSION_SUBDIR / RUN_ID
 REPORTS_DIR = RUN_DIR / "reports"
 LOGS_DIR = RUN_DIR / "logs"
 
@@ -229,7 +231,7 @@ def parse_playwright_counts(output_text: str) -> dict:
 
 def verify_live_order_safety_boundary():
     """
-    V17.8 Safety Invariant:
+    V17.8.0.1 Safety Invariant:
     - Instruments network boundaries with active spy.
     - Exercises negative control verifying forbidden sink detection.
     - Exercises legitimate production PAPER lifecycle asserting zero exchange orders.
@@ -338,7 +340,7 @@ def main():
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
     print("=" * 80)
-    print("AURUM DESK V17.8 — EVIDENCE-BASED MASTER ACCEPTANCE RUNNER")
+    print(f"AURUM DESK V{RUNNER_VERSION} — EVIDENCE-BASED MASTER ACCEPTANCE RUNNER")
     print(f"Run ID: {RUN_ID}")
     print("=" * 80)
 
@@ -346,7 +348,7 @@ def main():
 
     results = {
         "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "runner_version": "17.8.0",
+        "runner_version": RUNNER_VERSION,
         "run_id": RUN_ID,
         "branch": "",
         "source_sha": "",
@@ -668,6 +670,7 @@ def main():
         "AURUM_E2E_PYTHON": PYTHON_BIN,
         "AURUM_E2E_API_PORT": pw_api_port,
         "AURUM_E2E_WEB_PORT": pw_web_port,
+        "AURUM_E2E_REPORT": str(REPORTS_DIR / "g24_playwright_report.json"),
     }
     code, out, err, dur = run_cmd(
         [NPX_BIN, "playwright", "test", "tests/e2e/v17_5_3_stop_browser.e2e.ts"],
@@ -697,9 +700,9 @@ def main():
     # G26: Acceptance Runner Negative-Control Tests
     run_pytest_gate(
         "G26_ACCEPTANCE_RUNNER_NEGATIVE_TESTS",
-        ["backend/tests/test_v17_7_adaptive_stop_loss.py"],
-        "test_ce_19",
-        min_passed=1,
+        ["backend/tests/test_v17_7_adaptive_stop_loss.py", "backend/tests/test_v17_8_acceptance_runner.py"],
+        "test_ce_19 or test_verdict_",
+        min_passed=7,
         label="Acceptance Runner Negative-Control Suite"
     )
 
@@ -724,7 +727,7 @@ def main():
         }
 
     # G28: Documentation Completeness & Consistency
-    print("\n[G28_DOCS_DEFECT_REGISTER_CONSISTENCY] Verifying V17.8 Documentation Consistency...")
+    print("\n[G28_DOCS_DEFECT_REGISTER_CONSISTENCY] Verifying V17.8 & V17.8.0.1 Documentation Consistency...")
     req_docs = [
         "docs/V17_8_MASTER_DESIGN.md",
         "docs/V17_8_EXISTING_ARCHITECTURE_MAP.md",
@@ -740,6 +743,18 @@ def main():
         "docs/V17_8_EXACT_COMMIT_ACCEPTANCE.md",
         "docs/V17_8_FINAL_RELEASE_REPORT.md",
         "docs/V17_8_PAPER_PILOT_READINESS.md",
+        "docs/V17_8_0_1_RUNTIME_DEFECT_REPRODUCTION.md",
+        "docs/V17_8_0_1_UNICORN_CONTRACT_FIX.md",
+        "docs/V17_8_0_1_POLICY_PERSISTENCE_PROOF.md",
+        "docs/V17_8_0_1_FILL_GUARD_PROOF.md",
+        "docs/V17_8_0_1_CAUSAL_UNICORN_PROOF.md",
+        "docs/V17_8_0_1_RUNTIME_INTEGRATION_MATRIX.md",
+        "docs/V17_8_0_1_FRONTEND_E2E_PROOF.md",
+        "docs/V17_8_0_1_FORENSIC_TRUTH_RECONCILIATION.md",
+        "docs/V17_8_0_1_REPLAY_CALIBRATION_REPORT.md",
+        "docs/V17_8_0_1_ACCEPTANCE_GATE_REPORT.md",
+        "docs/V17_8_0_1_PAPER_PILOT_READINESS.md",
+        "docs/V17_8_0_1_FINAL_RELEASE_REPORT.md",
     ]
     missing_docs = []
     for doc in req_docs:
@@ -760,7 +775,7 @@ def main():
         }
 
     # ==========================================================================
-    # V17.8 SPECIFIC ACCEPTANCE GATES (G29 to G42)
+    # V17.8 SPECIFIC ACCEPTANCE GATES (G29 to G41)
     # ==========================================================================
 
     # G29: Unicorn Breaker Detection
@@ -844,13 +859,13 @@ def main():
         label="Risk Budget Conservation ($2.50 USDT) & Quantity Downscaling"
     )
 
-    # G38: Complete ARM -> FILL -> EXIT Lifecycle
+    # G38: Complete ARM -> FILL -> EXIT Lifecycle (V17.7 + V17.8.0.1 Runtime Integration)
     run_pytest_gate(
         "G38_COMPLETE_ARM_FILL_EXIT",
-        ["backend/tests/test_v17_7_adaptive_stop_loss.py"],
-        "test_sl_43 or test_sl_46 or test_sl_47 or test_ce_13 or test_ce_14 or test_ce_15",
-        min_passed=6,
-        label="Complete Production Paper Lifecycle (ARM -> FILL -> CLOSED) Persistence"
+        ["backend/tests/test_v17_7_adaptive_stop_loss.py", "backend/tests/test_v17_8_runtime_integration.py"],
+        "test_sl_43 or test_sl_46 or test_sl_47 or test_ce_13 or test_ce_14 or test_ce_15 or test_def_178_11",
+        min_passed=7,
+        label="Complete Production Paper Lifecycle (ARM -> FILL -> CLOSED) Persistence (V17.7 & V17.8.0.1)"
     )
 
     # G39: Historical Replay Determinism & Matched Comparison
@@ -880,7 +895,118 @@ def main():
         label="Fail-Closed Negative Controls & Data Anti-Fabrication"
     )
 
-    # G42: Exact-Source & Artifact Integrity
+    # ==========================================================================
+    # V17.8.0.1 SPECIFIC ACCEPTANCE GATES (G43 to G52)
+    # ==========================================================================
+
+    # G43: Unicorn Runtime Interface Contract
+    run_pytest_gate(
+        "G43_UNICORN_RUNTIME_INTERFACE_CONTRACT",
+        ["backend/tests/test_v17_8_runtime_integration.py"],
+        "test_def_178_07",
+        min_passed=2,
+        label="DEF-178-07 Canonical Unicorn Detector Interface & Negative Control"
+    )
+
+    # G44: Feature Flag Persistence & Reload
+    run_pytest_gate(
+        "G44_FEATURE_FLAG_PERSISTENCE_AND_RELOAD",
+        ["backend/tests/test_v17_8_runtime_integration.py"],
+        "test_def_178_08",
+        min_passed=2,
+        label="DEF-178-08 V17.8 Feature Flag Persistence, CAS, Reload & Mode Separation"
+    )
+
+    # G45: Fill-Time Protective Distance Guard
+    run_pytest_gate(
+        "G45_FILL_TIME_PROTECTIVE_DISTANCE_GUARD",
+        ["backend/tests/test_v17_8_runtime_integration.py", "backend/tests/test_v17_8_quote_noise_guard.py"],
+        "test_def_178_09 or test_short_stop_too_close or test_long_stop_too_close",
+        min_passed=3,
+        label="DEF-178-09 ARM-to-FILL Protective Distance Persistence & Guard"
+    )
+
+    # G46: Fill-Time Stop Breach Quote Guard
+    run_pytest_gate(
+        "G46_FILL_TIME_STOP_BREACH_QUOTE_GUARD",
+        ["backend/tests/test_v17_8_runtime_integration.py", "backend/tests/test_v17_8_quote_noise_guard.py"],
+        "test_def_178_09 or test_short_stop_breached or test_long_stop_breached",
+        min_passed=3,
+        label="DEF-178-09 Pre-FILL Executable Quote Stop-Breach Guard"
+    )
+
+    # G47: Causal Unicorn Episode Binding
+    run_pytest_gate(
+        "G47_CAUSAL_UNICORN_EPISODE_BINDING",
+        ["backend/tests/test_v17_8_runtime_integration.py"],
+        "test_def_178_10",
+        min_passed=1,
+        label="DEF-178-10 Causal Unicorn Episode Binding & Provenance IDs"
+    )
+
+    # G48: Anti-Lookahead & Unclosed Candle Rejection
+    run_pytest_gate(
+        "G48_ANTI_LOOKAHEAD_AND_UNCLOSED_CANDLE_REJECTION",
+        ["backend/tests/test_v17_8_runtime_integration.py"],
+        "test_def_178_10",
+        min_passed=1,
+        label="DEF-178-10 Anti-Lookahead, Unclosed HTF & Consumed FVG Rejection"
+    )
+
+    # G49: End-to-End Runtime Integration (Scenarios 1-12)
+    run_pytest_gate(
+        "G49_END_TO_END_RUNTIME_INTEGRATION",
+        ["backend/tests/test_v17_8_runtime_integration.py"],
+        "test_def_178_11",
+        min_passed=1,
+        label="DEF-178-11 Complete Scenarios 1-12 Runtime Integration Suite"
+    )
+
+    # G50: Frontend Mounted SLTPIntelligenceView E2E
+    print("\n[G50_FRONTEND_MOUNTED_SLTP_INTELLIGENCE_VIEW_E2E] Executing Mounted SLTPIntelligenceView Playwright E2E...")
+    g50_api_port = str(find_free_port(8785))
+    g50_web_port = str(find_free_port(5215))
+    g50_env = {
+        "AURUM_E2E_PYTHON": PYTHON_BIN,
+        "AURUM_E2E_API_PORT": g50_api_port,
+        "AURUM_E2E_WEB_PORT": g50_web_port,
+        "AURUM_E2E_REPORT": str(REPORTS_DIR / "g50_playwright_report.json"),
+    }
+    code_g50, out_g50, err_g50, dur_g50 = run_cmd(
+        [NPX_BIN, "playwright", "test", "tests/e2e/v17_8_0_1_sltp_intelligence.e2e.ts"],
+        cwd=FRONTEND, env=g50_env, log_name="g50_sltp_playwright", timeout=120
+    )
+    g50_counts = parse_playwright_counts(out_g50)
+    if code_g50 == 0 and g50_counts["passed"] >= 2 and g50_counts["failed"] == 0:
+        print(f"  -> PASS: Mounted SLTPIntelligenceView E2E verified ({g50_counts['passed']} passed) in {dur_g50/1000:.2f}s")
+        results["gates"]["G50_FRONTEND_MOUNTED_SLTP_INTELLIGENCE_VIEW_E2E"] = {
+            "status": "PASS", "gate_type": "command", "counts": g50_counts, "duration_ms": dur_g50, "exit_code": code_g50
+        }
+    else:
+        print(f"  -> FAIL: Mounted SLTPIntelligenceView E2E failed:\n{out_g50}\n{err_g50}")
+        results["gates"]["G50_FRONTEND_MOUNTED_SLTP_INTELLIGENCE_VIEW_E2E"] = {
+            "status": "FAIL", "gate_type": "command", "counts": g50_counts, "duration_ms": dur_g50, "exit_code": code_g50 or 1
+        }
+
+    # G51: Forensic Audit Truth Reconciliation
+    run_pytest_gate(
+        "G51_FORENSIC_AUDIT_TRUTH_RECONCILIATION",
+        ["backend/tests/test_v17_8_runtime_integration.py"],
+        "test_def_178_14",
+        min_passed=1,
+        label="DEF-178-14 Forensic Stop-Out Truth & Calculator Reconciliation"
+    )
+
+    # G52: Honest Replay Comparison Disclosure
+    run_pytest_gate(
+        "G52_HONEST_REPLAY_COMPARISON_DISCLOSURE",
+        ["backend/tests/test_v17_8_runtime_integration.py"],
+        "test_def_178_13",
+        min_passed=1,
+        label="DEF-178-13 Honest Replay Comparison & Empirical P90 Calibration"
+    )
+
+    # G42: Exact-Source & Artifact Integrity (runs after all test/command gates)
     print("\n[G42_EXACT_SOURCE_AND_ARTIFACT_INTEGRITY] Verifying Exact Committed Source & Bundle Integrity...")
     end_source_manifest = build_source_manifest(ROOT)
     source_clean = (end_source_manifest["composite_sha"] == source_manifest["composite_sha"])
@@ -907,7 +1033,7 @@ def main():
     results["verdict"] = final_verdict
     print(f"FINAL ACCEPTANCE VERDICT: {final_verdict}")
     if final_verdict == "ACCEPTED_FOR_PAPER_OPT_IN":
-        print("All 42 release gates successfully passed with verified machine evidence!")
+        print(f"All {len(MANDATORY_GATES_V17_8)} release gates successfully passed with verified machine evidence!")
     else:
         print("One or more mandatory release gates failed! Review gate details above.")
     print("=" * 80)
@@ -921,14 +1047,14 @@ def main():
         source_manifest=source_manifest,
         gate_manifest=MANDATORY_GATES_V17_8,
         artifacts_base_dir=ARTIFACTS_DIR,
-        version_dir="v17_8",
+        version_dir=VERSION_SUBDIR,
     )
     print(f"\nRun-scoped artifacts published to: {published_dir}")
 
     # Verify written bundle strictly
     ok_bundle, bundle_errors = verify_acceptance_bundle(
         published_dir,
-        expected_version="17.8.0",
+        expected_version=RUNNER_VERSION,
         expected_run_id=RUN_ID,
         expected_source_sha=current_sha,
         expected_gate_manifest=MANDATORY_GATES_V17_8,
@@ -945,19 +1071,19 @@ def main():
             source_manifest=source_manifest,
             gate_manifest=MANDATORY_GATES_V17_8,
             artifacts_base_dir=ARTIFACTS_DIR,
-            version_dir="v17_8",
+            version_dir=VERSION_SUBDIR,
         )
 
     # Update latest pointer without overwriting historical files
     latest_pointer = {
         "schema_version": 1,
-        "version": "17.8.0",
+        "version": RUNNER_VERSION,
         "latest_run_id": RUN_ID,
         "run_directory": str(published_dir.relative_to(ROOT)),
         "verdict": results["verdict"],
         "timestamp_utc": results["timestamp_utc"],
     }
-    (ARTIFACTS_DIR / "v17_8" / "latest_run.json").write_text(json.dumps(latest_pointer, indent=2), encoding="utf-8")
+    (ARTIFACTS_DIR / VERSION_SUBDIR / "latest_run.json").write_text(json.dumps(latest_pointer, indent=2), encoding="utf-8")
 
     return 0 if results["verdict"] == "ACCEPTED_FOR_PAPER_OPT_IN" else 1
 

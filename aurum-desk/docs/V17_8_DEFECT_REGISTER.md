@@ -60,3 +60,20 @@ In accordance with Section 15 of the Master Execution Directive, this register d
 - **Source Repair:** Initialized `unicorn_ev = None` alongside `anchor_res = None` prior to the `if stop_policy is not None:` block.
 - **Regression Test:** `backend/tests/test_v17_7_adaptive_stop_loss.py::test_sl_39_fvg_continuation_behavior` (G11)
 - **Status:** RESOLVED & VERIFIED
+
+---
+
+## 3. V17.8.0.1 Independent Audit Findings & Runtime Closure (`DEF-178-07` to `DEF-178-15`)
+
+All nine post-V17.8.0 audit findings (`DEF-178-07` through `DEF-178-15`) are documented with full source reproduction and verification in `docs/V17_8_0_1_RUNTIME_DEFECT_REPRODUCTION.md`:
+
+- **DEF-178-07 (P0):** Unicorn Detector Interface Mismatch (`selected_fvg` canonical contract in `unicorn_evidence_service.py` & `scalp_m1_model_service.py`) — **RESOLVED & VERIFIED (`G43`)**
+- **DEF-178-08 (P0):** V17.8 Feature Flags Persistence, Strict Validation, CAS, No-Op, Reload & Mode Separation (`stop_placement_policy_service.py`, `schemas.py`, `main.py`) — **RESOLVED & VERIFIED (`G44`)**
+- **DEF-178-09 (P0):** Fill-Time Protective Distance & Stop-Breach Quote Guard (`scalp_watcher_orchestrator.py`, `order_plan_snapshot_service.py`, `entry_guard_service.py`, `execution_coordinator.py`) — **RESOLVED & VERIFIED (`G45`, `G46`)**
+- **DEF-178-10 (P1):** Causal Unicorn Episode Binding, Pullback OB Ordering, Provenance IDs & Anti-Lookahead (`unicorn_evidence_types.py`, `unicorn_evidence_service.py`, `stop_placement_service.py`) — **RESOLVED & VERIFIED (`G47`, `G48`)**
+- **DEF-178-11 (P1):** 12-Scenario End-to-End Runtime Integration Suite (`backend/tests/test_v17_8_runtime_integration.py`) — **RESOLVED & VERIFIED (`G49`)**
+- **DEF-178-12 (P1):** Mounted `SLTPIntelligenceView.tsx` in `JournalTab.tsx` + Vitest & Playwright Chromium E2E (`frontend/tests/e2e/v17_8_0_1_sltp_intelligence.e2e.ts`) — **RESOLVED & VERIFIED (`G50`)**
+- **DEF-178-13 (P1):** Honest Replay Comparison & Empirical P90 Calibration (`unicorn_replay_service.py`, `main.py`) — **RESOLVED & VERIFIED (`G52`)**
+- **DEF-178-14 (P1):** Forensic Stop-Out Truth & Calculator Reconciliation (`docs/V17_8_0_1_FORENSIC_TRUTH_RECONCILIATION.md`) — **RESOLVED & VERIFIED (`G51`)**
+- **DEF-178-15 (P0):** 52-Gate Fail-Closed Acceptance Runner (`tools/acceptance_verdict.py`, `tools/run_v17_8_acceptance.py`) — **RESOLVED & VERIFIED (`G01`–`G52`)**
+

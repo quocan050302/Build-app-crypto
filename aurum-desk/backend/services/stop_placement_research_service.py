@@ -272,9 +272,16 @@ def build_stop_comparison_plan(
             dominant_buffer=c_dom,
         )
 
-        # Variant D: Structural stop with researched noise calibration (P90 noise buffer)
+        # Variant D: Experimental fixed-multiplier research stop (1.25x dynamic buffer)
+        # Explicitly labelled EXPERIMENTAL_FIXED_MULTIPLIER unless empirical P90 calibration is provided
         noise_mult = float(policy_settings.get("noise_calibrated_multiplier", 1.25))
-        d_buf = c_buf * noise_mult
+        emp_p90 = policy_settings.get("empirical_p90_noise_usd")
+        if emp_p90 is not None and isinstance(emp_p90, (int, float)) and not isinstance(emp_p90, bool) and emp_p90 > 0:
+            d_buf = max(c_buf, float(emp_p90))
+            d_dom = f"EMPIRICAL_P90_QUANTILE_{c_dom}"
+        else:
+            d_buf = c_buf * noise_mult
+            d_dom = f"EXPERIMENTAL_FIXED_MULTIPLIER_{c_dom}"
         d_sl = quantize_stop_outward(
             anchor_price=anchor.price, buffer_price=d_buf, direction=direction, tick_size=tick_size,
         )
@@ -295,7 +302,7 @@ def build_stop_comparison_plan(
             meets_min_rr=bool(getattr(calc_d, "meets_min_rr", False)),
             rejection_reason=getattr(calc_d, "skip_reason", None) or getattr(calc_d, "invalid_reason", None),
             buffer_price=d_buf,
-            dominant_buffer=f"noise_calibrated_{c_dom}",
+            dominant_buffer=d_dom,
         )
 
     if context_status is None:

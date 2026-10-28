@@ -86,6 +86,150 @@ class VariantReplayMetrics:
 
 
 @dataclass(frozen=True)
+class NoiseCalibrationSample:
+    """Single historical microstructure noise observation strictly prior to decision time."""
+    timestamp_ms: int
+    adverse_noise_usd: float
+    regime: str = "NORMAL"
+    symbol: str = "XAUUSDT"
+
+
+@dataclass(frozen=True)
+class NoiseCalibrationResult:
+    """Result of empirical P90 noise quantile calibration vs fixed experimental multiplier."""
+    status: str  # "CALIBRATED_EMPIRICAL_P90" | "INSUFFICIENT_CALIBRATION_SAMPLE" | "LOOKAHEAD_REJECTED" | "EXPERIMENTAL_FIXED_MULTIPLIER"
+    calibration_mode: str  # "EMPIRICAL_P90_QUANTILE" | "EXPERIMENTAL_FIXED_MULTIPLIER"
+    calibration_version: str
+    regime: str
+    sample_size: int
+    min_required_sample_size: int
+    p90_noise_usd: Optional[float]
+    fixed_multiplier_fallback: float = 1.25
+    max_sample_timestamp_ms: Optional[int] = None
+    decision_cutoff_ms: Optional[int] = None
+    reason_code: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+def calibrate_empirical_p90_noise_buffer(
+    prior_samples: Sequence[Any],
+    *,
+    decision_ms: int,
+    regime: str = "NORMAL",
+    min_sample_size: int = 10,
+    calibration_version: str = "P90_EMPIRICAL_V1",
+    fixed_multiplier_fallback: float = 1.25,
+) -> NoiseCalibrationResult:
+    """
+    Computes genuine empirical P90 microstructure noise quantile from strictly prior observations.
+    Enforces:
+    - Verified positive timestamps strictly < decision_ms (no lookahead).
+    - Regime matching.
+    - Minimum sample size requirement.
+    """
+    norm_regime = str(regime or "NORMAL").upper()
+    if not isinstance(decision_ms, int) or decision_ms <= 0:
+        return NoiseCalibrationResult(
+            status="INVALID_DECISION_CUTOFF",
+            calibration_mode="EXPERIMENTAL_FIXED_MULTIPLIER",
+            calibration_version=calibration_version,
+            regime=norm_regime,
+            sample_size=0,
+            min_required_sample_size=min_sample_size,
+            p90_noise_usd=None,
+            fixed_multiplier_fallback=fixed_multiplier_fallback,
+            decision_cutoff_ms=decision_ms,
+            reason_code="INVALID_DECISION_TIMESTAMP",
+        )
+
+    valid_values: List[float] = []
+    max_ts = 0
+
+    for item in prior_samples or ():
+        ts = getattr(item, "timestamp_ms", None) if not isinstance(item, dict) else item.get("timestamp_ms")
+        val = getattr(item, "adverse_noise_usd", None) if not isinstance(item, dict) else item.get("adverse_noise_usd")
+        s_reg = getattr(item, "regime", "NORMAL") if not isinstance(item, dict) else item.get("regime", "NORMAL")
+
+        if ts is None or isinstance(ts, bool) or not isinstance(ts, (int, float)) or int(ts) <= 0:
+            return NoiseCalibrationResult(
+                status="INVALID_SAMPLE_TIMESTAMP",
+                calibration_mode="EXPERIMENTAL_FIXED_MULTIPLIER",
+                calibration_version=calibration_version,
+                regime=norm_regime,
+                sample_size=0,
+                min_required_sample_size=min_sample_size,
+                p90_noise_usd=None,
+                fixed_multiplier_fallback=fixed_multiplier_fallback,
+                decision_cutoff_ms=decision_ms,
+                reason_code="MISSING_OR_INVALID_SAMPLE_TIMESTAMP",
+            )
+        int_ts = int(ts)
+        if int_ts >= decision_ms:
+            return NoiseCalibrationResult(
+                status="LOOKAHEAD_REJECTED",
+                calibration_mode="EXPERIMENTAL_FIXED_MULTIPLIER",
+                calibration_version=calibration_version,
+                regime=norm_regime,
+                sample_size=0,
+                min_required_sample_size=min_sample_size,
+                p90_noise_usd=None,
+                fixed_multiplier_fallback=fixed_multiplier_fallback,
+                max_sample_timestamp_ms=int_ts,
+                decision_cutoff_ms=decision_ms,
+                reason_code="LOOKAHEAD_SAMPLE_REJECTED",
+            )
+
+        if str(s_reg or "NORMAL").upper() != norm_regime:
+            continue
+
+        try:
+            f_val = float(val)
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(f_val) or f_val < 0.0:
+            continue
+
+        valid_values.append(f_val)
+        if int_ts > max_ts:
+            max_ts = int_ts
+
+    if len(valid_values) < min_sample_size:
+        return NoiseCalibrationResult(
+            status="INSUFFICIENT_CALIBRATION_SAMPLE",
+            calibration_mode="EXPERIMENTAL_FIXED_MULTIPLIER",
+            calibration_version=calibration_version,
+            regime=norm_regime,
+            sample_size=len(valid_values),
+            min_required_sample_size=min_sample_size,
+            p90_noise_usd=None,
+            fixed_multiplier_fallback=fixed_multiplier_fallback,
+            max_sample_timestamp_ms=max_ts if max_ts > 0 else None,
+            decision_cutoff_ms=decision_ms,
+            reason_code="INSUFFICIENT_PRIOR_REGIME_SAMPLES",
+        )
+
+    sorted_vals = sorted(valid_values)
+    idx = min(len(sorted_vals) - 1, max(0, int(math.ceil(0.90 * len(sorted_vals))) - 1))
+    p90_val = round(float(sorted_vals[idx]), 4)
+
+    return NoiseCalibrationResult(
+        status="CALIBRATED_EMPIRICAL_P90",
+        calibration_mode="EMPIRICAL_P90_QUANTILE",
+        calibration_version=calibration_version,
+        regime=norm_regime,
+        sample_size=len(valid_values),
+        min_required_sample_size=min_sample_size,
+        p90_noise_usd=p90_val,
+        fixed_multiplier_fallback=fixed_multiplier_fallback,
+        max_sample_timestamp_ms=max_ts,
+        decision_cutoff_ms=decision_ms,
+        reason_code=None,
+    )
+
+
+@dataclass(frozen=True)
 class ReplayOpportunityInput:
     """Standardized input opportunity evaluated identically across variants."""
     opportunity_id: str
@@ -191,7 +335,7 @@ class UnicornReplayHarness:
         else:
             stops["C"] = opp.legacy_sl
 
-        # Variant D: Noise-calibrated structural stop (e.g. 1.25x buffer)
+        # Variant D: EXPERIMENTAL_FIXED_MULTIPLIER (1.25x buffer) unless empirical P90 calibration is supplied
         noise_buffer = dynamic_buffer * 1.25
         anchor_d = opp.unicorn_invalidation_price if (opp.has_unicorn_evidence and opp.unicorn_valid and opp.unicorn_invalidation_price is not None) else opp.structural_anchor_price
         if anchor_d is not None:

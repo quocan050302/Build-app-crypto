@@ -2973,6 +2973,10 @@ def get_stop_placement_policy_endpoint(db: Session = Depends(get_db)):
         max_stop_distance_atr=policy.max_stop_distance_atr,
         max_spread_usd=policy.max_spread_usd,
         algorithm_version=policy.algorithm_version,
+        v18_structural_intelligence_enabled=policy.v18_structural_intelligence_enabled,
+        v18_unicorn_detection_enabled=policy.v18_unicorn_detection_enabled,
+        v18_noise_research_enabled=policy.v18_noise_research_enabled,
+        v18_execution_policy_version=policy.v18_execution_policy_version,
         summary_vi=summary_vi,
         reason_codes=[],
     )
@@ -3027,6 +3031,10 @@ def update_stop_placement_policy_endpoint(
         max_stop_distance_atr=updated.max_stop_distance_atr,
         max_spread_usd=updated.max_spread_usd,
         algorithm_version=updated.algorithm_version,
+        v18_structural_intelligence_enabled=updated.v18_structural_intelligence_enabled,
+        v18_unicorn_detection_enabled=updated.v18_unicorn_detection_enabled,
+        v18_noise_research_enabled=updated.v18_noise_research_enabled,
+        v18_execution_policy_version=updated.v18_execution_policy_version,
         summary_vi=summary_vi,
         reason_codes=[],
     )
@@ -3089,28 +3097,82 @@ def get_order_stop_evidence_endpoint(
         f"{' (đã mở rộng bảo vệ)' if expansion_applied else ''}."
     )
 
+    resolved_mode_at_arm = (
+        cost_dict.get("stop_mode_at_arm")
+        or (stop_placement.get("mode") if isinstance(stop_placement, dict) else None)
+        or "NOT_RECORDED"
+    )
+    resolved_applied_variant = (
+        cost_dict.get("applied_variant")
+        or (stop_placement.get("applied_variant") if isinstance(stop_placement, dict) else None)
+        or "NOT_RECORDED"
+    )
+    resolved_uni_ev = (
+        cost_dict.get("unicorn_evidence")
+        or (stop_placement.get("unicorn_evidence") if isinstance(stop_placement, dict) else None)
+    )
+    resolved_min_prot = (
+        cost_dict.get("min_protective_distance")
+        if cost_dict.get("min_protective_distance") is not None
+        else min_prot_dist
+    )
+
+    arm_gate_dict = None
+    if getattr(order, "arm_decision_snapshot", None):
+        try:
+            arm_gate_dict = (
+                json.loads(order.arm_decision_snapshot)
+                if isinstance(order.arm_decision_snapshot, str)
+                else order.arm_decision_snapshot
+            )
+        except Exception:
+            arm_gate_dict = None
+
+    fill_gate_dict = None
+    if getattr(order, "before_fill_decision_snapshot", None):
+        try:
+            fill_gate_dict = (
+                json.loads(order.before_fill_decision_snapshot)
+                if isinstance(order.before_fill_decision_snapshot, str)
+                else order.before_fill_decision_snapshot
+            )
+        except Exception:
+            fill_gate_dict = None
+
     return {
         "status": "AVAILABLE",
         "order_id": order.id,
         "stop_placement": stop_placement,
-        "stop_mode_at_arm": cost_dict.get("stop_mode_at_arm", "SHADOW_COMPARE"),
-        "stop_policy_version": cost_dict.get("stop_policy_version", 1),
+        "stop_mode_at_arm": resolved_mode_at_arm,
+        "applied_variant": resolved_applied_variant,
+        "stop_policy_version": cost_dict.get("stop_policy_version") or (stop_placement.get("policy_version") if isinstance(stop_placement, dict) else None),
         "stop_comparison_plan_id": cost_dict.get("stop_comparison_plan_id"),
         "actual_sl": order.stop_loss,
+        "planned_entry": order.planned_entry,
         "actual_entry": order.actual_entry or order.planned_entry,
         "take_profit": order.take_profit,
         "direction": order.direction,
+        "quantity": order.quantity,
+        "initial_risk_usdt": order.initial_risk_usdt,
+        "gross_rr": order.gross_rr,
+        "estimated_net_rr": order.estimated_net_rr,
         "algorithm_version": algo_ver,
-        "min_protective_distance": min_prot_dist,
+        "min_protective_distance": resolved_min_prot,
         "protective_expansion_applied": expansion_applied,
+        "structural_anchor_id": cost_dict.get("structural_anchor_id") or (anchor_info.get("id") if isinstance(anchor_info, dict) else None),
+        "quote_timestamp_at_arm": cost_dict.get("quote_timestamp_at_arm"),
         "ui_explanation_vi": ui_explanation_vi,
-        "unicorn_evidence": stop_placement.get("unicorn_evidence") if isinstance(stop_placement, dict) else None,
-        "unicorn_id": stop_placement.get("unicorn_id") if isinstance(stop_placement, dict) else None,
+        "unicorn_evidence": resolved_uni_ev,
+        "unicorn_id": cost_dict.get("unicorn_evidence_id") or (stop_placement.get("unicorn_id") if isinstance(stop_placement, dict) else None),
         "invalidation_authority": stop_placement.get("invalidation_authority") if isinstance(stop_placement, dict) else None,
-        "unicorn_sl_candidate": stop_placement.get("unicorn_sl_candidate") if isinstance(stop_placement, dict) else None,
-        "legacy_sl": stop_placement.get("legacy_sl") if isinstance(stop_placement, dict) else None,
-        "structural_sl": stop_placement.get("structural_sl") if isinstance(stop_placement, dict) else None,
+        "executed_sl": order.stop_loss,
+        "stop_comparison": cost_dict.get("stop_comparison"),
+        "unicorn_sl_candidate": (stop_placement.get("unicorn_sl_candidate") if isinstance(stop_placement, dict) else None) or ((cost_dict.get("stop_comparison") or {}).get("variant_c", {}) or {}).get("stop_loss"),
+        "legacy_sl": (stop_placement.get("legacy_sl") if isinstance(stop_placement, dict) else None) or ((cost_dict.get("stop_comparison") or {}).get("variant_a", {}) or {}).get("stop_loss"),
+        "structural_sl": (stop_placement.get("structural_sl") if isinstance(stop_placement, dict) else None) or ((cost_dict.get("stop_comparison") or {}).get("variant_b", {}) or {}).get("stop_loss") or (stop_placement.get("final_stop_loss") if isinstance(stop_placement, dict) else None),
         "buffer_components": stop_placement.get("buffer_components") if isinstance(stop_placement, dict) else None,
+        "arm_decision": arm_gate_dict,
+        "fill_decision": fill_gate_dict,
     }
 
 
@@ -3120,27 +3182,66 @@ def get_replay_comparison_summary_endpoint(
     db: Session = Depends(get_db),
 ):
     """
-    V17.8: Quantitative matched comparison across Variants A, B, C, and D.
-    Evaluates historical replay metrics, early stop rates, expectancy, and drawdown.
+    V17.8.0.1: Quantitative matched comparison across Variants A, B, C, and D.
+    Returns NO_REPLAY_RESULTS or INSUFFICIENT_REPLAY_DATA when no completed replay batch exists,
+    never returning AVAILABLE with an empty metrics payload.
     """
-    from services.unicorn_replay_service import UnicornReplayHarness
+    import time
     from services.stop_placement_policy_service import resolve_stop_placement_policy
+    from services.stop_placement_research_service import resume_stop_comparisons
 
+    now_ms = int(time.time() * 1000)
     policy = resolve_stop_placement_policy(db)
-    harness = UnicornReplayHarness()
-    # Return empty / initial comparison schema if no replay batch specified
+    plans = resume_stop_comparisons(db, namespace="STOP_PLACEMENT_V1", as_of_ms=now_ms)
+
+    variants_meta = {
+        "A": {"name": "Legacy FVG Stop", "description": "FVG Edge + 5 ticks", "calibration_mode": "LEGACY_FIXED_TICKS"},
+        "B": {"name": "V17.7 Structural Stop", "description": "Protected origin + tick floor", "calibration_mode": "STRUCTURAL_TICK_FLOOR"},
+        "C": {"name": "V17.8 Unicorn Stop", "description": "Unicorn breaker distal invalidation + dynamic buffer", "calibration_mode": "STRUCTURAL_DYNAMIC_BUFFER"},
+        "D": {
+            "name": "Experimental Fixed-Multiplier Research Stop",
+            "description": "1.25x dynamic buffer experiment (EXPERIMENTAL_FIXED_MULTIPLIER unless empirical P90 sample provided)",
+            "calibration_mode": "EXPERIMENTAL_FIXED_MULTIPLIER",
+        },
+    }
+
+    if not plans:
+        return {
+            "status": "NO_REPLAY_RESULTS",
+            "reason_code": "NO_COMPLETED_REPLAY_BATCH",
+            "symbol": symbol,
+            "policy_version": policy.version,
+            "algorithm_version": policy.algorithm_version,
+            "total_plans_found": 0,
+            "variants": variants_meta,
+            "metrics": None,
+        }
+
+    resolved_plans = [
+        p for p in plans
+        if isinstance(p, dict) and p.get("resolution_status") in ("RESOLVED", "COMPLETED")
+    ]
+    if not resolved_plans:
+        return {
+            "status": "INSUFFICIENT_REPLAY_DATA",
+            "reason_code": "NO_RESOLVED_REPLAY_OUTCOMES",
+            "symbol": symbol,
+            "policy_version": policy.version,
+            "algorithm_version": policy.algorithm_version,
+            "total_plans_found": len(plans),
+            "variants": variants_meta,
+            "metrics": None,
+        }
+
     return {
         "status": "AVAILABLE",
         "symbol": symbol,
         "policy_version": policy.version,
-        "algorithm_version": "V17_8_0",
-        "variants": {
-            "A": {"name": "Legacy FVG Stop", "description": "FVG Edge + 5 ticks"},
-            "B": {"name": "V17.7 Structural Stop", "description": "Protected origin + dynamic buffer"},
-            "C": {"name": "V17.8 Unicorn Stop", "description": "Unicorn breaker distal invalidation + dynamic buffer"},
-            "D": {"name": "Research Noise Calibrated", "description": "P90 noise buffer calibration (research-only)"},
-        },
-        "metrics": {},
+        "algorithm_version": policy.algorithm_version,
+        "total_plans_found": len(plans),
+        "resolved_plans_count": len(resolved_plans),
+        "variants": variants_meta,
+        "metrics": {"resolved_count": len(resolved_plans)},
     }
 
 

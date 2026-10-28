@@ -1,22 +1,23 @@
 """
 backend/tests/test_v17_8_acceptance_runner.py
-Unit tests and negative controls for the V17.8 Acceptance Runner & Verdict Engine.
-Verifies fail-closed behavior for all 42 mandatory gates.
+Unit tests and negative controls for the V17.8 / V17.8.0.1 Acceptance Runner & Verdict Engine.
+Verifies fail-closed behavior for all 52 mandatory gates (G01-G52).
 """
 
-import copy
 import pytest
 from tools.acceptance_verdict import (
-    determine_release_verdict,
-    MANDATORY_GATES_V17_8,
-    TEST_GATES,
     COMMAND_GATES,
     INTEGRITY_GATES,
+    MANDATORY_GATES_V17_8,
+    MANDATORY_GATES_V17_8_0,
+    MANDATORY_GATES_V17_8_0_1,
+    TEST_GATES,
+    determine_release_verdict,
 )
 
 
 def _make_passing_gate_results() -> dict:
-    """Builds a completely valid, passing 42-gate results dictionary."""
+    """Builds a completely valid, passing 52-gate results dictionary."""
     results = {}
     for gate_id in MANDATORY_GATES_V17_8:
         if gate_id in TEST_GATES:
@@ -42,21 +43,26 @@ def _make_passing_gate_results() -> dict:
     return results
 
 
-def test_verdict_all_42_gates_pass():
-    """All 42 gates pass with proper counts and exit codes -> ACCEPTED_FOR_PAPER_OPT_IN."""
+def test_verdict_all_52_gates_pass():
+    """All 52 gates pass with proper counts and exit codes -> ACCEPTED_FOR_PAPER_OPT_IN."""
     gates = _make_passing_gate_results()
-    assert len(gates) == 42
+    assert len(MANDATORY_GATES_V17_8_0) == 42
+    assert len(MANDATORY_GATES_V17_8_0_1) == 52
+    assert len(gates) == 52
     verdict = determine_release_verdict(gates, MANDATORY_GATES_V17_8)
     assert verdict == "ACCEPTED_FOR_PAPER_OPT_IN"
 
 
 def test_verdict_missing_gate_blocked():
-    """Missing any mandatory gate fails closed with BLOCKED."""
+    """Missing any mandatory gate (including V17.8.0.1 G43-G52) fails closed with BLOCKED."""
     gates = _make_passing_gate_results()
-    # Drop G29
     del gates["G29_UNICORN_BREAKER_DETECTION"]
     verdict = determine_release_verdict(gates, MANDATORY_GATES_V17_8)
     assert verdict == "BLOCKED"
+
+    gates_v17_8_0_1 = _make_passing_gate_results()
+    del gates_v17_8_0_1["G49_END_TO_END_RUNTIME_INTEGRATION"]
+    assert determine_release_verdict(gates_v17_8_0_1, MANDATORY_GATES_V17_8) == "BLOCKED"
 
 
 def test_verdict_failed_test_gate_blocked():

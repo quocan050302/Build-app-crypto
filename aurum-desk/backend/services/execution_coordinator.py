@@ -372,6 +372,79 @@ class ExecutionCoordinator:
                 order_cost_snap=order_cost_snap,
             )
 
+            # V17.8.0.1: Recover frozen stop-placement and protective-distance metadata from ARM snapshot
+            sp_snap = order_cost_snap.get("stop_placement") if isinstance(order_cost_snap, dict) else None
+            uni_snap = order_cost_snap.get("unicorn_evidence") if isinstance(order_cost_snap, dict) else None
+            has_explicit_min_prot = isinstance(order_cost_snap, dict) and "min_protective_distance" in order_cost_snap
+            raw_min_prot = (
+                order_cost_snap.get("min_protective_distance")
+                if has_explicit_min_prot
+                else (sp_snap.get("protective_distance") if isinstance(sp_snap, dict) else None)
+            )
+            fill_ev_meta = {}
+            if isinstance(order_cost_snap, dict):
+                if "v18_structural_intelligence_enabled" in order_cost_snap:
+                    fill_ev_meta["v18_structural_intelligence_enabled"] = order_cost_snap["v18_structural_intelligence_enabled"]
+                if "stop_mode_at_arm" in order_cost_snap:
+                    fill_ev_meta["stop_mode_at_arm"] = order_cost_snap["stop_mode_at_arm"]
+                if "stop_algorithm_version" in order_cost_snap:
+                    fill_ev_meta["stop_algorithm_version"] = order_cost_snap["stop_algorithm_version"]
+
+            # Pre-check FILL quote-distance and stop-breach guard before calculator rejection
+            # so a breached stop at FILL is deterministically rejected with INVALID_GEOMETRY_STOP_BREACHED
+            from services.entry_guard_service import (
+                EntryGuardRequest, evaluate_entry_guard, DATA_UNAVAILABLE, _check_geometry,
+            )
+            from services.entry_decision_service import EntryDecisionService
+            from services.setup_quality_service import build_plan_fingerprint
+
+            pre_geom_check = _check_geometry(EntryGuardRequest(
+                stage="FILL",
+                now_ms=current_time,
+                symbol=order.instrument or "XAUUSDT",
+                direction=order.direction,
+                execution_mode=getattr(order, "execution_mode", None) or "AUTO",
+                origin=getattr(order, "origin", None) or "UNKNOWN",
+                planned_entry=fill_price,
+                stop_loss=order.stop_loss,
+                take_profit=order.take_profit,
+                validated_quote=quote,
+                min_protective_distance=raw_min_prot,
+                unicorn_evidence=uni_snap,
+                stop_decision=sp_snap,
+                evidence=fill_ev_meta,
+            ))
+            if pre_geom_check.state != "PASS" and pre_geom_check.code in (
+                "INVALID_GEOMETRY_STOP_BREACHED",
+                "STOP_TOO_CLOSE_TO_EXECUTABLE_QUOTE",
+                "UNICORN_INVALIDATED",
+                "INVALID_PROTECTIVE_DISTANCE",
+                "MISSING_PROTECTIVE_DISTANCE",
+            ):
+                reject_reason = f"ENTRY_GUARD_BLOCKED: {pre_geom_check.code} - {pre_geom_check.message_vi}"
+                gate_trace = {
+                    "can_proceed": False,
+                    "blocking_reasons": [pre_geom_check.message_vi],
+                    "warning_messages": [],
+                    "advisory_notes": [],
+                    "lessons_retrieved_snapshot": [],
+                    "entry_gate": {
+                        "allowed": False,
+                        "stage": "FILL",
+                        "evaluated_at_ms": current_time,
+                        "reason_codes": [pre_geom_check.code],
+                    },
+                }
+                EntryDecisionService.record_stage_decision(order, "BEFORE_FILL", gate_trace, now_ms=current_time)
+                TradeLifecycleService.execute_reject(
+                    db=db,
+                    order=order,
+                    reason=reject_reason,
+                    now_ms=current_time,
+                    clock=c,
+                )
+                continue
+
             # Authoritative execution re-check with actual fill price
             # Must preserve the armed quantity (no silent size increase) and validate against budget/netRR
             calc_budget = calculate_risk_reward(
@@ -446,12 +519,6 @@ class ExecutionCoordinator:
             # (BEFORE_FILL), session policy, account, quote and feed with the CURRENT state, using the
             # frozen order levels and the actual fill price. The order itself is excluded from
             # armed-order checks (current_order_id) and the WatchSetup is NOT required to be READY.
-            from services.entry_guard_service import (
-                EntryGuardRequest, evaluate_entry_guard, DATA_UNAVAILABLE,
-            )
-            from services.entry_decision_service import EntryDecisionService
-            from services.setup_quality_service import build_plan_fingerprint
-
             try:
                 plan_fp = build_plan_fingerprint({
                     "direction": order.direction, "planned_entry": order.planned_entry,
@@ -487,6 +554,10 @@ class ExecutionCoordinator:
                 trigger_hit=True,
                 session_instance_id=order.session_instance_id,
                 clock=c,
+                min_protective_distance=raw_min_prot,
+                unicorn_evidence=uni_snap,
+                stop_decision=sp_snap,
+                evidence=fill_ev_meta,
             ))
 
             if not guard.allowed:
