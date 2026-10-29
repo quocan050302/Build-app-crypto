@@ -565,9 +565,23 @@ class TestMarketShadowRuntimeAndNegativeControls:
         real_shadow.parent.mkdir(parents=True, exist_ok=True)
         real_shadow.write_bytes(b"")
         symlink_shadow = tmp_path / "sub" / "symlink_shadow.db"
-        symlink_shadow.symlink_to(real_shadow)
-        with pytest.raises(RuntimeError, match="SHADOW_DB_SYMLINK_REJECTED"):
-            resolve_and_validate_shadow_db_path(str(symlink_shadow))
+        try:
+            symlink_shadow.symlink_to(real_shadow)
+            with pytest.raises(RuntimeError, match="SHADOW_DB_SYMLINK_REJECTED"):
+                resolve_and_validate_shadow_db_path(str(symlink_shadow))
+        except OSError:
+            orig_is_symlink = Path.is_symlink
+            with patch.object(
+                Path,
+                "is_symlink",
+                autospec=True,
+                side_effect=lambda p: True if Path(p).name == "symlink_shadow.db" else orig_is_symlink(p),
+            ):
+                with pytest.raises(RuntimeError, match="SHADOW_DB_SYMLINK_REJECTED"):
+                    resolve_and_validate_shadow_db_path(str(symlink_shadow))
+        finally:
+            if symlink_shadow.exists() or symlink_shadow.is_symlink():
+                symlink_shadow.unlink(missing_ok=True)
 
         # #21c: Hardlink target rejected
         hardlink_shadow = tmp_path / "sub" / "hardlink_shadow.db"
@@ -782,6 +796,7 @@ class TestMarketShadowRuntimeAndNegativeControls:
 
         assert market_shadow_service.quotes_accepted == 1
         assert market_shadow_service.candles_closed >= 1
+        bitget_ws_service.register_shadow_sink(None)
 
 
 # ==============================================================================
@@ -958,6 +973,7 @@ class TestMarketShadowFullProductionPath:
                 assert resp.status_code == 403
                 assert resp.json()["detail"]["code"] == "MARKET_SHADOW_EXECUTION_FORBIDDEN"
         finally:
+            bitget_ws_service.register_shadow_sink(None)
             market_shadow_service.bind_storage(None)
             storage.dispose()
 

@@ -1,7 +1,7 @@
 """
 backend/tests/test_v17_8_acceptance_runner.py
-Unit tests and negative controls for the V17.8 / V17.8.0.1 / V17.8.0.2 Acceptance Runner & Verdict Engine.
-Verifies fail-closed behavior for all 52 core gates (G01-G52) and all 58 V17.8.0.2 gates (G01-G58).
+Unit tests and negative controls for the V17.8 / V17.8.0.1 / V17.8.0.2 / V17.8.0.3 / V17.8.0.4 Acceptance Runner & Verdict Engine.
+Verifies fail-closed behavior for all 52 core gates (G01-G52), 58 V17.8.0.2 gates (G01-G58), 75 V17.8.0.3 gates (G01-G75), and 88 V17.8.0.4 gates (G01-G88).
 """
 
 import pytest
@@ -13,10 +13,15 @@ from tools.acceptance_verdict import (
     MANDATORY_GATES_V17_8_0_1,
     MANDATORY_GATES_V17_8_0_2,
     MANDATORY_GATES_V17_8_0_3,
+    MANDATORY_GATES_V17_8_0_4,
     TEST_GATES,
+    TRADING_AUTHORIZATION_V17_8_0_4,
     determine_release_verdict,
     determine_v17_8_0_2_release_verdict,
     determine_v17_8_0_3_release_verdict,
+    determine_v17_8_0_4_backtest_verdict,
+    determine_v17_8_0_4_performance_verdict,
+    determine_v17_8_0_4_release_verdict,
 )
 
 
@@ -49,12 +54,13 @@ def _make_passing_gate_results(manifest=None) -> dict:
 
 
 def test_verdict_all_52_and_58_gates_pass():
-    """All 52 (V17.8.0.1), 58 (V17.8.0.2), and 75 (V17.8.0.3) gates pass."""
+    """All 52 (V17.8.0.1), 58 (V17.8.0.2), 75 (V17.8.0.3), and 88 (V17.8.0.4) gates pass."""
     assert len(MANDATORY_GATES_V17_8_0) == 42
     assert len(MANDATORY_GATES_V17_8_0_1) == 52
     assert len(MANDATORY_GATES_V17_8_0_2) == 58
     assert len(MANDATORY_GATES_V17_8_0_3) == 75
-    assert len(MANDATORY_GATES_V17_8) == 75
+    assert len(MANDATORY_GATES_V17_8_0_4) == 88
+    assert len(MANDATORY_GATES_V17_8) == 88
 
     gates_52 = _make_passing_gate_results(MANDATORY_GATES_V17_8_0_1)
     assert len(gates_52) == 52
@@ -66,7 +72,11 @@ def test_verdict_all_52_and_58_gates_pass():
 
     gates_75 = _make_passing_gate_results(MANDATORY_GATES_V17_8_0_3)
     assert len(gates_75) == 75
-    assert determine_release_verdict(gates_75, MANDATORY_GATES_V17_8) == "ACCEPTED_FOR_PAPER_OPT_IN"
+    assert determine_release_verdict(gates_75, MANDATORY_GATES_V17_8_0_3) == "ACCEPTED_FOR_PAPER_OPT_IN"
+
+    gates_88 = _make_passing_gate_results(MANDATORY_GATES_V17_8_0_4)
+    assert len(gates_88) == 88
+    assert determine_release_verdict(gates_88, MANDATORY_GATES_V17_8) == "ACCEPTED_FOR_PAPER_OPT_IN"
 
     valid_preflight = {
         "status": "PASS",
@@ -106,6 +116,13 @@ def test_verdict_all_52_and_58_gates_pass():
     valid_backtest = {
         "status": "PASS",
         "fabricated_candles_count": 0,
+        "m1_bars_count": 16645,
+        "production_parity_verified": True,
+        "strict_causal_unicorn_enforced": True,
+        "atr_m5_provenance_verified": True,
+        "variant_c_simulated_trades": 28,
+        "variant_c_net_expectancy_r": -0.5579,
+        "out_of_sample_verdict": "OUT_OF_SAMPLE_INCONCLUSIVE",
     }
     assert (
         determine_v17_8_0_3_release_verdict(
@@ -117,6 +134,21 @@ def test_verdict_all_52_and_58_gates_pass():
         )
         == "V17_8_0_3_ACCEPTED_FOR_SAFE_MARKET_SHADOW_AND_BACKTEST"
     )
+    assert (
+        determine_v17_8_0_4_release_verdict(
+            gates_88,
+            MANDATORY_GATES_V17_8_0_4,
+            valid_preflight,
+            valid_shadow_preflight,
+            valid_backtest,
+            source_manifest_verified=True,
+        )
+        == "V17_8_0_4_ENGINEERING_ACCEPTED"
+    )
+    assert determine_v17_8_0_4_backtest_verdict(valid_backtest) == "PRODUCTION_PARITY_BACKTEST_VERIFIED"
+    assert determine_v17_8_0_4_performance_verdict(valid_backtest) == "NEGATIVE_OBSERVED_EXPECTANCY"
+    assert "MARKET_SHADOW_RESEARCH_ONLY" in TRADING_AUTHORIZATION_V17_8_0_4
+
     bad_backtest = {"status": "PASS", "fabricated_candles_count": 1}
     assert (
         determine_v17_8_0_3_release_verdict(
@@ -128,10 +160,20 @@ def test_verdict_all_52_and_58_gates_pass():
         )
         == "V17_8_0_3_BLOCKED"
     )
+    assert (
+        determine_v17_8_0_4_release_verdict(
+            gates_88,
+            MANDATORY_GATES_V17_8_0_4,
+            valid_preflight,
+            valid_shadow_preflight,
+            bad_backtest,
+        )
+        == "V17_8_0_4_BLOCKED"
+    )
 
 
 def test_verdict_missing_gate_blocked():
-    """Missing any mandatory gate (including V17.8.0.1 G43-G52 and V17.8.0.2 G53-G58) fails closed with BLOCKED."""
+    """Missing any mandatory gate (including V17.8.0.1 G43-G52, V17.8.0.2 G53-G58, and V17.8.0.4 G76-G88) fails closed with BLOCKED."""
     gates = _make_passing_gate_results()
     del gates["G29_UNICORN_BREAKER_DETECTION"]
     verdict = determine_release_verdict(gates, MANDATORY_GATES_V17_8)
@@ -145,6 +187,10 @@ def test_verdict_missing_gate_blocked():
     del gates_v17_8_0_2["G53_OBSERVE_ONLY_STARTUP_ISOLATION"]
     assert determine_release_verdict(gates_v17_8_0_2, MANDATORY_GATES_V17_8) == "BLOCKED"
     assert determine_v17_8_0_2_release_verdict(gates_v17_8_0_2, MANDATORY_GATES_V17_8_0_2) == "V17_8_0_2_BLOCKED"
+
+    gates_v17_8_0_4 = _make_passing_gate_results()
+    del gates_v17_8_0_4["G76_REMOTE_ACCEPTANCE_LOG_COMPLETENESS"]
+    assert determine_release_verdict(gates_v17_8_0_4, MANDATORY_GATES_V17_8) == "BLOCKED"
 
 
 def test_verdict_failed_test_gate_blocked():
@@ -188,6 +234,10 @@ def test_verdict_integrity_unverified_blocked():
     gates_g58["G58_RELEASE_ARTIFACT_TRUTH_INTEGRITY"]["integrity_verified"] = False
     assert determine_release_verdict(gates_g58, MANDATORY_GATES_V17_8) == "BLOCKED"
 
+    gates_g88 = _make_passing_gate_results()
+    gates_g88["G88_EXACT_COMMIT_REMOTE_EVIDENCE_VERIFICATION"]["integrity_verified"] = False
+    assert determine_release_verdict(gates_g88, MANDATORY_GATES_V17_8) == "BLOCKED"
+
 
 def test_verdict_v17_8_0_2_preflight_violation_blocked():
     """Non-zero preflight counters or DB hash mismatch fail closed in V17.8.0.2 verdict resolution."""
@@ -229,4 +279,3 @@ def test_verdict_v17_8_0_2_preflight_violation_blocked():
         determine_v17_8_0_2_release_verdict(gates_58, MANDATORY_GATES_V17_8_0_2, bad_preflight_hash)
         == "V17_8_0_2_BLOCKED"
     )
-

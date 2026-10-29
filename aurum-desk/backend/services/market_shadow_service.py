@@ -1046,6 +1046,7 @@ class MarketShadowService:
         closed_15m: Optional[Sequence[Any]] = None,
         quote: Optional[CanonicalQuote] = None,
         policy: Optional[StopPlacementPolicy] = None,
+        stop_policy: Optional[StopPlacementPolicy] = None,
         scalp_config: Optional[M1ScalpConfig] = None,
     ) -> Dict[str, Any]:
         """
@@ -1062,7 +1063,7 @@ class MarketShadowService:
         cutoff_ms = int(as_of_ms if as_of_ms is not None else time.time() * 1000)
         analysis_time_ms = int(time.time() * 1000)
         cfg = scalp_config or get_scalp_config()
-        stop_pol = policy or StopPlacementPolicy(
+        stop_pol = policy or stop_policy or StopPlacementPolicy(
             mode=StopPlacementMode.SHADOW_COMPARE.value,
             v18_unicorn_detection_enabled=True,
             v18_structural_intelligence_enabled=True,
@@ -1173,16 +1174,31 @@ class MarketShadowService:
             now_ms=cutoff_ms,
         )
 
-        # 6. Evaluate Unicorn evidence for LONG and SHORT on confirmed M1 bars
+        # 6. Evaluate Unicorn evidence for LONG and SHORT on confirmed M1 bars (strict causal binding)
+        atr_m1_for_scan = float(atr_m1_obj.value) if (atr_m1_obj and getattr(atr_m1_obj, "status", None) == "AVAILABLE") else 1.0
         for u_dir in ("LONG", "SHORT"):
+            scan_setup = self._detect_model_setup_evidence(
+                model_id=ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+                direction=u_dir,
+                bars_1m=bars_1m,
+                sh_1m=sh_1m,
+                sl_1m=sl_1m,
+                atr_m1=atr_m1_for_scan,
+                cfg=cfg,
+                cutoff_ms=cutoff_ms,
+                strict_direction=True,
+            )
             u_ev = detect_unicorn_evidence(
                 symbol=self.symbol,
                 direction=u_dir,
                 closed_bars=bars_1m,
                 as_of_ms=cutoff_ms,
+                selected_fvg=scan_setup.get("selected_fvg"),
+                selected_break=scan_setup.get("selected_break"),
+                selected_reference=scan_setup.get("selected_reference"),
                 confirmed_swings=(sh_1m, sl_1m),
                 tick_size=cfg.tick_size,
-                strict_causal_binding=False,
+                strict_causal_binding=True,
             )
             u_dict = u_ev.to_dict()
             if u_ev.is_valid or u_ev.validity_status not in (
@@ -1228,7 +1244,7 @@ class MarketShadowService:
                 sl_1m=sl_1m,
                 liquidity_levels=liquidity_levels,
                 atr_m1_obj=atr_m1_obj,
-                atr_m5_obj=strict_atr_m5_obj if strict_atr_m5_obj.status == "AVAILABLE" else atr_m5_obj,
+                atr_m5_obj=strict_atr_m5_obj,
                 stop_policy=stop_pol,
                 policy_settings=policy_settings,
                 cfg=cfg,
@@ -1452,7 +1468,7 @@ class MarketShadowService:
             selected_reference=selected_reference,
             confirmed_swings=(sh_1m, sl_1m),
             tick_size=cfg.tick_size,
-            strict_causal_binding=bool(selected_fvg is not None and selected_break is not None),
+            strict_causal_binding=True,
         )
         if self._storage and self._storage.is_initialized:
             self._storage.record_unicorn_evidence(unicorn_ev.to_dict())
@@ -1707,6 +1723,7 @@ class MarketShadowService:
         atr_m1: float,
         cfg: M1ScalpConfig,
         cutoff_ms: int,
+        strict_direction: bool = False,
     ) -> Dict[str, Any]:
         """
         Extracts causal setup evidence from confirmed M1 bars without mutating any state.
@@ -1725,7 +1742,8 @@ class MarketShadowService:
 
         # Check FVG continuation / Unicorn confluence setup first
         if model_id in (ModelIdentifier.SMC_M1_FVG_CONTINUATION.value, ModelIdentifier.CG01_SWEEP_MSS_FVG.value):
-            for cand_dir in (direction, "SHORT" if direction == "LONG" else "LONG"):
+            cand_dirs = (direction,) if strict_direction else (direction, "SHORT" if direction == "LONG" else "LONG")
+            for cand_dir in cand_dirs:
                 target_fvg_type = "BULLISH_FVG" if cand_dir == "LONG" else "BEARISH_FVG"
                 dir_fvgs = [f for f in valid_fvgs if str(f.get("type", "")).upper() == target_fvg_type]
                 if not dir_fvgs:
@@ -1739,12 +1757,44 @@ class MarketShadowService:
 
                 ref_swings = sh_1m if cand_dir == "LONG" else sl_1m
                 orig_swings = sl_1m if cand_dir == "LONG" else sh_1m
+                swing_prefix = "sh" if cand_dir == "LONG" else "sl"
+
+                causal_breakers = detect_breaker_blocks(
+                    bars_1m,
+                    symbol=self.symbol,
+                    direction=cand_dir,
+                    timeframe="1M",
+                    as_of_ms=cutoff_ms,
+                    confirmed_swings=(sh_1m, sl_1m),
+                )
+                overlapping_breakers = [
+                    b for b in causal_breakers
+                    if b.confirmed_at_ms <= cutoff_ms
+                    and abs(int(b.break_bar_open_ms) - f_ts) <= 5 * 60_000
+                    and min(float(b.high), f_top) > max(float(b.low), f_bot)
+                ]
+                matched_breaker = overlapping_breakers[-1] if overlapping_breakers else None
+
                 prior_refs = [s for s in ref_swings if int(s.get("occurred_at_ms", 0)) <= f_ts]
                 prior_origs = [s for s in orig_swings if int(s.get("occurred_at_ms", 0)) <= f_ts]
                 ref_swing = prior_refs[-1] if prior_refs else (ref_swings[-1] if ref_swings else None)
                 orig_swing = prior_origs[-1] if prior_origs else (orig_swings[-1] if orig_swings else None)
+                if matched_breaker is not None and matched_breaker.broken_swing_id:
+                    for s in ref_swings:
+                        s_id = str(s.get("id") or f"{swing_prefix}_{s.get('occurred_at_ms')}")
+                        if s_id == matched_breaker.broken_swing_id:
+                            ref_swing = s
+                            break
                 if ref_swing is None or orig_swing is None:
                     continue
+
+                broken_swing_id_str = (
+                    str(matched_breaker.broken_swing_id)
+                    if (matched_breaker is not None and matched_breaker.broken_swing_id)
+                    else str(ref_swing.get("id") or f"{swing_prefix}_{ref_swing.get('occurred_at_ms')}")
+                )
+                eff_break_open_ms = int(matched_breaker.break_bar_open_ms) if matched_breaker is not None else f_ts
+                eff_break_known_ms = int(matched_breaker.confirmed_at_ms) if matched_breaker is not None else f_conf
 
                 legacy_sl = (
                     round(f_bot - cfg.sl_buffer_ticks * cfg.tick_size, 2)
@@ -1762,19 +1812,19 @@ class MarketShadowService:
                     "middle_bar_ms": f_ts,
                     "timestamp": f_ts,
                     "confirmed_at": f_conf,
-                    "break_open_ms": f_ts,
-                    "broken_swing_id": str(ref_swing.get("id", f"sw_{ref_swing.get('occurred_at_ms')}")),
+                    "break_open_ms": eff_break_open_ms,
+                    "broken_swing_id": broken_swing_id_str,
                 }
                 sel_break_desc = {
-                    "break_id": f"brk_{cand_dir}_{f_ts}",
-                    "break_open_ms": f_ts,
-                    "broken_at_ms": f_ts,
-                    "known_at_ms": f_conf,
-                    "broken_swing_id": str(ref_swing.get("id", f"sw_{ref_swing.get('occurred_at_ms')}")),
+                    "break_id": f"brk_{cand_dir}_{eff_break_open_ms}",
+                    "break_open_ms": eff_break_open_ms,
+                    "broken_at_ms": eff_break_open_ms,
+                    "known_at_ms": eff_break_known_ms,
+                    "broken_swing_id": broken_swing_id_str,
                     "origin_pivot_id": str(orig_swing.get("id", f"orig_{orig_swing.get('occurred_at_ms')}")),
                     "origin_price": float(orig_swing["price"]),
                     "origin_occurred_at_ms": int(orig_swing["occurred_at_ms"]),
-                    "episode_start_ms": int(orig_swing["occurred_at_ms"]),
+                    "episode_start_ms": min(int(orig_swing["occurred_at_ms"]), int(ref_swing.get("occurred_at_ms", f_ts))),
                 }
                 sel_sweep = None
                 if model_id == ModelIdentifier.CG01_SWEEP_MSS_FVG.value:
@@ -1932,6 +1982,19 @@ class MarketShadowService:
             "selected_anchor_id": selected_anchor_id,
             "atr_m1": atr_m1,
             "atr_m5": atr_m5,
+            "atr_m1_value": atr_m1,
+            "atr_m1_source": "1M",
+            "atr_m1_confirmed_at": decision_cutoff_ms if atr_m1 is not None else None,
+            "atr_m5_value": atr_m5,
+            "atr_m5_source": "5M" if atr_m5 is not None else None,
+            "atr_m5_confirmed_at": decision_cutoff_ms if atr_m5 is not None else None,
+            "atr_m5_available": bool(atr_m5 is not None),
+            "atr_fallback_policy": "OPTIONAL_M5_OMITTED_USE_ACTUAL_M1_AND_SPREAD",
+            "atr_decision_status": (
+                "REJECTED_MISSING_ATR_M1"
+                if atr_m1 is None
+                else ("ACTUAL_ATR_M5" if atr_m5 is not None else "OPTIONAL_M5_OMITTED")
+            ),
             "spread": quote.spread,
             "protective_distance": protective_distance,
             "target_price": target_price,

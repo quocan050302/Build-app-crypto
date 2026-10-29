@@ -27,6 +27,7 @@ class UnicornSetupStatus(str, Enum):
     UNCLOSED_EVIDENCE_REJECTED = "UNCLOSED_EVIDENCE_REJECTED"
     RETEST_BEFORE_CONFIRMATION = "RETEST_BEFORE_CONFIRMATION"
     MISSING_CAUSAL_PROVENANCE = "MISSING_CAUSAL_PROVENANCE"
+    UNICORN_EVIDENCE_INSUFFICIENT = "UNICORN_EVIDENCE_INSUFFICIENT"
     WRONG_DIRECTION_OVERLAP = "WRONG_DIRECTION_OVERLAP"
 
 
@@ -98,7 +99,7 @@ class BreakerBlock:
 @dataclass(frozen=True)
 class UnicornEvidence:
     """
-    Master ICT Unicorn Evidence Contract (V17.8.0.1 Section 3 & 6).
+    Master ICT Unicorn Evidence Contract (V17.8.0.1 Section 3 & 6 / V17.8.0.4 Section 6).
     Contains full causal provenance for Breaker + FVG confluence.
     """
     unicorn_id: str
@@ -138,7 +139,7 @@ class UnicornEvidence:
 
     validity_status: str = UnicornSetupStatus.VALID.value  # UnicornSetupStatus
     reason_codes: Tuple[str, ...] = field(default_factory=tuple)
-    algorithm_version: str = "V17_8_0_1"
+    algorithm_version: str = "V17_8_0_4"
 
     def __post_init__(self) -> None:
         if self.selected_fvg_id is None and self.fvg_id is not None:
@@ -196,8 +197,8 @@ class UnicornEvidence:
             "known_at_ms": self.known_at_ms,
             "decision_cutoff_ms": self.decision_cutoff_ms,
             "validity_status": self.validity_status,
-            "reason_codes": list(self.reason_codes),
-            "algorithm_version": self.algorithm_version,
             "is_valid": self.is_valid,
             "has_overlap": self.has_overlap,
+            "reason_codes": list(self.reason_codes),
+            "algorithm_version": self.algorithm_version,
         }

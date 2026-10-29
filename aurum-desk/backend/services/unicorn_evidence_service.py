@@ -1,6 +1,6 @@
 """
 backend/services/unicorn_evidence_service.py
-AURUM V17.8.0.1 — ICT Unicorn Evidence Engine.
+AURUM V17.8.0.4 — ICT Unicorn Evidence Engine.
 Pure calculation, zero database mutations, zero network I/O, zero wall-clock dependencies.
 Detects Breaker Block + FVG Confluence with strict causal episode binding, provenance validation,
 and retest tracking.
@@ -25,6 +25,12 @@ def _candle_open_ms(c: Any) -> int:
     if val is None and isinstance(c, dict):
         val = c.get("open_time") or c.get("timestamp")
     return int(val or 0)
+
+
+def _candle_is_closed(c: Any) -> bool:
+    if isinstance(c, dict):
+        return c.get("is_closed", True) is not False
+    return getattr(c, "is_closed", True) is not False
 
 
 def _candle_ohlc(c: Any) -> Tuple[float, float, float, float]:
@@ -77,6 +83,8 @@ def detect_breaker_blocks(
 
     valid_bars: List[Any] = []
     for b in closed_bars:
+        if not _candle_is_closed(b):
+            continue
         t_open = _candle_open_ms(b)
         t_close = t_open + duration_ms
         if t_close <= as_of_ms:
@@ -252,7 +260,7 @@ def detect_breaker_blocks(
                     highest_idx = k
 
             ob_idx = None
-            for k in range(highest_idx, max(-1, lowest_idx if False else highest_idx - 5), -1):
+            for k in range(highest_idx, max(-1, highest_idx - 5), -1):
                 if _candle_open_ms(valid_bars[k]) <= sl_ts:
                     continue
                 k_o, _, _, k_c = _candle_ohlc(valid_bars[k])
@@ -349,6 +357,14 @@ def _is_same_causal_episode(
         return False, "DISPLACEMENT_ID_MISMATCH"
 
     if selected_break:
+        if "mss_or_bos_id" in selected_break and not selected_break.get("mss_or_bos_id"):
+            return False, "MISSING_BOS_EVIDENCE"
+        if selected_break.get("bos_confirmed") is False:
+            return False, "MISSING_BOS_EVIDENCE"
+        if "displacement_id" in selected_break and not selected_break.get("displacement_id"):
+            return False, "MISSING_DISPLACEMENT_EVIDENCE"
+        if "displacement_ratio" in selected_break and float(selected_break.get("displacement_ratio") or 0.0) <= 0.0:
+            return False, "MISSING_DISPLACEMENT_EVIDENCE"
         sb_open = selected_break.get("break_open_ms") or selected_break.get("broken_at_ms") or selected_break.get("timestamp")
         if sb_open is not None and abs(int(sb_open) - brk.break_bar_open_ms) > duration_ms:
             return False, "SELECTED_BREAK_BAR_MISMATCH"
@@ -356,12 +372,22 @@ def _is_same_causal_episode(
         if sb_ep and brk.episode_id and str(sb_ep) != str(brk.episode_id):
             return False, "SELECTED_BREAK_EPISODE_MISMATCH"
 
+    if "mss_or_bos_id" in fvg and not fvg.get("mss_or_bos_id"):
+        return False, "MISSING_BOS_EVIDENCE"
+    if "displacement_id" in fvg and fvg.get("displacement_id") == "":
+        return False, "MISSING_DISPLACEMENT_EVIDENCE"
+
     fvg_break_ms = fvg.get("break_open_ms")
     if fvg_break_ms is not None and abs(int(fvg_break_ms) - brk.break_bar_open_ms) > duration_ms:
         return False, "FVG_BREAK_BAR_MISMATCH"
 
+    if not brk.mss_or_bos_id:
+        return False, "MISSING_BOS_EVIDENCE"
+    if not brk.displacement_id or float(brk.displacement_ratio or 0.0) <= 0.0:
+        return False, "MISSING_DISPLACEMENT_EVIDENCE"
+
     if strict_causal_binding:
-        if not fvg.get("id") or not brk.broken_swing_id or not brk.source_ob_id:
+        if not fvg.get("id") or not brk.broken_swing_id or not brk.source_ob_id or not brk.episode_id:
             return False, "MISSING_CAUSAL_PROVENANCE"
 
     # 2. Structural impulse contiguity: FVG middle candle must form as part of the
@@ -412,6 +438,7 @@ def _build_rejected_evidence(
     overlap_low: Optional[float] = None,
     overlap_high: Optional[float] = None,
     known_at_ms: Optional[int] = None,
+    extra_reasons: Sequence[str] = (),
 ) -> UnicornEvidence:
     """
     Constructs a fail-closed UnicornEvidence object.
@@ -426,6 +453,11 @@ def _build_rejected_evidence(
     resolved_known_ms = known_at_ms if known_at_ms is not None else (
         brk.confirmed_at_ms if brk else as_of_ms
     )
+
+    reasons: List[str] = [reason_code]
+    for er in extra_reasons:
+        if er and er not in reasons:
+            reasons.append(er)
 
     return UnicornEvidence(
         unicorn_id=fallback_id,
@@ -457,7 +489,7 @@ def _build_rejected_evidence(
         known_at_ms=resolved_known_ms,
         decision_cutoff_ms=as_of_ms,
         validity_status=status.value,
-        reason_codes=(reason_code,),
+        reason_codes=tuple(reasons),
     )
 
 
@@ -473,6 +505,7 @@ def detect_unicorn_evidence(
     confirmed_swings: Optional[Tuple[Sequence[Dict[str, Any]], Sequence[Dict[str, Any]]]] = None,
     selected_fvg: Optional[Dict[str, Any]] = None,
     candidate_fvgs: Optional[Sequence[Dict[str, Any]]] = None,
+    candidate_breakers: Optional[Sequence[BreakerBlock]] = None,
     selected_break: Optional[Dict[str, Any]] = None,
     selected_reference: Optional[Dict[str, Any]] = None,
     htf_evidence: Optional[Sequence[Dict[str, Any]]] = None,
@@ -480,7 +513,7 @@ def detect_unicorn_evidence(
     strict_causal_binding: bool = False,
 ) -> UnicornEvidence:
     """
-    Synthesizes ICT Unicorn Evidence (V17.8.0.1).
+    Synthesizes ICT Unicorn Evidence (V17.8.0.4).
     Canonical contract supports both `selected_fvg` (for active candidate evaluation,
     never substituting an unrelated FVG) and `candidate_fvgs` (for batch/research scanning).
     """
@@ -530,15 +563,41 @@ def detect_unicorn_evidence(
                     reason_code="UNCLOSED_HTF_EVIDENCE_REJECTED",
                 )
 
-    # 1. Filter closed bars strictly <= as_of_ms
+    if candidate_breakers is not None:
+        for cb in candidate_breakers:
+            if cb.confirmed_at_ms > as_of_ms or cb.known_at_ms > as_of_ms or cb.break_bar_close_ms > as_of_ms:
+                return _build_rejected_evidence(
+                    fallback_id=fallback_id,
+                    symbol=symbol,
+                    norm_dir=norm_dir,
+                    as_of_ms=as_of_ms,
+                    status=UnicornSetupStatus.FUTURE_DATA_REJECTED,
+                    reason_code="FUTURE_BREAKER_REJECTED",
+                    brk=cb,
+                )
+
+    # 1. Filter closed bars strictly <= as_of_ms (excluding unclosed bars)
     valid_bars: List[Any] = []
+    unclosed_bars_seen = 0
     for b in closed_bars:
+        if not _candle_is_closed(b):
+            unclosed_bars_seen += 1
+            continue
         t_open = _candle_open_ms(b)
         t_close = t_open + duration_ms
         if t_close <= as_of_ms:
             valid_bars.append(b)
 
     if len(valid_bars) < 4:
+        if unclosed_bars_seen > 0:
+            return _build_rejected_evidence(
+                fallback_id=fallback_id,
+                symbol=symbol,
+                norm_dir=norm_dir,
+                as_of_ms=as_of_ms,
+                status=UnicornSetupStatus.UNCLOSED_EVIDENCE_REJECTED,
+                reason_code="UNCLOSED_CANDLE_EVIDENCE_REJECTED",
+            )
         return _build_rejected_evidence(
             fallback_id=fallback_id,
             symbol=symbol,
@@ -603,6 +662,7 @@ def detect_unicorn_evidence(
                 status=UnicornSetupStatus.MISSING_CAUSAL_PROVENANCE,
                 reason_code="MISSING_FVG_ID",
                 fvg=selected_fvg,
+                extra_reasons=("UNICORN_EVIDENCE_INSUFFICIENT",),
             )
         fvg_type_raw = selected_fvg.get("type")
         fvg_dir_raw = selected_fvg.get("direction")
@@ -649,16 +709,19 @@ def detect_unicorn_evidence(
                 fvg=selected_fvg,
             )
 
-    # 3. Detect Breaker Blocks
-    breakers = detect_breaker_blocks(
-        valid_bars,
-        norm_dir,
-        as_of_ms,
-        symbol=symbol,
-        timeframe=timeframe,
-        confirmed_swings=confirmed_swings,
-        min_displacement_body_atr=min_displacement_body_atr,
-    )
+    # 3. Detect Breaker Blocks (or use validated candidate_breakers)
+    if candidate_breakers is not None:
+        breakers = list(candidate_breakers)
+    else:
+        breakers = detect_breaker_blocks(
+            valid_bars,
+            norm_dir,
+            as_of_ms,
+            symbol=symbol,
+            timeframe=timeframe,
+            confirmed_swings=confirmed_swings,
+            min_displacement_body_atr=min_displacement_body_atr,
+        )
 
     if not breakers:
         return _build_rejected_evidence(
@@ -800,23 +863,31 @@ def detect_unicorn_evidence(
     if not best_candidate:
         if episode_mismatch_candidate is not None:
             m_brk, m_fvg, m_low, m_high, m_reason = episode_mismatch_candidate
-            status = (
-                UnicornSetupStatus.MISSING_CAUSAL_PROVENANCE
-                if m_reason == "MISSING_CAUSAL_PROVENANCE"
-                else UnicornSetupStatus.EPISODE_MISMATCH
-            )
+            if m_reason in ("MISSING_CAUSAL_PROVENANCE", "MISSING_BOS_EVIDENCE"):
+                status = UnicornSetupStatus.MISSING_CAUSAL_PROVENANCE
+                rc = m_reason
+                extra_rc: Tuple[str, ...] = ("UNICORN_EVIDENCE_INSUFFICIENT",)
+            elif m_reason == "MISSING_DISPLACEMENT_EVIDENCE":
+                status = UnicornSetupStatus.DISPLACEMENT_WEAK
+                rc = m_reason
+                extra_rc = ("UNICORN_EVIDENCE_INSUFFICIENT",)
+            else:
+                status = UnicornSetupStatus.EPISODE_MISMATCH
+                rc = "CAUSAL_EPISODE_MISMATCH"
+                extra_rc = (m_reason,)
             return _build_rejected_evidence(
                 fallback_id=fallback_id,
                 symbol=symbol,
                 norm_dir=norm_dir,
                 as_of_ms=as_of_ms,
                 status=status,
-                reason_code=m_reason if status == UnicornSetupStatus.MISSING_CAUSAL_PROVENANCE else "CAUSAL_EPISODE_MISMATCH",
+                reason_code=rc,
                 brk=m_brk,
                 fvg=m_fvg,
                 overlap_low=m_low,
                 overlap_high=m_high,
                 known_at_ms=max(m_brk.confirmed_at_ms, int(m_fvg.get("confirmed_at") or 0)),
+                extra_reasons=extra_rc,
             )
 
         best_brk = breakers[-1]
@@ -844,6 +915,7 @@ def detect_unicorn_evidence(
             reason_code="MISSING_FVG_ID",
             brk=brk,
             fvg=fvg,
+            extra_reasons=("UNICORN_EVIDENCE_INSUFFICIENT",),
         )
 
     fvg_id = str(fvg.get("id") or f"fvg_{norm_dir}_{fvg['bottom']}_{fvg['top']}")

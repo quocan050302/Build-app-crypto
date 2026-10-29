@@ -1,7 +1,7 @@
 """
 tools/acceptance_verdict.py
-AURUM DESK V17.8.0.1 — Authoritative Release Verdict Resolution
-Extracts verdict evaluation into a pure, fail-closed, testable module (V17.7.4 Section 10 & V17.8.0.1 DEF-178-15).
+AURUM DESK V17.8.0.4 — Authoritative Release Verdict Resolution
+Extracts verdict evaluation into a pure, fail-closed, testable module (V17.7.4 Section 10 & V17.8.0.1 DEF-178-15 & V17.8.0.4 Sections 14 & 22).
 """
 
 from typing import Dict, List, Any, Optional
@@ -13,6 +13,12 @@ ALLOWED_GATE_STATUSES = {
     "NOT_EXECUTED",
     "SKIPPED_WITH_REASON",
 }
+
+TRADING_AUTHORIZATION_V17_8_0_4 = [
+    "MARKET_SHADOW_RESEARCH_ONLY",
+    "PAPER_AUTO_TRADING_NOT_AUTHORIZED_BY_V17_8_0_4",
+    "LIVE_TRADING_NOT_AUTHORIZED",
+]
 
 # The mandatory 28 gates for V17.7.3 release acceptance (backward-compatible)
 MANDATORY_GATES_V17_7_3 = [
@@ -112,9 +118,26 @@ MANDATORY_GATES_V17_8_0_3 = list(MANDATORY_GATES_V17_8_0_2) + [
     "G75_EXACT_COMMIT_AND_ARTIFACT_TRUTH_VERIFICATION",
 ]
 
-MANDATORY_GATES_V17_8 = list(MANDATORY_GATES_V17_8_0_3)
+# The mandatory 88 gates for V17.8.0.4 release acceptance (75 gates + 13 artifact, parity & backtest methodology gates)
+MANDATORY_GATES_V17_8_0_4 = list(MANDATORY_GATES_V17_8_0_3) + [
+    "G76_REMOTE_ACCEPTANCE_LOG_COMPLETENESS",
+    "G77_GIT_REPRODUCIBLE_SOURCE_MANIFEST",
+    "G78_SOURCE_MANIFEST_NEGATIVE_CONTROLS",
+    "G79_PRODUCTION_BACKTEST_SHADOW_DECISION_PARITY",
+    "G80_UNICORN_CAUSAL_CHAIN_STRICT_VALIDATION",
+    "G81_ATR_M1_M5_PROVENANCE_INTEGRITY",
+    "G82_MATCHED_COHORT_STOP_OUT_ANALYSIS",
+    "G83_OOS_ZERO_TRADE_INSUFFICIENT_SAMPLE_HANDLING",
+    "G84_TRADE_LEVEL_PNL_RECONCILIATION",
+    "G85_MARKET_SHADOW_ROUTING_REGRESSION",
+    "G86_BACKTEST_ANTI_BIAS_NEGATIVE_CONTROLS",
+    "G87_JUNIT_DOCUMENTATION_COUNT_RECONCILIATION",
+    "G88_EXACT_COMMIT_REMOTE_EVIDENCE_VERIFICATION",
+]
 
-# Authoritative gate taxonomy and requirements (V17.7.4 Section 10 / V17.8.0.1 DEF-178-15 / V17.8.0.2 / V17.8.0.3)
+MANDATORY_GATES_V17_8 = list(MANDATORY_GATES_V17_8_0_4)
+
+# Authoritative gate taxonomy and requirements (V17.7.4 Section 10 / V17.8.0.1 DEF-178-15 / V17.8.0.2 / V17.8.0.3 / V17.8.0.4)
 TEST_GATES = {
     "G02_TEST_DB_BOOTSTRAP",
     "G03_UNSAFE_PATH_REJECTION",
@@ -187,6 +210,18 @@ TEST_GATES = {
     "G72_FRONTEND_SHADOW_OBSERVATION_E2E",
     "G73_OPERATIONAL_DB_ZERO_MUTATION",
     "G74_MARKET_SHADOW_STARTUP_SHUTDOWN",
+    # V17.8.0.4 Acceptance Closure, Parity & Backtest Methodology Additions
+    "G76_REMOTE_ACCEPTANCE_LOG_COMPLETENESS",
+    "G77_GIT_REPRODUCIBLE_SOURCE_MANIFEST",
+    "G78_SOURCE_MANIFEST_NEGATIVE_CONTROLS",
+    "G79_PRODUCTION_BACKTEST_SHADOW_DECISION_PARITY",
+    "G80_UNICORN_CAUSAL_CHAIN_STRICT_VALIDATION",
+    "G81_ATR_M1_M5_PROVENANCE_INTEGRITY",
+    "G82_MATCHED_COHORT_STOP_OUT_ANALYSIS",
+    "G83_OOS_ZERO_TRADE_INSUFFICIENT_SAMPLE_HANDLING",
+    "G84_TRADE_LEVEL_PNL_RECONCILIATION",
+    "G85_MARKET_SHADOW_ROUTING_REGRESSION",
+    "G86_BACKTEST_ANTI_BIAS_NEGATIVE_CONTROLS",
 }
 
 COMMAND_GATES = {
@@ -201,6 +236,8 @@ INTEGRITY_GATES = {
     "G42_EXACT_SOURCE_AND_ARTIFACT_INTEGRITY",
     "G58_RELEASE_ARTIFACT_TRUTH_INTEGRITY",
     "G75_EXACT_COMMIT_AND_ARTIFACT_TRUTH_VERIFICATION",
+    "G87_JUNIT_DOCUMENTATION_COUNT_RECONCILIATION",
+    "G88_EXACT_COMMIT_REMOTE_EVIDENCE_VERIFICATION",
 }
 
 
@@ -455,3 +492,94 @@ def determine_v17_8_0_3_release_verdict(
     return "V17_8_0_3_ACCEPTED_FOR_SAFE_MARKET_SHADOW_AND_BACKTEST"
 
 
+def determine_v17_8_0_4_release_verdict(
+    actual_gate_results: Dict[str, Any],
+    mandatory_gate_manifest: Optional[List[str]] = None,
+    runtime_preflight: Optional[Dict[str, Any]] = None,
+    market_shadow_preflight: Optional[Dict[str, Any]] = None,
+    backtest_summary: Optional[Dict[str, Any]] = None,
+    source_manifest_verified: bool = True,
+) -> str:
+    """
+    Resolves the V17.8.0.4 Engineering Release Verdict (Section 22.1):
+    Allowed values:
+    - V17_8_0_4_ENGINEERING_ACCEPTED
+    - V17_8_0_4_IMPLEMENTED_BUT_NOT_FULLY_ACCEPTED
+    - V17_8_0_4_BLOCKED
+    """
+    manifest = mandatory_gate_manifest if mandatory_gate_manifest is not None else MANDATORY_GATES_V17_8_0_4
+    base_verdict = determine_release_verdict(actual_gate_results, manifest)
+    if base_verdict != "ACCEPTED_FOR_PAPER_OPT_IN":
+        return "V17_8_0_4_BLOCKED"
+
+    if not source_manifest_verified:
+        return "V17_8_0_4_BLOCKED"
+
+    v3_check = determine_v17_8_0_3_release_verdict(
+        actual_gate_results,
+        MANDATORY_GATES_V17_8_0_3,
+        runtime_preflight,
+        market_shadow_preflight,
+        backtest_summary,
+    )
+    if v3_check != "V17_8_0_3_ACCEPTED_FOR_SAFE_MARKET_SHADOW_AND_BACKTEST":
+        return "V17_8_0_4_BLOCKED"
+
+    return "V17_8_0_4_ENGINEERING_ACCEPTED"
+
+
+def determine_v17_8_0_4_backtest_verdict(
+    backtest_summary: Optional[Dict[str, Any]] = None,
+) -> str:
+    """
+    Resolves the V17.8.0.4 Backtest Verdict (Section 22.2):
+    Allowed values:
+    - PRODUCTION_PARITY_BACKTEST_VERIFIED
+    - HISTORICAL_RESEARCH_COMPLETED_PARITY_INCOMPLETE
+    - REAL_HISTORICAL_BACKTEST_INSUFFICIENT_DATA
+    - BACKTEST_BLOCKED
+    """
+    if not backtest_summary or not isinstance(backtest_summary, dict):
+        return "BACKTEST_BLOCKED"
+    if backtest_summary.get("status") != "PASS":
+        return "BACKTEST_BLOCKED"
+    if int(backtest_summary.get("fabricated_candles_count", -1)) != 0:
+        return "BACKTEST_BLOCKED"
+    if int(backtest_summary.get("m1_bars_count", 0)) <= 0:
+        return "REAL_HISTORICAL_BACKTEST_INSUFFICIENT_DATA"
+    if not backtest_summary.get("production_parity_verified", False):
+        return "HISTORICAL_RESEARCH_COMPLETED_PARITY_INCOMPLETE"
+    if not backtest_summary.get("strict_causal_unicorn_enforced", False):
+        return "HISTORICAL_RESEARCH_COMPLETED_PARITY_INCOMPLETE"
+    if not backtest_summary.get("atr_m5_provenance_verified", False):
+        return "HISTORICAL_RESEARCH_COMPLETED_PARITY_INCOMPLETE"
+    return "PRODUCTION_PARITY_BACKTEST_VERIFIED"
+
+
+def determine_v17_8_0_4_performance_verdict(
+    backtest_summary: Optional[Dict[str, Any]] = None,
+) -> str:
+    """
+    Resolves the V17.8.0.4 Trading Performance Verdict (Section 22.3):
+    Allowed values:
+    - PERFORMANCE_EVIDENCE_SUFFICIENT_FOR_REVIEW
+    - PERFORMANCE_INCONCLUSIVE
+    - NEGATIVE_OBSERVED_EXPECTANCY
+    - PERFORMANCE_NOT_EVALUABLE
+    """
+    if not backtest_summary or not isinstance(backtest_summary, dict):
+        return "PERFORMANCE_NOT_EVALUABLE"
+    if backtest_summary.get("status") != "PASS":
+        return "PERFORMANCE_NOT_EVALUABLE"
+    total_trades = int(backtest_summary.get("variant_c_simulated_trades", 0))
+    if total_trades <= 0:
+        return "PERFORMANCE_INCONCLUSIVE"
+    expectancy_r = backtest_summary.get("variant_c_net_expectancy_r")
+    if expectancy_r is None:
+        return "PERFORMANCE_INCONCLUSIVE"
+    if float(expectancy_r) < 0.0:
+        return "NEGATIVE_OBSERVED_EXPECTANCY"
+    oos_status = backtest_summary.get("out_of_sample_verdict")
+    if oos_status == "OUT_OF_SAMPLE_INCONCLUSIVE":
+        return "PERFORMANCE_INCONCLUSIVE"
+    return "PERFORMANCE_EVIDENCE_SUFFICIENT_FOR_REVIEW"

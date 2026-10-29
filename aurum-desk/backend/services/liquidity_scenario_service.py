@@ -155,15 +155,26 @@ def identify_confirmed_swings(
     n = len(candles)
     tf_lower = timeframe.lower()
 
+    def _bar_high(c: Any) -> float:
+        return float(c.get("high", 0.0) if isinstance(c, dict) else getattr(c, "high", 0.0))
+
+    def _bar_low(c: Any) -> float:
+        return float(c.get("low", 0.0) if isinstance(c, dict) else getattr(c, "low", 0.0))
+
+    def _bar_open_ms(c: Any) -> int:
+        if isinstance(c, dict):
+            return int(c.get("open_time") or c.get("timestamp") or 0)
+        return int(getattr(c, "open_time", None) or getattr(c, "timestamp", 0) or 0)
+
     for i in range(left_bars, n - right_bars):
         mid = candles[i]
-        mid_high = float(getattr(mid, "high", 0.0))
-        mid_low = float(getattr(mid, "low", 0.0))
-        open_ms = int(getattr(mid, "open_time", None) or getattr(mid, "timestamp", 0))
+        mid_high = _bar_high(mid)
+        mid_low = _bar_low(mid)
+        open_ms = _bar_open_ms(mid)
 
         # Confirmation candle is candles[i + right_bars]
         confirm_candle = candles[i + right_bars]
-        confirm_open = int(getattr(confirm_candle, "open_time", None) or getattr(confirm_candle, "timestamp", 0))
+        confirm_open = _bar_open_ms(confirm_candle)
         known_at_ms = confirm_open + duration_ms
         if as_of_ms and known_at_ms > as_of_ms:
             continue
@@ -173,7 +184,7 @@ def identify_confirmed_swings(
         for j in range(i - left_bars, i + right_bars + 1):
             if j == i:
                 continue
-            bar_h = float(getattr(candles[j], "high", 0.0))
+            bar_h = _bar_high(candles[j])
             if j < i and bar_h >= mid_high:
                 is_sh = False
                 break
@@ -200,7 +211,7 @@ def identify_confirmed_swings(
         for j in range(i - left_bars, i + right_bars + 1):
             if j == i:
                 continue
-            bar_l = float(getattr(candles[j], "low", 0.0))
+            bar_l = _bar_low(candles[j])
             if j < i and bar_l <= mid_low:
                 is_sl = False
                 break

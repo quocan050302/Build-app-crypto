@@ -23,6 +23,15 @@ frontend/dist-ssr/
 *.log
 !research_artifacts/**/*.log
 !docs/artifacts/v17_8_0_2/**/*.log
+!docs/artifacts/v17_8_0_3/**/*.log
+!docs/artifacts/v17_8_0_4/**/*.log
+!backtest/**/*.log
+
+# OS metadata
+.DS_Store
+**/.DS_Store
+Thumbs.db
+**/Thumbs.db
 
 # Lab historical data & artifacts
 backend/lab/data/

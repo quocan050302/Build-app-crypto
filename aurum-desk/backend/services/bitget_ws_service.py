@@ -33,7 +33,7 @@ ALL_SUBSCRIBE_CHANNELS: List[str] = ["ticker"] + list(CANDLE_CHANNELS.keys())
 
 class BitgetWSService:
     """
-    Bitget Public WebSocket Adapter (V7.2):
+    Bitget Public WebSocket Adapter (V7.2 / V17.8.0.4):
     - Canonical Market Feed Owner for XAUUSDT (USDT-FUTURES).
     - Subscribes to Classic v2 ticker channel + 6 multi-timeframe candle channels:
       (candle1m, candle5m, candle15m, candle1H, candle4H, candle1D).
@@ -44,6 +44,7 @@ class BitgetWSService:
     - Dispatches real multi-row OHLCV candle streams to candle_cache_service.
     - Controlled, single-flight REST fallback using item.ts (not requestTime) for quote age.
     - Exponential backoff with jitter and 30s cap for auto-reconnection.
+    - Enforces fail-closed profile-aware routing across TRADING, OBSERVE_ONLY, and MARKET_SHADOW.
     """
     def __init__(self, ws_url: str = BITGET_WS_URL, symbol: str = "XAUUSDT"):
         self.ws_url = ws_url
@@ -68,22 +69,35 @@ class BitgetWSService:
         self._ws_client = None
         self._broadcaster_callback = None
         self._shadow_sink = None
+        self._shadow_sink_disabled = False
 
     def register_broadcaster(self, callback):
         self._broadcaster_callback = callback
 
-    def register_shadow_sink(self, shadow_sink):
+    def register_shadow_sink(self, shadow_sink, *, disable_default_fallback: bool = False):
         """Injects an isolated MarketShadowService sink for MARKET_SHADOW routing."""
         self._shadow_sink = shadow_sink
+        self._shadow_sink_disabled = bool(disable_default_fallback and shadow_sink is None)
+
+    def unregister_shadow_sink(self, *, disable_default_fallback: bool = True):
+        """Explicitly clears any registered shadow sink and disables fallback unless re-registered."""
+        self._shadow_sink = None
+        self._shadow_sink_disabled = bool(disable_default_fallback)
 
     def _resolve_active_shadow_sink(self):
+        """
+        Resolves the active shadow sink ONLY when the runtime profile is MARKET_SHADOW (V17.8.0.4 Section 13.2).
+        Never allows a cached `_shadow_sink` reference to remain active in TRADING or OBSERVE_ONLY mode.
+        """
+        from services.runtime_profile_service import is_market_shadow_runtime
+        if not is_market_shadow_runtime():
+            return None
         if self._shadow_sink is not None:
             return self._shadow_sink
-        from services.runtime_profile_service import is_market_shadow_runtime
-        if is_market_shadow_runtime():
-            from services.market_shadow_service import market_shadow_service
-            return market_shadow_service
-        return None
+        if self._shadow_sink_disabled:
+            return None
+        from services.market_shadow_service import market_shadow_service
+        return market_shadow_service
 
     def is_channel_acked(self, channel: str) -> bool:
         return self.channel_registry.get(channel) == "ACKED"
@@ -157,8 +171,20 @@ class BitgetWSService:
         return canonical
 
     def _dispatch_quote(self, quote: CanonicalQuote):
-        shadow_sink = self._resolve_active_shadow_sink()
-        if shadow_sink is not None:
+        from services.runtime_profile_service import (
+            increment_safety_counter,
+            is_market_shadow_runtime,
+            is_observe_only_runtime,
+        )
+
+        if is_market_shadow_runtime():
+            shadow_sink = self._resolve_active_shadow_sink()
+            if shadow_sink is None:
+                increment_safety_counter("BLOCKED_SHADOW_MISSING_SINK_FALLTHROUGH", 1)
+                raise RuntimeError(
+                    "MARKET_SHADOW_SINK_MISSING_FAIL_CLOSED: Active shadow sink is missing in MARKET_SHADOW profile; "
+                    "refusing to fall through to TRADING execution dispatch."
+                )
             accepted, _reason, accepted_quote = shadow_sink.ingest_quote(quote)
             if accepted and accepted_quote is not None:
                 self.latest_quote = accepted_quote
@@ -170,7 +196,6 @@ class BitgetWSService:
                         logger.error(f"Broadcaster dispatch error: {e}")
             return
 
-        from services.runtime_profile_service import is_observe_only_runtime
         if is_observe_only_runtime():
             return
 
@@ -211,8 +236,20 @@ class BitgetWSService:
                 logger.error(f"Broadcaster dispatch error: {e}")
 
     def _dispatch_candle_payload(self, timeframe: str, data_rows: list, action: str = "update", epoch: int = 1):
-        shadow_sink = self._resolve_active_shadow_sink()
-        if shadow_sink is not None:
+        from services.runtime_profile_service import (
+            increment_safety_counter,
+            is_market_shadow_runtime,
+            is_observe_only_runtime,
+        )
+
+        if is_market_shadow_runtime():
+            shadow_sink = self._resolve_active_shadow_sink()
+            if shadow_sink is None:
+                increment_safety_counter("BLOCKED_SHADOW_MISSING_SINK_FALLTHROUGH", 1)
+                raise RuntimeError(
+                    "MARKET_SHADOW_SINK_MISSING_FAIL_CLOSED: Active shadow sink is missing in MARKET_SHADOW profile; "
+                    "refusing to fall through to TRADING candle dispatch."
+                )
             shadow_sink.ingest_candle_payload(
                 symbol=self.symbol,
                 timeframe=timeframe,
@@ -223,7 +260,6 @@ class BitgetWSService:
             )
             return
 
-        from services.runtime_profile_service import is_observe_only_runtime
         if is_observe_only_runtime():
             return
 
@@ -250,9 +286,12 @@ class BitgetWSService:
             if connection_epoch is not None
             else (epoch if epoch is not None else max(1, self.connection_epoch))
         )
-        shadow_sink = self._resolve_active_shadow_sink()
-        from services.runtime_profile_service import is_observe_only_runtime
-        route = "MARKET_SHADOW" if shadow_sink is not None else ("OBSERVE_ONLY" if is_observe_only_runtime() else "TRADING")
+        from services.runtime_profile_service import is_market_shadow_runtime, is_observe_only_runtime
+        route = (
+            "MARKET_SHADOW"
+            if is_market_shadow_runtime()
+            else ("OBSERVE_ONLY" if is_observe_only_runtime() else "TRADING")
+        )
 
         if msg == "pong":
             self.last_pong_time = time.time()
@@ -509,6 +548,8 @@ class BitgetWSService:
     def stop(self):
         self._running = False
         self.latest_quote = None
+        self._shadow_sink = None
+        self._shadow_sink_disabled = False
         ws = self._ws_client
         self._ws_client = None
         if ws:
