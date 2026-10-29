@@ -96,9 +96,9 @@ class ExecutionStateManager:
         self.source_sha = source_sha
         self.all_test_groups = list(all_test_groups)
         self.artifact_dir = (
-            Path(artifact_dir)
+            Path(artifact_dir).resolve()
             if artifact_dir
-            else (REPO_ROOT / "docs" / "artifacts" / "v17_9_0" / run_id)
+            else (REPO_ROOT / "docs" / "artifacts" / "v17_9_0" / run_id).resolve()
         )
         self.state_path = self.artifact_dir / "execution_state.json"
         self.state: Dict[str, Any] = self._build_initial_state()
@@ -299,7 +299,12 @@ class ExecutionStateManager:
         rel_list: List[str] = []
         verified_map = dict(self.state.get("verified_artifacts", {}))
         for p in artifact_paths:
-            abs_p = p if p.is_absolute() else (self.artifact_dir / p)
+            if p.is_absolute():
+                abs_p = p.resolve()
+            elif (self.artifact_dir / p).exists():
+                abs_p = (self.artifact_dir / p).resolve()
+            else:
+                abs_p = p.resolve()
             ok, reason = validate_artifact_file(abs_p)
             if not ok:
                 failed = list(self.state.get("failed_test_groups", []))
@@ -341,3 +346,4 @@ class ExecutionStateManager:
         self.state["group_records"] = group_records
         self.save_atomic()
         return True, "COMPLETED"
+
