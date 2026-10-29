@@ -1,0 +1,20 @@
+{
+  "baseline_commit_sha": "c356d6551e13cd6af61cea5c3ab1f4aae1548af2",
+  "evaluator_version": "17.9.0.1",
+  "final_code_sha": "3d03f10a9d98246de2aa66a80c7c7eb889f5b537",
+  "phase_b_independent_oracle_parity": {
+    "parity_divergence_count": 0,
+    "parity_matches": 55,
+    "parity_rate": 1.0,
+    "total_scenarios": 55
+  },
+  "production_vs_backtest_divergences": 0,
+  "production_vs_shadow_divergences": 0,
+  "release": "V17.9.0.1",
+  "runtime_paths_verified": {
+    "backtest_entrypoint": "_extract_historical_opportunities_chronologically -> SharedStrategyEvaluator",
+    "market_shadow_entrypoint": "MarketShadowService.evaluate_shadow_cycle -> SharedStrategyEvaluator",
+    "production_entrypoint": "ScalpWatcherOrchestrator.evaluate_cycle -> SharedStrategyEvaluator"
+  },
+  "status": "PASS"
+}

@@ -1,0 +1,47 @@
+{
+  "baseline_commit_sha": "c356d6551e13cd6af61cea5c3ab1f4aae1548af2",
+  "baseline_decisions_sha256": "92edbd743b1568c16cb01351d46d78db5e581569a8d2752c3ecb22863dc0b608",
+  "category_counts": {
+    "Boundary conditions": 5,
+    "Conflicting structure": 5,
+    "Insufficient HTF history": 5,
+    "Invalid SL/TP": 5,
+    "LONG": 5,
+    "Missing market data": 5,
+    "NO_TRADE": 5,
+    "Rejected entry": 5,
+    "Risk rejection": 5,
+    "SHORT": 5,
+    "Session/time restrictions": 5
+  },
+  "imports_shared_strategy_evaluator": false,
+  "model_counts": {
+    "CG01_SWEEP_MSS_FVG": 11,
+    "SMC_M1_CONTINUATION": 11,
+    "SMC_M1_FVG_CONTINUATION": 11,
+    "SMC_M1_REVERSAL": 11,
+    "SMC_M1_SWEEP_RECLAIM": 11
+  },
+  "oracle_class": "IndependentPreRefactorBaselineOracle",
+  "oracle_module": "backend/services/v17_9_0_1_baseline_oracle.py",
+  "oracle_version": "V17.8.0.4_INDEPENDENT_ORACLE",
+  "parity_divergence_count": 0,
+  "parity_matches": 55,
+  "parity_rate": 1.0,
+  "release": "V17.9.0.1",
+  "required_categories": [
+    "LONG",
+    "SHORT",
+    "NO_TRADE",
+    "Rejected entry",
+    "Missing market data",
+    "Insufficient HTF history",
+    "Conflicting structure",
+    "Invalid SL/TP",
+    "Risk rejection",
+    "Session/time restrictions",
+    "Boundary conditions"
+  ],
+  "self_referential": false,
+  "total_scenarios": 55
+}
