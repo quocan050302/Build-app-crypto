@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g98_synthetic_index_signal_removal" tests="2" errors="0" failures="0" skipped="0" time="0.044"><testcase classname="backend.tests.test_v17_9_shared_parity_and_async_infra" name="test_18_stage2_multi_adapter_parity_verification_no_valid_setup_and_rejected_setup" time="0.018" /><testcase classname="backend.tests.test_v17_9_shared_parity_and_async_infra" name="test_19_anti_fake_control_01_self_comparing_shadow_wrapper_fails_parity" time="0.026" /></testsuite></testsuites>

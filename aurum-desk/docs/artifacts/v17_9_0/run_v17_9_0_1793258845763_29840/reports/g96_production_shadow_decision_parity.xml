@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g96_production_shadow_decision_parity" tests="1" errors="0" failures="0" skipped="0" time="0.029"><testcase classname="backend.tests.test_v17_9_shared_parity_and_async_infra" name="test_15_stage2_parity_shadow_vs_shared_all_5_models" time="0.029" /></testsuite></testsuites>

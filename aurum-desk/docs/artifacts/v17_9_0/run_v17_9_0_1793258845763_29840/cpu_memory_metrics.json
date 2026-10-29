@@ -1,0 +1,18 @@
+{
+  "schema_version": "V17.9.0",
+  "run_id": "run_v17_9_0_1793258845763_29840",
+  "cpu_count": 12,
+  "samples_count": 1,
+  "samples": [
+    {
+      "timestamp_ms": 1793259318919,
+      "stage": "FINAL",
+      "cpu_count": 12,
+      "active_workers": 10,
+      "memory_total_bytes": null,
+      "memory_available_bytes": null,
+      "memory_percent": null,
+      "cpu_percent": null
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g93_production_m1_fvg_continuation_parity" tests="2" errors="0" failures="0" skipped="0" time="0.043"><testcase classname="backend.tests.test_v17_9_shared_parity_and_async_infra" name="test_10_stage1_baseline_characterization_smc_m1_continuation" time="0.021" /><testcase classname="backend.tests.test_v17_9_shared_parity_and_async_infra" name="test_11_stage1_baseline_characterization_smc_m1_fvg_continuation" time="0.022" /></testsuite></testsuites>

@@ -1,0 +1,11 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793258845763_29840\reports\g101_bounded_async_test_runner_integrity.xml -k test_31 or test_32 or test_33
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 101
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_31_per_model_backtest_breakdown_covers_all_5_production_models (0.024s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_32_matched_cohort_and_full_strategy_denominators_separate_and_reproducible (0.048s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_33_disk_budget_guard_preflight_pass_and_worker_temp_cleanup (0.029s)
+3 passed in 0.10s
+
+--- STDERR ---

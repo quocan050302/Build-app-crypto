@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g30_unicorn_fvg_overlap" tests="2" errors="0" failures="0" skipped="0" time="0.034"><testcase classname="backend.tests.test_v17_8_unicorn_evidence" name="test_negative_breaker_without_fvg" time="0.018" /><testcase classname="backend.tests.test_v17_8_unicorn_evidence" name="test_negative_no_geometric_overlap" time="0.016" /></testsuite></testsuites>

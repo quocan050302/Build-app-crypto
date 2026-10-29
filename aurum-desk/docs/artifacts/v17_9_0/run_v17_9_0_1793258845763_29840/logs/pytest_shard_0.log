@@ -1,0 +1,24 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_news_service.py backend/tests/test_v12_4_acceptance.py backend/tests/test_v13_2_replay_repair.py backend/tests/test_v13_5_accounting_acceptance.py backend/tests/test_v13_5_strategy_routing.py backend/tests/test_v13_7_engine_e2e.py backend/tests/test_v13_8_execution_costs.py backend/tests/test_v13_8_order_lifecycle.py backend/tests/test_v13_acceptance.py backend/tests/test_v14_4_11_reconciliation_authority.py backend/tests/test_v14_4_12_reconciliation_fair_review.py backend/tests/test_v14_4_13_drawdown.py backend/tests/test_v14_4_18_repair_source_conflicts.py backend/tests/test_v14_4_2_acceptance_runner.py backend/tests/test_v14_4_2_requirements.py backend/tests/test_v14_4_4_canonical_plan_runtime.py backend/tests/test_v14_4_5_reconciliation_window.py backend/tests/test_v14_4_6_strict_proof_producer.py backend/tests/test_v14_4_7_coordinator_pagination.py backend/tests/test_v14_4_repository.py backend/tests/test_v15_0_scalp_types.py backend/tests/test_v15_10_quote_age_policy_parity.py backend/tests/test_v16_13_htf_confirmation.py backend/tests/test_v16_14_missed_opportunity_funnel.py backend/tests/test_v16_22_red_reproductions.py backend/tests/test_v16_39_15_rr_policy_unification.py backend/tests/test_v16_39_4_session_compliance_learning.py backend/tests/test_v16_3_cg01_contracts.py backend/tests/test_v16_8_capital_basis.py backend/tests/test_v17_4_1_server_scope.py backend/tests/test_v17_4_2_quote_revalidation.py backend/tests/test_v17_5_1_structural_gate.py backend/tests/test_v17_5_2_detector_to_exit.py backend/tests/test_v17_5_anchor_binding.py backend/tests/test_v17_6_1_market_hours_dst.py backend/tests/test_v17_6_4_1_real_db_integration.py backend/tests/test_v17_6_4_3a_health_db_scoping.py backend/tests/test_v17_6_4_3b_unique_commit_truth.py backend/tests/test_v17_6_4_engine_owner_truth.py backend/tests/test_v17_7_database_safety.py backend/tests/test_v7_2_stress_harness.py backend/tests/test_v7_smc_causal_evidence.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793258845763_29840\reports\shards\shard_0.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 411262
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 19%]
+........................................................................ [ 38%]
+........................................................................ [ 57%]
+........................................................................ [ 76%]
+.........................................................ss............. [ 95%]
+..s...............                                                       [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v17_6_4_3b_unique_commit_truth.py::test_uc03_unique_conflict_without_durable_readback_fails
+  D:\build app-crypto\aurum-desk\backend\tests\test_v17_6_4_3b_unique_commit_truth.py:170: SAWarning: Session's state has been changed on a non-active transaction - this state will be discarded.
+    s_other.rollback()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+375 passed, 3 skipped, 2 warnings in 407.54s (0:06:47)
+
+--- STDERR ---

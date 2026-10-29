@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_runtime_integration.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793258845763_29840\reports\g43_unicorn_runtime_interface_contract.xml -k test_def_178_07
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 197
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_runtime_integration::test_def_178_07_unicorn_detector_canonical_selected_fvg_contract (0.115s)
+PASSED backend.tests.test_v17_8_runtime_integration::test_def_178_07_negative_control_interface_breakage_caught (0.082s)
+2 passed in 0.20s
+
+--- STDERR ---

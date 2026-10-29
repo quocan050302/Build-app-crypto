@@ -1,0 +1,13 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -c import sys
+from tools.run_v17_8_acceptance import verify_live_order_safety_boundary
+ok, msg = verify_live_order_safety_boundary()
+print(msg)
+sys.exit(0 if ok else 1)
+
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 1981
+EXIT_CODE: 0
+--- STDOUT ---
+Verified 0 live outbound calls with active HTTP spy, negative control exercised, and clean PAPER flow.
+
+--- STDERR ---

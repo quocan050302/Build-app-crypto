@@ -1,0 +1,10 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793258845763_29840\reports\g97_production_backtest_decision_parity.xml -k test_16 or test_17
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 74
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_16_stage2_parity_backtest_vs_shared_all_5_models (0.037s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_17_stage2_multi_adapter_parity_verification_valid_unicorn_setup (0.037s)
+2 passed in 0.07s
+
+--- STDERR ---

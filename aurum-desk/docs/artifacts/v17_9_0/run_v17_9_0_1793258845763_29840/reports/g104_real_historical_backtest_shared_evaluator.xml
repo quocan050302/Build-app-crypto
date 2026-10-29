@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g104_real_historical_backtest_shared_evaluator" tests="1" errors="0" failures="0" skipped="0" time="0.105"><testcase classname="backend.tests.test_v17_9_shared_parity_and_async_infra" name="test_39_bounded_async_test_orchestrator_parallel_groups_and_node_accounting_invariant" time="0.105" /></testsuite></testsuites>

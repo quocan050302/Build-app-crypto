@@ -1,0 +1,9 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_structural_sl.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793258845763_29840\reports\g35_liquidity_tp_independence.xml -k test_fail_closed_when_wide_sl_causes_insufficient_net_rr
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 4116
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_structural_sl::test_fail_closed_when_wide_sl_causes_insufficient_net_rr (4.116s)
+1 passed in 4.12s
+
+--- STDERR ---

@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g91_production_m1_reversal_parity" tests="2" errors="0" failures="0" skipped="0" time="0.040"><testcase classname="backend.tests.test_v17_9_shared_parity_and_async_infra" name="test_06_strategy_decision_snapshot_immutability_and_20_parity_fields" time="0.018" /><testcase classname="backend.tests.test_v17_9_shared_parity_and_async_infra" name="test_07_strategy_decision_snapshot_deterministic_fingerprints" time="0.022" /></testsuite></testsuites>

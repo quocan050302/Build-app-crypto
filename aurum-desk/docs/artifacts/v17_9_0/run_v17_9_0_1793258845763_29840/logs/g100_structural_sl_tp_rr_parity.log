@@ -1,0 +1,15 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_9_shared_parity_and_async_infra.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793258845763_29840\reports\g100_structural_sl_tp_rr_parity.xml -k test_24 or test_25 or test_26 or test_27 or test_28 or test_29 or test_30
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 6624
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_24_anti_fake_control_06_divergent_take_profit_fails_parity (0.019s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_25_anti_fake_control_07_divergent_unicorn_validity_fails_parity (0.020s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_26_anti_fake_control_08_divergent_selected_anchor_id_fails_parity (0.018s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_27_anti_fake_control_09_divergent_hypothetical_quantity_or_net_rr_fails_parity (0.020s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_28_anti_fake_control_10_divergent_rejection_reason_codes_or_decision_status_fails_parity (0.018s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_29_v17_8_backtest_runner_source_has_zero_synthetic_modulo_signals (6.511s)
+PASSED backend.tests.test_v17_9_shared_parity_and_async_infra::test_30_historical_opportunity_extraction_driven_by_causal_market_structure_only (0.018s)
+7 passed in 6.62s
+
+--- STDERR ---
