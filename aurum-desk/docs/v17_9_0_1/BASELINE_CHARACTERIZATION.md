@@ -1,11 +1,13 @@
-# V17.9.0.1 — Independent Pre-Refactor Baseline Characterization
+# V17.9.0.1.1 — Independent Pre-Refactor Baseline Characterization
 
 - **Baseline Commit SHA (V17.8.0.4 Pre-V17.9.0):** `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`
+- **Git Commit Object Verified:** `True`
 - **Independent Oracle Module:** `backend/services/v17_9_0_1_baseline_oracle.py` (`IndependentPreRefactorBaselineOracle`)
 - **Self-Referential:** `False` (zero imports or calls to `SharedStrategyEvaluator`)
 - **Total Scenarios Evaluated:** `55` (11 categories x 5 production models)
 - **Exact Parity Matches with `SharedStrategyEvaluator`:** `55/55` (`100.00%`)
-- **Baseline Decisions SHA-256:** `92edbd743b1568c16cb01351d46d78db5e581569a8d2752c3ecb22863dc0b608`
+- **5-Way Cross-Runtime Parity Matches:** `55/55`
+- **Baseline Decisions SHA-256 (LF byte-exact):** `fdfc051ea34fd744685bb7f2a77a8e978de44f7959d259936ac292ec88e50905`
 
 ## Category Coverage Matrix
 

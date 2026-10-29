@@ -1,6 +1,6 @@
 {
-  "run_id": "v17_8_0_4_bt_1793258805",
-  "source_sha": "2285b3f93a6c3516118feeb204ebe39caf408fdf",
+  "run_id": "v17_8_0_4_bt_1793271395",
+  "source_sha": "397cf251584470a84f20d222702c5f6e038cf271",
   "drawdowns": {
     "A": {
       "variant_id": "A",
@@ -19,15 +19,15 @@
     "C": {
       "variant_id": "C",
       "initial_equity_usdt": 1000.0,
-      "final_equity_usdt": 968.8511,
-      "max_drawdown_usdt": 31.1489,
+      "final_equity_usdt": 968.7735,
+      "max_drawdown_usdt": 31.2265,
       "max_drawdown_duration_trades": 25
     },
     "D": {
       "variant_id": "D",
       "initial_equity_usdt": 1000.0,
-      "final_equity_usdt": 970.3647,
-      "max_drawdown_usdt": 29.6353,
+      "final_equity_usdt": 970.2772,
+      "max_drawdown_usdt": 29.7228,
       "max_drawdown_duration_trades": 24
     }
   }

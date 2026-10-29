@@ -1,20 +1,64 @@
 {
   "baseline_commit_sha": "c356d6551e13cd6af61cea5c3ab1f4aae1548af2",
-  "evaluator_version": "17.9.0.1",
-  "final_code_sha": "3d03f10a9d98246de2aa66a80c7c7eb889f5b537",
+  "compared_records_count": 60,
+  "divergences": [],
+  "divergences_count": 0,
+  "evaluator_version": "17.9.0.1.1",
+  "final_code_sha": "397cf251584470a84f20d222702c5f6e038cf271",
+  "five_way_compared_count": 60,
+  "five_way_divergences": 0,
+  "per_model_parity_counts": {
+    "CG01_SWEEP_MSS_FVG": {
+      "compared": 12,
+      "divergences": 0,
+      "input_mismatches": 0,
+      "matches": 12
+    },
+    "SMC_M1_CONTINUATION": {
+      "compared": 12,
+      "divergences": 0,
+      "input_mismatches": 0,
+      "matches": 12
+    },
+    "SMC_M1_FVG_CONTINUATION": {
+      "compared": 12,
+      "divergences": 0,
+      "input_mismatches": 0,
+      "matches": 12
+    },
+    "SMC_M1_REVERSAL": {
+      "compared": 12,
+      "divergences": 0,
+      "input_mismatches": 0,
+      "matches": 12
+    },
+    "SMC_M1_SWEEP_RECLAIM": {
+      "compared": 12,
+      "divergences": 0,
+      "input_mismatches": 0,
+      "matches": 12
+    }
+  },
   "phase_b_independent_oracle_parity": {
+    "five_way_parity_divergences": 0,
+    "five_way_parity_matches": 55,
     "parity_divergence_count": 0,
     "parity_matches": 55,
     "parity_rate": 1.0,
     "total_scenarios": 55
   },
+  "production_vs_backtest_compared_count": 60,
   "production_vs_backtest_divergences": 0,
+  "production_vs_shadow_compared_count": 60,
   "production_vs_shadow_divergences": 0,
-  "release": "V17.9.0.1",
+  "production_vs_shadow_input_mismatches": 0,
+  "release": "V17.9.0.1.1",
   "runtime_paths_verified": {
-    "backtest_entrypoint": "_extract_historical_opportunities_chronologically -> SharedStrategyEvaluator",
-    "market_shadow_entrypoint": "MarketShadowService.evaluate_shadow_cycle -> SharedStrategyEvaluator",
-    "production_entrypoint": "ScalpWatcherOrchestrator.evaluate_cycle -> SharedStrategyEvaluator"
+    "backtest_entrypoint": "_extract_historical_opportunities_chronologically -> SharedStrategyEvaluator.evaluate_decision",
+    "market_shadow_entrypoint": "MarketShadowService.evaluate_shadow_cycle -> SharedStrategyEvaluator.evaluate_decision",
+    "production_entrypoint": "ScalpWatcherOrchestrator.evaluate_cycle -> SharedStrategyEvaluator.evaluate_decision"
   },
+  "shadow_vs_backtest_compared_count": 60,
+  "shadow_vs_backtest_divergences": 0,
   "status": "PASS"
 }

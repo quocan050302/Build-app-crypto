@@ -1,6 +1,6 @@
 {
-  "run_id": "v17_8_0_4_bt_1793258805",
-  "source_sha": "2285b3f93a6c3516118feeb204ebe39caf408fdf",
+  "run_id": "v17_8_0_4_bt_1793271395",
+  "source_sha": "397cf251584470a84f20d222702c5f6e038cf271",
   "forensics": {
     "A": {
       "variant_id": "A",
@@ -61,11 +61,11 @@
       "early_stopout_rate_per_executed_trade": 0.0,
       "early_stopout_rate_per_matched_trade": 0.0,
       "post_stop_recovery_details": {
-        "number_of_SL_exits": 15,
+        "number_of_SL_exits": 16,
         "number_with_valid_followup_data": 15,
         "number_reaching_original_TP_after_SL": 0,
         "post_stop_recovery_rate": 0.0,
-        "unverifiable_followup_count": 0,
+        "unverifiable_followup_count": 1,
         "observation_horizon_bars": 20,
         "observation_horizon_minutes": 20
       }

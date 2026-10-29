@@ -1,8 +1,9 @@
-# AURUM DESK V17.9.0.1 — RUNTIME CALL CHAIN AUDIT (BEFORE REPAIR)
+# V17.9.0.1.1 — Runtime Call-Chain Audit (Before V17.9.0.1.1 Repair)
 
-See canonical artifact at `docs/v17_9_0_1/RUNTIME_CALL_CHAIN_BEFORE.md`.
-
-- **Production (`ScalpWatcherOrchestrator.evaluate_cycle`, `backend/services/scalp_watcher_orchestrator.py:988-2445`):** Directly invoked `ScalpM1ModelService.evaluate_m1_*_candidate` and `evaluate_cg01_candidate` (`L1952-2140`), never calling `SharedStrategyEvaluator` in the live cycle loop.
-- **MARKET_SHADOW (`MarketShadowService.evaluate_shadow_cycle` $\rightarrow$ `_evaluate_single_model_shadow`, `backend/services/market_shadow_service.py:1360-1737`):** Computed decisions via private `_detect_model_setup_evidence` (`L1433`) and only attached `shared_decision_snapshot` as passive post-hoc metadata (`L1708-1730`).
-- **Historical Backtest (`_extract_historical_opportunities_chronologically`, `backend/services/v17_8_backtest_runner.py:780-1390`):** Used inline setup heuristics (`L1017-1231`) instead of invoking `SharedStrategyEvaluator`.
-
+## 1. Pre-Repair Defects Identified (`DEF-V179011-01` through `DEF-V179011-06`)
+1. **`DEF-V179011-01` (Production Decision Authority Split):** `SharedStrategyEvaluator.evaluate_production_*_candidate` called `evaluate_decision(...)`, but then delegated to `ScalpM1ModelService.evaluate_m1_*_candidate` / `evaluate_cg01_candidate` without enforcing that the legacy helper could not override canonical `NO_TRADE` / `REJECTED` / direction / SL / TP.
+2. **`DEF-V179011-02` (`MARKET_SHADOW` Authority & Input-Mismatch Classification):** `MarketShadowService._evaluate_single_model_shadow` rebuilt fields from intermediate dicts instead of the canonical `DecisionResult`, and `compare_production_shadow_divergence` did not separate `INPUT_MISMATCH` from `DECISION_DIVERGENCE`.
+3. **`DEF-V179011-03` (Backtest Canonical Authority & Financial Table Mapping):** `v17_8_backtest_runner._extract_historical_opportunities_chronologically` omitted `liquidity_pools` in `bt_shared_ctx` and `tools/generate_v17_9_0_1_artifacts.py` read `total_net_pnl_usd` instead of `net_pnl`.
+4. **`DEF-V179011-04` (Hardcoded Parity Counts):** `tools/generate_v17_9_0_1_artifacts.py` hardcoded `production_vs_shadow_divergences = 0`, `production_vs_backtest_divergences = 0`, and `status = 'PASS'`.
+5. **`DEF-V179011-05` (Stale `tested_source_sha` Overwrite):** `tools/generate_v17_9_0_1_artifacts.py` overwrote `tested_source_sha` on prior gate results when re-running only `G89`–`G105`.
+6. **`DEF-V179011-06` (CRLF vs LF Checksum Drift):** Writing text files with `.write_text()` on Windows converted `\n` to `\r\n` on disk while hashing in-memory `\n` strings.

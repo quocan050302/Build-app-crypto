@@ -1,0 +1,23 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v16_22_production_flow.py backend/tests/test_v17_5_production_flow.py backend/tests/test_forecast_causal_closure.py backend/tests/test_v10_lesson_rules.py backend/tests/test_v11_historical_replay.py backend/tests/test_v12_2_repro_defects.py backend/tests/test_v13_7_ledger_idempotency.py backend/tests/test_v14_3_frequency_audit.py backend/tests/test_v14_4_16_repair_provenance.py backend/tests/test_v14_4_1_session_forecasts.py backend/tests/test_v14_4_5_reconciliation_window.py backend/tests/test_v15_0_opportunity_funnel.py backend/tests/test_v15_1_execution_lifecycle.py backend/tests/test_v16_11_htf_structure.py backend/tests/test_v16_12_cg01_execution.py backend/tests/test_v16_14_missed_opportunity_funnel.py backend/tests/test_v16_34_cg01_runtime_ownership_consistency.py backend/tests/test_v16_6_measurement_integrity.py backend/tests/test_v16_opportunity_engine.py backend/tests/test_v17_4_1_coordinator_flow.py backend/tests/test_v17_4_1_quota_not_required.py backend/tests/test_v17_4_3_atomic_mirrors.py backend/tests/test_v17_4_guard_regression.py backend/tests/test_v17_5_4_cycle_reconciliation.py backend/tests/test_v17_5_8_cost_authority.py backend/tests/test_v17_5_8_episode_authority.py backend/tests/test_v17_5_9_real_cycle_regression.py backend/tests/test_v17_5_policy_api.py backend/tests/test_v17_5_risk_invariants.py backend/tests/test_v17_5_stop_research.py backend/tests/test_v17_6_2_decision_pagination.py backend/tests/test_v17_6_2_feed_authority.py backend/tests/test_v17_6_4_1_origin_isolation.py backend/tests/test_v17_6_4_1_quality_transitions.py backend/tests/test_v17_6_4_3b_health_truth.py backend/tests/test_v17_6_4_3c_source_authority.py backend/tests/test_v17_6_4_contract_calendar.py backend/tests/test_v17_6_decision_timeline.py backend/tests/test_v17_6_observation_run.py backend/tests/test_v17_8_0_3_market_shadow.py backend/tests/test_v17_8_structural_sl.py backend/tests/test_v3_regression.py backend/tests/test_v5_1_geometry_telegram_news.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793271463835_5788\reports\shards\shard_5.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 255469
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 21%]
+........................................................................ [ 42%]
+........................................................................ [ 63%]
+........................................................................ [ 84%]
+....................................................                     [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v12_2_repro_defects.py::test_repro_d03_cost_assumptions_ignores_fee_rate
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\pydantic\main.py:263: DeprecationWarning: Parameter 'fee_rate' is deprecated in CostAssumptions; mapped to 'taker_fee_rate'.
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+340 passed, 2 warnings in 250.13s (0:04:10)
+
+--- STDERR ---

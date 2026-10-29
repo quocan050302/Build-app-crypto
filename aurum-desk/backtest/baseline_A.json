@@ -3,10 +3,10 @@
   "variant_name": "Variant A \u2014 Legacy Stop",
   "performance_status": "SUFFICIENT_SAMPLE",
   "total_opportunities": 7256,
-  "valid_setup_opportunities": 5884,
+  "valid_setup_opportunities": 5776,
   "eligible_opportunities": 41,
   "rejected_opportunities": 7215,
-  "setup_specific_rejections": 5843,
+  "setup_specific_rejections": 5735,
   "simulated_trades": 41,
   "win_rate": 0.1463,
   "loss_rate": 0.8537,
@@ -54,7 +54,7 @@
   "ambiguous_exits": 0,
   "ambiguous_exit_rate_per_executed_trade": 0.0,
   "atr_provenance_summary": {
-    "ACTUAL_ATR_M5": 5806,
+    "ACTUAL_ATR_M5": 5698,
     "OPTIONAL_M5_OMITTED": 78,
     "EXPERIMENTAL_ESTIMATED_M5": 0
   },

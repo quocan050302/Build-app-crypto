@@ -1,7 +1,7 @@
 {
   "schema_version": "V17.9.0",
-  "run_id": "v17_8_0_4_bt_1793258805",
-  "source_sha": "2285b3f93a6c3516118feeb204ebe39caf408fdf",
+  "run_id": "v17_8_0_4_bt_1793271395",
+  "source_sha": "397cf251584470a84f20d222702c5f6e038cf271",
   "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",
   "matched_cohort_analysis": {
     "matched_all_ABCD_cohort": {
@@ -139,22 +139,22 @@
           "simulated_trades": 24,
           "win_rate": 0.2917,
           "loss_rate": 0.7083,
-          "net_pnl": -28.7222,
-          "gross_pnl": -2.6855,
+          "net_pnl": -28.7998,
+          "gross_pnl": -3.2931,
           "net_expectancy_R": -0.4979,
           "average_win_R": 0.5953,
           "average_loss_R": 0.948,
-          "profit_factor": 0.2642,
-          "max_drawdown": 28.7222,
+          "profit_factor": 0.2637,
+          "max_drawdown": 28.7998,
           "drawdown_duration": 24,
-          "average_net_rr": 4.7343,
-          "median_net_rr": 3.5742,
-          "average_stop_distance": 4.5512,
+          "average_net_rr": 4.6761,
+          "median_net_rr": 3.1997,
+          "average_stop_distance": 4.6562,
           "median_stop_distance": 4.62,
-          "stop_distance_atr": 2.6331,
-          "average_quantity": 0.3238,
-          "fees_paid": 25.2597,
-          "slippage_cost": 0.777,
+          "stop_distance_atr": 2.715,
+          "average_quantity": 0.3171,
+          "fees_paid": 24.7457,
+          "slippage_cost": 0.761,
           "MAE": 4.38,
           "MFE": 5.66,
           "early_stopout_30s": "UNAVAILABLE_FROM_M1_OHLC",
@@ -199,23 +199,23 @@
           "simulated_trades": 24,
           "win_rate": 0.2917,
           "loss_rate": 0.7083,
-          "net_pnl": -29.6353,
-          "gross_pnl": -7.3693,
-          "net_expectancy_R": -0.5085,
-          "average_win_R": 0.546,
-          "average_loss_R": 0.9428,
-          "profit_factor": 0.2394,
-          "max_drawdown": 29.6353,
+          "net_pnl": -29.7228,
+          "gross_pnl": -7.688,
+          "net_expectancy_R": -0.5114,
+          "average_win_R": 0.5463,
+          "average_loss_R": 0.947,
+          "profit_factor": 0.239,
+          "max_drawdown": 29.7228,
           "drawdown_duration": 24,
-          "average_net_rr": 4.2227,
-          "median_net_rr": 2.6625,
-          "average_stop_distance": 5.7237,
-          "median_stop_distance": 5.825,
-          "stop_distance_atr": 3.4099,
-          "average_quantity": 0.2767,
-          "fees_paid": 21.602,
-          "slippage_cost": 0.664,
-          "MAE": 4.9763,
+          "average_net_rr": 4.2055,
+          "median_net_rr": 2.4589,
+          "average_stop_distance": 5.785,
+          "median_stop_distance": 5.77,
+          "stop_distance_atr": 3.4581,
+          "average_quantity": 0.2737,
+          "fees_paid": 21.3778,
+          "slippage_cost": 0.657,
+          "MAE": 4.9354,
           "MFE": 5.66,
           "early_stopout_30s": "UNAVAILABLE_FROM_M1_OHLC",
           "early_stopout_60s": 0,
@@ -229,15 +229,15 @@
           "early_stopout_rate_per_eligible_opportunity": 0.0,
           "post_stop_recovery_rate": 0.0,
           "post_stop_recovery_details": {
-            "number_of_SL_exits": 15,
+            "number_of_SL_exits": 16,
             "number_with_valid_followup_data": 15,
             "number_reaching_original_TP_after_SL": 0,
             "post_stop_recovery_rate": 0.0,
-            "unverifiable_followup_count": 0,
+            "unverifiable_followup_count": 1,
             "observation_horizon_bars": 20,
             "observation_horizon_minutes": 20
           },
-          "average_holding_time": 2365.0,
+          "average_holding_time": 2360.0,
           "median_holding_time": 2970.0,
           "unverifiable_outcomes": 0,
           "ambiguous_exits": 0,
@@ -324,22 +324,22 @@
           "simulated_trades": 25,
           "win_rate": 0.28,
           "loss_rate": 0.72,
-          "net_pnl": -31.1489,
-          "gross_pnl": -4.1667,
+          "net_pnl": -31.2265,
+          "gross_pnl": -4.7743,
           "net_expectancy_R": -0.5179,
           "average_win_R": 0.5953,
           "average_loss_R": 0.9509,
-          "profit_factor": 0.2488,
-          "max_drawdown": 31.1489,
+          "profit_factor": 0.2483,
+          "max_drawdown": 31.2265,
           "drawdown_duration": 25,
-          "average_net_rr": 4.6111,
-          "median_net_rr": 3.431,
-          "average_stop_distance": 4.5808,
+          "average_net_rr": 4.5552,
+          "median_net_rr": 3.0187,
+          "average_stop_distance": 4.6816,
           "median_stop_distance": 4.91,
-          "stop_distance_atr": 2.6757,
-          "average_quantity": 0.322,
-          "fees_paid": 26.1772,
-          "slippage_cost": 0.805,
+          "stop_distance_atr": 2.7543,
+          "average_quantity": 0.3156,
+          "fees_paid": 25.6632,
+          "slippage_cost": 0.789,
           "MAE": 4.4562,
           "MFE": 5.499,
           "early_stopout_30s": "UNAVAILABLE_FROM_M1_OHLC",
@@ -375,7 +375,7 @@
       },
       "saved_from_sl_by_C_count": 3,
       "mean_delta_r_C_minus_A": 0.2043,
-      "total_delta_net_pnl_C_minus_A": 12.5331,
+      "total_delta_net_pnl_C_minus_A": 12.4555,
       "paired_opportunity_comparisons": [
         {
           "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_1791998880000",
@@ -1360,22 +1360,22 @@
         {
           "opportunity_id": "bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_1792728780000",
           "model_id": "SMC_M1_FVG_CONTINUATION",
-          "setup_category": "UNICORN_QUALIFIED",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
           "direction": "SHORT",
           "decision_ms": 1792728780000,
           "entry_price": 4018.84,
           "take_profit": 3995.29,
           "sl_difference": {
             "sl_A": 4019.25,
-            "sl_C": 4020.87,
+            "sl_C": 4022.13,
             "stop_distance_A": 0.41,
-            "stop_distance_C": 2.03,
-            "stop_distance_delta_C_minus_A": 1.62
+            "stop_distance_C": 3.29,
+            "stop_distance_delta_C_minus_A": 2.88
           },
           "quantity_difference": {
             "quantity_A": 0.65,
-            "quantity_C": 0.45,
-            "quantity_delta_C_minus_A": -0.2
+            "quantity_C": 0.37,
+            "quantity_delta_C_minus_A": -0.28
           },
           "exit_difference": {
             "outcome_A": "SL",
@@ -1397,34 +1397,34 @@
           },
           "net_pnl": {
             "net_pnl_A": -2.4214,
-            "net_pnl_C": -2.4056,
-            "delta_net_pnl_C_minus_A": 0.0158
+            "net_pnl_C": -2.4444,
+            "delta_net_pnl_C_minus_A": -0.023
           },
           "cost_difference": {
             "total_cost_A": 2.1549,
-            "total_cost_C": 1.4921,
-            "cost_delta_C_minus_A": -0.6628
+            "total_cost_C": 1.2271,
+            "cost_delta_C_minus_A": -0.9278
           }
         },
         {
           "opportunity_id": "bt_opp_XAUUSDT_CG01_SWEEP_MSS_FVG_SHORT_1792728780000",
           "model_id": "CG01_SWEEP_MSS_FVG",
-          "setup_category": "UNICORN_QUALIFIED",
+          "setup_category": "ORDINARY_FVG_NON_UNICORN",
           "direction": "SHORT",
           "decision_ms": 1792728780000,
           "entry_price": 4018.84,
           "take_profit": 3995.29,
           "sl_difference": {
             "sl_A": 4019.25,
-            "sl_C": 4020.87,
+            "sl_C": 4022.13,
             "stop_distance_A": 0.41,
-            "stop_distance_C": 2.03,
-            "stop_distance_delta_C_minus_A": 1.62
+            "stop_distance_C": 3.29,
+            "stop_distance_delta_C_minus_A": 2.88
           },
           "quantity_difference": {
             "quantity_A": 0.65,
-            "quantity_C": 0.45,
-            "quantity_delta_C_minus_A": -0.2
+            "quantity_C": 0.37,
+            "quantity_delta_C_minus_A": -0.28
           },
           "exit_difference": {
             "outcome_A": "SL",
@@ -1446,13 +1446,13 @@
           },
           "net_pnl": {
             "net_pnl_A": -2.4214,
-            "net_pnl_C": -2.4056,
-            "delta_net_pnl_C_minus_A": 0.0158
+            "net_pnl_C": -2.4444,
+            "delta_net_pnl_C_minus_A": -0.023
           },
           "cost_difference": {
             "total_cost_A": 2.1549,
-            "total_cost_C": 1.4921,
-            "cost_delta_C_minus_A": -0.6628
+            "total_cost_C": 1.2271,
+            "cost_delta_C_minus_A": -0.9278
           }
         },
         {
@@ -1736,7 +1736,7 @@
       "ELIGIBLE_IN_A_REJECTED_IN_D": 17,
       "REJECTED_IN_A_ELIGIBLE_IN_B": 0,
       "REJECTED_IN_A_ELIGIBLE_IN_C": 0,
-      "REJECTED_IN_ALL_ABCD": 5843
+      "REJECTED_IN_ALL_ABCD": 5735
     }
   }
 }

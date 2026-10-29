@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "version": "17.9.0.1",
-  "latest_run_id": "run_v17_9_0_1793258845763_29840",
-  "run_directory": "docs/artifacts/v17_9_0/run_v17_9_0_1793258845763_29840",
-  "tested_source_sha": "3d03f10a9d98246de2aa66a80c7c7eb889f5b537",
+  "version": "17.9.0.1.1",
+  "latest_run_id": "run_v17_9_0_1793271463835_5788",
+  "run_directory": "docs/artifacts/v17_9_0/run_v17_9_0_1793271463835_5788",
+  "tested_source_sha": "397cf251584470a84f20d222702c5f6e038cf271",
   "verdict": "ACCEPTED_FOR_PAPER_OPT_IN",
   "release_verdict": "V17_9_0_ENGINEERING_ACCEPTED_FOR_RESEARCH_ONLY",
   "v17_9_0_verdicts": {
@@ -26,5 +26,5 @@
     "AUTO_PAPER_NOT_AUTHORIZED_BY_V17_9_0",
     "LIVE_TRADING_NOT_AUTHORIZED"
   ],
-  "timestamp_utc": "2026-10-29T07:27:26Z"
+  "timestamp_utc": "2026-10-29T10:57:44Z"
 }

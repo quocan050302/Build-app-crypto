@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g74_market_shadow_startup_shutdown" tests="2" errors="0" failures="0" skipped="0" time="2.362"><testcase classname="backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls" name="test_market_shadow_capability_matrix" time="0.012" /><testcase classname="backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowFullProductionPath" name="test_end_to_end_ws_to_shadow_storage_and_shadow_api" time="2.350" /></testsuite></testsuites>

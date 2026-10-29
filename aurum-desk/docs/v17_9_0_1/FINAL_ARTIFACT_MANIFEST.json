@@ -2,48 +2,58 @@
   "artifacts": {
     "ACCEPTANCE_GATE_MATRIX.md": {
       "path": "docs/v17_9_0_1/ACCEPTANCE_GATE_MATRIX.md",
-      "sha256": "184139bb0655409433ad20b74c2a817a464d26fdfce8628606510f4d557be8c1",
-      "size_bytes": 22967
+      "sha256": "ada601e9e2a3c10963f2332d72c29ab3499e35620bc11f89b90065947205d7a4",
+      "size_bytes": 25066
     },
     "ACCEPTANCE_GATE_REPAIR_REPORT.md": {
       "path": "docs/v17_9_0_1/ACCEPTANCE_GATE_REPAIR_REPORT.md",
-      "sha256": "b3adf40b8fd0fe3b5331e6a9a6a9d87ba9e6a3328a7ae171710985c7981193c6",
-      "size_bytes": 1369
+      "sha256": "b2dff2cb00cfffaa7859e229a4ed2febf831c165c0abe79ef9eae37ea5eecb24",
+      "size_bytes": 1380
     },
     "ACCEPTANCE_GATE_RESULTS.json": {
       "path": "docs/v17_9_0_1/ACCEPTANCE_GATE_RESULTS.json",
-      "sha256": "bb312b46a4bd704534796eba0fad5ac931e1f878a18c83bad2de7bbd433312b3",
-      "size_bytes": 72239
+      "sha256": "b6e80f6fba55b5076f4639b61f2e8df75aadd5e1388f48f2daf774a3341e0fc4",
+      "size_bytes": 78046
     },
     "ARTIFACT_RETENTION_MANIFEST.json": {
       "path": "docs/v17_9_0_1/ARTIFACT_RETENTION_MANIFEST.json",
-      "sha256": "4b717b9549ad7114401d07c0f7c6cd3ce7991f08f531bee1f0144eedf5a668f0",
-      "size_bytes": 528
+      "sha256": "e657b3bd7a0653963ebb42807ac57c3c1ca9c640347a6a27ca000a5714ea4ab4",
+      "size_bytes": 513
+    },
+    "ASYNC_RUNNER_PERFORMANCE_REPORT.json": {
+      "path": "docs/v17_9_0_1/ASYNC_RUNNER_PERFORMANCE_REPORT.json",
+      "sha256": "44e7371cf71da35e5a0f91b13084b9ed2edba520b40ffc00b8b7093fad91c8f1",
+      "size_bytes": 3599
     },
     "BASELINE_CHARACTERIZATION.md": {
       "path": "docs/v17_9_0_1/BASELINE_CHARACTERIZATION.md",
-      "sha256": "0c2242ae95cc02335128311237e55a23ca1fea8db3c316779e98442d8d22145e",
-      "size_bytes": 1453
+      "sha256": "aa5756e743d42156f99daa10a06fe6ae47ce38f5cf495373095ac23df8b11e3e",
+      "size_bytes": 1528
     },
     "BASELINE_DECISIONS.jsonl": {
       "path": "docs/v17_9_0_1/BASELINE_DECISIONS.jsonl",
-      "sha256": "4c08c00a636d92f6452e74bf2c91fb0263e090f9dd949cbea84d8c78a4eeac72",
-      "size_bytes": 50005
+      "sha256": "fdfc051ea34fd744685bb7f2a77a8e978de44f7959d259936ac292ec88e50905",
+      "size_bytes": 78770
     },
     "BASELINE_MANIFEST.json": {
       "path": "docs/v17_9_0_1/BASELINE_MANIFEST.json",
-      "sha256": "56ce5b941e6d780f2c5e83b292c4c0e0c0288591f758f742d28b106ccb20d7d7",
-      "size_bytes": 1378
+      "sha256": "159a5a2e622a17bc448b3f3c6e57166d0dfc126433c6ce95275f7b143c0b68ec",
+      "size_bytes": 1527
     },
     "BASELINE_PROVENANCE.md": {
       "path": "docs/v17_9_0_1/BASELINE_PROVENANCE.md",
-      "sha256": "a0d4a443484fbba200a5b8fcaa820934b6c4f8ad7102c5e5e5ec1b776be8a0c6",
-      "size_bytes": 1129
+      "sha256": "a6ae4e72c653bf12d3ea559e2c838f91b040abd96502e4999fb0d9117a895922",
+      "size_bytes": 1389
+    },
+    "CANONICAL_DECISION_AUTHORITY_REPORT.md": {
+      "path": "docs/v17_9_0_1/CANONICAL_DECISION_AUTHORITY_REPORT.md",
+      "sha256": "3da05032b7e28507201b2a307571a4f9451e6eb2031fb916f11118daa094807e",
+      "size_bytes": 2370
     },
     "DATASET_MANIFEST.json": {
       "path": "docs/v17_9_0_1/DATASET_MANIFEST.json",
-      "sha256": "b7a2429dbb9840cf66b1ee4d459b084aace33249c0d238319c24da9fd1db305f",
-      "size_bytes": 6523
+      "sha256": "f0a0ca090033550e0bc31cc73cad861b6a660cd1679f76d5ca2eea7be0caf0ca",
+      "size_bytes": 6352
     },
     "DECISION_DIVERGENCES.jsonl": {
       "path": "docs/v17_9_0_1/DECISION_DIVERGENCES.jsonl",
@@ -52,37 +62,58 @@
     },
     "DECISION_PARITY_REPORT.json": {
       "path": "docs/v17_9_0_1/DECISION_PARITY_REPORT.json",
-      "sha256": "aa8c20c71dceea2f91006629b0c9f303231015868ebce5dd40b1cb7b5e99dc05",
-      "size_bytes": 821
+      "sha256": "43d13c56c761f1a198b1f4c72ae515c991bff95033b5e8f5fdc076be76513625",
+      "size_bytes": 1983
     },
     "DISK_GUARD_REPORT.json": {
       "path": "docs/v17_9_0_1/DISK_GUARD_REPORT.json",
-      "sha256": "6cc7d24a44a58fd8f895e69e23fe5de27d315910194a5391d59de11d4c93c623",
-      "size_bytes": 14097
+      "sha256": "c74d2f02f661114f508716c6fde36714a3c24838f537e3f71871873fd3b80bdf",
+      "size_bytes": 14193
+    },
+    "FINAL_RELEASE_REPORT.md": {
+      "path": "docs/v17_9_0_1/FINAL_RELEASE_REPORT.md",
+      "sha256": "be380e86ae4cdac4ca6cc8e04d8c61d3b33c07c5e41d17c3418ce8e69677496f",
+      "size_bytes": 1473
+    },
+    "FULL_REGRESSION_REPORT.md": {
+      "path": "docs/v17_9_0_1/FULL_REGRESSION_REPORT.md",
+      "sha256": "5182f3dcb4c4baa2cbd8a9bf12f3705eb25dc3dcf0b935877113d9b783ba4e1e",
+      "size_bytes": 899
     },
     "HISTORICAL_BACKTEST_METRICS.json": {
       "path": "docs/v17_9_0_1/HISTORICAL_BACKTEST_METRICS.json",
-      "sha256": "bafcacee064d05b30c90d236f98b33aa623a33c6d9bd6b835065d09b871cf754",
-      "size_bytes": 282265
+      "sha256": "a251af7682009f4c0854c46fd813fdb2db19e82a671d721e91628c8e48144559",
+      "size_bytes": 280405
     },
     "HISTORICAL_BACKTEST_REPORT.md": {
       "path": "docs/v17_9_0_1/HISTORICAL_BACKTEST_REPORT.md",
-      "sha256": "59dfbe66f3b77612439bcfef3d215c9bee79ac2dfd0b52ff8bc4cf29a4243da5",
-      "size_bytes": 977
+      "sha256": "22bb52620d444a83681ef78166e0efa84cc69bb9ae0e9a10562fe7082de24873",
+      "size_bytes": 3605
+    },
+    "RUNTIME_CALL_CHAIN_AFTER.md": {
+      "path": "docs/v17_9_0_1/RUNTIME_CALL_CHAIN_AFTER.md",
+      "sha256": "f2464c2c546fe9d7b3e0562a16380466a9ac8896d98e8bbd16420a77bbf35481",
+      "size_bytes": 2281
     },
     "RUNTIME_CALL_CHAIN_BEFORE.md": {
       "path": "docs/v17_9_0_1/RUNTIME_CALL_CHAIN_BEFORE.md",
-      "sha256": "031c2f877a71a42796480f86444ed233348e0aeec0ea8875bf90b8584ae30de0",
-      "size_bytes": 8047
+      "sha256": "6c9d523d12d7306faa45b0789aa439003258bc067967142af9a9e75f1fcf6933",
+      "size_bytes": 1708
+    },
+    "SOURCE_INTEGRITY_REPORT.md": {
+      "path": "docs/v17_9_0_1/SOURCE_INTEGRITY_REPORT.md",
+      "sha256": "8e43e130e74c72aad5756c630b1baf34783db1c0c30c633c0e9f6e23fe7d365a",
+      "size_bytes": 3783
     }
   },
   "baseline_commit_sha": "c356d6551e13cd6af61cea5c3ab1f4aae1548af2",
   "branch": "feat/v17-8-unicorn-structural-sl-tp-intelligence",
-  "evaluator_version": "17.9.0.1",
-  "final_code_sha": "3d03f10a9d98246de2aa66a80c7c7eb889f5b537",
-  "generated_at_utc": "2026-10-29T09:15:32.532705+00:00",
-  "release": "V17.9.0.1",
+  "evaluator_version": "17.9.0.1.1",
+  "final_code_sha": "397cf251584470a84f20d222702c5f6e038cf271",
+  "gate_provenance_status": "PASS",
+  "generated_at_utc": "2026-10-29T11:05:09.471453+00:00",
+  "release": "V17.9.0.1.1",
   "release_verdict": "V17_9_0_ENGINEERING_ACCEPTED_FOR_RESEARCH_ONLY",
-  "tested_source_sha": "3d03f10a9d98246de2aa66a80c7c7eb889f5b537",
+  "tested_source_sha": "397cf251584470a84f20d222702c5f6e038cf271",
   "top_level_verdict": "PASS"
 }

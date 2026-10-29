@@ -1,7 +1,7 @@
 {
   "schema_version": "V17.9.0",
-  "run_id": "v17_8_0_4_bt_1793258805",
-  "source_sha": "2285b3f93a6c3516118feeb204ebe39caf408fdf",
+  "run_id": "v17_8_0_4_bt_1793271395",
+  "source_sha": "397cf251584470a84f20d222702c5f6e038cf271",
   "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",
   "variants": {
     "A": {
@@ -9,10 +9,10 @@
       "variant_name": "Variant A \u2014 Legacy Stop",
       "performance_status": "SUFFICIENT_SAMPLE",
       "total_opportunities": 7256,
-      "valid_setup_opportunities": 5884,
+      "valid_setup_opportunities": 5776,
       "eligible_opportunities": 41,
       "rejected_opportunities": 7215,
-      "setup_specific_rejections": 5843,
+      "setup_specific_rejections": 5735,
       "simulated_trades": 41,
       "win_rate": 0.1463,
       "loss_rate": 0.8537,
@@ -60,7 +60,7 @@
       "ambiguous_exits": 0,
       "ambiguous_exit_rate_per_executed_trade": 0.0,
       "atr_provenance_summary": {
-        "ACTUAL_ATR_M5": 5806,
+        "ACTUAL_ATR_M5": 5698,
         "OPTIONAL_M5_OMITTED": 78,
         "EXPERIMENTAL_ESTIMATED_M5": 0
       },
@@ -73,10 +73,10 @@
       "variant_name": "Variant B \u2014 V17.7 Structural Stop",
       "performance_status": "SUFFICIENT_SAMPLE",
       "total_opportunities": 7256,
-      "valid_setup_opportunities": 5884,
+      "valid_setup_opportunities": 5776,
       "eligible_opportunities": 25,
       "rejected_opportunities": 7231,
-      "setup_specific_rejections": 5859,
+      "setup_specific_rejections": 5751,
       "simulated_trades": 25,
       "win_rate": 0.28,
       "loss_rate": 0.72,
@@ -124,7 +124,7 @@
       "ambiguous_exits": 0,
       "ambiguous_exit_rate_per_executed_trade": 0.0,
       "atr_provenance_summary": {
-        "ACTUAL_ATR_M5": 5806,
+        "ACTUAL_ATR_M5": 5698,
         "OPTIONAL_M5_OMITTED": 78,
         "EXPERIMENTAL_ESTIMATED_M5": 0
       },
@@ -137,29 +137,29 @@
       "variant_name": "Variant C \u2014 V17.8 Unicorn Structural Stop",
       "performance_status": "SUFFICIENT_SAMPLE",
       "total_opportunities": 7256,
-      "valid_setup_opportunities": 5884,
+      "valid_setup_opportunities": 5776,
       "eligible_opportunities": 25,
       "rejected_opportunities": 7231,
-      "setup_specific_rejections": 5859,
+      "setup_specific_rejections": 5751,
       "simulated_trades": 25,
       "win_rate": 0.28,
       "loss_rate": 0.72,
-      "net_pnl": -31.1489,
-      "gross_pnl": -4.1667,
+      "net_pnl": -31.2265,
+      "gross_pnl": -4.7743,
       "net_expectancy_R": -0.5179,
       "average_win_R": 0.5953,
       "average_loss_R": 0.9509,
-      "profit_factor": 0.2488,
-      "max_drawdown": 31.1489,
+      "profit_factor": 0.2483,
+      "max_drawdown": 31.2265,
       "drawdown_duration": 25,
-      "average_net_rr": 4.6111,
-      "median_net_rr": 3.431,
-      "average_stop_distance": 4.5808,
+      "average_net_rr": 4.5552,
+      "median_net_rr": 3.0187,
+      "average_stop_distance": 4.6816,
       "median_stop_distance": 4.91,
-      "stop_distance_atr": 2.6757,
-      "average_quantity": 0.322,
-      "fees_paid": 26.1772,
-      "slippage_cost": 0.805,
+      "stop_distance_atr": 2.7543,
+      "average_quantity": 0.3156,
+      "fees_paid": 25.6632,
+      "slippage_cost": 0.789,
       "MAE": 4.4562,
       "MFE": 5.499,
       "early_stopout_30s": "UNAVAILABLE_FROM_M1_OHLC",
@@ -188,7 +188,7 @@
       "ambiguous_exits": 0,
       "ambiguous_exit_rate_per_executed_trade": 0.0,
       "atr_provenance_summary": {
-        "ACTUAL_ATR_M5": 5806,
+        "ACTUAL_ATR_M5": 5698,
         "OPTIONAL_M5_OMITTED": 78,
         "EXPERIMENTAL_ESTIMATED_M5": 0
       },
@@ -201,30 +201,30 @@
       "variant_name": "Variant D \u2014 Noise Research Variant",
       "performance_status": "SUFFICIENT_SAMPLE",
       "total_opportunities": 7256,
-      "valid_setup_opportunities": 5884,
+      "valid_setup_opportunities": 5776,
       "eligible_opportunities": 24,
       "rejected_opportunities": 7232,
-      "setup_specific_rejections": 5860,
+      "setup_specific_rejections": 5752,
       "simulated_trades": 24,
       "win_rate": 0.2917,
       "loss_rate": 0.7083,
-      "net_pnl": -29.6353,
-      "gross_pnl": -7.3693,
-      "net_expectancy_R": -0.5085,
-      "average_win_R": 0.546,
-      "average_loss_R": 0.9428,
-      "profit_factor": 0.2394,
-      "max_drawdown": 29.6353,
+      "net_pnl": -29.7228,
+      "gross_pnl": -7.688,
+      "net_expectancy_R": -0.5114,
+      "average_win_R": 0.5463,
+      "average_loss_R": 0.947,
+      "profit_factor": 0.239,
+      "max_drawdown": 29.7228,
       "drawdown_duration": 24,
-      "average_net_rr": 4.2227,
-      "median_net_rr": 2.6625,
-      "average_stop_distance": 5.7237,
-      "median_stop_distance": 5.825,
-      "stop_distance_atr": 3.4099,
-      "average_quantity": 0.2767,
-      "fees_paid": 21.602,
-      "slippage_cost": 0.664,
-      "MAE": 4.9763,
+      "average_net_rr": 4.2055,
+      "median_net_rr": 2.4589,
+      "average_stop_distance": 5.785,
+      "median_stop_distance": 5.77,
+      "stop_distance_atr": 3.4581,
+      "average_quantity": 0.2737,
+      "fees_paid": 21.3778,
+      "slippage_cost": 0.657,
+      "MAE": 4.9354,
       "MFE": 5.66,
       "early_stopout_30s": "UNAVAILABLE_FROM_M1_OHLC",
       "early_stopout_60s": 0,
@@ -238,21 +238,21 @@
       "early_stopout_rate_per_eligible_opportunity": 0.0,
       "post_stop_recovery_rate": 0.0,
       "post_stop_recovery_details": {
-        "number_of_SL_exits": 15,
+        "number_of_SL_exits": 16,
         "number_with_valid_followup_data": 15,
         "number_reaching_original_TP_after_SL": 0,
         "post_stop_recovery_rate": 0.0,
-        "unverifiable_followup_count": 0,
+        "unverifiable_followup_count": 1,
         "observation_horizon_bars": 20,
         "observation_horizon_minutes": 20
       },
-      "average_holding_time": 2365.0,
+      "average_holding_time": 2360.0,
       "median_holding_time": 2970.0,
       "unverifiable_outcomes": 0,
       "ambiguous_exits": 0,
       "ambiguous_exit_rate_per_executed_trade": 0.0,
       "atr_provenance_summary": {
-        "ACTUAL_ATR_M5": 5806,
+        "ACTUAL_ATR_M5": 5698,
         "OPTIONAL_M5_OMITTED": 78,
         "EXPERIMENTAL_ESTIMATED_M5": 0
       },
@@ -261,7 +261,7 @@
       "research_disclosure": "RESEARCH ONLY \u2014 NO ORDER EXECUTED",
       "calibration_status": "EMPIRICAL_P90_QUANTILE",
       "variant_d_calibration_disclosure": {
-        "empirical_p90_count": 5874,
+        "empirical_p90_count": 5766,
         "experimental_fixed_multiplier_count": 10,
         "note": "Variant D uses CALIBRATED_EMPIRICAL_P90 only after >= 10 strictly prior regime observations have accumulated before decision_ms; earlier opportunities use EXPERIMENTAL_FIXED_MULTIPLIER (1.25x)."
       }
@@ -269,31 +269,31 @@
   },
   "entry_and_eligibility_filtering_attribution": {
     "early_stage_rejections": {
-      "total_early_rejections": 1372,
+      "total_early_rejections": 1480,
       "intra_session_gap_rejections": 3,
       "missing_atr_m1_rejections": 9,
       "no_valid_liquidity_target_rejections": 1360
     },
     "variant_net_rr_and_geometry_rejections": {
       "A": {
-        "rejected_from_valid_setups": 5843,
+        "rejected_from_valid_setups": 5735,
         "eligible_from_valid_setups": 41,
-        "eligibility_rate_from_valid_setups": 0.007
+        "eligibility_rate_from_valid_setups": 0.0071
       },
       "B": {
-        "rejected_from_valid_setups": 5859,
+        "rejected_from_valid_setups": 5751,
         "eligible_from_valid_setups": 25,
-        "eligibility_rate_from_valid_setups": 0.0042
+        "eligibility_rate_from_valid_setups": 0.0043
       },
       "C": {
-        "rejected_from_valid_setups": 5859,
+        "rejected_from_valid_setups": 5751,
         "eligible_from_valid_setups": 25,
-        "eligibility_rate_from_valid_setups": 0.0042
+        "eligibility_rate_from_valid_setups": 0.0043
       },
       "D": {
-        "rejected_from_valid_setups": 5860,
+        "rejected_from_valid_setups": 5752,
         "eligible_from_valid_setups": 24,
-        "eligibility_rate_from_valid_setups": 0.0041
+        "eligibility_rate_from_valid_setups": 0.0042
       }
     },
     "eligibility_transition_matrix": {
@@ -303,26 +303,26 @@
       "ELIGIBLE_IN_A_REJECTED_IN_D": 17,
       "REJECTED_IN_A_ELIGIBLE_IN_B": 0,
       "REJECTED_IN_A_ELIGIBLE_IN_C": 0,
-      "REJECTED_IN_ALL_ABCD": 5843
+      "REJECTED_IN_ALL_ABCD": 5735
     },
     "quantity_downsizing_attribution": {
       "average_quantity_by_variant": {
         "A": 0.4534,
         "B": 0.3156,
-        "C": 0.322,
-        "D": 0.2767
+        "C": 0.3156,
+        "D": 0.2737
       },
       "average_stop_distance_by_variant": {
         "A": 2.39,
         "B": 4.6816,
-        "C": 4.5808,
-        "D": 5.7237
+        "C": 4.6816,
+        "D": 5.785
       },
       "total_fees_plus_slippage_by_variant": {
         "A": 62.596,
         "B": 26.4522,
-        "C": 26.9822,
-        "D": 22.266
+        "C": 26.4522,
+        "D": 22.0348
       },
       "explanation": "Wider structural/Unicorn stops in Variants B, C, and D automatically reduce position quantity to maintain the fixed $2.50 risk budget AND filter out setups where wider stop distance lowers Net R:R < 1.50. Experiment 1 (matched_sl_only_comparison) isolates the pure SL effect on the identical cohort where both compared variants pass eligibility."
     }

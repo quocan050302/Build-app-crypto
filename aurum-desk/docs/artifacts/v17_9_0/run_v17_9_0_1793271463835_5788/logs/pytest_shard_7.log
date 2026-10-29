@@ -1,0 +1,20 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v16_23_production_flow.py backend/tests/test_v17_1_monitor_scope_and_focus.py backend/tests/test_v17_2_monitor_context.py backend/tests/test_order_snapshot_closure.py backend/tests/test_realtime_source_ordering.py backend/tests/test_research_reports.py backend/tests/test_v12_3_acceptance.py backend/tests/test_v13_5_price_plan_acceptance.py backend/tests/test_v13_6_engine_execution_integration.py backend/tests/test_v13_6_negative_integrity.py backend/tests/test_v13_7_order_lifecycle.py backend/tests/test_v14_4_16_repair_runtime.py backend/tests/test_v14_4_5_forecast_production.py backend/tests/test_v14_4_5_policy_startup.py backend/tests/test_v14_4_7_proof_fail_closed.py backend/tests/test_v15_0_scalp_types.py backend/tests/test_v15_2_liquidity_engine.py backend/tests/test_v15_9_quote_source_rejection.py backend/tests/test_v16_13_htf_confirmation.py backend/tests/test_v16_16_audit_coverage_and_touch.py backend/tests/test_v16_16_owner_and_shadow.py backend/tests/test_v16_16_transaction_and_linkage.py backend/tests/test_v16_35_rr_propagation_telegram_proximity.py backend/tests/test_v16_39_10_snapshot_api_cli.py backend/tests/test_v16_7_replay_costs.py backend/tests/test_v16_9_causal_ohlc_execution.py backend/tests/test_v17_4_2_quote_execution.py backend/tests/test_v17_4_api.py backend/tests/test_v17_4_startup.py backend/tests/test_v17_5_4_anchor_proof.py backend/tests/test_v17_5_6_episode_origin_binding.py backend/tests/test_v17_5_8_reference_provenance.py backend/tests/test_v17_5_stop_placement.py backend/tests/test_v17_6_3_production_persistence.py backend/tests/test_v17_6_4_1_acceptance_runner.py backend/tests/test_v17_6_4_3_evidence_authority.py backend/tests/test_v17_6_4_3a_authoritative_good.py backend/tests/test_v17_6_4_3c_epoch_authority.py backend/tests/test_v17_6_4_observation_api.py backend/tests/test_v17_6_recovery.py backend/tests/test_v17_7_atr_provenance.py backend/tests/test_v17_8_0_4_parity_and_integrity.py backend/tests/test_v17_8_replay_comparison.py backend/tests/test_v17_9_shared_parity_and_async_infra.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793271463835_5788\reports\shards\shard_7.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 297687
+EXIT_CODE: 0
+--- STDOUT ---
+...........................................s............................ [ 16%]
+........................................................................ [ 33%]
+........................................................................ [ 50%]
+........................................................................ [ 67%]
+........................................................................ [ 84%]
+................................................................         [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+423 passed, 1 skipped, 1 warning in 292.74s (0:04:52)
+
+--- STDERR ---

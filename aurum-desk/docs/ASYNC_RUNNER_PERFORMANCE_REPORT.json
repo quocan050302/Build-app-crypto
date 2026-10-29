@@ -1,0 +1,143 @@
+{
+  "adaptive_concurrency_policy": {
+    "artifact_budget_bytes": 262144000,
+    "cpu_logical_cores": 12,
+    "disk_reserve_bytes": 2147483648,
+    "max_backtest_workers": 1,
+    "max_cpu_workers": 2,
+    "max_io_workers": 4,
+    "max_playwright_workers": 1,
+    "max_pytest_workers": 4,
+    "max_retries": 1,
+    "max_workers": 4,
+    "memory_reserve_bytes": 2684354560,
+    "memory_reserve_pct": 25.0,
+    "worker_timeout_sec": 600.0
+  },
+  "execution_metrics": {
+    "node_accounting_invariant_holds": true,
+    "orphan_processes_remaining": 0,
+    "peak_concurrent_workers": 4,
+    "speedup_ratio": 3.67,
+    "sum_of_group_durations_sec": 235.177,
+    "total_completed_nodes": 59,
+    "total_expected_nodes": 59,
+    "total_failed_nodes": 0,
+    "total_skipped_nodes": 0,
+    "wall_clock_duration_sec": 64.075
+  },
+  "per_group_timings": {
+    "G100_STRUCTURAL_SL_TP_RR_PARITY": {
+      "duration_sec": 14.062,
+      "exit_code": 0,
+      "passed": 4,
+      "tests": 4
+    },
+    "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY": {
+      "duration_sec": 12.148,
+      "exit_code": 0,
+      "passed": 2,
+      "tests": 2
+    },
+    "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP": {
+      "duration_sec": 12.118,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G103_CHECKPOINT_RESUME_AND_INVALIDATION": {
+      "duration_sec": 12.033,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR": {
+      "duration_sec": 9.471,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY": {
+      "duration_sec": 9.11,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G89_SHARED_DECISION_CONTEXT_CONTRACT": {
+      "duration_sec": 14.922,
+      "exit_code": 0,
+      "passed": 6,
+      "tests": 6
+    },
+    "G90_SHARED_DECISION_SNAPSHOT_CONTRACT": {
+      "duration_sec": 14.827,
+      "exit_code": 0,
+      "passed": 4,
+      "tests": 4
+    },
+    "G91_PRODUCTION_M1_REVERSAL_PARITY": {
+      "duration_sec": 14.913,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G92_PRODUCTION_M1_CONTINUATION_PARITY": {
+      "duration_sec": 14.823,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY": {
+      "duration_sec": 13.675,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY": {
+      "duration_sec": 13.679,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G95_PRODUCTION_CG01_PARITY": {
+      "duration_sec": 13.642,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G96_PRODUCTION_SHADOW_DECISION_PARITY": {
+      "duration_sec": 13.757,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G97_PRODUCTION_BACKTEST_DECISION_PARITY": {
+      "duration_sec": 14.278,
+      "exit_code": 0,
+      "passed": 4,
+      "tests": 4
+    },
+    "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL": {
+      "duration_sec": 23.581,
+      "exit_code": 0,
+      "passed": 3,
+      "tests": 3
+    },
+    "G99_UNICORN_CAUSAL_CHAIN_PARITY": {
+      "duration_sec": 14.138,
+      "exit_code": 0,
+      "passed": 6,
+      "tests": 6
+    }
+  },
+  "release": "V17.9.0.1.1",
+  "resource_telemetry": {
+    "final_temporary_bytes": 0,
+    "free_disk_bytes_postflight": null,
+    "peak_temporary_bytes": 2269994,
+    "samples_recorded": 0
+  },
+  "run_id": "run_v17_9_0_1793271463835_5788_v17_9_0_1_1_gates",
+  "source_sha": "397cf251584470a84f20d222702c5f6e038cf271",
+  "status": "PASS"
+}

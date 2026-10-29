@@ -1,0 +1,9 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_0_3_market_shadow.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_9_0\run_v17_9_0_1793271463835_5788\reports\g71_shadow_api_read_only_contract.xml -k test_end_to_end_ws_to_shadow_storage_and_shadow_api
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 2350
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowFullProductionPath::test_end_to_end_ws_to_shadow_storage_and_shadow_api (2.350s)
+1 passed in 2.35s
+
+--- STDERR ---

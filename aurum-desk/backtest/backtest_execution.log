@@ -1,4 +1,4 @@
-[2026-10-29T07:26:45.767358+00:00] Starting V17.8.0.4 Production-Parity Real Historical Backtest run_id=v17_8_0_4_bt_1793258805 source_sha=2285b3f93a6c3516118feeb204ebe39caf408fdf
-[2026-10-29T07:26:46.360902+00:00] Data quality gate completed: status=VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS reproducibility=REPLAY_REPRODUCIBLE_WITH_SAVED_DATA dataset_sha256=6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5 M1=22376 M5=31609 M15=15090
-[2026-10-29T07:27:02.912100+00:00] Chronological replay extracted 5884 valid setup opportunities across 5 production models and 1372 early stage rejections.
-[2026-10-29T07:27:16.910404+00:00] Backtest simulation complete: verdict=REAL_HISTORICAL_BACKTEST_COMPLETED A_trades=41 B_trades=25 C_trades=25 D_trades=24 matched_ABCD=24 matched_AC=25 oos_verdict=OUT_OF_SAMPLE_INCONCLUSIVE
+[2026-10-29T10:56:35.650665+00:00] Starting V17.8.0.4 Production-Parity Real Historical Backtest run_id=v17_8_0_4_bt_1793271395 source_sha=397cf251584470a84f20d222702c5f6e038cf271
+[2026-10-29T10:56:36.211275+00:00] Data quality gate completed: status=VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS reproducibility=REPLAY_REPRODUCIBLE_WITH_SAVED_DATA dataset_sha256=6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5 M1=22376 M5=31609 M15=15090
+[2026-10-29T10:57:16.164012+00:00] Chronological replay extracted 5776 valid setup opportunities across 5 production models and 1480 early stage rejections.
+[2026-10-29T10:57:31.718326+00:00] Backtest simulation complete: verdict=REAL_HISTORICAL_BACKTEST_COMPLETED A_trades=41 B_trades=25 C_trades=25 D_trades=24 matched_ABCD=24 matched_AC=25 oos_verdict=OUT_OF_SAMPLE_INCONCLUSIVE
