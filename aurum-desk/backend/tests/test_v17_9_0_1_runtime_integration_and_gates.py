@@ -1090,3 +1090,47 @@ def test_v17_9_0_1_1_shadow_authority_and_backtest_fail_closed_and_gate_provenan
     assert len(parity_div["divergences"]) >= 1
 
 
+def test_v17_9_0_1_negative_acceptance_v17_9_0_1_2_all_30_controls_and_historical_parity() -> None:
+    """
+    V17.9.0.1.2 Phases B, C, D, E, F, G, H, I:
+    - Verifies all 30 negative controls (`N01`–`N30`) pass and fail closed on any unsafe state.
+    - Verifies `verify_historical_baseline_commit_provenance` resolves all 15 required historical
+      source files at `aurum-desk/backend/...` (`DEF-179012-03`).
+    - Verifies 30 real historical XAUUSDT timestamps (`150` downstream consumed model decisions)
+      achieve 100% parity (`0` divergences) across Production `evaluate_cycle`, `MARKET_SHADOW`
+      `evaluate_shadow_cycle`, and Historical Backtest `evaluate_production_parity_model_snapshot`
+      (`DEF-179012-04`).
+    """
+    from services.v17_9_0_1_baseline_oracle import verify_historical_baseline_commit_provenance
+    from tools.generate_v17_9_0_1_artifacts import (
+        evaluate_historical_multi_runtime_parity,
+        run_v17_9_0_1_2_negative_acceptance_suite,
+    )
+
+    neg_suite = run_v17_9_0_1_2_negative_acceptance_suite(final_code_sha="test_sha_v17_9_0_1_2")
+    assert neg_suite["status"] == "PASS", f"Failed controls: {[c for c in neg_suite['controls'] if not c['passed']]}"
+    assert neg_suite["total_negative_controls"] == 30
+    assert neg_suite["passed_negative_controls"] == 30
+    assert neg_suite["failed_negative_controls"] == 0
+
+    prov = verify_historical_baseline_commit_provenance()
+    assert prov["status"] == "PASS"
+    assert prov["is_valid"] is True
+    assert prov["git_commit_object_verified"] is True
+    assert len(prov["historical_file_sha256s"]) == 15
+
+    hist_parity = evaluate_historical_multi_runtime_parity(max_timestamps=30)
+    assert hist_parity["status"] == "PASS", f"Divergences: {hist_parity.get('divergences')}"
+    assert hist_parity["timestamps_evaluated"] == 30
+    assert hist_parity["compared_records_count"] == 150
+    assert hist_parity["production_vs_shadow_divergences"] == 0
+    assert hist_parity["production_vs_shadow_input_mismatches"] == 0
+    assert hist_parity["production_vs_backtest_divergences"] == 0
+    assert hist_parity["shadow_vs_backtest_divergences"] == 0
+    assert hist_parity["five_way_divergences"] == 0
+    assert hist_parity["status_distribution"].get("ELIGIBLE", 0) >= 1
+    assert hist_parity["status_distribution"].get("VALID_SETUP_REJECTED_BY_RISK", 0) >= 1
+    assert hist_parity["status_distribution"].get("WAITING_CONFIRMATION", 0) >= 1
+
+
+

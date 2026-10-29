@@ -218,6 +218,7 @@ def evaluate_production_parity_model_snapshot(
         DecisionStatus,
         SharedStrategyEvaluator,
         build_market_decision_context,
+        canonical_is_executable,
     )
 
     eff_cfg = cfg or get_scalp_config()
@@ -261,16 +262,22 @@ def evaluate_production_parity_model_snapshot(
         )
     else:
         # Derive HTF directional bias identically to production/shadow when direction is not specified
-        ref_bars = list(ctx.closed_m15_candles) if len(ctx.closed_m15_candles) >= 3 else (
-            list(ctx.closed_m5_candles) if len(ctx.closed_m5_candles) >= 3 else list(ctx.closed_m1_candles)
-        )
-        pref_dir = "LONG"
-        if len(ref_bars) >= 3:
-            first_b = ref_bars[max(0, len(ref_bars) - 10)]
-            last_b = ref_bars[-1]
-            fc = float(first_b.get("close") if isinstance(first_b, dict) else getattr(first_b, "close", 0.0))
-            lc = float(last_b.get("close") if isinstance(last_b, dict) else getattr(last_b, "close", 0.0))
-            pref_dir = "SHORT" if lc < fc else "LONG"
+        ctx_bias = str(getattr(ctx, "htf_bias", "") or htf_bias or "").upper()
+        if ctx_bias == "BULLISH":
+            pref_dir = "LONG"
+        elif ctx_bias == "BEARISH":
+            pref_dir = "SHORT"
+        else:
+            ref_bars = list(ctx.closed_m15_candles) if len(ctx.closed_m15_candles) >= 3 else (
+                list(ctx.closed_m5_candles) if len(ctx.closed_m5_candles) >= 3 else list(ctx.closed_m1_candles)
+            )
+            pref_dir = "LONG"
+            if len(ref_bars) >= 3:
+                first_b = ref_bars[max(0, len(ref_bars) - 10)]
+                last_b = ref_bars[-1]
+                fc = float(first_b.get("close") if isinstance(first_b, dict) else getattr(first_b, "close", 0.0))
+                lc = float(last_b.get("close") if isinstance(last_b, dict) else getattr(last_b, "close", 0.0))
+                pref_dir = "SHORT" if lc < fc else "LONG"
         snap = SharedStrategyEvaluator.evaluate_model_best_direction(
             context=ctx,
             model_id=model_id,
@@ -278,7 +285,7 @@ def evaluate_production_parity_model_snapshot(
             adapter_origin="HISTORICAL_BACKTEST_ADAPTER",
         )
 
-    is_elig = snap.decision_status == DecisionStatus.ELIGIBLE.value
+    is_elig = canonical_is_executable(snap, context=ctx)
     has_setup = snap.setup_validity == "VALID" and snap.unicorn_validity != "ATR_MISSING"
     if snap.decision_status == DecisionStatus.MODEL_DISABLED.value:
         classification = "MODEL_DISABLED"
@@ -805,6 +812,7 @@ def _extract_historical_opportunities_chronologically(
     *,
     symbol: str = "XAUUSDT",
     spread_usd: float = 0.25,
+    include_abcd_research_cohort: bool = False,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
     Walks chronologically through verified M1 closed candles without lookahead.
@@ -817,9 +825,11 @@ def _extract_historical_opportunities_chronologically(
     - Authoritative stop anchor resolution (`resolve_stop_anchor`) and liquidity target selection (`resolve_executable_target`)
     """
     from services.shared_strategy_evaluator import (
+        DecisionStatus,
         SharedStrategyEvaluator,
         StrategyDecisionSnapshot,
         build_market_decision_context,
+        validate_canonical_executability,
     )
 
     m1_bars = [_AttrBarDict(b) for b in datasets.get("1m", [])]
@@ -1396,16 +1406,23 @@ def _extract_historical_opportunities_chronologically(
                 )
                 continue
 
-            if (
-                shared_bt_snap.setup_validity != "VALID"
-                or shared_bt_snap.decision_status in (
-                    "NO_TRADE",
-                    "REJECTED",
-                    "NO_VALID_SETUP",
-                    "WAITING_CONFIRMATION",
-                    "MODEL_DISABLED",
-                    "MISSING_MARKET_DATA",
-                )
+            canon_exec_ok, canon_exec_rej = validate_canonical_executability(
+                shared_bt_snap,
+                context=bt_shared_ctx,
+            )
+            # DEF-179012-02: Enforce positive canonical status check rather than an incomplete deny-list.
+            # By default (`include_abcd_research_cohort=False`), ONLY strictly executable `DecisionStatus.ELIGIBLE`
+            # decisions pass. When `include_abcd_research_cohort=True` (for the secondary ABCD stop-comparison
+            # research cohort), `VALID_SETUP_REJECTED_BY_RISK` setups are retained ONLY for ABCD research
+            # and are strictly blocked from `authoritative_production_parity_simulation`.
+            allowed_for_abcd_research = bool(
+                include_abcd_research_cohort
+                and shared_bt_snap.setup_validity == "VALID"
+                and shared_bt_snap.decision_status == DecisionStatus.VALID_SETUP_REJECTED_BY_RISK.value
+            )
+            if not (
+                (canon_exec_ok and shared_bt_snap.decision_status == DecisionStatus.ELIGIBLE.value)
+                or allowed_for_abcd_research
             ):
                 early_rejections.append(
                     {
@@ -1418,7 +1435,7 @@ def _extract_historical_opportunities_chronologically(
                         "reason_code": (
                             shared_bt_snap.rejection_reason_codes[0]
                             if shared_bt_snap.rejection_reason_codes
-                            else shared_bt_snap.decision_status
+                            else (shared_bt_snap.decision_status or canon_exec_rej or "CANONICAL_DECISION_REJECTED")
                         ),
                         "shared_decision_snapshot": shared_bt_snap.to_parity_dict(),
                         "decision_id": shared_bt_snap.decision_id,
@@ -1581,7 +1598,12 @@ def _extract_historical_opportunities_chronologically(
                     "atr_provenance": atr_provenance,
                     "spread": spread_usd,
                     "canonical_decision_status": shared_bt_snap.decision_status,
-                    "canonical_is_eligible": bool(shared_bt_snap.decision_status == "ELIGIBLE"),
+                    "canonical_is_eligible": bool(
+                        canon_exec_ok and shared_bt_snap.decision_status == DecisionStatus.ELIGIBLE.value
+                    ),
+                    "canonical_executability_validated": bool(canon_exec_ok),
+                    "canonical_executability_rejection": canon_exec_rej,
+                    "_abcd_research_cohort_candidate": True,
                     "canonical_quantity": float(shared_bt_snap.hypothetical_quantity or 0.0),
                     "canonical_net_rr": float(shared_bt_snap.net_rr or 0.0),
                     "canonical_rejection_reasons": list(shared_bt_snap.rejection_reason_codes),
@@ -1678,21 +1700,117 @@ def evaluate_and_simulate_variants_on_opportunities(
         decision_ms = int(opp["decision_ms"])
         direction = opp["direction"]
 
-        # Section 5 (V17.9.0.1.1): Fail closed if canonical decision status is NO_TRADE / REJECTED or lineage is missing
+        # DEF-179012-02 (V17.9.0.1.2 Section 5): Strict positive canonical authorization gate.
+        # Any opportunity carrying canonical decision metadata MUST positively satisfy
+        # canonical_decision_status == DecisionStatus.ELIGIBLE (and valid lineage), except
+        # internal ABCD research cohort candidates extracted from VALID_SETUP_REJECTED_BY_RISK
+        # which are still strictly blocked from authoritative_production_parity_simulation below.
+        from services.shared_strategy_evaluator import (
+            DecisionStatus,
+            StrategyDecisionSnapshot,
+            validate_canonical_executability,
+        )
+
+        if not isinstance(opp, dict):
+            rej_rec = {
+                "opportunity_id": "bt_opp_malformed",
+                "variant_id": "CANONICAL_AUTHORITY",
+                "model_id": "UNKNOWN",
+                "decision_ms": 0,
+                "direction": "UNKNOWN",
+                "reason_code": "CANONICAL_DECISION_INVALID_TYPE_FAIL_CLOSED",
+            }
+            authoritative_parity_rejections.append(rej_rec)
+            all_rejected_records.append(rej_rec)
+            continue
+
         canon_status = opp.get("canonical_decision_status")
         has_shared_snap = "shared_decision_snapshot" in opp
-        if canon_status in (
-            "NO_TRADE",
-            "REJECTED",
-            "NO_VALID_SETUP",
-            "WAITING_CONFIRMATION",
-            "MODEL_DISABLED",
-            "MISSING_MARKET_DATA",
-        ) or (has_shared_snap and (not opp.get("decision_id") or not opp.get("decision_fingerprint"))):
+        has_canon_meta = (
+            "canonical_decision_status" in opp
+            or "canonical_is_eligible" in opp
+            or has_shared_snap
+            or "decision_id" in opp
+            or "decision_fingerprint" in opp
+        )
+        is_abcd_research_cohort = bool(
+            opp.get("_abcd_research_cohort_candidate") is True
+            and canon_status == DecisionStatus.VALID_SETUP_REJECTED_BY_RISK.value
+        )
+        lineage_missing = bool(
+            (has_shared_snap or "decision_id" in opp or "decision_fingerprint" in opp)
+            and (not opp.get("decision_id") or not opp.get("decision_fingerprint"))
+        )
+        snap_exec_ok = True
+        snap_exec_rej: Optional[str] = None
+        if has_shared_snap and not is_abcd_research_cohort:
+            raw_snap = opp.get("shared_decision_snapshot")
+            if isinstance(raw_snap, StrategyDecisionSnapshot):
+                snap_exec_ok, snap_exec_rej = validate_canonical_executability(raw_snap)
+            elif isinstance(raw_snap, dict):
+                s_ent = raw_snap.get("entry_reference")
+                s_sl = raw_snap.get("selected_sl")
+                s_tp = raw_snap.get("take_profit")
+                s_dir = raw_snap.get("direction")
+                s_qty = raw_snap.get("hypothetical_quantity")
+                s_nrr = raw_snap.get("net_rr")
+                if not (
+                    raw_snap.get("decision_id")
+                    and raw_snap.get("decision_fingerprint")
+                    and raw_snap.get("evidence_fingerprint")
+                    and raw_snap.get("policy_fingerprint")
+                    and raw_snap.get("evaluator_version")
+                ):
+                    snap_exec_ok, snap_exec_rej = False, "CANONICAL_DECISION_LINEAGE_MISSING"
+                elif raw_snap.get("decision_status") != DecisionStatus.ELIGIBLE.value:
+                    snap_exec_ok, snap_exec_rej = False, str(raw_snap.get("decision_status") or "CANONICAL_DECISION_NOT_ELIGIBLE")
+                elif raw_snap.get("setup_validity") != "VALID":
+                    snap_exec_ok, snap_exec_rej = False, "CANONICAL_SETUP_NOT_VALID"
+                elif len(raw_snap.get("rejection_reason_codes") or ()) > 0:
+                    snap_exec_ok, snap_exec_rej = False, str(raw_snap["rejection_reason_codes"][0])
+                elif s_dir not in ("LONG", "SHORT"):
+                    snap_exec_ok, snap_exec_rej = False, "CANONICAL_DIRECTION_MISMATCH_REJECTED"
+                elif (
+                    s_ent is None or s_sl is None or s_tp is None
+                    or float(s_ent) <= 0.0 or float(s_sl) <= 0.0 or float(s_tp) <= 0.0
+                ):
+                    snap_exec_ok, snap_exec_rej = False, "CANONICAL_SL_TP_MISSING_REJECTED"
+                elif not (
+                    (s_dir == "LONG" and float(s_sl) < float(s_ent) < float(s_tp))
+                    or (s_dir == "SHORT" and float(s_tp) < float(s_ent) < float(s_sl))
+                ):
+                    snap_exec_ok, snap_exec_rej = False, "CANONICAL_SL_TP_GEOMETRY_REJECTED"
+                elif s_qty is None or float(s_qty) <= 0.0:
+                    snap_exec_ok, snap_exec_rej = False, "CANONICAL_INVALID_HYPOTHETICAL_QUANTITY"
+                elif s_nrr is None or float(s_nrr) <= 0.0:
+                    snap_exec_ok, snap_exec_rej = False, "CANONICAL_INVALID_NET_RR"
+            else:
+                snap_exec_ok, snap_exec_rej = False, "CANONICAL_DECISION_INVALID_TYPE_FAIL_CLOSED"
+
+        if has_canon_meta and (
+            lineage_missing
+            or not snap_exec_ok
+            or (
+                not is_abcd_research_cohort
+                and (
+                    canon_status != DecisionStatus.ELIGIBLE.value
+                    or opp.get("canonical_is_eligible") is False
+                )
+            )
+        ):
+            canon_reasons_top = opp.get("canonical_rejection_reasons") or []
             rej_code = (
                 "CANONICAL_DECISION_LINEAGE_MISSING"
-                if (has_shared_snap and (not opp.get("decision_id") or not opp.get("decision_fingerprint")))
-                else str(canon_status or "CANONICAL_DECISION_REJECTED")
+                if lineage_missing
+                else (
+                    str(canon_status)
+                    if (canon_status and canon_status != DecisionStatus.ELIGIBLE.value)
+                    else (
+                        str(canon_reasons_top[0])
+                        if canon_reasons_top
+                        else (snap_exec_rej or "CANONICAL_DECISION_NOT_ELIGIBLE")
+                    )
+                )
             )
             rej_rec = {
                 "opportunity_id": opp.get("opportunity_id", f"bt_opp_{decision_ms}"),
@@ -1806,6 +1924,12 @@ def evaluate_and_simulate_variants_on_opportunities(
                 now_ms=decision_ms,
             )
             eligible = bool(calc.is_valid and calc.can_execute and calc.meets_min_rr)
+            if vid == "C" and has_canon_meta:
+                eligible = bool(
+                    eligible
+                    and canon_status == DecisionStatus.ELIGIBLE.value
+                    and opp.get("canonical_is_eligible") is True
+                )
             if not eligible:
                 rej_reason = (
                     calc.invalid_reason
@@ -1932,8 +2056,16 @@ def evaluate_and_simulate_variants_on_opportunities(
             }
         )
 
-        # Authoritative Production-Parity Simulation: executes ONLY when canonical DecisionResult is ELIGIBLE
-        canon_eligible = bool(opp.get("canonical_is_eligible", True))
+        # DEF-179012-02: Authoritative Production-Parity Simulation executes ONLY when canonical
+        # DecisionResult strictly satisfies positive eligibility invariants (never defaults to True).
+        canon_eligible = bool(
+            opp.get("canonical_decision_status") == DecisionStatus.ELIGIBLE.value
+            and opp.get("canonical_is_eligible") is True
+            and bool(opp.get("decision_id"))
+            and bool(opp.get("decision_fingerprint"))
+            and float(opp.get("canonical_quantity") or 0.0) > 0.0
+            and float(opp.get("canonical_net_rr") or 0.0) > 0.0
+        )
         canon_sl = float(opp.get("selected_sl") if opp.get("selected_sl") is not None else sl_c)
         if canon_eligible and opp_variant_outcomes["C"]["eligible"] and opp_variant_outcomes["C"]["trade"] is not None:
             c_trade = dict(opp_variant_outcomes["C"]["trade"])
@@ -2676,6 +2808,7 @@ def execute_real_v17_8_backtest(
         datasets,
         symbol="XAUUSDT",
         spread_usd=0.25,
+        include_abcd_research_cohort=True,
     )
     _log(
         f"Chronological replay extracted {len(opportunities)} valid setup opportunities "

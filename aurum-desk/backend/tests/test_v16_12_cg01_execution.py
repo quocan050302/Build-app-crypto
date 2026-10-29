@@ -287,23 +287,31 @@ def test_snapshot_immutability_after_subsequent_market_shift(broker_db):
 
     # Simulate subsequent market transition on live collector
     from services.collector_service import collector_service
-    collector_service.d_4h_bias = "BEARISH"
-    collector_service.h1_alignment = "OPPOSING"
-    collector_service.htf_contexts = {
-        "D": {"bias": "BEARISH", "phase": "ESTABLISHED"},
-        "4H": {"bias": "BEARISH", "phase": "ESTABLISHED"},
-        "1H": {"bias": "UNKNOWN", "phase": "TRANSITION"},
-    }
+    orig_bias = getattr(collector_service, "d_4h_bias", "UNKNOWN")
+    orig_align = getattr(collector_service, "h1_alignment", "UNKNOWN")
+    orig_ctx = dict(getattr(collector_service, "htf_contexts", {}) or {})
+    try:
+        collector_service.d_4h_bias = "BEARISH"
+        collector_service.h1_alignment = "OPPOSING"
+        collector_service.htf_contexts = {
+            "D": {"bias": "BEARISH", "phase": "ESTABLISHED"},
+            "4H": {"bias": "BEARISH", "phase": "ESTABLISHED"},
+            "1H": {"bias": "UNKNOWN", "phase": "TRANSITION"},
+        }
 
-    # Verify historical order's snapshot remains unchanged
-    snap_row = db.query(models.SMCScenarioSnapshot).filter(models.SMCScenarioSnapshot.snapshot_id == initial_snap_id).first()
-    snap_data = json.loads(snap_row.payload)
-    htf_ctx = (snap_data.get("context") or {}).get("htf_context")
+        # Verify historical order's snapshot remains unchanged
+        snap_row = db.query(models.SMCScenarioSnapshot).filter(models.SMCScenarioSnapshot.snapshot_id == initial_snap_id).first()
+        snap_data = json.loads(snap_row.payload)
+        htf_ctx = (snap_data.get("context") or {}).get("htf_context")
 
-    # Historical evidence is strictly preserved
-    assert htf_ctx["h1_snapshot"]["bias"] in ("BULLISH", "UNKNOWN", "RANGE")
-    assert htf_ctx["schema_version"] == "v16.12"
-    assert htf_ctx["evaluation_as_of_ms"] == now_ms
+        # Historical evidence is strictly preserved
+        assert htf_ctx["h1_snapshot"]["bias"] in ("BULLISH", "UNKNOWN", "RANGE")
+        assert htf_ctx["schema_version"] == "v16.12"
+        assert htf_ctx["evaluation_as_of_ms"] == now_ms
+    finally:
+        collector_service.d_4h_bias = orig_bias
+        collector_service.h1_alignment = orig_align
+        collector_service.htf_contexts = orig_ctx
 
 
 # =========================================================================

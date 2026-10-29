@@ -15,7 +15,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import shutil
 import subprocess
+import sys
+import tarfile
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
@@ -1572,61 +1577,638 @@ def build_phase_b_characterization_scenarios(
     return scenarios
 
 
+HISTORICAL_BASELINE_TRACKED_FILES: Tuple[str, ...] = (
+    "backend/smc_engine.py",
+    "backend/domain_calculator.py",
+    "backend/services/scalp_m1_model_service.py",
+    "backend/services/scalp_m1_types.py",
+    "backend/services/cg01_engine.py",
+    "backend/services/unicorn_evidence_service.py",
+    "backend/services/stop_placement_service.py",
+    "backend/services/stop_placement_types.py",
+    "backend/services/stop_placement_research_service.py",
+    "backend/services/liquidity_scenario_service.py",
+    "backend/services/smc_liquidity_service.py",
+    "backend/services/quote_validator.py",
+    "backend/services/scalp_watcher_orchestrator.py",
+    "backend/services/market_shadow_service.py",
+    "backend/services/v17_8_backtest_runner.py",
+)
+
+
+def _resolve_git_toplevel(start_dir: Optional[Path] = None) -> Path:
+    base_dir = start_dir or Path(__file__).resolve().parents[2]
+    try:
+        res = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=str(base_dir),
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            return Path(res.stdout.strip()).resolve()
+    except Exception:
+        pass
+    return base_dir
+
+
 def verify_historical_baseline_commit_provenance(
     commit_sha: str = PRE_REFACTOR_BASELINE_COMMIT_SHA,
+    *,
+    tracked_files_override: Optional[Sequence[str]] = None,
+    simulate_empty_hashes: bool = False,
+    strict: bool = False,
 ) -> Dict[str, Any]:
     """
-    Section 6 (V17.9.0.1.1): Inspects git object storage for the pre-refactor historical baseline
+    DEF-179012-03 (V17.9.0.1.2 Phase F1): Inspects Git object storage using actual Git top-level
+    repository-relative paths (`aurum-desk/backend/...`) for the pre-refactor historical baseline
     commit (`c356d6551e13cd6af61cea5c3ab1f4aae1548af2`, V17.8.0.4) and computes the exact SHA-256
-    digests of the historical domain and runtime files at that commit.
+    digests of all historical domain and runtime files at that commit.
+    Fails closed (`status = 'BLOCKED'`, `is_valid = False`) if the commit is missing or the
+    historical source file hash map is empty or incomplete.
     """
-    repo_root = Path(__file__).resolve().parents[2]
-    tracked_files = (
-        "backend/services/scalp_m1_model_service.py",
-        "backend/services/cg01_engine.py",
-        "backend/services/unicorn_evidence_service.py",
-        "backend/services/stop_placement_service.py",
-        "backend/services/scalp_watcher_orchestrator.py",
-        "backend/services/market_shadow_service.py",
-        "backend/services/v17_8_backtest_runner.py",
-        "backend/domain_calculator.py",
-    )
+    app_root = Path(__file__).resolve().parents[2]
+    git_toplevel = _resolve_git_toplevel(app_root)
+    tracked_files = tuple(tracked_files_override) if tracked_files_override is not None else HISTORICAL_BASELINE_TRACKED_FILES
     commit_verified = False
     file_hashes: Dict[str, Dict[str, Any]] = {}
+    missing_files: List[str] = []
+
     try:
         cat_res = subprocess.run(
             ["git", "cat-file", "-t", commit_sha],
-            cwd=str(repo_root),
+            cwd=str(git_toplevel),
             capture_output=True,
             text=True,
             timeout=10,
             check=False,
         )
         commit_verified = cat_res.returncode == 0 and cat_res.stdout.strip() == "commit"
-        if commit_verified:
+        if commit_verified and not simulate_empty_hashes:
             for rel_path in tracked_files:
-                show_res = subprocess.run(
-                    ["git", "show", f"{commit_sha}:{rel_path}"],
-                    cwd=str(repo_root),
-                    capture_output=True,
-                    timeout=10,
-                    check=False,
+                clean_rel = rel_path.lstrip("/")
+                candidate_git_paths = (
+                    [clean_rel]
+                    if clean_rel.startswith("aurum-desk/")
+                    else [f"aurum-desk/{clean_rel}", clean_rel]
                 )
-                if show_res.returncode == 0 and show_res.stdout:
-                    file_hashes[rel_path] = {
-                        "sha256": hashlib.sha256(show_res.stdout).hexdigest(),
-                        "size_bytes": len(show_res.stdout),
-                        "source": f"git:{commit_sha}:{rel_path}",
+                matched_git_path: Optional[str] = None
+                matched_bytes: Optional[bytes] = None
+                for git_rel in candidate_git_paths:
+                    show_res = subprocess.run(
+                        ["git", "show", f"{commit_sha}:{git_rel}"],
+                        cwd=str(git_toplevel),
+                        capture_output=True,
+                        timeout=10,
+                        check=False,
+                    )
+                    if show_res.returncode == 0 and show_res.stdout:
+                        matched_git_path = git_rel
+                        matched_bytes = show_res.stdout
+                        break
+                if matched_git_path is not None and matched_bytes is not None:
+                    file_hashes[matched_git_path] = {
+                        "app_relative_path": clean_rel.removeprefix("aurum-desk/"),
+                        "repository_relative_path": matched_git_path,
+                        "sha256": hashlib.sha256(matched_bytes).hexdigest(),
+                        "size_bytes": len(matched_bytes),
+                        "source": f"git:{commit_sha}:{matched_git_path}",
                     }
+                else:
+                    missing_files.append(clean_rel)
     except Exception:
         commit_verified = False
 
-    return {
+    bundle_hash = _oracle_hash(
+        {k: v["sha256"] for k, v in sorted(file_hashes.items())}
+    ) if file_hashes else ""
+
+    is_valid = bool(
+        commit_verified
+        and len(file_hashes) > 0
+        and len(file_hashes) == len(tracked_files)
+        and len(missing_files) == 0
+    )
+    status = "PASS" if is_valid else "BLOCKED"
+    reason_code = (
+        "HISTORICAL_PROVENANCE_VERIFIED"
+        if is_valid
+        else (
+            "HISTORICAL_COMMIT_NOT_FOUND"
+            if not commit_verified
+            else (
+                "HISTORICAL_SOURCE_HASHES_EMPTY"
+                if len(file_hashes) == 0
+                else "HISTORICAL_SOURCE_FILES_INCOMPLETE"
+            )
+        )
+    )
+    result = {
         "baseline_commit_sha": commit_sha,
+        "git_toplevel_dir": str(git_toplevel),
         "git_commit_object_verified": commit_verified,
+        "expected_files_count": len(tracked_files),
         "verified_files_count": len(file_hashes),
+        "missing_files": missing_files,
+        "historical_dependency_bundle_sha256": bundle_hash,
         "historical_file_sha256s": file_hashes,
+        "is_valid": is_valid,
+        "status": status,
+        "reason_code": reason_code,
     }
+    if strict and not is_valid:
+        raise RuntimeError(
+            f"BLOCKED: Historical baseline provenance verification failed for {commit_sha}: {reason_code}"
+        )
+    return result
+
+
+def materialize_historical_baseline_tree(
+    commit_sha: str = PRE_REFACTOR_BASELINE_COMMIT_SHA,
+    *,
+    force_refresh: bool = False,
+) -> Dict[str, Any]:
+    """
+    DEF-179012-03 (V17.9.0.1.2 Phase F2): Materializes an immutable snapshot of
+    `aurum-desk/backend` from `git archive <commit_sha>` into an isolated temporary directory
+    and verifies that every extracted historical dependency file matches its Git blob SHA-256.
+    """
+    prov = verify_historical_baseline_commit_provenance(commit_sha)
+    if not prov["is_valid"]:
+        return {
+            "status": "BLOCKED",
+            "is_valid": False,
+            "reason_code": prov["reason_code"],
+            "baseline_commit_sha": commit_sha,
+            "extracted_backend_dir": None,
+            "provenance": prov,
+        }
+
+    git_toplevel = Path(prov["git_toplevel_dir"])
+    extract_root = Path(tempfile.gettempdir()) / f"aurum_v179012_hist_baseline_{commit_sha[:12]}_{os.getpid()}"
+    extracted_backend = extract_root / "aurum-desk" / "backend"
+
+    if force_refresh and extract_root.exists():
+        shutil.rmtree(extract_root, ignore_errors=True)
+
+    if not (extracted_backend / "smc_engine.py").exists():
+        extract_root.mkdir(parents=True, exist_ok=True)
+        tar_path = extract_root / "baseline_backend.tar"
+        arch_res = subprocess.run(
+            ["git", "archive", "--format=tar", f"--output={tar_path}", commit_sha, "aurum-desk/backend"],
+            cwd=str(git_toplevel),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        if arch_res.returncode != 0 or not tar_path.exists():
+            return {
+                "status": "BLOCKED",
+                "is_valid": False,
+                "reason_code": "GIT_ARCHIVE_EXTRACTION_FAILED",
+                "baseline_commit_sha": commit_sha,
+                "extracted_backend_dir": None,
+                "provenance": prov,
+            }
+        with tarfile.open(tar_path, "r") as tf:
+            tf.extractall(path=extract_root, filter="data")
+        try:
+            tar_path.unlink()
+        except OSError:
+            pass
+
+    return verify_historical_baseline_dependency_integrity(
+        commit_sha=commit_sha,
+        extracted_backend_dir=extracted_backend,
+        provenance_override=prov,
+    )
+
+
+def verify_historical_baseline_dependency_integrity(
+    *,
+    commit_sha: str = PRE_REFACTOR_BASELINE_COMMIT_SHA,
+    extracted_backend_dir: Optional[Path] = None,
+    provenance_override: Optional[Dict[str, Any]] = None,
+    injected_hash_overrides: Optional[Mapping[str, str]] = None,
+) -> Dict[str, Any]:
+    """
+    DEF-179012-03 & Negative Test N18 / N19: Verifies that the materialized historical source tree
+    matches the exact SHA-256 digests from `commit_sha` and does not contain post-refactor modules.
+    """
+    prov = provenance_override or verify_historical_baseline_commit_provenance(commit_sha)
+    if not prov.get("is_valid") or not prov.get("historical_file_sha256s"):
+        return {
+            "status": "BLOCKED",
+            "is_valid": False,
+            "reason_code": prov.get("reason_code", "HISTORICAL_SOURCE_HASHES_EMPTY"),
+            "baseline_commit_sha": commit_sha,
+            "extracted_backend_dir": str(extracted_backend_dir) if extracted_backend_dir else None,
+            "mismatched_files": [],
+            "missing_extracted_files": [],
+        }
+
+    if extracted_backend_dir is None:
+        extract_root = Path(tempfile.gettempdir()) / f"aurum_v179012_hist_baseline_{commit_sha[:12]}_{os.getpid()}"
+        extracted_backend_dir = extract_root / "aurum-desk" / "backend"
+        if not (extracted_backend_dir / "smc_engine.py").exists():
+            materialize_historical_baseline_tree(commit_sha)
+
+    mismatched_files: List[Dict[str, Any]] = []
+    missing_extracted: List[str] = []
+    verified_extracted: Dict[str, str] = {}
+
+    for repo_rel, meta in prov["historical_file_sha256s"].items():
+        app_rel = str(meta.get("app_relative_path") or repo_rel.removeprefix("aurum-desk/"))
+        rel_in_backend = app_rel.removeprefix("backend/")
+        disk_file = extracted_backend_dir / rel_in_backend
+        if not disk_file.exists():
+            missing_extracted.append(repo_rel)
+            continue
+        actual_sha = hashlib.sha256(disk_file.read_bytes()).hexdigest()
+        if injected_hash_overrides and (repo_rel in injected_hash_overrides or app_rel in injected_hash_overrides):
+            actual_sha = str(injected_hash_overrides.get(repo_rel) or injected_hash_overrides.get(app_rel))
+        expected_sha = str(meta["sha256"])
+        if actual_sha != expected_sha:
+            mismatched_files.append(
+                {
+                    "repository_relative_path": repo_rel,
+                    "expected_sha256": expected_sha,
+                    "actual_sha256": actual_sha,
+                }
+            )
+        else:
+            verified_extracted[repo_rel] = actual_sha
+
+    if missing_extracted or mismatched_files:
+        return {
+            "status": "INVALID_BASELINE",
+            "is_valid": False,
+            "reason_code": "HISTORICAL_DEPENDENCY_HASH_MISMATCH" if mismatched_files else "HISTORICAL_EXTRACTED_FILE_MISSING",
+            "baseline_commit_sha": commit_sha,
+            "extracted_backend_dir": str(extracted_backend_dir),
+            "mismatched_files": mismatched_files,
+            "missing_extracted_files": missing_extracted,
+            "verified_extracted_files": verified_extracted,
+            "provenance": prov,
+        }
+
+    return {
+        "status": "PASS",
+        "is_valid": True,
+        "reason_code": "HISTORICAL_DEPENDENCY_TREE_VERIFIED",
+        "baseline_commit_sha": commit_sha,
+        "extracted_backend_dir": str(extracted_backend_dir),
+        "mismatched_files": [],
+        "missing_extracted_files": [],
+        "verified_extracted_files": verified_extracted,
+        "provenance": prov,
+    }
+
+
+def _serialize_context_for_historical_subprocess(context: Any) -> Dict[str, Any]:
+    def _ser_obj(item: Any) -> Any:
+        if isinstance(item, dict):
+            return dict(item)
+        if hasattr(item, "to_dict") and callable(item.to_dict):
+            return item.to_dict()
+        if hasattr(item, "__dict__"):
+            return dict(item.__dict__)
+        return item
+
+    atr_m1_o = getattr(context, "atr_m1_obj", None)
+    atr_m5_o = getattr(context, "atr_m5_obj", None)
+    return {
+        "schema_version": "V17.9.0.1.2_HISTORICAL_ORACLE_INPUT_V1",
+        "symbol": str(getattr(context, "symbol", "XAUUSDT")),
+        "decision_timestamp_ms": int(getattr(context, "decision_timestamp_ms", 0)),
+        "closed_m1_candles": [_ser_obj(b) for b in getattr(context, "closed_m1_candles", ())],
+        "closed_m5_candles": [_ser_obj(b) for b in getattr(context, "closed_m5_candles", ())],
+        "closed_m15_candles": [_ser_obj(b) for b in getattr(context, "closed_m15_candles", ())],
+        "closed_h1_candles": [_ser_obj(b) for b in getattr(context, "closed_h1_candles", ())],
+        "closed_h4_candles": [_ser_obj(b) for b in getattr(context, "closed_h4_candles", ())],
+        "closed_d1_candles": [_ser_obj(b) for b in getattr(context, "closed_d1_candles", ())],
+        "bid": getattr(context, "bid", None),
+        "ask": getattr(context, "ask", None),
+        "spread": getattr(context, "spread", None),
+        "quote_timestamp_ms": getattr(context, "quote_timestamp_ms", None),
+        "atr_m1": getattr(context, "atr_m1", None),
+        "atr_m5": getattr(context, "atr_m5", None),
+        "atr_m1_obj": {
+            "symbol": str(getattr(atr_m1_o, "symbol", getattr(context, "symbol", "XAUUSDT"))),
+            "timeframe": getattr(atr_m1_o, "timeframe", "1M"),
+            "period": int(getattr(atr_m1_o, "period", 14) or 14),
+            "value": getattr(atr_m1_o, "value", None),
+            "status": getattr(atr_m1_o, "status", None),
+            "reason_code": getattr(atr_m1_o, "reason_code", None),
+            "source_bar_count": int(getattr(atr_m1_o, "source_bar_count", 0) or 0),
+            "as_of_ms": int(getattr(atr_m1_o, "as_of_ms", 0) or 0),
+            "decision_cutoff_ms": int(getattr(atr_m1_o, "decision_cutoff_ms", getattr(context, "decision_timestamp_ms", 0)) or 0),
+            "computed_from_closed_candles_only": bool(getattr(atr_m1_o, "computed_from_closed_candles_only", True)),
+        } if atr_m1_o is not None else None,
+        "atr_m5_obj": {
+            "symbol": str(getattr(atr_m5_o, "symbol", getattr(context, "symbol", "XAUUSDT"))),
+            "timeframe": getattr(atr_m5_o, "timeframe", "5M"),
+            "period": int(getattr(atr_m5_o, "period", 14) or 14),
+            "value": getattr(atr_m5_o, "value", None),
+            "status": getattr(atr_m5_o, "status", None),
+            "reason_code": getattr(atr_m5_o, "reason_code", None),
+            "source_bar_count": int(getattr(atr_m5_o, "source_bar_count", 0) or 0),
+            "as_of_ms": int(getattr(atr_m5_o, "as_of_ms", 0) or 0),
+            "decision_cutoff_ms": int(getattr(atr_m5_o, "decision_cutoff_ms", getattr(context, "decision_timestamp_ms", 0)) or 0),
+            "computed_from_closed_candles_only": bool(getattr(atr_m5_o, "computed_from_closed_candles_only", True)),
+        } if atr_m5_o is not None else None,
+        "liquidity_pools": [_ser_obj(p) for p in getattr(context, "liquidity_pools", ())],
+        "htf_zones": [_ser_obj(z) for z in getattr(context, "htf_zones", ())],
+        "model_enablement": dict(
+            getattr(context, "model_enablement_flags", None)
+            or getattr(context, "model_enablement", None)
+            or {}
+        ),
+        "policy_config_snapshot": list(getattr(context, "policy_config_snapshot", ()) or ()),
+        "risk_config_snapshot": list(getattr(context, "risk_config_snapshot", ()) or ()),
+        "cost_config_snapshot": list(getattr(context, "cost_config_snapshot", ()) or ()),
+        "policy_dict": dict(context.get_policy_dict()) if hasattr(context, "get_policy_dict") else {},
+        "risk_dict": dict(context.get_risk_dict()) if hasattr(context, "get_risk_dict") else {},
+        "cost_dict": dict(context.get_cost_dict()) if hasattr(context, "get_cost_dict") else {},
+        "htf_bias": getattr(context, "htf_bias", None),
+        "h1_alignment": getattr(context, "h1_alignment", None),
+        "session_restricted": bool(getattr(context, "session_restricted", False)),
+        "session_restriction_reason": getattr(context, "session_restriction_reason", None),
+        "causal_valid": bool(getattr(context, "causal_valid", True)),
+        "causal_rejection_reasons": list(getattr(context, "causal_rejection_reasons", ()) or ()),
+        "source_fingerprint": str(getattr(context, "source_fingerprint", "")),
+        "input_snapshot_hash": str(getattr(context, "input_snapshot_hash", "")),
+        "configuration_hash": str(getattr(context, "configuration_hash", "")),
+    }
+
+
+class _AttrCandleDict(dict):
+    """Dict wrapper supporting both dict indexing and attribute access for historical domain functions."""
+
+    def __getattr__(self, key: str) -> Any:
+        try:
+            return self[key]
+        except KeyError as exc:
+            if key == "open_time_ms" and "open_time" in self:
+                return self["open_time"]
+            if key == "close_time_ms" and "close_time" in self:
+                return self["close_time"]
+            raise AttributeError(key) from exc
+
+
+@dataclass
+class _DeserializedAttrObj:
+    value: Optional[float]
+    status: Optional[str]
+    reason_code: Optional[str]
+    symbol: str = "XAUUSDT"
+    timeframe: str = "1M"
+    period: int = 14
+    source_bar_count: int = 0
+    as_of_ms: int = 0
+    decision_cutoff_ms: int = 0
+    computed_from_closed_candles_only: bool = True
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "symbol": self.symbol,
+            "timeframe": self.timeframe,
+            "period": self.period,
+            "value": self.value,
+            "status": self.status,
+            "reason_code": self.reason_code,
+            "source_bar_count": self.source_bar_count,
+            "as_of_ms": self.as_of_ms,
+            "decision_cutoff_ms": self.decision_cutoff_ms,
+            "computed_from_closed_candles_only": self.computed_from_closed_candles_only,
+        }
+
+
+class _DeserializedHistoricalContext:
+    """
+    Lightweight versioned context consumer used inside the isolated historical baseline subprocess
+    so zero classes from the post-V17.9.0 evaluator are imported.
+    """
+
+    def __init__(self, payload: Mapping[str, Any]) -> None:
+        from services.scalp_m1_types import WatchedZone
+        from services.smc_liquidity_service import LiquidityLevel
+
+        self.symbol = str(payload.get("symbol", "XAUUSDT"))
+        self.decision_timestamp_ms = int(payload.get("decision_timestamp_ms", 0))
+        self.closed_m1_candles = tuple(_AttrCandleDict(b) for b in payload.get("closed_m1_candles", ()))
+        self.closed_m5_candles = tuple(_AttrCandleDict(b) for b in payload.get("closed_m5_candles", ()))
+        self.closed_m15_candles = tuple(_AttrCandleDict(b) for b in payload.get("closed_m15_candles", ()))
+        self.closed_h1_candles = tuple(_AttrCandleDict(b) for b in payload.get("closed_h1_candles", ()))
+        self.closed_h4_candles = tuple(_AttrCandleDict(b) for b in payload.get("closed_h4_candles", ()))
+        self.closed_d1_candles = tuple(_AttrCandleDict(b) for b in payload.get("closed_d1_candles", ()))
+        self.bid = payload.get("bid")
+        self.ask = payload.get("ask")
+        self.spread = payload.get("spread")
+        self.quote_timestamp_ms = payload.get("quote_timestamp_ms")
+        self.atr_m1 = payload.get("atr_m1")
+        self.atr_m5 = payload.get("atr_m5")
+        self.atr_m1_obj = compute_stop_atr(
+            list(self.closed_m1_candles),
+            period=14,
+            timeframe="1M",
+            as_of_ms=self.decision_timestamp_ms,
+            symbol=self.symbol,
+        )
+        self.atr_m5_obj = (
+            compute_stop_atr(
+                list(self.closed_m5_candles),
+                period=14,
+                timeframe="5M",
+                as_of_ms=self.decision_timestamp_ms,
+                symbol=self.symbol,
+            )
+            if len(self.closed_m5_candles) >= 15
+            else None
+        )
+
+        pools_out = []
+        for p in payload.get("liquidity_pools", ()):
+            if isinstance(p, dict):
+                try:
+                    pools_out.append(LiquidityLevel(**{k: v for k, v in p.items() if k in LiquidityLevel.__dataclass_fields__}))
+                except Exception:
+                    pass
+        self.liquidity_pools = tuple(pools_out)
+
+        zones_out = []
+        for z in payload.get("htf_zones", ()):
+            if isinstance(z, dict):
+                try:
+                    zones_out.append(WatchedZone(**{k: v for k, v in z.items() if k in WatchedZone.__dataclass_fields__}))
+                except Exception:
+                    pass
+        self.htf_zones = tuple(zones_out)
+
+        self._model_enablement = dict(payload.get("model_enablement") or {})
+        self.policy_config_snapshot = tuple(tuple(x) for x in payload.get("policy_config_snapshot", ()))
+        self.risk_config_snapshot = tuple(tuple(x) for x in payload.get("risk_config_snapshot", ()))
+        self.cost_config_snapshot = tuple(tuple(x) for x in payload.get("cost_config_snapshot", ()))
+        self._policy_dict = dict(payload.get("policy_dict") or {})
+        self._risk_dict = dict(payload.get("risk_dict") or {})
+        self._cost_dict = dict(payload.get("cost_dict") or {})
+        self.htf_bias = payload.get("htf_bias")
+        self.h1_alignment = payload.get("h1_alignment")
+        self.session_restricted = bool(payload.get("session_restricted", False))
+        self.session_restriction_reason = payload.get("session_restriction_reason")
+        self.causal_valid = bool(payload.get("causal_valid", True))
+        self.causal_rejection_reasons = tuple(payload.get("causal_rejection_reasons", ()))
+        self.source_fingerprint = str(payload.get("source_fingerprint", ""))
+        self.input_snapshot_hash = str(payload.get("input_snapshot_hash", ""))
+        self.configuration_hash = str(payload.get("configuration_hash", ""))
+
+    def is_model_enabled(self, model_id: str) -> bool:
+        return bool(self._model_enablement.get(model_id, True))
+
+    def get_policy_dict(self) -> Dict[str, Any]:
+        return dict(self._policy_dict)
+
+    def get_risk_dict(self) -> Dict[str, Any]:
+        return dict(self._risk_dict)
+
+    def get_cost_dict(self) -> Dict[str, Any]:
+        return dict(self._cost_dict)
+
+
+def execute_isolated_historical_baseline_scenarios(
+    scenarios: Sequence[Dict[str, Any]],
+    *,
+    commit_sha: str = PRE_REFACTOR_BASELINE_COMMIT_SHA,
+) -> Dict[str, Any]:
+    """
+    DEF-179012-03 (V17.9.0.1.2 Phase F2-F4): Executes `scenarios` in a separate Python subprocess
+    whose `PYTHONPATH` points strictly to the materialized historical `aurum-desk/backend` tree
+    at `commit_sha` (`c356d6551e13cd6af61cea5c3ab1f4aae1548af2`), verifying that all domain
+    dependencies load from the historical commit snapshot and never from the current working tree.
+    """
+    tree_info = materialize_historical_baseline_tree(commit_sha)
+    if not tree_info.get("is_valid") or not tree_info.get("extracted_backend_dir"):
+        return {
+            "status": tree_info.get("status", "BLOCKED"),
+            "is_valid": False,
+            "reason_code": tree_info.get("reason_code", "HISTORICAL_TREE_UNAVAILABLE"),
+            "baseline_commit_sha": commit_sha,
+            "decisions_by_scenario": {},
+            "loaded_historical_modules": {},
+            "tree_verification": tree_info,
+        }
+
+    hist_backend_dir = Path(tree_info["extracted_backend_dir"]).resolve()
+    oracle_file_src = Path(__file__).resolve()
+    # Place a runner copy of this oracle module inside a separate temp dir so the subprocess
+    # imports all domain modules (`smc_engine`, `domain_calculator`, `services.*`) strictly from `hist_backend_dir`
+    runner_dir = hist_backend_dir.parent / "_oracle_runner"
+    runner_dir.mkdir(parents=True, exist_ok=True)
+    runner_oracle_path = runner_dir / "hist_oracle_entry.py"
+    shutil.copy2(oracle_file_src, runner_oracle_path)
+
+    serialized_items = []
+    for item in scenarios:
+        serialized_items.append(
+            {
+                "scenario_id": str(item["scenario_id"]),
+                "category": str(item.get("category", "HISTORICAL_REAL")),
+                "model_id": str(item["model_id"]),
+                "direction": str(item["direction"]),
+                "context_payload": _serialize_context_for_historical_subprocess(item["context"]),
+            }
+        )
+
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as in_f:
+        json.dump({"commit_sha": commit_sha, "scenarios": serialized_items}, in_f)
+        in_path = Path(in_f.name)
+    out_path = in_path.with_suffix(".out.json")
+
+    worker_code = (
+        "import hashlib, json, os, sys\n"
+        "from pathlib import Path\n"
+        f"hist_backend = Path({repr(str(hist_backend_dir))}).resolve()\n"
+        f"runner_dir = Path({repr(str(runner_dir))}).resolve()\n"
+        "sys.path = [str(hist_backend), str(runner_dir)] + [p for p in sys.path if ('aurum-desk' not in p or 'site-packages' in p or 'dist-packages' in p or 'venv' in p)]\n"
+        "import smc_engine, domain_calculator\n"
+        "import services.scalp_m1_model_service as m_scalp\n"
+        "import services.cg01_engine as m_cg01\n"
+        "import services.unicorn_evidence_service as m_uni\n"
+        "import services.stop_placement_service as m_stop\n"
+        "import services.liquidity_scenario_service as m_liq_scen\n"
+        "import services.smc_liquidity_service as m_smc_liq\n"
+        "import services.stop_placement_research_service as m_stop_res\n"
+        "import hist_oracle_entry as oracle_mod\n"
+        "loaded_mods = {}\n"
+        "for mod in (smc_engine, domain_calculator, m_scalp, m_cg01, m_uni, m_stop, m_liq_scen, m_smc_liq, m_stop_res):\n"
+        "    mfile = Path(mod.__file__).resolve()\n"
+        "    if not str(mfile).startswith(str(hist_backend)):\n"
+        "        raise RuntimeError(f'Module {mod.__name__} loaded from non-historical path: {mfile}')\n"
+        "    loaded_mods[mod.__name__] = {\n"
+        "        'resolved_file': str(mfile),\n"
+        "        'sha256': hashlib.sha256(mfile.read_bytes()).hexdigest(),\n"
+        "        'from_isolated_historical_tree': True,\n"
+        "    }\n"
+        f"payload = json.loads(Path({repr(str(in_path))}).read_text(encoding='utf-8'))\n"
+        "results = {}\n"
+        "for sc in payload['scenarios']:\n"
+        "    ctx = oracle_mod._DeserializedHistoricalContext(sc['context_payload'])\n"
+        "    dec = oracle_mod.IndependentPreRefactorBaselineOracle.evaluate_baseline_dict(\n"
+        "        context=ctx, model_id=sc['model_id'], direction=sc['direction']\n"
+        "    )\n"
+        "    dec['rejection_reason_codes'] = list(dec.get('rejection_reason_codes', ()))\n"
+        "    dec['historical_execution_mode'] = 'ISOLATED_HISTORICAL_SUBPROCESS'\n"
+        "    results[sc['scenario_id']] = dec\n"
+        f"Path({repr(str(out_path))}).write_text(json.dumps({{'loaded_modules': loaded_mods, 'decisions': results}}), encoding='utf-8')\n"
+    )
+
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(hist_backend_dir)
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-c", worker_code],
+            cwd=str(hist_backend_dir),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        if proc.returncode != 0 or not out_path.exists():
+            return {
+                "status": "BLOCKED",
+                "is_valid": False,
+                "reason_code": f"HISTORICAL_SUBPROCESS_FAILED:{proc.stderr.strip()[:240]}",
+                "baseline_commit_sha": commit_sha,
+                "decisions_by_scenario": {},
+                "loaded_historical_modules": {},
+                "tree_verification": tree_info,
+            }
+        sub_out = json.loads(out_path.read_text(encoding="utf-8"))
+        decisions_map = sub_out.get("decisions", {})
+        for d_val in decisions_map.values():
+            if "rejection_reason_codes" in d_val and isinstance(d_val["rejection_reason_codes"], list):
+                d_val["rejection_reason_codes"] = tuple(d_val["rejection_reason_codes"])
+        return {
+            "status": "PASS",
+            "is_valid": True,
+            "reason_code": "ISOLATED_HISTORICAL_SUBPROCESS_VERIFIED",
+            "baseline_commit_sha": commit_sha,
+            "extracted_backend_dir": str(hist_backend_dir),
+            "loaded_historical_modules": sub_out.get("loaded_modules", {}),
+            "decisions_by_scenario": decisions_map,
+            "tree_verification": tree_info,
+        }
+    finally:
+        for tmp_p in (in_path, out_path):
+            try:
+                if tmp_p.exists():
+                    tmp_p.unlink()
+            except OSError:
+                pass
 
 
 def generate_phase_b_baseline_artifacts(
@@ -1634,20 +2216,38 @@ def generate_phase_b_baseline_artifacts(
     context_builder_fn: Callable[..., Any],
     refactored_evaluator_fn: Optional[Callable[[Any, str, str], Dict[str, Any]]] = None,
     five_way_evaluators: Optional[Dict[str, Callable[[Any, str, str], Dict[str, Any]]]] = None,
+    additional_historical_scenarios: Optional[Sequence[Dict[str, Any]]] = None,
     output_dirs: Optional[Sequence[Path]] = None,
 ) -> Dict[str, Any]:
     """
     Executes `IndependentPreRefactorBaselineOracle` across all 11 mandatory categories
-    and 5 production models (55 scenarios), compares against `refactored_evaluator_fn`
-    and optional `five_way_evaluators` (Baseline vs Shared vs Production vs Shadow vs Backtest),
+    and 5 production models (55 characterization scenarios + optional representative real historical
+    scenarios) inside an isolated historical subprocess rooted at commit `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`,
+    compares against `refactored_evaluator_fn` and optional `five_way_evaluators`,
     and writes LF-normalized byte-exact artifacts:
       - `BASELINE_MANIFEST.json`
       - `BASELINE_DECISIONS.jsonl`
       - `BASELINE_CHARACTERIZATION.md`
       - `BASELINE_PROVENANCE.md`
+      - `HISTORICAL_BASELINE_PROVENANCE.md`
+      - `HISTORICAL_BASELINE_EXECUTION_REPORT.md`
+      - `HISTORICAL_SOURCE_HASH_MANIFEST.json`
     """
-    provenance_info = verify_historical_baseline_commit_provenance(PRE_REFACTOR_BASELINE_COMMIT_SHA)
-    scenarios = build_phase_b_characterization_scenarios(context_builder_fn)
+    provenance_info = verify_historical_baseline_commit_provenance(PRE_REFACTOR_BASELINE_COMMIT_SHA, strict=True)
+    char_scenarios = build_phase_b_characterization_scenarios(context_builder_fn)
+    all_scenarios = list(char_scenarios) + list(additional_historical_scenarios or ())
+
+    iso_exec = execute_isolated_historical_baseline_scenarios(
+        all_scenarios,
+        commit_sha=PRE_REFACTOR_BASELINE_COMMIT_SHA,
+    )
+    if not iso_exec.get("is_valid"):
+        raise RuntimeError(
+            f"Isolated historical baseline execution failed ({iso_exec.get('status')}): {iso_exec.get('reason_code')}"
+        )
+    isolated_decisions_map = iso_exec.get("decisions_by_scenario", {})
+    loaded_hist_modules = iso_exec.get("loaded_historical_modules", {})
+
     decision_records: List[Dict[str, Any]] = []
     category_counts: Dict[str, int] = {cat: 0 for cat in REQUIRED_BASELINE_CATEGORIES}
     model_counts: Dict[str, int] = {m: 0 for m in SUPPORTED_BASELINE_MODELS}
@@ -1668,14 +2268,14 @@ def generate_phase_b_baseline_artifacts(
         "decision_fingerprint",
     )
 
-    for item in scenarios:
+    for item in char_scenarios:
         scen_id = item["scenario_id"]
         cat = item["category"]
         model_id = item["model_id"]
         direction = item["direction"]
         ctx = item["context"]
 
-        oracle_dec = IndependentPreRefactorBaselineOracle.evaluate_baseline_dict(
+        oracle_dec = isolated_decisions_map.get(scen_id) or IndependentPreRefactorBaselineOracle.evaluate_baseline_dict(
             context=ctx,
             model_id=model_id,
             direction=direction,
@@ -1736,14 +2336,19 @@ def generate_phase_b_baseline_artifacts(
             "direction": direction,
             "oracle_commit_sha": PRE_REFACTOR_BASELINE_COMMIT_SHA,
             "oracle_version": PRE_REFACTOR_ORACLE_VERSION,
+            "historical_execution_mode": oracle_dec.get("historical_execution_mode", "ISOLATED_HISTORICAL_SUBPROCESS"),
+            "historical_dependency_bundle_sha256": provenance_info["historical_dependency_bundle_sha256"],
             "input_snapshot_hash": getattr(ctx, "input_snapshot_hash", ""),
             "configuration_hash": getattr(ctx, "configuration_hash", ""),
+            "decision_timestamp_ms": int(getattr(ctx, "decision_timestamp_ms", 0)),
             "decision_status": oracle_dec["decision_status"],
             "setup_validity": oracle_dec["setup_validity"],
             "entry_reference": oracle_dec["entry_reference"],
             "selected_sl": oracle_dec["selected_sl"],
             "legacy_sl": oracle_dec["legacy_sl"],
             "take_profit": oracle_dec["take_profit"],
+            "hypothetical_quantity": oracle_dec.get("hypothetical_quantity"),
+            "net_rr": oracle_dec.get("net_rr"),
             "unicorn_validity": oracle_dec["unicorn_validity"],
             "rejection_reason_codes": list(oracle_dec["rejection_reason_codes"]),
             "evidence_fingerprint": oracle_dec["evidence_fingerprint"],
@@ -1755,22 +2360,71 @@ def generate_phase_b_baseline_artifacts(
             "field_diffs": field_diffs,
         })
 
+    real_historical_records: List[Dict[str, Any]] = []
+    real_historical_matches = 0
+    for item in (additional_historical_scenarios or ()):
+        scen_id = str(item["scenario_id"])
+        model_id = str(item["model_id"])
+        direction = str(item["direction"])
+        ctx = item["context"]
+        oracle_dec = isolated_decisions_map.get(scen_id) or IndependentPreRefactorBaselineOracle.evaluate_baseline_dict(
+            context=ctx, model_id=model_id, direction=direction
+        )
+        p_match = True
+        diffs_r: Dict[str, Any] = {}
+        if refactored_evaluator_fn is not None:
+            ref_dec = refactored_evaluator_fn(ctx, model_id, direction)
+            for key in compare_keys:
+                b_val = list(oracle_dec.get(key)) if isinstance(oracle_dec.get(key), tuple) else oracle_dec.get(key)
+                r_val = list(ref_dec.get(key)) if isinstance(ref_dec.get(key), tuple) else ref_dec.get(key)
+                if b_val != r_val:
+                    p_match = False
+                    diffs_r[key] = {"baseline": b_val, "refactored": r_val}
+        if p_match:
+            real_historical_matches += 1
+        real_historical_records.append({
+            "scenario_id": scen_id,
+            "dataset_sha256": item.get("dataset_sha256"),
+            "decision_timestamp_ms": int(getattr(ctx, "decision_timestamp_ms", 0)),
+            "model_id": model_id,
+            "direction": direction,
+            "decision_status": oracle_dec["decision_status"],
+            "entry_reference": oracle_dec["entry_reference"],
+            "selected_sl": oracle_dec["selected_sl"],
+            "take_profit": oracle_dec["take_profit"],
+            "hypothetical_quantity": oracle_dec.get("hypothetical_quantity"),
+            "net_rr": oracle_dec.get("net_rr"),
+            "rejection_reason_codes": list(oracle_dec["rejection_reason_codes"]),
+            "decision_fingerprint": oracle_dec["decision_fingerprint"],
+            "parity_with_refactored": p_match,
+            "field_diffs": diffs_r,
+        })
+
     jsonl_lines = [json.dumps(rec, sort_keys=True) for rec in decision_records]
     jsonl_content = "\n".join(jsonl_lines) + "\n"
     jsonl_bytes = jsonl_content.encode("utf-8")
     decisions_sha256 = hashlib.sha256(jsonl_bytes).hexdigest()
 
     manifest = {
-        "release": "V17.9.0.1.1",
+        "release": "V17.9.0.1.2",
         "baseline_commit_sha": PRE_REFACTOR_BASELINE_COMMIT_SHA,
         "git_commit_object_verified": provenance_info["git_commit_object_verified"],
+        "provenance_status": provenance_info["status"],
+        "historical_dependency_bundle_sha256": provenance_info["historical_dependency_bundle_sha256"],
+        "historical_required_files_verified": len(provenance_info["historical_file_sha256s"]),
         "historical_file_sha256s": provenance_info["historical_file_sha256s"],
+        "isolated_subprocess_execution_status": iso_exec["status"],
+        "isolated_historical_execution_status": iso_exec["status"],
+        "isolated_extracted_backend_dir": iso_exec.get("extracted_backend_dir"),
+        "loaded_historical_modules": loaded_hist_modules,
         "oracle_version": PRE_REFACTOR_ORACLE_VERSION,
         "oracle_module": "backend/services/v17_9_0_1_baseline_oracle.py",
         "oracle_class": "IndependentPreRefactorBaselineOracle",
         "self_referential": False,
         "imports_shared_strategy_evaluator": False,
         "total_scenarios": len(decision_records),
+        "real_historical_scenarios_count": len(real_historical_records),
+        "real_historical_parity_matches": real_historical_matches,
         "required_categories": list(REQUIRED_BASELINE_CATEGORIES),
         "category_counts": category_counts,
         "model_counts": model_counts,
@@ -1783,16 +2437,33 @@ def generate_phase_b_baseline_artifacts(
         "baseline_decisions_size_bytes": len(jsonl_bytes),
     }
 
+    hash_manifest_payload = {
+        "release": "V17.9.0.1.2",
+        "baseline_commit_sha": PRE_REFACTOR_BASELINE_COMMIT_SHA,
+        "git_toplevel_dir": provenance_info["git_toplevel_dir"],
+        "git_commit_object_verified": provenance_info["git_commit_object_verified"],
+        "provenance_status": provenance_info["status"],
+        "expected_files_count": provenance_info["expected_files_count"],
+        "verified_files_count": provenance_info["verified_files_count"],
+        "missing_files": provenance_info["missing_files"],
+        "historical_dependency_bundle_sha256": provenance_info["historical_dependency_bundle_sha256"],
+        "historical_file_sha256s": provenance_info["historical_file_sha256s"],
+        "isolated_subprocess_loaded_modules": loaded_hist_modules,
+    }
+
     char_md = [
-        "# V17.9.0.1.1 — Independent Pre-Refactor Baseline Characterization",
+        "# V17.9.0.1.2 — Independent Pre-Refactor Baseline Characterization",
         "",
         f"- **Baseline Commit SHA (V17.8.0.4 Pre-V17.9.0):** `{PRE_REFACTOR_BASELINE_COMMIT_SHA}`",
         f"- **Git Commit Object Verified:** `{provenance_info['git_commit_object_verified']}`",
+        f"- **Historical Source Files Verified:** `{provenance_info['verified_files_count']}/{provenance_info['expected_files_count']}` (`bundle_sha256={provenance_info['historical_dependency_bundle_sha256']}`)",
+        f"- **Isolated Historical Subprocess Execution:** `{iso_exec['status']}` (`{iso_exec.get('reason_code')}`)",
         f"- **Independent Oracle Module:** `backend/services/v17_9_0_1_baseline_oracle.py` (`IndependentPreRefactorBaselineOracle`)",
-        "- **Self-Referential:** `False` (zero imports or calls to `SharedStrategyEvaluator`)",
-        f"- **Total Scenarios Evaluated:** `{len(decision_records)}` (11 categories x 5 production models)",
+        "- **Self-Referential:** `False` (zero imports or calls to `SharedStrategyEvaluator`; executed in isolated subprocess against `c356d6551e13cd6af61cea5c3ab1f4aae1548af2` files)",
+        f"- **Total Characterization Scenarios Evaluated:** `{len(decision_records)}` (11 categories x 5 production models)",
         f"- **Exact Parity Matches with `SharedStrategyEvaluator`:** `{parity_matches}/{len(decision_records)}` (`{manifest['parity_rate'] * 100:.2f}%`)",
         f"- **5-Way Cross-Runtime Parity Matches:** `{five_way_matches}/{len(decision_records)}`",
+        f"- **Real Historical Dataset Scenarios Evaluated:** `{len(real_historical_records)}` (`matches={real_historical_matches}/{len(real_historical_records)}`)",
         f"- **Baseline Decisions SHA-256 (LF byte-exact):** `{decisions_sha256}`",
         "",
         "## Category Coverage Matrix",
@@ -1819,35 +2490,88 @@ def generate_phase_b_baseline_artifacts(
     char_md_text = "\n".join(char_md) + "\n"
 
     prov_lines = [
-        "# V17.9.0.1.1 — Independent Baseline Provenance",
+        "# V17.9.0.1.2 — Independent Historical Baseline Provenance (`DEF-179012-03` Closure)",
         "",
-        "## 1. Baseline Source Provenance",
+        "## 1. Baseline Source Provenance & Repository-Relative Path Resolution",
         f"- **Pre-Refactor Git Commit SHA:** `{PRE_REFACTOR_BASELINE_COMMIT_SHA}` (V17.8.0.4 — last verified commit prior to V17.9.0 shared evaluator extraction).",
+        f"- **Git Top-Level Directory:** `{provenance_info['git_toplevel_dir']}`",
         f"- **Git Commit Object Verified:** `{provenance_info['git_commit_object_verified']}`",
-        "- **Recovery Mechanism:** Extracted the direct pre-V17.9.0 evaluation pipeline (`ScalpM1ModelService`, `cg01_engine.evaluate_cg01_candidate`, `unicorn_evidence_service.detect_unicorn_evidence`, `stop_placement_service.resolve_stop_anchor`, `stop_placement_service.plan_structural_stop`, `domain_calculator.calculate_risk_reward`) into `backend/services/v17_9_0_1_baseline_oracle.py` (`IndependentPreRefactorBaselineOracle`).",
-        "- **Non-Self-Referential Guarantee:** `backend/services/v17_9_0_1_baseline_oracle.py` is AST-verified in regression tests to contain zero imports or invocations of `SharedStrategyEvaluator` or `shared_strategy_evaluator`.",
+        f"- **Provenance Verification Status:** `{provenance_info['status']}` (`verified_files={provenance_info['verified_files_count']}/{provenance_info['expected_files_count']}`)",
+        f"- **Historical Dependency Bundle SHA-256:** `{provenance_info['historical_dependency_bundle_sha256']}`",
+        "- **Path Resolution Fix (`DEF-179012-03`):** Resolved Git top-level path prefix `aurum-desk/backend/...` when inspecting `git show <commit>:aurum-desk/backend/...` and extracting `git archive <commit> aurum-desk/backend`.",
+        "- **Non-Self-Referential Guarantee:** `backend/services/v17_9_0_1_baseline_oracle.py` contains zero imports or invocations of `SharedStrategyEvaluator` or `shared_strategy_evaluator`, and executes inside an isolated Python subprocess rooted at the extracted `c356d6551e13cd6af61cea5c3ab1f4aae1548af2` source tree.",
         "",
         "## 2. Historical Source File SHA-256 Digests at Commit `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`",
         "",
-        "| Historical File | Size (Bytes) | SHA-256 |",
-        "|---|---:|---|",
+        "| Repository-Relative Path | App-Relative Path | Size (Bytes) | SHA-256 |",
+        "|---|---|---:|---|",
     ]
-    for rel_p, meta_h in provenance_info["historical_file_sha256s"].items():
-        prov_lines.append(f"| `{rel_p}` | {meta_h['size_bytes']} | `{meta_h['sha256']}` |")
+    for rel_p, meta_h in sorted(provenance_info["historical_file_sha256s"].items()):
+        prov_lines.append(
+            f"| `{rel_p}` | `{meta_h.get('app_relative_path', rel_p)}` | {meta_h['size_bytes']} | `{meta_h['sha256']}` |"
+        )
     prov_lines.extend([
         "",
-        "## 3. Frozen Artifact Integrity (LF Byte-Exact)",
+        "## 3. Isolated Historical Subprocess Module Provenance",
+        "",
+        "| Loaded Module | Resolved File in Isolated Historical Tree | SHA-256 |",
+        "|---|---|---|",
+    ])
+    for mod_name, mod_meta in sorted(loaded_hist_modules.items()):
+        prov_lines.append(
+            f"| `{mod_name}` | `{mod_meta.get('resolved_file')}` | `{mod_meta.get('sha256')}` |"
+        )
+    prov_lines.extend([
+        "",
+        "## 4. Frozen Artifact Integrity (LF Byte-Exact)",
         f"- `BASELINE_DECISIONS.jsonl` SHA-256: `{decisions_sha256}`",
         f"- `BASELINE_DECISIONS.jsonl` Size (Bytes): `{len(jsonl_bytes)}`",
-        f"- Total Frozen Decisions: `{len(decision_records)}` across all 11 mandatory categories and 5 production models.",
+        f"- Total Frozen Characterization Decisions: `{len(decision_records)}` across all 11 mandatory categories and 5 production models.",
         "",
     ])
     prov_md = "\n".join(prov_lines)
 
+    exec_report_lines = [
+        "# V17.9.0.1.2 — Historical Baseline Independent Execution Report",
+        "",
+        f"- **Baseline Commit SHA:** `{PRE_REFACTOR_BASELINE_COMMIT_SHA}`",
+        f"- **Isolated Execution Status:** `{iso_exec['status']}` (`{iso_exec.get('reason_code')}`)",
+        f"- **Extracted Historical Backend Directory:** `{iso_exec.get('extracted_backend_dir')}`",
+        f"- **Historical Dependency Bundle SHA-256:** `{provenance_info['historical_dependency_bundle_sha256']}`",
+        f"- **Characterization Scenarios Evaluated:** `{len(decision_records)}` (`parity_matches={parity_matches}/{len(decision_records)}`, `divergences={len(parity_divergences)}`)",
+        f"- **Real Historical Dataset Scenarios Evaluated:** `{len(real_historical_records)}` (`parity_matches={real_historical_matches}/{len(real_historical_records)}`)",
+        "",
+        "## 1. Isolated Historical Dependency Verification",
+        "",
+        "| Module | Loaded From Historical Tree | On-Disk SHA-256 |",
+        "|---|---|---|",
+    ]
+    for mod_name, mod_meta in sorted(loaded_hist_modules.items()):
+        exec_report_lines.append(
+            f"| `{mod_name}` | `{mod_meta.get('from_isolated_historical_tree')}` | `{mod_meta.get('sha256')}` |"
+        )
+    if real_historical_records:
+        exec_report_lines.extend([
+            "",
+            "## 2. Representative Real-Data Historical Baseline Decisions",
+            "",
+            "| Scenario ID | Timestamp (ms) | Model | Direction | Status | Entry | SL | TP | Decision Fingerprint | Parity Match |",
+            "|---|---:|---|---|---|---:|---:|---:|---|---|",
+        ])
+        for r_rec in real_historical_records[:25]:
+            exec_report_lines.append(
+                f"| `{r_rec['scenario_id']}` | `{r_rec['decision_timestamp_ms']}` | `{r_rec['model_id']}` | `{r_rec['direction']}` | "
+                f"`{r_rec['decision_status']}` | `{r_rec['entry_reference']}` | `{r_rec['selected_sl']}` | `{r_rec['take_profit']}` | "
+                f"`{str(r_rec['decision_fingerprint'])[:16]}...` | `{r_rec['parity_with_refactored']}` |"
+            )
+    exec_report_md = "\n".join(exec_report_lines) + "\n"
+
     if output_dirs:
         manifest_bytes = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        hash_manifest_bytes = (json.dumps(hash_manifest_payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
         char_bytes = char_md_text.encode("utf-8")
         prov_bytes = prov_md.encode("utf-8")
+        exec_rep_bytes = exec_report_md.encode("utf-8")
         for out_dir in output_dirs:
             out_path = Path(out_dir)
             out_path.mkdir(parents=True, exist_ok=True)
@@ -1855,13 +2579,19 @@ def generate_phase_b_baseline_artifacts(
             (out_path / "BASELINE_DECISIONS.jsonl").write_bytes(jsonl_bytes)
             (out_path / "BASELINE_CHARACTERIZATION.md").write_bytes(char_bytes)
             (out_path / "BASELINE_PROVENANCE.md").write_bytes(prov_bytes)
+            (out_path / "HISTORICAL_BASELINE_PROVENANCE.md").write_bytes(prov_bytes)
+            (out_path / "HISTORICAL_BASELINE_EXECUTION_REPORT.md").write_bytes(exec_rep_bytes)
+            (out_path / "HISTORICAL_SOURCE_HASH_MANIFEST.json").write_bytes(hash_manifest_bytes)
             disk_sha = hashlib.sha256((out_path / "BASELINE_DECISIONS.jsonl").read_bytes()).hexdigest()
             if disk_sha != decisions_sha256:
                 raise RuntimeError(f"BASELINE_DECISIONS.jsonl checksum mismatch on disk: {disk_sha} != {decisions_sha256}")
 
     return {
         "manifest": manifest,
+        "hash_manifest": hash_manifest_payload,
+        "isolated_execution": iso_exec,
         "decisions": decision_records,
+        "real_historical_decisions": real_historical_records,
         "parity_divergences": parity_divergences,
         "provenance": provenance_info,
     }

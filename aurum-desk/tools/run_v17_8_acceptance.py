@@ -1071,7 +1071,12 @@ def main():
 
     def _estimate_file_weight(rel_f: str) -> float:
         base_sz = float((ROOT / rel_f).stat().st_size)
-        if "test_v5_authoritative_lab" in rel_f or "test_v17_6_4_3b_unique_commit_truth" in rel_f:
+        if (
+            "test_v5_authoritative_lab" in rel_f
+            or "test_v17_6_4_3b_unique_commit_truth" in rel_f
+            or "test_v17_9_0_1_2_strict_eligibility" in rel_f
+            or "test_v17_9_0_1_runtime_integration" in rel_f
+        ):
             return base_sz + 600_000.0
         if "test_v17_6_4_3" in rel_f or "test_v17_4_" in rel_f or "test_v13_2_replay_repair" in rel_f:
             return base_sz * 3.5 + 250_000.0
@@ -1108,7 +1113,7 @@ def main():
     shard_start_t = time.perf_counter()
 
     def _run_pytest_shard(shard_idx: int, files_list: list):
-        time.sleep(shard_idx * 0.6)
+        time.sleep(shard_idx * 0.1)
         shard_xml = shards_dir / f"shard_{shard_idx}.xml"
         cmd = [PYTHON_BIN, "-m", "pytest", "-q"] + files_list + [f"--junitxml={str(shard_xml)}"]
         code, out, err, dur = run_cmd(
@@ -2538,10 +2543,10 @@ def main():
 
     run_pytest_gate(
         "G100_STRUCTURAL_SL_TP_RR_PARITY",
-        v17_9_test_files,
-        "test_26 or test_27 or test_28 or test_v17_9_0_1_negative_acceptance",
+        v17_9_test_files + ["backend/tests/test_v17_9_0_1_2_strict_eligibility_and_parity.py"],
+        "test_26 or test_27 or test_28 or test_v17_9_0_1_negative_acceptance or test_n or test_real_historical_xauusdt_multi_runtime_parity",
         min_passed=3,
-        label="V17.9.0.1 Structural SL/TP, Net R:R, $2.50 Risk Budget & 15 Negative Acceptance Scenarios"
+        label="V17.9.0.1.2 Structural SL/TP, Net R:R, $2.50 Risk Budget & 30 Negative Acceptance Controls (N01-N30)"
     )
 
     run_pytest_gate(

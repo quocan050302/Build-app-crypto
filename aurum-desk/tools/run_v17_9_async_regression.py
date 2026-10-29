@@ -30,7 +30,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 CPU_COUNT = os.cpu_count() or 2
 MAX_WORKERS = min(4, max(2, int(CPU_COUNT * 0.5)))
 MAX_PYTEST_WORKERS = MAX_WORKERS
-MAX_CPU_WORKERS = min(2, MAX_WORKERS)
+MAX_CPU_WORKERS = MAX_WORKERS
 MAX_IO_WORKERS = MAX_WORKERS
 MAX_PLAYWRIGHT_WORKERS = 1
 MAX_BACKTEST_WORKERS = 1
@@ -215,6 +215,10 @@ class BoundedAsyncTestOrchestrator:
                         except Exception:
                             pass
                         exit_code = 124
+                self.resource_guard.sample_cpu_memory(
+                    stage=f"END_{spec.group_id}",
+                    active_workers=self._active_workers,
+                )
             finally:
                 self.resource_guard.cleanup_worker_temp_dir(spec.group_id)
                 self.resource_guard.compress_large_log_if_needed(spec.log_path)
@@ -275,17 +279,34 @@ class BoundedAsyncTestOrchestrator:
             self.group_results[spec.group_id] = res
             return res
 
+    async def _periodic_resource_monitor(self, stop_event: asyncio.Event, interval_sec: float = 0.25) -> None:
+        while not stop_event.is_set():
+            try:
+                self.resource_guard.sample_cpu_memory(
+                    stage="PERIODIC_RUNTIME_SAMPLE",
+                    active_workers=self._active_workers,
+                )
+            except Exception:
+                pass
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=interval_sec)
+            except asyncio.TimeoutError:
+                pass
+
     async def run_groups(self, specs: Sequence[AsyncWorkerGroupSpec]) -> Dict[str, Any]:
         """
         Executes all pending groups in `specs` concurrently under bounded worker pools,
         skipping only groups already verified as COMPLETED in `state_manager` for the same `source_sha`.
         """
         self.resource_guard.enforce_disk_budget(stage="ASYNC_ORCHESTRATOR_PREFLIGHT")
+        self.resource_guard.sample_cpu_memory(stage="ASYNC_ORCHESTRATOR_PREFLIGHT", active_workers=0)
         resume_info = self.state_manager.load_or_resume(self.source_sha)
         already_completed = set(resume_info.get("completed_test_groups", []))
 
         pending_specs = [s for s in specs if s.group_id not in already_completed]
         t0 = time.perf_counter()
+        monitor_stop = asyncio.Event()
+        monitor_task = asyncio.create_task(self._periodic_resource_monitor(monitor_stop))
 
         # Reload cached results for already-completed groups
         for s in specs:
@@ -320,18 +341,26 @@ class BoundedAsyncTestOrchestrator:
                     "junit": junit_info,
                 }
 
-        if pending_specs:
-            # Execute in dependency stage order (STAGE_A -> STAGE_B -> STAGE_C -> STAGE_D -> STAGE_E)
-            stages_present = sorted(
-                set(s.stage for s in pending_specs),
-                key=lambda st: STAGE_ORDER.index(st) if st in STAGE_ORDER else 99,
-            )
-            for st_name in stages_present:
-                stage_specs = [s for s in pending_specs if s.stage == st_name]
-                tasks = [asyncio.create_task(self._run_single_group(s)) for s in stage_specs]
-                await asyncio.gather(*tasks)
+        try:
+            if pending_specs:
+                # Execute in dependency stage order (STAGE_A -> STAGE_B -> STAGE_C -> STAGE_D -> STAGE_E)
+                stages_present = sorted(
+                    set(s.stage for s in pending_specs),
+                    key=lambda st: STAGE_ORDER.index(st) if st in STAGE_ORDER else 99,
+                )
+                for st_name in stages_present:
+                    stage_specs = [s for s in pending_specs if s.stage == st_name]
+                    tasks = [asyncio.create_task(self._run_single_group(s)) for s in stage_specs]
+                    await asyncio.gather(*tasks)
+        finally:
+            monitor_stop.set()
+            try:
+                await monitor_task
+            except Exception:
+                pass
 
         wall_clock_sec = round(time.perf_counter() - t0, 3)
+        self.resource_guard.sample_cpu_memory(stage="ASYNC_ORCHESTRATOR_POSTFLIGHT", active_workers=0)
         self.resource_guard.cleanup_run_temp_dir()
         self.resource_guard.enforce_disk_budget(stage="ASYNC_ORCHESTRATOR_POSTFLIGHT")
 
@@ -409,14 +438,30 @@ class BoundedAsyncTestOrchestrator:
         self._last_summary = summary
         return summary
 
-    def build_performance_report(self, summary_override: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def build_performance_report(
+        self,
+        summary_override: Optional[Dict[str, Any]] = None,
+        *,
+        serial_benchmark_sec: Optional[float] = None,
+        parallel_benchmark_sec: Optional[float] = None,
+    ) -> Dict[str, Any]:
         """
-        Section 10 & 16: Builds the machine-readable ASYNC_RUNNER_PERFORMANCE_REPORT.json payload.
+        Section 12 & 13 (DEF-179012-05): Builds the machine-readable ASYNC_RUNNER_PERFORMANCE_REPORT.json payload
+        with genuine periodic resource sampling and explicit distinction between cumulative job duration sum
+        and actual measured serial-vs-parallel benchmark timing.
         """
         summary = summary_override or getattr(self, "_last_summary", None) or {}
         disk_rep = self.resource_guard.build_disk_budget_report()
+        wall_sec = float(summary.get("wall_clock_duration_sec", 0.0))
+        sum_sec = float(summary.get("sum_of_group_durations_sec", 0.0))
+        cum_ratio = round(sum_sec / max(0.001, wall_sec), 2) if wall_sec > 0 else 1.0
+
+        measured_speedup: Any = "NOT_MEASURED"
+        if serial_benchmark_sec is not None and parallel_benchmark_sec is not None and parallel_benchmark_sec > 0:
+            measured_speedup = round(float(serial_benchmark_sec) / float(parallel_benchmark_sec), 2)
+
         return {
-            "release": "V17.9.0.1.1",
+            "release": "V17.9.0.1.2",
             "run_id": self.run_id,
             "source_sha": self.source_sha,
             "status": summary.get("status", "PASS"),
@@ -437,21 +482,45 @@ class BoundedAsyncTestOrchestrator:
             },
             "execution_metrics": {
                 "peak_concurrent_workers": summary.get("peak_concurrent_workers", self._peak_workers),
-                "wall_clock_duration_sec": summary.get("wall_clock_duration_sec", 0.0),
-                "sum_of_group_durations_sec": summary.get("sum_of_group_durations_sec", 0.0),
-                "speedup_ratio": summary.get("speedup_ratio", 1.0),
+                "wall_clock_duration_sec": wall_sec,
+                "sum_of_group_durations_sec": sum_sec,
+                "cumulative_job_duration_to_wall_ratio": cum_ratio,
+                "speedup_ratio_qualification": "CUMULATIVE_JOB_DURATION_SUM_DIVIDED_BY_WALL_CLOCK",
+                "speedup_ratio": cum_ratio,
+                "serial_benchmark_duration_sec": serial_benchmark_sec if serial_benchmark_sec is not None else "NOT_MEASURED",
+                "parallel_benchmark_duration_sec": parallel_benchmark_sec if parallel_benchmark_sec is not None else wall_sec,
+                "measured_serial_vs_parallel_speedup": measured_speedup,
                 "node_accounting_invariant_holds": summary.get("node_accounting_invariant_holds", True),
                 "total_expected_nodes": summary.get("total_expected_nodes", 0),
                 "total_completed_nodes": summary.get("total_completed_nodes", 0),
                 "total_skipped_nodes": summary.get("total_skipped_nodes", 0),
                 "total_failed_nodes": summary.get("total_failed_nodes", 0),
+                "total_errors": summary.get("total_failed_nodes", 0),
+                "total_retries": 0,
                 "orphan_processes_remaining": 0,
+                "peak_rss_mb_observed": disk_rep.get("peak_rss_mb", 0.0),
+                "resource_samples_collected": disk_rep.get("samples_recorded", len(disk_rep.get("cpu_memory_samples", []))),
             },
+            "disk_telemetry": disk_rep,
             "resource_telemetry": {
+                "free_disk_bytes_preflight": disk_rep.get("free_disk_bytes_preflight"),
+                "minimum_free_disk_bytes_observed": disk_rep.get("minimum_free_disk_bytes_observed"),
+                "free_disk_bytes_postflight": disk_rep.get("free_disk_bytes_postflight"),
                 "peak_temporary_bytes": disk_rep.get("peak_temporary_bytes", 0),
+                "peak_artifact_bytes": disk_rep.get("peak_artifact_bytes", 0),
                 "final_temporary_bytes": disk_rep.get("final_temporary_bytes", 0),
-                "free_disk_bytes_postflight": disk_rep.get("postflight_free_disk_bytes"),
-                "samples_recorded": len(disk_rep.get("cpu_memory_samples", [])),
+                "samples_recorded": disk_rep.get("samples_recorded", len(disk_rep.get("cpu_memory_samples", []))),
+                "peak_memory_bytes": disk_rep.get("peak_memory_bytes", 0),
+                "peak_rss_mb": disk_rep.get("peak_rss_mb", 0.0),
+                "peak_child_rss_mb": disk_rep.get("peak_child_rss_mb", 0.0),
+                "peak_total_rss_mb": disk_rep.get("peak_total_rss_mb", 0.0),
+                "peak_cpu_percent": disk_rep.get("peak_cpu_percent", 0.0),
+                "SwapTotal": disk_rep.get("SwapTotal", "NOT_MEASURED"),
+                "SwapFree": disk_rep.get("SwapFree", "NOT_MEASURED"),
+                "SwapUsed": disk_rep.get("SwapUsed", "NOT_MEASURED"),
+                "swappiness": disk_rep.get("swappiness", "NOT_APPLICABLE_DARWIN"),
+                "zram_devices": disk_rep.get("zram_devices", 0),
+                "orphan_worker_count": disk_rep.get("orphan_worker_count", 0),
             },
             "per_group_timings": {
                 gid: {

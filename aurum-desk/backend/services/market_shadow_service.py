@@ -1117,18 +1117,44 @@ class MarketShadowService:
                 if not quote_valid
                 else ("UNCLOSED_M5_CANDLE_REJECTED" if unclosed_5m_rejected and len(bars_5m) < 3 else "INSUFFICIENT_CLOSED_CANDLES")
             )
+            from services.shared_strategy_evaluator import EVALUATOR_VERSION
             for mid in SUPPORTED_SHADOW_MODELS:
-                if mid in self._disabled_models or not self._is_model_enabled_by_config(mid, cfg):
+                is_dis = mid in self._disabled_models or not self._is_model_enabled_by_config(mid, cfg)
+                sh_ctx = self.build_shared_decision_context(
+                    decision_timestamp_ms=cutoff_ms,
+                    m1_candles=bars_1m,
+                    m5_candles=bars_5m,
+                    m15_candles=bars_15m,
+                    h1_candles=bars_1h,
+                    h4_candles=bars_4h,
+                    bid=eff_quote.bid if eff_quote is not None and quote_valid else None,
+                    ask=eff_quote.ask if eff_quote is not None and quote_valid else None,
+                    quote_timestamp_ms=(eff_quote.exchange_ts_ms or eff_quote.received_at_ms) if eff_quote is not None else None,
+                    model_enablement={mid: False} if is_dis else None,
+                )
+                sh_snap = self.evaluate_shared_decision_snapshot(
+                    context=sh_ctx,
+                    model_id=mid,
+                    direction="LONG",
+                )
+                sh_snap_dict = sh_snap.to_parity_dict() if hasattr(sh_snap, "to_parity_dict") else None
+                if is_dis:
                     model_outcomes[mid] = {
                         "model_id": mid,
                         "classification": ShadowModelClassification.MODEL_DISABLED.value,
                         "reason_code": "MODEL_DISABLED",
+                        "shared_decision_fingerprint": getattr(sh_snap, "decision_fingerprint", ""),
+                        "shared_decision_snapshot": sh_snap_dict,
+                        "evaluator_version": getattr(sh_snap, "evaluator_version", EVALUATOR_VERSION),
                     }
                 else:
                     model_outcomes[mid] = {
                         "model_id": mid,
                         "classification": ShadowModelClassification.MISSING_MARKET_DATA.value,
                         "reason_code": missing_reason,
+                        "shared_decision_fingerprint": getattr(sh_snap, "decision_fingerprint", ""),
+                        "shared_decision_snapshot": sh_snap_dict,
+                        "evaluator_version": getattr(sh_snap, "evaluator_version", EVALUATOR_VERSION),
                     }
             summary = self._finalize_cycle_summary(
                 cycle_id=cycle_id,
@@ -1233,12 +1259,37 @@ class MarketShadowService:
             "costs": CostAssumptions(slippage_usd=0.10, maker_fee_rate=0.0002, taker_fee_rate=0.0004),
         }
 
+        from services.shared_strategy_evaluator import EVALUATOR_VERSION
         for model_id in SUPPORTED_SHADOW_MODELS:
             if model_id in self._disabled_models or not self._is_model_enabled_by_config(model_id, cfg):
+                dis_ctx = self.build_shared_decision_context(
+                    decision_timestamp_ms=cutoff_ms,
+                    m1_candles=bars_1m,
+                    m5_candles=bars_5m,
+                    m15_candles=bars_15m,
+                    h1_candles=bars_1h,
+                    h4_candles=bars_4h,
+                    bid=eff_quote.bid,
+                    ask=eff_quote.ask,
+                    quote_timestamp_ms=eff_quote.exchange_ts_ms or eff_quote.received_at_ms,
+                    liquidity_pools=liquidity_levels,
+                    htf_bias=htf_bias,
+                    h1_alignment=h1_alignment,
+                    model_enablement={model_id: False},
+                )
+                dis_snap = self.evaluate_shared_decision_snapshot(
+                    context=dis_ctx,
+                    model_id=model_id,
+                    direction="LONG" if htf_bias == "BULLISH" else "SHORT",
+                )
+                dis_snap_dict = dis_snap.to_parity_dict() if hasattr(dis_snap, "to_parity_dict") else None
                 model_outcomes[model_id] = {
                     "model_id": model_id,
                     "classification": ShadowModelClassification.MODEL_DISABLED.value,
                     "reason_code": "MODEL_DISABLED",
+                    "shared_decision_fingerprint": getattr(dis_snap, "decision_fingerprint", ""),
+                    "shared_decision_snapshot": dis_snap_dict,
+                    "evaluator_version": getattr(dis_snap, "evaluator_version", EVALUATOR_VERSION),
                 }
                 continue
 
@@ -1402,10 +1453,11 @@ class MarketShadowService:
         from services.shared_strategy_evaluator import (
             DecisionStatus,
             NON_EXECUTABLE_DECISION_STATUSES,
+            SharedStrategyEvaluator,
             StrategyDecisionSnapshot,
+            validate_canonical_executability,
         )
 
-        initial_dir = "LONG" if htf_bias == "BULLISH" else "SHORT"
         shared_ctx = self.build_shared_decision_context(
             decision_timestamp_ms=cutoff_ms,
             m1_candles=bars_1m,
@@ -1431,6 +1483,7 @@ class MarketShadowService:
                 "min_net_rr": float(getattr(cfg, "min_net_rr", 1.8)),
             },
         )
+        initial_dir = SharedStrategyEvaluator.resolve_canonical_preferred_direction(shared_ctx, htf_bias)
 
         # Invoke canonical SharedStrategyEvaluator.evaluate_decision with fail-closed exception handling
         try:
@@ -1441,8 +1494,8 @@ class MarketShadowService:
             )
             if (
                 isinstance(shared_snap, StrategyDecisionSnapshot)
-                and shared_snap.setup_validity != "VALID"
                 and shared_snap.decision_status not in (
+                    DecisionStatus.ELIGIBLE.value,
                     DecisionStatus.MODEL_DISABLED.value,
                     DecisionStatus.MISSING_MARKET_DATA.value,
                 )
@@ -1453,7 +1506,10 @@ class MarketShadowService:
                     model_id=model_id,
                     direction=alt_dir,
                 )
-                if isinstance(alt_snap, StrategyDecisionSnapshot) and alt_snap.setup_validity == "VALID":
+                if isinstance(alt_snap, StrategyDecisionSnapshot) and (
+                    alt_snap.decision_status == DecisionStatus.ELIGIBLE.value
+                    or (shared_snap.setup_validity != "VALID" and alt_snap.setup_validity == "VALID")
+                ):
                     shared_snap = alt_snap
         except Exception as exc:
             return {
@@ -1596,8 +1652,13 @@ class MarketShadowService:
         if not geom_valid and shared_snap.decision_status == DecisionStatus.ELIGIBLE.value:
             rejection_reasons.append("CANONICAL_SL_TP_GEOMETRY_REJECTED")
 
+        exec_ok, exec_rej = validate_canonical_executability(shared_snap, context=shared_ctx)
+        if not exec_ok and exec_rej and exec_rej not in rejection_reasons:
+            rejection_reasons.append(exec_rej)
+
         is_eligible = bool(
-            shared_snap.decision_status == DecisionStatus.ELIGIBLE.value
+            exec_ok
+            and shared_snap.decision_status == DecisionStatus.ELIGIBLE.value
             and shared_snap.decision_status not in NON_EXECUTABLE_DECISION_STATUSES
             and len(rejection_reasons) == 0
             and has_valid_target

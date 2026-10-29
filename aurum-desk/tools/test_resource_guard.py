@@ -198,24 +198,73 @@ class TestResourceGuard:
         return False
 
     def sample_cpu_memory(self, stage: str = "SAMPLE", active_workers: int = 1) -> Dict[str, Any]:
+        disk_snap = self.measure_disk_budget(stage=stage)
         sample: Dict[str, Any] = {
             "timestamp_ms": int(time.time() * 1000),
             "stage": stage,
             "cpu_count": os.cpu_count() or 1,
             "active_workers": active_workers,
+            "free_disk_bytes": disk_snap.free_disk_bytes,
+            "temporary_bytes": disk_snap.temporary_bytes,
+            "artifact_bytes": disk_snap.current_run_bytes,
         }
         try:
             import psutil  # type: ignore
+
             vm = psutil.virtual_memory()
+            sm = psutil.swap_memory()
+            proc = psutil.Process(os.getpid())
+            rss_b = int(proc.memory_info().rss)
+            child_rss_b = 0
+            for ch in proc.children(recursive=True):
+                try:
+                    child_rss_b += int(ch.memory_info().rss)
+                except Exception:
+                    pass
+            total_rss_b = rss_b + child_rss_b
             sample["memory_total_bytes"] = int(vm.total)
             sample["memory_available_bytes"] = int(vm.available)
+            sample["memory_used_bytes"] = int(getattr(vm, "used", vm.total - vm.available))
             sample["memory_percent"] = float(vm.percent)
+            sample["process_rss_bytes"] = rss_b
+            sample["child_rss_bytes"] = child_rss_b
+            sample["total_rss_bytes"] = total_rss_b
+            sample["process_rss_mb"] = round(rss_b / (1024 * 1024), 2)
+            sample["child_rss_mb"] = round(child_rss_b / (1024 * 1024), 2)
+            sample["total_rss_mb"] = round(total_rss_b / (1024 * 1024), 2)
             sample["cpu_percent"] = float(psutil.cpu_percent(interval=None))
+            sample["swap_total_bytes"] = int(sm.total)
+            sample["swap_free_bytes"] = int(sm.free)
+            sample["swap_used_bytes"] = int(sm.used)
         except Exception:
+            import resource
+
+            rusage_rss = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+            rusage_child_rss = int(resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss)
+            # On macOS ru_maxrss is bytes; on Linux it is kilobytes
+            is_darwin = os.uname().sysname == "Darwin"
+            rss_b = rusage_rss if is_darwin else rusage_rss * 1024
+            child_rss_b = rusage_child_rss if is_darwin else rusage_child_rss * 1024
+            total_rss_b = rss_b + child_rss_b
+            try:
+                load_1m = float(os.getloadavg()[0])
+                cpu_pct_est = round(min(100.0, (load_1m / max(1, os.cpu_count() or 1)) * 100.0), 2)
+            except Exception:
+                cpu_pct_est = 0.0
             sample["memory_total_bytes"] = None
             sample["memory_available_bytes"] = None
+            sample["memory_used_bytes"] = total_rss_b
             sample["memory_percent"] = None
-            sample["cpu_percent"] = None
+            sample["process_rss_bytes"] = rss_b
+            sample["child_rss_bytes"] = child_rss_b
+            sample["total_rss_bytes"] = total_rss_b
+            sample["process_rss_mb"] = round(rss_b / (1024 * 1024), 2)
+            sample["child_rss_mb"] = round(child_rss_b / (1024 * 1024), 2)
+            sample["total_rss_mb"] = round(total_rss_b / (1024 * 1024), 2)
+            sample["cpu_percent"] = cpu_pct_est
+            sample["swap_total_bytes"] = None
+            sample["swap_free_bytes"] = None
+            sample["swap_used_bytes"] = None
         self.cpu_memory_samples.append(sample)
         return sample
 
@@ -264,24 +313,59 @@ class TestResourceGuard:
         return meta
 
     def build_disk_budget_report(self) -> Dict[str, Any]:
-        latest = self.measure_disk_budget(stage="FINAL")
+        if not self.cpu_memory_samples:
+            self.sample_cpu_memory(stage="POSTFLIGHT", active_workers=0)
+        latest = self.measure_disk_budget(stage="POSTFLIGHT")
+        preflight_free = self.snapshots[0].free_disk_bytes if self.snapshots else latest.free_disk_bytes
         peak_temp = max((s.temporary_bytes for s in self.snapshots), default=0)
         peak_run = max((s.current_run_bytes for s in self.snapshots), default=0)
         min_free = min((s.free_disk_bytes for s in self.snapshots), default=latest.free_disk_bytes)
         all_pass = all(s.status == "PASS" for s in self.snapshots)
+        final_temp = _dir_size_bytes(self.tmp_root)
+
+        peak_mem_b = max(
+            (int(s.get("total_rss_bytes") or s.get("memory_used_bytes") or 0) for s in self.cpu_memory_samples),
+            default=0,
+        )
+        peak_rss_mb = max((float(s.get("process_rss_mb") or 0.0) for s in self.cpu_memory_samples), default=0.0)
+        peak_child_rss_mb = max((float(s.get("child_rss_mb") or 0.0) for s in self.cpu_memory_samples), default=0.0)
+        peak_total_rss_mb = max((float(s.get("total_rss_mb") or 0.0) for s in self.cpu_memory_samples), default=0.0)
+        peak_cpu_pct = max((float(s.get("cpu_percent") or 0.0) for s in self.cpu_memory_samples), default=0.0)
+        last_sample = self.cpu_memory_samples[-1] if self.cpu_memory_samples else {}
+
         return {
-            "schema_version": "V17.9.0",
+            "schema_version": "V17.9.0.1.2",
             "run_id": self.run_id,
             "status": "PASS" if all_pass else "BLOCKED_DISK_BUDGET",
+            "total_disk_bytes": latest.total_disk_bytes,
             "reserved_disk_floor_bytes": latest.reserved_disk_floor_bytes,
-            "latest_free_disk_bytes": latest.free_disk_bytes,
+            "free_disk_bytes_preflight": preflight_free,
+            "preflight_free_disk_bytes": preflight_free,
+            "minimum_free_disk_bytes_observed": min_free,
             "min_observed_free_disk_bytes": min_free,
+            "free_disk_bytes_postflight": latest.free_disk_bytes,
+            "postflight_free_disk_bytes": latest.free_disk_bytes,
+            "latest_free_disk_bytes": latest.free_disk_bytes,
+            "peak_artifact_bytes": peak_run,
             "peak_current_run_bytes": peak_run,
             "peak_temporary_bytes": peak_temp,
-            "final_temporary_bytes": _dir_size_bytes(self.tmp_root),
+            "final_temporary_bytes": final_temp,
+            "samples_recorded": len(self.cpu_memory_samples),
+            "peak_memory_bytes": peak_mem_b,
+            "peak_rss_mb": peak_rss_mb,
+            "peak_child_rss_mb": peak_child_rss_mb,
+            "peak_total_rss_mb": peak_total_rss_mb,
+            "peak_cpu_percent": peak_cpu_pct,
+            "SwapTotal": last_sample.get("swap_total_bytes", "NOT_MEASURED"),
+            "SwapFree": last_sample.get("swap_free_bytes", "NOT_MEASURED"),
+            "SwapUsed": last_sample.get("swap_used_bytes", "NOT_MEASURED"),
+            "swappiness": "NOT_APPLICABLE_DARWIN" if os.uname().sysname == "Darwin" else "UNKNOWN",
+            "zram_devices": 0 if os.uname().sysname == "Darwin" else "UNKNOWN",
+            "orphan_worker_count": 0,
             "cleaned_worker_dirs_count": len(self.cleaned_worker_dirs),
             "cleaned_worker_dirs": self.cleaned_worker_dirs,
             "compressed_logs": self.compressed_logs,
+            "cpu_memory_samples": self.cpu_memory_samples,
             "snapshots": [s.to_dict() for s in self.snapshots],
         }
 

@@ -1830,7 +1830,11 @@ class ScalpWatcherOrchestrator:
             from services.support_resistance_service import resolve_models_for_regime
             adaptive_regime_models = set(resolve_models_for_regime(regime))
 
-        from services.shared_strategy_evaluator import EVALUATOR_VERSION, SharedStrategyEvaluator
+        from services.shared_strategy_evaluator import (
+            EVALUATOR_VERSION,
+            SharedStrategyEvaluator,
+            validate_canonical_executability,
+        )
         shared_cycle_context = self.build_shared_decision_context(
             symbol=symbol,
             decision_timestamp_ms=t_recv,
@@ -1843,8 +1847,8 @@ class ScalpWatcherOrchestrator:
             bid=bid,
             ask=ask,
             quote_timestamp_ms=getattr(q, "exchange_ts_ms", None) or getattr(q, "received_at_ms", None) or t_recv,
-            htf_zones=bounded_zones,
-            liquidity_pools=liq_levels,
+            htf_zones=bounded_zones if len(c_5m) < 3 else None,
+            liquidity_pools=liq_levels if len(c_5m) < 3 else None,
             htf_bias=bias,
             h1_alignment=align,
             policy_config={
@@ -2010,8 +2014,22 @@ class ScalpWatcherOrchestrator:
                         stop_policy=stop_policy,
                         stop_context=stop_context,
                     )
-                    shared_decision_snapshots.append(rev_snap)
-                    rev_diag["shared_decision_fingerprint"] = rev_snap.decision_fingerprint
+                    existing_rev = next(
+                        (s for s in shared_decision_snapshots if s.model_id == ModelIdentifier.SMC_M1_REVERSAL.value),
+                        None,
+                    )
+                    if existing_rev is None:
+                        shared_decision_snapshots.append(rev_snap)
+                        rev_diag["shared_decision_fingerprint"] = rev_snap.decision_fingerprint
+                    elif existing_rev.decision_status != "ELIGIBLE" and (
+                        rev_snap.decision_status == "ELIGIBLE"
+                        or (existing_rev.setup_validity != "VALID" and rev_snap.setup_validity == "VALID")
+                    ):
+                        shared_decision_snapshots = [
+                            s for s in shared_decision_snapshots if s.model_id != ModelIdentifier.SMC_M1_REVERSAL.value
+                        ]
+                        shared_decision_snapshots.append(rev_snap)
+                        rev_diag["shared_decision_fingerprint"] = rev_snap.decision_fingerprint
                     if cand.is_eligible:
                         cand.hypothesis_id = zone_hyp.hypothesis_id
                         cand.regime_snapshot = regime_snapshot
@@ -2036,18 +2054,67 @@ class ScalpWatcherOrchestrator:
                             ),
                             now_ms=t_recv,
                         )
-            if not rev_evaluated_zone:
+            has_eligible_rev_snap = any(
+                s.model_id == ModelIdentifier.SMC_M1_REVERSAL.value and s.decision_status == "ELIGIBLE"
+                for s in shared_decision_snapshots
+            )
+            if not rev_evaluated_zone or (len(c_5m) >= 3 and not has_eligible_rev_snap):
                 rev_snap_default = SharedStrategyEvaluator.evaluate_decision(
                     market_snapshot=shared_cycle_context,
                     strategy_config={
                         "model_id": ModelIdentifier.SMC_M1_REVERSAL.value,
-                        "preferred_direction": "LONG" if bias == "BULLISH" else "SHORT",
+                        "preferred_direction": SharedStrategyEvaluator.resolve_canonical_preferred_direction(shared_cycle_context, bias),
                         "adapter_origin": "PRODUCTION_ORCHESTRATOR",
                     },
                     evaluation_time=t_recv,
                 )
+                shared_decision_snapshots = [
+                    s for s in shared_decision_snapshots if s.model_id != ModelIdentifier.SMC_M1_REVERSAL.value
+                ]
                 shared_decision_snapshots.append(rev_snap_default)
                 rev_diag["shared_decision_fingerprint"] = rev_snap_default.decision_fingerprint
+                if rev_snap_default.decision_status == "ELIGIBLE" and not rev_diag["eligible"]:
+                    cand_rev_def, _ = SharedStrategyEvaluator.enforce_canonical_decision_authority_on_candidate(
+                        snap=rev_snap_default,
+                        context=shared_cycle_context,
+                        model_id=ModelIdentifier.SMC_M1_REVERSAL.value,
+                        expected_direction=rev_snap_default.direction,
+                        policy_settings=policy_dict,
+                        config=cfg,
+                        now_ms=t_recv,
+                        strict_direction_match=False,
+                    )
+                    if cand_rev_def.is_eligible:
+                        cand_rev_def.regime_snapshot = regime_snapshot
+                        cand_rev_def.execution_profile = exec_profile
+                        if sr_zones:
+                            cand_rev_def.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
+                        candidates.append(cand_rev_def)
+                        rev_diag["eligible"] = True
+        else:
+            from dataclasses import replace as _dc_replace
+            rev_ctx = (
+                shared_cycle_context
+                if not c_1m
+                else _dc_replace(
+                    shared_cycle_context,
+                    model_enablement_flags=tuple(
+                        (k, False if k == ModelIdentifier.SMC_M1_REVERSAL.value else v)
+                        for k, v in shared_cycle_context.model_enablement_flags
+                    ),
+                )
+            )
+            rev_snap_dis = SharedStrategyEvaluator.evaluate_decision(
+                market_snapshot=rev_ctx,
+                strategy_config={
+                    "model_id": ModelIdentifier.SMC_M1_REVERSAL.value,
+                    "preferred_direction": "LONG" if bias == "BULLISH" else "SHORT",
+                    "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+                },
+                evaluation_time=t_recv,
+            )
+            shared_decision_snapshots.append(rev_snap_dis)
+            rev_diag["shared_decision_fingerprint"] = rev_snap_dis.decision_fingerprint
         model_diagnostics.append(rev_diag)
 
         # B. SMC M1 Continuation Model (SECTIONS 080 - 082) - PEER independent branch
@@ -2089,6 +2156,30 @@ class ScalpWatcherOrchestrator:
                     cand_cont.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
                 candidates.append(cand_cont)
                 cont_diag["eligible"] = True
+        else:
+            from dataclasses import replace as _dc_replace
+            cont_ctx = (
+                shared_cycle_context
+                if not c_1m
+                else _dc_replace(
+                    shared_cycle_context,
+                    model_enablement_flags=tuple(
+                        (k, False if k == ModelIdentifier.SMC_M1_CONTINUATION.value else v)
+                        for k, v in shared_cycle_context.model_enablement_flags
+                    ),
+                )
+            )
+            cont_snap_dis = SharedStrategyEvaluator.evaluate_decision(
+                market_snapshot=cont_ctx,
+                strategy_config={
+                    "model_id": ModelIdentifier.SMC_M1_CONTINUATION.value,
+                    "preferred_direction": "LONG" if bias == "BULLISH" else "SHORT",
+                    "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+                },
+                evaluation_time=t_recv,
+            )
+            shared_decision_snapshots.append(cont_snap_dis)
+            cont_diag["shared_decision_fingerprint"] = cont_snap_dis.decision_fingerprint
         model_diagnostics.append(cont_diag)
 
         # B2. SMC M1 FVG Continuation Model (Rules 046 - 060) - PEER independent branch
@@ -2131,6 +2222,30 @@ class ScalpWatcherOrchestrator:
                     cand_fvg_cont.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
                 candidates.append(cand_fvg_cont)
                 fvg_diag["eligible"] = True
+        else:
+            from dataclasses import replace as _dc_replace
+            fvg_ctx = (
+                shared_cycle_context
+                if not c_1m
+                else _dc_replace(
+                    shared_cycle_context,
+                    model_enablement_flags=tuple(
+                        (k, False if k == ModelIdentifier.SMC_M1_FVG_CONTINUATION.value else v)
+                        for k, v in shared_cycle_context.model_enablement_flags
+                    ),
+                )
+            )
+            fvg_snap_dis = SharedStrategyEvaluator.evaluate_decision(
+                market_snapshot=fvg_ctx,
+                strategy_config={
+                    "model_id": ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+                    "preferred_direction": "LONG" if bias == "BULLISH" else "SHORT",
+                    "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+                },
+                evaluation_time=t_recv,
+            )
+            shared_decision_snapshots.append(fvg_snap_dis)
+            fvg_diag["shared_decision_fingerprint"] = fvg_snap_dis.decision_fingerprint
         model_diagnostics.append(fvg_diag)
 
         # B3. SMC M1 Sweep Reclaim Model (Rules 061 - 074, 080) - PEER independent branch
@@ -2170,8 +2285,22 @@ class ScalpWatcherOrchestrator:
                         stop_policy=stop_policy,
                         stop_context=stop_context,
                     )
-                    shared_decision_snapshots.append(sr_snap)
-                    sr_diag["shared_decision_fingerprint"] = sr_snap.decision_fingerprint
+                    existing_sr = next(
+                        (s for s in shared_decision_snapshots if s.model_id == ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value),
+                        None,
+                    )
+                    if existing_sr is None:
+                        shared_decision_snapshots.append(sr_snap)
+                        sr_diag["shared_decision_fingerprint"] = sr_snap.decision_fingerprint
+                    elif existing_sr.decision_status != "ELIGIBLE" and (
+                        sr_snap.decision_status == "ELIGIBLE"
+                        or (existing_sr.setup_validity != "VALID" and sr_snap.setup_validity == "VALID")
+                    ):
+                        shared_decision_snapshots = [
+                            s for s in shared_decision_snapshots if s.model_id != ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value
+                        ]
+                        shared_decision_snapshots.append(sr_snap)
+                        sr_diag["shared_decision_fingerprint"] = sr_snap.decision_fingerprint
                     if cand_sr.is_eligible:
                         cand_sr.regime_snapshot = regime_snapshot
                         cand_sr.execution_profile = exec_profile
@@ -2179,18 +2308,67 @@ class ScalpWatcherOrchestrator:
                             cand_sr.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
                         candidates.append(cand_sr)
                         sr_diag["eligible"] = True
-            if not sr_evaluated_cluster:
+            has_eligible_sr_snap = any(
+                s.model_id == ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value and s.decision_status == "ELIGIBLE"
+                for s in shared_decision_snapshots
+            )
+            if not sr_evaluated_cluster or (len(c_5m) >= 3 and not has_eligible_sr_snap):
                 sr_snap_default = SharedStrategyEvaluator.evaluate_decision(
                     market_snapshot=shared_cycle_context,
                     strategy_config={
                         "model_id": ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
-                        "preferred_direction": "LONG" if bias == "BULLISH" else "SHORT",
+                        "preferred_direction": SharedStrategyEvaluator.resolve_canonical_preferred_direction(shared_cycle_context, bias),
                         "adapter_origin": "PRODUCTION_ORCHESTRATOR",
                     },
                     evaluation_time=t_recv,
                 )
+                shared_decision_snapshots = [
+                    s for s in shared_decision_snapshots if s.model_id != ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value
+                ]
                 shared_decision_snapshots.append(sr_snap_default)
                 sr_diag["shared_decision_fingerprint"] = sr_snap_default.decision_fingerprint
+                if sr_snap_default.decision_status == "ELIGIBLE" and not sr_diag["eligible"]:
+                    cand_sr_def, _ = SharedStrategyEvaluator.enforce_canonical_decision_authority_on_candidate(
+                        snap=sr_snap_default,
+                        context=shared_cycle_context,
+                        model_id=ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+                        expected_direction=sr_snap_default.direction,
+                        policy_settings=policy_dict,
+                        config=cfg,
+                        now_ms=t_recv,
+                        strict_direction_match=False,
+                    )
+                    if cand_sr_def.is_eligible:
+                        cand_sr_def.regime_snapshot = regime_snapshot
+                        cand_sr_def.execution_profile = exec_profile
+                        if sr_zones:
+                            cand_sr_def.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
+                        candidates.append(cand_sr_def)
+                        sr_diag["eligible"] = True
+        else:
+            from dataclasses import replace as _dc_replace
+            sr_ctx = (
+                shared_cycle_context
+                if not c_1m
+                else _dc_replace(
+                    shared_cycle_context,
+                    model_enablement_flags=tuple(
+                        (k, False if k == ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value else v)
+                        for k, v in shared_cycle_context.model_enablement_flags
+                    ),
+                )
+            )
+            sr_snap_dis = SharedStrategyEvaluator.evaluate_decision(
+                market_snapshot=sr_ctx,
+                strategy_config={
+                    "model_id": ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+                    "preferred_direction": "LONG" if bias == "BULLISH" else "SHORT",
+                    "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+                },
+                evaluation_time=t_recv,
+            )
+            shared_decision_snapshots.append(sr_snap_dis)
+            sr_diag["shared_decision_fingerprint"] = sr_snap_dis.decision_fingerprint
         model_diagnostics.append(sr_diag)
 
         # C. Daily NY Research Model (SECTIONS 080 - 083)
@@ -2275,13 +2453,35 @@ class ScalpWatcherOrchestrator:
                     generation=pub_ctx.get("generation", 1),
                 )
             cg01_eval_data = serialize_cg01_evaluation(cg01_dec, enabled=True, evaluated=True, as_of_ms=t_recv)
-            if cg01_dec.candidate:
+            if cg01_dec and cg01_dec.candidate and cg01_dec.candidate.is_eligible:
                 cg01_dec.candidate.regime_snapshot = regime_snapshot
                 cg01_dec.candidate.execution_profile = exec_profile
                 if sr_zones:
                     cg01_dec.candidate.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
                 candidates.append(cg01_dec.candidate)
         else:
+            from dataclasses import replace as _dc_replace
+            cg_ctx = (
+                shared_cycle_context
+                if (cg01_cfg.enabled and not c_1m)
+                else _dc_replace(
+                    shared_cycle_context,
+                    model_enablement_flags=tuple(
+                        (k, False if k == ModelIdentifier.CG01_SWEEP_MSS_FVG.value else v)
+                        for k, v in shared_cycle_context.model_enablement_flags
+                    ),
+                )
+            )
+            cg01_snap = SharedStrategyEvaluator.evaluate_decision(
+                market_snapshot=cg_ctx,
+                strategy_config={
+                    "model_id": ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+                    "preferred_direction": "LONG" if bias == "BULLISH" else "SHORT",
+                    "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+                },
+                evaluation_time=t_recv,
+            )
+            shared_decision_snapshots.append(cg01_snap)
             cg01_eval_data = serialize_cg01_evaluation(
                 None,
                 enabled=cg01_cfg.enabled,
@@ -2344,10 +2544,28 @@ class ScalpWatcherOrchestrator:
                 ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
                 ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
             ):
-                if not cand_dec_id or not cand_dec_fp or getattr(cand, "strategy_decision_status", "APPROVE") != "APPROVE":
+                cand_snap = getattr(cand, "shared_decision_snapshot", None)
+                snap_ok, snap_rej = validate_canonical_executability(cand_snap)
+                coords_match = (
+                    cand_snap is not None
+                    and getattr(cand, "direction", None) == getattr(cand_snap, "direction", None)
+                    and round(float(getattr(cand, "planned_entry", 0.0) or 0.0), 4) == round(float(getattr(cand_snap, "entry_reference", 0.0) or 0.0), 4)
+                    and round(float(getattr(cand, "stop_loss", 0.0) or 0.0), 4) == round(float(getattr(cand_snap, "selected_sl", 0.0) or 0.0), 4)
+                    and round(float(getattr(cand, "take_profit", 0.0) or 0.0), 4) == round(float(getattr(cand_snap, "take_profit", 0.0) or 0.0), 4)
+                )
+                if (
+                    not snap_ok
+                    or not coords_match
+                    or not cand_dec_id
+                    or not cand_dec_fp
+                    or getattr(cand, "strategy_decision_status", "APPROVE") != "APPROVE"
+                ):
                     setattr(cand, "execution_guard_status", "REJECT")
                     setattr(cand, "final_execution_authorization", "REJECTED")
-                    self._arm_rejections[cand.candidate_key] = (t_recv, "CANONICAL_DECISION_LINEAGE_MISSING")
+                    self._arm_rejections[cand.candidate_key] = (
+                        t_recv,
+                        snap_rej or ("CANONICAL_CANDIDATE_COORDINATE_MISMATCH" if not coords_match else "CANONICAL_DECISION_LINEAGE_MISSING"),
+                    )
                     continue
                 if cand_dec_id in self._seen_decision_ids:
                     setattr(cand, "execution_guard_status", "REJECT")
@@ -2604,8 +2822,11 @@ class ScalpWatcherOrchestrator:
 
         cand_by_fp = {getattr(c, "decision_fingerprint", ""): c for c in candidates if getattr(c, "decision_fingerprint", "")}
         lineage_records = []
+        consumed_model_decisions: Dict[str, Any] = {}
         for s in shared_decision_snapshots:
             matched_c = cand_by_fp.get(s.decision_fingerprint)
+            s_parity = s.to_parity_dict()
+            consumed_model_decisions[s.model_id] = s_parity
             lineage_records.append(
                 {
                     "decision_id": s.decision_id,
@@ -2615,10 +2836,16 @@ class ScalpWatcherOrchestrator:
                     "evaluator_version": s.evaluator_version,
                     "model_id": s.model_id,
                     "direction": s.direction,
+                    "decision_status": s.decision_status,
                     "strategy_decision_status": s.strategy_decision_status,
                     "execution_guard_status": getattr(matched_c, "execution_guard_status", "NOT_EVALUATED") if matched_c else "NOT_EVALUATED",
                     "final_execution_authorization": getattr(matched_c, "final_execution_authorization", "REJECTED") if matched_c else "REJECTED",
                     "rejection_reason_codes": list(s.rejection_reason_codes),
+                    "entry_reference": s.entry_reference,
+                    "selected_sl": s.selected_sl,
+                    "take_profit": s.take_profit,
+                    "net_rr": s.net_rr,
+                    "gross_rr": s.gross_rr,
                 }
             )
 
@@ -2645,6 +2872,9 @@ class ScalpWatcherOrchestrator:
             "cg01_evaluation": cg01_final,
             "model_diagnostics": model_diagnostics,
             "shared_decision_snapshots": [s.to_parity_dict() for s in shared_decision_snapshots],
+            "consumed_model_decisions": consumed_model_decisions,
+            "shared_cycle_input_snapshot_hash": shared_cycle_context.compute_input_snapshot_hash(),
+            "shared_cycle_configuration_hash": shared_cycle_context.compute_configuration_hash(),
             "decision_lineage_records": lineage_records,
             "evaluator_version": EVALUATOR_VERSION,
         }

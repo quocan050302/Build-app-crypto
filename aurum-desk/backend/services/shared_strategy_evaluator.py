@@ -86,6 +86,7 @@ class DecisionStatus(str, Enum):
     ELIGIBLE = "ELIGIBLE"
     NO_TRADE = "NO_TRADE"
     REJECTED = "REJECTED"
+    UNKNOWN = "UNKNOWN"
 
 
 VALID_DECISION_STATUSES: Tuple[str, ...] = (
@@ -106,6 +107,7 @@ NON_EXECUTABLE_DECISION_STATUSES: Tuple[str, ...] = (
     DecisionStatus.NO_VALID_SETUP.value,
     DecisionStatus.WAITING_CONFIRMATION.value,
     DecisionStatus.VALID_SETUP_REJECTED_BY_RISK.value,
+    DecisionStatus.UNKNOWN.value,
 )
 
 REQUIRED_PARITY_FIELDS: Tuple[str, ...] = (
@@ -442,6 +444,16 @@ class MarketDecisionContext:
 
     def get_htf_provenance_dict(self) -> Dict[str, Any]:
         return dict(self.htf_provenance)
+
+    def compute_input_snapshot_hash(self) -> str:
+        return str(self.source_fingerprint or "")
+
+    def compute_configuration_hash(self) -> str:
+        return _canonical_hash({
+            "policy": self.policy_config_snapshot,
+            "risk": self.risk_config_snapshot,
+            "cost": self.cost_config_snapshot,
+        })
 
 
 def build_market_decision_context(
@@ -1005,6 +1017,235 @@ def _compute_snapshot_fingerprints(
     return evidence_fp, policy_fp, decision_fp
 
 
+def validate_canonical_executability(
+    decision: Any,
+    context: Optional[MarketDecisionContext] = None,
+    *,
+    expected_direction: Optional[str] = None,
+    strict_direction_match: bool = False,
+) -> Tuple[bool, Optional[str]]:
+    """
+    V17.9.0.1.2 Phase B (Section 3): Strict positive eligibility invariant.
+    A decision is executable if and only if ALL positive conditions hold:
+      1. decision is a StrategyDecisionSnapshot
+      2. Complete non-empty canonical lineage (decision_id, decision_fingerprint,
+         input_snapshot_hash, configuration_hash, evaluator_version)
+      3. Point-in-time market data context is valid (when context is provided)
+      4. decision.decision_status == DecisionStatus.ELIGIBLE.value (exact positive equality)
+      5. decision.setup_validity == "VALID"
+      6. len(decision.rejection_reason_codes) == 0
+      7. decision.direction in ("LONG", "SHORT") and matches expected_direction when strict
+      8. entry_reference, selected_sl, take_profit are finite positive numbers with valid
+         directional geometry (SL < entry < TP for LONG; TP < entry < SL for SHORT)
+      9. hypothetical_quantity > 0 and net_rr > 0
+    Any other status (including NO_TRADE, REJECTED, VALID_SETUP_REJECTED_BY_RISK,
+    NO_VALID_SETUP, WAITING_CONFIRMATION, MODEL_DISABLED, MISSING_MARKET_DATA,
+    unknown strings, None, or empty string) is strictly non-executable.
+    """
+    import math
+
+    if not isinstance(decision, StrategyDecisionSnapshot):
+        return False, "CANONICAL_DECISION_INVALID_TYPE_FAIL_CLOSED"
+
+    has_valid_lineage = bool(
+        decision.decision_id
+        and decision.decision_fingerprint
+        and decision.input_snapshot_hash
+        and decision.configuration_hash
+        and decision.evaluator_version
+    )
+    if not has_valid_lineage:
+        return False, "CANONICAL_DECISION_LINEAGE_MISSING"
+
+    if context is not None:
+        if not bool(getattr(context, "causal_valid", False)) or len(getattr(context, "causal_rejection_reasons", ()) or ()) > 0:
+            c_reasons = getattr(context, "causal_rejection_reasons", ()) or ()
+            return False, str(c_reasons[0]) if c_reasons else "CANONICAL_CONTEXT_CAUSAL_INVALID"
+        c_spread = getattr(context, "spread", None)
+        if c_spread is None or isinstance(c_spread, bool) or not math.isfinite(float(c_spread)) or float(c_spread) < 0.0:
+            return False, "CANONICAL_CONTEXT_MISSING_SPREAD"
+
+    if decision.decision_status != DecisionStatus.ELIGIBLE.value:
+        rej = (
+            str(decision.rejection_reason_codes[0])
+            if decision.rejection_reason_codes
+            else str(decision.raw_candidate_reason_code or decision.decision_status or "CANONICAL_DECISION_NOT_ELIGIBLE")
+        )
+        return False, rej
+
+    if decision.setup_validity != "VALID":
+        return False, "CANONICAL_SETUP_NOT_VALID"
+
+    if len(decision.rejection_reason_codes or ()) > 0:
+        return False, str(decision.rejection_reason_codes[0]) or "CANONICAL_REJECTION_REASONS_PRESENT"
+
+    if decision.direction not in ("LONG", "SHORT") or (
+        strict_direction_match
+        and expected_direction in ("LONG", "SHORT")
+        and decision.direction != expected_direction
+    ):
+        return False, "CANONICAL_DIRECTION_MISMATCH_REJECTED"
+
+    ent_val = decision.entry_reference
+    sl_val = decision.selected_sl
+    tp_val = decision.take_profit
+    coords_finite = (
+        ent_val is not None
+        and sl_val is not None
+        and tp_val is not None
+        and not isinstance(ent_val, bool)
+        and not isinstance(sl_val, bool)
+        and not isinstance(tp_val, bool)
+        and math.isfinite(float(ent_val))
+        and math.isfinite(float(sl_val))
+        and math.isfinite(float(tp_val))
+        and float(ent_val) > 0.0
+        and float(sl_val) > 0.0
+        and float(tp_val) > 0.0
+    )
+    if not coords_finite:
+        return False, "CANONICAL_SL_TP_MISSING_REJECTED"
+
+    ent_f = float(ent_val)
+    sl_f = float(sl_val)
+    tp_f = float(tp_val)
+    geom_ok = (
+        (decision.direction == "LONG" and sl_f < ent_f < tp_f)
+        or (decision.direction == "SHORT" and tp_f < ent_f < sl_f)
+    )
+    if not geom_ok:
+        return False, "CANONICAL_SL_TP_GEOMETRY_REJECTED"
+
+    qty_val = decision.hypothetical_quantity
+    if (
+        qty_val is None
+        or isinstance(qty_val, bool)
+        or not math.isfinite(float(qty_val))
+        or float(qty_val) <= 0.0
+    ):
+        return False, "CANONICAL_INVALID_HYPOTHETICAL_QUANTITY"
+
+    nrr_val = decision.net_rr
+    if (
+        nrr_val is None
+        or isinstance(nrr_val, bool)
+        or not math.isfinite(float(nrr_val))
+        or float(nrr_val) <= 0.0
+    ):
+        return False, "CANONICAL_INVALID_NET_RR"
+
+    return True, None
+
+
+def valid_decision_lineage(decision: Any, context: Optional[MarketDecisionContext] = None) -> bool:
+    if not isinstance(decision, StrategyDecisionSnapshot):
+        return False
+    return bool(
+        decision.decision_id
+        and decision.decision_fingerprint
+        and decision.input_snapshot_hash
+        and decision.configuration_hash
+        and decision.evaluator_version
+    )
+
+
+def valid_direction_entry_sl_tp(
+    decision: Any,
+    *,
+    expected_direction: Optional[str] = None,
+    strict_direction_match: bool = False,
+) -> bool:
+    import math
+
+    if not isinstance(decision, StrategyDecisionSnapshot):
+        return False
+    if decision.direction not in ("LONG", "SHORT"):
+        return False
+    if strict_direction_match and expected_direction in ("LONG", "SHORT") and decision.direction != expected_direction:
+        return False
+    ent_val = decision.entry_reference
+    sl_val = decision.selected_sl
+    tp_val = decision.take_profit
+    if (
+        ent_val is None
+        or sl_val is None
+        or tp_val is None
+        or isinstance(ent_val, bool)
+        or isinstance(sl_val, bool)
+        or isinstance(tp_val, bool)
+        or not math.isfinite(float(ent_val))
+        or not math.isfinite(float(sl_val))
+        or not math.isfinite(float(tp_val))
+        or float(ent_val) <= 0.0
+        or float(sl_val) <= 0.0
+        or float(tp_val) <= 0.0
+    ):
+        return False
+    ent_f = float(ent_val)
+    sl_f = float(sl_val)
+    tp_f = float(tp_val)
+    return bool(
+        (decision.direction == "LONG" and sl_f < ent_f < tp_f)
+        or (decision.direction == "SHORT" and tp_f < ent_f < sl_f)
+    )
+
+
+def valid_required_risk_intent(decision: Any) -> bool:
+    import math
+
+    if not isinstance(decision, StrategyDecisionSnapshot):
+        return False
+    qty_val = decision.hypothetical_quantity
+    nrr_val = decision.net_rr
+    if (
+        qty_val is None
+        or isinstance(qty_val, bool)
+        or not math.isfinite(float(qty_val))
+        or float(qty_val) <= 0.0
+    ):
+        return False
+    if (
+        nrr_val is None
+        or isinstance(nrr_val, bool)
+        or not math.isfinite(float(nrr_val))
+        or float(nrr_val) <= 0.0
+    ):
+        return False
+    return True
+
+
+def valid_point_in_time_inputs(context: Optional[MarketDecisionContext]) -> bool:
+    import math
+
+    if context is None:
+        return True
+    if not bool(getattr(context, "causal_valid", False)) or len(getattr(context, "causal_rejection_reasons", ()) or ()) > 0:
+        return False
+    c_spread = getattr(context, "spread", None)
+    if c_spread is None or isinstance(c_spread, bool) or not math.isfinite(float(c_spread)) or float(c_spread) < 0.0:
+        return False
+    return True
+
+
+def canonical_is_executable(
+    decision: Any,
+    context: Optional[MarketDecisionContext] = None,
+    *,
+    expected_direction: Optional[str] = None,
+    strict_direction_match: bool = False,
+) -> bool:
+    """
+    Boolean wrapper around `validate_canonical_executability`.
+    """
+    ok, _ = validate_canonical_executability(
+        decision,
+        context=context,
+        expected_direction=expected_direction,
+        strict_direction_match=strict_direction_match,
+    )
+    return ok
+
+
 class SharedStrategyEvaluator:
     """
     Section 7: Shared side-effect-free strategy evaluator used across Production,
@@ -1428,6 +1669,58 @@ class SharedStrategyEvaluator:
             sweep_px = swept_high
             sweep_ts = min(_candle_open_ms(b) for b, h_val in zip(recent_bars, highs) if h_val == swept_high)
         else:
+            target_fvg_type = "BULLISH_FVG" if direction == "LONG" else "BEARISH_FVG"
+            dir_fvgs = [f for f in valid_fvgs if str(f.get("type", "")).upper() == target_fvg_type]
+            if model_id == ModelIdentifier.SMC_M1_REVERSAL.value and dir_fvgs and len(closed_1m) >= 15:
+                fvg = dir_fvgs[-1]
+                all_lows = [float(b.get("low") if isinstance(b, dict) else getattr(b, "low", 0.0)) for b in closed_1m[-18:]]
+                all_highs = [float(b.get("high") if isinstance(b, dict) else getattr(b, "high", 0.0)) for b in closed_1m[-18:]]
+                min_sw_low = min(float(s["price"]) for s in sl_1m)
+                max_sw_high = max(float(s["price"]) for s in sh_1m)
+                if direction == "LONG" and min(all_lows) <= min_sw_low and last_close > min_sw_low:
+                    swept_low = min(all_lows)
+                    legacy_sl = round(swept_low - cfg.sl_buffer_ticks * cfg.tick_size, 2)
+                    sweep_px = swept_low
+                    sweep_ts = min(_candle_open_ms(b) for b, l_val in zip(closed_1m[-18:], all_lows) if l_val == swept_low)
+                    return {
+                        "has_setup": True,
+                        "direction": direction,
+                        "legacy_sl": legacy_sl,
+                        "episode_id": f"ep_{model_id}_{direction}_{sweep_ts}",
+                        "selected_fvg": fvg,
+                        "selected_break": None,
+                        "selected_sweep": {
+                            "id": f"sweep_{model_id}_{sweep_ts}",
+                            "price": sweep_px,
+                            "occurred_at_ms": sweep_ts,
+                            "known_at_ms": sweep_ts + 60_000,
+                        },
+                        "selected_reference": min(sl_1m, key=lambda s: float(s["price"])),
+                        "entry_zone_low": round(float(fvg["bottom"]), 2),
+                        "entry_zone_high": round(float(fvg["top"]), 2),
+                    }
+                if direction == "SHORT" and max(all_highs) >= max_sw_high and last_close < max_sw_high:
+                    swept_high = max(all_highs)
+                    legacy_sl = round(swept_high + cfg.sl_buffer_ticks * cfg.tick_size, 2)
+                    sweep_px = swept_high
+                    sweep_ts = min(_candle_open_ms(b) for b, h_val in zip(closed_1m[-18:], all_highs) if h_val == swept_high)
+                    return {
+                        "has_setup": True,
+                        "direction": direction,
+                        "legacy_sl": legacy_sl,
+                        "episode_id": f"ep_{model_id}_{direction}_{sweep_ts}",
+                        "selected_fvg": fvg,
+                        "selected_break": None,
+                        "selected_sweep": {
+                            "id": f"sweep_{model_id}_{sweep_ts}",
+                            "price": sweep_px,
+                            "occurred_at_ms": sweep_ts,
+                            "known_at_ms": sweep_ts + 60_000,
+                        },
+                        "selected_reference": max(sh_1m, key=lambda s: float(s["price"])),
+                        "entry_zone_low": round(float(fvg["bottom"]), 2),
+                        "entry_zone_high": round(float(fvg["top"]), 2),
+                    }
             return {"has_setup": False, "reason_code": "WAITING_SWEEP_RECLAIM"}
 
         return {
@@ -1449,6 +1742,86 @@ class SharedStrategyEvaluator:
         }
 
     @classmethod
+    def _evaluate_raw_domain_spec_helper(
+        cls,
+        spec: Mapping[str, Any],
+        default_now_ms: int,
+    ) -> Tuple[Optional[ScalpCandidate], Optional[Any]]:
+        eval_type = str(spec.get("eval_type", ""))
+        now_ms = int(spec.get("now_ms") or default_now_ms)
+        if eval_type == "CG01":
+            fn = spec.get("eval_fn") or evaluate_cg01_candidate
+            cg01_dec = fn(
+                spec["closed_ctx"],
+                spec["quote"],
+                config=spec["config"],
+                now_ms=now_ms,
+                capital=spec["capital"],
+                risk_pct=spec["risk_pct"],
+                costs=spec["costs"],
+                stop_policy=spec["stop_policy"],
+                stop_context=spec["stop_context"],
+            )
+            cg_cand = getattr(cg01_dec, "candidate", None) if cg01_dec is not None else None
+            return cg_cand, cg01_dec
+        if eval_type == "REVERSAL":
+            cand = ScalpM1ModelService.evaluate_m1_reversal_candidate(
+                spec["zone"],
+                spec["candles_1m"],
+                spec["quote"],
+                spec["policy_settings"],
+                now_ms=now_ms,
+                config=spec["config"],
+                context_levels=spec["context_levels"],
+                stop_policy=spec["stop_policy"],
+                stop_context=spec["stop_context"],
+            )
+            return cand, cand
+        if eval_type == "CONTINUATION":
+            cand = ScalpM1ModelService.evaluate_m1_continuation_candidate(
+                spec["candles_1m"],
+                spec["candles_5m"],
+                spec["quote"],
+                spec["htf_bias"],
+                spec["h1_alignment"],
+                spec["policy_settings"],
+                now_ms=now_ms,
+                config=spec["config"],
+                stop_policy=spec["stop_policy"],
+                stop_context=spec["stop_context"],
+            )
+            return cand, cand
+        if eval_type == "FVG_CONTINUATION":
+            cand = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
+                closed_1m=spec["closed_1m"],
+                closed_5m=spec["closed_5m"],
+                quote=spec["quote"],
+                htf_bias=spec["htf_bias"],
+                h1_alignment=spec["h1_alignment"],
+                policy_settings=spec["policy_settings"],
+                now_ms=now_ms,
+                config=spec["config"],
+                context_levels=spec["context_levels"],
+                stop_policy=spec["stop_policy"],
+                stop_context=spec["stop_context"],
+            )
+            return cand, cand
+        if eval_type == "SWEEP_RECLAIM":
+            cand = ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate(
+                closed_1m=spec["closed_1m"],
+                cluster=spec["cluster"],
+                quote=spec["quote"],
+                policy_settings=spec["policy_settings"],
+                now_ms=now_ms,
+                config=spec["config"],
+                context_levels=spec["context_levels"],
+                stop_policy=spec["stop_policy"],
+                stop_context=spec["stop_context"],
+            )
+            return cand, cand
+        return None, None
+
+    @classmethod
     def evaluate_model_direction(
         cls,
         context: MarketDecisionContext,
@@ -1458,6 +1831,7 @@ class SharedStrategyEvaluator:
         adapter_origin: str = "SHARED_EVALUATOR",
         target_resolver: Optional[Callable[..., Any]] = None,
         causal_setup_override: Optional[Mapping[str, Any]] = None,
+        production_eval_spec: Optional[Mapping[str, Any]] = None,
     ) -> StrategyDecisionSnapshot:
         """
         Evaluates a specific (model_id, direction) pair against MarketDecisionContext
@@ -1540,11 +1914,17 @@ class SharedStrategyEvaluator:
             or (min_h1_bars > 0 and len(context.closed_h1_candles) < min_h1_bars)
             or (min_h4_bars > 0 and len(context.closed_h4_candles) < min_h4_bars)
         )
+        m5_optional_legacy_spec = bool(
+            isinstance(production_eval_spec, Mapping)
+            and len(context.closed_m5_candles) == 0
+            and context.causal_valid
+        )
+        m5_insufficient = (not m5_optional_legacy_spec) and (len(context.closed_m5_candles) < 3)
 
         # 2. Causal / missing market data check
         if (
             len(context.closed_m1_candles) < 15
-            or len(context.closed_m5_candles) < 3
+            or m5_insufficient
             or context.spread is None
             or not context.causal_valid
             or htf_insufficient
@@ -1622,6 +2002,8 @@ class SharedStrategyEvaluator:
         risk_dict = context.get_risk_dict()
         cost_dict = context.get_cost_dict()
         min_net_rr = float(risk_dict.get("min_net_rr", cfg.min_net_rr))
+        if isinstance(production_eval_spec, Mapping) and production_eval_spec.get("config") is not None:
+            min_net_rr = float(getattr(production_eval_spec["config"], "min_net_rr", min_net_rr))
 
         # 2b. HTF structure conflict check if enforce_htf_bias_alignment is enabled
         ctx_htf_bias = str(context.htf_bias or policy_dict.get("htf_bias") or "UNKNOWN")
@@ -1777,6 +2159,15 @@ class SharedStrategyEvaluator:
             direction=direction,
             cfg=cfg,
         )
+        precomputed_domain_cand: Optional[ScalpCandidate] = None
+        precomputed_domain_payload: Optional[Any] = None
+        if m5_optional_legacy_spec and isinstance(production_eval_spec, Mapping):
+            raw_dom_cand, raw_dom_payload = cls._evaluate_raw_domain_spec_helper(
+                production_eval_spec, now_ms
+            )
+            if raw_dom_cand is None or getattr(raw_dom_cand, "direction", None) in (None, "", direction):
+                precomputed_domain_cand = raw_dom_cand
+                precomputed_domain_payload = raw_dom_payload
 
         sh_1m, sl_1m = identify_confirmed_swings(
             closed_1m, timeframe="1M", left_bars=2, right_bars=2, as_of_ms=now_ms
@@ -1799,15 +2190,31 @@ class SharedStrategyEvaluator:
                 cutoff_ms=now_ms,
             )
 
+        cg01_raw_cand = getattr(cg01_res, "candidate", None) if cg01_res is not None else None
         prod_has_setup = bool(
-            (scalp_cand is not None and (scalp_cand.is_eligible or scalp_cand.planned_entry > 0))
-            or (cg01_res is not None and getattr(cg01_res, "candidate", None) is not None)
+            (
+                scalp_cand is not None
+                and getattr(scalp_cand, "direction", direction) in (None, "", direction)
+                and (scalp_cand.is_eligible or scalp_cand.planned_entry > 0)
+            )
+            or (
+                cg01_raw_cand is not None
+                and getattr(cg01_raw_cand, "direction", direction) in (None, "", direction)
+            )
+            or (
+                precomputed_domain_cand is not None
+                and (
+                    bool(getattr(precomputed_domain_cand, "is_eligible", False))
+                    or float(getattr(precomputed_domain_cand, "planned_entry", 0.0) or 0.0) > 0.0
+                )
+            )
             or setup_info.get("has_setup", False)
         )
 
         if not prod_has_setup:
             raw_code = (
-                setup_info.get("reason_code")
+                (getattr(precomputed_domain_cand, "reason_code", None) if precomputed_domain_cand is not None else None)
+                or setup_info.get("reason_code")
                 or (scalp_cand.reason_code if scalp_cand is not None else None)
                 or (getattr(cg01_res, "reason_code", None) if cg01_res is not None else None)
                 or "NO_VALID_SETUP"
@@ -1988,6 +2395,38 @@ class SharedStrategyEvaluator:
         rejection_reasons: List[str] = []
         if stop_dec.status != StopStatus.VALID.value:
             rejection_reasons.extend(list(stop_dec.reasons or (stop_dec.status,)))
+
+        if m5_optional_legacy_spec and isinstance(production_eval_spec, Mapping):
+            dom_cand, dom_payload = precomputed_domain_cand, precomputed_domain_payload
+            if dom_cand is None or not bool(getattr(dom_cand, "is_eligible", False)):
+                dom_reason = (
+                    str(getattr(dom_cand, "reason_code", None) or getattr(dom_payload, "reason_code", None) or "DOMAIN_SPEC_REJECTED")
+                )
+                if dom_reason not in rejection_reasons:
+                    rejection_reasons.append(dom_reason)
+            elif getattr(dom_cand, "direction", None) == direction:
+                import math
+                d_ent = getattr(dom_cand, "planned_entry", None)
+                d_sl = getattr(dom_cand, "stop_loss", None)
+                d_tp = getattr(dom_cand, "take_profit", None)
+                if (
+                    d_ent is not None and d_sl is not None and d_tp is not None
+                    and math.isfinite(float(d_ent)) and math.isfinite(float(d_sl)) and math.isfinite(float(d_tp))
+                    and float(d_ent) > 0.0 and float(d_sl) > 0.0 and float(d_tp) > 0.0
+                ):
+                    entry_ref = round(float(d_ent), 2)
+                    selected_sl = round(float(d_sl), 2)
+                    structural_sl = selected_sl
+                    target_price = round(float(d_tp), 2)
+                    has_valid_target = bool(
+                        (direction == "LONG" and selected_sl < entry_ref < target_price)
+                        or (direction == "SHORT" and target_price < entry_ref < selected_sl)
+                    )
+                    rejection_reasons = [
+                        r for r in rejection_reasons
+                        if r not in (list(stop_dec.reasons or ()) + [stop_dec.status])
+                    ]
+
         if not has_valid_target or target_price is None:
             rejection_reasons.append("SHADOW_REJECTED_NO_VALID_TARGET")
         if bool(policy_dict.get("session_restricted", False)) or bool(context.session_restricted):
@@ -2146,7 +2585,35 @@ class SharedStrategyEvaluator:
             unicorn_sl_candidate=unicorn_sl_cand,
             protective_distance=stop_dec.protective_distance,
             selected_breaker_id=unicorn_ev.breaker_id,
+            production_candidate_payload=precomputed_domain_payload,
         )
+
+    @staticmethod
+    def resolve_canonical_preferred_direction(
+        context: MarketDecisionContext,
+        explicit_bias: Optional[str] = None,
+    ) -> str:
+        eff_bias = str(explicit_bias or getattr(context, "htf_bias", "") or "").upper()
+        if eff_bias == "BULLISH":
+            return "LONG"
+        if eff_bias == "BEARISH":
+            return "SHORT"
+        ref_bars = (
+            list(context.closed_m15_candles)
+            if len(context.closed_m15_candles) >= 3
+            else (
+                list(context.closed_m5_candles)
+                if len(context.closed_m5_candles) >= 3
+                else list(context.closed_m1_candles)
+            )
+        )
+        if len(ref_bars) >= 3:
+            first_b = ref_bars[max(0, len(ref_bars) - 10)]
+            last_b = ref_bars[-1]
+            fc = float(first_b.get("close") if isinstance(first_b, dict) else getattr(first_b, "close", 0.0))
+            lc = float(last_b.get("close") if isinstance(last_b, dict) else getattr(last_b, "close", 0.0))
+            return "SHORT" if lc < fc else "LONG"
+        return "LONG"
 
     @classmethod
     def evaluate_model_best_direction(
@@ -2157,27 +2624,34 @@ class SharedStrategyEvaluator:
         preferred_direction: Optional[str] = None,
         adapter_origin: str = "SHARED_EVALUATOR",
         target_resolver: Optional[Callable[..., Any]] = None,
+        production_eval_spec: Optional[Mapping[str, Any]] = None,
     ) -> StrategyDecisionSnapshot:
         """
         Evaluates a model across directions (checking preferred_direction first, then opposite direction
         for FVG/CG01 models if preferred_direction has no valid setup) and returns the deterministic
         StrategyDecisionSnapshot.
         """
-        primary_dir = preferred_direction if preferred_direction in ("LONG", "SHORT") else "LONG"
+        primary_dir = (
+            preferred_direction
+            if preferred_direction in ("LONG", "SHORT")
+            else cls.resolve_canonical_preferred_direction(context)
+        )
         primary_snap = cls.evaluate_model_direction(
             context=context,
             model_id=model_id,
             direction=primary_dir,
             adapter_origin=adapter_origin,
             target_resolver=target_resolver,
+            production_eval_spec=production_eval_spec,
         )
-        if primary_snap.setup_validity == "VALID" or primary_snap.decision_status in (
+        if primary_snap.decision_status in (
+            DecisionStatus.ELIGIBLE.value,
             DecisionStatus.MODEL_DISABLED.value,
             DecisionStatus.MISSING_MARKET_DATA.value,
         ):
             return primary_snap
 
-        # Check alternate direction when primary direction has no setup
+        # Check alternate direction when primary direction is not eligible
         alt_dir = "SHORT" if primary_dir == "LONG" else "LONG"
         alt_snap = cls.evaluate_model_direction(
             context=context,
@@ -2185,8 +2659,11 @@ class SharedStrategyEvaluator:
             direction=alt_dir,
             adapter_origin=adapter_origin,
             target_resolver=target_resolver,
+            production_eval_spec=production_eval_spec,
         )
-        if alt_snap.setup_validity == "VALID":
+        if alt_snap.decision_status == DecisionStatus.ELIGIBLE.value:
+            return alt_snap
+        if primary_snap.setup_validity != "VALID" and alt_snap.setup_validity == "VALID":
             return alt_snap
         return primary_snap
 
@@ -2284,197 +2761,20 @@ class SharedStrategyEvaluator:
         )
 
     @classmethod
-    def _execute_production_domain_spec(
+    def _downgrade_snapshot_from_domain_rejection(
         cls,
         context: MarketDecisionContext,
         base_snap: StrategyDecisionSnapshot,
-        spec: Mapping[str, Any],
+        reason_code: str,
+        target_status: str = DecisionStatus.VALID_SETUP_REJECTED_BY_RISK.value,
     ) -> StrategyDecisionSnapshot:
-        eval_type = str(spec.get("eval_type", ""))
-        now_ms = int(spec.get("now_ms") or context.decision_timestamp_ms)
-
-        if eval_type == "CG01":
-            fn = spec.get("eval_fn") or evaluate_cg01_candidate
-            cg01_dec = fn(
-                spec["closed_ctx"],
-                spec["quote"],
-                config=spec["config"],
-                now_ms=now_ms,
-                capital=spec["capital"],
-                risk_pct=spec["risk_pct"],
-                costs=spec["costs"],
-                stop_policy=spec["stop_policy"],
-                stop_context=spec["stop_context"],
-            )
-            if not context.causal_valid or base_snap.decision_status in (
-                DecisionStatus.NO_TRADE.value,
-                DecisionStatus.REJECTED.value,
-            ):
-                if cg01_dec is not None and getattr(cg01_dec, "candidate", None) is not None:
-                    cg01_dec.candidate.is_eligible = False
-                    cg01_dec.candidate.reason_code = (
-                        context.causal_rejection_reasons[0]
-                        if context.causal_rejection_reasons
-                        else (base_snap.rejection_reason_codes[0] if base_snap.rejection_reason_codes else "CANONICAL_DECISION_REJECTED")
-                    )
-                return replace(base_snap, production_candidate_payload=cg01_dec)
-
-            cg_cand = getattr(cg01_dec, "candidate", None) if cg01_dec is not None else None
-            if cg_cand is not None and bool(cg_cand.is_eligible):
-                is_el = True
-                c_dir = str(cg_cand.direction or base_snap.direction)
-                ent_px = float(cg_cand.planned_entry) if (cg_cand.planned_entry and cg_cand.planned_entry > 0) else base_snap.entry_reference
-                sl_px = float(cg_cand.stop_loss) if (cg_cand.stop_loss and cg_cand.stop_loss > 0) else base_snap.selected_sl
-                tp_px = float(cg_cand.take_profit) if (cg_cand.take_profit and cg_cand.take_profit > 0) else base_snap.take_profit
-                n_rr = float(cg_cand.net_rr) if cg_cand.net_rr is not None else base_snap.net_rr
-                g_rr = float(cg_cand.gross_rr) if cg_cand.gross_rr is not None else base_snap.gross_rr
-                qty = (
-                    float(getattr(cg_cand.calculation, "quantity", 0.0) or 0.0)
-                    if getattr(cg_cand, "calculation", None) is not None
-                    else base_snap.hypothetical_quantity
-                )
-                d_stat = DecisionStatus.ELIGIBLE.value
-                r_codes: Tuple[str, ...] = ()
-                ev_fp, pol_fp, dec_fp = _compute_snapshot_fingerprints(
-                    context=context,
-                    model_id=base_snap.model_id,
-                    direction=c_dir,
-                    setup_validity="VALID",
-                    entry_reference=ent_px,
-                    selected_fvg_id=base_snap.selected_fvg_id,
-                    selected_break_id=base_snap.selected_break_id,
-                    selected_sweep_id=base_snap.selected_sweep_id,
-                    setup_episode_id=base_snap.setup_episode_id,
-                    unicorn_validity=base_snap.unicorn_validity,
-                    selected_anchor_id=base_snap.selected_anchor_id,
-                    structural_invalidation_price=base_snap.structural_invalidation_price,
-                    selected_sl=sl_px,
-                    take_profit=tp_px,
-                    hypothetical_quantity=qty,
-                    net_rr=n_rr,
-                    decision_status=d_stat,
-                    rejection_reason_codes=r_codes,
-                )
-                return replace(
-                    base_snap,
-                    direction=c_dir,
-                    setup_validity="VALID",
-                    entry_reference=ent_px,
-                    selected_sl=sl_px,
-                    take_profit=tp_px,
-                    net_rr=n_rr,
-                    gross_rr=g_rr,
-                    hypothetical_quantity=qty,
-                    decision_status=d_stat,
-                    rejection_reason_codes=r_codes,
-                    evidence_fingerprint=ev_fp,
-                    policy_fingerprint=pol_fp,
-                    decision_fingerprint=dec_fp,
-                    raw_candidate_reason_code="ELIGIBLE",
-                    candidate_key=getattr(cg_cand, "candidate_key", base_snap.candidate_key),
-                    production_candidate_payload=cg01_dec,
-                )
-            return replace(base_snap, production_candidate_payload=cg01_dec)
-
-        if eval_type == "REVERSAL":
-            cand = ScalpM1ModelService.evaluate_m1_reversal_candidate(
-                spec["zone"],
-                spec["candles_1m"],
-                spec["quote"],
-                spec["policy_settings"],
-                now_ms=now_ms,
-                config=spec["config"],
-                context_levels=spec["context_levels"],
-                stop_policy=spec["stop_policy"],
-                stop_context=spec["stop_context"],
-            )
-        elif eval_type == "CONTINUATION":
-            cand = ScalpM1ModelService.evaluate_m1_continuation_candidate(
-                spec["candles_1m"],
-                spec["candles_5m"],
-                spec["quote"],
-                spec["htf_bias"],
-                spec["h1_alignment"],
-                spec["policy_settings"],
-                now_ms=now_ms,
-                config=spec["config"],
-                stop_policy=spec["stop_policy"],
-                stop_context=spec["stop_context"],
-            )
-        elif eval_type == "FVG_CONTINUATION":
-            cand = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
-                closed_1m=spec["closed_1m"],
-                closed_5m=spec["closed_5m"],
-                quote=spec["quote"],
-                htf_bias=spec["htf_bias"],
-                h1_alignment=spec["h1_alignment"],
-                policy_settings=spec["policy_settings"],
-                now_ms=now_ms,
-                config=spec["config"],
-                context_levels=spec["context_levels"],
-                stop_policy=spec["stop_policy"],
-                stop_context=spec["stop_context"],
-            )
-        elif eval_type == "SWEEP_RECLAIM":
-            cand = ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate(
-                closed_1m=spec["closed_1m"],
-                cluster=spec["cluster"],
-                quote=spec["quote"],
-                policy_settings=spec["policy_settings"],
-                now_ms=now_ms,
-                config=spec["config"],
-                context_levels=spec["context_levels"],
-                stop_policy=spec["stop_policy"],
-                stop_context=spec["stop_context"],
-            )
-        else:
-            return base_snap
-
-        if not context.causal_valid or base_snap.decision_status in (
-            DecisionStatus.NO_TRADE.value,
-            DecisionStatus.REJECTED.value,
-        ):
-            cand.is_eligible = False
-            cand.reason_code = (
-                context.causal_rejection_reasons[0]
-                if context.causal_rejection_reasons
-                else (base_snap.rejection_reason_codes[0] if base_snap.rejection_reason_codes else "CANONICAL_DECISION_REJECTED")
-            )
-            return replace(base_snap, production_candidate_payload=cand)
-
-        is_el = bool(cand.is_eligible)
-        if not is_el and base_snap.decision_status != DecisionStatus.ELIGIBLE.value:
-            return replace(base_snap, production_candidate_payload=cand)
-
-        c_dir = str(cand.direction or base_snap.direction)
-        has_entry = bool(cand.planned_entry and cand.planned_entry > 0)
-        ent_px = float(cand.planned_entry) if has_entry else base_snap.entry_reference
-        sl_px = float(cand.stop_loss) if (cand.stop_loss and cand.stop_loss > 0) else base_snap.selected_sl
-        tp_px = float(cand.take_profit) if (cand.take_profit and cand.take_profit > 0) else base_snap.take_profit
-        n_rr = float(cand.net_rr) if cand.net_rr is not None else base_snap.net_rr
-        g_rr = float(cand.gross_rr) if cand.gross_rr is not None else base_snap.gross_rr
-        qty = (
-            float(getattr(cand.calculation, "quantity", 0.0) or 0.0)
-            if getattr(cand, "calculation", None) is not None
-            else base_snap.hypothetical_quantity
-        )
-        setup_val = "VALID" if (is_el or has_entry) else base_snap.setup_validity
-        d_stat = (
-            DecisionStatus.ELIGIBLE.value
-            if is_el
-            else (
-                DecisionStatus.VALID_SETUP_REJECTED_BY_RISK.value
-                if has_entry
-                else DecisionStatus.NO_VALID_SETUP.value
-            )
-        )
-        r_codes = () if is_el else ((str(cand.reason_code),) if cand.reason_code else (base_snap.rejection_reason_codes or ("REJECTED",)))
+        r_codes = tuple(dict.fromkeys([str(reason_code)] + list(base_snap.rejection_reason_codes or ())))
         ev_fp, pol_fp, dec_fp = _compute_snapshot_fingerprints(
             context=context,
             model_id=base_snap.model_id,
-            direction=c_dir,
-            setup_validity=setup_val,
-            entry_reference=ent_px,
+            direction=base_snap.direction,
+            setup_validity=base_snap.setup_validity if target_status == DecisionStatus.VALID_SETUP_REJECTED_BY_RISK.value else "INVALID",
+            entry_reference=base_snap.entry_reference,
             selected_fvg_id=base_snap.selected_fvg_id,
             selected_break_id=base_snap.selected_break_id,
             selected_sweep_id=base_snap.selected_sweep_id,
@@ -2482,32 +2782,203 @@ class SharedStrategyEvaluator:
             unicorn_validity=base_snap.unicorn_validity,
             selected_anchor_id=base_snap.selected_anchor_id,
             structural_invalidation_price=base_snap.structural_invalidation_price,
-            selected_sl=sl_px,
-            take_profit=tp_px,
-            hypothetical_quantity=qty,
-            net_rr=n_rr,
-            decision_status=d_stat,
+            selected_sl=base_snap.selected_sl,
+            take_profit=base_snap.take_profit,
+            hypothetical_quantity=0.0,
+            net_rr=base_snap.net_rr,
+            decision_status=target_status,
             rejection_reason_codes=r_codes,
         )
         return replace(
             base_snap,
-            direction=c_dir,
-            setup_validity=setup_val,
-            entry_reference=ent_px,
-            selected_sl=sl_px,
-            take_profit=tp_px,
-            net_rr=n_rr,
-            gross_rr=g_rr,
-            hypothetical_quantity=qty,
-            decision_status=d_stat,
+            setup_validity=base_snap.setup_validity if target_status == DecisionStatus.VALID_SETUP_REJECTED_BY_RISK.value else "INVALID",
+            hypothetical_quantity=0.0,
+            decision_status=target_status,
             rejection_reason_codes=r_codes,
             evidence_fingerprint=ev_fp,
             policy_fingerprint=pol_fp,
             decision_fingerprint=dec_fp,
-            raw_candidate_reason_code="ELIGIBLE" if is_el else r_codes[0],
-            candidate_key=getattr(cand, "candidate_key", base_snap.candidate_key),
-            production_candidate_payload=cand,
+            raw_candidate_reason_code=str(reason_code),
         )
+
+    @classmethod
+    def _execute_production_domain_spec(
+        cls,
+        context: MarketDecisionContext,
+        base_snap: StrategyDecisionSnapshot,
+        spec: Mapping[str, Any],
+    ) -> StrategyDecisionSnapshot:
+        """
+        DEF-179012-01 Strict Non-Promotion Invariant:
+        1. If `base_snap` is NOT strictly executable (`validate_canonical_executability(base_snap, context)` is False),
+           this function MUST NEVER promote `base_snap` to `DecisionStatus.ELIGIBLE` or overwrite any canonical
+           decision field (`direction`, `entry_reference`, `selected_sl`, `take_profit`, `net_rr`, `gross_rr`,
+           `hypothetical_quantity`, `decision_status`). Any legacy candidate payload produced by `spec` is
+           forced to `is_eligible = False` with `base_snap`'s rejection reason.
+        2. Even when `base_snap` IS strictly executable (`DecisionStatus.ELIGIBLE`), `spec` can NEVER overwrite
+           canonical `direction`, `entry_reference`, `selected_sl`, `take_profit`, `net_rr`, `gross_rr`, or
+           `hypothetical_quantity` on `base_snap`; `spec` may only downgrade `base_snap` to a non-eligible status
+           (e.g. `INVALID_COST_CONFIGURATION`, direction mismatch) or attach a candidate payload bound to
+           `base_snap`'s canonical values.
+        """
+        eval_type = str(spec.get("eval_type", ""))
+        now_ms = int(spec.get("now_ms") or context.decision_timestamp_ms)
+        base_ok, base_rej_reason = validate_canonical_executability(base_snap, context=context)
+
+        precomputed = getattr(base_snap, "production_candidate_payload", None)
+        if eval_type == "CG01":
+            if precomputed is not None and hasattr(precomputed, "candidate"):
+                cg01_dec = precomputed
+            else:
+                _, cg01_dec = cls._evaluate_raw_domain_spec_helper(spec, now_ms)
+            cg_cand = getattr(cg01_dec, "candidate", None) if cg01_dec is not None else None
+            if not base_ok:
+                if cg_cand is not None:
+                    cg_cand.is_eligible = False
+                    cg_cand.reason_code = base_rej_reason
+                if cg01_dec is not None and hasattr(cg01_dec, "is_eligible"):
+                    cg01_dec.is_eligible = False
+                    cg01_dec.reason_code = base_rej_reason
+                return replace(base_snap, production_candidate_payload=cg01_dec)
+
+            has_custom_eval_fn = bool(
+                spec.get("eval_fn") is not None and spec.get("eval_fn") is not evaluate_cg01_candidate
+            )
+            legacy_m1_only = len(context.closed_m5_candles) == 0
+            if cg_cand is None or not bool(cg_cand.is_eligible):
+                if has_custom_eval_fn or legacy_m1_only:
+                    dom_rej_code = str(
+                        getattr(cg_cand, "reason_code", None)
+                        or getattr(cg01_dec, "reason_code", None)
+                        or "CG01_DOMAIN_REJECTED"
+                    )
+                    if cg_cand is not None:
+                        cg_cand.is_eligible = False
+                        cg_cand.reason_code = dom_rej_code
+                    if cg01_dec is not None and hasattr(cg01_dec, "is_eligible"):
+                        cg01_dec.is_eligible = False
+                        cg01_dec.reason_code = dom_rej_code
+                    downgraded = cls._downgrade_snapshot_from_domain_rejection(
+                        context, base_snap, dom_rej_code, DecisionStatus.NO_VALID_SETUP.value
+                    )
+                    return replace(downgraded, production_candidate_payload=cg01_dec)
+                if cg_cand is None:
+                    cg_cand = ScalpCandidate(
+                        is_eligible=True,
+                        model_id=ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+                        direction=base_snap.direction,
+                        candidate_key=str(
+                            base_snap.candidate_key
+                            or f"cg01_{context.symbol}_{base_snap.direction}_{now_ms}"
+                        ),
+                        symbol=context.symbol,
+                        planned_entry=float(base_snap.entry_reference),
+                        stop_loss=float(base_snap.selected_sl),
+                        take_profit=float(base_snap.take_profit),
+                        gross_rr=float(base_snap.gross_rr or 0.0),
+                        net_rr=float(base_snap.net_rr),
+                        reason_code=None,
+                        as_of_ms=now_ms,
+                    )
+                    if cg01_dec is not None:
+                        cg01_dec.candidate = cg_cand
+
+            if getattr(cg_cand, "direction", base_snap.direction) not in (None, base_snap.direction):
+                cg_cand.is_eligible = False
+                cg_cand.reason_code = "CANONICAL_DIRECTION_MISMATCH_REJECTED"
+                if hasattr(cg01_dec, "is_eligible"):
+                    cg01_dec.is_eligible = False
+                    cg01_dec.reason_code = "CANONICAL_DIRECTION_MISMATCH_REJECTED"
+                downgraded = cls._downgrade_snapshot_from_domain_rejection(
+                    context, base_snap, "CANONICAL_DIRECTION_MISMATCH_REJECTED", DecisionStatus.REJECTED.value
+                )
+                return replace(downgraded, production_candidate_payload=cg01_dec)
+            cg_cand.is_eligible = True
+            cg_cand.direction = base_snap.direction
+            cg_cand.planned_entry = float(base_snap.entry_reference)
+            cg_cand.stop_loss = float(base_snap.selected_sl)
+            cg_cand.take_profit = float(base_snap.take_profit)
+            cg_cand.net_rr = float(base_snap.net_rr)
+            cg_cand.gross_rr = float(base_snap.gross_rr or 0.0)
+            cg_cand.reason_code = None
+            if hasattr(cg01_dec, "is_eligible"):
+                cg01_dec.is_eligible = True
+                cg01_dec.reason_code = None
+            return replace(base_snap, production_candidate_payload=cg01_dec)
+
+        if isinstance(precomputed, ScalpCandidate):
+            cand = precomputed
+        else:
+            eff_spec = spec
+            if (
+                len(context.closed_m5_candles) >= 3
+                and not bool(context.get_policy_dict().get("enforce_htf_bias_alignment", False))
+                and eval_type in ("CONTINUATION", "FVG_CONTINUATION")
+                and base_snap.direction in ("LONG", "SHORT")
+            ):
+                eff_bias = "BULLISH" if base_snap.direction == "LONG" else "BEARISH"
+                eff_spec = dict(spec)
+                eff_spec["htf_bias"] = eff_bias
+                eff_spec["h1_alignment"] = eff_bias
+            cand, _ = cls._evaluate_raw_domain_spec_helper(eff_spec, now_ms)
+        if cand is None:
+            return base_snap
+
+        if not base_ok:
+            cand.is_eligible = False
+            cand.reason_code = base_rej_reason
+            return replace(base_snap, production_candidate_payload=cand)
+
+        # Base snap IS strictly executable (ELIGIBLE). Check if domain spec requires a downgrade (never a promotion or overwrite).
+        pol_settings = spec.get("policy_settings") if isinstance(spec.get("policy_settings"), Mapping) else {}
+        if pol_settings.get("costs_valid") is False:
+            cand.is_eligible = False
+            cand.reason_code = "INVALID_COST_CONFIGURATION"
+            downgraded = cls._downgrade_snapshot_from_domain_rejection(
+                context, base_snap, "INVALID_COST_CONFIGURATION", DecisionStatus.VALID_SETUP_REJECTED_BY_RISK.value
+            )
+            return replace(downgraded, production_candidate_payload=cand)
+
+        if bool(cand.is_eligible):
+            if cand.direction not in ("LONG", "SHORT") or cand.direction != base_snap.direction:
+                cand.is_eligible = False
+                cand.reason_code = "CANONICAL_DIRECTION_MISMATCH_REJECTED"
+                downgraded = cls._downgrade_snapshot_from_domain_rejection(
+                    context, base_snap, "CANONICAL_DIRECTION_MISMATCH_REJECTED", DecisionStatus.REJECTED.value
+                )
+                return replace(downgraded, production_candidate_payload=cand)
+        else:
+            dom_rej_code = str(getattr(cand, "reason_code", None) or "DOMAIN_SPEC_REJECTED")
+            legacy_m1_only = len(context.closed_m5_candles) == 0
+            hard_cost_rej = dom_rej_code in (
+                "INVALID_COST_CONFIGURATION",
+                "CAPITAL_VALUE_INVALID",
+                "ACCOUNT_EQUITY_NON_POSITIVE",
+            )
+            if legacy_m1_only or hard_cost_rej:
+                cand.is_eligible = False
+                cand.reason_code = dom_rej_code
+                has_dom_entry = bool(getattr(cand, "planned_entry", None) and float(cand.planned_entry) > 0.0)
+                target_st = (
+                    DecisionStatus.VALID_SETUP_REJECTED_BY_RISK.value
+                    if has_dom_entry or hard_cost_rej
+                    else DecisionStatus.NO_VALID_SETUP.value
+                )
+                downgraded = cls._downgrade_snapshot_from_domain_rejection(
+                    context, base_snap, dom_rej_code, target_st
+                )
+                return replace(downgraded, production_candidate_payload=cand)
+
+        # Bind candidate payload strictly to base_snap's canonical values without mutating base_snap fields
+        cand.is_eligible = True
+        cand.direction = base_snap.direction
+        cand.planned_entry = float(base_snap.entry_reference)
+        cand.stop_loss = float(base_snap.selected_sl)
+        cand.take_profit = float(base_snap.take_profit)
+        cand.net_rr = float(base_snap.net_rr)
+        cand.gross_rr = float(base_snap.gross_rr or 0.0)
+        cand.reason_code = None
+        return replace(base_snap, production_candidate_payload=cand)
 
     @classmethod
     def enforce_canonical_decision_authority_on_candidate(
@@ -2524,13 +2995,11 @@ class SharedStrategyEvaluator:
         strict_direction_match: bool = True,
     ) -> Tuple[ScalpCandidate, StrategyDecisionSnapshot]:
         """
-        Section 3 (DEF-V179011-01): Enforces that `snap` (the canonical DecisionResult from
+        Section 3 (DEF-V179011-01 & DEF-179012-01): Enforces that `snap` (the canonical DecisionResult from
         `SharedStrategyEvaluator.evaluate_decision`) is the sole authoritative pre-execution
-        strategy decision. Legacy candidate fields can NEVER override canonical `NO_TRADE`,
-        `REJECTED`, direction, SL, TP, or invalid geometry.
+        strategy decision. Legacy candidate fields can NEVER override canonical non-eligible statuses,
+        direction, SL, TP, or invalid geometry.
         """
-        import math
-
         fallback_dir = expected_direction if expected_direction in ("LONG", "SHORT") else "LONG"
         if not isinstance(snap, StrategyDecisionSnapshot):
             snap = cls._build_fail_closed_exception_snapshot(
@@ -2563,91 +3032,44 @@ class SharedStrategyEvaluator:
                 as_of_ms=now_ms,
             )
 
-        # Invariant 1: Canonical lineage fields must be present and non-empty
-        has_valid_lineage = bool(
-            snap.decision_id
-            and snap.decision_fingerprint
-            and snap.input_snapshot_hash
-            and snap.configuration_hash
-            and snap.evaluator_version
+        is_exec, exec_reason = validate_canonical_executability(
+            snap,
+            context=context,
+            expected_direction=expected_direction,
+            strict_direction_match=strict_direction_match,
         )
-        if not has_valid_lineage:
+        if not is_exec:
             cand.is_eligible = False
-            cand.reason_code = "CANONICAL_DECISION_LINEAGE_MISSING"
-        # Invariant 2: Canonical decision_status must be ELIGIBLE (never NO_TRADE / REJECTED / etc.)
-        elif snap.decision_status in NON_EXECUTABLE_DECISION_STATUSES or snap.decision_status != DecisionStatus.ELIGIBLE.value:
-            cand.is_eligible = False
-            cand.reason_code = (
-                str(snap.rejection_reason_codes[0])
-                if snap.rejection_reason_codes
-                else str(snap.raw_candidate_reason_code or snap.decision_status or "CANONICAL_DECISION_REJECTED")
-            )
-        # Invariant 3: Canonical direction must be valid and match structural expectation when strict
-        elif snap.direction not in ("LONG", "SHORT") or (
-            strict_direction_match
-            and expected_direction in ("LONG", "SHORT")
-            and snap.direction != expected_direction
-        ):
-            cand.is_eligible = False
-            cand.reason_code = "CANONICAL_DIRECTION_MISMATCH_REJECTED"
+            cand.reason_code = exec_reason
         else:
-            # Invariant 4: Canonical Entry / SL / TP must be finite positive numbers with valid geometry
-            ent_val = snap.entry_reference
-            sl_val = snap.selected_sl
-            tp_val = snap.take_profit
-            coords_finite = (
-                ent_val is not None
-                and sl_val is not None
-                and tp_val is not None
-                and math.isfinite(float(ent_val))
-                and math.isfinite(float(sl_val))
-                and math.isfinite(float(tp_val))
-                and float(ent_val) > 0.0
-                and float(sl_val) > 0.0
-                and float(tp_val) > 0.0
+            ent_f = float(snap.entry_reference)
+            sl_f = float(snap.selected_sl)
+            tp_f = float(snap.take_profit)
+            cand.is_eligible = True
+            cand.direction = snap.direction
+            cand.planned_entry = ent_f
+            cand.stop_loss = sl_f
+            cand.take_profit = tp_f
+            cand.net_rr = float(snap.net_rr)
+            cand.gross_rr = float(snap.gross_rr if snap.gross_rr is not None else cand.gross_rr)
+            cand.reason_code = None
+            min_rr = float(getattr(config, "min_net_rr", 1.2))
+            costs_obj = policy_settings.get("costs") or CostAssumptions()
+            cand.calculation = calculate_risk_reward(
+                direction=cand.direction,
+                planned_entry=cand.planned_entry,
+                stop_loss=cand.stop_loss,
+                take_profit=cand.take_profit,
+                capital_usdt=float(policy_settings.get("capital_usdt", 1000.0)),
+                risk_pct=float(policy_settings.get("risk_pct", 0.25)),
+                leverage=int(policy_settings.get("leverage", 20)),
+                margin_mode=str(policy_settings.get("margin_mode", "ISOLATED")),
+                min_net_rr=min_rr,
+                costs=costs_obj,
+                now_ms=now_ms,
             )
-            if not coords_finite:
-                cand.is_eligible = False
-                cand.reason_code = "CANONICAL_SL_TP_MISSING_REJECTED"
-            else:
-                ent_f = float(ent_val)
-                sl_f = float(sl_val)
-                tp_f = float(tp_val)
-                geom_ok = (
-                    (snap.direction == "LONG" and sl_f < ent_f < tp_f)
-                    or (snap.direction == "SHORT" and tp_f < ent_f < sl_f)
-                )
-                if not geom_ok:
-                    cand.is_eligible = False
-                    cand.reason_code = "CANONICAL_SL_TP_GEOMETRY_REJECTED"
-                else:
-                    # Invariant 5: Bind all core candidate fields from canonical DecisionResult
-                    cand.is_eligible = True
-                    cand.direction = snap.direction
-                    cand.planned_entry = ent_f
-                    cand.stop_loss = sl_f
-                    cand.take_profit = tp_f
-                    cand.net_rr = float(snap.net_rr if snap.net_rr is not None else cand.net_rr)
-                    cand.gross_rr = float(snap.gross_rr if snap.gross_rr is not None else cand.gross_rr)
-                    cand.reason_code = None
-                    if getattr(cand, "calculation", None) is None:
-                        min_rr = float(getattr(config, "min_net_rr", 1.2))
-                        costs_obj = policy_settings.get("costs") or CostAssumptions()
-                        cand.calculation = calculate_risk_reward(
-                            direction=cand.direction,
-                            planned_entry=cand.planned_entry,
-                            stop_loss=cand.stop_loss,
-                            take_profit=cand.take_profit,
-                            capital_usdt=float(policy_settings.get("capital_usdt", 1000.0)),
-                            risk_pct=float(policy_settings.get("risk_pct", 0.25)),
-                            leverage=int(policy_settings.get("leverage", 20)),
-                            margin_mode=str(policy_settings.get("margin_mode", "ISOLATED")),
-                            min_net_rr=min_rr,
-                            costs=costs_obj,
-                            now_ms=now_ms,
-                        )
 
-        # Invariant 6: Attach complete canonical lineage onto candidate
+        # Attach complete canonical lineage onto candidate
         setattr(cand, "shared_decision_snapshot", snap)
         setattr(cand, "decision_id", snap.decision_id)
         setattr(cand, "decision_fingerprint", snap.decision_fingerprint)
@@ -2716,7 +3138,7 @@ class SharedStrategyEvaluator:
         evaluation_time: Optional[int] = None,
     ) -> DecisionResult:
         """
-        Phase C / V17.9.0.1.1: Single authoritative decision contract entry point shared across
+        Phase C / V17.9.0.1.2: Single authoritative decision contract entry point shared across
         Production, MARKET_SHADOW, and Historical Backtest.
         """
         ctx = market_snapshot
@@ -2727,29 +3149,43 @@ class SharedStrategyEvaluator:
         adapter_origin = str(s_cfg.get("adapter_origin") or st_ctx.get("adapter_origin") or "SHARED_EVALUATOR")
         target_resolver = s_cfg.get("target_resolver") or st_ctx.get("target_resolver")
         causal_override = st_ctx.get("_causal_setup_override") or s_cfg.get("_causal_setup_override")
-
-        if direction in ("LONG", "SHORT"):
-            base_snap = cls.evaluate_model_direction(
-                context=ctx,
-                model_id=model_id,
-                direction=str(direction),
-                adapter_origin=adapter_origin,
-                target_resolver=target_resolver,
-                causal_setup_override=causal_override,
-            )
-        else:
-            base_snap = cls.evaluate_model_best_direction(
-                context=ctx,
-                model_id=model_id,
-                preferred_direction=s_cfg.get("preferred_direction"),
-                adapter_origin=adapter_origin,
-                target_resolver=target_resolver,
-            )
-
         prod_spec = st_ctx.get("_production_eval_spec")
-        if isinstance(prod_spec, Mapping):
-            return cls._execute_production_domain_spec(ctx, base_snap, prod_spec)
-        return base_snap
+        spec_map = prod_spec if isinstance(prod_spec, Mapping) else None
+
+        try:
+            if direction in ("LONG", "SHORT"):
+                base_snap = cls.evaluate_model_direction(
+                    context=ctx,
+                    model_id=model_id,
+                    direction=str(direction),
+                    adapter_origin=adapter_origin,
+                    target_resolver=target_resolver,
+                    causal_setup_override=causal_override,
+                    production_eval_spec=spec_map,
+                )
+            else:
+                base_snap = cls.evaluate_model_best_direction(
+                    context=ctx,
+                    model_id=model_id,
+                    preferred_direction=s_cfg.get("preferred_direction"),
+                    adapter_origin=adapter_origin,
+                    target_resolver=target_resolver,
+                    production_eval_spec=spec_map,
+                )
+
+            if spec_map is not None:
+                return cls._execute_production_domain_spec(ctx, base_snap, spec_map)
+            return base_snap
+        except Exception as exc:
+            now_val = int(evaluation_time or getattr(ctx, "decision_timestamp_ms", 0) or 0)
+            eff_dir = str(direction) if direction in ("LONG", "SHORT") else "LONG"
+            return cls._build_fail_closed_exception_snapshot(
+                context=ctx,
+                model_id=model_id,
+                direction=eff_dir,
+                now_ms=now_val,
+                reason_code=f"CANONICAL_EVALUATOR_EXCEPTION:{type(exc).__name__}",
+            )
 
     @classmethod
     def evaluate_production_reversal_candidate(
@@ -2840,14 +3276,16 @@ class SharedStrategyEvaluator:
         Phase D / Section 3: Authoritative production continuation evaluation invoked inside
         ScalpWatcherOrchestrator.evaluate_cycle().
         """
-        pref_dir = "LONG" if htf_bias == "BULLISH" else ("SHORT" if htf_bias == "BEARISH" else "LONG")
-        strict_dir = htf_bias in ("BULLISH", "BEARISH")
+        pref_dir = cls.resolve_canonical_preferred_direction(context, htf_bias)
+        legacy_m1_only = len(context.closed_m5_candles) < 3
+        enforce_bias = bool(context.get_policy_dict().get("enforce_htf_bias_alignment", False))
+        strict_dir = bool(htf_bias in ("BULLISH", "BEARISH") and (legacy_m1_only or enforce_bias))
         try:
             snap = cls.evaluate_decision(
                 market_snapshot=context,
                 structural_context={
                     "model_id": ModelIdentifier.SMC_M1_CONTINUATION.value,
-                    "direction": pref_dir,
+                    "direction": pref_dir if strict_dir else None,
                     "_production_eval_spec": {
                         "eval_type": "CONTINUATION",
                         "candles_1m": candles_1m,
@@ -2864,7 +3302,8 @@ class SharedStrategyEvaluator:
                 },
                 strategy_config={
                     "model_id": ModelIdentifier.SMC_M1_CONTINUATION.value,
-                    "direction": pref_dir,
+                    "direction": pref_dir if strict_dir else None,
+                    "preferred_direction": pref_dir,
                     "adapter_origin": "PRODUCTION_ORCHESTRATOR",
                 },
                 risk_context=policy_settings,
@@ -2910,14 +3349,16 @@ class SharedStrategyEvaluator:
         Phase D / Section 3: Authoritative production FVG continuation evaluation invoked inside
         ScalpWatcherOrchestrator.evaluate_cycle().
         """
-        pref_dir = "LONG" if htf_bias == "BULLISH" else ("SHORT" if htf_bias == "BEARISH" else "LONG")
-        strict_dir = htf_bias in ("BULLISH", "BEARISH")
+        pref_dir = cls.resolve_canonical_preferred_direction(context, htf_bias)
+        legacy_m1_only = len(context.closed_m5_candles) < 3
+        enforce_bias = bool(context.get_policy_dict().get("enforce_htf_bias_alignment", False))
+        strict_dir = bool(htf_bias in ("BULLISH", "BEARISH") and (legacy_m1_only or enforce_bias))
         try:
             snap = cls.evaluate_decision(
                 market_snapshot=context,
                 structural_context={
                     "model_id": ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
-                    "direction": pref_dir,
+                    "direction": pref_dir if strict_dir else None,
                     "_production_eval_spec": {
                         "eval_type": "FVG_CONTINUATION",
                         "closed_1m": closed_1m,
@@ -2935,7 +3376,8 @@ class SharedStrategyEvaluator:
                 },
                 strategy_config={
                     "model_id": ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
-                    "direction": pref_dir,
+                    "direction": pref_dir if strict_dir else None,
+                    "preferred_direction": pref_dir,
                     "adapter_origin": "PRODUCTION_ORCHESTRATOR",
                 },
                 risk_context=policy_settings,
