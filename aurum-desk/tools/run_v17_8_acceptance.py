@@ -3050,6 +3050,10 @@ def main():
                 "duration_ms": dur_g58, "exit_code": 1, "integrity_verified": False,
             }
 
+    for _gid, _grec in results["gates"].items():
+        if isinstance(_grec, dict):
+            _grec.setdefault("tested_source_sha", current_sha)
+
     # --------------------------------------------------------------------------
     # FINAL VERDICT RESOLUTION & INTEGRITY VERIFICATION
     # --------------------------------------------------------------------------

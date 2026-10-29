@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
@@ -1571,27 +1572,101 @@ def build_phase_b_characterization_scenarios(
     return scenarios
 
 
+def verify_historical_baseline_commit_provenance(
+    commit_sha: str = PRE_REFACTOR_BASELINE_COMMIT_SHA,
+) -> Dict[str, Any]:
+    """
+    Section 6 (V17.9.0.1.1): Inspects git object storage for the pre-refactor historical baseline
+    commit (`c356d6551e13cd6af61cea5c3ab1f4aae1548af2`, V17.8.0.4) and computes the exact SHA-256
+    digests of the historical domain and runtime files at that commit.
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    tracked_files = (
+        "backend/services/scalp_m1_model_service.py",
+        "backend/services/cg01_engine.py",
+        "backend/services/unicorn_evidence_service.py",
+        "backend/services/stop_placement_service.py",
+        "backend/services/scalp_watcher_orchestrator.py",
+        "backend/services/market_shadow_service.py",
+        "backend/services/v17_8_backtest_runner.py",
+        "backend/domain_calculator.py",
+    )
+    commit_verified = False
+    file_hashes: Dict[str, Dict[str, Any]] = {}
+    try:
+        cat_res = subprocess.run(
+            ["git", "cat-file", "-t", commit_sha],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        commit_verified = cat_res.returncode == 0 and cat_res.stdout.strip() == "commit"
+        if commit_verified:
+            for rel_path in tracked_files:
+                show_res = subprocess.run(
+                    ["git", "show", f"{commit_sha}:{rel_path}"],
+                    cwd=str(repo_root),
+                    capture_output=True,
+                    timeout=10,
+                    check=False,
+                )
+                if show_res.returncode == 0 and show_res.stdout:
+                    file_hashes[rel_path] = {
+                        "sha256": hashlib.sha256(show_res.stdout).hexdigest(),
+                        "size_bytes": len(show_res.stdout),
+                        "source": f"git:{commit_sha}:{rel_path}",
+                    }
+    except Exception:
+        commit_verified = False
+
+    return {
+        "baseline_commit_sha": commit_sha,
+        "git_commit_object_verified": commit_verified,
+        "verified_files_count": len(file_hashes),
+        "historical_file_sha256s": file_hashes,
+    }
+
+
 def generate_phase_b_baseline_artifacts(
     *,
     context_builder_fn: Callable[..., Any],
     refactored_evaluator_fn: Optional[Callable[[Any, str, str], Dict[str, Any]]] = None,
+    five_way_evaluators: Optional[Dict[str, Callable[[Any, str, str], Dict[str, Any]]]] = None,
     output_dirs: Optional[Sequence[Path]] = None,
 ) -> Dict[str, Any]:
     """
     Executes `IndependentPreRefactorBaselineOracle` across all 11 mandatory categories
     and 5 production models (55 scenarios), compares against `refactored_evaluator_fn`
-    if provided, and writes:
+    and optional `five_way_evaluators` (Baseline vs Shared vs Production vs Shadow vs Backtest),
+    and writes LF-normalized byte-exact artifacts:
       - `BASELINE_MANIFEST.json`
       - `BASELINE_DECISIONS.jsonl`
       - `BASELINE_CHARACTERIZATION.md`
       - `BASELINE_PROVENANCE.md`
     """
+    provenance_info = verify_historical_baseline_commit_provenance(PRE_REFACTOR_BASELINE_COMMIT_SHA)
     scenarios = build_phase_b_characterization_scenarios(context_builder_fn)
     decision_records: List[Dict[str, Any]] = []
     category_counts: Dict[str, int] = {cat: 0 for cat in REQUIRED_BASELINE_CATEGORIES}
     model_counts: Dict[str, int] = {m: 0 for m in SUPPORTED_BASELINE_MODELS}
     parity_matches = 0
+    five_way_matches = 0
     parity_divergences: List[Dict[str, Any]] = []
+
+    compare_keys = (
+        "decision_status",
+        "setup_validity",
+        "direction",
+        "entry_reference",
+        "selected_sl",
+        "legacy_sl",
+        "take_profit",
+        "unicorn_validity",
+        "rejection_reason_codes",
+        "decision_fingerprint",
+    )
 
     for item in scenarios:
         scen_id = item["scenario_id"]
@@ -1612,18 +1687,7 @@ def generate_phase_b_baseline_artifacts(
         field_diffs: Dict[str, Any] = {}
         if refactored_evaluator_fn is not None:
             ref_dec = refactored_evaluator_fn(ctx, model_id, direction)
-            for key in (
-                "decision_status",
-                "setup_validity",
-                "direction",
-                "entry_reference",
-                "selected_sl",
-                "legacy_sl",
-                "take_profit",
-                "unicorn_validity",
-                "rejection_reason_codes",
-                "decision_fingerprint",
-            ):
+            for key in compare_keys:
                 b_val = oracle_dec.get(key)
                 r_val = ref_dec.get(key)
                 if isinstance(b_val, tuple):
@@ -1633,6 +1697,24 @@ def generate_phase_b_baseline_artifacts(
                 if b_val != r_val:
                     parity_match = False
                     field_diffs[key] = {"baseline": b_val, "refactored": r_val}
+
+        five_way_status: Dict[str, str] = {"historical_baseline_oracle": oracle_dec["decision_fingerprint"]}
+        five_way_ok = parity_match
+        if five_way_evaluators:
+            for path_name, eval_fn in five_way_evaluators.items():
+                p_dec = eval_fn(ctx, model_id, direction)
+                five_way_status[path_name] = str(p_dec.get("decision_fingerprint", ""))
+                for key in compare_keys:
+                    b_val = oracle_dec.get(key)
+                    p_val = p_dec.get(key)
+                    if isinstance(b_val, tuple):
+                        b_val = list(b_val)
+                    if isinstance(p_val, tuple):
+                        p_val = list(p_val)
+                    if b_val != p_val:
+                        five_way_ok = False
+                        parity_match = False
+                        field_diffs[f"{path_name}.{key}"] = {"baseline": b_val, path_name: p_val}
 
         if parity_match:
             parity_matches += 1
@@ -1644,6 +1726,8 @@ def generate_phase_b_baseline_artifacts(
                 "direction": direction,
                 "field_diffs": field_diffs,
             })
+        if five_way_ok:
+            five_way_matches += 1
 
         decision_records.append({
             "scenario_id": scen_id,
@@ -1666,16 +1750,21 @@ def generate_phase_b_baseline_artifacts(
             "policy_fingerprint": oracle_dec["policy_fingerprint"],
             "decision_fingerprint": oracle_dec["decision_fingerprint"],
             "parity_with_refactored": parity_match,
+            "five_way_parity_match": five_way_ok,
+            "five_way_fingerprints": five_way_status,
             "field_diffs": field_diffs,
         })
 
     jsonl_lines = [json.dumps(rec, sort_keys=True) for rec in decision_records]
     jsonl_content = "\n".join(jsonl_lines) + "\n"
-    decisions_sha256 = hashlib.sha256(jsonl_content.encode("utf-8")).hexdigest()
+    jsonl_bytes = jsonl_content.encode("utf-8")
+    decisions_sha256 = hashlib.sha256(jsonl_bytes).hexdigest()
 
     manifest = {
-        "release": "V17.9.0.1",
+        "release": "V17.9.0.1.1",
         "baseline_commit_sha": PRE_REFACTOR_BASELINE_COMMIT_SHA,
+        "git_commit_object_verified": provenance_info["git_commit_object_verified"],
+        "historical_file_sha256s": provenance_info["historical_file_sha256s"],
         "oracle_version": PRE_REFACTOR_ORACLE_VERSION,
         "oracle_module": "backend/services/v17_9_0_1_baseline_oracle.py",
         "oracle_class": "IndependentPreRefactorBaselineOracle",
@@ -1686,20 +1775,25 @@ def generate_phase_b_baseline_artifacts(
         "category_counts": category_counts,
         "model_counts": model_counts,
         "parity_matches": parity_matches,
+        "five_way_parity_matches": five_way_matches,
         "parity_divergence_count": len(parity_divergences),
         "parity_rate": round(parity_matches / max(1, len(decision_records)), 6),
+        "line_ending_normalization": "LF_BYTE_EXACT",
         "baseline_decisions_sha256": decisions_sha256,
+        "baseline_decisions_size_bytes": len(jsonl_bytes),
     }
 
     char_md = [
-        "# V17.9.0.1 — Independent Pre-Refactor Baseline Characterization",
+        "# V17.9.0.1.1 — Independent Pre-Refactor Baseline Characterization",
         "",
         f"- **Baseline Commit SHA (V17.8.0.4 Pre-V17.9.0):** `{PRE_REFACTOR_BASELINE_COMMIT_SHA}`",
+        f"- **Git Commit Object Verified:** `{provenance_info['git_commit_object_verified']}`",
         f"- **Independent Oracle Module:** `backend/services/v17_9_0_1_baseline_oracle.py` (`IndependentPreRefactorBaselineOracle`)",
         "- **Self-Referential:** `False` (zero imports or calls to `SharedStrategyEvaluator`)",
         f"- **Total Scenarios Evaluated:** `{len(decision_records)}` (11 categories x 5 production models)",
         f"- **Exact Parity Matches with `SharedStrategyEvaluator`:** `{parity_matches}/{len(decision_records)}` (`{manifest['parity_rate'] * 100:.2f}%`)",
-        f"- **Baseline Decisions SHA-256:** `{decisions_sha256}`",
+        f"- **5-Way Cross-Runtime Parity Matches:** `{five_way_matches}/{len(decision_records)}`",
+        f"- **Baseline Decisions SHA-256 (LF byte-exact):** `{decisions_sha256}`",
         "",
         "## Category Coverage Matrix",
         "",
@@ -1724,32 +1818,51 @@ def generate_phase_b_baseline_artifacts(
         char_md.append(f"| `{m_id}` | {len(m_recs)} | {m_matches} | {len(m_recs) - m_matches} |")
     char_md_text = "\n".join(char_md) + "\n"
 
-    prov_md = "\n".join([
-        "# V17.9.0.1 — Independent Baseline Provenance",
+    prov_lines = [
+        "# V17.9.0.1.1 — Independent Baseline Provenance",
         "",
         "## 1. Baseline Source Provenance",
         f"- **Pre-Refactor Git Commit SHA:** `{PRE_REFACTOR_BASELINE_COMMIT_SHA}` (V17.8.0.4 — last verified commit prior to V17.9.0 shared evaluator extraction).",
+        f"- **Git Commit Object Verified:** `{provenance_info['git_commit_object_verified']}`",
         "- **Recovery Mechanism:** Extracted the direct pre-V17.9.0 evaluation pipeline (`ScalpM1ModelService`, `cg01_engine.evaluate_cg01_candidate`, `unicorn_evidence_service.detect_unicorn_evidence`, `stop_placement_service.resolve_stop_anchor`, `stop_placement_service.plan_structural_stop`, `domain_calculator.calculate_risk_reward`) into `backend/services/v17_9_0_1_baseline_oracle.py` (`IndependentPreRefactorBaselineOracle`).",
         "- **Non-Self-Referential Guarantee:** `backend/services/v17_9_0_1_baseline_oracle.py` is AST-verified in regression tests to contain zero imports or invocations of `SharedStrategyEvaluator` or `shared_strategy_evaluator`.",
         "",
-        "## 2. Frozen Artifact Integrity",
+        "## 2. Historical Source File SHA-256 Digests at Commit `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`",
+        "",
+        "| Historical File | Size (Bytes) | SHA-256 |",
+        "|---|---:|---|",
+    ]
+    for rel_p, meta_h in provenance_info["historical_file_sha256s"].items():
+        prov_lines.append(f"| `{rel_p}` | {meta_h['size_bytes']} | `{meta_h['sha256']}` |")
+    prov_lines.extend([
+        "",
+        "## 3. Frozen Artifact Integrity (LF Byte-Exact)",
         f"- `BASELINE_DECISIONS.jsonl` SHA-256: `{decisions_sha256}`",
+        f"- `BASELINE_DECISIONS.jsonl` Size (Bytes): `{len(jsonl_bytes)}`",
         f"- Total Frozen Decisions: `{len(decision_records)}` across all 11 mandatory categories and 5 production models.",
         "",
     ])
+    prov_md = "\n".join(prov_lines)
 
     if output_dirs:
+        manifest_bytes = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        char_bytes = char_md_text.encode("utf-8")
+        prov_bytes = prov_md.encode("utf-8")
         for out_dir in output_dirs:
             out_path = Path(out_dir)
             out_path.mkdir(parents=True, exist_ok=True)
-            (out_path / "BASELINE_MANIFEST.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-            (out_path / "BASELINE_DECISIONS.jsonl").write_text(jsonl_content, encoding="utf-8")
-            (out_path / "BASELINE_CHARACTERIZATION.md").write_text(char_md_text, encoding="utf-8")
-            (out_path / "BASELINE_PROVENANCE.md").write_text(prov_md, encoding="utf-8")
+            (out_path / "BASELINE_MANIFEST.json").write_bytes(manifest_bytes)
+            (out_path / "BASELINE_DECISIONS.jsonl").write_bytes(jsonl_bytes)
+            (out_path / "BASELINE_CHARACTERIZATION.md").write_bytes(char_bytes)
+            (out_path / "BASELINE_PROVENANCE.md").write_bytes(prov_bytes)
+            disk_sha = hashlib.sha256((out_path / "BASELINE_DECISIONS.jsonl").read_bytes()).hexdigest()
+            if disk_sha != decisions_sha256:
+                raise RuntimeError(f"BASELINE_DECISIONS.jsonl checksum mismatch on disk: {disk_sha} != {decisions_sha256}")
 
     return {
         "manifest": manifest,
         "decisions": decision_records,
         "parity_divergences": parity_divergences,
+        "provenance": provenance_info,
     }
 

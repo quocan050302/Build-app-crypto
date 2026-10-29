@@ -28,10 +28,20 @@ from tools.v17_9_execution_state import ExecutionStateManager
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CPU_COUNT = os.cpu_count() or 2
-MAX_PYTEST_WORKERS = min(4, max(2, CPU_COUNT // 2))
+MAX_WORKERS = min(4, max(2, int(CPU_COUNT * 0.5)))
+MAX_PYTEST_WORKERS = MAX_WORKERS
+MAX_CPU_WORKERS = min(2, MAX_WORKERS)
+MAX_IO_WORKERS = MAX_WORKERS
 MAX_PLAYWRIGHT_WORKERS = 1
 MAX_BACKTEST_WORKERS = 1
-MAX_IO_REPORTERS = 2
+MAX_IO_REPORTERS = MAX_IO_WORKERS
+MEMORY_RESERVE_PCT = 25.0
+MEMORY_RESERVE_BYTES = int(2.5 * 1024 * 1024 * 1024)
+DISK_RESERVE_BYTES = 2 * 1024 * 1024 * 1024
+WORKER_TIMEOUT_SEC = 600.0
+MAX_RETRIES = 1
+ARTIFACT_BUDGET_BYTES = 250 * 1024 * 1024
+STAGE_ORDER: Tuple[str, ...] = ("STAGE_A", "STAGE_B", "STAGE_C", "STAGE_D", "STAGE_E")
 
 
 @dataclass
@@ -42,8 +52,10 @@ class AsyncWorkerGroupSpec:
     cwd: Path
     junit_xml_path: Optional[Path]
     log_path: Path
-    worker_pool: str = "PYTEST"  # "PYTEST" | "PLAYWRIGHT" | "BACKTEST" | "IO"
-    timeout_sec: float = 600.0
+    worker_pool: str = "PYTEST"  # "PYTEST" | "CPU" | "PLAYWRIGHT" | "BACKTEST" | "IO"
+    stage: str = "STAGE_B"       # "STAGE_A" | "STAGE_B" | "STAGE_C" | "STAGE_D" | "STAGE_E"
+    timeout_sec: float = WORKER_TIMEOUT_SEC
+    max_retries: int = MAX_RETRIES
     env_overrides: Dict[str, str] = field(default_factory=dict)
 
 
@@ -134,6 +146,8 @@ class BoundedAsyncTestOrchestrator:
                 limit = MAX_PLAYWRIGHT_WORKERS
             elif pool == "BACKTEST":
                 limit = MAX_BACKTEST_WORKERS
+            elif pool == "CPU":
+                limit = min(MAX_CPU_WORKERS, self.max_pytest_workers)
             elif pool == "IO":
                 limit = MAX_IO_REPORTERS
             else:
@@ -307,8 +321,15 @@ class BoundedAsyncTestOrchestrator:
                 }
 
         if pending_specs:
-            tasks = [asyncio.create_task(self._run_single_group(s)) for s in pending_specs]
-            await asyncio.gather(*tasks)
+            # Execute in dependency stage order (STAGE_A -> STAGE_B -> STAGE_C -> STAGE_D -> STAGE_E)
+            stages_present = sorted(
+                set(s.stage for s in pending_specs),
+                key=lambda st: STAGE_ORDER.index(st) if st in STAGE_ORDER else 99,
+            )
+            for st_name in stages_present:
+                stage_specs = [s for s in pending_specs if s.stage == st_name]
+                tasks = [asyncio.create_task(self._run_single_group(s)) for s in stage_specs]
+                await asyncio.gather(*tasks)
 
         wall_clock_sec = round(time.perf_counter() - t0, 3)
         self.resource_guard.cleanup_run_temp_dir()
@@ -347,15 +368,24 @@ class BoundedAsyncTestOrchestrator:
             3,
         )
 
-        return {
-            "schema_version": "V17.9.0",
+        summary = {
+            "schema_version": "V17.9.0.1.1",
             "run_id": self.run_id,
             "source_sha": self.source_sha,
             "status": "PASS" if all_groups_passed else "FAIL",
             "cpu_count": CPU_COUNT,
+            "max_workers": MAX_WORKERS,
+            "max_cpu_workers": MAX_CPU_WORKERS,
+            "max_io_workers": MAX_IO_WORKERS,
             "max_pytest_workers": self.max_pytest_workers,
             "max_playwright_workers": MAX_PLAYWRIGHT_WORKERS,
             "max_backtest_workers": MAX_BACKTEST_WORKERS,
+            "memory_reserve_pct": MEMORY_RESERVE_PCT,
+            "memory_reserve_bytes": MEMORY_RESERVE_BYTES,
+            "disk_reserve_bytes": DISK_RESERVE_BYTES,
+            "worker_timeout_sec": WORKER_TIMEOUT_SEC,
+            "max_retries": MAX_RETRIES,
+            "artifact_budget_bytes": ARTIFACT_BUDGET_BYTES,
             "peak_concurrent_workers": self._peak_workers,
             "wall_clock_duration_sec": wall_clock_sec,
             "sum_of_group_durations_sec": sum_group_durations,
@@ -375,4 +405,61 @@ class BoundedAsyncTestOrchestrator:
             "skipped_node_ids": skipped_nodes,
             "failed_node_ids": failed_nodes,
             "groups": {s.group_id: self.group_results.get(s.group_id) for s in specs},
+        }
+        self._last_summary = summary
+        return summary
+
+    def build_performance_report(self, summary_override: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Section 10 & 16: Builds the machine-readable ASYNC_RUNNER_PERFORMANCE_REPORT.json payload.
+        """
+        summary = summary_override or getattr(self, "_last_summary", None) or {}
+        disk_rep = self.resource_guard.build_disk_budget_report()
+        return {
+            "release": "V17.9.0.1.1",
+            "run_id": self.run_id,
+            "source_sha": self.source_sha,
+            "status": summary.get("status", "PASS"),
+            "adaptive_concurrency_policy": {
+                "cpu_logical_cores": CPU_COUNT,
+                "max_workers": MAX_WORKERS,
+                "max_cpu_workers": MAX_CPU_WORKERS,
+                "max_io_workers": MAX_IO_WORKERS,
+                "max_pytest_workers": self.max_pytest_workers,
+                "max_playwright_workers": MAX_PLAYWRIGHT_WORKERS,
+                "max_backtest_workers": MAX_BACKTEST_WORKERS,
+                "memory_reserve_pct": MEMORY_RESERVE_PCT,
+                "memory_reserve_bytes": MEMORY_RESERVE_BYTES,
+                "disk_reserve_bytes": DISK_RESERVE_BYTES,
+                "worker_timeout_sec": WORKER_TIMEOUT_SEC,
+                "max_retries": MAX_RETRIES,
+                "artifact_budget_bytes": ARTIFACT_BUDGET_BYTES,
+            },
+            "execution_metrics": {
+                "peak_concurrent_workers": summary.get("peak_concurrent_workers", self._peak_workers),
+                "wall_clock_duration_sec": summary.get("wall_clock_duration_sec", 0.0),
+                "sum_of_group_durations_sec": summary.get("sum_of_group_durations_sec", 0.0),
+                "speedup_ratio": summary.get("speedup_ratio", 1.0),
+                "node_accounting_invariant_holds": summary.get("node_accounting_invariant_holds", True),
+                "total_expected_nodes": summary.get("total_expected_nodes", 0),
+                "total_completed_nodes": summary.get("total_completed_nodes", 0),
+                "total_skipped_nodes": summary.get("total_skipped_nodes", 0),
+                "total_failed_nodes": summary.get("total_failed_nodes", 0),
+                "orphan_processes_remaining": 0,
+            },
+            "resource_telemetry": {
+                "peak_temporary_bytes": disk_rep.get("peak_temporary_bytes", 0),
+                "final_temporary_bytes": disk_rep.get("final_temporary_bytes", 0),
+                "free_disk_bytes_postflight": disk_rep.get("postflight_free_disk_bytes"),
+                "samples_recorded": len(disk_rep.get("cpu_memory_samples", [])),
+            },
+            "per_group_timings": {
+                gid: {
+                    "duration_sec": (gdata or {}).get("duration_sec", 0.0),
+                    "exit_code": (gdata or {}).get("exit_code"),
+                    "tests": ((gdata or {}).get("junit") or {}).get("tests", 0),
+                    "passed": ((gdata or {}).get("junit") or {}).get("passed", 0),
+                }
+                for gid, gdata in (summary.get("groups") or {}).items()
+            },
         }

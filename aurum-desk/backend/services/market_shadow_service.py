@@ -1270,7 +1270,7 @@ class MarketShadowService:
                 "opportunity_id": opp.get("opportunity_id"),
                 "shared_decision_fingerprint": opp.get("decision_fingerprint"),
                 "shared_decision_snapshot": opp.get("shared_decision_snapshot"),
-                "evaluator_version": (opp.get("shared_decision_snapshot") or {}).get("evaluator_version", "17.9.0.1"),
+                "evaluator_version": (opp.get("shared_decision_snapshot") or {}).get("evaluator_version", "17.9.0.1.1"),
             }
             if opp.get("opportunity_record") is not None:
                 opp_rec = opp["opportunity_record"]
@@ -1396,9 +1396,15 @@ class MarketShadowService:
         analysis_time_ms: int,
     ) -> Dict[str, Any]:
         """
-        Evaluates a single model in shadow mode using SharedStrategyEvaluator and the
-        authoritative SMC/Unicorn/Stop/Target/Risk services (Phase E).
+        Evaluates a single model in shadow mode using SharedStrategyEvaluator.evaluate_decision(...)
+        as the single authoritative decision source (Section 4, V17.9.0.1.1).
         """
+        from services.shared_strategy_evaluator import (
+            DecisionStatus,
+            NON_EXECUTABLE_DECISION_STATUSES,
+            StrategyDecisionSnapshot,
+        )
+
         initial_dir = "LONG" if htf_bias == "BULLISH" else "SHORT"
         shared_ctx = self.build_shared_decision_context(
             decision_timestamp_ms=cutoff_ms,
@@ -1413,25 +1419,83 @@ class MarketShadowService:
             liquidity_pools=liquidity_levels,
             htf_bias=htf_bias,
             h1_alignment=h1_alignment,
+            policy_config={
+                "min_net_rr": float(getattr(cfg, "min_net_rr", 1.8)),
+                "tick_size": float(getattr(cfg, "tick_size", 0.01)),
+            },
+            risk_config={
+                "capital_usdt": float(policy_settings.get("capital_usdt", 1000.0)),
+                "risk_pct": float(policy_settings.get("risk_pct", 0.25)),
+                "leverage": int(policy_settings.get("leverage", 20)),
+                "margin_mode": str(policy_settings.get("margin_mode", "ISOLATED")),
+                "min_net_rr": float(getattr(cfg, "min_net_rr", 1.8)),
+            },
         )
 
-        # Fail closed if ATR M1 is missing or unavailable
-        if atr_m1_obj is None or getattr(atr_m1_obj, "status", None) != "AVAILABLE" or float(getattr(atr_m1_obj, "value", 0.0) or 0.0) <= 0.0:
+        # Invoke canonical SharedStrategyEvaluator.evaluate_decision with fail-closed exception handling
+        try:
             shared_snap = self.evaluate_shared_decision_snapshot(
                 context=shared_ctx,
                 model_id=model_id,
                 direction=initial_dir,
             )
+            if (
+                isinstance(shared_snap, StrategyDecisionSnapshot)
+                and shared_snap.setup_validity != "VALID"
+                and shared_snap.decision_status not in (
+                    DecisionStatus.MODEL_DISABLED.value,
+                    DecisionStatus.MISSING_MARKET_DATA.value,
+                )
+            ):
+                alt_dir = "SHORT" if initial_dir == "LONG" else "LONG"
+                alt_snap = self.evaluate_shared_decision_snapshot(
+                    context=shared_ctx,
+                    model_id=model_id,
+                    direction=alt_dir,
+                )
+                if isinstance(alt_snap, StrategyDecisionSnapshot) and alt_snap.setup_validity == "VALID":
+                    shared_snap = alt_snap
+        except Exception as exc:
+            return {
+                "model_classification": ShadowModelClassification.NO_VALID_SETUP.value,
+                "primary_reason_code": f"CANONICAL_EVALUATOR_EXCEPTION:{type(exc).__name__}",
+                "opportunity_id": None,
+                "opportunity_record": None,
+                "shared_decision_snapshot": None,
+                "decision_fingerprint": "",
+            }
+
+        if (
+            not isinstance(shared_snap, StrategyDecisionSnapshot)
+            or not shared_snap.decision_id
+            or not shared_snap.decision_fingerprint
+        ):
+            return {
+                "model_classification": ShadowModelClassification.NO_VALID_SETUP.value,
+                "primary_reason_code": "CANONICAL_DECISION_LINEAGE_MISSING",
+                "opportunity_id": None,
+                "opportunity_record": None,
+                "shared_decision_snapshot": shared_snap.to_parity_dict() if hasattr(shared_snap, "to_parity_dict") else None,
+                "decision_fingerprint": getattr(shared_snap, "decision_fingerprint", ""),
+            }
+
+        # Fail closed if ATR M1 is missing or unavailable
+        if (
+            atr_m1_obj is None
+            or getattr(atr_m1_obj, "status", None) != "AVAILABLE"
+            or float(getattr(atr_m1_obj, "value", 0.0) or 0.0) <= 0.0
+            or "ATR_MISSING" in shared_snap.rejection_reason_codes
+        ):
             opp_id = f"shopp_{model_id}_{self.symbol}_{cutoff_ms}_no_atr"
             rej_rec = self._build_opportunity_dict(
                 opportunity_id=opp_id,
                 model_id=model_id,
-                direction=initial_dir,
-                setup_episode_id=f"ep_{model_id}_{cutoff_ms}",
+                direction=shared_snap.direction or initial_dir,
+                setup_episode_id=shared_snap.setup_episode_id or f"ep_{model_id}_{cutoff_ms}",
                 analysis_time_ms=analysis_time_ms,
                 decision_cutoff_ms=cutoff_ms,
                 quote=quote,
-                entry_reference=quote.ask if htf_bias == "BULLISH" else quote.bid,
+                entry_reference=shared_snap.entry_reference or (quote.ask if htf_bias == "BULLISH" else quote.bid),
                 legacy_sl=0.0,
                 structural_sl=None,
                 unicorn_sl_candidate=None,
@@ -1456,9 +1520,12 @@ class MarketShadowService:
                 comparison_plan=None,
             )
             rej_rec["shared_decision_snapshot"] = shared_snap.to_parity_dict()
+            rej_rec["decision_id"] = shared_snap.decision_id
             rej_rec["decision_fingerprint"] = shared_snap.decision_fingerprint
             rej_rec["evidence_fingerprint"] = shared_snap.evidence_fingerprint
             rej_rec["policy_fingerprint"] = shared_snap.policy_fingerprint
+            rej_rec["input_snapshot_hash"] = shared_snap.input_snapshot_hash
+            rej_rec["configuration_hash"] = shared_snap.configuration_hash
             rej_rec["adapter_origin"] = shared_snap.adapter_origin
             rej_rec["evaluator_version"] = shared_snap.evaluator_version
             return {
@@ -1467,211 +1534,90 @@ class MarketShadowService:
                 "opportunity_id": opp_id,
                 "opportunity_record": rej_rec,
                 "shared_decision_snapshot": shared_snap.to_parity_dict(),
+                "decision_id": shared_snap.decision_id,
                 "decision_fingerprint": shared_snap.decision_fingerprint,
             }
 
-        atr_m1_val = float(atr_m1_obj.value)
-        atr_m5_val = float(atr_m5_obj.value) if (atr_m5_obj and getattr(atr_m5_obj, "status", None) == "AVAILABLE") else None
-
-        direction = initial_dir
-        entry_ref = round(float(quote.ask if direction == "LONG" else quote.bid), 2)
-
-        # Detect model-specific setup evidence on closed M1 bars
-        setup_info = self._detect_model_setup_evidence(
-            model_id=model_id,
-            direction=direction,
-            bars_1m=bars_1m,
-            sh_1m=sh_1m,
-            sl_1m=sl_1m,
-            atr_m1=atr_m1_val,
-            cfg=cfg,
-            cutoff_ms=cutoff_ms,
-        )
-        if not setup_info["has_setup"]:
-            shared_snap = self.evaluate_shared_decision_snapshot(
-                context=shared_ctx,
-                model_id=model_id,
-                direction=direction,
+        # Authoritative check: if canonical DecisionResult says no valid setup or NO_TRADE / REJECTED without setup
+        if (
+            shared_snap.setup_validity != "VALID"
+            or shared_snap.decision_status in (
+                DecisionStatus.NO_TRADE.value,
+                DecisionStatus.REJECTED.value,
+                DecisionStatus.NO_VALID_SETUP.value,
+                DecisionStatus.WAITING_CONFIRMATION.value,
+                DecisionStatus.MODEL_DISABLED.value,
+                DecisionStatus.MISSING_MARKET_DATA.value,
+            )
+        ):
+            primary_reason = (
+                shared_snap.rejection_reason_codes[0]
+                if shared_snap.rejection_reason_codes
+                else (shared_snap.raw_candidate_reason_code or shared_snap.decision_status)
             )
             return {
                 "model_classification": ShadowModelClassification.NO_VALID_SETUP.value,
-                "primary_reason_code": setup_info["reason_code"],
+                "primary_reason_code": primary_reason,
                 "opportunity_id": None,
                 "opportunity_record": None,
                 "shared_decision_snapshot": shared_snap.to_parity_dict(),
+                "decision_id": shared_snap.decision_id,
                 "decision_fingerprint": shared_snap.decision_fingerprint,
             }
 
-        direction = setup_info["direction"]
-        shared_snap = self.evaluate_shared_decision_snapshot(
-            context=shared_ctx,
-            model_id=model_id,
-            direction=direction,
+        # Populate all shadow opportunity fields strictly from canonical DecisionResult (shared_snap)
+        direction = shared_snap.direction
+        entry_ref = float(shared_snap.entry_reference or round(float(quote.ask if direction == "LONG" else quote.bid), 2))
+        legacy_sl = float(shared_snap.legacy_sl or 0.0)
+        structural_sl = float(shared_snap.selected_sl) if shared_snap.selected_sl is not None else None
+        selected_sl = structural_sl if structural_sl is not None else legacy_sl
+        unicorn_sl_cand = float(shared_snap.unicorn_sl_candidate) if shared_snap.unicorn_sl_candidate is not None else None
+        episode_id = str(shared_snap.setup_episode_id or f"ep_{model_id}_{direction}_{cutoff_ms}")
+        atr_m1_val = float(shared_snap.atr_m1 if shared_snap.atr_m1 is not None else atr_m1_obj.value)
+        atr_m5_val = (
+            float(shared_snap.atr_m5)
+            if shared_snap.atr_m5 is not None
+            else (float(atr_m5_obj.value) if (atr_m5_obj and getattr(atr_m5_obj, "status", None) == "AVAILABLE") else None)
         )
-        entry_ref = round(float(quote.ask if direction == "LONG" else quote.bid), 2)
-        legacy_sl = float(setup_info["legacy_sl"])
-        episode_id = str(setup_info["episode_id"])
-        selected_fvg = setup_info.get("selected_fvg")
-        selected_break = setup_info.get("selected_break")
-        selected_sweep = setup_info.get("selected_sweep")
-        selected_reference = setup_info.get("selected_reference")
-
-        # Unicorn validation for this setup
-        unicorn_ev = detect_unicorn_evidence(
-            symbol=self.symbol,
-            direction=direction,
-            closed_bars=bars_1m,
-            as_of_ms=cutoff_ms,
-            selected_fvg=selected_fvg,
-            selected_break=selected_break,
-            selected_reference=selected_reference,
-            confirmed_swings=(sh_1m, sl_1m),
-            tick_size=cfg.tick_size,
-            strict_causal_binding=True,
-        )
-        if self._storage and self._storage.is_initialized:
-            self._storage.record_unicorn_evidence(unicorn_ev.to_dict())
-
-        # Structural SL anchor & buffer
-        anchor_res = resolve_stop_anchor(
-            model_id=model_id,
-            direction=direction,
-            closed_bars=bars_1m,
-            as_of_ms=cutoff_ms,
-            selected_break=selected_break,
-            selected_fvg=selected_fvg,
-            selected_sweep=selected_sweep,
-            confirmed_swings=(sh_1m, sl_1m),
-            tick_size=cfg.tick_size,
-            unicorn_evidence=unicorn_ev if unicorn_ev.is_valid else None,
-            policy=stop_policy,
-        )
-        buffer_res = compute_stop_buffer(
-            atr_m1=atr_m1_obj,
-            atr_m5=atr_m5_obj if (atr_m5_obj and getattr(atr_m5_obj, "status", None) == "AVAILABLE") else None,
-            bid=quote.bid,
-            ask=quote.ask,
-            policy=stop_policy,
-            tick_size=cfg.tick_size,
-            symbol=self.symbol,
-            decision_cutoff=cutoff_ms,
-        )
-
-        # Independent liquidity target resolution
-        target_dec = resolve_executable_target(
-            liquidity_levels,
-            direction,
-            entry_ref,
-            as_of_ms=cutoff_ms,
-            atr=atr_m1_val,
-            model_id=model_id,
-        )
+        target_price = float(shared_snap.take_profit) if shared_snap.take_profit is not None else None
+        target_ev_id = shared_snap.selected_target_id
         has_valid_target = bool(
-            target_dec.status == "CONFIRMED"
-            and target_dec.price is not None
-            and ((direction == "LONG" and target_dec.price > entry_ref) or (direction == "SHORT" and target_dec.price < entry_ref))
+            target_price is not None
+            and ((direction == "LONG" and target_price > entry_ref) or (direction == "SHORT" and target_price < entry_ref))
         )
-        target_price = round(float(target_dec.price), 2) if has_valid_target else None
-        target_ev_id = str(target_dec.source_level_id) if has_valid_target and target_dec.source_level_id else None
+        rejection_reasons = list(shared_snap.rejection_reason_codes)
 
-        # Use a nominal directional reference price ONLY so plan_structural_stop can compute SL geometry when target is missing;
-        # the opportunity itself is strictly rejected with SHADOW_REJECTED_NO_VALID_TARGET.
-        sl_eval_tp = target_price if target_price is not None else (
-            round(entry_ref + 3.0 * atr_m1_val, 2) if direction == "LONG" else round(max(0.01, entry_ref - 3.0 * atr_m1_val), 2)
+        # Enforce directional SL/TP geometry on canonical result
+        geom_valid = bool(
+            selected_sl is not None
+            and target_price is not None
+            and ((direction == "LONG" and selected_sl < entry_ref < target_price) or (direction == "SHORT" and target_price < entry_ref < selected_sl))
         )
+        if not geom_valid and shared_snap.decision_status == DecisionStatus.ELIGIBLE.value:
+            rejection_reasons.append("CANONICAL_SL_TP_GEOMETRY_REJECTED")
 
-        stop_dec = plan_structural_stop(
-            direction=direction,
-            planned_entry=entry_ref,
-            take_profit=sl_eval_tp,
-            legacy_sl=legacy_sl,
-            anchor_result=anchor_res,
-            buffer_result=buffer_res,
-            policy=stop_policy,
-            as_of_ms=cutoff_ms,
-            tick_size=cfg.tick_size,
-            atr_m1_val=atr_m1_val,
-            atr_m5_val=atr_m5_val,
-            spread=quote.spread,
-            atr_m1_obj=atr_m1_obj,
-            atr_m5_obj=atr_m5_obj if (atr_m5_obj and getattr(atr_m5_obj, "status", None) == "AVAILABLE") else None,
-            symbol=self.symbol,
-            unicorn_evidence=unicorn_ev if unicorn_ev.is_valid else None,
+        is_eligible = bool(
+            shared_snap.decision_status == DecisionStatus.ELIGIBLE.value
+            and shared_snap.decision_status not in NON_EXECUTABLE_DECISION_STATUSES
+            and len(rejection_reasons) == 0
+            and has_valid_target
+            and geom_valid
         )
-
-        selected_sl = float(stop_dec.selected_sl) if stop_dec.selected_sl is not None else legacy_sl
-        structural_sl = float(stop_dec.structural_sl) if stop_dec.structural_sl is not None else (
-            selected_sl if anchor_res.anchor is not None else None
-        )
-        unicorn_sl_cand = float(stop_dec.unicorn_sl_candidate) if stop_dec.unicorn_sl_candidate is not None else None
-
-        rejection_reasons: List[str] = []
-        if stop_dec.status != StopStatus.VALID.value:
-            rejection_reasons.extend(list(stop_dec.reasons or (stop_dec.status,)))
-
-        if not has_valid_target or target_price is None:
-            rejection_reasons.append("SHADOW_REJECTED_NO_VALID_TARGET")
 
         risk_budget = round(float(policy_settings["capital_usdt"]) * float(policy_settings["risk_pct"]) / 100.0, 4)
-        hypothetical_qty = 0.0
-        net_risk = 0.0
-        net_reward = 0.0
-        net_rr = 0.0
-        comp_plan_dict: Optional[Dict[str, Any]] = None
+        hypothetical_qty = float(shared_snap.hypothetical_quantity or 0.0) if has_valid_target else 0.0
+        net_rr = float(shared_snap.net_rr or 0.0) if has_valid_target else 0.0
+        net_risk = risk_budget if hypothetical_qty > 0 else 0.0
+        net_reward = round(net_risk * net_rr, 4) if hypothetical_qty > 0 else 0.0
+        comp_plan_dict = shared_snap.stop_comparison_plan_dict
+        unicorn_dict = shared_snap.unicorn_evidence_dict or {}
+        if self._storage and self._storage.is_initialized and unicorn_dict:
+            self._storage.record_unicorn_evidence(unicorn_dict)
 
-        if has_valid_target and target_price is not None:
-            calc_res = calculate_risk_reward(
-                direction=direction,
-                planned_entry=entry_ref,
-                stop_loss=selected_sl,
-                take_profit=target_price,
-                capital_usdt=policy_settings["capital_usdt"],
-                risk_pct=policy_settings["risk_pct"],
-                leverage=policy_settings["leverage"],
-                margin_mode=policy_settings["margin_mode"],
-                min_net_rr=cfg.min_net_rr,
-                costs=policy_settings["costs"],
-                now_ms=cutoff_ms,
-            )
-            hypothetical_qty = float(calc_res.quantity or 0.0)
-            net_risk = float(getattr(calc_res, "net_risk_usdt", risk_budget) or risk_budget)
-            net_reward = float(getattr(calc_res, "net_reward_usdt", 0.0) or 0.0)
-            net_rr = float(calc_res.net_rr or 0.0)
+        unicorn_is_valid = bool(shared_snap.unicorn_validity == "VALID_UNICORN")
+        opp_id = str(shared_snap.candidate_key or f"shopp_{model_id}_{self.symbol}_{direction}_{episode_id}")
 
-            if not calc_res.is_valid:
-                rejection_reasons.append(calc_res.invalid_reason or "CALCULATOR_INVALID")
-            elif not calc_res.can_execute:
-                rejection_reasons.append(calc_res.skip_reason or "CANNOT_EXECUTE")
-            elif not calc_res.meets_min_rr or net_rr < cfg.min_net_rr:
-                rejection_reasons.append("SHADOW_REJECTED_INSUFFICIENT_NET_RR")
-
-            comp_plan = build_stop_comparison_plan(
-                opportunity_key=f"sh_comp_{model_id}_{direction}_{cutoff_ms}",
-                model_id=model_id,
-                symbol=self.symbol,
-                direction=direction,
-                planned_entry=entry_ref,
-                take_profit=target_price,
-                legacy_sl=legacy_sl,
-                anchor=anchor_res.anchor,
-                buffer_result=buffer_res,
-                policy_settings=policy_settings,
-                tick_size=cfg.tick_size,
-                min_net_rr=cfg.min_net_rr,
-                atr_m1=atr_m1_val,
-                atr_m5=atr_m5_val,
-                spread=quote.spread,
-                now_ms=cutoff_ms,
-                decision_cutoff_ms=cutoff_ms,
-                context_status="VERIFIED",
-                unicorn_evidence=unicorn_ev.to_dict() if unicorn_ev else None,
-            )
-            comp_plan_dict = comp_plan.to_dict() if hasattr(comp_plan, "to_dict") else None
-
-        is_eligible = len(rejection_reasons) == 0 and has_valid_target
-        opp_id = f"shopp_{model_id}_{self.symbol}_{direction}_{episode_id}"
-
-        if unicorn_ev.is_valid:
+        if unicorn_is_valid:
             classification = (
                 ShadowModelClassification.VALID_UNICORN.value
                 if is_eligible
@@ -1696,12 +1642,12 @@ class MarketShadowService:
             legacy_sl=legacy_sl,
             structural_sl=structural_sl,
             unicorn_sl_candidate=unicorn_sl_cand,
-            selected_invalidation_price=anchor_res.anchor.price if anchor_res.anchor else None,
-            selected_anchor_kind=anchor_res.anchor.kind if anchor_res.anchor else None,
-            selected_anchor_id=anchor_res.anchor.id if anchor_res.anchor else None,
+            selected_invalidation_price=shared_snap.structural_invalidation_price,
+            selected_anchor_kind=shared_snap.anchor_kind,
+            selected_anchor_id=shared_snap.selected_anchor_id,
             atr_m1=atr_m1_val,
             atr_m5=atr_m5_val,
-            protective_distance=stop_dec.protective_distance,
+            protective_distance=shared_snap.protective_distance,
             target_price=target_price,
             target_evidence_id=target_ev_id,
             risk_budget=risk_budget,
@@ -1709,16 +1655,16 @@ class MarketShadowService:
             net_risk=round(net_risk, 4),
             net_reward=round(net_reward, 4),
             net_rr=round(net_rr, 4),
-            unicorn_validity=unicorn_ev.validity_status,
-            unicorn_evidence_id=unicorn_ev.unicorn_id,
+            unicorn_validity=shared_snap.unicorn_validity,
+            unicorn_evidence_id=unicorn_dict.get("unicorn_id"),
             shadow_eligibility_status="SHADOW_ELIGIBLE" if is_eligible else "SHADOW_REJECTED",
             lifecycle_state=ShadowOpportunityState.ELIGIBLE.value if is_eligible else ShadowOpportunityState.REJECTED.value,
             rejection_reason_codes=rejection_reasons,
             comparison_plan=comp_plan_dict,
             source_candle_ids=[f"{b.timeframe}_{b.open_time}" for b in bars_1m[-15:]],
-            source_break_id=selected_break.get("break_id") if isinstance(selected_break, dict) else None,
-            source_fvg_id=selected_fvg.get("id") if isinstance(selected_fvg, dict) else None,
-            source_breaker_id=unicorn_ev.breaker_id,
+            source_break_id=shared_snap.selected_break_id,
+            source_fvg_id=shared_snap.selected_fvg_id,
+            source_breaker_id=shared_snap.selected_breaker_id,
         )
 
         # Persist stop and target decisions to isolated shadow storage
@@ -1731,21 +1677,21 @@ class MarketShadowService:
                     "model_id": model_id,
                     "direction": direction,
                     "decision_cutoff_ms": cutoff_ms,
-                    "status": stop_dec.status,
+                    "status": StopStatus.VALID.value if is_eligible else "REJECTED",
                     "legacy_sl": legacy_sl,
                     "structural_sl": structural_sl,
                     "unicorn_sl_candidate": unicorn_sl_cand,
                     "selected_sl": selected_sl,
-                    "selected_invalidation_price": anchor_res.anchor.price if anchor_res.anchor else None,
-                    "selected_anchor_kind": anchor_res.anchor.kind if anchor_res.anchor else None,
-                    "selected_anchor_id": anchor_res.anchor.id if anchor_res.anchor else None,
+                    "selected_invalidation_price": shared_snap.structural_invalidation_price,
+                    "selected_anchor_kind": shared_snap.anchor_kind,
+                    "selected_anchor_id": shared_snap.selected_anchor_id,
                     "atr_m1": atr_m1_val,
                     "atr_m5": atr_m5_val,
                     "spread": quote.spread,
-                    "protective_distance": stop_dec.protective_distance,
-                    "buffer_components": buffer_res.components if buffer_res else {},
+                    "protective_distance": shared_snap.protective_distance,
+                    "buffer_components": {"buffer_value": shared_snap.buffer_value} if shared_snap.buffer_value is not None else {},
                     "variants": comp_plan_dict.get("variants", {}) if comp_plan_dict else {},
-                    "reason_codes": list(stop_dec.reasons or ()),
+                    "reason_codes": rejection_reasons,
                 }
             )
             self._storage.record_target_decision(
@@ -1759,15 +1705,18 @@ class MarketShadowService:
                     "status": "CONFIRMED" if has_valid_target else "SHADOW_REJECTED_NO_VALID_TARGET",
                     "target_price": target_price,
                     "target_evidence_id": target_ev_id,
-                    "target_kind": getattr(target_dec, "target_type", None),
+                    "target_kind": "LIQUIDITY_POOL" if has_valid_target else None,
                     "reason_code": "VALID_TARGET" if has_valid_target else "SHADOW_REJECTED_NO_VALID_TARGET",
                 }
             )
 
         opp_rec["shared_decision_snapshot"] = shared_snap.to_parity_dict()
+        opp_rec["decision_id"] = shared_snap.decision_id
         opp_rec["decision_fingerprint"] = shared_snap.decision_fingerprint
         opp_rec["evidence_fingerprint"] = shared_snap.evidence_fingerprint
         opp_rec["policy_fingerprint"] = shared_snap.policy_fingerprint
+        opp_rec["input_snapshot_hash"] = shared_snap.input_snapshot_hash
+        opp_rec["configuration_hash"] = shared_snap.configuration_hash
         opp_rec["adapter_origin"] = shared_snap.adapter_origin
         opp_rec["evaluator_version"] = shared_snap.evaluator_version
 
@@ -1777,6 +1726,7 @@ class MarketShadowService:
             "opportunity_id": opp_id,
             "opportunity_record": opp_rec,
             "shared_decision_snapshot": shared_snap.to_parity_dict(),
+            "decision_id": shared_snap.decision_id,
             "decision_fingerprint": shared_snap.decision_fingerprint,
         }
 
@@ -2682,25 +2632,52 @@ class MarketShadowService:
         shadow_snapshot: Any,
     ) -> Dict[str, Any]:
         """
-        V17.9.0.1 Phase E: Compares Production and MARKET_SHADOW decision snapshots
-        on the same normalized input snapshot, emitting a structured divergence event
-        if any parity field differs.
+        V17.9.0.1.1 Section 4: Compares Production and MARKET_SHADOW decision snapshots
+        on the same normalized input snapshot, distinguishing INPUT_MISMATCH from
+        EXACT_MATCH and DECISION_DIVERGENCE.
         """
         from services.shared_strategy_evaluator import compare_decision_parity
+
+        def _get_field(obj: Any, name: str) -> Any:
+            return obj.get(name) if isinstance(obj, dict) else getattr(obj, name, None)
+
+        prod_in_hash = _get_field(production_snapshot, "input_snapshot_hash") or _get_field(production_snapshot, "evidence_fingerprint")
+        shad_in_hash = _get_field(shadow_snapshot, "input_snapshot_hash") or _get_field(shadow_snapshot, "evidence_fingerprint")
+        prod_cfg_hash = _get_field(production_snapshot, "configuration_hash") or _get_field(production_snapshot, "policy_fingerprint")
+        shad_cfg_hash = _get_field(shadow_snapshot, "configuration_hash") or _get_field(shadow_snapshot, "policy_fingerprint")
+
+        input_mismatch = bool(
+            (prod_in_hash and shad_in_hash and prod_in_hash != shad_in_hash)
+            or (prod_cfg_hash and shad_cfg_hash and prod_cfg_hash != shad_cfg_hash)
+        )
+
         diff = compare_decision_parity(production_snapshot, shadow_snapshot)
         field_diffs = {
             m["field"]: {"production": m["left"], "shadow": m["right"]}
             for m in diff["mismatches"]
         }
+        if input_mismatch:
+            comparison_status = "INPUT_MISMATCH"
+        elif diff["is_match"]:
+            comparison_status = "EXACT_MATCH"
+        else:
+            comparison_status = "DECISION_DIVERGENCE"
+
         event = {
-            "event_type": "SHADOW_PARITY_VERIFIED" if diff["is_match"] else "RUNTIME_DECISION_DIVERGENCE",
+            "event_type": "SHADOW_PARITY_VERIFIED" if diff["is_match"] and not input_mismatch else "RUNTIME_DECISION_DIVERGENCE",
+            "comparison_status": comparison_status,
             "symbol": self.symbol,
-            "model_id": shadow_snapshot.get("model_id") if isinstance(shadow_snapshot, dict) else getattr(shadow_snapshot, "model_id", None),
-            "direction": shadow_snapshot.get("direction") if isinstance(shadow_snapshot, dict) else getattr(shadow_snapshot, "direction", None),
-            "decision_timestamp_ms": shadow_snapshot.get("decision_timestamp_ms") if isinstance(shadow_snapshot, dict) else getattr(shadow_snapshot, "decision_timestamp_ms", None),
-            "parity_status": diff["parity_status"],
-            "is_match": diff["is_match"],
-            "is_divergent": not diff["is_match"],
+            "model_id": _get_field(shadow_snapshot, "model_id"),
+            "direction": _get_field(shadow_snapshot, "direction"),
+            "decision_timestamp_ms": _get_field(shadow_snapshot, "decision_timestamp_ms"),
+            "parity_status": "INPUT_MISMATCH" if input_mismatch else diff["parity_status"],
+            "is_match": bool(diff["is_match"] and not input_mismatch),
+            "is_divergent": bool(not diff["is_match"] or input_mismatch),
+            "input_mismatch": input_mismatch,
+            "production_input_snapshot_hash": prod_in_hash,
+            "shadow_input_snapshot_hash": shad_in_hash,
+            "production_configuration_hash": prod_cfg_hash,
+            "shadow_configuration_hash": shad_cfg_hash,
             "mismatch_count": diff["mismatch_count"],
             "mismatches": diff["mismatches"],
             "field_diffs": field_diffs,
@@ -2717,23 +2694,19 @@ class MarketShadowService:
         direction: Optional[str] = None,
     ):
         """
-        V17.9.0 Section 7.2: MARKET_SHADOW adapter method delegating pure strategy
-        decision evaluation to SharedStrategyEvaluator.
+        V17.9.0.1.1 Section 4: MARKET_SHADOW adapter method delegating pure strategy
+        decision evaluation to SharedStrategyEvaluator.evaluate_decision(...).
         """
         from services.shared_strategy_evaluator import SharedStrategyEvaluator
-        if direction in ("LONG", "SHORT"):
-            return SharedStrategyEvaluator.evaluate_model_direction(
-                context=context,
-                model_id=model_id,
-                direction=direction,
-                adapter_origin="MARKET_SHADOW_ADAPTER",
-                target_resolver=resolve_executable_target,
-            )
-        return SharedStrategyEvaluator.evaluate_model_best_direction(
-            context=context,
-            model_id=model_id,
-            adapter_origin="MARKET_SHADOW_ADAPTER",
-            target_resolver=resolve_executable_target,
+        return SharedStrategyEvaluator.evaluate_decision(
+            market_snapshot=context,
+            structural_context={"model_id": model_id, "direction": direction},
+            strategy_config={
+                "model_id": model_id,
+                "direction": direction if direction in ("LONG", "SHORT") else None,
+                "adapter_origin": "MARKET_SHADOW_ADAPTER",
+                "target_resolver": resolve_executable_target,
+            },
         )
 
     def evaluate_shared_all_models(

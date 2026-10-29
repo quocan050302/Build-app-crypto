@@ -1037,10 +1037,12 @@ def normalize_v17_9_0_1_gate_status(
     gate_data: Any,
     *,
     is_test_gate: bool = True,
+    expected_source_sha: Optional[str] = None,
 ) -> str:
     """
-    Phase H Gate Status Normalization:
-    Never converts `SKIPPED`, `NOT_RUN`, `NOT_EXECUTED`, `BLOCKED`, or `UNKNOWN` into `PASS`.
+    Phase H & Section 8 Gate Status Normalization:
+    Never converts `SKIPPED`, `NOT_RUN`, `NOT_EXECUTED`, `BLOCKED`, `STALE_EVIDENCE`, or `UNKNOWN` into `PASS`.
+    If `expected_source_sha` is provided and `gate_data` has a mismatched `tested_source_sha`, returns `BLOCKED`.
     Returns one of: `PASS`, `FAIL`, `BLOCKED`, `INCOMPLETE`.
     """
     if not isinstance(gate_data, dict):
@@ -1048,10 +1050,15 @@ def normalize_v17_9_0_1_gate_status(
     raw_status = str(gate_data.get("status") or "UNKNOWN").upper().strip()
     if raw_status in ("NOT_EXECUTED", "NOT_RUN", "SKIPPED", "SKIPPED_WITH_REASON", "UNKNOWN", "INCOMPLETE"):
         return "INCOMPLETE"
-    if raw_status == "BLOCKED":
+    if raw_status in ("BLOCKED", "STALE_EVIDENCE", "INVALID_EVIDENCE"):
         return "BLOCKED"
     if raw_status != "PASS":
         return "FAIL"
+
+    if expected_source_sha:
+        gate_sha = gate_data.get("tested_source_sha")
+        if gate_sha is not None and str(gate_sha).strip() != str(expected_source_sha).strip():
+            return "BLOCKED"
 
     exit_code = gate_data.get("exit_code")
     if exit_code is not None and (isinstance(exit_code, bool) or not isinstance(exit_code, int) or exit_code != 0):
@@ -1073,9 +1080,59 @@ def normalize_v17_9_0_1_gate_status(
     return "PASS"
 
 
+def verify_gate_provenance_integrity(
+    actual_gate_results: Dict[str, Any],
+    final_code_sha: str,
+    mandatory_gate_manifest: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """
+    Section 8 (V17.9.0.1.1): Verifies that no gate has a stale or mismatched `tested_source_sha`
+    relative to `final_code_sha`, and that every mandatory gate was executed on `final_code_sha`.
+    Never mutates or overwrites `tested_source_sha`.
+    """
+    manifest = mandatory_gate_manifest if mandatory_gate_manifest is not None else MANDATORY_GATES_V17_9_0
+    if not final_code_sha or not isinstance(actual_gate_results, dict) or not manifest:
+        return {
+            "status": "INVALID_EVIDENCE",
+            "is_valid": False,
+            "final_code_sha": final_code_sha,
+            "stale_gates": list(manifest or []),
+            "missing_gates": list(manifest or []),
+        }
+
+    stale_gates: List[str] = []
+    missing_gates: List[str] = []
+    verified_gates: List[str] = []
+
+    for gid in manifest:
+        g_data = actual_gate_results.get(gid)
+        if not isinstance(g_data, dict):
+            missing_gates.append(gid)
+            continue
+        g_sha = g_data.get("tested_source_sha")
+        if g_sha is not None and str(g_sha).strip() != str(final_code_sha).strip():
+            stale_gates.append(gid)
+            continue
+        if str(g_data.get("status", "")).upper() in ("STALE_EVIDENCE", "INVALID_EVIDENCE"):
+            stale_gates.append(gid)
+            continue
+        verified_gates.append(gid)
+
+    is_valid = len(stale_gates) == 0 and len(missing_gates) == 0
+    return {
+        "status": "PASS" if is_valid else "INVALID_EVIDENCE",
+        "is_valid": is_valid,
+        "final_code_sha": final_code_sha,
+        "verified_gates_count": len(verified_gates),
+        "stale_gates": stale_gates,
+        "missing_gates": missing_gates,
+    }
+
+
 def determine_v17_9_0_1_top_level_verdict(
     actual_gate_results: Dict[str, Any],
     mandatory_gate_manifest: Optional[List[str]] = None,
+    expected_source_sha: Optional[str] = None,
 ) -> str:
     """
     Computes normalized top-level status (`PASS`, `FAIL`, `BLOCKED`, `INCOMPLETE`).
@@ -1084,13 +1141,24 @@ def determine_v17_9_0_1_top_level_verdict(
     if not manifest or not isinstance(actual_gate_results, dict):
         return "INCOMPLETE"
 
+    if expected_source_sha:
+        prov = verify_gate_provenance_integrity(actual_gate_results, expected_source_sha, manifest)
+        if not prov["is_valid"]:
+            return "BLOCKED"
+
     statuses: List[str] = []
     for gate_id in manifest:
         if gate_id not in actual_gate_results:
             statuses.append("INCOMPLETE")
             continue
         is_test = gate_id in TEST_GATES
-        statuses.append(normalize_v17_9_0_1_gate_status(actual_gate_results[gate_id], is_test_gate=is_test))
+        statuses.append(
+            normalize_v17_9_0_1_gate_status(
+                actual_gate_results[gate_id],
+                is_test_gate=is_test,
+                expected_source_sha=expected_source_sha,
+            )
+        )
 
     if any(s == "FAIL" for s in statuses):
         return "FAIL"

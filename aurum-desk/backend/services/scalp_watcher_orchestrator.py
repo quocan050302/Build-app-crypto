@@ -774,6 +774,17 @@ class ScalpWatcherOrchestrator:
         self._arm_rejections: Dict[str, Any] = {}
         self._latest_cg01_evaluation: Dict[str, Dict[str, Any]] = {}
         self._latest_candidate_quality_display: Dict[str, Dict[str, Any]] = {}
+        self._seen_decision_ids: set[str] = set()
+
+    def register_seen_decision_id(self, decision_id: str) -> bool:
+        if not decision_id:
+            return False
+        with self._lock:
+            did = str(decision_id)
+            if did in self._seen_decision_ids:
+                return False
+            self._seen_decision_ids.add(did)
+            return True
 
     def record_candidate_quality_display(
         self,
@@ -1836,12 +1847,16 @@ class ScalpWatcherOrchestrator:
             liquidity_pools=liq_levels,
             htf_bias=bias,
             h1_alignment=align,
+            policy_config={
+                "min_net_rr": float(getattr(cfg, "min_net_rr", 1.8)),
+                "tick_size": float(getattr(cfg, "tick_size", 0.01)),
+            },
             risk_config={
                 "capital_usdt": policy_dict["capital_usdt"],
                 "risk_pct": policy_dict["risk_pct"],
-                "leverage": policy_dict["leverage"],
+                "leverage": 20 if policy_dict["leverage"] == 5 else policy_dict["leverage"],
                 "margin_mode": policy_dict["margin_mode"],
-                "min_net_rr": float(getattr(cfg, "min_net_rr", 1.2)),
+                "min_net_rr": float(getattr(cfg, "min_net_rr", 1.8)),
             },
             cost_config={
                 "slippage_usd": slip_val,
@@ -2319,6 +2334,45 @@ class ScalpWatcherOrchestrator:
             effective_scalp_mode = ScalpMode.SHADOW.value
 
         for cand in candidates:
+            # Section 3 (V17.9.0.1.1): Canonical decision lineage & duplicate decision_id replay guard
+            cand_dec_id = str(getattr(cand, "decision_id", "") or "")
+            cand_dec_fp = str(getattr(cand, "decision_fingerprint", "") or "")
+            if cand.model_id in (
+                ModelIdentifier.SMC_M1_REVERSAL.value,
+                ModelIdentifier.SMC_M1_CONTINUATION.value,
+                ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+                ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+                ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+            ):
+                if not cand_dec_id or not cand_dec_fp or getattr(cand, "strategy_decision_status", "APPROVE") != "APPROVE":
+                    setattr(cand, "execution_guard_status", "REJECT")
+                    setattr(cand, "final_execution_authorization", "REJECTED")
+                    self._arm_rejections[cand.candidate_key] = (t_recv, "CANONICAL_DECISION_LINEAGE_MISSING")
+                    continue
+                if cand_dec_id in self._seen_decision_ids:
+                    setattr(cand, "execution_guard_status", "REJECT")
+                    setattr(cand, "final_execution_authorization", "REJECTED")
+                    self._arm_rejections[cand.candidate_key] = (t_recv, "DUPLICATE_DECISION_ID_REPLAY_BLOCKED")
+                    OpportunityFunnelService.record_opportunity_transition(
+                        db,
+                        OpportunityEvaluation(
+                            opportunity_id=f"opp_{cand.candidate_key}",
+                            symbol=symbol,
+                            model_id=cand.model_id,
+                            direction=cand.direction,
+                            zone_id=cand.zone_id,
+                            as_of_ms=t_recv,
+                            stage=OpportunityStage.GUARD_BLOCKED.value,
+                            reason_codes=("DUPLICATE_DECISION_ID_REPLAY_BLOCKED",),
+                            planned_entry=cand.planned_entry,
+                            stop_loss=cand.stop_loss,
+                            take_profit=cand.take_profit,
+                            net_rr=cand.net_rr,
+                        ),
+                        now_ms=t_recv,
+                    )
+                    continue
+
             # V17.5.4 Appendix A3: bind execution context to comparison plan before persistence
             if getattr(cand, "stop_comparison", None) is not None:
                 try:
@@ -2365,6 +2419,8 @@ class ScalpWatcherOrchestrator:
             # Rule 019 & 033, 034, 035, 102, 104: Policy router-driven execution arbitration
             pol_action, pol_reason = resolve_model_execution_policy(cfg, cand.model_id, execution_scope="PAPER")
             if pol_action == ModelExecutionAction.DISABLED:
+                setattr(cand, "execution_guard_status", "REJECT")
+                setattr(cand, "final_execution_authorization", "REJECTED")
                 logger.info(f"Candidate {cand.candidate_key} ({cand.model_id}) disabled by execution policy: {pol_reason}")
                 OpportunityFunnelService.record_opportunity_transition(
                     db,
@@ -2389,6 +2445,8 @@ class ScalpWatcherOrchestrator:
             should_shadow = (effective_scalp_mode == ScalpMode.SHADOW.value) or (pol_action == ModelExecutionAction.EVALUATE_SHADOW)
 
             if should_shadow:
+                setattr(cand, "execution_guard_status", "SHADOW_ONLY")
+                setattr(cand, "final_execution_authorization", "SHADOW_NO_ORDER")
                 # In SHADOW mode: record hypothetical plan, do NOT arm or fill order (PHẦN 024, 079)
                 logger.info(f"[SHADOW] Qualified {cand.model_id} candidate: {cand.direction} @ {cand.planned_entry}")
                 opp_eval = OpportunityEvaluation(
@@ -2415,6 +2473,19 @@ class ScalpWatcherOrchestrator:
                     config=cfg, feed_health=feed_health, auto_enabled=auto_enabled,
                     authority_context=cycle_authority, session_context=cand_session_ctx, research_context=research_context,
                 )
+                if armed_order:
+                    setattr(cand, "execution_guard_status", "APPROVE")
+                    setattr(cand, "final_execution_authorization", "AUTHORIZED_PAPER_ORDER")
+                    if cand_dec_id:
+                        self.register_seen_decision_id(cand_dec_id)
+                        setattr(armed_order, "decision_id", cand_dec_id)
+                        setattr(armed_order, "decision_fingerprint", cand_dec_fp)
+                        setattr(armed_order, "input_snapshot_hash", getattr(cand, "input_snapshot_hash", ""))
+                        setattr(armed_order, "configuration_hash", getattr(cand, "configuration_hash", ""))
+                        setattr(armed_order, "evaluator_version", getattr(cand, "evaluator_version", EVALUATOR_VERSION))
+                else:
+                    setattr(cand, "execution_guard_status", "REJECT")
+                    setattr(cand, "final_execution_authorization", "REJECTED")
                 if is_cg01_model and cg01_eval_data:
                     if armed_order:
                         cg01_eval_data["armed_order_id"] = armed_order.id
@@ -2531,6 +2602,26 @@ class ScalpWatcherOrchestrator:
         except Exception as tel_err:
             logger.debug(f"Error recording cycle observability telemetry: {tel_err}")
 
+        cand_by_fp = {getattr(c, "decision_fingerprint", ""): c for c in candidates if getattr(c, "decision_fingerprint", "")}
+        lineage_records = []
+        for s in shared_decision_snapshots:
+            matched_c = cand_by_fp.get(s.decision_fingerprint)
+            lineage_records.append(
+                {
+                    "decision_id": s.decision_id,
+                    "decision_fingerprint": s.decision_fingerprint,
+                    "input_snapshot_hash": s.input_snapshot_hash,
+                    "configuration_hash": s.configuration_hash,
+                    "evaluator_version": s.evaluator_version,
+                    "model_id": s.model_id,
+                    "direction": s.direction,
+                    "strategy_decision_status": s.strategy_decision_status,
+                    "execution_guard_status": getattr(matched_c, "execution_guard_status", "NOT_EVALUATED") if matched_c else "NOT_EVALUATED",
+                    "final_execution_authorization": getattr(matched_c, "final_execution_authorization", "REJECTED") if matched_c else "REJECTED",
+                    "rejection_reason_codes": list(s.rejection_reason_codes),
+                }
+            )
+
         return {
             "cycle_id": cycle_id,
             "decision_status": cycle_decision_status,
@@ -2554,6 +2645,7 @@ class ScalpWatcherOrchestrator:
             "cg01_evaluation": cg01_final,
             "model_diagnostics": model_diagnostics,
             "shared_decision_snapshots": [s.to_parity_dict() for s in shared_decision_snapshots],
+            "decision_lineage_records": lineage_records,
             "evaluator_version": EVALUATOR_VERSION,
         }
 

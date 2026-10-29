@@ -202,7 +202,7 @@ def test_v17_9_0_1_canonical_decision_result_and_evaluate_decision() -> None:
         },
     )
     assert isinstance(res, DecisionResult)
-    assert res.evaluator_version == EVALUATOR_VERSION == "17.9.0.1"
+    assert res.evaluator_version == EVALUATOR_VERSION == "17.9.0.1.1"
     assert res.decision_id.startswith("dec_SMC_M1_FVG_CONTINUATION_XAUUSDT_")
     assert res.evaluation_timestamp == series["decision_ms"]
     assert res.effective_direction in ("LONG", "SHORT", "NO_TRADE")
@@ -690,3 +690,403 @@ def test_v17_9_0_1_async_orchestrator_and_disk_guard(tmp_path: Path) -> None:
     rep = guard.build_disk_budget_report()
     assert rep["status"] == "PASS"
     assert rep["final_temporary_bytes"] == 0
+
+
+def test_v17_9_0_1_1_negative_tests_a_through_g_production_authority(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    V17.9.0.1.1 Section 3 & Section 15 (Fault Injection #1-#7):
+    Proves that `SharedStrategyEvaluator.evaluate_decision(...)` is the sole pre-execution
+    strategy decision authority in Production (`ScalpWatcherOrchestrator` & `evaluate_production_*`),
+    and that legacy `ScalpM1ModelService.evaluate_m1_*_candidate` / `evaluate_cg01_candidate`
+    can NEVER override canonical `NO_TRADE`, `REJECTED`, direction, SL/TP, or missing lineage.
+    """
+    from services.scalp_m1_model_service import ScalpCandidate, ScalpM1ModelService
+    from services.scalp_m1_types import M1ScalpConfig, WatchedZone
+    from services.stop_placement_types import StopPlacementPolicy
+
+    series = _make_synthetic_candle_series(base_open_ms=1_761_696_000_000, direction="LONG")
+    decision_ms = series["decision_ms"]
+    ctx = build_market_decision_context(
+        symbol="XAUUSDT",
+        decision_timestamp_ms=decision_ms,
+        m1_candles=series["m1_candles"],
+        m5_candles=series["m5_candles"],
+        m15_candles=series["m15_candles"],
+        h1_candles=series["h1_candles"],
+        h4_candles=series["h4_candles"],
+        bid=series["bid"],
+        ask=series["ask"],
+    )
+    zone = WatchedZone(
+        zone_id="z_test_auth",
+        symbol="XAUUSDT",
+        timeframe="15M",
+        zone_type="OB",
+        direction="BULLISH",
+        top=2642.0,
+        bottom=2640.0,
+        created_at=decision_ms - 900_000,
+        known_at=decision_ms - 300_000,
+    )
+    quote = CanonicalQuote(
+        symbol="XAUUSDT",
+        last=series["bid"],
+        bid=series["bid"],
+        ask=series["ask"],
+        mark_price=series["bid"],
+        spread=round(series["ask"] - series["bid"], 4),
+        exchange_ts_ms=decision_ms - 100,
+        received_at_ms=decision_ms - 50,
+        status="VALID",
+    )
+    cfg = M1ScalpConfig()
+    stop_pol = StopPlacementPolicy()
+    pol_settings = {"capital_usdt": 1000.0, "risk_pct": 0.25, "leverage": 20, "margin_mode": "ISOLATED", "min_net_rr": 1.2}
+
+    base_snap = SharedStrategyEvaluator.evaluate_model_direction(
+        context=ctx,
+        model_id=ModelIdentifier.SMC_M1_REVERSAL.value,
+        direction="LONG",
+        adapter_origin="PRODUCTION_ORCHESTRATOR",
+    )
+
+    # Helper creating a rogue legacy candidate claiming is_eligible=True
+    def _make_rogue_candidate(direction: str = "LONG") -> ScalpCandidate:
+        return ScalpCandidate(
+            symbol="XAUUSDT",
+            model_id=ModelIdentifier.SMC_M1_REVERSAL.value,
+            direction=direction,
+            zone_id="z_test_auth",
+            planned_entry=2645.0,
+            stop_loss=2642.0 if direction == "LONG" else 2648.0,
+            take_profit=2652.0 if direction == "LONG" else 2638.0,
+            gross_rr=2.3,
+            net_rr=2.1,
+            is_eligible=True,
+            reason_code="ELIGIBLE",
+            calculation=None,
+            as_of_ms=decision_ms,
+            candidate_key=f"rogue_{direction}_{decision_ms}",
+        )
+
+    # Negative Test A (Fault Injection #1): Canonical returns NO_TRADE while legacy helper returns LONG
+    snap_no_trade = dataclasses.replace(
+        base_snap,
+        decision_status=DecisionStatus.NO_TRADE.value,
+        rejection_reason_codes=("CANONICAL_NO_TRADE",),
+        production_candidate_payload=_make_rogue_candidate("LONG"),
+    )
+    monkeypatch.setattr(SharedStrategyEvaluator, "evaluate_decision", classmethod(lambda cls, **kw: snap_no_trade))
+    cand_a, res_a = SharedStrategyEvaluator.evaluate_production_reversal_candidate(
+        context=ctx,
+        zone=zone,
+        candles_1m=series["m1_candles"],
+        quote=quote,
+        policy_settings=pol_settings,
+        now_ms=decision_ms,
+        config=cfg,
+        context_levels=[],
+        stop_policy=stop_pol,
+        stop_context={},
+    )
+    assert cand_a.is_eligible is False
+    assert getattr(cand_a, "strategy_decision_status", None) == "REJECT"
+    assert res_a.decision_status == DecisionStatus.NO_TRADE.value
+
+    # Negative Test B (Fault Injection #2): Canonical returns REJECTED while legacy helper returns SHORT
+    snap_rejected = dataclasses.replace(
+        base_snap,
+        direction="SHORT",
+        decision_status=DecisionStatus.REJECTED.value,
+        rejection_reason_codes=("CANONICAL_RISK_REJECTED",),
+        production_candidate_payload=_make_rogue_candidate("SHORT"),
+    )
+    monkeypatch.setattr(SharedStrategyEvaluator, "evaluate_decision", classmethod(lambda cls, **kw: snap_rejected))
+    cand_b, res_b = SharedStrategyEvaluator.evaluate_production_fvg_continuation_candidate(
+        context=ctx,
+        closed_1m=series["m1_candles"],
+        closed_5m=series["m5_candles"],
+        quote=quote,
+        htf_bias="BEARISH",
+        h1_alignment="BEARISH",
+        policy_settings=pol_settings,
+        now_ms=decision_ms,
+        config=cfg,
+        context_levels=[],
+        stop_policy=stop_pol,
+        stop_context={},
+    )
+    assert cand_b.is_eligible is False
+    assert "CANONICAL_RISK_REJECTED" in cand_b.reason_code
+
+    # Negative Test C (Fault Injection #3): Canonical says SHORT, expected/candidate says LONG -> direction mismatch
+    snap_dir_mismatch = dataclasses.replace(
+        base_snap,
+        direction="SHORT",
+        decision_status=DecisionStatus.ELIGIBLE.value,
+        entry_reference=2645.0,
+        selected_sl=2648.0,
+        take_profit=2638.0,
+        net_rr=2.2,
+        rejection_reason_codes=(),
+        production_candidate_payload=_make_rogue_candidate("LONG"),
+    )
+    cand_c, _ = SharedStrategyEvaluator.enforce_canonical_decision_authority_on_candidate(
+        snap=snap_dir_mismatch,
+        context=ctx,
+        model_id=ModelIdentifier.SMC_M1_REVERSAL.value,
+        expected_direction="LONG",
+        policy_settings=pol_settings,
+        config=cfg,
+        now_ms=decision_ms,
+        zone=zone,
+        strict_direction_match=True,
+    )
+    assert cand_c.is_eligible is False
+    assert cand_c.reason_code == "CANONICAL_DIRECTION_MISMATCH_REJECTED"
+
+    # Negative Test D (Fault Injection #4): Missing decision_id or decision_fingerprint -> fail closed
+    snap_missing_fp = dataclasses.replace(
+        base_snap,
+        decision_status=DecisionStatus.ELIGIBLE.value,
+        decision_fingerprint="",
+        custom_decision_id="",
+        production_candidate_payload=_make_rogue_candidate("LONG"),
+    )
+    cand_d, _ = SharedStrategyEvaluator.enforce_canonical_decision_authority_on_candidate(
+        snap=snap_missing_fp,
+        context=ctx,
+        model_id=ModelIdentifier.SMC_M1_REVERSAL.value,
+        expected_direction="LONG",
+        policy_settings=pol_settings,
+        config=cfg,
+        now_ms=decision_ms,
+        zone=zone,
+    )
+    assert cand_d.is_eligible is False
+    assert cand_d.reason_code == "CANONICAL_DECISION_LINEAGE_MISSING"
+
+    # Negative Test E (Fault Injection #5): Invalid SL/TP geometry (SL >= entry for LONG) -> fail closed
+    snap_bad_geom = dataclasses.replace(
+        base_snap,
+        direction="LONG",
+        decision_status=DecisionStatus.ELIGIBLE.value,
+        entry_reference=2645.0,
+        selected_sl=2646.5,  # Invalid for LONG: SL >= entry!
+        take_profit=2652.0,
+        net_rr=2.0,
+        rejection_reason_codes=(),
+        production_candidate_payload=_make_rogue_candidate("LONG"),
+    )
+    cand_e, _ = SharedStrategyEvaluator.enforce_canonical_decision_authority_on_candidate(
+        snap=snap_bad_geom,
+        context=ctx,
+        model_id=ModelIdentifier.SMC_M1_REVERSAL.value,
+        expected_direction="LONG",
+        policy_settings=pol_settings,
+        config=cfg,
+        now_ms=decision_ms,
+        zone=zone,
+    )
+    assert cand_e.is_eligible is False
+    assert cand_e.reason_code == "CANONICAL_SL_TP_GEOMETRY_REJECTED"
+
+    # Negative Test F (Fault Injection #6): Duplicate decision_id replay into orchestrator -> blocked
+    orch = ScalpWatcherOrchestrator()
+    dup_id = "dec_SMC_M1_REVERSAL_XAUUSDT_LONG_1761697800000_abcdef123456"
+    assert orch.register_seen_decision_id(dup_id) is True
+    assert orch.register_seen_decision_id(dup_id) is False  # Second registration blocked!
+
+    # Negative Test G (Fault Injection #7): Canonical evaluator raises exception -> fail closed
+    def _raise_boom(cls, **kw):
+        raise RuntimeError("Injected canonical evaluator failure")
+
+    monkeypatch.setattr(SharedStrategyEvaluator, "evaluate_decision", classmethod(_raise_boom))
+    cand_g, res_g = SharedStrategyEvaluator.evaluate_production_continuation_candidate(
+        context=ctx,
+        candles_1m=series["m1_candles"],
+        candles_5m=series["m5_candles"],
+        quote=quote,
+        htf_bias="BULLISH",
+        h1_alignment="BULLISH",
+        policy_settings=pol_settings,
+        now_ms=decision_ms,
+        config=cfg,
+        stop_policy=stop_pol,
+        stop_context={},
+    )
+    assert cand_g.is_eligible is False
+    assert res_g.decision_status == DecisionStatus.REJECTED.value
+    assert "CANONICAL_EVALUATOR_EXCEPTION:RuntimeError" in res_g.rejection_reason_codes[0]
+
+
+def test_v17_9_0_1_1_shadow_authority_and_backtest_fail_closed_and_gate_provenance(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """
+    V17.9.0.1.1 Sections 4, 5, 6, 8 & 15 (Fault Injection #18, #19):
+    - Verifies `MarketShadowService` distinguishes `INPUT_MISMATCH` vs `EXACT_MATCH` vs `DECISION_DIVERGENCE`.
+    - Verifies `v17_8_backtest_runner.evaluate_and_simulate_variants_on_opportunities` rejects non-executable
+      canonical decisions (`NO_TRADE`, `REJECTED`, missing lineage) and exposes `authoritative_production_parity_simulation`.
+    - Verifies `verify_gate_provenance_integrity` fails closed (`INVALID_EVIDENCE` / `BLOCKED`) when any gate has
+      a stale `tested_source_sha != final_code_sha`.
+    - Verifies 5-way baseline parity and LF byte-exact checksum matching on disk.
+    """
+    from services.v17_8_backtest_runner import evaluate_and_simulate_variants_on_opportunities
+    from tools.acceptance_verdict import verify_gate_provenance_integrity
+
+    series = _make_synthetic_candle_series(base_open_ms=1_761_696_000_000, direction="LONG")
+    ctx = build_market_decision_context(
+        symbol="XAUUSDT",
+        decision_timestamp_ms=series["decision_ms"],
+        m1_candles=series["m1_candles"],
+        m5_candles=series["m5_candles"],
+        m15_candles=series["m15_candles"],
+        h1_candles=series["h1_candles"],
+        h4_candles=series["h4_candles"],
+        bid=series["bid"],
+        ask=series["ask"],
+    )
+    snap_prod = SharedStrategyEvaluator.evaluate_model_direction(
+        context=ctx,
+        model_id=ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+        direction="LONG",
+        adapter_origin="PRODUCTION_ORCHESTRATOR",
+    )
+    snap_shad = SharedStrategyEvaluator.evaluate_model_direction(
+        context=ctx,
+        model_id=ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+        direction="LONG",
+        adapter_origin="MARKET_SHADOW_ADAPTER",
+    )
+
+    shadow_svc = MarketShadowService()
+    # 1. Exact match on identical input & config hashes
+    cmp_exact = shadow_svc.compare_production_shadow_divergence(snap_prod, snap_shad)
+    assert cmp_exact["comparison_status"] == "EXACT_MATCH"
+    assert cmp_exact["is_match"] is True
+    assert cmp_exact["input_mismatch"] is False
+
+    # 2. Input mismatch when input_snapshot_hash differs
+    snap_diff_in = dataclasses.replace(snap_shad, evidence_fingerprint="0" * 64)
+    cmp_in_mis = shadow_svc.compare_production_shadow_divergence(snap_prod, snap_diff_in)
+    assert cmp_in_mis["comparison_status"] == "INPUT_MISMATCH"
+    assert cmp_in_mis["input_mismatch"] is True
+    assert cmp_in_mis["is_match"] is False
+
+    # 3. Decision divergence when inputs match but SL/TP differs
+    snap_div = dataclasses.replace(snap_shad, selected_sl=1999.0, decision_fingerprint="f" * 64)
+    cmp_div = shadow_svc.compare_production_shadow_divergence(snap_prod, snap_div)
+    assert cmp_div["comparison_status"] == "DECISION_DIVERGENCE"
+    assert cmp_div["input_mismatch"] is False
+    assert cmp_div["is_divergent"] is True
+
+    # 4. Backtest fail-closed on non-executable canonical decision status
+    rogue_opp = {
+        "opportunity_id": "bt_rogue_01",
+        "symbol": "XAUUSDT",
+        "model_id": ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+        "direction": "LONG",
+        "decision_ms": series["decision_ms"],
+        "decision_id": "dec_rogue_01",
+        "decision_fingerprint": "a" * 64,
+        "canonical_decision_status": DecisionStatus.NO_TRADE.value,
+    }
+    sim_res = evaluate_and_simulate_variants_on_opportunities(
+        opportunities=[rogue_opp],
+        early_rejections=[],
+    )
+    assert "authoritative_production_parity_simulation" in sim_res
+    assert sim_res["authoritative_production_parity_simulation"]["simulated_trades"] == 0
+    assert any(
+        r.get("reason_code") == DecisionStatus.NO_TRADE.value
+        for r in sim_res["authoritative_production_parity_rejections"]
+    )
+
+    # 5. Fault Injection #18: Stale tested_source_sha on any gate -> INVALID_EVIDENCE / BLOCKED
+    gates_stale = {
+        "G01_BRANCH_INTEGRITY": {
+            "status": "PASS",
+            "exit_code": 0,
+            "tested_source_sha": "old_commit_sha_111111",
+        }
+    }
+    prov_check = verify_gate_provenance_integrity(
+        gates_stale,
+        final_code_sha="new_commit_sha_222222",
+        mandatory_gate_manifest=["G01_BRANCH_INTEGRITY"],
+    )
+    assert prov_check["is_valid"] is False
+    assert prov_check["status"] == "INVALID_EVIDENCE"
+    assert "G01_BRANCH_INTEGRITY" in prov_check["stale_gates"]
+    assert (
+        determine_v17_9_0_1_top_level_verdict(
+            gates_stale,
+            ["G01_BRANCH_INTEGRITY"],
+            expected_source_sha="new_commit_sha_222222",
+        )
+        == "BLOCKED"
+    )
+
+    # 6. Fault Injection #19 & Section 6: 5-way baseline parity & LF byte-exact checksum verification
+    orch_inst = ScalpWatcherOrchestrator()
+    five_way = {
+        "shared_strategy_evaluator": lambda c, m, d: SharedStrategyEvaluator.evaluate_decision(
+            market_snapshot=c,
+            structural_context={"model_id": m, "direction": d, "adapter_origin": "SHARED_EVALUATOR"},
+        ).to_parity_dict(),
+        "production_runtime": lambda c, m, d: orch_inst.evaluate_shared_decision_snapshot(
+            context=c, model_id=m, direction=d
+        ).to_parity_dict(),
+        "market_shadow_runtime": lambda c, m, d: shadow_svc.evaluate_shared_decision_snapshot(
+            context=c, model_id=m, direction=d
+        ).to_parity_dict(),
+        "backtest_runtime": lambda c, m, d: evaluate_production_parity_model_snapshot(
+            context=c, model_id=m, direction=d
+        )["shared_decision_snapshot"],
+    }
+    phase_b_out = generate_phase_b_baseline_artifacts(
+        context_builder_fn=build_market_decision_context,
+        refactored_evaluator_fn=five_way["shared_strategy_evaluator"],
+        five_way_evaluators=five_way,
+        output_dirs=[tmp_path],
+    )
+    assert phase_b_out["manifest"]["five_way_parity_matches"] == 55
+    import hashlib
+    disk_bytes = (tmp_path / "BASELINE_DECISIONS.jsonl").read_bytes()
+    assert b"\r\n" not in disk_bytes
+    assert hashlib.sha256(disk_bytes).hexdigest() == phase_b_out["manifest"]["baseline_decisions_sha256"]
+
+    # 7. Fault Injection #16 & Section 7: Genuine Cross-Runtime Parity Computation (FAIL on empty or divergent)
+    from tools.generate_v17_9_0_1_artifacts import compute_cross_runtime_parity_report
+    parity_empty = compute_cross_runtime_parity_report(
+        final_code_sha="test_sha",
+        phase_b_manifest=phase_b_out["manifest"],
+        scenarios=[],
+        injected_records=[],
+    )
+    assert parity_empty["status"] == "FAIL"
+    assert parity_empty["compared_records_count"] == 0
+
+    parity_div = compute_cross_runtime_parity_report(
+        final_code_sha="test_sha",
+        phase_b_manifest=phase_b_out["manifest"],
+        scenarios=[],
+        injected_records=[
+            {
+                "scenario_id": "FAULT_INJECT_16",
+                "model_id": ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+                "production_snapshot": snap_prod.to_parity_dict(),
+                "shadow_snapshot": snap_div.to_parity_dict(),
+                "backtest_snapshot": snap_prod.to_parity_dict(),
+            }
+        ],
+    )
+    assert parity_div["status"] == "FAIL"
+    assert parity_div["production_vs_shadow_divergences"] == 1
+    assert len(parity_div["divergences"]) >= 1
+
+

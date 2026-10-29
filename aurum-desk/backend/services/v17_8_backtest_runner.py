@@ -192,11 +192,12 @@ def evaluate_production_parity_model_snapshot(
     *,
     symbol: str = "XAUUSDT",
     model_id: str,
-    closed_1m: Sequence[Any],
-    closed_5m: Sequence[Any],
-    closed_15m: Sequence[Any],
-    quote: CanonicalQuote,
-    as_of_ms: int,
+    closed_1m: Sequence[Any] = (),
+    closed_5m: Sequence[Any] = (),
+    closed_15m: Sequence[Any] = (),
+    quote: Optional[CanonicalQuote] = None,
+    as_of_ms: int = 0,
+    context: Optional[Any] = None,
     stop_policy: Optional[StopPlacementPolicy] = None,
     cfg: Optional[M1ScalpConfig] = None,
     direction: Optional[str] = None,
@@ -220,32 +221,37 @@ def evaluate_production_parity_model_snapshot(
     )
 
     eff_cfg = cfg or get_scalp_config()
-    enablement = {
-        ModelIdentifier.SMC_M1_FVG_CONTINUATION.value: bool(getattr(cfg, "fvg_continuation_enabled", True)) if cfg is not None else True,
-        ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value: bool(getattr(cfg, "sweep_reclaim_enabled", True)) if cfg is not None else True,
-        ModelIdentifier.CG01_SWEEP_MSS_FVG.value: bool(getattr(cfg, "cg01_enabled", True)) if cfg is not None else True,
-        ModelIdentifier.SMC_M1_CONTINUATION.value: True,
-        ModelIdentifier.SMC_M1_REVERSAL.value: True,
-    }
-    ctx = build_market_decision_context(
-        symbol=symbol,
-        decision_timestamp_ms=as_of_ms,
-        m1_candles=closed_1m,
-        m5_candles=closed_5m,
-        m15_candles=closed_15m,
-        h1_candles=closed_1h,
-        h4_candles=closed_4h,
-        d1_candles=closed_1d,
-        bid=quote.bid if quote is not None else None,
-        ask=quote.ask if quote is not None else None,
-        quote_timestamp_ms=(quote.exchange_ts_ms or quote.received_at_ms) if quote is not None else as_of_ms,
-        model_enablement=enablement,
-        policy_config={"min_net_rr": eff_cfg.min_net_rr, "tick_size": eff_cfg.tick_size},
-        risk_config={"min_net_rr": eff_cfg.min_net_rr},
-        htf_bias=htf_bias,
-        h1_alignment=h1_alignment,
-        strict_htf_validation=strict_htf_validation,
-    )
+    if context is not None:
+        ctx = context
+        symbol = getattr(ctx, "symbol", symbol)
+        as_of_ms = int(getattr(ctx, "decision_timestamp_ms", as_of_ms))
+    else:
+        enablement = {
+            ModelIdentifier.SMC_M1_FVG_CONTINUATION.value: bool(getattr(cfg, "fvg_continuation_enabled", True)) if cfg is not None else True,
+            ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value: bool(getattr(cfg, "sweep_reclaim_enabled", True)) if cfg is not None else True,
+            ModelIdentifier.CG01_SWEEP_MSS_FVG.value: bool(getattr(cfg, "cg01_enabled", True)) if cfg is not None else True,
+            ModelIdentifier.SMC_M1_CONTINUATION.value: True,
+            ModelIdentifier.SMC_M1_REVERSAL.value: True,
+        }
+        ctx = build_market_decision_context(
+            symbol=symbol,
+            decision_timestamp_ms=as_of_ms,
+            m1_candles=closed_1m,
+            m5_candles=closed_5m,
+            m15_candles=closed_15m,
+            h1_candles=closed_1h,
+            h4_candles=closed_4h,
+            d1_candles=closed_1d,
+            bid=quote.bid if quote is not None else None,
+            ask=quote.ask if quote is not None else None,
+            quote_timestamp_ms=(quote.exchange_ts_ms or quote.received_at_ms) if quote is not None else as_of_ms,
+            model_enablement=enablement,
+            policy_config={"min_net_rr": eff_cfg.min_net_rr, "tick_size": eff_cfg.tick_size},
+            risk_config={"min_net_rr": eff_cfg.min_net_rr},
+            htf_bias=htf_bias,
+            h1_alignment=h1_alignment,
+            strict_htf_validation=strict_htf_validation,
+        )
     if direction in ("LONG", "SHORT"):
         snap = SharedStrategyEvaluator.evaluate_model_direction(
             context=ctx,
@@ -812,6 +818,7 @@ def _extract_historical_opportunities_chronologically(
     """
     from services.shared_strategy_evaluator import (
         SharedStrategyEvaluator,
+        StrategyDecisionSnapshot,
         build_market_decision_context,
     )
 
@@ -1309,6 +1316,7 @@ def _extract_historical_opportunities_chronologically(
             bid=round(c_close - half_spread, 2),
             ask=round(c_close + half_spread, 2),
             quote_timestamp_ms=decision_ms,
+            liquidity_pools=liq_levels,
             policy_config={"min_net_rr": cfg.min_net_rr, "tick_size": cfg.tick_size},
             risk_config={"min_net_rr": cfg.min_net_rr},
         )
@@ -1323,94 +1331,97 @@ def _extract_historical_opportunities_chronologically(
             direction = cand_setup["direction"]
             entry_price = round(c_close + half_spread, 2) if direction == "LONG" else round(c_close - half_spread, 2)
             legacy_sl = float(cand_setup["legacy_sl"])
-
-            # V17.9.0.1 Canonical SharedStrategyEvaluator invocation in Backtest runtime loop
-            shared_bt_snap = SharedStrategyEvaluator.evaluate_model_direction(
-                context=bt_shared_ctx,
-                model_id=model_id,
-                direction=direction,
-                adapter_origin="HISTORICAL_BACKTEST_ADAPTER",
-            )
-
             if direction == "LONG" and legacy_sl >= entry_price:
                 legacy_sl = round(min(c_low, entry_price) - max(0.15, 0.5 * atr_m1_val), 2)
             elif direction == "SHORT" and legacy_sl <= entry_price:
                 legacy_sl = round(max(c_high, entry_price) + max(0.15, 0.5 * atr_m1_val), 2)
 
-            # Section 6: Strict causal Unicorn binding (`strict_causal_binding=True`)
-            unicorn_ev = detect_unicorn_evidence(
-                symbol=symbol,
-                direction=direction,
-                closed_bars=window_1m,
-                as_of_ms=decision_ms,
-                selected_fvg=cand_setup["selected_fvg"],
-                selected_break=cand_setup["selected_break"],
-                selected_reference=cand_setup["selected_reference"],
-                confirmed_swings=(sh_1m, sl_1m),
-                tick_size=cfg.tick_size,
-                strict_causal_binding=True,
-            )
-            unicorn_valid = bool(
-                unicorn_ev.is_valid
-                and unicorn_ev.invalidation_price is not None
-                and (
-                    (direction == "LONG" and float(unicorn_ev.invalidation_price) < entry_price)
-                    or (direction == "SHORT" and float(unicorn_ev.invalidation_price) > entry_price)
+            causal_override = {
+                "has_setup": True,
+                "direction": direction,
+                "legacy_sl": legacy_sl,
+                "episode_id": ep_key,
+                "selected_fvg": cand_setup["selected_fvg"],
+                "selected_break": cand_setup["selected_break"],
+                "selected_sweep": cand_setup["selected_sweep"],
+                "selected_reference": cand_setup["selected_reference"],
+            }
+
+            # V17.9.0.1.1 Section 5: Canonical SharedStrategyEvaluator.evaluate_decision is the sole authority
+            try:
+                shared_bt_snap = SharedStrategyEvaluator.evaluate_decision(
+                    market_snapshot=bt_shared_ctx,
+                    structural_context={
+                        "model_id": model_id,
+                        "direction": direction,
+                        "_causal_setup_override": causal_override,
+                    },
+                    strategy_config={
+                        "model_id": model_id,
+                        "direction": direction,
+                        "adapter_origin": "HISTORICAL_BACKTEST_ADAPTER",
+                    },
+                    evaluation_time=decision_ms,
                 )
-            )
-            unicorn_inval_px = float(unicorn_ev.invalidation_price) if unicorn_valid else None
-
-            # Authoritative structural stop anchor resolution (`resolve_stop_anchor`)
-            anchor_res = resolve_stop_anchor(
-                model_id=model_id,
-                direction=direction,
-                closed_bars=window_1m,
-                as_of_ms=decision_ms,
-                selected_break=cand_setup["selected_break"],
-                selected_fvg=cand_setup["selected_fvg"],
-                selected_sweep=cand_setup["selected_sweep"],
-                confirmed_swings=(sh_1m, sl_1m),
-                tick_size=cfg.tick_size,
-                unicorn_evidence=None,  # Variant B structural anchor without Unicorn override
-                policy=stop_pol,
-            )
-            if anchor_res.anchor is not None:
-                struct_anchor_px = float(anchor_res.anchor.price)
-                struct_anchor_kind = str(anchor_res.anchor.kind)
-            else:
-                if direction == "LONG":
-                    protective_pivots = [p for p in sl_1m if float(p["price"]) < entry_price]
-                    struct_anchor_px = float(protective_pivots[-1]["price"]) if protective_pivots else round(c_low - 0.2 * atr_m1_val, 2)
-                    struct_anchor_kind = "PROTECTED_LEG_LOW"
-                else:
-                    protective_pivots = [p for p in sh_1m if float(p["price"]) > entry_price]
-                    struct_anchor_px = float(protective_pivots[-1]["price"]) if protective_pivots else round(c_high + 0.2 * atr_m1_val, 2)
-                    struct_anchor_kind = "PROTECTED_LEG_HIGH"
-
-            target_dec = resolve_executable_target(
-                liq_levels,
-                direction,
-                entry_price,
-                as_of_ms=decision_ms,
-                atr=atr_m1_val,
-                model_id=model_id,
-            )
-            has_valid_target = bool(
-                target_dec.status == "CONFIRMED"
-                and target_dec.price is not None
-                and ((direction == "LONG" and target_dec.price > entry_price) or (direction == "SHORT" and target_dec.price < entry_price))
-            )
-            if not has_valid_target or target_dec.price is None:
+            except Exception as exc:
                 early_rejections.append(
                     {
                         "opportunity_id": f"bt_opp_{symbol}_{model_id}_{direction}_{decision_ms}",
                         "decision_ms": decision_ms,
                         "direction": direction,
                         "model_id": model_id,
-                        "unicorn_qualified": unicorn_valid,
-                        "stage": "TARGET_RESOLUTION",
-                        "reason_code": "SHADOW_REJECTED_NO_VALID_TARGET",
+                        "unicorn_qualified": False,
+                        "stage": "CANONICAL_EVALUATOR",
+                        "reason_code": f"CANONICAL_EVALUATOR_EXCEPTION:{type(exc).__name__}",
+                    }
+                )
+                continue
+
+            if (
+                shared_bt_snap is None
+                or not isinstance(shared_bt_snap, StrategyDecisionSnapshot)
+                or not shared_bt_snap.decision_id
+                or not shared_bt_snap.decision_fingerprint
+            ):
+                early_rejections.append(
+                    {
+                        "opportunity_id": f"bt_opp_{symbol}_{model_id}_{direction}_{decision_ms}",
+                        "decision_ms": decision_ms,
+                        "direction": direction,
+                        "model_id": model_id,
+                        "unicorn_qualified": False,
+                        "stage": "CANONICAL_LINEAGE_CHECK",
+                        "reason_code": "CANONICAL_DECISION_LINEAGE_MISSING",
+                    }
+                )
+                continue
+
+            if (
+                shared_bt_snap.setup_validity != "VALID"
+                or shared_bt_snap.decision_status in (
+                    "NO_TRADE",
+                    "REJECTED",
+                    "NO_VALID_SETUP",
+                    "WAITING_CONFIRMATION",
+                    "MODEL_DISABLED",
+                    "MISSING_MARKET_DATA",
+                )
+            ):
+                early_rejections.append(
+                    {
+                        "opportunity_id": f"bt_opp_{symbol}_{model_id}_{direction}_{decision_ms}",
+                        "decision_ms": decision_ms,
+                        "direction": shared_bt_snap.direction or direction,
+                        "model_id": model_id,
+                        "unicorn_qualified": bool(shared_bt_snap.unicorn_validity == "VALID_UNICORN"),
+                        "stage": "CANONICAL_DECISION_GATE",
+                        "reason_code": (
+                            shared_bt_snap.rejection_reason_codes[0]
+                            if shared_bt_snap.rejection_reason_codes
+                            else shared_bt_snap.decision_status
+                        ),
                         "shared_decision_snapshot": shared_bt_snap.to_parity_dict(),
+                        "decision_id": shared_bt_snap.decision_id,
                         "decision_fingerprint": shared_bt_snap.decision_fingerprint,
                         "evidence_fingerprint": shared_bt_snap.evidence_fingerprint,
                         "policy_fingerprint": shared_bt_snap.policy_fingerprint,
@@ -1422,7 +1433,114 @@ def _extract_historical_opportunities_chronologically(
                 )
                 continue
 
-            tp_price = round(float(target_dec.price), 2)
+            direction = shared_bt_snap.direction
+            entry_price = float(shared_bt_snap.entry_reference or entry_price)
+            legacy_sl = float(shared_bt_snap.legacy_sl if shared_bt_snap.legacy_sl is not None else legacy_sl)
+            unicorn_dict = shared_bt_snap.unicorn_evidence_dict or {}
+            unicorn_inval_raw = unicorn_dict.get("invalidation_price")
+            unicorn_valid = bool(
+                shared_bt_snap.unicorn_validity == "VALID_UNICORN"
+                and unicorn_inval_raw is not None
+                and (
+                    (direction == "LONG" and float(unicorn_inval_raw) < entry_price)
+                    or (direction == "SHORT" and float(unicorn_inval_raw) > entry_price)
+                )
+            )
+            unicorn_inval_px = float(unicorn_inval_raw) if unicorn_valid else None
+
+            # Variant B baseline structural anchor (without Unicorn override) for SL Variant Comparison Research
+            anchor_res_b = resolve_stop_anchor(
+                model_id=model_id,
+                direction=direction,
+                closed_bars=window_1m,
+                as_of_ms=decision_ms,
+                selected_break=cand_setup["selected_break"],
+                selected_fvg=cand_setup["selected_fvg"],
+                selected_sweep=cand_setup["selected_sweep"],
+                confirmed_swings=(sh_1m, sl_1m),
+                tick_size=cfg.tick_size,
+                unicorn_evidence=None,
+                policy=stop_pol,
+            )
+            if anchor_res_b.anchor is not None:
+                struct_anchor_px = float(anchor_res_b.anchor.price)
+                struct_anchor_kind = str(anchor_res_b.anchor.kind)
+            elif shared_bt_snap.structural_invalidation_price is not None:
+                struct_anchor_px = float(shared_bt_snap.structural_invalidation_price)
+                struct_anchor_kind = str(shared_bt_snap.anchor_kind or "STRUCTURAL_ANCHOR")
+            else:
+                if direction == "LONG":
+                    protective_pivots = [p for p in sl_1m if float(p["price"]) < entry_price]
+                    struct_anchor_px = float(protective_pivots[-1]["price"]) if protective_pivots else round(c_low - 0.2 * atr_m1_val, 2)
+                    struct_anchor_kind = "PROTECTED_LEG_LOW"
+                else:
+                    protective_pivots = [p for p in sh_1m if float(p["price"]) > entry_price]
+                    struct_anchor_px = float(protective_pivots[-1]["price"]) if protective_pivots else round(c_high + 0.2 * atr_m1_val, 2)
+                    struct_anchor_kind = "PROTECTED_LEG_HIGH"
+
+            has_valid_target = bool(
+                shared_bt_snap.take_profit is not None
+                and "SHADOW_REJECTED_NO_VALID_TARGET" not in shared_bt_snap.rejection_reason_codes
+                and (
+                    (direction == "LONG" and float(shared_bt_snap.take_profit) > entry_price)
+                    or (direction == "SHORT" and float(shared_bt_snap.take_profit) < entry_price)
+                )
+            )
+            if not has_valid_target or shared_bt_snap.take_profit is None:
+                early_rejections.append(
+                    {
+                        "opportunity_id": f"bt_opp_{symbol}_{model_id}_{direction}_{decision_ms}",
+                        "decision_ms": decision_ms,
+                        "direction": direction,
+                        "model_id": model_id,
+                        "unicorn_qualified": unicorn_valid,
+                        "stage": "TARGET_RESOLUTION",
+                        "reason_code": "SHADOW_REJECTED_NO_VALID_TARGET",
+                        "shared_decision_snapshot": shared_bt_snap.to_parity_dict(),
+                        "decision_id": shared_bt_snap.decision_id,
+                        "decision_fingerprint": shared_bt_snap.decision_fingerprint,
+                        "evidence_fingerprint": shared_bt_snap.evidence_fingerprint,
+                        "policy_fingerprint": shared_bt_snap.policy_fingerprint,
+                        "input_snapshot_hash": shared_bt_snap.input_snapshot_hash,
+                        "configuration_hash": shared_bt_snap.configuration_hash,
+                        "evaluator_version": shared_bt_snap.evaluator_version,
+                        "adapter_origin": shared_bt_snap.adapter_origin,
+                    }
+                )
+                continue
+
+            tp_price = round(float(shared_bt_snap.take_profit), 2)
+            canonical_sl = float(shared_bt_snap.selected_sl) if shared_bt_snap.selected_sl is not None else None
+            sl_geom_valid = bool(
+                canonical_sl is not None
+                and (
+                    (direction == "LONG" and canonical_sl < entry_price < tp_price)
+                    or (direction == "SHORT" and tp_price < entry_price < canonical_sl)
+                )
+            )
+            if not sl_geom_valid:
+                early_rejections.append(
+                    {
+                        "opportunity_id": f"bt_opp_{symbol}_{model_id}_{direction}_{decision_ms}",
+                        "decision_ms": decision_ms,
+                        "direction": direction,
+                        "model_id": model_id,
+                        "unicorn_qualified": unicorn_valid,
+                        "stage": "STOP_VALIDATION",
+                        "reason_code": "CANONICAL_SL_TP_GEOMETRY_REJECTED",
+                        "shared_decision_snapshot": shared_bt_snap.to_parity_dict(),
+                        "decision_id": shared_bt_snap.decision_id,
+                        "decision_fingerprint": shared_bt_snap.decision_fingerprint,
+                        "evidence_fingerprint": shared_bt_snap.evidence_fingerprint,
+                        "policy_fingerprint": shared_bt_snap.policy_fingerprint,
+                        "input_snapshot_hash": shared_bt_snap.input_snapshot_hash,
+                        "configuration_hash": shared_bt_snap.configuration_hash,
+                        "evaluator_version": shared_bt_snap.evaluator_version,
+                        "adapter_origin": shared_bt_snap.adapter_origin,
+                    }
+                )
+                continue
+
             forward_bars = m1_bars[i + 1 : min(len(m1_bars), i + 61)]
 
             noise_horizon = m1_bars[i + 1 : min(len(m1_bars), i + 6)]
@@ -1448,20 +1566,27 @@ def _extract_historical_opportunities_chronologically(
                     "session": _classify_session(decision_ms),
                     "entry_price": entry_price,
                     "take_profit": tp_price,
-                    "target_evidence_id": str(target_dec.source_level_id or f"tp_{decision_ms}"),
+                    "target_evidence_id": str(shared_bt_snap.selected_target_id or f"tp_{decision_ms}"),
                     "legacy_sl": legacy_sl,
+                    "selected_sl": canonical_sl,
                     "structural_anchor_price": struct_anchor_px,
                     "structural_anchor_kind": struct_anchor_kind,
                     "unicorn_invalidation_price": unicorn_inval_px,
                     "unicorn_valid": unicorn_valid,
-                    "unicorn_status": unicorn_ev.validity_status,
-                    "unicorn_id": unicorn_ev.unicorn_id,
-                    "unicorn_reason_codes": list(unicorn_ev.reason_codes),
+                    "unicorn_status": shared_bt_snap.unicorn_validity,
+                    "unicorn_id": unicorn_dict.get("unicorn_id"),
+                    "unicorn_reason_codes": list(unicorn_dict.get("reason_codes", ())),
                     "atr_m1": atr_m1_val,
                     "atr_m5": atr_m5_val,
                     "atr_provenance": atr_provenance,
                     "spread": spread_usd,
+                    "canonical_decision_status": shared_bt_snap.decision_status,
+                    "canonical_is_eligible": bool(shared_bt_snap.decision_status == "ELIGIBLE"),
+                    "canonical_quantity": float(shared_bt_snap.hypothetical_quantity or 0.0),
+                    "canonical_net_rr": float(shared_bt_snap.net_rr or 0.0),
+                    "canonical_rejection_reasons": list(shared_bt_snap.rejection_reason_codes),
                     "shared_decision_snapshot": shared_bt_snap.to_parity_dict(),
+                    "decision_id": shared_bt_snap.decision_id,
                     "decision_fingerprint": shared_bt_snap.decision_fingerprint,
                     "evidence_fingerprint": shared_bt_snap.evidence_fingerprint,
                     "policy_fingerprint": shared_bt_snap.policy_fingerprint,
@@ -1530,6 +1655,8 @@ def evaluate_and_simulate_variants_on_opportunities(
 
     variant_trades: Dict[str, List[Dict[str, Any]]] = {"A": [], "B": [], "C": [], "D": []}
     variant_rejections: Dict[str, List[Dict[str, Any]]] = {"A": [], "B": [], "C": [], "D": []}
+    authoritative_parity_trades: List[Dict[str, Any]] = []
+    authoritative_parity_rejections: List[Dict[str, Any]] = []
     all_trade_records: List[Dict[str, Any]] = []
     all_rejected_records: List[Dict[str, Any]] = list(early_rejections)
     variant_d_calibration_counts = {"EMPIRICAL_P90_QUANTILE": 0, "EXPERIMENTAL_FIXED_MULTIPLIER": 0}
@@ -1550,6 +1677,34 @@ def evaluate_and_simulate_variants_on_opportunities(
     for opp in opportunities:
         decision_ms = int(opp["decision_ms"])
         direction = opp["direction"]
+
+        # Section 5 (V17.9.0.1.1): Fail closed if canonical decision status is NO_TRADE / REJECTED or lineage is missing
+        canon_status = opp.get("canonical_decision_status")
+        has_shared_snap = "shared_decision_snapshot" in opp
+        if canon_status in (
+            "NO_TRADE",
+            "REJECTED",
+            "NO_VALID_SETUP",
+            "WAITING_CONFIRMATION",
+            "MODEL_DISABLED",
+            "MISSING_MARKET_DATA",
+        ) or (has_shared_snap and (not opp.get("decision_id") or not opp.get("decision_fingerprint"))):
+            rej_code = (
+                "CANONICAL_DECISION_LINEAGE_MISSING"
+                if (has_shared_snap and (not opp.get("decision_id") or not opp.get("decision_fingerprint")))
+                else str(canon_status or "CANONICAL_DECISION_REJECTED")
+            )
+            rej_rec = {
+                "opportunity_id": opp.get("opportunity_id", f"bt_opp_{decision_ms}"),
+                "variant_id": "CANONICAL_AUTHORITY",
+                "model_id": opp.get("production_model_id") or opp.get("model_id", "UNKNOWN"),
+                "decision_ms": decision_ms,
+                "direction": direction,
+                "reason_code": rej_code,
+            }
+            authoritative_parity_rejections.append(rej_rec)
+            all_rejected_records.append(rej_rec)
+            continue
         spread = float(spread_override if spread_override is not None else opp["spread"])
         half_spread = spread / 2.0
         atr_m1 = float(opp["atr_m1"]) * atr_multiplier_scale
@@ -1777,6 +1932,41 @@ def evaluate_and_simulate_variants_on_opportunities(
             }
         )
 
+        # Authoritative Production-Parity Simulation: executes ONLY when canonical DecisionResult is ELIGIBLE
+        canon_eligible = bool(opp.get("canonical_is_eligible", True))
+        canon_sl = float(opp.get("selected_sl") if opp.get("selected_sl") is not None else sl_c)
+        if canon_eligible and opp_variant_outcomes["C"]["eligible"] and opp_variant_outcomes["C"]["trade"] is not None:
+            c_trade = dict(opp_variant_outcomes["C"]["trade"])
+            c_trade["trade_id"] = f"tr_{opp['opportunity_id']}_CANONICAL_PARITY"
+            c_trade["variant_id"] = "CANONICAL_PRODUCTION_PARITY"
+            c_trade["stop_loss"] = canon_sl
+            c_trade["decision_id"] = opp.get("decision_id")
+            c_trade["decision_fingerprint"] = opp.get("decision_fingerprint")
+            authoritative_parity_trades.append(c_trade)
+        else:
+            canon_reasons = opp.get("canonical_rejection_reasons") or []
+            authoritative_parity_rejections.append(
+                {
+                    "opportunity_id": opp["opportunity_id"],
+                    "variant_id": "CANONICAL_PRODUCTION_PARITY",
+                    "model_id": opp.get("production_model_id") or opp["model_id"],
+                    "decision_ms": decision_ms,
+                    "direction": direction,
+                    "setup_category": opp["setup_category"],
+                    "entry_price": entry_px,
+                    "stop_loss": canon_sl,
+                    "take_profit": tp_px,
+                    "net_rr": float(opp.get("canonical_net_rr") or opp_variant_outcomes["C"]["net_rr"]),
+                    "reason_code": (
+                        canon_reasons[0]
+                        if canon_reasons
+                        else opp_variant_outcomes["C"]["reason_code"]
+                    ),
+                    "decision_id": opp.get("decision_id"),
+                    "decision_fingerprint": opp.get("decision_fingerprint"),
+                }
+            )
+
     # Identify matched cohorts where variants are independently eligible on the exact same opportunities
     matched_abcd_opp_ids = {
         r["opportunity_id"]
@@ -1824,7 +2014,29 @@ def evaluate_and_simulate_variants_on_opportunities(
         data_quality_status=data_quality_status,
     )
 
+    authoritative_parity_report = _aggregate_variant_report(
+        variant_id="C",
+        total_opportunities=len(opportunities) + len(early_rejections),
+        valid_setup_opportunities=len(opportunities),
+        trades=authoritative_parity_trades,
+        matched_cohort_trades=authoritative_parity_trades,
+        rejections=authoritative_parity_rejections,
+        early_rejections_count=len(early_rejections),
+        dataset_coverage=dataset_coverage_label,
+        data_quality_status=data_quality_status,
+        variant_d_calibration_counts=None,
+        atr_decision_counts=atr_decision_counts,
+    )
+    authoritative_parity_report["variant_id"] = "CANONICAL_PRODUCTION_PARITY"
+    authoritative_parity_report["variant_name"] = "Authoritative Production-Parity Simulation (SharedStrategyEvaluator)"
+    authoritative_parity_report["simulation_authority"] = "SharedStrategyEvaluator.evaluate_decision"
+    reconcile_variant_financial_metrics(authoritative_parity_report, authoritative_parity_trades)
+
     return {
+        "authoritative_production_parity_simulation": authoritative_parity_report,
+        "authoritative_production_parity_trades": authoritative_parity_trades,
+        "authoritative_production_parity_rejections": authoritative_parity_rejections,
+        "research_scope_variants_abcd": "SL_VARIANT_COMPARISON_RESEARCH_ABCD",
         "variants": variant_reports,
         "matched_cohort_analysis": matched_cohort_analysis,
         "trade_level_results": all_trade_records,
@@ -2597,6 +2809,8 @@ def execute_real_v17_8_backtest(
             "atr_missing_rejections": len(atr_rejections),
             "no_target_rejections": len(target_rejections),
         },
+        "authoritative_production_parity_simulation": full_eval.get("authoritative_production_parity_simulation"),
+        "research_scope_variants_abcd": full_eval.get("research_scope_variants_abcd", "SL_VARIANT_COMPARISON_RESEARCH_ABCD"),
         "experiment_1_matched_sl_only_comparison": full_eval["matched_cohort_analysis"],
         "experiment_2_entry_and_eligibility_filtering_attribution": entry_and_eligibility_filtering_attribution,
         "experiment_3_complete_strategy_comparison": variants,
