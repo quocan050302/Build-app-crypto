@@ -1,0 +1,10 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_0_3_market_shadow.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793292391842_33371/reports/g60_market_shadow_execution_forbidden.xml -k test_nc01_to_nc07_execution_and_operational_mutation_guards_in_market_shadow or test_nc08_to_nc13_worker_allowlist_boundaries
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 12
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls::test_nc01_to_nc07_execution_and_operational_mutation_guards_in_market_shadow (0.006s)
+PASSED backend.tests.test_v17_8_0_3_market_shadow.TestMarketShadowRuntimeAndNegativeControls::test_nc08_to_nc13_worker_allowlist_boundaries (0.006s)
+2 passed in 0.01s
+
+--- STDERR ---

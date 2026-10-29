@@ -1,0 +1,74 @@
+{
+  "run_id": "v17_9_0_1_2_backtest",
+  "source_sha": "3b40be13fe2fa84af99d541acc88bcace17985e2",
+  "forensics": {
+    "A": {
+      "variant_id": "A",
+      "simulated_trades": 41,
+      "early_stopout_60s": 8,
+      "early_stopout_180s": 16,
+      "early_stopout_rate_per_executed_trade": 0.1951,
+      "early_stopout_rate_per_matched_trade": 0.2778,
+      "post_stop_recovery_details": {
+        "number_of_SL_exits": 33,
+        "number_with_valid_followup_data": 32,
+        "number_reaching_original_TP_after_SL": 0,
+        "post_stop_recovery_rate": 0.0,
+        "unverifiable_followup_count": 1,
+        "observation_horizon_bars": 20,
+        "observation_horizon_minutes": 20
+      }
+    },
+    "B": {
+      "variant_id": "B",
+      "simulated_trades": 25,
+      "early_stopout_60s": 0,
+      "early_stopout_180s": 0,
+      "early_stopout_rate_per_executed_trade": 0.0,
+      "early_stopout_rate_per_matched_trade": 0.0,
+      "post_stop_recovery_details": {
+        "number_of_SL_exits": 17,
+        "number_with_valid_followup_data": 16,
+        "number_reaching_original_TP_after_SL": 0,
+        "post_stop_recovery_rate": 0.0,
+        "unverifiable_followup_count": 1,
+        "observation_horizon_bars": 20,
+        "observation_horizon_minutes": 20
+      }
+    },
+    "C": {
+      "variant_id": "C",
+      "simulated_trades": 18,
+      "early_stopout_60s": 0,
+      "early_stopout_180s": 0,
+      "early_stopout_rate_per_executed_trade": 0.0,
+      "early_stopout_rate_per_matched_trade": 0.0,
+      "post_stop_recovery_details": {
+        "number_of_SL_exits": 11,
+        "number_with_valid_followup_data": 10,
+        "number_reaching_original_TP_after_SL": 0,
+        "post_stop_recovery_rate": 0.0,
+        "unverifiable_followup_count": 1,
+        "observation_horizon_bars": 20,
+        "observation_horizon_minutes": 20
+      }
+    },
+    "D": {
+      "variant_id": "D",
+      "simulated_trades": 24,
+      "early_stopout_60s": 0,
+      "early_stopout_180s": 0,
+      "early_stopout_rate_per_executed_trade": 0.0,
+      "early_stopout_rate_per_matched_trade": 0.0,
+      "post_stop_recovery_details": {
+        "number_of_SL_exits": 16,
+        "number_with_valid_followup_data": 15,
+        "number_reaching_original_TP_after_SL": 0,
+        "post_stop_recovery_rate": 0.0,
+        "unverifiable_followup_count": 1,
+        "observation_horizon_bars": 20,
+        "observation_horizon_minutes": 20
+      }
+    }
+  }
+}

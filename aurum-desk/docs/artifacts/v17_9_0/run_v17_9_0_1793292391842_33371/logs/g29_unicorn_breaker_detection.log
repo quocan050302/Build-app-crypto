@@ -1,0 +1,10 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_unicorn_evidence.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793292391842_33371/reports/g29_unicorn_breaker_detection.xml -k test_positive_bullish_unicorn_detection or test_positive_bearish_unicorn_detection
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 11
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_unicorn_evidence::test_positive_bullish_unicorn_detection (0.006s)
+PASSED backend.tests.test_v17_8_unicorn_evidence::test_positive_bearish_unicorn_detection (0.005s)
+2 passed in 0.01s
+
+--- STDERR ---

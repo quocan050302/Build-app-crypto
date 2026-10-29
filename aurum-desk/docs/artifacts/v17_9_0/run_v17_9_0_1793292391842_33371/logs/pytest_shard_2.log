@@ -1,0 +1,185 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v16_17_production_flow.py backend/tests/test_v16_23_production_flow.py backend/tests/test_v17_5_production_flow.py backend/tests/test_realtime_source_ordering.py backend/tests/test_v10_4_cost_and_rr.py backend/tests/test_v12_three_month_replay.py backend/tests/test_v13_5_data_range_acceptance.py backend/tests/test_v13_5_integrity_acceptance.py backend/tests/test_v13_6_engine_execution_integration.py backend/tests/test_v14_1_rr_preview.py backend/tests/test_v14_3_ny_quota.py backend/tests/test_v14_4_1_entry_guards.py backend/tests/test_v14_4_6_flow_preservation.py backend/tests/test_v14_4_scenario_pipeline.py backend/tests/test_v15_5_lifecycle_closure.py backend/tests/test_v15_8_database_failure_recovery.py backend/tests/test_v16_10_funnel_attribution.py backend/tests/test_v16_14_missed_opportunity_funnel.py backend/tests/test_v16_15_auto_permission_and_owner.py backend/tests/test_v16_28_cg01_setup_correctness.py backend/tests/test_v16_39_5_fvg_cg01_scoring_paper.py backend/tests/test_v16_3_cg01_contracts.py backend/tests/test_v16_4_cg01_causal_entry.py backend/tests/test_v16_9_cg01_decision_funnel.py backend/tests/test_v16_9_executable_sizing_contract.py backend/tests/test_v17_4_config_transaction.py backend/tests/test_v17_4_startup.py backend/tests/test_v17_5_2_detector_to_exit.py backend/tests/test_v17_5_6_episode_origin_binding.py backend/tests/test_v17_5_7_true_cycle_cost_parity.py backend/tests/test_v17_5_model_integration.py backend/tests/test_v17_5_risk_invariants.py backend/tests/test_v17_5_stop_placement.py backend/tests/test_v17_6_1_run_isolation.py backend/tests/test_v17_6_4_2_cycle_commit_truth.py backend/tests/test_v17_6_4_3a_discovery_integrity.py backend/tests/test_v17_6_4_3b_unique_commit_truth.py backend/tests/test_v17_6_4_3d_db_isolation.py backend/tests/test_v17_6_4_3d_live_order_boundary.py backend/tests/test_v17_6_market_freshness.py backend/tests/test_v17_6_observation_run.py backend/tests/test_v6_1_isolation_and_recovery.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793292391842_33371/reports/shards/shard_2.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 86210
+EXIT_CODE: 1
+--- STDOUT ---
+.......F................................................................ [ 16%]
+........................................................................ [ 33%]
+........................................................................ [ 50%]
+........................................................................ [ 67%]
+........................................................................ [ 84%]
+.................................................................        [100%]
+=================================== FAILURES ===================================
+_________ test_v16_23_flow_scenario_2_short_sl_event_driven_execution __________
+
+db = <sqlalchemy.orm.session.Session object at 0x1139a5c50>
+
+    @pytest.mark.anyio
+    async def test_v16_23_flow_scenario_2_short_sl_event_driven_execution(db: Session):
+        """
+        Rules 112, 114: Full SHORT SL Matrix via real event-driven scheduler:
+        Cache closed candle -> Scheduler Arm -> Coordinator quote fill -> Broker SL exit ->
+        Assert TP < entry < SL invariant, negative PnL, milestones.
+        """
+        strategy_service.set_auto_state(db, True)
+        audit = crud.get_or_create_today_audit(db)
+        audit.cooldown_until = None
+        audit.fills_count = 0
+        audit.realized_pnl = 0.0
+        audit.current_equity = 1000.0
+        db.commit()
+    
+        ny_tz = ZoneInfo("America/New_York")
+        dt = datetime(2026, 10, 15, 10, 15, tzinfo=ny_tz)
+        t_start = int(dt.timestamp() * 1000)
+        c_4h, c_1h, c_15m, c_1m = build_short_fixture_series(t_start)
+    
+        now_ms = t_start + 540_000
+    
+        db.add(models.SystemConfig(key="scalp_m1_mode", value="PAPER", updated_at=now_ms))
+        db.add(models.SystemConfig(key="cg01_enabled", value="true", updated_at=now_ms))
+        db.add(models.SystemConfig(key="cg01_profile_mode", value="PAPER_EXECUTION", updated_at=now_ms))
+        db.add(models.SystemConfig(key="execution_profile", value="CG01", updated_at=now_ms))
+        db.commit()
+    
+        _ingest_bars_via_payload("XAUUSDT", "4H", c_4h)
+        _ingest_bars_via_payload("XAUUSDT", "1H", c_1h)
+        _ingest_bars_via_payload("XAUUSDT", "15M", c_15m)
+    
+        poi = WatchedZone(
+            zone_id="poi_short_v16_23_2",
+            symbol="XAUUSDT",
+            timeframe="15M",
+            zone_type="FVG",
+            direction="BEARISH",
+            top=2655.0,
+            bottom=2650.0,
+            created_at=t_start - 3600_000,
+            known_at=t_start - 1800_000,
+            touch_count=0,
+        )
+        scalp_watcher_orchestrator.set_active_zones("XAUUSDT", [poi])
+    
+        collector_service.latest_ticker = {
+            "symbol": "XAUUSDT",
+            "bid": 2649.5,
+            "ask": 2649.7,
+            "last": 2649.6,
+            "server_time": now_ms,
+            "observed_at": now_ms,
+        }
+    
+        cg01_evaluation_scheduler.set_clock(ReplayClock(now_ms))
+        cg01_evaluation_scheduler.set_flags(enabled=True, shadow_mode=False, is_owner=True)
+        sched_task = asyncio.create_task(cg01_evaluation_scheduler.run())
+        worker_started = await start_trace_persistence_worker(timeout_s=2.0)
+        assert worker_started is True
+    
+        try:
+            boundary_bar = {"timestamp": now_ms, "open": 2649.5, "high": 2650.0, "low": 2649.0, "close": 2649.6}
+            _ingest_bars_via_payload("XAUUSDT", "1M", c_1m + [boundary_bar])
+    
+            order = None
+            for _ in range(35):
+                await asyncio.sleep(0.1)
+                db.expire_all()
+                order = db.query(models.PaperOrder).filter(models.PaperOrder.state.in_(["armed", "placed"])).first()
+                if order:
+                    break
+    
+            assert order is not None
+            assert order.direction.upper() == "SHORT"
+            # Short price geometry invariant (Rule 113: TP < entry < SL)
+            assert order.take_profit < order.planned_entry < order.stop_loss
+    
+            fill_time = now_ms + 10_000
+            coordinator = ExecutionCoordinator()
+            coordinator.evaluate_orders_sync(
+                db,
+                ticker_override={
+                    "bid": order.planned_entry,
+                    "ask": round(order.planned_entry + 0.10, 2),
+                    "last": order.planned_entry,
+                    "timestamp": fill_time,
+                    "server_time": fill_time,
+                },
+                now_ms=fill_time,
+            )
+            db.refresh(order)
+            assert order.state == "paper_open"
+    
+            sl_price = order.stop_loss
+            exit_time = fill_time + 60_000
+            closed_order = PaperBroker.process_price_tick(
+                db,
+                current_bid=sl_price + 0.10,
+                current_ask=sl_price + 0.20,
+                candle_high=sl_price + 1.0,
+                candle_low=sl_price - 0.50,
+                candle_timestamp=exit_time,
+                now_ms=exit_time,
+            )
+            assert closed_order is not None
+            assert closed_order.state == "closed"
+            assert closed_order.exit_cause == "SL_HIT"
+            assert closed_order.realized_pnl_net < 0.0
+    
+            worker = CG01ResearchProjectionWorker(scope="CG01")
+            worker.process_pending_events(db=db)
+    
+            drain_res = await drain_trace_persistence(timeout_s=3.0)
+            assert drain_res["status"] == "COMPLETED"
+    
+            fresh_db = SessionLocal()
+            try:
+                traces = cg01_trace_recorder.get_traces("XAUUSDT", limit=1)
+                run_id = traces[0].run_id if traces else "run_cg01_xauusdt_active"
+                summary = build_cg01_paper_run_summary(run_id=run_id, db=fresh_db)
+>               assert summary["trades"]["total_closed_trades"] >= 1
+                       ^^^^^^^^^^^^^^^^^
+E               KeyError: 'trades'
+
+backend/tests/test_v16_23_production_flow.py:405: KeyError
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_real_integrity_error_flush_recovers_without_pending_rollback_error
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x1141a3850> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x1141a1a20>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_session_usable_after_rollback_recovery
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x1141a38c0> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x1141a10f0>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_no_queries_between_poison_and_rollback
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x1141a1400> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x11454ef90>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_no_order_armed_and_arm_candidate_not_called
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x1143eaf20> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x1143e8980>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_watchsetup_and_snapshot_not_mutated
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x113e6dfd0> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x11683ba80>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_staged_data_before_failure_rolled_back_consistently
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:123: SAWarning: New instance <SystemConfig at 0x113e92040> with identity key (<class 'models.SystemConfig'>, ('DUP_INJECT_KEY',), None) conflicts with persistent instance <SystemConfig at 0x113e6f770>
+    db.flush()  # Forces real IntegrityError
+
+backend/tests/test_v15_8_database_failure_recovery.py::test_v15_8_expire_path_real_integrity_error_recovery
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v15_8_database_failure_recovery.py:369: SAWarning: New instance <SystemConfig at 0x113e6d630> with identity key (<class 'models.SystemConfig'>, ('DUP_EXP_KEY',), None) conflicts with persistent instance <SystemConfig at 0x113e6c670>
+    db.flush()
+
+backend/tests/test_v17_6_4_3b_unique_commit_truth.py::test_uc03_unique_conflict_without_durable_readback_fails
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/tests/test_v17_6_4_3b_unique_commit_truth.py:170: SAWarning: Session's state has been changed on a non-active transaction - this state will be discarded.
+    s_other.rollback()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_v16_23_production_flow.py::test_v16_23_flow_scenario_2_short_sl_event_driven_execution
+1 failed, 424 passed, 9 warnings in 82.76s (0:01:22)
+
+--- STDERR ---

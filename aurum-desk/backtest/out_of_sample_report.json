@@ -1,7 +1,7 @@
 {
   "schema_version": "V17.8.0.4",
-  "run_id": "v17_8_0_4_bt_1793281484",
-  "source_sha": "6416dcef31719cd8e72a8eef5c9d7a68dd2e2852",
+  "run_id": "v17_9_0_1_2_backtest",
+  "source_sha": "3b40be13fe2fa84af99d541acc88bcace17985e2",
   "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",
   "split_protocol": "CHRONOLOGICAL_60_20_20_ZERO_LOOKAHEAD",
   "out_of_sample_verdict": "OUT_OF_SAMPLE_INCONCLUSIVE",

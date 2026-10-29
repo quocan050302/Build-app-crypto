@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuites><testsuite name="g79_production_backtest_shadow_decision_parity" tests="1" errors="0" failures="0" skipped="0" time="0.034"><testcase classname="backend.tests.test_v17_8_0_4_parity_and_integrity.TestG79FiveModelDecisionParity" name="test_g79_five_model_production_replay_shadow_decision_parity" time="0.034" /></testsuite></testsuites>
