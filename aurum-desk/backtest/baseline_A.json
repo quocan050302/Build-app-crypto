@@ -35,8 +35,8 @@
   "early_stopout_count_180s": 16,
   "early_stopout_rate_per_executed_trade": 0.1951,
   "early_stopout_rate_180s_per_executed_trade": 0.3902,
-  "early_stopout_rate_per_matched_trade": 0.2083,
-  "early_stopout_rate_180s_per_matched_trade": 0.3333,
+  "early_stopout_rate_per_matched_trade": 0.2778,
+  "early_stopout_rate_180s_per_matched_trade": 0.3889,
   "early_stopout_rate_per_eligible_opportunity": 0.1951,
   "post_stop_recovery_rate": 0.0,
   "post_stop_recovery_details": {

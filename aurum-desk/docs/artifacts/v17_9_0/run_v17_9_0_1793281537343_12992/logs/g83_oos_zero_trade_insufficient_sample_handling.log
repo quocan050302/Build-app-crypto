@@ -1,0 +1,9 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_0_4_parity_and_integrity.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793281537343_12992/reports/g83_oos_zero_trade_insufficient_sample_handling.xml -k test_g83_zero_trade_insufficient_sample_and_oos_inconclusive_semantics
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 6
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_0_4_parity_and_integrity.TestG82G83G84BacktestMethodologyAndReconciliation::test_g83_zero_trade_insufficient_sample_and_oos_inconclusive_semantics (0.006s)
+1 passed in 0.01s
+
+--- STDERR ---

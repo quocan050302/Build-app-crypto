@@ -1,0 +1,22 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_forecast_causal_closure.py backend/tests/test_late_source_chronology.py backend/tests/test_v10_2_acceptance.py backend/tests/test_v11_historical_replay.py backend/tests/test_v13_7_cadence_contract.py backend/tests/test_v13_7_causal_driver.py backend/tests/test_v13_7_execution_costs.py backend/tests/test_v14_4_11_reconciliation_authority.py backend/tests/test_v14_4_5_acceptance_identity.py backend/tests/test_v14_4_6_forecast_state_transitions.py backend/tests/test_v14_4_7_proof_fail_closed.py backend/tests/test_v14_4_sessions.py backend/tests/test_v15_6_hypothesis_persistence.py backend/tests/test_v15_9_quote_source_rejection.py backend/tests/test_v16_10_causal_ohlc_path.py backend/tests/test_v16_16_milestone_and_runtime_report.py backend/tests/test_v16_17_red_reproductions.py backend/tests/test_v16_26_terminal_loss_accounting.py backend/tests/test_v16_39_4_session_compliance_learning.py backend/tests/test_v16_4_cg01_broker_execution.py backend/tests/test_v16_5_expiry_pipeline.py backend/tests/test_v16_6_measurement_integrity.py backend/tests/test_v17_4_1_server_scope.py backend/tests/test_v17_4_entry_session_policy.py backend/tests/test_v17_5_1_guard_matrix.py backend/tests/test_v17_5_5_entry_context_gate.py backend/tests/test_v17_5_8_reference_provenance.py backend/tests/test_v17_5_9_break_source_authority.py backend/tests/test_v17_5_model_integration.py backend/tests/test_v17_6_2_decision_pagination.py backend/tests/test_v17_6_4_1_feed_evidence_truth.py backend/tests/test_v17_6_4_24_7_coverage.py backend/tests/test_v17_6_4_3c_acceptance_integrity.py backend/tests/test_v17_6_4_3c_epoch_authority.py backend/tests/test_v17_6_4_contract_calendar.py backend/tests/test_v17_6_4_cycle_run_identity.py backend/tests/test_v17_6_financial_summary.py backend/tests/test_v17_8_replay_comparison.py backend/tests/test_v17_8_structural_sl.py backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py backend/tests/test_v5_1_geometry_telegram_news.py backend/tests/test_v7_1_realtime_and_stream.py backend/tests/test_v7_2_stress_harness.py backend/tests/test_v9_full_matrices.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793281537343_12992/reports/shards/shard_0.xml
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 132943
+EXIT_CODE: 0
+--- STDOUT ---
+........................................................................ [ 13%]
+........................................................................ [ 27%]
+........................................................................ [ 41%]
+........................................................................ [ 55%]
+........................................................................ [ 69%]
+........................................................................ [ 83%]
+........................................................................ [ 97%]
+.............                                                            [100%]
+=============================== warnings summary ===============================
+backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+517 passed, 1 warning in 128.90s (0:02:08)
+
+--- STDERR ---

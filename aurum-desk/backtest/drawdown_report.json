@@ -1,6 +1,6 @@
 {
-  "run_id": "v17_8_0_4_bt_1793271395",
-  "source_sha": "397cf251584470a84f20d222702c5f6e038cf271",
+  "run_id": "v17_8_0_4_bt_1793281484",
+  "source_sha": "6416dcef31719cd8e72a8eef5c9d7a68dd2e2852",
   "drawdowns": {
     "A": {
       "variant_id": "A",
@@ -19,9 +19,9 @@
     "C": {
       "variant_id": "C",
       "initial_equity_usdt": 1000.0,
-      "final_equity_usdt": 968.7735,
-      "max_drawdown_usdt": 31.2265,
-      "max_drawdown_duration_trades": 25
+      "final_equity_usdt": 983.6494,
+      "max_drawdown_usdt": 16.3506,
+      "max_drawdown_duration_trades": 18
     },
     "D": {
       "variant_id": "D",

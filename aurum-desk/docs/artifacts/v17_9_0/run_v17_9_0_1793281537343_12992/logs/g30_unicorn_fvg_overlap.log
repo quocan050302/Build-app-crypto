@@ -1,0 +1,10 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_unicorn_evidence.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793281537343_12992/reports/g30_unicorn_fvg_overlap.xml -k test_negative_breaker_without_fvg or test_negative_no_geometric_overlap
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 9
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_unicorn_evidence::test_negative_breaker_without_fvg (0.004s)
+PASSED backend.tests.test_v17_8_unicorn_evidence::test_negative_no_geometric_overlap (0.005s)
+2 passed in 0.01s
+
+--- STDERR ---

@@ -1,7 +1,7 @@
 # V17.9.0.1.1 — Historical Backtest & Authoritative Shared Evaluator Parity Report
 
-- **Final Code SHA (`FINAL_CODE_SHA`):** `397cf251584470a84f20d222702c5f6e038cf271`
-- **Backtest Executed Source SHA:** `397cf251584470a84f20d222702c5f6e038cf271`
+- **Final Code SHA (`FINAL_CODE_SHA`):** `6416dcef31719cd8e72a8eef5c9d7a68dd2e2852`
+- **Backtest Executed Source SHA:** `6416dcef31719cd8e72a8eef5c9d7a68dd2e2852`
 - **Evaluator Version:** `17.9.0.1.1`
 - **Dataset SHA-256:** `6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5`
 - **Saved Repository Snapshot:** `backtest/historical_dataset_XAUUSDT.json.gz` (`9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18`)
@@ -25,26 +25,26 @@ This simulation executes the exact canonical `DecisionResult` produced by `Share
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | **Variant A** | 41 | 14.63% | -0.7032 | $-7.004 | $60.737 | $1.859 | $-69.6 | $69.6 | 8 |
 | **Variant B** | 25 | 28.00% | -0.5179 | $-4.7743 | $25.6632 | $0.789 | $-31.2265 | $31.2265 | 0 |
-| **Variant C** | 25 | 28.00% | -0.5179 | $-4.7743 | $25.6632 | $0.789 | $-31.2265 | $31.2265 | 0 |
+| **Variant C** | 18 | 38.89% | -0.3796 | $3.7084 | $19.461 | $0.598 | $-16.3506 | $16.3506 | 0 |
 | **Variant D** | 24 | 29.17% | -0.5114 | $-7.688 | $21.3778 | $0.657 | $-29.7228 | $29.7228 | 0 |
 
 ## 3. Experiment Layer 1 — Matched SL-Only Cohort (`A` vs `C` and `A/B/C/D`)
 
-- **Matched All A/B/C/D Cohort Opportunities:** `24`
-- **Matched A vs C Cohort Opportunities:** `25`
+- **Matched All A/B/C/D Cohort Opportunities:** `18`
+- **Matched A vs C Cohort Opportunities:** `18`
 - **Opportunities Saved From SL by Variant C vs Variant A:** `3`
-- **Mean Paired Delta Net R (C minus A):** `0.2043`
-- **Total Paired Delta Net PnL (C minus A):** `$12.4555`
+- **Mean Paired Delta Net R (C minus A):** `0.2836`
+- **Total Paired Delta Net PnL (C minus A):** `$12.5401`
 
 ## 4. Per-Model Breakdown (`Experiment 3E`)
 
 | Model ID | Valid Setups | A Trades | B Trades | C Trades | D Trades | C Net PnL (USD) | C Expectancy (R) |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| `SMC_M1_FVG_CONTINUATION` | 3161 | 26 | 14 | 14 | 13 | $-14.1835 | -0.4213 |
-| `SMC_M1_CONTINUATION` | 1167 | 9 | 7 | 7 | 7 | $-10.7176 | -0.6328 |
+| `SMC_M1_FVG_CONTINUATION` | 3161 | 26 | 14 | 10 | 13 | $-4.439 | -0.1899 |
+| `SMC_M1_CONTINUATION` | 1167 | 9 | 7 | 5 | 7 | $-8.0231 | -0.6628 |
 | `SMC_M1_REVERSAL` | 153 | 0 | 0 | 0 | 0 | $0 | None |
 | `SMC_M1_SWEEP_RECLAIM` | 931 | 2 | 1 | 1 | 1 | $0.9418 | 0.3798 |
-| `CG01_SWEEP_MSS_FVG` | 364 | 4 | 3 | 3 | 3 | $-7.2672 | -1.0 |
+| `CG01_SWEEP_MSS_FVG` | 364 | 4 | 3 | 2 | 3 | $-4.8303 | -1.0 |
 
 ## 5. Chronological 60/20/20 Out-of-Sample Evaluation
 

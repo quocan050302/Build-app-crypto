@@ -1,6 +1,6 @@
 {
-  "run_id": "v17_8_0_4_bt_1793271395",
-  "source_sha": "397cf251584470a84f20d222702c5f6e038cf271",
+  "run_id": "v17_8_0_4_bt_1793281484",
+  "source_sha": "6416dcef31719cd8e72a8eef5c9d7a68dd2e2852",
   "curves": {
     "A": [
       {
@@ -566,101 +566,52 @@
       },
       {
         "step": 12,
-        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_1792655520000_C",
-        "timestamp_ms": 1792655520000,
-        "equity_usdt": 995.6115,
-        "drawdown_usdt": 4.3885
+        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_1792728300000_C",
+        "timestamp_ms": 1792728300000,
+        "equity_usdt": 998.3111,
+        "drawdown_usdt": 1.6889
       },
       {
         "step": 13,
-        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_CONTINUATION_SHORT_1792655700000_C",
-        "timestamp_ms": 1792655700000,
-        "equity_usdt": 993.2048,
-        "drawdown_usdt": 6.7952
+        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_CONTINUATION_SHORT_1792728660000_C",
+        "timestamp_ms": 1792728660000,
+        "equity_usdt": 995.8814,
+        "drawdown_usdt": 4.1186
       },
       {
         "step": 14,
-        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_LONG_1792680600000_C",
-        "timestamp_ms": 1792680600000,
-        "equity_usdt": 990.7679,
-        "drawdown_usdt": 9.2321
+        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_1792728780000_C",
+        "timestamp_ms": 1792728780000,
+        "equity_usdt": 993.437,
+        "drawdown_usdt": 6.563
       },
       {
         "step": 15,
-        "trade_id": "tr_bt_opp_XAUUSDT_CG01_SWEEP_MSS_FVG_LONG_1792680600000_C",
-        "timestamp_ms": 1792680600000,
-        "equity_usdt": 988.331,
-        "drawdown_usdt": 11.669
+        "trade_id": "tr_bt_opp_XAUUSDT_CG01_SWEEP_MSS_FVG_SHORT_1792728780000_C",
+        "timestamp_ms": 1792728780000,
+        "equity_usdt": 990.9926,
+        "drawdown_usdt": 9.0074
       },
       {
         "step": 16,
-        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_1792721400000_C",
-        "timestamp_ms": 1792721400000,
-        "equity_usdt": 985.8715,
-        "drawdown_usdt": 14.1285
+        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_CONTINUATION_SHORT_1792728960000_C",
+        "timestamp_ms": 1792728960000,
+        "equity_usdt": 988.5424,
+        "drawdown_usdt": 11.4576
       },
       {
         "step": 17,
-        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_1792721580000_C",
-        "timestamp_ms": 1792721580000,
-        "equity_usdt": 983.4501,
-        "drawdown_usdt": 16.5499
+        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_1792729500000_C",
+        "timestamp_ms": 1792729500000,
+        "equity_usdt": 986.1154,
+        "drawdown_usdt": 13.8846
       },
       {
         "step": 18,
-        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_1792728300000_C",
-        "timestamp_ms": 1792728300000,
-        "equity_usdt": 983.723,
-        "drawdown_usdt": 16.277
-      },
-      {
-        "step": 19,
-        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_CONTINUATION_SHORT_1792728360000_C",
-        "timestamp_ms": 1792728360000,
-        "equity_usdt": 983.4352,
-        "drawdown_usdt": 16.5648
-      },
-      {
-        "step": 20,
-        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_CONTINUATION_SHORT_1792728660000_C",
-        "timestamp_ms": 1792728660000,
-        "equity_usdt": 981.0055,
-        "drawdown_usdt": 18.9945
-      },
-      {
-        "step": 21,
-        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_1792728780000_C",
-        "timestamp_ms": 1792728780000,
-        "equity_usdt": 978.5611,
-        "drawdown_usdt": 21.4389
-      },
-      {
-        "step": 22,
-        "trade_id": "tr_bt_opp_XAUUSDT_CG01_SWEEP_MSS_FVG_SHORT_1792728780000_C",
-        "timestamp_ms": 1792728780000,
-        "equity_usdt": 976.1167,
-        "drawdown_usdt": 23.8833
-      },
-      {
-        "step": 23,
-        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_CONTINUATION_SHORT_1792728960000_C",
-        "timestamp_ms": 1792728960000,
-        "equity_usdt": 973.6665,
-        "drawdown_usdt": 26.3335
-      },
-      {
-        "step": 24,
-        "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_FVG_CONTINUATION_SHORT_1792729500000_C",
-        "timestamp_ms": 1792729500000,
-        "equity_usdt": 971.2395,
-        "drawdown_usdt": 28.7605
-      },
-      {
-        "step": 25,
         "trade_id": "tr_bt_opp_XAUUSDT_SMC_M1_CONTINUATION_LONG_1792771740000_C",
         "timestamp_ms": 1792771740000,
-        "equity_usdt": 968.7735,
-        "drawdown_usdt": 31.2265
+        "equity_usdt": 983.6494,
+        "drawdown_usdt": 16.3506
       }
     ],
     "D": [

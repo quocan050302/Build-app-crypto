@@ -5,7 +5,7 @@
   "product_type": "USDT-FUTURES",
   "source": "BITGET_PUBLIC_HISTORICAL_CANDLES_AND_SAVED_REPOSITORY_SNAPSHOT",
   "acquisition_method": "SAVED_CANONICAL_REPOSITORY_SNAPSHOT_AND_VERIFIED_LOCAL_CACHE",
-  "acquisition_timestamp_utc": "2026-10-29T10:56:36.211275+00:00",
+  "acquisition_timestamp_utc": "2026-10-29T13:44:45.250822+00:00",
   "query_parameters": {
     "endpoint": "https://api.bitget.com/api/v2/mix/market/history-candles",
     "symbol": "XAUUSDT",
@@ -166,6 +166,6 @@
   },
   "synthetic_backfill_applied": false,
   "data_quality_status": "VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS",
-  "run_id": "v17_8_0_4_bt_1793271395",
-  "source_sha": "397cf251584470a84f20d222702c5f6e038cf271"
+  "run_id": "v17_8_0_4_bt_1793281484",
+  "source_sha": "6416dcef31719cd8e72a8eef5c9d7a68dd2e2852"
 }

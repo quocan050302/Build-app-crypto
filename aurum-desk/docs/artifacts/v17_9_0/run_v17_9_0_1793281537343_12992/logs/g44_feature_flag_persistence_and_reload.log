@@ -1,0 +1,10 @@
+COMMAND: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/backend/venv/bin/python -m pytest -q backend/tests/test_v17_8_runtime_integration.py --junitxml=/Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk/docs/artifacts/v17_9_0/run_v17_9_0_1793281537343_12992/reports/g44_feature_flag_persistence_and_reload.xml -k test_def_178_08
+CWD: /Users/macbook/Documents/Project_Github/Build-app-crypto/aurum-desk
+DURATION_MS: 118
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_runtime_integration::test_def_178_08_feature_flags_full_lifecycle_and_api (0.093s)
+PASSED backend.tests.test_v17_8_runtime_integration::test_def_178_08_paper_structural_without_v18_flag_uses_v17_7_anchor (0.025s)
+2 passed in 0.12s
+
+--- STDERR ---
