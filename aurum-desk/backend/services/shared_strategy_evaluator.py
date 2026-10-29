@@ -196,6 +196,164 @@ def _candle_summary(bars: Sequence[Any], tf_ms: int) -> Dict[str, Any]:
     }
 
 
+EVALUATOR_VERSION = "17.9.0.1"
+
+
+def validate_htf_candle_series(
+    raw_bars: Optional[Sequence[Any]],
+    *,
+    symbol: str,
+    timeframe: str,
+    tf_ms: int,
+    decision_timestamp_ms: int,
+    strict_validation: bool = False,
+) -> Tuple[List[Any], str, List[str]]:
+    """
+    Phase G: Validates higher-timeframe (H1/H4/D1) closed candle series across runtimes.
+    Rejects unclosed bars, lookahead bars (`close_time > decision_timestamp_ms`), duplicate
+    timestamps, non-monotonic timestamps, malformed OHLC values, and misaligned UTC boundaries
+    (when `strict_validation=True`).
+    """
+    bars = list(raw_bars or [])
+    if not bars:
+        return [], "OPTIONAL_EMPTY", []
+
+    closed_out: List[Any] = []
+    reasons: List[str] = []
+    seen_open_times: set[int] = set()
+    last_open_ms = -1
+    unclosed_count = 0
+    lookahead_count = 0
+
+    for b in bars:
+        if not _candle_is_closed(b):
+            unclosed_count += 1
+            if strict_validation:
+                reasons.append(f"UNCLOSED_{timeframe}_CANDLE_REJECTED")
+                reasons.append("UNCLOSED_CANDLE")
+            continue
+
+        open_ms = _candle_open_ms(b)
+        close_ms = _candle_close_ms(b, tf_ms)
+        if open_ms <= 0 or close_ms <= open_ms:
+            if strict_validation:
+                reasons.append(f"MALFORMED_{timeframe}_TIMESTAMP")
+            continue
+
+        if open_ms > decision_timestamp_ms or close_ms > decision_timestamp_ms:
+            lookahead_count += 1
+            if strict_validation:
+                reasons.append(f"LOOKAHEAD_{timeframe}_CANDLE_REJECTED")
+                reasons.append("LOOKAHEAD_REJECTED")
+            continue
+
+        if strict_validation and tf_ms in (3_600_000, 14_400_000) and (open_ms % tf_ms != 0):
+            reasons.append(f"MISALIGNED_{timeframe}_UTC_BOUNDARY")
+            continue
+
+        if open_ms in seen_open_times:
+            if strict_validation:
+                reasons.append(f"DUPLICATE_{timeframe}_CANDLE_TIMESTAMP")
+            continue
+        if open_ms < last_open_ms:
+            if strict_validation:
+                reasons.append(f"OUT_OF_ORDER_{timeframe}_CANDLE_TIMESTAMP")
+            continue
+
+        norm_b = _normalize_candle_obj(b, symbol, timeframe, tf_ms)
+        if isinstance(norm_b, dict):
+            o_px = float(norm_b.get("open", 0.0) or 0.0)
+            h_px = float(norm_b.get("high", 0.0) or 0.0)
+            l_px = float(norm_b.get("low", 0.0) or 0.0)
+            c_px = float(norm_b.get("close", 0.0) or 0.0)
+        else:
+            o_px = float(getattr(norm_b, "open", 0.0) or 0.0)
+            h_px = float(getattr(norm_b, "high", 0.0) or 0.0)
+            l_px = float(getattr(norm_b, "low", 0.0) or 0.0)
+            c_px = float(getattr(norm_b, "close", 0.0) or 0.0)
+        if l_px <= 0 or h_px < l_px or h_px < max(o_px, c_px) or l_px > min(o_px, c_px):
+            if strict_validation:
+                reasons.append(f"MALFORMED_{timeframe}_CANDLE_OHLC")
+            continue
+
+        seen_open_times.add(open_ms)
+        last_open_ms = open_ms
+        closed_out.append(norm_b)
+
+    if not closed_out:
+        if unclosed_count > 0:
+            status = "UNCLOSED_REJECTED"
+            reasons.append(f"UNCLOSED_{timeframe}_CANDLE_REJECTED")
+        elif lookahead_count > 0:
+            status = "LOOKAHEAD_REJECTED"
+            reasons.append(f"LOOKAHEAD_{timeframe}_CANDLE_REJECTED")
+        elif reasons:
+            status = "INVALID_REJECTED"
+        else:
+            status = "MISSING"
+    else:
+        status = "AVAILABLE" if not reasons else "PARTIAL_REJECTED"
+
+    return closed_out, status, reasons
+
+
+def aggregate_closed_htf_candles(
+    source_bars: Sequence[Any],
+    *,
+    target_timeframe: str,
+    decision_timestamp_ms: int,
+    symbol: str = "XAUUSDT",
+    source_tf_ms: int = 60_000,
+) -> List[Any]:
+    """
+    Phase G: Deterministic UTC-aligned closed-candle aggregation into 1H (3,600,000 ms)
+    or 4H (14,400,000 ms) bars.
+    """
+    tf_upper = str(target_timeframe).upper()
+    target_tf_ms = 14_400_000 if tf_upper in ("4H", "H4") else 3_600_000
+    norm_tf = "4H" if target_tf_ms == 14_400_000 else "1H"
+
+    buckets: Dict[int, List[Any]] = {}
+    for b in source_bars or ():
+        if not _candle_is_closed(b):
+            continue
+        open_ms = _candle_open_ms(b)
+        close_ms = _candle_close_ms(b, source_tf_ms)
+        if open_ms <= 0 or close_ms > decision_timestamp_ms:
+            continue
+        bucket_open = (open_ms // target_tf_ms) * target_tf_ms
+        bucket_close = bucket_open + target_tf_ms
+        if bucket_close > decision_timestamp_ms:
+            continue
+        norm_b = _normalize_candle_obj(b, symbol, norm_tf, source_tf_ms)
+        buckets.setdefault(bucket_open, []).append(norm_b)
+
+    aggregated: List[Any] = []
+    for bucket_open in sorted(buckets.keys()):
+        group = sorted(buckets[bucket_open], key=lambda x: int(x["open_time"]))
+        if not group:
+            continue
+        bucket_close = bucket_open + target_tf_ms
+        agg_bar = _DualAccessCandle({
+            "symbol": symbol,
+            "timeframe": norm_tf,
+            "open_time": bucket_open,
+            "open_time_ms": bucket_open,
+            "timestamp": bucket_open,
+            "close_time": bucket_close,
+            "close_time_ms": bucket_close,
+            "open": float(group[0]["open"]),
+            "high": max(float(x["high"]) for x in group),
+            "low": min(float(x["low"]) for x in group),
+            "close": float(group[-1]["close"]),
+            "volume": round(sum(float(x.get("volume", 0.0)) for x in group), 4),
+            "is_closed": True,
+            "source_bar_count": len(group),
+        })
+        aggregated.append(agg_bar)
+    return aggregated
+
+
 @dataclass(frozen=True)
 class MarketDecisionContext:
     """
@@ -207,6 +365,8 @@ class MarketDecisionContext:
     closed_m5_candles: Tuple[Any, ...]
     closed_m15_candles: Tuple[Any, ...] = ()
     closed_h1_candles: Tuple[Any, ...] = ()
+    closed_h4_candles: Tuple[Any, ...] = ()
+    closed_d1_candles: Tuple[Any, ...] = ()
     bid: Optional[float] = None
     ask: Optional[float] = None
     spread: Optional[float] = None
@@ -226,6 +386,13 @@ class MarketDecisionContext:
     causal_rejection_reasons: Tuple[str, ...] = ()
     m1_status: str = "AVAILABLE"
     m5_status: str = "AVAILABLE"
+    h1_status: str = "OPTIONAL_EMPTY"
+    h4_status: str = "OPTIONAL_EMPTY"
+    htf_bias: str = "UNKNOWN"
+    h1_alignment: str = "UNKNOWN"
+    htf_provenance: Tuple[Tuple[str, Any], ...] = ()
+    session_restricted: bool = False
+    session_restriction_reason: Optional[str] = None
 
     def is_model_enabled(self, model_id: str) -> bool:
         flags = dict(self.model_enablement_flags)
@@ -240,6 +407,9 @@ class MarketDecisionContext:
     def get_cost_dict(self) -> Dict[str, Any]:
         return dict(self.cost_config_snapshot)
 
+    def get_htf_provenance_dict(self) -> Dict[str, Any]:
+        return dict(self.htf_provenance)
+
 
 def build_market_decision_context(
     *,
@@ -249,6 +419,8 @@ def build_market_decision_context(
     m5_candles: Optional[Sequence[Any]] = None,
     m15_candles: Optional[Sequence[Any]] = None,
     h1_candles: Optional[Sequence[Any]] = None,
+    h4_candles: Optional[Sequence[Any]] = None,
+    d1_candles: Optional[Sequence[Any]] = None,
     bid: Optional[float] = None,
     ask: Optional[float] = None,
     quote_timestamp_ms: Optional[int] = None,
@@ -259,6 +431,11 @@ def build_market_decision_context(
     risk_config: Optional[Mapping[str, Any]] = None,
     cost_config: Optional[Mapping[str, Any]] = None,
     strict_causal_validation: bool = False,
+    strict_htf_validation: bool = False,
+    htf_bias: Optional[str] = None,
+    h1_alignment: Optional[str] = None,
+    session_restricted: bool = False,
+    session_restriction_reason: Optional[str] = None,
 ) -> MarketDecisionContext:
     """
     Constructs an immutable MarketDecisionContext, enforcing causal candle filtering
@@ -268,6 +445,8 @@ def build_market_decision_context(
     raw_m5 = list(m5_candles or [])
     raw_m15 = list(m15_candles or [])
     raw_h1 = list(h1_candles or [])
+    raw_h4 = list(h4_candles or [])
+    raw_d1 = list(d1_candles or [])
 
     rejection_reasons: List[str] = []
     m1_status = "AVAILABLE"
@@ -337,10 +516,61 @@ def build_market_decision_context(
         _normalize_candle_obj(b, symbol, '15M', 900_000) for b in raw_m15
         if _candle_is_closed(b) and _candle_close_ms(b, 900_000) <= decision_timestamp_ms
     ]
-    closed_h1 = [
-        _normalize_candle_obj(b, symbol, '1H', 3_600_000) for b in raw_h1
-        if _candle_is_closed(b) and _candle_close_ms(b, 3_600_000) <= decision_timestamp_ms
-    ]
+    closed_h1, h1_status, h1_reasons = validate_htf_candle_series(
+        raw_h1,
+        symbol=symbol,
+        timeframe="1H",
+        tf_ms=3_600_000,
+        decision_timestamp_ms=decision_timestamp_ms,
+        strict_validation=strict_causal_validation or strict_htf_validation,
+    )
+    closed_h4, h4_status, h4_reasons = validate_htf_candle_series(
+        raw_h4,
+        symbol=symbol,
+        timeframe="4H",
+        tf_ms=14_400_000,
+        decision_timestamp_ms=decision_timestamp_ms,
+        strict_validation=strict_causal_validation or strict_htf_validation,
+    )
+    closed_d1, _, _ = validate_htf_candle_series(
+        raw_d1,
+        symbol=symbol,
+        timeframe="1D",
+        tf_ms=86_400_000,
+        decision_timestamp_ms=decision_timestamp_ms,
+        strict_validation=False,
+    )
+    if strict_causal_validation or strict_htf_validation:
+        rejection_reasons.extend(h1_reasons)
+        rejection_reasons.extend(h4_reasons)
+
+    h4_source = "EXPLICIT_4H" if raw_h4 else "NONE"
+    if not raw_h4 and closed_h1:
+        agg_h4 = aggregate_closed_htf_candles(
+            closed_h1,
+            target_timeframe="4H",
+            decision_timestamp_ms=decision_timestamp_ms,
+            symbol=symbol,
+            source_tf_ms=3_600_000,
+        )
+        if agg_h4:
+            closed_h4 = agg_h4
+            h4_status = "AGGREGATED_FROM_1H"
+            h4_source = "AGGREGATED_FROM_1H"
+
+    h1_source = "EXPLICIT_1H" if raw_h1 else "NONE"
+    if not raw_h1 and closed_m15:
+        agg_h1 = aggregate_closed_htf_candles(
+            closed_m15,
+            target_timeframe="1H",
+            decision_timestamp_ms=decision_timestamp_ms,
+            symbol=symbol,
+            source_tf_ms=900_000,
+        )
+        if agg_h1:
+            closed_h1 = agg_h1
+            h1_status = "AGGREGATED_FROM_15M"
+            h1_source = "AGGREGATED_FROM_15M"
 
     eff_bid = float(bid) if bid is not None else None
     eff_ask = float(ask) if ask is not None else None
@@ -474,8 +704,26 @@ def build_market_decision_context(
         m1_status == "AVAILABLE"
         and "UNCLOSED_CANDLE" not in dedup_reasons
         and "LOOKAHEAD_REJECTED" not in dedup_reasons
+        and not any(
+            "UNCLOSED_" in r or "LOOKAHEAD_" in r or "DUPLICATE_" in r or "OUT_OF_ORDER_" in r or "MALFORMED_" in r or "MISALIGNED_" in r
+            for r in dedup_reasons
+        )
         and spread is not None
     )
+
+    resolved_htf_bias = str(htf_bias or default_policy.get("htf_bias") or "UNKNOWN")
+    resolved_h1_align = str(h1_alignment or default_policy.get("h1_alignment") or "UNKNOWN")
+    htf_prov_tuple = tuple(sorted({
+        "h1_source": h1_source,
+        "h4_source": h4_source,
+        "h1_count": len(closed_h1),
+        "h4_count": len(closed_h4),
+        "d1_count": len(closed_d1),
+        "h1_last_close_ms": _candle_close_ms(closed_h1[-1], 3_600_000) if closed_h1 else None,
+        "h4_last_close_ms": _candle_close_ms(closed_h4[-1], 14_400_000) if closed_h4 else None,
+        "h1_status": h1_status,
+        "h4_status": h4_status,
+    }.items()))
 
     return MarketDecisionContext(
         symbol=symbol,
@@ -484,6 +732,8 @@ def build_market_decision_context(
         closed_m5_candles=tuple(closed_m5),
         closed_m15_candles=tuple(closed_m15),
         closed_h1_candles=tuple(closed_h1),
+        closed_h4_candles=tuple(closed_h4),
+        closed_d1_candles=tuple(closed_d1),
         bid=eff_bid,
         ask=eff_ask,
         spread=spread,
@@ -503,13 +753,20 @@ def build_market_decision_context(
         causal_rejection_reasons=tuple(dedup_reasons),
         m1_status=m1_status,
         m5_status=m5_status,
+        h1_status=h1_status,
+        h4_status=h4_status,
+        htf_bias=resolved_htf_bias,
+        h1_alignment=resolved_h1_align,
+        htf_provenance=htf_prov_tuple,
+        session_restricted=bool(session_restricted or default_policy.get("session_restricted", False)),
+        session_restriction_reason=session_restriction_reason or default_policy.get("session_restriction_reason"),
     )
 
 
 @dataclass(frozen=True)
 class StrategyDecisionSnapshot:
     """
-    Section 6: Immutable, side-effect-free StrategyDecisionSnapshot.
+    Section 6 / Phase C: Immutable, side-effect-free StrategyDecisionSnapshot (DecisionResult).
     """
     model_id: str
     symbol: str
@@ -554,6 +811,49 @@ class StrategyDecisionSnapshot:
     unicorn_sl_candidate: Optional[float] = None
     protective_distance: Optional[float] = None
     selected_breaker_id: Optional[str] = None
+    evaluator_version: str = EVALUATOR_VERSION
+
+    @property
+    def decision_id(self) -> str:
+        return f"dec_{self.model_id}_{self.symbol}_{self.direction}_{self.decision_timestamp_ms}_{self.decision_fingerprint[:12]}"
+
+    @property
+    def evaluation_timestamp(self) -> int:
+        return self.decision_timestamp_ms
+
+    @property
+    def entry(self) -> Optional[float]:
+        return self.entry_reference
+
+    @property
+    def stop_loss(self) -> Optional[float]:
+        return self.selected_sl
+
+    @property
+    def effective_direction(self) -> str:
+        return self.direction if self.decision_status == DecisionStatus.ELIGIBLE.value else "NO_TRADE"
+
+    @property
+    def risk_or_sizing_intent(self) -> Dict[str, Any]:
+        return {
+            "hypothetical_quantity": self.hypothetical_quantity,
+            "gross_rr": self.gross_rr,
+            "net_rr": self.net_rr,
+            "stop_distance_price": self.stop_distance_price,
+            "target_distance_price": self.target_distance_price,
+        }
+
+    @property
+    def reason_codes(self) -> Tuple[str, ...]:
+        return self.rejection_reason_codes if self.rejection_reason_codes else ("ELIGIBLE",)
+
+    @property
+    def input_snapshot_hash(self) -> str:
+        return self.evidence_fingerprint
+
+    @property
+    def configuration_hash(self) -> str:
+        return self.policy_fingerprint
 
     def to_parity_dict(self) -> Dict[str, Any]:
         return {
@@ -594,6 +894,9 @@ class StrategyDecisionSnapshot:
             "decision_fingerprint": self.decision_fingerprint,
             "adapter_origin": self.adapter_origin,
         }
+
+
+DecisionResult = StrategyDecisionSnapshot
 
 
 def _compute_snapshot_fingerprints(
@@ -662,6 +965,22 @@ class SharedStrategyEvaluator:
     Section 7: Shared side-effect-free strategy evaluator used across Production,
     MARKET_SHADOW, and Historical Backtest.
     """
+
+    _invocation_counts: Dict[str, int] = {}
+
+    @classmethod
+    def record_runtime_invocation(cls, adapter_origin: str) -> None:
+        key = str(adapter_origin or "SHARED_EVALUATOR")
+        cls._invocation_counts[key] = cls._invocation_counts.get(key, 0) + 1
+        cls._invocation_counts["TOTAL"] = cls._invocation_counts.get("TOTAL", 0) + 1
+
+    @classmethod
+    def get_runtime_invocation_counts(cls) -> Dict[str, int]:
+        return dict(cls._invocation_counts)
+
+    @classmethod
+    def reset_runtime_invocation_counts(cls) -> None:
+        cls._invocation_counts.clear()
 
     @staticmethod
     def _build_default_watched_zone(
@@ -841,13 +1160,16 @@ class SharedStrategyEvaluator:
             c_cfg = cg01_cfg or CG01Config()
             m15_for_cg01 = closed_15m if len(closed_15m) >= 5 else (closed_5m if len(closed_5m) >= 5 else closed_1m)
             m5_for_cg01 = closed_5m if len(closed_5m) >= 5 else closed_1m
+            h1_for_cg01 = list(context.closed_h1_candles) or m15_for_cg01
+            h4_for_cg01 = list(context.closed_h4_candles) or h1_for_cg01
             try:
                 cg_ctx = {
                     "1M": closed_1m,
                     "5M": m5_for_cg01,
                     "15M": m15_for_cg01,
-                    "1H": list(context.closed_h1_candles) or m15_for_cg01,
-                    "4H": list(context.closed_h1_candles) or m15_for_cg01,
+                    "1H": h1_for_cg01,
+                    "4H": h4_for_cg01,
+                    "1D": list(context.closed_d1_candles),
                 }
                 cg_res = evaluate_cg01_candidate(
                     context=cg_ctx,
@@ -1098,6 +1420,8 @@ class SharedStrategyEvaluator:
         now_ms = context.decision_timestamp_ms
         resolve_target_fn = target_resolver or resolve_executable_target
         cfg = get_scalp_config()
+        cls.record_runtime_invocation(adapter_origin)
+        policy_dict = context.get_policy_dict()
 
         # 1. Model enablement check
         if not context.is_model_enabled(model_id):
@@ -1162,9 +1486,26 @@ class SharedStrategyEvaluator:
                 raw_candidate_reason_code="MODEL_DISABLED",
             )
 
+        min_h1_bars = int(policy_dict.get("min_h1_bars", 0) or 0)
+        min_h4_bars = int(policy_dict.get("min_h4_bars", 0) or 0)
+        require_htf = bool(policy_dict.get("require_htf_history", False))
+        htf_insufficient = (
+            (require_htf and (len(context.closed_h1_candles) < max(1, min_h1_bars) or len(context.closed_h4_candles) < max(1, min_h4_bars)))
+            or (min_h1_bars > 0 and len(context.closed_h1_candles) < min_h1_bars)
+            or (min_h4_bars > 0 and len(context.closed_h4_candles) < min_h4_bars)
+        )
+
         # 2. Causal / missing market data check
-        if len(context.closed_m1_candles) < 15 or len(context.closed_m5_candles) < 3 or context.spread is None or not context.causal_valid:
+        if (
+            len(context.closed_m1_candles) < 15
+            or len(context.closed_m5_candles) < 3
+            or context.spread is None
+            or not context.causal_valid
+            or htf_insufficient
+        ):
             reasons_list = list(context.causal_rejection_reasons)
+            if htf_insufficient and "INSUFFICIENT_HTF_HISTORY" not in reasons_list:
+                reasons_list.append("INSUFFICIENT_HTF_HISTORY")
             if not reasons_list:
                 reasons_list.append("INSUFFICIENT_CLOSED_CANDLES")
             reasons_tuple = tuple(reasons_list)
@@ -1235,6 +1576,72 @@ class SharedStrategyEvaluator:
         risk_dict = context.get_risk_dict()
         cost_dict = context.get_cost_dict()
         min_net_rr = float(risk_dict.get("min_net_rr", cfg.min_net_rr))
+
+        # 2b. HTF structure conflict check if enforce_htf_bias_alignment is enabled
+        ctx_htf_bias = str(context.htf_bias or policy_dict.get("htf_bias") or "UNKNOWN")
+        if bool(policy_dict.get("enforce_htf_bias_alignment", False)) and ctx_htf_bias in ("BULLISH", "BEARISH"):
+            expected_dir = "LONG" if ctx_htf_bias == "BULLISH" else "SHORT"
+            if direction != expected_dir or str(context.h1_alignment or policy_dict.get("h1_alignment") or "") in ("COUNTER", "CONFLICT"):
+                conflict_reasons = ("HTF_STRUCTURE_CONFLICT",)
+                ev_fp, pol_fp, dec_fp = _compute_snapshot_fingerprints(
+                    context=context,
+                    model_id=model_id,
+                    direction=direction,
+                    setup_validity="INVALID",
+                    entry_reference=entry_ref,
+                    selected_fvg_id=None,
+                    selected_break_id=None,
+                    selected_sweep_id=None,
+                    setup_episode_id=None,
+                    unicorn_validity="INVALID",
+                    selected_anchor_id=None,
+                    structural_invalidation_price=None,
+                    selected_sl=None,
+                    take_profit=None,
+                    hypothetical_quantity=None,
+                    net_rr=None,
+                    decision_status=DecisionStatus.NO_VALID_SETUP.value,
+                    rejection_reason_codes=conflict_reasons,
+                )
+                return StrategyDecisionSnapshot(
+                    model_id=model_id,
+                    symbol=context.symbol,
+                    decision_timestamp_ms=now_ms,
+                    direction=direction,
+                    setup_validity="INVALID",
+                    entry_reference=entry_ref,
+                    entry_zone_low=None,
+                    entry_zone_high=None,
+                    selected_fvg_id=None,
+                    selected_break_id=None,
+                    selected_sweep_id=None,
+                    setup_episode_id=None,
+                    unicorn_validity="INVALID",
+                    unicorn_failure_stage="HTF_STRUCTURE_CONFLICT",
+                    selected_anchor_id=None,
+                    anchor_kind=None,
+                    structural_invalidation_price=None,
+                    buffer_value=None,
+                    selected_sl=None,
+                    legacy_sl=None,
+                    take_profit=None,
+                    selected_target_id=None,
+                    atr_m1=context.atr_m1,
+                    atr_m5=context.atr_m5,
+                    spread=context.spread,
+                    hypothetical_quantity=None,
+                    stop_distance_price=None,
+                    target_distance_price=None,
+                    gross_rr=None,
+                    net_rr=None,
+                    decision_status=DecisionStatus.NO_VALID_SETUP.value,
+                    rejection_reason_codes=conflict_reasons,
+                    evidence_fingerprint=ev_fp,
+                    policy_fingerprint=pol_fp,
+                    decision_fingerprint=dec_fp,
+                    adapter_origin=adapter_origin,
+                    raw_candidate_reason_code="HTF_STRUCTURE_CONFLICT",
+                )
 
         # 3. Fail closed if ATR M1 is missing/unavailable (e.g. M1 cadence gap)
         atr_m1_obj = context.atr_m1_obj
@@ -1530,6 +1937,10 @@ class SharedStrategyEvaluator:
             rejection_reasons.extend(list(stop_dec.reasons or (stop_dec.status,)))
         if not has_valid_target or target_price is None:
             rejection_reasons.append("SHADOW_REJECTED_NO_VALID_TARGET")
+        if bool(policy_dict.get("session_restricted", False)) or bool(context.session_restricted):
+            rejection_reasons.append(
+                str(policy_dict.get("session_restriction_reason") or context.session_restriction_reason or "SESSION_TIME_RESTRICTED")
+            )
 
         policy_settings = {
             "capital_usdt": float(risk_dict.get("capital_usdt", 1000.0)),
@@ -1747,6 +2158,296 @@ class SharedStrategyEvaluator:
             for m_id in model_ids
         ]
 
+    @classmethod
+    def evaluate_decision(
+        cls,
+        market_snapshot: MarketDecisionContext,
+        structural_context: Optional[Mapping[str, Any]] = None,
+        strategy_config: Optional[Mapping[str, Any]] = None,
+        risk_context: Optional[Mapping[str, Any]] = None,
+        evaluation_time: Optional[int] = None,
+    ) -> DecisionResult:
+        """
+        Phase C: Canonical decision contract entry point shared across Production,
+        MARKET_SHADOW, and Historical Backtest.
+        """
+        ctx = market_snapshot
+        s_cfg = dict(strategy_config or {})
+        st_ctx = dict(structural_context or {})
+        model_id = str(s_cfg.get("model_id") or st_ctx.get("model_id") or ModelIdentifier.SMC_M1_FVG_CONTINUATION.value)
+        direction = s_cfg.get("direction") or st_ctx.get("direction")
+        adapter_origin = str(s_cfg.get("adapter_origin") or st_ctx.get("adapter_origin") or "SHARED_EVALUATOR")
+        target_resolver = s_cfg.get("target_resolver") or st_ctx.get("target_resolver")
+
+        if direction in ("LONG", "SHORT"):
+            return cls.evaluate_model_direction(
+                context=ctx,
+                model_id=model_id,
+                direction=str(direction),
+                adapter_origin=adapter_origin,
+                target_resolver=target_resolver,
+            )
+        return cls.evaluate_model_best_direction(
+            context=ctx,
+            model_id=model_id,
+            preferred_direction=s_cfg.get("preferred_direction"),
+            adapter_origin=adapter_origin,
+            target_resolver=target_resolver,
+        )
+
+    @classmethod
+    def evaluate_production_reversal_candidate(
+        cls,
+        *,
+        context: MarketDecisionContext,
+        zone: WatchedZone,
+        candles_1m: Sequence[Any],
+        quote: Any,
+        policy_settings: Dict[str, Any],
+        now_ms: int,
+        config: Any,
+        context_levels: Sequence[Any],
+        stop_policy: Any,
+        stop_context: Dict[str, Any],
+    ) -> Tuple[ScalpCandidate, StrategyDecisionSnapshot]:
+        """
+        Phase D: Canonical production reversal evaluation invoked inside
+        ScalpWatcherOrchestrator.evaluate_cycle().
+        """
+        z_dir = "LONG" if getattr(zone, "direction", "") in ("BULLISH", "LONG") else "SHORT"
+        snap = cls.evaluate_decision(
+            market_snapshot=context,
+            structural_context={"model_id": ModelIdentifier.SMC_M1_REVERSAL.value, "direction": z_dir},
+            strategy_config={
+                "model_id": ModelIdentifier.SMC_M1_REVERSAL.value,
+                "direction": z_dir,
+                "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+            },
+            risk_context=policy_settings,
+            evaluation_time=now_ms,
+        )
+        cand = ScalpM1ModelService.evaluate_m1_reversal_candidate(
+            zone,
+            candles_1m,
+            quote,
+            policy_settings,
+            now_ms=now_ms,
+            config=config,
+            context_levels=context_levels,
+            stop_policy=stop_policy,
+            stop_context=stop_context,
+        )
+        setattr(cand, "shared_decision_snapshot", snap)
+        return cand, snap
+
+    @classmethod
+    def evaluate_production_continuation_candidate(
+        cls,
+        *,
+        context: MarketDecisionContext,
+        candles_1m: Sequence[Any],
+        candles_5m: Sequence[Any],
+        quote: Any,
+        htf_bias: str,
+        h1_alignment: str,
+        policy_settings: Dict[str, Any],
+        now_ms: int,
+        config: Any,
+        stop_policy: Any,
+        stop_context: Dict[str, Any],
+    ) -> Tuple[ScalpCandidate, StrategyDecisionSnapshot]:
+        """
+        Phase D: Canonical production continuation evaluation invoked inside
+        ScalpWatcherOrchestrator.evaluate_cycle().
+        """
+        pref_dir = "LONG" if htf_bias == "BULLISH" else ("SHORT" if htf_bias == "BEARISH" else "LONG")
+        snap = cls.evaluate_decision(
+            market_snapshot=context,
+            structural_context={"model_id": ModelIdentifier.SMC_M1_CONTINUATION.value, "direction": pref_dir},
+            strategy_config={
+                "model_id": ModelIdentifier.SMC_M1_CONTINUATION.value,
+                "direction": pref_dir,
+                "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+            },
+            risk_context=policy_settings,
+            evaluation_time=now_ms,
+        )
+        cand = ScalpM1ModelService.evaluate_m1_continuation_candidate(
+            candles_1m,
+            candles_5m,
+            quote,
+            htf_bias,
+            h1_alignment,
+            policy_settings,
+            now_ms=now_ms,
+            config=config,
+            stop_policy=stop_policy,
+            stop_context=stop_context,
+        )
+        setattr(cand, "shared_decision_snapshot", snap)
+        return cand, snap
+
+    @classmethod
+    def evaluate_production_fvg_continuation_candidate(
+        cls,
+        *,
+        context: MarketDecisionContext,
+        closed_1m: Sequence[Any],
+        closed_5m: Sequence[Any],
+        quote: Any,
+        htf_bias: str,
+        h1_alignment: str,
+        policy_settings: Dict[str, Any],
+        now_ms: int,
+        config: Any,
+        context_levels: Sequence[Any],
+        stop_policy: Any,
+        stop_context: Dict[str, Any],
+    ) -> Tuple[ScalpCandidate, StrategyDecisionSnapshot]:
+        """
+        Phase D: Canonical production FVG continuation evaluation invoked inside
+        ScalpWatcherOrchestrator.evaluate_cycle().
+        """
+        pref_dir = "LONG" if htf_bias == "BULLISH" else ("SHORT" if htf_bias == "BEARISH" else "LONG")
+        snap = cls.evaluate_decision(
+            market_snapshot=context,
+            structural_context={"model_id": ModelIdentifier.SMC_M1_FVG_CONTINUATION.value, "direction": pref_dir},
+            strategy_config={
+                "model_id": ModelIdentifier.SMC_M1_FVG_CONTINUATION.value,
+                "direction": pref_dir,
+                "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+            },
+            risk_context=policy_settings,
+            evaluation_time=now_ms,
+        )
+        cand = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
+            closed_1m=closed_1m,
+            closed_5m=closed_5m,
+            quote=quote,
+            htf_bias=htf_bias,
+            h1_alignment=h1_alignment,
+            policy_settings=policy_settings,
+            now_ms=now_ms,
+            config=config,
+            context_levels=context_levels,
+            stop_policy=stop_policy,
+            stop_context=stop_context,
+        )
+        setattr(cand, "shared_decision_snapshot", snap)
+        return cand, snap
+
+    @classmethod
+    def evaluate_production_sweep_reclaim_candidate(
+        cls,
+        *,
+        context: MarketDecisionContext,
+        closed_1m: Sequence[Any],
+        cluster: Any,
+        quote: Any,
+        policy_settings: Dict[str, Any],
+        now_ms: int,
+        config: Any,
+        context_levels: Sequence[Any],
+        stop_policy: Any,
+        stop_context: Dict[str, Any],
+    ) -> Tuple[ScalpCandidate, StrategyDecisionSnapshot]:
+        """
+        Phase D: Canonical production sweep-reclaim evaluation invoked inside
+        ScalpWatcherOrchestrator.evaluate_cycle().
+        """
+        c_dir = "LONG" if getattr(cluster, "side", "") == "SELL_SIDE" else "SHORT"
+        snap = cls.evaluate_decision(
+            market_snapshot=context,
+            structural_context={"model_id": ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value, "direction": c_dir},
+            strategy_config={
+                "model_id": ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+                "direction": c_dir,
+                "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+            },
+            risk_context=policy_settings,
+            evaluation_time=now_ms,
+        )
+        cand = ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate(
+            closed_1m=closed_1m,
+            cluster=cluster,
+            quote=quote,
+            policy_settings=policy_settings,
+            now_ms=now_ms,
+            config=config,
+            context_levels=context_levels,
+            stop_policy=stop_policy,
+            stop_context=stop_context,
+        )
+        setattr(cand, "shared_decision_snapshot", snap)
+        return cand, snap
+
+    @classmethod
+    def evaluate_production_cg01_candidate(
+        cls,
+        *,
+        context: MarketDecisionContext,
+        closed_ctx: Dict[str, Any],
+        quote: Any,
+        config: Any,
+        now_ms: int,
+        capital: float,
+        risk_pct: float,
+        costs: Any,
+        stop_policy: Any,
+        stop_context: Dict[str, Any],
+        eval_fn: Optional[Callable[..., Any]] = None,
+    ) -> Tuple[Any, StrategyDecisionSnapshot]:
+        """
+        Phase D: Canonical production CG-01 evaluation invoked inside
+        ScalpWatcherOrchestrator.evaluate_cycle().
+        """
+        pref_dir = "LONG" if context.htf_bias == "BULLISH" else ("SHORT" if context.htf_bias == "BEARISH" else None)
+        snap = cls.evaluate_decision(
+            market_snapshot=context,
+            structural_context={"model_id": ModelIdentifier.CG01_SWEEP_MSS_FVG.value},
+            strategy_config={
+                "model_id": ModelIdentifier.CG01_SWEEP_MSS_FVG.value,
+                "preferred_direction": pref_dir,
+                "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+            },
+            risk_context={"capital_usdt": capital, "risk_pct": risk_pct},
+            evaluation_time=now_ms,
+        )
+        fn = eval_fn or evaluate_cg01_candidate
+        cg01_dec = fn(
+            closed_ctx,
+            quote,
+            config=config,
+            now_ms=now_ms,
+            capital=capital,
+            risk_pct=risk_pct,
+            costs=costs,
+            stop_policy=stop_policy,
+            stop_context=stop_context,
+        )
+        if cg01_dec is not None and getattr(cg01_dec, "candidate", None) is not None:
+            setattr(cg01_dec.candidate, "shared_decision_snapshot", snap)
+        return cg01_dec, snap
+
+
+def evaluate_decision(
+    market_snapshot: MarketDecisionContext,
+    structural_context: Optional[Mapping[str, Any]] = None,
+    strategy_config: Optional[Mapping[str, Any]] = None,
+    risk_context: Optional[Mapping[str, Any]] = None,
+    evaluation_time: Optional[int] = None,
+) -> DecisionResult:
+    """
+    Phase C: Top-level canonical decision evaluator function.
+    """
+    return SharedStrategyEvaluator.evaluate_decision(
+        market_snapshot=market_snapshot,
+        structural_context=structural_context,
+        strategy_config=strategy_config,
+        risk_context=risk_context,
+        evaluation_time=evaluation_time,
+    )
+
 
 def characterize_production_baseline_decision(
     context: MarketDecisionContext,
@@ -1754,42 +2455,96 @@ def characterize_production_baseline_decision(
     direction: str,
 ) -> StrategyDecisionSnapshot:
     """
-    Section 8.1 Stage 1: Direct production baseline characterization.
-    Calls the raw production model evaluators directly and tags adapter_origin
-    as 'BASELINE_DIRECT_PRODUCTION'.
+    Phase B / Section 8.1 Stage 1: Independent pre-refactor baseline characterization.
+    Executes `IndependentPreRefactorBaselineOracle` (recovered from pre-V17.9.0 commit
+    `c356d6551e13cd6af61cea5c3ab1f4aae1548af2`) without calling `SharedStrategyEvaluator`.
     """
-    return SharedStrategyEvaluator.evaluate_model_direction(
+    from services.v17_9_0_1_baseline_oracle import IndependentPreRefactorBaselineOracle
+
+    raw_dict = IndependentPreRefactorBaselineOracle.evaluate_baseline_dict(
         context=context,
         model_id=model_id,
         direction=direction,
+    )
+    return StrategyDecisionSnapshot(
+        model_id=raw_dict["model_id"],
+        symbol=raw_dict["symbol"],
+        decision_timestamp_ms=raw_dict["decision_timestamp_ms"],
+        direction=raw_dict["direction"],
+        setup_validity=raw_dict["setup_validity"],
+        entry_reference=raw_dict["entry_reference"],
+        entry_zone_low=raw_dict["entry_zone_low"],
+        entry_zone_high=raw_dict["entry_zone_high"],
+        selected_fvg_id=raw_dict["selected_fvg_id"],
+        selected_break_id=raw_dict["selected_break_id"],
+        selected_sweep_id=raw_dict["selected_sweep_id"],
+        setup_episode_id=raw_dict["setup_episode_id"],
+        unicorn_validity=raw_dict["unicorn_validity"],
+        unicorn_failure_stage=raw_dict["unicorn_failure_stage"],
+        selected_anchor_id=raw_dict["selected_anchor_id"],
+        anchor_kind=raw_dict["anchor_kind"],
+        structural_invalidation_price=raw_dict["structural_invalidation_price"],
+        buffer_value=raw_dict["buffer_value"],
+        selected_sl=raw_dict["selected_sl"],
+        legacy_sl=raw_dict["legacy_sl"],
+        take_profit=raw_dict["take_profit"],
+        selected_target_id=raw_dict["selected_target_id"],
+        atr_m1=raw_dict["atr_m1"],
+        atr_m5=raw_dict["atr_m5"],
+        spread=raw_dict["spread"],
+        hypothetical_quantity=raw_dict["hypothetical_quantity"],
+        stop_distance_price=raw_dict["stop_distance_price"],
+        target_distance_price=raw_dict["target_distance_price"],
+        gross_rr=raw_dict["gross_rr"],
+        net_rr=raw_dict["net_rr"],
+        decision_status=raw_dict["decision_status"],
+        rejection_reason_codes=tuple(raw_dict["rejection_reason_codes"]),
+        evidence_fingerprint=raw_dict["evidence_fingerprint"],
+        policy_fingerprint=raw_dict["policy_fingerprint"],
+        decision_fingerprint=raw_dict["decision_fingerprint"],
         adapter_origin="BASELINE_DIRECT_PRODUCTION",
+        raw_candidate_reason_code=raw_dict.get("raw_candidate_reason_code"),
+        candidate_key=raw_dict.get("candidate_key"),
+        unicorn_evidence_dict=raw_dict.get("unicorn_evidence_dict"),
+        stop_comparison_plan_dict=raw_dict.get("stop_comparison_plan_dict"),
+        unicorn_sl_candidate=raw_dict.get("unicorn_sl_candidate"),
+        protective_distance=raw_dict.get("protective_distance"),
+        selected_breaker_id=raw_dict.get("selected_breaker_id"),
     )
 
 
+def _snap_get(obj: Any, field_name: str, default: Any = None) -> Any:
+    if isinstance(obj, Mapping):
+        return obj.get(field_name, default)
+    return getattr(obj, field_name, default)
+
+
 def compare_decision_parity(
-    left: StrategyDecisionSnapshot,
-    right: StrategyDecisionSnapshot,
+    left: Any,
+    right: Any,
     *,
     float_tolerance: float = 1e-6,
     allow_same_adapter_origin: bool = False,
 ) -> Dict[str, Any]:
     """
-    Section 8.2 / 8.3: Compares two StrategyDecisionSnapshots across all 20
+    Section 8.2 / 8.3: Compares two StrategyDecisionSnapshots (or parity dicts) across all 20
     required parity fields and enforces anti-fake parity controls.
     """
     mismatches: List[Dict[str, Any]] = []
+    left_origin = _snap_get(left, "adapter_origin")
+    right_origin = _snap_get(right, "adapter_origin")
 
-    if not allow_same_adapter_origin and left.adapter_origin == right.adapter_origin:
+    if not allow_same_adapter_origin and left_origin == right_origin:
         mismatches.append({
             "field": "adapter_origin",
-            "left": left.adapter_origin,
-            "right": right.adapter_origin,
+            "left": left_origin,
+            "right": right_origin,
             "reason": "SELF_COMPARISON_TRAP_DETECTED",
         })
 
     for field_name in REQUIRED_PARITY_FIELDS:
-        l_val = getattr(left, field_name)
-        r_val = getattr(right, field_name)
+        l_val = _snap_get(left, field_name)
+        r_val = _snap_get(right, field_name)
 
         if isinstance(l_val, float) and isinstance(r_val, float):
             if abs(l_val - r_val) > float_tolerance:
@@ -1816,11 +2571,13 @@ def compare_decision_parity(
                     "reason": "VALUE_MISMATCH",
                 })
 
-    if left.decision_fingerprint != right.decision_fingerprint:
+    left_fp = _snap_get(left, "decision_fingerprint")
+    right_fp = _snap_get(right, "decision_fingerprint")
+    if left_fp != right_fp:
         mismatches.append({
             "field": "decision_fingerprint",
-            "left": left.decision_fingerprint,
-            "right": right.decision_fingerprint,
+            "left": left_fp,
+            "right": right_fp,
             "reason": "FINGERPRINT_MISMATCH",
         })
 
@@ -1828,13 +2585,13 @@ def compare_decision_parity(
     return {
         "parity_status": "PARITY_MATCH" if is_match else "PRODUCTION_PARITY_MISMATCH",
         "is_match": is_match,
-        "model_id": left.model_id,
-        "direction": left.direction,
-        "decision_timestamp_ms": left.decision_timestamp_ms,
-        "left_adapter_origin": left.adapter_origin,
-        "right_adapter_origin": right.adapter_origin,
-        "left_fingerprint": left.decision_fingerprint,
-        "right_fingerprint": right.decision_fingerprint,
+        "model_id": _snap_get(left, "model_id"),
+        "direction": _snap_get(left, "direction"),
+        "decision_timestamp_ms": _snap_get(left, "decision_timestamp_ms"),
+        "left_adapter_origin": left_origin,
+        "right_adapter_origin": right_origin,
+        "left_fingerprint": left_fp,
+        "right_fingerprint": right_fp,
         "mismatch_count": len(mismatches),
         "mismatches": mismatches,
     }

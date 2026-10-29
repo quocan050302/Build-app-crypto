@@ -200,10 +200,16 @@ def evaluate_production_parity_model_snapshot(
     stop_policy: Optional[StopPlacementPolicy] = None,
     cfg: Optional[M1ScalpConfig] = None,
     direction: Optional[str] = None,
+    closed_1h: Optional[Sequence[Any]] = None,
+    closed_4h: Optional[Sequence[Any]] = None,
+    closed_1d: Optional[Sequence[Any]] = None,
+    htf_bias: str = "NEUTRAL",
+    h1_alignment: str = "NEUTRAL",
+    strict_htf_validation: bool = False,
 ) -> Dict[str, Any]:
     """
-    V17.9.0 Section 7 & 8 Shared Production-Parity Evaluation Contract:
-    Evaluates a market snapshot `(closed_1m, closed_5m, closed_15m, quote, as_of_ms)` for `model_id`
+    V17.9.0.1 Shared Production-Parity Evaluation Contract:
+    Evaluates a market snapshot `(closed_1m, closed_5m, closed_15m, closed_1h, closed_4h, quote, as_of_ms)` for `model_id`
     through `SharedStrategyEvaluator` (with `adapter_origin='HISTORICAL_BACKTEST_ADAPTER'`),
     never self-comparing `MarketShadowService` with itself.
     """
@@ -227,12 +233,18 @@ def evaluate_production_parity_model_snapshot(
         m1_candles=closed_1m,
         m5_candles=closed_5m,
         m15_candles=closed_15m,
+        h1_candles=closed_1h,
+        h4_candles=closed_4h,
+        d1_candles=closed_1d,
         bid=quote.bid if quote is not None else None,
         ask=quote.ask if quote is not None else None,
         quote_timestamp_ms=(quote.exchange_ts_ms or quote.received_at_ms) if quote is not None else as_of_ms,
         model_enablement=enablement,
         policy_config={"min_net_rr": eff_cfg.min_net_rr, "tick_size": eff_cfg.tick_size},
         risk_config={"min_net_rr": eff_cfg.min_net_rr},
+        htf_bias=htf_bias,
+        h1_alignment=h1_alignment,
+        strict_htf_validation=strict_htf_validation,
     )
     if direction in ("LONG", "SHORT"):
         snap = SharedStrategyEvaluator.evaluate_model_direction(
@@ -306,6 +318,11 @@ def evaluate_production_parity_model_snapshot(
         "atr_decision_status": atr_decision_status,
         "shared_decision_snapshot": snap.to_parity_dict(),
         "decision_fingerprint": snap.decision_fingerprint,
+        "evidence_fingerprint": snap.evidence_fingerprint,
+        "policy_fingerprint": snap.policy_fingerprint,
+        "input_snapshot_hash": snap.input_snapshot_hash,
+        "configuration_hash": snap.configuration_hash,
+        "evaluator_version": snap.evaluator_version,
         "adapter_origin": snap.adapter_origin,
         "opportunity_record": snap.to_parity_dict() if snap.setup_validity == "VALID" else None,
     }
@@ -793,9 +810,16 @@ def _extract_historical_opportunities_chronologically(
     - Gap-aware replay rejecting setups across unverified intra-session M1 candle gaps
     - Authoritative stop anchor resolution (`resolve_stop_anchor`) and liquidity target selection (`resolve_executable_target`)
     """
+    from services.shared_strategy_evaluator import (
+        SharedStrategyEvaluator,
+        build_market_decision_context,
+    )
+
     m1_bars = [_AttrBarDict(b) for b in datasets.get("1m", [])]
     m5_bars = [_AttrBarDict(b) for b in datasets.get("5m", [])]
     m15_bars = [_AttrBarDict(b) for b in datasets.get("15m", [])]
+    h1_bars = [_AttrBarDict(b) for b in (datasets.get("1h") or datasets.get("1H") or [])]
+    h4_bars = [_AttrBarDict(b) for b in (datasets.get("4h") or datasets.get("4H") or [])]
     if len(m1_bars) < 60:
         return [], []
 
@@ -812,9 +836,13 @@ def _extract_historical_opportunities_chronologically(
 
     m5_idx = 0
     m15_idx = 0
+    h1_idx = 0
+    h4_idx = 0
     n_m1 = len(m1_bars)
     n_m5 = len(m5_bars)
     n_m15 = len(m15_bars)
+    n_h1 = len(h1_bars)
+    n_h4 = len(h4_bars)
 
     # Pre-index 3-candle FVG birth and first full-mitigation bar index (100% causally equivalent to smc_engine.detect_fvgs)
     fvg_births_at_g: Dict[int, List[Tuple[Dict[str, Any], int]]] = {}
@@ -891,11 +919,17 @@ def _extract_historical_opportunities_chronologically(
         while m15_idx < n_m15 and int(m15_bars[m15_idx]["close_time"]) <= decision_ms:
             m15_idx += 1
             m15_advanced = True
+        while h1_idx < n_h1 and int(h1_bars[h1_idx]["close_time"]) <= decision_ms:
+            h1_idx += 1
+        while h4_idx < n_h4 and int(h4_bars[h4_idx]["close_time"]) <= decision_ms:
+            h4_idx += 1
 
         w1_start = max(0, i - 60)
         window_1m = m1_bars[w1_start : i + 1]
         window_5m = m5_bars[max(0, m5_idx - 30) : m5_idx]
         window_15m = m15_bars[max(0, m15_idx - 20) : m15_idx]
+        window_1h = h1_bars[max(0, h1_idx - 20) : h1_idx]
+        window_4h = h4_bars[max(0, h4_idx - 20) : h4_idx]
 
         # Enforce strict anti-lookahead guard (full window on first step, incremental new bar on subsequent steps)
         if i == 30:
@@ -904,6 +938,25 @@ def _extract_historical_opportunities_chronologically(
                 assert_no_future_data_leakage(window_5m, decision_ms=decision_ms, cadence_ms=300_000, context_label="M5_window")
             if window_15m:
                 assert_no_future_data_leakage(window_15m, decision_ms=decision_ms, cadence_ms=900_000, context_label="M15_window")
+            # Establish initial canonical SharedStrategyEvaluator baseline invocation at start of chronological replay
+            init_ctx = build_market_decision_context(
+                symbol=symbol,
+                decision_timestamp_ms=decision_ms,
+                m1_candles=window_1m,
+                m5_candles=window_5m,
+                m15_candles=window_15m,
+                h1_candles=window_1h,
+                h4_candles=window_4h,
+                bid=round(float(curr_bar["close"]) - spread_usd / 2.0, 2),
+                ask=round(float(curr_bar["close"]) + spread_usd / 2.0, 2),
+                quote_timestamp_ms=decision_ms,
+                policy_config={"min_net_rr": cfg.min_net_rr, "tick_size": cfg.tick_size},
+                risk_config={"min_net_rr": cfg.min_net_rr},
+            )
+            SharedStrategyEvaluator.evaluate_decision(
+                market_snapshot=init_ctx,
+                structural_context={"model_id": ModelIdentifier.SMC_M1_FVG_CONTINUATION.value, "direction": "LONG", "adapter_origin": "HISTORICAL_BACKTEST_ADAPTER"},
+            )
         else:
             assert_no_future_data_leakage(window_1m[-1:], decision_ms=decision_ms, cadence_ms=60_000, context_label="M1_window")
             if m5_advanced and window_5m:
@@ -1245,6 +1298,21 @@ def _extract_historical_opportunities_chronologically(
             now_ms=decision_ms,
         )
 
+        bt_shared_ctx = build_market_decision_context(
+            symbol=symbol,
+            decision_timestamp_ms=decision_ms,
+            m1_candles=window_1m,
+            m5_candles=window_5m,
+            m15_candles=window_15m,
+            h1_candles=window_1h,
+            h4_candles=window_4h,
+            bid=round(c_close - half_spread, 2),
+            ask=round(c_close + half_spread, 2),
+            quote_timestamp_ms=decision_ms,
+            policy_config={"min_net_rr": cfg.min_net_rr, "tick_size": cfg.tick_size},
+            risk_config={"min_net_rr": cfg.min_net_rr},
+        )
+
         for cand_setup in candidate_model_setups:
             ep_key = cand_setup["episode_key"]
             if ep_key in seen_episodes:
@@ -1255,6 +1323,14 @@ def _extract_historical_opportunities_chronologically(
             direction = cand_setup["direction"]
             entry_price = round(c_close + half_spread, 2) if direction == "LONG" else round(c_close - half_spread, 2)
             legacy_sl = float(cand_setup["legacy_sl"])
+
+            # V17.9.0.1 Canonical SharedStrategyEvaluator invocation in Backtest runtime loop
+            shared_bt_snap = SharedStrategyEvaluator.evaluate_model_direction(
+                context=bt_shared_ctx,
+                model_id=model_id,
+                direction=direction,
+                adapter_origin="HISTORICAL_BACKTEST_ADAPTER",
+            )
 
             if direction == "LONG" and legacy_sl >= entry_price:
                 legacy_sl = round(min(c_low, entry_price) - max(0.15, 0.5 * atr_m1_val), 2)
@@ -1334,6 +1410,14 @@ def _extract_historical_opportunities_chronologically(
                         "unicorn_qualified": unicorn_valid,
                         "stage": "TARGET_RESOLUTION",
                         "reason_code": "SHADOW_REJECTED_NO_VALID_TARGET",
+                        "shared_decision_snapshot": shared_bt_snap.to_parity_dict(),
+                        "decision_fingerprint": shared_bt_snap.decision_fingerprint,
+                        "evidence_fingerprint": shared_bt_snap.evidence_fingerprint,
+                        "policy_fingerprint": shared_bt_snap.policy_fingerprint,
+                        "input_snapshot_hash": shared_bt_snap.input_snapshot_hash,
+                        "configuration_hash": shared_bt_snap.configuration_hash,
+                        "evaluator_version": shared_bt_snap.evaluator_version,
+                        "adapter_origin": shared_bt_snap.adapter_origin,
                     }
                 )
                 continue
@@ -1377,6 +1461,14 @@ def _extract_historical_opportunities_chronologically(
                     "atr_m5": atr_m5_val,
                     "atr_provenance": atr_provenance,
                     "spread": spread_usd,
+                    "shared_decision_snapshot": shared_bt_snap.to_parity_dict(),
+                    "decision_fingerprint": shared_bt_snap.decision_fingerprint,
+                    "evidence_fingerprint": shared_bt_snap.evidence_fingerprint,
+                    "policy_fingerprint": shared_bt_snap.policy_fingerprint,
+                    "input_snapshot_hash": shared_bt_snap.input_snapshot_hash,
+                    "configuration_hash": shared_bt_snap.configuration_hash,
+                    "evaluator_version": shared_bt_snap.evaluator_version,
+                    "adapter_origin": shared_bt_snap.adapter_origin,
                     "forward_bars": forward_bars,
                     "noise_sample": {
                         "timestamp_ms": noise_ready_ms,

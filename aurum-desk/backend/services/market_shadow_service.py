@@ -1044,6 +1044,10 @@ class MarketShadowService:
         closed_1m: Optional[Sequence[Any]] = None,
         closed_5m: Optional[Sequence[Any]] = None,
         closed_15m: Optional[Sequence[Any]] = None,
+        closed_1h: Optional[Sequence[Any]] = None,
+        closed_4h: Optional[Sequence[Any]] = None,
+        htf_bias: Optional[str] = None,
+        h1_alignment: Optional[str] = None,
         quote: Optional[CanonicalQuote] = None,
         policy: Optional[StopPlacementPolicy] = None,
         stop_policy: Optional[StopPlacementPolicy] = None,
@@ -1073,10 +1077,14 @@ class MarketShadowService:
         raw_1m = closed_1m if closed_1m is not None else self.get_closed_candles("1M", as_of_ms=cutoff_ms, limit=250)
         raw_5m = closed_5m if closed_5m is not None else self.get_closed_candles("5M", as_of_ms=cutoff_ms, limit=150)
         raw_15m = closed_15m if closed_15m is not None else self.get_closed_candles("15M", as_of_ms=cutoff_ms, limit=100)
+        raw_1h = closed_1h if closed_1h is not None else self.get_closed_candles("1H", as_of_ms=cutoff_ms, limit=60)
+        raw_4h = closed_4h if closed_4h is not None else self.get_closed_candles("4H", as_of_ms=cutoff_ms, limit=40)
 
         bars_1m, unclosed_1m_rejected = self._filter_strict_closed_bars(raw_1m, "1M", cutoff_ms)
         bars_5m, unclosed_5m_rejected = self._filter_strict_closed_bars(raw_5m, "5M", cutoff_ms)
         bars_15m, unclosed_15m_rejected = self._filter_strict_closed_bars(raw_15m, "15M", cutoff_ms)
+        bars_1h, _ = self._filter_strict_closed_bars(raw_1h, "1H", cutoff_ms)
+        bars_4h, _ = self._filter_strict_closed_bars(raw_4h, "4H", cutoff_ms)
 
         # 2. Quote freshness & validity check
         eff_quote = quote if quote is not None else self.latest_quote
@@ -1163,7 +1171,9 @@ class MarketShadowService:
         )
 
         # 5. Derive HTF/M5/M15 directional bias and liquidity context from confirmed closed candles
-        htf_bias, h1_alignment = self._derive_multi_tf_bias(bars_1m, bars_5m, bars_15m)
+        derived_bias, derived_align = self._derive_multi_tf_bias(bars_1m, bars_5m, bars_15m)
+        htf_bias = htf_bias if htf_bias is not None else derived_bias
+        h1_alignment = h1_alignment if h1_alignment is not None else derived_align
         sh_1m, sl_1m = identify_confirmed_swings(bars_1m, timeframe="1M", left_bars=2, right_bars=2, as_of_ms=cutoff_ms)
         sh_5m, sl_5m = identify_confirmed_swings(bars_5m, timeframe="5M", left_bars=1, right_bars=1, as_of_ms=cutoff_ms)
         liquidity_levels = build_liquidity_map(
@@ -1237,6 +1247,8 @@ class MarketShadowService:
                 bars_1m=bars_1m,
                 bars_5m=bars_5m,
                 bars_15m=bars_15m,
+                bars_1h=bars_1h,
+                bars_4h=bars_4h,
                 quote=eff_quote,
                 htf_bias=htf_bias,
                 h1_alignment=h1_alignment,
@@ -1256,6 +1268,9 @@ class MarketShadowService:
                 "classification": opp["model_classification"],
                 "reason_code": opp["primary_reason_code"],
                 "opportunity_id": opp.get("opportunity_id"),
+                "shared_decision_fingerprint": opp.get("decision_fingerprint"),
+                "shared_decision_snapshot": opp.get("shared_decision_snapshot"),
+                "evaluator_version": (opp.get("shared_decision_snapshot") or {}).get("evaluator_version", "17.9.0.1"),
             }
             if opp.get("opportunity_record") is not None:
                 opp_rec = opp["opportunity_record"]
@@ -1364,6 +1379,8 @@ class MarketShadowService:
         bars_1m: List[ShadowCandleRecord],
         bars_5m: List[ShadowCandleRecord],
         bars_15m: List[ShadowCandleRecord],
+        bars_1h: Optional[List[ShadowCandleRecord]] = None,
+        bars_4h: Optional[List[ShadowCandleRecord]] = None,
         quote: CanonicalQuote,
         htf_bias: str,
         h1_alignment: str,
@@ -1379,15 +1396,37 @@ class MarketShadowService:
         analysis_time_ms: int,
     ) -> Dict[str, Any]:
         """
-        Evaluates a single model in shadow mode using the authoritative SMC/Unicorn/Stop/Target/Risk services.
+        Evaluates a single model in shadow mode using SharedStrategyEvaluator and the
+        authoritative SMC/Unicorn/Stop/Target/Risk services (Phase E).
         """
+        initial_dir = "LONG" if htf_bias == "BULLISH" else "SHORT"
+        shared_ctx = self.build_shared_decision_context(
+            decision_timestamp_ms=cutoff_ms,
+            m1_candles=bars_1m,
+            m5_candles=bars_5m,
+            m15_candles=bars_15m,
+            h1_candles=bars_1h,
+            h4_candles=bars_4h,
+            bid=quote.bid,
+            ask=quote.ask,
+            quote_timestamp_ms=quote.exchange_ts_ms or quote.received_at_ms,
+            liquidity_pools=liquidity_levels,
+            htf_bias=htf_bias,
+            h1_alignment=h1_alignment,
+        )
+
         # Fail closed if ATR M1 is missing or unavailable
         if atr_m1_obj is None or getattr(atr_m1_obj, "status", None) != "AVAILABLE" or float(getattr(atr_m1_obj, "value", 0.0) or 0.0) <= 0.0:
+            shared_snap = self.evaluate_shared_decision_snapshot(
+                context=shared_ctx,
+                model_id=model_id,
+                direction=initial_dir,
+            )
             opp_id = f"shopp_{model_id}_{self.symbol}_{cutoff_ms}_no_atr"
             rej_rec = self._build_opportunity_dict(
                 opportunity_id=opp_id,
                 model_id=model_id,
-                direction="LONG" if htf_bias == "BULLISH" else "SHORT",
+                direction=initial_dir,
                 setup_episode_id=f"ep_{model_id}_{cutoff_ms}",
                 analysis_time_ms=analysis_time_ms,
                 decision_cutoff_ms=cutoff_ms,
@@ -1416,17 +1455,25 @@ class MarketShadowService:
                 rejection_reason_codes=["ATR_MISSING", getattr(atr_m1_obj, "reason_code", "ATR_UNAVAILABLE") or "ATR_UNAVAILABLE"],
                 comparison_plan=None,
             )
+            rej_rec["shared_decision_snapshot"] = shared_snap.to_parity_dict()
+            rej_rec["decision_fingerprint"] = shared_snap.decision_fingerprint
+            rej_rec["evidence_fingerprint"] = shared_snap.evidence_fingerprint
+            rej_rec["policy_fingerprint"] = shared_snap.policy_fingerprint
+            rej_rec["adapter_origin"] = shared_snap.adapter_origin
+            rej_rec["evaluator_version"] = shared_snap.evaluator_version
             return {
                 "model_classification": ShadowModelClassification.VALID_SETUP_REJECTED_BY_RISK.value,
                 "primary_reason_code": "ATR_MISSING",
                 "opportunity_id": opp_id,
                 "opportunity_record": rej_rec,
+                "shared_decision_snapshot": shared_snap.to_parity_dict(),
+                "decision_fingerprint": shared_snap.decision_fingerprint,
             }
 
         atr_m1_val = float(atr_m1_obj.value)
         atr_m5_val = float(atr_m5_obj.value) if (atr_m5_obj and getattr(atr_m5_obj, "status", None) == "AVAILABLE") else None
 
-        direction = "LONG" if htf_bias == "BULLISH" else "SHORT"
+        direction = initial_dir
         entry_ref = round(float(quote.ask if direction == "LONG" else quote.bid), 2)
 
         # Detect model-specific setup evidence on closed M1 bars
@@ -1441,14 +1488,26 @@ class MarketShadowService:
             cutoff_ms=cutoff_ms,
         )
         if not setup_info["has_setup"]:
+            shared_snap = self.evaluate_shared_decision_snapshot(
+                context=shared_ctx,
+                model_id=model_id,
+                direction=direction,
+            )
             return {
                 "model_classification": ShadowModelClassification.NO_VALID_SETUP.value,
                 "primary_reason_code": setup_info["reason_code"],
                 "opportunity_id": None,
                 "opportunity_record": None,
+                "shared_decision_snapshot": shared_snap.to_parity_dict(),
+                "decision_fingerprint": shared_snap.decision_fingerprint,
             }
 
         direction = setup_info["direction"]
+        shared_snap = self.evaluate_shared_decision_snapshot(
+            context=shared_ctx,
+            model_id=model_id,
+            direction=direction,
+        )
         entry_ref = round(float(quote.ask if direction == "LONG" else quote.bid), 2)
         legacy_sl = float(setup_info["legacy_sl"])
         episode_id = str(setup_info["episode_id"])
@@ -1705,35 +1764,20 @@ class MarketShadowService:
                 }
             )
 
-        try:
-            shared_ctx = self.build_shared_decision_context(
-                decision_timestamp_ms=cutoff_ms,
-                m1_candles=bars_1m,
-                m5_candles=bars_5m,
-                m15_candles=bars_15m,
-                bid=quote.bid,
-                ask=quote.ask,
-                quote_timestamp_ms=quote.exchange_ts_ms or quote.received_at_ms,
-                liquidity_pools=liquidity_levels,
-            )
-            shared_snap = self.evaluate_shared_decision_snapshot(
-                context=shared_ctx,
-                model_id=model_id,
-                direction=direction,
-            )
-            opp_rec["shared_decision_snapshot"] = shared_snap.to_parity_dict()
-            opp_rec["decision_fingerprint"] = shared_snap.decision_fingerprint
-            opp_rec["evidence_fingerprint"] = shared_snap.evidence_fingerprint
-            opp_rec["policy_fingerprint"] = shared_snap.policy_fingerprint
-            opp_rec["adapter_origin"] = shared_snap.adapter_origin
-        except Exception:
-            pass
+        opp_rec["shared_decision_snapshot"] = shared_snap.to_parity_dict()
+        opp_rec["decision_fingerprint"] = shared_snap.decision_fingerprint
+        opp_rec["evidence_fingerprint"] = shared_snap.evidence_fingerprint
+        opp_rec["policy_fingerprint"] = shared_snap.policy_fingerprint
+        opp_rec["adapter_origin"] = shared_snap.adapter_origin
+        opp_rec["evaluator_version"] = shared_snap.evaluator_version
 
         return {
             "model_classification": classification,
             "primary_reason_code": "ELIGIBLE" if is_eligible else (rejection_reasons[0] if rejection_reasons else "REJECTED"),
             "opportunity_id": opp_id,
             "opportunity_record": opp_rec,
+            "shared_decision_snapshot": shared_snap.to_parity_dict(),
+            "decision_fingerprint": shared_snap.decision_fingerprint,
         }
 
     def _detect_model_setup_evidence(
@@ -2387,6 +2431,8 @@ class MarketShadowService:
             "m5_status": "UNCLOSED_REJECTED" if unclosed_m5_rejected and len(bars_5m) < 3 else ("READY" if len(bars_5m) >= 3 else "INSUFFICIENT"),
             "m15_status": "READY" if len(bars_15m) >= 1 else "INSUFFICIENT",
             "models_evaluated": model_outcomes,
+            "model_outcomes": model_outcomes,
+            "evaluator_version": "17.9.0.1",
             "detected_setups_count": len(opportunities),
             "confirmed_unicorns_count": len(valid_unicorns),
             "eligible_count": len(eligible_opps),
@@ -2579,6 +2625,8 @@ class MarketShadowService:
         m5_candles: Optional[Sequence[Any]] = None,
         m15_candles: Optional[Sequence[Any]] = None,
         h1_candles: Optional[Sequence[Any]] = None,
+        h4_candles: Optional[Sequence[Any]] = None,
+        d1_candles: Optional[Sequence[Any]] = None,
         bid: Optional[float] = None,
         ask: Optional[float] = None,
         quote_timestamp_ms: Optional[int] = None,
@@ -2589,9 +2637,12 @@ class MarketShadowService:
         risk_config: Optional[Dict[str, Any]] = None,
         cost_config: Optional[Dict[str, Any]] = None,
         strict_causal_validation: bool = False,
+        strict_htf_validation: bool = False,
+        htf_bias: Optional[str] = None,
+        h1_alignment: Optional[str] = None,
     ):
         """
-        V17.9.0 Section 7.2: MARKET_SHADOW adapter method constructing immutable
+        V17.9.0.1 Phase E: MARKET_SHADOW adapter method constructing immutable
         MarketDecisionContext for SharedStrategyEvaluator.
         """
         from services.shared_strategy_evaluator import ALL_EVALUATED_MODEL_IDS, build_market_decision_context
@@ -2608,6 +2659,8 @@ class MarketShadowService:
             m5_candles=m5_candles,
             m15_candles=m15_candles,
             h1_candles=h1_candles,
+            h4_candles=h4_candles,
+            d1_candles=d1_candles,
             bid=bid,
             ask=ask,
             quote_timestamp_ms=quote_timestamp_ms,
@@ -2618,7 +2671,43 @@ class MarketShadowService:
             risk_config=risk_config,
             cost_config=cost_config,
             strict_causal_validation=strict_causal_validation,
+            strict_htf_validation=strict_htf_validation,
+            htf_bias=htf_bias,
+            h1_alignment=h1_alignment,
         )
+
+    def compare_production_shadow_divergence(
+        self,
+        production_snapshot: Any,
+        shadow_snapshot: Any,
+    ) -> Dict[str, Any]:
+        """
+        V17.9.0.1 Phase E: Compares Production and MARKET_SHADOW decision snapshots
+        on the same normalized input snapshot, emitting a structured divergence event
+        if any parity field differs.
+        """
+        from services.shared_strategy_evaluator import compare_decision_parity
+        diff = compare_decision_parity(production_snapshot, shadow_snapshot)
+        field_diffs = {
+            m["field"]: {"production": m["left"], "shadow": m["right"]}
+            for m in diff["mismatches"]
+        }
+        event = {
+            "event_type": "SHADOW_PARITY_VERIFIED" if diff["is_match"] else "RUNTIME_DECISION_DIVERGENCE",
+            "symbol": self.symbol,
+            "model_id": shadow_snapshot.get("model_id") if isinstance(shadow_snapshot, dict) else getattr(shadow_snapshot, "model_id", None),
+            "direction": shadow_snapshot.get("direction") if isinstance(shadow_snapshot, dict) else getattr(shadow_snapshot, "direction", None),
+            "decision_timestamp_ms": shadow_snapshot.get("decision_timestamp_ms") if isinstance(shadow_snapshot, dict) else getattr(shadow_snapshot, "decision_timestamp_ms", None),
+            "parity_status": diff["parity_status"],
+            "is_match": diff["is_match"],
+            "is_divergent": not diff["is_match"],
+            "mismatch_count": diff["mismatch_count"],
+            "mismatches": diff["mismatches"],
+            "field_diffs": field_diffs,
+            "production_fingerprint": diff["left_fingerprint"],
+            "shadow_fingerprint": diff["right_fingerprint"],
+        }
+        return event
 
     def evaluate_shared_decision_snapshot(
         self,

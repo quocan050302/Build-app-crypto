@@ -859,3 +859,246 @@ def determine_v17_9_0_release_verdict(
         source_manifest_verified=source_manifest_verified,
     )
     return bundle["release_acceptance_verdict"]
+
+
+AUTHORITATIVE_GATE_MAPPING_V17_9_0_1: Dict[str, Dict[str, Any]] = {
+    "G89_SHARED_DECISION_CONTEXT_CONTRACT": {
+        "previous_selector_v17_9_0": "test_01 or test_02 or test_03",
+        "repaired_selector_v17_9_0_1": "test_01 or test_02 or test_03 or test_04 or test_05 or test_v17_9_0_1_htf",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+            "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+        ],
+        "min_passed": 5,
+        "requirement": "MarketDecisionContext immutability, closed-bar causality, H4/H1 UTC boundary validation & quote checks",
+    },
+    "G90_SHARED_DECISION_SNAPSHOT_CONTRACT": {
+        "previous_selector_v17_9_0": "test_04 or test_05",
+        "repaired_selector_v17_9_0_1": "test_06 or test_07 or test_08 or test_v17_9_0_1_canonical_decision_result",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+            "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+        ],
+        "min_passed": 3,
+        "requirement": "StrategyDecisionSnapshot / DecisionResult 20-field schema, evaluate_decision entrypoint & deterministic hashes",
+    },
+    "G91_PRODUCTION_M1_REVERSAL_PARITY": {
+        "previous_selector_v17_9_0": "test_06 or test_07",
+        "repaired_selector_v17_9_0_1": "test_09 or test_14 or test_v17_9_0_1_reversal_parity",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+            "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+        ],
+        "min_passed": 2,
+        "requirement": "SMC_M1_REVERSAL independent pre-refactor baseline vs SharedStrategyEvaluator parity",
+    },
+    "G92_PRODUCTION_M1_CONTINUATION_PARITY": {
+        "previous_selector_v17_9_0": "test_08 or test_09",
+        "repaired_selector_v17_9_0_1": "test_10 or test_14 or test_v17_9_0_1_continuation_parity",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+            "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+        ],
+        "min_passed": 2,
+        "requirement": "SMC_M1_CONTINUATION independent pre-refactor baseline vs SharedStrategyEvaluator parity",
+    },
+    "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY": {
+        "previous_selector_v17_9_0": "test_10 or test_11",
+        "repaired_selector_v17_9_0_1": "test_11 or test_14 or test_v17_9_0_1_fvg_continuation_parity",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+            "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+        ],
+        "min_passed": 2,
+        "requirement": "SMC_M1_FVG_CONTINUATION independent pre-refactor baseline vs SharedStrategyEvaluator parity",
+    },
+    "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY": {
+        "previous_selector_v17_9_0": "test_12 or test_13",
+        "repaired_selector_v17_9_0_1": "test_12 or test_14 or test_v17_9_0_1_sweep_reclaim_parity",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+            "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+        ],
+        "min_passed": 2,
+        "requirement": "SMC_M1_SWEEP_RECLAIM independent pre-refactor baseline vs SharedStrategyEvaluator parity",
+    },
+    "G95_PRODUCTION_CG01_PARITY": {
+        "previous_selector_v17_9_0": "test_14",
+        "repaired_selector_v17_9_0_1": "test_13 or test_14 or test_v17_9_0_1_cg01_parity",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+            "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+        ],
+        "min_passed": 2,
+        "requirement": "CG01_SWEEP_MSS_FVG independent pre-refactor baseline vs SharedStrategyEvaluator parity",
+    },
+    "G96_PRODUCTION_SHADOW_DECISION_PARITY": {
+        "previous_selector_v17_9_0": "test_15",
+        "repaired_selector_v17_9_0_1": "test_15 or test_17 or test_v17_9_0_1_runtime_spy_production_and_shadow",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+            "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+        ],
+        "min_passed": 2,
+        "requirement": "Live runtime spy & decision parity between ScalpWatcherOrchestrator.evaluate_cycle and MarketShadowService.evaluate_shadow_cycle",
+    },
+    "G97_PRODUCTION_BACKTEST_DECISION_PARITY": {
+        "previous_selector_v17_9_0": "test_16 or test_17",
+        "repaired_selector_v17_9_0_1": "test_16 or test_17 or test_18 or test_v17_9_0_1_runtime_spy_backtest",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+            "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+        ],
+        "min_passed": 3,
+        "requirement": "Live runtime spy & decision parity between Production, MARKET_SHADOW, and Chronological Backtest",
+    },
+    "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL": {
+        "previous_selector_v17_9_0": "test_18 or test_19",
+        "repaired_selector_v17_9_0_1": "test_21 or test_22 or test_29",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        ],
+        "min_passed": 3,
+        "requirement": "AST & runtime verification of zero modulo/index-driven synthetic signal triggers in backtest",
+    },
+    "G99_UNICORN_CAUSAL_CHAIN_PARITY": {
+        "previous_selector_v17_9_0": "test_20 or test_21 or test_22 or test_23",
+        "repaired_selector_v17_9_0_1": "test_19 or test_20 or test_23 or test_24 or test_25 or test_v17_9_0_1_non_self_referential_oracle",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+            "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+        ],
+        "min_passed": 5,
+        "requirement": "Anti-fake parity trap detection, non-self-referential baseline oracle & Unicorn causal chain validation",
+    },
+    "G100_STRUCTURAL_SL_TP_RR_PARITY": {
+        "previous_selector_v17_9_0": "test_24 or test_25 or test_26 or test_27 or test_28 or test_29 or test_30",
+        "repaired_selector_v17_9_0_1": "test_26 or test_27 or test_28 or test_v17_9_0_1_negative_acceptance",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+            "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+        ],
+        "min_passed": 3,
+        "requirement": "Structural SL anchor, R:R, quantity, rejection reason parity & 15 negative acceptance scenarios",
+    },
+    "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY": {
+        "previous_selector_v17_9_0": "test_31 or test_32 or test_33",
+        "repaired_selector_v17_9_0_1": "test_39 or test_v17_9_0_1_async_orchestrator",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+            "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+        ],
+        "min_passed": 1,
+        "requirement": "Bounded async multi-worker test orchestrator concurrency limit, failure accounting & zero silent skip",
+    },
+    "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP": {
+        "previous_selector_v17_9_0": "test_34 or test_35 or test_36",
+        "repaired_selector_v17_9_0_1": "test_33 or test_34 or test_35 or test_v17_9_0_1_disk_guard",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+            "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+        ],
+        "min_passed": 3,
+        "requirement": "Disk budget guard preflight, fail-closed threshold, worker temp cleanup & log compression",
+    },
+    "G103_CHECKPOINT_RESUME_AND_INVALIDATION": {
+        "previous_selector_v17_9_0": "test_37 or test_38",
+        "repaired_selector_v17_9_0_1": "test_36 or test_37 or test_38",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        ],
+        "min_passed": 3,
+        "requirement": "Atomic execution state checkpoint resumption, SHA mismatch & corrupt JUnit XML invalidation",
+    },
+    "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR": {
+        "previous_selector_v17_9_0": "test_39",
+        "repaired_selector_v17_9_0_1": "test_30 or test_31 or test_v17_9_0_1_chronological_backtest_invokes_shared_evaluator",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+            "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+        ],
+        "min_passed": 2,
+        "requirement": "Real chronological historical backtest invoking SharedStrategyEvaluator across all 5 production models",
+    },
+    "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY": {
+        "previous_selector_v17_9_0": "test_40",
+        "repaired_selector_v17_9_0_1": "test_32 or test_40 or test_v17_9_0_1_phase_b_55_scenario_parity",
+        "test_files": [
+            "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+            "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+        ],
+        "min_passed": 2,
+        "requirement": "Matched SL-only cohort vs Complete Strategy cohort denominators, 55-scenario baseline parity & runtime safety",
+    },
+}
+
+
+def normalize_v17_9_0_1_gate_status(
+    gate_data: Any,
+    *,
+    is_test_gate: bool = True,
+) -> str:
+    """
+    Phase H Gate Status Normalization:
+    Never converts `SKIPPED`, `NOT_RUN`, `NOT_EXECUTED`, `BLOCKED`, or `UNKNOWN` into `PASS`.
+    Returns one of: `PASS`, `FAIL`, `BLOCKED`, `INCOMPLETE`.
+    """
+    if not isinstance(gate_data, dict):
+        return "INCOMPLETE"
+    raw_status = str(gate_data.get("status") or "UNKNOWN").upper().strip()
+    if raw_status in ("NOT_EXECUTED", "NOT_RUN", "SKIPPED", "SKIPPED_WITH_REASON", "UNKNOWN", "INCOMPLETE"):
+        return "INCOMPLETE"
+    if raw_status == "BLOCKED":
+        return "BLOCKED"
+    if raw_status != "PASS":
+        return "FAIL"
+
+    exit_code = gate_data.get("exit_code")
+    if exit_code is not None and (isinstance(exit_code, bool) or not isinstance(exit_code, int) or exit_code != 0):
+        return "FAIL"
+
+    if is_test_gate:
+        counts = gate_data.get("counts")
+        if not isinstance(counts, dict):
+            return "INCOMPLETE"
+        passed = int(counts.get("passed", 0) or 0)
+        failed = int(counts.get("failed", 0) or 0)
+        errors = int(counts.get("errors", 0) or 0)
+        coll_errors = int(counts.get("collection_errors", 0) or 0)
+        if failed > 0 or errors > 0 or coll_errors > 0:
+            return "FAIL"
+        if passed <= 0:
+            return "INCOMPLETE"
+
+    return "PASS"
+
+
+def determine_v17_9_0_1_top_level_verdict(
+    actual_gate_results: Dict[str, Any],
+    mandatory_gate_manifest: Optional[List[str]] = None,
+) -> str:
+    """
+    Computes normalized top-level status (`PASS`, `FAIL`, `BLOCKED`, `INCOMPLETE`).
+    """
+    manifest = mandatory_gate_manifest if mandatory_gate_manifest is not None else MANDATORY_GATES_V17_9_0
+    if not manifest or not isinstance(actual_gate_results, dict):
+        return "INCOMPLETE"
+
+    statuses: List[str] = []
+    for gate_id in manifest:
+        if gate_id not in actual_gate_results:
+            statuses.append("INCOMPLETE")
+            continue
+        is_test = gate_id in TEST_GATES
+        statuses.append(normalize_v17_9_0_1_gate_status(actual_gate_results[gate_id], is_test_gate=is_test))
+
+    if any(s == "FAIL" for s in statuses):
+        return "FAIL"
+    if any(s == "BLOCKED" for s in statuses):
+        return "BLOCKED"
+    if any(s == "INCOMPLETE" for s in statuses):
+        return "INCOMPLETE"
+    if determine_release_verdict(actual_gate_results, manifest) != "ACCEPTED_FOR_PAPER_OPT_IN":
+        return "BLOCKED"
+    return "PASS"
+

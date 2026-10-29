@@ -2443,140 +2443,145 @@ def main():
     # V17.9.0 SHARED STRATEGY EVALUATOR, PARITY, ASYNC INFRA & DISK GUARD GATES (G89 to G107)
     # ==========================================================================
 
+    v17_9_test_files = [
+        "backend/tests/test_v17_9_shared_parity_and_async_infra.py",
+        "backend/tests/test_v17_9_0_1_runtime_integration_and_gates.py",
+    ]
+
     run_pytest_gate(
         "G89_SHARED_DECISION_CONTEXT_CONTRACT",
-        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_01 or test_02 or test_03",
-        min_passed=3,
-        label="V17.9.0 Shared MarketDecisionContext Contract & Closed-Bar / Quote Immutability"
+        v17_9_test_files,
+        "test_01 or test_02 or test_03 or test_04 or test_05 or test_v17_9_0_1_htf",
+        min_passed=5,
+        label="V17.9.0.1 Shared MarketDecisionContext Contract, Closed-Bar Causality & H4/H1 UTC Boundary Validation"
     )
 
     run_pytest_gate(
         "G90_SHARED_DECISION_SNAPSHOT_CONTRACT",
-        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_04 or test_05",
-        min_passed=2,
-        label="V17.9.0 StrategyDecisionSnapshot 20-Field Schema & Deterministic Fingerprint"
+        v17_9_test_files,
+        "test_06 or test_07 or test_08 or test_v17_9_0_1_canonical_decision_result",
+        min_passed=3,
+        label="V17.9.0.1 StrategyDecisionSnapshot / DecisionResult 20-Field Schema & Deterministic Fingerprint"
     )
 
     run_pytest_gate(
         "G91_PRODUCTION_M1_REVERSAL_PARITY",
-        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_06 or test_07",
+        v17_9_test_files,
+        "test_09 or test_14 or test_v17_9_0_1_reversal_parity",
         min_passed=2,
-        label="V17.9.0 SMC_M1_REVERSAL Production Baseline vs Shared Evaluator Parity"
+        label="V17.9.0.1 SMC_M1_REVERSAL Independent Baseline vs Shared Evaluator Parity"
     )
 
     run_pytest_gate(
         "G92_PRODUCTION_M1_CONTINUATION_PARITY",
-        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_08 or test_09",
+        v17_9_test_files,
+        "test_10 or test_14 or test_v17_9_0_1_continuation_parity",
         min_passed=2,
-        label="V17.9.0 SMC_M1_CONTINUATION Production Baseline vs Shared Evaluator Parity"
+        label="V17.9.0.1 SMC_M1_CONTINUATION Independent Baseline vs Shared Evaluator Parity"
     )
 
     run_pytest_gate(
         "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY",
-        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_10 or test_11",
+        v17_9_test_files,
+        "test_11 or test_14 or test_v17_9_0_1_fvg_continuation_parity",
         min_passed=2,
-        label="V17.9.0 SMC_M1_FVG_CONTINUATION Production Baseline vs Shared Evaluator Parity"
+        label="V17.9.0.1 SMC_M1_FVG_CONTINUATION Independent Baseline vs Shared Evaluator Parity"
     )
 
     run_pytest_gate(
         "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY",
-        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_12 or test_13",
+        v17_9_test_files,
+        "test_12 or test_14 or test_v17_9_0_1_sweep_reclaim_parity",
         min_passed=2,
-        label="V17.9.0 SMC_M1_SWEEP_RECLAIM Production Baseline vs Shared Evaluator Parity"
+        label="V17.9.0.1 SMC_M1_SWEEP_RECLAIM Independent Baseline vs Shared Evaluator Parity"
     )
 
     run_pytest_gate(
         "G95_PRODUCTION_CG01_PARITY",
-        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_14",
-        min_passed=1,
-        label="V17.9.0 CG01_SWEEP_MSS_FVG Production Baseline vs Shared Evaluator Parity"
+        v17_9_test_files,
+        "test_13 or test_14 or test_v17_9_0_1_cg01_parity",
+        min_passed=2,
+        label="V17.9.0.1 CG01_SWEEP_MSS_FVG Independent Baseline vs Shared Evaluator Parity"
     )
 
     run_pytest_gate(
         "G96_PRODUCTION_SHADOW_DECISION_PARITY",
-        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_15",
-        min_passed=1,
-        label="V17.9.0 Stage-2 MARKET_SHADOW Adapter vs Shared Strategy Evaluator Parity Across All 5 Models"
+        v17_9_test_files,
+        "test_15 or test_17 or test_v17_9_0_1_runtime_spy_production_and_shadow",
+        min_passed=2,
+        label="V17.9.0.1 Live Runtime Spy & Decision Parity Between Production Orchestrator and MARKET_SHADOW"
     )
 
     run_pytest_gate(
         "G97_PRODUCTION_BACKTEST_DECISION_PARITY",
-        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_16 or test_17",
-        min_passed=2,
-        label="V17.9.0 Stage-2 Historical Backtest Adapter vs Shared Strategy Evaluator & 4-Way Multi-Adapter Parity"
+        v17_9_test_files,
+        "test_16 or test_17 or test_18 or test_v17_9_0_1_runtime_spy_backtest",
+        min_passed=3,
+        label="V17.9.0.1 Live Runtime Spy & Decision Parity Between Production, MARKET_SHADOW & Historical Backtest"
     )
 
     run_pytest_gate(
         "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL",
         ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_18 or test_19",
-        min_passed=2,
-        label="V17.9.0 Removal of i % 15 == 0 / (i // 15) % 2 == 0 Synthetic Index Triggers & Anti-Fake Controls"
+        "test_21 or test_22 or test_29",
+        min_passed=3,
+        label="V17.9.0.1 Removal of i % 15 == 0 / (i // 15) % 2 == 0 Synthetic Index Triggers & Anti-Fake Controls"
     )
 
     run_pytest_gate(
         "G99_UNICORN_CAUSAL_CHAIN_PARITY",
-        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_20 or test_21 or test_22 or test_23",
-        min_passed=4,
-        label="V17.9.0 Unicorn Causal Chain, FVG-Breaker Overlap & Missing ATR M5 Parity"
+        v17_9_test_files,
+        "test_19 or test_20 or test_23 or test_24 or test_25 or test_v17_9_0_1_non_self_referential_oracle",
+        min_passed=5,
+        label="V17.9.0.1 Anti-Fake Parity Trap Detection, Non-Self-Referential Oracle & Unicorn Causal Chain Parity"
     )
 
     run_pytest_gate(
         "G100_STRUCTURAL_SL_TP_RR_PARITY",
-        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_24 or test_25 or test_26 or test_27 or test_28 or test_29 or test_30",
-        min_passed=7,
-        label="V17.9.0 Structural SL/TP, Net R:R, $2.50 Risk Budget & Quote Guard Parity"
+        v17_9_test_files,
+        "test_26 or test_27 or test_28 or test_v17_9_0_1_negative_acceptance",
+        min_passed=3,
+        label="V17.9.0.1 Structural SL/TP, Net R:R, $2.50 Risk Budget & 15 Negative Acceptance Scenarios"
     )
 
     run_pytest_gate(
         "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY",
-        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_31 or test_32 or test_33",
-        min_passed=3,
-        label="V17.9.0 Bounded Async Test Orchestrator Concurrency Limit, Failure Accounting & Zero Silent Skip"
+        v17_9_test_files,
+        "test_39 or test_v17_9_0_1_async_orchestrator",
+        min_passed=1,
+        label="V17.9.0.1 Bounded Async Test Orchestrator Concurrency Limit, Failure Accounting & Zero Silent Skip"
     )
 
     run_pytest_gate(
         "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP",
-        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_34 or test_35 or test_36",
+        v17_9_test_files,
+        "test_33 or test_34 or test_35 or test_v17_9_0_1_disk_guard",
         min_passed=3,
-        label="V17.9.0 Disk Budget Guard, Worker Temp Directory Cleanup & Log Compression"
+        label="V17.9.0.1 Disk Budget Guard, Worker Temp Directory Cleanup & Log Compression"
     )
 
     run_pytest_gate(
         "G103_CHECKPOINT_RESUME_AND_INVALIDATION",
         ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_37 or test_38",
-        min_passed=2,
-        label="V17.9.0 Execution State Checkpoint Resumption, SHA Mismatch & Corrupt XML Invalidation"
+        "test_36 or test_37 or test_38",
+        min_passed=3,
+        label="V17.9.0.1 Execution State Checkpoint Resumption, SHA Mismatch & Corrupt XML Invalidation"
     )
 
     run_pytest_gate(
         "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR",
-        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_39",
-        min_passed=1,
-        label="V17.9.0 Real Historical Backtest SharedStrategyEvaluator Integration"
+        v17_9_test_files,
+        "test_30 or test_31 or test_v17_9_0_1_chronological_backtest_invokes_shared_evaluator",
+        min_passed=2,
+        label="V17.9.0.1 Real Historical Backtest SharedStrategyEvaluator Integration"
     )
 
     run_pytest_gate(
         "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY",
-        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
-        "test_40",
-        min_passed=1,
-        label="V17.9.0 Matched SL-Only Cohort vs Complete Strategy Cohort & Per-Model Integrity"
+        v17_9_test_files,
+        "test_32 or test_40 or test_v17_9_0_1_phase_b_55_scenario_parity",
+        min_passed=2,
+        label="V17.9.0.1 Matched SL-Only Cohort vs Complete Strategy Cohort, 55-Scenario Parity & Runtime Safety"
     )
 
     # Generate V17.9.0 Parity Evidence Bundle (parity/*.json)

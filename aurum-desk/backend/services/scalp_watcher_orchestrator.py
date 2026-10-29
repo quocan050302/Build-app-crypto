@@ -1812,12 +1812,44 @@ class ScalpWatcherOrchestrator:
         taker_val = float(policy_dict.get("taker_fee_rate", 0.0004)) if policy_dict.get("taker_fee_rate") is not None else 0.0004
         policy_dict["costs"] = CostAssumptions(slippage_usd=slip_val, maker_fee_rate=maker_val, taker_fee_rate=taker_val)
 
-        # 4. Independent Peer Model Evaluations (V16.39 Sections 016, 017, 030)
+        # 4. Independent Peer Model Evaluations (V16.39 Sections 016, 017, 030; V17.9.0.1 Phase D Canonical Evaluator Integration)
         exec_profile = getattr(cfg, "execution_profile", "BASELINE")
         adaptive_regime_models = None
         if exec_profile == "PAPER_ADAPTIVE_SMC":
             from services.support_resistance_service import resolve_models_for_regime
             adaptive_regime_models = set(resolve_models_for_regime(regime))
+
+        from services.shared_strategy_evaluator import EVALUATOR_VERSION, SharedStrategyEvaluator
+        shared_cycle_context = self.build_shared_decision_context(
+            symbol=symbol,
+            decision_timestamp_ms=t_recv,
+            m1_candles=c_1m,
+            m5_candles=c_5m,
+            m15_candles=c_15m,
+            h1_candles=c_1h,
+            h4_candles=c_4h,
+            d1_candles=c_1d,
+            bid=bid,
+            ask=ask,
+            quote_timestamp_ms=getattr(q, "exchange_ts_ms", None) or getattr(q, "received_at_ms", None) or t_recv,
+            htf_zones=bounded_zones,
+            liquidity_pools=liq_levels,
+            htf_bias=bias,
+            h1_alignment=align,
+            risk_config={
+                "capital_usdt": policy_dict["capital_usdt"],
+                "risk_pct": policy_dict["risk_pct"],
+                "leverage": policy_dict["leverage"],
+                "margin_mode": policy_dict["margin_mode"],
+                "min_net_rr": float(getattr(cfg, "min_net_rr", 1.2)),
+            },
+            cost_config={
+                "slippage_usd": slip_val,
+                "maker_fee_rate": maker_val,
+                "taker_fee_rate": taker_val,
+            },
+        )
+        shared_decision_snapshots: List[Any] = []
 
         model_diagnostics: List[Dict[str, Any]] = []
 
@@ -1839,6 +1871,7 @@ class ScalpWatcherOrchestrator:
         }
 
         if run_rev:
+            rev_evaluated_zone = False
             for z in bounded_zones:
                 if z.state in (ZoneState.NEAR.value, ZoneState.TOUCHED.value, ZoneState.WAITING_TRIGGER.value):
                     # Check if zone's hypothesis read authority failed (SECTIONS 095 - 098)
@@ -1949,10 +1982,21 @@ class ScalpWatcherOrchestrator:
                         )
                         continue
 
-                    cand = ScalpM1ModelService.evaluate_m1_reversal_candidate(
-                        z, c_1m, q, policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels,
-                        stop_policy=stop_policy, stop_context=stop_context,
+                    rev_evaluated_zone = True
+                    cand, rev_snap = SharedStrategyEvaluator.evaluate_production_reversal_candidate(
+                        context=shared_cycle_context,
+                        zone=z,
+                        candles_1m=c_1m,
+                        quote=q,
+                        policy_settings=policy_dict,
+                        now_ms=t_recv,
+                        config=cfg,
+                        context_levels=liq_levels,
+                        stop_policy=stop_policy,
+                        stop_context=stop_context,
                     )
+                    shared_decision_snapshots.append(rev_snap)
+                    rev_diag["shared_decision_fingerprint"] = rev_snap.decision_fingerprint
                     if cand.is_eligible:
                         cand.hypothesis_id = zone_hyp.hypothesis_id
                         cand.regime_snapshot = regime_snapshot
@@ -1977,6 +2021,18 @@ class ScalpWatcherOrchestrator:
                             ),
                             now_ms=t_recv,
                         )
+            if not rev_evaluated_zone:
+                rev_snap_default = SharedStrategyEvaluator.evaluate_decision(
+                    market_snapshot=shared_cycle_context,
+                    strategy_config={
+                        "model_id": ModelIdentifier.SMC_M1_REVERSAL.value,
+                        "preferred_direction": "LONG" if bias == "BULLISH" else "SHORT",
+                        "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+                    },
+                    evaluation_time=t_recv,
+                )
+                shared_decision_snapshots.append(rev_snap_default)
+                rev_diag["shared_decision_fingerprint"] = rev_snap_default.decision_fingerprint
         model_diagnostics.append(rev_diag)
 
         # B. SMC M1 Continuation Model (SECTIONS 080 - 082) - PEER independent branch
@@ -1996,10 +2052,21 @@ class ScalpWatcherOrchestrator:
             "reason": reason_cont,
         }
         if run_cont:
-            cand_cont = ScalpM1ModelService.evaluate_m1_continuation_candidate(
-                c_1m, c_5m, q, bias, align, policy_dict, now_ms=t_recv, config=cfg,
-                stop_policy=stop_policy, stop_context=stop_context,
+            cand_cont, cont_snap = SharedStrategyEvaluator.evaluate_production_continuation_candidate(
+                context=shared_cycle_context,
+                candles_1m=c_1m,
+                candles_5m=c_5m,
+                quote=q,
+                htf_bias=bias,
+                h1_alignment=align,
+                policy_settings=policy_dict,
+                now_ms=t_recv,
+                config=cfg,
+                stop_policy=stop_policy,
+                stop_context=stop_context,
             )
+            shared_decision_snapshots.append(cont_snap)
+            cont_diag["shared_decision_fingerprint"] = cont_snap.decision_fingerprint
             if cand_cont.is_eligible:
                 cand_cont.regime_snapshot = regime_snapshot
                 cand_cont.execution_profile = exec_profile
@@ -2026,11 +2093,22 @@ class ScalpWatcherOrchestrator:
             "reason": reason_fvg,
         }
         if run_fvg:
-            cand_fvg_cont = ScalpM1ModelService.evaluate_m1_fvg_continuation_candidate(
-                closed_1m=c_1m, closed_5m=c_5m, quote=q, htf_bias=bias, h1_alignment=align,
-                policy_settings=policy_dict, now_ms=t_recv, config=cfg, context_levels=liq_levels,
-                stop_policy=stop_policy, stop_context=stop_context,
+            cand_fvg_cont, fvg_snap = SharedStrategyEvaluator.evaluate_production_fvg_continuation_candidate(
+                context=shared_cycle_context,
+                closed_1m=c_1m,
+                closed_5m=c_5m,
+                quote=q,
+                htf_bias=bias,
+                h1_alignment=align,
+                policy_settings=policy_dict,
+                now_ms=t_recv,
+                config=cfg,
+                context_levels=liq_levels,
+                stop_policy=stop_policy,
+                stop_context=stop_context,
             )
+            shared_decision_snapshots.append(fvg_snap)
+            fvg_diag["shared_decision_fingerprint"] = fvg_snap.decision_fingerprint
             if cand_fvg_cont.is_eligible:
                 cand_fvg_cont.regime_snapshot = regime_snapshot
                 cand_fvg_cont.execution_profile = exec_profile
@@ -2059,15 +2137,26 @@ class ScalpWatcherOrchestrator:
         if run_sr:
             from services.smc_liquidity_service import build_liquidity_clusters, update_cluster_state
             liq_clusters = build_liquidity_clusters(liq_levels, timeframe="15M", symbol=symbol, now_ms=t_recv)
+            sr_evaluated_cluster = False
             for cluster in liq_clusters:
                 update_cluster_state(cluster, c_1m, now_ms=t_recv)
                 cycle_authority.cluster_outcomes[cluster.id] = cluster
                 if getattr(cluster, "state", "") in ("SWEPT", "RECLAIMED"):
-                    cand_sr = ScalpM1ModelService.evaluate_m1_sweep_reclaim_candidate(
-                        closed_1m=c_1m, cluster=cluster, quote=q, policy_settings=policy_dict,
-                        now_ms=t_recv, config=cfg, context_levels=liq_levels,
-                        stop_policy=stop_policy, stop_context=stop_context,
+                    sr_evaluated_cluster = True
+                    cand_sr, sr_snap = SharedStrategyEvaluator.evaluate_production_sweep_reclaim_candidate(
+                        context=shared_cycle_context,
+                        closed_1m=c_1m,
+                        cluster=cluster,
+                        quote=q,
+                        policy_settings=policy_dict,
+                        now_ms=t_recv,
+                        config=cfg,
+                        context_levels=liq_levels,
+                        stop_policy=stop_policy,
+                        stop_context=stop_context,
                     )
+                    shared_decision_snapshots.append(sr_snap)
+                    sr_diag["shared_decision_fingerprint"] = sr_snap.decision_fingerprint
                     if cand_sr.is_eligible:
                         cand_sr.regime_snapshot = regime_snapshot
                         cand_sr.execution_profile = exec_profile
@@ -2075,6 +2164,18 @@ class ScalpWatcherOrchestrator:
                             cand_sr.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
                         candidates.append(cand_sr)
                         sr_diag["eligible"] = True
+            if not sr_evaluated_cluster:
+                sr_snap_default = SharedStrategyEvaluator.evaluate_decision(
+                    market_snapshot=shared_cycle_context,
+                    strategy_config={
+                        "model_id": ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+                        "preferred_direction": "LONG" if bias == "BULLISH" else "SHORT",
+                        "adapter_origin": "PRODUCTION_ORCHESTRATOR",
+                    },
+                    evaluation_time=t_recv,
+                )
+                shared_decision_snapshots.append(sr_snap_default)
+                sr_diag["shared_decision_fingerprint"] = sr_snap_default.decision_fingerprint
         model_diagnostics.append(sr_diag)
 
         # C. Daily NY Research Model (SECTIONS 080 - 083)
@@ -2112,6 +2213,7 @@ class ScalpWatcherOrchestrator:
 
         cg01_eval_data = None
         cg01_dec = None
+        cg01_snap = None
         if cg01_cfg.enabled and c_1m:
             from services.cg01_daily_bias_service import (
                 build_cg01_authority_publish_context,
@@ -2132,12 +2234,20 @@ class ScalpWatcherOrchestrator:
             from services.cg01_engine import evaluate_cg01_candidate
             closed_ctx = {"4H": c_4h, "1H": c_1h, "15M": c_15m, "1M": c_1m, "1D": c_1d, "context_source": context_source}
             costs_to_pass = getattr(cg01_cfg, "costs", None) or getattr(cfg, "costs", None)
-            cg01_dec = evaluate_cg01_candidate(
-                closed_ctx, q, config=cg01_cfg, now_ms=t_recv,
-                capital=policy_dict["capital_usdt"], risk_pct=policy_dict["risk_pct"],
+            cg01_dec, cg01_snap = SharedStrategyEvaluator.evaluate_production_cg01_candidate(
+                context=shared_cycle_context,
+                closed_ctx=closed_ctx,
+                quote=q,
+                config=cg01_cfg,
+                now_ms=t_recv,
+                capital=policy_dict["capital_usdt"],
+                risk_pct=policy_dict["risk_pct"],
                 costs=costs_to_pass,
-                stop_policy=stop_policy, stop_context=stop_context,
+                stop_policy=stop_policy,
+                stop_context=stop_context,
+                eval_fn=evaluate_cg01_candidate,
             )
+            shared_decision_snapshots.append(cg01_snap)
             if cg01_dec and getattr(cg01_dec, "daily_bias", None):
                 publish_current_cg01_bias_authority(
                     symbol=symbol,
@@ -2172,6 +2282,8 @@ class ScalpWatcherOrchestrator:
             "execution_action": "EVALUATE_AND_EXECUTE" if cg01_cfg.enabled else "DISABLED",
             "reason": "ELIGIBLE_FOR_EVALUATION" if (cg01_cfg.enabled and c_1m) else ("CG01_DISABLED" if not cg01_cfg.enabled else "WARMUP_INSUFFICIENT"),
         }
+        if cg01_snap is not None:
+            cg01_diag["shared_decision_fingerprint"] = cg01_snap.decision_fingerprint
         model_diagnostics.append(cg01_diag)
 
         # Candidate Router & Deduplication (Rules 093 - 096, 131 - 134)
@@ -2441,6 +2553,8 @@ class ScalpWatcherOrchestrator:
             "daily_goal": daily_goal_dict,
             "cg01_evaluation": cg01_final,
             "model_diagnostics": model_diagnostics,
+            "shared_decision_snapshots": [s.to_parity_dict() for s in shared_decision_snapshots],
+            "evaluator_version": EVALUATOR_VERSION,
         }
 
     def _finalize_failed_cycle(
@@ -3530,6 +3644,8 @@ class ScalpWatcherOrchestrator:
         m5_candles: Optional[Sequence[Any]] = None,
         m15_candles: Optional[Sequence[Any]] = None,
         h1_candles: Optional[Sequence[Any]] = None,
+        h4_candles: Optional[Sequence[Any]] = None,
+        d1_candles: Optional[Sequence[Any]] = None,
         bid: Optional[float] = None,
         ask: Optional[float] = None,
         quote_timestamp_ms: Optional[int] = None,
@@ -3540,9 +3656,12 @@ class ScalpWatcherOrchestrator:
         risk_config: Optional[Dict[str, Any]] = None,
         cost_config: Optional[Dict[str, Any]] = None,
         strict_causal_validation: bool = False,
+        strict_htf_validation: bool = False,
+        htf_bias: Optional[str] = None,
+        h1_alignment: Optional[str] = None,
     ):
         """
-        V17.9.0 Section 7.2: Production adapter method constructing immutable
+        V17.9.0.1 Phase D: Production adapter method constructing immutable
         MarketDecisionContext for SharedStrategyEvaluator.
         """
         from services.shared_strategy_evaluator import build_market_decision_context
@@ -3553,6 +3672,8 @@ class ScalpWatcherOrchestrator:
             m5_candles=m5_candles,
             m15_candles=m15_candles,
             h1_candles=h1_candles,
+            h4_candles=h4_candles,
+            d1_candles=d1_candles,
             bid=bid,
             ask=ask,
             quote_timestamp_ms=quote_timestamp_ms,
@@ -3563,6 +3684,9 @@ class ScalpWatcherOrchestrator:
             risk_config=risk_config,
             cost_config=cost_config,
             strict_causal_validation=strict_causal_validation,
+            strict_htf_validation=strict_htf_validation,
+            htf_bias=htf_bias,
+            h1_alignment=h1_alignment,
         )
 
     def evaluate_shared_decision_snapshot(
