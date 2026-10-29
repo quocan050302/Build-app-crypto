@@ -1,0 +1,28 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_setup_quality_service_v14.py backend/tests/test_v12_1_acceptance.py backend/tests/test_v12_4_acceptance.py backend/tests/test_v13_4_scheduler_integration.py backend/tests/test_v13_5_data_range_acceptance.py backend/tests/test_v13_5_integrity_acceptance.py backend/tests/test_v14_3_ny_quota.py backend/tests/test_v14_4_11_three_session_execution.py backend/tests/test_v14_4_14_membership_transaction.py backend/tests/test_v14_4_16_strict_report_authority.py backend/tests/test_v14_4_17_repair_provenance.py backend/tests/test_v14_4_4_canonical_plan_runtime.py backend/tests/test_v14_4_4_metric_gate.py backend/tests/test_v14_4_6_pagination_replay.py backend/tests/test_v14_4_6_strict_proof_producer.py backend/tests/test_v14_4_8_reconciliation_accumulator.py backend/tests/test_v14_4_entry_guards.py backend/tests/test_v16_15_causal_audit_classification.py backend/tests/test_v16_39_12_historical_snapshot_states.py backend/tests/test_v16_39_3_bound_snapshot_compliance.py backend/tests/test_v16_39_9_coordinator_policy_acceptance.py backend/tests/test_v16_3_cg01_contracts.py backend/tests/test_v16_4_cg01_broker_execution.py backend/tests/test_v16_5_ledger_reconciliation.py backend/tests/test_v17_0_opportunity_monitor_read_model.py backend/tests/test_v17_4_1_atomic_cas.py backend/tests/test_v17_4_2_baseline_probes.py backend/tests/test_v17_5_1_guard_matrix.py backend/tests/test_v17_5_6_episode_origin_binding.py backend/tests/test_v17_5_7_true_cycle_cost_parity.py backend/tests/test_v17_5_8_cost_authority.py backend/tests/test_v17_5_stop_placement.py backend/tests/test_v17_6_1_quote_timestamps.py backend/tests/test_v17_6_2_cycle_durability.py backend/tests/test_v17_6_4_1_engine_market_truth.py backend/tests/test_v17_6_4_24_7_coverage.py backend/tests/test_v17_6_4_3_watcher_scheduler_integration.py backend/tests/test_v17_6_4_3b_scheduler_runtime.py backend/tests/test_v17_7_adaptive_stop_loss.py backend/tests/test_v17_8_structural_sl.py backend/tests/test_v17_8_unicorn_evidence.py backend/tests/test_v5_authoritative_lab.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_8_0_4\run_v17_8_0_4_1793248273004_25296\reports\shards\shard_1.xml
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 481990
+EXIT_CODE: 0
+--- STDOUT ---
+..........s................s..s.s....................................... [ 13%]
+........................................................................ [ 26%]
+........................................................................ [ 40%]
+........................................................................ [ 53%]
+........................................................................ [ 67%]
+........................................................................ [ 80%]
+........................................................................ [ 94%]
+...............................                                          [100%]
+============================== warnings summary ===============================
+backend\venv\Lib\site-packages\fastapi\testclient.py:1
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+backend/tests/test_v12_1_acceptance.py::test_t01_short_trade_accounting_oracle
+backend/tests/test_v12_1_acceptance.py::test_t02_long_trade_accounting_oracle
+backend/tests/test_v12_1_acceptance.py::test_t14_setups_b1_b2_enforce_net_rr
+  D:\build app-crypto\aurum-desk\backend\venv\Lib\site-packages\pydantic\main.py:263: DeprecationWarning: Parameter 'fee_rate' is deprecated in CostAssumptions; mapped to 'taker_fee_rate'.
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+531 passed, 4 skipped, 4 warnings in 476.94s (0:07:56)
+
+--- STDERR ---

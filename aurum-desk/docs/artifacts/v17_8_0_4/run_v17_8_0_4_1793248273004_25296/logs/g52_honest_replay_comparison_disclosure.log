@@ -1,0 +1,9 @@
+COMMAND: D:\build app-crypto\aurum-desk\backend\venv\Scripts\python.exe -m pytest -q backend/tests/test_v17_8_runtime_integration.py --junitxml=D:\build app-crypto\aurum-desk\docs\artifacts\v17_8_0_4\run_v17_8_0_4_1793248273004_25296\reports\g52_honest_replay_comparison_disclosure.xml -k test_def_178_13
+CWD: D:\build app-crypto\aurum-desk
+DURATION_MS: 97
+EXIT_CODE: 0
+--- STDOUT ---
+PASSED backend.tests.test_v17_8_runtime_integration::test_def_178_13_honest_replay_calibration_and_endpoint (0.097s)
+1 passed in 0.10s
+
+--- STDERR ---

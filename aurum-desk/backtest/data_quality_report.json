@@ -1,17 +1,24 @@
 {
-  "schema_version": "V17.8.0.3",
+  "schema_version": "V17.8.0.4",
   "symbol": "XAUUSDT",
+  "exchange": "BITGET",
   "product_type": "USDT-FUTURES",
-  "dataset_sha256": "e2c972875e4517c88873c1f6f533db5844ca66f3c2254cd2e720cb028f3dcfa7",
+  "dataset_sha256": "6bcac947a842db06b4edb11e3db8164421dfcd27a3c0b9d6e571bf07543c3fb5",
+  "reproducibility_status": "REPLAY_REPRODUCIBLE_WITH_SAVED_DATA",
+  "saved_dataset_artifact": "backtest/historical_dataset_XAUUSDT.json.gz",
+  "saved_dataset_sha256": "9f301fee2e620c882b205b857fc63b73c3e36f550161f4100e64fcba7ff98c18",
   "data_quality_status": "VERIFIED_HISTORICAL_CANDLES_WITH_DISCLOSED_GAPS",
   "checks": {
     "source_timestamps_monotonic": true,
     "duplicate_bars_quarantined": true,
     "price_geometry_valid": true,
     "unclosed_candles_excluded": true,
+    "gap_aware_replay_enforced": true,
+    "synthetic_interpolation_forbidden": true,
     "timezone_consistency": "UTC_EPOCH_MS_WITH_ASIA_HO_CHI_MINH_SESSION_MAPPING",
     "product_symbol_identity": "XAUUSDT:USDT-FUTURES",
     "cross_timeframe_alignment": "VERIFIED_CAUSAL_CLOSE_TIME_CUTOFF",
+    "atr_provenance_policy": "ACTUAL_ATR_M5_OR_OPTIONAL_M5_OMITTED_NEVER_SYNTHESIZED",
     "spread_assumptions": {
       "baseline_spread_usd": 0.25,
       "stress_spread_usd": 0.6,
@@ -24,37 +31,37 @@
     },
     "missing_intervals_summary": {
       "1m": {
-        "total_missing_intervals": 4968,
-        "session_closure_intervals": 4754,
-        "intra_session_missing_intervals": 214
+        "total_missing_intervals": 6926,
+        "session_closure_intervals": 6347,
+        "intra_session_missing_intervals": 579
       },
       "5m": {
-        "total_missing_intervals": 24314,
-        "session_closure_intervals": 24306,
-        "intra_session_missing_intervals": 8
+        "total_missing_intervals": 923,
+        "session_closure_intervals": 870,
+        "intra_session_missing_intervals": 53
       },
       "15m": {
-        "total_missing_intervals": 3463,
-        "session_closure_intervals": 3462,
-        "intra_session_missing_intervals": 1
+        "total_missing_intervals": 362,
+        "session_closure_intervals": 354,
+        "intra_session_missing_intervals": 8
       },
       "1H": {
-        "total_missing_intervals": 866,
-        "session_closure_intervals": 866,
+        "total_missing_intervals": 0,
+        "session_closure_intervals": 0,
         "intra_session_missing_intervals": 0
       },
       "4H": {
-        "total_missing_intervals": 217,
-        "session_closure_intervals": 217,
+        "total_missing_intervals": 0,
+        "session_closure_intervals": 0,
         "intra_session_missing_intervals": 0
       },
       "1D": {
-        "total_missing_intervals": 15,
-        "session_closure_intervals": 15,
+        "total_missing_intervals": 0,
+        "session_closure_intervals": 0,
         "intra_session_missing_intervals": 0
       }
     }
   },
-  "run_id": "v17_8_0_3_bt_1793203152",
-  "source_sha": "3428ed3cef23c7cfad6a28abd78256682ceb3ece"
+  "run_id": "v17_8_0_4_bt_1793248253",
+  "source_sha": "c356d6551e13cd6af61cea5c3ab1f4aae1548af2"
 }
