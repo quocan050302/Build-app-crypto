@@ -3521,5 +3521,93 @@ class ScalpWatcherOrchestrator:
     def stop(self):
         self._running = False
 
+    def build_shared_decision_context(
+        self,
+        *,
+        symbol: str = "XAUUSDT",
+        decision_timestamp_ms: int,
+        m1_candles: Optional[Sequence[Any]] = None,
+        m5_candles: Optional[Sequence[Any]] = None,
+        m15_candles: Optional[Sequence[Any]] = None,
+        h1_candles: Optional[Sequence[Any]] = None,
+        bid: Optional[float] = None,
+        ask: Optional[float] = None,
+        quote_timestamp_ms: Optional[int] = None,
+        htf_zones: Optional[Sequence[Any]] = None,
+        liquidity_pools: Optional[Sequence[Any]] = None,
+        model_enablement: Optional[Dict[str, bool]] = None,
+        policy_config: Optional[Dict[str, Any]] = None,
+        risk_config: Optional[Dict[str, Any]] = None,
+        cost_config: Optional[Dict[str, Any]] = None,
+        strict_causal_validation: bool = False,
+    ):
+        """
+        V17.9.0 Section 7.2: Production adapter method constructing immutable
+        MarketDecisionContext for SharedStrategyEvaluator.
+        """
+        from services.shared_strategy_evaluator import build_market_decision_context
+        return build_market_decision_context(
+            symbol=symbol,
+            decision_timestamp_ms=decision_timestamp_ms,
+            m1_candles=m1_candles,
+            m5_candles=m5_candles,
+            m15_candles=m15_candles,
+            h1_candles=h1_candles,
+            bid=bid,
+            ask=ask,
+            quote_timestamp_ms=quote_timestamp_ms,
+            htf_zones=htf_zones,
+            liquidity_pools=liquidity_pools,
+            model_enablement=model_enablement,
+            policy_config=policy_config,
+            risk_config=risk_config,
+            cost_config=cost_config,
+            strict_causal_validation=strict_causal_validation,
+        )
+
+    def evaluate_shared_decision_snapshot(
+        self,
+        *,
+        context: Any,
+        model_id: str,
+        direction: Optional[str] = None,
+    ):
+        """
+        V17.9.0 Section 7.2: Production adapter method delegating pure strategy
+        decision evaluation to SharedStrategyEvaluator.
+        """
+        from services.shared_strategy_evaluator import SharedStrategyEvaluator
+        if direction in ("LONG", "SHORT"):
+            return SharedStrategyEvaluator.evaluate_model_direction(
+                context=context,
+                model_id=model_id,
+                direction=direction,
+                adapter_origin="PRODUCTION_ORCHESTRATOR_ADAPTER",
+            )
+        return SharedStrategyEvaluator.evaluate_model_best_direction(
+            context=context,
+            model_id=model_id,
+            adapter_origin="PRODUCTION_ORCHESTRATOR_ADAPTER",
+        )
+
+    def evaluate_shared_all_models(
+        self,
+        *,
+        context: Any,
+        model_ids: Optional[Sequence[str]] = None,
+        preferred_direction: Optional[str] = None,
+    ):
+        """
+        V17.9.0 Section 7.2: Production adapter method evaluating all configured
+        production models through SharedStrategyEvaluator.
+        """
+        from services.shared_strategy_evaluator import PRODUCTION_MODEL_IDS, SharedStrategyEvaluator
+        return SharedStrategyEvaluator.evaluate_all_models(
+            context=context,
+            model_ids=model_ids or PRODUCTION_MODEL_IDS,
+            preferred_direction=preferred_direction,
+            adapter_origin="PRODUCTION_ORCHESTRATOR_ADAPTER",
+        )
+
 
 scalp_watcher_orchestrator = ScalpWatcherOrchestrator()

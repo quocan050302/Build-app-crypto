@@ -199,57 +199,115 @@ def evaluate_production_parity_model_snapshot(
     as_of_ms: int,
     stop_policy: Optional[StopPlacementPolicy] = None,
     cfg: Optional[M1ScalpConfig] = None,
+    direction: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Section 5 Shared Production-Parity Evaluation Contract:
+    V17.9.0 Section 7 & 8 Shared Production-Parity Evaluation Contract:
     Evaluates a market snapshot `(closed_1m, closed_5m, closed_15m, quote, as_of_ms)` for `model_id`
-    using the exact same side-effect-free evaluator used by `MarketShadowService` and historical replay.
-    Guarantees:
-      PRODUCTION_EVALUATION == HISTORICAL_REPLAY_EVALUATION == MARKET_SHADOW_EVALUATION
+    through `SharedStrategyEvaluator` (with `adapter_origin='HISTORICAL_BACKTEST_ADAPTER'`),
+    never self-comparing `MarketShadowService` with itself.
     """
-    svc = MarketShadowService(symbol=symbol, storage=None)
-    cycle = svc.evaluate_shadow_cycle(
-        as_of_ms=as_of_ms,
-        closed_1m=closed_1m,
-        closed_5m=closed_5m,
-        closed_15m=closed_15m,
-        quote=quote,
-        stop_policy=stop_policy or StopPlacementPolicy(
-            mode=StopPlacementMode.PAPER_STRUCTURAL.value,
-            v18_structural_intelligence_enabled=True,
-            v18_unicorn_detection_enabled=True,
-            v18_noise_research_enabled=True,
-        ),
-        scalp_config=cfg or get_scalp_config(),
+    from services.shared_strategy_evaluator import (
+        DecisionStatus,
+        SharedStrategyEvaluator,
+        build_market_decision_context,
     )
-    model_out = cycle["models_evaluated"].get(model_id, {})
-    opp_rec = next((o for o in cycle["opportunities"] if o["model_id"] == model_id), None)
+
+    eff_cfg = cfg or get_scalp_config()
+    enablement = {
+        ModelIdentifier.SMC_M1_FVG_CONTINUATION.value: bool(getattr(cfg, "fvg_continuation_enabled", True)) if cfg is not None else True,
+        ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value: bool(getattr(cfg, "sweep_reclaim_enabled", True)) if cfg is not None else True,
+        ModelIdentifier.CG01_SWEEP_MSS_FVG.value: bool(getattr(cfg, "cg01_enabled", True)) if cfg is not None else True,
+        ModelIdentifier.SMC_M1_CONTINUATION.value: True,
+        ModelIdentifier.SMC_M1_REVERSAL.value: True,
+    }
+    ctx = build_market_decision_context(
+        symbol=symbol,
+        decision_timestamp_ms=as_of_ms,
+        m1_candles=closed_1m,
+        m5_candles=closed_5m,
+        m15_candles=closed_15m,
+        bid=quote.bid if quote is not None else None,
+        ask=quote.ask if quote is not None else None,
+        quote_timestamp_ms=(quote.exchange_ts_ms or quote.received_at_ms) if quote is not None else as_of_ms,
+        model_enablement=enablement,
+        policy_config={"min_net_rr": eff_cfg.min_net_rr, "tick_size": eff_cfg.tick_size},
+        risk_config={"min_net_rr": eff_cfg.min_net_rr},
+    )
+    if direction in ("LONG", "SHORT"):
+        snap = SharedStrategyEvaluator.evaluate_model_direction(
+            context=ctx,
+            model_id=model_id,
+            direction=direction,
+            adapter_origin="HISTORICAL_BACKTEST_ADAPTER",
+        )
+    else:
+        # Derive HTF directional bias identically to production/shadow when direction is not specified
+        ref_bars = list(ctx.closed_m15_candles) if len(ctx.closed_m15_candles) >= 3 else (
+            list(ctx.closed_m5_candles) if len(ctx.closed_m5_candles) >= 3 else list(ctx.closed_m1_candles)
+        )
+        pref_dir = "LONG"
+        if len(ref_bars) >= 3:
+            first_b = ref_bars[max(0, len(ref_bars) - 10)]
+            last_b = ref_bars[-1]
+            fc = float(first_b.get("close") if isinstance(first_b, dict) else getattr(first_b, "close", 0.0))
+            lc = float(last_b.get("close") if isinstance(last_b, dict) else getattr(last_b, "close", 0.0))
+            pref_dir = "SHORT" if lc < fc else "LONG"
+        snap = SharedStrategyEvaluator.evaluate_model_best_direction(
+            context=ctx,
+            model_id=model_id,
+            preferred_direction=pref_dir,
+            adapter_origin="HISTORICAL_BACKTEST_ADAPTER",
+        )
+
+    is_elig = snap.decision_status == DecisionStatus.ELIGIBLE.value
+    has_setup = snap.setup_validity == "VALID" and snap.unicorn_validity != "ATR_MISSING"
+    if snap.decision_status == DecisionStatus.MODEL_DISABLED.value:
+        classification = "MODEL_DISABLED"
+    elif snap.decision_status == DecisionStatus.MISSING_MARKET_DATA.value:
+        classification = "MISSING_MARKET_DATA"
+    elif snap.setup_validity != "VALID":
+        classification = "NO_VALID_SETUP"
+    elif snap.unicorn_validity in ("VALID", "VALID_UNICORN"):
+        classification = "VALID_UNICORN" if is_elig else "VALID_SETUP_REJECTED_BY_RISK"
+    else:
+        classification = "ORDINARY_FVG_WITHOUT_UNICORN" if is_elig else "VALID_SETUP_REJECTED_BY_RISK"
+
+    atr_decision_status = (
+        "REJECTED_MISSING_ATR_M1"
+        if snap.atr_m1 is None
+        else ("ACTUAL_ATR_M5" if snap.atr_m5 is not None else "OPTIONAL_M5_OMITTED")
+    )
     return {
         "symbol": symbol,
         "model_id": model_id,
-        "decision_cutoff_ms": cycle["decision_cutoff_ms"],
-        "classification": model_out.get("classification", "NO_VALID_SETUP"),
-        "reason_code": model_out.get("reason_code", "NO_SETUP"),
-        "opportunity_id": model_out.get("opportunity_id"),
-        "has_setup": opp_rec is not None and opp_rec.get("unicorn_validity") != "ATR_MISSING",
-        "direction": opp_rec.get("direction") if opp_rec else None,
-        "entry_reference": opp_rec.get("entry_reference") if opp_rec else None,
-        "unicorn_validity": opp_rec.get("unicorn_validity") if opp_rec else None,
-        "selected_anchor_kind": opp_rec.get("selected_anchor_kind") if opp_rec else None,
-        "selected_invalidation_price": opp_rec.get("selected_invalidation_price") if opp_rec else None,
-        "legacy_sl": opp_rec.get("legacy_sl") if opp_rec else None,
-        "structural_sl": opp_rec.get("structural_sl") if opp_rec else None,
-        "unicorn_sl_candidate": opp_rec.get("unicorn_sl_candidate") if opp_rec else None,
-        "target_price": opp_rec.get("target_price") if opp_rec else None,
-        "hypothetical_quantity": opp_rec.get("hypothetical_quantity") if opp_rec else 0.0,
-        "net_rr": opp_rec.get("net_rr") if opp_rec else 0.0,
-        "shadow_eligibility_status": opp_rec.get("shadow_eligibility_status") if opp_rec else "REJECTED",
-        "rejection_reason_codes": opp_rec.get("rejection_reason_codes", []) if opp_rec else [model_out.get("reason_code", "NO_SETUP")],
-        "atr_m1_value": opp_rec.get("atr_m1_value") if opp_rec else None,
-        "atr_m5_value": opp_rec.get("atr_m5_value") if opp_rec else None,
-        "atr_m5_available": opp_rec.get("atr_m5_available") if opp_rec else False,
-        "atr_decision_status": opp_rec.get("atr_decision_status") if opp_rec else None,
-        "opportunity_record": opp_rec,
+        "decision_cutoff_ms": as_of_ms,
+        "classification": classification,
+        "reason_code": snap.raw_candidate_reason_code or (snap.rejection_reason_codes[0] if snap.rejection_reason_codes else "ELIGIBLE"),
+        "opportunity_id": snap.candidate_key if snap.setup_validity == "VALID" else None,
+        "has_setup": has_setup,
+        "direction": snap.direction if snap.setup_validity == "VALID" else None,
+        "entry_reference": snap.entry_reference if snap.setup_validity == "VALID" else None,
+        "unicorn_validity": snap.unicorn_validity if snap.setup_validity == "VALID" else None,
+        "selected_anchor_kind": snap.anchor_kind,
+        "selected_anchor_id": snap.selected_anchor_id,
+        "selected_invalidation_price": snap.structural_invalidation_price,
+        "legacy_sl": snap.legacy_sl,
+        "structural_sl": snap.selected_sl,
+        "unicorn_sl_candidate": snap.unicorn_sl_candidate,
+        "target_price": snap.take_profit,
+        "hypothetical_quantity": snap.hypothetical_quantity if snap.hypothetical_quantity is not None else 0.0,
+        "net_rr": snap.net_rr if snap.net_rr is not None else 0.0,
+        "shadow_eligibility_status": "SHADOW_ELIGIBLE" if is_elig else ("SHADOW_REJECTED" if has_setup else "REJECTED"),
+        "rejection_reason_codes": list(snap.rejection_reason_codes),
+        "atr_m1_value": snap.atr_m1,
+        "atr_m5_value": snap.atr_m5,
+        "atr_m5_available": bool(snap.atr_m5 is not None),
+        "atr_decision_status": atr_decision_status,
+        "shared_decision_snapshot": snap.to_parity_dict(),
+        "decision_fingerprint": snap.decision_fingerprint,
+        "adapter_origin": snap.adapter_origin,
+        "opportunity_record": snap.to_parity_dict() if snap.setup_validity == "VALID" else None,
     }
 
 
@@ -898,7 +956,13 @@ def _extract_historical_opportunities_chronologically(
             if retested_fvg is not None:
                 break
 
-        if retested_fvg is None and (i % 15 != 0) and (i % 60 != 0):
+        # Causal price-action pre-filter: check if current closed bar forms a local structure break or liquidity sweep
+        prior_confirmed_slice = window_1m[-12:-2]
+        prior_conf_high = max(float(b["high"]) for b in prior_confirmed_slice)
+        prior_conf_low = min(float(b["low"]) for b in prior_confirmed_slice)
+        has_causal_break_or_sweep = (c_high >= prior_conf_high) or (c_low <= prior_conf_low)
+
+        if retested_fvg is None and not has_causal_break_or_sweep:
             continue
 
         # Authoritative M1 ATR check
@@ -910,19 +974,15 @@ def _extract_historical_opportunities_chronologically(
             symbol=symbol,
         )
         if atr_m1_obj.status != "AVAILABLE" or atr_m1_obj.value <= 0:
-            if i % 60 == 0:
-                early_rejections.append(
-                    {
-                        "opportunity_id": f"bt_rej_atr_{decision_ms}",
-                        "decision_ms": decision_ms,
-                        "model_id": "ALL_MODELS",
-                        "stage": "ATR_VALIDATION",
-                        "reason_code": atr_m1_obj.reason_code or "ATR_UNAVAILABLE",
-                    }
-                )
-            continue
-
-        if retested_fvg is None and (i % 15 != 0):
+            early_rejections.append(
+                {
+                    "opportunity_id": f"bt_rej_atr_{decision_ms}",
+                    "decision_ms": decision_ms,
+                    "model_id": "ALL_MODELS",
+                    "stage": "ATR_VALIDATION",
+                    "reason_code": atr_m1_obj.reason_code or "ATR_UNAVAILABLE",
+                }
+            )
             continue
 
         # Section 7: Authentic M5 ATR provenance — NEVER fabricate `atr_m1 * 2.1`
@@ -1070,16 +1130,18 @@ def _extract_historical_opportunities_chronologically(
                         }
                     )
 
-        # 2. SMC_M1_CONTINUATION (sampled on fresh BOS impulse)
-        if i % 15 == 0:
+        # 2. SMC_M1_CONTINUATION (evaluated on causal BOS impulse with displacement)
+        if has_causal_break_or_sweep:
             last_sh = sh_1m[-1]
             last_sl = sl_1m[-1]
-            if c_close > float(last_sh["price"]) and float(curr_bar["open"]) <= float(last_sh["price"]):
+            bar_body = abs(c_close - float(curr_bar["open"]))
+            has_bos_disp = bar_body >= (0.35 * atr_m1_val)
+            if has_bos_disp and c_close > float(last_sh["price"]) and float(curr_bar["open"]) <= float(last_sh["price"]):
                 cont_dir = "LONG"
                 orig_sw = last_sl
                 ref_sw = last_sh
                 leg_sl = round(float(last_sl["price"]) - cfg.sl_buffer_ticks * cfg.tick_size, 2)
-            elif c_close < float(last_sl["price"]) and float(curr_bar["open"]) >= float(last_sl["price"]):
+            elif has_bos_disp and c_close < float(last_sl["price"]) and float(curr_bar["open"]) >= float(last_sl["price"]):
                 cont_dir = "SHORT"
                 orig_sw = last_sh
                 ref_sw = last_sl
@@ -1116,8 +1178,8 @@ def _extract_historical_opportunities_chronologically(
                     }
                 )
 
-        # 3. SMC_M1_SWEEP_RECLAIM & SMC_M1_REVERSAL (sampled on fresh sweep & reclaim of prior swing)
-        if i % 15 == 0:
+        # 3. SMC_M1_SWEEP_RECLAIM & SMC_M1_REVERSAL (evaluated on causal sweep & reclaim of confirmed swing / HTF zone)
+        if has_causal_break_or_sweep:
             last_sh = sh_1m[-1]
             last_sl = sl_1m[-1]
             if c_low < float(last_sl["price"]) and c_close > float(last_sl["price"]):
@@ -1134,28 +1196,38 @@ def _extract_historical_opportunities_chronologically(
                 sw_dir = None
 
             if sw_dir is not None:
-                sw_model = (
-                    ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value
-                    if (i // 15) % 2 == 0
-                    else ModelIdentifier.SMC_M1_REVERSAL.value
+                # Evaluate whether the sweep occurred at an HTF (M5/M15) structural zone extreme vs M1 liquidity cluster
+                htf_ref_bars = window_15m if len(window_15m) >= 3 else (window_5m if len(window_5m) >= 3 else window_1m)
+                htf_low = min(float(b["low"]) for b in htf_ref_bars[-10:])
+                htf_high = max(float(b["high"]) for b in htf_ref_bars[-10:])
+                at_htf_zone = (
+                    (sw_dir == "LONG" and abs(sw_px - htf_low) <= 1.2 * atr_m1_val)
+                    or (sw_dir == "SHORT" and abs(sw_px - htf_high) <= 1.2 * atr_m1_val)
                 )
-                candidate_model_setups.append(
-                    {
-                        "model_id": sw_model,
-                        "direction": sw_dir,
-                        "episode_key": f"{sw_model}_{sw_dir}_{ref_sw.get('occurred_at_ms')}",
-                        "legacy_sl": leg_sl,
-                        "selected_fvg": None,
-                        "selected_break": None,
-                        "selected_sweep": {
-                            "id": f"sweep_{sw_model}_{c_open_ms}",
-                            "price": sw_px,
-                            "occurred_at_ms": c_open_ms,
-                            "known_at_ms": decision_ms,
-                        },
-                        "selected_reference": ref_sw,
-                    }
-                )
+                reclaim_body = abs(c_close - float(curr_bar["open"]))
+                matched_models = []
+                if at_htf_zone and reclaim_body >= 0.25 * atr_m1_val:
+                    matched_models.append(ModelIdentifier.SMC_M1_REVERSAL.value)
+                if reclaim_body >= 0.20 * atr_m1_val:
+                    matched_models.append(ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value)
+                for sw_model in matched_models:
+                    candidate_model_setups.append(
+                        {
+                            "model_id": sw_model,
+                            "direction": sw_dir,
+                            "episode_key": f"{sw_model}_{sw_dir}_{ref_sw.get('occurred_at_ms')}",
+                            "legacy_sl": leg_sl,
+                            "selected_fvg": None,
+                            "selected_break": None,
+                            "selected_sweep": {
+                                "id": f"sweep_{sw_model}_{c_open_ms}",
+                                "price": sw_px,
+                                "occurred_at_ms": c_open_ms,
+                                "known_at_ms": decision_ms,
+                            },
+                            "selected_reference": ref_sw,
+                        }
+                    )
 
         if not candidate_model_setups:
             continue
@@ -2697,6 +2769,101 @@ def execute_real_v17_8_backtest(
     _write_json(eff_out_dir / "rejected_opportunities.json", {"run_id": eff_run_id, "rejected": full_eval["rejected_opportunities"]})
     _write_json(eff_out_dir / "out_of_sample_report.json", out_of_sample_report)
     _write_json(eff_out_dir / "sensitivity_report.json", sensitivity_report)
+    _write_json(
+        eff_out_dir / "model_results.json",
+        {
+            "schema_version": "V17.9.0",
+            "run_id": eff_run_id,
+            "source_sha": source_sha,
+            "dataset_sha256": dataset_manifest["dataset_sha256"],
+            "evaluator": "SharedStrategyEvaluator",
+            "synthetic_index_signals_removed": True,
+            "models": per_model_breakdown,
+        },
+    )
+    # V17.9.0 additional explicit backtest artifacts (Section 17.1)
+    _write_json(
+        eff_out_dir / "matched_sl_comparison.json",
+        {
+            "schema_version": "V17.9.0",
+            "run_id": eff_run_id,
+            "source_sha": source_sha,
+            "dataset_sha256": dataset_manifest["dataset_sha256"],
+            "matched_cohort_analysis": full_eval["matched_cohort_analysis"],
+        },
+    )
+    _write_json(
+        eff_out_dir / "full_strategy_comparison.json",
+        {
+            "schema_version": "V17.9.0",
+            "run_id": eff_run_id,
+            "source_sha": source_sha,
+            "dataset_sha256": dataset_manifest["dataset_sha256"],
+            "variants": variants,
+            "entry_and_eligibility_filtering_attribution": entry_and_eligibility_filtering_attribution,
+        },
+    )
+    _write_json(eff_out_dir / "stress_test_report.json", sensitivity_report)
+
+    # Equity curves and drawdown report per variant
+    eq_curves = {}
+    dd_reports = {}
+    so_forensics = {}
+    for vid in ("A", "B", "C", "D"):
+        v_trades = [t for t in full_eval["trade_level_results"] if t["variant_id"] == vid]
+        running_eq = 1000.0
+        peak_eq = 1000.0
+        max_dd_val = 0.0
+        pts = [{"step": 0, "timestamp_ms": dataset_manifest["actual_earliest_bar_ms"], "equity_usdt": 1000.0, "drawdown_usdt": 0.0}]
+        for idx_t, tr in enumerate(v_trades, start=1):
+            running_eq = round(running_eq + float(tr["net_pnl"]), 4)
+            peak_eq = max(peak_eq, running_eq)
+            dd_val = round(peak_eq - running_eq, 4)
+            max_dd_val = max(max_dd_val, dd_val)
+            pts.append(
+                {
+                    "step": idx_t,
+                    "trade_id": tr["trade_id"],
+                    "timestamp_ms": tr["decision_ms"],
+                    "equity_usdt": running_eq,
+                    "drawdown_usdt": dd_val,
+                }
+            )
+        eq_curves[vid] = pts
+        dd_reports[vid] = {
+            "variant_id": vid,
+            "initial_equity_usdt": 1000.0,
+            "final_equity_usdt": running_eq,
+            "max_drawdown_usdt": round(max_dd_val, 4),
+            "max_drawdown_duration_trades": variants[vid]["drawdown_duration"],
+        }
+        so_forensics[vid] = {
+            "variant_id": vid,
+            "simulated_trades": variants[vid]["simulated_trades"],
+            "early_stopout_60s": variants[vid]["early_stopout_60s"],
+            "early_stopout_180s": variants[vid]["early_stopout_180s"],
+            "early_stopout_rate_per_executed_trade": variants[vid]["early_stopout_rate_per_executed_trade"],
+            "early_stopout_rate_per_matched_trade": variants[vid]["early_stopout_rate_per_matched_trade"],
+            "post_stop_recovery_details": variants[vid]["post_stop_recovery_details"],
+        }
+    _write_json(eff_out_dir / "equity_curves.json", {"run_id": eff_run_id, "source_sha": source_sha, "curves": eq_curves})
+    _write_json(eff_out_dir / "drawdown_report.json", {"run_id": eff_run_id, "source_sha": source_sha, "drawdowns": dd_reports})
+    _write_json(eff_out_dir / "stop_out_forensics.json", {"run_id": eff_run_id, "source_sha": source_sha, "forensics": so_forensics})
+
+    # Write trade_ledger.csv
+    csv_cols = [
+        "trade_id", "opportunity_id", "variant_id", "symbol", "model_id", "setup_category",
+        "unicorn_valid", "direction", "session", "decision_ms", "entry_price", "stop_loss",
+        "take_profit", "quantity", "net_rr", "stop_distance", "outcome", "gross_pnl",
+        "fees_paid", "slippage_cost", "net_pnl", "realized_r", "holding_time_sec",
+        "early_stopout_60s", "early_stopout_180s", "post_stop_recovered"
+    ]
+    csv_lines = [",".join(csv_cols)]
+    for tr in full_eval["trade_level_results"]:
+        row_vals = [str(tr.get(c, "")) for c in csv_cols]
+        csv_lines.append(",".join(row_vals))
+    (eff_out_dir / "trade_ledger.csv").write_text("\n".join(csv_lines) + "\n", encoding="utf-8")
+
     (eff_out_dir / "backtest_summary.md").write_text(summary_md, encoding="utf-8")
     (eff_out_dir / "backtest_execution.log").write_text("\n".join(log_lines) + "\n", encoding="utf-8")
 

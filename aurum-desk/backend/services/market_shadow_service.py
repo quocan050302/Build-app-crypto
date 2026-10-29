@@ -1705,6 +1705,30 @@ class MarketShadowService:
                 }
             )
 
+        try:
+            shared_ctx = self.build_shared_decision_context(
+                decision_timestamp_ms=cutoff_ms,
+                m1_candles=bars_1m,
+                m5_candles=bars_5m,
+                m15_candles=bars_15m,
+                bid=quote.bid,
+                ask=quote.ask,
+                quote_timestamp_ms=quote.exchange_ts_ms or quote.received_at_ms,
+                liquidity_pools=liquidity_levels,
+            )
+            shared_snap = self.evaluate_shared_decision_snapshot(
+                context=shared_ctx,
+                model_id=model_id,
+                direction=direction,
+            )
+            opp_rec["shared_decision_snapshot"] = shared_snap.to_parity_dict()
+            opp_rec["decision_fingerprint"] = shared_snap.decision_fingerprint
+            opp_rec["evidence_fingerprint"] = shared_snap.evidence_fingerprint
+            opp_rec["policy_fingerprint"] = shared_snap.policy_fingerprint
+            opp_rec["adapter_origin"] = shared_snap.adapter_origin
+        except Exception:
+            pass
+
         return {
             "model_classification": classification,
             "primary_reason_code": "ELIGIBLE" if is_eligible else (rejection_reasons[0] if rejection_reasons else "REJECTED"),
@@ -2546,6 +2570,102 @@ class MarketShadowService:
     def stop(self) -> None:
         self._running = False
         self._drain_remaining_events()
+
+    def build_shared_decision_context(
+        self,
+        *,
+        decision_timestamp_ms: int,
+        m1_candles: Optional[Sequence[Any]] = None,
+        m5_candles: Optional[Sequence[Any]] = None,
+        m15_candles: Optional[Sequence[Any]] = None,
+        h1_candles: Optional[Sequence[Any]] = None,
+        bid: Optional[float] = None,
+        ask: Optional[float] = None,
+        quote_timestamp_ms: Optional[int] = None,
+        htf_zones: Optional[Sequence[Any]] = None,
+        liquidity_pools: Optional[Sequence[Any]] = None,
+        model_enablement: Optional[Dict[str, bool]] = None,
+        policy_config: Optional[Dict[str, Any]] = None,
+        risk_config: Optional[Dict[str, Any]] = None,
+        cost_config: Optional[Dict[str, Any]] = None,
+        strict_causal_validation: bool = False,
+    ):
+        """
+        V17.9.0 Section 7.2: MARKET_SHADOW adapter method constructing immutable
+        MarketDecisionContext for SharedStrategyEvaluator.
+        """
+        from services.shared_strategy_evaluator import ALL_EVALUATED_MODEL_IDS, build_market_decision_context
+        enablement = {
+            m: (m not in self._disabled_models)
+            for m in ALL_EVALUATED_MODEL_IDS
+        }
+        if model_enablement:
+            enablement.update(model_enablement)
+        return build_market_decision_context(
+            symbol=self.symbol,
+            decision_timestamp_ms=decision_timestamp_ms,
+            m1_candles=m1_candles,
+            m5_candles=m5_candles,
+            m15_candles=m15_candles,
+            h1_candles=h1_candles,
+            bid=bid,
+            ask=ask,
+            quote_timestamp_ms=quote_timestamp_ms,
+            htf_zones=htf_zones,
+            liquidity_pools=liquidity_pools,
+            model_enablement=enablement,
+            policy_config=policy_config,
+            risk_config=risk_config,
+            cost_config=cost_config,
+            strict_causal_validation=strict_causal_validation,
+        )
+
+    def evaluate_shared_decision_snapshot(
+        self,
+        *,
+        context: Any,
+        model_id: str,
+        direction: Optional[str] = None,
+    ):
+        """
+        V17.9.0 Section 7.2: MARKET_SHADOW adapter method delegating pure strategy
+        decision evaluation to SharedStrategyEvaluator.
+        """
+        from services.shared_strategy_evaluator import SharedStrategyEvaluator
+        if direction in ("LONG", "SHORT"):
+            return SharedStrategyEvaluator.evaluate_model_direction(
+                context=context,
+                model_id=model_id,
+                direction=direction,
+                adapter_origin="MARKET_SHADOW_ADAPTER",
+                target_resolver=resolve_executable_target,
+            )
+        return SharedStrategyEvaluator.evaluate_model_best_direction(
+            context=context,
+            model_id=model_id,
+            adapter_origin="MARKET_SHADOW_ADAPTER",
+            target_resolver=resolve_executable_target,
+        )
+
+    def evaluate_shared_all_models(
+        self,
+        *,
+        context: Any,
+        model_ids: Optional[Sequence[str]] = None,
+        preferred_direction: Optional[str] = None,
+    ):
+        """
+        V17.9.0 Section 7.2: MARKET_SHADOW adapter method evaluating all supported
+        models through SharedStrategyEvaluator.
+        """
+        from services.shared_strategy_evaluator import PRODUCTION_MODEL_IDS, SharedStrategyEvaluator
+        return SharedStrategyEvaluator.evaluate_all_models(
+            context=context,
+            model_ids=model_ids or PRODUCTION_MODEL_IDS,
+            preferred_direction=preferred_direction,
+            adapter_origin="MARKET_SHADOW_ADAPTER",
+            target_resolver=resolve_executable_target,
+        )
 
 
 market_shadow_service = MarketShadowService()

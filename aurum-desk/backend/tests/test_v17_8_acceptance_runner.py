@@ -14,14 +14,19 @@ from tools.acceptance_verdict import (
     MANDATORY_GATES_V17_8_0_2,
     MANDATORY_GATES_V17_8_0_3,
     MANDATORY_GATES_V17_8_0_4,
+    MANDATORY_GATES_V17_9,
+    MANDATORY_GATES_V17_9_0,
     TEST_GATES,
     TRADING_AUTHORIZATION_V17_8_0_4,
+    TRADING_AUTHORIZATION_V17_9_0,
     determine_release_verdict,
     determine_v17_8_0_2_release_verdict,
     determine_v17_8_0_3_release_verdict,
     determine_v17_8_0_4_backtest_verdict,
     determine_v17_8_0_4_performance_verdict,
     determine_v17_8_0_4_release_verdict,
+    determine_v17_9_0_release_verdict,
+    determine_v17_9_0_verdicts_bundle,
 )
 
 
@@ -279,3 +284,79 @@ def test_verdict_v17_8_0_2_preflight_violation_blocked():
         determine_v17_8_0_2_release_verdict(gates_58, MANDATORY_GATES_V17_8_0_2, bad_preflight_hash)
         == "V17_8_0_2_BLOCKED"
     )
+
+
+def test_verdict_v17_9_0_all_107_gates_and_taxonomy():
+    """All 107 mandatory V17.9.0 gates (G01-G107) and Section 22 verdict taxonomy resolve fail-closed."""
+    assert len(MANDATORY_GATES_V17_9_0) == 107
+    assert len(MANDATORY_GATES_V17_9) == 107
+
+    gates_107 = _make_passing_gate_results(MANDATORY_GATES_V17_9_0)
+    assert len(gates_107) == 107
+    assert determine_release_verdict(gates_107, MANDATORY_GATES_V17_9_0) == "ACCEPTED_FOR_PAPER_OPT_IN"
+
+    valid_preflight = {
+        "status": "PASS",
+        "db_sha256_before": "abc12345",
+        "db_sha256_after": "abc12345",
+        "counters": {
+            "PAPER_ORDERS_CREATED": 0,
+            "PAPER_ORDERS_FILLED": 0,
+            "PAPER_POSITIONS_CLOSED": 0,
+            "LIVE_EXCHANGE_ORDERS_SENT": 0,
+            "UNAUTHORIZED_DB_WRITES": 0,
+            "BACKGROUND_TRADING_WORKERS_STARTED": 0,
+            "UNEXPECTED_RUNTIME_ERRORS": 0,
+        },
+    }
+    valid_shadow_preflight = {
+        "status": "PASS",
+        "runtime_profile": "MARKET_SHADOW",
+        "operational_db_sha256_before": "op12345",
+        "operational_db_sha256_after": "op12345",
+        "operational_db_immutable": True,
+        "counters": {
+            "PAPER_ORDERS_CREATED": 0,
+            "PAPER_ORDERS_FILLED": 0,
+            "PAPER_POSITIONS_CLOSED": 0,
+            "LIVE_EXCHANGE_ORDERS_SENT": 0,
+            "UNAUTHORIZED_DB_WRITES": 0,
+            "BACKGROUND_TRADING_WORKERS_STARTED": 0,
+            "UNEXPECTED_RUNTIME_ERRORS": 0,
+        },
+    }
+    valid_backtest = {
+        "status": "PASS",
+        "fabricated_candles_count": 0,
+        "m1_bars_count": 16645,
+        "production_parity_verified": True,
+        "strict_causal_unicorn_enforced": True,
+        "atr_m5_provenance_verified": True,
+        "variant_c_simulated_trades": 28,
+        "variant_c_net_expectancy_r": -0.50,
+        "baseline_net_expectancy_r": -0.75,
+    }
+    taxonomy = determine_v17_9_0_verdicts_bundle(
+        gates_107,
+        MANDATORY_GATES_V17_9_0,
+        runtime_preflight=valid_preflight,
+        market_shadow_preflight=valid_shadow_preflight,
+        backtest_summary=valid_backtest,
+        parity_diff_summary={"mismatched_decisions": 0},
+        disk_budget_summary={"status": "PASS", "temp_directories_cleaned_up": True},
+        concurrency_summary={"unaccounted_nodes_count": 0, "orphan_processes_remaining": 0},
+        source_manifest_verified=True,
+    )
+    assert taxonomy["decision_parity_verdict"] == "TRUE_PRODUCTION_DECISION_PARITY_VERIFIED"
+    assert taxonomy["shared_evaluator_verdict"] == "SHARED_STRATEGY_EVALUATOR_ACTIVE_ACROSS_ALL_THREE_PATHS"
+    assert taxonomy["backtest_methodology_verdict"] == "REAL_HISTORICAL_PRODUCTION_PARITY_BACKTEST_VERIFIED"
+    assert taxonomy["async_test_infrastructure_verdict"] == "BOUNDED_ASYNC_EXECUTION_VERIFIED"
+    assert taxonomy["disk_safety_verdict"] == "DISK_BUDGET_AND_CLEANUP_VERIFIED"
+    assert taxonomy["market_shadow_verdict"] == "SAFE_FOR_MARKET_SHADOW_RESEARCH_ONLY"
+    assert taxonomy["release_acceptance_verdict"] == "V17_9_0_ENGINEERING_ACCEPTED_FOR_RESEARCH_ONLY"
+    assert taxonomy["trading_authorization"] == TRADING_AUTHORIZATION_V17_9_0
+
+    # Negative control: missing G107 blocks V17.9.0 release verdict
+    bad_gates = dict(gates_107)
+    del bad_gates["G107_REMOTE_ACCEPTANCE_BUNDLE_COMPLETENESS"]
+    assert determine_v17_9_0_release_verdict(bad_gates, MANDATORY_GATES_V17_9_0) == "V17_9_0_BLOCKED"

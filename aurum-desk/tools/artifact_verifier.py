@@ -25,6 +25,8 @@ from tools.acceptance_verdict import (
     MANDATORY_GATES_V17_8_0_2,
     MANDATORY_GATES_V17_8_0_3,
     MANDATORY_GATES_V17_8_0_4,
+    MANDATORY_GATES_V17_9,
+    MANDATORY_GATES_V17_9_0,
 )
 
 EXECUTABLE_SOURCE_SCOPES: Tuple[str, ...] = (
@@ -52,6 +54,7 @@ EXCLUDE_PATTERNS = {
     "logs",
     "test-results",
     "playwright-report",
+    "tmp",
 }
 
 FORBIDDEN_FILENAMES = {
@@ -69,6 +72,7 @@ FORBIDDEN_PATH_PREFIXES = (
     "frontend/node_modules/",
     "frontend/dist/",
     "frontend/test-results/",
+    "tmp/",
 )
 
 EXCLUDE_SUFFIXES = {
@@ -441,9 +445,23 @@ def write_acceptance_artifacts(
     run_dir = base_dir / version_dir / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Write gate_manifest.json
+    # 1. Write gate_manifest.json and gate_results.json
     (run_dir / "gate_manifest.json").write_text(
         json.dumps({"schema_version": 1, "run_id": run_id, "mandatory_gates": gate_manifest}, indent=2),
+        encoding="utf-8",
+    )
+    (run_dir / "gate_results.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "run_id": run_id,
+                "runner_version": results_payload.get("runner_version"),
+                "tested_source_sha": results_payload.get("tested_source_sha") or results_payload.get("source_sha"),
+                "mandatory_gates": gate_manifest,
+                "gates": results_payload.get("gates", {}),
+            },
+            indent=2,
+        ),
         encoding="utf-8",
     )
 
@@ -453,8 +471,12 @@ def write_acceptance_artifacts(
         encoding="utf-8",
     )
 
-    # 3. Write acceptance_results.json
+    # 3. Write acceptance_results.json and acceptance_summary.json
     (run_dir / "acceptance_results.json").write_text(
+        json.dumps(results_payload, indent=2),
+        encoding="utf-8",
+    )
+    (run_dir / "acceptance_summary.json").write_text(
         json.dumps(results_payload, indent=2),
         encoding="utf-8",
     )
@@ -465,12 +487,27 @@ def write_acceptance_artifacts(
         if not p.is_file():
             continue
         rel_name = str(p.relative_to(run_dir)).replace("\\", "/")
-        if rel_name == "integrity_manifest.json":
+        if rel_name in ("integrity_manifest.json", "artifact_hashes.json"):
             continue
         integrity_digests[rel_name] = {
             "size_bytes": p.stat().st_size,
             "sha256": hashlib.sha256(p.read_bytes()).hexdigest(),
         }
+
+    artifact_hashes_payload = {
+        "schema_version": 1,
+        "run_id": run_id,
+        "leaf_files": dict(integrity_digests),
+    }
+    artifact_hashes_path = run_dir / "artifact_hashes.json"
+    artifact_hashes_path.write_text(
+        json.dumps(artifact_hashes_payload, indent=2),
+        encoding="utf-8",
+    )
+    integrity_digests["artifact_hashes.json"] = {
+        "size_bytes": artifact_hashes_path.stat().st_size,
+        "sha256": hashlib.sha256(artifact_hashes_path.read_bytes()).hexdigest(),
+    }
 
     integrity_payload = {
         "schema_version": 1,
@@ -736,6 +773,37 @@ def verify_remote_acceptance_bundle(
     return len(errors) == 0, errors
 
 
+def verify_remote_branch_artifacts(
+    root_dir: Path,
+    remote_ref: str,
+    run_id: str,
+    version_dir: str = "v17_9_0",
+    expected_version: str = "17.9.0",
+) -> Dict[str, Any]:
+    """
+    Verifies the remote acceptance artifact bundle for `run_id` at `remote_ref` (V17.9.0 Section 19 Step 7).
+    Raises RuntimeError if verification fails.
+    """
+    repo_root = Path(root_dir).resolve()
+    run_dir = repo_root / "docs" / "artifacts" / version_dir / run_id
+    ok, errors = verify_remote_acceptance_bundle(
+        run_dir=run_dir,
+        remote_ref=remote_ref,
+        root_dir=repo_root,
+        expected_version=expected_version,
+    )
+    report = {
+        "status": "PASS" if ok else "FAIL",
+        "run_id": run_id,
+        "remote_ref": remote_ref,
+        "run_dir": str(run_dir),
+        "errors": errors,
+    }
+    if not ok:
+        raise RuntimeError(f"REMOTE_ACCEPTANCE_BUNDLE_INCOMPLETE ({run_id} @ {remote_ref}): {errors}")
+    return report
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     args = argv if argv is not None else sys.argv[1:]
     remote_ref: Optional[str] = None
@@ -757,7 +825,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             else:
                 target = (_ROOT_DIR / target).resolve()
     else:
-        latest_file = _ROOT_DIR / "docs" / "artifacts" / "v17_8_0_4" / "latest_run.json"
+        latest_file = _ROOT_DIR / "docs" / "artifacts" / "v17_9_0" / "latest_run.json"
+        if not latest_file.is_file():
+            latest_file = _ROOT_DIR / "docs" / "artifacts" / "v17_8_0_4" / "latest_run.json"
         if not latest_file.is_file():
             latest_file = _ROOT_DIR / "docs" / "artifacts" / "v17_8_0_3" / "latest_run.json"
         if not latest_file.is_file():
@@ -776,10 +846,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     gm_path = target / "gate_manifest.json"
     integ_path = target / "integrity_manifest.json"
 
-    expected_ver = "17.8.0.4"
+    is_v17_9 = "v17_9_0" in str(target).replace("\\", "/")
+    expected_ver = "17.9.0" if is_v17_9 else "17.8.0.4"
     expected_run = target.name
     expected_sha = None
-    expected_manifest = list(MANDATORY_GATES_V17_8_0_4)
+    expected_manifest = list(MANDATORY_GATES_V17_9_0) if is_v17_9 else list(MANDATORY_GATES_V17_8_0_4)
 
     if res_path.is_file():
         try:

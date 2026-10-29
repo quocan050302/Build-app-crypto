@@ -25,7 +25,16 @@ frontend/dist-ssr/
 !docs/artifacts/v17_8_0_2/**/*.log
 !docs/artifacts/v17_8_0_3/**/*.log
 !docs/artifacts/v17_8_0_4/**/*.log
+!docs/artifacts/v17_9_0/**
+!docs/artifacts/v17_9_0/**/*.log
+!docs/artifacts/v17_9_0/**/*.xml
+!docs/artifacts/v17_9_0/**/*.json
+!docs/artifacts/v17_9_0/**/*.csv
+!docs/artifacts/v17_9_0/**/*.gz
 !backtest/**/*.log
+
+# Temporary worker directories (V17.9.0 bounded async test runner)
+tmp/
 
 # OS metadata
 .DS_Store

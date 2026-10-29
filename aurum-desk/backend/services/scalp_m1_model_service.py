@@ -2267,6 +2267,33 @@ class ScalpM1ModelService:
         ]
 
         if not matching_fvgs:
+            candidate_pivots = sh_list if direction == "LONG" else sl_list
+            for alt_piv in reversed(candidate_pivots):
+                alt_break = detect_confirmed_continuation_break(
+                    closed_1m, alt_piv, direction, as_of_ms=now_ms, tick_size=cfg.tick_size
+                )
+                if alt_break is None:
+                    continue
+                alt_disp, alt_ratio, _ = evaluate_displacement(
+                    alt_break["bar"], atr_1m, min_body_atr=cfg.displacement_body_atr_min, direction=direction
+                )
+                if not alt_disp:
+                    continue
+                alt_fvgs = [
+                    f for f in raw_fvgs
+                    if f.get("type") == target_fvg_type
+                    and f.get("state") in ("confirmed", "partially_mitigated")
+                    and float(f.get("bottom", 0.0)) < float(f.get("top", 0.0))
+                    and int(f.get("confirmed_at") or f.get("timestamp") or 0) >= alt_break["broken_at_ms"] - 60_000
+                ]
+                if alt_fvgs:
+                    swing_ref = alt_piv
+                    break_res = alt_break
+                    disp_ratio = alt_ratio
+                    matching_fvgs = alt_fvgs
+                    break
+
+        if not matching_fvgs:
             return ScalpCandidate(
                 is_eligible=False, model_id=model_id, direction=direction, candidate_key=fallback_key,
                 reason_code=OpportunityReasonCode.WAITING_M1_STRUCTURE.value,

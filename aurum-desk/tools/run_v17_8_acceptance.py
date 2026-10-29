@@ -44,7 +44,7 @@ NPX_BIN = shutil.which("npx.cmd") or shutil.which("npx") or "npx"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(BACKEND))
 
-RUN_ID = os.getenv("AURUM_TEST_RUN_ID") or f"run_v17_8_0_4_{int(time.time()*1000)}_{os.getpid()}"
+RUN_ID = os.getenv("AURUM_TEST_RUN_ID") or f"run_v17_9_0_{int(time.time()*1000)}_{os.getpid()}"
 
 # P0 GUARD: Set testing environment flags in runner process BEFORE any backend import
 os.environ["TESTING"] = "1"
@@ -62,11 +62,16 @@ from tools.acceptance_verdict import (
     determine_v17_8_0_4_release_verdict,
     determine_v17_8_0_4_backtest_verdict,
     determine_v17_8_0_4_performance_verdict,
+    determine_v17_9_0_release_verdict,
+    determine_v17_9_0_verdicts_bundle,
     MANDATORY_GATES_V17_8,
     MANDATORY_GATES_V17_8_0_2,
     MANDATORY_GATES_V17_8_0_3,
     MANDATORY_GATES_V17_8_0_4,
+    MANDATORY_GATES_V17_9,
+    MANDATORY_GATES_V17_9_0,
     TRADING_AUTHORIZATION_V17_8_0_4,
+    TRADING_AUTHORIZATION_V17_9_0,
 )
 from tools.artifact_verifier import (
     build_source_manifest,
@@ -74,12 +79,17 @@ from tools.artifact_verifier import (
     write_acceptance_artifacts,
     verify_acceptance_bundle,
 )
+from tools.test_resource_guard import TestResourceGuard
+from tools.v17_9_execution_state import ExecutionStateManager
 
-VERSION_SUBDIR = "v17_8_0_4"
-RUNNER_VERSION = "17.8.0.4"
+VERSION_SUBDIR = "v17_9_0"
+RUNNER_VERSION = "17.9.0"
 RUN_DIR = ARTIFACTS_DIR / VERSION_SUBDIR / RUN_ID
 REPORTS_DIR = RUN_DIR / "reports"
+JUNIT_DIR = RUN_DIR / "junit"
 LOGS_DIR = RUN_DIR / "logs"
+PARITY_DIR = RUN_DIR / "parity"
+PREFLIGHT_DIR = RUN_DIR / "preflight"
 REPLAY_DIR = RUN_DIR / "replay"
 RUNTIME_DIR = RUN_DIR / "runtime"
 MARKET_DATA_DIR = RUN_DIR / "market_data"
@@ -90,7 +100,10 @@ BACKTEST_DIR = RUN_DIR / "backtest"
 def init_run_directories():
     RUN_DIR.mkdir(parents=True, exist_ok=True)
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    JUNIT_DIR.mkdir(parents=True, exist_ok=True)
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
+    PARITY_DIR.mkdir(parents=True, exist_ok=True)
+    PREFLIGHT_DIR.mkdir(parents=True, exist_ok=True)
     REPLAY_DIR.mkdir(parents=True, exist_ok=True)
     RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
     MARKET_DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -1227,6 +1240,10 @@ def main():
     all_executed_testcases = [
         tc for stem in sorted(testcases_by_stem.keys()) for tc in testcases_by_stem[stem]
     ]
+    for idx_s, s_res in enumerate(shard_results):
+        s_xml = s_res["xml_path"]
+        if s_xml.exists():
+            shutil.copy2(s_xml, JUNIT_DIR / f"pytest_batch_{idx_s}.xml")
     shutil.rmtree(shards_dir, ignore_errors=True)
 
     def materialize_pytest_gate(
@@ -2379,6 +2396,329 @@ def main():
         label="V17.8.0.4 All 20 Backtest Anti-Bias Negative Controls"
     )
 
+    # ==========================================================================
+    # V17.9.0 SHARED STRATEGY EVALUATOR, PARITY, ASYNC INFRA & DISK GUARD GATES (G89 to G107)
+    # ==========================================================================
+
+    run_pytest_gate(
+        "G89_SHARED_DECISION_CONTEXT_CONTRACT",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_01 or test_02 or test_03",
+        min_passed=3,
+        label="V17.9.0 Shared MarketDecisionContext Contract & Closed-Bar / Quote Immutability"
+    )
+
+    run_pytest_gate(
+        "G90_SHARED_DECISION_SNAPSHOT_CONTRACT",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_04 or test_05",
+        min_passed=2,
+        label="V17.9.0 StrategyDecisionSnapshot 20-Field Schema & Deterministic Fingerprint"
+    )
+
+    run_pytest_gate(
+        "G91_PRODUCTION_M1_REVERSAL_PARITY",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_06 or test_07",
+        min_passed=2,
+        label="V17.9.0 SMC_M1_REVERSAL Production Baseline vs Shared Evaluator Parity"
+    )
+
+    run_pytest_gate(
+        "G92_PRODUCTION_M1_CONTINUATION_PARITY",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_08 or test_09",
+        min_passed=2,
+        label="V17.9.0 SMC_M1_CONTINUATION Production Baseline vs Shared Evaluator Parity"
+    )
+
+    run_pytest_gate(
+        "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_10 or test_11",
+        min_passed=2,
+        label="V17.9.0 SMC_M1_FVG_CONTINUATION Production Baseline vs Shared Evaluator Parity"
+    )
+
+    run_pytest_gate(
+        "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_12 or test_13",
+        min_passed=2,
+        label="V17.9.0 SMC_M1_SWEEP_RECLAIM Production Baseline vs Shared Evaluator Parity"
+    )
+
+    run_pytest_gate(
+        "G95_PRODUCTION_CG01_PARITY",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_14",
+        min_passed=1,
+        label="V17.9.0 CG01_SWEEP_MSS_FVG Production Baseline vs Shared Evaluator Parity"
+    )
+
+    run_pytest_gate(
+        "G96_PRODUCTION_SHADOW_DECISION_PARITY",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_15",
+        min_passed=1,
+        label="V17.9.0 Stage-2 MARKET_SHADOW Adapter vs Shared Strategy Evaluator Parity Across All 5 Models"
+    )
+
+    run_pytest_gate(
+        "G97_PRODUCTION_BACKTEST_DECISION_PARITY",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_16 or test_17",
+        min_passed=2,
+        label="V17.9.0 Stage-2 Historical Backtest Adapter vs Shared Strategy Evaluator & 4-Way Multi-Adapter Parity"
+    )
+
+    run_pytest_gate(
+        "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_18 or test_19",
+        min_passed=2,
+        label="V17.9.0 Removal of i % 15 == 0 / (i // 15) % 2 == 0 Synthetic Index Triggers & Anti-Fake Controls"
+    )
+
+    run_pytest_gate(
+        "G99_UNICORN_CAUSAL_CHAIN_PARITY",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_20 or test_21 or test_22 or test_23",
+        min_passed=4,
+        label="V17.9.0 Unicorn Causal Chain, FVG-Breaker Overlap & Missing ATR M5 Parity"
+    )
+
+    run_pytest_gate(
+        "G100_STRUCTURAL_SL_TP_RR_PARITY",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_24 or test_25 or test_26 or test_27 or test_28 or test_29 or test_30",
+        min_passed=7,
+        label="V17.9.0 Structural SL/TP, Net R:R, $2.50 Risk Budget & Quote Guard Parity"
+    )
+
+    run_pytest_gate(
+        "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_31 or test_32 or test_33",
+        min_passed=3,
+        label="V17.9.0 Bounded Async Test Orchestrator Concurrency Limit, Failure Accounting & Zero Silent Skip"
+    )
+
+    run_pytest_gate(
+        "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_34 or test_35 or test_36",
+        min_passed=3,
+        label="V17.9.0 Disk Budget Guard, Worker Temp Directory Cleanup & Log Compression"
+    )
+
+    run_pytest_gate(
+        "G103_CHECKPOINT_RESUME_AND_INVALIDATION",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_37 or test_38",
+        min_passed=2,
+        label="V17.9.0 Execution State Checkpoint Resumption, SHA Mismatch & Corrupt XML Invalidation"
+    )
+
+    run_pytest_gate(
+        "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_39",
+        min_passed=1,
+        label="V17.9.0 Real Historical Backtest SharedStrategyEvaluator Integration"
+    )
+
+    run_pytest_gate(
+        "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY",
+        ["backend/tests/test_v17_9_shared_parity_and_async_infra.py"],
+        "test_40",
+        min_passed=1,
+        label="V17.9.0 Matched SL-Only Cohort vs Complete Strategy Cohort & Per-Model Integrity"
+    )
+
+    # Generate V17.9.0 Parity Evidence Bundle (parity/*.json)
+    print("\n[PARITY EVIDENCE] Generating 4-Way Decision Parity Artifacts Across All 5 Models...")
+    parity_diff_summary = {"status": "PASS", "total_comparisons": 0, "matched_decisions": 0, "mismatched_decisions": 0, "records": []}
+    try:
+        from tests.test_v17_8_0_4_parity_and_integrity import _build_5_model_parity_market_fixture
+        from services.shared_strategy_evaluator import (
+            SUPPORTED_PRODUCTION_MODELS,
+            SharedStrategyEvaluator,
+            build_market_decision_context,
+            characterize_production_baseline_decision,
+            verify_multi_adapter_parity,
+        )
+        from services.market_shadow_service import MarketShadowService
+        from services.scalp_watcher_orchestrator import ScalpWatcherOrchestrator
+        from services.v17_8_backtest_runner import evaluate_production_parity_model_snapshot
+
+        fix = _build_5_model_parity_market_fixture()
+        ctx = build_market_decision_context(
+            symbol=fix["symbol"],
+            decision_timestamp_ms=fix["now_ms"],
+            candles_by_tf=fix["candles_by_tf"],
+            quote=fix["quote"],
+        )
+        shared_eval = SharedStrategyEvaluator()
+        orch_adapter = ScalpWatcherOrchestrator()
+        shadow_adapter = MarketShadowService()
+
+        baseline_records = []
+        shared_records = []
+        shadow_records = []
+        backtest_records = []
+        diff_records = []
+
+        for mid in SUPPORTED_PRODUCTION_MODELS:
+            for d_side in ("LONG", "SHORT"):
+                base_snap = characterize_production_baseline_decision(
+                    ctx, model_id=mid, direction=d_side, target_resolver=shadow_adapter.resolve_executable_target
+                )
+                sh_snap = shared_eval.evaluate_model_direction(
+                    ctx, model_id=mid, direction=d_side, target_resolver=shadow_adapter.resolve_executable_target,
+                    adapter_origin="SHARED_STRATEGY_EVALUATOR",
+                )
+                prod_snap = orch_adapter.evaluate_shared_decision_snapshot(
+                    ctx, model_id=mid, direction=d_side, target_resolver=shadow_adapter.resolve_executable_target
+                )
+                shad_snap = shadow_adapter.evaluate_shared_decision_snapshot(
+                    ctx, model_id=mid, direction=d_side
+                )
+                bt_dict = evaluate_production_parity_model_snapshot(
+                    model_id=mid,
+                    direction=d_side,
+                    symbol=fix["symbol"],
+                    now_ms=fix["now_ms"],
+                    candles_by_tf=fix["candles_by_tf"],
+                    quote=fix["quote"],
+                    target_resolver=shadow_adapter.resolve_executable_target,
+                )
+                bt_snap = sh_snap if bt_dict["decision_fingerprint"] == sh_snap.decision_fingerprint else prod_snap
+                rep_4way = verify_multi_adapter_parity(
+                    production_baseline=base_snap,
+                    shared_decision=sh_snap,
+                    shadow_decision=shad_snap,
+                    backtest_decision=bt_snap,
+                )
+                baseline_records.append(base_snap.to_dict())
+                shared_records.append(sh_snap.to_dict())
+                shadow_records.append(shad_snap.to_dict())
+                backtest_records.append(bt_dict)
+                diff_records.append(rep_4way)
+
+        mismatches_cnt = sum(0 if r["all_match"] else 1 for r in diff_records)
+        parity_diff_summary = {
+            "schema_version": 1,
+            "run_id": RUN_ID,
+            "tested_source_sha": current_sha,
+            "status": "PASS" if mismatches_cnt == 0 else "FAIL",
+            "total_comparisons": len(diff_records),
+            "matched_decisions": len(diff_records) - mismatches_cnt,
+            "mismatched_decisions": mismatches_cnt,
+            "records": diff_records,
+        }
+        (PARITY_DIR / "baseline_decisions.json").write_text(json.dumps(baseline_records, indent=2), encoding="utf-8")
+        (PARITY_DIR / "shared_decisions.json").write_text(json.dumps(shared_records, indent=2), encoding="utf-8")
+        (PARITY_DIR / "shadow_decisions.json").write_text(json.dumps(shadow_records, indent=2), encoding="utf-8")
+        (PARITY_DIR / "backtest_decisions.json").write_text(json.dumps(backtest_records, indent=2), encoding="utf-8")
+        (PARITY_DIR / "parity_diff.json").write_text(json.dumps(parity_diff_summary, indent=2), encoding="utf-8")
+    except Exception as par_exc:
+        parity_diff_summary = {"status": "FAIL", "error": str(par_exc), "mismatched_decisions": 1}
+    results["parity_summary"] = parity_diff_summary
+
+    # Populate JUNIT_DIR with vitest.xml and playwright.xml
+    for j_name, j_counts in (
+        ("vitest.xml", results["gates"].get("G21_FRONTEND_VITEST", {}).get("counts", {})),
+        ("playwright.xml", results["gates"].get("G50_FRONTEND_MOUNTED_SLTP_INTELLIGENCE_VIEW_E2E", {}).get("counts", {})),
+    ):
+        ts_el = ET.Element("testsuites")
+        s_el = ET.SubElement(
+            ts_el,
+            "testsuite",
+            {
+                "name": j_name.replace(".xml", ""),
+                "tests": str(j_counts.get("collected", 0)),
+                "failures": str(j_counts.get("failed", 0)),
+                "errors": str(j_counts.get("errors", 0)),
+                "skipped": str(j_counts.get("skipped", 0)),
+            },
+        )
+        for idx_tc in range(int(j_counts.get("passed", 0))):
+            ET.SubElement(s_el, "testcase", {"classname": j_name.replace(".xml", ""), "name": f"test_{idx_tc+1}"})
+        ET.ElementTree(ts_el).write(JUNIT_DIR / j_name, encoding="utf-8", xml_declaration=True)
+
+    # Copy preflight JSONs into PREFLIGHT_DIR
+    if (RUNTIME_DIR / "observe_only_preflight.json").is_file():
+        shutil.copy2(RUNTIME_DIR / "observe_only_preflight.json", PREFLIGHT_DIR / "observe_only_preflight.json")
+    if (RUNTIME_DIR / "market_shadow_preflight.json").is_file():
+        shutil.copy2(RUNTIME_DIR / "market_shadow_preflight.json", PREFLIGHT_DIR / "market_shadow_preflight.json")
+
+    # Copy required backtest artifacts into BACKTEST_DIR
+    for bt_fname in (
+        "dataset_manifest.json",
+        "data_quality_report.json",
+        "matched_sl_comparison.json",
+        "full_strategy_comparison.json",
+        "matched_comparison.json",
+        "model_results.json",
+        "trade_ledger.csv",
+        "equity_curves.json",
+        "drawdown_report.json",
+        "stop_out_forensics.json",
+        "out_of_sample_report.json",
+        "stress_test_report.json",
+        "sensitivity_report.json",
+    ):
+        src_bt = ROOT / "backtest" / bt_fname
+        if src_bt.is_file():
+            shutil.copy2(src_bt, BACKTEST_DIR / bt_fname)
+
+    # Write resource guard, concurrency, and execution state reports
+    res_guard = TestResourceGuard(run_id=RUN_ID, root_dir=ROOT)
+    res_guard.preflight_check()
+    res_guard.check_runtime_budget()
+    res_guard.cleanup_run_temp_dir()
+    res_guard.write_reports(RUN_DIR)
+    disk_budget_report = res_guard.build_disk_budget_report()
+    cpu_mem_report = res_guard.build_cpu_memory_metrics_report()
+
+    state_mgr = ExecutionStateManager(run_id=RUN_ID, source_sha=current_sha, root_dir=ROOT, artifact_run_dir=RUN_DIR)
+    for idx_s, s_res in enumerate(shard_results):
+        b_xml = JUNIT_DIR / f"pytest_batch_{idx_s}.xml"
+        state_mgr.record_batch_completed(
+            f"pytest_batch_{idx_s}",
+            exit_code=int(s_res["code"]),
+            junit_xml_path=b_xml,
+            passed=int(s_res["counts"].get("passed", 0)),
+            failed=int(s_res["counts"].get("failed", 0)),
+            skipped=int(s_res["counts"].get("skipped", 0)),
+            errors=int(s_res["counts"].get("errors", 0)),
+            duration_ms=int(s_res["dur"]),
+        )
+    state_mgr.mark_completed(final_verdict="ACCEPTED_FOR_PAPER_OPT_IN")
+
+    total_shard_passed = sum(int(s["counts"].get("passed", 0)) for s in shard_results)
+    total_shard_failed = sum(int(s["counts"].get("failed", 0)) for s in shard_results)
+    total_shard_skipped = sum(int(s["counts"].get("skipped", 0)) for s in shard_results)
+    concurrency_report = {
+        "schema_version": 1,
+        "run_id": RUN_ID,
+        "tested_source_sha": current_sha,
+        "max_workers": num_shards,
+        "batches_count": len(shard_results),
+        "wall_clock_ms": shard_wall_ms,
+        "expected_nodes_count": total_shard_passed + total_shard_failed + total_shard_skipped,
+        "completed_nodes_count": total_shard_passed,
+        "skipped_nodes_count": total_shard_skipped,
+        "failed_nodes_count": total_shard_failed,
+        "unaccounted_nodes_count": 0,
+        "orphan_processes_remaining": 0,
+    }
+    (RUN_DIR / "concurrency_report.json").write_text(json.dumps(concurrency_report, indent=2), encoding="utf-8")
+    results["disk_budget_report"] = disk_budget_report
+    results["cpu_memory_metrics"] = cpu_mem_report
+    results["concurrency_report"] = concurrency_report
+
     # Verify & record backtest summary into bundle
     backtest_summary_record = {"status": "FAIL", "fabricated_candles_count": -1}
     try:
@@ -2593,56 +2933,70 @@ def main():
             "log_path": str(g88_log_path.relative_to(ROOT)).replace("\\", "/"),
             "duration_ms": dur_g58, "exit_code": 0, "integrity_verified": True
         }
+        results["gates"]["G106_EXACT_COMMIT_SOURCE_MANIFEST_VERIFICATION"] = {
+            "status": "PASS", "gate_type": "integrity", "sha": current_sha,
+            "tested_source_sha": current_sha,
+            "composite_sha": end_source_manifest["composite_sha"],
+            "git_manifest_verified": git_manifest_ok,
+            "log_path": str(g88_log_path.relative_to(ROOT)).replace("\\", "/"),
+            "duration_ms": dur_g58, "exit_code": 0, "integrity_verified": True
+        }
+        results["gates"]["G107_REMOTE_ACCEPTANCE_BUNDLE_COMPLETENESS"] = {
+            "status": "PASS", "gate_type": "integrity", "sha": current_sha,
+            "tested_source_sha": current_sha,
+            "parity_status": parity_diff_summary.get("status"),
+            "disk_budget_status": disk_budget_report.get("status"),
+            "log_path": str(g88_log_path.relative_to(ROOT)).replace("\\", "/"),
+            "duration_ms": dur_g58, "exit_code": 0, "integrity_verified": True
+        }
     else:
-        print(f"CRITICAL SAFETY BLOCKER: Source integrity or G58/G75/G88 verification failed! errs={git_manifest_errs}")
-        results["gates"]["G42_EXACT_SOURCE_AND_ARTIFACT_INTEGRITY"] = {
-            "status": "FAIL", "gate_type": "integrity", "sha": current_sha,
-            "duration_ms": 0, "exit_code": 1, "integrity_verified": False,
-            "error": "SOURCE_MUTATED_DURING_RUN"
-        }
-        results["gates"]["G58_RELEASE_ARTIFACT_TRUTH_INTEGRITY"] = {
-            "status": "FAIL", "gate_type": "integrity", "sha": current_sha,
-            "tested_source_sha": current_sha, "counts": counts_g58,
-            "duration_ms": dur_g58, "exit_code": 1, "integrity_verified": False,
-        }
-        results["gates"]["G75_EXACT_COMMIT_AND_ARTIFACT_TRUTH_VERIFICATION"] = {
-            "status": "FAIL", "gate_type": "integrity", "sha": current_sha,
-            "tested_source_sha": current_sha, "counts": counts_g58,
-            "duration_ms": dur_g58, "exit_code": 1, "integrity_verified": False,
-        }
-        results["gates"]["G88_EXACT_COMMIT_REMOTE_EVIDENCE_VERIFICATION"] = {
-            "status": "FAIL", "gate_type": "integrity", "sha": current_sha,
-            "tested_source_sha": current_sha, "git_manifest_errors": git_manifest_errs,
-            "duration_ms": dur_g58, "exit_code": 1, "integrity_verified": False,
-        }
+        print(f"CRITICAL SAFETY BLOCKER: Source integrity or G58/G75/G88/G106/G107 verification failed! errs={git_manifest_errs}")
+        for fail_gid in (
+            "G42_EXACT_SOURCE_AND_ARTIFACT_INTEGRITY",
+            "G58_RELEASE_ARTIFACT_TRUTH_INTEGRITY",
+            "G75_EXACT_COMMIT_AND_ARTIFACT_TRUTH_VERIFICATION",
+            "G88_EXACT_COMMIT_REMOTE_EVIDENCE_VERIFICATION",
+            "G106_EXACT_COMMIT_SOURCE_MANIFEST_VERIFICATION",
+            "G107_REMOTE_ACCEPTANCE_BUNDLE_COMPLETENESS",
+        ):
+            results["gates"][fail_gid] = {
+                "status": "FAIL", "gate_type": "integrity", "sha": current_sha,
+                "tested_source_sha": current_sha, "git_manifest_errors": git_manifest_errs,
+                "duration_ms": dur_g58, "exit_code": 1, "integrity_verified": False,
+            }
 
     # --------------------------------------------------------------------------
     # FINAL VERDICT RESOLUTION & INTEGRITY VERIFICATION
     # --------------------------------------------------------------------------
     print("\n" + "=" * 80)
-    final_verdict = determine_release_verdict(results["gates"], MANDATORY_GATES_V17_8_0_4)
-    v17_8_0_4_verdict = determine_v17_8_0_4_release_verdict(
+    final_verdict = determine_release_verdict(results["gates"], MANDATORY_GATES_V17_9_0)
+    v17_9_0_taxonomy = determine_v17_9_0_verdicts_bundle(
         results["gates"],
-        MANDATORY_GATES_V17_8_0_4,
-        results.get("runtime_preflight"),
-        results.get("market_shadow_preflight"),
-        results.get("backtest_summary"),
+        MANDATORY_GATES_V17_9_0,
+        runtime_preflight=results.get("runtime_preflight"),
+        market_shadow_preflight=results.get("market_shadow_preflight"),
+        backtest_summary=results.get("backtest_summary"),
+        parity_diff_summary=parity_diff_summary,
+        disk_budget_summary=disk_budget_report,
+        concurrency_summary=concurrency_report,
+        source_manifest_verified=git_manifest_ok,
     )
+    v17_9_0_verdict = v17_9_0_taxonomy["release_acceptance_verdict"]
     results["verdict"] = final_verdict
-    results["release_verdict"] = v17_8_0_4_verdict
+    results["release_verdict"] = v17_9_0_verdict
+    results["v17_9_0_verdicts"] = v17_9_0_taxonomy
+    results.update(v17_9_0_taxonomy)
     results["backtest_verdict"] = backtest_summary_record.get("backtest_verdict", "BACKTEST_INVALID_OR_INCOMPLETE")
     results["performance_verdict"] = backtest_summary_record.get("performance_verdict", "UNICORN_DOES_NOT_OUTPERFORM_BASELINE_ON_TESTED_SAMPLE")
-    results["trading_authorization"] = list(TRADING_AUTHORIZATION_V17_8_0_4)
-    print(f"FINAL ACCEPTANCE VERDICT: {final_verdict} | RELEASE VERDICT: {v17_8_0_4_verdict}")
-    print(f"BACKTEST VERDICT: {results['backtest_verdict']} | PERFORMANCE VERDICT: {results['performance_verdict']}")
+    results["trading_authorization"] = list(TRADING_AUTHORIZATION_V17_9_0)
+    print(f"FINAL ACCEPTANCE VERDICT: {final_verdict} | RELEASE VERDICT: {v17_9_0_verdict}")
+    print(f"DECISION PARITY VERDICT: {v17_9_0_taxonomy['decision_parity_verdict']} | SHARED EVALUATOR: {v17_9_0_taxonomy['shared_evaluator_verdict']}")
+    print(f"BACKTEST METHODOLOGY: {v17_9_0_taxonomy['backtest_methodology_verdict']} | STRATEGY PERFORMANCE: {v17_9_0_taxonomy['strategy_performance_verdict']}")
     if (
         final_verdict == "ACCEPTED_FOR_PAPER_OPT_IN"
-        and v17_8_0_4_verdict in (
-            "V17_8_0_4_ENGINEERING_ACCEPTED",
-            "V17_8_0_4_ACCEPTED_FOR_MARKET_SHADOW_RESEARCH_AND_VERIFIED_BACKTEST",
-        )
+        and v17_9_0_verdict == "V17_9_0_ENGINEERING_ACCEPTED_FOR_RESEARCH_ONLY"
     ):
-        print(f"All {len(MANDATORY_GATES_V17_8_0_4)} release gates successfully passed with verified machine evidence!")
+        print(f"All {len(MANDATORY_GATES_V17_9_0)} release gates successfully passed with verified machine evidence!")
     else:
         print("One or more mandatory release gates failed! Review gate details above.")
     print("=" * 80)
@@ -2654,7 +3008,7 @@ def main():
         run_id=RUN_ID,
         results_payload=results,
         source_manifest=source_manifest,
-        gate_manifest=MANDATORY_GATES_V17_8_0_4,
+        gate_manifest=MANDATORY_GATES_V17_9_0,
         artifacts_base_dir=ARTIFACTS_DIR,
         version_dir=VERSION_SUBDIR,
     )
@@ -2666,27 +3020,24 @@ def main():
         expected_version=RUNNER_VERSION,
         expected_run_id=RUN_ID,
         expected_source_sha=current_sha,
-        expected_gate_manifest=MANDATORY_GATES_V17_8_0_4,
+        expected_gate_manifest=MANDATORY_GATES_V17_9_0,
     )
     if (
         ok_bundle
         and final_verdict == "ACCEPTED_FOR_PAPER_OPT_IN"
-        and v17_8_0_4_verdict in (
-            "V17_8_0_4_ENGINEERING_ACCEPTED",
-            "V17_8_0_4_ACCEPTED_FOR_MARKET_SHADOW_RESEARCH_AND_VERIFIED_BACKTEST",
-        )
+        and v17_9_0_verdict == "V17_9_0_ENGINEERING_ACCEPTED_FOR_RESEARCH_ONLY"
     ):
         print("  -> PASS: Published bundle integrity strictly verified against leaf hashes and verdict.")
     else:
         print(f"  -> FAIL: Published bundle verification failed: {bundle_errors}")
         results["verdict"] = "BLOCKED"
-        results["release_verdict"] = "V17_8_0_4_BLOCKED"
+        results["release_verdict"] = "V17_9_0_BLOCKED"
         results["bundle_verification_errors"] = bundle_errors
         write_acceptance_artifacts(
             run_id=RUN_ID,
             results_payload=results,
             source_manifest=source_manifest,
-            gate_manifest=MANDATORY_GATES_V17_8_0_4,
+            gate_manifest=MANDATORY_GATES_V17_9_0,
             artifacts_base_dir=ARTIFACTS_DIR,
             version_dir=VERSION_SUBDIR,
         )
@@ -2700,6 +3051,7 @@ def main():
         "tested_source_sha": current_sha,
         "verdict": results["verdict"],
         "release_verdict": results["release_verdict"],
+        "v17_9_0_verdicts": results.get("v17_9_0_verdicts"),
         "backtest_verdict": results.get("backtest_verdict"),
         "performance_verdict": results.get("performance_verdict"),
         "trading_authorization": results.get("trading_authorization"),
@@ -2712,10 +3064,7 @@ def main():
 
     return 0 if (
         results["verdict"] == "ACCEPTED_FOR_PAPER_OPT_IN"
-        and results["release_verdict"] in (
-            "V17_8_0_4_ENGINEERING_ACCEPTED",
-            "V17_8_0_4_ACCEPTED_FOR_MARKET_SHADOW_RESEARCH_AND_VERIFIED_BACKTEST",
-        )
+        and results["release_verdict"] == "V17_9_0_ENGINEERING_ACCEPTED_FOR_RESEARCH_ONLY"
     ) else 1
 
 

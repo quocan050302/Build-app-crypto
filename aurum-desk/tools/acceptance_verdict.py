@@ -20,6 +20,11 @@ TRADING_AUTHORIZATION_V17_8_0_4 = [
     "LIVE_TRADING_NOT_AUTHORIZED",
 ]
 
+TRADING_AUTHORIZATION_V17_9_0 = [
+    "AUTO_PAPER_NOT_AUTHORIZED_BY_V17_9_0",
+    "LIVE_TRADING_NOT_AUTHORIZED",
+]
+
 # The mandatory 28 gates for V17.7.3 release acceptance (backward-compatible)
 MANDATORY_GATES_V17_7_3 = [
     "G01_BRANCH_INTEGRITY",
@@ -137,6 +142,31 @@ MANDATORY_GATES_V17_8_0_4 = list(MANDATORY_GATES_V17_8_0_3) + [
 
 MANDATORY_GATES_V17_8 = list(MANDATORY_GATES_V17_8_0_4)
 
+# The mandatory 107 gates for V17.9.0 release acceptance (88 gates + 19 shared parity, async infra, disk guard & backtest gates)
+MANDATORY_GATES_V17_9_0 = list(MANDATORY_GATES_V17_8_0_4) + [
+    "G89_SHARED_DECISION_CONTEXT_CONTRACT",
+    "G90_SHARED_DECISION_SNAPSHOT_CONTRACT",
+    "G91_PRODUCTION_M1_REVERSAL_PARITY",
+    "G92_PRODUCTION_M1_CONTINUATION_PARITY",
+    "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY",
+    "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY",
+    "G95_PRODUCTION_CG01_PARITY",
+    "G96_PRODUCTION_SHADOW_DECISION_PARITY",
+    "G97_PRODUCTION_BACKTEST_DECISION_PARITY",
+    "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL",
+    "G99_UNICORN_CAUSAL_CHAIN_PARITY",
+    "G100_STRUCTURAL_SL_TP_RR_PARITY",
+    "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY",
+    "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP",
+    "G103_CHECKPOINT_RESUME_AND_INVALIDATION",
+    "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR",
+    "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY",
+    "G106_EXACT_COMMIT_SOURCE_MANIFEST_VERIFICATION",
+    "G107_REMOTE_ACCEPTANCE_BUNDLE_COMPLETENESS",
+]
+
+MANDATORY_GATES_V17_9 = list(MANDATORY_GATES_V17_9_0)
+
 # Authoritative gate taxonomy and requirements (V17.7.4 Section 10 / V17.8.0.1 DEF-178-15 / V17.8.0.2 / V17.8.0.3 / V17.8.0.4)
 TEST_GATES = {
     "G02_TEST_DB_BOOTSTRAP",
@@ -222,6 +252,24 @@ TEST_GATES = {
     "G84_TRADE_LEVEL_PNL_RECONCILIATION",
     "G85_MARKET_SHADOW_ROUTING_REGRESSION",
     "G86_BACKTEST_ANTI_BIAS_NEGATIVE_CONTROLS",
+    # V17.9.0 Shared Strategy Evaluator, Multi-Adapter Parity, Async Runner & Disk Guard Additions
+    "G89_SHARED_DECISION_CONTEXT_CONTRACT",
+    "G90_SHARED_DECISION_SNAPSHOT_CONTRACT",
+    "G91_PRODUCTION_M1_REVERSAL_PARITY",
+    "G92_PRODUCTION_M1_CONTINUATION_PARITY",
+    "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY",
+    "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY",
+    "G95_PRODUCTION_CG01_PARITY",
+    "G96_PRODUCTION_SHADOW_DECISION_PARITY",
+    "G97_PRODUCTION_BACKTEST_DECISION_PARITY",
+    "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL",
+    "G99_UNICORN_CAUSAL_CHAIN_PARITY",
+    "G100_STRUCTURAL_SL_TP_RR_PARITY",
+    "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY",
+    "G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP",
+    "G103_CHECKPOINT_RESUME_AND_INVALIDATION",
+    "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR",
+    "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY",
 }
 
 COMMAND_GATES = {
@@ -238,6 +286,8 @@ INTEGRITY_GATES = {
     "G75_EXACT_COMMIT_AND_ARTIFACT_TRUTH_VERIFICATION",
     "G87_JUNIT_DOCUMENTATION_COUNT_RECONCILIATION",
     "G88_EXACT_COMMIT_REMOTE_EVIDENCE_VERIFICATION",
+    "G106_EXACT_COMMIT_SOURCE_MANIFEST_VERIFICATION",
+    "G107_REMOTE_ACCEPTANCE_BUNDLE_COMPLETENESS",
 }
 
 
@@ -583,3 +633,229 @@ def determine_v17_8_0_4_performance_verdict(
     if oos_status == "OUT_OF_SAMPLE_INCONCLUSIVE":
         return "PERFORMANCE_INCONCLUSIVE"
     return "PERFORMANCE_EVIDENCE_SUFFICIENT_FOR_REVIEW"
+
+
+def determine_v17_9_0_verdicts_bundle(
+    actual_gate_results: Dict[str, Any],
+    mandatory_gate_manifest: Optional[List[str]] = None,
+    runtime_preflight: Optional[Dict[str, Any]] = None,
+    market_shadow_preflight: Optional[Dict[str, Any]] = None,
+    backtest_summary: Optional[Dict[str, Any]] = None,
+    parity_diff_summary: Optional[Dict[str, Any]] = None,
+    disk_budget_summary: Optional[Dict[str, Any]] = None,
+    concurrency_summary: Optional[Dict[str, Any]] = None,
+    source_manifest_verified: bool = True,
+) -> Dict[str, Any]:
+    """
+    Resolves the complete V17.9.0 Verdict Taxonomy (Section 22):
+    1. decision_parity_verdict
+    2. shared_evaluator_verdict
+    3. backtest_methodology_verdict
+    4. strategy_performance_verdict
+    5. async_test_infrastructure_verdict
+    6. disk_safety_verdict
+    7. market_shadow_verdict
+    8. release_acceptance_verdict
+    9. trading_authorization
+    """
+    manifest = mandatory_gate_manifest if mandatory_gate_manifest is not None else MANDATORY_GATES_V17_9_0
+    base_verdict = determine_release_verdict(actual_gate_results, manifest)
+
+    # 1. Decision Parity Verdict
+    parity_gates = (
+        "G89_SHARED_DECISION_CONTEXT_CONTRACT",
+        "G90_SHARED_DECISION_SNAPSHOT_CONTRACT",
+        "G91_PRODUCTION_M1_REVERSAL_PARITY",
+        "G92_PRODUCTION_M1_CONTINUATION_PARITY",
+        "G93_PRODUCTION_M1_FVG_CONTINUATION_PARITY",
+        "G94_PRODUCTION_M1_SWEEP_RECLAIM_PARITY",
+        "G95_PRODUCTION_CG01_PARITY",
+        "G96_PRODUCTION_SHADOW_DECISION_PARITY",
+        "G97_PRODUCTION_BACKTEST_DECISION_PARITY",
+        "G99_UNICORN_CAUSAL_CHAIN_PARITY",
+        "G100_STRUCTURAL_SL_TP_RR_PARITY",
+    )
+    parity_gates_pass = all(
+        isinstance(actual_gate_results.get(g), dict) and actual_gate_results[g].get("status") == "PASS"
+        for g in parity_gates
+    )
+    parity_mismatches = 0
+    if isinstance(parity_diff_summary, dict):
+        parity_mismatches = int(parity_diff_summary.get("mismatched_decisions", 0))
+    if parity_gates_pass and parity_mismatches == 0:
+        decision_parity_verdict = "TRUE_PRODUCTION_DECISION_PARITY_VERIFIED"
+    elif any(
+        isinstance(actual_gate_results.get(g), dict) and actual_gate_results[g].get("status") == "PASS"
+        for g in parity_gates
+    ):
+        decision_parity_verdict = "PARTIAL_DECISION_PARITY_ONLY"
+    else:
+        decision_parity_verdict = "DECISION_PARITY_NOT_ESTABLISHED"
+
+    # 2. Shared Evaluator Verdict
+    shared_gates = (
+        "G89_SHARED_DECISION_CONTEXT_CONTRACT",
+        "G90_SHARED_DECISION_SNAPSHOT_CONTRACT",
+        "G96_PRODUCTION_SHADOW_DECISION_PARITY",
+        "G97_PRODUCTION_BACKTEST_DECISION_PARITY",
+        "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR",
+    )
+    if all(
+        isinstance(actual_gate_results.get(g), dict) and actual_gate_results[g].get("status") == "PASS"
+        for g in shared_gates
+    ):
+        shared_evaluator_verdict = "SHARED_STRATEGY_EVALUATOR_ACTIVE_ACROSS_ALL_THREE_PATHS"
+    elif any(
+        isinstance(actual_gate_results.get(g), dict) and actual_gate_results[g].get("status") == "PASS"
+        for g in shared_gates
+    ):
+        shared_evaluator_verdict = "SHARED_EVALUATOR_PARTIAL_INTEGRATION"
+    else:
+        shared_evaluator_verdict = "SHARED_EVALUATOR_NOT_INTEGRATED"
+
+    # 3. Backtest Methodology Verdict
+    bt_gates_pass = all(
+        isinstance(actual_gate_results.get(g), dict) and actual_gate_results[g].get("status") == "PASS"
+        for g in (
+            "G98_SYNTHETIC_INDEX_SIGNAL_REMOVAL",
+            "G104_REAL_HISTORICAL_BACKTEST_SHARED_EVALUATOR",
+            "G105_MATCHED_VS_FULL_STRATEGY_COHORT_INTEGRITY",
+        )
+    )
+    bt_valid = (
+        isinstance(backtest_summary, dict)
+        and backtest_summary.get("status") == "PASS"
+        and int(backtest_summary.get("fabricated_candles_count", -1)) == 0
+        and int(backtest_summary.get("m1_bars_count", 0)) > 0
+    )
+    if bt_gates_pass and bt_valid:
+        backtest_methodology_verdict = "REAL_HISTORICAL_PRODUCTION_PARITY_BACKTEST_VERIFIED"
+    elif bt_valid:
+        backtest_methodology_verdict = "HISTORICAL_BACKTEST_COMPLETED_WITH_LIMITATIONS"
+    else:
+        backtest_methodology_verdict = "BACKTEST_INVALID_OR_SYNTHETIC"
+
+    # 4. Strategy Performance Verdict
+    if not bt_valid:
+        strategy_performance_verdict = "INSUFFICIENT_SAMPLE_FOR_CONCLUSION"
+    else:
+        c_trades = int(backtest_summary.get("variant_c_simulated_trades", 0))
+        c_exp = backtest_summary.get("variant_c_net_expectancy_r")
+        a_exp = backtest_summary.get("baseline_net_expectancy_r")
+        if c_trades <= 0 or c_exp is None:
+            strategy_performance_verdict = "INSUFFICIENT_SAMPLE_FOR_CONCLUSION"
+        elif float(c_exp) > 0.0:
+            strategy_performance_verdict = "POSITIVE_NET_EXPECTANCY_OBSERVED_NOT_CLEARED_FOR_TRADING"
+        elif a_exp is not None and float(c_exp) > float(a_exp):
+            strategy_performance_verdict = "PERFORMANCE_IMPROVED_OVER_LEGACY_STILL_NEGATIVE_OR_INCONCLUSIVE"
+        else:
+            strategy_performance_verdict = "NEGATIVE_EXPECTANCY_CONFIRMED"
+
+    # 5. Async Test Infrastructure Verdict
+    async_gates_pass = all(
+        isinstance(actual_gate_results.get(g), dict) and actual_gate_results[g].get("status") == "PASS"
+        for g in (
+            "G101_BOUNDED_ASYNC_TEST_RUNNER_INTEGRITY",
+            "G103_CHECKPOINT_RESUME_AND_INVALIDATION",
+        )
+    )
+    conc_ok = True
+    if isinstance(concurrency_summary, dict):
+        conc_ok = (
+            int(concurrency_summary.get("unaccounted_nodes_count", 0)) == 0
+            and int(concurrency_summary.get("orphan_processes_remaining", 0)) == 0
+        )
+    if async_gates_pass and conc_ok:
+        async_test_infrastructure_verdict = "BOUNDED_ASYNC_EXECUTION_VERIFIED"
+    elif async_gates_pass:
+        async_test_infrastructure_verdict = "ASYNC_EXECUTION_PARTIAL"
+    else:
+        async_test_infrastructure_verdict = "ASYNC_INFRASTRUCTURE_UNSAFE"
+
+    # 6. Disk Safety Verdict
+    disk_gate_pass = (
+        isinstance(actual_gate_results.get("G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP"), dict)
+        and actual_gate_results["G102_DISK_BUDGET_GUARD_AND_TEMP_CLEANUP"].get("status") == "PASS"
+    )
+    disk_ok = True
+    if isinstance(disk_budget_summary, dict):
+        disk_ok = (
+            disk_budget_summary.get("status") == "PASS"
+            and disk_budget_summary.get("temp_directories_cleaned_up", True) is True
+        )
+    if disk_gate_pass and disk_ok:
+        disk_safety_verdict = "DISK_BUDGET_AND_CLEANUP_VERIFIED"
+    elif disk_gate_pass:
+        disk_safety_verdict = "DISK_SAFETY_PARTIAL"
+    else:
+        disk_safety_verdict = "DISK_EXHAUSTION_RISK_PRESENT"
+
+    # 7. Market Shadow Verdict
+    v3_verdict = determine_v17_8_0_3_release_verdict(
+        actual_gate_results,
+        MANDATORY_GATES_V17_8_0_3,
+        runtime_preflight,
+        market_shadow_preflight,
+        backtest_summary,
+    )
+    if v3_verdict == "V17_8_0_3_ACCEPTED_FOR_SAFE_MARKET_SHADOW_AND_BACKTEST":
+        market_shadow_verdict = "SAFE_FOR_MARKET_SHADOW_RESEARCH_ONLY"
+    elif v3_verdict == "V17_8_0_3_ACCEPTED_WITH_EXTERNAL_DATA_RESTRICTIONS":
+        market_shadow_verdict = "MARKET_SHADOW_RESTRICTED"
+    else:
+        market_shadow_verdict = "MARKET_SHADOW_NOT_SAFE"
+
+    # 8. Release Acceptance Verdict
+    if (
+        base_verdict == "ACCEPTED_FOR_PAPER_OPT_IN"
+        and source_manifest_verified
+        and decision_parity_verdict == "TRUE_PRODUCTION_DECISION_PARITY_VERIFIED"
+        and shared_evaluator_verdict == "SHARED_STRATEGY_EVALUATOR_ACTIVE_ACROSS_ALL_THREE_PATHS"
+        and backtest_methodology_verdict == "REAL_HISTORICAL_PRODUCTION_PARITY_BACKTEST_VERIFIED"
+        and async_test_infrastructure_verdict == "BOUNDED_ASYNC_EXECUTION_VERIFIED"
+        and disk_safety_verdict == "DISK_BUDGET_AND_CLEANUP_VERIFIED"
+        and market_shadow_verdict == "SAFE_FOR_MARKET_SHADOW_RESEARCH_ONLY"
+    ):
+        release_acceptance_verdict = "V17_9_0_ENGINEERING_ACCEPTED_FOR_RESEARCH_ONLY"
+    elif base_verdict == "ACCEPTED_FOR_PAPER_OPT_IN":
+        release_acceptance_verdict = "V17_9_0_PARTIALLY_VERIFIED_NOT_ACCEPTED"
+    else:
+        release_acceptance_verdict = "V17_9_0_BLOCKED"
+
+    return {
+        "decision_parity_verdict": decision_parity_verdict,
+        "shared_evaluator_verdict": shared_evaluator_verdict,
+        "backtest_methodology_verdict": backtest_methodology_verdict,
+        "strategy_performance_verdict": strategy_performance_verdict,
+        "async_test_infrastructure_verdict": async_test_infrastructure_verdict,
+        "disk_safety_verdict": disk_safety_verdict,
+        "market_shadow_verdict": market_shadow_verdict,
+        "release_acceptance_verdict": release_acceptance_verdict,
+        "trading_authorization": list(TRADING_AUTHORIZATION_V17_9_0),
+    }
+
+
+def determine_v17_9_0_release_verdict(
+    actual_gate_results: Dict[str, Any],
+    mandatory_gate_manifest: Optional[List[str]] = None,
+    runtime_preflight: Optional[Dict[str, Any]] = None,
+    market_shadow_preflight: Optional[Dict[str, Any]] = None,
+    backtest_summary: Optional[Dict[str, Any]] = None,
+    parity_diff_summary: Optional[Dict[str, Any]] = None,
+    disk_budget_summary: Optional[Dict[str, Any]] = None,
+    concurrency_summary: Optional[Dict[str, Any]] = None,
+    source_manifest_verified: bool = True,
+) -> str:
+    """Returns the top-level V17.9.0 release_acceptance_verdict string."""
+    bundle = determine_v17_9_0_verdicts_bundle(
+        actual_gate_results=actual_gate_results,
+        mandatory_gate_manifest=mandatory_gate_manifest,
+        runtime_preflight=runtime_preflight,
+        market_shadow_preflight=market_shadow_preflight,
+        backtest_summary=backtest_summary,
+        parity_diff_summary=parity_diff_summary,
+        disk_budget_summary=disk_budget_summary,
+        concurrency_summary=concurrency_summary,
+        source_manifest_verified=source_manifest_verified,
+    )
+    return bundle["release_acceptance_verdict"]
