@@ -1170,3 +1170,216 @@ def determine_v17_9_0_1_top_level_verdict(
         return "BLOCKED"
     return "PASS"
 
+
+REQUIRED_FIVE_WAY_SOURCES = (
+    "historical_baseline_oracle",
+    "shared_strategy_evaluator",
+    "production_runtime",
+    "market_shadow_runtime",
+    "chronological_backtest_runtime",
+)
+
+
+def validate_comparison_source_accounting(
+    record_sources: Dict[str, Any],
+    *,
+    claimed_five_way: bool = True,
+) -> Dict[str, Any]:
+    """
+    DEF-179012-C03 (N38, N39, N40): Validates that a comparison record claiming 5-way parity
+    genuinely executed all 5 required sources (`historical_baseline_oracle`, `shared_strategy_evaluator`,
+    `production_runtime`, `market_shadow_runtime`, `chronological_backtest_runtime`), and never
+    counts a 3-way or 4-way comparison as a 5-way verified comparison.
+    """
+    if not isinstance(record_sources, dict):
+        return {
+            "is_valid": False,
+            "status": "FAIL",
+            "comparison_tier": "INVALID",
+            "present_sources": [],
+            "missing_sources": list(REQUIRED_FIVE_WAY_SOURCES),
+            "violations": ["INVALID_RECORD_SOURCES_TYPE"],
+        }
+
+    present_sources: List[str] = []
+    missing_sources: List[str] = []
+    for src_key in REQUIRED_FIVE_WAY_SOURCES:
+        val = record_sources.get(src_key)
+        if isinstance(val, dict) and val.get("decision_status") and val.get("decision_fingerprint"):
+            present_sources.append(src_key)
+        else:
+            missing_sources.append(src_key)
+
+    if len(present_sources) == 5:
+        tier = "FIVE_WAY_VERIFIED"
+    elif len(present_sources) == 4:
+        tier = "FOUR_WAY_CURRENT_PLUS_BASELINE"
+    elif (
+        len(present_sources) == 3
+        and set(present_sources)
+        == {"production_runtime", "market_shadow_runtime", "chronological_backtest_runtime"}
+    ):
+        tier = "THREE_WAY_CURRENT_RUNTIME"
+    else:
+        tier = f"PARTIAL_{len(present_sources)}_WAY"
+
+    violations: List[str] = []
+    if claimed_five_way and len(present_sources) != 5:
+        if tier == "THREE_WAY_CURRENT_RUNTIME":
+            violations.append("THREE_WAY_COMPARISON_COUNTED_AS_FIVE_WAY")
+        if "historical_baseline_oracle" in missing_sources:
+            violations.append("FIVE_WAY_MISSING_HISTORICAL_BASELINE_DECISION")
+        if "shared_strategy_evaluator" in missing_sources:
+            violations.append("FIVE_WAY_MISSING_SHARED_EVALUATOR_DECISION")
+        for m_src in missing_sources:
+            if m_src not in ("historical_baseline_oracle", "shared_strategy_evaluator"):
+                violations.append(f"FIVE_WAY_MISSING_SOURCE:{m_src}")
+
+    return {
+        "is_valid": len(violations) == 0,
+        "status": "PASS" if len(violations) == 0 else "FAIL",
+        "comparison_tier": tier,
+        "present_sources": present_sources,
+        "missing_sources": missing_sources,
+        "violations": violations,
+    }
+
+
+def validate_comparison_record_hashes(
+    record_or_sources: Any,
+) -> Dict[str, Any]:
+    """
+    DEF-179012-C05 (N43, N44, N45, N46): Validates that `input_snapshot_hash` and `configuration_hash`
+    are non-null, non-empty strings and match identically across all compared runtime snapshots.
+    Supports either a single comparison record / runtime-source mapping (`dict`) or a list/tuple
+    of comparison records (`list`/`tuple`), validating each record individually.
+    """
+    violations: List[str] = []
+    if isinstance(record_or_sources, (list, tuple)):
+        if not record_or_sources:
+            return {"is_valid": False, "status": "FAIL", "violations": ["EMPTY_COMPARISON_RECORD"]}
+        for idx, item in enumerate(record_or_sources):
+            sub_res = validate_comparison_record_hashes(item)
+            if not sub_res["is_valid"]:
+                for v in sub_res["violations"]:
+                    violations.append(f"RECORD_{idx}:{v}")
+        return {
+            "is_valid": len(violations) == 0,
+            "status": "PASS" if len(violations) == 0 else "FAIL",
+            "records_validated": len(record_or_sources),
+            "violations": violations,
+        }
+
+    if not isinstance(record_or_sources, dict) or not record_or_sources:
+        return {"is_valid": False, "status": "FAIL", "violations": ["EMPTY_COMPARISON_RECORD"]}
+
+    # Support either a single comparison record or a mapping of runtime -> snapshot dict
+    snapshots: List[Dict[str, Any]] = []
+    if any(isinstance(v, dict) and ("decision_status" in v or "input_snapshot_hash" in v) for v in record_or_sources.values()):
+        for k, v in record_or_sources.items():
+            if isinstance(v, dict):
+                snapshots.append({"_source": k, **v})
+    else:
+        snapshots.append({"_source": "record", **record_or_sources})
+
+    seen_input_hashes: set = set()
+    seen_config_hashes: set = set()
+    for snap in snapshots:
+        src = snap.get("_source", "record")
+        in_h = snap.get("input_snapshot_hash")
+        cfg_h = snap.get("configuration_hash")
+        if in_h is None or not str(in_h).strip():
+            violations.append(f"MISSING_INPUT_SNAPSHOT_HASH:{src}")
+        else:
+            seen_input_hashes.add(str(in_h).strip())
+        if cfg_h is None or not str(cfg_h).strip():
+            violations.append(f"MISSING_CONFIGURATION_HASH:{src}")
+        else:
+            seen_config_hashes.add(str(cfg_h).strip())
+
+    if len(seen_input_hashes) > 1:
+        violations.append("INPUT_SNAPSHOT_HASH_MISMATCH_ACROSS_RUNTIMES")
+    if len(seen_config_hashes) > 1:
+        violations.append("CONFIGURATION_HASH_MISMATCH_ACROSS_RUNTIMES")
+
+    return {
+        "is_valid": len(violations) == 0,
+        "status": "PASS" if len(violations) == 0 else "FAIL",
+        "violations": violations,
+    }
+
+
+def validate_semantic_acceptance_bundle(
+    *,
+    parity_report: Dict[str, Any],
+    artifact_manifest: Dict[str, Any],
+    gate_results: Dict[str, Any],
+    expected_code_sha: str,
+    expected_release: str = "V17.9.0.1.2",
+    artifact_checksums_on_disk: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
+    """
+    DEF-179012-C06 (N47, N48, N49, N50): Semantic acceptance validator that fails closed when:
+      - N47: `DECISION_PARITY_REPORT.json` has `status: "PASS"` while `five_way_verified == 0`
+      - N48: `FINAL_ARTIFACT_MANIFEST.json` has mismatched SHA-256 vs on-disk file bytes
+      - N49: `tested_source_sha != FINAL_CODE_SHA`
+      - N50: Release version mismatch across generated artifacts (`V17.9.0.1.1` vs `V17.9.0.1.2`)
+    """
+    violations: List[str] = []
+
+    # N47: Parity report PASS with zero five_way_verified
+    p_status = str(parity_report.get("status", "")).upper()
+    five_way_verified = int(
+        parity_report.get(
+            "five_way_verified_count",
+            parity_report.get("comparison_accounting", {}).get("five_way_verified", 0),
+        )
+        or 0
+    )
+    if p_status == "PASS" and five_way_verified <= 0:
+        violations.append("PARITY_REPORT_PASS_WITH_ZERO_FIVE_WAY_VERIFIED")
+    if p_status != "PASS":
+        violations.append(f"PARITY_REPORT_NOT_PASS:{p_status or 'MISSING'}")
+
+    # N48: Artifact manifest SHA-256 verification
+    manifest_entries = artifact_manifest.get("artifacts", [])
+    if isinstance(manifest_entries, list) and artifact_checksums_on_disk is not None:
+        for entry in manifest_entries:
+            if not isinstance(entry, dict):
+                continue
+            p_key = str(entry.get("path") or entry.get("filename") or "")
+            claimed_sha = str(entry.get("sha256") or "")
+            if p_key in artifact_checksums_on_disk:
+                actual_sha = str(artifact_checksums_on_disk[p_key])
+                if not claimed_sha or claimed_sha != actual_sha:
+                    violations.append(f"ARTIFACT_MANIFEST_SHA256_MISMATCH:{p_key}")
+
+    # N49: tested_source_sha != expected_code_sha
+    tested_sha = str(gate_results.get("tested_source_sha") or "")
+    if not expected_code_sha or tested_sha != expected_code_sha:
+        violations.append(f"TESTED_SOURCE_SHA_MISMATCH:{tested_sha}!={expected_code_sha}")
+    gates_map = gate_results.get("gates", {})
+    if isinstance(gates_map, dict):
+        for gid, g_val in gates_map.items():
+            if isinstance(g_val, dict):
+                g_sha = str(g_val.get("tested_source_sha") or "")
+                if g_sha and g_sha != expected_code_sha:
+                    violations.append(f"GATE_TESTED_SOURCE_SHA_MISMATCH:{gid}")
+
+    # N50: Release version consistency across all artifacts
+    for name, doc in (
+        ("DECISION_PARITY_REPORT.json", parity_report),
+        ("FINAL_ARTIFACT_MANIFEST.json", artifact_manifest),
+        ("ACCEPTANCE_GATE_RESULTS.json", gate_results),
+    ):
+        rel_val = str(doc.get("release") or "")
+        if rel_val != expected_release:
+            violations.append(f"RELEASE_VERSION_MISMATCH:{name}:{rel_val}!={expected_release}")
+
+    return {
+        "is_valid": len(violations) == 0,
+        "status": "PASS" if len(violations) == 0 else "FAIL",
+        "violations": violations,
+    }
+
+

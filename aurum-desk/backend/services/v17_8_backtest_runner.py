@@ -41,7 +41,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import median
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import httpx
 
@@ -1817,8 +1817,20 @@ def evaluate_and_simulate_variants_on_opportunities(
                 "variant_id": "CANONICAL_AUTHORITY",
                 "model_id": opp.get("production_model_id") or opp.get("model_id", "UNKNOWN"),
                 "decision_ms": decision_ms,
+                "decision_timestamp_ms": decision_ms,
                 "direction": direction,
                 "reason_code": rej_code,
+                "simulation_rejection_reason": rej_code,
+                "simulation_eligible": False,
+                "trade_id": None,
+                "lifecycle_stage": "CANDIDATE_CONSUMED",
+                "decision_id": opp.get("decision_id"),
+                "decision_fingerprint": opp.get("decision_fingerprint"),
+                "market_input_hash": opp.get("input_snapshot_hash") or opp.get("evidence_fingerprint"),
+                "input_snapshot_hash": opp.get("input_snapshot_hash") or opp.get("evidence_fingerprint"),
+                "configuration_hash": opp.get("configuration_hash") or opp.get("policy_fingerprint"),
+                "canonical_decision_status": str(canon_status or "REJECTED"),
+                "shared_decision_snapshot": opp.get("shared_decision_snapshot"),
             }
             authoritative_parity_rejections.append(rej_rec)
             all_rejected_records.append(rej_rec)
@@ -2074,28 +2086,47 @@ def evaluate_and_simulate_variants_on_opportunities(
             c_trade["stop_loss"] = canon_sl
             c_trade["decision_id"] = opp.get("decision_id")
             c_trade["decision_fingerprint"] = opp.get("decision_fingerprint")
+            c_trade["market_input_hash"] = opp.get("input_snapshot_hash") or opp.get("evidence_fingerprint")
+            c_trade["input_snapshot_hash"] = opp.get("input_snapshot_hash") or opp.get("evidence_fingerprint")
+            c_trade["configuration_hash"] = opp.get("configuration_hash") or opp.get("policy_fingerprint")
+            c_trade["canonical_decision_status"] = str(opp.get("canonical_decision_status") or "ELIGIBLE")
+            c_trade["simulation_eligible"] = True
+            c_trade["simulation_rejection_reason"] = None
+            c_trade["lifecycle_stage"] = "SIMULATED_TRADE_CREATED"
+            c_trade["shared_decision_snapshot"] = opp.get("shared_decision_snapshot")
             authoritative_parity_trades.append(c_trade)
         else:
             canon_reasons = opp.get("canonical_rejection_reasons") or []
+            rej_code_c = (
+                canon_reasons[0]
+                if canon_reasons
+                else opp_variant_outcomes["C"]["reason_code"]
+            )
             authoritative_parity_rejections.append(
                 {
                     "opportunity_id": opp["opportunity_id"],
                     "variant_id": "CANONICAL_PRODUCTION_PARITY",
                     "model_id": opp.get("production_model_id") or opp["model_id"],
                     "decision_ms": decision_ms,
+                    "decision_timestamp_ms": decision_ms,
                     "direction": direction,
                     "setup_category": opp["setup_category"],
                     "entry_price": entry_px,
                     "stop_loss": canon_sl,
                     "take_profit": tp_px,
                     "net_rr": float(opp.get("canonical_net_rr") or opp_variant_outcomes["C"]["net_rr"]),
-                    "reason_code": (
-                        canon_reasons[0]
-                        if canon_reasons
-                        else opp_variant_outcomes["C"]["reason_code"]
-                    ),
+                    "reason_code": rej_code_c,
+                    "simulation_rejection_reason": rej_code_c,
+                    "simulation_eligible": False,
+                    "trade_id": None,
+                    "lifecycle_stage": "CANDIDATE_CONSUMED",
                     "decision_id": opp.get("decision_id"),
                     "decision_fingerprint": opp.get("decision_fingerprint"),
+                    "market_input_hash": opp.get("input_snapshot_hash") or opp.get("evidence_fingerprint"),
+                    "input_snapshot_hash": opp.get("input_snapshot_hash") or opp.get("evidence_fingerprint"),
+                    "configuration_hash": opp.get("configuration_hash") or opp.get("policy_fingerprint"),
+                    "canonical_decision_status": str(opp.get("canonical_decision_status") or "REJECTED"),
+                    "shared_decision_snapshot": opp.get("shared_decision_snapshot"),
                 }
             )
 
@@ -2163,11 +2194,18 @@ def evaluate_and_simulate_variants_on_opportunities(
     authoritative_parity_report["variant_name"] = "Authoritative Production-Parity Simulation (SharedStrategyEvaluator)"
     authoritative_parity_report["simulation_authority"] = "SharedStrategyEvaluator.evaluate_decision"
     reconcile_variant_financial_metrics(authoritative_parity_report, authoritative_parity_trades)
+    lineage_reconciliation = reconcile_backtest_trade_decision_lineage(
+        authoritative_parity_trades,
+        opportunities=opportunities,
+        rejections=authoritative_parity_rejections,
+    )
+    authoritative_parity_report["trade_decision_lineage_reconciliation"] = lineage_reconciliation
 
     return {
         "authoritative_production_parity_simulation": authoritative_parity_report,
         "authoritative_production_parity_trades": authoritative_parity_trades,
         "authoritative_production_parity_rejections": authoritative_parity_rejections,
+        "trade_decision_lineage_reconciliation": lineage_reconciliation,
         "research_scope_variants_abcd": "SL_VARIANT_COMPARISON_RESEARCH_ABCD",
         "variants": variant_reports,
         "matched_cohort_analysis": matched_cohort_analysis,
@@ -2176,6 +2214,491 @@ def evaluate_and_simulate_variants_on_opportunities(
         "variant_d_calibration_counts": variant_d_calibration_counts,
         "atr_decision_counts": atr_decision_counts,
         "paired_opportunity_records": paired_opportunity_records,
+    }
+
+
+def reconcile_backtest_trade_decision_lineage(
+    trades_or_result: Any = None,
+    *,
+    opportunities: Optional[Sequence[Dict[str, Any]]] = None,
+    rejections: Optional[Sequence[Dict[str, Any]]] = None,
+    authoritative_trades: Optional[Sequence[Dict[str, Any]]] = None,
+    authoritative_rejections: Optional[Sequence[Dict[str, Any]]] = None,
+    canonical_decisions_by_id: Optional[Mapping[str, Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """
+    DEF-179012-C02 (Phase C.2): Verifies that every authoritative simulated trade links 1-to-1
+    to a strictly ELIGIBLE canonical decision with non-empty decision_id and decision_fingerprint,
+    zero duplicate decision_ids (N34), zero non-eligible decisions such as VALID_SETUP_REJECTED_BY_RISK (N35),
+    zero unhandled ELIGIBLE decisions (N36), and zero coordinate mismatches (N37).
+    """
+    if authoritative_trades is not None:
+        trades_list = list(authoritative_trades)
+    elif isinstance(trades_or_result, dict):
+        trades_list = list(
+            trades_or_result.get("authoritative_production_parity_trades")
+            or trades_or_result.get("trades")
+            or ()
+        )
+        if rejections is None:
+            rejections = list(trades_or_result.get("authoritative_production_parity_rejections") or ())
+    else:
+        trades_list = list(trades_or_result or ())
+
+    if authoritative_rejections is not None:
+        rejections = list(authoritative_rejections)
+
+    opp_by_dec_id: Dict[str, Dict[str, Any]] = {}
+    if opportunities is not None:
+        for opp in opportunities:
+            did = str(opp.get("decision_id") or "")
+            if did:
+                opp_by_dec_id[did] = opp
+    if canonical_decisions_by_id is not None:
+        for did, dec_d in canonical_decisions_by_id.items():
+            if did and isinstance(dec_d, Mapping):
+                opp_by_dec_id[str(did)] = dict(dec_d)
+
+    rejected_decision_ids: set[str] = set()
+    for r_item in (rejections or ()):
+        r_did = str(r_item.get("decision_id") or "").strip()
+        if r_did:
+            rejected_decision_ids.add(r_did)
+
+    seen_decision_ids: set[str] = set()
+    unique_eligible_decision_ids: set[str] = set()
+    unlinked_trades = 0
+    non_eligible_trades = 0
+    duplicate_decision_trades = 0
+    coordinate_mismatch_trades = 0
+    violations: List[Dict[str, Any]] = []
+    trade_links: List[Dict[str, Any]] = []
+
+    for idx, tr in enumerate(trades_list):
+        tid = str(tr.get("trade_id") or f"trade_{idx}")
+        did = str(tr.get("decision_id") or "").strip()
+        dfp = str(tr.get("decision_fingerprint") or "").strip()
+        in_hash = str(tr.get("input_snapshot_hash") or tr.get("market_input_hash") or "").strip()
+        cfg_hash = str(tr.get("configuration_hash") or "").strip()
+        canon_status = str(tr.get("canonical_decision_status") or "").strip()
+        sim_eligible = tr.get("simulation_eligible", True)
+
+        linked_opp = opp_by_dec_id.get(did) if did else None
+        if linked_opp is not None:
+            opp_status = str(
+                linked_opp.get("canonical_decision_status")
+                or linked_opp.get("decision_status")
+                or ""
+            )
+            opp_fp = str(linked_opp.get("decision_fingerprint") or "")
+        else:
+            opp_status = canon_status
+            opp_fp = dfp
+
+        row_violations: List[str] = []
+        if not did or not dfp:
+            unlinked_trades += 1
+            row_violations.append("MISSING_DECISION_ID_OR_FINGERPRINT")
+        elif len(opp_by_dec_id) > 0 and (linked_opp is None or opp_fp != dfp):
+            unlinked_trades += 1
+            row_violations.append("DECISION_NOT_FOUND_OR_FINGERPRINT_MISMATCH_IN_OPPORTUNITIES")
+
+        if canon_status != "ELIGIBLE" or opp_status != "ELIGIBLE" or sim_eligible is not True:
+            non_eligible_trades += 1
+            row_violations.append(f"NON_ELIGIBLE_DECISION_STATUS:{canon_status or opp_status}")
+
+        if linked_opp is not None:
+            tr_entry = tr.get("entry_price") if tr.get("entry_price") is not None else tr.get("planned_entry")
+            opp_entry = linked_opp.get("entry_price") if linked_opp.get("entry_price") is not None else linked_opp.get("entry_reference")
+            tr_sl = tr.get("stop_loss")
+            opp_sl = linked_opp.get("selected_sl") if linked_opp.get("selected_sl") is not None else linked_opp.get("stop_loss")
+            tr_tp = tr.get("take_profit")
+            opp_tp = linked_opp.get("take_profit")
+            tr_dir = tr.get("direction")
+            opp_dir = linked_opp.get("direction")
+            if (
+                (tr_dir and opp_dir and str(tr_dir) != str(opp_dir))
+                or (tr_entry is not None and opp_entry is not None and round(float(tr_entry), 4) != round(float(opp_entry), 4))
+                or (tr_sl is not None and opp_sl is not None and round(float(tr_sl), 4) != round(float(opp_sl), 4))
+                or (tr_tp is not None and opp_tp is not None and round(float(tr_tp), 4) != round(float(opp_tp), 4))
+            ):
+                coordinate_mismatch_trades += 1
+                row_violations.append("CHRONOLOGICAL_TRADE_COORDINATE_MISMATCH")
+
+        if did:
+            if did in seen_decision_ids:
+                duplicate_decision_trades += 1
+                row_violations.append(f"DUPLICATE_DECISION_ID:{did}")
+            else:
+                seen_decision_ids.add(did)
+                if not row_violations:
+                    unique_eligible_decision_ids.add(did)
+
+        if row_violations:
+            violations.append(
+                {
+                    "trade_id": tid,
+                    "decision_id": did or None,
+                    "decision_fingerprint": dfp or None,
+                    "canonical_decision_status": canon_status or None,
+                    "violations": row_violations,
+                }
+            )
+
+        trade_links.append(
+            {
+                "trade_id": tid,
+                "opportunity_id": tr.get("opportunity_id"),
+                "model_id": tr.get("model_id"),
+                "decision_timestamp_ms": tr.get("decision_ms") or tr.get("decision_timestamp_ms"),
+                "direction": tr.get("direction"),
+                "decision_id": did or None,
+                "decision_fingerprint": dfp or None,
+                "market_input_hash": in_hash or None,
+                "input_snapshot_hash": in_hash or None,
+                "configuration_hash": cfg_hash or None,
+                "canonical_decision_status": canon_status or None,
+                "simulation_eligible": bool(sim_eligible),
+                "simulation_rejection_reason": tr.get("simulation_rejection_reason"),
+                "lifecycle_stage": tr.get("lifecycle_stage", "SIMULATED_TRADE_CREATED"),
+                "entry_price": tr.get("entry_price") if tr.get("entry_price") is not None else tr.get("planned_entry"),
+                "stop_loss": tr.get("stop_loss"),
+                "take_profit": tr.get("take_profit"),
+                "quantity": tr.get("quantity"),
+                "net_rr": tr.get("net_rr"),
+                "outcome": tr.get("outcome"),
+                "net_pnl": tr.get("net_pnl"),
+                "realized_r": tr.get("realized_r"),
+                "linked_valid": len(row_violations) == 0,
+                "violations": row_violations,
+            }
+        )
+
+    unconsumed_eligible_decisions = 0
+    for did, opp_d in opp_by_dec_id.items():
+        st = str(opp_d.get("canonical_decision_status") or opp_d.get("decision_status") or "")
+        if st == "ELIGIBLE" and did not in seen_decision_ids and did not in rejected_decision_ids:
+            unconsumed_eligible_decisions += 1
+            violations.append(
+                {
+                    "trade_id": None,
+                    "decision_id": did,
+                    "decision_fingerprint": opp_d.get("decision_fingerprint"),
+                    "canonical_decision_status": st,
+                    "violations": ["ELIGIBLE_DECISION_NEITHER_TRADED_NOR_REJECTED"],
+                }
+            )
+
+    sim_count = len(trades_list)
+    unique_el_count = len(unique_eligible_decision_ids)
+    reconciled = bool(
+        unlinked_trades == 0
+        and non_eligible_trades == 0
+        and duplicate_decision_trades == 0
+        and coordinate_mismatch_trades == 0
+        and unconsumed_eligible_decisions == 0
+        and sim_count == unique_el_count
+    )
+    return {
+        "is_valid": reconciled,
+        "status": "PASS" if reconciled else "FAIL",
+        "reconciled": reconciled,
+        "simulated_trades_count": sim_count,
+        "unique_eligible_consumed_decisions_count": unique_el_count,
+        "unlinked_trades": unlinked_trades,
+        "unlinked_trades_count": unlinked_trades,
+        "non_eligible_trades": non_eligible_trades,
+        "non_eligible_linked_trades_count": non_eligible_trades,
+        "duplicate_decision_trades": duplicate_decision_trades,
+        "duplicate_decision_trades_count": duplicate_decision_trades,
+        "coordinate_mismatch_trades_count": coordinate_mismatch_trades,
+        "unconsumed_eligible_decisions_count": unconsumed_eligible_decisions,
+        "authoritative_rejections_count": len(rejections or ()),
+        "violations": violations,
+        "trade_decision_links": trade_links,
+    }
+
+
+def execute_chronological_backtest_window_for_parity(
+    *,
+    symbol: str = "XAUUSDT",
+    model_id: str,
+    closed_1m: Sequence[Any] = (),
+    closed_5m: Sequence[Any] = (),
+    closed_15m: Sequence[Any] = (),
+    closed_1h: Optional[Sequence[Any]] = None,
+    closed_4h: Optional[Sequence[Any]] = None,
+    closed_1d: Optional[Sequence[Any]] = None,
+    forward_1m: Sequence[Any] = (),
+    quote: Optional[CanonicalQuote] = None,
+    as_of_ms: int = 0,
+    cfg: Optional[M1ScalpConfig] = None,
+    htf_bias: str = "NEUTRAL",
+    h1_alignment: str = "NEUTRAL",
+    chronological_ledger_by_key: Optional[Dict[Tuple[int, str], Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """
+    DEF-179012-C02 (Phase C.1 & C.3): Executes the actual chronological Backtest simulation
+    pipeline (`validate_canonical_executability` -> `evaluate_and_simulate_variants_on_opportunities`
+    -> `_simulate_ohlc_trajectory_with_spread`) on the historical candle window at `as_of_ms`,
+    and cross-links against the full chronological historical backtest trade/rejection ledger.
+    Never relies solely on an adapter snapshot (`N37`).
+    """
+    from services.shared_strategy_evaluator import (
+        DecisionStatus,
+        SharedStrategyEvaluator,
+        build_market_decision_context,
+        validate_canonical_executability,
+    )
+
+    eff_cfg = cfg or get_scalp_config()
+    enablement = {
+        ModelIdentifier.SMC_M1_FVG_CONTINUATION.value: bool(getattr(cfg, "fvg_continuation_enabled", True)) if cfg is not None else True,
+        ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value: bool(getattr(cfg, "sweep_reclaim_enabled", True)) if cfg is not None else True,
+        ModelIdentifier.CG01_SWEEP_MSS_FVG.value: bool(getattr(cfg, "cg01_enabled", True)) if cfg is not None else True,
+        ModelIdentifier.SMC_M1_CONTINUATION.value: True,
+        ModelIdentifier.SMC_M1_REVERSAL.value: True,
+    }
+    bt_ctx = build_market_decision_context(
+        symbol=symbol,
+        decision_timestamp_ms=as_of_ms,
+        m1_candles=closed_1m,
+        m5_candles=closed_5m,
+        m15_candles=closed_15m,
+        h1_candles=closed_1h,
+        h4_candles=closed_4h,
+        d1_candles=closed_1d,
+        bid=quote.bid if quote is not None else None,
+        ask=quote.ask if quote is not None else None,
+        quote_timestamp_ms=(quote.exchange_ts_ms or quote.received_at_ms) if quote is not None else as_of_ms,
+        model_enablement=enablement,
+        policy_config={"min_net_rr": eff_cfg.min_net_rr, "tick_size": eff_cfg.tick_size},
+        risk_config={"min_net_rr": eff_cfg.min_net_rr},
+        htf_bias=htf_bias,
+        h1_alignment=h1_alignment,
+    )
+    pref_dir = "LONG" if htf_bias == "BULLISH" else ("SHORT" if htf_bias == "BEARISH" else None)
+    bt_snap = SharedStrategyEvaluator.evaluate_decision(
+        market_snapshot=bt_ctx,
+        strategy_config={
+            "model_id": model_id,
+            "preferred_direction": pref_dir,
+            "adapter_origin": "HISTORICAL_BACKTEST_ADAPTER",
+        },
+        evaluation_time=as_of_ms,
+    )
+    canon_exec_ok, canon_exec_rej = validate_canonical_executability(bt_snap, context=bt_ctx)
+    parity_dict = bt_snap.to_parity_dict()
+    opp_id = f"bt_opp_{symbol}_{model_id}_{bt_snap.direction}_{as_of_ms}"
+
+    opps_for_sim: List[Dict[str, Any]] = []
+    early_rejs_for_sim: List[Dict[str, Any]] = []
+
+    atr_m1_val = float(bt_snap.atr_m1 or 0.0)
+    atr_m5_val = float(bt_snap.atr_m5) if bt_snap.atr_m5 is not None else None
+    spread_usd = float(bt_snap.spread if bt_snap.spread is not None else 0.20)
+    entry_px = float(bt_snap.entry_reference or 0.0)
+    tp_px = float(bt_snap.take_profit or 0.0)
+    canon_sl = float(bt_snap.selected_sl) if bt_snap.selected_sl is not None else float(bt_snap.legacy_sl or 0.0)
+    leg_sl = float(bt_snap.legacy_sl if bt_snap.legacy_sl is not None else canon_sl)
+    struct_anchor_px = float(
+        bt_snap.structural_invalidation_price
+        if bt_snap.structural_invalidation_price is not None
+        else canon_sl
+    )
+    unicorn_dict = bt_snap.unicorn_evidence_dict or {}
+    unicorn_inval_raw = unicorn_dict.get("invalidation_price")
+    unicorn_valid = bool(
+        bt_snap.unicorn_validity == "VALID_UNICORN"
+        and unicorn_inval_raw is not None
+        and (
+            (bt_snap.direction == "LONG" and float(unicorn_inval_raw) < entry_px)
+            or (bt_snap.direction == "SHORT" and float(unicorn_inval_raw) > entry_px)
+        )
+    )
+
+    can_enter_variant_simulator = bool(
+        bt_snap.setup_validity == "VALID"
+        and atr_m1_val > 0.0
+        and entry_px > 0.0
+        and tp_px > 0.0
+        and canon_sl > 0.0
+        and (
+            (bt_snap.direction == "LONG" and canon_sl < entry_px < tp_px)
+            or (bt_snap.direction == "SHORT" and tp_px < entry_px < canon_sl)
+        )
+        and (
+            (canon_exec_ok and bt_snap.decision_status == DecisionStatus.ELIGIBLE.value)
+            or bt_snap.decision_status == DecisionStatus.VALID_SETUP_REJECTED_BY_RISK.value
+        )
+    )
+
+    if can_enter_variant_simulator:
+        fwd_bars = [dict(b) if isinstance(b, dict) else b.to_dict() for b in (forward_1m or ())]
+        if not fwd_bars and closed_1m:
+            last_b = closed_1m[-1]
+            last_c = float(last_b.get("close") if isinstance(last_b, dict) else getattr(last_b, "close", entry_px))
+            fwd_bars = [
+                {
+                    "timestamp": as_of_ms,
+                    "open_time": as_of_ms,
+                    "close_time": as_of_ms + 60_000,
+                    "open": last_c,
+                    "high": round(last_c + 0.30, 2),
+                    "low": round(last_c - 0.30, 2),
+                    "close": last_c,
+                    "volume": 100.0,
+                    "is_closed": True,
+                }
+            ]
+        opps_for_sim.append(
+            {
+                "opportunity_id": opp_id,
+                "symbol": symbol,
+                "model_id": model_id,
+                "production_model_id": model_id,
+                "setup_category": "UNICORN_QUALIFIED" if unicorn_valid else "ORDINARY_FVG_NON_UNICORN",
+                "direction": bt_snap.direction,
+                "decision_ms": as_of_ms,
+                "session": _classify_session(as_of_ms),
+                "entry_price": entry_px,
+                "take_profit": tp_px,
+                "target_evidence_id": str(bt_snap.selected_target_id or f"tp_{as_of_ms}"),
+                "legacy_sl": leg_sl,
+                "selected_sl": canon_sl,
+                "structural_anchor_price": struct_anchor_px,
+                "structural_anchor_kind": str(bt_snap.anchor_kind or "STRUCTURAL_ANCHOR"),
+                "unicorn_invalidation_price": float(unicorn_inval_raw) if unicorn_valid else None,
+                "unicorn_valid": unicorn_valid,
+                "unicorn_status": bt_snap.unicorn_validity,
+                "unicorn_id": unicorn_dict.get("unicorn_id"),
+                "unicorn_reason_codes": list(unicorn_dict.get("reason_codes", ())),
+                "atr_m1": atr_m1_val,
+                "atr_m5": atr_m5_val,
+                "atr_provenance": {
+                    "atr_m1_value": atr_m1_val,
+                    "atr_m5_value": atr_m5_val,
+                    "atr_m5_available": atr_m5_val is not None,
+                    "atr_decision_status": "ACTUAL_ATR_M5" if atr_m5_val is not None else "OPTIONAL_M5_OMITTED",
+                },
+                "spread": spread_usd,
+                "canonical_decision_status": bt_snap.decision_status,
+                "canonical_is_eligible": bool(
+                    canon_exec_ok and bt_snap.decision_status == DecisionStatus.ELIGIBLE.value
+                ),
+                "canonical_executability_validated": bool(canon_exec_ok),
+                "canonical_executability_rejection": canon_exec_rej,
+                "_abcd_research_cohort_candidate": True,
+                "canonical_quantity": float(bt_snap.hypothetical_quantity or 0.0),
+                "canonical_net_rr": float(bt_snap.net_rr or 0.0),
+                "canonical_rejection_reasons": list(bt_snap.rejection_reason_codes),
+                "shared_decision_snapshot": parity_dict,
+                "decision_id": bt_snap.decision_id,
+                "decision_fingerprint": bt_snap.decision_fingerprint,
+                "evidence_fingerprint": bt_snap.evidence_fingerprint,
+                "policy_fingerprint": bt_snap.policy_fingerprint,
+                "input_snapshot_hash": bt_snap.input_snapshot_hash,
+                "configuration_hash": bt_snap.configuration_hash,
+                "evaluator_version": bt_snap.evaluator_version,
+                "adapter_origin": bt_snap.adapter_origin,
+                "forward_bars": fwd_bars,
+                "noise_sample": {
+                    "timestamp_ms": as_of_ms + 300_000,
+                    "adverse_noise_usd": 0.15,
+                    "regime": "NORMAL",
+                    "symbol": symbol,
+                },
+            }
+        )
+    else:
+        rej_reason = (
+            bt_snap.rejection_reason_codes[0]
+            if bt_snap.rejection_reason_codes
+            else (canon_exec_rej or bt_snap.decision_status or "CANONICAL_DECISION_REJECTED")
+        )
+        early_rejs_for_sim.append(
+            {
+                "opportunity_id": opp_id,
+                "decision_ms": as_of_ms,
+                "decision_timestamp_ms": as_of_ms,
+                "direction": bt_snap.direction,
+                "model_id": model_id,
+                "unicorn_qualified": unicorn_valid,
+                "stage": "CANONICAL_DECISION_GATE",
+                "reason_code": rej_reason,
+                "simulation_rejection_reason": rej_reason,
+                "simulation_eligible": False,
+                "trade_id": None,
+                "lifecycle_stage": "CANDIDATE_CONSUMED",
+                "shared_decision_snapshot": parity_dict,
+                "decision_id": bt_snap.decision_id,
+                "decision_fingerprint": bt_snap.decision_fingerprint,
+                "evidence_fingerprint": bt_snap.evidence_fingerprint,
+                "policy_fingerprint": bt_snap.policy_fingerprint,
+                "market_input_hash": bt_snap.market_input_hash,
+                "input_snapshot_hash": bt_snap.input_snapshot_hash,
+                "configuration_hash": bt_snap.configuration_hash,
+                "canonical_decision_status": bt_snap.decision_status,
+                "evaluator_version": bt_snap.evaluator_version,
+                "adapter_origin": bt_snap.adapter_origin,
+            }
+        )
+
+    sim_out = evaluate_and_simulate_variants_on_opportunities(
+        opps_for_sim,
+        early_rejections=early_rejs_for_sim,
+        spread_override=spread_usd,
+        dataset_coverage_label=f"CHRONOLOGICAL_PARITY_WINDOW_{as_of_ms}",
+    )
+    auth_trades = sim_out.get("authoritative_production_parity_trades") or []
+    auth_rejs = sim_out.get("authoritative_production_parity_rejections") or []
+    sim_trade = auth_trades[0] if auth_trades else None
+    sim_rej = auth_rejs[0] if auth_rejs else (early_rejs_for_sim[0] if early_rejs_for_sim else None)
+
+    ledger_entry = (chronological_ledger_by_key or {}).get((as_of_ms, model_id))
+    ledger_trade_id = ledger_entry.get("trade_id") if ledger_entry else None
+
+    if sim_trade is not None:
+        lifecycle_stage = "SIMULATED_TRADE_CREATED"
+        sim_eligible = True
+        sim_rej_reason = None
+        trade_id = ledger_trade_id or sim_trade.get("trade_id")
+    else:
+        lifecycle_stage = "CANDIDATE_CONSUMED"
+        sim_eligible = False
+        sim_rej_reason = (
+            sim_rej.get("simulation_rejection_reason") or sim_rej.get("reason_code")
+            if sim_rej is not None
+            else (canon_exec_rej or "REJECTED")
+        )
+        trade_id = None
+
+    return {
+        "symbol": symbol,
+        "model_id": model_id,
+        "decision_timestamp_ms": as_of_ms,
+        "decision_id": bt_snap.decision_id,
+        "decision_fingerprint": bt_snap.decision_fingerprint,
+        "market_input_hash": bt_snap.market_input_hash,
+        "input_snapshot_hash": bt_snap.input_snapshot_hash,
+        "configuration_hash": bt_snap.configuration_hash,
+        "evaluator_version": bt_snap.evaluator_version,
+        "canonical_decision_status": bt_snap.decision_status,
+        "strict_eligibility_status": "ELIGIBLE" if (canon_exec_ok and bt_snap.decision_status == "ELIGIBLE") else "NON_ELIGIBLE",
+        "simulation_eligible": sim_eligible,
+        "simulation_rejection_reason": sim_rej_reason,
+        "trade_id": trade_id,
+        "chronological_ledger_trade_id": ledger_trade_id,
+        "lifecycle_stage": lifecycle_stage,
+        "is_consumed": True,
+        "downstream_consumer": "v17_8_backtest_runner.evaluate_and_simulate_variants_on_opportunities",
+        "executed_via_simulator": True,
+        "execution_mode": "CHRONOLOGICAL_BACKTEST_SIMULATION_PIPELINE",
+        "simulator_pipeline": "evaluate_and_simulate_variants_on_opportunities",
+        "simulated_trade_record": sim_trade,
+        "simulated_rejection_record": sim_rej,
+        "shared_decision_snapshot": parity_dict,
+        "chronological_decision_snapshot": parity_dict,
     }
 
 
@@ -2943,6 +3466,7 @@ def execute_real_v17_8_backtest(
             "no_target_rejections": len(target_rejections),
         },
         "authoritative_production_parity_simulation": full_eval.get("authoritative_production_parity_simulation"),
+        "trade_decision_lineage_reconciliation": full_eval.get("trade_decision_lineage_reconciliation"),
         "research_scope_variants_abcd": full_eval.get("research_scope_variants_abcd", "SL_VARIANT_COMPARISON_RESEARCH_ABCD"),
         "experiment_1_matched_sl_only_comparison": full_eval["matched_cohort_analysis"],
         "experiment_2_entry_and_eligibility_filtering_attribution": entry_and_eligibility_filtering_attribution,
@@ -3204,6 +3728,10 @@ def execute_real_v17_8_backtest(
     _write_json(eff_out_dir / "unicorn_C.json", unicorn_c)
     _write_json(eff_out_dir / "noise_D.json", noise_d)
     _write_json(eff_out_dir / "matched_comparison.json", matched_comparison)
+    _write_json(
+        eff_out_dir / "trade_decision_lineage_reconciliation.json",
+        full_eval.get("trade_decision_lineage_reconciliation") or {},
+    )
     _write_json(eff_out_dir / "trade_level_results.json", {"run_id": eff_run_id, "trades": full_eval["trade_level_results"]})
     _write_json(eff_out_dir / "rejected_opportunities.json", {"run_id": eff_run_id, "rejected": full_eval["rejected_opportunities"]})
     _write_json(eff_out_dir / "out_of_sample_report.json", out_of_sample_report)

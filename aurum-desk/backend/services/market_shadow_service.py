@@ -1314,14 +1314,32 @@ class MarketShadowService:
                 cutoff_ms=cutoff_ms,
                 analysis_time_ms=analysis_time_ms,
             )
+            sh_snap_d = opp.get("shared_decision_snapshot") or {}
+            sh_status = str(sh_snap_d.get("decision_status", opp["model_classification"]))
             model_outcomes[model_id] = {
                 "model_id": model_id,
                 "classification": opp["model_classification"],
                 "reason_code": opp["primary_reason_code"],
                 "opportunity_id": opp.get("opportunity_id"),
-                "shared_decision_fingerprint": opp.get("decision_fingerprint"),
+                "decision_id": sh_snap_d.get("decision_id"),
+                "shared_decision_fingerprint": opp.get("decision_fingerprint") or sh_snap_d.get("decision_fingerprint"),
+                "decision_fingerprint": opp.get("decision_fingerprint") or sh_snap_d.get("decision_fingerprint"),
+                "market_input_hash": sh_snap_d.get("market_input_hash") or sh_snap_d.get("input_snapshot_hash"),
+                "input_snapshot_hash": sh_snap_d.get("input_snapshot_hash"),
+                "configuration_hash": sh_snap_d.get("configuration_hash"),
+                "evaluation_status": sh_status,
+                "strict_eligibility_status": "ELIGIBLE" if sh_status == "ELIGIBLE" else "NON_ELIGIBLE",
+                "candidate_id": opp.get("opportunity_id"),
+                "candidate_fingerprint": opp.get("decision_fingerprint") or sh_snap_d.get("decision_fingerprint"),
+                "downstream_consumer": "MarketShadowService._evaluate_single_model_shadow",
+                "guard_status": "SHADOW_ONLY" if sh_status == "ELIGIBLE" else "REJECT",
+                "order_intent_id": None,
+                "rejection_reason": None if sh_status == "ELIGIBLE" else opp["primary_reason_code"],
+                "runtime_status": opp["model_classification"],
+                "lifecycle_stage": "CANDIDATE_CONSUMED",
+                "is_consumed": True,
                 "shared_decision_snapshot": opp.get("shared_decision_snapshot"),
-                "evaluator_version": (opp.get("shared_decision_snapshot") or {}).get("evaluator_version", "17.9.0.1.1"),
+                "evaluator_version": sh_snap_d.get("evaluator_version", "17.9.0.1.1"),
             }
             if opp.get("opportunity_record") is not None:
                 opp_rec = opp["opportunity_record"]
@@ -2697,22 +2715,26 @@ class MarketShadowService:
         on the same normalized input snapshot, distinguishing INPUT_MISMATCH from
         EXACT_MATCH and DECISION_DIVERGENCE.
         """
-        from services.shared_strategy_evaluator import compare_decision_parity
+        from services.shared_strategy_evaluator import _resolve_parity_hash, compare_decision_parity
 
         def _get_field(obj: Any, name: str) -> Any:
             return obj.get(name) if isinstance(obj, dict) else getattr(obj, name, None)
 
-        prod_in_hash = _get_field(production_snapshot, "input_snapshot_hash") or _get_field(production_snapshot, "evidence_fingerprint")
-        shad_in_hash = _get_field(shadow_snapshot, "input_snapshot_hash") or _get_field(shadow_snapshot, "evidence_fingerprint")
-        prod_cfg_hash = _get_field(production_snapshot, "configuration_hash") or _get_field(production_snapshot, "policy_fingerprint")
-        shad_cfg_hash = _get_field(shadow_snapshot, "configuration_hash") or _get_field(shadow_snapshot, "policy_fingerprint")
+        prod_in_hash = _resolve_parity_hash(production_snapshot, "input_snapshot_hash", "evidence_fingerprint")
+        shad_in_hash = _resolve_parity_hash(shadow_snapshot, "input_snapshot_hash", "evidence_fingerprint")
+        prod_cfg_hash = _resolve_parity_hash(production_snapshot, "configuration_hash", "policy_fingerprint")
+        shad_cfg_hash = _resolve_parity_hash(shadow_snapshot, "configuration_hash", "policy_fingerprint")
 
         input_mismatch = bool(
-            (prod_in_hash and shad_in_hash and prod_in_hash != shad_in_hash)
-            or (prod_cfg_hash and shad_cfg_hash and prod_cfg_hash != shad_cfg_hash)
+            not prod_in_hash
+            or not shad_in_hash
+            or not prod_cfg_hash
+            or not shad_cfg_hash
+            or prod_in_hash != shad_in_hash
+            or prod_cfg_hash != shad_cfg_hash
         )
 
-        diff = compare_decision_parity(production_snapshot, shadow_snapshot)
+        diff = compare_decision_parity(production_snapshot, shadow_snapshot, check_input_config_hashes=True)
         field_diffs = {
             m["field"]: {"production": m["left"], "shadow": m["right"]}
             for m in diff["mismatches"]

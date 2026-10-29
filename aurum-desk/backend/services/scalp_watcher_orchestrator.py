@@ -20,7 +20,7 @@ import logging
 import math
 import threading
 import time
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 import uuid
 from sqlalchemy.orm import Session
 
@@ -1869,6 +1869,7 @@ class ScalpWatcherOrchestrator:
             },
         )
         shared_decision_snapshots: List[Any] = []
+        downstream_candidates_by_fp: Dict[str, Any] = {}
 
         model_diagnostics: List[Dict[str, Any]] = []
 
@@ -2014,6 +2015,7 @@ class ScalpWatcherOrchestrator:
                         stop_policy=stop_policy,
                         stop_context=stop_context,
                     )
+                    downstream_candidates_by_fp[rev_snap.decision_fingerprint] = cand
                     existing_rev = next(
                         (s for s in shared_decision_snapshots if s.model_id == ModelIdentifier.SMC_M1_REVERSAL.value),
                         None,
@@ -2073,24 +2075,25 @@ class ScalpWatcherOrchestrator:
                 ]
                 shared_decision_snapshots.append(rev_snap_default)
                 rev_diag["shared_decision_fingerprint"] = rev_snap_default.decision_fingerprint
-                if rev_snap_default.decision_status == "ELIGIBLE" and not rev_diag["eligible"]:
-                    cand_rev_def, _ = SharedStrategyEvaluator.enforce_canonical_decision_authority_on_candidate(
-                        snap=rev_snap_default,
-                        context=shared_cycle_context,
-                        model_id=ModelIdentifier.SMC_M1_REVERSAL.value,
-                        expected_direction=rev_snap_default.direction,
-                        policy_settings=policy_dict,
-                        config=cfg,
-                        now_ms=t_recv,
-                        strict_direction_match=False,
-                    )
-                    if cand_rev_def.is_eligible:
-                        cand_rev_def.regime_snapshot = regime_snapshot
-                        cand_rev_def.execution_profile = exec_profile
-                        if sr_zones:
-                            cand_rev_def.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
-                        candidates.append(cand_rev_def)
-                        rev_diag["eligible"] = True
+                cand_rev_def, _ = SharedStrategyEvaluator.enforce_canonical_decision_authority_on_candidate(
+                    snap=rev_snap_default,
+                    context=shared_cycle_context,
+                    model_id=ModelIdentifier.SMC_M1_REVERSAL.value,
+                    expected_direction=rev_snap_default.direction,
+                    policy_settings=policy_dict,
+                    config=cfg,
+                    now_ms=t_recv,
+                    strict_direction_match=False,
+                )
+                if cand_rev_def.is_eligible or rev_evaluated_zone:
+                    downstream_candidates_by_fp[rev_snap_default.decision_fingerprint] = cand_rev_def
+                if cand_rev_def.is_eligible and not rev_diag["eligible"]:
+                    cand_rev_def.regime_snapshot = regime_snapshot
+                    cand_rev_def.execution_profile = exec_profile
+                    if sr_zones:
+                        cand_rev_def.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
+                    candidates.append(cand_rev_def)
+                    rev_diag["eligible"] = True
         else:
             from dataclasses import replace as _dc_replace
             rev_ctx = (
@@ -2148,6 +2151,7 @@ class ScalpWatcherOrchestrator:
                 stop_context=stop_context,
             )
             shared_decision_snapshots.append(cont_snap)
+            downstream_candidates_by_fp[cont_snap.decision_fingerprint] = cand_cont
             cont_diag["shared_decision_fingerprint"] = cont_snap.decision_fingerprint
             if cand_cont.is_eligible:
                 cand_cont.regime_snapshot = regime_snapshot
@@ -2214,6 +2218,7 @@ class ScalpWatcherOrchestrator:
                 stop_context=stop_context,
             )
             shared_decision_snapshots.append(fvg_snap)
+            downstream_candidates_by_fp[fvg_snap.decision_fingerprint] = cand_fvg_cont
             fvg_diag["shared_decision_fingerprint"] = fvg_snap.decision_fingerprint
             if cand_fvg_cont.is_eligible:
                 cand_fvg_cont.regime_snapshot = regime_snapshot
@@ -2285,6 +2290,7 @@ class ScalpWatcherOrchestrator:
                         stop_policy=stop_policy,
                         stop_context=stop_context,
                     )
+                    downstream_candidates_by_fp[sr_snap.decision_fingerprint] = cand_sr
                     existing_sr = next(
                         (s for s in shared_decision_snapshots if s.model_id == ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value),
                         None,
@@ -2327,24 +2333,24 @@ class ScalpWatcherOrchestrator:
                 ]
                 shared_decision_snapshots.append(sr_snap_default)
                 sr_diag["shared_decision_fingerprint"] = sr_snap_default.decision_fingerprint
-                if sr_snap_default.decision_status == "ELIGIBLE" and not sr_diag["eligible"]:
-                    cand_sr_def, _ = SharedStrategyEvaluator.enforce_canonical_decision_authority_on_candidate(
-                        snap=sr_snap_default,
-                        context=shared_cycle_context,
-                        model_id=ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
-                        expected_direction=sr_snap_default.direction,
-                        policy_settings=policy_dict,
-                        config=cfg,
-                        now_ms=t_recv,
-                        strict_direction_match=False,
-                    )
-                    if cand_sr_def.is_eligible:
-                        cand_sr_def.regime_snapshot = regime_snapshot
-                        cand_sr_def.execution_profile = exec_profile
-                        if sr_zones:
-                            cand_sr_def.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
-                        candidates.append(cand_sr_def)
-                        sr_diag["eligible"] = True
+                cand_sr_def, _ = SharedStrategyEvaluator.enforce_canonical_decision_authority_on_candidate(
+                    snap=sr_snap_default,
+                    context=shared_cycle_context,
+                    model_id=ModelIdentifier.SMC_M1_SWEEP_RECLAIM.value,
+                    expected_direction=sr_snap_default.direction,
+                    policy_settings=policy_dict,
+                    config=cfg,
+                    now_ms=t_recv,
+                    strict_direction_match=False,
+                )
+                downstream_candidates_by_fp[sr_snap_default.decision_fingerprint] = cand_sr_def
+                if cand_sr_def.is_eligible and not sr_diag["eligible"]:
+                    cand_sr_def.regime_snapshot = regime_snapshot
+                    cand_sr_def.execution_profile = exec_profile
+                    if sr_zones:
+                        cand_sr_def.sr_evidence = [srz.to_dict() for srz in sr_zones[:5]]
+                    candidates.append(cand_sr_def)
+                    sr_diag["eligible"] = True
         else:
             from dataclasses import replace as _dc_replace
             sr_ctx = (
@@ -2441,6 +2447,10 @@ class ScalpWatcherOrchestrator:
                 eval_fn=evaluate_cg01_candidate,
             )
             shared_decision_snapshots.append(cg01_snap)
+            if cg01_dec is not None:
+                downstream_candidates_by_fp[cg01_snap.decision_fingerprint] = (
+                    cg01_dec.candidate if getattr(cg01_dec, "candidate", None) is not None else cg01_dec
+                )
             if cg01_dec and getattr(cg01_dec, "daily_bias", None):
                 publish_current_cg01_bias_authority(
                     symbol=symbol,
@@ -2510,11 +2520,21 @@ class ScalpWatcherOrchestrator:
             if daily_bias_dir in ("BULLISH", "BEARISH"):
                 effective_router_bias = daily_bias_dir
 
+        pre_routed_eligible_fps = {
+            str(getattr(c, "decision_fingerprint", ""))
+            for c in candidates
+            if getattr(c, "decision_fingerprint", "")
+        }
         routed_candidates = evaluate_smc_opportunity_candidates(
             candidates,
             htf_bias=effective_router_bias,
             cg01_policy=cg01_policy,
         )
+        routed_eligible_fps = {
+            str(getattr(c, "decision_fingerprint", ""))
+            for c in routed_candidates
+            if getattr(c, "decision_fingerprint", "")
+        }
 
         if cg01_eval_data and cg01_dec and cg01_dec.candidate:
             if cg01_dec.candidate not in routed_candidates:
@@ -2820,34 +2840,19 @@ class ScalpWatcherOrchestrator:
         except Exception as tel_err:
             logger.debug(f"Error recording cycle observability telemetry: {tel_err}")
 
-        cand_by_fp = {getattr(c, "decision_fingerprint", ""): c for c in candidates if getattr(c, "decision_fingerprint", "")}
-        lineage_records = []
-        consumed_model_decisions: Dict[str, Any] = {}
-        for s in shared_decision_snapshots:
-            matched_c = cand_by_fp.get(s.decision_fingerprint)
-            s_parity = s.to_parity_dict()
-            consumed_model_decisions[s.model_id] = s_parity
-            lineage_records.append(
-                {
-                    "decision_id": s.decision_id,
-                    "decision_fingerprint": s.decision_fingerprint,
-                    "input_snapshot_hash": s.input_snapshot_hash,
-                    "configuration_hash": s.configuration_hash,
-                    "evaluator_version": s.evaluator_version,
-                    "model_id": s.model_id,
-                    "direction": s.direction,
-                    "decision_status": s.decision_status,
-                    "strategy_decision_status": s.strategy_decision_status,
-                    "execution_guard_status": getattr(matched_c, "execution_guard_status", "NOT_EVALUATED") if matched_c else "NOT_EVALUATED",
-                    "final_execution_authorization": getattr(matched_c, "final_execution_authorization", "REJECTED") if matched_c else "REJECTED",
-                    "rejection_reason_codes": list(s.rejection_reason_codes),
-                    "entry_reference": s.entry_reference,
-                    "selected_sl": s.selected_sl,
-                    "take_profit": s.take_profit,
-                    "net_rr": s.net_rr,
-                    "gross_rr": s.gross_rr,
-                }
-            )
+        consumption_summary = self.reconcile_consumed_decisions_from_snapshots(
+            shared_decision_snapshots=shared_decision_snapshots,
+            downstream_candidates_by_fp=downstream_candidates_by_fp,
+            pre_routed_eligible_fps=pre_routed_eligible_fps,
+            routed_eligible_fps=routed_eligible_fps,
+            armed_order=armed_order,
+            commit_ok=commit_ok,
+            arm_rejections=self._arm_rejections,
+        )
+        consumed_model_decisions = consumption_summary["consumed_model_decisions"]
+        evaluated_model_decisions = consumption_summary["evaluated_model_decisions"]
+        unconsumed_model_decisions = consumption_summary["unconsumed_model_decisions"]
+        lineage_records = consumption_summary["decision_lineage_records"]
 
         return {
             "cycle_id": cycle_id,
@@ -2873,10 +2878,269 @@ class ScalpWatcherOrchestrator:
             "model_diagnostics": model_diagnostics,
             "shared_decision_snapshots": [s.to_parity_dict() for s in shared_decision_snapshots],
             "consumed_model_decisions": consumed_model_decisions,
+            "evaluated_model_decisions": evaluated_model_decisions,
+            "unconsumed_model_decisions": unconsumed_model_decisions,
+            "consumed_decision_reconciliation": consumption_summary,
             "shared_cycle_input_snapshot_hash": shared_cycle_context.compute_input_snapshot_hash(),
             "shared_cycle_configuration_hash": shared_cycle_context.compute_configuration_hash(),
             "decision_lineage_records": lineage_records,
             "evaluator_version": EVALUATOR_VERSION,
+        }
+
+    @staticmethod
+    def reconcile_consumed_decisions_from_snapshots(
+        *,
+        shared_decision_snapshots: Sequence[Any],
+        downstream_candidates_by_fp: Mapping[str, Any],
+        pre_routed_eligible_fps: Iterable[str] = (),
+        routed_eligible_fps: Iterable[str] = (),
+        armed_order: Optional[Any] = None,
+        commit_ok: bool = True,
+        arm_rejections: Optional[Mapping[str, Any]] = None,
+        injected_consumed_model_decisions: Optional[Mapping[str, Any]] = None,
+        order_intent_decision_ids: Optional[Mapping[str, str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        DEF-179012-C01 (V17.9.0.1.2 Phase B): Reconciles evaluated canonical snapshots against
+        actual downstream Production runtime consumption (candidates, router, execution guards,
+        and order intents). Never marks a snapshot as consumed when no downstream candidate
+        with matching `decision_id` and `decision_fingerprint` consumed it (`N31`, `N32`, `N33`).
+        """
+        pre_routed_set = set(pre_routed_eligible_fps or ())
+        routed_set = set(routed_eligible_fps or ())
+        from services.shared_strategy_evaluator import EVALUATOR_VERSION
+        consumed_model_decisions: Dict[str, Any] = {}
+        evaluated_model_decisions: Dict[str, Any] = {}
+        unconsumed_model_decisions: Dict[str, Any] = {}
+        lineage_records: List[Dict[str, Any]] = []
+        violations: List[str] = []
+        missing_downstream_consumer_link_count = 0
+        unconsumed_reported_as_consumed_count = 0
+        order_intent_without_candidate_consumed_count = 0
+        consumed_decision_ids: set[str] = set()
+
+        for cand_obj in (downstream_candidates_by_fp or {}).values():
+            c_did = str(getattr(cand_obj, "decision_id", "") or "").strip()
+            c_dfp = str(getattr(cand_obj, "decision_fingerprint", "") or "").strip()
+            if not c_did or not c_dfp:
+                missing_downstream_consumer_link_count += 1
+                violations.append("CANDIDATE_MISSING_DECISION_ID_OR_FINGERPRINT")
+
+        for s in shared_decision_snapshots or ():
+            s_parity = s.to_parity_dict() if hasattr(s, "to_parity_dict") else dict(s)
+            s_dec_id = str(getattr(s, "decision_id", "") or s_parity.get("decision_id", ""))
+            s_dec_fp = str(getattr(s, "decision_fingerprint", "") or s_parity.get("decision_fingerprint", ""))
+            s_model_id = str(getattr(s, "model_id", "") or s_parity.get("model_id", ""))
+            s_symbol = str(getattr(s, "symbol", "") or s_parity.get("symbol", "XAUUSDT"))
+            s_ts = int(getattr(s, "decision_timestamp_ms", 0) or s_parity.get("decision_timestamp_ms", 0))
+            s_in_hash = str(getattr(s, "input_snapshot_hash", "") or s_parity.get("input_snapshot_hash", ""))
+            s_cfg_hash = str(getattr(s, "configuration_hash", "") or s_parity.get("configuration_hash", ""))
+            s_status = str(getattr(s, "decision_status", "") or s_parity.get("decision_status", "UNKNOWN"))
+            s_reasons = list(getattr(s, "rejection_reason_codes", ()) or s_parity.get("rejection_reason_codes", ()))
+
+            matched_c = downstream_candidates_by_fp.get(s_dec_fp)
+            if matched_c is None:
+                for cand_obj in downstream_candidates_by_fp.values():
+                    if getattr(cand_obj, "model_id", None) == s_model_id:
+                        matched_c = cand_obj
+                        break
+
+            cand_dec_id = str(getattr(matched_c, "decision_id", "") or "") if matched_c is not None else ""
+            cand_dec_fp = str(getattr(matched_c, "decision_fingerprint", "") or "") if matched_c is not None else ""
+
+            has_valid_consumer_binding = bool(
+                matched_c is not None
+                and s_dec_id
+                and s_dec_fp
+                and cand_dec_id == s_dec_id
+                and cand_dec_fp == s_dec_fp
+            )
+
+            if not has_valid_consumer_binding or (
+                s_status in ("MISSING_MARKET_DATA", "MODEL_DISABLED")
+                and not bool(getattr(matched_c, "is_eligible", False))
+            ):
+                is_consumed = False
+                lifecycle_stage = "EVALUATED_NOT_CONSUMED"
+                candidate_id = None
+                candidate_fp = cand_dec_fp or None
+                downstream_consumer = None
+                guard_status = (
+                    "CANDIDATE_FINGERPRINT_MISMATCH_BLOCKED"
+                    if (matched_c is not None and not has_valid_consumer_binding)
+                    else "NOT_EVALUATED"
+                )
+                final_auth = "REJECTED"
+                order_intent_id = None
+                rejection_reason = (
+                    "CANDIDATE_FINGERPRINT_OR_ID_MISMATCH"
+                    if (matched_c is not None and not has_valid_consumer_binding)
+                    else (s_reasons[0] if s_reasons else "NO_DOWNSTREAM_CONSUMER")
+                )
+                runtime_status = "EVALUATED_NOT_CONSUMED"
+                if matched_c is not None and not has_valid_consumer_binding:
+                    missing_downstream_consumer_link_count += 1
+                    violations.append(f"CANDIDATE_LINEAGE_MISMATCH:{s_model_id}")
+            else:
+                is_consumed = True
+                consumed_decision_ids.add(s_dec_id)
+                candidate_id = str(getattr(matched_c, "candidate_key", "") or f"cand_{s_dec_id}")
+                candidate_fp = cand_dec_fp
+                armed_dec_id = str(getattr(armed_order, "decision_id", "") or "") if armed_order is not None else ""
+                if armed_order is not None and commit_ok and armed_dec_id == s_dec_id:
+                    lifecycle_stage = "ORDER_INTENT_CREATED"
+                    downstream_consumer = "OrderManager.arm_candidate_order"
+                    guard_status = "APPROVE"
+                    final_auth = "AUTHORIZED_PAPER_ORDER"
+                    order_intent_id = str(armed_order.id)
+                    rejection_reason = None
+                    runtime_status = "ORDER_ARMED"
+                elif s_dec_fp in routed_set:
+                    raw_guard = str(getattr(matched_c, "execution_guard_status", "") or "NOT_EVALUATED")
+                    if raw_guard == "SHADOW_ONLY":
+                        lifecycle_stage = "EXECUTION_GUARD_APPROVED"
+                        downstream_consumer = "ScalpWatcherOrchestrator.shadow_execution_guard"
+                        guard_status = "SHADOW_ONLY"
+                        final_auth = "SHADOW_NO_ORDER"
+                        order_intent_id = None
+                        rejection_reason = None
+                        runtime_status = "SHADOW_PLAN_VALID"
+                    else:
+                        lifecycle_stage = "ORDER_BLOCKED"
+                        downstream_consumer = "ScalpWatcherOrchestrator.execution_guard"
+                        guard_status = "REJECT"
+                        final_auth = "REJECTED"
+                        order_intent_id = None
+                        arm_rej = (arm_rejections or {}).get(getattr(matched_c, "candidate_key", ""))
+                        rejection_reason = (
+                            str(arm_rej[1])
+                            if isinstance(arm_rej, tuple) and len(arm_rej) >= 2
+                            else str(getattr(matched_c, "reason_code", "") or "EXECUTION_GUARD_BLOCKED")
+                        )
+                        runtime_status = "ORDER_BLOCKED_BY_GUARD"
+                elif s_dec_fp in pre_routed_set:
+                    lifecycle_stage = "ORDER_BLOCKED"
+                    downstream_consumer = "ScalpM1ModelService.evaluate_smc_opportunity_candidates"
+                    guard_status = "DESELECTED_BY_ROUTER"
+                    final_auth = "REJECTED"
+                    order_intent_id = None
+                    rejection_reason = "OTHER_MODEL_SELECTED"
+                    runtime_status = "DESELECTED_BY_ROUTER"
+                else:
+                    lifecycle_stage = "CANDIDATE_CONSUMED"
+                    downstream_consumer = "SharedStrategyEvaluator.enforce_canonical_decision_authority"
+                    guard_status = str(getattr(matched_c, "execution_guard_status", "REJECT") or "REJECT")
+                    final_auth = str(getattr(matched_c, "final_execution_authorization", "REJECTED") or "REJECTED")
+                    order_intent_id = None
+                    rejection_reason = (
+                        str(s_reasons[0])
+                        if s_reasons
+                        else str(getattr(matched_c, "reason_code", "") or None)
+                    )
+                    runtime_status = "CANDIDATE_REJECTED" if not getattr(matched_c, "is_eligible", False) else "CANDIDATE_ELIGIBLE"
+
+            enriched_record = dict(s_parity)
+            enriched_record.update({
+                "decision_id": s_dec_id,
+                "decision_fingerprint": s_dec_fp,
+                "model_id": s_model_id,
+                "symbol": s_symbol,
+                "decision_timestamp_ms": s_ts,
+                "market_input_hash": s_in_hash,
+                "input_snapshot_hash": s_in_hash,
+                "configuration_hash": s_cfg_hash,
+                "evaluation_status": s_status,
+                "strict_eligibility_status": "ELIGIBLE" if s_status == "ELIGIBLE" else "NON_ELIGIBLE",
+                "candidate_id": candidate_id,
+                "candidate_fingerprint": candidate_fp,
+                "downstream_consumer": downstream_consumer,
+                "guard_status": guard_status,
+                "execution_guard_status": guard_status,
+                "final_execution_authorization": final_auth,
+                "order_intent_id": order_intent_id,
+                "rejection_reason": rejection_reason,
+                "runtime_status": runtime_status,
+                "lifecycle_stage": lifecycle_stage,
+                "is_consumed": is_consumed,
+            })
+
+            evaluated_model_decisions[s_model_id] = enriched_record
+            if is_consumed:
+                consumed_model_decisions[s_model_id] = enriched_record
+            else:
+                unconsumed_model_decisions[s_model_id] = enriched_record
+
+            lineage_records.append({
+                "decision_id": s_dec_id,
+                "decision_fingerprint": s_dec_fp,
+                "market_input_hash": s_in_hash,
+                "input_snapshot_hash": s_in_hash,
+                "configuration_hash": s_cfg_hash,
+                "evaluator_version": getattr(s, "evaluator_version", EVALUATOR_VERSION),
+                "model_id": s_model_id,
+                "symbol": s_symbol,
+                "decision_timestamp_ms": s_ts,
+                "direction": getattr(s, "direction", s_parity.get("direction")),
+                "decision_status": s_status,
+                "evaluation_status": s_status,
+                "strict_eligibility_status": "ELIGIBLE" if s_status == "ELIGIBLE" else "NON_ELIGIBLE",
+                "strategy_decision_status": getattr(s, "strategy_decision_status", "APPROVE" if s_status == "ELIGIBLE" else "REJECT"),
+                "candidate_id": candidate_id,
+                "candidate_fingerprint": candidate_fp,
+                "downstream_consumer": downstream_consumer,
+                "guard_status": guard_status,
+                "execution_guard_status": guard_status,
+                "final_execution_authorization": final_auth,
+                "order_intent_id": order_intent_id,
+                "rejection_reason": rejection_reason,
+                "runtime_status": runtime_status,
+                "lifecycle_stage": lifecycle_stage,
+                "is_consumed": is_consumed,
+                "rejection_reason_codes": s_reasons,
+                "entry_reference": getattr(s, "entry_reference", s_parity.get("entry_reference")),
+                "selected_sl": getattr(s, "selected_sl", s_parity.get("selected_sl")),
+                "take_profit": getattr(s, "take_profit", s_parity.get("take_profit")),
+                "net_rr": getattr(s, "net_rr", s_parity.get("net_rr")),
+                "gross_rr": getattr(s, "gross_rr", s_parity.get("gross_rr")),
+            })
+
+        if injected_consumed_model_decisions:
+            for m_key, inj_rec in injected_consumed_model_decisions.items():
+                inj_did = str(inj_rec.get("decision_id", "") if isinstance(inj_rec, Mapping) else getattr(inj_rec, "decision_id", ""))
+                if not inj_did or inj_did not in consumed_decision_ids:
+                    unconsumed_reported_as_consumed_count += 1
+                    violations.append(f"UNCONSUMED_SNAPSHOT_REPORTED_AS_CONSUMED:{m_key}")
+
+        if armed_order is not None and commit_ok:
+            armed_did = str(getattr(armed_order, "decision_id", "") or "").strip()
+            if not armed_did or armed_did not in consumed_decision_ids:
+                order_intent_without_candidate_consumed_count += 1
+                violations.append("ORDER_INTENT_WITHOUT_CANDIDATE_CONSUMED")
+
+        if order_intent_decision_ids:
+            for dec_id_key, intent_id_val in order_intent_decision_ids.items():
+                if not dec_id_key or str(dec_id_key) not in consumed_decision_ids:
+                    order_intent_without_candidate_consumed_count += 1
+                    violations.append(f"ORDER_INTENT_FROM_UNCONSUMED_DECISION:{intent_id_val}")
+
+        is_valid = (
+            unconsumed_reported_as_consumed_count == 0
+            and missing_downstream_consumer_link_count == 0
+            and order_intent_without_candidate_consumed_count == 0
+            and len(violations) == 0
+        )
+
+        return {
+            "is_valid": is_valid,
+            "status": "PASS" if is_valid else "FAIL",
+            "consumed_model_decisions": consumed_model_decisions,
+            "evaluated_model_decisions": evaluated_model_decisions,
+            "unconsumed_model_decisions": unconsumed_model_decisions,
+            "decision_lineage_records": lineage_records,
+            "unconsumed_reported_as_consumed_count": unconsumed_reported_as_consumed_count,
+            "missing_downstream_consumer_link_count": missing_downstream_consumer_link_count,
+            "order_intent_without_candidate_consumed_count": order_intent_without_candidate_consumed_count,
+            "violations": violations,
         }
 
     def _finalize_failed_cycle(
@@ -3008,6 +3272,25 @@ class ScalpWatcherOrchestrator:
         cfg = config if config is not None else load_effective_scalp_config(db)
         snap = cand.snapshot
         calc = cand.calculation
+
+        # V17.9.0.1.2 Phase B: Enforce canonical decision_id and decision_fingerprint at ARM boundary
+        shared_snap = getattr(cand, "shared_decision_snapshot", None)
+        if shared_snap is not None:
+            from services.shared_strategy_evaluator import validate_canonical_executability
+            snap_ok, snap_rej = validate_canonical_executability(shared_snap)
+            cand_dec_id = str(getattr(cand, "decision_id", "") or "")
+            cand_dec_fp = str(getattr(cand, "decision_fingerprint", "") or "")
+            if (
+                not snap_ok
+                or not cand_dec_id
+                or not cand_dec_fp
+                or cand_dec_id != getattr(shared_snap, "decision_id", "")
+                or cand_dec_fp != getattr(shared_snap, "decision_fingerprint", "")
+            ):
+                rej_code = snap_rej or "CANONICAL_DECISION_LINEAGE_MISMATCH_AT_ARM"
+                with self._lock:
+                    self._arm_rejections[getattr(cand, "candidate_key", "unknown")] = (now_ms, rej_code)
+                return None
 
         # Reason-aware repeated arm-rejection suppression (Rule 109)
         suppression_ms = getattr(cfg, "arm_rejection_suppression_ms", 30_000)

@@ -216,9 +216,40 @@ def _candle_is_closed(bar: Any) -> bool:
     return bool(getattr(bar, "is_closed", True))
 
 
+def _canonical_candle_series(bars: Sequence[Any], tf_ms: int) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    for b in bars or ():
+        if isinstance(b, dict):
+            o_px = round(float(b.get("open", 0.0) or 0.0), 4)
+            h_px = round(float(b.get("high", 0.0) or 0.0), 4)
+            l_px = round(float(b.get("low", 0.0) or 0.0), 4)
+            c_px = round(float(b.get("close", 0.0) or 0.0), 4)
+        else:
+            o_px = round(float(getattr(b, "open", 0.0) or 0.0), 4)
+            h_px = round(float(getattr(b, "high", 0.0) or 0.0), 4)
+            l_px = round(float(getattr(b, "low", 0.0) or 0.0), 4)
+            c_px = round(float(getattr(b, "close", 0.0) or 0.0), 4)
+        out.append({
+            "open_ms": _candle_open_ms(b),
+            "close_ms": _candle_close_ms(b, tf_ms),
+            "open": o_px,
+            "high": h_px,
+            "low": l_px,
+            "close": c_px,
+            "is_closed": _candle_is_closed(b),
+        })
+    return out
+
+
 def _candle_summary(bars: Sequence[Any], tf_ms: int) -> Dict[str, Any]:
     if not bars:
-        return {"count": 0, "first_open_ms": None, "last_open_ms": None, "last_close": None}
+        return {
+            "count": 0,
+            "first_open_ms": None,
+            "last_open_ms": None,
+            "last_close": None,
+            "series_hash": _canonical_hash([]),
+        }
     first_b = bars[0]
     last_b = bars[-1]
     last_close = last_b.get("close") if isinstance(last_b, dict) else getattr(last_b, "close", None)
@@ -228,6 +259,7 @@ def _candle_summary(bars: Sequence[Any], tf_ms: int) -> Dict[str, Any]:
         "last_open_ms": _candle_open_ms(last_b),
         "last_close_ms": _candle_close_ms(last_b, tf_ms),
         "last_close": round(float(last_close), 4) if last_close is not None else None,
+        "series_hash": _canonical_hash(_canonical_candle_series(bars, tf_ms)),
     }
 
 
@@ -445,8 +477,36 @@ class MarketDecisionContext:
     def get_htf_provenance_dict(self) -> Dict[str, Any]:
         return dict(self.htf_provenance)
 
+    def compute_market_input_hash(self) -> str:
+        return _canonical_hash({
+            "symbol": self.symbol,
+            "decision_timestamp_ms": self.decision_timestamp_ms,
+            "m1": _canonical_candle_series(self.closed_m1_candles, 60_000),
+            "m5": _canonical_candle_series(self.closed_m5_candles, 300_000),
+            "m15": _canonical_candle_series(self.closed_m15_candles, 900_000),
+            "h1": _canonical_candle_series(self.closed_h1_candles, 3_600_000),
+            "h4": _canonical_candle_series(self.closed_h4_candles, 14_400_000),
+            "d1": _canonical_candle_series(self.closed_d1_candles, 86_400_000),
+            "bid": self.bid,
+            "ask": self.ask,
+            "spread": self.spread,
+            "quote_timestamp_ms": self.quote_timestamp_ms,
+            "atr_m1": self.atr_m1,
+            "atr_m5": self.atr_m5,
+            "m1_status": self.m1_status,
+            "m5_status": self.m5_status,
+            "h1_status": self.h1_status,
+            "h4_status": self.h4_status,
+            "htf_bias": self.htf_bias,
+            "h1_alignment": self.h1_alignment,
+            "session_restricted": self.session_restricted,
+            "session_restriction_reason": self.session_restriction_reason,
+        })
+
     def compute_input_snapshot_hash(self) -> str:
-        return str(self.source_fingerprint or "")
+        if self.source_fingerprint and len(str(self.source_fingerprint)) == 64:
+            return str(self.source_fingerprint)
+        return self.compute_market_input_hash()
 
     def compute_configuration_hash(self) -> str:
         return _canonical_hash({
@@ -907,6 +967,10 @@ class StrategyDecisionSnapshot:
         return self.evidence_fingerprint
 
     @property
+    def market_input_hash(self) -> str:
+        return self.evidence_fingerprint
+
+    @property
     def configuration_hash(self) -> str:
         return self.policy_fingerprint
 
@@ -946,6 +1010,9 @@ class StrategyDecisionSnapshot:
             "rejection_reason_codes": list(self.rejection_reason_codes),
             "evidence_fingerprint": self.evidence_fingerprint,
             "policy_fingerprint": self.policy_fingerprint,
+            "input_snapshot_hash": self.input_snapshot_hash,
+            "market_input_hash": self.market_input_hash,
+            "configuration_hash": self.configuration_hash,
             "decision_fingerprint": self.decision_fingerprint,
             "decision_id": self.decision_id,
             "evaluator_version": self.evaluator_version,
@@ -3126,6 +3193,19 @@ class SharedStrategyEvaluator:
             if not enforced_cand.is_eligible:
                 cg01_dec.is_eligible = False
                 cg01_dec.reason_code = enforced_cand.reason_code
+        if cg01_dec is not None:
+            setattr(cg01_dec, "shared_decision_snapshot", snap)
+            setattr(cg01_dec, "decision_id", snap.decision_id)
+            setattr(cg01_dec, "decision_fingerprint", snap.decision_fingerprint)
+            setattr(cg01_dec, "input_snapshot_hash", snap.input_snapshot_hash)
+            setattr(cg01_dec, "configuration_hash", snap.configuration_hash)
+            setattr(cg01_dec, "evaluator_version", snap.evaluator_version)
+            setattr(cg01_dec, "model_id", ModelIdentifier.CG01_SWEEP_MSS_FVG.value)
+            setattr(
+                cg01_dec,
+                "candidate_key",
+                str(snap.candidate_key or f"cand_CG01_{context.symbol}_{snap.direction}_{now_ms}"),
+            )
         return cg01_dec, snap
 
     @classmethod
@@ -3623,16 +3703,32 @@ def _snap_get(obj: Any, field_name: str, default: Any = None) -> Any:
     return getattr(obj, field_name, default)
 
 
+def _resolve_parity_hash(obj: Any, primary_key: str, fallback_key: str) -> Optional[str]:
+    if isinstance(obj, Mapping):
+        if primary_key in obj:
+            val = obj.get(primary_key)
+            return str(val).strip() if val is not None and str(val).strip() else None
+        val = obj.get(fallback_key)
+        return str(val).strip() if val is not None and str(val).strip() else None
+    val = getattr(obj, primary_key, None)
+    if val is not None and str(val).strip():
+        return str(val).strip()
+    val = getattr(obj, fallback_key, None)
+    return str(val).strip() if val is not None and str(val).strip() else None
+
+
 def compare_decision_parity(
     left: Any,
     right: Any,
     *,
     float_tolerance: float = 1e-6,
     allow_same_adapter_origin: bool = False,
+    check_input_config_hashes: bool = True,
 ) -> Dict[str, Any]:
     """
-    Section 8.2 / 8.3: Compares two StrategyDecisionSnapshots (or parity dicts) across all 20
-    required parity fields and enforces anti-fake parity controls.
+    Section 8.2 / 8.3 & V17.9.0.1.2 Phase E: Compares two StrategyDecisionSnapshots (or parity dicts)
+    across all 20 required parity fields, input/config hashes, and anti-fake parity controls.
+    Never treats two null/empty input or configuration hashes as equal.
     """
     mismatches: List[Dict[str, Any]] = []
     left_origin = _snap_get(left, "adapter_origin")
@@ -3645,6 +3741,47 @@ def compare_decision_parity(
             "right": right_origin,
             "reason": "SELF_COMPARISON_TRAP_DETECTED",
         })
+
+    left_in_hash = _resolve_parity_hash(left, "input_snapshot_hash", "evidence_fingerprint")
+    right_in_hash = _resolve_parity_hash(right, "input_snapshot_hash", "evidence_fingerprint")
+    left_cfg_hash = _resolve_parity_hash(left, "configuration_hash", "policy_fingerprint")
+    right_cfg_hash = _resolve_parity_hash(right, "configuration_hash", "policy_fingerprint")
+
+    input_mismatch = False
+    if check_input_config_hashes:
+        if not left_in_hash or not right_in_hash:
+            input_mismatch = True
+            mismatches.append({
+                "field": "input_snapshot_hash",
+                "left": left_in_hash,
+                "right": right_in_hash,
+                "reason": "NULL_OR_MISSING_INPUT_HASH",
+            })
+        elif left_in_hash != right_in_hash:
+            input_mismatch = True
+            mismatches.append({
+                "field": "input_snapshot_hash",
+                "left": left_in_hash,
+                "right": right_in_hash,
+                "reason": "INPUT_MISMATCH",
+            })
+
+        if not left_cfg_hash or not right_cfg_hash:
+            input_mismatch = True
+            mismatches.append({
+                "field": "configuration_hash",
+                "left": left_cfg_hash,
+                "right": right_cfg_hash,
+                "reason": "NULL_OR_MISSING_CONFIG_HASH",
+            })
+        elif left_cfg_hash != right_cfg_hash:
+            input_mismatch = True
+            mismatches.append({
+                "field": "configuration_hash",
+                "left": left_cfg_hash,
+                "right": right_cfg_hash,
+                "reason": "CONFIG_MISMATCH",
+            })
 
     for field_name in REQUIRED_PARITY_FIELDS:
         l_val = _snap_get(left, field_name)
@@ -3687,8 +3824,9 @@ def compare_decision_parity(
 
     is_match = len(mismatches) == 0
     return {
-        "parity_status": "PARITY_MATCH" if is_match else "PRODUCTION_PARITY_MISMATCH",
+        "parity_status": "PARITY_MATCH" if is_match else ("INPUT_MISMATCH" if input_mismatch else "PRODUCTION_PARITY_MISMATCH"),
         "is_match": is_match,
+        "input_mismatch": input_mismatch,
         "model_id": _snap_get(left, "model_id"),
         "direction": _snap_get(left, "direction"),
         "decision_timestamp_ms": _snap_get(left, "decision_timestamp_ms"),
@@ -3696,8 +3834,13 @@ def compare_decision_parity(
         "right_adapter_origin": right_origin,
         "left_fingerprint": left_fp,
         "right_fingerprint": right_fp,
+        "left_input_snapshot_hash": left_in_hash,
+        "right_input_snapshot_hash": right_in_hash,
+        "left_configuration_hash": left_cfg_hash,
+        "right_configuration_hash": right_cfg_hash,
         "mismatch_count": len(mismatches),
         "mismatches": mismatches,
+        "divergences": {m["field"]: m for m in mismatches},
     }
 
 
